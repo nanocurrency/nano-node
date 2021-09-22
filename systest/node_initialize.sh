@@ -9,10 +9,11 @@ DATADIR=data.systest
 NANO_NODE_EXE=${NANO_NODE_EXE:-../../build/nano_node}
 
 clean_data_dir() {
-    rm -f "$DATADIR"/log/log_*.log
-    rm -f "$DATADIR"/wallets.ldb*
-    rm -f "$DATADIR"/data.ldb*
-    rm -f "$DATADIR"/config-*.toml
+    rm -f  "$DATADIR"/log/log_*.log
+    rm -f  "$DATADIR"/wallets.ldb*
+    rm -f  "$DATADIR"/data.ldb*
+    rm -f  "$DATADIR"/config-*.toml
+    rm -rf "$DATADIR"/rocksdb/
 }
 
 test_initialize_cmd() {
@@ -29,8 +30,7 @@ test_initialize_cmd() {
     # check that it is the live network
     grep -q "Active network: $netmatch" "$DATADIR"/log/log_*.log
 
-    # check that the ledger file is created
-    test -e "$DATADIR/data.ldb"
+    # check that the ledger file is created and has one block, the genesis block
     $NANO_NODE_EXE --debug_block_count --data_path "$DATADIR" "$netcmd" "$netarg" | grep -q 'Block count: 1'
 
     # check the genesis block is correct
@@ -39,7 +39,7 @@ test_initialize_cmd() {
 
 mkdir -p "$DATADIR/log"
 
-test_initialize_cmd "live" ""          ""     "991CF190094C00F0B68E2E5F75F6BEE95A2E0BD93CEAA4A6734DB9F19B728948"
+#test_initialize_cmd "live" ""          ""     "991CF190094C00F0B68E2E5F75F6BEE95A2E0BD93CEAA4A6734DB9F19B728948"
 test_initialize_cmd "live" "--network" "live" "991CF190094C00F0B68E2E5F75F6BEE95A2E0BD93CEAA4A6734DB9F19B728948"
 test_initialize_cmd "beta" "--network" "beta" "01A92459E69440D5C1088D3B31F4CA678BE944BAB3776C2E6B7665E9BD99BD5A"
 test_initialize_cmd "test" "--network" "test" "B1D60C0B886B57401EF5A1DAA04340E53726AA6F4D706C085706F31BBD100CEE"

@@ -5,10 +5,11 @@ set -e
 DATADIR=data.systest
 
 clean_data_dir() {
-    rm -f "$DATADIR"/log/log_*.log
-    rm -f "$DATADIR"/wallets.ldb*
-    rm -f "$DATADIR"/data.ldb*
-    rm -f "$DATADIR"/config-*.toml
+    rm -f  "$DATADIR"/log/log_*.log
+    rm -f  "$DATADIR"/wallets.ldb*
+    rm -f  "$DATADIR"/data.ldb*
+    rm -f  "$DATADIR"/config-*.toml
+    rm -rf "$DATADIR"/rocksdb/
 }
 
 msg() {
