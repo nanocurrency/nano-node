@@ -388,11 +388,9 @@ find_package(Boost 1.70.0 REQUIRED COMPONENTS filesystem log log_setup thread
                                               program_options system)
 
 # diskhash
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  add_library(diskhash STATIC ${CMAKE_SOURCE_DIR}/diskhash/src/os_wrappers.c
-                              ${CMAKE_SOURCE_DIR}/diskhash/src/diskhash.c)
-  include_directories(diskhash/src)
-endif()
+add_library(diskhash STATIC ${CMAKE_SOURCE_DIR}/diskhash/src/os_wrappers.c
+                            ${CMAKE_SOURCE_DIR}/diskhash/src/diskhash.c)
+include_directories(diskhash/src)
 
 # RocksDB
 include_directories(rocksdb/include)
