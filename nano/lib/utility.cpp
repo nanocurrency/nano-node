@@ -7,8 +7,8 @@
 #include <iostream>
 
 #ifdef _WIN32
-#ifdef max
-#undef max
+#ifndef NOMINMAX
+#define NOMINMAX
 #endif
 #endif
 
