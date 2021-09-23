@@ -33,7 +33,7 @@ void nano::frontier_req_client::run (nano::account const & start_account_a, uint
 		{
 			if (this_l->connection->node->config.logging.network_logging ())
 			{
-				this_l->connection->node->logger.try_log (boost::str (boost::format ("Error while sending bootstrap request %1%") % ec.message ()));
+				this_l->connection->node->logger.try_log (boost::str (boost::format ("Error while sending bootstrap request %1%, to %2%") % ec.message () % this_l->connection->channel->to_string ()));
 			}
 		}
 	},
@@ -206,7 +206,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 	{
 		if (connection->node->config.logging.network_logging ())
 		{
-			connection->node->logger.try_log (boost::str (boost::format ("Error while receiving frontier %1%") % ec.message ()));
+			connection->node->logger.try_log (boost::str (boost::format ("Error while receiving frontier %1%, to %2%") % ec.message () % connection->channel->to_string ()));
 		}
 	}
 }
@@ -305,7 +305,7 @@ void nano::frontier_req_server::no_block_sent (boost::system::error_code const &
 	{
 		if (connection->node->config.logging.network_logging ())
 		{
-			connection->node->logger.try_log (boost::str (boost::format ("Error sending frontier finish: %1%") % ec.message ()));
+			connection->node->logger.try_log (boost::str (boost::format ("Error sending frontier finish: %1%, to %2%") % ec.message () % connection->socket->remote_endpoint ()));
 		}
 	}
 }
@@ -321,7 +321,7 @@ void nano::frontier_req_server::sent_action (boost::system::error_code const & e
 	{
 		if (connection->node->config.logging.network_logging ())
 		{
-			connection->node->logger.try_log (boost::str (boost::format ("Error sending frontier pair: %1%") % ec.message ()));
+			connection->node->logger.try_log (boost::str (boost::format ("Error sending frontier pair: %1%, to %2%") % ec.message () % connection->socket->remote_endpoint ()));
 		}
 	}
 }
