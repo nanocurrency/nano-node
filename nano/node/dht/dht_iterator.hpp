@@ -1,5 +1,8 @@
 #pragma once
 
+// TODO: keep this until diskhash builds fine on Windows
+#ifndef _WIN32
+
 #include <nano/node/dht/dht.hpp>
 #include <nano/node/lmdb/lmdb_iterator.hpp>
 #include <nano/secure/store.hpp>
@@ -82,3 +85,5 @@ public:
 	}
 };
 }
+
+#endif // _WIN32 -- TODO: keep this until diskhash builds fine on Windows

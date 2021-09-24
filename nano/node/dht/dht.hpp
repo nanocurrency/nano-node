@@ -1,5 +1,8 @@
 #pragma once
 
+// TODO: keep this until diskhash builds fine on Windows
+#ifndef _WIN32
+
 #include <nano/lib/config.hpp>
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
@@ -214,3 +217,5 @@ void unchecked_dht_val::convert_buffer_to_value ();
 extern template class store_partial<nano::mdb_val, dht_mdb_store>;
 extern template class store_partial<nano::unchecked_dht_val, dht_mdb_store>;
 }
+
+#endif // _WIN32 -- TODO: keep this until diskhash builds fine on Windows

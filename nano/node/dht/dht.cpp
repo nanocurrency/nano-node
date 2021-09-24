@@ -6,6 +6,9 @@
 
 #include <diskhash.hpp>
 
+// TODO: keep this until diskhash builds fine on Windows
+#ifndef _WIN32
+
 namespace nano
 {
 nano::unchecked_dht_mdb_store::unchecked_dht_mdb_store (
@@ -19,11 +22,6 @@ const boost::filesystem::path & dht_path_a) :
 	dht::DHOpenRW)),
 	dht (*dht_impl)
 {
-	nano::unchecked_info unchecked;
-	nano::vectorstream unchecked_data;
-	unchecked.serialize (unchecked_data);
-	auto sizeof_unchecked_serialized = sizeof (unchecked_data);
-	release_assert (sizeof_unchecked_info >= sizeof_unchecked_serialized);
 }
 
 template <>
@@ -48,3 +46,5 @@ void unchecked_dht_val::convert_buffer_to_value ()
 	value = { const_cast<uint8_t *> (buffer->data ()) };
 }
 }
+
+#endif // _WIN32 -- TODO: keep this until diskhash builds fine on Windows
