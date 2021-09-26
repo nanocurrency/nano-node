@@ -1207,6 +1207,12 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const &
 
 void nano::node::add_initial_peers ()
 {
+	if (flags.disable_add_initial_peers)
+	{
+		logger.always_log ("Skipping add_initial_peers because disable_add_initial_peers is set");
+		return;
+	}
+
 	auto transaction (store.tx_begin_read ());
 	for (auto i (store.peer.begin (transaction)), n (store.peer.end ()); i != n; ++i)
 	{

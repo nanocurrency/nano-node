@@ -121,6 +121,7 @@ class node_flags final
 public:
 	std::vector<std::string> config_overrides;
 	std::vector<std::string> rpc_config_overrides;
+	bool disable_add_initial_peers{ false }; // For testing only
 	bool disable_backup{ false };
 	bool disable_lazy_bootstrap{ false };
 	bool disable_legacy_bootstrap{ false };
