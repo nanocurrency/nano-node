@@ -5664,8 +5664,6 @@ TEST (rpc, epoch_upgrade)
 	request.put ("key", epoch_signer.prv.to_string ());
 	auto response (wait_response (system, rpc, request));
 	ASSERT_EQ ("1", response.get<std::string> ("started"));
-	auto response_fail (wait_response (system, rpc, request));
-	ASSERT_EQ ("0", response_fail.get<std::string> ("started"));
 	ASSERT_TIMELY (10s, 4 == node->store.account.count (node->store.tx_begin_read ()));
 	// Check upgrade
 	{
