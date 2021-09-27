@@ -95,6 +95,9 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_lazy_bootstrap", "Disables lazy bootstrap")
 		("disable_legacy_bootstrap", "Disables legacy bootstrap")
 		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
+		("disable_ongoing_bootstrap", "Disable ongoing bootstrap")
+		("disable_rep_crawler", "Disable rep crawler")
+		("disable_request_loop", "Disable request loop")
 		("disable_bootstrap_listener", "Disables bootstrap processing for TCP listener (not including realtime network TCP connections)")
 		("disable_tcp_realtime", "Disables TCP realtime network")
 		("disable_udp", "(Deprecated) UDP is disabled by default")
@@ -122,6 +125,9 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	flags_a.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
 	flags_a.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
 	flags_a.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
+	flags_a.disable_ongoing_bootstrap = (vm.count ("disable_ongoing_bootstrap") > 0);
+	flags_a.disable_rep_crawler = (vm.count ("disable_rep_crawler") > 0);
+	flags_a.disable_request_loop = (vm.count ("disable_request_loop") > 0);
 	if (!flags_a.inactive_node)
 	{
 		flags_a.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
