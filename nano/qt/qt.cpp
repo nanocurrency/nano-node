@@ -115,7 +115,7 @@ void nano_qt::self_pane::set_balance_text (std::pair<nano::uint128_t, nano::uint
 	auto final_text (std::string ("Balance: ") + wallet.format_balance (balance_a.first));
 	if (!balance_a.second.is_zero ())
 	{
-		final_text += "\nPending: " + wallet.format_balance (balance_a.second);
+		final_text += "\nReady to receive: " + wallet.format_balance (balance_a.second);
 	}
 	wallet.self.balance_label->setText (QString (final_text.c_str ()));
 }
@@ -272,7 +272,7 @@ void nano_qt::accounts::refresh_wallet_balance ()
 	auto final_text (std::string ("Balance: ") + wallet.format_balance (balance));
 	if (!pending.is_zero ())
 	{
-		final_text += "\nPending: " + wallet.format_balance (pending);
+		final_text += "\nReady to receive: " + wallet.format_balance (pending);
 	}
 	wallet_balance_label->setText (QString (final_text.c_str ()));
 	this->wallet.node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (60), [this] () {
@@ -777,7 +777,7 @@ nano_qt::account_viewer::account_viewer (nano_qt::wallet & wallet_a) :
 			auto final_text (std::string ("Balance (NANO): ") + wallet.format_balance (balance.first));
 			if (!balance.second.is_zero ())
 			{
-				final_text += "\nPending: " + wallet.format_balance (balance.second);
+				final_text += "\nReady to receive: " + wallet.format_balance (balance.second);
 			}
 			balance_label->setText (QString (final_text.c_str ()));
 		}
@@ -1908,7 +1908,7 @@ nano_qt::advanced_actions::advanced_actions (nano_qt::wallet & wallet_a) :
 	});
 
 	bootstrap->setToolTip ("Multi-connection bootstrap to random peers");
-	search_for_receivables->setToolTip ("Search for pending blocks");
+	search_for_receivables->setToolTip ("Search for ready to be received blocks");
 	create_block->setToolTip ("Create block in JSON format");
 	enter_block->setToolTip ("Enter block in JSON format");
 }
@@ -2353,7 +2353,7 @@ void nano_qt::block_creation::create_receive ()
 				else
 				{
 					show_label_error (*status);
-					status->setText ("Source block is not pending to receive");
+					status->setText ("Source block is not ready to be received");
 				}
 			}
 			else
@@ -2518,7 +2518,7 @@ void nano_qt::block_creation::create_open ()
 					else
 					{
 						show_label_error (*status);
-						status->setText ("Source block is not pending to receive");
+						status->setText ("Source block is not ready to be received");
 					}
 				}
 				else
