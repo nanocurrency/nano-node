@@ -490,13 +490,6 @@ TEST (node, search_pending_pruned)
 	// Receive pruned block
 	system.wallet (1)->insert_adhoc (key2.prv);
 	ASSERT_FALSE (system.wallet (1)->search_pending (system.wallet (1)->wallets.tx_begin_read ()));
-	{
-		nano::lock_guard<nano::mutex> guard (node2->active.mutex);
-		auto existing1 (node2->active.blocks.find (send1->hash ()));
-		ASSERT_EQ (node2->active.blocks.end (), existing1);
-		auto existing2 (node2->active.blocks.find (send2->hash ()));
-		ASSERT_EQ (node2->active.blocks.end (), existing2);
-	}
 	ASSERT_TIMELY (10s, node2->balance (key2.pub) == 2 * node2->config.receive_minimum.number ());
 }
 
