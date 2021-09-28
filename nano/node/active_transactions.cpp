@@ -180,11 +180,11 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 	{
 		if (election_status_type == nano::election_status_type::inactive_confirmation_height)
 		{
-			nano::account account{ };
+			nano::account account{};
 			nano::uint128_t amount (0);
 			bool is_state_send (false);
 			bool is_state_epoch (false);
-			nano::account pending_account{ };
+			nano::account pending_account{};
 			node.process_confirmed_data (transaction, block_a, block_a->hash (), account, amount, is_state_send, is_state_epoch, pending_account);
 			node.observers.blocks.notify (nano::election_status{ block_a, 0, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::inactive_confirmation_height }, {}, account, amount, is_state_send, is_state_epoch);
 		}
@@ -206,11 +206,11 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 					add_recently_cemented (status_l);
 					auto destination (block_a->link ().is_zero () ? block_a->destination () : block_a->link ().as_account ());
 					node.receive_confirmed (transaction, hash, destination);
-					nano::account account{ };
+					nano::account account{};
 					nano::uint128_t amount (0);
 					bool is_state_send (false);
 					bool is_state_epoch (false);
-					nano::account pending_account{ };
+					nano::account pending_account{};
 					node.process_confirmed_data (transaction, block_a, hash, account, amount, is_state_send, is_state_epoch, pending_account);
 					election_lk.lock ();
 					election->status.type = *election_status_type;

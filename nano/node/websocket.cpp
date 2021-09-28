@@ -68,7 +68,7 @@ nano::websocket::confirmation_options::confirmation_options (boost::property_tre
 		has_account_filtering_options = true;
 		for (auto account_l : *accounts_l)
 		{
-			nano::account result_l{ };
+			nano::account result_l{};
 			if (!result_l.decode_account (account_l.second.data ()))
 			{
 				// Do not insert the given raw data to keep old prefix support
@@ -114,8 +114,8 @@ bool nano::websocket::confirmation_options::should_filter (nano::websocket::mess
 		if (all_local_accounts)
 		{
 			auto transaction_l (wallets.tx_begin_read ());
-			nano::account source_l{ };
-			nano::account destination_l{ };
+			nano::account source_l{};
+			nano::account destination_l{};
 			auto decode_source_ok_l (!source_l.decode_account (source_text_l));
 			auto decode_destination_ok_l (!destination_l.decode_account (destination_opt_l.get ()));
 			(void)decode_source_ok_l;
@@ -141,7 +141,7 @@ bool nano::websocket::confirmation_options::update (boost::property_tree::ptree 
 		this->has_account_filtering_options = true;
 		for (auto const & account_l : accounts_text_a)
 		{
-			nano::account result_l{ };
+			nano::account result_l{};
 			if (!result_l.decode_account (account_l.second.data ()))
 			{
 				// Re-encode to keep old prefix support
@@ -198,7 +198,7 @@ nano::websocket::vote_options::vote_options (boost::property_tree::ptree const &
 	{
 		for (auto representative_l : *representatives_l)
 		{
-			nano::account result_l{ };
+			nano::account result_l{};
 			if (!result_l.decode_account (representative_l.second.data ()))
 			{
 				// Do not insert the given raw data to keep old prefix support

@@ -119,7 +119,7 @@ public:
 	size_t db_size () const;
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_info const &) const;
-	nano::account source{ };
+	nano::account source{};
 	nano::amount amount{ 0 };
 	nano::epoch epoch{ nano::epoch::epoch_0 };
 };
@@ -131,7 +131,7 @@ public:
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_key const &) const;
 	nano::account const & key () const;
-	nano::account account{ };
+	nano::account account{};
 	nano::block_hash hash{ 0 };
 };
 
@@ -202,7 +202,7 @@ public:
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	std::shared_ptr<nano::block> block;
-	nano::account account{ };
+	nano::account account{};
 	/** Seconds since posix epoch */
 	uint64_t modified{ 0 };
 	nano::signature_verification verified{ nano::signature_verification::unknown };
@@ -214,7 +214,7 @@ class block_info final
 public:
 	block_info () = default;
 	block_info (nano::account const &, nano::amount const &);
-	nano::account account{ };
+	nano::account account{};
 	nano::amount balance{ 0 };
 };
 

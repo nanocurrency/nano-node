@@ -63,7 +63,7 @@ std::string nano::public_key::to_account () const
 }
 
 nano::public_key::public_key () :
-    uint256_union{ 0 }
+	uint256_union{ 0 }
 {
 }
 
@@ -793,7 +793,7 @@ std::string nano::uint128_union::to_string_dec () const
 }
 
 nano::hash_or_account::hash_or_account () :
-    account{}
+	account{}
 {
 }
 
