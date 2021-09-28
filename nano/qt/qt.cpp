@@ -1919,7 +1919,7 @@ nano_qt::advanced_actions::advanced_actions (nano_qt::wallet & wallet_a) :
 	});
 
 	bootstrap->setToolTip ("Multi-connection bootstrap to random peers");
-	search_for_receivables->setToolTip ("Search for ready to receive blocks");
+	search_for_receivables->setToolTip ("Search for ready to be received blocks");
 	create_block->setToolTip ("Create block in JSON format");
 	enter_block->setToolTip ("Enter block in JSON format");
 }
