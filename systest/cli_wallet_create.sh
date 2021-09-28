@@ -11,10 +11,11 @@ SEED=CEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEED
 NANO_NODE_EXE=${NANO_NODE_EXE:-../../build/nano_node}
 
 clean_data_dir() {
-    rm -f $DATADIR/log/log_*.log
-    rm -f $DATADIR/wallets.ldb*
-    rm -f $DATADIR/data.ldb*
-    rm -f $DATADIR/config-*.toml
+    rm -f  $DATADIR/log/log_*.log
+    rm -f  $DATADIR/wallets.ldb*
+    rm -f  $DATADIR/data.ldb*
+    rm -f  $DATADIR/config-*.toml
+    rm -rf "$DATADIR"/rocksdb/
 }
 
 mkdir -p $DATADIR/log
