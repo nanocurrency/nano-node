@@ -5,10 +5,10 @@ set -e
 source "$(dirname "$BASH_SOURCE")/detect-clang-format.sh"
 source "$(dirname "$BASH_SOURCE")/common.sh"
 
-find "$REPO_ROOT/nano" -iname '*.h'   \
+find "$REPO_ROOT/nano" -iname "*.h"   \
                        -o             \
-                       -iname '*.hpp' \
+                       -iname "*.hpp" \
                        -o             \
-                       -iname '*.cpp' \
+                       -iname "*.cpp" \
      | xargs -I sourceFile            \
              "$CLANG_FORMAT" -i -style=file "sourceFile"
