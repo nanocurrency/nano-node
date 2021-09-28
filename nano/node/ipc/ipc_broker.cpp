@@ -144,8 +144,8 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 					if (itr->topic->options->all_local_accounts)
 					{
 						auto transaction_l (this->node.wallets.tx_begin_read ());
-						nano::account source_l{ static_cast<std::uint64_t> (0) };
-						nano::account destination_l{ static_cast<std::uint64_t> (0) };
+						nano::account source_l{ };
+						nano::account destination_l{ };
 						auto decode_source_ok_l (!source_l.decode_account (state->account));
 						auto decode_destination_ok_l (!destination_l.decode_account (state->link_as_account));
 						(void)decode_source_ok_l;

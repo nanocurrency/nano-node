@@ -115,7 +115,7 @@ class public_key final : public uint256_union
 public:
 	using uint256_union::uint256_union;
 
-	public_key () = default;
+	public_key ();
 	explicit public_key (std::nullptr_t);
 
 	std::string to_node_id () const;
@@ -145,7 +145,7 @@ using account = public_key;
 class hash_or_account
 {
 public:
-	hash_or_account () = default;
+	hash_or_account ();
 	hash_or_account (uint64_t value_a);
 
 	bool is_zero () const;

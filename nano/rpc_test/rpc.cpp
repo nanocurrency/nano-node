@@ -494,7 +494,7 @@ TEST (rpc, send_idempotent)
 	request.put ("wallet", wallet);
 	request.put ("action", "send");
 	request.put ("source", nano::dev::genesis_key.pub.to_account ());
-	request.put ("destination", nano::account{ static_cast<std::uint64_t> (0) }.to_account ());
+	request.put ("destination", nano::account{ }.to_account ());
 	request.put ("amount", (nano::dev::constants.genesis_amount - (nano::dev::constants.genesis_amount / 4)).convert_to<std::string> ());
 	request.put ("id", "123abc");
 	auto response (wait_response (system, rpc, request));
@@ -710,7 +710,7 @@ TEST (rpc, wallet_representative_set_force)
 		auto transaction (node->wallets.tx_begin_read ());
 		ASSERT_EQ (key.pub, node->wallets.items.begin ()->second->store.representative (transaction));
 	}
-	nano::account representative{ static_cast<std::uint64_t> (0) };
+	nano::account representative{ };
 	while (representative != key.pub)
 	{
 		auto transaction (node->store.tx_begin_read ());
@@ -1007,7 +1007,7 @@ TEST (rpc, frontier)
 	auto [rpc, rpc_ctx] = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "frontiers");
-	request.put ("account", nano::account{ static_cast<std::uint64_t> (0) }.to_account ());
+	request.put ("account", nano::account{ }.to_account ());
 	request.put ("count", std::to_string (std::numeric_limits<uint64_t>::max ()));
 	auto response (wait_response (system, rpc, request));
 	auto & frontiers_node (response.get_child ("frontiers"));
@@ -1045,7 +1045,7 @@ TEST (rpc, frontier_limited)
 	auto [rpc, rpc_ctx] = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "frontiers");
-	request.put ("account", nano::account{ static_cast<std::uint64_t> (0) }.to_account ());
+	request.put ("account", nano::account{ }.to_account ());
 	request.put ("count", std::to_string (100));
 	auto response (wait_response (system, rpc, request));
 	auto & frontiers_node (response.get_child ("frontiers"));

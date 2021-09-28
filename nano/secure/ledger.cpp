@@ -116,7 +116,7 @@ public:
 		}
 		auto balance (ledger.balance (transaction, block_a.hashables.previous));
 		auto is_send (block_a.hashables.balance < balance);
-		nano::account representative{ static_cast<std::uint64_t> (0) };
+		nano::account representative{ };
 		if (!rep_block_hash.is_zero ())
 		{
 			// Move existing representation & add in amount delta

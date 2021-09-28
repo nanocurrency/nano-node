@@ -62,6 +62,11 @@ std::string nano::public_key::to_account () const
 	return result;
 }
 
+nano::public_key::public_key () :
+    uint256_union{ 0 }
+{
+}
+
 nano::public_key::public_key (std::nullptr_t) :
 	uint256_union{ nano::hardened_constants::get ().not_an_account }
 {
@@ -785,6 +790,11 @@ std::string nano::uint128_union::to_string_dec () const
 	std::string result;
 	encode_dec (result);
 	return result;
+}
+
+nano::hash_or_account::hash_or_account () :
+    account{}
+{
 }
 
 nano::hash_or_account::hash_or_account (uint64_t value_a) :

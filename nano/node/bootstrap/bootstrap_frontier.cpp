@@ -228,7 +228,7 @@ void nano::frontier_req_client::next ()
 		/* If loop breaks before max_size, then accounts_end () is reached. Add empty record */
 		if (accounts.size () != max_size)
 		{
-			accounts.emplace_back (nano::account{ static_cast<std::uint64_t> (0) }, nano::block_hash (0));
+			accounts.emplace_back (nano::account{ }, nano::block_hash (0));
 		}
 	}
 	// Retrieving accounts from deque
@@ -364,7 +364,7 @@ void nano::frontier_req_server::next ()
 		/* If loop breaks before max_size, then accounts_end () is reached. Add empty record to finish frontier_req_server */
 		if (accounts.size () != max_size)
 		{
-			accounts.emplace_back (nano::account{ static_cast<std::uint64_t> (0) }, nano::block_hash (0));
+			accounts.emplace_back (nano::account{ }, nano::block_hash (0));
 		}
 	}
 	// Retrieving accounts from deque

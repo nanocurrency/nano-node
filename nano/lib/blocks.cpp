@@ -154,7 +154,7 @@ nano::account const & nano::block::representative () const
 {
 	/* return nano::hardened_constants::get ().not_an_account; */
 
-	static nano::account representative{ static_cast<std::uint64_t> (0) };
+	static nano::account representative{ };
 	return representative;
 }
 
@@ -168,7 +168,7 @@ nano::account const & nano::block::destination () const
 {
 	/* return nano::hardened_constants::get ().not_an_account; */
 
-	static nano::account destination{ static_cast<std::uint64_t> (0) };
+	static nano::account destination{ };
 	return destination;
 }
 
@@ -182,7 +182,7 @@ nano::account const & nano::block::account () const
 {
 	/* return nano::hardened_constants::get ().not_an_account; */
 
-	static nano::account account{ static_cast<std::uint64_t> (0) };
+	static nano::account account{ };
 	return account;
 }
 
