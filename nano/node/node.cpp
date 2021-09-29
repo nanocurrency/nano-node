@@ -1854,7 +1854,7 @@ bool backup_before_upgrade)
 		return std::make_unique<nano::dht_mdb_store> (
 		logger,
 		add_db_postfix ? path / "data.ldb" : path,
-		add_db_postfix ? path / "unchecked.dht" : path,
+		add_db_postfix ? path / "unchecked.dht" : boost::filesystem::path (boost::str (boost::format ("%1%_unchecked.dht") % path.string ())),
 		constants,
 		txn_tracking_config_a,
 		block_processor_batch_max_time_a,

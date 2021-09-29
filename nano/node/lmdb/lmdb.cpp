@@ -40,8 +40,16 @@ void mdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a) :
-	// clang-format off
+// clang-format off
+nano::mdb_store::mdb_store (
+	nano::logger_mt & logger_a,
+	boost::filesystem::path const & path_a,
+	nano::ledger_constants & constants,
+	nano::txn_tracking_config const & txn_tracking_config_a,
+	std::chrono::milliseconds block_processor_batch_max_time_a,
+	nano::lmdb_config const & lmdb_config_a,
+	bool backup_before_upgrade_a
+	) :
 	store_partial{
 		constants,
 		block_store_partial,

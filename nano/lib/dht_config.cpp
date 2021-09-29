@@ -1,6 +1,6 @@
 #include <nano/lib/config.hpp>
+#include <nano/lib/dht_config.hpp>
 #include <nano/lib/tomlconfig.hpp>
-#include <nano/node/dht/dht.hpp>
 
 nano::error nano::dht_config::serialize_toml (nano::tomlconfig & toml) const
 {

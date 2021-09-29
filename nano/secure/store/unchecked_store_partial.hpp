@@ -28,7 +28,7 @@ public:
 	unchecked_store_partial (nano::store_partial<Val, Derived_Store> & store_a) :
 		store (store_a){};
 
-	void clear (nano::write_transaction const & transaction_a) override
+	virtual void clear (nano::write_transaction const & transaction_a) override
 	{
 		auto status = store.drop (transaction_a, tables::unchecked);
 		release_assert_success (store, status);
@@ -48,7 +48,7 @@ public:
 		put (transaction_a, key, info);
 	}
 
-	virtual bool exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) override
+	bool exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) override
 	{
 		nano::db_val<Val> value;
 		auto status (store.get (transaction_a, tables::unchecked, nano::db_val<Val> (unchecked_key_a), value));
@@ -62,17 +62,17 @@ public:
 		release_assert_success (store, status);
 	}
 
-	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> end () const override
+	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> end () const override
 	{
 		return nano::store_iterator<nano::unchecked_key, nano::unchecked_info> (nullptr);
 	}
 
-	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> begin (nano::transaction const & transaction_a) const override
+	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> begin (nano::transaction const & transaction_a) const override
 	{
 		return store.template make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked);
 	}
 
-	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> begin (nano::transaction const & transaction_a, nano::unchecked_key const & key_a) const override
+	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> begin (nano::transaction const & transaction_a, nano::unchecked_key const & key_a) const override
 	{
 		return store.template make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked, nano::db_val<Val> (key_a));
 	}

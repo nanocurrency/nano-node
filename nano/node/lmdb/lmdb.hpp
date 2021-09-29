@@ -45,7 +45,7 @@ class unchecked_mdb_store : public unchecked_store_partial<MDB_val, mdb_store>
 {
 public:
 	explicit unchecked_mdb_store (nano::mdb_store &);
-	std::vector<nano::unchecked_info> get (nano::transaction const &, nano::block_hash const &);
+	virtual std::vector<nano::unchecked_info> get (nano::transaction const &, nano::block_hash const &);
 };
 
 /**
@@ -73,7 +73,7 @@ public:
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () const override;
 
-	std::string vendor_get () const override;
+	virtual std::string vendor_get () const override;
 
 	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) override;
 
@@ -228,11 +228,11 @@ public:
 	 */
 	MDB_dbi final_votes_handle{ 0 };
 
-	bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
+	virtual bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
 
-	int get (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val & value_a) const;
-	int put (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, const nano::mdb_val & value_a) const;
-	int del (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
+	virtual int get (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val & value_a) const;
+	virtual int put (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, const nano::mdb_val & value_a) const;
+	virtual int del (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
 
 	bool copy_db (boost::filesystem::path const & destination_file) override;
 	void rebuild_db (nano::write_transaction const & transaction_a) override;
@@ -251,7 +251,7 @@ public:
 
 	bool init_error () const override;
 
-	uint64_t count (nano::transaction const & transaction_a, tables table_a) const override;
+	virtual uint64_t count (nano::transaction const & transaction_a, tables table_a) const override;
 	uint64_t count (nano::transaction const &, MDB_dbi) const;
 
 	std::string error_string (int status) const override;
@@ -280,7 +280,7 @@ private:
 
 	void open_databases (bool &, nano::transaction const &, unsigned);
 
-	int drop (nano::write_transaction const & transaction_a, tables table_a) override;
+	virtual int drop (nano::write_transaction const & transaction_a, tables table_a) override;
 
 protected:
 	int clear (nano::write_transaction const & transaction_a, MDB_dbi handle_a);
