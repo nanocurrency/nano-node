@@ -76,14 +76,14 @@ _cmake_format_perform()
         return 2
     fi
 
-    find "$ROOTPATH" \( -iwholename "$ROOTPATH/CMakeLists.txt"          \
-                        -o                                              \
-                        -iwholename "$ROOTPATH/coverage/CMakeLists.txt" \
-                        -o                                              \
-                        -iwholename "$ROOTPATH/nano/*/CMakeLists.txt"   \
-                     \)                                                 \
+    find "$ROOTPATH" -type f \( -iwholename "$ROOTPATH/CMakeLists.txt"          \
+                                -o                                              \
+                                -iwholename "$ROOTPATH/coverage/CMakeLists.txt" \
+                                -o                                              \
+                                -iwholename "$ROOTPATH/nano/*/CMakeLists.txt"   \
+                             \)                                                 \
                      -print0 |
-        while read -d $'\0' file                                       
+        while read -d $'\0' file
         do
             if [[ $1 == "do" ]]; then
                 "$CMAKE_FORMAT" -i "$file"

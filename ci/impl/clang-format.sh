@@ -77,14 +77,12 @@ _clang_format_perform()
         return 2
     fi
 
-    find "$ROOTPATH/nano" \( -iname "*.h"   \
-                             -o             \
-                             -iname "*.hpp" \
-                             -o             \
-                             -iname "*.cpp" \
-                          \)                \
+    find "$ROOTPATH/nano" -type f \( -iname "*.hpp" \
+                                     -o             \
+                                     -iname "*.cpp" \
+                                  \)                \
                      -print0 |
-        while read -d $'\0' file                                       
+        while read -d $'\0' file
         do
             if [[ $1 == "do" ]]; then
                 "$CLANG_FORMAT" -i "$file"
