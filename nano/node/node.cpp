@@ -1849,6 +1849,7 @@ bool backup_before_upgrade)
 		rocksdb_config,
 		read_only);
 	}
+#ifndef _WIN32
 	if (dht_config.enable)
 	{
 		return std::make_unique<nano::dht_mdb_store> (
@@ -1862,6 +1863,7 @@ bool backup_before_upgrade)
 		dht_config,
 		backup_before_upgrade);
 	}
+#endif
 	return std::make_unique<nano::mdb_store> (
 	logger,
 	add_db_postfix ? path / "data.ldb" : path,

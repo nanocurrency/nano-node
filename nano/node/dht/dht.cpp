@@ -1,3 +1,6 @@
+// TODO: keep this until diskhash builds fine on Windows
+#ifndef _WIN32
+
 #include <nano/node/dht/dht.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
 
@@ -5,9 +8,6 @@
 #include <memory>
 
 #include <diskhash.hpp>
-
-// TODO: keep this until diskhash builds fine on Windows
-#ifndef _WIN32
 
 namespace nano
 {
