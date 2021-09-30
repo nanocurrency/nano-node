@@ -124,6 +124,12 @@ TEST (ledger, deep_account_compute)
 	}
 }
 
+/*
+ * This test case creates a node and a wallet primed with the genesis account credentials.
+ * Then it spawns 'num_of_threads' threads, each doing 'num_of_sends' async sends
+ * of 1000 raw each time. The test is considered a success, if the balance of the genesis account
+ * reduces by 'num_of_threads * num_of_sends * 1000'.
+ */
 TEST (wallet, multithreaded_send_async)
 {
 	std::vector<boost::thread> threads;
@@ -133,10 +139,12 @@ TEST (wallet, multithreaded_send_async)
 		auto wallet_l (system.wallet (0));
 		wallet_l->insert_adhoc (nano::dev::genesis_key.prv);
 		wallet_l->insert_adhoc (key.prv);
-		for (auto i (0); i < 20; ++i)
+		int num_of_threads = 20;
+		int num_of_sends = 1000;
+		for (auto i (0); i < num_of_threads; ++i)
 		{
-			threads.push_back (boost::thread ([wallet_l, &key] () {
-				for (auto i (0); i < 1000; ++i)
+			threads.push_back (boost::thread ([wallet_l, &key, num_of_threads, num_of_sends] () {
+				for (auto i (0); i < num_of_sends; ++i)
 				{
 					wallet_l->send_async (nano::dev::genesis_key.pub, key.pub, 1000, [] (std::shared_ptr<nano::block> const & block_a) {
 						ASSERT_FALSE (block_a == nullptr);
@@ -145,7 +153,7 @@ TEST (wallet, multithreaded_send_async)
 				}
 			}));
 		}
-		ASSERT_TIMELY (1000s, system.nodes[0]->balance (nano::dev::genesis_key.pub) == (nano::dev::constants.genesis_amount - 20 * 1000 * 1000));
+		ASSERT_TIMELY (1000s, system.nodes[0]->balance (nano::dev::genesis_key.pub) == (nano::dev::constants.genesis_amount - num_of_threads * num_of_sends * 1000));
 	}
 	for (auto i (threads.begin ()), n (threads.end ()); i != n; ++i)
 	{
@@ -394,7 +402,7 @@ TEST (store, unchecked_load)
 	auto & node (*system.nodes[0]);
 	auto block (std::make_shared<nano::send_block> (0, 0, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
 	constexpr auto num_unchecked = 1000000;
-	for (auto i (0); i < 1000000; ++i)
+	for (auto i (0); i < num_unchecked; ++i)
 	{
 		auto transaction (node.store.tx_begin_write ());
 		node.store.unchecked.put (transaction, i, block);
