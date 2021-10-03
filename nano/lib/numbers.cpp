@@ -67,9 +67,9 @@ nano::public_key::public_key () :
 {
 }
 
-const nano::public_key& nano::public_key::null () const
+const nano::public_key & nano::public_key::null () const
 {
-    return nano::hardened_constants::get ().not_an_account;
+	return nano::hardened_constants::get ().not_an_account;
 }
 
 std::string nano::public_key::to_node_id () const
@@ -957,7 +957,7 @@ nano::public_key::operator nano::hash_or_account const & () const
 
 bool nano::public_key::operator== (std::nullptr_t) const
 {
-	return bytes == null().bytes;
+	return bytes == null ().bytes;
 }
 
 bool nano::public_key::operator!= (std::nullptr_t) const
