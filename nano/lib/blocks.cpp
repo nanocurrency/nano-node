@@ -152,8 +152,6 @@ bool nano::block::has_sideband () const
 
 nano::account const & nano::block::representative () const
 {
-	/* return nano::hardened_constants::get ().not_an_account; */
-
 	static nano::account representative{};
 	return representative;
 }
@@ -166,8 +164,6 @@ nano::block_hash const & nano::block::source () const
 
 nano::account const & nano::block::destination () const
 {
-	/* return nano::hardened_constants::get ().not_an_account; */
-
 	static nano::account destination{};
 	return destination;
 }
@@ -180,8 +176,6 @@ nano::link const & nano::block::link () const
 
 nano::account const & nano::block::account () const
 {
-	/* return nano::hardened_constants::get ().not_an_account; */
-
 	static nano::account account{};
 	return account;
 }
