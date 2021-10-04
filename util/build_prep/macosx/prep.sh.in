@@ -40,7 +40,7 @@ if ! have boost; then
 	BOOST_ROOT="${KEEP_AROUND_DIRECTORY}/boost"
 
 	if ! have boost; then
-		bootstrap_boost -m -c -k
+		bootstrap_boost -m -c -s
 	fi
 fi
 
@@ -50,8 +50,8 @@ if ! have boost; then
 	exit 1
 fi
 
-if ! version_min 'boost --version' 1.66.999; then
-	echo "boost version too low (1.67.0+ required)" >&2
+if ! version_min 'boost --version' 1.69.999; then
+	echo "boost version too low (1.70.0+ required)" >&2
 
 	exit 1
 fi

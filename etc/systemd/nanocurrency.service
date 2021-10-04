@@ -1,12 +1,12 @@
 [Unit]
-Description=Nano Daemon live network
+Description=Banano Live Network Daemon
 After=network.target
 
 [Service]
 Type=simple
-User=nanocurrency
-WorkingDirectory=/var/nanocurrency/Nano
-ExecStart=/usr/bin/nano_node --daemon
+User=bananocoin
+WorkingDirectory=/var/bananocoin/Banano
+ExecStart=/usr/bin/nano_node --daemon --data_path=/var/bananocoin/Banano
 Restart=on-failure
 
 [Install]

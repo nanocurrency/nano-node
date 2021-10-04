@@ -1,22 +1,24 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/qt/qt.hpp>
 
-#include <thread>
+#include <boost/format.hpp>
 
+#include <thread>
 int main (int argc, char ** argv)
 {
-	nano::network_constants::set_active_network (nano::nano_networks::nano_test_network);
+	nano::force_nano_dev_network ();
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 	QApplication application (argc, argv);
-	QCoreApplication::setOrganizationName ("Nano");
+	QCoreApplication::setOrganizationName ("Banano");
 	QCoreApplication::setOrganizationDomain ("nano.org");
-	QCoreApplication::setApplicationName ("Nano Wallet");
+	QCoreApplication::setApplicationName ("Banano Wallet");
 	nano_qt::eventloop_processor processor;
-	static uint16_t count (16);
-	nano::system system (24000, count);
+	const uint16_t count (16);
+	nano::system system (count);
 	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	std::unique_ptr<QTabWidget> client_tabs (new QTabWidget);
 	std::vector<std::unique_ptr<nano_qt::wallet>> guis;
@@ -25,11 +27,11 @@ int main (int argc, char ** argv)
 		auto wallet (system.nodes[i]->wallets.create (nano::random_wallet_id ()));
 		nano::keypair key;
 		wallet->insert_adhoc (key.prv);
-		guis.push_back (std::unique_ptr<nano_qt::wallet> (new nano_qt::wallet (application, processor, *system.nodes[i], wallet, key.pub)));
+		guis.push_back (std::make_unique<nano_qt::wallet> (application, processor, *system.nodes[i], wallet, key.pub));
 		client_tabs->addTab (guis.back ()->client_window, boost::str (boost::format ("Wallet %1%") % i).c_str ());
 	}
 	client_tabs->show ();
-	QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
+	QObject::connect (&application, &QApplication::aboutToQuit, [&] () {
 		system.stop ();
 	});
 	int result;
@@ -40,7 +42,7 @@ int main (int argc, char ** argv)
 	catch (...)
 	{
 		result = -1;
-		assert (false);
+		debug_assert (false);
 	}
 	runner.join ();
 	return result;

@@ -1,25 +1,25 @@
-KEEP_AROUND_DIRECTORY="${HOME:-/dev/null}/.cache/nanocurrency-build"
+KEEP_AROUND_DIRECTORY="${HOME:-/dev/null}/.cache/bananocoin-build"
 
-function _cpp () {
+function _cpp() {
 	"${CC:-cc}" -I"${BOOST_ROOT:-/usr/local/boost}"/include -E "$@"
 }
 
-function boost_version () {
+function boost_version() {
 	local boost_version
 	boost_version="$(
 		set -o pipefail
-		echo $'#include <boost/version.hpp>\nBOOST_LIB_VERSION'  | _cpp - 2>/dev/null | tail -n 1 | sed 's@"@@g;s@_@.@g'
+		echo $'#include <boost/version.hpp>\nBOOST_LIB_VERSION' | _cpp - 2>/dev/null | tail -n 1 | sed 's@"@@g;s@_@.@g'
 	)" || boost_version=''
 
 	echo "${boost_version}"
 }
 
-function check_create_boost () {
+function check_create_boost() {
 	local boost_version
 	boost_version="$(boost_version)"
 
 	if [ -n "${boost_version}" ]; then
-		function boost () {
+		function boost() {
 			local arg
 			local version
 
@@ -31,17 +31,17 @@ function check_create_boost () {
 			fi
 
 			case "${arg}" in
-				'')
-					return 0
-					;;
-				'--version')
-					echo "${version}"
-					return 0
-					;;
-				'--install-prefix')
-					echo '#include <boost/version.hpp>' | _cpp -v - 2>/dev/null | grep '/version.hpp' | sed 's@^[^"]*"@@;s@/boost/version\.hpp".*$@@'
-					return 0
-					;;
+			'')
+				return 0
+				;;
+			'--version')
+				echo "${version}"
+				return 0
+				;;
+			'--install-prefix')
+				echo '#include <boost/version.hpp>' | _cpp -v - 2>/dev/null | grep '/version.hpp' | sed 's@^[^"]*"@@;s@/boost/version\.hpp".*$@@'
+				return 0
+				;;
 			esac
 
 			return 1
@@ -49,7 +49,7 @@ function check_create_boost () {
 	fi
 }
 
-function have () {
+function have() {
 	local program
 
 	program="$1"
@@ -59,7 +59,7 @@ function have () {
 	type -t "${program}" >/dev/null 2>/dev/null
 }
 
-function version_min () {
+function version_min() {
 	local version_command below_min_version above_max_version
 	local detected_version check_version
 
@@ -84,7 +84,7 @@ function version_min () {
 	return 0
 }
 
-function wrap_compilers () {
+function wrap_compilers() {
 	local tool tool_check tool_add tool_wrapper_file
 	local prep_common_workdir_bin
 
@@ -116,7 +116,7 @@ function wrap_compilers () {
 			set | grep '^wrap_compilers_add_options='
 			set | grep '^prep_common_workdir='
 			echo ''
-			cat << \_EOF_
+			cat <<\_EOF_
 
 NEW_PATH='/dev/null'
 while read -r -d ':' element; do
@@ -133,7 +133,7 @@ export PATH
 
 exec "${tool}" "${wrap_compilers_add_options[@]}" "$@"
 _EOF_
-		) > "${tool_wrapper_file}"
+		) >"${tool_wrapper_file}"
 
 		chmod +x "${tool_wrapper_file}"
 	done
@@ -142,7 +142,7 @@ _EOF_
 	export PATH
 }
 
-function common_cleanup () {
+function common_cleanup() {
 	if [ -n "${prep_common_workdir}" ]; then
 		rm -rf "${prep_common_workdir}"
 	fi

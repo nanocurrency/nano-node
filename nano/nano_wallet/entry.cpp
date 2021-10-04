@@ -1,14 +1,16 @@
-#include <nano/boost/process.hpp>
+#include <nano/boost/process/child.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/cli.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/rpcconfig.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/walletconfig.hpp>
 #include <nano/nano_wallet/icon.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/daemonconfig.hpp>
-#include <nano/node/ipc.hpp>
+#include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node_rpc_config.hpp>
 #include <nano/qt/qt.hpp>
@@ -24,7 +26,7 @@ namespace
 {
 void show_error (std::string const & message_a)
 {
-	QMessageBox message (QMessageBox::Critical, "Error starting Nano", message_a.c_str ());
+	QMessageBox message (QMessageBox::Critical, "Error starting Banano", message_a.c_str ());
 	message.setModal (true);
 	message.show ();
 	message.exec ();
@@ -38,20 +40,32 @@ void show_help (std::string const & message_a)
 	message.exec ();
 }
 
-nano::error read_and_update_wallet_config (nano::wallet_config & config_a, boost::filesystem::path const & data_path_a)
+nano::error write_wallet_config (nano::wallet_config & config_a, boost::filesystem::path const & data_path_a)
 {
 	nano::tomlconfig wallet_config_toml;
 	auto wallet_path (nano::get_qtwallet_toml_config_path (data_path_a));
-	wallet_config_toml.read (nano::get_qtwallet_toml_config_path (data_path_a));
 	config_a.serialize_toml (wallet_config_toml);
 
 	// Write wallet config. If missing, the file is created and permissions are set.
 	wallet_config_toml.write (wallet_path);
 	return wallet_config_toml.get_error ();
 }
+
+nano::error read_wallet_config (nano::wallet_config & config_a, boost::filesystem::path const & data_path_a)
+{
+	nano::tomlconfig wallet_config_toml;
+	auto wallet_path (nano::get_qtwallet_toml_config_path (data_path_a));
+	if (!boost::filesystem::exists (wallet_path))
+	{
+		write_wallet_config (config_a, data_path_a);
+	}
+	wallet_config_toml.read (wallet_path);
+	config_a.deserialize_toml (wallet_config_toml);
+	return wallet_config_toml.get_error ();
+}
 }
 
-int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path, std::vector<std::string> const & config_overrides, nano::node_flags const & flags)
+int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
 	int result (0);
 	nano_qt::eventloop_processor processor;
@@ -68,18 +82,16 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	nano::daemon_config config (data_path);
 	nano::wallet_config wallet_config;
 
-	auto error = nano::read_node_config_toml (data_path, config, config_overrides);
+	auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
 	if (!error)
 	{
-		error = read_and_update_wallet_config (wallet_config, data_path);
+		error = read_wallet_config (wallet_config, data_path);
 	}
 
-#if !NANO_ROCKSDB
-	if (!error && config.node.rocksdb_config.enable)
+	if (!error)
 	{
-		error = nano::error_config::rocksdb_enabled_but_not_supported;
+		error = nano::flags_config_conflicts (flags, config.node);
 	}
-#endif
 
 	if (!error)
 	{
@@ -95,12 +107,11 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		std::shared_ptr<nano_qt::wallet> gui;
 		nano::set_application_icon (application);
 		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger));
-		nano::work_pool work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
-			return opencl->generate_work (root_a, difficulty_a);
+		nano::work_pool work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
+			return opencl->generate_work (version_a, root_a, difficulty_a);
 		}
-		                                                                                       : std::function<boost::optional<uint64_t> (nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
-		nano::alarm alarm (io_ctx);
-		node = std::make_shared<nano::node> (io_ctx, data_path, alarm, config.node, work, flags);
+																							   : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
+		node = std::make_shared<nano::node> (io_ctx, data_path, config.node, work, flags);
 		if (!node->init_error ())
 		{
 			auto wallet (node->wallets.open (wallet_config.wallet));
@@ -130,15 +141,13 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 					wallet_config.account = wallet->deterministic_insert (transaction);
 				}
 			}
-			assert (wallet->exists (wallet_config.account));
-			read_and_update_wallet_config (wallet_config, data_path);
+			debug_assert (wallet->exists (wallet_config.account));
+			write_wallet_config (wallet_config, data_path);
 			node->start ();
 			nano::ipc::ipc_server ipc (*node, config.rpc);
 
-#if BOOST_PROCESS_SUPPORTED
 			std::unique_ptr<boost::process::child> rpc_process;
 			std::unique_ptr<boost::process::child> nano_pow_server_process;
-#endif
 
 			if (config.pow_server.enable)
 			{
@@ -149,16 +158,8 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 					std::exit (1);
 				}
 
-#if BOOST_PROCESS_SUPPORTED
-				auto network = node->network_params.network.get_current_network_as_string ();
 				nano_pow_server_process = std::make_unique<boost::process::child> (config.pow_server.pow_server_path, "--config_path", data_path / "config-nano-pow-server.toml");
-#else
-				splash->hide ();
-				show_error ("nano_pow_server is configured to start as a child process, but this is not supported on this system. Disable startup and start the server manually.");
-				std::exit (1);
-#endif
 			}
-
 			std::unique_ptr<nano::rpc> rpc;
 			std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 			if (config.rpc_enable)
@@ -167,12 +168,12 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				{
 					// Launch rpc in-process
 					nano::rpc_config rpc_config;
-					auto error = nano::read_rpc_config_toml (data_path, rpc_config);
+					auto error = nano::read_rpc_config_toml (data_path, rpc_config, flags.rpc_config_overrides);
 					if (error)
 					{
 						show_error (error.get_message ());
 					}
-					rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, config.rpc);
+					rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc, config.rpc);
 					rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
 					rpc->start ();
 				}
@@ -184,15 +185,11 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 						throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.child_process.rpc_path);
 					}
 
-#if BOOST_PROCESS_SUPPORTED
 					auto network = node->network_params.network.get_current_network_as_string ();
 					rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
-#else
-					show_error ("rpc_enable is set to true in the config. Set it to false and start the RPC server manually.");
-#endif
 				}
 			}
-			QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
+			QObject::connect (&application, &QApplication::aboutToQuit, [&] () {
 				ipc.stop ();
 				node->stop ();
 				if (rpc)
@@ -212,7 +209,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 #endif
 				runner.stop_event_processing ();
 			});
-			application.postEvent (&processor, new nano_qt::eventloop_event ([&]() {
+			application.postEvent (&processor, new nano_qt::eventloop_event ([&] () {
 				gui = std::make_shared<nano_qt::wallet> (application, processor, *node, wallet, wallet_config.account);
 				splash->close ();
 				gui->start ();
@@ -226,7 +223,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			splash->hide ();
 			show_error ("Error initializing node");
 		}
-		read_and_update_wallet_config (wallet_config, data_path);
+		write_wallet_config (wallet_config, data_path);
 	}
 	else
 	{
@@ -247,7 +244,8 @@ int main (int argc, char * const * argv)
 		// clang-format off
 		description.add_options()
 			("help", "Print out options")
-			("config", boost::program_options::value<std::vector<std::string>>()->multitoken(), "Pass configuration values. This takes precedence over any values in the node configuration file. This option can be repeated multiple times.");
+			("config", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass configuration values. This takes precedence over any values in the node configuration file. This option can be repeated multiple times.")
+			("rpcconfig", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass RPC configuration values. This takes precedence over any values in the RPC configuration file. This option can be repeated multiple times.");
 		nano::add_node_flag_options (description);
 		nano::add_node_options (description);
 		// clang-format on
@@ -269,17 +267,8 @@ int main (int argc, char * const * argv)
 			auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
 			if (err)
 			{
-				show_error (err.get_message ());
+				show_error (nano::network_constants::active_network_err_msg);
 				std::exit (1);
-			}
-		}
-
-		if (!vm.count ("data_path"))
-		{
-			std::string error_string;
-			if (!nano::migrate_working_path (error_string))
-			{
-				throw std::runtime_error (error_string);
 			}
 		}
 
@@ -320,12 +309,7 @@ int main (int argc, char * const * argv)
 					{
 						throw std::runtime_error (flags_ec.message ());
 					}
-					auto config (vm.find ("config"));
-					if (config != vm.end ())
-					{
-						flags.config_overrides = config->second.as<std::vector<std::string>> ();
-					}
-					result = run_wallet (application, argc, argv, data_path, config_overrides, flags);
+					result = run_wallet (application, argc, argv, data_path, flags);
 				}
 				catch (std::exception const & e)
 				{

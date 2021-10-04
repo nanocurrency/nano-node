@@ -1,15 +1,25 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
 #include <nano/lib/configbase.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/utility.hpp>
 
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
 
 #include <fstream>
+
+namespace boost
+{
+namespace asio
+{
+	namespace ip
+	{
+		class address_v6;
+	}
+}
+}
 
 namespace nano
 {
@@ -17,47 +27,9 @@ namespace nano
 class jsonconfig : public nano::configbase
 {
 public:
-	jsonconfig () :
-	tree (tree_default)
-	{
-		error = std::make_shared<nano::error> ();
-	}
-
-	jsonconfig (boost::property_tree::ptree & tree_a, std::shared_ptr<nano::error> error_a = nullptr) :
-	nano::configbase (error_a), tree (tree_a)
-	{
-		if (!error)
-		{
-			error = std::make_shared<nano::error> ();
-		}
-	}
-
-	/**
-	 * Reads a json object from the stream 
-	 * @return nano::error&, including a descriptive error message if the config file is malformed.
-	 */
-	nano::error & read (boost::filesystem::path const & path_a)
-	{
-		std::fstream stream;
-		open_or_create (stream, path_a.string ());
-		if (!stream.fail ())
-		{
-			try
-			{
-				boost::property_tree::read_json (stream, tree);
-			}
-			catch (std::runtime_error const & ex)
-			{
-				auto pos (stream.tellg ());
-				if (pos != std::streampos (0))
-				{
-					*error = ex;
-				}
-			}
-			stream.close ();
-		}
-		return *error;
-	}
+	jsonconfig ();
+	jsonconfig (boost::property_tree::ptree & tree_a, std::shared_ptr<nano::error> const & error_a = nullptr);
+	nano::error & read (boost::filesystem::path const & path_a);
 
 	/**
 	 * Reads a json object from the stream and if it was changed, write the object back to the stream.
@@ -83,7 +55,7 @@ public:
 				stream.open (path_a.string (), std::ios_base::out | std::ios_base::trunc);
 				try
 				{
-					boost::property_tree::write_json (stream, tree);
+					write_json (stream);
 				}
 				catch (std::runtime_error const & ex)
 				{
@@ -95,100 +67,19 @@ public:
 		return *error;
 	}
 
-	void write (boost::filesystem::path const & path_a)
-	{
-		std::fstream stream;
-		open_or_create (stream, path_a.string ());
-		write (stream);
-	}
-
-	void write (std::ostream & stream_a) const
-	{
-		boost::property_tree::write_json (stream_a, tree);
-	}
-
-	void read (std::istream & stream_a)
-	{
-		boost::property_tree::read_json (stream_a, tree);
-	}
-
-	/** Open configuration file, create if necessary */
-	void open_or_create (std::fstream & stream_a, std::string const & path_a)
-	{
-		if (!boost::filesystem::exists (path_a))
-		{
-			// Create temp stream to first create the file
-			std::ofstream stream (path_a);
-
-			// Set permissions before opening otherwise Windows only has read permissions
-			nano::set_secure_perm_file (path_a);
-		}
-
-		stream_a.open (path_a);
-	}
-
-	/** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
-	void create_backup_file (boost::filesystem::path const & filepath_a)
-	{
-		auto extension = filepath_a.extension ();
-		auto filename_without_extension = filepath_a.filename ().replace_extension ("");
-		auto orig_filepath = filepath_a;
-		auto & backup_path = orig_filepath.remove_filename ();
-		auto backup_filename = filename_without_extension;
-		backup_filename += "_backup_";
-		backup_filename += std::to_string (std::chrono::system_clock::now ().time_since_epoch ().count ());
-		backup_filename += extension;
-		auto backup_filepath = backup_path / backup_filename;
-
-		boost::filesystem::copy_file (filepath_a, backup_filepath);
-	}
-
-	/** Returns the boost property node managed by this instance */
-	boost::property_tree::ptree const & get_tree ()
-	{
-		return tree;
-	}
-
-	/** Returns true if the property tree node is empty */
-	bool empty () const
-	{
-		return tree.empty ();
-	}
-
-	boost::optional<jsonconfig> get_optional_child (std::string const & key_a)
-	{
-		boost::optional<jsonconfig> child_config;
-		auto child = tree.get_child_optional (key_a);
-		if (child)
-		{
-			return jsonconfig (child.get (), error);
-		}
-		return child_config;
-	}
-
-	jsonconfig get_required_child (std::string const & key_a)
-	{
-		auto child = tree.get_child_optional (key_a);
-		if (!child)
-		{
-			*error = nano::error_config::missing_value;
-			error->set_message ("Missing configuration node: " + key_a);
-		}
-		return child ? jsonconfig (child.get (), error) : *this;
-	}
-
-	jsonconfig & put_child (std::string const & key_a, nano::jsonconfig & conf_a)
-	{
-		tree.add_child (key_a, conf_a.get_tree ());
-		return *this;
-	}
-
-	jsonconfig & replace_child (std::string const & key_a, nano::jsonconfig & conf_a)
-	{
-		tree.erase (key_a);
-		put_child (key_a, conf_a);
-		return *this;
-	}
+	void write (boost::filesystem::path const & path_a);
+	void write (std::ostream & stream_a) const;
+	void read (std::istream & stream_a);
+	void open_or_create (std::fstream & stream_a, std::string const & path_a);
+	void create_backup_file (boost::filesystem::path const & filepath_a);
+	boost::property_tree::ptree const & get_tree ();
+	bool empty () const;
+	boost::optional<jsonconfig> get_optional_child (std::string const & key_a);
+	jsonconfig get_required_child (std::string const & key_a);
+	jsonconfig & put_child (std::string const & key_a, nano::jsonconfig & conf_a);
+	jsonconfig & replace_child (std::string const & key_a, nano::jsonconfig & conf_a);
+	bool has_key (std::string const & key_a);
+	jsonconfig & erase (std::string const & key_a);
 
 	/** Set value for the given key. Any existing value will be overwritten. */
 	template <typename T>
@@ -208,22 +99,9 @@ public:
 		return *this;
 	}
 
-	/** Returns true if \p key_a is present */
-	bool has_key (std::string const & key_a)
-	{
-		return tree.find (key_a) != tree.not_found ();
-	}
-
-	/** Erase the property of given key */
-	jsonconfig & erase (std::string const & key_a)
-	{
-		tree.erase (key_a);
-		return *this;
-	}
-
 	/** Iterate array entries */
 	template <typename T>
-	jsonconfig & array_entries (std::function<void(T)> callback)
+	jsonconfig & array_entries (std::function<void (T)> callback)
 	{
 		for (auto & entry : tree)
 		{
@@ -236,7 +114,7 @@ public:
 	template <typename T>
 	jsonconfig & get_optional (std::string const & key, T & target, T default_value)
 	{
-		get_config<T> (true, key, target, default_value);
+		get_config (true, key, target, default_value);
 		return *this;
 	}
 
@@ -247,7 +125,7 @@ public:
 	template <typename T>
 	jsonconfig & get_optional (std::string const & key, T & target)
 	{
-		get_config<T> (true, key, target, target);
+		get_config (true, key, target, target);
 		return *this;
 	}
 
@@ -259,7 +137,7 @@ public:
 		if (has_key (key))
 		{
 			T target{};
-			get_config<T> (true, key, target, target);
+			get_config (true, key, target, target);
 			res = target;
 		}
 		return res;
@@ -269,7 +147,7 @@ public:
 	template <typename T>
 	jsonconfig & get (std::string const & key, T & target)
 	{
-		get_config<T> (true, key, target, target);
+		get_config (true, key, target, target);
 		return *this;
 	}
 
@@ -280,7 +158,7 @@ public:
 	T get (std::string const & key)
 	{
 		T target{};
-		get_config<T> (true, key, target, target);
+		get_config (true, key, target, target);
 		return target;
 	}
 
@@ -291,7 +169,14 @@ public:
 	template <typename T>
 	jsonconfig & get_required (std::string const & key, T & target)
 	{
-		get_config<T> (false, key, target);
+		get_config (false, key, target);
+		return *this;
+	}
+
+	template <typename T>
+	jsonconfig & get_required (std::string const & key, T & target, T const & default_value)
+	{
+		get_config (false, key, target, default_value);
 		return *this;
 	}
 
@@ -326,110 +211,15 @@ protected:
 	}
 
 	// boost's lexical cast doesn't handle (u)int8_t
-	template <typename T, typename = std::enable_if_t<std::is_same<T, uint8_t>::value>>
-	jsonconfig & get_config (bool optional, std::string key, uint8_t & target, uint8_t default_value = T ())
-	{
-		int64_t tmp;
-		try
-		{
-			auto val (tree.get<std::string> (key));
-			if (!boost::conversion::try_lexical_convert<int64_t> (val, tmp) || tmp < 0 || tmp > 255)
-			{
-				conditionally_set_error<T> (nano::error_config::invalid_value, optional, key);
-			}
-			else
-			{
-				target = static_cast<uint8_t> (tmp);
-			}
-		}
-		catch (boost::property_tree::ptree_bad_path const &)
-		{
-			if (!optional)
-			{
-				conditionally_set_error<T> (nano::error_config::missing_value, optional, key);
-			}
-			else
-			{
-				target = default_value;
-			}
-		}
-		catch (std::runtime_error & ex)
-		{
-			conditionally_set_error<T> (ex, optional, key);
-		}
-		return *this;
-	}
-
-	template <typename T, typename = std::enable_if_t<std::is_same<T, bool>::value>>
-	jsonconfig & get_config (bool optional, std::string key, bool & target, bool default_value = false)
-	{
-		auto bool_conv = [this, &target, &key, optional](std::string val) {
-			if (val == "true")
-			{
-				target = true;
-			}
-			else if (val == "false")
-			{
-				target = false;
-			}
-			else if (!*error)
-			{
-				conditionally_set_error<T> (nano::error_config::invalid_value, optional, key);
-			}
-		};
-		try
-		{
-			auto val (tree.get<std::string> (key));
-			bool_conv (val);
-		}
-		catch (boost::property_tree::ptree_bad_path const &)
-		{
-			if (!optional)
-			{
-				conditionally_set_error<T> (nano::error_config::missing_value, optional, key);
-			}
-			else
-			{
-				target = default_value;
-			}
-		}
-		catch (std::runtime_error & ex)
-		{
-			conditionally_set_error<T> (ex, optional, key);
-		}
-		return *this;
-	}
-
-	template <typename T, typename = std::enable_if_t<std::is_same<T, boost::asio::ip::address_v6>::value>>
-	jsonconfig & get_config (bool optional, std::string key, boost::asio::ip::address_v6 & target, boost::asio::ip::address_v6 default_value = T ())
-	{
-		try
-		{
-			auto address_l (tree.get<std::string> (key));
-			boost::system::error_code bec;
-			target = boost::asio::ip::address_v6::from_string (address_l, bec);
-			if (bec)
-			{
-				conditionally_set_error<T> (nano::error_config::invalid_value, optional, key);
-			}
-		}
-		catch (boost::property_tree::ptree_bad_path const &)
-		{
-			if (!optional)
-			{
-				conditionally_set_error<T> (nano::error_config::missing_value, optional, key);
-			}
-			else
-			{
-				target = default_value;
-			}
-		}
-		return *this;
-	}
+	jsonconfig & get_config (bool optional, std::string key, uint8_t & target, uint8_t default_value = uint8_t ());
+	jsonconfig & get_config (bool optional, std::string key, bool & target, bool default_value = false);
+	jsonconfig & get_config (bool optional, std::string key, boost::asio::ip::address_v6 & target, boost::asio::ip::address_v6 const & default_value);
 
 private:
 	/** The property node being managed */
 	boost::property_tree::ptree & tree;
 	boost::property_tree::ptree tree_default;
+
+	void write_json (std::fstream & stream);
 };
 }

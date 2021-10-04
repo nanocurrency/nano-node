@@ -1,16 +1,22 @@
-#include <nano/boost/asio.hpp>
-#include <nano/boost/beast.hpp>
-#include <nano/boost/process.hpp>
-#include <nano/core_test/testutil.hpp>
+#include <nano/boost/asio/bind_executor.hpp>
+#include <nano/boost/asio/connect.hpp>
+#include <nano/boost/asio/ip/tcp.hpp>
+#include <nano/boost/asio/spawn.hpp>
+#include <nano/boost/beast/core/flat_buffer.hpp>
+#include <nano/boost/beast/http.hpp>
+#include <nano/boost/process/child.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
-#include <nano/node/testing.hpp>
 #include <nano/secure/utility.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/program_options.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 #include <csignal>
+#include <future>
 #include <iomanip>
 #include <random>
 
@@ -23,7 +29,7 @@ using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost
 
 namespace nano
 {
-void force_nano_test_network ();
+void force_nano_dev_network ();
 }
 
 namespace beast = boost::beast;
@@ -61,12 +67,6 @@ void write_config_files (boost::filesystem::path const & data_path, int index)
 	toml_rpc.write (nano::get_rpc_toml_config_path (data_path));
 }
 
-// Report a failure
-void fail (boost::system::error_code ec, char const * what)
-{
-	std::cerr << what << ": " << ec.message () << "\n";
-}
-
 class account final
 {
 public:
@@ -89,196 +89,113 @@ public:
 	bool error{ false };
 };
 
-class receive_session final : public std::enable_shared_from_this<receive_session>
+void send_receive (boost::asio::io_context & io_ctx, std::string const & wallet, std::string const & source, std::string const & destination, std::atomic<int> & send_calls_remaining, tcp::resolver::results_type const & results, boost::asio::yield_context yield)
 {
-public:
-	receive_session (boost::asio::io_context & ioc, std::atomic<int> & send_calls_remaining, std::string const & wallet, std::string const & account, std::string const & block, tcp::resolver::results_type const & results) :
-	socket (ioc),
-	strand (socket.get_executor ()),
-	send_calls_remaining (send_calls_remaining),
-	wallet (wallet),
-	account (account),
-	block (block),
-	results (results)
-	{
-	}
-
-	void run ()
-	{
-		auto this_l (shared_from_this ());
-
-		boost::asio::async_connect (this_l->socket, this_l->results.cbegin (), this_l->results.cend (), boost::asio::bind_executor (strand, [this_l](boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator) {
-			if (ec)
-			{
-				return fail (ec, "connect");
-			}
-
-			boost::property_tree::ptree request;
-			request.put ("action", "receive");
-			request.put ("wallet", this_l->wallet);
-			request.put ("account", this_l->account);
-			request.put ("block", this_l->block);
-			std::stringstream ostream;
-			boost::property_tree::write_json (ostream, request);
-
-			this_l->req.method (http::verb::post);
-			this_l->req.version (11);
-			this_l->req.target ("/");
-			this_l->req.body () = ostream.str ();
-			this_l->req.prepare_payload ();
-
-			http::async_write (this_l->socket, this_l->req, boost::asio::bind_executor (this_l->strand, [this_l](boost::system::error_code ec, std::size_t) {
-				if (ec)
-				{
-					return fail (ec, "write");
-				}
-
-				http::async_read (this_l->socket, this_l->buffer, this_l->res, boost::asio::bind_executor (this_l->strand, [this_l](boost::system::error_code ec, std::size_t) {
-					if (ec)
-					{
-						return fail (ec, "read");
-					}
-
-					--this_l->send_calls_remaining;
-
-					// Gracefully close the socket
-					this_l->socket.shutdown (tcp::socket::shutdown_both, ec);
-					if (ec && ec != boost::system::errc::not_connected)
-					{
-						return fail (ec, "shutdown");
-					}
-				}));
-			}));
-		}));
-	}
-
-private:
-	socket_type socket;
-	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 	boost::beast::flat_buffer buffer;
 	http::request<http::string_body> req;
 	http::response<http::string_body> res;
-	std::atomic<int> & send_calls_remaining;
-	std::string wallet;
-	std::string account;
-	std::string block;
-	tcp::resolver::results_type const & results;
-};
+	socket_type socket (io_ctx);
 
-class send_session final : public std::enable_shared_from_this<send_session>
-{
-public:
-	send_session (boost::asio::io_context & ioc, std::atomic<int> & send_calls_remaining, std::string const & wallet, std::string const & source, std::string const & destination, tcp::resolver::results_type const & results) :
-	io_ctx (ioc),
-	socket (ioc),
-	strand (socket.get_executor ()),
-	send_calls_remaining (send_calls_remaining),
-	wallet (wallet),
-	source (source),
-	destination (destination),
-	results (results)
-	{
-	}
+	boost::asio::async_connect (socket, results.cbegin (), results.cend (), yield);
 
-	void run ()
-	{
-		auto this_l (shared_from_this ());
-
-		boost::asio::async_connect (this_l->socket, this_l->results.cbegin (), this_l->results.cend (), boost::asio::bind_executor (strand, [this_l](boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator) {
-			if (ec)
-			{
-				return fail (ec, "connect");
-			}
-
-			boost::property_tree::ptree request;
-			request.put ("action", "send");
-			request.put ("wallet", this_l->wallet);
-			request.put ("source", this_l->source);
-			request.put ("destination", this_l->destination);
-			request.put ("amount", "1");
-			std::stringstream ostream;
-			boost::property_tree::write_json (ostream, request);
-
-			this_l->req.method (http::verb::post);
-			this_l->req.version (11);
-			this_l->req.target ("/");
-			this_l->req.body () = ostream.str ();
-			this_l->req.prepare_payload ();
-
-			http::async_write (this_l->socket, this_l->req, boost::asio::bind_executor (this_l->strand, [this_l](boost::system::error_code ec, std::size_t) {
-				if (ec)
-				{
-					return fail (ec, "write");
-				}
-
-				http::async_read (this_l->socket, this_l->buffer, this_l->res, boost::asio::bind_executor (this_l->strand, [this_l](boost::system::error_code ec, std::size_t) {
-					if (ec)
-					{
-						return fail (ec, "read");
-					}
-
-					boost::property_tree::ptree json;
-					std::stringstream body (this_l->res.body ());
-					boost::property_tree::read_json (body, json);
-					auto block = json.get<std::string> ("block");
-
-					std::make_shared<receive_session> (this_l->io_ctx, this_l->send_calls_remaining, this_l->wallet, this_l->destination, block, this_l->results)->run ();
-
-					this_l->socket.shutdown (tcp::socket::shutdown_both, ec);
-					if (ec && ec != boost::system::errc::not_connected)
-					{
-						return fail (ec, "shutdown");
-					}
-				}));
-			}));
-		}));
-	}
-
-private:
-	boost::asio::io_context & io_ctx;
-	socket_type socket;
-	boost::asio::strand<boost::asio::io_context::executor_type> strand;
-	boost::beast::flat_buffer buffer;
-	http::request<http::string_body> req;
-	http::response<http::string_body> res;
-	std::atomic<int> & send_calls_remaining;
-	std::string wallet;
-	std::string source;
-	std::string destination;
-	tcp::resolver::results_type const & results;
-};
-
-boost::property_tree::ptree rpc_request (boost::property_tree::ptree const & request, boost::asio::io_context & ioc, tcp::resolver::results_type const & results)
-{
-	tcp::socket socket{ ioc };
-	boost::asio::connect (socket, results.begin (), results.end ());
-
+	boost::property_tree::ptree request;
+	request.put ("action", "send");
+	request.put ("wallet", wallet);
+	request.put ("source", source);
+	request.put ("destination", destination);
+	request.put ("amount", "1");
 	std::stringstream ostream;
 	boost::property_tree::write_json (ostream, request);
-	auto request_string = ostream.str ();
 
-	http::request<http::string_body> req{ http::verb::post, "/", 11, request_string };
+	req.method (http::verb::post);
+	req.version (11);
+	req.target ("/");
+	req.body () = ostream.str ();
 	req.prepare_payload ();
 
-	http::write (socket, req);
-	boost::beast::flat_buffer buffer;
-
-	http::response<boost::beast::http::string_body> res;
-	http::read (socket, buffer, res);
-
+	http::async_write (socket, req, yield);
+	http::async_read (socket, buffer, res, yield);
 	boost::property_tree::ptree json;
 	std::stringstream body (res.body ());
 	boost::property_tree::read_json (body, json);
+	auto block = json.get<std::string> ("block");
 
-	// Gracefully close the socket
+	// Shut down send socket
 	boost::system::error_code ec;
 	socket.shutdown (tcp::socket::shutdown_both, ec);
+	debug_assert (!ec || ec == boost::system::errc::not_connected);
 
-	if (ec && ec != boost::system::errc::not_connected)
 	{
-		throw boost::system::system_error{ ec };
+		// Start receive session
+		boost::beast::flat_buffer buffer;
+		http::request<http::string_body> req;
+		http::response<http::string_body> res1;
+		socket_type socket (io_ctx);
+
+		boost::asio::async_connect (socket, results.cbegin (), results.cend (), yield);
+
+		boost::property_tree::ptree request;
+		request.put ("action", "receive");
+		request.put ("wallet", wallet);
+		request.put ("account", destination);
+		request.put ("block", block);
+		std::stringstream ostream;
+		boost::property_tree::write_json (ostream, request);
+
+		req.method (http::verb::post);
+		req.version (11);
+		req.target ("/");
+		req.body () = ostream.str ();
+		req.prepare_payload ();
+
+		http::async_write (socket, req, yield);
+		http::async_read (socket, buffer, res, yield);
+		--send_calls_remaining;
+		// Gracefully close the socket
+		boost::system::error_code ec;
+		socket.shutdown (tcp::socket::shutdown_both, ec);
+		debug_assert (!ec || ec == boost::system::errc::not_connected);
 	}
-	return json;
+}
+
+boost::property_tree::ptree rpc_request (boost::property_tree::ptree const & request, boost::asio::io_context & ioc, tcp::resolver::results_type const & results)
+{
+	debug_assert (results.size () == 1);
+
+	std::promise<boost::optional<boost::property_tree::ptree>> promise;
+	boost::asio::spawn (ioc, [&ioc, &results, request, &promise] (boost::asio::yield_context yield) {
+		socket_type socket (ioc);
+		boost::beast::flat_buffer buffer;
+		http::request<http::string_body> req;
+		http::response<http::string_body> res;
+
+		boost::asio::async_connect (socket, results.cbegin (), results.cend (), yield);
+		std::stringstream ostream;
+		boost::property_tree::write_json (ostream, request);
+
+		req.method (http::verb::post);
+		req.version (11);
+		req.target ("/");
+		req.body () = ostream.str ();
+		req.prepare_payload ();
+
+		http::async_write (socket, req, yield);
+		http::async_read (socket, buffer, res, yield);
+
+		boost::property_tree::ptree json;
+		std::stringstream body (res.body ());
+		boost::property_tree::read_json (body, json);
+		promise.set_value (json);
+	});
+
+	auto future = promise.get_future ();
+	if (future.wait_for (std::chrono::seconds (5)) != std::future_status::ready)
+	{
+		throw std::runtime_error ("RPC request timed out");
+	}
+	auto response = future.get ();
+	debug_assert (response.is_initialized ());
+	return response.value_or (decltype (response)::argument_type{});
 }
 
 void keepalive_rpc (boost::asio::io_context & ioc, tcp::resolver::results_type const & results, uint16_t port)
@@ -357,7 +274,7 @@ account_info account_info_rpc (boost::asio::io_context & ioc, tcp::resolver::res
 /** This launches a node and fires a lot of send/recieve RPC requests at it (configurable), then other nodes are tested to make sure they observe these blocks as well. */
 int main (int argc, char * const * argv)
 {
-	nano::force_nano_test_network ();
+	nano::force_nano_dev_network ();
 
 	boost::program_options::options_description description ("Command line options");
 
@@ -407,6 +324,11 @@ int main (int argc, char * const * argv)
 		}
 		node_path = node_filepath.string ();
 	}
+	if (!boost::filesystem::exists (node_path))
+	{
+		std::cerr << "nano_node executable could not be found in " << node_path << std::endl;
+		return 1;
+	}
 
 	auto rpc_path_it (vm.find ("rpc_path"));
 	std::string rpc_path;
@@ -423,6 +345,11 @@ int main (int argc, char * const * argv)
 		}
 		rpc_path = rpc_filepath.string ();
 	}
+	if (!boost::filesystem::exists (rpc_path))
+	{
+		std::cerr << "nano_rpc executable could not be found in " << rpc_path << std::endl;
+		return 1;
+	}
 
 	std::vector<boost::filesystem::path> data_paths;
 	for (auto i = 0; i < node_count; ++i)
@@ -435,7 +362,6 @@ int main (int argc, char * const * argv)
 
 	nano::network_constants network_constants;
 	auto current_network = network_constants.get_current_network_as_string ();
-#if BOOST_PROCESS_SUPPORTED
 	std::vector<std::unique_ptr<boost::process::child>> nodes;
 	std::vector<std::unique_ptr<boost::process::child>> rpc_servers;
 	for (auto const & data_path : data_paths)
@@ -443,26 +369,6 @@ int main (int argc, char * const * argv)
 		nodes.emplace_back (std::make_unique<boost::process::child> (node_path, "--daemon", "--data_path", data_path.string (), "--network", current_network));
 		rpc_servers.emplace_back (std::make_unique<boost::process::child> (rpc_path, "--daemon", "--data_path", data_path.string (), "--network", current_network));
 	}
-#else
-	std::thread processes_thread ([&data_paths, &node_path, &rpc_path, &current_network]() {
-		auto formatted_command = "%1% --daemon --data_path=%2% --network=%3% %4%";
-		assert (!data_paths.empty ());
-		for (int i = 0; i < data_paths.size (); ++i)
-		{
-			auto node_exe_command = boost::str (boost::format (formatted_command) % node_path % data_paths[i].string () % current_network % "&");
-			auto rpc_exe_command = boost::str (boost::format (formatted_command) % rpc_path % data_paths[i].string () % current_network % "");
-
-			std::system (node_exe_command.c_str ());
-
-			// Makes sure the last command one is not executed in the background
-			if (i != data_paths.size () - 1)
-			{
-				rpc_exe_command += "&";
-			}
-			std::system (rpc_exe_command.c_str ());
-		}
-	});
-#endif
 
 	std::cout << "Waiting for nodes to spin up..." << std::endl;
 	std::this_thread::sleep_for (std::chrono::seconds (7));
@@ -470,8 +376,8 @@ int main (int argc, char * const * argv)
 
 	boost::asio::io_context ioc;
 
-	assert (!nano::signal_handler_impl);
-	nano::signal_handler_impl = [&ioc]() {
+	debug_assert (!nano::signal_handler_impl);
+	nano::signal_handler_impl = [&ioc] () {
 		ioc.stop ();
 	};
 
@@ -481,35 +387,35 @@ int main (int argc, char * const * argv)
 	tcp::resolver resolver{ ioc };
 	auto const primary_node_results = resolver.resolve ("::1", std::to_string (rpc_port_start));
 
-	for (int i = 0; i < node_count; ++i)
-	{
-		keepalive_rpc (ioc, primary_node_results, peering_port_start + i);
-	}
+	std::thread t ([send_count, &ioc, &primary_node_results, &resolver, &node_count, &destination_count] () {
+		for (int i = 0; i < node_count; ++i)
+		{
+			keepalive_rpc (ioc, primary_node_results, peering_port_start + i);
+		}
 
-	std::cout << "Beginning tests" << std::endl;
+		std::cout << "Beginning tests" << std::endl;
 
-	// Create keys
-	std::vector<account> destination_accounts;
-	for (int i = 0; i < destination_count; ++i)
-	{
-		destination_accounts.emplace_back (key_create_rpc (ioc, primary_node_results));
-	}
+		// Create keys
+		std::vector<account> destination_accounts;
+		for (int i = 0; i < destination_count; ++i)
+		{
+			destination_accounts.emplace_back (key_create_rpc (ioc, primary_node_results));
+		}
 
-	// Create wallet
-	std::string wallet = wallet_create_rpc (ioc, primary_node_results);
+		// Create wallet
+		std::string wallet = wallet_create_rpc (ioc, primary_node_results);
 
-	// Add genesis account to it
-	wallet_add_rpc (ioc, primary_node_results, wallet, nano::test_genesis_key.prv.data.to_string ());
+		// Add genesis account to it
+		wallet_add_rpc (ioc, primary_node_results, wallet, nano::dev_genesis_key.prv.to_string ());
 
-	// Add destination accounts
-	for (auto & account : destination_accounts)
-	{
-		wallet_add_rpc (ioc, primary_node_results, wallet, account.private_key);
-	}
+		// Add destination accounts
+		for (auto & account : destination_accounts)
+		{
+			wallet_add_rpc (ioc, primary_node_results, wallet, account.private_key);
+		}
 
-	std::cout << "\rPrimary node processing transactions: 00%";
+		std::cout << "\rPrimary node processing transactions: 00%";
 
-	std::thread t ([send_count, &destination_accounts, &ioc, &primary_node_results, &wallet, &resolver, &node_count]() {
 		std::random_device rd;
 		std::mt19937 mt (rd ());
 		std::uniform_int_distribution<size_t> dist (0, destination_accounts.size () - 1);
@@ -529,7 +435,10 @@ int main (int argc, char * const * argv)
 				destination_account = &destination_accounts[random_account_index];
 			}
 
-			std::make_shared<send_session> (ioc, send_calls_remaining, wallet, nano::genesis_account.to_account (), destination_account->as_string, primary_node_results)->run ();
+			// Send from genesis account to different accounts and receive the funds
+			boost::asio::spawn (ioc, [&ioc, &primary_node_results, &wallet, destination_account, &send_calls_remaining] (boost::asio::yield_context yield) {
+				send_receive (ioc, wallet, nano::genesis_account.to_account (), destination_account->as_string, send_calls_remaining, primary_node_results, yield);
+			});
 		}
 
 		while (send_calls_remaining != 0)
@@ -590,7 +499,6 @@ int main (int argc, char * const * argv)
 	t.join ();
 	runner.join ();
 
-#if BOOST_PROCESS_SUPPORTED
 	for (auto & node : nodes)
 	{
 		node->wait ();
@@ -599,9 +507,6 @@ int main (int argc, char * const * argv)
 	{
 		rpc_server->wait ();
 	}
-#else
-	processes_thread.join ();
-#endif
 
 	std::cout << "Done!" << std::endl;
 }

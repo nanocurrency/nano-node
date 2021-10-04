@@ -1,8 +1,5 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
-#include <nano/lib/config.hpp>
-
 #include <miniupnp/miniupnpc/miniupnpc.h>
 
 #include <mutex>
@@ -17,9 +14,10 @@ class mapping_protocol
 public:
 	/** Protocol name; TPC or UDP */
 	char const * name;
-	int remaining;
 	boost::asio::ip::address_v4 external_address;
 	uint16_t external_port;
+	bool enabled;
+	std::string to_string ();
 };
 
 /** Collection of discovered UPnP devices and state*/
@@ -29,6 +27,7 @@ public:
 	upnp_state () = default;
 	~upnp_state ();
 	upnp_state & operator= (upnp_state &&);
+	std::string to_string ();
 
 	/** List of discovered UPnP devices */
 	UPNPDev * devices{ nullptr };
@@ -47,13 +46,15 @@ public:
 	void stop ();
 	void refresh_devices ();
 	nano::endpoint external_address ();
+	std::string to_string ();
 
 private:
 	/** Add port mappings for the node port (not RPC). Refresh when the lease ends. */
 	void refresh_mapping ();
-	/** Refresh occasionally in case router loses mapping */
+	/** Check occasionally to refresh in case router loses mapping */
 	void check_mapping_loop ();
-	int check_mapping ();
+	/** Returns false if mapping still exists */
+	bool check_lost_or_old_mapping ();
 	std::string get_config_port (std::string const &);
 	upnp_state upnp;
 	nano::node & node;
@@ -61,7 +62,7 @@ private:
 	boost::asio::ip::address_v4 address;
 	std::array<mapping_protocol, 2> protocols;
 	uint64_t check_count{ 0 };
-	bool on{ false };
-	std::mutex mutex;
+	std::atomic<bool> on{ false };
+	nano::mutex mutex;
 };
 }

@@ -8,7 +8,7 @@
 #include <vector>
 
 nano::daemon_config::daemon_config (boost::filesystem::path const & data_path_a) :
-data_path (data_path_a)
+	data_path (data_path_a)
 {
 }
 
@@ -97,8 +97,6 @@ nano::error nano::daemon_config::deserialize_json (bool & upgraded_a, nano::json
 	{
 		if (!json.empty ())
 		{
-			int version_l;
-			json.get_optional<int> ("version", version_l);
 			json.get_optional<bool> ("rpc_enable", rpc_enable);
 
 			auto rpc_l (json.get_required_child ("rpc"));
@@ -135,9 +133,7 @@ nano::error nano::daemon_config::deserialize_json (bool & upgraded_a, nano::json
 	return json.get_error ();
 }
 
-namespace nano
-{
-nano::error read_node_config_toml (boost::filesystem::path const & data_path_a, nano::daemon_config & config_a, std::vector<std::string> const & config_overrides)
+nano::error nano::read_node_config_toml (boost::filesystem::path const & data_path_a, nano::daemon_config & config_a, std::vector<std::string> const & config_overrides)
 {
 	nano::error error;
 	auto json_config_path = nano::get_config_path (data_path_a);
@@ -148,14 +144,11 @@ nano::error read_node_config_toml (boost::filesystem::path const & data_path_a, 
 		if (boost::filesystem::exists (toml_config_path))
 		{
 			error = "Both json and toml node configuration files exists. "
-			        "Either remove the config.json file and restart, or remove "
-			        "the config-node.toml file to start migration on next launch.";
+					"Either remove the config.json file and restart, or remove "
+					"the config-node.toml file to start migration on next launch.";
 		}
 		else
 		{
-			// Run RPC Migration
-			nano::rpc_config rpc_config;
-			auto error = nano::read_and_update_rpc_config (data_path_a, rpc_config);			
 			// Migrate
 			nano::daemon_config config_old_l;
 			nano::jsonconfig json;
@@ -228,7 +221,7 @@ nano::error read_node_config_toml (boost::filesystem::path const & data_path_a, 
 		}
 		else
 		{
-			toml.read (config_overrides_stream);
+			error = toml.read (config_overrides_stream);
 		}
 	}
 
@@ -240,12 +233,11 @@ nano::error read_node_config_toml (boost::filesystem::path const & data_path_a, 
 	return error;
 }
 
-nano::error read_and_update_daemon_config (boost::filesystem::path const & data_path, nano::daemon_config & config_a, nano::jsonconfig & json_a)
+nano::error nano::read_and_update_daemon_config (boost::filesystem::path const & data_path, nano::daemon_config & config_a, nano::jsonconfig & json_a)
 {
 	boost::system::error_code error_chmod;
 	auto config_path = nano::get_config_path (data_path);
 	auto error (json_a.read_and_update (config_a, config_path));
 	nano::set_secure_perm_file (config_path, error_chmod);
 	return error;
-}
 }

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set +e
+
+useradd -r bananocoin
+groupadd -r bananocoin
+
+mkdir -p /var/bananocoin/Banano
+mkdir -p /var/bananocoin/BananoBeta
+mkdir -p /var/bananocoin/BananoTest
+chown -R bananocoin: /var/bananocoin
+
+systemctl stop ${NANO_SERVICE} 2>/dev/null
+systemctl disable ${NANO_SERVICE} 2>/dev/null
+cp ${CMAKE_INSTALL_PREFIX}/extras/systemd/${NANO_SERVICE} /etc/systemd/system/${NANO_SERVICE}
+systemctl daemon-reload
+systemctl enable ${NANO_SERVICE}
+systemctl start ${NANO_SERVICE}
+sleep 1
+systemctl --no-pager status ${NANO_SERVICE}
+
+set -e

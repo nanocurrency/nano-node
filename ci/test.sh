@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 
 build_dir=${1-${PWD}}
-TIMEOUT_DEFAULT=360
+if [[ ${TEST_USE_ROCKSDB-0} == 1 ]]; then
+    TIMEOUT_DEFAULT=720
+else
+    TIMEOUT_DEFAULT=360
+fi
 
 BUSYBOX_BASH=${BUSYBOX_BASH-0}
 
@@ -17,7 +21,6 @@ fi
 
 set -o nounset
 set -o xtrace
-
 
 # Alpine doesn't offer an xvfb
 xvfb_run_() {
@@ -44,18 +47,14 @@ run_tests() {
         TIMEOUT_TIME_ARG=""
     fi
 
-    if [ "$(date +%s)" -lt 1577836799 ]; then
-        tries=(_initial_ 1 2 3 4 5 6 7 8 9)
-    else
-        tries=(_initial_)
-    fi
+    tries=(_initial_)
 
     for try in "${tries[@]}"; do
         if [ "${try}" != '_initial_' ]; then
             echo "core_test failed: ${core_test_res}, retrying (try=${try})"
 
             # Wait a while for sockets to be all cleaned up by the kernel
-            sleep $[30 + (${RANDOM} % 30)]
+            sleep $((30 + (RANDOM % 30)))
         fi
 
         ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./core_test
@@ -67,11 +66,11 @@ run_tests() {
 
     xvfb_run_ ./rpc_test
     rpc_test_res=${?}
-    
+
     xvfb_run_ ./qt_test
     qt_test_res=${?}
 
-    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./load_test -s 150
+    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./load_test -s 150 -n 5
     load_test_res=${?}
 
     echo "Core Test return code: ${core_test_res}"

@@ -8,15 +8,15 @@ if [ -n "$DOCKER_PASSWORD" ]; then
 
     # We push this just so it can be a cache next time
     if [[ "$TRAVIS_BRANCH" == "master" || "$TRAVIS_BRANCH" == "docker_cache" ]] && [[ "${TRAVIS_BUILD_STAGE_NAME}" =~ 'Build' ]]; then
-        ci_image_name="nanocurrency/nano-env:$TRAVIS_JOB_NAME"
-        ci/build-docker-image.sh docker/ci/Dockerfile-$TRAVIS_JOB_NAME "$ci_image_name";
+        ci_image_name="bananocoin/nano-env:$TRAVIS_JOB_NAME"
+        ci/build-docker-image.sh docker/ci/Dockerfile-$TRAVIS_JOB_NAME "$ci_image_name"
         "$scripts"/custom-timeout.sh 30 docker push "$ci_image_name"
     fi
 
     if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Master_beta_docker" ]]; then
         # quick build and tag beta network master
-        "$scripts"/custom-timeout.sh 30 docker build --build-arg NETWORK=beta --build-arg CI_BUILD=true --build-arg TRAVIS_TAG="$TRAVIS_TAG" -f docker/node/Dockerfile -t nanocurrency/nano-beta:master --cache-from nanocurrency/nano-beta:master .
-        "$scripts"/custom-timeout.sh 30 docker push nanocurrency/nano-beta:master
+        "$scripts"/custom-timeout.sh 30 docker build --build-arg NETWORK=beta --build-arg CI_BUILD=true --build-arg TRAVIS_TAG="$TRAVIS_TAG" -f docker/node/Dockerfile -t bananocoin/nano-beta:master --cache-from bananocoin/nano-beta:master .
+        "$scripts"/custom-timeout.sh 30 docker push bananocoin/nano-beta:master
     elif [[ "$TRAVIS_BUILD_STAGE_NAME" =~ "Artifacts" ]]; then
         tags=()
         if [[ "${TRAVIS_TAG}" =~ ("RC"|"DB") ]]; then
@@ -35,11 +35,11 @@ if [ -n "$DOCKER_PASSWORD" ]; then
             network_tag_suffix="-beta"
             network="beta"
             # use cache from Master_beta_docker to prevent rebuilds
-            cached="--cache-from=nanocurrency/nano-beta:master"
-            docker pull nanocurrency/nano-beta:master
+            cached="--cache-from=bananocoin/nano-beta:master"
+            docker pull bananocoin/nano-beta:master
         fi
 
-        docker_image_name="nanocurrency/nano${network_tag_suffix}"
+        docker_image_name="bananocoin/nano${network_tag_suffix}"
         "$scripts"/custom-timeout.sh 30 docker build "$cached" --build-arg NETWORK="$network" --build-arg CI_BUILD=true --build-arg TRAVIS_TAG="$TRAVIS_TAG" -f docker/node/Dockerfile -t "$docker_image_name" .
         for tag in "${tags[@]}"; do
             # Sanitize docker tag

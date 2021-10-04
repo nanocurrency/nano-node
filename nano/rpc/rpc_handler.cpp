@@ -1,11 +1,12 @@
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/json_error_response.hpp>
 #include <nano/lib/logger_mt.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/rpc/rpc_handler.hpp>
 
-#include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <unordered_set>
@@ -17,17 +18,17 @@ std::unordered_set<std::string> rpc_control_impl_set = create_rpc_control_impls 
 std::string filter_request (boost::property_tree::ptree tree_a);
 }
 
-nano::rpc_handler::rpc_handler (nano::rpc_config const & rpc_config, std::string const & body_a, std::string const & request_id_a, std::function<void(std::string const &)> const & response_a, nano::rpc_handler_interface & rpc_handler_interface_a, nano::logger_mt & logger) :
-body (body_a),
-request_id (request_id_a),
-response (response_a),
-rpc_config (rpc_config),
-rpc_handler_interface (rpc_handler_interface_a),
-logger (logger)
+nano::rpc_handler::rpc_handler (nano::rpc_config const & rpc_config, std::string const & body_a, std::string const & request_id_a, std::function<void (std::string const &)> const & response_a, nano::rpc_handler_interface & rpc_handler_interface_a, nano::logger_mt & logger) :
+	body (body_a),
+	request_id (request_id_a),
+	response (response_a),
+	rpc_config (rpc_config),
+	rpc_handler_interface (rpc_handler_interface_a),
+	logger (logger)
 {
 }
 
-void nano::rpc_handler::process_request ()
+void nano::rpc_handler::process_request (nano::rpc_handler_request_params const & request_params)
 {
 	try
 	{
@@ -51,55 +52,84 @@ void nano::rpc_handler::process_request ()
 		}
 		else
 		{
-			boost::property_tree::ptree request;
+			if (request_params.rpc_version == 1)
 			{
-				std::stringstream ss;
-				ss << body;
-				boost::property_tree::read_json (ss, request);
+				boost::property_tree::ptree request;
+				{
+					std::stringstream ss;
+					ss << body;
+					boost::property_tree::read_json (ss, request);
+				}
+
+				auto action = request.get<std::string> ("action");
+				if (rpc_config.rpc_logging.log_rpc)
+				{
+					// Creating same string via stringstream as using it directly is generating a TSAN warning
+					std::stringstream ss;
+					ss << request_id;
+					logger.always_log (ss.str (), " ", filter_request (request));
+				}
+
+				// Check if this is a RPC command which requires RPC enabled control
+				std::error_code rpc_control_disabled_ec = nano::error_rpc::rpc_control_disabled;
+
+				bool error = false;
+				auto found = rpc_control_impl_set.find (action);
+				if (found != rpc_control_impl_set.cend () && !rpc_config.enable_control)
+				{
+					json_error_response (response, rpc_control_disabled_ec.message ());
+					error = true;
+				}
+				else
+				{
+					// Special case with stats, type -> objects
+					if (action == "stats" && !rpc_config.enable_control)
+					{
+						if (request.get<std::string> ("type") == "objects")
+						{
+							json_error_response (response, rpc_control_disabled_ec.message ());
+							error = true;
+						}
+					}
+					else if (action == "process")
+					{
+						auto force = request.get_optional<bool> ("force").value_or (false);
+						if (force && !rpc_config.enable_control)
+						{
+							json_error_response (response, rpc_control_disabled_ec.message ());
+							error = true;
+						}
+					}
+					// Add random id to RPC send via IPC if not included
+					else if (action == "send" && request.find ("id") == request.not_found ())
+					{
+						nano::uint128_union random_id;
+						nano::random_pool::generate_block (random_id.bytes.data (), random_id.bytes.size ());
+						std::string random_id_text;
+						random_id.encode_hex (random_id_text);
+						request.put ("id", random_id_text);
+						std::stringstream ostream;
+						boost::property_tree::write_json (ostream, request);
+						body = ostream.str ();
+					}
+				}
+
+				if (!error)
+				{
+					rpc_handler_interface.process_request (action, body, this->response);
+				}
 			}
-
-			auto action = request.get<std::string> ("action");
-			// Creating same string via stringstream as using it directly is generating a TSAN warning
-			std::stringstream ss;
-			ss << request_id;
-			logger.always_log (ss.str (), " ", filter_request (request));
-
-			// Check if this is a RPC command which requires RPC enabled control
-			std::error_code rpc_control_disabled_ec = nano::error_rpc::rpc_control_disabled;
-
-			bool error = false;
-			auto found = rpc_control_impl_set.find (action);
-			if (found != rpc_control_impl_set.cend () && !rpc_config.enable_control)
+			else if (request_params.rpc_version == 2)
 			{
-				json_error_response (response, rpc_control_disabled_ec.message ());
-				error = true;
+				rpc_handler_interface.process_request_v2 (request_params, body, [response = response] (std::shared_ptr<std::string> const & body) {
+					std::string body_l = *body;
+					response (body_l);
+				});
 			}
 			else
 			{
-				// Special case with stats, type -> objects
-				if (action == "stats" && !rpc_config.enable_control)
-				{
-					if (request.get<std::string> ("type") == "objects")
-					{
-						json_error_response (response, rpc_control_disabled_ec.message ());
-						error = true;
-					}
-				}
-				else if (action == "process")
-				{
-					auto force = request.get_optional<bool> ("force");
-					auto watch_work = request.get_optional<bool> ("watch_work");
-					if (((force.is_initialized () && *force) || (watch_work.is_initialized () && !*watch_work)) && !rpc_config.enable_control)
-					{
-						json_error_response (response, rpc_control_disabled_ec.message ());
-						error = true;
-					}
-				}
-			}
-
-			if (!error)
-			{
-				rpc_handler_interface.process_request (action, body, this->response);
+				debug_assert (false);
+				json_error_response (response, "Invalid RPC version");
 			}
 		}
 	}

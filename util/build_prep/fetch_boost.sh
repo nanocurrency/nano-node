@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
-OS=`uname`
+OS=$(uname)
 
-TRAVIS_COMPILER="${TRAVIS_COMPILER:-clang}"
+COMPILER="${COMPILER:-clang}"
 
 pushd /tmp
-wget -O boost-$OS-$TRAVIS_COMPILER-latest.tgz https://s3.us-east-2.amazonaws.com/repo.nano.org/artifacts/boost-$OS-$TRAVIS_COMPILER-latest.tgz
-tar -zxf boost-$OS-$TRAVIS_COMPILER-latest.tgz
+if [[ "$OS" == 'Linux' ]]; then
+    wget -O boost-$OS-$COMPILER.tgz https://s3.us-east-2.amazonaws.com/repo.nano.org/artifacts/boost-$OS-$COMPILER-1.70-18.tgz
+else
+    wget -O boost-$OS-$COMPILER.tgz https://s3.us-east-2.amazonaws.com/repo.nano.org/artifacts/boost-$OS-$COMPILER-1.70-full.tgz
+fi
+tar -zxf boost-$OS-$COMPILER.tgz
 mv tmp/* .
 rm -fr tmp
 popd

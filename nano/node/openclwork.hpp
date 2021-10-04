@@ -1,14 +1,12 @@
 #pragma once
 
-#include <nano/lib/errors.hpp>
-#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/work.hpp>
 #include <nano/node/openclconfig.hpp>
 #include <nano/node/xorshift.hpp>
 
 #include <boost/optional.hpp>
-#include <boost/property_tree/ptree.hpp>
 
-#include <map>
+#include <atomic>
 #include <mutex>
 #include <vector>
 
@@ -22,6 +20,7 @@
 
 namespace nano
 {
+extern bool opencl_loaded;
 class logger_mt;
 class opencl_platform
 {
@@ -43,11 +42,11 @@ class opencl_work
 public:
 	opencl_work (bool &, nano::opencl_config const &, nano::opencl_environment &, nano::logger_mt &);
 	~opencl_work ();
-	boost::optional<uint64_t> generate_work (nano::root const &, uint64_t const);
-	boost::optional<uint64_t> generate_work (nano::root const &, uint64_t const, std::atomic<int> &);
+	boost::optional<uint64_t> generate_work (nano::work_version const, nano::root const &, uint64_t const);
+	boost::optional<uint64_t> generate_work (nano::work_version const, nano::root const &, uint64_t const, std::atomic<int> &);
 	static std::unique_ptr<opencl_work> create (bool, nano::opencl_config const &, nano::logger_mt &);
 	nano::opencl_config const & config;
-	std::mutex mutex;
+	nano::mutex mutex;
 	cl_context context;
 	cl_mem attempt_buffer;
 	cl_mem result_buffer;

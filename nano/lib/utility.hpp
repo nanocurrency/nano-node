@@ -1,16 +1,54 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
 #include <nano/lib/locks.hpp>
 
-#include <boost/filesystem.hpp>
-#include <boost/system/error_code.hpp>
-#include <boost/thread/thread.hpp>
+#include <boost/current_function.hpp>
+#include <boost/preprocessor/facilities/empty.hpp>
+#include <boost/preprocessor/facilities/overload.hpp>
 
+#include <cassert>
 #include <functional>
 #include <mutex>
-#include <thread>
 #include <vector>
+
+namespace boost
+{
+namespace filesystem
+{
+	class path;
+}
+
+namespace system
+{
+	class error_code;
+}
+}
+
+void assert_internal (const char * check_expr, const char * func, const char * file, unsigned int line, bool is_release_assert, std::string_view error = "");
+
+#define release_assert_1(check) check ? (void)0 : assert_internal (#check, BOOST_CURRENT_FUNCTION, __FILE__, __LINE__, true)
+#define release_assert_2(check, error_msg) check ? (void)0 : assert_internal (#check, BOOST_CURRENT_FUNCTION, __FILE__, __LINE__, true, error_msg)
+#if !BOOST_PP_VARIADICS_MSVC
+#define release_assert(...)                          \
+	BOOST_PP_OVERLOAD (release_assert_, __VA_ARGS__) \
+	(__VA_ARGS__)
+#else
+#define release_assert(...) BOOST_PP_CAT (BOOST_PP_OVERLOAD (release_assert_, __VA_ARGS__) (__VA_ARGS__), BOOST_PP_EMPTY ())
+#endif
+
+#ifdef NDEBUG
+#define debug_assert(check) (void)0
+#else
+#define debug_assert_1(check) check ? (void)0 : assert_internal (#check, BOOST_CURRENT_FUNCTION, __FILE__, __LINE__, false)
+#define debug_assert_2(check, error_msg) check ? (void)0 : assert_internal (#check, BOOST_CURRENT_FUNCTION, __FILE__, __LINE__, false, error_msg)
+#if !BOOST_PP_VARIADICS_MSVC
+#define debug_assert(...)                          \
+	BOOST_PP_OVERLOAD (debug_assert_, __VA_ARGS__) \
+	(__VA_ARGS__)
+#else
+#define debug_assert(...) BOOST_PP_CAT (BOOST_PP_OVERLOAD (debug_assert_, __VA_ARGS__) (__VA_ARGS__), BOOST_PP_EMPTY ())
+#endif
+#endif
 
 namespace nano
 {
@@ -18,43 +56,43 @@ namespace nano
  * It makes use of the composite design pattern to collect information
  * from sequence containers and sequence containers inside member variables.
  */
-struct seq_con_info
+struct container_info
 {
 	std::string name;
 	size_t count;
 	size_t sizeof_element;
 };
 
-class seq_con_info_component
+class container_info_component
 {
 public:
-	virtual ~seq_con_info_component () = default;
+	virtual ~container_info_component () = default;
 	virtual bool is_composite () const = 0;
 };
 
-class seq_con_info_composite : public seq_con_info_component
+class container_info_composite : public container_info_component
 {
 public:
-	seq_con_info_composite (const std::string & name);
+	container_info_composite (std::string const & name);
 	bool is_composite () const override;
-	void add_component (std::unique_ptr<seq_con_info_component> child);
-	const std::vector<std::unique_ptr<seq_con_info_component>> & get_children () const;
+	void add_component (std::unique_ptr<container_info_component> child);
+	const std::vector<std::unique_ptr<container_info_component>> & get_children () const;
 	const std::string & get_name () const;
 
 private:
 	std::string name;
-	std::vector<std::unique_ptr<seq_con_info_component>> children;
+	std::vector<std::unique_ptr<container_info_component>> children;
 };
 
-class seq_con_info_leaf : public seq_con_info_component
+class container_info_leaf : public container_info_component
 {
 public:
-	seq_con_info_leaf (const seq_con_info & info);
+	container_info_leaf (container_info const & info);
 	bool is_composite () const override;
-	const seq_con_info & get_info () const;
+	const container_info & get_info () const;
 
 private:
-	seq_con_info info;
+	container_info info;
 };
 
 // Lower priority of calling work generating thread
@@ -94,140 +132,75 @@ void dump_crash_stacktrace ();
  */
 std::string generate_stacktrace ();
 
-/*
- * Functions for understanding the role of the current thread
- */
-namespace thread_role
-{
-	enum class name
-	{
-		unknown,
-		io,
-		work,
-		packet_processing,
-		alarm,
-		vote_processing,
-		block_processing,
-		request_loop,
-		wallet_actions,
-		bootstrap_initiator,
-		voting,
-		signature_checking,
-		rpc_request_processor,
-		rpc_process_container,
-		work_watcher,
-		confirmation_height_processing,
-		worker
-	};
-	/*
-	 * Get/Set the identifier for the current thread
-	 */
-	nano::thread_role::name get ();
-	void set (nano::thread_role::name);
-
-	/*
-	 * Get the thread name as a string from enum
-	 */
-	std::string get_string (nano::thread_role::name);
-
-	/*
-	 * Get the current thread's role as a string
-	 */
-	std::string get_string ();
-
-	/*
-	 * Internal only, should not be called directly
-	 */
-	void set_os_name (std::string const &);
-}
-
-namespace thread_attributes
-{
-	void set (boost::thread::attributes &);
-}
-
-class thread_runner final
-{
-public:
-	thread_runner (boost::asio::io_context &, unsigned);
-	~thread_runner ();
-	/** Tells the IO context to stop processing events.*/
-	void stop_event_processing ();
-	/** Wait for IO threads to complete */
-	void join ();
-	std::vector<boost::thread> threads;
-	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> io_guard;
-};
-
-class worker final
-{
-public:
-	worker ();
-	~worker ();
-	void run ();
-	void push_task (std::function<void()> func);
-	void stop ();
-
-private:
-	nano::condition_variable cv;
-	std::deque<std::function<void()>> queue;
-	std::mutex mutex;
-	bool stopped{ false };
-	std::thread thread;
-
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (worker &, const std::string &);
-};
-
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (worker & worker, const std::string & name);
-
 /**
- * Returns seconds passed since unix epoch (posix time)
+ * Some systems, especially in virtualized environments, may have very low file descriptor limits,
+ * causing the node to fail. This function attempts to query the limit and returns the value. If the
+ * limit cannot be queried, or running on a Windows system, this returns max-value of std::size_t.
+ * Increasing the limit programmatically can be done only for the soft limit, the hard one requiring
+ * super user permissions to modify.
  */
-inline uint64_t seconds_since_epoch ()
-{
-	return std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
-}
+std::size_t get_file_descriptor_limit ();
+void set_file_descriptor_limit (std::size_t limit);
 
 template <typename... T>
 class observer_set final
 {
 public:
-	void add (std::function<void(T...)> const & observer_a)
+	void add (std::function<void (T...)> const & observer_a)
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		observers.push_back (observer_a);
 	}
 	void notify (T... args)
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		for (auto & i : observers)
 		{
 			i (args...);
 		}
 	}
-	std::mutex mutex;
-	std::vector<std::function<void(T...)>> observers;
+	nano::mutex mutex{ mutex_identifier (mutexes::observer_set) };
+	std::vector<std::function<void (T...)>> observers;
 };
 
 template <typename... T>
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (observer_set<T...> & observer_set, const std::string & name)
+std::unique_ptr<container_info_component> collect_container_info (observer_set<T...> & observer_set, std::string const & name)
 {
 	size_t count = 0;
 	{
-		nano::lock_guard<std::mutex> lock (observer_set.mutex);
+		nano::lock_guard<nano::mutex> lock (observer_set.mutex);
 		count = observer_set.observers.size ();
 	}
 
 	auto sizeof_element = sizeof (typename decltype (observer_set.observers)::value_type);
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "observers", count, sizeof_element }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "observers", count, sizeof_element }));
 	return composite;
 }
 
 void remove_all_files_in_dir (boost::filesystem::path const & dir);
 void move_all_files_to_dir (boost::filesystem::path const & from, boost::filesystem::path const & to);
-}
-// Have our own async_write which we must use?
 
-void release_assert_internal (bool check, const char * check_expr, const char * file, unsigned int line);
-#define release_assert(check) release_assert_internal (check, #check, __FILE__, __LINE__)
+template <class InputIt, class OutputIt, class Pred, class Func>
+void transform_if (InputIt first, InputIt last, OutputIt dest, Pred pred, Func transform)
+{
+	while (first != last)
+	{
+		if (pred (*first))
+		{
+			*dest++ = transform (*first);
+		}
+
+		++first;
+	}
+}
+
+/** Safe narrowing cast which silences warnings and asserts on data loss in debug builds. This is optimized away. */
+template <typename TARGET_TYPE, typename SOURCE_TYPE>
+constexpr TARGET_TYPE narrow_cast (SOURCE_TYPE const & val)
+{
+	auto res (static_cast<TARGET_TYPE> (val));
+	debug_assert (val == static_cast<SOURCE_TYPE> (res));
+	return res;
+}
+}

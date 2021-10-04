@@ -2,9 +2,17 @@
 
 #include <nano/lib/rpcconfig.hpp>
 
-#include <boost/filesystem.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
 
 #include <string>
+
+namespace boost
+{
+namespace filesystem
+{
+	class path;
+}
+}
 
 namespace nano
 {
@@ -31,7 +39,8 @@ public:
 		return 1;
 	}
 
-private:
-	void migrate (nano::jsonconfig & json, boost::filesystem::path const & data_path);
+	// Used in tests to ensure requests are modified in specific cases
+	void set_request_callback (std::function<void (boost::property_tree::ptree const &)>);
+	std::function<void (boost::property_tree::ptree const &)> request_callback;
 };
 }

@@ -3,7 +3,7 @@
 set -o errexit
 set -o nounset
 set -o xtrace
-OS=`uname`
+OS=$(uname)
 
 if [[ "${BETA-0}" -eq 1 ]]; then
     BUILD="beta"

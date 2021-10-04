@@ -31,12 +31,14 @@ public:
 			clEnqueueNDRangeKernel = reinterpret_cast<decltype (clEnqueueNDRangeKernel)> (GetProcAddress (opencl_library, "clEnqueueNDRangeKernel"));
 			clEnqueueReadBuffer = reinterpret_cast<decltype (clEnqueueReadBuffer)> (GetProcAddress (opencl_library, "clEnqueueReadBuffer"));
 			clFinish = reinterpret_cast<decltype (clFinish)> (GetProcAddress (opencl_library, "clFinish"));
+			nano::opencl_loaded = true;
 		}
 	}
 	~opencl_initializer ()
 	{
 		if (opencl_library != nullptr)
 		{
+			nano::opencl_loaded = false;
 			FreeLibrary (opencl_library);
 		}
 	}
@@ -45,11 +47,11 @@ public:
 	cl_int (CL_API_CALL * clGetPlatformInfo) (cl_platform_id, cl_platform_info, size_t, void *, size_t *);
 	cl_int (CL_API_CALL * clGetDeviceIDs) (cl_platform_id, cl_device_type, cl_uint, cl_device_id *, cl_uint *);
 	cl_int (CL_API_CALL * clGetDeviceInfo) (cl_device_id, cl_device_info, size_t, void *, size_t *);
-	cl_context (CL_API_CALL * clCreateContext) (cl_context_properties const *, cl_uint, cl_device_id const *, void(CL_CALLBACK *) (const char *, const void *, size_t, void *), void *, cl_int *);
+	cl_context (CL_API_CALL * clCreateContext) (cl_context_properties const *, cl_uint, cl_device_id const *, void (CL_CALLBACK *) (const char *, const void *, size_t, void *), void *, cl_int *);
 	cl_command_queue (CL_API_CALL * clCreateCommandQueue) (cl_context, cl_device_id, cl_command_queue_properties, cl_int *);
 	cl_mem (CL_API_CALL * clCreateBuffer) (cl_context, cl_mem_flags, size_t, void *, cl_int *);
 	cl_program (CL_API_CALL * clCreateProgramWithSource) (cl_context, cl_uint, char const **, size_t const *, cl_int *);
-	cl_int (CL_API_CALL * clBuildProgram) (cl_program, cl_uint, cl_device_id const *, char const *, void(CL_CALLBACK *) (cl_program, void *), void *);
+	cl_int (CL_API_CALL * clBuildProgram) (cl_program, cl_uint, cl_device_id const *, char const *, void (CL_CALLBACK *) (cl_program, void *), void *);
 	cl_int (CL_API_CALL * clGetProgramBuildInfo) (cl_program, cl_device_id, cl_program_build_info, size_t, void *, size_t *);
 	cl_kernel (CL_API_CALL * clCreateKernel) (cl_program, char const *, cl_int *);
 	cl_int (CL_API_CALL * clSetKernelArg) (cl_kernel, cl_uint, size_t, void const *);
@@ -99,7 +101,7 @@ cl_int CL_API_CALL clGetDeviceInfo (cl_device_id device, cl_device_info param_na
 	return opencl_initializer::initializer.clGetDeviceInfo (device, param_name, param_value_size, param_value, param_value_size_ret);
 }
 
-cl_context CL_API_CALL clCreateContext (cl_context_properties const * properties, cl_uint num_devices, cl_device_id const * devices, void(CL_CALLBACK * pfn_notify) (const char *, const void *, size_t, void *), void * user_data, cl_int * errcode_ret)
+cl_context CL_API_CALL clCreateContext (cl_context_properties const * properties, cl_uint num_devices, cl_device_id const * devices, void (CL_CALLBACK * pfn_notify) (const char *, const void *, size_t, void *), void * user_data, cl_int * errcode_ret)
 {
 	return opencl_initializer::initializer.clCreateContext (properties, num_devices, devices, pfn_notify, user_data, errcode_ret);
 }
@@ -119,7 +121,7 @@ cl_program CL_API_CALL clCreateProgramWithSource (cl_context context, cl_uint co
 	return opencl_initializer::initializer.clCreateProgramWithSource (context, count, strings, lengths, errcode_ret);
 }
 
-cl_int CL_API_CALL clBuildProgram (cl_program program, cl_uint num_devices, cl_device_id const * device_list, char const * options, void(CL_CALLBACK * pfn_notify) (cl_program, void *), void * user_data)
+cl_int CL_API_CALL clBuildProgram (cl_program program, cl_uint num_devices, cl_device_id const * device_list, char const * options, void (CL_CALLBACK * pfn_notify) (cl_program, void *), void * user_data)
 {
 	return opencl_initializer::initializer.clBuildProgram (program, num_devices, device_list, options, pfn_notify, user_data);
 }

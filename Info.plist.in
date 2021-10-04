@@ -9,11 +9,11 @@
 	<key>CFBundleExecutable</key>
 	<string>nano_wallet</string>
 	<key>CFBundleName</key>
-	<string>Nano</string>
+	<string>@NANO_OSX_PACKAGE_NAME@</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleIconFile</key>
-	<string>Nano.icns</string>
+	<string>Banano.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>org.nano.nano_wallet</string>
 	<key>CFBundleShortVersionString</key>

@@ -1,6 +1,10 @@
 #include <nano/node/common.hpp>
+#include <nano/node/network.hpp>
+#include <nano/secure/buffer.hpp>
 
 #include <gtest/gtest.h>
+
+#include <boost/variant/get.hpp>
 
 TEST (message, keepalive_serialization)
 {
@@ -53,7 +57,7 @@ TEST (message, publish_serialization)
 	ASSERT_EQ (0x41, bytes[1]);
 	ASSERT_EQ (params.protocol.protocol_version, bytes[2]);
 	ASSERT_EQ (params.protocol.protocol_version, bytes[3]);
-	ASSERT_EQ (params.protocol.protocol_version_min, bytes[4]);
+	ASSERT_EQ (params.protocol.protocol_version_min (), bytes[4]);
 	ASSERT_EQ (static_cast<uint8_t> (nano::message_type::publish), bytes[5]);
 	ASSERT_EQ (0x00, bytes[6]); // extensions
 	ASSERT_EQ (static_cast<uint8_t> (nano::block_type::send), bytes[7]);
@@ -61,7 +65,7 @@ TEST (message, publish_serialization)
 	auto error (false);
 	nano::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (params.protocol.protocol_version_min, header.version_min);
+	ASSERT_EQ (params.protocol.protocol_version_min (), header.version_min ());
 	ASSERT_EQ (params.protocol.protocol_version, header.version_using);
 	ASSERT_EQ (params.protocol.protocol_version, header.version_max);
 	ASSERT_EQ (nano::message_type::publish, header.type);
@@ -89,7 +93,7 @@ TEST (message, confirm_ack_serialization)
 TEST (message, confirm_ack_hash_serialization)
 {
 	std::vector<nano::block_hash> hashes;
-	for (auto i (hashes.size ()); i < 12; i++)
+	for (auto i (hashes.size ()); i < nano::network::confirm_ack_hashes_max; i++)
 	{
 		nano::keypair key1;
 		nano::block_hash previous;
@@ -117,7 +121,7 @@ TEST (message, confirm_ack_hash_serialization)
 		vote_blocks.push_back (boost::get<nano::block_hash> (block));
 	}
 	ASSERT_EQ (hashes, vote_blocks);
-	// Check overflow with 12 hashes
+	// Check overflow with max hashes
 	ASSERT_EQ (header.count_get (), hashes.size ());
 	ASSERT_EQ (header.block_type (), nano::block_type::not_a_block);
 }

@@ -1,4 +1,5 @@
 #include <nano/lib/memory.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/secure/common.hpp>
 
 #include <gtest/gtest.h>
@@ -16,7 +17,7 @@ public:
 	using value_type = T;
 
 	explicit record_allocations_new_delete_allocator (std::vector<size_t> * allocated) :
-	allocated (allocated)
+		allocated (allocated)
 	{
 	}
 
@@ -49,8 +50,8 @@ size_t get_allocated_size ()
 {
 	std::vector<size_t> allocated;
 	record_allocations_new_delete_allocator<T> alloc (&allocated);
-	std::allocate_shared<T, record_allocations_new_delete_allocator<T>> (alloc);
-	assert (allocated.size () == 1);
+	(void)std::allocate_shared<T, record_allocations_new_delete_allocator<T>> (alloc);
+	debug_assert (allocated.size () == 1);
 	return allocated.front ();
 }
 }
@@ -70,14 +71,14 @@ TEST (memory_pool, validate_cleanup)
 	nano::make_shared<nano::state_block> ();
 	nano::make_shared<nano::vote> ();
 
-	ASSERT_TRUE (nano::purge_singleton_pool_memory<nano::open_block> ());
-	ASSERT_TRUE (nano::purge_singleton_pool_memory<nano::receive_block> ());
-	ASSERT_TRUE (nano::purge_singleton_pool_memory<nano::send_block> ());
-	ASSERT_TRUE (nano::purge_singleton_pool_memory<nano::state_block> ());
-	ASSERT_TRUE (nano::purge_singleton_pool_memory<nano::vote> ());
+	ASSERT_TRUE (nano::purge_shared_ptr_singleton_pool_memory<nano::open_block> ());
+	ASSERT_TRUE (nano::purge_shared_ptr_singleton_pool_memory<nano::receive_block> ());
+	ASSERT_TRUE (nano::purge_shared_ptr_singleton_pool_memory<nano::send_block> ());
+	ASSERT_TRUE (nano::purge_shared_ptr_singleton_pool_memory<nano::state_block> ());
+	ASSERT_TRUE (nano::purge_shared_ptr_singleton_pool_memory<nano::vote> ());
 
 	// Change blocks have the same size as open_block so won't deallocate any memory
-	ASSERT_FALSE (nano::purge_singleton_pool_memory<nano::change_block> ());
+	ASSERT_FALSE (nano::purge_shared_ptr_singleton_pool_memory<nano::change_block> ());
 
 	ASSERT_EQ (nano::determine_shared_ptr_pool_size<nano::open_block> (), get_allocated_size<nano::open_block> () - sizeof (size_t));
 	ASSERT_EQ (nano::determine_shared_ptr_pool_size<nano::receive_block> (), get_allocated_size<nano::receive_block> () - sizeof (size_t));
@@ -85,4 +86,15 @@ TEST (memory_pool, validate_cleanup)
 	ASSERT_EQ (nano::determine_shared_ptr_pool_size<nano::change_block> (), get_allocated_size<nano::change_block> () - sizeof (size_t));
 	ASSERT_EQ (nano::determine_shared_ptr_pool_size<nano::state_block> (), get_allocated_size<nano::state_block> () - sizeof (size_t));
 	ASSERT_EQ (nano::determine_shared_ptr_pool_size<nano::vote> (), get_allocated_size<nano::vote> () - sizeof (size_t));
+
+	{
+		nano::active_transactions::ordered_cache inactive_votes_cache;
+		nano::account representative{ 1 };
+		nano::block_hash hash{ 1 };
+		uint64_t timestamp{ 1 };
+		nano::inactive_cache_status default_status{};
+		inactive_votes_cache.emplace (std::chrono::steady_clock::now (), hash, representative, timestamp, default_status);
+	}
+
+	ASSERT_TRUE (nano::purge_singleton_inactive_votes_cache_pool_memory ());
 }

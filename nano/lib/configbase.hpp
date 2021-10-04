@@ -3,7 +3,6 @@
 #include <nano/lib/errors.hpp>
 
 #include <boost/lexical_cast.hpp>
-#include <boost/optional.hpp>
 #include <boost/type_traits.hpp>
 
 #include <istream>
@@ -15,7 +14,7 @@ namespace nano
 /** Type trait to determine if T is compatible with boost's lexical_cast */
 template <class T>
 struct is_lexical_castable : std::integral_constant<bool,
-                             (std::is_default_constructible<T>::value && (boost::has_right_shift<std::basic_istream<wchar_t>, T>::value || boost::has_right_shift<std::basic_istream<char>, T>::value))>
+							 (std::is_default_constructible<T>::value && (boost::has_right_shift<std::basic_istream<wchar_t>, T>::value || boost::has_right_shift<std::basic_istream<char>, T>::value))>
 {
 };
 
@@ -35,7 +34,6 @@ template <> inline std::string type_desc<double> (void) { return "a double preci
 template <> inline std::string type_desc<char> (void) { return "a character"; }
 template <> inline std::string type_desc<std::string> (void) { return "a string"; }
 template <> inline std::string type_desc<bool> (void) { return "a boolean"; }
-template <> inline std::string type_desc<boost::asio::ip::address_v6> (void) { return "an IP address"; }
 // clang-format on
 
 /** Base type for configuration wrappers */
@@ -44,7 +42,7 @@ class configbase : public nano::error_aware<>
 public:
 	configbase () = default;
 	configbase (std::shared_ptr<nano::error> const & error_a) :
-	error (error_a)
+		error (error_a)
 	{
 	}
 

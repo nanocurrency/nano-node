@@ -1,20 +1,18 @@
+#include <nano/lib/cli.hpp>
 #include <nano/lib/errors.hpp>
-#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/signal_manager.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/nano_wallet/icon.hpp>
 #include <nano/node/cli.hpp>
-#include <nano/node/ipc.hpp>
+#include <nano/node/ipc/ipc_server.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
-#include <nano/secure/working.hpp>
+#include <nano/secure/utility.hpp>
 
-#include <boost/lexical_cast.hpp>
-#include <boost/log/expressions.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/program_options.hpp>
-
-#include <csignal>
 
 namespace
 {
@@ -48,20 +46,21 @@ void run (boost::filesystem::path const & data_path, std::vector<std::string> co
 	{
 		logging_init (data_path);
 		boost::asio::io_context io_ctx;
+		nano::signal_manager sigman;
 		try
 		{
 			nano::ipc_rpc_processor ipc_rpc_processor (io_ctx, rpc_config);
 			auto rpc = nano::get_rpc (io_ctx, rpc_config, ipc_rpc_processor);
 			rpc->start ();
 
-			assert (!nano::signal_handler_impl);
-			nano::signal_handler_impl = [&io_ctx]() {
+			debug_assert (!nano::signal_handler_impl);
+			nano::signal_handler_impl = [&io_ctx] () {
 				io_ctx.stop ();
 				sig_int_or_term = 1;
 			};
 
-			std::signal (SIGINT, &nano::signal_handler);
-			std::signal (SIGTERM, &nano::signal_handler);
+			sigman.register_signal_handler (SIGINT, &nano::signal_handler, true);
+			sigman.register_signal_handler (SIGTERM, &nano::signal_handler, false);
 
 			runner = std::make_unique<nano::thread_runner> (io_ctx, rpc_config.rpc_process.io_threads);
 			runner->join ();
@@ -92,10 +91,10 @@ int main (int argc, char * const * argv)
 	// clang-format off
 	description.add_options ()
 		("help", "Print out options")
-		("config", boost::program_options::value<std::vector<std::string>>()->multitoken(), "Pass RPC configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
+		("config", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass RPC configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start RPC daemon")
 		("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory")
-		("network", boost::program_options::value<std::string> (), "Use the supplied network (live, beta or test)")
+		("network", boost::program_options::value<std::string> (), "Use the supplied network (live, test, beta or dev)")
 		("version", "Prints out version");
 	// clang-format on
 
@@ -117,23 +116,12 @@ int main (int argc, char * const * argv)
 		auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
 		if (err)
 		{
-			std::cerr << err.get_message () << std::endl;
+			std::cerr << nano::network_constants::active_network_err_msg << std::endl;
 			std::exit (1);
 		}
 	}
 
 	auto data_path_it = vm.find ("data_path");
-	if (data_path_it == vm.end ())
-	{
-		std::string error_string;
-		if (!nano::migrate_working_path (error_string))
-		{
-			std::cerr << error_string << std::endl;
-
-			return 1;
-		}
-	}
-
 	boost::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
 	if (vm.count ("daemon") > 0)
 	{
@@ -141,14 +129,14 @@ int main (int argc, char * const * argv)
 		auto config (vm.find ("config"));
 		if (config != vm.end ())
 		{
-			config_overrides = config->second.as<std::vector<std::string>> ();
+			config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
 		}
 		run (data_path, config_overrides);
 	}
 	else if (vm.count ("version"))
 	{
 		std::cout << "Version " << NANO_VERSION_STRING << "\n"
-		          << "Build Info " << BUILD_INFO << std::endl;
+				  << "Build Info " << BUILD_INFO << std::endl;
 	}
 	else
 	{

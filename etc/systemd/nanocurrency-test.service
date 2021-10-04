@@ -1,0 +1,13 @@
+[Unit]
+Description=Banano Test Network Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=bananocoin
+WorkingDirectory=/var/bananocoin/BananoTest
+ExecStart=/usr/bin/nano_node --daemon --network=test --data_path=/var/bananocoin/BananoTest
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

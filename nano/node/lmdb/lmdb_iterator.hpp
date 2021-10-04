@@ -10,11 +10,20 @@ template <typename T, typename U>
 class mdb_iterator : public store_iterator_impl<T, U>
 {
 public:
-	mdb_iterator (nano::transaction const & transaction_a, MDB_dbi db_a)
+	mdb_iterator (nano::transaction const & transaction_a, MDB_dbi db_a, MDB_val const & val_a = MDB_val{}, bool const direction_asc = true)
 	{
 		auto status (mdb_cursor_open (tx (transaction_a), db_a, &cursor));
 		release_assert (status == 0);
-		auto status2 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_FIRST));
+		auto operation (MDB_SET_RANGE);
+		if (val_a.mv_size != 0)
+		{
+			current.first = val_a;
+		}
+		else
+		{
+			operation = direction_asc ? MDB_FIRST : MDB_LAST;
+		}
+		auto status2 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, operation));
 		release_assert (status2 == 0 || status2 == MDB_NOTFOUND);
 		if (status2 != MDB_NOTFOUND)
 		{
@@ -32,28 +41,6 @@ public:
 	}
 
 	mdb_iterator () = default;
-
-	mdb_iterator (nano::transaction const & transaction_a, MDB_dbi db_a, MDB_val const & val_a)
-	{
-		auto status (mdb_cursor_open (tx (transaction_a), db_a, &cursor));
-		release_assert (status == 0);
-		current.first = val_a;
-		auto status2 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_SET_RANGE));
-		release_assert (status2 == 0 || status2 == MDB_NOTFOUND);
-		if (status2 != MDB_NOTFOUND)
-		{
-			auto status3 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_GET_CURRENT));
-			release_assert (status3 == 0 || status3 == MDB_NOTFOUND);
-			if (current.first.size () != sizeof (T))
-			{
-				clear ();
-			}
-		}
-		else
-		{
-			clear ();
-		}
-	}
 
 	mdb_iterator (nano::mdb_iterator<T, U> && other_a)
 	{
@@ -74,8 +61,24 @@ public:
 
 	nano::store_iterator_impl<T, U> & operator++ () override
 	{
-		assert (cursor != nullptr);
+		debug_assert (cursor != nullptr);
 		auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT));
+		release_assert (status == 0 || status == MDB_NOTFOUND);
+		if (status == MDB_NOTFOUND)
+		{
+			clear ();
+		}
+		if (current.first.size () != sizeof (T))
+		{
+			clear ();
+		}
+		return *this;
+	}
+
+	nano::store_iterator_impl<T, U> & operator-- () override
+	{
+		debug_assert (cursor != nullptr);
+		auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_PREV));
 		release_assert (status == 0 || status == MDB_NOTFOUND);
 		if (status == MDB_NOTFOUND)
 		{
@@ -97,9 +100,9 @@ public:
 	{
 		auto const other_a (boost::polymorphic_downcast<nano::mdb_iterator<T, U> const *> (&base_a));
 		auto result (current.first.data () == other_a->current.first.data ());
-		assert (!result || (current.first.size () == other_a->current.first.size ()));
-		assert (!result || (current.second.data () == other_a->current.second.data ()));
-		assert (!result || (current.second.size () == other_a->current.second.size ()));
+		debug_assert (!result || (current.first.size () == other_a->current.first.size ()));
+		debug_assert (!result || (current.second.data () == other_a->current.second.data ()));
+		debug_assert (!result || (current.second.size () == other_a->current.second.size ()));
 		return result;
 	}
 
@@ -130,7 +133,7 @@ public:
 	{
 		current.first = nano::db_val<MDB_val> ();
 		current.second = nano::db_val<MDB_val> ();
-		assert (is_end_sentinal ());
+		debug_assert (is_end_sentinal ());
 	}
 
 	nano::mdb_iterator<T, U> & operator= (nano::mdb_iterator<T, U> && other_a)
@@ -165,20 +168,20 @@ class mdb_merge_iterator : public store_iterator_impl<T, U>
 {
 public:
 	mdb_merge_iterator (nano::transaction const & transaction_a, MDB_dbi db1_a, MDB_dbi db2_a) :
-	impl1 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db1_a)),
-	impl2 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db2_a))
+		impl1 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db1_a)),
+		impl2 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db2_a))
 	{
 	}
 
 	mdb_merge_iterator () :
-	impl1 (std::make_unique<nano::mdb_iterator<T, U>> ()),
-	impl2 (std::make_unique<nano::mdb_iterator<T, U>> ())
+		impl1 (std::make_unique<nano::mdb_iterator<T, U>> ()),
+		impl2 (std::make_unique<nano::mdb_iterator<T, U>> ())
 	{
 	}
 
 	mdb_merge_iterator (nano::transaction const & transaction_a, MDB_dbi db1_a, MDB_dbi db2_a, MDB_val const & val_a) :
-	impl1 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db1_a, val_a)),
-	impl2 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db2_a, val_a))
+		impl1 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db1_a, val_a)),
+		impl2 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db2_a, val_a))
 	{
 	}
 
@@ -196,6 +199,12 @@ public:
 		return *this;
 	}
 
+	nano::store_iterator_impl<T, U> & operator-- () override
+	{
+		--least_iterator ();
+		return *this;
+	}
+
 	std::pair<nano::db_val<MDB_val>, nano::db_val<MDB_val>> * operator-> ()
 	{
 		return least_iterator ().operator-> ();
@@ -203,7 +212,7 @@ public:
 
 	bool operator== (nano::store_iterator_impl<T, U> const & base_a) const override
 	{
-		assert ((dynamic_cast<nano::mdb_merge_iterator<T, U> const *> (&base_a) != nullptr) && "Incompatible iterator comparison");
+		debug_assert ((dynamic_cast<nano::mdb_merge_iterator<T, U> const *> (&base_a) != nullptr) && "Incompatible iterator comparison");
 		auto & other (static_cast<nano::mdb_merge_iterator<T, U> const &> (base_a));
 		return *impl1 == *other.impl1 && *impl2 == *other.impl2;
 	}

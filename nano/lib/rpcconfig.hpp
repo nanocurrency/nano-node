@@ -1,14 +1,19 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
 
-#include <boost/filesystem.hpp>
-#include <boost/thread.hpp>
-
 #include <string>
+#include <thread>
 #include <vector>
+
+namespace boost
+{
+namespace filesystem
+{
+	class path;
+}
+}
 
 namespace nano
 {
@@ -43,33 +48,42 @@ public:
 class rpc_process_config final
 {
 public:
+	rpc_process_config ();
 	nano::network_constants network_constants;
-	unsigned io_threads{ std::max<unsigned> (4, boost::thread::hardware_concurrency ()) };
-	boost::asio::ip::address_v6 ipc_address{ boost::asio::ip::address_v6::loopback () };
+	unsigned io_threads{ (4 < std::thread::hardware_concurrency ()) ? std::thread::hardware_concurrency () : 4 };
+	std::string ipc_address;
 	uint16_t ipc_port{ network_constants.default_ipc_port };
-	unsigned num_ipc_connections{ network_constants.is_live_network () ? 8u : network_constants.is_beta_network () ? 4u : 1u };
+	unsigned num_ipc_connections{ (network_constants.is_live_network () || network_constants.is_test_network ()) ? 8u : network_constants.is_beta_network () ? 4u : 1u };
 	static unsigned json_version ()
 	{
 		return 1;
 	}
 };
 
+class rpc_logging_config final
+{
+public:
+	bool log_rpc{ true };
+};
+
 class rpc_config final
 {
 public:
-	explicit rpc_config (bool = false);
+	rpc_config ();
+	explicit rpc_config (uint16_t, bool);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool & upgraded_a, nano::jsonconfig &);
 	nano::error serialize_toml (nano::tomlconfig &) const;
 	nano::error deserialize_toml (nano::tomlconfig &);
 
 	nano::rpc_process_config rpc_process;
-	boost::asio::ip::address_v6 address{ boost::asio::ip::address_v6::loopback () };
+	std::string address;
 	uint16_t port{ rpc_process.network_constants.default_rpc_port };
-	bool enable_control;
+	bool enable_control{ false };
 	rpc_secure_config secure;
 	uint8_t max_json_depth{ 20 };
 	uint64_t max_request_size{ 32 * 1024 * 1024 };
+	nano::rpc_logging_config rpc_logging;
 	static unsigned json_version ()
 	{
 		return 1;

@@ -3,7 +3,10 @@
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/secure/blockstore.hpp>
+#include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+
+#include <crypto/cryptopp/words.h>
 
 namespace
 {
@@ -14,9 +17,9 @@ class rollback_visitor : public nano::block_visitor
 {
 public:
 	rollback_visitor (nano::write_transaction const & transaction_a, nano::ledger & ledger_a, std::vector<std::shared_ptr<nano::block>> & list_a) :
-	transaction (transaction_a),
-	ledger (ledger_a),
-	list (list_a)
+		transaction (transaction_a),
+		ledger (ledger_a),
+		list (list_a)
 	{
 	}
 	virtual ~rollback_visitor () = default;
@@ -32,13 +35,12 @@ public:
 		if (!error)
 		{
 			nano::account_info info;
-			auto error (ledger.store.account_get (transaction, pending.source, info));
-			(void)error;
-			assert (!error);
+			[[maybe_unused]] auto error (ledger.store.account_get (transaction, pending.source, info));
+			debug_assert (!error);
 			ledger.store.pending_del (transaction, key);
-			ledger.rep_weights.representation_add (info.representative, pending.amount.number ());
+			ledger.cache.rep_weights.representation_add (info.representative, pending.amount.number ());
 			nano::account_info new_info (block_a.hashables.previous, info.representative, info.open_block, ledger.balance (transaction, block_a.hashables.previous), nano::seconds_since_epoch (), info.block_count - 1, nano::epoch::epoch_0);
-			ledger.change_latest (transaction, pending.source, info, new_info);
+			ledger.update_account (transaction, pending.source, info, new_info);
 			ledger.store.block_del (transaction, hash);
 			ledger.store.frontier_del (transaction, hash);
 			ledger.store.frontier_put (transaction, block_a.hashables.previous, pending.source);
@@ -49,16 +51,17 @@ public:
 	void receive_block (nano::receive_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
-		auto amount (ledger.amount (transaction, block_a.hashables.source));
+		auto amount (ledger.amount (transaction, hash));
 		auto destination_account (ledger.account (transaction, hash));
-		auto source_account (ledger.account (transaction, block_a.hashables.source));
+		// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
+		[[maybe_unused]] bool is_pruned (false);
+		auto source_account (ledger.account_safe (transaction, block_a.hashables.source, is_pruned));
 		nano::account_info info;
-		auto error (ledger.store.account_get (transaction, destination_account, info));
-		(void)error;
-		assert (!error);
-		ledger.rep_weights.representation_add (info.representative, 0 - amount);
+		[[maybe_unused]] auto error (ledger.store.account_get (transaction, destination_account, info));
+		debug_assert (!error);
+		ledger.cache.rep_weights.representation_add (info.representative, 0 - amount);
 		nano::account_info new_info (block_a.hashables.previous, info.representative, info.open_block, ledger.balance (transaction, block_a.hashables.previous), nano::seconds_since_epoch (), info.block_count - 1, nano::epoch::epoch_0);
-		ledger.change_latest (transaction, destination_account, info, new_info);
+		ledger.update_account (transaction, destination_account, info, new_info);
 		ledger.store.block_del (transaction, hash);
 		ledger.store.pending_put (transaction, nano::pending_key (destination_account, block_a.hashables.source), { source_account, amount, nano::epoch::epoch_0 });
 		ledger.store.frontier_del (transaction, hash);
@@ -69,12 +72,14 @@ public:
 	void open_block (nano::open_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
-		auto amount (ledger.amount (transaction, block_a.hashables.source));
+		auto amount (ledger.amount (transaction, hash));
 		auto destination_account (ledger.account (transaction, hash));
-		auto source_account (ledger.account (transaction, block_a.hashables.source));
-		ledger.rep_weights.representation_add (block_a.representative (), 0 - amount);
+		// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
+		[[maybe_unused]] bool is_pruned (false);
+		auto source_account (ledger.account_safe (transaction, block_a.hashables.source, is_pruned));
+		ledger.cache.rep_weights.representation_add (block_a.representative (), 0 - amount);
 		nano::account_info new_info;
-		ledger.change_latest (transaction, destination_account, new_info, new_info);
+		ledger.update_account (transaction, destination_account, new_info, new_info);
 		ledger.store.block_del (transaction, hash);
 		ledger.store.pending_put (transaction, nano::pending_key (destination_account, block_a.hashables.source), { source_account, amount, nano::epoch::epoch_0 });
 		ledger.store.frontier_del (transaction, hash);
@@ -86,18 +91,16 @@ public:
 		auto rep_block (ledger.representative (transaction, block_a.hashables.previous));
 		auto account (ledger.account (transaction, block_a.hashables.previous));
 		nano::account_info info;
-		auto error (ledger.store.account_get (transaction, account, info));
-		(void)error;
-		assert (!error);
+		[[maybe_unused]] auto error (ledger.store.account_get (transaction, account, info));
+		debug_assert (!error);
 		auto balance (ledger.balance (transaction, block_a.hashables.previous));
 		auto block = ledger.store.block_get (transaction, rep_block);
 		release_assert (block != nullptr);
 		auto representative = block->representative ();
-		ledger.rep_weights.representation_add (block_a.representative (), 0 - balance);
-		ledger.rep_weights.representation_add (representative, balance);
+		ledger.cache.rep_weights.representation_add_dual (block_a.representative (), 0 - balance, representative, balance);
 		ledger.store.block_del (transaction, hash);
 		nano::account_info new_info (block_a.hashables.previous, representative, info.open_block, info.balance, nano::seconds_since_epoch (), info.block_count - 1, nano::epoch::epoch_0);
-		ledger.change_latest (transaction, account, info, new_info);
+		ledger.update_account (transaction, account, info, new_info);
 		ledger.store.frontier_del (transaction, hash);
 		ledger.store.frontier_put (transaction, block_a.hashables.previous, account);
 		ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
@@ -113,16 +116,19 @@ public:
 		}
 		auto balance (ledger.balance (transaction, block_a.hashables.previous));
 		auto is_send (block_a.hashables.balance < balance);
-		// Add in amount delta
-		ledger.rep_weights.representation_add (block_a.representative (), 0 - block_a.hashables.balance.number ());
 		nano::account representative{ 0 };
 		if (!rep_block_hash.is_zero ())
 		{
-			// Move existing representation
+			// Move existing representation & add in amount delta
 			auto block (ledger.store.block_get (transaction, rep_block_hash));
-			assert (block != nullptr);
+			debug_assert (block != nullptr);
 			representative = block->representative ();
-			ledger.rep_weights.representation_add (representative, balance);
+			ledger.cache.rep_weights.representation_add_dual (representative, balance, block_a.representative (), 0 - block_a.hashables.balance.number ());
+		}
+		else
+		{
+			// Add in amount delta only
+			ledger.cache.rep_weights.representation_add (block_a.representative (), 0 - block_a.hashables.balance.number ());
 		}
 
 		nano::account_info info;
@@ -130,26 +136,28 @@ public:
 
 		if (is_send)
 		{
-			nano::pending_key key (block_a.hashables.link, hash);
+			nano::pending_key key (block_a.hashables.link.as_account (), hash);
 			while (!error && !ledger.store.pending_exists (transaction, key))
 			{
-				error = ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.link), list);
+				error = ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.link.as_account ()), list);
 			}
 			ledger.store.pending_del (transaction, key);
 			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::send);
 		}
 		else if (!block_a.hashables.link.is_zero () && !ledger.is_epoch_link (block_a.hashables.link))
 		{
-			auto source_version (ledger.store.block_version (transaction, block_a.hashables.link));
-			nano::pending_info pending_info (ledger.account (transaction, block_a.hashables.link), block_a.hashables.balance.number () - balance, source_version);
-			ledger.store.pending_put (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link), pending_info);
+			// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
+			[[maybe_unused]] bool is_pruned (false);
+			auto source_account (ledger.account_safe (transaction, block_a.hashables.link.as_block_hash (), is_pruned));
+			nano::pending_info pending_info (source_account, block_a.hashables.balance.number () - balance, block_a.sideband ().source_epoch);
+			ledger.store.pending_put (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()), pending_info);
 			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::receive);
 		}
 
-		assert (!error);
+		debug_assert (!error);
 		auto previous_version (ledger.store.block_version (transaction, block_a.hashables.previous));
 		nano::account_info new_info (block_a.hashables.previous, representative, info.open_block, balance, nano::seconds_since_epoch (), info.block_count - 1, previous_version);
-		ledger.change_latest (transaction, block_a.hashables.account, info, new_info);
+		ledger.update_account (transaction, block_a.hashables.account, info, new_info);
 
 		auto previous (ledger.store.block_get (transaction, block_a.hashables.previous));
 		if (previous != nullptr)
@@ -172,18 +180,18 @@ public:
 	bool error{ false };
 };
 
-class ledger_processor : public nano::block_visitor
+class ledger_processor : public nano::mutable_block_visitor
 {
 public:
 	ledger_processor (nano::ledger &, nano::write_transaction const &, nano::signature_verification = nano::signature_verification::unknown);
 	virtual ~ledger_processor () = default;
-	void send_block (nano::send_block const &) override;
-	void receive_block (nano::receive_block const &) override;
-	void open_block (nano::open_block const &) override;
-	void change_block (nano::change_block const &) override;
-	void state_block (nano::state_block const &) override;
-	void state_block_impl (nano::state_block const &);
-	void epoch_block_impl (nano::state_block const &);
+	void send_block (nano::send_block &) override;
+	void receive_block (nano::receive_block &) override;
+	void open_block (nano::open_block &) override;
+	void change_block (nano::change_block &) override;
+	void state_block (nano::state_block &) override;
+	void state_block_impl (nano::state_block &);
+	void epoch_block_impl (nano::state_block &);
 	nano::ledger & ledger;
 	nano::write_transaction const & transaction;
 	nano::signature_verification verification;
@@ -196,7 +204,7 @@ private:
 // Returns true if this block which has an epoch link is correctly formed.
 bool ledger_processor::validate_epoch_block (nano::state_block const & block_a)
 {
-	assert (ledger.is_epoch_link (block_a.hashables.link));
+	debug_assert (ledger.is_epoch_link (block_a.hashables.link));
 	nano::amount prev_balance (0);
 	if (!block_a.hashables.previous.is_zero ())
 	{
@@ -230,7 +238,7 @@ bool ledger_processor::validate_epoch_block (nano::state_block const & block_a)
 	return (block_a.hashables.balance == prev_balance);
 }
 
-void ledger_processor::state_block (nano::state_block const & block_a)
+void ledger_processor::state_block (nano::state_block & block_a)
 {
 	result.code = nano::process_result::progress;
 	auto is_epoch_block = false;
@@ -253,10 +261,10 @@ void ledger_processor::state_block (nano::state_block const & block_a)
 	}
 }
 
-void ledger_processor::state_block_impl (nano::state_block const & block_a)
+void ledger_processor::state_block_impl (nano::state_block & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.store.block_exists (transaction, block_a.type (), hash));
+	auto existing (ledger.block_or_pruned_exists (transaction, hash));
 	result.code = existing ? nano::process_result::old : nano::process_result::progress; // Have we seen this block before? (Unambiguous)
 	if (result.code == nano::process_result::progress)
 	{
@@ -267,20 +275,23 @@ void ledger_processor::state_block_impl (nano::state_block const & block_a)
 		}
 		if (result.code == nano::process_result::progress)
 		{
-			assert (!validate_message (block_a.hashables.account, hash, block_a.signature));
+			debug_assert (!validate_message (block_a.hashables.account, hash, block_a.signature));
 			result.verified = nano::signature_verification::valid;
 			result.code = block_a.hashables.account.is_zero () ? nano::process_result::opened_burn_account : nano::process_result::progress; // Is this for the burn account? (Unambiguous)
 			if (result.code == nano::process_result::progress)
 			{
 				nano::epoch epoch (nano::epoch::epoch_0);
+				nano::epoch source_epoch (nano::epoch::epoch_0);
 				nano::account_info info;
-				result.amount = block_a.hashables.balance;
+				nano::amount amount (block_a.hashables.balance);
 				auto is_send (false);
+				auto is_receive (false);
 				auto account_error (ledger.store.account_get (transaction, block_a.hashables.account, info));
 				if (!account_error)
 				{
-					epoch = info.epoch ();
 					// Account already exists
+					epoch = info.epoch ();
+					result.previous_balance = info.balance;
 					result.code = block_a.hashables.previous.is_zero () ? nano::process_result::fork : nano::process_result::progress; // Has this account already been opened? (Ambigious)
 					if (result.code == nano::process_result::progress)
 					{
@@ -288,7 +299,8 @@ void ledger_processor::state_block_impl (nano::state_block const & block_a)
 						if (result.code == nano::process_result::progress)
 						{
 							is_send = block_a.hashables.balance < info.balance;
-							result.amount = is_send ? (info.balance.number () - result.amount.number ()) : (result.amount.number () - info.balance.number ());
+							is_receive = !is_send && !block_a.hashables.link.is_zero ();
+							amount = is_send ? (info.balance.number () - amount.number ()) : (amount.number () - info.balance.number ());
 							result.code = block_a.hashables.previous == info.head ? nano::process_result::progress : nano::process_result::fork; // Is the previous block the account's head block? (Ambigious)
 						}
 					}
@@ -296,9 +308,11 @@ void ledger_processor::state_block_impl (nano::state_block const & block_a)
 				else
 				{
 					// Account does not yet exists
+					result.previous_balance = 0;
 					result.code = block_a.previous ().is_zero () ? nano::process_result::progress : nano::process_result::gap_previous; // Does the first block in an account yield 0 for previous() ? (Unambigious)
 					if (result.code == nano::process_result::progress)
 					{
+						is_receive = true;
 						result.code = !block_a.hashables.link.is_zero () ? nano::process_result::progress : nano::process_result::gap_source; // Is the first block receiving from a send ? (Unambigious)
 					}
 				}
@@ -308,70 +322,76 @@ void ledger_processor::state_block_impl (nano::state_block const & block_a)
 					{
 						if (!block_a.hashables.link.is_zero ())
 						{
-							result.code = ledger.store.source_exists (transaction, block_a.hashables.link) ? nano::process_result::progress : nano::process_result::gap_source; // Have we seen the source block already? (Harmless)
+							result.code = ledger.block_or_pruned_exists (transaction, block_a.hashables.link.as_block_hash ()) ? nano::process_result::progress : nano::process_result::gap_source; // Have we seen the source block already? (Harmless)
 							if (result.code == nano::process_result::progress)
 							{
-								nano::pending_key key (block_a.hashables.account, block_a.hashables.link);
+								nano::pending_key key (block_a.hashables.account, block_a.hashables.link.as_block_hash ());
 								nano::pending_info pending;
 								result.code = ledger.store.pending_get (transaction, key, pending) ? nano::process_result::unreceivable : nano::process_result::progress; // Has this source already been received (Malformed)
 								if (result.code == nano::process_result::progress)
 								{
-									result.code = result.amount == pending.amount ? nano::process_result::progress : nano::process_result::balance_mismatch;
-									epoch = std::max (epoch, pending.epoch);
+									result.code = amount == pending.amount ? nano::process_result::progress : nano::process_result::balance_mismatch;
+									source_epoch = pending.epoch;
+									epoch = std::max (epoch, source_epoch);
 								}
 							}
 						}
 						else
 						{
 							// If there's no link, the balance must remain the same, only the representative can change
-							result.code = result.amount.is_zero () ? nano::process_result::progress : nano::process_result::balance_mismatch;
+							result.code = amount.is_zero () ? nano::process_result::progress : nano::process_result::balance_mismatch;
 						}
 					}
 				}
 				if (result.code == nano::process_result::progress)
 				{
-					ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::state_block);
-					result.state_is_send = is_send;
-					nano::block_sideband sideband (nano::block_type::state, block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), epoch);
-					ledger.store.block_put (transaction, hash, block_a, sideband);
+					nano::block_details block_details (epoch, is_send, is_receive, false);
+					result.code = block_a.difficulty () >= nano::work_threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
+					if (result.code == nano::process_result::progress)
+					{
+						ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::state_block);
+						block_a.sideband_set (nano::block_sideband (block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), block_details, source_epoch));
+						ledger.store.block_put (transaction, hash, block_a);
 
-					if (!info.head.is_zero ())
-					{
-						// Move existing representation
-						ledger.rep_weights.representation_add (info.representative, 0 - info.balance.number ());
-					}
-					// Add in amount delta
-					ledger.rep_weights.representation_add (block_a.representative (), block_a.hashables.balance.number ());
+						if (!info.head.is_zero ())
+						{
+							// Move existing representation & add in amount delta
+							ledger.cache.rep_weights.representation_add_dual (info.representative, 0 - info.balance.number (), block_a.representative (), block_a.hashables.balance.number ());
+						}
+						else
+						{
+							// Add in amount delta only
+							ledger.cache.rep_weights.representation_add (block_a.representative (), block_a.hashables.balance.number ());
+						}
 
-					if (is_send)
-					{
-						nano::pending_key key (block_a.hashables.link, hash);
-						nano::pending_info info (block_a.hashables.account, result.amount.number (), epoch);
-						ledger.store.pending_put (transaction, key, info);
-					}
-					else if (!block_a.hashables.link.is_zero ())
-					{
-						ledger.store.pending_del (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link));
-					}
+						if (is_send)
+						{
+							nano::pending_key key (block_a.hashables.link.as_account (), hash);
+							nano::pending_info info (block_a.hashables.account, amount.number (), epoch);
+							ledger.store.pending_put (transaction, key, info);
+						}
+						else if (!block_a.hashables.link.is_zero ())
+						{
+							ledger.store.pending_del (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()));
+						}
 
-					nano::account_info new_info (hash, block_a.representative (), info.open_block.is_zero () ? hash : info.open_block, block_a.hashables.balance, nano::seconds_since_epoch (), info.block_count + 1, epoch);
-					ledger.change_latest (transaction, block_a.hashables.account, info, new_info);
-					if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
-					{
-						ledger.store.frontier_del (transaction, info.head);
+						nano::account_info new_info (hash, block_a.representative (), info.open_block.is_zero () ? hash : info.open_block, block_a.hashables.balance, nano::seconds_since_epoch (), info.block_count + 1, epoch);
+						ledger.update_account (transaction, block_a.hashables.account, info, new_info);
+						if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
+						{
+							ledger.store.frontier_del (transaction, info.head);
+						}
 					}
-					// Frontier table is unnecessary for state blocks and this also prevents old blocks from being inserted on top of state blocks
-					result.account = block_a.hashables.account;
 				}
 			}
 		}
 	}
 }
 
-void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
+void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.store.block_exists (transaction, block_a.type (), hash));
+	auto existing (ledger.block_or_pruned_exists (transaction, hash));
 	result.code = existing ? nano::process_result::old : nano::process_result::progress; // Have we seen this block before? (Unambiguous)
 	if (result.code == nano::process_result::progress)
 	{
@@ -382,7 +402,7 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 		}
 		if (result.code == nano::process_result::progress)
 		{
-			assert (!validate_message (ledger.epoch_signer (block_a.hashables.link), hash, block_a.signature));
+			debug_assert (!validate_message (ledger.epoch_signer (block_a.hashables.link), hash, block_a.signature));
 			result.verified = nano::signature_verification::valid_epoch;
 			result.code = block_a.hashables.account.is_zero () ? nano::process_result::opened_burn_account : nano::process_result::progress; // Is this for the burn account? (Unambiguous)
 			if (result.code == nano::process_result::progress)
@@ -392,6 +412,7 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 				if (!account_error)
 				{
 					// Account already exists
+					result.previous_balance = info.balance;
 					result.code = block_a.hashables.previous.is_zero () ? nano::process_result::fork : nano::process_result::progress; // Has this account already been opened? (Ambigious)
 					if (result.code == nano::process_result::progress)
 					{
@@ -404,7 +425,14 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 				}
 				else
 				{
+					result.previous_balance = 0;
 					result.code = block_a.hashables.representative.is_zero () ? nano::process_result::progress : nano::process_result::representative_mismatch;
+					// Non-exisitng account should have pending entries
+					if (result.code == nano::process_result::progress)
+					{
+						bool pending_exists = ledger.store.pending_any (transaction, block_a.hashables.account);
+						result.code = pending_exists ? nano::process_result::progress : nano::process_result::gap_epoch_open_pending;
+					}
 				}
 				if (result.code == nano::process_result::progress)
 				{
@@ -417,16 +445,19 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 						result.code = block_a.hashables.balance == info.balance ? nano::process_result::progress : nano::process_result::balance_mismatch;
 						if (result.code == nano::process_result::progress)
 						{
-							ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::epoch_block);
-							result.account = block_a.hashables.account;
-							result.amount = 0;
-							nano::block_sideband sideband (nano::block_type::state, block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), epoch);
-							ledger.store.block_put (transaction, hash, block_a, sideband);
-							nano::account_info new_info (hash, block_a.representative (), info.open_block.is_zero () ? hash : info.open_block, info.balance, nano::seconds_since_epoch (), info.block_count + 1, epoch);
-							ledger.change_latest (transaction, block_a.hashables.account, info, new_info);
-							if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
+							nano::block_details block_details (epoch, false, false, true);
+							result.code = block_a.difficulty () >= nano::work_threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
+							if (result.code == nano::process_result::progress)
 							{
-								ledger.store.frontier_del (transaction, info.head);
+								ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::epoch_block);
+								block_a.sideband_set (nano::block_sideband (block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
+								ledger.store.block_put (transaction, hash, block_a);
+								nano::account_info new_info (hash, block_a.representative (), info.open_block.is_zero () ? hash : info.open_block, info.balance, nano::seconds_since_epoch (), info.block_count + 1, epoch);
+								ledger.update_account (transaction, block_a.hashables.account, info, new_info);
+								if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
+								{
+									ledger.store.frontier_del (transaction, info.head);
+								}
 							}
 						}
 					}
@@ -436,10 +467,10 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 	}
 }
 
-void ledger_processor::change_block (nano::change_block const & block_a)
+void ledger_processor::change_block (nano::change_block & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.store.block_exists (transaction, block_a.type (), hash));
+	auto existing (ledger.block_or_pruned_exists (transaction, hash));
 	result.code = existing ? nano::process_result::old : nano::process_result::progress; // Have we seen this block before? (Harmless)
 	if (result.code == nano::process_result::progress)
 	{
@@ -457,8 +488,8 @@ void ledger_processor::change_block (nano::change_block const & block_a)
 					nano::account_info info;
 					auto latest_error (ledger.store.account_get (transaction, account, info));
 					(void)latest_error;
-					assert (!latest_error);
-					assert (info.head == block_a.hashables.previous);
+					debug_assert (!latest_error);
+					debug_assert (info.head == block_a.hashables.previous);
 					// Validate block if not verified outside of ledger
 					if (result.verified != nano::signature_verification::valid)
 					{
@@ -466,20 +497,23 @@ void ledger_processor::change_block (nano::change_block const & block_a)
 					}
 					if (result.code == nano::process_result::progress)
 					{
-						assert (!validate_message (account, hash, block_a.signature));
-						result.verified = nano::signature_verification::valid;
-						nano::block_sideband sideband (nano::block_type::change, account, 0, info.balance, info.block_count + 1, nano::seconds_since_epoch (), nano::epoch::epoch_0);
-						ledger.store.block_put (transaction, hash, block_a, sideband);
-						auto balance (ledger.balance (transaction, block_a.hashables.previous));
-						ledger.rep_weights.representation_add (block_a.representative (), balance);
-						ledger.rep_weights.representation_add (info.representative, 0 - balance);
-						nano::account_info new_info (hash, block_a.representative (), info.open_block, info.balance, nano::seconds_since_epoch (), info.block_count + 1, nano::epoch::epoch_0);
-						ledger.change_latest (transaction, account, info, new_info);
-						ledger.store.frontier_del (transaction, block_a.hashables.previous);
-						ledger.store.frontier_put (transaction, hash, account);
-						result.account = account;
-						result.amount = 0;
-						ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::change);
+						nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
+						result.code = block_a.difficulty () >= nano::work_threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
+						if (result.code == nano::process_result::progress)
+						{
+							debug_assert (!validate_message (account, hash, block_a.signature));
+							result.verified = nano::signature_verification::valid;
+							block_a.sideband_set (nano::block_sideband (account, 0, info.balance, info.block_count + 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
+							ledger.store.block_put (transaction, hash, block_a);
+							auto balance (ledger.balance (transaction, block_a.hashables.previous));
+							ledger.cache.rep_weights.representation_add_dual (block_a.representative (), balance, info.representative, 0 - balance);
+							nano::account_info new_info (hash, block_a.representative (), info.open_block, info.balance, nano::seconds_since_epoch (), info.block_count + 1, nano::epoch::epoch_0);
+							ledger.update_account (transaction, account, info, new_info);
+							ledger.store.frontier_del (transaction, block_a.hashables.previous);
+							ledger.store.frontier_put (transaction, hash, account);
+							result.previous_balance = info.balance;
+							ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::change);
+						}
 					}
 				}
 			}
@@ -487,10 +521,10 @@ void ledger_processor::change_block (nano::change_block const & block_a)
 	}
 }
 
-void ledger_processor::send_block (nano::send_block const & block_a)
+void ledger_processor::send_block (nano::send_block & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.store.block_exists (transaction, block_a.type (), hash));
+	auto existing (ledger.block_or_pruned_exists (transaction, hash));
 	result.code = existing ? nano::process_result::old : nano::process_result::progress; // Have we seen this block before? (Harmless)
 	if (result.code == nano::process_result::progress)
 	{
@@ -512,29 +546,32 @@ void ledger_processor::send_block (nano::send_block const & block_a)
 					}
 					if (result.code == nano::process_result::progress)
 					{
-						assert (!validate_message (account, hash, block_a.signature));
-						result.verified = nano::signature_verification::valid;
-						nano::account_info info;
-						auto latest_error (ledger.store.account_get (transaction, account, info));
-						(void)latest_error;
-						assert (!latest_error);
-						assert (info.head == block_a.hashables.previous);
-						result.code = info.balance.number () >= block_a.hashables.balance.number () ? nano::process_result::progress : nano::process_result::negative_spend; // Is this trying to spend a negative amount (Malicious)
+						nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
+						result.code = block_a.difficulty () >= nano::work_threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 						if (result.code == nano::process_result::progress)
 						{
-							auto amount (info.balance.number () - block_a.hashables.balance.number ());
-							ledger.rep_weights.representation_add (info.representative, 0 - amount);
-							nano::block_sideband sideband (nano::block_type::send, account, 0, block_a.hashables.balance /* unused */, info.block_count + 1, nano::seconds_since_epoch (), nano::epoch::epoch_0);
-							ledger.store.block_put (transaction, hash, block_a, sideband);
-							nano::account_info new_info (hash, info.representative, info.open_block, block_a.hashables.balance, nano::seconds_since_epoch (), info.block_count + 1, nano::epoch::epoch_0);
-							ledger.change_latest (transaction, account, info, new_info);
-							ledger.store.pending_put (transaction, nano::pending_key (block_a.hashables.destination, hash), { account, amount, nano::epoch::epoch_0 });
-							ledger.store.frontier_del (transaction, block_a.hashables.previous);
-							ledger.store.frontier_put (transaction, hash, account);
-							result.account = account;
-							result.amount = amount;
-							result.pending_account = block_a.hashables.destination;
-							ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::send);
+							debug_assert (!validate_message (account, hash, block_a.signature));
+							result.verified = nano::signature_verification::valid;
+							nano::account_info info;
+							auto latest_error (ledger.store.account_get (transaction, account, info));
+							(void)latest_error;
+							debug_assert (!latest_error);
+							debug_assert (info.head == block_a.hashables.previous);
+							result.code = info.balance.number () >= block_a.hashables.balance.number () ? nano::process_result::progress : nano::process_result::negative_spend; // Is this trying to spend a negative amount (Malicious)
+							if (result.code == nano::process_result::progress)
+							{
+								auto amount (info.balance.number () - block_a.hashables.balance.number ());
+								ledger.cache.rep_weights.representation_add (info.representative, 0 - amount);
+								block_a.sideband_set (nano::block_sideband (account, 0, block_a.hashables.balance /* unused */, info.block_count + 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
+								ledger.store.block_put (transaction, hash, block_a);
+								nano::account_info new_info (hash, info.representative, info.open_block, block_a.hashables.balance, nano::seconds_since_epoch (), info.block_count + 1, nano::epoch::epoch_0);
+								ledger.update_account (transaction, account, info, new_info);
+								ledger.store.pending_put (transaction, nano::pending_key (block_a.hashables.destination, hash), { account, amount, nano::epoch::epoch_0 });
+								ledger.store.frontier_del (transaction, block_a.hashables.previous);
+								ledger.store.frontier_put (transaction, hash, account);
+								result.previous_balance = info.balance;
+								ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::send);
+							}
 						}
 					}
 				}
@@ -543,10 +580,10 @@ void ledger_processor::send_block (nano::send_block const & block_a)
 	}
 }
 
-void ledger_processor::receive_block (nano::receive_block const & block_a)
+void ledger_processor::receive_block (nano::receive_block & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.store.block_exists (transaction, block_a.type (), hash));
+	auto existing (ledger.block_or_pruned_exists (transaction, hash));
 	result.code = existing ? nano::process_result::old : nano::process_result::progress; // Have we seen this block already?  (Harmless)
 	if (result.code == nano::process_result::progress)
 	{
@@ -568,9 +605,9 @@ void ledger_processor::receive_block (nano::receive_block const & block_a)
 					}
 					if (result.code == nano::process_result::progress)
 					{
-						assert (!validate_message (account, hash, block_a.signature));
+						debug_assert (!validate_message (account, hash, block_a.signature));
 						result.verified = nano::signature_verification::valid;
-						result.code = ledger.store.source_exists (transaction, block_a.hashables.source) ? nano::process_result::progress : nano::process_result::gap_source; // Have we seen the source block already? (Harmless)
+						result.code = ledger.block_or_pruned_exists (transaction, block_a.hashables.source) ? nano::process_result::progress : nano::process_result::gap_source; // Have we seen the source block already? (Harmless)
 						if (result.code == nano::process_result::progress)
 						{
 							nano::account_info info;
@@ -586,22 +623,30 @@ void ledger_processor::receive_block (nano::receive_block const & block_a)
 									result.code = pending.epoch == nano::epoch::epoch_0 ? nano::process_result::progress : nano::process_result::unreceivable; // Are we receiving a state-only send? (Malformed)
 									if (result.code == nano::process_result::progress)
 									{
-										auto new_balance (info.balance.number () + pending.amount.number ());
-										nano::account_info source_info;
-										auto error (ledger.store.account_get (transaction, pending.source, source_info));
-										(void)error;
-										assert (!error);
-										ledger.store.pending_del (transaction, key);
-										nano::block_sideband sideband (nano::block_type::receive, account, 0, new_balance, info.block_count + 1, nano::seconds_since_epoch (), nano::epoch::epoch_0);
-										ledger.store.block_put (transaction, hash, block_a, sideband);
-										nano::account_info new_info (hash, info.representative, info.open_block, new_balance, nano::seconds_since_epoch (), info.block_count + 1, nano::epoch::epoch_0);
-										ledger.change_latest (transaction, account, info, new_info);
-										ledger.rep_weights.representation_add (info.representative, pending.amount.number ());
-										ledger.store.frontier_del (transaction, block_a.hashables.previous);
-										ledger.store.frontier_put (transaction, hash, account);
-										result.account = account;
-										result.amount = pending.amount;
-										ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::receive);
+										nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
+										result.code = block_a.difficulty () >= nano::work_threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
+										if (result.code == nano::process_result::progress)
+										{
+											auto new_balance (info.balance.number () + pending.amount.number ());
+#ifdef NDEBUG
+											if (ledger.store.block_exists (transaction, block_a.hashables.source))
+											{
+												nano::account_info source_info;
+												[[maybe_unused]] auto error (ledger.store.account_get (transaction, pending.source, source_info));
+												debug_assert (!error);
+											}
+#endif
+											ledger.store.pending_del (transaction, key);
+											block_a.sideband_set (nano::block_sideband (account, 0, new_balance, info.block_count + 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
+											ledger.store.block_put (transaction, hash, block_a);
+											nano::account_info new_info (hash, info.representative, info.open_block, new_balance, nano::seconds_since_epoch (), info.block_count + 1, nano::epoch::epoch_0);
+											ledger.update_account (transaction, account, info, new_info);
+											ledger.cache.rep_weights.representation_add (info.representative, pending.amount.number ());
+											ledger.store.frontier_del (transaction, block_a.hashables.previous);
+											ledger.store.frontier_put (transaction, hash, account);
+											result.previous_balance = info.balance;
+											ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::receive);
+										}
 									}
 								}
 							}
@@ -617,10 +662,10 @@ void ledger_processor::receive_block (nano::receive_block const & block_a)
 	}
 }
 
-void ledger_processor::open_block (nano::open_block const & block_a)
+void ledger_processor::open_block (nano::open_block & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.store.block_exists (transaction, block_a.type (), hash));
+	auto existing (ledger.block_or_pruned_exists (transaction, hash));
 	result.code = existing ? nano::process_result::old : nano::process_result::progress; // Have we seen this block already? (Harmless)
 	if (result.code == nano::process_result::progress)
 	{
@@ -631,9 +676,9 @@ void ledger_processor::open_block (nano::open_block const & block_a)
 		}
 		if (result.code == nano::process_result::progress)
 		{
-			assert (!validate_message (block_a.hashables.account, hash, block_a.signature));
+			debug_assert (!validate_message (block_a.hashables.account, hash, block_a.signature));
 			result.verified = nano::signature_verification::valid;
-			result.code = ledger.store.source_exists (transaction, block_a.hashables.source) ? nano::process_result::progress : nano::process_result::gap_source; // Have we seen the source block? (Harmless)
+			result.code = ledger.block_or_pruned_exists (transaction, block_a.hashables.source) ? nano::process_result::progress : nano::process_result::gap_source; // Have we seen the source block? (Harmless)
 			if (result.code == nano::process_result::progress)
 			{
 				nano::account_info info;
@@ -651,20 +696,28 @@ void ledger_processor::open_block (nano::open_block const & block_a)
 							result.code = pending.epoch == nano::epoch::epoch_0 ? nano::process_result::progress : nano::process_result::unreceivable; // Are we receiving a state-only send? (Malformed)
 							if (result.code == nano::process_result::progress)
 							{
-								nano::account_info source_info;
-								auto error (ledger.store.account_get (transaction, pending.source, source_info));
-								(void)error;
-								assert (!error);
-								ledger.store.pending_del (transaction, key);
-								nano::block_sideband sideband (nano::block_type::open, block_a.hashables.account, 0, pending.amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0);
-								ledger.store.block_put (transaction, hash, block_a, sideband);
-								nano::account_info new_info (hash, block_a.representative (), hash, pending.amount.number (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0);
-								ledger.change_latest (transaction, block_a.hashables.account, info, new_info);
-								ledger.rep_weights.representation_add (block_a.representative (), pending.amount.number ());
-								ledger.store.frontier_put (transaction, hash, block_a.hashables.account);
-								result.account = block_a.hashables.account;
-								result.amount = pending.amount;
-								ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::open);
+								nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
+								result.code = block_a.difficulty () >= nano::work_threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
+								if (result.code == nano::process_result::progress)
+								{
+#ifdef NDEBUG
+									if (ledger.store.block_exists (transaction, block_a.hashables.source))
+									{
+										nano::account_info source_info;
+										[[maybe_unused]] auto error (ledger.store.account_get (transaction, pending.source, source_info));
+										debug_assert (!error);
+									}
+#endif
+									ledger.store.pending_del (transaction, key);
+									block_a.sideband_set (nano::block_sideband (block_a.hashables.account, 0, pending.amount, 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
+									ledger.store.block_put (transaction, hash, block_a);
+									nano::account_info new_info (hash, block_a.representative (), hash, pending.amount.number (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0);
+									ledger.update_account (transaction, block_a.hashables.account, info, new_info);
+									ledger.cache.rep_weights.representation_add (block_a.representative (), pending.amount.number ());
+									ledger.store.frontier_put (transaction, hash, block_a.hashables.account);
+									result.previous_balance = 0;
+									ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::open);
+								}
 							}
 						}
 					}
@@ -675,41 +728,68 @@ void ledger_processor::open_block (nano::open_block const & block_a)
 }
 
 ledger_processor::ledger_processor (nano::ledger & ledger_a, nano::write_transaction const & transaction_a, nano::signature_verification verification_a) :
-ledger (ledger_a),
-transaction (transaction_a),
-verification (verification_a)
+	ledger (ledger_a),
+	transaction (transaction_a),
+	verification (verification_a)
 {
 	result.verified = verification;
 }
 } // namespace
 
-nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, bool cache_reps_a, bool cache_cemented_count_a) :
-store (store_a),
-stats (stat_a),
-check_bootstrap_weights (true)
+nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, nano::generate_cache const & generate_cache_a) :
+	store (store_a),
+	stats (stat_a),
+	check_bootstrap_weights (true)
 {
 	if (!store.init_error ())
 	{
-		auto transaction = store.tx_begin_read ();
-		if (cache_reps_a)
-		{
-			for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
+		initialize (generate_cache_a);
+	}
+}
+
+void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
+{
+	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.block_count)
+	{
+		store.accounts_for_each_par (
+		[this] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
+			uint64_t block_count_l{ 0 };
+			uint64_t account_count_l{ 0 };
+			decltype (this->cache.rep_weights) rep_weights_l;
+			for (; i != n; ++i)
 			{
 				nano::account_info const & info (i->second);
-				rep_weights.representation_add (info.representative, info.balance.number ());
+				block_count_l += info.block_count;
+				++account_count_l;
+				rep_weights_l.representation_add (info.representative, info.balance.number ());
 			}
-		}
+			this->cache.block_count += block_count_l;
+			this->cache.account_count += account_count_l;
+			this->cache.rep_weights.copy_from (rep_weights_l);
+		});
+	}
 
-		if (cache_cemented_count_a)
-		{
-			for (auto i (store.confirmation_height_begin (transaction)), n (store.confirmation_height_end ()); i != n; ++i)
+	if (generate_cache_a.cemented_count)
+	{
+		store.confirmation_height_for_each_par (
+		[this] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::confirmation_height_info> i, nano::store_iterator<nano::account, nano::confirmation_height_info> n) {
+			uint64_t cemented_count_l (0);
+			for (; i != n; ++i)
 			{
-				cemented_count += i->second;
+				cemented_count_l += i->second.height;
 			}
-		}
+			this->cache.cemented_count += cemented_count_l;
+		});
+	}
 
-		// Cache block count
-		block_count_cache = store.block_count (transaction).sum ();
+	auto transaction (store.tx_begin_read ());
+	cache.pruned_count = store.pruned_count (transaction);
+
+	// Final votes requirement for confirmation canary block
+	nano::confirmation_height_info confirmation_height_info;
+	if (!store.confirmation_height_get (transaction, network_params.ledger.final_votes_canary_account, confirmation_height_info))
+	{
+		cache.final_votes_confirmation_canary = (confirmation_height_info.height >= network_params.ledger.final_votes_canary_height);
 	}
 }
 
@@ -719,39 +799,75 @@ nano::uint128_t nano::ledger::balance (nano::transaction const & transaction_a, 
 	return hash_a.is_zero () ? 0 : store.block_balance (transaction_a, hash_a);
 }
 
-// Balance for an account by account number
-nano::uint128_t nano::ledger::account_balance (nano::transaction const & transaction_a, nano::account const & account_a)
+nano::uint128_t nano::ledger::balance_safe (nano::transaction const & transaction_a, nano::block_hash const & hash_a, bool & error_a) const
 {
 	nano::uint128_t result (0);
-	nano::account_info info;
-	auto none (store.account_get (transaction_a, account_a, info));
-	if (!none)
+	if (pruning && !hash_a.is_zero () && !store.block_exists (transaction_a, hash_a))
 	{
-		result = info.balance.number ();
+		error_a = true;
+		result = 0;
+	}
+	else
+	{
+		result = balance (transaction_a, hash_a);
 	}
 	return result;
 }
 
-nano::uint128_t nano::ledger::account_pending (nano::transaction const & transaction_a, nano::account const & account_a)
+// Balance for an account by account number
+nano::uint128_t nano::ledger::account_balance (nano::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
+{
+	nano::uint128_t result (0);
+	if (only_confirmed_a)
+	{
+		nano::confirmation_height_info info;
+		if (!store.confirmation_height_get (transaction_a, account_a, info))
+		{
+			result = balance (transaction_a, info.frontier);
+		}
+	}
+	else
+	{
+		nano::account_info info;
+		auto none (store.account_get (transaction_a, account_a, info));
+		if (!none)
+		{
+			result = info.balance.number ();
+		}
+	}
+	return result;
+}
+
+nano::uint128_t nano::ledger::account_pending (nano::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
 {
 	nano::uint128_t result (0);
 	nano::account end (account_a.number () + 1);
 	for (auto i (store.pending_begin (transaction_a, nano::pending_key (account_a, 0))), n (store.pending_begin (transaction_a, nano::pending_key (end, 0))); i != n; ++i)
 	{
 		nano::pending_info const & info (i->second);
-		result += info.amount.number ();
+		if (only_confirmed_a)
+		{
+			if (block_confirmed (transaction_a, i->first.hash))
+			{
+				result += info.amount.number ();
+			}
+		}
+		else
+		{
+			result += info.amount.number ();
+		}
 	}
 	return result;
 }
 
-nano::process_return nano::ledger::process (nano::write_transaction const & transaction_a, nano::block const & block_a, nano::signature_verification verification)
+nano::process_return nano::ledger::process (nano::write_transaction const & transaction_a, nano::block & block_a, nano::signature_verification verification)
 {
-	assert (!nano::work_validate (block_a));
+	debug_assert (!nano::work_validate_entry (block_a) || network_params.network.is_dev_network ());
 	ledger_processor processor (*this, transaction_a, verification);
 	block_a.visit (processor);
 	if (processor.result.code == nano::process_result::progress)
 	{
-		++block_count_cache;
+		++cache.block_count;
 	}
 	return processor.result;
 }
@@ -759,7 +875,7 @@ nano::process_return nano::ledger::process (nano::write_transaction const & tran
 nano::block_hash nano::ledger::representative (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto result (representative_calculated (transaction_a, hash_a));
-	assert (result.is_zero () || store.block_exists (transaction_a, result));
+	debug_assert (result.is_zero () || store.block_exists (transaction_a, result));
 	return result;
 }
 
@@ -770,18 +886,18 @@ nano::block_hash nano::ledger::representative_calculated (nano::transaction cons
 	return visitor.result;
 }
 
-bool nano::ledger::block_exists (nano::block_hash const & hash_a)
+bool nano::ledger::block_or_pruned_exists (nano::block_hash const & hash_a) const
 {
-	auto transaction (store.tx_begin_read ());
-	auto result (store.block_exists (transaction, hash_a));
-	return result;
+	return block_or_pruned_exists (store.tx_begin_read (), hash_a);
 }
 
-bool nano::ledger::block_exists (nano::block_type type, nano::block_hash const & hash_a)
+bool nano::ledger::block_or_pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
-	auto transaction (store.tx_begin_read ());
-	auto result (store.block_exists (transaction, type, hash_a));
-	return result;
+	if (store.pruned_exists (transaction_a, hash_a))
+	{
+		return true;
+	}
+	return store.block_exists (transaction_a, hash_a);
 }
 
 std::string nano::ledger::block_text (char const * hash_a)
@@ -803,13 +919,27 @@ std::string nano::ledger::block_text (nano::block_hash const & hash_a)
 
 bool nano::ledger::is_send (nano::transaction const & transaction_a, nano::state_block const & block_a) const
 {
+	/*
+	 * if block_a does not have a sideband, then is_send()
+	 * requires that the previous block exists in the database.
+	 * This is because it must retrieve the balance of the previous block.
+	 */
+	debug_assert (block_a.has_sideband () || block_a.hashables.previous.is_zero () || store.block_exists (transaction_a, block_a.hashables.previous));
+
 	bool result (false);
-	nano::block_hash previous (block_a.hashables.previous);
-	if (!previous.is_zero ())
+	if (block_a.has_sideband ())
 	{
-		if (block_a.hashables.balance < balance (transaction_a, previous))
+		result = block_a.sideband ().details.is_send;
+	}
+	else
+	{
+		nano::block_hash previous (block_a.hashables.previous);
+		if (!previous.is_zero ())
 		{
-			result = true;
+			if (block_a.hashables.balance < balance (transaction_a, previous))
+			{
+				result = true;
+			}
 		}
 	}
 	return result;
@@ -825,7 +955,7 @@ nano::account const & nano::ledger::block_destination (nano::transaction const &
 	}
 	else if (state_block != nullptr && is_send (transaction_a, *state_block))
 	{
-		return state_block->hashables.link;
+		return state_block->hashables.link.as_account ();
 	}
 	static nano::account result (0);
 	return result;
@@ -838,7 +968,7 @@ nano::block_hash nano::ledger::block_source (nano::transaction const & transacti
 	 * passed in exist in the database.  This is because it will try
 	 * to check account balances to determine if it is a send block.
 	 */
-	assert (block_a.previous ().is_zero () || store.block_exists (transaction_a, block_a.previous ()));
+	debug_assert (block_a.previous ().is_zero () || store.block_exists (transaction_a, block_a.previous ()));
 
 	// If block_a.source () is nonzero, then we have our source.
 	// However, universal blocks will always return zero.
@@ -846,9 +976,39 @@ nano::block_hash nano::ledger::block_source (nano::transaction const & transacti
 	nano::state_block const * state_block (dynamic_cast<nano::state_block const *> (&block_a));
 	if (state_block != nullptr && !is_send (transaction_a, *state_block))
 	{
-		result = state_block->hashables.link;
+		result = state_block->hashables.link.as_block_hash ();
 	}
 	return result;
+}
+
+std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (nano::transaction const & transaction_a) const
+{
+	nano::block_hash hash (0);
+	nano::root root (0);
+	if (!pruning)
+	{
+		auto block (store.block_random (transaction_a));
+		hash = block->hash ();
+		root = block->root ();
+	}
+	else
+	{
+		uint64_t count (cache.block_count);
+		release_assert (std::numeric_limits<CryptoPP::word32>::max () > count);
+		auto region = static_cast<size_t> (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (count - 1)));
+		// Pruned cache cannot guarantee that pruned blocks are already commited
+		if (region < cache.pruned_count)
+		{
+			hash = store.pruned_random (transaction_a);
+		}
+		if (hash.is_zero ())
+		{
+			auto block (store.block_random (transaction_a));
+			hash = block->hash ();
+			root = block->root ();
+		}
+	}
+	return std::make_pair (hash, root.as_block_hash ());
 }
 
 // Vote weight of an account
@@ -856,7 +1016,7 @@ nano::uint128_t nano::ledger::weight (nano::account const & account_a)
 {
 	if (check_bootstrap_weights.load ())
 	{
-		if (block_count_cache < bootstrap_weight_max_blocks)
+		if (cache.block_count < bootstrap_weight_max_blocks)
 		{
 			auto weight = bootstrap_weights.find (account_a);
 			if (weight != bootstrap_weights.end ())
@@ -869,13 +1029,13 @@ nano::uint128_t nano::ledger::weight (nano::account const & account_a)
 			check_bootstrap_weights = false;
 		}
 	}
-	return rep_weights.representation_get (account_a);
+	return cache.rep_weights.representation_get (account_a);
 }
 
 // Rollback blocks until `block_a' doesn't exist or it tries to penetrate the confirmation height
 bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano::block_hash const & block_a, std::vector<std::shared_ptr<nano::block>> & list_a)
 {
-	assert (store.block_exists (transaction_a, block_a));
+	debug_assert (store.block_exists (transaction_a, block_a));
 	auto account_l (account (transaction_a, block_a));
 	auto block_account_height (store.block_account_height (transaction_a, block_a));
 	rollback_visitor rollback (transaction_a, *this, list_a);
@@ -883,21 +1043,19 @@ bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano
 	auto error (false);
 	while (!error && store.block_exists (transaction_a, block_a))
 	{
-		uint64_t confirmation_height;
-		auto latest_error = store.confirmation_height_get (transaction_a, account_l, confirmation_height);
-		assert (!latest_error);
-		(void)latest_error;
-		if (block_account_height > confirmation_height)
+		nano::confirmation_height_info confirmation_height_info;
+		store.confirmation_height_get (transaction_a, account_l, confirmation_height_info);
+		if (block_account_height > confirmation_height_info.height)
 		{
-			latest_error = store.account_get (transaction_a, account_l, account_info);
-			assert (!latest_error);
+			auto latest_error = store.account_get (transaction_a, account_l, account_info);
+			debug_assert (!latest_error);
 			auto block (store.block_get (transaction_a, account_info.head));
 			list_a.push_back (block);
 			block->visit (rollback);
 			error = rollback.error;
 			if (!error)
 			{
-				--block_count_cache;
+				--cache.block_count;
 			}
 		}
 		else
@@ -920,6 +1078,27 @@ nano::account nano::ledger::account (nano::transaction const & transaction_a, na
 	return store.block_account (transaction_a, hash_a);
 }
 
+nano::account nano::ledger::account_safe (nano::transaction const & transaction_a, nano::block_hash const & hash_a, bool & error_a) const
+{
+	if (!pruning)
+	{
+		return store.block_account (transaction_a, hash_a);
+	}
+	else
+	{
+		auto block (store.block_get (transaction_a, hash_a));
+		if (block != nullptr)
+		{
+			return store.block_account_calculated (*block);
+		}
+		else
+		{
+			error_a = true;
+			return 0;
+		}
+	}
+}
+
 // Return amount decrease or increase for block
 nano::uint128_t nano::ledger::amount (nano::transaction const & transaction_a, nano::account const & account_a)
 {
@@ -933,6 +1112,15 @@ nano::uint128_t nano::ledger::amount (nano::transaction const & transaction_a, n
 	auto block_balance (balance (transaction_a, hash_a));
 	auto previous_balance (balance (transaction_a, block->previous ()));
 	return block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
+}
+
+nano::uint128_t nano::ledger::amount_safe (nano::transaction const & transaction_a, nano::block_hash const & hash_a, bool & error_a) const
+{
+	auto block (store.block_get (transaction_a, hash_a));
+	debug_assert (block);
+	auto block_balance (balance (transaction_a, hash_a));
+	auto previous_balance (balance_safe (transaction_a, block->previous (), error_a));
+	return error_a ? 0 : block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
 }
 
 // Return latest block for account
@@ -957,68 +1145,94 @@ nano::root nano::ledger::latest_root (nano::transaction const & transaction_a, n
 	}
 }
 
-void nano::ledger::dump_account_chain (nano::account const & account_a)
+void nano::ledger::dump_account_chain (nano::account const & account_a, std::ostream & stream)
 {
 	auto transaction (store.tx_begin_read ());
 	auto hash (latest (transaction, account_a));
 	while (!hash.is_zero ())
 	{
 		auto block (store.block_get (transaction, hash));
-		assert (block != nullptr);
-		std::cerr << hash.to_string () << std::endl;
+		debug_assert (block != nullptr);
+		stream << hash.to_string () << std::endl;
 		hash = block->previous ();
 	}
 }
 
-class block_fit_visitor : public nano::block_visitor
+bool nano::ledger::could_fit (nano::transaction const & transaction_a, nano::block const & block_a) const
+{
+	auto dependencies (dependent_blocks (transaction_a, block_a));
+	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction_a] (nano::block_hash const & hash_a) {
+		return hash_a.is_zero () || store.block_exists (transaction_a, hash_a);
+	});
+}
+
+bool nano::ledger::dependents_confirmed (nano::transaction const & transaction_a, nano::block const & block_a) const
+{
+	auto dependencies (dependent_blocks (transaction_a, block_a));
+	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction_a] (nano::block_hash const & hash_a) {
+		auto result (hash_a.is_zero ());
+		if (!result)
+		{
+			result = block_confirmed (transaction_a, hash_a);
+		}
+		return result;
+	});
+}
+
+bool nano::ledger::is_epoch_link (nano::link const & link_a) const
+{
+	return network_params.ledger.epochs.is_epoch_link (link_a);
+}
+
+class dependent_block_visitor : public nano::block_visitor
 {
 public:
-	block_fit_visitor (nano::ledger & ledger_a, nano::transaction const & transaction_a) :
-	ledger (ledger_a),
-	transaction (transaction_a),
-	result (false)
+	dependent_block_visitor (nano::ledger const & ledger_a, nano::transaction const & transaction_a) :
+		ledger (ledger_a),
+		transaction (transaction_a),
+		result ({ 0, 0 })
 	{
 	}
 	void send_block (nano::send_block const & block_a) override
 	{
-		result = ledger.store.block_exists (transaction, block_a.previous ());
+		result[0] = block_a.previous ();
 	}
 	void receive_block (nano::receive_block const & block_a) override
 	{
-		result = ledger.store.block_exists (transaction, block_a.previous ());
-		result &= ledger.store.block_exists (transaction, block_a.source ());
+		result[0] = block_a.previous ();
+		result[1] = block_a.source ();
 	}
 	void open_block (nano::open_block const & block_a) override
 	{
-		result = ledger.store.block_exists (transaction, block_a.source ());
+		if (block_a.source () != ledger.network_params.ledger.genesis_account)
+		{
+			result[0] = block_a.source ();
+		}
 	}
 	void change_block (nano::change_block const & block_a) override
 	{
-		result = ledger.store.block_exists (transaction, block_a.previous ());
+		result[0] = block_a.previous ();
 	}
 	void state_block (nano::state_block const & block_a) override
 	{
-		result = block_a.previous ().is_zero () || ledger.store.block_exists (transaction, block_a.previous ());
-		if (result && !ledger.is_send (transaction, block_a))
+		result[0] = block_a.hashables.previous;
+		result[1] = block_a.hashables.link.as_block_hash ();
+		// ledger.is_send will check the sideband first, if block_a has a loaded sideband the check that previous block exists can be skipped
+		if (ledger.is_epoch_link (block_a.hashables.link) || ((block_a.has_sideband () || ledger.store.block_exists (transaction, block_a.hashables.previous)) && ledger.is_send (transaction, block_a)))
 		{
-			result &= ledger.store.block_exists (transaction, block_a.hashables.link) || block_a.hashables.link.is_zero () || ledger.is_epoch_link (block_a.hashables.link);
+			result[1].clear ();
 		}
 	}
-	nano::ledger & ledger;
+	nano::ledger const & ledger;
 	nano::transaction const & transaction;
-	bool result;
+	std::array<nano::block_hash, 2> result;
 };
 
-bool nano::ledger::could_fit (nano::transaction const & transaction_a, nano::block const & block_a)
+std::array<nano::block_hash, 2> nano::ledger::dependent_blocks (nano::transaction const & transaction_a, nano::block const & block_a) const
 {
-	block_fit_visitor visitor (*this, transaction_a);
+	dependent_block_visitor visitor (*this, transaction_a);
 	block_a.visit (visitor);
 	return visitor.result;
-}
-
-bool nano::ledger::is_epoch_link (nano::link const & link_a)
-{
-	return network_params.ledger.epochs.is_epoch_link (link_a);
 }
 
 nano::account const & nano::ledger::epoch_signer (nano::link const & link_a) const
@@ -1031,14 +1245,13 @@ nano::link const & nano::ledger::epoch_link (nano::epoch epoch_a) const
 	return network_params.ledger.epochs.link (epoch_a);
 }
 
-void nano::ledger::change_latest (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & old_a, nano::account_info const & new_a)
+void nano::ledger::update_account (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & old_a, nano::account_info const & new_a)
 {
 	if (!new_a.head.is_zero ())
 	{
 		if (old_a.head.is_zero () && new_a.open_block == new_a.head)
 		{
-			assert (!store.confirmation_height_exists (transaction_a, account_a));
-			store.confirmation_height_put (transaction_a, account_a, 0);
+			++cache.account_count;
 		}
 		if (!old_a.head.is_zero () && old_a.epoch () != new_a.epoch ())
 		{
@@ -1049,8 +1262,10 @@ void nano::ledger::change_latest (nano::write_transaction const & transaction_a,
 	}
 	else
 	{
-		store.confirmation_height_del (transaction_a, account_a);
+		debug_assert (!store.confirmation_height_exists (transaction_a, account_a));
 		store.account_del (transaction_a, account_a);
+		debug_assert (cache.account_count > 0);
+		--cache.account_count;
 	}
 }
 
@@ -1061,7 +1276,7 @@ std::shared_ptr<nano::block> nano::ledger::successor (nano::transaction const & 
 	if (root_a.previous ().is_zero ())
 	{
 		nano::account_info info;
-		if (!store.account_get (transaction_a, root_a.root (), info))
+		if (!store.account_get (transaction_a, root_a.root ().as_account (), info))
 		{
 			successor = info.open_block;
 		}
@@ -1084,62 +1299,262 @@ std::shared_ptr<nano::block> nano::ledger::successor (nano::transaction const & 
 	{
 		result = store.block_get (transaction_a, successor);
 	}
-	assert (successor.is_zero () || result != nullptr);
+	debug_assert (successor.is_zero () || result != nullptr);
 	return result;
 }
 
 std::shared_ptr<nano::block> nano::ledger::forked_block (nano::transaction const & transaction_a, nano::block const & block_a)
 {
-	assert (!store.block_exists (transaction_a, block_a.type (), block_a.hash ()));
+	debug_assert (!store.block_exists (transaction_a, block_a.hash ()));
 	auto root (block_a.root ());
-	assert (store.block_exists (transaction_a, root) || store.account_exists (transaction_a, root));
-	auto result (store.block_get (transaction_a, store.block_successor (transaction_a, root)));
+	debug_assert (store.block_exists (transaction_a, root.as_block_hash ()) || store.account_exists (transaction_a, root.as_account ()));
+	auto result (store.block_get (transaction_a, store.block_successor (transaction_a, root.as_block_hash ())));
 	if (result == nullptr)
 	{
 		nano::account_info info;
-		auto error (store.account_get (transaction_a, root, info));
+		auto error (store.account_get (transaction_a, root.as_account (), info));
 		(void)error;
-		assert (!error);
+		debug_assert (!error);
 		result = store.block_get (transaction_a, info.open_block);
-		assert (result != nullptr);
+		debug_assert (result != nullptr);
 	}
 	return result;
 }
 
 bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
-	auto confirmed (false);
-	auto block_height (store.block_account_height (transaction_a, hash_a));
-	if (block_height > 0) // 0 indicates that the block doesn't exist
+	if (store.pruned_exists (transaction_a, hash_a))
 	{
-		uint64_t confirmation_height;
-		release_assert (!store.confirmation_height_get (transaction_a, account (transaction_a, hash_a), confirmation_height));
-		confirmed = (confirmation_height >= block_height);
+		return true;
 	}
-	return confirmed;
+	auto block = store.block_get (transaction_a, hash_a);
+	if (block)
+	{
+		nano::confirmation_height_info confirmation_height_info;
+		store.confirmation_height_get (transaction_a, block->account ().is_zero () ? block->sideband ().account : block->account (), confirmation_height_info);
+		auto confirmed (confirmation_height_info.height >= block->sideband ().height);
+		return confirmed;
+	}
+	return false;
 }
 
-bool nano::ledger::block_not_confirmed_or_not_exists (nano::block const & block_a) const
+uint64_t nano::ledger::pruning_action (nano::write_transaction & transaction_a, nano::block_hash const & hash_a, uint64_t const batch_size_a)
 {
-	bool result (true);
-	auto hash (block_a.hash ());
-	auto transaction (store.tx_begin_read ());
-	if (store.block_exists (transaction, block_a.type (), hash))
+	uint64_t pruned_count (0);
+	nano::block_hash hash (hash_a);
+	while (!hash.is_zero () && hash != network_params.ledger.genesis_hash)
 	{
-		result = !block_confirmed (transaction, hash);
+		auto block (store.block_get (transaction_a, hash));
+		if (block != nullptr)
+		{
+			store.block_del (transaction_a, hash);
+			store.pruned_put (transaction_a, hash);
+			hash = block->previous ();
+			++pruned_count;
+			++cache.pruned_count;
+			if (pruned_count % batch_size_a == 0)
+			{
+				transaction_a.commit ();
+				transaction_a.renew ();
+			}
+		}
+		else if (store.pruned_exists (transaction_a, hash))
+		{
+			hash = 0;
+		}
+		else
+		{
+			hash = 0;
+			release_assert (false && "Error finding block for pruning");
+		}
 	}
+	return pruned_count;
+}
+
+std::multimap<uint64_t, nano::uncemented_info, std::greater<>> nano::ledger::unconfirmed_frontiers () const
+{
+	nano::locked<std::multimap<uint64_t, nano::uncemented_info, std::greater<>>> result;
+	using result_t = decltype (result)::value_type;
+
+	store.accounts_for_each_par ([this, &result] (nano::read_transaction const & transaction_a, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
+		result_t unconfirmed_frontiers_l;
+		for (; i != n; ++i)
+		{
+			auto const & account (i->first);
+			auto const & account_info (i->second);
+
+			nano::confirmation_height_info conf_height_info;
+			this->store.confirmation_height_get (transaction_a, account, conf_height_info);
+
+			if (account_info.block_count != conf_height_info.height)
+			{
+				// Always output as no confirmation height has been set on the account yet
+				auto height_delta = account_info.block_count - conf_height_info.height;
+				auto const & frontier = account_info.head;
+				auto const & cemented_frontier = conf_height_info.frontier;
+				unconfirmed_frontiers_l.emplace (std::piecewise_construct, std::forward_as_tuple (height_delta), std::forward_as_tuple (cemented_frontier, frontier, i->first));
+			}
+		}
+		// Merge results
+		auto result_locked = result.lock ();
+		result_locked->insert (unconfirmed_frontiers_l.begin (), unconfirmed_frontiers_l.end ());
+	});
 	return result;
 }
 
-namespace nano
+// A precondition is that the store is an LMDB store
+bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data_path_a) const
 {
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (ledger & ledger, const std::string & name)
+	boost::system::error_code error_chmod;
+	nano::set_secure_perm_directory (data_path_a, error_chmod);
+	auto rockdb_data_path = data_path_a / "rocksdb";
+	boost::filesystem::remove_all (rockdb_data_path);
+
+	nano::logger_mt logger;
+	auto error (false);
+
+	// Open rocksdb database
+	nano::rocksdb_config rocksdb_config;
+	rocksdb_config.enable = true;
+	auto rocksdb_store = nano::make_store (logger, data_path_a, false, true, rocksdb_config);
+
+	if (!rocksdb_store->init_error ())
+	{
+		store.blocks_for_each_par (
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::blocks }));
+
+				std::vector<uint8_t> vector;
+				{
+					nano::vectorstream stream (vector);
+					nano::serialize_block (stream, *i->second.block);
+					i->second.sideband.serialize (stream, i->second.block->type ());
+				}
+				rocksdb_store->block_raw_put (rocksdb_transaction, vector, i->first);
+			}
+		});
+
+		store.unchecked_for_each_par (
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::unchecked }));
+				rocksdb_store->unchecked_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		store.pending_for_each_par (
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pending }));
+				rocksdb_store->pending_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		store.confirmation_height_for_each_par (
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::confirmation_height }));
+				rocksdb_store->confirmation_height_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		store.accounts_for_each_par (
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::accounts }));
+				rocksdb_store->account_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		store.frontiers_for_each_par (
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::frontiers }));
+				rocksdb_store->frontier_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		store.pruned_for_each_par (
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pruned }));
+				rocksdb_store->pruned_put (rocksdb_transaction, i->first);
+			}
+		});
+
+		store.final_vote_for_each_par (
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::final_votes }));
+				rocksdb_store->final_vote_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		auto lmdb_transaction (store.tx_begin_read ());
+		auto version = store.version_get (lmdb_transaction);
+		auto rocksdb_transaction (rocksdb_store->tx_begin_write ());
+		rocksdb_store->version_put (rocksdb_transaction, version);
+
+		for (auto i (store.online_weight_begin (lmdb_transaction)), n (store.online_weight_end ()); i != n; ++i)
+		{
+			rocksdb_store->online_weight_put (rocksdb_transaction, i->first, i->second);
+		}
+
+		for (auto i (store.peers_begin (lmdb_transaction)), n (store.peers_end ()); i != n; ++i)
+		{
+			rocksdb_store->peer_put (rocksdb_transaction, i->first);
+		}
+
+		// Compare counts
+		error |= store.unchecked_count (lmdb_transaction) != rocksdb_store->unchecked_count (rocksdb_transaction);
+		error |= store.peer_count (lmdb_transaction) != rocksdb_store->peer_count (rocksdb_transaction);
+		error |= store.pruned_count (lmdb_transaction) != rocksdb_store->pruned_count (rocksdb_transaction);
+		error |= store.final_vote_count (lmdb_transaction) != rocksdb_store->final_vote_count (rocksdb_transaction);
+		error |= store.online_weight_count (lmdb_transaction) != rocksdb_store->online_weight_count (rocksdb_transaction);
+		error |= store.version_get (lmdb_transaction) != rocksdb_store->version_get (rocksdb_transaction);
+
+		// For large tables a random key is used instead and makes sure it exists
+		auto random_block (store.block_random (lmdb_transaction));
+		error |= rocksdb_store->block_get (rocksdb_transaction, random_block->hash ()) == nullptr;
+
+		auto account = random_block->account ().is_zero () ? random_block->sideband ().account : random_block->account ();
+		nano::account_info account_info;
+		error |= rocksdb_store->account_get (rocksdb_transaction, account, account_info);
+
+		// If confirmation height exists in the lmdb ledger for this account it should exist in the rocksdb ledger
+		nano::confirmation_height_info confirmation_height_info;
+		if (!store.confirmation_height_get (lmdb_transaction, account, confirmation_height_info))
+		{
+			error |= rocksdb_store->confirmation_height_get (rocksdb_transaction, account, confirmation_height_info);
+		}
+	}
+	else
+	{
+		error = true;
+	}
+	return error;
+}
+
+nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account) :
+	cemented_frontier (cemented_frontier), frontier (frontier), account (account)
 {
-	auto composite = std::make_unique<seq_con_info_composite> (name);
+}
+
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (ledger & ledger, std::string const & name)
+{
 	auto count = ledger.bootstrap_weights_size.load ();
 	auto sizeof_element = sizeof (decltype (ledger.bootstrap_weights)::value_type);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "bootstrap_weights", count, sizeof_element }));
-	composite->add_component (collect_seq_con_info (ledger.rep_weights, "rep_weights"));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "bootstrap_weights", count, sizeof_element }));
+	composite->add_component (collect_container_info (ledger.cache.rep_weights, "rep_weights"));
 	return composite;
-}
 }

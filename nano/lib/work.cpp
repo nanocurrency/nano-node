@@ -1,27 +1,136 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/epoch.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/xorshift.hpp>
 
 #include <future>
 
-bool nano::work_validate (nano::root const & root_a, uint64_t work_a, uint64_t * difficulty_a)
+std::string nano::to_string (nano::work_version const version_a)
+{
+	std::string result ("invalid");
+	switch (version_a)
+	{
+		case nano::work_version::work_1:
+			result = "work_1";
+			break;
+		case nano::work_version::unspecified:
+			result = "unspecified";
+			break;
+	}
+	return result;
+}
+
+bool nano::work_validate_entry (nano::block const & block_a)
+{
+	return block_a.difficulty () < nano::work_threshold_entry (block_a.work_version (), block_a.type ());
+}
+
+bool nano::work_validate_entry (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a)
+{
+	return nano::work_difficulty (version_a, root_a, work_a) < nano::work_threshold_entry (version_a, nano::block_type::state);
+}
+
+uint64_t nano::work_difficulty (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a)
+{
+	uint64_t result{ 0 };
+	switch (version_a)
+	{
+		case nano::work_version::work_1:
+			result = nano::work_v1::value (root_a, work_a);
+			break;
+		default:
+			debug_assert (false && "Invalid version specified to work_difficulty");
+	}
+	return result;
+}
+
+uint64_t nano::work_threshold_base (nano::work_version const version_a)
+{
+	uint64_t result{ std::numeric_limits<uint64_t>::max () };
+	switch (version_a)
+	{
+		case nano::work_version::work_1:
+			result = nano::work_v1::threshold_base ();
+			break;
+		default:
+			debug_assert (false && "Invalid version specified to work_threshold_base");
+	}
+	return result;
+}
+
+uint64_t nano::work_threshold_entry (nano::work_version const version_a, nano::block_type const type_a)
+{
+	uint64_t result{ std::numeric_limits<uint64_t>::max () };
+	if (type_a == nano::block_type::state)
+	{
+		switch (version_a)
+		{
+			case nano::work_version::work_1:
+				result = nano::work_v1::threshold_entry ();
+				break;
+			default:
+				debug_assert (false && "Invalid version specified to work_threshold_entry");
+		}
+	}
+	else
+	{
+		static nano::network_constants network_constants;
+		result = network_constants.publish_thresholds.epoch_1;
+	}
+	return result;
+}
+
+uint64_t nano::work_threshold (nano::work_version const version_a, nano::block_details const details_a)
+{
+	uint64_t result{ std::numeric_limits<uint64_t>::max () };
+	switch (version_a)
+	{
+		case nano::work_version::work_1:
+			result = nano::work_v1::threshold (details_a);
+			break;
+		default:
+			debug_assert (false && "Invalid version specified to ledger work_threshold");
+	}
+	return result;
+}
+
+uint64_t nano::work_v1::threshold_base ()
 {
 	static nano::network_constants network_constants;
-	auto value (nano::work_value (root_a, work_a));
-	if (difficulty_a != nullptr)
-	{
-		*difficulty_a = value;
-	}
-	return value < network_constants.publish_threshold;
+	return network_constants.publish_thresholds.base;
 }
 
-bool nano::work_validate (nano::block const & block_a, uint64_t * difficulty_a)
+uint64_t nano::work_v1::threshold_entry ()
 {
-	return work_validate (block_a.root (), block_a.block_work (), difficulty_a);
+	static nano::network_constants network_constants;
+	return network_constants.publish_thresholds.entry;
 }
 
-uint64_t nano::work_value (nano::root const & root_a, uint64_t work_a)
+uint64_t nano::work_v1::threshold (nano::block_details const details_a)
+{
+	static_assert (nano::epoch::max == nano::epoch::epoch_2, "work_v1::threshold is ill-defined");
+	static nano::network_constants network_constants;
+
+	uint64_t result{ std::numeric_limits<uint64_t>::max () };
+	switch (details_a.epoch)
+	{
+		case nano::epoch::epoch_2:
+			result = (details_a.is_receive || details_a.is_epoch) ? network_constants.publish_thresholds.epoch_2_receive : network_constants.publish_thresholds.epoch_2;
+			break;
+		case nano::epoch::epoch_1:
+		case nano::epoch::epoch_0:
+			result = network_constants.publish_thresholds.epoch_1;
+			break;
+		default:
+			debug_assert (false && "Invalid epoch specified to work_v1 ledger work_threshold");
+	}
+	return result;
+}
+
+#ifndef NANO_FUZZER_TEST
+uint64_t nano::work_v1::value (nano::root const & root_a, uint64_t work_a)
 {
 	uint64_t result;
 	blake2b_state hash;
@@ -31,17 +140,74 @@ uint64_t nano::work_value (nano::root const & root_a, uint64_t work_a)
 	blake2b_final (&hash, reinterpret_cast<uint8_t *> (&result), sizeof (result));
 	return result;
 }
+#else
+uint64_t nano::work_v1::value (nano::root const & root_a, uint64_t work_a)
+{
+	static nano::network_constants network_constants;
+	if (!network_constants.is_dev_network ())
+	{
+		debug_assert (false);
+		std::exit (1);
+	}
+	return network_constants.publish_thresholds.base + 1;
+}
+#endif
 
-nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::root const &, uint64_t, std::atomic<int> &)> opencl_a) :
-ticket (0),
-done (false),
-pow_rate_limiter (pow_rate_limiter_a),
-opencl (opencl_a)
+double nano::normalized_multiplier (double const multiplier_a, uint64_t const threshold_a)
+{
+	static nano::network_constants network_constants;
+	debug_assert (multiplier_a >= 1);
+	auto multiplier (multiplier_a);
+	/* Normalization rules
+	ratio = multiplier of max work threshold (send epoch 2) from given threshold
+	i.e. max = 0xfe00000000000000, given = 0xf000000000000000, ratio = 8.0
+	normalized = (multiplier + (ratio - 1)) / ratio;
+	Epoch 1
+	multiplier	 | normalized
+	1.0 		 | 1.0
+	9.0 		 | 2.0
+	25.0 		 | 4.0
+	Epoch 2 (receive / epoch subtypes)
+	multiplier	 | normalized
+	1.0 		 | 1.0
+	65.0 		 | 2.0
+	241.0 		 | 4.0
+	*/
+	if (threshold_a == network_constants.publish_thresholds.epoch_1 || threshold_a == network_constants.publish_thresholds.epoch_2_receive)
+	{
+		auto ratio (nano::difficulty::to_multiplier (network_constants.publish_thresholds.epoch_2, threshold_a));
+		debug_assert (ratio >= 1);
+		multiplier = (multiplier + (ratio - 1.0)) / ratio;
+		debug_assert (multiplier >= 1);
+	}
+	return multiplier;
+}
+
+double nano::denormalized_multiplier (double const multiplier_a, uint64_t const threshold_a)
+{
+	static nano::network_constants network_constants;
+	debug_assert (multiplier_a >= 1);
+	auto multiplier (multiplier_a);
+	if (threshold_a == network_constants.publish_thresholds.epoch_1 || threshold_a == network_constants.publish_thresholds.epoch_2_receive)
+	{
+		auto ratio (nano::difficulty::to_multiplier (network_constants.publish_thresholds.epoch_2, threshold_a));
+		debug_assert (ratio >= 1);
+		multiplier = multiplier * ratio + 1.0 - ratio;
+		debug_assert (multiplier >= 1);
+	}
+	return multiplier;
+}
+
+nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> opencl_a) :
+	ticket (0),
+	done (false),
+	pow_rate_limiter (pow_rate_limiter_a),
+	opencl (opencl_a)
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
-	auto count (network_constants.is_test_network () ? std::min (max_threads_a, 1u) : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
+	auto count (network_constants.is_dev_network () ? std::min (max_threads_a, 1u) : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
 	if (opencl)
 	{
 		// One thread to handle OpenCL
@@ -49,12 +215,11 @@ opencl (opencl_a)
 	}
 	for (auto i (0u); i < count; ++i)
 	{
-		auto thread (boost::thread (attrs, [this, i]() {
+		threads.emplace_back (attrs, [this, i] () {
 			nano::thread_role::set (nano::thread_role::name::work);
 			nano::work_thread_reprioritize ();
 			loop (i);
-		}));
-		threads.push_back (std::move (thread));
+		});
 	}
 }
 
@@ -76,7 +241,7 @@ void nano::work_pool::loop (uint64_t thread)
 	uint64_t output;
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (output));
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	auto pow_sleep = pow_rate_limiter;
 	while (!done)
 	{
@@ -95,12 +260,12 @@ void nano::work_pool::loop (uint64_t thread)
 			boost::optional<uint64_t> opt_work;
 			if (thread == 0 && opencl)
 			{
-				opt_work = opencl (current_l.item, current_l.difficulty, ticket);
+				opt_work = opencl (current_l.version, current_l.item, current_l.difficulty, ticket);
 			}
 			if (opt_work.is_initialized ())
 			{
 				work = *opt_work;
-				output = work_value (current_l.item, work);
+				output = nano::work_v1::value (current_l.item, work);
 			}
 			else
 			{
@@ -132,8 +297,8 @@ void nano::work_pool::loop (uint64_t thread)
 			if (ticket == ticket_l)
 			{
 				// If the ticket matches what we started with, we're the ones that found the solution
-				assert (output >= current_l.difficulty);
-				assert (current_l.difficulty == 0 || work_value (current_l.item, work) == output);
+				debug_assert (output >= current_l.difficulty);
+				debug_assert (current_l.difficulty == 0 || nano::work_v1::value (current_l.item, work) == output);
 				// Signal other threads to stop their work next time they check ticket
 				++ticket;
 				pending.pop_front ();
@@ -156,7 +321,7 @@ void nano::work_pool::loop (uint64_t thread)
 
 void nano::work_pool::cancel (nano::root const & root_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	if (!done)
 	{
 		if (!pending.empty ())
@@ -166,7 +331,7 @@ void nano::work_pool::cancel (nano::root const & root_a)
 				++ticket;
 			}
 		}
-		pending.remove_if ([&root_a](decltype (pending)::value_type const & item_a) {
+		pending.remove_if ([&root_a] (decltype (pending)::value_type const & item_a) {
 			bool result{ false };
 			if (item_a.item == root_a)
 			{
@@ -184,26 +349,21 @@ void nano::work_pool::cancel (nano::root const & root_a)
 void nano::work_pool::stop ()
 {
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		done = true;
 		++ticket;
 	}
 	producer_condition.notify_all ();
 }
 
-void nano::work_pool::generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a)
+void nano::work_pool::generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::function<void (boost::optional<uint64_t> const &)> callback_a)
 {
-	generate (root_a, callback_a, network_constants.publish_threshold);
-}
-
-void nano::work_pool::generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a, uint64_t difficulty_a)
-{
-	assert (!root_a.is_zero ());
+	debug_assert (!root_a.is_zero ());
 	if (!threads.empty ())
 	{
 		{
-			nano::lock_guard<std::mutex> lock (mutex);
-			pending.push_back ({ root_a, callback_a, difficulty_a });
+			nano::lock_guard<nano::mutex> lock (mutex);
+			pending.emplace_back (version_a, root_a, difficulty_a, callback_a);
 		}
 		producer_condition.notify_all ();
 	}
@@ -215,22 +375,28 @@ void nano::work_pool::generate (nano::root const & root_a, std::function<void(bo
 
 boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a)
 {
-	return generate (root_a, network_constants.publish_threshold);
+	static nano::network_constants network_constants;
+	debug_assert (network_constants.is_dev_network ());
+	return generate (nano::work_version::work_1, root_a, network_constants.publish_thresholds.base);
 }
 
 boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a, uint64_t difficulty_a)
+{
+	static nano::network_constants network_constants;
+	debug_assert (network_constants.is_dev_network ());
+	return generate (nano::work_version::work_1, root_a, difficulty_a);
+}
+
+boost::optional<uint64_t> nano::work_pool::generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a)
 {
 	boost::optional<uint64_t> result;
 	if (!threads.empty ())
 	{
 		std::promise<boost::optional<uint64_t>> work;
 		std::future<boost::optional<uint64_t>> future = work.get_future ();
-		// clang-format off
-		generate (root_a, [&work](boost::optional<uint64_t> work_a) {
+		generate (version_a, root_a, difficulty_a, [&work] (boost::optional<uint64_t> work_a) {
 			work.set_value (work_a);
-		},
-		difficulty_a);
-		// clang-format on
+		});
 		result = future.get ().value ();
 	}
 	return result;
@@ -238,24 +404,20 @@ boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a, 
 
 size_t nano::work_pool::size ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	return pending.size ();
 }
 
-namespace nano
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (work_pool & work_pool, std::string const & name)
 {
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (work_pool & work_pool, const std::string & name)
-{
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-
-	size_t count = 0;
+	size_t count;
 	{
-		nano::lock_guard<std::mutex> guard (work_pool.mutex);
+		nano::lock_guard<nano::mutex> guard (work_pool.mutex);
 		count = work_pool.pending.size ();
 	}
 	auto sizeof_element = sizeof (decltype (work_pool.pending)::value_type);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pending", count, sizeof_element }));
-	composite->add_component (collect_seq_con_info (work_pool.work_observers, "work_observers"));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending", count, sizeof_element }));
+	composite->add_component (collect_container_info (work_pool.work_observers, "work_observers"));
 	return composite;
-}
 }

@@ -1,0 +1,318 @@
+/*
+
+  Flatbuffers schema for the Banano IPC API.
+
+  This file contains IPC message definitions from which code and other artifacts are
+  generated.
+
+  Rules for editing this file:
+
+   - Only append or deprecate fields; never rearrange or remove fields. This ensures
+     binary backwards- and forwards compatibility.
+
+   - Renaming fields retain binary compatibility, but should still be considered
+     a breaking change in most cases. This is because the old name may be expected
+     in JSON messages and generated API accessors (which may lead to issues in dynamic
+     languages)
+
+   - Renaming a message is considered a breaking change, as the name appears in endpoints
+     and JSON message envelopes.
+
+   - Use 64-bit integer types only when the value fits in 2^53-1. This ensures exact
+     values in all supported bindings, including Javascript (which only supports the
+     double type) As an example, timestamps such as milliseconds-since-epoch can be
+     used safely.
+
+   - For integers larger than 2^53-1 where full precision is needed, use a string. Numbers
+     in strings are considered big int or big decimal, balances being a prominent example.
+
+   - Use the naming pattern SomeMessageName for requests, and SomeMessageNameResponse for
+     responses if an existing response type isn't available.
+
+   - Subscribe messages must be prefixed Topic and messages belonging to a subscription
+     must be prefixed Event. Using confirmations as an example, this means using the
+     message names TopicConfirmation and EventConfirmation respectively.
+
+   - Includes and multiple namespaces must not be used yet due to known issues with
+     language bindings.
+
+   - Do not use Flatbuffer structs, these are much harder to evolve and the benefits
+     are minor.
+
+   - Use the (required) attribute only when it's obvious it will never be optional in
+     the future. Required fields make it harder to obtain full compatibility.
+
+  Other considerations:
+
+   - If a message accrue many deprecations, consider making a minor-versioned message.
+     This should be done through nominal typing, i.e. a new message type with a suffix
+     indicating the version, like AccountWeight_v2_1. The response type can be an existing
+     type, but can also be versioned in the same manner. This naming pattern may be used
+     for endpoint mapping in the future, such as /api/v2_1/AccountWeight.
+
+   - If several messages need refactoring or improvements, a new API version should be
+     considered. This requires establishing a new endpoint (e.g. /api/v3)
+     New and old versions can co-exist.
+
+  Note that none of these rules apply to APIs considered internal, as these are versioned
+  by their enclosing binary. That is, all binaries (node, rpc, wallet, etc) using internal
+  APIs are expected to be upgraded at the same time and are thus versioned together. The
+  same relaxation applies to fields and messages considered "debug" or "experimental".
+
+  See also https://google.github.io/flatbuffers/md__schemas.html for recommended
+  schema evolution practices.
+
+*/
+
+namespace nanoapi;
+
+/** Returns the voting weight for the given account */
+table AccountWeight {
+	/** A nano_ address */
+	account: string (required);
+}
+
+/** Response to AccountWeight */
+table AccountWeightResponse {
+	/** Voting weight as a decimal number*/
+	voting_weight: string (required);
+}
+
+/**
+ * Block subtype for state blocks.
+ * Note that the node makes no distinction between open and receive subtypes.
+ */
+enum BlockSubType: byte {
+	invalid = 0,
+	receive,
+	send,
+	change,
+	epoch
+}
+
+/** Block union */
+union Block {
+	BlockState,
+	BlockOpen,
+	BlockReceive,
+	BlockSend,
+	BlockChange
+}
+
+table BlockOpen {
+	/** Hash of this block */
+	hash: string;
+	/** Account being opened */
+	account: string;
+	/** Hash of send block */
+	source: string;
+	/** Representative address */
+	representative: string;
+	/** Signature as a hex string */
+	signature: string;
+	/** Work is a hex string representing work. This is a string as the work value may not fit in native numeric types. */
+	work: string;
+}
+
+table BlockReceive {
+	/** Hash of this block */
+	hash: string;
+	/** Hash of previous block */
+	previous: string;
+	/** Source hash */
+	source: string;
+	/** Signature as a hex string */
+	signature: string;
+	/** Work is a hex string representing work. This is a string as the work value may not fit in native numeric types. */
+	work: string;
+}
+
+table BlockSend {
+	/** Hash of this block */
+	hash: string;
+	/** Hash of previous block */
+	previous: string;
+	/** Destination account */
+	destination: string;
+	/** Balance in raw */
+	balance: string;
+	/** Signature as a hex string */
+	signature: string;
+	/** Work is a hex string representing work. This is a string as the work value may not fit in native numeric types. */
+	work: string;
+}
+
+table BlockChange {
+	/** Hash of this block */
+	hash: string;
+	/** Hash of previous block */
+	previous: string;
+	/** Representative address */
+	representative: string;
+	/** Signature as a hex string */
+	signature: string;
+	/** Work is a hex string representing work. This is a string as the work value may not fit in native numeric types. */
+	work: string;
+}
+
+table BlockState {
+	/** Hash of this block */
+	hash: string;
+	/** Account as nano_ string */
+	account: string;
+	/** Hash of previous block */
+	previous: string;
+	/** Representative as nano_ string */
+	representative: string;
+	/** Balance in raw */
+	balance: string;
+	/** Link as a hex string */
+	link: string;
+	/** Link interpreted as a nano_ address */
+	link_as_account: string;
+	/** Signature as a hex string */
+	signature: string;
+	/** Work is a hex string representing work. This is a string as the work value may not fit in native numeric types. */
+	work: string;
+	/** Subtype of this state block */
+	subtype: BlockSubType;
+}
+
+/** Information about a block */
+table BlockInfo {
+	block: Block;
+}
+
+/** Called by a service (usually an external process) to register itself */
+table ServiceRegister {
+	service_name: string;
+}
+
+/** Request the node to send an EventServiceStop event to the given service */
+table ServiceStop {
+	/** Name of service to stop. */
+	service_name: string (required);
+	/** If true, restart the service */
+	restart: bool = false;
+}
+
+/**
+ * Subscribe or unsubscribe to EventServiceStop events.
+ * The service must first have registered itself on the same session.
+ */
+table TopicServiceStop {
+	/** Set to true to unsubscribe */
+	unsubscribe: bool;
+}
+
+/** Sent to a service to request it to stop itself */
+table EventServiceStop {
+}
+
+/**
+ * All subscriptions are acknowledged. Use the envelope's correlation id
+ * if you need to match the ack with the subscription.
+ */
+table EventAck {
+}
+
+/** Requested confirmation type */
+enum TopicConfirmationTypeFilter : byte { all, active, active_quorum, active_confirmation_height, inactive }
+
+/** Type of block confirmation */
+enum TopicConfirmationType : byte { active_quorum, active_confirmation_height, inactive }
+
+/** Subscribe or unsubscribe to block confirmations of type EventConfirmation */
+table TopicConfirmation {
+	/** Set to true to unsubscribe */
+	unsubscribe: bool;
+	options: TopicConfirmationOptions;
+}
+
+table TopicConfirmationOptions {
+	confirmation_type_filter: TopicConfirmationTypeFilter = all;
+	all_local_accounts: bool;
+	accounts: [string];
+	include_block: bool = true;
+	include_election_info: bool = true;
+}
+
+/** Notification of block confirmation. */
+table EventConfirmation {
+	confirmation_type: TopicConfirmationType;
+	account: string;
+	amount: string;
+	hash: string;
+	block: Block;
+	election_info: ElectionInfo;
+}
+
+table ElectionInfo {
+	duration: uint64;
+	time: uint64;
+	tally: string;
+	request_count: uint64;
+	block_count: uint64;
+	voter_count: uint64;
+}
+
+/** Error response. All fields are optional */
+table Error {
+	/** Error code. May be negative or positive. */
+	code: int;
+	/** Error category code */
+	category: int;
+	/** Error message */
+	message: string;
+}
+
+/**
+ * A general purpose success response for messages that don't return a message.
+ * The response includes an optional message text.
+ */
+table Success {
+	message: string;
+}
+
+/** IsAlive request and response. Any node issues will be reported through an error in the envelope. */
+table IsAlive {
+}
+
+/**
+ * A union is the idiomatic way in Flatbuffers to transmit messages of multiple types.
+ * All top-level message types (including response types) must be listed here.
+ * @warning To ensure compatibility, only append and deprecate message types.
+ */
+union Message {
+	Error,
+	Success,
+	IsAlive,
+	EventAck,
+	BlockInfo,
+	AccountWeight,
+	AccountWeightResponse,
+	TopicConfirmation,
+	EventConfirmation,
+	ServiceRegister,
+	ServiceStop,
+	TopicServiceStop,
+	EventServiceStop
+}
+
+/**
+ * All messages are wrapped in an envelope which contains information such as
+ * message type, credentials and correlation id. For responses, the message may be an Error.
+ */
+table Envelope {
+	/** Milliseconds since epoch when the message was sent. */
+	time: uint64;
+	/** An optional and arbitrary string used for authentication. The corresponding http header for api keys is "nano-api-key" */
+	credentials: string;
+	/** Correlation id is an optional and arbitrary string. The corresponding http header is "nano-correlation-id" */
+	correlation_id: string;
+	/** The contained message. A 'message_type' property will be automatically added to JSON messages. */
+	message: Message;
+}
+
+/** The Envelope is the type marshalled over IPC, and also serves as the top-level JSON type */
+root_type Envelope;

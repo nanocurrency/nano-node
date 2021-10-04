@@ -1,9 +1,11 @@
 #pragma once
 
-#include <nano/rpc/rpc_handler.hpp>
+#include <nano/boost/asio/ip/tcp.hpp>
+#include <nano/boost/asio/strand.hpp>
+#include <nano/boost/beast/core/flat_buffer.hpp>
+#include <nano/boost/beast/http.hpp>
 
-#include <boost/asio/strand.hpp>
-#include <boost/beast.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include <atomic>
 
@@ -26,12 +28,9 @@ public:
 	rpc_connection (nano::rpc_config const & rpc_config, boost::asio::io_context & io_ctx, nano::logger_mt & logger, nano::rpc_handler_interface & rpc_handler_interface_a);
 	virtual ~rpc_connection () = default;
 	virtual void parse_connection ();
-	virtual void write_completion_handler (std::shared_ptr<nano::rpc_connection> rpc_connection);
+	virtual void write_completion_handler (std::shared_ptr<nano::rpc_connection> const & rpc_connection);
 	void prepare_head (unsigned version, boost::beast::http::status status = boost::beast::http::status::ok);
 	void write_result (std::string body, unsigned version, boost::beast::http::status status = boost::beast::http::status::ok);
-	void parse_request (std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>> header_parser);
-
-	void read ();
 
 	socket_type socket;
 	boost::beast::flat_buffer buffer;
@@ -42,5 +41,12 @@ public:
 	nano::logger_mt & logger;
 	nano::rpc_config const & rpc_config;
 	nano::rpc_handler_interface & rpc_handler_interface;
+
+protected:
+	template <typename STREAM_TYPE>
+	void read (STREAM_TYPE & stream);
+
+	template <typename STREAM_TYPE>
+	void parse_request (STREAM_TYPE & stream, std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>> const & header_parser);
 };
 }

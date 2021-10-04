@@ -1,13 +1,14 @@
-#include <nano/core_test/testutil.hpp>
+#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/logger_mt.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/secure/utility.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
-#include <boost/log/utility/setup/console.hpp>
-
 #include <chrono>
 #include <regex>
+#include <thread>
 
 using namespace std::chrono_literals;
 
@@ -55,64 +56,6 @@ TEST (logging, serialization)
 	ASSERT_EQ (logging1.log_to_cerr_value, logging2.log_to_cerr_value);
 	ASSERT_EQ (logging1.max_size, logging2.max_size);
 	ASSERT_EQ (logging1.min_time_between_log_output, logging2.min_time_between_log_output);
-}
-
-TEST (logging, upgrade_v1_v2)
-{
-	auto path1 (nano::unique_path ());
-	auto path2 (nano::unique_path ());
-	nano::logging logging1;
-	logging1.init (path1);
-	nano::logging logging2;
-	logging2.init (path2);
-	nano::jsonconfig tree;
-	logging1.serialize_json (tree);
-	tree.erase ("version");
-	tree.erase ("vote");
-	bool upgraded (false);
-	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
-	ASSERT_LE (2, tree.get<int> ("version"));
-	ASSERT_FALSE (tree.get<bool> ("vote"));
-}
-
-TEST (logging, upgrade_v6_v7)
-{
-	auto path1 (nano::unique_path ());
-	auto path2 (nano::unique_path ());
-	nano::logging logging1;
-	logging1.init (path1);
-	nano::logging logging2;
-	logging2.init (path2);
-	nano::jsonconfig tree;
-	logging1.serialize_json (tree);
-	tree.erase ("version");
-	tree.erase ("min_time_between_output");
-	tree.erase ("network_timeout_logging_value");
-	bool upgraded (false);
-	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
-	ASSERT_TRUE (upgraded);
-	ASSERT_LE (7, tree.get<int> ("version"));
-	ASSERT_EQ (5, tree.get<uintmax_t> ("min_time_between_output"));
-	ASSERT_EQ (false, tree.get<bool> ("network_timeout_logging_value"));
-}
-
-TEST (logging, upgrade_v7_v8)
-{
-	auto path1 (nano::unique_path ());
-	auto path2 (nano::unique_path ());
-	nano::logging logging1;
-	logging1.init (path1);
-	nano::logging logging2;
-	logging2.init (path2);
-	nano::jsonconfig tree;
-	logging1.serialize_json (tree);
-	tree.erase ("version");
-	tree.erase ("single_line_record");
-	bool upgraded (false);
-	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
-	ASSERT_TRUE (upgraded);
-	ASSERT_LE (8, tree.get<int> ("version"));
-	ASSERT_EQ (false, tree.get<bool> ("single_line_record"));
 }
 
 TEST (logger, changing_time_interval)
@@ -177,4 +120,36 @@ TEST (logger, always_log)
 	ASSERT_STREQ (str.c_str (), output1);
 	std::getline (ss, str, '\n');
 	ASSERT_STREQ (str.c_str (), output2);
+}
+
+TEST (logger, stable_filename)
+{
+	auto path (nano::unique_path ());
+	nano::logging logging;
+
+	// Releasing allows setting up logging again
+	logging.release_file_sink ();
+
+	logging.stable_log_filename = true;
+	logging.init (path);
+
+	nano::logger_mt logger (logging.min_time_between_log_output);
+	logger.always_log ("stable1");
+
+	auto log_file = path / "log" / "node.log";
+
+#if BOOST_VERSION >= 107000
+	EXPECT_TRUE (boost::filesystem::exists (log_file));
+	// Try opening it again
+	logging.release_file_sink ();
+	logging.init (path);
+	logger.always_log ("stable2");
+#else
+	// When using Boost < 1.70 , behavior is reverted to not using the stable filename
+	EXPECT_FALSE (boost::filesystem::exists (log_file));
+#endif
+
+	// Reset the logger
+	logging.release_file_sink ();
+	nano::logging ().init (path);
 }

@@ -1,35 +1,40 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
-#include <nano/boost/beast.hpp>
+#include <nano/boost/asio/ip/tcp.hpp>
+#include <nano/boost/asio/strand.hpp>
+#include <nano/boost/beast/core/flat_buffer.hpp>
+#include <nano/boost/beast/http/string_body.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/common.hpp>
 
 #include <boost/optional.hpp>
 
-#include <unordered_map>
+#include <mutex>
 
 using request_type = boost::beast::http::request<boost::beast::http::string_body>;
+
+namespace boost
+{
+namespace asio
+{
+	class io_context;
+}
+}
 
 namespace nano
 {
 class node;
 
-class work_peer_request final
+struct work_request final
 {
-public:
-	work_peer_request (boost::asio::io_context & io_ctx_a, boost::asio::ip::address address_a, uint16_t port_a) :
-	address (address_a),
-	port (port_a),
-	socket (io_ctx_a)
-	{
-	}
-	std::shared_ptr<request_type> get_prepared_json_request (std::string const &) const;
-	boost::asio::ip::address address;
-	uint16_t port;
-	boost::beast::flat_buffer buffer;
-	boost::beast::http::response<boost::beast::http::string_body> response;
-	boost::asio::ip::tcp::socket socket;
+	nano::work_version version;
+	nano::root root;
+	uint64_t difficulty;
+	boost::optional<nano::account> const account;
+	std::function<void (boost::optional<uint64_t>)> callback;
+	std::vector<std::pair<std::string, uint16_t>> const peers;
 };
 
 /**
@@ -37,59 +42,73 @@ public:
  */
 class distributed_work final : public std::enable_shared_from_this<nano::distributed_work>
 {
+	enum class work_generation_status
+	{
+		ongoing,
+		success,
+		cancelled,
+		failure_local,
+		failure_peers
+	};
+
+	class peer_request final
+	{
+	public:
+		peer_request (boost::asio::io_context & io_ctx_a, nano::tcp_endpoint const & endpoint_a) :
+			endpoint (endpoint_a),
+			socket (io_ctx_a)
+		{
+		}
+		std::shared_ptr<request_type> get_prepared_json_request (std::string const &) const;
+		nano::tcp_endpoint const endpoint;
+		boost::beast::flat_buffer buffer;
+		boost::beast::http::response<boost::beast::http::string_body> response;
+		boost::asio::ip::tcp::socket socket;
+	};
+
 public:
-	distributed_work (nano::node &, nano::root const &, std::vector<std::pair<std::string, uint16_t>> const & peers_a, unsigned int, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
+	distributed_work (nano::node &, nano::work_request const &, std::chrono::seconds const &);
 	~distributed_work ();
 	void start ();
-	void start_work ();
-	void cancel_connection (std::shared_ptr<nano::work_peer_request>);
-	void success (std::string const &, boost::asio::ip::address const &, uint16_t const);
-	void stop_once (bool const);
-	void set_once (uint64_t, std::string const & source_a = "local");
-	void cancel_once ();
-	void failure (boost::asio::ip::address const &);
-	void handle_failure (bool const);
-	bool remove (boost::asio::ip::address const &);
-	void add_bad_peer (boost::asio::ip::address const &, uint16_t const);
+	void cancel ();
 
-	std::function<void(boost::optional<uint64_t>)> callback;
-	unsigned int backoff; // in seconds
+private:
+	void start_local ();
+	/** Send a work_generate message to \p endpoint_a and handle a response */
+	void do_request (nano::tcp_endpoint const & endpoint_a);
+	/** Send a work_cancel message using a new connection to \p endpoint_a */
+	void do_cancel (nano::tcp_endpoint const & endpoint_a);
+	/** Called on a successful peer response, validates the reply */
+	void success (std::string const &, nano::tcp_endpoint const &);
+	/** Send a work_cancel message to all remaining connections */
+	void stop_once (bool const);
+	void set_once (uint64_t const, std::string const & source_a = "local");
+	void failure ();
+	void handle_failure ();
+	void add_bad_peer (nano::tcp_endpoint const &);
+
 	nano::node & node;
-	nano::root root;
-	boost::optional<nano::account> const account;
-	std::mutex mutex;
-	std::map<boost::asio::ip::address, uint16_t> outstanding;
-	std::vector<std::weak_ptr<nano::work_peer_request>> connections;
-	std::vector<std::pair<std::string, uint16_t>> const peers;
-	std::vector<std::pair<std::string, uint16_t>> need_resolve;
-	uint64_t difficulty;
+	// Only used in destructor, as the node reference can become invalid before distributed_work objects go out of scope
+	std::weak_ptr<nano::node> node_w;
+	nano::work_request request;
+
+	std::chrono::seconds backoff;
+	boost::asio::strand<boost::asio::io_context::executor_type> strand;
+	std::vector<std::pair<std::string, uint16_t>> const need_resolve;
+	std::vector<std::weak_ptr<peer_request>> connections; // protected by the mutex
+
+	work_generation_status status{ work_generation_status::ongoing };
 	uint64_t work_result{ 0 };
-	std::atomic<bool> completed{ false };
-	std::atomic<bool> cancelled{ false };
-	std::atomic<bool> stopped{ false };
-	std::atomic<bool> local_generation_started{ false };
+
 	nano::timer<std::chrono::milliseconds> elapsed; // logging only
 	std::vector<std::string> bad_peers; // websocket
 	std::string winner; // websocket
-};
 
-class distributed_work_factory final
-{
-public:
-	distributed_work_factory (nano::node &);
-	~distributed_work_factory ();
-	bool make (nano::root const &, std::vector<std::pair<std::string, uint16_t>> const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
-	bool make (unsigned int, nano::root const &, std::vector<std::pair<std::string, uint16_t>> const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
-	void cancel (nano::root const &, bool const local_stop = false);
-	void cleanup_finished ();
-	void stop ();
-
-	nano::node & node;
-	std::unordered_map<nano::root, std::vector<std::weak_ptr<nano::distributed_work>>> items;
-	std::mutex mutex;
+	nano::mutex mutex;
+	std::atomic<unsigned> resolved_extra{ 0 };
+	std::atomic<unsigned> failures{ 0 };
+	std::atomic<bool> finished{ false };
 	std::atomic<bool> stopped{ false };
+	std::atomic<bool> local_generation_started{ false };
 };
-
-class seq_con_info_component;
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (distributed_work_factory & distributed_work, const std::string & name);
 }

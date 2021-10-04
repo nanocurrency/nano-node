@@ -1,9 +1,12 @@
 #include <nano/node/rocksdb/rocksdb_txn.hpp>
 
 nano::read_rocksdb_txn::read_rocksdb_txn (rocksdb::DB * db_a) :
-db (db_a)
+	db (db_a)
 {
-	options.snapshot = db_a->GetSnapshot ();
+	if (db_a)
+	{
+		options.snapshot = db_a->GetSnapshot ();
+	}
 }
 
 nano::read_rocksdb_txn::~read_rocksdb_txn ()
@@ -13,7 +16,10 @@ nano::read_rocksdb_txn::~read_rocksdb_txn ()
 
 void nano::read_rocksdb_txn::reset ()
 {
-	db->ReleaseSnapshot (options.snapshot);
+	if (db)
+	{
+		db->ReleaseSnapshot (options.snapshot);
+	}
 }
 
 void nano::read_rocksdb_txn::renew ()
@@ -26,11 +32,11 @@ void * nano::read_rocksdb_txn::get_handle () const
 	return (void *)&options;
 }
 
-nano::write_rocksdb_txn::write_rocksdb_txn (rocksdb::OptimisticTransactionDB * db_a, std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a, std::unordered_map<nano::tables, std::mutex> & mutexes_a) :
-db (db_a),
-tables_requiring_locks (tables_requiring_locks_a),
-tables_no_locks (tables_no_locks_a),
-mutexes (mutexes_a)
+nano::write_rocksdb_txn::write_rocksdb_txn (rocksdb::OptimisticTransactionDB * db_a, std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a, std::unordered_map<nano::tables, nano::mutex> & mutexes_a) :
+	db (db_a),
+	tables_requiring_locks (tables_requiring_locks_a),
+	tables_no_locks (tables_no_locks_a),
+	mutexes (mutexes_a)
 {
 	lock ();
 	rocksdb::OptimisticTransactionOptions txn_options;
@@ -45,20 +51,24 @@ nano::write_rocksdb_txn::~write_rocksdb_txn ()
 	unlock ();
 }
 
-void nano::write_rocksdb_txn::commit () const
+void nano::write_rocksdb_txn::commit ()
 {
-	auto status = txn->Commit ();
-
-	// If there are no available memtables try again a few more times
-	constexpr auto num_attempts = 10;
-	auto attempt_num = 0;
-	while (status.IsTryAgain () && attempt_num < num_attempts)
+	if (active)
 	{
-		status = txn->Commit ();
-		++attempt_num;
-	}
+		auto status = txn->Commit ();
 
-	release_assert (status.ok ());
+		// If there are no available memtables try again a few more times
+		constexpr auto num_attempts = 10;
+		auto attempt_num = 0;
+		while (status.IsTryAgain () && attempt_num < num_attempts)
+		{
+			status = txn->Commit ();
+			++attempt_num;
+		}
+
+		release_assert (status.ok (), status.ToString ());
+		active = false;
+	}
 }
 
 void nano::write_rocksdb_txn::renew ()
@@ -66,6 +76,7 @@ void nano::write_rocksdb_txn::renew ()
 	rocksdb::OptimisticTransactionOptions txn_options;
 	txn_options.set_snapshot = true;
 	db->BeginTransaction (rocksdb::WriteOptions (), txn_options, txn);
+	active = true;
 }
 
 void * nano::write_rocksdb_txn::get_handle () const

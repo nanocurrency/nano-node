@@ -1,10 +1,7 @@
 #pragma once
 
-#include <cassert>
 #include <chrono>
-#include <iomanip>
-#include <iostream>
-#include <sstream>
+#include <iosfwd>
 #include <string>
 #include <vector>
 
@@ -22,179 +19,72 @@ class timer
 {
 public:
 	timer () = default;
-
-	timer (nano::timer_state state_a, std::string description_a = "timer") :
-	desc (description_a)
-	{
-		if (state_a == nano::timer_state::started)
-		{
-			start ();
-		}
-	}
-
-	timer (std::string description_a) :
-	desc (description_a)
-	{
-	}
-
-	timer (std::string description_a, timer * parent_a) :
-	parent (parent_a),
-	desc (description_a)
-	{
-	}
+	timer (nano::timer_state state_a, std::string const & description_a = "timer");
+	timer (std::string const & description_a);
+	timer (std::string const & description_a, timer * parent_a);
 
 	/** Do not output if measured time is below the time units threshold in \p minimum_a */
-	timer & set_minimum (UNIT minimum_a)
-	{
-		minimum = minimum_a;
-		return *this;
-	}
+	timer & set_minimum (UNIT minimum_a);
 
 	/**
 	 * Create a child timer without starting it.
 	 * Since the timing API needs to have low overhead, this function
 	 * does not check if a timer with the same name already exists.
 	 */
-	timer & child (std::string description_a = "child timer")
-	{
-		children.emplace_back (description_a, this);
-		return children.back ();
-	}
+	timer & child (std::string const & description_a = "child timer");
 
 	/** Create and start a child timer */
-	timer & start_child (std::string description_a = "child timer")
-	{
-		auto & child_timer = child (description_a);
-		child_timer.start ();
-		return child_timer;
-	}
+	timer & start_child (std::string const & description_a = "child timer");
 
 	/** Start the timer. This will assert if the timer is already started. */
-	void start ()
-	{
-		assert (state == nano::timer_state::stopped);
-		state = nano::timer_state::started;
-		begin = CLOCK::now ();
-	}
+	void start ();
 
-	/** Restarts the timer */
-	void restart ()
-	{
-		state = nano::timer_state::started;
-		begin = CLOCK::now ();
-		ticks = UNIT::zero ();
-		measurements = 0;
-	}
+	/**
+	 * Restarts the timer by setting start time to current time and resetting tick count.
+	 * This can be called in any timer state.
+	 * @return duration
+	 */
+	UNIT restart ();
 
 	/**
 	 * Stops the timer and increases the measurement count. A timer can be started and paused
 	 * multiple times (e.g. in a loop).
 	 * @return duration
 	 */
-	UNIT pause ()
-	{
-		++measurements;
-		return stop ();
-	}
+	UNIT pause ();
 
 	/**
-	 * Stop timer
+	 * Stop timer. This will assert if the timer is not in a started state.
 	 * @return duration
 	 */
-	UNIT stop ()
-	{
-		assert (state == nano::timer_state::started);
-		state = nano::timer_state::stopped;
-
-		auto end = CLOCK::now ();
-		ticks += std::chrono::duration_cast<UNIT> (end - begin);
-		return ticks;
-	}
+	UNIT stop ();
 
 	/**
-	 * Return current units.
+	 * Updates and returns current tick count.
 	 */
-	UNIT value ()
-	{
-		return ticks;
-	}
+	UNIT value ();
 
 	/** Returns the duration in UNIT since the timer was last started. */
-	UNIT since_start () const
-	{
-		auto end = CLOCK::now ();
-		return std::chrono::duration_cast<UNIT> (end - begin);
-	}
+	UNIT since_start () const;
 
 	/** Returns true if the timer was last started longer than \p duration_a units ago*/
-	bool after_deadline (UNIT duration_a)
-	{
-		auto end = CLOCK::now ();
-		return std::chrono::duration_cast<UNIT> (end - begin) > duration_a;
-	}
+	bool after_deadline (UNIT duration_a);
 
 	/** Returns true if the timer was last started shorter than \p duration_a units ago*/
-	bool before_deadline (UNIT duration_a)
-	{
-		auto end = CLOCK::now ();
-		return std::chrono::duration_cast<UNIT> (end - begin) < duration_a;
-	}
-
-	/** Stop timer and write measurements to \p output_a */
-	void stop (std::string & output_a)
-	{
-		std::ostringstream stream;
-		stop (stream);
-		output_a = stream.str ();
-	}
+	bool before_deadline (UNIT duration_a);
 
 	/** Stop timer and write measurements to \p stream_a */
-	void stop (std::ostream & stream_a)
-	{
-		stop ();
-		print (stream_a);
-	}
+	void stop (std::ostream & stream_a);
+
+	/** Stop timer and write measurements to \p output_a */
+	void stop (std::string & output_a);
 
 	/** Print measurements to the \p stream_a */
-	void print (std::ostream & stream_a)
-	{
-		if (ticks >= minimum)
-		{
-			// Print cumulative children first. Non-cumulative children prints directly.
-			for (auto & child : children)
-			{
-				if (child.measurements > 0)
-				{
-					child.print (stream_a);
-				}
-			}
-
-			auto current_parent = parent;
-			while (current_parent)
-			{
-				stream_a << parent->desc << ".";
-				current_parent = current_parent->parent;
-			}
-
-			stream_a << desc << ": " << ticks.count () << ' ' << unit ();
-			if (measurements > 0)
-			{
-				stream_a << " (" << measurements << " measurements, " << std::setprecision (2) << std::fixed << static_cast<double> (ticks.count ()) / static_cast<double> (measurements) << ' ' << unit () << " avg)";
-			}
-			stream_a << std::endl;
-		}
-	}
+	void print (std::ostream & stream_a);
 
 	/** Returns the SI unit string */
-	std::string unit () const
-	{
-		return typed_unit<UNIT> ();
-	}
-
-	nano::timer_state current_state () const
-	{
-		return state;
-	}
+	std::string unit () const;
+	nano::timer_state current_state () const;
 
 private:
 	timer * parent{ nullptr };
@@ -205,62 +95,16 @@ private:
 	UNIT ticks{ 0 };
 	UNIT minimum{ UNIT::zero () };
 	unsigned measurements{ 0 };
-
-	template <typename U, std::enable_if_t<std::is_same<U, std::chrono::nanoseconds>::value> * = nullptr>
-	std::string typed_unit () const
-	{
-		return "nanoseconds";
-	}
-
-	template <typename U, std::enable_if_t<std::is_same<U, std::chrono::microseconds>::value> * = nullptr>
-	std::string typed_unit () const
-	{
-		return "microseconds";
-	}
-
-	template <typename U, std::enable_if_t<std::is_same<U, std::chrono::milliseconds>::value> * = nullptr>
-	std::string typed_unit () const
-	{
-		return "milliseconds";
-	}
-
-	template <typename U, std::enable_if_t<std::is_same<U, std::chrono::seconds>::value> * = nullptr>
-	std::string typed_unit () const
-	{
-		return "seconds";
-	}
-
-	template <typename U, std::enable_if_t<std::is_same<U, std::chrono::minutes>::value> * = nullptr>
-	std::string typed_unit () const
-	{
-		return "minutes";
-	}
-
-	template <typename U, std::enable_if_t<std::is_same<U, std::chrono::hours>::value> * = nullptr>
-	std::string typed_unit () const
-	{
-		return "hours";
-	}
+	void update_ticks ();
 };
 
-/**
- * The autotimer starts on construction, and stops and prints on destruction.
- */
-template <typename UNIT = std::chrono::milliseconds>
-class autotimer : public nano::timer<UNIT>
+inline uint64_t milliseconds_since_epoch ()
 {
-public:
-	autotimer (std::string description_a, std::ostream & stream_a = std::cout) :
-	nano::timer<UNIT> (description_a), stream (stream_a)
-	{
-		nano::timer<UNIT>::start ();
-	}
-	~autotimer ()
-	{
-		nano::timer<UNIT>::stop (stream);
-	}
+	return std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
+}
 
-private:
-	std::ostream & stream;
-};
+inline uint64_t seconds_since_epoch ()
+{
+	return std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
+}
 }

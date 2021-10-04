@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
 
@@ -22,7 +21,7 @@ namespace websocket
 		nano::network_constants network_constants;
 		bool enabled{ false };
 		uint16_t port;
-		boost::asio::ip::address_v6 address{ boost::asio::ip::address_v6::loopback () };
+		std::string address;
 	};
 }
 }

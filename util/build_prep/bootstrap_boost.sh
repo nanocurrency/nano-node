@@ -5,48 +5,58 @@ buildArgs=()
 useClang='false'
 useLibCXX='false'
 keepArchive='false'
+LINK_TYPE=('link=static')
 debugLevel=0
+buildThreads=1
 buildCArgs=()
 buildCXXArgs=()
 buildLDArgs=()
-boostVersion='1.67'
-while getopts 'hmcCkpvB:' OPT; do
+boostVersion='1.70'
+while getopts 'hmscCkpvB:j:' OPT; do
 	case "${OPT}" in
-		h)
-			echo "Usage: bootstrap_boost.sh [-hmcCkpv] [-B <boostVersion>]"
-			echo "   -h                 This help"
-			echo "   -m                 Build a minimal set of libraries needed for Nano"
-			echo "   -c                 Use Clang"
-			echo "   -C                 Use libc++ when using Clang"
-			echo "   -k                 Keep the downloaded archive file"
-			echo "   -p                 Build a PIC version of the objects"
-			echo "   -v                 Increase debug level, may be repeated to increase it"
-			echo "                      further"
-			echo "   -B <boostVersion>  Specify version of Boost to build"
-			exit 0
-			;;
-		m)
-			bootstrapArgs+=('--with-libraries=system,thread,log,filesystem,program_options')
-			;;
-		c)
-			useClang='true'
-			;;
-		C)
-			useLibCXX='true'
-			;;
-		k)
-			keepArchive='true'
-			;;
-		p)
-			buildCXXArgs+=(-fPIC)
-			buildCArgs+=(-fPIC)
-			;;
-		v)
-			debugLevel=$[$debugLevel + 1]
-			;;
-		B)
-			boostVersion="${OPTARG}"
-			;;
+	h)
+		echo "Usage: bootstrap_boost.sh [-hmcCkpv] [-B <boostVersion>]"
+		echo "   -h                 This help"
+		echo "   -s                 Build Shared and static libs, default is static only"
+		echo "   -m                 Build a minimal set of libraries needed for Banano"
+		echo "   -j <threads> 		Number of threads to build with"
+		echo "   -c                 Use Clang"
+		echo "   -C                 Use libc++ when using Clang"
+		echo "   -k                 Keep the downloaded archive file"
+		echo "   -p                 Build a PIC version of the objects"
+		echo "   -v                 Increase debug level, may be repeated to increase it"
+		echo "                      further"
+		echo "   -B <boostVersion>  Specify version of Boost to build"
+		exit 0
+		;;
+	s)
+		LINK_TYPE+=('link=shared')
+		;;
+	m)
+		bootstrapArgs+=('--with-libraries=system,thread,log,filesystem,program_options,coroutine,context')
+		;;
+	j)
+		buildThreads=${OPTARG}
+		;;
+	c)
+		useClang='true'
+		;;
+	C)
+		useLibCXX='true'
+		;;
+	k)
+		keepArchive='true'
+		;;
+	p)
+		buildCXXArgs+=(-fPIC)
+		buildCArgs+=(-fPIC)
+		;;
+	v)
+		debugLevel=$(($debugLevel + 1))
+		;;
+	B)
+		boostVersion="${OPTARG}"
+		;;
 	esac
 done
 
@@ -73,25 +83,30 @@ if [ "${useClang}" = 'true' ]; then
 fi
 
 case "${boostVersion}" in
-	1.67)
-		BOOST_BASENAME=boost_1_67_0
-		BOOST_URL=https://dl.bintray.com/boostorg/release/1.67.0/source/${BOOST_BASENAME}.tar.bz2
-		BOOST_ARCHIVE_SHA256='2684c972994ee57fc5632e03bf044746f6eb45d4920c343937a465fd67a5adba'
-		;;
-	1.69)
-		BOOST_BASENAME=boost_1_69_0
-		BOOST_URL=https://dl.bintray.com/boostorg/release/1.69.0/source/${BOOST_BASENAME}.tar.bz2
-		BOOST_ARCHIVE_SHA256='8f32d4617390d1c2d16f26a27ab60d97807b35440d45891fa340fc2648b04406'
-		;;
-	1.70)
-		BOOST_BASENAME=boost_1_70_0
-		BOOST_URL=https://dl.bintray.com/boostorg/release/1.70.0/source/${BOOST_BASENAME}.tar.bz2
-		BOOST_ARCHIVE_SHA256='430ae8354789de4fd19ee52f3b1f739e1fba576f0aded0897c3c2bc00fb38778'
-		;;
-	*)
-		echo "Unsupported Boost version: ${boostVersion}" >&2
-		exit 1
-		;;
+1.70)
+	BOOST_BASENAME=boost_1_70_0
+	BOOST_URL=https://sourceforge.net/projects/boost/files/boost/1.70.0/${BOOST_BASENAME}.tar.bz2/download
+	BOOST_ARCHIVE_SHA256='430ae8354789de4fd19ee52f3b1f739e1fba576f0aded0897c3c2bc00fb38778'
+	;;
+1.72)
+	BOOST_BASENAME=boost_1_72_0
+	BOOST_URL=https://sourceforge.net/projects/boost/files/boost/1.72.0/${BOOST_BASENAME}.tar.bz2/download
+	BOOST_ARCHIVE_SHA256='59c9b274bc451cf91a9ba1dd2c7fdcaf5d60b1b3aa83f2c9fa143417cc660722'
+	;;
+1.73)
+	BOOST_BASENAME=boost_1_73_0
+	BOOST_URL=https://sourceforge.net/projects/boost/files/boost/1.73.0/${BOOST_BASENAME}.tar.bz2/download
+	BOOST_ARCHIVE_SHA256='4eb3b8d442b426dc35346235c8733b5ae35ba431690e38c6a8263dce9fcbb402'
+	;;
+1.75)
+	BOOST_BASENAME=boost_1_75_0
+	BOOST_URL=https://sourceforge.net/projects/boost/files/boost/1.75.0/${BOOST_BASENAME}.tar.bz2/download
+	BOOST_ARCHIVE_SHA256='953db31e016db7bb207f11432bef7df100516eeb746843fa0486a222e3fd49cb'
+	;;
+*)
+	echo "Unsupported Boost version: ${boostVersion}" >&2
+	exit 1
+	;;
 esac
 BOOST_ARCHIVE="${BOOST_BASENAME}.tar.bz2"
 BOOST_ROOT=${BOOST_ROOT-/usr/local/boost}
@@ -126,7 +141,7 @@ tar xf "${BOOST_ARCHIVE}"
 
 pushd "${BOOST_BASENAME}"
 ./bootstrap.sh "${bootstrapArgs[@]}"
-./b2 -d${debugLevel} --prefix="${BOOST_ROOT}" link=static "${buildArgs[@]}" install
+./b2 -d${debugLevel} -j${buildThreads} hardcode-dll-paths=true dll-path="'\$ORIGIN/../lib'" --prefix="${BOOST_ROOT}" ${LINK_TYPE[@]} "${buildArgs[@]}" install
 popd
 
 rm -rf "${BOOST_BASENAME}"

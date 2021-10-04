@@ -2,6 +2,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/transport.hpp>
 
+#include <boost/format.hpp>
+
 #include <numeric>
 
 namespace
@@ -45,6 +47,14 @@ public:
 	{
 		result = nano::stat::detail::node_id_handshake;
 	}
+	void telemetry_req (nano::telemetry_req const & message_a) override
+	{
+		result = nano::stat::detail::telemetry_req;
+	}
+	void telemetry_ack (nano::telemetry_ack const & message_a) override
+	{
+		result = nano::stat::detail::telemetry_ack;
+	}
 	nano::stat::detail result;
 };
 }
@@ -69,26 +79,49 @@ nano::tcp_endpoint nano::transport::map_endpoint_to_tcp (nano::endpoint const & 
 	return nano::tcp_endpoint (endpoint_a.address (), endpoint_a.port ());
 }
 
+boost::asio::ip::address nano::transport::map_address_to_subnetwork (boost::asio::ip::address const & address_a)
+{
+	debug_assert (address_a.is_v6 ());
+	static short const ipv6_subnet_prefix_length = 32; // Limits for /32 IPv6 subnetwork
+	static short const ipv4_subnet_prefix_length = (128 - 32) + 24; // Limits for /24 IPv4 subnetwork
+	return address_a.to_v6 ().is_v4_mapped () ? boost::asio::ip::make_network_v6 (address_a.to_v6 (), ipv4_subnet_prefix_length).network () : boost::asio::ip::make_network_v6 (address_a.to_v6 (), ipv6_subnet_prefix_length).network ();
+}
+
+boost::asio::ip::address nano::transport::ipv4_address_or_ipv6_subnet (boost::asio::ip::address const & address_a)
+{
+	debug_assert (address_a.is_v6 ());
+	static short const ipv6_address_prefix_length = 48; // /48 IPv6 subnetwork
+	return address_a.to_v6 ().is_v4_mapped () ? address_a : boost::asio::ip::make_network_v6 (address_a.to_v6 (), ipv6_address_prefix_length).network ();
+}
+
 nano::transport::channel::channel (nano::node & node_a) :
-limiter (node_a.config.bandwidth_limit),
-node (node_a)
+	node (node_a)
 {
 	set_network_version (node_a.network_params.protocol.protocol_version);
 }
 
-void nano::transport::channel::send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, bool const is_droppable_a)
+void nano::transport::channel::send (nano::message const & message_a, std::function<void (boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
 {
 	callback_visitor visitor;
 	message_a.visit (visitor);
 	auto buffer (message_a.to_shared_const_buffer ());
 	auto detail (visitor.result);
-	if (!is_droppable_a || !limiter.should_drop (buffer.size ()))
+	auto is_droppable_by_limiter = drop_policy_a == nano::buffer_drop_policy::limiter;
+	auto should_drop (node.network.limiter.should_drop (buffer.size ()));
+	if (!is_droppable_by_limiter || !should_drop)
 	{
-		send_buffer (buffer, detail, callback_a);
+		send_buffer (buffer, callback_a, drop_policy_a);
 		node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
 	}
 	else
 	{
+		if (callback_a)
+		{
+			node.background ([callback_a] () {
+				callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
+			});
+		}
+
 		node.stats.inc (nano::stat::type::drop, detail, nano::stat::dir::out);
 		if (node.config.logging.network_packet_logging ())
 		{
@@ -96,6 +129,34 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 			node.logger.always_log (boost::str (boost::format ("%1% of size %2% dropped") % node.stats.detail_to_string (key) % buffer.size ()));
 		}
 	}
+}
+
+nano::transport::channel_loopback::channel_loopback (nano::node & node_a) :
+	channel (node_a), endpoint (node_a.network.endpoint ())
+{
+	set_node_id (node_a.node_id.pub);
+	set_network_version (node_a.network_params.protocol.protocol_version);
+}
+
+size_t nano::transport::channel_loopback::hash_code () const
+{
+	std::hash<::nano::endpoint> hash;
+	return hash (endpoint);
+}
+
+bool nano::transport::channel_loopback::operator== (nano::transport::channel const & other_a) const
+{
+	return endpoint == other_a.get_endpoint ();
+}
+
+void nano::transport::channel_loopback::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
+{
+	release_assert (false && "sending to a loopback channel is not supported");
+}
+
+std::string nano::transport::channel_loopback::to_string () const
+{
+	return boost::str (boost::format ("%1%") % endpoint);
 }
 
 namespace
@@ -108,7 +169,7 @@ boost::asio::ip::address_v6 mapped_from_v4_bytes (unsigned long address_a)
 
 bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool allow_local_peers)
 {
-	assert (endpoint_a.address ().is_v6 ());
+	debug_assert (endpoint_a.address ().is_v6 ());
 	auto bytes (endpoint_a.address ().to_v6 ());
 	auto result (false);
 	static auto const rfc1700_min (mapped_from_v4_bytes (0x00000000ul));
@@ -131,14 +192,14 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 	static auto const ipv4_multicast_max (mapped_from_v4_bytes (0xeffffffful));
 	static auto const rfc6890_min (mapped_from_v4_bytes (0xf0000000ul));
 	static auto const rfc6890_max (mapped_from_v4_bytes (0xfffffffful));
-	static auto const rfc6666_min (boost::asio::ip::address_v6::from_string ("100::"));
-	static auto const rfc6666_max (boost::asio::ip::address_v6::from_string ("100::ffff:ffff:ffff:ffff"));
-	static auto const rfc3849_min (boost::asio::ip::address_v6::from_string ("2001:db8::"));
-	static auto const rfc3849_max (boost::asio::ip::address_v6::from_string ("2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"));
-	static auto const rfc4193_min (boost::asio::ip::address_v6::from_string ("fc00::"));
-	static auto const rfc4193_max (boost::asio::ip::address_v6::from_string ("fd00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
-	static auto const ipv6_multicast_min (boost::asio::ip::address_v6::from_string ("ff00::"));
-	static auto const ipv6_multicast_max (boost::asio::ip::address_v6::from_string ("ff00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
+	static auto const rfc6666_min (boost::asio::ip::make_address_v6 ("100::"));
+	static auto const rfc6666_max (boost::asio::ip::make_address_v6 ("100::ffff:ffff:ffff:ffff"));
+	static auto const rfc3849_min (boost::asio::ip::make_address_v6 ("2001:db8::"));
+	static auto const rfc3849_max (boost::asio::ip::make_address_v6 ("2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"));
+	static auto const rfc4193_min (boost::asio::ip::make_address_v6 ("fc00::"));
+	static auto const rfc4193_max (boost::asio::ip::make_address_v6 ("fd00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
+	static auto const ipv6_multicast_min (boost::asio::ip::make_address_v6 ("ff00::"));
+	static auto const ipv6_multicast_max (boost::asio::ip::make_address_v6 ("ff00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
 	if (endpoint_a.port () == 0)
 	{
 		result = true;
@@ -207,43 +268,17 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 
 using namespace std::chrono_literals;
 
-nano::bandwidth_limiter::bandwidth_limiter (const size_t limit_a) :
-next_trend (std::chrono::steady_clock::now () + 50ms),
-limit (limit_a),
-rate (0),
-trended_rate (0)
+nano::bandwidth_limiter::bandwidth_limiter (const double limit_burst_ratio_a, const size_t limit_a) :
+	bucket (static_cast<size_t> (limit_a * limit_burst_ratio_a), limit_a)
 {
 }
 
-bool nano::bandwidth_limiter::should_drop (const size_t & message_size)
+bool nano::bandwidth_limiter::should_drop (const size_t & message_size_a)
 {
-	bool result (false);
-	if (limit == 0) //never drop if limit is 0
-	{
-		return result;
-	}
-	nano::lock_guard<std::mutex> lock (mutex);
-
-	if (message_size > limit / rate_buffer.size () || rate + message_size > limit)
-	{
-		result = true;
-	}
-	else
-	{
-		rate = rate + message_size;
-	}
-	if (next_trend < std::chrono::steady_clock::now ())
-	{
-		next_trend = std::chrono::steady_clock::now () + 50ms;
-		rate_buffer.push_back (rate);
-		trended_rate = std::accumulate (rate_buffer.begin (), rate_buffer.end (), size_t{ 0 }) / rate_buffer.size ();
-		rate = 0;
-	}
-	return result;
+	return !bucket.try_consume (nano::narrow_cast<unsigned int> (message_size_a));
 }
 
-size_t nano::bandwidth_limiter::get_rate ()
+void nano::bandwidth_limiter::reset (const double limit_burst_ratio_a, const size_t limit_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
-	return trended_rate;
+	bucket.reset (static_cast<size_t> (limit_a * limit_burst_ratio_a), limit_a);
 }
