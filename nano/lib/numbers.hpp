@@ -117,7 +117,7 @@ public:
 
 	public_key ();
 
-	const public_key & null () const;
+	static const public_key & null ();
 
 	std::string to_node_id () const;
 	bool decode_node_id (std::string const & source_a);

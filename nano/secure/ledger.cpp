@@ -959,7 +959,7 @@ nano::account const & nano::ledger::block_destination (nano::transaction const &
 		return state_block->hashables.link.as_account ();
 	}
 
-	return nano::hardened_constants::get ().not_an_account;
+	return nano::account::null ();
 }
 
 nano::block_hash nano::ledger::block_source (nano::transaction const & transaction_a, nano::block const & block_a)

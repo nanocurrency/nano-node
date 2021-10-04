@@ -67,7 +67,7 @@ nano::public_key::public_key () :
 {
 }
 
-const nano::public_key & nano::public_key::null () const
+const nano::public_key & nano::public_key::null ()
 {
 	return nano::hardened_constants::get ().not_an_account;
 }
@@ -148,7 +148,7 @@ nano::uint256_union::uint256_union (nano::uint256_t const & number_a)
 
 bool nano::uint256_union::operator== (nano::uint256_union const & other_a) const
 {
-	return bytes == other_a.bytes;
+	return this == &other_a;
 }
 
 // Construct a uint256_union = AES_ENC_CTR (cleartext, key, iv)
