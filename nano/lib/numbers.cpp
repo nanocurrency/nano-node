@@ -957,7 +957,7 @@ nano::public_key::operator nano::hash_or_account const & () const
 
 bool nano::public_key::operator== (std::nullptr_t) const
 {
-	return this == &null();
+	return this == &null ();
 }
 
 bool nano::public_key::operator!= (std::nullptr_t) const
