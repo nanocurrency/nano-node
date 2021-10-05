@@ -148,7 +148,7 @@ nano::uint256_union::uint256_union (nano::uint256_t const & number_a)
 
 bool nano::uint256_union::operator== (nano::uint256_union const & other_a) const
 {
-	return this == &other_a;
+	return bytes == other_a.bytes;
 }
 
 // Construct a uint256_union = AES_ENC_CTR (cleartext, key, iv)
@@ -957,7 +957,7 @@ nano::public_key::operator nano::hash_or_account const & () const
 
 bool nano::public_key::operator== (std::nullptr_t) const
 {
-	return bytes == null ().bytes;
+	return this == &null();
 }
 
 bool nano::public_key::operator!= (std::nullptr_t) const
