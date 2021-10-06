@@ -45,12 +45,7 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 				auto channel (node_l->network.find_channel (endpoint));
 				if (!channel)
 				{
-					node_l->network.tcp_channels.start_tcp (endpoint, [node_w] (std::shared_ptr<nano::transport::channel> const & channel_a) {
-						if (auto node_l = node_w.lock ())
-						{
-							node_l->network.send_keepalive (channel_a);
-						}
-					});
+					node_l->network.tcp_channels.start_tcp (endpoint);
 				}
 				else
 				{
@@ -1219,17 +1214,7 @@ void nano::node::add_initial_peers ()
 		nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
 		if (!network.reachout (endpoint, config.allow_local_peers))
 		{
-			std::weak_ptr<nano::node> node_w (shared_from_this ());
-			network.tcp_channels.start_tcp (endpoint, [node_w] (std::shared_ptr<nano::transport::channel> const & channel_a) {
-				if (auto node_l = node_w.lock ())
-				{
-					node_l->network.send_keepalive (channel_a);
-					if (!node_l->flags.disable_rep_crawler)
-					{
-						node_l->rep_crawler.query (channel_a);
-					}
-				}
-			});
+			network.tcp_channels.start_tcp (endpoint);
 		}
 	}
 }

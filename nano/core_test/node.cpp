@@ -262,7 +262,7 @@ TEST (node, node_receive_quorum)
 
 	system2.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	ASSERT_TRUE (node1.balance (key.pub).is_zero ());
-	node1.network.tcp_channels.start_tcp (system2.nodes[0]->network.endpoint (), nano::keepalive_tcp_callback (node1));
+	node1.network.tcp_channels.start_tcp (system2.nodes[0]->network.endpoint ());
 	while (node1.balance (key.pub).is_zero ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -2270,16 +2270,14 @@ TEST (node, rep_remove)
 	auto vote2 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, nano::dev::genesis);
 	node.rep_crawler.response (channel1, vote2);
 	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 1);
-	// Add inactive TCP representative channel
 	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), nano::node_config (nano::get_available_port (), system.logging), system.work));
+	node2->start ();
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	auto vote3 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, nano::dev::genesis);
-	node.network.tcp_channels.start_tcp (node2->network.endpoint (), [node_w, &vote3] (std::shared_ptr<nano::transport::channel> const & channel2) {
-		if (auto node_l = node_w.lock ())
-		{
-			ASSERT_FALSE (node_l->rep_crawler.response (channel2, vote3));
-		}
-	});
+	node.network.tcp_channels.start_tcp (node2->network.endpoint ());
+	std::shared_ptr<nano::transport::channel> channel2;
+	ASSERT_TIMELY (10s, (channel2 = node.network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node2->network.endpoint ()))) != nullptr);
+	ASSERT_FALSE (node.rep_crawler.response (channel2, vote3));
 	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 2);
 	node2->stop ();
 	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 1);
