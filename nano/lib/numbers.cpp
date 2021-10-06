@@ -3,6 +3,7 @@
 #include <nano/crypto_lib/secure_memory.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/secure/common.hpp>
 
 #include <crypto/cryptopp/aes.h>
 #include <crypto/cryptopp/modes.h>
@@ -59,6 +60,16 @@ std::string nano::public_key::to_account () const
 	std::string result;
 	encode_account (result);
 	return result;
+}
+
+nano::public_key::public_key () :
+	uint256_union{ 0 }
+{
+}
+
+const nano::public_key & nano::public_key::null ()
+{
+	return nano::hardened_constants::get ().not_an_account;
 }
 
 std::string nano::public_key::to_node_id () const
@@ -781,6 +792,11 @@ std::string nano::uint128_union::to_string_dec () const
 	return result;
 }
 
+nano::hash_or_account::hash_or_account () :
+	account{}
+{
+}
+
 nano::hash_or_account::hash_or_account (uint64_t value_a) :
 	raw (value_a)
 {
@@ -937,6 +953,16 @@ nano::public_key::operator nano::root const & () const
 nano::public_key::operator nano::hash_or_account const & () const
 {
 	return reinterpret_cast<nano::hash_or_account const &> (*this);
+}
+
+bool nano::public_key::operator== (std::nullptr_t) const
+{
+	return bytes == null ().bytes;
+}
+
+bool nano::public_key::operator!= (std::nullptr_t) const
+{
+	return !(*this == nullptr);
 }
 
 nano::block_hash::operator nano::link const & () const

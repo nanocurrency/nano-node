@@ -1459,7 +1459,7 @@ int main (int argc, char * const * argv)
 					}
 				}
 				uint64_t previous_timestamp (0);
-				nano::account calculated_representative (0);
+				nano::account calculated_representative{};
 				while (!hash.is_zero () && block != nullptr)
 				{
 					++block_count;
@@ -1704,7 +1704,7 @@ int main (int argc, char * const * argv)
 				else
 				{
 					// Check if pending destination is correct
-					nano::account destination (0);
+					nano::account destination{};
 					bool previous_pruned = node->ledger.pruning && node->store.pruned.exists (transaction, block->previous ());
 					if (previous_pruned)
 					{

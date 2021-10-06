@@ -23,9 +23,9 @@ nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> const & 
 {
 	if (id.empty ())
 	{
-		nano::random_constants constants;
-		id = constants.random_128.to_string ();
+		id = nano::hardened_constants::get ().random_128.to_string ();
 	}
+
 	node->logger.always_log (boost::str (boost::format ("Starting %1% bootstrap attempt with ID %2%") % mode_text () % id));
 	node->bootstrap_initiator.notify_listeners (true);
 	if (node->websocket_server)

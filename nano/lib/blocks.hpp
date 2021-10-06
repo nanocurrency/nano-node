@@ -64,7 +64,7 @@ public:
 	bool deserialize (nano::stream &, nano::block_type);
 	static size_t size (nano::block_type);
 	nano::block_hash successor{ 0 };
-	nano::account account{ 0 };
+	nano::account account{};
 	nano::amount balance{ 0 };
 	uint64_t height{ 0 };
 	uint64_t timestamp{ 0 };

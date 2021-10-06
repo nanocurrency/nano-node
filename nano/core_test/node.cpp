@@ -20,6 +20,17 @@ namespace
 void add_required_children_node_config_tree (nano::jsonconfig & tree);
 }
 
+TEST (node, null_account)
+{
+	const auto & null_account = nano::account::null ();
+	ASSERT_TRUE (null_account == nullptr);
+	ASSERT_FALSE (null_account != nullptr);
+
+	nano::account default_account{};
+	ASSERT_FALSE (default_account == nullptr);
+	ASSERT_TRUE (default_account != nullptr);
+}
+
 TEST (node, stop)
 {
 	nano::system system (1);

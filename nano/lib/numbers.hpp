@@ -115,6 +115,10 @@ class public_key final : public uint256_union
 public:
 	using uint256_union::uint256_union;
 
+	public_key ();
+
+	static const public_key & null ();
+
 	std::string to_node_id () const;
 	bool decode_node_id (std::string const & source_a);
 	void encode_account (std::string &) const;
@@ -124,6 +128,10 @@ public:
 	operator nano::link const & () const;
 	operator nano::root const & () const;
 	operator nano::hash_or_account const & () const;
+	bool operator== (std::nullptr_t) const;
+	bool operator!= (std::nullptr_t) const;
+	using uint256_union::operator==;
+	using uint256_union::operator!=;
 };
 
 class wallet_id : public uint256_union
@@ -137,7 +145,7 @@ using account = public_key;
 class hash_or_account
 {
 public:
-	hash_or_account () = default;
+	hash_or_account ();
 	hash_or_account (uint64_t value_a);
 
 	bool is_zero () const;

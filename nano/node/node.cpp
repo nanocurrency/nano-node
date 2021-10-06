@@ -1481,7 +1481,7 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 	class account_upgrade_item final
 	{
 	public:
-		nano::account account{ 0 };
+		nano::account account{};
 		uint64_t modified{ 0 };
 	};
 	class account_tag
