@@ -115,7 +115,7 @@ nano::ledger_constants::ledger_constants (nano::work_thresholds & work, nano::ne
 	: network_a == nano::networks::nano_test_network                                                                           ? nano_test_genesis
 																															   : nano_live_genesis),
 	genesis_amount{ std::numeric_limits<nano::uint128_t>::max () },
-	burn_account{ static_cast<uint64_t> (0) },
+	burn_account{},
 	nano_dev_final_votes_canary_account (dev_public_key_data),
 	nano_beta_final_votes_canary_account (beta_canary_public_key_data),
 	nano_live_final_votes_canary_account (live_canary_public_key_data),

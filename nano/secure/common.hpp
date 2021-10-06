@@ -99,7 +99,7 @@ public:
 	size_t db_size () const;
 	nano::epoch epoch () const;
 	nano::block_hash head{ 0 };
-	nano::account representative{ static_cast<uint64_t> (0) };
+	nano::account representative{};
 	nano::block_hash open_block{ 0 };
 	nano::amount balance{ 0 };
 	/** Seconds since posix epoch */
