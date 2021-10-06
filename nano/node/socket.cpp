@@ -305,6 +305,9 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 	}));
 }
 
+// If we are unable to accept a socket, for any reason, we wait just a little (1ms) before rescheduling the next connection accept.
+// The intention is to throttle back the connection requests and break up any busy loops that could possibly form and
+// give the rest of the system a chance to recover.
 void nano::server_socket::on_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const &, boost::system::error_code const &)> callback_a)
 {
 	auto this_l (std::static_pointer_cast<nano::server_socket> (shared_from_this ()));
