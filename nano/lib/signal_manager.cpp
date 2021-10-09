@@ -49,14 +49,6 @@ void nano::signal_manager::register_signal_handler (int signum, std::function<vo
 	log (boost::str (boost::format ("Registered signal handler for signal %d") % signum));
 }
 
-std::function<void (int)> nano::signal_manager::get_debug_files_handler (void)
-{
-	return [] (int) {
-		nano::dump_crash_stacktrace ();
-		nano::create_load_memory_address_files ();
-	};
-}
-
 void nano::signal_manager::base_handler (nano::signal_manager::signal_descriptor descriptor, const boost::system::error_code & error, int signum)
 {
 	if (!error)

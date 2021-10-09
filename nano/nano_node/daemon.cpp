@@ -17,6 +17,16 @@
 
 namespace
 {
+void nano_abort_signal_handler (int signum)
+{
+	// create some debugging log files
+	nano::dump_crash_stacktrace ();
+	nano::create_load_memory_address_files ();
+
+	// re-raise signal to call the default handler and exit
+	raise (signum);
+}
+
 volatile sig_atomic_t sig_int_or_term = 0;
 
 constexpr std::size_t OPEN_FILE_DESCRIPTORS_LIMIT = 16384;
@@ -39,10 +49,14 @@ static void load_and_set_bandwidth_params (std::shared_ptr<nano::node> const & n
 
 void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
-	// Override segmentation fault and aborting.
-	nano::signal_manager sigman;
-	sigman.register_signal_handler (SIGSEGV, sigman.get_debug_files_handler (), false);
-	sigman.register_signal_handler (SIGABRT, sigman.get_debug_files_handler (), false);
+	// We catch signal SIGSEGV and SIGABRT not via the signal manager because we want these signal handlers
+	// to be executed in the stack of the code that caused the signal, so we can dump the stacktrace.
+	struct sigaction sa = {};
+	sa.sa_handler = nano_abort_signal_handler;
+	sigemptyset (&sa.sa_mask);
+	sa.sa_flags = SA_RESETHAND;
+	sigaction (SIGSEGV, &sa, NULL);
+	sigaction (SIGABRT, &sa, NULL);
 
 	boost::filesystem::create_directories (data_path);
 	boost::system::error_code error_chmod;
@@ -154,6 +168,8 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					io_ctx.stop ();
 					sig_int_or_term = 1;
 				};
+
+				nano::signal_manager sigman;
 
 				// keep trapping Ctrl-C to avoid a second Ctrl-C interrupting tasks started by the first
 				sigman.register_signal_handler (SIGINT, &nano::signal_handler, true);
