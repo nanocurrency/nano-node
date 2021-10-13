@@ -636,7 +636,7 @@ void nano::vote::serialize (nano::stream & stream_a, nano::block_type type) cons
 {
 	write (stream_a, account);
 	write (stream_a, signature);
-	write (stream_a, timestamp);
+	write (stream_a, boost::endian::native_to_little (timestamp));
 	for (auto const & block : blocks)
 	{
 		if (block.which ())
@@ -662,7 +662,7 @@ void nano::vote::serialize (nano::stream & stream_a) const
 {
 	write (stream_a, account);
 	write (stream_a, signature);
-	write (stream_a, timestamp);
+	write (stream_a, boost::endian::native_to_little (timestamp));
 	for (auto const & block : blocks)
 	{
 		if (block.which ())
@@ -685,6 +685,7 @@ bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uni
 		nano::read (stream_a, account);
 		nano::read (stream_a, signature);
 		nano::read (stream_a, timestamp);
+		boost::endian::little_to_native_inplace (timestamp);
 
 		nano::block_type type;
 
