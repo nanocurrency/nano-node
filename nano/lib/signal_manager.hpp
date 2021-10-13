@@ -33,9 +33,6 @@ public:
 	 */
 	void register_signal_handler (int signum, std::function<void (int)> handler, bool repeat);
 
-	/** returns a signal handler that prints a stacktrace and creates some debug files */
-	std::function<void (int)> get_debug_files_handler (void);
-
 private:
 	struct signal_descriptor final
 	{
