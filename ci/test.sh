@@ -67,6 +67,9 @@ run_tests() {
     ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_DEFAULT} ./rpc_test
     rpc_test_res=${?}
 
+    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_DEFAULT} ./load_test
+    load_test_res=${?}
+
     xvfb_run_ ./qt_test
     qt_test_res=${?}
 
@@ -77,7 +80,7 @@ run_tests() {
     echo "RPC  Test return code: ${rpc_test_res}"
     echo "QT Test return code: ${qt_test_res}"
     echo "Sys Test return code: ${sys_test_res}"
-    if [[ ${core_test_res} != 0 || ${rpc_test_res} != 0 || ${qt_test_res} != 0 || ${sys_test_res} != 0 ]]; then
+    if [[ ${core_test_res} != 0 || ${rpc_test_res} != 0 || ${qt_test_res} != 0 || ${load_test_res} != 0 || ${sys_test_res} != 0 ]]; then
         return 1
     else
         return 0
