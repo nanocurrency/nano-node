@@ -219,16 +219,16 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	node1.work_generate_blocking (*send2);
 	node1.process_active (send1);
 	node1.block_processor.flush ();
-	node1.process (*open1);
-	node1.process (*send2);
+	ASSERT_EQ (nano::process_result::progress, node1.process (*open1).code);
+	ASSERT_EQ (nano::process_result::progress, node1.process (*send2).code);
 	node1.block_processor.flush ();
 	ASSERT_EQ (node1.ledger.cache.block_count, 4);
 
 	node_config.peering_port = nano::get_available_port ();
 	auto & node2 = *system.add_node (node_config);
-	node2.process (*send1);
-	node2.process (*open1);
-	node2.process (*send2);
+	ASSERT_EQ (nano::process_result::progress, node2.process (*send1).code);
+	ASSERT_EQ (nano::process_result::progress, node2.process (*open1).code);
+	ASSERT_EQ (nano::process_result::progress, node2.process (*send2).code);
 	system.wallet (1)->insert_adhoc (key1.prv);
 	node2.block_processor.flush ();
 	ASSERT_EQ (node2.ledger.cache.block_count, 4);
