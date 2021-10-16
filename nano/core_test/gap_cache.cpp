@@ -68,7 +68,7 @@ TEST (gap_cache, gap_bootstrap)
 	nano::block_hash latest (node1.latest (nano::dev::genesis_key.pub));
 	nano::keypair key;
 	auto send (std::make_shared<nano::send_block> (latest, key.pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest)));
-	node1.process (*send);
+	ASSERT_EQ (nano::process_result::progress, node1.process (*send).code);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, node1.balance (nano::dev::genesis->account ()));
 	ASSERT_EQ (nano::dev::constants.genesis_amount, node2.balance (nano::dev::genesis->account ()));
 	// Confirm send block, allowing voting on the upcoming block

@@ -2877,7 +2877,7 @@ TEST (rpc, republish)
 	system.add_node ();
 	auto latest (node1->latest (nano::dev::genesis_key.pub));
 	nano::send_block send (latest, key.pub, 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node1->work_generate_blocking (latest));
-	node1->process (send);
+	ASSERT_EQ (nano::process_result::progress, node1->process (send).code);
 	nano::open_block open (send.hash (), key.pub, key.pub, key.prv, key.pub, *node1->work_generate_blocking (key.pub));
 	ASSERT_EQ (nano::process_result::progress, node1->process (open).code);
 	auto [rpc, rpc_ctx] = add_rpc (system, node1);
@@ -3456,7 +3456,7 @@ TEST (rpc, wallet_republish)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto latest (node1->latest (nano::dev::genesis_key.pub));
 	nano::send_block send (latest, key.pub, 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node1->work_generate_blocking (latest));
-	node1->process (send);
+	ASSERT_EQ (nano::process_result::progress, node1->process (send).code);
 	nano::open_block open (send.hash (), key.pub, key.pub, key.prv, key.pub, *node1->work_generate_blocking (key.pub));
 	ASSERT_EQ (nano::process_result::progress, node1->process (open).code);
 	auto [rpc, rpc_ctx] = add_rpc (system, node1);
@@ -3485,7 +3485,7 @@ TEST (rpc, delegators)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto latest (node1->latest (nano::dev::genesis_key.pub));
 	nano::send_block send (latest, key.pub, 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node1->work_generate_blocking (latest));
-	node1->process (send);
+	ASSERT_EQ (nano::process_result::progress, node1->process (send).code);
 	nano::open_block open (send.hash (), nano::dev::genesis_key.pub, key.pub, key.prv, key.pub, *node1->work_generate_blocking (key.pub));
 	ASSERT_EQ (nano::process_result::progress, node1->process (open).code);
 	auto [rpc, rpc_ctx] = add_rpc (system, node1);
@@ -3511,7 +3511,7 @@ TEST (rpc, delegators_parameters)
 	nano::keypair key;
 	auto latest (node1->latest (nano::dev::genesis_key.pub));
 	nano::send_block send (latest, key.pub, 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node1->work_generate_blocking (latest));
-	node1->process (send);
+	ASSERT_EQ (nano::process_result::progress, node1->process (send).code);
 	nano::open_block open (send.hash (), nano::dev::genesis_key.pub, key.pub, key.prv, key.pub, *node1->work_generate_blocking (key.pub));
 	ASSERT_EQ (nano::process_result::progress, node1->process (open).code);
 
@@ -3606,7 +3606,7 @@ TEST (rpc, delegators_count)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto latest (node1->latest (nano::dev::genesis_key.pub));
 	nano::send_block send (latest, key.pub, 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node1->work_generate_blocking (latest));
-	node1->process (send);
+	ASSERT_EQ (nano::process_result::progress, node1->process (send).code);
 	nano::open_block open (send.hash (), nano::dev::genesis_key.pub, key.pub, key.prv, key.pub, *node1->work_generate_blocking (key.pub));
 	ASSERT_EQ (nano::process_result::progress, node1->process (open).code);
 	auto [rpc, rpc_ctx] = add_rpc (system, node1);
@@ -3644,7 +3644,7 @@ TEST (rpc, account_info)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto latest (node1->latest (nano::dev::genesis_key.pub));
 	nano::send_block send (latest, key.pub, 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node1->work_generate_blocking (latest));
-	node1->process (send);
+	ASSERT_EQ (nano::process_result::progress, node1->process (send).code);
 	auto time (nano::seconds_since_epoch ());
 	{
 		auto transaction = node1->store.tx_begin_write ();
@@ -3700,15 +3700,15 @@ TEST (rpc, account_info)
 	{
 		latest = node1->latest (nano::dev::genesis_key.pub);
 		nano::send_block send1 (latest, key1.pub, 50, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node1->work_generate_blocking (latest));
-		node1->process (send1);
+		ASSERT_EQ (nano::process_result::progress, node1->process (send1).code);
 		nano::send_block send2 (send1.hash (), key1.pub, 25, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node1->work_generate_blocking (send1.hash ()));
-		node1->process (send2);
+		ASSERT_EQ (nano::process_result::progress, node1->process (send2).code);
 
 		nano::state_block state_change (nano::dev::genesis_key.pub, send2.hash (), key1.pub, 25, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node1->work_generate_blocking (send2.hash ()));
-		node1->process (state_change);
+		ASSERT_EQ (nano::process_result::progress, node1->process (state_change).code);
 
 		nano::open_block open (send1.hash (), nano::dev::genesis_key.pub, key1.pub, key1.prv, key1.pub, *node1->work_generate_blocking (key1.pub));
-		node1->process (open);
+		ASSERT_EQ (nano::process_result::progress, node1->process (open).code);
 	}
 
 	rpc_ctx->io_scope->renew ();
@@ -3811,7 +3811,7 @@ TEST (rpc, json_block_output)
 	nano::keypair key;
 	auto latest (node1->latest (nano::dev::genesis_key.pub));
 	nano::send_block send (latest, key.pub, 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node1->work_generate_blocking (latest));
-	node1->process (send);
+	ASSERT_EQ (nano::process_result::progress, node1->process (send).code);
 	auto [rpc, rpc_ctx] = add_rpc (system, node1);
 	boost::property_tree::ptree request;
 	request.put ("action", "block_info");
@@ -3944,7 +3944,7 @@ TEST (rpc, block_info_successor)
 	nano::keypair key;
 	auto latest (node1->latest (nano::dev::genesis_key.pub));
 	nano::send_block send (latest, key.pub, 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node1->work_generate_blocking (latest));
-	node1->process (send);
+	ASSERT_EQ (nano::process_result::progress, node1->process (send).code);
 	auto [rpc, rpc_ctx] = add_rpc (system, node1);
 	boost::property_tree::ptree request;
 	request.put ("action", "block_info");
@@ -4096,7 +4096,7 @@ TEST (rpc, ledger)
 	auto send_amount (genesis_balance - 100);
 	genesis_balance -= send_amount;
 	nano::send_block send (latest, key.pub, genesis_balance, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node->work_generate_blocking (latest));
-	node->process (send);
+	ASSERT_EQ (nano::process_result::progress, node->process (send).code);
 	nano::open_block open (send.hash (), nano::dev::genesis_key.pub, key.pub, key.prv, key.pub, *node->work_generate_blocking (key.pub));
 	ASSERT_EQ (nano::process_result::progress, node->process (open).code);
 	auto time (nano::seconds_since_epoch ());
@@ -4166,7 +4166,7 @@ TEST (rpc, ledger)
 	genesis_balance -= send2_amount;
 	nano::send_block send2 (send.hash (), key.pub, genesis_balance, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node->work_generate_blocking (send.hash ()));
 	rpc_ctx->io_scope->reset ();
-	node->process (send2);
+	ASSERT_EQ (nano::process_result::progress, node->process (send2).code);
 	rpc_ctx->io_scope->renew ();
 	// When asking for pending, pending amount is taken into account for threshold so the account must show up
 	request.put ("count", 2);
@@ -4240,7 +4240,7 @@ TEST (rpc, block_create)
 	auto send_block (nano::deserialize_block_json (block_l));
 	ASSERT_EQ (send.hash (), send_block->hash ());
 	rpc_ctx->io_scope->reset ();
-	node1->process (send);
+	ASSERT_EQ (nano::process_result::progress, node1->process (send).code);
 	rpc_ctx->io_scope->renew ();
 	boost::property_tree::ptree request1;
 	request1.put ("action", "block_create");
@@ -4618,7 +4618,7 @@ TEST (rpc, wallet_ledger)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto latest (node1->latest (nano::dev::genesis_key.pub));
 	nano::send_block send (latest, key.pub, 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node1->work_generate_blocking (latest));
-	node1->process (send);
+	ASSERT_EQ (nano::process_result::progress, node1->process (send).code);
 	nano::open_block open (send.hash (), nano::dev::genesis_key.pub, key.pub, key.prv, key.pub, *node1->work_generate_blocking (key.pub));
 	ASSERT_EQ (nano::process_result::progress, node1->process (open).code);
 	auto time (nano::seconds_since_epoch ());

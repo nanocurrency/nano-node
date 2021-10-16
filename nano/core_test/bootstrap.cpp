@@ -268,8 +268,8 @@ TEST (bootstrap_processor, process_state)
 
 	node0->work_generate_blocking (*block1);
 	node0->work_generate_blocking (*block2);
-	node0->process (*block1);
-	node0->process (*block2);
+	ASSERT_EQ (nano::process_result::progress, node0->process (*block1).code);
+	ASSERT_EQ (nano::process_result::progress, node0->process (*block2).code);
 
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
 	ASSERT_EQ (node0->latest (nano::dev::genesis_key.pub), block2->hash ());
