@@ -85,7 +85,7 @@ std::shared_ptr<flatbuffers::Parser> nano::ipc::flatbuffers_handler::make_flatbu
 }
 
 void nano::ipc::flatbuffers_handler::process_json (const uint8_t * message_buffer_a, size_t buffer_size_a,
-std::function<void (std::shared_ptr<std::string> const &)> const & response_handler)
+	std::function<void (std::shared_ptr<std::string> const &)> const & response_handler)
 {
 	try
 	{
@@ -135,7 +135,7 @@ std::function<void (std::shared_ptr<std::string> const &)> const & response_hand
 }
 
 void nano::ipc::flatbuffers_handler::process (const uint8_t * message_buffer_a, size_t buffer_size_a,
-std::function<void (std::shared_ptr<flatbuffers::FlatBufferBuilder> const &)> const & response_handler)
+	std::function<void (std::shared_ptr<flatbuffers::FlatBufferBuilder> const &)> const & response_handler)
 {
 	auto buffer_l (std::make_shared<flatbuffers::FlatBufferBuilder> ());
 	auto actionhandler (std::make_shared<action_handler> (node, ipc_server, subscriber, buffer_l));

@@ -147,36 +147,36 @@ void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & end
 	auto socket (std::make_shared<nano::socket> (node));
 	auto this_l (shared_from_this ());
 	socket->async_connect (endpoint_a,
-	[this_l, socket, endpoint_a, push_front] (boost::system::error_code const & ec) {
-		if (!ec)
-		{
-			if (this_l->node.config.logging.bulk_pull_logging ())
+		[this_l, socket, endpoint_a, push_front] (boost::system::error_code const & ec) {
+			if (!ec)
 			{
-				this_l->node.logger.try_log (boost::str (boost::format ("Connection established to %1%") % endpoint_a));
-			}
-			auto client (std::make_shared<nano::bootstrap_client> (this_l->node.shared (), *this_l, std::make_shared<nano::transport::channel_tcp> (*this_l->node.shared (), socket), socket));
-			this_l->pool_connection (client, true, push_front);
-		}
-		else
-		{
-			if (this_l->node.config.logging.network_logging ())
-			{
-				switch (ec.value ())
+				if (this_l->node.config.logging.bulk_pull_logging ())
 				{
-					default:
-						this_l->node.logger.try_log (boost::str (boost::format ("Error initiating bootstrap connection to %1%: %2%") % endpoint_a % ec.message ()));
-						break;
-					case boost::system::errc::connection_refused:
-					case boost::system::errc::operation_canceled:
-					case boost::system::errc::timed_out:
-					case 995: //Windows The I/O operation has been aborted because of either a thread exit or an application request
-					case 10061: //Windows No connection could be made because the target machine actively refused it
-						break;
+					this_l->node.logger.try_log (boost::str (boost::format ("Connection established to %1%") % endpoint_a));
+				}
+				auto client (std::make_shared<nano::bootstrap_client> (this_l->node.shared (), *this_l, std::make_shared<nano::transport::channel_tcp> (*this_l->node.shared (), socket), socket));
+				this_l->pool_connection (client, true, push_front);
+			}
+			else
+			{
+				if (this_l->node.config.logging.network_logging ())
+				{
+					switch (ec.value ())
+					{
+						default:
+							this_l->node.logger.try_log (boost::str (boost::format ("Error initiating bootstrap connection to %1%: %2%") % endpoint_a % ec.message ()));
+							break;
+						case boost::system::errc::connection_refused:
+						case boost::system::errc::operation_canceled:
+						case boost::system::errc::timed_out:
+						case 995: //Windows The I/O operation has been aborted because of either a thread exit or an application request
+						case 10061: //Windows No connection could be made because the target machine actively refused it
+							break;
+					}
 				}
 			}
-		}
-		--this_l->connections_count;
-	});
+			--this_l->connections_count;
+		});
 }
 
 unsigned nano::bootstrap_connections::target_connections (size_t pulls_remaining, size_t attempts_count)

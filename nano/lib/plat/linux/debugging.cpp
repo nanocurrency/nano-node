@@ -24,9 +24,9 @@ int create_load_memory_address_file (dl_phdr_info * info, size_t, void *)
 	// Open file
 	const auto file_descriptor = ::open (filename, O_CREAT | O_WRONLY | O_TRUNC,
 #if defined(S_IWRITE) && defined(S_IREAD)
-	S_IWRITE | S_IREAD
+		S_IWRITE | S_IREAD
 #else
-	0
+		0
 #endif
 	);
 	debug_assert (file_descriptor);

@@ -58,12 +58,12 @@ private:
 	nano::ledger & ledger;
 	nano::node_config const & config;
 	boost::multi_index_container<rep_info,
-	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::tag<tag_time>,
-	boost::multi_index::member<rep_info, std::chrono::steady_clock::time_point, &rep_info::time>>,
-	boost::multi_index::hashed_unique<boost::multi_index::tag<tag_account>,
-	boost::multi_index::member<rep_info, nano::account, &rep_info::account>>>>
-	reps;
+		boost::multi_index::indexed_by<
+			boost::multi_index::ordered_non_unique<boost::multi_index::tag<tag_time>,
+				boost::multi_index::member<rep_info, std::chrono::steady_clock::time_point, &rep_info::time>>,
+			boost::multi_index::hashed_unique<boost::multi_index::tag<tag_account>,
+				boost::multi_index::member<rep_info, nano::account, &rep_info::account>>>>
+		reps;
 	nano::uint128_t trended_m;
 	nano::uint128_t online_m;
 	nano::uint128_t minimum;

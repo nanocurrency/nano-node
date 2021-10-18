@@ -83,15 +83,15 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 			// existing log monitoring scripts expecting the old logfile structure will fail immediately instead
 			// of reading only rotated files with old entries.
 			file_sink = boost::log::add_file_log (boost::log::keywords::target = path,
-			boost::log::keywords::file_name = file_name,
-			boost::log::keywords::target_file_name = path / "node_%Y-%m-%d_%H-%M-%S.%N.log",
-			boost::log::keywords::open_mode = std::ios_base::out | std::ios_base::app, // append to node.log if it exists
-			boost::log::keywords::enable_final_rotation = false, // for stable log filenames, don't rotate on destruction
-			boost::log::keywords::rotation_size = rotation_size, // max file size in bytes before rotation
-			boost::log::keywords::auto_flush = flush,
-			boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching,
-			boost::log::keywords::max_size = max_size, // max total size in bytes of all log files
-			boost::log::keywords::format = format_with_timestamp);
+				boost::log::keywords::file_name = file_name,
+				boost::log::keywords::target_file_name = path / "node_%Y-%m-%d_%H-%M-%S.%N.log",
+				boost::log::keywords::open_mode = std::ios_base::out | std::ios_base::app, // append to node.log if it exists
+				boost::log::keywords::enable_final_rotation = false, // for stable log filenames, don't rotate on destruction
+				boost::log::keywords::rotation_size = rotation_size, // max file size in bytes before rotation
+				boost::log::keywords::auto_flush = flush,
+				boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching,
+				boost::log::keywords::max_size = max_size, // max total size in bytes of all log files
+				boost::log::keywords::format = format_with_timestamp);
 
 			if (!boost::filesystem::exists (file_name))
 			{
@@ -109,12 +109,12 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 		else
 		{
 			file_sink = boost::log::add_file_log (boost::log::keywords::target = path,
-			boost::log::keywords::file_name = path / "log_%Y-%m-%d_%H-%M-%S.%N.log",
-			boost::log::keywords::rotation_size = rotation_size,
-			boost::log::keywords::auto_flush = flush,
-			boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching,
-			boost::log::keywords::max_size = max_size,
-			boost::log::keywords::format = format_with_timestamp);
+				boost::log::keywords::file_name = path / "log_%Y-%m-%d_%H-%M-%S.%N.log",
+				boost::log::keywords::rotation_size = rotation_size,
+				boost::log::keywords::auto_flush = flush,
+				boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching,
+				boost::log::keywords::max_size = max_size,
+				boost::log::keywords::format = format_with_timestamp);
 		}
 
 		struct exception_handler

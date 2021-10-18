@@ -206,7 +206,7 @@ int main (int argc, char * const * argv)
 					std::string get_entry () const
 					{
 						return boost::str (boost::format ("representative %1% hardcoded %2% ledger %3% mismatch %4%")
-						% rep.to_account () % hardcoded.format_balance (nano::Mxrb_ratio, 0, true) % ledger.format_balance (nano::Mxrb_ratio, 0, true) % diff.format_balance (nano::Mxrb_ratio, 0, true));
+							% rep.to_account () % hardcoded.format_balance (nano::Mxrb_ratio, 0, true) % ledger.format_balance (nano::Mxrb_ratio, 0, true) % diff.format_balance (nano::Mxrb_ratio, 0, true));
 					}
 				};
 
@@ -230,8 +230,7 @@ int main (int argc, char * const * argv)
 					nano::uint512_t const mean_diff = x > M ? x - M : M - x;
 					nano::uint512_t const sqr = mean_diff * mean_diff;
 					return sum + sqr;
-				})
-				/ mismatched.size ();
+				}) / mismatched.size ();
 
 				nano::uint128_union const mismatch_stddev = nano::narrow_cast<nano::uint128_t> (boost::multiprecision::sqrt (mismatch_variance.number ()));
 
@@ -255,14 +254,14 @@ int main (int argc, char * const * argv)
 				};
 
 				std::cout << boost::str (boost::format ("hardcoded weight %1% Mnano at %2% blocks\nledger weight %3% Mnano at %4% blocks\nmismatched\n\tsamples %5%\n\ttotal %6% Mnano\n\tmean %7% Mnano\n\tsigma %8% Mnano\n")
-				% total_hardcoded.format_balance (nano::Mxrb_ratio, 0, true)
-				% hardcoded_height
-				% total_ledger.format_balance (nano::Mxrb_ratio, 0, true)
-				% ledger_height
-				% mismatched.size ()
-				% mismatch_total.format_balance (nano::Mxrb_ratio, 0, true)
-				% mismatch_mean.format_balance (nano::Mxrb_ratio, 0, true)
-				% mismatch_stddev.format_balance (nano::Mxrb_ratio, 0, true));
+					% total_hardcoded.format_balance (nano::Mxrb_ratio, 0, true)
+					% hardcoded_height
+					% total_ledger.format_balance (nano::Mxrb_ratio, 0, true)
+					% ledger_height
+					% mismatched.size ()
+					% mismatch_total.format_balance (nano::Mxrb_ratio, 0, true)
+					% mismatch_mean.format_balance (nano::Mxrb_ratio, 0, true)
+					% mismatch_stddev.format_balance (nano::Mxrb_ratio, 0, true));
 
 				if (!outliers.empty ())
 				{
@@ -924,27 +923,27 @@ int main (int argc, char * const * argv)
 				genesis_balance = genesis_balance - 1000000000;
 
 				auto send = builder.state ()
-							.account (nano::dev::genesis_key.pub)
-							.previous (genesis_latest)
-							.representative (nano::dev::genesis_key.pub)
-							.balance (genesis_balance)
-							.link (keys[i].pub)
-							.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-							.work (*node->work.generate (nano::work_version::work_1, genesis_latest, node->network_params.work.epoch_1))
-							.build ();
+								.account (nano::dev::genesis_key.pub)
+								.previous (genesis_latest)
+								.representative (nano::dev::genesis_key.pub)
+								.balance (genesis_balance)
+								.link (keys[i].pub)
+								.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+								.work (*node->work.generate (nano::work_version::work_1, genesis_latest, node->network_params.work.epoch_1))
+								.build ();
 
 				genesis_latest = send->hash ();
 				blocks.push_back (std::move (send));
 
 				auto open = builder.state ()
-							.account (keys[i].pub)
-							.previous (0)
-							.representative (keys[i].pub)
-							.balance (balances[i])
-							.link (genesis_latest)
-							.sign (keys[i].prv, keys[i].pub)
-							.work (*node->work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.work.epoch_1))
-							.build ();
+								.account (keys[i].pub)
+								.previous (0)
+								.representative (keys[i].pub)
+								.balance (balances[i])
+								.link (genesis_latest)
+								.sign (keys[i].prv, keys[i].pub)
+								.work (*node->work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.work.epoch_1))
+								.build ();
 
 				frontiers[i] = open->hash ();
 				blocks.push_back (std::move (open));
@@ -958,14 +957,14 @@ int main (int argc, char * const * argv)
 					--balances[j];
 
 					auto send = builder.state ()
-								.account (keys[j].pub)
-								.previous (frontiers[j].as_block_hash ())
-								.representative (keys[j].pub)
-								.balance (balances[j])
-								.link (keys[other].pub)
-								.sign (keys[j].prv, keys[j].pub)
-								.work (*node->work.generate (nano::work_version::work_1, frontiers[j], node->network_params.work.epoch_1))
-								.build ();
+									.account (keys[j].pub)
+									.previous (frontiers[j].as_block_hash ())
+									.representative (keys[j].pub)
+									.balance (balances[j])
+									.link (keys[other].pub)
+									.sign (keys[j].prv, keys[j].pub)
+									.work (*node->work.generate (nano::work_version::work_1, frontiers[j], node->network_params.work.epoch_1))
+									.build ();
 
 					frontiers[j] = send->hash ();
 					blocks.push_back (std::move (send));
@@ -973,14 +972,14 @@ int main (int argc, char * const * argv)
 					++balances[other];
 
 					auto receive = builder.state ()
-								   .account (keys[other].pub)
-								   .previous (frontiers[other].as_block_hash ())
-								   .representative (keys[other].pub)
-								   .balance (balances[other])
-								   .link (frontiers[j].as_block_hash ())
-								   .sign (keys[other].prv, keys[other].pub)
-								   .work (*node->work.generate (nano::work_version::work_1, frontiers[other], node->network_params.work.epoch_1))
-								   .build ();
+									   .account (keys[other].pub)
+									   .previous (frontiers[other].as_block_hash ())
+									   .representative (keys[other].pub)
+									   .balance (balances[other])
+									   .link (frontiers[j].as_block_hash ())
+									   .sign (keys[other].prv, keys[other].pub)
+									   .work (*node->work.generate (nano::work_version::work_1, frontiers[other], node->network_params.work.epoch_1))
+									   .build ();
 
 					frontiers[other] = receive->hash ();
 					blocks.push_back (std::move (receive));
@@ -1037,27 +1036,27 @@ int main (int argc, char * const * argv)
 				genesis_balance = genesis_balance - balance;
 
 				auto send = builder.state ()
-							.account (nano::dev::genesis_key.pub)
-							.previous (genesis_latest)
-							.representative (nano::dev::genesis_key.pub)
-							.balance (genesis_balance)
-							.link (keys[i].pub)
-							.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-							.work (*node->work.generate (nano::work_version::work_1, genesis_latest, node->network_params.work.epoch_1))
-							.build ();
+								.account (nano::dev::genesis_key.pub)
+								.previous (genesis_latest)
+								.representative (nano::dev::genesis_key.pub)
+								.balance (genesis_balance)
+								.link (keys[i].pub)
+								.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+								.work (*node->work.generate (nano::work_version::work_1, genesis_latest, node->network_params.work.epoch_1))
+								.build ();
 
 				genesis_latest = send->hash ();
 				node->ledger.process (transaction, *send);
 
 				auto open = builder.state ()
-							.account (keys[i].pub)
-							.previous (0)
-							.representative (keys[i].pub)
-							.balance (balance)
-							.link (genesis_latest)
-							.sign (keys[i].prv, keys[i].pub)
-							.work (*node->work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.work.epoch_1))
-							.build ();
+								.account (keys[i].pub)
+								.previous (0)
+								.representative (keys[i].pub)
+								.balance (balance)
+								.link (genesis_latest)
+								.sign (keys[i].prv, keys[i].pub)
+								.work (*node->work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.work.epoch_1))
+								.build ();
 
 				node->ledger.process (transaction, *open);
 			}
@@ -1069,14 +1068,14 @@ int main (int argc, char * const * argv)
 				nano::keypair destination;
 
 				auto send = builder.state ()
-							.account (nano::dev::genesis_key.pub)
-							.previous (genesis_latest)
-							.representative (nano::dev::genesis_key.pub)
-							.balance (genesis_balance)
-							.link (destination.pub)
-							.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-							.work (*node->work.generate (nano::work_version::work_1, genesis_latest, node->network_params.work.epoch_1))
-							.build ();
+								.account (nano::dev::genesis_key.pub)
+								.previous (genesis_latest)
+								.representative (nano::dev::genesis_key.pub)
+								.balance (genesis_balance)
+								.link (destination.pub)
+								.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+								.work (*node->work.generate (nano::work_version::work_1, genesis_latest, node->network_params.work.epoch_1))
+								.build ();
 
 				genesis_latest = send->hash ();
 				blocks.push_back (std::move (send));
@@ -1174,26 +1173,26 @@ int main (int argc, char * const * argv)
 				genesis_balance = genesis_balance - 1;
 
 				auto send = builder.state ()
-							.account (nano::dev::genesis_key.pub)
-							.previous (genesis_latest)
-							.representative (nano::dev::genesis_key.pub)
-							.balance (genesis_balance)
-							.link (key.pub)
-							.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-							.work (*work.generate (nano::work_version::work_1, genesis_latest, nano::dev::network_params.work.epoch_1))
-							.build ();
+								.account (nano::dev::genesis_key.pub)
+								.previous (genesis_latest)
+								.representative (nano::dev::genesis_key.pub)
+								.balance (genesis_balance)
+								.link (key.pub)
+								.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+								.work (*work.generate (nano::work_version::work_1, genesis_latest, nano::dev::network_params.work.epoch_1))
+								.build ();
 
 				genesis_latest = send->hash ();
 
 				auto open = builder.state ()
-							.account (key.pub)
-							.previous (0)
-							.representative (key.pub)
-							.balance (1)
-							.link (genesis_latest)
-							.sign (key.prv, key.pub)
-							.work (*work.generate (nano::work_version::work_1, key.pub, nano::dev::network_params.work.epoch_1))
-							.build ();
+								.account (key.pub)
+								.previous (0)
+								.representative (key.pub)
+								.balance (1)
+								.link (genesis_latest)
+								.sign (key.prv, key.pub)
+								.work (*work.generate (nano::work_version::work_1, key.pub, nano::dev::network_params.work.epoch_1))
+								.build ();
 
 				blocks.push_back (std::move (send));
 				blocks.push_back (std::move (open));
@@ -1919,28 +1918,28 @@ int main (int argc, char * const * argv)
 			nano::locked<std::vector<boost::unordered_set<nano::account>>> opened_account_versions_shared (epoch_count);
 			using opened_account_versions_t = decltype (opened_account_versions_shared)::value_type;
 			node->store.account.for_each_par (
-			[&opened_account_versions_shared, epoch_count] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
-				// First cache locally
-				opened_account_versions_t opened_account_versions_l (epoch_count);
-				for (; i != n; ++i)
-				{
-					auto const & account (i->first);
-					auto const & account_info (i->second);
+				[&opened_account_versions_shared, epoch_count] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
+					// First cache locally
+					opened_account_versions_t opened_account_versions_l (epoch_count);
+					for (; i != n; ++i)
+					{
+						auto const & account (i->first);
+						auto const & account_info (i->second);
 
-					// Epoch 0 will be index 0 for instance
-					auto epoch_idx = nano::normalized_epoch (account_info.epoch ());
-					opened_account_versions_l[epoch_idx].emplace (account);
-				}
-				// Now merge
-				auto opened_account_versions = opened_account_versions_shared.lock ();
-				debug_assert (opened_account_versions->size () == opened_account_versions_l.size ());
-				for (auto idx (0); idx < opened_account_versions_l.size (); ++idx)
-				{
-					auto & accounts = opened_account_versions->at (idx);
-					auto const & accounts_l = opened_account_versions_l.at (idx);
-					accounts.insert (accounts_l.begin (), accounts_l.end ());
-				}
-			});
+						// Epoch 0 will be index 0 for instance
+						auto epoch_idx = nano::normalized_epoch (account_info.epoch ());
+						opened_account_versions_l[epoch_idx].emplace (account);
+					}
+					// Now merge
+					auto opened_account_versions = opened_account_versions_shared.lock ();
+					debug_assert (opened_account_versions->size () == opened_account_versions_l.size ());
+					for (auto idx (0); idx < opened_account_versions_l.size (); ++idx)
+					{
+						auto & accounts = opened_account_versions->at (idx);
+						auto const & accounts_l = opened_account_versions_l.at (idx);
+						accounts.insert (accounts_l.begin (), accounts_l.end ());
+					}
+				});
 
 			// Caching in a single set speeds up lookup
 			boost::unordered_set<nano::account> opened_accounts;
@@ -1956,31 +1955,31 @@ int main (int argc, char * const * argv)
 			nano::locked<boost::unordered_map<nano::account, std::underlying_type_t<nano::epoch>>> unopened_highest_pending_shared;
 			using unopened_highest_pending_t = decltype (unopened_highest_pending_shared)::value_type;
 			node->store.pending.for_each_par (
-			[&unopened_highest_pending_shared, &opened_accounts] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::pending_key, nano::pending_info> i, nano::store_iterator<nano::pending_key, nano::pending_info> n) {
-				// First cache locally
-				unopened_highest_pending_t unopened_highest_pending_l;
-				for (; i != n; ++i)
-				{
-					nano::pending_key const & key (i->first);
-					nano::pending_info const & info (i->second);
-					auto & account = key.account;
-					auto exists = opened_accounts.find (account) != opened_accounts.end ();
-					if (!exists)
+				[&unopened_highest_pending_shared, &opened_accounts] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::pending_key, nano::pending_info> i, nano::store_iterator<nano::pending_key, nano::pending_info> n) {
+					// First cache locally
+					unopened_highest_pending_t unopened_highest_pending_l;
+					for (; i != n; ++i)
 					{
-						// This is an unopened account, store the lowest pending version
-						auto epoch = nano::normalized_epoch (info.epoch);
-						auto & existing_or_new = unopened_highest_pending_l[key.account];
+						nano::pending_key const & key (i->first);
+						nano::pending_info const & info (i->second);
+						auto & account = key.account;
+						auto exists = opened_accounts.find (account) != opened_accounts.end ();
+						if (!exists)
+						{
+							// This is an unopened account, store the lowest pending version
+							auto epoch = nano::normalized_epoch (info.epoch);
+							auto & existing_or_new = unopened_highest_pending_l[key.account];
+							existing_or_new = std::max (epoch, existing_or_new);
+						}
+					}
+					// Now merge
+					auto unopened_highest_pending = unopened_highest_pending_shared.lock ();
+					for (auto const & [account, epoch] : unopened_highest_pending_l)
+					{
+						auto & existing_or_new = unopened_highest_pending->operator[] (account);
 						existing_or_new = std::max (epoch, existing_or_new);
 					}
-				}
-				// Now merge
-				auto unopened_highest_pending = unopened_highest_pending_shared.lock ();
-				for (auto const & [account, epoch] : unopened_highest_pending_l)
-				{
-					auto & existing_or_new = unopened_highest_pending->operator[] (account);
-					existing_or_new = std::max (epoch, existing_or_new);
-				}
-			});
+				});
 
 			auto output_account_version_number = [] (auto version, auto num_accounts) {
 				std::cout << "Account version " << version << " num accounts: " << num_accounts << "\n";

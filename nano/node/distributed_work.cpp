@@ -133,67 +133,67 @@ void nano::distributed_work::do_request (nano::tcp_endpoint const & endpoint_a)
 		connections.emplace_back (connection);
 	}
 	connection->socket.async_connect (connection->endpoint,
-	boost::asio::bind_executor (strand,
-	[this_l, connection] (boost::system::error_code const & ec) {
-		if (!ec && !this_l->stopped)
-		{
-			std::string request_string;
-			{
-				boost::property_tree::ptree request;
-				request.put ("action", "work_generate");
-				request.put ("hash", this_l->request.root.to_string ());
-				request.put ("difficulty", nano::to_string_hex (this_l->request.difficulty));
-				if (this_l->request.account.is_initialized ())
-				{
-					request.put ("account", this_l->request.account.get ().to_account ());
-				}
-				std::stringstream ostream;
-				boost::property_tree::write_json (ostream, request);
-				request_string = ostream.str ();
-			}
-			auto peer_request (connection->get_prepared_json_request (request_string));
-			boost::beast::http::async_write (connection->socket, *peer_request,
-			boost::asio::bind_executor (this_l->strand,
-			[this_l, connection, peer_request] (boost::system::error_code const & ec, size_t size_a) {
+		boost::asio::bind_executor (strand,
+			[this_l, connection] (boost::system::error_code const & ec) {
 				if (!ec && !this_l->stopped)
 				{
-					boost::beast::http::async_read (connection->socket, connection->buffer, connection->response,
-					boost::asio::bind_executor (this_l->strand, [this_l, connection] (boost::system::error_code const & ec, size_t size_a) {
-						if (!ec && !this_l->stopped)
+					std::string request_string;
+					{
+						boost::property_tree::ptree request;
+						request.put ("action", "work_generate");
+						request.put ("hash", this_l->request.root.to_string ());
+						request.put ("difficulty", nano::to_string_hex (this_l->request.difficulty));
+						if (this_l->request.account.is_initialized ())
 						{
-							if (connection->response.result () == boost::beast::http::status::ok)
-							{
-								this_l->success (connection->response.body (), connection->endpoint);
-							}
-							else if (ec)
-							{
-								this_l->node.logger.try_log (boost::str (boost::format ("Work peer responded with an error %1% %2%: %3%") % connection->endpoint.address () % connection->endpoint.port () % connection->response.result ()));
-								this_l->add_bad_peer (connection->endpoint);
-								this_l->failure ();
-							}
+							request.put ("account", this_l->request.account.get ().to_account ());
 						}
-						else if (ec)
-						{
-							this_l->do_cancel (connection->endpoint);
-							this_l->failure ();
-						}
-					}));
+						std::stringstream ostream;
+						boost::property_tree::write_json (ostream, request);
+						request_string = ostream.str ();
+					}
+					auto peer_request (connection->get_prepared_json_request (request_string));
+					boost::beast::http::async_write (connection->socket, *peer_request,
+						boost::asio::bind_executor (this_l->strand,
+							[this_l, connection, peer_request] (boost::system::error_code const & ec, size_t size_a) {
+								if (!ec && !this_l->stopped)
+								{
+									boost::beast::http::async_read (connection->socket, connection->buffer, connection->response,
+										boost::asio::bind_executor (this_l->strand, [this_l, connection] (boost::system::error_code const & ec, size_t size_a) {
+											if (!ec && !this_l->stopped)
+											{
+												if (connection->response.result () == boost::beast::http::status::ok)
+												{
+													this_l->success (connection->response.body (), connection->endpoint);
+												}
+												else if (ec)
+												{
+													this_l->node.logger.try_log (boost::str (boost::format ("Work peer responded with an error %1% %2%: %3%") % connection->endpoint.address () % connection->endpoint.port () % connection->response.result ()));
+													this_l->add_bad_peer (connection->endpoint);
+													this_l->failure ();
+												}
+											}
+											else if (ec)
+											{
+												this_l->do_cancel (connection->endpoint);
+												this_l->failure ();
+											}
+										}));
+								}
+								else if (ec && ec != boost::system::errc::operation_canceled)
+								{
+									this_l->node.logger.try_log (boost::str (boost::format ("Unable to write to work_peer %1% %2%: %3% (%4%)") % connection->endpoint.address () % connection->endpoint.port () % ec.message () % ec.value ()));
+									this_l->add_bad_peer (connection->endpoint);
+									this_l->failure ();
+								}
+							}));
 				}
 				else if (ec && ec != boost::system::errc::operation_canceled)
 				{
-					this_l->node.logger.try_log (boost::str (boost::format ("Unable to write to work_peer %1% %2%: %3% (%4%)") % connection->endpoint.address () % connection->endpoint.port () % ec.message () % ec.value ()));
+					this_l->node.logger.try_log (boost::str (boost::format ("Unable to connect to work_peer %1% %2%: %3% (%4%)") % connection->endpoint.address () % connection->endpoint.port () % ec.message () % ec.value ()));
 					this_l->add_bad_peer (connection->endpoint);
 					this_l->failure ();
 				}
 			}));
-		}
-		else if (ec && ec != boost::system::errc::operation_canceled)
-		{
-			this_l->node.logger.try_log (boost::str (boost::format ("Unable to connect to work_peer %1% %2%: %3% (%4%)") % connection->endpoint.address () % connection->endpoint.port () % ec.message () % ec.value ()));
-			this_l->add_bad_peer (connection->endpoint);
-			this_l->failure ();
-		}
-	}));
 }
 
 void nano::distributed_work::do_cancel (nano::tcp_endpoint const & endpoint_a)
@@ -201,30 +201,30 @@ void nano::distributed_work::do_cancel (nano::tcp_endpoint const & endpoint_a)
 	auto this_l (shared_from_this ());
 	auto cancelling_l (std::make_shared<peer_request> (node.io_ctx, endpoint_a));
 	cancelling_l->socket.async_connect (cancelling_l->endpoint,
-	boost::asio::bind_executor (strand,
-	[this_l, cancelling_l] (boost::system::error_code const & ec) {
-		if (!ec)
-		{
-			std::string request_string;
-			{
-				boost::property_tree::ptree request;
-				request.put ("action", "work_cancel");
-				request.put ("hash", this_l->request.root.to_string ());
-				std::stringstream ostream;
-				boost::property_tree::write_json (ostream, request);
-				request_string = ostream.str ();
-			}
-			auto peer_cancel (cancelling_l->get_prepared_json_request (request_string));
-			boost::beast::http::async_write (cancelling_l->socket, *peer_cancel,
-			boost::asio::bind_executor (this_l->strand,
-			[this_l, peer_cancel, cancelling_l] (boost::system::error_code const & ec, size_t bytes_transferred) {
-				if (ec && ec != boost::system::errc::operation_canceled)
+		boost::asio::bind_executor (strand,
+			[this_l, cancelling_l] (boost::system::error_code const & ec) {
+				if (!ec)
 				{
-					this_l->node.logger.try_log (boost::str (boost::format ("Unable to send work_cancel to work_peer %1% %2%: %3% (%4%)") % cancelling_l->endpoint.address () % cancelling_l->endpoint.port () % ec.message () % ec.value ()));
+					std::string request_string;
+					{
+						boost::property_tree::ptree request;
+						request.put ("action", "work_cancel");
+						request.put ("hash", this_l->request.root.to_string ());
+						std::stringstream ostream;
+						boost::property_tree::write_json (ostream, request);
+						request_string = ostream.str ();
+					}
+					auto peer_cancel (cancelling_l->get_prepared_json_request (request_string));
+					boost::beast::http::async_write (cancelling_l->socket, *peer_cancel,
+						boost::asio::bind_executor (this_l->strand,
+							[this_l, peer_cancel, cancelling_l] (boost::system::error_code const & ec, size_t bytes_transferred) {
+								if (ec && ec != boost::system::errc::operation_canceled)
+								{
+									this_l->node.logger.try_log (boost::str (boost::format ("Unable to send work_cancel to work_peer %1% %2%: %3% (%4%)") % cancelling_l->endpoint.address () % cancelling_l->endpoint.port () % ec.message () % ec.value ()));
+								}
+							}));
 				}
 			}));
-		}
-	}));
 }
 
 void nano::distributed_work::success (std::string const & body_a, nano::tcp_endpoint const & endpoint_a)

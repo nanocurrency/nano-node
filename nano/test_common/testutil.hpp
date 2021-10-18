@@ -21,18 +21,18 @@
 		;                                                                                     \
 	else                                                                                      \
 		fail (::testing::internal::GetBoolAssertionFailureMessage (                           \
-		gtest_ar_, text, actual, expected)                                                    \
-			  .c_str ())
+			gtest_ar_, text, actual, expected)                                                \
+				  .c_str ())
 
 /** Extends gtest with a std::error_code assert that prints the error code message when non-zero */
 #define ASSERT_NO_ERROR(condition)                                                      \
 	GTEST_TEST_ERROR_CODE (!(condition), #condition, condition.message ().c_str (), "", \
-	GTEST_FATAL_FAILURE_)
+		GTEST_FATAL_FAILURE_)
 
 /** Extends gtest with a std::error_code assert that expects an error */
 #define ASSERT_IS_ERROR(condition)                                                            \
 	GTEST_TEST_ERROR_CODE ((condition.value () > 0), #condition, "An error was expected", "", \
-	GTEST_FATAL_FAILURE_)
+		GTEST_FATAL_FAILURE_)
 
 /** Asserts that the condition becomes true within the deadline */
 #define ASSERT_TIMELY(time, condition)    \

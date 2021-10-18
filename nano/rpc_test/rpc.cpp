@@ -241,14 +241,14 @@ TEST (rpc, account_balance)
 	nano::state_block_builder builder;
 
 	auto send1 = builder.make_block ()
-				 .account (nano::dev::genesis_key.pub)
-				 .previous (nano::dev::genesis->hash ())
-				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - 1)
-				 .link (nano::dev::genesis_key.pub)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
-				 .build ();
+					 .account (nano::dev::genesis_key.pub)
+					 .previous (nano::dev::genesis->hash ())
+					 .representative (nano::dev::genesis_key.pub)
+					 .balance (nano::dev::constants.genesis_amount - 1)
+					 .link (nano::dev::genesis_key.pub)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (nano::dev::genesis->hash ()))
+					 .build ();
 
 	ASSERT_EQ (nano::process_result::progress, node->process (*send1).code);
 
@@ -5531,7 +5531,7 @@ TEST (rpc, simultaneous_calls)
 				promise.set_value ();
 			}
 		})
-		.detach ();
+			.detach ();
 	}
 
 	promise.get_future ().wait ();

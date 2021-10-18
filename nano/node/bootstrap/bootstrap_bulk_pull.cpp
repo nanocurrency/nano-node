@@ -83,21 +83,21 @@ void nano::bulk_pull_client::request ()
 	}
 	auto this_l (shared_from_this ());
 	connection->channel->send (
-	req, [this_l] (boost::system::error_code const & ec, size_t size_a) {
-		if (!ec)
-		{
-			this_l->throttled_receive_block ();
-		}
-		else
-		{
-			if (this_l->connection->node->config.logging.bulk_pull_logging ())
+		req, [this_l] (boost::system::error_code const & ec, size_t size_a) {
+			if (!ec)
 			{
-				this_l->connection->node->logger.try_log (boost::str (boost::format ("Error sending bulk pull request to %1%: to %2%") % ec.message () % this_l->connection->channel->to_string ()));
+				this_l->throttled_receive_block ();
 			}
-			this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_request_failure, nano::stat::dir::in);
-		}
-	},
-	nano::buffer_drop_policy::no_limiter_drop);
+			else
+			{
+				if (this_l->connection->node->config.logging.bulk_pull_logging ())
+				{
+					this_l->connection->node->logger.try_log (boost::str (boost::format ("Error sending bulk pull request to %1%: to %2%") % ec.message () % this_l->connection->channel->to_string ()));
+				}
+				this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_request_failure, nano::stat::dir::in);
+			}
+		},
+		nano::buffer_drop_policy::no_limiter_drop);
 }
 
 void nano::bulk_pull_client::throttled_receive_block ()
@@ -314,22 +314,22 @@ void nano::bulk_pull_account_client::request ()
 	}
 	auto this_l (shared_from_this ());
 	connection->channel->send (
-	req, [this_l] (boost::system::error_code const & ec, size_t size_a) {
-		if (!ec)
-		{
-			this_l->receive_pending ();
-		}
-		else
-		{
-			this_l->attempt->requeue_pending (this_l->account);
-			if (this_l->connection->node->config.logging.bulk_pull_logging ())
+		req, [this_l] (boost::system::error_code const & ec, size_t size_a) {
+			if (!ec)
 			{
-				this_l->connection->node->logger.try_log (boost::str (boost::format ("Error starting bulk pull request to %1%: to %2%") % ec.message () % this_l->connection->channel->to_string ()));
+				this_l->receive_pending ();
 			}
-			this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_error_starting_request, nano::stat::dir::in);
-		}
-	},
-	nano::buffer_drop_policy::no_limiter_drop);
+			else
+			{
+				this_l->attempt->requeue_pending (this_l->account);
+				if (this_l->connection->node->config.logging.bulk_pull_logging ())
+				{
+					this_l->connection->node->logger.try_log (boost::str (boost::format ("Error starting bulk pull request to %1%: to %2%") % ec.message () % this_l->connection->channel->to_string ()));
+				}
+				this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_error_starting_request, nano::stat::dir::in);
+			}
+		},
+		nano::buffer_drop_policy::no_limiter_drop);
 }
 
 void nano::bulk_pull_account_client::receive_pending ()

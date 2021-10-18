@@ -317,9 +317,9 @@ void nano::tomlconfig::erase_defaults (std::shared_ptr<cpptoml::table> const & b
 				if (arr_other.size () == arr_base.size ())
 				{
 					bool equal = std::equal (arr_other.begin (), arr_other.end (), arr_base.begin (),
-					[] (auto const & item1, auto const & item2) -> bool {
-						return (item1->template as<std::string> ()->get () == item2->template as<std::string> ()->get ());
-					});
+						[] (auto const & item1, auto const & item2) -> bool {
+							return (item1->template as<std::string> ()->get () == item2->template as<std::string> ()->get ());
+						});
 
 					if (equal)
 					{

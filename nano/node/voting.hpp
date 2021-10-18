@@ -43,12 +43,12 @@ class vote_spacing final
 	};
 
 	boost::multi_index_container<entry,
-	mi::indexed_by<
-	mi::hashed_non_unique<mi::tag<class tag_root>,
-	mi::member<entry, nano::root, &entry::root>>,
-	mi::ordered_non_unique<mi::tag<class tag_time>,
-	mi::member<entry, std::chrono::steady_clock::time_point, &entry::time>>>>
-	recent;
+		mi::indexed_by<
+			mi::hashed_non_unique<mi::tag<class tag_root>,
+				mi::member<entry, nano::root, &entry::root>>,
+			mi::ordered_non_unique<mi::tag<class tag_time>,
+				mi::member<entry, std::chrono::steady_clock::time_point, &entry::time>>>>
+		recent;
 	std::chrono::milliseconds const delay;
 	void trim ();
 

@@ -753,34 +753,34 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.block_count)
 	{
 		store.account.for_each_par (
-		[this] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
-			uint64_t block_count_l{ 0 };
-			uint64_t account_count_l{ 0 };
-			decltype (this->cache.rep_weights) rep_weights_l;
-			for (; i != n; ++i)
-			{
-				nano::account_info const & info (i->second);
-				block_count_l += info.block_count;
-				++account_count_l;
-				rep_weights_l.representation_add (info.representative, info.balance.number ());
-			}
-			this->cache.block_count += block_count_l;
-			this->cache.account_count += account_count_l;
-			this->cache.rep_weights.copy_from (rep_weights_l);
-		});
+			[this] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
+				uint64_t block_count_l{ 0 };
+				uint64_t account_count_l{ 0 };
+				decltype (this->cache.rep_weights) rep_weights_l;
+				for (; i != n; ++i)
+				{
+					nano::account_info const & info (i->second);
+					block_count_l += info.block_count;
+					++account_count_l;
+					rep_weights_l.representation_add (info.representative, info.balance.number ());
+				}
+				this->cache.block_count += block_count_l;
+				this->cache.account_count += account_count_l;
+				this->cache.rep_weights.copy_from (rep_weights_l);
+			});
 	}
 
 	if (generate_cache_a.cemented_count)
 	{
 		store.confirmation_height.for_each_par (
-		[this] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::confirmation_height_info> i, nano::store_iterator<nano::account, nano::confirmation_height_info> n) {
-			uint64_t cemented_count_l (0);
-			for (; i != n; ++i)
-			{
-				cemented_count_l += i->second.height;
-			}
-			this->cache.cemented_count += cemented_count_l;
-		});
+			[this] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::confirmation_height_info> i, nano::store_iterator<nano::account, nano::confirmation_height_info> n) {
+				uint64_t cemented_count_l (0);
+				for (; i != n; ++i)
+				{
+					cemented_count_l += i->second.height;
+				}
+				this->cache.cemented_count += cemented_count_l;
+			});
 	}
 
 	auto transaction (store.tx_begin_read ());
@@ -1423,83 +1423,83 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 	if (!rocksdb_store->init_error ())
 	{
 		store.block.for_each_par (
-		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
-			for (; i != n; ++i)
-			{
-				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::blocks }));
-
-				std::vector<uint8_t> vector;
+			[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+				for (; i != n; ++i)
 				{
-					nano::vectorstream stream (vector);
-					nano::serialize_block (stream, *i->second.block);
-					i->second.sideband.serialize (stream, i->second.block->type ());
+					auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::blocks }));
+
+					std::vector<uint8_t> vector;
+					{
+						nano::vectorstream stream (vector);
+						nano::serialize_block (stream, *i->second.block);
+						i->second.sideband.serialize (stream, i->second.block->type ());
+					}
+					rocksdb_store->block.raw_put (rocksdb_transaction, vector, i->first);
 				}
-				rocksdb_store->block.raw_put (rocksdb_transaction, vector, i->first);
-			}
-		});
+			});
 
 		store.unchecked.for_each_par (
-		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
-			for (; i != n; ++i)
-			{
-				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::unchecked }));
-				rocksdb_store->unchecked.put (rocksdb_transaction, i->first, i->second);
-			}
-		});
+			[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+				for (; i != n; ++i)
+				{
+					auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::unchecked }));
+					rocksdb_store->unchecked.put (rocksdb_transaction, i->first, i->second);
+				}
+			});
 
 		store.pending.for_each_par (
-		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
-			for (; i != n; ++i)
-			{
-				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pending }));
-				rocksdb_store->pending.put (rocksdb_transaction, i->first, i->second);
-			}
-		});
+			[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+				for (; i != n; ++i)
+				{
+					auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pending }));
+					rocksdb_store->pending.put (rocksdb_transaction, i->first, i->second);
+				}
+			});
 
 		store.confirmation_height.for_each_par (
-		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
-			for (; i != n; ++i)
-			{
-				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::confirmation_height }));
-				rocksdb_store->confirmation_height.put (rocksdb_transaction, i->first, i->second);
-			}
-		});
+			[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+				for (; i != n; ++i)
+				{
+					auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::confirmation_height }));
+					rocksdb_store->confirmation_height.put (rocksdb_transaction, i->first, i->second);
+				}
+			});
 
 		store.account.for_each_par (
-		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
-			for (; i != n; ++i)
-			{
-				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::accounts }));
-				rocksdb_store->account.put (rocksdb_transaction, i->first, i->second);
-			}
-		});
+			[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+				for (; i != n; ++i)
+				{
+					auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::accounts }));
+					rocksdb_store->account.put (rocksdb_transaction, i->first, i->second);
+				}
+			});
 
 		store.frontier.for_each_par (
-		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
-			for (; i != n; ++i)
-			{
-				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::frontiers }));
-				rocksdb_store->frontier.put (rocksdb_transaction, i->first, i->second);
-			}
-		});
+			[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+				for (; i != n; ++i)
+				{
+					auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::frontiers }));
+					rocksdb_store->frontier.put (rocksdb_transaction, i->first, i->second);
+				}
+			});
 
 		store.pruned.for_each_par (
-		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
-			for (; i != n; ++i)
-			{
-				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pruned }));
-				rocksdb_store->pruned.put (rocksdb_transaction, i->first);
-			}
-		});
+			[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+				for (; i != n; ++i)
+				{
+					auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pruned }));
+					rocksdb_store->pruned.put (rocksdb_transaction, i->first);
+				}
+			});
 
 		store.final_vote.for_each_par (
-		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
-			for (; i != n; ++i)
-			{
-				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::final_votes }));
-				rocksdb_store->final_vote.put (rocksdb_transaction, i->first, i->second);
-			}
-		});
+			[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+				for (; i != n; ++i)
+				{
+					auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::final_votes }));
+					rocksdb_store->final_vote.put (rocksdb_transaction, i->first, i->second);
+				}
+			});
 
 		auto lmdb_transaction (store.tx_begin_read ());
 		auto version = store.version.get (lmdb_transaction);

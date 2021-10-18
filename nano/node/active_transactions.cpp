@@ -820,11 +820,11 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 					}
 				}
 				result.election = nano::make_shared<nano::election> (
-				node, block_a, confirmation_action_a, [&node = node] (auto const & rep_a) {
-					// Representative is defined as online if replying to live votes or rep_crawler queries
-					node.online_reps.observe (rep_a);
-				},
-				election_behavior_a);
+					node, block_a, confirmation_action_a, [&node = node] (auto const & rep_a) {
+						// Representative is defined as online if replying to live votes or rep_crawler queries
+						node.online_reps.observe (rep_a);
+					},
+					election_behavior_a);
 				roots.get<tag_root> ().emplace (nano::active_transactions::conflict_info{ root, result.election, epoch, previous_balance });
 				blocks.emplace (hash, result.election);
 				auto const cache = find_inactive_votes_cache_impl (hash);

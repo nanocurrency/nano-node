@@ -631,7 +631,7 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list_non_pr
 	result.erase (std::remove_if (result.begin (), result.end (), [this] (std::shared_ptr<nano::transport::channel> const & channel) {
 		return this->node.rep_crawler.is_pr (*channel);
 	}),
-	result.end ());
+		result.end ());
 	if (result.size () > count_a)
 	{
 		result.resize (count_a, nullptr);

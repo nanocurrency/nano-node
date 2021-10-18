@@ -87,13 +87,13 @@ nano::transport::udp_channels::udp_channels (nano::node & node_a, uint16_t port_
 void nano::transport::udp_channels::send (nano::shared_const_buffer const & buffer_a, nano::endpoint endpoint_a, std::function<void (boost::system::error_code const &, size_t)> const & callback_a)
 {
 	boost::asio::post (strand,
-	[this, buffer_a, endpoint_a, callback_a] () {
-		if (!this->stopped)
-		{
-			this->socket->async_send_to (buffer_a, endpoint_a,
-			boost::asio::bind_executor (strand, callback_a));
-		}
-	});
+		[this, buffer_a, endpoint_a, callback_a] () {
+			if (!this->stopped)
+			{
+				this->socket->async_send_to (buffer_a, endpoint_a,
+					boost::asio::bind_executor (strand, callback_a));
+			}
+		});
 }
 
 std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::insert (nano::endpoint const & endpoint_a, unsigned network_version_a)
@@ -194,7 +194,7 @@ bool nano::transport::udp_channels::store_all (bool clear_peers)
 		nano::lock_guard<nano::mutex> lock (mutex);
 		endpoints.reserve (channels.size ());
 		std::transform (channels.begin (), channels.end (),
-		std::back_inserter (endpoints), [] (const auto & channel) { return channel.endpoint (); });
+			std::back_inserter (endpoints), [] (const auto & channel) { return channel.endpoint (); });
 	}
 	bool result (false);
 	if (!endpoints.empty ())
@@ -283,30 +283,30 @@ void nano::transport::udp_channels::receive ()
 		auto data (node.network.buffer_container.allocate ());
 
 		socket->async_receive_from (boost::asio::buffer (data->buffer, nano::network::buffer_size), data->endpoint,
-		boost::asio::bind_executor (strand,
-		[this, data] (boost::system::error_code const & error, std::size_t size_a) {
-			if (!error && !this->stopped)
-			{
-				data->size = size_a;
-				this->node.network.buffer_container.enqueue (data);
-				this->receive ();
-			}
-			else
-			{
-				this->node.network.buffer_container.release (data);
-				if (error)
-				{
-					if (this->node.config.logging.network_logging ())
+			boost::asio::bind_executor (strand,
+				[this, data] (boost::system::error_code const & error, std::size_t size_a) {
+					if (!error && !this->stopped)
 					{
-						this->node.logger.try_log (boost::str (boost::format ("UDP Receive error: %1%") % error.message ()));
+						data->size = size_a;
+						this->node.network.buffer_container.enqueue (data);
+						this->receive ();
 					}
-				}
-				if (!this->stopped)
-				{
-					this->node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this] () { this->receive (); });
-				}
-			}
-		}));
+					else
+					{
+						this->node.network.buffer_container.release (data);
+						if (error)
+						{
+							if (this->node.config.logging.network_logging ())
+							{
+								this->node.logger.try_log (boost::str (boost::format ("UDP Receive error: %1%") % error.message ()));
+							}
+						}
+						if (!this->stopped)
+						{
+							this->node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this] () { this->receive (); });
+						}
+					}
+				}));
 	}
 }
 

@@ -33,12 +33,12 @@ void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::fu
 	auto this_l (shared_from_this ());
 	start_timer ();
 	this_l->tcp_socket.async_connect (endpoint_a,
-	boost::asio::bind_executor (this_l->strand,
-	[this_l, callback_a, endpoint_a] (boost::system::error_code const & ec) {
-		this_l->stop_timer ();
-		this_l->remote = endpoint_a;
-		callback_a (ec);
-	}));
+		boost::asio::bind_executor (this_l->strand,
+			[this_l, callback_a, endpoint_a] (boost::system::error_code const & ec) {
+				this_l->stop_timer ();
+				this_l->remote = endpoint_a;
+				callback_a (ec);
+			}));
 }
 
 void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, size_t size_a, std::function<void (boost::system::error_code const &, size_t)> callback_a)
@@ -51,12 +51,12 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buf
 			start_timer ();
 			boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, size_a, this_l] () {
 				boost::asio::async_read (this_l->tcp_socket, boost::asio::buffer (buffer_a->data (), size_a),
-				boost::asio::bind_executor (this_l->strand,
-				[this_l, buffer_a, callback_a] (boost::system::error_code const & ec, size_t size_a) {
-					this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::in, size_a);
-					this_l->stop_timer ();
-					callback_a (ec, size_a);
-				}));
+					boost::asio::bind_executor (this_l->strand,
+						[this_l, buffer_a, callback_a] (boost::system::error_code const & ec, size_t size_a) {
+							this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::in, size_a);
+							this_l->stop_timer ();
+							callback_a (ec, size_a);
+						}));
 			}));
 		}
 	}
@@ -78,16 +78,16 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 			{
 				this_l->start_timer ();
 				nano::async_write (this_l->tcp_socket, buffer_a,
-				boost::asio::bind_executor (this_l->strand,
-				[buffer_a, callback_a, this_l] (boost::system::error_code ec, std::size_t size_a) {
-					--this_l->queue_size;
-					this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
-					this_l->stop_timer ();
-					if (callback_a)
-					{
-						callback_a (ec, size_a);
-					}
-				}));
+					boost::asio::bind_executor (this_l->strand,
+						[buffer_a, callback_a, this_l] (boost::system::error_code ec, std::size_t size_a) {
+							--this_l->queue_size;
+							this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
+							this_l->stop_timer ();
+							if (callback_a)
+							{
+								callback_a (ec, size_a);
+							}
+						}));
 			}
 			else
 			{
@@ -252,56 +252,56 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 		// Prepare new connection
 		auto new_connection = std::make_shared<nano::socket> (this_l->node, boost::none);
 		this_l->acceptor.async_accept (new_connection->tcp_socket, new_connection->remote,
-		boost::asio::bind_executor (this_l->strand,
-		[this_l, new_connection, callback_a] (boost::system::error_code const & ec_a) {
-			this_l->evict_dead_connections ();
+			boost::asio::bind_executor (this_l->strand,
+				[this_l, new_connection, callback_a] (boost::system::error_code const & ec_a) {
+					this_l->evict_dead_connections ();
 
-			if (this_l->connections.size () >= this_l->max_inbound_connections)
-			{
-				this_l->node.logger.always_log ("Network: max_inbound_connections reached, unable to open new connection");
-				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
-				this_l->on_connection_requeue_delayed (callback_a);
-				return;
-			}
+					if (this_l->connections.size () >= this_l->max_inbound_connections)
+					{
+						this_l->node.logger.always_log ("Network: max_inbound_connections reached, unable to open new connection");
+						this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
+						this_l->on_connection_requeue_delayed (callback_a);
+						return;
+					}
 
-			if (!ec_a)
-			{
-				// Make sure the new connection doesn't idle. Note that in most cases, the callback is going to start
-				// an IO operation immediately, which will start a timer.
-				new_connection->checkup ();
-				new_connection->start_timer (this_l->node.network_params.network.is_dev_network () ? std::chrono::seconds (2) : this_l->node.network_params.network.idle_timeout);
-				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
-				this_l->connections.push_back (new_connection);
-				if (callback_a (new_connection, ec_a))
-				{
-					this_l->on_connection (callback_a);
-					return;
-				}
-				this_l->node.logger.always_log ("Network: Stopping to accept connections");
-				return;
-			}
+					if (!ec_a)
+					{
+						// Make sure the new connection doesn't idle. Note that in most cases, the callback is going to start
+						// an IO operation immediately, which will start a timer.
+						new_connection->checkup ();
+						new_connection->start_timer (this_l->node.network_params.network.is_dev_network () ? std::chrono::seconds (2) : this_l->node.network_params.network.idle_timeout);
+						this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
+						this_l->connections.push_back (new_connection);
+						if (callback_a (new_connection, ec_a))
+						{
+							this_l->on_connection (callback_a);
+							return;
+						}
+						this_l->node.logger.always_log ("Network: Stopping to accept connections");
+						return;
+					}
 
-			// accept error
-			this_l->node.logger.try_log ("Network: Unable to accept connection: ", ec_a.message ());
-			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
+					// accept error
+					this_l->node.logger.try_log ("Network: Unable to accept connection: ", ec_a.message ());
+					this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
 
-			if (this_l->is_temporary_error (ec_a))
-			{
-				// if it is a temporary error, just retry it
-				this_l->on_connection_requeue_delayed (callback_a);
-				return;
-			}
+					if (this_l->is_temporary_error (ec_a))
+					{
+						// if it is a temporary error, just retry it
+						this_l->on_connection_requeue_delayed (callback_a);
+						return;
+					}
 
-			// if it is not a temporary error, check how the listener wants to handle this error
-			if (callback_a (new_connection, ec_a))
-			{
-				this_l->on_connection_requeue_delayed (callback_a);
-				return;
-			}
+					// if it is not a temporary error, check how the listener wants to handle this error
+					if (callback_a (new_connection, ec_a))
+					{
+						this_l->on_connection_requeue_delayed (callback_a);
+						return;
+					}
 
-			// No requeue if we reach here, no incoming socket connections will be handled
-			this_l->node.logger.always_log ("Network: Stopping to accept connections");
-		}));
+					// No requeue if we reach here, no incoming socket connections will be handled
+					this_l->node.logger.always_log ("Network: Stopping to accept connections");
+				}));
 	}));
 }
 

@@ -113,21 +113,21 @@ public:
 		auto msg (send_queue.front ());
 		this_l->timer_start (io_timeout);
 		nano::async_write (socket, msg.buffer,
-		boost::asio::bind_executor (strand,
-		[msg, this_l] (boost::system::error_code ec, std::size_t size_a) {
-			this_l->timer_cancel ();
+			boost::asio::bind_executor (strand,
+				[msg, this_l] (boost::system::error_code ec, std::size_t size_a) {
+					this_l->timer_cancel ();
 
-			if (msg.callback)
-			{
-				msg.callback (ec, size_a);
-			}
+					if (msg.callback)
+					{
+						msg.callback (ec, size_a);
+					}
 
-			this_l->send_queue.pop_front ();
-			if (!ec && !this_l->send_queue.empty ())
-			{
-				this_l->write_queued_messages ();
-			}
-		}));
+					this_l->send_queue.pop_front ();
+					if (!ec && !this_l->send_queue.empty ())
+					{
+						this_l->write_queued_messages ();
+					}
+				}));
 	}
 
 	void async_read_message (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::chrono::seconds timeout_a, std::function<void (boost::system::error_code const &, size_t)> callback_a) override

@@ -137,18 +137,18 @@ TEST (socket, drop_policy)
 		nano::util::counted_completion write_completion (static_cast<unsigned> (total_message_count));
 
 		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), server_port),
-		[&channel, total_message_count, node, &write_completion, &drop_policy, client] (boost::system::error_code const & ec_a) mutable {
-			for (int i = 0; i < total_message_count; i++)
-			{
-				std::vector<uint8_t> buff (1);
-				channel.send_buffer (
-				nano::shared_const_buffer (std::move (buff)), [&write_completion, client] (boost::system::error_code const & ec, size_t size_a) mutable {
-					client.reset ();
-					write_completion.increment ();
-				},
-				drop_policy);
-			}
-		});
+			[&channel, total_message_count, node, &write_completion, &drop_policy, client] (boost::system::error_code const & ec_a) mutable {
+				for (int i = 0; i < total_message_count; i++)
+				{
+					std::vector<uint8_t> buff (1);
+					channel.send_buffer (
+						nano::shared_const_buffer (std::move (buff)), [&write_completion, client] (boost::system::error_code const & ec, size_t size_a) mutable {
+							client.reset ();
+							write_completion.increment ();
+						},
+						drop_policy);
+				}
+			});
 		ASSERT_FALSE (write_completion.await_count_for (std::chrono::seconds (5)));
 		ASSERT_EQ (1, client.use_count ());
 	};
@@ -247,16 +247,16 @@ TEST (socket, concurrent_writes)
 		auto client = std::make_shared<nano::socket> (*node, boost::none);
 		clients.push_back (client);
 		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 25000),
-		[&connection_count_completion] (boost::system::error_code const & ec_a) {
-			if (ec_a)
-			{
-				std::cerr << "async_connect: " << ec_a.message () << std::endl;
-			}
-			else
-			{
-				connection_count_completion.increment ();
-			}
-		});
+			[&connection_count_completion] (boost::system::error_code const & ec_a) {
+				if (ec_a)
+				{
+					std::cerr << "async_connect: " << ec_a.message () << std::endl;
+				}
+				else
+				{
+					connection_count_completion.increment ();
+				}
+			});
 	}
 	ASSERT_FALSE (connection_count_completion.await_count_for (10s));
 
