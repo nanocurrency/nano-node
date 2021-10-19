@@ -1175,10 +1175,10 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version
 {
 	std::promise<boost::optional<uint64_t>> promise;
 	work_generate (
-		version_a, root_a, difficulty_a, [&promise] (boost::optional<uint64_t> opt_work_a) {
-			promise.set_value (opt_work_a);
-		},
-		account_a);
+	version_a, root_a, difficulty_a, [&promise] (boost::optional<uint64_t> opt_work_a) {
+		promise.set_value (opt_work_a);
+	},
+	account_a);
 	return promise.get_future ().get ();
 }
 
@@ -1540,14 +1540,14 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 					auto difficulty (network_params.work.threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
 					nano::root const & root (info.head);
 					std::shared_ptr<nano::block> epoch = builder.state ()
-															 .account (account)
-															 .previous (info.head)
-															 .representative (info.representative)
-															 .balance (info.balance)
-															 .link (link)
-															 .sign (raw_key, signer)
-															 .work (0)
-															 .build ();
+														 .account (account)
+														 .previous (info.head)
+														 .representative (info.representative)
+														 .balance (info.balance)
+														 .link (link)
+														 .sign (raw_key, signer)
+														 .work (0)
+														 .build ();
 					if (threads != 0)
 					{
 						{
@@ -1619,14 +1619,14 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 						nano::root const & root (key.account);
 						nano::account const & account (key.account);
 						std::shared_ptr<nano::block> epoch = builder.state ()
-																 .account (key.account)
-																 .previous (0)
-																 .representative (0)
-																 .balance (0)
-																 .link (link)
-																 .sign (raw_key, signer)
-																 .work (0)
-																 .build ();
+															 .account (key.account)
+															 .previous (0)
+															 .representative (0)
+															 .balance (0)
+															 .link (link)
+															 .sign (raw_key, signer)
+															 .work (0)
+															 .build ();
 						if (threads != 0)
 						{
 							{

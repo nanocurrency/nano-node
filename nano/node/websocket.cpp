@@ -272,13 +272,13 @@ void nano::websocket::session::close ()
 
 	auto this_l (shared_from_this ());
 	boost::asio::dispatch (strand,
-		[this_l] () {
-			boost::beast::websocket::close_reason reason;
-			reason.code = boost::beast::websocket::close_code::normal;
-			reason.reason = "Shutting down";
-			boost::system::error_code ec_ignore;
-			this_l->ws.close (reason, ec_ignore);
-		});
+	[this_l] () {
+		boost::beast::websocket::close_reason reason;
+		reason.code = boost::beast::websocket::close_code::normal;
+		reason.reason = "Shutting down";
+		boost::system::error_code ec_ignore;
+		this_l->ws.close (reason, ec_ignore);
+	});
 }
 
 void nano::websocket::session::write (nano::websocket::message message_a)
@@ -290,14 +290,14 @@ void nano::websocket::session::write (nano::websocket::message message_a)
 		lk.unlock ();
 		auto this_l (shared_from_this ());
 		boost::asio::post (strand,
-			[message_a, this_l] () {
-				bool write_in_progress = !this_l->send_queue.empty ();
-				this_l->send_queue.emplace_back (message_a);
-				if (!write_in_progress)
-				{
-					this_l->write_queued_messages ();
-				}
-			});
+		[message_a, this_l] () {
+			bool write_in_progress = !this_l->send_queue.empty ();
+			this_l->send_queue.emplace_back (message_a);
+			if (!write_in_progress)
+			{
+				this_l->write_queued_messages ();
+			}
+		});
 	}
 }
 
@@ -307,17 +307,17 @@ void nano::websocket::session::write_queued_messages ()
 	auto this_l (shared_from_this ());
 
 	ws.async_write (nano::shared_const_buffer (msg),
-		boost::asio::bind_executor (strand,
-			[this_l] (boost::system::error_code ec, std::size_t bytes_transferred) {
-				this_l->send_queue.pop_front ();
-				if (!ec)
-				{
-					if (!this_l->send_queue.empty ())
-					{
-						this_l->write_queued_messages ();
-					}
-				}
-			}));
+	boost::asio::bind_executor (strand,
+	[this_l] (boost::system::error_code ec, std::size_t bytes_transferred) {
+		this_l->send_queue.pop_front ();
+		if (!ec)
+		{
+			if (!this_l->send_queue.empty ())
+			{
+				this_l->write_queued_messages ();
+			}
+		}
+	}));
 }
 
 void nano::websocket::session::read ()
@@ -326,34 +326,34 @@ void nano::websocket::session::read ()
 
 	boost::asio::post (strand, [this_l] () {
 		this_l->ws.async_read (this_l->read_buffer,
-			boost::asio::bind_executor (this_l->strand,
-				[this_l] (boost::system::error_code ec, std::size_t bytes_transferred) {
-					if (!ec)
-					{
-						std::stringstream os;
-						os << beast_buffers (this_l->read_buffer.data ());
-						std::string incoming_message = os.str ();
+		boost::asio::bind_executor (this_l->strand,
+		[this_l] (boost::system::error_code ec, std::size_t bytes_transferred) {
+			if (!ec)
+			{
+				std::stringstream os;
+				os << beast_buffers (this_l->read_buffer.data ());
+				std::string incoming_message = os.str ();
 
-						// Prepare next read by clearing the multibuffer
-						this_l->read_buffer.consume (this_l->read_buffer.size ());
+				// Prepare next read by clearing the multibuffer
+				this_l->read_buffer.consume (this_l->read_buffer.size ());
 
-						boost::property_tree::ptree tree_msg;
-						try
-						{
-							boost::property_tree::read_json (os, tree_msg);
-							this_l->handle_message (tree_msg);
-							this_l->read ();
-						}
-						catch (boost::property_tree::json_parser::json_parser_error const & ex)
-						{
-							this_l->ws_listener.get_logger ().try_log ("Websocket: json parsing failed: ", ex.what ());
-						}
-					}
-					else if (ec != boost::asio::error::eof)
-					{
-						this_l->ws_listener.get_logger ().try_log ("Websocket: read failed: ", ec.message ());
-					}
-				}));
+				boost::property_tree::ptree tree_msg;
+				try
+				{
+					boost::property_tree::read_json (os, tree_msg);
+					this_l->handle_message (tree_msg);
+					this_l->read ();
+				}
+				catch (boost::property_tree::json_parser::json_parser_error const & ex)
+				{
+					this_l->ws_listener.get_logger ().try_log ("Websocket: json parsing failed: ", ex.what ());
+				}
+			}
+			else if (ec != boost::asio::error::eof)
+			{
+				this_l->ws_listener.get_logger ().try_log ("Websocket: read failed: ", ec.message ());
+			}
+		}));
 	});
 }
 
@@ -576,9 +576,9 @@ void nano::websocket::listener::accept ()
 {
 	auto this_l (shared_from_this ());
 	acceptor.async_accept (socket,
-		[this_l] (boost::system::error_code const & ec) {
-			this_l->on_accept (ec);
-		});
+	[this_l] (boost::system::error_code const & ec) {
+		this_l->on_accept (ec);
+	});
 }
 
 void nano::websocket::listener::on_accept (boost::system::error_code ec)

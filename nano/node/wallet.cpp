@@ -1068,10 +1068,10 @@ bool nano::wallet::change_sync (nano::account const & source_a, nano::account co
 	std::promise<bool> result;
 	std::future<bool> future = result.get_future ();
 	change_async (
-		source_a, representative_a, [&result] (std::shared_ptr<nano::block> const & block_a) {
-			result.set_value (block_a == nullptr);
-		},
-		true);
+	source_a, representative_a, [&result] (std::shared_ptr<nano::block> const & block_a) {
+		result.set_value (block_a == nullptr);
+	},
+	true);
 	return future.get ();
 }
 
@@ -1090,10 +1090,10 @@ bool nano::wallet::receive_sync (std::shared_ptr<nano::block> const & block_a, n
 	std::future<bool> future = result.get_future ();
 	auto destination (block_a->link ().is_zero () ? block_a->destination () : block_a->link ().as_account ());
 	receive_async (
-		block_a->hash (), representative_a, amount_a, destination, [&result] (std::shared_ptr<nano::block> const & block_a) {
-			result.set_value (block_a == nullptr);
-		},
-		true);
+	block_a->hash (), representative_a, amount_a, destination, [&result] (std::shared_ptr<nano::block> const & block_a) {
+		result.set_value (block_a == nullptr);
+	},
+	true);
 	return future.get ();
 }
 
@@ -1111,10 +1111,10 @@ nano::block_hash nano::wallet::send_sync (nano::account const & source_a, nano::
 	std::promise<nano::block_hash> result;
 	std::future<nano::block_hash> future = result.get_future ();
 	send_async (
-		source_a, account_a, amount_a, [&result] (std::shared_ptr<nano::block> const & block_a) {
-			result.set_value (block_a->hash ());
-		},
-		true);
+	source_a, account_a, amount_a, [&result] (std::shared_ptr<nano::block> const & block_a) {
+		result.set_value (block_a->hash ());
+	},
+	true);
 	return future.get ();
 }
 

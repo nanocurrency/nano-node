@@ -159,22 +159,22 @@ void nano::system::ledger_initialization_set (std::vector<nano::keypair> const &
 		balance -= amount;
 		nano::state_block_builder builder;
 		builder.account (nano::dev::genesis_key.pub)
-			.previous (previous)
-			.representative (nano::dev::genesis_key.pub)
-			.link (i.pub)
-			.balance (balance)
-			.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-			.work (*work.generate (previous));
+		.previous (previous)
+		.representative (nano::dev::genesis_key.pub)
+		.link (i.pub)
+		.balance (balance)
+		.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+		.work (*work.generate (previous));
 		initialization_blocks.emplace_back (builder.build_shared ());
 		previous = initialization_blocks.back ()->hash ();
 		builder.make_block ();
 		builder.account (i.pub)
-			.previous (0)
-			.representative (i.pub)
-			.link (previous)
-			.balance (amount)
-			.sign (i.prv, i.pub)
-			.work (*work.generate (i.pub));
+		.previous (0)
+		.representative (i.pub)
+		.link (previous)
+		.balance (amount)
+		.sign (i.prv, i.pub)
+		.work (*work.generate (i.pub));
 		initialization_blocks.emplace_back (builder.build_shared ());
 	}
 }
@@ -220,14 +220,14 @@ std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a
 	nano::state_block_builder builder;
 	std::error_code ec;
 	auto epoch = builder
-					 .account (dev_genesis_key.pub)
-					 .previous (latest)
-					 .balance (balance)
-					 .link (ledger_a.epoch_link (epoch_a))
-					 .representative (dev_genesis_key.pub)
-					 .sign (dev_genesis_key.prv, dev_genesis_key.pub)
-					 .work (*pool_a.generate (latest, pool_a.network_constants.work.threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
-					 .build (ec);
+				 .account (dev_genesis_key.pub)
+				 .previous (latest)
+				 .balance (balance)
+				 .link (ledger_a.epoch_link (epoch_a))
+				 .representative (dev_genesis_key.pub)
+				 .sign (dev_genesis_key.prv, dev_genesis_key.pub)
+				 .work (*pool_a.generate (latest, pool_a.network_constants.work.threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
+				 .build (ec);
 
 	bool error{ true };
 	if (!ec && epoch)

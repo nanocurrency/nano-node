@@ -58,10 +58,10 @@ void nano::ledger_walker::walk (nano::block_hash const & end_block_hash_a, shoul
 	dht::DiskHash<nano::block_hash> walked_blocks_order{ nano::unique_path ().c_str (), static_cast<int> (std::to_string (std::numeric_limits<std::uint64_t>::max ()).size ()) + 1, dht::DHOpenRW };
 
 	walk_backward (end_block_hash_a,
-		should_visit_callback_a,
-		[&] (const auto & block) {
-			walked_blocks_order.insert (std::to_string (++last_walked_block_order_index).c_str (), block->hash ());
-		});
+	should_visit_callback_a,
+	[&] (const auto & block) {
+		walked_blocks_order.insert (std::to_string (++last_walked_block_order_index).c_str (), block->hash ());
+	});
 
 	const auto transaction = ledger.store.tx_begin_read ();
 	for (auto walked_block_order_index = last_walked_block_order_index; walked_block_order_index != 0; --walked_block_order_index)
@@ -87,21 +87,21 @@ void nano::ledger_walker::walk (nano::block_hash const & end_block_hash_a, shoul
 void nano::ledger_walker::walk_backward (nano::block_hash const & start_block_hash_a, visitor_callback const & visitor_callback_a)
 {
 	walk_backward (
-		start_block_hash_a,
-		[&] (const auto & /* block */) {
-			return true;
-		},
-		visitor_callback_a);
+	start_block_hash_a,
+	[&] (const auto & /* block */) {
+		return true;
+	},
+	visitor_callback_a);
 }
 
 void nano::ledger_walker::walk (nano::block_hash const & end_block_hash_a, visitor_callback const & visitor_callback_a)
 {
 	walk (
-		end_block_hash_a,
-		[&] (const auto & /* block */) {
-			return true;
-		},
-		visitor_callback_a);
+	end_block_hash_a,
+	[&] (const auto & /* block */) {
+		return true;
+	},
+	visitor_callback_a);
 }
 
 void nano::ledger_walker::enqueue_block (nano::block_hash block_hash_a)
@@ -153,8 +153,8 @@ bool nano::ledger_walker::add_to_walked_blocks_disk (nano::block_hash const & bl
 
 	std::array<decltype (nano::block_hash::chars)::value_type, sizeof (nano::block_hash::bytes) + 1> block_hash_key{};
 	std::copy (block_hash_a.chars.cbegin (),
-		block_hash_a.chars.cend (),
-		block_hash_key.begin ());
+	block_hash_a.chars.cend (),
+	block_hash_key.begin ());
 
 	return walked_blocks_disk->insert (block_hash_key.data (), true);
 }

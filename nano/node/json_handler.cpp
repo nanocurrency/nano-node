@@ -849,20 +849,20 @@ void nano::json_handler::account_representative_set ()
 				auto response_a (rpc_l->response);
 				auto response_data (std::make_shared<boost::property_tree::ptree> (rpc_l->response_l));
 				wallet->change_async (
-					account, representative, [response_a, response_data] (std::shared_ptr<nano::block> const & block) {
-						if (block != nullptr)
-						{
-							response_data->put ("block", block->hash ().to_string ());
-							std::stringstream ostream;
-							boost::property_tree::write_json (ostream, *response_data);
-							response_a (ostream.str ());
-						}
-						else
-						{
-							json_error_response (response_a, "Error generating block");
-						}
-					},
-					work, generate_work);
+				account, representative, [response_a, response_data] (std::shared_ptr<nano::block> const & block) {
+					if (block != nullptr)
+					{
+						response_data->put ("block", block->hash ().to_string ());
+						std::stringstream ostream;
+						boost::property_tree::write_json (ostream, *response_data);
+						response_a (ostream.str ());
+					}
+					else
+					{
+						json_error_response (response_a, "Error generating block");
+					}
+				},
+				work, generate_work);
 			}
 		}
 		// Because of change_async
@@ -1561,13 +1561,13 @@ void nano::json_handler::block_create ()
 				if (previous_text.is_initialized () && !representative.is_zero () && (!link.is_zero () || link_text.is_initialized ()))
 				{
 					block_l = builder_l.state ()
-								  .account (pub)
-								  .previous (previous)
-								  .representative (representative)
-								  .balance (balance)
-								  .link (link)
-								  .sign (prv, pub)
-								  .build (ec_build);
+							  .account (pub)
+							  .previous (previous)
+							  .representative (representative)
+							  .balance (balance)
+							  .link (link)
+							  .sign (prv, pub)
+							  .build (ec_build);
 					if (previous.is_zero ())
 					{
 						root_l = pub;
@@ -1587,11 +1587,11 @@ void nano::json_handler::block_create ()
 				if (representative != 0 && source != 0)
 				{
 					block_l = builder_l.open ()
-								  .account (pub)
-								  .source (source)
-								  .representative (representative)
-								  .sign (prv, pub)
-								  .build (ec_build);
+							  .account (pub)
+							  .source (source)
+							  .representative (representative)
+							  .sign (prv, pub)
+							  .build (ec_build);
 					root_l = pub;
 				}
 				else
@@ -1604,10 +1604,10 @@ void nano::json_handler::block_create ()
 				if (source != 0 && previous != 0)
 				{
 					block_l = builder_l.receive ()
-								  .previous (previous)
-								  .source (source)
-								  .sign (prv, pub)
-								  .build (ec_build);
+							  .previous (previous)
+							  .source (source)
+							  .sign (prv, pub)
+							  .build (ec_build);
 					root_l = previous;
 				}
 				else
@@ -1620,10 +1620,10 @@ void nano::json_handler::block_create ()
 				if (representative != 0 && previous != 0)
 				{
 					block_l = builder_l.change ()
-								  .previous (previous)
-								  .representative (representative)
-								  .sign (prv, pub)
-								  .build (ec_build);
+							  .previous (previous)
+							  .representative (representative)
+							  .sign (prv, pub)
+							  .build (ec_build);
 					root_l = previous;
 				}
 				else
@@ -1638,11 +1638,11 @@ void nano::json_handler::block_create ()
 					if (balance.number () >= amount.number ())
 					{
 						block_l = builder_l.send ()
-									  .previous (previous)
-									  .destination (destination)
-									  .balance (balance.number () - amount.number ())
-									  .sign (prv, pub)
-									  .build (ec_build);
+								  .previous (previous)
+								  .destination (destination)
+								  .balance (balance.number () - amount.number ())
+								  .sign (prv, pub)
+								  .build (ec_build);
 						root_l = previous;
 					}
 					else
@@ -3305,21 +3305,21 @@ void nano::json_handler::receive ()
 						bool generate_work (work == 0); // Disable work generation if "work" option is provided
 						auto response_a (response);
 						wallet->receive_async (
-							hash, representative, nano::dev::constants.genesis_amount, account, [response_a] (std::shared_ptr<nano::block> const & block_a) {
-								if (block_a != nullptr)
-								{
-									boost::property_tree::ptree response_l;
-									response_l.put ("block", block_a->hash ().to_string ());
-									std::stringstream ostream;
-									boost::property_tree::write_json (ostream, response_l);
-									response_a (ostream.str ());
-								}
-								else
-								{
-									json_error_response (response_a, "Error generating block");
-								}
-							},
-							work, generate_work);
+						hash, representative, nano::dev::constants.genesis_amount, account, [response_a] (std::shared_ptr<nano::block> const & block_a) {
+							if (block_a != nullptr)
+							{
+								boost::property_tree::ptree response_l;
+								response_l.put ("block", block_a->hash ().to_string ());
+								std::stringstream ostream;
+								boost::property_tree::write_json (ostream, response_l);
+								response_a (ostream.str ());
+							}
+							else
+							{
+								json_error_response (response_a, "Error generating block");
+							}
+						},
+						work, generate_work);
 					}
 				}
 				else
@@ -3642,28 +3642,28 @@ void nano::json_handler::send ()
 			auto response_a (response);
 			auto response_data (std::make_shared<boost::property_tree::ptree> (response_l));
 			wallet->send_async (
-				source, destination, amount.number (), [balance, amount, response_a, response_data] (std::shared_ptr<nano::block> const & block_a) {
-					if (block_a != nullptr)
+			source, destination, amount.number (), [balance, amount, response_a, response_data] (std::shared_ptr<nano::block> const & block_a) {
+				if (block_a != nullptr)
+				{
+					response_data->put ("block", block_a->hash ().to_string ());
+					std::stringstream ostream;
+					boost::property_tree::write_json (ostream, *response_data);
+					response_a (ostream.str ());
+				}
+				else
+				{
+					if (balance >= amount.number ())
 					{
-						response_data->put ("block", block_a->hash ().to_string ());
-						std::stringstream ostream;
-						boost::property_tree::write_json (ostream, *response_data);
-						response_a (ostream.str ());
+						json_error_response (response_a, "Error generating block");
 					}
 					else
 					{
-						if (balance >= amount.number ())
-						{
-							json_error_response (response_a, "Error generating block");
-						}
-						else
-						{
-							std::error_code ec (nano::error_common::insufficient_balance);
-							json_error_response (response_a, ec.message ());
-						}
+						std::error_code ec (nano::error_common::insufficient_balance);
+						json_error_response (response_a, ec.message ());
 					}
-				},
-				work, generate_work, send_id);
+				}
+			},
+			work, generate_work, send_id);
 		}
 	}
 	// Because of send_async
@@ -4765,7 +4765,7 @@ void nano::json_handler::wallet_representative_set ()
 				for (auto & account : accounts)
 				{
 					wallet->change_async (
-						account, representative, [] (std::shared_ptr<nano::block> const &) {}, 0, false);
+					account, representative, [] (std::shared_ptr<nano::block> const &) {}, 0, false);
 				}
 			}
 		}

@@ -87,10 +87,10 @@ public:
 	void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, std::nullptr_t>, nano::store_iterator<nano::block_hash, std::nullptr_t>)> const & action_a) const override
 	{
 		parallel_traversal<nano::uint256_t> (
-			[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
-				auto transaction (this->store.tx_begin_read ());
-				action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end ());
-			});
+		[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
+			auto transaction (this->store.tx_begin_read ());
+			action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end ());
+		});
 	}
 };
 

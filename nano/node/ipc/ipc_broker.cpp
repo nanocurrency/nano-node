@@ -75,27 +75,27 @@ void subscribe_or_unsubscribe (nano::logger_mt & logger, COLL & subscriber_colle
 {
 	// Evict subscribers from dead sessions. Also remove current subscriber if unsubscribing.
 	subscriber_collection.erase (std::remove_if (subscriber_collection.begin (), subscriber_collection.end (),
-									 [&logger = logger, topic_a, subscriber_a] (auto & sub) {
-										 bool remove = false;
-										 auto subscriber_l = sub.subscriber.lock ();
-										 if (subscriber_l)
+								 [&logger = logger, topic_a, subscriber_a] (auto & sub) {
+									 bool remove = false;
+									 auto subscriber_l = sub.subscriber.lock ();
+									 if (subscriber_l)
+									 {
+										 if (auto calling_subscriber_l = subscriber_a.lock ())
 										 {
-											 if (auto calling_subscriber_l = subscriber_a.lock ())
+											 remove = topic_a->unsubscribe && subscriber_l->get_id () == calling_subscriber_l->get_id ();
+											 if (remove)
 											 {
-												 remove = topic_a->unsubscribe && subscriber_l->get_id () == calling_subscriber_l->get_id ();
-												 if (remove)
-												 {
-													 logger.always_log ("IPC: unsubscription from subscriber #", calling_subscriber_l->get_id ());
-												 }
+												 logger.always_log ("IPC: unsubscription from subscriber #", calling_subscriber_l->get_id ());
 											 }
 										 }
-										 else
-										 {
-											 remove = true;
-										 }
-										 return remove;
-									 }),
-		subscriber_collection.end ());
+									 }
+									 else
+									 {
+										 remove = true;
+									 }
+									 return remove;
+								 }),
+	subscriber_collection.end ());
 
 	if (!topic_a->unsubscribe)
 	{

@@ -20,20 +20,20 @@ void nano::bulk_push_client::start ()
 	nano::bulk_push message{ connection->node->network_params.network };
 	auto this_l (shared_from_this ());
 	connection->channel->send (
-		message, [this_l] (boost::system::error_code const & ec, size_t size_a) {
-			if (!ec)
+	message, [this_l] (boost::system::error_code const & ec, size_t size_a) {
+		if (!ec)
+		{
+			this_l->push ();
+		}
+		else
+		{
+			if (this_l->connection->node->config.logging.bulk_pull_logging ())
 			{
-				this_l->push ();
+				this_l->connection->node->logger.try_log (boost::str (boost::format ("Unable to send bulk_push request: %1%") % ec.message ()));
 			}
-			else
-			{
-				if (this_l->connection->node->config.logging.bulk_pull_logging ())
-				{
-					this_l->connection->node->logger.try_log (boost::str (boost::format ("Unable to send bulk_push request: %1%") % ec.message ()));
-				}
-			}
-		},
-		nano::buffer_drop_policy::no_limiter_drop);
+		}
+	},
+	nano::buffer_drop_policy::no_limiter_drop);
 }
 
 void nano::bulk_push_client::push ()

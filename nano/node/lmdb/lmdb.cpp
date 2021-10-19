@@ -144,8 +144,8 @@ bool nano::mdb_store::vacuum_after_upgrade (boost::filesystem::path const & path
 
 		// Set up the environment again
 		auto options = nano::mdb_env::options::make ()
-						   .set_config (lmdb_config_a)
-						   .set_use_no_mem_init (true);
+					   .set_config (lmdb_config_a)
+					   .set_use_no_mem_init (true);
 		env.init (error, path_a, options);
 		if (!error)
 		{

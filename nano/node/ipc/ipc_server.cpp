@@ -190,24 +190,24 @@ public:
 		auto msg (send_queue.front ());
 		timer_start (std::chrono::seconds (config_transport.io_timeout));
 		nano::unsafe_async_write (socket, msg.buffer,
-			boost::asio::bind_executor (strand,
-				[msg, this_w] (boost::system::error_code ec, std::size_t size_a) {
-					if (auto this_l = this_w.lock ())
-					{
-						this_l->timer_cancel ();
+		boost::asio::bind_executor (strand,
+		[msg, this_w] (boost::system::error_code ec, std::size_t size_a) {
+			if (auto this_l = this_w.lock ())
+			{
+				this_l->timer_cancel ();
 
-						if (msg.callback)
-						{
-							msg.callback (ec, size_a);
-						}
+				if (msg.callback)
+				{
+					msg.callback (ec, size_a);
+				}
 
-						this_l->send_queue.pop_front ();
-						if (!ec && !this_l->send_queue.empty ())
-						{
-							this_l->write_queued_messages ();
-						}
-					}
-				}));
+				this_l->send_queue.pop_front ();
+				if (!ec && !this_l->send_queue.empty ())
+				{
+					this_l->write_queued_messages ();
+				}
+			}
+		}));
 	}
 
 	/**
@@ -229,23 +229,23 @@ public:
 		timer_start (timeout_a);
 		auto this_l (this->shared_from_this ());
 		boost::asio::async_read (socket,
-			boost::asio::buffer (buff_a, size_a),
-			boost::asio::transfer_exactly (size_a),
-			boost::asio::bind_executor (strand,
-				[this_l, callback_a] (boost::system::error_code const & ec, size_t bytes_transferred_a) {
-					this_l->timer_cancel ();
-					if (ec == boost::asio::error::broken_pipe || ec == boost::asio::error::connection_aborted || ec == boost::asio::error::connection_reset || ec == boost::asio::error::connection_refused)
-					{
-						if (this_l->node.config.logging.log_ipc ())
-						{
-							this_l->node.logger.always_log (boost::str (boost::format ("IPC: error reading %1% ") % ec.message ()));
-						}
-					}
-					else if (bytes_transferred_a > 0)
-					{
-						callback_a ();
-					}
-				}));
+		boost::asio::buffer (buff_a, size_a),
+		boost::asio::transfer_exactly (size_a),
+		boost::asio::bind_executor (strand,
+		[this_l, callback_a] (boost::system::error_code const & ec, size_t bytes_transferred_a) {
+			this_l->timer_cancel ();
+			if (ec == boost::asio::error::broken_pipe || ec == boost::asio::error::connection_aborted || ec == boost::asio::error::connection_reset || ec == boost::asio::error::connection_refused)
+			{
+				if (this_l->node.config.logging.log_ipc ())
+				{
+					this_l->node.logger.always_log (boost::str (boost::format ("IPC: error reading %1% ") % ec.message ()));
+				}
+			}
+			else if (bytes_transferred_a > 0)
+			{
+				callback_a ();
+			}
+		}));
 	}
 
 	/** Handler for payload_encoding::json_legacy */

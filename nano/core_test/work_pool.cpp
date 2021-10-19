@@ -47,9 +47,9 @@ TEST (work, cancel)
 	{
 		nano::root key (1);
 		pool.generate (
-			nano::work_version::work_1, key, nano::dev::network_params.work.base, [&done] (boost::optional<uint64_t> work_a) {
-				done = !work_a;
-			});
+		nano::work_version::work_1, key, nano::dev::network_params.work.base, [&done] (boost::optional<uint64_t> work_a) {
+			done = !work_a;
+		});
 		pool.cancel (key);
 		++iterations;
 		ASSERT_LT (iterations, 200);

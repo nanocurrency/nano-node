@@ -24,20 +24,20 @@ void nano::frontier_req_client::run (nano::account const & start_account_a, uint
 	next (); // Load accounts from disk
 	auto this_l (shared_from_this ());
 	connection->channel->send (
-		request, [this_l] (boost::system::error_code const & ec, size_t size_a) {
-			if (!ec)
+	request, [this_l] (boost::system::error_code const & ec, size_t size_a) {
+		if (!ec)
+		{
+			this_l->receive_frontier ();
+		}
+		else
+		{
+			if (this_l->connection->node->config.logging.network_logging ())
 			{
-				this_l->receive_frontier ();
+				this_l->connection->node->logger.try_log (boost::str (boost::format ("Error while sending bootstrap request %1%") % ec.message ()));
 			}
-			else
-			{
-				if (this_l->connection->node->config.logging.network_logging ())
-				{
-					this_l->connection->node->logger.try_log (boost::str (boost::format ("Error while sending bootstrap request %1%") % ec.message ()));
-				}
-			}
-		},
-		nano::buffer_drop_policy::no_limiter_drop);
+		}
+	},
+	nano::buffer_drop_policy::no_limiter_drop);
 }
 
 nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a) :

@@ -223,26 +223,26 @@ private:
 	{
 		std::weak_ptr<fake_work_peer> this_w (shared_from_this ());
 		auto connection (std::make_shared<work_peer_connection> (
-			ioc, type, version, pool,
-			[this_w] (bool const good_generation) {
-				if (auto this_l = this_w.lock ())
+		ioc, type, version, pool,
+		[this_w] (bool const good_generation) {
+			if (auto this_l = this_w.lock ())
+			{
+				if (good_generation)
 				{
-					if (good_generation)
-					{
-						++this_l->generations_good;
-					}
-					else
-					{
-						++this_l->generations_bad;
-					}
-				};
-			},
-			[this_w] () {
-				if (auto this_l = this_w.lock ())
-				{
-					++this_l->cancels;
+					++this_l->generations_good;
 				}
-			}));
+				else
+				{
+					++this_l->generations_bad;
+				}
+			};
+		},
+		[this_w] () {
+			if (auto this_l = this_w.lock ())
+			{
+				++this_l->cancels;
+			}
+		}));
 		acceptor.async_accept (connection->socket, [connection, this_w] (beast::error_code ec) {
 			if (!ec)
 			{

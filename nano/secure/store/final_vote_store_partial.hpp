@@ -105,10 +105,10 @@ public:
 	void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::qualified_root, nano::block_hash>, nano::store_iterator<nano::qualified_root, nano::block_hash>)> const & action_a) const override
 	{
 		parallel_traversal<nano::uint512_t> (
-			[&action_a, this] (nano::uint512_t const & start, nano::uint512_t const & end, bool const is_last) {
-				auto transaction (this->store.tx_begin_read ());
-				action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end ());
-			});
+		[&action_a, this] (nano::uint512_t const & start, nano::uint512_t const & end, bool const is_last) {
+			auto transaction (this->store.tx_begin_read ());
+			action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end ());
+		});
 	}
 };
 
