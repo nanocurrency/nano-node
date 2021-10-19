@@ -1,5 +1,6 @@
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
@@ -9,14 +10,14 @@
 
 #include <boost/thread/latch.hpp>
 
-#include <numeric>
-
-nano::confirmation_height_processor::confirmation_height_processor (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, boost::latch & latch, confirmation_height_mode mode_a) :
+nano::confirmation_height_processor::confirmation_height_processor (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, boost::latch & latch, bool is_dev_network_a, confirmation_height_mode mode_a) :
 	ledger (ledger_a),
 	write_database_queue (write_database_queue_a),
 	// clang-format off
-unbounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
-bounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
+    unbounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
+    bounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
+    walker (ledger_a),
+    is_dev_network (is_dev_network_a),
 	// clang-format on
 	thread ([this, &latch, mode_a] () {
 		nano::thread_role::set (nano::thread_role::name::confirmation_height_processing);
@@ -132,6 +133,73 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 				condition.wait (lk);
 			}
 		}
+	}
+}
+
+void nano::confirmation_height_processor::run_walker ()
+{
+	nano::unique_lock<nano::mutex> lk (mutex);
+	while (!stopped)
+	{
+		if (awaiting_processing.empty ())
+		{
+			lk.unlock ();
+			condition.wait (lk, [this] () {
+				return !awaiting_processing.empty ();
+			});
+		}
+
+		if (paused)
+		{
+			// Pausing is only utilised in some tests to help prevent it processing added blocks until required.
+			debug_assert (is_dev_network);
+
+			lk.unlock ();
+			condition.wait (lk, [this] () {
+				return !paused;
+			});
+		}
+
+		const auto block = awaiting_processing.get<tag_sequence> ().front ().block;
+		awaiting_processing.get<tag_sequence> ().pop_front ();
+
+		const auto read_confirmation_height = [this] (const auto & transaction, const auto & account) {
+			nano::confirmation_height_info confirmation_height_info{};
+			if (ledger.store.confirmation_height.get (transaction, account, confirmation_height_info))
+			{
+				debug_assert (false);
+			}
+
+			return confirmation_height_info.height;
+		};
+
+		lk.unlock ();
+
+		std::size_t writes_performed = 0;
+
+		walker.walk (
+		block->hash (),
+		[&] (const auto & block) {
+			return block->sideband ().height > read_confirmation_height (ledger.store.tx_begin_read (), block->account ());
+		},
+		[&] (const auto & block) {
+			const auto & block_height = block->sideband ().height;
+			const auto write_transaction = ledger.store.tx_begin_write ({}, { nano::tables::confirmation_height });
+
+			auto existing_confirmation_height = read_confirmation_height (write_transaction, block->account ());
+			if (existing_confirmation_height < block_height)
+			{
+				++writes_performed;
+				ledger.store.confirmation_height.put (write_transaction, block->account (), nano::confirmation_height_info{ block_height, block->hash () });
+
+				notify_observers ({ block });
+			}
+		});
+
+		ledger.cache.cemented_count += writes_performed;
+		ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, writes_performed);
+
+		lk.lock ();
 	}
 }
 

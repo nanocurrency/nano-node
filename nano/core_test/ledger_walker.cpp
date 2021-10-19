@@ -6,9 +6,6 @@
 
 #include <numeric>
 
-// TODO: keep this until diskhash builds fine on Windows
-#ifndef _WIN32
-
 using namespace std::chrono_literals;
 
 TEST (ledger_walker, genesis_block)
@@ -220,5 +217,3 @@ TEST (ledger_walker, ladder_geometry)
 
 	EXPECT_EQ (amounts_expected_itr, amounts_expected_backwards.crend ());
 }
-
-#endif // _WIN32 -- TODO: keep this until diskhash builds fine on Windows
