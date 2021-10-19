@@ -18,7 +18,7 @@ AllowShortLoopsOnASingleLine: false
 BreakConstructorInitializers: AfterColon
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
 ConstructorInitializerIndentWidth: 4
-ContinuationIndentWidth: 4
+ContinuationIndentWidth: 0
 KeepEmptyLinesAtTheStartOfBlocks: false
 IndentCaseLabels: true
 SpaceBeforeCpp11BracedList: false
