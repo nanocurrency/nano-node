@@ -6,6 +6,7 @@ add_executable(
   active_transactions.cpp
   block.cpp
   block_store.cpp
+  blockprocessor.cpp
   bootstrap.cpp
   cli.cpp
   confirmation_height.cpp
