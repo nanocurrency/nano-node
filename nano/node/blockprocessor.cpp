@@ -328,7 +328,7 @@ void nano::block_processor::process_live (nano::transaction const & transaction_
 	}
 	else if (!node.flags.disable_block_processor_republishing)
 	{
-		node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
+		node.network.flood_block (block_a, nano::buffer_drop_policy::limiter);
 	}
 
 	if (node.websocket_server && node.websocket_server->any_subscriber (nano::websocket::topic::new_unconfirmed_block))
