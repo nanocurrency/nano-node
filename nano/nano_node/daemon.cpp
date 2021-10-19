@@ -27,6 +27,20 @@ void nano_abort_signal_handler (int signum)
 	raise (signum);
 }
 
+void install_abort_signal_handler ()
+{
+#ifndef _WIN32
+	// We catch signal SIGSEGV and SIGABRT not via the signal manager because we want these signal handlers
+	// to be executed in the stack of the code that caused the signal, so we can dump the stacktrace.
+	struct sigaction sa = {};
+	sa.sa_handler = nano_abort_signal_handler;
+	sigemptyset (&sa.sa_mask);
+	sa.sa_flags = SA_RESETHAND;
+	sigaction (SIGSEGV, &sa, NULL);
+	sigaction (SIGABRT, &sa, NULL);
+#endif
+}
+
 volatile sig_atomic_t sig_int_or_term = 0;
 
 constexpr std::size_t OPEN_FILE_DESCRIPTORS_LIMIT = 16384;
@@ -49,14 +63,7 @@ static void load_and_set_bandwidth_params (std::shared_ptr<nano::node> const & n
 
 void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
-	// We catch signal SIGSEGV and SIGABRT not via the signal manager because we want these signal handlers
-	// to be executed in the stack of the code that caused the signal, so we can dump the stacktrace.
-	struct sigaction sa = {};
-	sa.sa_handler = nano_abort_signal_handler;
-	sigemptyset (&sa.sa_mask);
-	sa.sa_flags = SA_RESETHAND;
-	sigaction (SIGSEGV, &sa, NULL);
-	sigaction (SIGABRT, &sa, NULL);
+	install_abort_signal_handler ();
 
 	boost::filesystem::create_directories (data_path);
 	boost::system::error_code error_chmod;
