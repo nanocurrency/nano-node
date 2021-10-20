@@ -462,7 +462,7 @@ nano::error & nano::error::on_error (std::error_code code_a, std::string message
 /** Set an error message and an error code */
 nano::error & nano::error::set (std::string message_a, std::error_code code_a)
 {
-	message = message_a;
+	message = std::move (message_a);
 	code = code_a;
 	return *this;
 }
@@ -486,6 +486,7 @@ nano::error & nano::error::clear ()
 	return *this;
 }
 
+// TODO: theoretically, nothing besides template (partial) specializations should ever be added inside std...
 namespace std
 {
 std::error_code make_error_code (boost::system::errc::errc_t const & e)
