@@ -197,7 +197,7 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_common_cf_options (std::sh
 	cf_options.max_bytes_for_level_multiplier = 8;
 
 	// Although this should be the default provided by RocksDB, not setting this is causing sequence conflict checks if not using
-	cf_options.max_write_buffer_std::size_to_maintain = memtable_size_bytes_a * num_memtables;
+	cf_options.max_write_buffer_size_to_maintain = memtable_size_bytes_a * num_memtables;
 
 	// Files older than this (1 day) will be scheduled for compaction when there is no other background work. This can lead to more writes however.
 	cf_options.ttl = 1 * 24 * 60 * 60;
