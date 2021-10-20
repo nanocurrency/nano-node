@@ -76,7 +76,7 @@ public:
 	container_info_composite (std::string const & name);
 	bool is_composite () const override;
 	void add_component (std::unique_ptr<container_info_component> child);
-    std::vector<std::unique_ptr<container_info_component>> const & get_children () const;
+	std::vector<std::unique_ptr<container_info_component>> const & get_children () const;
 	std::string const & get_name () const;
 
 private:

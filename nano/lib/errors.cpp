@@ -301,7 +301,7 @@ std::error_code nano::error_conversion::convert (boost::system::error_code const
 	if (error.category () == boost::system::generic_category ())
 	{
 		return std::error_code (error.value (),
-                                nano::error_conversion::generic_category ());
+		nano::error_conversion::generic_category ());
 	}
 
 	debug_assert (false);

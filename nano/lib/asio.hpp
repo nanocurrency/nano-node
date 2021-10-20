@@ -16,7 +16,7 @@ public:
 	explicit shared_const_buffer (std::vector<uint8_t> && data);
 	explicit shared_const_buffer (std::shared_ptr<std::vector<uint8_t>> const & data);
 
-    boost::asio::const_buffer const * begin () const;
+	boost::asio::const_buffer const * begin () const;
 	boost::asio::const_buffer const * end () const;
 
 	std::size_t size () const;

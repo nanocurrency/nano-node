@@ -1393,7 +1393,7 @@ nano::wallets::wallets (bool error_a, nano::node & node_a) :
 	{
 		char const * store_path;
 		mdb_env_get_path (env, &store_path);
-        boost::filesystem::path const path (store_path);
+		boost::filesystem::path const path (store_path);
 		nano::mdb_store::create_backup_file (env, path, node_a.logger);
 	}
 	for (auto & item : items)

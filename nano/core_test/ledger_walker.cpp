@@ -158,7 +158,7 @@ TEST (ledger_walker, ladder_geometry)
 	std::vector<nano::uint128_t> amounts_to_send (10);
 	std::iota (amounts_to_send.begin (), amounts_to_send.end (), 1);
 
-    nano::account const * last_destination{};
+	nano::account const * last_destination{};
 	for (auto itr = 0; itr != amounts_to_send.size (); ++itr)
 	{
 		auto const source_index = itr % keys.size ();

@@ -201,7 +201,7 @@ namespace nano
 {
 namespace error_conversion
 {
-    std::error_category const & generic_category ();
+	std::error_category const & generic_category ();
 }
 }
 
