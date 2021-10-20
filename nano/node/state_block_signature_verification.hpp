@@ -20,7 +20,7 @@ public:
 	state_block_signature_verification (nano::signature_checker &, nano::epochs &, nano::node_config &, nano::logger_mt &, uint64_t);
 	~state_block_signature_verification ();
 	void add (nano::unchecked_info const & info_a);
-	size_t size ();
+	std::size_t size ();
 	void stop ();
 	bool is_active ();
 
@@ -41,7 +41,7 @@ private:
 	std::thread thread;
 
 	void run (uint64_t block_processor_verification_size);
-	std::deque<nano::unchecked_info> setup_items (size_t);
+	std::deque<nano::unchecked_info> setup_items (std::size_t);
 	void verify_state_blocks (std::deque<nano::unchecked_info> &);
 };
 

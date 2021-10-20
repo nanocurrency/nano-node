@@ -72,9 +72,9 @@ struct hash<::nano::root>
 namespace nano
 {
 /**
-     * A key pair. The private key is generated from the random pool, or passed in
-     * as a hex string. The public key is derived using ed25519.
-     */
+ * A key pair. The private key is generated from the random pool, or passed in
+ * as a hex string. The public key is derived using ed25519.
+ */
 class keypair
 {
 public:
@@ -86,8 +86,8 @@ public:
 };
 
 /**
-     * Latest information about an account
-     */
+ * Latest information about an account
+ */
 class account_info final
 {
 public:
@@ -109,8 +109,8 @@ public:
 };
 
 /**
-     * Information on an uncollected send
-     */
+ * Information on an uncollected send
+ */
 class pending_info final
 {
 public:
@@ -141,19 +141,19 @@ public:
 	endpoint_key () = default;
 
 	/*
-                 * @param address_a This should be in network byte order
-                 * @param port_a This should be in host byte order
-                 */
-	endpoint_key (const std::array<uint8_t, 16> & address_a, uint16_t port_a);
+     * @param address_a This should be in network byte order
+     * @param port_a This should be in host byte order
+     */
+	endpoint_key (std::array<uint8_t, 16> const & address_a, uint16_t port_a);
 
 	/*
-                 * @return The ipv6 address in network byte order
-                 */
-	const std::array<uint8_t, 16> & address_bytes () const;
+     * @return The ipv6 address in network byte order
+     */
+    std::array<uint8_t, 16> const & address_bytes () const;
 
 	/*
-                 * @return The port in host byte order
-                 */
+     * @return The port in host byte order
+     */
 	uint16_t port () const;
 
 private:
@@ -181,8 +181,8 @@ public:
 };
 
 /**
-     * Tag for block signature verification result
-     */
+ * Tag for block signature verification result
+ */
 enum class signature_verification : uint8_t
 {
 	unknown = 0,
@@ -192,8 +192,8 @@ enum class signature_verification : uint8_t
 };
 
 /**
-     * Information on an unchecked block
-     */
+ * Information on an unchecked block
+ */
 class unchecked_info final
 {
 public:
@@ -272,15 +272,15 @@ public:
 	nano::account account;
 	// Signature of timestamp + block hashes
 	nano::signature signature;
-	static const std::string hash_prefix;
+	static std::string const hash_prefix;
 };
 /**
-     * This class serves to find and return unique variants of a vote in order to minimize memory usage
-     */
+ * This class serves to find and return unique variants of a vote in order to minimize memory usage
+ */
 class vote_uniquer final
 {
 public:
-	using value_type = std::pair<const nano::block_hash, std::weak_ptr<nano::vote>>;
+	using value_type = std::pair<nano::block_hash const, std::weak_ptr<nano::vote>>;
 
 	vote_uniquer (nano::block_uniquer &);
 	std::shared_ptr<nano::vote> unique (std::shared_ptr<nano::vote> const &);

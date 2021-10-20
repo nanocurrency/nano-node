@@ -22,17 +22,17 @@ struct ipc_connection
 
 struct rpc_request
 {
-	rpc_request (const std::string & action_a, const std::string & body_a, std::function<void (std::string const &)> response_a) :
+	rpc_request (std::string const & action_a, std::string const & body_a, std::function<void (std::string const &)> response_a) :
 		action (action_a), body (body_a), response (response_a)
 	{
 	}
 
-	rpc_request (int rpc_api_version_a, const std::string & body_a, std::function<void (std::string const &)> response_a) :
+	rpc_request (int rpc_api_version_a, std::string const & body_a, std::function<void (std::string const &)> response_a) :
 		rpc_api_version (rpc_api_version_a), body (body_a), response (response_a)
 	{
 	}
 
-	rpc_request (int rpc_api_version_a, const std::string & action_a, const std::string & body_a, std::function<void (std::string const &)> response_a) :
+	rpc_request (int rpc_api_version_a, std::string const & action_a, std::string const & body_a, std::function<void (std::string const &)> response_a) :
 		rpc_api_version (rpc_api_version_a), action (action_a), body (body_a), response (response_a)
 	{
 	}
@@ -64,8 +64,8 @@ private:
 	bool stopped{ false };
 	std::deque<std::shared_ptr<nano::rpc_request>> requests;
 	nano::condition_variable condition;
-	const std::string ipc_address;
-	const uint16_t ipc_port;
+	std::string const ipc_address;
+	uint16_t const ipc_port;
 	std::thread thread;
 };
 

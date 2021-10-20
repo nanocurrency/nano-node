@@ -53,7 +53,7 @@ public:
 	void add_connection (nano::endpoint const & endpoint_a);
 	std::shared_ptr<nano::bootstrap_client> find_connection (nano::tcp_endpoint const & endpoint_a);
 	void connect_client (nano::tcp_endpoint const & endpoint_a, bool push_front = false);
-	unsigned target_connections (size_t pulls_remaining, size_t attempts_count);
+	unsigned target_connections (std::size_t pulls_remaining, std::size_t attempts_count);
 	void populate_connections (bool repeat = true);
 	void start_populate_connections ();
 	void add_pull (nano::pull_info const & pull_a);

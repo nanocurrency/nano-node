@@ -22,26 +22,26 @@ namespace filesystem
 /**
 * Returns build version information
 */
-const char * const NANO_VERSION_STRING = xstr (TAG_VERSION_STRING);
-const char * const NANO_MAJOR_VERSION_STRING = xstr (MAJOR_VERSION_STRING);
-const char * const NANO_MINOR_VERSION_STRING = xstr (MINOR_VERSION_STRING);
-const char * const NANO_PATCH_VERSION_STRING = xstr (PATCH_VERSION_STRING);
-const char * const NANO_PRE_RELEASE_VERSION_STRING = xstr (PRE_RELEASE_VERSION_STRING);
+char const * const NANO_VERSION_STRING = xstr (TAG_VERSION_STRING);
+char const * const NANO_MAJOR_VERSION_STRING = xstr (MAJOR_VERSION_STRING);
+char const * const NANO_MINOR_VERSION_STRING = xstr (MINOR_VERSION_STRING);
+char const * const NANO_PATCH_VERSION_STRING = xstr (PATCH_VERSION_STRING);
+char const * const NANO_PRE_RELEASE_VERSION_STRING = xstr (PRE_RELEASE_VERSION_STRING);
 
-const char * const BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
+char const * const BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
 
 /** Is TSAN/ASAN dev build */
 #if defined(__has_feature)
 #if __has_feature(thread_sanitizer) || __has_feature(address_sanitizer)
-const bool is_sanitizer_build = true;
+bool const is_sanitizer_build = true;
 #else
-const bool is_sanitizer_build = false;
+bool const is_sanitizer_build = false;
 #endif
 // GCC builds
 #elif defined(__SANITIZE_THREAD__) || defined(__SANITIZE_ADDRESS__)
 const bool is_sanitizer_build = true;
 #else
-const bool is_sanitizer_build = false;
+bool const is_sanitizer_build = false;
 #endif
 
 namespace nano
@@ -125,10 +125,10 @@ public:
 	bool validate_entry (nano::block const &) const;
 
 	/** Network work thresholds. Define these inline as constexpr when moving to cpp17. */
-	static const nano::work_thresholds publish_full;
-	static const nano::work_thresholds publish_beta;
-	static const nano::work_thresholds publish_dev;
-	static const nano::work_thresholds publish_test;
+	static nano::work_thresholds const publish_full;
+	static nano::work_thresholds const publish_beta;
+	static nano::work_thresholds const publish_dev;
+	static nano::work_thresholds const publish_test;
 };
 
 class network_constants
@@ -164,7 +164,7 @@ public:
 	}
 
 	/** Error message when an invalid network is specified */
-	static const char * active_network_err_msg;
+	static char const * active_network_err_msg;
 
 	/** The network this param object represents. This may differ from the global active network; this is needed for certain --debug... commands */
 	nano::networks current_network{ nano::network_constants::active_network };
@@ -243,7 +243,7 @@ public:
 		return error;
 	}
 
-	const char * get_current_network_as_string ()
+	char const * get_current_network_as_string ()
 	{
 		return is_live_network () ? "live" : is_beta_network () ? "beta"
 		: is_test_network ()                                    ? "test"

@@ -81,7 +81,7 @@ void nano::block_processor::flush ()
 	flushing = false;
 }
 
-size_t nano::block_processor::size ()
+std::size_t nano::block_processor::size ()
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
 	return (blocks.size () + state_block_signature_verification.size () + forced.size ());
@@ -337,7 +337,7 @@ void nano::block_processor::process_live (nano::transaction const & transaction_
 	}
 }
 
-nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, nano::unchecked_info info_a, const bool forced_a, nano::block_origin const origin_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, nano::unchecked_info info_a, bool const forced_a, nano::block_origin const origin_a)
 {
 	nano::process_return result;
 	auto block (info_a.block);
@@ -542,8 +542,8 @@ void nano::block_processor::requeue_invalid (nano::block_hash const & hash_a, na
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_processor & block_processor, std::string const & name)
 {
-	size_t blocks_count;
-	size_t forced_count;
+	std::size_t blocks_count;
+	std::size_t forced_count;
 
 	{
 		nano::lock_guard<nano::mutex> guard (block_processor.mutex);

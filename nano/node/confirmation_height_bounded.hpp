@@ -105,7 +105,7 @@ private:
 	class receive_source_pair final
 	{
 	public:
-		receive_source_pair (receive_chain_details const &, const nano::block_hash &);
+		receive_source_pair (receive_chain_details const &, nano::block_hash const &);
 
 		receive_chain_details receive_details;
 		nano::block_hash source_hash;

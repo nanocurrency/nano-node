@@ -26,7 +26,7 @@ void nano::prioritization::next ()
 void nano::prioritization::seek ()
 {
 	next ();
-	for (size_t i = 0, n = schedule.size (); buckets[*current].empty () && i < n; ++i)
+	for (std::size_t i = 0, n = schedule.size (); buckets[*current].empty () && i < n; ++i)
 	{
 		next ();
 	}
@@ -44,7 +44,7 @@ nano::prioritization::prioritization (uint64_t maximum, std::function<void (std:
 	drop{ drop_a },
 	maximum{ maximum }
 {
-	static size_t constexpr bucket_count = 129;
+	static std::size_t constexpr bucket_count = 129;
 	buckets.resize (bucket_count);
 	nano::uint128_t minimum{ 1 };
 	minimums.push_back (0);
@@ -93,9 +93,9 @@ void nano::prioritization::pop ()
 	seek ();
 }
 
-size_t nano::prioritization::size () const
+std::size_t nano::prioritization::size () const
 {
-	size_t result{ 0 };
+	std::size_t result{ 0 };
 	for (auto const & queue : buckets)
 	{
 		result += queue.size ();
@@ -103,12 +103,12 @@ size_t nano::prioritization::size () const
 	return result;
 }
 
-size_t nano::prioritization::bucket_count () const
+std::size_t nano::prioritization::bucket_count () const
 {
 	return buckets.size ();
 }
 
-size_t nano::prioritization::bucket_size (size_t index) const
+std::size_t nano::prioritization::bucket_size (std::size_t index) const
 {
 	return buckets[index].size ();
 }

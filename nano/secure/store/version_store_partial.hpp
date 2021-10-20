@@ -8,7 +8,7 @@ template <typename Val, typename Derived_Store>
 class store_partial;
 
 template <typename Val, typename Derived_Store>
-void release_assert_success (store_partial<Val, Derived_Store> const &, const int);
+void release_assert_success (store_partial<Val, Derived_Store> const &, int const);
 
 template <typename Val, typename Derived_Store>
 class version_store_partial : public version_store

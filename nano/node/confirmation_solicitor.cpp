@@ -7,7 +7,7 @@ using namespace std::chrono_literals;
 nano::confirmation_solicitor::confirmation_solicitor (nano::network & network_a, nano::node_config const & config_a) :
 	max_block_broadcasts (config_a.network_params.network.is_dev_network () ? 4 : 30),
 	max_election_requests (50),
-	max_election_broadcasts (std::max<size_t> (network_a.fanout () / 2, 1)),
+	max_election_broadcasts (std::max<std::size_t> (network_a.fanout () / 2, 1)),
 	network (network_a),
 	config (config_a)
 {

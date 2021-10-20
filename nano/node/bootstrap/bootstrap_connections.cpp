@@ -179,7 +179,7 @@ void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & end
 	});
 }
 
-unsigned nano::bootstrap_connections::target_connections (size_t pulls_remaining, size_t attempts_count)
+unsigned nano::bootstrap_connections::target_connections (std::size_t pulls_remaining, std::size_t attempts_count)
 {
 	auto const attempts_factor = nano::narrow_cast<unsigned> (node.config.bootstrap_connections * attempts_count);
 	if (attempts_factor >= node.config.bootstrap_connections_max)
@@ -195,7 +195,7 @@ unsigned nano::bootstrap_connections::target_connections (size_t pulls_remaining
 
 struct block_rate_cmp
 {
-	bool operator() (const std::shared_ptr<nano::bootstrap_client> & lhs, const std::shared_ptr<nano::bootstrap_client> & rhs) const
+	bool operator() (std::shared_ptr<nano::bootstrap_client> const & lhs, std::shared_ptr<nano::bootstrap_client> const & rhs) const
 	{
 		return lhs->block_rate > rhs->block_rate;
 	}
@@ -204,8 +204,8 @@ struct block_rate_cmp
 void nano::bootstrap_connections::populate_connections (bool repeat)
 {
 	double rate_sum = 0.0;
-	size_t num_pulls = 0;
-	size_t attempts_count = node.bootstrap_initiator.attempts.size ();
+	std::size_t num_pulls = 0;
+	std::size_t attempts_count = node.bootstrap_initiator.attempts.size ();
 	std::priority_queue<std::shared_ptr<nano::bootstrap_client>, std::vector<std::shared_ptr<nano::bootstrap_client>>, block_rate_cmp> sorted_connections;
 	std::unordered_set<nano::tcp_endpoint> endpoints;
 	{

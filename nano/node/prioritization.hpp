@@ -34,9 +34,9 @@ public:
 	void push (uint64_t time, std::shared_ptr<nano::block> block);
 	std::shared_ptr<nano::block> top () const;
 	void pop ();
-	size_t size () const;
-	size_t bucket_count () const;
-	size_t bucket_size (size_t index) const;
+	std::size_t size () const;
+	std::size_t bucket_count () const;
+	std::size_t bucket_size (std::size_t index) const;
 	bool empty () const;
 	void dump ();
 	uint64_t const maximum;

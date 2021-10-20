@@ -74,7 +74,7 @@ public:
 	arrival;
 	// clang-format on
 	nano::mutex mutex{ mutex_identifier (mutexes::block_arrival) };
-	static size_t constexpr arrival_size_min = 8 * 1024;
+	static std::size_t constexpr arrival_size_min = 8 * 1024;
 	static std::chrono::seconds constexpr arrival_time_min = std::chrono::seconds (300);
 };
 
@@ -148,7 +148,7 @@ public:
 	bool online () const;
 	bool init_error () const;
 	bool epoch_upgrader (nano::raw_key const &, nano::epoch, uint64_t, uint64_t);
-	void set_bandwidth_params (size_t limit, double ratio);
+	void set_bandwidth_params (std::size_t limit, double ratio);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
 	void populate_backlog ();
 	nano::write_database_queue write_database_queue;
@@ -192,7 +192,7 @@ public:
 	nano::election_scheduler scheduler;
 	nano::request_aggregator aggregator;
 	nano::wallets wallets;
-	const std::chrono::steady_clock::time_point startup_time;
+    std::chrono::steady_clock::time_point const startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	std::atomic<bool> unresponsive_work_peers{ false };
 	std::atomic<bool> stopped{ false };

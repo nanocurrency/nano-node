@@ -71,7 +71,7 @@ void run (boost::filesystem::path const & data_path, std::vector<std::string> co
 				rpc->stop ();
 			}
 		}
-		catch (const std::runtime_error & e)
+		catch (std::runtime_error const & e)
 		{
 			std::cerr << "Error while running rpc (" << e.what () << ")\n";
 		}

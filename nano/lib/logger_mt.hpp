@@ -26,7 +26,7 @@ struct severity_tag;
 inline boost::log::formatting_ostream & operator<< (boost::log::formatting_ostream & strm, boost::log::to_log_manip<nano::severity_level, severity_tag> const & manip)
 {
 	// Needs to match order in the severity_level enum
-	static std::array<const char *, 2> strings = {
+	static std::array<char const *, 2> strings = {
 		"",
 		"Error: "
 	};

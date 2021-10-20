@@ -10,9 +10,9 @@
 #if USING_NANO_TIMED_LOCKS
 namespace nano
 {
-// These mutexes must have std::mutex interface in addition to "const char* get_name ()" method
+// These mutexes must have std::mutex interface in addition to "char const * get_name ()" method
 template <typename Mutex>
-void output (const char * str, std::chrono::milliseconds time, Mutex & mutex)
+void output (char const * str, std::chrono::milliseconds time, Mutex & mutex)
 {
 	static nano::mutex cout_mutex;
 	auto stacktrace = nano::generate_stacktrace ();
@@ -232,7 +232,7 @@ void condition_variable::wait (nano::unique_lock<nano::mutex> & lk)
 nano::mutex * mutex_to_filter{ nullptr };
 nano::mutex mutex_to_filter_mutex;
 
-bool should_be_filtered (const char * name)
+bool should_be_filtered (char const * name)
 {
 	return std::strcmp (name, xstr (NANO_TIMED_LOCKS_FILTER)) == 0;
 }

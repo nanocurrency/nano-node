@@ -30,7 +30,7 @@ public:
 	void throttled_receive ();
 	void receive ();
 	void received_type ();
-	void received_block (boost::system::error_code const &, size_t, nano::block_type);
+	void received_block (boost::system::error_code const &, std::size_t, nano::block_type);
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::shared_ptr<nano::bootstrap_server> connection;
 };

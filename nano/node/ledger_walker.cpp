@@ -24,23 +24,23 @@ nano::ledger_walker::ledger_walker (nano::ledger const & ledger_a) :
 
 void nano::ledger_walker::walk_backward (nano::block_hash const & start_block_hash_a, should_visit_callback const & should_visit_callback_a, visitor_callback const & visitor_callback_a)
 {
-	const auto transaction = ledger.store.tx_begin_read ();
+	auto const transaction = ledger.store.tx_begin_read ();
 
 	enqueue_block (start_block_hash_a);
 	while (!blocks_to_walk.empty ())
 	{
-		const auto block = dequeue_block (transaction);
+		auto const block = dequeue_block (transaction);
 		if (!should_visit_callback_a (block))
 		{
 			continue;
 		}
 
 		visitor_callback_a (block);
-		for (const auto & hash : ledger.dependent_blocks (transaction, *block))
+		for (auto const & hash : ledger.dependent_blocks (transaction, *block))
 		{
 			if (!hash.is_zero ())
 			{
-				const auto dependent_block = ledger.store.block.get (transaction, hash);
+				auto const dependent_block = ledger.store.block.get (transaction, hash);
 				if (dependent_block)
 				{
 					enqueue_block (dependent_block);
@@ -59,21 +59,21 @@ void nano::ledger_walker::walk (nano::block_hash const & end_block_hash_a, shoul
 
 	walk_backward (end_block_hash_a,
 	should_visit_callback_a,
-	[&] (const auto & block) {
+	[&] (auto const & block) {
 		walked_blocks_order.insert (std::to_string (++last_walked_block_order_index).c_str (), block->hash ());
 	});
 
-	const auto transaction = ledger.store.tx_begin_read ();
+	auto const transaction = ledger.store.tx_begin_read ();
 	for (auto walked_block_order_index = last_walked_block_order_index; walked_block_order_index != 0; --walked_block_order_index)
 	{
-		const auto * block_hash = walked_blocks_order.lookup (std::to_string (walked_block_order_index).c_str ());
+		auto const * block_hash = walked_blocks_order.lookup (std::to_string (walked_block_order_index).c_str ());
 		if (!block_hash)
 		{
 			debug_assert (false);
 			continue;
 		}
 
-		const auto block = ledger.store.block.get (transaction, *block_hash);
+		auto const block = ledger.store.block.get (transaction, *block_hash);
 		if (!block)
 		{
 			debug_assert (false);
@@ -88,7 +88,7 @@ void nano::ledger_walker::walk_backward (nano::block_hash const & start_block_ha
 {
 	walk_backward (
 	start_block_hash_a,
-	[&] (const auto & /* block */) {
+	[&] (auto const & /* block */) {
 		return true;
 	},
 	visitor_callback_a);
@@ -98,7 +98,7 @@ void nano::ledger_walker::walk (nano::block_hash const & end_block_hash_a, visit
 {
 	walk (
 	end_block_hash_a,
-	[&] (const auto & /* block */) {
+	[&] (auto const & /* block */) {
 		return true;
 	},
 	visitor_callback_a);
@@ -132,7 +132,7 @@ bool nano::ledger_walker::add_to_walked_blocks (nano::block_hash const & block_h
 		debug_assert (!walked_blocks_disk.has_value ());
 		walked_blocks_disk.emplace (nano::unique_path ().c_str (), sizeof (nano::block_hash::bytes) + 1, dht::DHOpenRW);
 
-		for (const auto & walked_block_hash : walked_blocks)
+		for (auto const & walked_block_hash : walked_blocks)
 		{
 			if (!add_to_walked_blocks_disk (walked_block_hash))
 			{

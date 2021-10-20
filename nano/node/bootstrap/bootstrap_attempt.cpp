@@ -194,7 +194,7 @@ void nano::bootstrap_attempt::wallet_start (std::deque<nano::account> &)
 	debug_assert (mode == nano::bootstrap_mode::wallet_lazy);
 }
 
-size_t nano::bootstrap_attempt::wallet_size ()
+std::size_t nano::bootstrap_attempt::wallet_size ()
 {
 	debug_assert (mode == nano::bootstrap_mode::wallet_lazy);
 	return 0;

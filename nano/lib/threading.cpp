@@ -243,7 +243,7 @@ void nano::thread_pool::add_timed_task (std::chrono::steady_clock::time_point co
 	if (!stopped && thread_pool_m)
 	{
 		auto timer = std::make_shared<boost::asio::steady_timer> (thread_pool_m->get_executor (), expiry_time);
-		timer->async_wait ([this, task, timer] (const boost::system::error_code & ec) {
+		timer->async_wait ([this, task, timer] (boost::system::error_code const & ec) {
 			if (!ec)
 			{
 				push_task (task);

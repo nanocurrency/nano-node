@@ -156,32 +156,32 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 		flags_a.disable_block_processor_unchecked_deletion = true;
 		flags_a.block_processor_batch_size = 256 * 1024;
 		flags_a.block_processor_full_size = 1024 * 1024;
-		flags_a.block_processor_verification_size = std::numeric_limits<size_t>::max ();
+		flags_a.block_processor_verification_size = std::numeric_limits<std::size_t>::max ();
 	}
 	auto block_processor_batch_size_it = vm.find ("block_processor_batch_size");
 	if (block_processor_batch_size_it != vm.end ())
 	{
-		flags_a.block_processor_batch_size = block_processor_batch_size_it->second.as<size_t> ();
+		flags_a.block_processor_batch_size = block_processor_batch_size_it->second.as<std::size_t> ();
 	}
 	auto block_processor_full_size_it = vm.find ("block_processor_full_size");
 	if (block_processor_full_size_it != vm.end ())
 	{
-		flags_a.block_processor_full_size = block_processor_full_size_it->second.as<size_t> ();
+		flags_a.block_processor_full_size = block_processor_full_size_it->second.as<std::size_t> ();
 	}
 	auto block_processor_verification_size_it = vm.find ("block_processor_verification_size");
 	if (block_processor_verification_size_it != vm.end ())
 	{
-		flags_a.block_processor_verification_size = block_processor_verification_size_it->second.as<size_t> ();
+		flags_a.block_processor_verification_size = block_processor_verification_size_it->second.as<std::size_t> ();
 	}
 	auto inactive_votes_cache_size_it = vm.find ("inactive_votes_cache_size");
 	if (inactive_votes_cache_size_it != vm.end ())
 	{
-		flags_a.inactive_votes_cache_size = inactive_votes_cache_size_it->second.as<size_t> ();
+		flags_a.inactive_votes_cache_size = inactive_votes_cache_size_it->second.as<std::size_t> ();
 	}
 	auto vote_processor_capacity_it = vm.find ("vote_processor_capacity");
 	if (vote_processor_capacity_it != vm.end ())
 	{
-		flags_a.vote_processor_capacity = vote_processor_capacity_it->second.as<size_t> ();
+		flags_a.vote_processor_capacity = vote_processor_capacity_it->second.as<std::size_t> ();
 	}
 	// Config overriding
 	auto config (vm.find ("config"));
@@ -414,7 +414,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				std::cerr << "Vacuum failed. RocksDB is enabled but the node has not been built with RocksDB support" << std::endl;
 			}
 		}
-		catch (const boost::filesystem::filesystem_error & ex)
+		catch (boost::filesystem::filesystem_error const & ex)
 		{
 			std::cerr << "Vacuum failed during a file operation: " << ex.what () << std::endl;
 		}
@@ -461,7 +461,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				std::cerr << "Snapshot failed. RocksDB is enabled but the node has not been built with RocksDB support" << std::endl;
 			}
 		}
-		catch (const boost::filesystem::filesystem_error & ex)
+		catch (boost::filesystem::filesystem_error const & ex)
 		{
 			std::cerr << "Snapshot failed during a file operation: " << ex.what () << std::endl;
 		}

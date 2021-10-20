@@ -67,7 +67,7 @@ nano::public_key::public_key () :
 {
 }
 
-const nano::public_key & nano::public_key::null ()
+nano::public_key const & nano::public_key::null ()
 {
 	return nano::hardened_constants::get ().not_an_account;
 }
@@ -656,7 +656,7 @@ void format_frac (std::ostringstream & stream, nano::uint128_t value, nano::uint
 	}
 }
 
-void format_dec (std::ostringstream & stream, nano::uint128_t value, char group_sep, const std::string & groupings)
+void format_dec (std::ostringstream & stream, nano::uint128_t value, char group_sep, std::string const & groupings)
 {
 	auto largestPow10 = nano::uint256_t (1);
 	int dec_count = 1;
@@ -760,7 +760,7 @@ std::string nano::uint128_union::format_balance (nano::uint128_t scale, int prec
 	return ::format_balance (number (), scale, precision, group_digits, thousands_sep, decimal_point, grouping);
 }
 
-std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits, const std::locale & locale) const
+std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits, std::locale const & locale) const
 {
 	auto thousands_sep = std::use_facet<std::moneypunct<char>> (locale).thousands_sep ();
 	auto decimal_point = std::use_facet<std::moneypunct<char>> (locale).decimal_point ();

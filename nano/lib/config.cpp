@@ -210,7 +210,7 @@ bool nano::work_thresholds::validate_entry (nano::block const & block_a) const
 
 namespace nano
 {
-const char * network_constants::active_network_err_msg = "Invalid network. Valid values are live, test, beta and dev.";
+char const * network_constants::active_network_err_msg = "Invalid network. Valid values are live, test, beta and dev.";
 
 uint8_t get_major_node_version ()
 {

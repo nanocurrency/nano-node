@@ -1,7 +1,7 @@
 #include <nano/node/common.hpp>
 
 /** Fuzz decimal, hex and account parsing */
-void fuzz_bignum_parsers (const uint8_t * Data, size_t Size)
+void fuzz_bignum_parsers (uint8_t const * Data, size_t Size)
 {
 	try
 	{
@@ -29,7 +29,7 @@ void fuzz_bignum_parsers (const uint8_t * Data, size_t Size)
 }
 
 /** Fuzzer entry point */
-extern "C" int LLVMFuzzerTestOneInput (const uint8_t * Data, size_t Size)
+extern "C" int LLVMFuzzerTestOneInput (uint8_t const * Data, size_t Size)
 {
 	fuzz_bignum_parsers (Data, Size);
 	return 0;

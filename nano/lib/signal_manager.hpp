@@ -61,7 +61,7 @@ private:
 	 * This is the actual handler that is registered with boost asio.
 	 * It calls the caller supplied function (if one is given) and sets the handler to repeat (or not).
 	 */
-	static void base_handler (nano::signal_manager::signal_descriptor descriptor, const boost::system::error_code & error, int signum);
+	static void base_handler (nano::signal_manager::signal_descriptor descriptor, boost::system::error_code const & error, int signum);
 
 	/** boost asio context to use */
 	boost::asio::io_context ioc;

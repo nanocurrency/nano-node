@@ -66,7 +66,7 @@ public:
 				session_m (session_a)
 			{
 			}
-			virtual void async_send_message (uint8_t const * data_a, size_t length_a, std::function<void (nano::error const &)> broadcast_completion_handler_a) override
+			virtual void async_send_message (uint8_t const * data_a, std::size_t length_a, std::function<void (nano::error const &)> broadcast_completion_handler_a) override
 			{
 				if (auto session_l = session_m.lock ())
 				{
@@ -76,7 +76,7 @@ public:
 						boost::asio::buffer (data_a, length_a)
 					};
 
-					session_l->queued_write (buffers, [broadcast_completion_handler_a, big_endian_length] (boost::system::error_code const & ec_a, size_t size_a) {
+					session_l->queued_write (buffers, [broadcast_completion_handler_a, big_endian_length] (boost::system::error_code const & ec_a, std::size_t size_a) {
 						if (broadcast_completion_handler_a)
 						{
 							nano::error error_l (ec_a);
@@ -140,7 +140,7 @@ public:
 
 	/** Write a fixed array of buffers through the queue. Once the last item is completed, the callback is invoked */
 	template <std::size_t N>
-	void queued_write (boost::array<boost::asio::const_buffer, N> & buffers, std::function<void (boost::system::error_code const &, size_t)> callback_a)
+	void queued_write (boost::array<boost::asio::const_buffer, N> & buffers, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
 	{
 		auto this_l (this->shared_from_this ());
 		boost::asio::post (strand, boost::asio::bind_executor (strand, [buffers, callback_a, this_l] () {
@@ -148,7 +148,7 @@ public:
 			auto queue_size = this_l->send_queue.size ();
 			if (queue_size < this_l->queue_size_max)
 			{
-				for (size_t i = 0; i < N - 1; i++)
+				for (std::size_t i = 0; i < N - 1; i++)
 				{
 					this_l->send_queue.emplace_back (queue_item{ buffers[i], nullptr });
 				}
@@ -167,7 +167,7 @@ public:
 	 * @note This function explicitely doesn't use nano::shared_const_buffer, as buffers usually originate from Flatbuffers
 	 * and copying into the shared_const_buffer vector would impose a significant overhead for large requests and responses.
 	 */
-	void queued_write (boost::asio::const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, size_t)> callback_a)
+	void queued_write (boost::asio::const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
 	{
 		auto this_l (this->shared_from_this ());
 		boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, this_l] () {
@@ -215,16 +215,16 @@ public:
 	 * no error has occurred. On error, the error is logged, the read cycle stops and the session ends. Clients
 	 * are expected to implement reconnect logic.
 	 */
-	void async_read_exactly (void * buff_a, size_t size_a, std::function<void ()> const & callback_a)
+	void async_read_exactly (void * buff_a, std::size_t size_a, std::function<void ()> const & callback_a)
 	{
 		async_read_exactly (buff_a, size_a, std::chrono::seconds (config_transport.io_timeout), callback_a);
 	}
 
 	/**
 	 * Async read of exactly \p size_a bytes and a specific \p timeout_a.
-	 * @see async_read_exactly (void *, size_t, std::function<void()>)
+	 * @see async_read_exactly (void *, std::size_t, std::function<void()>)
 	 */
-	void async_read_exactly (void * buff_a, size_t size_a, std::chrono::seconds timeout_a, std::function<void ()> const & callback_a)
+	void async_read_exactly (void * buff_a, std::size_t size_a, std::chrono::seconds timeout_a, std::function<void ()> const & callback_a)
 	{
 		timer_start (timeout_a);
 		auto this_l (this->shared_from_this ());
@@ -232,7 +232,7 @@ public:
 		boost::asio::buffer (buff_a, size_a),
 		boost::asio::transfer_exactly (size_a),
 		boost::asio::bind_executor (strand,
-		[this_l, callback_a] (boost::system::error_code const & ec, size_t bytes_transferred_a) {
+		[this_l, callback_a] (boost::system::error_code const & ec, std::size_t bytes_transferred_a) {
 			this_l->timer_cancel ();
 			if (ec == boost::asio::error::broken_pipe || ec == boost::asio::error::connection_aborted || ec == boost::asio::error::connection_reset || ec == boost::asio::error::connection_refused)
 			{
@@ -268,7 +268,7 @@ public:
 			}
 
 			this_l->timer_start (std::chrono::seconds (this_l->config_transport.io_timeout));
-			this_l->queued_write (boost::asio::buffer (buffer->data (), buffer->size ()), [this_l, buffer] (boost::system::error_code const & error_a, size_t size_a) {
+			this_l->queued_write (boost::asio::buffer (buffer->data (), buffer->size ()), [this_l, buffer] (boost::system::error_code const & error_a, std::size_t size_a) {
 				this_l->timer_cancel ();
 				if (!error_a)
 				{
@@ -357,7 +357,7 @@ public:
 									boost::asio::buffer (body->data (), body->size ())
 								};
 
-								this_l->queued_write (buffers, [this_l, body, big_endian_length] (boost::system::error_code const & error_a, size_t size_a) {
+								this_l->queued_write (buffers, [this_l, body, big_endian_length] (boost::system::error_code const & error_a, std::size_t size_a) {
 									if (!error_a)
 									{
 										this_l->read_next_request ();
@@ -383,7 +383,7 @@ public:
 									boost::asio::buffer (fbb->GetBufferPointer (), fbb->GetSize ())
 								};
 
-								this_l->queued_write (buffers, [this_l, fbb, big_endian_length] (boost::system::error_code const & error_a, size_t size_a) {
+								this_l->queued_write (buffers, [this_l, fbb, big_endian_length] (boost::system::error_code const & error_a, std::size_t size_a) {
 									if (!error_a)
 									{
 										this_l->read_next_request ();
@@ -419,9 +419,9 @@ private:
 	{
 	public:
 		boost::asio::const_buffer buffer;
-		std::function<void (boost::system::error_code const &, size_t)> callback;
+		std::function<void (boost::system::error_code const &, std::size_t)> callback;
 	};
-	size_t const queue_size_max = 64 * 1024;
+	std::size_t const queue_size_max = 64 * 1024;
 
 	nano::ipc::ipc_server & server;
 	nano::node & node;
@@ -561,7 +561,7 @@ private:
  */
 void await_hup_signal (std::shared_ptr<boost::asio::signal_set> const & signals, nano::ipc::ipc_server & server_a)
 {
-	signals->async_wait ([signals, &server_a] (const boost::system::error_code & ec, int signal_number) {
+	signals->async_wait ([signals, &server_a] (boost::system::error_code const & ec, int signal_number) {
 		if (ec != boost::asio::error::operation_aborted)
 		{
 			std::cout << "Reloading access configuration..." << std::endl;

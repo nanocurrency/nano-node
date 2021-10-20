@@ -16,7 +16,7 @@ public:
 	void start ();
 	void stop ();
 	void accept_action (boost::system::error_code const &, std::shared_ptr<nano::socket> const &);
-	size_t connection_count ();
+	std::size_t connection_count ();
 
 	nano::mutex mutex;
 	std::unordered_map<nano::bootstrap_server *, std::weak_ptr<nano::bootstrap_server>> connections;
@@ -24,8 +24,8 @@ public:
 	nano::node & node;
 	std::shared_ptr<nano::server_socket> listening_socket;
 	bool on{ false };
-	std::atomic<size_t> bootstrap_count{ 0 };
-	std::atomic<size_t> realtime_count{ 0 };
+	std::atomic<std::size_t> bootstrap_count{ 0 };
+	std::atomic<std::size_t> realtime_count{ 0 };
 
 private:
 	uint16_t port;
@@ -41,16 +41,16 @@ public:
 	~bootstrap_server ();
 	void stop ();
 	void receive ();
-	void receive_header_action (boost::system::error_code const &, size_t);
-	void receive_bulk_pull_action (boost::system::error_code const &, size_t, nano::message_header const &);
-	void receive_bulk_pull_account_action (boost::system::error_code const &, size_t, nano::message_header const &);
-	void receive_frontier_req_action (boost::system::error_code const &, size_t, nano::message_header const &);
-	void receive_keepalive_action (boost::system::error_code const &, size_t, nano::message_header const &);
-	void receive_publish_action (boost::system::error_code const &, size_t, nano::message_header const &);
-	void receive_confirm_req_action (boost::system::error_code const &, size_t, nano::message_header const &);
-	void receive_confirm_ack_action (boost::system::error_code const &, size_t, nano::message_header const &);
-	void receive_node_id_handshake_action (boost::system::error_code const &, size_t, nano::message_header const &);
-	void receive_telemetry_ack_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a);
+	void receive_header_action (boost::system::error_code const &, std::size_t);
+	void receive_bulk_pull_action (boost::system::error_code const &, std::size_t, nano::message_header const &);
+	void receive_bulk_pull_account_action (boost::system::error_code const &, std::size_t, nano::message_header const &);
+	void receive_frontier_req_action (boost::system::error_code const &, std::size_t, nano::message_header const &);
+	void receive_keepalive_action (boost::system::error_code const &, std::size_t, nano::message_header const &);
+	void receive_publish_action (boost::system::error_code const &, std::size_t, nano::message_header const &);
+	void receive_confirm_req_action (boost::system::error_code const &, std::size_t, nano::message_header const &);
+	void receive_confirm_ack_action (boost::system::error_code const &, std::size_t, nano::message_header const &);
+	void receive_node_id_handshake_action (boost::system::error_code const &, std::size_t, nano::message_header const &);
+	void receive_telemetry_ack_action (boost::system::error_code const & ec, std::size_t size_a, nano::message_header const & header_a);
 	void add_request (std::unique_ptr<nano::message>);
 	void finish_request ();
 	void finish_request_async ();

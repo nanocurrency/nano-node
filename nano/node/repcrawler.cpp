@@ -104,8 +104,8 @@ void nano::rep_crawler::ongoing_crawl ()
 
 std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::get_crawl_targets (nano::uint128_t total_weight_a)
 {
-	constexpr size_t conservative_count = 10;
-	constexpr size_t aggressive_count = 40;
+	constexpr std::size_t conservative_count = 10;
+	constexpr std::size_t aggressive_count = 40;
 
 	// Crawl more aggressively if we lack sufficient total peer weight.
 	bool sufficient_weight (total_weight_a > node.online_reps.delta ());
@@ -325,7 +325,7 @@ void nano::rep_crawler::update_weights ()
 	}
 }
 
-std::vector<nano::representative> nano::rep_crawler::representatives (size_t count_a, nano::uint128_t const weight_a, boost::optional<decltype (nano::network_constants::protocol_version)> const & opt_version_min_a)
+std::vector<nano::representative> nano::rep_crawler::representatives (std::size_t count_a, nano::uint128_t const weight_a, boost::optional<decltype (nano::network_constants::protocol_version)> const & opt_version_min_a)
 {
 	auto version_min (opt_version_min_a.value_or (node.network_params.network.protocol_version_min));
 	std::vector<representative> result;
@@ -340,12 +340,12 @@ std::vector<nano::representative> nano::rep_crawler::representatives (size_t cou
 	return result;
 }
 
-std::vector<nano::representative> nano::rep_crawler::principal_representatives (size_t count_a, boost::optional<decltype (nano::network_constants::protocol_version)> const & opt_version_min_a)
+std::vector<nano::representative> nano::rep_crawler::principal_representatives (std::size_t count_a, boost::optional<decltype (nano::network_constants::protocol_version)> const & opt_version_min_a)
 {
 	return representatives (count_a, node.minimum_principal_weight (), opt_version_min_a);
 }
 
-std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::representative_endpoints (size_t count_a)
+std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::representative_endpoints (std::size_t count_a)
 {
 	std::vector<std::shared_ptr<nano::transport::channel>> result;
 	auto reps (representatives (count_a));
@@ -357,7 +357,7 @@ std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::repres
 }
 
 /** Total number of representatives */
-size_t nano::rep_crawler::representative_count ()
+std::size_t nano::rep_crawler::representative_count ()
 {
 	nano::lock_guard<nano::mutex> lock (probable_reps_mutex);
 	return probable_reps.size ();

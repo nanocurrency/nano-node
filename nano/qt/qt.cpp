@@ -845,7 +845,7 @@ void nano_qt::stats_viewer::refresh_stats ()
 	if (json)
 	{
 		// Format the stat data to make totals and values easier to read
-		BOOST_FOREACH (const boost::property_tree::ptree::value_type & child, json->get_child ("entries"))
+		BOOST_FOREACH (boost::property_tree::ptree::value_type const & child, json->get_child ("entries"))
 		{
 			auto time = child.second.get<std::string> ("time");
 			auto type = child.second.get<std::string> ("type");
@@ -860,7 +860,7 @@ void nano_qt::stats_viewer::refresh_stats ()
 
 			if (type == "traffic_udp" || type == "traffic_tcp")
 			{
-				const std::vector<std::string> units = { " bytes", " KB", " MB", " GB", " TB", " PB" };
+				std::vector<std::string> const units = { " bytes", " KB", " MB", " GB", " TB", " PB" };
 				double bytes = std::stod (value);
 				auto index = bytes == 0 ? 0 : std::min (units.size () - 1, static_cast<size_t> (std::floor (std::log2 (bytes) / 10)));
 				std::string unit = units[index];
@@ -1917,7 +1917,7 @@ void nano_qt::advanced_actions::refresh_peers ()
 {
 	peers_model->removeRows (0, peers_model->rowCount ());
 	auto list (wallet.node.network.list (std::numeric_limits<size_t>::max ()));
-	std::sort (list.begin (), list.end (), [] (const auto & lhs, const auto & rhs) {
+	std::sort (list.begin (), list.end (), [] (auto const & lhs, auto const & rhs) {
 		return lhs->get_endpoint () < rhs->get_endpoint ();
 	});
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)

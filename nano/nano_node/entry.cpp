@@ -357,7 +357,7 @@ int main (int argc, char * const * argv)
 								  << "Account: " << rep.pub.to_account () << "\n";
 					}
 					nano::uint128_t balance (std::numeric_limits<nano::uint128_t>::max ());
-					nano::open_block genesis_block (reinterpret_cast<const nano::block_hash &> (genesis.pub), genesis.pub, genesis.pub, genesis.prv, genesis.pub, *work.generate (nano::work_version::work_1, genesis.pub, network_params.work.epoch_1));
+					nano::open_block genesis_block (reinterpret_cast<nano::block_hash const &> (genesis.pub), genesis.pub, genesis.pub, genesis.prv, genesis.pub, *work.generate (nano::work_version::work_1, genesis.pub, network_params.work.epoch_1));
 					std::cout << genesis_block.to_json ();
 					std::cout.flush ();
 					nano::block_hash previous (genesis_block.hash ());
@@ -773,7 +773,7 @@ int main (int argc, char * const * argv)
 						}
 						else
 						{
-							for (const auto & text : results)
+							for (auto const & text : results)
 							{
 								uint64_from_hex address_hex;
 								if (boost::conversion::try_lexical_convert (text, address_hex))
@@ -1317,7 +1317,7 @@ int main (int argc, char * const * argv)
 			for (;;)
 			{
 				nano::random_pool::generate_block (seed.bytes.data (), seed.bytes.size ());
-				std::cout.write (reinterpret_cast<const char *> (seed.bytes.data ()), seed.bytes.size ());
+				std::cout.write (reinterpret_cast<char const *> (seed.bytes.data ()), seed.bytes.size ());
 			}
 		}
 		else if (vm.count ("debug_rpc"))
@@ -1385,7 +1385,7 @@ int main (int argc, char * const * argv)
 				++errors;
 			};
 
-			auto start_threads = [node, &threads_count, &threads, &mutex, &condition, &finished] (const auto & function_a, auto & deque_a) {
+			auto start_threads = [node, &threads_count, &threads, &mutex, &condition, &finished] (auto const & function_a, auto & deque_a) {
 				for (auto i (0U); i < threads_count; ++i)
 				{
 					threads.emplace_back ([&function_a, node, &mutex, &condition, &finished, &deque_a] () {
@@ -1646,7 +1646,7 @@ int main (int argc, char * const * argv)
 					if (accounts.size () > accounts_deque_overflow)
 					{
 						auto wait_ms (250 * accounts.size () / accounts_deque_overflow);
-						const auto wakeup (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait_ms));
+						auto const wakeup (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait_ms));
 						condition.wait_until (lock, wakeup);
 					}
 					accounts.emplace_back (i->first, i->second);
@@ -1757,7 +1757,7 @@ int main (int argc, char * const * argv)
 					if (pending.size () > pending_deque_overflow)
 					{
 						auto wait_ms (50 * pending.size () / pending_deque_overflow);
-						const auto wakeup (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait_ms));
+						auto const wakeup (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait_ms));
 						condition.wait_until (lock, wakeup);
 					}
 					pending.emplace_back (i->first, i->second);

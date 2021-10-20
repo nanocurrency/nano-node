@@ -21,15 +21,15 @@
 
 double constexpr nano::node::price_max;
 double constexpr nano::node::free_cutoff;
-size_t constexpr nano::block_arrival::arrival_size_min;
+std::size_t constexpr nano::block_arrival::arrival_size_min;
 std::chrono::seconds constexpr nano::block_arrival::arrival_time_min;
 
 namespace nano
 {
 extern unsigned char nano_bootstrap_weights_live[];
-extern size_t nano_bootstrap_weights_live_size;
+extern std::size_t nano_bootstrap_weights_live_size;
 extern unsigned char nano_bootstrap_weights_beta[];
-extern size_t nano_bootstrap_weights_beta_size;
+extern std::size_t nano_bootstrap_weights_beta_size;
 }
 
 void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
@@ -62,7 +62,7 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (rep_crawler & rep_crawler, std::string const & name)
 {
-	size_t count;
+	std::size_t count;
 	{
 		nano::lock_guard<nano::mutex> guard (rep_crawler.active_mutex);
 		count = rep_crawler.active.size ();
@@ -457,12 +457,12 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 				req->insert (boost::beast::http::field::content_type, "application/json");
 				req->body () = *body;
 				req->prepare_payload ();
-				boost::beast::http::async_write (*sock, *req, [node_l, sock, address, port, req, i_a, target, body, resolver] (boost::system::error_code const & ec, size_t bytes_transferred) mutable {
+				boost::beast::http::async_write (*sock, *req, [node_l, sock, address, port, req, i_a, target, body, resolver] (boost::system::error_code const & ec, std::size_t bytes_transferred) mutable {
 					if (!ec)
 					{
 						auto sb (std::make_shared<boost::beast::flat_buffer> ());
 						auto resp (std::make_shared<boost::beast::http::response<boost::beast::http::string_body>> ());
-						boost::beast::http::async_read (*sock, *sb, *resp, [node_l, sb, resp, sock, address, port, i_a, target, body, resolver] (boost::system::error_code const & ec, size_t bytes_transferred) mutable {
+						boost::beast::http::async_read (*sock, *sb, *resp, [node_l, sb, resp, sock, address, port, i_a, target, body, resolver] (boost::system::error_code const & ec, std::size_t bytes_transferred) mutable {
 							if (!ec)
 							{
 								if (boost::beast::http::to_status_class (resp->result ()) == boost::beast::http::status_class::successful)
@@ -756,7 +756,7 @@ void nano::node::long_inactivity_cleanup ()
 		auto sample (store.online_weight.rbegin (transaction));
 		auto n (store.online_weight.end ());
 		debug_assert (sample != n);
-		auto const one_week_ago = static_cast<size_t> ((std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ());
+		auto const one_week_ago = static_cast<std::size_t> ((std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ());
 		perform_cleanup = sample->first < one_week_ago;
 	}
 	if (perform_cleanup)
@@ -936,7 +936,7 @@ void nano::node::unchecked_cleanup ()
 	// Delete old unchecked keys in batches
 	while (!cleaning_list.empty ())
 	{
-		size_t deleted_count (0);
+		std::size_t deleted_count (0);
 		auto transaction (store.tx_begin_write ({ tables::unchecked }));
 		while (deleted_count++ < 2 * 1024 && !cleaning_list.empty ())
 		{
@@ -1347,7 +1347,7 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 void nano::node::process_confirmed (nano::election_status const & status_a, uint64_t iteration_a)
 {
 	auto hash (status_a.winner->hash ());
-	const auto num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
+	auto const num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
 	if (auto block_l = ledger.store.block.get (ledger.store.tx_begin_read (), hash))
 	{
 		active.add_recently_confirmed (block_l->qualified_root (), hash);
@@ -1393,7 +1393,7 @@ bool nano::block_arrival::recent (nano::block_hash const & hash_a)
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_arrival & block_arrival, std::string const & name)
 {
-	size_t count = 0;
+	std::size_t count = 0;
 	{
 		nano::lock_guard<nano::mutex> guard (block_arrival.mutex);
 		count = block_arrival.arrival.size ();
@@ -1436,7 +1436,7 @@ bool nano::node::epoch_upgrader (nano::raw_key const & prv_a, nano::epoch epoch_
 	return error;
 }
 
-void nano::node::set_bandwidth_params (size_t limit, double ratio)
+void nano::node::set_bandwidth_params (std::size_t limit, double ratio)
 {
 	config.bandwidth_limit_burst_ratio = ratio;
 	config.bandwidth_limit = limit;
@@ -1706,9 +1706,9 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> nano::node::get_bootstrap_weights () const
 {
 	std::unordered_map<nano::account, nano::uint128_t> weights;
-	const uint8_t * weight_buffer = network_params.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
-	size_t weight_size = network_params.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
-	nano::bufferstream weight_stream ((const uint8_t *)weight_buffer, weight_size);
+	uint8_t const * weight_buffer = network_params.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
+	std::size_t weight_size = network_params.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
+	nano::bufferstream weight_stream ((uint8_t const *)weight_buffer, weight_size);
 	nano::uint128_union block_height;
 	uint64_t max_blocks = 0;
 	if (!nano::try_read (weight_stream, block_height))

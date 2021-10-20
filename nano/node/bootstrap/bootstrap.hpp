@@ -61,7 +61,7 @@ public:
 			mi::member<nano::cached_pulls, nano::uint512_union, &nano::cached_pulls::account_head>>>>
 	cache;
 	// clang-format on
-	constexpr static size_t cache_size_max = 10000;
+	constexpr static std::size_t cache_size_max = 10000;
 };
 class bootstrap_attempts final
 {
@@ -70,7 +70,7 @@ public:
 	void remove (uint64_t);
 	void clear ();
 	std::shared_ptr<nano::bootstrap_attempt> find (uint64_t);
-	size_t size ();
+	std::size_t size ();
 	std::atomic<uint64_t> incremental{ 0 };
 	nano::mutex bootstrap_attempts_mutex;
 	std::map<uint64_t, std::shared_ptr<nano::bootstrap_attempt>> attempts;
@@ -135,6 +135,6 @@ public:
 	static constexpr std::chrono::seconds lazy_flush_delay_sec = std::chrono::seconds (5);
 	static constexpr uint64_t lazy_batch_pull_count_resize_blocks_limit = 4 * 1024 * 1024;
 	static constexpr double lazy_batch_pull_count_resize_ratio = 2.0;
-	static constexpr size_t lazy_blocks_restart_limit = 1024 * 1024;
+	static constexpr std::size_t lazy_blocks_restart_limit = 1024 * 1024;
 };
 }

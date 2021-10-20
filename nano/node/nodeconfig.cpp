@@ -12,12 +12,12 @@
 
 namespace
 {
-const char * preconfigured_peers_key = "preconfigured_peers";
-const char * signature_checker_threads_key = "signature_checker_threads";
-const char * pow_sleep_interval_key = "pow_sleep_interval";
-const char * default_beta_peer_network = "peering-beta.nano.org";
-const char * default_live_peer_network = "peering.nano.org";
-const std::string default_test_peer_network = nano::get_env_or_default ("NANO_TEST_PEER_NETWORK", "peering-test.nano.org");
+char const * preconfigured_peers_key = "preconfigured_peers";
+char const * signature_checker_threads_key = "signature_checker_threads";
+char const * pow_sleep_interval_key = "pow_sleep_interval";
+char const * default_beta_peer_network = "peering-beta.nano.org";
+char const * default_live_peer_network = "peering.nano.org";
+std::string const default_test_peer_network = nano::get_env_or_default ("NANO_TEST_PEER_NETWORK", "peering-test.nano.org");
 }
 
 nano::node_config::node_config (nano::network_params & network_params) :
@@ -341,9 +341,9 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get (pow_sleep_interval_key, pow_sleep_interval_l);
 		pow_sleep_interval = std::chrono::nanoseconds (pow_sleep_interval_l);
 		toml.get<bool> ("use_memory_pools", use_memory_pools);
-		toml.get<size_t> ("confirmation_history_size", confirmation_history_size);
-		toml.get<size_t> ("active_elections_size", active_elections_size);
-		toml.get<size_t> ("bandwidth_limit", bandwidth_limit);
+		toml.get<std::size_t> ("confirmation_history_size", confirmation_history_size);
+		toml.get<std::size_t> ("active_elections_size", active_elections_size);
+		toml.get<std::size_t> ("bandwidth_limit", bandwidth_limit);
 		toml.get<double> ("bandwidth_limit_burst_ratio", bandwidth_limit_burst_ratio);
 		toml.get<bool> ("backup_before_upgrade", backup_before_upgrade);
 
@@ -395,7 +395,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			toml.get_error ().set ("active_elections_size must be greater than 250");
 		}
-		if (bandwidth_limit > std::numeric_limits<size_t>::max ())
+		if (bandwidth_limit > std::numeric_limits<std::size_t>::max ())
 		{
 			toml.get_error ().set ("bandwidth_limit unbounded = 0, default = 10485760, max = 18446744073709551615");
 		}
@@ -674,9 +674,9 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get (pow_sleep_interval_key, pow_sleep_interval_l);
 		pow_sleep_interval = std::chrono::nanoseconds (pow_sleep_interval_l);
 		json.get<bool> ("use_memory_pools", use_memory_pools);
-		json.get<size_t> ("confirmation_history_size", confirmation_history_size);
-		json.get<size_t> ("active_elections_size", active_elections_size);
-		json.get<size_t> ("bandwidth_limit", bandwidth_limit);
+		json.get<std::size_t> ("confirmation_history_size", confirmation_history_size);
+		json.get<std::size_t> ("active_elections_size", active_elections_size);
+		json.get<std::size_t> ("bandwidth_limit", bandwidth_limit);
 		json.get<bool> ("backup_before_upgrade", backup_before_upgrade);
 
 		auto conf_height_processor_batch_min_time_l (conf_height_processor_batch_min_time.count ());
@@ -696,7 +696,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		{
 			json.get_error ().set ("active_elections_size must be greater than 250");
 		}
-		if (bandwidth_limit > std::numeric_limits<size_t>::max ())
+		if (bandwidth_limit > std::numeric_limits<std::size_t>::max ())
 		{
 			json.get_error ().set ("bandwidth_limit unbounded = 0, default = 10485760, max = 18446744073709551615");
 		}
@@ -767,7 +767,7 @@ void nano::node_config::deserialize_address (std::string const & entry_a, std::v
 nano::account nano::node_config::random_representative () const
 {
 	debug_assert (!preconfigured_representatives.empty ());
-	size_t index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
+	std::size_t index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
 	auto result (preconfigured_representatives[index]);
 	return result;
 }

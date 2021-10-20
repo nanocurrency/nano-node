@@ -17,9 +17,9 @@ public:
 	void parse_connection () override;
 	void write_completion_handler (std::shared_ptr<nano::rpc_connection> const & rpc) override;
 	/** The TLS handshake callback */
-	void handle_handshake (const boost::system::error_code & error);
+	void handle_handshake (boost::system::error_code const & error);
 	/** The TLS async shutdown callback */
-	void on_shutdown (const boost::system::error_code & error);
+	void on_shutdown (boost::system::error_code const & error);
 
 private:
 	boost::asio::ssl::stream<socket_type &> stream;

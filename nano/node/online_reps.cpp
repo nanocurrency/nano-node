@@ -118,7 +118,7 @@ void nano::online_reps::clear ()
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (online_reps & online_reps, std::string const & name)
 {
-	size_t count;
+	std::size_t count;
 	{
 		nano::lock_guard<nano::mutex> guard (online_reps.mutex);
 		count = online_reps.reps.size ();

@@ -38,7 +38,7 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
 	// UDP
-	for (size_t i = 0; i < node.config.network_threads && !node.flags.disable_udp; ++i)
+	for (std::size_t i = 0; i < node.config.network_threads && !node.flags.disable_udp; ++i)
 	{
 		packet_processing_threads.emplace_back (attrs, [this] () {
 			nano::thread_role::set (nano::thread_role::name::packet_processing);
@@ -73,7 +73,7 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 		});
 	}
 	// TCP
-	for (size_t i = 0; i < node.config.network_threads && !node.flags.disable_tcp_realtime; ++i)
+	for (std::size_t i = 0; i < node.config.network_threads && !node.flags.disable_tcp_realtime; ++i)
 	{
 		packet_processing_threads.emplace_back (attrs, [this] () {
 			nano::thread_role::set (nano::thread_role::name::packet_processing);
@@ -272,11 +272,11 @@ void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> 
 
 void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> const & block_a)
 {
-	auto list (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> (node.rep_crawler.representative_endpoints (std::numeric_limits<size_t>::max ())));
+	auto list (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> (node.rep_crawler.representative_endpoints (std::numeric_limits<std::size_t>::max ())));
 	if (list->empty () || node.rep_crawler.total_weight () < node.online_reps.delta ())
 	{
 		// broadcast request to all peers (with max limit 2 * sqrt (peers count))
-		auto peers (node.network.list (std::min<size_t> (100, node.network.fanout (2.0))));
+		auto peers (node.network.list (std::min<std::size_t> (100, node.network.fanout (2.0))));
 		list->clear ();
 		list->insert (list->end (), peers.begin (), peers.end ());
 	}
@@ -288,7 +288,7 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> const & 
 	 * of "broadcast_confirm_req" will be responsible for calling it again
 	 * if the votes for a block have not arrived in time.
 	 */
-	const size_t max_endpoints = 32;
+	std::size_t const max_endpoints = 32;
 	nano::random_pool_shuffle (list->begin (), list->end ());
 	if (list->size () > max_endpoints)
 	{
@@ -300,7 +300,7 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> const & 
 
 void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> const & block_a, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>> const & endpoints_a, unsigned delay_a, bool resumption)
 {
-	const size_t max_reps = 10;
+	std::size_t const max_reps = 10;
 	if (!resumption && node.config.logging.network_logging ())
 	{
 		node.logger.try_log (boost::str (boost::format ("Broadcasting confirm req for block %1% to %2% representatives") % block_a->hash ().to_string () % endpoints_a->size ()));
@@ -609,7 +609,7 @@ bool nano::network::reachout (nano::endpoint const & endpoint_a, bool allow_loca
 	return error;
 }
 
-std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (size_t count_a, uint8_t minimum_version_a, bool include_tcp_temporary_channels_a)
+std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (std::size_t count_a, uint8_t minimum_version_a, bool include_tcp_temporary_channels_a)
 {
 	std::deque<std::shared_ptr<nano::transport::channel>> result;
 	tcp_channels.list (result, minimum_version_a, include_tcp_temporary_channels_a);
@@ -622,7 +622,7 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (size_
 	return result;
 }
 
-std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list_non_pr (size_t count_a)
+std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list_non_pr (std::size_t count_a)
 {
 	std::deque<std::shared_ptr<nano::transport::channel>> result;
 	tcp_channels.list (result);
@@ -640,12 +640,12 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list_non_pr
 }
 
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
-size_t nano::network::fanout (float scale) const
+std::size_t nano::network::fanout (float scale) const
 {
-	return static_cast<size_t> (std::ceil (scale * size_sqrt ()));
+	return static_cast<std::size_t> (std::ceil (scale * size_sqrt ()));
 }
 
-std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::network::random_set (size_t count_a, uint8_t min_version_a, bool include_temporary_channels_a) const
+std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::network::random_set (std::size_t count_a, uint8_t min_version_a, bool include_temporary_channels_a) const
 {
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> result (tcp_channels.random_set (count_a, min_version_a, include_temporary_channels_a));
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> udp_random (udp_channels.random_set (count_a, min_version_a));
@@ -793,7 +793,7 @@ void nano::network::ongoing_keepalive ()
 	});
 }
 
-size_t nano::network::size () const
+std::size_t nano::network::size () const
 {
 	return tcp_channels.size () + udp_channels.size ();
 }
@@ -822,12 +822,12 @@ void nano::network::erase (nano::transport::channel const & channel_a)
 	}
 }
 
-void nano::network::set_bandwidth_params (double limit_burst_ratio_a, size_t limit_a)
+void nano::network::set_bandwidth_params (double limit_burst_ratio_a, std::size_t limit_a)
 {
 	limiter.reset (limit_burst_ratio_a, limit_a);
 }
 
-nano::message_buffer_manager::message_buffer_manager (nano::stat & stats_a, size_t size, size_t count) :
+nano::message_buffer_manager::message_buffer_manager (nano::stat & stats_a, std::size_t size, std::size_t count) :
 	stats (stats_a),
 	free (count),
 	full (count),
@@ -966,7 +966,7 @@ void nano::tcp_message_manager::stop ()
 	producer_condition.notify_all ();
 }
 
-nano::syn_cookies::syn_cookies (size_t max_cookies_per_ip_a) :
+nano::syn_cookies::syn_cookies (std::size_t max_cookies_per_ip_a) :
 	max_cookies_per_ip (max_cookies_per_ip_a)
 {
 }
@@ -1044,7 +1044,7 @@ void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cut
 	}
 }
 
-size_t nano::syn_cookies::cookies_size ()
+std::size_t nano::syn_cookies::cookies_size ()
 {
 	nano::lock_guard<nano::mutex> lock (syn_cookie_mutex);
 	return cookies.size ();
@@ -1062,8 +1062,8 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ne
 
 std::unique_ptr<nano::container_info_component> nano::syn_cookies::collect_container_info (std::string const & name)
 {
-	size_t syn_cookies_count;
-	size_t syn_cookies_per_ip_count;
+	std::size_t syn_cookies_count;
+	std::size_t syn_cookies_per_ip_count;
 	{
 		nano::lock_guard<nano::mutex> syn_cookie_guard (syn_cookie_mutex);
 		syn_cookies_count = cookies.size ();

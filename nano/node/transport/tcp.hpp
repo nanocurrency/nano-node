@@ -35,9 +35,9 @@ namespace transport
 	public:
 		channel_tcp (nano::node &, std::weak_ptr<nano::socket>);
 		~channel_tcp ();
-		size_t hash_code () const override;
+		std::size_t hash_code () const override;
 		bool operator== (nano::transport::channel const &) const override;
-		void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) override;
+		void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) override;
 		std::string to_string () const override;
 		bool operator== (nano::transport::channel_tcp const & other_a) const
 		{
@@ -78,10 +78,10 @@ namespace transport
 		tcp_channels (nano::node &, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> = nullptr);
 		bool insert (std::shared_ptr<nano::transport::channel_tcp> const &, std::shared_ptr<nano::socket> const &, std::shared_ptr<nano::bootstrap_server> const &);
 		void erase (nano::tcp_endpoint const &);
-		size_t size () const;
+		std::size_t size () const;
 		std::shared_ptr<nano::transport::channel_tcp> find_channel (nano::tcp_endpoint const &) const;
 		void random_fill (std::array<nano::endpoint, 8> &) const;
-		std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t, uint8_t = 0, bool = false) const;
+		std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t, uint8_t = 0, bool = false) const;
 		bool store_all (bool = true);
 		std::shared_ptr<nano::transport::channel_tcp> find_node_id (nano::account const &);
 		// Get the next peer for attempting a tcp connection
