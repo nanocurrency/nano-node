@@ -36,7 +36,7 @@ public:
 		}
 
 		/** Used by the wallet to override the config map size */
-		options & override_config_map_size (size_t map_size_a)
+		options & override_config_map_size (std::size_t map_size_a)
 		{
 			config.map_size = map_size_a;
 			return *this;

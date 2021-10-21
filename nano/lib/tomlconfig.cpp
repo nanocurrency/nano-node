@@ -152,7 +152,7 @@ nano::tomlconfig & nano::tomlconfig::erase (std::string const & key_a)
 	return *this;
 }
 
-std::shared_ptr<cpptoml::array> nano::tomlconfig::create_array (std::string const & key, boost::optional<const char *> documentation_a)
+std::shared_ptr<cpptoml::array> nano::tomlconfig::create_array (std::string const & key, boost::optional<char const *> documentation_a)
 {
 	if (!has_key (key))
 	{

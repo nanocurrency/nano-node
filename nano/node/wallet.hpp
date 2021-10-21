@@ -22,7 +22,7 @@ class wallets;
 class fan final
 {
 public:
-	fan (nano::raw_key const &, size_t);
+	fan (nano::raw_key const &, std::size_t);
 	void value (nano::raw_key &);
 	void value_set (nano::raw_key const &);
 	std::vector<std::unique_ptr<nano::raw_key>> values;
@@ -110,8 +110,8 @@ public:
 	static nano::account const representative_special;
 	static nano::account const seed_special;
 	static nano::account const deterministic_index_special;
-	static size_t const check_iv_index;
-	static size_t const seed_iv_index;
+	static std::size_t const check_iv_index;
+	static std::size_t const seed_iv_index;
 	static int const special_count;
 	nano::kdf & kdf;
 	std::atomic<MDB_dbi> handle{ 0 };
@@ -209,7 +209,7 @@ public:
 	void stop ();
 	void clear_send_ids (nano::transaction const &);
 	nano::wallet_representatives reps () const;
-	bool check_rep (nano::account const &, nano::uint128_t const &, const bool = true);
+	bool check_rep (nano::account const &, nano::uint128_t const &, bool const = true);
 	void compute_reps ();
 	void ongoing_compute_reps ();
 	void split_if_needed (nano::transaction &, nano::store &);

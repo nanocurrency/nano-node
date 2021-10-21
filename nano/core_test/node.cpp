@@ -22,7 +22,7 @@ void add_required_children_node_config_tree (nano::jsonconfig & tree);
 
 TEST (node, null_account)
 {
-	const auto & null_account = nano::account::null ();
+	auto const & null_account = nano::account::null ();
 	ASSERT_TRUE (null_account == nullptr);
 	ASSERT_FALSE (null_account != nullptr);
 
@@ -949,7 +949,7 @@ TEST (json, backup)
 	};
 
 	auto get_file_count = [&dir] () {
-		return std::count_if (boost::filesystem::directory_iterator (dir), boost::filesystem::directory_iterator (), static_cast<bool (*) (const boost::filesystem::path &)> (boost::filesystem::is_regular_file));
+		return std::count_if (boost::filesystem::directory_iterator (dir), boost::filesystem::directory_iterator (), static_cast<bool (*) (boost::filesystem::path const &)> (boost::filesystem::is_regular_file));
 	};
 
 	// There should only be the original file in this directory

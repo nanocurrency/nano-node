@@ -437,7 +437,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 	return result;
 }
 
-size_t nano::election::insert_inactive_votes_cache (nano::inactive_cache_information const & cache_a)
+std::size_t nano::election::insert_inactive_votes_cache (nano::inactive_cache_information const & cache_a)
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
 	for (auto const & [rep, timestamp] : cache_a.voters)

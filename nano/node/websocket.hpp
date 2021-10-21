@@ -66,7 +66,7 @@ namespace websocket
 		/** Auxiliary length, not a valid topic, must be the last enum */
 		_length
 	};
-	constexpr size_t number_topics{ static_cast<size_t> (topic::_length) - static_cast<size_t> (topic::invalid) };
+	constexpr std::size_t number_topics{ static_cast<std::size_t> (topic::_length) - static_cast<std::size_t> (topic::invalid) };
 
 	/** A message queued for broadcasting */
 	class message final
@@ -184,11 +184,11 @@ namespace websocket
 			return include_election_info_with_votes;
 		}
 
-		static constexpr const uint8_t type_active_quorum = 1;
-		static constexpr const uint8_t type_active_confirmation_height = 2;
-		static constexpr const uint8_t type_inactive = 4;
-		static constexpr const uint8_t type_all_active = type_active_quorum | type_active_confirmation_height;
-		static constexpr const uint8_t type_all = type_all_active | type_inactive;
+		static constexpr uint8_t const type_active_quorum = 1;
+		static constexpr uint8_t const type_active_confirmation_height = 2;
+		static constexpr uint8_t const type_inactive = 4;
+		static constexpr uint8_t const type_all_active = type_active_quorum | type_active_confirmation_height;
+		static constexpr uint8_t const type_all = type_all_active | type_inactive;
 
 	private:
 		void check_filter_empty () const;
@@ -321,7 +321,7 @@ namespace websocket
 			return subscriber_count (topic_a) > 0;
 		}
 		/** Getter for subscriber count of a specific topic*/
-		size_t subscriber_count (nano::websocket::topic const & topic_a) const
+		std::size_t subscriber_count (nano::websocket::topic const & topic_a) const
 		{
 			return topic_subscriber_count[static_cast<std::size_t> (topic_a)];
 		}

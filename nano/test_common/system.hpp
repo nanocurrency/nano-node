@@ -41,10 +41,10 @@ public:
 	 * Polls, sleep if there's no work to be done (default 50ms), then check the deadline
 	 * @returns 0 or nano::deadline_expired
 	 */
-	std::error_code poll (const std::chrono::nanoseconds & sleep_time = std::chrono::milliseconds (50));
+	std::error_code poll (std::chrono::nanoseconds const & sleep_time = std::chrono::milliseconds (50));
 	std::error_code poll_until_true (std::chrono::nanoseconds deadline, std::function<bool ()>);
 	void stop ();
-	void deadline_set (const std::chrono::duration<double, std::nano> & delta);
+	void deadline_set (std::chrono::duration<double, std::nano> const & delta);
 	std::shared_ptr<nano::node> add_node (nano::node_flags = nano::node_flags (), nano::transport::transport_type = nano::transport::transport_type::tcp);
 	std::shared_ptr<nano::node> add_node (nano::node_config const &, nano::node_flags = nano::node_flags (), nano::transport::transport_type = nano::transport::transport_type::tcp);
 	boost::asio::io_context io_ctx;

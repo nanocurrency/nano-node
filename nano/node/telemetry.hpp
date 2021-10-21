@@ -88,7 +88,7 @@ public:
 	/*
 	 * Return the number of node metrics collected
 	 */
-	size_t telemetry_data_size ();
+	std::size_t telemetry_data_size ();
 
 	/*
 	 * Returns the time for the cache, response and a small buffer for alarm operations to be scheduled and completed
@@ -142,7 +142,7 @@ private:
 	bool within_cache_cutoff (nano::telemetry_info const &) const;
 	bool within_cache_plus_buffer_cutoff (telemetry_info const &) const;
 	bool verify_message (nano::telemetry_ack const &, nano::transport::channel const &);
-	friend std::unique_ptr<nano::container_info_component> collect_container_info (telemetry &, const std::string &);
+	friend std::unique_ptr<nano::container_info_component> collect_container_info (telemetry &, std::string const &);
 	friend class telemetry_remove_peer_invalid_signature_Test;
 };
 

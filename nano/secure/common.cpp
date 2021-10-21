@@ -137,7 +137,7 @@ nano::ledger_constants::ledger_constants (nano::work_thresholds & work, nano::ne
 	nano_test_genesis->sideband_set (nano::block_sideband (nano_test_genesis->account (), 0, std::numeric_limits<nano::uint128_t>::max (), 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 
 	nano::link epoch_link_v1;
-	const char * epoch_message_v1 ("epoch v1 block");
+	char const * epoch_message_v1 ("epoch v1 block");
 	strncpy ((char *)epoch_link_v1.bytes.data (), epoch_message_v1, epoch_link_v1.bytes.size ());
 	epochs.add (nano::epoch::epoch_1, genesis->account (), epoch_link_v1);
 
@@ -148,7 +148,7 @@ nano::ledger_constants::ledger_constants (nano::work_thresholds & work, nano::ne
 	auto epoch_v2_signer (network_a == nano::networks::nano_dev_network ? nano::dev::genesis_key.pub : network_a == nano::networks::nano_beta_network ? nano_beta_account
 	: network_a == nano::networks::nano_test_network                                                                                                  ? nano_test_account
 																																					  : nano_live_epoch_v2_signer);
-	const char * epoch_message_v2 ("epoch v2 block");
+	char const * epoch_message_v2 ("epoch v2 block");
 	strncpy ((char *)epoch_link_v2.bytes.data (), epoch_message_v2, epoch_link_v2.bytes.size ());
 	epochs.add (nano::epoch::epoch_2, epoch_v2_signer, epoch_link_v2);
 }
@@ -273,13 +273,13 @@ bool nano::account_info::operator!= (nano::account_info const & other_a) const
 
 size_t nano::account_info::db_size () const
 {
-	debug_assert (reinterpret_cast<const uint8_t *> (this) == reinterpret_cast<const uint8_t *> (&head));
-	debug_assert (reinterpret_cast<const uint8_t *> (&head) + sizeof (head) == reinterpret_cast<const uint8_t *> (&representative));
-	debug_assert (reinterpret_cast<const uint8_t *> (&representative) + sizeof (representative) == reinterpret_cast<const uint8_t *> (&open_block));
-	debug_assert (reinterpret_cast<const uint8_t *> (&open_block) + sizeof (open_block) == reinterpret_cast<const uint8_t *> (&balance));
-	debug_assert (reinterpret_cast<const uint8_t *> (&balance) + sizeof (balance) == reinterpret_cast<const uint8_t *> (&modified));
-	debug_assert (reinterpret_cast<const uint8_t *> (&modified) + sizeof (modified) == reinterpret_cast<const uint8_t *> (&block_count));
-	debug_assert (reinterpret_cast<const uint8_t *> (&block_count) + sizeof (block_count) == reinterpret_cast<const uint8_t *> (&epoch_m));
+	debug_assert (reinterpret_cast<uint8_t const *> (this) == reinterpret_cast<uint8_t const *> (&head));
+	debug_assert (reinterpret_cast<uint8_t const *> (&head) + sizeof (head) == reinterpret_cast<uint8_t const *> (&representative));
+	debug_assert (reinterpret_cast<uint8_t const *> (&representative) + sizeof (representative) == reinterpret_cast<uint8_t const *> (&open_block));
+	debug_assert (reinterpret_cast<uint8_t const *> (&open_block) + sizeof (open_block) == reinterpret_cast<uint8_t const *> (&balance));
+	debug_assert (reinterpret_cast<uint8_t const *> (&balance) + sizeof (balance) == reinterpret_cast<uint8_t const *> (&modified));
+	debug_assert (reinterpret_cast<uint8_t const *> (&modified) + sizeof (modified) == reinterpret_cast<uint8_t const *> (&block_count));
+	debug_assert (reinterpret_cast<uint8_t const *> (&block_count) + sizeof (block_count) == reinterpret_cast<uint8_t const *> (&epoch_m));
 	return sizeof (head) + sizeof (representative) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count) + sizeof (epoch_m);
 }
 
@@ -392,12 +392,12 @@ bool nano::unchecked_info::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-nano::endpoint_key::endpoint_key (const std::array<uint8_t, 16> & address_a, uint16_t port_a) :
+nano::endpoint_key::endpoint_key (std::array<uint8_t, 16> const & address_a, uint16_t port_a) :
 	address (address_a), network_port (boost::endian::native_to_big (port_a))
 {
 }
 
-const std::array<uint8_t, 16> & nano::endpoint_key::address_bytes () const
+std::array<uint8_t, 16> const & nano::endpoint_key::address_bytes () const
 {
 	return address;
 }
@@ -594,7 +594,7 @@ std::string nano::vote::hashes_string () const
 	return result;
 }
 
-const std::string nano::vote::hash_prefix = "vote ";
+std::string const nano::vote::hash_prefix = "vote ";
 
 nano::block_hash nano::vote::hash () const
 {

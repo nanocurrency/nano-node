@@ -199,7 +199,7 @@ void nano::wallet_store::derive_key (nano::raw_key & prv_a, nano::transaction co
 	kdf.phs (prv_a, password_a, salt_l);
 }
 
-nano::fan::fan (nano::raw_key const & key, size_t count_a)
+nano::fan::fan (nano::raw_key const & key, std::size_t count_a)
 {
 	auto first (std::make_unique<nano::raw_key> (key));
 	for (auto i (1); i < count_a; ++i)
@@ -252,8 +252,8 @@ nano::account const nano::wallet_store::seed_special (5);
 // Current key index for deterministic keys
 nano::account const nano::wallet_store::deterministic_index_special (6);
 int const nano::wallet_store::special_count (7);
-size_t const nano::wallet_store::check_iv_index (0);
-size_t const nano::wallet_store::seed_iv_index (1);
+std::size_t const nano::wallet_store::check_iv_index (0);
+std::size_t const nano::wallet_store::seed_iv_index (1);
 
 nano::wallet_store::wallet_store (bool & init_a, nano::kdf & kdf_a, nano::transaction & transaction_a, nano::account representative_a, unsigned fanout_a, std::string const & wallet_a, std::string const & json_a) :
 	password (0, fanout_a),
@@ -941,7 +941,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 		id_mdb_val = nano::mdb_val (id_a->size (), const_cast<char *> (id_a->data ()));
 	}
 
-	auto prepare_send = [&id_mdb_val, &wallets = this->wallets, &store = this->store, &source_a, &amount_a, &work_a, &account_a] (const auto & transaction) {
+	auto prepare_send = [&id_mdb_val, &wallets = this->wallets, &store = this->store, &source_a, &amount_a, &work_a, &account_a] (auto const & transaction) {
 		auto block_transaction (wallets.node.store.tx_begin_read ());
 		auto error (false);
 		auto cached_block (false);
@@ -1391,9 +1391,9 @@ nano::wallets::wallets (bool error_a, nano::node & node_a) :
 	}
 	if (backup_required)
 	{
-		const char * store_path;
+		char const * store_path;
 		mdb_env_get_path (env, &store_path);
-		const boost::filesystem::path path (store_path);
+		boost::filesystem::path const path (store_path);
 		nano::mdb_store::create_backup_file (env, path, node_a.logger);
 	}
 	for (auto & item : items)
@@ -1629,7 +1629,7 @@ nano::wallet_representatives nano::wallets::reps () const
 	return representatives;
 }
 
-bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t const & half_principal_weight_a, const bool acquire_lock_a)
+bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t const & half_principal_weight_a, bool const acquire_lock_a)
 {
 	auto weight = node.ledger.weight (account_a);
 
@@ -1832,8 +1832,8 @@ MDB_txn * nano::wallet_store::tx (nano::transaction const & transaction_a) const
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (wallets & wallets, std::string const & name)
 {
-	size_t items_count;
-	size_t actions_count;
+	std::size_t items_count;
+	std::size_t actions_count;
 	{
 		nano::lock_guard<nano::mutex> guard (wallets.mutex);
 		items_count = wallets.items.size ();

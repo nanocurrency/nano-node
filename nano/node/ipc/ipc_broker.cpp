@@ -195,11 +195,11 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 						throw nano::error ("Couldn't serialize response to JSON");
 					}
 
-					subscriber_l->async_send_message (reinterpret_cast<uint8_t const *> (json->data ()), json->size (), [json] (const nano::error & err) {});
+					subscriber_l->async_send_message (reinterpret_cast<uint8_t const *> (json->data ()), json->size (), [json] (nano::error const & err) {});
 				}
 				else
 				{
-					subscriber_l->async_send_message (fb->GetBufferPointer (), fb->GetSize (), [fb] (const nano::error & err) {});
+					subscriber_l->async_send_message (fb->GetBufferPointer (), fb->GetSize (), [fb] (nano::error const & err) {});
 				}
 			}
 
@@ -222,7 +222,7 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 	}
 }
 
-size_t nano::ipc::broker::confirmation_subscriber_count () const
+std::size_t nano::ipc::broker::confirmation_subscriber_count () const
 {
 	return confirmation_subscribers->size ();
 }
@@ -246,7 +246,7 @@ void nano::ipc::broker::service_stop (std::string const & service_name_a)
 			{
 				nanoapi::EventServiceStopT event_stop;
 				auto fb (nano::ipc::flatbuffer_producer::make_buffer (event_stop));
-				subscriber_l->async_send_message (fb->GetBufferPointer (), fb->GetSize (), [fb] (const nano::error & err) {});
+				subscriber_l->async_send_message (fb->GetBufferPointer (), fb->GetSize (), [fb] (nano::error const & err) {});
 
 				break;
 			}

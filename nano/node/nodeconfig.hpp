@@ -69,7 +69,7 @@ public:
 	uint32_t bootstrap_frontier_request_count{ 1024 * 1024 };
 	nano::websocket::config websocket_config;
 	nano::diagnostics_config diagnostics_config;
-	size_t confirmation_history_size{ 2048 };
+	std::size_t confirmation_history_size{ 2048 };
 	std::string callback_address;
 	uint16_t callback_port{ 0 };
 	std::string callback_target;
@@ -83,7 +83,7 @@ public:
 	/** Timeout for initiated async operations */
 	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_dev_network () && !is_sanitizer_build) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
-	size_t active_elections_size{ 5000 };
+	std::size_t active_elections_size{ 5000 };
 	/** Default maximum incoming TCP connections, including realtime network & bootstrap */
 	unsigned tcp_incoming_connections_max{ 2048 };
 	bool use_memory_pools{ true };
@@ -91,7 +91,7 @@ public:
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
 	/** Default outbound traffic shaping is 10MB/s */
-	size_t bandwidth_limit{ 10 * 1024 * 1024 };
+	std::size_t bandwidth_limit{ 10 * 1024 * 1024 };
 	/** By default, allow bursts of 15MB/s (not sustainable) */
 	double bandwidth_limit_burst_ratio{ 3. };
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
@@ -152,11 +152,11 @@ public:
 	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };
 	nano::generate_cache generate_cache;
 	bool inactive_node{ false };
-	size_t block_processor_batch_size{ 0 };
-	size_t block_processor_full_size{ 65536 };
-	size_t block_processor_verification_size{ 0 };
-	size_t inactive_votes_cache_size{ 16 * 1024 };
-	size_t vote_processor_capacity{ 144 * 1024 };
-	size_t bootstrap_interval{ 0 }; // For testing only
+	std::size_t block_processor_batch_size{ 0 };
+	std::size_t block_processor_full_size{ 65536 };
+	std::size_t block_processor_verification_size{ 0 };
+	std::size_t inactive_votes_cache_size{ 16 * 1024 };
+	std::size_t vote_processor_capacity{ 144 * 1024 };
+	std::size_t bootstrap_interval{ 0 }; // For testing only
 };
 }

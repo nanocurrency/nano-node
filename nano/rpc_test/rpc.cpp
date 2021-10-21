@@ -124,7 +124,7 @@ void reset_confirmation_height (nano::store & store, nano::account const & accou
 	}
 }
 
-void wait_response_impl (nano::system & system, std::shared_ptr<nano::rpc> const & rpc, boost::property_tree::ptree & request, const std::chrono::duration<double, std::nano> & time, boost::property_tree::ptree & response_json)
+void wait_response_impl (nano::system & system, std::shared_ptr<nano::rpc> const & rpc, boost::property_tree::ptree & request, std::chrono::duration<double, std::nano> const & time, boost::property_tree::ptree & response_json)
 {
 	test_response response (request, rpc->config.port, system.io_ctx);
 	ASSERT_TIMELY (time, response.status != 0);
@@ -132,7 +132,7 @@ void wait_response_impl (nano::system & system, std::shared_ptr<nano::rpc> const
 	response_json = response.json;
 }
 
-boost::property_tree::ptree wait_response (nano::system & system, std::shared_ptr<nano::rpc> const & rpc, boost::property_tree::ptree & request, const std::chrono::duration<double, std::nano> & time = 5s)
+boost::property_tree::ptree wait_response (nano::system & system, std::shared_ptr<nano::rpc> const & rpc, boost::property_tree::ptree & request, std::chrono::duration<double, std::nano> const & time = 5s)
 {
 	boost::property_tree::ptree response_json;
 	wait_response_impl (system, rpc, request, time, response_json);
@@ -3219,7 +3219,7 @@ TEST (rpc, pending_exists)
 	auto [rpc, rpc_ctx] = add_rpc (system, node);
 	boost::property_tree::ptree request;
 
-	auto pending_exists = [&system, &request, rpc = rpc] (const char * exists_a) {
+	auto pending_exists = [&system, &request, rpc = rpc] (char const * exists_a) {
 		auto response0 (wait_response (system, rpc, request));
 		std::string exists_text (response0.get<std::string> ("exists"));
 		ASSERT_EQ (exists_a, exists_text);
@@ -5536,7 +5536,7 @@ TEST (rpc, simultaneous_calls)
 
 	promise.get_future ().wait ();
 
-	ASSERT_TIMELY (60s, std::all_of (test_responses.begin (), test_responses.end (), [] (const auto & test_response) { return test_response->status != 0; }));
+	ASSERT_TIMELY (60s, std::all_of (test_responses.begin (), test_responses.end (), [] (auto const & test_response) { return test_response->status != 0; }));
 
 	for (int i = 0; i < num; ++i)
 	{

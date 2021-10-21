@@ -32,7 +32,7 @@ enum class work_peer_type
 
 class work_peer_connection : public std::enable_shared_from_this<work_peer_connection>
 {
-	const std::string generic_error = "Unable to parse JSON";
+	std::string const generic_error = "Unable to parse JSON";
 
 public:
 	work_peer_connection (asio::io_context & ioc_a, work_peer_type const type_a, nano::work_version const version_a, nano::work_pool & pool_a, std::function<void (bool const)> on_generation_a, std::function<void ()> on_cancel_a) :
@@ -155,7 +155,7 @@ private:
 				beast::ostream (this_l->response.body ()) << ostream.str ();
 				// Delay response by 500ms as a slow peer, immediate async call for a good peer
 				this_l->timer.expires_from_now (boost::posix_time::milliseconds (this_l->type == work_peer_type::slow ? 500 : 0));
-				this_l->timer.async_wait ([this_l, result] (const boost::system::error_code & ec) {
+				this_l->timer.async_wait ([this_l, result] (boost::system::error_code const & ec) {
 					if (this_l->on_generation)
 					{
 						this_l->on_generation (result != 0);

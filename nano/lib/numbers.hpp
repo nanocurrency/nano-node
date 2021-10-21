@@ -35,7 +35,7 @@ public:
 	bool decode_dec (std::string const &, bool = false);
 	bool decode_dec (std::string const &, nano::uint128_t);
 	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits) const;
-	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits, const std::locale & locale) const;
+	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits, std::locale const & locale) const;
 	nano::uint128_t number () const;
 	void clear ();
 	bool is_zero () const;
@@ -247,7 +247,7 @@ nano::signature sign_message (nano::raw_key const &, nano::public_key const &, n
 nano::signature sign_message (nano::raw_key const &, nano::public_key const &, uint8_t const *, size_t);
 bool validate_message (nano::public_key const &, nano::uint256_union const &, nano::signature const &);
 bool validate_message (nano::public_key const &, uint8_t const *, size_t, nano::signature const &);
-bool validate_message_batch (unsigned const char **, size_t *, unsigned const char **, unsigned const char **, size_t, int *);
+bool validate_message_batch (unsigned char const **, size_t *, unsigned char const **, unsigned char const **, size_t, int *);
 nano::raw_key deterministic_key (nano::raw_key const &, uint32_t);
 nano::public_key pub_key (nano::raw_key const &);
 

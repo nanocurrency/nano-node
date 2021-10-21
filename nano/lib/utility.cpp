@@ -94,12 +94,12 @@ void nano::container_info_composite::add_component (std::unique_ptr<container_in
 	children.push_back (std::move (child));
 }
 
-const std::vector<std::unique_ptr<nano::container_info_component>> & nano::container_info_composite::get_children () const
+std::vector<std::unique_ptr<nano::container_info_component>> const & nano::container_info_composite::get_children () const
 {
 	return children;
 }
 
-const std::string & nano::container_info_composite::get_name () const
+std::string const & nano::container_info_composite::get_name () const
 {
 	return name;
 }
@@ -114,7 +114,7 @@ bool nano::container_info_leaf::is_composite () const
 	return false;
 }
 
-const nano::container_info & nano::container_info_leaf::get_info () const
+nano::container_info const & nano::container_info_leaf::get_info () const
 {
 	return info;
 }
@@ -159,7 +159,7 @@ void nano::move_all_files_to_dir (boost::filesystem::path const & from, boost::f
 /*
  * Backing code for "release_assert" & "debug_assert", which are macros
  */
-void assert_internal (const char * check_expr, const char * func, const char * file, unsigned int line, bool is_release_assert, std::string_view error_msg)
+void assert_internal (char const * check_expr, char const * func, char const * file, unsigned int line, bool is_release_assert, std::string_view error_msg)
 {
 	std::cerr << "Assertion (" << check_expr << ") failed\n"
 			  << func << "\n"

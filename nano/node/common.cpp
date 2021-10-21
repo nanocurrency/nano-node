@@ -195,7 +195,7 @@ bool nano::message_header::node_id_handshake_is_response () const
 	return result;
 }
 
-size_t nano::message_header::payload_length_bytes () const
+std::size_t nano::message_header::payload_length_bytes () const
 {
 	switch (type)
 	{
@@ -250,7 +250,7 @@ size_t nano::message_header::payload_length_bytes () const
 }
 
 // MTU - IP header - UDP header
-const size_t nano::message_parser::max_safe_udp_message_size = 508;
+std::size_t const nano::message_parser::max_safe_udp_message_size = 508;
 
 std::string nano::message_parser::status_string ()
 {
@@ -326,7 +326,7 @@ nano::message_parser::message_parser (nano::network_filter & publish_filter_a, n
 {
 }
 
-void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t size_a)
+void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, std::size_t size_a)
 {
 	status = parse_status::success;
 	auto error (false);
@@ -731,7 +731,7 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_unique
 			result = block == nullptr;
 		}
 	}
-	catch (const std::runtime_error &)
+	catch (std::runtime_error const &)
 	{
 		result = true;
 	}
@@ -766,9 +766,9 @@ std::string nano::confirm_req::roots_string () const
 	return result;
 }
 
-size_t nano::confirm_req::size (nano::block_type type_a, size_t count)
+std::size_t nano::confirm_req::size (nano::block_type type_a, std::size_t count)
 {
-	size_t result (0);
+	std::size_t result (0);
 	if (type_a != nano::block_type::invalid && type_a != nano::block_type::not_a_block)
 	{
 		result = nano::block::size (type_a);
@@ -826,9 +826,9 @@ void nano::confirm_ack::visit (nano::message_visitor & visitor_a) const
 	visitor_a.confirm_ack (*this);
 }
 
-size_t nano::confirm_ack::size (nano::block_type type_a, size_t count)
+std::size_t nano::confirm_ack::size (nano::block_type type_a, std::size_t count)
 {
-	size_t result (sizeof (nano::account) + sizeof (nano::signature) + sizeof (uint64_t));
+	std::size_t result (sizeof (nano::account) + sizeof (nano::signature) + sizeof (uint64_t));
 	if (type_a != nano::block_type::invalid && type_a != nano::block_type::not_a_block)
 	{
 		result += nano::block::size (type_a);
@@ -1414,14 +1414,14 @@ void nano::node_id_handshake::visit (nano::message_visitor & visitor_a) const
 	visitor_a.node_id_handshake (*this);
 }
 
-size_t nano::node_id_handshake::size () const
+std::size_t nano::node_id_handshake::size () const
 {
 	return size (header);
 }
 
-size_t nano::node_id_handshake::size (nano::message_header const & header_a)
+std::size_t nano::node_id_handshake::size (nano::message_header const & header_a)
 {
-	size_t result (0);
+	std::size_t result (0);
 	if (header_a.node_id_handshake_is_query ())
 	{
 		result = sizeof (nano::uint256_union);

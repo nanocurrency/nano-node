@@ -8,7 +8,7 @@ class shared_const_buffer
 {
 public:
 	using value_type = boost::asio::const_buffer;
-	using const_iterator = const boost::asio::const_buffer *;
+	using const_iterator = boost::asio::const_buffer const *;
 
 	explicit shared_const_buffer (std::vector<uint8_t> const & data);
 	explicit shared_const_buffer (uint8_t data);
@@ -16,10 +16,10 @@ public:
 	explicit shared_const_buffer (std::vector<uint8_t> && data);
 	explicit shared_const_buffer (std::shared_ptr<std::vector<uint8_t>> const & data);
 
-	const boost::asio::const_buffer * begin () const;
-	const boost::asio::const_buffer * end () const;
+	boost::asio::const_buffer const * begin () const;
+	boost::asio::const_buffer const * end () const;
 
-	size_t size () const;
+	std::size_t size () const;
 
 private:
 	std::shared_ptr<std::vector<uint8_t>> m_data;

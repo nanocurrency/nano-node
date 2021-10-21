@@ -21,7 +21,7 @@ class message_buffer final
 {
 public:
 	uint8_t * buffer{ nullptr };
-	size_t size{ 0 };
+	std::size_t size{ 0 };
 	nano::endpoint endpoint;
 };
 /**
@@ -38,7 +38,7 @@ public:
 	// Stats - Statistics
 	// Size - Size of each individual buffer
 	// Count - Number of buffers to allocate
-	message_buffer_manager (nano::stat & stats, size_t, size_t);
+	message_buffer_manager (nano::stat & stats, std::size_t, std::size_t);
 	// Return a buffer where message data can be put
 	// Method will attempt to return the first free buffer
 	// If there are no free buffers, an unserviced buffer will be dequeued and returned
@@ -92,7 +92,7 @@ private:
 class syn_cookies final
 {
 public:
-	syn_cookies (size_t);
+	syn_cookies (std::size_t);
 	void purge (std::chrono::steady_clock::time_point const &);
 	// Returns boost::none if the IP is rate capped on syn cookie requests,
 	// or if the endpoint already has a syn cookie query
@@ -101,7 +101,7 @@ public:
 	// Also removes the syn cookie from the store if valid
 	bool validate (nano::endpoint const &, nano::account const &, nano::signature const &);
 	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
-	size_t cookies_size ();
+	std::size_t cookies_size ();
 
 private:
 	class syn_cookie_info final
@@ -113,7 +113,7 @@ private:
 	mutable nano::mutex syn_cookie_mutex;
 	std::unordered_map<nano::endpoint, syn_cookie_info> cookies;
 	std::unordered_map<boost::asio::ip::address, unsigned> cookies_per_ip;
-	size_t max_cookies_per_ip;
+	std::size_t max_cookies_per_ip;
 };
 class network final
 {
@@ -148,14 +148,14 @@ public:
 	bool not_a_peer (nano::endpoint const &, bool);
 	// Should we reach out to this endpoint with a keepalive message
 	bool reachout (nano::endpoint const &, bool = false);
-	std::deque<std::shared_ptr<nano::transport::channel>> list (size_t, uint8_t = 0, bool = true);
-	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (size_t);
+	std::deque<std::shared_ptr<nano::transport::channel>> list (std::size_t, uint8_t = 0, bool = true);
+	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (std::size_t);
 	// Desired fanout for a given scale
-	size_t fanout (float scale = 1.0f) const;
+	std::size_t fanout (float scale = 1.0f) const;
 	void random_fill (std::array<nano::endpoint, 8> &) const;
 	void fill_keepalive_self (std::array<nano::endpoint, 8> &) const;
 	// Note: The minimum protocol version is used after the random selection, so number of peers can be less than expected.
-	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t, uint8_t = 0, bool = false) const;
+	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t, uint8_t = 0, bool = false) const;
 	// Get the next peer for attempting a tcp bootstrap connection
 	nano::tcp_endpoint bootstrap_peer (bool = false);
 	nano::endpoint endpoint ();
@@ -165,11 +165,11 @@ public:
 	nano::syn_cookies syn_cookies;
 	void ongoing_syn_cookie_cleanup ();
 	void ongoing_keepalive ();
-	size_t size () const;
+	std::size_t size () const;
 	float size_sqrt () const;
 	bool empty () const;
 	void erase (nano::transport::channel const &);
-	void set_bandwidth_params (double, size_t);
+	void set_bandwidth_params (double, std::size_t);
 
 private:
 	void process_message (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
@@ -192,9 +192,9 @@ public:
 	std::function<void (std::shared_ptr<nano::transport::channel>)> channel_observer;
 	std::atomic<bool> stopped{ false };
 	static unsigned const broadcast_interval_ms = 10;
-	static size_t const buffer_size = 512;
-	static size_t const confirm_req_hashes_max = 7;
-	static size_t const confirm_ack_hashes_max = 12;
+	static std::size_t const buffer_size = 512;
+	static std::size_t const confirm_req_hashes_max = 7;
+	static std::size_t const confirm_ack_hashes_max = 12;
 };
 std::unique_ptr<container_info_component> collect_container_info (network & network, std::string const & name);
 }

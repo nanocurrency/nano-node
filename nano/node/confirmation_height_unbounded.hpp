@@ -52,7 +52,7 @@ private:
 	class receive_source_pair final
 	{
 	public:
-		receive_source_pair (std::shared_ptr<conf_height_details> const &, const nano::block_hash &);
+		receive_source_pair (std::shared_ptr<conf_height_details> const &, nano::block_hash const &);
 
 		std::shared_ptr<conf_height_details> receive_details;
 		nano::block_hash source_hash;

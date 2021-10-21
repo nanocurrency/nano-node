@@ -29,9 +29,9 @@ public:
 	// Blocks until no more elections can be activated or there are no more elections to activate
 	void flush ();
 	void notify ();
-	size_t size () const;
+	std::size_t size () const;
 	bool empty () const;
-	size_t priority_queue_size () const;
+	std::size_t priority_queue_size () const;
 
 private:
 	void run ();

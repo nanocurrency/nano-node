@@ -39,7 +39,7 @@ public:
 	void stop ();
 	void add (std::shared_ptr<nano::block> const &);
 	void run (confirmation_height_mode);
-	size_t awaiting_processing_size () const;
+	std::size_t awaiting_processing_size () const;
 	bool is_processing_added_block (nano::block_hash const & hash_a) const;
 	bool is_processing_block (nano::block_hash const &) const;
 	nano::block_hash current () const;
@@ -100,7 +100,7 @@ private:
 	void notify_observers (std::vector<std::shared_ptr<nano::block>> const &);
 	void notify_observers (nano::block_hash const &);
 
-	friend std::unique_ptr<container_info_component> collect_container_info (confirmation_height_processor &, const std::string &);
+	friend std::unique_ptr<container_info_component> collect_container_info (confirmation_height_processor &, std::string const &);
 	friend class confirmation_height_pending_observer_callbacks_Test;
 	friend class confirmation_height_dependent_election_Test;
 	friend class confirmation_height_dependent_election_after_already_cemented_Test;
@@ -112,5 +112,5 @@ private:
 	friend class active_transactions_pessimistic_elections_Test;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (confirmation_height_processor &, const std::string &);
+std::unique_ptr<container_info_component> collect_container_info (confirmation_height_processor &, std::string const &);
 }

@@ -48,15 +48,15 @@ public:
 	bool lazy_processed_or_exists (nano::block_hash const &) override;
 	unsigned lazy_retry_limit_confirmed ();
 	void get_information (boost::property_tree::ptree &) override;
-	std::unordered_set<size_t> lazy_blocks;
+	std::unordered_set<std::size_t> lazy_blocks;
 	std::unordered_map<nano::block_hash, nano::lazy_state_backlog_item> lazy_state_backlog;
 	std::unordered_set<nano::block_hash> lazy_undefined_links;
 	std::unordered_map<nano::block_hash, nano::uint128_t> lazy_balances;
 	std::unordered_set<nano::block_hash> lazy_keys;
 	std::deque<std::pair<nano::hash_or_account, unsigned>> lazy_pulls;
 	std::chrono::steady_clock::time_point lazy_start_time;
-	std::atomic<size_t> lazy_blocks_count{ 0 };
-	size_t peer_count{ 0 };
+	std::atomic<std::size_t> lazy_blocks_count{ 0 };
+	std::size_t peer_count{ 0 };
 	/** The maximum number of records to be read in while iterating over long lazy containers */
 	static uint64_t constexpr batch_read_size = 256;
 };
@@ -70,7 +70,7 @@ public:
 	void run () override;
 	void wallet_start (std::deque<nano::account> &) override;
 	bool wallet_finished ();
-	size_t wallet_size () override;
+	std::size_t wallet_size () override;
 	void get_information (boost::property_tree::ptree &) override;
 	std::deque<nano::account> wallet_accounts;
 };
