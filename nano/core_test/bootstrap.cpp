@@ -404,7 +404,7 @@ TEST (bootstrap_processor, push_diamond)
 	node1->stop ();
 }
 
-TEST (bootstrap_processor, push_diamond_pruning)
+TEST (bootstrap_processor, DISABLED_push_diamond_pruning)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
