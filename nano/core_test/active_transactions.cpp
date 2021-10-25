@@ -11,7 +11,6 @@ using namespace std::chrono_literals;
 
 namespace nano
 {
-
 // Test disabled because it's failing intermittently.
 // PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3512
 // Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3522
