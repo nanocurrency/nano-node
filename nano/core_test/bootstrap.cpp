@@ -404,6 +404,10 @@ TEST (bootstrap_processor, push_diamond)
 	node1->stop ();
 }
 
+// Check that an outgoing bootstrap request can push blocks
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3512
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3517
 TEST (bootstrap_processor, DISABLED_push_diamond_pruning)
 {
 	nano::system system;

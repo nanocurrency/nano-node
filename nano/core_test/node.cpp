@@ -1682,6 +1682,9 @@ TEST (node, DISABLED_fork_stale)
 	}
 }
 
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3512
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3516
 TEST (node, DISABLED_broadcast_elected)
 {
 	std::vector<nano::transport::transport_type> types{ nano::transport::transport_type::tcp, nano::transport::transport_type::udp };
@@ -1904,6 +1907,9 @@ TEST (node, DISABLED_bootstrap_no_publish)
 }
 
 // Check that an outgoing bootstrap request can push blocks
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3512
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3515
 TEST (node, DISABLED_bootstrap_bulk_push)
 {
 	nano::system system0;

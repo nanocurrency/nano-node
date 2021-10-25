@@ -5162,6 +5162,9 @@ TEST (rpc, uptime)
 	ASSERT_LE (1, response.get<int> ("seconds"));
 }
 
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3512
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3514
 TEST (rpc, DISABLED_wallet_history)
 {
 	nano::system system;
