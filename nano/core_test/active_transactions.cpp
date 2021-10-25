@@ -11,7 +11,11 @@ using namespace std::chrono_literals;
 
 namespace nano
 {
-TEST (active_transactions, confirm_active)
+
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3512
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3522
+TEST (active_transactions, DISABLED_confirm_active)
 {
 	nano::system system;
 	nano::node_flags node_flags;
