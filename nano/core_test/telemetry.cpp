@@ -545,7 +545,10 @@ TEST (telemetry, max_possible_size)
 
 namespace nano
 {
-TEST (telemetry, remove_peer_different_genesis)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3512
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3524
+TEST (telemetry, DISABLED_remove_peer_different_genesis)
 {
 	nano::system system (1);
 	auto node0 (system.nodes[0]);
