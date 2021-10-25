@@ -52,7 +52,7 @@ public:
 	std::size_t limited_size (std::size_t const) const;
 	std::size_t size () const;
 
-	friend class telemetry_remove_peer_different_genesis_Test;
+	friend class telemetry_DISABLED_remove_peer_different_genesis_Test;
 	friend class telemetry_remove_peer_different_genesis_udp_Test;
 	friend class telemetry_remove_peer_invalid_signature_Test;
 	friend class peer_exclusion_validate_Test;
