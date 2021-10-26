@@ -13,6 +13,7 @@
 
 #include <boost/format.hpp>
 
+#include <csignal>
 #include <iostream>
 
 namespace
