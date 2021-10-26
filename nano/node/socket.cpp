@@ -9,9 +9,9 @@
 #include <limits>
 
 nano::socket::socket (nano::node & node_a) :
-strand{ node_a.io_ctx.get_executor () },
-tcp_socket{ node_a.io_ctx },
-node{ node_a }
+	strand{ node_a.io_ctx.get_executor () },
+	tcp_socket{ node_a.io_ctx },
+	node{ node_a }
 {
 }
 
@@ -26,7 +26,7 @@ void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::fu
 	auto this_l (shared_from_this ());
 	this_l->tcp_socket.async_connect (endpoint_a,
 	boost::asio::bind_executor (this_l->strand,
-	[this_l, callback_a, endpoint_a, timer = socket::timer{ shared_from_this () }](boost::system::error_code const & ec) mutable {
+	[this_l, callback_a, endpoint_a, timer = socket::timer{ shared_from_this () }] (boost::system::error_code const & ec) mutable {
 		this_l->remote = endpoint_a;
 		callback_a (ec);
 	}));
@@ -42,7 +42,7 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buf
 			boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, size_a, this_l] () {
 				boost::asio::async_read (this_l->tcp_socket, boost::asio::buffer (buffer_a->data (), size_a),
 				boost::asio::bind_executor (this_l->strand,
-				[this_l, buffer_a, callback_a, timer = socket::timer{ this_l->shared_from_this () }](boost::system::error_code const & ec, size_t size_a) mutable {
+				[this_l, buffer_a, callback_a, timer = socket::timer{ this_l->shared_from_this () }] (boost::system::error_code const & ec, size_t size_a) mutable {
 					this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::in, size_a);
 					callback_a (ec, size_a);
 				}));
@@ -67,7 +67,7 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 			{
 				nano::async_write (this_l->tcp_socket, buffer_a,
 				boost::asio::bind_executor (this_l->strand,
-				[buffer_a, callback_a, this_l, timer = socket::timer{ this_l->shared_from_this () }](boost::system::error_code ec, std::size_t size_a) mutable {
+				[buffer_a, callback_a, this_l, timer = socket::timer{ this_l->shared_from_this () }] (boost::system::error_code ec, std::size_t size_a) mutable {
 					--this_l->queue_size;
 					this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
 					if (callback_a)
@@ -132,17 +132,17 @@ void nano::socket::deadline_start ()
 }
 
 nano::socket::timer::timer (std::shared_ptr<nano::socket> socket_a) :
-socket{ socket_a },
-idle{ socket_a->node.network_params.network.idle_timeout },
-value{ static_cast<uint64_t> ((std::chrono::steady_clock::now () + socket_a->node.config.tcp_io_timeout).time_since_epoch ().count ()) }
+	socket{ socket_a },
+	idle{ socket_a->node.network_params.network.idle_timeout },
+	value{ static_cast<uint64_t> ((std::chrono::steady_clock::now () + socket_a->node.config.tcp_io_timeout).time_since_epoch ().count ()) }
 {
 	socket_a->deadline_next = value;
 }
 
 nano::socket::timer::timer (nano::socket::timer && other_a) :
-socket{ other_a.socket },
-idle{ other_a.idle },
-value{ other_a.value }
+	socket{ other_a.socket },
+	idle{ other_a.idle },
+	value{ other_a.value }
 {
 	other_a.value = std::numeric_limits<uint64_t>::max ();
 }

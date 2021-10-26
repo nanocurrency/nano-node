@@ -348,7 +348,7 @@ TEST (socket_timeout, connect)
 	std::atomic<bool> done = false;
 	boost::system::error_code ec;
 	socket->async_connect (endpoint,
-	[&ec, &done](boost::system::error_code const & ec_a) {
+	[&ec, &done] (boost::system::error_code const & ec_a) {
 		if (ec_a)
 		{
 			ec = ec_a;
@@ -373,13 +373,13 @@ TEST (socket_timeout, read)
 	boost::system::error_code ec;
 	acceptor.listen (boost::asio::socket_base::max_listen_connections, ec);
 	boost::asio::ip::tcp::socket remote{ system.io_ctx };
-	acceptor.async_accept (remote, [](boost::system::error_code const & ec_a) {
+	acceptor.async_accept (remote, [] (boost::system::error_code const & ec_a) {
 		debug_assert (!ec_a);
 	});
 	socket->async_connect (endpoint,
-	[&socket, buffer, &ec, &done](boost::system::error_code const & ec_a) {
+	[&socket, buffer, &ec, &done] (boost::system::error_code const & ec_a) {
 		debug_assert (!ec_a);
-		socket->async_read (buffer, 1, [&ec, &done](boost::system::error_code const & ec_a, size_t size_a) {
+		socket->async_read (buffer, 1, [&ec, &done] (boost::system::error_code const & ec_a, size_t size_a) {
 			if (ec_a)
 			{
 				ec = ec_a;
@@ -405,15 +405,15 @@ TEST (socket_timeout, write)
 	boost::system::error_code ec;
 	acceptor.listen (boost::asio::socket_base::max_listen_connections, ec);
 	boost::asio::ip::tcp::socket remote{ system.io_ctx };
-	acceptor.async_accept (remote, [](boost::system::error_code const & ec_a) {
+	acceptor.async_accept (remote, [] (boost::system::error_code const & ec_a) {
 		debug_assert (!ec_a);
 	});
 	socket->async_connect (endpoint,
-	[&socket, buffer, &ec, &done](boost::system::error_code const & ec_a) {
+	[&socket, buffer, &ec, &done] (boost::system::error_code const & ec_a) {
 		debug_assert (!ec_a);
 		for (auto i = 0; i < 1024; ++i)
 		{
-			socket->async_write (nano::shared_const_buffer{ buffer }, [&ec, &done](boost::system::error_code const & ec_a, size_t size_a) {
+			socket->async_write (nano::shared_const_buffer{ buffer }, [&ec, &done] (boost::system::error_code const & ec_a, size_t size_a) {
 				if (ec_a)
 				{
 					ec = ec_a;
@@ -440,20 +440,20 @@ TEST (socket_timeout, read_overlapped)
 	boost::system::error_code ec;
 	acceptor.listen (boost::asio::socket_base::max_listen_connections, ec);
 	boost::asio::ip::tcp::socket remote{ system.io_ctx };
-	acceptor.async_accept (remote, [&remote, buffer](boost::system::error_code const & ec_a) {
+	acceptor.async_accept (remote, [&remote, buffer] (boost::system::error_code const & ec_a) {
 		debug_assert (!ec_a);
-		nano::async_write (remote, nano::shared_const_buffer{ buffer }, [](boost::system::error_code const & ec_a, size_t size_a) {
+		nano::async_write (remote, nano::shared_const_buffer{ buffer }, [] (boost::system::error_code const & ec_a, size_t size_a) {
 			debug_assert (!ec_a);
 			debug_assert (size_a == 1);
 		});
 	});
 	socket->async_connect (endpoint,
-	[&socket, buffer, &ec, &done](boost::system::error_code const & ec_a) {
+	[&socket, buffer, &ec, &done] (boost::system::error_code const & ec_a) {
 		debug_assert (!ec_a);
-		socket->async_read (buffer, 1, [](boost::system::error_code const & ec_a, size_t size_a) {
+		socket->async_read (buffer, 1, [] (boost::system::error_code const & ec_a, size_t size_a) {
 			debug_assert (size_a == 1);
 		});
-		socket->async_read (buffer, 1, [&ec, &done](boost::system::error_code const & ec_a, size_t size_a) {
+		socket->async_read (buffer, 1, [&ec, &done] (boost::system::error_code const & ec_a, size_t size_a) {
 			debug_assert (size_a == 0);
 			if (ec_a)
 			{
@@ -481,21 +481,21 @@ TEST (socket_timeout, write_overlapped)
 	boost::system::error_code ec;
 	acceptor.listen (boost::asio::socket_base::max_listen_connections, ec);
 	boost::asio::ip::tcp::socket remote{ system.io_ctx };
-	acceptor.async_accept (remote, [&remote, buffer1](boost::system::error_code const & ec_a) {
+	acceptor.async_accept (remote, [&remote, buffer1] (boost::system::error_code const & ec_a) {
 		debug_assert (!ec_a);
-		boost::asio::async_read (remote, boost::asio::buffer (buffer1->data (), buffer1->size ()), [](boost::system::error_code const & ec_a, size_t size_a) {
+		boost::asio::async_read (remote, boost::asio::buffer (buffer1->data (), buffer1->size ()), [] (boost::system::error_code const & ec_a, size_t size_a) {
 			debug_assert (size_a == 1);
 		});
 	});
 	socket->async_connect (endpoint,
-	[&socket, buffer1, buffer2, &ec, &done](boost::system::error_code const & ec_a) {
+	[&socket, buffer1, buffer2, &ec, &done] (boost::system::error_code const & ec_a) {
 		debug_assert (!ec_a);
-		socket->async_write (nano::shared_const_buffer{ buffer1 }, [](boost::system::error_code const & ec_a, size_t size_a) {
+		socket->async_write (nano::shared_const_buffer{ buffer1 }, [] (boost::system::error_code const & ec_a, size_t size_a) {
 			debug_assert (size_a == 1);
 		});
 		for (auto i = 0; i < 1024; ++i)
 		{
-			socket->async_write (nano::shared_const_buffer{ buffer2 }, [&ec, &done](boost::system::error_code const & ec_a, size_t size_a) {
+			socket->async_write (nano::shared_const_buffer{ buffer2 }, [&ec, &done] (boost::system::error_code const & ec_a, size_t size_a) {
 				if (ec_a)
 				{
 					ec = ec_a;
