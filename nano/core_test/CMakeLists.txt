@@ -6,6 +6,7 @@ add_executable(
   active_transactions.cpp
   block.cpp
   block_store.cpp
+  blockprocessor.cpp
   bootstrap.cpp
   cli.cpp
   confirmation_height.cpp
@@ -14,11 +15,13 @@ add_executable(
   difficulty.cpp
   distributed_work.cpp
   election.cpp
+  election_scheduler.cpp
   epochs.cpp
   frontiers_confirmation.cpp
   gap_cache.cpp
   ipc.cpp
   ledger.cpp
+  ledger_walker.cpp
   locks.cpp
   logger.cpp
   message.cpp
@@ -29,9 +32,12 @@ add_executable(
   node.cpp
   processor_service.cpp
   peer_container.cpp
+  prioritization.cpp
   request_aggregator.cpp
+  signal_manager.cpp
   signing.cpp
   socket.cpp
+  system.cpp
   telemetry.cpp
   toml.cpp
   timer.cpp
@@ -42,7 +48,6 @@ add_executable(
   wallet.cpp
   wallets.cpp
   websocket.cpp
-  work_watcher.cpp
   work_pool.cpp)
 
 target_compile_definitions(

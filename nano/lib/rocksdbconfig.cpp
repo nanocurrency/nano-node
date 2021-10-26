@@ -1,3 +1,4 @@
+#include <nano/lib/config.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 
@@ -26,4 +27,10 @@ nano::error nano::rocksdb_config::deserialize_toml (nano::tomlconfig & toml)
 	}
 
 	return toml.get_error ();
+}
+
+bool nano::rocksdb_config::using_rocksdb_in_tests ()
+{
+	auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
+	return use_rocksdb_str && (boost::lexical_cast<int> (use_rocksdb_str) == 1);
 }

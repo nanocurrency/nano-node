@@ -156,7 +156,7 @@ TEST (locks, condition_variable_wait_until)
 
 	nano::condition_variable cv;
 	nano::mutex mutex;
-	auto impl = [&](auto time_to_sleep) {
+	auto impl = [&] (auto time_to_sleep) {
 		std::atomic<bool> notified{ false };
 		std::atomic<bool> finished{ false };
 		nano::unique_lock<nano::mutex> lk (mutex);

@@ -5,9 +5,9 @@
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
 nano::pending_info_v14::pending_info_v14 (nano::account const & source_a, nano::amount const & amount_a, nano::epoch epoch_a) :
-source (source_a),
-amount (amount_a),
-epoch (epoch_a)
+	source (source_a),
+	amount (amount_a),
+	epoch (epoch_a)
 {
 }
 
@@ -38,36 +38,36 @@ bool nano::pending_info_v14::operator== (nano::pending_info_v14 const & other_a)
 }
 
 nano::account_info_v14::account_info_v14 (nano::block_hash const & head_a, nano::block_hash const & rep_block_a, nano::block_hash const & open_block_a, nano::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, uint64_t confirmation_height_a, nano::epoch epoch_a) :
-head (head_a),
-rep_block (rep_block_a),
-open_block (open_block_a),
-balance (balance_a),
-modified (modified_a),
-block_count (block_count_a),
-confirmation_height (confirmation_height_a),
-epoch (epoch_a)
+	head (head_a),
+	rep_block (rep_block_a),
+	open_block (open_block_a),
+	balance (balance_a),
+	modified (modified_a),
+	block_count (block_count_a),
+	confirmation_height (confirmation_height_a),
+	epoch (epoch_a)
 {
 }
 
 size_t nano::account_info_v14::db_size () const
 {
-	debug_assert (reinterpret_cast<const uint8_t *> (this) == reinterpret_cast<const uint8_t *> (&head));
-	debug_assert (reinterpret_cast<const uint8_t *> (&head) + sizeof (head) == reinterpret_cast<const uint8_t *> (&rep_block));
-	debug_assert (reinterpret_cast<const uint8_t *> (&rep_block) + sizeof (rep_block) == reinterpret_cast<const uint8_t *> (&open_block));
-	debug_assert (reinterpret_cast<const uint8_t *> (&open_block) + sizeof (open_block) == reinterpret_cast<const uint8_t *> (&balance));
-	debug_assert (reinterpret_cast<const uint8_t *> (&balance) + sizeof (balance) == reinterpret_cast<const uint8_t *> (&modified));
-	debug_assert (reinterpret_cast<const uint8_t *> (&modified) + sizeof (modified) == reinterpret_cast<const uint8_t *> (&block_count));
-	debug_assert (reinterpret_cast<const uint8_t *> (&block_count) + sizeof (block_count) == reinterpret_cast<const uint8_t *> (&confirmation_height));
+	debug_assert (reinterpret_cast<uint8_t const *> (this) == reinterpret_cast<uint8_t const *> (&head));
+	debug_assert (reinterpret_cast<uint8_t const *> (&head) + sizeof (head) == reinterpret_cast<uint8_t const *> (&rep_block));
+	debug_assert (reinterpret_cast<uint8_t const *> (&rep_block) + sizeof (rep_block) == reinterpret_cast<uint8_t const *> (&open_block));
+	debug_assert (reinterpret_cast<uint8_t const *> (&open_block) + sizeof (open_block) == reinterpret_cast<uint8_t const *> (&balance));
+	debug_assert (reinterpret_cast<uint8_t const *> (&balance) + sizeof (balance) == reinterpret_cast<uint8_t const *> (&modified));
+	debug_assert (reinterpret_cast<uint8_t const *> (&modified) + sizeof (modified) == reinterpret_cast<uint8_t const *> (&block_count));
+	debug_assert (reinterpret_cast<uint8_t const *> (&block_count) + sizeof (block_count) == reinterpret_cast<uint8_t const *> (&confirmation_height));
 	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count) + sizeof (confirmation_height);
 }
 
 nano::block_sideband_v14::block_sideband_v14 (nano::block_type type_a, nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a) :
-type (type_a),
-successor (successor_a),
-account (account_a),
-balance (balance_a),
-height (height_a),
-timestamp (timestamp_a)
+	type (type_a),
+	successor (successor_a),
+	account (account_a),
+	balance (balance_a),
+	height (height_a),
+	timestamp (timestamp_a)
 {
 }
 
@@ -144,22 +144,22 @@ bool nano::block_sideband_v14::deserialize (nano::stream & stream_a)
 }
 
 nano::block_sideband_v18::block_sideband_v18 (nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a, nano::block_details const & details_a) :
-successor (successor_a),
-account (account_a),
-balance (balance_a),
-height (height_a),
-timestamp (timestamp_a),
-details (details_a)
+	successor (successor_a),
+	account (account_a),
+	balance (balance_a),
+	height (height_a),
+	timestamp (timestamp_a),
+	details (details_a)
 {
 }
 
 nano::block_sideband_v18::block_sideband_v18 (nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a, nano::epoch epoch_a, bool is_send, bool is_receive, bool is_epoch) :
-successor (successor_a),
-account (account_a),
-balance (balance_a),
-height (height_a),
-timestamp (timestamp_a),
-details (epoch_a, is_send, is_receive, is_epoch)
+	successor (successor_a),
+	account (account_a),
+	balance (balance_a),
+	height (height_a),
+	timestamp (timestamp_a),
+	details (epoch_a, is_send, is_receive, is_epoch)
 {
 }
 

@@ -33,7 +33,7 @@ struct work_request final
 	nano::root root;
 	uint64_t difficulty;
 	boost::optional<nano::account> const account;
-	std::function<void(boost::optional<uint64_t>)> callback;
+	std::function<void (boost::optional<uint64_t>)> callback;
 	std::vector<std::pair<std::string, uint16_t>> const peers;
 };
 
@@ -55,8 +55,8 @@ class distributed_work final : public std::enable_shared_from_this<nano::distrib
 	{
 	public:
 		peer_request (boost::asio::io_context & io_ctx_a, nano::tcp_endpoint const & endpoint_a) :
-		endpoint (endpoint_a),
-		socket (io_ctx_a)
+			endpoint (endpoint_a),
+			socket (io_ctx_a)
 		{
 		}
 		std::shared_ptr<request_type> get_prepared_json_request (std::string const &) const;

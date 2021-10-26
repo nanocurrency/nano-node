@@ -8,7 +8,7 @@
 
 TEST (message, keepalive_serialization)
 {
-	nano::keepalive request1;
+	nano::keepalive request1{ nano::dev::network_params.network };
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
@@ -25,7 +25,7 @@ TEST (message, keepalive_serialization)
 
 TEST (message, keepalive_deserialize)
 {
-	nano::keepalive message1;
+	nano::keepalive message1{ nano::dev::network_params.network };
 	message1.peers[0] = nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000);
 	std::vector<uint8_t> bytes;
 	{
@@ -44,8 +44,7 @@ TEST (message, keepalive_deserialize)
 
 TEST (message, publish_serialization)
 {
-	nano::network_params params;
-	nano::publish publish (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
+	nano::publish publish{ nano::dev::network_params.network, std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5) };
 	ASSERT_EQ (nano::block_type::send, publish.header.block_type ());
 	std::vector<uint8_t> bytes;
 	{
@@ -55,9 +54,9 @@ TEST (message, publish_serialization)
 	ASSERT_EQ (8, bytes.size ());
 	ASSERT_EQ (0x52, bytes[0]);
 	ASSERT_EQ (0x41, bytes[1]);
-	ASSERT_EQ (params.protocol.protocol_version, bytes[2]);
-	ASSERT_EQ (params.protocol.protocol_version, bytes[3]);
-	ASSERT_EQ (params.protocol.protocol_version_min (), bytes[4]);
+	ASSERT_EQ (nano::dev::network_params.network.protocol_version, bytes[2]);
+	ASSERT_EQ (nano::dev::network_params.network.protocol_version, bytes[3]);
+	ASSERT_EQ (nano::dev::network_params.network.protocol_version_min, bytes[4]);
 	ASSERT_EQ (static_cast<uint8_t> (nano::message_type::publish), bytes[5]);
 	ASSERT_EQ (0x00, bytes[6]); // extensions
 	ASSERT_EQ (static_cast<uint8_t> (nano::block_type::send), bytes[7]);
@@ -65,9 +64,9 @@ TEST (message, publish_serialization)
 	auto error (false);
 	nano::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (params.protocol.protocol_version_min (), header.version_min ());
-	ASSERT_EQ (params.protocol.protocol_version, header.version_using);
-	ASSERT_EQ (params.protocol.protocol_version, header.version_max);
+	ASSERT_EQ (nano::dev::network_params.network.protocol_version_min, header.version_min);
+	ASSERT_EQ (nano::dev::network_params.network.protocol_version, header.version_using);
+	ASSERT_EQ (nano::dev::network_params.network.protocol_version, header.version_max);
 	ASSERT_EQ (nano::message_type::publish, header.type);
 }
 
@@ -75,7 +74,7 @@ TEST (message, confirm_ack_serialization)
 {
 	nano::keypair key1;
 	auto vote (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, std::make_shared<nano::send_block> (0, 1, 2, key1.prv, 4, 5)));
-	nano::confirm_ack con1 (vote);
+	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream1 (bytes);
@@ -103,7 +102,7 @@ TEST (message, confirm_ack_hash_serialization)
 	}
 	nano::keypair representative1;
 	auto vote (std::make_shared<nano::vote> (representative1.pub, representative1.prv, 0, hashes));
-	nano::confirm_ack con1 (vote);
+	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream1 (bytes);
@@ -131,7 +130,7 @@ TEST (message, confirm_req_serialization)
 	nano::keypair key1;
 	nano::keypair key2;
 	auto block (std::make_shared<nano::send_block> (0, key2.pub, 200, nano::keypair ().prv, 2, 3));
-	nano::confirm_req req (block);
+	nano::confirm_req req{ nano::dev::network_params.network, block };
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
@@ -151,7 +150,7 @@ TEST (message, confirm_req_hash_serialization)
 	nano::keypair key1;
 	nano::keypair key2;
 	nano::send_block block (1, key2.pub, 200, nano::keypair ().prv, 2, 3);
-	nano::confirm_req req (block.hash (), block.root ());
+	nano::confirm_req req{ nano::dev::network_params.network, block.hash (), block.root () };
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
@@ -184,7 +183,7 @@ TEST (message, confirm_req_hash_batch_serialization)
 		roots_hashes.push_back (std::make_pair (block.hash (), block.root ()));
 	}
 	roots_hashes.push_back (std::make_pair (open.hash (), open.root ()));
-	nano::confirm_req req (roots_hashes);
+	nano::confirm_req req{ nano::dev::network_params.network, roots_hashes };
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);

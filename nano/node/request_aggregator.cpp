@@ -8,26 +8,31 @@
 #include <nano/node/transport/udp.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/node/wallet.hpp>
-#include <nano/secure/blockstore.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
-nano::request_aggregator::request_aggregator (nano::network_constants const & network_constants_a, nano::node_config const & config_a, nano::stat & stats_a, nano::vote_generator & generator_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
-max_delay (network_constants_a.is_dev_network () ? 50 : 300),
-small_delay (network_constants_a.is_dev_network () ? 10 : 50),
-max_channel_requests (config_a.max_queued_requests),
-stats (stats_a),
-local_votes (history_a),
-ledger (ledger_a),
-wallets (wallets_a),
-active (active_a),
-generator (generator_a),
-thread ([this]() { run (); })
+nano::request_aggregator::request_aggregator (nano::node_config const & config_a, nano::stat & stats_a, nano::vote_generator & generator_a, nano::vote_generator & final_generator_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
+	config{ config_a },
+	max_delay (config_a.network_params.network.is_dev_network () ? 50 : 300),
+	small_delay (config_a.network_params.network.is_dev_network () ? 10 : 50),
+	max_channel_requests (config_a.max_queued_requests),
+	stats (stats_a),
+	local_votes (history_a),
+	ledger (ledger_a),
+	wallets (wallets_a),
+	active (active_a),
+	generator (generator_a),
+	final_generator (final_generator_a),
+	thread ([this] () { run (); })
 {
-	generator.set_reply_action ([this](std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) {
+	generator.set_reply_action ([this] (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) {
+		this->reply_action (vote_a, channel_a);
+	});
+	final_generator.set_reply_action ([this] (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) {
 		this->reply_action (vote_a, channel_a);
 	});
 	nano::unique_lock<nano::mutex> lock (mutex);
-	condition.wait (lock, [& started = started] { return started; });
+	condition.wait (lock, [&started = started] { return started; });
 }
 
 void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> const & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a)
@@ -46,7 +51,7 @@ void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> co
 		{
 			existing = requests_by_endpoint.emplace (channel_a).first;
 		}
-		requests_by_endpoint.modify (existing, [&hashes_roots_a, &channel_a, &error, this](channel_pool & pool_a) {
+		requests_by_endpoint.modify (existing, [&hashes_roots_a, &channel_a, &error, this] (channel_pool & pool_a) {
 			// This extends the lifetime of the channel, which is acceptable up to max_delay
 			pool_a.channel = channel_a;
 			if (pool_a.hashes_roots.size () + hashes_roots_a.size () <= this->max_channel_requests)
@@ -85,7 +90,7 @@ void nano::request_aggregator::run ()
 				// Store the channel and requests for processing after erasing this pool
 				decltype (front->channel) channel{};
 				decltype (front->hashes_roots) hashes_roots{};
-				requests_by_deadline.modify (front, [&channel, &hashes_roots](channel_pool & pool) {
+				requests_by_deadline.modify (front, [&channel, &hashes_roots] (channel_pool & pool) {
 					channel.swap (pool.channel);
 					hashes_roots.swap (pool.hashes_roots);
 				});
@@ -93,23 +98,29 @@ void nano::request_aggregator::run ()
 				lock.unlock ();
 				erase_duplicates (hashes_roots);
 				auto const remaining = aggregate (hashes_roots, channel);
-				if (!remaining.empty ())
+				if (!remaining.first.empty ())
 				{
 					// Generate votes for the remaining hashes
-					auto const generated = generator.generate (remaining, channel);
-					stats.add (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in, remaining.size () - generated);
+					auto const generated = generator.generate (remaining.first, channel);
+					stats.add (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in, remaining.first.size () - generated);
+				}
+				if (!remaining.second.empty ())
+				{
+					// Generate final votes for the remaining hashes
+					auto const generated = final_generator.generate (remaining.second, channel);
+					stats.add (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in, remaining.second.size () - generated);
 				}
 				lock.lock ();
 			}
 			else
 			{
 				auto deadline = front->deadline;
-				condition.wait_until (lock, deadline, [this, &deadline]() { return this->stopped || deadline < std::chrono::steady_clock::now (); });
+				condition.wait_until (lock, deadline, [this, &deadline] () { return this->stopped || deadline < std::chrono::steady_clock::now (); });
 			}
 		}
 		else
 		{
-			condition.wait_for (lock, small_delay, [this]() { return this->stopped || !this->requests.empty (); });
+			condition.wait_for (lock, small_delay, [this] () { return this->stopped || !this->requests.empty (); });
 		}
 	}
 }
@@ -140,26 +151,27 @@ bool nano::request_aggregator::empty ()
 
 void nano::request_aggregator::reply_action (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) const
 {
-	nano::confirm_ack confirm (vote_a);
+	nano::confirm_ack confirm{ config.network_params.network, vote_a };
 	channel_a->send (confirm);
 }
 
 void nano::request_aggregator::erase_duplicates (std::vector<std::pair<nano::block_hash, nano::root>> & requests_a) const
 {
-	std::sort (requests_a.begin (), requests_a.end (), [](auto const & pair1, auto const & pair2) {
+	std::sort (requests_a.begin (), requests_a.end (), [] (auto const & pair1, auto const & pair2) {
 		return pair1.first < pair2.first;
 	});
-	requests_a.erase (std::unique (requests_a.begin (), requests_a.end (), [](auto const & pair1, auto const & pair2) {
+	requests_a.erase (std::unique (requests_a.begin (), requests_a.end (), [] (auto const & pair1, auto const & pair2) {
 		return pair1.first == pair2.first;
 	}),
 	requests_a.end ());
 }
 
-std::vector<std::shared_ptr<nano::block>> nano::request_aggregator::aggregate (std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const
+std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr<nano::block>>> nano::request_aggregator::aggregate (std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const
 {
 	auto transaction (ledger.store.tx_begin_read ());
-	size_t cached_hashes = 0;
+	std::size_t cached_hashes = 0;
 	std::vector<std::shared_ptr<nano::block>> to_generate;
+	std::vector<std::shared_ptr<nano::block>> to_generate_final;
 	std::vector<std::shared_ptr<nano::vote>> cached_votes;
 	for (auto const & [hash, root] : requests_a)
 	{
@@ -173,26 +185,54 @@ std::vector<std::shared_ptr<nano::block>> nano::request_aggregator::aggregate (s
 		else
 		{
 			bool generate_vote (true);
-			// 2. Election winner by hash
-			auto block = active.winner (hash);
+			bool generate_final_vote (false);
+			std::shared_ptr<nano::block> block;
 
-			// 3. Ledger by hash
-			if (block == nullptr)
+			//2. Final votes
+			auto final_vote_hashes (ledger.store.final_vote.get (transaction, root));
+			if (!final_vote_hashes.empty ())
 			{
-				block = ledger.store.block_get (transaction, hash);
+				generate_final_vote = true;
+				block = ledger.store.block.get (transaction, final_vote_hashes[0]);
+				// Allow same root vote
+				if (block != nullptr && final_vote_hashes.size () > 1)
+				{
+					to_generate_final.push_back (block);
+					block = ledger.store.block.get (transaction, final_vote_hashes[1]);
+					debug_assert (final_vote_hashes.size () == 2);
+				}
 			}
 
-			// 4. Ledger by root
+			// 3. Election winner by hash
+			if (block == nullptr)
+			{
+				block = active.winner (hash);
+			}
+
+			// 4. Ledger by hash
+			if (block == nullptr)
+			{
+				block = ledger.store.block.get (transaction, hash);
+				// Confirmation status. Generate final votes for confirmed
+				if (block != nullptr)
+				{
+					nano::confirmation_height_info confirmation_height_info;
+					ledger.store.confirmation_height.get (transaction, block->account ().is_zero () ? block->sideband ().account : block->account (), confirmation_height_info);
+					generate_final_vote = (confirmation_height_info.height >= block->sideband ().height);
+				}
+			}
+
+			// 5. Ledger by root
 			if (block == nullptr && !root.is_zero ())
 			{
 				// Search for block root
-				auto successor (ledger.store.block_successor (transaction, root.as_block_hash ()));
+				auto successor (ledger.store.block.successor (transaction, root.as_block_hash ()));
 
 				// Search for account root
 				if (successor.is_zero ())
 				{
 					nano::account_info info;
-					auto error (ledger.store.account_get (transaction, root.as_account (), info));
+					auto error (ledger.store.account.get (transaction, root.as_account (), info));
 					if (!error)
 					{
 						successor = info.open_block;
@@ -200,7 +240,7 @@ std::vector<std::shared_ptr<nano::block>> nano::request_aggregator::aggregate (s
 				}
 				if (!successor.is_zero ())
 				{
-					auto successor_block = ledger.store.block_get (transaction, successor);
+					auto successor_block = ledger.store.block.get (transaction, successor);
 					debug_assert (successor_block != nullptr);
 					block = std::move (successor_block);
 					// 5. Votes in cache for successor
@@ -210,6 +250,13 @@ std::vector<std::shared_ptr<nano::block>> nano::request_aggregator::aggregate (s
 						cached_votes.insert (cached_votes.end (), find_successor_votes.begin (), find_successor_votes.end ());
 						generate_vote = false;
 					}
+					// Confirmation status. Generate final votes for confirmed successor
+					if (block != nullptr && generate_vote)
+					{
+						nano::confirmation_height_info confirmation_height_info;
+						ledger.store.confirmation_height.get (transaction, block->account ().is_zero () ? block->sideband ().account : block->account (), confirmation_height_info);
+						generate_final_vote = (confirmation_height_info.height >= block->sideband ().height);
+					}
 				}
 			}
 
@@ -218,13 +265,20 @@ std::vector<std::shared_ptr<nano::block>> nano::request_aggregator::aggregate (s
 				// Generate new vote
 				if (generate_vote)
 				{
-					to_generate.push_back (block);
+					if (generate_final_vote)
+					{
+						to_generate_final.push_back (block);
+					}
+					else
+					{
+						to_generate.push_back (block);
+					}
 				}
 
 				// Let the node know about the alternative block
 				if (block->hash () != hash)
 				{
-					nano::publish publish (block);
+					nano::publish publish (config.network_params.network, block);
 					channel_a->send (publish);
 				}
 			}
@@ -243,7 +297,7 @@ std::vector<std::shared_ptr<nano::block>> nano::request_aggregator::aggregate (s
 	}
 	stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached_hashes, stat::dir::in, cached_hashes);
 	stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached_votes, stat::dir::in, cached_votes.size ());
-	return to_generate;
+	return std::make_pair (to_generate, to_generate_final);
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::request_aggregator & aggregator, std::string const & name)

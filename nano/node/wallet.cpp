@@ -199,7 +199,7 @@ void nano::wallet_store::derive_key (nano::raw_key & prv_a, nano::transaction co
 	kdf.phs (prv_a, password_a, salt_l);
 }
 
-nano::fan::fan (nano::raw_key const & key, size_t count_a)
+nano::fan::fan (nano::raw_key const & key, std::size_t count_a)
 {
 	auto first (std::make_unique<nano::raw_key> (key));
 	for (auto i (1); i < count_a; ++i)
@@ -238,7 +238,7 @@ void nano::fan::value_set (nano::raw_key const & value_a)
 }
 
 // Wallet version number
-nano::account const nano::wallet_store::version_special (0);
+nano::account const nano::wallet_store::version_special{};
 // Random number used to salt private key encryption
 nano::account const nano::wallet_store::salt_special (1);
 // Key used to encrypt wallet keys, encrypted itself by the user password
@@ -252,13 +252,13 @@ nano::account const nano::wallet_store::seed_special (5);
 // Current key index for deterministic keys
 nano::account const nano::wallet_store::deterministic_index_special (6);
 int const nano::wallet_store::special_count (7);
-size_t const nano::wallet_store::check_iv_index (0);
-size_t const nano::wallet_store::seed_iv_index (1);
+std::size_t const nano::wallet_store::check_iv_index (0);
+std::size_t const nano::wallet_store::seed_iv_index (1);
 
 nano::wallet_store::wallet_store (bool & init_a, nano::kdf & kdf_a, nano::transaction & transaction_a, nano::account representative_a, unsigned fanout_a, std::string const & wallet_a, std::string const & json_a) :
-password (0, fanout_a),
-wallet_key_mem (0, fanout_a),
-kdf (kdf_a)
+	password (0, fanout_a),
+	wallet_key_mem (0, fanout_a),
+	kdf (kdf_a)
 {
 	init_a = false;
 	initialize (transaction_a, init_a, wallet_a);
@@ -312,9 +312,9 @@ kdf (kdf_a)
 }
 
 nano::wallet_store::wallet_store (bool & init_a, nano::kdf & kdf_a, nano::transaction & transaction_a, nano::account representative_a, unsigned fanout_a, std::string const & wallet_a) :
-password (0, fanout_a),
-wallet_key_mem (0, fanout_a),
-kdf (kdf_a)
+	password (0, fanout_a),
+	wallet_key_mem (0, fanout_a),
+	kdf (kdf_a)
 {
 	init_a = false;
 	initialize (transaction_a, init_a, wallet_a);
@@ -651,24 +651,23 @@ void nano::wallet_store::version_put (nano::transaction const & transaction_a, u
 
 void nano::kdf::phs (nano::raw_key & result_a, std::string const & password_a, nano::uint256_union const & salt_a)
 {
-	static nano::network_params network_params;
 	nano::lock_guard<nano::mutex> lock (mutex);
-	auto success (argon2_hash (1, network_params.kdf_work, 1, password_a.data (), password_a.size (), salt_a.bytes.data (), salt_a.bytes.size (), result_a.bytes.data (), result_a.bytes.size (), NULL, 0, Argon2_d, 0x10));
+	auto success (argon2_hash (1, kdf_work, 1, password_a.data (), password_a.size (), salt_a.bytes.data (), salt_a.bytes.size (), result_a.bytes.data (), result_a.bytes.size (), NULL, 0, Argon2_d, 0x10));
 	debug_assert (success == 0);
 	(void)success;
 }
 
 nano::wallet::wallet (bool & init_a, nano::transaction & transaction_a, nano::wallets & wallets_a, std::string const & wallet_a) :
-lock_observer ([](bool, bool) {}),
-store (init_a, wallets_a.kdf, transaction_a, wallets_a.node.config.random_representative (), wallets_a.node.config.password_fanout, wallet_a),
-wallets (wallets_a)
+	lock_observer ([] (bool, bool) {}),
+	store (init_a, wallets_a.kdf, transaction_a, wallets_a.node.config.random_representative (), wallets_a.node.config.password_fanout, wallet_a),
+	wallets (wallets_a)
 {
 }
 
 nano::wallet::wallet (bool & init_a, nano::transaction & transaction_a, nano::wallets & wallets_a, std::string const & wallet_a, std::string const & json) :
-lock_observer ([](bool, bool) {}),
-store (init_a, wallets_a.kdf, transaction_a, wallets_a.node.config.random_representative (), wallets_a.node.config.password_fanout, wallet_a, json),
-wallets (wallets_a)
+	lock_observer ([] (bool, bool) {}),
+	store (init_a, wallets_a.kdf, transaction_a, wallets_a.node.config.random_representative (), wallets_a.node.config.password_fanout, wallet_a, json),
+	wallets (wallets_a)
 {
 }
 
@@ -700,7 +699,7 @@ bool nano::wallet::enter_password (nano::transaction const & transaction_a, std:
 	if (!result)
 	{
 		auto this_l (shared_from_this ());
-		wallets.node.background ([this_l]() {
+		wallets.node.background ([this_l] () {
 			this_l->search_pending (this_l->wallets.tx_begin_read ());
 		});
 		wallets.node.logger.try_log ("Wallet unlocked");
@@ -715,7 +714,7 @@ bool nano::wallet::enter_password (nano::transaction const & transaction_a, std:
 
 nano::public_key nano::wallet::deterministic_insert (nano::transaction const & transaction_a, bool generate_work_a)
 {
-	nano::public_key key (0);
+	nano::public_key key{};
 	if (store.valid_password (transaction_a))
 	{
 		key = store.deterministic_insert (transaction_a);
@@ -736,7 +735,7 @@ nano::public_key nano::wallet::deterministic_insert (nano::transaction const & t
 nano::public_key nano::wallet::deterministic_insert (uint32_t const index, bool generate_work_a)
 {
 	auto transaction (wallets.tx_begin_write ());
-	nano::public_key key (0);
+	nano::public_key key{};
 	if (store.valid_password (transaction))
 	{
 		key = store.deterministic_insert (transaction, index);
@@ -757,7 +756,7 @@ nano::public_key nano::wallet::deterministic_insert (bool generate_work_a)
 
 nano::public_key nano::wallet::insert_adhoc (nano::raw_key const & key_a, bool generate_work_a)
 {
-	nano::public_key key (0);
+	nano::public_key key{};
 	auto transaction (wallets.tx_begin_write ());
 	if (store.valid_password (transaction))
 	{
@@ -841,7 +840,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 		nano::pending_info pending_info;
 		if (wallets.node.ledger.block_or_pruned_exists (block_transaction, send_hash_a))
 		{
-			if (!wallets.node.ledger.store.pending_get (block_transaction, nano::pending_key (account_a, send_hash_a), pending_info))
+			if (!wallets.node.ledger.store.pending.get (block_transaction, nano::pending_key (account_a, send_hash_a), pending_info))
 			{
 				nano::raw_key prv;
 				if (!store.fetch (transaction, account_a, prv))
@@ -851,7 +850,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 						store.work_get (transaction, account_a, work_a);
 					}
 					nano::account_info info;
-					auto new_account (wallets.node.ledger.store.account_get (block_transaction, account_a, info));
+					auto new_account (wallets.node.ledger.store.account.get (block_transaction, account_a, info));
 					if (!new_account)
 					{
 						block = std::make_shared<nano::state_block> (account_a, info.head, info.representative, info.balance.number () + pending_info.amount.number (), send_hash_a, prv, account_a, work_a);
@@ -907,7 +906,7 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 			if (existing != store.end () && !wallets.node.ledger.latest (block_transaction, source_a).is_zero ())
 			{
 				nano::account_info info;
-				auto error1 (wallets.node.ledger.store.account_get (block_transaction, source_a, info));
+				auto error1 (wallets.node.ledger.store.account.get (block_transaction, source_a, info));
 				(void)error1;
 				debug_assert (!error1);
 				nano::raw_key prv;
@@ -942,7 +941,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 		id_mdb_val = nano::mdb_val (id_a->size (), const_cast<char *> (id_a->data ()));
 	}
 
-	auto prepare_send = [&id_mdb_val, &wallets = this->wallets, &store = this->store, &source_a, &amount_a, &work_a, &account_a](const auto & transaction) {
+	auto prepare_send = [&id_mdb_val, &wallets = this->wallets, &store = this->store, &source_a, &amount_a, &work_a, &account_a] (auto const & transaction) {
 		auto block_transaction (wallets.node.store.tx_begin_read ());
 		auto error (false);
 		auto cached_block (false);
@@ -956,7 +955,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 			if (status == 0)
 			{
 				nano::block_hash hash (result);
-				block = wallets.node.store.block_get (block_transaction, hash);
+				block = wallets.node.store.block.get (block_transaction, hash);
 				if (block != nullptr)
 				{
 					cached_block = true;
@@ -979,7 +978,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 					if (!balance.is_zero () && balance >= amount_a)
 					{
 						nano::account_info info;
-						auto error1 (wallets.node.ledger.store.account_get (block_transaction, source_a, info));
+						auto error1 (wallets.node.ledger.store.account.get (block_transaction, source_a, info));
 						(void)error1;
 						debug_assert (!error1);
 						nano::raw_key prv;
@@ -1044,17 +1043,16 @@ bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a
 	wallets.delayed_work->erase (account_a);
 	if (block_a != nullptr)
 	{
-		auto required_difficulty{ nano::work_threshold (block_a->work_version (), details_a) };
-		if (block_a->difficulty () < required_difficulty)
+		auto required_difficulty{ wallets.node.network_params.work.threshold (block_a->work_version (), details_a) };
+		if (wallets.node.network_params.work.difficulty (*block_a) < required_difficulty)
 		{
 			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block_a->hash ().to_string () % account_a.to_account ()));
 			debug_assert (required_difficulty <= wallets.node.max_work_generate_difficulty (block_a->work_version ()));
-			auto target_difficulty = std::max (required_difficulty, wallets.node.active.limited_active_difficulty (block_a->work_version (), required_difficulty));
-			error = !wallets.node.work_generate_blocking (*block_a, target_difficulty).is_initialized ();
+			error = !wallets.node.work_generate_blocking (*block_a, required_difficulty).is_initialized ();
 		}
 		if (!error)
 		{
-			error = wallets.node.process_local (block_a, true).code != nano::process_result::progress;
+			error = wallets.node.process_local (block_a).code != nano::process_result::progress;
 			debug_assert (error || block_a->sideband ().details == details_a);
 		}
 		if (!error && generate_work_a)
@@ -1070,17 +1068,17 @@ bool nano::wallet::change_sync (nano::account const & source_a, nano::account co
 	std::promise<bool> result;
 	std::future<bool> future = result.get_future ();
 	change_async (
-	source_a, representative_a, [&result](std::shared_ptr<nano::block> const & block_a) {
+	source_a, representative_a, [&result] (std::shared_ptr<nano::block> const & block_a) {
 		result.set_value (block_a == nullptr);
 	},
 	true);
 	return future.get ();
 }
 
-void nano::wallet::change_async (nano::account const & source_a, nano::account const & representative_a, std::function<void(std::shared_ptr<nano::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a)
+void nano::wallet::change_async (nano::account const & source_a, nano::account const & representative_a, std::function<void (std::shared_ptr<nano::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a)
 {
 	auto this_l (shared_from_this ());
-	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, this_l, [this_l, source_a, representative_a, action_a, work_a, generate_work_a](nano::wallet & wallet_a) {
+	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, this_l, [this_l, source_a, representative_a, action_a, work_a, generate_work_a] (nano::wallet & wallet_a) {
 		auto block (wallet_a.change_action (source_a, representative_a, work_a, generate_work_a));
 		action_a (block);
 	});
@@ -1092,17 +1090,17 @@ bool nano::wallet::receive_sync (std::shared_ptr<nano::block> const & block_a, n
 	std::future<bool> future = result.get_future ();
 	auto destination (block_a->link ().is_zero () ? block_a->destination () : block_a->link ().as_account ());
 	receive_async (
-	block_a->hash (), representative_a, amount_a, destination, [&result](std::shared_ptr<nano::block> const & block_a) {
+	block_a->hash (), representative_a, amount_a, destination, [&result] (std::shared_ptr<nano::block> const & block_a) {
 		result.set_value (block_a == nullptr);
 	},
 	true);
 	return future.get ();
 }
 
-void nano::wallet::receive_async (nano::block_hash const & hash_a, nano::account const & representative_a, nano::uint128_t const & amount_a, nano::account const & account_a, std::function<void(std::shared_ptr<nano::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a)
+void nano::wallet::receive_async (nano::block_hash const & hash_a, nano::account const & representative_a, nano::uint128_t const & amount_a, nano::account const & account_a, std::function<void (std::shared_ptr<nano::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a)
 {
 	auto this_l (shared_from_this ());
-	wallets.node.wallets.queue_wallet_action (amount_a, this_l, [this_l, hash_a, representative_a, amount_a, account_a, action_a, work_a, generate_work_a](nano::wallet & wallet_a) {
+	wallets.node.wallets.queue_wallet_action (amount_a, this_l, [this_l, hash_a, representative_a, amount_a, account_a, action_a, work_a, generate_work_a] (nano::wallet & wallet_a) {
 		auto block (wallet_a.receive_action (hash_a, representative_a, amount_a, account_a, work_a, generate_work_a));
 		action_a (block);
 	});
@@ -1113,17 +1111,17 @@ nano::block_hash nano::wallet::send_sync (nano::account const & source_a, nano::
 	std::promise<nano::block_hash> result;
 	std::future<nano::block_hash> future = result.get_future ();
 	send_async (
-	source_a, account_a, amount_a, [&result](std::shared_ptr<nano::block> const & block_a) {
+	source_a, account_a, amount_a, [&result] (std::shared_ptr<nano::block> const & block_a) {
 		result.set_value (block_a->hash ());
 	},
 	true);
 	return future.get ();
 }
 
-void nano::wallet::send_async (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, std::function<void(std::shared_ptr<nano::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a, boost::optional<std::string> id_a)
+void nano::wallet::send_async (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, std::function<void (std::shared_ptr<nano::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a, boost::optional<std::string> id_a)
 {
 	auto this_l (shared_from_this ());
-	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, this_l, [this_l, source_a, account_a, amount_a, action_a, work_a, generate_work_a, id_a](nano::wallet & wallet_a) {
+	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, this_l, [this_l, source_a, account_a, amount_a, action_a, work_a, generate_work_a, id_a] (nano::wallet & wallet_a) {
 		auto block (wallet_a.send_action (source_a, account_a, amount_a, work_a, generate_work_a, id_a));
 		action_a (block);
 	});
@@ -1132,7 +1130,7 @@ void nano::wallet::send_async (nano::account const & source_a, nano::account con
 // Update work for account if latest root is root_a
 void nano::wallet::work_update (nano::transaction const & transaction_a, nano::account const & account_a, nano::root const & root_a, uint64_t work_a)
 {
-	debug_assert (!nano::work_validate_entry (nano::work_version::work_1, root_a, work_a));
+	debug_assert (!wallets.node.network_params.work.validate_entry (nano::work_version::work_1, root_a, work_a));
 	debug_assert (store.exists (transaction_a, account_a));
 	auto block_transaction (wallets.node.store.tx_begin_read ());
 	auto latest (wallets.node.ledger.latest_root (block_transaction, account_a));
@@ -1159,7 +1157,7 @@ void nano::wallet::work_ensure (nano::account const & account_a, nano::root cons
 		if (existing != delayed_work->end () && existing->second == root_a)
 		{
 			delayed_work->erase (existing);
-			this_l->wallets.queue_wallet_action (nano::wallets::generate_priority, this_l, [account_a, root_a](nano::wallet & wallet_a) {
+			this_l->wallets.queue_wallet_action (nano::wallets::generate_priority, this_l, [account_a, root_a] (nano::wallet & wallet_a) {
 				wallet_a.work_cache_blocking (account_a, root_a);
 			});
 		}
@@ -1171,7 +1169,7 @@ bool nano::wallet::search_pending (nano::transaction const & wallet_transaction_
 	auto result (!store.valid_password (wallet_transaction_a));
 	if (!result)
 	{
-		wallets.node.logger.try_log ("Beginning pending block search");
+		wallets.node.logger.try_log ("Beginning receivable block search");
 		for (auto i (store.begin (wallet_transaction_a)), n (store.end ()); i != n; ++i)
 		{
 			auto block_transaction (wallets.node.store.tx_begin_read ());
@@ -1179,7 +1177,7 @@ bool nano::wallet::search_pending (nano::transaction const & wallet_transaction_
 			// Don't search pending for watch-only accounts
 			if (!nano::wallet_value (i->second).key.is_zero ())
 			{
-				for (auto j (wallets.node.store.pending_begin (block_transaction, nano::pending_key (account, 0))), k (wallets.node.store.pending_end ()); j != k && nano::pending_key (j->first).account == account; ++j)
+				for (auto j (wallets.node.store.pending.begin (block_transaction, nano::pending_key (account, 0))), k (wallets.node.store.pending.end ()); j != k && nano::pending_key (j->first).account == account; ++j)
 				{
 					nano::pending_key key (j->first);
 					auto hash (key.hash);
@@ -1187,27 +1185,16 @@ bool nano::wallet::search_pending (nano::transaction const & wallet_transaction_
 					auto amount (pending.amount.number ());
 					if (wallets.node.config.receive_minimum.number () <= amount)
 					{
-						wallets.node.logger.try_log (boost::str (boost::format ("Found a pending block %1% for account %2%") % hash.to_string () % pending.source.to_account ()));
-						bool confirmed (wallets.node.ledger.block_confirmed (block_transaction, hash));
-						if (confirmed)
-						{
-							auto block (wallets.node.store.block_get (block_transaction, hash));
-							release_assert (block->type () == nano::block_type::state || block->type () == nano::block_type::send);
-						}
-						else if (wallets.node.ledger.pruning)
-						{
-							// All pruned blocks should be confirmed
-							confirmed = wallets.node.store.pruned_exists (block_transaction, hash);
-						}
-						if (confirmed)
+						wallets.node.logger.try_log (boost::str (boost::format ("Found a receivable block %1% for account %2%") % hash.to_string () % pending.source.to_account ()));
+						if (wallets.node.ledger.block_confirmed (block_transaction, hash))
 						{
 							auto representative = store.representative (wallet_transaction_a);
 							// Receive confirmed block
-							receive_async (hash, representative, amount, account, [](std::shared_ptr<nano::block> const &) {});
+							receive_async (hash, representative, amount, account, [] (std::shared_ptr<nano::block> const &) {});
 						}
 						else if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
 						{
-							auto block (wallets.node.store.block_get (block_transaction, hash));
+							auto block (wallets.node.store.block.get (block_transaction, hash));
 							if (block)
 							{
 								// Request confirmation for block which is not being processed yet
@@ -1218,7 +1205,7 @@ bool nano::wallet::search_pending (nano::transaction const & wallet_transaction_
 				}
 			}
 		}
-		wallets.node.logger.try_log ("Pending block search phase complete");
+		wallets.node.logger.try_log ("Receivable block search phase completed");
 	}
 	else
 	{
@@ -1255,7 +1242,7 @@ uint32_t nano::wallet::deterministic_check (nano::transaction const & transactio
 		else
 		{
 			// Check if there are pending blocks for account
-			for (auto ii (wallets.node.store.pending_begin (block_transaction, nano::pending_key (pair.pub, 0))), nn (wallets.node.store.pending_end ()); ii != nn && nano::pending_key (ii->first).account == pair.pub; ++ii)
+			for (auto ii (wallets.node.store.pending.begin (block_transaction, nano::pending_key (pair.pub, 0))), nn (wallets.node.store.pending.end ()); ii != nn && nano::pending_key (ii->first).account == pair.pub; ++ii)
 			{
 				index = i;
 				n = i + 64 + (i / 64);
@@ -1319,121 +1306,6 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::r
 	}
 }
 
-nano::work_watcher::work_watcher (nano::node & node_a) :
-node (node_a),
-stopped (false)
-{
-	node.observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
-		this->remove (*status_a.winner);
-	});
-}
-
-nano::work_watcher::~work_watcher ()
-{
-	stop ();
-}
-
-void nano::work_watcher::stop ()
-{
-	nano::unique_lock<nano::mutex> lock (mutex);
-	watched.clear ();
-	stopped = true;
-}
-
-void nano::work_watcher::add (std::shared_ptr<nano::block> const & block_a)
-{
-	auto block_l (std::dynamic_pointer_cast<nano::state_block> (block_a));
-	if (!stopped && block_l != nullptr)
-	{
-		auto root_l (block_l->qualified_root ());
-		nano::unique_lock<nano::mutex> lock (mutex);
-		watched[root_l] = block_l;
-		lock.unlock ();
-		watching (root_l, block_l);
-	}
-}
-
-void nano::work_watcher::update (nano::qualified_root const & root_a, std::shared_ptr<nano::state_block> const & block_a)
-{
-	nano::lock_guard<nano::mutex> guard (mutex);
-	watched[root_a] = block_a;
-}
-
-void nano::work_watcher::watching (nano::qualified_root const & root_a, std::shared_ptr<nano::state_block> const & block_a)
-{
-	std::weak_ptr<nano::work_watcher> watcher_w (shared_from_this ());
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.config.work_watcher_period, [block_a, root_a, watcher_w]() {
-		auto watcher_l = watcher_w.lock ();
-		if (watcher_l && !watcher_l->stopped && watcher_l->is_watched (root_a))
-		{
-			auto active_difficulty (watcher_l->node.active.limited_active_difficulty (*block_a));
-			/*
-			 * Work watcher should still watch blocks even without work generation, although no rework is done
-			 * Functionality may be added in the future that does not require updating work
-			 */
-			if (active_difficulty > block_a->difficulty () && watcher_l->node.work_generation_enabled ())
-			{
-				watcher_l->node.work_generate (
-				block_a->work_version (), block_a->root (), active_difficulty, [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
-					if (watcher_l->is_watched (root_a))
-					{
-						if (work_a.is_initialized ())
-						{
-							debug_assert (nano::work_difficulty (block_a->work_version (), block_a->root (), *work_a) > block_a->difficulty ());
-							nano::state_block_builder builder;
-							std::error_code ec;
-							std::shared_ptr<nano::state_block> block (builder.from (*block_a).work (*work_a).build (ec));
-							if (!ec)
-							{
-								watcher_l->node.network.flood_block_initial (block);
-								watcher_l->node.active.update_difficulty (*block);
-								watcher_l->update (root_a, block);
-							}
-						}
-						watcher_l->watching (root_a, block_a);
-					}
-				},
-				block_a->account ());
-			}
-			else
-			{
-				watcher_l->watching (root_a, block_a);
-			}
-		}
-	});
-}
-
-void nano::work_watcher::remove (nano::block const & block_a)
-{
-	nano::unique_lock<nano::mutex> lock (mutex);
-	auto existing (watched.find (block_a.qualified_root ()));
-	if (existing != watched.end ())
-	{
-		watched.erase (existing);
-		lock.unlock ();
-		node.observers.work_cancel.notify (block_a.root ());
-	}
-}
-
-bool nano::work_watcher::is_watched (nano::qualified_root const & root_a)
-{
-	nano::lock_guard<nano::mutex> guard (mutex);
-	auto exists (watched.find (root_a));
-	return exists != watched.end ();
-}
-
-auto nano::work_watcher::list_watched () -> decltype (watched)
-{
-	nano::lock_guard<nano::mutex> guard (mutex);
-	return watched;
-}
-
-size_t nano::work_watcher::size ()
-{
-	nano::lock_guard<nano::mutex> guard (mutex);
-	return watched.size ();
-}
-
 void nano::wallets::do_wallet_actions ()
 {
 	nano::unique_lock<nano::mutex> action_lock (action_mutex);
@@ -1462,15 +1334,16 @@ void nano::wallets::do_wallet_actions ()
 }
 
 nano::wallets::wallets (bool error_a, nano::node & node_a) :
-observer ([](bool) {}),
-node (node_a),
-env (boost::polymorphic_downcast<nano::mdb_wallets_store *> (node_a.wallets_store_impl.get ())->environment),
-stopped (false),
-watcher (std::make_shared<nano::work_watcher> (node_a)),
-thread ([this]() {
-	nano::thread_role::set (nano::thread_role::name::wallet_actions);
-	do_wallet_actions ();
-})
+	network_params{ node_a.config.network_params },
+	observer ([] (bool) {}),
+	kdf{ node_a.config.network_params.kdf_work },
+	node (node_a),
+	env (boost::polymorphic_downcast<nano::mdb_wallets_store *> (node_a.wallets_store_impl.get ())->environment),
+	stopped (false),
+	thread ([this] () {
+		nano::thread_role::set (nano::thread_role::name::wallet_actions);
+		do_wallet_actions ();
+	})
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
 	if (!error_a)
@@ -1518,9 +1391,9 @@ thread ([this]() {
 	}
 	if (backup_required)
 	{
-		const char * store_path;
+		char const * store_path;
 		mdb_env_get_path (env, &store_path);
-		const boost::filesystem::path path (store_path);
+		boost::filesystem::path const path (store_path);
 		nano::mdb_store::create_backup_file (env, path, node_a.logger);
 	}
 	for (auto & item : items)
@@ -1647,7 +1520,7 @@ void nano::wallets::reload ()
 	}
 }
 
-void nano::wallets::queue_wallet_action (nano::uint128_t const & amount_a, std::shared_ptr<nano::wallet> const & wallet_a, std::function<void(nano::wallet &)> action_a)
+void nano::wallets::queue_wallet_action (nano::uint128_t const & amount_a, std::shared_ptr<nano::wallet> const & wallet_a, std::function<void (nano::wallet &)> action_a)
 {
 	{
 		nano::lock_guard<nano::mutex> action_lock (action_mutex);
@@ -1656,7 +1529,7 @@ void nano::wallets::queue_wallet_action (nano::uint128_t const & amount_a, std::
 	condition.notify_all ();
 }
 
-void nano::wallets::foreach_representative (std::function<void(nano::public_key const & pub_a, nano::raw_key const & prv_a)> const & action_a)
+void nano::wallets::foreach_representative (std::function<void (nano::public_key const & pub_a, nano::raw_key const & prv_a)> const & action_a)
 {
 	if (node.config.enable_voting)
 	{
@@ -1731,7 +1604,6 @@ void nano::wallets::stop ()
 	{
 		thread.join ();
 	}
-	watcher->stop ();
 }
 
 nano::write_transaction nano::wallets::tx_begin_write ()
@@ -1757,26 +1629,35 @@ nano::wallet_representatives nano::wallets::reps () const
 	return representatives;
 }
 
-bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t const & half_principal_weight_a, const bool acquire_lock_a)
+bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t const & half_principal_weight_a, bool const acquire_lock_a)
 {
-	bool result (false);
-	auto weight (node.ledger.weight (account_a));
-	if (weight >= node.config.vote_minimum.number ())
+	auto weight = node.ledger.weight (account_a);
+
+	if (weight < node.config.vote_minimum.number ())
 	{
-		nano::unique_lock<nano::mutex> lock;
-		if (acquire_lock_a)
-		{
-			lock = nano::unique_lock<nano::mutex> (reps_cache_mutex);
-		}
-		result = true;
-		representatives.accounts.insert (account_a);
-		++representatives.voting;
-		if (weight >= half_principal_weight_a)
-		{
-			++representatives.half_principal;
-		}
+		return false; // account not a representative
 	}
-	return result;
+
+	nano::unique_lock<nano::mutex> lock;
+	if (acquire_lock_a)
+	{
+		lock = nano::unique_lock<nano::mutex> (reps_cache_mutex);
+	}
+
+	if (weight >= half_principal_weight_a)
+	{
+		representatives.half_principal = true;
+	}
+
+	auto insert_result = representatives.accounts.insert (account_a);
+	if (!insert_result.second)
+	{
+		return false; // account already exists
+	}
+
+	++representatives.voting;
+
+	return true;
 }
 
 void nano::wallets::compute_reps ()
@@ -1808,12 +1689,12 @@ void nano::wallets::ongoing_compute_reps ()
 	compute_reps ();
 	auto & node_l (node);
 	auto compute_delay (network_params.network.is_dev_network () ? std::chrono::milliseconds (10) : std::chrono::milliseconds (15 * 60 * 1000)); // Representation drifts quickly on the test network but very slowly on the live network
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + compute_delay, [&node_l]() {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + compute_delay, [&node_l] () {
 		node_l.wallets.ongoing_compute_reps ();
 	});
 }
 
-void nano::wallets::split_if_needed (nano::transaction & transaction_destination, nano::block_store & store_a)
+void nano::wallets::split_if_needed (nano::transaction & transaction_destination, nano::store & store_a)
 {
 	auto store_l (dynamic_cast<nano::mdb_store *> (&store_a));
 	if (store_l != nullptr)
@@ -1823,7 +1704,7 @@ void nano::wallets::split_if_needed (nano::transaction & transaction_destination
 			std::string beginning (nano::uint256_union (0).to_string ());
 			std::string end ((nano::uint256_union (nano::uint256_t (0) - nano::uint256_t (1))).to_string ());
 
-			auto get_store_it = [& handle = handle](nano::transaction const & transaction_source, std::string const & hash) {
+			auto get_store_it = [&handle = handle] (nano::transaction const & transaction_source, std::string const & hash) {
 				return nano::store_iterator<std::array<char, 64>, nano::no_value> (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::no_value>> (transaction_source, handle, nano::mdb_val (hash.size (), const_cast<char *> (hash.c_str ()))));
 			};
 
@@ -1935,7 +1816,7 @@ nano::store_iterator<nano::account, nano::wallet_value> nano::wallet_store::end 
 	return nano::store_iterator<nano::account, nano::wallet_value> (nullptr);
 }
 nano::mdb_wallets_store::mdb_wallets_store (boost::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a) :
-environment (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).override_config_sync (nano::lmdb_config::sync_strategy::always).override_config_map_size (1ULL * 1024 * 1024 * 1024))
+	environment (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).override_config_sync (nano::lmdb_config::sync_strategy::always).override_config_map_size (1ULL * 1024 * 1024 * 1024))
 {
 }
 
@@ -1951,8 +1832,8 @@ MDB_txn * nano::wallet_store::tx (nano::transaction const & transaction_a) const
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (wallets & wallets, std::string const & name)
 {
-	size_t items_count;
-	size_t actions_count;
+	std::size_t items_count;
+	std::size_t actions_count;
 	{
 		nano::lock_guard<nano::mutex> guard (wallets.mutex);
 		items_count = wallets.items.size ();
@@ -1961,10 +1842,8 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (wa
 
 	auto sizeof_item_element = sizeof (decltype (wallets.items)::value_type);
 	auto sizeof_actions_element = sizeof (decltype (wallets.actions)::value_type);
-	auto sizeof_watcher_element = sizeof (decltype (wallets.watcher->list_watched ())::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "items", items_count, sizeof_item_element }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "actions", actions_count, sizeof_actions_element }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "work_watcher", wallets.watcher->size (), sizeof_watcher_element }));
 	return composite;
 }

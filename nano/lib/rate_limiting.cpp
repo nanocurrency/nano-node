@@ -6,15 +6,7 @@
 
 nano::rate::token_bucket::token_bucket (size_t max_token_count_a, size_t refill_rate_a)
 {
-	// A token count of 0 indicates unlimited capacity. We use 1e9 as
-	// a sentinel, allowing largest burst to still be computed.
-	if (max_token_count_a == 0 || refill_rate_a == 0)
-	{
-		refill_rate_a = max_token_count_a = static_cast<size_t> (1e9);
-	}
-	max_token_count = smallest_size = current_size = max_token_count_a;
-	refill_rate = refill_rate_a;
-	last_refill = std::chrono::steady_clock::now ();
+	reset (max_token_count_a, refill_rate_a);
 }
 
 bool nano::rate::token_bucket::try_consume (unsigned tokens_required_a)
@@ -50,4 +42,19 @@ size_t nano::rate::token_bucket::largest_burst () const
 {
 	nano::lock_guard<nano::mutex> lk (bucket_mutex);
 	return max_token_count - smallest_size;
+}
+
+void nano::rate::token_bucket::reset (size_t max_token_count_a, size_t refill_rate_a)
+{
+	nano::lock_guard<nano::mutex> lk (bucket_mutex);
+
+	// A token count of 0 indicates unlimited capacity. We use 1e9 as
+	// a sentinel, allowing largest burst to still be computed.
+	if (max_token_count_a == 0 || refill_rate_a == 0)
+	{
+		refill_rate_a = max_token_count_a = static_cast<size_t> (1e9);
+	}
+	max_token_count = smallest_size = current_size = max_token_count_a;
+	refill_rate = refill_rate_a;
+	last_refill = std::chrono::steady_clock::now ();
 }

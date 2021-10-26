@@ -1,0 +1,57 @@
+---
+BasedOnStyle: Webkit
+Language: Cpp
+SpaceBeforeParens: Always
+SpaceAfterTemplateKeyword: true
+Standard: Cpp11
+TabWidth: 4
+IndentWidth: 4
+PointerAlignment: Middle
+UseTab: ForContinuationAndIndentation
+BreakBeforeBraces: Custom
+AlignEscapedNewlines: Left
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: false
+AllowShortLambdasOnASingleLine: All
+AllowShortLoopsOnASingleLine: false
+BreakConstructorInitializers: AfterColon
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
+ConstructorInitializerIndentWidth: 4
+ContinuationIndentWidth: 0
+KeepEmptyLinesAtTheStartOfBlocks: false
+IndentCaseLabels: true
+SpaceBeforeCpp11BracedList: false
+BraceWrapping:
+  AfterCaseLabel: true
+  AfterEnum: true
+  AfterStruct: true
+  SplitEmptyFunction: true
+  AfterControlStatement: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterUnion: true
+  AfterClass: true
+  BeforeCatch: true
+  BeforeElse: true
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+SortIncludes: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  # Headers in <> without extension.
+  - Regex:           '<([A-Za-z0-9\/-_])+>'
+    Priority:        5
+  # Headers in the boost library.
+  - Regex:           '<boost/.*>'
+    Priority:        4
+  # Headers in other third party libraries
+  - Regex:           '<(gtest|crypto|miniupnp)/([A-Za-z0-9.\/-_])+>'
+    Priority:        3
+  # Headers from nano workspace.
+  - Regex:           '<nano/([A-Za-z0-9.\/-_])+>'
+    Priority:        2
+  # Headers in ""
+  - Regex:           '"([A-Za-z0-9.\/-_])+"'
+    Priority:        1
+...

@@ -10,16 +10,16 @@
 #include <algorithm>
 
 nano::bootstrap_initiator::bootstrap_initiator (nano::node & node_a) :
-node (node_a)
+	node (node_a)
 {
 	connections = std::make_shared<nano::bootstrap_connections> (node);
-	bootstrap_initiator_threads.push_back (boost::thread ([this]() {
+	bootstrap_initiator_threads.push_back (boost::thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::bootstrap_connections);
 		connections->run ();
 	}));
-	for (size_t i = 0; i < node.config.bootstrap_initiator_threads; ++i)
+	for (std::size_t i = 0; i < node.config.bootstrap_initiator_threads; ++i)
 	{
-		bootstrap_initiator_threads.push_back (boost::thread ([this]() {
+		bootstrap_initiator_threads.push_back (boost::thread ([this] () {
 			nano::thread_role::set (nano::thread_role::name::bootstrap_initiator);
 			run_bootstrap ();
 		}));
@@ -31,7 +31,7 @@ nano::bootstrap_initiator::~bootstrap_initiator ()
 	stop ();
 }
 
-void nano::bootstrap_initiator::bootstrap (bool force, std::string id_a)
+void nano::bootstrap_initiator::bootstrap (bool force, std::string id_a, uint32_t const frontiers_age_a, nano::account const & start_account_a)
 {
 	if (force)
 	{
@@ -40,8 +40,8 @@ void nano::bootstrap_initiator::bootstrap (bool force, std::string id_a)
 	nano::unique_lock<nano::mutex> lock (mutex);
 	if (!stopped && find_attempt (nano::bootstrap_mode::legacy) == nullptr)
 	{
-		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
-		auto legacy_attempt (std::make_shared<nano::bootstrap_attempt_legacy> (node.shared (), attempts.incremental++, id_a));
+		node.stats.inc (nano::stat::type::bootstrap, frontiers_age_a == std::numeric_limits<uint32_t>::max () ? nano::stat::detail::initiate : nano::stat::detail::initiate_legacy_age, nano::stat::dir::out);
+		auto legacy_attempt (std::make_shared<nano::bootstrap_attempt_legacy> (node.shared (), attempts.incremental++, id_a, frontiers_age_a, start_account_a));
 		attempts_list.push_back (legacy_attempt);
 		attempts.add (legacy_attempt);
 		lock.unlock ();
@@ -49,13 +49,13 @@ void nano::bootstrap_initiator::bootstrap (bool force, std::string id_a)
 	}
 }
 
-void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bool add_to_peers, bool frontiers_confirmed, std::string id_a)
+void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bool add_to_peers, std::string id_a)
 {
 	if (add_to_peers)
 	{
 		if (!node.flags.disable_udp)
 		{
-			node.network.udp_channels.insert (nano::transport::map_endpoint_to_v6 (endpoint_a), node.network_params.protocol.protocol_version);
+			node.network.udp_channels.insert (nano::transport::map_endpoint_to_v6 (endpoint_a), node.network_params.network.protocol_version);
 		}
 		else if (!node.flags.disable_tcp_realtime)
 		{
@@ -67,24 +67,20 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 		stop_attempts ();
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
 		nano::lock_guard<nano::mutex> lock (mutex);
-		auto legacy_attempt (std::make_shared<nano::bootstrap_attempt_legacy> (node.shared (), attempts.incremental++, id_a));
+		auto legacy_attempt (std::make_shared<nano::bootstrap_attempt_legacy> (node.shared (), attempts.incremental++, id_a, std::numeric_limits<uint32_t>::max (), 0));
 		attempts_list.push_back (legacy_attempt);
 		attempts.add (legacy_attempt);
-		if (frontiers_confirmed)
-		{
-			node.network.excluded_peers.remove (nano::transport::map_endpoint_to_tcp (endpoint_a));
-		}
 		if (!node.network.excluded_peers.check (nano::transport::map_endpoint_to_tcp (endpoint_a)))
 		{
 			connections->add_connection (endpoint_a);
 		}
-		legacy_attempt->frontiers_confirmed = frontiers_confirmed;
 	}
 	condition.notify_all ();
 }
 
-void nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & hash_or_account_a, bool force, bool confirmed, std::string id_a)
+bool nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & hash_or_account_a, bool force, bool confirmed, std::string id_a)
 {
+	bool key_inserted (false);
 	auto lazy_attempt (current_lazy_attempt ());
 	if (lazy_attempt == nullptr || force)
 	{
@@ -99,14 +95,15 @@ void nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & ha
 			lazy_attempt = std::make_shared<nano::bootstrap_attempt_lazy> (node.shared (), attempts.incremental++, id_a.empty () ? hash_or_account_a.to_string () : id_a);
 			attempts_list.push_back (lazy_attempt);
 			attempts.add (lazy_attempt);
-			lazy_attempt->lazy_start (hash_or_account_a, confirmed);
+			key_inserted = lazy_attempt->lazy_start (hash_or_account_a, confirmed);
 		}
 	}
 	else
 	{
-		lazy_attempt->lazy_start (hash_or_account_a, confirmed);
+		key_inserted = lazy_attempt->lazy_start (hash_or_account_a, confirmed);
 	}
 	condition.notify_all ();
+	return key_inserted;
 }
 
 void nano::bootstrap_initiator::bootstrap_wallet (std::deque<nano::account> & accounts_a)
@@ -162,7 +159,7 @@ void nano::bootstrap_initiator::lazy_requeue (nano::block_hash const & hash_a, n
 	}
 }
 
-void nano::bootstrap_initiator::add_observer (std::function<void(bool)> const & observer_a)
+void nano::bootstrap_initiator::add_observer (std::function<void (bool)> const & observer_a)
 {
 	nano::lock_guard<nano::mutex> lock (observers_mutex);
 	observers.push_back (observer_a);
@@ -290,8 +287,8 @@ void nano::bootstrap_initiator::notify_listeners (bool in_progress_a)
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (bootstrap_initiator & bootstrap_initiator, std::string const & name)
 {
-	size_t count;
-	size_t cache_count;
+	std::size_t count;
+	std::size_t cache_count;
 	{
 		nano::lock_guard<nano::mutex> guard (bootstrap_initiator.observers_mutex);
 		count = bootstrap_initiator.observers.size ();
@@ -332,7 +329,7 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 		else
 		{
 			// Update existing pull
-			cache.get<account_head_tag> ().modify (existing, [pull_a](nano::cached_pulls & cache_a) {
+			cache.get<account_head_tag> ().modify (existing, [pull_a] (nano::cached_pulls & cache_a) {
 				cache_a.time = std::chrono::steady_clock::now ();
 				cache_a.new_head = pull_a.head;
 			});
@@ -390,7 +387,7 @@ std::shared_ptr<nano::bootstrap_attempt> nano::bootstrap_attempts::find (uint64_
 	}
 }
 
-size_t nano::bootstrap_attempts::size ()
+std::size_t nano::bootstrap_attempts::size ()
 {
 	nano::lock_guard<nano::mutex> lock (bootstrap_attempts_mutex);
 	return attempts.size ();

@@ -10,14 +10,14 @@
 #include <boost/format.hpp>
 
 nano::state_block_signature_verification::state_block_signature_verification (nano::signature_checker & signature_checker, nano::epochs & epochs, nano::node_config & node_config, nano::logger_mt & logger, uint64_t state_block_signature_verification_size) :
-signature_checker (signature_checker),
-epochs (epochs),
-node_config (node_config),
-logger (logger),
-thread ([this, state_block_signature_verification_size]() {
-	nano::thread_role::set (nano::thread_role::name::state_block_signature_verification);
-	this->run (state_block_signature_verification_size);
-})
+	signature_checker (signature_checker),
+	epochs (epochs),
+	node_config (node_config),
+	logger (logger),
+	thread ([this, state_block_signature_verification_size] () {
+		nano::thread_role::set (nano::thread_role::name::state_block_signature_verification);
+		this->run (state_block_signature_verification_size);
+	})
 {
 }
 
@@ -47,7 +47,7 @@ void nano::state_block_signature_verification::run (uint64_t state_block_signatu
 	{
 		if (!state_blocks.empty ())
 		{
-			size_t const max_verification_batch (state_block_signature_verification_size != 0 ? state_block_signature_verification_size : nano::signature_checker::batch_size * (node_config.signature_checker_threads + 1));
+			std::size_t const max_verification_batch (state_block_signature_verification_size != 0 ? state_block_signature_verification_size : nano::signature_checker::batch_size * (node_config.signature_checker_threads + 1));
 			active = true;
 			while (!state_blocks.empty () && !stopped)
 			{
@@ -74,24 +74,24 @@ bool nano::state_block_signature_verification::is_active ()
 	return active;
 }
 
-void nano::state_block_signature_verification::add (nano::unchecked_info const & info_a, bool watch_work_a)
+void nano::state_block_signature_verification::add (nano::unchecked_info const & info_a)
 {
 	{
 		nano::lock_guard<nano::mutex> guard (mutex);
-		state_blocks.emplace_back (info_a, watch_work_a);
+		state_blocks.emplace_back (info_a);
 	}
 	condition.notify_one ();
 }
 
-size_t nano::state_block_signature_verification::size ()
+std::size_t nano::state_block_signature_verification::size ()
 {
 	nano::lock_guard<nano::mutex> guard (mutex);
 	return state_blocks.size ();
 }
 
-std::deque<std::pair<nano::unchecked_info, bool>> nano::state_block_signature_verification::setup_items (size_t max_count)
+std::deque<nano::unchecked_info> nano::state_block_signature_verification::setup_items (std::size_t max_count)
 {
-	std::deque<std::pair<nano::unchecked_info, bool>> items;
+	std::deque<nano::unchecked_info> items;
 	if (state_blocks.size () <= max_count)
 	{
 		items.swap (state_blocks);
@@ -108,7 +108,7 @@ std::deque<std::pair<nano::unchecked_info, bool>> nano::state_block_signature_ve
 	return items;
 }
 
-void nano::state_block_signature_verification::verify_state_blocks (std::deque<std::pair<nano::unchecked_info, bool>> & items)
+void nano::state_block_signature_verification::verify_state_blocks (std::deque<nano::unchecked_info> & items)
 {
 	if (!items.empty ())
 	{
@@ -119,7 +119,7 @@ void nano::state_block_signature_verification::verify_state_blocks (std::deque<s
 		hashes.reserve (size);
 		std::vector<unsigned char const *> messages;
 		messages.reserve (size);
-		std::vector<size_t> lengths;
+		std::vector<std::size_t> lengths;
 		lengths.reserve (size);
 		std::vector<nano::account> accounts;
 		accounts.reserve (size);
@@ -131,7 +131,7 @@ void nano::state_block_signature_verification::verify_state_blocks (std::deque<s
 		signatures.reserve (size);
 		std::vector<int> verifications;
 		verifications.resize (size, 0);
-		for ([[maybe_unused]] auto & [item, watch_work] : items)
+		for (auto & item : items)
 		{
 			hashes.push_back (item.block->hash ());
 			messages.push_back (hashes.back ().bytes.data ());

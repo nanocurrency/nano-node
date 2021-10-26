@@ -46,14 +46,14 @@ public:
 	tomlconfig & replace_child (std::string const & key_a, nano::tomlconfig & conf_a);
 	bool has_key (std::string const & key_a);
 	tomlconfig & erase (std::string const & key_a);
-	std::shared_ptr<cpptoml::array> create_array (std::string const & key, boost::optional<const char *> documentation_a);
+	std::shared_ptr<cpptoml::array> create_array (std::string const & key, boost::optional<char const *> documentation_a);
 	void erase_default_values (tomlconfig & defaults_a);
 	std::string to_string ();
 	std::string to_string_commented_entries ();
 
 	/** Set value for the given key. Any existing value will be overwritten. */
 	template <typename T>
-	tomlconfig & put (std::string const & key, T const & value, boost::optional<const char *> documentation_a = boost::none)
+	tomlconfig & put (std::string const & key, T const & value, boost::optional<char const *> documentation_a = boost::none)
 	{
 		tree->insert (key, value);
 		if (documentation_a)
@@ -85,7 +85,7 @@ public:
 	 * @param key Array element key. Qualified (dotted) keys are not supported for arrays so this must be called on the correct tomlconfig node.
 	 */
 	template <typename T>
-	tomlconfig & array_entries_required (std::string const & key, std::function<void(T)> callback)
+	tomlconfig & array_entries_required (std::string const & key, std::function<void (T)> callback)
 	{
 		if (tree->contains_qualified (key))
 		{

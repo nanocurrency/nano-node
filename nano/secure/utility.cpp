@@ -6,59 +6,33 @@
 
 static std::vector<boost::filesystem::path> all_unique_paths;
 
-boost::filesystem::path nano::working_path (bool legacy)
+boost::filesystem::path nano::working_path (nano::networks network)
 {
-	static nano::network_constants network_constants;
 	auto result (nano::app_path ());
-	switch (network_constants.network ())
+	switch (network)
 	{
-		case nano::nano_networks::nano_dev_network:
-			if (!legacy)
-			{
-				result /= "NanoDev";
-			}
-			else
-			{
-				result /= "RaiBlocksDev";
-			}
+		case nano::networks::invalid:
+			release_assert (false);
 			break;
-		case nano::nano_networks::nano_beta_network:
-			if (!legacy)
-			{
-				result /= "NanoBeta";
-			}
-			else
-			{
-				result /= "RaiBlocksBeta";
-			}
+		case nano::networks::nano_dev_network:
+			result /= "NanoDev";
 			break;
-		case nano::nano_networks::nano_live_network:
-			if (!legacy)
-			{
-				result /= "Nano";
-			}
-			else
-			{
-				result /= "RaiBlocks";
-			}
+		case nano::networks::nano_beta_network:
+			result /= "NanoBeta";
 			break;
-		case nano::nano_networks::nano_test_network:
-			if (!legacy)
-			{
-				result /= "NanoTest";
-			}
-			else
-			{
-				result /= "RaiBlocksTest";
-			}
+		case nano::networks::nano_live_network:
+			result /= "Nano";
+			break;
+		case nano::networks::nano_test_network:
+			result /= "NanoTest";
 			break;
 	}
 	return result;
 }
 
-boost::filesystem::path nano::unique_path ()
+boost::filesystem::path nano::unique_path (nano::networks network)
 {
-	auto result (working_path () / boost::filesystem::unique_path ());
+	auto result (working_path (network) / boost::filesystem::unique_path ());
 	all_unique_paths.push_back (result);
 	return result;
 }
@@ -88,7 +62,7 @@ void nano::remove_temporary_directories ()
 namespace nano
 {
 /** A wrapper for handling signals */
-std::function<void()> signal_handler_impl;
+std::function<void ()> signal_handler_impl;
 void signal_handler (int sig)
 {
 	if (signal_handler_impl != nullptr)

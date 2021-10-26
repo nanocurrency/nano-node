@@ -3,7 +3,7 @@
 #include <nano/node/node.hpp>
 
 nano::distributed_work_factory::distributed_work_factory (nano::node & node_a) :
-node (node_a)
+	node (node_a)
 {
 }
 
@@ -12,7 +12,7 @@ nano::distributed_work_factory::~distributed_work_factory ()
 	stop ();
 }
 
-bool nano::distributed_work_factory::make (nano::work_version const version_a, nano::root const & root_a, std::vector<std::pair<std::string, uint16_t>> const & peers_a, uint64_t difficulty_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, boost::optional<nano::account> const & account_a)
+bool nano::distributed_work_factory::make (nano::work_version const version_a, nano::root const & root_a, std::vector<std::pair<std::string, uint16_t>> const & peers_a, uint64_t difficulty_a, std::function<void (boost::optional<uint64_t>)> const & callback_a, boost::optional<nano::account> const & account_a)
 {
 	return make (std::chrono::seconds (1), nano::work_request{ version_a, root_a, difficulty_a, account_a, callback_a, peers_a });
 }
@@ -41,7 +41,7 @@ void nano::distributed_work_factory::cancel (nano::root const & root_a)
 {
 	nano::lock_guard<nano::mutex> guard_l (mutex);
 	auto root_items_l = items.equal_range (root_a);
-	std::for_each (root_items_l.first, root_items_l.second, [](auto item_l) {
+	std::for_each (root_items_l.first, root_items_l.second, [] (auto item_l) {
 		if (auto distributed_l = item_l.second.lock ())
 		{
 			// Send work_cancel to work peers and stop local work generation
@@ -55,7 +55,7 @@ void nano::distributed_work_factory::cleanup_finished ()
 {
 	nano::lock_guard<nano::mutex> guard (mutex);
 	// std::erase_if in c++20
-	auto erase_if = [](decltype (items) & container, auto pred) {
+	auto erase_if = [] (decltype (items) & container, auto pred) {
 		for (auto it = container.begin (), end = container.end (); it != end;)
 		{
 			if (pred (*it))
@@ -68,7 +68,7 @@ void nano::distributed_work_factory::cleanup_finished ()
 			}
 		}
 	};
-	erase_if (items, [](decltype (items)::value_type item) { return item.second.expired (); });
+	erase_if (items, [] (decltype (items)::value_type item) { return item.second.expired (); });
 }
 
 void nano::distributed_work_factory::stop ()
@@ -88,7 +88,7 @@ void nano::distributed_work_factory::stop ()
 	}
 }
 
-size_t nano::distributed_work_factory::size () const
+std::size_t nano::distributed_work_factory::size () const
 {
 	nano::lock_guard<nano::mutex> guard_l (mutex);
 	return items.size ();

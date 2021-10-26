@@ -10,9 +10,8 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(platform_sources plat/linux/priority.cpp plat/posix/perms.cpp
                        plat/linux/thread_role.cpp plat/linux/debugging.cpp)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-  set(platform_sources
-      plat/default/priority.cpp plat/posix/perms.cpp
-      plat/freebsd/thread_role.cpp plat/plat/default/debugging.cpp)
+  set(platform_sources plat/default/priority.cpp plat/posix/perms.cpp
+                       plat/freebsd/thread_role.cpp plat/default/debugging.cpp)
 else()
   error("Unknown platform: ${CMAKE_SYSTEM_NAME}")
 endif()
@@ -63,6 +62,8 @@ add_library(
   rpc_handler_interface.hpp
   rpcconfig.hpp
   rpcconfig.cpp
+  signal_manager.hpp
+  signal_manager.cpp
   stats.hpp
   stats.cpp
   stream.hpp

@@ -7,6 +7,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/election.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
@@ -54,8 +55,6 @@ namespace websocket
 		stopped_election,
 		/** A vote message **/
 		vote,
-		/** An active difficulty message */
-		active_difficulty,
 		/** Work generation message */
 		work,
 		/** A bootstrap message */
@@ -67,18 +66,18 @@ namespace websocket
 		/** Auxiliary length, not a valid topic, must be the last enum */
 		_length
 	};
-	constexpr size_t number_topics{ static_cast<size_t> (topic::_length) - static_cast<size_t> (topic::invalid) };
+	constexpr std::size_t number_topics{ static_cast<std::size_t> (topic::_length) - static_cast<std::size_t> (topic::invalid) };
 
 	/** A message queued for broadcasting */
 	class message final
 	{
 	public:
 		message (nano::websocket::topic topic_a) :
-		topic (topic_a)
+			topic (topic_a)
 		{
 		}
 		message (nano::websocket::topic topic_a, boost::property_tree::ptree & tree_a) :
-		topic (topic_a), contents (tree_a)
+			topic (topic_a), contents (tree_a)
 		{
 		}
 
@@ -91,10 +90,9 @@ namespace websocket
 	class message_builder final
 	{
 	public:
-		message block_confirmed (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block, nano::election_status const & election_status_a, nano::websocket::confirmation_options const & options_a);
+		message block_confirmed (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a, nano::websocket::confirmation_options const & options_a);
 		message stopped_election (nano::block_hash const & hash_a);
 		message vote_received (std::shared_ptr<nano::vote> const & vote_a, nano::vote_code code_a);
-		message difficulty_changed (uint64_t publish_threshold_a, uint64_t receive_threshold_a, uint64_t difficulty_active_a);
 		message work_generation (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const work_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool const completed_a = true, bool const cancelled_a = false);
 		message work_cancelled (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);
 		message work_failed (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);
@@ -180,11 +178,17 @@ namespace websocket
 			return include_election_info;
 		}
 
-		static constexpr const uint8_t type_active_quorum = 1;
-		static constexpr const uint8_t type_active_confirmation_height = 2;
-		static constexpr const uint8_t type_inactive = 4;
-		static constexpr const uint8_t type_all_active = type_active_quorum | type_active_confirmation_height;
-		static constexpr const uint8_t type_all = type_all_active | type_inactive;
+		/** Returns whether or not to include election info with votes */
+		bool get_include_election_info_with_votes () const
+		{
+			return include_election_info_with_votes;
+		}
+
+		static constexpr uint8_t const type_active_quorum = 1;
+		static constexpr uint8_t const type_active_confirmation_height = 2;
+		static constexpr uint8_t const type_inactive = 4;
+		static constexpr uint8_t const type_all_active = type_active_quorum | type_active_confirmation_height;
+		static constexpr uint8_t const type_all = type_all_active | type_inactive;
 
 	private:
 		void check_filter_empty () const;
@@ -192,6 +196,7 @@ namespace websocket
 		nano::wallets & wallets;
 		boost::optional<nano::logger_mt &> logger;
 		bool include_election_info{ false };
+		bool include_election_info_with_votes{ false };
 		bool include_block{ true };
 		bool has_account_filtering_options{ false };
 		bool all_local_accounts{ false };
@@ -292,7 +297,7 @@ namespace websocket
 		void stop ();
 
 		/** Broadcast block confirmation. The content of the message depends on subscription options (such as "include_block") */
-		void broadcast_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string const & subtype, nano::election_status const & election_status_a);
+		void broadcast_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string const & subtype, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a);
 
 		/** Broadcast \p message to all session subscribing to the message topic. */
 		void broadcast (nano::websocket::message message_a);
@@ -316,7 +321,7 @@ namespace websocket
 			return subscriber_count (topic_a) > 0;
 		}
 		/** Getter for subscriber count of a specific topic*/
-		size_t subscriber_count (nano::websocket::topic const & topic_a) const
+		std::size_t subscriber_count (nano::websocket::topic const & topic_a) const
 		{
 			return topic_subscriber_count[static_cast<std::size_t> (topic_a)];
 		}

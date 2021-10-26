@@ -8,7 +8,7 @@
 
 namespace nano
 {
-class block_store;
+class store;
 class stat;
 class write_transaction;
 
@@ -26,7 +26,7 @@ public:
 class ledger final
 {
 public:
-	ledger (nano::block_store &, nano::stat &, nano::generate_cache const & = nano::generate_cache ());
+	ledger (nano::store &, nano::stat &, nano::ledger_constants & constants, nano::generate_cache const & = nano::generate_cache ());
 	nano::account account (nano::transaction const &, nano::block_hash const &) const;
 	nano::account account_safe (nano::transaction const &, nano::block_hash const &, bool &) const;
 	nano::uint128_t amount (nano::transaction const &, nano::account const &);
@@ -40,14 +40,13 @@ public:
 	nano::uint128_t weight (nano::account const &);
 	std::shared_ptr<nano::block> successor (nano::transaction const &, nano::qualified_root const &);
 	std::shared_ptr<nano::block> forked_block (nano::transaction const &, nano::block const &);
-	bool block_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
+	bool block_confirmed (nano::transaction const &, nano::block_hash const &) const;
 	nano::block_hash latest (nano::transaction const &, nano::account const &);
 	nano::root latest_root (nano::transaction const &, nano::account const &);
 	nano::block_hash representative (nano::transaction const &, nano::block_hash const &);
 	nano::block_hash representative_calculated (nano::transaction const &, nano::block_hash const &);
-	bool block_exists (nano::block_hash const &) const;
-	bool block_or_pruned_exists (nano::transaction const &, nano::block_hash const &) const;
 	bool block_or_pruned_exists (nano::block_hash const &) const;
+	bool block_or_pruned_exists (nano::transaction const &, nano::block_hash const &) const;
 	std::string block_text (char const *);
 	std::string block_text (nano::block_hash const &);
 	bool is_send (nano::transaction const &, nano::state_block const &) const;
@@ -69,8 +68,8 @@ public:
 	std::multimap<uint64_t, uncemented_info, std::greater<>> unconfirmed_frontiers () const;
 	bool migrate_lmdb_to_rocksdb (boost::filesystem::path const &) const;
 	static nano::uint128_t const unit;
-	nano::network_params network_params;
-	nano::block_store & store;
+	nano::ledger_constants & constants;
+	nano::store & store;
 	nano::ledger_cache cache;
 	nano::stat & stats;
 	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;

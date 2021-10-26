@@ -175,7 +175,7 @@ public:
 	std::string filename;
 
 	explicit file_writer (std::string const & filename) :
-	filename (filename)
+		filename (filename)
 	{
 		log.open (filename.c_str (), std::ofstream::out);
 	}
@@ -212,7 +212,7 @@ nano::stat_histogram::stat_histogram (std::initializer_list<uint64_t> intervals_
 {
 	if (bin_count_a == 0)
 	{
-		assert (intervals_a.size () > 1);
+		debug_assert (intervals_a.size () > 1);
 		uint64_t start_inclusive_l = *intervals_a.begin ();
 		for (auto it = std::next (intervals_a.begin ()); it != intervals_a.end (); ++it)
 		{
@@ -223,7 +223,7 @@ nano::stat_histogram::stat_histogram (std::initializer_list<uint64_t> intervals_
 	}
 	else
 	{
-		assert (intervals_a.size () == 2);
+		debug_assert (intervals_a.size () == 2);
 		uint64_t min_inclusive_l = *intervals_a.begin ();
 		uint64_t max_exclusive_l = *std::next (intervals_a.begin ());
 
@@ -245,8 +245,8 @@ nano::stat_histogram::stat_histogram (std::initializer_list<uint64_t> intervals_
 
 void nano::stat_histogram::add (uint64_t index_a, uint64_t addend_a)
 {
-	nano::lock_guard<std::mutex> lk (histogram_mutex);
-	assert (!bins.empty ());
+	nano::lock_guard<nano::mutex> lk (histogram_mutex);
+	debug_assert (!bins.empty ());
 
 	// The search for a bin is linear, but we're searching just a few
 	// contiguous items which are likely to be in cache.
@@ -278,12 +278,12 @@ void nano::stat_histogram::add (uint64_t index_a, uint64_t addend_a)
 
 std::vector<nano::stat_histogram::bin> nano::stat_histogram::get_bins () const
 {
-	nano::lock_guard<std::mutex> lk (histogram_mutex);
+	nano::lock_guard<nano::mutex> lk (histogram_mutex);
 	return bins;
 }
 
 nano::stat::stat (nano::stat_config config) :
-config (config)
+	config (config)
 {
 }
 
@@ -401,14 +401,14 @@ void nano::stat::define_histogram (stat::type type, stat::detail detail, stat::d
 void nano::stat::update_histogram (stat::type type, stat::detail detail, stat::dir dir, uint64_t index_a, uint64_t addend_a)
 {
 	auto entry (get_entry (key_of (type, detail, dir)));
-	assert (entry->histogram != nullptr);
+	debug_assert (entry->histogram != nullptr);
 	entry->histogram->add (index_a, addend_a);
 }
 
 nano::stat_histogram * nano::stat::get_histogram (stat::type type, stat::detail detail, stat::dir dir)
 {
 	auto entry (get_entry (key_of (type, detail, dir)));
-	assert (entry->histogram != nullptr);
+	debug_assert (entry->histogram != nullptr);
 	return entry->histogram.get ();
 }
 
@@ -658,6 +658,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::initiate:
 			res = "initiate";
 			break;
+		case nano::stat::detail::initiate_legacy_age:
+			res = "initiate_legacy_age";
+			break;
 		case nano::stat::detail::initiate_lazy:
 			res = "initiate_lazy";
 			break;
@@ -727,11 +730,8 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::late_block_seconds:
 			res = "late_block_seconds";
 			break;
-		case nano::stat::detail::election_non_priority:
-			res = "election_non_priority";
-			break;
-		case nano::stat::detail::election_priority:
-			res = "election_priority";
+		case nano::stat::detail::election_start:
+			res = "election_start";
 			break;
 		case nano::stat::detail::election_block_conflict:
 			res = "election_block_conflict";
@@ -739,8 +739,14 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::election_difficulty_update:
 			res = "election_difficulty_update";
 			break;
-		case nano::stat::detail::election_drop:
-			res = "election_drop";
+		case nano::stat::detail::election_drop_expired:
+			res = "election_drop_expired";
+			break;
+		case nano::stat::detail::election_drop_overflow:
+			res = "election_drop_overflow";
+			break;
+		case nano::stat::detail::election_drop_all:
+			res = "election_drop_all";
 			break;
 		case nano::stat::detail::election_restart:
 			res = "election_restart";
@@ -765,6 +771,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::tcp_excluded:
 			res = "tcp_excluded";
+			break;
+		case nano::stat::detail::tcp_max_per_ip:
+			res = "tcp_max_per_ip";
 			break;
 		case nano::stat::detail::unreachable_host:
 			res = "unreachable_host";
@@ -873,6 +882,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::generator_spacing:
 			res = "generator_spacing";
+			break;
+		case nano::stat::detail::invalid_network:
+			res = "invalid_network";
 			break;
 	}
 	return res;

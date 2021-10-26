@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -u
 
 if [ "$#" -lt 2 ]; then
 	echo 'Usage: build-docker-image.sh <dockerFile> <dockerImageTag> [<dockerBuildArgs>...]' >&2

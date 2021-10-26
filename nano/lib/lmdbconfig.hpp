@@ -40,11 +40,11 @@ public:
 	};
 
 	nano::error serialize_toml (nano::tomlconfig & toml_a) const;
-	nano::error deserialize_toml (nano::tomlconfig & toml_a, bool is_deprecated_lmdb_dbs_used);
+	nano::error deserialize_toml (nano::tomlconfig & toml_a);
 
 	/** Sync strategy for the ledger database */
 	sync_strategy sync{ always };
 	uint32_t max_databases{ 128 };
-	size_t map_size{ 128ULL * 1024 * 1024 * 1024 };
+	size_t map_size{ 256ULL * 1024 * 1024 * 1024 };
 };
 }
