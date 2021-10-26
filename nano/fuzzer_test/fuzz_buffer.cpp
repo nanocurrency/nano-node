@@ -56,7 +56,7 @@ public:
 }
 
 /** Fuzz live message parsing. This covers parsing and block/vote uniquing. */
-void fuzz_message_parser (const uint8_t * Data, size_t Size)
+void fuzz_message_parser (uint8_t const * Data, size_t Size)
 {
 	static bool initialized = false;
 	if (!initialized)
@@ -73,7 +73,7 @@ void fuzz_message_parser (const uint8_t * Data, size_t Size)
 }
 
 /** Fuzzer entry point */
-extern "C" int LLVMFuzzerTestOneInput (const uint8_t * Data, size_t Size)
+extern "C" int LLVMFuzzerTestOneInput (uint8_t const * Data, size_t Size)
 {
 	fuzz_message_parser (Data, Size);
 	return 0;

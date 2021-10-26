@@ -18,13 +18,13 @@ std::unordered_set<std::string> rpc_control_impl_set = create_rpc_control_impls 
 std::string filter_request (boost::property_tree::ptree tree_a);
 }
 
-nano::rpc_handler::rpc_handler (nano::rpc_config const & rpc_config, std::string const & body_a, std::string const & request_id_a, std::function<void(std::string const &)> const & response_a, nano::rpc_handler_interface & rpc_handler_interface_a, nano::logger_mt & logger) :
-body (body_a),
-request_id (request_id_a),
-response (response_a),
-rpc_config (rpc_config),
-rpc_handler_interface (rpc_handler_interface_a),
-logger (logger)
+nano::rpc_handler::rpc_handler (nano::rpc_config const & rpc_config, std::string const & body_a, std::string const & request_id_a, std::function<void (std::string const &)> const & response_a, nano::rpc_handler_interface & rpc_handler_interface_a, nano::logger_mt & logger) :
+	body (body_a),
+	request_id (request_id_a),
+	response (response_a),
+	rpc_config (rpc_config),
+	rpc_handler_interface (rpc_handler_interface_a),
+	logger (logger)
 {
 }
 
@@ -94,8 +94,7 @@ void nano::rpc_handler::process_request (nano::rpc_handler_request_params const 
 					else if (action == "process")
 					{
 						auto force = request.get_optional<bool> ("force").value_or (false);
-						auto watch_work = request.get_optional<bool> ("watch_work").value_or (true);
-						if ((force || watch_work) && !rpc_config.enable_control)
+						if (force && !rpc_config.enable_control)
 						{
 							json_error_response (response, rpc_control_disabled_ec.message ());
 							error = true;
@@ -122,7 +121,7 @@ void nano::rpc_handler::process_request (nano::rpc_handler_request_params const 
 			}
 			else if (request_params.rpc_version == 2)
 			{
-				rpc_handler_interface.process_request_v2 (request_params, body, [response = response](std::shared_ptr<std::string> const & body) {
+				rpc_handler_interface.process_request_v2 (request_params, body, [response = response] (std::shared_ptr<std::string> const & body) {
 					std::string body_l = *body;
 					response (body_l);
 				});

@@ -11,11 +11,12 @@ namespace
 {
 nano::account parse_account (std::string const & account, bool & out_is_deprecated_format)
 {
-	nano::account result (0);
+	nano::account result{};
 	if (account.empty ())
 	{
 		throw nano::error (nano::error_common::bad_account_number);
 	}
+
 	if (result.decode_account (account))
 	{
 		throw nano::error (nano::error_common::bad_account_number);
@@ -40,9 +41,9 @@ auto get_message (nanoapi::Envelope const & envelope)
  * Mapping from message type to handler function.
  * @note This must be updated whenever a new message type is added to the Flatbuffers IDL.
  */
-auto nano::ipc::action_handler::handler_map () -> std::unordered_map<nanoapi::Message, std::function<void(nano::ipc::action_handler *, nanoapi::Envelope const &)>, nano::ipc::enum_hash>
+auto nano::ipc::action_handler::handler_map () -> std::unordered_map<nanoapi::Message, std::function<void (nano::ipc::action_handler *, nanoapi::Envelope const &)>, nano::ipc::enum_hash>
 {
-	static std::unordered_map<nanoapi::Message, std::function<void(nano::ipc::action_handler *, nanoapi::Envelope const &)>, nano::ipc::enum_hash> handlers;
+	static std::unordered_map<nanoapi::Message, std::function<void (nano::ipc::action_handler *, nanoapi::Envelope const &)>, nano::ipc::enum_hash> handlers;
 	if (handlers.empty ())
 	{
 		handlers.emplace (nanoapi::Message::Message_IsAlive, &nano::ipc::action_handler::on_is_alive);
@@ -56,10 +57,10 @@ auto nano::ipc::action_handler::handler_map () -> std::unordered_map<nanoapi::Me
 }
 
 nano::ipc::action_handler::action_handler (nano::node & node_a, nano::ipc::ipc_server & server_a, std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, std::shared_ptr<flatbuffers::FlatBufferBuilder> const & builder_a) :
-flatbuffer_producer (builder_a),
-node (node_a),
-ipc_server (server_a),
-subscriber (subscriber_a)
+	flatbuffer_producer (builder_a),
+	node (node_a),
+	ipc_server (server_a),
+	subscriber (subscriber_a)
 {
 }
 

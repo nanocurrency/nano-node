@@ -17,7 +17,7 @@ public:
 	using value_type = T;
 
 	explicit record_allocations_new_delete_allocator (std::vector<size_t> * allocated) :
-	allocated (allocated)
+		allocated (allocated)
 	{
 	}
 
@@ -91,8 +91,9 @@ TEST (memory_pool, validate_cleanup)
 		nano::active_transactions::ordered_cache inactive_votes_cache;
 		nano::account representative{ 1 };
 		nano::block_hash hash{ 1 };
+		uint64_t timestamp{ 1 };
 		nano::inactive_cache_status default_status{};
-		inactive_votes_cache.emplace (std::chrono::steady_clock::now (), hash, representative, default_status);
+		inactive_votes_cache.emplace (std::chrono::steady_clock::now (), hash, representative, timestamp, default_status);
 	}
 
 	ASSERT_TRUE (nano::purge_singleton_inactive_votes_cache_pool_memory ());

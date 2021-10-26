@@ -1,6 +1,6 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/socket.hpp>
-#include <nano/node/testing.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -8,6 +8,105 @@
 #include <boost/asio/read.hpp>
 
 using namespace std::chrono_literals;
+
+TEST (socket, max_connections)
+{
+	// this is here just so that ASSERT_TIMELY can be used
+	nano::system system;
+
+	auto node_flags = nano::inactive_node_flag_defaults ();
+	node_flags.read_only = false;
+	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
+	auto node = inactivenode.node;
+
+	nano::thread_runner runner (node->io_ctx, 1);
+
+	auto server_port (nano::get_available_port ());
+	boost::asio::ip::tcp::endpoint listen_endpoint (boost::asio::ip::address_v6::any (), server_port);
+	boost::asio::ip::tcp::endpoint dst_endpoint (boost::asio::ip::address_v6::loopback (), server_port);
+
+	// start a server socket that allows max 2 live connections
+	auto server_socket = std::make_shared<nano::server_socket> (*node, listen_endpoint, 2);
+	boost::system::error_code ec;
+	server_socket->start (ec);
+	ASSERT_FALSE (ec);
+
+	// successful incoming connections are stored in server_sockets to keep them alive (server side)
+	std::vector<std::shared_ptr<nano::socket>> server_sockets;
+	server_socket->on_connection ([&server_sockets] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
+		server_sockets.push_back (new_connection);
+		return true;
+	});
+
+	// client side connection tracking
+	std::atomic<int> connection_attempts = 0;
+	auto connect_handler = [&connection_attempts] (boost::system::error_code const & ec_a) {
+		ASSERT_EQ (ec_a.value (), 0);
+		connection_attempts++;
+	};
+
+	// start 3 clients, 2 will persist but 1 will be dropped
+
+	auto client1 = std::make_shared<nano::socket> (*node);
+	client1->async_connect (dst_endpoint, connect_handler);
+
+	auto client2 = std::make_shared<nano::socket> (*node);
+	client2->async_connect (dst_endpoint, connect_handler);
+
+	auto client3 = std::make_shared<nano::socket> (*node);
+	client3->async_connect (dst_endpoint, connect_handler);
+
+	auto get_tcp_accept_failures = [&node] () {
+		return node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
+	};
+
+	auto get_tcp_accept_successes = [&node] () {
+		return node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
+	};
+
+	ASSERT_TIMELY (5s, get_tcp_accept_failures () == 1);
+	ASSERT_TIMELY (5s, get_tcp_accept_successes () == 2);
+	ASSERT_TIMELY (5s, connection_attempts == 3);
+
+	// create space for one socket and fill the connections table again
+
+	server_sockets[0].reset ();
+
+	auto client4 = std::make_shared<nano::socket> (*node);
+	client4->async_connect (dst_endpoint, connect_handler);
+
+	auto client5 = std::make_shared<nano::socket> (*node);
+	client5->async_connect (dst_endpoint, connect_handler);
+
+	ASSERT_TIMELY (5s, get_tcp_accept_failures () == 2);
+	ASSERT_TIMELY (5s, get_tcp_accept_successes () == 3);
+	ASSERT_TIMELY (5s, connection_attempts == 5);
+
+	// close all existing sockets and fill the connections table again
+	// start counting form 1 because 0 is the already closed socket
+
+	server_sockets[1].reset ();
+	server_sockets[2].reset ();
+	ASSERT_EQ (server_sockets.size (), 3);
+
+	auto client6 = std::make_shared<nano::socket> (*node);
+	client6->async_connect (dst_endpoint, connect_handler);
+
+	auto client7 = std::make_shared<nano::socket> (*node);
+	client7->async_connect (dst_endpoint, connect_handler);
+
+	auto client8 = std::make_shared<nano::socket> (*node);
+	client8->async_connect (dst_endpoint, connect_handler);
+
+	ASSERT_TIMELY (5s, get_tcp_accept_failures () == 3);
+	ASSERT_TIMELY (5s, get_tcp_accept_successes () == 5);
+	ASSERT_TIMELY (5s, connection_attempts == 8); // connections initiated by the client
+	ASSERT_TIMELY (5s, server_sockets.size () == 5); // connections accepted by the server
+
+	node->stop ();
+	runner.stop_event_processing ();
+	runner.join ();
+}
 
 TEST (socket, drop_policy)
 {
@@ -20,7 +119,7 @@ TEST (socket, drop_policy)
 
 	std::vector<std::shared_ptr<nano::socket>> connections;
 
-	auto func = [&](size_t total_message_count, nano::buffer_drop_policy drop_policy) {
+	auto func = [&] (size_t total_message_count, nano::buffer_drop_policy drop_policy) {
 		auto server_port (nano::get_available_port ());
 		boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::any (), server_port);
 
@@ -30,7 +129,7 @@ TEST (socket, drop_policy)
 		ASSERT_FALSE (ec);
 
 		// Accept connection, but don't read so the writer will drop.
-		server_socket->on_connection ([&connections](std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
+		server_socket->on_connection ([&connections] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
 			connections.push_back (new_connection);
 			return true;
 		});
@@ -40,12 +139,12 @@ TEST (socket, drop_policy)
 		nano::util::counted_completion write_completion (static_cast<unsigned> (total_message_count));
 
 		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), server_port),
-		[&channel, total_message_count, node, &write_completion, &drop_policy, client](boost::system::error_code const & ec_a) mutable {
+		[&channel, total_message_count, node, &write_completion, &drop_policy, client] (boost::system::error_code const & ec_a) mutable {
 			for (int i = 0; i < total_message_count; i++)
 			{
 				std::vector<uint8_t> buff (1);
 				channel.send_buffer (
-				nano::shared_const_buffer (std::move (buff)), [&write_completion, client](boost::system::error_code const & ec, size_t size_a) mutable {
+				nano::shared_const_buffer (std::move (buff)), [&write_completion, client] (boost::system::error_code const & ec, size_t size_a) mutable {
 					client.reset ();
 					write_completion.increment ();
 				},
@@ -90,7 +189,7 @@ TEST (socket, concurrent_writes)
 
 	// We're expecting client_count*4 messages
 	nano::util::counted_completion read_count_completion (total_message_count);
-	std::function<void(std::shared_ptr<nano::socket> const &)> reader = [&read_count_completion, &total_message_count, &reader](std::shared_ptr<nano::socket> const & socket_a) {
+	std::function<void (std::shared_ptr<nano::socket> const &)> reader = [&read_count_completion, &total_message_count, &reader] (std::shared_ptr<nano::socket> const & socket_a) {
 		auto buff (std::make_shared<std::vector<uint8_t>> ());
 		buff->resize (1);
 #ifndef _WIN32
@@ -102,7 +201,7 @@ TEST (socket, concurrent_writes)
 #endif
 #endif
 #endif
-		socket_a->async_read (buff, 1, [&read_count_completion, &reader, &total_message_count, socket_a, buff](boost::system::error_code const & ec, size_t size_a) {
+		socket_a->async_read (buff, 1, [&read_count_completion, &reader, &total_message_count, socket_a, buff] (boost::system::error_code const & ec, size_t size_a) {
 			if (!ec)
 			{
 				if (read_count_completion.increment () < total_message_count)
@@ -129,7 +228,7 @@ TEST (socket, concurrent_writes)
 	std::vector<std::shared_ptr<nano::socket>> connections;
 
 	// On every new connection, start reading data
-	server_socket->on_connection ([&connections, &reader](std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
+	server_socket->on_connection ([&connections, &reader] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
 		if (ec_a)
 		{
 			std::cerr << "on_connection: " << ec_a.message () << std::endl;
@@ -150,7 +249,7 @@ TEST (socket, concurrent_writes)
 		auto client = std::make_shared<nano::socket> (*node);
 		clients.push_back (client);
 		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 25000),
-		[&connection_count_completion](boost::system::error_code const & ec_a) {
+		[&connection_count_completion] (boost::system::error_code const & ec_a) {
 			if (ec_a)
 			{
 				std::cerr << "async_connect: " << ec_a.message () << std::endl;
@@ -177,7 +276,7 @@ TEST (socket, concurrent_writes)
 #endif
 #endif
 #endif
-		client_threads.emplace_back ([&client, &message_count]() {
+		client_threads.emplace_back ([&client, &message_count] () {
 			for (int i = 0; i < message_count; i++)
 			{
 				std::vector<uint8_t> buff;

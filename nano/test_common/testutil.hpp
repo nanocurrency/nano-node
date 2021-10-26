@@ -22,7 +22,7 @@
 	else                                                                                      \
 		fail (::testing::internal::GetBoolAssertionFailureMessage (                           \
 		gtest_ar_, text, actual, expected)                                                    \
-		      .c_str ())
+			  .c_str ())
 
 /** Extends gtest with a std::error_code assert that prints the error code message when non-zero */
 #define ASSERT_NO_ERROR(condition)                                                      \
@@ -53,14 +53,6 @@ class telemetry_data;
 class network_params;
 class system;
 
-extern nano::keypair const & zero_key;
-extern nano::keypair const & dev_genesis_key;
-extern std::string const & nano_dev_genesis;
-extern std::string const & genesis_block;
-extern nano::block_hash const & genesis_hash;
-extern nano::public_key const & nano_dev_account;
-extern nano::public_key const & genesis_account;
-extern nano::public_key const & burn_account;
 extern nano::uint128_t const & genesis_amount;
 
 class stringstream_mt_sink : public boost::iostreams::sink
@@ -73,7 +65,7 @@ public:
 		ss << sink.ss.str ();
 	}
 
-	std::streamsize write (const char * string_to_write, std::streamsize size)
+	std::streamsize write (char const * string_to_write, std::streamsize size)
 	{
 		nano::lock_guard<nano::mutex> guard (mutex);
 		ss << std::string (string_to_write, size);
@@ -95,7 +87,7 @@ class boost_log_cerr_redirect
 {
 public:
 	boost_log_cerr_redirect (std::streambuf * new_buffer) :
-	old (std::cerr.rdbuf (new_buffer))
+		old (std::cerr.rdbuf (new_buffer))
 	{
 		console_sink = (boost::log::add_console_log (std::cerr, boost::log::keywords::format = "%Message%"));
 	}
@@ -164,7 +156,7 @@ namespace util
 		 * @param required_count_a When increment() reaches this count within the deadline, await_count_for() will return false.
 		 */
 		counted_completion (unsigned required_count_a) :
-		required_count (required_count_a)
+			required_count (required_count_a)
 		{
 		}
 

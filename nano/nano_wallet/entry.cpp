@@ -79,7 +79,8 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	splash->showMessage (QSplashScreen::tr ("Remember - Back Up Your Wallet Seed"), Qt::AlignBottom | Qt::AlignHCenter, Qt::darkGray);
 	application.processEvents ();
 
-	nano::daemon_config config (data_path);
+	nano::network_params network_params{ nano::network_constants::active_network };
+	nano::daemon_config config{ data_path, network_params };
 	nano::wallet_config wallet_config;
 
 	auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
@@ -106,11 +107,11 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		std::shared_ptr<nano::node> node;
 		std::shared_ptr<nano_qt::wallet> gui;
 		nano::set_application_icon (application);
-		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger));
-		nano::work_pool work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
-			return opencl->generate_work (version_a, root_a, difficulty_a);
-		}
-		                                                                                       : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
+		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger, config.node.network_params.work));
+		nano::work_pool work{ config.node.network_params.network, config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
+								 return opencl->generate_work (version_a, root_a, difficulty_a);
+							 }
+																																   : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr) };
 		node = std::make_shared<nano::node> (io_ctx, data_path, config.node, work, flags);
 		if (!node->init_error ())
 		{
@@ -167,7 +168,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				if (!config.rpc.child_process.enable)
 				{
 					// Launch rpc in-process
-					nano::rpc_config rpc_config;
+					nano::rpc_config rpc_config{ config.node.network_params.network };
 					auto error = nano::read_rpc_config_toml (data_path, rpc_config, flags.rpc_config_overrides);
 					if (error)
 					{
@@ -189,7 +190,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 					rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
 				}
 			}
-			QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
+			QObject::connect (&application, &QApplication::aboutToQuit, [&] () {
 				ipc.stop ();
 				node->stop ();
 				if (rpc)
@@ -209,7 +210,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 #endif
 				runner.stop_event_processing ();
 			});
-			application.postEvent (&processor, new nano_qt::eventloop_event ([&]() {
+			application.postEvent (&processor, new nano_qt::eventloop_event ([&] () {
 				gui = std::make_shared<nano_qt::wallet> (application, processor, *node, wallet, wallet_config.account);
 				splash->close ();
 				gui->start ();

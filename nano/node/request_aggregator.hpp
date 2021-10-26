@@ -42,8 +42,8 @@ class request_aggregator final
 	{
 		channel_pool () = delete;
 		explicit channel_pool (std::shared_ptr<nano::transport::channel> const & channel_a) :
-		channel (channel_a),
-		endpoint (nano::transport::map_endpoint_to_v6 (channel_a->get_endpoint ()))
+			channel (channel_a),
+			endpoint (nano::transport::map_endpoint_to_v6 (channel_a->get_endpoint ()))
 		{
 		}
 		std::vector<std::pair<nano::block_hash, nano::root>> hashes_roots;
@@ -59,25 +59,26 @@ class request_aggregator final
 	// clang-format on
 
 public:
-	request_aggregator (nano::network_constants const &, nano::node_config const & config, nano::stat & stats_a, nano::vote_generator &, nano::local_vote_history &, nano::ledger &, nano::wallets &, nano::active_transactions &);
+	request_aggregator (nano::node_config const & config, nano::stat & stats_a, nano::vote_generator &, nano::vote_generator &, nano::local_vote_history &, nano::ledger &, nano::wallets &, nano::active_transactions &);
 
 	/** Add a new request by \p channel_a for hashes \p hashes_roots_a */
 	void add (std::shared_ptr<nano::transport::channel> const & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a);
 	void stop ();
 	/** Returns the number of currently queued request pools */
-	size_t size ();
+	std::size_t size ();
 	bool empty ();
 
-	const std::chrono::milliseconds max_delay;
-	const std::chrono::milliseconds small_delay;
-	const size_t max_channel_requests;
+	nano::node_config const & config;
+	std::chrono::milliseconds const max_delay;
+	std::chrono::milliseconds const small_delay;
+	std::size_t const max_channel_requests;
 
 private:
 	void run ();
 	/** Remove duplicate requests **/
 	void erase_duplicates (std::vector<std::pair<nano::block_hash, nano::root>> &) const;
-	/** Aggregate \p requests_a and send cached votes to \p channel_a . Return the remaining hashes that need vote generation **/
-	std::vector<std::shared_ptr<nano::block>> aggregate (std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
+	/** Aggregate \p requests_a and send cached votes to \p channel_a . Return the remaining hashes that need vote generation for each block for regular & final vote generators **/
+	std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr<nano::block>>> aggregate (std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
 	void reply_action (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) const;
 
 	nano::stat & stats;
@@ -86,6 +87,7 @@ private:
 	nano::wallets & wallets;
 	nano::active_transactions & active;
 	nano::vote_generator & generator;
+	nano::vote_generator & final_generator;
 
 	// clang-format off
 	boost::multi_index_container<channel_pool,
@@ -103,7 +105,7 @@ private:
 	nano::mutex mutex{ mutex_identifier (mutexes::request_aggregator) };
 	std::thread thread;
 
-	friend std::unique_ptr<container_info_component> collect_container_info (request_aggregator &, const std::string &);
+	friend std::unique_ptr<container_info_component> collect_container_info (request_aggregator &, std::string const &);
 };
-std::unique_ptr<container_info_component> collect_container_info (request_aggregator &, const std::string &);
+std::unique_ptr<container_info_component> collect_container_info (request_aggregator &, std::string const &);
 }

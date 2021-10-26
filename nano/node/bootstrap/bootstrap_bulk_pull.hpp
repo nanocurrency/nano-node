@@ -34,7 +34,7 @@ public:
 	void receive_block ();
 	void throttled_receive_block ();
 	void received_type ();
-	void received_block (boost::system::error_code const &, size_t, nano::block_type);
+	void received_block (boost::system::error_code const &, std::size_t, nano::block_type);
 	nano::block_hash first ();
 	std::shared_ptr<nano::bootstrap_client> connection;
 	std::shared_ptr<nano::bootstrap_attempt> attempt;
@@ -66,9 +66,9 @@ public:
 	void set_current_end ();
 	std::shared_ptr<nano::block> get_next ();
 	void send_next ();
-	void sent_action (boost::system::error_code const &, size_t);
+	void sent_action (boost::system::error_code const &, std::size_t);
 	void send_finished ();
-	void no_block_sent (boost::system::error_code const &, size_t);
+	void no_block_sent (boost::system::error_code const &, std::size_t);
 	std::shared_ptr<nano::bootstrap_server> connection;
 	std::unique_ptr<nano::bulk_pull> request;
 	nano::block_hash current;
@@ -85,9 +85,9 @@ public:
 	std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info>> get_next ();
 	void send_frontier ();
 	void send_next_block ();
-	void sent_action (boost::system::error_code const &, size_t);
+	void sent_action (boost::system::error_code const &, std::size_t);
 	void send_finished ();
-	void complete (boost::system::error_code const &, size_t);
+	void complete (boost::system::error_code const &, std::size_t);
 	std::shared_ptr<nano::bootstrap_server> connection;
 	std::unique_ptr<nano::bulk_pull_account> request;
 	std::unordered_set<nano::uint256_union> deduplication;

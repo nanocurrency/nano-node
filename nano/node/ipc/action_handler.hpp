@@ -53,7 +53,7 @@ namespace ipc
 		void on_topic_service_stop (nanoapi::Envelope const & envelope);
 
 		/** Returns a mapping from api message types to handler functions */
-		static auto handler_map () -> std::unordered_map<nanoapi::Message, std::function<void(action_handler *, nanoapi::Envelope const &)>, nano::ipc::enum_hash>;
+		static auto handler_map () -> std::unordered_map<nanoapi::Message, std::function<void (action_handler *, nanoapi::Envelope const &)>, nano::ipc::enum_hash>;
 
 	private:
 		bool has_access (nanoapi::Envelope const & envelope_a, nano::ipc::access_permission permission_a) const noexcept;

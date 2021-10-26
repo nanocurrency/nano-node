@@ -101,7 +101,7 @@ public:
 
 	/** Iterate array entries */
 	template <typename T>
-	jsonconfig & array_entries (std::function<void(T)> callback)
+	jsonconfig & array_entries (std::function<void (T)> callback)
 	{
 		for (auto & entry : tree)
 		{

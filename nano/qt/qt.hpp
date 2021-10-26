@@ -20,8 +20,8 @@ public:
 class eventloop_event : public QEvent
 {
 public:
-	eventloop_event (std::function<void()> const &);
-	std::function<void()> action;
+	eventloop_event (std::function<void ()> const &);
+	std::function<void ()> action;
 };
 class settings
 {
@@ -66,8 +66,6 @@ public:
 	QHBoxLayout * scale_layout;
 	QLabel * scale_label;
 	QButtonGroup * ratio_group;
-	QRadioButton * mnano_unit;
-	QRadioButton * knano_unit;
 	QRadioButton * nano_unit;
 	QRadioButton * raw_unit;
 	QPushButton * back;

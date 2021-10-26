@@ -33,6 +33,13 @@ class socket : public std::enable_shared_from_this<nano::socket>
 	friend class server_socket;
 
 public:
+	enum class type_t
+	{
+		undefined,
+		bootstrap,
+		realtime,
+		realtime_response_server // special type for tcp channel response server
+	};
 	/**
 	 * Constructor
 	 * @param node Owning node
@@ -41,12 +48,13 @@ public:
 	 */
 	explicit socket (nano::node & node);
 	virtual ~socket ();
-	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void(boost::system::error_code const &)>);
-	void async_read (std::shared_ptr<std::vector<uint8_t>> const &, size_t, std::function<void(boost::system::error_code const &, size_t)>);
-	void async_write (nano::shared_const_buffer const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr);
+	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void (boost::system::error_code const &)>);
+	void async_read (std::shared_ptr<std::vector<uint8_t>> const &, std::size_t, std::function<void (boost::system::error_code const &, std::size_t)>);
+	void async_write (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr);
 
 	void close ();
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;
+	boost::asio::ip::tcp::endpoint local_endpoint () const;
 	/** Returns true if the socket has timed out */
 	bool has_timed_out () const;
 	bool max () const
@@ -57,6 +65,14 @@ public:
 	{
 		return queue_size >= queue_size_max * 2;
 	}
+	type_t type () const
+	{
+		return type_m;
+	};
+	void type_set (type_t type_a)
+	{
+		type_m = type_a;
+	}
 
 protected:
 	/** Holds the buffer and callback for queued writes */
@@ -64,7 +80,7 @@ protected:
 	{
 	public:
 		nano::shared_const_buffer buffer;
-		std::function<void(boost::system::error_code const &, size_t)> callback;
+		std::function<void (boost::system::error_code const &, std::size_t)> callback;
 	};
 
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
@@ -76,7 +92,7 @@ protected:
 
 	std::atomic<uint64_t> deadline_next{ std::numeric_limits<uint64_t>::max () };
 	std::atomic<bool> timed_out{ false };
-	std::atomic<size_t> queue_size{ 0 };
+	std::atomic<std::size_t> queue_size{ 0 };
 
 	/** Set by close() - completion handlers must check this. This is more reliable than checking
 	 error codes as the OS may have already completed the async operation. */
@@ -85,8 +101,11 @@ protected:
 	void checkup ();
 	void deadline_start ();
 
+private:
+	type_t type_m{ type_t::undefined };
+
 public:
-	static size_t constexpr queue_size_max = 128;
+	static std::size_t constexpr queue_size_max = 128;
 	class timer
 	{
 		// Non-copyable
@@ -117,13 +136,13 @@ public:
 	 * @param max_connections_a Maximum number of concurrent connections
 	 * @param concurrency_a Write concurrency for new connections
 	 */
-	explicit server_socket (nano::node & node_a, boost::asio::ip::tcp::endpoint local_a, size_t max_connections_a);
+	explicit server_socket (nano::node & node_a, boost::asio::ip::tcp::endpoint local_a, std::size_t max_connections_a);
 	/**Start accepting new connections */
 	void start (boost::system::error_code &);
 	/** Stop accepting new connections */
 	void close ();
 	/** Register callback for new connections. The callback must return true to keep accepting new connections. */
-	void on_connection (std::function<bool(std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);
+	void on_connection (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);
 	uint16_t listening_port ()
 	{
 		return local.port ();
@@ -133,7 +152,9 @@ private:
 	std::vector<std::weak_ptr<nano::socket>> connections;
 	boost::asio::ip::tcp::acceptor acceptor;
 	boost::asio::ip::tcp::endpoint local;
-	size_t max_inbound_connections;
+	std::size_t max_inbound_connections;
 	void evict_dead_connections ();
+	bool is_temporary_error (boost::system::error_code const ec_a);
+	void on_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);
 };
 }

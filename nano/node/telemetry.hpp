@@ -78,7 +78,7 @@ public:
 	 * This makes a telemetry request to the specific channel.
 	 * Error is set for: no response received, no payload received, invalid signature or unsound metrics in message (e.g different genesis block) 
 	 */
-	void get_metrics_single_peer_async (std::shared_ptr<nano::transport::channel> const &, std::function<void(telemetry_data_response const &)> const &);
+	void get_metrics_single_peer_async (std::shared_ptr<nano::transport::channel> const &, std::function<void (telemetry_data_response const &)> const &);
 
 	/*
 	 * A blocking version of get_metrics_single_peer_async
@@ -88,7 +88,7 @@ public:
 	/*
 	 * Return the number of node metrics collected
 	 */
-	size_t telemetry_data_size ();
+	std::size_t telemetry_data_size ();
 
 	/*
 	 * Returns the time for the cache, response and a small buffer for alarm operations to be scheduled and completed
@@ -130,7 +130,7 @@ private:
 	// The maximum time spent waiting for a response to a telemetry request
 	std::chrono::seconds const response_time_cutoff{ network_params.network.is_dev_network () ? (is_sanitizer_build || nano::running_within_valgrind () ? 6 : 3) : 10 };
 
-	std::unordered_map<nano::endpoint, std::vector<std::function<void(telemetry_data_response const &)>>> callbacks;
+	std::unordered_map<nano::endpoint, std::vector<std::function<void (telemetry_data_response const &)>>> callbacks;
 
 	void ongoing_req_all_peers (std::chrono::milliseconds);
 
@@ -142,7 +142,7 @@ private:
 	bool within_cache_cutoff (nano::telemetry_info const &) const;
 	bool within_cache_plus_buffer_cutoff (telemetry_info const &) const;
 	bool verify_message (nano::telemetry_ack const &, nano::transport::channel const &);
-	friend std::unique_ptr<nano::container_info_component> collect_container_info (telemetry &, const std::string &);
+	friend std::unique_ptr<nano::container_info_component> collect_container_info (telemetry &, std::string const &);
 	friend class telemetry_remove_peer_invalid_signature_Test;
 };
 

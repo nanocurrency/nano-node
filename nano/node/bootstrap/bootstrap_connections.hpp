@@ -21,7 +21,7 @@ class pull_info;
 class bootstrap_client final : public std::enable_shared_from_this<bootstrap_client>
 {
 public:
-	bootstrap_client (std::shared_ptr<nano::node> const & node_a, std::shared_ptr<nano::bootstrap_connections> const & connections_a, std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::socket> const & socket_a);
+	bootstrap_client (std::shared_ptr<nano::node> const & node_a, nano::bootstrap_connections & connections_a, std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::socket> const & socket_a);
 	~bootstrap_client ();
 	std::shared_ptr<nano::bootstrap_client> shared ();
 	void stop (bool force);
@@ -29,7 +29,7 @@ public:
 	double elapsed_seconds () const;
 	void set_start_time (std::chrono::steady_clock::time_point start_time_a);
 	std::shared_ptr<nano::node> node;
-	std::shared_ptr<nano::bootstrap_connections> connections;
+	nano::bootstrap_connections & connections;
 	std::shared_ptr<nano::transport::channel_tcp> channel;
 	std::shared_ptr<nano::socket> socket;
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
@@ -53,7 +53,7 @@ public:
 	void add_connection (nano::endpoint const & endpoint_a);
 	std::shared_ptr<nano::bootstrap_client> find_connection (nano::tcp_endpoint const & endpoint_a);
 	void connect_client (nano::tcp_endpoint const & endpoint_a, bool push_front = false);
-	unsigned target_connections (size_t pulls_remaining, size_t attempts_count);
+	unsigned target_connections (std::size_t pulls_remaining, std::size_t attempts_count);
 	void populate_connections (bool repeat = true);
 	void start_populate_connections ();
 	void add_pull (nano::pull_info const & pull_a);

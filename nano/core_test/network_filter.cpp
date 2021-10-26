@@ -8,10 +8,9 @@
 
 TEST (network_filter, unit)
 {
-	nano::genesis genesis;
 	nano::network_filter filter (1);
-	auto one_block = [&filter](std::shared_ptr<nano::block> const & block_a, bool expect_duplicate_a) {
-		nano::publish message (block_a);
+	auto one_block = [&filter] (std::shared_ptr<nano::block> const & block_a, bool expect_duplicate_a) {
+		nano::publish message{ nano::dev::network_params.network, block_a };
 		auto bytes (message.to_bytes ());
 		nano::bufferstream stream (bytes->data (), bytes->size ());
 
@@ -32,12 +31,22 @@ TEST (network_filter, unit)
 		ASSERT_NE (nullptr, block);
 		ASSERT_EQ (*block, *block_a);
 	};
-	one_block (genesis.open, false);
+	one_block (nano::dev::genesis, false);
 	for (int i = 0; i < 10; ++i)
 	{
-		one_block (genesis.open, true);
+		one_block (nano::dev::genesis, true);
 	}
-	auto new_block (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, genesis.open->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - 10 * nano::xrb_ratio, nano::public_key (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+	nano::state_block_builder builder;
+	auto new_block = builder
+					 .account (nano::dev::genesis_key.pub)
+					 .previous (nano::dev::genesis->hash ())
+					 .representative (nano::dev::genesis_key.pub)
+					 .balance (nano::dev::constants.genesis_amount - 10 * nano::xrb_ratio)
+					 .link (nano::public_key ())
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (0)
+					 .build_shared ();
+
 	one_block (new_block, false);
 	for (int i = 0; i < 10; ++i)
 	{
@@ -45,21 +54,29 @@ TEST (network_filter, unit)
 	}
 	for (int i = 0; i < 100; ++i)
 	{
-		one_block (genesis.open, false);
+		one_block (nano::dev::genesis, false);
 		one_block (new_block, false);
 	}
 }
 
 TEST (network_filter, many)
 {
-	nano::genesis genesis;
 	nano::network_filter filter (4);
 	nano::keypair key1;
 	for (int i = 0; i < 100; ++i)
 	{
-		auto block (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, genesis.open->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - i * 10 * nano::xrb_ratio, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+		nano::state_block_builder builder;
+		auto block = builder
+					 .account (nano::dev::genesis_key.pub)
+					 .previous (nano::dev::genesis->hash ())
+					 .representative (nano::dev::genesis_key.pub)
+					 .balance (nano::dev::constants.genesis_amount - i * 10 * nano::xrb_ratio)
+					 .link (key1.pub)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (0)
+					 .build_shared ();
 
-		nano::publish message (block);
+		nano::publish message{ nano::dev::network_params.network, block };
 		auto bytes (message.to_bytes ());
 		nano::bufferstream stream (bytes->data (), bytes->size ());
 

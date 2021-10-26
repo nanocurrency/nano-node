@@ -40,11 +40,11 @@ class work_pool;
 class opencl_work
 {
 public:
-	opencl_work (bool &, nano::opencl_config const &, nano::opencl_environment &, nano::logger_mt &);
+	opencl_work (bool &, nano::opencl_config const &, nano::opencl_environment &, nano::logger_mt &, nano::work_thresholds & work);
 	~opencl_work ();
 	boost::optional<uint64_t> generate_work (nano::work_version const, nano::root const &, uint64_t const);
 	boost::optional<uint64_t> generate_work (nano::work_version const, nano::root const &, uint64_t const, std::atomic<int> &);
-	static std::unique_ptr<opencl_work> create (bool, nano::opencl_config const &, nano::logger_mt &);
+	static std::unique_ptr<opencl_work> create (bool, nano::opencl_config const &, nano::logger_mt &, nano::work_thresholds & work);
 	nano::opencl_config const & config;
 	nano::mutex mutex;
 	cl_context context;
@@ -57,5 +57,6 @@ public:
 	cl_command_queue queue;
 	nano::xorshift1024star rand;
 	nano::logger_mt & logger;
+	nano::work_thresholds & work;
 };
 }

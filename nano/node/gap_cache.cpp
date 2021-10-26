@@ -1,11 +1,11 @@
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/node.hpp>
-#include <nano/secure/blockstore.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
 
 nano::gap_cache::gap_cache (nano::node & node_a) :
-node (node_a)
+	node (node_a)
 {
 }
 
@@ -15,7 +15,7 @@ void nano::gap_cache::add (nano::block_hash const & hash_a, std::chrono::steady_
 	auto existing (blocks.get<tag_hash> ().find (hash_a));
 	if (existing != blocks.get<tag_hash> ().end ())
 	{
-		blocks.get<tag_hash> ().modify (existing, [time_point_a](nano::gap_information & info) {
+		blocks.get<tag_hash> ().modify (existing, [time_point_a] (nano::gap_information & info) {
 			info.arrival = time_point_a;
 		});
 	}
@@ -45,7 +45,7 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> const & vote_a)
 		if (existing != gap_blocks_by_hash.end () && !existing->bootstrap_started)
 		{
 			auto is_new (false);
-			gap_blocks_by_hash.modify (existing, [&is_new, &vote_a](nano::gap_information & info) {
+			gap_blocks_by_hash.modify (existing, [&is_new, &vote_a] (nano::gap_information & info) {
 				auto it = std::find (info.voters.begin (), info.voters.end (), vote_a->account);
 				is_new = (it == info.voters.end ());
 				if (is_new)
@@ -58,7 +58,7 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> const & vote_a)
 			{
 				if (bootstrap_check (existing->voters, hash))
 				{
-					gap_blocks_by_hash.modify (existing, [](nano::gap_information & info) {
+					gap_blocks_by_hash.modify (existing, [] (nano::gap_information & info) {
 						info.bootstrap_started = true;
 					});
 				}
@@ -96,7 +96,7 @@ bool nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters
 void nano::gap_cache::bootstrap_start (nano::block_hash const & hash_a)
 {
 	auto node_l (node.shared ());
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.bootstrap.gap_cache_bootstrap_start_interval, [node_l, hash_a]() {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.bootstrap.gap_cache_bootstrap_start_interval, [node_l, hash_a] () {
 		if (!node_l->ledger.block_or_pruned_exists (hash_a))
 		{
 			if (!node_l->bootstrap_initiator.in_progress ())
@@ -121,7 +121,7 @@ nano::uint128_t nano::gap_cache::bootstrap_threshold ()
 	return result;
 }
 
-size_t nano::gap_cache::size ()
+std::size_t nano::gap_cache::size ()
 {
 	nano::lock_guard<nano::mutex> lock (mutex);
 	return blocks.size ();
