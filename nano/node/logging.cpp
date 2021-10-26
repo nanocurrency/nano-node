@@ -146,6 +146,7 @@ nano::error nano::logging::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("ledger_duplicate", ledger_duplicate_logging_value, "Log when a duplicate block is attempted inserted into the ledger.\ntype:bool");
 	toml.put ("ledger_rollback", election_fork_tally_logging_value, "Log when a block is replaced in the ledger.\ntype:bool");
 	toml.put ("vote", vote_logging_value, "Vote logging. Enabling this option leads to a high volume.\nof log messages which may affect node performance.\ntype:bool");
+	toml.put ("rep_crawler", rep_crawler_logging_value, "Rep crawler logging. Enabling this option leads to a high volume.\nof log messages which may affect node performance.\ntype:bool");
 	toml.put ("election_expiration", election_expiration_tally_logging_value, "Log election tally on expiration.\ntype:bool");
 	toml.put ("election_fork", election_fork_tally_logging_value, "Log election tally when more than one block is seen.\ntype:bool");
 	toml.put ("network", network_logging_value, "Log network related messages.\ntype:bool");
@@ -182,6 +183,7 @@ nano::error nano::logging::deserialize_toml (nano::tomlconfig & toml)
 	toml.get<bool> ("ledger_duplicate", ledger_duplicate_logging_value);
 	toml.get<bool> ("ledger_rollback", ledger_rollback_logging_value);
 	toml.get<bool> ("vote", vote_logging_value);
+	toml.get<bool> ("rep_crawler", rep_crawler_logging_value);
 	toml.get<bool> ("election_expiration", election_expiration_tally_logging_value);
 	toml.get<bool> ("election_fork", election_fork_tally_logging_value);
 	toml.get<bool> ("network", network_logging_value);
@@ -220,6 +222,7 @@ nano::error nano::logging::serialize_json (nano::jsonconfig & json) const
 	json.put ("ledger", ledger_logging_value);
 	json.put ("ledger_duplicate", ledger_duplicate_logging_value);
 	json.put ("vote", vote_logging_value);
+	json.put ("rep_crawler", rep_crawler_logging_value);
 	json.put ("network", network_logging_value);
 	json.put ("network_timeout", network_timeout_logging_value);
 	json.put ("network_message", network_message_logging_value);
@@ -276,6 +279,7 @@ nano::error nano::logging::deserialize_json (bool & upgraded_a, nano::jsonconfig
 	json.get<bool> ("ledger", ledger_logging_value);
 	json.get<bool> ("ledger_duplicate", ledger_duplicate_logging_value);
 	json.get<bool> ("vote", vote_logging_value);
+	json.get<bool> ("rep_crawler", rep_crawler_logging_value);
 	json.get<bool> ("network", network_logging_value);
 	json.get<bool> ("network_timeout", network_timeout_logging_value);
 	json.get<bool> ("network_message", network_message_logging_value);
@@ -319,6 +323,11 @@ bool nano::logging::ledger_rollback_logging () const
 bool nano::logging::vote_logging () const
 {
 	return vote_logging_value;
+}
+
+bool nano::logging::rep_crawler_logging () const
+{
+	return rep_crawler_logging_value;
 }
 
 bool nano::logging::election_expiration_tally_logging () const

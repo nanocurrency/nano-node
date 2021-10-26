@@ -213,6 +213,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.logging.active_update_value, defaults.node.logging.active_update_value);
 	ASSERT_EQ (conf.node.logging.upnp_details_logging_value, defaults.node.logging.upnp_details_logging_value);
 	ASSERT_EQ (conf.node.logging.vote_logging_value, defaults.node.logging.vote_logging_value);
+	ASSERT_EQ (conf.node.logging.rep_crawler_logging_value, defaults.node.logging.rep_crawler_logging_value);
 	ASSERT_EQ (conf.node.logging.work_generation_time_value, defaults.node.logging.work_generation_time_value);
 
 	ASSERT_EQ (conf.node.websocket_config.enabled, defaults.node.websocket_config.enabled);
@@ -479,6 +480,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	active_update = true
 	upnp_details = true
 	vote = true
+	rep_crawler = true
 	work_generation_time = false
 
 	[node.statistics.log]
@@ -616,6 +618,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.logging.active_update_value, defaults.node.logging.active_update_value);
 	ASSERT_NE (conf.node.logging.upnp_details_logging_value, defaults.node.logging.upnp_details_logging_value);
 	ASSERT_NE (conf.node.logging.vote_logging_value, defaults.node.logging.vote_logging_value);
+	ASSERT_NE (conf.node.logging.rep_crawler_logging_value, defaults.node.logging.rep_crawler_logging_value);
 	ASSERT_NE (conf.node.logging.work_generation_time_value, defaults.node.logging.work_generation_time_value);
 
 	ASSERT_NE (conf.node.websocket_config.enabled, defaults.node.websocket_config.enabled);
