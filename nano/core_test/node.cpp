@@ -3159,7 +3159,10 @@ TEST (node, epoch_conflict_confirm)
 	}
 }
 
-TEST (node, fork_invalid_block_signature)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3526
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3527
+TEST (node, DISABLED_fork_invalid_block_signature)
 {
 	nano::system system;
 	nano::node_flags node_flags;

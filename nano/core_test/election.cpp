@@ -176,7 +176,10 @@ TEST (election, quorum_minimum_confirm_fail)
 
 namespace nano
 {
-TEST (election, quorum_minimum_update_weight_before_quorum_checks)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3526
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3528
+TEST (election, DISABLED_quorum_minimum_update_weight_before_quorum_checks)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
