@@ -113,6 +113,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation), "Mode controlling frontier confirmation rate.\ntype:string,{auto,always,disabled}");
 	toml.put ("max_queued_requests", max_queued_requests, "Limit for number of queued confirmation requests for one channel, after which new requests are dropped until the queue drops below this value.\ntype:uint32");
 	toml.put ("confirm_req_batches_max", confirm_req_batches_max, "Limit for the number of confirmation requests for one channel per request attempt\ntype:uint32");
+	toml.put ("rep_crawler_weight_minimum", rep_crawler_weight_minimum.to_string_dec (), "Rep crawler minimum weight, if this is less than minimum principal weight then this is taken as the minimum weight a rep must have to be tracked. If you want to track all reps set this to 0. If you do not want this to influence anything then set it to max value. This is only useful for debugging or for people who really know what they are doing.\ntype:string,amount,raw");
 
 	auto work_peers_l (toml.create_array ("work_peers", "A list of \"address:port\" entries to identify work peers."));
 	for (auto i (work_peers.begin ()), n (work_peers.end ()); i != n; ++i)
@@ -356,6 +357,16 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<uint32_t> ("max_queued_requests", max_queued_requests);
 		toml.get<uint32_t> ("confirm_req_batches_max", confirm_req_batches_max);
 
+		auto rep_crawler_weight_minimum_l (rep_crawler_weight_minimum.to_string_dec ());
+		if (toml.has_key ("rep_crawler_weight_minimum"))
+		{
+			rep_crawler_weight_minimum_l = toml.get<std::string> ("rep_crawler_weight_minimum");
+		}
+		if (rep_crawler_weight_minimum.decode_dec (rep_crawler_weight_minimum_l))
+		{
+			toml.get_error ().set ("rep_crawler_weight_minimum contains an invalid decimal amount");
+		}
+
 		if (toml.has_key ("frontiers_confirmation"))
 		{
 			auto frontiers_confirmation_l (toml.get<std::string> ("frontiers_confirmation"));
@@ -491,6 +502,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("external_port", external_port);
 	json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 	json.put ("use_memory_pools", use_memory_pools);
+	json.put ("rep_crawler_weight_minimum", online_weight_minimum.to_string_dec ());
 	nano::jsonconfig websocket_l;
 	websocket_config.serialize_json (websocket_l);
 	json.put_child ("websocket", websocket_l);
@@ -611,6 +623,12 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		if (online_weight_minimum.decode_dec (online_weight_minimum_l))
 		{
 			json.get_error ().set ("online_weight_minimum contains an invalid decimal amount");
+		}
+
+		auto rep_crawler_weight_minimum_l (json.get<std::string> ("rep_crawler_weight_minimum"));
+		if (rep_crawler_weight_minimum.decode_dec (rep_crawler_weight_minimum_l))
+		{
+			json.get_error ().set ("rep_crawler_weight_minimum contains an invalid decimal amount");
 		}
 
 		auto vote_minimum_l (json.get<std::string> ("vote_minimum"));

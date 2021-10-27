@@ -33,7 +33,9 @@ void nano::rep_crawler::validate ()
 		responses_l.swap (responses);
 	}
 
-	auto minimum = node.minimum_principal_weight ();
+	// normally the rep_crawler only tracks principal reps but it can be made to track
+	// reps with less weight by setting rep_crawler_weight_minimum to a low value
+	auto minimum = std::min (node.minimum_principal_weight (), node.config.rep_crawler_weight_minimum.number ());
 
 	for (auto const & i : responses_l)
 	{
