@@ -12,7 +12,7 @@ TEST (vote_processor, codes)
 	nano::system system (1);
 	auto & node (*system.nodes[0]);
 	nano::keypair key;
-	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash>{ nano::dev::genesis->hash () }));
+	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_min * 1, std::vector<nano::block_hash>{ nano::dev::genesis->hash () }));
 	auto vote_invalid = std::make_shared<nano::vote> (*vote);
 	vote_invalid->signature.bytes[0] ^= 1;
 	auto channel (std::make_shared<nano::transport::channel_loopback> (node));
@@ -49,7 +49,7 @@ TEST (vote_processor, flush)
 	auto channel (std::make_shared<nano::transport::channel_loopback> (node));
 	for (unsigned i = 0; i < 2000; ++i)
 	{
-		auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 1 + i, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
+		auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * (1 + i), std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
 		node.vote_processor.vote (vote, channel);
 	}
 	node.vote_processor.flush ();
@@ -61,7 +61,7 @@ TEST (vote_processor, invalid_signature)
 	nano::system system{ 1 };
 	auto & node = *system.nodes[0];
 	nano::keypair key;
-	auto vote = std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
+	auto vote = std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_min * 1, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
 	auto vote_invalid = std::make_shared<nano::vote> (*vote);
 	vote_invalid->signature.bytes[0] ^= 1;
 	auto channel = std::make_shared<nano::transport::channel_loopback> (node);
@@ -85,7 +85,7 @@ TEST (vote_processor, no_capacity)
 	node_flags.vote_processor_capacity = 0;
 	auto & node (*system.add_node (node_flags));
 	nano::keypair key;
-	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash>{ nano::dev::genesis->hash () }));
+	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_min * 1, std::vector<nano::block_hash>{ nano::dev::genesis->hash () }));
 	auto channel (std::make_shared<nano::transport::channel_loopback> (node));
 	ASSERT_TRUE (node.vote_processor.vote (vote, channel));
 }
@@ -97,7 +97,7 @@ TEST (vote_processor, overflow)
 	node_flags.vote_processor_capacity = 1;
 	auto & node (*system.add_node (node_flags));
 	nano::keypair key;
-	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash>{ nano::dev::genesis->hash () }));
+	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_min * 1, std::vector<nano::block_hash>{ nano::dev::genesis->hash () }));
 	auto channel (std::make_shared<nano::transport::channel_loopback> (node));
 
 	// No way to lock the processor, but queueing votes in quick succession must result in overflow
@@ -195,7 +195,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_TRUE (node.wallets.reps ().exists (nano::dev::genesis_key.pub));
 	ASSERT_FALSE (node.wallets.reps ().have_half_rep ());
 	// Process a vote
-	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch (), std::vector<nano::block_hash>{ send->hash () });
+	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch () & nano::vote::timestamp_max, std::vector<nano::block_hash>{ send->hash () });
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote));
 	// Make sure the vote was processed
 	auto election (node.active.election (send->qualified_root ()));
@@ -228,7 +228,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_EQ (node.config.vote_minimum, node.weight (nano::dev::genesis_key.pub));
 	node.block_confirm (send2);
 	// Process a vote
-	auto vote2 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch (), std::vector<nano::block_hash>{ send2->hash () });
+	auto vote2 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch () * nano::vote::timestamp_max, std::vector<nano::block_hash>{ send2->hash () });
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote2));
 	// Make sure the vote was processed
 	auto election2 (node.active.election (send2->qualified_root ()));
@@ -262,7 +262,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_TRUE (node.wallets.reps ().exists (nano::dev::genesis_key.pub));
 	ASSERT_TRUE (node.wallets.reps ().have_half_rep ());
 	// Process a vote
-	auto vote3 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch (), std::vector<nano::block_hash>{ open->hash () });
+	auto vote3 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch () * nano::vote::timestamp_max, std::vector<nano::block_hash>{ open->hash () });
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote3));
 	// Make sure the vote was processed
 	auto election3 (node.active.election (open->qualified_root ()));
