@@ -52,13 +52,11 @@ TEST (vote_processor, flush)
 {
 	nano::system system (1);
 	auto & node (*system.nodes[0]);
-	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 1, std::vector<nano::block_hash>{ nano::dev::genesis->hash () }));
 	auto channel (std::make_shared<nano::transport::channel_loopback> (node));
 	for (unsigned i = 0; i < 2000; ++i)
 	{
-		auto new_vote (std::make_shared<nano::vote> (*vote));
-		node.vote_processor.vote (new_vote, channel);
-		++vote->timestamp; // invalidates votes without signing again
+		auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 1 + i, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
+		node.vote_processor.vote (vote, channel);
 	}
 	node.vote_processor.flush ();
 	ASSERT_TRUE (node.vote_processor.empty ());
