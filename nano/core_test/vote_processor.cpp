@@ -37,12 +37,6 @@ TEST (vote_processor, codes)
 	// Invalid takes precedence
 	ASSERT_EQ (nano::vote_code::invalid, node.vote_processor.vote_blocking (vote_invalid, channel));
 
-	// A higher timestamp is not a replay
-	++vote->timestamp;
-	ASSERT_EQ (nano::vote_code::invalid, node.vote_processor.vote_blocking (vote, channel));
-	vote->signature = nano::sign_message (key.prv, key.pub, vote->hash ());
-	ASSERT_EQ (nano::vote_code::vote, node.vote_processor.vote_blocking (vote, channel));
-
 	// Once the election is removed (confirmed / dropped) the vote is again indeterminate
 	node.active.erase (*nano::dev::genesis);
 	ASSERT_EQ (nano::vote_code::indeterminate, node.vote_processor.vote_blocking (vote, channel));
