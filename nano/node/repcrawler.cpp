@@ -60,20 +60,26 @@ void nano::rep_crawler::validate ()
 			continue;
 		}
 
-		auto updated_or_inserted = false;
+		// temporary data used for logging after dropping the lock
+		auto inserted = false;
+		auto updated = false;
+		std::shared_ptr<nano::transport::channel> prev_channel;
+
 		nano::unique_lock<nano::mutex> lock (probable_reps_mutex);
+
 		auto existing (probable_reps.find (vote->account));
 		if (existing != probable_reps.end ())
 		{
-			probable_reps.modify (existing, [rep_weight, &updated_or_inserted, &vote, &channel] (nano::representative & info) {
+			probable_reps.modify (existing, [rep_weight, &updated, &vote, &channel, &prev_channel] (nano::representative & info) {
 				info.last_response = std::chrono::steady_clock::now ();
 
 				// Update if representative channel was changed
 				if (info.channel->get_endpoint () != channel->get_endpoint ())
 				{
 					debug_assert (info.account == vote->account);
-					updated_or_inserted = true;
+					updated = true;
 					info.weight = rep_weight;
+					prev_channel = info.channel;
 					info.channel = channel;
 				}
 			});
@@ -81,12 +87,19 @@ void nano::rep_crawler::validate ()
 		else
 		{
 			probable_reps.emplace (nano::representative (vote->account, rep_weight, channel));
-			updated_or_inserted = true;
+			inserted = true;
 		}
+
 		lock.unlock ();
-		if (updated_or_inserted)
+
+		if (inserted)
 		{
-			node.logger.try_log (boost::str (boost::format ("Found a representative at %1%") % channel->to_string ()));
+			node.logger.try_log (boost::str (boost::format ("Found representative %1% at %2%") % vote->account.to_account () % channel->to_string ()));
+		}
+
+		if (updated)
+		{
+			node.logger.try_log (boost::str (boost::format ("Updated representative %1% at %2% (was at: %3%)") % vote->account.to_account () % channel->to_string () % prev_channel->to_string ()));
 		}
 	}
 }
