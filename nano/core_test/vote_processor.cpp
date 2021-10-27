@@ -203,7 +203,7 @@ TEST (vote_processor, no_broadcast_local)
 	auto votes (election->votes ());
 	auto existing (votes.find (nano::dev::genesis_key.pub));
 	ASSERT_NE (votes.end (), existing);
-	ASSERT_EQ (vote->timestamp, existing->second.timestamp);
+	ASSERT_EQ (vote->timestamp (), existing->second.timestamp);
 	// Ensure the vote, from a local representative, was not broadcast on processing - it should be flooded on generation instead
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
@@ -236,7 +236,7 @@ TEST (vote_processor, no_broadcast_local)
 	auto votes2 (election2->votes ());
 	auto existing2 (votes2.find (nano::dev::genesis_key.pub));
 	ASSERT_NE (votes2.end (), existing2);
-	ASSERT_EQ (vote2->timestamp, existing2->second.timestamp);
+	ASSERT_EQ (vote2->timestamp (), existing2->second.timestamp);
 	// Ensure the vote was broadcast
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
@@ -270,7 +270,7 @@ TEST (vote_processor, no_broadcast_local)
 	auto votes3 (election3->votes ());
 	auto existing3 (votes3.find (nano::dev::genesis_key.pub));
 	ASSERT_NE (votes3.end (), existing3);
-	ASSERT_EQ (vote3->timestamp, existing3->second.timestamp);
+	ASSERT_EQ (vote3->timestamp (), existing3->second.timestamp);
 	// Ensure the vote wass not broadcasst
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	ASSERT_EQ (3, node.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));

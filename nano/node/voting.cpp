@@ -75,11 +75,11 @@ void nano::local_vote_history::add (nano::root const & root_a, nano::block_hash 
 	auto range (history_by_root.equal_range (root_a));
 	for (auto i (range.first); i != range.second;)
 	{
-		if (i->hash != hash_a || (vote_a->account == i->vote->account && i->vote->timestamp <= vote_a->timestamp))
+		if (i->hash != hash_a || (vote_a->account == i->vote->account && i->vote->timestamp () <= vote_a->timestamp ()))
 		{
 			i = history_by_root.erase (i);
 		}
-		else if (vote_a->account == i->vote->account && i->vote->timestamp > vote_a->timestamp)
+		else if (vote_a->account == i->vote->account && i->vote->timestamp () > vote_a->timestamp ())
 		{
 			add_vote = false;
 			++i;
@@ -123,7 +123,7 @@ std::vector<std::shared_ptr<nano::vote>> nano::local_vote_history::votes (nano::
 	auto range (history.get<tag_root> ().equal_range (root_a));
 	// clang-format off
 	nano::transform_if (range.first, range.second, std::back_inserter (result),
-		[&hash_a, is_final_a](auto const & entry) { return entry.hash == hash_a && (!is_final_a || entry.vote->timestamp == std::numeric_limits<uint64_t>::max ()); },
+		[&hash_a, is_final_a](auto const & entry) { return entry.hash == hash_a && (!is_final_a || entry.vote->timestamp () == std::numeric_limits<uint64_t>::max ()); },
 		[](auto const & entry) { return entry.vote; });
 	// clang-format on
 	return result;
