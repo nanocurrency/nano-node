@@ -53,7 +53,7 @@ void nano::rep_crawler::validate ()
 		}
 
 		nano::uint128_t rep_weight = node.ledger.weight (vote->account);
-		if (rep_weight <= minimum)
+		if (rep_weight < minimum)
 		{
 			if (node.config.logging.rep_crawler_logging ())
 			{
