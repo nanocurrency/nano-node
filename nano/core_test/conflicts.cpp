@@ -49,6 +49,9 @@ TEST (conflicts, add_existing)
 	ASSERT_NE (votes.end (), votes.find (key2.pub));
 }
 
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled:
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3535
 TEST (conflicts, add_two)
 {
 	nano::system system (1);
