@@ -2737,7 +2737,7 @@ TEST (node, local_votes_cache)
 	ASSERT_FALSE (node.history.votes (send3->root (), send3->hash ()).empty ());
 }
 
-TEST (node, local_votes_cache_batch)
+TEST (node, DISABLED_local_votes_cache_batch)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
