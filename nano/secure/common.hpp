@@ -267,9 +267,11 @@ public:
 	uint64_t timestamp () const;
 	static uint64_t constexpr timestamp_max = { 0xffff'ffff'ffff'ffffULL };
 	static uint64_t constexpr timestamp_min = { 0x0000'0000'0000'0001ULL };
+
 private:
 	// Vote timestamp
 	uint64_t timestamp_m;
+
 public:
 	// The blocks, or block hashes, that this vote is for
 	std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>> blocks;
