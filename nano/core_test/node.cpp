@@ -2737,6 +2737,9 @@ TEST (node, local_votes_cache)
 	ASSERT_FALSE (node.history.votes (send3->root (), send3->hash ()).empty ());
 }
 
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3532
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3481
 TEST (node, DISABLED_local_votes_cache_batch)
 {
 	nano::system system;
