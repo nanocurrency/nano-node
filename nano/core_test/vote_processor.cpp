@@ -174,7 +174,7 @@ TEST (vote_processor, weights)
 }
 }
 
-TEST (vote_processor, no_broadcast_local)
+TEST (vote_processor, DISABLED_no_broadcast_local)
 {
 	nano::system system;
 	nano::node_flags flags;
