@@ -455,7 +455,10 @@ TEST (bootstrap_processor, DISABLED_push_diamond_pruning)
 	node1->stop ();
 }
 
-TEST (bootstrap_processor, push_one)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3532
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3533
+TEST (bootstrap_processor, DISABLED_push_one)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
