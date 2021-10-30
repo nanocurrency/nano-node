@@ -128,7 +128,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 		if (config.websocket_config.enabled)
 		{
 			auto endpoint_l (nano::tcp_endpoint (boost::asio::ip::make_address_v6 (config.websocket_config.address), config.websocket_config.port));
-			websocket_server = std::make_shared<nano::websocket::listener> (logger, wallets, io_ctx, endpoint_l);
+			websocket_server = std::make_shared<nano::websocket::listener> (logger, *this, wallets, io_ctx, endpoint_l);
 			this->websocket_server->run ();
 		}
 
@@ -235,7 +235,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 						}
 					}
 
-					this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a, votes_a);
+					this->websocket_server->broadcast_confirmation (block_a, *this, account_a, amount_a, subtype, status_a, votes_a);
 				}
 			});
 

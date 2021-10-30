@@ -31,6 +31,7 @@ using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost
 
 namespace nano
 {
+class node;
 class wallets;
 class logger_mt;
 class vote;
@@ -90,7 +91,7 @@ namespace websocket
 	class message_builder final
 	{
 	public:
-		message block_confirmed (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a, nano::websocket::confirmation_options const & options_a);
+		message block_confirmed (std::shared_ptr<nano::block> const & block_a, nano::node &, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a, nano::websocket::confirmation_options const & options_a);
 		message stopped_election (nano::block_hash const & hash_a);
 		message vote_received (std::shared_ptr<nano::vote> const & vote_a, nano::vote_code code_a);
 		message work_generation (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const work_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool const completed_a = true, bool const cancelled_a = false);
@@ -286,7 +287,7 @@ namespace websocket
 	class listener final : public std::enable_shared_from_this<listener>
 	{
 	public:
-		listener (nano::logger_mt & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a);
+		listener (nano::logger_mt & logger_a, nano::node & node_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a);
 
 		/** Start accepting connections */
 		void run ();
@@ -297,7 +298,7 @@ namespace websocket
 		void stop ();
 
 		/** Broadcast block confirmation. The content of the message depends on subscription options (such as "include_block") */
-		void broadcast_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string const & subtype, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a);
+		void broadcast_confirmation (std::shared_ptr<nano::block> const & block_a, nano::node & node_a, nano::account const & account_a, nano::amount const & amount_a, std::string const & subtype, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a);
 
 		/** Broadcast \p message to all session subscribing to the message topic. */
 		void broadcast (nano::websocket::message message_a);
@@ -336,6 +337,7 @@ namespace websocket
 		void decrease_subscriber_count (nano::websocket::topic const & topic_a);
 
 		nano::logger_mt & logger;
+		nano::node & node;
 		nano::wallets & wallets;
 		boost::asio::ip::tcp::acceptor acceptor;
 		socket_type socket;
