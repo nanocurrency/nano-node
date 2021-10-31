@@ -531,7 +531,7 @@ TEST (websocket, vote_options_type)
 
 	// Custom made votes for simplicity
 	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, nano::dev::genesis));
-	nano::websocket::message_builder builder;
+	nano::websocket::message_builder builder{ node1->ledger };
 	auto msg (builder.vote_received (vote, nano::vote_code::replay));
 	node1->websocket_server->broadcast (msg);
 

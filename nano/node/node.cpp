@@ -235,14 +235,14 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 						}
 					}
 
-					this->websocket_server->broadcast_confirmation (block_a, *this, account_a, amount_a, subtype, status_a, votes_a);
+					this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a, votes_a);
 				}
 			});
 
 			observers.active_stopped.add ([this] (nano::block_hash const & hash_a) {
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::stopped_election))
 				{
-					nano::websocket::message_builder builder;
+					nano::websocket::message_builder builder{ ledger };
 					this->websocket_server->broadcast (builder.stopped_election (hash_a));
 				}
 			});
@@ -250,7 +250,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			observers.telemetry.add ([this] (nano::telemetry_data const & telemetry_data, nano::endpoint const & endpoint) {
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::telemetry))
 				{
-					nano::websocket::message_builder builder;
+					nano::websocket::message_builder builder{ ledger };
 					this->websocket_server->broadcast (builder.telemetry_received (telemetry_data, endpoint));
 				}
 			});
@@ -302,7 +302,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			observers.vote.add ([this] (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, nano::vote_code code_a) {
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::vote))
 				{
-					nano::websocket::message_builder builder;
+					nano::websocket::message_builder builder{ ledger };
 					auto msg (builder.vote_received (vote_a, code_a));
 					this->websocket_server->broadcast (msg);
 				}

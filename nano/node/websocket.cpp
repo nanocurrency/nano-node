@@ -607,9 +607,9 @@ void nano::websocket::listener::on_accept (boost::system::error_code ec)
 	}
 }
 
-void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::block> const & block_a, nano::node & node_a, nano::account const & account_a, nano::amount const & amount_a, std::string const & subtype, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a)
+void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string const & subtype, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a)
 {
-	nano::websocket::message_builder builder;
+	nano::websocket::message_builder builder{ node.ledger };
 
 	nano::lock_guard<nano::mutex> lk (sessions_mutex);
 	boost::optional<nano::websocket::message> msg_with_block;
@@ -632,11 +632,11 @@ void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::bl
 
 				if (include_block && !msg_with_block)
 				{
-					msg_with_block = builder.block_confirmed (block_a, node_a, account_a, amount_a, subtype, include_block, election_status_a, election_votes_a, *conf_options);
+					msg_with_block = builder.block_confirmed (block_a, account_a, amount_a, subtype, include_block, election_status_a, election_votes_a, *conf_options);
 				}
 				else if (!include_block && !msg_without_block)
 				{
-					msg_without_block = builder.block_confirmed (block_a, node_a, account_a, amount_a, subtype, include_block, election_status_a, election_votes_a, *conf_options);
+					msg_without_block = builder.block_confirmed (block_a, account_a, amount_a, subtype, include_block, election_status_a, election_votes_a, *conf_options);
 				}
 				else
 				{
@@ -674,6 +674,11 @@ void nano::websocket::listener::decrease_subscriber_count (nano::websocket::topi
 	count -= 1;
 }
 
+nano::websocket::message_builder::message_builder (nano::ledger & ledger) :
+	ledger{ ledger }
+{
+}
+
 nano::websocket::message nano::websocket::message_builder::stopped_election (nano::block_hash const & hash_a)
 {
 	nano::websocket::message message_l (nano::websocket::topic::stopped_election);
@@ -686,7 +691,7 @@ nano::websocket::message nano::websocket::message_builder::stopped_election (nan
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> const & block_a, nano::node & node_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block_a, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a, nano::websocket::confirmation_options const & options_a)
+nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block_a, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a, nano::websocket::confirmation_options const & options_a)
 {
 	nano::websocket::message message_l (nano::websocket::topic::confirmation);
 	set_common_fields (message_l);
@@ -745,7 +750,7 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 	{
 		boost::property_tree::ptree block_node_l;
 		block_a->serialize_json (block_node_l);
-		node_a.ledger.decorate_block_json (node_a.store.tx_begin_read (), *block_a, block_node_l);
+		ledger.decorate_block_json (ledger.store.tx_begin_read (), *block_a, block_node_l);
 		if (!subtype.empty ())
 		{
 			block_node_l.add ("subtype", subtype);
