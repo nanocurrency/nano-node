@@ -62,6 +62,7 @@ public:
 	bool could_fit (nano::transaction const &, nano::block const &) const;
 	bool dependents_confirmed (nano::transaction const &, nano::block const &) const;
 	bool is_epoch_link (nano::link const &) const;
+	void decorate_block_json (nano::transaction const & transaction, nano::block const & block, boost::property_tree::ptree & json) const;
 	std::array<nano::block_hash, 2> dependent_blocks (nano::transaction const &, nano::block const &) const;
 	nano::account const & epoch_signer (nano::link const &) const;
 	nano::link const & epoch_link (nano::epoch) const;

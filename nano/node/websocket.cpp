@@ -745,21 +745,10 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 	{
 		boost::property_tree::ptree block_node_l;
 		block_a->serialize_json (block_node_l);
+		node_a.ledger.decorate_block_json (node_a.store.tx_begin_read (), *block_a, block_node_l);
 		if (!subtype.empty ())
 		{
 			block_node_l.add ("subtype", subtype);
-
-			// source_account lookup
-			if (subtype.compare ("receive") == 0 || subtype.compare ("open") == 0)
-			{
-				auto transaction (node_a.store.tx_begin_read ());
-				auto source_account (node_a.ledger.account (transaction, block_a->link ().as_block_hash ()));
-				block_node_l.add ("source_account", source_account.to_account ());
-			}
-			else
-			{
-				block_node_l.add ("source_account", "0");
-			}
 		}
 		message_node_l.add_child ("block", block_node_l);
 	}

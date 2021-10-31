@@ -8,6 +8,8 @@
 
 #include <crypto/cryptopp/words.h>
 
+#include <boost/property_tree/ptree.hpp>
+
 namespace
 {
 /**
@@ -1184,6 +1186,31 @@ bool nano::ledger::dependents_confirmed (nano::transaction const & transaction_a
 bool nano::ledger::is_epoch_link (nano::link const & link_a) const
 {
 	return constants.epochs.is_epoch_link (link_a);
+}
+
+void nano::ledger::decorate_block_json (nano::transaction const & transaction, nano::block const & block, boost::property_tree::ptree & json) const
+{
+	debug_assert (block.has_sideband ());
+	std::string account_l;
+	if (block.sideband ().details.is_send)
+	{
+		auto destination = block.type () == nano::block_type::state ? block.link () : block.destination ();
+		account_l = block.link ().to_account ();
+	}
+	else if (block.sideband ().details.is_receive)
+	{
+		auto link = block.type () == nano::block_type::state ? block.link () : block.source ();
+		debug_assert (!link.is_zero ());
+		account_l = account (transaction, link.as_block_hash ()).to_account ();
+	}
+	else
+	{
+		account_l = "";
+	}
+	if (!account_l.empty ())
+	{
+		json.put ("linked_account", account_l);
+	}
 }
 
 class dependent_block_visitor : public nano::block_visitor
