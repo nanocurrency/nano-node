@@ -1,6 +1,7 @@
 #include <nano/boost/asio/bind_executor.hpp>
 #include <nano/boost/asio/dispatch.hpp>
 #include <nano/boost/asio/strand.hpp>
+#include <nano/lib/tlsconfig.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/node/wallet.hpp>
@@ -232,10 +233,19 @@ bool nano::websocket::vote_options::should_filter (nano::websocket::message cons
 	return should_filter_l;
 }
 
-nano::websocket::session::session (nano::websocket::listener & listener_a, socket_type socket_a) :
-	ws_listener (listener_a), ws (std::move (socket_a)), strand (ws.get_executor ())
+#ifdef NANO_SECURE_RPC
+
+nano::websocket::session::session (nano::websocket::listener & listener_a, socket_type socket_a, boost::asio::ssl::context & ctx_a) :
+	ws_listener (listener_a), ws (std::move (socket_a), ctx_a)
 {
-	ws.text (true);
+	ws_listener.get_logger ().try_log ("Websocket: secure session started");
+}
+
+#endif
+
+nano::websocket::session::session (nano::websocket::listener & listener_a, socket_type socket_a) :
+	ws_listener (listener_a), ws (std::move (socket_a))
+{
 	ws_listener.get_logger ().try_log ("Websocket: session started");
 }
 
@@ -253,7 +263,7 @@ nano::websocket::session::~session ()
 void nano::websocket::session::handshake ()
 {
 	auto this_l (shared_from_this ());
-	ws.async_accept ([this_l] (boost::system::error_code const & ec) {
+	ws.handshake ([this_l] (boost::system::error_code const & ec) {
 		if (!ec)
 		{
 			// Start reading incoming messages
@@ -271,7 +281,7 @@ void nano::websocket::session::close ()
 	ws_listener.get_logger ().try_log ("Websocket: session closing");
 
 	auto this_l (shared_from_this ());
-	boost::asio::dispatch (strand,
+	boost::asio::dispatch (ws.get_strand (),
 	[this_l] () {
 		boost::beast::websocket::close_reason reason;
 		reason.code = boost::beast::websocket::close_code::normal;
@@ -289,7 +299,7 @@ void nano::websocket::session::write (nano::websocket::message message_a)
 	{
 		lk.unlock ();
 		auto this_l (shared_from_this ());
-		boost::asio::post (strand,
+		boost::asio::post (ws.get_strand (),
 		[message_a, this_l] () {
 			bool write_in_progress = !this_l->send_queue.empty ();
 			this_l->send_queue.emplace_back (message_a);
@@ -307,7 +317,6 @@ void nano::websocket::session::write_queued_messages ()
 	auto this_l (shared_from_this ());
 
 	ws.async_write (nano::shared_const_buffer (msg),
-	boost::asio::bind_executor (strand,
 	[this_l] (boost::system::error_code ec, std::size_t bytes_transferred) {
 		this_l->send_queue.pop_front ();
 		if (!ec)
@@ -317,16 +326,15 @@ void nano::websocket::session::write_queued_messages ()
 				this_l->write_queued_messages ();
 			}
 		}
-	}));
+	});
 }
 
 void nano::websocket::session::read ()
 {
 	auto this_l (shared_from_this ());
 
-	boost::asio::post (strand, [this_l] () {
+	boost::asio::post (ws.get_strand (), [this_l] () {
 		this_l->ws.async_read (this_l->read_buffer,
-		boost::asio::bind_executor (this_l->strand,
 		[this_l] (boost::system::error_code ec, std::size_t bytes_transferred) {
 			if (!ec)
 			{
@@ -353,7 +361,7 @@ void nano::websocket::session::read ()
 			{
 				this_l->ws_listener.get_logger ().try_log ("Websocket: read failed: ", ec.message ());
 			}
-		}));
+		});
 	});
 }
 
@@ -541,7 +549,8 @@ void nano::websocket::listener::stop ()
 	sessions.clear ();
 }
 
-nano::websocket::listener::listener (nano::logger_mt & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a) :
+nano::websocket::listener::listener (std::shared_ptr<nano::tls_config> const & tls_config_a, nano::logger_mt & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a) :
+	tls_config (tls_config_a),
 	logger (logger_a),
 	wallets (wallets_a),
 	acceptor (io_ctx_a),
@@ -590,7 +599,18 @@ void nano::websocket::listener::on_accept (boost::system::error_code ec)
 	else
 	{
 		// Create the session and initiate websocket handshake
-		auto session (std::make_shared<nano::websocket::session> (*this, std::move (socket)));
+		std::shared_ptr<nano::websocket::session> session;
+		if (tls_config && tls_config->enable_wss)
+		{
+#ifdef NANO_SECURE_RPC
+			session = std::make_shared<nano::websocket::session> (*this, std::move (socket), tls_config->ssl_context);
+#endif
+		}
+		else
+		{
+			session = std::make_shared<nano::websocket::session> (*this, std::move (socket));
+		}
+
 		sessions_mutex.lock ();
 		sessions.push_back (session);
 		// Clean up expired sessions
