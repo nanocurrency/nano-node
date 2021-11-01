@@ -242,7 +242,10 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 		// Next-block activations are only done for blocks with previously active elections
 		bool const was_active{ *election_status_type == nano::election_status_type::active_confirmed_quorum || *election_status_type == nano::election_status_type::active_confirmation_height };
 
-		if (cemented_bootstrap_count_reached && was_active)
+		// Activations are only done if there is not a large amount of active elections, ensuring frontier confirmation takes place
+		auto const low_active_elections = [this] { return this->size () < nano::active_transactions::max_active_elections_frontier_insertion / 2; };
+
+		if (cemented_bootstrap_count_reached && was_active && low_active_elections ())
 		{
 			// Start or vote for the next unconfirmed block
 			scheduler.activate (account, transaction);
