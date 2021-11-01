@@ -1,8 +1,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/portmapping.hpp>
 
-#include <miniupnp/miniupnpc/upnpcommands.h>
-#include <miniupnp/miniupnpc/upnperrors.h>
+#include <miniupnp/miniupnpc/include/upnpcommands.h>
+#include <miniupnp/miniupnpc/include/upnperrors.h>
 
 #include <boost/format.hpp>
 #include <boost/range/adaptor/filtered.hpp>
