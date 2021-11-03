@@ -345,6 +345,9 @@ public:
 		tcp_write_no_socket_drop,
 		tcp_excluded,
 		tcp_max_per_ip,
+		tcp_max_per_subnetwork,
+		tcp_silent_connection_drop,
+		tcp_io_timeout_drop,
 
 		// ipc
 		invocations,

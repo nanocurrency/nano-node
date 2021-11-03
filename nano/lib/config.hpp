@@ -160,6 +160,7 @@ public:
 		bootstrap_interval = std::chrono::seconds (15 * 60);
 		max_peers_per_ip = is_dev_network () ? 10 : 5;
 		max_peers_per_subnetwork = max_peers_per_ip * 4;
+		ipv6_subnetwork_prefix_for_limiting = 64; // Equivalent to network prefix /64.
 		peer_dump_interval = is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
 	}
 
@@ -190,10 +191,11 @@ public:
 	std::chrono::seconds idle_timeout;
 	std::chrono::seconds syn_cookie_cutoff;
 	std::chrono::seconds bootstrap_interval;
-	/** Maximum number of peers per IP */
+	/** Maximum number of peers per IP. It is also the max number of connections per IP */
 	size_t max_peers_per_ip;
 	/** Maximum number of peers per subnetwork */
 	size_t max_peers_per_subnetwork;
+	size_t ipv6_subnetwork_prefix_for_limiting;
 	std::chrono::seconds peer_dump_interval;
 
 	/** Returns the network this object contains values for */

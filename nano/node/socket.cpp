@@ -1,12 +1,19 @@
 #include <nano/boost/asio/bind_executor.hpp>
 #include <nano/boost/asio/dispatch.hpp>
+#include <nano/boost/asio/ip/address.hpp>
+#include <nano/boost/asio/ip/address_v6.hpp>
+#include <nano/boost/asio/ip/network_v6.hpp>
 #include <nano/boost/asio/read.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/socket.hpp>
+#include <nano/node/transport/transport.hpp>
 
 #include <boost/format.hpp>
 
+#include <cstdint>
+#include <iterator>
 #include <limits>
+#include <memory>
 
 nano::socket::socket (nano::node & node_a) :
 	strand{ node_a.io_ctx.get_executor () },
@@ -221,15 +228,78 @@ void nano::server_socket::close ()
 	boost::asio::dispatch (strand, boost::asio::bind_executor (strand, [this_l] () {
 		this_l->close_internal ();
 		this_l->acceptor.close ();
-		for (auto & connection_w : this_l->connections)
+		for (auto & address_connection_pair : this_l->connections_per_address)
 		{
-			if (auto connection_l = connection_w.lock ())
+			if (auto connection_l = address_connection_pair.second.lock ())
 			{
 				connection_l->close ();
 			}
 		}
-		this_l->connections.clear ();
+		this_l->connections_per_address.clear ();
 	}));
+}
+
+boost::asio::ip::network_v6 nano::socket_functions::get_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, size_t network_prefix)
+{
+	return boost::asio::ip::make_network_v6 (ip_address, network_prefix);
+}
+
+boost::asio::ip::address nano::socket_functions::first_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, size_t network_prefix)
+{
+	auto range = get_ipv6_subnet_address (ip_address, network_prefix).hosts ();
+	debug_assert (!range.empty ());
+	return *(range.begin ());
+}
+
+boost::asio::ip::address nano::socket_functions::last_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, size_t network_prefix)
+{
+	auto range = get_ipv6_subnet_address (ip_address, network_prefix).hosts ();
+	debug_assert (!range.empty ());
+	return *(--range.end ());
+}
+
+size_t nano::socket_functions::count_subnetwork_connections (
+nano::address_socket_mmap const & per_address_connections,
+boost::asio::ip::address_v6 const & remote_address,
+size_t network_prefix)
+{
+	auto range = get_ipv6_subnet_address (remote_address, network_prefix).hosts ();
+	if (range.empty ())
+	{
+		return 0;
+	}
+	auto const first_ip = first_ipv6_subnet_address (remote_address, network_prefix);
+	auto const last_ip = last_ipv6_subnet_address (remote_address, network_prefix);
+	auto const counted_connections = std::distance (per_address_connections.lower_bound (first_ip), per_address_connections.upper_bound (last_ip));
+	return counted_connections;
+}
+
+bool nano::server_socket::limit_reached_for_incoming_subnetwork_connections (std::shared_ptr<nano::socket> const & new_connection)
+{
+	debug_assert (strand.running_in_this_thread ());
+	if (node.flags.disable_max_peers_per_subnetwork)
+	{
+		// If the limit is disabled, then it is unreachable.
+		return false;
+	}
+	auto const counted_connections = socket_functions::count_subnetwork_connections (
+	connections_per_address,
+	nano::transport::mapped_from_v4_or_v6 (new_connection->remote.address ()),
+	node.network_params.network.ipv6_subnetwork_prefix_for_limiting);
+	return counted_connections >= node.network_params.network.max_peers_per_subnetwork;
+}
+
+bool nano::server_socket::limit_reached_for_incoming_ip_connections (std::shared_ptr<nano::socket> const & new_connection)
+{
+	debug_assert (strand.running_in_this_thread ());
+	if (node.flags.disable_max_peers_per_ip)
+	{
+		// If the limit is disabled, then it is unreachable.
+		return false;
+	}
+	auto const address_connections_range = connections_per_address.equal_range (new_connection->remote.address ());
+	auto const counted_connections = std::distance (address_connections_range.first, address_connections_range.second);
+	return counted_connections >= node.network_params.network.max_peers_per_ip;
 }
 
 void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nano::socket> const &, boost::system::error_code const &)> callback_a)
@@ -250,10 +320,37 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 		[this_l, new_connection, callback_a] (boost::system::error_code const & ec_a) {
 			this_l->evict_dead_connections ();
 
-			if (this_l->connections.size () >= this_l->max_inbound_connections)
+			if (this_l->connections_per_address.size () >= this_l->max_inbound_connections)
 			{
-				this_l->node.logger.always_log ("Network: max_inbound_connections reached, unable to open new connection");
+				this_l->node.logger.try_log ("Network: max_inbound_connections reached, unable to open new connection");
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
+				this_l->on_connection_requeue_delayed (callback_a);
+				return;
+			}
+
+			if (this_l->limit_reached_for_incoming_ip_connections (new_connection))
+			{
+				auto const remote_ip_address = new_connection->remote_endpoint ().address ();
+				auto const log_message = boost::str (
+				boost::format ("Network: max connections per IP (max_peers_per_ip) was reached for %1%, unable to open new connection")
+				% remote_ip_address.to_string ());
+				this_l->node.logger.try_log (log_message);
+				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::in);
+				this_l->on_connection_requeue_delayed (callback_a);
+				return;
+			}
+
+			if (this_l->limit_reached_for_incoming_subnetwork_connections (new_connection))
+			{
+				auto const remote_ip_address = new_connection->remote_endpoint ().address ();
+				debug_assert (remote_ip_address.is_v6 ());
+				auto const remote_subnet = socket_functions::get_ipv6_subnet_address (remote_ip_address.to_v6 (), this_l->node.network_params.network.max_peers_per_subnetwork);
+				auto const log_message = boost::str (
+				boost::format ("Network: max connections per subnetwork (max_peers_per_subnetwork) was reached for subnetwork %1% (remote IP: %2%), unable to open new connection")
+				% remote_subnet.canonical ().to_string ()
+				% remote_ip_address.to_string ());
+				this_l->node.logger.try_log (log_message);
+				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_subnetwork, nano::stat::dir::in);
 				this_l->on_connection_requeue_delayed (callback_a);
 				return;
 			}
@@ -265,7 +362,7 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 				new_connection->checkup ();
 				new_connection->start_timer (this_l->node.network_params.network.is_dev_network () ? std::chrono::seconds (2) : this_l->node.network_params.network.idle_timeout);
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
-				this_l->connections.push_back (new_connection);
+				this_l->connections_per_address.emplace (new_connection->remote.address (), new_connection);
 				if (callback_a (new_connection, ec_a))
 				{
 					this_l->on_connection (callback_a);
@@ -329,5 +426,13 @@ bool nano::server_socket::is_temporary_error (boost::system::error_code const ec
 void nano::server_socket::evict_dead_connections ()
 {
 	debug_assert (strand.running_in_this_thread ());
-	connections.erase (std::remove_if (connections.begin (), connections.end (), [] (auto & connection) { return connection.expired (); }), connections.end ());
+	for (auto it = connections_per_address.begin (); it != connections_per_address.end ();)
+	{
+		if (it->second.expired ())
+		{
+			it = connections_per_address.erase (it);
+			continue;
+		}
+		++it;
+	}
 }

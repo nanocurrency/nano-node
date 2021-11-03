@@ -2,6 +2,9 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/transport.hpp>
 
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/address_v4.hpp>
+#include <boost/asio/ip/address_v6.hpp>
 #include <boost/format.hpp>
 
 #include <numeric>
@@ -82,7 +85,7 @@ nano::tcp_endpoint nano::transport::map_endpoint_to_tcp (nano::endpoint const & 
 boost::asio::ip::address nano::transport::map_address_to_subnetwork (boost::asio::ip::address const & address_a)
 {
 	debug_assert (address_a.is_v6 ());
-	static short const ipv6_subnet_prefix_length = 32; // Limits for /32 IPv6 subnetwork
+	static short const ipv6_subnet_prefix_length = 32; // Equivalent to network prefix /32.
 	static short const ipv4_subnet_prefix_length = (128 - 32) + 24; // Limits for /24 IPv4 subnetwork
 	return address_a.to_v6 ().is_v4_mapped () ? boost::asio::ip::make_network_v6 (address_a.to_v6 (), ipv4_subnet_prefix_length).network () : boost::asio::ip::make_network_v6 (address_a.to_v6 (), ipv6_subnet_prefix_length).network ();
 }
@@ -159,12 +162,14 @@ std::string nano::transport::channel_loopback::to_string () const
 	return boost::str (boost::format ("%1%") % endpoint);
 }
 
-namespace
-{
-boost::asio::ip::address_v6 mapped_from_v4_bytes (unsigned long address_a)
+boost::asio::ip::address_v6 nano::transport::mapped_from_v4_bytes (unsigned long address_a)
 {
 	return boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (address_a));
 }
+
+boost::asio::ip::address_v6 nano::transport::mapped_from_v4_or_v6 (boost::asio::ip::address const & address_a)
+{
+	return address_a.is_v4 () ? boost::asio::ip::address_v6::v4_mapped (address_a.to_v4 ()) : address_a.to_v6 ();
 }
 
 bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool allow_local_peers)

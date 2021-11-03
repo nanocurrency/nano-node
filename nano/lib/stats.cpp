@@ -775,6 +775,15 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::tcp_max_per_ip:
 			res = "tcp_max_per_ip";
 			break;
+		case nano::stat::detail::tcp_max_per_subnetwork:
+			res = "tcp_max_per_subnetwork";
+			break;
+		case nano::stat::detail::tcp_silent_connection_drop:
+			res = "tcp_silent_connection_drop";
+			break;
+		case nano::stat::detail::tcp_io_timeout_drop:
+			res = "tcp_io_timeout_drop";
+			break;
 		case nano::stat::detail::unreachable_host:
 			res = "unreachable_host";
 			break;
