@@ -817,6 +817,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::outdated_version:
 			res = "outdated_version";
 			break;
+		case nano::stat::detail::udp_max_per_ip:
+			res = "udp_max_per_ip";
+			break;
+		case nano::stat::detail::udp_max_per_subnetwork:
+			res = "udp_max_per_subnetwork";
+			break;
 		case nano::stat::detail::blocks_confirmed:
 			res = "blocks_confirmed";
 			break;

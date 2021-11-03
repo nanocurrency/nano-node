@@ -1,3 +1,4 @@
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
@@ -918,7 +919,10 @@ namespace transport
 {
 	TEST (network, peer_max_tcp_attempts_subnetwork)
 	{
-		nano::system system (1);
+		nano::node_flags node_flags;
+		node_flags.disable_max_peers_per_ip = true;
+		nano::system system;
+		system.add_node (node_flags);
 		auto node (system.nodes[0]);
 		for (auto i (0); i < node->network_params.network.max_peers_per_subnetwork; ++i)
 		{
@@ -927,9 +931,9 @@ namespace transport
 			ASSERT_FALSE (node->network.tcp_channels.reachout (endpoint));
 		}
 		ASSERT_EQ (0, node->network.size ());
-		ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::out));
+		ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_subnetwork, nano::stat::dir::out));
 		ASSERT_TRUE (node->network.tcp_channels.reachout (nano::endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"), nano::get_available_port ())));
-		ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::out));
+		ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_subnetwork, nano::stat::dir::out));
 	}
 }
 }

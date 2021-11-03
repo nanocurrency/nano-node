@@ -100,7 +100,7 @@ std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::ins
 {
 	debug_assert (endpoint_a.address ().is_v6 ());
 	std::shared_ptr<nano::transport::channel_udp> result;
-	if (!node.network.not_a_peer (endpoint_a, node.config.allow_local_peers) && (node.network_params.network.is_dev_network () || !max_ip_connections (endpoint_a)))
+	if (!node.network.not_a_peer (endpoint_a, node.config.allow_local_peers) && (node.network_params.network.is_dev_network () || !max_ip_or_subnetwork_connections (endpoint_a)))
 	{
 		nano::unique_lock<nano::mutex> lock (mutex);
 		auto existing (channels.get<endpoint_tag> ().find (endpoint_a));
@@ -373,7 +373,7 @@ public:
 	}
 	void keepalive (nano::keepalive const & message_a) override
 	{
-		if (!node.network.udp_channels.max_ip_connections (endpoint))
+		if (!node.network.udp_channels.max_ip_or_subnetwork_connections (endpoint))
 		{
 			auto cookie (node.network.syn_cookies.assign (endpoint));
 			if (cookie)
@@ -630,21 +630,45 @@ std::shared_ptr<nano::transport::channel> nano::transport::udp_channels::create 
 
 bool nano::transport::udp_channels::max_ip_connections (nano::endpoint const & endpoint_a)
 {
-	bool result (false);
-	if (!node.flags.disable_max_peers_per_ip)
+	if (node.flags.disable_max_peers_per_ip)
 	{
-		auto const address (nano::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ()));
-		auto const subnet (nano::transport::map_address_to_subnetwork (endpoint_a.address ()));
-		nano::unique_lock<nano::mutex> lock (mutex);
-		result = channels.get<ip_address_tag> ().count (address) >= node.network_params.network.max_peers_per_ip || channels.get<subnetwork_tag> ().count (subnet) >= node.network_params.network.max_peers_per_subnetwork;
+		return false;
+	}
+	auto const address (nano::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ()));
+	nano::unique_lock<nano::mutex> lock (mutex);
+	auto const result = channels.get<ip_address_tag> ().count (address) >= node.network_params.network.max_peers_per_ip;
+	if (!result)
+	{
+		node.stats.inc (nano::stat::type::udp, nano::stat::detail::udp_max_per_ip, nano::stat::dir::out);
 	}
 	return result;
+}
+
+bool nano::transport::udp_channels::max_subnetwork_connections (nano::endpoint const & endpoint_a)
+{
+	if (node.flags.disable_max_peers_per_subnetwork)
+	{
+		return false;
+	}
+	auto const subnet (nano::transport::map_address_to_subnetwork (endpoint_a.address ()));
+	nano::unique_lock<nano::mutex> lock (mutex);
+	auto const result = channels.get<subnetwork_tag> ().count (subnet) >= node.network_params.network.max_peers_per_subnetwork;
+	if (!result)
+	{
+		node.stats.inc (nano::stat::type::udp, nano::stat::detail::udp_max_per_subnetwork, nano::stat::dir::out);
+	}
+	return result;
+}
+
+bool nano::transport::udp_channels::max_ip_or_subnetwork_connections (nano::endpoint const & endpoint_a)
+{
+	return max_ip_connections (endpoint_a) || max_subnetwork_connections (endpoint_a);
 }
 
 bool nano::transport::udp_channels::reachout (nano::endpoint const & endpoint_a)
 {
 	// Don't overload single IP
-	bool error = max_ip_connections (endpoint_a);
+	bool error = max_ip_or_subnetwork_connections (endpoint_a);
 	if (!error && !node.flags.disable_udp)
 	{
 		auto endpoint_l (nano::transport::map_endpoint_to_v6 (endpoint_a));

@@ -337,6 +337,8 @@ public:
 		invalid_telemetry_req_message,
 		invalid_telemetry_ack_message,
 		outdated_version,
+		udp_max_per_ip,
+		udp_max_per_subnetwork,
 
 		// tcp
 		tcp_accept_success,
