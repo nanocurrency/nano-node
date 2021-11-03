@@ -11,7 +11,10 @@ using namespace std::chrono_literals;
 
 namespace nano
 {
-TEST (active_transactions, confirm_active)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3512
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3522
+TEST (active_transactions, DISABLED_confirm_active)
 {
 	nano::system system;
 	nano::node_flags node_flags;
@@ -50,7 +53,7 @@ TEST (active_transactions, confirm_active)
 		nano::lock_guard<nano::mutex> guard (node2.rep_crawler.probable_reps_mutex);
 		node2.rep_crawler.probable_reps.emplace (nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, *peers.begin ());
 	}
-	ASSERT_TIMELY (5s, election->votes ().size () != 1); // Votes were inserted (except for not_an_account)
+	ASSERT_TIMELY (5s, election->votes ().size () != 1); // Votes were inserted (except for the null account)
 	auto confirm_req_count (election->confirmation_request_count.load ());
 	// At least one confirmation request
 	ASSERT_GT (confirm_req_count, 0u);
@@ -62,7 +65,7 @@ TEST (active_transactions, confirm_active)
 	ASSERT_TIMELY (10s, node2.ledger.cache.cemented_count == 2 && node2.active.empty ());
 	// At least one more confirmation request
 	ASSERT_GT (election->confirmation_request_count, confirm_req_count);
-	// Blocks were cleared (except for not_an_account)
+	// Blocks were cleared (except for the null account)
 	ASSERT_EQ (1, election->blocks ().size ());
 }
 }

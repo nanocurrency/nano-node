@@ -21,15 +21,15 @@
 
 double constexpr nano::node::price_max;
 double constexpr nano::node::free_cutoff;
-size_t constexpr nano::block_arrival::arrival_size_min;
+std::size_t constexpr nano::block_arrival::arrival_size_min;
 std::chrono::seconds constexpr nano::block_arrival::arrival_time_min;
 
 namespace nano
 {
 extern unsigned char nano_bootstrap_weights_live[];
-extern size_t nano_bootstrap_weights_live_size;
+extern std::size_t nano_bootstrap_weights_live_size;
 extern unsigned char nano_bootstrap_weights_beta[];
-extern size_t nano_bootstrap_weights_beta_size;
+extern std::size_t nano_bootstrap_weights_beta_size;
 }
 
 void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
@@ -45,12 +45,7 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 				auto channel (node_l->network.find_channel (endpoint));
 				if (!channel)
 				{
-					node_l->network.tcp_channels.start_tcp (endpoint, [node_w] (std::shared_ptr<nano::transport::channel> const & channel_a) {
-						if (auto node_l = node_w.lock ())
-						{
-							node_l->network.send_keepalive (channel_a);
-						}
-					});
+					node_l->network.tcp_channels.start_tcp (endpoint);
 				}
 				else
 				{
@@ -67,13 +62,13 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (rep_crawler & rep_crawler, std::string const & name)
 {
-	size_t count;
+	std::size_t count;
 	{
 		nano::lock_guard<nano::mutex> guard (rep_crawler.active_mutex);
 		count = rep_crawler.active.size ();
 	}
 
-	auto sizeof_element = sizeof (decltype (rep_crawler.active)::value_type);
+	auto const sizeof_element = sizeof (decltype (rep_crawler.active)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "active", count, sizeof_element }));
 	return composite;
@@ -133,7 +128,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 		if (config.websocket_config.enabled)
 		{
 			auto endpoint_l (nano::tcp_endpoint (boost::asio::ip::make_address_v6 (config.websocket_config.address), config.websocket_config.port));
-			websocket_server = std::make_shared<nano::websocket::listener> (logger, wallets, io_ctx, endpoint_l);
+			websocket_server = std::make_shared<nano::websocket::listener> (config.websocket_config.tls_config, logger, wallets, io_ctx, endpoint_l);
 			this->websocket_server->run ();
 		}
 
@@ -323,7 +318,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 		logger.always_log ("Build information: ", BUILD_INFO);
 		logger.always_log ("Database backend: ", store.vendor_get ());
 
-		auto network_label = network_params.network.get_current_network_as_string ();
+		auto const network_label = network_params.network.get_current_network_as_string ();
 		logger.always_log ("Active network: ", network_label);
 
 		logger.always_log (boost::str (boost::format ("Work pool running %1% threads %2%") % work.threads.size () % (work.opencl ? "(1 for OpenCL)" : "")));
@@ -343,13 +338,13 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 		// First do a pass with a read to see if any writing needs doing, this saves needing to open a write lock (and potentially blocking)
 		auto is_initialized (false);
 		{
-			auto transaction (store.tx_begin_read ());
+			auto const transaction (store.tx_begin_read ());
 			is_initialized = (store.account.begin (transaction) != store.account.end ());
 		}
 
 		if (!is_initialized && !flags.read_only)
 		{
-			auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::confirmation_height, tables::frontiers }));
+			auto const transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::confirmation_height, tables::frontiers }));
 			// Store was empty meaning we just created it, add the genesis block
 			store.initialize (transaction, ledger.cache);
 		}
@@ -363,7 +358,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			{
 				ss << " Beta network may have reset, try clearing database files";
 			}
-			auto str = ss.str ();
+			auto const str = ss.str ();
 
 			logger.always_log (str);
 			std::cerr << str << std::endl;
@@ -391,9 +386,9 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 
 		if ((network_params.network.is_live_network () || network_params.network.is_beta_network ()) && !flags.inactive_node)
 		{
-			auto bootstrap_weights = get_bootstrap_weights ();
+			auto const bootstrap_weights = get_bootstrap_weights ();
 			// Use bootstrap weights if initial bootstrap is not completed
-			bool use_bootstrap_weight = ledger.cache.block_count < bootstrap_weights.first;
+			const bool use_bootstrap_weight = ledger.cache.block_count < bootstrap_weights.first;
 			if (use_bootstrap_weight)
 			{
 				ledger.bootstrap_weights = bootstrap_weights.second;
@@ -407,7 +402,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			// Drop unchecked blocks if initial bootstrap is completed
 			if (!flags.disable_unchecked_drop && !use_bootstrap_weight && !flags.read_only)
 			{
-				auto transaction (store.tx_begin_write ({ tables::unchecked }));
+				auto const transaction (store.tx_begin_write ({ tables::unchecked }));
 				store.unchecked.clear (transaction);
 				logger.always_log ("Dropping unchecked blocks");
 			}
@@ -462,12 +457,12 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 				req->insert (boost::beast::http::field::content_type, "application/json");
 				req->body () = *body;
 				req->prepare_payload ();
-				boost::beast::http::async_write (*sock, *req, [node_l, sock, address, port, req, i_a, target, body, resolver] (boost::system::error_code const & ec, size_t bytes_transferred) mutable {
+				boost::beast::http::async_write (*sock, *req, [node_l, sock, address, port, req, i_a, target, body, resolver] (boost::system::error_code const & ec, std::size_t bytes_transferred) mutable {
 					if (!ec)
 					{
 						auto sb (std::make_shared<boost::beast::flat_buffer> ());
 						auto resp (std::make_shared<boost::beast::http::response<boost::beast::http::string_body>> ());
-						boost::beast::http::async_read (*sock, *sb, *resp, [node_l, sb, resp, sock, address, port, i_a, target, body, resolver] (boost::system::error_code const & ec, size_t bytes_transferred) mutable {
+						boost::beast::http::async_read (*sock, *sb, *resp, [node_l, sb, resp, sock, address, port, i_a, target, body, resolver] (boost::system::error_code const & ec, std::size_t bytes_transferred) mutable {
 							if (!ec)
 							{
 								if (boost::beast::http::to_status_class (resp->result ()) == boost::beast::http::status_class::successful)
@@ -561,7 +556,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 
 nano::process_return nano::node::process (nano::block & block_a)
 {
-	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
+	auto const transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
 	auto result (ledger.process (transaction, block_a));
 	return result;
 }
@@ -576,7 +571,7 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> con
 	block_processor.wait_write ();
 	// Process block
 	block_post_events post_events ([&store = store] { return store.tx_begin_read (); });
-	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
+	auto const transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
 	return block_processor.process_one (transaction, post_events, info, false, nano::block_origin::local);
 }
 
@@ -700,26 +695,26 @@ void nano::node::keepalive_preconfigured (std::vector<std::string> const & peers
 
 nano::block_hash nano::node::latest (nano::account const & account_a)
 {
-	auto transaction (store.tx_begin_read ());
+	auto const transaction (store.tx_begin_read ());
 	return ledger.latest (transaction, account_a);
 }
 
 nano::uint128_t nano::node::balance (nano::account const & account_a)
 {
-	auto transaction (store.tx_begin_read ());
+	auto const transaction (store.tx_begin_read ());
 	return ledger.account_balance (transaction, account_a);
 }
 
 std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)
 {
-	auto transaction (store.tx_begin_read ());
+	auto const transaction (store.tx_begin_read ());
 	return store.block.get (transaction, hash_a);
 }
 
 std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::account const & account_a, bool only_confirmed_a)
 {
 	std::pair<nano::uint128_t, nano::uint128_t> result;
-	auto transaction (store.tx_begin_read ());
+	auto const transaction (store.tx_begin_read ());
 	result.first = ledger.account_balance (transaction, account_a, only_confirmed_a);
 	result.second = ledger.account_pending (transaction, account_a, only_confirmed_a);
 	return result;
@@ -732,7 +727,7 @@ nano::uint128_t nano::node::weight (nano::account const & account_a)
 
 nano::block_hash nano::node::rep_block (nano::account const & account_a)
 {
-	auto transaction (store.tx_begin_read ());
+	auto const transaction (store.tx_begin_read ());
 	nano::account_info info;
 	nano::block_hash result (0);
 	if (!store.account.get (transaction, account_a, info))
@@ -755,13 +750,13 @@ nano::uint128_t nano::node::minimum_principal_weight (nano::uint128_t const & on
 void nano::node::long_inactivity_cleanup ()
 {
 	bool perform_cleanup = false;
-	auto transaction (store.tx_begin_write ({ tables::online_weight, tables::peers }));
+	auto const transaction (store.tx_begin_write ({ tables::online_weight, tables::peers }));
 	if (store.online_weight.count (transaction) > 0)
 	{
 		auto sample (store.online_weight.rbegin (transaction));
 		auto n (store.online_weight.end ());
 		debug_assert (sample != n);
-		auto const one_week_ago = static_cast<size_t> ((std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ());
+		auto const one_week_ago = static_cast<std::size_t> ((std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ());
 		perform_cleanup = sample->first < one_week_ago;
 	}
 	if (perform_cleanup)
@@ -847,7 +842,7 @@ void nano::node::ongoing_bootstrap ()
 
 void nano::node::ongoing_peer_store ()
 {
-	bool stored (network.tcp_channels.store_all (true));
+	const bool stored (network.tcp_channels.store_all (true));
 	network.udp_channels.store_all (!stored);
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
 	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.network.peer_dump_interval, [node_w] () {
@@ -893,7 +888,7 @@ void nano::node::bootstrap_wallet ()
 	std::deque<nano::account> accounts;
 	{
 		nano::lock_guard<nano::mutex> lock (wallets.mutex);
-		auto transaction (wallets.tx_begin_read ());
+		auto const transaction (wallets.tx_begin_read ());
 		for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n && accounts.size () < 128; ++i)
 		{
 			auto & wallet (*i->second);
@@ -915,13 +910,13 @@ void nano::node::unchecked_cleanup ()
 {
 	std::vector<nano::uint128_t> digests;
 	std::deque<nano::unchecked_key> cleaning_list;
-	auto attempt (bootstrap_initiator.current_attempt ());
-	bool long_attempt (attempt != nullptr && std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count () > config.unchecked_cutoff_time.count ());
+	auto const attempt (bootstrap_initiator.current_attempt ());
+	const bool long_attempt (attempt != nullptr && std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count () > config.unchecked_cutoff_time.count ());
 	// Collect old unchecked keys
 	if (ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks && !long_attempt)
 	{
-		auto now (nano::seconds_since_epoch ());
-		auto transaction (store.tx_begin_read ());
+		auto const now (nano::seconds_since_epoch ());
+		auto const transaction (store.tx_begin_read ());
 		// Max 1M records to clean, max 2 minutes reading to prevent slow i/o systems issues
 		for (auto i (store.unchecked.begin (transaction)), n (store.unchecked.end ()); i != n && cleaning_list.size () < 1024 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
 		{
@@ -941,8 +936,8 @@ void nano::node::unchecked_cleanup ()
 	// Delete old unchecked keys in batches
 	while (!cleaning_list.empty ())
 	{
-		size_t deleted_count (0);
-		auto transaction (store.tx_begin_write ({ tables::unchecked }));
+		std::size_t deleted_count (0);
+		auto const transaction (store.tx_begin_write ({ tables::unchecked }));
 		while (deleted_count++ < 2 * 1024 && !cleaning_list.empty ())
 		{
 			auto key (cleaning_list.front ());
@@ -978,7 +973,7 @@ bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & 
 {
 	uint64_t read_operations (0);
 	bool finish_transaction (false);
-	auto transaction (store.tx_begin_read ());
+	auto const transaction (store.tx_begin_read ());
 	for (auto i (store.confirmation_height.begin (transaction, last_account_a)), n (store.confirmation_height.end ()); i != n && !finish_transaction;)
 	{
 		++read_operations;
@@ -1068,7 +1063,7 @@ void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_wei
 			}
 		}
 	}
-	auto log_message (boost::str (boost::format ("Total recently pruned block count: %1%") % pruned_count));
+	auto const log_message (boost::str (boost::format ("Total recently pruned block count: %1%") % pruned_count));
 	if (!log_to_cout_a)
 	{
 		logger.always_log (log_message);
@@ -1083,7 +1078,7 @@ void nano::node::ongoing_ledger_pruning ()
 {
 	auto bootstrap_weight_reached (ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks);
 	ledger_pruning (flags.block_processor_batch_size != 0 ? flags.block_processor_batch_size : 2 * 1024, bootstrap_weight_reached, false);
-	auto ledger_pruning_interval (bootstrap_weight_reached ? config.max_pruning_age : std::min (config.max_pruning_age, std::chrono::seconds (15 * 60)));
+	auto const ledger_pruning_interval (bootstrap_weight_reached ? config.max_pruning_age : std::min (config.max_pruning_age, std::chrono::seconds (15 * 60)));
 	auto this_l (shared ());
 	workers.add_timed_task (std::chrono::steady_clock::now () + ledger_pruning_interval, [this_l] () {
 		this_l->workers.push_task ([this_l] () {
@@ -1114,7 +1109,7 @@ uint64_t nano::node::default_difficulty (nano::work_version const version_a) con
 	switch (version_a)
 	{
 		case nano::work_version::work_1:
-			result = nano::work_threshold_base (version_a);
+			result = network_params.work.threshold_base (version_a);
 			break;
 		default:
 			debug_assert (false && "Invalid version specified to default_difficulty");
@@ -1128,7 +1123,7 @@ uint64_t nano::node::default_receive_difficulty (nano::work_version const versio
 	switch (version_a)
 	{
 		case nano::work_version::work_1:
-			result = network_params.network.publish_thresholds.epoch_2_receive;
+			result = network_params.work.epoch_2_receive;
 			break;
 		default:
 			debug_assert (false && "Invalid version specified to default_receive_difficulty");
@@ -1207,23 +1202,19 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const &
 
 void nano::node::add_initial_peers ()
 {
+	if (flags.disable_add_initial_peers)
+	{
+		logger.always_log ("Skipping add_initial_peers because disable_add_initial_peers is set");
+		return;
+	}
+
 	auto transaction (store.tx_begin_read ());
 	for (auto i (store.peer.begin (transaction)), n (store.peer.end ()); i != n; ++i)
 	{
 		nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
 		if (!network.reachout (endpoint, config.allow_local_peers))
 		{
-			std::weak_ptr<nano::node> node_w (shared_from_this ());
-			network.tcp_channels.start_tcp (endpoint, [node_w] (std::shared_ptr<nano::transport::channel> const & channel_a) {
-				if (auto node_l = node_w.lock ())
-				{
-					node_l->network.send_keepalive (channel_a);
-					if (!node_l->flags.disable_rep_crawler)
-					{
-						node_l->rep_crawler.query (channel_a);
-					}
-				}
-			});
+			network.tcp_channels.start_tcp (endpoint);
 		}
 	}
 }
@@ -1356,7 +1347,7 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 void nano::node::process_confirmed (nano::election_status const & status_a, uint64_t iteration_a)
 {
 	auto hash (status_a.winner->hash ());
-	const auto num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
+	auto const num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
 	if (auto block_l = ledger.store.block.get (ledger.store.tx_begin_read (), hash))
 	{
 		active.add_recently_confirmed (block_l->qualified_root (), hash);
@@ -1402,7 +1393,7 @@ bool nano::block_arrival::recent (nano::block_hash const & hash_a)
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_arrival & block_arrival, std::string const & name)
 {
-	size_t count = 0;
+	std::size_t count = 0;
 	{
 		nano::lock_guard<nano::mutex> guard (block_arrival.mutex);
 		count = block_arrival.arrival.size ();
@@ -1445,7 +1436,7 @@ bool nano::node::epoch_upgrader (nano::raw_key const & prv_a, nano::epoch epoch_
 	return error;
 }
 
-void nano::node::set_bandwidth_params (size_t limit, double ratio)
+void nano::node::set_bandwidth_params (std::size_t limit, double ratio)
 {
 	config.bandwidth_limit_burst_ratio = ratio;
 	config.bandwidth_limit = limit;
@@ -1459,7 +1450,7 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 	auto upgrader_process = [] (nano::node & node_a, std::atomic<uint64_t> & counter, std::shared_ptr<nano::block> const & epoch, uint64_t difficulty, nano::public_key const & signer_a, nano::root const & root_a, nano::account const & account_a) {
 		epoch->block_work_set (node_a.work_generate_blocking (nano::work_version::work_1, root_a, difficulty).value_or (0));
 		bool valid_signature (!nano::validate_message (signer_a, epoch->hash (), epoch->block_signature ()));
-		bool valid_work (epoch->difficulty () >= difficulty);
+		bool valid_work (node_a.network_params.work.difficulty (*epoch) >= difficulty);
 		nano::process_result result (nano::process_result::old);
 		if (valid_signature && valid_work)
 		{
@@ -1490,7 +1481,7 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 	class account_upgrade_item final
 	{
 	public:
-		nano::account account{ 0 };
+		nano::account account{};
 		uint64_t modified{ 0 };
 	};
 	class account_tag
@@ -1546,7 +1537,7 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 				if (!store.account.get (transaction, account, info) && info.epoch () < epoch_a)
 				{
 					++attempts;
-					auto difficulty (nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
+					auto difficulty (network_params.work.threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
 					nano::root const & root (info.head);
 					std::shared_ptr<nano::block> epoch = builder.state ()
 														 .account (account)
@@ -1624,7 +1615,7 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 					{
 						++attempts;
 						release_assert (nano::epochs::is_sequential (info.epoch, epoch_a));
-						auto difficulty (nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
+						auto difficulty (network_params.work.threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
 						nano::root const & root (key.account);
 						nano::account const & account (key.account);
 						std::shared_ptr<nano::block> epoch = builder.state ()
@@ -1715,9 +1706,9 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> nano::node::get_bootstrap_weights () const
 {
 	std::unordered_map<nano::account, nano::uint128_t> weights;
-	const uint8_t * weight_buffer = network_params.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
-	size_t weight_size = network_params.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
-	nano::bufferstream weight_stream ((const uint8_t *)weight_buffer, weight_size);
+	uint8_t const * weight_buffer = network_params.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
+	std::size_t weight_size = network_params.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
+	nano::bufferstream weight_stream ((uint8_t const *)weight_buffer, weight_size);
 	nano::uint128_union block_height;
 	uint64_t max_blocks = 0;
 	if (!nano::try_read (weight_stream, block_height))
@@ -1762,8 +1753,9 @@ void nano::node::populate_backlog ()
 }
 
 nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
+	network_params{ nano::network_constants::active_network },
 	io_context (std::make_shared<boost::asio::io_context> ()),
-	work (1)
+	work{ network_params.network, 1 }
 {
 	boost::system::error_code error_chmod;
 
@@ -1772,7 +1764,7 @@ nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost:
 	 */
 	boost::filesystem::create_directories (path_a);
 	nano::set_secure_perm_directory (path_a, error_chmod);
-	nano::daemon_config daemon_config (path_a);
+	nano::daemon_config daemon_config{ path_a, network_params };
 	auto error = nano::read_node_config_toml (config_path_a, daemon_config, node_flags_a.config_overrides);
 	if (error)
 	{

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <miniupnp/miniupnpc/miniupnpc.h>
+#include <miniupnp/miniupnpc/include/miniupnpc.h>
 
 #include <mutex>
 

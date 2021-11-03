@@ -65,7 +65,7 @@ public:
 		ss << sink.ss.str ();
 	}
 
-	std::streamsize write (const char * string_to_write, std::streamsize size)
+	std::streamsize write (char const * string_to_write, std::streamsize size)
 	{
 		nano::lock_guard<nano::mutex> guard (mutex);
 		ss << std::string (string_to_write, size);

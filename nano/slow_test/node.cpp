@@ -97,7 +97,7 @@ TEST (ledger, deep_account_compute)
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
-	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair key;
 	auto balance (nano::dev::constants.genesis_amount - 1);
 	nano::send_block send (nano::dev::genesis->hash (), key.pub, balance, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
@@ -124,6 +124,12 @@ TEST (ledger, deep_account_compute)
 	}
 }
 
+/*
+ * This test case creates a node and a wallet primed with the genesis account credentials.
+ * Then it spawns 'num_of_threads' threads, each doing 'num_of_sends' async sends
+ * of 1000 raw each time. The test is considered a success, if the balance of the genesis account
+ * reduces by 'num_of_threads * num_of_sends * 1000'.
+ */
 TEST (wallet, multithreaded_send_async)
 {
 	std::vector<boost::thread> threads;
@@ -133,10 +139,12 @@ TEST (wallet, multithreaded_send_async)
 		auto wallet_l (system.wallet (0));
 		wallet_l->insert_adhoc (nano::dev::genesis_key.prv);
 		wallet_l->insert_adhoc (key.prv);
-		for (auto i (0); i < 20; ++i)
+		int num_of_threads = 20;
+		int num_of_sends = 1000;
+		for (auto i (0); i < num_of_threads; ++i)
 		{
-			threads.push_back (boost::thread ([wallet_l, &key] () {
-				for (auto i (0); i < 1000; ++i)
+			threads.push_back (boost::thread ([wallet_l, &key, num_of_threads, num_of_sends] () {
+				for (auto i (0); i < num_of_sends; ++i)
 				{
 					wallet_l->send_async (nano::dev::genesis_key.pub, key.pub, 1000, [] (std::shared_ptr<nano::block> const & block_a) {
 						ASSERT_FALSE (block_a == nullptr);
@@ -145,7 +153,7 @@ TEST (wallet, multithreaded_send_async)
 				}
 			}));
 		}
-		ASSERT_TIMELY (1000s, system.nodes[0]->balance (nano::dev::genesis_key.pub) == (nano::dev::constants.genesis_amount - 20 * 1000 * 1000));
+		ASSERT_TIMELY (1000s, system.nodes[0]->balance (nano::dev::genesis_key.pub) == (nano::dev::constants.genesis_amount - num_of_threads * num_of_sends * 1000));
 	}
 	for (auto i (threads.begin ()), n (threads.end ()); i != n; ++i)
 	{
@@ -394,7 +402,7 @@ TEST (store, unchecked_load)
 	auto & node (*system.nodes[0]);
 	auto block (std::make_shared<nano::send_block> (0, 0, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
 	constexpr auto num_unchecked = 1000000;
-	for (auto i (0); i < 1000000; ++i)
+	for (auto i (0); i < num_unchecked; ++i)
 	{
 		auto transaction (node.store.tx_begin_write ());
 		node.store.unchecked.put (transaction, i, block);
@@ -968,7 +976,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	nano::write_database_queue write_database_queue (false);
-	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	std::atomic<bool> stopped{ false };
 	boost::latch initialized_latch{ 0 };
 
@@ -1232,7 +1240,7 @@ namespace transport
 		nano::system system;
 		nano::node_flags node_flags;
 		node_flags.disable_initial_telemetry_requests = true;
-		const auto num_nodes = 4;
+		auto const num_nodes = 4;
 		for (int i = 0; i < num_nodes; ++i)
 		{
 			system.add_node (node_flags);
@@ -1241,7 +1249,7 @@ namespace transport
 		wait_peer_connections (system);
 
 		std::vector<std::thread> threads;
-		const auto num_threads = 4;
+		auto const num_threads = 4;
 
 		std::array<data, num_nodes> node_data{};
 		for (auto i = 0; i < num_nodes; ++i)
@@ -1414,7 +1422,7 @@ TEST (telemetry, many_nodes)
 	node_flags.disable_initial_telemetry_requests = true;
 	node_flags.disable_request_loop = true;
 	// The telemetry responses can timeout if using a large number of nodes under sanitizers, so lower the number.
-	const auto num_nodes = (is_sanitizer_build || nano::running_within_valgrind ()) ? 4 : 10;
+	auto const num_nodes = (is_sanitizer_build || nano::running_within_valgrind ()) ? 4 : 10;
 	for (auto i = 0; i < num_nodes; ++i)
 	{
 		nano::node_config node_config (nano::get_available_port (), system.logging);
@@ -1609,7 +1617,7 @@ TEST (node, mass_epoch_upgrader)
 							 .link (info.key.pub)
 							 .representative (nano::dev::genesis_key.pub)
 							 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-							 .work (*node.work_generate_blocking (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, false, false, false))))
+							 .work (*node.work_generate_blocking (latest, node_config.network_params.work.threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, false, false, false))))
 							 .build (ec);
 				ASSERT_FALSE (ec);
 				ASSERT_NE (nullptr, block);
@@ -1633,7 +1641,7 @@ TEST (node, mass_epoch_upgrader)
 						 .link (info.pending_hash)
 						 .representative (info.key.pub)
 						 .sign (info.key.prv, info.key.pub)
-						 .work (*node.work_generate_blocking (info.key.pub, nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, false, false, false))))
+						 .work (*node.work_generate_blocking (info.key.pub, node_config.network_params.work.threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, false, false, false))))
 						 .build (ec);
 			ASSERT_FALSE (ec);
 			ASSERT_NE (nullptr, block);
@@ -1723,7 +1731,7 @@ TEST (node, mass_block_new)
 	std::vector<nano::keypair> keys (num_blocks);
 	nano::state_block_builder builder;
 	std::vector<std::shared_ptr<nano::state_block>> send_blocks;
-	auto send_threshold (nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, true, false, false)));
+	auto send_threshold (nano::dev::network_params.work.threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, true, false, false)));
 	auto latest_genesis = node.latest (nano::dev::genesis_key.pub);
 	for (auto i = 0; i < num_blocks; ++i)
 	{
@@ -1746,7 +1754,7 @@ TEST (node, mass_block_new)
 	std::cout << "Send blocks time: " << timer.stop ().count () << " " << timer.unit () << "\n\n";
 
 	std::vector<std::shared_ptr<nano::state_block>> open_blocks;
-	auto receive_threshold (nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, false, true, false)));
+	auto receive_threshold (nano::dev::network_params.work.threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, false, true, false)));
 	for (auto i = 0; i < num_blocks; ++i)
 	{
 		auto const & key = keys[i];

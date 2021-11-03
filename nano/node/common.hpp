@@ -36,18 +36,18 @@ uint64_t endpoint_hash_raw (nano::tcp_endpoint const & endpoint_a)
 	return result;
 }
 
-template <size_t size>
+template <std::size_t size>
 struct endpoint_hash
 {
 };
 template <>
 struct endpoint_hash<8>
 {
-	size_t operator() (nano::endpoint const & endpoint_a) const
+	std::size_t operator() (nano::endpoint const & endpoint_a) const
 	{
 		return endpoint_hash_raw (endpoint_a);
 	}
-	size_t operator() (nano::tcp_endpoint const & endpoint_a) const
+	std::size_t operator() (nano::tcp_endpoint const & endpoint_a) const
 	{
 		return endpoint_hash_raw (endpoint_a);
 	}
@@ -55,27 +55,27 @@ struct endpoint_hash<8>
 template <>
 struct endpoint_hash<4>
 {
-	size_t operator() (nano::endpoint const & endpoint_a) const
+	std::size_t operator() (nano::endpoint const & endpoint_a) const
 	{
 		uint64_t big (endpoint_hash_raw (endpoint_a));
 		uint32_t result (static_cast<uint32_t> (big) ^ static_cast<uint32_t> (big >> 32));
 		return result;
 	}
-	size_t operator() (nano::tcp_endpoint const & endpoint_a) const
+	std::size_t operator() (nano::tcp_endpoint const & endpoint_a) const
 	{
 		uint64_t big (endpoint_hash_raw (endpoint_a));
 		uint32_t result (static_cast<uint32_t> (big) ^ static_cast<uint32_t> (big >> 32));
 		return result;
 	}
 };
-template <size_t size>
+template <std::size_t size>
 struct ip_address_hash
 {
 };
 template <>
 struct ip_address_hash<8>
 {
-	size_t operator() (boost::asio::ip::address const & ip_address_a) const
+	std::size_t operator() (boost::asio::ip::address const & ip_address_a) const
 	{
 		return nano::ip_address_hash_raw (ip_address_a);
 	}
@@ -83,7 +83,7 @@ struct ip_address_hash<8>
 template <>
 struct ip_address_hash<4>
 {
-	size_t operator() (boost::asio::ip::address const & ip_address_a) const
+	std::size_t operator() (boost::asio::ip::address const & ip_address_a) const
 	{
 		uint64_t big (nano::ip_address_hash_raw (ip_address_a));
 		uint32_t result (static_cast<uint32_t> (big) ^ static_cast<uint32_t> (big >> 32));
@@ -97,37 +97,39 @@ namespace std
 template <>
 struct hash<::nano::endpoint>
 {
-	size_t operator() (::nano::endpoint const & endpoint_a) const
+	std::size_t operator() (::nano::endpoint const & endpoint_a) const
 	{
-		endpoint_hash<sizeof (size_t)> ehash;
+		endpoint_hash<sizeof (std::size_t)> ehash;
 		return ehash (endpoint_a);
 	}
 };
 template <>
 struct hash<::nano::tcp_endpoint>
 {
-	size_t operator() (::nano::tcp_endpoint const & endpoint_a) const
+	std::size_t operator() (::nano::tcp_endpoint const & endpoint_a) const
 	{
-		endpoint_hash<sizeof (size_t)> ehash;
+		endpoint_hash<sizeof (std::size_t)> ehash;
 		return ehash (endpoint_a);
 	}
 };
+#ifndef BOOST_ASIO_HAS_STD_HASH
 template <>
 struct hash<boost::asio::ip::address>
 {
-	size_t operator() (boost::asio::ip::address const & ip_a) const
+	std::size_t operator() (boost::asio::ip::address const & ip_a) const
 	{
-		ip_address_hash<sizeof (size_t)> ihash;
+		ip_address_hash<sizeof (std::size_t)> ihash;
 		return ihash (ip_a);
 	}
 };
+#endif
 }
 namespace boost
 {
 template <>
 struct hash<::nano::endpoint>
 {
-	size_t operator() (::nano::endpoint const & endpoint_a) const
+	std::size_t operator() (::nano::endpoint const & endpoint_a) const
 	{
 		std::hash<::nano::endpoint> hash;
 		return hash (endpoint_a);
@@ -136,7 +138,7 @@ struct hash<::nano::endpoint>
 template <>
 struct hash<::nano::tcp_endpoint>
 {
-	size_t operator() (::nano::tcp_endpoint const & endpoint_a) const
+	std::size_t operator() (::nano::tcp_endpoint const & endpoint_a) const
 	{
 		std::hash<::nano::tcp_endpoint> hash;
 		return hash (endpoint_a);
@@ -145,7 +147,7 @@ struct hash<::nano::tcp_endpoint>
 template <>
 struct hash<boost::asio::ip::address>
 {
-	size_t operator() (boost::asio::ip::address const & ip_a) const
+	std::size_t operator() (boost::asio::ip::address const & ip_a) const
 	{
 		std::hash<boost::asio::ip::address> hash;
 		return hash (ip_a);
@@ -203,7 +205,7 @@ public:
 public:
 	nano::message_type type;
 	std::bitset<16> extensions;
-	static size_t constexpr size = sizeof (nano::networks) + sizeof (version_max) + sizeof (version_using) + sizeof (version_min) + sizeof (type) + sizeof (/* extensions */ uint16_t);
+	static std::size_t constexpr size = sizeof (nano::networks) + sizeof (version_max) + sizeof (version_using) + sizeof (version_min) + sizeof (type) + sizeof (/* extensions */ uint16_t);
 
 	void flag_set (uint8_t);
 	static uint8_t constexpr bulk_pull_count_present_flag = 0;
@@ -216,7 +218,7 @@ public:
 	bool node_id_handshake_is_response () const;
 
 	/** Size of the payload in bytes. For some messages, the payload size is based on header flags. */
-	size_t payload_length_bytes () const;
+	std::size_t payload_length_bytes () const;
 
 	static std::bitset<16> constexpr block_type_mask{ 0x0f00 };
 	static std::bitset<16> constexpr count_mask{ 0xf000 };
@@ -257,7 +259,7 @@ public:
 		duplicate_publish_message
 	};
 	message_parser (nano::network_filter &, nano::block_uniquer &, nano::vote_uniquer &, nano::message_visitor &, nano::work_pool &, nano::network_constants const & protocol);
-	void deserialize_buffer (uint8_t const *, size_t);
+	void deserialize_buffer (uint8_t const *, std::size_t);
 	void deserialize_keepalive (nano::stream &, nano::message_header const &);
 	void deserialize_publish (nano::stream &, nano::message_header const &, nano::uint128_t const & = 0);
 	void deserialize_confirm_req (nano::stream &, nano::message_header const &);
@@ -274,7 +276,7 @@ public:
 	parse_status status;
 	nano::network_constants const & network;
 	std::string status_string ();
-	static const size_t max_safe_udp_message_size;
+	static std::size_t const max_safe_udp_message_size;
 };
 class keepalive final : public message
 {
@@ -286,7 +288,7 @@ public:
 	bool deserialize (nano::stream &);
 	bool operator== (nano::keepalive const &) const;
 	std::array<nano::endpoint, 8> peers;
-	static size_t constexpr size = 8 * (16 + 2);
+	static std::size_t constexpr size = 8 * (16 + 2);
 };
 class publish final : public message
 {
@@ -314,7 +316,7 @@ public:
 	std::shared_ptr<nano::block> block;
 	std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes;
 	std::string roots_string () const;
-	static size_t size (nano::block_type, size_t = 0);
+	static std::size_t size (nano::block_type, std::size_t = 0);
 };
 class confirm_ack final : public message
 {
@@ -325,7 +327,7 @@ public:
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
 	std::shared_ptr<nano::vote> vote;
-	static size_t size (nano::block_type, size_t = 0);
+	static std::size_t size (nano::block_type, std::size_t = 0);
 };
 class frontier_req final : public message
 {
@@ -339,7 +341,7 @@ public:
 	nano::account start;
 	uint32_t age;
 	uint32_t count;
-	static size_t constexpr size = sizeof (start) + sizeof (age) + sizeof (count);
+	static std::size_t constexpr size = sizeof (start) + sizeof (age) + sizeof (count);
 };
 
 enum class telemetry_maker : uint8_t
@@ -352,7 +354,7 @@ class telemetry_data
 {
 public:
 	nano::signature signature{ 0 };
-	nano::account node_id{ 0 };
+	nano::account node_id{};
 	uint64_t block_count{ 0 };
 	uint64_t cemented_count{ 0 };
 	uint64_t unchecked_count{ 0 };
@@ -424,9 +426,9 @@ public:
 	count_t count{ 0 };
 	bool is_count_present () const;
 	void set_count_present (bool);
-	static size_t constexpr count_present_flag = nano::message_header::bulk_pull_count_present_flag;
-	static size_t constexpr extended_parameters_size = 8;
-	static size_t constexpr size = sizeof (start) + sizeof (end);
+	static std::size_t constexpr count_present_flag = nano::message_header::bulk_pull_count_present_flag;
+	static std::size_t constexpr extended_parameters_size = 8;
+	static std::size_t constexpr size = sizeof (start) + sizeof (end);
 };
 class bulk_pull_account final : public message
 {
@@ -439,7 +441,7 @@ public:
 	nano::account account;
 	nano::amount minimum_amount;
 	bulk_pull_account_flags flags;
-	static size_t constexpr size = sizeof (account) + sizeof (minimum_amount) + sizeof (bulk_pull_account_flags);
+	static std::size_t constexpr size = sizeof (account) + sizeof (minimum_amount) + sizeof (bulk_pull_account_flags);
 };
 class bulk_push final : public message
 {
@@ -461,8 +463,8 @@ public:
 	bool operator== (nano::node_id_handshake const &) const;
 	boost::optional<nano::uint256_union> query;
 	boost::optional<std::pair<nano::account, nano::signature>> response;
-	size_t size () const;
-	static size_t size (nano::message_header const &);
+	std::size_t size () const;
+	static std::size_t size (nano::message_header const &);
 };
 class message_visitor
 {

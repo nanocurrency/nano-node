@@ -2,10 +2,10 @@
 
 constexpr std::chrono::hours nano::peer_exclusion::exclude_time_hours;
 constexpr std::chrono::hours nano::peer_exclusion::exclude_remove_hours;
-constexpr size_t nano::peer_exclusion::size_max;
+constexpr std::size_t nano::peer_exclusion::size_max;
 constexpr double nano::peer_exclusion::peers_percentage_limit;
 
-uint64_t nano::peer_exclusion::add (nano::tcp_endpoint const & endpoint_a, size_t const network_peers_count_a)
+uint64_t nano::peer_exclusion::add (nano::tcp_endpoint const & endpoint_a, std::size_t const network_peers_count_a)
 {
 	uint64_t result (0);
 	nano::lock_guard<nano::mutex> guard (mutex);
@@ -72,12 +72,12 @@ void nano::peer_exclusion::remove (nano::tcp_endpoint const & endpoint_a)
 	peers.get<tag_endpoint> ().erase (endpoint_a.address ());
 }
 
-size_t nano::peer_exclusion::limited_size (size_t const network_peers_count_a) const
+std::size_t nano::peer_exclusion::limited_size (std::size_t const network_peers_count_a) const
 {
-	return std::min (size_max, static_cast<size_t> (network_peers_count_a * peers_percentage_limit));
+	return std::min (size_max, static_cast<std::size_t> (network_peers_count_a * peers_percentage_limit));
 }
 
-size_t nano::peer_exclusion::size () const
+std::size_t nano::peer_exclusion::size () const
 {
 	nano::lock_guard<nano::mutex> guard (mutex);
 	return peers.size ();
@@ -87,7 +87,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (na
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 
-	size_t excluded_peers_count = excluded_peers.size ();
+	std::size_t excluded_peers_count = excluded_peers.size ();
 	auto sizeof_excluded_peers_element = sizeof (nano::peer_exclusion::ordered_endpoints::value_type);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "peers", excluded_peers_count, sizeof_excluded_peers_element }));
 

@@ -123,8 +123,7 @@ nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned
 {
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
-	auto count = (is_sanitizer_build && nano::network_constants{}.is_dev_network ()) ? 1 : service_threads_a; // This is a workaround to a bad interaction between TSAN, multiple coroutines, and multiple threads servicing io_context. Only use 1 thread if sanitizers are attached
-	for (auto i (0u); i < count; ++i)
+	for (auto i (0u); i < service_threads_a; ++i)
 	{
 		threads.emplace_back (attrs, [&io_ctx_a] () {
 			nano::thread_role::set (nano::thread_role::name::io);
@@ -244,7 +243,7 @@ void nano::thread_pool::add_timed_task (std::chrono::steady_clock::time_point co
 	if (!stopped && thread_pool_m)
 	{
 		auto timer = std::make_shared<boost::asio::steady_timer> (thread_pool_m->get_executor (), expiry_time);
-		timer->async_wait ([this, task, timer] (const boost::system::error_code & ec) {
+		timer->async_wait ([this, task, timer] (boost::system::error_code const & ec) {
 			if (!ec)
 			{
 				push_task (task);

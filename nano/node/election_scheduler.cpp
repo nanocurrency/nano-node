@@ -65,7 +65,7 @@ void nano::election_scheduler::notify ()
 	condition.notify_all ();
 }
 
-size_t nano::election_scheduler::size () const
+std::size_t nano::election_scheduler::size () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	return priority.size () + manual_queue.size ();
@@ -82,7 +82,7 @@ bool nano::election_scheduler::empty () const
 	return empty_locked ();
 }
 
-size_t nano::election_scheduler::priority_queue_size () const
+std::size_t nano::election_scheduler::priority_queue_size () const
 {
 	return priority.size ();
 }

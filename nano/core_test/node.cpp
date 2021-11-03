@@ -20,6 +20,17 @@ namespace
 void add_required_children_node_config_tree (nano::jsonconfig & tree);
 }
 
+TEST (node, null_account)
+{
+	auto const & null_account = nano::account::null ();
+	ASSERT_TRUE (null_account == nullptr);
+	ASSERT_FALSE (null_account != nullptr);
+
+	nano::account default_account{};
+	ASSERT_FALSE (default_account == nullptr);
+	ASSERT_TRUE (default_account != nullptr);
+}
+
 TEST (node, stop)
 {
 	nano::system system (1);
@@ -36,21 +47,21 @@ TEST (node, work_generate)
 	nano::block_hash root{ 1 };
 	nano::work_version version{ nano::work_version::work_1 };
 	{
-		auto difficulty = nano::difficulty::from_multiplier (1.5, node.network_params.network.publish_thresholds.base);
+		auto difficulty = nano::difficulty::from_multiplier (1.5, node.network_params.work.base);
 		auto work = node.work_generate_blocking (version, root, difficulty);
 		ASSERT_TRUE (work.is_initialized ());
-		ASSERT_TRUE (nano::work_difficulty (version, root, *work) >= difficulty);
+		ASSERT_TRUE (nano::dev::network_params.work.difficulty (version, root, *work) >= difficulty);
 	}
 	{
-		auto difficulty = nano::difficulty::from_multiplier (0.5, node.network_params.network.publish_thresholds.base);
+		auto difficulty = nano::difficulty::from_multiplier (0.5, node.network_params.work.base);
 		boost::optional<uint64_t> work;
 		do
 		{
 			work = node.work_generate_blocking (version, root, difficulty);
-		} while (nano::work_difficulty (version, root, *work) >= node.network_params.network.publish_thresholds.base);
+		} while (nano::dev::network_params.work.difficulty (version, root, *work) >= node.network_params.work.base);
 		ASSERT_TRUE (work.is_initialized ());
-		ASSERT_TRUE (nano::work_difficulty (version, root, *work) >= difficulty);
-		ASSERT_FALSE (nano::work_difficulty (version, root, *work) >= node.network_params.network.publish_thresholds.base);
+		ASSERT_TRUE (nano::dev::network_params.work.difficulty (version, root, *work) >= difficulty);
+		ASSERT_FALSE (nano::dev::network_params.work.difficulty (version, root, *work) >= node.network_params.work.base);
 	}
 }
 
@@ -60,8 +71,8 @@ TEST (node, block_store_path_failure)
 	auto path (nano::unique_path ());
 	nano::logging logging;
 	logging.init (path);
-	nano::work_pool work (std::numeric_limits<unsigned>::max ());
-	auto node (std::make_shared<nano::node> (*service, nano::get_available_port (), path, logging, work));
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto node (std::make_shared<nano::node> (*service, nano::get_available_port (), path, logging, pool));
 	ASSERT_TRUE (node->wallets.items.empty ());
 	node->stop ();
 }
@@ -91,9 +102,9 @@ TEST (node, password_fanout)
 	nano::node_config config;
 	config.peering_port = nano::get_available_port ();
 	config.logging.init (path);
-	nano::work_pool work (std::numeric_limits<unsigned>::max ());
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	config.password_fanout = 10;
-	nano::node node (io_ctx, path, config, work);
+	nano::node node (io_ctx, path, config, pool);
 	auto wallet (node.wallets.create (100));
 	ASSERT_EQ (10, wallet->store.password.values.size ());
 	node.stop ();
@@ -177,7 +188,6 @@ TEST (node, send_single_many_peers)
 	for (auto node : system.nodes)
 	{
 		ASSERT_TRUE (node->stopped);
-		ASSERT_TRUE (node->network.tcp_channels.node_id_handhake_sockets_empty ());
 	}
 }
 
@@ -263,7 +273,7 @@ TEST (node, node_receive_quorum)
 
 	system2.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	ASSERT_TRUE (node1.balance (key.pub).is_zero ());
-	node1.network.tcp_channels.start_tcp (system2.nodes[0]->network.endpoint (), nano::keepalive_tcp_callback (node1));
+	node1.network.tcp_channels.start_tcp (system2.nodes[0]->network.endpoint ());
 	while (node1.balance (key.pub).is_zero ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -491,13 +501,6 @@ TEST (node, search_pending_pruned)
 	// Receive pruned block
 	system.wallet (1)->insert_adhoc (key2.prv);
 	ASSERT_FALSE (system.wallet (1)->search_pending (system.wallet (1)->wallets.tx_begin_read ()));
-	{
-		nano::lock_guard<nano::mutex> guard (node2->active.mutex);
-		auto existing1 (node2->active.blocks.find (send1->hash ()));
-		ASSERT_EQ (node2->active.blocks.end (), existing1);
-		auto existing2 (node2->active.blocks.find (send2->hash ()));
-		ASSERT_EQ (node2->active.blocks.end (), existing2);
-	}
 	ASSERT_TIMELY (10s, node2->balance (key2.pub) == 2 * node2->config.receive_minimum.number ());
 }
 
@@ -946,7 +949,7 @@ TEST (json, backup)
 	};
 
 	auto get_file_count = [&dir] () {
-		return std::count_if (boost::filesystem::directory_iterator (dir), boost::filesystem::directory_iterator (), static_cast<bool (*) (const boost::filesystem::path &)> (boost::filesystem::is_regular_file));
+		return std::count_if (boost::filesystem::directory_iterator (dir), boost::filesystem::directory_iterator (), static_cast<bool (*) (boost::filesystem::path const &)> (boost::filesystem::is_regular_file));
 	};
 
 	// There should only be the original file in this directory
@@ -1679,7 +1682,10 @@ TEST (node, DISABLED_fork_stale)
 	}
 }
 
-TEST (node, broadcast_elected)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3512
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3516
+TEST (node, DISABLED_broadcast_elected)
 {
 	std::vector<nano::transport::transport_type> types{ nano::transport::transport_type::tcp, nano::transport::transport_type::udp };
 	for (auto & type : types)
@@ -1901,7 +1907,10 @@ TEST (node, DISABLED_bootstrap_no_publish)
 }
 
 // Check that an outgoing bootstrap request can push blocks
-TEST (node, bootstrap_bulk_push)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3512
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3515
+TEST (node, DISABLED_bootstrap_bulk_push)
 {
 	nano::system system0;
 	nano::system system1;
@@ -2278,16 +2287,14 @@ TEST (node, rep_remove)
 	auto vote2 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, nano::dev::genesis);
 	node.rep_crawler.response (channel1, vote2);
 	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 1);
-	// Add inactive TCP representative channel
 	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), nano::node_config (nano::get_available_port (), system.logging), system.work));
+	node2->start ();
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	auto vote3 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, nano::dev::genesis);
-	node.network.tcp_channels.start_tcp (node2->network.endpoint (), [node_w, &vote3] (std::shared_ptr<nano::transport::channel> const & channel2) {
-		if (auto node_l = node_w.lock ())
-		{
-			ASSERT_FALSE (node_l->rep_crawler.response (channel2, vote3));
-		}
-	});
+	node.network.tcp_channels.start_tcp (node2->network.endpoint ());
+	std::shared_ptr<nano::transport::channel> channel2;
+	ASSERT_TIMELY (10s, (channel2 = node.network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node2->network.endpoint ()))) != nullptr);
+	ASSERT_FALSE (node.rep_crawler.response (channel2, vote3));
 	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 2);
 	node2->stop ();
 	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 1);
@@ -2730,7 +2737,10 @@ TEST (node, local_votes_cache)
 	ASSERT_FALSE (node.history.votes (send3->root (), send3->hash ()).empty ());
 }
 
-TEST (node, local_votes_cache_batch)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3532
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3481
+TEST (node, DISABLED_local_votes_cache_batch)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
@@ -3152,7 +3162,10 @@ TEST (node, epoch_conflict_confirm)
 	}
 }
 
-TEST (node, fork_invalid_block_signature)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3526
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3527
+TEST (node, DISABLED_fork_invalid_block_signature)
 {
 	nano::system system;
 	nano::node_flags node_flags;
@@ -4550,7 +4563,7 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_TIMELY (2s, node2.block (send2->hash ()));
 
 	// Re-processing older blocks with updated work also does not start an election
-	node.work_generate_blocking (*open, open->difficulty () + 1);
+	node.work_generate_blocking (*open, nano::dev::network_params.work.difficulty (*open) + 1);
 	node.process_local (open);
 	node.block_processor.flush ();
 	node.scheduler.flush ();
@@ -4563,7 +4576,7 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 
 	/// The election was dropped but it's still not possible to restart it
-	node.work_generate_blocking (*open, open->difficulty () + 1);
+	node.work_generate_blocking (*open, nano::dev::network_params.work.difficulty (*open) + 1);
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 	node.process_local (open);
 	node.block_processor.flush ();

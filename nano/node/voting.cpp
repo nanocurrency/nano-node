@@ -44,7 +44,7 @@ void nano::vote_spacing::flag (nano::root const & root_a, nano::block_hash const
 	}
 }
 
-size_t nano::vote_spacing::size () const
+std::size_t nano::vote_spacing::size () const
 {
 	return recent.size ();
 }
@@ -145,7 +145,7 @@ void nano::local_vote_history::clean ()
 	}
 }
 
-size_t nano::local_vote_history::size () const
+std::size_t nano::local_vote_history::size () const
 {
 	nano::lock_guard<nano::mutex> guard (mutex);
 	return history.size ();
@@ -153,7 +153,7 @@ size_t nano::local_vote_history::size () const
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::local_vote_history & history, std::string const & name)
 {
-	size_t history_count = history.size ();
+	std::size_t history_count = history.size ();
 	auto sizeof_element = sizeof (decltype (history.history)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
 	/* This does not currently loop over each element inside the cache to get the sizes of the votes inside history*/
@@ -230,7 +230,7 @@ void nano::vote_generator::stop ()
 	}
 }
 
-size_t nano::vote_generator::generate (std::vector<std::shared_ptr<nano::block>> const & blocks_a, std::shared_ptr<nano::transport::channel> const & channel_a)
+std::size_t nano::vote_generator::generate (std::vector<std::shared_ptr<nano::block>> const & blocks_a, std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	request_t::first_type req_candidates;
 	{
@@ -366,7 +366,7 @@ void nano::vote_generator::vote (std::vector<nano::block_hash> const & hashes_a,
 	});
 	for (auto const & vote_l : votes_l)
 	{
-		for (size_t i (0), n (hashes_a.size ()); i != n; ++i)
+		for (std::size_t i (0), n (hashes_a.size ()); i != n; ++i)
 		{
 			history.add (roots_a[i], hashes_a[i], vote_l);
 			spacing.flag (roots_a[i], hashes_a[i]);
@@ -439,8 +439,8 @@ void nano::vote_generator_session::flush ()
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::vote_generator & vote_generator, std::string const & name)
 {
-	size_t candidates_count = 0;
-	size_t requests_count = 0;
+	std::size_t candidates_count = 0;
+	std::size_t requests_count = 0;
 	{
 		nano::lock_guard<nano::mutex> guard (vote_generator.mutex);
 		candidates_count = vote_generator.candidates.size ();

@@ -208,7 +208,7 @@ public:
 		tcp_client->async_resolve (host_a, port_a, [this, callback_a] (boost::system::error_code const & ec_resolve_a, boost::asio::ip::tcp::endpoint endpoint_a) {
 			if (!ec_resolve_a)
 			{
-				this->tcp_client->async_connect ([callback_a] (const boost::system::error_code & ec_connect_a) {
+				this->tcp_client->async_connect ([callback_a] (boost::system::error_code const & ec_connect_a) {
 					callback_a (nano::error (ec_connect_a));
 				});
 			}
@@ -278,7 +278,7 @@ nano::error nano::ipc::ipc_client::connect (std::string const & host, uint16_t p
 void nano::ipc::ipc_client::async_write (nano::shared_const_buffer const & buffer_a, std::function<void (nano::error, size_t)> callback_a)
 {
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
-	client->get_channel ().async_write (buffer_a, [callback_a] (const boost::system::error_code & ec_a, size_t bytes_written_a) {
+	client->get_channel ().async_write (buffer_a, [callback_a] (boost::system::error_code const & ec_a, size_t bytes_written_a) {
 		callback_a (nano::error (ec_a), bytes_written_a);
 	});
 }
@@ -286,7 +286,7 @@ void nano::ipc::ipc_client::async_write (nano::shared_const_buffer const & buffe
 void nano::ipc::ipc_client::async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, size_t size_a, std::function<void (nano::error, size_t)> callback_a)
 {
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
-	client->get_channel ().async_read (buffer_a, size_a, [callback_a, buffer_a] (const boost::system::error_code & ec_a, size_t bytes_read_a) {
+	client->get_channel ().async_read (buffer_a, size_a, [callback_a, buffer_a] (boost::system::error_code const & ec_a, size_t bytes_read_a) {
 		callback_a (nano::error (ec_a), bytes_read_a);
 	});
 }
@@ -295,7 +295,7 @@ void nano::ipc::ipc_client::async_read (std::shared_ptr<std::vector<uint8_t>> co
 void nano::ipc::ipc_client::async_read_message (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::chrono::seconds timeout_a, std::function<void (nano::error, size_t)> callback_a)
 {
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
-	client->get_channel ().async_read_message (buffer_a, timeout_a, [callback_a, buffer_a] (const boost::system::error_code & ec_a, size_t bytes_read_a) {
+	client->get_channel ().async_read_message (buffer_a, timeout_a, [callback_a, buffer_a] (boost::system::error_code const & ec_a, size_t bytes_read_a) {
 		callback_a (nano::error (ec_a), bytes_read_a);
 	});
 }

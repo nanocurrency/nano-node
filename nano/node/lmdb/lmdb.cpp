@@ -22,13 +22,13 @@ void * mdb_val::data () const
 }
 
 template <>
-size_t mdb_val::size () const
+std::size_t mdb_val::size () const
 {
 	return value.mv_size;
 }
 
 template <>
-mdb_val::db_val (size_t size_a, void * data_a) :
+mdb_val::db_val (std::size_t size_a, void * data_a) :
 	value ({ size_a, data_a })
 {
 }
@@ -93,13 +93,9 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 		// (can be a few minutes with the --fast_bootstrap flag for instance)
 		if (!is_fully_upgraded)
 		{
-			nano::network_constants network_constants;
 			if (!is_fresh_db)
 			{
-				if (!network_constants.is_dev_network ())
-				{
-					std::cout << "Upgrade in progress..." << std::endl;
-				}
+				logger.always_log ("Upgrade in progress...");
 				if (backup_before_upgrade_a)
 				{
 					create_backup_file (env, path_a, logger_a);
@@ -115,7 +111,7 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 				}
 			}
 
-			if (needs_vacuuming && !network_constants.is_dev_network ())
+			if (needs_vacuuming)
 			{
 				logger.always_log ("Preparing vacuum...");
 				auto vacuum_success = vacuum_after_upgrade (path_a, lmdb_config_a);
@@ -203,10 +199,10 @@ nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks () const
 	nano::mdb_txn_callbacks mdb_txn_callbacks;
 	if (txn_tracking_enabled)
 	{
-		mdb_txn_callbacks.txn_start = ([&mdb_txn_tracker = mdb_txn_tracker] (const nano::transaction_impl * transaction_impl) {
+		mdb_txn_callbacks.txn_start = ([&mdb_txn_tracker = mdb_txn_tracker] (nano::transaction_impl const * transaction_impl) {
 			mdb_txn_tracker.add (transaction_impl);
 		});
-		mdb_txn_callbacks.txn_end = ([&mdb_txn_tracker = mdb_txn_tracker] (const nano::transaction_impl * transaction_impl) {
+		mdb_txn_callbacks.txn_end = ([&mdb_txn_tracker = mdb_txn_tracker] (nano::transaction_impl const * transaction_impl) {
 			mdb_txn_tracker.erase (transaction_impl);
 		});
 	}
@@ -842,7 +838,7 @@ int nano::mdb_store::get (nano::transaction const & transaction_a, tables table_
 	return mdb_get (env.tx (transaction_a), table_to_dbi (table_a), key_a, value_a);
 }
 
-int nano::mdb_store::put (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, const nano::mdb_val & value_a) const
+int nano::mdb_store::put (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val const & value_a) const
 {
 	return (mdb_put (env.tx (transaction_a), table_to_dbi (table_a), key_a, value_a, 0));
 }
@@ -1081,7 +1077,7 @@ nano::uint128_t nano::mdb_store::block_balance_v18 (nano::transaction const & tr
 }
 
 // All the v14 functions below are only needed during upgrades
-size_t nano::mdb_store::block_successor_offset_v14 (nano::transaction const & transaction_a, size_t entry_size_a, nano::block_type type_a) const
+std::size_t nano::mdb_store::block_successor_offset_v14 (nano::transaction const & transaction_a, std::size_t entry_size_a, nano::block_type type_a) const
 {
 	return entry_size_a - nano::block_sideband_v14::size (type_a);
 }

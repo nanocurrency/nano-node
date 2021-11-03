@@ -64,7 +64,7 @@ public:
 	bool deserialize (nano::stream &, nano::block_type);
 	static size_t size (nano::block_type);
 	nano::block_hash successor{ 0 };
-	nano::account account{ 0 };
+	nano::account account{};
 	nano::amount balance{ 0 };
 	uint64_t height{ 0 };
 	uint64_t timestamp{ 0 };
@@ -113,7 +113,6 @@ public:
 	virtual bool valid_predecessor (nano::block const &) const = 0;
 	static size_t size (nano::block_type);
 	virtual nano::work_version work_version () const;
-	uint64_t difficulty () const;
 	// If there are any changes to the hashables, call this to update the cached hash
 	void refresh ();
 
@@ -140,7 +139,7 @@ public:
 	nano::block_hash previous;
 	nano::account destination;
 	nano::amount balance;
-	static size_t constexpr size = sizeof (previous) + sizeof (destination) + sizeof (balance);
+	static std::size_t constexpr size = sizeof (previous) + sizeof (destination) + sizeof (balance);
 };
 class send_block : public nano::block
 {
@@ -174,7 +173,7 @@ public:
 	send_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
-	static size_t constexpr size = nano::send_hashables::size + sizeof (signature) + sizeof (work);
+	static std::size_t constexpr size = nano::send_hashables::size + sizeof (signature) + sizeof (work);
 };
 class receive_hashables
 {
@@ -186,7 +185,7 @@ public:
 	void hash (blake2b_state &) const;
 	nano::block_hash previous;
 	nano::block_hash source;
-	static size_t constexpr size = sizeof (previous) + sizeof (source);
+	static std::size_t constexpr size = sizeof (previous) + sizeof (source);
 };
 class receive_block : public nano::block
 {
@@ -219,7 +218,7 @@ public:
 	receive_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
-	static size_t constexpr size = nano::receive_hashables::size + sizeof (signature) + sizeof (work);
+	static std::size_t constexpr size = nano::receive_hashables::size + sizeof (signature) + sizeof (work);
 };
 class open_hashables
 {
@@ -232,7 +231,7 @@ public:
 	nano::block_hash source;
 	nano::account representative;
 	nano::account account;
-	static size_t constexpr size = sizeof (source) + sizeof (representative) + sizeof (account);
+	static std::size_t constexpr size = sizeof (source) + sizeof (representative) + sizeof (account);
 };
 class open_block : public nano::block
 {
@@ -268,7 +267,7 @@ public:
 	nano::open_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
-	static size_t constexpr size = nano::open_hashables::size + sizeof (signature) + sizeof (work);
+	static std::size_t constexpr size = nano::open_hashables::size + sizeof (signature) + sizeof (work);
 };
 class change_hashables
 {
@@ -280,7 +279,7 @@ public:
 	void hash (blake2b_state &) const;
 	nano::block_hash previous;
 	nano::account representative;
-	static size_t constexpr size = sizeof (previous) + sizeof (representative);
+	static std::size_t constexpr size = sizeof (previous) + sizeof (representative);
 };
 class change_block : public nano::block
 {
@@ -313,7 +312,7 @@ public:
 	nano::change_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
-	static size_t constexpr size = nano::change_hashables::size + sizeof (signature) + sizeof (work);
+	static std::size_t constexpr size = nano::change_hashables::size + sizeof (signature) + sizeof (work);
 };
 class state_hashables
 {
@@ -338,7 +337,7 @@ public:
 	// Link field contains source block_hash if receiving, destination account if sending
 	nano::link link;
 	// Serialized size
-	static size_t constexpr size = sizeof (account) + sizeof (previous) + sizeof (representative) + sizeof (balance) + sizeof (link);
+	static std::size_t constexpr size = sizeof (account) + sizeof (previous) + sizeof (representative) + sizeof (balance) + sizeof (link);
 };
 class state_block : public nano::block
 {
@@ -374,7 +373,7 @@ public:
 	nano::state_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
-	static size_t constexpr size = nano::state_hashables::size + sizeof (signature) + sizeof (work);
+	static std::size_t constexpr size = nano::state_hashables::size + sizeof (signature) + sizeof (work);
 };
 class block_visitor
 {
@@ -402,7 +401,7 @@ public:
 class block_uniquer
 {
 public:
-	using value_type = std::pair<const nano::uint256_union, std::weak_ptr<nano::block>>;
+	using value_type = std::pair<nano::uint256_union const, std::weak_ptr<nano::block>>;
 
 	std::shared_ptr<nano::block> unique (std::shared_ptr<nano::block> const &);
 	size_t size ();

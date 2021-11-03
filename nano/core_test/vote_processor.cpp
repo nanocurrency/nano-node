@@ -174,7 +174,10 @@ TEST (vote_processor, weights)
 }
 }
 
-TEST (vote_processor, no_broadcast_local)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3532
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3485
+TEST (vote_processor, DISABLED_no_broadcast_local)
 {
 	nano::system system;
 	nano::node_flags flags;

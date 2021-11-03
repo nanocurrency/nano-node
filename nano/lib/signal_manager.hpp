@@ -33,9 +33,6 @@ public:
 	 */
 	void register_signal_handler (int signum, std::function<void (int)> handler, bool repeat);
 
-	/** returns a signal handler that prints a stacktrace and creates some debug files */
-	std::function<void (int)> get_debug_files_handler (void);
-
 private:
 	struct signal_descriptor final
 	{
@@ -64,7 +61,7 @@ private:
 	 * This is the actual handler that is registered with boost asio.
 	 * It calls the caller supplied function (if one is given) and sets the handler to repeat (or not).
 	 */
-	static void base_handler (nano::signal_manager::signal_descriptor descriptor, const boost::system::error_code & error, int signum);
+	static void base_handler (nano::signal_manager::signal_descriptor descriptor, boost::system::error_code const & error, int signum);
 
 	/** boost asio context to use */
 	boost::asio::io_context ioc;

@@ -42,7 +42,6 @@ void NOT_OPTIMIZED nano::secure_wipe_memory (void * v, size_t n)
 #elif defined(HAVE_EXPLICIT_BZERO)
 	explicit_bzero (v, n);
 #else
-	static void * (*const volatile memset_sec) (void *, int, size_t) = &memset;
-	memset_sec (v, 0, n);
+	memset (v, 0, n);
 #endif
 }

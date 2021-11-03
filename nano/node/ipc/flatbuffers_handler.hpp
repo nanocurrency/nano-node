@@ -42,12 +42,12 @@ namespace ipc
 		 * @param response_handler Receives a shared pointer to the flatbuffer builder, from which the buffer and size can be queried
 		 * @throw Throws std:runtime_error on deserialization or processing errors
 		 */
-		void process (const uint8_t * message_buffer_a, size_t buffer_size_a, std::function<void (std::shared_ptr<flatbuffers::FlatBufferBuilder> const &)> const & response_handler);
+		void process (uint8_t const * message_buffer_a, std::size_t buffer_size_a, std::function<void (std::shared_ptr<flatbuffers::FlatBufferBuilder> const &)> const & response_handler);
 
 		/**
 		 * Parses a JSON encoded requests into Flatbuffer format, calls process(), yields the result as a JSON string
 		 */
-		void process_json (const uint8_t * message_buffer_a, size_t buffer_size_a, std::function<void (std::shared_ptr<std::string> const &)> const & response_handler);
+		void process_json (uint8_t const * message_buffer_a, std::size_t buffer_size_a, std::function<void (std::shared_ptr<std::string> const &)> const & response_handler);
 
 		/**
 		 * Creates a Flatbuffers parser with the schema preparsed. This can then be used to parse and produce JSON.

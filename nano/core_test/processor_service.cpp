@@ -16,7 +16,7 @@ TEST (processor_service, bad_send_signature)
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
-	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::account_info info1;
 	ASSERT_FALSE (store->account.get (transaction, nano::dev::genesis_key.pub, info1));
 	nano::keypair key2;
@@ -34,7 +34,7 @@ TEST (processor_service, bad_receive_signature)
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
-	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::account_info info1;
 	ASSERT_FALSE (store->account.get (transaction, nano::dev::genesis_key.pub, info1));
 	nano::send_block send (info1.head, nano::dev::genesis_key.pub, 50, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (info1.head));

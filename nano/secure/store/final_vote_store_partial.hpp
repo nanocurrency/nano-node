@@ -14,7 +14,7 @@ template <typename Val, typename Derived_Store>
 class store_partial;
 
 template <typename Val, typename Derived_Store>
-void release_assert_success (store_partial<Val, Derived_Store> const & store, const int status);
+void release_assert_success (store_partial<Val, Derived_Store> const & store, int const status);
 
 template <typename Val, typename Derived_Store>
 class final_vote_store_partial : public final_vote_store
@@ -22,7 +22,7 @@ class final_vote_store_partial : public final_vote_store
 private:
 	nano::store_partial<Val, Derived_Store> & store;
 
-	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, const int);
+	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, int const);
 
 public:
 	explicit final_vote_store_partial (nano::store_partial<Val, Derived_Store> & store_a) :

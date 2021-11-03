@@ -271,8 +271,8 @@ TEST (bootstrap_processor, process_state)
 
 	node0->work_generate_blocking (*block1);
 	node0->work_generate_blocking (*block2);
-	node0->process (*block1);
-	node0->process (*block2);
+	ASSERT_EQ (nano::process_result::progress, node0->process (*block1).code);
+	ASSERT_EQ (nano::process_result::progress, node0->process (*block2).code);
 
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
 	ASSERT_EQ (node0->latest (nano::dev::genesis_key.pub), block2->hash ());
@@ -407,7 +407,11 @@ TEST (bootstrap_processor, push_diamond)
 	node1->stop ();
 }
 
-TEST (bootstrap_processor, push_diamond_pruning)
+// Check that an outgoing bootstrap request can push blocks
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3512
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3517
+TEST (bootstrap_processor, DISABLED_push_diamond_pruning)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
@@ -454,7 +458,10 @@ TEST (bootstrap_processor, push_diamond_pruning)
 	node1->stop ();
 }
 
-TEST (bootstrap_processor, push_one)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3532
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3533
+TEST (bootstrap_processor, DISABLED_push_one)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);

@@ -21,7 +21,7 @@ nano::pull_info::pull_info (nano::hash_or_account const & account_or_head_a, nan
 nano::bulk_pull_client::bulk_pull_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a, nano::pull_info const & pull_a) :
 	connection (connection_a),
 	attempt (attempt_a),
-	known_account (0),
+	known_account{},
 	pull (pull_a),
 	pull_blocks (0),
 	unexpected_count (0)
@@ -83,7 +83,7 @@ void nano::bulk_pull_client::request ()
 	}
 	auto this_l (shared_from_this ());
 	connection->channel->send (
-	req, [this_l] (boost::system::error_code const & ec, size_t size_a) {
+	req, [this_l] (boost::system::error_code const & ec, std::size_t size_a) {
 		if (!ec)
 		{
 			this_l->throttled_receive_block ();
@@ -122,7 +122,7 @@ void nano::bulk_pull_client::throttled_receive_block ()
 void nano::bulk_pull_client::receive_block ()
 {
 	auto this_l (shared_from_this ());
-	connection->socket->async_read (connection->receive_buffer, 1, [this_l] (boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_read (connection->receive_buffer, 1, [this_l] (boost::system::error_code const & ec, std::size_t size_a) {
 		if (!ec)
 		{
 			this_l->received_type ();
@@ -149,35 +149,35 @@ void nano::bulk_pull_client::received_type ()
 	{
 		case nano::block_type::send:
 		{
-			socket_l->async_read (connection->receive_buffer, nano::send_block::size, [this_l, type] (boost::system::error_code const & ec, size_t size_a) {
+			socket_l->async_read (connection->receive_buffer, nano::send_block::size, [this_l, type] (boost::system::error_code const & ec, std::size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
 		case nano::block_type::receive:
 		{
-			socket_l->async_read (connection->receive_buffer, nano::receive_block::size, [this_l, type] (boost::system::error_code const & ec, size_t size_a) {
+			socket_l->async_read (connection->receive_buffer, nano::receive_block::size, [this_l, type] (boost::system::error_code const & ec, std::size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
 		case nano::block_type::open:
 		{
-			socket_l->async_read (connection->receive_buffer, nano::open_block::size, [this_l, type] (boost::system::error_code const & ec, size_t size_a) {
+			socket_l->async_read (connection->receive_buffer, nano::open_block::size, [this_l, type] (boost::system::error_code const & ec, std::size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
 		case nano::block_type::change:
 		{
-			socket_l->async_read (connection->receive_buffer, nano::change_block::size, [this_l, type] (boost::system::error_code const & ec, size_t size_a) {
+			socket_l->async_read (connection->receive_buffer, nano::change_block::size, [this_l, type] (boost::system::error_code const & ec, std::size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
 		case nano::block_type::state:
 		{
-			socket_l->async_read (connection->receive_buffer, nano::state_block::size, [this_l, type] (boost::system::error_code const & ec, size_t size_a) {
+			socket_l->async_read (connection->receive_buffer, nano::state_block::size, [this_l, type] (boost::system::error_code const & ec, std::size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
@@ -187,7 +187,7 @@ void nano::bulk_pull_client::received_type ()
 			// Avoid re-using slow peers, or peers that sent the wrong blocks.
 			if (!connection->pending_stop && (expected == pull.end || (pull.count != 0 && pull.count == pull_blocks)))
 			{
-				connection->connections->pool_connection (connection);
+				connection->connections.pool_connection (connection);
 			}
 			break;
 		}
@@ -202,13 +202,13 @@ void nano::bulk_pull_client::received_type ()
 	}
 }
 
-void nano::bulk_pull_client::received_block (boost::system::error_code const & ec, size_t size_a, nano::block_type type_a)
+void nano::bulk_pull_client::received_block (boost::system::error_code const & ec, std::size_t size_a, nano::block_type type_a)
 {
 	if (!ec)
 	{
 		nano::bufferstream stream (connection->receive_buffer->data (), size_a);
 		auto block (nano::deserialize_block (stream, type_a));
-		if (block != nullptr && !nano::work_validate_entry (*block))
+		if (block != nullptr && !connection->node->network_params.work.validate_entry (*block))
 		{
 			auto hash (block->hash ());
 			if (connection->node->config.logging.bulk_pull_logging ())
@@ -253,7 +253,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			}
 			else if (stop_pull && block_expected)
 			{
-				connection->connections->pool_connection (connection);
+				connection->connections.pool_connection (connection);
 			}
 		}
 		else if (block == nullptr)
@@ -314,7 +314,7 @@ void nano::bulk_pull_account_client::request ()
 	}
 	auto this_l (shared_from_this ());
 	connection->channel->send (
-	req, [this_l] (boost::system::error_code const & ec, size_t size_a) {
+	req, [this_l] (boost::system::error_code const & ec, std::size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_pending ();
@@ -335,8 +335,8 @@ void nano::bulk_pull_account_client::request ()
 void nano::bulk_pull_account_client::receive_pending ()
 {
 	auto this_l (shared_from_this ());
-	size_t size_l (sizeof (nano::uint256_union) + sizeof (nano::uint128_union));
-	connection->socket->async_read (connection->receive_buffer, size_l, [this_l, size_l] (boost::system::error_code const & ec, size_t size_a) {
+	std::size_t size_l (sizeof (nano::uint256_union) + sizeof (nano::uint128_union));
+	connection->socket->async_read (connection->receive_buffer, size_l, [this_l, size_l] (boost::system::error_code const & ec, std::size_t size_a) {
 		// An issue with asio is that sometimes, instead of reporting a bad file descriptor during disconnect,
 		// we simply get a size of 0.
 		if (size_a == size_l)
@@ -376,7 +376,7 @@ void nano::bulk_pull_account_client::receive_pending ()
 				}
 				else
 				{
-					this_l->connection->connections->pool_connection (this_l->connection);
+					this_l->connection->connections.pool_connection (this_l->connection);
 				}
 			}
 			else
@@ -494,7 +494,7 @@ void nano::bulk_pull_server::send_next ()
 		{
 			connection->node->logger.try_log (boost::str (boost::format ("Sending block: %1%") % block->hash ().to_string ()));
 		}
-		connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l] (boost::system::error_code const & ec, size_t size_a) {
+		connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l] (boost::system::error_code const & ec, std::size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
 	}
@@ -575,7 +575,7 @@ std::shared_ptr<nano::block> nano::bulk_pull_server::get_next ()
 	return result;
 }
 
-void nano::bulk_pull_server::sent_action (boost::system::error_code const & ec, size_t size_a)
+void nano::bulk_pull_server::sent_action (boost::system::error_code const & ec, std::size_t size_a)
 {
 	if (!ec)
 	{
@@ -598,12 +598,12 @@ void nano::bulk_pull_server::send_finished ()
 	{
 		connection->node->logger.try_log ("Bulk sending finished");
 	}
-	connection->socket->async_write (send_buffer, [this_l] (boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (send_buffer, [this_l] (boost::system::error_code const & ec, std::size_t size_a) {
 		this_l->no_block_sent (ec, size_a);
 	});
 }
 
-void nano::bulk_pull_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
+void nano::bulk_pull_server::no_block_sent (boost::system::error_code const & ec, std::size_t size_a)
 {
 	if (!ec)
 	{
@@ -700,7 +700,7 @@ void nano::bulk_pull_account_server::send_frontier ()
 
 		// Send the buffer to the requestor
 		auto this_l (shared_from_this ());
-		connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l] (boost::system::error_code const & ec, size_t size_a) {
+		connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l] (boost::system::error_code const & ec, std::size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
 	}
@@ -756,7 +756,7 @@ void nano::bulk_pull_account_server::send_next_block ()
 		}
 
 		auto this_l (shared_from_this ());
-		connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l] (boost::system::error_code const & ec, size_t size_a) {
+		connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l] (boost::system::error_code const & ec, std::size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
 	}
@@ -853,7 +853,7 @@ std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info
 	return result;
 }
 
-void nano::bulk_pull_account_server::sent_action (boost::system::error_code const & ec, size_t size_a)
+void nano::bulk_pull_account_server::sent_action (boost::system::error_code const & ec, std::size_t size_a)
 {
 	if (!ec)
 	{
@@ -903,12 +903,12 @@ void nano::bulk_pull_account_server::send_finished ()
 		connection->node->logger.try_log ("Bulk sending for an account finished");
 	}
 
-	connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l] (boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l] (boost::system::error_code const & ec, std::size_t size_a) {
 		this_l->complete (ec, size_a);
 	});
 }
 
-void nano::bulk_pull_account_server::complete (boost::system::error_code const & ec, size_t size_a)
+void nano::bulk_pull_account_server::complete (boost::system::error_code const & ec, std::size_t size_a)
 {
 	if (!ec)
 	{

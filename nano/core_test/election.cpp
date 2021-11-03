@@ -176,7 +176,10 @@ TEST (election, quorum_minimum_confirm_fail)
 
 namespace nano
 {
-TEST (election, quorum_minimum_update_weight_before_quorum_checks)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3526
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3528
+TEST (election, DISABLED_quorum_minimum_update_weight_before_quorum_checks)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
@@ -219,16 +222,16 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	node1.work_generate_blocking (*send2);
 	node1.process_active (send1);
 	node1.block_processor.flush ();
-	node1.process (*open1);
-	node1.process (*send2);
+	ASSERT_EQ (nano::process_result::progress, node1.process (*open1).code);
+	ASSERT_EQ (nano::process_result::progress, node1.process (*send2).code);
 	node1.block_processor.flush ();
 	ASSERT_EQ (node1.ledger.cache.block_count, 4);
 
 	node_config.peering_port = nano::get_available_port ();
 	auto & node2 = *system.add_node (node_config);
-	node2.process (*send1);
-	node2.process (*open1);
-	node2.process (*send2);
+	ASSERT_EQ (nano::process_result::progress, node2.process (*send1).code);
+	ASSERT_EQ (nano::process_result::progress, node2.process (*open1).code);
+	ASSERT_EQ (nano::process_result::progress, node2.process (*send2).code);
 	system.wallet (1)->insert_adhoc (key1.prv);
 	node2.block_processor.flush ();
 	ASSERT_EQ (node2.ledger.cache.block_count, 4);

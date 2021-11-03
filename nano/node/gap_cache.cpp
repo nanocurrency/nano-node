@@ -121,7 +121,7 @@ nano::uint128_t nano::gap_cache::bootstrap_threshold ()
 	return result;
 }
 
-size_t nano::gap_cache::size ()
+std::size_t nano::gap_cache::size ()
 {
 	nano::lock_guard<nano::mutex> lock (mutex);
 	return blocks.size ();

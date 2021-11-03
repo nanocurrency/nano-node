@@ -41,7 +41,7 @@ public:
 	bool bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &);
 	void bootstrap_start (nano::block_hash const & hash_a);
 	nano::uint128_t bootstrap_threshold ();
-	size_t size ();
+	std::size_t size ();
 	// clang-format off
 	class tag_arrival {};
 	class tag_hash {};
@@ -53,7 +53,7 @@ public:
 			boost::multi_index::member<gap_information, nano::block_hash, &gap_information::hash>>>>;
 	ordered_gaps blocks;
 	// clang-format on
-	size_t const max = 256;
+	std::size_t const max = 256;
 	nano::mutex mutex{ mutex_identifier (mutexes::gap_cache) };
 	nano::node & node;
 };

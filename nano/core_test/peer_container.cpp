@@ -125,7 +125,7 @@ TEST (peer_container, list_fanout)
 	ASSERT_EQ (0, node.network.fanout ());
 	auto list1 (node.network.list (node.network.fanout ()));
 	ASSERT_TRUE (list1.empty ());
-	auto add_peer = [&node] (const uint16_t port_a) {
+	auto add_peer = [&node] (uint16_t const port_a) {
 		ASSERT_NE (nullptr, node.network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), port_a), node.network_params.network.protocol_version));
 	};
 	add_peer (9998);

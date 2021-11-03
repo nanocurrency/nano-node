@@ -38,8 +38,7 @@ add_custom_target(
     '${PROJECT_SOURCE_DIR}/nano/nano_rpc/*'
     '${PROJECT_SOURCE_DIR}/nano/rpc_test/*'
     '${PROJECT_SOURCE_DIR}/nano/qt_test/*' '${PROJECT_SOURCE_DIR}/nano/qt/*'
-    '${PROJECT_SOURCE_DIR}/nano/test_common/*'
-    '${PROJECT_SOURCE_DIR}/nano/qt_system/*' --output-file
+    '${PROJECT_SOURCE_DIR}/nano/test_common/*' --output-file
     ${PROJECT_SOURCE_DIR}/coverage/lcov.info -q
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   DEPENDS coverage_tests)

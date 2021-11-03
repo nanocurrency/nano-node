@@ -12,14 +12,14 @@ namespace nano
 class signature_check_set final
 {
 public:
-	signature_check_set (size_t size, unsigned char const ** messages, size_t * message_lengths, unsigned char const ** pub_keys, unsigned char const ** signatures, int * verifications) :
+	signature_check_set (std::size_t size, unsigned char const ** messages, std::size_t * message_lengths, unsigned char const ** pub_keys, unsigned char const ** signatures, int * verifications) :
 		size (size), messages (messages), message_lengths (message_lengths), pub_keys (pub_keys), signatures (signatures), verifications (verifications)
 	{
 	}
 
-	size_t size;
+	std::size_t size;
 	unsigned char const ** messages;
-	size_t * message_lengths;
+	std::size_t * message_lengths;
 	unsigned char const ** pub_keys;
 	unsigned char const ** signatures;
 	int * verifications;
@@ -35,7 +35,7 @@ public:
 	void stop ();
 	void flush ();
 
-	static size_t constexpr batch_size = 256;
+	static std::size_t constexpr batch_size = 256;
 
 private:
 	std::atomic<int> tasks_remaining{ 0 };
@@ -44,7 +44,7 @@ private:
 
 	struct Task final
 	{
-		Task (nano::signature_check_set & check, size_t pending) :
+		Task (nano::signature_check_set & check, std::size_t pending) :
 			check (check), pending (pending)
 		{
 		}
@@ -53,11 +53,11 @@ private:
 			release_assert (pending == 0);
 		}
 		nano::signature_check_set & check;
-		std::atomic<size_t> pending;
+		std::atomic<std::size_t> pending;
 	};
 
-	bool verify_batch (const nano::signature_check_set & check_a, size_t index, size_t size);
-	void verify_async (nano::signature_check_set & check_a, size_t num_batches, std::promise<void> & promise);
+	bool verify_batch (nano::signature_check_set const & check_a, std::size_t index, std::size_t size);
+	void verify_async (nano::signature_check_set & check_a, std::size_t num_batches, std::promise<void> & promise);
 	bool single_threaded () const;
 };
 }

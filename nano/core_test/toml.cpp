@@ -1,5 +1,6 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
+#include <nano/lib/tlsconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/secure/utility.hpp>
@@ -69,7 +70,7 @@ TEST (toml, daemon_config_update_array)
 {
 	nano::tomlconfig t;
 	boost::filesystem::path data_path (".");
-	nano::daemon_config c (data_path);
+	nano::daemon_config c{ data_path, nano::dev::network_params };
 	c.node.preconfigured_peers.push_back ("dev-peer.org");
 	c.serialize_toml (t);
 	c.deserialize_toml (t);
@@ -88,8 +89,8 @@ TEST (toml, rpc_config_deserialize_defaults)
 
 	nano::tomlconfig t;
 	t.read (ss);
-	nano::rpc_config conf;
-	nano::rpc_config defaults;
+	nano::rpc_config conf{ nano::dev::network_params.network };
+	nano::rpc_config defaults{ nano::dev::network_params.network };
 	conf.deserialize_toml (t);
 
 	ASSERT_FALSE (t.get_error ()) << t.get_error ().get_message ();
@@ -167,6 +168,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.network_threads, defaults.node.network_threads);
 	ASSERT_EQ (conf.node.secondary_work_peers, defaults.node.secondary_work_peers);
 	ASSERT_EQ (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
+	ASSERT_EQ (conf.node.rep_crawler_weight_minimum, defaults.node.rep_crawler_weight_minimum);
 	ASSERT_EQ (conf.node.election_hint_weight_percent, defaults.node.election_hint_weight_percent);
 	ASSERT_EQ (conf.node.password_fanout, defaults.node.password_fanout);
 	ASSERT_EQ (conf.node.peering_port, defaults.node.peering_port);
@@ -213,6 +215,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.logging.active_update_value, defaults.node.logging.active_update_value);
 	ASSERT_EQ (conf.node.logging.upnp_details_logging_value, defaults.node.logging.upnp_details_logging_value);
 	ASSERT_EQ (conf.node.logging.vote_logging_value, defaults.node.logging.vote_logging_value);
+	ASSERT_EQ (conf.node.logging.rep_crawler_logging_value, defaults.node.logging.rep_crawler_logging_value);
 	ASSERT_EQ (conf.node.logging.work_generation_time_value, defaults.node.logging.work_generation_time_value);
 
 	ASSERT_EQ (conf.node.websocket_config.enabled, defaults.node.websocket_config.enabled);
@@ -404,6 +407,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	lmdb_max_dbs = 999
 	network_threads = 999
 	online_weight_minimum = "999"
+	rep_crawler_weight_minimum = "999"
 	election_hint_weight_percent = 19
 	password_fanout = 999
 	peering_port = 999
@@ -479,6 +483,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	active_update = true
 	upnp_details = true
 	vote = true
+	rep_crawler = true
 	work_generation_time = false
 
 	[node.statistics.log]
@@ -570,6 +575,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.max_pruning_age, defaults.node.max_pruning_age);
 	ASSERT_NE (conf.node.max_pruning_depth, defaults.node.max_pruning_depth);
 	ASSERT_NE (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
+	ASSERT_NE (conf.node.rep_crawler_weight_minimum, defaults.node.rep_crawler_weight_minimum);
 	ASSERT_NE (conf.node.election_hint_weight_percent, defaults.node.election_hint_weight_percent);
 	ASSERT_NE (conf.node.password_fanout, defaults.node.password_fanout);
 	ASSERT_NE (conf.node.peering_port, defaults.node.peering_port);
@@ -616,6 +622,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.logging.active_update_value, defaults.node.logging.active_update_value);
 	ASSERT_NE (conf.node.logging.upnp_details_logging_value, defaults.node.logging.upnp_details_logging_value);
 	ASSERT_NE (conf.node.logging.vote_logging_value, defaults.node.logging.vote_logging_value);
+	ASSERT_NE (conf.node.logging.rep_crawler_logging_value, defaults.node.logging.rep_crawler_logging_value);
 	ASSERT_NE (conf.node.logging.work_generation_time_value, defaults.node.logging.work_generation_time_value);
 
 	ASSERT_NE (conf.node.websocket_config.enabled, defaults.node.websocket_config.enabled);
@@ -717,8 +724,8 @@ TEST (toml, rpc_config_deserialize_no_defaults)
 
 	nano::tomlconfig toml;
 	toml.read (ss);
-	nano::rpc_config conf;
-	nano::rpc_config defaults;
+	nano::rpc_config conf{ nano::dev::network_params.network };
+	nano::rpc_config defaults{ nano::dev::network_params.network };
 	conf.deserialize_toml (toml);
 
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
@@ -752,8 +759,8 @@ TEST (toml, rpc_config_no_required)
 
 	nano::tomlconfig toml;
 	toml.read (ss);
-	nano::rpc_config conf;
-	nano::rpc_config defaults;
+	nano::rpc_config conf{ nano::dev::network_params.network };
+	nano::rpc_config defaults{ nano::dev::network_params.network };
 	conf.deserialize_toml (toml);
 
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
@@ -896,4 +903,62 @@ TEST (toml, daemon_read_config)
 		ASSERT_TRUE (error);
 		ASSERT_EQ (error.get_message (), expected_message2);
 	}
+}
+
+/** Deserialize an tls config with non-default values */
+TEST (toml, tls_config_deserialize_no_defaults)
+{
+	std::stringstream ss;
+
+	// A config file with values that differs from devnet defaults
+	ss << R"toml(
+	enable_https=true
+	enable_wss=true
+	verbose_logging=true
+	server_cert_path="xyz.cert.pem"
+	server_key_path="xyz.key.pem"
+	server_key_passphrase="xyz"
+	server_dh_path="xyz.pem"
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::tls_config conf;
+	nano::tls_config defaults;
+	conf.deserialize_toml (toml);
+
+	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
+
+	ASSERT_NE (conf.enable_https, defaults.enable_https);
+	ASSERT_NE (conf.enable_wss, defaults.enable_wss);
+	ASSERT_NE (conf.verbose_logging, defaults.verbose_logging);
+	ASSERT_NE (conf.server_cert_path, defaults.server_cert_path);
+	ASSERT_NE (conf.server_key_path, defaults.server_key_path);
+	ASSERT_NE (conf.server_key_passphrase, defaults.server_key_passphrase);
+	ASSERT_NE (conf.server_dh_path, defaults.server_dh_path);
+}
+
+/** Empty tls config file should match a default config object, and there should be no required values. */
+TEST (toml, tls_config_defaults)
+{
+	std::stringstream ss;
+
+	// A config with no values
+	ss << R"toml()toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::tls_config conf;
+	nano::tls_config defaults;
+	conf.deserialize_toml (toml);
+
+	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
+
+	ASSERT_EQ (conf.enable_https, defaults.enable_wss);
+	ASSERT_EQ (conf.enable_wss, defaults.enable_wss);
+	ASSERT_EQ (conf.verbose_logging, defaults.verbose_logging);
+	ASSERT_EQ (conf.server_cert_path, defaults.server_cert_path);
+	ASSERT_EQ (conf.server_key_path, defaults.server_key_path);
+	ASSERT_EQ (conf.server_key_passphrase, defaults.server_key_passphrase);
+	ASSERT_EQ (conf.server_dh_path, defaults.server_dh_path);
 }

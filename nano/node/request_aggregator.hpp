@@ -65,13 +65,13 @@ public:
 	void add (std::shared_ptr<nano::transport::channel> const & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a);
 	void stop ();
 	/** Returns the number of currently queued request pools */
-	size_t size ();
+	std::size_t size ();
 	bool empty ();
 
 	nano::node_config const & config;
-	const std::chrono::milliseconds max_delay;
-	const std::chrono::milliseconds small_delay;
-	const size_t max_channel_requests;
+	std::chrono::milliseconds const max_delay;
+	std::chrono::milliseconds const small_delay;
+	std::size_t const max_channel_requests;
 
 private:
 	void run ();
@@ -105,7 +105,7 @@ private:
 	nano::mutex mutex{ mutex_identifier (mutexes::request_aggregator) };
 	std::thread thread;
 
-	friend std::unique_ptr<container_info_component> collect_container_info (request_aggregator &, const std::string &);
+	friend std::unique_ptr<container_info_component> collect_container_info (request_aggregator &, std::string const &);
 };
-std::unique_ptr<container_info_component> collect_container_info (request_aggregator &, const std::string &);
+std::unique_ptr<container_info_component> collect_container_info (request_aggregator &, std::string const &);
 }

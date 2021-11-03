@@ -545,25 +545,19 @@ TEST (telemetry, max_possible_size)
 
 namespace nano
 {
-TEST (telemetry, remove_peer_different_genesis)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3512
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3524
+TEST (telemetry, DISABLED_remove_peer_different_genesis)
 {
 	nano::system system (1);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
 	// Change genesis block to something else in this test (this is the reference telemetry processing uses).
-	// Possible TSAN issue in the future if something else uses this, but will only appear in tests.
-	nano::state_block_builder builder;
-	auto junk = builder
-				.account (nano::dev::genesis_key.pub)
-				.previous (0)
-				.representative (nano::dev::genesis_key.pub)
-				.balance (0)
-				.link (0)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (0)
-				.build_shared ();
-	node1->network_params.ledger.genesis = junk;
+	nano::network_params network_params{ nano::networks::nano_dev_network };
+	network_params.ledger.genesis = network_params.ledger.nano_live_genesis;
+	nano::node_config config{ network_params };
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), config, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	node0->network.merge_peer (node1->network.endpoint ());
@@ -590,18 +584,10 @@ TEST (telemetry, remove_peer_different_genesis_udp)
 	nano::system system (1, nano::transport::transport_type::udp, node_flags);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
-	nano::state_block_builder builder;
-	auto junk = builder
-				.account (nano::dev::genesis_key.pub)
-				.previous (0)
-				.representative (nano::dev::genesis_key.pub)
-				.balance (0)
-				.link (0)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (0)
-				.build_shared ();
-	node1->network_params.ledger.genesis = junk;
+	nano::network_params network_params{ nano::networks::nano_dev_network };
+	network_params.ledger.genesis = network_params.ledger.nano_live_genesis;
+	nano::node_config config{ network_params };
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), config, system.work, node_flags));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto channel0 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node0->network.endpoint (), node0->network_params.network.protocol_version));

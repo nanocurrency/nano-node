@@ -14,7 +14,7 @@ namespace nano
 class mutex;
 extern nano::mutex * mutex_to_filter;
 extern nano::mutex mutex_to_filter_mutex;
-bool should_be_filtered (const char * name);
+bool should_be_filtered (char const * name);
 bool any_filters_registered ();
 
 enum class mutexes
@@ -45,7 +45,7 @@ class mutex
 {
 public:
 	mutex () = default;
-	mutex (const char * name_a)
+	mutex (char const * name_a)
 #if USING_NANO_TIMED_LOCKS
 		:
 		name (name_a)
@@ -90,7 +90,7 @@ public:
 	}
 
 #if USING_NANO_TIMED_LOCKS
-	const char * get_name () const
+	char const * get_name () const
 	{
 		return name ? name : "";
 	}
@@ -98,14 +98,14 @@ public:
 
 private:
 #if USING_NANO_TIMED_LOCKS
-	const char * name{ nullptr };
+	char const * name{ nullptr };
 #endif
 	std::mutex mutex_m;
 };
 
 #if USING_NANO_TIMED_LOCKS
 template <typename Mutex>
-void output (const char * str, std::chrono::milliseconds time, Mutex & mutex);
+void output (char const * str, std::chrono::milliseconds time, Mutex & mutex);
 
 template <typename Mutex>
 void output_if_held_long_enough (nano::timer<std::chrono::milliseconds> & timer, Mutex & mutex);

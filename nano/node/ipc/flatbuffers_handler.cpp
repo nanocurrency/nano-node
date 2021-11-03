@@ -35,25 +35,15 @@ std::string make_error_response (std::string const & error_message)
 
 /**
  * Returns the 'api/flatbuffers' directory, boost::none if not found.
- * This searches the binary path as well as the parent (which is mostly useful for development)
  */
 boost::optional<boost::filesystem::path> get_api_path ()
 {
-	auto parent_path = boost::dll::program_location ().parent_path ();
-	if (!boost::filesystem::exists (parent_path / "api" / "flatbuffers"))
+	boost::filesystem::path const fb_path = "api/flatbuffers";
+	if (!boost::filesystem::exists (fb_path))
 	{
-		// See if the parent directory has the api subdirectories
-		if (parent_path.has_parent_path ())
-		{
-			parent_path = boost::dll::program_location ().parent_path ().parent_path ();
-		}
-
-		if (!boost::filesystem::exists (parent_path / "api" / "flatbuffers"))
-		{
-			return boost::none;
-		}
+		return boost::none;
 	}
-	return parent_path / "api" / "flatbuffers";
+	return fb_path;
 }
 }
 
@@ -77,7 +67,7 @@ std::shared_ptr<flatbuffers::Parser> nano::ipc::flatbuffers_handler::make_flatbu
 		throw nano::error ("Internal IPC error: unable to find api path");
 	}
 
-	const char * include_directories[] = { api_path->string ().c_str (), nullptr };
+	char const * include_directories[] = { api_path->string ().c_str (), nullptr };
 	std::string schemafile;
 	if (!flatbuffers::LoadFile ((*api_path / "nanoapi.fbs").string ().c_str (), false, &schemafile))
 	{
@@ -94,7 +84,7 @@ std::shared_ptr<flatbuffers::Parser> nano::ipc::flatbuffers_handler::make_flatbu
 	return parser;
 }
 
-void nano::ipc::flatbuffers_handler::process_json (const uint8_t * message_buffer_a, size_t buffer_size_a,
+void nano::ipc::flatbuffers_handler::process_json (uint8_t const * message_buffer_a, std::size_t buffer_size_a,
 std::function<void (std::shared_ptr<std::string> const &)> const & response_handler)
 {
 	try
@@ -107,7 +97,7 @@ std::function<void (std::shared_ptr<std::string> const &)> const & response_hand
 		// Convert request from JSON
 		auto body (std::string (reinterpret_cast<char *> (const_cast<uint8_t *> (message_buffer_a)), buffer_size_a));
 		body += '\0';
-		if (parser->Parse (reinterpret_cast<const char *> (body.data ())))
+		if (parser->Parse (reinterpret_cast<char const *> (body.data ())))
 		{
 			process (parser->builder_.GetBufferPointer (), parser->builder_.GetSize (), [parser = parser, response_handler] (std::shared_ptr<flatbuffers::FlatBufferBuilder> const & fbb) {
 				// Convert response to JSON
@@ -144,7 +134,7 @@ std::function<void (std::shared_ptr<std::string> const &)> const & response_hand
 	}
 }
 
-void nano::ipc::flatbuffers_handler::process (const uint8_t * message_buffer_a, size_t buffer_size_a,
+void nano::ipc::flatbuffers_handler::process (uint8_t const * message_buffer_a, std::size_t buffer_size_a,
 std::function<void (std::shared_ptr<flatbuffers::FlatBufferBuilder> const &)> const & response_handler)
 {
 	auto buffer_l (std::make_shared<flatbuffers::FlatBufferBuilder> ());

@@ -35,7 +35,7 @@ template <typename Val, typename Derived_Store>
 class block_predecessor_set;
 
 template <typename Val, typename Derived_Store>
-void release_assert_success (store_partial<Val, Derived_Store> const & store, const int status)
+void release_assert_success (store_partial<Val, Derived_Store> const & store, int const status)
 {
 	if (!store.success (status))
 	{
@@ -56,7 +56,7 @@ class block_store_partial;
 template <typename Val, typename Derived_Store>
 class store_partial : public store
 {
-	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, const int);
+	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, int const);
 	friend class nano::block_store_partial<Val, Derived_Store>;
 	friend class nano::frontier_store_partial<Val, Derived_Store>;
 	friend class nano::account_store_partial<Val, Derived_Store>;

@@ -280,30 +280,31 @@ std::string nano::error_config_messages::message (int ev) const
 	return "Invalid error code";
 }
 
-const char * nano::error_conversion::detail::generic_category::name () const noexcept
+char const * nano::error_conversion::detail::generic_category::name () const noexcept
 {
 	return boost::system::generic_category ().name ();
 }
+
 std::string nano::error_conversion::detail::generic_category::message (int value) const
 {
 	return boost::system::generic_category ().message (value);
 }
 
-const std::error_category & nano::error_conversion::generic_category ()
+std::error_category const & nano::error_conversion::generic_category ()
 {
 	static detail::generic_category instance;
 	return instance;
 }
 
-std::error_code nano::error_conversion::convert (const boost::system::error_code & error)
+std::error_code nano::error_conversion::convert (boost::system::error_code const & error)
 {
 	if (error.category () == boost::system::generic_category ())
 	{
 		return std::error_code (error.value (),
 		nano::error_conversion::generic_category ());
 	}
-	debug_assert (false);
 
+	debug_assert (false);
 	return nano::error_common::invalid_type_conversion;
 }
 
@@ -344,7 +345,7 @@ nano::error & nano::error::operator= (nano::error && err_a)
 }
 
 /** Assign error code */
-nano::error & nano::error::operator= (const std::error_code code_a)
+nano::error & nano::error::operator= (std::error_code const code_a)
 {
 	code = code_a;
 	message.clear ();
@@ -352,7 +353,7 @@ nano::error & nano::error::operator= (const std::error_code code_a)
 }
 
 /** Assign boost error code (as converted to std::error_code) */
-nano::error & nano::error::operator= (const boost::system::error_code & code_a)
+nano::error & nano::error::operator= (boost::system::error_code const & code_a)
 {
 	code = nano::error_conversion::convert (code_a);
 	message.clear ();
@@ -360,7 +361,7 @@ nano::error & nano::error::operator= (const boost::system::error_code & code_a)
 }
 
 /** Assign boost error code (as converted to std::error_code) */
-nano::error & nano::error::operator= (const boost::system::errc::errc_t & code_a)
+nano::error & nano::error::operator= (boost::system::errc::errc_t const & code_a)
 {
 	code = nano::error_conversion::convert (boost::system::errc::make_error_code (code_a));
 	message.clear ();
@@ -368,7 +369,7 @@ nano::error & nano::error::operator= (const boost::system::errc::errc_t & code_a
 }
 
 /** Set the error to nano::error_common::generic and the error message to \p message_a */
-nano::error & nano::error::operator= (const std::string message_a)
+nano::error & nano::error::operator= (std::string message_a)
 {
 	code = nano::error_common::generic;
 	message = std::move (message_a);
@@ -384,13 +385,13 @@ nano::error & nano::error::operator= (std::exception const & exception_a)
 }
 
 /** Return true if this#error_code equals the parameter */
-bool nano::error::operator== (const std::error_code code_a) const
+bool nano::error::operator== (std::error_code const code_a) const
 {
 	return code == code_a;
 }
 
 /** Return true if this#error_code equals the parameter */
-bool nano::error::operator== (const boost::system::error_code code_a) const
+bool nano::error::operator== (boost::system::error_code const code_a) const
 {
 	return code.value () == code_a.value ();
 }
@@ -461,7 +462,7 @@ nano::error & nano::error::on_error (std::error_code code_a, std::string message
 /** Set an error message and an error code */
 nano::error & nano::error::set (std::string message_a, std::error_code code_a)
 {
-	message = message_a;
+	message = std::move (message_a);
 	code = code_a;
 	return *this;
 }
@@ -485,6 +486,7 @@ nano::error & nano::error::clear ()
 	return *this;
 }
 
+// TODO: theoretically, nothing besides template (partial) specializations should ever be added inside std...
 namespace std
 {
 std::error_code make_error_code (boost::system::errc::errc_t const & e)

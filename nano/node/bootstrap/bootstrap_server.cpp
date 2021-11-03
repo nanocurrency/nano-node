@@ -51,7 +51,7 @@ void nano::bootstrap_listener::stop ()
 	}
 }
 
-size_t nano::bootstrap_listener::connection_count ()
+std::size_t nano::bootstrap_listener::connection_count ()
 {
 	nano::lock_guard<nano::mutex> lock (mutex);
 	return connections.size ();
@@ -136,10 +136,7 @@ void nano::bootstrap_server::stop ()
 {
 	if (!stopped.exchange (true))
 	{
-		if (socket != nullptr)
-		{
-			socket->close ();
-		}
+		socket->close ();
 	}
 }
 
@@ -148,7 +145,7 @@ void nano::bootstrap_server::receive ()
 	// Increase timeout to receive TCP header (idle server socket)
 	socket->set_timeout (node->network_params.network.idle_timeout);
 	auto this_l (shared_from_this ());
-	socket->async_read (receive_buffer, 8, [this_l] (boost::system::error_code const & ec, size_t size_a) {
+	socket->async_read (receive_buffer, 8, [this_l] (boost::system::error_code const & ec, std::size_t size_a) {
 		// Set remote_endpoint
 		if (this_l->remote_endpoint.port () == 0)
 		{
@@ -161,7 +158,7 @@ void nano::bootstrap_server::receive ()
 	});
 }
 
-void nano::bootstrap_server::receive_header_action (boost::system::error_code const & ec, size_t size_a)
+void nano::bootstrap_server::receive_header_action (boost::system::error_code const & ec, std::size_t size_a)
 {
 	if (!ec)
 	{
@@ -177,7 +174,7 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 				case nano::message_type::bulk_pull:
 				{
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull, nano::stat::dir::in);
-					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, std::size_t size_a) {
 						this_l->receive_bulk_pull_action (ec, size_a, header);
 					});
 					break;
@@ -185,7 +182,7 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 				case nano::message_type::bulk_pull_account:
 				{
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_account, nano::stat::dir::in);
-					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, std::size_t size_a) {
 						this_l->receive_bulk_pull_account_action (ec, size_a, header);
 					});
 					break;
@@ -193,7 +190,7 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 				case nano::message_type::frontier_req:
 				{
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_req, nano::stat::dir::in);
-					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, std::size_t size_a) {
 						this_l->receive_frontier_req_action (ec, size_a, header);
 					});
 					break;
@@ -209,35 +206,35 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 				}
 				case nano::message_type::keepalive:
 				{
-					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, std::size_t size_a) {
 						this_l->receive_keepalive_action (ec, size_a, header);
 					});
 					break;
 				}
 				case nano::message_type::publish:
 				{
-					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, std::size_t size_a) {
 						this_l->receive_publish_action (ec, size_a, header);
 					});
 					break;
 				}
 				case nano::message_type::confirm_ack:
 				{
-					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, std::size_t size_a) {
 						this_l->receive_confirm_ack_action (ec, size_a, header);
 					});
 					break;
 				}
 				case nano::message_type::confirm_req:
 				{
-					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, std::size_t size_a) {
 						this_l->receive_confirm_req_action (ec, size_a, header);
 					});
 					break;
 				}
 				case nano::message_type::node_id_handshake:
 				{
-					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, std::size_t size_a) {
 						this_l->receive_node_id_handshake_action (ec, size_a, header);
 					});
 					break;
@@ -263,7 +260,7 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 				}
 				case nano::message_type::telemetry_ack:
 				{
-					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header] (boost::system::error_code const & ec, std::size_t size_a) {
 						this_l->receive_telemetry_ack_action (ec, size_a, header);
 					});
 					break;
@@ -288,7 +285,7 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 	}
 }
 
-void nano::bootstrap_server::receive_bulk_pull_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+void nano::bootstrap_server::receive_bulk_pull_action (boost::system::error_code const & ec, std::size_t size_a, nano::message_header const & header_a)
 {
 	if (!ec)
 	{
@@ -310,7 +307,7 @@ void nano::bootstrap_server::receive_bulk_pull_action (boost::system::error_code
 	}
 }
 
-void nano::bootstrap_server::receive_bulk_pull_account_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+void nano::bootstrap_server::receive_bulk_pull_account_action (boost::system::error_code const & ec, std::size_t size_a, nano::message_header const & header_a)
 {
 	if (!ec)
 	{
@@ -333,7 +330,7 @@ void nano::bootstrap_server::receive_bulk_pull_account_action (boost::system::er
 	}
 }
 
-void nano::bootstrap_server::receive_frontier_req_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+void nano::bootstrap_server::receive_frontier_req_action (boost::system::error_code const & ec, std::size_t size_a, nano::message_header const & header_a)
 {
 	if (!ec)
 	{
@@ -362,7 +359,7 @@ void nano::bootstrap_server::receive_frontier_req_action (boost::system::error_c
 	}
 }
 
-void nano::bootstrap_server::receive_keepalive_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+void nano::bootstrap_server::receive_keepalive_action (boost::system::error_code const & ec, std::size_t size_a, nano::message_header const & header_a)
 {
 	if (!ec)
 	{
@@ -387,7 +384,7 @@ void nano::bootstrap_server::receive_keepalive_action (boost::system::error_code
 	}
 }
 
-void nano::bootstrap_server::receive_telemetry_ack_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+void nano::bootstrap_server::receive_telemetry_ack_action (boost::system::error_code const & ec, std::size_t size_a, nano::message_header const & header_a)
 {
 	if (!ec)
 	{
@@ -412,7 +409,7 @@ void nano::bootstrap_server::receive_telemetry_ack_action (boost::system::error_
 	}
 }
 
-void nano::bootstrap_server::receive_publish_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+void nano::bootstrap_server::receive_publish_action (boost::system::error_code const & ec, std::size_t size_a, nano::message_header const & header_a)
 {
 	if (!ec)
 	{
@@ -426,7 +423,7 @@ void nano::bootstrap_server::receive_publish_action (boost::system::error_code c
 			{
 				if (is_realtime_connection ())
 				{
-					if (!nano::work_validate_entry (*request->block))
+					if (!node->network_params.work.validate_entry (*request->block))
 					{
 						add_request (std::unique_ptr<nano::message> (request.release ()));
 					}
@@ -453,7 +450,7 @@ void nano::bootstrap_server::receive_publish_action (boost::system::error_code c
 	}
 }
 
-void nano::bootstrap_server::receive_confirm_req_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+void nano::bootstrap_server::receive_confirm_req_action (boost::system::error_code const & ec, std::size_t size_a, nano::message_header const & header_a)
 {
 	if (!ec)
 	{
@@ -475,7 +472,7 @@ void nano::bootstrap_server::receive_confirm_req_action (boost::system::error_co
 	}
 }
 
-void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_code const & ec, std::size_t size_a, nano::message_header const & header_a)
 {
 	if (!ec)
 	{
@@ -494,7 +491,7 @@ void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_co
 						if (!vote_block.which ())
 						{
 							auto const & block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-							if (nano::work_validate_entry (*block))
+							if (node->network_params.work.validate_entry (*block))
 							{
 								process_vote = false;
 								node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
@@ -516,7 +513,7 @@ void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_co
 	}
 }
 
-void nano::bootstrap_server::receive_node_id_handshake_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+void nano::bootstrap_server::receive_node_id_handshake_action (boost::system::error_code const & ec, std::size_t size_a, nano::message_header const & header_a)
 {
 	if (!ec)
 	{
@@ -554,20 +551,26 @@ void nano::bootstrap_server::finish_request ()
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
 	requests.pop ();
-	if (!requests.empty ())
+
+	while (!requests.empty ())
 	{
-		run_next (lock);
+		if (!requests.front ())
+		{
+			requests.pop ();
+		}
+		else
+		{
+			run_next (lock);
+		}
 	}
-	else
-	{
-		std::weak_ptr<nano::bootstrap_server> this_w (shared_from_this ());
-		node->workers.add_timed_task (std::chrono::steady_clock::now () + (node->config.tcp_io_timeout * 2) + std::chrono::seconds (1), [this_w] () {
-			if (auto this_l = this_w.lock ())
-			{
-				this_l->timeout ();
-			}
-		});
-	}
+
+	std::weak_ptr<nano::bootstrap_server> this_w (shared_from_this ());
+	node->workers.add_timed_task (std::chrono::steady_clock::now () + (node->config.tcp_io_timeout * 2) + std::chrono::seconds (1), [this_w] () {
+		if (auto this_l = this_w.lock ())
+		{
+			this_l->timeout ();
+		}
+	});
 }
 
 void nano::bootstrap_server::finish_request_async ()
@@ -583,25 +586,17 @@ void nano::bootstrap_server::finish_request_async ()
 
 void nano::bootstrap_server::timeout ()
 {
-	if (socket != nullptr)
+	if (socket->has_timed_out ())
 	{
-		if (socket->has_timed_out ())
+		if (node->config.logging.bulk_pull_logging ())
 		{
-			if (node->config.logging.bulk_pull_logging ())
-			{
-				node->logger.try_log ("Closing incoming tcp / bootstrap server by timeout");
-			}
-			{
-				nano::lock_guard<nano::mutex> lock (node->bootstrap.mutex);
-				node->bootstrap.connections.erase (this);
-			}
-			socket->close ();
+			node->logger.try_log ("Closing incoming tcp / bootstrap server by timeout");
 		}
-	}
-	else
-	{
-		nano::lock_guard<nano::mutex> lock (node->bootstrap.mutex);
-		node->bootstrap.connections.erase (this);
+		{
+			nano::lock_guard<nano::mutex> lock (node->bootstrap.mutex);
+			node->bootstrap.connections.erase (this);
+		}
+		socket->close ();
 	}
 }
 
@@ -671,7 +666,7 @@ public:
 			auto cookie (connection->node->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint)));
 			nano::node_id_handshake response_message (connection->node->network_params.network, cookie, response);
 			auto shared_const_buffer = response_message.to_shared_const_buffer ();
-			connection->socket->async_write (shared_const_buffer, [connection = std::weak_ptr<nano::bootstrap_server> (connection)] (boost::system::error_code const & ec, size_t size_a) {
+			connection->socket->async_write (shared_const_buffer, [connection = std::weak_ptr<nano::bootstrap_server> (connection)] (boost::system::error_code const & ec, std::size_t size_a) {
 				if (auto connection_l = connection.lock ())
 				{
 					if (ec)
@@ -736,19 +731,9 @@ void nano::bootstrap_server::run_next (nano::unique_lock<nano::mutex> & lock_a)
 		// Realtime
 		auto request (std::move (requests.front ()));
 		requests.pop ();
-		auto timeout_check (requests.empty ());
 		lock_a.unlock ();
 		request->visit (visitor);
-		if (timeout_check)
-		{
-			std::weak_ptr<nano::bootstrap_server> this_w (shared_from_this ());
-			node->workers.add_timed_task (std::chrono::steady_clock::now () + (node->config.tcp_io_timeout * 2) + std::chrono::seconds (1), [this_w] () {
-				if (auto this_l = this_w.lock ())
-				{
-					this_l->timeout ();
-				}
-			});
-		}
+		lock_a.lock ();
 	}
 }
 
