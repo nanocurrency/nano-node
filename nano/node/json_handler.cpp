@@ -906,6 +906,26 @@ void nano::json_handler::accounts_balances ()
 	response_errors ();
 }
 
+void nano::json_handler::accounts_representatives ()
+{
+	boost::property_tree::ptree representatives;
+	for (auto & accounts : request.get_child ("accounts"))
+	{
+		auto account (account_impl (accounts.second.data ()));
+		auto transaction (node.store.tx_begin_read ());
+		auto info (account_info_impl (transaction, account));
+
+		if (!ec)
+		{
+			boost::property_tree::ptree entry;
+			entry.put ("", info.representative.to_account ());
+			representatives.push_back (std::make_pair (accounts.second.data (), entry));
+		}
+	}
+	response_l.add_child ("representatives", representatives);
+	response_errors ();
+}
+
 void nano::json_handler::accounts_create ()
 {
 	node.workers.push_task (create_worker_task ([] (std::shared_ptr<nano::json_handler> const & rpc_l) {
@@ -5167,6 +5187,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("account_representative_set", &nano::json_handler::account_representative_set);
 	no_arg_funcs.emplace ("account_weight", &nano::json_handler::account_weight);
 	no_arg_funcs.emplace ("accounts_balances", &nano::json_handler::accounts_balances);
+	no_arg_funcs.emplace ("accounts_representatives", &nano::json_handler::accounts_representatives);
 	no_arg_funcs.emplace ("accounts_create", &nano::json_handler::accounts_create);
 	no_arg_funcs.emplace ("accounts_frontiers", &nano::json_handler::accounts_frontiers);
 	no_arg_funcs.emplace ("accounts_pending", &nano::json_handler::accounts_pending);
