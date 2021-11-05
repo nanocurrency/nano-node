@@ -49,28 +49,6 @@ TEST (conflicts, add_existing)
 	ASSERT_NE (votes.end (), votes.find (key2.pub));
 }
 
-// Test disabled because it's failing intermittently.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3536
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3535
-TEST (conflicts, DISABLED_add_two)
-{
-	nano::system system (1);
-	auto & node1 (*system.nodes[0]);
-	nano::keypair key1;
-	auto send1 (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
-	node1.work_generate_blocking (*send1);
-	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
-	node1.block_confirm (send1);
-	node1.active.election (send1->qualified_root ())->force_confirm ();
-	nano::keypair key2;
-	auto send2 (std::make_shared<nano::send_block> (send1->hash (), key2.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
-	node1.work_generate_blocking (*send2);
-	ASSERT_EQ (nano::process_result::progress, node1.process (*send2).code);
-	node1.scheduler.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
-	node1.scheduler.flush ();
-	ASSERT_EQ (2, node1.active.size ());
-}
-
 TEST (conflicts, add_two)
 {
 	nano::system system{};
