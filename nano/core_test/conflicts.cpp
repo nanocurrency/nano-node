@@ -71,6 +71,79 @@ TEST (conflicts, DISABLED_add_two)
 	ASSERT_EQ (2, node1.active.size ());
 }
 
+TEST (conflicts, add_two)
+{
+	nano::system system{};
+	auto const & node = system.add_node ();
+
+	const auto do_send = [&node] (const auto & previous, const auto & from, const auto & to, bool forceConfirm = true)
+	-> std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::block>> {
+		auto send = std::make_shared<nano::send_block> (previous->hash (), to.pub, 0, from.prv, from.pub, 0);
+		node->work_generate_blocking (*send);
+
+		if (nano::process_result::progress != node->process (*send).code)
+		{
+			send.reset ();
+			return std::make_pair (std::move (send), std::move (send));
+		}
+
+		if (forceConfirm)
+		{
+			node->block_confirm (send);
+			node->active.election (send->qualified_root ())->force_confirm ();
+
+			auto receive = std::make_shared<nano::open_block> (send->hash (), to.pub, to.pub, to.prv, to.pub, 0);
+			node->work_generate_blocking (*receive);
+
+			if (nano::process_result::progress != node->process (*receive).code)
+			{
+				return std::make_pair (nullptr, nullptr);
+			}
+
+			node->block_confirm (receive);
+			node->active.election (receive->qualified_root ())->force_confirm ();
+
+			return std::make_pair (std::move (send), std::move (receive));
+		}
+
+		return std::make_pair (std::move (send), nullptr);
+	};
+
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	nano::keypair account1{};
+	const auto [send1, receive1] = do_send (nano::dev::genesis, nano::dev::genesis_key, account1);
+	ASSERT_TRUE (send1 && receive1);
+	ASSERT_TIMELY (3s, 3 == node->ledger.cache.cemented_count);
+
+	nano::keypair account2{};
+	const auto [send2, receive2] = do_send (send1, nano::dev::genesis_key, account2);
+	ASSERT_TRUE (send2 && receive2);
+	ASSERT_TIMELY (3s, 5 == node->ledger.cache.cemented_count);
+
+	nano::keypair account3{};
+	{
+		const auto [send3, _] = do_send (receive1, account1, account3, false);
+		ASSERT_TRUE (send3);
+		ASSERT_TIMELY (3s, 5 == node->ledger.cache.cemented_count);
+	}
+
+	{
+		const auto [send4, _] = do_send (receive2, account2, account3, false);
+		ASSERT_TRUE (send4);
+		ASSERT_TIMELY (3s, 5 == node->ledger.cache.cemented_count);
+	}
+
+	node->scheduler.activate (account3.pub, node->store.tx_begin_read ());
+	node->scheduler.flush ();
+
+	// wait 3s before asserting just to make sure there would be enough time
+	// for the AEC to evict both elections in case they would wrongfully get confirmed
+	//
+	std::this_thread::sleep_for (3s);
+	ASSERT_EQ (2, node->active.size ());
+}
+
 TEST (vote_uniquer, null)
 {
 	nano::block_uniquer block_uniquer;
