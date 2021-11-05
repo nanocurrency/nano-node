@@ -2986,7 +2986,7 @@ TEST (rpc, accounts_representatives)
 	accounts.push_back (std::make_pair ("", entry));
 	request.add_child ("accounts", accounts);
 	auto response (wait_response (system, rpc, request));
-	auto response_representative (response.get_child("representatives").get<std::string>(nano::dev::genesis->account ().to_account ()));
+	auto response_representative (response.get_child ("representatives").get<std::string> (nano::dev::genesis->account ().to_account ()));
 	ASSERT_EQ (response_representative, nano::dev::genesis->account ().to_account ());
 }
 
