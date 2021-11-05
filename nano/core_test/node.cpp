@@ -2925,7 +2925,7 @@ TEST (node, vote_republish)
 	node1.process_active (send1);
 	ASSERT_TIMELY (5s, node2.block (send1->hash ()));
 	node1.process_active (send2);
-	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, std::numeric_limits<uint64_t>::max (), send2));
+	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, send2));
 	ASSERT_TRUE (node1.active.active (*send1));
 	ASSERT_TIMELY (10s, node2.active.active (*send1));
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::channel_loopback> (node1));
@@ -3020,7 +3020,7 @@ TEST (node, vote_by_hash_republish)
 	node1.process_active (send2);
 	std::vector<nano::block_hash> vote_blocks;
 	vote_blocks.push_back (send2->hash ());
-	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, std::numeric_limits<uint64_t>::max (), vote_blocks); // Final vote for confirmation
+	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, vote_blocks); // Final vote for confirmation
 	ASSERT_TRUE (node1.active.active (*send1));
 	ASSERT_TRUE (node2.active.active (*send1));
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::channel_loopback> (node1));
@@ -3539,7 +3539,7 @@ TEST (node, confirm_back)
 	ASSERT_EQ (3, node.active.size ());
 	std::vector<nano::block_hash> vote_blocks;
 	vote_blocks.push_back (send2->hash ());
-	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, std::numeric_limits<uint64_t>::max (), vote_blocks));
+	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, vote_blocks));
 	node.vote_processor.vote_blocking (vote, std::make_shared<nano::transport::channel_loopback> (node));
 	ASSERT_TIMELY (10s, node.active.empty ());
 }
@@ -4089,7 +4089,7 @@ TEST (node, rollback_gap_source)
 		ASSERT_EQ (2, election->blocks ().size ());
 		ASSERT_EQ (1, election->votes ().size ());
 		// Confirm open
-		auto vote1 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, std::numeric_limits<uint64_t>::max (), std::vector<nano::block_hash> (1, open->hash ())));
+		auto vote1 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, std::vector<nano::block_hash> (1, open->hash ())));
 		node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_loopback> (node));
 		ASSERT_TIMELY (5s, election->votes ().size () == 2);
 		ASSERT_TIMELY (3s, election->confirmed ());
@@ -4116,7 +4116,7 @@ TEST (node, rollback_gap_source)
 		node.block_processor.flush ();
 		ASSERT_EQ (2, election->blocks ().size ());
 		// Confirm open (again)
-		auto vote1 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, std::numeric_limits<uint64_t>::max (), std::vector<nano::block_hash> (1, open->hash ())));
+		auto vote1 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, std::vector<nano::block_hash> (1, open->hash ())));
 		node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_loopback> (node));
 		ASSERT_TIMELY (5s, election->votes ().size () == 2);
 	}

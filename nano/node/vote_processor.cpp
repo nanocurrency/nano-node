@@ -198,7 +198,7 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 	}
 	if (config.logging.vote_logging ())
 	{
-		logger.try_log (boost::str (boost::format ("Vote from: %1% timestamp: %2% block(s): %3%status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->timestamp) % vote_a->hashes_string () % status));
+		logger.try_log (boost::str (boost::format ("Vote from: %1% timestamp: %2% block(s): %3% status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->timestamp ()) % vote_a->hashes_string () % status));
 	}
 	return result;
 }

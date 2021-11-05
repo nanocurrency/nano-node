@@ -144,7 +144,7 @@ TEST (vote_uniquer, cleanup)
 	nano::vote_uniquer uniquer (block_uniquer);
 	nano::keypair key;
 	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, 0, std::make_shared<nano::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0)));
-	auto vote2 (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::make_shared<nano::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0)));
+	auto vote2 (std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_min * 1, std::make_shared<nano::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0)));
 	auto vote3 (uniquer.unique (vote1));
 	auto vote4 (uniquer.unique (vote2));
 	vote2.reset ();

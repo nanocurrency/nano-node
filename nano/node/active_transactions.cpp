@@ -872,7 +872,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 				}
 				else if (recently_confirmed_by_hash.count (block_hash) == 0)
 				{
-					add_inactive_votes_cache (lock, block_hash, vote_a->account, vote_a->timestamp);
+					add_inactive_votes_cache (lock, block_hash, vote_a->account, vote_a->timestamp ());
 				}
 				else
 				{
@@ -889,7 +889,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 				}
 				else if (recently_confirmed_by_hash.count (block->hash ()) == 0)
 				{
-					add_inactive_votes_cache (lock, block->hash (), vote_a->account, vote_a->timestamp);
+					add_inactive_votes_cache (lock, block->hash (), vote_a->account, vote_a->timestamp ());
 				}
 				else
 				{
@@ -905,7 +905,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 		bool processed (false);
 		for (auto const & [election, block_hash] : process)
 		{
-			auto const result_l = election->vote (vote_a->account, vote_a->timestamp, block_hash);
+			auto const result_l = election->vote (vote_a->account, vote_a->timestamp (), block_hash);
 			processed = processed || result_l.processed;
 			replay = replay || result_l.replay;
 		}

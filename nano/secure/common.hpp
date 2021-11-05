@@ -249,8 +249,8 @@ public:
 	vote (nano::vote const &);
 	vote (bool &, nano::stream &, nano::block_uniquer * = nullptr);
 	vote (bool &, nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
-	vote (nano::account const &, nano::raw_key const &, uint64_t, std::shared_ptr<nano::block> const &);
-	vote (nano::account const &, nano::raw_key const &, uint64_t, std::vector<nano::block_hash> const &);
+	vote (nano::account const &, nano::raw_key const &, uint64_t timestamp, std::shared_ptr<nano::block> const &);
+	vote (nano::account const &, nano::raw_key const &, uint64_t timestamp, std::vector<nano::block_hash> const &);
 	std::string hashes_string () const;
 	nano::block_hash hash () const;
 	nano::block_hash full_hash () const;
@@ -264,8 +264,15 @@ public:
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> end () const;
 	std::string to_json () const;
+	uint64_t timestamp () const;
+	static uint64_t constexpr timestamp_max = { 0xffff'ffff'ffff'ffffULL };
+	static uint64_t constexpr timestamp_min = { 0x0000'0000'0000'0001ULL };
+
+private:
 	// Vote timestamp
-	uint64_t timestamp;
+	uint64_t timestamp_m;
+
+public:
 	// The blocks, or block hashes, that this vote is for
 	std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>> blocks;
 	// Account that's voting
