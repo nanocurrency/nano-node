@@ -76,7 +76,7 @@ TEST (conflicts, add_two)
 	nano::system system{};
 	auto const & node = system.add_node ();
 
-	const auto do_send = [&node] (const auto & previous, const auto & from, const auto & to, bool forceConfirm = true)
+	auto const do_send = [&node] (auto const & previous, auto const & from, auto const & to, bool forceConfirm = true)
 	-> std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::block>> {
 		auto send = std::make_shared<nano::send_block> (previous->hash (), to.pub, 0, from.prv, from.pub, 0);
 		node->work_generate_blocking (*send);
@@ -112,24 +112,24 @@ TEST (conflicts, add_two)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
 	nano::keypair account1{};
-	const auto [send1, receive1] = do_send (nano::dev::genesis, nano::dev::genesis_key, account1);
+	auto const [send1, receive1] = do_send (nano::dev::genesis, nano::dev::genesis_key, account1);
 	ASSERT_TRUE (send1 && receive1);
 	ASSERT_TIMELY (3s, 3 == node->ledger.cache.cemented_count);
 
 	nano::keypair account2{};
-	const auto [send2, receive2] = do_send (send1, nano::dev::genesis_key, account2);
+	auto const [send2, receive2] = do_send (send1, nano::dev::genesis_key, account2);
 	ASSERT_TRUE (send2 && receive2);
 	ASSERT_TIMELY (3s, 5 == node->ledger.cache.cemented_count);
 
 	nano::keypair account3{};
 	{
-		const auto [send3, _] = do_send (receive1, account1, account3, false);
+		auto const [send3, _] = do_send (receive1, account1, account3, false);
 		ASSERT_TRUE (send3);
 		ASSERT_TIMELY (3s, 5 == node->ledger.cache.cemented_count);
 	}
 
 	{
-		const auto [send4, _] = do_send (receive2, account2, account3, false);
+		auto const [send4, _] = do_send (receive2, account2, account3, false);
 		ASSERT_TRUE (send4);
 		ASSERT_TIMELY (3s, 5 == node->ledger.cache.cemented_count);
 	}
