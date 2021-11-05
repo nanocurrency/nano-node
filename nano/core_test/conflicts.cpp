@@ -76,6 +76,10 @@ TEST (conflicts, add_two)
 	nano::system system{};
 	auto const & node = system.add_node ();
 
+	// define a functor that sends from given account to given destination,
+	// optionally force-confirming the send blocks *and* receiving on the destination account;
+	// the functor returns a pair of the send and receive blocks created or nullptrs if something failed
+	//
 	auto const do_send = [&node] (auto const & previous, auto const & from, auto const & to, bool forceConfirm = true)
 	-> std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::block>> {
 		auto send = std::make_shared<nano::send_block> (previous->hash (), to.pub, 0, from.prv, from.pub, 0);
@@ -111,34 +115,50 @@ TEST (conflicts, add_two)
 
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
+	// send from genesis to account1 and receive it on account1
+	//
 	nano::keypair account1{};
 	auto const [send1, receive1] = do_send (nano::dev::genesis, nano::dev::genesis_key, account1);
 	ASSERT_TRUE (send1 && receive1);
+	// both blocks having been fully confirmed, we expect 1 (genesis) + 2 (send/receive) = 3 cemented blocks
+	//
 	ASSERT_TIMELY (3s, 3 == node->ledger.cache.cemented_count);
 
+	// send from genesis to account2 and receive it on account2
+	//
 	nano::keypair account2{};
 	auto const [send2, receive2] = do_send (send1, nano::dev::genesis_key, account2);
 	ASSERT_TRUE (send2 && receive2);
 	ASSERT_TIMELY (3s, 5 == node->ledger.cache.cemented_count);
 
+	// send from account1 to account3 but do not receive it on account3 and do not force confirm the send block
+	//
 	nano::keypair account3{};
 	{
 		auto const [send3, _] = do_send (receive1, account1, account3, false);
 		ASSERT_TRUE (send3);
+		// expect the number of cemented blocks not to have changed since the last operation
+		//
 		ASSERT_TIMELY (3s, 5 == node->ledger.cache.cemented_count);
 	}
 
+	// send from account1 to account3 but do not receive it on account3 and do not force confirm the send block
+	//
 	{
 		auto const [send4, _] = do_send (receive2, account2, account3, false);
 		ASSERT_TRUE (send4);
+		// expect the number of cemented blocks not to have changed since the last operation
+		//
 		ASSERT_TIMELY (3s, 5 == node->ledger.cache.cemented_count);
 	}
 
+	// activate elections for the previous two send blocks (to account3) that we did not forcefully confirm
+	//
 	node->scheduler.activate (account3.pub, node->store.tx_begin_read ());
 	node->scheduler.flush ();
 
 	// wait 3s before asserting just to make sure there would be enough time
-	// for the AEC to evict both elections in case they would wrongfully get confirmed
+	// for the Active Elections Container to evict both elections in case they would wrongfully get confirmed
 	//
 	std::this_thread::sleep_for (3s);
 	ASSERT_EQ (2, node->active.size ());
