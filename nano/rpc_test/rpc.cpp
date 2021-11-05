@@ -5299,7 +5299,7 @@ TEST (rpc, memory_stats)
 	auto block (std::make_shared<nano::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0));
 	std::vector<nano::block_hash> hashes;
 	hashes.push_back (block->hash ());
-	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, 0, hashes));
+	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, hashes));
 	node->vote_uniquer.unique (vote);
 	boost::property_tree::ptree request;
 	request.put ("action", "stats");
