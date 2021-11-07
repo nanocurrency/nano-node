@@ -745,7 +745,7 @@ class unchecked_store
 public:
 	virtual void clear (nano::write_transaction const &) = 0;
 	virtual void put (nano::write_transaction const &, nano::unchecked_key const &, nano::unchecked_info const &) = 0;
-	virtual void put (nano::write_transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &) = 0;
+	virtual void put (nano::write_transaction const &, nano::hash_or_account const &, std::shared_ptr<nano::block> const &) = 0;
 	virtual std::vector<nano::unchecked_info> get (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual bool exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) = 0;
 	virtual void del (nano::write_transaction const &, nano::unchecked_key const &) = 0;

@@ -41,9 +41,9 @@ public:
 		release_assert_success (store, status);
 	}
 
-	void put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a) override
+	void put (nano::write_transaction const & transaction_a, nano::hash_or_account const & dependency_a, std::shared_ptr<nano::block> const & block_a) override
 	{
-		nano::unchecked_key key (hash_a, block_a->hash ());
+		nano::unchecked_key key (dependency_a, block_a->hash ());
 		nano::unchecked_info info (block_a, block_a->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
 		put (transaction_a, key, info);
 	}
