@@ -169,13 +169,19 @@ TEST (vote_processor, weights)
 // Test disabled because it's failing intermittently.
 // PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3532
 // Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3485
-TEST (vote_processor, DISABLED_no_broadcast_local)
+// Checks local votes (a vote with a key that is in the node's wallet) are re-broadcast when received.
+TEST (vote_processor, no_broadcast_local)
 {
 	nano::system system;
 	nano::node_flags flags;
 	flags.disable_request_loop = true;
-	auto & node (*system.add_node (flags));
-	system.add_node (flags);
+	flags.disable_block_processor_republishing = true;
+	nano::node_config config1, config2;
+	config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node (*system.add_node (config1, flags));
+	config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config2.peering_port = nano::get_available_port();
+	system.add_node (config2, flags);
 	nano::block_builder builder;
 	std::error_code ec;
 	// Reduce the weight of genesis to 2x default min voting weight
@@ -191,23 +197,25 @@ TEST (vote_processor, DISABLED_no_broadcast_local)
 										.build (ec);
 	ASSERT_FALSE (ec);
 	ASSERT_EQ (nano::process_result::progress, node.process_local (send).code);
+	ASSERT_TIMELY (10s, !node.active.empty ());
 	ASSERT_EQ (2 * node.config.vote_minimum.number (), node.weight (nano::dev::genesis_key.pub));
-	// Insert account in wallet
+	// Insert account in wallet. Votes on node are not enabled.
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	// Ensure that the node knows the genesis key in its wallet.
 	node.wallets.compute_reps ();
 	ASSERT_TRUE (node.wallets.reps ().exists (nano::dev::genesis_key.pub));
 	ASSERT_FALSE (node.wallets.reps ().have_half_rep ());
-	// Process a vote
+	// Process a vote with a key that is in the local wallet.
 	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch () & nano::vote::timestamp_max, std::vector<nano::block_hash>{ send->hash () });
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote));
-	// Make sure the vote was processed
+	// Make sure the vote was processed.
 	auto election (node.active.election (send->qualified_root ()));
 	ASSERT_NE (nullptr, election);
 	auto votes (election->votes ());
 	auto existing (votes.find (nano::dev::genesis_key.pub));
 	ASSERT_NE (votes.end (), existing);
 	ASSERT_EQ (vote->timestamp (), existing->second.timestamp);
-	// Ensure the vote, from a local representative, was not broadcast on processing - it should be flooded on generation instead
+	// Ensure the vote, from a local representative, was not broadcast on processing - it should be flooded on generation instead.
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
 
@@ -228,6 +236,7 @@ TEST (vote_processor, DISABLED_no_broadcast_local)
 										 .build (ec);
 	ASSERT_FALSE (ec);
 	ASSERT_EQ (nano::process_result::progress, node.process_local (send2).code);
+	ASSERT_TIMELY (10s, !node.active.empty ());
 	ASSERT_EQ (node.config.vote_minimum, node.weight (nano::dev::genesis_key.pub));
 	node.block_confirm (send2);
 	// Process a vote
@@ -257,6 +266,7 @@ TEST (vote_processor, DISABLED_no_broadcast_local)
 										.build (ec);
 	ASSERT_FALSE (ec);
 	ASSERT_EQ (nano::process_result::progress, node.process_local (open).code);
+	ASSERT_TIMELY (10s, !node.active.empty ());
 	ASSERT_EQ (nano::dev::constants.genesis_amount - node.config.vote_minimum.number (), node.weight (nano::dev::genesis_key.pub));
 	node.block_confirm (open);
 	// Insert account in wallet
