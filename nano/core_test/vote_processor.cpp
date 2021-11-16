@@ -168,7 +168,8 @@ TEST (vote_processor, weights)
 
 // Issue that tracks last changes on this test: https://github.com/nanocurrency/nano-node/issues/3485
 // Reopen in case the nondeterministic failure appears again.
-// Checks local votes (a vote with a key that is in the node's wallet) are re-broadcast when received.
+// Checks local votes (a vote with a key that is in the node's wallet) are not re-broadcast when received.
+// Nodes should not relay their own votes
 TEST (vote_processor, no_broadcast_local)
 {
 	nano::system system;
@@ -202,7 +203,7 @@ TEST (vote_processor, no_broadcast_local)
 	// Ensure that the node knows the genesis key in its wallet.
 	node.wallets.compute_reps ();
 	ASSERT_TRUE (node.wallets.reps ().exists (nano::dev::genesis_key.pub));
-	ASSERT_FALSE (node.wallets.reps ().have_half_rep ());
+	ASSERT_FALSE (node.wallets.reps ().have_half_rep ()); // Genesis balance remaining after `send' is less than the half_rep threshold
 	// Process a vote with a key that is in the local wallet.
 	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch () & nano::vote::timestamp_max, std::vector<nano::block_hash>{ send->hash () });
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote));
@@ -213,14 +214,14 @@ TEST (vote_processor, no_broadcast_local)
 	auto existing (votes.find (nano::dev::genesis_key.pub));
 	ASSERT_NE (votes.end (), existing);
 	ASSERT_EQ (vote->timestamp (), existing->second.timestamp);
-	// Ensure the vote, from a local representative, was not broadcast on processing - it should be flooded on generation instead.
+	// Ensure the vote, from a local representative, was not broadcast on processing - it should be flooded on vote generation instead.
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
 }
 
 // Issue that tracks last changes on this test: https://github.com/nanocurrency/nano-node/issues/3485
 // Reopen in case the nondeterministic failure appears again.
-// Checks local votes (a vote with a key that is in the node's wallet) are re-broadcast when received.
+// Checks non-local votes (a vote with a key that is not in the node's wallet) are re-broadcast when received.
 // Done without a representative.
 TEST (vote_processor, local_broadcast_without_a_representative)
 {
@@ -268,7 +269,7 @@ TEST (vote_processor, local_broadcast_without_a_representative)
 
 // Issue that tracks last changes on this test: https://github.com/nanocurrency/nano-node/issues/3485
 // Reopen in case the nondeterministic failure appears again.
-// Checks local votes (a vote with a key that is in the node's wallet) are re-broadcast when received.
+// Checks local votes (a vote with a key that is in the node's wallet) are not re-broadcast when received.
 // Done with a principal representative.
 TEST (vote_processor, no_broadcast_local_with_a_principal_representative)
 {
@@ -303,7 +304,7 @@ TEST (vote_processor, no_broadcast_local_with_a_principal_representative)
 	// Ensure that the node knows the genesis key in its wallet.
 	node.wallets.compute_reps ();
 	ASSERT_TRUE (node.wallets.reps ().exists (nano::dev::genesis_key.pub));
-	ASSERT_TRUE (node.wallets.reps ().have_half_rep ());
+	ASSERT_TRUE (node.wallets.reps ().have_half_rep ()); // Genesis balance after `send' is over both half_rep and PR threshold.
 	// Process a vote with a key that is in the local wallet.
 	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch () & nano::vote::timestamp_max, std::vector<nano::block_hash>{ send->hash () });
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote));
