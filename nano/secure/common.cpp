@@ -756,8 +756,7 @@ bool nano::vote::validate () const
 
 uint64_t nano::vote::packed_timestamp (uint64_t timestamp, uint8_t duration) const
 {
-	debug_assert ((timestamp & 0xf) == 0 && "Invalid timestamp");
-	debug_assert ((duration & 0xf0) == 0 && "Invalid duration");
+	debug_assert (duration <= duration_max && "Invalid duration");
 	debug_assert ((!(timestamp == timestamp_max) || (duration == duration_max)) && "Invalid final vote");
 	return (timestamp & timestamp_mask) | duration;
 }
