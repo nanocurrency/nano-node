@@ -487,6 +487,7 @@ void nano::vote::serialize_json (boost::property_tree::ptree & tree) const
 	tree.put ("signature", signature.number ());
 	tree.put ("sequence", std::to_string (timestamp ()));
 	tree.put ("timestamp", std::to_string (timestamp ()));
+	tree.put ("duration", std::to_string (duration_bits ()));
 	boost::property_tree::ptree blocks_tree;
 	for (auto block : blocks)
 	{
@@ -516,6 +517,21 @@ std::string nano::vote::to_json () const
 uint64_t nano::vote::timestamp () const
 {
 	return timestamp_m;
+}
+
+uint8_t nano::vote::duration_bits () const
+{
+	// Duration field is specified in the 4 low-order bits of the timestamp.
+	// This makes the timestamp have a minimum granularity of 16ms
+	// The duration is specified as 2^(duration + 4) giving it a range of 16-524,288ms in power of two increments
+	auto result = timestamp_m & ~timestamp_mask;
+	debug_assert (result < 16);
+	return static_cast<uint8_t> (result);
+}
+
+std::chrono::milliseconds nano::vote::duration () const
+{
+	return std::chrono::milliseconds{ 1u << (duration_bits () + 4) };
 }
 
 nano::vote::vote (nano::vote const & other_a) :
@@ -569,16 +585,16 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type
 	}
 }
 
-nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, std::shared_ptr<nano::block> const & block_a) :
-	timestamp_m{ timestamp_a },
+nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, uint8_t duration, std::shared_ptr<nano::block> const & block_a) :
+	timestamp_m{ packed_timestamp (timestamp_a, duration) },
 	blocks (1, block_a),
 	account (account_a),
 	signature (nano::sign_message (prv_a, account_a, hash ()))
 {
 }
 
-nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, std::vector<nano::block_hash> const & blocks_a) :
-	timestamp_m{ timestamp_a },
+nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, uint8_t duration, std::vector<nano::block_hash> const & blocks_a) :
+	timestamp_m{ packed_timestamp (timestamp_a, duration) },
 	account (account_a)
 {
 	debug_assert (!blocks_a.empty ());
@@ -736,6 +752,13 @@ bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uni
 bool nano::vote::validate () const
 {
 	return nano::validate_message (account, hash (), signature);
+}
+
+uint64_t nano::vote::packed_timestamp (uint64_t timestamp, uint8_t duration) const
+{
+	debug_assert (duration <= duration_max && "Invalid duration");
+	debug_assert ((!(timestamp == timestamp_max) || (duration == duration_max)) && "Invalid final vote");
+	return (timestamp & timestamp_mask) | duration;
 }
 
 nano::block_hash nano::iterate_vote_blocks_as_hash::operator() (boost::variant<std::shared_ptr<nano::block>, nano::block_hash> const & item) const
