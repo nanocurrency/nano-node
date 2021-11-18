@@ -351,6 +351,34 @@ TEST (socket, disabled_max_peers_per_ip)
 	node->stop ();
 }
 
+TEST (socket, disconnection_of_silent_connections)
+{
+	nano::system system;
+	auto node = system.add_node ();
+	auto socket = std::make_shared<nano::socket> (*node);
+	// Classify the socket type as real-time as the disconnections are done only for this connection type.
+	socket->type_set (nano::socket::type_t::realtime);
+	// Silent connections are connections open by external peers that don't contribute with any data.
+	socket->set_silent_connection_tolerance_time (std::chrono::seconds{ 5 });
+	auto bootstrap_endpoint = node->bootstrap.endpoint ();
+	std::atomic<bool> connected{ false };
+	// Opening a connection that will be closed because it remains silent during the tolerance time.
+	socket->async_connect (bootstrap_endpoint, [socket, &connected] (boost::system::error_code const & ec) {
+		ASSERT_FALSE (ec);
+		connected = true;
+	});
+	ASSERT_TIMELY (4s, connected);
+	// Checking the connection was closed.
+	ASSERT_TIMELY (10s, socket->is_closed ());
+
+	auto get_tcp_silent_connection_drops = [&node] () {
+		return node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_silent_connection_drop, nano::stat::dir::in);
+	};
+	ASSERT_EQ (1, get_tcp_silent_connection_drops ());
+
+	node->stop ();
+}
+
 TEST (socket, drop_policy)
 {
 	auto node_flags = nano::inactive_node_flag_defaults ();

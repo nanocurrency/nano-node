@@ -72,6 +72,7 @@ public:
 	/** This can be called to change the maximum idle time, e.g. based on the type of traffic detected. */
 	void timeout_set (std::chrono::seconds io_timeout_a);
 	void start_timer (std::chrono::seconds deadline_a);
+	void set_silent_connection_tolerance_time (std::chrono::seconds tolerance_time_a);
 	bool max () const
 	{
 		return queue_size >= queue_size_max;
@@ -87,6 +88,14 @@ public:
 	void type_set (type_t type_a)
 	{
 		type_m = type_a;
+	}
+	bool is_realtime_connection ()
+	{
+		return type () == nano::socket::type_t::realtime || type () == nano::socket::type_t::realtime_response_server;
+	}
+	bool is_closed ()
+	{
+		return closed;
 	}
 
 protected:
@@ -107,8 +116,10 @@ protected:
 
 	std::atomic<uint64_t> next_deadline;
 	std::atomic<uint64_t> last_completion_time;
+	std::atomic<uint64_t> last_receive_time;
 	std::atomic<bool> timed_out{ false };
 	std::atomic<std::chrono::seconds> io_timeout;
+	std::chrono::seconds silent_connection_tolerance_time;
 	std::atomic<std::size_t> queue_size{ 0 };
 
 	/** Set by close() - completion handlers must check this. This is more reliable than checking
@@ -117,6 +128,7 @@ protected:
 	void close_internal ();
 	void start_timer ();
 	void stop_timer ();
+	void update_last_receive_time ();
 	void checkup ();
 
 private:

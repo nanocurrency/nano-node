@@ -21,7 +21,9 @@ nano::socket::socket (nano::node & node_a) :
 	node{ node_a },
 	next_deadline{ std::numeric_limits<uint64_t>::max () },
 	last_completion_time{ 0 },
-	io_timeout{ node_a.config.tcp_io_timeout }
+	last_receive_time{ 0 },
+	io_timeout{ node_a.config.tcp_io_timeout },
+	silent_connection_tolerance_time{ node_a.network_params.network.silent_connection_tolerance_time }
 {
 }
 
@@ -58,6 +60,7 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buf
 				[this_l, buffer_a, callback_a] (boost::system::error_code const & ec, std::size_t size_a) {
 					this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::in, size_a);
 					this_l->stop_timer ();
+					this_l->update_last_receive_time ();
 					callback_a (ec, size_a);
 				}));
 			}));
@@ -124,6 +127,11 @@ void nano::socket::stop_timer ()
 	last_completion_time = nano::seconds_since_epoch ();
 }
 
+void nano::socket::update_last_receive_time ()
+{
+	last_receive_time = nano::seconds_since_epoch ();
+}
+
 void nano::socket::checkup ()
 {
 	std::weak_ptr<nano::socket> this_w (shared_from_this ());
@@ -131,7 +139,18 @@ void nano::socket::checkup ()
 		if (auto this_l = this_w.lock ())
 		{
 			uint64_t now (nano::seconds_since_epoch ());
+			auto condition_to_disconnect{ false };
+			if (this_l->is_realtime_connection () && now - this_l->last_receive_time > this_l->silent_connection_tolerance_time.count ())
+			{
+				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_silent_connection_drop, nano::stat::dir::in);
+				condition_to_disconnect = true;
+			}
 			if (this_l->next_deadline != std::numeric_limits<uint64_t>::max () && now - this_l->last_completion_time > this_l->next_deadline)
+			{
+				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, nano::stat::dir::in);
+				condition_to_disconnect = true;
+			}
+			if (condition_to_disconnect)
 			{
 				if (this_l->node.config.logging.network_timeout_logging ())
 				{
@@ -162,6 +181,14 @@ bool nano::socket::has_timed_out () const
 void nano::socket::timeout_set (std::chrono::seconds io_timeout_a)
 {
 	io_timeout = io_timeout_a;
+}
+
+void nano::socket::set_silent_connection_tolerance_time (std::chrono::seconds tolerance_time_a)
+{
+	auto this_l (shared_from_this ());
+	boost::asio::dispatch (strand, boost::asio::bind_executor (strand, [this_l, tolerance_time_a] () {
+		this_l->silent_connection_tolerance_time = tolerance_time_a;
+	}));
 }
 
 void nano::socket::close ()

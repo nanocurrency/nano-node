@@ -156,6 +156,7 @@ public:
 		request_interval_ms = is_dev_network () ? 20 : 500;
 		cleanup_period = is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (60);
 		idle_timeout = is_dev_network () ? cleanup_period * 15 : cleanup_period * 2;
+		silent_connection_tolerance_time = std::chrono::seconds (120);
 		syn_cookie_cutoff = std::chrono::seconds (5);
 		bootstrap_interval = std::chrono::seconds (15 * 60);
 		max_peers_per_ip = is_dev_network () ? 10 : 5;
@@ -189,6 +190,7 @@ public:
 	}
 	/** Default maximum idle time for a socket before it's automatically closed */
 	std::chrono::seconds idle_timeout;
+	std::chrono::seconds silent_connection_tolerance_time;
 	std::chrono::seconds syn_cookie_cutoff;
 	std::chrono::seconds bootstrap_interval;
 	/** Maximum number of peers per IP. It is also the max number of connections per IP */
