@@ -35,6 +35,11 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 	port (port_a),
 	disconnect_observer ([] () {})
 {
+	if (!node.flags.disable_udp)
+	{
+		port = udp_channels.get_local_endpoint ().port ();
+	}
+
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
 	// UDP
