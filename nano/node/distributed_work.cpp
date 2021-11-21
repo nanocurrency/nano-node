@@ -8,16 +8,16 @@
 
 std::shared_ptr<request_type> nano::distributed_work::peer_request::get_prepared_json_request (std::string const & request_string_a) const
 {
-	auto request (std::make_shared<request_type> ());
-	request->method (boost::beast::http::verb::post);
-	request->set (boost::beast::http::field::content_type, "application/json");
+	auto http_request = std::make_shared<request_type> ();
+	http_request->method (boost::beast::http::verb::post);
+	http_request->set (boost::beast::http::field::content_type, "application/json");
 	auto address_string = boost::algorithm::erase_first_copy (endpoint.address ().to_string (), "::ffff:");
-	request->set (boost::beast::http::field::host, address_string);
-	request->target ("/");
-	request->version (11);
-	request->body () = request_string_a;
-	request->prepare_payload ();
-	return request;
+	http_request->set (boost::beast::http::field::host, address_string);
+	http_request->target ("/");
+	http_request->version (11);
+	http_request->body () = request_string_a;
+	http_request->prepare_payload ();
+	return http_request;
 }
 
 nano::distributed_work::distributed_work (nano::node & node_a, nano::work_request const & request_a, std::chrono::seconds const & backoff_a) :
@@ -139,16 +139,16 @@ void nano::distributed_work::do_request (nano::tcp_endpoint const & endpoint_a)
 		{
 			std::string request_string;
 			{
-				boost::property_tree::ptree request;
-				request.put ("action", "work_generate");
-				request.put ("hash", this_l->request.root.to_string ());
-				request.put ("difficulty", nano::to_string_hex (this_l->request.difficulty));
+				boost::property_tree::ptree rpc_request;
+				rpc_request.put ("action", "work_generate");
+				rpc_request.put ("hash", this_l->request.root.to_string ());
+				rpc_request.put ("difficulty", nano::to_string_hex (this_l->request.difficulty));
 				if (this_l->request.account.is_initialized ())
 				{
-					request.put ("account", this_l->request.account.get ().to_account ());
+					rpc_request.put ("account", this_l->request.account.get ().to_account ());
 				}
 				std::stringstream ostream;
-				boost::property_tree::write_json (ostream, request);
+				boost::property_tree::write_json (ostream, rpc_request);
 				request_string = ostream.str ();
 			}
 			auto peer_request (connection->get_prepared_json_request (request_string));
@@ -207,11 +207,11 @@ void nano::distributed_work::do_cancel (nano::tcp_endpoint const & endpoint_a)
 		{
 			std::string request_string;
 			{
-				boost::property_tree::ptree request;
-				request.put ("action", "work_cancel");
-				request.put ("hash", this_l->request.root.to_string ());
+				boost::property_tree::ptree rpc_request;
+				rpc_request.put ("action", "work_cancel");
+				rpc_request.put ("hash", this_l->request.root.to_string ());
 				std::stringstream ostream;
-				boost::property_tree::write_json (ostream, request);
+				boost::property_tree::write_json (ostream, rpc_request);
 				request_string = ostream.str ();
 			}
 			auto peer_cancel (cancelling_l->get_prepared_json_request (request_string));
@@ -366,11 +366,11 @@ void nano::distributed_work::handle_failure ()
 				node.logger.always_log ("Work peer(s) failed to generate work for root ", request.root.to_string (), ", retrying...");
 			}
 			auto now (std::chrono::steady_clock::now ());
-			std::weak_ptr<nano::node> node_w (node.shared ());
+			std::weak_ptr<nano::node> node_weak (node.shared ());
 			auto next_backoff (std::min (backoff * 2, std::chrono::seconds (5 * 60)));
-			node.workers.add_timed_task (now + std::chrono::seconds (backoff), [node_w, request_l = request, next_backoff] {
+			node.workers.add_timed_task (now + std::chrono::seconds (backoff), [node_weak, request_l = request, next_backoff] {
 				bool error_l{ true };
-				if (auto node_l = node_w.lock ())
+				if (auto node_l = node_weak.lock ())
 				{
 					error_l = node_l->distributed_work.make (next_backoff, request_l);
 				}

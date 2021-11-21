@@ -64,7 +64,7 @@ std::string nano::transport::channel_udp::to_string () const
 nano::transport::udp_channels::udp_channels (nano::node & node_a, uint16_t port_a, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink) :
 	node{ node_a },
 	strand{ node_a.io_ctx.get_executor () },
-	sink{ sink }
+	sink{ std::move (sink) }
 {
 	if (!node.flags.disable_udp)
 	{
@@ -87,10 +87,10 @@ nano::transport::udp_channels::udp_channels (nano::node & node_a, uint16_t port_
 void nano::transport::udp_channels::send (nano::shared_const_buffer const & buffer_a, nano::endpoint endpoint_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a)
 {
 	boost::asio::post (strand,
-	[this, buffer_a, endpoint_a, callback_a] () {
+	[this, buffer_a, endpoint = std::move (endpoint_a), callback_a] () {
 		if (!this->stopped)
 		{
-			this->socket->async_send_to (buffer_a, endpoint_a,
+			this->socket->async_send_to (buffer_a, endpoint,
 			boost::asio::bind_executor (strand, callback_a));
 		}
 	});
@@ -365,10 +365,10 @@ namespace
 class udp_message_visitor : public nano::message_visitor
 {
 public:
-	udp_message_visitor (nano::node & node_a, nano::endpoint const & endpoint_a, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink) :
+	udp_message_visitor (nano::node & node_a, nano::endpoint endpoint_a, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink) :
 		node{ node_a },
-		endpoint{ endpoint_a },
-		sink{ sink }
+		endpoint{ std::move (endpoint_a) },
+		sink{ std::move (sink) }
 	{
 	}
 	void keepalive (nano::keepalive const & message_a) override
