@@ -29,7 +29,7 @@ TEST (websocket, subscription_edge)
 	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
 
 	auto task = ([config, &node1] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": true})json");
 		client.await_ack ();
 		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
@@ -60,7 +60,7 @@ TEST (websocket, confirmation)
 	std::atomic<bool> ack_ready{ false };
 	std::atomic<bool> unsubscribed{ false };
 	auto task = ([&ack_ready, &unsubscribed, config, &node1] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": true})json");
 		client.await_ack ();
 		ack_ready = true;
@@ -127,7 +127,7 @@ TEST (websocket, stopped_election)
 
 	std::atomic<bool> ack_ready{ false };
 	auto task = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "stopped_election", "ack": "true"})json");
 		client.await_ack ();
 		ack_ready = true;
@@ -170,7 +170,7 @@ TEST (websocket, confirmation_options)
 
 	std::atomic<bool> ack_ready{ false };
 	auto task1 = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "accounts": ["xrb_invalid"]}})json");
 		client.await_ack ();
 		ack_ready = true;
@@ -209,7 +209,7 @@ TEST (websocket, confirmation_options)
 
 	ack_ready = false;
 	auto task2 = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "all_local_accounts": "true", "include_election_info": "true"}})json");
 		client.await_ack ();
 		ack_ready = true;
@@ -271,7 +271,7 @@ TEST (websocket, confirmation_options)
 
 	ack_ready = false;
 	auto task3 = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "all_local_accounts": "true"}})json");
 		client.await_ack ();
 		ack_ready = true;
@@ -305,7 +305,7 @@ TEST (websocket, confirmation_options_votes)
 
 	std::atomic<bool> ack_ready{ false };
 	auto task1 = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "include_election_info_with_votes": "true", "include_block": "false"}})json");
 		client.await_ack ();
 		ack_ready = true;
@@ -394,7 +394,7 @@ TEST (websocket, confirmation_options_update)
 	std::atomic<bool> added{ false };
 	std::atomic<bool> deleted{ false };
 	auto task = ([&added, &deleted, config, &node1] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		// Subscribe initially with empty options, everything will be filtered
 		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {}})json");
 		client.await_ack ();
@@ -468,7 +468,7 @@ TEST (websocket, vote)
 
 	std::atomic<bool> ack_ready{ false };
 	auto task = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "vote", "ack": true})json");
 		client.await_ack ();
 		ack_ready = true;
@@ -518,7 +518,7 @@ TEST (websocket, vote_options_type)
 
 	std::atomic<bool> ack_ready{ false };
 	auto task = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "vote", "ack": true, "options": {"include_replays": "true", "include_indeterminate": "false"}})json");
 		client.await_ack ();
 		ack_ready = true;
@@ -559,7 +559,7 @@ TEST (websocket, vote_options_representatives)
 
 	std::atomic<bool> ack_ready{ false };
 	auto task1 = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		std::string message = boost::str (boost::format (R"json({"action": "subscribe", "topic": "vote", "ack": "true", "options": {"representatives": ["%1%"]}})json") % nano::dev::genesis_key.pub.to_account ());
 		client.send_message (message);
 		client.await_ack ();
@@ -603,7 +603,7 @@ TEST (websocket, vote_options_representatives)
 
 	ack_ready = false;
 	auto task2 = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "vote", "ack": "true", "options": {"representatives": ["xrb_invalid"]}})json");
 		client.await_ack ();
 		ack_ready = true;
@@ -637,7 +637,7 @@ TEST (websocket, work)
 	// Subscribe to work and wait for response asynchronously
 	std::atomic<bool> ack_ready{ false };
 	auto task = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "work", "ack": true})json");
 		client.await_ack ();
 		ack_ready = true;
@@ -707,7 +707,7 @@ TEST (websocket, bootstrap)
 	// Subscribe to bootstrap and wait for response asynchronously
 	std::atomic<bool> ack_ready{ false };
 	auto task = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "bootstrap", "ack": true})json");
 		client.await_ack ();
 		ack_ready = true;
@@ -774,7 +774,7 @@ TEST (websocket, bootstrap_exited)
 	// Subscribe to bootstrap and wait for response asynchronously
 	std::atomic<bool> ack_ready{ false };
 	auto task = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "bootstrap", "ack": true})json");
 		client.await_ack ();
 		ack_ready = true;
@@ -817,8 +817,8 @@ TEST (websocket, ws_keepalive)
 	config.websocket_config.port = nano::get_available_port ();
 	auto node1 (system.add_node (config));
 
-	auto task = ([config] () {
-		fake_websocket_client client (config.websocket_config.port);
+	auto task = ([&node1] () {
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		client.send_message (R"json({"action": "ping"})json");
 		client.await_ack ();
 	});
@@ -847,7 +847,7 @@ TEST (websocket, telemetry)
 
 	std::atomic<bool> done{ false };
 	auto task = ([config = node1->config, &node1, &done] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "telemetry", "ack": true})json");
 		client.await_ack ();
 		done = true;
@@ -897,7 +897,7 @@ TEST (websocket, new_unconfirmed_block)
 
 	std::atomic<bool> ack_ready{ false };
 	auto task = ([&ack_ready, config, node1] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket_server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "new_unconfirmed_block", "ack": "true"})json");
 		client.await_ack ();
 		ack_ready = true;

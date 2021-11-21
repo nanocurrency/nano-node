@@ -212,7 +212,7 @@ public:
 	}
 	unsigned short port () const
 	{
-		return endpoint.port ();
+		return acceptor.local_endpoint ().port ();
 	}
 	std::atomic<size_t> generations_good{ 0 };
 	std::atomic<size_t> generations_bad{ 0 };

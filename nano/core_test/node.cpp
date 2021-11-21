@@ -2260,9 +2260,10 @@ TEST (node, rep_remove)
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *block4).code);
 	}
 	// Add inactive UDP representative channel
-	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
+	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), nano::test_node_port ());
 	std::shared_ptr<nano::transport::channel> channel0 (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint0, node.network_params.network.protocol_version));
 	auto channel_udp = node.network.udp_channels.insert (endpoint0, node.network_params.network.protocol_version);
+	ASSERT_NE (channel_udp, nullptr);
 	auto vote1 = std::make_shared<nano::vote> (keypair1.pub, keypair1.prv, 0, nano::dev::genesis);
 	ASSERT_FALSE (node.rep_crawler.response (channel0, vote1));
 	ASSERT_TIMELY (5s, node.rep_crawler.representative_count () == 1);

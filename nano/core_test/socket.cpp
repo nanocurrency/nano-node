@@ -21,7 +21,6 @@ TEST (socket, max_connections)
 
 	auto server_port (nano::get_available_port ());
 	boost::asio::ip::tcp::endpoint listen_endpoint (boost::asio::ip::address_v6::any (), server_port);
-	boost::asio::ip::tcp::endpoint dst_endpoint (boost::asio::ip::address_v6::loopback (), server_port);
 
 	// start a server socket that allows max 2 live connections
 	auto server_socket = std::make_shared<nano::server_socket> (*node, listen_endpoint, 2);
@@ -44,6 +43,8 @@ TEST (socket, max_connections)
 	};
 
 	// start 3 clients, 2 will persist but 1 will be dropped
+
+	boost::asio::ip::tcp::endpoint dst_endpoint (boost::asio::ip::address_v6::loopback (), server_socket->listening_port ());
 
 	auto client1 = std::make_shared<nano::socket> (*node);
 	client1->async_connect (dst_endpoint, connect_handler);
@@ -136,7 +137,7 @@ TEST (socket, drop_policy)
 		nano::transport::channel_tcp channel{ *node, client };
 		nano::util::counted_completion write_completion (static_cast<unsigned> (total_message_count));
 
-		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), server_port),
+		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), server_socket->listening_port ()),
 		[&channel, total_message_count, node, &write_completion, &drop_policy, client] (boost::system::error_code const & ec_a) mutable {
 			for (int i = 0; i < total_message_count; i++)
 			{
