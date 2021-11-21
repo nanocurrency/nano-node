@@ -2993,7 +2993,11 @@ TEST (node, vote_by_hash_bundle)
 	ASSERT_TIMELY (20s, max_hashes.load () >= 3);
 }
 
-TEST (node, vote_by_hash_republish)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3556
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3557
+// CI run in which it failed: https://github.com/nanocurrency/nano-node/runs/4278407269?check_suite_focus=true#step:6:1144
+TEST (node, DISABLED_vote_by_hash_republish)
 {
 	nano::system system{ 2 };
 	auto & node1 = *system.nodes[0];
