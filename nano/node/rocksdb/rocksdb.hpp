@@ -73,7 +73,7 @@ public:
 	friend class nano::unchecked_rocksdb_store;
 	friend class nano::version_rocksdb_store;
 
-	explicit rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
+	explicit rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
 
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () const override;
@@ -113,6 +113,7 @@ public:
 private:
 	bool error{ false };
 	nano::logger_mt & logger;
+	nano::ledger_constants & constants;
 	// Optimistic transactions are used in write mode
 	rocksdb::OptimisticTransactionDB * optimistic_db = nullptr;
 	std::unique_ptr<rocksdb::DB> db;
@@ -131,7 +132,7 @@ private:
 	};
 
 	std::unordered_map<nano::tables, tombstone_info> tombstone_map;
-	std::unordered_map<const char *, nano::tables> cf_name_table_map;
+	std::unordered_map<char const *, nano::tables> cf_name_table_map;
 
 	rocksdb::Transaction * tx (nano::transaction const & transaction_a) const;
 	std::vector<nano::tables> all_tables () const;
@@ -151,7 +152,7 @@ private:
 	rocksdb::ColumnFamilyOptions get_common_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const;
 	rocksdb::ColumnFamilyOptions get_active_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const;
 	rocksdb::ColumnFamilyOptions get_small_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a) const;
-	rocksdb::BlockBasedTableOptions get_active_table_options (size_t lru_size) const;
+	rocksdb::BlockBasedTableOptions get_active_table_options (std::size_t lru_size) const;
 	rocksdb::BlockBasedTableOptions get_small_table_options () const;
 	rocksdb::ColumnFamilyOptions get_cf_options (std::string const & cf_name_a) const;
 
@@ -159,7 +160,7 @@ private:
 	void flush_table (nano::tables table_a);
 	void flush_tombstones_check (nano::tables table_a);
 	void generate_tombstone_map ();
-	std::unordered_map<const char *, nano::tables> create_cf_name_table_map () const;
+	std::unordered_map<char const *, nano::tables> create_cf_name_table_map () const;
 
 	std::vector<rocksdb::ColumnFamilyDescriptor> create_column_families ();
 	unsigned long long base_memtable_size_bytes () const;

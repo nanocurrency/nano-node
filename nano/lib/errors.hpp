@@ -163,7 +163,7 @@ enum class error_config
 		class enum_type##_messages : public std::error_category                                                \
 		{                                                                                                      \
 		public:                                                                                                \
-			const char * name () const noexcept override                                                       \
+			char const * name () const noexcept override                                                       \
 			{                                                                                                  \
 				return #enum_type;                                                                             \
 			}                                                                                                  \
@@ -171,7 +171,7 @@ enum class error_config
 			std::string message (int ev) const override;                                                       \
 		};                                                                                                     \
                                                                                                                \
-		inline const std::error_category & enum_type##_category ()                                             \
+		inline std::error_category const & enum_type##_category ()                                             \
 		{                                                                                                      \
 			static enum_type##_messages instance;                                                              \
 			return instance;                                                                                   \
@@ -201,7 +201,7 @@ namespace nano
 {
 namespace error_conversion
 {
-	const std::error_category & generic_category ();
+	std::error_category const & generic_category ();
 }
 }
 
@@ -224,12 +224,12 @@ namespace error_conversion
 		class generic_category : public std::error_category
 		{
 		public:
-			const char * name () const noexcept override;
+			char const * name () const noexcept override;
 			std::string message (int value) const override;
 		};
 	}
-	const std::error_category & generic_category ();
-	std::error_code convert (const boost::system::error_code & error);
+	std::error_category const & generic_category ();
+	std::error_code convert (boost::system::error_code const & error);
 }
 }
 
@@ -249,13 +249,13 @@ public:
 	error (std::exception const & exception_a);
 	error & operator= (nano::error const & err_a);
 	error & operator= (nano::error && err_a);
-	error & operator= (const std::error_code code_a);
-	error & operator= (const boost::system::error_code & code_a);
-	error & operator= (const boost::system::errc::errc_t & code_a);
-	error & operator= (const std::string message_a);
+	error & operator= (std::error_code code_a);
+	error & operator= (boost::system::error_code const & code_a);
+	error & operator= (boost::system::errc::errc_t const & code_a);
+	error & operator= (std::string message_a);
 	error & operator= (std::exception const & exception_a);
-	bool operator== (const std::error_code code_a) const;
-	bool operator== (const boost::system::error_code code_a) const;
+	bool operator== (std::error_code code_a) const;
+	bool operator== (boost::system::error_code code_a) const;
 	error & then (std::function<nano::error &()> next);
 	template <typename... ErrorCode>
 	error & accept (ErrorCode... err)

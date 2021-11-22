@@ -35,7 +35,7 @@ template <typename Val, typename Derived_Store>
 class block_predecessor_set;
 
 template <typename Val, typename Derived_Store>
-void release_assert_success (store_partial<Val, Derived_Store> const & store, const int status)
+void release_assert_success (store_partial<Val, Derived_Store> const & store, int const status)
 {
 	if (!store.success (status))
 	{
@@ -56,7 +56,7 @@ class block_store_partial;
 template <typename Val, typename Derived_Store>
 class store_partial : public store
 {
-	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, const int);
+	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, int const);
 	friend class nano::block_store_partial<Val, Derived_Store>;
 	friend class nano::frontier_store_partial<Val, Derived_Store>;
 	friend class nano::account_store_partial<Val, Derived_Store>;
@@ -72,6 +72,7 @@ class store_partial : public store
 public:
 	// clang-format off
 	store_partial (
+		nano::ledger_constants & constants,
 		nano::block_store_partial<Val, Derived_Store> & block_store_partial_a,
 		nano::frontier_store_partial<Val, Derived_Store> & frontier_store_partial_a,
 		nano::account_store_partial<Val, Derived_Store> & account_store_partial_a,
@@ -83,6 +84,7 @@ public:
 		nano::confirmation_height_store_partial<Val, Derived_Store> & confirmation_height_store_partial_a,
 		nano::final_vote_store_partial<Val, Derived_Store> & final_vote_store_partial_a,
 		nano::version_store_partial<Val, Derived_Store> & version_store_partial_a) :
+		constants{ constants },
 		store{
 			block_store_partial_a,
 			frontier_store_partial_a,
@@ -103,20 +105,20 @@ public:
 	 * If using a different store version than the latest then you may need
 	 * to modify some of the objects in the store to be appropriate for the version before an upgrade.
 	 */
-	void initialize (nano::write_transaction const & transaction_a, nano::genesis const & genesis_a, nano::ledger_cache & ledger_cache_a) override
+	void initialize (nano::write_transaction const & transaction_a, nano::ledger_cache & ledger_cache_a) override
 	{
-		auto hash_l (genesis_a.hash ());
+		debug_assert (constants.genesis->has_sideband ());
 		debug_assert (account.begin (transaction_a) == account.end ());
-		genesis_a.open->sideband_set (nano::block_sideband (network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
-		block.put (transaction_a, hash_l, *genesis_a.open);
+		auto hash_l (constants.genesis->hash ());
+		block.put (transaction_a, hash_l, *constants.genesis);
 		++ledger_cache_a.block_count;
-		confirmation_height.put (transaction_a, network_params.ledger.genesis_account, nano::confirmation_height_info{ 1, genesis_a.hash () });
+		confirmation_height.put (transaction_a, constants.genesis->account (), nano::confirmation_height_info{ 1, constants.genesis->hash () });
 		++ledger_cache_a.cemented_count;
-		ledger_cache_a.final_votes_confirmation_canary = (network_params.ledger.final_votes_canary_account == network_params.ledger.genesis_account && 1 >= network_params.ledger.final_votes_canary_height);
-		account.put (transaction_a, network_params.ledger.genesis_account, { hash_l, network_params.ledger.genesis_account, genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
+		ledger_cache_a.final_votes_confirmation_canary = (constants.final_votes_canary_account == constants.genesis->account () && 1 >= constants.final_votes_canary_height);
+		account.put (transaction_a, constants.genesis->account (), { hash_l, constants.genesis->account (), constants.genesis->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
 		++ledger_cache_a.account_count;
-		ledger_cache_a.rep_weights.representation_put (network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
-		frontier.put (transaction_a, hash_l, network_params.ledger.genesis_account);
+		ledger_cache_a.rep_weights.representation_put (constants.genesis->account (), std::numeric_limits<nano::uint128_t>::max ());
+		frontier.put (transaction_a, hash_l, constants.genesis->account ());
 	}
 
 	bool root_exists (nano::transaction const & transaction_a, nano::root const & root_a) override
@@ -132,7 +134,7 @@ public:
 	int const minimum_version{ 14 };
 
 protected:
-	nano::network_params network_params;
+	nano::ledger_constants & constants;
 	int const version_number{ 21 };
 
 	template <typename Key, typename Value>

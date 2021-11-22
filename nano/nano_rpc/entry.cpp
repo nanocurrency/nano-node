@@ -2,6 +2,7 @@
 #include <nano/lib/errors.hpp>
 #include <nano/lib/signal_manager.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/tlsconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
@@ -40,11 +41,26 @@ void run (boost::filesystem::path const & data_path, std::vector<std::string> co
 	nano::set_secure_perm_directory (data_path, error_chmod);
 	std::unique_ptr<nano::thread_runner> runner;
 
-	nano::rpc_config rpc_config;
+	nano::network_params network_params{ nano::network_constants::active_network };
+	nano::rpc_config rpc_config{ network_params.network };
 	auto error = nano::read_rpc_config_toml (data_path, rpc_config, config_overrides);
 	if (!error)
 	{
 		logging_init (data_path);
+		nano::logger_mt logger;
+
+		auto tls_config (std::make_shared<nano::tls_config> ());
+		error = nano::read_tls_config_toml (data_path, *tls_config, logger);
+		if (error)
+		{
+			std::cerr << error.get_message () << std::endl;
+			std::exit (1);
+		}
+		else
+		{
+			rpc_config.tls_config = tls_config;
+		}
+
 		boost::asio::io_context io_ctx;
 		nano::signal_manager sigman;
 		try
@@ -70,7 +86,7 @@ void run (boost::filesystem::path const & data_path, std::vector<std::string> co
 				rpc->stop ();
 			}
 		}
-		catch (const std::runtime_error & e)
+		catch (std::runtime_error const & e)
 		{
 			std::cerr << "Error while running rpc (" << e.what () << ")\n";
 		}

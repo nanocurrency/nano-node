@@ -32,8 +32,8 @@ void nano::signature_checker::verify (nano::signature_check_set & check_a)
 	// Split up the tasks equally over the calling thread and the thread pool.
 	// Any overflow on the modulus of the batch_size is given to the calling thread, so the thread pool
 	// only ever operates on batch_size sizes.
-	size_t overflow_size = check_a.size % batch_size;
-	size_t num_full_batches = check_a.size / batch_size;
+	std::size_t overflow_size = check_a.size % batch_size;
+	std::size_t num_full_batches = check_a.size / batch_size;
 
 	auto const num_threads = thread_pool.get_num_threads ();
 	auto total_threads_to_split_over = num_threads + 1;
@@ -86,7 +86,7 @@ void nano::signature_checker::flush ()
 		;
 }
 
-bool nano::signature_checker::verify_batch (const nano::signature_check_set & check_a, size_t start_index, size_t size)
+bool nano::signature_checker::verify_batch (nano::signature_check_set const & check_a, std::size_t start_index, std::size_t size)
 {
 	nano::validate_message_batch (check_a.messages + start_index, check_a.message_lengths + start_index, check_a.pub_keys + start_index, check_a.signatures + start_index, size, check_a.verifications + start_index);
 	return std::all_of (check_a.verifications + start_index, check_a.verifications + start_index + size, [] (int verification) { return verification == 0 || verification == 1; });
@@ -95,12 +95,12 @@ bool nano::signature_checker::verify_batch (const nano::signature_check_set & ch
 /* This operates on a number of signatures of size (num_batches * batch_size) from the beginning of the check_a pointers.
  * Caller should check the value of the promise which indicates when the work has been completed.
  */
-void nano::signature_checker::verify_async (nano::signature_check_set & check_a, size_t num_batches, std::promise<void> & promise)
+void nano::signature_checker::verify_async (nano::signature_check_set & check_a, std::size_t num_batches, std::promise<void> & promise)
 {
 	auto task = std::make_shared<Task> (check_a, num_batches);
 	++tasks_remaining;
 
-	for (size_t batch = 0; batch < num_batches; ++batch)
+	for (std::size_t batch = 0; batch < num_batches; ++batch)
 	{
 		auto size = batch_size;
 		auto start_index = batch * batch_size;

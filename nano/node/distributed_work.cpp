@@ -154,11 +154,11 @@ void nano::distributed_work::do_request (nano::tcp_endpoint const & endpoint_a)
 			auto peer_request (connection->get_prepared_json_request (request_string));
 			boost::beast::http::async_write (connection->socket, *peer_request,
 			boost::asio::bind_executor (this_l->strand,
-			[this_l, connection, peer_request] (boost::system::error_code const & ec, size_t size_a) {
+			[this_l, connection, peer_request] (boost::system::error_code const & ec, std::size_t size_a) {
 				if (!ec && !this_l->stopped)
 				{
 					boost::beast::http::async_read (connection->socket, connection->buffer, connection->response,
-					boost::asio::bind_executor (this_l->strand, [this_l, connection] (boost::system::error_code const & ec, size_t size_a) {
+					boost::asio::bind_executor (this_l->strand, [this_l, connection] (boost::system::error_code const & ec, std::size_t size_a) {
 						if (!ec && !this_l->stopped)
 						{
 							if (connection->response.result () == boost::beast::http::status::ok)
@@ -217,7 +217,7 @@ void nano::distributed_work::do_cancel (nano::tcp_endpoint const & endpoint_a)
 			auto peer_cancel (cancelling_l->get_prepared_json_request (request_string));
 			boost::beast::http::async_write (cancelling_l->socket, *peer_cancel,
 			boost::asio::bind_executor (this_l->strand,
-			[this_l, peer_cancel, cancelling_l] (boost::system::error_code const & ec, size_t bytes_transferred) {
+			[this_l, peer_cancel, cancelling_l] (boost::system::error_code const & ec, std::size_t bytes_transferred) {
 				if (ec && ec != boost::system::errc::operation_canceled)
 				{
 					this_l->node.logger.try_log (boost::str (boost::format ("Unable to send work_cancel to work_peer %1% %2%: %3% (%4%)") % cancelling_l->endpoint.address () % cancelling_l->endpoint.port () % ec.message () % ec.value ()));
@@ -239,7 +239,7 @@ void nano::distributed_work::success (std::string const & body_a, nano::tcp_endp
 		uint64_t work;
 		if (!nano::from_string_hex (work_text, work))
 		{
-			if (nano::work_difficulty (request.version, request.root, work) >= request.difficulty)
+			if (nano::dev::network_params.work.difficulty (request.version, request.root, work) >= request.difficulty)
 			{
 				error = false;
 				node.unresponsive_work_peers = false;

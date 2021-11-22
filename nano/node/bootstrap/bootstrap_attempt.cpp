@@ -23,9 +23,9 @@ nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> const & 
 {
 	if (id.empty ())
 	{
-		nano::random_constants constants;
-		id = constants.random_128.to_string ();
+		id = nano::hardened_constants::get ().random_128.to_string ();
 	}
+
 	node->logger.always_log (boost::str (boost::format ("Starting %1% bootstrap attempt with ID %2%") % mode_text () % id));
 	node->bootstrap_initiator.notify_listeners (true);
 	if (node->websocket_server)
@@ -194,7 +194,7 @@ void nano::bootstrap_attempt::wallet_start (std::deque<nano::account> &)
 	debug_assert (mode == nano::bootstrap_mode::wallet_lazy);
 }
 
-size_t nano::bootstrap_attempt::wallet_size ()
+std::size_t nano::bootstrap_attempt::wallet_size ()
 {
 	debug_assert (mode == nano::bootstrap_mode::wallet_lazy);
 	return 0;

@@ -27,9 +27,9 @@ namespace transport
 
 	public:
 		channel_udp (nano::transport::udp_channels &, nano::endpoint const &, uint8_t protocol_version);
-		size_t hash_code () const override;
+		std::size_t hash_code () const override;
 		bool operator== (nano::transport::channel const &) const override;
-		void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) override;
+		void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) override;
 		std::string to_string () const override;
 		bool operator== (nano::transport::channel_udp const & other_a) const
 		{
@@ -75,13 +75,13 @@ namespace transport
 		friend class nano::transport::channel_udp;
 
 	public:
-		udp_channels (nano::node &, uint16_t);
+		udp_channels (nano::node &, uint16_t, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink);
 		std::shared_ptr<nano::transport::channel_udp> insert (nano::endpoint const &, unsigned);
 		void erase (nano::endpoint const &);
-		size_t size () const;
+		std::size_t size () const;
 		std::shared_ptr<nano::transport::channel_udp> channel (nano::endpoint const &) const;
 		void random_fill (std::array<nano::endpoint, 8> &) const;
-		std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t, uint8_t = 0) const;
+		std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t, uint8_t = 0) const;
 		bool store_all (bool = true);
 		std::shared_ptr<nano::transport::channel_udp> find_node_id (nano::account const &);
 		void clean_node_id (nano::account const &);
@@ -91,12 +91,14 @@ namespace transport
 		void receive ();
 		void start ();
 		void stop ();
-		void send (nano::shared_const_buffer const & buffer_a, nano::endpoint endpoint_a, std::function<void (boost::system::error_code const &, size_t)> const & callback_a);
+		void send (nano::shared_const_buffer const & buffer_a, nano::endpoint endpoint_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a);
 		nano::endpoint get_local_endpoint () const;
 		void receive_action (nano::message_buffer *);
 		void process_packets ();
 		std::shared_ptr<nano::transport::channel> create (nano::endpoint const &);
-		bool max_ip_connections (nano::endpoint const &);
+		bool max_ip_connections (nano::endpoint const & endpoint_a);
+		bool max_subnetwork_connections (nano::endpoint const & endpoint_a);
+		bool max_ip_or_subnetwork_connections (nano::endpoint const & endpoint_a);
 		// Should we reach out to this endpoint with a keepalive message
 		bool reachout (nano::endpoint const &);
 		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
@@ -106,6 +108,7 @@ namespace transport
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0);
 		void modify (std::shared_ptr<nano::transport::channel_udp> const &, std::function<void (std::shared_ptr<nano::transport::channel_udp> const &)>);
 		nano::node & node;
+		std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink;
 
 	private:
 		void close_socket ();

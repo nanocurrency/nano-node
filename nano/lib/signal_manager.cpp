@@ -42,22 +42,14 @@ void nano::signal_manager::register_signal_handler (int signum, std::function<vo
 	descriptor_list.push_back (descriptor);
 
 	// asynchronously listen for signals from this signal set
-	sigset->async_wait ([descriptor] (const boost::system::error_code & error, int signum) {
+	sigset->async_wait ([descriptor] (boost::system::error_code const & error, int signum) {
 		nano::signal_manager::base_handler (descriptor, error, signum);
 	});
 
 	log (boost::str (boost::format ("Registered signal handler for signal %d") % signum));
 }
 
-std::function<void (int)> nano::signal_manager::get_debug_files_handler (void)
-{
-	return [] (int) {
-		nano::dump_crash_stacktrace ();
-		nano::create_load_memory_address_files ();
-	};
-}
-
-void nano::signal_manager::base_handler (nano::signal_manager::signal_descriptor descriptor, const boost::system::error_code & error, int signum)
+void nano::signal_manager::base_handler (nano::signal_manager::signal_descriptor descriptor, boost::system::error_code const & error, int signum)
 {
 	if (!error)
 	{
@@ -72,7 +64,7 @@ void nano::signal_manager::base_handler (nano::signal_manager::signal_descriptor
 		// continue asynchronously listening for signals from this signal set
 		if (descriptor.repeat)
 		{
-			descriptor.sigset->async_wait ([descriptor] (const boost::system::error_code & error, int signum) {
+			descriptor.sigset->async_wait ([descriptor] (boost::system::error_code const & error, int signum) {
 				nano::signal_manager::base_handler (descriptor, error, signum);
 			});
 		}

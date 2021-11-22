@@ -2,6 +2,7 @@
 #include <nano/node/common.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/test_common/system.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
@@ -31,6 +32,11 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_flags node_flags_
 std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & node_config_a, nano::node_flags node_flags_a, nano::transport::transport_type type_a)
 {
 	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config_a, work, node_flags_a, node_sequence++));
+	for (auto i : initialization_blocks)
+	{
+		auto result = node->ledger.process (node->store.tx_begin_write (), *i);
+		debug_assert (result.code == nano::process_result::progress);
+	}
 	debug_assert (!node->init_error ());
 	node->start ();
 	node->wallets.create (nano::random_wallet_id ());
@@ -38,7 +44,7 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & no
 	nodes.push_back (node);
 	if (nodes.size () > 1)
 	{
-		debug_assert (nodes.size () - 1 <= node->network_params.node.max_peers_per_ip || node->flags.disable_max_peers_per_ip); // Check that we don't start more nodes than limit for single IP address
+		debug_assert (nodes.size () - 1 <= node->network_params.network.max_peers_per_ip || node->flags.disable_max_peers_per_ip); // Check that we don't start more nodes than limit for single IP address
 		auto begin = nodes.end () - 2;
 		for (auto i (begin), j (begin + 1), n (nodes.end ()); j != n; ++i, ++j)
 		{
@@ -57,7 +63,7 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & no
 			else
 			{
 				// UDP connection
-				auto channel (std::make_shared<nano::transport::channel_udp> ((*j)->network.udp_channels, (*i)->network.endpoint (), node1->network_params.protocol.protocol_version));
+				auto channel (std::make_shared<nano::transport::channel_udp> ((*j)->network.udp_channels, (*i)->network.endpoint (), node1->network_params.network.protocol_version));
 				(*j)->network.send_keepalive (channel);
 			}
 			do
@@ -143,6 +149,36 @@ nano::system::~system ()
 #endif
 }
 
+void nano::system::ledger_initialization_set (std::vector<nano::keypair> const & reps, nano::amount const & reserve)
+{
+	nano::block_hash previous = nano::dev::genesis->hash ();
+	auto amount = (nano::dev::constants.genesis_amount - reserve.number ()) / reps.size ();
+	auto balance = nano::dev::constants.genesis_amount;
+	for (auto const & i : reps)
+	{
+		balance -= amount;
+		nano::state_block_builder builder;
+		builder.account (nano::dev::genesis_key.pub)
+		.previous (previous)
+		.representative (nano::dev::genesis_key.pub)
+		.link (i.pub)
+		.balance (balance)
+		.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+		.work (*work.generate (previous));
+		initialization_blocks.emplace_back (builder.build_shared ());
+		previous = initialization_blocks.back ()->hash ();
+		builder.make_block ();
+		builder.account (i.pub)
+		.previous (0)
+		.representative (i.pub)
+		.link (previous)
+		.balance (amount)
+		.sign (i.prv, i.pub)
+		.work (*work.generate (i.pub));
+		initialization_blocks.emplace_back (builder.build_shared ());
+	}
+}
+
 std::shared_ptr<nano::wallet> nano::system::wallet (size_t index_a)
 {
 	debug_assert (nodes.size () > index_a);
@@ -169,14 +205,14 @@ uint64_t nano::system::work_generate_limited (nano::block_hash const & root_a, u
 	do
 	{
 		result = *work.generate (root_a, min_a);
-	} while (nano::work_difficulty (nano::work_version::work_1, root_a, result) >= max_a);
+	} while (work.network_constants.work.difficulty (nano::work_version::work_1, root_a, result) >= max_a);
 	return result;
 }
 
 std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a, nano::ledger & ledger_a, nano::epoch epoch_a)
 {
 	auto transaction (ledger_a.store.tx_begin_write ());
-	auto dev_genesis_key = nano::ledger_constants (nano::nano_networks::nano_dev_network).dev_genesis_key;
+	auto dev_genesis_key = nano::dev::genesis_key;
 	auto account = dev_genesis_key.pub;
 	auto latest = ledger_a.latest (transaction, account);
 	auto balance = ledger_a.account_balance (transaction, account);
@@ -190,7 +226,7 @@ std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a
 				 .link (ledger_a.epoch_link (epoch_a))
 				 .representative (dev_genesis_key.pub)
 				 .sign (dev_genesis_key.prv, dev_genesis_key.pub)
-				 .work (*pool_a.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
+				 .work (*pool_a.generate (latest, pool_a.network_constants.work.threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
 				 .build (ec);
 
 	bool error{ true };
@@ -329,8 +365,7 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 	if (!error)
 	{
 		auto hash (info.open_block);
-		nano::genesis genesis;
-		if (hash != genesis.hash ())
+		if (hash != node_a.network_params.ledger.genesis->hash ())
 		{
 			accounts_a[index] = accounts_a[accounts_a.size () - 1];
 			accounts_a.pop_back ();
@@ -362,7 +397,7 @@ void nano::system::generate_receive (nano::node & node_a)
 	}
 	if (send_block != nullptr)
 	{
-		auto receive_error (wallet (0)->receive_sync (send_block, nano::ledger_constants (nano::nano_networks::nano_dev_network).genesis_account, std::numeric_limits<nano::uint128_t>::max ()));
+		auto receive_error (wallet (0)->receive_sync (send_block, nano::dev::genesis->account (), std::numeric_limits<nano::uint128_t>::max ()));
 		(void)receive_error;
 	}
 }
@@ -487,7 +522,7 @@ void nano::system::generate_send_new (nano::node & node_a, std::vector<nano::acc
 void nano::system::generate_mass_activity (uint32_t count_a, nano::node & node_a)
 {
 	std::vector<nano::account> accounts;
-	auto dev_genesis_key = nano::ledger_constants (nano::nano_networks::nano_dev_network).dev_genesis_key;
+	auto dev_genesis_key = nano::dev::genesis_key;
 	wallet (0)->insert_adhoc (dev_genesis_key.prv);
 	accounts.push_back (dev_genesis_key.pub);
 	auto previous (std::chrono::steady_clock::now ());

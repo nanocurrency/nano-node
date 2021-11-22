@@ -116,7 +116,7 @@ public:
 		}
 		auto balance (ledger.balance (transaction, block_a.hashables.previous));
 		auto is_send (block_a.hashables.balance < balance);
-		nano::account representative{ 0 };
+		nano::account representative{};
 		if (!rep_block_hash.is_zero ())
 		{
 			// Move existing representation & add in amount delta
@@ -346,7 +346,7 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 				if (result.code == nano::process_result::progress)
 				{
 					nano::block_details block_details (epoch, is_send, is_receive, false);
-					result.code = block_a.difficulty () >= nano::work_threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
+					result.code = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 					if (result.code == nano::process_result::progress)
 					{
 						ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::state_block);
@@ -436,7 +436,7 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 				}
 				if (result.code == nano::process_result::progress)
 				{
-					auto epoch = ledger.network_params.ledger.epochs.epoch (block_a.hashables.link);
+					auto epoch = ledger.constants.epochs.epoch (block_a.hashables.link);
 					// Must be an epoch for an unopened account or the epoch upgrade must be sequential
 					auto is_valid_epoch_upgrade = account_error ? static_cast<std::underlying_type_t<nano::epoch>> (epoch) > 0 : nano::epochs::is_sequential (info.epoch (), epoch);
 					result.code = is_valid_epoch_upgrade ? nano::process_result::progress : nano::process_result::block_position;
@@ -446,7 +446,7 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 						if (result.code == nano::process_result::progress)
 						{
 							nano::block_details block_details (epoch, false, false, true);
-							result.code = block_a.difficulty () >= nano::work_threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
+							result.code = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 							if (result.code == nano::process_result::progress)
 							{
 								ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::epoch_block);
@@ -498,7 +498,7 @@ void ledger_processor::change_block (nano::change_block & block_a)
 					if (result.code == nano::process_result::progress)
 					{
 						nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
-						result.code = block_a.difficulty () >= nano::work_threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
+						result.code = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 						if (result.code == nano::process_result::progress)
 						{
 							debug_assert (!validate_message (account, hash, block_a.signature));
@@ -547,7 +547,7 @@ void ledger_processor::send_block (nano::send_block & block_a)
 					if (result.code == nano::process_result::progress)
 					{
 						nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
-						result.code = block_a.difficulty () >= nano::work_threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
+						result.code = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 						if (result.code == nano::process_result::progress)
 						{
 							debug_assert (!validate_message (account, hash, block_a.signature));
@@ -624,7 +624,7 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 									if (result.code == nano::process_result::progress)
 									{
 										nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
-										result.code = block_a.difficulty () >= nano::work_threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
+										result.code = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 										if (result.code == nano::process_result::progress)
 										{
 											auto new_balance (info.balance.number () + pending.amount.number ());
@@ -690,14 +690,14 @@ void ledger_processor::open_block (nano::open_block & block_a)
 					result.code = ledger.store.pending.get (transaction, key, pending) ? nano::process_result::unreceivable : nano::process_result::progress; // Has this source already been received (Malformed)
 					if (result.code == nano::process_result::progress)
 					{
-						result.code = block_a.hashables.account == ledger.network_params.ledger.burn_account ? nano::process_result::opened_burn_account : nano::process_result::progress; // Is it burning 0 account? (Malicious)
+						result.code = block_a.hashables.account == ledger.constants.burn_account ? nano::process_result::opened_burn_account : nano::process_result::progress; // Is it burning 0 account? (Malicious)
 						if (result.code == nano::process_result::progress)
 						{
 							result.code = pending.epoch == nano::epoch::epoch_0 ? nano::process_result::progress : nano::process_result::unreceivable; // Are we receiving a state-only send? (Malformed)
 							if (result.code == nano::process_result::progress)
 							{
 								nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
-								result.code = block_a.difficulty () >= nano::work_threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
+								result.code = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 								if (result.code == nano::process_result::progress)
 								{
 #ifdef NDEBUG
@@ -736,10 +736,11 @@ ledger_processor::ledger_processor (nano::ledger & ledger_a, nano::write_transac
 }
 } // namespace
 
-nano::ledger::ledger (nano::store & store_a, nano::stat & stat_a, nano::generate_cache const & generate_cache_a) :
-	store (store_a),
-	stats (stat_a),
-	check_bootstrap_weights (true)
+nano::ledger::ledger (nano::store & store_a, nano::stat & stat_a, nano::ledger_constants & constants, nano::generate_cache const & generate_cache_a) :
+	constants{ constants },
+	store{ store_a },
+	stats{ stat_a },
+	check_bootstrap_weights{ true }
 {
 	if (!store.init_error ())
 	{
@@ -787,9 +788,9 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 
 	// Final votes requirement for confirmation canary block
 	nano::confirmation_height_info confirmation_height_info;
-	if (!store.confirmation_height.get (transaction, network_params.ledger.final_votes_canary_account, confirmation_height_info))
+	if (!store.confirmation_height.get (transaction, constants.final_votes_canary_account, confirmation_height_info))
 	{
-		cache.final_votes_confirmation_canary = (confirmation_height_info.height >= network_params.ledger.final_votes_canary_height);
+		cache.final_votes_confirmation_canary = (confirmation_height_info.height >= constants.final_votes_canary_height);
 	}
 }
 
@@ -862,7 +863,7 @@ nano::uint128_t nano::ledger::account_pending (nano::transaction const & transac
 
 nano::process_return nano::ledger::process (nano::write_transaction const & transaction_a, nano::block & block_a, nano::signature_verification verification)
 {
-	debug_assert (!nano::work_validate_entry (block_a) || network_params.network.is_dev_network ());
+	debug_assert (!constants.work.validate_entry (block_a) || constants.genesis == nano::dev::genesis);
 	ledger_processor processor (*this, transaction_a, verification);
 	block_a.visit (processor);
 	if (processor.result.code == nano::process_result::progress)
@@ -957,8 +958,8 @@ nano::account const & nano::ledger::block_destination (nano::transaction const &
 	{
 		return state_block->hashables.link.as_account ();
 	}
-	static nano::account result (0);
-	return result;
+
+	return nano::account::null ();
 }
 
 nano::block_hash nano::ledger::block_source (nano::transaction const & transaction_a, nano::block const & block_a)
@@ -1102,8 +1103,8 @@ nano::account nano::ledger::account_safe (nano::transaction const & transaction_
 // Return amount decrease or increase for block
 nano::uint128_t nano::ledger::amount (nano::transaction const & transaction_a, nano::account const & account_a)
 {
-	release_assert (account_a == network_params.ledger.genesis_account);
-	return network_params.ledger.genesis_amount;
+	release_assert (account_a == constants.genesis->account ());
+	return nano::dev::constants.genesis_amount;
 }
 
 nano::uint128_t nano::ledger::amount (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
@@ -1120,7 +1121,8 @@ nano::uint128_t nano::ledger::amount_safe (nano::transaction const & transaction
 	debug_assert (block);
 	auto block_balance (balance (transaction_a, hash_a));
 	auto previous_balance (balance_safe (transaction_a, block->previous (), error_a));
-	return error_a ? 0 : block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
+	return error_a ? 0 : block_balance > previous_balance ? block_balance - previous_balance
+														  : previous_balance - block_balance;
 }
 
 // Return latest block for account
@@ -1181,7 +1183,7 @@ bool nano::ledger::dependents_confirmed (nano::transaction const & transaction_a
 
 bool nano::ledger::is_epoch_link (nano::link const & link_a) const
 {
-	return network_params.ledger.epochs.is_epoch_link (link_a);
+	return constants.epochs.is_epoch_link (link_a);
 }
 
 class dependent_block_visitor : public nano::block_visitor
@@ -1204,7 +1206,7 @@ public:
 	}
 	void open_block (nano::open_block const & block_a) override
 	{
-		if (block_a.source () != ledger.network_params.ledger.genesis_account)
+		if (block_a.source () != ledger.constants.genesis->account ())
 		{
 			result[0] = block_a.source ();
 		}
@@ -1237,12 +1239,12 @@ std::array<nano::block_hash, 2> nano::ledger::dependent_blocks (nano::transactio
 
 nano::account const & nano::ledger::epoch_signer (nano::link const & link_a) const
 {
-	return network_params.ledger.epochs.signer (network_params.ledger.epochs.epoch (link_a));
+	return constants.epochs.signer (constants.epochs.epoch (link_a));
 }
 
 nano::link const & nano::ledger::epoch_link (nano::epoch epoch_a) const
 {
-	return network_params.ledger.epochs.link (epoch_a);
+	return constants.epochs.link (epoch_a);
 }
 
 void nano::ledger::update_account (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & old_a, nano::account_info const & new_a)
@@ -1342,7 +1344,7 @@ uint64_t nano::ledger::pruning_action (nano::write_transaction & transaction_a, 
 {
 	uint64_t pruned_count (0);
 	nano::block_hash hash (hash_a);
-	while (!hash.is_zero () && hash != network_params.ledger.genesis_hash)
+	while (!hash.is_zero () && hash != constants.genesis->hash ())
 	{
 		auto block (store.block.get (transaction_a, hash));
 		if (block != nullptr)
@@ -1416,7 +1418,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 	// Open rocksdb database
 	nano::rocksdb_config rocksdb_config;
 	rocksdb_config.enable = true;
-	auto rocksdb_store = nano::make_store (logger, data_path_a, false, true, rocksdb_config);
+	auto rocksdb_store = nano::make_store (logger, data_path_a, nano::dev::constants, false, true, rocksdb_config);
 
 	if (!rocksdb_store->init_error ())
 	{
@@ -1531,7 +1533,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		error |= rocksdb_store->account.get (rocksdb_transaction, account, account_info);
 
 		// If confirmation height exists in the lmdb ledger for this account it should exist in the rocksdb ledger
-		nano::confirmation_height_info confirmation_height_info;
+		nano::confirmation_height_info confirmation_height_info{};
 		if (!store.confirmation_height.get (lmdb_transaction, account, confirmation_height_info))
 		{
 			error |= rocksdb_store->confirmation_height.get (rocksdb_transaction, account, confirmation_height_info);

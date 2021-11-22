@@ -99,7 +99,7 @@ public:
 	size_t db_size () const;
 	nano::epoch epoch () const;
 	nano::block_hash head{ 0 };
-	nano::account representative{ 0 };
+	nano::account representative{};
 	nano::block_hash open_block{ 0 };
 	nano::amount balance{ 0 };
 	/** Seconds since posix epoch */
@@ -119,7 +119,7 @@ public:
 	size_t db_size () const;
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_info const &) const;
-	nano::account source{ 0 };
+	nano::account source{};
 	nano::amount amount{ 0 };
 	nano::epoch epoch{ nano::epoch::epoch_0 };
 };
@@ -131,7 +131,7 @@ public:
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_key const &) const;
 	nano::account const & key () const;
-	nano::account account{ 0 };
+	nano::account account{};
 	nano::block_hash hash{ 0 };
 };
 
@@ -141,19 +141,19 @@ public:
 	endpoint_key () = default;
 
 	/*
-	 * @param address_a This should be in network byte order
-	 * @param port_a This should be in host byte order
-	 */
-	endpoint_key (const std::array<uint8_t, 16> & address_a, uint16_t port_a);
+     * @param address_a This should be in network byte order
+     * @param port_a This should be in host byte order
+     */
+	endpoint_key (std::array<uint8_t, 16> const & address_a, uint16_t port_a);
 
 	/*
-	 * @return The ipv6 address in network byte order
-	 */
-	const std::array<uint8_t, 16> & address_bytes () const;
+     * @return The ipv6 address in network byte order
+     */
+	std::array<uint8_t, 16> const & address_bytes () const;
 
 	/*
-	 * @return The port in host byte order
-	 */
+     * @return The port in host byte order
+     */
 	uint16_t port () const;
 
 private:
@@ -202,7 +202,7 @@ public:
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	std::shared_ptr<nano::block> block;
-	nano::account account{ 0 };
+	nano::account account{};
 	/** Seconds since posix epoch */
 	uint64_t modified{ 0 };
 	nano::signature_verification verified{ nano::signature_verification::unknown };
@@ -214,7 +214,7 @@ class block_info final
 public:
 	block_info () = default;
 	block_info (nano::account const &, nano::amount const &);
-	nano::account account{ 0 };
+	nano::account account{};
 	nano::amount balance{ 0 };
 };
 
@@ -249,8 +249,8 @@ public:
 	vote (nano::vote const &);
 	vote (bool &, nano::stream &, nano::block_uniquer * = nullptr);
 	vote (bool &, nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
-	vote (nano::account const &, nano::raw_key const &, uint64_t, std::shared_ptr<nano::block> const &);
-	vote (nano::account const &, nano::raw_key const &, uint64_t, std::vector<nano::block_hash> const &);
+	vote (nano::account const &, nano::raw_key const &, uint64_t timestamp, uint8_t duration, std::shared_ptr<nano::block> const &);
+	vote (nano::account const &, nano::raw_key const &, uint64_t timestamp, uint8_t duration, std::vector<nano::block_hash> const &);
 	std::string hashes_string () const;
 	nano::block_hash hash () const;
 	nano::block_hash full_hash () const;
@@ -264,15 +264,29 @@ public:
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> end () const;
 	std::string to_json () const;
+	uint64_t timestamp () const;
+	uint8_t duration_bits () const;
+	std::chrono::milliseconds duration () const;
+	static uint64_t constexpr timestamp_mask = { 0xffff'ffff'ffff'fff0ULL };
+	static uint64_t constexpr timestamp_max = { 0xffff'ffff'ffff'fff0ULL };
+	static uint64_t constexpr timestamp_min = { 0x0000'0000'0000'0010ULL };
+	static uint8_t constexpr duration_max = { 0x0fu };
+
+private:
 	// Vote timestamp
-	uint64_t timestamp;
+	uint64_t timestamp_m;
+
+public:
 	// The blocks, or block hashes, that this vote is for
 	std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>> blocks;
 	// Account that's voting
 	nano::account account;
 	// Signature of timestamp + block hashes
 	nano::signature signature;
-	static const std::string hash_prefix;
+	static std::string const hash_prefix;
+
+private:
+	uint64_t packed_timestamp (uint64_t timestamp, uint8_t duration) const;
 };
 /**
  * This class serves to find and return unique variants of a vote in order to minimize memory usage
@@ -280,7 +294,7 @@ public:
 class vote_uniquer final
 {
 public:
-	using value_type = std::pair<const nano::block_hash, std::weak_ptr<nano::vote>>;
+	using value_type = std::pair<nano::block_hash const, std::weak_ptr<nano::vote>>;
 
 	vote_uniquer (nano::block_uniquer &);
 	std::shared_ptr<nano::vote> unique (std::shared_ptr<nano::vote> const &);
@@ -334,53 +348,23 @@ enum class tally_result
 	confirm
 };
 
-class genesis final
-{
-public:
-	genesis ();
-	nano::block_hash hash () const;
-	std::shared_ptr<nano::block> open;
-};
-
 class network_params;
-
-/** Protocol versions whose value may depend on the active network */
-class protocol_constants
-{
-public:
-	/** Current protocol version */
-	uint8_t const protocol_version = 0x12;
-
-	/** Minimum accepted protocol version */
-	uint8_t protocol_version_min () const;
-
-private:
-	/* Minimum protocol version we will establish connections to */
-	uint8_t const protocol_version_min_m = 0x12;
-};
-
-// Some places use the decltype of protocol_version instead of protocol_version_min. To keep those checks simpler we check that the decltypes match ignoring differences in const
-static_assert (std::is_same<std::remove_const_t<decltype (protocol_constants ().protocol_version)>, decltype (protocol_constants ().protocol_version_min ())>::value, "protocol_min should match");
 
 /** Genesis keys and ledger constants for network variants */
 class ledger_constants
 {
 public:
-	ledger_constants (nano::network_constants & network_constants);
-	ledger_constants (nano::nano_networks network_a);
+	ledger_constants (nano::work_thresholds & work, nano::networks network_a);
+	nano::work_thresholds & work;
 	nano::keypair zero_key;
-	nano::keypair dev_genesis_key;
-	nano::account nano_dev_account;
 	nano::account nano_beta_account;
 	nano::account nano_live_account;
 	nano::account nano_test_account;
-	std::string nano_dev_genesis;
-	std::string nano_beta_genesis;
-	std::string nano_live_genesis;
-	std::string nano_test_genesis;
-	nano::account genesis_account;
-	std::string genesis_block;
-	nano::block_hash genesis_hash;
+	std::shared_ptr<nano::block> nano_dev_genesis;
+	std::shared_ptr<nano::block> nano_beta_genesis;
+	std::shared_ptr<nano::block> nano_live_genesis;
+	std::shared_ptr<nano::block> nano_test_genesis;
+	std::shared_ptr<nano::block> genesis;
 	nano::uint128_t genesis_amount;
 	nano::account burn_account;
 	nano::account nano_dev_final_votes_canary_account;
@@ -396,13 +380,25 @@ public:
 	nano::epochs epochs;
 };
 
-/** Constants which depend on random values (this class should never be used globally due to CryptoPP globals potentially not being initialized) */
-class random_constants
+namespace dev
+{
+	extern nano::keypair genesis_key;
+	extern nano::network_params network_params;
+	extern nano::ledger_constants & constants;
+	extern std::shared_ptr<nano::block> & genesis;
+}
+
+/** Constants which depend on random values (always used as singleton) */
+class hardened_constants
 {
 public:
-	random_constants ();
+	static hardened_constants & get ();
+
 	nano::account not_an_account;
 	nano::uint128_union random_128;
+
+private:
+	hardened_constants ();
 };
 
 /** Node related constants whose value depends on the active network */
@@ -410,22 +406,10 @@ class node_constants
 {
 public:
 	node_constants (nano::network_constants & network_constants);
-	std::chrono::seconds period;
-	std::chrono::milliseconds half_period;
-	/** Default maximum idle time for a socket before it's automatically closed */
-	std::chrono::seconds idle_timeout;
-	std::chrono::seconds cutoff;
-	std::chrono::seconds syn_cookie_cutoff;
 	std::chrono::minutes backup_interval;
-	std::chrono::seconds bootstrap_interval;
 	std::chrono::seconds search_pending_interval;
-	std::chrono::seconds peer_interval;
 	std::chrono::minutes unchecked_cleaning_interval;
 	std::chrono::milliseconds process_confirmed_interval;
-	/** Maximum number of peers per IP */
-	size_t max_peers_per_ip;
-	/** Maximum number of peers per subnetwork */
-	size_t max_peers_per_subnetwork;
 
 	/** The maximum amount of samples for a 2 week period on live or 1 day on beta */
 	uint64_t max_weight_samples;
@@ -469,22 +453,17 @@ public:
 class network_params
 {
 public:
-	/** Populate values based on the current active network */
-	network_params ();
-
 	/** Populate values based on \p network_a */
-	network_params (nano::nano_networks network_a);
+	network_params (nano::networks network_a);
 
-	std::array<uint8_t, 2> header_magic_number;
 	unsigned kdf_work;
-	network_constants network;
-	protocol_constants protocol;
-	ledger_constants ledger;
-	random_constants random;
-	voting_constants voting;
-	node_constants node;
-	portmapping_constants portmapping;
-	bootstrap_constants bootstrap;
+	nano::work_thresholds work;
+	nano::network_constants network;
+	nano::ledger_constants ledger;
+	nano::voting_constants voting;
+	nano::node_constants node;
+	nano::portmapping_constants portmapping;
+	nano::bootstrap_constants bootstrap;
 };
 
 enum class confirmation_height_mode
@@ -495,7 +474,7 @@ enum class confirmation_height_mode
 };
 
 /* Holds flags for various cacheable data. For most CLI operations caching is unnecessary
- * (e.g getting the cemented block count) so it can be disabled for performance reasons. */
+     * (e.g getting the cemented block count) so it can be disabled for performance reasons. */
 class generate_cache
 {
 public:

@@ -14,7 +14,7 @@ template <typename Val, typename Derived_Store>
 class store_partial;
 
 template <typename Val, typename Derived_Store>
-void release_assert_success (store_partial<Val, Derived_Store> const & store, const int status);
+void release_assert_success (store_partial<Val, Derived_Store> const & store, int const status);
 
 template <typename Val, typename Derived_Store>
 class frontier_store_partial : public frontier_store
@@ -22,7 +22,7 @@ class frontier_store_partial : public frontier_store
 private:
 	nano::store_partial<Val, Derived_Store> & store;
 
-	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, const int);
+	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, int const);
 
 public:
 	explicit frontier_store_partial (nano::store_partial<Val, Derived_Store> & store_a) :
@@ -40,7 +40,7 @@ public:
 		nano::db_val<Val> value;
 		auto status (store.get (transaction_a, tables::frontiers, nano::db_val<Val> (block_a), value));
 		release_assert (store.success (status) || store.not_found (status));
-		nano::account result (0);
+		nano::account result{};
 		if (store.success (status))
 		{
 			result = static_cast<nano::account> (value);

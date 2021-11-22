@@ -48,6 +48,12 @@ foreach(file ${files})
   message(
     "Generating flatbuffers code for: ${flatbuffers_filename} into ${CMAKE_CURRENT_SOURCE_DIR}/generated/flatbuffers"
   )
+
+  configure_file(
+    ${file}
+    ${PROJECT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/api/flatbuffers/${flatbuffers_filename}.fbs
+    COPYONLY)
+
   add_custom_command(
     OUTPUT
       ${CMAKE_CURRENT_SOURCE_DIR}/generated/flatbuffers/${flatbuffers_filename}_generated.h

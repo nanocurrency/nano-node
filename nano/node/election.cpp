@@ -28,7 +28,7 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 	root (block_a->root ()),
 	qualified_root (block_a->qualified_root ())
 {
-	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
+	last_votes.emplace (nano::account::null (), nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
 	last_blocks.emplace (block_a->hash (), block_a);
 	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 	{
@@ -319,7 +319,7 @@ void nano::election::log_votes (nano::tally_t const & tally_a, std::string const
 	}
 	for (auto i (last_votes.begin ()), n (last_votes.end ()); i != n; ++i)
 	{
-		if (i->first != node.network_params.random.not_an_account)
+		if (i->first != nullptr)
 		{
 			tally << boost::str (boost::format ("%1%%2% %3% %4%") % line_end % i->first.to_account () % std::to_string (i->second.timestamp) % i->second.hash.to_string ());
 		}
@@ -437,7 +437,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 	return result;
 }
 
-size_t nano::election::insert_inactive_votes_cache (nano::inactive_cache_information const & cache_a)
+std::size_t nano::election::insert_inactive_votes_cache (nano::inactive_cache_information const & cache_a)
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
 	for (auto const & [rep, timestamp] : cache_a.voters)
@@ -459,7 +459,7 @@ size_t nano::election::insert_inactive_votes_cache (nano::inactive_cache_informa
 				node.stats.add (nano::stat::type::election, nano::stat::detail::late_block_seconds, nano::stat::dir::in, delay.count (), true);
 			}
 		}
-		if (last_votes.size () > 1) // not_an_account
+		if (last_votes.size () > 1) // null account
 		{
 			// Even if no votes were in cache, they could be in the election
 			confirm_if_quorum (lock);
@@ -629,7 +629,7 @@ std::vector<nano::vote_with_weight_info> nano::election::votes_with_weight () co
 	auto votes_l (votes ());
 	for (auto const & vote_l : votes_l)
 	{
-		if (vote_l.first != node.network_params.random.not_an_account)
+		if (vote_l.first != nullptr)
 		{
 			auto amount (node.ledger.cache.rep_weights.representation_get (vote_l.first));
 			nano::vote_with_weight_info vote_info{ vote_l.first, vote_l.second.time, vote_l.second.timestamp, vote_l.second.hash, amount };

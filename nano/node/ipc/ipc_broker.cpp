@@ -22,7 +22,7 @@ std::shared_ptr<flatbuffers::Parser> nano::ipc::subscriber::get_parser (nano::ip
 
 void nano::ipc::broker::start ()
 {
-	node.observers.blocks.add ([this_l = shared_from_this ()] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+	node.observers.blocks.add ([this_l = shared_from_this ()] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
 		debug_assert (status_a.type != nano::election_status_type::ongoing);
 
 		try
@@ -51,7 +51,7 @@ void nano::ipc::broker::start ()
 						break;
 				};
 				confirmation->confirmation_type = nanoapi::TopicConfirmationType::TopicConfirmationType_active_quorum;
-				confirmation->block = nano::ipc::flatbuffers_builder::block_to_union (*status_a.winner, amount_a, is_state_send_a);
+				confirmation->block = nano::ipc::flatbuffers_builder::block_to_union (*status_a.winner, amount_a, is_state_send_a, is_state_epoch_a);
 				confirmation->election_info = std::make_unique<nanoapi::ElectionInfoT> ();
 				confirmation->election_info->duration = status_a.election_duration.count ();
 				confirmation->election_info->time = status_a.election_end.count ();
@@ -144,7 +144,8 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 					if (itr->topic->options->all_local_accounts)
 					{
 						auto transaction_l (this->node.wallets.tx_begin_read ());
-						nano::account source_l (0), destination_l (0);
+						nano::account source_l{};
+						nano::account destination_l{};
 						auto decode_source_ok_l (!source_l.decode_account (state->account));
 						auto decode_destination_ok_l (!destination_l.decode_account (state->link_as_account));
 						(void)decode_source_ok_l;
@@ -194,11 +195,11 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 						throw nano::error ("Couldn't serialize response to JSON");
 					}
 
-					subscriber_l->async_send_message (reinterpret_cast<uint8_t const *> (json->data ()), json->size (), [json] (const nano::error & err) {});
+					subscriber_l->async_send_message (reinterpret_cast<uint8_t const *> (json->data ()), json->size (), [json] (nano::error const & err) {});
 				}
 				else
 				{
-					subscriber_l->async_send_message (fb->GetBufferPointer (), fb->GetSize (), [fb] (const nano::error & err) {});
+					subscriber_l->async_send_message (fb->GetBufferPointer (), fb->GetSize (), [fb] (nano::error const & err) {});
 				}
 			}
 
@@ -221,7 +222,7 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 	}
 }
 
-size_t nano::ipc::broker::confirmation_subscriber_count () const
+std::size_t nano::ipc::broker::confirmation_subscriber_count () const
 {
 	return confirmation_subscribers->size ();
 }
@@ -245,7 +246,7 @@ void nano::ipc::broker::service_stop (std::string const & service_name_a)
 			{
 				nanoapi::EventServiceStopT event_stop;
 				auto fb (nano::ipc::flatbuffer_producer::make_buffer (event_stop));
-				subscriber_l->async_send_message (fb->GetBufferPointer (), fb->GetSize (), [fb] (const nano::error & err) {});
+				subscriber_l->async_send_message (fb->GetBufferPointer (), fb->GetSize (), [fb] (nano::error const & err) {});
 
 				break;
 			}

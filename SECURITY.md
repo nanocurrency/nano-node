@@ -22,7 +22,6 @@ To report security issues in the Nano protocol, please send an email to security
 |-----------------------|--------|-----------------|
 | [clemahieu](https://github.com/clemahieu) | clemahieu { at } gmail.com | [clemahieu.asc](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/clemahieu.asc) |
 | [argakiig](https://github.com/argakiig) | russel { at } nano.org | [argakiig.asc](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/argakiig.asc) |
-| [wezrule](https://github.com/wezrule) | wezrule { at } hotmail.com | [wezrule.asc](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/wezrule.asc) |
 | [sergiysw](https://github.com/sergiysw) | sergiysw { at } gmail.com | [sergiysw.asc](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/sergiysw.asc) |
 | [zhyatt](https://github.com/zhyatt) | zach { at } nano.org | [zhyatt.asc](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/zhyatt.asc) |
 

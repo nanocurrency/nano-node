@@ -1,24 +1,41 @@
 #!/bin/sh
 
+set -e
+
+DATADIR=data.systest
+
+clean_data_dir() {
+    rm -f  "$DATADIR"/log/log_*.log
+    rm -f  "$DATADIR"/wallets.ldb*
+    rm -f  "$DATADIR"/data.ldb*
+    rm -f  "$DATADIR"/config-*.toml
+    rm -rf "$DATADIR"/rocksdb/
+}
+
+msg() {
+    :
+    #echo "$@"
+}
+
 # the caller should set the env var NANO_NODE_EXE to point to the nano_node executable
-# if NANO_NODE_EXE is unser ot empty then "../../build/nano_node" is used
+# if NANO_NODE_EXE is unset ot empty then "../../build/nano_node" is used
 NANO_NODE_EXE=${NANO_NODE_EXE:-../../build/nano_node}
 
-mkdir -p data/log
-rm data/log/log_*.log
+mkdir -p "$DATADIR/log"
+clean_data_dir
 
 # start nano_node and store its pid so we can later send it
 # the SIGHUP signal and so we can terminate it
-echo start nano_node
-$NANO_NODE_EXE --daemon --data_path data &
+msg start nano_node
+$NANO_NODE_EXE --daemon --data_path "$DATADIR" >/dev/null &
 pid=$!
-echo pid=$pid
+msg pid=$pid
 
 # wait for the node to start-up
 sleep 2
 
 # set bandwidth params 42 and 43 in the config file
-cat > data/config-node.toml <<EOF
+cat > "$DATADIR/config-node.toml" <<EOF
 [node]
 bandwidth_limit = 42
 bandwidth_limit_burst_ratio = 43
@@ -31,7 +48,7 @@ kill -HUP $pid
 sleep 2
 
 # set another set of bandwidth params 44 and 45 in the config file
-cat > data/config-node.toml <<EOF
+cat > "$DATADIR/config-node.toml" <<EOF
 [node]
 bandwidth_limit = 44
 bandwidth_limit_burst_ratio = 45
@@ -50,19 +67,18 @@ wait $pid
 # the bandwidth params are logged in logger and we check for that logging below
 
 # check that the first signal handler got run and the data is correct
-grep -q "set_bandwidth_params(42, 43)" data/log/log_*.log
+grep -q "set_bandwidth_params(42, 43)" "$DATADIR"/log/log_*.log
 rc1=$?
-echo rc1=$rc1
+msg rc1=$rc1
 
 # check that the second signal handler got run and the data is correct
-grep -q "set_bandwidth_params(44, 45)" data/log/log_*.log
+grep -q "set_bandwidth_params(44, 45)" "$DATADIR"/log/log_*.log
 rc2=$?
-echo rc2=$rc2
+msg rc2=$rc2
 
 if [ $rc1 -eq 0 -a $rc2 -eq 0 ]; then
-    echo set_bandwith_params PASSED
+    echo $0: PASSED
     exit 0
-else
-    echo set_bandwith_params FAILED
-    exit 1
 fi
+
+exit 1

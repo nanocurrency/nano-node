@@ -3,10 +3,10 @@ name: Develop
 on:
   push:
     branches:
-      - develop  
+      - develop
 jobs:
   linux_job:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:

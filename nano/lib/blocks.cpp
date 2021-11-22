@@ -3,6 +3,7 @@
 #include <nano/lib/memory.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/secure/common.hpp>
 
 #include <crypto/cryptopp/words.h>
 
@@ -83,11 +84,6 @@ nano::work_version nano::block::work_version () const
 	return nano::work_version::work_1;
 }
 
-uint64_t nano::block::difficulty () const
-{
-	return nano::work_difficulty (this->work_version (), this->root (), this->block_work ());
-}
-
 nano::block_hash nano::block::generate_hash () const
 {
 	nano::block_hash result;
@@ -156,8 +152,8 @@ bool nano::block::has_sideband () const
 
 nano::account const & nano::block::representative () const
 {
-	static nano::account rep{ 0 };
-	return rep;
+	static nano::account representative{};
+	return representative;
 }
 
 nano::block_hash const & nano::block::source () const
@@ -168,7 +164,7 @@ nano::block_hash const & nano::block::source () const
 
 nano::account const & nano::block::destination () const
 {
-	static nano::account destination{ 0 };
+	static nano::account destination{};
 	return destination;
 }
 
@@ -180,7 +176,7 @@ nano::link const & nano::block::link () const
 
 nano::account const & nano::block::account () const
 {
-	static nano::account account{ 0 };
+	static nano::account account{};
 	return account;
 }
 
@@ -368,6 +364,8 @@ nano::send_block::send_block (nano::block_hash const & previous_a, nano::account
 	signature (nano::sign_message (prv_a, pub_a, hash ())),
 	work (work_a)
 {
+	debug_assert (destination_a != nullptr);
+	debug_assert (pub_a != nullptr);
 }
 
 nano::send_block::send_block (bool & error_a, nano::stream & stream_a) :
@@ -529,13 +527,18 @@ nano::open_block::open_block (nano::block_hash const & source_a, nano::account c
 	signature (nano::sign_message (prv_a, pub_a, hash ())),
 	work (work_a)
 {
-	debug_assert (!representative_a.is_zero ());
+	debug_assert (representative_a != nullptr);
+	debug_assert (account_a != nullptr);
+	debug_assert (pub_a != nullptr);
 }
 
 nano::open_block::open_block (nano::block_hash const & source_a, nano::account const & representative_a, nano::account const & account_a, std::nullptr_t) :
 	hashables (source_a, representative_a, account_a),
 	work (0)
 {
+	debug_assert (representative_a != nullptr);
+	debug_assert (account_a != nullptr);
+
 	signature.clear ();
 }
 
@@ -792,6 +795,8 @@ nano::change_block::change_block (nano::block_hash const & previous_a, nano::acc
 	signature (nano::sign_message (prv_a, pub_a, hash ())),
 	work (work_a)
 {
+	debug_assert (representative_a != nullptr);
+	debug_assert (pub_a != nullptr);
 }
 
 nano::change_block::change_block (bool & error_a, nano::stream & stream_a) :
@@ -1065,6 +1070,10 @@ nano::state_block::state_block (nano::account const & account_a, nano::block_has
 	signature (nano::sign_message (prv_a, pub_a, hash ())),
 	work (work_a)
 {
+	debug_assert (account_a != nullptr);
+	debug_assert (representative_a != nullptr);
+	debug_assert (link_a.as_account () != nullptr);
+	debug_assert (pub_a != nullptr);
 }
 
 nano::state_block::state_block (bool & error_a, nano::stream & stream_a) :
@@ -1510,6 +1519,7 @@ nano::receive_block::receive_block (nano::block_hash const & previous_a, nano::b
 	signature (nano::sign_message (prv_a, pub_a, hash ())),
 	work (work_a)
 {
+	debug_assert (pub_a != nullptr);
 }
 
 nano::receive_block::receive_block (bool & error_a, nano::stream & stream_a) :

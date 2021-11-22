@@ -88,7 +88,7 @@ void nano::distributed_work_factory::stop ()
 	}
 }
 
-size_t nano::distributed_work_factory::size () const
+std::size_t nano::distributed_work_factory::size () const
 {
 	nano::lock_guard<nano::mutex> guard_l (mutex);
 	return items.size ();

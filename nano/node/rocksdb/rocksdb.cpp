@@ -45,27 +45,28 @@ void * rocksdb_val::data () const
 }
 
 template <>
-size_t rocksdb_val::size () const
+std::size_t rocksdb_val::size () const
 {
 	return value.size ();
 }
 
 template <>
-rocksdb_val::db_val (size_t size_a, void * data_a) :
-	value (static_cast<const char *> (data_a), size_a)
+rocksdb_val::db_val (std::size_t size_a, void * data_a) :
+	value (static_cast<char const *> (data_a), size_a)
 {
 }
 
 template <>
 void rocksdb_val::convert_buffer_to_value ()
 {
-	value = rocksdb::Slice (reinterpret_cast<const char *> (buffer->data ()), buffer->size ());
+	value = rocksdb::Slice (reinterpret_cast<char const *> (buffer->data ()), buffer->size ());
 }
 }
 
-nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
+nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
 	// clang-format off
 	store_partial{
+		constants,
 		block_store_partial,
 		frontier_store_partial,
 		account_store_partial,
@@ -91,6 +92,7 @@ nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesyste
 	final_vote_store_partial{ *this },
 	version_rocksdb_store{ *this },
 	logger{ logger_a },
+	constants{ constants },
 	rocksdb_config{ rocksdb_config_a },
 	max_block_write_batch_num_m{ nano::narrow_cast<unsigned> (blocks_memtable_size_bytes () / (2 * (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)))) },
 	cf_name_table_map{ create_cf_name_table_map () }
@@ -112,9 +114,9 @@ nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesyste
 	}
 }
 
-std::unordered_map<const char *, nano::tables> nano::rocksdb_store::create_cf_name_table_map () const
+std::unordered_map<char const *, nano::tables> nano::rocksdb_store::create_cf_name_table_map () const
 {
-	std::unordered_map<const char *, nano::tables> map{ { rocksdb::kDefaultColumnFamilyName.c_str (), tables::default_unused },
+	std::unordered_map<char const *, nano::tables> map{ { rocksdb::kDefaultColumnFamilyName.c_str (), tables::default_unused },
 		{ "frontiers", tables::frontiers },
 		{ "accounts", tables::accounts },
 		{ "blocks", tables::blocks },
@@ -355,7 +357,7 @@ std::string nano::rocksdb_store::vendor_get () const
 rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (tables table_a) const
 {
 	auto & handles_l = handles;
-	auto get_handle = [&handles_l] (const char * name) {
+	auto get_handle = [&handles_l] (char const * name) {
 		auto iter = std::find_if (handles_l.begin (), handles_l.end (), [name] (auto & handle) {
 			return (handle->GetName () == name);
 		});
@@ -540,7 +542,6 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	// otherwise there can be performance issues.
 	else if (table_a == tables::accounts)
 	{
-		debug_assert (network_constants ().is_dev_network ());
 		for (auto i (account.begin (transaction_a)), n (account.end ()); i != n; ++i)
 		{
 			++sum;
@@ -556,7 +557,6 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	}
 	else if (table_a == tables::confirmation_height)
 	{
-		debug_assert (network_constants ().is_dev_network ());
 		for (auto i (confirmation_height.begin (transaction_a)), n (confirmation_height.end ()); i != n; ++i)
 		{
 			++sum;
@@ -709,7 +709,7 @@ rocksdb::Options nano::rocksdb_store::get_db_options ()
 	return db_options;
 }
 
-rocksdb::BlockBasedTableOptions nano::rocksdb_store::get_active_table_options (size_t lru_size) const
+rocksdb::BlockBasedTableOptions nano::rocksdb_store::get_active_table_options (std::size_t lru_size) const
 {
 	rocksdb::BlockBasedTableOptions table_options;
 
@@ -856,7 +856,7 @@ bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_p
 	// Open it so that it flushes all WAL files
 	if (status.ok ())
 	{
-		nano::rocksdb_store rocksdb_store (logger, destination_path.string (), rocksdb_config, false);
+		nano::rocksdb_store rocksdb_store (logger, destination_path.string (), constants, rocksdb_config, false);
 		return !rocksdb_store.init_error ();
 	}
 	return false;

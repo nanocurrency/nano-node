@@ -1,7 +1,10 @@
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
+
+#include <thread>
 
 namespace
 {
@@ -375,9 +378,9 @@ TEST (uint256_union, decode_nano_variant)
 TEST (uint256_union, account_transcode)
 {
 	nano::account value;
-	auto text (nano::dev_genesis_key.pub.to_account ());
+	auto text (nano::dev::genesis_key.pub.to_account ());
 	ASSERT_FALSE (value.decode_account (text));
-	ASSERT_EQ (nano::dev_genesis_key.pub, value);
+	ASSERT_EQ (nano::dev::genesis_key.pub, value);
 
 	/*
 	 * Handle different offsets for the underscore separator
@@ -566,4 +569,20 @@ void check_operator_greater_than (Num lhs, Num rhs)
 	ASSERT_FALSE (lhs > lhs);
 	ASSERT_FALSE (rhs > rhs);
 }
+}
+
+TEST (random_pool, multithreading)
+{
+	std::vector<std::thread> threads;
+	for (auto i = 0; i < 100; ++i)
+	{
+		threads.emplace_back ([] () {
+			nano::uint256_union number;
+			nano::random_pool::generate_block (number.bytes.data (), number.bytes.size ());
+		});
+	}
+	for (auto & i : threads)
+	{
+		i.join ();
+	}
 }

@@ -6,6 +6,7 @@ add_executable(
   active_transactions.cpp
   block.cpp
   block_store.cpp
+  blockprocessor.cpp
   bootstrap.cpp
   cli.cpp
   confirmation_height.cpp
@@ -20,6 +21,7 @@ add_executable(
   gap_cache.cpp
   ipc.cpp
   ledger.cpp
+  ledger_walker.cpp
   locks.cpp
   logger.cpp
   message.cpp
@@ -35,6 +37,7 @@ add_executable(
   signal_manager.cpp
   signing.cpp
   socket.cpp
+  system.cpp
   telemetry.cpp
   toml.cpp
   timer.cpp

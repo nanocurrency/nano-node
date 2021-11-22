@@ -161,7 +161,7 @@ void nano::opencl_environment::dump (std::ostream & stream)
 	if (nano::opencl_loaded)
 	{
 		auto index (0);
-		size_t device_count (0);
+		std::size_t device_count (0);
 		for (auto & i : platforms)
 		{
 			device_count += i.devices.size ();
@@ -173,7 +173,7 @@ void nano::opencl_environment::dump (std::ostream & stream)
 			stream << "Platform: " << index << std::endl;
 			for (auto j (queries.begin ()), m (queries.end ()); j != m; ++j)
 			{
-				size_t platformInfoCount = 0;
+				std::size_t platformInfoCount = 0;
 				clGetPlatformInfo (i->platform, *j, 0, nullptr, &platformInfoCount);
 				std::vector<char> info (platformInfoCount);
 				clGetPlatformInfo (i->platform, *j, info.size (), info.data (), nullptr);
@@ -185,13 +185,13 @@ void nano::opencl_environment::dump (std::ostream & stream)
 				stream << "Device: " << j - i->devices.begin () << std::endl;
 				for (auto k (queries.begin ()), o (queries.end ()); k != o; ++k)
 				{
-					size_t platformInfoCount = 0;
+					std::size_t platformInfoCount = 0;
 					clGetDeviceInfo (*j, *k, 0, nullptr, &platformInfoCount);
 					std::vector<char> info (platformInfoCount);
 					clGetDeviceInfo (*j, *k, info.size (), info.data (), nullptr);
 					stream << '\t' << info.data () << std::endl;
 				}
-				size_t deviceTypeCount = 0;
+				std::size_t deviceTypeCount = 0;
 				clGetDeviceInfo (*j, CL_DEVICE_TYPE, 0, nullptr, &deviceTypeCount);
 				std::vector<uint8_t> deviceTypeInfo (deviceTypeCount);
 				clGetDeviceInfo (*j, CL_DEVICE_TYPE, deviceTypeCount, deviceTypeInfo.data (), 0);
@@ -218,12 +218,12 @@ void nano::opencl_environment::dump (std::ostream & stream)
 						break;
 				}
 				stream << '\t' << device_type_string << std::endl;
-				size_t compilerAvailableCount = 0;
+				std::size_t compilerAvailableCount = 0;
 				clGetDeviceInfo (*j, CL_DEVICE_COMPILER_AVAILABLE, 0, nullptr, &compilerAvailableCount);
 				std::vector<uint8_t> compilerAvailableInfo (compilerAvailableCount);
 				clGetDeviceInfo (*j, CL_DEVICE_COMPILER_AVAILABLE, compilerAvailableCount, compilerAvailableInfo.data (), 0);
 				stream << "\tCompiler available: " << (compilerAvailableInfo[0] ? "true" : "false") << std::endl;
-				size_t computeUnitsAvailableCount = 0;
+				std::size_t computeUnitsAvailableCount = 0;
 				clGetDeviceInfo (*j, CL_DEVICE_MAX_COMPUTE_UNITS, 0, nullptr, &computeUnitsAvailableCount);
 				std::vector<uint8_t> computeUnitsAvailableInfo (computeUnitsAvailableCount);
 				clGetDeviceInfo (*j, CL_DEVICE_MAX_COMPUTE_UNITS, computeUnitsAvailableCount, computeUnitsAvailableInfo.data (), 0);
@@ -250,7 +250,7 @@ void nano::opencl_environment::dump (std::ostream & stream)
 	}
 }
 
-nano::opencl_work::opencl_work (bool & error_a, nano::opencl_config const & config_a, nano::opencl_environment & environment_a, nano::logger_mt & logger_a) :
+nano::opencl_work::opencl_work (bool & error_a, nano::opencl_config const & config_a, nano::opencl_environment & environment_a, nano::logger_mt & logger_a, nano::work_thresholds & work) :
 	config (config_a),
 	context (0),
 	attempt_buffer (0),
@@ -260,7 +260,8 @@ nano::opencl_work::opencl_work (bool & error_a, nano::opencl_config const & conf
 	program (0),
 	kernel (0),
 	queue (0),
-	logger (logger_a)
+	logger (logger_a),
+	work{ work }
 {
 	error_a |= config.platform >= environment_a.platforms.size ();
 	if (!error_a)
@@ -298,7 +299,7 @@ nano::opencl_work::opencl_work (bool & error_a, nano::opencl_config const & conf
 						if (!error_a)
 						{
 							cl_int item_error (0);
-							size_t item_size (sizeof (nano::uint256_union));
+							std::size_t item_size (sizeof (nano::uint256_union));
 							item_buffer = clCreateBuffer (context, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, item_size, nullptr, &item_error);
 							error_a |= item_error != CL_SUCCESS;
 							if (!error_a)
@@ -310,7 +311,7 @@ nano::opencl_work::opencl_work (bool & error_a, nano::opencl_config const & conf
 								{
 									cl_int program_error (0);
 									char const * program_data (opencl_program.data ());
-									size_t program_length (opencl_program.size ());
+									std::size_t program_length (opencl_program.size ());
 									program = clCreateProgramWithSource (context, 1, &program_data, &program_length, &program_error);
 									error_a |= program_error != CL_SUCCESS;
 									if (!error_a)
@@ -371,7 +372,7 @@ nano::opencl_work::opencl_work (bool & error_a, nano::opencl_config const & conf
 											logger.always_log (boost::str (boost::format ("Build program error %1%") % clBuildProgramError));
 											for (auto i (selected_devices.begin ()), n (selected_devices.end ()); i != n; ++i)
 											{
-												size_t log_size (0);
+												std::size_t log_size (0);
 												clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size);
 												std::vector<char> log (log_size);
 												clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, log.size (), log.data (), nullptr);
@@ -454,8 +455,8 @@ boost::optional<uint64_t> nano::opencl_work::generate_work (nano::work_version c
 	int ticket_l (ticket_a);
 	uint64_t result (0);
 	unsigned thread_count (config.threads);
-	size_t work_size[] = { thread_count, 0, 0 };
-	while (nano::work_difficulty (version_a, root_a, result) < difficulty_a && !error && ticket_a == ticket_l)
+	std::size_t work_size[] = { thread_count, 0, 0 };
+	while (work.difficulty (version_a, root_a, result) < difficulty_a && !error && ticket_a == ticket_l)
 	{
 		result = rand.next ();
 		cl_int write_error1 = clEnqueueWriteBuffer (queue, attempt_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);
@@ -521,7 +522,7 @@ boost::optional<uint64_t> nano::opencl_work::generate_work (nano::work_version c
 	return value;
 }
 
-std::unique_ptr<nano::opencl_work> nano::opencl_work::create (bool create_a, nano::opencl_config const & config_a, nano::logger_mt & logger_a)
+std::unique_ptr<nano::opencl_work> nano::opencl_work::create (bool create_a, nano::opencl_config const & config_a, nano::logger_mt & logger_a, nano::work_thresholds & work)
 {
 	std::unique_ptr<nano::opencl_work> result;
 	if (create_a)
@@ -533,7 +534,7 @@ std::unique_ptr<nano::opencl_work> nano::opencl_work::create (bool create_a, nan
 		logger_a.always_log (stream.str ());
 		if (!error)
 		{
-			result.reset (new nano::opencl_work (error, config_a, environment, logger_a));
+			result.reset (new nano::opencl_work (error, config_a, environment, logger_a, work));
 			if (error)
 			{
 				result.reset ();

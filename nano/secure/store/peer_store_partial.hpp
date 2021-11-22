@@ -14,7 +14,7 @@ template <typename Val, typename Derived_Store>
 class store_partial;
 
 template <typename Val, typename Derived_Store>
-void release_assert_success (store_partial<Val, Derived_Store> const &, const int);
+void release_assert_success (store_partial<Val, Derived_Store> const &, int const);
 
 template <typename Val, typename Derived_Store>
 class peer_store_partial : public peer_store
@@ -22,7 +22,7 @@ class peer_store_partial : public peer_store
 private:
 	nano::store_partial<Val, Derived_Store> & store;
 
-	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, const int);
+	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, int const);
 
 public:
 	explicit peer_store_partial (nano::store_partial<Val, Derived_Store> & store_a) :

@@ -40,19 +40,19 @@ private:
 	mutable nano::mutex mutex;
 
 public:
-	constexpr static size_t size_max = 5000;
+	constexpr static std::size_t size_max = 5000;
 	constexpr static double peers_percentage_limit = 0.5;
 	constexpr static uint64_t score_limit = 2;
 	constexpr static std::chrono::hours exclude_time_hours = std::chrono::hours (1);
 	constexpr static std::chrono::hours exclude_remove_hours = std::chrono::hours (24);
 
-	uint64_t add (nano::tcp_endpoint const &, size_t const);
+	uint64_t add (nano::tcp_endpoint const &, std::size_t const);
 	bool check (nano::tcp_endpoint const &);
 	void remove (nano::tcp_endpoint const &);
-	size_t limited_size (size_t const) const;
-	size_t size () const;
+	std::size_t limited_size (std::size_t const) const;
+	std::size_t size () const;
 
-	friend class telemetry_remove_peer_different_genesis_Test;
+	friend class telemetry_DISABLED_remove_peer_different_genesis_Test;
 	friend class telemetry_remove_peer_different_genesis_udp_Test;
 	friend class telemetry_remove_peer_invalid_signature_Test;
 	friend class peer_exclusion_validate_Test;

@@ -34,15 +34,15 @@ enum class frontiers_confirmation_mode : uint8_t
 class node_config
 {
 public:
-	node_config ();
-	node_config (uint16_t, nano::logging const &);
+	node_config (nano::network_params & network_params = nano::dev::network_params);
+	node_config (uint16_t, nano::logging const &, nano::network_params & network_params = nano::dev::network_params);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool &, nano::jsonconfig &);
 	nano::error serialize_toml (nano::tomlconfig &) const;
 	nano::error deserialize_toml (nano::tomlconfig &);
 	bool upgrade_json (unsigned, nano::jsonconfig &);
 	nano::account random_representative () const;
-	nano::network_params network_params;
+	nano::network_params & network_params;
 	uint16_t peering_port{ 0 };
 	nano::logging logging;
 	std::vector<std::pair<std::string, uint16_t>> work_peers;
@@ -52,6 +52,7 @@ public:
 	unsigned bootstrap_fraction_numerator{ 1 };
 	nano::amount receive_minimum{ nano::xrb_ratio };
 	nano::amount vote_minimum{ nano::Gxrb_ratio };
+	nano::amount rep_crawler_weight_minimum{ "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF" };
 	std::chrono::milliseconds vote_generator_delay{ std::chrono::milliseconds (100) };
 	unsigned vote_generator_threshold{ 3 };
 	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
@@ -69,11 +70,10 @@ public:
 	uint32_t bootstrap_frontier_request_count{ 1024 * 1024 };
 	nano::websocket::config websocket_config;
 	nano::diagnostics_config diagnostics_config;
-	size_t confirmation_history_size{ 2048 };
+	std::size_t confirmation_history_size{ 2048 };
 	std::string callback_address;
 	uint16_t callback_port{ 0 };
 	std::string callback_target;
-	[[deprecated]] int deprecated_lmdb_max_dbs{ 128 };
 	bool allow_local_peers{ !(network_params.network.is_live_network () || network_params.network.is_test_network ()) }; // disable by default for live network
 	nano::stat_config stat_config;
 	nano::ipc::ipc_config ipc_config;
@@ -84,7 +84,7 @@ public:
 	/** Timeout for initiated async operations */
 	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_dev_network () && !is_sanitizer_build) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
-	size_t active_elections_size{ 5000 };
+	std::size_t active_elections_size{ 5000 };
 	/** Default maximum incoming TCP connections, including realtime network & bootstrap */
 	unsigned tcp_incoming_connections_max{ 2048 };
 	bool use_memory_pools{ true };
@@ -92,7 +92,7 @@ public:
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
 	/** Default outbound traffic shaping is 10MB/s */
-	size_t bandwidth_limit{ 10 * 1024 * 1024 };
+	std::size_t bandwidth_limit{ 10 * 1024 * 1024 };
 	/** By default, allow bursts of 15MB/s (not sustainable) */
 	double bandwidth_limit_burst_ratio{ 3. };
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
@@ -122,6 +122,7 @@ class node_flags final
 public:
 	std::vector<std::string> config_overrides;
 	std::vector<std::string> rpc_config_overrides;
+	bool disable_add_initial_peers{ false }; // For testing only
 	bool disable_backup{ false };
 	bool disable_lazy_bootstrap{ false };
 	bool disable_legacy_bootstrap{ false };
@@ -143,19 +144,21 @@ public:
 	bool disable_block_processor_republishing{ false };
 	bool allow_bootstrap_peers_duplicates{ false };
 	bool disable_max_peers_per_ip{ false }; // For testing only
+	bool disable_max_peers_per_subnetwork{ false }; // For testing only
 	bool force_use_write_database_queue{ false }; // For testing only. RocksDB does not use the database queue, but some tests rely on it being used.
 	bool disable_search_pending{ false }; // For testing only
 	bool enable_pruning{ false };
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
+	bool disable_connection_cleanup{ false };
 	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };
 	nano::generate_cache generate_cache;
 	bool inactive_node{ false };
-	size_t block_processor_batch_size{ 0 };
-	size_t block_processor_full_size{ 65536 };
-	size_t block_processor_verification_size{ 0 };
-	size_t inactive_votes_cache_size{ 16 * 1024 };
-	size_t vote_processor_capacity{ 144 * 1024 };
-	size_t bootstrap_interval{ 0 }; // For testing only
+	std::size_t block_processor_batch_size{ 0 };
+	std::size_t block_processor_full_size{ 65536 };
+	std::size_t block_processor_verification_size{ 0 };
+	std::size_t inactive_votes_cache_size{ 16 * 1024 };
+	std::size_t vote_processor_capacity{ 144 * 1024 };
+	std::size_t bootstrap_interval{ 0 }; // For testing only
 };
 }

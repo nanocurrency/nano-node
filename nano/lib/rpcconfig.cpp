@@ -54,15 +54,17 @@ nano::error nano::rpc_secure_config::deserialize_toml (nano::tomlconfig & toml)
 	return toml.get_error ();
 }
 
-nano::rpc_config::rpc_config () :
-	address (boost::asio::ip::address_v6::loopback ().to_string ())
+nano::rpc_config::rpc_config (nano::network_constants & network_constants) :
+	rpc_process{ network_constants },
+	address{ boost::asio::ip::address_v6::loopback ().to_string () }
 {
 }
 
-nano::rpc_config::rpc_config (uint16_t port_a, bool enable_control_a) :
-	address (boost::asio::ip::address_v6::loopback ().to_string ()),
-	port (port_a),
-	enable_control (enable_control_a)
+nano::rpc_config::rpc_config (nano::network_constants & network_constants, uint16_t port_a, bool enable_control_a) :
+	rpc_process{ network_constants },
+	address{ boost::asio::ip::address_v6::loopback ().to_string () },
+	port{ port_a },
+	enable_control{ enable_control_a }
 {
 }
 
@@ -151,7 +153,7 @@ nano::error nano::rpc_config::deserialize_toml (nano::tomlconfig & toml)
 		auto rpc_secure_l (toml.get_optional_child ("secure"));
 		if (rpc_secure_l)
 		{
-			secure.deserialize_toml (*rpc_secure_l);
+			return nano::error ("The RPC secure configuration has moved to config-tls.toml. Please update the configuration.");
 		}
 
 		boost::asio::ip::address_v6 address_l;
@@ -183,8 +185,9 @@ nano::error nano::rpc_config::deserialize_toml (nano::tomlconfig & toml)
 	return toml.get_error ();
 }
 
-nano::rpc_process_config::rpc_process_config () :
-	ipc_address (boost::asio::ip::address_v6::loopback ().to_string ())
+nano::rpc_process_config::rpc_process_config (nano::network_constants & network_constants) :
+	network_constants{ network_constants },
+	ipc_address{ boost::asio::ip::address_v6::loopback ().to_string () }
 {
 }
 
@@ -206,7 +209,7 @@ nano::error read_rpc_config_toml (boost::filesystem::path const & data_path_a, n
 		else
 		{
 			// Migrate
-			nano::rpc_config config_json_l;
+			nano::rpc_config config_json_l{ config_a.rpc_process.network_constants };
 			error = read_and_update_rpc_config (data_path_a, config_json_l);
 
 			if (!error)
@@ -215,7 +218,7 @@ nano::error read_rpc_config_toml (boost::filesystem::path const & data_path_a, n
 				config_json_l.serialize_toml (toml_l);
 
 				// Only write out non-default values
-				nano::rpc_config config_defaults_l;
+				nano::rpc_config config_defaults_l{ config_a.rpc_process.network_constants };
 				nano::tomlconfig toml_defaults_l;
 				config_defaults_l.serialize_toml (toml_defaults_l);
 

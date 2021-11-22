@@ -59,7 +59,7 @@ public:
 	}
 	bool votable (nano::root const & root_a, nano::block_hash const & hash_a) const;
 	void flag (nano::root const & root_a, nano::block_hash const & hash_a);
-	size_t size () const;
+	std::size_t size () const;
 };
 
 class local_vote_history final
@@ -88,7 +88,7 @@ public:
 
 	std::vector<std::shared_ptr<nano::vote>> votes (nano::root const & root_a, nano::block_hash const & hash_a, bool const is_final_a = false) const;
 	bool exists (nano::root const &) const;
-	size_t size () const;
+	std::size_t size () const;
 
 private:
 	// clang-format off
@@ -124,7 +124,7 @@ public:
 	/** Queue items for vote generation, or broadcast votes already in cache */
 	void add (nano::root const &, nano::block_hash const &);
 	/** Queue blocks for vote generation, returning the number of successful candidates.*/
-	size_t generate (std::vector<std::shared_ptr<nano::block>> const & blocks_a, std::shared_ptr<nano::transport::channel> const & channel_a);
+	std::size_t generate (std::vector<std::shared_ptr<nano::block>> const & blocks_a, std::shared_ptr<nano::transport::channel> const & channel_a);
 	void set_reply_action (std::function<void (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &)>);
 	void stop ();
 
@@ -145,10 +145,9 @@ private:
 	nano::stat & stats;
 	mutable nano::mutex mutex;
 	nano::condition_variable condition;
-	static size_t constexpr max_requests{ 2048 };
+	static std::size_t constexpr max_requests{ 2048 };
 	std::deque<request_t> requests;
 	std::deque<candidate_t> candidates;
-	nano::network_params network_params;
 	std::atomic<bool> stopped{ false };
 	bool started{ false };
 	std::thread thread;

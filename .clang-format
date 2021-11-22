@@ -1,10 +1,10 @@
 ---
 BasedOnStyle: Webkit
-Language:        Cpp
+Language: Cpp
 SpaceBeforeParens: Always
 SpaceAfterTemplateKeyword: true
-Standard:        Cpp11
-TabWidth:        4
+Standard: Cpp11
+TabWidth: 4
 IndentWidth: 4
 PointerAlignment: Middle
 UseTab: ForContinuationAndIndentation
@@ -15,9 +15,9 @@ AllowShortCaseLabelsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: false
 AllowShortLambdasOnASingleLine: All
 AllowShortLoopsOnASingleLine: false
-BreakConstructorInitializersBeforeComma: true
 BreakConstructorInitializers: AfterColon
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
+ConstructorInitializerIndentWidth: 4
 ContinuationIndentWidth: 0
 KeepEmptyLinesAtTheStartOfBlocks: false
 IndentCaseLabels: true
@@ -34,7 +34,6 @@ BraceWrapping:
   AfterClass: true
   BeforeCatch: true
   BeforeElse: true
-  BeforeLambdaBody: true
   SplitEmptyRecord: true
   SplitEmptyNamespace: true
 SortIncludes: true

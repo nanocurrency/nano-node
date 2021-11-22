@@ -24,11 +24,11 @@ public:
 	/** Dispatch bundled requests to each channel*/
 	void flush ();
 	/** Global maximum amount of block broadcasts */
-	size_t const max_block_broadcasts;
+	std::size_t const max_block_broadcasts;
 	/** Maximum amount of requests to be sent per election, bypassed if an existing vote is for a different hash*/
-	size_t const max_election_requests;
+	std::size_t const max_election_requests;
 	/** Maximum amount of directed broadcasts to be sent per election */
-	size_t const max_election_broadcasts;
+	std::size_t const max_election_broadcasts;
 
 private:
 	nano::network & network;
