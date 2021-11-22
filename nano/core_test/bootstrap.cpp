@@ -378,7 +378,11 @@ TEST (bootstrap_processor, DISABLED_pull_requeue_network_error)
 	ASSERT_EQ (0, node1->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in)); // Requeue is not increasing failed attempts
 }
 
-TEST (bootstrap_processor, push_diamond)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3558
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3559
+// CI run in which it failed: https://github.com/nanocurrency/nano-node/runs/4280675502?check_suite_focus=true#step:6:398
+TEST (bootstrap_processor, DISABLED_push_diamond)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
