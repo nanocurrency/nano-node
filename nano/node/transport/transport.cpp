@@ -172,6 +172,11 @@ boost::asio::ip::address_v6 nano::transport::mapped_from_v4_or_v6 (boost::asio::
 	return address_a.is_v4 () ? boost::asio::ip::address_v6::v4_mapped (address_a.to_v4 ()) : address_a.to_v6 ();
 }
 
+bool nano::transport::is_ipv4_or_v4_mapped_address (boost::asio::ip::address const & address_a)
+{
+	return address_a.is_v4 () || address_a.to_v6 ().is_v4_mapped ();
+}
+
 bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool allow_local_peers)
 {
 	debug_assert (endpoint_a.address ().is_v6 ());
