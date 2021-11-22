@@ -513,7 +513,11 @@ TEST (rpc, send_idempotent)
 	ASSERT_EQ (std::error_code (nano::error_common::insufficient_balance).message (), response3.get<std::string> ("error"));
 }
 
-TEST (rpc, send_epoch_2)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3560
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3561
+// CI run in which it failed: https://github.com/nanocurrency/nano-node/runs/4280938039?check_suite_focus=true#step:5:1895
+TEST (rpc, DISABLED_send_epoch_2)
 {
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
