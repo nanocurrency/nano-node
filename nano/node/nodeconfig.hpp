@@ -144,6 +144,7 @@ public:
 	bool disable_block_processor_republishing{ false };
 	bool allow_bootstrap_peers_duplicates{ false };
 	bool disable_max_peers_per_ip{ false }; // For testing only
+	bool disable_max_peers_per_subnetwork{ false }; // For testing only
 	bool force_use_write_database_queue{ false }; // For testing only. RocksDB does not use the database queue, but some tests rely on it being used.
 	bool disable_search_pending{ false }; // For testing only
 	bool enable_pruning{ false };

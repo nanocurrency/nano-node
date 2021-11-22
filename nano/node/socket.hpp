@@ -8,8 +8,20 @@
 
 #include <chrono>
 #include <deque>
+#include <map>
 #include <memory>
 #include <vector>
+
+namespace boost
+{
+namespace asio
+{
+	namespace ip
+	{
+		class network_v6;
+	}
+}
+}
 
 namespace nano
 {
@@ -60,6 +72,7 @@ public:
 	/** This can be called to change the maximum idle time, e.g. based on the type of traffic detected. */
 	void timeout_set (std::chrono::seconds io_timeout_a);
 	void start_timer (std::chrono::seconds deadline_a);
+	void set_silent_connection_tolerance_time (std::chrono::seconds tolerance_time_a);
 	bool max () const
 	{
 		return queue_size >= queue_size_max;
@@ -75,6 +88,14 @@ public:
 	void type_set (type_t type_a)
 	{
 		type_m = type_a;
+	}
+	bool is_realtime_connection ()
+	{
+		return type () == nano::socket::type_t::realtime || type () == nano::socket::type_t::realtime_response_server;
+	}
+	bool is_closed ()
+	{
+		return closed;
 	}
 
 protected:
@@ -95,8 +116,10 @@ protected:
 
 	std::atomic<uint64_t> next_deadline;
 	std::atomic<uint64_t> last_completion_time;
+	std::atomic<uint64_t> last_receive_time;
 	std::atomic<bool> timed_out{ false };
 	std::atomic<std::chrono::seconds> io_timeout;
+	std::chrono::seconds silent_connection_tolerance_time;
 	std::atomic<std::size_t> queue_size{ 0 };
 
 	/** Set by close() - completion handlers must check this. This is more reliable than checking
@@ -105,6 +128,7 @@ protected:
 	void close_internal ();
 	void start_timer ();
 	void stop_timer ();
+	void update_last_receive_time ();
 	void checkup ();
 
 private:
@@ -113,6 +137,16 @@ private:
 public:
 	static std::size_t constexpr queue_size_max = 128;
 };
+
+using address_socket_mmap = std::multimap<boost::asio::ip::address, std::weak_ptr<socket>>;
+
+namespace socket_functions
+{
+	boost::asio::ip::network_v6 get_ipv6_subnet_address (boost::asio::ip::address_v6 const &, size_t);
+	boost::asio::ip::address first_ipv6_subnet_address (boost::asio::ip::address_v6 const &, size_t);
+	boost::asio::ip::address last_ipv6_subnet_address (boost::asio::ip::address_v6 const &, size_t);
+	size_t count_subnetwork_connections (nano::address_socket_mmap const &, boost::asio::ip::address_v6 const &, size_t);
+}
 
 /** Socket class for TCP servers */
 class server_socket final : public socket
@@ -138,12 +172,15 @@ public:
 	}
 
 private:
-	std::vector<std::weak_ptr<nano::socket>> connections;
+	nano::address_socket_mmap connections_per_address;
 	boost::asio::ip::tcp::acceptor acceptor;
 	boost::asio::ip::tcp::endpoint local;
 	std::size_t max_inbound_connections;
 	void evict_dead_connections ();
 	bool is_temporary_error (boost::system::error_code const ec_a);
 	void on_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);
+	/** Checks whether the maximum number of connections per IP was reached. If so, it returns true. */
+	bool limit_reached_for_incoming_ip_connections (std::shared_ptr<nano::socket> const & new_connection);
+	bool limit_reached_for_incoming_subnetwork_connections (std::shared_ptr<nano::socket> const & new_connection);
 };
 }

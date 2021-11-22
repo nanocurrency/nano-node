@@ -749,5 +749,5 @@ bool nano::bootstrap_server::is_bootstrap_connection ()
 
 bool nano::bootstrap_server::is_realtime_connection ()
 {
-	return socket->type () == nano::socket::type_t::realtime || socket->type () == nano::socket::type_t::realtime_response_server;
+	return socket->is_realtime_connection ();
 }

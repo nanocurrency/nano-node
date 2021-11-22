@@ -91,7 +91,9 @@ namespace transport
 		void stop ();
 		void process_messages ();
 		void process_message (nano::message const &, nano::tcp_endpoint const &, nano::account const &, std::shared_ptr<nano::socket> const &);
-		bool max_ip_connections (nano::tcp_endpoint const &);
+		bool max_ip_connections (nano::tcp_endpoint const & endpoint_a);
+		bool max_subnetwork_connections (nano::tcp_endpoint const & endpoint_a);
+		bool max_ip_or_subnetwork_connections (nano::tcp_endpoint const & endpoint_a);
 		// Should we reach out to this endpoint with a keepalive message
 		bool reachout (nano::endpoint const &);
 		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
