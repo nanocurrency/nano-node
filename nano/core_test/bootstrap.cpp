@@ -1536,19 +1536,18 @@ TEST (frontier_req, confirmed_frontier)
 {
 	nano::system system (1);
 	auto node1 = system.nodes[0];
-	nano::raw_key priv_key;
+	nano::keypair key_before_genesis;
 	// Public key before genesis in accounts table
-	while (nano::pub_key (priv_key).number () >= nano::dev::genesis_key.pub.number ())
+	while (key_before_genesis.pub.number () >= nano::dev::genesis_key.pub.number ())
 	{
-		priv_key = nano::keypair ().prv;
+		key_before_genesis = nano::keypair ();
 	}
-	nano::keypair key_before_genesis (priv_key.to_string ());
+	nano::keypair key_after_genesis;
 	// Public key after genesis in accounts table
-	while (nano::pub_key (priv_key).number () <= nano::dev::genesis_key.pub.number ())
+	while (key_after_genesis.pub.number () <= nano::dev::genesis_key.pub.number ())
 	{
-		priv_key = nano::keypair ().prv;
+		key_after_genesis = nano::keypair ();
 	}
-	nano::keypair key_after_genesis (priv_key.to_string ());
 	nano::state_block_builder builder;
 
 	auto send1 = builder

@@ -1,7 +1,10 @@
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
+
+#include <thread>
 
 namespace
 {
@@ -566,4 +569,20 @@ void check_operator_greater_than (Num lhs, Num rhs)
 	ASSERT_FALSE (lhs > lhs);
 	ASSERT_FALSE (rhs > rhs);
 }
+}
+
+TEST (random_pool, multithreading)
+{
+	std::vector<std::thread> threads;
+	for (auto i = 0; i < 100; ++i)
+	{
+		threads.emplace_back ([] () {
+			nano::uint256_union number;
+			nano::random_pool::generate_block (number.bytes.data (), number.bytes.size ());
+		});
+	}
+	for (auto & i : threads)
+	{
+		i.join ();
+	}
 }
