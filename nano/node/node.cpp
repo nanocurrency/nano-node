@@ -641,6 +641,7 @@ void nano::node::start ()
 	{
 		port_mapping.start ();
 	}
+	wallets.start ();
 	if (config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled)
 	{
 		workers.push_task ([this_l = shared ()] () {
