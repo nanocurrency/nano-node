@@ -304,14 +304,15 @@ size_t network_prefix)
 bool nano::server_socket::limit_reached_for_incoming_subnetwork_connections (std::shared_ptr<nano::socket> const & new_connection)
 {
 	debug_assert (strand.running_in_this_thread ());
-	if (node.flags.disable_max_peers_per_subnetwork)
+	if (node.flags.disable_max_peers_per_subnetwork || nano::transport::is_ipv4_or_v4_mapped_address (new_connection->remote.address ()))
 	{
 		// If the limit is disabled, then it is unreachable.
+		// If the address is IPv4 we don't check for a network limit, since its address space isn't big as IPv6 /64.
 		return false;
 	}
 	auto const counted_connections = socket_functions::count_subnetwork_connections (
 	connections_per_address,
-	nano::transport::mapped_from_v4_or_v6 (new_connection->remote.address ()),
+	new_connection->remote.address ().to_v6 (),
 	node.network_params.network.ipv6_subnetwork_prefix_for_limiting);
 	return counted_connections >= node.network_params.network.max_peers_per_subnetwork;
 }

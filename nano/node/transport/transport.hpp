@@ -32,6 +32,8 @@ namespace transport
 	boost::asio::ip::address ipv4_address_or_ipv6_subnet (boost::asio::ip::address const &);
 	boost::asio::ip::address_v6 mapped_from_v4_bytes (unsigned long);
 	boost::asio::ip::address_v6 mapped_from_v4_or_v6 (boost::asio::ip::address const &);
+	bool is_ipv4_or_v4_mapped_address (boost::asio::ip::address const &);
+
 	// Unassigned, reserved, self
 	bool reserved_address (nano::endpoint const &, bool = false);
 	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
