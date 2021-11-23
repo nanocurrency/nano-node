@@ -1339,11 +1339,7 @@ nano::wallets::wallets (bool error_a, nano::node & node_a) :
 	kdf{ node_a.config.network_params.kdf_work },
 	node (node_a),
 	env (boost::polymorphic_downcast<nano::mdb_wallets_store *> (node_a.wallets_store_impl.get ())->environment),
-	stopped (false),
-	thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::wallet_actions);
-		do_wallet_actions ();
-	})
+	stopped (false)
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
 	if (!error_a)
@@ -1604,6 +1600,14 @@ void nano::wallets::stop ()
 	{
 		thread.join ();
 	}
+}
+
+void nano::wallets::start ()
+{
+	thread = std::thread{ [this] () {
+		nano::thread_role::set (nano::thread_role::name::wallet_actions);
+		do_wallet_actions ();
+	} };
 }
 
 nano::write_transaction nano::wallets::tx_begin_write ()
