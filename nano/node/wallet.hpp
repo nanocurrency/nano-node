@@ -206,6 +206,7 @@ public:
 	void queue_wallet_action (nano::uint128_t const &, std::shared_ptr<nano::wallet> const &, std::function<void (nano::wallet &)>);
 	void foreach_representative (std::function<void (nano::public_key const &, nano::raw_key const &)> const &);
 	bool exists (nano::transaction const &, nano::account const &);
+	void start ();
 	void stop ();
 	void clear_send_ids (nano::transaction const &);
 	nano::wallet_representatives reps () const;
