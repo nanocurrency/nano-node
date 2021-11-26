@@ -170,6 +170,7 @@ public:
 	bool empty () const;
 	void erase (nano::transport::channel const &);
 	void set_bandwidth_params (double, std::size_t);
+	static std::string to_string (nano::networks);
 
 private:
 	void process_message (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
