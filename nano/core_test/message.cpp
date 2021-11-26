@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/algorithm/string.hpp>
 #include <boost/variant/get.hpp>
 
 TEST (message, keepalive_serialization)
@@ -200,4 +201,23 @@ TEST (message, confirm_req_hash_batch_serialization)
 	ASSERT_EQ (req2.roots_hashes, roots_hashes);
 	ASSERT_EQ (header.block_type (), nano::block_type::not_a_block);
 	ASSERT_EQ (header.count_get (), req.roots_hashes.size ());
+}
+
+TEST (message, keepalive_to_string)
+{
+	// header identical to keepalive_serialization at the top of this file
+	nano::keepalive request1{ nano::dev::network_params.network };
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		request1.serialize (stream);
+	}
+	auto error (false);
+	nano::bufferstream stream (bytes.data (), bytes.size ());
+	nano::message_header header (error, stream);
+
+	std::string header_string = header.to_string ();
+
+	ASSERT_TRUE (boost::algorithm::contains (header_string, "MsgType: 2(keepalive)"));
+	ASSERT_FALSE (boost::algorithm::contains (header_string, ": ,"));
 }

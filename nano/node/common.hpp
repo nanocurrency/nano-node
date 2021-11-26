@@ -189,6 +189,8 @@ enum class message_type : uint8_t
 	telemetry_ack = 0x0d
 };
 
+std::string message_type_to_string (message_type);
+
 enum class bulk_pull_account_flags : uint8_t
 {
 	pending_hash_and_amount = 0x0,
@@ -212,6 +214,7 @@ public:
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;
+	std::string to_string ();
 
 public:
 	nano::message_type type;
