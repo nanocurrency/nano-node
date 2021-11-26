@@ -30,6 +30,8 @@ namespace ipc
 		~ipc_server ();
 		void stop ();
 
+		std::optional<std::uint16_t> listening_tcp_port () const;
+
 		nano::node & node;
 		nano::node_rpc_config const & node_rpc_config;
 
