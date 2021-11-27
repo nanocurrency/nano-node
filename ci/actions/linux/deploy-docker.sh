@@ -8,7 +8,7 @@ tags=()
 if [ -n "$TRAVIS_TAG" ]; then
     tags+=("$TRAVIS_TAG")
     if [[ "$GITHUB_WORKFLOW" = "Beta" || "$GITHUB_WORKFLOW" = "Test" ]]; then
-        tags+=(latest latest-including-rc)
+        tags+=(latest)
     fi
 elif [ -n "$TRAVIS_BRANCH" ]; then
     TRAVIS_TAG=$TRAVIS_BRANCH
@@ -51,7 +51,11 @@ if [ -n "$DOCKER_PASSWORD" ]; then
         echo "Deployed nano-env"
         exit 0
     else
-        tags=$(docker images --format '{{.Repository}}:{{.Tag }}' | grep nanocurrency | grep -vE "env|ghcr.io|none|latest")
+        if [[ "$GITHUB_WORKFLOW" = "Live" ]]; then
+            tags=$(docker images --format '{{.Repository}}:{{.Tag }}' | grep nanocurrency | grep -vE "env|ghcr.io|none|latest")
+        else
+            tags=$(docker images --format '{{.Repository}}:{{.Tag }}' | grep nanocurrency | grep -vE "env|ghcr.io|none")
+        fi
         for a in $tags; do
             "$scripts"/custom-timeout.sh 30 docker push "$a"
         done
