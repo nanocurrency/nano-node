@@ -163,7 +163,7 @@ TEST (peer_container, reachout)
 	// Make sure having been contacted by them already indicates we shouldn't reach out
 	node1.network.udp_channels.insert (endpoint0, node1.network_params.network.protocol_version);
 	ASSERT_TRUE (node1.network.reachout (endpoint0));
-	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
+	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), nano::test_node_port ());
 	ASSERT_FALSE (node1.network.reachout (endpoint1));
 	// Reaching out to them once should signal we shouldn't reach out again.
 	ASSERT_TRUE (node1.network.reachout (endpoint1));
@@ -178,7 +178,7 @@ TEST (peer_container, reachout)
 TEST (peer_container, depeer)
 {
 	nano::system system (1);
-	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
+	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), nano::test_node_port ());
 	nano::keepalive message{ nano::dev::network_params.network };
 	const_cast<uint8_t &> (message.header.version_using) = 1;
 	auto bytes (message.to_bytes ());
