@@ -140,6 +140,10 @@ void nano::election_scheduler::run ()
 					election->transition_active ();
 				}
 			}
+			else
+			{
+				lock.unlock ();
+			}
 			notify ();
 			lock.lock ();
 		}
