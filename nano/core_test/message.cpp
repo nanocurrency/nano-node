@@ -203,21 +203,18 @@ TEST (message, confirm_req_hash_batch_serialization)
 	ASSERT_EQ (header.count_get (), req.roots_hashes.size ());
 }
 
-TEST (message, keepalive_to_string)
+// this unit test checks that conversion of message_header to string works as expected
+TEST (message, message_header_to_string)
 {
-	// header identical to keepalive_serialization at the top of this file
-	nano::keepalive request1{ nano::dev::network_params.network };
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream (bytes);
-		request1.serialize (stream);
-	}
-	auto error (false);
-	nano::bufferstream stream (bytes.data (), bytes.size ());
-	nano::message_header header (error, stream);
+	// calculate expected string
+	int maxver = nano::dev::network_params.network.protocol_version;
+	int minver = nano::dev::network_params.network.protocol_version_min;
+	std::stringstream ss;
+	ss << "NetID: 5241(dev), VerMaxUsingMin: " << maxver << "/" << maxver << "/" << minver << ", MsgType: 2(keepalive), Extensions: 0000";
+	auto expected_str = ss.str ();
 
-	std::string header_string = header.to_string ();
-
-	ASSERT_TRUE (boost::algorithm::contains (header_string, "MsgType: 2(keepalive)"));
-	ASSERT_FALSE (boost::algorithm::contains (header_string, ": ,"));
+	// check expected vs real
+	nano::keepalive keepalive_msg{ nano::dev::network_params.network };
+	std::string header_string = keepalive_msg.header.to_string ();
+	ASSERT_EQ (expected_str, header_string);
 }

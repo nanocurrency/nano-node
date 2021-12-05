@@ -140,10 +140,10 @@ std::string nano::message_header::to_string ()
 
 	std::stringstream stream;
 
-	stream << boost::format ("NetID: %1%, ") % nano::network::to_string (network);
+	stream << boost::format ("NetID: %1%(%2%), ") % nano::to_string_hex (static_cast<uint16_t> (network)) % nano::network::to_string (network);
 	stream << boost::format ("VerMaxUsingMin: %1%/%2%/%3%, ") % version_max_l % version_using_l % version_min_l;
 	stream << boost::format ("MsgType: %1%(%2%), ") % type_l % type_text;
-	stream << boost::format ("Extensions: %1%") % extensions.to_ulong ();
+	stream << boost::format ("Extensions: %1%") % nano::to_string_hex (static_cast<uint16_t> (extensions.to_ulong ()));
 
 	return stream.str ();
 }

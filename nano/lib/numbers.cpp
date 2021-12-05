@@ -870,6 +870,14 @@ std::string nano::to_string_hex (uint64_t const value_a)
 	return stream.str ();
 }
 
+std::string nano::to_string_hex (uint16_t const value_a)
+{
+	std::stringstream stream;
+	stream << std::hex << std::noshowbase << std::setw (4) << std::setfill ('0');
+	stream << value_a;
+	return stream.str ();
+}
+
 bool nano::from_string_hex (std::string const & value_a, uint64_t & target_a)
 {
 	auto error (value_a.empty ());

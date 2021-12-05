@@ -1087,13 +1087,13 @@ std::string nano::network::to_string (nano::networks network)
 		case nano::networks::invalid:
 			return "invalid";
 		case nano::networks::nano_beta_network:
-			return "B(beta_network)";
+			return "beta";
 		case nano::networks::nano_dev_network:
-			return "dev_network";
+			return "dev";
 		case nano::networks::nano_live_network:
-			return "C(live_network)";
+			return "live";
 		case nano::networks::nano_test_network:
-			return "A(test_network)";
+			return "test";
 			// default case intentionally omitted to cause warnings for unhandled enums
 	}
 
