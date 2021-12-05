@@ -253,6 +253,7 @@ nano::public_key pub_key (nano::raw_key const &);
 
 /* Conversion methods */
 std::string to_string_hex (uint64_t const);
+std::string to_string_hex (uint16_t const);
 bool from_string_hex (std::string const &, uint64_t &);
 
 /**
