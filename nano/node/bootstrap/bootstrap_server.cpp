@@ -550,7 +550,14 @@ void nano::bootstrap_server::add_request (std::unique_ptr<nano::message> message
 void nano::bootstrap_server::finish_request ()
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
-	requests.pop ();
+	if (!requests.empty ())
+	{
+		requests.pop ();
+	}
+	else
+	{
+		node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::request_underflow);
+	}
 
 	while (!requests.empty ())
 	{
