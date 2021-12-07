@@ -616,6 +616,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::error_socket_close:
 			res = "error_socket_close";
 			break;
+		case nano::stat::detail::request_underflow:
+			res = "request_underflow";
+			break;
 		case nano::stat::detail::change:
 			res = "change";
 			break;
