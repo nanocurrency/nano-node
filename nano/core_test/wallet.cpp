@@ -1144,12 +1144,12 @@ TEST (wallet, foreach_representative_deadlock)
 	bool set = false;
 	node.wallets.foreach_representative ([&node, &set, &system] (nano::public_key const & pub, nano::raw_key const & prv) {
 		node.wallets.foreach_representative ([&node, &set, &system] (nano::public_key const & pub, nano::raw_key const & prv) {
-            ASSERT_TIMELY(5s, node.wallets.mutex.try_lock () == 1);
-            node.wallets.mutex.unlock ();
+			ASSERT_TIMELY (5s, node.wallets.mutex.try_lock () == 1);
+			node.wallets.mutex.unlock ();
 			set = true;
 		});
-    });
-    ASSERT_TRUE (set);
+	});
+	ASSERT_TRUE (set);
 }
 
 TEST (wallet, search_pending)
