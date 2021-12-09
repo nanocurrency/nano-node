@@ -3308,7 +3308,7 @@ TEST (node, block_processor_signatures)
 				 .build_shared ();
 	send4->signature.bytes[32] ^= 0x1;
 	// Invalid signature bit (force)
-	auto send5 = builder.make_block ()
+	std::shared_ptr<nano::block> send5 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (send3->hash ())
 				 .representative (nano::dev::genesis_key.pub)
@@ -3317,7 +3317,9 @@ TEST (node, block_processor_signatures)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*node1.work_generate_blocking (send3->hash ()))
 				 .build_shared ();
-	send5->signature.bytes[31] ^= 0x1;
+	auto signature = send5->block_signature ();
+	signature.bytes[31] ^= 0x1;
+	send5->signature_set (signature);
 	// Invalid signature to unchecked
 	{
 		auto transaction (node1.store.tx_begin_write ());
