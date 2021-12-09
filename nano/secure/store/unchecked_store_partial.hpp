@@ -72,7 +72,7 @@ public:
 		return store.template make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked);
 	}
 
-	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> begin (nano::transaction const & transaction_a, nano::unchecked_key const & key_a) const override
+	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> lower_bound (nano::transaction const & transaction_a, nano::unchecked_key const & key_a) const override
 	{
 		return store.template make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked, nano::db_val<Val> (key_a));
 	}
@@ -89,7 +89,7 @@ public:
 			nano::unchecked_key key_start (start);
 			nano::unchecked_key key_end (end);
 			auto transaction (this->store.tx_begin_read ());
-			action_a (transaction, this->begin (transaction, key_start), !is_last ? this->begin (transaction, key_end) : this->end ());
+			action_a (transaction, this->lower_bound (transaction, key_start), !is_last ? this->lower_bound (transaction, key_end) : this->end ());
 		});
 	}
 };
