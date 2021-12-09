@@ -7,9 +7,6 @@ TRAVIS_BRANCH=$(git branch | cut -f2 -d' ')
 tags=()
 if [ -n "$TRAVIS_TAG" ]; then
     tags+=("$TRAVIS_TAG")
-    if [[ "$GITHUB_WORKFLOW" = "Beta" || "$GITHUB_WORKFLOW" = "Test" ]]; then
-        tags+=(latest)
-    fi
 elif [ -n "$TRAVIS_BRANCH" ]; then
     TRAVIS_TAG=$TRAVIS_BRANCH
     tags+=("$TRAVIS_BRANCH")
