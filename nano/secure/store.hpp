@@ -743,17 +743,19 @@ public:
 class unchecked_store
 {
 public:
+	using iterator = nano::store_iterator<nano::unchecked_key, nano::unchecked_info>;
+
 	virtual void clear (nano::write_transaction const &) = 0;
 	virtual void put (nano::write_transaction const &, nano::unchecked_key const &, nano::unchecked_info const &) = 0;
 	virtual void put (nano::write_transaction const &, nano::hash_or_account const &, std::shared_ptr<nano::block> const &) = 0;
 	virtual std::vector<nano::unchecked_info> get (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual bool exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) = 0;
 	virtual void del (nano::write_transaction const &, nano::unchecked_key const &) = 0;
-	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> begin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> begin (nano::transaction const &, nano::unchecked_key const &) const = 0;
-	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> end () const = 0;
+	virtual iterator begin (nano::transaction const &) const = 0;
+	virtual iterator begin (nano::transaction const &, nano::unchecked_key const &) const = 0;
+	virtual iterator end () const = 0;
 	virtual size_t count (nano::transaction const &) = 0;
-	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>)> const & action_a) const = 0;
+	virtual void for_each_par (std::function<void (nano::read_transaction const &, iterator, iterator)> const & action_a) const = 0;
 };
 
 /**
