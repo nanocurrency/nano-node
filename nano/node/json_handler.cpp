@@ -4026,7 +4026,7 @@ void nano::json_handler::unchecked ()
 	{
 		boost::property_tree::ptree unchecked;
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.unchecked.begin (transaction)), n (node.store.unchecked.end ()); i != n && unchecked.size () < count; ++i)
+		for (auto [i, n] = node.store.unchecked.full_range (transaction); i != n && unchecked.size () < count; ++i)
 		{
 			nano::unchecked_info const & info (i->second);
 			if (json_block_l)
@@ -4064,7 +4064,7 @@ void nano::json_handler::unchecked_get ()
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.unchecked.begin (transaction)), n (node.store.unchecked.end ()); i != n; ++i)
+		for (auto [i, n] = node.store.unchecked.full_range (transaction); i != n; ++i)
 		{
 			nano::unchecked_key const & key (i->first);
 			if (key.hash == hash)

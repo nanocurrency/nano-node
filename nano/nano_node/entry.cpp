@@ -437,7 +437,7 @@ int main (int argc, char * const * argv)
 			}
 
 			// Check all unchecked keys for matching frontier hashes. Indicates an issue with process_batch algorithm
-			for (auto i (node->store.unchecked.begin (transaction)), n (node->store.unchecked.end ()); i != n; ++i)
+			for (auto [i, n] = node->store.unchecked.full_range (transaction); i != n; ++i)
 			{
 				auto it = frontier_hashes.find (i->first.key ());
 				if (it != frontier_hashes.cend ())

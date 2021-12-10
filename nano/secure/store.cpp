@@ -143,6 +143,11 @@ auto nano::unchecked_store::equal_range (nano::transaction const & transaction, 
 	return std::make_pair (lower_bound (transaction, begin_l), std::move (end_iter));
 }
 
+auto nano::unchecked_store::full_range (nano::transaction const & transaction) -> std::pair<iterator, iterator>
+{
+	return std::make_pair (begin (transaction), end ());
+}
+
 std::vector<nano::unchecked_info> nano::unchecked_store::get (nano::transaction const & transaction, nano::block_hash const & dependency)
 {
 	auto range = equal_range (transaction, dependency);
