@@ -45,7 +45,6 @@ class unchecked_mdb_store : public unchecked_store_partial<MDB_val, mdb_store>
 {
 public:
 	explicit unchecked_mdb_store (nano::mdb_store &);
-	std::vector<nano::unchecked_info> get (nano::transaction const &, nano::block_hash const &);
 };
 
 /**
