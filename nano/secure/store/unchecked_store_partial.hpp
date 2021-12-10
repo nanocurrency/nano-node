@@ -34,18 +34,11 @@ public:
 		release_assert_success (store, status);
 	}
 
-	void put (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a) override
+	void put (nano::write_transaction const & transaction_a, nano::hash_or_account const & dependency, nano::unchecked_info const & info_a) override
 	{
 		nano::db_val<Val> info (info_a);
-		auto status (store.put (transaction_a, tables::unchecked, key_a, info));
+		auto status (store.put (transaction_a, tables::unchecked, nano::unchecked_key{ dependency, info_a.block->hash () }, info));
 		release_assert_success (store, status);
-	}
-
-	void put (nano::write_transaction const & transaction_a, nano::hash_or_account const & dependency_a, std::shared_ptr<nano::block> const & block_a) override
-	{
-		nano::unchecked_key key (dependency_a, block_a->hash ());
-		nano::unchecked_info info (block_a, block_a->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
-		put (transaction_a, key, info);
 	}
 
 	bool exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) override

@@ -382,9 +382,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				info_a.modified = nano::seconds_since_epoch ();
 			}
 
-			nano::unchecked_key unchecked_key (block->previous (), hash);
-			node.store.unchecked.put (transaction_a, unchecked_key, info_a);
-
+			node.store.unchecked.put (transaction_a, block->previous (), info_a);
 			events_a.events.emplace_back ([this, hash] (nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
 
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_previous);
@@ -402,9 +400,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				info_a.modified = nano::seconds_since_epoch ();
 			}
 
-			nano::unchecked_key unchecked_key (node.ledger.block_source (transaction_a, *(block)), hash);
-			node.store.unchecked.put (transaction_a, unchecked_key, info_a);
-
+			node.store.unchecked.put (transaction_a, node.ledger.block_source (transaction_a, *(block)), info_a);
 			events_a.events.emplace_back ([this, hash] (nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
 
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
@@ -422,9 +418,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				info_a.modified = nano::seconds_since_epoch ();
 			}
 
-			nano::unchecked_key unchecked_key (block->account (), hash); // Specific unchecked key starting with epoch open block account public key
-			node.store.unchecked.put (transaction_a, unchecked_key, info_a);
-
+			node.store.unchecked.put (transaction_a, block->account (), info_a);// Specific unchecked key starting with epoch open block account public key
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
 		}

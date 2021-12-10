@@ -363,6 +363,11 @@ nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> const & block
 {
 }
 
+nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> const & block) :
+	unchecked_info{ block, block->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown }
+{
+}
+
 void nano::unchecked_info::serialize (nano::stream & stream_a) const
 {
 	debug_assert (block != nullptr);
@@ -859,6 +864,11 @@ nano::wallet_id nano::random_wallet_id ()
 	random_pool::generate_block (dummy_secret.bytes.data (), dummy_secret.bytes.size ());
 	ed25519_publickey (dummy_secret.bytes.data (), wallet_id.bytes.data ());
 	return wallet_id;
+}
+
+nano::unchecked_key::unchecked_key (nano::hash_or_account const & dependency) :
+	unchecked_key{ dependency, 0 }
+{
 }
 
 nano::unchecked_key::unchecked_key (nano::hash_or_account const & previous_a, nano::block_hash const & hash_a) :
