@@ -482,8 +482,7 @@ TEST (block_store, empty_bootstrap)
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	auto transaction (store->tx_begin_read ());
-	auto begin (store->unchecked.begin (transaction));
-	auto end (store->unchecked.end ());
+	auto [begin, end] = store->unchecked.full_range (transaction);
 	ASSERT_EQ (end, begin);
 }
 
