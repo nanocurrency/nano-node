@@ -418,7 +418,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				info_a.modified = nano::seconds_since_epoch ();
 			}
 
-			node.store.unchecked.put (transaction_a, block->account (), info_a);// Specific unchecked key starting with epoch open block account public key
+			node.store.unchecked.put (transaction_a, block->account (), info_a); // Specific unchecked key starting with epoch open block account public key
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
 		}

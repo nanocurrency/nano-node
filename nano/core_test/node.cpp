@@ -3309,14 +3309,14 @@ TEST (node, block_processor_signatures)
 	send4->signature.bytes[32] ^= 0x1;
 	// Invalid signature bit (force)
 	std::shared_ptr<nano::block> send5 = builder.make_block ()
-				 .account (nano::dev::genesis_key.pub)
-				 .previous (send3->hash ())
-				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - 5 * nano::Gxrb_ratio)
-				 .link (key3.pub)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*node1.work_generate_blocking (send3->hash ()))
-				 .build_shared ();
+										 .account (nano::dev::genesis_key.pub)
+										 .previous (send3->hash ())
+										 .representative (nano::dev::genesis_key.pub)
+										 .balance (nano::dev::constants.genesis_amount - 5 * nano::Gxrb_ratio)
+										 .link (key3.pub)
+										 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+										 .work (*node1.work_generate_blocking (send3->hash ()))
+										 .build_shared ();
 	auto signature = send5->block_signature ();
 	signature.bytes[31] ^= 0x1;
 	send5->signature_set (signature);

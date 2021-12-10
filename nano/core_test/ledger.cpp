@@ -3628,14 +3628,14 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 
 	std::shared_ptr<nano::block> send = nano::state_block_builder ()
-				.account (nano::dev::genesis_key.pub)
-				.previous (nano::dev::genesis->hash ())
-				.representative (0)
-				.link (nano::account (10))
-				.balance (nano::dev::constants.genesis_amount - 100)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*pool.generate (nano::dev::genesis->hash ()))
-				.build_shared ();
+										.account (nano::dev::genesis_key.pub)
+										.previous (nano::dev::genesis->hash ())
+										.representative (0)
+										.link (nano::account (10))
+										.balance (nano::dev::constants.genesis_amount - 100)
+										.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+										.work (*pool.generate (nano::dev::genesis->hash ()))
+										.build_shared ();
 
 	nano::endpoint_key endpoint_key (address.to_bytes (), port);
 	auto version = 99;
