@@ -229,8 +229,6 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options (std::string co
 
 		// Create prefix bloom for memtable with the size of write_buffer_size * memtable_prefix_bloom_size_ratio
 		cf_options.memtable_prefix_bloom_size_ratio = 0.25;
-		// The prefix to use is the size of the unchecked key (root)
-		cf_options.prefix_extractor.reset (rocksdb::NewFixedPrefixTransform (sizeof (nano::root)));
 
 		// Number of files in level 0 which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
 		cf_options.level0_file_num_compaction_trigger = 2;
