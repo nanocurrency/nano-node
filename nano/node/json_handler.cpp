@@ -4112,7 +4112,7 @@ void nano::json_handler::unchecked_keys ()
 	{
 		boost::property_tree::ptree unchecked;
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.unchecked.lower_bound (transaction, nano::unchecked_key (key, 0))), n (node.store.unchecked.end ()); i != n && unchecked.size () < count; ++i)
+		for (auto [i, n] = node.store.unchecked.equal_range (transaction, key); i != n && unchecked.size () < count; ++i)
 		{
 			boost::property_tree::ptree entry;
 			nano::unchecked_info const & info (i->second);
