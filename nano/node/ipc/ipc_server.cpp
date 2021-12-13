@@ -557,7 +557,9 @@ private:
 };
 
 using tcp_socket_transport = socket_transport<boost::asio::ip::tcp::acceptor, boost::asio::ip::tcp::socket, boost::asio::ip::tcp::endpoint>;
+#if defined(BOOST_ASIO_HAS_LOCAL_SOCKETS)
 using domain_socket_transport = socket_transport<boost::asio::local::stream_protocol::acceptor, boost::asio::local::stream_protocol::socket, boost::asio::local::stream_protocol::endpoint>;
+#endif
 
 template <typename ACCEPTOR_TYPE, typename SOCKET_TYPE, typename ENDPOINT_TYPE>
 std::optional<std::uint16_t> socket_transport<ACCEPTOR_TYPE, SOCKET_TYPE, ENDPOINT_TYPE>::listening_port () const
