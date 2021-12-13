@@ -53,9 +53,9 @@ void nano::bootstrap_listener::start ()
 			debug_assert (port == node.network.endpoint ().port ());
 		}
 		// (4) -- OS port choice happened at TCP socket bind time, so propagate this port value back;
-        // the propagation is done here for the `bootstrap_listener` itself, whereas for `network`, the node does it
+		// the propagation is done here for the `bootstrap_listener` itself, whereas for `network`, the node does it
 		// after calling `bootstrap_listener.start ()`
-        //
+		//
 		else
 		{
 			port = listening_port;

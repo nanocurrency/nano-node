@@ -627,10 +627,10 @@ void nano::node::start ()
 		bootstrap.start ();
 		tcp_enabled = true;
 
-        if (flags.disable_udp && network.port != bootstrap.port)
-        {
-            network.port = bootstrap.port;
-        }
+		if (flags.disable_udp && network.port != bootstrap.port)
+		{
+			network.port = bootstrap.port;
+		}
 	}
 	if (!flags.disable_backup)
 	{
