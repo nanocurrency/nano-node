@@ -103,7 +103,7 @@ TEST (gap_cache, two_dependencies)
 	ASSERT_EQ (2, node1.gap_cache.size ());
 	node1.block_processor.add (send1, nano::seconds_since_epoch ());
 	node1.block_processor.flush ();
-	ASSERT_EQ (0, node1.gap_cache.size ());
+	ASSERT_TIMELY (5s, node1.gap_cache.size () == 0);
 	auto transaction (node1.store.tx_begin_read ());
 	ASSERT_TRUE (node1.store.block.exists (transaction, send1->hash ()));
 	ASSERT_TRUE (node1.store.block.exists (transaction, send2->hash ()));

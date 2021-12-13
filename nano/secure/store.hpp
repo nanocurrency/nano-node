@@ -815,6 +815,7 @@ public:
 	virtual uint64_t account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 };
 
+class unchecked_map;
 /**
  * Store manager
  */
@@ -844,7 +845,11 @@ public:
 	frontier_store & frontier;
 	account_store & account;
 	pending_store & pending;
+
+private:
 	unchecked_store & unchecked;
+
+public:
 	online_weight_store & online_weight;
 	pruned_store & pruned;
 	peer_store & peer;
@@ -870,6 +875,8 @@ public:
 	virtual nano::read_transaction tx_begin_read () const = 0;
 
 	virtual std::string vendor_get () const = 0;
+
+	friend class unchecked_map;
 };
 
 std::unique_ptr<nano::store> make_store (nano::logger_mt & logger, boost::filesystem::path const & path, nano::ledger_constants & constants, bool open_read_only = false, bool add_db_postfix = false, nano::rocksdb_config const & rocksdb_config = nano::rocksdb_config{}, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);

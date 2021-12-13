@@ -5001,17 +5001,19 @@ TEST (rpc, stats_clear)
 	ASSERT_LE (node->stats.last_reset ().count (), 5);
 }
 
+// Tests the RPC command returns the correct data for the unchecked blocks
 TEST (rpc, unchecked)
 {
-	nano::system system;
+	nano::system system{};
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
-	nano::keypair key;
-	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
-	auto open2 (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 2, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	nano::keypair key{};
+	auto open = std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
+	auto open2 = std::make_shared<nano::state_block> (key.pub, 0, key.pub, 2, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
 	node->process_active (open);
 	node->process_active (open2);
-	node->block_processor.flush ();
+	// Waits for the last block of the queue to get saved in the database
+	ASSERT_TIMELY (10s, 2 == node->unchecked.count (node->store.tx_begin_read ()));
 	boost::property_tree::ptree request;
 	request.put ("action", "unchecked");
 	request.put ("count", 2);
@@ -5032,16 +5034,18 @@ TEST (rpc, unchecked)
 	}
 }
 
+// Tests the RPC command returns the correct data for the unchecked blocks
 TEST (rpc, unchecked_get)
 {
-	nano::system system;
+	nano::system system{};
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
-	nano::keypair key;
-	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	nano::keypair key{};
+	auto open = std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
 	node->process_active (open);
-	node->block_processor.flush ();
-	boost::property_tree::ptree request;
+	// Waits for the open block to get saved in the database
+	ASSERT_TIMELY (10s, 1 == node->unchecked.count (node->store.tx_begin_read ()));
+	boost::property_tree::ptree request{};
 	request.put ("action", "unchecked_get");
 	request.put ("hash", open->hash ().to_string ());
 	{
@@ -5062,21 +5066,20 @@ TEST (rpc, unchecked_get)
 
 TEST (rpc, unchecked_clear)
 {
-	nano::system system;
+	nano::system system{};
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
-	nano::keypair key;
-	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	nano::keypair key{};
+	auto open = std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
 	node->process_active (open);
-	node->block_processor.flush ();
-	boost::property_tree::ptree request;
-	{
-		ASSERT_EQ (node->store.unchecked.count (node->store.tx_begin_read ()), 1);
-	}
+	boost::property_tree::ptree request{};
+	// Waits for the open block to get saved in the database
+	ASSERT_TIMELY (10s, 1 == node->unchecked.count (node->store.tx_begin_read ()));
 	request.put ("action", "unchecked_clear");
-	auto response (wait_response (system, rpc_ctx, request));
+	auto response = wait_response (system, rpc_ctx, request);
 
-	ASSERT_TIMELY (10s, node->store.unchecked.count (node->store.tx_begin_read ()) == 0);
+	// Waits for the open block to get saved in the database
+	ASSERT_TIMELY (10s, 0 == node->unchecked.count (node->store.tx_begin_read ()));
 }
 
 TEST (rpc, unopened)
@@ -5798,19 +5801,19 @@ TEST (rpc, epoch_upgrade_multithreaded)
 
 TEST (rpc, account_lazy_start)
 {
-	nano::system system;
-	nano::node_flags node_flags;
+	nano::system system{};
+	nano::node_flags node_flags{};
 	node_flags.disable_legacy_bootstrap = true;
 	auto node1 = system.add_node (node_flags);
-	nano::keypair key;
+	nano::keypair key{};
 	// Generating test chain
-	auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, nano::dev::genesis->hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
+	auto send1 = std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, nano::dev::genesis->hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ()));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
-	auto open (std::make_shared<nano::open_block> (send1->hash (), key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	auto open = std::make_shared<nano::open_block> (send1->hash (), key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
 
 	// Start lazy bootstrap with account
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port (), system.logging };
 	node_config.ipc_config.transport_tcp.enabled = true;
 	node_config.ipc_config.transport_tcp.port = nano::get_available_port ();
 	auto node2 = system.add_node (node_config, node_flags);
@@ -5819,15 +5822,17 @@ TEST (rpc, account_lazy_start)
 	boost::property_tree::ptree request;
 	request.put ("action", "account_info");
 	request.put ("account", key.pub.to_account ());
-	auto response (wait_response (system, rpc_ctx, request));
-	boost::optional<std::string> account_error (response.get_optional<std::string> ("error"));
+	auto response = wait_response (system, rpc_ctx, request);
+	boost::optional<std::string> account_error{ response.get_optional<std::string> ("error") };
 	ASSERT_TRUE (account_error.is_initialized ());
 
 	// Check processed blocks
 	ASSERT_TIMELY (10s, !node2->bootstrap_initiator.in_progress ());
-	node2->block_processor.flush ();
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (open->hash ()));
+
+	// needs timed assert because the writing (put) operation is done by a different
+	// thread, it might not get done before DB get operation.
+	ASSERT_TIMELY (10s, node2->ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TIMELY (10s, node2->ledger.block_or_pruned_exists (open->hash ()));
 }
 
 TEST (rpc, receive)

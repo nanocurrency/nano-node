@@ -42,6 +42,7 @@ add_executable(
   toml.cpp
   timer.cpp
   uint256_union.cpp
+  unchecked_map.cpp
   utility.cpp
   vote_processor.cpp
   voting.cpp

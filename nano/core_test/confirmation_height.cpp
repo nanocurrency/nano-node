@@ -219,24 +219,24 @@ TEST (confirmation_height, multiple_accounts)
 TEST (confirmation_height, gap_bootstrap)
 {
 	auto test_mode = [] (nano::confirmation_height_mode mode_a) {
-		nano::system system;
-		nano::node_flags node_flags;
+		nano::system system{};
+		nano::node_flags node_flags{};
 		node_flags.confirmation_height_processor_mode = mode_a;
 		auto & node1 = *system.add_node (node_flags);
-		nano::keypair destination;
-		auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis->account (), nano::dev::genesis->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - nano::Gxrb_ratio, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
+		nano::keypair destination{};
+		auto send1 = std::make_shared<nano::state_block> (nano::dev::genesis->account (), nano::dev::genesis->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - nano::Gxrb_ratio, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
 		node1.work_generate_blocking (*send1);
-		auto send2 (std::make_shared<nano::state_block> (nano::dev::genesis->account (), send1->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - 2 * nano::Gxrb_ratio, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
+		auto send2 = std::make_shared<nano::state_block> (nano::dev::genesis->account (), send1->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - 2 * nano::Gxrb_ratio, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
 		node1.work_generate_blocking (*send2);
-		auto send3 (std::make_shared<nano::state_block> (nano::dev::genesis->account (), send2->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - 3 * nano::Gxrb_ratio, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
+		auto send3 = std::make_shared<nano::state_block> (nano::dev::genesis->account (), send2->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - 3 * nano::Gxrb_ratio, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
 		node1.work_generate_blocking (*send3);
-		auto open1 (std::make_shared<nano::open_block> (send1->hash (), destination.pub, destination.pub, destination.prv, destination.pub, 0));
+		auto open1 = std::make_shared<nano::open_block> (send1->hash (), destination.pub, destination.pub, destination.prv, destination.pub, 0);
 		node1.work_generate_blocking (*open1);
 
 		// Receive
-		auto receive1 (std::make_shared<nano::receive_block> (open1->hash (), send2->hash (), destination.prv, destination.pub, 0));
+		auto receive1 = std::make_shared<nano::receive_block> (open1->hash (), send2->hash (), destination.prv, destination.pub, 0);
 		node1.work_generate_blocking (*receive1);
-		auto receive2 (std::make_shared<nano::receive_block> (receive1->hash (), send3->hash (), destination.prv, destination.pub, 0));
+		auto receive2 = std::make_shared<nano::receive_block> (receive1->hash (), send3->hash (), destination.prv, destination.pub, 0);
 		node1.work_generate_blocking (*receive2);
 
 		node1.block_processor.add (send1);
@@ -249,12 +249,16 @@ TEST (confirmation_height, gap_bootstrap)
 
 		// Receive 2 comes in on the live network, however the chain has not been finished so it gets added to unchecked
 		node1.process_active (receive2);
-		node1.block_processor.flush ();
+		// Waits for the unchecked_map to process the 4 blocks added to the block_processor, saving them in the unchecked table
+		auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
+			return !node1.unchecked.get (transaction_a, block_hash_a).empty ();
+		};
+		ASSERT_TIMELY (15s, check_block_is_listed (node1.store.tx_begin_read (), receive2->previous ()));
 
 		// Confirmation heights should not be updated
 		{
 			auto transaction (node1.store.tx_begin_read ());
-			auto unchecked_count (node1.store.unchecked.count (transaction));
+			auto unchecked_count (node1.unchecked.count (transaction));
 			ASSERT_EQ (unchecked_count, 2);
 
 			nano::confirmation_height_info confirmation_height_info;
@@ -265,14 +269,11 @@ TEST (confirmation_height, gap_bootstrap)
 
 		// Now complete the chain where the block comes in on the bootstrap network.
 		node1.block_processor.add (open1);
-		node1.block_processor.flush ();
 
+		ASSERT_TIMELY (10s, node1.unchecked.count (node1.store.tx_begin_read ()) == 0);
 		// Confirmation height should be unchanged and unchecked should now be 0
 		{
-			auto transaction (node1.store.tx_begin_read ());
-			auto unchecked_count (node1.store.unchecked.count (transaction));
-			ASSERT_EQ (unchecked_count, 0);
-
+			auto transaction = node1.store.tx_begin_read ();
 			nano::confirmation_height_info confirmation_height_info;
 			ASSERT_FALSE (node1.store.confirmation_height.get (transaction, nano::dev::genesis_key.pub, confirmation_height_info));
 			ASSERT_EQ (1, confirmation_height_info.height);
@@ -296,10 +297,10 @@ TEST (confirmation_height, gap_bootstrap)
 TEST (confirmation_height, gap_live)
 {
 	auto test_mode = [] (nano::confirmation_height_mode mode_a) {
-		nano::system system;
-		nano::node_flags node_flags;
+		nano::system system{};
+		nano::node_flags node_flags{};
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port (), system.logging };
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 		node_config.peering_port = nano::get_available_port ();
@@ -309,18 +310,18 @@ TEST (confirmation_height, gap_live)
 		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 		system.wallet (1)->insert_adhoc (destination.prv);
 
-		auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis->account (), nano::dev::genesis->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - 1, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
+		auto send1 = std::make_shared<nano::state_block> (nano::dev::genesis->account (), nano::dev::genesis->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - 1, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
 		node->work_generate_blocking (*send1);
-		auto send2 (std::make_shared<nano::state_block> (nano::dev::genesis->account (), send1->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - 2, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
+		auto send2 = std::make_shared<nano::state_block> (nano::dev::genesis->account (), send1->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - 2, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
 		node->work_generate_blocking (*send2);
-		auto send3 (std::make_shared<nano::state_block> (nano::dev::genesis->account (), send2->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - 3, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
+		auto send3 = std::make_shared<nano::state_block> (nano::dev::genesis->account (), send2->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - 3, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
 		node->work_generate_blocking (*send3);
 
-		auto open1 (std::make_shared<nano::open_block> (send1->hash (), destination.pub, destination.pub, destination.prv, destination.pub, 0));
+		auto open1 = std::make_shared<nano::open_block> (send1->hash (), destination.pub, destination.pub, destination.prv, destination.pub, 0);
 		node->work_generate_blocking (*open1);
-		auto receive1 (std::make_shared<nano::receive_block> (open1->hash (), send2->hash (), destination.prv, destination.pub, 0));
+		auto receive1 = std::make_shared<nano::receive_block> (open1->hash (), send2->hash (), destination.prv, destination.pub, 0);
 		node->work_generate_blocking (*receive1);
-		auto receive2 (std::make_shared<nano::receive_block> (receive1->hash (), send3->hash (), destination.prv, destination.pub, 0));
+		auto receive2 = std::make_shared<nano::receive_block> (receive1->hash (), send3->hash (), destination.prv, destination.pub, 0);
 		node->work_generate_blocking (*receive2);
 
 		node->block_processor.add (send1);
@@ -355,11 +356,11 @@ TEST (confirmation_height, gap_live)
 		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 6);
 
 		// This should confirm the open block and the source of the receive blocks
-		auto transaction (node->store.tx_begin_read ());
-		auto unchecked_count (node->store.unchecked.count (transaction));
+		auto transaction = node->store.tx_begin_read ();
+		auto unchecked_count = node->unchecked.count (transaction);
 		ASSERT_EQ (unchecked_count, 0);
 
-		nano::confirmation_height_info confirmation_height_info;
+		nano::confirmation_height_info confirmation_height_info{};
 		ASSERT_TRUE (node->ledger.block_confirmed (transaction, receive2->hash ()));
 		ASSERT_FALSE (node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub, confirmation_height_info));
 		ASSERT_EQ (4, confirmation_height_info.height);
