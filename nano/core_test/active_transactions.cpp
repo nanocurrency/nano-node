@@ -231,7 +231,10 @@ TEST (active_transactions, inactive_votes_cache_non_final)
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, election->tally ().begin ()->first);
 }
 
-TEST (active_transactions, inactive_votes_cache_fork)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3604
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3605
+TEST (active_transactions, DISABLED_inactive_votes_cache_fork)
 {
 	nano::system system (1);
 	auto & node = *system.nodes[0];
