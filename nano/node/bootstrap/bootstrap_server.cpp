@@ -25,7 +25,43 @@ void nano::bootstrap_listener::start ()
 		node.logger.always_log (boost::str (boost::format ("Network: Error while binding for incoming TCP/bootstrap on port %1%: %2%") % listening_socket->listening_port () % ec.message ()));
 		throw std::runtime_error (ec.message ());
 	}
-	debug_assert (node.network.endpoint ().port () == listening_socket->listening_port ());
+
+	// the user can either specify a port value in the config or it can leave the choice up to the OS;
+	// independently of user's port choice, he may have also opted to disable UDP or not; this gives us 4 possibilities:
+	// (1): UDP enabled, port specified
+	// (2): UDP enabled, port not specified
+	// (3): UDP disabled, port specified
+	// (4): UDP disabled, port not specified
+	//
+	const auto listening_port = listening_socket->listening_port ();
+	if (!node.flags.disable_udp)
+	{
+		// (1) and (2) -- no matter if (1) or (2), since UDP socket binding happens before this TCP socket binding,
+		// we must have already been constructed with a valid port value, so check that it really is the same everywhere
+		//
+		debug_assert (port == listening_port);
+		debug_assert (port == node.network.port);
+		debug_assert (port == node.network.endpoint ().port ());
+	}
+	else
+	{
+		// (3) -- nothing to do, just check that port values match everywhere
+		//
+		if (port == listening_port)
+		{
+			debug_assert (port == node.network.port);
+			debug_assert (port == node.network.endpoint ().port ());
+		}
+		// (4) -- OS port choice happened at TCP socket bind time, so propagate this port value back;
+		// the propagation is done here for the `bootstrap_listener` itself, whereas for `network`, the node does it
+		// after calling `bootstrap_listener.start ()`
+		//
+		else
+		{
+			port = listening_port;
+		}
+	}
+
 	listening_socket->on_connection ([this] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
 		if (!ec_a)
 		{
@@ -81,7 +117,7 @@ boost::asio::ip::tcp::endpoint nano::bootstrap_listener::endpoint ()
 	nano::lock_guard<nano::mutex> lock (mutex);
 	if (on && listening_socket)
 	{
-		return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), listening_socket->listening_port ());
+		return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), port);
 	}
 	else
 	{
@@ -612,8 +648,8 @@ namespace
 class request_response_visitor : public nano::message_visitor
 {
 public:
-	explicit request_response_visitor (std::shared_ptr<nano::bootstrap_server> const & connection_a) :
-		connection (connection_a)
+	explicit request_response_visitor (std::shared_ptr<nano::bootstrap_server> connection_a) :
+		connection (std::move (connection_a))
 	{
 	}
 	void keepalive (nano::keepalive const & message_a) override

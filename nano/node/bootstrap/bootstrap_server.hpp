@@ -26,8 +26,6 @@ public:
 	bool on{ false };
 	std::atomic<std::size_t> bootstrap_count{ 0 };
 	std::atomic<std::size_t> realtime_count{ 0 };
-
-private:
 	uint16_t port;
 };
 

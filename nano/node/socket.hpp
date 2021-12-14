@@ -168,7 +168,7 @@ public:
 	void on_connection (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);
 	uint16_t listening_port ()
 	{
-		return local.port ();
+		return acceptor.local_endpoint ().port ();
 	}
 
 private:

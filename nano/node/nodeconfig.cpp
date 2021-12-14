@@ -33,12 +33,17 @@ nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & l
 	ipc_config{ network_params.network },
 	external_address{ boost::asio::ip::address_v6{}.to_string () }
 {
-	// The default constructor passes 0 to indicate we should use the default port,
-	// which is determined at node startup based on active network.
 	if (peering_port == 0)
 	{
-		peering_port = network_params.network.default_node_port;
+		// comment for posterity:
+		// - we used to consider ports being 0 a sentinel that meant to use a default port for that specific purpose
+		// - the actual default value was determined based on the active network (e.g. dev network peering port = 44000)
+		// - now, the 0 value means something different instead: user wants to let the OS pick a random port
+		// - for the specific case of the peering port, after it gets picked, it can be retrieved by client code via
+		//   node.network.endpoint ().port ()
+		// - the config value does not get back-propagated because it represents the choice of the user, and that was 0
 	}
+
 	switch (network_params.network.network ())
 	{
 		case nano::networks::nano_dev_network:
@@ -47,14 +52,14 @@ nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & l
 			break;
 		case nano::networks::nano_beta_network:
 		{
-			preconfigured_peers.push_back (default_beta_peer_network);
+			preconfigured_peers.emplace_back (default_beta_peer_network);
 			nano::account offline_representative;
 			release_assert (!offline_representative.decode_account ("nano_1defau1t9off1ine9rep99999999999999999999999999999999wgmuzxxy"));
 			preconfigured_representatives.emplace_back (offline_representative);
 			break;
 		}
 		case nano::networks::nano_live_network:
-			preconfigured_peers.push_back (default_live_peer_network);
+			preconfigured_peers.emplace_back (default_live_peer_network);
 			preconfigured_representatives.emplace_back ("A30E0A32ED41C8607AA9212843392E853FCBCB4E7CB194E35C94F07F91DE59EF");
 			preconfigured_representatives.emplace_back ("67556D31DDFC2A440BF6147501449B4CB9572278D034EE686A6BEE29851681DF");
 			preconfigured_representatives.emplace_back ("5C2FBB148E006A8E8BA7A75DD86C9FE00C83F5FFDBFD76EAA09531071436B6AF");

@@ -300,6 +300,11 @@ namespace websocket
 			return logger;
 		}
 
+		std::uint16_t listening_port ()
+		{
+			return acceptor.local_endpoint ().port ();
+		}
+
 		nano::wallets & get_wallets () const
 		{
 			return wallets;
