@@ -658,7 +658,7 @@ public:
 	{
 		if (connection->node->config.logging.network_node_id_handshake_logging ())
 		{
-			connection->node->logger.try_log (boost::str (boost::format ("Received node_id_handshake message from %1%") % connection->remote_endpoint));
+			connection->node->logger.try_log (boost::str (boost::format ("Received node_id_handshake message from %1% Q=%2% R=%3%") % connection->remote_endpoint % message_a.query.has_value () % message_a.response.has_value ()));
 		}
 		if (message_a.query)
 		{
