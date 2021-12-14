@@ -5,9 +5,9 @@
 
 #include <boost/endian/conversion.hpp>
 
-nano::rpc_request_processor::rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config) :
+nano::rpc_request_processor::rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config, std::uint16_t ipc_port_a) :
 	ipc_address (rpc_config.rpc_process.ipc_address),
-	ipc_port (rpc_config.rpc_process.ipc_port),
+	ipc_port (ipc_port_a),
 	thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::rpc_request_processor);
 		this->run ();
@@ -25,6 +25,11 @@ nano::rpc_request_processor::rpc_request_processor (boost::asio::io_context & io
 			connection->is_available = true;
 		});
 	}
+}
+
+nano::rpc_request_processor::rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config) :
+	rpc_request_processor (io_ctx, rpc_config, rpc_config.rpc_process.ipc_port)
+{
 }
 
 nano::rpc_request_processor::~rpc_request_processor ()

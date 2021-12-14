@@ -47,6 +47,7 @@ class rpc_request_processor
 {
 public:
 	rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config);
+	rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config, std::uint16_t ipc_port_a);
 	~rpc_request_processor ();
 	void stop ();
 	void add (std::shared_ptr<rpc_request> const & request);
@@ -74,6 +75,10 @@ class ipc_rpc_processor final : public nano::rpc_handler_interface
 public:
 	ipc_rpc_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config) :
 		rpc_request_processor (io_ctx, rpc_config)
+	{
+	}
+	ipc_rpc_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config, std::uint16_t ipc_port_a) :
+		rpc_request_processor (io_ctx, rpc_config, ipc_port_a)
 	{
 	}
 
