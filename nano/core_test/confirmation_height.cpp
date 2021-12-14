@@ -1262,7 +1262,10 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 	test_mode (nano::confirmation_height_mode::unbounded);
 }
 
-TEST (confirmation_height, election_winner_details_clearing)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3607
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3608
+TEST (confirmation_height, DISABLED_election_winner_details_clearing)
 {
 	auto test_mode = [] (nano::confirmation_height_mode mode_a) {
 		nano::system system;
