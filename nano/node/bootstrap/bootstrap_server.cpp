@@ -29,6 +29,7 @@ void nano::bootstrap_listener::start ()
 	listening_socket->on_connection ([this] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
 		if (!ec_a)
 		{
+			node.logger.try_log (boost::str (boost::format ("bootstrap_listener: incoming connection remote=%1% local=%2%") % new_connection->remote_endpoint () % new_connection->local_endpoint ()));
 			accept_action (ec_a, new_connection);
 		}
 		return true;
