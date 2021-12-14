@@ -34,9 +34,11 @@ namespace transport
 
 	public:
 		channel_tcp (nano::node &, std::weak_ptr<nano::socket>);
-		~channel_tcp ();
+		~channel_tcp () override;
 		std::size_t hash_code () const override;
 		bool operator== (nano::transport::channel const &) const override;
+		// TODO: investigate clang-tidy warning about default parameters on virtual/override functions
+		//
 		void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) override;
 		std::string to_string () const override;
 		bool operator== (nano::transport::channel_tcp const & other_a) const
@@ -75,7 +77,7 @@ namespace transport
 		friend class telemetry_simultaneous_requests_Test;
 
 	public:
-		tcp_channels (nano::node &, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> = nullptr);
+		explicit tcp_channels (nano::node &, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> = nullptr);
 		bool insert (std::shared_ptr<nano::transport::channel_tcp> const &, std::shared_ptr<nano::socket> const &, std::shared_ptr<nano::bootstrap_server> const &);
 		void erase (nano::tcp_endpoint const &);
 		std::size_t size () const;
@@ -99,7 +101,6 @@ namespace transport
 		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
 		void ongoing_keepalive ();
-		void list_below_version (std::vector<std::shared_ptr<nano::transport::channel>> &, uint8_t);
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0, bool = true);
 		void modify (std::shared_ptr<nano::transport::channel_tcp> const &, std::function<void (std::shared_ptr<nano::transport::channel_tcp> const &)>);
 		void update (nano::tcp_endpoint const &);
@@ -145,8 +146,8 @@ namespace transport
 			std::shared_ptr<nano::transport::channel_tcp> channel;
 			std::shared_ptr<nano::socket> socket;
 			std::shared_ptr<nano::bootstrap_server> response_server;
-			channel_tcp_wrapper (std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::socket> const & socket_a, std::shared_ptr<nano::bootstrap_server> const & server_a) :
-				channel (channel_a), socket (socket_a), response_server (server_a)
+			channel_tcp_wrapper (std::shared_ptr<nano::transport::channel_tcp> channel_a, std::shared_ptr<nano::socket> socket_a, std::shared_ptr<nano::bootstrap_server> server_a) :
+				channel (std::move (channel_a)), socket (std::move (socket_a)), response_server (std::move (server_a))
 			{
 			}
 			nano::tcp_endpoint endpoint () const

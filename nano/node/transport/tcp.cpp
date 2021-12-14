@@ -6,7 +6,7 @@
 
 nano::transport::channel_tcp::channel_tcp (nano::node & node_a, std::weak_ptr<nano::socket> socket_a) :
 	channel (node_a),
-	socket (socket_a)
+	socket (std::move (socket_a))
 {
 }
 
@@ -107,7 +107,7 @@ void nano::transport::channel_tcp::set_endpoint ()
 
 nano::transport::tcp_channels::tcp_channels (nano::node & node, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink) :
 	node{ node },
-	sink{ sink }
+	sink{ std::move (sink) }
 {
 }
 
@@ -228,10 +228,9 @@ bool nano::transport::tcp_channels::store_all (bool clear_peers)
 		{
 			node.store.peer.clear (transaction);
 		}
-		for (auto endpoint : endpoints)
+		for (auto const & endpoint : endpoints)
 		{
-			nano::endpoint_key endpoint_key (endpoint.address ().to_v6 ().to_bytes (), endpoint.port ());
-			node.store.peer.put (transaction, std::move (endpoint_key));
+			node.store.peer.put (transaction, nano::endpoint_key{ endpoint.address ().to_v6 ().to_bytes (), endpoint.port () });
 		}
 		result = true;
 	}
@@ -345,16 +344,16 @@ void nano::transport::tcp_channels::stop ()
 	stopped = true;
 	nano::unique_lock<nano::mutex> lock (mutex);
 	// Close all TCP sockets
-	for (auto i (channels.begin ()), j (channels.end ()); i != j; ++i)
+	for (auto const & channel : channels)
 	{
-		if (i->socket)
+		if (channel.socket)
 		{
-			i->socket->close ();
+			channel.socket->close ();
 		}
 		// Remove response server
-		if (i->response_server)
+		if (channel.response_server)
 		{
-			i->response_server->stop ();
+			channel.response_server->stop ();
 		}
 	}
 	channels.clear ();
@@ -498,16 +497,6 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 	});
 }
 
-void nano::transport::tcp_channels::list_below_version (std::vector<std::shared_ptr<nano::transport::channel>> & channels_a, uint8_t cutoff_version_a)
-{
-	nano::lock_guard<nano::mutex> lock (mutex);
-	// clang-format off
-	nano::transform_if (channels.get<random_access_tag> ().begin (), channels.get<random_access_tag> ().end (), std::back_inserter (channels_a),
-		[cutoff_version_a](auto & channel_a) { return channel_a.channel->get_network_version () < cutoff_version_a; },
-		[](auto const & channel) { return channel.channel; });
-	// clang-format on
-}
-
 void nano::transport::tcp_channels::list (std::deque<std::shared_ptr<nano::transport::channel>> & deque_a, uint8_t minimum_version_a, bool include_temporary_channels_a)
 {
 	nano::lock_guard<nano::mutex> lock (mutex);
@@ -524,8 +513,8 @@ void nano::transport::tcp_channels::modify (std::shared_ptr<nano::transport::cha
 	auto existing (channels.get<endpoint_tag> ().find (channel_a->get_tcp_endpoint ()));
 	if (existing != channels.get<endpoint_tag> ().end ())
 	{
-		channels.get<endpoint_tag> ().modify (existing, [modify_callback_a] (channel_tcp_wrapper & wrapper_a) {
-			modify_callback_a (wrapper_a.channel);
+		channels.get<endpoint_tag> ().modify (existing, [modify_callback = std::move (modify_callback_a)] (channel_tcp_wrapper & wrapper_a) {
+			modify_callback (wrapper_a.channel);
 		});
 	}
 }
@@ -679,7 +668,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 
 													if (!node_l->flags.disable_initial_telemetry_requests)
 													{
-														node_l->telemetry->get_metrics_single_peer_async (channel_a, [] (nano::telemetry_data_response /* unused */) {
+														node_l->telemetry->get_metrics_single_peer_async (channel_a, [] (nano::telemetry_data_response const &) {
 															// Intentionally empty, starts the telemetry request cycle to more quickly disconnect from invalid peers
 														});
 													}

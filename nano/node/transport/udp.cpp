@@ -111,7 +111,7 @@ std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::ins
 		else
 		{
 			result = std::make_shared<nano::transport::channel_udp> (*this, endpoint_a, network_version_a);
-			channels.get<endpoint_tag> ().insert (result);
+			channels.get<endpoint_tag> ().insert (channel_udp_wrapper{ result });
 			attempts.get<endpoint_tag> ().erase (endpoint_a);
 			lock.unlock ();
 			node.network.channel_observer (result);
@@ -731,16 +731,6 @@ void nano::transport::udp_channels::ongoing_keepalive ()
 			node_l->network.udp_channels.ongoing_keepalive ();
 		}
 	});
-}
-
-void nano::transport::udp_channels::list_below_version (std::vector<std::shared_ptr<nano::transport::channel>> & channels_a, uint8_t cutoff_version_a)
-{
-	nano::lock_guard<nano::mutex> lock (mutex);
-	// clang-format off
-	nano::transform_if (channels.get<random_access_tag> ().begin (), channels.get<random_access_tag> ().end (), std::back_inserter (channels_a),
-		[cutoff_version_a](auto & channel_a) { return channel_a.channel->get_network_version () < cutoff_version_a; },
-		[](auto const & channel) { return channel.channel; });
-	// clang-format on
 }
 
 void nano::transport::udp_channels::list (std::deque<std::shared_ptr<nano::transport::channel>> & deque_a, uint8_t minimum_version_a)

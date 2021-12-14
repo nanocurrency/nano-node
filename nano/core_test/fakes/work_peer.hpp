@@ -199,9 +199,8 @@ public:
 	fake_work_peer () = delete;
 	fake_work_peer (nano::work_pool & pool_a, asio::io_context & ioc_a, unsigned short port_a, work_peer_type const type_a, nano::work_version const version_a = nano::work_version::work_1) :
 		pool (pool_a),
-		endpoint (tcp::v4 (), port_a),
 		ioc (ioc_a),
-		acceptor (ioc_a, endpoint),
+		acceptor (ioc_a, tcp::endpoint{ tcp::v4 (), port_a }),
 		type (type_a),
 		version (version_a)
 	{
@@ -254,8 +253,8 @@ private:
 			}
 		});
 	}
+
 	nano::work_pool & pool;
-	tcp::endpoint endpoint;
 	asio::io_context & ioc;
 	tcp::acceptor acceptor;
 	work_peer_type const type;

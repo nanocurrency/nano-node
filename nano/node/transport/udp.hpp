@@ -29,6 +29,8 @@ namespace transport
 		channel_udp (nano::transport::udp_channels &, nano::endpoint const &, uint8_t protocol_version);
 		std::size_t hash_code () const override;
 		bool operator== (nano::transport::channel const &) const override;
+		// TODO: investigate clang-tidy warning about default parameters on virtual/override functions
+		//
 		void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) override;
 		std::string to_string () const override;
 		bool operator== (nano::transport::channel_udp const & other_a) const
@@ -104,7 +106,6 @@ namespace transport
 		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
 		void ongoing_keepalive ();
-		void list_below_version (std::vector<std::shared_ptr<nano::transport::channel>> &, uint8_t);
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0);
 		void modify (std::shared_ptr<nano::transport::channel_udp> const &, std::function<void (std::shared_ptr<nano::transport::channel_udp> const &)>);
 		nano::node & node;
@@ -140,8 +141,8 @@ namespace transport
 		{
 		public:
 			std::shared_ptr<nano::transport::channel_udp> channel;
-			channel_udp_wrapper (std::shared_ptr<nano::transport::channel_udp> const & channel_a) :
-				channel (channel_a)
+			explicit channel_udp_wrapper (std::shared_ptr<nano::transport::channel_udp> channel_a) :
+				channel (std::move (channel_a))
 			{
 			}
 			nano::endpoint endpoint () const

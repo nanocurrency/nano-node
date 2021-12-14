@@ -179,7 +179,7 @@ void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & end
 	});
 }
 
-unsigned nano::bootstrap_connections::target_connections (std::size_t pulls_remaining, std::size_t attempts_count)
+unsigned nano::bootstrap_connections::target_connections (std::size_t pulls_remaining, std::size_t attempts_count) const
 {
 	auto const attempts_factor = nano::narrow_cast<unsigned> (node.config.bootstrap_connections * attempts_count);
 	if (attempts_factor >= node.config.bootstrap_connections_max)
@@ -477,7 +477,7 @@ void nano::bootstrap_connections::stop ()
 	lock.unlock ();
 	condition.notify_all ();
 	lock.lock ();
-	for (auto i : clients)
+	for (auto const & i : clients)
 	{
 		if (auto client = i.lock ())
 		{
