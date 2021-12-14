@@ -400,7 +400,7 @@ TEST (store, unchecked_load)
 {
 	nano::system system (1);
 	auto & node (*system.nodes[0]);
-	auto block (std::make_shared<nano::send_block> (0, 0, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
+	std::shared_ptr<nano::block> block = std::make_shared<nano::send_block> (0, 0, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
 	constexpr auto num_unchecked = 1000000;
 	for (auto i (0); i < num_unchecked; ++i)
 	{
