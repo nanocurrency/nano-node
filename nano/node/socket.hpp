@@ -117,6 +117,7 @@ protected:
 	std::atomic<uint64_t> next_deadline;
 	std::atomic<uint64_t> last_completion_time_or_init;
 	std::atomic<uint64_t> last_receive_time_or_init;
+	std::atomic<uint64_t> last_send_time_or_init;
 	std::atomic<bool> timed_out{ false };
 	std::atomic<std::chrono::seconds> io_timeout;
 	std::chrono::seconds silent_connection_tolerance_time;
@@ -129,6 +130,7 @@ protected:
 	void start_timer ();
 	void stop_timer ();
 	void update_last_receive_time ();
+	void update_last_send_time ();
 	void checkup ();
 
 private:

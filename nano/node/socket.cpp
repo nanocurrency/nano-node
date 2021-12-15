@@ -22,6 +22,7 @@ nano::socket::socket (nano::node & node_a) :
 	next_deadline{ std::numeric_limits<uint64_t>::max () },
 	last_completion_time_or_init{ nano::seconds_since_epoch () },
 	last_receive_time_or_init{ nano::seconds_since_epoch () },
+	last_send_time_or_init{ nano::seconds_since_epoch () },
 	io_timeout{ node_a.config.tcp_io_timeout },
 	silent_connection_tolerance_time{ node_a.network_params.network.silent_connection_tolerance_time }
 {
@@ -89,6 +90,7 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 					--this_l->queue_size;
 					this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
 					this_l->stop_timer ();
+					this_l->update_last_send_time ();
 					if (callback_a)
 					{
 						callback_a (ec, size_a);
@@ -132,6 +134,11 @@ void nano::socket::update_last_receive_time ()
 	last_receive_time_or_init = nano::seconds_since_epoch ();
 }
 
+void nano::socket::update_last_send_time ()
+{
+	last_send_time_or_init = nano::seconds_since_epoch ();
+}
+
 void nano::socket::checkup ()
 {
 	std::weak_ptr<nano::socket> this_w (shared_from_this ());
@@ -140,7 +147,12 @@ void nano::socket::checkup ()
 		{
 			uint64_t now (nano::seconds_since_epoch ());
 			auto condition_to_disconnect{ false };
-			if (this_l->is_realtime_connection () && (now - this_l->last_receive_time_or_init) > this_l->silent_connection_tolerance_time.count ())
+			auto is_silent = [this_l] (auto const & time) {
+				auto const silent_for_receiving = (time - this_l->last_receive_time_or_init) > this_l->silent_connection_tolerance_time.count ();
+				auto const silent_for_sending = (time - this_l->last_send_time_or_init) > this_l->silent_connection_tolerance_time.count ();
+				return silent_for_receiving && silent_for_sending;
+			};
+			if (this_l->is_realtime_connection () && is_silent (now))
 			{
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_silent_connection_drop, nano::stat::dir::in);
 				condition_to_disconnect = true;
