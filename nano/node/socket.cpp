@@ -140,7 +140,7 @@ void nano::socket::checkup ()
 		{
 			uint64_t now (nano::seconds_since_epoch ());
 			auto condition_to_disconnect{ false };
-			if (this_l->is_realtime_connection () && (now - this_l->last_receive_time_or_init) > this_l->silent_connection_tolerance_time.count ())
+			if (this_l->type () == nano::socket::type_t::realtime && (now - this_l->last_receive_time_or_init) > this_l->silent_connection_tolerance_time.count ())
 			{
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_silent_connection_drop, nano::stat::dir::in);
 				this_l->node.logger.try_log (boost::str (boost::format ("last_receive_time_or_init=%1%, tolerance=%2%, now=%3%")
