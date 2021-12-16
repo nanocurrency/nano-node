@@ -36,7 +36,7 @@ TEST (network, tcp_connection)
 	boost::asio::ip::tcp::socket connector (io_ctx);
 	std::atomic<bool> done2 (false);
 	std::string message2;
-	connector.async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), port),
+	connector.async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), acceptor.local_endpoint ().port ()),
 	[&done2, &message2] (boost::system::error_code const & ec_a) {
 		if (ec_a)
 		{
@@ -53,13 +53,24 @@ TEST (network, tcp_connection)
 	ASSERT_EQ (0, message2.size ());
 }
 
-TEST (network, construction)
+TEST (network, construction_with_specified_port)
 {
-	auto port = nano::get_available_port ();
-	nano::system system;
-	system.add_node (nano::node_config (port, system.logging));
-	ASSERT_EQ (1, system.nodes.size ());
-	ASSERT_EQ (port, system.nodes[0]->network.endpoint ().port ());
+	nano::system system{};
+	auto const port = nano::test_node_port ();
+	auto const node = system.add_node (nano::node_config{ port, system.logging });
+	EXPECT_EQ (port, node->network.port);
+	EXPECT_EQ (port, node->network.endpoint ().port ());
+	EXPECT_EQ (port, node->bootstrap.endpoint ().port ());
+}
+
+TEST (network, construction_without_specified_port)
+{
+	nano::system system{};
+	auto const node = system.add_node ();
+	auto const port = node->network.port.load ();
+	EXPECT_NE (0, port);
+	EXPECT_EQ (port, node->network.endpoint ().port ());
+	EXPECT_EQ (port, node->bootstrap.endpoint ().port ());
 }
 
 TEST (network, self_discard)
@@ -514,7 +525,7 @@ TEST (network, ipv6_bind_send_ipv4)
 	auto port2 = nano::get_available_port ();
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::any (), port1);
 	nano::endpoint endpoint2 (boost::asio::ip::address_v4::any (), port2);
-	std::array<uint8_t, 16> bytes1;
+	std::array<uint8_t, 16> bytes1{};
 	auto finish1 (false);
 	nano::endpoint endpoint3;
 	boost::asio::ip::udp::socket socket1 (io_ctx, endpoint1);
@@ -524,8 +535,8 @@ TEST (network, ipv6_bind_send_ipv4)
 		finish1 = true;
 	});
 	boost::asio::ip::udp::socket socket2 (io_ctx, endpoint2);
-	nano::endpoint endpoint5 (boost::asio::ip::address_v4::loopback (), port1);
-	nano::endpoint endpoint6 (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ()), port2);
+	nano::endpoint endpoint5 (boost::asio::ip::address_v4::loopback (), socket1.local_endpoint ().port ());
+	nano::endpoint endpoint6 (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ()), socket2.local_endpoint ().port ());
 	socket2.async_send_to (boost::asio::buffer (std::array<uint8_t, 16>{}, 16), endpoint5, [] (boost::system::error_code const & error, size_t size_a) {
 		ASSERT_FALSE (error);
 		ASSERT_EQ (16, size_a);
@@ -878,7 +889,7 @@ TEST (network, replace_port)
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
 	node1->start ();
 	system.nodes.push_back (node1);
-	auto wrong_endpoint = nano::endpoint (node1->network.endpoint ().address (), nano::get_available_port ());
+	auto wrong_endpoint = nano::endpoint (node1->network.endpoint ().address (), nano::test_node_port ());
 	auto channel0 (node0->network.udp_channels.insert (wrong_endpoint, node1->network_params.network.protocol_version));
 	ASSERT_NE (nullptr, channel0);
 	node0->network.udp_channels.modify (channel0, [&node1] (std::shared_ptr<nano::transport::channel> const & channel_a) {

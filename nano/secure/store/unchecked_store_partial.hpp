@@ -34,18 +34,11 @@ public:
 		release_assert_success (store, status);
 	}
 
-	void put (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a) override
+	void put (nano::write_transaction const & transaction_a, nano::hash_or_account const & dependency, nano::unchecked_info const & info_a) override
 	{
 		nano::db_val<Val> info (info_a);
-		auto status (store.put (transaction_a, tables::unchecked, key_a, info));
+		auto status (store.put (transaction_a, tables::unchecked, nano::unchecked_key{ dependency, info_a.block->hash () }, info));
 		release_assert_success (store, status);
-	}
-
-	void put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a) override
-	{
-		nano::unchecked_key key (hash_a, block_a->hash ());
-		nano::unchecked_info info (block_a, block_a->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
-		put (transaction_a, key, info);
 	}
 
 	bool exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) override
@@ -72,7 +65,7 @@ public:
 		return store.template make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked);
 	}
 
-	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> begin (nano::transaction const & transaction_a, nano::unchecked_key const & key_a) const override
+	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> lower_bound (nano::transaction const & transaction_a, nano::unchecked_key const & key_a) const override
 	{
 		return store.template make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked, nano::db_val<Val> (key_a));
 	}
@@ -89,7 +82,7 @@ public:
 			nano::unchecked_key key_start (start);
 			nano::unchecked_key key_end (end);
 			auto transaction (this->store.tx_begin_read ());
-			action_a (transaction, this->begin (transaction, key_start), !is_last ? this->begin (transaction, key_end) : this->end ());
+			action_a (transaction, this->lower_bound (transaction, key_start), !is_last ? this->lower_bound (transaction, key_end) : this->end ());
 		});
 	}
 };

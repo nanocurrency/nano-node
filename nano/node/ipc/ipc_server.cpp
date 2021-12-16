@@ -546,6 +546,8 @@ public:
 		}
 	}
 
+	std::optional<std::uint16_t> listening_port () const;
+
 private:
 	nano::ipc::ipc_server & server;
 	nano::ipc::ipc_config_transport & config_transport;
@@ -553,6 +555,24 @@ private:
 	std::unique_ptr<boost::asio::io_context> io_ctx;
 	std::unique_ptr<ACCEPTOR_TYPE> acceptor;
 };
+
+using tcp_socket_transport = socket_transport<boost::asio::ip::tcp::acceptor, boost::asio::ip::tcp::socket, boost::asio::ip::tcp::endpoint>;
+#if defined(BOOST_ASIO_HAS_LOCAL_SOCKETS)
+using domain_socket_transport = socket_transport<boost::asio::local::stream_protocol::acceptor, boost::asio::local::stream_protocol::socket, boost::asio::local::stream_protocol::endpoint>;
+#endif
+
+template <typename ACCEPTOR_TYPE, typename SOCKET_TYPE, typename ENDPOINT_TYPE>
+std::optional<std::uint16_t> socket_transport<ACCEPTOR_TYPE, SOCKET_TYPE, ENDPOINT_TYPE>::listening_port () const
+{
+	using self = socket_transport<ACCEPTOR_TYPE, SOCKET_TYPE, ENDPOINT_TYPE>;
+	if constexpr (std::is_same_v<self, tcp_socket_transport>)
+	{
+		return acceptor->local_endpoint ().port ();
+	}
+
+	return std::nullopt;
+}
+
 }
 
 /**
@@ -598,7 +618,7 @@ nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config co
 			auto threads = node_a.config.ipc_config.transport_domain.io_threads;
 			file_remover = std::make_unique<dsock_file_remover> (node_a.config.ipc_config.transport_domain.path);
 			boost::asio::local::stream_protocol::endpoint ep{ node_a.config.ipc_config.transport_domain.path };
-			transports.push_back (std::make_shared<socket_transport<boost::asio::local::stream_protocol::acceptor, boost::asio::local::stream_protocol::socket, boost::asio::local::stream_protocol::endpoint>> (*this, ep, node_a.config.ipc_config.transport_domain, threads));
+			transports.push_back (std::make_shared<domain_socket_transport> (*this, ep, node_a.config.ipc_config.transport_domain, threads));
 #else
 			node.logger.always_log ("IPC: Domain sockets are not supported on this platform");
 #endif
@@ -607,7 +627,7 @@ nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config co
 		if (node_a.config.ipc_config.transport_tcp.enabled)
 		{
 			auto threads = node_a.config.ipc_config.transport_tcp.io_threads;
-			transports.push_back (std::make_shared<socket_transport<boost::asio::ip::tcp::acceptor, boost::asio::ip::tcp::socket, boost::asio::ip::tcp::endpoint>> (*this, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v6 (), node_a.config.ipc_config.transport_tcp.port), node_a.config.ipc_config.transport_tcp, threads));
+			transports.push_back (std::make_shared<tcp_socket_transport> (*this, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v6 (), node_a.config.ipc_config.transport_tcp.port), node_a.config.ipc_config.transport_tcp, threads));
 		}
 
 		node.logger.always_log ("IPC: server started");
@@ -634,6 +654,20 @@ void nano::ipc::ipc_server::stop ()
 	{
 		transport->stop ();
 	}
+}
+
+std::optional<std::uint16_t> nano::ipc::ipc_server::listening_tcp_port () const
+{
+	for (const auto & transport : transports)
+	{
+		const auto actual_transport = std::dynamic_pointer_cast<tcp_socket_transport> (transport);
+		if (actual_transport)
+		{
+			return actual_transport->listening_port ();
+		}
+	}
+
+	return std::nullopt;
 }
 
 std::shared_ptr<nano::ipc::broker> nano::ipc::ipc_server::get_broker ()

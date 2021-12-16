@@ -101,7 +101,14 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	network (*this, config.peering_port),
 	telemetry (std::make_shared<nano::telemetry> (network, workers, observers.telemetry, stats, network_params, flags.disable_ongoing_telemetry_requests)),
 	bootstrap_initiator (*this),
-	bootstrap (config.peering_port, *this),
+	// BEWARE: `bootstrap` takes `network.port` instead of `config.peering_port` because when the user doesn't specify
+	//         a peering port and wants the OS to pick one, the picking happens when `network` gets initialized
+	//         (if UDP is active, otherwise it happens when `bootstrap` gets initialized), so then for TCP traffic
+	//         we want to tell `bootstrap` to use the already picked port instead of itself picking a different one.
+	//         Thus, be very careful if you change the order: if `bootstrap` gets constructed before `network`,
+	//         the latter would inherit the port from the former (if TCP is active, otherwise `network` picks first)
+	//
+	bootstrap (network.port, *this),
 	application_path (application_path_a),
 	port_mapping (*this),
 	rep_crawler (*this),
@@ -619,6 +626,11 @@ void nano::node::start ()
 	{
 		bootstrap.start ();
 		tcp_enabled = true;
+
+		if (flags.disable_udp && network.port != bootstrap.port)
+		{
+			network.port = bootstrap.port;
+		}
 	}
 	if (!flags.disable_backup)
 	{
@@ -641,6 +653,7 @@ void nano::node::start ()
 	{
 		port_mapping.start ();
 	}
+	wallets.start ();
 	if (config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled)
 	{
 		workers.push_task ([this_l = shared ()] () {
@@ -918,7 +931,7 @@ void nano::node::unchecked_cleanup ()
 		auto const now (nano::seconds_since_epoch ());
 		auto const transaction (store.tx_begin_read ());
 		// Max 1M records to clean, max 2 minutes reading to prevent slow i/o systems issues
-		for (auto i (store.unchecked.begin (transaction)), n (store.unchecked.end ()); i != n && cleaning_list.size () < 1024 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
+		for (auto [i, n] = store.unchecked.full_range (transaction); i != n && cleaning_list.size () < 1024 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
 		{
 			nano::unchecked_key const & key (i->first);
 			nano::unchecked_info const & info (i->second);

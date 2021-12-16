@@ -116,18 +116,22 @@ void nano::election_scheduler::run ()
 		{
 			if (overfill_predicate ())
 			{
+				lock.unlock ();
 				node.active.erase_oldest ();
 			}
 			else if (manual_queue_predicate ())
 			{
 				auto const [block, previous_balance, election_behavior, confirmation_action] = manual_queue.front ();
+				manual_queue.pop_front ();
+				lock.unlock ();
 				nano::unique_lock<nano::mutex> lock2 (node.active.mutex);
 				node.active.insert_impl (lock2, block, previous_balance, election_behavior, confirmation_action);
-				manual_queue.pop_front ();
 			}
 			else if (priority_queue_predicate ())
 			{
 				auto block = priority.top ();
+				priority.pop ();
+				lock.unlock ();
 				std::shared_ptr<nano::election> election;
 				nano::unique_lock<nano::mutex> lock2 (node.active.mutex);
 				election = node.active.insert_impl (lock2, block).election;
@@ -135,9 +139,13 @@ void nano::election_scheduler::run ()
 				{
 					election->transition_active ();
 				}
-				priority.pop ();
+			}
+			else
+			{
+				lock.unlock ();
 			}
 			notify ();
+			lock.lock ();
 		}
 	}
 }

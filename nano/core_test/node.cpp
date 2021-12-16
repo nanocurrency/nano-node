@@ -2260,9 +2260,10 @@ TEST (node, rep_remove)
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *block4).code);
 	}
 	// Add inactive UDP representative channel
-	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
+	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), nano::test_node_port ());
 	std::shared_ptr<nano::transport::channel> channel0 (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint0, node.network_params.network.protocol_version));
 	auto channel_udp = node.network.udp_channels.insert (endpoint0, node.network_params.network.protocol_version);
+	ASSERT_NE (channel_udp, nullptr);
 	auto vote1 = std::make_shared<nano::vote> (keypair1.pub, keypair1.prv, 0, 0, nano::dev::genesis);
 	ASSERT_FALSE (node.rep_crawler.response (channel0, vote1));
 	ASSERT_TIMELY (5s, node.rep_crawler.representative_count () == 1);
@@ -3308,16 +3309,18 @@ TEST (node, block_processor_signatures)
 				 .build_shared ();
 	send4->signature.bytes[32] ^= 0x1;
 	// Invalid signature bit (force)
-	auto send5 = builder.make_block ()
-				 .account (nano::dev::genesis_key.pub)
-				 .previous (send3->hash ())
-				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - 5 * nano::Gxrb_ratio)
-				 .link (key3.pub)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*node1.work_generate_blocking (send3->hash ()))
-				 .build_shared ();
-	send5->signature.bytes[31] ^= 0x1;
+	std::shared_ptr<nano::block> send5 = builder.make_block ()
+										 .account (nano::dev::genesis_key.pub)
+										 .previous (send3->hash ())
+										 .representative (nano::dev::genesis_key.pub)
+										 .balance (nano::dev::constants.genesis_amount - 5 * nano::Gxrb_ratio)
+										 .link (key3.pub)
+										 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+										 .work (*node1.work_generate_blocking (send3->hash ()))
+										 .build_shared ();
+	auto signature = send5->block_signature ();
+	signature.bytes[31] ^= 0x1;
+	send5->signature_set (signature);
 	// Invalid signature to unchecked
 	{
 		auto transaction (node1.store.tx_begin_write ());

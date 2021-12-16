@@ -20,8 +20,8 @@ nano::socket::socket (nano::node & node_a) :
 	tcp_socket{ node_a.io_ctx },
 	node{ node_a },
 	next_deadline{ std::numeric_limits<uint64_t>::max () },
-	last_completion_time{ 0 },
-	last_receive_time{ 0 },
+	last_completion_time_or_init{ nano::seconds_since_epoch () },
+	last_receive_time_or_init{ nano::seconds_since_epoch () },
 	io_timeout{ node_a.config.tcp_io_timeout },
 	silent_connection_tolerance_time{ node_a.network_params.network.silent_connection_tolerance_time }
 {
@@ -124,12 +124,12 @@ void nano::socket::start_timer (std::chrono::seconds deadline_a)
 
 void nano::socket::stop_timer ()
 {
-	last_completion_time = nano::seconds_since_epoch ();
+	last_completion_time_or_init = nano::seconds_since_epoch ();
 }
 
 void nano::socket::update_last_receive_time ()
 {
-	last_receive_time = nano::seconds_since_epoch ();
+	last_receive_time_or_init = nano::seconds_since_epoch ();
 }
 
 void nano::socket::checkup ()
@@ -140,12 +140,12 @@ void nano::socket::checkup ()
 		{
 			uint64_t now (nano::seconds_since_epoch ());
 			auto condition_to_disconnect{ false };
-			if (this_l->is_realtime_connection () && now - this_l->last_receive_time > this_l->silent_connection_tolerance_time.count ())
+			if (this_l->is_realtime_connection () && (now - this_l->last_receive_time_or_init) > this_l->silent_connection_tolerance_time.count ())
 			{
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_silent_connection_drop, nano::stat::dir::in);
 				condition_to_disconnect = true;
 			}
-			if (this_l->next_deadline != std::numeric_limits<uint64_t>::max () && now - this_l->last_completion_time > this_l->next_deadline)
+			if (this_l->next_deadline != std::numeric_limits<uint64_t>::max () && (now - this_l->last_completion_time_or_init) > this_l->next_deadline)
 			{
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, nano::stat::dir::in);
 				condition_to_disconnect = true;
@@ -304,14 +304,15 @@ size_t network_prefix)
 bool nano::server_socket::limit_reached_for_incoming_subnetwork_connections (std::shared_ptr<nano::socket> const & new_connection)
 {
 	debug_assert (strand.running_in_this_thread ());
-	if (node.flags.disable_max_peers_per_subnetwork)
+	if (node.flags.disable_max_peers_per_subnetwork || nano::transport::is_ipv4_or_v4_mapped_address (new_connection->remote.address ()))
 	{
 		// If the limit is disabled, then it is unreachable.
+		// If the address is IPv4 we don't check for a network limit, since its address space isn't big as IPv6 /64.
 		return false;
 	}
 	auto const counted_connections = socket_functions::count_subnetwork_connections (
 	connections_per_address,
-	nano::transport::mapped_from_v4_or_v6 (new_connection->remote.address ()),
+	new_connection->remote.address ().to_v6 (),
 	node.network_params.network.ipv6_subnetwork_prefix_for_limiting);
 	return counted_connections >= node.network_params.network.max_peers_per_subnetwork;
 }

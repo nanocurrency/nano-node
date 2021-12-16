@@ -1443,7 +1443,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 			for (; i != n; ++i)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::unchecked }));
-				rocksdb_store->unchecked.put (rocksdb_transaction, i->first, i->second);
+				rocksdb_store->unchecked.put (rocksdb_transaction, i->first.previous, i->second);
 			}
 		});
 

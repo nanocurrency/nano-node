@@ -171,6 +171,7 @@ class unchecked_key final
 {
 public:
 	unchecked_key () = default;
+	explicit unchecked_key (nano::hash_or_account const & dependency);
 	unchecked_key (nano::hash_or_account const &, nano::block_hash const &);
 	unchecked_key (nano::uint512_union const &);
 	bool deserialize (nano::stream &);
@@ -199,6 +200,7 @@ class unchecked_info final
 public:
 	unchecked_info () = default;
 	unchecked_info (std::shared_ptr<nano::block> const &, nano::account const &, uint64_t, nano::signature_verification = nano::signature_verification::unknown, bool = false);
+	unchecked_info (std::shared_ptr<nano::block> const &);
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	std::shared_ptr<nano::block> block;
