@@ -2008,21 +2008,24 @@ void nano::json_handler::confirmation_info ()
 				}
 				if (representatives)
 				{
-					std::multimap<nano::uint128_t, nano::account, std::greater<nano::uint128_t>> representatives;
+					boost::property_tree::ptree representatives_final;
+					boost::property_tree::ptree representatives_list;
 					for (auto const & [representative, vote] : info.votes)
 					{
 						if (block->hash () == vote.hash)
 						{
 							auto amount (node.ledger.cache.rep_weights.representation_get (representative));
-							representatives.emplace (std::move (amount), representative);
+							representatives_list.put (representative.to_account (), amount.convert_to<std::string> ());
+							if (vote.timestamp == std::numeric_limits<uint64_t>::max ())
+							{
+								representatives_final.put (representative.to_account (), amount.convert_to<std::string> ());
+							}
 						}
 					}
-					boost::property_tree::ptree representatives_list;
-					for (auto const & [amount, representative] : representatives)
-					{
-						representatives_list.put (representative.to_account (), amount.convert_to<std::string> ());
-					}
-					entry.add_child ("representatives", representatives_list);
+					boost::property_tree::ptree representatives_ptree;
+					representatives_ptree.add_child ("total", representatives_list);
+					representatives_ptree.add_child ("final", representatives_final);
+					entry.add_child ("representatives", representatives_ptree);
 				}
 				blocks.add_child ((block->hash ()).to_string (), entry);
 			}
