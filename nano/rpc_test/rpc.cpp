@@ -6274,6 +6274,9 @@ TEST (rpc, confirmation_info)
 		ASSERT_EQ (1, blocks.size ());
 		auto & representatives (blocks.front ().second.get_child ("representatives"));
 		ASSERT_EQ (1, representatives.size ());
+		auto & representatives_final (blocks.front ().second.get_child ("representatives_final"));
+		ASSERT_EQ (0, representatives_final.size ());
 		ASSERT_EQ (0, response.get<unsigned> ("total_tally"));
+		ASSERT_EQ (0, response.get<unsigned> ("final_tally"));
 	}
 }
