@@ -14,9 +14,9 @@ class bandwidth_limiter final
 {
 public:
 	// initialize with limit 0 = unbounded
-	bandwidth_limiter (double const, std::size_t const);
+	bandwidth_limiter (double, std::size_t);
 	bool should_drop (std::size_t const &);
-	void reset (double const, std::size_t const);
+	void reset (double, std::size_t);
 
 private:
 	nano::rate::token_bucket bucket;
@@ -24,7 +24,6 @@ private:
 
 namespace transport
 {
-	class message;
 	nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
 	nano::endpoint map_tcp_to_endpoint (nano::tcp_endpoint const &);
 	nano::tcp_endpoint map_endpoint_to_tcp (nano::endpoint const &);
@@ -47,11 +46,13 @@ namespace transport
 	class channel
 	{
 	public:
-		channel (nano::node &);
+		explicit channel (nano::node &);
 		virtual ~channel () = default;
 		virtual std::size_t hash_code () const = 0;
 		virtual bool operator== (nano::transport::channel const &) const = 0;
 		void send (nano::message & message_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a = nullptr, nano::buffer_drop_policy policy_a = nano::buffer_drop_policy::limiter);
+		// TODO: investigate clang-tidy warning about default parameters on virtual/override functions
+		//
 		virtual void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) = 0;
 		virtual std::string to_string () const = 0;
 		virtual nano::endpoint get_endpoint () const = 0;
@@ -145,9 +146,11 @@ namespace transport
 	class channel_loopback final : public nano::transport::channel
 	{
 	public:
-		channel_loopback (nano::node &);
+		explicit channel_loopback (nano::node &);
 		std::size_t hash_code () const override;
 		bool operator== (nano::transport::channel const &) const override;
+		// TODO: investigate clang-tidy warning about default parameters on virtual/override functions
+		//
 		void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) override;
 		std::string to_string () const override;
 		bool operator== (nano::transport::channel_loopback const & other_a) const

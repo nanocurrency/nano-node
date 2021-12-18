@@ -62,7 +62,7 @@ public:
 	virtual ~socket ();
 	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void (boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>> const &, std::size_t, std::function<void (boost::system::error_code const &, std::size_t)>);
-	void async_write (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr);
+	void async_write (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> = {});
 
 	void close ();
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;
@@ -177,7 +177,6 @@ private:
 	boost::asio::ip::tcp::endpoint local;
 	std::size_t max_inbound_connections;
 	void evict_dead_connections ();
-	bool is_temporary_error (boost::system::error_code const ec_a);
 	void on_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);
 	/** Checks whether the maximum number of connections per IP was reached. If so, it returns true. */
 	bool limit_reached_for_incoming_ip_connections (std::shared_ptr<nano::socket> const & new_connection);

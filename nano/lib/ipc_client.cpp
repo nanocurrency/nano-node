@@ -46,7 +46,7 @@ class socket_client : public nano::ipc::socket_base, public channel, public std:
 {
 public:
 	socket_client (boost::asio::io_context & io_ctx_a, ENDPOINT_TYPE endpoint_a) :
-		socket_base (io_ctx_a), endpoint (endpoint_a), socket (io_ctx_a), resolver (io_ctx_a), strand (io_ctx_a.get_executor ())
+		socket_base (io_ctx_a), endpoint (std::move (endpoint_a)), socket (io_ctx_a), resolver (io_ctx_a), strand (io_ctx_a.get_executor ())
 	{
 	}
 
@@ -54,17 +54,17 @@ public:
 	{
 		auto this_l (this->shared_from_this ());
 		this_l->timer_start (io_timeout);
-		resolver.async_resolve (boost::asio::ip::tcp::resolver::query (host_a, std::to_string (port_a)), [this_l, callback_a] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator endpoint_iterator_a) {
+		resolver.async_resolve (boost::asio::ip::tcp::resolver::query (host_a, std::to_string (port_a)), [this_l, callback = std::move (callback_a)] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator endpoint_iterator_a) {
 			this_l->timer_cancel ();
 			boost::asio::ip::tcp::resolver::iterator end;
 			if (!ec && endpoint_iterator_a != end)
 			{
 				this_l->endpoint = *endpoint_iterator_a;
-				callback_a (ec, *endpoint_iterator_a);
+				callback (ec, *endpoint_iterator_a);
 			}
 			else
 			{
-				callback_a (ec, *end);
+				callback (ec, *end);
 			}
 		});
 	}
@@ -73,9 +73,9 @@ public:
 	{
 		auto this_l (this->shared_from_this ());
 		this_l->timer_start (io_timeout);
-		socket.async_connect (endpoint, boost::asio::bind_executor (strand, [this_l, callback_a] (boost::system::error_code const & ec) {
+		socket.async_connect (endpoint, boost::asio::bind_executor (strand, [this_l, callback = std::move (callback_a)] (boost::system::error_code const & ec) {
 			this_l->timer_cancel ();
-			callback_a (ec);
+			callback (ec);
 		}));
 	}
 
@@ -107,6 +107,8 @@ public:
 		}));
 	}
 
+	// TODO: investigate clang-tidy warning about recursive call chain
+	//
 	void write_queued_messages ()
 	{
 		auto this_l (this->shared_from_this ());
@@ -171,8 +173,8 @@ private:
 	class queue_item
 	{
 	public:
-		queue_item (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, size_t)> callback_a) :
-			buffer (buffer_a), callback (callback_a)
+		queue_item (nano::shared_const_buffer buffer_a, std::function<void (boost::system::error_code const &, size_t)> callback_a) :
+			buffer (std::move (buffer_a)), callback (std::move (callback_a))
 		{
 		}
 		nano::shared_const_buffer buffer;
@@ -205,16 +207,16 @@ public:
 	{
 		tcp_client = std::make_shared<socket_client<socket_type, boost::asio::ip::tcp::endpoint>> (io_ctx, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v6 (), port_a));
 
-		tcp_client->async_resolve (host_a, port_a, [this, callback_a] (boost::system::error_code const & ec_resolve_a, boost::asio::ip::tcp::endpoint endpoint_a) {
+		tcp_client->async_resolve (host_a, port_a, [this, callback = std::move (callback_a)] (boost::system::error_code const & ec_resolve_a, boost::asio::ip::tcp::endpoint const &) mutable {
 			if (!ec_resolve_a)
 			{
-				this->tcp_client->async_connect ([callback_a] (boost::system::error_code const & ec_connect_a) {
-					callback_a (nano::error (ec_connect_a));
+				this->tcp_client->async_connect ([cbk = std::move (callback)] (boost::system::error_code const & ec_connect_a) {
+					cbk (nano::error (ec_connect_a));
 				});
 			}
 			else
 			{
-				callback_a (nano::error (ec_resolve_a));
+				callback (nano::error (ec_resolve_a));
 			}
 		});
 	}
@@ -263,14 +265,14 @@ void nano::ipc::ipc_client::async_connect (std::string const & host_a, uint16_t 
 {
 	impl = std::make_unique<client_impl> (io_ctx);
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
-	client->connect (host_a, port_a, callback_a);
+	client->connect (host_a, port_a, std::move (callback_a));
 }
 
 nano::error nano::ipc::ipc_client::connect (std::string const & host, uint16_t port)
 {
 	std::promise<nano::error> result_l;
 	async_connect (host, port, [&result_l] (nano::error err_a) {
-		result_l.set_value (err_a);
+		result_l.set_value (std::move (err_a));
 	});
 	return result_l.get_future ().get ();
 }
@@ -278,16 +280,16 @@ nano::error nano::ipc::ipc_client::connect (std::string const & host, uint16_t p
 void nano::ipc::ipc_client::async_write (nano::shared_const_buffer const & buffer_a, std::function<void (nano::error, size_t)> callback_a)
 {
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
-	client->get_channel ().async_write (buffer_a, [callback_a] (boost::system::error_code const & ec_a, size_t bytes_written_a) {
-		callback_a (nano::error (ec_a), bytes_written_a);
+	client->get_channel ().async_write (buffer_a, [callback = std::move (callback_a)] (boost::system::error_code const & ec_a, size_t bytes_written_a) {
+		callback (nano::error (ec_a), bytes_written_a);
 	});
 }
 
 void nano::ipc::ipc_client::async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, size_t size_a, std::function<void (nano::error, size_t)> callback_a)
 {
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
-	client->get_channel ().async_read (buffer_a, size_a, [callback_a, buffer_a] (boost::system::error_code const & ec_a, size_t bytes_read_a) {
-		callback_a (nano::error (ec_a), bytes_read_a);
+	client->get_channel ().async_read (buffer_a, size_a, [callback = std::move (callback_a), buffer_a] (boost::system::error_code const & ec_a, size_t bytes_read_a) {
+		callback (nano::error (ec_a), bytes_read_a);
 	});
 }
 
@@ -295,8 +297,8 @@ void nano::ipc::ipc_client::async_read (std::shared_ptr<std::vector<uint8_t>> co
 void nano::ipc::ipc_client::async_read_message (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::chrono::seconds timeout_a, std::function<void (nano::error, size_t)> callback_a)
 {
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
-	client->get_channel ().async_read_message (buffer_a, timeout_a, [callback_a, buffer_a] (boost::system::error_code const & ec_a, size_t bytes_read_a) {
-		callback_a (nano::error (ec_a), bytes_read_a);
+	client->get_channel ().async_read_message (buffer_a, timeout_a, [callback = std::move (callback_a), buffer_a] (boost::system::error_code const & ec_a, size_t bytes_read_a) {
+		callback (nano::error (ec_a), bytes_read_a);
 	});
 }
 
@@ -342,12 +344,12 @@ std::string nano::ipc::request (nano::ipc::payload_encoding encoding_a, nano::ip
 	auto res (std::make_shared<std::vector<uint8_t>> ());
 
 	std::promise<std::string> result_l;
-	ipc_client.async_write (req, [&ipc_client, &res, &result_l] (nano::error err_a, size_t size_a) {
+	ipc_client.async_write (req, [&ipc_client, &res, &result_l] (nano::error const &, size_t size_a) {
 		// Read length
-		ipc_client.async_read (res, sizeof (uint32_t), [&ipc_client, &res, &result_l] (nano::error err_read_a, size_t size_read_a) {
+		ipc_client.async_read (res, sizeof (uint32_t), [&ipc_client, &res, &result_l] (nano::error const &, size_t size_read_a) {
 			uint32_t payload_size_l = boost::endian::big_to_native (*reinterpret_cast<uint32_t *> (res->data ()));
 			// Read json payload
-			ipc_client.async_read (res, payload_size_l, [&res, &result_l] (nano::error err_read_a, size_t size_read_a) {
+			ipc_client.async_read (res, payload_size_l, [&res, &result_l] (nano::error const &, size_t size_read_a) {
 				result_l.set_value (std::string (res->begin (), res->end ()));
 			});
 		});
