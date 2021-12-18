@@ -135,7 +135,10 @@ TEST (ledger_walker, cross_account)
 	//    EXPECT_EQ(expected_blocks_to_walk_itr, expected_blocks_to_walk.end());
 }
 
-TEST (ledger_walker, ladder_geometry)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3602
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3603
+TEST (ledger_walker, DISABLED_ladder_geometry)
 {
 	nano::system system{};
 
