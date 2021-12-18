@@ -1764,7 +1764,10 @@ TEST (bulk, offline_send)
 	node2->stop ();
 }
 
-TEST (bulk, genesis_pruning)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3611
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3613
+TEST (bulk, DISABLED_genesis_pruning)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);

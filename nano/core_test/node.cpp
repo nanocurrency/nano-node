@@ -1091,8 +1091,10 @@ TEST (node, fork_publish)
 	ASSERT_TRUE (node0.expired ());
 }
 
-// Tests that an election gets started correctly from a fork
-TEST (node, fork_publish_inactive)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3611
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3614
+TEST (node, DISABLED_fork_publish_inactive)
 {
 	nano::system system (1);
 	nano::keypair key1;

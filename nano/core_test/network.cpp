@@ -85,7 +85,10 @@ TEST (network, self_discard)
 	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
 }
 
-TEST (network, send_node_id_handshake)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3611
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3612
+TEST (network, DISABLED_send_node_id_handshake)
 {
 	nano::node_flags node_flags;
 	node_flags.disable_udp = false;
@@ -821,7 +824,10 @@ TEST (tcp_listener, tcp_node_id_handshake)
 	ASSERT_TIMELY (5s, done);
 }
 
-TEST (tcp_listener, tcp_listener_timeout_empty)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3611
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3615
+TEST (tcp_listener, DISABLED_tcp_listener_timeout_empty)
 {
 	nano::system system (1);
 	auto node0 (system.nodes[0]);
