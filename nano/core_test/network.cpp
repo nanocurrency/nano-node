@@ -910,6 +910,10 @@ TEST (network, replace_port)
 	ASSERT_TIMELY (5s, !node0->network.udp_channels.channel (wrong_endpoint) && node0->network.udp_channels.channel (node1->network.endpoint ()));
 }
 
+// Test disabled because it's failing repeatedly for Windows + LMDB.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3622
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3621
+#ifndef _WIN32
 TEST (network, peer_max_tcp_attempts)
 {
 	// Add nodes that can accept TCP connection, but not node ID handshake
@@ -929,6 +933,7 @@ TEST (network, peer_max_tcp_attempts)
 	ASSERT_TRUE (node->network.tcp_channels.reachout (nano::endpoint (node->network.endpoint ().address (), nano::get_available_port ())));
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::out));
 }
+#endif
 
 namespace nano
 {
