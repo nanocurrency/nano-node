@@ -133,7 +133,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			{
 				auto network_label = node->network_params.network.get_current_network_as_string ();
 				std::time_t dateTime = std::time (nullptr);
-				auto dateTimeLocal (std::asctime (std::localtime (&dateTime)));
+
 				std::cout << "Network: " << network_label << ", version: " << NANO_VERSION_STRING << "\n"
 						  << "Path: " << node->application_path.string () << "\n"
 						  << "Build Info: " << BUILD_INFO << "\n"
