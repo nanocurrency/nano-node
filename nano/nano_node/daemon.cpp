@@ -138,7 +138,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 						  << "Path: " << node->application_path.string () << "\n"
 						  << "Build Info: " << BUILD_INFO << "\n"
 						  << "Database backend: " << node->store.vendor_get () << "\n"
-						  << "Start time: " << std::put_time (std::gmtime (&dateTime), "%c UTC") << std::endl;				
+						  << "Start time: " << std::put_time (std::gmtime (&dateTime), "%c UTC") << std::endl;
 
 				auto voting (node->wallets.reps ().voting);
 				if (voting > 1)
