@@ -652,7 +652,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     set(PLATFORM_QT_PACKAGES)
   endif()
 
-  find_package(Qt5 COMPONENTS Core Gui Widgets Test ${PLATFORM_QT_PACKAGES})
+  find_package(Qt6 COMPONENTS Core Gui Widgets ${PLATFORM_QT_PACKAGES})
 
   add_library(qt nano/qt/qt.cpp nano/qt/qt.hpp)
 
@@ -662,8 +662,8 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     secure
     nano_lib
     libminiupnpc-static
-    Qt5::Gui
-    Qt5::Widgets)
+    Qt::Gui
+    Qt::Widgets)
 
   target_compile_definitions(
     qt PRIVATE -DTAG_VERSION_STRING=${TAG_VERSION_STRING}
@@ -687,7 +687,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     error("Unknown platform: ${CMAKE_SYSTEM_NAME}")
   endif()
 
-  qt5_add_resources(RES resources.qrc)
+  qt_add_resources(RES resources.qrc)
 
   add_executable(
     nano_wallet ${PLATFORM_GUI_TARGET_PROPERTIES} ${PLATFORM_WALLET_SOURCE}
@@ -696,7 +696,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
   target_link_libraries(nano_wallet rpc node qt)
 
   if(WIN32)
-    target_link_libraries(nano_wallet Qt5::WinExtras)
+    target_link_libraries(nano_wallet Qt::WinExtras)
     # nano_wallet.com executable for Windows console
     add_executable(nano_wallet_com nano/nano_wallet/entry_com.cpp)
     target_link_libraries(nano_wallet_com node)
@@ -722,7 +722,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
       gtest
       gtest_main
       qt
-      Qt5::Test)
+      Qt::Test)
 
     set_target_properties(
       qt_test PROPERTIES COMPILE_FLAGS
@@ -743,19 +743,19 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     install(FILES Info.plist DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents)
     install(FILES qt.conf
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Resources)
-    install(DIRECTORY ${Qt5_DIR}/../../QtCore.framework
+    install(DIRECTORY ${Qt_DIR}/../../QtCore.framework
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
-    install(DIRECTORY ${Qt5_DIR}/../../QtDBus.framework
+    install(DIRECTORY ${Qt_DIR}/../../QtDBus.framework
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
-    install(DIRECTORY ${Qt5_DIR}/../../QtGui.framework
+    install(DIRECTORY ${Qt_DIR}/../../QtGui.framework
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
-    install(DIRECTORY ${Qt5_DIR}/../../QtPrintSupport.framework
+    install(DIRECTORY ${Qt_DIR}/../../QtPrintSupport.framework
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
-    install(DIRECTORY ${Qt5_DIR}/../../QtTest.framework
+    install(DIRECTORY ${Qt_DIR}/../../QtTest.framework
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
-    install(DIRECTORY ${Qt5_DIR}/../../QtWidgets.framework
+    install(DIRECTORY ${Qt_DIR}/../../QtWidgets.framework
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
-    install(FILES "${Qt5_DIR}/../../../plugins/platforms/libqcocoa.dylib"
+    install(FILES "${Qt_DIR}/../../../plugins/platforms/libqcocoa.dylib"
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/PlugIns/platforms)
     if(NANO_SHARED_BOOST)
       foreach(boost_lib IN LISTS Boost_LIBRARIES)
@@ -796,9 +796,9 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     set(CPACK_NSIS_MENU_LINKS "nano_wallet.exe" "Nano Wallet"
                               "https://nano.org" "Nano website")
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
-    get_target_property(Qt5WindowsPlugin Qt5::QWindowsIntegrationPlugin
+    get_target_property(QtWindowsPlugin Qt::QWindowsIntegrationPlugin
                         LOCATION)
-    get_filename_component(Qt5_bin_DIR ${Qt5_DIR}/../../../bin ABSOLUTE)
+    get_filename_component(Qt_bin_DIR ${Qt_DIR}/../../../bin ABSOLUTE)
     install(TARGETS nano_wallet DESTINATION .)
     install(TARGETS nano_wallet_com DESTINATION .)
     if(NANO_SHARED_BOOST)
@@ -826,16 +826,16 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
               DESTINATION .)
     endif()
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${WIN_REDIST} DESTINATION .)
-    install(FILES ${Qt5_bin_DIR}/libGLESv2.dll DESTINATION .)
-    install(FILES ${Qt5_bin_DIR}/Qt5Core.dll DESTINATION .)
-    install(FILES ${Qt5_bin_DIR}/Qt5Gui.dll DESTINATION .)
-    install(FILES ${Qt5_bin_DIR}/Qt5Widgets.dll DESTINATION .)
-    install(FILES ${Qt5_bin_DIR}/Qt5WinExtras.dll DESTINATION .)
-    install(FILES ${Qt5WindowsPlugin} DESTINATION platforms)
+    install(FILES ${Qt_bin_DIR}/libGLESv2.dll DESTINATION .)
+    install(FILES ${Qt_bin_DIR}/QtCore.dll DESTINATION .)
+    install(FILES ${Qt_bin_DIR}/QtGui.dll DESTINATION .)
+    install(FILES ${Qt_bin_DIR}/QtWidgets.dll DESTINATION .)
+    install(FILES ${Qt_bin_DIR}/QtWinExtras.dll DESTINATION .)
+    install(FILES ${QtWindowsPlugin} DESTINATION platforms)
   else()
     set(CPACK_GENERATOR "TBZ2;DEB")
     set(CPACK_DEBIAN_PACKAGE_DEPENDS
-        "qt5-default | qtbase5-dev, qtchooser, qt5-qmake, qtbase5-dev-tools")
+        "qt-default | qtbase5-dev, qtchooser, qt5-qmake, qtbase5-dev-tools")
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "russel@nano.org")
     install(TARGETS nano_wallet RUNTIME DESTINATION ./bin)
     if(NANO_SHARED_BOOST)
