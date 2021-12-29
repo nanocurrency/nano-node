@@ -796,8 +796,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     set(CPACK_NSIS_MENU_LINKS "nano_wallet.exe" "Nano Wallet"
                               "https://nano.org" "Nano website")
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
-    get_target_property(QtWindowsPlugin Qt::QWindowsIntegrationPlugin
-                        LOCATION)
+    get_target_property(QtWindowsPlugin Qt::QWindowsIntegrationPlugin LOCATION)
     get_filename_component(Qt_bin_DIR ${Qt_DIR}/../../../bin ABSOLUTE)
     install(TARGETS nano_wallet DESTINATION .)
     install(TARGETS nano_wallet_com DESTINATION .)
