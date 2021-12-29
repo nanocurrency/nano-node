@@ -654,6 +654,10 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
 
   find_package(Qt6 COMPONENTS Core Gui Widgets ${PLATFORM_QT_PACKAGES})
 
+  if (NOT Qt6_FOUND)
+    find_package(Qt5 5.15 COMPONENTS Core Gui Widgets REQUIRED)
+  endif()
+
   add_library(qt nano/qt/qt.cpp nano/qt/qt.hpp)
 
   target_link_libraries(
