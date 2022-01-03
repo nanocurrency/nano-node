@@ -53,7 +53,7 @@ class block_arrival_info final
 {
 public:
 	std::chrono::steady_clock::time_point arrival;
-	nano::block_hash hash;
+	nano::block_hash hash{};
 };
 // This class tracks blocks that are probably live because they arrived in a UDP packet
 // This gives a fairly reliable way to differentiate between blocks being inserted via bootstrap or new, live blocks.
@@ -98,7 +98,7 @@ public:
 	void start ();
 	void stop ();
 	std::shared_ptr<nano::node> shared ();
-	int store_version ();
+	int store_version () const;
 	void receive_confirmed (nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a);
 	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block> const &, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, bool &, nano::account &);
 	void process_confirmed (nano::election_status const &, uint64_t = 0);
@@ -109,12 +109,12 @@ public:
 	void keepalive_preconfigured (std::vector<std::string> const &);
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
-	std::shared_ptr<nano::block> block (nano::block_hash const &);
+	std::shared_ptr<nano::block> block (nano::block_hash const &) const;
 	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &, bool only_confirmed);
 	nano::uint128_t weight (nano::account const &);
 	nano::block_hash rep_block (nano::account const &);
-	nano::uint128_t minimum_principal_weight ();
-	nano::uint128_t minimum_principal_weight (nano::uint128_t const &);
+	nano::uint128_t minimum_principal_weight () const;
+	nano::uint128_t minimum_principal_weight (nano::uint128_t const &) const;
 	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
 	void ongoing_peer_store ();
@@ -124,25 +124,25 @@ public:
 	void search_pending ();
 	void bootstrap_wallet ();
 	void unchecked_cleanup ();
-	bool collect_ledger_pruning_targets (std::deque<nano::block_hash> &, nano::account &, uint64_t const, uint64_t const, uint64_t const);
-	void ledger_pruning (uint64_t const, bool, bool);
+	bool collect_ledger_pruning_targets (std::deque<nano::block_hash> &, nano::account &, uint64_t, uint64_t, uint64_t) const;
+	void ledger_pruning (uint64_t, bool, bool);
 	void ongoing_ledger_pruning ();
-	int price (nano::uint128_t const &, int);
+	static int price (nano::uint128_t const &, int);
 	// The default difficulty updates to base only when the first epoch_2 block is processed
-	uint64_t default_difficulty (nano::work_version const) const;
-	uint64_t default_receive_difficulty (nano::work_version const) const;
-	uint64_t max_work_generate_difficulty (nano::work_version const) const;
+	uint64_t default_difficulty (nano::work_version) const;
+	uint64_t default_receive_difficulty (nano::work_version) const;
+	uint64_t max_work_generate_difficulty (nano::work_version) const;
 	bool local_work_generation_enabled () const;
 	bool work_generation_enabled () const;
 	bool work_generation_enabled (std::vector<std::pair<std::string, uint16_t>> const &) const;
 	boost::optional<uint64_t> work_generate_blocking (nano::block &, uint64_t);
-	boost::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::root const &, uint64_t, boost::optional<nano::account> const & = boost::none);
-	void work_generate (nano::work_version const, nano::root const &, uint64_t, std::function<void (boost::optional<uint64_t>)>, boost::optional<nano::account> const & = boost::none, bool const = false);
+	boost::optional<uint64_t> work_generate_blocking (nano::work_version, nano::root const &, uint64_t, boost::optional<nano::account> const & = boost::none);
+	void work_generate (nano::work_version, nano::root const &, uint64_t, std::function<void (boost::optional<uint64_t>)>, boost::optional<nano::account> const & = boost::none, bool = false);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<nano::block> const &);
-	bool block_confirmed (nano::block_hash const &);
-	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
-	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string> const &, std::shared_ptr<std::string> const &, std::shared_ptr<boost::asio::ip::tcp::resolver> const &);
+	bool block_confirmed (nano::block_hash const &) const;
+	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &) const;
+	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator const & i_a, std::string const &, uint16_t, std::shared_ptr<std::string> const &, std::shared_ptr<std::string> const &, std::shared_ptr<boost::asio::ip::tcp::resolver> const &);
 	void ongoing_online_weight_calculation ();
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;

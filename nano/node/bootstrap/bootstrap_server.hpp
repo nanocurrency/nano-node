@@ -4,6 +4,7 @@
 #include <nano/node/socket.hpp>
 
 #include <atomic>
+#include <optional>
 #include <queue>
 
 namespace nano
@@ -12,21 +13,20 @@ class bootstrap_server;
 class bootstrap_listener final
 {
 public:
-	bootstrap_listener (uint16_t, nano::node &);
-	void start ();
+	explicit bootstrap_listener (nano::node &);
+	void start (std::uint16_t);
 	void stop ();
 	void accept_action (boost::system::error_code const &, std::shared_ptr<nano::socket> const &);
 	std::size_t connection_count ();
 
 	nano::mutex mutex;
 	std::unordered_map<nano::bootstrap_server *, std::weak_ptr<nano::bootstrap_server>> connections;
-	nano::tcp_endpoint endpoint ();
+	std::optional<nano::tcp_endpoint> endpoint ();
 	nano::node & node;
 	std::shared_ptr<nano::server_socket> listening_socket;
 	bool on{ false };
 	std::atomic<std::size_t> bootstrap_count{ 0 };
 	std::atomic<std::size_t> realtime_count{ 0 };
-	uint16_t port;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (bootstrap_listener & bootstrap_listener, std::string const & name);
@@ -63,7 +63,7 @@ public:
 	std::queue<std::unique_ptr<nano::message>> requests;
 	std::atomic<bool> stopped{ false };
 	// Remote enpoint used to remove response channel even after socket closing
-	nano::tcp_endpoint remote_endpoint{ boost::asio::ip::address_v6::any (), 0 };
+	std::optional<nano::tcp_endpoint> remote_endpoint{};
 	nano::account remote_node_id{};
 	std::chrono::steady_clock::time_point last_telemetry_req{ std::chrono::steady_clock::time_point () };
 };

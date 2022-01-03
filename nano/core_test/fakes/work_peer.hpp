@@ -200,19 +200,25 @@ public:
 	fake_work_peer (nano::work_pool & pool_a, asio::io_context & ioc_a, unsigned short port_a, work_peer_type const type_a, nano::work_version const version_a = nano::work_version::work_1) :
 		pool (pool_a),
 		ioc (ioc_a),
-		acceptor (ioc_a, tcp::endpoint{ tcp::v4 (), port_a }),
+		acceptor (ioc_a, nano::tcp_endpoint{ boost::asio::ip::address_v6::any (), port_a }),
 		type (type_a),
 		version (version_a)
 	{
 	}
+
 	void start ()
 	{
 		listen ();
 	}
-	unsigned short port () const
+
+	nano::tcp_endpoint local_endpoint () const
 	{
-		return acceptor.local_endpoint ().port ();
+		boost::system::error_code ec;
+		auto local_endpoint = acceptor.local_endpoint (ec);
+		debug_assert (!ec);
+		return local_endpoint;
 	}
+
 	std::atomic<size_t> generations_good{ 0 };
 	std::atomic<size_t> generations_bad{ 0 };
 	std::atomic<size_t> cancels{ 0 };

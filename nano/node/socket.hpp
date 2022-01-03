@@ -3,6 +3,7 @@
 #include <nano/boost/asio/ip/tcp.hpp>
 #include <nano/boost/asio/strand.hpp>
 #include <nano/lib/asio.hpp>
+#include <nano/node/common.hpp>
 
 #include <boost/optional.hpp>
 
@@ -10,6 +11,7 @@
 #include <deque>
 #include <map>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace boost
@@ -60,13 +62,13 @@ public:
 	 */
 	explicit socket (nano::node & node);
 	virtual ~socket ();
-	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void (boost::system::error_code const &)>);
+	void async_connect (nano::tcp_endpoint const &, std::function<void (boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>> const &, std::size_t, std::function<void (boost::system::error_code const &, std::size_t)>);
 	void async_write (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> = {});
 
 	void close ();
-	boost::asio::ip::tcp::endpoint remote_endpoint () const;
-	boost::asio::ip::tcp::endpoint local_endpoint () const;
+	std::optional<nano::tcp_endpoint> remote_endpoint () const;
+	virtual std::optional<nano::tcp_endpoint> local_endpoint () const;
 	/** Returns true if the socket has timed out */
 	bool has_timed_out () const;
 	/** This can be called to change the maximum idle time, e.g. based on the type of traffic detected. */
@@ -99,21 +101,9 @@ public:
 	}
 
 protected:
-	/** Holds the buffer and callback for queued writes */
-	class queue_item
-	{
-	public:
-		nano::shared_const_buffer buffer;
-		std::function<void (boost::system::error_code const &, std::size_t)> callback;
-	};
-
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 	boost::asio::ip::tcp::socket tcp_socket;
 	nano::node & node;
-
-	/** The other end of the connection */
-	boost::asio::ip::tcp::endpoint remote;
-
 	std::atomic<uint64_t> next_deadline;
 	std::atomic<uint64_t> last_completion_time_or_init;
 	std::atomic<uint64_t> last_receive_time_or_init;
@@ -159,22 +149,18 @@ public:
 	 * @param max_connections_a Maximum number of concurrent connections
 	 * @param concurrency_a Write concurrency for new connections
 	 */
-	explicit server_socket (nano::node & node_a, boost::asio::ip::tcp::endpoint local_a, std::size_t max_connections_a);
+	explicit server_socket (nano::node & node_a, std::size_t max_connections_a);
 	/**Start accepting new connections */
-	void start (boost::system::error_code &);
+	void start (nano::tcp_endpoint const & local_a, boost::system::error_code &);
 	/** Stop accepting new connections */
 	void close ();
 	/** Register callback for new connections. The callback must return true to keep accepting new connections. */
 	void on_connection (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);
-	uint16_t listening_port ()
-	{
-		return acceptor.local_endpoint ().port ();
-	}
+	std::optional<nano::tcp_endpoint> local_endpoint () const override;
 
 private:
 	nano::address_socket_mmap connections_per_address;
 	boost::asio::ip::tcp::acceptor acceptor;
-	boost::asio::ip::tcp::endpoint local;
 	std::size_t max_inbound_connections;
 	void evict_dead_connections ();
 	void on_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);

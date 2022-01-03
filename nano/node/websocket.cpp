@@ -680,6 +680,14 @@ void nano::websocket::listener::broadcast (nano::websocket::message message_a)
 	}
 }
 
+nano::tcp_endpoint nano::websocket::listener::local_endpoint () const
+{
+	boost::system::error_code ec;
+	auto local_endpoint = acceptor.local_endpoint (ec);
+	debug_assert (!ec);
+	return local_endpoint;
+}
+
 void nano::websocket::listener::increase_subscriber_count (nano::websocket::topic const & topic_a)
 {
 	topic_subscriber_count[static_cast<std::size_t> (topic_a)] += 1;

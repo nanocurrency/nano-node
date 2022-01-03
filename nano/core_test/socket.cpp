@@ -17,16 +17,13 @@ using namespace std::chrono_literals;
 TEST (socket, max_connections)
 {
 	nano::system system;
-
 	auto node = system.add_node ();
-
 	auto server_port = nano::get_available_port ();
-	boost::asio::ip::tcp::endpoint listen_endpoint (boost::asio::ip::address_v6::any (), server_port);
 
 	// start a server socket that allows max 2 live connections
-	auto server_socket = std::make_shared<nano::server_socket> (*node, listen_endpoint, 2);
+	auto server_socket = std::make_shared<nano::server_socket> (*node, 2);
 	boost::system::error_code ec;
-	server_socket->start (ec);
+	server_socket->start (nano::tcp_endpoint{ boost::asio::ip::address_v6::any (), server_port }, ec);
 	ASSERT_FALSE (ec);
 
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
@@ -45,7 +42,7 @@ TEST (socket, max_connections)
 
 	// start 3 clients, 2 will persist but 1 will be dropped
 
-	boost::asio::ip::tcp::endpoint dst_endpoint (boost::asio::ip::address_v6::loopback (), server_socket->listening_port ());
+	nano::tcp_endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), server_socket->local_endpoint ()->port () };
 
 	auto client1 = std::make_shared<nano::socket> (*node);
 	client1->async_connect (dst_endpoint, connect_handler);
@@ -122,9 +119,9 @@ TEST (socket, max_connections_per_ip)
 
 	const auto max_global_connections = 1000;
 
-	auto server_socket = std::make_shared<nano::server_socket> (*node, listen_endpoint, max_global_connections);
+	auto server_socket = std::make_shared<nano::server_socket> (*node, max_global_connections);
 	boost::system::error_code ec;
-	server_socket->start (ec);
+	server_socket->start (listen_endpoint, ec);
 	ASSERT_FALSE (ec);
 
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
@@ -244,9 +241,9 @@ TEST (socket, max_connections_per_subnetwork)
 
 	const auto max_global_connections = 1000;
 
-	auto server_socket = std::make_shared<nano::server_socket> (*node, listen_endpoint, max_global_connections);
+	auto server_socket = std::make_shared<nano::server_socket> (*node, max_global_connections);
 	boost::system::error_code ec;
-	server_socket->start (ec);
+	server_socket->start (listen_endpoint, ec);
 	ASSERT_FALSE (ec);
 
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
@@ -307,9 +304,9 @@ TEST (socket, disabled_max_peers_per_ip)
 
 	const auto max_global_connections = 1000;
 
-	auto server_socket = std::make_shared<nano::server_socket> (*node, listen_endpoint, max_global_connections);
+	auto server_socket = std::make_shared<nano::server_socket> (*node, max_global_connections);
 	boost::system::error_code ec;
-	server_socket->start (ec);
+	server_socket->start (listen_endpoint, ec);
 	ASSERT_FALSE (ec);
 
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
@@ -362,9 +359,10 @@ TEST (socket, disconnection_of_silent_connections)
 	// Silent connections are connections open by external peers that don't contribute with any data.
 	socket->set_silent_connection_tolerance_time (std::chrono::seconds{ 5 });
 	auto bootstrap_endpoint = node->bootstrap.endpoint ();
+	debug_assert (bootstrap_endpoint.has_value ());
 	std::atomic<bool> connected{ false };
 	// Opening a connection that will be closed because it remains silent during the tolerance time.
-	socket->async_connect (bootstrap_endpoint, [socket, &connected] (boost::system::error_code const & ec) {
+	socket->async_connect (*bootstrap_endpoint, [socket, &connected] (boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
 		connected = true;
 	});
@@ -393,11 +391,9 @@ TEST (socket, drop_policy)
 
 	auto func = [&] (size_t total_message_count, nano::buffer_drop_policy drop_policy) {
 		auto server_port (nano::get_available_port ());
-		boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::any (), server_port);
-
-		auto server_socket = std::make_shared<nano::server_socket> (*node, endpoint, 1);
+		auto server_socket = std::make_shared<nano::server_socket> (*node, 1);
 		boost::system::error_code ec;
-		server_socket->start (ec);
+		server_socket->start (nano::tcp_endpoint{ boost::asio::ip::address_v6::any (), server_port }, ec);
 		ASSERT_FALSE (ec);
 
 		// Accept connection, but don't read so the writer will drop.
@@ -410,7 +406,7 @@ TEST (socket, drop_policy)
 		nano::transport::channel_tcp channel{ *node, client };
 		nano::util::counted_completion write_completion (static_cast<unsigned> (total_message_count));
 
-		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), server_socket->listening_port ()),
+		client->async_connect (nano::tcp_endpoint{ boost::asio::ip::address_v6::loopback (), server_socket->local_endpoint ()->port () },
 		[&channel, total_message_count, node, &write_completion, &drop_policy, client] (boost::system::error_code const & ec_a) mutable {
 			for (int i = 0; i < total_message_count; i++)
 			{
@@ -493,11 +489,10 @@ TEST (socket, concurrent_writes)
 #endif
 	};
 
-	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v4::any (), 25000);
-
-	auto server_socket = std::make_shared<nano::server_socket> (*node, endpoint, max_connections);
+	auto server_socket = std::make_shared<nano::server_socket> (*node, max_connections);
 	boost::system::error_code ec;
-	server_socket->start (ec);
+	server_socket->start (nano::tcp_endpoint{ boost::asio::ip::address_v6::any (), nano::get_available_port () }, ec);
+
 	ASSERT_FALSE (ec);
 	std::vector<std::shared_ptr<nano::socket>> connections;
 
@@ -522,7 +517,7 @@ TEST (socket, concurrent_writes)
 	{
 		auto client = std::make_shared<nano::socket> (*node);
 		clients.push_back (client);
-		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 25000),
+		client->async_connect (nano::tcp_endpoint{ boost::asio::ip::address_v4::loopback (), server_socket->local_endpoint ()->port () },
 		[&connection_count_completion] (boost::system::error_code const & ec_a) {
 			if (ec_a)
 			{
@@ -533,29 +528,31 @@ TEST (socket, concurrent_writes)
 				connection_count_completion.increment ();
 			}
 		});
+
+		clients.push_back (std::move (client));
 	}
 	ASSERT_FALSE (connection_count_completion.await_count_for (10s));
 
 	// Execute overlapping writes from multiple threads
-	auto client (clients[0]);
 	std::vector<std::thread> client_threads;
+	client_threads.reserve (client_count);
 	for (int i = 0; i < client_count; i++)
 	{
 #ifndef _WIN32
 #pragma GCC diagnostic push
 #if defined(__has_warning)
 #if __has_warning("-Wunused-lambda-capture")
-/** total_message_count is constexpr and a capture isn't needed. However, removing it fails to compile on VS2017 due to a known compiler bug. */
+/** message_count is constexpr and a capture isn't needed. However, removing it fails to compile on VS2017 due to a known compiler bug. */
 #pragma GCC diagnostic ignored "-Wunused-lambda-capture"
 #endif
 #endif
 #endif
-		client_threads.emplace_back ([&client, &message_count] () {
+		client_threads.emplace_back ([client = std::as_const (clients.front ()), &message_count] () {
 			for (int i = 0; i < message_count; i++)
 			{
 				std::vector<uint8_t> buff;
 				buff.push_back ('A' + i);
-				client->async_write (nano::shared_const_buffer (std::move (buff)));
+				client->async_write (nano::shared_const_buffer (std::move (buff)), [] (boost::system::error_code const &, std::size_t) {});
 			}
 		});
 #ifndef _WIN32

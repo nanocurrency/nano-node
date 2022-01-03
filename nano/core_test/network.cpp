@@ -17,7 +17,7 @@ TEST (network, tcp_connection)
 	boost::asio::io_context io_ctx;
 	boost::asio::ip::tcp::acceptor acceptor (io_ctx);
 	auto port = nano::get_available_port ();
-	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v4::any (), port);
+	nano::tcp_endpoint endpoint (boost::asio::ip::address_v6::any (), port);
 	acceptor.open (endpoint.protocol ());
 	acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
 	acceptor.bind (endpoint);
@@ -36,7 +36,7 @@ TEST (network, tcp_connection)
 	boost::asio::ip::tcp::socket connector (io_ctx);
 	std::atomic<bool> done2 (false);
 	std::string message2;
-	connector.async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), acceptor.local_endpoint ().port ()),
+	connector.async_connect (nano::tcp_endpoint{ boost::asio::ip::address_v4::loopback (), acceptor.local_endpoint ().port () },
 	[&done2, &message2] (boost::system::error_code const & ec_a) {
 		if (ec_a)
 		{
@@ -60,7 +60,8 @@ TEST (network, construction_with_specified_port)
 	auto const node = system.add_node (nano::node_config{ port, system.logging });
 	EXPECT_EQ (port, node->network.port);
 	EXPECT_EQ (port, node->network.endpoint ().port ());
-	EXPECT_EQ (port, node->bootstrap.endpoint ().port ());
+	ASSERT_TRUE (node->bootstrap.endpoint ().has_value ());
+	EXPECT_EQ (port, node->bootstrap.endpoint ()->port ());
 }
 
 TEST (network, construction_without_specified_port)
@@ -70,7 +71,7 @@ TEST (network, construction_without_specified_port)
 	auto const port = node->network.port.load ();
 	EXPECT_NE (0, port);
 	EXPECT_EQ (port, node->network.endpoint ().port ());
-	EXPECT_EQ (port, node->bootstrap.endpoint ().port ());
+	EXPECT_EQ (port, node->bootstrap.endpoint ()->port ());
 }
 
 TEST (network, self_discard)
@@ -796,7 +797,7 @@ TEST (tcp_listener, tcp_node_id_handshake)
 {
 	nano::system system (1);
 	auto socket (std::make_shared<nano::socket> (*system.nodes[0]));
-	auto bootstrap_endpoint (system.nodes[0]->bootstrap.endpoint ());
+	auto bootstrap_endpoint (*system.nodes[0]->bootstrap.endpoint ());
 	auto cookie (system.nodes[0]->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (bootstrap_endpoint)));
 	nano::node_id_handshake node_id_handshake{ nano::dev::network_params.network, cookie, boost::none };
 	auto input (node_id_handshake.to_shared_const_buffer ());
@@ -833,7 +834,7 @@ TEST (tcp_listener, DISABLED_tcp_listener_timeout_empty)
 	auto node0 (system.nodes[0]);
 	auto socket (std::make_shared<nano::socket> (*node0));
 	std::atomic<bool> connected (false);
-	socket->async_connect (node0->bootstrap.endpoint (), [&connected] (boost::system::error_code const & ec) {
+	socket->async_connect (*node0->bootstrap.endpoint (), [&connected] (boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
 		connected = true;
 	});
@@ -855,10 +856,10 @@ TEST (tcp_listener, tcp_listener_timeout_node_id_handshake)
 	nano::system system (1);
 	auto node0 (system.nodes[0]);
 	auto socket (std::make_shared<nano::socket> (*node0));
-	auto cookie (node0->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (node0->bootstrap.endpoint ())));
+	auto cookie (node0->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (*node0->bootstrap.endpoint ())));
 	nano::node_id_handshake node_id_handshake{ nano::dev::network_params.network, cookie, boost::none };
 	auto channel = std::make_shared<nano::transport::channel_tcp> (*node0, socket);
-	socket->async_connect (node0->bootstrap.endpoint (), [&node_id_handshake, channel] (boost::system::error_code const & ec) {
+	socket->async_connect (*node0->bootstrap.endpoint (), [&node_id_handshake, channel] (boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
 		channel->send (node_id_handshake, [] (boost::system::error_code const & ec, size_t size_a) {
 			ASSERT_FALSE (ec);

@@ -135,7 +135,7 @@ TEST (distributed_work, peer)
 	auto work_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, nano::get_available_port (), work_peer_type::good));
 	work_peer->start ();
 	decltype (node->config.work_peers) peers;
-	peers.emplace_back ("::ffff:127.0.0.1", work_peer->port ());
+	peers.emplace_back ("::ffff:127.0.0.1", work_peer->local_endpoint ().port ());
 	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->network_params.work.base, callback, nano::account ()));
 	ASSERT_TIMELY (5s, done);
 	ASSERT_GE (nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash, *work), node->network_params.work.base);
@@ -161,7 +161,7 @@ TEST (distributed_work, peer_malicious)
 	auto malicious_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, nano::get_available_port (), work_peer_type::malicious));
 	malicious_peer->start ();
 	decltype (node->config.work_peers) peers;
-	peers.emplace_back ("::ffff:127.0.0.1", malicious_peer->port ());
+	peers.emplace_back ("::ffff:127.0.0.1", malicious_peer->local_endpoint ().port ());
 	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->network_params.work.base, callback, nano::account ()));
 	ASSERT_TIMELY (5s, done);
 	ASSERT_GE (nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash, *work), node->network_params.work.base);
@@ -178,7 +178,7 @@ TEST (distributed_work, peer_malicious)
 	ASSERT_FALSE (node->local_work_generation_enabled ());
 	auto malicious_peer2 (std::make_shared<fake_work_peer> (node->work, node->io_ctx, nano::get_available_port (), work_peer_type::malicious));
 	malicious_peer2->start ();
-	peers[0].second = malicious_peer2->port ();
+	peers[0].second = malicious_peer2->local_endpoint ().port ();
 	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->network_params.work.base, {}, nano::account ()));
 	ASSERT_TIMELY (5s, malicious_peer2->generations_bad >= 2);
 	node->distributed_work.cancel (hash);
@@ -205,9 +205,9 @@ TEST (distributed_work, peer_multi)
 	malicious_peer->start ();
 	slow_peer->start ();
 	decltype (node->config.work_peers) peers;
-	peers.emplace_back ("localhost", malicious_peer->port ());
-	peers.emplace_back ("localhost", slow_peer->port ());
-	peers.emplace_back ("localhost", good_peer->port ());
+	peers.emplace_back ("localhost", malicious_peer->local_endpoint ().port ());
+	peers.emplace_back ("localhost", slow_peer->local_endpoint ().port ());
+	peers.emplace_back ("localhost", good_peer->local_endpoint ().port ());
 	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->network_params.work.base, callback, nano::account ()));
 	ASSERT_TIMELY (5s, done);
 	ASSERT_GE (nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash, *work), node->network_params.work.base);

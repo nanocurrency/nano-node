@@ -217,7 +217,7 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 			if (auto client = c.lock ())
 			{
 				new_clients.push_back (client);
-				endpoints.insert (client->socket->remote_endpoint ());
+				endpoints.insert (*client->socket->remote_endpoint ());
 				double elapsed_sec = client->elapsed_seconds ();
 				auto blocks_per_sec = client->sample_block_rate ();
 				rate_sum += blocks_per_sec;

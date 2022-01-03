@@ -559,13 +559,13 @@ TEST (node, working)
 TEST (node, price)
 {
 	nano::system system (1);
-	auto price1 (system.nodes[0]->price (nano::Gxrb_ratio, 1));
+	auto price1 = nano::node::price (nano::Gxrb_ratio, 1);
 	ASSERT_EQ (nano::node::price_max * 100.0, price1);
-	auto price2 (system.nodes[0]->price (nano::Gxrb_ratio * int (nano::node::free_cutoff + 1), 1));
+	auto price2 = nano::node::price (nano::Gxrb_ratio * int (nano::node::free_cutoff + 1), 1);
 	ASSERT_EQ (0, price2);
-	auto price3 (system.nodes[0]->price (nano::Gxrb_ratio * int (nano::node::free_cutoff + 2) / 2, 1));
+	auto price3 = nano::node::price (nano::Gxrb_ratio * int (nano::node::free_cutoff + 2) / 2, 1);
 	ASSERT_EQ (nano::node::price_max * 100.0 / 2, price3);
-	auto price4 (system.nodes[0]->price (nano::Gxrb_ratio * int (nano::node::free_cutoff) * 2, 1));
+	auto price4 = nano::node::price (nano::Gxrb_ratio * int (nano::node::free_cutoff) * 2, 1);
 	ASSERT_EQ (0, price4);
 }
 
@@ -998,7 +998,7 @@ TEST (node_flags, disable_tcp_realtime_and_bootstrap_listener)
 	node_flags.disable_tcp_realtime = true;
 	node_flags.disable_bootstrap_listener = true;
 	auto node2 = system.add_node (node_flags);
-	ASSERT_EQ (nano::tcp_endpoint (boost::asio::ip::address_v6::loopback (), 0), node2->bootstrap.endpoint ());
+	ASSERT_FALSE (node2->bootstrap.endpoint ().has_value ());
 	ASSERT_NE (nano::endpoint (boost::asio::ip::address_v6::loopback (), 0), node2->network.endpoint ());
 	ASSERT_EQ (1, node1->network.size ());
 	auto list1 (node1->network.list (2));

@@ -47,12 +47,16 @@ void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const 
 		if (!socket_l->max () || (policy_a == nano::buffer_drop_policy::no_socket_drop && !socket_l->full ()))
 		{
 			socket_l->async_write (
-			buffer_a, [endpoint_a = socket_l->remote_endpoint (), node = std::weak_ptr<nano::node> (node.shared ()), callback_a] (boost::system::error_code const & ec, std::size_t size_a) {
+			buffer_a, [socket_l, node = std::weak_ptr<nano::node> (node.shared ()), callback_a] (boost::system::error_code const & ec, std::size_t size_a) {
 				if (auto node_l = node.lock ())
 				{
 					if (!ec)
 					{
-						node_l->network.tcp_channels.update (endpoint_a);
+						auto const remote_endpoint = socket_l->remote_endpoint ();
+						if (remote_endpoint.has_value ())
+						{
+							node_l->network.tcp_channels.update (*remote_endpoint);
+						}
 					}
 					if (ec == boost::system::errc::host_unreachable)
 					{
@@ -101,7 +105,7 @@ void nano::transport::channel_tcp::set_endpoint ()
 	// Calculate TCP socket endpoint
 	if (auto socket_l = socket.lock ())
 	{
-		endpoint = socket_l->remote_endpoint ();
+		endpoint = *socket_l->remote_endpoint ();
 	}
 }
 

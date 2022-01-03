@@ -61,7 +61,6 @@ void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::fu
 	boost::asio::bind_executor (this_l->strand,
 	[this_l, callback = std::move (callback_a), endpoint_a] (boost::system::error_code const & ec) {
 		this_l->stop_timer ();
-		this_l->remote = endpoint_a;
 		callback (ec);
 	}));
 }
@@ -175,13 +174,13 @@ void nano::socket::checkup ()
 				if (this_l->node.config.logging.network_timeout_logging ())
 				{
 					// The remote end may have closed the connection before this side timing out, in which case the remote address is no longer available.
-					boost::system::error_code ec_remote_l;
-					boost::asio::ip::tcp::endpoint remote_endpoint_l = this_l->tcp_socket.remote_endpoint (ec_remote_l);
-					if (!ec_remote_l)
+					auto const remote_endpoint_l = this_l->remote_endpoint ();
+					if (remote_endpoint_l.has_value ())
 					{
-						this_l->node.logger.try_log (boost::str (boost::format ("Disconnecting from %1% due to timeout") % remote_endpoint_l));
+						this_l->node.logger.try_log (boost::str (boost::format ("Disconnecting from %1% due to timeout") % *remote_endpoint_l));
 					}
 				}
+
 				this_l->timed_out = true;
 				this_l->close ();
 			}
@@ -238,30 +237,49 @@ void nano::socket::close_internal ()
 	}
 }
 
-nano::tcp_endpoint nano::socket::remote_endpoint () const
+std::optional<nano::tcp_endpoint> nano::socket::remote_endpoint () const
 {
-	return remote;
+	if (tcp_socket.is_open ())
+	{
+		boost::system::error_code ec;
+		auto remote_endpoint = tcp_socket.remote_endpoint (ec);
+		if (!ec)
+		{
+			return std::move (remote_endpoint);
+		}
+	}
+
+	return std::nullopt;
 }
 
-nano::tcp_endpoint nano::socket::local_endpoint () const
+std::optional<nano::tcp_endpoint> nano::socket::local_endpoint () const
 {
-	return tcp_socket.local_endpoint ();
+	if (tcp_socket.is_open ())
+	{
+		boost::system::error_code ec;
+		auto local_endpoint = tcp_socket.local_endpoint (ec);
+		if (!ec)
+		{
+			return std::move (local_endpoint);
+		}
+	}
+
+	return std::nullopt;
 }
 
-nano::server_socket::server_socket (nano::node & node_a, boost::asio::ip::tcp::endpoint local_a, std::size_t max_connections_a) :
+nano::server_socket::server_socket (nano::node & node_a, std::size_t max_connections_a) :
 	socket{ node_a },
 	acceptor{ node_a.io_ctx },
-	local{ std::move (local_a) },
 	max_inbound_connections{ max_connections_a }
 {
 	io_timeout = std::chrono::seconds::max ();
 }
 
-void nano::server_socket::start (boost::system::error_code & ec_a)
+void nano::server_socket::start (nano::tcp_endpoint const & local_a, boost::system::error_code & ec_a)
 {
-	acceptor.open (local.protocol ());
+	acceptor.open (local_a.protocol ());
 	acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
-	acceptor.bind (local, ec_a);
+	acceptor.bind (local_a, ec_a);
 	if (!ec_a)
 	{
 		acceptor.listen (boost::asio::socket_base::max_listen_connections, ec_a);
@@ -324,28 +342,43 @@ size_t network_prefix)
 bool nano::server_socket::limit_reached_for_incoming_subnetwork_connections (std::shared_ptr<nano::socket> const & new_connection)
 {
 	debug_assert (strand.running_in_this_thread ());
-	if (node.flags.disable_max_peers_per_subnetwork || nano::transport::is_ipv4_or_v4_mapped_address (new_connection->remote.address ()))
+
+	if (!new_connection->remote_endpoint ().has_value ())
+	{
+		return false;
+	}
+
+	if (node.flags.disable_max_peers_per_subnetwork || nano::transport::is_ipv4_or_v4_mapped_address (new_connection->remote_endpoint ()->address ()))
 	{
 		// If the limit is disabled, then it is unreachable.
 		// If the address is IPv4 we don't check for a network limit, since its address space isn't big as IPv6 /64.
 		return false;
 	}
+
 	auto const counted_connections = socket_functions::count_subnetwork_connections (
 	connections_per_address,
-	new_connection->remote.address ().to_v6 (),
+	new_connection->remote_endpoint ()->address ().to_v6 (),
 	node.network_params.network.ipv6_subnetwork_prefix_for_limiting);
+
 	return counted_connections >= node.network_params.network.max_peers_per_subnetwork;
 }
 
 bool nano::server_socket::limit_reached_for_incoming_ip_connections (std::shared_ptr<nano::socket> const & new_connection)
 {
 	debug_assert (strand.running_in_this_thread ());
+
 	if (node.flags.disable_max_peers_per_ip)
 	{
 		// If the limit is disabled, then it is unreachable.
 		return false;
 	}
-	auto const address_connections_range = connections_per_address.equal_range (new_connection->remote.address ());
+
+	if (!new_connection->remote_endpoint ().has_value ())
+	{
+		return false;
+	}
+
+	auto const address_connections_range = connections_per_address.equal_range (new_connection->remote_endpoint ()->address ());
 	auto const counted_connections = std::distance (address_connections_range.first, address_connections_range.second);
 	return counted_connections >= node.network_params.network.max_peers_per_ip;
 }
@@ -363,7 +396,7 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 
 		// Prepare new connection
 		auto new_connection = std::make_shared<nano::socket> (this_l->node);
-		this_l->acceptor.async_accept (new_connection->tcp_socket, new_connection->remote,
+		this_l->acceptor.async_accept (new_connection->tcp_socket,
 		boost::asio::bind_executor (this_l->strand,
 		[this_l, new_connection, cbk = std::move (callback)] (boost::system::error_code const & ec_a) mutable {
 			this_l->evict_dead_connections ();
@@ -378,7 +411,7 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 
 			if (this_l->limit_reached_for_incoming_ip_connections (new_connection))
 			{
-				auto const remote_ip_address = new_connection->remote_endpoint ().address ();
+				auto const remote_ip_address = new_connection->remote_endpoint ()->address ();
 				auto const log_message = boost::str (
 				boost::format ("Network: max connections per IP (max_peers_per_ip) was reached for %1%, unable to open new connection")
 				% remote_ip_address.to_string ());
@@ -390,7 +423,7 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 
 			if (this_l->limit_reached_for_incoming_subnetwork_connections (new_connection))
 			{
-				auto const remote_ip_address = new_connection->remote_endpoint ().address ();
+				auto const remote_ip_address = new_connection->remote_endpoint ()->address ();
 				debug_assert (remote_ip_address.is_v6 ());
 				auto const remote_subnet = socket_functions::get_ipv6_subnet_address (remote_ip_address.to_v6 (), this_l->node.network_params.network.max_peers_per_subnetwork);
 				auto const log_message = boost::str (
@@ -410,7 +443,13 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 				new_connection->checkup ();
 				new_connection->start_timer (this_l->node.network_params.network.is_dev_network () ? std::chrono::seconds (2) : this_l->node.network_params.network.idle_timeout);
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
-				this_l->connections_per_address.emplace (new_connection->remote.address (), new_connection);
+
+				debug_assert (new_connection->remote_endpoint ().has_value ());
+				if (new_connection->remote_endpoint ().has_value ())
+				{
+					this_l->connections_per_address.emplace (new_connection->remote_endpoint ()->address (), new_connection);
+				}
+
 				if (cbk (new_connection, ec_a))
 				{
 					this_l->on_connection (std::move (cbk));
@@ -442,6 +481,21 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 			this_l->node.logger.always_log ("Network: Stopping to accept connections");
 		}));
 	}));
+}
+
+std::optional<nano::tcp_endpoint> nano::server_socket::local_endpoint () const
+{
+	if (acceptor.is_open ())
+	{
+		boost::system::error_code ec;
+		auto local_endpoint = acceptor.local_endpoint (ec);
+		if (!ec)
+		{
+			return std::move (local_endpoint);
+		}
+	}
+
+	return std::nullopt;
 }
 
 // If we are unable to accept a socket, for any reason, we wait just a little (1ms) before rescheduling the next connection accept.
