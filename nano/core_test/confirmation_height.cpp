@@ -640,7 +640,10 @@ TEST (confirmation_height, all_block_types)
 }
 
 /* Bulk of the this test was taken from the node.fork_flip test */
-TEST (confirmation_height, conflict_rollback_cemented)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3633
+TEST (confirmation_height, DISABLED_conflict_rollback_cemented)
 {
 	auto test_mode = [] (nano::confirmation_height_mode mode_a) {
 		boost::iostreams::stream_buffer<nano::stringstream_mt_sink> sb;

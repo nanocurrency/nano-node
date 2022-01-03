@@ -867,7 +867,10 @@ TEST (bootstrap_processor, lazy_max_pull_count)
 	node1->stop ();
 }
 
-TEST (bootstrap_processor, lazy_unclear_state_link)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3640
+TEST (bootstrap_processor, DISABLED_lazy_unclear_state_link)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);

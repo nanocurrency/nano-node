@@ -3039,7 +3039,10 @@ TEST (node, DISABLED_vote_by_hash_republish)
 	ASSERT_TIMELY (10s, node1.balance (key2.pub) == node1.config.receive_minimum.number () * 2);
 }
 
-TEST (node, vote_by_hash_epoch_block_republish)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3638
+TEST (node, DISABLED_vote_by_hash_epoch_block_republish)
 {
 	nano::system system (2);
 	auto & node1 (*system.nodes[0]);
@@ -4733,7 +4736,10 @@ TEST (node, pruning_automatic)
 	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send2->hash ()));
 }
 
-TEST (node, pruning_age)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3641
+TEST (node, DISABLED_pruning_age)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);

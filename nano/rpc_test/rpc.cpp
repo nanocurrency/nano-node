@@ -2226,7 +2226,10 @@ TEST (rpc, work_peer_bad)
 	ASSERT_TIMELY (5s, nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash1, work) >= nano::dev::network_params.work.threshold_base (nano::work_version::work_1));
 }
 
-TEST (rpc, work_peer_one)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3639
+TEST (rpc, DISABLED_work_peer_one)
 {
 	nano::system system;
 	auto node1 = add_ipc_enabled_node (system);
@@ -2242,7 +2245,10 @@ TEST (rpc, work_peer_one)
 	ASSERT_TIMELY (5s, nano::dev::network_params.work.difficulty (nano::work_version::work_1, key1.pub, work) >= nano::dev::network_params.work.threshold_base (nano::work_version::work_1));
 }
 
-TEST (rpc, work_peer_many)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3636
+TEST (rpc, DISABLED_work_peer_many)
 {
 	nano::system system1 (1);
 	nano::system system2;
@@ -2277,7 +2283,10 @@ TEST (rpc, work_peer_many)
 	node1.stop ();
 }
 
-TEST (rpc, work_version_invalid)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3637
+TEST (rpc, DISABLED_work_version_invalid)
 {
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
