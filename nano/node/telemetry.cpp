@@ -541,6 +541,10 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	auto num_either_side_to_remove = telemetry_datas.size () / 10;
 
 	auto strip_outliers_and_sum = [num_either_side_to_remove] (auto & counts) {
+		if (num_either_side_to_remove * 2 >= counts.size ())
+		{
+			return nano::uint128_t (0);
+		}
 		counts.erase (counts.begin (), std::next (counts.begin (), num_either_side_to_remove));
 		counts.erase (std::next (counts.rbegin (), num_either_side_to_remove).base (), counts.end ());
 		return std::accumulate (counts.begin (), counts.end (), nano::uint128_t (0), [] (nano::uint128_t total, auto count) {
