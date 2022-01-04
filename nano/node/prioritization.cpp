@@ -57,8 +57,9 @@ nano::prioritization::prioritization (uint64_t maximum, std::function<void (std:
 	current = schedule.begin ();
 }
 
-void nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> block)
+bool nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> block)
 {
+	bool result = false;
 	auto was_empty = empty ();
 	auto block_has_balance = block->type () == nano::block_type::state || block->type () == nano::block_type::send;
 	debug_assert (block_has_balance || block->has_sideband ());
@@ -68,12 +69,14 @@ void nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> blo
 	bucket.emplace (value_type{ time, block });
 	if (bucket.size () > std::max (decltype (maximum){ 1 }, maximum / buckets.size ()))
 	{
+		result = true;
 		bucket.erase (--bucket.end ());
 	}
 	if (was_empty)
 	{
 		seek ();
 	}
+	return result;
 }
 
 std::shared_ptr<nano::block> nano::prioritization::top () const
