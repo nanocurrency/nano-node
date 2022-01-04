@@ -48,7 +48,6 @@ class block_processor final
 {
 public:
 	explicit block_processor (nano::node &, nano::write_database_queue &);
-	~block_processor ();
 	void stop ();
 	void flush ();
 	std::size_t size ();
