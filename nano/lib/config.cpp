@@ -280,16 +280,6 @@ bool running_within_valgrind ()
 	return (RUNNING_ON_VALGRIND > 0);
 }
 
-std::string get_config_path (boost::filesystem::path const & data_path)
-{
-	return (data_path / "config.json").string ();
-}
-
-std::string get_rpc_config_path (boost::filesystem::path const & data_path)
-{
-	return (data_path / "rpc_config.json").string ();
-}
-
 std::string get_node_toml_config_path (boost::filesystem::path const & data_path)
 {
 	return (data_path / "config-node.toml").string ();
