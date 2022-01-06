@@ -301,7 +301,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 	nano::vote_generator_session generator_session (generator);
 	nano::vote_generator_session final_generator_session (generator);
 
-	auto const election_ttl_cutoff_l (std::chrono::steady_clock::now () - election_time_to_live);
 	std::size_t unconfirmed_count_l (0);
 	nano::timer<std::chrono::milliseconds> elapsed (nano::timer_state::started);
 
