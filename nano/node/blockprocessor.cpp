@@ -106,7 +106,6 @@ void nano::block_processor::add (std::shared_ptr<nano::block> const & block_a, u
 void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
 	debug_assert (!node.network_params.work.validate_entry (*info_a.block));
-	bool quarter_full (size () > node.flags.block_processor_full_size / 4);
 	if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 	{
 		state_block_signature_verification.add (info_a);
