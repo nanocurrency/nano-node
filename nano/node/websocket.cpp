@@ -656,10 +656,6 @@ void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::bl
 				{
 					msg_without_block = builder.block_confirmed (block_a, account_a, amount_a, subtype, include_block, election_status_a, election_votes_a, *conf_options);
 				}
-				else
-				{
-					debug_assert (false);
-				}
 
 				session_ptr->write (include_block ? msg_with_block.get () : msg_without_block.get ());
 			}
