@@ -287,6 +287,9 @@ int64_t nano::active_transactions::vacancy () const
 	return result;
 }
 
+static std::map<size_t, size_t> confirmed_histogram;
+static std::map<size_t, size_t> dropped_histogram;
+
 void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> & lock_a)
 {
 	debug_assert (lock_a.owns_lock ());
@@ -305,6 +308,8 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 	std::size_t unconfirmed_count_l (0);
 	nano::timer<std::chrono::milliseconds> elapsed (nano::timer_state::started);
 
+	std::cerr << boost::str (boost::format ("Active: %1%, scheduled: %2% ") % elections_l.size () % scheduler.size ());
+	scheduler.priority.dump_occupancy ();
 	/*
 	 * Loop through active elections in descending order of proof-of-work difficulty, requesting confirmation
 	 *
@@ -312,6 +317,9 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 	 * Elections extending the soft config.active_elections_size limit are flushed after a certain time-to-live cutoff
 	 * Flushed elections are later re-activated via frontier confirmation
 	 */
+	size_t confirmed = 0;
+	size_t dropped = 0;
+	size_t idle = 0;
 	for (auto const & election_l : elections_l)
 	{
 		bool const confirmed_l (election_l->confirmed ());
@@ -332,11 +340,49 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 			// Locks active mutex, cleans up the election and erases it from the main container
 			if (!confirmed_l)
 			{
+				++dropped;
 				node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop_expired);
+			}
+			else
+			{
+				++confirmed;
 			}
 			erase (election_l->qualified_root);
 		}
+		else
+		{
+			auto state = election_l->state_m.load ();
+			if (state == nano::election::state_t::confirmed)
+			{
+				++idle;
+			}
+		}
 	}
+	int confirmed_log = std::log2 (std::max<size_t> (1, confirmed));
+	confirmed_histogram[confirmed_log]++;
+	int dropped_log = std::log2 (std::max<size_t> (1, dropped));
+	dropped_histogram[dropped_log]++;
+	{
+		std::stringstream stream;
+		stream << "Confirmed: " << std::to_string (confirmed) << ' ';
+		for (auto i = confirmed_histogram.begin (), n = confirmed_histogram.end (); i != n; ++i)
+		{
+			stream << std::to_string (i->first) << ':' << std::to_string (i->second) << ' ';
+		}
+		stream << '\n';
+		std::cerr << stream.str ();
+	}
+	{
+		std::stringstream stream;
+		stream << "Dropped: " << std::to_string (dropped) << ' ';
+		for (auto i = dropped_histogram.begin (), n = dropped_histogram.end (); i != n; ++i)
+		{
+			stream << std::to_string (i->first) << ':' << std::to_string (i->second) << ' ';
+		}
+		stream << '\n';
+		std::cerr << stream.str ();
+	}
+	std::cerr << boost::str (boost::format ("Idle: %1%\n") % idle);
 
 	solicitor.flush ();
 	generator_session.flush ();
@@ -575,7 +621,9 @@ void nano::active_transactions::request_loop ()
 		lock.unlock ();
 		if (node.vote_processor.half_full ())
 		{
+			auto start = std::chrono::steady_clock::now ();
 			node.vote_processor.flush_active ();
+			std::cerr << boost::str (boost::format ("Flushing for %1%ms") % (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - start)).count ());
 		}
 		lock.lock ();
 

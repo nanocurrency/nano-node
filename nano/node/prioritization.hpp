@@ -30,8 +30,8 @@ class prioritization final
 	decltype (schedule)::const_iterator current;
 
 public:
-	prioritization (uint64_t maximum = 250000u, std::function<void (std::shared_ptr<nano::block>)> const & drop_a = nullptr);
-	void push (uint64_t time, std::shared_ptr<nano::block> block);
+	prioritization (uint64_t maximum = 2500000u, std::function<void (std::shared_ptr<nano::block>)> const & drop_a = nullptr);
+	bool push (uint64_t time, std::shared_ptr<nano::block> block);
 	std::shared_ptr<nano::block> top () const;
 	void pop ();
 	std::size_t size () const;
@@ -39,6 +39,7 @@ public:
 	std::size_t bucket_size (std::size_t index) const;
 	bool empty () const;
 	void dump ();
+	void dump_occupancy ();
 	uint64_t const maximum;
 };
 }

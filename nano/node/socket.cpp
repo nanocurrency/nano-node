@@ -227,6 +227,7 @@ void nano::socket::close_internal ()
 {
 	if (!closed.exchange (true))
 	{
+		std::cerr << boost::str (boost::format ("Closing: %1% -> %2%\n") % boost::lexical_cast<std::string> (local_endpoint ()) % boost::lexical_cast<std::string> (remote_endpoint ()));
 		io_timeout = std::chrono::seconds (0);
 		boost::system::error_code ec;
 

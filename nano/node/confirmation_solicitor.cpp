@@ -70,7 +70,8 @@ bool nano::confirmation_solicitor::add (nano::election const & election_a)
 		if (!exists || !is_final || different)
 		{
 			auto & request_queue (requests[rep.channel]);
-			if (request_queue.size () < max_channel_requests)
+			//if (request_queue.size () < max_channel_requests)
+			if (!rep.channel->full ())
 			{
 				request_queue.emplace_back (election_a.status.winner->hash (), election_a.status.winner->root ());
 				count += different ? 0 : 1;
@@ -78,10 +79,15 @@ bool nano::confirmation_solicitor::add (nano::election const & election_a)
 			}
 			else
 			{
+				//std::cerr << "Full\n";
 				full_queue = true;
 			}
 		}
 		i = !full_queue ? i + 1 : representatives_requests.erase (i);
+	}
+	if (count >= max_election_requests)
+	{
+		std::cerr << "Overflow\n";
 	}
 	return error;
 }
@@ -89,12 +95,14 @@ bool nano::confirmation_solicitor::add (nano::election const & election_a)
 void nano::confirmation_solicitor::flush ()
 {
 	debug_assert (prepared);
+	size_t count = 0;
 	for (auto const & request_queue : requests)
 	{
 		auto const & channel (request_queue.first);
 		std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes_l;
 		for (auto const & root_hash : request_queue.second)
 		{
+			++count;
 			roots_hashes_l.push_back (root_hash);
 			if (roots_hashes_l.size () == nano::network::confirm_req_hashes_max)
 			{
@@ -110,4 +118,5 @@ void nano::confirmation_solicitor::flush ()
 		}
 	}
 	prepared = false;
+	std::cerr << "Requests: " << std::to_string (count) << '\n';
 }

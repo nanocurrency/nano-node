@@ -975,8 +975,13 @@ void nano::node::ongoing_unchecked_cleanup ()
 
 void nano::node::ongoing_backlog_population ()
 {
-	populate_backlog ();
+	auto overflow = populate_backlog ();
 	auto delay = config.network_params.network.is_dev_network () ? std::chrono::seconds{ 1 } : std::chrono::duration_cast<std::chrono::seconds> (std::chrono::minutes{ 5 });
+	if (overflow)
+	{
+		std::cerr << "--------- Overflow";
+		delay = std::chrono::seconds{ 0 };
+	}
 	workers.add_timed_task (std::chrono::steady_clock::now () + delay, [this_l = shared ()] () {
 		this_l->ongoing_backlog_population ();
 	});
@@ -1745,12 +1750,14 @@ std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> nano::node::get_
 	return { max_blocks, weights };
 }
 
-void nano::node::populate_backlog ()
+bool nano::node::populate_backlog ()
 {
+	std::cerr << "<---------------Populating...\n";
 	auto done = false;
 	uint64_t const chunk_size = 65536;
 	nano::account next = 0;
 	uint64_t total = 0;
+	bool overflow = false;
 	while (!stopped && !done)
 	{
 		auto transaction = store.tx_begin_read ();
@@ -1758,11 +1765,13 @@ void nano::node::populate_backlog ()
 		for (auto i = store.account.begin (transaction, next), n = store.account.end (); !stopped && i != n && count < chunk_size; ++i, ++count, ++total)
 		{
 			auto const & account = i->first;
-			scheduler.activate (account, transaction);
+			overflow |= scheduler.activate (account, transaction);
 			next = account.number () + 1;
 		}
 		done = store.account.begin (transaction, next) == store.account.end ();
 	}
+	std::cerr << "<---------------Done populating...\n";
+	return overflow;
 }
 
 nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :

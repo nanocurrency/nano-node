@@ -150,7 +150,7 @@ public:
 	bool epoch_upgrader (nano::raw_key const &, nano::epoch, uint64_t, uint64_t);
 	void set_bandwidth_params (std::size_t limit, double ratio);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
-	void populate_backlog ();
+	bool populate_backlog ();
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;

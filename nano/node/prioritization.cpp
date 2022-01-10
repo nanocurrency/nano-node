@@ -57,8 +57,9 @@ nano::prioritization::prioritization (uint64_t maximum, std::function<void (std:
 	current = schedule.begin ();
 }
 
-void nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> block)
+bool nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> block)
 {
+	bool result = false;
 	auto was_empty = empty ();
 	auto block_has_balance = block->type () == nano::block_type::state || block->type () == nano::block_type::send;
 	debug_assert (block_has_balance || block->has_sideband ());
@@ -68,12 +69,14 @@ void nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> blo
 	bucket.emplace (value_type{ time, block });
 	if (bucket.size () > std::max (decltype (maximum){ 1 }, maximum / buckets.size ()))
 	{
+		result = true;
 		bucket.erase (--bucket.end ());
 	}
 	if (was_empty)
 	{
 		seek ();
 	}
+	return result;
 }
 
 std::shared_ptr<nano::block> nano::prioritization::top () const
@@ -128,4 +131,19 @@ void nano::prioritization::dump ()
 		}
 	}
 	std::cerr << "current: " << std::to_string (*current) << '\n';
+}
+
+void nano::prioritization::dump_occupancy ()
+{
+	nano::uint128_t occupied;
+	for (auto i = 0; i < buckets.size (); ++i)
+	{
+		if (!buckets[i].empty ())
+		{
+			occupied |=( nano::uint128_t{ 1 } << i);
+		}
+	}
+	std::stringstream stream;
+	stream << std::hex << std::noshowbase << std::setw (32) << std::setfill ('0') << occupied << '\n';
+	std::cerr << stream.str ();
 }
