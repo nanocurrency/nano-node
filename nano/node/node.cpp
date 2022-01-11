@@ -631,7 +631,10 @@ void nano::node::start ()
 		{
 			network.port = bootstrap.port;
 		}
+
+		logger.always_log (boost::str (boost::format ("Node started with peering port `%1%`.") % network.port));
 	}
+
 	if (!flags.disable_backup)
 	{
 		backup_wallet ();
@@ -702,6 +705,7 @@ void nano::node::keepalive_preconfigured (std::vector<std::string> const & peers
 {
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
 	{
+		// Question: why isn't keepalive being called with `network.port`? looks like it should. Can we make this change?
 		keepalive (*i, network_params.network.default_node_port);
 	}
 }
