@@ -49,7 +49,7 @@ SECTIONS = {
     ],
     "Ledger & Database": [
         "database",
-        "nanodb structure",
+        "database structure",
     ],
     "Developer/Debug Options": [
         "debug",
