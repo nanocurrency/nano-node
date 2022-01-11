@@ -128,10 +128,10 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				logger.always_log (boost::format ("Open file descriptors limit is %1%") % file_descriptor_limit);
 			}
 
-			// a 0-valued port means for the node 'let the OS decide'; however, for the daemon start up, if
-			// the user hasn't specified a port in the config, we must use the default peering port for the network
+			// for the daemon start up, if the user hasn't specified a port in
+			// the config, we must use the default peering port for the network
 			//
-			if (!config.node.peering_port)
+			if (!config.node.peering_port.has_value ())
 			{
 				config.node.peering_port = network_params.network.default_node_port;
 			}

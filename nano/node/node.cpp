@@ -98,7 +98,10 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	gap_cache (*this),
 	ledger (store, stats, network_params.ledger, flags_a.generate_cache),
 	checker (config.signature_checker_threads),
-	network (*this, config.peering_port),
+	// empty `config.peering_port` means the user made no port choice at all;
+	// otherwise, any value is considered, with `0` having the special meaning of 'let the OS pick a port instead'
+	//
+	network (*this, config.peering_port.has_value () ? *config.peering_port : 0),
 	telemetry (std::make_shared<nano::telemetry> (network, workers, observers.telemetry, stats, network_params, flags.disable_ongoing_telemetry_requests)),
 	bootstrap_initiator (*this),
 	// BEWARE: `bootstrap` takes `network.port` instead of `config.peering_port` because when the user doesn't specify

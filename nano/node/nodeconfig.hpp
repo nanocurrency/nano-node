@@ -14,6 +14,7 @@
 #include <nano/secure/common.hpp>
 
 #include <chrono>
+#include <optional>
 #include <vector>
 
 namespace nano
@@ -43,7 +44,7 @@ public:
 	bool upgrade_json (unsigned, nano::jsonconfig &);
 	nano::account random_representative () const;
 	nano::network_params & network_params;
-	uint16_t peering_port{ 0 };
+	std::optional<uint16_t> peering_port{ 0 };
 	nano::logging logging;
 	std::vector<std::pair<std::string, uint16_t>> work_peers;
 	std::vector<std::pair<std::string, uint16_t>> secondary_work_peers{ { "127.0.0.1", 8076 } }; /* Default of nano-pow-server */
