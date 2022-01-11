@@ -3,14 +3,16 @@ import copy
 import sys
 
 """
-Changelog generation script, requires PAT see https://github.com/settings/tokens
+Changelog generation script, requires PAT with public_repo access, 
+see https://github.com/settings/tokens
+
 Caveats V20 and prior release tags are tips on their respective release branches
 If you try to use a start tag with one of these a full changelog will be generated
 since the commit wont appear in your iterations
 """
 
 try:
-    from github import Github
+    from github import Github,UnknownObjectException
     from mdutils import MdUtils
 except BaseException:
     sys.exit("Error: run 'pip install PyGithub mdutils'")
@@ -45,6 +47,10 @@ SECTIONS = {
     "Developer Wallet": [
         "qt wallet",
     ],
+    "Ledger & Database": [
+        "database",
+        "database structure",
+    ],
     "Developer/Debug Options": [
         "debug",
         "logging",
@@ -55,13 +61,13 @@ SECTIONS = {
     "Implemented Enhancements": [
         "enhancement",
         "functionality quality improvements",
-        "non-functional change",
         "performance",
         "quality improvements",
     ],
-    "Build, Test, Automation, & Chores": [
+    "Build, Test, Automation, Cleanup & Chores": [
         "build-error",
         "documentation",
+        "non-functional change",
         "routine",
         "sanitizers",
         "static-analysis",
@@ -108,16 +114,12 @@ class cliArgs():
         self.start = options.start
         self.end = options.end
         self.pat = options.pat
-
     def __repr__(self):
         return "<cliArgs(repo='{0}', start='{1}', end='{2}', pat='{3}')>" \
             .format(self.repo, self.start, self.end, self.pat)
-
     def __str__(self):
         return "Generating a changelog for {0} starting with {1} " \
             "and ending with {2}".format(self.repo, self.start, self.end)
-
-
 class generateTree:
     def __init__(self, args):
         github = Github(args.pat)
@@ -145,86 +147,80 @@ class generateTree:
                     pr_number = int(
                         message[message.rfind('#')+1:message.rfind(')')])
                     pull = self.repo.get_pull(pr_number)
-                    labels = []
-                    for label in pull.labels:
-                        labels.append(label.name)
-                    self.commits[pull.number] = {
-                        "Title": pull.title,
-                        "Url": pull.html_url,
-                        "labels": labels
-                    }
-                except ValueError:
-                    print("Commit has no associated PR {}: \"{}\"".format(
+                except (ValueError, UnknownObjectException):
+                    pulls = commit.get_pulls()
+                    if pulls.totalCount > 0:
+                        # no commits with more than 1 PR associated to it were found in V23 release
+                        # but targeting first entry only if that ends up being the case
+                        pr_number = pulls[0].number
+                        pull = self.repo.get_pull(pr_number)
+                    else:
+                        print("Commit has no associated PR {}: \"{}\"".format(
                         commit.sha, message))
-                    self.other_commits.append((commit.sha, message))
-                    continue
+                        self.other_commits.append((commit.sha, message))
+                        continue
 
+                labels = []
+                for label in pull.labels:
+                    labels.append(label.name)
+                self.commits[pull.number] = {
+                    "Title": pull.title,
+                    "Url": pull.html_url,
+                    "labels": labels
+                }
     def __repr__(self):
         return "<generateTree(repo='{0}', start='{1}', startCommit='{2}', " \
             "end='{3}', endCommit='{4}', tree='{5}', commits='{6}".format(
                 self.repo, self.start, self.startCommit, self.end,
                 self.endCommit, self.tree, self.commits,
             )
-
-
 class generateMarkdown():
     def __repr__(self):
         return "<generateMarkdown(mdFile={0})>".format(
             self.mdFile
         )
-
     def __init__(self, repo):
         self.mdFile = MdUtils(
             file_name='CHANGELOG', title='CHANGELOG'
         )
         self.mdFile.new_line(
-            "## **Release** " +
-            "[{0}](https://github.com/nanocurrency/nano-node/tree/{0})"
-            .format(repo.end))
+            "## Release " +
+            "[{0}](https://github.com/nanocurrency/nano-node/tree/{0})".format(repo.end), wrap_width=0)
         self.mdFile.new_line("[Full Changelog](https://github.com/nanocurrency"
-                             "/nano-node/compare/{0}...{1})".format(repo.start, repo.end))
+                             "/nano-node/compare/{0}...{1})".format(repo.start, repo.end), wrap_width=0)
         sort = self.pull_to_section(repo.commits)
-
         for section, prs in sort.items():
             self.write_header_PR(section)
             for pr in prs:
                 self.write_PR(pr, repo.commits[pr[0]])
-
         if repo.other_commits:
             self.write_header_no_PR()
             for sha, message in repo.other_commits:
                 self.write_no_PR(repo, sha, message)
-
         self.mdFile.create_md_file()
-
     def write_header_PR(self, section):
         self.mdFile.new_line("---")
-        self.mdFile.new_header(level=3, title=section)
+        self.mdFile.new_header(level=3, title=section, add_table_of_contents='n')
         self.mdFile.new_line(
             "|Pull Request|Title")
         self.mdFile.new_line("|:-:|:--")
-
     def write_header_no_PR(self):
-        self.mdFile.new_line("---")
-        self.mdFile.new_header(level=3, title="Other Updates")
+        self.mdFile.new_line()
         self.mdFile.new_line(
             "|Commit|Title")
         self.mdFile.new_line("|:-:|:--")
-
     def write_PR(self, pr, info):
         imp = ""
         if pr[1]:
             imp = "**BREAKING** "
         self.mdFile.new_line(
             "|[#{0}]({1})|{2}{3}".format(
-                pr[0], info['Url'], imp, info['Title']))
-
+                pr[0], info['Url'], imp, info['Title']), wrap_width=0)
     def write_no_PR(self, repo, sha, message):
         url = "https://github.com/{0}/commit/{1}".format(repo.name, sha)
         self.mdFile.new_line(
             "|[{0}]({1})|{2}".format(
-                sha[:8], url, message))
-
+                sha[:8], url, message), wrap_width=0)
     def handle_labels(self, labels):
         for section, values in SECTIONS.items():
             for label in labels:
@@ -237,7 +233,6 @@ class generateMarkdown():
                     else:
                         return section, False
         return 'Other', False
-
     def pull_to_section(self, commits):
         sect = copy.deepcopy(SECTIONS)
         result = {}
@@ -253,8 +248,6 @@ class generateMarkdown():
             if len(sect[a]) > 0:
                 result[a] = sect[a]
         return result
-
-
 if __name__ == "__main__":
     args = cliArgs()
     repo = generateTree(args)
