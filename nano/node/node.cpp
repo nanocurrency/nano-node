@@ -705,7 +705,9 @@ void nano::node::keepalive_preconfigured (std::vector<std::string> const & peers
 {
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
 	{
-		// Question: why isn't keepalive being called with `network.port`? looks like it should. Can we make this change?
+		// can't use `network.port` here because preconfigured peers are referenced
+		// just by their address, so we rely on them listening on the default port
+		//
 		keepalive (*i, network_params.network.default_node_port);
 	}
 }
