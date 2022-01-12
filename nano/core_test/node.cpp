@@ -1226,68 +1226,65 @@ TEST (node, fork_multi_flip)
 			node_flags.disable_bootstrap_listener = true;
 			node_flags.disable_udp = false;
 		}
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port (), system.logging };
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-		auto & node1 (*system.add_node (node_config, node_flags, type));
+		auto & node1 = *system.add_node (node_config, node_flags, type);
 		node_config.peering_port = nano::get_available_port ();
-		auto & node2 (*system.add_node (node_config, node_flags, type));
+		auto & node2 = *system.add_node (node_config, node_flags, type);
 		ASSERT_EQ (1, node1.network.size ());
 		nano::keypair key1;
-		nano::send_block_builder builder;
-		auto send1 = builder.make_block ()
-					 .previous (nano::dev::genesis->hash ())
-					 .destination (key1.pub)
-					 .balance (nano::dev::constants.genesis_amount - 100)
-					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					 .work (*system.work.generate (nano::dev::genesis->hash ()))
-					 .build_shared ();
-		nano::publish publish1{ nano::dev::network_params.network, send1 };
+		auto send1 = nano::state_block_builder{}
+					.account (nano::dev::genesis_key.pub)
+					.previous (nano::dev::genesis->hash ())
+					.representative (nano::dev::genesis_key.pub)
+					.balance (nano::dev::constants.genesis_amount - 100)
+					.link (key1.pub)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (nano::dev::genesis->hash ()))
+					.build_shared ();
 		nano::keypair key2;
-		auto send2 = builder.make_block ()
-					 .previous (nano::dev::genesis->hash ())
-					 .destination (key2.pub)
-					 .balance (nano::dev::constants.genesis_amount - 100)
-					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					 .work (*system.work.generate (nano::dev::genesis->hash ()))
-					 .build_shared ();
-		nano::publish publish2{ nano::dev::network_params.network, send2 };
-		auto send3 = builder.make_block ()
-					 .previous (publish2.block->hash ())
-					 .destination (key2.pub)
-					 .balance (nano::dev::constants.genesis_amount - 100)
-					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					 .work (*system.work.generate (publish2.block->hash ()))
-					 .build_shared ();
-		nano::publish publish3{ nano::dev::network_params.network, send3 };
-		node1.network.inbound (publish1, node1.network.udp_channels.create (node1.network.endpoint ()));
-		node2.network.inbound (publish2, node2.network.udp_channels.create (node2.network.endpoint ()));
-		node2.network.inbound (publish3, node2.network.udp_channels.create (node2.network.endpoint ()));
-		node1.block_processor.flush ();
-		node1.scheduler.flush ();
-		node2.block_processor.flush ();
-		node2.scheduler.flush ();
-		ASSERT_EQ (1, node1.active.size ());
-		ASSERT_EQ (1, node2.active.size ());
-		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-		node1.network.inbound (publish2, node1.network.udp_channels.create (node1.network.endpoint ()));
-		node1.network.inbound (publish3, node1.network.udp_channels.create (node1.network.endpoint ()));
-		node1.block_processor.flush ();
-		node2.network.inbound (publish1, node2.network.udp_channels.create (node2.network.endpoint ()));
-		node2.block_processor.flush ();
-		auto election1 (node2.active.election (nano::qualified_root (nano::dev::genesis->hash (), nano::dev::genesis->hash ())));
+		auto send2 = nano::state_block_builder{}
+					.account (nano::dev::genesis_key.pub)
+					.previous (nano::dev::genesis->hash ())
+					.representative (nano::dev::genesis_key.pub)
+					.balance (nano::dev::constants.genesis_amount - 100)
+					.link (key2.pub)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (nano::dev::genesis->hash ()))
+					.build_shared ();
+		auto send3 = nano::state_block_builder{}
+					.account (nano::dev::genesis_key.pub)
+					.previous (send2->hash ())
+					.representative (nano::dev::genesis_key.pub)
+					.balance (nano::dev::constants.genesis_amount - 200)
+					.link (key2.pub)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (send2->hash ()))
+					.build_shared ();
+		node1.process_active (send1);
+		node2.process_active (send2);
+		node2.process_active (send3);
+		ASSERT_TIMELY (5s, 1 == node1.active.size ());
+		ASSERT_TIMELY (5s, 1 == node2.active.size ());
+		ASSERT_TIMELY (5s, node1.ledger.block_or_pruned_exists (send1->hash ()));
+		ASSERT_TIMELY (5s, node2.ledger.block_or_pruned_exists (send2->hash ()));
+		ASSERT_TIMELY (5s, node2.ledger.block_or_pruned_exists (send3->hash ()));
+		auto election1 = node2.active.election (send2->qualified_root ());
 		ASSERT_NE (nullptr, election1);
+		node1.process_active (send2);
+		node1.process_active (send3);
+		node2.process_active (send1);
+		ASSERT_TIMELY (5s, election1->blocks ().size () == 2);
 		ASSERT_EQ (1, election1->votes ().size ());
-		ASSERT_TRUE (node1.ledger.block_or_pruned_exists (publish1.block->hash ()));
-		ASSERT_TRUE (node2.ledger.block_or_pruned_exists (publish2.block->hash ()));
-		ASSERT_TRUE (node2.ledger.block_or_pruned_exists (publish3.block->hash ()));
-		ASSERT_TIMELY (10s, node2.ledger.block_or_pruned_exists (publish1.block->hash ()));
-		auto winner (*election1->tally ().begin ());
-		ASSERT_EQ (*publish1.block, *winner.second);
+		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+		ASSERT_TIMELY (10s, node2.ledger.block_or_pruned_exists (send1->hash ()));
+		auto winner = *election1->tally ().begin ();
+		ASSERT_EQ (*send1, *winner.second);
 		ASSERT_EQ (nano::dev::constants.genesis_amount - 100, winner.first);
-		ASSERT_TRUE (node1.ledger.block_or_pruned_exists (publish1.block->hash ()));
-		ASSERT_TRUE (node2.ledger.block_or_pruned_exists (publish1.block->hash ()));
-		ASSERT_FALSE (node2.ledger.block_or_pruned_exists (publish2.block->hash ()));
-		ASSERT_FALSE (node2.ledger.block_or_pruned_exists (publish3.block->hash ()));
+		ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
+		ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1->hash ()));
+		ASSERT_FALSE (node2.ledger.block_or_pruned_exists (send2->hash ()));
+		ASSERT_FALSE (node2.ledger.block_or_pruned_exists (send3->hash ()));
 	}
 }
 
