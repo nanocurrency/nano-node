@@ -26,7 +26,6 @@ class stat_config final
 {
 public:
 	/** Reads the JSON statistics node */
-	nano::error deserialize_json (nano::jsonconfig & json);
 	nano::error deserialize_toml (nano::tomlconfig & toml);
 	nano::error serialize_toml (nano::tomlconfig & toml) const;
 
