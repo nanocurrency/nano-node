@@ -79,11 +79,11 @@ TEST (election_scheduler, no_vacancy)
 				   .work (*system.work.generate (key.pub))
 				   .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
-	nano::blocks_confirm (node, { send }, true);
-	ASSERT_TIMELY (1s, node.active.empty ());
+	node.process_confirmed (nano::election_status{ send });
+	ASSERT_TIMELY (5s, node.block_confirmed (send->hash ()));
 	ASSERT_EQ (nano::process_result::progress, node.process (*receive).code);
-	nano::blocks_confirm (node, { receive }, true);
-	ASSERT_TIMELY (1s, node.active.empty ());
+	node.process_confirmed (nano::election_status{ receive });
+	ASSERT_TIMELY (5s, node.block_confirmed (receive->hash ()));
 
 	// Second, process two eligble transactions
 	auto block0 = builder.make_block ()
@@ -108,16 +108,18 @@ TEST (election_scheduler, no_vacancy)
 	ASSERT_EQ (nano::process_result::progress, node.process (*block1).code);
 	node.scheduler.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
 	// There is vacancy so it should be inserted
-	ASSERT_TIMELY (1s, node.active.size () == 1);
+	ASSERT_TIMELY (5s, node.active.size () == 1);
+	ASSERT_TIMELY (5s, node.scheduler.empty ());
 	node.scheduler.activate (key.pub, node.store.tx_begin_read ());
-	// There is no vacancy so it should stay queued
-	ASSERT_TIMELY (1s, node.scheduler.size () == 1);
+	// There is no vacancy so block1 should stay queued
+	ASSERT_TIMELY (5s, node.scheduler.size () == 1);
+	// Ensure election was started for block0
 	auto election3 = node.active.election (block0->qualified_root ());
 	ASSERT_NE (nullptr, election3);
 	election3->force_confirm ();
-	// Election completed, next in queue should begin
-	ASSERT_TIMELY (1s, node.scheduler.size () == 0);
-	ASSERT_TIMELY (1s, node.active.size () == 1);
+	// Election for block0 completed, block1 should automatically start next
+	ASSERT_TIMELY (5s, node.scheduler.size () == 0);
+	ASSERT_TIMELY (5s, node.active.size () == 1);
 	auto election4 = node.active.election (block1->qualified_root ());
 	ASSERT_NE (nullptr, election4);
 }
