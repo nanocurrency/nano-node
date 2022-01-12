@@ -1168,56 +1168,49 @@ TEST (node, fork_keep)
 
 TEST (node, fork_flip)
 {
-	nano::system system (2);
-	auto & node1 (*system.nodes[0]);
-	auto & node2 (*system.nodes[1]);
+	nano::system system{ 2 };
+	auto & node1 = *system.nodes[0];
+	auto & node2 = *system.nodes[1];
 	ASSERT_EQ (1, node1.network.size ());
 	nano::keypair key1;
-	nano::send_block_builder builder;
-	auto send1 = builder.make_block ()
-				 .previous (nano::dev::genesis->hash ())
-				 .destination (key1.pub)
-				 .balance (nano::dev::constants.genesis_amount - 100)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
-	nano::publish publish1{ nano::dev::network_params.network, send1 };
+	auto send1 = nano::state_block_builder{}
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 100)
+				.link (key1.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build_shared ();
 	nano::keypair key2;
-	auto send2 = builder.make_block ()
-				 .previous (nano::dev::genesis->hash ())
-				 .destination (key2.pub)
-				 .balance (nano::dev::constants.genesis_amount - 100)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
-	nano::publish publish2{ nano::dev::network_params.network, send2 };
-	auto channel1 (node1.network.udp_channels.create (node1.network.endpoint ()));
-	node1.network.inbound (publish1, channel1);
-	node1.block_processor.flush ();
-	node1.scheduler.flush ();
-	auto channel2 (node2.network.udp_channels.create (node1.network.endpoint ()));
-	node2.network.inbound (publish2, channel2);
-	node2.block_processor.flush ();
-	node2.scheduler.flush ();
-	ASSERT_EQ (1, node1.active.size ());
-	ASSERT_EQ (1, node2.active.size ());
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	node1.network.inbound (publish2, channel1);
-	node1.block_processor.flush ();
-	node2.network.inbound (publish1, channel2);
-	node2.block_processor.flush ();
-	auto election1 (node2.active.election (nano::qualified_root (nano::dev::genesis->hash (), nano::dev::genesis->hash ())));
+	auto send2 = nano::state_block_builder{}
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 100)
+				.link (key2.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build_shared ();
+	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
+	ASSERT_EQ (nano::process_result::progress, node2.process (*send2).code);
+	ASSERT_TIMELY (5s, 1 == node1.active.size ());
+	ASSERT_TIMELY (5s, 1 == node2.active.size ());
+	ASSERT_NE (nullptr, node1.block (send1->hash ()));
+	ASSERT_NE (nullptr, node2.block (send2->hash ()));
+	auto election1 = node2.active.election (send2->qualified_root ());
 	ASSERT_NE (nullptr, election1);
 	ASSERT_EQ (1, election1->votes ().size ());
-	ASSERT_NE (nullptr, node1.block (publish1.block->hash ()));
-	ASSERT_NE (nullptr, node2.block (publish2.block->hash ()));
-	ASSERT_TIMELY (10s, node2.ledger.block_or_pruned_exists (publish1.block->hash ()));
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	node1.process_active (send2);
+	node2.process_active (send1);
+	ASSERT_TIMELY (10s, node2.ledger.block_or_pruned_exists (send1->hash ()));
 	auto winner (*election1->tally ().begin ());
-	ASSERT_EQ (*publish1.block, *winner.second);
+	ASSERT_EQ (*send1, *winner.second);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, winner.first);
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (publish1.block->hash ()));
-	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (publish1.block->hash ()));
-	ASSERT_FALSE (node2.ledger.block_or_pruned_exists (publish2.block->hash ()));
+	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_FALSE (node2.ledger.block_or_pruned_exists (send2->hash ()));
 }
 
 TEST (node, fork_multi_flip)
