@@ -1119,56 +1119,51 @@ TEST (node, DISABLED_fork_publish_inactive)
 
 TEST (node, fork_keep)
 {
-	nano::system system (2);
-	auto & node1 (*system.nodes[0]);
-	auto & node2 (*system.nodes[1]);
+	nano::system system{ 2 };
+	auto & node1 = *system.nodes[0];
+	auto & node2 = *system.nodes[1];
 	ASSERT_EQ (1, node1.network.size ());
 	nano::keypair key1;
 	nano::keypair key2;
-	nano::send_block_builder builder;
 	// send1 and send2 fork to different accounts
-	auto send1 = builder.make_block ()
-				 .previous (nano::dev::genesis->hash ())
-				 .destination (key1.pub)
-				 .balance (nano::dev::constants.genesis_amount - 100)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
-	auto send2 = builder.make_block ()
-				 .previous (nano::dev::genesis->hash ())
-				 .destination (key2.pub)
-				 .balance (nano::dev::constants.genesis_amount - 100)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
+	auto send1 = nano::state_block_builder{}
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 100)
+				.link (key1.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build_shared ();
+	auto send2 = nano::state_block_builder{}
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 100)
+				.link (key2.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build_shared ();
 	node1.process_active (send1);
-	node1.block_processor.flush ();
-	node1.scheduler.flush ();
 	node2.process_active (send1);
-	node2.block_processor.flush ();
-	node2.scheduler.flush ();
-	ASSERT_EQ (1, node1.active.size ());
-	ASSERT_EQ (1, node2.active.size ());
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	node1.process_active (send2);
-	node1.block_processor.flush ();
-	node2.process_active (send2);
-	node2.block_processor.flush ();
-	auto election1 (node2.active.election (nano::qualified_root (nano::dev::genesis->hash (), nano::dev::genesis->hash ())));
+	ASSERT_TIMELY (5s, 1 == node1.active.size ());
+	ASSERT_TIMELY (5s, 1 == node2.active.size ());
+	auto election1 = node2.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election1);
 	ASSERT_EQ (1, election1->votes ().size ());
+	node1.process_active (send2);
+	node2.process_active (send2);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
 	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1->hash ()));
 	// Wait until the genesis rep makes a vote
 	ASSERT_TIMELY (1.5min, election1->votes ().size () != 1);
-	auto transaction0 (node1.store.tx_begin_read ());
-	auto transaction1 (node2.store.tx_begin_read ());
 	// The vote should be in agreement with what we already have.
-	auto winner (*election1->tally ().begin ());
+	auto winner = *election1->tally ().begin ();
 	ASSERT_EQ (*send1, *winner.second);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, winner.first);
-	ASSERT_TRUE (node1.store.block.exists (transaction0, send1->hash ()));
-	ASSERT_TRUE (node2.store.block.exists (transaction1, send1->hash ()));
+	ASSERT_TRUE (node1.block_confirmed (send1->hash ()));
+	ASSERT_TRUE (node2.block_confirmed (send1->hash ()));
 }
 
 TEST (node, fork_flip)
