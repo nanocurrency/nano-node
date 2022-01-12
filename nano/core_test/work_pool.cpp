@@ -1,6 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
-#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/work.hpp>
@@ -113,21 +112,6 @@ TEST (work, opencl)
 	{
 		std::cout << "Device with OpenCL support not found. Skipping OpenCL test" << std::endl;
 	}
-}
-
-TEST (work, opencl_config)
-{
-	nano::opencl_config config1;
-	config1.platform = 1;
-	config1.device = 2;
-	config1.threads = 3;
-	nano::jsonconfig tree;
-	config1.serialize_json (tree);
-	nano::opencl_config config2;
-	ASSERT_FALSE (config2.deserialize_json (tree));
-	ASSERT_EQ (1, config2.platform);
-	ASSERT_EQ (2, config2.device);
-	ASSERT_EQ (3, config2.threads);
 }
 
 TEST (work, difficulty)
