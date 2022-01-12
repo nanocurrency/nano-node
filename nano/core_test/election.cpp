@@ -48,12 +48,10 @@ TEST (election, quorum_minimum_flip_success)
 	node1.work_generate_blocking (*send2);
 	node1.process_active (send1);
 	node1.block_processor.flush ();
-	node1.scheduler.flush ();
 	node1.process_active (send2);
 	node1.block_processor.flush ();
-	node1.scheduler.flush ();
-	auto election = node1.active.election (send1->qualified_root ());
-	ASSERT_NE (nullptr, election);
+	std::shared_ptr<nano::election> election;
+	ASSERT_TIMELY (5s, (election = node1.active.election (send1->qualified_root ())) != nullptr);
 	ASSERT_EQ (2, election->blocks ().size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, send2));
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
