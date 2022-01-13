@@ -21,11 +21,11 @@ std::string const default_test_peer_network = nano::get_env_or_default ("NANO_TE
 }
 
 nano::node_config::node_config (nano::network_params & network_params) :
-	node_config (0, nano::logging (), network_params)
+	node_config (std::nullopt, nano::logging (), network_params)
 {
 }
 
-nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a, nano::network_params & network_params) :
+nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, nano::logging const & logging_a, nano::network_params & network_params) :
 	network_params{ network_params },
 	peering_port{ peering_port_a },
 	logging{ logging_a },
