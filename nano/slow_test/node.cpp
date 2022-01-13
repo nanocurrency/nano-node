@@ -16,6 +16,22 @@
 
 using namespace std::chrono_literals;
 
+/**
+ * function to count the block in the pruned store one by one
+ * we manually count the blocks one by one because the rocksdb count feature is not accurate
+ */
+size_t manually_count_pruned_blocks (nano::store & store)
+{
+	size_t count = 0;
+	auto transaction = store.tx_begin_read ();
+	auto i = store.pruned.begin (transaction);
+	for (; i != store.pruned.end (); ++i)
+	{
+		++count;
+	}
+	return count;
+}
+
 TEST (system, generate_mass_activity)
 {
 	nano::system system;
@@ -423,12 +439,19 @@ TEST (store, vote_load)
 	}
 }
 
+/**
+ * This test does the following:
+ *   Creates a persistent database in the file system
+ *   Adds 2 million random blocks to the database in chunks of 20 blocks per database transaction
+ *   It then deletes half the blocks, soon after adding them
+ *   Then it closes the database, reopens the database and checks that it still has the expected amount of blocks
+ */
 TEST (store, pruned_load)
 {
 	nano::logger_mt logger;
 	auto path (nano::unique_path ());
 	constexpr auto num_pruned = 2000000;
-	auto const expected_result = nano::rocksdb_config::using_rocksdb_in_tests () ? num_pruned : num_pruned / 2;
+	auto const expected_result = num_pruned / 2;
 	constexpr auto batch_size = 20;
 	boost::unordered_set<nano::block_hash> hashes;
 	{
@@ -437,6 +460,7 @@ TEST (store, pruned_load)
 		for (auto i (0); i < num_pruned / batch_size; ++i)
 		{
 			{
+				// write a batch of random blocks to the pruned store
 				auto transaction (store->tx_begin_write ());
 				for (auto k (0); k < batch_size; ++k)
 				{
@@ -446,8 +470,8 @@ TEST (store, pruned_load)
 					hashes.insert (random_hash);
 				}
 			}
-			if (!nano::rocksdb_config::using_rocksdb_in_tests ())
 			{
+				// delete half of the blocks created above
 				auto transaction (store->tx_begin_write ());
 				for (auto k (0); !hashes.empty () && k < batch_size / 2; ++k)
 				{
@@ -457,15 +481,14 @@ TEST (store, pruned_load)
 				}
 			}
 		}
-		auto transaction (store->tx_begin_read ());
-		ASSERT_EQ (expected_result, store->pruned.count (transaction));
+		ASSERT_EQ (expected_result, manually_count_pruned_blocks (*store));
 	}
+
 	// Reinitialize store
 	{
 		auto store = nano::make_store (logger, path, nano::dev::constants);
 		ASSERT_FALSE (store->init_error ());
-		auto transaction (store->tx_begin_read ());
-		ASSERT_EQ (expected_result, store->pruned.count (transaction));
+		ASSERT_EQ (expected_result, manually_count_pruned_blocks (*store));
 	}
 }
 
