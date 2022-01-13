@@ -566,8 +566,8 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 		auto block = node->block (last_open_hash);
 		ASSERT_NE (nullptr, block);
 		node->scheduler.manual (block);
-		auto election = node->active.election (block->qualified_root ());
-		ASSERT_NE (nullptr, election);
+		std::shared_ptr<nano::election> election;
+		ASSERT_TIMELY (10s, (election = node->active.election (block->qualified_root ())) != nullptr);
 		election->force_confirm ();
 	}
 
@@ -634,8 +634,8 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	for (auto & open_block : open_blocks)
 	{
 		node->scheduler.manual (open_block);
-		auto election = node->active.election (open_block->qualified_root ());
-		ASSERT_NE (nullptr, election);
+		std::shared_ptr<nano::election> election;
+		ASSERT_TIMELY (10s, (election = node->active.election (open_block->qualified_root ())) != nullptr);
 		election->force_confirm ();
 	}
 
@@ -721,8 +721,8 @@ TEST (confirmation_height, long_chains)
 	// Call block confirm on the existing receive block on the genesis account which will confirm everything underneath on both accounts
 	{
 		node->scheduler.manual (receive1);
-		auto election = node->active.election (receive1->qualified_root ());
-		ASSERT_NE (nullptr, election);
+		std::shared_ptr<nano::election> election;
+		ASSERT_TIMELY (10s, (election = node->active.election (receive1->qualified_root ())) != nullptr);
 		election->force_confirm ();
 	}
 
@@ -917,8 +917,8 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 	for (auto & open_block : open_blocks)
 	{
 		node->block_confirm (open_block);
-		auto election = node->active.election (open_block->qualified_root ());
-		ASSERT_NE (nullptr, election);
+		std::shared_ptr<nano::election> election;
+		ASSERT_TIMELY (10s, (election = node->active.election (open_block->qualified_root ())) != nullptr);
 		election->force_confirm ();
 	}
 
@@ -1879,8 +1879,8 @@ TEST (node, wallet_create_block_confirm_conflicts)
 		{
 			auto block = node->store.block.get (node->store.tx_begin_read (), latest);
 			node->scheduler.manual (block);
-			auto election = node->active.election (block->qualified_root ());
-			ASSERT_NE (nullptr, election);
+			std::shared_ptr<nano::election> election;
+			ASSERT_TIMELY (10s, (election = node->active.election (block->qualified_root ())) != nullptr);
 			election->force_confirm ();
 		}
 
