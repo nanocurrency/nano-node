@@ -2855,42 +2855,36 @@ TEST (node, local_votes_cache_fork)
 	ASSERT_TIMELY (5s, node2.ledger.block_or_pruned_exists (send1->hash ()));
 }
 
+// This test ensures votes are rebroadcast by observing a vote move from one node to another.
+// Neither node has a representative key which prevents any node from generating the vote in the background
+// A vote is manually constructed and inserted in to one node. The rebroadcast is indirectly inferred from confirmation on the second node
+
 TEST (node, vote_republish)
 {
-	nano::system system (2);
-	auto & node1 (*system.nodes[0]);
-	auto & node2 (*system.nodes[1]);
-	nano::keypair key2;
-	// by not setting a private key on node1's wallet, it is stopped from voting
-	system.wallet (1)->insert_adhoc (key2.prv);
+	nano::system system{ 2 };
+	auto & node1 = *system.nodes[0];
+	auto & node2 = *system.nodes[1];
 	nano::send_block_builder builder;
-	auto send1 = builder.make_block ()
-				 .previous (nano::dev::genesis->hash ())
-				 .destination (key2.pub)
-				 .balance (std::numeric_limits<nano::uint128_t>::max () - node1.config.receive_minimum.number ())
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
-	auto send2 = builder.make_block ()
-				 .previous (nano::dev::genesis->hash ())
-				 .destination (key2.pub)
-				 .balance (std::numeric_limits<nano::uint128_t>::max () - node1.config.receive_minimum.number () * 2)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
-	node1.process_active (send1);
-	ASSERT_TIMELY (5s, node2.block (send1->hash ()));
-	node1.process_active (send2);
-	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, send2));
-	ASSERT_TRUE (node1.active.active (*send1));
-	ASSERT_TIMELY (10s, node2.active.active (*send1));
+	auto send = nano::state_block_builder{}
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (std::numeric_limits<nano::uint128_t>::max () - node1.config.receive_minimum.number ())
+				.link (nano::dev::genesis_key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build_shared ();
+	// Inject block on node1
+	node1.process_active (send);
+	// Observe it has migrated to node2
+	ASSERT_TIMELY (5s, node2.block (send->hash ()));
+	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, send);
+	ASSERT_TIMELY (5s, node1.active.active (*send));
+	ASSERT_TIMELY (5s, node2.active.active (*send));
+	// Both nodes have active elections for send1 i.e. they're waiting for votes
+	// Inject vote in to node1, observe it has caused confirmation on node2
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::channel_loopback> (node1));
-	ASSERT_TIMELY (10s, node1.block (send2->hash ()));
-	ASSERT_TIMELY (10s, node2.block (send2->hash ()));
-	ASSERT_FALSE (node1.block (send1->hash ()));
-	ASSERT_FALSE (node2.block (send1->hash ()));
-	ASSERT_TIMELY (10s, node2.balance (key2.pub) == node1.config.receive_minimum.number () * 2);
-	ASSERT_TIMELY (10s, node1.balance (key2.pub) == node1.config.receive_minimum.number () * 2);
+	ASSERT_TIMELY (5s, node2.block_confirmed (send->hash ()));
 }
 
 TEST (node, vote_by_hash_bundle)
