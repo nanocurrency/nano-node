@@ -30,3 +30,11 @@ jobs:
             cmake-format
       - name: Check cmake-format
         run: ci/cmake-format-check.sh
+
+  code_inspector:
+    runs-on: ubuntu-20.04
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    steps:
+      - uses: actions/checkout@50fbc622fc4ef5163becd7fab6573eac35f8462e
+      - name: Run code-inspector
+        run: ci/code-inspector-check.sh
