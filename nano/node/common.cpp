@@ -1303,6 +1303,15 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, boo
 	return json.get_error ();
 }
 
+std::string nano::telemetry_data::to_string () const
+{
+	nano::jsonconfig jc;
+	serialize_json (jc, true);
+	std::stringstream ss;
+	jc.write (ss);
+	return ss.str ();
+}
+
 bool nano::telemetry_data::operator== (nano::telemetry_data const & data_a) const
 {
 	return (signature == data_a.signature && node_id == data_a.node_id && block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version == data_a.protocol_version && genesis_block == data_a.genesis_block && major_version == data_a.major_version && minor_version == data_a.minor_version && patch_version == data_a.patch_version && pre_release_version == data_a.pre_release_version && maker == data_a.maker && timestamp == data_a.timestamp && active_difficulty == data_a.active_difficulty && unknown_data == data_a.unknown_data);
