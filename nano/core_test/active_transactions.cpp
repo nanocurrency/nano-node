@@ -51,7 +51,7 @@ TEST (active_transactions, confirm_active)
 	// auto const confirm_req_count = election->confirmation_request_count.load();
 	// ASSERT_NE(confirm_req_count, 0);
 
-    // Confirm block for node1 for final vote generation
+	// Confirm block for node1 for final vote generation
 	node1.confirmation_height_processor.add (send1);
 	ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
 
