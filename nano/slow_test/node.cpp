@@ -1375,7 +1375,17 @@ TEST (telemetry, under_load)
 	}
 }
 
-TEST (telemetry, all_peers_use_single_request_cache)
+/**
+ * This test checks that the telemetry cached data is consistent and that it timeouts when it should.
+ * It does the following:
+ * It disables ongoing telemetry requests and creates 2 nodes, client and server.
+ * The client node sends a manual telemetry req to the server node and waits for the telemetry reply.
+ * The telemetry reply is saved in the callback and then it is also requested via nano::telemetry::get_metrics().
+ * The 2 telemetry data obtained by the 2 different methods are checked that they are the same.
+ * Then the test idles until the telemetry data timeouts from the cache.
+ * Then the manual req and reply process is repeated and checked.
+ */
+TEST (telemetry, cache_read_and_timeout)
 {
 	nano::system system;
 	nano::node_flags node_flags;
@@ -1395,11 +1405,11 @@ TEST (telemetry, all_peers_use_single_request_cache)
 			telemetry_data = response_a.telemetry_data;
 			done = true;
 		});
-
 		ASSERT_TIMELY (10s, done);
 	}
 
 	auto responses = node_client->telemetry->get_metrics ();
+	ASSERT_TRUE (!responses.empty ());
 	ASSERT_EQ (telemetry_data, responses.begin ()->second);
 
 	// Confirm only 1 request was made
@@ -1410,12 +1420,14 @@ TEST (telemetry, all_peers_use_single_request_cache)
 	ASSERT_EQ (1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
 	ASSERT_EQ (0, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::out));
 
-	std::this_thread::sleep_for (node_server->telemetry->cache_plus_buffer_cutoff_time ());
+	// wait until the telemetry data times out
+	ASSERT_TIMELY (node_server->telemetry->cache_plus_buffer_cutoff_time (), node_client->telemetry->get_metrics ().empty ());
 
-	// Should be empty
+	// the telemetry data cache should be empty now
 	responses = node_client->telemetry->get_metrics ();
 	ASSERT_TRUE (responses.empty ());
 
+	// Request telemetry metrics again
 	{
 		std::atomic<bool> done{ false };
 		auto channel = node_client->network.find_channel (node_server->network.endpoint ());
@@ -1423,11 +1435,11 @@ TEST (telemetry, all_peers_use_single_request_cache)
 			telemetry_data = response_a.telemetry_data;
 			done = true;
 		});
-
 		ASSERT_TIMELY (10s, done);
 	}
 
 	responses = node_client->telemetry->get_metrics ();
+	ASSERT_TRUE (!responses.empty ());
 	ASSERT_EQ (telemetry_data, responses.begin ()->second);
 
 	ASSERT_EQ (2, node_client->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in));
