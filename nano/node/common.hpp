@@ -40,6 +40,7 @@ template <std::size_t size>
 struct endpoint_hash
 {
 };
+
 template <>
 struct endpoint_hash<8>
 {
@@ -52,6 +53,7 @@ struct endpoint_hash<8>
 		return endpoint_hash_raw (endpoint_a);
 	}
 };
+
 template <>
 struct endpoint_hash<4>
 {
@@ -68,10 +70,12 @@ struct endpoint_hash<4>
 		return result;
 	}
 };
+
 template <std::size_t size>
 struct ip_address_hash
 {
 };
+
 template <>
 struct ip_address_hash<8>
 {
@@ -80,6 +84,7 @@ struct ip_address_hash<8>
 		return nano::ip_address_hash_raw (ip_address_a);
 	}
 };
+
 template <>
 struct ip_address_hash<4>
 {
@@ -103,6 +108,7 @@ struct hash<::nano::endpoint>
 		return ehash (endpoint_a);
 	}
 };
+
 template <>
 struct hash<::nano::tcp_endpoint>
 {
@@ -112,6 +118,7 @@ struct hash<::nano::tcp_endpoint>
 		return ehash (endpoint_a);
 	}
 };
+
 #ifndef BOOST_ASIO_HAS_STD_HASH
 template <>
 struct hash<boost::asio::ip::address>
@@ -124,6 +131,7 @@ struct hash<boost::asio::ip::address>
 };
 #endif
 }
+
 namespace boost
 {
 template <>
@@ -135,6 +143,7 @@ struct hash<::nano::endpoint>
 		return hash (endpoint_a);
 	}
 };
+
 template <>
 struct hash<::nano::tcp_endpoint>
 {
@@ -144,6 +153,7 @@ struct hash<::nano::tcp_endpoint>
 		return hash (endpoint_a);
 	}
 };
+
 template <>
 struct hash<boost::asio::ip::address>
 {
@@ -185,6 +195,7 @@ enum class bulk_pull_account_flags : uint8_t
 	pending_address_only = 0x1,
 	pending_hash_amount_and_address = 0x2
 };
+
 class message_visitor;
 class message_header final
 {
@@ -224,6 +235,7 @@ public:
 	static std::bitset<16> constexpr count_mask{ 0xf000 };
 	static std::bitset<16> constexpr telemetry_size_mask{ 0x3ff };
 };
+
 class message
 {
 public:
@@ -237,6 +249,7 @@ public:
 
 	nano::message_header header;
 };
+
 class work_pool;
 class network_constants;
 class message_parser final
@@ -278,6 +291,7 @@ public:
 	std::string status_string ();
 	static std::size_t const max_safe_udp_message_size;
 };
+
 class keepalive final : public message
 {
 public:
@@ -290,6 +304,7 @@ public:
 	std::array<nano::endpoint, 8> peers;
 	static std::size_t constexpr size = 8 * (16 + 2);
 };
+
 class publish final : public message
 {
 public:
@@ -302,6 +317,7 @@ public:
 	std::shared_ptr<nano::block> block;
 	nano::uint128_t digest{ 0 };
 };
+
 class confirm_req final : public message
 {
 public:
@@ -318,6 +334,7 @@ public:
 	std::string roots_string () const;
 	static std::size_t size (nano::block_type, std::size_t = 0);
 };
+
 class confirm_ack final : public message
 {
 public:
@@ -329,6 +346,7 @@ public:
 	std::shared_ptr<nano::vote> vote;
 	static std::size_t size (nano::block_type, std::size_t = 0);
 };
+
 class frontier_req final : public message
 {
 public:
@@ -381,6 +399,7 @@ public:
 	bool validate_signature () const;
 	bool operator== (nano::telemetry_data const &) const;
 	bool operator!= (nano::telemetry_data const &) const;
+	std::string to_string () const;
 
 	// Size does not include unknown_data
 	static auto constexpr size = sizeof (signature) + sizeof (node_id) + sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version) + sizeof (minor_version) + sizeof (patch_version) + sizeof (pre_release_version) + sizeof (maker) + sizeof (uint64_t) + sizeof (active_difficulty);
@@ -388,6 +407,7 @@ public:
 private:
 	void serialize_without_signature (nano::stream &) const;
 };
+
 class telemetry_req final : public message
 {
 public:
@@ -397,6 +417,7 @@ public:
 	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
 };
+
 class telemetry_ack final : public message
 {
 public:
@@ -430,6 +451,7 @@ public:
 	static std::size_t constexpr extended_parameters_size = 8;
 	static std::size_t constexpr size = sizeof (start) + sizeof (end);
 };
+
 class bulk_pull_account final : public message
 {
 public:
@@ -443,6 +465,7 @@ public:
 	bulk_pull_account_flags flags;
 	static std::size_t constexpr size = sizeof (account) + sizeof (minimum_amount) + sizeof (bulk_pull_account_flags);
 };
+
 class bulk_push final : public message
 {
 public:
@@ -452,6 +475,7 @@ public:
 	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
 };
+
 class node_id_handshake final : public message
 {
 public:
@@ -466,6 +490,7 @@ public:
 	std::size_t size () const;
 	static std::size_t size (nano::message_header const &);
 };
+
 class message_visitor
 {
 public:
