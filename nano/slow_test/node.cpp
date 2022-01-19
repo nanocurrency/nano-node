@@ -16,6 +16,22 @@
 
 using namespace std::chrono_literals;
 
+/**
+ * function to count the block in the pruned store one by one
+ * we manually count the blocks one by one because the rocksdb count feature is not accurate
+ */
+size_t manually_count_pruned_blocks (nano::store & store)
+{
+	size_t count = 0;
+	auto transaction = store.tx_begin_read ();
+	auto i = store.pruned.begin (transaction);
+	for (; i != store.pruned.end (); ++i)
+	{
+		++count;
+	}
+	return count;
+}
+
 TEST (system, generate_mass_activity)
 {
 	nano::system system;
@@ -423,12 +439,19 @@ TEST (store, vote_load)
 	}
 }
 
+/**
+ * This test does the following:
+ *   Creates a persistent database in the file system
+ *   Adds 2 million random blocks to the database in chunks of 20 blocks per database transaction
+ *   It then deletes half the blocks, soon after adding them
+ *   Then it closes the database, reopens the database and checks that it still has the expected amount of blocks
+ */
 TEST (store, pruned_load)
 {
 	nano::logger_mt logger;
 	auto path (nano::unique_path ());
 	constexpr auto num_pruned = 2000000;
-	auto const expected_result = nano::rocksdb_config::using_rocksdb_in_tests () ? num_pruned : num_pruned / 2;
+	auto const expected_result = num_pruned / 2;
 	constexpr auto batch_size = 20;
 	boost::unordered_set<nano::block_hash> hashes;
 	{
@@ -437,18 +460,20 @@ TEST (store, pruned_load)
 		for (auto i (0); i < num_pruned / batch_size; ++i)
 		{
 			{
+				// write a batch of random blocks to the pruned store
 				auto transaction (store->tx_begin_write ());
 				for (auto k (0); k < batch_size; ++k)
 				{
 					nano::block_hash random_hash;
 					nano::random_pool::generate_block (random_hash.bytes.data (), random_hash.bytes.size ());
 					store->pruned.put (transaction, random_hash);
+					hashes.insert (random_hash);
 				}
 			}
-			if (!nano::rocksdb_config::using_rocksdb_in_tests ())
 			{
+				// delete half of the blocks created above
 				auto transaction (store->tx_begin_write ());
-				for (auto k (0); k < batch_size / 2; ++k)
+				for (auto k (0); !hashes.empty () && k < batch_size / 2; ++k)
 				{
 					auto hash (hashes.begin ());
 					store->pruned.del (transaction, *hash);
@@ -456,15 +481,14 @@ TEST (store, pruned_load)
 				}
 			}
 		}
-		auto transaction (store->tx_begin_read ());
-		ASSERT_EQ (expected_result, store->pruned.count (transaction));
+		ASSERT_EQ (expected_result, manually_count_pruned_blocks (*store));
 	}
+
 	// Reinitialize store
 	{
 		auto store = nano::make_store (logger, path, nano::dev::constants);
 		ASSERT_FALSE (store->init_error ());
-		auto transaction (store->tx_begin_read ());
-		ASSERT_EQ (expected_result, store->pruned.count (transaction));
+		ASSERT_EQ (expected_result, manually_count_pruned_blocks (*store));
 	}
 }
 
@@ -542,8 +566,8 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 		auto block = node->block (last_open_hash);
 		ASSERT_NE (nullptr, block);
 		node->scheduler.manual (block);
-		auto election = node->active.election (block->qualified_root ());
-		ASSERT_NE (nullptr, election);
+		std::shared_ptr<nano::election> election;
+		ASSERT_TIMELY (10s, (election = node->active.election (block->qualified_root ())) != nullptr);
 		election->force_confirm ();
 	}
 
@@ -610,8 +634,8 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	for (auto & open_block : open_blocks)
 	{
 		node->scheduler.manual (open_block);
-		auto election = node->active.election (open_block->qualified_root ());
-		ASSERT_NE (nullptr, election);
+		std::shared_ptr<nano::election> election;
+		ASSERT_TIMELY (10s, (election = node->active.election (open_block->qualified_root ())) != nullptr);
 		election->force_confirm ();
 	}
 
@@ -697,8 +721,8 @@ TEST (confirmation_height, long_chains)
 	// Call block confirm on the existing receive block on the genesis account which will confirm everything underneath on both accounts
 	{
 		node->scheduler.manual (receive1);
-		auto election = node->active.election (receive1->qualified_root ());
-		ASSERT_NE (nullptr, election);
+		std::shared_ptr<nano::election> election;
+		ASSERT_TIMELY (10s, (election = node->active.election (receive1->qualified_root ())) != nullptr);
 		election->force_confirm ();
 	}
 
@@ -893,8 +917,8 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 	for (auto & open_block : open_blocks)
 	{
 		node->block_confirm (open_block);
-		auto election = node->active.election (open_block->qualified_root ());
-		ASSERT_NE (nullptr, election);
+		std::shared_ptr<nano::election> election;
+		ASSERT_TIMELY (10s, (election = node->active.election (open_block->qualified_root ())) != nullptr);
 		election->force_confirm ();
 	}
 
@@ -1351,7 +1375,17 @@ TEST (telemetry, under_load)
 	}
 }
 
-TEST (telemetry, all_peers_use_single_request_cache)
+/**
+ * This test checks that the telemetry cached data is consistent and that it timeouts when it should.
+ * It does the following:
+ * It disables ongoing telemetry requests and creates 2 nodes, client and server.
+ * The client node sends a manual telemetry req to the server node and waits for the telemetry reply.
+ * The telemetry reply is saved in the callback and then it is also requested via nano::telemetry::get_metrics().
+ * The 2 telemetry data obtained by the 2 different methods are checked that they are the same.
+ * Then the test idles until the telemetry data timeouts from the cache.
+ * Then the manual req and reply process is repeated and checked.
+ */
+TEST (telemetry, cache_read_and_timeout)
 {
 	nano::system system;
 	nano::node_flags node_flags;
@@ -1371,11 +1405,11 @@ TEST (telemetry, all_peers_use_single_request_cache)
 			telemetry_data = response_a.telemetry_data;
 			done = true;
 		});
-
 		ASSERT_TIMELY (10s, done);
 	}
 
 	auto responses = node_client->telemetry->get_metrics ();
+	ASSERT_TRUE (!responses.empty ());
 	ASSERT_EQ (telemetry_data, responses.begin ()->second);
 
 	// Confirm only 1 request was made
@@ -1386,12 +1420,14 @@ TEST (telemetry, all_peers_use_single_request_cache)
 	ASSERT_EQ (1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
 	ASSERT_EQ (0, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::out));
 
-	std::this_thread::sleep_for (node_server->telemetry->cache_plus_buffer_cutoff_time ());
+	// wait until the telemetry data times out
+	ASSERT_TIMELY (node_server->telemetry->cache_plus_buffer_cutoff_time (), node_client->telemetry->get_metrics ().empty ());
 
-	// Should be empty
+	// the telemetry data cache should be empty now
 	responses = node_client->telemetry->get_metrics ();
 	ASSERT_TRUE (responses.empty ());
 
+	// Request telemetry metrics again
 	{
 		std::atomic<bool> done{ false };
 		auto channel = node_client->network.find_channel (node_server->network.endpoint ());
@@ -1399,11 +1435,11 @@ TEST (telemetry, all_peers_use_single_request_cache)
 			telemetry_data = response_a.telemetry_data;
 			done = true;
 		});
-
 		ASSERT_TIMELY (10s, done);
 	}
 
 	responses = node_client->telemetry->get_metrics ();
+	ASSERT_TRUE (!responses.empty ());
 	ASSERT_EQ (telemetry_data, responses.begin ()->second);
 
 	ASSERT_EQ (2, node_client->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in));
@@ -1855,8 +1891,8 @@ TEST (node, wallet_create_block_confirm_conflicts)
 		{
 			auto block = node->store.block.get (node->store.tx_begin_read (), latest);
 			node->scheduler.manual (block);
-			auto election = node->active.election (block->qualified_root ());
-			ASSERT_NE (nullptr, election);
+			std::shared_ptr<nano::election> election;
+			ASSERT_TIMELY (10s, (election = node->active.election (block->qualified_root ())) != nullptr);
 			election->force_confirm ();
 		}
 

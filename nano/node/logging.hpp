@@ -33,15 +33,11 @@ namespace filesystem
 namespace nano
 {
 class tomlconfig;
-class jsonconfig;
 class logging final
 {
 public:
-	nano::error serialize_json (nano::jsonconfig &) const;
-	nano::error deserialize_json (bool &, nano::jsonconfig &);
 	nano::error serialize_toml (nano::tomlconfig &) const;
 	nano::error deserialize_toml (nano::tomlconfig &);
-	bool upgrade_json (unsigned, nano::jsonconfig &);
 	bool ledger_logging () const;
 	bool ledger_duplicate_logging () const;
 	bool ledger_rollback_logging () const;
@@ -103,10 +99,6 @@ public:
 	std::chrono::milliseconds min_time_between_log_output{ 5 };
 	bool single_line_record_value{ false };
 	static void release_file_sink ();
-	unsigned json_version () const
-	{
-		return 8;
-	}
 
 private:
 	static boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_file_backend>> file_sink;
