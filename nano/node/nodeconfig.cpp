@@ -21,11 +21,11 @@ std::string const default_test_peer_network = nano::get_env_or_default ("NANO_DE
 }
 
 nano::node_config::node_config (nano::network_params & network_params) :
-	node_config (0, nano::logging (), network_params)
+	node_config (std::nullopt, nano::logging (), network_params)
 {
 }
 
-nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a, nano::network_params & network_params) :
+nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, nano::logging const & logging_a, nano::network_params & network_params) :
 	network_params{ network_params },
 	peering_port{ peering_port_a },
 	logging{ logging_a },
@@ -81,7 +81,11 @@ nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & l
 
 nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 {
-	toml.put ("peering_port", peering_port, "Node peering port.\ntype:uint16");
+	if (peering_port.has_value ())
+	{
+		toml.put ("peering_port", *peering_port, "Node peering port.\ntype:uint16");
+	}
+
 	toml.put ("bootstrap_fraction_numerator", bootstrap_fraction_numerator, "Change bootstrap threshold (online stake / 256 * bootstrap_fraction_numerator).\ntype:uint32");
 	toml.put ("receive_minimum", receive_minimum.to_string_dec (), "Minimum receive amount. Only affects node wallets. A large amount is recommended to avoid automatic work generation for tiny transactions.\ntype:string,amount,raw");
 	toml.put ("online_weight_minimum", online_weight_minimum.to_string_dec (), "When calculating online weight, the node is forced to assume at least this much voting weight is online, thus setting a floor for voting weight to confirm transactions at online_weight_minimum * \"quorum delta\".\ntype:string,amount,raw");
@@ -316,7 +320,13 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get ("tcp_io_timeout", tcp_io_timeout_l);
 		tcp_io_timeout = std::chrono::seconds (tcp_io_timeout_l);
 
-		toml.get<uint16_t> ("peering_port", peering_port);
+		if (toml.has_key ("peering_port"))
+		{
+			std::uint16_t peering_port_l{};
+			toml.get_required<uint16_t> ("peering_port", peering_port_l);
+			peering_port = peering_port_l;
+		}
+
 		toml.get<unsigned> ("bootstrap_fraction_numerator", bootstrap_fraction_numerator);
 		toml.get<unsigned> ("election_hint_weight_percent", election_hint_weight_percent);
 		toml.get<unsigned> ("password_fanout", password_fanout);
