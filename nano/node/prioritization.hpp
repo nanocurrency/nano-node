@@ -40,5 +40,8 @@ public:
 	bool empty () const;
 	void dump ();
 	uint64_t const maximum;
+
+	friend std::unique_ptr<container_info_component> collect_container_info (prioritization &, std::string const &);
 };
+std::unique_ptr<container_info_component> collect_container_info (prioritization & prioritization, std::string const & name);
 }

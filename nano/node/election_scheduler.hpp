@@ -46,5 +46,8 @@ private:
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
 	std::thread thread;
+
+	friend std::unique_ptr<container_info_component> collect_container_info (election_scheduler &, std::string const &);
 };
+std::unique_ptr<container_info_component> collect_container_info (election_scheduler & election_scheduler, std::string const & name);
 }
