@@ -166,6 +166,7 @@ nano::error nano::logging::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("upnp_details", upnp_details_logging_value, "Log UPNP discovery details..\nWarning: this may include information.\nabout discovered devices, such as product identification. Please review before sharing logs.\ntype:bool");
 	toml.put ("timing", timing_logging_value, "Log detailed timing information for various node operations.\ntype:bool");
 	toml.put ("active_update", active_update_value, "Log when a block is updated while in active transactions.\ntype:bool");
+	toml.put ("election_result", election_result_logging_value, "Log election result when cleaning up election from active election container.\ntype:bool");
 	toml.put ("log_to_cerr", log_to_cerr_value, "Log to standard error in addition to the log file. Not recommended for production systems.\ntype:bool");
 	toml.put ("max_size", max_size, "Maximum log file size in bytes.\ntype:uint64");
 	toml.put ("rotation_size", rotation_size, "Log file rotation size in character count.\ntype:uint64");
@@ -203,6 +204,7 @@ nano::error nano::logging::deserialize_toml (nano::tomlconfig & toml)
 	toml.get<bool> ("upnp_details", upnp_details_logging_value);
 	toml.get<bool> ("timing", timing_logging_value);
 	toml.get<bool> ("active_update", active_update_value);
+	toml.get<bool> ("election_result", election_result_logging_value);
 	toml.get<bool> ("log_to_cerr", log_to_cerr_value);
 	toml.get<bool> ("flush", flush);
 	toml.get<bool> ("single_line_record", single_line_record_value);
@@ -339,6 +341,11 @@ bool nano::logging::timing_logging () const
 bool nano::logging::active_update_logging () const
 {
 	return active_update_value;
+}
+
+bool nano::logging::election_result_logging () const
+{
+	return election_result_logging_value;
 }
 
 bool nano::logging::log_to_cerr () const

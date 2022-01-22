@@ -323,6 +323,8 @@ public:
 		election_drop_overflow,
 		election_drop_all,
 		election_restart,
+		election_confirmed,
+		election_not_confirmed,
 
 		// udp
 		blocking,

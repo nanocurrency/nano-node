@@ -381,7 +381,12 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 			node.network.publish_filter.clear (block);
 		}
 	}
-	node.logger.try_log (boost::str (boost::format ("Election erased for root %1%, confirmed: %2$b") % election.qualified_root.to_string () % election.confirmed ()));
+
+	node.stats.inc (nano::stat::type::election, election.confirmed () ? nano::stat::detail::election_confirmed : nano::stat::detail::election_not_confirmed);
+	if (node.config.logging.election_result_logging ())
+	{
+		node.logger.try_log (boost::str (boost::format ("Election erased for root %1%, confirmed: %2$b") % election.qualified_root.to_string () % election.confirmed ()));
+	}
 }
 
 std::vector<std::shared_ptr<nano::election>> nano::active_transactions::list_active (std::size_t max_a)
