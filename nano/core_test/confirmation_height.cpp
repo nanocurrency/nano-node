@@ -639,7 +639,7 @@ TEST (confirmation_height, all_block_types)
 	test_mode (nano::confirmation_height_mode::unbounded);
 }
 
-/* Bulk of the this test was taken from the node.fork_flip test */
+// Test ensuring that attempting to roll back a confirmed block with both fail and also be logged to the log file
 TEST (confirmation_height, conflict_rollback_cemented)
 {
 	auto test_mode = [] (nano::confirmation_height_mode mode_a) {
@@ -650,52 +650,35 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
 		auto node1 = system.add_node (node_flags);
-		auto node2 = system.add_node (node_flags);
-		ASSERT_EQ (1, node1->network.size ());
 		nano::keypair key1;
-		auto send1 (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
-		nano::publish publish1{ nano::dev::network_params.network, send1 };
+		auto send1 = nano::state_block_builder ()
+					.account (nano::dev::genesis_key.pub)
+					.previous (nano::dev::genesis->hash ())
+					.representative (nano::dev::genesis_key.pub)
+					.balance (nano::dev::constants.genesis_amount - 100)
+					.link (key1.pub)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (nano::dev::genesis->hash ()))
+					.build_shared ();
 		nano::keypair key2;
-		auto send2 (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key2.pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
-		nano::publish publish2{ nano::dev::network_params.network, send2 };
-		auto channel1 (node1->network.udp_channels.create (node1->network.endpoint ()));
-		node1->network.inbound (publish1, channel1);
-		node1->block_processor.flush ();
-		node1->scheduler.flush ();
-		auto channel2 (node2->network.udp_channels.create (node1->network.endpoint ()));
-		node2->network.inbound (publish2, channel2);
-		node2->block_processor.flush ();
-		node2->scheduler.flush ();
-		ASSERT_EQ (1, node1->active.size ());
-		ASSERT_EQ (1, node2->active.size ());
-		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-		node1->network.inbound (publish2, channel1);
-		node1->block_processor.flush ();
-		node2->network.inbound (publish1, channel2);
-		node2->block_processor.flush ();
-		auto election (node2->active.election (nano::qualified_root (nano::dev::genesis->hash (), nano::dev::genesis->hash ())));
-		ASSERT_NE (nullptr, election);
-		ASSERT_EQ (1, election->votes ().size ());
-		// Force blocks to be cemented on both nodes
-		{
-			auto transaction (node1->store.tx_begin_write ());
-			ASSERT_TRUE (node1->store.block.exists (transaction, publish1.block->hash ()));
-			node1->store.confirmation_height.put (transaction, nano::dev::genesis->account (), nano::confirmation_height_info{ 2, send2->hash () });
-		}
-		{
-			auto transaction (node2->store.tx_begin_write ());
-			ASSERT_TRUE (node2->store.block.exists (transaction, publish2.block->hash ()));
-			node2->store.confirmation_height.put (transaction, nano::dev::genesis->account (), nano::confirmation_height_info{ 2, send2->hash () });
-		}
+		auto send2 = nano::state_block_builder ()
+					.account (nano::dev::genesis_key.pub)
+					.previous (nano::dev::genesis->hash ())
+					.representative (nano::dev::genesis_key.pub)
+					.balance (nano::dev::constants.genesis_amount - 100)
+					.link (key2.pub)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (nano::dev::genesis->hash ()))
+					.build_shared ();
+		ASSERT_EQ (nano::process_result::progress, node1->ledger.process (node1->store.tx_begin_write (), *send1).code);
+		node1->process_confirmed (nano::election_status{ send1 });
+		ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()));
+		node1->block_processor.force (send2);
 
-		auto rollback_log_entry = boost::str (boost::format ("Failed to roll back %1%") % send2->hash ().to_string ());
+		auto rollback_log_entry = boost::str (boost::format ("Failed to roll back %1%") % send1->hash ().to_string ());
 		ASSERT_TIMELY (20s, sb.component ()->str ().find (rollback_log_entry) != std::string::npos);
-		auto winner (*election->tally ().begin ());
-		ASSERT_EQ (*publish1.block, *winner.second);
-		ASSERT_EQ (nano::dev::constants.genesis_amount - 100, winner.first);
-		ASSERT_TRUE (node1->ledger.block_or_pruned_exists (publish1.block->hash ()));
-		ASSERT_TRUE (node2->ledger.block_or_pruned_exists (publish2.block->hash ()));
-		ASSERT_FALSE (node2->ledger.block_or_pruned_exists (publish1.block->hash ()));
+		ASSERT_TRUE (node1->ledger.block_or_pruned_exists (send1->hash ()));
+		ASSERT_FALSE (node1->ledger.block_or_pruned_exists (send2->hash ()));
 	};
 
 	test_mode (nano::confirmation_height_mode::bounded);

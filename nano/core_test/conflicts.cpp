@@ -49,7 +49,7 @@ TEST (conflicts, add_existing)
 	ASSERT_NE (votes.end (), votes.find (key2.pub));
 }
 
-TEST (conflicts, add_two)
+TEST (conflicts, DISABLED_add_two)
 {
 	nano::system system{};
 	auto const & node = system.add_node ();

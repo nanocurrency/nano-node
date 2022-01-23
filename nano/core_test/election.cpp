@@ -47,19 +47,13 @@ TEST (election, quorum_minimum_flip_success)
 				 .build_shared ();
 	node1.work_generate_blocking (*send2);
 	node1.process_active (send1);
-	node1.block_processor.flush ();
-	node1.scheduler.flush ();
+	std::shared_ptr<nano::election> election;
+	ASSERT_TIMELY (5s, (election = node1.active.election (send1->qualified_root ())) != nullptr);
 	node1.process_active (send2);
-	node1.block_processor.flush ();
-	node1.scheduler.flush ();
-	auto election = node1.active.election (send1->qualified_root ());
-	ASSERT_NE (nullptr, election);
-	ASSERT_EQ (2, election->blocks ().size ());
-	auto vote1 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, send2));
+	ASSERT_TIMELY (5s, election->blocks ().size () == 2);
+	auto vote1 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, send2);
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
-	node1.block_processor.flush ();
-	ASSERT_NE (nullptr, node1.block (send2->hash ()));
-	ASSERT_TRUE (election->confirmed ());
+	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
 }
 
 TEST (election, quorum_minimum_flip_fail)
@@ -93,19 +87,14 @@ TEST (election, quorum_minimum_flip_fail)
 				 .build_shared ();
 	node1.work_generate_blocking (*send2);
 	node1.process_active (send1);
-	node1.block_processor.flush ();
-	node1.scheduler.flush ();
+	std::shared_ptr<nano::election> election;
+	ASSERT_TIMELY (5s, (election = node1.active.election (send1->qualified_root ())) != nullptr);
 	node1.process_active (send2);
-	node1.block_processor.flush ();
-	node1.scheduler.flush ();
-	auto election = node1.active.election (send1->qualified_root ());
-	ASSERT_NE (nullptr, election);
-	ASSERT_EQ (2, election->blocks ().size ());
-	auto vote1 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, send2));
+	ASSERT_TIMELY (5s, election->blocks ().size () == 2);
+	auto vote1 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, send2);
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
-	node1.block_processor.flush ();
-	ASSERT_NE (nullptr, node1.block (send1->hash ()));
-	ASSERT_FALSE (election->confirmed ());
+	ASSERT_TIMELY (5s, node1.block (send1->hash ()) != nullptr);
+	ASSERT_FALSE (node1.block_confirmed (send1->hash ()));
 }
 
 TEST (election, quorum_minimum_confirm_success)
