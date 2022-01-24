@@ -55,7 +55,13 @@ TEST (system, generate_mass_activity_long)
 	auto node = system.add_node (node_config);
 	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	uint32_t count (1000000000);
+	uint32_t count (1000000);
+	auto count_env_var = std::getenv ("SLOW_TEST_SYSTEM_GENERATE_MASS_ACTIVITY_LONG_COUNT");
+	if (count_env_var)
+	{
+		count = boost::lexical_cast<uint32_t> (count_env_var);
+		std::cout << "count override due to env variable set, count=" << count << std::endl;
+	}
 	system.generate_mass_activity (count, *system.nodes[0]);
 	auto transaction (system.nodes[0]->store.tx_begin_read ());
 	for (auto i (system.nodes[0]->store.account.begin (transaction)), n (system.nodes[0]->store.account.end ()); i != n; ++i)
