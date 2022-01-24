@@ -4301,6 +4301,8 @@ TEST (rep_crawler, local)
 }
 }
 
+// Test that a node configured with `enable_pruning` and `max_pruning_age = 1s` will automatically
+// prune old confirmed blocks without explicitly saying `node.ledger_pruning` in the unit test
 TEST (node, pruning_automatic)
 {
 	nano::system system{};
@@ -4355,10 +4357,7 @@ TEST (node, pruning_automatic)
 	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send2->hash ()));
 }
 
-// Test disabled because it's failing intermittently.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3641
-TEST (node, DISABLED_pruning_age)
+TEST (node, pruning_age)
 {
 	nano::system system{};
 
@@ -4419,6 +4418,8 @@ TEST (node, DISABLED_pruning_age)
 	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send2->hash ()));
 }
 
+// Test that a node configured with `enable_pruning` will
+// prune DEEP-enough confirmed blocks by explicitly saying `node.ledger_pruning` in the unit test
 TEST (node, pruning_depth)
 {
 	nano::system system{};
