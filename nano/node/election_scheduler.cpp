@@ -150,12 +150,12 @@ void nano::election_scheduler::run ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (election_scheduler & election_scheduler, std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::election_scheduler::collect_container_info (std::string const & name)
 {
-	nano::unique_lock<nano::mutex> lock{ election_scheduler.mutex };
+	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "manual_queue", election_scheduler.manual_queue.size (), sizeof (decltype (election_scheduler.manual_queue)::value_type) }));
-	composite->add_component (collect_container_info (election_scheduler.priority, "priority"));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "manual_queue", manual_queue.size (), sizeof (decltype (manual_queue)::value_type) }));
+	composite->add_component (priority.collect_container_info ("priority"));
 	return composite;
 }
