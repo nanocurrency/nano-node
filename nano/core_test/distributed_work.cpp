@@ -185,7 +185,10 @@ TEST (distributed_work, peer_malicious)
 	ASSERT_EQ (0, malicious_peer2->cancels);
 }
 
-TEST (distributed_work, peer_multi)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3630
+TEST (distributed_work, DISABLED_peer_multi)
 {
 	nano::system system (1);
 	auto node (system.nodes[0]);

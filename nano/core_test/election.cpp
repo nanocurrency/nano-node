@@ -16,7 +16,10 @@ TEST (election, construction)
 	election->transition_active ();
 }
 
-TEST (election, quorum_minimum_flip_success)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3635
+TEST (election, DISABLED_quorum_minimum_flip_success)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);

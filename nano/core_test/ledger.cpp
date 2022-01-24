@@ -805,7 +805,10 @@ TEST (votes, add_old)
 }
 
 // Lower timestamps are accepted for different accounts
-TEST (votes, add_old_different_account)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3631
+TEST (votes, DISABLED_add_old_different_account)
 {
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);

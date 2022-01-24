@@ -333,7 +333,10 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
 
-TEST (active_transactions, inactive_votes_cache_multiple_votes)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3632
+TEST (active_transactions, DISABLED_inactive_votes_cache_multiple_votes)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
@@ -933,7 +936,10 @@ TEST (active_transactions, confirmation_consistency)
 }
 }
 
-TEST (active_transactions, confirm_new)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3634
+TEST (active_transactions, DISABLED_confirm_new)
 {
 	nano::system system (1);
 	auto & node1 = *system.nodes[0];
