@@ -1,5 +1,6 @@
 #pragma once
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/utility.hpp>
 
 #include <cstddef>
 #include <set>
@@ -40,5 +41,7 @@ public:
 	bool empty () const;
 	void dump ();
 	uint64_t const maximum;
+
+	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const &);
 };
 }

@@ -72,6 +72,7 @@ int main (int argc, char * const * argv)
 		("help", "Print out options")
 		("version", "Prints out version")
 		("config", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
+		("rpcconfig", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass rpc configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
 		("compare_rep_weights", "Display a summarized comparison between the hardcoded bootstrap weights and representative weights from the ledger. Full comparison is output to logs")
 		("debug_block_dump", "Display all the blocks in the ledger in text format")
@@ -437,7 +438,7 @@ int main (int argc, char * const * argv)
 			}
 
 			// Check all unchecked keys for matching frontier hashes. Indicates an issue with process_batch algorithm
-			for (auto [i, n] = node->store.unchecked.full_range (transaction); i != n; ++i)
+			for (auto [i, n] = node->unchecked.full_range (transaction); i != n; ++i)
 			{
 				auto it = frontier_hashes.find (i->first.key ());
 				if (it != frontier_hashes.cend ())
@@ -1003,7 +1004,7 @@ int main (int argc, char * const * argv)
 				if (timer_l.after_deadline (std::chrono::seconds (15)))
 				{
 					timer_l.restart ();
-					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked), %3% remaining") % node->ledger.cache.block_count % node->store.unchecked.count (node->store.tx_begin_read ()) % node->block_processor.size ()) << std::endl;
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked), %3% remaining") % node->ledger.cache.block_count % node->unchecked.count (node->store.tx_begin_read ()) % node->block_processor.size ()) << std::endl;
 				}
 			}
 
@@ -1852,7 +1853,7 @@ int main (int argc, char * const * argv)
 				if (timer_l.after_deadline (std::chrono::seconds (60)))
 				{
 					timer_l.restart ();
-					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked)") % node.node->ledger.cache.block_count % node.node->store.unchecked.count (node.node->store.tx_begin_read ())) << std::endl;
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked)") % node.node->ledger.cache.block_count % node.node->unchecked.count (node.node->store.tx_begin_read ())) << std::endl;
 				}
 			}
 

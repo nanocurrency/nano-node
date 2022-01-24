@@ -345,7 +345,10 @@ TEST (wallet, send_locked)
 	}
 }
 
-TEST (wallet, process_block)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3642
+TEST (wallet, DISABLED_process_block)
 {
 	nano_qt::eventloop_processor processor;
 	nano::system system (1);

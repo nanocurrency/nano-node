@@ -867,7 +867,10 @@ TEST (bootstrap_processor, lazy_max_pull_count)
 	node1->stop ();
 }
 
-TEST (bootstrap_processor, lazy_unclear_state_link)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3640
+TEST (bootstrap_processor, DISABLED_lazy_unclear_state_link)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
@@ -921,11 +924,10 @@ TEST (bootstrap_processor, lazy_unclear_state_link)
 	node2->bootstrap_initiator.bootstrap_lazy (receive->hash ());
 	// Check processed blocks
 	ASSERT_TIMELY (10s, !node2->bootstrap_initiator.in_progress ());
-	node2->block_processor.flush ();
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send2->hash ()));
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (open->hash ()));
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (receive->hash ()));
+	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (send2->hash ()));
+	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (open->hash ()));
+	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (receive->hash ()));
 	ASSERT_EQ (0, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in));
 }
 
@@ -973,10 +975,9 @@ TEST (bootstrap_processor, lazy_unclear_state_link_not_existing)
 	node2->bootstrap_initiator.bootstrap_lazy (send2->hash ());
 	// Check processed blocks
 	ASSERT_TIMELY (15s, !node2->bootstrap_initiator.in_progress ());
-	node2->block_processor.flush ();
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (open->hash ()));
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send2->hash ()));
+	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (open->hash ()));
+	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (send2->hash ()));
 	ASSERT_EQ (1, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in));
 }
 
@@ -1035,7 +1036,6 @@ TEST (bootstrap_processor, DISABLED_lazy_destinations)
 	node2->bootstrap_initiator.bootstrap_lazy (send2->hash ());
 	// Check processed blocks
 	ASSERT_TIMELY (10s, !node2->bootstrap_initiator.in_progress ());
-	node2->block_processor.flush ();
 	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ()));
 	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send2->hash ()));
 	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (open->hash ()));
@@ -1124,7 +1124,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	ASSERT_FALSE (node2->ledger.block_or_pruned_exists (state_open->hash ()));
 	{
 		auto transaction (node2->store.tx_begin_read ());
-		ASSERT_TRUE (node2->store.unchecked.exists (transaction, nano::unchecked_key (send2->root ().as_block_hash (), send2->hash ())));
+		ASSERT_TRUE (node2->unchecked.exists (transaction, nano::unchecked_key (send2->root ().as_block_hash (), send2->hash ())));
 	}
 	// Insert missing block
 	node2->process_active (send1);
@@ -1835,7 +1835,7 @@ TEST (bulk, DISABLED_genesis_pruning)
 	ASSERT_EQ (1, node2->ledger.cache.block_count);
 	{
 		auto transaction (node2->store.tx_begin_write ());
-		node2->store.unchecked.clear (transaction);
+		node2->unchecked.clear (transaction);
 	}
 	// Insert pruned blocks
 	node2->process_active (send1);

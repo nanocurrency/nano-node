@@ -149,3 +149,13 @@ void nano::election_scheduler::run ()
 		}
 	}
 }
+
+std::unique_ptr<nano::container_info_component> nano::election_scheduler::collect_container_info (std::string const & name)
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "manual_queue", manual_queue.size (), sizeof (decltype (manual_queue)::value_type) }));
+	composite->add_component (priority.collect_container_info ("priority"));
+	return composite;
+}

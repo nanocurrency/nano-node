@@ -805,7 +805,10 @@ TEST (votes, add_old)
 }
 
 // Lower timestamps are accepted for different accounts
-TEST (votes, add_old_different_account)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3631
+TEST (votes, DISABLED_add_old_different_account)
 {
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
@@ -2451,11 +2454,11 @@ TEST (ledger, successor_epoch)
 
 TEST (ledger, epoch_open_pending)
 {
-	nano::block_builder builder;
-	nano::system system (1);
-	auto & node1 (*system.nodes[0]);
+	nano::block_builder builder{};
+	nano::system system{ 1 };
+	auto & node1 = *system.nodes[0];
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
-	nano::keypair key1;
+	nano::keypair key1{};
 	auto epoch_open = builder.state ()
 					  .account (key1.pub)
 					  .previous (0)
@@ -2465,14 +2468,15 @@ TEST (ledger, epoch_open_pending)
 					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					  .work (*pool.generate (key1.pub))
 					  .build_shared ();
-	auto process_result (node1.ledger.process (node1.store.tx_begin_write (), *epoch_open));
+	auto process_result = node1.ledger.process (node1.store.tx_begin_write (), *epoch_open);
 	ASSERT_EQ (nano::process_result::gap_epoch_open_pending, process_result.code);
 	ASSERT_EQ (nano::signature_verification::valid_epoch, process_result.verified);
 	node1.block_processor.add (epoch_open);
-	node1.block_processor.flush ();
+	// Waits for the block to get saved in the database
+	ASSERT_TIMELY (10s, 1 == node1.unchecked.count (node1.store.tx_begin_read ()));
 	ASSERT_FALSE (node1.ledger.block_or_pruned_exists (epoch_open->hash ()));
 	// Open block should be inserted into unchecked
-	auto blocks (node1.store.unchecked.get (node1.store.tx_begin_read (), nano::hash_or_account (epoch_open->account ()).hash));
+	auto blocks = node1.unchecked.get (node1.store.tx_begin_read (), nano::hash_or_account (epoch_open->account ()).hash);
 	ASSERT_EQ (blocks.size (), 1);
 	ASSERT_EQ (blocks[0].block->full_hash (), epoch_open->full_hash ());
 	ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid_epoch);
@@ -2487,8 +2491,7 @@ TEST (ledger, epoch_open_pending)
 				 .work (*pool.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	node1.block_processor.add (send1);
-	node1.block_processor.flush ();
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (epoch_open->hash ()));
+	ASSERT_TIMELY (10s, node1.ledger.block_or_pruned_exists (epoch_open->hash ()));
 }
 
 TEST (ledger, block_hash_account_conflict)
@@ -2654,27 +2657,21 @@ TEST (ledger, unchecked_epoch)
 	auto epoch1 (std::make_shared<nano::state_block> (destination.pub, open1->hash (), destination.pub, nano::Gxrb_ratio, node1.ledger.epoch_link (nano::epoch::epoch_1), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
 	node1.work_generate_blocking (*epoch1);
 	node1.block_processor.add (epoch1);
-	node1.block_processor.flush ();
 	{
-		auto transaction (node1.store.tx_begin_read ());
-		auto unchecked_count (node1.store.unchecked.count (transaction));
-		ASSERT_EQ (unchecked_count, 1);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
-		auto blocks (node1.store.unchecked.get (transaction, epoch1->previous ()));
+		// Waits for the epoch1 block to pass through block_processor and unchecked.put queues
+		ASSERT_TIMELY (10s, 1 == node1.unchecked.count (node1.store.tx_begin_read ()));
+		auto blocks = node1.unchecked.get (node1.store.tx_begin_read (), epoch1->previous ());
 		ASSERT_EQ (blocks.size (), 1);
 		ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid_epoch);
 	}
 	node1.block_processor.add (send1);
 	node1.block_processor.add (open1);
-	node1.block_processor.flush ();
+	ASSERT_TIMELY (5s, node1.store.block.exists (node1.store.tx_begin_read (), epoch1->hash ()));
 	{
-		auto transaction (node1.store.tx_begin_read ());
-		ASSERT_TRUE (node1.store.block.exists (transaction, epoch1->hash ()));
-		auto unchecked_count (node1.store.unchecked.count (transaction));
-		ASSERT_EQ (unchecked_count, 0);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
-		nano::account_info info;
-		ASSERT_FALSE (node1.store.account.get (transaction, destination.pub, info));
+		// Waits for the last blocks to pass through block_processor and unchecked.put queues
+		ASSERT_TIMELY (10s, 0 == node1.unchecked.count (node1.store.tx_begin_read ()));
+		nano::account_info info{};
+		ASSERT_FALSE (node1.store.account.get (node1.store.tx_begin_read (), destination.pub, info));
 		ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
 	}
 }
@@ -2698,32 +2695,29 @@ TEST (ledger, unchecked_epoch_invalid)
 	node1.work_generate_blocking (*epoch2);
 	node1.block_processor.add (epoch1);
 	node1.block_processor.add (epoch2);
-	node1.block_processor.flush ();
 	{
-		auto transaction (node1.store.tx_begin_read ());
-		auto unchecked_count (node1.store.unchecked.count (transaction));
-		ASSERT_EQ (unchecked_count, 2);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
-		auto blocks (node1.store.unchecked.get (transaction, epoch1->previous ()));
+		// Waits for the last blocks to pass through block_processor and unchecked.put queues
+		ASSERT_TIMELY (10s, 2 == node1.unchecked.count (node1.store.tx_begin_read ()));
+		auto blocks = node1.unchecked.get (node1.store.tx_begin_read (), epoch1->previous ());
 		ASSERT_EQ (blocks.size (), 2);
 		ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid);
 		ASSERT_EQ (blocks[1].verified, nano::signature_verification::valid);
 	}
 	node1.block_processor.add (send1);
 	node1.block_processor.add (open1);
-	node1.block_processor.flush ();
+	// Waits for the last blocks to pass through block_processor and unchecked.put queues
+	ASSERT_TIMELY (10s, node1.store.block.exists (node1.store.tx_begin_read (), epoch2->hash ()));
 	{
-		auto transaction (node1.store.tx_begin_read ());
+		auto transaction = node1.store.tx_begin_read ();
 		ASSERT_FALSE (node1.store.block.exists (transaction, epoch1->hash ()));
-		ASSERT_TRUE (node1.store.block.exists (transaction, epoch2->hash ()));
 		ASSERT_TRUE (node1.active.empty ());
-		auto unchecked_count (node1.store.unchecked.count (transaction));
+		auto unchecked_count = node1.unchecked.count (transaction);
 		ASSERT_EQ (unchecked_count, 0);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
-		nano::account_info info;
+		ASSERT_EQ (unchecked_count, node1.unchecked.count (transaction));
+		nano::account_info info{};
 		ASSERT_FALSE (node1.store.account.get (transaction, destination.pub, info));
 		ASSERT_NE (info.epoch (), nano::epoch::epoch_1);
-		auto epoch2_store (node1.store.block.get (transaction, epoch2->hash ()));
+		auto epoch2_store = node1.store.block.get (transaction, epoch2->hash ());
 		ASSERT_NE (nullptr, epoch2_store);
 		ASSERT_EQ (nano::epoch::epoch_0, epoch2_store->sideband ().details.epoch);
 		ASSERT_TRUE (epoch2_store->sideband ().details.is_send);
@@ -2747,74 +2741,58 @@ TEST (ledger, unchecked_open)
 	open2->signature.bytes[0] ^= 1;
 	node1.block_processor.add (open1);
 	node1.block_processor.add (open2);
-	node1.block_processor.flush ();
 	{
-		auto transaction (node1.store.tx_begin_read ());
-		auto unchecked_count (node1.store.unchecked.count (transaction));
-		ASSERT_EQ (unchecked_count, 1);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
-		auto blocks (node1.store.unchecked.get (transaction, open1->source ()));
+		// Waits for the last blocks to pass through block_processor and unchecked.put queues
+		ASSERT_TIMELY (10s, 1 == node1.unchecked.count (node1.store.tx_begin_read ()));
+		auto blocks = node1.unchecked.get (node1.store.tx_begin_read (), open1->source ());
 		ASSERT_EQ (blocks.size (), 1);
 		ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid);
 	}
 	node1.block_processor.add (send1);
-	node1.block_processor.flush ();
-	{
-		auto transaction (node1.store.tx_begin_read ());
-		ASSERT_TRUE (node1.store.block.exists (transaction, open1->hash ()));
-		auto unchecked_count (node1.store.unchecked.count (transaction));
-		ASSERT_EQ (unchecked_count, 0);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
-	}
+	// Waits for the send1 block to pass through block_processor and unchecked.put queues
+	ASSERT_TIMELY (10s, node1.store.block.exists (node1.store.tx_begin_read (), open1->hash ()));
+	ASSERT_EQ (0, node1.unchecked.count (node1.store.tx_begin_read ()));
 }
 
 TEST (ledger, unchecked_receive)
 {
-	nano::system system (1);
-	auto & node1 (*system.nodes[0]);
-	nano::keypair destination;
-	auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis->account (), nano::dev::genesis->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - nano::Gxrb_ratio, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
+	nano::system system{ 1 };
+	auto & node1 = *system.nodes[0];
+	nano::keypair destination{};
+	auto send1 = std::make_shared<nano::state_block> (nano::dev::genesis->account (), nano::dev::genesis->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - nano::Gxrb_ratio, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
 	node1.work_generate_blocking (*send1);
-	auto send2 (std::make_shared<nano::state_block> (nano::dev::genesis->account (), send1->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - 2 * nano::Gxrb_ratio, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
+	auto send2 = std::make_shared<nano::state_block> (nano::dev::genesis->account (), send1->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - 2 * nano::Gxrb_ratio, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
 	node1.work_generate_blocking (*send2);
-	auto open1 (std::make_shared<nano::open_block> (send1->hash (), destination.pub, destination.pub, destination.prv, destination.pub, 0));
+	auto open1 = std::make_shared<nano::open_block> (send1->hash (), destination.pub, destination.pub, destination.prv, destination.pub, 0);
 	node1.work_generate_blocking (*open1);
-	auto receive1 (std::make_shared<nano::receive_block> (open1->hash (), send2->hash (), destination.prv, destination.pub, 0));
+	auto receive1 = std::make_shared<nano::receive_block> (open1->hash (), send2->hash (), destination.prv, destination.pub, 0);
 	node1.work_generate_blocking (*receive1);
 	node1.block_processor.add (send1);
 	node1.block_processor.add (receive1);
-	node1.block_processor.flush ();
+	auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
+		return !node1.unchecked.get (transaction_a, block_hash_a).empty ();
+	};
 	// Previous block for receive1 is unknown, signature cannot be validated
 	{
-		auto transaction (node1.store.tx_begin_read ());
-		auto unchecked_count (node1.store.unchecked.count (transaction));
-		ASSERT_EQ (unchecked_count, 1);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
-		auto blocks (node1.store.unchecked.get (transaction, receive1->previous ()));
+		// Waits for the last blocks to pass through block_processor and unchecked.put queues
+		ASSERT_TIMELY (15s, check_block_is_listed (node1.store.tx_begin_read (), receive1->previous ()));
+		auto blocks = node1.unchecked.get (node1.store.tx_begin_read (), receive1->previous ());
 		ASSERT_EQ (blocks.size (), 1);
 		ASSERT_EQ (blocks[0].verified, nano::signature_verification::unknown);
 	}
+	// Waits for the open1 block to pass through block_processor and unchecked.put queues
 	node1.block_processor.add (open1);
-	node1.block_processor.flush ();
+	ASSERT_TIMELY (15s, check_block_is_listed (node1.store.tx_begin_read (), receive1->source ()));
 	// Previous block for receive1 is known, signature was validated
 	{
-		auto transaction (node1.store.tx_begin_read ());
-		auto unchecked_count (node1.store.unchecked.count (transaction));
-		ASSERT_EQ (unchecked_count, 1);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
-		auto blocks (node1.store.unchecked.get (transaction, receive1->source ()));
+		auto transaction = node1.store.tx_begin_read ();
+		auto blocks (node1.unchecked.get (transaction, receive1->source ()));
 		ASSERT_EQ (blocks.size (), 1);
 		ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid);
 	}
 	node1.block_processor.add (send2);
-	node1.block_processor.flush ();
-	{
-		auto transaction (node1.store.tx_begin_read ());
-		ASSERT_TRUE (node1.store.block.exists (transaction, receive1->hash ()));
-		auto unchecked_count (node1.store.unchecked.count (transaction));
-		ASSERT_EQ (unchecked_count, 0);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
-	}
+	ASSERT_TIMELY (10s, node1.store.block.exists (node1.store.tx_begin_read (), receive1->hash ()));
+	ASSERT_EQ (0, node1.unchecked.count (node1.store.tx_begin_read ()));
 }
 
 TEST (ledger, confirmation_height_not_updated)
@@ -3618,13 +3596,14 @@ TEST (ledger, hash_root_random)
 
 TEST (ledger, migrate_lmdb_to_rocksdb)
 {
-	auto path (nano::unique_path ());
-	nano::logger_mt logger;
+	auto path = nano::unique_path ();
+	nano::logger_mt logger{};
 	boost::asio::ip::address_v6 address (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"));
 	uint16_t port = 100;
-	nano::mdb_store store (logger, path / "data.ldb", nano::dev::constants);
-	nano::stat stats;
-	nano::ledger ledger (store, stats, nano::dev::constants);
+	nano::mdb_store store{ logger, path / "data.ldb", nano::dev::constants };
+	nano::unchecked_map unchecked{ store, false };
+	nano::stat stats{};
+	nano::ledger ledger{ store, stats, nano::dev::constants };
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 
 	std::shared_ptr<nano::block> send = nano::state_block_builder ()
@@ -3641,7 +3620,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	auto version = 99;
 
 	{
-		auto transaction (store.tx_begin_write ());
+		auto transaction = store.tx_begin_write ();
 		store.initialize (transaction, ledger.cache);
 		ASSERT_FALSE (store.init_error ());
 
@@ -3654,7 +3633,6 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 
 		store.pending.put (transaction, nano::pending_key (nano::dev::genesis->account (), send->hash ()), nano::pending_info (nano::dev::genesis->account (), 100, nano::epoch::epoch_0));
 		store.pruned.put (transaction, send->hash ());
-		store.unchecked.put (transaction, nano::dev::genesis->hash (), send);
 		store.version.put (transaction, version);
 		send->sideband_set ({});
 		store.block.put (transaction, send->hash (), *send);
@@ -3664,10 +3642,11 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	auto error = ledger.migrate_lmdb_to_rocksdb (path);
 	ASSERT_FALSE (error);
 
-	nano::rocksdb_store rocksdb_store (logger, path / "rocksdb", nano::dev::constants);
+	nano::rocksdb_store rocksdb_store{ logger, path / "rocksdb", nano::dev::constants };
+	nano::unchecked_map rocksdb_unchecked{ rocksdb_store, false };
 	auto rocksdb_transaction (rocksdb_store.tx_begin_read ());
 
-	nano::pending_info pending_info;
+	nano::pending_info pending_info{};
 	ASSERT_FALSE (rocksdb_store.pending.get (rocksdb_transaction, nano::pending_key (nano::dev::genesis->account (), send->hash ()), pending_info));
 
 	for (auto i = rocksdb_store.online_weight.begin (rocksdb_transaction); i != rocksdb_store.online_weight.end (); ++i)
@@ -3690,11 +3669,6 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	ASSERT_EQ (confirmation_height_info.frontier, send->hash ());
 	ASSERT_TRUE (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ())).size () == 1);
 	ASSERT_EQ (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ()))[0], nano::block_hash (2));
-
-	auto unchecked_infos = rocksdb_store.unchecked.get (rocksdb_transaction, nano::dev::genesis->hash ());
-	ASSERT_EQ (unchecked_infos.size (), 1);
-	ASSERT_EQ (unchecked_infos.front ().account, nano::dev::genesis->account ());
-	ASSERT_EQ (*unchecked_infos.front ().block, *send);
 }
 
 TEST (ledger, unconfirmed_frontiers)

@@ -150,7 +150,7 @@ private:
 	/** Probable representatives */
 	probably_rep_t probable_reps;
 
-	friend class active_transactions_DISABLED_confirm_active_Test;
+	friend class active_transactions_confirm_election_by_request_Test;
 	friend class active_transactions_confirm_frontier_Test;
 	friend class rep_crawler_local_Test;
 	friend class node_online_reps_rep_crawler_Test;

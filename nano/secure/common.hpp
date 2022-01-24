@@ -227,8 +227,8 @@ public:
 	confirmation_height_info (uint64_t, nano::block_hash const &);
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
-	uint64_t height;
-	nano::block_hash frontier;
+	uint64_t height{};
+	nano::block_hash frontier{};
 };
 
 namespace confirmation_height

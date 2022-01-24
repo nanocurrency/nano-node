@@ -1682,25 +1682,43 @@ TEST (node, bootstrap_confirm_frontiers)
 }
 
 // Test that if we create a block that isn't confirmed, we sync.
-TEST (node, DISABLED_unconfirmed_send)
+TEST (node, unconfirmed_send)
 {
-	nano::system system (2);
-	auto & node0 (*system.nodes[0]);
-	auto & node1 (*system.nodes[1]);
-	auto wallet0 (system.wallet (0));
-	auto wallet1 (system.wallet (1));
-	nano::keypair key0;
-	wallet1->insert_adhoc (key0.prv);
+	nano::system system{ 2 };
+
+	auto & node0 = *system.nodes[0];
+	auto wallet0 = system.wallet (0);
 	wallet0->insert_adhoc (nano::dev::genesis_key.prv);
-	auto send1 (wallet0->send_action (nano::dev::genesis->account (), key0.pub, 2 * nano::Mxrb_ratio));
-	ASSERT_TIMELY (10s, node1.balance (key0.pub) == 2 * nano::Mxrb_ratio && !node1.bootstrap_initiator.in_progress ());
-	auto latest (node1.latest (key0.pub));
-	nano::state_block send2 (key0.pub, latest, nano::dev::genesis->account (), nano::Mxrb_ratio, nano::dev::genesis->account (), key0.prv, key0.pub, *node0.work_generate_blocking (latest));
-	{
-		auto transaction (node1.store.tx_begin_write ());
-		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send2).code);
-	}
-	auto send3 (wallet1->send_action (key0.pub, nano::dev::genesis->account (), nano::Mxrb_ratio));
+
+	nano::keypair key1{};
+	auto & node1 = *system.nodes[1];
+	auto wallet1 = system.wallet (1);
+	wallet1->insert_adhoc (key1.prv);
+
+	// firstly, send two units from node0 to node1 and expect they're both received (as balance) on the other end
+	//
+	auto send1 = wallet0->send_action (nano::dev::genesis->account (), key1.pub, 2 * nano::Mxrb_ratio);
+	ASSERT_TIMELY (10s, node1.balance (key1.pub) == 2 * nano::Mxrb_ratio && !node1.bootstrap_initiator.in_progress ());
+
+	// then send one of the received units back from node1 to node0, force-confirm and expect node0 to sync up
+	//
+	auto latest1 = node1.latest (key1.pub);
+	auto send2 = nano::state_block_builder ()
+				 .account (key1.pub)
+				 .previous (latest1)
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::Mxrb_ratio)
+				 .link (nano::dev::genesis->account ())
+				 .sign (key1.prv, key1.pub)
+				 .work (*system.work.generate (latest1))
+				 .build_shared ();
+	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (node1.store.tx_begin_write (), *send2).code);
+	node1.process_confirmed (nano::election_status{ send2 });
+	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
+
+	// finally, send the remaining unit back as well, expect that node0 ends up with the balance it had initially
+	//
+	auto send3 = wallet1->send_action (key1.pub, nano::dev::genesis->account (), nano::Mxrb_ratio);
 	ASSERT_TIMELY (10s, node0.balance (nano::dev::genesis->account ()) == nano::dev::constants.genesis_amount);
 }
 
@@ -2610,15 +2628,11 @@ TEST (node, vote_by_hash_bundle)
 	}
 
 	// Verify that bundling occurs. While reaching 12 should be common on most hardware in release mode,
-	// we set this low enough to allow the test to pass on CI/with santitizers.
+	// we set this low enough to allow the test to pass on CI/with sanitizers.
 	ASSERT_TIMELY (20s, max_hashes.load () >= 3);
 }
 
-// Test disabled because it's failing intermittently.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3556
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3557
-// CI run in which it failed: https://github.com/nanocurrency/nano-node/runs/4278407269?check_suite_focus=true#step:6:1144
-TEST (node, DISABLED_vote_by_hash_republish)
+TEST (node, vote_by_hash_republish)
 {
 	nano::system system{ 2 };
 	auto & node1 = *system.nodes[0];
@@ -2657,7 +2671,10 @@ TEST (node, DISABLED_vote_by_hash_republish)
 	ASSERT_TIMELY (10s, node1.balance (key2.pub) == node1.config.receive_minimum.number () * 2);
 }
 
-TEST (node, vote_by_hash_epoch_block_republish)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3638
+TEST (node, DISABLED_vote_by_hash_epoch_block_republish)
 {
 	nano::system system (2);
 	auto & node1 (*system.nodes[0]);
@@ -2944,7 +2961,7 @@ TEST (node, block_processor_signatures)
 	// Invalid signature to unchecked
 	{
 		auto transaction (node1.store.tx_begin_write ());
-		node1.store.unchecked.put (transaction, send5->previous (), send5);
+		node1.unchecked.put (send5->previous (), send5);
 	}
 	auto receive1 = builder.make_block ()
 					.account (key1.pub)
@@ -3272,11 +3289,11 @@ TEST (node, peer_cache_restart)
 
 TEST (node, unchecked_cleanup)
 {
-	nano::system system;
-	nano::node_flags node_flags;
+	nano::system system{};
+	nano::node_flags node_flags{};
 	node_flags.disable_unchecked_cleanup = true;
-	nano::keypair key;
-	auto & node (*system.add_node (node_flags));
+	nano::keypair key{};
+	auto & node = *system.add_node (node_flags);
 	auto open = nano::state_block_builder ()
 				.account (key.pub)
 				.previous (0)
@@ -3295,32 +3312,18 @@ TEST (node, unchecked_cleanup)
 	// Should be cleared after unchecked cleanup
 	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
 	node.process_active (open);
-	node.block_processor.flush ();
+	// Waits for the open block to get saved in the database
+	ASSERT_TIMELY (15s, 1 == node.unchecked.count (node.store.tx_begin_read ()));
 	node.config.unchecked_cutoff_time = std::chrono::seconds (2);
-	{
-		auto transaction (node.store.tx_begin_read ());
-		auto unchecked_count (node.store.unchecked.count (transaction));
-		ASSERT_EQ (unchecked_count, 1);
-		ASSERT_EQ (unchecked_count, node.store.unchecked.count (transaction));
-	}
+	ASSERT_EQ (1, node.unchecked.count (node.store.tx_begin_read ()));
 	std::this_thread::sleep_for (std::chrono::seconds (1));
 	node.unchecked_cleanup ();
 	ASSERT_TRUE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
-	{
-		auto transaction (node.store.tx_begin_read ());
-		auto unchecked_count (node.store.unchecked.count (transaction));
-		ASSERT_EQ (unchecked_count, 1);
-		ASSERT_EQ (unchecked_count, node.store.unchecked.count (transaction));
-	}
+	ASSERT_EQ (1, node.unchecked.count (node.store.tx_begin_read ()));
 	std::this_thread::sleep_for (std::chrono::seconds (2));
 	node.unchecked_cleanup ();
 	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
-	{
-		auto transaction (node.store.tx_begin_read ());
-		auto unchecked_count (node.store.unchecked.count (transaction));
-		ASSERT_EQ (unchecked_count, 0);
-		ASSERT_EQ (unchecked_count, node.store.unchecked.count (transaction));
-	}
+	ASSERT_EQ (0, node.unchecked.count (node.store.tx_begin_read ()));
 }
 
 /** This checks that a node can be opened (without being blocked) when a write lock is held elsewhere */
@@ -3398,7 +3401,6 @@ TEST (node, bidirectional_tcp)
 				 .work (*node1->work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	node1->process_active (send1);
-	node1->block_processor.flush ();
 	ASSERT_TIMELY (10s, node1->ledger.block_or_pruned_exists (send1->hash ()) && node2->ledger.block_or_pruned_exists (send1->hash ()));
 	// Test block confirmation from node 1 (add representative to node 1)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -4298,163 +4300,182 @@ TEST (rep_crawler, local)
 }
 }
 
+// Test that a node configured with `enable_pruning` and `max_pruning_age = 1s` will automatically
+// prune old confirmed blocks without explicitly saying `node.ledger_pruning` in the unit test
 TEST (node, pruning_automatic)
 {
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::system system{};
+
+	nano::node_config node_config{ nano::get_available_port (), system.logging };
+	// TODO: remove after allowing pruned voting
+	node_config.enable_voting = false;
 	node_config.max_pruning_age = std::chrono::seconds (1);
-	node_config.enable_voting = false; // Remove after allowing pruned voting
-	nano::node_flags node_flags;
+
+	nano::node_flags node_flags{};
 	node_flags.enable_pruning = true;
+
 	auto & node1 = *system.add_node (node_config, node_flags);
-	nano::keypair key1;
-	auto send1 = nano::send_block_builder ()
-				 .previous (nano::dev::genesis->hash ())
+	nano::keypair key1{};
+	nano::send_block_builder builder{};
+	auto latest_hash = nano::dev::genesis->hash ();
+
+	auto send1 = builder.make_block ()
+				 .previous (latest_hash)
 				 .destination (key1.pub)
 				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .work (*system.work.generate (latest_hash))
 				 .build_shared ();
-	auto send2 = nano::send_block_builder ()
-				 .previous (send1->hash ())
+	node1.process_active (send1);
+
+	latest_hash = send1->hash ();
+	auto send2 = builder.make_block ()
+				 .previous (latest_hash)
 				 .destination (key1.pub)
 				 .balance (0)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (send1->hash ()))
+				 .work (*system.work.generate (latest_hash))
 				 .build_shared ();
-	// Process as local blocks
-	node1.process_active (send1);
 	node1.process_active (send2);
-	node1.block_processor.flush ();
-	node1.scheduler.flush ();
-	// Confirm last block to prune previous
-	{
-		auto election = node1.active.election (send1->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1.block_confirmed (send1->hash ()) && node1.active.active (send2->qualified_root ()));
-	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
-	{
-		auto election = node1.active.election (send2->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1.active.empty () && node1.block_confirmed (send2->hash ()));
+
+	// Force-confirm both blocks
+	node1.process_confirmed (nano::election_status{ send1 });
+	ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
+	node1.process_confirmed (nano::election_status{ send2 });
+	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
+
 	// Check pruning result
-	ASSERT_TIMELY (3s, node1.ledger.cache.pruned_count == 1);
-	ASSERT_TIMELY (2s, node1.store.pruned.count (node1.store.tx_begin_read ()) == 1); // Transaction commit
+	ASSERT_EQ (3, node1.ledger.cache.block_count);
+	ASSERT_TIMELY (5s, node1.ledger.cache.pruned_count == 1);
+	ASSERT_TIMELY (5s, node1.store.pruned.count (node1.store.tx_begin_read ()) == 1);
 	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
+
 	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (nano::dev::genesis->hash ()));
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ())); // true for pruned
+	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
 	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send2->hash ()));
 }
 
 TEST (node, pruning_age)
 {
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.enable_voting = false; // Remove after allowing pruned voting
-	nano::node_flags node_flags;
+	nano::system system{};
+
+	nano::node_config node_config{ nano::get_available_port (), system.logging };
+	// TODO: remove after allowing pruned voting
+	node_config.enable_voting = false;
+
+	nano::node_flags node_flags{};
 	node_flags.enable_pruning = true;
+
 	auto & node1 = *system.add_node (node_config, node_flags);
-	nano::keypair key1;
-	auto send1 = nano::send_block_builder ()
-				 .previous (nano::dev::genesis->hash ())
+	nano::keypair key1{};
+	nano::send_block_builder builder{};
+	auto latest_hash = nano::dev::genesis->hash ();
+
+	auto send1 = builder.make_block ()
+				 .previous (latest_hash)
 				 .destination (key1.pub)
 				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .work (*system.work.generate (latest_hash))
 				 .build_shared ();
-	auto send2 = nano::send_block_builder ()
-				 .previous (send1->hash ())
+	node1.process_active (send1);
+
+	latest_hash = send1->hash ();
+	auto send2 = builder.make_block ()
+				 .previous (latest_hash)
 				 .destination (key1.pub)
 				 .balance (0)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (send1->hash ()))
+				 .work (*system.work.generate (latest_hash))
 				 .build_shared ();
-	// Process as local blocks
-	node1.process_active (send1);
 	node1.process_active (send2);
-	node1.block_processor.flush ();
-	node1.scheduler.flush ();
-	// Confirm last block to prune previous
-	{
-		auto election = node1.active.election (send1->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1.block_confirmed (send1->hash ()) && node1.active.active (send2->qualified_root ()));
+
+	// Force-confirm both blocks
+	node1.process_confirmed (nano::election_status{ send1 });
+	ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
+	node1.process_confirmed (nano::election_status{ send2 });
+	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
+
+	// Three blocks in total, nothing pruned yet
 	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
-	{
-		auto election = node1.active.election (send2->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1.active.empty () && node1.block_confirmed (send2->hash ()));
+	ASSERT_EQ (3, node1.ledger.cache.block_count);
+
 	// Pruning with default age 1 day
 	node1.ledger_pruning (1, true, false);
 	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
+
 	// Pruning with max age 0
-	node1.config.max_pruning_age = std::chrono::seconds (0);
+	node1.config.max_pruning_age = std::chrono::seconds{ 0 };
 	node1.ledger_pruning (1, true, false);
 	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
+
 	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (nano::dev::genesis->hash ()));
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ())); // true for pruned
+	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
 	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send2->hash ()));
 }
 
+// Test that a node configured with `enable_pruning` will
+// prune DEEP-enough confirmed blocks by explicitly saying `node.ledger_pruning` in the unit test
 TEST (node, pruning_depth)
 {
-	nano::system system;
+	nano::system system{};
+
 	nano::node_config node_config{ nano::get_available_port (), system.logging };
-	node_config.enable_voting = false; // Remove after allowing pruned voting
-	nano::node_flags node_flags;
+	// TODO: remove after allowing pruned voting
+	node_config.enable_voting = false;
+
+	nano::node_flags node_flags{};
 	node_flags.enable_pruning = true;
+
 	auto & node1 = *system.add_node (node_config, node_flags);
-	nano::keypair key1;
-	auto send1 = nano::send_block_builder ()
-				 .previous (nano::dev::genesis->hash ())
+	nano::keypair key1{};
+	nano::send_block_builder builder{};
+	auto latest_hash = nano::dev::genesis->hash ();
+
+	auto send1 = builder.make_block ()
+				 .previous (latest_hash)
 				 .destination (key1.pub)
 				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .work (*system.work.generate (latest_hash))
 				 .build_shared ();
-	auto send2 = nano::send_block_builder ()
-				 .previous (send1->hash ())
+	node1.process_active (send1);
+
+	latest_hash = send1->hash ();
+	auto send2 = builder.make_block ()
+				 .previous (latest_hash)
 				 .destination (key1.pub)
 				 .balance (0)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (send1->hash ()))
+				 .work (*system.work.generate (latest_hash))
 				 .build_shared ();
-	// Process as local blocks
-	node1.process_active (send1);
 	node1.process_active (send2);
-	node1.block_processor.flush ();
-	node1.scheduler.flush ();
-	// Confirm last block to prune previous
-	auto election1 = node1.active.election (send1->qualified_root ());
-	ASSERT_NE (nullptr, election1);
-	election1->force_confirm ();
-	ASSERT_TIMELY (2s, node1.block_confirmed (send1->hash ()) && node1.active.active (send2->qualified_root ()));
+
+	// Force-confirm both blocks
+	node1.process_confirmed (nano::election_status{ send1 });
+	ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
+	node1.process_confirmed (nano::election_status{ send2 });
+	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
+
+	// Three blocks in total, nothing pruned yet
 	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
-	auto election2 = node1.active.election (send2->qualified_root ());
-	ASSERT_NE (nullptr, election2);
-	election2->force_confirm ();
-	ASSERT_TIMELY (2s, node1.active.empty () && node1.block_confirmed (send2->hash ()));
+	ASSERT_EQ (3, node1.ledger.cache.block_count);
+
 	// Pruning with default depth (unlimited)
 	node1.ledger_pruning (1, true, false);
 	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
+
 	// Pruning with max depth 1
 	node1.config.max_pruning_depth = 1;
 	node1.ledger_pruning (1, true, false);
 	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
+
 	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (nano::dev::genesis->hash ()));
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ())); // true for pruned
+	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
 	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send2->hash ()));
 }

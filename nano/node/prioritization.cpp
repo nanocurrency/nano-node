@@ -129,3 +129,14 @@ void nano::prioritization::dump ()
 	}
 	std::cerr << "current: " << std::to_string (*current) << '\n';
 }
+
+std::unique_ptr<nano::container_info_component> nano::prioritization::collect_container_info (std::string const & name)
+{
+	auto composite = std::make_unique<container_info_composite> (name);
+	for (auto i = 0; i < buckets.size (); ++i)
+	{
+		auto const & bucket = buckets[i];
+		composite->add_component (std::make_unique<container_info_leaf> (container_info{ std::to_string (i), bucket.size (), 0 }));
+	}
+	return composite;
+}

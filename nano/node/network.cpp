@@ -538,7 +538,7 @@ public:
 		nano::telemetry_ack telemetry_ack{ node.network_params.network };
 		if (!node.flags.disable_providing_telemetry_metrics)
 		{
-			auto telemetry_data = nano::local_telemetry_data (node.ledger, node.network, node.config.bandwidth_limit, node.network_params, node.startup_time, node.default_difficulty (nano::work_version::work_1), node.node_id);
+			auto telemetry_data = nano::local_telemetry_data (node.ledger, node.network, node.unchecked, node.config.bandwidth_limit, node.network_params, node.startup_time, node.default_difficulty (nano::work_version::work_1), node.node_id);
 			telemetry_ack = nano::telemetry_ack{ node.network_params.network, telemetry_data };
 		}
 		channel->send (telemetry_ack, nullptr, nano::buffer_drop_policy::no_socket_drop);
@@ -1078,4 +1078,24 @@ std::unique_ptr<nano::container_info_component> nano::syn_cookies::collect_conta
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "syn_cookies", syn_cookies_count, sizeof (decltype (cookies)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (cookies_per_ip)::value_type) }));
 	return composite;
+}
+
+std::string nano::network::to_string (nano::networks network)
+{
+	switch (network)
+	{
+		case nano::networks::invalid:
+			return "invalid";
+		case nano::networks::nano_beta_network:
+			return "beta";
+		case nano::networks::nano_dev_network:
+			return "dev";
+		case nano::networks::nano_live_network:
+			return "live";
+		case nano::networks::nano_test_network:
+			return "test";
+			// default case intentionally omitted to cause warnings for unhandled enums
+	}
+
+	return "n/a";
 }

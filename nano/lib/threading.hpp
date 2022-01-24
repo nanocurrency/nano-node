@@ -40,7 +40,8 @@ namespace thread_role
 		state_block_signature_verification,
 		epoch_upgrader,
 		db_parallel_traversal,
-		election_scheduler
+		election_scheduler,
+		unchecked,
 	};
 	/*
 	 * Get/Set the identifier for the current thread

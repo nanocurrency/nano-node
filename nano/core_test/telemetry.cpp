@@ -181,6 +181,58 @@ TEST (telemetry, consolidate_data_remove_outliers)
 	ASSERT_EQ (data, consolidated_telemetry_data);
 }
 
+TEST (telemetry, consolidate_data_remove_outliers_with_zero_bandwidth)
+{
+	nano::telemetry_data data1;
+	data1.account_count = 2;
+	data1.block_count = 1;
+	data1.cemented_count = 1;
+	data1.protocol_version = 12;
+	data1.peer_count = 2;
+	data1.bandwidth_cap = 0;
+	data1.unchecked_count = 3;
+	data1.uptime = 6;
+	data1.genesis_block = nano::block_hash (3);
+	data1.major_version = 20;
+	data1.minor_version = 1;
+	data1.patch_version = 5;
+	data1.pre_release_version = 2;
+	data1.maker = 1;
+	data1.timestamp = std::chrono::system_clock::time_point (100ms);
+	data1.active_difficulty = 10;
+
+	// Add a majority of nodes with bandwidth set to 0
+	std::vector<nano::telemetry_data> all_data (100, data1);
+
+	nano::telemetry_data data2;
+	data2.account_count = 2;
+	data2.block_count = 1;
+	data2.cemented_count = 1;
+	data2.protocol_version = 12;
+	data2.peer_count = 2;
+	data2.bandwidth_cap = 100;
+	data2.unchecked_count = 3;
+	data2.uptime = 6;
+	data2.genesis_block = nano::block_hash (3);
+	data2.major_version = 20;
+	data2.minor_version = 1;
+	data2.patch_version = 5;
+	data2.pre_release_version = 2;
+	data2.maker = 1;
+	data2.timestamp = std::chrono::system_clock::time_point (100ms);
+	data2.active_difficulty = 10;
+
+	auto consolidated_telemetry_data1 = nano::consolidate_telemetry_data (all_data);
+	ASSERT_EQ (consolidated_telemetry_data1.bandwidth_cap, 0);
+
+	// And a few nodes with non-zero bandwidth
+	all_data.push_back (data2);
+	all_data.push_back (data2);
+
+	auto consolidated_telemetry_data2 = nano::consolidate_telemetry_data (all_data);
+	ASSERT_EQ (consolidated_telemetry_data2.bandwidth_cap, 0);
+}
+
 TEST (telemetry, signatures)
 {
 	nano::keypair node_id;
@@ -634,7 +686,7 @@ TEST (telemetry, remove_peer_invalid_signature)
 	// (Implementation detail) So that messages are not just discarded when requests were not sent.
 	node->telemetry->recent_or_initial_request_telemetry_data.emplace (channel->get_endpoint (), nano::telemetry_data (), std::chrono::steady_clock::now (), true);
 
-	auto telemetry_data = nano::local_telemetry_data (node->ledger, node->network, node->config.bandwidth_limit, node->network_params, node->startup_time, node->default_difficulty (nano::work_version::work_1), node->node_id);
+	auto telemetry_data = nano::local_telemetry_data (node->ledger, node->network, node->unchecked, node->config.bandwidth_limit, node->network_params, node->startup_time, node->default_difficulty (nano::work_version::work_1), node->node_id);
 	// Change anything so that the signed message is incorrect
 	telemetry_data.block_count = 0;
 	auto telemetry_ack = nano::telemetry_ack{ nano::dev::network_params.network, telemetry_data };

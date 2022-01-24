@@ -4,14 +4,17 @@
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/buffer.hpp>
 
 #include <boost/endian/conversion.hpp>
+#include <boost/format.hpp>
 #include <boost/pool/pool_alloc.hpp>
 #include <boost/variant/get.hpp>
 
 #include <numeric>
+#include <sstream>
 
 std::bitset<16> constexpr nano::message_header::block_type_mask;
 std::bitset<16> constexpr nano::message_header::count_mask;
@@ -88,6 +91,61 @@ bool nano::message_header::deserialize (nano::stream & stream_a)
 	}
 
 	return error;
+}
+
+std::string nano::message_type_to_string (nano::message_type message_type_l)
+{
+	switch (message_type_l)
+	{
+		case nano::message_type::invalid:
+			return "invalid";
+		case nano::message_type::not_a_type:
+			return "not_a_type";
+		case nano::message_type::keepalive:
+			return "keepalive";
+		case nano::message_type::publish:
+			return "publish";
+		case nano::message_type::confirm_req:
+			return "confirm_req";
+		case nano::message_type::confirm_ack:
+			return "confirm_ack";
+		case nano::message_type::bulk_pull:
+			return "bulk_pull";
+		case nano::message_type::bulk_push:
+			return "bulk_push";
+		case nano::message_type::frontier_req:
+			return "frontier_req";
+		case nano::message_type::node_id_handshake:
+			return "node_id_handshake";
+		case nano::message_type::bulk_pull_account:
+			return "bulk_pull_account";
+		case nano::message_type::telemetry_req:
+			return "telemetry_req";
+		case nano::message_type::telemetry_ack:
+			return "telemetry_ack";
+			// default case intentionally omitted to cause warnings for unhandled enums
+	}
+
+	return "n/a";
+}
+
+std::string nano::message_header::to_string ()
+{
+	// Cast to uint16_t to get integer value since uint8_t is treated as an unsigned char in string formatting.
+	uint16_t type_l = static_cast<uint16_t> (type);
+	uint16_t version_max_l = static_cast<uint16_t> (version_max);
+	uint16_t version_using_l = static_cast<uint16_t> (version_using);
+	uint16_t version_min_l = static_cast<uint16_t> (version_min);
+	std::string type_text = nano::message_type_to_string (type);
+
+	std::stringstream stream;
+
+	stream << boost::format ("NetID: %1%(%2%), ") % nano::to_string_hex (static_cast<uint16_t> (network)) % nano::network::to_string (network);
+	stream << boost::format ("VerMaxUsingMin: %1%/%2%/%3%, ") % version_max_l % version_using_l % version_min_l;
+	stream << boost::format ("MsgType: %1%(%2%), ") % type_l % type_text;
+	stream << boost::format ("Extensions: %1%") % nano::to_string_hex (static_cast<uint16_t> (extensions.to_ulong ()));
+
+	return stream.str ();
 }
 
 nano::message::message (nano::network_constants const & constants, nano::message_type type_a) :

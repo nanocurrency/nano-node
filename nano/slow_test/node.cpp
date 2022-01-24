@@ -2,6 +2,7 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/transport/udp.hpp>
+#include <nano/node/unchecked_map.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -55,7 +56,13 @@ TEST (system, generate_mass_activity_long)
 	auto node = system.add_node (node_config);
 	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	uint32_t count (1000000000);
+	uint32_t count (1000000);
+	auto count_env_var = std::getenv ("SLOW_TEST_SYSTEM_GENERATE_MASS_ACTIVITY_LONG_COUNT");
+	if (count_env_var)
+	{
+		count = boost::lexical_cast<uint32_t> (count_env_var);
+		std::cout << "count override due to env variable set, count=" << count << std::endl;
+	}
 	system.generate_mass_activity (count, *system.nodes[0]);
 	auto transaction (system.nodes[0]->store.tx_begin_read ());
 	for (auto i (system.nodes[0]->store.account.begin (transaction)), n (system.nodes[0]->store.account.end ()); i != n; ++i)
@@ -414,17 +421,16 @@ TEST (peer_container, random_set)
 // Can take up to 2 hours
 TEST (store, unchecked_load)
 {
-	nano::system system (1);
-	auto & node (*system.nodes[0]);
+	nano::system system{ 1 };
+	auto & node = *system.nodes[0];
 	std::shared_ptr<nano::block> block = std::make_shared<nano::send_block> (0, 0, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
-	constexpr auto num_unchecked = 1000000;
+	constexpr auto num_unchecked = 1'000'000;
 	for (auto i (0); i < num_unchecked; ++i)
 	{
-		auto transaction (node.store.tx_begin_write ());
-		node.store.unchecked.put (transaction, i, block);
+		node.unchecked.put (i, block);
 	}
-	auto transaction (node.store.tx_begin_read ());
-	ASSERT_EQ (num_unchecked, node.store.unchecked.count (transaction));
+	// Waits for all the blocks to get saved in the database
+	ASSERT_TIMELY (8000s, num_unchecked == node.unchecked.count (node.store.tx_begin_read ()));
 }
 
 TEST (store, vote_load)

@@ -323,6 +323,8 @@ public:
 		election_drop_overflow,
 		election_drop_all,
 		election_restart,
+		election_confirmed,
+		election_not_confirmed,
 
 		// udp
 		blocking,
@@ -350,6 +352,9 @@ public:
 		tcp_max_per_subnetwork,
 		tcp_silent_connection_drop,
 		tcp_io_timeout_drop,
+		tcp_connect_error,
+		tcp_read_error,
+		tcp_write_error,
 
 		// ipc
 		invocations,

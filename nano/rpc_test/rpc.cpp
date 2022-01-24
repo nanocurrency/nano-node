@@ -2031,7 +2031,7 @@ TEST (rpc, work_generate_multiplier)
 	{
 		// When both difficulty and multiplier are given, should use multiplier
 		// Give base difficulty and very high multiplier to test
-		request.put ("difficulty", nano::to_string_hex (0xff00000000000000));
+		request.put ("difficulty", nano::to_string_hex (static_cast<uint64_t> (0xff00000000000000)));
 		double multiplier{ 100.0 };
 		request.put ("multiplier", multiplier);
 		auto response (wait_response (system, rpc_ctx, request, 10s));
@@ -2226,7 +2226,10 @@ TEST (rpc, work_peer_bad)
 	ASSERT_TIMELY (5s, nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash1, work) >= nano::dev::network_params.work.threshold_base (nano::work_version::work_1));
 }
 
-TEST (rpc, work_peer_one)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3639
+TEST (rpc, DISABLED_work_peer_one)
 {
 	nano::system system;
 	auto node1 = add_ipc_enabled_node (system);
@@ -2242,7 +2245,10 @@ TEST (rpc, work_peer_one)
 	ASSERT_TIMELY (5s, nano::dev::network_params.work.difficulty (nano::work_version::work_1, key1.pub, work) >= nano::dev::network_params.work.threshold_base (nano::work_version::work_1));
 }
 
-TEST (rpc, work_peer_many)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3636
+TEST (rpc, DISABLED_work_peer_many)
 {
 	nano::system system1 (1);
 	nano::system system2;
@@ -2277,7 +2283,10 @@ TEST (rpc, work_peer_many)
 	node1.stop ();
 }
 
-TEST (rpc, work_version_invalid)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3637
+TEST (rpc, DISABLED_work_version_invalid)
 {
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
@@ -5001,17 +5010,19 @@ TEST (rpc, stats_clear)
 	ASSERT_LE (node->stats.last_reset ().count (), 5);
 }
 
+// Tests the RPC command returns the correct data for the unchecked blocks
 TEST (rpc, unchecked)
 {
-	nano::system system;
+	nano::system system{};
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
-	nano::keypair key;
-	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
-	auto open2 (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 2, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	nano::keypair key{};
+	auto open = std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
+	auto open2 = std::make_shared<nano::state_block> (key.pub, 0, key.pub, 2, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
 	node->process_active (open);
 	node->process_active (open2);
-	node->block_processor.flush ();
+	// Waits for the last block of the queue to get saved in the database
+	ASSERT_TIMELY (10s, 2 == node->unchecked.count (node->store.tx_begin_read ()));
 	boost::property_tree::ptree request;
 	request.put ("action", "unchecked");
 	request.put ("count", 2);
@@ -5032,16 +5043,18 @@ TEST (rpc, unchecked)
 	}
 }
 
+// Tests the RPC command returns the correct data for the unchecked blocks
 TEST (rpc, unchecked_get)
 {
-	nano::system system;
+	nano::system system{};
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
-	nano::keypair key;
-	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	nano::keypair key{};
+	auto open = std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
 	node->process_active (open);
-	node->block_processor.flush ();
-	boost::property_tree::ptree request;
+	// Waits for the open block to get saved in the database
+	ASSERT_TIMELY (10s, 1 == node->unchecked.count (node->store.tx_begin_read ()));
+	boost::property_tree::ptree request{};
 	request.put ("action", "unchecked_get");
 	request.put ("hash", open->hash ().to_string ());
 	{
@@ -5062,21 +5075,20 @@ TEST (rpc, unchecked_get)
 
 TEST (rpc, unchecked_clear)
 {
-	nano::system system;
+	nano::system system{};
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
-	nano::keypair key;
-	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	nano::keypair key{};
+	auto open = std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
 	node->process_active (open);
-	node->block_processor.flush ();
-	boost::property_tree::ptree request;
-	{
-		ASSERT_EQ (node->store.unchecked.count (node->store.tx_begin_read ()), 1);
-	}
+	boost::property_tree::ptree request{};
+	// Waits for the open block to get saved in the database
+	ASSERT_TIMELY (10s, 1 == node->unchecked.count (node->store.tx_begin_read ()));
 	request.put ("action", "unchecked_clear");
-	auto response (wait_response (system, rpc_ctx, request));
+	auto response = wait_response (system, rpc_ctx, request);
 
-	ASSERT_TIMELY (10s, node->store.unchecked.count (node->store.tx_begin_read ()) == 0);
+	// Waits for the open block to get saved in the database
+	ASSERT_TIMELY (10s, 0 == node->unchecked.count (node->store.tx_begin_read ()));
 }
 
 TEST (rpc, unopened)
@@ -5798,19 +5810,19 @@ TEST (rpc, epoch_upgrade_multithreaded)
 
 TEST (rpc, account_lazy_start)
 {
-	nano::system system;
-	nano::node_flags node_flags;
+	nano::system system{};
+	nano::node_flags node_flags{};
 	node_flags.disable_legacy_bootstrap = true;
 	auto node1 = system.add_node (node_flags);
-	nano::keypair key;
+	nano::keypair key{};
 	// Generating test chain
-	auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, nano::dev::genesis->hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
+	auto send1 = std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, nano::dev::genesis->hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ()));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
-	auto open (std::make_shared<nano::open_block> (send1->hash (), key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	auto open = std::make_shared<nano::open_block> (send1->hash (), key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
 
 	// Start lazy bootstrap with account
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port (), system.logging };
 	node_config.ipc_config.transport_tcp.enabled = true;
 	node_config.ipc_config.transport_tcp.port = nano::get_available_port ();
 	auto node2 = system.add_node (node_config, node_flags);
@@ -5819,15 +5831,17 @@ TEST (rpc, account_lazy_start)
 	boost::property_tree::ptree request;
 	request.put ("action", "account_info");
 	request.put ("account", key.pub.to_account ());
-	auto response (wait_response (system, rpc_ctx, request));
-	boost::optional<std::string> account_error (response.get_optional<std::string> ("error"));
+	auto response = wait_response (system, rpc_ctx, request);
+	boost::optional<std::string> account_error{ response.get_optional<std::string> ("error") };
 	ASSERT_TRUE (account_error.is_initialized ());
 
 	// Check processed blocks
 	ASSERT_TIMELY (10s, !node2->bootstrap_initiator.in_progress ());
-	node2->block_processor.flush ();
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (open->hash ()));
+
+	// needs timed assert because the writing (put) operation is done by a different
+	// thread, it might not get done before DB get operation.
+	ASSERT_TIMELY (10s, node2->ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TIMELY (10s, node2->ledger.block_or_pruned_exists (open->hash ()));
 }
 
 TEST (rpc, receive)
@@ -6242,4 +6256,43 @@ TEST (rpc, confirmation_info)
 		ASSERT_EQ (1, representatives.size ());
 		ASSERT_EQ (0, response.get<unsigned> ("total_tally"));
 	}
+}
+
+/** Test election scheduler container object stats
+ * The test set the AEC size to 0 and then creates a block which gets stuck
+ * in the election scheduler waiting for a slot in the AEC. Then it confirms that
+ * the stats RPC call shows the corresponding scheduler bucket incrementing
+ */
+TEST (node, election_scheduler_container_info)
+{
+	nano::system system;
+	nano::node_config node_config;
+	node_config.active_elections_size = 0;
+	nano::node_flags node_flags;
+	auto node = add_ipc_enabled_node (system, node_config);
+	auto const rpc_ctx = add_rpc (system, node);
+
+	// create a send block
+	auto send1 = nano::state_block_builder ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (nano::public_key ())
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*node->work_generate_blocking (nano::dev::genesis->hash ()))
+				 .build_shared ();
+
+	// process the block and wait for it to show up in the election scheduler
+	node->process_active (send1);
+	ASSERT_TIMELY (10s, node->scheduler.size () == 1);
+
+	// now check the RPC call
+	boost::property_tree::ptree request;
+	request.put ("action", "stats");
+	request.put ("type", "objects");
+	auto response = wait_response (system, rpc_ctx, request);
+	auto es = response.get_child ("node").get_child ("election_scheduler");
+	ASSERT_EQ (es.get_child ("manual_queue").get<std::string> ("count"), "0");
+	ASSERT_EQ (es.get_child ("priority").get_child ("128").get<std::string> ("count"), "1");
 }
