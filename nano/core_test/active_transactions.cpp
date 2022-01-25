@@ -11,10 +11,29 @@ using namespace std::chrono_literals;
 
 namespace nano
 {
+// Set-up:
+// - node1 with:
+//       - disabled request loop -> this stops node1 from sending out confirm requests (???)
+// - node2 with:
+//       - disabled frontiers_confirmation -> ???
+//       - disabled rep crawler -> this inhibits node2 from learning that node1 is a rep
+//
+// Steps:
+// - create a block (send1), process it locally (without creating an election for it) on node1
+// - process send1 (as incoming from network -- process_active) on node2
+// - expect that election has been started for send1 on node2, but no confirmation_requests are sent for it
+// - stick genesis key into node1, then add node1 as a rep to node2's probable reps list
+// - expect at least one confirmation_request for the election (having been sent to node1 -- which is a rep now)
+// - expect a non-final vote to come back
+
+// TODO steps:
+// - election still not confirmed at this point -- ???
+// - new confirmation_requests are sent to node1...again... why???
+// - election confirms after node1.confirmation_height_processor.add (send1) & node1.history.erase (send1->root ()); -- ???
+
 TEST (active_transactions, confirm_active)
 {
 	nano::system system{};
-	system.deadline_set (5s);
 
 	nano::node_flags node_flags1{};
 	node_flags1.disable_request_loop = true;
@@ -22,7 +41,10 @@ TEST (active_transactions, confirm_active)
 
 	nano::node_config node_config2{ nano::get_available_port (), system.logging };
 	node_config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node2 = *system.add_node (node_config2);
+
+	nano::node_flags node_flags2{};
+	node_flags2.disable_rep_crawler = true;
+	auto & node2 = *system.add_node (node_config2, node_flags2);
 
 	auto send1 = nano::send_block_builder ()
 				 .previous (nano::dev::genesis->hash ())
@@ -32,24 +54,38 @@ TEST (active_transactions, confirm_active)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
 
-	node1.process_active (send1);
-	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()) != nullptr);
+	// Process send1 locally on node1
+	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 
+	// Start an election for send1 on node2
+	node2.process_active (send1);
 	std::shared_ptr<nano::election> election{};
 	ASSERT_TIMELY (5s, (election = node2.active.election (send1->qualified_root ())) != nullptr);
+
+	// Expect that node2 has nobody to send a confirmation_request to (no reps)
+	ASSERT_EQ (0, election->confirmation_request_count);
 
 	// Add key to node1
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
-	// Vote was inserted (+ not_an_account)
-	ASSERT_TIMELY (5s, election->votes ().size () == 2);
+	// Get random peer list (of size 1) from node2 -- so basically just node1
+	auto const peers = node2.network.random_set (1);
+	ASSERT_FALSE (peers.empty ());
+
+	// Add representative (node1) to disabled rep crawler of node2
+	{
+		nano::lock_guard<nano::mutex> guard (node2.rep_crawler.probable_reps_mutex);
+		node2.rep_crawler.probable_reps.emplace (nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, *peers.cbegin ());
+	}
+
+	// At least one confirmation request sent to the freshly inserted rep (node1)
+	std::size_t confirm_req_count{};
+	ASSERT_TIMELY (5s, (confirm_req_count = election->confirmation_request_count) > 0);
+
+	// Votes were inserted (except for the null account)
+	ASSERT_TIMELY (5s, election->votes ().size () > 1);
 	// Cannot be confirmed without final vote
 	ASSERT_FALSE (election->confirmed ());
-
-	// TODO: investigate
-	//
-	// auto const confirm_req_count = election->confirmation_request_count.load();
-	// ASSERT_NE(confirm_req_count, 0);
 
 	// Confirm block for node1 for final vote generation
 	node1.confirmation_height_processor.add (send1);
@@ -60,15 +96,9 @@ TEST (active_transactions, confirm_active)
 	node1.history.erase (send1->root ());
 
 	// Waiting for final confirmation
-	ASSERT_TIMELY (10s, node2.ledger.cache.cemented_count == 2 && node2.active.empty ());
-
-	// At least one more confirmation request
-	// TODO: investigate
-	//
-	// ASSERT_GT (election->confirmation_request_count, confirm_req_count);
-
-	// Blocks were cleared (except for the null account)
-	ASSERT_EQ (1, election->blocks ().size ());
+	ASSERT_TIMELY (5s, election->confirmation_request_count > confirm_req_count);
+	ASSERT_TIMELY (5s, election->confirmed ());
+	ASSERT_TIMELY (5s, node2.block_confirmed (send1->hash ()));
 }
 }
 
