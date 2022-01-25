@@ -2031,7 +2031,7 @@ TEST (rpc, work_generate_multiplier)
 	{
 		// When both difficulty and multiplier are given, should use multiplier
 		// Give base difficulty and very high multiplier to test
-		request.put ("difficulty", nano::to_string_hex (0xff00000000000000));
+		request.put ("difficulty", nano::to_string_hex (static_cast<uint64_t> (0xff00000000000000)));
 		double multiplier{ 100.0 };
 		request.put ("multiplier", multiplier);
 		auto response (wait_response (system, rpc_ctx, request, 10s));
