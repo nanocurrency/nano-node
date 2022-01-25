@@ -32,6 +32,7 @@ public:
 	std::size_t size () const;
 	bool empty () const;
 	std::size_t priority_queue_size () const;
+	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 
 private:
 	void run ();
@@ -46,8 +47,5 @@ private:
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
 	std::thread thread;
-
-	friend std::unique_ptr<container_info_component> collect_container_info (election_scheduler &, std::string const &);
 };
-std::unique_ptr<container_info_component> collect_container_info (election_scheduler & election_scheduler, std::string const & name);
 }
