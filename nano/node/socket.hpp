@@ -135,7 +135,7 @@ protected:
 	std::atomic<bool> closed{ false };
 	void close_internal ();
 	void start_timer ();
-	void stop_timer ();
+	void set_last_completion ();
 	void update_last_receive_time ();
 	void checkup ();
 

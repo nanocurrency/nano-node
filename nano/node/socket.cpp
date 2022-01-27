@@ -68,7 +68,7 @@ void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::fu
 		}
 		else
 		{
-			this_l->stop_timer ();
+			this_l->set_last_completion ();
 		}
 		this_l->remote = endpoint_a;
 		callback (ec);
@@ -94,7 +94,7 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buf
 					else
 					{
 						this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::in, size_a);
-						this_l->stop_timer ();
+						this_l->set_last_completion ();
 						this_l->update_last_receive_time ();
 					}
 					cbk (ec, size_a);
@@ -130,7 +130,7 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 					else
 					{
 						this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
-						this_l->stop_timer ();
+						this_l->set_last_completion ();
 					}
 					if (cbk)
 					{
@@ -165,7 +165,7 @@ void nano::socket::start_timer (std::chrono::seconds deadline_a)
 	next_deadline = deadline_a.count ();
 }
 
-void nano::socket::stop_timer ()
+void nano::socket::set_last_completion ()
 {
 	last_completion_time_or_init = nano::seconds_since_epoch ();
 }
