@@ -640,66 +640,81 @@ TEST (confirmation_height, all_block_types)
 	test_mode (nano::confirmation_height_mode::unbounded);
 }
 
-/* Bulk of the this test was taken from the node.fork_flip test */
-// Test disabled because it's failing intermittently.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3633
-TEST (confirmation_height, DISABLED_conflict_rollback_cemented)
+TEST (confirmation_height, conflict_rollback_cemented)
 {
 	auto test_mode = [] (nano::confirmation_height_mode mode_a) {
-		boost::iostreams::stream_buffer<nano::stringstream_mt_sink> sb;
-		sb.open (nano::stringstream_mt_sink{});
-		nano::boost_log_cerr_redirect redirect_cerr (&sb);
-		nano::system system;
-		nano::node_flags node_flags;
+		boost::iostreams::stream_buffer<nano::stringstream_mt_sink> stream_buffer{};
+		stream_buffer.open (nano::stringstream_mt_sink{});
+		nano::boost_log_cerr_redirect redirect_cerr{ &stream_buffer };
+
+		nano::system system{};
+
+		nano::node_flags node_flags{};
 		node_flags.confirmation_height_processor_mode = mode_a;
+
 		auto node1 = system.add_node (node_flags);
+		nano::keypair key1{};
+		nano::send_block_builder builder{};
+		auto const latest_hash = nano::dev::genesis->hash ();
+
+		auto send1 = builder.make_block ()
+					 .previous (latest_hash)
+					 .destination (key1.pub)
+					 .balance (nano::dev::constants.genesis_amount - 100)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (latest_hash))
+					 .build_shared ();
+		ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
+		ASSERT_TIMELY (5s, node1->active.election (send1->qualified_root ()) != nullptr);
+
 		auto node2 = system.add_node (node_flags);
-		ASSERT_EQ (1, node1->network.size ());
-		nano::keypair key1;
-		auto send1 (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
-		nano::publish publish1{ nano::dev::network_params.network, send1 };
-		nano::keypair key2;
-		auto send2 (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key2.pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
-		nano::publish publish2{ nano::dev::network_params.network, send2 };
-		auto channel1 (node1->network.udp_channels.create (node1->network.endpoint ()));
-		node1->network.inbound (publish1, channel1);
-		node1->block_processor.flush ();
-		node1->scheduler.flush ();
-		auto channel2 (node2->network.udp_channels.create (node1->network.endpoint ()));
-		node2->network.inbound (publish2, channel2);
-		node2->block_processor.flush ();
-		node2->scheduler.flush ();
-		ASSERT_EQ (1, node1->active.size ());
-		ASSERT_EQ (1, node2->active.size ());
+		nano::keypair key2{};
+
+		auto send2 = builder.make_block ()
+					 .previous (latest_hash)
+					 .destination (key2.pub)
+					 .balance (nano::dev::constants.genesis_amount - 100)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (latest_hash))
+					 .build_shared ();
+		ASSERT_EQ (nano::process_result::progress, node2->process (*send2).code);
+		ASSERT_TIMELY (5s, node2->active.election (send2->qualified_root ()) != nullptr);
+
 		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-		node1->network.inbound (publish2, channel1);
-		node1->block_processor.flush ();
-		node2->network.inbound (publish1, channel2);
-		node2->block_processor.flush ();
-		auto election (node2->active.election (nano::qualified_root (nano::dev::genesis->hash (), nano::dev::genesis->hash ())));
-		ASSERT_NE (nullptr, election);
+
+		node1->process_active (send2);
+		std::shared_ptr<nano::election> election{};
+		ASSERT_TIMELY (5s, (election = node1->active.election (send2->qualified_root ())) != nullptr);
 		ASSERT_EQ (1, election->votes ().size ());
-		// Force blocks to be cemented on both nodes
-		{
-			auto transaction (node1->store.tx_begin_write ());
-			ASSERT_TRUE (node1->store.block.exists (transaction, publish1.block->hash ()));
-			node1->store.confirmation_height.put (transaction, nano::dev::genesis->account (), nano::confirmation_height_info{ 2, send2->hash () });
-		}
-		{
-			auto transaction (node2->store.tx_begin_write ());
-			ASSERT_TRUE (node2->store.block.exists (transaction, publish2.block->hash ()));
-			node2->store.confirmation_height.put (transaction, nano::dev::genesis->account (), nano::confirmation_height_info{ 2, send2->hash () });
-		}
+
+		// TODO: old code used to force-cement (by conf_height means, not by election means) send2 in both node1 and node2.
+		// QUESTIONS:
+		// - is it necessary to force-cement it in node1 as well? we can prove the test by only force cementing it in
+		//   node2, then the election gets confirmed and the log where we fail to remove already cemented send2
+		//   in node2 is found, everything looks good?
+		// - if we actually wanted to force-cemented send2 in node1, how to do it?
+		//   process_confirmed doesn't do anything as it already sees it's a fork with send1 and there's an election active
+
+		node2->process_confirmed (nano::election_status{ send2 });
+		ASSERT_TIMELY (5s, node2->block_confirmed (send2->hash ()));
+
+		ASSERT_TIMELY (5s, election->confirmed ());
+		auto const winner = election->winner ();
+		ASSERT_NE (nullptr, winner);
+		ASSERT_EQ (*winner, *send1);
 
 		auto rollback_log_entry = boost::str (boost::format ("Failed to roll back %1%") % send2->hash ().to_string ());
-		ASSERT_TIMELY (20s, sb.component ()->str ().find (rollback_log_entry) != std::string::npos);
-		auto winner (*election->tally ().begin ());
-		ASSERT_EQ (*publish1.block, *winner.second);
-		ASSERT_EQ (nano::dev::constants.genesis_amount - 100, winner.first);
-		ASSERT_TRUE (node1->ledger.block_or_pruned_exists (publish1.block->hash ()));
-		ASSERT_TRUE (node2->ledger.block_or_pruned_exists (publish2.block->hash ()));
-		ASSERT_FALSE (node2->ledger.block_or_pruned_exists (publish1.block->hash ()));
+		ASSERT_TIMELY (20s, stream_buffer.component ()->str ().find (rollback_log_entry) != std::string::npos);
+
+		auto const tally = election->tally ();
+		ASSERT_FALSE (tally.empty ());
+		auto const & [amount, winner_alias] = *tally.begin ();
+		ASSERT_EQ (*winner_alias, *send1);
+		ASSERT_EQ (amount, nano::dev::constants.genesis_amount - 100);
+
+		ASSERT_TRUE (node1->ledger.block_or_pruned_exists (send1->hash ()));
+		ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send2->hash ()));
+		ASSERT_FALSE (node2->ledger.block_or_pruned_exists (send1->hash ()));
 	};
 
 	test_mode (nano::confirmation_height_mode::bounded);
