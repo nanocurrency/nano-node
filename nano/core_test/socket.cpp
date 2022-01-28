@@ -7,6 +7,8 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/asio/read.hpp>
+
 #include <map>
 #include <memory>
 #include <utility>
@@ -604,4 +606,253 @@ TEST (socket, concurrent_writes)
 	{
 		t.join ();
 	}
+}
+
+/**
+ * Check that the socket correctly handles a tcp_io_timeout during tcp connect
+ * Steps:
+ *   set timeout to one second
+ *   do a tcp connect that will block for at least a few seconds at the tcp level
+ *   check that the connect returns error and that the correct counters have been incremented
+ */
+TEST (socket_timeout, connect)
+{
+	// create one node and set timeout to 1 second
+	nano::system system (1);
+	std::shared_ptr<nano::node> node = system.nodes[0];
+	node->config.tcp_io_timeout = std::chrono::seconds (1);
+
+	// try to connect to an IP address that most likely does not exist and will not reply
+	// we want the tcp stack to not receive a negative reply, we want it to see silence and to keep trying
+	// I use the un-routable IP address 10.255.254.253, which is likely to not exist
+	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::make_address_v6 ("::ffff:10.255.254.253"), nano::get_available_port ());
+
+	// create a client socket and try to connect to the IP address that wil not respond
+	auto socket = std::make_shared<nano::client_socket> (*node);
+	std::atomic<bool> done = false;
+	boost::system::error_code ec;
+	socket->async_connect (endpoint, [&ec, &done] (boost::system::error_code const & ec_a) {
+		if (ec_a)
+		{
+			ec = ec_a;
+			done = true;
+		}
+	});
+
+	// check that the callback was called and we got an error
+	ASSERT_TIMELY (6s, done == true);
+	ASSERT_TRUE (ec);
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_connect_error, nano::stat::dir::in));
+
+	// check that the socket was closed due to tcp_io_timeout timeout
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, nano::stat::dir::out));
+}
+
+TEST (socket_timeout, read)
+{
+	// create one node and set timeout to 1 second
+	nano::system system (1);
+	std::shared_ptr<nano::node> node = system.nodes[0];
+	node->config.tcp_io_timeout = std::chrono::seconds (2);
+
+	// create a server socket
+	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
+	boost::asio::ip::tcp::acceptor acceptor (system.io_ctx);
+	acceptor.open (endpoint.protocol ());
+	acceptor.bind (endpoint);
+	acceptor.listen (boost::asio::socket_base::max_listen_connections);
+
+	// asynchronously accept an incoming connection and create a newsock and do not send any data
+	boost::asio::ip::tcp::socket newsock (system.io_ctx);
+	acceptor.async_accept (newsock, [] (boost::system::error_code const & ec_a) {
+		debug_assert (!ec_a);
+	});
+
+	// create a client socket to connect and call async_read, which should time out
+	auto socket = std::make_shared<nano::client_socket> (*node);
+	std::atomic<bool> done = false;
+	boost::system::error_code ec;
+	socket->async_connect (endpoint, [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
+		debug_assert (!ec_a);
+		auto buffer = std::make_shared<std::vector<uint8_t>> (1);
+		socket->async_read (buffer, 1, [&ec, &done] (boost::system::error_code const & ec_a, size_t size_a) {
+			if (ec_a)
+			{
+				ec = ec_a;
+				done = true;
+			}
+		});
+	});
+
+	// check that the callback was called and we got an error
+	ASSERT_TIMELY (10s, done == true);
+	ASSERT_TRUE (ec);
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_read_error, nano::stat::dir::in));
+
+	// check that the socket was closed due to tcp_io_timeout timeout
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, nano::stat::dir::out));
+}
+
+TEST (socket_timeout, write)
+{
+	// create one node and set timeout to 1 second
+	nano::system system (1);
+	std::shared_ptr<nano::node> node = system.nodes[0];
+	node->config.tcp_io_timeout = std::chrono::seconds (2);
+
+	// create a server socket
+	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
+	boost::asio::ip::tcp::acceptor acceptor (system.io_ctx);
+	acceptor.open (endpoint.protocol ());
+	acceptor.bind (endpoint);
+	acceptor.listen (boost::asio::socket_base::max_listen_connections);
+
+	// asynchronously accept an incoming connection and create a newsock and do not receive any data
+	boost::asio::ip::tcp::socket newsock (system.io_ctx);
+	acceptor.async_accept (newsock, [] (boost::system::error_code const & ec_a) {
+		debug_assert (!ec_a);
+	});
+
+	// create a client socket and send lots of data to fill the socket queue on the local and remote side
+	// eventually, the all tcp queues should fill up and async_write will not be able to progress
+	// and the timeout should kick in and close the socket, which will cause the async_write to return an error
+	auto socket = std::make_shared<nano::client_socket> (*node);
+	std::atomic<bool> done = false;
+	boost::system::error_code ec;
+	socket->async_connect (endpoint, [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
+		debug_assert (!ec_a);
+		auto buffer = std::make_shared<std::vector<uint8_t>> (128 * 1024);
+		for (auto i = 0; i < 1024; ++i)
+		{
+			socket->async_write (nano::shared_const_buffer{ buffer }, [&ec, &done] (boost::system::error_code const & ec_a, size_t size_a) {
+				if (ec_a)
+				{
+					ec = ec_a;
+					done = true;
+				}
+			});
+		}
+	});
+
+	// check that the callback was called and we got an error
+	ASSERT_TIMELY (10s, done == true);
+	ASSERT_TRUE (ec);
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in));
+
+	// check that the socket was closed due to tcp_io_timeout timeout
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, nano::stat::dir::out));
+}
+
+TEST (socket_timeout, read_overlapped)
+{
+	// create one node and set timeout to 1 second
+	nano::system system (1);
+	std::shared_ptr<nano::node> node = system.nodes[0];
+	node->config.tcp_io_timeout = std::chrono::seconds (2);
+
+	// create a server socket
+	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
+	boost::asio::ip::tcp::acceptor acceptor (system.io_ctx);
+	acceptor.open (endpoint.protocol ());
+	acceptor.bind (endpoint);
+	acceptor.listen (boost::asio::socket_base::max_listen_connections);
+
+	// asynchronously accept an incoming connection and send one byte only
+	boost::asio::ip::tcp::socket newsock (system.io_ctx);
+	acceptor.async_accept (newsock, [&newsock] (boost::system::error_code const & ec_a) {
+		debug_assert (!ec_a);
+		auto buffer = std::make_shared<std::vector<uint8_t>> (1);
+		nano::async_write (newsock, nano::shared_const_buffer (buffer), [] (boost::system::error_code const & ec_a, size_t size_a) {
+			debug_assert (!ec_a);
+			debug_assert (size_a == 1);
+		});
+	});
+
+	// create a client socket to connect and call async_read twice, the second call should time out
+	auto socket = std::make_shared<nano::client_socket> (*node);
+	std::atomic<bool> done = false;
+	boost::system::error_code ec;
+	socket->async_connect (endpoint, [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
+		debug_assert (!ec_a);
+		auto buffer = std::make_shared<std::vector<uint8_t>> (1);
+
+		socket->async_read (buffer, 1, [] (boost::system::error_code const & ec_a, size_t size_a) {
+			debug_assert (size_a == 1);
+		});
+
+		socket->async_read (buffer, 1, [&ec, &done] (boost::system::error_code const & ec_a, size_t size_a) {
+			debug_assert (size_a == 0);
+			if (ec_a)
+			{
+				ec = ec_a;
+				done = true;
+			}
+		});
+	});
+
+	// check that the callback was called and we got an error
+	ASSERT_TIMELY (10s, done == true);
+	ASSERT_TRUE (ec);
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_read_error, nano::stat::dir::in));
+
+	// check that the socket was closed due to tcp_io_timeout timeout
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, nano::stat::dir::out));
+}
+
+TEST (socket_timeout, write_overlapped)
+{
+	// create one node and set timeout to 1 second
+	nano::system system (1);
+	std::shared_ptr<nano::node> node = system.nodes[0];
+	node->config.tcp_io_timeout = std::chrono::seconds (2);
+
+	// create a server socket
+	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
+	boost::asio::ip::tcp::acceptor acceptor (system.io_ctx);
+	acceptor.open (endpoint.protocol ());
+	acceptor.bind (endpoint);
+	acceptor.listen (boost::asio::socket_base::max_listen_connections);
+
+	// asynchronously accept an incoming connection and read 2 bytes only
+	boost::asio::ip::tcp::socket newsock (system.io_ctx);
+	auto buffer = std::make_shared<std::vector<uint8_t>> (1);
+	acceptor.async_accept (newsock, [&newsock, &buffer] (boost::system::error_code const & ec_a) {
+		debug_assert (!ec_a);
+		boost::asio::async_read (newsock, boost::asio::buffer (buffer->data (), buffer->size ()), [] (boost::system::error_code const & ec_a, size_t size_a) {
+			debug_assert (size_a == 1);
+		});
+	});
+
+	// create a client socket and send lots of data to fill the socket queue on the local and remote side
+	// eventually, the all tcp queues should fill up and async_write will not be able to progress
+	// and the timeout should kick in and close the socket, which will cause the async_write to return an error
+	auto socket = std::make_shared<nano::client_socket> (*node);
+	std::atomic<bool> done = false;
+	boost::system::error_code ec;
+	socket->async_connect (endpoint, [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
+		debug_assert (!ec_a);
+		auto buffer1 = std::make_shared<std::vector<uint8_t>> (1);
+		auto buffer2 = std::make_shared<std::vector<uint8_t>> (128 * 1024);
+		socket->async_write (nano::shared_const_buffer{ buffer1 }, [] (boost::system::error_code const & ec_a, size_t size_a) {
+			debug_assert (size_a == 1);
+		});
+		for (auto i = 0; i < 1024; ++i)
+		{
+			socket->async_write (nano::shared_const_buffer{ buffer2 }, [&ec, &done] (boost::system::error_code const & ec_a, size_t size_a) {
+				if (ec_a)
+				{
+					ec = ec_a;
+					done = true;
+				}
+			});
+		}
+	});
+
+	// check that the callback was called and we got an error
+	ASSERT_TIMELY (10s, done == true);
+	ASSERT_TRUE (ec);
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in));
+
+	// check that the socket was closed due to tcp_io_timeout timeout
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, nano::stat::dir::out));
 }
