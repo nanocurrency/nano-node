@@ -95,7 +95,7 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buf
 					{
 						this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::in, size_a);
 						this_l->set_last_completion ();
-						this_l->update_last_receive_time ();
+						this_l->set_last_receive_time ();
 					}
 					cbk (ec, size_a);
 				}));
@@ -172,7 +172,7 @@ void nano::socket::set_last_completion ()
 	last_completion_time_or_init = nano::seconds_since_epoch ();
 }
 
-void nano::socket::update_last_receive_time ()
+void nano::socket::set_last_receive_time ()
 {
 	last_receive_time_or_init = nano::seconds_since_epoch ();
 }

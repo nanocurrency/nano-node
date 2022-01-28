@@ -136,7 +136,7 @@ protected:
 	void close_internal ();
 	void set_next_deadline ();
 	void set_last_completion ();
-	void update_last_receive_time ();
+	void set_last_receive_time ();
 	void checkup ();
 
 private:
