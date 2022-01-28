@@ -58,7 +58,7 @@ void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::fu
 	debug_assert (endpoint_type () == endpoint_type_t::client);
 	checkup ();
 	auto this_l (shared_from_this ());
-	start_timer ();
+	set_next_deadline ();
 	this_l->tcp_socket.async_connect (endpoint_a,
 	boost::asio::bind_executor (this_l->strand,
 	[this_l, callback = std::move (callback_a), endpoint_a] (boost::system::error_code const & ec) {
@@ -82,7 +82,7 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buf
 		auto this_l (shared_from_this ());
 		if (!closed)
 		{
-			start_timer ();
+			set_next_deadline ();
 			boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback = std::move (callback_a), size_a, this_l] () mutable {
 				boost::asio::async_read (this_l->tcp_socket, boost::asio::buffer (buffer_a->data (), size_a),
 				boost::asio::bind_executor (this_l->strand,
@@ -118,7 +118,7 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 		boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback = std::move (callback_a), this_l = shared_from_this ()] () mutable {
 			if (!this_l->closed)
 			{
-				this_l->start_timer ();
+				this_l->set_next_deadline ();
 				nano::async_write (this_l->tcp_socket, buffer_a,
 				boost::asio::bind_executor (this_l->strand,
 				[buffer_a, cbk = std::move (callback), this_l] (boost::system::error_code ec, std::size_t size_a) {
@@ -155,12 +155,14 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 	}
 }
 
-void nano::socket::start_timer ()
+/** sets the next deadline on this socket.
+ */
+void nano::socket::set_next_deadline ()
 {
-	start_timer (io_timeout);
+	set_next_deadline (io_timeout);
 }
 
-void nano::socket::start_timer (std::chrono::seconds deadline_a)
+void nano::socket::set_next_deadline (std::chrono::seconds deadline_a)
 {
 	next_deadline = deadline_a.count ();
 }
@@ -432,7 +434,7 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 				// Make sure the new connection doesn't idle. Note that in most cases, the callback is going to start
 				// an IO operation immediately, which will start a timer.
 				new_connection->checkup ();
-				new_connection->start_timer (this_l->node.network_params.network.is_dev_network () ? this_l->node.network_params.network.socket_dev_idle_timeout : this_l->node.network_params.network.idle_timeout);
+				new_connection->set_next_deadline (this_l->node.network_params.network.is_dev_network () ? this_l->node.network_params.network.socket_dev_idle_timeout : this_l->node.network_params.network.idle_timeout);
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
 				this_l->connections_per_address.emplace (new_connection->remote.address (), new_connection);
 				if (cbk (new_connection, ec_a))

@@ -75,7 +75,7 @@ public:
 	bool has_timed_out () const;
 	/** This can be called to change the maximum idle time, e.g. based on the type of traffic detected. */
 	void timeout_set (std::chrono::seconds io_timeout_a);
-	void start_timer (std::chrono::seconds deadline_a);
+	void set_next_deadline (std::chrono::seconds deadline_a);
 	void set_silent_connection_tolerance_time (std::chrono::seconds tolerance_time_a);
 	bool max () const
 	{
@@ -134,7 +134,7 @@ protected:
 	 error codes as the OS may have already completed the async operation. */
 	std::atomic<bool> closed{ false };
 	void close_internal ();
-	void start_timer ();
+	void set_next_deadline ();
 	void set_last_completion ();
 	void update_last_receive_time ();
 	void checkup ();
