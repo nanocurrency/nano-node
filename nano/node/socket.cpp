@@ -62,7 +62,11 @@ void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::fu
 	this_l->tcp_socket.async_connect (endpoint_a,
 	boost::asio::bind_executor (this_l->strand,
 	[this_l, callback = std::move (callback_a), endpoint_a] (boost::system::error_code const & ec) {
-		if (!ec)
+		if (ec)
+		{
+			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_connect_error, nano::stat::dir::in);
+		}
+		else
 		{
 			this_l->stop_timer ();
 		}
@@ -83,7 +87,11 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buf
 				boost::asio::async_read (this_l->tcp_socket, boost::asio::buffer (buffer_a->data (), size_a),
 				boost::asio::bind_executor (this_l->strand,
 				[this_l, buffer_a, cbk = std::move (callback)] (boost::system::error_code const & ec, std::size_t size_a) {
-					if (!ec)
+					if (ec)
+					{
+						this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_read_error, nano::stat::dir::in);
+					}
+					else
 					{
 						this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::in, size_a);
 						this_l->stop_timer ();
@@ -115,7 +123,11 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 				boost::asio::bind_executor (this_l->strand,
 				[buffer_a, cbk = std::move (callback), this_l] (boost::system::error_code ec, std::size_t size_a) {
 					--this_l->queue_size;
-					if (!ec)
+					if (ec)
+					{
+						this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in);
+					}
+					else
 					{
 						this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
 						this_l->stop_timer ();

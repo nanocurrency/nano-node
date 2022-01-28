@@ -757,6 +757,15 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::tcp_io_timeout_drop:
 			res = "tcp_io_timeout_drop";
 			break;
+		case nano::stat::detail::tcp_connect_error:
+			res = "tcp_connect_error";
+			break;
+		case nano::stat::detail::tcp_read_error:
+			res = "tcp_read_error";
+			break;
+		case nano::stat::detail::tcp_write_error:
+			res = "tcp_write_error";
+			break;
 		case nano::stat::detail::unreachable_host:
 			res = "unreachable_host";
 			break;
