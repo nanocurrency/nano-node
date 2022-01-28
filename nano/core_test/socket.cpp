@@ -360,7 +360,7 @@ TEST (socket, disconnection_of_silent_connections)
 	nano::node_config config;
 	// Increasing the timer timeout, so we don't let the connection to timeout due to the timer checker.
 	config.tcp_io_timeout = std::chrono::seconds::max ();
-	config.network_params.network.socket_dev_idle_timeout = std::chrono::seconds::max ();
+	config.network_params.network.idle_timeout = std::chrono::seconds::max ();
 	// Silent connections are connections open by external peers that don't contribute with any data.
 	config.network_params.network.silent_connection_tolerance_time = std::chrono::seconds{ 5 };
 
