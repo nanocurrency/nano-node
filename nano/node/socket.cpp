@@ -112,47 +112,54 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buf
 
 void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
 {
-	if (!closed)
+	if (closed)
 	{
-		++queue_size;
-		boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback = std::move (callback_a), this_l = shared_from_this ()] () mutable {
-			if (!this_l->closed)
-			{
-				this_l->set_default_timeout ();
-				nano::async_write (this_l->tcp_socket, buffer_a,
-				boost::asio::bind_executor (this_l->strand,
-				[buffer_a, cbk = std::move (callback), this_l] (boost::system::error_code ec, std::size_t size_a) {
-					--this_l->queue_size;
-					if (ec)
-					{
-						this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in);
-					}
-					else
-					{
-						this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
-						this_l->set_last_completion ();
-					}
-					if (cbk)
-					{
-						cbk (ec, size_a);
-					}
-				}));
-			}
-			else if (callback)
-			{
+		if (callback_a)
+		{
+			node.background ([callback = std::move (callback_a)] () {
 				callback (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
-			}
-		}));
+			});
+		}
+
+		return;
 	}
-	else
-	{
-		node.background ([callback = std::move (callback_a)] () {
+
+	++queue_size;
+
+	boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback = std::move (callback_a), this_l = shared_from_this ()] () mutable {
+		if (this_l->closed)
+		{
 			if (callback)
 			{
 				callback (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
 			}
-		});
-	}
+
+			return;
+		}
+
+		this_l->set_default_timeout ();
+
+		nano::async_write (this_l->tcp_socket, buffer_a,
+		boost::asio::bind_executor (this_l->strand,
+		[buffer_a, cbk = std::move (callback), this_l] (boost::system::error_code ec, std::size_t size_a) {
+			--this_l->queue_size;
+
+			if (ec)
+			{
+				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in);
+			}
+			else
+			{
+				this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
+				this_l->set_last_completion ();
+			}
+
+			if (cbk)
+			{
+				cbk (ec, size_a);
+			}
+		}));
+	}));
 }
 
 /** Call set_timeout with default_timeout as parameter */
