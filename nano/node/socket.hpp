@@ -12,15 +12,9 @@
 #include <memory>
 #include <vector>
 
-namespace boost
+namespace boost::asio::ip
 {
-namespace asio
-{
-	namespace ip
-	{
-		class network_v6;
-	}
-}
+class network_v6;
 }
 
 namespace nano
