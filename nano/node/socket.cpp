@@ -199,7 +199,7 @@ void nano::socket::checkup ()
 			}
 
 			// if there is no activity for timeout seconds then disconnect
-			if (this_l->timeout != std::numeric_limits<uint64_t>::max () && (now - this_l->last_completion_time_or_init) > this_l->timeout)
+			if ((now - this_l->last_completion_time_or_init) > this_l->timeout)
 			{
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop,
 				this_l->endpoint_type () == endpoint_type_t::server ? nano::stat::dir::in : nano::stat::dir::out);
