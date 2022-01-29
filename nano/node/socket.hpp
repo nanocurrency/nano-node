@@ -118,12 +118,38 @@ protected:
 	/** The other end of the connection */
 	boost::asio::ip::tcp::endpoint remote;
 
+	/** number of seconds of inactivity that causes a socket timeout
+	 *  activity is any successful connect, send or receive event
+	 */
 	std::atomic<uint64_t> timeout;
+
+	/** the timestamp (in seconds since epoch) of the last time there was successful activity on the socket
+	 *  activity is any successful connect, send or receive event
+	 */
 	std::atomic<uint64_t> last_completion_time_or_init;
+
+	/** the timestamp (in seconds since epoch) of the last time there was successful receive on the socket
+	 *  successful receive includes graceful closing of the socket by the peer (the read succeeds but returns 0 bytes)
+	 */
 	std::atomic<uint64_t> last_receive_time_or_init;
+
+	/** Flag that is set when cleanup decides to close the socket due to timeout.
+	 *  NOTE: Currently used by bootstrap_server::timeout() but I suspect that this and bootstrap_server::timeout() are not needed.
+	 */
 	std::atomic<bool> timed_out{ false };
+
+	/** the timeout value to use when calling set_default_timeout() */
 	std::atomic<std::chrono::seconds> default_timeout;
+
+	/** used in real time server sockets, number of seconds of no receive traffic that will cause the socket to timeout */
 	std::chrono::seconds silent_connection_tolerance_time;
+
+	/** Tracks number of blocks queued for delivery to the local socket send buffers.
+	 *  Under normal circumstances, this should be zero.
+	 *  Note that this is not the number of buffers queued to the peer, it is the number of buffers
+	 *  queued up to enter the local TCP send buffer
+	 *  socket buffer queue -> TCP send queue -> (network) -> TCP receive queue of peer
+	 */
 	std::atomic<std::size_t> queue_size{ 0 };
 
 	/** Set by close() - completion handlers must check this. This is more reliable than checking

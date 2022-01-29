@@ -190,18 +190,22 @@ void nano::socket::checkup ()
 		{
 			uint64_t now (nano::seconds_since_epoch ());
 			auto condition_to_disconnect{ false };
+
+			// if this is a server socket, and no data is received for silent_connection_tolerance_time seconds then disconnect
 			if (this_l->endpoint_type () == endpoint_type_t::server && (now - this_l->last_receive_time_or_init) > this_l->silent_connection_tolerance_time.count ())
 			{
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_silent_connection_drop, nano::stat::dir::in);
 				condition_to_disconnect = true;
 			}
 
+			// if there is no activity for timeout seconds then disconnect
 			if (this_l->timeout != std::numeric_limits<uint64_t>::max () && (now - this_l->last_completion_time_or_init) > this_l->timeout)
 			{
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop,
 				this_l->endpoint_type () == endpoint_type_t::server ? nano::stat::dir::in : nano::stat::dir::out);
 				condition_to_disconnect = true;
 			}
+
 			if (condition_to_disconnect)
 			{
 				if (this_l->node.config.logging.network_timeout_logging ())
