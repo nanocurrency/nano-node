@@ -86,7 +86,7 @@ case "${boostVersion}" in
 1.70)
 	BOOST_BASENAME=boost_1_70_0
 	BOOST_URL=https://boostorg.jfrog.io/artifactory/main/release/1.70.0/source/${BOOST_BASENAME}.tar.bz2
-	BOOST_ARCHIVE_SHA256='94ced8b72956591c4775ae2207a9763d3600b30d9d7446562c552f0a14a63be7'
+	BOOST_ARCHIVE_SHA256='430ae8354789de4fd19ee52f3b1f739e1fba576f0aded0897c3c2bc00fb38778'
 	;;
 1.72)
 	BOOST_BASENAME=boost_1_72_0
