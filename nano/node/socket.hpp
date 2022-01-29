@@ -46,11 +46,13 @@ public:
 		realtime,
 		realtime_response_server // special type for tcp channel response server
 	};
+
 	enum class endpoint_type_t
 	{
 		server,
 		client
 	};
+
 	/**
 	 * Constructor
 	 * @param node Owning node
@@ -68,8 +70,8 @@ public:
 	/** Returns true if the socket has timed out */
 	bool has_timed_out () const;
 	/** This can be called to change the maximum idle time, e.g. based on the type of traffic detected. */
-	void timeout_set (std::chrono::seconds io_timeout_a);
-	void set_next_deadline (std::chrono::seconds deadline_a);
+	void set_default_timeout_value (std::chrono::seconds);
+	void set_timeout (std::chrono::seconds);
 	void set_silent_connection_tolerance_time (std::chrono::seconds tolerance_time_a);
 	bool max () const
 	{
@@ -116,11 +118,11 @@ protected:
 	/** The other end of the connection */
 	boost::asio::ip::tcp::endpoint remote;
 
-	std::atomic<uint64_t> next_deadline;
+	std::atomic<uint64_t> timeout;
 	std::atomic<uint64_t> last_completion_time_or_init;
 	std::atomic<uint64_t> last_receive_time_or_init;
 	std::atomic<bool> timed_out{ false };
-	std::atomic<std::chrono::seconds> io_timeout;
+	std::atomic<std::chrono::seconds> default_timeout;
 	std::chrono::seconds silent_connection_tolerance_time;
 	std::atomic<std::size_t> queue_size{ 0 };
 
@@ -128,7 +130,7 @@ protected:
 	 error codes as the OS may have already completed the async operation. */
 	std::atomic<bool> closed{ false };
 	void close_internal ();
-	void set_next_deadline ();
+	void set_default_timeout ();
 	void set_last_completion ();
 	void set_last_receive_time ();
 	void checkup ();
