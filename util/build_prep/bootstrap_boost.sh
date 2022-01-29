@@ -85,23 +85,28 @@ fi
 case "${boostVersion}" in
 1.70)
 	BOOST_BASENAME=boost_1_70_0
-	BOOST_URL=https://sourceforge.net/projects/boost/files/boost/1.70.0/${BOOST_BASENAME}.tar.bz2/download
-	BOOST_ARCHIVE_SHA256='430ae8354789de4fd19ee52f3b1f739e1fba576f0aded0897c3c2bc00fb38778'
+	BOOST_URL=https://boostorg.jfrog.io/artifactory/main/release/1.70.0/source/${BOOST_BASENAME}.tar.bz2
+	BOOST_ARCHIVE_SHA256='94ced8b72956591c4775ae2207a9763d3600b30d9d7446562c552f0a14a63be7'
 	;;
 1.72)
 	BOOST_BASENAME=boost_1_72_0
-	BOOST_URL=https://sourceforge.net/projects/boost/files/boost/1.72.0/${BOOST_BASENAME}.tar.bz2/download
+	BOOST_URL=https://boostorg.jfrog.io/artifactory/main/release/1.72.0/source/${BOOST_BASENAME}.tar.bz2
 	BOOST_ARCHIVE_SHA256='59c9b274bc451cf91a9ba1dd2c7fdcaf5d60b1b3aa83f2c9fa143417cc660722'
 	;;
 1.73)
 	BOOST_BASENAME=boost_1_73_0
-	BOOST_URL=https://sourceforge.net/projects/boost/files/boost/1.73.0/${BOOST_BASENAME}.tar.bz2/download
+	BOOST_URL=https://boostorg.jfrog.io/artifactory/main/release/1.73.0/source/${BOOST_BASENAME}.tar.bz2
 	BOOST_ARCHIVE_SHA256='4eb3b8d442b426dc35346235c8733b5ae35ba431690e38c6a8263dce9fcbb402'
 	;;
 1.75)
 	BOOST_BASENAME=boost_1_75_0
-	BOOST_URL=https://sourceforge.net/projects/boost/files/boost/1.75.0/${BOOST_BASENAME}.tar.bz2/download
+	BOOST_URL=https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/${BOOST_BASENAME}.tar.bz2
 	BOOST_ARCHIVE_SHA256='953db31e016db7bb207f11432bef7df100516eeb746843fa0486a222e3fd49cb'
+	;;
+1.78)
+	BOOST_BASENAME=boost_1_78_0
+	BOOST_URL=https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.tar.bz2
+	BOOST_ARCHIVE_SHA256='94ced8b72956591c4775ae2207a9763d3600b30d9d7446562c552f0a14a63be7'
 	;;
 *)
 	echo "Unsupported Boost version: ${boostVersion}" >&2
