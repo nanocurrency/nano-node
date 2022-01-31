@@ -1237,6 +1237,54 @@ std::array<nano::block_hash, 2> nano::ledger::dependent_blocks (nano::transactio
 	return visitor.result;
 }
 
+/** Given the block hash of a send block, find the associated receive block that receives that send.
+ *  The send block hash is not checked in any way, it is assumed to be correct.
+ * @return Return the receive block on success and null on failure
+ */
+std::shared_ptr<nano::block> nano::ledger::find_receive_block_by_send_hash (nano::transaction const & transaction, nano::account const & destination, nano::block_hash const & send_block_hash)
+{
+	std::shared_ptr<nano::block> result;
+	debug_assert (send_block_hash != 0);
+
+	// get the cemented frontier
+	nano::confirmation_height_info info;
+	if (store.confirmation_height.get (transaction, destination, info))
+	{
+		return nullptr;
+	}
+	auto possible_receive_block = store.block.get (transaction, info.frontier);
+
+	// walk down the chain until the source field of a receive block matches the send block hash
+	while (possible_receive_block != nullptr)
+	{
+		// if source is non-zero then it is a legacy receive or open block
+		nano::block_hash source = possible_receive_block->source ();
+
+		// if source is zero then it could be a state block, which needs a different kind of access
+		auto state_block = dynamic_cast<nano::state_block const *> (possible_receive_block.get ());
+		if (state_block != nullptr)
+		{
+			// we read the block from the database, so we expect it to have sideband
+			debug_assert (state_block->has_sideband ());
+			if (state_block->sideband ().details.is_receive)
+			{
+				source = state_block->hashables.link.as_block_hash ();
+			}
+		}
+
+		if (send_block_hash == source)
+		{
+			// we have a match
+			result = possible_receive_block;
+			break;
+		}
+
+		possible_receive_block = store.block.get (transaction, possible_receive_block->previous ());
+	}
+
+	return result;
+}
+
 nano::account const & nano::ledger::epoch_signer (nano::link const & link_a) const
 {
 	return constants.epochs.signer (constants.epochs.epoch (link_a));

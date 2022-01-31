@@ -16,7 +16,9 @@
 #include <boost/property_tree/json_parser.hpp>
 
 #include <algorithm>
+#include <map>
 #include <tuple>
+#include <utility>
 
 using namespace std::chrono_literals;
 
@@ -4062,6 +4064,8 @@ TEST (rpc, blocks_info)
 			ASSERT_FALSE (blocks_text.empty ());
 			boost::optional<std::string> receivable (blocks.second.get_optional<std::string> ("receivable"));
 			ASSERT_FALSE (receivable.is_initialized ());
+			boost::optional<std::string> receive_hash (blocks.second.get_optional<std::string> ("receive_hash"));
+			ASSERT_FALSE (receive_hash.is_initialized ());
 			boost::optional<std::string> source (blocks.second.get_optional<std::string> ("source_account"));
 			ASSERT_FALSE (source.is_initialized ());
 			std::string balance_text (blocks.second.get<std::string> ("balance"));
@@ -4101,14 +4105,95 @@ TEST (rpc, blocks_info)
 	}
 	request.put ("source", "true");
 	request.put ("receivable", "1");
+	request.put ("receive_hash", "1");
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		for (auto & blocks : response.get_child ("blocks"))
 		{
 			ASSERT_EQ ("0", blocks.second.get<std::string> ("source_account"));
 			ASSERT_EQ ("0", blocks.second.get<std::string> ("receivable"));
+			std::string receive_hash (blocks.second.get<std::string> ("receive_hash"));
+			ASSERT_EQ (nano::block_hash (0).to_string (), receive_hash);
 		}
 	}
+}
+
+/**
+ * Test to check the receive_hash option of blocks_info rpc command.
+ * The test does 4 sends from genesis to key1.
+ * Then it does 4 receives, one for each send.
+ * Then it issues the blocks_info RPC command and checks that the receive block of each send block is correctly found.
+ */
+TEST (rpc, blocks_info_receive_hash)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	nano::keypair key1;
+	system.wallet (0)->insert_adhoc (key1.prv);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	// do 4 sends
+	auto send1 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 1);
+	auto send2 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 2);
+	auto send3 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 3);
+	auto send4 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 4);
+
+	// do 4 receives, mix up the ordering a little
+	auto recv1 (system.wallet (0)->receive_action (send1->hash (), key1.pub, node->config.receive_minimum.number (), send1->link ().as_account ()));
+	auto recv4 (system.wallet (0)->receive_action (send4->hash (), key1.pub, node->config.receive_minimum.number (), send4->link ().as_account ()));
+	auto recv3 (system.wallet (0)->receive_action (send3->hash (), key1.pub, node->config.receive_minimum.number (), send3->link ().as_account ()));
+	auto recv2 (system.wallet (0)->receive_action (send2->hash (), key1.pub, node->config.receive_minimum.number (), send2->link ().as_account ()));
+
+	// function to check that all 4 receive blocks are cemented
+	auto all_blocks_cemented = [node, &key1] () -> bool {
+		nano::confirmation_height_info info;
+		if (node->store.confirmation_height.get (node->store.tx_begin_read (), key1.pub, info))
+		{
+			return false;
+		}
+		return info.height == 4;
+	};
+
+	ASSERT_TIMELY (5s, all_blocks_cemented ());
+	ASSERT_EQ (node->ledger.account_balance (node->store.tx_begin_read (), key1.pub, true), 10);
+
+	// create the RPC request
+	boost::property_tree::ptree request;
+	boost::property_tree::ptree hashes;
+	boost::property_tree::ptree child;
+	child.put ("", send1->hash ().to_string ());
+	hashes.push_back (std::make_pair ("", child));
+	child.put ("", send2->hash ().to_string ());
+	hashes.push_back (std::make_pair ("", child));
+	child.put ("", send3->hash ().to_string ());
+	hashes.push_back (std::make_pair ("", child));
+	child.put ("", send4->hash ().to_string ());
+	hashes.push_back (std::make_pair ("", child));
+	request.put ("action", "blocks_info");
+	request.add_child ("hashes", hashes);
+	request.put ("receive_hash", "true");
+	request.put ("json_block", "true");
+
+	// send the request
+	auto const rpc_ctx = add_rpc (system, node);
+	auto response = wait_response (system, rpc_ctx, request);
+
+	// create a map of the expected receives hashes for each send hash
+	std::map<std::string, std::string> send_recv_map{
+		{ send1->hash ().to_string (), recv1->hash ().to_string () },
+		{ send2->hash ().to_string (), recv2->hash ().to_string () },
+		{ send3->hash ().to_string (), recv3->hash ().to_string () },
+		{ send4->hash ().to_string (), recv4->hash ().to_string () },
+	};
+
+	for (auto & blocks : response.get_child ("blocks"))
+	{
+		auto hash = blocks.first;
+		std::string receive_hash = blocks.second.get<std::string> ("receive_hash");
+		ASSERT_EQ (receive_hash, send_recv_map[hash]);
+		send_recv_map.erase (hash);
+	}
+	ASSERT_EQ (send_recv_map.size (), 0);
 }
 
 TEST (rpc, blocks_info_subtype)

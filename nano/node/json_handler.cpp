@@ -1239,6 +1239,7 @@ void nano::json_handler::blocks_info ()
 {
 	bool const pending = request.get<bool> ("pending", false);
 	bool const receivable = request.get<bool> ("receivable", pending);
+	bool const receive_hash = request.get<bool> ("receive_hash", false);
 	bool const source = request.get<bool> ("source", false);
 	bool const json_block_l = request.get<bool> ("json_block", false);
 	bool const include_not_found = request.get<bool> ("include_not_found", false);
@@ -1291,16 +1292,47 @@ void nano::json_handler::blocks_info ()
 						auto subtype (nano::state_subtype (block->sideband ().details));
 						entry.put ("subtype", subtype);
 					}
-					if (receivable)
+					if (receivable || receive_hash)
 					{
-						bool exists (false);
 						auto destination (node.ledger.block_destination (transaction, *block));
-						if (!destination.is_zero ())
+						if (destination.is_zero ())
 						{
-							exists = node.store.pending.exists (transaction, nano::pending_key (destination, hash));
+							if (receivable)
+							{
+								entry.put ("pending", "0");
+								entry.put ("receivable", "0");
+							}
+							if (receive_hash)
+							{
+								entry.put ("receive_hash", nano::block_hash (0).to_string ());
+							}
 						}
-						entry.put ("pending", exists ? "1" : "0");
-						entry.put ("receivable", exists ? "1" : "0");
+						else if (node.store.pending.exists (transaction, nano::pending_key (destination, hash)))
+						{
+							if (receivable)
+							{
+								entry.put ("pending", "1");
+								entry.put ("receivable", "1");
+							}
+							if (receive_hash)
+							{
+								entry.put ("receive_hash", nano::block_hash (0).to_string ());
+							}
+						}
+						else
+						{
+							if (receivable)
+							{
+								entry.put ("pending", "0");
+								entry.put ("receivable", "0");
+							}
+							if (receive_hash)
+							{
+								std::shared_ptr<nano::block> receive_block = node.ledger.find_receive_block_by_send_hash (transaction, destination, hash);
+								std::string receive_hash = receive_block ? receive_block->hash ().to_string () : nano::block_hash (0).to_string ();
+								entry.put ("receive_hash", receive_hash);
+							}
+						}
 					}
 					if (source)
 					{

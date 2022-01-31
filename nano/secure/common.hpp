@@ -229,9 +229,14 @@ class confirmation_height_info final
 public:
 	confirmation_height_info () = default;
 	confirmation_height_info (uint64_t, nano::block_hash const &);
+
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
+
+	/** height of the cemented frontier */
 	uint64_t height{};
+
+	/** hash of the highest cemented block, the cemented/confirmed frontier */
 	nano::block_hash frontier{};
 };
 
