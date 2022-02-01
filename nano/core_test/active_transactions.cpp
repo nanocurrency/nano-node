@@ -11,6 +11,8 @@ using namespace std::chrono_literals;
 
 namespace nano
 {
+// Tests that an election can be confirmed as the result of a confirmation request
+//
 // Set-up:
 // - node1 with:
 //       - disabled request loop -> this stops node1 from sending out confirm requests (???)
@@ -31,7 +33,7 @@ namespace nano
 // - new confirmation_requests are sent to node1...again... why???
 // - election confirms after node1.confirmation_height_processor.add (send1) & node1.history.erase (send1->root ()); -- ???
 
-TEST (active_transactions, confirm_active)
+TEST (active_transactions, confirm_election_by_request)
 {
 	nano::system system{};
 
@@ -83,9 +85,9 @@ TEST (active_transactions, confirm_active)
 	ASSERT_TIMELY (5s, (confirm_req_count = election->confirmation_request_count) > 0);
 
 	ASSERT_TIMELY (5s, election->votes ().size () > 1);
-    ASSERT_TIMELY (5s, election->confirmation_request_count > confirm_req_count);
+	ASSERT_TIMELY (5s, election->confirmation_request_count > confirm_req_count);
 	ASSERT_TIMELY (5s, election->confirmed ());
-    ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
+	ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
 	ASSERT_TIMELY (5s, node2.block_confirmed (send1->hash ()));
 }
 }
