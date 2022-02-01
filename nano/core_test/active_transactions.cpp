@@ -15,9 +15,9 @@ namespace nano
 //
 // Set-up:
 // - node1 with:
-//       - disabled request loop -> this stops node1 from sending out confirm requests -> ???
+//       - disabled request loop -> this stops node1 from broadcasting locally started elections to node2
 // - node2 with:
-//       - disabled frontiers_confirmation -> ???
+//       - disabled frontiers_confirmation -> this
 //       - disabled rep crawler -> this inhibits node2 from learning that node1 is a rep
 //
 // Steps:
@@ -35,11 +35,11 @@ TEST (active_transactions, confirm_election_by_request)
 	nano::system system{};
 
 	nano::node_flags node_flags1{};
-	node_flags1.disable_request_loop = true;
+	// node_flags1.disable_request_loop = true;
 	auto & node1 = *system.add_node (node_flags1);
 
 	nano::node_config node_config2{ nano::get_available_port (), system.logging };
-	node_config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	// node_config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 
 	nano::node_flags node_flags2{};
 	node_flags2.disable_rep_crawler = true;
