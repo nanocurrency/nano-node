@@ -15,7 +15,7 @@ namespace nano
 //
 // Set-up:
 // - node1 with:
-//       - disabled request loop -> this stops node1 from sending out confirm requests (???)
+//       - disabled request loop -> this stops node1 from sending out confirm requests -> ???
 // - node2 with:
 //       - disabled frontiers_confirmation -> ???
 //       - disabled rep crawler -> this inhibits node2 from learning that node1 is a rep
@@ -26,12 +26,9 @@ namespace nano
 // - expect that election has been started for send1 on node2, but no confirmation_requests are sent for it
 // - stick genesis key into node1, then add node1 as a rep to node2's probable reps list
 // - expect at least one confirmation_request for the election (having been sent to node1 -- which is a rep now)
-// - expect a non-final vote to come back
-
-// TODO steps:
-// - election still not confirmed at this point -- ???
-// - new confirmation_requests are sent to node1...again... why???
-// - election confirms after node1.confirmation_height_processor.add (send1) & node1.history.erase (send1->root ()); -- ???
+// - expect a (non-final) vote to come back
+// - expected confirmation_request count has increased -- two round trips for the election to get confirmed
+// - expect election is confirmed
 
 TEST (active_transactions, confirm_election_by_request)
 {
@@ -84,8 +81,13 @@ TEST (active_transactions, confirm_election_by_request)
 	std::size_t confirm_req_count{};
 	ASSERT_TIMELY (5s, (confirm_req_count = election->confirmation_request_count) > 0);
 
+	// Expect a (non-final) vote come back
 	ASSERT_TIMELY (5s, election->votes ().size () > 1);
+
+	// There need to be 2 round trips in order for the election to get confirmed
 	ASSERT_TIMELY (5s, election->confirmation_request_count > confirm_req_count);
+
+	// Expect election was confirmed
 	ASSERT_TIMELY (5s, election->confirmed ());
 	ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
 	ASSERT_TIMELY (5s, node2.block_confirmed (send1->hash ()));
