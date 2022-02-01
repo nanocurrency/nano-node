@@ -82,22 +82,10 @@ TEST (active_transactions, confirm_active)
 	std::size_t confirm_req_count{};
 	ASSERT_TIMELY (5s, (confirm_req_count = election->confirmation_request_count) > 0);
 
-	// Votes were inserted (except for the null account)
 	ASSERT_TIMELY (5s, election->votes ().size () > 1);
-	// Cannot be confirmed without final vote
-	ASSERT_FALSE (election->confirmed ());
-
-	// Confirm block for node1 for final vote generation
-	node1.confirmation_height_processor.add (send1);
-	ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
-
-	// Have to erase existing non-final vote for final vote generation
-	// (at runtime it should be replaced with automatically generated final vote from election)
-	node1.history.erase (send1->root ());
-
-	// Waiting for final confirmation
-	ASSERT_TIMELY (5s, election->confirmation_request_count > confirm_req_count);
+    ASSERT_TIMELY (5s, election->confirmation_request_count > confirm_req_count);
 	ASSERT_TIMELY (5s, election->confirmed ());
+    ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
 	ASSERT_TIMELY (5s, node2.block_confirmed (send1->hash ()));
 }
 }
