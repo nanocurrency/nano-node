@@ -15,9 +15,8 @@ namespace nano
 //
 // Set-up:
 // - node1 with:
-//       - disabled request loop -> this stops node1 from broadcasting locally started elections to node2
+//       - enabled frontiers_confirmation (default) -> allows it to confirm blocks and subsequently generates votes
 // - node2 with:
-//       - disabled frontiers_confirmation -> this
 //       - disabled rep crawler -> this inhibits node2 from learning that node1 is a rep
 //
 // Steps:
@@ -33,25 +32,13 @@ namespace nano
 TEST (active_transactions, confirm_election_by_request)
 {
 	nano::system system{};
-
-	nano::node_flags node_flags1{};
-	// node_flags1.disable_request_loop = true;
-	auto & node1 = *system.add_node (node_flags1);
-
-	nano::node_config node_config2{ nano::get_available_port (), system.logging };
-	// node_config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node1 = *system.add_node ();
 
 	nano::node_flags node_flags2{};
 	node_flags2.disable_rep_crawler = true;
-	auto & node2 = *system.add_node (node_config2, node_flags2);
+	auto & node2 = *system.add_node (node_flags2);
 
-	auto send1 = nano::send_block_builder ()
-				 .previous (nano::dev::genesis->hash ())
-				 .destination (nano::public_key ())
-				 .balance (nano::dev::constants.genesis_amount - 100)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
+	auto send1 = nano::state_block_builder{}.make_block ().account (nano::dev::genesis_key.pub).representative (nano::dev::genesis_key.pub).previous (nano::dev::genesis->hash ()).link (nano::public_key ()).balance (nano::dev::constants.genesis_amount - 100).sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub).work (*system.work.generate (nano::dev::genesis->hash ())).build_shared ();
 
 	// Process send1 locally on node1
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
