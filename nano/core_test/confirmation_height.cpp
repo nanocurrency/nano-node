@@ -1265,72 +1265,66 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 	test_mode (nano::confirmation_height_mode::unbounded);
 }
 
-// Test disabled because it's failing intermittently.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3607
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3608
-TEST (confirmation_height, DISABLED_election_winner_details_clearing)
+TEST (confirmation_height, election_winner_details_clearing)
 {
 	auto test_mode = [] (nano::confirmation_height_mode mode_a) {
-		nano::system system;
-		nano::node_flags node_flags;
+		nano::system system{};
+
+		nano::node_flags node_flags{};
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+
+		nano::node_config node_config{ nano::get_available_port (), system.logging };
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+
 		auto node = system.add_node (node_config, node_flags);
+		auto const latest = node->latest (nano::dev::genesis_key.pub);
 
-		nano::block_hash latest (node->latest (nano::dev::genesis_key.pub));
+		nano::keypair key1{};
+		nano::send_block_builder builder{};
 
-		nano::keypair key1;
-		auto send = std::make_shared<nano::send_block> (latest, key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
-		auto send1 = std::make_shared<nano::send_block> (send->hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send->hash ()));
-		auto send2 = std::make_shared<nano::send_block> (send1->hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 3, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send1->hash ()));
+		auto const send1 = builder.make_block ()
+						   .previous (latest)
+						   .destination (key1.pub)
+						   .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+						   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						   .work (*system.work.generate (latest))
+						   .build_shared ();
+		ASSERT_EQ (nano::process_result::progress, node->process (*send1).code);
 
-		{
-			auto transaction = node->store.tx_begin_write ();
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send1).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send2).code);
-		}
+		auto const send2 = builder.make_block ()
+						   .previous (send1->hash ())
+						   .destination (key1.pub)
+						   .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2)
+						   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						   .work (*system.work.generate (send1->hash ()))
+						   .build_shared ();
+		ASSERT_EQ (nano::process_result::progress, node->process (*send2).code);
 
-		add_callback_stats (*node);
+		auto const send3 = builder.make_block ()
+						   .previous (send2->hash ())
+						   .destination (key1.pub)
+						   .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 3)
+						   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						   .work (*system.work.generate (send2->hash ()))
+						   .build_shared ();
+		ASSERT_EQ (nano::process_result::progress, node->process (*send3).code);
 
-		node->block_confirm (send1);
-		auto election = node->active.election (send1->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-
-		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 2);
-
-		ASSERT_EQ (0, node->active.election_winner_details_size ());
-		node->block_confirm (send);
-		election = node->active.election (send->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-
-		// Wait until this block is confirmed
-		ASSERT_TIMELY (10s, node->active.election_winner_details_size () == 1 || node->confirmation_height_processor.current ().is_zero ());
-
+		node->process_confirmed (nano::election_status{ send2 });
+		ASSERT_TIMELY (5s, node->block_confirmed (send2->hash ()));
 		ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
 
-		node->block_confirm (send2);
-		election = node->active.election (send2->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-
-		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 3);
+		node->process_confirmed (nano::election_status{ send3 });
+		ASSERT_TIMELY (5s, node->block_confirmed (send3->hash ()));
 
 		// Add an already cemented block with fake election details. It should get removed
-		node->active.add_election_winner_details (send2->hash (), nullptr);
-		node->confirmation_height_processor.add (send2);
-
+		node->active.add_election_winner_details (send3->hash (), nullptr);
+		node->confirmation_height_processor.add (send3);
 		ASSERT_TIMELY (10s, node->active.election_winner_details_size () == 0);
-
-		ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
-		ASSERT_EQ (3, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
-		ASSERT_EQ (2, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out));
-		ASSERT_EQ (3, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
-		ASSERT_EQ (3, node->stats.count (nano::stat::type::confirmation_height, get_stats_detail (mode_a), nano::stat::dir::in));
 		ASSERT_EQ (4, node->ledger.cache.cemented_count);
+
+		EXPECT_EQ (1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
+		EXPECT_EQ (3, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
+		EXPECT_EQ (3, node->stats.count (nano::stat::type::confirmation_height, get_stats_detail (mode_a), nano::stat::dir::in));
 	};
 
 	test_mode (nano::confirmation_height_mode::bounded);

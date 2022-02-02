@@ -54,92 +54,91 @@ TEST (conflicts, add_two)
 	nano::system system{};
 	auto const & node = system.add_node ();
 
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
 	// define a functor that sends from given account to given destination,
 	// optionally force-confirming the send blocks *and* receiving on the destination account;
 	// the functor returns a pair of the send and receive blocks created or nullptrs if something failed
 	//
-	auto const do_send = [&node] (auto const & previous, auto const & from, auto const & to, bool forceConfirm = true)
-	-> std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::block>> {
-		auto send = std::make_shared<nano::send_block> (previous->hash (), to.pub, 0, from.prv, from.pub, 0);
-		node->work_generate_blocking (*send);
+	auto const do_send = [&node, &system] (auto const & previous, auto const & from, auto const & to, bool forceConfirm = true)
+	-> std::pair<std::optional<std::shared_ptr<nano::block>>, std::optional<std::shared_ptr<nano::block>>> {
+		auto const send = nano::send_block_builder{}.make_block ().previous (previous).destination (to.pub).balance (0).sign (from.prv, from.pub).work (*system.work.generate (previous)).build_shared ();
 
 		if (nano::process_result::progress != node->process (*send).code)
 		{
-			send.reset ();
-			return std::make_pair (std::move (send), std::move (send));
+			return std::make_pair (std::nullopt, std::nullopt);
 		}
 
-		if (forceConfirm)
+		if (!forceConfirm)
 		{
-			node->block_confirm (send);
-			node->active.election (send->qualified_root ())->force_confirm ();
-
-			auto receive = std::make_shared<nano::open_block> (send->hash (), to.pub, to.pub, to.prv, to.pub, 0);
-			node->work_generate_blocking (*receive);
-
-			if (nano::process_result::progress != node->process (*receive).code)
-			{
-				return std::make_pair (nullptr, nullptr);
-			}
-
-			node->block_confirm (receive);
-			node->active.election (receive->qualified_root ())->force_confirm ();
-
-			return std::make_pair (std::move (send), std::move (receive));
+			return std::make_pair (std::move (send), std::nullopt);
 		}
 
-		return std::make_pair (std::move (send), nullptr);
-	};
+		auto const is_confirmed = [&node] (auto const & hash) {
+			return node->block_confirmed (hash);
+		};
 
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+		node->process_confirmed (nano::election_status{ send });
+		auto const is_send_not_confirmed = system.poll_until_true (5s, std::bind (is_confirmed, send->hash ()));
+		if (is_send_not_confirmed)
+		{
+			return std::make_pair (std::nullopt, std::nullopt);
+		}
+
+		auto const receive = nano::open_block_builder{}.make_block ().account (to.pub).source (send->hash ()).representative (to.pub).sign (to.prv, to.pub).work (*system.work.generate (to.pub)).build_shared ();
+
+		if (nano::process_result::progress != node->process (*receive).code)
+		{
+			return std::make_pair (std::nullopt, std::nullopt);
+		}
+
+		node->process_confirmed (nano::election_status{ receive });
+		auto const is_receive_not_confirmed = system.poll_until_true (5s, std::bind (is_confirmed, receive->hash ()));
+		if (is_receive_not_confirmed)
+		{
+			return std::make_pair (std::move (send), std::nullopt);
+		}
+
+		return std::make_pair (std::move (send), std::move (receive));
+	};
 
 	// send from genesis to account1 and receive it on account1
 	//
 	nano::keypair account1{};
-	auto const [send1, receive1] = do_send (nano::dev::genesis, nano::dev::genesis_key, account1);
-	ASSERT_TRUE (send1 && receive1);
+	auto const [send1, receive1] = do_send (nano::dev::genesis->hash (), nano::dev::genesis_key, account1);
+	ASSERT_TRUE (send1.has_value () && receive1.has_value ());
 	// both blocks having been fully confirmed, we expect 1 (genesis) + 2 (send/receive) = 3 cemented blocks
 	//
-	ASSERT_TIMELY (3s, 3 == node->ledger.cache.cemented_count);
+	ASSERT_EQ (3, node->ledger.cache.cemented_count);
 
-	// send from genesis to account2 and receive it on account2
-	//
 	nano::keypair account2{};
-	auto const [send2, receive2] = do_send (send1, nano::dev::genesis_key, account2);
-	ASSERT_TRUE (send2 && receive2);
-	ASSERT_TIMELY (3s, 5 == node->ledger.cache.cemented_count);
+	auto const [send2, receive2] = do_send ((*send1)->hash (), nano::dev::genesis_key, account2);
+	ASSERT_TRUE (send2.has_value () && receive2.has_value ());
+	ASSERT_EQ (5, node->ledger.cache.cemented_count);
 
-	// send from account1 to account3 but do not receive it on account3 and do not force confirm the send block
+	// send from account1 to account3 but do not receive it on account3 and do not force-confirm the send block
 	//
 	nano::keypair account3{};
-	{
-		auto const [send3, _] = do_send (receive1, account1, account3, false);
-		ASSERT_TRUE (send3);
-		// expect the number of cemented blocks not to have changed since the last operation
-		//
-		ASSERT_TIMELY (3s, 5 == node->ledger.cache.cemented_count);
-	}
-
-	// send from account1 to account3 but do not receive it on account3 and do not force confirm the send block
+	auto const [send3, dummy1] = do_send ((*receive1)->hash (), account1, account3, false);
+	ASSERT_TRUE (send3.has_value ());
+	// expect the number of cemented blocks not to have changed since the last operation
 	//
-	{
-		auto const [send4, _] = do_send (receive2, account2, account3, false);
-		ASSERT_TRUE (send4);
-		// expect the number of cemented blocks not to have changed since the last operation
-		//
-		ASSERT_TIMELY (3s, 5 == node->ledger.cache.cemented_count);
-	}
+	ASSERT_EQ (5, node->ledger.cache.cemented_count);
+
+	auto const [send4, dummy2] = do_send ((*receive2)->hash (), account2, account3, false);
+	ASSERT_TRUE (send4.has_value ());
+	ASSERT_EQ (5, node->ledger.cache.cemented_count);
 
 	// activate elections for the previous two send blocks (to account3) that we did not forcefully confirm
 	//
 	node->scheduler.activate (account3.pub, node->store.tx_begin_read ());
-	node->scheduler.flush ();
+	ASSERT_TIMELY (5s, node->active.election ((*send3)->qualified_root ()) != nullptr);
+	ASSERT_TIMELY (5s, node->active.election ((*send4)->qualified_root ()) != nullptr);
 
 	// wait 3s before asserting just to make sure there would be enough time
 	// for the Active Elections Container to evict both elections in case they would wrongfully get confirmed
 	//
-	std::this_thread::sleep_for (3s);
-	ASSERT_EQ (2, node->active.size ());
+	ASSERT_TIMELY (5s, node->active.size () == 2);
 }
 
 TEST (vote_uniquer, null)
