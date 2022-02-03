@@ -923,7 +923,7 @@ std::string nano_qt::status::text ()
 	std::string count_string;
 	{
 		auto size (wallet.wallet_m->wallets.node.ledger.cache.block_count.load ());
-		unchecked = wallet.wallet_m->wallets.node.store.unchecked.count (wallet.wallet_m->wallets.node.store.tx_begin_read ());
+		unchecked = wallet.wallet_m->wallets.node.unchecked.count (wallet.wallet_m->wallets.node.store.tx_begin_read ());
 		cemented = wallet.wallet_m->wallets.node.ledger.cache.cemented_count.load ();
 		count_string = std::to_string (size);
 	}
@@ -959,7 +959,7 @@ std::string nano_qt::status::text ()
 	result += ", Blocks: ";
 	if (unchecked != 0 && wallet.node.bootstrap_initiator.in_progress ())
 	{
-		count_string += "\nUnchecked: " + std::to_string (unchecked) + ", Cemented: " + std::to_string (cemented);
+		count_string += ", Queued: " + std::to_string (unchecked);
 	}
 
 	if (wallet.node.flags.enable_pruning)

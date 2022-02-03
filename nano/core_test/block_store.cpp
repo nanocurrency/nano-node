@@ -22,6 +22,8 @@
 
 #include <stdlib.h>
 
+using namespace std::chrono_literals;
+
 namespace
 {
 void modify_account_info_to_v14 (nano::mdb_store & store, nano::transaction const & transaction_a, nano::account const & account_a, uint64_t confirmation_height, nano::block_hash const & rep_block);
@@ -347,109 +349,152 @@ TEST (block_store, genesis)
 	ASSERT_EQ (nano::dev::genesis->account (), nano::dev::genesis_key.pub);
 }
 
-TEST (bootstrap, simple)
+// This test checks for basic operations in the unchecked table such as putting a new block, retrieving it, and
+// deleting it from the database
+TEST (unchecked, simple)
 {
-	nano::logger_mt logger;
+	nano::system system{};
+	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	nano::unchecked_map unchecked{ *store, false };
 	ASSERT_TRUE (!store->init_error ());
-	std::shared_ptr<nano::block> block1 = std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5);
-	auto transaction (store->tx_begin_write ());
-	auto block2 (store->unchecked.get (transaction, block1->previous ()));
-	ASSERT_TRUE (block2.empty ());
-	store->unchecked.put (transaction, block1->previous (), block1);
-	auto block3 (store->unchecked.get (transaction, block1->previous ()));
-	ASSERT_FALSE (block3.empty ());
-	ASSERT_EQ (*block1, *(block3[0].block));
-	store->unchecked.del (transaction, nano::unchecked_key (block1->previous (), block1->hash ()));
-	auto block4 (store->unchecked.get (transaction, block1->previous ()));
-	ASSERT_TRUE (block4.empty ());
+	std::shared_ptr<nano::block> block = std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5);
+	// Asserts the block wasn't added yet to the unchecked table
+	auto block_listing1 = unchecked.get (store->tx_begin_read (), block->previous ());
+	ASSERT_TRUE (block_listing1.empty ());
+	// Enqueues a block to be saved on the unchecked table
+	unchecked.put (block->previous (), block);
+	// Waits for the block to get written in the database
+	auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
+		return unchecked.get (transaction_a, block_hash_a).size () > 0;
+	};
+	ASSERT_TIMELY (5s, check_block_is_listed (store->tx_begin_read (), block->previous ()));
+	auto transaction = store->tx_begin_write ();
+	// Retrieves the block from the database
+	auto block_listing2 = unchecked.get (transaction, block->previous ());
+	ASSERT_FALSE (block_listing2.empty ());
+	// Asserts the added block is equal to the retrieved one
+	ASSERT_EQ (*block, *(block_listing2[0].block));
+	// Deletes the block from the database
+	unchecked.del (transaction, nano::unchecked_key (block->previous (), block->hash ()));
+	// Asserts the block is deleted
+	auto block_listing3 = unchecked.get (transaction, block->previous ());
+	ASSERT_TRUE (block_listing3.empty ());
 }
 
+// This test ensures the unchecked table is able to receive more than one block
 TEST (unchecked, multiple)
 {
+	nano::system system{};
 	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
 	}
-	nano::logger_mt logger;
+	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	nano::unchecked_map unchecked{ *store, false };
 	ASSERT_TRUE (!store->init_error ());
-	std::shared_ptr<nano::block> block1 = std::make_shared<nano::send_block> (4, 1, 2, nano::keypair ().prv, 4, 5);
-	auto transaction (store->tx_begin_write ());
-	auto block2 (store->unchecked.get (transaction, block1->previous ()));
-	ASSERT_TRUE (block2.empty ());
-	store->unchecked.put (transaction, block1->previous (), block1);
-	store->unchecked.put (transaction, block1->source (), block1);
-	auto block3 (store->unchecked.get (transaction, block1->previous ()));
-	ASSERT_FALSE (block3.empty ());
-	auto block4 (store->unchecked.get (transaction, block1->source ()));
-	ASSERT_FALSE (block4.empty ());
+	std::shared_ptr<nano::block> block = std::make_shared<nano::send_block> (4, 1, 2, nano::keypair ().prv, 4, 5);
+	// Asserts the block wasn't added yet to the unchecked table
+	auto block_listing1 = unchecked.get (store->tx_begin_read (), block->previous ());
+	ASSERT_TRUE (block_listing1.empty ());
+	// Enqueues the first block
+	unchecked.put (block->previous (), block);
+	// Enqueues a second block
+	unchecked.put (block->source (), block);
+	auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
+		return unchecked.get (transaction_a, block_hash_a).size () > 0;
+	};
+	// Waits for and asserts the first block gets saved in the database
+	ASSERT_TIMELY (5s, check_block_is_listed (store->tx_begin_read (), block->previous ()));
+	// Waits for and asserts the second block gets saved in the database
+	ASSERT_TIMELY (5s, check_block_is_listed (store->tx_begin_read (), block->source ()));
 }
 
+// This test ensures that a block can't occur twice in the unchecked table.
 TEST (unchecked, double_put)
 {
-	nano::logger_mt logger;
+	nano::system system{};
+	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	nano::unchecked_map unchecked{ *store, false };
 	ASSERT_TRUE (!store->init_error ());
-	std::shared_ptr<nano::block> block1 = std::make_shared<nano::send_block> (4, 1, 2, nano::keypair ().prv, 4, 5);
-	auto transaction (store->tx_begin_write ());
-	auto block2 (store->unchecked.get (transaction, block1->previous ()));
-	ASSERT_TRUE (block2.empty ());
-	store->unchecked.put (transaction, block1->previous (), block1);
-	store->unchecked.put (transaction, block1->previous (), block1);
-	auto block3 (store->unchecked.get (transaction, block1->previous ()));
-	ASSERT_EQ (block3.size (), 1);
+	std::shared_ptr<nano::block> block = std::make_shared<nano::send_block> (4, 1, 2, nano::keypair ().prv, 4, 5);
+	// Asserts the block wasn't added yet to the unchecked table
+	auto block_listing1 = unchecked.get (store->tx_begin_read (), block->previous ());
+	ASSERT_TRUE (block_listing1.empty ());
+	// Enqueues the block to be saved in the unchecked table
+	unchecked.put (block->previous (), block);
+	// Enqueues the block again in an attempt to have it there twice
+	unchecked.put (block->previous (), block);
+	auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
+		return unchecked.get (transaction_a, block_hash_a).size () > 0;
+	};
+	// Waits for and asserts the block was added at least once
+	ASSERT_TIMELY (5s, check_block_is_listed (store->tx_begin_read (), block->previous ()));
+	// Asserts the block was added at most once -- this is objective of this test.
+	auto block_listing2 = unchecked.get (store->tx_begin_read (), block->previous ());
+	ASSERT_EQ (block_listing2.size (), 1);
 }
 
+// Tests that recurrent get calls return the correct values
 TEST (unchecked, multiple_get)
 {
-	nano::logger_mt logger;
+	nano::system system{};
+	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	nano::unchecked_map unchecked{ *store, false };
 	ASSERT_TRUE (!store->init_error ());
+	// Instantiates three blocks
 	std::shared_ptr<nano::block> block1 = std::make_shared<nano::send_block> (4, 1, 2, nano::keypair ().prv, 4, 5);
 	std::shared_ptr<nano::block> block2 = std::make_shared<nano::send_block> (3, 1, 2, nano::keypair ().prv, 4, 5);
 	std::shared_ptr<nano::block> block3 = std::make_shared<nano::send_block> (5, 1, 2, nano::keypair ().prv, 4, 5);
-	{
-		auto transaction (store->tx_begin_write ());
-		store->unchecked.put (transaction, block1->previous (), block1); // unchecked1
-		store->unchecked.put (transaction, block1->hash (), block1); // unchecked2
-		store->unchecked.put (transaction, block2->previous (), block2); // unchecked3
-		store->unchecked.put (transaction, block1->previous (), block2); // unchecked1
-		store->unchecked.put (transaction, block1->hash (), block2); // unchecked2
-		store->unchecked.put (transaction, block3->previous (), block3);
-		store->unchecked.put (transaction, block3->hash (), block3); // unchecked4
-		store->unchecked.put (transaction, block1->previous (), block3); // unchecked1
-	}
-	auto transaction (store->tx_begin_read ());
-	auto unchecked_count (store->unchecked.count (transaction));
-	ASSERT_EQ (unchecked_count, 8);
+	// Add the blocks' info to the unchecked table
+	unchecked.put (block1->previous (), block1); // unchecked1
+	unchecked.put (block1->hash (), block1); // unchecked2
+	unchecked.put (block2->previous (), block2); // unchecked3
+	unchecked.put (block1->previous (), block2); // unchecked1
+	unchecked.put (block1->hash (), block2); // unchecked2
+	unchecked.put (block3->previous (), block3);
+	unchecked.put (block3->hash (), block3); // unchecked4
+	unchecked.put (block1->previous (), block3); // unchecked1
+	// Waits for the blocks to get saved in the database
+	ASSERT_TIMELY (5s, 8 == unchecked.count (store->tx_begin_read ()));
 	std::vector<nano::block_hash> unchecked1;
-	auto unchecked1_blocks (store->unchecked.get (transaction, block1->previous ()));
+	// Asserts the entries will be found for the provided key
+	auto transaction = store->tx_begin_read ();
+	auto unchecked1_blocks = unchecked.get (transaction, block1->previous ());
 	ASSERT_EQ (unchecked1_blocks.size (), 3);
 	for (auto & i : unchecked1_blocks)
 	{
 		unchecked1.push_back (i.block->hash ());
 	}
+	// Asserts the payloads where correclty saved
 	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block1->hash ()) != unchecked1.end ());
 	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block2->hash ()) != unchecked1.end ());
 	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block3->hash ()) != unchecked1.end ());
 	std::vector<nano::block_hash> unchecked2;
-	auto unchecked2_blocks (store->unchecked.get (transaction, block1->hash ()));
+	// Asserts the entries will be found for the provided key
+	auto unchecked2_blocks = unchecked.get (transaction, block1->hash ());
 	ASSERT_EQ (unchecked2_blocks.size (), 2);
 	for (auto & i : unchecked2_blocks)
 	{
 		unchecked2.push_back (i.block->hash ());
 	}
+	// Asserts the payloads where correctly saved
 	ASSERT_TRUE (std::find (unchecked2.begin (), unchecked2.end (), block1->hash ()) != unchecked2.end ());
 	ASSERT_TRUE (std::find (unchecked2.begin (), unchecked2.end (), block2->hash ()) != unchecked2.end ());
-	auto unchecked3 (store->unchecked.get (transaction, block2->previous ()));
+	// Asserts the entry is found by the key and the payload is saved
+	auto unchecked3 = unchecked.get (transaction, block2->previous ());
 	ASSERT_EQ (unchecked3.size (), 1);
 	ASSERT_EQ (unchecked3[0].block->hash (), block2->hash ());
-	auto unchecked4 (store->unchecked.get (transaction, block3->hash ()));
+	// Asserts the entry is found by the key and the payload is saved
+	auto unchecked4 = unchecked.get (transaction, block3->hash ());
 	ASSERT_EQ (unchecked4.size (), 1);
 	ASSERT_EQ (unchecked4[0].block->hash (), block3->hash ());
-	auto unchecked5 (store->unchecked.get (transaction, block2->hash ()));
+	// Asserts no entry is found for a block that wasn't added
+	auto unchecked5 = unchecked.get (transaction, block2->hash ());
 	ASSERT_EQ (unchecked5.size (), 0);
 }
 
@@ -480,30 +525,10 @@ TEST (block_store, empty_bootstrap)
 {
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	nano::unchecked_map unchecked{ *store, false };
 	ASSERT_TRUE (!store->init_error ());
 	auto transaction (store->tx_begin_read ());
-	auto [begin, end] = store->unchecked.full_range (transaction);
-	ASSERT_EQ (end, begin);
-}
-
-TEST (block_store, one_bootstrap)
-{
-	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	ASSERT_TRUE (!store->init_error ());
-	std::shared_ptr<nano::block> block1 = std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5);
-	auto transaction (store->tx_begin_write ());
-	store->unchecked.put (transaction, block1->hash (), block1);
-	auto begin (store->unchecked.begin (transaction));
-	auto end (store->unchecked.end ());
-	ASSERT_NE (end, begin);
-	auto hash1 (begin->first.key ());
-	ASSERT_EQ (block1->hash (), hash1);
-	auto blocks (store->unchecked.get (transaction, hash1));
-	ASSERT_EQ (1, blocks.size ());
-	auto block2 (blocks[0].block);
-	ASSERT_EQ (*block1, *block2);
-	++begin;
+	auto [begin, end] = unchecked.full_range (transaction);
 	ASSERT_EQ (end, begin);
 }
 
@@ -919,42 +944,26 @@ TEST (block_store, pruned_random)
 TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort table
 {
 	auto path (nano::unique_path ());
-	nano::logger_mt logger;
-	nano::mdb_store store (logger, path, nano::dev::constants);
+	nano::logger_mt logger{};
+	nano::mdb_store store{ logger, path, nano::dev::constants };
+	nano::unchecked_map unchecked{ store, false };
 	auto transaction (store.tx_begin_write ());
 	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_handle, 1));
 	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE, &store.unchecked_handle));
 	std::shared_ptr<nano::block> send1 = std::make_shared<nano::send_block> (0, 0, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
 	std::shared_ptr<nano::block> send2 = std::make_shared<nano::send_block> (1, 0, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
 	ASSERT_NE (send1->hash (), send2->hash ());
-	store.unchecked.put (transaction, send1->hash (), send1);
-	store.unchecked.put (transaction, send1->hash (), send2);
-	{
-		auto iterator1 (store.unchecked.begin (transaction));
-		++iterator1;
-		ASSERT_EQ (store.unchecked.end (), iterator1);
-	}
+	unchecked.put (send1->hash (), send1);
+	unchecked.put (send1->hash (), send2);
 	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_handle, 0));
 	mdb_dbi_close (store.env, store.unchecked_handle);
 	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked_handle));
-	store.unchecked.put (transaction, send1->hash (), send1);
-	store.unchecked.put (transaction, send1->hash (), send2);
-	{
-		auto iterator1 (store.unchecked.begin (transaction));
-		++iterator1;
-		ASSERT_EQ (store.unchecked.end (), iterator1);
-	}
+	unchecked.put (send1->hash (), send1);
+	unchecked.put (send1->hash (), send2);
 	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_handle, 1));
 	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked_handle));
-	store.unchecked.put (transaction, send1->hash (), send1);
-	store.unchecked.put (transaction, send1->hash (), send2);
-	{
-		auto iterator1 (store.unchecked.begin (transaction));
-		++iterator1;
-		ASSERT_NE (store.unchecked.end (), iterator1);
-		++iterator1;
-		ASSERT_EQ (store.unchecked.end (), iterator1);
-	}
+	unchecked.put (send1->hash (), send1);
+	unchecked.put (send1->hash (), send2);
 }
 
 TEST (block_store, state_block)
@@ -2017,18 +2026,28 @@ TEST (block_store, rocksdb_force_test_env_variable)
 
 namespace nano
 {
+// This thest ensures the tombstone_count is increased when there is a delete. The tombstone_count is part of a flush
+// logic bound to the way RocksDB is used by the node.
 TEST (rocksdb_block_store, tombstone_count)
 {
 	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
-		nano::logger_mt logger;
+		nano::system system{};
+		nano::logger_mt logger{};
 		auto store = std::make_unique<nano::rocksdb_store> (logger, nano::unique_path (), nano::dev::constants);
+		nano::unchecked_map unchecked{ *store, false };
 		ASSERT_TRUE (!store->init_error ());
-		auto transaction = store->tx_begin_write ();
-		std::shared_ptr<nano::block> block1 = std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5);
-		store->unchecked.put (transaction, block1->previous (), block1);
+		std::shared_ptr<nano::block> block = std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5);
+		// Enqueues a block to be saved in the database
+		unchecked.put (block->previous (), block);
+		auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
+			return unchecked.get (transaction_a, block_hash_a).size () > 0;
+		};
+		// Waits for the block to get saved
+		ASSERT_TIMELY (5s, check_block_is_listed (store->tx_begin_read (), block->previous ()));
 		ASSERT_EQ (store->tombstone_map.at (nano::tables::unchecked).num_since_last_flush.load (), 0);
-		store->unchecked.del (transaction, nano::unchecked_key (block1->previous (), block1->hash ()));
+		// Perorms a delete and checks for the tombstone counter
+		unchecked.del (store->tx_begin_write (), nano::unchecked_key (block->previous (), block->hash ()));
 		ASSERT_EQ (store->tombstone_map.at (nano::tables::unchecked).num_since_last_flush.load (), 1);
 	}
 }

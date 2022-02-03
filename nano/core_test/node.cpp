@@ -2961,7 +2961,7 @@ TEST (node, block_processor_signatures)
 	// Invalid signature to unchecked
 	{
 		auto transaction (node1.store.tx_begin_write ());
-		node1.store.unchecked.put (transaction, send5->previous (), send5);
+		node1.unchecked.put (send5->previous (), send5);
 	}
 	auto receive1 = builder.make_block ()
 					.account (key1.pub)
@@ -3289,11 +3289,11 @@ TEST (node, peer_cache_restart)
 
 TEST (node, unchecked_cleanup)
 {
-	nano::system system;
-	nano::node_flags node_flags;
+	nano::system system{};
+	nano::node_flags node_flags{};
 	node_flags.disable_unchecked_cleanup = true;
-	nano::keypair key;
-	auto & node (*system.add_node (node_flags));
+	nano::keypair key{};
+	auto & node = *system.add_node (node_flags);
 	auto open = nano::state_block_builder ()
 				.account (key.pub)
 				.previous (0)
@@ -3312,32 +3312,18 @@ TEST (node, unchecked_cleanup)
 	// Should be cleared after unchecked cleanup
 	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
 	node.process_active (open);
-	node.block_processor.flush ();
+	// Waits for the open block to get saved in the database
+	ASSERT_TIMELY (15s, 1 == node.unchecked.count (node.store.tx_begin_read ()));
 	node.config.unchecked_cutoff_time = std::chrono::seconds (2);
-	{
-		auto transaction (node.store.tx_begin_read ());
-		auto unchecked_count (node.store.unchecked.count (transaction));
-		ASSERT_EQ (unchecked_count, 1);
-		ASSERT_EQ (unchecked_count, node.store.unchecked.count (transaction));
-	}
+	ASSERT_EQ (1, node.unchecked.count (node.store.tx_begin_read ()));
 	std::this_thread::sleep_for (std::chrono::seconds (1));
 	node.unchecked_cleanup ();
 	ASSERT_TRUE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
-	{
-		auto transaction (node.store.tx_begin_read ());
-		auto unchecked_count (node.store.unchecked.count (transaction));
-		ASSERT_EQ (unchecked_count, 1);
-		ASSERT_EQ (unchecked_count, node.store.unchecked.count (transaction));
-	}
+	ASSERT_EQ (1, node.unchecked.count (node.store.tx_begin_read ()));
 	std::this_thread::sleep_for (std::chrono::seconds (2));
 	node.unchecked_cleanup ();
 	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
-	{
-		auto transaction (node.store.tx_begin_read ());
-		auto unchecked_count (node.store.unchecked.count (transaction));
-		ASSERT_EQ (unchecked_count, 0);
-		ASSERT_EQ (unchecked_count, node.store.unchecked.count (transaction));
-	}
+	ASSERT_EQ (0, node.unchecked.count (node.store.tx_begin_read ()));
 }
 
 /** This checks that a node can be opened (without being blocked) when a write lock is held elsewhere */
@@ -3415,7 +3401,6 @@ TEST (node, bidirectional_tcp)
 				 .work (*node1->work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	node1->process_active (send1);
-	node1->block_processor.flush ();
 	ASSERT_TIMELY (10s, node1->ledger.block_or_pruned_exists (send1->hash ()) && node2->ledger.block_or_pruned_exists (send1->hash ()));
 	// Test block confirmation from node 1 (add representative to node 1)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);

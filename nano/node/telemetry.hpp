@@ -20,6 +20,7 @@ class network;
 class stat;
 class ledger;
 class thread_pool;
+class unchecked_map;
 namespace transport
 {
 	class channel;
@@ -149,5 +150,5 @@ private:
 std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, std::string const & name);
 
 nano::telemetry_data consolidate_telemetry_data (std::vector<telemetry_data> const & telemetry_data);
-nano::telemetry_data local_telemetry_data (nano::ledger const & ledger_a, nano::network &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point, uint64_t, nano::keypair const &);
+nano::telemetry_data local_telemetry_data (nano::ledger const & ledger_a, nano::network &, nano::unchecked_map const &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point, uint64_t, nano::keypair const &);
 }

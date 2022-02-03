@@ -22,6 +22,7 @@
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/signatures.hpp>
 #include <nano/node/telemetry.hpp>
+#include <nano/node/unchecked_map.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/write_database_queue.hpp>
@@ -165,6 +166,7 @@ public:
 	nano::logger_mt logger;
 	std::unique_ptr<nano::store> store_impl;
 	nano::store & store;
+	nano::unchecked_map unchecked;
 	std::unique_ptr<nano::wallets_store> wallets_store_impl;
 	nano::wallets_store & wallets_store;
 	nano::gap_cache gap_cache;
