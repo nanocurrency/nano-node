@@ -2947,6 +2947,7 @@ void nano::json_handler::pending ()
 {
 	auto account (account_impl ());
 	auto count (count_optional_impl ());
+	auto offset (offset_optional_impl (0));
 	auto threshold (threshold_optional_impl ());
 	bool const source = request.get<bool> ("source", false);
 	bool const min_version = request.get<bool> ("min_version", false);
@@ -2957,6 +2958,7 @@ void nano::json_handler::pending ()
 	bool const should_sort = sorting && !simple;
 	if (!ec)
 	{
+		auto offset_counter = offset;
 		boost::property_tree::ptree peers_l;
 		auto transaction (node.store.tx_begin_read ());
 		// The ptree container is used if there are any children nodes (e.g source/min_version) otherwise the amount container is used.
@@ -2967,6 +2969,12 @@ void nano::json_handler::pending ()
 			nano::pending_key const & key (i->first);
 			if (block_confirmed (node, transaction, key.hash, include_active, include_only_confirmed))
 			{
+				if (!should_sort && offset_counter > 0)
+				{
+					--offset_counter;
+					continue;
+				}
+
 				if (simple)
 				{
 					boost::property_tree::ptree entry;
@@ -3019,23 +3027,23 @@ void nano::json_handler::pending ()
 		{
 			if (source || min_version)
 			{
-				auto mid = hash_ptree_pairs.size () <= count ? hash_ptree_pairs.end () : hash_ptree_pairs.begin () + count;
+				auto mid = hash_ptree_pairs.size () <= (offset + count) ? hash_ptree_pairs.end () : hash_ptree_pairs.begin () + offset + count;
 				std::partial_sort (hash_ptree_pairs.begin (), mid, hash_ptree_pairs.end (), [] (auto const & lhs, auto const & rhs) {
 					return lhs.second.template get<nano::uint128_t> ("amount") > rhs.second.template get<nano::uint128_t> ("amount");
 				});
-				for (auto i = 0; i < hash_ptree_pairs.size () && i < count; ++i)
+				for (auto i = offset, j = offset + count; i < hash_ptree_pairs.size () && i < j; ++i)
 				{
 					peers_l.add_child (hash_ptree_pairs[i].first, hash_ptree_pairs[i].second);
 				}
 			}
 			else
 			{
-				auto mid = hash_amount_pairs.size () <= count ? hash_amount_pairs.end () : hash_amount_pairs.begin () + count;
+				auto mid = hash_amount_pairs.size () <= (offset + count) ? hash_amount_pairs.end () : hash_amount_pairs.begin () + offset + count;
 				std::partial_sort (hash_amount_pairs.begin (), mid, hash_amount_pairs.end (), [] (auto const & lhs, auto const & rhs) {
 					return lhs.second > rhs.second;
 				});
 
-				for (auto i = 0; i < hash_amount_pairs.size () && i < count; ++i)
+				for (auto i = offset, j = offset + count; i < hash_amount_pairs.size () && i < j; ++i)
 				{
 					peers_l.put (hash_amount_pairs[i].first, hash_amount_pairs[i].second.convert_to<std::string> ());
 				}

@@ -1849,7 +1849,6 @@ TEST (rpc, pending)
 	ASSERT_TIMELY (5s, node->block_confirmed (block4->hash ()));
 
 	request.put ("count", "2");
-
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto & blocks_node (response.get_child ("blocks"));
@@ -1858,6 +1857,17 @@ TEST (rpc, pending)
 		nano::block_hash hash1 ((++blocks_node.begin ())->first);
 		ASSERT_EQ (block4->hash (), hash);
 		ASSERT_EQ (block3->hash (), hash1);
+	}
+
+	request.put ("offset", "2"); // Offset test
+	{
+		auto response (wait_response (system, rpc_ctx, request));
+		auto & blocks_node (response.get_child ("blocks"));
+		ASSERT_EQ (2, blocks_node.size ());
+		nano::block_hash hash (blocks_node.begin ()->first);
+		nano::block_hash hash1 ((++blocks_node.begin ())->first);
+		ASSERT_EQ (block2->hash (), hash);
+		ASSERT_EQ (block1->hash (), hash1);
 	}
 }
 
