@@ -1266,6 +1266,7 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 	test_mode (nano::confirmation_height_mode::unbounded);
 }
 
+// Test that freshly addded election winner details are removed for already confirmed blocks
 TEST (confirmation_height, election_winner_details_clearing)
 {
 	auto test_mode = [] (nano::confirmation_height_mode mode_a) {
