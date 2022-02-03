@@ -519,9 +519,15 @@ std::string nano::vote::to_json () const
 	return stream.str ();
 }
 
+/**
+ * Returns the timestamp of the vote (with the duration bits masked, set to zero)
+ * If it is a final vote, all the bits including duration bits are returned as they are, all FF
+ */
 uint64_t nano::vote::timestamp () const
 {
-	return timestamp_m;
+	return (timestamp_m == std::numeric_limits<uint64_t>::max ())
+	? timestamp_m // final vote
+	: (timestamp_m & timestamp_mask);
 }
 
 uint8_t nano::vote::duration_bits () const
