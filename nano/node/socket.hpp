@@ -12,15 +12,9 @@
 #include <memory>
 #include <vector>
 
-namespace boost
+namespace boost::asio::ip
 {
-namespace asio
-{
-	namespace ip
-	{
-		class network_v6;
-	}
-}
+class network_v6;
 }
 
 namespace nano
@@ -52,11 +46,13 @@ public:
 		realtime,
 		realtime_response_server // special type for tcp channel response server
 	};
+
 	enum class endpoint_type_t
 	{
 		server,
 		client
 	};
+
 	/**
 	 * Constructor
 	 * @param node Owning node
@@ -74,8 +70,8 @@ public:
 	/** Returns true if the socket has timed out */
 	bool has_timed_out () const;
 	/** This can be called to change the maximum idle time, e.g. based on the type of traffic detected. */
-	void timeout_set (std::chrono::seconds io_timeout_a);
-	void start_timer (std::chrono::seconds deadline_a);
+	void set_default_timeout_value (std::chrono::seconds);
+	void set_timeout (std::chrono::seconds);
 	void set_silent_connection_tolerance_time (std::chrono::seconds tolerance_time_a);
 	bool max () const
 	{
@@ -122,21 +118,47 @@ protected:
 	/** The other end of the connection */
 	boost::asio::ip::tcp::endpoint remote;
 
-	std::atomic<uint64_t> next_deadline;
+	/** number of seconds of inactivity that causes a socket timeout
+	 *  activity is any successful connect, send or receive event
+	 */
+	std::atomic<uint64_t> timeout;
+
+	/** the timestamp (in seconds since epoch) of the last time there was successful activity on the socket
+	 *  activity is any successful connect, send or receive event
+	 */
 	std::atomic<uint64_t> last_completion_time_or_init;
+
+	/** the timestamp (in seconds since epoch) of the last time there was successful receive on the socket
+	 *  successful receive includes graceful closing of the socket by the peer (the read succeeds but returns 0 bytes)
+	 */
 	std::atomic<uint64_t> last_receive_time_or_init;
+
+	/** Flag that is set when cleanup decides to close the socket due to timeout.
+	 *  NOTE: Currently used by bootstrap_server::timeout() but I suspect that this and bootstrap_server::timeout() are not needed.
+	 */
 	std::atomic<bool> timed_out{ false };
-	std::atomic<std::chrono::seconds> io_timeout;
+
+	/** the timeout value to use when calling set_default_timeout() */
+	std::atomic<std::chrono::seconds> default_timeout;
+
+	/** used in real time server sockets, number of seconds of no receive traffic that will cause the socket to timeout */
 	std::chrono::seconds silent_connection_tolerance_time;
+
+	/** Tracks number of blocks queued for delivery to the local socket send buffers.
+	 *  Under normal circumstances, this should be zero.
+	 *  Note that this is not the number of buffers queued to the peer, it is the number of buffers
+	 *  queued up to enter the local TCP send buffer
+	 *  socket buffer queue -> TCP send queue -> (network) -> TCP receive queue of peer
+	 */
 	std::atomic<std::size_t> queue_size{ 0 };
 
 	/** Set by close() - completion handlers must check this. This is more reliable than checking
 	 error codes as the OS may have already completed the async operation. */
 	std::atomic<bool> closed{ false };
 	void close_internal ();
-	void start_timer ();
-	void stop_timer ();
-	void update_last_receive_time ();
+	void set_default_timeout ();
+	void set_last_completion ();
+	void set_last_receive_time ();
 	void checkup ();
 
 private:
