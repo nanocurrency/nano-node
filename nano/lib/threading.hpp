@@ -43,6 +43,7 @@ namespace thread_role
 		election_scheduler,
 		unchecked,
 	};
+
 	/*
 	 * Get/Set the identifier for the current thread
 	 */
