@@ -86,8 +86,12 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 			break;
 		case nano::thread_role::name::election_scheduler:
 			thread_role_name_string = "Election Sched";
+			break;
 		case nano::thread_role::name::unchecked:
 			thread_role_name_string = "Unchecked";
+			break;
+		default:
+			debug_assert (0);
 	}
 
 	/*
