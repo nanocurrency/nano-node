@@ -192,6 +192,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 				// Set last processed account as new start target
 				attempt->set_start_account (last_account);
 			}
+			connection->connections.pool_connection (connection);
 			try
 			{
 				promise.set_value (false);
@@ -199,7 +200,6 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 			catch (std::future_error &)
 			{
 			}
-			connection->connections.pool_connection (connection);
 		}
 	}
 	else
