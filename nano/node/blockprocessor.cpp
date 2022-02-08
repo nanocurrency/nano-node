@@ -517,7 +517,7 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 void nano::block_processor::requeue_invalid (nano::block_hash const & hash_a, nano::unchecked_info const & info_a)
 {
 	debug_assert (hash_a == info_a.block->hash ());
-	node.bootstrap_initiator.lazy_requeue (hash_a, info_a.block->previous (), info_a.confirmed);
+	node.bootstrap_initiator.lazy_requeue (hash_a, info_a.block->previous ());
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_processor & block_processor, std::string const & name)
