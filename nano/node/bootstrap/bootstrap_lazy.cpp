@@ -59,7 +59,7 @@ void nano::bootstrap_attempt_lazy::lazy_add (nano::pull_info const & pull_a)
 	lazy_add (pull_a.account_or_head, pull_a.retry_limit);
 }
 
-void nano::bootstrap_attempt_lazy::lazy_requeue (nano::block_hash const & hash_a, nano::block_hash const & previous_a, bool confirmed_a)
+void nano::bootstrap_attempt_lazy::lazy_requeue (nano::block_hash const & hash_a, nano::block_hash const & previous_a)
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
 	// Add only known blocks
@@ -67,7 +67,7 @@ void nano::bootstrap_attempt_lazy::lazy_requeue (nano::block_hash const & hash_a
 	{
 		lazy_blocks_erase (hash_a);
 		lock.unlock ();
-		node->bootstrap_initiator.connections->requeue_pull (nano::pull_info (hash_a, hash_a, previous_a, incremental_id, static_cast<nano::pull_info::count_t> (1), confirmed_a ? lazy_retry_limit_confirmed () : node->network_params.bootstrap.lazy_destinations_retry_limit));
+		node->bootstrap_initiator.connections->requeue_pull (nano::pull_info (hash_a, hash_a, previous_a, incremental_id, static_cast<nano::pull_info::count_t> (1), node->network_params.bootstrap.lazy_destinations_retry_limit));
 	}
 }
 
@@ -268,7 +268,7 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 		}
 		lazy_block_state_backlog_check (block_a, hash);
 		lock.unlock ();
-		nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown, retry_limit > node->network_params.bootstrap.lazy_retry_limit);
+		nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown);
 		node->block_processor.add (info);
 	}
 	// Force drop lazy bootstrap connection for long bulk_pull

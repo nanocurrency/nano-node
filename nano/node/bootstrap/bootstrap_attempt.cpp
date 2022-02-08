@@ -161,7 +161,7 @@ void nano::bootstrap_attempt::lazy_add (nano::pull_info const &)
 	debug_assert (mode == nano::bootstrap_mode::lazy);
 }
 
-void nano::bootstrap_attempt::lazy_requeue (nano::block_hash const &, nano::block_hash const &, bool)
+void nano::bootstrap_attempt::lazy_requeue (nano::block_hash const &, nano::block_hash const &)
 {
 	debug_assert (mode == nano::bootstrap_mode::lazy);
 }

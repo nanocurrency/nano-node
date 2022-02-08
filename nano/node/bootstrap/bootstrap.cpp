@@ -150,12 +150,12 @@ void nano::bootstrap_initiator::run_bootstrap ()
 	}
 }
 
-void nano::bootstrap_initiator::lazy_requeue (nano::block_hash const & hash_a, nano::block_hash const & previous_a, bool confirmed_a)
+void nano::bootstrap_initiator::lazy_requeue (nano::block_hash const & hash_a, nano::block_hash const & previous_a)
 {
 	auto lazy_attempt (current_lazy_attempt ());
 	if (lazy_attempt != nullptr)
 	{
-		lazy_attempt->lazy_requeue (hash_a, previous_a, confirmed_a);
+		lazy_attempt->lazy_requeue (hash_a, previous_a);
 	}
 }
 

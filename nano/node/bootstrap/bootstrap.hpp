@@ -86,7 +86,7 @@ public:
 	bool bootstrap_lazy (nano::hash_or_account const &, bool force = false, bool confirmed = true, std::string id_a = "");
 	void bootstrap_wallet (std::deque<nano::account> &);
 	void run_bootstrap ();
-	void lazy_requeue (nano::block_hash const &, nano::block_hash const &, bool);
+	void lazy_requeue (nano::block_hash const &, nano::block_hash const &);
 	void notify_listeners (bool);
 	void add_observer (std::function<void (bool)> const &);
 	bool in_progress ();
