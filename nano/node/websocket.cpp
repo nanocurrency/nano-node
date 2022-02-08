@@ -26,6 +26,7 @@ nano::websocket::confirmation_options::confirmation_options (boost::property_tre
 	include_block = options_a.get<bool> ("include_block", true);
 	include_election_info = options_a.get<bool> ("include_election_info", false);
 	include_election_info_with_votes = options_a.get<bool> ("include_election_info_with_votes", false);
+	include_sideband_info = options_a.get<bool> ("include_sideband_info", false);
 
 	confirmation_types = 0;
 	auto type_l (options_a.get<std::string> ("confirmation_type", "all"));
@@ -764,6 +765,14 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 			block_node_l.add ("subtype", subtype);
 		}
 		message_node_l.add_child ("block", block_node_l);
+	}
+
+	if (options_a.get_include_sideband_info ())
+	{
+		boost::property_tree::ptree sideband_node_l;
+		sideband_node_l.add ("height", std::to_string (block_a->sideband ().height));
+		sideband_node_l.add ("local_timestamp", std::to_string (block_a->sideband ().timestamp));
+		message_node_l.add_child ("sideband", sideband_node_l);
 	}
 
 	message_l.contents.add_child ("message", message_node_l);
