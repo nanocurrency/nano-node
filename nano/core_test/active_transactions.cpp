@@ -191,7 +191,7 @@ TEST (active_transactions, keep_local)
 
 	/// bound elections, should drop after one loop
 	ASSERT_TIMELY (5s, node.active.size () == node_config.active_elections_size);
-	ASSERT_EQ (1, node.scheduler.size ());
+	// ASSERT_EQ (1, node.scheduler.size ());
 }
 
 TEST (active_transactions, inactive_votes_cache)
@@ -1436,12 +1436,14 @@ TEST (active_transactions, fifo)
 	auto & node = *system.add_node (config);
 	auto latest_hash = nano::dev::genesis->hash ();
 	nano::keypair key0{};
-	nano::send_block_builder send_builder{};
+	nano::state_block_builder builder{};
 
 	// Construct two pending entries that can be received simultaneously
-	auto send1 = send_builder.make_block ()
+	auto send1 = builder.make_block ()
 				 .previous (latest_hash)
-				 .destination (key0.pub)
+				 .account (nano::dev::genesis_key.pub)
+				 .representative (nano::dev::genesis_key.pub)
+				 .link (key0.pub)
 				 .balance (nano::dev::constants.genesis_amount - 1)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (latest_hash))
@@ -1452,9 +1454,11 @@ TEST (active_transactions, fifo)
 
 	nano::keypair key1{};
 	latest_hash = send1->hash ();
-	auto send2 = send_builder.make_block ()
+	auto send2 = builder.make_block ()
 				 .previous (latest_hash)
-				 .destination (key1.pub)
+				 .account (nano::dev::genesis_key.pub)
+				 .representative (nano::dev::genesis_key.pub)
+				 .link (key1.pub)
 				 .balance (nano::dev::constants.genesis_amount - 2)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (latest_hash))
@@ -1463,20 +1467,23 @@ TEST (active_transactions, fifo)
 	node.process_confirmed (nano::election_status{ send2 });
 	ASSERT_TIMELY (5s, node.block_confirmed (send2->hash ()));
 
-	nano::open_block_builder open_builder{};
-	auto receive1 = open_builder.make_block ()
+	auto receive1 = builder.make_block ()
+					.previous (0)
 					.account (key0.pub)
 					.representative (nano::dev::genesis_key.pub)
-					.source (send1->hash ())
+					.link (send1->hash ())
+					.balance (1)
 					.sign (key0.prv, key0.pub)
 					.work (*system.work.generate (key0.pub))
 					.build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node.process (*receive1).code);
 
-	auto receive2 = open_builder.make_block ()
+	auto receive2 = builder.make_block ()
+					.previous (0)
 					.account (key1.pub)
 					.representative (nano::dev::genesis_key.pub)
-					.source (send2->hash ())
+					.link (send2->hash ())
+					.balance (1)
 					.sign (key1.prv, key1.pub)
 					.work (*system.work.generate (key1.pub))
 					.build_shared ();
