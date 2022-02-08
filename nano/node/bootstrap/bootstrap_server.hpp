@@ -9,6 +9,10 @@
 namespace nano
 {
 class bootstrap_server;
+
+/**
+ * Server side portion of bootstrap sessions. Listens for new socket connections and spawns bootstrap_server objects when connected.
+ */
 class bootstrap_listener final
 {
 public:
@@ -32,6 +36,10 @@ public:
 std::unique_ptr<container_info_component> collect_container_info (bootstrap_listener & bootstrap_listener, std::string const & name);
 
 class message;
+
+/**
+ * Owns the server side of a bootstrap connection. Responds to bootstrap messages sent over the socket.
+ */
 class bootstrap_server final : public std::enable_shared_from_this<nano::bootstrap_server>
 {
 public:

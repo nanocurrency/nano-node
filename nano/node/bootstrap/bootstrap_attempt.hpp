@@ -11,6 +11,10 @@ class node;
 
 class frontier_req_client;
 class bulk_push_client;
+
+/**
+ * Polymorphic base class for bootstrap sessions.
+ */
 class bootstrap_attempt : public std::enable_shared_from_this<bootstrap_attempt>
 {
 public:

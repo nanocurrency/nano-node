@@ -8,6 +8,10 @@ namespace nano
 {
 class bootstrap_attempt;
 class bootstrap_client;
+
+/**
+ * Client side of a bulk_push request. Sends a sequence of blocks the other side did not report in their frontier_req response.
+ */
 class bulk_push_client final : public std::enable_shared_from_this<nano::bulk_push_client>
 {
 public:
@@ -23,6 +27,10 @@ public:
 	std::pair<nano::block_hash, nano::block_hash> current_target;
 };
 class bootstrap_server;
+
+/**
+ * Server side of a bulk_push request. Receives blocks and puts them in the block processor to be processed.
+ */
 class bulk_push_server final : public std::enable_shared_from_this<nano::bulk_push_server>
 {
 public:

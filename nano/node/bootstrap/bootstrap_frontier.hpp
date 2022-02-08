@@ -9,6 +9,10 @@ namespace nano
 {
 class bootstrap_attempt;
 class bootstrap_client;
+
+/**
+ * Client side of a frontier request. Created to send and listen for frontier sequences from the server.
+ */
 class frontier_req_client final : public std::enable_shared_from_this<nano::frontier_req_client>
 {
 public:
@@ -36,6 +40,10 @@ public:
 };
 class bootstrap_server;
 class frontier_req;
+
+/**
+ * Server side of a frontier request. Created when a bootstrap_server receives a frontier_req message and exited when end-of-list is reached.
+ */
 class frontier_req_server final : public std::enable_shared_from_this<nano::frontier_req_server>
 {
 public:

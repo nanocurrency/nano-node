@@ -63,6 +63,10 @@ public:
 	// clang-format on
 	constexpr static std::size_t cache_size_max = 10000;
 };
+
+/**
+ * Container for bootstrap sessions that are active. Owned by bootstrap_initiator.
+ */
 class bootstrap_attempts final
 {
 public:
@@ -76,6 +80,10 @@ public:
 	std::map<uint64_t, std::shared_ptr<nano::bootstrap_attempt>> attempts;
 };
 
+/**
+ * Client side portion to initiate bootstrap sessions. Prevents multiple legacy-type bootstrap sessions from being started at the same time. Does permit
+ * lazy/wallet bootstrap sessions to overlap with legacy sessions.
+ */
 class bootstrap_initiator final
 {
 public:
@@ -117,6 +125,10 @@ private:
 };
 
 std::unique_ptr<container_info_component> collect_container_info (bootstrap_initiator & bootstrap_initiator, std::string const & name);
+
+/**
+ * Defines the numeric values for the bootstrap feature.
+ */
 class bootstrap_limits final
 {
 public:
