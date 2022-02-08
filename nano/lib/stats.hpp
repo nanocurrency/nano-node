@@ -583,7 +583,7 @@ public:
 	std::unique_ptr<stat_log_sink> log_sink_json () const;
 
 	/** Returns string representation of detail */
-	static std::string detail_to_string (uint32_t key);
+	static std::string detail_to_string (stat::detail detail);
 
 	/** Stop stats being output */
 	void stop ();
@@ -591,6 +591,7 @@ public:
 private:
 	static std::string type_to_string (uint32_t key);
 	static std::string dir_to_string (uint32_t key);
+	static std::string detail_to_string (uint32_t key);
 
 	/** Constructs a key given type, detail and direction. This is used as input to update(...) and get_entry(...) */
 	uint32_t key_of (stat::type type, stat::detail detail, stat::dir dir) const

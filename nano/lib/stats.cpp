@@ -538,9 +538,8 @@ std::string nano::stat::type_to_string (uint32_t key)
 	return res;
 }
 
-std::string nano::stat::detail_to_string (uint32_t key)
+std::string nano::stat::detail_to_string (stat::detail detail)
 {
-	auto detail = static_cast<stat::detail> (key >> 8 & 0x000000ff);
 	std::string res;
 	switch (detail)
 	{
@@ -891,6 +890,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 	}
 	return res;
+}
+
+std::string nano::stat::detail_to_string (uint32_t key)
+{
+	auto detail = static_cast<stat::detail> (key >> 8 & 0x000000ff);
+	return detail_to_string (detail);
 }
 
 std::string nano::stat::dir_to_string (uint32_t key)
