@@ -147,41 +147,47 @@ TEST (active_transactions, keep_local)
 	auto const send5 = wallet.send_action (nano::dev::genesis_key.pub, key5.pub, node.config.receive_minimum.number ());
 	auto const send6 = wallet.send_action (nano::dev::genesis_key.pub, key6.pub, node.config.receive_minimum.number ());
 
-	// force-confirm elections one after another
-	ASSERT_TIMELY (5s, node.active.size () == 1);
+	// force-confirm blocks
 	for (auto const & block : { send1, send2, send3, send4, send5, send6 })
 	{
 		std::shared_ptr<nano::election> election{};
 		ASSERT_TIMELY (5s, (election = node.active.election (block->qualified_root ())) != nullptr);
+		node.process_confirmed (nano::election_status{ block });
 		election->force_confirm ();
+		ASSERT_TIMELY (5s, node.block_confirmed (block->hash ()));
 	}
-	ASSERT_TIMELY (5s, node.active.empty ());
 
-	nano::open_block_builder builder{};
-	auto open1 = builder.make_block ()
-				 .account (key1.pub)
-				 .representative (key1.pub)
-				 .source (send1->hash ())
-				 .sign (key1.prv, key1.pub)
-				 .work (*system.work.generate (key1.pub))
-				 .build_shared ();
-	auto open2 = builder.make_block ()
-				 .account (key2.pub)
-				 .representative (key2.pub)
-				 .source (send2->hash ())
-				 .sign (key2.prv, key2.pub)
-				 .work (*system.work.generate (key2.pub))
-				 .build_shared ();
-	auto open3 = builder.make_block ()
-				 .account (key3.pub)
-				 .representative (key3.pub)
-				 .source (send3->hash ())
-				 .sign (key3.prv, key3.pub)
-				 .work (*system.work.generate (key3.pub))
-				 .build_shared ();
-	node.process_active (open1);
-	node.process_active (open2);
-	node.process_active (open3);
+	nano::state_block_builder builder{};
+	const auto receive1 = builder.make_block ()
+						  .account (key1.pub)
+						  .previous (0)
+						  .representative (key1.pub)
+						  .balance (node.config.receive_minimum.number ())
+						  .link (send1->hash ())
+						  .sign (key1.prv, key1.pub)
+						  .work (*system.work.generate (key1.pub))
+						  .build_shared ();
+	const auto receive2 = builder.make_block ()
+						  .account (key2.pub)
+						  .previous (0)
+						  .representative (key2.pub)
+						  .balance (node.config.receive_minimum.number ())
+						  .link (send2->hash ())
+						  .sign (key2.prv, key2.pub)
+						  .work (*system.work.generate (key2.pub))
+						  .build_shared ();
+	const auto receive3 = builder.make_block ()
+						  .account (key3.pub)
+						  .previous (0)
+						  .representative (key3.pub)
+						  .balance (node.config.receive_minimum.number ())
+						  .link (send3->hash ())
+						  .sign (key3.prv, key3.pub)
+						  .work (*system.work.generate (key3.pub))
+						  .build_shared ();
+	node.process_active (receive1);
+	node.process_active (receive2);
+	node.process_active (receive3);
 
 	/// bound elections, should drop after one loop
 	ASSERT_TIMELY (5s, node.active.size () == node_config.active_elections_size);
@@ -718,13 +724,15 @@ TEST (active_transactions, fork_filter_cleanup)
 
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key{};
-	nano::send_block_builder builder{};
+	nano::state_block_builder builder{};
 	auto const latest_hash = nano::dev::genesis->hash ();
 
 	auto send1 = builder.make_block ()
 				 .previous (latest_hash)
+				 .account (nano::dev::genesis_key.pub)
+				 .representative (nano::dev::genesis_key.pub)
 				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
-				 .destination (key.pub)
+				 .link (key.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (latest_hash))
 				 .build_shared ();
@@ -740,15 +748,16 @@ TEST (active_transactions, fork_filter_cleanup)
 	{
 		auto fork = builder.make_block ()
 					.previous (latest_hash)
+					.account (nano::dev::genesis_key.pub)
+					.representative (nano::dev::genesis_key.pub)
 					.balance (nano::dev::constants.genesis_amount - 1 - i)
-					.destination (key.pub)
+					.link (key.pub)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*system.work.generate (latest_hash))
 					.build_shared ();
 
 		node1.process_active (fork);
-		std::shared_ptr<nano::election> election{};
-		ASSERT_TIMELY (5s, (election = node1.active.election (fork->qualified_root ())) != nullptr);
+		ASSERT_TIMELY (5s, node1.active.election (fork->qualified_root ()) != nullptr);
 	}
 
 	// All forks were merged into the same election
@@ -762,8 +771,12 @@ TEST (active_transactions, fork_filter_cleanup)
 	node2.process_active (send1);
 	ASSERT_TIMELY (5s, node2.active.election (send1->qualified_root ()) != nullptr);
 
-	// TODO: questions: why doesn't node2 pick up "fork" from node1? because it connected to node1 after node1 already process_active()d the fork? shouldn't it broadcast it anyway, even later?
-	//                  how about node1 picking up "send1" from node2? we know it does because we assert at the end that it is within node1's AEC, but why node1.block_count doesn't increase?
+	// TODO: questions: why doesn't node2 pick up "fork" from node1? because it connected to node1 after node1
+	//                  already process_active()d the fork? shouldn't it broadcast it anyway, even later?
+	//
+	//                  how about node1 picking up "send1" from node2? we know it does because we assert at
+	//                  the end that it is within node1's AEC, but why node1.block_count doesn't increase?
+	//
 	ASSERT_TIMELY (5s, node2.ledger.cache.block_count == 2);
 	ASSERT_TIMELY (5s, node1.ledger.cache.block_count == 2);
 
