@@ -63,8 +63,10 @@ size_t nano::unchecked_map::count (nano::transaction const & transaction) const
 
 void nano::unchecked_map::stop ()
 {
-	if (!stopped.exchange (true))
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	if (!stopped)
 	{
+		stopped = true;
 		condition.notify_all (); // Notify flush (), run ()
 	}
 }

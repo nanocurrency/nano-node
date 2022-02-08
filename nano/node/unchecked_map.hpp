@@ -56,7 +56,7 @@ private:
 	std::deque<boost::variant<insert, query>> buffer;
 	std::deque<boost::variant<insert, query>> back_buffer;
 	bool writing_back_buffer{ false };
-	std::atomic<bool> stopped{ false };
+	bool stopped{ false };
 	nano::condition_variable condition;
 	nano::mutex mutex;
 	std::thread thread;
