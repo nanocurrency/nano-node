@@ -1858,16 +1858,148 @@ TEST (rpc, pending)
 		ASSERT_EQ (block4->hash (), hash);
 		ASSERT_EQ (block3->hash (), hash1);
 	}
+}
 
-	request.put ("offset", "2"); // Offset test
+TEST (rpc, receivable_offset)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	nano::keypair key1;
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	auto block1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 200));
+	auto block2 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 100));
+	auto block3 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 400));
+	auto block4 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 300));
+	auto block5 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 300));
+	auto block6 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 300));
+	node->scheduler.flush ();
+	ASSERT_TIMELY (5s, node->ledger.account_pending (node->store.tx_begin_read (), key1.pub) == 1600);
+	ASSERT_TIMELY (5s, !node->active.active (*block6));
+	ASSERT_TIMELY (5s, node->block_confirmed (block6->hash ()));
+	ASSERT_TIMELY (5s, node->ledger.cache.cemented_count == 7 && node->confirmation_height_processor.current ().is_zero () && node->confirmation_height_processor.awaiting_processing_size () == 0);
+
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "receivable");
+	request.put ("account", key1.pub.to_account ());
+
+	// Default: Sorted by hash
+	std::vector<nano::block_hash> sorted_by_hash = { block1->hash (), block2->hash (), block3->hash (), block4->hash (), block5->hash (), block6->hash () };
+	std::sort (sorted_by_hash.begin (), sorted_by_hash.end ());
+
+	request.put ("offset", "0");
+	request.put ("sorting", "false");
+	{
+		auto response (wait_response (system, rpc_ctx, request));
+		auto & blocks_node (response.get_child ("blocks"));
+		ASSERT_EQ (6, blocks_node.size ());
+		auto itr = blocks_node.begin ();
+		nano::block_hash hash1 (itr->second.get<std::string> (""));
+		nano::block_hash hash2 ((++itr)->second.get<std::string> (""));
+		nano::block_hash hash3 ((++itr)->second.get<std::string> (""));
+		nano::block_hash hash4 ((++itr)->second.get<std::string> (""));
+		nano::block_hash hash5 ((++itr)->second.get<std::string> (""));
+		nano::block_hash hash6 ((++itr)->second.get<std::string> (""));
+		ASSERT_EQ (sorted_by_hash[0], hash1);
+		ASSERT_EQ (sorted_by_hash[1], hash2);
+		ASSERT_EQ (sorted_by_hash[2], hash3);
+		ASSERT_EQ (sorted_by_hash[3], hash4);
+		ASSERT_EQ (sorted_by_hash[4], hash5);
+		ASSERT_EQ (sorted_by_hash[5], hash6);
+	}
+
+	request.put ("offset", "4");
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto & blocks_node (response.get_child ("blocks"));
 		ASSERT_EQ (2, blocks_node.size ());
-		nano::block_hash hash (blocks_node.begin ()->first);
-		nano::block_hash hash1 ((++blocks_node.begin ())->first);
-		ASSERT_EQ (block2->hash (), hash);
-		ASSERT_EQ (block1->hash (), hash1);
+		nano::block_hash hash1 (blocks_node.begin ()->second.get<std::string> (""));
+		nano::block_hash hash2 ((++blocks_node.begin ())->second.get<std::string> (""));
+		ASSERT_EQ (sorted_by_hash[4], hash1);
+		ASSERT_EQ (sorted_by_hash[5], hash2);
+	}
+
+	request.put ("count", "2");
+	request.put ("offset", "2");
+	{
+		auto response (wait_response (system, rpc_ctx, request));
+		auto & blocks_node (response.get_child ("blocks"));
+		ASSERT_EQ (2, blocks_node.size ());
+		nano::block_hash hash1 (blocks_node.begin ()->second.get<std::string> (""));
+		nano::block_hash hash2 ((++blocks_node.begin ())->second.get<std::string> (""));
+		ASSERT_EQ (sorted_by_hash[2], hash1);
+		ASSERT_EQ (sorted_by_hash[3], hash2);
+	}
+
+	sorted_by_hash = { block4->hash (), block5->hash (), block6->hash () }; // Sort these three by hash because their amount is the same
+	std::sort (sorted_by_hash.begin (), sorted_by_hash.end ());
+	std::vector<nano::block_hash> sorted_by_amount = { block3->hash (), sorted_by_hash[0], sorted_by_hash[1], sorted_by_hash[2], block1->hash (), block2->hash () };
+
+	request.put ("sorting", "true"); // Sort by amount from here
+
+	request.put ("count", "3");
+	request.put ("offset", "0");
+	{
+		auto response (wait_response (system, rpc_ctx, request));
+		auto & blocks_node (response.get_child ("blocks"));
+		ASSERT_EQ (3, blocks_node.size ());
+		auto itr = blocks_node.begin ();
+		nano::block_hash hash1 (itr->first);
+		std::string amount1 (itr->second.get<std::string> (""));
+		nano::block_hash hash2 ((++itr)->first);
+		std::string amount2 (itr->second.get<std::string> (""));
+		nano::block_hash hash3 ((++itr)->first);
+		std::string amount3 (itr->second.get<std::string> (""));
+		ASSERT_EQ (sorted_by_amount[0], hash1);
+		ASSERT_EQ (sorted_by_amount[1], hash2);
+		ASSERT_EQ (sorted_by_amount[2], hash3);
+		ASSERT_EQ ("400", amount1);
+		ASSERT_EQ ("300", amount2);
+		ASSERT_EQ ("300", amount3);
+	}
+
+	request.put ("count", "3");
+	request.put ("offset", "3");
+	{
+		auto response (wait_response (system, rpc_ctx, request));
+		auto & blocks_node (response.get_child ("blocks"));
+		ASSERT_EQ (3, blocks_node.size ());
+		auto itr = blocks_node.begin ();
+		nano::block_hash hash1 (itr->first);
+		std::string amount1 (itr->second.get<std::string> (""));
+		nano::block_hash hash2 ((++itr)->first);
+		std::string amount2 (itr->second.get<std::string> (""));
+		nano::block_hash hash3 ((++itr)->first);
+		std::string amount3 (itr->second.get<std::string> (""));
+		ASSERT_EQ (sorted_by_amount[3], hash1);
+		ASSERT_EQ (sorted_by_amount[4], hash2);
+		ASSERT_EQ (sorted_by_amount[5], hash3);
+		ASSERT_EQ ("300", amount1);
+		ASSERT_EQ ("200", amount2);
+		ASSERT_EQ ("100", amount3);
+	}
+
+	request.put ("source", "true");
+	request.put ("min_version", "true");
+	request.put ("count", "3");
+	request.put ("offset", "2");
+	{
+		auto response (wait_response (system, rpc_ctx, request));
+		auto & blocks_node (response.get_child ("blocks"));
+		ASSERT_EQ (3, blocks_node.size ());
+		auto itr = blocks_node.begin ();
+		nano::block_hash hash1 (itr->first);
+		std::string amount1 (itr->second.get<std::string> ("amount"));
+		nano::block_hash hash2 ((++itr)->first);
+		std::string amount2 (itr->second.get<std::string> ("amount"));
+		nano::block_hash hash3 ((++itr)->first);
+		std::string amount3 (itr->second.get<std::string> ("amount"));
+		ASSERT_EQ (sorted_by_amount[2], hash1);
+		ASSERT_EQ (sorted_by_amount[3], hash2);
+		ASSERT_EQ (sorted_by_amount[4], hash3);
+		ASSERT_EQ ("300", amount1);
+		ASSERT_EQ ("300", amount2);
+		ASSERT_EQ ("200", amount3);
 	}
 }
 
