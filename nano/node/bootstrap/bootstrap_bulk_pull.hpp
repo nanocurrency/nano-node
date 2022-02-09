@@ -25,6 +25,10 @@ public:
 	uint64_t bootstrap_id{ 0 };
 };
 class bootstrap_client;
+
+/**
+ * Client side of a bulk_pull request. Created when the bootstrap_attempt wants to make a bulk_pull request to the remote side.
+ */
 class bulk_pull_client final : public std::enable_shared_from_this<nano::bulk_pull_client>
 {
 public:
@@ -59,6 +63,12 @@ public:
 };
 class bootstrap_server;
 class bulk_pull;
+
+/**
+ * Server side of a bulk_pull request. Created when bootstrap_server receives a bulk_pull message and is exited after the contents
+ * have been sent. If the 'start' in the bulk_pull message is an account, send blocks for that account down to 'end'. If the 'start'
+ * is a block hash, send blocks for that chain down to 'end'. If end doesn't exist, send all accounts in the chain.
+ */
 class bulk_pull_server final : public std::enable_shared_from_this<nano::bulk_pull_server>
 {
 public:

@@ -13,6 +13,9 @@ namespace nano
 {
 class node;
 
+/**
+ * Legacy bootstrap session. This is made up of 3 phases: frontier requests, bootstrap pulls, bootstrap pushes.
+ */
 class bootstrap_attempt_legacy : public bootstrap_attempt
 {
 public:
