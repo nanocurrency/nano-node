@@ -14,6 +14,8 @@ endif()
 add_library(
   node
   ${platform_sources}
+  inactive_cache_status.hpp
+  inactive_cache_status.cpp
   active_transactions.hpp
   active_transactions.cpp
   blockprocessor.hpp

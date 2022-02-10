@@ -2,6 +2,7 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/inactive_cache_status.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/secure/common.hpp>
 
@@ -49,30 +50,6 @@ class election_timepoint final
 public:
 	std::chrono::steady_clock::time_point time;
 	nano::qualified_root root;
-};
-
-class inactive_cache_status final
-{
-public:
-	bool bootstrap_started{ false };
-	bool election_started{ false }; // Did item reach config threshold to start an impromptu election?
-	bool confirmed{ false }; // Did item reach votes quorum? (minimum config value)
-	nano::uint128_t tally{ 0 }; // Last votes tally for block
-
-	bool operator!= (inactive_cache_status const other) const
-	{
-		return bootstrap_started != other.bootstrap_started || election_started != other.election_started || confirmed != other.confirmed || tally != other.tally;
-	}
-
-	std::string to_string () const
-	{
-		std::stringstream ss;
-		ss << "bootstrap_started=" << bootstrap_started;
-		ss << ", election_started=" << election_started;
-		ss << ", confirmed=" << confirmed;
-		ss << ", tally=" << nano::uint128_union (tally).to_string ();
-		return ss.str ();
-	}
 };
 
 class inactive_cache_information final
