@@ -2,6 +2,7 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/inactive_cache_information.hpp>
 #include <nano/node/inactive_cache_status.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/secure/common.hpp>
@@ -50,44 +51,6 @@ class election_timepoint final
 public:
 	std::chrono::steady_clock::time_point time;
 	nano::qualified_root root;
-};
-
-class inactive_cache_information final
-{
-public:
-	inactive_cache_information () = default;
-	inactive_cache_information (std::chrono::steady_clock::time_point arrival, nano::block_hash hash, nano::account initial_rep_a, uint64_t initial_timestamp_a, nano::inactive_cache_status status) :
-		arrival (arrival),
-		hash (hash),
-		status (status)
-	{
-		voters.reserve (8);
-		voters.emplace_back (initial_rep_a, initial_timestamp_a);
-	}
-
-	std::chrono::steady_clock::time_point arrival;
-	nano::block_hash hash;
-	nano::inactive_cache_status status;
-	std::vector<std::pair<nano::account, uint64_t>> voters;
-
-	bool needs_eval () const
-	{
-		return !status.bootstrap_started || !status.election_started || !status.confirmed;
-	}
-
-	std::string to_string () const
-	{
-		std::stringstream ss;
-		ss << "hash=" << hash.to_string ();
-		ss << ", arrival=" << std::chrono::duration_cast<std::chrono::seconds> (arrival.time_since_epoch ()).count ();
-		ss << ", " << status.to_string ();
-		ss << ", " << voters.size () << " voters";
-		for (auto const & [rep, timestamp] : voters)
-		{
-			ss << " " << rep.to_account () << "/" << timestamp;
-		}
-		return ss.str ();
-	}
 };
 
 class expired_optimistic_election_info final
