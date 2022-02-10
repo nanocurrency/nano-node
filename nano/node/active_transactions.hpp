@@ -63,6 +63,16 @@ public:
 	{
 		return bootstrap_started != other.bootstrap_started || election_started != other.election_started || confirmed != other.confirmed || tally != other.tally;
 	}
+
+	std::string to_string () const
+	{
+		std::stringstream ss;
+		ss << "bootstrap_started=" << bootstrap_started;
+		ss << ", election_started=" << election_started;
+		ss << ", confirmed=" << confirmed;
+		ss << ", tally=" << nano::uint128_union (tally).to_string ();
+		return ss.str ();
+	}
 };
 
 class inactive_cache_information final
@@ -82,9 +92,24 @@ public:
 	nano::block_hash hash;
 	nano::inactive_cache_status status;
 	std::vector<std::pair<nano::account, uint64_t>> voters;
+
 	bool needs_eval () const
 	{
 		return !status.bootstrap_started || !status.election_started || !status.confirmed;
+	}
+
+	std::string to_string () const
+	{
+		std::stringstream ss;
+		ss << "hash=" << hash.to_string ();
+		ss << ", arrival=" << std::chrono::duration_cast<std::chrono::seconds> (arrival.time_since_epoch ()).count ();
+		ss << ", " << status.to_string ();
+		ss << ", " << voters.size () << " voters";
+		for (auto const & [rep, timestamp] : voters)
+		{
+			ss << " " << rep.to_account () << "/" << timestamp;
+		}
+		return ss.str ();
 	}
 };
 
