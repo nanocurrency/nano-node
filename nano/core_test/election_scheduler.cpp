@@ -52,12 +52,15 @@ TEST (election_scheduler, activate_one_flush)
 
 TEST (election_scheduler, no_vacancy)
 {
-	nano::system system;
+	nano::system system{};
+
 	nano::node_config config{ nano::get_available_port (), system.logging };
 	config.active_elections_size = 1;
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+
 	auto & node = *system.add_node (config);
-	nano::state_block_builder builder;
-	nano::keypair key;
+	nano::state_block_builder builder{};
+	nano::keypair key{};
 
 	// Activating accounts depends on confirmed dependencies. First, prepare 2 accounts
 	auto send = builder.make_block ()
@@ -69,6 +72,9 @@ TEST (election_scheduler, no_vacancy)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build_shared ();
+	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
+	node.process_confirmed (nano::election_status{ send });
+
 	auto receive = builder.make_block ()
 				   .account (key.pub)
 				   .previous (0)
@@ -78,15 +84,11 @@ TEST (election_scheduler, no_vacancy)
 				   .sign (key.prv, key.pub)
 				   .work (*system.work.generate (key.pub))
 				   .build_shared ();
-	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
-	nano::blocks_confirm (node, { send }, true);
-	ASSERT_TIMELY (1s, node.active.empty ());
 	ASSERT_EQ (nano::process_result::progress, node.process (*receive).code);
-	nano::blocks_confirm (node, { receive }, true);
-	ASSERT_TIMELY (1s, node.active.empty ());
+	node.process_confirmed (nano::election_status{ receive });
 
-	// Second, process two eligble transactions
-	auto block0 = builder.make_block ()
+	// Second, process two eligible transactions
+	auto block1 = builder.make_block ()
 				  .account (nano::dev::genesis_key.pub)
 				  .previous (send->hash ())
 				  .representative (nano::dev::genesis_key.pub)
@@ -95,7 +97,13 @@ TEST (election_scheduler, no_vacancy)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (*system.work.generate (send->hash ()))
 				  .build_shared ();
-	auto block1 = builder.make_block ()
+	node.process_active (block1);
+
+	// There is vacancy so it should be inserted
+	std::shared_ptr<nano::election> election{};
+	ASSERT_TIMELY (5s, (election = node.active.election (block1->qualified_root ())) != nullptr);
+
+	auto block2 = builder.make_block ()
 				  .account (key.pub)
 				  .previous (receive->hash ())
 				  .representative (key.pub)
@@ -104,22 +112,16 @@ TEST (election_scheduler, no_vacancy)
 				  .sign (key.prv, key.pub)
 				  .work (*system.work.generate (receive->hash ()))
 				  .build_shared ();
-	ASSERT_EQ (nano::process_result::progress, node.process (*block0).code);
-	ASSERT_EQ (nano::process_result::progress, node.process (*block1).code);
-	node.scheduler.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
-	// There is vacancy so it should be inserted
-	ASSERT_TIMELY (1s, node.active.size () == 1);
-	node.scheduler.activate (key.pub, node.store.tx_begin_read ());
+	node.process_active (block2);
+
 	// There is no vacancy so it should stay queued
-	ASSERT_TIMELY (1s, node.scheduler.size () == 1);
-	auto election3 = node.active.election (block0->qualified_root ());
-	ASSERT_NE (nullptr, election3);
-	election3->force_confirm ();
+	ASSERT_TIMELY (5s, node.scheduler.size () == 1);
+	ASSERT_TRUE (node.active.election (block2->qualified_root ()) == nullptr);
+
 	// Election completed, next in queue should begin
-	ASSERT_TIMELY (1s, node.scheduler.size () == 0);
-	ASSERT_TIMELY (1s, node.active.size () == 1);
-	auto election4 = node.active.election (block1->qualified_root ());
-	ASSERT_NE (nullptr, election4);
+	election->force_confirm ();
+	ASSERT_TIMELY (5s, node.active.election (block2->qualified_root ()) != nullptr);
+	ASSERT_TRUE (node.scheduler.empty ());
 }
 
 // Ensure that election_scheduler::flush terminates even if no elections can currently be queued e.g. shutdown or no active_transactions vacancy
