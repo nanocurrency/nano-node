@@ -1,5 +1,6 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/secure/store.hpp>
 
@@ -96,7 +97,7 @@ nano::unchecked_map::item_visitor::item_visitor (unchecked_map & unchecked, nano
 void nano::unchecked_map::item_visitor::operator() (insert const & item)
 {
 	auto const & [dependency, info] = item;
-	unchecked.store.unchecked.put (transaction, dependency, info);
+	unchecked.store.unchecked.put (transaction, dependency, { info.block, info.account, nano::seconds_since_epoch (), info.verified });
 }
 
 void nano::unchecked_map::item_visitor::operator() (query const & item)
