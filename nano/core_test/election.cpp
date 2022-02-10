@@ -26,13 +26,15 @@ TEST (election, quorum_minimum_flip_success)
 
 	auto & node1 = *system.add_node (node_config);
 	auto const latest_hash = nano::dev::genesis->hash ();
-	nano::send_block_builder builder{};
+	nano::state_block_builder builder{};
 
 	nano::keypair key1{};
 	auto send1 = builder.make_block ()
 				 .previous (latest_hash)
+				 .account (nano::dev::genesis_key.pub)
+				 .representative (nano::dev::genesis_key.pub)
 				 .balance (node1.online_reps.delta ())
-				 .destination (key1.pub)
+				 .link (key1.pub)
 				 .work (*system.work.generate (latest_hash))
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .build_shared ();
@@ -40,8 +42,10 @@ TEST (election, quorum_minimum_flip_success)
 	nano::keypair key2{};
 	auto send2 = builder.make_block ()
 				 .previous (latest_hash)
+				 .account (nano::dev::genesis_key.pub)
+				 .representative (nano::dev::genesis_key.pub)
 				 .balance (node1.online_reps.delta ())
-				 .destination (key2.pub)
+				 .link (key2.pub)
 				 .work (*system.work.generate (latest_hash))
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .build_shared ();
@@ -73,13 +77,15 @@ TEST (election, quorum_minimum_flip_fail)
 
 	auto & node1 = *system.add_node (node_config);
 	auto const latest_hash = nano::dev::genesis->hash ();
-	nano::send_block_builder builder{};
+	nano::state_block_builder builder{};
 
 	nano::keypair key1{};
 	auto send1 = builder.make_block ()
 				 .previous (latest_hash)
+				 .account (nano::dev::genesis_key.pub)
+				 .representative (nano::dev::genesis_key.pub)
 				 .balance (node1.online_reps.delta () - 1)
-				 .destination (key1.pub)
+				 .link (key1.pub)
 				 .work (*system.work.generate (latest_hash))
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .build_shared ();
@@ -87,8 +93,10 @@ TEST (election, quorum_minimum_flip_fail)
 	nano::keypair key2{};
 	auto send2 = builder.make_block ()
 				 .previous (latest_hash)
+				 .account (nano::dev::genesis_key.pub)
+				 .representative (nano::dev::genesis_key.pub)
 				 .balance (node1.online_reps.delta () - 1)
-				 .destination (key2.pub)
+				 .link (key2.pub)
 				 .work (*system.work.generate (latest_hash))
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .build_shared ();
