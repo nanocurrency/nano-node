@@ -14,10 +14,6 @@ endif()
 add_library(
   node
   ${platform_sources}
-  inactive_cache_information.hpp
-  inactive_cache_information.cpp
-  inactive_cache_status.hpp
-  inactive_cache_status.cpp
   active_transactions.hpp
   active_transactions.cpp
   blockprocessor.hpp
@@ -64,6 +60,10 @@ add_library(
   election_scheduler.cpp
   gap_cache.hpp
   gap_cache.cpp
+  inactive_cache_information.hpp
+  inactive_cache_information.cpp
+  inactive_cache_status.hpp
+  inactive_cache_status.cpp
   ipc/action_handler.hpp
   ipc/action_handler.cpp
   ipc/flatbuffers_handler.hpp
