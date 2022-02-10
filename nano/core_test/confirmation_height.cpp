@@ -654,12 +654,14 @@ TEST (confirmation_height, conflict_rollback_cemented)
 
 		auto node1 = system.add_node (node_flags);
 		nano::keypair key1{};
-		nano::send_block_builder builder{};
+		nano::state_block_builder builder{};
 		auto const latest_hash = nano::dev::genesis->hash ();
 
 		auto send1 = builder.make_block ()
 					 .previous (latest_hash)
-					 .destination (key1.pub)
+					 .account (nano::dev::genesis_key.pub)
+					 .representative (nano::dev::genesis_key.pub)
+					 .link (key1.pub)
 					 .balance (nano::dev::constants.genesis_amount - 100)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (*system.work.generate (latest_hash))
@@ -672,7 +674,9 @@ TEST (confirmation_height, conflict_rollback_cemented)
 
 		auto send2 = builder.make_block ()
 					 .previous (latest_hash)
-					 .destination (key2.pub)
+					 .account (nano::dev::genesis_key.pub)
+					 .representative (nano::dev::genesis_key.pub)
+					 .link (key2.pub)
 					 .balance (nano::dev::constants.genesis_amount - 100)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (*system.work.generate (latest_hash))
