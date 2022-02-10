@@ -2,6 +2,8 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/inactive_cache_information.hpp>
+#include <nano/node/inactive_cache_status.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/secure/common.hpp>
 
@@ -49,43 +51,6 @@ class election_timepoint final
 public:
 	std::chrono::steady_clock::time_point time;
 	nano::qualified_root root;
-};
-
-class inactive_cache_status final
-{
-public:
-	bool bootstrap_started{ false };
-	bool election_started{ false }; // Did item reach config threshold to start an impromptu election?
-	bool confirmed{ false }; // Did item reach votes quorum? (minimum config value)
-	nano::uint128_t tally{ 0 }; // Last votes tally for block
-
-	bool operator!= (inactive_cache_status const other) const
-	{
-		return bootstrap_started != other.bootstrap_started || election_started != other.election_started || confirmed != other.confirmed || tally != other.tally;
-	}
-};
-
-class inactive_cache_information final
-{
-public:
-	inactive_cache_information () = default;
-	inactive_cache_information (std::chrono::steady_clock::time_point arrival, nano::block_hash hash, nano::account initial_rep_a, uint64_t initial_timestamp_a, nano::inactive_cache_status status) :
-		arrival (arrival),
-		hash (hash),
-		status (status)
-	{
-		voters.reserve (8);
-		voters.emplace_back (initial_rep_a, initial_timestamp_a);
-	}
-
-	std::chrono::steady_clock::time_point arrival;
-	nano::block_hash hash;
-	nano::inactive_cache_status status;
-	std::vector<std::pair<nano::account, uint64_t>> voters;
-	bool needs_eval () const
-	{
-		return !status.bootstrap_started || !status.election_started || !status.confirmed;
-	}
 };
 
 class expired_optimistic_election_info final
