@@ -119,7 +119,8 @@ TEST (election_scheduler, no_vacancy)
 	ASSERT_TRUE (node.active.election (block2->qualified_root ()) == nullptr);
 
 	// Election completed, next in queue should begin
-	election->force_confirm ();
+	// election->force_confirm ();
+	node.process_confirmed (nano::election_status{ block1 });
 	ASSERT_TIMELY (5s, node.active.election (block2->qualified_root ()) != nullptr);
 	ASSERT_TRUE (node.scheduler.empty ());
 }
