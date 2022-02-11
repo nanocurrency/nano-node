@@ -2022,10 +2022,8 @@ void nano::json_handler::confirmation_info ()
 							}
 						}
 					}
-					boost::property_tree::ptree representatives_ptree;
-					representatives_ptree.add_child ("total", representatives_list);
-					representatives_ptree.add_child ("final", representatives_final);
-					entry.add_child ("representatives", representatives_ptree);
+					entry.add_child ("representatives", representatives_list);
+					entry.add_child ("representatives_final", representatives_final);
 				}
 				blocks.add_child ((block->hash ()).to_string (), entry);
 			}
