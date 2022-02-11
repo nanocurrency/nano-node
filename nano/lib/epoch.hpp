@@ -47,6 +47,17 @@ public:
 class epochs
 {
 public:
+	/** Returns true if link matches one of the released epoch links.
+	 *  WARNING: just because a legal block contains an epoch link, it does not mean it is an epoch block.
+	 *  A legal block containing an epoch link can easily be constructed by sending to an address identical
+	 *  to one of the epoch links.
+	 *  Epoch blocks follow the following rules and a block must satisfy them all to be a true epoch block:
+	 *    epoch blocks are always state blocks
+	 *    epoch blocks never change the balance of an account
+	 *    epoch blocks always have a link field that starts with the ascii bytes "epoch v1 block" or "epoch v2 block" (and possibly others in the future)
+	 *    epoch blocks never change the representative
+	 *    epoch blocks are not signed by the account key, they are signed either by genesis or by special epoch keys
+	 */
 	bool is_epoch_link (nano::link const & link_a) const;
 	nano::link const & link (nano::epoch epoch_a) const;
 	nano::public_key const & signer (nano::epoch epoch_a) const;
