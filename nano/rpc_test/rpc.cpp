@@ -6246,9 +6246,7 @@ TEST (rpc, confirmation_info)
 
 	auto send (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), nano::public_key (), nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
 	node1->process_active (send);
-	node1->block_processor.flush ();
-	node1->scheduler.flush ();
-	ASSERT_FALSE (node1->active.empty ());
+	ASSERT_TIMELY (10s, node1->active.empty () == false);
 
 	boost::property_tree::ptree request;
 	request.put ("action", "confirmation_info");
