@@ -50,6 +50,16 @@ TEST (election_scheduler, activate_one_flush)
 	ASSERT_NE (nullptr, system.nodes[0]->active.election (send1->qualified_root ()));
 }
 
+/**
+ * This test checks that code can handle the AEC filling up and having no vacancy.
+ * The AEC size is set to 1. Frontiers confirmation is disabled so that the test can control when things are inserted
+ * into the AEC, if frontiers confirmation wasn't disabled, then the ongoing backlog population could start an election on its own and interefere.
+ * The test starts by creating a second account and sends nano to it and force marks the transaction blocks as cemented and
+ * the election phase is skipped since there is no signing key yet installed.
+ * It then sends block1 from the genesis account and waits until an election is started for it and the AEC is full.
+ * The election for block1 will not complete because there is no voting key and it will remain in the AEC and the AEC will have no vacancies.
+ * Then we introduce the voting key, which unblocks the AEC and all blocks are voted on.
+ */
 TEST (election_scheduler, no_vacancy)
 {
 	nano::system system{};
@@ -99,7 +109,7 @@ TEST (election_scheduler, no_vacancy)
 				  .build_shared ();
 	node.process_active (block1);
 
-	// There is vacancy so it should be inserted
+	// There is a vacancy and it won't be voted on, so it should be inserted and stay inserted
 	std::shared_ptr<nano::election> election{};
 	ASSERT_TIMELY (5s, (election = node.active.election (block1->qualified_root ())) != nullptr);
 
@@ -114,15 +124,17 @@ TEST (election_scheduler, no_vacancy)
 				  .build_shared ();
 	node.process_active (block2);
 
-	// There is no vacancy so it should stay queued
+	// There is no vacancy so block2 should stay queued in the scheduler
 	ASSERT_TIMELY (5s, node.scheduler.size () == 1);
 	ASSERT_TRUE (node.active.election (block2->qualified_root ()) == nullptr);
+	ASSERT_FALSE (node.block_confirmed (block2->hash ()));
 
-	// Election completed, next in queue should begin
-	// election->force_confirm ();
-	node.process_confirmed (nano::election_status{ block1 });
-	ASSERT_TIMELY (5s, node.active.election (block2->qualified_root ()) != nullptr);
-	ASSERT_TRUE (node.scheduler.empty ());
+	// add the voting key, this will unblock the AEC and both block1 and block2 should get confirmed
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	// now check that the scheduler is empty and block2 was confirmed
+	ASSERT_TIMELY (5s, node.block_confirmed (block2->hash ()) == true);
+	ASSERT_TIMELY (5s, node.scheduler.empty ());
 }
 
 // Ensure that election_scheduler::flush terminates even if no elections can currently be queued e.g. shutdown or no active_transactions vacancy
