@@ -112,8 +112,8 @@ TEST (election, quorum_minimum_flip_fail)
 	auto const vote1 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, send2);
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
 
-	// TODO: would be nice to say ASSERT_TIMELY(5s, election->failed()), but since election expiration time
-	//       looks hardcoded to 5m without node config options, we will instead rely on this sleep here
+	// give the election 5 seconds before asserting it is not confirmed so that in case
+	// it would be wrongfully confirmed, have that immediately fail instead of race
 	//
 	std::this_thread::sleep_for (5s);
 	ASSERT_FALSE (election->confirmed ());
