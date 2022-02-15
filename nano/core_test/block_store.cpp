@@ -459,8 +459,22 @@ TEST (unchecked, multiple_get)
 	unchecked.put (block3->previous (), block3);
 	unchecked.put (block3->hash (), block3); // unchecked4
 	unchecked.put (block1->previous (), block3); // unchecked1
+
+	// count the number of blocks in the unchecked table by counting them one by one
+	// we cannot trust the count() method if the backend is rocksdb
+	auto count_unchecked_blocks_one_by_one = [&store, &unchecked] () {
+		size_t count = 0;
+		auto transaction = store->tx_begin_read ();
+		for (auto [i, end] = unchecked.full_range (transaction); i != end; ++i)
+		{
+			++count;
+		}
+		return count;
+	};
+
 	// Waits for the blocks to get saved in the database
-	ASSERT_TIMELY (5s, 8 == unchecked.count (store->tx_begin_read ()));
+	ASSERT_TIMELY (5s, 8 == count_unchecked_blocks_one_by_one ());
+
 	std::vector<nano::block_hash> unchecked1;
 	// Asserts the entries will be found for the provided key
 	auto transaction = store->tx_begin_read ();
