@@ -1312,7 +1312,7 @@ TEST (confirmation_height, election_winner_details_clearing)
 
 		node->process_confirmed (nano::election_status{ send2 });
 		ASSERT_TIMELY (5s, node->block_confirmed (send2->hash ()));
-		ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
+		ASSERT_TIMELY (5s, 1 == node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
 
 		node->process_confirmed (nano::election_status{ send3 });
 		ASSERT_TIMELY (5s, node->block_confirmed (send3->hash ()));
