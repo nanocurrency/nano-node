@@ -1,5 +1,5 @@
 #include <nano/node/telemetry.hpp>
-#include <nano/node/testing.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/telemetry.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -284,8 +284,8 @@ TEST (telemetry, receive_from_non_listening_channel)
 {
 	nano::system system;
 	auto node = system.add_node ();
-	nano::telemetry_ack message (nano::telemetry_data{});
-	node->network.process_message (message, node->network.udp_channels.create (node->network.endpoint ()));
+	nano::telemetry_ack message{ nano::dev::network_params.network, nano::telemetry_data{} };
+	node->network.inbound (message, node->network.udp_channels.create (node->network.endpoint ()));
 	// We have not sent a telemetry_req message to this endpoint, so shouldn't count telemetry_ack received from it.
 	ASSERT_EQ (node->telemetry->telemetry_data_size (), 0);
 }
@@ -412,7 +412,7 @@ TEST (telemetry, dos_tcp)
 
 	wait_peer_connections (system);
 
-	nano::telemetry_req message;
+	nano::telemetry_req message{ nano::dev::network_params.network };
 	auto channel = node_client->network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node_server->network.endpoint ()));
 	channel->send (message, [] (boost::system::error_code const & ec, size_t size_a) {
 		ASSERT_FALSE (ec);
@@ -455,7 +455,7 @@ TEST (telemetry, dos_udp)
 
 	wait_peer_connections (system);
 
-	nano::telemetry_req message;
+	nano::telemetry_req message{ nano::dev::network_params.network };
 	auto channel (node_client->network.udp_channels.create (node_server->network.endpoint ()));
 	channel->send (message, [] (boost::system::error_code const & ec, size_t size_a) {
 		ASSERT_FALSE (ec);
@@ -532,7 +532,7 @@ TEST (telemetry, max_possible_size)
 	nano::telemetry_data data;
 	data.unknown_data.resize (nano::message_header::telemetry_size_mask.to_ulong () - nano::telemetry_data::latest_size);
 
-	nano::telemetry_ack message (data);
+	nano::telemetry_ack message{ nano::dev::network_params.network, data };
 	wait_peer_connections (system);
 
 	auto channel = node_client->network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node_server->network.endpoint ()));
@@ -545,15 +545,19 @@ TEST (telemetry, max_possible_size)
 
 namespace nano
 {
-TEST (telemetry, remove_peer_different_genesis)
+// Test disabled because it's failing intermittently.
+// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3512
+// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3524
+TEST (telemetry, DISABLED_remove_peer_different_genesis)
 {
 	nano::system system (1);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
 	// Change genesis block to something else in this test (this is the reference telemetry processing uses).
-	// Possible TSAN issue in the future if something else uses this, but will only appear in tests.
-	node1->network_params.ledger.genesis_hash = nano::block_hash ("0");
+	nano::network_params network_params{ nano::networks::nano_dev_network };
+	network_params.ledger.genesis = network_params.ledger.nano_live_genesis;
+	nano::node_config config{ network_params };
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), config, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	node0->network.merge_peer (node1->network.endpoint ());
@@ -562,8 +566,8 @@ TEST (telemetry, remove_peer_different_genesis)
 
 	ASSERT_TIMELY (1s, 0 == node0->network.size ());
 	ASSERT_TIMELY (1s, 0 == node1->network.size ());
-	ASSERT_EQ (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
-	ASSERT_EQ (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
+	ASSERT_GE (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
+	ASSERT_GE (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
 
 	nano::lock_guard<nano::mutex> guard (node0->network.excluded_peers.mutex);
 	ASSERT_EQ (1, node0->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (node1->network.endpoint ().address ()));
@@ -580,12 +584,14 @@ TEST (telemetry, remove_peer_different_genesis_udp)
 	nano::system system (1, nano::transport::transport_type::udp, node_flags);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
-	node1->network_params.ledger.genesis_hash = nano::block_hash ("0");
+	nano::network_params network_params{ nano::networks::nano_dev_network };
+	network_params.ledger.genesis = network_params.ledger.nano_live_genesis;
+	nano::node_config config{ network_params };
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), config, system.work, node_flags));
 	node1->start ();
 	system.nodes.push_back (node1);
-	auto channel0 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node0->network.endpoint (), node0->network_params.protocol.protocol_version));
-	auto channel1 (std::make_shared<nano::transport::channel_udp> (node0->network.udp_channels, node1->network.endpoint (), node1->network_params.protocol.protocol_version));
+	auto channel0 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node0->network.endpoint (), node0->network_params.network.protocol_version));
+	auto channel1 (std::make_shared<nano::transport::channel_udp> (node0->network.udp_channels, node1->network.endpoint (), node1->network_params.network.protocol_version));
 	node0->network.send_keepalive (channel1);
 	node1->network.send_keepalive (channel0);
 
@@ -631,8 +637,8 @@ TEST (telemetry, remove_peer_invalid_signature)
 	auto telemetry_data = nano::local_telemetry_data (node->ledger, node->network, node->config.bandwidth_limit, node->network_params, node->startup_time, node->default_difficulty (nano::work_version::work_1), node->node_id);
 	// Change anything so that the signed message is incorrect
 	telemetry_data.block_count = 0;
-	auto telemetry_ack = nano::telemetry_ack (telemetry_data);
-	node->network.process_message (telemetry_ack, channel);
+	auto telemetry_ack = nano::telemetry_ack{ nano::dev::network_params.network, telemetry_data };
+	node->network.inbound (telemetry_ack, channel);
 
 	ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::telemetry, nano::stat::detail::invalid_signature) > 0);
 	ASSERT_NO_ERROR (system.poll_until_true (3s, [&node, address = channel->get_endpoint ().address ()] () -> bool {

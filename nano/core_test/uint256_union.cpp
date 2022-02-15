@@ -1,7 +1,10 @@
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
+
+#include <thread>
 
 namespace
 {
@@ -99,11 +102,11 @@ TEST (uint128_union, balance_format)
 {
 	ASSERT_EQ ("0", nano::amount (nano::uint128_t ("0")).format_balance (nano::BAN_ratio, 0, false));
 	ASSERT_EQ ("0", nano::amount (nano::uint128_t ("0")).format_balance (nano::BAN_ratio, 2, true));
-	ASSERT_EQ ("340,282,366", nano::amount (nano::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")).format_balance (nano::BAN_ratio, 0, true));
-	ASSERT_EQ ("340,282,366.920938463463374607431768211455", nano::amount (nano::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")).format_balance (nano::BAN_ratio, 64, true));
+	ASSERT_EQ ("3,402,823,669", nano::amount (nano::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")).format_balance (nano::BAN_ratio, 0, true));
+	ASSERT_EQ ("3,402,823,669.20938463463374607431768211455", nano::amount (nano::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")).format_balance (nano::BAN_ratio, 64, true));
 	ASSERT_EQ ("340,282,366,920,938,463,463,374,607,431,768,211,455", nano::amount (nano::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")).format_balance (1, 4, true));
-	ASSERT_EQ ("340,282,366", nano::amount (nano::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (nano::BAN_ratio, 0, true));
-	ASSERT_EQ ("340,282,366.920938463463374607431768211454", nano::amount (nano::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (nano::BAN_ratio, 64, true));
+	ASSERT_EQ ("3,402,823,669", nano::amount (nano::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (nano::BAN_ratio, 0, true));
+	ASSERT_EQ ("3,402,823,669.20938463463374607431768211454", nano::amount (nano::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (nano::BAN_ratio, 64, true));
 	ASSERT_EQ ("340282366920938463463374607431768211454", nano::amount (nano::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (1, 4, false));
 	ASSERT_EQ ("170,141,183", nano::amount (nano::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (nano::BAN_ratio, 0, true));
 	ASSERT_EQ ("170,141,183.460469231731687303715884105726", nano::amount (nano::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (nano::BAN_ratio, 64, true));
@@ -369,21 +372,21 @@ TEST (uint256_union, decode_nano_variant)
 {
 	nano::account key;
 	ASSERT_FALSE (key.decode_account ("ban_1111111111111111111111111111111111111111111111111111hifc8npp"));
-	ASSERT_FALSE (key.decode_account ("nano_1111111111111111111111111111111111111111111111111111hifc8npp"));
+	ASSERT_FALSE (key.decode_account ("ban_1111111111111111111111111111111111111111111111111111hifc8npp"));
 }
 
 TEST (uint256_union, account_transcode)
 {
 	nano::account value;
-	auto text (nano::dev_genesis_key.pub.to_account ());
+	auto text (nano::dev::genesis_key.pub.to_account ());
 	ASSERT_FALSE (value.decode_account (text));
-	ASSERT_EQ (nano::dev_genesis_key.pub, value);
+	ASSERT_EQ (nano::dev::genesis_key.pub, value);
 
 	/*
 	 * Handle different offsets for the underscore separator
 	 * for "ban_" prefixed and "nano_" prefixed accounts
 	 */
-	unsigned offset = (text.front () == 'x') ? 3 : 4;
+	unsigned offset = (text.front () == 'b') ? 3 : 4;
 	ASSERT_EQ ('_', text[offset]);
 	text[offset] = '-';
 	nano::account value2;
@@ -401,7 +404,7 @@ TEST (uint256_union, account_encode_lex)
 	/*
 	 * Handle different lengths for "ban_" prefixed and "nano_" prefixed accounts
 	 */
-	unsigned length = (min_text.front () == 'x') ? 64 : 65;
+	unsigned length = (min_text.front () == 'b') ? 64 : 65;
 	ASSERT_EQ (length, min_text.size ());
 	ASSERT_EQ (length, max_text.size ());
 
@@ -566,4 +569,20 @@ void check_operator_greater_than (Num lhs, Num rhs)
 	ASSERT_FALSE (lhs > lhs);
 	ASSERT_FALSE (rhs > rhs);
 }
+}
+
+TEST (random_pool, multithreading)
+{
+	std::vector<std::thread> threads;
+	for (auto i = 0; i < 100; ++i)
+	{
+		threads.emplace_back ([] () {
+			nano::uint256_union number;
+			nano::random_pool::generate_block (number.bytes.data (), number.bytes.size ());
+		});
+	}
+	for (auto & i : threads)
+	{
+		i.join ();
+	}
 }

@@ -7,8 +7,9 @@
 #include <sstream>
 #include <vector>
 
-nano::daemon_config::daemon_config (boost::filesystem::path const & data_path_a) :
-	data_path (data_path_a)
+nano::daemon_config::daemon_config (boost::filesystem::path const & data_path_a, nano::network_params & network_params) :
+	node{ network_params },
+	data_path{ data_path_a }
 {
 }
 

@@ -438,7 +438,7 @@ private:
 };
 
 class transaction;
-class block_store;
+class store;
 
 /**
  * Determine the representative for this block
@@ -446,7 +446,7 @@ class block_store;
 class representative_visitor final : public nano::block_visitor
 {
 public:
-	representative_visitor (nano::transaction const & transaction_a, nano::block_store & store_a);
+	representative_visitor (nano::transaction const & transaction_a, nano::store & store_a);
 	~representative_visitor () = default;
 	void compute (nano::block_hash const & hash_a);
 	void send_block (nano::send_block const & block_a) override;
@@ -455,7 +455,7 @@ public:
 	void change_block (nano::change_block const & block_a) override;
 	void state_block (nano::state_block const & block_a) override;
 	nano::transaction const & transaction;
-	nano::block_store & store;
+	nano::store & store;
 	nano::block_hash current;
 	nano::block_hash result;
 };
@@ -621,131 +621,233 @@ private:
 class ledger_cache;
 
 /**
+ * Manages frontier storage and iteration
+ */
+class frontier_store
+{
+public:
+	virtual void put (nano::write_transaction const &, nano::block_hash const &, nano::account const &) = 0;
+	virtual nano::account get (nano::transaction const &, nano::block_hash const &) const = 0;
+	virtual void del (nano::write_transaction const &, nano::block_hash const &) = 0;
+	virtual nano::store_iterator<nano::block_hash, nano::account> begin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<nano::block_hash, nano::account> begin (nano::transaction const &, nano::block_hash const &) const = 0;
+	virtual nano::store_iterator<nano::block_hash, nano::account> end () const = 0;
+	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, nano::account>, nano::store_iterator<nano::block_hash, nano::account>)> const & action_a) const = 0;
+};
+
+/**
+ * Manages account storage and iteration
+ */
+class account_store
+{
+public:
+	virtual void put (nano::write_transaction const &, nano::account const &, nano::account_info const &) = 0;
+	virtual bool get (nano::transaction const &, nano::account const &, nano::account_info &) = 0;
+	virtual void del (nano::write_transaction const &, nano::account const &) = 0;
+	virtual bool exists (nano::transaction const &, nano::account const &) = 0;
+	virtual size_t count (nano::transaction const &) = 0;
+	virtual nano::store_iterator<nano::account, nano::account_info> begin (nano::transaction const &, nano::account const &) const = 0;
+	virtual nano::store_iterator<nano::account, nano::account_info> begin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<nano::account, nano::account_info> rbegin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<nano::account, nano::account_info> end () const = 0;
+	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> const &) const = 0;
+};
+
+/**
+ * Manages pending storage and iteration
+ */
+class pending_store
+{
+public:
+	virtual void put (nano::write_transaction const &, nano::pending_key const &, nano::pending_info const &) = 0;
+	virtual void del (nano::write_transaction const &, nano::pending_key const &) = 0;
+	virtual bool get (nano::transaction const &, nano::pending_key const &, nano::pending_info &) = 0;
+	virtual bool exists (nano::transaction const &, nano::pending_key const &) = 0;
+	virtual bool any (nano::transaction const &, nano::account const &) = 0;
+	virtual nano::store_iterator<nano::pending_key, nano::pending_info> begin (nano::transaction const &, nano::pending_key const &) const = 0;
+	virtual nano::store_iterator<nano::pending_key, nano::pending_info> begin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<nano::pending_key, nano::pending_info> end () const = 0;
+	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::pending_key, nano::pending_info>, nano::store_iterator<nano::pending_key, nano::pending_info>)> const & action_a) const = 0;
+};
+
+/**
+ * Manages peer storage and iteration
+ */
+class peer_store
+{
+public:
+	virtual void put (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) = 0;
+	virtual void del (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) = 0;
+	virtual bool exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const = 0;
+	virtual size_t count (nano::transaction const & transaction_a) const = 0;
+	virtual void clear (nano::write_transaction const & transaction_a) = 0;
+	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> begin (nano::transaction const & transaction_a) const = 0;
+	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> end () const = 0;
+};
+
+/**
+ * Manages online weight storage and iteration
+ */
+class online_weight_store
+{
+public:
+	virtual void put (nano::write_transaction const &, uint64_t, nano::amount const &) = 0;
+	virtual void del (nano::write_transaction const &, uint64_t) = 0;
+	virtual nano::store_iterator<uint64_t, nano::amount> begin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<uint64_t, nano::amount> rbegin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<uint64_t, nano::amount> end () const = 0;
+	virtual size_t count (nano::transaction const &) const = 0;
+	virtual void clear (nano::write_transaction const &) = 0;
+};
+
+/**
+ * Manages pruned storage and iteration
+ */
+class pruned_store
+{
+public:
+	virtual void put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) = 0;
+	virtual void del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) = 0;
+	virtual bool exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
+	virtual nano::block_hash random (nano::transaction const & transaction_a) = 0;
+	virtual size_t count (nano::transaction const & transaction_a) const = 0;
+	virtual void clear (nano::write_transaction const &) = 0;
+	virtual nano::store_iterator<nano::block_hash, std::nullptr_t> begin (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
+	virtual nano::store_iterator<nano::block_hash, std::nullptr_t> begin (nano::transaction const & transaction_a) const = 0;
+	virtual nano::store_iterator<nano::block_hash, std::nullptr_t> end () const = 0;
+	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, std::nullptr_t>, nano::store_iterator<nano::block_hash, std::nullptr_t>)> const & action_a) const = 0;
+};
+
+/**
+ * Manages confirmation height storage and iteration
+ */
+class confirmation_height_store
+{
+public:
+	virtual void put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info const & confirmation_height_info_a) = 0;
+	virtual bool get (nano::transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info & confirmation_height_info_a) = 0;
+	virtual bool exists (nano::transaction const & transaction_a, nano::account const & account_a) const = 0;
+	virtual void del (nano::write_transaction const & transaction_a, nano::account const & account_a) = 0;
+	virtual uint64_t count (nano::transaction const & transaction_a) = 0;
+	virtual void clear (nano::write_transaction const &, nano::account const &) = 0;
+	virtual void clear (nano::write_transaction const &) = 0;
+	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> begin (nano::transaction const & transaction_a, nano::account const & account_a) const = 0;
+	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> begin (nano::transaction const & transaction_a) const = 0;
+	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> end () const = 0;
+	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::account, nano::confirmation_height_info>, nano::store_iterator<nano::account, nano::confirmation_height_info>)> const &) const = 0;
+};
+
+/**
+ * Manages unchecked storage and iteration
+ */
+class unchecked_store
+{
+public:
+	virtual void clear (nano::write_transaction const &) = 0;
+	virtual void put (nano::write_transaction const &, nano::unchecked_key const &, nano::unchecked_info const &) = 0;
+	virtual void put (nano::write_transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &) = 0;
+	virtual std::vector<nano::unchecked_info> get (nano::transaction const &, nano::block_hash const &) = 0;
+	virtual bool exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) = 0;
+	virtual void del (nano::write_transaction const &, nano::unchecked_key const &) = 0;
+	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> begin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> begin (nano::transaction const &, nano::unchecked_key const &) const = 0;
+	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> end () const = 0;
+	virtual size_t count (nano::transaction const &) = 0;
+	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>)> const & action_a) const = 0;
+};
+
+/**
+ * Manages final vote storage and iteration
+ */
+class final_vote_store
+{
+public:
+	virtual bool put (nano::write_transaction const & transaction_a, nano::qualified_root const & root_a, nano::block_hash const & hash_a) = 0;
+	virtual std::vector<nano::block_hash> get (nano::transaction const & transaction_a, nano::root const & root_a) = 0;
+	virtual void del (nano::write_transaction const & transaction_a, nano::root const & root_a) = 0;
+	virtual size_t count (nano::transaction const & transaction_a) const = 0;
+	virtual void clear (nano::write_transaction const &, nano::root const &) = 0;
+	virtual void clear (nano::write_transaction const &) = 0;
+	virtual nano::store_iterator<nano::qualified_root, nano::block_hash> begin (nano::transaction const & transaction_a, nano::qualified_root const & root_a) const = 0;
+	virtual nano::store_iterator<nano::qualified_root, nano::block_hash> begin (nano::transaction const & transaction_a) const = 0;
+	virtual nano::store_iterator<nano::qualified_root, nano::block_hash> end () const = 0;
+	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::qualified_root, nano::block_hash>, nano::store_iterator<nano::qualified_root, nano::block_hash>)> const & action_a) const = 0;
+};
+
+/**
+ * Manages version storage
+ */
+class version_store
+{
+public:
+	virtual void put (nano::write_transaction const &, int) = 0;
+	virtual int get (nano::transaction const &) const = 0;
+};
+
+/**
  * Manages block storage and iteration
  */
 class block_store
 {
 public:
-	virtual ~block_store () = default;
-	virtual void initialize (nano::write_transaction const &, nano::genesis const &, nano::ledger_cache &) = 0;
-	virtual void block_put (nano::write_transaction const &, nano::block_hash const &, nano::block const &) = 0;
-	virtual void block_raw_put (nano::write_transaction const &, std::vector<uint8_t> const &, nano::block_hash const &) = 0;
-	virtual nano::block_hash block_successor (nano::transaction const &, nano::block_hash const &) const = 0;
-	virtual void block_successor_clear (nano::write_transaction const &, nano::block_hash const &) = 0;
-	virtual std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &) const = 0;
-	virtual std::shared_ptr<nano::block> block_get_no_sideband (nano::transaction const &, nano::block_hash const &) const = 0;
-	virtual std::shared_ptr<nano::block> block_random (nano::transaction const &) = 0;
-	virtual void block_del (nano::write_transaction const &, nano::block_hash const &) = 0;
-	virtual bool block_exists (nano::transaction const &, nano::block_hash const &) = 0;
-	virtual uint64_t block_count (nano::transaction const &) = 0;
+	virtual void put (nano::write_transaction const &, nano::block_hash const &, nano::block const &) = 0;
+	virtual void raw_put (nano::write_transaction const &, std::vector<uint8_t> const &, nano::block_hash const &) = 0;
+	virtual nano::block_hash successor (nano::transaction const &, nano::block_hash const &) const = 0;
+	virtual void successor_clear (nano::write_transaction const &, nano::block_hash const &) = 0;
+	virtual std::shared_ptr<nano::block> get (nano::transaction const &, nano::block_hash const &) const = 0;
+	virtual std::shared_ptr<nano::block> get_no_sideband (nano::transaction const &, nano::block_hash const &) const = 0;
+	virtual std::shared_ptr<nano::block> random (nano::transaction const &) = 0;
+	virtual void del (nano::write_transaction const &, nano::block_hash const &) = 0;
+	virtual bool exists (nano::transaction const &, nano::block_hash const &) = 0;
+	virtual uint64_t count (nano::transaction const &) = 0;
+	virtual nano::account account (nano::transaction const &, nano::block_hash const &) const = 0;
+	virtual nano::account account_calculated (nano::block const &) const = 0;
+	virtual nano::store_iterator<nano::block_hash, block_w_sideband> begin (nano::transaction const &, nano::block_hash const &) const = 0;
+	virtual nano::store_iterator<nano::block_hash, block_w_sideband> begin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<nano::block_hash, block_w_sideband> end () const = 0;
+	virtual nano::uint128_t balance (nano::transaction const &, nano::block_hash const &) = 0;
+	virtual nano::uint128_t balance_calculated (std::shared_ptr<nano::block> const &) const = 0;
+	virtual nano::epoch version (nano::transaction const &, nano::block_hash const &) = 0;
+	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, block_w_sideband>, nano::store_iterator<nano::block_hash, block_w_sideband>)> const & action_a) const = 0;
+	virtual uint64_t account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
+};
+
+/**
+ * Store manager
+ */
+class store
+{
+public:
+	// clang-format off
+	explicit store (
+		nano::block_store &,
+		nano::frontier_store &,
+		nano::account_store &,
+		nano::pending_store &,
+		nano::unchecked_store &,
+		nano::online_weight_store &,
+		nano::pruned_store &,
+		nano::peer_store &,
+		nano::confirmation_height_store &,
+		nano::final_vote_store &,
+		nano::version_store &
+	);
+	// clang-format on
+	virtual ~store () = default;
+	virtual void initialize (nano::write_transaction const &, nano::ledger_cache &) = 0;
 	virtual bool root_exists (nano::transaction const &, nano::root const &) = 0;
-	virtual nano::account block_account (nano::transaction const &, nano::block_hash const &) const = 0;
-	virtual nano::account block_account_calculated (nano::block const &) const = 0;
-	virtual nano::store_iterator<nano::block_hash, block_w_sideband> blocks_begin (nano::transaction const &, nano::block_hash const &) const = 0;
-	virtual nano::store_iterator<nano::block_hash, block_w_sideband> blocks_begin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<nano::block_hash, block_w_sideband> blocks_end () const = 0;
 
-	virtual void frontier_put (nano::write_transaction const &, nano::block_hash const &, nano::account const &) = 0;
-	virtual nano::account frontier_get (nano::transaction const &, nano::block_hash const &) const = 0;
-	virtual void frontier_del (nano::write_transaction const &, nano::block_hash const &) = 0;
-	virtual nano::store_iterator<nano::block_hash, nano::account> frontiers_begin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<nano::block_hash, nano::account> frontiers_begin (nano::transaction const &, nano::block_hash const &) const = 0;
-	virtual nano::store_iterator<nano::block_hash, nano::account> frontiers_end () const = 0;
-
-	virtual void account_put (nano::write_transaction const &, nano::account const &, nano::account_info const &) = 0;
-	virtual bool account_get (nano::transaction const &, nano::account const &, nano::account_info &) = 0;
-	virtual void account_del (nano::write_transaction const &, nano::account const &) = 0;
-	virtual bool account_exists (nano::transaction const &, nano::account const &) = 0;
-	virtual size_t account_count (nano::transaction const &) = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> accounts_begin (nano::transaction const &, nano::account const &) const = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> accounts_begin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> accounts_rbegin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> accounts_end () const = 0;
-
-	virtual void pending_put (nano::write_transaction const &, nano::pending_key const &, nano::pending_info const &) = 0;
-	virtual void pending_del (nano::write_transaction const &, nano::pending_key const &) = 0;
-	virtual bool pending_get (nano::transaction const &, nano::pending_key const &, nano::pending_info &) = 0;
-	virtual bool pending_exists (nano::transaction const &, nano::pending_key const &) = 0;
-	virtual bool pending_any (nano::transaction const &, nano::account const &) = 0;
-	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &, nano::pending_key const &) const = 0;
-	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_end () const = 0;
-
-	virtual nano::uint128_t block_balance (nano::transaction const &, nano::block_hash const &) = 0;
-	virtual nano::uint128_t block_balance_calculated (std::shared_ptr<nano::block> const &) const = 0;
-	virtual nano::epoch block_version (nano::transaction const &, nano::block_hash const &) = 0;
-
-	virtual void unchecked_clear (nano::write_transaction const &) = 0;
-	virtual void unchecked_put (nano::write_transaction const &, nano::unchecked_key const &, nano::unchecked_info const &) = 0;
-	virtual void unchecked_put (nano::write_transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &) = 0;
-	virtual std::vector<nano::unchecked_info> unchecked_get (nano::transaction const &, nano::block_hash const &) = 0;
-	virtual bool unchecked_exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) = 0;
-	virtual void unchecked_del (nano::write_transaction const &, nano::unchecked_key const &) = 0;
-	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &, nano::unchecked_key const &) const = 0;
-	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () const = 0;
-	virtual size_t unchecked_count (nano::transaction const &) = 0;
-
-	virtual void online_weight_put (nano::write_transaction const &, uint64_t, nano::amount const &) = 0;
-	virtual void online_weight_del (nano::write_transaction const &, uint64_t) = 0;
-	virtual nano::store_iterator<uint64_t, nano::amount> online_weight_begin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<uint64_t, nano::amount> online_weight_rbegin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<uint64_t, nano::amount> online_weight_end () const = 0;
-	virtual size_t online_weight_count (nano::transaction const &) const = 0;
-	virtual void online_weight_clear (nano::write_transaction const &) = 0;
-
-	virtual void version_put (nano::write_transaction const &, int) = 0;
-	virtual int version_get (nano::transaction const &) const = 0;
-
-	virtual void pruned_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) = 0;
-	virtual void pruned_del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) = 0;
-	virtual bool pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
-	virtual nano::block_hash pruned_random (nano::transaction const & transaction_a) = 0;
-	virtual size_t pruned_count (nano::transaction const & transaction_a) const = 0;
-	virtual void pruned_clear (nano::write_transaction const &) = 0;
-	virtual nano::store_iterator<nano::block_hash, std::nullptr_t> pruned_begin (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
-	virtual nano::store_iterator<nano::block_hash, std::nullptr_t> pruned_begin (nano::transaction const & transaction_a) const = 0;
-	virtual nano::store_iterator<nano::block_hash, std::nullptr_t> pruned_end () const = 0;
-
-	virtual void peer_put (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) = 0;
-	virtual void peer_del (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) = 0;
-	virtual bool peer_exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const = 0;
-	virtual size_t peer_count (nano::transaction const & transaction_a) const = 0;
-	virtual void peer_clear (nano::write_transaction const & transaction_a) = 0;
-	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a) const = 0;
-	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () const = 0;
-
-	virtual void confirmation_height_put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info const & confirmation_height_info_a) = 0;
-	virtual bool confirmation_height_get (nano::transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info & confirmation_height_info_a) = 0;
-	virtual bool confirmation_height_exists (nano::transaction const & transaction_a, nano::account const & account_a) const = 0;
-	virtual void confirmation_height_del (nano::write_transaction const & transaction_a, nano::account const & account_a) = 0;
-	virtual uint64_t confirmation_height_count (nano::transaction const & transaction_a) = 0;
-	virtual void confirmation_height_clear (nano::write_transaction const &, nano::account const &) = 0;
-	virtual void confirmation_height_clear (nano::write_transaction const &) = 0;
-	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a, nano::account const & account_a) const = 0;
-	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a) const = 0;
-	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () const = 0;
-
-	virtual void accounts_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> const &) const = 0;
-	virtual void confirmation_height_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::account, nano::confirmation_height_info>, nano::store_iterator<nano::account, nano::confirmation_height_info>)> const &) const = 0;
-	virtual void pending_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::pending_key, nano::pending_info>, nano::store_iterator<nano::pending_key, nano::pending_info>)> const & action_a) const = 0;
-	virtual void unchecked_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>)> const & action_a) const = 0;
-	virtual void pruned_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, std::nullptr_t>, nano::store_iterator<nano::block_hash, std::nullptr_t>)> const & action_a) const = 0;
-	virtual void blocks_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, block_w_sideband>, nano::store_iterator<nano::block_hash, block_w_sideband>)> const & action_a) const = 0;
-	virtual void frontiers_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, nano::account>, nano::store_iterator<nano::block_hash, nano::account>)> const & action_a) const = 0;
-	virtual void final_vote_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::qualified_root, nano::block_hash>, nano::store_iterator<nano::qualified_root, nano::block_hash>)> const & action_a) const = 0;
-
-	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
-
-	virtual bool final_vote_put (nano::write_transaction const & transaction_a, nano::qualified_root const & root_a, nano::block_hash const & hash_a) = 0;
-	virtual std::vector<nano::block_hash> final_vote_get (nano::transaction const & transaction_a, nano::root const & root_a) = 0;
-	virtual void final_vote_del (nano::write_transaction const & transaction_a, nano::root const & root_a) = 0;
-	virtual size_t final_vote_count (nano::transaction const & transaction_a) const = 0;
-	virtual void final_vote_clear (nano::write_transaction const &, nano::root const &) = 0;
-	virtual void final_vote_clear (nano::write_transaction const &) = 0;
-	virtual nano::store_iterator<nano::qualified_root, nano::block_hash> final_vote_begin (nano::transaction const & transaction_a, nano::qualified_root const & root_a) const = 0;
-	virtual nano::store_iterator<nano::qualified_root, nano::block_hash> final_vote_begin (nano::transaction const & transaction_a) const = 0;
-	virtual nano::store_iterator<nano::qualified_root, nano::block_hash> final_vote_end () const = 0;
+	block_store & block;
+	frontier_store & frontier;
+	account_store & account;
+	pending_store & pending;
+	unchecked_store & unchecked;
+	online_weight_store & online_weight;
+	pruned_store & pruned;
+	peer_store & peer;
+	confirmation_height_store & confirmation_height;
+	final_vote_store & final_vote;
+	version_store & version;
 
 	virtual unsigned max_block_write_batch_num () const = 0;
 
@@ -767,7 +869,7 @@ public:
 	virtual std::string vendor_get () const = 0;
 };
 
-std::unique_ptr<nano::block_store> make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool open_read_only = false, bool add_db_postfix = false, nano::rocksdb_config const & rocksdb_config = nano::rocksdb_config{}, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
+std::unique_ptr<nano::store> make_store (nano::logger_mt & logger, boost::filesystem::path const & path, nano::ledger_constants & constants, bool open_read_only = false, bool add_db_postfix = false, nano::rocksdb_config const & rocksdb_config = nano::rocksdb_config{}, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
 }
 
 namespace std

@@ -33,7 +33,7 @@ public:
 	std::weak_ptr<nano::bulk_push_client> push;
 	std::deque<nano::pull_info> frontier_pulls;
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
-	nano::account start_account{ 0 };
+	nano::account start_account{};
 	std::atomic<unsigned> account_count{ 0 };
 	uint32_t frontiers_age;
 };

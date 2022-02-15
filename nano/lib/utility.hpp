@@ -24,7 +24,7 @@ namespace system
 }
 }
 
-void assert_internal (const char * check_expr, const char * func, const char * file, unsigned int line, bool is_release_assert, std::string_view error = "");
+void assert_internal (char const * check_expr, char const * func, char const * file, unsigned int line, bool is_release_assert, std::string_view error = "");
 
 #define release_assert_1(check) check ? (void)0 : assert_internal (#check, BOOST_CURRENT_FUNCTION, __FILE__, __LINE__, true)
 #define release_assert_2(check, error_msg) check ? (void)0 : assert_internal (#check, BOOST_CURRENT_FUNCTION, __FILE__, __LINE__, true, error_msg)
@@ -76,8 +76,8 @@ public:
 	container_info_composite (std::string const & name);
 	bool is_composite () const override;
 	void add_component (std::unique_ptr<container_info_component> child);
-	const std::vector<std::unique_ptr<container_info_component>> & get_children () const;
-	const std::string & get_name () const;
+	std::vector<std::unique_ptr<container_info_component>> const & get_children () const;
+	std::string const & get_name () const;
 
 private:
 	std::string name;
@@ -89,7 +89,7 @@ class container_info_leaf : public container_info_component
 public:
 	container_info_leaf (container_info const & info);
 	bool is_composite () const override;
-	const container_info & get_info () const;
+	container_info const & get_info () const;
 
 private:
 	container_info info;

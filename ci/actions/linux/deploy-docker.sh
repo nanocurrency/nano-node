@@ -51,7 +51,7 @@ if [ -n "$DOCKER_PASSWORD" ]; then
         echo "Deployed nano-env"
         exit 0
     else
-        tags=$(docker images --format '{{.Repository}}:{{.Tag }}' | grep bananocoin | grep -vE "env|ghcr.io|none")
+        tags=$(docker images --format '{{.Repository}}:{{.Tag }}' | grep bananocoin | grep -vE "env|ghcr.io|none|latest")
         for a in $tags; do
             "$scripts"/custom-timeout.sh 30 docker push "$a"
         done

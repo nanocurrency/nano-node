@@ -4,8 +4,8 @@
 #include <nano/lib/timer.hpp>
 #include <nano/node/confirmation_height_bounded.hpp>
 #include <nano/node/confirmation_height_unbounded.hpp>
-#include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
@@ -39,7 +39,7 @@ public:
 	void stop ();
 	void add (std::shared_ptr<nano::block> const &);
 	void run (confirmation_height_mode);
-	size_t awaiting_processing_size () const;
+	std::size_t awaiting_processing_size () const;
 	bool is_processing_added_block (nano::block_hash const & hash_a) const;
 	bool is_processing_block (nano::block_hash const &) const;
 	nano::block_hash current () const;
@@ -91,7 +91,6 @@ private:
 	nano::write_database_queue & write_database_queue;
 	/** The maximum amount of blocks to write at once. This is dynamically modified by the bounded processor based on previous write performance **/
 	uint64_t batch_write_size{ 16384 };
-	nano::network_params network_params;
 
 	confirmation_height_unbounded unbounded_processor;
 	confirmation_height_bounded bounded_processor;
@@ -101,7 +100,7 @@ private:
 	void notify_observers (std::vector<std::shared_ptr<nano::block>> const &);
 	void notify_observers (nano::block_hash const &);
 
-	friend std::unique_ptr<container_info_component> collect_container_info (confirmation_height_processor &, const std::string &);
+	friend std::unique_ptr<container_info_component> collect_container_info (confirmation_height_processor &, std::string const &);
 	friend class confirmation_height_pending_observer_callbacks_Test;
 	friend class confirmation_height_dependent_election_Test;
 	friend class confirmation_height_dependent_election_after_already_cemented_Test;
@@ -113,5 +112,5 @@ private:
 	friend class active_transactions_pessimistic_elections_Test;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (confirmation_height_processor &, const std::string &);
+std::unique_ptr<container_info_component> collect_container_info (confirmation_height_processor &, std::string const &);
 }

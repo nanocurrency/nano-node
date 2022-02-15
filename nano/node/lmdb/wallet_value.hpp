@@ -1,7 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
-#include <nano/secure/blockstore.hpp>
+#include <nano/secure/store.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 

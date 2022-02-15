@@ -1,5 +1,5 @@
-#include <nano/node/testing.hpp>
 #include <nano/qt/qt.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -104,7 +104,7 @@ TEST (wallet, startup_balance)
 	wallet->needs_balance_refresh = true;
 	wallet->start ();
 	wallet->application.processEvents (QEventLoop::AllEvents);
-	ASSERT_EQ ("Balance: 0 NANO", wallet->self.balance_label->text ().toStdString ());
+	ASSERT_EQ ("Balance: 0 nano", wallet->self.balance_label->text ().toStdString ());
 }
 
 TEST (wallet, select_account)
@@ -291,9 +291,9 @@ TEST (wallet, send)
 {
 	nano_qt::eventloop_processor processor;
 	nano::system system (2);
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::public_key key1 (system.wallet (1)->insert_adhoc (nano::keypair ().prv));
-	auto account (nano::dev_genesis_key.pub);
+	auto account (nano::dev::genesis_key.pub);
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	ASSERT_NE (wallet->rendering_ratio, nano::raw_ratio);
@@ -324,13 +324,13 @@ TEST (wallet, send_locked)
 {
 	nano_qt::eventloop_processor processor;
 	nano::system system (1);
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key1;
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin_write ());
 		system.wallet (0)->enter_password (transaction, "0");
 	}
-	auto account (nano::dev_genesis_key.pub);
+	auto account (nano::dev::genesis_key.pub);
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	QTest::mouseClick (wallet->send_blocks, Qt::LeftButton);
@@ -350,7 +350,7 @@ TEST (wallet, process_block)
 	nano_qt::eventloop_processor processor;
 	nano::system system (1);
 	nano::account account;
-	nano::block_hash latest (system.nodes[0]->latest (nano::genesis_account));
+	nano::block_hash latest (system.nodes[0]->latest (nano::dev::genesis->account ()));
 	system.wallet (0)->insert_adhoc (nano::keypair ().prv);
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
@@ -365,7 +365,7 @@ TEST (wallet, process_block)
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet->advanced.enter_block, Qt::LeftButton);
 	ASSERT_EQ (wallet->block_entry.window, wallet->main_stack->currentWidget ());
-	nano::send_block send (latest, key1.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest));
+	nano::send_block send (latest, key1.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
 	std::string previous;
 	send.hashables.previous.encode_hex (previous);
 	std::string balance;
@@ -380,7 +380,7 @@ TEST (wallet, process_block)
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
 		system.deadline_set (10s);
-		while (system.nodes[0]->store.block_exists (transaction, send.hash ()))
+		while (system.nodes[0]->store.block.exists (transaction, send.hash ()))
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
@@ -394,16 +394,16 @@ TEST (wallet, create_send)
 	nano_qt::eventloop_processor processor;
 	nano::keypair key;
 	nano::system system (1);
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
-	auto account (nano::dev_genesis_key.pub);
+	auto account (nano::dev::genesis_key.pub);
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	wallet->client_window->show ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet->advanced.create_block, Qt::LeftButton);
 	QTest::mouseClick (wallet->block_creation.send, Qt::LeftButton);
-	QTest::keyClicks (wallet->block_creation.account, nano::dev_genesis_key.pub.to_account ().c_str ());
+	QTest::keyClicks (wallet->block_creation.account, nano::dev::genesis_key.pub.to_account ().c_str ());
 	QTest::keyClicks (wallet->block_creation.amount, "100000000000000000000");
 	QTest::keyClicks (wallet->block_creation.destination, key.pub.to_account ().c_str ());
 	QTest::mouseClick (wallet->block_creation.create, Qt::LeftButton);
@@ -424,14 +424,14 @@ TEST (wallet, create_open_receive)
 	nano_qt::eventloop_processor processor;
 	nano::keypair key;
 	nano::system system (1);
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	system.wallet (0)->send_action (nano::dev_genesis_key.pub, key.pub, 100);
-	nano::block_hash latest1 (system.nodes[0]->latest (nano::dev_genesis_key.pub));
-	system.wallet (0)->send_action (nano::dev_genesis_key.pub, key.pub, 100);
-	nano::block_hash latest2 (system.nodes[0]->latest (nano::dev_genesis_key.pub));
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, 100);
+	nano::block_hash latest1 (system.nodes[0]->latest (nano::dev::genesis_key.pub));
+	system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, 100);
+	nano::block_hash latest2 (system.nodes[0]->latest (nano::dev::genesis_key.pub));
 	ASSERT_NE (latest1, latest2);
 	system.wallet (0)->insert_adhoc (key.prv);
-	auto account (nano::dev_genesis_key.pub);
+	auto account (nano::dev::genesis_key.pub);
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	wallet->client_window->show ();
@@ -439,7 +439,7 @@ TEST (wallet, create_open_receive)
 	QTest::mouseClick (wallet->advanced.create_block, Qt::LeftButton);
 	wallet->block_creation.open->click ();
 	QTest::keyClicks (wallet->block_creation.source, latest1.to_string ().c_str ());
-	QTest::keyClicks (wallet->block_creation.representative, nano::dev_genesis_key.pub.to_account ().c_str ());
+	QTest::keyClicks (wallet->block_creation.representative, nano::dev::genesis_key.pub.to_account ().c_str ());
 	QTest::mouseClick (wallet->block_creation.create, Qt::LeftButton);
 	std::string json1 (wallet->block_creation.block->toPlainText ().toStdString ());
 	ASSERT_FALSE (json1.empty ());
@@ -473,15 +473,15 @@ TEST (wallet, create_change)
 	nano_qt::eventloop_processor processor;
 	nano::keypair key;
 	nano::system system (1);
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	auto account (nano::dev_genesis_key.pub);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	auto account (nano::dev::genesis_key.pub);
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	wallet->client_window->show ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet->advanced.create_block, Qt::LeftButton);
 	wallet->block_creation.change->click ();
-	QTest::keyClicks (wallet->block_creation.account, nano::dev_genesis_key.pub.to_account ().c_str ());
+	QTest::keyClicks (wallet->block_creation.account, nano::dev::genesis_key.pub.to_account ().c_str ());
 	QTest::keyClicks (wallet->block_creation.representative, key.pub.to_account ().c_str ());
 	wallet->block_creation.create->click ();
 	std::string json (wallet->block_creation.block->toPlainText ().toStdString ());
@@ -498,7 +498,7 @@ TEST (wallet, create_change)
 
 TEST (history, short_text)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -513,30 +513,29 @@ TEST (history, short_text)
 		account = system.account (transaction, 0);
 	}
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
-	auto store = nano::make_store (system.nodes[0]->logger, nano::unique_path ());
+	auto store = nano::make_store (system.nodes[0]->logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::genesis genesis;
-	nano::ledger ledger (*store, system.nodes[0]->stats);
+	nano::ledger ledger (*store, system.nodes[0]->stats, nano::dev::constants);
 	{
 		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, genesis, ledger.cache);
+		store->initialize (transaction, ledger.cache);
 		nano::keypair key;
-		auto latest (ledger.latest (transaction, nano::dev_genesis_key.pub));
-		nano::send_block send (latest, nano::dev_genesis_key.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest));
+		auto latest (ledger.latest (transaction, nano::dev::genesis_key.pub));
+		nano::send_block send (latest, nano::dev::genesis_key.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
-		nano::receive_block receive (send.hash (), send.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send.hash ()));
+		nano::receive_block receive (send.hash (), send.hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send.hash ()));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
-		nano::change_block change (receive.hash (), key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (receive.hash ()));
+		nano::change_block change (receive.hash (), key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (receive.hash ()));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, change).code);
 	}
-	nano_qt::history history (ledger, nano::dev_genesis_key.pub, *wallet);
+	nano_qt::history history (ledger, nano::dev::genesis_key.pub, *wallet);
 	history.refresh ();
 	ASSERT_EQ (4, history.model->rowCount ());
 }
 
 TEST (history, pruned_source)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -551,29 +550,28 @@ TEST (history, pruned_source)
 		account = system.account (transaction, 0);
 	}
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
-	auto store = nano::make_store (system.nodes[0]->logger, nano::unique_path ());
+	auto store = nano::make_store (system.nodes[0]->logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::genesis genesis;
-	nano::ledger ledger (*store, system.nodes[0]->stats);
+	nano::ledger ledger (*store, system.nodes[0]->stats, nano::dev::constants);
 	ledger.pruning = true;
 	nano::block_hash next_pruning;
 	// Basic pruning for legacy blocks. Previous block is pruned, source is pruned
 	{
 		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, genesis, ledger.cache);
-		auto latest (ledger.latest (transaction, nano::dev_genesis_key.pub));
-		nano::send_block send1 (latest, nano::dev_genesis_key.pub, nano::genesis_amount - 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest));
+		store->initialize (transaction, ledger.cache);
+		auto latest (ledger.latest (transaction, nano::dev::genesis_key.pub));
+		nano::send_block send1 (latest, nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
-		nano::send_block send2 (send1.hash (), key.pub, nano::genesis_amount - 200, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1.hash ()));
+		nano::send_block send2 (send1.hash (), key.pub, nano::dev::constants.genesis_amount - 200, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send1.hash ()));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send2).code);
-		nano::receive_block receive (send2.hash (), send1.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send2.hash ()));
+		nano::receive_block receive (send2.hash (), send1.hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send2.hash ()));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
 		nano::open_block open (send2.hash (), key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open).code);
 		ASSERT_EQ (1, ledger.pruning_action (transaction, send1.hash (), 2));
 		next_pruning = send2.hash ();
 	}
-	nano_qt::history history1 (ledger, nano::dev_genesis_key.pub, *wallet);
+	nano_qt::history history1 (ledger, nano::dev::genesis_key.pub, *wallet);
 	history1.refresh ();
 	ASSERT_EQ (2, history1.model->rowCount ());
 	nano_qt::history history2 (ledger, key.pub, *wallet);
@@ -591,8 +589,8 @@ TEST (history, pruned_source)
 	// Pruning for state blocks. Previous block is pruned, source is pruned
 	{
 		auto transaction (store->tx_begin_write ());
-		auto latest (ledger.latest (transaction, nano::dev_genesis_key.pub));
-		nano::state_block send (nano::dev_genesis_key.pub, latest, nano::dev_genesis_key.pub, nano::genesis_amount - 200, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest));
+		auto latest (ledger.latest (transaction, nano::dev::genesis_key.pub));
+		nano::state_block send (nano::dev::genesis_key.pub, latest, nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 200, key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
 		auto latest_key (ledger.latest (transaction, key.pub));
 		nano::state_block receive (key.pub, latest_key, key.pub, 200, send.hash (), key.prv, key.pub, *system.work.generate (latest_key));
@@ -623,7 +621,7 @@ TEST (wallet, startup_work)
 	uint64_t work1;
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
-		ASSERT_TRUE (wallet->wallet_m->store.work_get (transaction, nano::dev_genesis_key.pub, work1));
+		ASSERT_TRUE (wallet->wallet_m->store.work_get (transaction, nano::dev::genesis_key.pub, work1));
 	}
 	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
 	QTest::keyClicks (wallet->accounts.account_key_line, "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4");
@@ -634,7 +632,7 @@ TEST (wallet, startup_work)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
-		again = wallet->wallet_m->store.work_get (transaction, nano::dev_genesis_key.pub, work1);
+		again = wallet->wallet_m->store.work_get (transaction, nano::dev::genesis_key.pub, work1);
 	}
 }
 
@@ -655,7 +653,7 @@ TEST (wallet, block_viewer)
 	ASSERT_NE (-1, wallet->advanced.layout->indexOf (wallet->advanced.block_viewer));
 	QTest::mouseClick (wallet->advanced.block_viewer, Qt::LeftButton);
 	ASSERT_EQ (wallet->block_viewer.window, wallet->main_stack->currentWidget ());
-	nano::block_hash latest (system.nodes[0]->latest (nano::genesis_account));
+	nano::block_hash latest (system.nodes[0]->latest (nano::dev::genesis->account ()));
 	QTest::keyClicks (wallet->block_viewer.hash, latest.to_string ().c_str ());
 	QTest::mouseClick (wallet->block_viewer.retrieve, Qt::LeftButton);
 	ASSERT_FALSE (wallet->block_viewer.block->toPlainText ().toStdString ().empty ());
@@ -701,17 +699,17 @@ TEST (wallet, republish)
 {
 	nano_qt::eventloop_processor processor;
 	nano::system system (2);
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key;
 	nano::block_hash hash;
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_write ());
-		auto latest (system.nodes[0]->ledger.latest (transaction, nano::dev_genesis_key.pub));
-		nano::send_block block (latest, key.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest));
+		auto latest (system.nodes[0]->ledger.latest (transaction, nano::dev::genesis_key.pub));
+		nano::send_block block (latest, key.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
 		hash = block.hash ();
 		ASSERT_EQ (nano::process_result::progress, system.nodes[0]->ledger.process (transaction, block).code);
 	}
-	auto account (nano::dev_genesis_key.pub);
+	auto account (nano::dev::genesis_key.pub);
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
@@ -720,9 +718,9 @@ TEST (wallet, republish)
 	ASSERT_EQ (wallet->block_viewer.window, wallet->main_stack->currentWidget ());
 	QTest::keyClicks (wallet->block_viewer.hash, hash.to_string ().c_str ());
 	QTest::mouseClick (wallet->block_viewer.rebroadcast, Qt::LeftButton);
-	ASSERT_FALSE (system.nodes[1]->balance (nano::dev_genesis_key.pub).is_zero ());
+	ASSERT_FALSE (system.nodes[1]->balance (nano::dev::genesis_key.pub).is_zero ());
 	system.deadline_set (10s);
-	while (system.nodes[1]->balance (nano::dev_genesis_key.pub).is_zero ())
+	while (system.nodes[1]->balance (nano::dev::genesis_key.pub).is_zero ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -740,7 +738,7 @@ TEST (wallet, ignore_empty_adhoc)
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
 	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
-	QTest::keyClicks (wallet->accounts.account_key_line, nano::dev_genesis_key.prv.to_string ().c_str ());
+	QTest::keyClicks (wallet->accounts.account_key_line, nano::dev::genesis_key.prv.to_string ().c_str ());
 	QTest::mouseClick (wallet->accounts.account_key_button, Qt::LeftButton);
 	ASSERT_EQ (1, wallet->accounts.model->rowCount ());
 	ASSERT_EQ (0, wallet->accounts.account_key_line->text ().length ());
@@ -837,7 +835,7 @@ TEST (wallet, seed_work_generation)
 		ASSERT_NO_ERROR (ec);
 	}
 	auto transaction (system.nodes[0]->store.tx_begin_read ());
-	ASSERT_GE (nano::work_difficulty (nano::work_version::work_1, system.nodes[0]->ledger.latest_root (transaction, pub), work), system.nodes[0]->default_difficulty (nano::work_version::work_1));
+	ASSERT_GE (nano::dev::network_params.work.difficulty (nano::work_version::work_1, system.nodes[0]->ledger.latest_root (transaction, pub), work), system.nodes[0]->default_difficulty (nano::work_version::work_1));
 }
 
 TEST (wallet, backup_seed)
@@ -906,8 +904,8 @@ TEST (wallet, DISABLED_synchronizing)
 	wallet->start ();
 	{
 		auto transaction (system1.nodes[0]->store.tx_begin_write ());
-		auto latest (system1.nodes[0]->ledger.latest (transaction, nano::genesis_account));
-		nano::send_block send (latest, key1, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system1.work.generate (latest));
+		auto latest (system1.nodes[0]->ledger.latest (transaction, nano::dev::genesis->account ()));
+		nano::send_block send (latest, key1, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system1.work.generate (latest));
 		system1.nodes[0]->ledger.process (transaction, send);
 	}
 	ASSERT_EQ (0, wallet->active_status.active.count (nano_qt::status_types::synchronizing));
@@ -938,9 +936,9 @@ TEST (wallet, epoch_2_validation)
 	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_1));
 	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_2));
 
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
-	auto account (nano::dev_genesis_key.pub);
+	auto account (nano::dev::genesis_key.pub);
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *node, system.wallet (0), account));
 	wallet->start ();
 	wallet->client_window->show ();
@@ -964,7 +962,7 @@ TEST (wallet, epoch_2_validation)
 
 	auto do_send = [&] (nano::public_key const & destination) -> nano::block_hash {
 		wallet->block_creation.send->click ();
-		wallet->block_creation.account->setText (nano::dev_genesis_key.pub.to_account ().c_str ());
+		wallet->block_creation.account->setText (nano::dev::genesis_key.pub.to_account ().c_str ());
 		wallet->block_creation.amount->setText ("1");
 		wallet->block_creation.destination->setText (destination.to_account ().c_str ());
 		return create_and_process ();
@@ -1002,6 +1000,6 @@ TEST (wallet, epoch_2_validation)
 		do_open (send1, key.pub);
 		auto send2 = do_send (key.pub);
 		do_receive (send2);
-		do_change (key.pub, nano::dev_genesis_key.pub);
+		do_change (key.pub, nano::dev::genesis_key.pub);
 	}
 }

@@ -61,7 +61,7 @@ public:
 			mi::member<nano::cached_pulls, nano::uint512_union, &nano::cached_pulls::account_head>>>>
 	cache;
 	// clang-format on
-	constexpr static size_t cache_size_max = 10000;
+	constexpr static std::size_t cache_size_max = 10000;
 };
 class bootstrap_attempts final
 {
@@ -70,7 +70,7 @@ public:
 	void remove (uint64_t);
 	void clear ();
 	std::shared_ptr<nano::bootstrap_attempt> find (uint64_t);
-	size_t size ();
+	std::size_t size ();
 	std::atomic<uint64_t> incremental{ 0 };
 	nano::mutex bootstrap_attempts_mutex;
 	std::map<uint64_t, std::shared_ptr<nano::bootstrap_attempt>> attempts;
@@ -82,7 +82,7 @@ public:
 	explicit bootstrap_initiator (nano::node &);
 	~bootstrap_initiator ();
 	void bootstrap (nano::endpoint const &, bool add_to_peers = true, std::string id_a = "");
-	void bootstrap (bool force = false, std::string id_a = "", uint32_t const frontiers_age_a = std::numeric_limits<uint32_t>::max (), nano::account const & start_account_a = nano::account (0));
+	void bootstrap (bool force = false, std::string id_a = "", uint32_t const frontiers_age_a = std::numeric_limits<uint32_t>::max (), nano::account const & start_account_a = nano::account{});
 	bool bootstrap_lazy (nano::hash_or_account const &, bool force = false, bool confirmed = true, std::string id_a = "");
 	void bootstrap_wallet (std::deque<nano::account> &);
 	void run_bootstrap ();
@@ -135,6 +135,6 @@ public:
 	static constexpr std::chrono::seconds lazy_flush_delay_sec = std::chrono::seconds (5);
 	static constexpr uint64_t lazy_batch_pull_count_resize_blocks_limit = 4 * 1024 * 1024;
 	static constexpr double lazy_batch_pull_count_resize_ratio = 2.0;
-	static constexpr size_t lazy_blocks_restart_limit = 1024 * 1024;
+	static constexpr std::size_t lazy_blocks_restart_limit = 1024 * 1024;
 };
 }

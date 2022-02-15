@@ -22,7 +22,6 @@ public:
 	random_pool & operator= (random_pool const &) = delete;
 
 private:
-	static std::mutex mutex;
 	static CryptoPP::AutoSeededRandomPool & get_pool ();
 
 	template <class Iter>

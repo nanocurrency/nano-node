@@ -4,9 +4,9 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/transport.hpp>
-#include <nano/secure/blockstore.hpp>
 #include <nano/secure/buffer.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/algorithm/string.hpp>
 
@@ -92,7 +92,7 @@ bool nano::telemetry::verify_message (nano::telemetry_ack const & message_a, nan
 		if (!remove_channel)
 		{
 			// Check for different genesis blocks
-			remove_channel = (message_a.data.genesis_block != network_params.ledger.genesis_hash);
+			remove_channel = (message_a.data.genesis_block != network_params.ledger.genesis->hash ());
 			if (remove_channel)
 			{
 				stats.inc (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash);
@@ -175,7 +175,7 @@ void nano::telemetry::ongoing_req_all_peers (std::chrono::milliseconds next_requ
 
 				{
 					// Copy peers to the multi index container so can get better asymptotic complexity in future operations
-					auto temp_peers = this_l->network.list (std::numeric_limits<size_t>::max ());
+					auto temp_peers = this_l->network.list (std::numeric_limits<std::size_t>::max ());
 					peers.insert (temp_peers.begin (), temp_peers.end ());
 				}
 
@@ -254,7 +254,7 @@ std::unordered_map<nano::endpoint, nano::telemetry_data> nano::telemetry::get_me
 	// clang-format off
 	nano::transform_if (range.begin (), range.end (), std::inserter (telemetry_data, telemetry_data.end ()),
 		[this](auto const & telemetry_info) { return this->within_cache_plus_buffer_cutoff (telemetry_info); },
-		[](auto const & telemetry_info) { return std::pair<const nano::endpoint, nano::telemetry_data>{ telemetry_info.endpoint, telemetry_info.data }; });
+		[](auto const & telemetry_info) { return std::pair<nano::endpoint const, nano::telemetry_data>{ telemetry_info.endpoint, telemetry_info.data }; });
 	// clang-format on
 
 	return telemetry_data;
@@ -352,9 +352,9 @@ void nano::telemetry::fire_request_message (std::shared_ptr<nano::transport::cha
 	}
 
 	std::weak_ptr<nano::telemetry> this_w (shared_from_this ());
-	nano::telemetry_req message;
+	nano::telemetry_req message{ network_params.network };
 	// clang-format off
-	channel_a->send (message, [this_w, endpoint = channel_a->get_endpoint (), round_l](boost::system::error_code const & ec, size_t size_a) {
+	channel_a->send (message, [this_w, endpoint = channel_a->get_endpoint (), round_l](boost::system::error_code const & ec, std::size_t size_a) {
 		if (auto this_l = this_w.lock ())
 		{
 			if (ec)
@@ -447,7 +447,7 @@ void nano::telemetry::invoke_callbacks (nano::endpoint const & endpoint_a, bool 
 	}
 }
 
-size_t nano::telemetry::telemetry_data_size ()
+std::size_t nano::telemetry::telemetry_data_size ()
 {
 	nano::lock_guard<nano::mutex> guard (mutex);
 	return recent_or_initial_request_telemetry_data.size ();
@@ -469,11 +469,11 @@ bool nano::telemetry_info::awaiting_first_response () const
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (telemetry & telemetry, std::string const & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
-	size_t callbacks_count;
+	std::size_t callbacks_count;
 	{
 		nano::lock_guard<nano::mutex> guard (telemetry.mutex);
 		std::unordered_map<nano::endpoint, std::vector<std::function<void (telemetry_data_response const &)>>> callbacks;
-		callbacks_count = std::accumulate (callbacks.begin (), callbacks.end (), static_cast<size_t> (0), [] (auto total, auto const & callback_a) {
+		callbacks_count = std::accumulate (callbacks.begin (), callbacks.end (), static_cast<std::size_t> (0), [] (auto total, auto const & callback_a) {
 			return total += callback_a.second.size ();
 		});
 	}
@@ -573,7 +573,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 		consolidated_data.timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (boost::numeric_cast<uint64_t> (timestamp_sum / timestamps.size ())));
 	}
 
-	auto set_mode_or_average = [] (auto const & collection, auto & var, auto const & sum, size_t size) {
+	auto set_mode_or_average = [] (auto const & collection, auto & var, auto const & sum, std::size_t size) {
 		auto max = std::max_element (collection.begin (), collection.end (), [] (auto const & lhs, auto const & rhs) {
 			return lhs.second < rhs.second;
 		});
@@ -587,7 +587,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 		}
 	};
 
-	auto set_mode = [] (auto const & collection, auto & var, size_t size) {
+	auto set_mode = [] (auto const & collection, auto & var, std::size_t size) {
 		auto max = std::max_element (collection.begin (), collection.end (), [] (auto const & lhs, auto const & rhs) {
 			return lhs.second < rhs.second;
 		});
@@ -631,10 +631,10 @@ nano::telemetry_data nano::local_telemetry_data (nano::ledger const & ledger_a, 
 	telemetry_data.block_count = ledger_a.cache.block_count;
 	telemetry_data.cemented_count = ledger_a.cache.cemented_count;
 	telemetry_data.bandwidth_cap = bandwidth_limit_a;
-	telemetry_data.protocol_version = network_params_a.protocol.protocol_version;
+	telemetry_data.protocol_version = network_params_a.network.protocol_version;
 	telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - statup_time_a).count ();
-	telemetry_data.unchecked_count = ledger_a.store.unchecked_count (ledger_a.store.tx_begin_read ());
-	telemetry_data.genesis_block = network_params_a.ledger.genesis_hash;
+	telemetry_data.unchecked_count = ledger_a.store.unchecked.count (ledger_a.store.tx_begin_read ());
+	telemetry_data.genesis_block = network_params_a.ledger.genesis->hash ();
 	telemetry_data.peer_count = nano::narrow_cast<decltype (telemetry_data.peer_count)> (network_a.size ());
 	telemetry_data.account_count = ledger_a.cache.account_count;
 	telemetry_data.major_version = nano::get_major_node_version ();

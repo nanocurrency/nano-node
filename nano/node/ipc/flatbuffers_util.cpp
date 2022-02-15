@@ -3,9 +3,8 @@
 #include <nano/node/ipc/flatbuffers_util.hpp>
 #include <nano/secure/common.hpp>
 
-std::unique_ptr<nanoapi::BlockStateT> nano::ipc::flatbuffers_builder::from (nano::state_block const & block_a, nano::amount const & amount_a, bool is_state_send_a)
+std::unique_ptr<nanoapi::BlockStateT> nano::ipc::flatbuffers_builder::from (nano::state_block const & block_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a)
 {
-	static nano::network_params params;
 	auto block (std::make_unique<nanoapi::BlockStateT> ());
 	block->account = block_a.account ().to_account ();
 	block->hash = block_a.hash ().to_string ();
@@ -25,7 +24,7 @@ std::unique_ptr<nanoapi::BlockStateT> nano::ipc::flatbuffers_builder::from (nano
 	{
 		block->subtype = nanoapi::BlockSubType::BlockSubType_change;
 	}
-	else if (amount_a == 0 && params.ledger.epochs.is_epoch_link (block_a.link ()))
+	else if (amount_a == 0 && is_state_epoch_a)
 	{
 		block->subtype = nanoapi::BlockSubType::BlockSubType_epoch;
 	}
@@ -82,14 +81,14 @@ std::unique_ptr<nanoapi::BlockChangeT> nano::ipc::flatbuffers_builder::from (nan
 	return block;
 }
 
-nanoapi::BlockUnion nano::ipc::flatbuffers_builder::block_to_union (nano::block const & block_a, nano::amount const & amount_a, bool is_state_send_a)
+nanoapi::BlockUnion nano::ipc::flatbuffers_builder::block_to_union (nano::block const & block_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a)
 {
 	nanoapi::BlockUnion u;
 	switch (block_a.type ())
 	{
 		case nano::block_type::state:
 		{
-			u.Set (*from (dynamic_cast<nano::state_block const &> (block_a), amount_a, is_state_send_a));
+			u.Set (*from (dynamic_cast<nano::state_block const &> (block_a), amount_a, is_state_send_a, is_state_epoch_a));
 			break;
 		}
 		case nano::block_type::send:

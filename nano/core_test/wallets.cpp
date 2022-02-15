@@ -1,5 +1,5 @@
-#include <nano/node/testing.hpp>
 #include <nano/secure/versioning.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -73,30 +73,6 @@ TEST (wallets, remove)
 	}
 }
 
-// Keeps breaking whenever we add new DBs
-TEST (wallets, DISABLED_wallet_create_max)
-{
-	nano::system system (1);
-	bool error (false);
-	nano::wallets wallets (error, *system.nodes[0]);
-	const int nonWalletDbs = 19;
-	for (int i = 0; i < system.nodes[0]->config.deprecated_lmdb_max_dbs - nonWalletDbs; i++)
-	{
-		auto wallet_id = nano::random_wallet_id ();
-		auto wallet = wallets.create (wallet_id);
-		auto existing = wallets.items.find (wallet_id);
-		ASSERT_TRUE (existing != wallets.items.end ());
-		nano::raw_key seed;
-		seed = 0;
-		auto transaction (system.nodes[0]->store.tx_begin_write ());
-		existing->second->store.seed_set (transaction, seed);
-	}
-	auto wallet_id = nano::random_wallet_id ();
-	wallets.create (wallet_id);
-	auto existing = wallets.items.find (wallet_id);
-	ASSERT_TRUE (existing == wallets.items.end ());
-}
-
 TEST (wallets, reload)
 {
 	nano::system system (1);
@@ -121,13 +97,12 @@ TEST (wallets, vote_minimum)
 	auto & node1 (*system.nodes[0]);
 	nano::keypair key1;
 	nano::keypair key2;
-	nano::genesis genesis;
-	nano::state_block send1 (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, std::numeric_limits<nano::uint128_t>::max () - node1.config.vote_minimum.number (), key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (genesis.hash ()));
+	nano::state_block send1 (nano::dev::genesis_key.pub, nano::dev::genesis->hash (), nano::dev::genesis_key.pub, std::numeric_limits<nano::uint128_t>::max () - node1.config.vote_minimum.number (), key1.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ()));
 	ASSERT_EQ (nano::process_result::progress, node1.process (send1).code);
 	nano::state_block open1 (key1.pub, 0, key1.pub, node1.config.vote_minimum.number (), send1.hash (), key1.prv, key1.pub, *system.work.generate (key1.pub));
 	ASSERT_EQ (nano::process_result::progress, node1.process (open1).code);
 	// send2 with amount vote_minimum - 1 (not voting representative)
-	nano::state_block send2 (nano::dev_genesis_key.pub, send1.hash (), nano::dev_genesis_key.pub, std::numeric_limits<nano::uint128_t>::max () - 2 * node1.config.vote_minimum.number () + 1, key2.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1.hash ()));
+	nano::state_block send2 (nano::dev::genesis_key.pub, send1.hash (), nano::dev::genesis_key.pub, std::numeric_limits<nano::uint128_t>::max () - 2 * node1.config.vote_minimum.number () + 1, key2.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send1.hash ()));
 	ASSERT_EQ (nano::process_result::progress, node1.process (send2).code);
 	nano::state_block open2 (key2.pub, 0, key2.pub, node1.config.vote_minimum.number () - 1, send2.hash (), key2.prv, key2.pub, *system.work.generate (key2.pub));
 	ASSERT_EQ (nano::process_result::progress, node1.process (open2).code);
@@ -135,7 +110,7 @@ TEST (wallets, vote_minimum)
 	nano::unique_lock<nano::mutex> representatives_lk (wallet->representatives_mutex);
 	ASSERT_EQ (0, wallet->representatives.size ());
 	representatives_lk.unlock ();
-	wallet->insert_adhoc (nano::dev_genesis_key.prv);
+	wallet->insert_adhoc (nano::dev::genesis_key.prv);
 	wallet->insert_adhoc (key1.prv);
 	wallet->insert_adhoc (key2.prv);
 	node1.wallets.compute_reps ();
@@ -187,16 +162,16 @@ TEST (wallets, search_pending)
 		auto wallet_id = wallets.begin ()->first;
 		auto wallet = wallets.begin ()->second;
 
-		wallet->insert_adhoc (nano::dev_genesis_key.prv);
+		wallet->insert_adhoc (nano::dev::genesis_key.prv);
 		nano::block_builder builder;
 		auto send = builder.state ()
-					.account (nano::genesis_account)
-					.previous (nano::genesis_hash)
-					.representative (nano::genesis_account)
-					.balance (nano::genesis_amount - node.config.receive_minimum.number ())
-					.link (nano::genesis_account)
-					.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-					.work (*system.work.generate (nano::genesis_hash))
+					.account (nano::dev::genesis->account ())
+					.previous (nano::dev::genesis->hash ())
+					.representative (nano::dev::genesis->account ())
+					.balance (nano::dev::constants.genesis_amount - node.config.receive_minimum.number ())
+					.link (nano::dev::genesis->account ())
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (nano::dev::genesis->hash ()))
 					.build ();
 		ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
 
@@ -214,7 +189,7 @@ TEST (wallets, search_pending)
 		ASSERT_NE (nullptr, election);
 
 		// Erase the key so the confirmation does not trigger an automatic receive
-		wallet->store.erase (node.wallets.tx_begin_write (), nano::genesis_account);
+		wallet->store.erase (node.wallets.tx_begin_write (), nano::dev::genesis->account ());
 
 		// Now confirm the election
 		election->force_confirm ();
@@ -222,7 +197,7 @@ TEST (wallets, search_pending)
 		ASSERT_TIMELY (5s, node.block_confirmed (send->hash ()) && node.active.empty ());
 
 		// Re-insert the key
-		wallet->insert_adhoc (nano::dev_genesis_key.prv);
+		wallet->insert_adhoc (nano::dev::genesis_key.prv);
 
 		// Pending search should create the receive block
 		ASSERT_EQ (2, node.ledger.cache.block_count);
@@ -234,8 +209,8 @@ TEST (wallets, search_pending)
 		{
 			node.wallets.search_pending (wallet_id);
 		}
-		ASSERT_TIMELY (3s, node.balance (nano::genesis_account) == nano::genesis_amount);
-		auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::genesis_account);
+		ASSERT_TIMELY (3s, node.balance (nano::dev::genesis->account ()) == nano::dev::constants.genesis_amount);
+		auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::dev::genesis->account ());
 		auto receive = node.block (receive_hash);
 		ASSERT_NE (nullptr, receive);
 		ASSERT_EQ (receive->sideband ().height, 3);

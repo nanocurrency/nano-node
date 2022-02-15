@@ -51,20 +51,19 @@ public:
 	~block_processor ();
 	void stop ();
 	void flush ();
-	size_t size ();
+	std::size_t size ();
 	bool full ();
 	bool half_full ();
 	void add_local (nano::unchecked_info const & info_a);
 	void add (nano::unchecked_info const &);
 	void add (std::shared_ptr<nano::block> const &, uint64_t = 0);
 	void force (std::shared_ptr<nano::block> const &);
-	void update (std::shared_ptr<nano::block> const &);
 	void wait_write ();
 	bool should_log ();
 	bool have_blocks_ready ();
 	bool have_blocks ();
 	void process_blocks ();
-	nano::process_return process_one (nano::write_transaction const &, block_post_events &, nano::unchecked_info, const bool = false, nano::block_origin const = nano::block_origin::remote);
+	nano::process_return process_one (nano::write_transaction const &, block_post_events &, nano::unchecked_info, bool const = false, nano::block_origin const = nano::block_origin::remote);
 	nano::process_return process_one (nano::write_transaction const &, block_post_events &, std::shared_ptr<nano::block> const &);
 	std::atomic<bool> flushing{ false };
 	// Delay required for average network propagartion before requesting confirmation
@@ -74,7 +73,6 @@ private:
 	void queue_unchecked (nano::write_transaction const &, nano::hash_or_account const &);
 	void process_batch (nano::unique_lock<nano::mutex> &);
 	void process_live (nano::transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &, nano::process_return const &, nano::block_origin const = nano::block_origin::remote);
-	void process_old (nano::transaction const &, std::shared_ptr<nano::block> const &, nano::block_origin const);
 	void requeue_invalid (nano::block_hash const &, nano::unchecked_info const &);
 	void process_verified_state_blocks (std::deque<nano::unchecked_info> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);
 	bool stopped{ false };
@@ -83,7 +81,6 @@ private:
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<nano::unchecked_info> blocks;
 	std::deque<std::shared_ptr<nano::block>> forced;
-	std::deque<std::shared_ptr<nano::block>> updates;
 	nano::condition_variable condition;
 	nano::node & node;
 	nano::write_database_queue & write_database_queue;

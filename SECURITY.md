@@ -19,11 +19,10 @@ To report security issues in the Nano protocol, please send an email to security
 
 | GitHub Username | Email | GPG Pubkey |
 |-----------------------|--------|-----------------|
-| [clemahieu](https://github.com/clemahieu) | clemahieu { at } gmail.com | [clemahieu.asc](https://github.com/BananoCoin/banano/blob/develop/etc/gpg/clemahieu.asc) |
-| [argakiig](https://github.com/argakiig) | russel { at } nano.org | [argakiig.asc](https://github.com/BananoCoin/banano/blob/develop/etc/gpg/argakiig.asc) |
-| [wezrule](https://github.com/wezrule) | wezrule { at } hotmail.com | [wezrule.asc](https://github.com/BananoCoin/banano/blob/develop/etc/gpg/wezrule.asc) |
-| [sergiysw](https://github.com/sergiysw) | sergiysw { at } gmail.com | [sergiysw.asc](https://github.com/BananoCoin/banano/blob/develop/etc/gpg/sergiysw.asc) |
-| [zhyatt](https://github.com/zhyatt) | zach { at } nano.org | [zhyatt.asc](https://github.com/BananoCoin/banano/blob/develop/etc/gpg/zhyatt.asc) |
+| [clemahieu](https://github.com/clemahieu) | clemahieu { at } gmail.com | [clemahieu.asc](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/clemahieu.asc) |
+| [argakiig](https://github.com/argakiig) | russel { at } nano.org | [argakiig.asc](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/argakiig.asc) |
+| [sergiysw](https://github.com/sergiysw) | sergiysw { at } gmail.com | [sergiysw.asc](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/sergiysw.asc) |
+| [zhyatt](https://github.com/zhyatt) | zach { at } nano.org | [zhyatt.asc](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/zhyatt.asc) |
 
 For details on how to send a GPG encrypted email, see the tutorial here: https://www.linode.com/docs/security/encryption/gpg-keys-to-send-encrypted-messages/.
 

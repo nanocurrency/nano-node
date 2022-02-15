@@ -35,7 +35,7 @@ public:
 	bool decode_dec (std::string const &, bool = false);
 	bool decode_dec (std::string const &, nano::uint128_t);
 	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits) const;
-	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits, const std::locale & locale) const;
+	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits, std::locale const & locale) const;
 	nano::uint128_t number () const;
 	void clear ();
 	bool is_zero () const;
@@ -66,7 +66,7 @@ public:
 	 * Decode from hex string
 	 * @warning Aborts at runtime if the input is invalid
 	 */
-	uint256_union (std::string const &);
+	explicit uint256_union (std::string const &);
 	uint256_union (uint64_t);
 	uint256_union (nano::uint256_t const &);
 	void encrypt (nano::raw_key const &, nano::raw_key const &, uint128_union const &);
@@ -115,6 +115,10 @@ class public_key final : public uint256_union
 public:
 	using uint256_union::uint256_union;
 
+	public_key ();
+
+	static const public_key & null ();
+
 	std::string to_node_id () const;
 	bool decode_node_id (std::string const & source_a);
 	void encode_account (std::string &) const;
@@ -124,6 +128,10 @@ public:
 	operator nano::link const & () const;
 	operator nano::root const & () const;
 	operator nano::hash_or_account const & () const;
+	bool operator== (std::nullptr_t) const;
+	bool operator!= (std::nullptr_t) const;
+	using uint256_union::operator==;
+	using uint256_union::operator!=;
 };
 
 class wallet_id : public uint256_union
@@ -137,7 +145,7 @@ using account = public_key;
 class hash_or_account
 {
 public:
-	hash_or_account () = default;
+	hash_or_account ();
 	hash_or_account (uint64_t value_a);
 
 	bool is_zero () const;
@@ -239,7 +247,7 @@ nano::signature sign_message (nano::raw_key const &, nano::public_key const &, n
 nano::signature sign_message (nano::raw_key const &, nano::public_key const &, uint8_t const *, size_t);
 bool validate_message (nano::public_key const &, nano::uint256_union const &, nano::signature const &);
 bool validate_message (nano::public_key const &, uint8_t const *, size_t, nano::signature const &);
-bool validate_message_batch (unsigned const char **, size_t *, unsigned const char **, unsigned const char **, size_t, int *);
+bool validate_message_batch (unsigned char const **, size_t *, unsigned char const **, unsigned char const **, size_t, int *);
 nano::raw_key deterministic_key (nano::raw_key const &, uint32_t);
 nano::public_key pub_key (nano::raw_key const &);
 

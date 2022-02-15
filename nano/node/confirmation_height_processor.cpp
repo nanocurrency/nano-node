@@ -62,7 +62,7 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 
 			set_next_hash ();
 
-			const auto num_blocks_to_use_unbounded = confirmation_height::unbounded_cutoff;
+			auto const num_blocks_to_use_unbounded = confirmation_height::unbounded_cutoff;
 			auto blocks_within_automatic_unbounded_selection = (ledger.cache.block_count < num_blocks_to_use_unbounded || ledger.cache.block_count - num_blocks_to_use_unbounded < ledger.cache.cemented_count);
 
 			// Don't want to mix up pending writes across different processors
@@ -128,7 +128,6 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 			else
 			{
 				// Pausing is only utilised in some tests to help prevent it processing added blocks until required.
-				debug_assert (network_params.network.is_dev_network ());
 				original_block = nullptr;
 				condition.wait (lk);
 			}
@@ -205,8 +204,8 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (co
 {
 	auto composite = std::make_unique<container_info_composite> (name_a);
 
-	size_t cemented_observers_count = confirmation_height_processor_a.cemented_observers.size ();
-	size_t block_already_cemented_observers_count = confirmation_height_processor_a.block_already_cemented_observers.size ();
+	std::size_t cemented_observers_count = confirmation_height_processor_a.cemented_observers.size ();
+	std::size_t block_already_cemented_observers_count = confirmation_height_processor_a.block_already_cemented_observers.size ();
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cemented_observers", cemented_observers_count, sizeof (decltype (confirmation_height_processor_a.cemented_observers)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "block_already_cemented_observers", block_already_cemented_observers_count, sizeof (decltype (confirmation_height_processor_a.block_already_cemented_observers)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "awaiting_processing", confirmation_height_processor_a.awaiting_processing_size (), sizeof (decltype (confirmation_height_processor_a.awaiting_processing)::value_type) }));
@@ -215,7 +214,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (co
 	return composite;
 }
 
-size_t nano::confirmation_height_processor::awaiting_processing_size () const
+std::size_t nano::confirmation_height_processor::awaiting_processing_size () const
 {
 	nano::lock_guard<nano::mutex> guard (mutex);
 	return awaiting_processing.size ();

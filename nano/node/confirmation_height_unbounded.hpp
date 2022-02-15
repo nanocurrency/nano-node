@@ -3,7 +3,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/secure/blockstore.hpp>
+#include <nano/secure/store.hpp>
 
 #include <chrono>
 #include <unordered_map>
@@ -52,7 +52,7 @@ private:
 	class receive_source_pair final
 	{
 	public:
-		receive_source_pair (std::shared_ptr<conf_height_details> const &, const nano::block_hash &);
+		receive_source_pair (std::shared_ptr<conf_height_details> const &, nano::block_hash const &);
 
 		std::shared_ptr<conf_height_details> receive_details;
 		nano::block_hash source_hash;
@@ -95,7 +95,6 @@ private:
 	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, std::shared_ptr<nano::block> const &, nano::block_hash const &, nano::account const &, nano::read_transaction const &, std::vector<receive_source_pair> &, std::vector<nano::block_hash> &, std::vector<nano::block_hash> &, std::shared_ptr<nano::block> original_block);
 	void prepare_iterated_blocks_for_cementing (preparation_data &);
 
-	nano::network_params network_params;
 	nano::ledger & ledger;
 	nano::write_database_queue & write_database_queue;
 	std::chrono::milliseconds batch_separate_pending_min_time;

@@ -2,7 +2,7 @@
 
 #include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/secure/blockstore.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/property_tree/ptree_fwd.hpp>
 #include <boost/stacktrace/stacktrace_fwd.hpp>
@@ -20,8 +20,8 @@ class mdb_env;
 class mdb_txn_callbacks
 {
 public:
-	std::function<void (const nano::transaction_impl *)> txn_start{ [] (const nano::transaction_impl *) {} };
-	std::function<void (const nano::transaction_impl *)> txn_end{ [] (const nano::transaction_impl *) {} };
+	std::function<void (nano::transaction_impl const *)> txn_start{ [] (nano::transaction_impl const *) {} };
+	std::function<void (nano::transaction_impl const *)> txn_end{ [] (nano::transaction_impl const *) {} };
 };
 
 class read_mdb_txn final : public read_transaction_impl
@@ -54,10 +54,10 @@ public:
 class mdb_txn_stats
 {
 public:
-	mdb_txn_stats (const nano::transaction_impl * transaction_impl_a);
+	mdb_txn_stats (nano::transaction_impl const * transaction_impl_a);
 	bool is_write () const;
 	nano::timer<std::chrono::milliseconds> timer;
-	const nano::transaction_impl * transaction_impl;
+	nano::transaction_impl const * transaction_impl;
 	std::string thread_name;
 
 	// Smart pointer so that we don't need the full definition which causes min/max issues on Windows
@@ -69,8 +69,8 @@ class mdb_txn_tracker
 public:
 	mdb_txn_tracker (nano::logger_mt & logger_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a);
 	void serialize_json (boost::property_tree::ptree & json, std::chrono::milliseconds min_read_time, std::chrono::milliseconds min_write_time);
-	void add (const nano::transaction_impl * transaction_impl);
-	void erase (const nano::transaction_impl * transaction_impl);
+	void add (nano::transaction_impl const * transaction_impl);
+	void erase (nano::transaction_impl const * transaction_impl);
 
 private:
 	nano::mutex mutex;

@@ -3,7 +3,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/secure/blockstore.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/circular_buffer.hpp>
 
@@ -105,7 +105,7 @@ private:
 	class receive_source_pair final
 	{
 	public:
-		receive_source_pair (receive_chain_details const &, const nano::block_hash &);
+		receive_source_pair (receive_chain_details const &, nano::block_hash const &);
 
 		receive_chain_details receive_details;
 		nano::block_hash source_hash;
@@ -128,7 +128,6 @@ private:
 	std::function<void (std::vector<std::shared_ptr<nano::block>> const &)> notify_observers_callback;
 	std::function<void (nano::block_hash const &)> notify_block_already_cemented_observers_callback;
 	std::function<uint64_t ()> awaiting_processing_size_callback;
-	nano::network_params network_params;
 
 	friend std::unique_ptr<nano::container_info_component> collect_container_info (confirmation_height_bounded &, std::string const & name_a);
 };

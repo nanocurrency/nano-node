@@ -21,8 +21,8 @@ namespace ipc
 	class flatbuffers_builder
 	{
 	public:
-		static nanoapi::BlockUnion block_to_union (nano::block const & block_a, nano::amount const & amount_a, bool is_state_send_a = false);
-		static std::unique_ptr<nanoapi::BlockStateT> from (nano::state_block const & block_a, nano::amount const & amount_a, bool is_state_send_a);
+		static nanoapi::BlockUnion block_to_union (nano::block const & block_a, nano::amount const & amount_a, bool is_state_send_a = false, bool is_state_epoch_a = false);
+		static std::unique_ptr<nanoapi::BlockStateT> from (nano::state_block const & block_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a);
 		static std::unique_ptr<nanoapi::BlockSendT> from (nano::send_block const & block_a);
 		static std::unique_ptr<nanoapi::BlockReceiveT> from (nano::receive_block const & block_a);
 		static std::unique_ptr<nanoapi::BlockOpenT> from (nano::open_block const & block_a);

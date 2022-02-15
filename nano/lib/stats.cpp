@@ -616,6 +616,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::error_socket_close:
 			res = "error_socket_close";
 			break;
+		case nano::stat::detail::request_underflow:
+			res = "request_underflow";
+			break;
 		case nano::stat::detail::change:
 			res = "change";
 			break;
@@ -775,6 +778,15 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::tcp_max_per_ip:
 			res = "tcp_max_per_ip";
 			break;
+		case nano::stat::detail::tcp_max_per_subnetwork:
+			res = "tcp_max_per_subnetwork";
+			break;
+		case nano::stat::detail::tcp_silent_connection_drop:
+			res = "tcp_silent_connection_drop";
+			break;
+		case nano::stat::detail::tcp_io_timeout_drop:
+			res = "tcp_io_timeout_drop";
+			break;
 		case nano::stat::detail::unreachable_host:
 			res = "unreachable_host";
 			break;
@@ -807,6 +819,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::outdated_version:
 			res = "outdated_version";
+			break;
+		case nano::stat::detail::udp_max_per_ip:
+			res = "udp_max_per_ip";
+			break;
+		case nano::stat::detail::udp_max_per_subnetwork:
+			res = "udp_max_per_subnetwork";
 			break;
 		case nano::stat::detail::blocks_confirmed:
 			res = "blocks_confirmed";
@@ -882,6 +900,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::generator_spacing:
 			res = "generator_spacing";
+			break;
+		case nano::stat::detail::invalid_network:
+			res = "invalid_network";
 			break;
 	}
 	return res;

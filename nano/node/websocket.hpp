@@ -1,13 +1,11 @@
 #pragma once
 
-#include <nano/boost/asio/strand.hpp>
-#include <nano/boost/beast/core.hpp>
-#include <nano/boost/beast/websocket.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/websocket_stream.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
@@ -20,15 +18,6 @@
 #include <unordered_set>
 #include <vector>
 
-/* Boost v1.70 introduced breaking changes; the conditional compilation allows 1.6x to be supported as well. */
-#if BOOST_VERSION < 107000
-using socket_type = boost::asio::ip::tcp::socket;
-#define beast_buffers boost::beast::buffers
-#else
-using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost::asio::io_context::executor_type>;
-#define beast_buffers boost::beast::make_printable
-#endif
-
 namespace nano
 {
 class wallets;
@@ -36,6 +25,7 @@ class logger_mt;
 class vote;
 class election_status;
 class telemetry_data;
+class tls_config;
 enum class election_status_type : uint8_t;
 namespace websocket
 {
@@ -66,7 +56,7 @@ namespace websocket
 		/** Auxiliary length, not a valid topic, must be the last enum */
 		_length
 	};
-	constexpr size_t number_topics{ static_cast<size_t> (topic::_length) - static_cast<size_t> (topic::invalid) };
+	constexpr std::size_t number_topics{ static_cast<std::size_t> (topic::_length) - static_cast<std::size_t> (topic::invalid) };
 
 	/** A message queued for broadcasting */
 	class message final
@@ -184,11 +174,11 @@ namespace websocket
 			return include_election_info_with_votes;
 		}
 
-		static constexpr const uint8_t type_active_quorum = 1;
-		static constexpr const uint8_t type_active_confirmation_height = 2;
-		static constexpr const uint8_t type_inactive = 4;
-		static constexpr const uint8_t type_all_active = type_active_quorum | type_active_confirmation_height;
-		static constexpr const uint8_t type_all = type_all_active | type_inactive;
+		static constexpr uint8_t const type_active_quorum = 1;
+		static constexpr uint8_t const type_active_confirmation_height = 2;
+		static constexpr uint8_t const type_inactive = 4;
+		static constexpr uint8_t const type_all_active = type_active_quorum | type_active_confirmation_height;
+		static constexpr uint8_t const type_all = type_all_active | type_inactive;
 
 	private:
 		void check_filter_empty () const;
@@ -233,8 +223,13 @@ namespace websocket
 		friend class listener;
 
 	public:
+#ifdef NANO_SECURE_RPC
+		/** Constructor that takes ownership over \p socket_a and creates an SSL stream */
+		explicit session (nano::websocket::listener & listener_a, socket_type socket_a, boost::asio::ssl::context & ctx_a);
+#endif
 		/** Constructor that takes ownership over \p socket_a */
 		explicit session (nano::websocket::listener & listener_a, socket_type socket_a);
+
 		~session ();
 
 		/** Perform Websocket handshake and start reading messages */
@@ -252,12 +247,10 @@ namespace websocket
 	private:
 		/** The owning listener */
 		nano::websocket::listener & ws_listener;
-		/** Websocket */
-		boost::beast::websocket::stream<socket_type> ws;
+		/** Websocket stream, supporting both plain and tls connections */
+		nano::websocket::stream ws;
 		/** Buffer for received messages */
 		boost::beast::multi_buffer read_buffer;
-		/** All websocket operations that are thread unsafe must go through a strand. */
-		boost::asio::strand<boost::asio::io_context::executor_type> strand;
 		/** Outgoing messages. The send queue is protected by accessing it only through the strand */
 		std::deque<message> send_queue;
 
@@ -286,7 +279,7 @@ namespace websocket
 	class listener final : public std::enable_shared_from_this<listener>
 	{
 	public:
-		listener (nano::logger_mt & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a);
+		listener (std::shared_ptr<nano::tls_config> const & tls_config_a, nano::logger_mt & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a);
 
 		/** Start accepting connections */
 		void run ();
@@ -321,7 +314,7 @@ namespace websocket
 			return subscriber_count (topic_a) > 0;
 		}
 		/** Getter for subscriber count of a specific topic*/
-		size_t subscriber_count (nano::websocket::topic const & topic_a) const
+		std::size_t subscriber_count (nano::websocket::topic const & topic_a) const
 		{
 			return topic_subscriber_count[static_cast<std::size_t> (topic_a)];
 		}
@@ -335,6 +328,7 @@ namespace websocket
 		/** Removes from subscription count of a specific topic*/
 		void decrease_subscriber_count (nano::websocket::topic const & topic_a);
 
+		std::shared_ptr<nano::tls_config> tls_config;
 		nano::logger_mt & logger;
 		nano::wallets & wallets;
 		boost::asio::ip::tcp::acceptor acceptor;

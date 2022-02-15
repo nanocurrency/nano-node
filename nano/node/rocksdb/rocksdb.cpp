@@ -45,26 +45,54 @@ void * rocksdb_val::data () const
 }
 
 template <>
-size_t rocksdb_val::size () const
+std::size_t rocksdb_val::size () const
 {
 	return value.size ();
 }
 
 template <>
-rocksdb_val::db_val (size_t size_a, void * data_a) :
-	value (static_cast<const char *> (data_a), size_a)
+rocksdb_val::db_val (std::size_t size_a, void * data_a) :
+	value (static_cast<char const *> (data_a), size_a)
 {
 }
 
 template <>
 void rocksdb_val::convert_buffer_to_value ()
 {
-	value = rocksdb::Slice (reinterpret_cast<const char *> (buffer->data ()), buffer->size ());
+	value = rocksdb::Slice (reinterpret_cast<char const *> (buffer->data ()), buffer->size ());
 }
 }
 
-nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
+nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
+	// clang-format off
+	store_partial{
+		constants,
+		block_store_partial,
+		frontier_store_partial,
+		account_store_partial,
+		pending_store_partial,
+		unchecked_rocksdb_store,
+		online_weight_store_partial,
+		pruned_store_partial,
+		peer_store_partial,
+		confirmation_height_store_partial,
+		final_vote_store_partial,
+		version_rocksdb_store
+	},
+	// clang-format on
+	block_store_partial{ *this },
+	frontier_store_partial{ *this },
+	account_store_partial{ *this },
+	pending_store_partial{ *this },
+	unchecked_rocksdb_store{ *this },
+	online_weight_store_partial{ *this },
+	pruned_store_partial{ *this },
+	peer_store_partial{ *this },
+	confirmation_height_store_partial{ *this },
+	final_vote_store_partial{ *this },
+	version_rocksdb_store{ *this },
 	logger{ logger_a },
+	constants{ constants },
 	rocksdb_config{ rocksdb_config_a },
 	max_block_write_batch_num_m{ nano::narrow_cast<unsigned> (blocks_memtable_size_bytes () / (2 * (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)))) },
 	cf_name_table_map{ create_cf_name_table_map () }
@@ -86,9 +114,9 @@ nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesyste
 	}
 }
 
-std::unordered_map<const char *, nano::tables> nano::rocksdb_store::create_cf_name_table_map () const
+std::unordered_map<char const *, nano::tables> nano::rocksdb_store::create_cf_name_table_map () const
 {
-	std::unordered_map<const char *, nano::tables> map{ { rocksdb::kDefaultColumnFamilyName.c_str (), tables::default_unused },
+	std::unordered_map<char const *, nano::tables> map{ { rocksdb::kDefaultColumnFamilyName.c_str (), tables::default_unused },
 		{ "frontiers", tables::frontiers },
 		{ "accounts", tables::accounts },
 		{ "blocks", tables::blocks },
@@ -140,8 +168,8 @@ void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & 
 	if (!error_a)
 	{
 		auto transaction = tx_begin_read ();
-		auto version_l = version_get (transaction);
-		if (version_l > version)
+		auto version_l = version.get (transaction);
+		if (version_l > version_number)
 		{
 			error_a = true;
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
@@ -329,7 +357,7 @@ std::string nano::rocksdb_store::vendor_get () const
 rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (tables table_a) const
 {
 	auto & handles_l = handles;
-	auto get_handle = [&handles_l] (const char * name) {
+	auto get_handle = [&handles_l] (char const * name) {
 		auto iter = std::find_if (handles_l.begin (), handles_l.end (), [name] (auto & handle) {
 			return (handle->GetName () == name);
 		});
@@ -416,13 +444,13 @@ void nano::rocksdb_store::flush_table (nano::tables table_a)
 	db->Flush (rocksdb::FlushOptions{}, table_to_column_family (table_a));
 }
 
-void nano::rocksdb_store::version_put (nano::write_transaction const & transaction_a, int version_a)
+void nano::version_rocksdb_store::version_put (nano::write_transaction const & transaction_a, int version_a)
 {
 	debug_assert (transaction_a.contains (tables::meta));
 	nano::uint256_union version_key (1);
 	nano::uint256_union version_value (version_a);
-	auto status (put (transaction_a, tables::meta, version_key, nano::rocksdb_val (version_value)));
-	release_assert (success (status));
+	auto status (rocksdb_store.put (transaction_a, tables::meta, version_key, nano::rocksdb_val (version_value)));
+	release_assert (rocksdb_store.success (status));
 }
 
 rocksdb::Transaction * nano::rocksdb_store::tx (nano::transaction const & transaction_a) const
@@ -483,14 +511,14 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	// Peers/online weight are small enough that they can just be iterated to get accurate counts.
 	if (table_a == tables::peers)
 	{
-		for (auto i (peers_begin (transaction_a)), n (peers_end ()); i != n; ++i)
+		for (auto i (peer.begin (transaction_a)), n (peer.end ()); i != n; ++i)
 		{
 			++sum;
 		}
 	}
 	else if (table_a == tables::online_weight)
 	{
-		for (auto i (online_weight_begin (transaction_a)), n (online_weight_end ()); i != n; ++i)
+		for (auto i (online_weight.begin (transaction_a)), n (online_weight.end ()); i != n; ++i)
 		{
 			++sum;
 		}
@@ -514,8 +542,7 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	// otherwise there can be performance issues.
 	else if (table_a == tables::accounts)
 	{
-		debug_assert (network_constants ().is_dev_network ());
-		for (auto i (accounts_begin (transaction_a)), n (accounts_end ()); i != n; ++i)
+		for (auto i (account.begin (transaction_a)), n (account.end ()); i != n; ++i)
 		{
 			++sum;
 		}
@@ -523,15 +550,14 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	else if (table_a == tables::blocks)
 	{
 		// This is also used in some CLI commands
-		for (auto i (blocks_begin (transaction_a)), n (blocks_end ()); i != n; ++i)
+		for (auto i (block.begin (transaction_a)), n (block.end ()); i != n; ++i)
 		{
 			++sum;
 		}
 	}
 	else if (table_a == tables::confirmation_height)
 	{
-		debug_assert (network_constants ().is_dev_network ());
-		for (auto i (confirmation_height_begin (transaction_a)), n (confirmation_height_end ()); i != n; ++i)
+		for (auto i (confirmation_height.begin (transaction_a)), n (confirmation_height.end ()); i != n; ++i)
 		{
 			++sum;
 		}
@@ -557,7 +583,7 @@ int nano::rocksdb_store::drop (nano::write_transaction const & transaction_a, ta
 		if (table_a == tables::peers)
 		{
 			int status = 0;
-			for (auto i = peers_begin (transaction_a), n = peers_end (); i != n; ++i)
+			for (auto i = peer.begin (transaction_a), n = peer.end (); i != n; ++i)
 			{
 				status = del (transaction_a, tables::peers, nano::rocksdb_val (i->first));
 				release_assert (success (status));
@@ -590,9 +616,17 @@ int nano::rocksdb_store::clear (rocksdb::ColumnFamilyHandle * column_family)
 	return status.code ();
 }
 
-std::vector<nano::unchecked_info> nano::rocksdb_store::unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+nano::unchecked_rocksdb_store::unchecked_rocksdb_store (nano::rocksdb_store & rocksdb_store_a) :
+	nano::unchecked_store_partial<rocksdb::Slice, nano::rocksdb_store> (rocksdb_store_a),
+	rocksdb_store{ rocksdb_store_a } {};
+
+nano::version_rocksdb_store::version_rocksdb_store (nano::rocksdb_store & rocksdb_store_a) :
+	nano::version_store_partial<rocksdb::Slice, nano::rocksdb_store> (rocksdb_store_a),
+	rocksdb_store{ rocksdb_store_a } {};
+
+std::vector<nano::unchecked_info> nano::unchecked_rocksdb_store::get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	auto cf = table_to_column_family (tables::unchecked);
+	auto cf = rocksdb_store.table_to_column_family (tables::unchecked);
 
 	std::unique_ptr<rocksdb::Iterator> iter;
 	nano::qualified_root upper (hash_a, nano::block_hash (std::numeric_limits<nano::uint256_t>::max ()));
@@ -604,7 +638,7 @@ std::vector<nano::unchecked_info> nano::rocksdb_store::unchecked_get (nano::tran
 		read_options.auto_prefix_mode = true;
 		read_options.iterate_upper_bound = upper_bound;
 		read_options.fill_cache = false;
-		iter.reset (db->NewIterator (read_options, cf));
+		iter.reset (rocksdb_store.db->NewIterator (read_options, cf));
 	}
 	else
 	{
@@ -613,7 +647,7 @@ std::vector<nano::unchecked_info> nano::rocksdb_store::unchecked_get (nano::tran
 		read_options.auto_prefix_mode = true;
 		read_options.iterate_upper_bound = upper_bound;
 		read_options.fill_cache = false;
-		iter.reset (tx (transaction_a)->GetIterator (read_options, cf));
+		iter.reset (rocksdb_store.tx (transaction_a)->GetIterator (read_options, cf));
 	}
 
 	// Uses prefix extraction
@@ -675,7 +709,7 @@ rocksdb::Options nano::rocksdb_store::get_db_options ()
 	return db_options;
 }
 
-rocksdb::BlockBasedTableOptions nano::rocksdb_store::get_active_table_options (size_t lru_size) const
+rocksdb::BlockBasedTableOptions nano::rocksdb_store::get_active_table_options (std::size_t lru_size) const
 {
 	rocksdb::BlockBasedTableOptions table_options;
 
@@ -822,7 +856,7 @@ bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_p
 	// Open it so that it flushes all WAL files
 	if (status.ok ())
 	{
-		nano::rocksdb_store rocksdb_store (logger, destination_path.string (), rocksdb_config, false);
+		nano::rocksdb_store rocksdb_store (logger, destination_path.string (), constants, rocksdb_config, false);
 		return !rocksdb_store.init_error ();
 	}
 	return false;
@@ -913,4 +947,4 @@ nano::rocksdb_store::tombstone_info::tombstone_info (uint64_t num_since_last_flu
 }
 
 // Explicitly instantiate
-template class nano::block_store_partial<rocksdb::Slice, nano::rocksdb_store>;
+template class nano::store_partial<rocksdb::Slice, nano::rocksdb_store>;

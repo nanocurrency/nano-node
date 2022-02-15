@@ -41,7 +41,7 @@ public:
 	{
 		return account == other_a.account;
 	}
-	nano::account account{ 0 };
+	nano::account account{};
 	nano::amount weight{ 0 };
 	std::shared_ptr<nano::transport::channel> channel;
 	std::chrono::steady_clock::time_point last_request{ std::chrono::steady_clock::time_point () };
@@ -106,16 +106,16 @@ public:
 	nano::uint128_t total_weight () const;
 
 	/** Request a list of the top \p count_a known representatives in descending order of weight, with at least \p weight_a voting weight, and optionally with a minimum version \p opt_version_min_a */
-	std::vector<representative> representatives (size_t count_a = std::numeric_limits<size_t>::max (), nano::uint128_t const weight_a = 0, boost::optional<decltype (nano::protocol_constants::protocol_version)> const & opt_version_min_a = boost::none);
+	std::vector<representative> representatives (std::size_t count_a = std::numeric_limits<std::size_t>::max (), nano::uint128_t const weight_a = 0, boost::optional<decltype (nano::network_constants::protocol_version)> const & opt_version_min_a = boost::none);
 
 	/** Request a list of the top \p count_a known principal representatives in descending order of weight, optionally with a minimum version \p opt_version_min_a */
-	std::vector<representative> principal_representatives (size_t count_a = std::numeric_limits<size_t>::max (), boost::optional<decltype (nano::protocol_constants::protocol_version)> const & opt_version_min_a = boost::none);
+	std::vector<representative> principal_representatives (std::size_t count_a = std::numeric_limits<std::size_t>::max (), boost::optional<decltype (nano::network_constants::protocol_version)> const & opt_version_min_a = boost::none);
 
 	/** Request a list of the top \p count_a known representative endpoints. */
-	std::vector<std::shared_ptr<nano::transport::channel>> representative_endpoints (size_t count_a);
+	std::vector<std::shared_ptr<nano::transport::channel>> representative_endpoints (std::size_t count_a);
 
 	/** Total number of representatives */
-	size_t representative_count ();
+	std::size_t representative_count ();
 
 private:
 	nano::node & node;
@@ -150,7 +150,7 @@ private:
 	/** Probable representatives */
 	probably_rep_t probable_reps;
 
-	friend class active_transactions_confirm_active_Test;
+	friend class active_transactions_DISABLED_confirm_active_Test;
 	friend class active_transactions_confirm_frontier_Test;
 	friend class rep_crawler_local_Test;
 	friend class node_online_reps_rep_crawler_Test;

@@ -1,6 +1,6 @@
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/node.hpp>
-#include <nano/secure/blockstore.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
 
@@ -121,7 +121,7 @@ nano::uint128_t nano::gap_cache::bootstrap_threshold ()
 	return result;
 }
 
-size_t nano::gap_cache::size ()
+std::size_t nano::gap_cache::size ()
 {
 	nano::lock_guard<nano::mutex> lock (mutex);
 	return blocks.size ();

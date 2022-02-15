@@ -1,4 +1,5 @@
 #include <nano/lib/cli.hpp>
+#include <nano/lib/tlsconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/common.hpp>
@@ -9,7 +10,7 @@
 
 namespace
 {
-void reset_confirmation_heights (nano::write_transaction const & transaction, nano::block_store & store);
+void reset_confirmation_heights (nano::write_transaction const & transaction, nano::ledger_constants & constants, nano::store & store);
 bool is_using_rocksdb (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec);
 }
 
@@ -44,6 +45,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 {
 	// clang-format off
 	description_a.add_options ()
+	("initialize", "Initialize the data folder, if it is not already initialised. This command is meant to be run when the data folder is empty, to populate it with the genesis block.")
 	("account_create", "Insert next deterministic key in to <wallet>")
 	("account_get", "Get account number for the <key>")
 	("account_key", "Get the public key for <account>")
@@ -60,7 +62,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("rebuild_database", "Rebuild LMDB database with vacuum for best compaction")
 	("migrate_database_lmdb_to_rocksdb", "Migrates LMDB database to RocksDB")
 	("diagnostics", "Run internal diagnostics")
-	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node or rpc. See also use_defaults.")
+	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node, rpc or tls. See also use_defaults.")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
 	("key_expand", "Derive public key and account number from <key>")
 	("wallet_add_adhoc", "Insert <key> in to <wallet>")
@@ -73,6 +75,9 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("wallet_remove", "Remove <account> from <wallet>")
 	("wallet_representative_get", "Prints default representative for <wallet>")
 	("wallet_representative_set", "Set <account> as default representative for <wallet>")
+	("timestamps_import", "Imports a CSV file, overwriting the timestamps recorded in the database (warning: high resource usage).")
+	("timestamps_export", "Writes a CSV file with the local timestamp recorded for each hash with timestamp in the database.")
+	("timestamps_update_frontiers", "Updates the 'modified' timestamp of each account chain with the stamps of each frontier")
 	("all", "Only valid with --final_vote_clear")
 	("account", boost::program_options::value<std::string> (), "Defines <account> for other commands")
 	("root", boost::program_options::value<std::string> (), "Defines <root> for other commands")
@@ -90,10 +95,14 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 {
 	// clang-format off
 	description_a.add_options()
+		("disable_add_initial_peers", "Disable contacting the peer in the peers table at startup")
 		("disable_backup", "Disable wallet automatic backups")
 		("disable_lazy_bootstrap", "Disables lazy bootstrap")
 		("disable_legacy_bootstrap", "Disables legacy bootstrap")
 		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
+		("disable_ongoing_bootstrap", "Disable ongoing bootstrap")
+		("disable_rep_crawler", "Disable rep crawler")
+		("disable_request_loop", "Disable request loop")
 		("disable_bootstrap_listener", "Disables bootstrap processing for TCP listener (not including realtime network TCP connections)")
 		("disable_tcp_realtime", "Disables TCP realtime network")
 		("disable_udp", "(Deprecated) UDP is disabled by default")
@@ -117,10 +126,14 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_options::variables_map const & vm)
 {
 	std::error_code ec;
+	flags_a.disable_add_initial_peers = (vm.count ("disable_add_initial_peers") > 0);
 	flags_a.disable_backup = (vm.count ("disable_backup") > 0);
 	flags_a.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
 	flags_a.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
 	flags_a.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
+	flags_a.disable_ongoing_bootstrap = (vm.count ("disable_ongoing_bootstrap") > 0);
+	flags_a.disable_rep_crawler = (vm.count ("disable_rep_crawler") > 0);
+	flags_a.disable_request_loop = (vm.count ("disable_request_loop") > 0);
 	if (!flags_a.inactive_node)
 	{
 		flags_a.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
@@ -147,32 +160,32 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 		flags_a.disable_block_processor_unchecked_deletion = true;
 		flags_a.block_processor_batch_size = 256 * 1024;
 		flags_a.block_processor_full_size = 1024 * 1024;
-		flags_a.block_processor_verification_size = std::numeric_limits<size_t>::max ();
+		flags_a.block_processor_verification_size = std::numeric_limits<std::size_t>::max ();
 	}
 	auto block_processor_batch_size_it = vm.find ("block_processor_batch_size");
 	if (block_processor_batch_size_it != vm.end ())
 	{
-		flags_a.block_processor_batch_size = block_processor_batch_size_it->second.as<size_t> ();
+		flags_a.block_processor_batch_size = block_processor_batch_size_it->second.as<std::size_t> ();
 	}
 	auto block_processor_full_size_it = vm.find ("block_processor_full_size");
 	if (block_processor_full_size_it != vm.end ())
 	{
-		flags_a.block_processor_full_size = block_processor_full_size_it->second.as<size_t> ();
+		flags_a.block_processor_full_size = block_processor_full_size_it->second.as<std::size_t> ();
 	}
 	auto block_processor_verification_size_it = vm.find ("block_processor_verification_size");
 	if (block_processor_verification_size_it != vm.end ())
 	{
-		flags_a.block_processor_verification_size = block_processor_verification_size_it->second.as<size_t> ();
+		flags_a.block_processor_verification_size = block_processor_verification_size_it->second.as<std::size_t> ();
 	}
 	auto inactive_votes_cache_size_it = vm.find ("inactive_votes_cache_size");
 	if (inactive_votes_cache_size_it != vm.end ())
 	{
-		flags_a.inactive_votes_cache_size = inactive_votes_cache_size_it->second.as<size_t> ();
+		flags_a.inactive_votes_cache_size = inactive_votes_cache_size_it->second.as<std::size_t> ();
 	}
 	auto vote_processor_capacity_it = vm.find ("vote_processor_capacity");
 	if (vote_processor_capacity_it != vm.end ())
 	{
-		flags_a.vote_processor_capacity = vote_processor_capacity_it->second.as<size_t> ();
+		flags_a.vote_processor_capacity = vote_processor_capacity_it->second.as<std::size_t> ();
 	}
 	// Config overriding
 	auto config (vm.find ("config"));
@@ -220,7 +233,7 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 		auto & store (node.node->store);
 		if (vm.count ("unchecked_clear"))
 		{
-			node.node->store.unchecked_clear (store.tx_begin_write ());
+			node.node->store.unchecked.clear (store.tx_begin_write ());
 		}
 		if (vm.count ("clear_send_ids"))
 		{
@@ -228,19 +241,19 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 		}
 		if (vm.count ("online_weight_clear"))
 		{
-			node.node->store.online_weight_clear (store.tx_begin_write ());
+			node.node->store.online_weight.clear (store.tx_begin_write ());
 		}
 		if (vm.count ("peer_clear"))
 		{
-			node.node->store.peer_clear (store.tx_begin_write ());
+			node.node->store.peer.clear (store.tx_begin_write ());
 		}
 		if (vm.count ("confirmation_height_clear"))
 		{
-			reset_confirmation_heights (store.tx_begin_write (), store);
+			reset_confirmation_heights (store.tx_begin_write (), node.node->network_params.ledger, store);
 		}
 		if (vm.count ("final_vote_clear"))
 		{
-			node.node->store.final_vote_clear (store.tx_begin_write ());
+			node.node->store.final_vote.clear (store.tx_begin_write ());
 		}
 		if (vm.count ("rebuild_database"))
 		{
@@ -262,7 +275,14 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	std::error_code ec;
 	boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 
-	if (vm.count ("account_create"))
+	if (vm.count ("initialize"))
+	{
+		auto node_flags = nano::inactive_node_flag_defaults ();
+		node_flags.read_only = false;
+		nano::update_flags (node_flags, vm);
+		nano::inactive_node node (data_path, node_flags);
+	}
+	else if (vm.count ("account_create"))
 	{
 		if (vm.count ("wallet") == 1)
 		{
@@ -398,7 +418,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				std::cerr << "Vacuum failed. RocksDB is enabled but the node has not been built with RocksDB support" << std::endl;
 			}
 		}
-		catch (const boost::filesystem::filesystem_error & ex)
+		catch (boost::filesystem::filesystem_error const & ex)
 		{
 			std::cerr << "Vacuum failed during a file operation: " << ex.what () << std::endl;
 		}
@@ -445,7 +465,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				std::cerr << "Snapshot failed. RocksDB is enabled but the node has not been built with RocksDB support" << std::endl;
 			}
 		}
-		catch (const boost::filesystem::filesystem_error & ex)
+		catch (boost::filesystem::filesystem_error const & ex)
 		{
 			std::cerr << "Snapshot failed during a file operation: " << ex.what () << std::endl;
 		}
@@ -491,7 +511,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
-			node.node->store.unchecked_clear (transaction);
+			node.node->store.unchecked.clear (transaction);
 			std::cout << "Unchecked blocks deleted" << std::endl;
 		}
 		else
@@ -527,8 +547,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
-			node.node->store.online_weight_clear (transaction);
-			std::cout << "Onine weight records are removed" << std::endl;
+			node.node->store.online_weight.clear (transaction);
+			std::cout << "Online weight records are removed" << std::endl;
 		}
 		else
 		{
@@ -545,7 +565,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
-			node.node->store.peer_clear (transaction);
+			node.node->store.peer.clear (transaction);
 			std::cout << "Database peers are removed" << std::endl;
 		}
 		else
@@ -570,18 +590,18 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				if (!account.decode_account (account_str))
 				{
 					nano::confirmation_height_info confirmation_height_info;
-					if (!node.node->store.confirmation_height_get (node.node->store.tx_begin_read (), account, confirmation_height_info))
+					if (!node.node->store.confirmation_height.get (node.node->store.tx_begin_read (), account, confirmation_height_info))
 					{
 						auto transaction (node.node->store.tx_begin_write ());
 						auto conf_height_reset_num = 0;
-						if (account == node.node->network_params.ledger.genesis_account)
+						if (account == node.node->network_params.ledger.genesis->account ())
 						{
 							conf_height_reset_num = 1;
-							node.node->store.confirmation_height_put (transaction, account, { confirmation_height_info.height, node.node->network_params.ledger.genesis_block });
+							node.node->store.confirmation_height.put (transaction, account, { confirmation_height_info.height, node.node->network_params.ledger.genesis->hash () });
 						}
 						else
 						{
-							node.node->store.confirmation_height_clear (transaction, account);
+							node.node->store.confirmation_height.clear (transaction, account);
 						}
 
 						std::cout << "Confirmation height of account " << account_str << " is set to " << conf_height_reset_num << std::endl;
@@ -601,7 +621,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			else
 			{
 				auto transaction (node.node->store.tx_begin_write ());
-				reset_confirmation_heights (transaction, node.node->store);
+				reset_confirmation_heights (transaction, node.node->network_params.ledger, node.node->store);
 				std::cout << "Confirmation heights of all accounts (except genesis which is set to 1) are set to 0" << std::endl;
 			}
 		}
@@ -626,7 +646,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				nano::root root;
 				if (!root.decode_hex (root_str))
 				{
-					node.node->store.final_vote_clear (transaction, root);
+					node.node->store.final_vote.clear (transaction, root);
 					std::cout << "Successfully cleared final votes" << std::endl;
 				}
 				else
@@ -637,7 +657,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			}
 			else if (vm.count ("all"))
 			{
-				node.node->store.final_vote_clear (node.node->store.tx_begin_write ());
+				node.node->store.final_vote.clear (node.node->store.tx_begin_write ());
 				std::cout << "All final votes are cleared" << std::endl;
 			}
 			else
@@ -658,13 +678,20 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (type == "node")
 		{
 			valid_type = true;
-			nano::daemon_config config (data_path);
+			nano::network_params network_params{ nano::network_constants::active_network };
+			nano::daemon_config config{ data_path, network_params };
 			config.serialize_toml (toml);
 		}
 		else if (type == "rpc")
 		{
 			valid_type = true;
-			nano::rpc_config config;
+			nano::rpc_config config{ nano::dev::network_params.network };
+			config.serialize_toml (toml);
+		}
+		else if (type == "tls")
+		{
+			valid_type = true;
+			nano::tls_config config;
 			config.serialize_toml (toml);
 		}
 		else
@@ -702,7 +729,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::raw_key junk1;
 		junk1.clear ();
 		nano::uint256_union junk2 (0);
-		nano::kdf kdf;
+		nano::kdf kdf{ inactive_node->node->config.network_params.kdf_work };
 		kdf.phs (junk1, "", junk2);
 		std::cout << "Testing time retrieval latency... " << std::flush;
 		nano::timer<std::chrono::nanoseconds> timer (nano::timer_state::started);
@@ -1283,9 +1310,195 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			ec = nano::error_cli::invalid_arguments;
 		}
 	}
-	else
+	else if (vm.count ("timestamps_import") == 1)
 	{
-		ec = nano::error_cli::unknown_command;
+		if (vm.count ("file") == 1)
+		{
+			auto inactive_node = nano::default_inactive_node(data_path, vm);
+			std::string filename (vm["file"].as<std::string> ());
+			std::ifstream stream;
+			stream.open (filename.c_str ());
+			if (!stream.fail ())
+			{
+				std::cout << "Importing timestamps from " << filename << std::endl;
+				std::cout << "This may take a while..." << std::endl;
+
+				boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+				auto transaction (inactive_node->node->store.tx_begin_read ());
+				std::vector<std::pair<nano::block_hash, uint64_t>> pairs;
+				pairs.reserve (inactive_node->node->store.block.count(transaction));
+
+				std::cout << "Reading file..." << std::endl;
+				std::stringstream contents;
+				contents << stream.rdbuf ();
+				std::string line, hash, timestamp;
+				try
+				{
+					while (std::getline (contents, line, '\n'))
+					{
+						std::istringstream liness (line);
+						if (std::getline (liness, hash, ',') && std::getline (liness, timestamp, ','))
+						{
+							pairs.push_back (std::make_pair (nano::block_hash (hash), std::stoull (timestamp)));
+						}
+						else
+						{
+							std::cerr << "Failure while reading the file, in line " << pairs.size () + 1 << std::endl;
+							ec = nano::error_cli::generic;
+							break;
+						}
+					}
+				}
+				catch (const std::invalid_argument & ex)
+				{
+					std::cerr << "Failure while reading the file, timestamp is invalid in line " << pairs.size () + 1 << std::endl;
+					ec = nano::error_cli::generic;
+				}
+				catch (const std::out_of_range & ex)
+				{
+					std::cerr << "Failure while reading the file, timestamp is invalid in line " << pairs.size () + 1 << std::endl;
+					ec = nano::error_cli::generic;
+				}
+				catch (...)
+				{
+					std::cerr << "Unknown error while reading the file, in line " << pairs.size () + 1 << std::endl;
+					ec = nano::error_cli::generic;
+				}
+
+				stream.close ();
+				if (!ec)
+				{
+					std::cout << "Upgrading database..." << std::endl;
+
+					auto block_count (pairs.size ());
+					size_t count{ 0 };
+					size_t step (std::max<size_t> (10, std::pow (10.0f, std::floor (std::log10 (block_count / 10.0)))));
+					auto transaction (inactive_node->node->store.tx_begin_write ());
+					for (auto i (pairs.begin ()), n (pairs.end ()); i != n; ++i, ++count)
+					{
+						auto block (inactive_node->node->store.block.get(transaction, i->first));
+						if (block)
+						{
+							auto sideband_with_stamp = block->sideband ();
+							sideband_with_stamp.timestamp = i->second;
+							block->sideband_set (sideband_with_stamp);
+							inactive_node->node->store.block.put (transaction, i->first, *block);
+
+							if (count > 0 && count % step == 0 || count == block_count)
+							{
+								std::cout << count << "/" << block_count << std::endl;
+							}
+						}
+						else
+						{
+							std::cerr << "Skipping hash not in database: " << i->first.to_string () << std::endl;
+						}
+					}
+					std::cout << "Completed importing timestamps" << std::endl;
+				}
+			}
+			else
+			{
+				std::cerr << "Unable to open <file>\n";
+				ec = nano::error_cli::invalid_arguments;
+			}
+		}
+		else
+		{
+			std::cerr << "timestamps_import requires one <file> option\n";
+			ec = nano::error_cli::invalid_arguments;
+		}
+	}
+	else if (vm.count ("timestamps_export") == 1)
+	{
+		auto inactive_node = nano::default_inactive_node(data_path, vm);
+
+		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+		auto timestamps_path = data_path / "timestamps.csv";
+
+		std::cout << "Exporting timestamps in " << data_path << std::endl;
+		std::cout << "This may take a while..." << std::endl;
+
+		auto transaction (inactive_node->node->store.tx_begin_read ());
+		auto accounts (inactive_node->node->store.account.count (transaction));
+		if (accounts > 0)
+		{
+			size_t count{ 0 };
+			size_t step (std::max<size_t> (10, std::pow (10.0f, std::floor (std::log10 (accounts / 10.0)))));
+			std::vector<std::pair<nano::block_hash, uint64_t>> pairs;
+			pairs.reserve (inactive_node->node->store.block.count (transaction));
+
+			std::cout << "Reading database..." << std::endl;
+
+			for (auto i (inactive_node->node->store.account.begin (transaction)), n (inactive_node->node->store.account.end ()); i != n; ++i, ++count)
+			{
+				auto hash (i->second.head);
+				auto block (inactive_node->node->store.block.get (transaction, hash));
+				while (block != nullptr)
+				{
+					if (block->sideband ().timestamp != 0)
+					{
+						pairs.push_back (std::make_pair (hash, block->sideband ().timestamp));
+					}
+					hash = block->previous ();
+					block = inactive_node->node->store.block.get (transaction, hash);
+				}
+				if (count > 0 && count % step == 0 || count == accounts)
+				{
+					std::cout << count << "/" << accounts << std::endl;
+				}
+			}
+			if (pairs.empty ())
+			{
+				std::cout << "No timestamps found in the database" << std::endl;
+			}
+			else
+			{
+				try
+				{
+					boost::filesystem::ofstream stream{ timestamps_path };
+					std::cout << "Writing to file..." << std::endl;
+					for (auto & pair : pairs)
+					{
+						stream << pair.first.to_string () << "," << pair.second << std::endl;
+					}
+					std::cout << "Completed exporting timestamps, the file can be found in " << timestamps_path << std::endl;
+				}
+				catch (const boost::filesystem::filesystem_error & ex)
+				{
+					std::cerr << "Timestamps export failed during a file operation: " << ex.what () << std::endl;
+				}
+				catch (...)
+				{
+					std::cerr << "Timestamps export failed (unknown reason)" << std::endl;
+				}
+			}
+		}
+		else
+		{
+			std::cout << "Empty database" << std::endl;
+		}
+	}
+	else if (vm.count ("timestamps_update_frontiers") == 1)
+	{
+		auto inactive_node = nano::default_inactive_node(data_path, vm);
+
+		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+
+		std::cout << "Updating account information..." << std::endl;
+
+		auto transaction (inactive_node->node->store.tx_begin_write ());
+
+		for (auto i (inactive_node->node->store.account.begin (transaction)), n (inactive_node->node->store.account.end ()); i != n; ++i)
+		{
+			auto block (inactive_node->node->store.block.get (transaction, i->second.head));
+			i->second.modified = block->sideband ().timestamp;
+			inactive_node->node->store.account.put (transaction, i->first, i->second);
+		}
+	}
+ 	else
+ 	{
+ 		ec = nano::error_cli::unknown_command;
 	}
 
 	return ec;
@@ -1300,19 +1513,19 @@ std::unique_ptr<nano::inactive_node> nano::default_inactive_node (boost::filesys
 
 namespace
 {
-void reset_confirmation_heights (nano::write_transaction const & transaction, nano::block_store & store)
+void reset_confirmation_heights (nano::write_transaction const & transaction, nano::ledger_constants & constants, nano::store & store)
 {
 	// First do a clean sweep
-	store.confirmation_height_clear (transaction);
+	store.confirmation_height.clear (transaction);
 
 	// Then make sure the confirmation height of the genesis account open block is 1
-	nano::network_params network_params;
-	store.confirmation_height_put (transaction, network_params.ledger.genesis_account, { 1, network_params.ledger.genesis_hash });
+	store.confirmation_height.put (transaction, constants.genesis->account (), { 1, constants.genesis->hash () });
 }
 
 bool is_using_rocksdb (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec)
 {
-	nano::daemon_config config (data_path);
+	nano::network_params network_params{ nano::network_constants::active_network };
+	nano::daemon_config config{ data_path, network_params };
 
 	// Config overriding
 	auto config_arg (vm.find ("config"));

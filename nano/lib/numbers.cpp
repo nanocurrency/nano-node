@@ -3,6 +3,7 @@
 #include <nano/crypto_lib/secure_memory.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/secure/common.hpp>
 
 #include <crypto/cryptopp/aes.h>
 #include <crypto/cryptopp/modes.h>
@@ -59,6 +60,16 @@ std::string nano::public_key::to_account () const
 	std::string result;
 	encode_account (result);
 	return result;
+}
+
+nano::public_key::public_key () :
+	uint256_union{ 0 }
+{
+}
+
+nano::public_key const & nano::public_key::null ()
+{
+	return nano::hardened_constants::get ().not_an_account;
 }
 
 std::string nano::public_key::to_node_id () const
@@ -645,7 +656,7 @@ void format_frac (std::ostringstream & stream, nano::uint128_t value, nano::uint
 	}
 }
 
-void format_dec (std::ostringstream & stream, nano::uint128_t value, char group_sep, const std::string & groupings)
+void format_dec (std::ostringstream & stream, nano::uint128_t value, char group_sep, std::string const & groupings)
 {
 	auto largestPow10 = nano::uint256_t (1);
 	int dec_count = 1;
@@ -749,7 +760,7 @@ std::string nano::uint128_union::format_balance (nano::uint128_t scale, int prec
 	return ::format_balance (number (), scale, precision, group_digits, thousands_sep, decimal_point, grouping);
 }
 
-std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits, const std::locale & locale) const
+std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits, std::locale const & locale) const
 {
 	auto thousands_sep = std::use_facet<std::moneypunct<char>> (locale).thousands_sep ();
 	auto decimal_point = std::use_facet<std::moneypunct<char>> (locale).decimal_point ();
@@ -779,6 +790,11 @@ std::string nano::uint128_union::to_string_dec () const
 	std::string result;
 	encode_dec (result);
 	return result;
+}
+
+nano::hash_or_account::hash_or_account () :
+	account{}
+{
 }
 
 nano::hash_or_account::hash_or_account (uint64_t value_a) :
@@ -937,6 +953,16 @@ nano::public_key::operator nano::root const & () const
 nano::public_key::operator nano::hash_or_account const & () const
 {
 	return reinterpret_cast<nano::hash_or_account const &> (*this);
+}
+
+bool nano::public_key::operator== (std::nullptr_t) const
+{
+	return bytes == null ().bytes;
+}
+
+bool nano::public_key::operator!= (std::nullptr_t) const
+{
+	return !(*this == nullptr);
 }
 
 nano::block_hash::operator nano::link const & () const

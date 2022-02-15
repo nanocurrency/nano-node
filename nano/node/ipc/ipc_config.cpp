@@ -43,7 +43,7 @@ nano::error nano::ipc::ipc_config::deserialize_toml (nano::tomlconfig & toml)
 		tcp_l->get<bool> ("allow_unsafe", transport_tcp.allow_unsafe);
 		tcp_l->get<bool> ("enable", transport_tcp.enabled);
 		tcp_l->get<uint16_t> ("port", transport_tcp.port);
-		tcp_l->get<size_t> ("io_timeout", transport_tcp.io_timeout);
+		tcp_l->get<std::size_t> ("io_timeout", transport_tcp.io_timeout);
 	}
 
 	auto domain_l (toml.get_optional_child ("local"));
@@ -53,7 +53,7 @@ nano::error nano::ipc::ipc_config::deserialize_toml (nano::tomlconfig & toml)
 		domain_l->get<bool> ("allow_unsafe", transport_domain.allow_unsafe);
 		domain_l->get<bool> ("enable", transport_domain.enabled);
 		domain_l->get<std::string> ("path", transport_domain.path);
-		domain_l->get<size_t> ("io_timeout", transport_domain.io_timeout);
+		domain_l->get<std::size_t> ("io_timeout", transport_domain.io_timeout);
 	}
 
 	auto flatbuffers_l (toml.get_optional_child ("flatbuffers"));
@@ -102,7 +102,7 @@ nano::error nano::ipc::ipc_config::deserialize_json (bool & upgraded_a, nano::js
 		tcp_l->get_optional<bool> ("allow_unsafe", transport_tcp.allow_unsafe);
 		tcp_l->get<bool> ("enable", transport_tcp.enabled);
 		tcp_l->get<uint16_t> ("port", transport_tcp.port);
-		tcp_l->get<size_t> ("io_timeout", transport_tcp.io_timeout);
+		tcp_l->get<std::size_t> ("io_timeout", transport_tcp.io_timeout);
 	}
 
 	auto domain_l (json.get_optional_child ("local"));
@@ -112,7 +112,7 @@ nano::error nano::ipc::ipc_config::deserialize_json (bool & upgraded_a, nano::js
 		domain_l->get_optional<bool> ("allow_unsafe", transport_domain.allow_unsafe);
 		domain_l->get<bool> ("enable", transport_domain.enabled);
 		domain_l->get<std::string> ("path", transport_domain.path);
-		domain_l->get<size_t> ("io_timeout", transport_domain.io_timeout);
+		domain_l->get<std::size_t> ("io_timeout", transport_domain.io_timeout);
 	}
 
 	return json.get_error ();

@@ -12,23 +12,26 @@
 
 namespace
 {
-const char * preconfigured_peers_key = "preconfigured_peers";
-const char * signature_checker_threads_key = "signature_checker_threads";
-const char * pow_sleep_interval_key = "pow_sleep_interval";
-const char * default_beta_peer_network = "peering-beta.nano.org";
-const char * default_live_peer_network = "livenet.banano.cc";
-const std::string default_test_peer_network = nano::get_env_or_default ("NANO_TEST_PEER_NETWORK", "peering-test.nano.org");
+char const * preconfigured_peers_key = "preconfigured_peers";
+char const * signature_checker_threads_key = "signature_checker_threads";
+char const * pow_sleep_interval_key = "pow_sleep_interval";
+char const * default_beta_peer_network = "peering-beta.nano.org";
+char const * default_live_peer_network = "livenet.banano.cc";
+std::string const default_test_peer_network = nano::get_env_or_default ("NANO_TEST_PEER_NETWORK", "peering-test.nano.org");
 }
 
-nano::node_config::node_config () :
-	node_config (0, nano::logging ())
+nano::node_config::node_config (nano::network_params & network_params) :
+	node_config (0, nano::logging (), network_params)
 {
 }
 
-nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a) :
-	peering_port (peering_port_a),
-	logging (logging_a),
-	external_address (boost::asio::ip::address_v6{}.to_string ())
+nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a, nano::network_params & network_params) :
+	network_params{ network_params },
+	peering_port{ peering_port_a },
+	logging{ logging_a },
+	websocket_config{ network_params.network },
+	ipc_config{ network_params.network },
+	external_address{ boost::asio::ip::address_v6{}.to_string () }
 {
 	// The default constructor passes 0 to indicate we should use the default port,
 	// which is determined at node startup based on active network.
@@ -38,11 +41,11 @@ nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & l
 	}
 	switch (network_params.network.network ())
 	{
-		case nano::nano_networks::nano_dev_network:
+		case nano::networks::nano_dev_network:
 			enable_voting = true;
-			preconfigured_representatives.push_back (network_params.ledger.genesis_account);
+			preconfigured_representatives.push_back (network_params.ledger.genesis->account ());
 			break;
-		case nano::nano_networks::nano_beta_network:
+		case nano::networks::nano_beta_network:
 		{
 			preconfigured_peers.push_back (default_beta_peer_network);
 			nano::account offline_representative;
@@ -50,7 +53,7 @@ nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & l
 			preconfigured_representatives.emplace_back (offline_representative);
 			break;
 		}
-		case nano::nano_networks::nano_live_network:
+		case nano::networks::nano_live_network:
 			preconfigured_peers.push_back (default_live_peer_network);
 			preconfigured_representatives.emplace_back ("36B3AFC042CCB5099DC163FA2BFE42D6E486991B685EAAB0DF73714D91A59400");
 			preconfigured_representatives.emplace_back ("29126049B40D1755C0A1C02B71646EEAB9E1707C16E94B47100F3228D59B1EB2");
@@ -61,9 +64,9 @@ nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & l
 			// removed a preconfigured_representative
 
 			break;
-		case nano::nano_networks::nano_test_network:
+		case nano::networks::nano_test_network:
 			preconfigured_peers.push_back (default_test_peer_network);
-			preconfigured_representatives.push_back (network_params.ledger.genesis_account);
+			preconfigured_representatives.push_back (network_params.ledger.genesis->account ());
 			break;
 		default:
 			debug_assert (false);
@@ -88,7 +91,6 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("bootstrap_connections_max", bootstrap_connections_max, "Maximum number of inbound bootstrap connections. Defaults to 64.\nWarning: a larger amount of connections may use additional system memory.\ntype:uint64");
 	toml.put ("bootstrap_initiator_threads", bootstrap_initiator_threads, "Number of threads dedicated to concurrent bootstrap attempts. Defaults to 1.\nWarning: a larger amount of attempts may use additional system memory and disk IO.\ntype:uint64");
 	toml.put ("bootstrap_frontier_request_count", bootstrap_frontier_request_count, "Number frontiers per bootstrap frontier request. Defaults to 1048576.\ntype:uint32,[1024..4294967295]");
-	toml.put ("lmdb_max_dbs", deprecated_lmdb_max_dbs, "DEPRECATED: use node.lmdb.max_databases instead.\nMaximum open lmdb databases. Increase default if more than 100 wallets is required.\nNote: external management is recommended when a large number of wallets is required (see https://docs.nano.org/integration-guides/key-management/).\ntype:uint64");
 	toml.put ("block_processor_batch_max_time", block_processor_batch_max_time.count (), "The maximum time the block processor can continuously process blocks for.\ntype:milliseconds");
 	toml.put ("allow_local_peers", allow_local_peers, "Enable or disable local host peering.\ntype:bool");
 	toml.put ("vote_minimum", vote_minimum.to_string_dec (), "Local representatives do not vote if the delegated weight is under this threshold. Saves on system resources.\ntype:string,amount,raw");
@@ -111,6 +113,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation), "Mode controlling frontier confirmation rate.\ntype:string,{auto,always,disabled}");
 	toml.put ("max_queued_requests", max_queued_requests, "Limit for number of queued confirmation requests for one channel, after which new requests are dropped until the queue drops below this value.\ntype:uint32");
 	toml.put ("confirm_req_batches_max", confirm_req_batches_max, "Limit for the number of confirmation requests for one channel per request attempt\ntype:uint32");
+	toml.put ("rep_crawler_weight_minimum", rep_crawler_weight_minimum.to_string_dec (), "Rep crawler minimum weight, if this is less than minimum principal weight then this is taken as the minimum weight a rep must have to be tracked. If you want to track all reps set this to 0. If you do not want this to influence anything then set it to max value. This is only useful for debugging or for people who really know what they are doing.\ntype:string,amount,raw");
 
 	auto work_peers_l (toml.create_array ("work_peers", "A list of \"address:port\" entries to identify work peers."));
 	for (auto i (work_peers.begin ()), n (work_peers.end ()); i != n; ++i)
@@ -246,7 +249,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			preconfigured_representatives.clear ();
 			toml.array_entries_required<std::string> ("preconfigured_representatives", [this, &toml] (std::string entry) {
-				nano::account representative (0);
+				nano::account representative{};
 				if (representative.decode_account (entry))
 				{
 					toml.get_error ().set ("Invalid representative account: " + entry);
@@ -323,27 +326,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<bool> ("allow_local_peers", allow_local_peers);
 		toml.get<unsigned> (signature_checker_threads_key, signature_checker_threads);
 
-		auto lmdb_max_dbs_default = deprecated_lmdb_max_dbs;
-		toml.get<int> ("lmdb_max_dbs", deprecated_lmdb_max_dbs);
-		bool is_deprecated_lmdb_dbs_used = lmdb_max_dbs_default != deprecated_lmdb_max_dbs;
-
-		// Note: using the deprecated setting will result in a fail-fast config error in the future
-		if (!network_params.network.is_dev_network () && is_deprecated_lmdb_dbs_used)
-		{
-			std::cerr << "WARNING: The node.lmdb_max_dbs setting is deprecated and will be removed in a future version." << std::endl;
-			std::cerr << "Please use the node.lmdb.max_databases setting instead." << std::endl;
-		}
-
 		if (toml.has_key ("lmdb"))
 		{
 			auto lmdb_config_l (toml.get_required_child ("lmdb"));
-			lmdb_config.deserialize_toml (lmdb_config_l, is_deprecated_lmdb_dbs_used);
-
-			// Note that the lmdb config fails if both the deprecated and new setting are changed.
-			if (is_deprecated_lmdb_dbs_used)
-			{
-				lmdb_config.max_databases = deprecated_lmdb_max_dbs;
-			}
+			lmdb_config.deserialize_toml (lmdb_config_l);
 		}
 
 		boost::asio::ip::address_v6 external_address_l;
@@ -356,9 +342,9 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get (pow_sleep_interval_key, pow_sleep_interval_l);
 		pow_sleep_interval = std::chrono::nanoseconds (pow_sleep_interval_l);
 		toml.get<bool> ("use_memory_pools", use_memory_pools);
-		toml.get<size_t> ("confirmation_history_size", confirmation_history_size);
-		toml.get<size_t> ("active_elections_size", active_elections_size);
-		toml.get<size_t> ("bandwidth_limit", bandwidth_limit);
+		toml.get<std::size_t> ("confirmation_history_size", confirmation_history_size);
+		toml.get<std::size_t> ("active_elections_size", active_elections_size);
+		toml.get<std::size_t> ("bandwidth_limit", bandwidth_limit);
 		toml.get<double> ("bandwidth_limit_burst_ratio", bandwidth_limit_burst_ratio);
 		toml.get<bool> ("backup_before_upgrade", backup_before_upgrade);
 
@@ -366,11 +352,20 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
 		conf_height_processor_batch_min_time = std::chrono::milliseconds (conf_height_processor_batch_min_time_l);
 
-		nano::network_constants network;
 		toml.get<double> ("max_work_generate_multiplier", max_work_generate_multiplier);
 
 		toml.get<uint32_t> ("max_queued_requests", max_queued_requests);
 		toml.get<uint32_t> ("confirm_req_batches_max", confirm_req_batches_max);
+
+		auto rep_crawler_weight_minimum_l (rep_crawler_weight_minimum.to_string_dec ());
+		if (toml.has_key ("rep_crawler_weight_minimum"))
+		{
+			rep_crawler_weight_minimum_l = toml.get<std::string> ("rep_crawler_weight_minimum");
+		}
+		if (rep_crawler_weight_minimum.decode_dec (rep_crawler_weight_minimum_l))
+		{
+			toml.get_error ().set ("rep_crawler_weight_minimum contains an invalid decimal amount");
+		}
 
 		if (toml.has_key ("frontiers_confirmation"))
 		{
@@ -395,7 +390,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		}
 
 		// Validate ranges
-		nano::network_params network_params;
 		if (election_hint_weight_percent < 5 || election_hint_weight_percent > 50)
 		{
 			toml.get_error ().set ("election_hint_weight_percent must be a number between 5 and 50");
@@ -408,11 +402,11 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			toml.get_error ().set ("io_threads must be non-zero");
 		}
-		if (active_elections_size <= 250 && !network.is_dev_network ())
+		if (active_elections_size <= 250 && !network_params.network.is_dev_network ())
 		{
 			toml.get_error ().set ("active_elections_size must be greater than 250");
 		}
-		if (bandwidth_limit > std::numeric_limits<size_t>::max ())
+		if (bandwidth_limit > std::numeric_limits<std::size_t>::max ())
 		{
 			toml.get_error ().set ("bandwidth_limit unbounded = 0, default = 10485760, max = 18446744073709551615");
 		}
@@ -432,7 +426,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			toml.get_error ().set ((boost::format ("block_processor_batch_max_time value must be equal or larger than %1%ms") % network_params.node.process_confirmed_interval.count ()).str ());
 		}
-		if (max_pruning_age < std::chrono::seconds (5 * 60) && !network.is_dev_network ())
+		if (max_pruning_age < std::chrono::seconds (5 * 60) && !network_params.network.is_dev_network ())
 		{
 			toml.get_error ().set ("max_pruning_age must be greater than or equal to 5 minutes");
 		}
@@ -496,7 +490,6 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("callback_address", callback_address);
 	json.put ("callback_port", callback_port);
 	json.put ("callback_target", callback_target);
-	json.put ("lmdb_max_dbs", deprecated_lmdb_max_dbs);
 	json.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 	json.put ("allow_local_peers", allow_local_peers);
 	json.put ("vote_minimum", vote_minimum.to_string_dec ());
@@ -509,6 +502,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("external_port", external_port);
 	json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 	json.put ("use_memory_pools", use_memory_pools);
+	json.put ("rep_crawler_weight_minimum", online_weight_minimum.to_string_dec ());
 	nano::jsonconfig websocket_l;
 	websocket_config.serialize_json (websocket_l);
 	json.put_child ("websocket", websocket_l);
@@ -601,7 +595,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		auto preconfigured_representatives_l (json.get_required_child ("preconfigured_representatives"));
 		preconfigured_representatives.clear ();
 		preconfigured_representatives_l.array_entries<std::string> ([this, &json] (std::string entry) {
-			nano::account representative (0);
+			nano::account representative{};
 			if (representative.decode_account (entry))
 			{
 				json.get_error ().set ("Invalid representative account: " + entry);
@@ -629,6 +623,12 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		if (online_weight_minimum.decode_dec (online_weight_minimum_l))
 		{
 			json.get_error ().set ("online_weight_minimum contains an invalid decimal amount");
+		}
+
+		auto rep_crawler_weight_minimum_l (json.get<std::string> ("rep_crawler_weight_minimum"));
+		if (rep_crawler_weight_minimum.decode_dec (rep_crawler_weight_minimum_l))
+		{
+			json.get_error ().set ("rep_crawler_weight_minimum contains an invalid decimal amount");
 		}
 
 		auto vote_minimum_l (json.get<std::string> ("vote_minimum"));
@@ -679,7 +679,6 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<std::string> ("callback_address", callback_address);
 		json.get<uint16_t> ("callback_port", callback_port);
 		json.get<std::string> ("callback_target", callback_target);
-		json.get<int> ("lmdb_max_dbs", deprecated_lmdb_max_dbs);
 		json.get<bool> ("enable_voting", enable_voting);
 		json.get<bool> ("allow_local_peers", allow_local_peers);
 		json.get<unsigned> (signature_checker_threads_key, signature_checker_threads);
@@ -693,16 +692,15 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get (pow_sleep_interval_key, pow_sleep_interval_l);
 		pow_sleep_interval = std::chrono::nanoseconds (pow_sleep_interval_l);
 		json.get<bool> ("use_memory_pools", use_memory_pools);
-		json.get<size_t> ("confirmation_history_size", confirmation_history_size);
-		json.get<size_t> ("active_elections_size", active_elections_size);
-		json.get<size_t> ("bandwidth_limit", bandwidth_limit);
+		json.get<std::size_t> ("confirmation_history_size", confirmation_history_size);
+		json.get<std::size_t> ("active_elections_size", active_elections_size);
+		json.get<std::size_t> ("bandwidth_limit", bandwidth_limit);
 		json.get<bool> ("backup_before_upgrade", backup_before_upgrade);
 
 		auto conf_height_processor_batch_min_time_l (conf_height_processor_batch_min_time.count ());
 		json.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
 		conf_height_processor_batch_min_time = std::chrono::milliseconds (conf_height_processor_batch_min_time_l);
 
-		nano::network_constants network;
 		// Validate ranges
 		if (password_fanout < 16 || password_fanout > 1024 * 1024)
 		{
@@ -712,11 +710,11 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		{
 			json.get_error ().set ("io_threads must be non-zero");
 		}
-		if (active_elections_size <= 250 && !network.is_dev_network ())
+		if (active_elections_size <= 250 && !network_params.network.is_dev_network ())
 		{
 			json.get_error ().set ("active_elections_size must be greater than 250");
 		}
-		if (bandwidth_limit > std::numeric_limits<size_t>::max ())
+		if (bandwidth_limit > std::numeric_limits<std::size_t>::max ())
 		{
 			json.get_error ().set ("bandwidth_limit unbounded = 0, default = 10485760, max = 18446744073709551615");
 		}
@@ -787,7 +785,7 @@ void nano::node_config::deserialize_address (std::string const & entry_a, std::v
 nano::account nano::node_config::random_representative () const
 {
 	debug_assert (!preconfigured_representatives.empty ());
-	size_t index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
+	std::size_t index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
 	auto result (preconfigured_representatives[index]);
 	return result;
 }

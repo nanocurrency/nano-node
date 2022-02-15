@@ -4,7 +4,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/lmdb/lmdb_env.hpp>
 #include <nano/node/lmdb/lmdb_txn.hpp>
-#include <nano/secure/blockstore.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
 
@@ -34,7 +34,7 @@ namespace
 class matches_txn final
 {
 public:
-	explicit matches_txn (const nano::transaction_impl * transaction_impl_a) :
+	explicit matches_txn (nano::transaction_impl const * transaction_impl_a) :
 		transaction_impl (transaction_impl_a)
 	{
 	}
@@ -45,7 +45,7 @@ public:
 	}
 
 private:
-	const nano::transaction_impl * transaction_impl;
+	nano::transaction_impl const * transaction_impl;
 };
 }
 
@@ -149,12 +149,12 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 	// Get the time difference now as creating stacktraces (Debug/Windows for instance) can take a while so results won't be as accurate
 	std::vector<std::chrono::milliseconds> times_since_start;
 	times_since_start.reserve (copy_stats.size ());
-	std::transform (copy_stats.cbegin (), copy_stats.cend (), std::back_inserter (times_since_start), [] (const auto & stat) {
+	std::transform (copy_stats.cbegin (), copy_stats.cend (), std::back_inserter (times_since_start), [] (auto const & stat) {
 		return stat.timer.since_start ();
 	});
 	debug_assert (times_since_start.size () == copy_stats.size ());
 
-	for (size_t i = 0; i < times_since_start.size (); ++i)
+	for (std::size_t i = 0; i < times_since_start.size (); ++i)
 	{
 		auto const & stat = copy_stats[i];
 		auto time_held_open = times_since_start[i];
@@ -207,7 +207,7 @@ void nano::mdb_txn_tracker::log_if_held_long_enough (nano::mdb_txn_stats const &
 	}
 }
 
-void nano::mdb_txn_tracker::add (const nano::transaction_impl * transaction_impl)
+void nano::mdb_txn_tracker::add (nano::transaction_impl const * transaction_impl)
 {
 	nano::lock_guard<nano::mutex> guard (mutex);
 	debug_assert (std::find_if (stats.cbegin (), stats.cend (), matches_txn (transaction_impl)) == stats.cend ());
@@ -215,7 +215,7 @@ void nano::mdb_txn_tracker::add (const nano::transaction_impl * transaction_impl
 }
 
 /** Can be called without error if transaction does not exist */
-void nano::mdb_txn_tracker::erase (const nano::transaction_impl * transaction_impl)
+void nano::mdb_txn_tracker::erase (nano::transaction_impl const * transaction_impl)
 {
 	nano::unique_lock<nano::mutex> lk (mutex);
 	auto it = std::find_if (stats.begin (), stats.end (), matches_txn (transaction_impl));
@@ -228,7 +228,7 @@ void nano::mdb_txn_tracker::erase (const nano::transaction_impl * transaction_im
 	}
 }
 
-nano::mdb_txn_stats::mdb_txn_stats (const nano::transaction_impl * transaction_impl) :
+nano::mdb_txn_stats::mdb_txn_stats (nano::transaction_impl const * transaction_impl) :
 	transaction_impl (transaction_impl),
 	thread_name (nano::thread_role::get_string ()),
 	stacktrace (std::make_shared<boost::stacktrace::stacktrace> ())
@@ -238,5 +238,5 @@ nano::mdb_txn_stats::mdb_txn_stats (const nano::transaction_impl * transaction_i
 
 bool nano::mdb_txn_stats::is_write () const
 {
-	return (dynamic_cast<const nano::write_transaction_impl *> (transaction_impl) != nullptr);
+	return (dynamic_cast<nano::write_transaction_impl const *> (transaction_impl) != nullptr);
 }

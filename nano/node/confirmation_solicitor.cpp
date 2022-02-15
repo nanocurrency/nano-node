@@ -7,7 +7,7 @@ using namespace std::chrono_literals;
 nano::confirmation_solicitor::confirmation_solicitor (nano::network & network_a, nano::node_config const & config_a) :
 	max_block_broadcasts (config_a.network_params.network.is_dev_network () ? 4 : 30),
 	max_election_requests (50),
-	max_election_broadcasts (std::max<size_t> (network_a.fanout () / 2, 1)),
+	max_election_broadcasts (std::max<std::size_t> (network_a.fanout () / 2, 1)),
 	network (network_a),
 	config (config_a)
 {
@@ -31,7 +31,7 @@ bool nano::confirmation_solicitor::broadcast (nano::election const & election_a)
 	if (rebroadcasted++ < max_block_broadcasts)
 	{
 		auto const & hash (election_a.status.winner->hash ());
-		nano::publish winner (election_a.status.winner);
+		nano::publish winner{ config.network_params.network, election_a.status.winner };
 		unsigned count = 0;
 		// Directed broadcasting to principal representatives
 		for (auto i (representatives_broadcasts.begin ()), n (representatives_broadcasts.end ()); i != n && count < max_election_broadcasts; ++i)
@@ -98,14 +98,14 @@ void nano::confirmation_solicitor::flush ()
 			roots_hashes_l.push_back (root_hash);
 			if (roots_hashes_l.size () == nano::network::confirm_req_hashes_max)
 			{
-				nano::confirm_req req (roots_hashes_l);
+				nano::confirm_req req{ config.network_params.network, roots_hashes_l };
 				channel->send (req);
 				roots_hashes_l.clear ();
 			}
 		}
 		if (!roots_hashes_l.empty ())
 		{
-			nano::confirm_req req (roots_hashes_l);
+			nano::confirm_req req{ config.network_params.network, roots_hashes_l };
 			channel->send (req);
 		}
 	}

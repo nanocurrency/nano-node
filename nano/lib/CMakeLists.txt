@@ -30,6 +30,8 @@ add_library(
   config.hpp
   config.cpp
   configbase.hpp
+  convert.cpp
+  convert.hpp
   diagnosticsconfig.hpp
   diagnosticsconfig.cpp
   epoch.hpp
@@ -71,6 +73,8 @@ add_library(
   threading.cpp
   timer.hpp
   timer.cpp
+  tlsconfig.hpp
+  tlsconfig.cpp
   tomlconfig.hpp
   tomlconfig.cpp
   utility.hpp

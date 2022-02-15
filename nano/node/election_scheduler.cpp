@@ -25,15 +25,15 @@ void nano::election_scheduler::activate (nano::account const & account_a, nano::
 {
 	debug_assert (!account_a.is_zero ());
 	nano::account_info account_info;
-	if (!node.store.account_get (transaction, account_a, account_info))
+	if (!node.store.account.get (transaction, account_a, account_info))
 	{
 		nano::confirmation_height_info conf_info;
-		node.store.confirmation_height_get (transaction, account_a, conf_info);
+		node.store.confirmation_height.get (transaction, account_a, conf_info);
 		if (conf_info.height < account_info.block_count)
 		{
 			debug_assert (conf_info.frontier != account_info.head);
-			auto hash = conf_info.height == 0 ? account_info.open_block : node.store.block_successor (transaction, conf_info.frontier);
-			auto block = node.store.block_get (transaction, hash);
+			auto hash = conf_info.height == 0 ? account_info.open_block : node.store.block.successor (transaction, conf_info.frontier);
+			auto block = node.store.block.get (transaction, hash);
 			debug_assert (block != nullptr);
 			if (node.ledger.dependents_confirmed (transaction, *block))
 			{
@@ -65,7 +65,7 @@ void nano::election_scheduler::notify ()
 	condition.notify_all ();
 }
 
-size_t nano::election_scheduler::size () const
+std::size_t nano::election_scheduler::size () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	return priority.size () + manual_queue.size ();
@@ -82,7 +82,7 @@ bool nano::election_scheduler::empty () const
 	return empty_locked ();
 }
 
-size_t nano::election_scheduler::priority_queue_size () const
+std::size_t nano::election_scheduler::priority_queue_size () const
 {
 	return priority.size ();
 }
@@ -116,18 +116,22 @@ void nano::election_scheduler::run ()
 		{
 			if (overfill_predicate ())
 			{
+				lock.unlock ();
 				node.active.erase_oldest ();
 			}
 			else if (manual_queue_predicate ())
 			{
 				auto const [block, previous_balance, election_behavior, confirmation_action] = manual_queue.front ();
+				manual_queue.pop_front ();
+				lock.unlock ();
 				nano::unique_lock<nano::mutex> lock2 (node.active.mutex);
 				node.active.insert_impl (lock2, block, previous_balance, election_behavior, confirmation_action);
-				manual_queue.pop_front ();
 			}
 			else if (priority_queue_predicate ())
 			{
 				auto block = priority.top ();
+				priority.pop ();
+				lock.unlock ();
 				std::shared_ptr<nano::election> election;
 				nano::unique_lock<nano::mutex> lock2 (node.active.mutex);
 				election = node.active.insert_impl (lock2, block).election;
@@ -135,9 +139,13 @@ void nano::election_scheduler::run ()
 				{
 					election->transition_active ();
 				}
-				priority.pop ();
+			}
+			else
+			{
+				lock.unlock ();
 			}
 			notify ();
+			lock.lock ();
 		}
 	}
 }

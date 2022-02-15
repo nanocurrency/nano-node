@@ -1,7 +1,7 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
-#include <nano/secure/blockstore.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
 nano::online_reps::online_reps (nano::ledger & ledger_a, nano::node_config const & config_a) :
 	ledger{ ledger_a },
@@ -41,13 +41,13 @@ void nano::online_reps::sample ()
 	{
 		auto transaction (ledger.store.tx_begin_write ({ tables::online_weight }));
 		// Discard oldest entries
-		while (ledger.store.online_weight_count (transaction) >= config.network_params.node.max_weight_samples)
+		while (ledger.store.online_weight.count (transaction) >= config.network_params.node.max_weight_samples)
 		{
-			auto oldest (ledger.store.online_weight_begin (transaction));
-			debug_assert (oldest != ledger.store.online_weight_end ());
-			ledger.store.online_weight_del (transaction, oldest->first);
+			auto oldest (ledger.store.online_weight.begin (transaction));
+			debug_assert (oldest != ledger.store.online_weight.end ());
+			ledger.store.online_weight.del (transaction, oldest->first);
 		}
-		ledger.store.online_weight_put (transaction, std::chrono::system_clock::now ().time_since_epoch ().count (), online_l);
+		ledger.store.online_weight.put (transaction, std::chrono::system_clock::now ().time_since_epoch ().count (), online_l);
 		trend_l = calculate_trend (transaction);
 	}
 	lock.lock ();
@@ -69,7 +69,7 @@ nano::uint128_t nano::online_reps::calculate_trend (nano::transaction & transact
 	std::vector<nano::uint128_t> items;
 	items.reserve (config.network_params.node.max_weight_samples + 1);
 	items.push_back (config.online_weight_minimum.number ());
-	for (auto i (ledger.store.online_weight_begin (transaction_a)), n (ledger.store.online_weight_end ()); i != n; ++i)
+	for (auto i (ledger.store.online_weight.begin (transaction_a)), n (ledger.store.online_weight.end ()); i != n; ++i)
 	{
 		items.push_back (i->second.number ());
 	}
@@ -118,7 +118,7 @@ void nano::online_reps::clear ()
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (online_reps & online_reps, std::string const & name)
 {
-	size_t count;
+	std::size_t count;
 	{
 		nano::lock_guard<nano::mutex> guard (online_reps.mutex);
 		count = online_reps.reps.size ();

@@ -9,9 +9,9 @@
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/signatures.hpp>
 #include <nano/node/vote_processor.hpp>
-#include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
 
@@ -140,7 +140,7 @@ void nano::vote_processor::verify_votes (decltype (votes) const & votes_a)
 	messages.reserve (size);
 	std::vector<nano::block_hash> hashes;
 	hashes.reserve (size);
-	std::vector<size_t> lengths (size, sizeof (nano::block_hash));
+	std::vector<std::size_t> lengths (size, sizeof (nano::block_hash));
 	std::vector<unsigned char const *> pub_keys;
 	pub_keys.reserve (size);
 	std::vector<unsigned char const *> signatures;
@@ -198,7 +198,7 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 	}
 	if (config.logging.vote_logging ())
 	{
-		logger.try_log (boost::str (boost::format ("Vote from: %1% timestamp: %2% block(s): %3%status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->timestamp) % vote_a->hashes_string () % status));
+		logger.try_log (boost::str (boost::format ("Vote from: %1% timestamp: %2% duration %3%ms block(s): %4% status: %5%") % vote_a->account.to_account () % std::to_string (vote_a->timestamp ()) % std::to_string (vote_a->duration ().count ()) % vote_a->hashes_string () % status));
 	}
 	return result;
 }
@@ -234,7 +234,7 @@ void nano::vote_processor::flush_active ()
 	}
 }
 
-size_t nano::vote_processor::size ()
+std::size_t nano::vote_processor::size ()
 {
 	nano::lock_guard<nano::mutex> guard (mutex);
 	return votes.size ();
@@ -283,10 +283,10 @@ void nano::vote_processor::calculate_weights ()
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_processor & vote_processor, std::string const & name)
 {
-	size_t votes_count;
-	size_t representatives_1_count;
-	size_t representatives_2_count;
-	size_t representatives_3_count;
+	std::size_t votes_count;
+	std::size_t representatives_1_count;
+	std::size_t representatives_2_count;
+	std::size_t representatives_3_count;
 
 	{
 		nano::lock_guard<nano::mutex> guard (vote_processor.mutex);

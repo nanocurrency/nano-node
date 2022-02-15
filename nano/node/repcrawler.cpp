@@ -32,46 +32,76 @@ void nano::rep_crawler::validate ()
 		nano::lock_guard<nano::mutex> lock (active_mutex);
 		responses_l.swap (responses);
 	}
-	auto minimum = node.minimum_principal_weight ();
+
+	// normally the rep_crawler only tracks principal reps but it can be made to track
+	// reps with less weight by setting rep_crawler_weight_minimum to a low value
+	auto minimum = std::min (node.minimum_principal_weight (), node.config.rep_crawler_weight_minimum.number ());
+
 	for (auto const & i : responses_l)
 	{
 		auto & vote = i.second;
 		auto & channel = i.first;
 		debug_assert (channel != nullptr);
-		if (channel->get_type () != nano::transport::transport_type::loopback)
-		{
-			nano::uint128_t rep_weight = node.ledger.weight (vote->account);
-			if (rep_weight > minimum)
-			{
-				auto updated_or_inserted = false;
-				nano::unique_lock<nano::mutex> lock (probable_reps_mutex);
-				auto existing (probable_reps.find (vote->account));
-				if (existing != probable_reps.end ())
-				{
-					probable_reps.modify (existing, [rep_weight, &updated_or_inserted, &vote, &channel] (nano::representative & info) {
-						info.last_response = std::chrono::steady_clock::now ();
 
-						// Update if representative channel was changed
-						if (info.channel->get_endpoint () != channel->get_endpoint ())
-						{
-							debug_assert (info.account == vote->account);
-							updated_or_inserted = true;
-							info.weight = rep_weight;
-							info.channel = channel;
-						}
-					});
-				}
-				else
-				{
-					probable_reps.emplace (nano::representative (vote->account, rep_weight, channel));
-					updated_or_inserted = true;
-				}
-				lock.unlock ();
-				if (updated_or_inserted)
-				{
-					node.logger.try_log (boost::str (boost::format ("Found a representative at %1%") % channel->to_string ()));
-				}
+		if (channel->get_type () == nano::transport::transport_type::loopback)
+		{
+			if (node.config.logging.rep_crawler_logging ())
+			{
+				node.logger.try_log (boost::str (boost::format ("rep_crawler ignoring vote from loopback channel %1%") % channel->to_string ()));
 			}
+			continue;
+		}
+
+		nano::uint128_t rep_weight = node.ledger.weight (vote->account);
+		if (rep_weight < minimum)
+		{
+			if (node.config.logging.rep_crawler_logging ())
+			{
+				node.logger.try_log (boost::str (boost::format ("rep_crawler ignoring vote from account %1% with too little voting weight %2%") % vote->account.to_account () % rep_weight));
+			}
+			continue;
+		}
+
+		// temporary data used for logging after dropping the lock
+		auto inserted = false;
+		auto updated = false;
+		std::shared_ptr<nano::transport::channel> prev_channel;
+
+		nano::unique_lock<nano::mutex> lock (probable_reps_mutex);
+
+		auto existing (probable_reps.find (vote->account));
+		if (existing != probable_reps.end ())
+		{
+			probable_reps.modify (existing, [rep_weight, &updated, &vote, &channel, &prev_channel] (nano::representative & info) {
+				info.last_response = std::chrono::steady_clock::now ();
+
+				// Update if representative channel was changed
+				if (info.channel->get_endpoint () != channel->get_endpoint ())
+				{
+					debug_assert (info.account == vote->account);
+					updated = true;
+					info.weight = rep_weight;
+					prev_channel = info.channel;
+					info.channel = channel;
+				}
+			});
+		}
+		else
+		{
+			probable_reps.emplace (nano::representative (vote->account, rep_weight, channel));
+			inserted = true;
+		}
+
+		lock.unlock ();
+
+		if (inserted)
+		{
+			node.logger.try_log (boost::str (boost::format ("Found representative %1% at %2%") % vote->account.to_account () % channel->to_string ()));
+		}
+
+		if (updated)
+		{
+			node.logger.try_log (boost::str (boost::format ("Updated representative %1% at %2% (was at: %3%)") % vote->account.to_account () % channel->to_string () % prev_channel->to_string ()));
 		}
 	}
 }
@@ -91,7 +121,8 @@ void nano::rep_crawler::ongoing_crawl ()
 		node.keepalive_preconfigured (node.config.preconfigured_peers);
 	}
 	// Reduce crawl frequency when there's enough total peer weight
-	unsigned next_run_ms = node.network_params.network.is_dev_network () ? 100 : sufficient_weight ? 7000 : 3000;
+	unsigned next_run_ms = node.network_params.network.is_dev_network () ? 100 : sufficient_weight ? 7000
+																								   : 3000;
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.workers.add_timed_task (now + std::chrono::milliseconds (next_run_ms), [node_w, this] () {
 		if (auto node_l = node_w.lock ())
@@ -103,8 +134,8 @@ void nano::rep_crawler::ongoing_crawl ()
 
 std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::get_crawl_targets (nano::uint128_t total_weight_a)
 {
-	constexpr size_t conservative_count = 10;
-	constexpr size_t aggressive_count = 40;
+	constexpr std::size_t conservative_count = 10;
+	constexpr std::size_t aggressive_count = 40;
 
 	// Crawl more aggressively if we lack sufficient total peer weight.
 	bool sufficient_weight (total_weight_a > node.online_reps.delta ());
@@ -324,9 +355,9 @@ void nano::rep_crawler::update_weights ()
 	}
 }
 
-std::vector<nano::representative> nano::rep_crawler::representatives (size_t count_a, nano::uint128_t const weight_a, boost::optional<decltype (nano::protocol_constants::protocol_version)> const & opt_version_min_a)
+std::vector<nano::representative> nano::rep_crawler::representatives (std::size_t count_a, nano::uint128_t const weight_a, boost::optional<decltype (nano::network_constants::protocol_version)> const & opt_version_min_a)
 {
-	auto version_min (opt_version_min_a.value_or (node.network_params.protocol.protocol_version_min ()));
+	auto version_min (opt_version_min_a.value_or (node.network_params.network.protocol_version_min));
 	std::vector<representative> result;
 	nano::lock_guard<nano::mutex> lock (probable_reps_mutex);
 	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n && result.size () < count_a; ++i)
@@ -339,12 +370,12 @@ std::vector<nano::representative> nano::rep_crawler::representatives (size_t cou
 	return result;
 }
 
-std::vector<nano::representative> nano::rep_crawler::principal_representatives (size_t count_a, boost::optional<decltype (nano::protocol_constants::protocol_version)> const & opt_version_min_a)
+std::vector<nano::representative> nano::rep_crawler::principal_representatives (std::size_t count_a, boost::optional<decltype (nano::network_constants::protocol_version)> const & opt_version_min_a)
 {
 	return representatives (count_a, node.minimum_principal_weight (), opt_version_min_a);
 }
 
-std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::representative_endpoints (size_t count_a)
+std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::representative_endpoints (std::size_t count_a)
 {
 	std::vector<std::shared_ptr<nano::transport::channel>> result;
 	auto reps (representatives (count_a));
@@ -356,7 +387,7 @@ std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::repres
 }
 
 /** Total number of representatives */
-size_t nano::rep_crawler::representative_count ()
+std::size_t nano::rep_crawler::representative_count ()
 {
 	nano::lock_guard<nano::mutex> lock (probable_reps_mutex);
 	return probable_reps.size ();

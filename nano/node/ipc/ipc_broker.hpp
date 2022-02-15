@@ -35,7 +35,7 @@ namespace ipc
 		 * @param length_a Length of payload message in bytes
 		 * @param broadcast_completion_handler_a Called once sending is completed
 		 */
-		virtual void async_send_message (uint8_t const * data_a, size_t length_a, std::function<void (nano::error const &)> broadcast_completion_handler_a) = 0;
+		virtual void async_send_message (uint8_t const * data_a, std::size_t length_a, std::function<void (nano::error const &)> broadcast_completion_handler_a) = 0;
 		/** Returns the unique id of the associated session */
 		virtual uint64_t get_id () const = 0;
 		/** Returns the service name associated with the session */
@@ -86,7 +86,7 @@ namespace ipc
 		void subscribe (std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, std::shared_ptr<nanoapi::TopicServiceStopT> const & service_stop_a);
 
 		/** Returns the number of confirmation subscribers */
-		size_t confirmation_subscriber_count () const;
+		std::size_t confirmation_subscriber_count () const;
 		/** Associate the service name with the subscriber */
 		void service_register (std::string const & service_name_a, std::weak_ptr<nano::ipc::subscriber> const & subscriber_a);
 		/** Sends a notification to the session associated with the given service (if the session has subscribed to TopicServiceStop) */

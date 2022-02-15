@@ -20,13 +20,13 @@ void nano::rpc_connection_secure::parse_connection ()
 	}));
 }
 
-void nano::rpc_connection_secure::on_shutdown (const boost::system::error_code & error)
+void nano::rpc_connection_secure::on_shutdown (boost::system::error_code const & error)
 {
 	// No-op. We initiate the shutdown (since the RPC server kills the connection after each request)
 	// and we'll thus get an expected EOF error. If the client disconnects, a short-read error will be expected.
 }
 
-void nano::rpc_connection_secure::handle_handshake (const boost::system::error_code & error)
+void nano::rpc_connection_secure::handle_handshake (boost::system::error_code const & error)
 {
 	if (!error)
 	{

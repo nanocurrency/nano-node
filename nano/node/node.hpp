@@ -74,7 +74,7 @@ public:
 	arrival;
 	// clang-format on
 	nano::mutex mutex{ mutex_identifier (mutexes::block_arrival) };
-	static size_t constexpr arrival_size_min = 8 * 1024;
+	static std::size_t constexpr arrival_size_min = 8 * 1024;
 	static std::chrono::seconds constexpr arrival_time_min = std::chrono::seconds (300);
 };
 
@@ -100,10 +100,10 @@ public:
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
 	void receive_confirmed (nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a);
-	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block> const &, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, nano::account &);
+	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block> const &, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, bool &, nano::account &);
 	void process_confirmed (nano::election_status const &, uint64_t = 0);
 	void process_active (std::shared_ptr<nano::block> const &);
-	nano::process_return process (nano::block &);
+	[[nodiscard]] nano::process_return process (nano::block &);
 	nano::process_return process_local (std::shared_ptr<nano::block> const &);
 	void process_local_async (std::shared_ptr<nano::block> const &);
 	void keepalive_preconfigured (std::vector<std::string> const &);
@@ -148,14 +148,14 @@ public:
 	bool online () const;
 	bool init_error () const;
 	bool epoch_upgrader (nano::raw_key const &, nano::epoch, uint64_t, uint64_t);
-	void set_bandwidth_params (size_t limit, double ratio);
+	void set_bandwidth_params (std::size_t limit, double ratio);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
 	void populate_backlog ();
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
-	nano::network_params network_params;
 	nano::node_config config;
+	nano::network_params & network_params;
 	nano::stat stats;
 	nano::thread_pool workers;
 	std::shared_ptr<nano::websocket::listener> websocket_server;
@@ -163,8 +163,8 @@ public:
 	nano::work_pool & work;
 	nano::distributed_work_factory distributed_work;
 	nano::logger_mt logger;
-	std::unique_ptr<nano::block_store> store_impl;
-	nano::block_store & store;
+	std::unique_ptr<nano::store> store_impl;
+	nano::store & store;
 	std::unique_ptr<nano::wallets_store> wallets_store_impl;
 	nano::wallets_store & wallets_store;
 	nano::gap_cache gap_cache;
@@ -192,7 +192,7 @@ public:
 	nano::election_scheduler scheduler;
 	nano::request_aggregator aggregator;
 	nano::wallets wallets;
-	const std::chrono::steady_clock::time_point startup_time;
+	std::chrono::steady_clock::time_point const startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	std::atomic<bool> unresponsive_work_peers{ false };
 	std::atomic<bool> stopped{ false };
@@ -223,6 +223,7 @@ public:
 	node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a);
 	~node_wrapper ();
 
+	nano::network_params network_params;
 	std::shared_ptr<boost::asio::io_context> io_context;
 	nano::work_pool work;
 	std::shared_ptr<nano::node> node;

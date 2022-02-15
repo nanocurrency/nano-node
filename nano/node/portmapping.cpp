@@ -1,8 +1,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/portmapping.hpp>
 
-#include <miniupnp/miniupnpc/upnpcommands.h>
-#include <miniupnp/miniupnpc/upnperrors.h>
+#include <miniupnp/miniupnpc/include/upnpcommands.h>
+#include <miniupnp/miniupnpc/include/upnperrors.h>
 
 #include <boost/format.hpp>
 #include <boost/range/adaptor/filtered.hpp>
@@ -50,7 +50,7 @@ std::string nano::port_mapping::to_string ()
 
 void nano::port_mapping::refresh_devices ()
 {
-	if (!network_params.network.is_dev_network ())
+	if (!node.network_params.network.is_dev_network ())
 	{
 		upnp_state upnp_l;
 		int discover_error_l = 0;
@@ -96,7 +96,7 @@ nano::endpoint nano::port_mapping::external_address ()
 
 void nano::port_mapping::refresh_mapping ()
 {
-	debug_assert (!network_params.network.is_dev_network ());
+	debug_assert (!node.network_params.network.is_dev_network ());
 	if (on)
 	{
 		nano::lock_guard<nano::mutex> guard_l (mutex);
@@ -106,8 +106,8 @@ void nano::port_mapping::refresh_mapping ()
 		// We don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
 		for (auto & protocol : protocols | boost::adaptors::filtered ([] (auto const & p) { return p.enabled; }))
 		{
-			auto upnp_description = std::string ("Banano Node (") + network_params.network.get_current_network_as_string () + ")";
-			auto add_port_mapping_error_l (UPNP_AddPortMapping (upnp.urls.controlURL, upnp.data.first.servicetype, config_port_l.c_str (), node_port_l.c_str (), address.to_string ().c_str (), upnp_description.c_str (), protocol.name, nullptr, std::to_string (network_params.portmapping.lease_duration.count ()).c_str ()));
+			auto upnp_description = std::string ("Banano Node (") + node.network_params.network.get_current_network_as_string () + ")";
+			auto add_port_mapping_error_l (UPNP_AddPortMapping (upnp.urls.controlURL, upnp.data.first.servicetype, config_port_l.c_str (), node_port_l.c_str (), address.to_string ().c_str (), upnp_description.c_str (), protocol.name, nullptr, std::to_string (node.network_params.portmapping.lease_duration.count ()).c_str ()));
 
 			if (add_port_mapping_error_l == UPNPCOMMAND_SUCCESS)
 			{
@@ -128,7 +128,7 @@ void nano::port_mapping::refresh_mapping ()
 bool nano::port_mapping::check_lost_or_old_mapping ()
 {
 	// Long discovery time and fast setup/teardown make this impractical for testing
-	debug_assert (!network_params.network.is_dev_network ());
+	debug_assert (!node.network_params.network.is_dev_network ());
 	bool result_l (false);
 	nano::lock_guard<nano::mutex> guard_l (mutex);
 	auto node_port_l (std::to_string (node.network.endpoint ().port ()));
@@ -141,7 +141,7 @@ bool nano::port_mapping::check_lost_or_old_mapping ()
 		remaining_mapping_duration_l.fill (0);
 		auto verify_port_mapping_error_l (UPNP_GetSpecificPortMappingEntry (upnp.urls.controlURL, upnp.data.first.servicetype, config_port_l.c_str (), protocol.name, nullptr, int_client_l.data (), int_port_l.data (), nullptr, nullptr, remaining_mapping_duration_l.data ()));
 		auto remaining_from_port_mapping = std::atoi (remaining_mapping_duration_l.data ());
-		auto lease_duration = network_params.portmapping.lease_duration.count ();
+		auto lease_duration = node.network_params.portmapping.lease_duration.count ();
 		auto lease_duration_divided_by_two = (lease_duration / 2);
 		auto recent_lease = (remaining_from_port_mapping >= lease_duration_divided_by_two);
 		if (verify_port_mapping_error_l != UPNPCOMMAND_SUCCESS)
@@ -178,7 +178,7 @@ bool nano::port_mapping::check_lost_or_old_mapping ()
 
 void nano::port_mapping::check_mapping_loop ()
 {
-	auto health_check_period = network_params.portmapping.health_check_period;
+	auto health_check_period = node.network_params.portmapping.health_check_period;
 
 	refresh_devices ();
 

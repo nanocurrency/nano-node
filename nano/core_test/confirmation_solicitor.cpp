@@ -1,6 +1,6 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
-#include <nano/node/testing.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -19,16 +19,16 @@ TEST (confirmation_solicitor, batches)
 	auto & node2 = *system.add_node (node_flags);
 	auto channel1 (node2.network.udp_channels.create (node1.network.endpoint ()));
 	// Solicitor will only solicit from this representative
-	nano::representative representative (nano::dev_genesis_key.pub, nano::genesis_amount, channel1);
+	nano::representative representative (nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, channel1);
 	std::vector<nano::representative> representatives{ representative };
 	nano::confirmation_solicitor solicitor (node2.network, node2.config);
 	solicitor.prepare (representatives);
 	// Ensure the representatives are correct
 	ASSERT_EQ (1, representatives.size ());
 	ASSERT_EQ (channel1, representatives.front ().channel);
-	ASSERT_EQ (nano::dev_genesis_key.pub, representatives.front ().account);
+	ASSERT_EQ (nano::dev::genesis_key.pub, representatives.front ().account);
 	ASSERT_TIMELY (3s, node2.network.size () == 1);
-	auto send (std::make_shared<nano::send_block> (nano::genesis_hash, nano::keypair ().pub, nano::genesis_amount - 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (nano::genesis_hash)));
+	auto send (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), nano::keypair ().pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
 	send->sideband_set ({});
 	{
 		nano::lock_guard<nano::mutex> guard (node2.active.mutex);
@@ -63,16 +63,16 @@ TEST (confirmation_solicitor, different_hash)
 	auto & node2 = *system.add_node (node_flags);
 	auto channel1 (node2.network.udp_channels.create (node1.network.endpoint ()));
 	// Solicitor will only solicit from this representative
-	nano::representative representative (nano::dev_genesis_key.pub, nano::genesis_amount, channel1);
+	nano::representative representative (nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, channel1);
 	std::vector<nano::representative> representatives{ representative };
 	nano::confirmation_solicitor solicitor (node2.network, node2.config);
 	solicitor.prepare (representatives);
 	// Ensure the representatives are correct
 	ASSERT_EQ (1, representatives.size ());
 	ASSERT_EQ (channel1, representatives.front ().channel);
-	ASSERT_EQ (nano::dev_genesis_key.pub, representatives.front ().account);
+	ASSERT_EQ (nano::dev::genesis_key.pub, representatives.front ().account);
 	ASSERT_TIMELY (3s, node2.network.size () == 1);
-	auto send (std::make_shared<nano::send_block> (nano::genesis_hash, nano::keypair ().pub, nano::genesis_amount - 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (nano::genesis_hash)));
+	auto send (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), nano::keypair ().pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
 	send->sideband_set ({});
 	auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::normal));
 	// Add a vote for something else, not the winner
@@ -108,7 +108,7 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 	ASSERT_EQ (max_representatives + 1, representatives.size ());
 	solicitor.prepare (representatives);
 	ASSERT_TIMELY (3s, node2.network.size () == 1);
-	auto send (std::make_shared<nano::send_block> (nano::genesis_hash, nano::keypair ().pub, nano::genesis_amount - 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (nano::genesis_hash)));
+	auto send (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), nano::keypair ().pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
 	send->sideband_set ({});
 	auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::normal));
 	// Add a vote for something else, not the winner

@@ -17,7 +17,7 @@ nano::bootstrap_initiator::bootstrap_initiator (nano::node & node_a) :
 		nano::thread_role::set (nano::thread_role::name::bootstrap_connections);
 		connections->run ();
 	}));
-	for (size_t i = 0; i < node.config.bootstrap_initiator_threads; ++i)
+	for (std::size_t i = 0; i < node.config.bootstrap_initiator_threads; ++i)
 	{
 		bootstrap_initiator_threads.push_back (boost::thread ([this] () {
 			nano::thread_role::set (nano::thread_role::name::bootstrap_initiator);
@@ -55,7 +55,7 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 	{
 		if (!node.flags.disable_udp)
 		{
-			node.network.udp_channels.insert (nano::transport::map_endpoint_to_v6 (endpoint_a), node.network_params.protocol.protocol_version);
+			node.network.udp_channels.insert (nano::transport::map_endpoint_to_v6 (endpoint_a), node.network_params.network.protocol_version);
 		}
 		else if (!node.flags.disable_tcp_realtime)
 		{
@@ -287,8 +287,8 @@ void nano::bootstrap_initiator::notify_listeners (bool in_progress_a)
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (bootstrap_initiator & bootstrap_initiator, std::string const & name)
 {
-	size_t count;
-	size_t cache_count;
+	std::size_t count;
+	std::size_t cache_count;
 	{
 		nano::lock_guard<nano::mutex> guard (bootstrap_initiator.observers_mutex);
 		count = bootstrap_initiator.observers.size ();
@@ -387,7 +387,7 @@ std::shared_ptr<nano::bootstrap_attempt> nano::bootstrap_attempts::find (uint64_
 	}
 }
 
-size_t nano::bootstrap_attempts::size ()
+std::size_t nano::bootstrap_attempts::size ()
 {
 	nano::lock_guard<nano::mutex> lock (bootstrap_attempts_mutex);
 	return attempts.size ();

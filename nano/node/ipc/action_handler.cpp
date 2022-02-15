@@ -11,11 +11,12 @@ namespace
 {
 nano::account parse_account (std::string const & account, bool & out_is_deprecated_format)
 {
-	nano::account result (0);
+	nano::account result{};
 	if (account.empty ())
 	{
 		throw nano::error (nano::error_common::bad_account_number);
 	}
+
 	if (result.decode_account (account))
 	{
 		throw nano::error (nano::error_common::bad_account_number);

@@ -255,6 +255,7 @@ public:
 		insufficient_work,
 		http_callback,
 		unreachable_host,
+		invalid_network,
 
 		// confirmation_observer specific
 		active_quorum,
@@ -302,6 +303,7 @@ public:
 		frontier_confirmation_failed,
 		frontier_confirmation_successful,
 		error_socket_close,
+		request_underflow,
 
 		// vote specific
 		vote_valid,
@@ -336,6 +338,8 @@ public:
 		invalid_telemetry_req_message,
 		invalid_telemetry_ack_message,
 		outdated_version,
+		udp_max_per_ip,
+		udp_max_per_subnetwork,
 
 		// tcp
 		tcp_accept_success,
@@ -344,6 +348,9 @@ public:
 		tcp_write_no_socket_drop,
 		tcp_excluded,
 		tcp_max_per_ip,
+		tcp_max_per_subnetwork,
+		tcp_silent_connection_drop,
+		tcp_io_timeout_drop,
 
 		// ipc
 		invocations,

@@ -40,6 +40,7 @@ public:
 	void account_representative_set ();
 	void account_weight ();
 	void accounts_balances ();
+	void accounts_representatives ();
 	void accounts_create ();
 	void accounts_frontiers ();
 	void accounts_pending ();
@@ -65,6 +66,7 @@ public:
 	void confirmation_height_currently_processing ();
 	void database_txn_tracker ();
 	void delegators ();
+	void delegators_decimal ();
 	void delegators_count ();
 	void deterministic_key ();
 	void epoch_upgrade ();
@@ -75,6 +77,8 @@ public:
 	void ledger ();
 	void mnano_to_raw (nano::uint128_t = nano::BAN_ratio);
 	void mnano_from_raw (nano::uint128_t = nano::BAN_ratio);
+	void nano_to_raw ();
+	void raw_to_nano ();
 	void node_id ();
 	void node_id_delete ();
 	void password_change ();
@@ -85,10 +89,12 @@ public:
 	void pending_exists ();
 	void process ();
 	void pruned_exists ();
+	void raw_to_dec ();
 	void receive ();
 	void receive_minimum ();
 	void receive_minimum_set ();
 	void representatives ();
+	void representatives_decimal_millions ();
 	void representatives_online ();
 	void republish ();
 	void search_pending ();

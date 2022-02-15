@@ -1,8 +1,8 @@
 #pragma once
 
-#include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
 #include <atomic>
 #include <chrono>
@@ -106,7 +106,7 @@ public: // Interface
 	std::shared_ptr<nano::block> find (nano::block_hash const &) const;
 	nano::election_vote_result vote (nano::account const &, uint64_t, nano::block_hash const &);
 	bool publish (std::shared_ptr<nano::block> const & block_a);
-	size_t insert_inactive_votes_cache (nano::inactive_cache_information const &);
+	std::size_t insert_inactive_votes_cache (nano::inactive_cache_information const &);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (nano::unique_lock<nano::mutex> &);
 
@@ -142,7 +142,7 @@ private:
 	mutable nano::mutex mutex;
 
 	static std::chrono::seconds constexpr late_blocks_delay{ 5 };
-	static size_t constexpr max_blocks{ 10 };
+	static std::size_t constexpr max_blocks{ 10 };
 
 	friend class active_transactions;
 	friend class confirmation_solicitor;

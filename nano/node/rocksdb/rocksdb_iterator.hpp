@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/secure/blockstore.hpp>
+#include <nano/secure/store.hpp>
 
 #include <rocksdb/db.h>
 #include <rocksdb/filter_policy.h>
@@ -13,7 +13,7 @@ namespace
 {
 inline bool is_read (nano::transaction const & transaction_a)
 {
-	return (dynamic_cast<const nano::read_transaction *> (&transaction_a) != nullptr);
+	return (dynamic_cast<nano::read_transaction const *> (&transaction_a) != nullptr);
 }
 
 inline rocksdb::ReadOptions & snapshot_options (nano::transaction const & transaction_a)

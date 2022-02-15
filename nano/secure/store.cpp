@@ -1,7 +1,7 @@
 #include <nano/lib/threading.hpp>
-#include <nano/secure/blockstore.hpp>
+#include <nano/secure/store.hpp>
 
-nano::representative_visitor::representative_visitor (nano::transaction const & transaction_a, nano::block_store & store_a) :
+nano::representative_visitor::representative_visitor (nano::transaction const & transaction_a, nano::store & store_a) :
 	transaction (transaction_a),
 	store (store_a),
 	result (0)
@@ -13,7 +13,7 @@ void nano::representative_visitor::compute (nano::block_hash const & hash_a)
 	current = hash_a;
 	while (result.is_zero ())
 	{
-		auto block (store.block_get (transaction, current));
+		auto block (store.block.get (transaction, current));
 		debug_assert (block != nullptr);
 		block->visit (*this);
 	}
@@ -104,3 +104,32 @@ bool nano::write_transaction::contains (nano::tables table_a) const
 {
 	return impl->contains (table_a);
 }
+
+// clang-format off
+nano::store::store (
+	nano::block_store & block_store_a,
+	nano::frontier_store & frontier_store_a,
+	nano::account_store & account_store_a,
+	nano::pending_store & pending_store_a,
+	nano::unchecked_store & unchecked_store_a,
+	nano::online_weight_store & online_weight_store_a,
+	nano::pruned_store & pruned_store_a,
+	nano::peer_store & peer_store_a,
+	nano::confirmation_height_store & confirmation_height_store_a,
+	nano::final_vote_store & final_vote_store_a,
+	nano::version_store & version_store_a
+) :
+	block (block_store_a),
+	frontier (frontier_store_a),
+	account (account_store_a),
+	pending (pending_store_a),
+	unchecked (unchecked_store_a),
+	online_weight (online_weight_store_a),
+	pruned (pruned_store_a),
+	peer (peer_store_a),
+	confirmation_height (confirmation_height_store_a),
+	final_vote (final_vote_store_a),
+	version (version_store_a)
+{
+}
+// clang-format on

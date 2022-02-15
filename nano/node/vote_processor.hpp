@@ -14,7 +14,7 @@ namespace nano
 {
 class signature_checker;
 class active_transactions;
-class block_store;
+class store;
 class node_observers;
 class stats;
 class node_config;
@@ -24,6 +24,7 @@ class rep_crawler;
 class ledger;
 class network_params;
 class node_flags;
+class stat;
 
 class transaction;
 namespace transport
@@ -43,7 +44,7 @@ public:
 	void flush ();
 	/** Block until the currently active processing cycle finishes */
 	void flush_active ();
-	size_t size ();
+	std::size_t size ();
 	bool empty ();
 	bool half_full ();
 	void calculate_weights ();
@@ -63,7 +64,7 @@ private:
 	nano::rep_crawler & rep_crawler;
 	nano::ledger & ledger;
 	nano::network_params & network_params;
-	size_t max_votes;
+	std::size_t max_votes;
 	std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> votes;
 	/** Representatives levels for random early detection */
 	std::unordered_set<nano::account> representatives_1;

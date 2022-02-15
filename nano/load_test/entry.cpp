@@ -43,7 +43,8 @@ constexpr auto ipc_port_start = 62000;
 
 void write_config_files (boost::filesystem::path const & data_path, int index)
 {
-	nano::daemon_config daemon_config (data_path);
+	nano::network_params network_params{ nano::network_constants::active_network };
+	nano::daemon_config daemon_config{ data_path, network_params };
 	daemon_config.node.peering_port = peering_port_start + index;
 	daemon_config.node.ipc_config.transport_tcp.enabled = true;
 	daemon_config.node.ipc_config.transport_tcp.port = ipc_port_start + index;
@@ -56,7 +57,7 @@ void write_config_files (boost::filesystem::path const & data_path, int index)
 	daemon_config.serialize_toml (toml);
 	toml.write (nano::get_node_toml_config_path (data_path));
 
-	nano::rpc_config rpc_config;
+	nano::rpc_config rpc_config{ daemon_config.node.network_params.network };
 	rpc_config.port = rpc_port_start + index;
 	rpc_config.enable_control = true;
 	rpc_config.rpc_process.ipc_port = ipc_port_start + index;
@@ -360,8 +361,7 @@ int main (int argc, char * const * argv)
 		data_paths.push_back (std::move (data_path));
 	}
 
-	nano::network_constants network_constants;
-	auto current_network = network_constants.get_current_network_as_string ();
+	auto current_network = nano::dev::network_params.network.get_current_network_as_string ();
 	std::vector<std::unique_ptr<boost::process::child>> nodes;
 	std::vector<std::unique_ptr<boost::process::child>> rpc_servers;
 	for (auto const & data_path : data_paths)
@@ -406,7 +406,7 @@ int main (int argc, char * const * argv)
 		std::string wallet = wallet_create_rpc (ioc, primary_node_results);
 
 		// Add genesis account to it
-		wallet_add_rpc (ioc, primary_node_results, wallet, nano::dev_genesis_key.prv.to_string ());
+		wallet_add_rpc (ioc, primary_node_results, wallet, nano::dev::genesis_key.prv.to_string ());
 
 		// Add destination accounts
 		for (auto & account : destination_accounts)
@@ -437,7 +437,7 @@ int main (int argc, char * const * argv)
 
 			// Send from genesis account to different accounts and receive the funds
 			boost::asio::spawn (ioc, [&ioc, &primary_node_results, &wallet, destination_account, &send_calls_remaining] (boost::asio::yield_context yield) {
-				send_receive (ioc, wallet, nano::genesis_account.to_account (), destination_account->as_string, send_calls_remaining, primary_node_results, yield);
+				send_receive (ioc, wallet, nano::dev::genesis->account ().to_account (), destination_account->as_string, send_calls_remaining, primary_node_results, yield);
 			});
 		}
 
