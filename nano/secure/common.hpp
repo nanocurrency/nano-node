@@ -197,16 +197,28 @@ enum class signature_verification : uint8_t
  */
 class unchecked_info final
 {
+	friend class unchecked_map;
+
 public:
 	unchecked_info () = default;
+
+private:
 	unchecked_info (std::shared_ptr<nano::block> const &, nano::account const &, uint64_t, nano::signature_verification = nano::signature_verification::unknown);
+
+public:
+	unchecked_info (std::shared_ptr<nano::block> const &, nano::account const &, nano::signature_verification = nano::signature_verification::unknown);
 	unchecked_info (std::shared_ptr<nano::block> const &);
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
+	uint64_t modified () const;
 	std::shared_ptr<nano::block> block;
 	nano::account account{};
+
+private:
 	/** Seconds since posix epoch */
-	uint64_t modified{ 0 };
+	uint64_t modified_m{ 0 };
+
+public:
 	nano::signature_verification verified{ nano::signature_verification::unknown };
 };
 

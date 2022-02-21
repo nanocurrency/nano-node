@@ -581,7 +581,7 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> con
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
 	// Set current time to trigger automatic rebroadcast and election
-	nano::unchecked_info info (block_a, block_a->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
+	nano::unchecked_info info (block_a, block_a->account (), nano::signature_verification::unknown);
 	// Notify block processor to release write lock
 	block_processor.wait_write ();
 	// Process block
@@ -595,7 +595,7 @@ void nano::node::process_local_async (std::shared_ptr<nano::block> const & block
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
 	// Set current time to trigger automatic rebroadcast and election
-	nano::unchecked_info info (block_a, block_a->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
+	nano::unchecked_info info (block_a, block_a->account (), nano::signature_verification::unknown);
 	block_processor.add_local (info);
 }
 
@@ -950,7 +950,7 @@ void nano::node::unchecked_cleanup ()
 		{
 			nano::unchecked_key const & key (i->first);
 			nano::unchecked_info const & info (i->second);
-			if ((now - info.modified) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
+			if ((now - info.modified ()) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
 			{
 				digests.push_back (network.publish_filter.hash (info.block));
 				cleaning_list.push_back (key);
