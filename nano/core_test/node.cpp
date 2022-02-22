@@ -2205,8 +2205,8 @@ TEST (node, block_confirm)
 		auto send1_copy = builder.make_block ()
 						  .from (*send1)
 						  .build_shared ();
-		node1.block_processor.add (send1, nano::seconds_since_epoch ());
-		node2.block_processor.add (send1_copy, nano::seconds_since_epoch ());
+		node1.block_processor.add (send1);
+		node2.block_processor.add (send1_copy);
 		ASSERT_TIMELY (5s, node1.ledger.block_or_pruned_exists (send1->hash ()) && node2.ledger.block_or_pruned_exists (send1_copy->hash ()));
 		ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
 		ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1_copy->hash ()));

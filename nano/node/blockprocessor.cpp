@@ -97,7 +97,7 @@ bool nano::block_processor::half_full ()
 	return size () >= node.flags.block_processor_full_size / 2;
 }
 
-void nano::block_processor::add (std::shared_ptr<nano::block> const & block_a, uint64_t origination)
+void nano::block_processor::add (std::shared_ptr<nano::block> const & block_a)
 {
 	nano::unchecked_info info (block_a, 0, nano::signature_verification::unknown);
 	add (info);
