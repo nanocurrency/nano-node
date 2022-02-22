@@ -22,6 +22,9 @@ class prioritization final
 	using priority = std::set<value_type>;
 	std::vector<priority> buckets;
 	std::vector<nano::uint128_t> minimums;
+	/** maximum number of blocks in whole container, each bucket's maximum is maximum / bucket_number */
+	uint64_t const maximum;
+
 	void next ();
 	void seek ();
 	void populate_schedule ();
@@ -39,7 +42,6 @@ public:
 	std::size_t bucket_size (std::size_t index) const;
 	bool empty () const;
 	void dump () const;
-	uint64_t const maximum;
 
 	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const &);
 };
