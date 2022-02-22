@@ -354,16 +354,16 @@ nano::account const & nano::pending_key::key () const
 	return account;
 }
 
-nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, uint64_t modified_a, nano::signature_verification verified_a) :
+nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::signature_verification verified_a) :
 	block (block_a),
 	account (account_a),
-	modified (modified_a),
+	modified_m (nano::seconds_since_epoch ()),
 	verified (verified_a)
 {
 }
 
 nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> const & block) :
-	unchecked_info{ block, block->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown }
+	unchecked_info{ block, block->account (), nano::signature_verification::unknown }
 {
 }
 
@@ -372,7 +372,7 @@ void nano::unchecked_info::serialize (nano::stream & stream_a) const
 	debug_assert (block != nullptr);
 	nano::serialize_block (stream_a, *block);
 	nano::write (stream_a, account.bytes);
-	nano::write (stream_a, modified);
+	nano::write (stream_a, modified_m);
 	nano::write (stream_a, verified);
 }
 
@@ -385,7 +385,7 @@ bool nano::unchecked_info::deserialize (nano::stream & stream_a)
 		try
 		{
 			nano::read (stream_a, account.bytes);
-			nano::read (stream_a, modified);
+			nano::read (stream_a, modified_m);
 			nano::read (stream_a, verified);
 		}
 		catch (std::runtime_error const &)
@@ -394,6 +394,11 @@ bool nano::unchecked_info::deserialize (nano::stream & stream_a)
 		}
 	}
 	return error;
+}
+
+uint64_t nano::unchecked_info::modified () const
+{
+	return modified_m;
 }
 
 nano::endpoint_key::endpoint_key (std::array<uint8_t, 16> const & address_a, uint16_t port_a) :

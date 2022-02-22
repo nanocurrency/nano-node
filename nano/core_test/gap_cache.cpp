@@ -95,13 +95,13 @@ TEST (gap_cache, two_dependencies)
 	auto send2 (std::make_shared<nano::send_block> (send1->hash (), key.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send1->hash ())));
 	auto open (std::make_shared<nano::open_block> (send1->hash (), key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
 	ASSERT_EQ (0, node1.gap_cache.size ());
-	node1.block_processor.add (send2, nano::seconds_since_epoch ());
+	node1.block_processor.add (send2);
 	node1.block_processor.flush ();
 	ASSERT_EQ (1, node1.gap_cache.size ());
-	node1.block_processor.add (open, nano::seconds_since_epoch ());
+	node1.block_processor.add (open);
 	node1.block_processor.flush ();
 	ASSERT_EQ (2, node1.gap_cache.size ());
-	node1.block_processor.add (send1, nano::seconds_since_epoch ());
+	node1.block_processor.add (send1);
 	node1.block_processor.flush ();
 	ASSERT_TIMELY (5s, node1.gap_cache.size () == 0);
 	auto transaction (node1.store.tx_begin_read ());

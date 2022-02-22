@@ -49,7 +49,7 @@ TEST (unchecked_map, construction)
 TEST (unchecked_map, put_one)
 {
 	context context;
-	nano::unchecked_info info{ block (), nano::dev::genesis_key.pub, nano::seconds_since_epoch () };
+	nano::unchecked_info info{ block (), nano::dev::genesis_key.pub };
 	context.unchecked.put (info.block->previous (), info);
 }
 

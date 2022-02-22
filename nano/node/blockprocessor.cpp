@@ -97,9 +97,9 @@ bool nano::block_processor::half_full ()
 	return size () >= node.flags.block_processor_full_size / 2;
 }
 
-void nano::block_processor::add (std::shared_ptr<nano::block> const & block_a, uint64_t origination)
+void nano::block_processor::add (std::shared_ptr<nano::block> const & block_a)
 {
-	nano::unchecked_info info (block_a, 0, origination, nano::signature_verification::unknown);
+	nano::unchecked_info info (block_a, 0, nano::signature_verification::unknown);
 	add (info);
 }
 
@@ -256,7 +256,7 @@ void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 		}
 		else
 		{
-			info = nano::unchecked_info (forced.front (), 0, nano::seconds_since_epoch (), nano::signature_verification::unknown);
+			info = nano::unchecked_info (forced.front (), 0, nano::signature_verification::unknown);
 			forced.pop_front ();
 			hash = info.block->hash ();
 			force = true;
@@ -353,7 +353,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				block->serialize_json (block_string, node.config.logging.single_line_record ());
 				node.logger.try_log (boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block_string));
 			}
-			if ((info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash)) || forced_a)
+			if (node.block_arrival.recent (hash) || forced_a)
 			{
 				events_a.events.emplace_back ([this, hash, block = info_a.block, result, origin_a] (nano::transaction const & post_event_transaction_a) { process_live (post_event_transaction_a, hash, block, result, origin_a); });
 			}
@@ -376,10 +376,6 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				node.logger.try_log (boost::str (boost::format ("Gap previous for: %1%") % hash.to_string ()));
 			}
 			info_a.verified = result.verified;
-			if (info_a.modified == 0)
-			{
-				info_a.modified = nano::seconds_since_epoch ();
-			}
 			node.unchecked.put (block->previous (), info_a);
 			events_a.events.emplace_back ([this, hash] (nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_previous);
@@ -392,10 +388,6 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				node.logger.try_log (boost::str (boost::format ("Gap source for: %1%") % hash.to_string ()));
 			}
 			info_a.verified = result.verified;
-			if (info_a.modified == 0)
-			{
-				info_a.modified = nano::seconds_since_epoch ();
-			}
 			node.unchecked.put (node.ledger.block_source (transaction_a, *(block)), info_a);
 			events_a.events.emplace_back ([this, hash] (nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
@@ -408,10 +400,6 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				node.logger.try_log (boost::str (boost::format ("Gap pending entries for epoch open: %1%") % hash.to_string ()));
 			}
 			info_a.verified = result.verified;
-			if (info_a.modified == 0)
-			{
-				info_a.modified = nano::seconds_since_epoch ();
-			}
 			node.unchecked.put (block->account (), info_a); // Specific unchecked key starting with epoch open block account public key
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
@@ -503,7 +491,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 
 nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, std::shared_ptr<nano::block> const & block_a)
 {
-	nano::unchecked_info info (block_a, block_a->account (), 0, nano::signature_verification::unknown);
+	nano::unchecked_info info (block_a, block_a->account (), nano::signature_verification::unknown);
 	auto result (process_one (transaction_a, events_a, info));
 	return result;
 }

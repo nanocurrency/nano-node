@@ -4078,7 +4078,7 @@ void nano::json_handler::unchecked_get ()
 			if (key.hash == hash)
 			{
 				nano::unchecked_info const & info (i->second);
-				response_l.put ("modified_timestamp", std::to_string (info.modified));
+				response_l.put ("modified_timestamp", std::to_string (info.modified ()));
 
 				if (json_block_l)
 				{
@@ -4126,7 +4126,7 @@ void nano::json_handler::unchecked_keys ()
 			nano::unchecked_info const & info (i->second);
 			entry.put ("key", i->first.key ().to_string ());
 			entry.put ("hash", info.block->hash ().to_string ());
-			entry.put ("modified_timestamp", std::to_string (info.modified));
+			entry.put ("modified_timestamp", std::to_string (info.modified ()));
 			if (json_block_l)
 			{
 				boost::property_tree::ptree block_node_l;
