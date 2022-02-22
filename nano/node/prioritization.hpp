@@ -25,13 +25,12 @@ class prioritization final
 	void next ();
 	void seek ();
 	void populate_schedule ();
-	std::function<void (std::shared_ptr<nano::block>)> drop;
 	// Contains bucket indicies to iterate over when making the next scheduling decision
 	std::vector<uint8_t> schedule;
 	decltype (schedule)::const_iterator current;
 
 public:
-	prioritization (uint64_t maximum = 250000u, std::function<void (std::shared_ptr<nano::block>)> const & drop_a = nullptr);
+	prioritization (uint64_t maximum = 250000u);
 	void push (uint64_t time, std::shared_ptr<nano::block> block);
 	std::shared_ptr<nano::block> top () const;
 	void pop ();
