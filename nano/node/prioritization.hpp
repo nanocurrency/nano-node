@@ -38,7 +38,7 @@ public:
 	std::size_t bucket_count () const;
 	std::size_t bucket_size (std::size_t index) const;
 	bool empty () const;
-	void dump ();
+	void dump () const;
 	uint64_t const maximum;
 
 	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const &);

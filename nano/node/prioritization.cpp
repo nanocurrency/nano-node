@@ -117,7 +117,7 @@ bool nano::prioritization::empty () const
 	return std::all_of (buckets.begin (), buckets.end (), [] (priority const & bucket_a) { return bucket_a.empty (); });
 }
 
-void nano::prioritization::dump ()
+void nano::prioritization::dump () const
 {
 	for (auto const & i : buckets)
 	{
