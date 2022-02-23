@@ -31,7 +31,7 @@ nano::block_processor::block_processor (nano::node & node_a, nano::write_databas
 	write_database_queue (write_database_queue_a),
 	state_block_signature_verification (node.checker, node.ledger.constants.epochs, node.config, node.logger, node.flags.block_processor_verification_size)
 {
-	state_block_signature_verification.blocks_verified_callback = [this] (std::deque<nano::unchecked_info> & items, std::vector<int> const & verifications, std::vector<nano::block_hash> const & hashes, std::vector<nano::signature> const & blocks_signatures) {
+	state_block_signature_verification.blocks_verified_callback = [this] (std::deque<nano::state_block_signature_verification::value_type> & items, std::vector<int> const & verifications, std::vector<nano::block_hash> const & hashes, std::vector<nano::signature> const & blocks_signatures) {
 		this->process_verified_state_blocks (items, verifications, hashes, blocks_signatures);
 	};
 	state_block_signature_verification.transition_inactive_callback = [this] () {
@@ -105,10 +105,13 @@ void nano::block_processor::add (std::shared_ptr<nano::block> const & block_a)
 
 void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
-	debug_assert (!node.network_params.work.validate_entry (*info_a.block));
-	if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
+	auto const & block = info_a.block;
+	auto const & account = info_a.account;
+	auto const & verified = info_a.verified;
+	debug_assert (!node.network_params.work.validate_entry (*block));
+	if (verified == nano::signature_verification::unknown && (block->type () == nano::block_type::state || block->type () == nano::block_type::open || !account.is_zero ()))
 	{
-		state_block_signature_verification.add (info_a);
+		state_block_signature_verification.add ({ block, account, verified });
 	}
 	else
 	{
@@ -124,7 +127,7 @@ void nano::block_processor::add_local (nano::unchecked_info const & info_a)
 {
 	release_assert (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || !info_a.account.is_zero ()));
 	debug_assert (!node.network_params.work.validate_entry (*info_a.block));
-	state_block_signature_verification.add (info_a);
+	state_block_signature_verification.add ({ info_a.block, info_a.account, info_a.verified });
 }
 
 void nano::block_processor::force (std::shared_ptr<nano::block> const & block_a)
@@ -187,7 +190,7 @@ bool nano::block_processor::have_blocks ()
 	return have_blocks_ready () || state_block_signature_verification.size () != 0;
 }
 
-void nano::block_processor::process_verified_state_blocks (std::deque<nano::unchecked_info> & items, std::vector<int> const & verifications, std::vector<nano::block_hash> const & hashes, std::vector<nano::signature> const & blocks_signatures)
+void nano::block_processor::process_verified_state_blocks (std::deque<nano::state_block_signature_verification::value_type> & items, std::vector<int> const & verifications, std::vector<nano::block_hash> const & hashes, std::vector<nano::signature> const & blocks_signatures)
 {
 	{
 		nano::unique_lock<nano::mutex> lk (mutex);
@@ -195,30 +198,31 @@ void nano::block_processor::process_verified_state_blocks (std::deque<nano::unch
 		{
 			debug_assert (verifications[i] == 1 || verifications[i] == 0);
 			auto & item = items.front ();
-			if (!item.block->link ().is_zero () && node.ledger.is_epoch_link (item.block->link ()))
+			auto & [block, account, verified] = item;
+			if (!block->link ().is_zero () && node.ledger.is_epoch_link (block->link ()))
 			{
 				// Epoch blocks
 				if (verifications[i] == 1)
 				{
-					item.verified = nano::signature_verification::valid_epoch;
-					blocks.emplace_back (std::move (item));
+					verified = nano::signature_verification::valid_epoch;
+					blocks.emplace_back (block, account, verified);
 				}
 				else
 				{
 					// Possible regular state blocks with epoch link (send subtype)
-					item.verified = nano::signature_verification::unknown;
-					blocks.emplace_back (std::move (item));
+					verified = nano::signature_verification::unknown;
+					blocks.emplace_back (block, account, verified);
 				}
 			}
 			else if (verifications[i] == 1)
 			{
 				// Non epoch blocks
-				item.verified = nano::signature_verification::valid;
-				blocks.emplace_back (std::move (item));
+				verified = nano::signature_verification::valid;
+				blocks.emplace_back (block, account, verified);
 			}
 			else
 			{
-				requeue_invalid (hashes[i], item);
+				requeue_invalid (hashes[i], { block, account, verified });
 			}
 			items.pop_front ();
 		}

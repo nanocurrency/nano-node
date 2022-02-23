@@ -74,7 +74,7 @@ private:
 	void process_batch (nano::unique_lock<nano::mutex> &);
 	void process_live (nano::transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &, nano::process_return const &, nano::block_origin const = nano::block_origin::remote);
 	void requeue_invalid (nano::block_hash const &, nano::unchecked_info const &);
-	void process_verified_state_blocks (std::deque<nano::unchecked_info> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);
+	void process_verified_state_blocks (std::deque<nano::state_block_signature_verification::value_type> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);
 	bool stopped{ false };
 	bool active{ false };
 	bool awaiting_write{ false };
