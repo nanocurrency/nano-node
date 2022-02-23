@@ -14,6 +14,7 @@ bool nano::prioritization::value_type::operator== (value_type const & other_a) c
 	return time == other_a.time && block->hash () == other_a.block->hash ();
 }
 
+/** Moves the bucket pointer to the next bucket */
 void nano::prioritization::next ()
 {
 	++current;
@@ -23,6 +24,7 @@ void nano::prioritization::next ()
 	}
 }
 
+/** Seek to the next non-empty bucket, if one exists */
 void nano::prioritization::seek ()
 {
 	next ();
@@ -32,6 +34,7 @@ void nano::prioritization::seek ()
 	}
 }
 
+/** Initialise the schedule vector */
 void nano::prioritization::populate_schedule ()
 {
 	for (auto i = 0; i < buckets.size (); ++i)
@@ -40,8 +43,11 @@ void nano::prioritization::populate_schedule ()
 	}
 }
 
-nano::prioritization::prioritization (uint64_t maximum, std::function<void (std::shared_ptr<nano::block>)> const & drop_a) :
-	drop{ drop_a },
+/**
+ * Prioritization constructor, construct a container containing approximately 'maximum' number of blocks.
+ * @param maximum number of blocks that this container can hold, this is a soft and approximate limit.
+ */
+nano::prioritization::prioritization (uint64_t maximum) :
 	maximum{ maximum }
 {
 	static std::size_t constexpr bucket_count = 129;
@@ -57,6 +63,10 @@ nano::prioritization::prioritization (uint64_t maximum, std::function<void (std:
 	current = schedule.begin ();
 }
 
+/**
+ * Push a block and its associated time into the prioritization container.
+ * The time is given here because sideband might not exist in the case of state blocks.
+ */
 void nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> block)
 {
 	auto was_empty = empty ();
@@ -76,6 +86,7 @@ void nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> blo
 	}
 }
 
+/** Return the highest priority block of the current bucket */
 std::shared_ptr<nano::block> nano::prioritization::top () const
 {
 	debug_assert (!empty ());
@@ -84,6 +95,7 @@ std::shared_ptr<nano::block> nano::prioritization::top () const
 	return result;
 }
 
+/** Pop the current block from the container and seek to the next block, if it exists */
 void nano::prioritization::pop ()
 {
 	debug_assert (!empty ());
@@ -93,6 +105,7 @@ void nano::prioritization::pop ()
 	seek ();
 }
 
+/** Returns the total number of blocks in buckets */
 std::size_t nano::prioritization::size () const
 {
 	std::size_t result{ 0 };
@@ -103,22 +116,26 @@ std::size_t nano::prioritization::size () const
 	return result;
 }
 
+/** Returns number of buckets, 129 by default */
 std::size_t nano::prioritization::bucket_count () const
 {
 	return buckets.size ();
 }
 
+/** Returns number of items in bucket with index 'index' */
 std::size_t nano::prioritization::bucket_size (std::size_t index) const
 {
 	return buckets[index].size ();
 }
 
+/** Returns true if all buckets are empty */
 bool nano::prioritization::empty () const
 {
 	return std::all_of (buckets.begin (), buckets.end (), [] (priority const & bucket_a) { return bucket_a.empty (); });
 }
 
-void nano::prioritization::dump ()
+/** Print the state of the class in stderr */
+void nano::prioritization::dump () const
 {
 	for (auto const & i : buckets)
 	{
