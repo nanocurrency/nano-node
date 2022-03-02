@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
-TAGS=$(git describe --abbrev=0 --tags)
-VERSIONS=${TAGS//V/}
+TAG=$(echo $TAG)
+VERSIONS=${TAG//V/}
 RELEASE=$(echo $CI_JOB_ID)
 
 run_source() {
-	./util/makesrc $TAGS
+	./util/makesrc $TAG $(echo $PAT)
 }
 
 run_build() {
 	mkdir -p ~/rpmbuild/SOURCES/
 	mv -f ~/nano-${VERSIONS}.tar.gz ~/rpmbuild/SOURCES/.
-	scl enable devtoolset-7 'rpmbuild -ba nanocurrency.spec'
-	scl enable devtoolset-7 'rpmbuild -ba nanocurrency-beta.spec'
+	if [ "${LIVE:-}" == "1" ]; then
+		scl enable devtoolset-7 'rpmbuild -ba nanocurrency.spec'
+	else
+		scl enable devtoolset-7 'rpmbuild -ba nanocurrency-beta.spec'
+	fi
 }
 
 run_update() {
