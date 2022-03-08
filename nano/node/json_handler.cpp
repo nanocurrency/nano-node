@@ -3029,9 +3029,7 @@ void nano::json_handler::pending ()
 			{
 				auto mid = hash_ptree_pairs.size () <= (offset + count) ? hash_ptree_pairs.end () : hash_ptree_pairs.begin () + offset + count;
 				std::partial_sort (hash_ptree_pairs.begin (), mid, hash_ptree_pairs.end (), [] (auto const & lhs, auto const & rhs) {
-					auto amount_l = lhs.second.template get<nano::uint128_t> ("amount");
-					auto amount_r = rhs.second.template get<nano::uint128_t> ("amount");
-					return amount_l == amount_r ? lhs.first.compare (rhs.first) < 0 : amount_l > amount_r;
+					return lhs.second.template get<nano::uint128_t> ("amount") > rhs.second.template get<nano::uint128_t> ("amount");
 				});
 				for (auto i = offset, j = offset + count; i < hash_ptree_pairs.size () && i < j; ++i)
 				{
@@ -3042,9 +3040,7 @@ void nano::json_handler::pending ()
 			{
 				auto mid = hash_amount_pairs.size () <= (offset + count) ? hash_amount_pairs.end () : hash_amount_pairs.begin () + offset + count;
 				std::partial_sort (hash_amount_pairs.begin (), mid, hash_amount_pairs.end (), [] (auto const & lhs, auto const & rhs) {
-					auto amount_l = lhs.second;
-					auto amount_r = rhs.second;
-					return amount_l == amount_r ? lhs.first.compare (rhs.first) < 0 : amount_l > amount_r;
+					return lhs.second > rhs.second;
 				});
 
 				for (auto i = offset, j = offset + count; i < hash_amount_pairs.size () && i < j; ++i)
