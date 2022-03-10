@@ -22,6 +22,11 @@ namespace system
 {
 	class error_code;
 }
+
+namespace program_options
+{
+	class options_description;
+}
 }
 
 void assert_internal (char const * check_expr, char const * func, char const * file, unsigned int line, bool is_release_assert, std::string_view error = "");
@@ -203,4 +208,7 @@ constexpr TARGET_TYPE narrow_cast (SOURCE_TYPE const & val)
 	debug_assert (val == static_cast<SOURCE_TYPE> (res));
 	return res;
 }
+
+// Issue #3748
+void sort_options_description (const boost::program_options::options_description & source, boost::program_options::options_description & target);
 }
