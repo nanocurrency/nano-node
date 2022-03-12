@@ -210,39 +210,51 @@ TEST (store, load)
 	}
 }
 
-// ulimit -n increasing may be required
 TEST (node, fork_storm)
 {
+	// WIP against issue #3709
+	// This should be set large enough to trigger a test failure, but not so large that
+	// simply allocating nodes in a reasonably normal test environment fails. (64 is overkill)
+	// On a 12-core/16GB linux server, the failure triggers often with 11 nodes, and almost
+	// always with higher values.
+	static const auto node_count (23);
+
 	nano::node_flags flags;
 	flags.disable_max_peers_per_ip = true;
-	nano::system system (64, nano::transport::transport_type::tcp, flags);
+	nano::system system (node_count, nano::transport::transport_type::tcp, flags);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto previous (system.nodes[0]->latest (nano::dev::genesis_key.pub));
 	auto balance (system.nodes[0]->balance (nano::dev::genesis_key.pub));
 	ASSERT_FALSE (previous.is_zero ());
-	for (auto j (0); j != system.nodes.size (); ++j)
+	for (auto node_j : system.nodes)
 	{
 		balance -= 1;
 		nano::keypair key;
 		nano::send_block send (previous, key.pub, balance, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
-		system.nodes[j]->work_generate_blocking (send);
+		node_j->work_generate_blocking (send);
 		previous = send.hash ();
-		for (auto i (0); i != system.nodes.size (); ++i)
+		for (auto node_i : system.nodes)
 		{
-			auto send_result (system.nodes[i]->process (send));
+			auto send_result (node_i->process (send));
 			ASSERT_EQ (nano::process_result::progress, send_result.code);
 			nano::keypair rep;
 			auto open (std::make_shared<nano::open_block> (previous, rep.pub, key.pub, key.prv, key.pub, 0));
-			system.nodes[i]->work_generate_blocking (*open);
-			auto open_result (system.nodes[i]->process (*open));
+			node_i->work_generate_blocking (*open);
+			auto open_result (node_i->process (*open));
 			ASSERT_EQ (nano::process_result::progress, open_result.code);
-			auto transaction (system.nodes[i]->store.tx_begin_read ());
-			system.nodes[i]->network.flood_block (open);
+			auto transaction (node_i->store.tx_begin_read ());
+			node_i->network.flood_block (open);
 		}
 	}
 	auto again (true);
 
 	int iteration (0);
+
+	// Stall detection (if there is no progress, the test will hang indefinitely)
+	auto old_empty (0);
+	auto old_single (0);
+	auto stall_count (0);
+
 	while (again)
 	{
 		auto empty = 0;
@@ -264,11 +276,25 @@ TEST (node, fork_storm)
 			}
 		});
 		ASSERT_NO_ERROR (system.poll ());
-		if ((iteration & 0xff) == 0)
+
+		// If no progress is happening after a lot of iterations
+		// this test has uncovered something broken or made some
+		// bad assumptions.
+		if (old_empty == empty && old_single == single)
 		{
-			std::cerr << "Empty: " << empty << " single: " << single << std::endl;
+			static const auto stall_tolerance (100000);
+			++stall_count;
+			ASSERT_LE (stall_count, stall_tolerance) << "Stall deteceted. These values were both expected to eventually reach 0 but have remained unchanged for " << stall_tolerance << " iterations. Empty: " << empty << " single: " << single << std::endl;
 		}
-		again = empty != 0 || single != 0;
+		else
+		{
+			stall_count = 0;
+			old_empty = empty;
+			old_single = single;
+		}
+
+		again = (empty != 0) || (single != 0);
+
 		++iteration;
 	}
 	ASSERT_TRUE (true);
