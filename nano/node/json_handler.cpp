@@ -3027,8 +3027,7 @@ void nano::json_handler::pending ()
 		{
 			if (source || min_version)
 			{
-				auto mid = hash_ptree_pairs.size () <= (offset + count) ? hash_ptree_pairs.end () : hash_ptree_pairs.begin () + offset + count;
-				std::partial_sort (hash_ptree_pairs.begin (), mid, hash_ptree_pairs.end (), [] (auto const & lhs, auto const & rhs) {
+				std::stable_sort (hash_ptree_pairs.begin (), hash_ptree_pairs.end (), [] (auto const & lhs, auto const & rhs) {
 					return lhs.second.template get<nano::uint128_t> ("amount") > rhs.second.template get<nano::uint128_t> ("amount");
 				});
 				for (auto i = offset, j = offset + count; i < hash_ptree_pairs.size () && i < j; ++i)
@@ -3038,8 +3037,7 @@ void nano::json_handler::pending ()
 			}
 			else
 			{
-				auto mid = hash_amount_pairs.size () <= (offset + count) ? hash_amount_pairs.end () : hash_amount_pairs.begin () + offset + count;
-				std::partial_sort (hash_amount_pairs.begin (), mid, hash_amount_pairs.end (), [] (auto const & lhs, auto const & rhs) {
+				std::stable_sort (hash_amount_pairs.begin (), hash_amount_pairs.end (), [] (auto const & lhs, auto const & rhs) {
 					return lhs.second > rhs.second;
 				});
 
