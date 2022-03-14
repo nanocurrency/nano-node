@@ -3,6 +3,7 @@
 #include "nano/lib/blocks.hpp"
 #include "nano/lib/numbers.hpp"
 #include "nano/node/lmdb/lmdb_env.hpp"
+#include <nano/node/lmdb/lmdb_iterator.hpp>
 #include "nano/secure/utility.hpp"
 
 #include <gtest/gtest.h>
@@ -24,6 +25,13 @@
 namespace
 {
     using DataAndSizeContainer = std::pair<std::uint8_t*, std::size_t>;
+    using MainKey = std::array<std::uint8_t, sizeof(nano::block_hash)>;
+    using MainValue = std::array<std::uint8_t, nano::state_block::size>;
+
+    constexpr std::size_t ITERATIONS_COUNT = 25000000;
+    constexpr std::size_t PRINT_STATISTICS_THRESHOLD = 1000000;
+    constexpr std::string_view MAIN_TABLE_NAME = "main_table";
+    constexpr std::string_view OFF_TABLE_NAME = "off_table";
 
     auto create_db()
     {
@@ -41,17 +49,25 @@ namespace
         return std::make_tuple(MDB_SUCCESS != create_table_result, table);
     }
 
-    auto generate_random_data_to_use_as_key()
+    auto open_table(const nano::mdb_env& env, const nano::transaction& tx, const std::string_view& table_name)
     {
-        std::array<std::uint8_t, sizeof(nano::block_hash)> result{};
+        MDB_dbi table{};
+        const auto open_table_result = mdb_dbi_open(env.tx(tx), table_name.data(), 0, &table);
+
+        return std::make_tuple(MDB_SUCCESS != open_table_result, table);
+    }
+
+    MainKey generate_random_data_to_use_as_main_key()
+    {
+        MainKey result{};
         nano::random_pool::generate_block(result.data(), result.size());
 
         return result;
     }
 
-    auto generate_random_data_to_use_as_value()
+    MainValue generate_random_data_to_use_as_main_value()
     {
-        std::array<std::uint8_t, nano::state_block::size> result{};
+        MainValue result{};
         nano::random_pool::generate_block(result.data(), result.size());
 
         return result;
@@ -72,7 +88,7 @@ namespace
 
     template <typename KeyT, typename ValueT>
     void perform_insertion(const nano::mdb_env& env,
-                           nano::write_transaction& tx,
+                           const nano::write_transaction& tx,
                            MDB_dbi table,
                            const KeyT& key,
                            const ValueT& value,
@@ -117,60 +133,150 @@ namespace
 
 TEST(lmdb_performance, insert_normal)
 {
-    auto [db_creation_failed, env] = create_db();
-    ASSERT_FALSE(db_creation_failed);
+    auto [create_db_failed, env] = create_db();
+    ASSERT_FALSE(create_db_failed);
 
-    auto tx = env->tx_begin_write();
-    auto [table_creation_failed, table] = create_table(*env, tx, "test_table");
-    ASSERT_FALSE(table_creation_failed);
-
+    std::vector<MainKey> keys(ITERATIONS_COUNT);
+    std::cout << "BEGIN WRITES \n\n";
     const auto begin = std::chrono::steady_clock::now();
-    for (std::size_t itr = 0; itr != 25000000; ++itr)
-    {
-        const auto key = generate_random_data_to_use_as_key();
-        const auto value = generate_random_data_to_use_as_value();
-        perform_insertion(*env, tx, table, key, value, 0);
 
-        if (itr && 0 == itr % 1000000)
+    {
+        auto tx = env->tx_begin_write();
+        const auto [create_table_failed, table] = create_table(*env, tx, MAIN_TABLE_NAME);
+        ASSERT_FALSE(create_table_failed);
+
+        for (std::size_t itr = 0; itr <= ITERATIONS_COUNT; ++itr)
         {
-            print_statistics(*env, tx, table, itr, begin);
+            auto key = generate_random_data_to_use_as_main_key();
+            const auto value = generate_random_data_to_use_as_main_value();
+            perform_insertion(*env, tx, table, key, value, 0);
+            keys[itr] = std::move(key);
+
+            if (itr && 0 == itr % PRINT_STATISTICS_THRESHOLD)
+            {
+                print_statistics(*env, tx, table, itr, begin);
+            }
         }
     }
+
+    auto now = std::chrono::steady_clock::now();
+    auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(now - begin);
+    std::cout << "FINISHED WRITES, time = " << elapsedTime.count() << " seconds \n\n";
+    std::cout << "BEGIN READS \n\n";
+
+    {
+        const auto tx = env->tx_begin_read();
+        const auto [open_table_failed, table] = open_table(*env, tx, MAIN_TABLE_NAME);
+        ASSERT_FALSE(open_table_failed);
+
+        for (const auto& key : keys)
+        {
+            MDB_val mdb_key{key.size(), const_cast<std::uint8_t*>(key.data())};
+            MDB_val mdb_value{};
+
+            const auto read_failed = mdb_get(env->tx(tx), table, &mdb_key, &mdb_value);
+            ASSERT_EQ(MDB_SUCCESS, read_failed);
+            ASSERT_EQ(MainValue{}.size(), mdb_value.mv_size);
+        }
+    }
+
+    now = std::chrono::steady_clock::now();
+    elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(now - begin);
+    std::cout << "FINISHED READS, time = " << elapsedTime.count() << " seconds \n\n";
+
+    auto tx = env->tx_begin_write();
+    const auto [open_table_failed, table] = open_table(*env, tx, MAIN_TABLE_NAME);
+    ASSERT_FALSE(open_table_failed);
+
+    const auto delete_table_failed = mdb_drop(env->tx(tx), table, 1);
+    ASSERT_EQ(MDB_SUCCESS, delete_table_failed);
 }
 
 TEST(lmdb_performance, insert_via_off_table)
 {
-    auto [db_creation_failed, env] = create_db();
-    ASSERT_FALSE(db_creation_failed);
+    auto [create_db_failed, env] = create_db();
+    ASSERT_FALSE(create_db_failed);
+
+    std::vector<MainKey> keys(ITERATIONS_COUNT);
+    std::cout << "BEGIN WRITES \n\n";
+    const auto begin = std::chrono::steady_clock::now();
+
+    {
+        auto tx = env->tx_begin_write();
+        const auto [create_main_table_failed, main_table] = create_table(*env, tx, MAIN_TABLE_NAME);
+        ASSERT_FALSE(create_main_table_failed);
+
+        const auto [create_off_table_failed, off_table] = create_table(*env, tx, OFF_TABLE_NAME);
+        ASSERT_FALSE(create_off_table_failed);
+
+        for (std::uint64_t itr = 0; itr <= ITERATIONS_COUNT; ++itr)
+        {
+            std::uint64_t bigEndianItr = htobe64(itr);
+            const DataAndSizeContainer main_key{reinterpret_cast<std::uint8_t*>(&bigEndianItr), sizeof(bigEndianItr)};
+            const auto main_value = generate_random_data_to_use_as_main_value();
+            perform_insertion(*env,
+                              tx,
+                              main_table,
+                              main_key,
+                              main_value,
+                              MDB_APPEND);
+
+            if (itr && 0 == itr % PRINT_STATISTICS_THRESHOLD)
+            {
+                print_statistics(*env, tx, main_table, itr, begin);
+            }
+
+            auto off_key = generate_random_data_to_use_as_main_key();
+            perform_insertion(*env, tx, off_table, off_key, main_key, 0);
+            keys[itr] = std::move(off_key);
+        }
+    }
+
+    auto now = std::chrono::steady_clock::now();
+    auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(now - begin);
+    std::cout << "FINISHED WRITES, time = " << elapsedTime.count() << " seconds \n\n";
+    std::cout << "BEGIN READS \n\n";
+
+    {
+        const auto tx = env->tx_begin_read();
+        const auto [open_main_table_failed, main_table] = open_table(*env, tx, MAIN_TABLE_NAME);
+        ASSERT_FALSE(open_main_table_failed);
+
+        const auto [open_off_table_failed, off_table] = open_table(*env, tx, OFF_TABLE_NAME);
+        ASSERT_FALSE(open_off_table_failed);
+
+        for (const auto& key : keys)
+        {
+            MDB_val mdb_off_key{key.size(), const_cast<std::uint8_t*>(key.data())};
+            MDB_val mdb_off_value{};
+
+            auto read_failed = mdb_get(env->tx(tx), off_table, &mdb_off_key, &mdb_off_value);
+            ASSERT_EQ(MDB_SUCCESS, read_failed);
+            ASSERT_EQ(sizeof(std::uint64_t), mdb_off_value.mv_size);
+
+            MDB_val mdb_main_value{};
+            read_failed = mdb_get(env->tx(tx), main_table, &mdb_off_value, &mdb_main_value);
+            ASSERT_EQ(MDB_SUCCESS, read_failed);
+            ASSERT_EQ(MainValue{}.size(), mdb_main_value.mv_size);
+        }
+    }
+
+    now = std::chrono::steady_clock::now();
+    elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(now - begin);
+    std::cout << "FINISHED READS, time = " << elapsedTime.count() << " seconds \n\n";
 
     auto tx = env->tx_begin_write();
-    auto [main_table_creation_failed, main_table] = create_table(*env, tx, "main_table");
-    ASSERT_FALSE(main_table_creation_failed);
+    const auto [open_main_table_failed, main_table] = open_table(*env, tx, MAIN_TABLE_NAME);
+    ASSERT_FALSE(open_main_table_failed);
 
-    auto [off_table_creation_failed, off_table] = create_table(*env, tx, "off_table");
-    ASSERT_FALSE(off_table_creation_failed);
+    const auto delete_main_table_failed = mdb_drop(env->tx(tx), main_table, 1);
+    ASSERT_EQ(MDB_SUCCESS, delete_main_table_failed);
 
-    const auto begin = std::chrono::steady_clock::now();
-    for (std::uint64_t itr = 0; itr != 25000000; ++itr)
-    {
-        std::uint64_t bigEndianItr = htobe64(itr);
-        const DataAndSizeContainer main_table_key{reinterpret_cast<std::uint8_t*>(&bigEndianItr), sizeof(bigEndianItr)};
-        const auto main_table_value = generate_random_data_to_use_as_value();
-        perform_insertion(*env,
-                          tx,
-                          main_table,
-                          main_table_key,
-                          main_table_value,
-                          MDB_APPEND);
+    const auto [open_off_table_failed, off_table] = open_table(*env, tx, OFF_TABLE_NAME);
+    ASSERT_FALSE(open_off_table_failed);
 
-        if (itr && 0 == itr % 1000000)
-        {
-            print_statistics(*env, tx, main_table, itr, begin);
-        }
-
-        const auto off_table_key = generate_random_data_to_use_as_key();
-        perform_insertion(*env, tx, off_table, off_table_key, main_table_key, 0);
-    }
+    const auto delete_off_table_failed = mdb_drop(env->tx(tx), off_table, 1);
+    ASSERT_EQ(MDB_SUCCESS, delete_off_table_failed);
 }
 
 GTEST_API_ int main(int argc, char** argv)
