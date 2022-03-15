@@ -1858,16 +1858,162 @@ TEST (rpc, pending)
 		ASSERT_EQ (block4->hash (), hash);
 		ASSERT_EQ (block3->hash (), hash1);
 	}
+}
 
-	request.put ("offset", "2"); // Offset test
+/**
+ * This test case tests the receivable RPC command when used with offsets and sorting.
+ */
+TEST (rpc, receivable_offset_and_sorting)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	nano::keypair key1;
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	auto block1 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 200);
+	auto block2 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 100);
+	auto block3 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 400);
+	auto block4 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 300);
+	auto block5 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 300);
+	auto block6 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 300);
+
+	// check that all blocks got confirmed
+	ASSERT_TIMELY (5s, node->ledger.account_pending (node->store.tx_begin_read (), key1.pub, true) == 1600);
+
+	// check confirmation height is as expected, there is no perfect clarity yet when confirmation height updates after a block get confirmed
+	nano::confirmation_height_info confirmation_height_info;
+	ASSERT_FALSE (node->store.confirmation_height.get (node->store.tx_begin_read (), nano::dev::genesis->account (), confirmation_height_info));
+	ASSERT_EQ (confirmation_height_info.height, 7);
+	ASSERT_EQ (confirmation_height_info.frontier, block6->hash ());
+
+	// returns true if hash is found in node
+	// if match_first is set then the function looks for key (first item)
+	// if match_first is not set then the function looks for value (second item)
+	auto hash_exists = [] (boost::property_tree::ptree & node, bool match_first, nano::block_hash hash) {
+		std::stringstream ss;
+		boost::property_tree::json_parser::write_json (ss, node);
+		for (auto itr = node.begin (); itr != node.end (); ++itr)
+		{
+			std::string possible_match = match_first ? itr->first : itr->second.get<std::string> ("");
+			if (possible_match == hash.to_string ())
+			{
+				return true;
+			}
+		}
+		return false;
+	};
+
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "receivable");
+	request.put ("account", key1.pub.to_account ());
+
+	request.put ("offset", "0");
+	request.put ("sorting", "false");
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto & blocks_node (response.get_child ("blocks"));
+		ASSERT_EQ (6, blocks_node.size ());
+
+		// check that all 6 blocks are listed, the order does not matter
+		ASSERT_TRUE (hash_exists (blocks_node, false, block1->hash ()));
+		ASSERT_TRUE (hash_exists (blocks_node, false, block2->hash ()));
+		ASSERT_TRUE (hash_exists (blocks_node, false, block3->hash ()));
+		ASSERT_TRUE (hash_exists (blocks_node, false, block4->hash ()));
+		ASSERT_TRUE (hash_exists (blocks_node, false, block5->hash ()));
+		ASSERT_TRUE (hash_exists (blocks_node, false, block6->hash ()));
+	}
+
+	request.put ("offset", "4");
+	{
+		auto response (wait_response (system, rpc_ctx, request));
+		auto & blocks_node (response.get_child ("blocks"));
+		// since we haven't asked for sorted, we can't be sure which 2 blocks will be returned
 		ASSERT_EQ (2, blocks_node.size ());
-		nano::block_hash hash (blocks_node.begin ()->first);
-		nano::block_hash hash1 ((++blocks_node.begin ())->first);
-		ASSERT_EQ (block2->hash (), hash);
-		ASSERT_EQ (block1->hash (), hash1);
+	}
+
+	request.put ("count", "2");
+	request.put ("offset", "2");
+	{
+		auto response (wait_response (system, rpc_ctx, request));
+		auto & blocks_node (response.get_child ("blocks"));
+		// since we haven't asked for sorted, we can't be sure which 2 blocks will be returned
+		ASSERT_EQ (2, blocks_node.size ());
+	}
+
+	// Sort by amount from here onwards, this is a sticky setting that applies for the rest of the test case
+	request.put ("sorting", "true");
+
+	request.put ("count", "5");
+	request.put ("offset", "0");
+	{
+		auto response (wait_response (system, rpc_ctx, request));
+		auto & blocks_node (response.get_child ("blocks"));
+		ASSERT_EQ (5, blocks_node.size ());
+
+		// the first block should be block3 with amount 400
+		auto itr = blocks_node.begin ();
+		ASSERT_EQ (block3->hash (), nano::block_hash{ itr->first });
+		ASSERT_EQ ("400", itr->second.get<std::string> (""));
+
+		// the next 3 block will be of amount 300 but in unspecified order
+		++itr;
+		ASSERT_EQ ("300", itr->second.get<std::string> (""));
+
+		++itr;
+		ASSERT_EQ ("300", itr->second.get<std::string> (""));
+
+		++itr;
+		ASSERT_EQ ("300", itr->second.get<std::string> (""));
+
+		// the last one will be block1 with amount 200
+		++itr;
+		ASSERT_EQ (block1->hash (), nano::block_hash{ itr->first });
+		ASSERT_EQ ("200", itr->second.get<std::string> (""));
+
+		// check that the blocks returned with 300 amounts have the right hashes
+		ASSERT_TRUE (hash_exists (blocks_node, true, block4->hash ()));
+		ASSERT_TRUE (hash_exists (blocks_node, true, block5->hash ()));
+		ASSERT_TRUE (hash_exists (blocks_node, true, block6->hash ()));
+	}
+
+	request.put ("count", "3");
+	request.put ("offset", "3");
+	{
+		auto response (wait_response (system, rpc_ctx, request));
+		auto & blocks_node (response.get_child ("blocks"));
+		ASSERT_EQ (3, blocks_node.size ());
+
+		auto itr = blocks_node.begin ();
+		ASSERT_EQ ("300", itr->second.get<std::string> (""));
+
+		++itr;
+		ASSERT_EQ (block1->hash (), nano::block_hash{ itr->first });
+		ASSERT_EQ ("200", itr->second.get<std::string> (""));
+
+		++itr;
+		ASSERT_EQ (block2->hash (), nano::block_hash{ itr->first });
+		ASSERT_EQ ("100", itr->second.get<std::string> (""));
+	}
+
+	request.put ("source", "true");
+	request.put ("min_version", "true");
+	request.put ("count", "3");
+	request.put ("offset", "2");
+	{
+		auto response (wait_response (system, rpc_ctx, request));
+		auto & blocks_node (response.get_child ("blocks"));
+		ASSERT_EQ (3, blocks_node.size ());
+
+		auto itr = blocks_node.begin ();
+		ASSERT_EQ ("300", itr->second.get<std::string> ("amount"));
+
+		++itr;
+		ASSERT_EQ ("300", itr->second.get<std::string> ("amount"));
+
+		++itr;
+		ASSERT_EQ (block1->hash (), nano::block_hash{ itr->first });
+		ASSERT_EQ ("200", itr->second.get<std::string> ("amount"));
 	}
 }
 
