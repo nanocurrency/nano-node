@@ -44,6 +44,7 @@ public:
 	void accounts_create ();
 	void accounts_frontiers ();
 	void accounts_pending ();
+	void accounts_receivable ();
 	void active_difficulty ();
 	void available_supply ();
 	void block_info ();

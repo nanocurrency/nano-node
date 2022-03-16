@@ -973,6 +973,12 @@ void nano::json_handler::accounts_frontiers ()
 
 void nano::json_handler::accounts_pending ()
 {
+	response_l.put ("deprecated", "1");
+	accounts_receivable ();
+}
+
+void nano::json_handler::accounts_receivable ()
+{
 	auto count (count_optional_impl ());
 	auto threshold (threshold_optional_impl ());
 	bool const source = request.get<bool> ("source", false);
@@ -5197,6 +5203,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("accounts_create", &nano::json_handler::accounts_create);
 	no_arg_funcs.emplace ("accounts_frontiers", &nano::json_handler::accounts_frontiers);
 	no_arg_funcs.emplace ("accounts_pending", &nano::json_handler::accounts_pending);
+	no_arg_funcs.emplace ("accounts_receivable", &nano::json_handler::accounts_receivable);
 	no_arg_funcs.emplace ("active_difficulty", &nano::json_handler::active_difficulty);
 	no_arg_funcs.emplace ("available_supply", &nano::json_handler::available_supply);
 	no_arg_funcs.emplace ("block_info", &nano::json_handler::block_info);

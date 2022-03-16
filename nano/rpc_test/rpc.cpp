@@ -3186,6 +3186,22 @@ TEST (rpc, accounts_pending)
 {
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	boost::property_tree::ptree child;
+	boost::property_tree::ptree accounts;
+	child.put ("", nano::dev::genesis_key.pub.to_account ());
+	accounts.push_back (std::make_pair ("", child));
+	request.add_child ("accounts", accounts);
+	request.put ("action", "accounts_pending");
+	auto response (wait_response (system, rpc_ctx, request));
+	ASSERT_EQ ("1", response.get<std::string> ("deprecated"));
+}
+
+TEST (rpc, accounts_receivable)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 100));
@@ -3195,7 +3211,7 @@ TEST (rpc, accounts_pending)
 
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	request.put ("action", "accounts_pending");
+	request.put ("action", "accounts_receivable");
 	boost::property_tree::ptree entry;
 	boost::property_tree::ptree peers_l;
 	entry.put ("", key1.pub.to_account ());
