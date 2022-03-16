@@ -126,6 +126,7 @@ public:
 	void wallet_ledger ();
 	void wallet_lock ();
 	void wallet_pending ();
+	void wallet_receivable ();
 	void wallet_representative ();
 	void wallet_representative_set ();
 	void wallet_republish ();

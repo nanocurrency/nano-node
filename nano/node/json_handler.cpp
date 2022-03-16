@@ -4685,6 +4685,12 @@ void nano::json_handler::wallet_lock ()
 
 void nano::json_handler::wallet_pending ()
 {
+	response_l.put ("deprecated", "1");
+	wallet_receivable ();
+}
+
+void nano::json_handler::wallet_receivable ()
+{
 	auto wallet (wallet_impl ());
 	auto count (count_optional_impl ());
 	auto threshold (threshold_optional_impl ());
@@ -5285,6 +5291,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("wallet_ledger", &nano::json_handler::wallet_ledger);
 	no_arg_funcs.emplace ("wallet_lock", &nano::json_handler::wallet_lock);
 	no_arg_funcs.emplace ("wallet_pending", &nano::json_handler::wallet_pending);
+	no_arg_funcs.emplace ("wallet_receivable", &nano::json_handler::wallet_receivable);
 	no_arg_funcs.emplace ("wallet_representative", &nano::json_handler::wallet_representative);
 	no_arg_funcs.emplace ("wallet_representative_set", &nano::json_handler::wallet_representative_set);
 	no_arg_funcs.emplace ("wallet_republish", &nano::json_handler::wallet_republish);

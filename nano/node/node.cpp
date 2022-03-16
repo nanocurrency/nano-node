@@ -1780,6 +1780,14 @@ void nano::node::populate_backlog ()
 	}
 }
 
+/** Convenience function to easily return the confirmation height of an account. */
+uint64_t nano::node::get_confirmation_height (nano::transaction const & transaction_a, nano::account & account_a)
+{
+	nano::confirmation_height_info info;
+	store.confirmation_height.get (transaction_a, account_a, info);
+	return info.height;
+};
+
 nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
 	network_params{ nano::network_constants::active_network },
 	io_context (std::make_shared<boost::asio::io_context> ()),

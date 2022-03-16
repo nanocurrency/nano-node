@@ -3447,6 +3447,28 @@ TEST (rpc, pending_exists)
 
 TEST (rpc, wallet_pending)
 {
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	nano::keypair key1;
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key1.prv);
+	auto block1 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 100);
+	ASSERT_TIMELY (5s, node->get_confirmation_height (node->store.tx_begin_read (), nano::dev::genesis_key.pub) == 2);
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_pending");
+	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	auto response (wait_response (system, rpc_ctx, request));
+	ASSERT_EQ ("1", response.get<std::string> ("deprecated"));
+	ASSERT_EQ (1, response.get_child ("blocks").size ());
+	auto pending = response.get_child ("blocks").front ();
+	ASSERT_EQ (key1.pub.to_account (), pending.first);
+	nano::block_hash hash1{ pending.second.begin ()->second.get<std::string> ("") };
+	ASSERT_EQ (block1->hash (), hash1);
+}
+
+TEST (rpc, wallet_receivable)
+{
 	nano::system system0;
 	auto node = add_ipc_enabled_node (system0);
 	nano::keypair key1;
@@ -3464,7 +3486,7 @@ TEST (rpc, wallet_pending)
 
 	auto const rpc_ctx = add_rpc (system0, node);
 	boost::property_tree::ptree request;
-	request.put ("action", "wallet_pending");
+	request.put ("action", "wallet_receivable");
 	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
 	request.put ("count", "100");
 	auto response (wait_response (system0, rpc_ctx, request));
