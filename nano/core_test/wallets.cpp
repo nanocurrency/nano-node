@@ -179,7 +179,7 @@ TEST (wallets, search_pending)
 		ASSERT_TRUE (node.active.empty ());
 		if (search_all)
 		{
-			node.wallets.search_pending_all ();
+			node.wallets.search_receivable_all ();
 		}
 		else
 		{
@@ -203,7 +203,7 @@ TEST (wallets, search_pending)
 		ASSERT_EQ (2, node.ledger.cache.block_count);
 		if (search_all)
 		{
-			node.wallets.search_pending_all ();
+			node.wallets.search_receivable_all ();
 		}
 		else
 		{

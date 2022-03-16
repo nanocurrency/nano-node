@@ -3647,7 +3647,7 @@ TEST (rpc, work_set)
 	ASSERT_EQ (work1, work0);
 }
 
-TEST (rpc, search_pending_all)
+TEST (rpc, search_receivable_all)
 {
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
@@ -3660,7 +3660,7 @@ TEST (rpc, search_pending_all)
 	}
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	request.put ("action", "search_pending_all");
+	request.put ("action", "search_receivable_all");
 	auto response (wait_response (system, rpc_ctx, request));
 	ASSERT_TIMELY (10s, node->balance (nano::dev::genesis_key.pub) == nano::dev::constants.genesis_amount);
 }

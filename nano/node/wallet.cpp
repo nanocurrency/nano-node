@@ -1448,7 +1448,7 @@ bool nano::wallets::search_pending (nano::wallet_id const & wallet_a)
 	return result;
 }
 
-void nano::wallets::search_pending_all ()
+void nano::wallets::search_receivable_all ()
 {
 	nano::unique_lock<nano::mutex> lk (mutex);
 	auto wallets_l = get_wallets ();

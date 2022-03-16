@@ -97,6 +97,7 @@ public:
 	void republish ();
 	void search_pending ();
 	void search_pending_all ();
+	void search_receivable_all ();
 	void send ();
 	void sign ();
 	void stats ();

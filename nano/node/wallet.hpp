@@ -199,7 +199,7 @@ public:
 	std::shared_ptr<nano::wallet> open (nano::wallet_id const &);
 	std::shared_ptr<nano::wallet> create (nano::wallet_id const &);
 	bool search_pending (nano::wallet_id const &);
-	void search_pending_all ();
+	void search_receivable_all ();
 	void destroy (nano::wallet_id const &);
 	void reload ();
 	void do_wallet_actions ();

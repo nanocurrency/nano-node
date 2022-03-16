@@ -904,7 +904,7 @@ void nano::node::search_pending ()
 	// Reload wallets from disk
 	wallets.reload ();
 	// Search pending
-	wallets.search_pending_all ();
+	wallets.search_receivable_all ();
 	auto this_l (shared ());
 	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.search_pending_interval, [this_l] () {
 		this_l->search_pending ();
