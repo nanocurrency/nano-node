@@ -1894,7 +1894,7 @@ nano_qt::advanced_actions::advanced_actions (nano_qt::wallet & wallet_a) :
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (search_for_receivables, &QPushButton::released, [this] () {
-		std::thread ([this] { this->wallet.wallet_m->search_pending (this->wallet.wallet_m->wallets.tx_begin_read ()); }).detach ();
+		std::thread ([this] { this->wallet.wallet_m->search_receivable (this->wallet.wallet_m->wallets.tx_begin_read ()); }).detach ();
 	});
 	QObject::connect (bootstrap, &QPushButton::released, [this] () {
 		std::thread ([this] { this->wallet.node.bootstrap_initiator.bootstrap (); }).detach ();

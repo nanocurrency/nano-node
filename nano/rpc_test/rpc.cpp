@@ -2040,7 +2040,7 @@ TEST (rpc, pending_burn)
 	}
 }
 
-TEST (rpc, search_pending)
+TEST (rpc, search_receivable)
 {
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
@@ -2054,7 +2054,7 @@ TEST (rpc, search_pending)
 	}
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	request.put ("action", "search_pending");
+	request.put ("action", "search_receivable");
 	request.put ("wallet", wallet);
 	auto response (wait_response (system, rpc_ctx, request));
 	ASSERT_TIMELY (10s, node->balance (nano::dev::genesis_key.pub) == nano::dev::constants.genesis_amount);

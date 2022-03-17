@@ -122,7 +122,7 @@ public:
 	void ongoing_unchecked_cleanup ();
 	void ongoing_backlog_population ();
 	void backup_wallet ();
-	void search_pending ();
+	void search_receivable_all ();
 	void bootstrap_wallet ();
 	void unchecked_cleanup ();
 	bool collect_ledger_pruning_targets (std::deque<nano::block_hash> &, nano::account &, uint64_t const, uint64_t const, uint64_t const);

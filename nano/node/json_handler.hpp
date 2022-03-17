@@ -96,6 +96,7 @@ public:
 	void representatives_online ();
 	void republish ();
 	void search_pending ();
+	void search_receivable ();
 	void search_pending_all ();
 	void search_receivable_all ();
 	void send ();

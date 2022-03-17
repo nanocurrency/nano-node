@@ -649,7 +649,7 @@ void nano::node::start ()
 	}
 	if (!flags.disable_search_pending)
 	{
-		search_pending ();
+		search_receivable_all ();
 	}
 	if (!flags.disable_wallet_bootstrap)
 	{
@@ -899,7 +899,7 @@ void nano::node::backup_wallet ()
 	});
 }
 
-void nano::node::search_pending ()
+void nano::node::search_receivable_all ()
 {
 	// Reload wallets from disk
 	wallets.reload ();
@@ -907,7 +907,7 @@ void nano::node::search_pending ()
 	wallets.search_receivable_all ();
 	auto this_l (shared ());
 	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.search_pending_interval, [this_l] () {
-		this_l->search_pending ();
+		this_l->search_receivable_all ();
 	});
 }
 

@@ -3612,10 +3612,16 @@ void nano::json_handler::republish ()
 
 void nano::json_handler::search_pending ()
 {
+	response_l.put ("deprecated", "1");
+	search_receivable ();
+}
+
+void nano::json_handler::search_receivable ()
+{
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		auto error (wallet->search_pending (wallet->wallets.tx_begin_read ()));
+		auto error (wallet->search_receivable (wallet->wallets.tx_begin_read ()));
 		response_l.put ("started", !error);
 	}
 	response_errors ();
@@ -5266,6 +5272,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("representatives_online", &nano::json_handler::representatives_online);
 	no_arg_funcs.emplace ("republish", &nano::json_handler::republish);
 	no_arg_funcs.emplace ("search_pending", &nano::json_handler::search_pending);
+	no_arg_funcs.emplace ("search_receivable", &nano::json_handler::search_receivable);
 	no_arg_funcs.emplace ("search_pending_all", &nano::json_handler::search_pending_all);
 	no_arg_funcs.emplace ("search_receivable_all", &nano::json_handler::search_receivable_all);
 	no_arg_funcs.emplace ("send", &nano::json_handler::send);
