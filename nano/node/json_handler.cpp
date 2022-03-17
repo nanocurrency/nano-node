@@ -612,6 +612,7 @@ void nano::json_handler::account_info ()
 		bool const representative = request.get<bool> ("representative", false);
 		bool const weight = request.get<bool> ("weight", false);
 		bool const pending = request.get<bool> ("pending", false);
+		bool const receivable = request.get<bool> ("receivable", pending);
 		bool const include_confirmed = request.get<bool> ("include_confirmed", false);
 		auto transaction (node.store.tx_begin_read ());
 		auto info (account_info_impl (transaction, account));
@@ -690,16 +691,17 @@ void nano::json_handler::account_info ()
 				auto account_weight (node.ledger.weight (account));
 				response_l.put ("weight", account_weight.convert_to<std::string> ());
 			}
-			if (pending)
+			if (receivable)
 			{
-				auto account_pending (node.ledger.account_pending (transaction, account));
-				response_l.put ("pending", account_pending.convert_to<std::string> ());
-				response_l.put ("receivable", account_pending.convert_to<std::string> ());
+				auto account_receivable = node.ledger.account_receivable (transaction, account);
+				response_l.put ("pending", account_receivable.convert_to<std::string> ());
+				response_l.put ("receivable", account_receivable.convert_to<std::string> ());
 
 				if (include_confirmed)
 				{
-					auto account_pending (node.ledger.account_pending (transaction, account, true));
-					response_l.put ("confirmed_pending", account_pending.convert_to<std::string> ());
+					auto account_receivable = node.ledger.account_receivable (transaction, account, true);
+					response_l.put ("confirmed_pending", account_receivable.convert_to<std::string> ());
+					response_l.put ("confirmed_receivable", account_receivable.convert_to<std::string> ());
 				}
 			}
 		}

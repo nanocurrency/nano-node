@@ -3898,22 +3898,20 @@ TEST (rpc, account_info)
 		ASSERT_EQ (0, response.get<uint8_t> ("account_version"));
 		boost::optional<std::string> weight (response.get_optional<std::string> ("weight"));
 		ASSERT_FALSE (weight.is_initialized ());
-		boost::optional<std::string> pending (response.get_optional<std::string> ("pending"));
-		ASSERT_FALSE (pending.is_initialized ());
+		boost::optional<std::string> receivable (response.get_optional<std::string> ("receivable"));
+		ASSERT_FALSE (receivable.is_initialized ());
 		boost::optional<std::string> representative (response.get_optional<std::string> ("representative"));
 		ASSERT_FALSE (representative.is_initialized ());
 	}
 
 	// Test for optional values
 	request.put ("weight", "true");
-	request.put ("pending", "1");
+	request.put ("receivable", "1");
 	request.put ("representative", "1");
 	{
 		auto response (wait_response (system, rpc_ctx, request));
-		std::string weight2 (response.get<std::string> ("weight"));
-		ASSERT_EQ ("100", weight2);
-		std::string pending2 (response.get<std::string> ("pending"));
-		ASSERT_EQ ("0", pending2);
+		ASSERT_EQ ("100", response.get<std::string> ("weight"));
+		ASSERT_EQ ("0", response.get<std::string> ("receivable"));
 		std::string representative2 (response.get<std::string> ("representative"));
 		ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), representative2);
 	}
@@ -3967,24 +3965,21 @@ TEST (rpc, account_info)
 	request.put ("account", key1.pub.to_account ());
 	{
 		auto response (wait_response (system, rpc_ctx, request));
-		std::string pending (response.get<std::string> ("pending"));
-		ASSERT_EQ ("25", pending);
-		std::string confirmed_pending (response.get<std::string> ("confirmed_pending"));
-		ASSERT_EQ ("0", confirmed_pending);
+		ASSERT_EQ ("25", response.get<std::string> ("receivable"));
+		ASSERT_EQ ("0", response.get<std::string> ("confirmed_receivable"));
 	}
 
 	request.put ("include_confirmed", false);
 	{
 		auto response (wait_response (system, rpc_ctx, request));
-		std::string pending (response.get<std::string> ("pending"));
-		ASSERT_EQ ("25", pending);
+		ASSERT_EQ ("25", response.get<std::string> ("receivable"));
 
 		// These fields shouldn't exist
 		auto confirmed_balance (response.get_optional<std::string> ("confirmed_balance"));
 		ASSERT_FALSE (confirmed_balance.is_initialized ());
 
-		auto confirmed_pending (response.get_optional<std::string> ("confirmed_pending"));
-		ASSERT_FALSE (confirmed_pending.is_initialized ());
+		auto confirmed_receivable (response.get_optional<std::string> ("confirmed_receivable"));
+		ASSERT_FALSE (confirmed_receivable.is_initialized ());
 
 		auto confirmed_representative (response.get_optional<std::string> ("confirmed_representative"));
 		ASSERT_FALSE (confirmed_representative.is_initialized ());
