@@ -744,7 +744,7 @@ std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::a
 	std::pair<nano::uint128_t, nano::uint128_t> result;
 	auto const transaction (store.tx_begin_read ());
 	result.first = ledger.account_balance (transaction, account_a, only_confirmed_a);
-	result.second = ledger.account_pending (transaction, account_a, only_confirmed_a);
+	result.second = ledger.account_receivable (transaction, account_a, only_confirmed_a);
 	return result;
 }
 

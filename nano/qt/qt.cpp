@@ -267,7 +267,7 @@ void nano_qt::accounts::refresh_wallet_balance ()
 	{
 		nano::public_key const & key (i->first);
 		balance = balance + (this->wallet.node.ledger.account_balance (block_transaction, key));
-		pending = pending + (this->wallet.node.ledger.account_pending (block_transaction, key));
+		pending = pending + (this->wallet.node.ledger.account_receivable (block_transaction, key));
 	}
 	auto final_text (std::string ("Balance: ") + wallet.format_balance (balance));
 	if (!pending.is_zero ())

@@ -2685,13 +2685,13 @@ void nano::json_handler::ledger ()
 					boost::property_tree::ptree response_a;
 					if (pending)
 					{
-						auto account_pending (node.ledger.account_pending (transaction, account));
-						if (info.balance.number () + account_pending < threshold.number ())
+						auto account_receivable = node.ledger.account_receivable (transaction, account);
+						if (info.balance.number () + account_receivable < threshold.number ())
 						{
 							continue;
 						}
-						response_a.put ("pending", account_pending.convert_to<std::string> ());
-						response_a.put ("receivable", account_pending.convert_to<std::string> ());
+						response_a.put ("pending", account_receivable.convert_to<std::string> ());
+						response_a.put ("receivable", account_receivable.convert_to<std::string> ());
 					}
 					response_a.put ("frontier", info.head.to_string ());
 					response_a.put ("open_block", info.open_block.to_string ());
@@ -2738,13 +2738,13 @@ void nano::json_handler::ledger ()
 					boost::property_tree::ptree response_a;
 					if (pending)
 					{
-						auto account_pending (node.ledger.account_pending (transaction, account));
-						if (info.balance.number () + account_pending < threshold.number ())
+						auto account_receivable = node.ledger.account_receivable (transaction, account);
+						if (info.balance.number () + account_receivable < threshold.number ())
 						{
 							continue;
 						}
-						response_a.put ("pending", account_pending.convert_to<std::string> ());
-						response_a.put ("receivable", account_pending.convert_to<std::string> ());
+						response_a.put ("pending", account_receivable.convert_to<std::string> ());
+						response_a.put ("receivable", account_receivable.convert_to<std::string> ());
 					}
 					response_a.put ("frontier", info.head.to_string ());
 					response_a.put ("open_block", info.open_block.to_string ());
@@ -4322,7 +4322,7 @@ void nano::json_handler::wallet_info ()
 	if (!ec)
 	{
 		nano::uint128_t balance (0);
-		nano::uint128_t pending (0);
+		nano::uint128_t receivable (0);
 		uint64_t count (0);
 		uint64_t block_count (0);
 		uint64_t cemented_block_count (0);
@@ -4348,7 +4348,7 @@ void nano::json_handler::wallet_info ()
 			}
 
 			balance += account_info.balance.number ();
-			pending += node.ledger.account_pending (block_transaction, account);
+			receivable += node.ledger.account_receivable (block_transaction, account);
 
 			nano::key_type key_type (wallet->store.key_type (i->second));
 			if (key_type == nano::key_type::deterministic)
@@ -4365,8 +4365,8 @@ void nano::json_handler::wallet_info ()
 
 		uint32_t deterministic_index (wallet->store.deterministic_index_get (transaction));
 		response_l.put ("balance", balance.convert_to<std::string> ());
-		response_l.put ("pending", pending.convert_to<std::string> ());
-		response_l.put ("receivable", pending.convert_to<std::string> ());
+		response_l.put ("pending", receivable.convert_to<std::string> ());
+		response_l.put ("receivable", receivable.convert_to<std::string> ());
 		response_l.put ("accounts_count", std::to_string (count));
 		response_l.put ("accounts_block_count", std::to_string (block_count));
 		response_l.put ("accounts_cemented_block_count", std::to_string (cemented_block_count));
@@ -4394,10 +4394,10 @@ void nano::json_handler::wallet_balances ()
 			if (balance >= threshold.number ())
 			{
 				boost::property_tree::ptree entry;
-				nano::uint128_t pending = node.ledger.account_pending (block_transaction, account);
+				nano::uint128_t receivable = node.ledger.account_receivable (block_transaction, account);
 				entry.put ("balance", balance.convert_to<std::string> ());
-				entry.put ("pending", pending.convert_to<std::string> ());
-				entry.put ("receivable", pending.convert_to<std::string> ());
+				entry.put ("pending", receivable.convert_to<std::string> ());
+				entry.put ("receivable", receivable.convert_to<std::string> ());
 				balances.push_back (std::make_pair (account.to_account (), entry));
 			}
 		}
@@ -4670,9 +4670,9 @@ void nano::json_handler::wallet_ledger ()
 					}
 					if (pending)
 					{
-						auto account_pending (node.ledger.account_pending (block_transaction, account));
-						entry.put ("pending", account_pending.convert_to<std::string> ());
-						entry.put ("receivable", account_pending.convert_to<std::string> ());
+						auto account_receivable (node.ledger.account_receivable (block_transaction, account));
+						entry.put ("pending", account_receivable.convert_to<std::string> ());
+						entry.put ("receivable", account_receivable.convert_to<std::string> ());
 					}
 					accounts.push_back (std::make_pair (account.to_account (), entry));
 				}

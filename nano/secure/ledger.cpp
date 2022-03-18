@@ -839,7 +839,7 @@ nano::uint128_t nano::ledger::account_balance (nano::transaction const & transac
 	return result;
 }
 
-nano::uint128_t nano::ledger::account_pending (nano::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
+nano::uint128_t nano::ledger::account_receivable (nano::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
 {
 	nano::uint128_t result (0);
 	nano::account end (account_a.number () + 1);

@@ -1844,7 +1844,7 @@ TEST (rpc, pending)
 	auto block4 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 400));
 	rpc_ctx.io_scope->renew ();
 
-	ASSERT_TIMELY (10s, node->ledger.account_pending (node->store.tx_begin_read (), key1.pub) == 1000);
+	ASSERT_TIMELY (10s, node->ledger.account_receivable (node->store.tx_begin_read (), key1.pub) == 1000);
 	ASSERT_TIMELY (5s, !node->active.active (*block4));
 	ASSERT_TIMELY (5s, node->block_confirmed (block4->hash ()));
 
@@ -1878,7 +1878,7 @@ TEST (rpc, receivable_offset_and_sorting)
 	auto block6 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 300);
 
 	// check that all blocks got confirmed
-	ASSERT_TIMELY (5s, node->ledger.account_pending (node->store.tx_begin_read (), key1.pub, true) == 1600);
+	ASSERT_TIMELY (5s, node->ledger.account_receivable (node->store.tx_begin_read (), key1.pub, true) == 1600);
 
 	// check confirmation height is as expected, there is no perfect clarity yet when confirmation height updates after a block get confirmed
 	nano::confirmation_height_info confirmation_height_info;
