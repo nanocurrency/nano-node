@@ -4060,8 +4060,8 @@ TEST (rpc, blocks_info)
 			ASSERT_EQ (nano::dev::constants.genesis_amount.convert_to<std::string> (), amount_text);
 			std::string blocks_text (blocks.second.get<std::string> ("contents"));
 			ASSERT_FALSE (blocks_text.empty ());
-			boost::optional<std::string> pending (blocks.second.get_optional<std::string> ("pending"));
-			ASSERT_FALSE (pending.is_initialized ());
+			boost::optional<std::string> receivable (blocks.second.get_optional<std::string> ("receivable"));
+			ASSERT_FALSE (receivable.is_initialized ());
 			boost::optional<std::string> source (blocks.second.get_optional<std::string> ("source_account"));
 			ASSERT_FALSE (source.is_initialized ());
 			std::string balance_text (blocks.second.get<std::string> ("balance"));
@@ -4100,15 +4100,13 @@ TEST (rpc, blocks_info)
 		ASSERT_EQ (random_hash, blocks_not_found.begin ()->second.get<std::string> (""));
 	}
 	request.put ("source", "true");
-	request.put ("pending", "1");
+	request.put ("receivable", "1");
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		for (auto & blocks : response.get_child ("blocks"))
 		{
-			std::string source (blocks.second.get<std::string> ("source_account"));
-			ASSERT_EQ ("0", source);
-			std::string pending (blocks.second.get<std::string> ("pending"));
-			ASSERT_EQ ("0", pending);
+			ASSERT_EQ ("0", blocks.second.get<std::string> ("source_account"));
+			ASSERT_EQ ("0", blocks.second.get<std::string> ("receivable"));
 		}
 	}
 }

@@ -1238,6 +1238,7 @@ void nano::json_handler::blocks ()
 void nano::json_handler::blocks_info ()
 {
 	bool const pending = request.get<bool> ("pending", false);
+	bool const receivable = request.get<bool> ("receivable", pending);
 	bool const source = request.get<bool> ("source", false);
 	bool const json_block_l = request.get<bool> ("json_block", false);
 	bool const include_not_found = request.get<bool> ("include_not_found", false);
@@ -1290,7 +1291,7 @@ void nano::json_handler::blocks_info ()
 						auto subtype (nano::state_subtype (block->sideband ().details));
 						entry.put ("subtype", subtype);
 					}
-					if (pending)
+					if (receivable)
 					{
 						bool exists (false);
 						auto destination (node.ledger.block_destination (transaction, *block));
@@ -1299,6 +1300,7 @@ void nano::json_handler::blocks_info ()
 							exists = node.store.pending.exists (transaction, nano::pending_key (destination, hash));
 						}
 						entry.put ("pending", exists ? "1" : "0");
+						entry.put ("receivable", exists ? "1" : "0");
 					}
 					if (source)
 					{
