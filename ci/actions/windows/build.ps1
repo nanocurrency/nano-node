@@ -14,7 +14,7 @@ if (${env:artifact} -eq 1) {
     }
     $env:NANO_SHARED_BOOST = "ON"
     $env:NANO_TEST = "-DNANO_TEST=OFF"
-    $env:TRAVIS_TAG = ${env:TAG}
+    $env:CI_TAG = ${env:TAG}
     
     $env:CI = "-DCI_BUILD=ON"
     $env:RUN = "artifact"
