@@ -4633,6 +4633,7 @@ void nano::json_handler::wallet_ledger ()
 	bool const representative = request.get<bool> ("representative", false);
 	bool const weight = request.get<bool> ("weight", false);
 	bool const pending = request.get<bool> ("pending", false);
+	bool const receivable = request.get<bool> ("receivable", pending);
 	uint64_t modified_since (0);
 	boost::optional<std::string> modified_since_text (request.get_optional<std::string> ("modified_since"));
 	if (modified_since_text.is_initialized ())
@@ -4671,7 +4672,7 @@ void nano::json_handler::wallet_ledger ()
 						auto account_weight (node.ledger.weight (account));
 						entry.put ("weight", account_weight.convert_to<std::string> ());
 					}
-					if (pending)
+					if (receivable)
 					{
 						auto account_receivable (node.ledger.account_receivable (block_transaction, account));
 						entry.put ("pending", account_receivable.convert_to<std::string> ());
