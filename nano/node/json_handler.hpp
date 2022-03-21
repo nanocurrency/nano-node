@@ -87,6 +87,8 @@ public:
 	void peers ();
 	void pending ();
 	void pending_exists ();
+	void receivable ();
+	void receivable_exists ();
 	void process ();
 	void pruned_exists ();
 	void receive ();

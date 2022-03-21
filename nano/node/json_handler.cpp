@@ -2956,6 +2956,12 @@ void nano::json_handler::peers ()
 
 void nano::json_handler::pending ()
 {
+	response_l.put ("deprecated", "1");
+	receivable ();
+}
+
+void nano::json_handler::receivable ()
+{
 	auto account (account_impl ());
 	auto count (count_optional_impl ());
 	auto offset (offset_optional_impl (0));
@@ -3064,6 +3070,12 @@ void nano::json_handler::pending ()
 }
 
 void nano::json_handler::pending_exists ()
+{
+	response_l.put ("deprecated", "1");
+	receivable_exists ();
+}
+
+void nano::json_handler::receivable_exists ()
 {
 	auto hash (hash_impl ());
 	bool const include_active = request.get<bool> ("include_active", false);
@@ -5267,8 +5279,8 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("peers", &nano::json_handler::peers);
 	no_arg_funcs.emplace ("pending", &nano::json_handler::pending);
 	no_arg_funcs.emplace ("pending_exists", &nano::json_handler::pending_exists);
-	no_arg_funcs.emplace ("receivable", &nano::json_handler::pending);
-	no_arg_funcs.emplace ("receivable_exists", &nano::json_handler::pending_exists);
+	no_arg_funcs.emplace ("receivable", &nano::json_handler::receivable);
+	no_arg_funcs.emplace ("receivable_exists", &nano::json_handler::receivable_exists);
 	no_arg_funcs.emplace ("process", &nano::json_handler::process);
 	no_arg_funcs.emplace ("pruned_exists", &nano::json_handler::pruned_exists);
 	no_arg_funcs.emplace ("receive", &nano::json_handler::receive);
