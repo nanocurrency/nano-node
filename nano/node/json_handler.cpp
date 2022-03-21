@@ -2674,6 +2674,7 @@ void nano::json_handler::ledger ()
 		bool const representative = request.get<bool> ("representative", false);
 		bool const weight = request.get<bool> ("weight", false);
 		bool const pending = request.get<bool> ("pending", false);
+		bool const receivable = request.get<bool> ("receivable", pending);
 		boost::property_tree::ptree accounts;
 		auto transaction (node.store.tx_begin_read ());
 		if (!ec && !sorting) // Simple
@@ -2681,11 +2682,11 @@ void nano::json_handler::ledger ()
 			for (auto i (node.store.account.begin (transaction, start)), n (node.store.account.end ()); i != n && accounts.size () < count; ++i)
 			{
 				nano::account_info const & info (i->second);
-				if (info.modified >= modified_since && (pending || info.balance.number () >= threshold.number ()))
+				if (info.modified >= modified_since && (receivable || info.balance.number () >= threshold.number ()))
 				{
 					nano::account const & account (i->first);
 					boost::property_tree::ptree response_a;
-					if (pending)
+					if (receivable)
 					{
 						auto account_receivable = node.ledger.account_receivable (transaction, account);
 						if (info.balance.number () + account_receivable < threshold.number ())
@@ -2734,11 +2735,11 @@ void nano::json_handler::ledger ()
 			for (auto i (ledger_l.begin ()), n (ledger_l.end ()); i != n && accounts.size () < count; ++i)
 			{
 				node.store.account.get (transaction, i->second, info);
-				if (pending || info.balance.number () >= threshold.number ())
+				if (receivable || info.balance.number () >= threshold.number ())
 				{
 					nano::account const & account (i->second);
 					boost::property_tree::ptree response_a;
-					if (pending)
+					if (receivable)
 					{
 						auto account_receivable = node.ledger.account_receivable (transaction, account);
 						if (info.balance.number () + account_receivable < threshold.number ())
