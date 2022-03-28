@@ -725,7 +725,14 @@ class confirmation_height_store
 {
 public:
 	virtual void put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info const & confirmation_height_info_a) = 0;
+
+	/** Retrieves confirmation height info relating to an account.
+	 *  The parameter confirmation_height_info_a is always written.
+	 *  On error, the confirmation height and frontier hash are set to 0.
+	 *  Ruturns true on error, false on success.
+	 */
 	virtual bool get (nano::transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info & confirmation_height_info_a) = 0;
+
 	virtual bool exists (nano::transaction const & transaction_a, nano::account const & account_a) const = 0;
 	virtual void del (nano::write_transaction const & transaction_a, nano::account const & account_a) = 0;
 	virtual uint64_t count (nano::transaction const & transaction_a) = 0;
