@@ -42,10 +42,8 @@ function weight(t::transaction)
     max(t.amount, t.balance)
 end
 
-const bucket_set = ds.SortedSet{transaction{transaction_type}}
-
-struct bucket
-    items::bucket_set
+struct bucket{T}
+    items::ds.SortedSet{transaction{T}}
 end
 
 function first(b::bucket)::transaction
@@ -60,10 +58,8 @@ end
     bucket(ds.SortedSet{transaction{T}}())
 end=#
 
-const node_dict = ds.SortedDict{transaction_type, bucket}
-
-struct node
-    items::node_dict
+struct node{T}
+    items::ds.SortedDict{T, bucket}
 end
 
 function node_buckets(count)
@@ -76,14 +72,14 @@ end
 
 # Divide the keyspace of transaction_type in to count buckets
 function node(count)
-    init = node_dict()
+    init = ds.SortedDict{transaction_type, bucket}()
     for k in node_buckets(count)
         push!(init, k => bucket())
     end
     node(init)
 end
 
-const bucket_count = 4
+const node_bucket_count = 4
 
 function node()
     node(bucket_count)
@@ -97,30 +93,28 @@ function insert!(n::node, t::transaction)
     insert!(n.items[bucket(n, t)], t)
 end
 
-struct network
-    items::Vector{node}
+struct network{T}
+    items::Vector{node{T}}
 end
+
+const network_node_count = 4
 
 function network(count::Integer, bucket_size)
     nodes = []
     for i = 0:count - 1
         push!(nodes, node(bucket_size))
     end
-    network(nodes)
+    network{transaction_type}(nodes)
 end
 
-#=function network(count::Integer, bucket_size)
-    network{transaction_type}(count, bucket_size)
-end=#
-
-function network(count::Integer)
-    network(count, bucket_count)
+function network(count::Integer = 4)
+    network(count, node_bucket_count)
 end
 
 function test_comparisons()
     T = transaction{Int8}
     function first(values)
-        flow_control.first(bucket(bucket_set(values)))
+        flow_control.first(bucket(ds.SortedSet{transaction{transaction_type}}(values)))
     end
 
     # Highest tally first
@@ -160,10 +154,10 @@ end
 function test_network()
     network1 = network(1)
     @Test.test size(network1.items)[1] == 1
-    @Test.test length(network1.items[1].items) == bucket_count
+    @Test.test length(network1.items[1].items) == node_bucket_count
     network16 = network(16)
     @Test.test size(network16.items)[1] == 16
-    @Test.test length(network16.items[1].items) == bucket_count
+    @Test.test length(network16.items[1].items) == node_bucket_count
     network1_1 = network(1, 1)
     @Test.test size(network1_1.items)[1] == 1
     @Test.test length(network1_1.items[1].items) == 1
