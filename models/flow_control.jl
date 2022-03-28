@@ -97,7 +97,7 @@ function node()
 end
 
 function bucket(n::node, t::transaction)
-    ds.deref_key((n.items, ds.searchsortedlast(n.items, weight(t))))
+    ds.deref_key((n.buckets, ds.searchsortedlast(n.buckets, weight(t))))
 end
 
 function insert!(n::node, t::transaction)
@@ -106,6 +106,7 @@ end
 
 struct network{T}
     nodes::Vector{node{T}}
+    transactions::Set{transaction{T}}
 end
 
 const network_node_count = 4
@@ -115,7 +116,8 @@ function network(type, count, bucket_size)
     for i = 0:count - 1
         push!(nodes, node(type, bucket_size))
     end
-    network{type}(nodes)
+    transactions = Set{transaction{type}}()
+    network{type}(nodes, transactions)
 end
 
 function network(count, bucket_size)
@@ -168,18 +170,18 @@ end
 
 function test_network()
     network1 = network(1)
-    @Test.test keytype(network1.nodes[1].items) == Int8
+    @Test.test keytype(network1.nodes[1].buckets) == Int8
     @Test.test size(network1.nodes)[1] == 1
-    @Test.test length(network1.nodes[1].items) == node_bucket_count
+    @Test.test length(network1.nodes[1].buckets) == node_bucket_count
     network16 = network(16)
     @Test.test size(network16.nodes)[1] == 16
-    @Test.test length(network16.nodes[1].items) == node_bucket_count
+    @Test.test length(network16.nodes[1].buckets) == node_bucket_count
     network1_1 = network(1, 1)
     @Test.test size(network1_1.nodes)[1] == 1
-    @Test.test length(network1_1.nodes[1].items) == 1
+    @Test.test length(network1_1.nodes[1].buckets) == 1
     # Test network construction with a wider value type
     network_big = network(Int16, 1, 1)
-    @Test.test keytype(network_big.nodes[1].items) == Int16
+    @Test.test keytype(network_big.nodes[1].buckets) == Int16
 end
 
 function test()
