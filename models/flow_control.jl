@@ -8,6 +8,7 @@ import Test
 
 # Transaction properties used to bucket and sort transactions
 struct transaction{T<:Integer}
+    # Unique transaction id
     tx::UInt64
     tally::T
     balance::T
@@ -104,7 +105,7 @@ function insert!(n::node, t::transaction)
 end
 
 struct network{T}
-    items::Vector{node{T}}
+    nodes::Vector{node{T}}
 end
 
 const network_node_count = 4
@@ -167,6 +168,7 @@ end
 
 function test_network()
     network1 = network(1)
+    @Test.test keytype(network1.items[1].items) == Int8
     @Test.test size(network1.items)[1] == 1
     @Test.test length(network1.items[1].items) == node_bucket_count
     network16 = network(16)
@@ -177,6 +179,7 @@ function test_network()
     @Test.test length(network1_1.items[1].items) == 1
     # Test network construction with a wider value type
     network_big = network(Int16, 1, 1)
+    @Test.test keytype(network_big.items[1].items) == Int16
 end
 
 function test()
