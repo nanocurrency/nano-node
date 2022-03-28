@@ -112,7 +112,7 @@ function network(count::Integer = 4)
 end
 
 function test_comparisons()
-    T = transaction{Int8}
+    T = transaction{transaction_type}
     function first(values)
         flow_control.first(bucket(ds.SortedSet{transaction{transaction_type}}(values)))
     end
