@@ -6,8 +6,6 @@ import Base.lt
 import Base.insert!
 import Test
 
-const transaction_type = Int8
-
 # Transaction properties used to bucket and sort transactions
 struct transaction{T<:Integer}
     tx::UInt64
@@ -18,6 +16,8 @@ struct transaction{T<:Integer}
     difficulty::T
     transaction{T}(tally, balance, amount, lru, difficulty) where{T<:Integer} = new{T}(rand(UInt64), tally, balance, amount, lru, difficulty)
 end
+
+const transaction_type = Int8
 
 function isless(lhs::flow_control.transaction, rhs::flow_control.transaction)
     lhs_w = flow_control.weight(lhs)
@@ -101,7 +101,7 @@ end
 
 const network_node_count = 4
 
-function network(count::Integer, bucket_size)
+function network(count, bucket_size)
     nodes = []
     for i = 0:count - 1
         push!(nodes, node(bucket_size))
@@ -116,7 +116,6 @@ end
 function test_comparisons()
     T = transaction{transaction_type}
     function first(values)
-        print("\n\n", values)
         flow_control.first(bucket(ds.SortedSet{transaction{transaction_type}}(values)))
     end
 
