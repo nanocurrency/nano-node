@@ -44,6 +44,7 @@ public:
 	void accounts_create ();
 	void accounts_frontiers ();
 	void accounts_pending ();
+	void accounts_receivable ();
 	void active_difficulty ();
 	void available_supply ();
 	void block_info ();
@@ -86,6 +87,8 @@ public:
 	void peers ();
 	void pending ();
 	void pending_exists ();
+	void receivable ();
+	void receivable_exists ();
 	void process ();
 	void pruned_exists ();
 	void receive ();
@@ -95,7 +98,9 @@ public:
 	void representatives_online ();
 	void republish ();
 	void search_pending ();
+	void search_receivable ();
 	void search_pending_all ();
+	void search_receivable_all ();
 	void send ();
 	void sign ();
 	void stats ();
@@ -125,6 +130,7 @@ public:
 	void wallet_ledger ();
 	void wallet_lock ();
 	void wallet_pending ();
+	void wallet_receivable ();
 	void wallet_representative ();
 	void wallet_representative_set ();
 	void wallet_republish ();

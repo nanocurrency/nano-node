@@ -649,7 +649,7 @@ void nano::node::start ()
 	}
 	if (!flags.disable_search_pending)
 	{
-		search_pending ();
+		search_receivable_all ();
 	}
 	if (!flags.disable_wallet_bootstrap)
 	{
@@ -744,7 +744,7 @@ std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::a
 	std::pair<nano::uint128_t, nano::uint128_t> result;
 	auto const transaction (store.tx_begin_read ());
 	result.first = ledger.account_balance (transaction, account_a, only_confirmed_a);
-	result.second = ledger.account_pending (transaction, account_a, only_confirmed_a);
+	result.second = ledger.account_receivable (transaction, account_a, only_confirmed_a);
 	return result;
 }
 
@@ -899,15 +899,15 @@ void nano::node::backup_wallet ()
 	});
 }
 
-void nano::node::search_pending ()
+void nano::node::search_receivable_all ()
 {
 	// Reload wallets from disk
 	wallets.reload ();
 	// Search pending
-	wallets.search_pending_all ();
+	wallets.search_receivable_all ();
 	auto this_l (shared ());
 	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.search_pending_interval, [this_l] () {
-		this_l->search_pending ();
+		this_l->search_receivable_all ();
 	});
 }
 
@@ -1779,6 +1779,14 @@ void nano::node::populate_backlog ()
 		done = store.account.begin (transaction, next) == store.account.end ();
 	}
 }
+
+/** Convenience function to easily return the confirmation height of an account. */
+uint64_t nano::node::get_confirmation_height (nano::transaction const & transaction_a, nano::account & account_a)
+{
+	nano::confirmation_height_info info;
+	store.confirmation_height.get (transaction_a, account_a, info);
+	return info.height;
+};
 
 nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
 	network_params{ nano::network_constants::active_network },

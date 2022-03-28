@@ -143,7 +143,7 @@ TEST (wallets, exists)
 	}
 }
 
-TEST (wallets, search_pending)
+TEST (wallets, search_receivable)
 {
 	for (auto search_all : { false, true })
 	{
@@ -179,11 +179,11 @@ TEST (wallets, search_pending)
 		ASSERT_TRUE (node.active.empty ());
 		if (search_all)
 		{
-			node.wallets.search_pending_all ();
+			node.wallets.search_receivable_all ();
 		}
 		else
 		{
-			node.wallets.search_pending (wallet_id);
+			node.wallets.search_receivable (wallet_id);
 		}
 		auto election = node.active.election (send->qualified_root ());
 		ASSERT_NE (nullptr, election);
@@ -203,11 +203,11 @@ TEST (wallets, search_pending)
 		ASSERT_EQ (2, node.ledger.cache.block_count);
 		if (search_all)
 		{
-			node.wallets.search_pending_all ();
+			node.wallets.search_receivable_all ();
 		}
 		else
 		{
-			node.wallets.search_pending (wallet_id);
+			node.wallets.search_receivable (wallet_id);
 		}
 		ASSERT_TIMELY (3s, node.balance (nano::dev::genesis->account ()) == nano::dev::constants.genesis_amount);
 		auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::dev::genesis->account ());

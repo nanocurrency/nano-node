@@ -166,7 +166,9 @@ std::unordered_set<std::string> create_rpc_control_impls ()
 	set.emplace ("receive_minimum");
 	set.emplace ("receive_minimum_set");
 	set.emplace ("search_pending");
+	set.emplace ("search_receivable");
 	set.emplace ("search_pending_all");
+	set.emplace ("search_receivable_all");
 	set.emplace ("send");
 	set.emplace ("stop");
 	set.emplace ("unchecked_clear");

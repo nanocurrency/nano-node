@@ -700,7 +700,7 @@ bool nano::wallet::enter_password (nano::transaction const & transaction_a, std:
 	{
 		auto this_l (shared_from_this ());
 		wallets.node.background ([this_l] () {
-			this_l->search_pending (this_l->wallets.tx_begin_read ());
+			this_l->search_receivable (this_l->wallets.tx_begin_read ());
 		});
 		wallets.node.logger.try_log ("Wallet unlocked");
 	}
@@ -1164,7 +1164,7 @@ void nano::wallet::work_ensure (nano::account const & account_a, nano::root cons
 	});
 }
 
-bool nano::wallet::search_pending (nano::transaction const & wallet_transaction_a)
+bool nano::wallet::search_receivable (nano::transaction const & wallet_transaction_a)
 {
 	auto result (!store.valid_password (wallet_transaction_a));
 	if (!result)
@@ -1438,17 +1438,17 @@ std::shared_ptr<nano::wallet> nano::wallets::create (nano::wallet_id const & id_
 	return result;
 }
 
-bool nano::wallets::search_pending (nano::wallet_id const & wallet_a)
+bool nano::wallets::search_receivable (nano::wallet_id const & wallet_a)
 {
 	auto result (false);
 	if (auto wallet = open (wallet_a); wallet != nullptr)
 	{
-		result = wallet->search_pending (tx_begin_read ());
+		result = wallet->search_receivable (tx_begin_read ());
 	}
 	return result;
 }
 
-void nano::wallets::search_pending_all ()
+void nano::wallets::search_receivable_all ()
 {
 	nano::unique_lock<nano::mutex> lk (mutex);
 	auto wallets_l = get_wallets ();
@@ -1456,7 +1456,7 @@ void nano::wallets::search_pending_all ()
 	lk.unlock ();
 	for (auto const & [id, wallet] : wallets_l)
 	{
-		wallet->search_pending (wallet_transaction);
+		wallet->search_receivable (wallet_transaction);
 	}
 }
 

@@ -1844,7 +1844,7 @@ TEST (rpc, pending)
 	auto block4 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 400));
 	rpc_ctx.io_scope->renew ();
 
-	ASSERT_TIMELY (10s, node->ledger.account_pending (node->store.tx_begin_read (), key1.pub) == 1000);
+	ASSERT_TIMELY (10s, node->ledger.account_receivable (node->store.tx_begin_read (), key1.pub) == 1000);
 	ASSERT_TIMELY (5s, !node->active.active (*block4));
 	ASSERT_TIMELY (5s, node->block_confirmed (block4->hash ()));
 
@@ -1878,7 +1878,7 @@ TEST (rpc, receivable_offset_and_sorting)
 	auto block6 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 300);
 
 	// check that all blocks got confirmed
-	ASSERT_TIMELY (5s, node->ledger.account_pending (node->store.tx_begin_read (), key1.pub, true) == 1600);
+	ASSERT_TIMELY (5s, node->ledger.account_receivable (node->store.tx_begin_read (), key1.pub, true) == 1600);
 
 	// check confirmation height is as expected, there is no perfect clarity yet when confirmation height updates after a block get confirmed
 	nano::confirmation_height_info confirmation_height_info;
@@ -2040,7 +2040,7 @@ TEST (rpc, pending_burn)
 	}
 }
 
-TEST (rpc, search_pending)
+TEST (rpc, search_receivable)
 {
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
@@ -2054,7 +2054,7 @@ TEST (rpc, search_pending)
 	}
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	request.put ("action", "search_pending");
+	request.put ("action", "search_receivable");
 	request.put ("wallet", wallet);
 	auto response (wait_response (system, rpc_ctx, request));
 	ASSERT_TIMELY (10s, node->balance (nano::dev::genesis_key.pub) == nano::dev::constants.genesis_amount);
@@ -3186,6 +3186,22 @@ TEST (rpc, accounts_pending)
 {
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	boost::property_tree::ptree child;
+	boost::property_tree::ptree accounts;
+	child.put ("", nano::dev::genesis_key.pub.to_account ());
+	accounts.push_back (std::make_pair ("", child));
+	request.add_child ("accounts", accounts);
+	request.put ("action", "accounts_pending");
+	auto response (wait_response (system, rpc_ctx, request));
+	ASSERT_EQ ("1", response.get<std::string> ("deprecated"));
+}
+
+TEST (rpc, accounts_receivable)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 100));
@@ -3195,7 +3211,7 @@ TEST (rpc, accounts_pending)
 
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	request.put ("action", "accounts_pending");
+	request.put ("action", "accounts_receivable");
 	boost::property_tree::ptree entry;
 	boost::property_tree::ptree peers_l;
 	entry.put ("", key1.pub.to_account ());
@@ -3431,6 +3447,28 @@ TEST (rpc, pending_exists)
 
 TEST (rpc, wallet_pending)
 {
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	nano::keypair key1;
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key1.prv);
+	auto block1 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 100);
+	ASSERT_TIMELY (5s, node->get_confirmation_height (node->store.tx_begin_read (), nano::dev::genesis_key.pub) == 2);
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_pending");
+	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	auto response (wait_response (system, rpc_ctx, request));
+	ASSERT_EQ ("1", response.get<std::string> ("deprecated"));
+	ASSERT_EQ (1, response.get_child ("blocks").size ());
+	auto pending = response.get_child ("blocks").front ();
+	ASSERT_EQ (key1.pub.to_account (), pending.first);
+	nano::block_hash hash1{ pending.second.begin ()->second.get<std::string> ("") };
+	ASSERT_EQ (block1->hash (), hash1);
+}
+
+TEST (rpc, wallet_receivable)
+{
 	nano::system system0;
 	auto node = add_ipc_enabled_node (system0);
 	nano::keypair key1;
@@ -3448,7 +3486,7 @@ TEST (rpc, wallet_pending)
 
 	auto const rpc_ctx = add_rpc (system0, node);
 	boost::property_tree::ptree request;
-	request.put ("action", "wallet_pending");
+	request.put ("action", "wallet_receivable");
 	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
 	request.put ("count", "100");
 	auto response (wait_response (system0, rpc_ctx, request));
@@ -3609,7 +3647,7 @@ TEST (rpc, work_set)
 	ASSERT_EQ (work1, work0);
 }
 
-TEST (rpc, search_pending_all)
+TEST (rpc, search_receivable_all)
 {
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
@@ -3622,7 +3660,7 @@ TEST (rpc, search_pending_all)
 	}
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	request.put ("action", "search_pending_all");
+	request.put ("action", "search_receivable_all");
 	auto response (wait_response (system, rpc_ctx, request));
 	ASSERT_TIMELY (10s, node->balance (nano::dev::genesis_key.pub) == nano::dev::constants.genesis_amount);
 }
@@ -3860,22 +3898,20 @@ TEST (rpc, account_info)
 		ASSERT_EQ (0, response.get<uint8_t> ("account_version"));
 		boost::optional<std::string> weight (response.get_optional<std::string> ("weight"));
 		ASSERT_FALSE (weight.is_initialized ());
-		boost::optional<std::string> pending (response.get_optional<std::string> ("pending"));
-		ASSERT_FALSE (pending.is_initialized ());
+		boost::optional<std::string> receivable (response.get_optional<std::string> ("receivable"));
+		ASSERT_FALSE (receivable.is_initialized ());
 		boost::optional<std::string> representative (response.get_optional<std::string> ("representative"));
 		ASSERT_FALSE (representative.is_initialized ());
 	}
 
 	// Test for optional values
 	request.put ("weight", "true");
-	request.put ("pending", "1");
+	request.put ("receivable", "1");
 	request.put ("representative", "1");
 	{
 		auto response (wait_response (system, rpc_ctx, request));
-		std::string weight2 (response.get<std::string> ("weight"));
-		ASSERT_EQ ("100", weight2);
-		std::string pending2 (response.get<std::string> ("pending"));
-		ASSERT_EQ ("0", pending2);
+		ASSERT_EQ ("100", response.get<std::string> ("weight"));
+		ASSERT_EQ ("0", response.get<std::string> ("receivable"));
 		std::string representative2 (response.get<std::string> ("representative"));
 		ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), representative2);
 	}
@@ -3929,24 +3965,21 @@ TEST (rpc, account_info)
 	request.put ("account", key1.pub.to_account ());
 	{
 		auto response (wait_response (system, rpc_ctx, request));
-		std::string pending (response.get<std::string> ("pending"));
-		ASSERT_EQ ("25", pending);
-		std::string confirmed_pending (response.get<std::string> ("confirmed_pending"));
-		ASSERT_EQ ("0", confirmed_pending);
+		ASSERT_EQ ("25", response.get<std::string> ("receivable"));
+		ASSERT_EQ ("0", response.get<std::string> ("confirmed_receivable"));
 	}
 
 	request.put ("include_confirmed", false);
 	{
 		auto response (wait_response (system, rpc_ctx, request));
-		std::string pending (response.get<std::string> ("pending"));
-		ASSERT_EQ ("25", pending);
+		ASSERT_EQ ("25", response.get<std::string> ("receivable"));
 
 		// These fields shouldn't exist
 		auto confirmed_balance (response.get_optional<std::string> ("confirmed_balance"));
 		ASSERT_FALSE (confirmed_balance.is_initialized ());
 
-		auto confirmed_pending (response.get_optional<std::string> ("confirmed_pending"));
-		ASSERT_FALSE (confirmed_pending.is_initialized ());
+		auto confirmed_receivable (response.get_optional<std::string> ("confirmed_receivable"));
+		ASSERT_FALSE (confirmed_receivable.is_initialized ());
 
 		auto confirmed_representative (response.get_optional<std::string> ("confirmed_representative"));
 		ASSERT_FALSE (confirmed_representative.is_initialized ());
@@ -4027,8 +4060,8 @@ TEST (rpc, blocks_info)
 			ASSERT_EQ (nano::dev::constants.genesis_amount.convert_to<std::string> (), amount_text);
 			std::string blocks_text (blocks.second.get<std::string> ("contents"));
 			ASSERT_FALSE (blocks_text.empty ());
-			boost::optional<std::string> pending (blocks.second.get_optional<std::string> ("pending"));
-			ASSERT_FALSE (pending.is_initialized ());
+			boost::optional<std::string> receivable (blocks.second.get_optional<std::string> ("receivable"));
+			ASSERT_FALSE (receivable.is_initialized ());
 			boost::optional<std::string> source (blocks.second.get_optional<std::string> ("source_account"));
 			ASSERT_FALSE (source.is_initialized ());
 			std::string balance_text (blocks.second.get<std::string> ("balance"));
@@ -4067,15 +4100,13 @@ TEST (rpc, blocks_info)
 		ASSERT_EQ (random_hash, blocks_not_found.begin ()->second.get<std::string> (""));
 	}
 	request.put ("source", "true");
-	request.put ("pending", "1");
+	request.put ("receivable", "1");
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		for (auto & blocks : response.get_child ("blocks"))
 		{
-			std::string source (blocks.second.get<std::string> ("source_account"));
-			ASSERT_EQ ("0", source);
-			std::string pending (blocks.second.get<std::string> ("pending"));
-			ASSERT_EQ ("0", pending);
+			ASSERT_EQ ("0", blocks.second.get<std::string> ("source_account"));
+			ASSERT_EQ ("0", blocks.second.get<std::string> ("receivable"));
 		}
 	}
 }
