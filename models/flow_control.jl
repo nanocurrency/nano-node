@@ -6,16 +6,18 @@ import Base.lt
 import Base.insert!
 import Test
 
+const transaction_type = Int8
+
 # Transaction properties used to bucket and sort transactions
 struct transaction{T<:Integer}
+    tx::UInt64
     tally::T
     balance::T
     amount::T
     lru::T
     difficulty::T
+    transaction{T}(tally, balance, amount, lru, difficulty) where{T<:Integer} = new{T}(rand(UInt64), tally, balance, amount, lru, difficulty)
 end
-
-const transaction_type = Int8
 
 function isless(lhs::flow_control.transaction, rhs::flow_control.transaction)
     lhs_w = flow_control.weight(lhs)
@@ -114,11 +116,15 @@ end
 function test_comparisons()
     T = transaction{transaction_type}
     function first(values)
+        print("\n\n", values)
         flow_control.first(bucket(ds.SortedSet{transaction{transaction_type}}(values)))
     end
 
     # Highest tally first
+    print(T)
+    print(T(9, 1, 1, 1, 1))
     tally_values = [T(9, 1, 1, 1, 1), T(4, 1, 1, 1, 1)]
+    print(tally_values)
     @Test.test isless(tally_values[1], tally_values[2])
     @Test.test first(tally_values) == first(reverse(tally_values))
     # Then highest balance or amount
