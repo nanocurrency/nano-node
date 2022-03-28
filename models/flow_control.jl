@@ -62,7 +62,7 @@ function bucket()
 end
 
 struct node{T}
-    items::ds.SortedDict{T, bucket}
+    buckets::ds.SortedDict{T, bucket}
 end
 
 function node_buckets(type, count)
@@ -168,18 +168,18 @@ end
 
 function test_network()
     network1 = network(1)
-    @Test.test keytype(network1.items[1].items) == Int8
-    @Test.test size(network1.items)[1] == 1
-    @Test.test length(network1.items[1].items) == node_bucket_count
+    @Test.test keytype(network1.nodes[1].items) == Int8
+    @Test.test size(network1.nodes)[1] == 1
+    @Test.test length(network1.nodes[1].items) == node_bucket_count
     network16 = network(16)
-    @Test.test size(network16.items)[1] == 16
-    @Test.test length(network16.items[1].items) == node_bucket_count
+    @Test.test size(network16.nodes)[1] == 16
+    @Test.test length(network16.nodes[1].items) == node_bucket_count
     network1_1 = network(1, 1)
-    @Test.test size(network1_1.items)[1] == 1
-    @Test.test length(network1_1.items[1].items) == 1
+    @Test.test size(network1_1.nodes)[1] == 1
+    @Test.test length(network1_1.nodes[1].items) == 1
     # Test network construction with a wider value type
     network_big = network(Int16, 1, 1)
-    @Test.test keytype(network_big.items[1].items) == Int16
+    @Test.test keytype(network_big.nodes[1].items) == Int16
 end
 
 function test()
