@@ -140,7 +140,7 @@ end
 function test_comparisons()
     T = transaction{transaction_type}
     function first(values)
-        flow_control.first(bucket(ds.SortedSet{transaction{transaction_type}}(values)))
+        flow_control.first(bucket(ds.SortedSet{T}(values)))
     end
 
     # Highest tally first
