@@ -52,33 +52,41 @@ function first(b::bucket)::transaction
     ds.first(b.items)
 end
 
-function bucket{T}() where{T<:Integer}
-    bucket(ds.SortedSet{transaction{T}}())
+function bucket(type)
+    bucket(ds.SortedSet{transaction{type}}())
 end
 
 function bucket()
-    bucket{transaction_type}()
+    bucket(transaction_type)
 end
 
 struct node{T}
     items::ds.SortedDict{T, bucket}
 end
 
-function node_buckets(count)
-    result = ds.SortedSet{transaction_type}()
+function node_buckets(type, count)
+    result = ds.SortedSet{type}()
     for i = 0:count - 1
-        insert!(result, i * (typemax(transaction_type) ÷ count))
+        insert!(result, i * (typemax(type) ÷ count))
     end
     result
 end
 
+function node_buckets(count)
+    node_buckets(transaction_type, count)
+end
+
 # Divide the keyspace of transaction_type in to count buckets
-function node(count)
-    init = ds.SortedDict{transaction_type, bucket}()
-    for k in node_buckets(count)
+function node(type, count)
+    init = ds.SortedDict{type, bucket}()
+    for k in node_buckets(type, count)
         push!(init, k => bucket())
     end
     node(init)
+end
+
+function node(count)
+    node(transaction_type, count)
 end
 
 const node_bucket_count = 4
@@ -101,12 +109,16 @@ end
 
 const network_node_count = 4
 
-function network(count, bucket_size)
+function network(type, count, bucket_size)
     nodes = []
     for i = 0:count - 1
-        push!(nodes, node(bucket_size))
+        push!(nodes, node(type, bucket_size))
     end
-    network{transaction_type}(nodes)
+    network{type}(nodes)
+end
+
+function network(count, bucket_size)
+    network(transaction_type, count, bucket_size)
 end
 
 function network(count::Integer = 4)
@@ -163,6 +175,8 @@ function test_network()
     network1_1 = network(1, 1)
     @Test.test size(network1_1.items)[1] == 1
     @Test.test length(network1_1.items[1].items) == 1
+    # Test network construction with a wider value type
+    network_big = network(Int16, 1, 1)
 end
 
 function test()
