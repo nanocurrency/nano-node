@@ -4,6 +4,7 @@ import DataStructures as ds
 import Base.isless
 import Base.lt
 import Base.insert!
+import Base.push!
 import Test
 
 # Transaction properties used to bucket and sort transactions
@@ -111,9 +112,9 @@ end
 
 const network_node_count = 4
 
-function network(type, count, bucket_size)
+function network(type, node_count, bucket_size)
     nodes = []
-    for i = 0:count - 1
+    for i = 0:node_count - 1
         push!(nodes, node(type, bucket_size))
     end
     transactions = Set{transaction{type}}()
@@ -127,6 +128,14 @@ end
 function network(count::Integer = 4)
     network(count, node_bucket_count)
 end
+
+# State transitions
+
+function push!(network::network, transaction)
+    push!(network.transactions, transaction)
+end
+
+# State transitions end
 
 function test_comparisons()
     T = transaction{transaction_type}
@@ -184,10 +193,17 @@ function test_network()
     @Test.test keytype(network_big.nodes[1].buckets) == Int16
 end
 
+function test_state_transitions()
+    n = network()
+    push!(n, transaction{transaction_type}(1, 1, 1, 1, 1))
+    n
+end
+
 function test()
     test_comparisons()
     test_bucket()
     test_network()
+    test_state_transitions()
 end
 
 end #module
