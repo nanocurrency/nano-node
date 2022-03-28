@@ -1,6 +1,7 @@
 module flow_control
 import Pkg; Pkg.add("DataStructures");
 import DataStructures as ds
+import Base.in
 import Base.isless
 import Base.lt
 import Base.insert!
@@ -97,17 +98,29 @@ function node()
     node(bucket_count)
 end
 
+# node operations
+
 function bucket(n::node, t::transaction)
     ds.deref_key((n.buckets, ds.searchsortedlast(n.buckets, weight(t))))
 end
 
 function insert!(n::node, t::transaction)
-    insert!(n.items[bucket(n, t)], t)
+    insert!(n.buckets[bucket(n, t)].items, t)
 end
+
+function transactions(type, node)
+    result = ds.SortedSet{transaction{type}}()
+    for (k, v) = node.buckets
+        result = union(result, v.items)
+    end
+    result
+end
+
+#node operations end
 
 struct network{T}
     nodes::Vector{node{T}}
-    transactions::Set{transaction{T}}
+    transactions::ds.SortedSet{transaction{T}}
 end
 
 const network_node_count = 4
@@ -117,7 +130,7 @@ function network(type, node_count, bucket_size)
     for i = 0:node_count - 1
         push!(nodes, node(type, bucket_size))
     end
-    transactions = Set{transaction{type}}()
+    transactions = ds.SortedSet{transaction{type}}()
     network{type}(nodes, transactions)
 end
 
@@ -127,6 +140,10 @@ end
 
 function network(count::Integer = 4)
     network(count, node_bucket_count)
+end
+
+function in(transaction, n::network)
+    transaction in n.transactions
 end
 
 # State transitions
@@ -194,18 +211,18 @@ function test_network()
     @Test.test keytype(network_big.nodes[1].buckets) == Int16
 end
 
-function test_network_push!()
+function test_network_push!_in()
     type = transaction{transaction_type}
     n = network()
     tx1 = type(1, 1, 1, 1, 1)
     tx2 = type(2, 2, 2, 2, 2)
     push!(n, tx1)
-    @Test.test tx1 in n.transactions
-    @Test.test !(tx2 in n.transactions)
+    @Test.test tx1 in n
+    @Test.test !in(tx2, n)
 end
 
 function test_state_transitions()
-    test_network_push!()
+    test_network_push!_in()
 end
 
 function test()
