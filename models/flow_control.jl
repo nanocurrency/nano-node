@@ -194,10 +194,18 @@ function test_network()
     @Test.test keytype(network_big.nodes[1].buckets) == Int16
 end
 
-function test_state_transitions()
+function test_network_push!()
+    type = transaction{transaction_type}
     n = network()
-    push!(n, transaction{transaction_type}(1, 1, 1, 1, 1))
-    n
+    tx1 = type(1, 1, 1, 1, 1)
+    tx2 = type(2, 2, 2, 2, 2)
+    push!(n, tx1)
+    @Test.test tx1 in n.transactions
+    @Test.test !(tx2 in n.transactions)
+end
+
+function test_state_transitions()
+    test_network_push!()
 end
 
 function test()
