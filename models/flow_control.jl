@@ -131,8 +131,9 @@ end
 
 # State transitions
 
-function push!(network::network, transaction)
-    push!(network.transactions, transaction)
+# Add a transaction to the network via adding it to the network's global set of transactions
+function push!(n::network, transaction)
+    push!(n.transactions, transaction)
 end
 
 # State transitions end
