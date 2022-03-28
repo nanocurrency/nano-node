@@ -52,13 +52,13 @@ function first(b::bucket)::transaction
     ds.first(b.items)
 end
 
-function bucket()
-    bucket(ds.SortedSet{transaction{transaction_type}}())
+function bucket{T}() where{T<:Integer}
+    bucket(ds.SortedSet{transaction{T}}())
 end
 
-#=function bucket{T}()
-    bucket(ds.SortedSet{transaction{T}}())
-end=#
+function bucket()
+    bucket{transaction_type}()
+end
 
 struct node{T}
     items::ds.SortedDict{T, bucket}
@@ -120,10 +120,7 @@ function test_comparisons()
     end
 
     # Highest tally first
-    print(T)
-    print(T(9, 1, 1, 1, 1))
     tally_values = [T(9, 1, 1, 1, 1), T(4, 1, 1, 1, 1)]
-    print(tally_values)
     @Test.test isless(tally_values[1], tally_values[2])
     @Test.test first(tally_values) == first(reverse(tally_values))
     # Then highest balance or amount
