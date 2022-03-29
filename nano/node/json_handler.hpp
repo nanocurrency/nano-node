@@ -97,6 +97,8 @@ public:
 	void representatives ();
 	void representatives_online ();
 	void republish ();
+	void reverse_link ();
+	void reverse_links ();
 	void search_pending ();
 	void search_receivable ();
 	void search_pending_all ();
