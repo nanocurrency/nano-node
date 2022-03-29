@@ -1348,7 +1348,7 @@ nano::wallets::wallets (bool error_a, nano::node & node_a) :
 		auto status (mdb_dbi_open (env.tx (transaction), nullptr, MDB_CREATE, &handle));
 		split_if_needed (transaction, node.store);
 		status |= mdb_dbi_open (env.tx (transaction), "send_action_ids", MDB_CREATE, &send_action_ids);
-		debug_assert (status == 0);
+		release_assert (status == 0);
 		std::string beginning (nano::uint256_union (0).to_string ());
 		std::string end ((nano::uint256_union (nano::uint256_t (0) - nano::uint256_t (1))).to_string ());
 		nano::store_iterator<std::array<char, 64>, nano::no_value> i (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::no_value>> (transaction, handle, nano::mdb_val (beginning.size (), const_cast<char *> (beginning.c_str ()))));
@@ -1358,8 +1358,8 @@ nano::wallets::wallets (bool error_a, nano::node & node_a) :
 			nano::wallet_id id;
 			std::string text (i->first.data (), i->first.size ());
 			auto error (id.decode_hex (text));
-			debug_assert (!error);
-			debug_assert (items.find (id) == items.end ());
+			release_assert (!error);
+			release_assert (items.find (id) == items.end ());
 			auto wallet (std::make_shared<nano::wallet> (error, transaction, *this, text));
 			if (!error)
 			{
