@@ -1258,6 +1258,12 @@ std::shared_ptr<nano::block> nano::ledger::find_receive_block_by_send_hash (nano
 		return store.block.get (transaction, receive_hash);
 	}
 
+	// avoid unneccessary searches in case the send block is receivable
+	if (store.pending.exists (transaction, nano::pending_key (destination, send_block_hash)))
+	{
+		return nullptr;
+	}
+
 	// get the cemented frontier
 	nano::confirmation_height_info info;
 	if (store.confirmation_height.get (transaction, destination, info))
