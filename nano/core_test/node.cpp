@@ -1704,18 +1704,18 @@ TEST (node, unconfirmed_send)
 	// wait until receive1 (auto-receive created by wallet) is cemented
 	ASSERT_TIMELY (5s, node2.get_confirmation_height (node2.store.tx_begin_read (), key2.pub) == 1);
 	ASSERT_EQ (node2.balance (key2.pub), 2 * nano::Mxrb_ratio);
-	auto recv1 = node2.ledger.find_receive_block_by_send_hash (node2.store.tx_begin_read(), key2.pub, send1->hash());
+	auto recv1 = node2.ledger.find_receive_block_by_send_hash (node2.store.tx_begin_read (), key2.pub, send1->hash ());
 
 	// create send2 to send from node2 to node1 and save it to node2's ledger without triggering an election (node1 does not hear about it)
 	auto send2 = nano::state_block_builder{}
 				 .make_block ()
 				 .account (key2.pub)
-				 .previous (recv1->hash())
+				 .previous (recv1->hash ())
 				 .representative (nano::dev::genesis_key.pub)
 				 .balance (nano::Mxrb_ratio)
 				 .link (nano::dev::genesis->account ())
 				 .sign (key2.prv, key2.pub)
-				 .work (*system.work.generate (recv1->hash()))
+				 .work (*system.work.generate (recv1->hash ()))
 				 .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node2.process (*send2).code);
 
