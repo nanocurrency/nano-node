@@ -1,6 +1,7 @@
 module flow_control
 import Pkg; Pkg.add("DataStructures");
 import DataStructures as ds
+import Base.first
 import Base.in
 import Base.isless
 import Base.lt
@@ -108,8 +109,8 @@ function insert!(n::node, t::transaction)
     insert!(n.buckets[bucket(n, t)].items, t)
 end
 
-function transactions(type, node)
-    result = ds.SortedSet{transaction{type}}()
+function transactions(node)
+    result = copy(first(node.buckets).second.items)
     for (k, v) = node.buckets
         result = union(result, v.items)
     end
@@ -151,6 +152,11 @@ end
 # Add a transaction to the network via adding it to the network's global set of transactions
 function push!(n::network, transaction)
     push!(n.transactions, transaction)
+end
+
+function copy_global!(n::network, node)
+    unknown = setdiff(n.transactions, transactions(node))
+    insert!(node, rand(collect(unknown)))
 end
 
 # State transitions end
@@ -221,8 +227,22 @@ function test_network_push!_in()
     @Test.test !in(tx2, n)
 end
 
+function test_copy_global()
+    type = transaction{transaction_type}
+    n = network()
+    tx = type(1, 1, 1, 1, 1)
+    push!(n, tx)
+    node = n.nodes[1]
+    intersection() = intersect(transactions(node), n.transactions)
+     @Test.test isempty(intersection())
+    copy_global!(n, node)
+    @Test.test !isempty(intersection())
+    nothing
+end
+
 function test_state_transitions()
     test_network_push!_in()
+    test_copy_global()
 end
 
 function test()
