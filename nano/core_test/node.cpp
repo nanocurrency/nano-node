@@ -1681,45 +1681,51 @@ TEST (node, bootstrap_confirm_frontiers)
 	}
 }
 
-// Test that if we create a block that isn't confirmed, we sync.
+// Test that if we create a block that isn't confirmed, the bootstrapping processes sync the missing block.
 TEST (node, unconfirmed_send)
 {
-	nano::system system{ 2 };
+	nano::system system{};
 
-	auto & node0 = *system.nodes[0];
-	auto wallet0 = system.wallet (0);
-	wallet0->insert_adhoc (nano::dev::genesis_key.prv);
+	auto & node1 = *system.add_node ();
+	auto wallet1 = system.wallet (0);
+	wallet1->insert_adhoc (nano::dev::genesis_key.prv);
 
-	nano::keypair key1{};
-	auto & node1 = *system.nodes[1];
-	auto wallet1 = system.wallet (1);
-	wallet1->insert_adhoc (key1.prv);
+	nano::keypair key2{};
+	auto & node2 = *system.add_node ();
+	auto wallet2 = system.wallet (1);
+	wallet2->insert_adhoc (key2.prv);
 
-	// firstly, send two units from node0 to node1 and expect they're both received (as balance) on the other end
-	//
-	auto send1 = wallet0->send_action (nano::dev::genesis->account (), key1.pub, 2 * nano::Mxrb_ratio);
-	ASSERT_TIMELY (10s, node1.balance (key1.pub) == 2 * nano::Mxrb_ratio && !node1.bootstrap_initiator.in_progress ());
+	// firstly, send two units from node1 to node2 and expect that both nodes see the block as confirmed
+	// (node1 will start an election for it, vote on it and node2 gets synced up)
+	auto send1 = wallet1->send_action (nano::dev::genesis->account (), key2.pub, 2 * nano::Mxrb_ratio);
+	ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
+	ASSERT_TIMELY (5s, node2.block_confirmed (send1->hash ()));
 
-	// then send one of the received units back from node1 to node0, force-confirm and expect node0 to sync up
-	//
-	auto latest1 = node1.latest (key1.pub);
-	auto send2 = nano::state_block_builder ()
-				 .account (key1.pub)
-				 .previous (latest1)
+	// wait until receive1 (auto-receive created by wallet) is cemented
+	ASSERT_TIMELY (5s, node2.get_confirmation_height (node2.store.tx_begin_read (), key2.pub) == 1);
+	ASSERT_EQ (node2.balance (key2.pub), 2 * nano::Mxrb_ratio);
+	auto recv1 = node2.ledger.find_receive_block_by_send_hash (node2.store.tx_begin_read (), key2.pub, send1->hash ());
+
+	// create send2 to send from node2 to node1 and save it to node2's ledger without triggering an election (node1 does not hear about it)
+	auto send2 = nano::state_block_builder{}
+				 .make_block ()
+				 .account (key2.pub)
+				 .previous (recv1->hash ())
 				 .representative (nano::dev::genesis_key.pub)
 				 .balance (nano::Mxrb_ratio)
 				 .link (nano::dev::genesis->account ())
-				 .sign (key1.prv, key1.pub)
-				 .work (*system.work.generate (latest1))
+				 .sign (key2.prv, key2.pub)
+				 .work (*system.work.generate (recv1->hash ()))
 				 .build_shared ();
-	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (node1.store.tx_begin_write (), *send2).code);
-	node1.process_confirmed (nano::election_status{ send2 });
-	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
+	ASSERT_EQ (nano::process_result::progress, node2.process (*send2).code);
 
-	// finally, send the remaining unit back as well, expect that node0 ends up with the balance it had initially
-	//
-	auto send3 = wallet1->send_action (key1.pub, nano::dev::genesis->account (), nano::Mxrb_ratio);
-	ASSERT_TIMELY (10s, node0.balance (nano::dev::genesis->account ()) == nano::dev::constants.genesis_amount);
+	auto send3 = wallet2->send_action (key2.pub, nano::dev::genesis->account (), nano::Mxrb_ratio);
+	ASSERT_TIMELY (5s, node2.block_confirmed (send2->hash ()));
+	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
+	ASSERT_TIMELY (5s, node2.block_confirmed (send3->hash ()));
+	ASSERT_TIMELY (5s, node1.block_confirmed (send3->hash ()));
+	ASSERT_TIMELY (5s, node2.ledger.cache.cemented_count == 7);
+	ASSERT_TIMELY (5s, node1.balance (nano::dev::genesis->account ()) == nano::dev::constants.genesis_amount);
 }
 
 // Test that nodes can track nodes that have rep weight for priority broadcasting
