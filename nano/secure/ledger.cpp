@@ -1251,6 +1251,13 @@ std::shared_ptr<nano::block> nano::ledger::find_receive_block_by_send_hash (nano
 	std::shared_ptr<nano::block> result;
 	debug_assert (send_block_hash != 0);
 
+	// try to find the receive block by a confirmed reverse link
+	nano::block_hash receive_hash = store.reverse_link.get (transaction, send_block_hash);
+	if (!receive_hash.is_zero ())
+	{
+		return store.block.get (transaction, receive_hash);
+	}
+
 	// get the cemented frontier
 	nano::confirmation_height_info info;
 	if (store.confirmation_height.get (transaction, destination, info))
