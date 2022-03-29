@@ -3,6 +3,7 @@ import Pkg; Pkg.add("DataStructures");
 import DataStructures as ds
 import Base.first
 import Base.in
+import Base.isempty
 import Base.isless
 import Base.lt
 import Base.insert!
@@ -56,6 +57,14 @@ function first(b::bucket)::transaction
     ds.first(b.items)
 end
 
+function transaction_type(b::bucket{T}) where{T}
+    T
+end
+
+function isempty(b::bucket)
+    isempty(b.items)
+end
+
 function bucket(type)
     bucket(ds.SortedSet{transaction{type}}())
 end
@@ -96,7 +105,7 @@ end
 const node_bucket_count = 4
 
 function node()
-    node(bucket_count)
+    node(node_bucket_count)
 end
 
 # node operations
@@ -113,6 +122,21 @@ function transactions(node)
     result = copy(first(node.buckets).second.items)
     for (k, v) = node.buckets
         result = union(result, v.items)
+    end
+    result
+end
+
+function transaction_type(n::node{T}) where{T}
+    return T
+end
+
+function working_set(node)
+    result = ds.Set{transaction{transaction_type(node)}}()
+    # Insert the highest priority transaction from each bucket
+    for (k, v) = node.buckets
+        if !isempty(v)
+            push!(result, first(v))
+        end
     end
     result
 end
@@ -139,28 +163,48 @@ function network(count, bucket_size)
     network(transaction_type, count, bucket_size)
 end
 
-function network(count::Integer = 4)
+function network(count)
     network(count, node_bucket_count)
+end
+
+function network()
+    network(network_node_count)
 end
 
 function in(transaction, n::network)
     transaction in n.transactions
 end
 
-# State transitions
+function transaction_type(n::network{T}) where{T}
+    T
+end
+
+# Flow control state transitions
 
 # Add a transaction to the network via adding it to the network's global set of transactions
 function push!(n::network, transaction)
     push!(n.transactions, transaction)
 end
 
+# Copy a transaction from the global network transactions to node
 function copy_global!(n::network, node)
     unknown = setdiff(n.transactions, transactions(node))
     insert!(node, rand(collect(unknown)))
 end
 
+# Copy the working set from another random peer to node
+function copy_peer!(n::network, node)
+    peer = rand(collect(n.nodes))
+    for (k, b) in peer.buckets
+        if !isempty(b)
+            insert!(node, first(b))
+        end
+    end
+end
+
 # State transitions end
 
+# Testing less-than comparison on transactions
 function test_comparisons()
     T = transaction{transaction_type}
     function first(values)
@@ -199,6 +243,7 @@ function test_bucket()
     @Test.test bucket(n, T(1, 31, 1, 1, 1)) == 31
     @Test.test bucket(n, T(1, 1, 31, 1, 1)) == 31
     @Test.test bucket(n, T(1, 1, 127, 1, 1)) == 93
+    @Test.test transaction_type(bucket(Int32)) == Int32
 end
 
 function test_network()
@@ -215,6 +260,25 @@ function test_network()
     # Test network construction with a wider value type
     network_big = network(Int16, 1, 1)
     @Test.test keytype(network_big.nodes[1].buckets) == Int16
+end
+
+function test_working_set()
+    T = transaction{Int8}
+    n = node()
+    w1 = working_set(n)
+    # Working set initially contains nothing since all buckets are empty
+    @Test.test isempty(w1)
+    tx = T(1, 1, 1, 1, 1)
+    # Put something in a bucket
+    insert!(n, tx)
+    # Now working set should contain the item inserted
+    w2 = working_set(n)
+    @Test.test !isempty(w2)
+    @Test.test tx in w2
+end
+
+function test_node()
+    test_working_set()
 end
 
 function test_network_push!_in()
@@ -234,25 +298,66 @@ function test_copy_global()
     push!(n, tx)
     node = n.nodes[1]
     intersection() = intersect(transactions(node), n.transactions)
-     @Test.test isempty(intersection())
+    @Test.test isempty(intersection())
     copy_global!(n, node)
-    @Test.test !isempty(intersection())
+    i = intersection()
+    @Test.test !isempty(i)
+    @Test.test i == n.transactions
     nothing
+end
+
+function test_copy_peer()
+    type = transaction{transaction_type}
+    n = network(2)
+    node1 = n.nodes[1]
+    node2 = n.nodes[2]
+    tx = type(1, 1, 1, 1, 1)
+    # Populate the working set of node1
+    insert!(node1, tx)
+    # Working set starts out empty
+    @Test.test isempty(working_set(node2))
+    # Copy the working set from node1 to node2
+    copy_peer!(n, node2)
+    w = working_set(node2)
+    @Test.test !isempty(w)
+    # Ensure the working set contains what was inserted on node1
+    @Test.test tx in w
 end
 
 function test_state_transitions()
     test_network_push!_in()
     test_copy_global()
+    test_copy_peer()
+end
+
+function op_push!(n::network)
+    t = transaction_type(n)
+    v = () -> rand(typemin(t):typemax(t))
+    push!(n, transaction{t}(v(), v(), v(), v(), v()))
+end
+
+function all_ops()
+    [op_push!]
+end
+
+# Perform all of the random state transitions
+function test_rand_all()
+    n = network()
+    for op in all_ops()
+        op(n)
+    end
+    n
 end
 
 function test()
     test_comparisons()
     test_bucket()
+    test_node()
     test_network()
     test_state_transitions()
+    test_rand_all()
 end
 
 end #module
 
 flow_control.test()
-
