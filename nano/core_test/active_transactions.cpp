@@ -967,6 +967,53 @@ TEST (active_transactions, confirmation_consistency)
 }
 }
 
+/**
+ * This test case tests the creation of reverse links for incoming confirmed blocks.
+ */
+TEST (active_transactions, reverse_link)
+{
+	// Initialise node environment and enable reverse links
+	nano::system system;
+	nano::node_config node_config = nano::node_config (nano::get_available_port (), system.logging);
+	node_config.enable_reverse_links = true;
+	auto & node = *system.add_node (node_config);
+
+	// Create and process two blocks
+	nano::keypair key1;
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	auto const send1 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, node.config.receive_minimum.number ());
+	ASSERT_NE (send1, nullptr);
+	system.wallet (0)->insert_adhoc (key1.prv);
+	auto const open1 = system.wallet (0)->receive_action (send1->hash (), key1.pub, node.config.receive_minimum.number (), send1->link ().as_account ());
+	ASSERT_NE (open1, nullptr);
+
+	ASSERT_TIMELY (5s, node.block_confirmed (send1->hash ()));
+	ASSERT_TIMELY (5s, node.block_confirmed (open1->hash ()));
+
+	// Check if reverse link was created
+	ASSERT_EQ (1, node.store.reverse_link.count_accurate (node.store.tx_begin_read ()));
+	ASSERT_EQ (open1->hash (), node.store.reverse_link.get (node.store.tx_begin_read (), send1->hash ()));
+
+	// Now disable reverse links
+	node.config.enable_reverse_links = false;
+
+	// Create and process two more blocks
+	nano::keypair key2;
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	auto const send2 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, node.config.receive_minimum.number ());
+	ASSERT_NE (send2, nullptr);
+	system.wallet (0)->insert_adhoc (key2.prv);
+	auto const open2 = system.wallet (0)->receive_action (send2->hash (), key2.pub, node.config.receive_minimum.number (), send2->link ().as_account ());
+	ASSERT_NE (open2, nullptr);
+
+	ASSERT_TIMELY (5s, node.block_confirmed (send2->hash ()));
+	ASSERT_TIMELY (5s, node.block_confirmed (open2->hash ()));
+
+	// The second reverse link should not be created this time
+	ASSERT_EQ (1, node.store.reverse_link.count_accurate (node.store.tx_begin_read ()));
+	ASSERT_EQ (nano::block_hash (0), node.store.reverse_link.get (node.store.tx_begin_read (), send2->hash ()));
+}
+
 // Test disabled because it's failing intermittently.
 // PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
 // Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3634
