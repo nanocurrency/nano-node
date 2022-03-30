@@ -43,6 +43,7 @@ public:
 	 */
 	std::error_code poll (std::chrono::nanoseconds const & sleep_time = std::chrono::milliseconds (50));
 	std::error_code poll_until_true (std::chrono::nanoseconds deadline, std::function<bool ()>);
+	void delay_ms (std::chrono::milliseconds const & delay);
 	void stop ();
 	void deadline_set (std::chrono::duration<double, std::nano> const & delta);
 	std::shared_ptr<nano::node> add_node (nano::node_flags = nano::node_flags (), nano::transport::transport_type = nano::transport::transport_type::tcp);
