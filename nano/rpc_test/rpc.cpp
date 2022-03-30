@@ -2668,22 +2668,35 @@ TEST (rpc, account_representative_set)
 {
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	auto & wallet = *system.wallet (0);
+	wallet.insert_adhoc (nano::dev::genesis_key.prv);
+
+	// create a 2nd account and send it some nano
+	nano::keypair key2;
+	wallet.insert_adhoc (key2.prv);
+	auto key2_open_block_hash = wallet.send_sync (nano::dev::genesis_key.pub, key2.pub, node->config.receive_minimum.number ());
+	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->store.tx_begin_read (), key2_open_block_hash));
+	auto key2_open_block = node->store.block.get (node->store.tx_begin_read (), key2_open_block_hash);
+	ASSERT_EQ (nano::dev::genesis_key.pub, key2_open_block->representative ());
+
+	// now change the representative of key2 to be genesis
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	nano::keypair rep;
-	request.put ("account", nano::dev::genesis->account ().to_account ());
-	request.put ("representative", rep.pub.to_account ());
+	request.put ("account", key2.pub.to_account ());
+	request.put ("representative", key2.pub.to_account ());
 	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
 	request.put ("action", "account_representative_set");
 	auto response (wait_response (system, rpc_ctx, request));
 	std::string block_text1 (response.get<std::string> ("block"));
+
+	// check that the rep change succeeded
 	nano::block_hash hash;
 	ASSERT_FALSE (hash.decode_hex (block_text1));
 	ASSERT_FALSE (hash.is_zero ());
-	auto transaction (node->store.tx_begin_read ());
-	ASSERT_TRUE (node->store.block.exists (transaction, hash));
-	ASSERT_EQ (rep.pub, node->store.block.get (transaction, hash)->representative ());
+	auto block = node->store.block.get (node->store.tx_begin_read (), hash);
+	ASSERT_NE (block, nullptr);
+	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->store.tx_begin_read (), hash));
+	ASSERT_EQ (key2.pub, block->representative ());
 }
 
 TEST (rpc, account_representative_set_work_disabled)
