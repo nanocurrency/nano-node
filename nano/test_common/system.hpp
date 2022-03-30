@@ -55,8 +55,6 @@ public:
 	std::chrono::time_point<std::chrono::steady_clock, std::chrono::duration<double>> deadline{ std::chrono::steady_clock::time_point::max () };
 	double deadline_scaling_factor{ 1.0 };
 	unsigned node_sequence{ 0 };
-
-private:
 	std::vector<std::shared_ptr<nano::block>> initialization_blocks;
 };
 std::unique_ptr<nano::state_block> upgrade_epoch (nano::work_pool &, nano::ledger &, nano::epoch);

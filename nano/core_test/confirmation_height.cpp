@@ -676,12 +676,8 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		node1->process_active (send1);
 		ASSERT_TIMELY (5s, node1->active.election (send1->qualified_root ()) != nullptr);
 
-		// create node2 and account key2 (no voting key yet)
-		auto node2 = system.add_node (node_flags);
-		auto wallet1 = system.wallet (0);
-		nano::keypair key2{};
-
 		// create the other side of the fork on node2
+		nano::keypair key2;
 		auto send2 = builder.make_block ()
 					 .previous (genesis_hash)
 					 .account (nano::dev::genesis_key.pub)
@@ -691,10 +687,17 @@ TEST (confirmation_height, conflict_rollback_cemented)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (*system.work.generate (genesis_hash))
 					 .build_shared ();
+
+		// create node2, with send2 pre-initialised in the ledger so that block send1 cannot possibly get in the ledger first
+		system.initialization_blocks.push_back (send2);
+		auto node2 = system.add_node (node_flags);
+		system.initialization_blocks.clear ();
+		auto wallet1 = system.wallet (0);
 		node2->process_active (send2);
 		ASSERT_TIMELY (5s, node2->active.election (send2->qualified_root ()) != nullptr);
 
 		// force confirm send2 on node2
+		ASSERT_TIMELY (5s, node2->ledger.store.block.get (node2->ledger.store.tx_begin_read (), send2->hash ()));
 		node2->process_confirmed (nano::election_status{ send2 });
 		ASSERT_TIMELY (5s, node2->block_confirmed (send2->hash ()));
 
@@ -706,7 +709,7 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		std::shared_ptr<nano::election> election_send1_node1{};
 		ASSERT_EQ (send1->qualified_root (), send2->qualified_root ());
 		ASSERT_TIMELY (5s, (election_send1_node1 = node1->active.election (send1->qualified_root ())) != nullptr);
-		ASSERT_EQ (1, election_send1_node1->votes ().size ());
+		ASSERT_TIMELY (5s, 2 == election_send1_node1->votes ().size ());
 
 		// check that the send1 on node1 won the election and got confirmed
 		// this happens because send1 is seen first by node1, and therefore it already winning and it cannot replaced by send2
