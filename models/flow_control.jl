@@ -51,11 +51,11 @@ function weight(t::transaction)
 end
 
 struct bucket{T}
-    items::ds.SortedSet{transaction{T}}
+    transactions::ds.SortedSet{transaction{T}}
 end
 
 function first(b::bucket)::transaction
-    ds.first(b.items)
+    ds.first(b.transactions)
 end
 
 function transaction_type(b::bucket{T}) where{T}
@@ -63,7 +63,7 @@ function transaction_type(b::bucket{T}) where{T}
 end
 
 function isempty(b::bucket)
-    isempty(b.items)
+    isempty(b.transactions)
 end
 
 function length(b::bucket)
@@ -120,26 +120,22 @@ function bucket(n::node, t::transaction)
 end
 
 function insert!(n::node, t::transaction)
-    insert!(n.buckets[bucket(n, t)].items, t)
+    insert!(n.buckets[bucket(n, t)].transactions, t)
 end
 
 function sizes(n::node)
     result = Vector{UInt16}()
     for i in n.buckets
-        l = length(i)
-        print(i)
-        print(l)
-        print('\n')
+        l = length(i.transactions)
         push!(result, length(i))
     end
-    print("\n----sizes\n")
     result
 end
 
 function transactions(node)
-    result = copy(first(node.buckets).second.items)
+    result = copy(first(node.buckets).second.transactions)
     for (k, v) = node.buckets
-        result = union(result, v.items)
+        result = union(result, v.transactions)
     end
     result
 end
