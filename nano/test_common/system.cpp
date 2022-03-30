@@ -209,6 +209,9 @@ uint64_t nano::system::work_generate_limited (nano::block_hash const & root_a, u
 	return result;
 }
 
+/** Initiate an epoch upgrade. Writes the epoch block into the ledger and leaves it to
+ *  node background processes (e.g. frontiers confirmation) to cement the block.
+ */
 std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a, nano::ledger & ledger_a, nano::epoch epoch_a)
 {
 	auto transaction (ledger_a.store.tx_begin_write ());
