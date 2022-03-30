@@ -124,10 +124,10 @@ function insert!(n::node, t::transaction)
 end
 
 function sizes(n::node)
-    result = Vector{UInt16}()
+    result = Dict{transaction_type(n), UInt16}()
     for i in n.buckets
-        l = length(i.transactions)
-        push!(result, length(i))
+        l = length(i.second.transactions)
+        result[i.first] = l
     end
     result
 end
@@ -189,10 +189,38 @@ function in(transaction, n::network)
     transaction in n.transactions
 end
 
+function quorum(n::network)
+    ((2 * length(n.nodes)) ÷ 3) + 1
+end
+
+function confirmed_set(n::network)
+    weights = Dict{transaction, UInt}()
+    for node in n.nodes
+        s = working_set(node)
+        for tx in s
+            w = get(weights, tx, 0)
+            weights[tx] = w + 1
+        end
+    end
+    result = Set{transaction}()
+    for (tx, w) in weights
+        if w > quorum(n)
+            push!(result, tx)
+        end
+    end
+    result
+end
+
+function confirmed(n::network, transaction)
+end
+
 function bucket_histogram(n::network)
-    result = []
+    result = Dict{transaction_type(n), UInt16}()
     for i in n.nodes
-        push!(result, sizes(i))
+        s = sizes(i)
+        for (b, l) = s
+            result[b] = Base.get(result, b, 0) + l
+        end
     end
     result
 end
@@ -223,6 +251,10 @@ function copy_peer!(n::network, node)
             insert!(node, first(b))
         end
     end
+end
+
+function delete!(n::network, transaction)
+    count = 0
 end
 
 # State transitions end
@@ -259,7 +291,7 @@ function test_bucket()
     T = transaction{Int8}
     # Test that 4 buckets divides the transaction_type keyspace in to expected values
     @Test.test collect(node_buckets(Int8, 4)) == [0, 31, 62, 93]
-    
+
     n = node(Int8, 4)
     #Test that the bucket function finds the correct bucket for various values
     @Test.test bucket(n, T(1, 1, 1, 1, 1)) == 0
@@ -267,6 +299,21 @@ function test_bucket()
     @Test.test bucket(n, T(1, 1, 31, 1, 1)) == 31
     @Test.test bucket(n, T(1, 1, 127, 1, 1)) == 93
     @Test.test transaction_type(bucket(Int32)) == Int32
+end
+
+function test_confirmed_set()
+    n = network(4)
+    t = transaction{transaction_type(n)}
+    # Network with no transactions starts out empty
+    @Test.test isempty(confirmed_set(n))
+    tx = t(1, 1, 1, 1, 1)
+    push!(n, tx)
+    for node in n.nodes
+        copy_global!(n, node)
+    end
+    s = confirmed_set(n)
+    @Test.test !isempty(s)
+    @Test.test tx in s
 end
 
 function test_network()
@@ -283,6 +330,7 @@ function test_network()
     # Test network construction with a wider value type
     network_big = network(Int16, 1, 1)
     @Test.test keytype(network_big.nodes[1].buckets) == Int16
+    test_working_set_network()
 end
 
 function test_working_set()
@@ -353,6 +401,7 @@ function test_state_transitions()
     test_network_push!_in()
     test_copy_global()
     test_copy_peer()
+    #test_delete!_confirmed()
 end
 
 function op_push!(n::network)
@@ -391,21 +440,19 @@ function test()
     test_network()
     test_state_transitions()
     test_rand_all()
-
-    #=n = network()
-    bucket_histogram(n)=#
 end
 
 function stress()
     test()
     n = network()
-    for i = 1:100000
+    for i = 1:typemax(UInt16)
         if i % 1000 == 0
-            print(n)
+            #print(n)
             print(i, ' ')
         end
         rand(all_ops)(n)
     end
+    bucket_histogram(n)
 end
 
 end #module
@@ -415,3 +462,4 @@ flow_control.test()
 #end
 
 #flow_control.stress()
+
