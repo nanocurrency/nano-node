@@ -5,6 +5,7 @@ import Base.first
 import Base.in
 import Base.isempty
 import Base.isless
+import Base.length
 import Base.lt
 import Base.insert!
 import Base.push!
@@ -22,7 +23,7 @@ struct transaction{T<:Integer}
     transaction{T}(tally, balance, amount, lru, difficulty) where{T<:Integer} = new{T}(rand(UInt64), tally, balance, amount, lru, difficulty)
 end
 
-const transaction_type = Int8
+const transaction_type = UInt8
 
 function isless(lhs::flow_control.transaction, rhs::flow_control.transaction)
     lhs_w = flow_control.weight(lhs)
@@ -63,6 +64,10 @@ end
 
 function isempty(b::bucket)
     isempty(b.items)
+end
+
+function length(b::bucket)
+    length(b.items)
 end
 
 function bucket(type)
@@ -116,6 +121,19 @@ end
 
 function insert!(n::node, t::transaction)
     insert!(n.buckets[bucket(n, t)].items, t)
+end
+
+function sizes(n::node)
+    result = Vector{UInt16}()
+    for i in n.buckets
+        l = length(i)
+        print(i)
+        print(l)
+        print('\n')
+        push!(result, length(i))
+    end
+    print("\n----sizes\n")
+    result
 end
 
 function transactions(node)
@@ -175,6 +193,14 @@ function in(transaction, n::network)
     transaction in n.transactions
 end
 
+function bucket_histogram(n::network)
+    result = []
+    for i in n.nodes
+        push!(result, sizes(i))
+    end
+    result
+end
+
 function transaction_type(n::network{T}) where{T}
     T
 end
@@ -188,8 +214,9 @@ end
 
 # Copy a transaction from the global network transactions to node
 function copy_global!(n::network, node)
-    unknown = setdiff(n.transactions, transactions(node))
-    insert!(node, rand(collect(unknown)))
+    if !isempty(n.transactions)
+        insert!(node, rand(n.transactions))
+    end
 end
 
 # Copy the working set from another random peer to node
@@ -235,9 +262,9 @@ end
 function test_bucket()
     T = transaction{Int8}
     # Test that 4 buckets divides the transaction_type keyspace in to expected values
-    @Test.test collect(node_buckets(4)) == [0, 31, 62, 93]
+    @Test.test collect(node_buckets(Int8, 4)) == [0, 31, 62, 93]
     
-    n = node(4)
+    n = node(Int8, 4)
     #Test that the bucket function finds the correct bucket for various values
     @Test.test bucket(n, T(1, 1, 1, 1, 1)) == 0
     @Test.test bucket(n, T(1, 31, 1, 1, 1)) == 31
@@ -248,7 +275,7 @@ end
 
 function test_network()
     network1 = network(1)
-    @Test.test keytype(network1.nodes[1].buckets) == Int8
+    @Test.test keytype(network1.nodes[1].buckets) == UInt8
     @Test.test size(network1.nodes)[1] == 1
     @Test.test length(network1.nodes[1].buckets) == node_bucket_count
     network16 = network(16)
@@ -263,8 +290,8 @@ function test_network()
 end
 
 function test_working_set()
-    T = transaction{Int8}
     n = node()
+    T = transaction{transaction_type(n)}
     w1 = working_set(n)
     # Working set initially contains nothing since all buckets are empty
     @Test.test isempty(w1)
@@ -308,17 +335,19 @@ end
 
 function test_copy_peer()
     type = transaction{transaction_type}
-    n = network(2)
-    node1 = n.nodes[1]
-    node2 = n.nodes[2]
+    n = network(1)
+    node_source = n.nodes[1]
+    node_destination = node()
     tx = type(1, 1, 1, 1, 1)
     # Populate the working set of node1
-    insert!(node1, tx)
-    # Working set starts out empty
-    @Test.test isempty(working_set(node2))
+    insert!(node_source, tx)
+    # The destination working set starts out empty
+    @Test.test isempty(working_set(node_destination))
     # Copy the working set from node1 to node2
-    copy_peer!(n, node2)
-    w = working_set(node2)
+    # node1 is the only node inside n
+    copy_peer!(n, node_destination)
+    # Retrieve the updated working set inside destination
+    w = working_set(node_destination)
     @Test.test !isempty(w)
     # Ensure the working set contains what was inserted on node1
     @Test.test tx in w
@@ -336,14 +365,24 @@ function op_push!(n::network)
     push!(n, transaction{t}(v(), v(), v(), v(), v()))
 end
 
-function all_ops()
-    [op_push!]
+function op_copy_global!(n::network)
+    if !isempty(n.nodes)
+        copy_global!(n, rand(n.nodes))
+    end
 end
+
+function op_copy_peer!(n::network)
+    if !isempty(n.nodes)
+        copy_peer!(n, rand(n.nodes))
+    end
+end
+
+all_ops = [op_push!, op_copy_global!, op_copy_peer!]
 
 # Perform all of the random state transitions
 function test_rand_all()
     n = network()
-    for op in all_ops()
+    for op in all_ops
         op(n)
     end
     n
@@ -356,8 +395,27 @@ function test()
     test_network()
     test_state_transitions()
     test_rand_all()
+
+    #=n = network()
+    bucket_histogram(n)=#
+end
+
+function stress()
+    test()
+    n = network()
+    for i = 1:100000
+        if i % 1000 == 0
+            print(n)
+            print(i, ' ')
+        end
+        rand(all_ops)(n)
+    end
 end
 
 end #module
 
+#for _ = 1:5
 flow_control.test()
+#end
+
+#flow_control.stress()
