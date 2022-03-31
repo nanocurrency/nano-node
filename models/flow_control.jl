@@ -219,7 +219,12 @@ function confirmed_set(n::network)
     result
 end
 
-function confirmed(n::network, transaction)
+function delete!(n::network, transaction)
+    @assert transaction ∈ n.transactions
+    delete!(n.transactions, transaction)
+    for node in n.nodes
+        delete!(node, transaction)
+    end
 end
 
 function bucket_histogram(n::network)
@@ -237,6 +242,7 @@ function transaction_type(n::network{T}) where{T}
     T
 end
 
+# ------------------------------------------------------------
 # Flow control state transitions
 
 # Add a transaction to the network via adding it to the network's global set of transactions
@@ -261,14 +267,16 @@ function copy_peer!(n::network, node)
     end
 end
 
-function delete!(n::network, transaction)
-    @assert transaction ∈ n.transactions
-    for node in n.nodes
-        delete!(node, transaction)
+function delete_confirmed!(n::network)
+    c = confirmed_set(n)
+    if !isempty(c)
+        tx = rand(c)
+        delete!(n, tx)
     end
 end
 
 # State transitions end
+# ------------------------------------------------------------
 
 # Testing less-than comparison on transactions
 function test_comparisons()
@@ -331,6 +339,7 @@ function test_delete!_network()
     n = network()
     t = transaction{transaction_type(n)}
     tx = t(1, 1, 1, 1, 1)
+    push!(n, tx)
     for node in n.nodes
         insert!(node, tx)
     end
@@ -442,20 +451,29 @@ function test_copy_peer()
     @Test.test tx in w
 end
 
-function test_delete!_confirmed()
+function test_delete_confirmed()
     n = network()
-    c = confirmed_set(n)
-    if !isempty(c)
-        tx = rand(c)
-        delete!(n, tx)
+    t = transaction{transaction_type(n)}
+    tx = t(1, 1, 1, 1, 1)
+    insert!(n.transactions, tx)
+    insert!(n.nodes[1], tx)
+    # Transaction starts out in the network
+    @Test.test tx ∈ n
+    delete_confirmed!(n)
+    # Transaction is not removed because it is not in the confirmed_set i.e. it's not in a quorum of nodes
+    for n in n.nodes
+        insert!(n, tx)
     end
+    delete_confirmed!(n)
+    # Transaction is finally removed since it's on enough nodes.
+    @Test.test tx ∉ n
 end
 
 function test_state_transitions()
     test_network_push!_in()
     test_copy_global()
     test_copy_peer()
-    test_delete!_confirmed()
+    test_delete_confirmed()
 end
 
 function op_push!(n::network)
