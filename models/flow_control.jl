@@ -1,14 +1,7 @@
 module flow_control
 import Pkg; Pkg.add("DataStructures");
 import DataStructures as ds
-import Base.first, Base.delete!
-import Base.in
-import Base.isempty
-import Base.isless
-import Base.length
-import Base.lt
-import Base.insert!
-import Base.push!
+import Base.first, Base.delete!, Base.in, Base.isempty, Base.isless, Base.length, Base.lt, Base.insert!, Base.push!
 import Test
 
 # Transaction properties used to bucket and sort transactions
@@ -119,14 +112,14 @@ function bucket(n::node, t::transaction)
     ds.deref_key((n.buckets, ds.searchsortedlast(n.buckets, weight(t))))
 end
 
-const bucket_max = 256
+const bucket_max = 64
 
 function insert!(n::node, t::transaction)
-    bucket = n.buckets[bucket(n, t)]
-    insert!(bucket.transactions, t)
-    #=if length(bucket) > bucket_max
-        pop!(bucket)
-    end=#
+    b = n.buckets[bucket(n, t)]
+    insert!(b.transactions, t)
+    if length(b.transactions) > bucket_max
+        delete!(b.transactions, last(b.transactions))
+    end
 end
 
 function sizes(n::node)
@@ -171,9 +164,14 @@ end
 
 #node operations end
 
+mutable struct stat_struct
+    deleted::UInt
+end
+
 struct network{T}
     nodes::Vector{node{T}}
     transactions::ds.SortedSet{transaction{T}}
+    stats::stat_struct
 end
 
 const network_node_count = 4
@@ -184,7 +182,7 @@ function network(type, node_count, bucket_size)
         push!(nodes, node(type, bucket_size))
     end
     transactions = ds.SortedSet{transaction{type}}()
-    network{type}(nodes, transactions)
+    network{type}(nodes, transactions, stat_struct(0))
 end
 
 function network(count, bucket_size)
@@ -278,6 +276,7 @@ function delete_confirmed!(n::network)
     if !isempty(c)
         tx = rand(c)
         delete!(n, tx)
+        n.stats.deleted += 1
     end
 end
 
@@ -488,6 +487,12 @@ function op_push!(n::network)
     push!(n, transaction{t}(v(), v(), v(), v(), v()))
 end
 
+function op_push_bucket0!(n::network)
+    t = transaction_type(n)
+    v = () -> rand(typemin(t):typemax(t))
+    push!(n, transaction{t}(v(), 0, 0, v(), v()))
+end
+
 function op_copy_global!(n::network)
     if !isempty(n.nodes)
         copy_global!(n, rand(n.nodes))
@@ -504,7 +509,7 @@ function op_delete_confirmed!(n::network)
     delete_confirmed!(n)
 end
 
-all_ops = [op_push!, op_copy_global!, op_copy_peer!#=, op_delete_confirmed!=#]
+all_ops = [op_push!, op_push_bucket0!, op_copy_global!, op_copy_peer!#=, op_delete_confirmed!=#]
 
 # Perform all of the random state transitions
 function test_rand_all()
@@ -526,12 +531,13 @@ end
 function stress()
     test()
     n = network()
-    for i = 1:500_000
+    for i = 1:50_000
         if i % 10000 == 0
             print(i, '\n', bucket_histogram(n), '\n')
         end
         rand(all_ops)(n)
     end
+    n.stats
 end
 
 end #module
