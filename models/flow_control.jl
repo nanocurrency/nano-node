@@ -4,6 +4,8 @@ import DataStructures as ds
 import Base.first, Base.delete!, Base.in, Base.isempty, Base.isless, Base.length, Base.lt, Base.insert!, Base.push!
 import Test
 
+const transaction_type_default = UInt8
+
 # Transaction properties used to bucket and sort transactions
 struct transaction{T<:Integer}
     # Unique transaction id
@@ -15,8 +17,6 @@ struct transaction{T<:Integer}
     difficulty::T
     transaction{T}(tally, balance, amount, lru, difficulty) where{T<:Integer} = new{T}(rand(UInt64), tally, balance, amount, lru, difficulty)
 end
-
-const transaction_type = UInt8
 
 function isless(lhs::flow_control.transaction, rhs::flow_control.transaction)
     lhs_w = flow_control.weight(lhs)
@@ -68,7 +68,7 @@ function bucket(type)
 end
 
 function bucket()
-    bucket(transaction_type)
+    bucket(transaction_type_default)
 end
 
 struct node{T}
@@ -97,7 +97,7 @@ function node(type, count)
 end
 
 function node(count)
-    node(transaction_type, count)
+    node(transaction_type_default, count)
 end
 
 const node_bucket_count = 4
@@ -186,7 +186,7 @@ function network(type, node_count, bucket_size)
 end
 
 function network(count, bucket_size)
-    network(transaction_type, count, bucket_size)
+    network(transaction_type_default, count, bucket_size)
 end
 
 function network(count)
@@ -285,7 +285,7 @@ end
 
 # Testing less-than comparison on transactions
 function test_comparisons()
-    T = transaction{transaction_type}
+    T = transaction{transaction_type_default}
     function first(values)
         flow_control.first(bucket(ds.SortedSet{T}(values)))
     end
@@ -412,7 +412,7 @@ function test_node()
 end
 
 function test_network_push!_in()
-    type = transaction{transaction_type}
+    type = transaction{transaction_type_default}
     n = network()
     tx1 = type(1, 1, 1, 1, 1)
     tx2 = type(2, 2, 2, 2, 2)
@@ -422,7 +422,7 @@ function test_network_push!_in()
 end
 
 function test_copy_global()
-    type = transaction{transaction_type}
+    type = transaction{transaction_type_default}
     n = network()
     tx = type(1, 1, 1, 1, 1)
     push!(n, tx)
@@ -437,7 +437,7 @@ function test_copy_global()
 end
 
 function test_copy_peer()
-    type = transaction{transaction_type}
+    type = transaction{transaction_type_default}
     n = network(1)
     node_source = n.nodes[1]
     node_destination = node()
@@ -525,11 +525,11 @@ function stress()
     for i = 1:50_000
         if i % 10000 == 0
             h = bucket_histogram(n)
-            print(i, '\n', h, '\n')
+            print(i, ':', h, '\n')
         end
         rand(all_ops)(n)
     end
-    n.stats
+    ("histogram" => h, "stats" => n.stats)
 end
 
 end #module
