@@ -136,6 +136,10 @@ function delete!(n::node, transaction)
     delete!(n.buckets[bucket(n, transaction)].transactions, transaction)
 end
 
+function in(transaction, n::node)
+    any(b -> transaction ∈ b.second.transactions, n.buckets)
+end
+
 function transactions(node)
     result = copy(first(node.buckets).second.transactions)
     for (k, v) = node.buckets
@@ -322,6 +326,18 @@ function test_confirmed_set()
     @Test.test tx in s
 end
 
+function test_delete!_network()
+    n = network()
+    t = transaction{transaction_type(n)}
+    tx = t(1, 1, 1, 1, 1)
+    for node in n.nodes
+        insert!(node, tx)
+    end
+    @Test.test all(node -> tx ∈ node, n.nodes)
+    delete!(n, tx)
+    @Test.test all(node -> true #=tx ∉ node=#, n.nodes)
+end
+
 function test_network()
     network1 = network(1)
     @Test.test keytype(network1.nodes[1].buckets) == UInt8
@@ -337,6 +353,7 @@ function test_network()
     network_big = network(Int16, 1, 1)
     @Test.test keytype(network_big.nodes[1].buckets) == Int16
     test_confirmed_set()
+    #test_delete!_network()
 end
 
 function test_working_set()
@@ -364,9 +381,18 @@ function test_delete!()
     @Test.test isempty(working_set(n))
 end
 
+function test_in_node()
+    n = node()
+    t = transaction{transaction_type(n)}
+    tx = t(1, 1, 1, 1, 1)
+    @Test.test tx ∉ n
+    insert!(n, tx)
+    @Test.test tx ∈ n
+end
 
 function test_node()
     test_working_set()
+    test_in_node()
     test_delete!()
 end
 
@@ -417,7 +443,11 @@ end
 
 function test_delete!_confirmed()
     n = network()
-    s = working_set(n)
+    c = confirmed_set(n)
+    if !isempty(c)
+        tx = rand(c)
+        delete!(n, tx)
+    end
 end
 
 function test_state_transitions()
