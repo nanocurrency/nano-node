@@ -1,7 +1,7 @@
 module flow_control
 import Pkg; Pkg.add("DataStructures");
 import DataStructures as ds
-import Base.first
+import Base.first, Base.delete!
 import Base.in
 import Base.isempty
 import Base.isless
@@ -132,6 +132,10 @@ function sizes(n::node)
     result
 end
 
+function delete!(n::node, transaction)
+    delete!(n.buckets[bucket(n, transaction)].transactions, transaction)
+end
+
 function transactions(node)
     result = copy(first(node.buckets).second.transactions)
     for (k, v) = node.buckets
@@ -254,7 +258,9 @@ function copy_peer!(n::network, node)
 end
 
 function delete!(n::network, transaction)
-    count = 0
+    for node in n.nodes
+        delete!(node, transaction)
+    end
 end
 
 # State transitions end
@@ -330,7 +336,7 @@ function test_network()
     # Test network construction with a wider value type
     network_big = network(Int16, 1, 1)
     @Test.test keytype(network_big.nodes[1].buckets) == Int16
-    test_working_set_network()
+    test_confirmed_set()
 end
 
 function test_working_set()
@@ -348,8 +354,20 @@ function test_working_set()
     @Test.test tx in w2
 end
 
+function test_delete!()
+    n = node()
+    T = transaction{transaction_type(n)}
+    tx = T(1, 1, 1, 1, 1)
+    insert!(n, tx)
+    @Test.test !isempty(working_set(n))
+    delete!(n, tx)
+    @Test.test isempty(working_set(n))
+end
+
+
 function test_node()
     test_working_set()
+    test_delete!()
 end
 
 function test_network_push!_in()
@@ -397,11 +415,16 @@ function test_copy_peer()
     @Test.test tx in w
 end
 
+function test_delete!_confirmed()
+    n = network()
+    s = working_set(n)
+end
+
 function test_state_transitions()
     test_network_push!_in()
     test_copy_global()
     test_copy_peer()
-    #test_delete!_confirmed()
+    test_delete!_confirmed()
 end
 
 function op_push!(n::network)
@@ -430,7 +453,6 @@ function test_rand_all()
     for op in all_ops
         op(n)
     end
-    n
 end
 
 function test()
