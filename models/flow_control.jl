@@ -262,6 +262,7 @@ function copy_peer!(n::network, node)
 end
 
 function delete!(n::network, transaction)
+    @assert transaction ∈ n.transactions
     for node in n.nodes
         delete!(node, transaction)
     end
@@ -335,7 +336,7 @@ function test_delete!_network()
     end
     @Test.test all(node -> tx ∈ node, n.nodes)
     delete!(n, tx)
-    @Test.test all(node -> true #=tx ∉ node=#, n.nodes)
+    @Test.test all(node -> tx ∉ node, n.nodes)
 end
 
 function test_network()
@@ -353,7 +354,7 @@ function test_network()
     network_big = network(Int16, 1, 1)
     @Test.test keytype(network_big.nodes[1].buckets) == Int16
     test_confirmed_set()
-    #test_delete!_network()
+    test_delete!_network()
 end
 
 function test_working_set()
