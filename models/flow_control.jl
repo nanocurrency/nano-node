@@ -487,12 +487,6 @@ function op_push!(n::network)
     push!(n, transaction{t}(v(), v(), v(), v(), v()))
 end
 
-function op_push_bucket0!(n::network)
-    t = transaction_type(n)
-    v = () -> rand(typemin(t):typemax(t))
-    push!(n, transaction{t}(v(), 0, 0, v(), v()))
-end
-
 function op_copy_global!(n::network)
     if !isempty(n.nodes)
         copy_global!(n, rand(n.nodes))
@@ -505,11 +499,7 @@ function op_copy_peer!(n::network)
     end
 end
 
-function op_delete_confirmed!(n::network)
-    delete_confirmed!(n)
-end
-
-all_ops = [op_push!, op_push_bucket0!, op_copy_global!, op_copy_peer!#=, op_delete_confirmed!=#]
+all_ops = [op_push!, op_copy_global!, op_copy_peer!, delete_confirmed!]
 
 # Perform all of the random state transitions
 function test_rand_all()
@@ -531,9 +521,11 @@ end
 function stress()
     test()
     n = network()
+    h = bucket_histogram(n)
     for i = 1:50_000
         if i % 10000 == 0
-            print(i, '\n', bucket_histogram(n), '\n')
+            h = bucket_histogram(n)
+            print(i, '\n', h, '\n')
         end
         rand(all_ops)(n)
     end
