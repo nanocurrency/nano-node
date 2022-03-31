@@ -119,8 +119,14 @@ function bucket(n::node, t::transaction)
     ds.deref_key((n.buckets, ds.searchsortedlast(n.buckets, weight(t))))
 end
 
+const bucket_max = 256
+
 function insert!(n::node, t::transaction)
-    insert!(n.buckets[bucket(n, t)].transactions, t)
+    bucket = n.buckets[bucket(n, t)]
+    insert!(bucket.transactions, t)
+    #=if length(bucket) > bucket_max
+        pop!(bucket)
+    end=#
 end
 
 function sizes(n::node)
@@ -228,7 +234,7 @@ function delete!(n::network, transaction)
 end
 
 function bucket_histogram(n::network)
-    result = Dict{transaction_type(n), UInt16}()
+    result = Dict{transaction_type(n), UInt}()
     for i in n.nodes
         s = sizes(i)
         for (b, l) = s
@@ -494,7 +500,11 @@ function op_copy_peer!(n::network)
     end
 end
 
-all_ops = [op_push!, op_copy_global!, op_copy_peer!]
+function op_delete_confirmed!(n::network)
+    delete_confirmed!(n)
+end
+
+all_ops = [op_push!, op_copy_global!, op_copy_peer!#=, op_delete_confirmed!=#]
 
 # Perform all of the random state transitions
 function test_rand_all()
@@ -516,21 +526,19 @@ end
 function stress()
     test()
     n = network()
-    for i = 1:typemax(UInt16)
-        if i % 1000 == 0
-            #print(n)
-            print(i, ' ')
+    for i = 1:500_000
+        if i % 10000 == 0
+            print(i, '\n', bucket_histogram(n), '\n')
         end
         rand(all_ops)(n)
     end
-    bucket_histogram(n)
 end
 
 end #module
 
 #for _ = 1:5
-flow_control.test()
+#flow_control.test()
 #end
 
-#flow_control.stress()
+flow_control.stress()
 
