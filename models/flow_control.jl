@@ -108,14 +108,14 @@ end
 
 # node operations
 
-function bucket(n::node, t::transaction)
+function bucket_range(n::node, t::transaction)
     ds.deref_key((n.buckets, ds.searchsortedlast(n.buckets, weight(t))))
 end
 
 const bucket_max = 64
 
 function insert!(n::node, t::transaction)
-    b = n.buckets[bucket(n, t)]
+    b = n.buckets[bucket_range(n, t)]
     insert!(b.transactions, t)
     if length(b.transactions) > bucket_max
         delete!(b.transactions, last(b.transactions))
@@ -132,7 +132,7 @@ function sizes(n::node)
 end
 
 function delete!(n::node, transaction)
-    delete!(n.buckets[bucket(n, transaction)].transactions, transaction)
+    delete!(n.buckets[bucket_range(n, transaction)].transactions, transaction)
 end
 
 function in(transaction, n::node)
@@ -318,10 +318,10 @@ function test_bucket()
 
     n = node(Int8, 4)
     #Test that the bucket function finds the correct bucket for various values
-    @Test.test bucket(n, T(1, 1, 1, 1, 1)) == 0
-    @Test.test bucket(n, T(1, 31, 1, 1, 1)) == 31
-    @Test.test bucket(n, T(1, 1, 31, 1, 1)) == 31
-    @Test.test bucket(n, T(1, 1, 127, 1, 1)) == 93
+    @Test.test bucket_range(n, T(1, 1, 1, 1, 1)) == 0
+    @Test.test bucket_range(n, T(1, 31, 1, 1, 1)) == 31
+    @Test.test bucket_range(n, T(1, 1, 31, 1, 1)) == 31
+    @Test.test bucket_range(n, T(1, 1, 127, 1, 1)) == 93
     @Test.test transaction_type(bucket(Int32)) == Int32
 end
 
