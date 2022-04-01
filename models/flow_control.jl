@@ -1,7 +1,7 @@
 module flow_control
 import Pkg; Pkg.add("DataStructures");
 import DataStructures as ds
-import Base.first, Base.delete!, Base.in, Base.isempty, Base.isless, Base.length, Base.lt, Base.insert!, Base.push!
+import Base.first, Base.delete!, Base.in, Base.isempty, Base.isless, Base.length, Base.lt, Base.insert!, Base.print, Base.push!
 import Test
 
 const transaction_type_default = UInt8
@@ -112,7 +112,7 @@ function bucket_range(n::node, t::transaction)
     ds.deref_key((n.buckets, ds.searchsortedlast(n.buckets, weight(t))))
 end
 
-const bucket_max = 64
+const bucket_max = 1
 
 function insert!(n::node, t::transaction)
     b = n.buckets[bucket_range(n, t)]
@@ -176,10 +176,10 @@ end
 
 const network_node_count = 4
 
-function network(type, node_count, bucket_size)
+function network(type, node_count, bucket_count)
     nodes = []
     for i = 0:node_count - 1
-        push!(nodes, node(type, bucket_size))
+        push!(nodes, node(type, bucket_count))
     end
     transactions = ds.SortedSet{transaction{type}}()
     network{type}(nodes, transactions, stat_struct(0))
@@ -481,10 +481,18 @@ function test_state_transitions()
     test_delete_confirmed()
 end
 
+function normalize_for_weight(val)
+    balance = val ≠ 0 ? rand(0:(val - 1)) : 0
+    (balance, val - balance)
+end
+
 function op_push!(n::network)
     t = transaction_type(n)
-    v = () -> rand(typemin(t):typemax(t))
-    push!(n, transaction{t}(v(), v(), v(), v(), v()))
+    randval = () -> rand(typemin(t):typemax(t))
+    (balance, amount) = normalize_for_weight(randval())
+    tx = transaction{t}(randval(), balance, amount, randval(), randval())
+    #print(tx, '\n')
+    push!(n, tx)
 end
 
 function op_copy_global!(n::network)
@@ -499,12 +507,13 @@ function op_copy_peer!(n::network)
     end
 end
 
-all_ops = [op_push!, op_copy_global!, op_copy_peer!, delete_confirmed!]
+all_ops = ['i' => op_push!, 'g' => op_copy_global!, 'p' => op_copy_peer!, 'd' => delete_confirmed!]
+no_insert_ops = ['g' => op_copy_global!, 'p' => op_copy_peer!, 'd' => delete_confirmed!]
 
 # Perform all of the random state transitions
 function test_rand_all()
     n = network()
-    for op in all_ops
+    for (name, op) in all_ops
         op(n)
     end
 end
@@ -518,18 +527,49 @@ function test()
     test_rand_all()
 end
 
-function stress()
-    test()
-    n = network()
+function print(n::network)
     h = bucket_histogram(n)
-    for i = 1:50_000
-        if i % 10000 == 0
-            h = bucket_histogram(n)
-            print(i, ':', h, '\n')
-        end
-        rand(all_ops)(n)
+    print("l:", length(n.transactions), " d:", n.stats.deleted, ' ', h, '\n')
+end
+
+function stress(nodes, bucket_size)
+    test()
+    n = network(nodes, bucket_size)
+    ops = ""
+    i = 0
+    function do_ops(set)
+        i += 1
+        (name, op) = rand(set)
+        ops = ops * " " * name
+        op(n)
+        #=if i % 1000 == 0
+            print(ops)
+            ops = ""
+            print('\n')
+            print(n)
+            print('\n')
+        end=#
     end
-    ("histogram" => h, "stats" => n.stats)
+    while length(n.transactions) < 10_000
+        do_ops(all_ops)
+    end
+    # Run all ops except generating new transactions and the network should empty eventually
+    #=while !isempty(n.transactions)
+        do_ops(no_insert_ops)
+    end=#
+    print(n)
+    print('\n')
+end
+
+function stress_sweep_bucket_count()
+    for i = 1:128
+        print(i, ' ')
+        stress(network_node_count, i)
+    end
+end
+
+function stress()
+    stress_sweep_bucket_count()
 end
 
 end #module
