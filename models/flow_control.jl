@@ -509,6 +509,7 @@ function print(n::network)
 end
 
 function stress(node_count, bucket_count, bucket_max)
+    series = []
     n = network(node_count = node_count, bucket_count = bucket_count, bucket_max = bucket_max)
     ops = ""
     i = 0
@@ -518,33 +519,37 @@ function stress(node_count, bucket_count, bucket_max)
         ops = ops * " " * name
         op(n)
     end
-    for i = 1:512
+    for i = 1:10_000
         do_ops(all_ops)
+        push!(series, n.stats.deleted)
     end
+    (n, series)
+end
+
+function drain(n)
     # Run all ops except generating new transactions and the network should empty eventually
-    #=while !isempty(n.transactions)
+    while !isempty(n.transactions)
         do_ops(no_insert_ops)
-    end=#
-    n
+    end
 end
 
 function stress_sweep_bucket_count()
-    bucket_maxes = 1:4
-    bucket_counts = 1:4
+    #bucket_maxes = map((val) -> 2^val, 1:16)
+    bucket_maxes = 1:1
+    bucket_counts = map((val) -> 2^val, 1:16)
     ys = []
     labels = []
     for bucket_count = bucket_counts
         y = []
         for bucket_max = bucket_maxes
-            n = stress(node_count_default, bucket_count, bucket_max)
+            (n, series) = stress(node_count_default, bucket_count, bucket_max)
             print(n)
-            push!(y, n.stats.deleted)
+            push!(ys, series)
+            push!(labels, "c: " * string(bucket_count) * " m: " * string(bucket_max))
         end
-        push!(ys, y)
-        push!(labels, "Buckets: " * string(bucket_count))
     end
     labels = permutedims(labels)
-    Plots.plot(bucket_maxes, ys, label = labels, xlabel = "Bucket Size", ylabel = "Confirmed transactions")
+    Plots.plot(1:length(ys[1]), ys, label = labels, xlabel = "Bucket Size", ylabel = "Confirmed transactions")
 end
 
 function stress()
