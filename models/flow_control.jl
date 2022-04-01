@@ -46,6 +46,7 @@ end
 
 struct bucket{T}
     transactions::ds.SortedSet{transaction{T}}
+    max
 end
 
 function first(b::bucket)::transaction
@@ -64,8 +65,14 @@ function length(b::bucket)
     length(b.items)
 end
 
+const bucket_max_default = 4
+
+function bucket(type, bucket_max)
+    bucket(ds.SortedSet{transaction{type}}(), bucket_max)
+end
+
 function bucket(type)
-    bucket(ds.SortedSet{transaction{type}}())
+    bucket(type, bucket_max_default)
 end
 
 function bucket()
@@ -89,10 +96,10 @@ function node_buckets(count)
 end
 
 # Divide the keyspace of transaction_type in to count buckets
-function node(type, count)
+function node(type, bucket_count)
     init = ds.SortedDict{type, bucket}()
-    for k in node_buckets(type, count)
-        push!(init, k => bucket())
+    for k in node_buckets(type, bucket_count)
+        push!(init, k => bucket(type, bucket_max_default))
     end
     node(init)
 end
@@ -113,12 +120,10 @@ function bucket_range(n::node, t::transaction)
     ds.deref_key((n.buckets, ds.searchsortedlast(n.buckets, weight(t))))
 end
 
-const bucket_max = 1
-
 function insert!(n::node, t::transaction)
     b = n.buckets[bucket_range(n, t)]
     insert!(b.transactions, t)
-    if length(b.transactions) > bucket_max
+    if length(b.transactions) > b.max
         delete!(b.transactions, last(b.transactions))
     end
 end
@@ -290,7 +295,7 @@ end
 function test_comparisons()
     T = transaction{transaction_type_default}
     function first(values)
-        flow_control.first(bucket(ds.SortedSet{T}(values)))
+        flow_control.first(bucket(ds.SortedSet{T}(values), 0))
     end
 
     # Highest tally first
