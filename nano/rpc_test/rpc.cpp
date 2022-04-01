@@ -2719,16 +2719,21 @@ TEST (rpc, account_representative_set_work_disabled)
 	}
 }
 
-TEST (rpc, account_representative_set_epoch_2)
+TEST (rpc, account_representative_set_epoch_2_insufficient_work)
 {
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv, false);
 
 	// Upgrade the genesis account to epoch 2
 	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_1));
 	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_2));
 
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv, false);
+	// speed up the cementing process, otherwise the node waits for frontiers confirmation to notice the unconfirmed epoch blocks, which takes time
+	node->scheduler.activate (nano::dev::genesis_key.pub, node->store.tx_begin_read ());
+
+	// wait for the epoch blocks to be cemented
+	ASSERT_TIMELY (5s, node->get_confirmation_height (node->store.tx_begin_read (), nano::dev::genesis_key.pub) == 3);
 
 	auto target_difficulty = nano::dev::network_params.work.threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, false, false, false));
 	ASSERT_LT (node->network_params.work.entry, target_difficulty);
@@ -2744,7 +2749,8 @@ TEST (rpc, account_representative_set_epoch_2)
 	request.put ("representative", nano::keypair ().pub.to_account ());
 
 	// Test that the correct error is given if there is insufficient work
-	auto insufficient = system.work_generate_limited (nano::dev::genesis->hash (), min_difficulty, target_difficulty);
+	auto latest = node->ledger.latest (node->store.tx_begin_read (), nano::dev::genesis_key.pub);
+	auto insufficient = system.work_generate_limited (latest, min_difficulty, target_difficulty);
 	request.put ("work", nano::to_string_hex (insufficient));
 	{
 		auto response (wait_response (system, rpc_ctx, request));
