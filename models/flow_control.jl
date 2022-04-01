@@ -509,7 +509,6 @@ function print(n::network)
 end
 
 function stress(node_count, bucket_count, bucket_max)
-    test()
     n = network(node_count = node_count, bucket_count = bucket_count, bucket_max = bucket_max)
     ops = ""
     i = 0
@@ -518,15 +517,8 @@ function stress(node_count, bucket_count, bucket_max)
         (name, op) = rand(set)
         ops = ops * " " * name
         op(n)
-        #=if i % 1000 == 0
-            print(ops)
-            ops = ""
-            print('\n')
-            print(n)
-            print('\n')
-        end=#
     end
-    while n.stats.inserted < 10_000
+    for i = 1:512
         do_ops(all_ops)
     end
     # Run all ops except generating new transactions and the network should empty eventually
@@ -537,8 +529,8 @@ function stress(node_count, bucket_count, bucket_max)
 end
 
 function stress_sweep_bucket_count()
-    bucket_maxes = 1:8
-    bucket_counts = 1:8
+    bucket_maxes = 1:4
+    bucket_counts = 1:4
     ys = []
     labels = []
     for bucket_count = bucket_counts
@@ -556,6 +548,7 @@ function stress_sweep_bucket_count()
 end
 
 function stress()
+    test()
     stress_sweep_bucket_count()
 end
 
