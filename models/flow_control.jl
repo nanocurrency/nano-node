@@ -165,27 +165,15 @@ struct network{T}
     stats::stat_struct
 end
 
-const network_node_count = 4
+const node_count_default = 4
 
-function network(type, node_count, bucket_count)
+function network(; type = transaction_type_default, node_count = node_count_default, bucket_count = bucket_count_default)
     nodes = []
     for i = 0:node_count - 1
-        push!(nodes, node(type, bucket_count))
+        push!(nodes, node(type = type, bucket_count = bucket_count))
     end
     transactions = ds.SortedSet{transaction{type}}()
     network{type}(nodes, transactions, stat_struct(0, 0))
-end
-
-function network(count, bucket_size)
-    network(transaction_type_default, count, bucket_size)
-end
-
-function network(count)
-    network(count, bucket_count_default)
-end
-
-function network()
-    network(network_node_count)
 end
 
 function in(transaction, n::network)
@@ -349,10 +337,10 @@ function test_network()
     network1 = network(1)
     @Test.test keytype(network1.nodes[1].buckets) == UInt8
     @Test.test size(network1.nodes)[1] == 1
-    @Test.test length(network1.nodes[1].buckets) == node_bucket_count
+    @Test.test length(network1.nodes[1].buckets) == bucket_count_default
     network16 = network(16)
     @Test.test size(network16.nodes)[1] == 16
-    @Test.test length(network16.nodes[1].buckets) == node_bucket_count
+    @Test.test length(network16.nodes[1].buckets) == bucket_count_default
     network1_1 = network(1, 1)
     @Test.test size(network1_1.nodes)[1] == 1
     @Test.test length(network1_1.nodes[1].buckets) == 1
@@ -523,9 +511,9 @@ function print(n::network)
     print("l:", length(n.transactions), " d:", n.stats.deleted, ' ', h, '\n')
 end
 
-function stress(nodes, bucket_size)
+function stress(nodes, bucket_count)
     test()
-    n = network(nodes, bucket_size)
+    n = network(node_count = nodes, bucket_count = bucket_count)
     ops = ""
     i = 0
     function do_ops(set)
@@ -555,7 +543,7 @@ function stress_sweep_bucket_count()
     x = []
     y = []
     for i = 1:8
-        n = stress(network_node_count, i)
+        n = stress(node_count_default, i)
         print(i, ' ')
         print(n)
         push!(x, i)
