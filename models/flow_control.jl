@@ -218,6 +218,11 @@ function bucket_histogram(n::network)
     result
 end
 
+function print(n::network)
+    h = bucket_histogram(n)
+    print("l:", length(n.transactions), " d:", n.stats.deleted, ' ', h, '\n')
+end
+
 function transaction_type(n::network{T}) where{T}
     T
 end
@@ -486,6 +491,17 @@ end
 all_ops = ['i' => op_push!, 'g' => op_copy_global!, 'p' => op_copy_peer!, 'd' => delete_confirmed!]
 no_insert_ops = ['g' => op_copy_global!, 'p' => op_copy_peer!, 'd' => delete_confirmed!]
 
+function mutate(n::network)
+    rand(all_ops).second(n)
+end
+
+function drain(n::network)
+    # Run all ops except generating new transactions and the network should empty eventually
+    while !isempty(n.transactions)
+        rand(no_insert_ops).second(n)
+    end
+end
+
 # Perform all of the random state transitions
 function test_rand_all()
     n = network()
@@ -503,40 +519,20 @@ function test()
     test_rand_all()
 end
 
-function print(n::network)
-    h = bucket_histogram(n)
-    print("l:", length(n.transactions), " d:", n.stats.deleted, ' ', h, '\n')
-end
-
-function stress(node_count, bucket_count, bucket_max)
+function stress(node_count, bucket_count, bucket_max; type = transaction_type_default)
     series = []
-    n = network(node_count = node_count, bucket_count = bucket_count, bucket_max = bucket_max)
-    ops = ""
-    i = 0
-    function do_ops(set)
-        i += 1
-        (name, op) = rand(set)
-        ops = ops * " " * name
-        op(n)
-    end
-    for i = 1:10_000
-        do_ops(all_ops)
+    n = network(node_count = node_count, bucket_count = bucket_count, bucket_max = bucket_max, type = type)
+    for i = iterations
+        mutate(n)
         push!(series, n.stats.deleted)
     end
     (n, series)
 end
 
-function drain(n)
-    # Run all ops except generating new transactions and the network should empty eventually
-    while !isempty(n.transactions)
-        do_ops(no_insert_ops)
-    end
-end
-
 function stress_sweep_bucket_count()
     #bucket_maxes = map((val) -> 2^val, 1:16)
     bucket_maxes = 1:1
-    bucket_counts = map((val) -> 2^val, 1:16)
+    bucket_counts = map((val) -> 2^val, 1:8)
     ys = []
     labels = []
     for bucket_count = bucket_counts
@@ -552,9 +548,47 @@ function stress_sweep_bucket_count()
     Plots.plot(1:length(ys[1]), ys, label = labels, xlabel = "Bucket Size", ylabel = "Confirmed transactions")
 end
 
+function stress_node_count_iterations()
+    y = []
+    #x = collect(2^val for val = 2:10)
+    x = collect(2^val for val = 2:6)
+    for i = x
+        n = network(node_count = i)
+        count = 0
+        while n.stats.deleted == 0
+            mutate(n)
+            count += 1
+        end
+        push!(y, count)
+    end
+    Plots.plot(x, y, title = "Operations to get confirmation by node count", xlabel = "Nodes", ylabel = "Operations")
+end
+
+function stress_type()
+    types = [UInt8, UInt16, UInt32, UInt64]
+    ys = []
+    x = 1:10_000
+    labels = []
+    for type = types
+        n = network(type = type)
+        series = []
+        for _ in x
+            mutate(n)
+            push!(series, n.stats.deleted)
+        end
+        push!(ys, series)
+        push!(labels, string(type))
+    end
+    labels = permutedims(labels)
+    Plots.plot(x, ys, label = labels, xlabel = "Operations", ylabel = "Confirmed")
+end
+
 function stress()
     test()
-    stress_sweep_bucket_count()
+ 
+    #stress_type()
+    #stress_node_count_iterations()
+    #stress_sweep_bucket_count()
 end
 
 end #module
