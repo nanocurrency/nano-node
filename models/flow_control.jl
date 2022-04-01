@@ -6,6 +6,9 @@ import Test
 import Plots
 
 const transaction_type_default = UInt8
+const bucket_max_default = 4
+const bucket_count_default = 4
+const node_count_default = 4
 
 # Transaction properties used to bucket and sort transactions
 struct transaction{T<:Integer}
@@ -65,8 +68,6 @@ function length(b::bucket)
     length(b.items)
 end
 
-const bucket_max_default = 4
-
 function bucket(; type = transaction_type_default, bucket_max = bucket_max_default)
     bucket(ds.SortedSet{transaction{type}}(), bucket_max)
 end
@@ -87,13 +88,11 @@ function node_buckets(count)
     node_buckets(transaction_type, count)
 end
 
-const bucket_count_default = 4
-
 # Divide the keyspace of transaction_type in to count buckets
-function node(; type = transaction_type_default, bucket_count = bucket_count_default)
+function node(; type = transaction_type_default, bucket_count = bucket_count_default, bucket_max = bucket_max_default)
     init = ds.SortedDict{type, bucket}()
     for k in node_buckets(type, bucket_count)
-        push!(init, k => bucket(type = type))
+        push!(init, k => bucket(type = type, bucket_max = bucket_max))
     end
     node(init)
 end
@@ -165,12 +164,10 @@ struct network{T}
     stats::stat_struct
 end
 
-const node_count_default = 4
-
-function network(; type = transaction_type_default, node_count = node_count_default, bucket_count = bucket_count_default)
+function network(; type = transaction_type_default, node_count = node_count_default, bucket_count = bucket_count_default, bucket_max = bucket_max_default)
     nodes = []
     for i = 0:node_count - 1
-        push!(nodes, node(type = type, bucket_count = bucket_count))
+        push!(nodes, node(type = type, bucket_count = bucket_count, bucket_max = bucket_max))
     end
     transactions = ds.SortedSet{transaction{type}}()
     network{type}(nodes, transactions, stat_struct(0, 0))
@@ -306,7 +303,7 @@ function test_bucket()
 end
 
 function test_confirmed_set()
-    n = network(4)
+    n = network(node_count = 4)
     t = transaction{transaction_type(n)}
     # Network with no transactions starts out empty
     @Test.test isempty(confirmed_set(n))
@@ -334,18 +331,18 @@ function test_delete!_network()
 end
 
 function test_network()
-    network1 = network(1)
+    network1 = network(node_count = 1)
     @Test.test keytype(network1.nodes[1].buckets) == UInt8
     @Test.test size(network1.nodes)[1] == 1
     @Test.test length(network1.nodes[1].buckets) == bucket_count_default
-    network16 = network(16)
+    network16 = network(node_count = 16)
     @Test.test size(network16.nodes)[1] == 16
     @Test.test length(network16.nodes[1].buckets) == bucket_count_default
-    network1_1 = network(1, 1)
+    network1_1 = network(node_count = 1, bucket_count = 1)
     @Test.test size(network1_1.nodes)[1] == 1
     @Test.test length(network1_1.nodes[1].buckets) == 1
     # Test network construction with a wider value type
-    network_big = network(Int16, 1, 1)
+    network_big = network(type = Int16, node_count = 1, bucket_count = 1)
     @Test.test keytype(network_big.nodes[1].buckets) == Int16
     test_confirmed_set()
     test_delete!_network()
@@ -418,7 +415,7 @@ end
 
 function test_copy_peer()
     type = transaction{transaction_type_default}
-    n = network(1)
+    n = network(node_count = 1)
     node_source = n.nodes[1]
     node_destination = node()
     tx = type(1, 1, 1, 1, 1)
@@ -511,9 +508,9 @@ function print(n::network)
     print("l:", length(n.transactions), " d:", n.stats.deleted, ' ', h, '\n')
 end
 
-function stress(nodes, bucket_count)
+function stress(node_count, bucket_count, bucket_max)
     test()
-    n = network(node_count = nodes, bucket_count = bucket_count)
+    n = network(node_count = node_count, bucket_count = bucket_count, bucket_max = bucket_max)
     ops = ""
     i = 0
     function do_ops(set)
@@ -540,16 +537,22 @@ function stress(nodes, bucket_count)
 end
 
 function stress_sweep_bucket_count()
-    x = []
-    y = []
-    for i = 1:8
-        n = stress(node_count_default, i)
-        print(i, ' ')
-        print(n)
-        push!(x, i)
-        push!(y, n.stats.deleted)
+    bucket_maxes = 1:8
+    bucket_counts = 1:8
+    ys = []
+    labels = []
+    for bucket_count = bucket_counts
+        y = []
+        for bucket_max = bucket_maxes
+            n = stress(node_count_default, bucket_count, bucket_max)
+            print(n)
+            push!(y, n.stats.deleted)
+        end
+        push!(ys, y)
+        push!(labels, "Buckets: " * string(bucket_count))
     end
-    Plots.plot(x, y, xlabel = "Bucket Count", ylabel = "Confirmed transactions")
+    labels = permutedims(labels)
+    Plots.plot(bucket_maxes, ys, label = labels, xlabel = "Bucket Size", ylabel = "Confirmed transactions")
 end
 
 function stress()
