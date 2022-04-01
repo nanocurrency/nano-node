@@ -67,16 +67,8 @@ end
 
 const bucket_max_default = 4
 
-function bucket(type, bucket_max)
+function bucket(; type = transaction_type_default, bucket_max = bucket_max_default)
     bucket(ds.SortedSet{transaction{type}}(), bucket_max)
-end
-
-function bucket(type)
-    bucket(type, bucket_max_default)
-end
-
-function bucket()
-    bucket(transaction_type_default)
 end
 
 struct node{T}
@@ -99,7 +91,7 @@ end
 function node(type, bucket_count)
     init = ds.SortedDict{type, bucket}()
     for k in node_buckets(type, bucket_count)
-        push!(init, k => bucket(type, bucket_max_default))
+        push!(init, k => bucket(type = type))
     end
     node(init)
 end
