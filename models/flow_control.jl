@@ -3,6 +3,7 @@ import Pkg; Pkg.add("DataStructures");
 import DataStructures as ds
 import Base.first, Base.delete!, Base.in, Base.isempty, Base.isless, Base.length, Base.lt, Base.insert!, Base.print, Base.push!
 import Test
+import Plots
 
 const transaction_type_default = UInt8
 
@@ -166,6 +167,7 @@ end
 
 mutable struct stat_struct
     deleted::UInt
+    inserted::UInt
 end
 
 struct network{T}
@@ -182,7 +184,7 @@ function network(type, node_count, bucket_count)
         push!(nodes, node(type, bucket_count))
     end
     transactions = ds.SortedSet{transaction{type}}()
-    network{type}(nodes, transactions, stat_struct(0))
+    network{type}(nodes, transactions, stat_struct(0, 0))
 end
 
 function network(count, bucket_size)
@@ -232,7 +234,7 @@ function delete!(n::network, transaction)
 end
 
 function bucket_histogram(n::network)
-    result = Dict{transaction_type(n), UInt}()
+    result = ds.SortedDict{transaction_type(n), UInt32}()
     for i in n.nodes
         s = sizes(i)
         for (b, l) = s
@@ -252,6 +254,7 @@ end
 # Add a transaction to the network via adding it to the network's global set of transactions
 function push!(n::network, transaction)
     push!(n.transactions, transaction)
+    n.stats.inserted += 1
 end
 
 # Copy a transaction from the global network transactions to node
@@ -491,7 +494,6 @@ function op_push!(n::network)
     randval = () -> rand(typemin(t):typemax(t))
     (balance, amount) = normalize_for_weight(randval())
     tx = transaction{t}(randval(), balance, amount, randval(), randval())
-    #print(tx, '\n')
     push!(n, tx)
 end
 
@@ -550,22 +552,27 @@ function stress(nodes, bucket_size)
             print('\n')
         end=#
     end
-    while length(n.transactions) < 10_000
+    while n.stats.inserted < 10_000
         do_ops(all_ops)
     end
     # Run all ops except generating new transactions and the network should empty eventually
     #=while !isempty(n.transactions)
         do_ops(no_insert_ops)
     end=#
-    print(n)
-    print('\n')
+    n
 end
 
 function stress_sweep_bucket_count()
-    for i = 1:128
+    x = []
+    y = []
+    for i = 1:8
+        n = stress(network_node_count, i)
         print(i, ' ')
-        stress(network_node_count, i)
+        print(n)
+        push!(x, i)
+        push!(y, n.stats.deleted)
     end
+    Plots.plot(x, y, xlabel = "Bucket Count", ylabel = "Confirmed transactions")
 end
 
 function stress()
