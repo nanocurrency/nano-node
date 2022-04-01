@@ -87,23 +87,15 @@ function node_buckets(count)
     node_buckets(transaction_type, count)
 end
 
+const bucket_count_default = 4
+
 # Divide the keyspace of transaction_type in to count buckets
-function node(type, bucket_count)
+function node(; type = transaction_type_default, bucket_count = bucket_count_default)
     init = ds.SortedDict{type, bucket}()
     for k in node_buckets(type, bucket_count)
         push!(init, k => bucket(type = type))
     end
     node(init)
-end
-
-function node(count)
-    node(transaction_type_default, count)
-end
-
-const node_bucket_count = 4
-
-function node()
-    node(node_bucket_count)
 end
 
 # node operations
@@ -189,7 +181,7 @@ function network(count, bucket_size)
 end
 
 function network(count)
-    network(count, node_bucket_count)
+    network(count, bucket_count_default)
 end
 
 function network()
@@ -316,13 +308,13 @@ function test_bucket()
     # Test that 4 buckets divides the transaction_type keyspace in to expected values
     @Test.test collect(node_buckets(Int8, 4)) == [0, 31, 62, 93]
 
-    n = node(Int8, 4)
+    n = node(type = Int8, bucket_count = 4)
     #Test that the bucket function finds the correct bucket for various values
     @Test.test bucket_range(n, T(1, 1, 1, 1, 1)) == 0
     @Test.test bucket_range(n, T(1, 31, 1, 1, 1)) == 31
     @Test.test bucket_range(n, T(1, 1, 31, 1, 1)) == 31
     @Test.test bucket_range(n, T(1, 1, 127, 1, 1)) == 93
-    @Test.test transaction_type(bucket(Int32)) == Int32
+    @Test.test transaction_type(bucket(type = Int32)) == Int32
 end
 
 function test_confirmed_set()
