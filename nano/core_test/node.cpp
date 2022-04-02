@@ -1629,13 +1629,15 @@ TEST (node, bootstrap_fork_open)
 // Unconfirmed blocks from bootstrap should be confirmed
 TEST (node, bootstrap_confirm_frontiers)
 {
+	// create 2 separate systems, the 2 system do not interact with each other automatically
 	nano::system system0 (1);
 	nano::system system1 (1);
-	auto node0 (system0.nodes[0]);
-	auto node1 (system1.nodes[0]);
+	auto node0 = system0.nodes[0];
+	auto node1 = system1.nodes[0];
 	system0.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key0;
-	// node0 knows about send0 but node1 doesn't.
+
+	// create block to send 500 raw from genesis to key0 and save into node0 ledger without immediately triggering an election
 	auto send0 = nano::send_block_builder ()
 				 .previous (nano::dev::genesis->hash ())
 				 .destination (key0.pub)
@@ -1645,39 +1647,23 @@ TEST (node, bootstrap_confirm_frontiers)
 				 .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node0->process (*send0).code);
 
+	// each system only has one node, so there should be no bootstrapping going on
 	ASSERT_FALSE (node0->bootstrap_initiator.in_progress ());
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
 	ASSERT_TRUE (node1->active.empty ());
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ()); // Additionally add new peer to confirm bootstrap frontier
+
+	// create a bootstrap connection from node1 to node0
+	// this also has the side effect of adding node0 to node1's list of peers, which will trigger realtime connections too
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+
+	// Wait until the block is confirmed on node1. Poll more than usual because we are polling
+	// on 2 different systems at once and in sequence and there might be strange timing effects.
+	system0.deadline_set (10s);
 	system1.deadline_set (10s);
-	while (node1->block (send0->hash ()) == nullptr)
+	while (!node1->ledger.block_confirmed (node1->store.tx_begin_read (), send0->hash ()))
 	{
-		ASSERT_NO_ERROR (system0.poll ());
-		ASSERT_NO_ERROR (system1.poll ());
-	}
-	// Wait for election start
-	system1.deadline_set (10s);
-	while (node1->active.empty ())
-	{
-		ASSERT_NO_ERROR (system0.poll ());
-		ASSERT_NO_ERROR (system1.poll ());
-	}
-	{
-		nano::lock_guard<nano::mutex> guard (node1->active.mutex);
-		auto existing1 (node1->active.blocks.find (send0->hash ()));
-		ASSERT_NE (node1->active.blocks.end (), existing1);
-	}
-	// Wait for confirmation height update
-	system1.deadline_set (10s);
-	bool done (false);
-	while (!done)
-	{
-		{
-			auto transaction (node1->store.tx_begin_read ());
-			done = node1->ledger.block_confirmed (transaction, send0->hash ());
-		}
-		ASSERT_NO_ERROR (system0.poll ());
-		ASSERT_NO_ERROR (system1.poll ());
+		ASSERT_NO_ERROR (system0.poll (std::chrono::milliseconds (1)));
+		ASSERT_NO_ERROR (system1.poll (std::chrono::milliseconds (1)));
 	}
 }
 
