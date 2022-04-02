@@ -26,6 +26,28 @@ function test_comparisons()
     @Test.test first(difficulty_values) == first(reverse(difficulty_values))
 end
 
+function test_copy_malleable()
+    t1 = transaction(1, 1, 1, 1, 1, type=UInt8)
+    t2 = copy_malleable(t1)
+
+    @Test.test t1.tx == t2.tx
+    @Test.test t1.amount == t2.amount
+    @Test.test t1.balance == t2.balance
+    @Test.test t1.difficulty == t2.difficulty
+
+    @Test.test t1.lru ≠ t2.lru
+    @Test.test t1.tally ≠ t2.tally
+end
+
+function test_malleability()
+    test_copy_malleable()
+end
+
+function test_transaction()
+    test_comparisons()
+    test_malleability()
+end
+
 function test_bucket()
     # Test that 4 buckets divides the transaction_type keyspace in to expected values
     @Test.test collect(node_buckets(Int8, 4)) == [0, 31, 62, 93]
@@ -195,7 +217,7 @@ function test_rand_all()
 end
 
 function test()
-    test_comparisons()
+    test_transaction()
     test_bucket()
     test_node()
     test_network()

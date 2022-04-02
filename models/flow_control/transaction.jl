@@ -37,6 +37,27 @@ function isless(lhs::flow_control.transaction, rhs::flow_control.transaction)
                     false
 end
 
+# Return a random value of the same type as val, but not equal to val
+function rand_ne(val)
+    result = val
+    while true 
+        result = rand(typemin(typeof(val)):typemax(typeof(val)))
+        result == val || break
+    end
+    result
+end
+
+# Simulates malleability of the transaction sort between different machines
+# We sort by tally and since different nodes can compute different tallies, because of observing different vote sets, tally is only a partial sort.
+function copy_malleable(t::transaction)
+
+    type = element_type(t)
+    lru = rand_ne(t.lru) # We may have a different local timestamp for last account confirmation.
+    tally = rand_ne(t.tally) # We may not have the same votes
+    transaction(tally, t.balance, t.amount, lru, t.difficulty, tx = t.tx, type = type)
+    # Merge other higher difficulty
+end
+
 function weight(t::transaction)
     max(t.amount, t.balance)
 end
