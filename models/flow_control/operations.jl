@@ -30,10 +30,10 @@ function normalize_for_weight(val)
 end
 
 function push_rand!(n::network)
-    t = transaction_type(n)
+    t = element_type(n)
     randval = () -> rand(typemin(t):typemax(t))
     (balance, amount) = normalize_for_weight(randval())
-    tx = transaction{t}(randval(), balance, amount, randval(), randval())
+    tx = transaction(randval(), balance, amount, randval(), randval(), type = t)
     push!(n, tx)
 end
 

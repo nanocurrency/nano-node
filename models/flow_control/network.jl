@@ -47,7 +47,7 @@ function confirmed_set(n::network)
 end
 
 function bucket_histogram(n::network)
-    result = ds.SortedDict{transaction_type(n), UInt32}()
+    result = ds.SortedDict{element_type(n), UInt32}()
     for i in n.nodes
         s = sizes(i)
         for (b, l) = s
@@ -62,6 +62,6 @@ function print(n::network)
     print("l:", length(n.transactions), " d:", n.stats.deleted, ' ', h, '\n')
 end
 
-function transaction_type(n::network{T}) where{T}
+function element_type(n::network{T}) where{T}
     T
 end

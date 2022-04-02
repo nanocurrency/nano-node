@@ -9,7 +9,7 @@ function first(b::bucket)::transaction
     ds.first(b.transactions)
 end
 
-function transaction_type(b::bucket{T}) where{T}
+function element_type(b::bucket{T}) where{T}
     T
 end
 

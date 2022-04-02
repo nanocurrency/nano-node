@@ -10,10 +10,6 @@ function node_buckets(type, count)
     result
 end
 
-function node_buckets(count)
-    node_buckets(transaction_type, count)
-end
-
 # Divide the keyspace of transaction_type in to count buckets
 function node(; type = transaction_type_default, bucket_count = bucket_count_default, bucket_max = bucket_max_default)
     init = ds.SortedDict{type, bucket}()
@@ -36,7 +32,7 @@ function insert!(n::node, t::transaction)
 end
 
 function sizes(n::node)
-    result = Dict{transaction_type(n), UInt16}()
+    result = Dict{element_type(n), UInt16}()
     for i in n.buckets
         l = length(i.second.transactions)
         result[i.first] = l
@@ -60,12 +56,12 @@ function transactions(node)
     result
 end
 
-function transaction_type(n::node{T}) where{T}
+function element_type(n::node{T}) where{T}
     return T
 end
 
 function working_set(node)
-    result = ds.Set{transaction{transaction_type(node)}}()
+    result = ds.Set{transaction{element_type(node)}}()
     # Insert the highest priority transaction from each bucket
     for (k, v) = node.buckets
         if !isempty(v)

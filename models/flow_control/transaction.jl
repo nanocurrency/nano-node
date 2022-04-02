@@ -9,7 +9,14 @@ struct transaction{T<:Integer}
     amount::T
     lru::T
     difficulty::T
-    transaction{T}(tally, balance, amount, lru, difficulty) where{T<:Integer} = new{T}(rand(UInt64), tally, balance, amount, lru, difficulty)
+end
+
+function element_type(t::transaction{T}) where{T}
+    T
+end
+
+function transaction(tally, balance, amount, lru, difficulty; tx = rand(UInt64), type = transaction_type_default)
+    transaction{type}(tx, tally, balance, amount, lru, difficulty)
 end
 
 function isless(lhs::flow_control.transaction, rhs::flow_control.transaction)

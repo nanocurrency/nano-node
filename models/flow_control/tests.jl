@@ -6,47 +6,45 @@ function test_comparisons()
     end
 
     # Highest tally first
-    tally_values = [T(9, 1, 1, 1, 1), T(4, 1, 1, 1, 1)]
+    tally_values = [transaction(9, 1, 1, 1, 1), transaction(4, 1, 1, 1, 1)]
     @Test.test isless(tally_values[1], tally_values[2])
     @Test.test first(tally_values) == first(reverse(tally_values))
     # Then highest balance or amount
-    balance_values = [T(1, 9, 1, 1, 1), T(1, 4, 1, 1, 1)]
+    balance_values = [transaction(1, 9, 1, 1, 1), transaction(1, 4, 1, 1, 1)]
     @Test.test isless(balance_values[1], balance_values[2])
     @Test.test first(balance_values) == first(reverse(balance_values))
-    amount_values = [T(1, 1, 9, 1, 1), T(1, 1, 4, 1, 1)]
+    amount_values = [transaction(1, 1, 9, 1, 1), transaction(1, 1, 4, 1, 1)]
     @Test.test isless(amount_values[1], amount_values[2])
     @Test.test first(amount_values) == first(reverse(amount_values))
     # Then LRU account
-    lru_values = [T(1, 1, 1, 4, 1), T(1, 1, 1, 9, 1)]
+    lru_values = [transaction(1, 1, 1, 4, 1), transaction(1, 1, 1, 9, 1)]
     @Test.test isless(lru_values[1], lru_values[2])
     @Test.test first(lru_values) == first(reverse(lru_values))
     # Then PoW difficulty
-    difficulty_values = [T(1, 1, 1, 1, 9), T(1, 1, 1, 1, 4)]
+    difficulty_values = [transaction(1, 1, 1, 1, 9), transaction(1, 1, 1, 1, 4)]
     @Test.test isless(difficulty_values[1], difficulty_values[2])
     @Test.test first(difficulty_values) == first(reverse(difficulty_values))
 end
 
 function test_bucket()
-    T = transaction{Int8}
     # Test that 4 buckets divides the transaction_type keyspace in to expected values
     @Test.test collect(node_buckets(Int8, 4)) == [0, 31, 62, 93]
 
     n = node(type = Int8, bucket_count = 4)
     #Test that the bucket function finds the correct bucket for various values
-    @Test.test bucket_range(n, T(1, 1, 1, 1, 1)) == 0
-    @Test.test bucket_range(n, T(1, 31, 1, 1, 1)) == 31
-    @Test.test bucket_range(n, T(1, 1, 31, 1, 1)) == 31
-    @Test.test bucket_range(n, T(1, 1, 127, 1, 1)) == 93
-    @Test.test transaction_type(bucket(type = Int32)) == Int32
+    @Test.test bucket_range(n, transaction(1, 1, 1, 1, 1)) == 0
+    @Test.test bucket_range(n, transaction(1, 31, 1, 1, 1)) == 31
+    @Test.test bucket_range(n, transaction(1, 1, 31, 1, 1)) == 31
+    @Test.test bucket_range(n, transaction(1, 1, 127, 1, 1)) == 93
+    @Test.test element_type(bucket(type = Int32)) == Int32
 end
 
 function test_working_set()
     n = node()
-    T = transaction{transaction_type(n)}
     w1 = working_set(n)
     # Working set initially contains nothing since all buckets are empty
     @Test.test isempty(w1)
-    tx = T(1, 1, 1, 1, 1)
+    tx = transaction(1, 1, 1, 1, 1)
     # Put something in a bucket
     insert!(n, tx)
     # Now working set should contain the item inserted
@@ -57,8 +55,7 @@ end
 
 function test_in_node()
     n = node()
-    t = transaction{transaction_type(n)}
-    tx = t(1, 1, 1, 1, 1)
+    tx = transaction(1, 1, 1, 1, 1)
     @Test.test tx ∉ n
     insert!(n, tx)
     @Test.test tx ∈ n
@@ -66,8 +63,7 @@ end
 
 function test_delete!()
     n = node()
-    T = transaction{transaction_type(n)}
-    tx = T(1, 1, 1, 1, 1)
+    tx = transaction(1, 1, 1, 1, 1)
     insert!(n, tx)
     @Test.test !isempty(working_set(n))
     delete!(n, tx)
@@ -82,10 +78,9 @@ end
 
 function test_confirmed_set()
     n = network(node_count = 4)
-    t = transaction{transaction_type(n)}
     # Network with no transactions starts out empty
     @Test.test isempty(confirmed_set(n))
-    tx = t(1, 1, 1, 1, 1)
+    tx = transaction(1, 1, 1, 1, 1)
     push!(n, tx)
     for node in n.nodes
         copy_global!(n, node)
@@ -97,8 +92,7 @@ end
 
 function test_delete!_network()
     n = network()
-    t = transaction{transaction_type(n)}
-    tx = t(1, 1, 1, 1, 1)
+    tx = transaction(1, 1, 1, 1, 1)
     push!(n, tx)
     for node in n.nodes
         insert!(node, tx)
@@ -127,19 +121,17 @@ function test_network()
 end
 
 function test_network_push!_in()
-    type = transaction{transaction_type_default}
     n = network()
-    tx1 = type(1, 1, 1, 1, 1)
-    tx2 = type(2, 2, 2, 2, 2)
+    tx1 = transaction(1, 1, 1, 1, 1)
+    tx2 = transaction(2, 2, 2, 2, 2)
     push!(n, tx1)
     @Test.test tx1 in n
     @Test.test !in(tx2, n)
 end
 
 function test_copy_global()
-    type = transaction{transaction_type_default}
     n = network()
-    tx = type(1, 1, 1, 1, 1)
+    tx = transaction(1, 1, 1, 1, 1)
     push!(n, tx)
     node = n.nodes[1]
     intersection() = intersect(transactions(node), n.transactions)
@@ -152,11 +144,10 @@ function test_copy_global()
 end
 
 function test_copy_peer()
-    type = transaction{transaction_type_default}
     n = network(node_count = 1)
     node_source = n.nodes[1]
     node_destination = node()
-    tx = type(1, 1, 1, 1, 1)
+    tx = transaction(1, 1, 1, 1, 1)
     # Populate the working set of node1
     insert!(node_source, tx)
     # The destination working set starts out empty
@@ -173,8 +164,7 @@ end
 
 function test_delete_confirmed()
     n = network()
-    t = transaction{transaction_type(n)}
-    tx = t(1, 1, 1, 1, 1)
+    tx = transaction(1, 1, 1, 1, 1)
     insert!(n.transactions, tx)
     insert!(n.nodes[1], tx)
     # Transaction starts out in the network
