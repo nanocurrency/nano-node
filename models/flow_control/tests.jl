@@ -28,7 +28,7 @@ end
 
 function test_copy_malleable()
     t1 = transaction(1, 1, 1, 1, 1, type=UInt8)
-    t2 = copy_malleable(t1)
+    t2 = copy(t1)
 
     @Test.test t1.tx == t2.tx
     @Test.test t1.amount == t2.amount
@@ -43,7 +43,14 @@ function test_malleability()
     test_copy_malleable()
 end
 
+function test_transitive()
+    n = node()
+    insert!(n, transaction(1, 1, 1, 1, 1))
+    @Test.test !isempty(transactions(n) ∩ transactions(n))
+end
+
 function test_transaction()
+    test_transitive()
     test_comparisons()
     test_malleability()
 end
@@ -108,6 +115,10 @@ function test_confirmed_set()
         copy_global!(n, node)
     end
     s = confirmed_set(n)
+    #=print(n.transactions)
+    for node in n.nodes
+        print(node.buckets)
+    end=#
     @Test.test !isempty(s)
     @Test.test tx in s
 end

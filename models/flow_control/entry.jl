@@ -1,12 +1,13 @@
 module flow_control
-import Pkg;
+import Pkg; Pkg.add("DataStructures"); Pkg.add("Dates");
 import DataStructures as ds
 import Dates
-import Base.@time, Base.delete!, Base.first, Base.in, Base.isempty, Base.isless, Base.length, Base.lt, Base.insert!, Base.print, Base.push!
+import Base.copy, Base.delete!, Base.first, Base.in, Base.isempty, Base.isless, Base.length, Base.lt, Base.insert!, Base.print, Base.push!
 import Test
 import Plots, Plots.plot
 
-const transaction_type_default = UInt64
+const transaction_type_default = UInt64 # High precision minimizes value-collisions
+#const transaction_type_default = UInt8 # Low precision maximizes value-collisions
 const bucket_max_default = 16
 const bucket_count_default = 32
 const node_count_default = 4

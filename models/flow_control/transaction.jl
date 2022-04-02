@@ -48,14 +48,23 @@ function rand_ne(val)
 end
 
 # Simulates malleability of the transaction sort between different machines
-# We sort by tally and since different nodes can compute different tallies, because of observing different vote sets, tally is only a partial sort.
-function copy_malleable(t::transaction)
-
+# Example: different nodes can compute different tallies when they observe different vote sets.
+# This behavior is emulated on values by randomizing the value that is copied.
+function copy(t::transaction)
     type = element_type(t)
     lru = rand_ne(t.lru) # We may have a different local timestamp for last account confirmation.
-    tally = rand_ne(t.tally) # We may not have the same votes
+    tally = rand_ne(t.tally) # We may not have the same vote sets
     transaction(tally, t.balance, t.amount, lru, t.difficulty, tx = t.tx, type = type)
     # Merge other higher difficulty
+end
+
+function isequal_invariant(lhs, rhs)
+    lhs.balance == rhs.balance && lhs.amount == rhs.amount && lhs.difficulty == rhs.difficulty
+end
+
+function isequal(lhs, rhs)
+    result = lhs.tx == rhs.tx
+    @assert !result || isequal_invariant(lhs, rhs)
 end
 
 function weight(t::transaction)
