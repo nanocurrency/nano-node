@@ -36,7 +36,7 @@ function plot_node_count_iterations()
     for i = x
         n = network(node_count = i)
         count = 0
-        print(i, ' ')
+        #print(i, ' ')
         while n.stats.deleted == 0
             mutate(n)
             count += 1
@@ -52,7 +52,7 @@ function plot_bucket_max()
     x = 1:16
     iteration_count = 1_000
     for bucket_max = x
-        print(bucket_max, ' ')
+        #print(bucket_max, ' ')
         n = network(bucket_max = bucket_max)
         count = 0
         while n.stats.deleted < iteration_count
@@ -71,7 +71,7 @@ function plot_bucket_count()
     x = 1:64
     iteration_count = 5_000
     for bucket_count = x
-        print(bucket_count, ' ')
+        #print(bucket_count, ' ')
         n = network(bucket_count = bucket_count)
         count = 0
         while n.stats.deleted < iteration_count
@@ -82,14 +82,36 @@ function plot_bucket_count()
     end
     Plots.plot(x, y, title = "Operations per confirmations(" * string(iteration_count) * ") by bucket count", xlabel = "Bucket max", ylabel = "Operations")
     # Asymptote should drive a value for bucket_count_default. Smaller gives better simulation throughput.
-
 end
+
+function plot_saturation()
+    y = []
+    x = 8:18
+    #x = collect(1:100_000)
+    n = network()
+    for i = x
+        count = 2^i
+        #print(count, ' ')
+        for j = 1:count
+            mutate(n)
+        end
+        push!(y, log(2, n.stats.deleted))
+    end
+    Plots.plot(x, y, title = "Confirmations after operations", xlabel = "log2(Operations)", ylabel = "log2(Confirmations)")
+ end
+
+ function generate(op)
+    print("Generating: " * string(op) * "...")
+    display(op())
+    print(" Done\n")
+ end
 
 function plots()
     test()
  
-    #plot_type()
-    plot_node_count_iterations()
-    #plot_bucket_max()
-    #plot_bucket_count()
+    generate(plot_type)
+    #generate(plot_node_count_iterations)
+    #generate(plot_bucket_max)
+    #generate(plot_bucket_count)
+    #generate(plot_saturation)
 end

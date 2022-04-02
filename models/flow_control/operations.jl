@@ -24,6 +24,11 @@ function copy_peer!(n::network, node)
     end
 end
 
+function normalize_for_weight(val)
+    balance = val ≠ 0 ? rand(0:(val - 1)) : 0
+    (balance, val - balance)
+end
+
 function push_rand!(n::network)
     t = transaction_type(n)
     randval = () -> rand(typemin(t):typemax(t))
@@ -69,8 +74,11 @@ function mutate(n::network)
 end
 
 function drain(n::network)
+    count = 0
     # Run all ops except generating new transactions and the network should empty eventually
     while !isempty(n.transactions)
         rand(no_insert_ops).second(n)
+        count += 1
     end
+    count
 end

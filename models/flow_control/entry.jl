@@ -1,9 +1,10 @@
 module flow_control
-import Pkg; Pkg.add("DataStructures");
+import Pkg;
 import DataStructures as ds
-import Base.first, Base.delete!, Base.in, Base.isempty, Base.isless, Base.length, Base.lt, Base.insert!, Base.print, Base.push!
+import Dates
+import Base.@time, Base.delete!, Base.first, Base.in, Base.isempty, Base.isless, Base.length, Base.lt, Base.insert!, Base.print, Base.push!
 import Test
-import Plots
+import Plots, Plots.plot
 
 const transaction_type_default = UInt64
 const bucket_max_default = 16
@@ -16,16 +17,15 @@ include("node.jl")
 include("network.jl")
 include("operations.jl")
 include("tests.jl")
-
-function normalize_for_weight(val)
-    balance = val ≠ 0 ? rand(0:(val - 1)) : 0
-    (balance, val - balance)
-end
-
 include("plots.jl")
 
 end #module
 
-#flow_control.test()
-flow_control.plots()
+function run()
+    #flow_control.test()
+    flow_control.plots()
+end
+
+print(Dates.now(), '\n')
+@time run()
 
