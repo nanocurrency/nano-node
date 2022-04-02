@@ -5,9 +5,9 @@ import Base.first, Base.delete!, Base.in, Base.isempty, Base.isless, Base.length
 import Test
 import Plots
 
-const transaction_type_default = UInt8
-const bucket_max_default = 4
-const bucket_count_default = 4
+const transaction_type_default = UInt64
+const bucket_max_default = 16
+const bucket_count_default = 32
 const node_count_default = 4
 
 # Transaction properties used to bucket and sort transactions
@@ -336,7 +336,7 @@ function test_delete!_network()
 end
 
 function test_network()
-    network1 = network(node_count = 1)
+    network1 = network(type = UInt8, node_count = 1)
     @Test.test keytype(network1.nodes[1].buckets) == UInt8
     @Test.test size(network1.nodes)[1] == 1
     @Test.test length(network1.nodes[1].buckets) == bucket_count_default
@@ -529,39 +529,61 @@ function stress(node_count, bucket_count, bucket_max; type = transaction_type_de
     (n, series)
 end
 
-function stress_sweep_bucket_count()
-    #bucket_maxes = map((val) -> 2^val, 1:16)
-    bucket_maxes = 1:1
-    bucket_counts = map((val) -> 2^val, 1:8)
-    ys = []
-    labels = []
-    for bucket_count = bucket_counts
-        y = []
-        for bucket_max = bucket_maxes
-            (n, series) = stress(node_count_default, bucket_count, bucket_max)
-            print(n)
-            push!(ys, series)
-            push!(labels, "c: " * string(bucket_count) * " m: " * string(bucket_max))
+function stress_bucket_count()
+    y = []
+    #x = map((val) -> 2^val, 2:8)
+    x = 1:64
+    iteration_count = 5_000
+    for bucket_count = x
+        print(bucket_count, ' ')
+        n = network(bucket_count = bucket_count)
+        count = 0
+        while n.stats.deleted < iteration_count
+            mutate(n)
+            count += 1
         end
+        push!(y, count)
     end
-    labels = permutedims(labels)
-    Plots.plot(1:length(ys[1]), ys, label = labels, xlabel = "Bucket Size", ylabel = "Confirmed transactions")
+    Plots.plot(x, y, title = "Operations per confirmations(" * string(iteration_count) * ") by bucket count", xlabel = "Bucket max", ylabel = "Operations")
+    # Asymptote should drive a value for bucket_count_default. Smaller gives better simulation throughput.
+
+end
+
+function stress_bucket_max()
+    y = []
+    #x = map((val) -> 2^val, 2:6)
+    x = 1:16
+    iteration_count = 1_000
+    for bucket_max = x
+        print(bucket_max, ' ')
+        n = network(bucket_max = bucket_max)
+        count = 0
+        while n.stats.deleted < iteration_count
+            mutate(n)
+            count += 1
+        end
+        push!(y, count)
+    end
+    Plots.plot(x, y, title = "Operations per confirmations(" * string(iteration_count) * ") by bucket max", xlabel = "Bucket max", ylabel = "Operations")
+    # Asymptote should drive a value for bucket_max_default. Smaller gives better simulation throughput.
 end
 
 function stress_node_count_iterations()
     y = []
-    #x = collect(2^val for val = 2:10)
-    x = collect(2^val for val = 2:6)
+    #x = collect(2^val for val = 2:5)
+    #x = collect(2^val for val = 2:8)
+    x = 4:64
     for i = x
         n = network(node_count = i)
         count = 0
+        print(i, ' ')
         while n.stats.deleted == 0
             mutate(n)
             count += 1
         end
         push!(y, count)
     end
-    Plots.plot(x, y, title = "Operations to get confirmation by node count", xlabel = "Nodes", ylabel = "Operations")
+    Plots.plot(x, y, title = "Operations per confirmation by node count", xlabel = "Nodes", ylabel = "Operations")
 end
 
 function stress_type()
@@ -581,14 +603,16 @@ function stress_type()
     end
     labels = permutedims(labels)
     Plots.plot(x, ys, label = labels, xlabel = "Operations", ylabel = "Confirmed")
+    # Asymptote should drive a type for transaction_type_default.
 end
 
 function stress()
     test()
  
     #stress_type()
-    #stress_node_count_iterations()
-    #stress_sweep_bucket_count()
+    stress_node_count_iterations()
+    #stress_bucket_max()
+    #stress_bucket_count()
 end
 
 end #module
