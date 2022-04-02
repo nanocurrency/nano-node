@@ -46,14 +46,6 @@ function confirmed_set(n::network)
     result
 end
 
-function delete!(n::network, transaction)
-    @assert transaction ∈ n.transactions
-    delete!(n.transactions, transaction)
-    for node in n.nodes
-        delete!(node, transaction)
-    end
-end
-
 function bucket_histogram(n::network)
     result = ds.SortedDict{transaction_type(n), UInt32}()
     for i in n.nodes
