@@ -767,6 +767,9 @@ TEST (active_transactions, fork_filter_cleanup)
 	}
 
 	// All forks were merged into the same election
+	std::shared_ptr<nano::election> election{};
+	ASSERT_TIMELY (5s, (election = node1.active.election (send1->qualified_root ())) != nullptr);
+	ASSERT_TIMELY (5s, election->blocks ().size () == 10);
 	ASSERT_EQ (1, node1.active.size ());
 
 	// Instantiate a new node
@@ -787,11 +790,7 @@ TEST (active_transactions, fork_filter_cleanup)
 	ASSERT_TIMELY (5s, node1.ledger.cache.block_count == 2);
 
 	// Block is erased from the duplicate filter
-	ASSERT_FALSE (node1.network.publish_filter.apply (send_block_bytes.data (), send_block_bytes.size ()));
-
-	std::shared_ptr<nano::election> election{};
-	ASSERT_TIMELY (5s, (election = node1.active.election (send1->qualified_root ())) != nullptr);
-	ASSERT_TIMELY (5s, election->blocks ().size () == 10);
+	ASSERT_TIMELY (5s, node1.network.publish_filter.apply (send_block_bytes.data (), send_block_bytes.size ()));
 }
 
 TEST (active_transactions, fork_replacement_tally)
