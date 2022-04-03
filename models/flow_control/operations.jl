@@ -66,8 +66,8 @@ function delete_confirmed!(n::network)
     end
 end
 
-all_ops = ['i' => push_rand!, 'g' => copy_global_rand!, 'p' => copy_peer_rand!, 'd' => delete_confirmed!]
-no_insert_ops = ['g' => copy_global_rand!, 'p' => copy_peer_rand!, 'd' => delete_confirmed!]
+const all_ops = ['i' => push_rand!, 'g' => copy_global_rand!, 'p' => copy_peer_rand!, 'd' => delete_confirmed!]
+const no_insert_ops = [(all_ops[x] for x = ['g', 'p', 'd'])]
 
 function mutate(n::network)
     rand(all_ops).second(n)
