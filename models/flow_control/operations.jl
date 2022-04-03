@@ -68,21 +68,21 @@ function delete_confirmed!(n::network)
     end
 end
 
-const mutate_ops = ['i' => push_rand!, 'g' => copy_global_rand!, 'p' => copy_peer_rand!, 'd' => delete_confirmed!]
+const mutate_ops = [push_rand!, copy_global_rand!, copy_peer_rand!, delete_confirmed!]
+const mutate_weights = [ 10, 10, 10, 10 ]
+const no_insert_weights = [ 0, 10, 10, 10 ]
 
 function mutate(n::network)
-    rand(mutate_ops).second(n)
+    StatsBase.sample(mutate_ops, StatsBase.Weights(mutate_weights))(n)
     n.stats.mutations += 1
 end
 
-# Doesn't contain any operations that add new data
-const no_insert_ops = [(all_ops[x] for x = ['g', 'p', 'd'])]
 # Runs no_insert_ops until the network is empty of transactions
 function drain(n::network)
     count = 0
     # Run all ops except generating new transactions and the network should empty eventually
     while !isempty(n.transactions)
-        rand(no_insert_ops).second(n)
+        StatsBase.sample(mutate_ops, StatsBase.Weights(no_insert_weights))(n)
         count += 1
     end
     count
