@@ -11,10 +11,12 @@ struct transaction{T<:Integer}
     difficulty::T
 end
 
+# Returns the type T for a given transaction
 function element_type(t::transaction{T}) where{T}
     T
 end
 
+# Constructs a transaction with a random tx id and default transaction type
 function transaction(tally, balance, amount, lru, difficulty; tx = rand(UInt64), type = transaction_type_default)
     transaction{type}(tx, tally, balance, amount, lru, difficulty)
 end
@@ -37,23 +39,29 @@ function isless(lhs::flow_control.transaction, rhs::flow_control.transaction)
                     false
 end
 
+# Simulates malleability of the transaction sort between different machines
+# This behavior is emulated on values by randomizing a value that is copied between nodes
 # Return a random value of the same type as val, but not equal to val
 function rand_ne(val)
     result = val
-    while true 
+    while true
         result = rand(typemin(typeof(val)):typemax(typeof(val)))
+        # keep looping if the random value happened to be the same
         result == val || break
     end
     result
 end
 
-# Simulates malleability of the transaction sort between different machines
-# Example: different nodes can compute different tallies when they observe different vote sets.
-# This behavior is emulated on values by randomizing the value that is copied.
 function copy(t::transaction)
     type = element_type(t)
-    lru = rand_ne(t.lru) # We may have a different local timestamp for last account confirmation.
-    tally = rand_ne(t.tally) # We may not have the same vote sets
+
+     # Different nodes can have different local timestamps for last account confirmation.
+     # Different nodes clocks can never be perfectly synchronized
+    lru = rand_ne(t.lru)
+
+    # Different nodes can compute different tallies when they observe different vote sets.
+    tally = rand_ne(t.tally)
+
     transaction(tally, t.balance, t.amount, lru, t.difficulty, tx = t.tx, type = type)
     # Merge other higher difficulty
 end
@@ -64,6 +72,8 @@ end
 
 function isequal(lhs, rhs)
     result = lhs.tx == rhs.tx
+
+    # Transactions with equal tx values should have equal non-malleable fields.
     @assert !result || isequal_invariant(lhs, rhs)
 end
 
