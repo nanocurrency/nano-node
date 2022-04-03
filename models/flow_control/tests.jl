@@ -135,6 +135,14 @@ function test_delete!_network(t)
     @Test.test all(node -> tx ∉ node, n.nodes)
 end
 
+function test_drain(t)
+    n = network(type = t)
+    push_rand!(n)
+    @Test.test !isempty(n.transactions)
+    drain(n)
+    @Test.test isempty(n.transactions)
+end
+
 function test_network(t)
     network1 = network(type = UInt8, node_count = 1)
     @Test.test keytype(network1.nodes[1].buckets) == UInt8
@@ -151,6 +159,7 @@ function test_network(t)
     @Test.test keytype(network_big.nodes[1].buckets) == Int16
     test_confirmed_set(t)
     test_delete!_network(t)
+    test_drain(t)
 end
 
 function test_network_push!_in(t)
