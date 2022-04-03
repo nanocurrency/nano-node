@@ -29,6 +29,16 @@ function normalize_for_weight(val)
     (balance, val - balance)
 end
 
+function delete!(n::network, transaction)
+    @assert transaction ∈ n.transactions
+    delete!(n.transactions, transaction)
+    for node in n.nodes
+        delete!(node, transaction)
+    end
+end
+
+
+
 function push_rand!(n::network)
     t = element_type(n)
     randval = () -> rand(typemin(t):typemax(t))
@@ -49,14 +59,6 @@ function copy_peer_rand!(n::network)
     end
 end
 
-function delete!(n::network, transaction)
-    @assert transaction ∈ n.transactions
-    delete!(n.transactions, transaction)
-    for node in n.nodes
-        delete!(node, transaction)
-    end
-end
-
 function delete_confirmed!(n::network)
     c = confirmed_set(n)
     if !isempty(c)
@@ -66,13 +68,16 @@ function delete_confirmed!(n::network)
     end
 end
 
-const all_ops = ['i' => push_rand!, 'g' => copy_global_rand!, 'p' => copy_peer_rand!, 'd' => delete_confirmed!]
-const no_insert_ops = [(all_ops[x] for x = ['g', 'p', 'd'])]
+const mutate_ops = ['i' => push_rand!, 'g' => copy_global_rand!, 'p' => copy_peer_rand!, 'd' => delete_confirmed!]
 
 function mutate(n::network)
-    rand(all_ops).second(n)
+    rand(mutate_ops).second(n)
+    n.stats.mutations += 1
 end
 
+# Doesn't contain any operations that add new data
+const no_insert_ops = [(all_ops[x] for x = ['g', 'p', 'd'])]
+# Runs no_insert_ops until the network is empty of transactions
 function drain(n::network)
     count = 0
     # Run all ops except generating new transactions and the network should empty eventually

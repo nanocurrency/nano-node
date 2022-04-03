@@ -31,8 +31,6 @@ end
 function plot_node_count_iterations()
     x = []
     y = []
-    #x = collect(2^val for val = 2:5)
-    #x = collect(2^val for val = 2:8)
     # 6348.392737 seconds (40.97 G allocations: 2.350 TiB, 6.67% gc time, 0.10% compilation time)
     large_set = 2:12
     # 6.604670 seconds (12.63 M allocations: 654.941 MiB, 2.22% gc time, 94.88% compilation time)

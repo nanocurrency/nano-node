@@ -222,7 +222,7 @@ end
 # Perform all of the random state transitions
 function test_rand_all(t)
     n = network(type = t)
-    for (name, op) in all_ops
+    for (name, op) in mutate_ops
         op(n)
     end
 end

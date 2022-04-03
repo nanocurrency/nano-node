@@ -1,8 +1,7 @@
-
-
 mutable struct stat_struct
     deleted::UInt
     inserted::UInt
+    mutations::UInt
 end
 
 struct network{T}
@@ -17,7 +16,7 @@ function network(; type = transaction_type_default, node_count = node_count_defa
         push!(nodes, node(type = type, bucket_count = bucket_count, bucket_max = bucket_max))
     end
     transactions = ds.SortedSet{transaction{type}}()
-    network{type}(nodes, transactions, stat_struct(0, 0))
+    network{type}(nodes, transactions, stat_struct(0, 0, 0))
 end
 
 function in(transaction, n::network)
