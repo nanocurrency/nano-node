@@ -1,33 +1,33 @@
 # Testing less-than comparison on transactions
-function test_comparisons()
-    T = transaction{transaction_type_default}
+function test_comparisons(t)
+    T = transaction{t}
     function first(values)
         flow_control.first(bucket(ds.SortedSet{T}(values), 0))
     end
 
     # Highest tally first
-    tally_values = [transaction(9, 1, 1, 1, 1), transaction(4, 1, 1, 1, 1)]
+    tally_values = [transaction(9, 1, 1, 1, 1, type = t), transaction(4, 1, 1, 1, 1, type = t)]
     @Test.test isless(tally_values[1], tally_values[2])
     @Test.test first(tally_values) == first(reverse(tally_values))
     # Then highest balance or amount
-    balance_values = [transaction(1, 9, 1, 1, 1), transaction(1, 4, 1, 1, 1)]
+    balance_values = [transaction(1, 9, 1, 1, 1, type = t), transaction(1, 4, 1, 1, 1, type = t)]
     @Test.test isless(balance_values[1], balance_values[2])
     @Test.test first(balance_values) == first(reverse(balance_values))
-    amount_values = [transaction(1, 1, 9, 1, 1), transaction(1, 1, 4, 1, 1)]
+    amount_values = [transaction(1, 1, 9, 1, 1, type = t), transaction(1, 1, 4, 1, 1, type = t)]
     @Test.test isless(amount_values[1], amount_values[2])
     @Test.test first(amount_values) == first(reverse(amount_values))
     # Then LRU account
-    lru_values = [transaction(1, 1, 1, 4, 1), transaction(1, 1, 1, 9, 1)]
+    lru_values = [transaction(1, 1, 1, 4, 1, type = t), transaction(1, 1, 1, 9, 1, type = t)]
     @Test.test isless(lru_values[1], lru_values[2])
     @Test.test first(lru_values) == first(reverse(lru_values))
     # Then PoW difficulty
-    difficulty_values = [transaction(1, 1, 1, 1, 9), transaction(1, 1, 1, 1, 4)]
+    difficulty_values = [transaction(1, 1, 1, 1, 9, type = t), transaction(1, 1, 1, 1, 4, type = t)]
     @Test.test isless(difficulty_values[1], difficulty_values[2])
     @Test.test first(difficulty_values) == first(reverse(difficulty_values))
 end
 
-function test_copy_malleable()
-    t1 = transaction(1, 1, 1, 1, 1, type=UInt8)
+function test_copy_malleability(t)
+    t1 = transaction(1, 1, 1, 1, 1, type=t)
     t2 = copy(t1)
 
     @Test.test t1.tx == t2.tx
@@ -39,23 +39,23 @@ function test_copy_malleable()
     @Test.test t1.tally ≠ t2.tally
 end
 
-function test_malleability()
-    test_copy_malleable()
+function test_malleability(t)
+    test_copy_malleability(t)
 end
 
-function test_transitive()
-    n = node()
-    insert!(n, transaction(1, 1, 1, 1, 1))
+function test_transitive(t)
+    n = node(type = t)
+    insert!(n, transaction(1, 1, 1, 1, 1, type = t))
     @Test.test !isempty(transactions(n) ∩ transactions(n))
 end
 
-function test_transaction()
-    test_transitive()
-    test_comparisons()
-    test_malleability()
+function test_transaction(t)
+    test_transitive(t)
+    test_comparisons(t)
+    test_malleability(t)
 end
 
-function test_bucket()
+function test_bucket(_)
     # Test that 4 buckets divides the transaction_type keyspace in to expected values
     @Test.test collect(node_buckets(Int8, 4)) == [0, 31, 62, 93]
 
@@ -68,12 +68,12 @@ function test_bucket()
     @Test.test element_type(bucket(type = Int32)) == Int32
 end
 
-function test_working_set()
-    n = node()
+function test_working_set(t)
+    n = node(type = t)
     w1 = working_set(n)
     # Working set initially contains nothing since all buckets are empty
     @Test.test isempty(w1)
-    tx = transaction(1, 1, 1, 1, 1)
+    tx = transaction(1, 1, 1, 1, 1, type = t)
     # Put something in a bucket
     insert!(n, tx)
     # Now working set should contain the item inserted
@@ -82,34 +82,34 @@ function test_working_set()
     @Test.test tx in w2
 end
 
-function test_in_node()
-    n = node()
-    tx = transaction(1, 1, 1, 1, 1)
+function test_in_node(t)
+    n = node(type = t)
+    tx = transaction(1, 1, 1, 1, 1, type = t)
     @Test.test tx ∉ n
     insert!(n, tx)
     @Test.test tx ∈ n
 end
 
-function test_delete!()
-    n = node()
-    tx = transaction(1, 1, 1, 1, 1)
+function test_delete!(t)
+    n = node(type = t)
+    tx = transaction(1, 1, 1, 1, 1, type = t)
     insert!(n, tx)
     @Test.test !isempty(working_set(n))
     delete!(n, tx)
     @Test.test isempty(working_set(n))
 end
 
-function test_node()
-    test_working_set()
-    test_in_node()
-    test_delete!()
+function test_node(t)
+    test_working_set(t)
+    test_in_node(t)
+    test_delete!(t)
 end
 
-function test_confirmed_set()
-    n = network(node_count = 4)
+function test_confirmed_set(t)
+    n = network(node_count = 4, type = t)
     # Network with no transactions starts out empty
     @Test.test isempty(confirmed_set(n))
-    tx = transaction(1, 1, 1, 1, 1)
+    tx = transaction(1, 1, 1, 1, 1, type = t)
     push!(n, tx)
     for node in n.nodes
         copy_global!(n, node)
@@ -123,9 +123,9 @@ function test_confirmed_set()
     @Test.test tx in s
 end
 
-function test_delete!_network()
-    n = network()
-    tx = transaction(1, 1, 1, 1, 1)
+function test_delete!_network(t)
+    n = network(type = t)
+    tx = transaction(1, 1, 1, 1, 1, type = t)
     push!(n, tx)
     for node in n.nodes
         insert!(node, tx)
@@ -135,7 +135,7 @@ function test_delete!_network()
     @Test.test all(node -> tx ∉ node, n.nodes)
 end
 
-function test_network()
+function test_network(t)
     network1 = network(type = UInt8, node_count = 1)
     @Test.test keytype(network1.nodes[1].buckets) == UInt8
     @Test.test size(network1.nodes)[1] == 1
@@ -149,22 +149,22 @@ function test_network()
     # Test network construction with a wider value type
     network_big = network(type = Int16, node_count = 1, bucket_count = 1)
     @Test.test keytype(network_big.nodes[1].buckets) == Int16
-    test_confirmed_set()
-    test_delete!_network()
+    test_confirmed_set(t)
+    test_delete!_network(t)
 end
 
-function test_network_push!_in()
-    n = network()
-    tx1 = transaction(1, 1, 1, 1, 1)
-    tx2 = transaction(2, 2, 2, 2, 2)
+function test_network_push!_in(t)
+    n = network(type = t)
+    tx1 = transaction(1, 1, 1, 1, 1, type = t)
+    tx2 = transaction(2, 2, 2, 2, 2, type = t)
     push!(n, tx1)
     @Test.test tx1 in n
     @Test.test !in(tx2, n)
 end
 
-function test_copy_global()
-    n = network()
-    tx = transaction(1, 1, 1, 1, 1)
+function test_copy_global(t)
+    n = network(type = t)
+    tx = transaction(1, 1, 1, 1, 1, type = t)
     push!(n, tx)
     node = n.nodes[1]
     intersection() = intersect(transactions(node), n.transactions)
@@ -176,11 +176,11 @@ function test_copy_global()
     nothing
 end
 
-function test_copy_peer()
-    n = network(node_count = 1)
+function test_copy_peer(t)
+    n = network(node_count = 1, type = t)
     node_source = n.nodes[1]
-    node_destination = node()
-    tx = transaction(1, 1, 1, 1, 1)
+    node_destination = node(type = t)
+    tx = transaction(1, 1, 1, 1, 1, type = t)
     # Populate the working set of node1
     insert!(node_source, tx)
     # The destination working set starts out empty
@@ -195,9 +195,9 @@ function test_copy_peer()
     @Test.test tx in w
 end
 
-function test_delete_confirmed()
-    n = network()
-    tx = transaction(1, 1, 1, 1, 1)
+function test_delete_confirmed(t)
+    n = network(type = t)
+    tx = transaction(1, 1, 1, 1, 1, type = t)
     insert!(n.transactions, tx)
     insert!(n.nodes[1], tx)
     # Transaction starts out in the network
@@ -212,26 +212,32 @@ function test_delete_confirmed()
     @Test.test tx ∉ n
 end
 
-function test_state_transitions()
-    test_network_push!_in()
-    test_copy_global()
-    test_copy_peer()
-    test_delete_confirmed()
+function test_state_transitions(t)
+    test_network_push!_in(t)
+    test_copy_global(t)
+    test_copy_peer(t)
+    test_delete_confirmed(t)
 end
 
 # Perform all of the random state transitions
-function test_rand_all()
-    n = network()
+function test_rand_all(t)
+    n = network(type = t)
     for (name, op) in all_ops
         op(n)
     end
 end
 
+function test_all(t)
+    test_transaction(t)
+    test_bucket(t)
+    test_node(t)
+    test_network(t)
+    test_state_transitions(t)
+    test_rand_all(t)
+end
+
 function test()
-    test_transaction()
-    test_bucket()
-    test_node()
-    test_network()
-    test_state_transitions()
-    test_rand_all()
+    for t in [UInt8, UInt64, UInt128]
+        test_all(t)
+    end
 end
