@@ -9,7 +9,7 @@ function stress(node_count, bucket_count, bucket_max; type = transaction_type_de
 end
 
 function plot_type()
-    types = [UInt8, UInt16, UInt32, UInt64]
+    types = [UInt8, UInt16, UInt32, UInt64, UInt128]
     ys = []
     x = 1:10_000
     labels = []
@@ -29,21 +29,30 @@ function plot_type()
 end
 
 function plot_node_count_iterations()
+    x = []
     y = []
     #x = collect(2^val for val = 2:5)
     #x = collect(2^val for val = 2:8)
-    x = 4:64
-    for i = x
-        n = network(node_count = i)
+    # 6348.392737 seconds (40.97 G allocations: 2.350 TiB, 6.67% gc time, 0.10% compilation time)
+    large_set = 2:12
+    # 6.604670 seconds (12.63 M allocations: 654.941 MiB, 2.22% gc time, 94.88% compilation time)
+    small_set = 2:6
+
+    set = small_set
+    for i = set
+        n = network(node_count = 2^i, type = UInt128)
         count = 0
-        #print(i, ' ')
         while n.stats.deleted == 0
             mutate(n)
             count += 1
         end
-        push!(y, count)
+        print(length(n.nodes), ' ', count, '\n')
+        push!(x, length(n.nodes))
+        # Count operations are performed across all nodes in the network
+        # Divide count by number of nodes so they look similar no matter the sequence fed in
+        push!(y, count ÷ length(n.nodes))
     end
-    Plots.plot(x, y, title = "Operations per confirmation by node count", xlabel = "Nodes", ylabel = "Operations")
+    Plots.plot(x, y, title = "Operations per confirmation by node count", xlabel = "Nodes", ylabel = "Operations/node")
 end
 
 function plot_bucket_max()
@@ -88,7 +97,7 @@ function plot_saturation()
     y = []
     x = 8:18
     #x = collect(1:100_000)
-    n = network()
+    n = network(type=UInt8)
     for i = x
         count = 2^i
         #print(count, ' ')
@@ -109,8 +118,8 @@ function plot_saturation()
 function plots()
     test()
  
-    generate(plot_type)
-    #generate(plot_node_count_iterations)
+    #generate(plot_type)
+    generate(plot_node_count_iterations)
     #generate(plot_bucket_max)
     #generate(plot_bucket_count)
     #generate(plot_saturation)

@@ -6,7 +6,7 @@ import Base.copy, Base.delete!, Base.first, Base.in, Base.isempty, Base.isless, 
 import Test
 import Plots, Plots.plot
 
-const transaction_type_default = UInt64 # High precision minimizes value-collisions
+const transaction_type_default = UInt128 # High precision minimizes value-collisions
 #const transaction_type_default = UInt8 # Low precision maximizes value-collisions
 const bucket_max_default = 16
 const bucket_count_default = 32
@@ -23,10 +23,10 @@ include("plots.jl")
 end #module
 
 function run()
-    flow_control.test()
-    #flow_control.plots()
+    #flow_control.test()
+    flow_control.plots()
 end
 
-print(Dates.now(), '\n')
+#print(Dates.now(), '\n')
 @time run()
 
