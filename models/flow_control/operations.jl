@@ -25,7 +25,7 @@ function copy_peer!(n::network, node)
 end
 
 function normalize_for_weight(val)
-    balance = val ≠ 0 ? rand(0:(val - 1)) : 0
+    balance = val ≠ 0 ? rand(0:val) : 0
     (balance, val - balance)
 end
 
