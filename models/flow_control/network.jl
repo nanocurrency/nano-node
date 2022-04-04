@@ -12,11 +12,13 @@ end
 
 function network(; type = transaction_type_default, node_count = node_count_default, bucket_count = bucket_count_default, bucket_max = bucket_max_default)
     nodes = []
+    # Populate a set of nodes initialized with passed in arguments.
     for i = 0:node_count - 1
         push!(nodes, node(type = type, bucket_count = bucket_count, bucket_max = bucket_max))
     end
     transactions = ds.SortedSet{transaction{type}}()
-    network{type}(nodes, transactions, stat_struct(0, 0, 0))
+    stats = stat_struct(0, 0, 0)
+    network{type}(nodes, transactions, stats)
 end
 
 function in(transaction, n::network)
@@ -59,6 +61,20 @@ end
 function print(n::network)
     h = bucket_histogram(n)
     print("l:", length(n.transactions), " d:", n.stats.deleted, ' ', h, '\n')
+end
+
+# A set of transactions that exist on any node in the network
+function live_set(n::network)
+    result = Set{transaction{element_type(n)}}()
+    for n = n.nodes
+         result = result ∪ transactions(n)
+    end
+    result
+end
+
+# A set of transactions that do not exist on any node on the network.
+function abandoned_set(n::network)
+    setdiff(n.transactions, live_set(n))
 end
 
 function element_type(n::network{T}) where{T}

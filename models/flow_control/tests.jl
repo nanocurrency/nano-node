@@ -121,10 +121,19 @@ function test_delete!(t)
     @Test.test isempty(working_set(n))
 end
 
+function test_node_transactions(t)
+    n = node(type = t)
+    tx = transaction(1, 1, 1, 1, 1, type = t)
+    @Test.test isempty(transactions(n))
+    insert!(n, tx)
+    @Test.test !isempty(transactions(n))
+end
+
 function test_node(t)
     test_working_set(t)
     test_in_node(t)
     test_delete!(t)
+    test_node_transactions(t)
 end
 
 function test_confirmed_set(t)
@@ -165,6 +174,30 @@ function test_drain(t)
     @Test.test isempty(n.transactions)
 end
 
+function test_live_set(t)
+    n = network(type = t)
+    tx = transaction(1, 1, 1, 1, 1, type = t)
+    push!(n, tx)
+    @Test.test isempty(live_set(n))
+    insert!(n.nodes[1], tx)
+    live = live_set(n)
+    @Test.test !isempty(live)
+    @Test.test tx ∈ live
+end
+
+function test_abandoned_set(t)
+    n = network(type = t, bucket_max = 1)
+    tx = transaction(1, 1, 1, 1, 1, type = t)
+    @Test.test isempty(abandoned_set(n))
+    push!(n, tx)
+    abandoned = abandoned_set(n)
+    @Test.test !isempty(abandoned)
+    @Test.test tx ∈ abandoned
+    node = n.nodes[1]
+    insert!(node, tx)
+    @Test.test isempty(abandoned_set(n))
+end
+
 function test_network(t)
     network1 = network(type = UInt8, node_count = 1)
     @Test.test keytype(network1.nodes[1].buckets) == UInt8
@@ -182,6 +215,8 @@ function test_network(t)
     test_confirmed_set(t)
     test_delete!_network(t)
     test_drain(t)
+    test_live_set(t)
+    test_abandoned_set(t)
 end
 
 function test_network_push!_in(t)
