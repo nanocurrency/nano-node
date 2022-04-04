@@ -2895,7 +2895,7 @@ void nano::json_handler::raw_plus_raw ()
 	auto secondary_amount (secondary_amount_impl ());
 
 	auto result (amount.number () + secondary_amount.number ());
-	if (result < amount.number())	// Overflow check
+	if (result < amount.number ())
 	{
 		ec = nano::error_rpc::amount_overflow;
 	}
@@ -2912,7 +2912,7 @@ void nano::json_handler::raw_minus_raw ()
 	auto secondary_amount (secondary_amount_impl ());
 
 	auto result (amount.number () - secondary_amount.number ());
-	if (result > amount.number ()) // Overflow check
+	if (result > amount.number ())
 	{
 		ec = nano::error_rpc::amount_overflow;
 	}
