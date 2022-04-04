@@ -31,9 +31,14 @@ function transactions(b::bucket)
     result = Set{transaction{element_type(b)}}(b.transactions)
 end
 
+function full(b::bucket)
+    length(b.transactions) >= b.max
+end
+
 function insert!(b::bucket, transaction)
+    f = full(b)
     insert!(b.transactions, transaction)
-    if length(b.transactions) > b.max
+    if f
         delete!(b.transactions, last(b.transactions))
     end
 end

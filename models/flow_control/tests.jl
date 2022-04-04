@@ -59,8 +59,10 @@ function test_bucket_max(t)
     b = bucket(type = t, bucket_max = 1)
     tx1 = transaction(1, 1, 1, 1, 1, type = t)
     tx2 = transaction(2, 2, 2, 2, 2, type = t)
+    @Test.test !full(b)
     insert!(b, tx1)
     @Test.test length(b) == 1
+    @Test.test full(b)
     insert!(b, tx2)
     @Test.test length(b) == 1
     @Test.test tx2 ∈ b
