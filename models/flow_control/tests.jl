@@ -131,11 +131,20 @@ function test_node_transactions(t)
     @Test.test !isempty(transactions(n))
 end
 
+function test_full_count(t)
+    n = node(type = t, bucket_max = 1)
+    tx = transaction(1, 1, 1, 1, 1, type = t)
+    @Test.test full_count(n) == 0
+    insert!(n, tx)
+    @Test.test full_count(n) == 1
+end
+
 function test_node(t)
     test_working_set(t)
     test_in_node(t)
     test_delete!(t)
     test_node_transactions(t)
+    test_full_count(t)
 end
 
 function test_confirmed_set(t)

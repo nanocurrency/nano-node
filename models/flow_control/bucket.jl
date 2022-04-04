@@ -36,9 +36,8 @@ function full(b::bucket)
 end
 
 function insert!(b::bucket, transaction)
-    f = full(b)
-    insert!(b.transactions, transaction)
-    if f
+    if full(b)
         delete!(b.transactions, last(b.transactions))
     end
+    insert!(b.transactions, transaction)
 end
