@@ -229,7 +229,7 @@ end
 function test_delete_confirmed(t)
     n = network(type = t)
     tx = transaction(1, 1, 1, 1, 1, type = t)
-    insert!(n.transactions, tx)
+    push!(n.transactions, tx)
     insert!(n.nodes[1], tx)
     # Transaction starts out in the network
     @Test.test tx ∈ n

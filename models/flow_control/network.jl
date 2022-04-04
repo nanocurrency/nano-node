@@ -6,7 +6,7 @@ end
 
 struct network{T}
     nodes::Vector{node{T}}
-    transactions::ds.SortedSet{transaction{T}}
+    transactions::Set{transaction{T}}
     stats::stat_struct
 end
 
