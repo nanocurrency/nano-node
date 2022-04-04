@@ -134,6 +134,10 @@ void nano::json_handler::process_request (bool unsafe_a)
 			{
 				raw_plus_raw ();
 			}
+			else if (action == "raw_minus_raw")
+			{
+				raw_minus_raw ();
+			}
 			else if (action == "password_valid")
 			{
 				password_valid ();
@@ -2893,7 +2897,24 @@ void nano::json_handler::raw_plus_raw ()
 	auto result (amount.number () + secondary_amount.number ());
 	if (result < amount.number())	// Overflow check
 	{
-		ec = nano::error_common::invalid_amount;
+		ec = nano::error_rpc::amount_overflow;
+	}
+	if (!ec)
+	{
+		response_l.put ("result", result.convert_to<std::string> ());
+	}
+	response_errors ();
+}
+
+void nano::json_handler::raw_minus_raw ()
+{
+	auto amount (amount_impl ());
+	auto secondary_amount (secondary_amount_impl ());
+
+	auto result (amount.number () - secondary_amount.number ());
+	if (result > amount.number ()) // Overflow check
+	{
+		ec = nano::error_rpc::amount_overflow;
 	}
 	if (!ec)
 	{

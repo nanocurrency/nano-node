@@ -80,6 +80,7 @@ public:
 	void nano_to_raw ();
 	void raw_to_nano ();
 	void raw_plus_raw ();
+	void raw_minus_raw ();
 	void node_id ();
 	void node_id_delete ();
 	void password_change ();
