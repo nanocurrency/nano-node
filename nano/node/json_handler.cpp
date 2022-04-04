@@ -130,6 +130,10 @@ void nano::json_handler::process_request (bool unsafe_a)
 			{
 				raw_to_nano ();
 			}
+			else if (action == "raw_plus_raw")
+			{
+				raw_plus_raw ();
+			}
 			else if (action == "password_valid")
 			{
 				password_valid ();
@@ -275,6 +279,20 @@ nano::amount nano::json_handler::amount_impl ()
 	if (!ec)
 	{
 		std::string amount_text (request.get<std::string> ("amount"));
+		if (result.decode_dec (amount_text))
+		{
+			ec = nano::error_common::invalid_amount;
+		}
+	}
+	return result;
+}
+
+nano::amount nano::json_handler::secondary_amount_impl ()
+{
+	nano::amount result (0);
+	if (!ec)
+	{
+		std::string amount_text (request.get<std::string> ("secondary_amount"));
 		if (result.decode_dec (amount_text))
 		{
 			ec = nano::error_common::invalid_amount;
@@ -2863,6 +2881,23 @@ void nano::json_handler::raw_to_nano ()
 	{
 		auto result (amount.number () / nano::Mxrb_ratio);
 		response_l.put ("amount", result.convert_to<std::string> ());
+	}
+	response_errors ();
+}
+
+void nano::json_handler::raw_plus_raw ()
+{
+	auto amount (amount_impl ());
+	auto secondary_amount (secondary_amount_impl ());
+
+	auto result (amount.number () + secondary_amount.number ());
+	if (result < amount.number())	// Overflow check
+	{
+		ec = nano::error_common::invalid_amount;
+	}
+	if (!ec)
+	{
+		response_l.put ("result", result.convert_to<std::string> ());
 	}
 	response_errors ();
 }
