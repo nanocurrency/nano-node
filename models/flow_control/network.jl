@@ -29,24 +29,6 @@ function quorum(n::network)
     ((2 * length(n.nodes)) ÷ 3) + 1
 end
 
-function confirmed_set(n::network)
-    weights = Dict{transaction, UInt}()
-    for node in n.nodes
-        s = working_set(node)
-        for tx in s
-            w = get(weights, tx, 0)
-            weights[tx] = w + 1
-        end
-    end
-    result = Set{transaction}()
-    for (tx, w) in weights
-        if w > quorum(n)
-            push!(result, tx)
-        end
-    end
-    result
-end
-
 function bucket_histogram(n::network)
     result = ds.SortedDict{element_type(n), UInt32}()
     for i in n.nodes
@@ -75,6 +57,24 @@ end
 # A set of transactions that do not exist on any node on the network.
 function abandoned_set(n::network)
     setdiff(n.transactions, live_set(n))
+end
+
+function confirmed_set(n::network)
+    weights = Dict{transaction, UInt}()
+    for node in n.nodes
+        s = working_set(node)
+        for tx in s
+            w = get(weights, tx, 0)
+            weights[tx] = w + 1
+        end
+    end
+    result = Set{transaction}()
+    for (tx, w) in weights
+        if w > quorum(n)
+            push!(result, tx)
+        end
+    end
+    result
 end
 
 function element_type(n::network{T}) where{T}
