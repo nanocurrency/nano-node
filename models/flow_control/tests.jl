@@ -55,6 +55,17 @@ function test_transaction(t)
     test_malleability(t)
 end
 
+function test_bucket_max(t)
+    b = bucket(type = t, bucket_max = 1)
+    tx1 = transaction(1, 1, 1, 1, 1, type = t)
+    tx2 = transaction(2, 2, 2, 2, 2, type = t)
+    insert!(b, tx1)
+    @Test.test length(b) == 1
+    insert!(b, tx2)
+    @Test.test length(b) == 1
+    @Test.test tx2 ∈ b
+end
+
 function test_bucket_transactions(t)
     b = bucket(type = t)
     @Test.test isempty(transactions(b))
@@ -75,6 +86,7 @@ function test_bucket(t)
     @Test.test bucket_range(n, transaction(1, 1, 31, 1, 1)) == 31
     @Test.test bucket_range(n, transaction(1, 1, 127, 1, 1)) == 93
     @Test.test element_type(bucket(type = Int32)) == Int32
+    test_bucket_max(t)
     test_bucket_transactions(t)
 end
 

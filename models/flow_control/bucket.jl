@@ -1,5 +1,3 @@
-
-
 struct bucket{T}
     transactions::ds.SortedSet{transaction{T}}
     max
@@ -18,7 +16,7 @@ function isempty(b::bucket)
 end
 
 function length(b::bucket)
-    length(b.items)
+    length(b.transactions)
 end
 
 function bucket(; type = transaction_type_default, bucket_max = bucket_max_default)
