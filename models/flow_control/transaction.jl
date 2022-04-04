@@ -52,7 +52,7 @@ function rand_ne(val)
     result
 end
 
-function copy(t::transaction)
+function copy_malleable(t::transaction)
     type = element_type(t)
 
      # Different nodes can have different local timestamps for last account confirmation.
@@ -64,6 +64,15 @@ function copy(t::transaction)
 
     transaction(tally, t.balance, t.amount, lru, t.difficulty, tx = t.tx, type = type)
     # Merge other higher difficulty
+end
+
+function copy_exact(t::transaction)
+    transaction(t.tally, t.balance, t.amount, t.lru, t.difficulty, tx = t.tx, type = element_type(t))
+end
+
+function copy(t::transaction)
+    copy_malleable(t)
+    #copy_exact(t)
 end
 
 function isequal_invariant(lhs, rhs)
