@@ -45,10 +45,10 @@ function in(transaction, n::node)
     any(b -> transaction ∈ b.second.transactions, n.buckets)
 end
 
-function transactions(node)
-    result = copy(first(node.buckets).second.transactions)
-    for (k, v) = node.buckets
-        result = union(result, v.transactions)
+function transactions(n::node)
+    result = Set{transaction{element_type(n)}}()
+    for (_, b) = n.buckets
+        result = result ∪ transactions(b)
     end
     result
 end
