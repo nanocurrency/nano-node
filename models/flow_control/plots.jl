@@ -63,7 +63,7 @@ function plot_bucket_max()
         n = network(bucket_max = bucket_max)
         count = 0
         while n.stats.deleted < iteration_count
-            mutate(n)
+            mutate(n, weights = mutate_weights)
             count += 1
         end
         push!(y, count)
@@ -117,8 +117,8 @@ function plots()
     test()
  
     #generate(plot_type)
-    generate(plot_node_count_iterations)
-    #generate(plot_bucket_max)
+    #generate(plot_node_count_iterations)
+    generate(plot_bucket_max)
     #generate(plot_bucket_count)
     #generate(plot_saturation)
 end
