@@ -7,8 +7,8 @@ import Test
 import Plots, Plots.plot
 import StatsBase
 
-const transaction_type_default = UInt128 # High precision minimizes value-collisions
-#const transaction_type_default = UInt8 # Low precision maximizes value-collisions
+#const transaction_type_default = UInt128 # High precision minimizes value-collisions
+const transaction_type_default = UInt8 # Low precision maximizes value-collisions
 const bucket_max_default = 16
 const bucket_count_default = 32
 const node_count_default = 4

@@ -53,6 +53,39 @@ function plot_node_count_iterations()
     Plots.plot(x, y, title = "Operations per confirmation by node count", xlabel = "Nodes", ylabel = "Operations/node")
 end
 
+function plot_node_count_iterations_3d()
+    # 6348.392737 seconds (40.97 G allocations: 2.350 TiB, 6.67% gc time, 0.10% compilation time)
+    large_set = 2:12
+    # 6.604670 seconds (12.63 M allocations: 654.941 MiB, 2.22% gc time, 94.88% compilation time)
+    small_set = (2^i for i in 2:6)
+    all_vals = 2:64
+
+    set = collect(small_set)
+    x = []
+    y = []
+    z = []
+    for multiplier = 10:10:40
+        weights = [multiplier * 100, 100, 100, 100]
+        print(weights, '\n')
+        for i = set
+            n = network(node_count = i, type = UInt128)
+            count = 0
+            while n.stats.deleted == 0
+                mutate(n, weights = weights)
+                count += 1
+            end
+            print(length(n.nodes), ' ', count, '\n')
+            # Count operations are performed across all nodes in the network
+            # Divide count by number of nodes so they look similar no matter the sequence fed in
+            push!(x, i)
+            push!(y, count ÷ length(n.nodes))
+            push!(z, multiplier)
+        end
+        #push!(labels, "x" * string(multiplier))
+    end
+    Plots.surface(x, y, z, camera=(30,60), seriescolor = :broc, title = "Operations per confirmation by node count", xlabel = "Nodes", ylabel = "Operations/node", zlabel= "Multiplier")
+end
+
 function plot_bucket_max()
     y = []
     #x = map((val) -> 2^val, 2:6)
@@ -118,7 +151,8 @@ function plots()
  
     #generate(plot_type)
     #generate(plot_node_count_iterations)
-    generate(plot_bucket_max)
+    generate(plot_node_count_iterations_3d)
+    #generate(plot_bucket_max)
     #generate(plot_bucket_count)
     #generate(plot_saturation)
 end
