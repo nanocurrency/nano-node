@@ -24,8 +24,8 @@ include("plots.jl")
 end #module
 
 function run()
-    #flow_control.test()
-    flow_control.plots()
+    flow_control.test()
+    #flow_control.plots()
 end
 
 #Threads.nthreads()

@@ -55,7 +55,16 @@ function test_transaction(t)
     test_malleability(t)
 end
 
-function test_bucket(_)
+function test_bucket_transactions(t)
+    b = bucket(type = t)
+    @Test.test isempty(transactions(b))
+    tx = transaction(1, 1, 1, 1, 1, type = t)
+    insert!(b, tx)
+    @Test.test !isempty(transactions(b))
+    @Test.test tx ∈ transactions(b)
+end
+
+function test_bucket(t)
     # Test that 4 buckets divides the transaction_type keyspace in to expected values
     @Test.test collect(node_buckets(Int8, 4)) == [0, 31, 62, 93]
 
@@ -66,6 +75,7 @@ function test_bucket(_)
     @Test.test bucket_range(n, transaction(1, 1, 31, 1, 1)) == 31
     @Test.test bucket_range(n, transaction(1, 1, 127, 1, 1)) == 93
     @Test.test element_type(bucket(type = Int32)) == Int32
+    test_bucket_transactions(t)
 end
 
 function test_working_set(t)

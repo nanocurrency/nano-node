@@ -23,12 +23,9 @@ function bucket_range(n::node, t::transaction)
     ds.deref_key((n.buckets, ds.searchsortedlast(n.buckets, weight(t))))
 end
 
-function insert!(n::node, t::transaction)
-    b = n.buckets[bucket_range(n, t)]
-    insert!(b.transactions, t)
-    if length(b.transactions) > b.max
-        delete!(b.transactions, last(b.transactions))
-    end
+function insert!(n::node, transaction)
+    b = n.buckets[bucket_range(n, transaction)]
+    insert!(b, transaction)
 end
 
 function sizes(n::node)
