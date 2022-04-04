@@ -69,5 +69,5 @@ function working_set(node)
 end
 
 function full_count(n::node)
-    sum((full(b) for (_, b) in n.buckets))
+    sum(full(b) ? 1 : 0 for (_, b) in n.buckets)
 end
