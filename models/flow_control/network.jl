@@ -9,6 +9,7 @@ struct network{T}
     nodes::Vector{node{T}}
     # All transactions that exist and have not been confirmed
     world::Set{transaction{T}}
+    # Transactions that have been "confirmed" by the model i.e. a transaction exists on 2/3 of the nodes in the network.
     confirmed::Set{transaction{T}}
     stats::stat_struct
 end

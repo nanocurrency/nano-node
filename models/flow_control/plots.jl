@@ -128,18 +128,18 @@ function log_or_zero(val)
     val == 0 ? 0 : log(2, val)
 end
 
-function plot_confirmed_abandoned()
+function plot_confirmed_abandoned_load()
     confirmed = []
     abandoned = []
     load = []
     ys = [confirmed, abandoned]
     exponential_sampling = (2^x for x in 16:20)
-    full_range = 1:100_000
+    full_range = 1:10_000
 
     x = full_range
     n = network(bucket_max = 2)
     for i = x
-        mutate(n, weights = [1000, 1000, 1000, 10000])
+        mutate(n, weights = [100000, 1000, 1000, 1000])
         push!(confirmed, log_or_zero(n.stats.deleted))
         push!(abandoned, log_or_zero(length(abandoned_set(n))))
         push!(load, load_factor(n))
@@ -168,5 +168,5 @@ function plots()
     #generate(plot_bucket_max)
     #generate(plot_bucket_count)
     #generate(plot_saturation)
-    generate(plot_confirmed_abandoned)
+    generate(plot_confirmed_abandoned_load)
 end
