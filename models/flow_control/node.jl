@@ -19,13 +19,13 @@ function node(; type = transaction_type_default, bucket_count = bucket_count_def
     node(init)
 end
 
-function bucket_range(n::node, t::transaction)
-    ds.deref_key((n.buckets, ds.searchsortedlast(n.buckets, weight(t))))
+function bucket_range(n::node, tx)
+    ds.deref_key((n.buckets, ds.searchsortedlast(n.buckets, weight(tx))))
 end
 
-function insert!(n::node, transaction)
-    b = n.buckets[bucket_range(n, transaction)]
-    insert!(b, transaction)
+function insert!(n::node, tx)
+    b = n.buckets[bucket_range(n, tx)]
+    insert!(b, tx)
 end
 
 function sizes(n::node)
@@ -37,12 +37,12 @@ function sizes(n::node)
     result
 end
 
-function delete!(n::node, transaction)
-    delete!(n.buckets[bucket_range(n, transaction)].transactions, transaction)
+function delete!(n::node, tx)
+    delete!(n.buckets[bucket_range(n, tx)].transactions, tx)
 end
 
-function in(transaction, n::node)
-    any(b -> transaction ∈ b.second.transactions, n.buckets)
+function in(tx, n::node)
+    any(b -> tx ∈ b.second.transactions, n.buckets)
 end
 
 function transactions(n::node)

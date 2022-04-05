@@ -26,8 +26,8 @@ function network(; type = transaction_type_default, node_count = node_count_defa
     network{type}(nodes, world, confirmed, stats)
 end
 
-function in(transaction, n::network)
-    transaction in n.world
+function in(tx, n::network)
+    tx ∈ n.world
 end
 
 function quorum(n::network)
