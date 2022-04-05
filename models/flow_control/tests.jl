@@ -35,8 +35,8 @@ function test_copy_malleability(t)
     @Test.test t1.balance == t2.balance
     @Test.test t1.difficulty == t2.difficulty
 
-    #@Test.test t1.lru ≠ t2.lru
-    #@Test.test t1.tally ≠ t2.tally
+    @Test.test t1.lru ≠ t2.lru
+    @Test.test t1.tally ≠ t2.tally
 end
 
 function test_malleability(t)
@@ -51,9 +51,9 @@ end
 
 function test_transaction(t)
     print("Running transaction tests...\n")
-    test_transitive(t)
     test_comparisons(t)
     test_malleability(t)
+    test_transitive(t)
 end
 
 function test_bucket_max(t)
