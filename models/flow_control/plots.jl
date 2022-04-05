@@ -134,22 +134,26 @@ function plot_confirmed_abandoned_load()
     load = []
     ys = [confirmed, abandoned]
     exponential_sampling = (2^x for x in 16:20)
-    full_range = 1:10_000
+    count = 10_000
+    full_range = 1:count
 
-    x = full_range
+    x = collect(full_range)
     n = network(bucket_max = 2)
     for i = x
-        mutate(n, weights = [100000, 1000, 1000, 1000])
+        mutate(n, weights = mutate_weights_insert_100x)
         push!(confirmed, log_or_zero(n.stats.deleted))
         push!(abandoned, log_or_zero(length(abandoned_set(n))))
         push!(load, load_factor(n))
     end
-    #print(confirmed)
-    #print(abandoned)
-    #print(load)
-    #print(x)
-    print("\n----------------------\n")
-    plt = Plots.plot(collect(x), ys, label = ["Confirmed" "Abandoned" "Load"], title = "Confirmations after operations", xlabel = "Operations", ylabel = "Transaction count(log2)", right_margin=15mm)
+    while !isempty(n.world)
+        mutate(n, weights = mutate_weights_no_insert)
+        push!(confirmed, log_or_zero(n.stats.deleted))
+        push!(abandoned, log_or_zero(length(abandoned_set(n))))
+        push!(load, load_factor(n))
+        count += 1
+        push!(x, count)
+    end
+    plt = Plots.plot(x, ys, label = ["Confirmed" "Abandoned" "Load"], title = "Confirmations after operations", xlabel = "Operations", ylabel = "Transaction count(log2)", right_margin=15mm)
     Plots.plot!(Plots.twinx(plt), collect(x), load, legend = false, ylabel = "Load Factor", color="green")
 end
 

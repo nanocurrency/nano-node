@@ -70,8 +70,9 @@ end
 const mutate_ops = [push_rand!, copy_global_rand!, copy_peer_rand!, delete_confirmed!]
 const mutate_weights = [ 10, 10, 10, 10 ]
 const mutate_weights_insert_light = [ 8, 10, 10, 10 ]
-const mutate_weights_insert_heavy = [ 100, 10, 10, 10 ]
-const no_insert_weights = [ 0, 10, 10, 10 ]
+const mutate_weights_insert_10x = [ 10_000, 1000, 1000, 1000 ]
+const mutate_weights_insert_100x = [ 100_000, 1000, 1000, 1000 ]
+const mutate_weights_no_insert = [ 0, 10, 10, 10 ]
 
 function mutate(n::network; weights = mutate_weights)
     StatsBase.sample(mutate_ops, StatsBase.Weights(weights))(n)
@@ -83,7 +84,7 @@ function drain(n::network)
     count = 0
     # Run all ops except generating new transactions and the network should empty eventually
     while !isempty(n.world)
-        StatsBase.sample(mutate_ops, StatsBase.Weights(no_insert_weights))(n)
+        StatsBase.sample(mutate_ops, StatsBase.Weights(mutate_weights_no_insert))(n)
         count += 1
     end
     count
