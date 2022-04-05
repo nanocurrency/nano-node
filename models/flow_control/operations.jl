@@ -1,16 +1,16 @@
 
 # Flow control state transitions
 
-# Add a transaction to the network via adding it to the network's global set of transactions
+# Add a transaction to the network's world set
 function push!(n::network, transaction)
-    push!(n.transactions, transaction)
+    push!(n.world, transaction)
     n.stats.inserted += 1
 end
 
-# Copy a transaction from the global network transactions to node
+# Copy a transaction from the world set to node
 function copy_global!(n::network, node)
-    if !isempty(n.transactions)
-        insert!(node, rand(n.transactions))
+    if !isempty(n.world)
+        insert!(node, rand(n.world))
     end
 end
 
@@ -30,8 +30,8 @@ function normalize_for_weight(val)
 end
 
 function delete!(n::network, transaction)
-    @assert transaction ∈ n.transactions
-    delete!(n.transactions, transaction)
+    @assert transaction ∈ n.world
+    delete!(n.world, transaction)
     for node in n.nodes
         delete!(node, transaction)
     end
@@ -83,7 +83,7 @@ end
 function drain(n::network)
     count = 0
     # Run all ops except generating new transactions and the network should empty eventually
-    while !isempty(n.transactions)
+    while !isempty(n.world)
         StatsBase.sample(mutate_ops, StatsBase.Weights(no_insert_weights))(n)
         count += 1
     end

@@ -5,6 +5,7 @@ import Dates
 import Base.copy, Base.delete!, Base.first, Base.in, Base.isempty, Base.isless, Base.length, Base.lt, Base.insert!, Base.print, Base.push!, Base.Threads
 import Test
 import Plots, Plots.plot, Plots.plot!
+using Plots.PlotMeasures
 import StatsBase
 import Statistics
 
@@ -25,8 +26,8 @@ include("plots.jl")
 end #module
 
 function run()
-    #flow_control.test()
-    flow_control.plots()
+    flow_control.test()
+    #flow_control.plots()
 end
 
 #Threads.nthreads()

@@ -5,8 +5,10 @@ mutable struct stat_struct
 end
 
 struct network{T}
+    # All the nodes in the network
     nodes::Vector{node{T}}
-    transactions::Set{transaction{T}}
+    # All transactions that exist and have not been confirmed
+    world::Set{transaction{T}}
     stats::stat_struct
 end
 
@@ -22,7 +24,7 @@ function network(; type = transaction_type_default, node_count = node_count_defa
 end
 
 function in(transaction, n::network)
-    transaction in n.transactions
+    transaction in n.world
 end
 
 function quorum(n::network)
@@ -42,7 +44,7 @@ end
 
 function print(n::network)
     h = bucket_histogram(n)
-    print("l:", length(n.transactions), " d:", n.stats.deleted, ' ', h, '\n')
+    print("l:", length(n.world), " d:", n.stats.deleted, ' ', h, '\n')
 end
 
 # A set of transactions that exist on any node in the network
@@ -56,7 +58,7 @@ end
 
 # A set of transactions that do not exist on any node on the network.
 function abandoned_set(n::network)
-    setdiff(n.transactions, live_set(n))
+    setdiff(n.world, live_set(n))
 end
 
 function confirmed_set(n::network)

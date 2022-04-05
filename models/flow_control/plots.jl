@@ -149,9 +149,9 @@ function plot_confirmed_abandoned()
     #print(load)
     #print(x)
     print("\n----------------------\n")
-    plt = Plots.plot(collect(x), ys, label = ["Confirmed" "Abandoned" "Load"], title = "Confirmations after operations", xlabel = "Operations", ylabel = "Transaction count(log2)")
+    plt = Plots.plot(collect(x), ys, label = ["Confirmed" "Abandoned" "Load"], title = "Confirmations after operations", xlabel = "Operations", ylabel = "Transaction count(log2)", right_margin=15mm)
     Plots.plot!(Plots.twinx(plt), collect(x), load, legend = false, ylabel = "Load Factor", color="green")
- end
+end
 
  function generate(op)
     print("Generating: " * string(op) * "...")

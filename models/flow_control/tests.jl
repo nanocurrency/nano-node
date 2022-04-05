@@ -180,9 +180,9 @@ end
 function test_drain(t)
     n = network(type = t)
     push_rand!(n)
-    @Test.test !isempty(n.transactions)
+    @Test.test !isempty(n.world)
     drain(n)
-    @Test.test isempty(n.transactions)
+    @Test.test isempty(n.world)
 end
 
 function test_live_set(t)
@@ -253,12 +253,12 @@ function test_copy_global(t)
     tx = transaction(1, 1, 1, 1, 1, type = t)
     push!(n, tx)
     node = n.nodes[1]
-    intersection() = intersect(transactions(node), n.transactions)
+    intersection() = intersect(transactions(node), n.world)
     @Test.test isempty(intersection())
     copy_global!(n, node)
     i = intersection()
     @Test.test !isempty(i)
-    @Test.test i == n.transactions
+    @Test.test i == n.world
     nothing
 end
 
@@ -284,7 +284,7 @@ end
 function test_delete_confirmed(t)
     n = network(type = t)
     tx = transaction(1, 1, 1, 1, 1, type = t)
-    push!(n.transactions, tx)
+    push!(n.world, tx)
     insert!(n.nodes[1], tx)
     # Transaction starts out in the network
     @Test.test tx ∈ n
