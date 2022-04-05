@@ -21,7 +21,7 @@ function transaction(tally, balance, amount, lru, difficulty; tx = rand(UInt64),
     transaction{type}(tx, tally, balance, amount, lru, difficulty)
 end
 
-function isless(lhs::flow_control.transaction, rhs::flow_control.transaction)
+function isless(lhs::transaction, rhs::transaction)
     lhs_w = flow_control.weight(lhs)
     rhs_w = flow_control.weight(rhs)
     (lhs.tally != rhs.tally) ? 
