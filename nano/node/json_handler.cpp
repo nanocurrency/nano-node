@@ -283,6 +283,40 @@ nano::amount nano::json_handler::amount_impl ()
 	return result;
 }
 
+nano::amount nano::json_handler::decimal_amount_impl ()
+{
+	nano::amount wholeNumber (0);
+	nano::amount decimalNumber (0);
+	nano::amount result (0);
+	if (!ec)
+	{
+		std::string amount_text (request.get<std::string> ("amount"));
+
+		int dotIndex = amount_text.find (".");
+		auto WholeNumberFractionString = amount_text.substr (0, dotIndex);
+
+		if (wholeNumber.decode_dec (WholeNumberFractionString))
+		{
+			ec = nano::error_common::invalid_amount;
+		}
+		if (dotIndex > 0)
+		{
+			auto decimalFractionString = amount_text.substr (dotIndex + 1, 30);
+			auto missingZeros = 30 - decimalFractionString.size ();
+			decimalFractionString.insert (decimalFractionString.size (), missingZeros, '0');
+
+			decimalFractionString.erase (0, decimalFractionString.find_first_not_of ('0'));
+
+			if (decimalNumber.decode_dec (decimalFractionString))
+			{
+				ec = nano::error_common::invalid_amount;
+			}
+		}
+		result = (wholeNumber.number () * nano::Mxrb_ratio) + decimalNumber.number ();
+	}
+	return result;
+}
+
 std::shared_ptr<nano::block> nano::json_handler::block_impl (bool signature_work_required)
 {
 	bool const json_block_l = request.get<bool> ("json_block", false);
@@ -2840,18 +2874,10 @@ void nano::json_handler::mnano_to_raw (nano::uint128_t ratio)
 
 void nano::json_handler::nano_to_raw ()
 {
-	auto amount (amount_impl ());
+	auto amount (decimal_amount_impl ());
 	if (!ec)
 	{
-		auto result (amount.number () * nano::Mxrb_ratio);
-		if (result > amount.number ())
-		{
-			response_l.put ("amount", result.convert_to<std::string> ());
-		}
-		else
-		{
-			ec = nano::error_common::invalid_amount_big;
-		}
+		response_l.put ("amount", amount.number ().convert_to<std::string> ());
 	}
 	response_errors ();
 }
