@@ -24,18 +24,17 @@ function isless(lhs::transaction, rhs::transaction)
     lhs_w = flow_control.weight(lhs)
     rhs_w = flow_control.weight(rhs)
     (lhs.tally != rhs.tally) ? 
-        # First sort based on highest tally
-        (lhs.tally > rhs.tally) :
-         (lhs_w != rhs_w) ? 
-            # Then sort by highest transaction weight
-            (lhs_w > rhs_w) :
-            (lhs.lru != rhs.lru) ?
-                # Then sort by LRU account
-                lhs.lru < rhs.lru :
-                (lhs.difficulty != rhs.difficulty) ?
-                    # Then sort by difficulty
-                    (lhs.difficulty > rhs.difficulty) :
-                    false
+    # First sort based on highest tally
+    (lhs.tally > rhs.tally) :
+        (lhs.lru != rhs.lru) ?
+        # Then sort by LRU account
+        (lhs.lru < rhs.lru) :
+            (lhs.difficulty != rhs.difficulty) ?
+            # Then sort by difficulty
+            (lhs.difficulty > rhs.difficulty) :
+                (lhs_w != rhs_w) ? 
+                # Then by highest transaction weight
+                (lhs_w > rhs_w) : false
 end
 
 # Simulates malleability of the transaction sort between different machines
