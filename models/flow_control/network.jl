@@ -16,7 +16,7 @@ end
 function network(; type = transaction_type_default, node_count = node_count_default, bucket_count = bucket_count_default, bucket_max = bucket_max_default)
     nodes = []
     # Populate a set of nodes initialized with passed in arguments.
-    for i = 0:node_count - 1
+    for i = 1:node_count
         push!(nodes, node(type = type, bucket_count = bucket_count, bucket_max = bucket_max))
     end
     world = Set{transaction{type}}()
