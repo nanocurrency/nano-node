@@ -132,7 +132,8 @@ function plot_confirmed_abandoned_load()
     confirmed = []
     abandoned = []
     load = []
-    ys = [confirmed, abandoned]
+    o = []
+    ys = [confirmed, abandoned, o]
     exponential_sampling = (2^x for x in 16:20)
     count = 1_000
     full_range = 1:count
@@ -144,18 +145,20 @@ function plot_confirmed_abandoned_load()
         push!(confirmed, log_or_zero(n.stats.deleted))
         push!(abandoned, log_or_zero(length(abandoned_set(n))))
         push!(load, load_factor(n))
+        push!(o, log_or_zero(overflows(n)))
     end
     while !isempty(n.world)
         mutate(n, weights = mutate_weights_no_insert)
         push!(confirmed, log_or_zero(n.stats.deleted))
         push!(abandoned, log_or_zero(length(abandoned_set(n))))
         push!(load, load_factor(n))
+        push!(o, log_or_zero(overflows(n)))
         count += 1
         push!(x, count)
     end
     print(last(x), '\n')
-    plt = Plots.plot(x, ys, label = ["Confirmed" "Abandoned" "Load"], title = "Confirmations after operations", xlabel = "Operations", ylabel = "Transaction count(log2)", right_margin=15mm)
-    Plots.plot!(Plots.twinx(plt), collect(x), load, lims = [0.0, 1,0], legend = false, ylabel = "Load Factor", color="green")
+    plt = Plots.plot(x, ys, label = ["Confirmed" "Abandoned" "Overflows"], title = "Confirmations after operations", xlabel = "Operations", ylabel = "Transaction count(log2)", right_margin=15mm)
+    Plots.plot(Plots.twinx(plt), collect(x), load, lims = [0.0, 1,0], legend = false, ylabel = "Load Factor", color="grey")
 end
 
  function generate(op)

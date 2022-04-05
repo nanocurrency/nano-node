@@ -128,7 +128,7 @@ function test_node_transactions(t)
     @Test.test !isempty(transactions(n))
 end
 
-function test_node_full_count(t)
+function test_node_overflows(t)
     n = node(type = t, bucket_max = 1)
     tx = transaction(1, 1, 1, 1, 1, type = t)
     @Test.test load_factor(n) ≈ 0.0
@@ -146,7 +146,6 @@ function test_node(t)
     test_in_node(t)
     test_delete!(t)
     test_node_transactions(t)
-    test_node_full_count(t)
 end
 
 function test_confirmed_set(t)
@@ -212,7 +211,7 @@ function test_abandoned_set(t)
 end
 
 # Test network response to load_factor and overflow conditions
-function test_network_full_count(t)
+function test_network_overflows(t)
     # Node count is 2 and we only operate on node 1 for this test.
     n = network(type = t, bucket_max = 1, node_count = 2)
     tx = transaction(1, 1, 1, 1, 1, type = t)
@@ -251,7 +250,6 @@ function test_network(t)
     test_drain(t)
     test_live_set(t)
     test_abandoned_set(t)
-    test_network_full_count(t)
 end
 
 function test_network_push!_in(t)
@@ -330,12 +328,18 @@ function test_rand_all(t)
     end
 end
 
+function test_overflows(t)
+    test_node_overflows(t)
+    test_network_overflows(t)
+end
+
 function test_all(t)
     print("Running all tests on type: ", string(t), '\n')
     test_transaction(t)
     test_bucket(t)
     test_node(t)
     test_network(t)
+    test_overflows(t)
     test_state_transitions(t)
     test_rand_all(t)
 end
