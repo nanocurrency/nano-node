@@ -33,11 +33,10 @@ function delete!(n::network, transaction)
     @assert transaction ∈ n.world
     delete!(n.world, transaction)
     for node in n.nodes
+        push!(n.confirmed, transaction)
         delete!(node, transaction)
     end
 end
-
-
 
 function push_rand!(n::network)
     t = element_type(n)

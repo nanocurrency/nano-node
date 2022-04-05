@@ -9,6 +9,7 @@ struct network{T}
     nodes::Vector{node{T}}
     # All transactions that exist and have not been confirmed
     world::Set{transaction{T}}
+    confirmed::Set{transaction{T}}
     stats::stat_struct
 end
 
@@ -18,9 +19,10 @@ function network(; type = transaction_type_default, node_count = node_count_defa
     for i = 0:node_count - 1
         push!(nodes, node(type = type, bucket_count = bucket_count, bucket_max = bucket_max))
     end
-    transactions = ds.SortedSet{transaction{type}}()
+    world = Set{transaction{type}}()
+    confirmed = Set{transaction{type}}()
     stats = stat_struct(0, 0, 0)
-    network{type}(nodes, transactions, stats)
+    network{type}(nodes, world, confirmed, stats)
 end
 
 function in(transaction, n::network)
