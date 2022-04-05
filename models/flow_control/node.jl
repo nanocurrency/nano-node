@@ -41,10 +41,12 @@ function delete!(n::node, tx)
     delete!(n.buckets[bucket_range(n, tx)].transactions, tx)
 end
 
+# Is the transaction tx in any bucket.
 function in(tx, n::node)
     any(b -> tx ∈ b.second.transactions, n.buckets)
 end
 
+# The union of transactions in every bucket
 function transactions(n::node)
     result = Set{transaction{element_type(n)}}()
     for (_, b) = n.buckets

@@ -25,13 +25,9 @@ include("plots.jl")
 
 end #module
 
-function run()
-    flow_control.test()
-    #flow_control.plots()
-end
-
 #Threads.nthreads()
-
 #print(Dates.now(), '\n')
-@time run()
+
+@time flow_control.test()
+#@time flow_control.plots()
 

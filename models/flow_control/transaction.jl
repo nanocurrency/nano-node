@@ -34,7 +34,8 @@ function isless(lhs::transaction, rhs::transaction)
             (lhs.difficulty > rhs.difficulty) :
                 (lhs_w != rhs_w) ? 
                 # Then by highest transaction weight
-                (lhs_w > rhs_w) : false
+                (lhs_w > rhs_w) :
+                false
 end
 
 # Simulates malleability of the transaction sort between different machines
@@ -54,7 +55,7 @@ function copy_malleable(tx::transaction)
     type = element_type(tx)
 
      # Different nodes can have different local timestamps for last account confirmation.
-     # Different nodes clocks can never be perfectly synchronized
+     # Different nodes' clocks can never be perfectly synchronized
     lru = rand_ne(tx.lru)
 
     # Different nodes can compute different tallies when they observe different vote sets.

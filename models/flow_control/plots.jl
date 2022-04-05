@@ -134,7 +134,7 @@ function plot_confirmed_abandoned_load()
     load = []
     ys = [confirmed, abandoned]
     exponential_sampling = (2^x for x in 16:20)
-    count = 10_000
+    count = 1_000
     full_range = 1:count
 
     x = collect(full_range)
@@ -153,8 +153,9 @@ function plot_confirmed_abandoned_load()
         count += 1
         push!(x, count)
     end
+    print(last(x), '\n')
     plt = Plots.plot(x, ys, label = ["Confirmed" "Abandoned" "Load"], title = "Confirmations after operations", xlabel = "Operations", ylabel = "Transaction count(log2)", right_margin=15mm)
-    Plots.plot!(Plots.twinx(plt), collect(x), load, legend = false, ylabel = "Load Factor", color="green")
+    Plots.plot!(Plots.twinx(plt), collect(x), load, lims = [0.0, 1,0], legend = false, ylabel = "Load Factor", color="green")
 end
 
  function generate(op)
@@ -164,8 +165,6 @@ end
  end
 
 function plots()
-    test()
- 
     #generate(plot_type)
     #generate(plot_node_count_iterations)
     #generate(plot_node_count_iterations_3d)
