@@ -1,3 +1,7 @@
+function normalize_for_weight(val)
+    balance = val ≠ 0 ? rand(0:val) : 0
+    (balance, val - balance)
+end
 
 # Flow control state transitions
 
@@ -16,7 +20,7 @@ end
 
 # Copy the working set from another random peer to node
 function copy_peer!(n::network, node)
-    peer = rand(collect(n.nodes))
+    peer = rand(n.nodes)
     for (k, b) in peer.buckets
         if !isempty(b)
             insert!(node, first(b))
@@ -24,19 +28,16 @@ function copy_peer!(n::network, node)
     end
 end
 
-function normalize_for_weight(val)
-    balance = val ≠ 0 ? rand(0:val) : 0
-    (balance, val - balance)
-end
-
 function delete!(n::network, tx)
     @assert tx ∈ n.world
     delete!(n.world, tx)
+    push!(n.confirmed, tx)
     for node in n.nodes
-        push!(n.confirmed, tx)
         delete!(node, tx)
     end
 end
+
+# END Flow control state transitions
 
 function push_rand!(n::network)
     t = element_type(n)

@@ -65,10 +65,12 @@ function abandoned_set(n::network)
 end
 
 function confirmed_set(n::network)
+    # Get occurrence count for each transaction
     weights = Dict{transaction, UInt}()
     for node in n.nodes
         s = working_set(node)
         for tx in s
+            # Get current value or default 0
             w = get(weights, tx, 0)
             weights[tx] = w + 1
         end
@@ -82,7 +84,7 @@ function confirmed_set(n::network)
     result
 end
 
-function element_type(n::network{T}) where{T}
+function element_type(_::network{T}) where{T}
     T
 end
 
