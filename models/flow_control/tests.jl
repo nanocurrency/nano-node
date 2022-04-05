@@ -84,13 +84,6 @@ function test_bucket(t)
     print("Running bucket tests...\n")
     # Test that 4 buckets divides the transaction_type keyspace in to expected values
     @Test.test collect(node_buckets(Int8, 4)) == [0, 31, 62, 93]
-
-    n = node(type = Int8, bucket_count = 4)
-    #Test that the bucket function finds the correct bucket for various values
-    @Test.test bucket_range(n, transaction(1, 1, 1, 1, 1)) == 0
-    @Test.test bucket_range(n, transaction(1, 31, 1, 1, 1)) == 31
-    @Test.test bucket_range(n, transaction(1, 1, 31, 1, 1)) == 31
-    @Test.test bucket_range(n, transaction(1, 1, 127, 1, 1)) == 93
     @Test.test element_type(bucket(type = Int32)) == Int32
     test_bucket_max(t)
     test_bucket_transactions(t)

@@ -52,3 +52,7 @@ end
 function load_factor(b::bucket)
     return length(b.transactions) / b.max
 end
+
+function delete!(b::bucket, tx)
+    delete!(b.transactions, tx)
+end

@@ -19,13 +19,8 @@ function node(; type = transaction_type_default, bucket_count = bucket_count_def
     node(init)
 end
 
-function bucket_range(n::node, tx)
-    ds.deref_key((n.buckets, ds.searchsortedlast(n.buckets, weight(tx))))
-end
-
 function insert!(n::node, tx)
-    b = n.buckets[bucket_range(n, tx)]
-    insert!(b, tx)
+    insert!(n[tx], tx)
 end
 
 function sizes(n::node)
@@ -38,7 +33,8 @@ function sizes(n::node)
 end
 
 function delete!(n::node, tx)
-    delete!(n.buckets[bucket_range(n, tx)].transactions, tx)
+    index = ds.searchsortedlast(n.buckets, weight(tx))
+    delete!(n.buckets[index], tx)
 end
 
 # Is the transaction tx in any bucket.
@@ -76,4 +72,9 @@ end
 
 function overflows(n::node)
     sum((b.stats.overflows) for (_, b) in n.buckets)
+end
+
+# The bucket the given transaction belongs to
+function getindex(n::node, tx)
+    n.buckets[ds.searchsortedlast(n.buckets, weight(tx))]
 end
