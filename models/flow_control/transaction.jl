@@ -12,7 +12,7 @@ struct transaction{T<:Integer}
 end
 
 # Returns the type T for a given transaction
-function element_type(t::transaction{T}) where{T}
+function element_type(_::transaction{T}) where{T}
     T
 end
 

@@ -3,11 +3,11 @@ struct bucket{T}
     max
 end
 
-function first(b::bucket)::transaction
+function first(b::bucket)
     ds.first(b.transactions)
 end
 
-function element_type(b::bucket{T}) where{T}
+function element_type(_::bucket{T}) where{T}
     T
 end
 
@@ -23,8 +23,8 @@ function bucket(; type = transaction_type_default, bucket_max = bucket_max_defau
     bucket(ds.SortedSet{transaction{type}}(), bucket_max)
 end
 
-function in(transaction, b::bucket)
-    transaction ∈ b.transactions
+function in(tx, b::bucket)
+    tx ∈ b.transactions
 end
 
 function transactions(b::bucket)
@@ -35,11 +35,11 @@ function full(b::bucket)
     length(b.transactions) >= b.max
 end
 
-function insert!(b::bucket, transaction)
+function insert!(b::bucket, tx)
     if full(b)
         delete!(b.transactions, last(b.transactions))
     end
-    insert!(b.transactions, transaction)
+    insert!(b.transactions, tx)
 end
 
 function load_factor(b::bucket)

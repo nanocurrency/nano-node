@@ -2,8 +2,8 @@
 # Flow control state transitions
 
 # Add a transaction to the network's world set
-function push!(n::network, transaction)
-    push!(n.world, transaction)
+function push!(n::network, tx)
+    push!(n.world, tx)
     n.stats.inserted += 1
 end
 
@@ -29,12 +29,12 @@ function normalize_for_weight(val)
     (balance, val - balance)
 end
 
-function delete!(n::network, transaction)
-    @assert transaction ∈ n.world
-    delete!(n.world, transaction)
+function delete!(n::network, tx)
+    @assert tx ∈ n.world
+    delete!(n.world, tx)
     for node in n.nodes
-        push!(n.confirmed, transaction)
-        delete!(node, transaction)
+        push!(n.confirmed, tx)
+        delete!(node, tx)
     end
 end
 
