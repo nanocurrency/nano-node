@@ -1,5 +1,3 @@
-
-
 # Transaction properties used to bucket and sort transactions
 struct transaction{T<:Integer}
     # Unique transaction id
@@ -7,6 +5,7 @@ struct transaction{T<:Integer}
     tally::T
     balance::T
     amount::T
+    # Timestamp for the last confirmed transaction for this transaction's account
     lru::T
     difficulty::T
 end
@@ -28,7 +27,7 @@ function isless(lhs::transaction, rhs::transaction)
         # First sort based on highest tally
         (lhs.tally > rhs.tally) :
          (lhs_w != rhs_w) ? 
-            # Then sort by highest weight
+            # Then sort by highest transaction weight
             (lhs_w > rhs_w) :
             (lhs.lru != rhs.lru) ?
                 # Then sort by LRU account
@@ -70,7 +69,7 @@ function copy_exact(tx::transaction)
     transaction(tx.tally, tx.balance, tx.amount, tx.lru, tx.difficulty, tx = tx.tx, type = element_type(t))
 end
 
-function copy(tx::transaction)
+function copy(tx::transaction)::transaction
     copy_malleable(tx)
     #copy_exact(tx)
 end
