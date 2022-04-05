@@ -91,3 +91,7 @@ end
 function load_factor(n::network)
     Statistics.mean((load_factor(o) for o in n.nodes))
 end
+
+function overflows(n::network)
+    sum((overflows(n) for n in n.nodes))
+end

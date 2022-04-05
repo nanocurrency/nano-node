@@ -2,7 +2,7 @@
 function test_comparisons(t)
     T = transaction{t}
     function first(values)
-        flow_control.first(bucket(ds.SortedSet{T}(values), 0))
+        flow_control.first(bucket(ds.SortedSet{T}(values), 0, 0))
     end
 
     # Highest tally first
@@ -64,8 +64,10 @@ function test_bucket_max(t)
     insert!(b, tx1)
     @Test.test length(b) == 1
     @Test.test full(b)
+    @Test.test b.stats.overflows == 0
     insert!(b, tx2)
     @Test.test length(b) == 1
+    @Test.test b.stats.overflows == 1
     @Test.test tx2 ∈ b
 end
 
@@ -139,6 +141,10 @@ function test_node_full_count(t)
     @Test.test load_factor(n) ≈ 0.0
     insert!(n, tx)
     @Test.test load_factor(n) ≈ 1.0 / length(n.buckets)
+    @Test.test overflows(n) == 0
+    tx2 = transaction(2, 2, 2, 2, 2, type = t)
+    insert!(n, tx2)
+    @Test.test overflows(n) == 1
 end
 
 function test_node(t)
@@ -212,12 +218,24 @@ function test_abandoned_set(t)
     @Test.test isempty(abandoned_set(n))
 end
 
+# Test network response to load_factor and overflow conditions
 function test_network_full_count(t)
-    n = network(type = t, bucket_max = 1)
+    # Node count is 2 and we only operate on node 1 for this test.
+    n = network(type = t, bucket_max = 1, node_count = 2)
     tx = transaction(1, 1, 1, 1, 1, type = t)
+    # Load should start out at 0.0 since there's nothing in the network
     @Test.test load_factor(n) ≈ 0.0
     insert!(n.nodes[1], tx)
-    @Test.test load_factor(n) > 0.0 
+    # Network load factor is the mean of node load factors
+    @Test.test load_factor(n) > 0.0
+    # Full but has not yet overflowed
+    @Test.test overflows(n) == 0
+    tx2 = transaction(2, 2, 2, 2, 2, type = t)
+    insert!(n.nodes[1], tx2)
+    @Test.test load_factor(n) > 0.0
+    # Now node1 has had a bucket overflow
+    @Test.test overflows(n.nodes[1]) == 1
+    @Test.test overflows(n) == 1
 end
 
 function test_network(t)

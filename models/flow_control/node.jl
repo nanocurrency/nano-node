@@ -73,3 +73,7 @@ end
 function load_factor(n::node)
     Statistics.mean((load_factor(b) for (_, b) in n.buckets))
 end
+
+function overflows(n::node)
+    sum((b.stats.overflows) for (_, b) in n.buckets)
+end

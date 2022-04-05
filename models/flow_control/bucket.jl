@@ -1,6 +1,12 @@
+mutable struct stats
+    # Number of overflows that have happened within insert!
+    overflows
+end
+
 struct bucket{T}
     transactions::ds.SortedSet{transaction{T}}
     max
+    stats
 end
 
 function first(b::bucket)
@@ -20,7 +26,7 @@ function length(b::bucket)
 end
 
 function bucket(; type = transaction_type_default, bucket_max = bucket_max_default)
-    bucket(ds.SortedSet{transaction{type}}(), bucket_max)
+    bucket(ds.SortedSet{transaction{type}}(), bucket_max, stats(0))
 end
 
 function in(tx, b::bucket)
@@ -38,6 +44,7 @@ end
 function insert!(b::bucket, tx)
     if full(b)
         delete!(b.transactions, last(b.transactions))
+        b.stats.overflows += 1
     end
     insert!(b.transactions, tx)
 end
