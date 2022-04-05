@@ -134,9 +134,9 @@ end
 function test_node_full_count(t)
     n = node(type = t, bucket_max = 1)
     tx = transaction(1, 1, 1, 1, 1, type = t)
-    @Test.test full_count(n) == 0
+    @Test.test load_factor(n) ≈ 0.0
     insert!(n, tx)
-    @Test.test full_count(n) == 1
+    @Test.test load_factor(n) ≈ 1.0 / length(n.buckets)
 end
 
 function test_node(t)
@@ -212,9 +212,9 @@ end
 function test_network_full_count(t)
     n = network(type = t, bucket_max = 1)
     tx = transaction(1, 1, 1, 1, 1, type = t)
-    @Test.test full_count(n) == 0
+    @Test.test load_factor(n) ≈ 0.0
     insert!(n.nodes[1], tx)
-    @Test.test full_count(n) == 1
+    @Test.test load_factor(n) > 0.0 
 end
 
 function test_network(t)

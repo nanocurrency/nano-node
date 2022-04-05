@@ -68,6 +68,6 @@ function working_set(node)
     result
 end
 
-function full_count(n::node)
-    sum(full(b) ? 1 : 0 for (_, b) in n.buckets)
+function load_factor(n::node)
+    Statistics.mean((load_factor(b) for (_, b) in n.buckets))
 end

@@ -41,3 +41,7 @@ function insert!(b::bucket, transaction)
     end
     insert!(b.transactions, transaction)
 end
+
+function load_factor(b::bucket)
+    return length(b.transactions) / b.max
+end

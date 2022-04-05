@@ -81,6 +81,6 @@ function element_type(n::network{T}) where{T}
     T
 end
 
-function full_count(n::network)
-    sum(full_count(x) for x in n.nodes)
+function load_factor(n::network)
+    Statistics.mean((load_factor(o) for o in n.nodes))
 end

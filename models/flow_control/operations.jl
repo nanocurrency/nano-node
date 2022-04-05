@@ -71,6 +71,7 @@ end
 const mutate_ops = [push_rand!, copy_global_rand!, copy_peer_rand!, delete_confirmed!]
 const mutate_weights = [ 10, 10, 10, 10 ]
 const mutate_weights_insert_light = [ 8, 10, 10, 10 ]
+const mutate_weights_insert_heavy = [ 100, 10, 10, 10 ]
 const no_insert_weights = [ 0, 10, 10, 10 ]
 
 function mutate(n::network; weights = mutate_weights)

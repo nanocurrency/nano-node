@@ -4,11 +4,12 @@ import DataStructures as ds
 import Dates
 import Base.copy, Base.delete!, Base.first, Base.in, Base.isempty, Base.isless, Base.length, Base.lt, Base.insert!, Base.print, Base.push!, Base.Threads
 import Test
-import Plots, Plots.plot
+import Plots, Plots.plot, Plots.plot!
 import StatsBase
+import Statistics
 
-#const transaction_type_default = UInt128 # High precision minimizes value-collisions
-const transaction_type_default = UInt8 # Low precision maximizes value-collisions
+const transaction_type_default = UInt128 # High precision minimizes value-collisions
+#const transaction_type_default = UInt8 # Low precision maximizes value-collisions
 const bucket_max_default = 16
 const bucket_count_default = 32
 const node_count_default = 4
@@ -24,8 +25,8 @@ include("plots.jl")
 end #module
 
 function run()
-    flow_control.test()
-    #flow_control.plots()
+    #flow_control.test()
+    flow_control.plots()
 end
 
 #Threads.nthreads()

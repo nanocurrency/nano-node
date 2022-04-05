@@ -124,20 +124,33 @@ function plot_bucket_count()
     # Asymptote should drive a value for bucket_count_default. Smaller gives better simulation throughput.
 end
 
-function plot_saturation()
-    y = []
-    x = 8:18
-    #x = collect(1:100_000)
-    n = network(type=UInt8)
+function log_or_zero(val)
+    val == 0 ? 0 : log(2, val)
+end
+
+function plot_confirmed_abandoned()
+    confirmed = []
+    abandoned = []
+    load = []
+    ys = [confirmed, abandoned]
+    exponential_sampling = (2^x for x in 16:20)
+    full_range = 1:100_000
+
+    x = full_range
+    n = network(bucket_max = 2)
     for i = x
-        count = 2^i
-        #print(count, ' ')
-        for j = 1:count
-            mutate(n)
-        end
-        push!(y, log(2, n.stats.deleted))
+        mutate(n, weights = [1000, 1000, 1000, 10000])
+        push!(confirmed, log_or_zero(n.stats.deleted))
+        push!(abandoned, log_or_zero(length(abandoned_set(n))))
+        push!(load, load_factor(n))
     end
-    Plots.plot(x, y, title = "Confirmations after operations", xlabel = "log2(Operations)", ylabel = "log2(Confirmations)")
+    #print(confirmed)
+    #print(abandoned)
+    #print(load)
+    #print(x)
+    print("\n----------------------\n")
+    plt = Plots.plot(collect(x), ys, label = ["Confirmed" "Abandoned" "Load"], title = "Confirmations after operations", xlabel = "Operations", ylabel = "Transaction count(log2)")
+    Plots.plot!(Plots.twinx(plt), collect(x), load, legend = false, ylabel = "Load Factor", color="green")
  end
 
  function generate(op)
@@ -151,8 +164,9 @@ function plots()
  
     #generate(plot_type)
     #generate(plot_node_count_iterations)
-    generate(plot_node_count_iterations_3d)
+    #generate(plot_node_count_iterations_3d)
     #generate(plot_bucket_max)
     #generate(plot_bucket_count)
     #generate(plot_saturation)
+    generate(plot_confirmed_abandoned)
 end
