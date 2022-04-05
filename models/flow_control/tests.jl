@@ -50,6 +50,7 @@ function test_transitive(t)
 end
 
 function test_transaction(t)
+    print("Running transaction tests...\n")
     test_transitive(t)
     test_comparisons(t)
     test_malleability(t)
@@ -78,6 +79,7 @@ function test_bucket_transactions(t)
 end
 
 function test_bucket(t)
+    print("Running bucket tests...\n")
     # Test that 4 buckets divides the transaction_type keyspace in to expected values
     @Test.test collect(node_buckets(Int8, 4)) == [0, 31, 62, 93]
 
@@ -140,6 +142,7 @@ function test_node_full_count(t)
 end
 
 function test_node(t)
+    print("Running node tests...\n")
     test_working_set(t)
     test_in_node(t)
     test_delete!(t)
@@ -218,6 +221,7 @@ function test_network_full_count(t)
 end
 
 function test_network(t)
+    print("Running network tests...\n")
     network1 = network(type = UInt8, node_count = 1)
     @Test.test keytype(network1.nodes[1].buckets) == UInt8
     @Test.test size(network1.nodes)[1] == 1
@@ -299,6 +303,7 @@ function test_delete_confirmed(t)
 end
 
 function test_state_transitions(t)
+    print("Running state transition tests...\n")
     test_network_push!_in(t)
     test_copy_global(t)
     test_copy_peer(t)
@@ -307,6 +312,7 @@ end
 
 # Perform all of the random state transitions
 function test_rand_all(t)
+    print("Running mutate operations tests...\n")
     n = network(type = t)
     for op in mutate_ops
         op(n)
@@ -314,6 +320,7 @@ function test_rand_all(t)
 end
 
 function test_all(t)
+    print("Running all tests on type: ", string(t), '\n')
     test_transaction(t)
     test_bucket(t)
     test_node(t)
@@ -323,6 +330,7 @@ function test_all(t)
 end
 
 function test()
+    print("Running tests...\n")
     for t in [UInt8, UInt64, UInt128]
         test_all(t)
     end
