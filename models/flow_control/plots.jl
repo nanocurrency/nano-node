@@ -129,9 +129,9 @@ function log_or_zero(val)
 end
 
 function plot_confirmed_abandoned_load()
+    bucket_max = 2
     confirmed = []
     abandoned = []
-    load = []
     o = []
     ys = [confirmed, abandoned, o]
     exponential_sampling = (2^x for x in 16:20)
@@ -139,54 +139,71 @@ function plot_confirmed_abandoned_load()
     full_range = 1:count
 
     x = collect(full_range)
-    n = network(bucket_max = 2)
+    n = network(bucket_max = bucket_max)
     for i = x
         mutate(n, weights = mutate_weights_insert_100x)
         push!(confirmed, log_or_zero(n.stats.deleted))
         push!(abandoned, log_or_zero(length(abandoned_set(n))))
-        push!(load, load_factor(n))
         push!(o, log_or_zero(overflows(n)))
     end
+    print(histogram(n, bucket_max), '\n')
     while !isempty(n.world)
         mutate(n, weights = mutate_weights_no_insert)
         push!(confirmed, log_or_zero(n.stats.deleted))
         push!(abandoned, log_or_zero(length(abandoned_set(n))))
-        push!(load, load_factor(n))
         push!(o, log_or_zero(overflows(n)))
         count += 1
         push!(x, count)
     end
-    print(last(x), '\n')
     plt = Plots.plot(x, ys, label = ["Confirmed" "Abandoned" "Overflows"], title = "Confirmations after operations", xlabel = "Operations", ylabel = "Transaction count(log2)", right_margin=15mm)
-    Plots.plot(Plots.twinx(plt), collect(x), load, lims = [0.0, 1,0], legend = false, ylabel = "Load Factor", color="grey")
+    #Plots.plot(Plots.twinx(plt), collect(x), load, lims = [0.0, 1,0], legend = false, ylabel = "Load Factor", color="grey")
 end
 
 function plot_histogram_iteration_series()
     bucket_max = bucket_max_default
-    set = 1:10_000
+    set = 1:1_000
     x = []
     y = []
     z = []
     n = network(bucket_max = bucket_max)
     for i = set
-        if i % 100 == 0
-            print(i, ' ')
+        for j = 1:10
+            mutate(n, weights = mutate_weights_no_confirm)
         end
-        mutate(n, weights = mutate_weights_no_confirm)
         h = histogram(n, bucket_max)
         for s = 1:length(h)
-            push!(x, i)
             # Number of items
+            push!(x, i)
+            # Frequency of that count
             push!(y, s)
-            # Frequency of those items
             push!(z, h[s])
         end
     end
-    Plots.surface(x, y, z, #=camera=(30,60), =#seriescolor = :broc, title = "Operations per confirmation by node count", xlabel = "Iterations", ylabel = "Fill", zlabel= "Count")
+    print("Plotting...\n")
+    Plots.surface(x, y, z, seriescolor = :broc, camera=(30,60), title = "Bucket status after iterations", xlabel = "Iteration", ylabel = "Fill amount", zlabel="Frequency")
+end
+
+function plot_histogram_series()
+    bucket_max = bucket_max_default
+    set = 1:1_000
+    x = []
+    y = []
+    n = network(bucket_max = bucket_max)
+    for i = set
+        mutate(n, weights = mutate_weights_no_confirm)
+    end
+    h = histogram(n, bucket_max)
+    for s = 1:length(h)
+        # Number of items
+        push!(x, s)
+        # Frequency of that count
+        push!(y, h[s])
+    end
+    Plots.bar(x, y, title = "Bucket status after iterations", xlabel = "Bucket fill count", ylabel = "Frequency")
 end
 
  function generate(op)
-    print("Generating: " * string(op) * "...")
+    print("Generating: " * string(op) * "...\n")
     display(op())
     print(" Done\n")
  end
@@ -198,6 +215,7 @@ function plots()
     #generate(plot_bucket_max)
     #generate(plot_bucket_count)
     #generate(plot_saturation)
-    generate(plot_confirmed_abandoned_load)
-    #generate(plot_histogram_iteration_series)
+    #generate(plot_confirmed_abandoned_load)
+    generate(plot_histogram_iteration_series)
+    #generate(plot_histogram_series)
 end
