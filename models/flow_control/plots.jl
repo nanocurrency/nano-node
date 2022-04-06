@@ -124,8 +124,8 @@ function plot_bucket_count()
     # Asymptote should drive a value for bucket_count_default. Smaller gives better simulation throughput.
 end
 
-function log_or_zero(val)
-    val == 0 ? 0 : log(2, val)
+function log_or_one(val)
+    val == 0 ? 1 : log(2, val)
 end
 
 function plot_confirmed_abandoned_load()
@@ -142,16 +142,16 @@ function plot_confirmed_abandoned_load()
     n = network(bucket_max = bucket_max)
     for i = x
         mutate(n, weights = mutate_weights_insert_100x)
-        push!(confirmed, log_or_zero(n.stats.deleted))
-        push!(abandoned, log_or_zero(length(abandoned_set(n))))
-        push!(o, log_or_zero(overflows(n)))
+        push!(confirmed, log_or_one(n.stats.deleted))
+        push!(abandoned, log_or_one(length(abandoned_set(n))))
+        push!(o, log_or_one(overflows(n)))
     end
     print(histogram(n, bucket_max), '\n')
     while !isempty(n.world)
         mutate(n, weights = mutate_weights_no_insert)
-        push!(confirmed, log_or_zero(n.stats.deleted))
-        push!(abandoned, log_or_zero(length(abandoned_set(n))))
-        push!(o, log_or_zero(overflows(n)))
+        push!(confirmed, log_or_one(n.stats.deleted))
+        push!(abandoned, log_or_one(length(abandoned_set(n))))
+        push!(o, log_or_one(overflows(n)))
         count += 1
         push!(x, count)
     end
@@ -176,7 +176,7 @@ function plot_histogram_iteration_series()
             push!(x, i)
             # Frequency of that count
             push!(y, s)
-            push!(z, h[s])
+            push!(z, log_or_one(h[s]))
         end
     end
     print("Plotting...\n")
