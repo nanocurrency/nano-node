@@ -74,6 +74,7 @@ const mutate_weights_insert_light = [ 8, 10, 10, 10 ]
 const mutate_weights_insert_10x = [ 10_000, 1000, 1000, 1000 ]
 const mutate_weights_insert_100x = [ 100_000, 1000, 1000, 1000 ]
 const mutate_weights_no_insert = [ 0, 10, 10, 10 ]
+const mutate_weights_no_confirm = [ 100, 100, 100, 0]
 
 function mutate(n::network; weights = mutate_weights)
     StatsBase.sample(mutate_ops, StatsBase.Weights(weights))(n)

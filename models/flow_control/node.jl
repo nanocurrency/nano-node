@@ -49,6 +49,8 @@ function working_set(node)
     result
 end
 
+# An occupancy histogram of the buckets in this node
+# Index is the number of items in a bucket and the value is the number of buckets with that occupancy
 function histogram(n::node, max)
     result = zeros(max + 1)
     for (_, b) = n.buckets

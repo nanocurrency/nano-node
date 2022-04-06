@@ -161,6 +161,30 @@ function plot_confirmed_abandoned_load()
     Plots.plot(Plots.twinx(plt), collect(x), load, lims = [0.0, 1,0], legend = false, ylabel = "Load Factor", color="grey")
 end
 
+function plot_histogram_iteration_series()
+    bucket_max = bucket_max_default
+    set = 1:10_000
+    x = []
+    y = []
+    z = []
+    n = network(bucket_max = bucket_max)
+    for i = set
+        if i % 100 == 0
+            print(i, ' ')
+        end
+        mutate(n, weights = mutate_weights_no_confirm)
+        h = histogram(n, bucket_max)
+        for s = 1:length(h)
+            push!(x, i)
+            # Number of items
+            push!(y, s)
+            # Frequency of those items
+            push!(z, h[s])
+        end
+    end
+    Plots.surface(x, y, z, #=camera=(30,60), =#seriescolor = :broc, title = "Operations per confirmation by node count", xlabel = "Iterations", ylabel = "Fill", zlabel= "Count")
+end
+
  function generate(op)
     print("Generating: " * string(op) * "...")
     display(op())
@@ -175,4 +199,5 @@ function plots()
     #generate(plot_bucket_count)
     #generate(plot_saturation)
     generate(plot_confirmed_abandoned_load)
+    #generate(plot_histogram_iteration_series)
 end
