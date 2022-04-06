@@ -280,6 +280,7 @@ void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 				std::vector<std::shared_ptr<nano::block>> rollback_list;
 				if (node.ledger.rollback (transaction, successor->hash (), rollback_list))
 				{
+					node.stats.inc (nano::stat::type::ledger, nano::stat::detail::rollback_failed);
 					node.logger.always_log (nano::severity_level::error, boost::str (boost::format ("Failed to roll back %1% because it or a successor was confirmed") % successor->hash ().to_string ()));
 				}
 				else if (node.config.logging.ledger_rollback_logging ())
