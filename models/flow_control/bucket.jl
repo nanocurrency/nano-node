@@ -38,7 +38,7 @@ function transactions(b::bucket)
 end
 
 function full(b::bucket)
-    length(b.transactions) >= b.max
+    b.max <= length(b.transactions)
 end
 
 function insert!(b::bucket, tx)

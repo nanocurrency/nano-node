@@ -3,33 +3,16 @@ struct node{T}
 end
 
 function node_buckets(type, count)
-    result = ds.SortedSet{type}()
-    for i = 0:count - 1
-        insert!(result, i * (typemax(type) ÷ count))
-    end
-    result
+    ds.SortedSet{type}((i * (typemax(type) ÷ count) for i in 0:count - 1))
 end
 
 # Divide the keyspace of transaction_type in to count buckets
 function node(; type = transaction_type_default, bucket_count = bucket_count_default, bucket_max = bucket_max_default)
-    init = ds.SortedDict{type, bucket}()
-    for k in node_buckets(type, bucket_count)
-        push!(init, k => bucket(type = type, bucket_max = bucket_max))
-    end
-    node(init)
+    node(ds.SortedDict{type, bucket}((range_start => bucket(type = type, bucket_max = bucket_max) for range_start in node_buckets(type, bucket_count))))
 end
 
 function insert!(n::node, tx)
     insert!(n[tx], tx)
-end
-
-function sizes(n::node)
-    result = Dict{element_type(n), UInt16}()
-    for i in n.buckets
-        l = length(i.second.transactions)
-        result[i.first] = l
-    end
-    result
 end
 
 function delete!(n::node, tx)
@@ -58,7 +41,7 @@ end
 function working_set(node)
     result = ds.Set{transaction{element_type(node)}}()
     # Insert the highest priority transaction from each bucket
-    for (k, v) = node.buckets
+    for (_, v) = node.buckets
         if !isempty(v)
             push!(result, first(v))
         end
