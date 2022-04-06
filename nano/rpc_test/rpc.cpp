@@ -2660,7 +2660,7 @@ TEST (rpc, nano_to_raw_one_tenth_nano)
 	request1.put ("action", "nano_to_raw");
 	request1.put ("amount", "0.1");
 	auto response (wait_response (system, rpc_ctx, request1));
-	ASSERT_EQ ((nano::Mxrb_ratio/10).convert_to<std::string> (), response.get<std::string> ("amount"));
+	ASSERT_EQ ((nano::Mxrb_ratio / 10).convert_to<std::string> (), response.get<std::string> ("amount"));
 }
 
 TEST (rpc, nano_to_raw_one_raw)
