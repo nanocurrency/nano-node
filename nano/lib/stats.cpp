@@ -612,6 +612,9 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 		case nano::stat::detail::gap_source:
 			res = "gap_source";
 			break;
+        case nano::stat::detail::rollback_failed:
+            res = "rollback_failed";
+            break;
 		case nano::stat::detail::frontier_confirmation_failed:
 			res = "frontier_confirmation_failed";
 			break;
