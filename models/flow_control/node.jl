@@ -49,8 +49,12 @@ function working_set(node)
     result
 end
 
-function load_factor(n::node)
-    Statistics.mean((load_factor(b) for (_, b) in n.buckets))
+function histogram(n::node, max)
+    result = zeros(max + 1)
+    for (_, b) = n.buckets
+        result[length(b) + 1] += 1
+    end
+    result
 end
 
 function overflows(n::node)

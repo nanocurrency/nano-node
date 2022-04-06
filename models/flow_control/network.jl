@@ -88,10 +88,11 @@ function element_type(_::network{T}) where{T}
     T
 end
 
-function load_factor(n::network)
-    Statistics.mean((load_factor(o) for o in n.nodes))
-end
-
 function overflows(n::network)
     sum((overflows(n) for n in n.nodes))
+end
+
+# Histogram of bucket fill across the network
+function histogram(net::network, max)
+    sum((histogram(n, max) for n in net.nodes))
 end

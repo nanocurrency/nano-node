@@ -133,9 +133,7 @@ end
 function test_node_overflows(t)
     n = node(type = t, bucket_max = 1)
     tx = transaction(1, 1, 1, 1, 1, type = t)
-    @Test.test load_factor(n) ≈ 0.0
     insert!(n, tx)
-    @Test.test load_factor(n) ≈ 1.0 / length(n.buckets)
     @Test.test overflows(n) == 0
     tx2 = transaction(2, 2, 2, 2, 2, type = t)
     insert!(n, tx2)
@@ -212,21 +210,15 @@ function test_abandoned_set(t)
     @Test.test isempty(abandoned_set(n))
 end
 
-# Test network response to load_factor and overflow conditions
 function test_network_overflows(t)
     # Node count is 2 and we only operate on node 1 for this test.
     n = network(type = t, bucket_max = 1, node_count = 2)
     tx = transaction(1, 1, 1, 1, 1, type = t)
-    # Load should start out at 0.0 since there's nothing in the network
-    @Test.test load_factor(n) ≈ 0.0
     insert!(n.nodes[1], tx)
-    # Network load factor is the mean of node load factors
-    @Test.test load_factor(n) > 0.0
     # Full but has not yet overflowed
     @Test.test overflows(n) == 0
     tx2 = transaction(2, 2, 2, 2, 2, type = t)
     insert!(n.nodes[1], tx2)
-    @Test.test load_factor(n) > 0.0
     # Now node1 has had a bucket overflow
     @Test.test overflows(n.nodes[1]) == 1
     @Test.test overflows(n) == 1
@@ -335,6 +327,35 @@ function test_overflows(t)
     test_network_overflows(t)
 end
 
+function test_node_histogram(t)
+    bucket_max = 1
+    n = node(type = t, bucket_count = 1, bucket_max = bucket_max)
+    h1 = histogram(n, bucket_max)
+    @Test.test h1[1] == 1
+    tx = transaction(1, 1, 1, 1, 1, type = t)
+    insert!(n, tx)
+    h2 = histogram(n, bucket_max)
+    @Test.test h2[2] == 1
+end
+
+function test_network_histogram(t)
+    bucket_max = 1
+    n = network(type = t, node_count = 2, bucket_count = 1, bucket_max = 1)
+    h1 = histogram(n, bucket_max)
+    @Test.test h1[1] == 2
+    tx = transaction(1, 1, 1, 1, 1, type = t)
+    insert!(n.nodes[1], tx)
+    h2 = histogram(n, bucket_max)
+    @Test.test h2[1] == 1
+    @Test.test h2[2] == 1
+end
+
+function test_histogram(t)
+    print("Running histogram tests...\n")
+    test_node_histogram(t)
+    test_network_histogram(t)
+end
+
 function test_all(t)
     print("Running all tests on type: ", string(t), '\n')
     test_transaction(t)
@@ -342,6 +363,7 @@ function test_all(t)
     test_node(t)
     test_network(t)
     test_overflows(t)
+    test_histogram(t)
     test_state_transitions(t)
     test_rand_all(t)
 end
