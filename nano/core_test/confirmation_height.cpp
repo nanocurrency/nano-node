@@ -650,11 +650,6 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		nano::state_block_builder builder{};
 		auto const genesis_hash = nano::dev::genesis->hash ();
 
-		// redirect standard error boost logging to a software stream so we can look for the rollback message later
-		boost::iostreams::stream_buffer<nano::stringstream_mt_sink> stream_buffer{};
-		stream_buffer.open (nano::stringstream_mt_sink{});
-		nano::boost_log_cerr_redirect redirect_cerr{ &stream_buffer };
-
 		nano::system system{};
 		nano::node_flags node_flags{};
 		node_flags.confirmation_height_processor_mode = mode_a;
@@ -720,8 +715,7 @@ TEST (confirmation_height, conflict_rollback_cemented)
 
 		// node2 already has send2 forced confirmed whilst node1 should have confirmed send1 and therefore we have a cemented fork on node2
 		// and node2 should print an error message on the log that it cannot rollback send2 because it is already cemented
-		auto rollback_log_entry = boost::str (boost::format ("Failed to roll back %1%") % send2->hash ().to_string ());
-		ASSERT_TIMELY (20s, stream_buffer.component ()->str ().find (rollback_log_entry) != std::string::npos);
+		ASSERT_TIMELY (5s, 1 == node2->stats.count (nano::stat::type::ledger, nano::stat::detail::rollback_failed));
 
 		// get the tally for election the election on node1
 		// we expect the winner to be send1 and we expect send1 to have "genesis balance" vote weight

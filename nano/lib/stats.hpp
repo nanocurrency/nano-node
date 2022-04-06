@@ -272,6 +272,7 @@ public:
 		old,
 		gap_previous,
 		gap_source,
+		rollback_failed,
 
 		// message specific
 		keepalive,
