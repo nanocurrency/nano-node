@@ -37,16 +37,19 @@ function transactions(b::bucket)
     result = Set{transaction{element_type(b)}}(b.transactions)
 end
 
-function full(b::bucket)
-    b.max <= length(b.transactions)
+function overflow(b::bucket)
+    b.max < length(b.transactions)
 end
 
 function insert!(b::bucket, tx)
-    if full(b)
+    if tx ∉ b.transactions
+        insert!(b.transactions, tx)
+    end
+    # Ensure bucket's invariant, size is not exceeded, and remove the lowest priority item if needed
+    if overflow(b)
         delete!(b.transactions, last(b.transactions))
         b.stats.overflows += 1
     end
-    insert!(b.transactions, tx)
 end
 
 function load_factor(b::bucket)
