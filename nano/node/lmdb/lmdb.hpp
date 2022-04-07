@@ -7,6 +7,7 @@
 #include <nano/node/lmdb/account_store.hpp>
 #include <nano/node/lmdb/frontier_store.hpp>
 #include <nano/node/lmdb/pending_store.hpp>
+#include <nano/node/lmdb/online_weight_store.hpp>
 #include <nano/node/lmdb/unchecked_store.hpp>
 #include <nano/node/lmdb/lmdb_env.hpp>
 #include <nano/node/lmdb/lmdb_iterator.hpp>
@@ -15,7 +16,6 @@
 #include <nano/secure/store/block_store_partial.hpp>
 #include <nano/secure/store/confirmation_height_store_partial.hpp>
 #include <nano/secure/store/final_vote_store_partial.hpp>
-#include <nano/secure/store/online_weight_partial.hpp>
 #include <nano/secure/store/peer_store_partial.hpp>
 #include <nano/secure/store/pruned_store_partial.hpp>
 #include <nano/secure/store/version_store_partial.hpp>
@@ -53,7 +53,7 @@ private:
 	nano::account_store_mdb account_store;
 	nano::pending_store_mdb pending_store;
 	nano::unchecked_store_mdb unchecked_store;
-	nano::online_weight_store_partial<MDB_val, mdb_store> online_weight_store_partial;
+	nano::online_weight_store_mdb online_weight_store;
 	nano::pruned_store_partial<MDB_val, mdb_store> pruned_store_partial;
 	nano::peer_store_partial<MDB_val, mdb_store> peer_store_partial;
 	nano::confirmation_height_store_partial<MDB_val, mdb_store> confirmation_height_store_partial;
@@ -63,6 +63,7 @@ private:
 	friend class nano::unchecked_store_mdb;
 	friend class nano::account_store_mdb;
 	friend class nano::frontier_store_mdb;
+	friend class nano::online_weight_store_mdb;
 	friend class nano::pending_store_mdb;
 	friend class nano::unchecked_store_mdb;
 	

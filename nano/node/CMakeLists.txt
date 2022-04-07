@@ -86,6 +86,8 @@ add_library(
   lmdb/account_store.cpp
   lmdb/frontier_store.hpp
   lmdb/frontier_store.cpp
+  lmdb/online_weight_store.hpp
+  lmdb/online_weight_store.cpp
   lmdb/pending_store.hpp
   lmdb/pending_store.cpp
   lmdb/unchecked_store.hpp
@@ -133,6 +135,8 @@ add_library(
   rocksdb/account_store.cpp
   rocksdb/frontier_store.hpp
   rocksdb/frontier_store.cpp
+  rocksdb/online_weight_store.hpp
+  rocksdb/online_weight_store.cpp
   rocksdb/pending_store.hpp
   rocksdb/pending_store.cpp
   rocksdb/unchecked_store.hpp
