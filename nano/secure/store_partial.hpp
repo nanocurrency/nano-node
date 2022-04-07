@@ -10,7 +10,6 @@
 #include <nano/secure/store/block_store_partial.hpp>
 #include <nano/secure/store/confirmation_height_store_partial.hpp>
 #include <nano/secure/store/final_vote_store_partial.hpp>
-#include <nano/secure/store/frontier_store_partial.hpp>
 #include <nano/secure/store/online_weight_partial.hpp>
 #include <nano/secure/store/peer_store_partial.hpp>
 #include <nano/secure/store/pending_store_partial.hpp>
@@ -58,7 +57,6 @@ class store_partial : public store
 {
 	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, int const);
 	friend class nano::block_store_partial<Val, Derived_Store>;
-	friend class nano::frontier_store_partial<Val, Derived_Store>;
 	friend class nano::account_store_partial<Val, Derived_Store>;
 	friend class nano::pending_store_partial<Val, Derived_Store>;
 	friend class nano::unchecked_store_partial<Val, Derived_Store>;
@@ -74,7 +72,7 @@ public:
 	store_partial (
 		nano::ledger_constants & constants,
 		nano::block_store_partial<Val, Derived_Store> & block_store_partial_a,
-		nano::frontier_store_partial<Val, Derived_Store> & frontier_store_partial_a,
+		nano::frontier_store & frontier_store_a,
 		nano::account_store_partial<Val, Derived_Store> & account_store_partial_a,
 		nano::pending_store_partial<Val, Derived_Store> & pending_store_partial_a,
 		nano::unchecked_store_partial<Val, Derived_Store> & unchecked_store_partial_a,
@@ -87,7 +85,7 @@ public:
 		constants{ constants },
 		store{
 			block_store_partial_a,
-			frontier_store_partial_a,
+			frontier_store_a,
 			account_store_partial_a,
 			pending_store_partial_a,
 			unchecked_store_partial_a,
@@ -131,12 +129,6 @@ public:
 		return static_cast<const Derived_Store &> (*this).exists (transaction_a, table_a, key_a);
 	}
 
-	int const minimum_version{ 14 };
-
-protected:
-	nano::ledger_constants & constants;
-	int const version_number{ 21 };
-
 	template <typename Key, typename Value>
 	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, bool const direction_asc = true) const
 	{
@@ -148,6 +140,12 @@ protected:
 	{
 		return static_cast<Derived_Store const &> (*this).template make_iterator<Key, Value> (transaction_a, table_a, key);
 	}
+
+	int const minimum_version{ 14 };
+
+protected:
+	nano::ledger_constants & constants;
+	int const version_number{ 21 };
 
 	uint64_t count (nano::transaction const & transaction_a, std::initializer_list<tables> dbs_a) const
 	{

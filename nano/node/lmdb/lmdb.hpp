@@ -4,6 +4,7 @@
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/node/lmdb/frontier_store.hpp>
 #include <nano/node/lmdb/lmdb_env.hpp>
 #include <nano/node/lmdb/lmdb_iterator.hpp>
 #include <nano/node/lmdb/lmdb_txn.hpp>
@@ -12,7 +13,6 @@
 #include <nano/secure/store/block_store_partial.hpp>
 #include <nano/secure/store/confirmation_height_store_partial.hpp>
 #include <nano/secure/store/final_vote_store_partial.hpp>
-#include <nano/secure/store/frontier_store_partial.hpp>
 #include <nano/secure/store/online_weight_partial.hpp>
 #include <nano/secure/store/peer_store_partial.hpp>
 #include <nano/secure/store/pending_store_partial.hpp>
@@ -40,6 +40,7 @@ using mdb_val = db_val<MDB_val>;
 
 class logging_mt;
 class mdb_store;
+class transaction;
 
 class unchecked_mdb_store : public unchecked_store_partial<MDB_val, mdb_store>
 {
@@ -54,7 +55,7 @@ class mdb_store : public store_partial<MDB_val, mdb_store>
 {
 private:
 	nano::block_store_partial<MDB_val, mdb_store> block_store_partial;
-	nano::frontier_store_partial<MDB_val, mdb_store> frontier_store_partial;
+	nano::frontier_store_mdb frontier_store;
 	nano::account_store_partial<MDB_val, mdb_store> account_store_partial;
 	nano::pending_store_partial<MDB_val, mdb_store> pending_store_partial;
 	nano::unchecked_mdb_store unchecked_mdb_store;
@@ -66,7 +67,8 @@ private:
 	nano::version_store_partial<MDB_val, mdb_store> version_store_partial;
 
 	friend class nano::unchecked_mdb_store;
-
+	friend class nano::frontier_store_mdb;
+	
 public:
 	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
@@ -282,6 +284,13 @@ private:
 
 	bool not_found (int status) const override;
 	bool success (int status) const override;
+	void release_assert_success (int const status) const
+	{
+		if (!success (status))
+		{
+			release_assert (false, error_string (status));
+		}
+	}
 	int status_code_not_found () const override;
 
 	MDB_dbi table_to_dbi (tables table_a) const;

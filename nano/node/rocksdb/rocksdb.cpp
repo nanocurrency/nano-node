@@ -68,7 +68,7 @@ nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesyste
 	store_partial{
 		constants,
 		block_store_partial,
-		frontier_store_partial,
+		frontier_store,
 		account_store_partial,
 		pending_store_partial,
 		unchecked_rocksdb_store,
@@ -81,7 +81,7 @@ nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesyste
 	},
 	// clang-format on
 	block_store_partial{ *this },
-	frontier_store_partial{ *this },
+	frontier_store{ *this },
 	account_store_partial{ *this },
 	pending_store_partial{ *this },
 	unchecked_rocksdb_store{ *this },

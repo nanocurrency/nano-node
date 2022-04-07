@@ -82,6 +82,8 @@ add_library(
   json_handler.cpp
   ledger_walker.hpp
   ledger_walker.cpp
+  lmdb/frontier_store.hpp
+  lmdb/frontier_store.cpp
   lmdb/lmdb.hpp
   lmdb/lmdb.cpp
   lmdb/lmdb_env.hpp
@@ -121,6 +123,8 @@ add_library(
   repcrawler.cpp
   request_aggregator.hpp
   request_aggregator.cpp
+  rocksdb/frontier_store.hpp
+  rocksdb/frontier_store.cpp
   rocksdb/rocksdb.hpp
   rocksdb/rocksdb.cpp
   rocksdb/rocksdb_iterator.hpp

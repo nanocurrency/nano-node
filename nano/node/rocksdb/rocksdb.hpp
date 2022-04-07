@@ -4,11 +4,11 @@
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/rocksdb/rocksdb_iterator.hpp>
+#include <nano/node/rocksdb/frontier_store.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/store/account_store_partial.hpp>
 #include <nano/secure/store/confirmation_height_store_partial.hpp>
 #include <nano/secure/store/final_vote_store_partial.hpp>
-#include <nano/secure/store/frontier_store_partial.hpp>
 #include <nano/secure/store/online_weight_partial.hpp>
 #include <nano/secure/store/peer_store_partial.hpp>
 #include <nano/secure/store/pending_store_partial.hpp>
@@ -57,7 +57,7 @@ class rocksdb_store : public store_partial<rocksdb::Slice, rocksdb_store>
 {
 private:
 	nano::block_store_partial<rocksdb::Slice, rocksdb_store> block_store_partial;
-	nano::frontier_store_partial<rocksdb::Slice, rocksdb_store> frontier_store_partial;
+	nano::frontier_store_rocksdb frontier_store;
 	nano::account_store_partial<rocksdb::Slice, rocksdb_store> account_store_partial;
 	nano::pending_store_partial<rocksdb::Slice, rocksdb_store> pending_store_partial;
 	nano::unchecked_rocksdb_store unchecked_rocksdb_store;
@@ -71,6 +71,7 @@ private:
 public:
 	friend class nano::unchecked_rocksdb_store;
 	friend class nano::version_rocksdb_store;
+	friend class nano::frontier_store_rocksdb;
 
 	explicit rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
 
