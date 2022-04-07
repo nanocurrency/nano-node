@@ -12,7 +12,6 @@
 #include <nano/secure/store/online_weight_partial.hpp>
 #include <nano/secure/store/peer_store_partial.hpp>
 #include <nano/secure/store/pruned_store_partial.hpp>
-#include <nano/secure/store/unchecked_store_partial.hpp>
 #include <nano/secure/store/version_store_partial.hpp>
 
 #include <crypto/cryptopp/words.h>
@@ -44,9 +43,6 @@ template <typename Val, typename Derived_Store>
 class confirmation_height_store_partial;
 
 template <typename Val, typename Derived_Store>
-class unchecked_store_partial;
-
-template <typename Val, typename Derived_Store>
 class block_store_partial;
 
 /** This base class implements the store interface functions which have DB agnostic functionality. It also maps all the store classes. */
@@ -55,7 +51,6 @@ class store_partial : public store
 {
 	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, int const);
 	friend class nano::block_store_partial<Val, Derived_Store>;
-	friend class nano::unchecked_store_partial<Val, Derived_Store>;
 	friend class nano::online_weight_store_partial<Val, Derived_Store>;
 	friend class nano::pruned_store_partial<Val, Derived_Store>;
 	friend class nano::peer_store_partial<Val, Derived_Store>;
@@ -71,7 +66,7 @@ public:
 		nano::frontier_store & frontier_store_a,
 		nano::account_store & account_store_a,
 		nano::pending_store & pending_store_a,
-		nano::unchecked_store_partial<Val, Derived_Store> & unchecked_store_partial_a,
+		nano::unchecked_store & unchecked_store,
 		nano::online_weight_store_partial<Val, Derived_Store> & online_weight_store_partial_a,
 		nano::pruned_store_partial<Val, Derived_Store> & pruned_store_partial_a,
 		nano::peer_store_partial<Val, Derived_Store> & peer_store_partial_a,
@@ -84,7 +79,7 @@ public:
 			frontier_store_a,
 			account_store_a,
 			pending_store_a,
-			unchecked_store_partial_a,
+			unchecked_store,
 			online_weight_store_partial_a,
 			pruned_store_partial_a,
 			peer_store_partial_a,

@@ -59,7 +59,6 @@ add_library(
   store/pruned_store_partial.hpp
   store/peer_store_partial.hpp
   store/confirmation_height_store_partial.hpp
-  store/unchecked_store_partial.hpp
   store/final_vote_store_partial.hpp
   store/version_store_partial.hpp)
 

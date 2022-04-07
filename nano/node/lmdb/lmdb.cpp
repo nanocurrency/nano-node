@@ -48,7 +48,7 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 		frontier_store,
 		account_store,
 		pending_store,
-		unchecked_mdb_store,
+		unchecked_store,
 		online_weight_store_partial,
 		pruned_store_partial,
 		peer_store_partial,
@@ -66,7 +66,7 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 	peer_store_partial{ *this },
 	confirmation_height_store_partial{ *this },
 	final_vote_store_partial{ *this },
-	unchecked_mdb_store{ *this },
+	unchecked_store{ *this },
 	version_store_partial{ *this },
 	logger (logger_a),
 	env (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
@@ -810,9 +810,6 @@ void nano::mdb_store::create_backup_file (nano::mdb_env & env_a, boost::filesyst
 		std::cout << success_message << std::endl;
 	}
 }
-
-nano::unchecked_mdb_store::unchecked_mdb_store (nano::mdb_store & mdb_store_a) :
-	unchecked_store_partial<MDB_val, mdb_store> (mdb_store_a){};
 
 bool nano::mdb_store::exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const
 {

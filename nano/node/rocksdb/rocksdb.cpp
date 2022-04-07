@@ -71,7 +71,7 @@ nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesyste
 		frontier_store,
 		account_store,
 		pending_store,
-		unchecked_rocksdb_store,
+		unchecked_store,
 		online_weight_store_partial,
 		pruned_store_partial,
 		peer_store_partial,
@@ -84,7 +84,7 @@ nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesyste
 	frontier_store{ *this },
 	account_store{ *this },
 	pending_store{ *this },
-	unchecked_rocksdb_store{ *this },
+	unchecked_store{ *this },
 	online_weight_store_partial{ *this },
 	pruned_store_partial{ *this },
 	peer_store_partial{ *this },
@@ -613,10 +613,6 @@ int nano::rocksdb_store::clear (rocksdb::ColumnFamilyHandle * column_family)
 	handle_it->reset (column_family);
 	return status.code ();
 }
-
-nano::unchecked_rocksdb_store::unchecked_rocksdb_store (nano::rocksdb_store & rocksdb_store_a) :
-	nano::unchecked_store_partial<rocksdb::Slice, nano::rocksdb_store> (rocksdb_store_a),
-	rocksdb_store{ rocksdb_store_a } {};
 
 nano::version_rocksdb_store::version_rocksdb_store (nano::rocksdb_store & rocksdb_store_a) :
 	nano::version_store_partial<rocksdb::Slice, nano::rocksdb_store> (rocksdb_store_a),
