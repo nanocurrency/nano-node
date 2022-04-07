@@ -30,11 +30,12 @@ execute_process(
 
 option(CI_BUILD false)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
+
 set(COVERAGE
     OFF
     CACHE BOOL "Code Coverage Targets")
 if(COVERAGE)
-  list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
   include(CoverageTest)
 endif()
 
@@ -46,17 +47,16 @@ if(MSVC)
   add_definitions(/MP)
 endif()
 
-set(CPACK_PACKAGE_VERSION_MAJOR "24")
-set(CPACK_PACKAGE_VERSION_MINOR "0")
-set(CPACK_PACKAGE_VERSION_PATCH "0")
-set(CPACK_PACKAGE_VERSION_PRE_RELEASE "99")
-set(CPACK_PACKAGE_VENDOR "Nano Currency")
+set(NANO_VERSION_MAJOR "24")
+set(NANO_VERSION_MINOR "0")
+set(NANO_VERSION_PATCH "0")
+set(NANO_VERSION_PRE_RELEASE "99")
+set(NANO_VENDOR "Nano Currency")
 
 if(CI_BUILD)
   set(TAG_VERSION_STRING "$ENV{TRAVIS_TAG}")
 else()
-  set(TAG_VERSION_STRING
-      "V${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}")
+  set(TAG_VERSION_STRING "V${NANO_VERSION_MAJOR}.${NANO_VERSION_MINOR}")
 endif()
 
 if(APPLE)
@@ -167,47 +167,19 @@ set(ACTIVE_NETWORK
 set_property(
   CACHE ACTIVE_NETWORK PROPERTY STRINGS nano_dev_network nano_beta_network
                                 nano_live_network nano_test_network)
-set(CPACK_PACKAGE_NAME
-    "nano-node"
-    CACHE STRING "" FORCE)
-set(CPACK_NSIS_PACKAGE_NAME
-    "Nano"
-    CACHE STRING "" FORCE)
-set(CPACK_PACKAGE_INSTALL_DIRECTORY
-    "nanocurrency"
-    CACHE STRING "" FORCE)
+
 set(NANO_SERVICE "nanocurrency.service")
 set(NANO_PREFIX "")
+
 if("${ACTIVE_NETWORK}" MATCHES "nano_beta_network")
   project("nano-node-beta")
-  set(CPACK_PACKAGE_NAME
-      "nano-node-beta"
-      CACHE STRING "" FORCE)
-  set(CPACK_NSIS_PACKAGE_NAME
-      "Nano-Beta"
-      CACHE STRING "" FORCE)
-  set(CPACK_PACKAGE_INSTALL_DIRECTORY
-      "nanocurrency-beta"
-      CACHE STRING "" FORCE)
   set(NANO_SERVICE "nanocurrency-beta.service")
   set(NANO_PREFIX "Beta")
 elseif("${ACTIVE_NETWORK}" MATCHES "nano_test_network")
   project("nano-node-test")
-  set(CPACK_PACKAGE_NAME
-      "nano-node-test"
-      CACHE STRING "" FORCE)
-  set(CPACK_NSIS_PACKAGE_NAME
-      "Nano-Test"
-      CACHE STRING "" FORCE)
-  set(CPACK_PACKAGE_INSTALL_DIRECTORY
-      "nanocurrency-test"
-      CACHE STRING "" FORCE)
   set(NANO_SERVICE "nanocurrency-test.service")
   set(NANO_PREFIX "Test")
 endif()
-set(NANO_OSX_PACKAGE_NAME
-    ${CPACK_NSIS_PACKAGE_NAME}
-    CACHE STRING "" FORCE)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE
@@ -224,7 +196,7 @@ set(USING_ASAN (NANO_ASAN OR RAIBLOCKS_ASAN))
 set(USING_ASAN_INT (NANO_ASAN_INT OR RAIBLOCKS_ASAN_INT))
 set(USING_TSAN (NANO_TSAN OR RAIBLOCKS_TSAN))
 
-find_package(Threads)
+find_package(Threads REQUIRED)
 
 if(WIN32)
   find_library(PSAPI Psapi)
@@ -623,8 +595,6 @@ if(NANO_TEST OR RAIBLOCKS_TEST)
     DEPENDS build_tests)
 endif()
 if(NANO_GUI OR RAIBLOCKS_GUI)
-  install(FILES ${PROJECT_BINARY_DIR}/config-node.toml.sample DESTINATION .)
-  install(FILES ${PROJECT_BINARY_DIR}/config-rpc.toml.sample DESTINATION .)
   if(WIN32)
     set(PLATFORM_QT_PACKAGES WinExtras)
   else()
@@ -708,158 +678,9 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
                          "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
     add_dependencies(build_tests qt_test)
   endif()
-
-  if(APPLE)
-    set(CPACK_GENERATOR "DragNDrop")
-    configure_file(${CMAKE_SOURCE_DIR}/Info.plist.in
-                   ${CMAKE_SOURCE_DIR}/Info.plist @ONLY)
-    install(TARGETS nano_wallet
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
-    install(TARGETS nano_node
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
-    install(TARGETS nano_rpc
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
-    install(FILES Info.plist DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents)
-    install(FILES qt.conf
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Resources)
-    install(DIRECTORY ${Qt5_DIR}/../../QtCore.framework
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
-    install(DIRECTORY ${Qt5_DIR}/../../QtDBus.framework
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
-    install(DIRECTORY ${Qt5_DIR}/../../QtGui.framework
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
-    install(DIRECTORY ${Qt5_DIR}/../../QtPrintSupport.framework
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
-    install(DIRECTORY ${Qt5_DIR}/../../QtTest.framework
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
-    install(DIRECTORY ${Qt5_DIR}/../../QtWidgets.framework
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
-    install(FILES "${Qt5_DIR}/../../../plugins/platforms/libqcocoa.dylib"
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/PlugIns/platforms)
-    if(NANO_SHARED_BOOST)
-      foreach(boost_lib IN LISTS Boost_LIBRARIES)
-        string(REGEX MATCH "(.+/.*boost_[^-]+)" boost_lib_name ${boost_lib})
-        set(boost_dll "${CMAKE_MATCH_1}")
-        if(${boost_dll} MATCHES "boost")
-          install(FILES ${boost_dll}
-                  DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/boost/lib)
-        endif()
-      endforeach(boost_lib)
-    endif()
-    if(NANO_POW_SERVER)
-      install(TARGETS nano_pow_server
-              DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
-      install(DIRECTORY ${PROJECT_SOURCE_DIR}/nano-pow-server/public
-              DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
-    endif()
-    install(FILES Nano.icns
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Resources)
-  elseif(WIN32)
-    if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
-      set(WIN_REDIST vc_redist.x64.exe)
-    else()
-      set(WIN_REDIST vc_redist.x86.exe)
-    endif()
-    set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS
-        "ExecWait '\\\"$INSTDIR\\\\${WIN_REDIST}\\\" /quiet /norestart'
-												WriteRegDWORD HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano\\\\Nano${NANO_PREFIX}' 'TypesSupported' '0x7'
-												WriteRegStr HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano\\\\Nano${NANO_PREFIX}' 'EventMessageFile' '$INSTDIR\\\\nano_wallet.exe'"
-    )
-    set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS
-        "DeleteRegKey HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano${NANO_PREFIX}'"
-    )
-    set(CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/Nano.ico)
-    set(CPACK_NSIS_DISPLAY_NAME "Nano${NANO_PREFIX}")
-    set(CPACK_NSIS_URL_INFO_ABOUT "https://nano.org")
-    set(CPACK_NSIS_CONTACT "info@nano.org")
-    set(CPACK_NSIS_MENU_LINKS "nano_wallet.exe" "Nano Wallet"
-                              "https://nano.org" "Nano website")
-    set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
-    get_target_property(Qt5WindowsPlugin Qt5::QWindowsIntegrationPlugin
-                        LOCATION)
-    get_filename_component(Qt5_bin_DIR ${Qt5_DIR}/../../../bin ABSOLUTE)
-    install(TARGETS nano_wallet DESTINATION .)
-    install(TARGETS nano_wallet_com DESTINATION .)
-    if(NANO_SHARED_BOOST)
-      foreach(boost_lib IN LISTS Boost_LIBRARIES)
-        if(${CMAKE_BUILD_TYPE} MATCHES "Rel")
-          string(REGEX MATCH "(.+/.*boost_[^-]+-.+-mt-x64.+\)(.lib|a)"
-                       boost_lib_name ${boost_lib})
-          set(boost_dll "${CMAKE_MATCH_1}.dll")
-          if(${boost_dll} MATCHES "boost")
-            install(FILES ${boost_dll} DESTINATION .)
-          endif()
-        else()
-          string(REGEX MATCH "(.+/.*boost_[^-]+-.+-mt-.+-x64.+\)(.lib|a)"
-                       boost_lib_name ${boost_lib})
-          set(boost_dll "${CMAKE_MATCH_1}.dll")
-          if(${boost_dll} MATCHES "boost")
-            install(FILES ${boost_dll} DESTINATION .)
-          endif()
-        endif()
-      endforeach(boost_lib)
-    endif()
-    if(NANO_POW_SERVER)
-      install(TARGETS nano_pow_server DESTINATION .)
-      install(DIRECTORY ${PROJECT_SOURCE_DIR}/nano-pow-server/public
-              DESTINATION .)
-    endif()
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${WIN_REDIST} DESTINATION .)
-    install(FILES ${Qt5_bin_DIR}/libGLESv2.dll DESTINATION .)
-    install(FILES ${Qt5_bin_DIR}/Qt5Core.dll DESTINATION .)
-    install(FILES ${Qt5_bin_DIR}/Qt5Gui.dll DESTINATION .)
-    install(FILES ${Qt5_bin_DIR}/Qt5Widgets.dll DESTINATION .)
-    install(FILES ${Qt5_bin_DIR}/Qt5WinExtras.dll DESTINATION .)
-    install(FILES ${Qt5WindowsPlugin} DESTINATION platforms)
-  else()
-    set(CPACK_GENERATOR "TBZ2;DEB")
-    set(CPACK_DEBIAN_PACKAGE_DEPENDS
-        "qt5-default | qtbase5-dev, qtchooser, qt5-qmake, qtbase5-dev-tools")
-    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "russel@nano.org")
-    install(TARGETS nano_wallet RUNTIME DESTINATION ./bin)
-    if(NANO_SHARED_BOOST)
-      foreach(boost_lib IN LISTS Boost_LIBRARIES)
-        string(REGEX MATCH "(.+/.*boost_[^-]+)" boost_lib_name ${boost_lib})
-        set(boost_dll "${CMAKE_MATCH_1}.${Boost_VERSION_STRING}")
-        if(${boost_dll} MATCHES "boost")
-          install(FILES ${boost_dll} DESTINATION ./lib)
-        endif()
-      endforeach(boost_lib)
-    endif()
-    if(NANO_POW_SERVER)
-      install(TARGETS nano_pow_server DESTINATION ./bin)
-      install(DIRECTORY ${PROJECT_SOURCE_DIR}/nano-pow-server/public
-              DESTINATION ./bin)
-    endif()
-    set(DEBIAN_POSTINST postinst.in)
-    set(DEBIAN_POSTRM postrm.in)
-
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/debian-control/${DEBIAN_POSTINST}
-                   ${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/postinst)
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/debian-control/${DEBIAN_POSTRM}
-                   ${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/postrm)
-    file(
-      COPY ${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/postinst
-           ${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/postrm
-      DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/debian-control/.
-      FILE_PERMISSIONS
-        OWNER_READ
-        OWNER_WRITE
-        OWNER_EXECUTE
-        GROUP_READ
-        GROUP_EXECUTE
-        WORLD_READ
-        WORLD_EXECUTE)
-    install(FILES etc/systemd/${NANO_SERVICE} DESTINATION ./extras/systemd/.)
-    set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
-        "${CMAKE_CURRENT_BINARY_DIR}/debian-control/postinst;${CMAKE_CURRENT_BINARY_DIR}/debian-control/postrm"
-    )
-  endif()
+  include(Packaging)
 endif()
 
 if(COVERAGE)
   add_subdirectory(coverage)
 endif()
-
-set(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE)
-include(CPack)
