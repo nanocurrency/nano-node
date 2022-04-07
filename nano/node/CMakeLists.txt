@@ -86,6 +86,8 @@ add_library(
   lmdb/account_store.cpp
   lmdb/frontier_store.hpp
   lmdb/frontier_store.cpp
+  lmdb/pending_store.hpp
+  lmdb/pending_store.cpp
   lmdb/lmdb.hpp
   lmdb/lmdb.cpp
   lmdb/lmdb_env.hpp
@@ -129,6 +131,8 @@ add_library(
   rocksdb/account_store.cpp
   rocksdb/frontier_store.hpp
   rocksdb/frontier_store.cpp
+  rocksdb/pending_store.hpp
+  rocksdb/pending_store.cpp
   rocksdb/rocksdb.hpp
   rocksdb/rocksdb.cpp
   rocksdb/rocksdb_iterator.hpp

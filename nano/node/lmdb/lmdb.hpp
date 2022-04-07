@@ -6,6 +6,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/node/lmdb/account_store.hpp>
 #include <nano/node/lmdb/frontier_store.hpp>
+#include <nano/node/lmdb/pending_store.hpp>
 #include <nano/node/lmdb/lmdb_env.hpp>
 #include <nano/node/lmdb/lmdb_iterator.hpp>
 #include <nano/node/lmdb/lmdb_txn.hpp>
@@ -15,7 +16,6 @@
 #include <nano/secure/store/final_vote_store_partial.hpp>
 #include <nano/secure/store/online_weight_partial.hpp>
 #include <nano/secure/store/peer_store_partial.hpp>
-#include <nano/secure/store/pending_store_partial.hpp>
 #include <nano/secure/store/pruned_store_partial.hpp>
 #include <nano/secure/store/unchecked_store_partial.hpp>
 #include <nano/secure/store/version_store_partial.hpp>
@@ -57,7 +57,7 @@ private:
 	nano::block_store_partial<MDB_val, mdb_store> block_store_partial;
 	nano::frontier_store_mdb frontier_store;
 	nano::account_store_mdb account_store;
-	nano::pending_store_partial<MDB_val, mdb_store> pending_store_partial;
+	nano::pending_store_mdb pending_store;
 	nano::unchecked_mdb_store unchecked_mdb_store;
 	nano::online_weight_store_partial<MDB_val, mdb_store> online_weight_store_partial;
 	nano::pruned_store_partial<MDB_val, mdb_store> pruned_store_partial;
@@ -69,6 +69,7 @@ private:
 	friend class nano::unchecked_mdb_store;
 	friend class nano::account_store_mdb;
 	friend class nano::frontier_store_mdb;
+	friend class nano::pending_store_mdb;
 	
 public:
 	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);

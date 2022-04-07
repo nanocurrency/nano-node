@@ -11,7 +11,6 @@
 #include <nano/secure/store/final_vote_store_partial.hpp>
 #include <nano/secure/store/online_weight_partial.hpp>
 #include <nano/secure/store/peer_store_partial.hpp>
-#include <nano/secure/store/pending_store_partial.hpp>
 #include <nano/secure/store/pruned_store_partial.hpp>
 #include <nano/secure/store/unchecked_store_partial.hpp>
 #include <nano/secure/store/version_store_partial.hpp>
@@ -56,7 +55,6 @@ class store_partial : public store
 {
 	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, int const);
 	friend class nano::block_store_partial<Val, Derived_Store>;
-	friend class nano::pending_store_partial<Val, Derived_Store>;
 	friend class nano::unchecked_store_partial<Val, Derived_Store>;
 	friend class nano::online_weight_store_partial<Val, Derived_Store>;
 	friend class nano::pruned_store_partial<Val, Derived_Store>;
@@ -72,7 +70,7 @@ public:
 		nano::block_store_partial<Val, Derived_Store> & block_store_partial_a,
 		nano::frontier_store & frontier_store_a,
 		nano::account_store & account_store_a,
-		nano::pending_store_partial<Val, Derived_Store> & pending_store_partial_a,
+		nano::pending_store & pending_store_a,
 		nano::unchecked_store_partial<Val, Derived_Store> & unchecked_store_partial_a,
 		nano::online_weight_store_partial<Val, Derived_Store> & online_weight_store_partial_a,
 		nano::pruned_store_partial<Val, Derived_Store> & pruned_store_partial_a,
@@ -85,7 +83,7 @@ public:
 			block_store_partial_a,
 			frontier_store_a,
 			account_store_a,
-			pending_store_partial_a,
+			pending_store_a,
 			unchecked_store_partial_a,
 			online_weight_store_partial_a,
 			pruned_store_partial_a,
