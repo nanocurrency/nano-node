@@ -51,7 +51,7 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 		unchecked_store,
 		online_weight_store,
 		pruned_store,
-		peer_store_partial,
+		peer_store,
 		confirmation_height_store_partial,
 		final_vote_store_partial,
 		version_store_partial
@@ -63,7 +63,7 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 	pending_store{ *this },
 	online_weight_store{ *this },
 	pruned_store{ *this },
-	peer_store_partial{ *this },
+	peer_store{ *this },
 	confirmation_height_store_partial{ *this },
 	final_vote_store_partial{ *this },
 	unchecked_store{ *this },

@@ -74,7 +74,7 @@ nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesyste
 		unchecked_store,
 		online_weight_store,
 		pruned_store,
-		peer_store_partial,
+		peer_store,
 		confirmation_height_store_partial,
 		final_vote_store_partial,
 		version_rocksdb_store
@@ -87,7 +87,7 @@ nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesyste
 	unchecked_store{ *this },
 	online_weight_store{ *this },
 	pruned_store{ *this },
-	peer_store_partial{ *this },
+	peer_store{ *this },
 	confirmation_height_store_partial{ *this },
 	final_vote_store_partial{ *this },
 	version_rocksdb_store{ *this },

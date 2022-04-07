@@ -55,8 +55,6 @@ add_library(
   versioning.cpp
   working.hpp
   store/block_store_partial.hpp
-  store/pruned_store_partial.hpp
-  store/peer_store_partial.hpp
   store/confirmation_height_store_partial.hpp
   store/final_vote_store_partial.hpp
   store/version_store_partial.hpp)

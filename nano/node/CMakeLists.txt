@@ -88,6 +88,8 @@ add_library(
   lmdb/frontier_store.cpp
   lmdb/online_weight_store.hpp
   lmdb/online_weight_store.cpp
+  lmdb/peer_store.hpp
+  lmdb/peer_store.cpp
   lmdb/pending_store.hpp
   lmdb/pending_store.cpp
   lmdb/pruned_store.hpp
@@ -139,6 +141,8 @@ add_library(
   rocksdb/frontier_store.cpp
   rocksdb/online_weight_store.hpp
   rocksdb/online_weight_store.cpp
+  rocksdb/peer_store.hpp
+  rocksdb/peer_store.cpp
   rocksdb/pending_store.hpp
   rocksdb/pending_store.cpp
   rocksdb/pruned_store.hpp
