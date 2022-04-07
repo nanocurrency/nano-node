@@ -56,8 +56,8 @@ endif()
 # From nano/ipc_flatbuffers_lib/CMakeLists.txt
 if(APPLE)
   install(
-          DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/
-          DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS/api/flatbuffers)
+    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/
+    DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS/api/flatbuffers)
 elseif(LINUX)
   install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/
           DESTINATION ./bin/api/flatbuffers)
@@ -74,7 +74,6 @@ if((NANO_GUI OR RAIBLOCKS_GUI) AND NOT APPLE)
     install(TARGETS nano_rpc RUNTIME DESTINATION ./bin)
   endif()
 endif()
-
 
 if(APPLE)
   list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules/plat/osx")
