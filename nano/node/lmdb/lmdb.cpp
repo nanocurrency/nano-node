@@ -46,7 +46,7 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 		constants,
 		block_store_partial,
 		frontier_store,
-		account_store_partial,
+		account_store,
 		pending_store_partial,
 		unchecked_mdb_store,
 		online_weight_store_partial,
@@ -59,7 +59,7 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 	// clang-format on
 	block_store_partial{ *this },
 	frontier_store{ *this },
-	account_store_partial{ *this },
+	account_store{ *this },
 	pending_store_partial{ *this },
 	online_weight_store_partial{ *this },
 	pruned_store_partial{ *this },

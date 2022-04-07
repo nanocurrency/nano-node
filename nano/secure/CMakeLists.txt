@@ -55,7 +55,6 @@ add_library(
   versioning.cpp
   working.hpp
   store/block_store_partial.hpp
-  store/account_store_partial.hpp
   store/pending_store_partial.hpp
   store/online_weight_partial.hpp
   store/pruned_store_partial.hpp
