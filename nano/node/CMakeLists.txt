@@ -90,6 +90,8 @@ add_library(
   lmdb/online_weight_store.cpp
   lmdb/pending_store.hpp
   lmdb/pending_store.cpp
+  lmdb/pruned_store.hpp
+  lmdb/pruned_store.cpp
   lmdb/unchecked_store.hpp
   lmdb/unchecked_store.cpp
   lmdb/lmdb.hpp
@@ -139,6 +141,8 @@ add_library(
   rocksdb/online_weight_store.cpp
   rocksdb/pending_store.hpp
   rocksdb/pending_store.cpp
+  rocksdb/pruned_store.hpp
+  rocksdb/pruned_store.cpp
   rocksdb/unchecked_store.hpp
   rocksdb/unchecked_store.cpp
   rocksdb/rocksdb.hpp

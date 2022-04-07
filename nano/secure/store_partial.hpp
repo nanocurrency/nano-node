@@ -10,7 +10,6 @@
 #include <nano/secure/store/confirmation_height_store_partial.hpp>
 #include <nano/secure/store/final_vote_store_partial.hpp>
 #include <nano/secure/store/peer_store_partial.hpp>
-#include <nano/secure/store/pruned_store_partial.hpp>
 #include <nano/secure/store/version_store_partial.hpp>
 
 #include <crypto/cryptopp/words.h>
@@ -50,7 +49,6 @@ class store_partial : public store
 {
 	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, int const);
 	friend class nano::block_store_partial<Val, Derived_Store>;
-	friend class nano::pruned_store_partial<Val, Derived_Store>;
 	friend class nano::peer_store_partial<Val, Derived_Store>;
 	friend class nano::confirmation_height_store_partial<Val, Derived_Store>;
 	friend class nano::final_vote_store_partial<Val, Derived_Store>;
@@ -66,7 +64,7 @@ public:
 		nano::pending_store & pending_store_a,
 		nano::unchecked_store & unchecked_store_a,
 		nano::online_weight_store & online_weight_store_a,
-		nano::pruned_store_partial<Val, Derived_Store> & pruned_store_partial_a,
+		nano::pruned_store & pruned_store_a,
 		nano::peer_store_partial<Val, Derived_Store> & peer_store_partial_a,
 		nano::confirmation_height_store_partial<Val, Derived_Store> & confirmation_height_store_partial_a,
 		nano::final_vote_store_partial<Val, Derived_Store> & final_vote_store_partial_a,
@@ -79,7 +77,7 @@ public:
 			pending_store_a,
 			unchecked_store_a,
 			online_weight_store_a,
-			pruned_store_partial_a,
+			pruned_store_a,
 			peer_store_partial_a,
 			confirmation_height_store_partial_a,
 			final_vote_store_partial_a,
