@@ -49,12 +49,12 @@ void nano::pruned_store_rocksdb::clear (nano::write_transaction const & transact
 
 nano::store_iterator<nano::block_hash, std::nullptr_t> nano::pruned_store_rocksdb::begin (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
-	return static_cast<nano::store_partial<rocksdb::Slice, rocksdb_store> &> (store).template make_iterator<nano::block_hash, std::nullptr_t> (transaction_a, tables::pruned, hash_a);
+	return store.make_iterator<nano::block_hash, std::nullptr_t> (transaction_a, tables::pruned, hash_a);
 }
 
 nano::store_iterator<nano::block_hash, std::nullptr_t> nano::pruned_store_rocksdb::begin (nano::transaction const & transaction_a) const
 {
-	return static_cast<nano::store_partial<rocksdb::Slice, rocksdb_store> &> (store).template make_iterator<nano::block_hash, std::nullptr_t> (transaction_a, tables::pruned);
+	return store.make_iterator<nano::block_hash, std::nullptr_t> (transaction_a, tables::pruned);
 }
 
 nano::store_iterator<nano::block_hash, std::nullptr_t> nano::pruned_store_rocksdb::end () const

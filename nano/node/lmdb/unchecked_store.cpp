@@ -38,12 +38,12 @@ nano::store_iterator<nano::unchecked_key, nano::unchecked_info> nano::unchecked_
 
 nano::store_iterator<nano::unchecked_key, nano::unchecked_info> nano::unchecked_store_mdb::begin (nano::transaction const & transaction) const
 {
-	return static_cast<nano::store_partial<MDB_val, mdb_store> &> (store).template make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction, tables::unchecked);
+	return store.make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction, tables::unchecked);
 }
 
 nano::store_iterator<nano::unchecked_key, nano::unchecked_info> nano::unchecked_store_mdb::lower_bound (nano::transaction const & transaction, nano::unchecked_key const & key) const
 {
-	return static_cast<nano::store_partial<MDB_val, mdb_store> &> (store).template make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction, tables::unchecked, key);
+	return store.make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction, tables::unchecked, key);
 }
 
 size_t nano::unchecked_store_mdb::count (nano::transaction const & transaction_a)

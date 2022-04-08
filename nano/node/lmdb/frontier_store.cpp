@@ -34,12 +34,12 @@ void nano::frontier_store_mdb::del (nano::write_transaction const & transaction,
 
 nano::store_iterator<nano::block_hash, nano::account> nano::frontier_store_mdb::begin (nano::transaction const & transaction) const
 {
-	return static_cast<nano::store_partial<MDB_val, mdb_store> &> (store).make_iterator<nano::block_hash, nano::account> (transaction, tables::frontiers);
+	return store.make_iterator<nano::block_hash, nano::account> (transaction, tables::frontiers);
 }
 
 nano::store_iterator<nano::block_hash, nano::account> nano::frontier_store_mdb::begin (nano::transaction const & transaction, nano::block_hash const & hash) const
 {
-	return static_cast<nano::store_partial<MDB_val, mdb_store> &> (store).template make_iterator<nano::block_hash, nano::account> (transaction, tables::frontiers, nano::db_val<MDB_val> (hash));
+	return store.make_iterator<nano::block_hash, nano::account> (transaction, tables::frontiers, nano::db_val<MDB_val> (hash));
 }
 
 nano::store_iterator<nano::block_hash, nano::account> nano::frontier_store_mdb::end () const

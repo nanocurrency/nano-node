@@ -68,12 +68,12 @@ void nano::final_vote_store_rocksdb::clear (nano::write_transaction const & tran
 
 nano::store_iterator<nano::qualified_root, nano::block_hash> nano::final_vote_store_rocksdb::begin (nano::transaction const & transaction, nano::qualified_root const & root) const
 {
-	return static_cast<nano::store_partial<rocksdb::Slice, rocksdb_store> &> (store).template make_iterator<nano::qualified_root, nano::block_hash> (transaction, tables::final_votes, root);
+	return store.make_iterator<nano::qualified_root, nano::block_hash> (transaction, tables::final_votes, root);
 }
 
 nano::store_iterator<nano::qualified_root, nano::block_hash> nano::final_vote_store_rocksdb::begin (nano::transaction const & transaction) const
 {
-	return static_cast<nano::store_partial<rocksdb::Slice, rocksdb_store> &> (store).template make_iterator<nano::qualified_root, nano::block_hash> (transaction, tables::final_votes);
+	return store.make_iterator<nano::qualified_root, nano::block_hash> (transaction, tables::final_votes);
 }
 
 nano::store_iterator<nano::qualified_root, nano::block_hash> nano::final_vote_store_rocksdb::end () const

@@ -37,7 +37,7 @@ void nano::peer_store_mdb::clear (nano::write_transaction const & transaction)
 
 nano::store_iterator<nano::endpoint_key, nano::no_value> nano::peer_store_mdb::begin (nano::transaction const & transaction) const
 {
-	return static_cast<nano::store_partial<MDB_val, mdb_store> &> (store).template make_iterator<nano::endpoint_key, nano::no_value> (transaction, tables::peers);
+	return store.make_iterator<nano::endpoint_key, nano::no_value> (transaction, tables::peers);
 }
 
 nano::store_iterator<nano::endpoint_key, nano::no_value> nano::peer_store_mdb::end () const

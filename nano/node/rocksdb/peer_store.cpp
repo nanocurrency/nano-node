@@ -37,7 +37,7 @@ void nano::peer_store_rocksdb::clear (nano::write_transaction const & transactio
 
 nano::store_iterator<nano::endpoint_key, nano::no_value> nano::peer_store_rocksdb::begin (nano::transaction const & transaction) const
 {
-	return static_cast<nano::store_partial<rocksdb::Slice, rocksdb_store> &> (store).template make_iterator<nano::endpoint_key, nano::no_value> (transaction, tables::peers);
+	return store.make_iterator<nano::endpoint_key, nano::no_value> (transaction, tables::peers);
 }
 
 nano::store_iterator<nano::endpoint_key, nano::no_value> nano::peer_store_rocksdb::end () const

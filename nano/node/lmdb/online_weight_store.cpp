@@ -21,12 +21,12 @@ void nano::online_weight_store_mdb::del (nano::write_transaction const & transac
 
 nano::store_iterator<uint64_t, nano::amount> nano::online_weight_store_mdb::begin (nano::transaction const & transaction) const
 {
-	return static_cast<nano::store_partial<MDB_val, mdb_store> &> (store).template make_iterator<uint64_t, nano::amount> (transaction, tables::online_weight);
+	return store.make_iterator<uint64_t, nano::amount> (transaction, tables::online_weight);
 }
 
 nano::store_iterator<uint64_t, nano::amount> nano::online_weight_store_mdb::rbegin (nano::transaction const & transaction) const
 {
-	return static_cast<nano::store_partial<MDB_val, mdb_store> &> (store).template make_iterator<uint64_t, nano::amount> (transaction, tables::online_weight, false);
+	return store.make_iterator<uint64_t, nano::amount> (transaction, tables::online_weight, false);
 }
 
 nano::store_iterator<uint64_t, nano::amount> nano::online_weight_store_mdb::end () const

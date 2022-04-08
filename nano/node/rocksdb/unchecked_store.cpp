@@ -38,12 +38,12 @@ nano::store_iterator<nano::unchecked_key, nano::unchecked_info> nano::unchecked_
 
 nano::store_iterator<nano::unchecked_key, nano::unchecked_info> nano::unchecked_store_rocksdb::begin (nano::transaction const & transaction) const
 {
-	return static_cast<nano::store_partial<rocksdb::Slice, rocksdb_store> &> (store).template make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction, tables::unchecked);
+	return store.make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction, tables::unchecked);
 }
 
 nano::store_iterator<nano::unchecked_key, nano::unchecked_info> nano::unchecked_store_rocksdb::lower_bound (nano::transaction const & transaction, nano::unchecked_key const & key) const
 {
-	return static_cast<nano::store_partial<rocksdb::Slice, rocksdb_store> &> (store).template make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction, tables::unchecked, key);
+	return store.make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction, tables::unchecked, key);
 }
 
 size_t nano::unchecked_store_rocksdb::count (nano::transaction const & transaction_a)

@@ -9,14 +9,14 @@ store{ store }
 
 void nano::frontier_store_rocksdb::put (nano::write_transaction const & transaction, nano::block_hash const & block, nano::account const & account)
 {
-	auto status = store.put (transaction, tables::frontiers, block, nano::db_val<rocksdb::Slice> (account));
+	auto status = store.put (transaction, tables::frontiers, block, account);
 	release_assert_success (store, status);
 }
 
 nano::account nano::frontier_store_rocksdb::get (nano::transaction const & transaction, nano::block_hash const & hash) const
 {
 	nano::db_val<rocksdb::Slice> value;
-	auto status = store.get (transaction, tables::frontiers, nano::db_val<rocksdb::Slice>{ hash }, value);
+	auto status = store.get (transaction, tables::frontiers, hash, value);
 	release_assert (store.success (status) || store.not_found (status));
 	nano::account result{};
 	if (store.success (status))
@@ -34,12 +34,12 @@ void nano::frontier_store_rocksdb::del (nano::write_transaction const & transact
 
 nano::store_iterator<nano::block_hash, nano::account> nano::frontier_store_rocksdb::begin (nano::transaction const & transaction) const
 {
-	return static_cast<nano::store_partial<rocksdb::Slice, rocksdb_store> &> (store).template make_iterator<nano::block_hash, nano::account> (transaction, tables::frontiers);
+	return store.make_iterator<nano::block_hash, nano::account> (transaction, tables::frontiers);
 }
 
 nano::store_iterator<nano::block_hash, nano::account> nano::frontier_store_rocksdb::begin (nano::transaction const & transaction, nano::block_hash const & hash) const
 {
-	return static_cast<nano::store_partial<rocksdb::Slice, rocksdb_store> &> (store).template make_iterator<nano::block_hash, nano::account> (transaction, tables::frontiers, nano::db_val<rocksdb::Slice> (hash));
+	return store.make_iterator<nano::block_hash, nano::account> (transaction, tables::frontiers, hash);
 }
 
 nano::store_iterator<nano::block_hash, nano::account> nano::frontier_store_rocksdb::end () const

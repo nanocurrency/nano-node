@@ -44,17 +44,17 @@ size_t nano::account_store_mdb::count (nano::transaction const & transaction_a)
 
 nano::store_iterator<nano::account, nano::account_info> nano::account_store_mdb::begin (nano::transaction const & transaction, nano::account const & account) const
 {
-	return static_cast<nano::store_partial<MDB_val, mdb_store> &> (store).template make_iterator<nano::account, nano::account_info> (transaction, tables::accounts, account);
+	return store.make_iterator<nano::account, nano::account_info> (transaction, tables::accounts, account);
 }
 
 nano::store_iterator<nano::account, nano::account_info> nano::account_store_mdb::begin (nano::transaction const & transaction) const
 {
-	return static_cast<nano::store_partial<MDB_val, mdb_store> &> (store).template make_iterator<nano::account, nano::account_info> (transaction, tables::accounts);
+	return store.make_iterator<nano::account, nano::account_info> (transaction, tables::accounts);
 }
 
 nano::store_iterator<nano::account, nano::account_info> nano::account_store_mdb::rbegin (nano::transaction const & transaction_a) const
 {
-	return store.template make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, false);
+	return store.make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, false);
 }
 
 nano::store_iterator<nano::account, nano::account_info> nano::account_store_mdb::end () const

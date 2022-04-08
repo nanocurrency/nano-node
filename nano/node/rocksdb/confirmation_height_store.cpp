@@ -61,12 +61,12 @@ void nano::confirmation_height_store_rocksdb::clear (nano::write_transaction con
 
 nano::store_iterator<nano::account, nano::confirmation_height_info> nano::confirmation_height_store_rocksdb::begin (nano::transaction const & transaction, nano::account const & account) const
 {
-	return static_cast<nano::store_partial<rocksdb::Slice, rocksdb_store> &> (store).template make_iterator<nano::account, nano::confirmation_height_info> (transaction, tables::confirmation_height, account);
+	return store.make_iterator<nano::account, nano::confirmation_height_info> (transaction, tables::confirmation_height, account);
 }
 
 nano::store_iterator<nano::account, nano::confirmation_height_info> nano::confirmation_height_store_rocksdb::begin (nano::transaction const & transaction) const
 {
-	return static_cast<nano::store_partial<rocksdb::Slice, rocksdb_store> &> (store).template make_iterator<nano::account, nano::confirmation_height_info> (transaction, tables::confirmation_height);
+	return store.make_iterator<nano::account, nano::confirmation_height_info> (transaction, tables::confirmation_height);
 }
 
 nano::store_iterator<nano::account, nano::confirmation_height_info> nano::confirmation_height_store_rocksdb::end () const

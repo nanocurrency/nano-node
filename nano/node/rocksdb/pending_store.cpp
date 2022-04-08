@@ -47,12 +47,12 @@ bool nano::pending_store_rocksdb::any (nano::transaction const & transaction_a, 
 
 nano::store_iterator<nano::pending_key, nano::pending_info> nano::pending_store_rocksdb::begin (nano::transaction const & transaction_a, nano::pending_key const & key_a) const
 {
-	return static_cast<nano::store_partial<rocksdb::Slice, rocksdb_store> &> (store).template make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending, key_a);
+	return store.template make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending, key_a);
 }
 
 nano::store_iterator<nano::pending_key, nano::pending_info> nano::pending_store_rocksdb::begin (nano::transaction const & transaction_a) const
 {
-	return static_cast<nano::store_partial<rocksdb::Slice, rocksdb_store> &> (store).template make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending);
+	return store.template make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending);
 }
 
 nano::store_iterator<nano::pending_key, nano::pending_info> nano::pending_store_rocksdb::end () const

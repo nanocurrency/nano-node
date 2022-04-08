@@ -170,12 +170,12 @@ nano::account nano::block_store_mdb::account_calculated (nano::block const & blo
 
 nano::store_iterator<nano::block_hash, nano::block_w_sideband> nano::block_store_mdb::begin (nano::transaction const & transaction) const
 {
-	return static_cast<nano::store_partial<MDB_val, mdb_store> &> (store).template make_iterator<nano::block_hash, nano::block_w_sideband> (transaction, tables::blocks);
+	return store.make_iterator<nano::block_hash, nano::block_w_sideband> (transaction, tables::blocks);
 }
 
 nano::store_iterator<nano::block_hash, nano::block_w_sideband> nano::block_store_mdb::begin (nano::transaction const & transaction, nano::block_hash const & hash) const
 {
-	return static_cast<nano::store_partial<MDB_val, mdb_store> &> (store).template make_iterator<nano::block_hash, nano::block_w_sideband> (transaction, tables::blocks, hash);
+	return store.make_iterator<nano::block_hash, nano::block_w_sideband> (transaction, tables::blocks, hash);
 }
 
 nano::store_iterator<nano::block_hash, nano::block_w_sideband> nano::block_store_mdb::end () const

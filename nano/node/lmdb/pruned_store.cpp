@@ -49,12 +49,12 @@ void nano::pruned_store_mdb::clear (nano::write_transaction const & transaction_
 
 nano::store_iterator<nano::block_hash, std::nullptr_t> nano::pruned_store_mdb::begin (nano::transaction const & transaction, nano::block_hash const & hash) const
 {
-	return static_cast<nano::store_partial<MDB_val, mdb_store> &> (store).template make_iterator<nano::block_hash, std::nullptr_t> (transaction, tables::pruned, hash);
+	return store.make_iterator<nano::block_hash, std::nullptr_t> (transaction, tables::pruned, hash);
 }
 
 nano::store_iterator<nano::block_hash, std::nullptr_t> nano::pruned_store_mdb::begin (nano::transaction const & transaction) const
 {
-	return static_cast<nano::store_partial<MDB_val, mdb_store> &> (store).template make_iterator<nano::block_hash, std::nullptr_t> (transaction, tables::pruned);
+	return store.make_iterator<nano::block_hash, std::nullptr_t> (transaction, tables::pruned);
 }
 
 nano::store_iterator<nano::block_hash, std::nullptr_t> nano::pruned_store_mdb::end () const

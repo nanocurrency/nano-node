@@ -44,17 +44,17 @@ size_t nano::account_store_rocksdb::count (nano::transaction const & transaction
 
 nano::store_iterator<nano::account, nano::account_info> nano::account_store_rocksdb::begin (nano::transaction const & transaction, nano::account const & account) const
 {
-	return static_cast<nano::store_partial<rocksdb::Slice, rocksdb_store> &> (store).template make_iterator<nano::account, nano::account_info> (transaction, tables::accounts, account);
+	return store.make_iterator<nano::account, nano::account_info> (transaction, tables::accounts, account);
 }
 
 nano::store_iterator<nano::account, nano::account_info> nano::account_store_rocksdb::begin (nano::transaction const & transaction) const
 {
-	return static_cast<nano::store_partial<rocksdb::Slice, rocksdb_store> &> (store).template make_iterator<nano::account, nano::account_info> (transaction, tables::accounts);
+	return store.make_iterator<nano::account, nano::account_info> (transaction, tables::accounts);
 }
 
 nano::store_iterator<nano::account, nano::account_info> nano::account_store_rocksdb::rbegin (nano::transaction const & transaction_a) const
 {
-	return store.template make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, false);
+	return store.make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, false);
 }
 
 nano::store_iterator<nano::account, nano::account_info> nano::account_store_rocksdb::end () const

@@ -47,12 +47,12 @@ bool nano::pending_store_mdb::any (nano::transaction const & transaction_a, nano
 
 nano::store_iterator<nano::pending_key, nano::pending_info> nano::pending_store_mdb::begin (nano::transaction const & transaction_a, nano::pending_key const & key_a) const
 {
-	return static_cast<nano::store_partial<MDB_val, mdb_store> &> (store).template make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending, key_a);
+	return store.make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending, key_a);
 }
 
 nano::store_iterator<nano::pending_key, nano::pending_info> nano::pending_store_mdb::begin (nano::transaction const & transaction_a) const
 {
-	return static_cast<nano::store_partial<MDB_val, mdb_store> &> (store).template make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending);
+	return store.make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending);
 }
 
 nano::store_iterator<nano::pending_key, nano::pending_info> nano::pending_store_mdb::end () const
