@@ -13,8 +13,8 @@
 #include <nano/node/rocksdb/peer_store.hpp>
 #include <nano/node/rocksdb/pruned_store.hpp>
 #include <nano/node/rocksdb/unchecked_store.hpp>
+#include <nano/node/rocksdb/version_store.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/store/version_store_partial.hpp>
 #include <nano/secure/store_partial.hpp>
 
 #include <rocksdb/db.h>
@@ -30,16 +30,6 @@ namespace nano
 class logging_mt;
 class rocksdb_config;
 class rocksdb_store;
-
-class version_rocksdb_store : public version_store_partial<rocksdb::Slice, nano::rocksdb_store>
-{
-public:
-	explicit version_rocksdb_store (nano::rocksdb_store &);
-	void version_put (nano::write_transaction const &, int);
-
-private:
-	nano::rocksdb_store & rocksdb_store;
-};
 
 /**
  * rocksdb implementation of the block store
@@ -57,10 +47,10 @@ private:
 	nano::pruned_store_rocksdb pruned_store;
 	nano::peer_store_rocksdb peer_store;
 	nano::final_vote_store_rocksdb final_vote_store;
-	nano::version_rocksdb_store version_rocksdb_store;
+	nano::version_store_rocksdb version_store;
 
 public:
-	friend class nano::version_rocksdb_store;
+	friend class nano::version_store_rocksdb;
 	friend class nano::account_store_rocksdb;
 	friend class nano::confirmation_height_store_rocksdb;
 	friend class nano::frontier_store_rocksdb;

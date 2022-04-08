@@ -13,12 +13,12 @@
 #include <nano/node/lmdb/pruned_store.hpp>
 #include <nano/node/lmdb/online_weight_store.hpp>
 #include <nano/node/lmdb/unchecked_store.hpp>
+#include <nano/node/lmdb/version_store.hpp>
 #include <nano/node/lmdb/lmdb_env.hpp>
 #include <nano/node/lmdb/lmdb_iterator.hpp>
 #include <nano/node/lmdb/lmdb_txn.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/store/block_store_partial.hpp>
-#include <nano/secure/store/version_store_partial.hpp>
 #include <nano/secure/store_partial.hpp>
 #include <nano/secure/versioning.hpp>
 
@@ -58,7 +58,7 @@ private:
 	nano::peer_store_mdb peer_store;
 	nano::confirmation_height_store_mdb confirmation_height_store;
 	nano::final_vote_store_mdb final_vote_store;
-	nano::version_store_partial<MDB_val, mdb_store> version_store_partial;
+	nano::version_store_mdb version_store;
 
 	friend class nano::unchecked_store_mdb;
 	friend class nano::account_store_mdb;
@@ -70,6 +70,7 @@ private:
 	friend class nano::pending_store_mdb;
 	friend class nano::pruned_store_mdb;
 	friend class nano::unchecked_store_mdb;
+	friend class nano::version_store_mdb;
 	
 public:
 	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);

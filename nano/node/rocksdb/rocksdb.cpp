@@ -77,7 +77,7 @@ nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesyste
 		peer_store,
 		confirmation_height_store,
 		final_vote_store,
-		version_rocksdb_store
+		version_store
 	},
 	// clang-format on
 	block_store_partial{ *this },
@@ -90,7 +90,7 @@ nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesyste
 	peer_store{ *this },
 	confirmation_height_store{ *this },
 	final_vote_store{ *this },
-	version_rocksdb_store{ *this },
+	version_store{ *this },
 	logger{ logger_a },
 	constants{ constants },
 	rocksdb_config{ rocksdb_config_a },
@@ -442,15 +442,6 @@ void nano::rocksdb_store::flush_table (nano::tables table_a)
 	db->Flush (rocksdb::FlushOptions{}, table_to_column_family (table_a));
 }
 
-void nano::version_rocksdb_store::version_put (nano::write_transaction const & transaction_a, int version_a)
-{
-	debug_assert (transaction_a.contains (tables::meta));
-	nano::uint256_union version_key (1);
-	nano::uint256_union version_value (version_a);
-	auto status (rocksdb_store.put (transaction_a, tables::meta, version_key, nano::rocksdb_val (version_value)));
-	release_assert (rocksdb_store.success (status));
-}
-
 rocksdb::Transaction * nano::rocksdb_store::tx (nano::transaction const & transaction_a) const
 {
 	debug_assert (!is_read (transaction_a));
@@ -613,10 +604,6 @@ int nano::rocksdb_store::clear (rocksdb::ColumnFamilyHandle * column_family)
 	handle_it->reset (column_family);
 	return status.code ();
 }
-
-nano::version_rocksdb_store::version_rocksdb_store (nano::rocksdb_store & rocksdb_store_a) :
-	nano::version_store_partial<rocksdb::Slice, nano::rocksdb_store> (rocksdb_store_a),
-	rocksdb_store{ rocksdb_store_a } {};
 
 void nano::rocksdb_store::construct_column_family_mutexes ()
 {

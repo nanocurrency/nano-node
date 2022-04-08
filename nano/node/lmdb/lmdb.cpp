@@ -54,7 +54,7 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 		peer_store,
 		confirmation_height_store,
 		final_vote_store,
-		version_store_partial
+		version_store
 	},
 	// clang-format on
 	block_store_partial{ *this },
@@ -67,7 +67,7 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 	confirmation_height_store{ *this },
 	final_vote_store{ *this },
 	unchecked_store{ *this },
-	version_store_partial{ *this },
+	version_store{ *this },
 	logger (logger_a),
 	env (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
 	mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),

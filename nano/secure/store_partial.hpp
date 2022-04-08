@@ -7,7 +7,6 @@
 #include <nano/secure/buffer.hpp>
 #include <nano/secure/store.hpp>
 #include <nano/secure/store/block_store_partial.hpp>
-#include <nano/secure/store/version_store_partial.hpp>
 
 #include <crypto/cryptopp/words.h>
 
@@ -26,19 +25,13 @@ template <typename Val, typename Derived_Store>
 class block_predecessor_set;
 
 template <typename Val, typename Derived_Store>
-void release_assert_success (store_partial<Val, Derived_Store> const & store, int const status)
-{
-	if (!store.success (status))
-	{
-		release_assert (false, store.error_string (status));
-	}
-}
-
-template <typename Val, typename Derived_Store>
 class block_store_partial;
 
 template <typename Val, typename Derived_Store>
-class version_store_partial;
+class store_partial;
+
+template <typename Val, typename Derived_Store>
+void release_assert_success (store_partial<Val, Derived_Store> const & store, int const status);
 
 /** This base class implements the store interface functions which have DB agnostic functionality. It also maps all the store classes. */
 template <typename Val, typename Derived_Store>
@@ -46,7 +39,6 @@ class store_partial : public store
 {
 	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, int const);
 	friend class nano::block_store_partial<Val, Derived_Store>;
-	friend class nano::version_store_partial<Val, Derived_Store>;
 
 public:
 	// clang-format off
@@ -62,7 +54,7 @@ public:
 		nano::peer_store & peer_store_a,
 		nano::confirmation_height_store & confirmation_height_store_a,
 		nano::final_vote_store & final_vote_store_a,
-		nano::version_store_partial<Val, Derived_Store> & version_store_partial_a) :
+		nano::version_store & version_store_a) :
 		constants{ constants },
 		store{
 			block_store_partial_a,
@@ -75,7 +67,7 @@ public:
 			peer_store_a,
 			confirmation_height_store_a,
 			final_vote_store_a,
-			version_store_partial_a
+			version_store_a
 		}
 	{}
 	// clang-format on
@@ -166,6 +158,15 @@ protected:
 	virtual int status_code_not_found () const = 0;
 	virtual std::string error_string (int status) const = 0;
 };
+
+template <typename Val, typename Derived_Store>
+void release_assert_success (store_partial<Val, Derived_Store> const & store, int const status)
+{
+	if (!store.success (status))
+	{
+		release_assert (false, store.error_string (status));
+	}
+}
 }
 
 namespace

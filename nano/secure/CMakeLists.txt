@@ -54,9 +54,7 @@ add_library(
   versioning.hpp
   versioning.cpp
   working.hpp
-  store/block_store_partial.hpp
-  store/final_vote_store_partial.hpp
-  store/version_store_partial.hpp)
+  store/block_store_partial.hpp)
 
 target_link_libraries(
   secure

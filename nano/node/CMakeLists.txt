@@ -98,6 +98,8 @@ add_library(
   lmdb/pending_store.cpp
   lmdb/pruned_store.hpp
   lmdb/pruned_store.cpp
+  lmdb/version_store.hpp
+  lmdb/version_store.cpp
   lmdb/unchecked_store.hpp
   lmdb/unchecked_store.cpp
   lmdb/lmdb.hpp
@@ -157,6 +159,8 @@ add_library(
   rocksdb/pruned_store.cpp
   rocksdb/unchecked_store.hpp
   rocksdb/unchecked_store.cpp
+  rocksdb/version_store.hpp
+  rocksdb/version_store.cpp
   rocksdb/rocksdb.hpp
   rocksdb/rocksdb.cpp
   rocksdb/rocksdb_iterator.hpp
