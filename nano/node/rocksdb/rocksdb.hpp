@@ -5,6 +5,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/node/rocksdb/account_store.hpp>
 #include <nano/node/rocksdb/confirmation_height_store.hpp>
+#include <nano/node/rocksdb/final_vote_store.hpp>
 #include <nano/node/rocksdb/frontier_store.hpp>
 #include <nano/node/rocksdb/pending_store.hpp>
 #include <nano/node/rocksdb/rocksdb_iterator.hpp>
@@ -13,7 +14,6 @@
 #include <nano/node/rocksdb/pruned_store.hpp>
 #include <nano/node/rocksdb/unchecked_store.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/store/final_vote_store_partial.hpp>
 #include <nano/secure/store/version_store_partial.hpp>
 #include <nano/secure/store_partial.hpp>
 
@@ -56,7 +56,7 @@ private:
 	nano::online_weight_store_rocksdb online_weight_store;
 	nano::pruned_store_rocksdb pruned_store;
 	nano::peer_store_rocksdb peer_store;
-	nano::final_vote_store_partial<rocksdb::Slice, rocksdb_store> final_vote_store_partial;
+	nano::final_vote_store_rocksdb final_vote_store;
 	nano::version_rocksdb_store version_rocksdb_store;
 
 public:
@@ -64,6 +64,7 @@ public:
 	friend class nano::account_store_rocksdb;
 	friend class nano::confirmation_height_store_rocksdb;
 	friend class nano::frontier_store_rocksdb;
+	friend class nano::final_vote_store_rocksdb;
 	friend class nano::online_weight_store_rocksdb;
 	friend class nano::peer_store_rocksdb;
 	friend class nano::pending_store_rocksdb;

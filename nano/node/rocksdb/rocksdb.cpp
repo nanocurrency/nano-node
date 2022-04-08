@@ -76,7 +76,7 @@ nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesyste
 		pruned_store,
 		peer_store,
 		confirmation_height_store,
-		final_vote_store_partial,
+		final_vote_store,
 		version_rocksdb_store
 	},
 	// clang-format on
@@ -89,7 +89,7 @@ nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesyste
 	pruned_store{ *this },
 	peer_store{ *this },
 	confirmation_height_store{ *this },
-	final_vote_store_partial{ *this },
+	final_vote_store{ *this },
 	version_rocksdb_store{ *this },
 	logger{ logger_a },
 	constants{ constants },

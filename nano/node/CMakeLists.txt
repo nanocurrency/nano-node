@@ -86,6 +86,8 @@ add_library(
   lmdb/account_store.cpp
   lmdb/confirmation_height_store.hpp
   lmdb/confirmation_height_store.cpp
+  lmdb/final_vote_store.hpp
+  lmdb/final_vote_store.cpp
   lmdb/frontier_store.hpp
   lmdb/frontier_store.cpp
   lmdb/online_weight_store.hpp
@@ -141,6 +143,8 @@ add_library(
   rocksdb/account_store.cpp
   rocksdb/confirmation_height_store.hpp
   rocksdb/confirmation_height_store.cpp
+  rocksdb/final_vote_store.hpp
+  rocksdb/final_vote_store.cpp
   rocksdb/frontier_store.hpp
   rocksdb/frontier_store.cpp
   rocksdb/online_weight_store.hpp

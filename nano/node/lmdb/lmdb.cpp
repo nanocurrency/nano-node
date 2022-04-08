@@ -53,7 +53,7 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 		pruned_store,
 		peer_store,
 		confirmation_height_store,
-		final_vote_store_partial,
+		final_vote_store,
 		version_store_partial
 	},
 	// clang-format on
@@ -65,7 +65,7 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 	pruned_store{ *this },
 	peer_store{ *this },
 	confirmation_height_store{ *this },
-	final_vote_store_partial{ *this },
+	final_vote_store{ *this },
 	unchecked_store{ *this },
 	version_store_partial{ *this },
 	logger (logger_a),
