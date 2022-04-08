@@ -5,6 +5,7 @@
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/lmdb/account_store.hpp>
+#include <nano/node/lmdb/block_store.hpp>
 #include <nano/node/lmdb/confirmation_height_store.hpp>
 #include <nano/node/lmdb/final_vote_store.hpp>
 #include <nano/node/lmdb/frontier_store.hpp>
@@ -18,7 +19,6 @@
 #include <nano/node/lmdb/lmdb_iterator.hpp>
 #include <nano/node/lmdb/lmdb_txn.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/store/block_store_partial.hpp>
 #include <nano/secure/store_partial.hpp>
 #include <nano/secure/versioning.hpp>
 
@@ -48,7 +48,7 @@ class transaction;
 class mdb_store : public store_partial<MDB_val, mdb_store>
 {
 private:
-	nano::block_store_partial<MDB_val, mdb_store> block_store_partial;
+	nano::block_store_mdb block_store;
 	nano::frontier_store_mdb frontier_store;
 	nano::account_store_mdb account_store;
 	nano::pending_store_mdb pending_store;
@@ -60,8 +60,8 @@ private:
 	nano::final_vote_store_mdb final_vote_store;
 	nano::version_store_mdb version_store;
 
-	friend class nano::unchecked_store_mdb;
 	friend class nano::account_store_mdb;
+	friend class nano::block_store_mdb;
 	friend class nano::confirmation_height_store_mdb;
 	friend class nano::final_vote_store_mdb;
 	friend class nano::frontier_store_mdb;

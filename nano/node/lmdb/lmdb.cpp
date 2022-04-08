@@ -44,7 +44,7 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 	// clang-format off
 	store_partial{
 		constants,
-		block_store_partial,
+		block_store,
 		frontier_store,
 		account_store,
 		pending_store,
@@ -57,7 +57,7 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 		version_store
 	},
 	// clang-format on
-	block_store_partial{ *this },
+	block_store{ *this },
 	frontier_store{ *this },
 	account_store{ *this },
 	pending_store{ *this },

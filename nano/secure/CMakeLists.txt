@@ -53,8 +53,7 @@ add_library(
   utility.cpp
   versioning.hpp
   versioning.cpp
-  working.hpp
-  store/block_store_partial.hpp)
+  working.hpp)
 
 target_link_libraries(
   secure

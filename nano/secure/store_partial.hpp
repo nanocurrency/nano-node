@@ -6,8 +6,6 @@
 #include <nano/lib/timer.hpp>
 #include <nano/secure/buffer.hpp>
 #include <nano/secure/store.hpp>
-#include <nano/secure/store/block_store_partial.hpp>
-
 #include <crypto/cryptopp/words.h>
 
 #include <thread>
@@ -22,12 +20,6 @@ void parallel_traversal (std::function<void (T const &, T const &, bool const)> 
 namespace nano
 {
 template <typename Val, typename Derived_Store>
-class block_predecessor_set;
-
-template <typename Val, typename Derived_Store>
-class block_store_partial;
-
-template <typename Val, typename Derived_Store>
 class store_partial;
 
 template <typename Val, typename Derived_Store>
@@ -38,13 +30,12 @@ template <typename Val, typename Derived_Store>
 class store_partial : public store
 {
 	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, int const);
-	friend class nano::block_store_partial<Val, Derived_Store>;
 
 public:
 	// clang-format off
 	store_partial (
 		nano::ledger_constants & constants,
-		nano::block_store_partial<Val, Derived_Store> & block_store_partial_a,
+		nano::block_store & block_store_a,
 		nano::frontier_store & frontier_store_a,
 		nano::account_store & account_store_a,
 		nano::pending_store & pending_store_a,
@@ -57,7 +48,7 @@ public:
 		nano::version_store & version_store_a) :
 		constants{ constants },
 		store{
-			block_store_partial_a,
+			block_store_a,
 			frontier_store_a,
 			account_store_a,
 			pending_store_a,
