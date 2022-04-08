@@ -84,6 +84,8 @@ add_library(
   ledger_walker.cpp
   lmdb/account_store.hpp
   lmdb/account_store.cpp
+  lmdb/confirmation_height_store.hpp
+  lmdb/confirmation_height_store.cpp
   lmdb/frontier_store.hpp
   lmdb/frontier_store.cpp
   lmdb/online_weight_store.hpp
@@ -137,6 +139,8 @@ add_library(
   request_aggregator.cpp
   rocksdb/account_store.hpp
   rocksdb/account_store.cpp
+  rocksdb/confirmation_height_store.hpp
+  rocksdb/confirmation_height_store.cpp
   rocksdb/frontier_store.hpp
   rocksdb/frontier_store.cpp
   rocksdb/online_weight_store.hpp
