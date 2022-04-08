@@ -1,5 +1,4 @@
 #include <nano/node/lmdb/account_store.hpp>
-
 #include <nano/node/lmdb/lmdb.hpp>
 
 nano::account_store_mdb::account_store_mdb (nano::mdb_store & store_a) :

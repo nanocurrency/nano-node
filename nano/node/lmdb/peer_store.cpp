@@ -1,11 +1,8 @@
+#include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/peer_store.hpp>
 
-#include <nano/node/lmdb/lmdb.hpp>
-
 nano::peer_store_mdb::peer_store_mdb (nano::mdb_store & store) :
-	store{ store }
-{
-};
+	store{ store } {};
 
 void nano::peer_store_mdb::put (nano::write_transaction const & transaction, nano::endpoint_key const & endpoint)
 {

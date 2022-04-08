@@ -1,11 +1,8 @@
 #include <nano/node/rocksdb/pruned_store.hpp>
-
 #include <nano/node/rocksdb/rocksdb.hpp>
 
 nano::pruned_store_rocksdb::pruned_store_rocksdb (nano::rocksdb_store & store_a) :
-	store{ store_a }
-{
-};
+	store{ store_a } {};
 
 void nano::pruned_store_rocksdb::put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {
@@ -70,4 +67,3 @@ void nano::pruned_store_rocksdb::for_each_par (std::function<void (nano::read_tr
 		action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end ());
 	});
 }
-

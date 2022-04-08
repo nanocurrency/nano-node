@@ -8,11 +8,11 @@
 #include <nano/node/rocksdb/confirmation_height_store.hpp>
 #include <nano/node/rocksdb/final_vote_store.hpp>
 #include <nano/node/rocksdb/frontier_store.hpp>
-#include <nano/node/rocksdb/pending_store.hpp>
-#include <nano/node/rocksdb/rocksdb_iterator.hpp>
 #include <nano/node/rocksdb/online_weight_store.hpp>
 #include <nano/node/rocksdb/peer_store.hpp>
+#include <nano/node/rocksdb/pending_store.hpp>
 #include <nano/node/rocksdb/pruned_store.hpp>
+#include <nano/node/rocksdb/rocksdb_iterator.hpp>
 #include <nano/node/rocksdb/unchecked_store.hpp>
 #include <nano/node/rocksdb/version_store.hpp>
 #include <nano/secure/common.hpp>

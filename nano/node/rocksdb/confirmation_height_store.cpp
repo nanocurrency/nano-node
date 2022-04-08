@@ -1,5 +1,4 @@
 #include <nano/node/rocksdb/confirmation_height_store.hpp>
-
 #include <nano/node/rocksdb/rocksdb.hpp>
 
 nano::confirmation_height_store_rocksdb::confirmation_height_store_rocksdb (nano::rocksdb_store & store) :

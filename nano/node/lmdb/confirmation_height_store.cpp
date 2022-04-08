@@ -1,5 +1,4 @@
 #include <nano/node/lmdb/confirmation_height_store.hpp>
-
 #include <nano/node/lmdb/lmdb.hpp>
 
 nano::confirmation_height_store_mdb::confirmation_height_store_mdb (nano::mdb_store & store) :

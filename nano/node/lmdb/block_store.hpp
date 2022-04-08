@@ -13,7 +13,6 @@ class block_store_mdb : public block_store
 	nano::mdb_store & store;
 
 public:
-
 	explicit block_store_mdb (nano::mdb_store & store_a);
 	void put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a) override;
 	void raw_put (nano::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_hash const & hash_a) override;

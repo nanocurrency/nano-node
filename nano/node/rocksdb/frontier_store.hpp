@@ -8,7 +8,7 @@ class rocksdb_store;
 class frontier_store_rocksdb : public frontier_store
 {
 public:
-	frontier_store_rocksdb(nano::rocksdb_store & store);
+	frontier_store_rocksdb (nano::rocksdb_store & store);
 	void put (nano::write_transaction const &, nano::block_hash const &, nano::account const &) override;
 	nano::account get (nano::transaction const &, nano::block_hash const &) const override;
 	void del (nano::write_transaction const &, nano::block_hash const &) override;
@@ -16,9 +16,9 @@ public:
 	nano::store_iterator<nano::block_hash, nano::account> begin (nano::transaction const &, nano::block_hash const &) const override;
 	nano::store_iterator<nano::block_hash, nano::account> end () const override;
 	void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, nano::account>, nano::store_iterator<nano::block_hash, nano::account>)> const & action_a) const override;
+
 private:
 	nano::rocksdb_store & store;
 };
 
 }
-

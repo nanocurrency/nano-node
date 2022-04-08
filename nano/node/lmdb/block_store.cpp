@@ -1,5 +1,4 @@
 #include <nano/node/lmdb/block_store.hpp>
-
 #include <nano/node/lmdb/lmdb.hpp>
 
 namespace nano
@@ -23,11 +22,8 @@ public:
 };
 }
 
-
 nano::block_store_mdb::block_store_mdb (nano::mdb_store & store_a) :
-	store{ store_a }
-{
-};
+	store{ store_a } {};
 
 void nano::block_store_mdb::put (nano::write_transaction const & transaction, nano::block_hash const & hash, nano::block const & block)
 {

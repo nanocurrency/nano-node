@@ -1,9 +1,8 @@
 #include <nano/node/rocksdb/frontier_store.hpp>
-
 #include <nano/node/rocksdb/rocksdb.hpp>
 
 nano::frontier_store_rocksdb::frontier_store_rocksdb (nano::rocksdb_store & store) :
-store{ store }
+	store{ store }
 {
 }
 
@@ -55,4 +54,3 @@ void nano::frontier_store_rocksdb::for_each_par (std::function<void (nano::read_
 		action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end ());
 	});
 }
-

@@ -1,5 +1,4 @@
 #include <nano/node/lmdb/unchecked_store.hpp>
-
 #include <nano/node/rocksdb/rocksdb.hpp>
 
 nano::unchecked_store_rocksdb::unchecked_store_rocksdb (nano::rocksdb_store & store_a) :

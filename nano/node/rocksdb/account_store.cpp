@@ -1,5 +1,4 @@
 #include <nano/node/rocksdb/account_store.hpp>
-
 #include <nano/node/rocksdb/rocksdb.hpp>
 
 nano::account_store_rocksdb::account_store_rocksdb (nano::rocksdb_store & store_a) :

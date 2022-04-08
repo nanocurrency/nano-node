@@ -1,9 +1,8 @@
 #include <nano/node/lmdb/frontier_store.hpp>
-
 #include <nano/node/lmdb/lmdb.hpp>
 
 nano::frontier_store_mdb::frontier_store_mdb (nano::mdb_store & store) :
-store{ store }
+	store{ store }
 {
 }
 

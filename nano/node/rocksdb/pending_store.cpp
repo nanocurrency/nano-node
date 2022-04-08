@@ -1,11 +1,8 @@
 #include <nano/node/lmdb/pending_store.hpp>
-
 #include <nano/node/rocksdb/rocksdb.hpp>
 
 nano::pending_store_rocksdb::pending_store_rocksdb (nano::rocksdb_store & store) :
-	store{ store }
-{
-};
+	store{ store } {};
 
 void nano::pending_store_rocksdb::put (nano::write_transaction const & transaction, nano::pending_key const & key, nano::pending_info const & pending)
 {

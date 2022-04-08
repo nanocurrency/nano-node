@@ -1,11 +1,8 @@
 #include <nano/node/rocksdb/final_vote_store.hpp>
-
 #include <nano/node/rocksdb/rocksdb.hpp>
 
 nano::final_vote_store_rocksdb::final_vote_store_rocksdb (nano::rocksdb_store & store) :
-	store{ store }
-{
-};
+	store{ store } {};
 
 bool nano::final_vote_store_rocksdb::put (nano::write_transaction const & transaction, nano::qualified_root const & root, nano::block_hash const & hash)
 {

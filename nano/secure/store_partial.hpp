@@ -6,6 +6,7 @@
 #include <nano/lib/timer.hpp>
 #include <nano/secure/buffer.hpp>
 #include <nano/secure/store.hpp>
+
 #include <crypto/cryptopp/words.h>
 
 #include <thread>

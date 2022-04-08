@@ -1,6 +1,5 @@
-#include <nano/node/lmdb/unchecked_store.hpp>
-
 #include <nano/node/lmdb/lmdb.hpp>
+#include <nano/node/lmdb/unchecked_store.hpp>
 
 nano::unchecked_store_mdb::unchecked_store_mdb (nano::mdb_store & store_a) :
 	store (store_a){};

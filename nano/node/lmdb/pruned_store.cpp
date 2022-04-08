@@ -1,11 +1,8 @@
+#include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/pruned_store.hpp>
 
-#include <nano/node/lmdb/lmdb.hpp>
-
 nano::pruned_store_mdb::pruned_store_mdb (nano::mdb_store & store_a) :
-	store{ store_a }
-{
-};
+	store{ store_a } {};
 
 void nano::pruned_store_mdb::put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {

@@ -1,11 +1,8 @@
+#include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/pending_store.hpp>
 
-#include <nano/node/lmdb/lmdb.hpp>
-
 nano::pending_store_mdb::pending_store_mdb (nano::mdb_store & store) :
-	store{ store }
-{
-};
+	store{ store } {};
 
 void nano::pending_store_mdb::put (nano::write_transaction const & transaction, nano::pending_key const & key, nano::pending_info const & pending)
 {

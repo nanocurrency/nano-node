@@ -1,16 +1,13 @@
+#include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/version_store.hpp>
 
-#include <nano/node/lmdb/lmdb.hpp>
-
 nano::version_store_mdb::version_store_mdb (nano::mdb_store & store_a) :
-	store{ store_a }
-{
-};
+	store{ store_a } {};
 
 void nano::version_store_mdb::put (nano::write_transaction const & transaction_a, int version)
 {
 	nano::uint256_union version_key{ 1 };
-	nano::uint256_union version_value(version);
+	nano::uint256_union version_value (version);
 	auto status = store.put (transaction_a, tables::meta, version_key, version_value);
 	release_assert_success (store, status);
 }

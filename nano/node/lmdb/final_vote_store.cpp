@@ -1,11 +1,8 @@
 #include <nano/node/lmdb/final_vote_store.hpp>
-
 #include <nano/node/lmdb/lmdb.hpp>
 
 nano::final_vote_store_mdb::final_vote_store_mdb (nano::mdb_store & store) :
-	store{ store }
-{
-};
+	store{ store } {};
 
 bool nano::final_vote_store_mdb::put (nano::write_transaction const & transaction, nano::qualified_root const & root, nano::block_hash const & hash)
 {

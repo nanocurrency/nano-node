@@ -1,5 +1,4 @@
 #include <nano/node/rocksdb/block_store.hpp>
-
 #include <nano/node/rocksdb/rocksdb.hpp>
 
 namespace nano
@@ -23,11 +22,8 @@ public:
 };
 }
 
-
 nano::block_store_rocksdb::block_store_rocksdb (nano::rocksdb_store & store_a) :
-	store{ store_a }
-{
-};
+	store{ store_a } {};
 
 void nano::block_store_rocksdb::put (nano::write_transaction const & transaction, nano::block_hash const & hash, nano::block const & block)
 {
