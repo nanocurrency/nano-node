@@ -38,30 +38,30 @@ class rocksdb_store;
 class rocksdb_store : public store_partial<::rocksdb::Slice, rocksdb_store>
 {
 private:
-	nano::block_store_rocksdb block_store;
-	nano::frontier_store_rocksdb frontier_store;
-	nano::account_store_rocksdb account_store;
-	nano::confirmation_height_store_rocksdb confirmation_height_store;
-	nano::pending_store_rocksdb pending_store;
-	nano::unchecked_store_rocksdb unchecked_store;
-	nano::online_weight_store_rocksdb online_weight_store;
-	nano::pruned_store_rocksdb pruned_store;
-	nano::peer_store_rocksdb peer_store;
-	nano::final_vote_store_rocksdb final_vote_store;
-	nano::version_store_rocksdb version_store;
+	nano::rocksdb::account_store account_store;
+	nano::rocksdb::block_store block_store;
+	nano::rocksdb::confirmation_height_store confirmation_height_store;
+	nano::rocksdb::final_vote_store final_vote_store;
+	nano::rocksdb::frontier_store frontier_store;
+	nano::rocksdb::online_weight_store online_weight_store;
+	nano::rocksdb::peer_store peer_store;
+	nano::rocksdb::pending_store pending_store;
+	nano::rocksdb::pruned_store pruned_store;
+	nano::rocksdb::unchecked_store unchecked_store;
+	nano::rocksdb::version_store version_store;
 
 public:
-	friend class nano::account_store_rocksdb;
-	friend class nano::block_store_rocksdb;
-	friend class nano::confirmation_height_store_rocksdb;
-	friend class nano::frontier_store_rocksdb;
-	friend class nano::final_vote_store_rocksdb;
-	friend class nano::online_weight_store_rocksdb;
-	friend class nano::peer_store_rocksdb;
-	friend class nano::pending_store_rocksdb;
-	friend class nano::pruned_store_rocksdb;
-	friend class nano::unchecked_store_rocksdb;
-	friend class nano::version_store_rocksdb;
+	friend class nano::rocksdb::account_store;
+	friend class nano::rocksdb::block_store;
+	friend class nano::rocksdb::confirmation_height_store;
+	friend class nano::rocksdb::final_vote_store;
+	friend class nano::rocksdb::frontier_store;
+	friend class nano::rocksdb::online_weight_store;
+	friend class nano::rocksdb::peer_store;
+	friend class nano::rocksdb::pending_store;
+	friend class nano::rocksdb::pruned_store;
+	friend class nano::rocksdb::unchecked_store;
+	friend class nano::rocksdb::version_store;
 
 	explicit rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
 

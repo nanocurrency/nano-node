@@ -1,10 +1,10 @@
 #include <nano/node/rocksdb/rocksdb.hpp>
 #include <nano/node/rocksdb/version_store.hpp>
 
-nano::version_store_rocksdb::version_store_rocksdb (nano::rocksdb_store & store_a) :
+nano::rocksdb::version_store::version_store (nano::rocksdb_store & store_a) :
 	store{ store_a } {};
 
-void nano::version_store_rocksdb::put (nano::write_transaction const & transaction_a, int version)
+void nano::rocksdb::version_store::put (nano::write_transaction const & transaction_a, int version)
 {
 	nano::uint256_union version_key{ 1 };
 	nano::uint256_union version_value (version);
@@ -12,7 +12,7 @@ void nano::version_store_rocksdb::put (nano::write_transaction const & transacti
 	release_assert_success (store, status);
 }
 
-int nano::version_store_rocksdb::get (nano::transaction const & transaction_a) const
+int nano::rocksdb::version_store::get (nano::transaction const & transaction_a) const
 {
 	nano::uint256_union version_key{ 1 };
 	nano::rocksdb_val data;

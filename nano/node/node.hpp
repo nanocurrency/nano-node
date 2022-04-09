@@ -43,7 +43,9 @@
 
 namespace nano
 {
-namespace rocksdb{} // Declare a namespace rocksdb inside nano so all references to the rocksdb library need to be globally scoped e.g. ::rocksdb::Slice
+namespace rocksdb
+{
+} // Declare a namespace rocksdb inside nano so all references to the rocksdb library need to be globally scoped e.g. ::rocksdb::Slice
 namespace websocket
 {
 	class listener;
