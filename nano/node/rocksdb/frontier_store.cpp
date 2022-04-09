@@ -14,7 +14,7 @@ void nano::frontier_store_rocksdb::put (nano::write_transaction const & transact
 
 nano::account nano::frontier_store_rocksdb::get (nano::transaction const & transaction, nano::block_hash const & hash) const
 {
-	nano::db_val<rocksdb::Slice> value;
+	nano::db_val<::rocksdb::Slice> value;
 	auto status = store.get (transaction, tables::frontiers, hash, value);
 	release_assert (store.success (status) || store.not_found (status));
 	nano::account result{};

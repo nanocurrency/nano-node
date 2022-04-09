@@ -7,7 +7,7 @@
 namespace nano
 {
 class rocksdb_store;
-using rocksdb_val = db_val<rocksdb::Slice>;
+using rocksdb_val = db_val<::rocksdb::Slice>;
 class block_predecessor_rocksdb_set;
 class block_store_rocksdb : public block_store
 {

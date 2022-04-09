@@ -25,7 +25,7 @@ inline rocksdb::ReadOptions & snapshot_options (nano::transaction const & transa
 
 namespace nano
 {
-using rocksdb_val = db_val<rocksdb::Slice>;
+using rocksdb_val = db_val<::rocksdb::Slice>;
 
 template <typename T, typename U>
 class rocksdb_iterator : public store_iterator_impl<T, U>
@@ -33,7 +33,7 @@ class rocksdb_iterator : public store_iterator_impl<T, U>
 public:
 	rocksdb_iterator () = default;
 
-	rocksdb_iterator (rocksdb::DB * db, nano::transaction const & transaction_a, rocksdb::ColumnFamilyHandle * handle_a, rocksdb_val const * val_a, bool const direction_asc)
+	rocksdb_iterator (::rocksdb::DB * db, nano::transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * handle_a, rocksdb_val const * val_a, bool const direction_asc)
 	{
 		// Don't fill the block cache for any blocks read as a result of an iterator
 		if (is_read (transaction_a))
@@ -44,7 +44,7 @@ public:
 		}
 		else
 		{
-			rocksdb::ReadOptions ropts;
+			::rocksdb::ReadOptions ropts;
 			ropts.fill_cache = false;
 			cursor.reset (tx (transaction_a)->GetIterator (ropts, handle_a));
 		}
@@ -73,7 +73,7 @@ public:
 		}
 	}
 
-	rocksdb_iterator (rocksdb::DB * db, nano::transaction const & transaction_a, rocksdb::ColumnFamilyHandle * handle_a) :
+	rocksdb_iterator (::rocksdb::DB * db, nano::transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * handle_a) :
 		rocksdb_iterator (db, transaction_a, handle_a, nullptr)
 	{
 	}
@@ -194,13 +194,13 @@ public:
 	}
 	nano::store_iterator_impl<T, U> & operator= (nano::store_iterator_impl<T, U> const &) = delete;
 
-	std::unique_ptr<rocksdb::Iterator> cursor;
+	std::unique_ptr<::rocksdb::Iterator> cursor;
 	std::pair<nano::rocksdb_val, nano::rocksdb_val> current;
 
 private:
-	rocksdb::Transaction * tx (nano::transaction const & transaction_a) const
+	::rocksdb::Transaction * tx (nano::transaction const & transaction_a) const
 	{
-		return static_cast<rocksdb::Transaction *> (transaction_a.get_handle ());
+		return static_cast<::rocksdb::Transaction *> (transaction_a.get_handle ());
 	}
 };
 }
