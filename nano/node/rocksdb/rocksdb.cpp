@@ -67,30 +67,30 @@ nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesyste
 	// clang-format off
 	store_partial{
 		constants,
-		block_store_partial,
-		frontier_store_partial,
-		account_store_partial,
-		pending_store_partial,
-		unchecked_rocksdb_store,
-		online_weight_store_partial,
-		pruned_store_partial,
-		peer_store_partial,
-		confirmation_height_store_partial,
-		final_vote_store_partial,
-		version_rocksdb_store
+		block_store,
+		frontier_store,
+		account_store,
+		pending_store,
+		unchecked_store,
+		online_weight_store,
+		pruned_store,
+		peer_store,
+		confirmation_height_store,
+		final_vote_store,
+		version_store
 	},
 	// clang-format on
-	block_store_partial{ *this },
-	frontier_store_partial{ *this },
-	account_store_partial{ *this },
-	pending_store_partial{ *this },
-	unchecked_rocksdb_store{ *this },
-	online_weight_store_partial{ *this },
-	pruned_store_partial{ *this },
-	peer_store_partial{ *this },
-	confirmation_height_store_partial{ *this },
-	final_vote_store_partial{ *this },
-	version_rocksdb_store{ *this },
+	block_store{ *this },
+	frontier_store{ *this },
+	account_store{ *this },
+	pending_store{ *this },
+	unchecked_store{ *this },
+	online_weight_store{ *this },
+	pruned_store{ *this },
+	peer_store{ *this },
+	confirmation_height_store{ *this },
+	final_vote_store{ *this },
+	version_store{ *this },
 	logger{ logger_a },
 	constants{ constants },
 	rocksdb_config{ rocksdb_config_a },
@@ -442,15 +442,6 @@ void nano::rocksdb_store::flush_table (nano::tables table_a)
 	db->Flush (rocksdb::FlushOptions{}, table_to_column_family (table_a));
 }
 
-void nano::version_rocksdb_store::version_put (nano::write_transaction const & transaction_a, int version_a)
-{
-	debug_assert (transaction_a.contains (tables::meta));
-	nano::uint256_union version_key (1);
-	nano::uint256_union version_value (version_a);
-	auto status (rocksdb_store.put (transaction_a, tables::meta, version_key, nano::rocksdb_val (version_value)));
-	release_assert (rocksdb_store.success (status));
-}
-
 rocksdb::Transaction * nano::rocksdb_store::tx (nano::transaction const & transaction_a) const
 {
 	debug_assert (!is_read (transaction_a));
@@ -613,14 +604,6 @@ int nano::rocksdb_store::clear (rocksdb::ColumnFamilyHandle * column_family)
 	handle_it->reset (column_family);
 	return status.code ();
 }
-
-nano::unchecked_rocksdb_store::unchecked_rocksdb_store (nano::rocksdb_store & rocksdb_store_a) :
-	nano::unchecked_store_partial<rocksdb::Slice, nano::rocksdb_store> (rocksdb_store_a),
-	rocksdb_store{ rocksdb_store_a } {};
-
-nano::version_rocksdb_store::version_rocksdb_store (nano::rocksdb_store & rocksdb_store_a) :
-	nano::version_store_partial<rocksdb::Slice, nano::rocksdb_store> (rocksdb_store_a),
-	rocksdb_store{ rocksdb_store_a } {};
 
 void nano::rocksdb_store::construct_column_family_mutexes ()
 {

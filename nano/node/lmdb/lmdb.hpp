@@ -4,21 +4,21 @@
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/node/lmdb/account_store.hpp>
+#include <nano/node/lmdb/block_store.hpp>
+#include <nano/node/lmdb/confirmation_height_store.hpp>
+#include <nano/node/lmdb/final_vote_store.hpp>
+#include <nano/node/lmdb/frontier_store.hpp>
 #include <nano/node/lmdb/lmdb_env.hpp>
 #include <nano/node/lmdb/lmdb_iterator.hpp>
 #include <nano/node/lmdb/lmdb_txn.hpp>
+#include <nano/node/lmdb/online_weight_store.hpp>
+#include <nano/node/lmdb/peer_store.hpp>
+#include <nano/node/lmdb/pending_store.hpp>
+#include <nano/node/lmdb/pruned_store.hpp>
+#include <nano/node/lmdb/unchecked_store.hpp>
+#include <nano/node/lmdb/version_store.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/store/account_store_partial.hpp>
-#include <nano/secure/store/block_store_partial.hpp>
-#include <nano/secure/store/confirmation_height_store_partial.hpp>
-#include <nano/secure/store/final_vote_store_partial.hpp>
-#include <nano/secure/store/frontier_store_partial.hpp>
-#include <nano/secure/store/online_weight_partial.hpp>
-#include <nano/secure/store/peer_store_partial.hpp>
-#include <nano/secure/store/pending_store_partial.hpp>
-#include <nano/secure/store/pruned_store_partial.hpp>
-#include <nano/secure/store/unchecked_store_partial.hpp>
-#include <nano/secure/store/version_store_partial.hpp>
 #include <nano/secure/store_partial.hpp>
 #include <nano/secure/versioning.hpp>
 
@@ -40,12 +40,7 @@ using mdb_val = db_val<MDB_val>;
 
 class logging_mt;
 class mdb_store;
-
-class unchecked_mdb_store : public unchecked_store_partial<MDB_val, mdb_store>
-{
-public:
-	explicit unchecked_mdb_store (nano::mdb_store &);
-};
+class transaction;
 
 /**
  * mdb implementation of the block store
@@ -53,19 +48,29 @@ public:
 class mdb_store : public store_partial<MDB_val, mdb_store>
 {
 private:
-	nano::block_store_partial<MDB_val, mdb_store> block_store_partial;
-	nano::frontier_store_partial<MDB_val, mdb_store> frontier_store_partial;
-	nano::account_store_partial<MDB_val, mdb_store> account_store_partial;
-	nano::pending_store_partial<MDB_val, mdb_store> pending_store_partial;
-	nano::unchecked_mdb_store unchecked_mdb_store;
-	nano::online_weight_store_partial<MDB_val, mdb_store> online_weight_store_partial;
-	nano::pruned_store_partial<MDB_val, mdb_store> pruned_store_partial;
-	nano::peer_store_partial<MDB_val, mdb_store> peer_store_partial;
-	nano::confirmation_height_store_partial<MDB_val, mdb_store> confirmation_height_store_partial;
-	nano::final_vote_store_partial<MDB_val, mdb_store> final_vote_store_partial;
-	nano::version_store_partial<MDB_val, mdb_store> version_store_partial;
+	nano::block_store_mdb block_store;
+	nano::frontier_store_mdb frontier_store;
+	nano::account_store_mdb account_store;
+	nano::pending_store_mdb pending_store;
+	nano::unchecked_store_mdb unchecked_store;
+	nano::online_weight_store_mdb online_weight_store;
+	nano::pruned_store_mdb pruned_store;
+	nano::peer_store_mdb peer_store;
+	nano::confirmation_height_store_mdb confirmation_height_store;
+	nano::final_vote_store_mdb final_vote_store;
+	nano::version_store_mdb version_store;
 
-	friend class nano::unchecked_mdb_store;
+	friend class nano::account_store_mdb;
+	friend class nano::block_store_mdb;
+	friend class nano::confirmation_height_store_mdb;
+	friend class nano::final_vote_store_mdb;
+	friend class nano::frontier_store_mdb;
+	friend class nano::online_weight_store_mdb;
+	friend class nano::peer_store_mdb;
+	friend class nano::pending_store_mdb;
+	friend class nano::pruned_store_mdb;
+	friend class nano::unchecked_store_mdb;
+	friend class nano::version_store_mdb;
 
 public:
 	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
@@ -237,7 +242,7 @@ public:
 	void rebuild_db (nano::write_transaction const & transaction_a) override;
 
 	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, bool const direction_asc) const
+	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, bool const direction_asc = true) const
 	{
 		return nano::store_iterator<Key, Value> (std::make_unique<nano::mdb_iterator<Key, Value>> (transaction_a, table_to_dbi (table_a), nano::mdb_val{}, direction_asc));
 	}
@@ -282,6 +287,13 @@ private:
 
 	bool not_found (int status) const override;
 	bool success (int status) const override;
+	void release_assert_success (int const status) const
+	{
+		if (!success (status))
+		{
+			release_assert (false, error_string (status));
+		}
+	}
 	int status_code_not_found () const override;
 
 	MDB_dbi table_to_dbi (tables table_a) const;

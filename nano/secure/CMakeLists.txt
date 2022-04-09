@@ -53,18 +53,7 @@ add_library(
   utility.cpp
   versioning.hpp
   versioning.cpp
-  working.hpp
-  store/block_store_partial.hpp
-  store/frontier_store_partial.hpp
-  store/account_store_partial.hpp
-  store/pending_store_partial.hpp
-  store/online_weight_partial.hpp
-  store/pruned_store_partial.hpp
-  store/peer_store_partial.hpp
-  store/confirmation_height_store_partial.hpp
-  store/unchecked_store_partial.hpp
-  store/final_vote_store_partial.hpp
-  store/version_store_partial.hpp)
+  working.hpp)
 
 target_link_libraries(
   secure

@@ -82,6 +82,28 @@ add_library(
   json_handler.cpp
   ledger_walker.hpp
   ledger_walker.cpp
+  lmdb/account_store.hpp
+  lmdb/account_store.cpp
+  lmdb/block_store.hpp
+  lmdb/block_store.cpp
+  lmdb/confirmation_height_store.hpp
+  lmdb/confirmation_height_store.cpp
+  lmdb/final_vote_store.hpp
+  lmdb/final_vote_store.cpp
+  lmdb/frontier_store.hpp
+  lmdb/frontier_store.cpp
+  lmdb/online_weight_store.hpp
+  lmdb/online_weight_store.cpp
+  lmdb/peer_store.hpp
+  lmdb/peer_store.cpp
+  lmdb/pending_store.hpp
+  lmdb/pending_store.cpp
+  lmdb/pruned_store.hpp
+  lmdb/pruned_store.cpp
+  lmdb/version_store.hpp
+  lmdb/version_store.cpp
+  lmdb/unchecked_store.hpp
+  lmdb/unchecked_store.cpp
   lmdb/lmdb.hpp
   lmdb/lmdb.cpp
   lmdb/lmdb_env.hpp
@@ -121,6 +143,28 @@ add_library(
   repcrawler.cpp
   request_aggregator.hpp
   request_aggregator.cpp
+  rocksdb/account_store.hpp
+  rocksdb/account_store.cpp
+  rocksdb/block_store.hpp
+  rocksdb/block_store.cpp
+  rocksdb/confirmation_height_store.hpp
+  rocksdb/confirmation_height_store.cpp
+  rocksdb/final_vote_store.hpp
+  rocksdb/final_vote_store.cpp
+  rocksdb/frontier_store.hpp
+  rocksdb/frontier_store.cpp
+  rocksdb/online_weight_store.hpp
+  rocksdb/online_weight_store.cpp
+  rocksdb/peer_store.hpp
+  rocksdb/peer_store.cpp
+  rocksdb/pending_store.hpp
+  rocksdb/pending_store.cpp
+  rocksdb/pruned_store.hpp
+  rocksdb/pruned_store.cpp
+  rocksdb/unchecked_store.hpp
+  rocksdb/unchecked_store.cpp
+  rocksdb/version_store.hpp
+  rocksdb/version_store.cpp
   rocksdb/rocksdb.hpp
   rocksdb/rocksdb.cpp
   rocksdb/rocksdb_iterator.hpp

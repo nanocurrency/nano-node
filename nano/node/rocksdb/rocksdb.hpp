@@ -3,18 +3,19 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/node/rocksdb/account_store.hpp>
+#include <nano/node/rocksdb/block_store.hpp>
+#include <nano/node/rocksdb/confirmation_height_store.hpp>
+#include <nano/node/rocksdb/final_vote_store.hpp>
+#include <nano/node/rocksdb/frontier_store.hpp>
+#include <nano/node/rocksdb/online_weight_store.hpp>
+#include <nano/node/rocksdb/peer_store.hpp>
+#include <nano/node/rocksdb/pending_store.hpp>
+#include <nano/node/rocksdb/pruned_store.hpp>
 #include <nano/node/rocksdb/rocksdb_iterator.hpp>
+#include <nano/node/rocksdb/unchecked_store.hpp>
+#include <nano/node/rocksdb/version_store.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/store/account_store_partial.hpp>
-#include <nano/secure/store/confirmation_height_store_partial.hpp>
-#include <nano/secure/store/final_vote_store_partial.hpp>
-#include <nano/secure/store/frontier_store_partial.hpp>
-#include <nano/secure/store/online_weight_partial.hpp>
-#include <nano/secure/store/peer_store_partial.hpp>
-#include <nano/secure/store/pending_store_partial.hpp>
-#include <nano/secure/store/pruned_store_partial.hpp>
-#include <nano/secure/store/unchecked_store_partial.hpp>
-#include <nano/secure/store/version_store_partial.hpp>
 #include <nano/secure/store_partial.hpp>
 
 #include <rocksdb/db.h>
@@ -31,46 +32,36 @@ class logging_mt;
 class rocksdb_config;
 class rocksdb_store;
 
-class unchecked_rocksdb_store : public unchecked_store_partial<rocksdb::Slice, nano::rocksdb_store>
-{
-public:
-	explicit unchecked_rocksdb_store (nano::rocksdb_store &);
-
-private:
-	nano::rocksdb_store & rocksdb_store;
-};
-
-class version_rocksdb_store : public version_store_partial<rocksdb::Slice, nano::rocksdb_store>
-{
-public:
-	explicit version_rocksdb_store (nano::rocksdb_store &);
-	void version_put (nano::write_transaction const &, int);
-
-private:
-	nano::rocksdb_store & rocksdb_store;
-};
-
 /**
  * rocksdb implementation of the block store
  */
 class rocksdb_store : public store_partial<rocksdb::Slice, rocksdb_store>
 {
 private:
-	nano::block_store_partial<rocksdb::Slice, rocksdb_store> block_store_partial;
-	nano::frontier_store_partial<rocksdb::Slice, rocksdb_store> frontier_store_partial;
-	nano::account_store_partial<rocksdb::Slice, rocksdb_store> account_store_partial;
-	nano::pending_store_partial<rocksdb::Slice, rocksdb_store> pending_store_partial;
-	nano::unchecked_rocksdb_store unchecked_rocksdb_store;
-	nano::online_weight_store_partial<rocksdb::Slice, rocksdb_store> online_weight_store_partial;
-	nano::pruned_store_partial<rocksdb::Slice, rocksdb_store> pruned_store_partial;
-	nano::peer_store_partial<rocksdb::Slice, rocksdb_store> peer_store_partial;
-	nano::confirmation_height_store_partial<rocksdb::Slice, rocksdb_store> confirmation_height_store_partial;
-	nano::final_vote_store_partial<rocksdb::Slice, rocksdb_store> final_vote_store_partial;
-	nano::version_rocksdb_store version_rocksdb_store;
+	nano::block_store_rocksdb block_store;
+	nano::frontier_store_rocksdb frontier_store;
+	nano::account_store_rocksdb account_store;
+	nano::confirmation_height_store_rocksdb confirmation_height_store;
+	nano::pending_store_rocksdb pending_store;
+	nano::unchecked_store_rocksdb unchecked_store;
+	nano::online_weight_store_rocksdb online_weight_store;
+	nano::pruned_store_rocksdb pruned_store;
+	nano::peer_store_rocksdb peer_store;
+	nano::final_vote_store_rocksdb final_vote_store;
+	nano::version_store_rocksdb version_store;
 
 public:
-	friend class nano::unchecked_rocksdb_store;
-	friend class nano::version_rocksdb_store;
+	friend class nano::account_store_rocksdb;
+	friend class nano::block_store_rocksdb;
+	friend class nano::confirmation_height_store_rocksdb;
+	friend class nano::frontier_store_rocksdb;
+	friend class nano::final_vote_store_rocksdb;
+	friend class nano::online_weight_store_rocksdb;
+	friend class nano::peer_store_rocksdb;
+	friend class nano::pending_store_rocksdb;
+	friend class nano::pruned_store_rocksdb;
+	friend class nano::unchecked_store_rocksdb;
+	friend class nano::version_store_rocksdb;
 
 	explicit rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
 
@@ -94,7 +85,7 @@ public:
 	unsigned max_block_write_batch_num () const override;
 
 	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, bool const direction_asc) const
+	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, bool const direction_asc = true) const
 	{
 		return nano::store_iterator<Key, Value> (std::make_unique<nano::rocksdb_iterator<Key, Value>> (db.get (), transaction_a, table_to_column_family (table_a), nullptr, direction_asc));
 	}

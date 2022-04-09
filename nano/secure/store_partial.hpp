@@ -6,17 +6,6 @@
 #include <nano/lib/timer.hpp>
 #include <nano/secure/buffer.hpp>
 #include <nano/secure/store.hpp>
-#include <nano/secure/store/account_store_partial.hpp>
-#include <nano/secure/store/block_store_partial.hpp>
-#include <nano/secure/store/confirmation_height_store_partial.hpp>
-#include <nano/secure/store/final_vote_store_partial.hpp>
-#include <nano/secure/store/frontier_store_partial.hpp>
-#include <nano/secure/store/online_weight_partial.hpp>
-#include <nano/secure/store/peer_store_partial.hpp>
-#include <nano/secure/store/pending_store_partial.hpp>
-#include <nano/secure/store/pruned_store_partial.hpp>
-#include <nano/secure/store/unchecked_store_partial.hpp>
-#include <nano/secure/store/version_store_partial.hpp>
 
 #include <crypto/cryptopp/words.h>
 
@@ -32,71 +21,45 @@ void parallel_traversal (std::function<void (T const &, T const &, bool const)> 
 namespace nano
 {
 template <typename Val, typename Derived_Store>
-class block_predecessor_set;
+class store_partial;
 
 template <typename Val, typename Derived_Store>
-void release_assert_success (store_partial<Val, Derived_Store> const & store, int const status)
-{
-	if (!store.success (status))
-	{
-		release_assert (false, store.error_string (status));
-	}
-}
-
-template <typename Val, typename Derived_Store>
-class account_store_partial;
-
-template <typename Val, typename Derived_Store>
-class unchecked_store_partial;
-
-template <typename Val, typename Derived_Store>
-class block_store_partial;
+void release_assert_success (store_partial<Val, Derived_Store> const & store, int const status);
 
 /** This base class implements the store interface functions which have DB agnostic functionality. It also maps all the store classes. */
 template <typename Val, typename Derived_Store>
 class store_partial : public store
 {
 	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, int const);
-	friend class nano::block_store_partial<Val, Derived_Store>;
-	friend class nano::frontier_store_partial<Val, Derived_Store>;
-	friend class nano::account_store_partial<Val, Derived_Store>;
-	friend class nano::pending_store_partial<Val, Derived_Store>;
-	friend class nano::unchecked_store_partial<Val, Derived_Store>;
-	friend class nano::online_weight_store_partial<Val, Derived_Store>;
-	friend class nano::pruned_store_partial<Val, Derived_Store>;
-	friend class nano::peer_store_partial<Val, Derived_Store>;
-	friend class nano::confirmation_height_store_partial<Val, Derived_Store>;
-	friend class nano::final_vote_store_partial<Val, Derived_Store>;
-	friend class nano::version_store_partial<Val, Derived_Store>;
 
 public:
 	// clang-format off
 	store_partial (
 		nano::ledger_constants & constants,
-		nano::block_store_partial<Val, Derived_Store> & block_store_partial_a,
-		nano::frontier_store_partial<Val, Derived_Store> & frontier_store_partial_a,
-		nano::account_store_partial<Val, Derived_Store> & account_store_partial_a,
-		nano::pending_store_partial<Val, Derived_Store> & pending_store_partial_a,
-		nano::unchecked_store_partial<Val, Derived_Store> & unchecked_store_partial_a,
-		nano::online_weight_store_partial<Val, Derived_Store> & online_weight_store_partial_a,
-		nano::pruned_store_partial<Val, Derived_Store> & pruned_store_partial_a,
-		nano::peer_store_partial<Val, Derived_Store> & peer_store_partial_a,
-		nano::confirmation_height_store_partial<Val, Derived_Store> & confirmation_height_store_partial_a,
-		nano::final_vote_store_partial<Val, Derived_Store> & final_vote_store_partial_a,
-		nano::version_store_partial<Val, Derived_Store> & version_store_partial_a) :
+		nano::block_store & block_store_a,
+		nano::frontier_store & frontier_store_a,
+		nano::account_store & account_store_a,
+		nano::pending_store & pending_store_a,
+		nano::unchecked_store & unchecked_store_a,
+		nano::online_weight_store & online_weight_store_a,
+		nano::pruned_store & pruned_store_a,
+		nano::peer_store & peer_store_a,
+		nano::confirmation_height_store & confirmation_height_store_a,
+		nano::final_vote_store & final_vote_store_a,
+		nano::version_store & version_store_a) :
 		constants{ constants },
 		store{
-			block_store_partial_a,
-			frontier_store_partial_a,
-			account_store_partial_a,
-			pending_store_partial_a,
-			unchecked_store_partial_a,
-			online_weight_store_partial_a,
-			pruned_store_partial_a,
-			peer_store_partial_a,
-			confirmation_height_store_partial_a,
-			final_vote_store_partial_a,
-			version_store_partial_a
+			block_store_a,
+			frontier_store_a,
+			account_store_a,
+			pending_store_a,
+			unchecked_store_a,
+			online_weight_store_a,
+			pruned_store_a,
+			peer_store_a,
+			confirmation_height_store_a,
+			final_vote_store_a,
+			version_store_a
 		}
 	{}
 	// clang-format on
@@ -131,12 +94,6 @@ public:
 		return static_cast<const Derived_Store &> (*this).exists (transaction_a, table_a, key_a);
 	}
 
-	int const minimum_version{ 14 };
-
-protected:
-	nano::ledger_constants & constants;
-	int const version_number{ 21 };
-
 	template <typename Key, typename Value>
 	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, bool const direction_asc = true) const
 	{
@@ -148,6 +105,12 @@ protected:
 	{
 		return static_cast<Derived_Store const &> (*this).template make_iterator<Key, Value> (transaction_a, table_a, key);
 	}
+
+	int const minimum_version{ 14 };
+
+protected:
+	nano::ledger_constants & constants;
+	int const version_number{ 21 };
 
 	uint64_t count (nano::transaction const & transaction_a, std::initializer_list<tables> dbs_a) const
 	{
@@ -187,6 +150,15 @@ protected:
 	virtual int status_code_not_found () const = 0;
 	virtual std::string error_string (int status) const = 0;
 };
+
+template <typename Val, typename Derived_Store>
+void release_assert_success (store_partial<Val, Derived_Store> const & store, int const status)
+{
+	if (!store.success (status))
+	{
+		release_assert (false, store.error_string (status));
+	}
+}
 }
 
 namespace
