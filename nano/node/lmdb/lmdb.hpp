@@ -48,29 +48,29 @@ class transaction;
 class mdb_store : public store_partial<MDB_val, mdb_store>
 {
 private:
-	nano::block_store_mdb block_store;
-	nano::frontier_store_mdb frontier_store;
-	nano::account_store_mdb account_store;
-	nano::pending_store_mdb pending_store;
-	nano::unchecked_store_mdb unchecked_store;
-	nano::online_weight_store_mdb online_weight_store;
-	nano::pruned_store_mdb pruned_store;
-	nano::peer_store_mdb peer_store;
-	nano::confirmation_height_store_mdb confirmation_height_store;
-	nano::final_vote_store_mdb final_vote_store;
-	nano::version_store_mdb version_store;
+	nano::lmdb::account_store account_store;
+	nano::lmdb::block_store block_store;
+	nano::lmdb::confirmation_height_store confirmation_height_store;
+	nano::lmdb::final_vote_store final_vote_store;
+	nano::lmdb::frontier_store frontier_store;
+	nano::lmdb::online_weight_store online_weight_store;
+	nano::lmdb::peer_store peer_store;
+	nano::lmdb::pending_store pending_store;
+	nano::lmdb::pruned_store pruned_store;
+	nano::lmdb::unchecked_store unchecked_store;
+	nano::lmdb::version_store version_store;
 
-	friend class nano::account_store_mdb;
-	friend class nano::block_store_mdb;
-	friend class nano::confirmation_height_store_mdb;
-	friend class nano::final_vote_store_mdb;
-	friend class nano::frontier_store_mdb;
-	friend class nano::online_weight_store_mdb;
-	friend class nano::peer_store_mdb;
-	friend class nano::pending_store_mdb;
-	friend class nano::pruned_store_mdb;
-	friend class nano::unchecked_store_mdb;
-	friend class nano::version_store_mdb;
+	friend class nano::lmdb::account_store;
+	friend class nano::lmdb::block_store;
+	friend class nano::lmdb::confirmation_height_store;
+	friend class nano::lmdb::final_vote_store;
+	friend class nano::lmdb::frontier_store;
+	friend class nano::lmdb::online_weight_store;
+	friend class nano::lmdb::peer_store;
+	friend class nano::lmdb::pending_store;
+	friend class nano::lmdb::pruned_store;
+	friend class nano::lmdb::unchecked_store;
+	friend class nano::lmdb::version_store;
 
 public:
 	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);

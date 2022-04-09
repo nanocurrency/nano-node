@@ -35,33 +35,33 @@ class rocksdb_store;
 /**
  * rocksdb implementation of the block store
  */
-class rocksdb_store : public store_partial<rocksdb::Slice, rocksdb_store>
+class rocksdb_store : public store_partial<::rocksdb::Slice, rocksdb_store>
 {
 private:
-	nano::block_store_rocksdb block_store;
-	nano::frontier_store_rocksdb frontier_store;
-	nano::account_store_rocksdb account_store;
-	nano::confirmation_height_store_rocksdb confirmation_height_store;
-	nano::pending_store_rocksdb pending_store;
-	nano::unchecked_store_rocksdb unchecked_store;
-	nano::online_weight_store_rocksdb online_weight_store;
-	nano::pruned_store_rocksdb pruned_store;
-	nano::peer_store_rocksdb peer_store;
-	nano::final_vote_store_rocksdb final_vote_store;
-	nano::version_store_rocksdb version_store;
+	nano::rocksdb::account_store account_store;
+	nano::rocksdb::block_store block_store;
+	nano::rocksdb::confirmation_height_store confirmation_height_store;
+	nano::rocksdb::final_vote_store final_vote_store;
+	nano::rocksdb::frontier_store frontier_store;
+	nano::rocksdb::online_weight_store online_weight_store;
+	nano::rocksdb::peer_store peer_store;
+	nano::rocksdb::pending_store pending_store;
+	nano::rocksdb::pruned_store pruned_store;
+	nano::rocksdb::unchecked_store unchecked_store;
+	nano::rocksdb::version_store version_store;
 
 public:
-	friend class nano::account_store_rocksdb;
-	friend class nano::block_store_rocksdb;
-	friend class nano::confirmation_height_store_rocksdb;
-	friend class nano::frontier_store_rocksdb;
-	friend class nano::final_vote_store_rocksdb;
-	friend class nano::online_weight_store_rocksdb;
-	friend class nano::peer_store_rocksdb;
-	friend class nano::pending_store_rocksdb;
-	friend class nano::pruned_store_rocksdb;
-	friend class nano::unchecked_store_rocksdb;
-	friend class nano::version_store_rocksdb;
+	friend class nano::rocksdb::account_store;
+	friend class nano::rocksdb::block_store;
+	friend class nano::rocksdb::confirmation_height_store;
+	friend class nano::rocksdb::final_vote_store;
+	friend class nano::rocksdb::frontier_store;
+	friend class nano::rocksdb::online_weight_store;
+	friend class nano::rocksdb::peer_store;
+	friend class nano::rocksdb::pending_store;
+	friend class nano::rocksdb::pruned_store;
+	friend class nano::rocksdb::unchecked_store;
+	friend class nano::rocksdb::version_store;
 
 	explicit rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
 
@@ -105,10 +105,10 @@ private:
 	nano::logger_mt & logger;
 	nano::ledger_constants & constants;
 	// Optimistic transactions are used in write mode
-	rocksdb::OptimisticTransactionDB * optimistic_db = nullptr;
-	std::unique_ptr<rocksdb::DB> db;
-	std::vector<std::unique_ptr<rocksdb::ColumnFamilyHandle>> handles;
-	std::shared_ptr<rocksdb::TableFactory> small_table_factory;
+	::rocksdb::OptimisticTransactionDB * optimistic_db = nullptr;
+	std::unique_ptr<::rocksdb::DB> db;
+	std::vector<std::unique_ptr<::rocksdb::ColumnFamilyHandle>> handles;
+	std::shared_ptr<::rocksdb::TableFactory> small_table_factory;
 	std::unordered_map<nano::tables, nano::mutex> write_lock_mutexes;
 	nano::rocksdb_config rocksdb_config;
 	unsigned const max_block_write_batch_num_m;
@@ -124,7 +124,7 @@ private:
 	std::unordered_map<nano::tables, tombstone_info> tombstone_map;
 	std::unordered_map<char const *, nano::tables> cf_name_table_map;
 
-	rocksdb::Transaction * tx (nano::transaction const & transaction_a) const;
+	::rocksdb::Transaction * tx (nano::transaction const & transaction_a) const;
 	std::vector<nano::tables> all_tables () const;
 
 	bool not_found (int status) const override;
@@ -132,27 +132,27 @@ private:
 	int status_code_not_found () const override;
 	int drop (nano::write_transaction const &, tables) override;
 
-	rocksdb::ColumnFamilyHandle * table_to_column_family (tables table_a) const;
-	int clear (rocksdb::ColumnFamilyHandle * column_family);
+	::rocksdb::ColumnFamilyHandle * table_to_column_family (tables table_a) const;
+	int clear (::rocksdb::ColumnFamilyHandle * column_family);
 
 	void open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a);
 
 	void construct_column_family_mutexes ();
-	rocksdb::Options get_db_options ();
-	rocksdb::ColumnFamilyOptions get_common_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const;
-	rocksdb::ColumnFamilyOptions get_active_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const;
-	rocksdb::ColumnFamilyOptions get_small_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a) const;
-	rocksdb::BlockBasedTableOptions get_active_table_options (std::size_t lru_size) const;
-	rocksdb::BlockBasedTableOptions get_small_table_options () const;
-	rocksdb::ColumnFamilyOptions get_cf_options (std::string const & cf_name_a) const;
+	::rocksdb::Options get_db_options ();
+	::rocksdb::ColumnFamilyOptions get_common_cf_options (std::shared_ptr<::rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const;
+	::rocksdb::ColumnFamilyOptions get_active_cf_options (std::shared_ptr<::rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const;
+	::rocksdb::ColumnFamilyOptions get_small_cf_options (std::shared_ptr<::rocksdb::TableFactory> const & table_factory_a) const;
+	::rocksdb::BlockBasedTableOptions get_active_table_options (std::size_t lru_size) const;
+	::rocksdb::BlockBasedTableOptions get_small_table_options () const;
+	::rocksdb::ColumnFamilyOptions get_cf_options (std::string const & cf_name_a) const;
 
-	void on_flush (rocksdb::FlushJobInfo const &);
+	void on_flush (::rocksdb::FlushJobInfo const &);
 	void flush_table (nano::tables table_a);
 	void flush_tombstones_check (nano::tables table_a);
 	void generate_tombstone_map ();
 	std::unordered_map<char const *, nano::tables> create_cf_name_table_map () const;
 
-	std::vector<rocksdb::ColumnFamilyDescriptor> create_column_families ();
+	std::vector<::rocksdb::ColumnFamilyDescriptor> create_column_families ();
 	unsigned long long base_memtable_size_bytes () const;
 	unsigned long long blocks_memtable_size_bytes () const;
 
@@ -162,5 +162,5 @@ private:
 	friend class rocksdb_block_store_tombstone_count_Test;
 };
 
-extern template class store_partial<rocksdb::Slice, rocksdb_store>;
+extern template class store_partial<::rocksdb::Slice, rocksdb_store>;
 }
