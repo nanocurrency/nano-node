@@ -1,7 +1,7 @@
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/online_weight_store.hpp>
 
-nano::lmdb::online_weight_store::online_weight_store (nano::mdb_store & store_a) :
+nano::lmdb::online_weight_store::online_weight_store (nano::lmdb::store & store_a) :
 	store{ store_a }
 {
 }

@@ -3,7 +3,7 @@
 
 #include <nano/secure/parallel_traversal.hpp>
 
-nano::lmdb::account_store::account_store (nano::mdb_store & store_a) :
+nano::lmdb::account_store::account_store (nano::lmdb::store & store_a) :
 	store (store_a){};
 
 void nano::lmdb::account_store::put (nano::write_transaction const & transaction, nano::account const & account, nano::account_info const & info)

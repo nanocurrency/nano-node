@@ -24,7 +24,7 @@ public:
 };
 }
 
-nano::lmdb::block_store::block_store (nano::mdb_store & store_a) :
+nano::lmdb::block_store::block_store (nano::lmdb::store & store_a) :
 	store{ store_a } {};
 
 void nano::lmdb::block_store::put (nano::write_transaction const & transaction, nano::block_hash const & hash, nano::block const & block)

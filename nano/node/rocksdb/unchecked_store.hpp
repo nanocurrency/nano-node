@@ -4,16 +4,16 @@
 
 namespace nano
 {
-class mdb_store;
 namespace rocksdb
 {
+	class store;
 	class unchecked_store : public nano::unchecked_store
 	{
 	private:
-		nano::rocksdb_store & store;
+		nano::rocksdb::store & store;
 
 	public:
-		unchecked_store (nano::rocksdb_store & store_a);
+		unchecked_store (nano::rocksdb::store & store_a);
 
 		void clear (nano::write_transaction const & transaction_a) override;
 		void put (nano::write_transaction const & transaction_a, nano::hash_or_account const & dependency, nano::unchecked_info const & info_a) override;

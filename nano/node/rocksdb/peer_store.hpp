@@ -4,16 +4,16 @@
 
 namespace nano
 {
-class rocksdb_store;
 namespace rocksdb
 {
+	class store;
 	class peer_store : public nano::peer_store
 	{
 	private:
-		nano::rocksdb_store & store;
+		nano::rocksdb::store & store;
 
 	public:
-		explicit peer_store (nano::rocksdb_store & store_a);
+		explicit peer_store (nano::rocksdb::store & store_a);
 		void put (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override;
 		void del (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override;
 		bool exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const override;

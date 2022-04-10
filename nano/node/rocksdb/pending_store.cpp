@@ -3,7 +3,7 @@
 
 #include <nano/secure/parallel_traversal.hpp>
 
-nano::rocksdb::pending_store::pending_store (nano::rocksdb_store & store) :
+nano::rocksdb::pending_store::pending_store (nano::rocksdb::store & store) :
 	store{ store } {};
 
 void nano::rocksdb::pending_store::put (nano::write_transaction const & transaction, nano::pending_key const & key, nano::pending_info const & pending)

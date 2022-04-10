@@ -3,7 +3,7 @@
 
 #include <nano/secure/parallel_traversal.hpp>
 
-nano::lmdb::unchecked_store::unchecked_store (nano::mdb_store & store_a) :
+nano::lmdb::unchecked_store::unchecked_store (nano::lmdb::store & store_a) :
 	store (store_a){};
 
 void nano::lmdb::unchecked_store::clear (nano::write_transaction const & transaction_a)

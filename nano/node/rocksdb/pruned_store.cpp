@@ -3,7 +3,7 @@
 
 #include <nano/secure/parallel_traversal.hpp>
 
-nano::rocksdb::pruned_store::pruned_store (nano::rocksdb_store & store_a) :
+nano::rocksdb::pruned_store::pruned_store (nano::rocksdb::store & store_a) :
 	store{ store_a } {};
 
 void nano::rocksdb::pruned_store::put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a)

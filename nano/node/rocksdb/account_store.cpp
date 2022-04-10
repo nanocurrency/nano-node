@@ -3,7 +3,7 @@
 
 #include <nano/secure/parallel_traversal.hpp>
 
-nano::rocksdb::account_store::account_store (nano::rocksdb_store & store_a) :
+nano::rocksdb::account_store::account_store (nano::rocksdb::store & store_a) :
 	store (store_a){};
 
 void nano::rocksdb::account_store::put (nano::write_transaction const & transaction, nano::account const & account, nano::account_info const & info)

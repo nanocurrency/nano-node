@@ -18,7 +18,7 @@ TEST (ledger, store_error)
 		return;
 	}
 	nano::logger_mt logger;
-	nano::mdb_store store (logger, boost::filesystem::path ("///"), nano::dev::constants);
+	nano::lmdb::store store (logger, boost::filesystem::path ("///"), nano::dev::constants);
 	ASSERT_TRUE (store.init_error ());
 	nano::stat stats;
 	nano::ledger ledger (store, stats, nano::dev::constants);
@@ -3600,7 +3600,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	nano::logger_mt logger{};
 	boost::asio::ip::address_v6 address (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"));
 	uint16_t port = 100;
-	nano::mdb_store store{ logger, path / "data.ldb", nano::dev::constants };
+	nano::lmdb::store store{ logger, path / "data.ldb", nano::dev::constants };
 	nano::unchecked_map unchecked{ store, false };
 	nano::stat stats{};
 	nano::ledger ledger{ store, stats, nano::dev::constants };
@@ -3642,7 +3642,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	auto error = ledger.migrate_lmdb_to_rocksdb (path);
 	ASSERT_FALSE (error);
 
-	nano::rocksdb_store rocksdb_store{ logger, path / "rocksdb", nano::dev::constants };
+	nano::rocksdb::store rocksdb_store{ logger, path / "rocksdb", nano::dev::constants };
 	nano::unchecked_map rocksdb_unchecked{ rocksdb_store, false };
 	auto rocksdb_transaction (rocksdb_store.tx_begin_read ());
 

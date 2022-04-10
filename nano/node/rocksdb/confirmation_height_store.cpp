@@ -3,7 +3,7 @@
 
 #include <nano/secure/parallel_traversal.hpp>
 
-nano::rocksdb::confirmation_height_store::confirmation_height_store (nano::rocksdb_store & store) :
+nano::rocksdb::confirmation_height_store::confirmation_height_store (nano::rocksdb::store & store) :
 	store{ store }
 {
 }

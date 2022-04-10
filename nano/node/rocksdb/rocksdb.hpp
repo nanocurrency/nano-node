@@ -30,12 +30,14 @@ namespace nano
 {
 class logging_mt;
 class rocksdb_config;
-class rocksdb_store;
+class rocksdb_block_store_tombstone_count_Test;
 
+namespace rocksdb
+{
 /**
  * rocksdb implementation of the block store
  */
-class rocksdb_store : public store_partial<::rocksdb::Slice, rocksdb_store>
+class store : public store_partial<::rocksdb::Slice, store>
 {
 private:
 	nano::rocksdb::account_store account_store;
@@ -63,7 +65,7 @@ public:
 	friend class nano::rocksdb::unchecked_store;
 	friend class nano::rocksdb::version_store;
 
-	explicit rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
+	explicit store (nano::logger_mt &, boost::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
 
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () const override;
@@ -166,8 +168,7 @@ private:
 	constexpr static int base_memtable_size = 16;
 	constexpr static int base_block_cache_size = 8;
 
-	friend class rocksdb_block_store_tombstone_count_Test;
+	friend class nano::rocksdb_block_store_tombstone_count_Test;
 };
-
-extern template class store_partial<::rocksdb::Slice, rocksdb_store>;
-}
+} // namespace rocksdb
+} // namespace nano

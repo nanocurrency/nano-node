@@ -1,7 +1,7 @@
 #include <nano/node/rocksdb/rocksdb.hpp>
 #include <nano/node/rocksdb/version_store.hpp>
 
-nano::rocksdb::version_store::version_store (nano::rocksdb_store & store_a) :
+nano::rocksdb::version_store::version_store (nano::rocksdb::store & store_a) :
 	store{ store_a } {};
 
 void nano::rocksdb::version_store::put (nano::write_transaction const & transaction_a, int version)

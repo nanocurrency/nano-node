@@ -24,7 +24,7 @@ public:
 };
 }
 
-nano::rocksdb::block_store::block_store (nano::rocksdb_store & store_a) :
+nano::rocksdb::block_store::block_store (nano::rocksdb::store & store_a) :
 	store{ store_a } {};
 
 void nano::rocksdb::block_store::put (nano::write_transaction const & transaction, nano::block_hash const & hash, nano::block const & block)

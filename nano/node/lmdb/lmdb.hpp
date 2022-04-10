@@ -39,13 +39,14 @@ namespace nano
 using mdb_val = db_val<MDB_val>;
 
 class logging_mt;
-class mdb_store;
 class transaction;
 
+namespace lmdb
+{
 /**
  * mdb implementation of the block store
  */
-class mdb_store : public store_partial<MDB_val, mdb_store>
+class store : public store_partial<MDB_val, store>
 {
 private:
 	nano::lmdb::account_store account_store;
@@ -73,7 +74,7 @@ private:
 	friend class nano::lmdb::version_store;
 
 public:
-	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
+	store (nano::logger_mt &, boost::filesystem::path const &, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () const override;
 
@@ -318,6 +319,7 @@ private:
 		uint64_t after_v1{ 0 };
 	};
 };
+}
 
 template <>
 void * mdb_val::data () const;
@@ -327,6 +329,4 @@ template <>
 mdb_val::db_val (std::size_t size_a, void * data_a);
 template <>
 void mdb_val::convert_buffer_to_value ();
-
-extern template class store_partial<MDB_val, mdb_store>;
 }

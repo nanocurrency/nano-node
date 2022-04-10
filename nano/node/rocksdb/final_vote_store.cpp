@@ -3,7 +3,7 @@
 
 #include <nano/secure/parallel_traversal.hpp>
 
-nano::rocksdb::final_vote_store::final_vote_store (nano::rocksdb_store & store) :
+nano::rocksdb::final_vote_store::final_vote_store (nano::rocksdb::store & store) :
 	store{ store } {};
 
 bool nano::rocksdb::final_vote_store::put (nano::write_transaction const & transaction, nano::qualified_root const & root, nano::block_hash const & hash)

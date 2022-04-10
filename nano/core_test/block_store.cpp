@@ -26,11 +26,11 @@ using namespace std::chrono_literals;
 
 namespace
 {
-void modify_account_info_to_v14 (nano::mdb_store & store, nano::transaction const & transaction_a, nano::account const & account_a, uint64_t confirmation_height, nano::block_hash const & rep_block);
-void modify_confirmation_height_to_v15 (nano::mdb_store & store, nano::transaction const & transaction, nano::account const & account, uint64_t confirmation_height);
-void write_sideband_v14 (nano::mdb_store & store_a, nano::transaction & transaction_a, nano::block const & block_a, MDB_dbi db_a);
-void write_sideband_v15 (nano::mdb_store & store_a, nano::transaction & transaction_a, nano::block const & block_a);
-void write_block_w_sideband_v18 (nano::mdb_store & store_a, MDB_dbi database, nano::write_transaction & transaction_a, nano::block const & block_a);
+void modify_account_info_to_v14 (nano::lmdb::store & store, nano::transaction const & transaction_a, nano::account const & account_a, uint64_t confirmation_height, nano::block_hash const & rep_block);
+void modify_confirmation_height_to_v15 (nano::lmdb::store & store, nano::transaction const & transaction, nano::account const & account, uint64_t confirmation_height);
+void write_sideband_v14 (nano::lmdb::store & store_a, nano::transaction & transaction_a, nano::block const & block_a, MDB_dbi db_a);
+void write_sideband_v15 (nano::lmdb::store & store_a, nano::transaction & transaction_a, nano::block const & block_a);
+void write_block_w_sideband_v18 (nano::lmdb::store & store_a, MDB_dbi database, nano::write_transaction & transaction_a, nano::block const & block_a);
 }
 
 TEST (block_store, construction)
@@ -699,7 +699,7 @@ TEST (mdb_block_store, supported_version_upgrades)
 	auto path (nano::unique_path ());
 	nano::logger_mt logger;
 	{
-		nano::mdb_store store (logger, path, nano::dev::constants);
+		nano::lmdb::store store (logger, path, nano::dev::constants);
 		nano::stat stats;
 		nano::ledger ledger (store, stats, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
@@ -710,14 +710,14 @@ TEST (mdb_block_store, supported_version_upgrades)
 
 	// Upgrade should fail
 	{
-		nano::mdb_store store (logger, path, nano::dev::constants);
+		nano::lmdb::store store (logger, path, nano::dev::constants);
 		ASSERT_TRUE (store.init_error ());
 	}
 
 	auto path1 (nano::unique_path ());
 	// Now try with the minimum version
 	{
-		nano::mdb_store store (logger, path1, nano::dev::constants);
+		nano::lmdb::store store (logger, path1, nano::dev::constants);
 		nano::stat stats;
 		nano::ledger ledger (store, stats, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
@@ -733,7 +733,7 @@ TEST (mdb_block_store, supported_version_upgrades)
 
 	// Upgrade should work
 	{
-		nano::mdb_store store (logger, path1, nano::dev::constants);
+		nano::lmdb::store store (logger, path1, nano::dev::constants);
 		ASSERT_FALSE (store.init_error ());
 	}
 }
@@ -746,7 +746,7 @@ TEST (mdb_block_store, bad_path)
 		return;
 	}
 	nano::logger_mt logger;
-	nano::mdb_store store (logger, boost::filesystem::path ("///"), nano::dev::constants);
+	nano::lmdb::store store (logger, boost::filesystem::path ("///"), nano::dev::constants);
 	ASSERT_TRUE (store.init_error ());
 }
 
@@ -959,7 +959,7 @@ TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort ta
 {
 	auto path (nano::unique_path ());
 	nano::logger_mt logger{};
-	nano::mdb_store store{ logger, path, nano::dev::constants };
+	nano::lmdb::store store{ logger, path, nano::dev::constants };
 	nano::unchecked_map unchecked{ store, false };
 	auto transaction (store.tx_begin_write ());
 	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_handle, 1));
@@ -1022,7 +1022,7 @@ TEST (mdb_block_store, sideband_height)
 	nano::keypair key1;
 	nano::keypair key2;
 	nano::keypair key3;
-	nano::mdb_store store (logger, nano::unique_path (), nano::dev::constants);
+	nano::lmdb::store store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store.init_error ());
 	nano::stat stat;
 	nano::ledger ledger (store, stat, nano::dev::constants);
@@ -1290,7 +1290,7 @@ TEST (mdb_block_store, upgrade_v14_v15)
 	nano::state_block state_send (nano::dev::genesis_key.pub, epoch.hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2, nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (epoch.hash ()));
 	{
 		nano::logger_mt logger;
-		nano::mdb_store store (logger, path, nano::dev::constants);
+		nano::lmdb::store store (logger, path, nano::dev::constants);
 		nano::stat stats;
 		nano::ledger ledger (store, stats, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
@@ -1344,7 +1344,7 @@ TEST (mdb_block_store, upgrade_v14_v15)
 
 	// Now do the upgrade
 	nano::logger_mt logger;
-	nano::mdb_store store (logger, path, nano::dev::constants);
+	nano::lmdb::store store (logger, path, nano::dev::constants);
 	ASSERT_FALSE (store.init_error ());
 	auto transaction (store.tx_begin_read ());
 
@@ -1397,7 +1397,7 @@ TEST (mdb_block_store, upgrade_v15_v16)
 	nano::mdb_val value;
 	{
 		nano::logger_mt logger;
-		nano::mdb_store store (logger, path, nano::dev::constants);
+		nano::lmdb::store store (logger, path, nano::dev::constants);
 		nano::stat stats;
 		nano::ledger ledger (store, stats, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
@@ -1418,7 +1418,7 @@ TEST (mdb_block_store, upgrade_v15_v16)
 
 	// Now do the upgrade
 	nano::logger_mt logger;
-	nano::mdb_store store (logger, path, nano::dev::constants);
+	nano::lmdb::store store (logger, path, nano::dev::constants);
 	ASSERT_FALSE (store.init_error ());
 	auto transaction (store.tx_begin_read ());
 
@@ -1448,7 +1448,7 @@ TEST (mdb_block_store, upgrade_v16_v17)
 		nano::mdb_val value;
 		{
 			nano::logger_mt logger;
-			nano::mdb_store store (logger, path, nano::dev::constants);
+			nano::lmdb::store store (logger, path, nano::dev::constants);
 			nano::stat stats;
 			nano::ledger ledger (store, stats, nano::dev::constants);
 			auto transaction (store.tx_begin_write ());
@@ -1471,7 +1471,7 @@ TEST (mdb_block_store, upgrade_v16_v17)
 
 		// Now do the upgrade
 		nano::logger_mt logger;
-		nano::mdb_store store (logger, path, nano::dev::constants);
+		nano::lmdb::store store (logger, path, nano::dev::constants);
 		ASSERT_FALSE (store.init_error ());
 		auto transaction (store.tx_begin_read ());
 
@@ -1519,7 +1519,7 @@ TEST (mdb_block_store, upgrade_v17_v18)
 	nano::state_block state_send_epoch_link (key2.pub, state_open.hash (), key2.pub, 0, nano::dev::network_params.ledger.epochs.link (nano::epoch::epoch_2), key2.prv, key2.pub, *pool.generate (state_open.hash ()));
 	{
 		nano::logger_mt logger;
-		nano::mdb_store store (logger, path, nano::dev::constants);
+		nano::lmdb::store store (logger, path, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
 		nano::stat stats;
 		nano::ledger ledger (store, stats, nano::dev::constants);
@@ -1572,7 +1572,7 @@ TEST (mdb_block_store, upgrade_v17_v18)
 
 	// Now do the upgrade
 	nano::logger_mt logger;
-	nano::mdb_store store (logger, path, nano::dev::constants);
+	nano::lmdb::store store (logger, path, nano::dev::constants);
 	ASSERT_FALSE (store.init_error ());
 	auto transaction (store.tx_begin_read ());
 
@@ -1714,7 +1714,7 @@ TEST (mdb_block_store, upgrade_v18_v19)
 
 	{
 		nano::logger_mt logger;
-		nano::mdb_store store (logger, path, nano::dev::constants);
+		nano::lmdb::store store (logger, path, nano::dev::constants);
 		nano::stat stats;
 		nano::ledger ledger (store, stats, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
@@ -1749,7 +1749,7 @@ TEST (mdb_block_store, upgrade_v18_v19)
 
 	// Now do the upgrade
 	nano::logger_mt logger;
-	nano::mdb_store store (logger, path, nano::dev::constants);
+	nano::lmdb::store store (logger, path, nano::dev::constants);
 	ASSERT_FALSE (store.init_error ());
 	auto transaction (store.tx_begin_read ());
 
@@ -1797,7 +1797,7 @@ TEST (mdb_block_store, upgrade_v19_v20)
 	nano::logger_mt logger;
 	nano::stat stats;
 	{
-		nano::mdb_store store (logger, path, nano::dev::constants);
+		nano::lmdb::store store (logger, path, nano::dev::constants);
 		nano::ledger ledger (store, stats, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, ledger.cache);
@@ -1806,7 +1806,7 @@ TEST (mdb_block_store, upgrade_v19_v20)
 		store.version.put (transaction, 19);
 	}
 	// Upgrading should create the table
-	nano::mdb_store store (logger, path, nano::dev::constants);
+	nano::lmdb::store store (logger, path, nano::dev::constants);
 	ASSERT_FALSE (store.init_error ());
 	ASSERT_NE (store.pruned_handle, 0);
 
@@ -1826,7 +1826,7 @@ TEST (mdb_block_store, upgrade_v20_v21)
 	nano::logger_mt logger;
 	nano::stat stats;
 	{
-		nano::mdb_store store (logger, path, nano::dev::constants);
+		nano::lmdb::store store (logger, path, nano::dev::constants);
 		nano::ledger ledger (store, stats, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, ledger.cache);
@@ -1835,7 +1835,7 @@ TEST (mdb_block_store, upgrade_v20_v21)
 		store.version.put (transaction, 20);
 	}
 	// Upgrading should create the table
-	nano::mdb_store store (logger, path, nano::dev::constants);
+	nano::lmdb::store store (logger, path, nano::dev::constants);
 	ASSERT_FALSE (store.init_error ());
 	ASSERT_NE (store.final_votes_handle, 0);
 
@@ -1869,7 +1869,7 @@ TEST (mdb_block_store, upgrade_backup)
 
 	{
 		nano::logger_mt logger;
-		nano::mdb_store store (logger, path, nano::dev::constants);
+		nano::lmdb::store store (logger, path, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
 		store.version.put (transaction, 14);
 	}
@@ -1877,7 +1877,7 @@ TEST (mdb_block_store, upgrade_backup)
 
 	// Now do the upgrade and confirm that backup is saved
 	nano::logger_mt logger;
-	nano::mdb_store store (logger, path, nano::dev::constants, nano::txn_tracking_config{}, std::chrono::seconds (5), nano::lmdb_config{}, true);
+	nano::lmdb::store store (logger, path, nano::dev::constants, nano::txn_tracking_config{}, std::chrono::seconds (5), nano::lmdb_config{}, true);
 	ASSERT_FALSE (store.init_error ());
 	auto transaction (store.tx_begin_read ());
 	ASSERT_LT (14, store.version.get (transaction));
@@ -2027,10 +2027,10 @@ TEST (block_store, rocksdb_force_test_env_variable)
 
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 
-	auto mdb_cast = dynamic_cast<nano::mdb_store *> (store.get ());
+	auto mdb_cast = dynamic_cast<nano::lmdb::store *> (store.get ());
 	if (value && boost::lexical_cast<int> (value) == 1)
 	{
-		ASSERT_NE (boost::polymorphic_downcast<nano::rocksdb_store *> (store.get ()), nullptr);
+		ASSERT_NE (boost::polymorphic_downcast<nano::rocksdb::store *> (store.get ()), nullptr);
 	}
 	else
 	{
@@ -2048,7 +2048,7 @@ TEST (rocksdb_block_store, tombstone_count)
 	{
 		nano::system system{};
 		nano::logger_mt logger{};
-		auto store = std::make_unique<nano::rocksdb_store> (logger, nano::unique_path (), nano::dev::constants);
+		auto store = std::make_unique<nano::rocksdb::store> (logger, nano::unique_path (), nano::dev::constants);
 		nano::unchecked_map unchecked{ *store, false };
 		ASSERT_TRUE (!store->init_error ());
 		std::shared_ptr<nano::block> block = std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5);
@@ -2069,7 +2069,7 @@ TEST (rocksdb_block_store, tombstone_count)
 
 namespace
 {
-void write_sideband_v14 (nano::mdb_store & store_a, nano::transaction & transaction_a, nano::block const & block_a, MDB_dbi db_a)
+void write_sideband_v14 (nano::lmdb::store & store_a, nano::transaction & transaction_a, nano::block const & block_a, MDB_dbi db_a)
 {
 	auto block = store_a.block.get (transaction_a, block_a.hash ());
 	ASSERT_NE (block, nullptr);
@@ -2086,7 +2086,7 @@ void write_sideband_v14 (nano::mdb_store & store_a, nano::transaction & transact
 	ASSERT_FALSE (mdb_put (store_a.env.tx (transaction_a), block->sideband ().details.epoch == nano::epoch::epoch_0 ? store_a.state_blocks_v0_handle : store_a.state_blocks_v1_handle, nano::mdb_val (block_a.hash ()), &val, 0));
 }
 
-void write_sideband_v15 (nano::mdb_store & store_a, nano::transaction & transaction_a, nano::block const & block_a)
+void write_sideband_v15 (nano::lmdb::store & store_a, nano::transaction & transaction_a, nano::block const & block_a)
 {
 	auto block = store_a.block.get (transaction_a, block_a.hash ());
 	ASSERT_NE (block, nullptr);
@@ -2105,7 +2105,7 @@ void write_sideband_v15 (nano::mdb_store & store_a, nano::transaction & transact
 	ASSERT_FALSE (mdb_put (store_a.env.tx (transaction_a), store_a.state_blocks_handle, nano::mdb_val (block_a.hash ()), &val, 0));
 }
 
-void write_block_w_sideband_v18 (nano::mdb_store & store_a, MDB_dbi database, nano::write_transaction & transaction_a, nano::block const & block_a)
+void write_block_w_sideband_v18 (nano::lmdb::store & store_a, MDB_dbi database, nano::write_transaction & transaction_a, nano::block const & block_a)
 {
 	auto block = store_a.block.get (transaction_a, block_a.hash ());
 	ASSERT_NE (block, nullptr);
@@ -2124,7 +2124,7 @@ void write_block_w_sideband_v18 (nano::mdb_store & store_a, MDB_dbi database, na
 	store_a.del (transaction_a, nano::tables::blocks, nano::mdb_val (block_a.hash ()));
 }
 
-void modify_account_info_to_v14 (nano::mdb_store & store, nano::transaction const & transaction, nano::account const & account, uint64_t confirmation_height, nano::block_hash const & rep_block)
+void modify_account_info_to_v14 (nano::lmdb::store & store, nano::transaction const & transaction, nano::account const & account, uint64_t confirmation_height, nano::block_hash const & rep_block)
 {
 	nano::account_info info;
 	ASSERT_FALSE (store.account.get (transaction, account, info));
@@ -2133,7 +2133,7 @@ void modify_account_info_to_v14 (nano::mdb_store & store, nano::transaction cons
 	ASSERT_EQ (status, 0);
 }
 
-void modify_confirmation_height_to_v15 (nano::mdb_store & store, nano::transaction const & transaction, nano::account const & account, uint64_t confirmation_height)
+void modify_confirmation_height_to_v15 (nano::lmdb::store & store, nano::transaction const & transaction, nano::account const & account, uint64_t confirmation_height)
 {
 	auto status (mdb_put (store.env.tx (transaction), store.confirmation_height_handle, nano::mdb_val (account), nano::mdb_val (confirmation_height), 0));
 	ASSERT_EQ (status, 0);

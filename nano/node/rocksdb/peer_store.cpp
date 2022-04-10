@@ -1,7 +1,7 @@
 #include <nano/node/rocksdb/peer_store.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
 
-nano::rocksdb::peer_store::peer_store (nano::rocksdb_store & store) :
+nano::rocksdb::peer_store::peer_store (nano::rocksdb::store & store) :
 	store{ store } {};
 
 void nano::rocksdb::peer_store::put (nano::write_transaction const & transaction, nano::endpoint_key const & endpoint)

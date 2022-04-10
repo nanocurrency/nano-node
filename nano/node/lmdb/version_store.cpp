@@ -1,7 +1,7 @@
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/version_store.hpp>
 
-nano::lmdb::version_store::version_store (nano::mdb_store & store_a) :
+nano::lmdb::version_store::version_store (nano::lmdb::store & store_a) :
 	store{ store_a } {};
 
 void nano::lmdb::version_store::put (nano::write_transaction const & transaction_a, int version)

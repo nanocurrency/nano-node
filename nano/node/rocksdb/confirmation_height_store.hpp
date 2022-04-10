@@ -4,15 +4,15 @@
 
 namespace nano
 {
-class rocksdb_store;
 namespace rocksdb
 {
+	class store;
 	class confirmation_height_store : public nano::confirmation_height_store
 	{
-		nano::rocksdb_store & store;
+		nano::rocksdb::store & store;
 
 	public:
-		explicit confirmation_height_store (nano::rocksdb_store & store_a);
+		explicit confirmation_height_store (nano::rocksdb::store & store_a);
 		void put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info const & confirmation_height_info_a) override;
 		bool get (nano::transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info & confirmation_height_info_a) override;
 		bool exists (nano::transaction const & transaction_a, nano::account const & account_a) const override;

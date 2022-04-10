@@ -3,7 +3,7 @@
 
 #include <nano/secure/parallel_traversal.hpp>
 
-nano::rocksdb::frontier_store::frontier_store (nano::rocksdb_store & store) :
+nano::rocksdb::frontier_store::frontier_store (nano::rocksdb::store & store) :
 	store{ store }
 {
 }

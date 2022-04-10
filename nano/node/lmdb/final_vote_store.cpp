@@ -3,7 +3,7 @@
 
 #include <nano/secure/parallel_traversal.hpp>
 
-nano::lmdb::final_vote_store::final_vote_store (nano::mdb_store & store) :
+nano::lmdb::final_vote_store::final_vote_store (nano::lmdb::store & store) :
 	store{ store } {};
 
 bool nano::lmdb::final_vote_store::put (nano::write_transaction const & transaction, nano::qualified_root const & root, nano::block_hash const & hash)

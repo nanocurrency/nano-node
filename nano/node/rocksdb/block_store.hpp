@@ -6,18 +6,18 @@
 
 namespace nano
 {
-class rocksdb_store;
 using rocksdb_val = db_val<::rocksdb::Slice>;
 class block_predecessor_rocksdb_set;
 namespace rocksdb
 {
+	class store;
 	class block_store : public nano::block_store
 	{
 		friend class nano::block_predecessor_rocksdb_set;
-		nano::rocksdb_store & store;
+		nano::rocksdb::store & store;
 
 	public:
-		explicit block_store (nano::rocksdb_store & store_a);
+		explicit block_store (nano::rocksdb::store & store_a);
 		void put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a) override;
 		void raw_put (nano::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_hash const & hash_a) override;
 		nano::block_hash successor (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override;

@@ -3,7 +3,7 @@
 
 #include <nano/secure/parallel_traversal.hpp>
 
-nano::lmdb::pending_store::pending_store (nano::mdb_store & store) :
+nano::lmdb::pending_store::pending_store (nano::lmdb::store & store) :
 	store{ store } {};
 
 void nano::lmdb::pending_store::put (nano::write_transaction const & transaction, nano::pending_key const & key, nano::pending_info const & pending)

@@ -3,7 +3,7 @@
 
 #include <nano/secure/parallel_traversal.hpp>
 
-nano::lmdb::frontier_store::frontier_store (nano::mdb_store & store) :
+nano::lmdb::frontier_store::frontier_store (nano::lmdb::store & store) :
 	store{ store }
 {
 }

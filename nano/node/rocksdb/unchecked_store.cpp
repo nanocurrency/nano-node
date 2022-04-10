@@ -3,7 +3,7 @@
 
 #include <nano/secure/parallel_traversal.hpp>
 
-nano::rocksdb::unchecked_store::unchecked_store (nano::rocksdb_store & store_a) :
+nano::rocksdb::unchecked_store::unchecked_store (nano::rocksdb::store & store_a) :
 	store (store_a){};
 
 void nano::rocksdb::unchecked_store::clear (nano::write_transaction const & transaction_a)
