@@ -1,6 +1,8 @@
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/unchecked_store.hpp>
 
+#include <nano/secure/parallel_traversal.hpp>
+
 nano::lmdb::unchecked_store::unchecked_store (nano::mdb_store & store_a) :
 	store (store_a){};
 

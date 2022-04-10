@@ -1,6 +1,8 @@
 #include <nano/node/rocksdb/final_vote_store.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
 
+#include <nano/secure/parallel_traversal.hpp>
+
 nano::rocksdb::final_vote_store::final_vote_store (nano::rocksdb_store & store) :
 	store{ store } {};
 

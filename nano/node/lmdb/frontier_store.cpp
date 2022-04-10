@@ -1,6 +1,8 @@
 #include <nano/node/lmdb/frontier_store.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
 
+#include <nano/secure/parallel_traversal.hpp>
+
 nano::lmdb::frontier_store::frontier_store (nano::mdb_store & store) :
 	store{ store }
 {

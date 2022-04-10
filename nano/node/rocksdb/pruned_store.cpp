@@ -1,6 +1,8 @@
 #include <nano/node/rocksdb/pruned_store.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
 
+#include <nano/secure/parallel_traversal.hpp>
+
 nano::rocksdb::pruned_store::pruned_store (nano::rocksdb_store & store_a) :
 	store{ store_a } {};
 
