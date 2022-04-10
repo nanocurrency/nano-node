@@ -705,7 +705,7 @@ TEST (mdb_block_store, supported_version_upgrades)
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, ledger.cache);
 		// Lower the database to the max version unsupported for upgrades
-		store.version.put (transaction, store.minimum_version - 1);
+		store.version.put (transaction, store.version_minimum - 1);
 	}
 
 	// Upgrade should fail
@@ -723,7 +723,7 @@ TEST (mdb_block_store, supported_version_upgrades)
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, ledger.cache);
 		// Lower the database version to the minimum version supported for upgrade.
-		store.version.put (transaction, store.minimum_version);
+		store.version.put (transaction, store.version_minimum);
 		store.confirmation_height.del (transaction, nano::dev::genesis->account ());
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "accounts_v1", MDB_CREATE, &store.accounts_v1_handle));
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "open", MDB_CREATE, &store.open_blocks_handle));

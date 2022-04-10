@@ -91,11 +91,8 @@ public:
 		return static_cast<Derived_Store const &> (*this).template make_iterator<Key, Value> (transaction_a, table_a, key);
 	}
 
-	int const minimum_version{ 14 };
-
 protected:
 	nano::ledger_constants & constants;
-	int const version_number{ 21 };
 
 	uint64_t count (nano::transaction const & transaction_a, std::initializer_list<tables> dbs_a) const
 	{

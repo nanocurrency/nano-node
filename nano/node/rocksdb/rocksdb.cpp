@@ -169,7 +169,7 @@ void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & 
 	{
 		auto transaction = tx_begin_read ();
 		auto version_l = version.get (transaction);
-		if (version_l > version_number)
+		if (version_l > version_current)
 		{
 			error_a = true;
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));

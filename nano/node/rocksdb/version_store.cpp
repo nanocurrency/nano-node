@@ -17,7 +17,7 @@ int nano::rocksdb::version_store::get (nano::transaction const & transaction_a) 
 	nano::uint256_union version_key{ 1 };
 	nano::rocksdb_val data;
 	auto status = store.get (transaction_a, tables::meta, version_key, data);
-	int result = store.minimum_version;
+	int result = store.version_minimum;
 	if (store.success (status))
 	{
 		nano::uint256_union version_value{ data };

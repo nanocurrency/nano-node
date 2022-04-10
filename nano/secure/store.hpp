@@ -852,6 +852,8 @@ public:
 	frontier_store & frontier;
 	account_store & account;
 	pending_store & pending;
+	static int constexpr version_minimum{ 14 };
+	static int constexpr version_current{ 21 };
 
 private:
 	unchecked_store & unchecked;

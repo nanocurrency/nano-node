@@ -83,7 +83,7 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 			is_fresh_db = err != MDB_SUCCESS;
 			if (err == MDB_SUCCESS)
 			{
-				is_fully_upgraded = (version.get (transaction) == version_number);
+				is_fully_upgraded = (version.get (transaction) == version_current);
 				mdb_dbi_close (env, meta_handle);
 			}
 		}
@@ -279,7 +279,7 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool
 		case 11:
 		case 12:
 		case 13:
-			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is lower than the minimum (%2%) which is supported for upgrades. Either upgrade to a v19, v20 or v21 node first or delete the ledger.") % version_l % minimum_version));
+			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is lower than the minimum (%2%) which is supported for upgrades. Either upgrade to a v19, v20 or v21 node first or delete the ledger.") % version_l % version_minimum));
 			error = true;
 			break;
 		case 14:
