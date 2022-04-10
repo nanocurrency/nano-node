@@ -69,23 +69,6 @@ public:
 		frontier.put (transaction_a, hash_l, constants.genesis->account ());
 	}
 
-	bool exists (nano::transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a) const
-	{
-		return static_cast<const Derived_Store &> (*this).exists (transaction_a, table_a, key_a);
-	}
-
-	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, bool const direction_asc = true) const
-	{
-		return static_cast<Derived_Store const &> (*this).template make_iterator<Key, Value> (transaction_a, table_a, direction_asc);
-	}
-
-	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key) const
-	{
-		return static_cast<Derived_Store const &> (*this).template make_iterator<Key, Value> (transaction_a, table_a, key);
-	}
-
 protected:
 	nano::ledger_constants & constants;
 
@@ -99,11 +82,6 @@ protected:
 		return total_count;
 	}
 
-	int get (nano::transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a, nano::db_val<Val> & value_a) const
-	{
-		return static_cast<Derived_Store const &> (*this).get (transaction_a, table_a, key_a, value_a);
-	}
-
 	int put (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a, nano::db_val<Val> const & value_a)
 	{
 		return static_cast<Derived_Store &> (*this).put (transaction_a, table_a, key_a, value_a);
@@ -113,11 +91,6 @@ protected:
 	int put_key (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a)
 	{
 		return this->put (transaction_a, table_a, key_a, nano::db_val<Val>{ nullptr });
-	}
-
-	int del (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a)
-	{
-		return static_cast<Derived_Store &> (*this).del (transaction_a, table_a, key_a);
 	}
 
 	virtual uint64_t count (nano::transaction const & transaction_a, tables table_a) const = 0;
