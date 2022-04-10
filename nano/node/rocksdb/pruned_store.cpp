@@ -8,7 +8,7 @@ nano::rocksdb::pruned_store::pruned_store (nano::rocksdb_store & store_a) :
 
 void nano::rocksdb::pruned_store::put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	auto status = store.put_key (transaction_a, tables::pruned, hash_a);
+	auto status = store.put (transaction_a, tables::pruned, hash_a, nullptr);
 	store.release_assert_success (status);
 }
 

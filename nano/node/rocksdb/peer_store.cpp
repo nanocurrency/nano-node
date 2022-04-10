@@ -6,7 +6,7 @@ nano::rocksdb::peer_store::peer_store (nano::rocksdb_store & store) :
 
 void nano::rocksdb::peer_store::put (nano::write_transaction const & transaction, nano::endpoint_key const & endpoint)
 {
-	auto status = store.put_key (transaction, tables::peers, endpoint);
+	auto status = store.put (transaction, tables::peers, endpoint, nullptr);
 	store.release_assert_success (status);
 }
 

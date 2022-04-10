@@ -87,12 +87,6 @@ protected:
 		return static_cast<Derived_Store &> (*this).put (transaction_a, table_a, key_a, value_a);
 	}
 
-	// Put only key without value
-	int put_key (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a)
-	{
-		return this->put (transaction_a, table_a, key_a, nano::db_val<Val>{ nullptr });
-	}
-
 	virtual uint64_t count (nano::transaction const & transaction_a, tables table_a) const = 0;
 	virtual int drop (nano::write_transaction const & transaction_a, tables table_a) = 0;
 	virtual bool not_found (int status) const = 0;
