@@ -42,8 +42,7 @@ void mdb_val::convert_buffer_to_value ()
 
 nano::lmdb::store::store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a) :
 	// clang-format off
-	store_partial{
-		constants,
+	nano::store{
 		block_store,
 		frontier_store,
 		account_store,
@@ -107,7 +106,7 @@ nano::lmdb::store::store (nano::logger_mt & logger_a, boost::filesystem::path co
 				open_databases (error, transaction, MDB_CREATE);
 				if (!error)
 				{
-					error |= do_upgrades (transaction, needs_vacuuming);
+					error |= do_upgrades (transaction, constants, needs_vacuuming);
 				}
 			}
 
@@ -260,7 +259,7 @@ void nano::lmdb::store::open_databases (bool & error_a, nano::transaction const 
 	}
 }
 
-bool nano::lmdb::store::do_upgrades (nano::write_transaction & transaction_a, bool & needs_vacuuming)
+bool nano::lmdb::store::do_upgrades (nano::write_transaction & transaction_a, nano::ledger_constants & constants, bool & needs_vacuuming)
 {
 	auto error (false);
 	auto version_l = version.get (transaction_a);
@@ -293,7 +292,7 @@ bool nano::lmdb::store::do_upgrades (nano::write_transaction & transaction_a, bo
 			upgrade_v16_to_v17 (transaction_a);
 			[[fallthrough]];
 		case 17:
-			upgrade_v17_to_v18 (transaction_a);
+			upgrade_v17_to_v18 (transaction_a, constants);
 			[[fallthrough]];
 			// Upgrades to version 19 & 20 are both part of the v22 node release
 		case 18:
@@ -526,7 +525,7 @@ void nano::lmdb::store::upgrade_v16_to_v17 (nano::write_transaction const & tran
 	logger.always_log ("Finished upgrading confirmation height frontiers");
 }
 
-void nano::lmdb::store::upgrade_v17_to_v18 (nano::write_transaction const & transaction_a)
+void nano::lmdb::store::upgrade_v17_to_v18 (nano::write_transaction const & transaction_a, nano::ledger_constants & constants)
 {
 	logger.always_log ("Preparing v17 to v18 database upgrade...");
 

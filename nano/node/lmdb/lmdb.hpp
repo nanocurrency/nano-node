@@ -19,7 +19,6 @@
 #include <nano/node/lmdb/unchecked_store.hpp>
 #include <nano/node/lmdb/version_store.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/store_partial.hpp>
 #include <nano/secure/versioning.hpp>
 
 #include <boost/optional.hpp>
@@ -46,7 +45,7 @@ namespace lmdb
 /**
  * mdb implementation of the block store
  */
-class store : public store_partial<MDB_val, store>
+class store : public nano::store
 {
 private:
 	nano::lmdb::account_store account_store;
@@ -267,11 +266,11 @@ public:
 	boost::optional<nano::mdb_val> block_raw_get_by_type_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a, bool * is_state_v1) const;
 
 private:
-	bool do_upgrades (nano::write_transaction &, bool &);
+	bool do_upgrades (nano::write_transaction &, nano::ledger_constants & constants, bool &);
 	void upgrade_v14_to_v15 (nano::write_transaction &);
 	void upgrade_v15_to_v16 (nano::write_transaction const &);
 	void upgrade_v16_to_v17 (nano::write_transaction const &);
-	void upgrade_v17_to_v18 (nano::write_transaction const &);
+	void upgrade_v17_to_v18 (nano::write_transaction const &, nano::ledger_constants & constants);
 	void upgrade_v18_to_v19 (nano::write_transaction const &);
 	void upgrade_v19_to_v20 (nano::write_transaction const &);
 	void upgrade_v20_to_v21 (nano::write_transaction const &);
