@@ -901,6 +901,11 @@ bool nano::ledger::block_or_pruned_exists (nano::transaction const & transaction
 	return store.block.exists (transaction_a, hash_a);
 }
 
+bool nano::ledger::root_exists (nano::transaction const & transaction_a, nano::root const & root_a)
+{
+	return store.block.exists (transaction_a, root_a.as_block_hash ()) || store.account.exists (transaction_a, root_a.as_account ());
+}
+
 std::string nano::ledger::block_text (char const * hash_a)
 {
 	return block_text (nano::block_hash (hash_a));

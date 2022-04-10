@@ -69,11 +69,6 @@ public:
 		frontier.put (transaction_a, hash_l, constants.genesis->account ());
 	}
 
-	bool root_exists (nano::transaction const & transaction_a, nano::root const & root_a) override
-	{
-		return block.exists (transaction_a, root_a.as_block_hash ()) || account.exists (transaction_a, root_a.as_account ());
-	}
-
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a) const
 	{
 		return static_cast<const Derived_Store &> (*this).exists (transaction_a, table_a, key_a);
