@@ -9,7 +9,7 @@ nano::rocksdb::confirmation_height_store::confirmation_height_store (nano::rocks
 void nano::rocksdb::confirmation_height_store::put (nano::write_transaction const & transaction, nano::account const & account, nano::confirmation_height_info const & confirmation_height_info)
 {
 	auto status = store.put (transaction, tables::confirmation_height, account, confirmation_height_info);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 bool nano::rocksdb::confirmation_height_store::get (nano::transaction const & transaction, nano::account const & account, nano::confirmation_height_info & confirmation_height_info)
@@ -40,7 +40,7 @@ bool nano::rocksdb::confirmation_height_store::exists (nano::transaction const &
 void nano::rocksdb::confirmation_height_store::del (nano::write_transaction const & transaction, nano::account const & account)
 {
 	auto status = store.del (transaction, tables::confirmation_height, account);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 uint64_t nano::rocksdb::confirmation_height_store::count (nano::transaction const & transaction)

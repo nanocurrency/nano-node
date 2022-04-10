@@ -23,15 +23,10 @@ namespace nano
 template <typename Val, typename Derived_Store>
 class store_partial;
 
-template <typename Val, typename Derived_Store>
-void release_assert_success (store_partial<Val, Derived_Store> const & store, int const status);
-
 /** This base class implements the store interface functions which have DB agnostic functionality. It also maps all the store classes. */
 template <typename Val, typename Derived_Store>
 class store_partial : public store
 {
-	friend void release_assert_success<Val, Derived_Store> (store_partial<Val, Derived_Store> const &, int const);
-
 public:
 	// clang-format off
 	store_partial (
@@ -150,15 +145,6 @@ protected:
 	virtual int status_code_not_found () const = 0;
 	virtual std::string error_string (int status) const = 0;
 };
-
-template <typename Val, typename Derived_Store>
-void release_assert_success (store_partial<Val, Derived_Store> const & store, int const status)
-{
-	if (!store.success (status))
-	{
-		release_assert (false, store.error_string (status));
-	}
-}
 }
 
 namespace

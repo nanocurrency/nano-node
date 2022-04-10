@@ -27,7 +27,7 @@ bool nano::lmdb::account_store::get (nano::transaction const & transaction, nano
 void nano::lmdb::account_store::del (nano::write_transaction const & transaction_a, nano::account const & account_a)
 {
 	auto status = store.del (transaction_a, tables::accounts, account_a);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 bool nano::lmdb::account_store::exists (nano::transaction const & transaction_a, nano::account const & account_a)

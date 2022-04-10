@@ -7,13 +7,13 @@ nano::lmdb::peer_store::peer_store (nano::mdb_store & store) :
 void nano::lmdb::peer_store::put (nano::write_transaction const & transaction, nano::endpoint_key const & endpoint)
 {
 	auto status = store.put_key (transaction, tables::peers, endpoint);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 void nano::lmdb::peer_store::del (nano::write_transaction const & transaction, nano::endpoint_key const & endpoint)
 {
 	auto status = store.del (transaction, tables::peers, endpoint);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 bool nano::lmdb::peer_store::exists (nano::transaction const & transaction, nano::endpoint_key const & endpoint) const
@@ -29,7 +29,7 @@ size_t nano::lmdb::peer_store::count (nano::transaction const & transaction) con
 void nano::lmdb::peer_store::clear (nano::write_transaction const & transaction)
 {
 	auto status = store.drop (transaction, tables::peers);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 nano::store_iterator<nano::endpoint_key, nano::no_value> nano::lmdb::peer_store::begin (nano::transaction const & transaction) const

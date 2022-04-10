@@ -9,7 +9,7 @@ void nano::lmdb::version_store::put (nano::write_transaction const & transaction
 	nano::uint256_union version_key{ 1 };
 	nano::uint256_union version_value (version);
 	auto status = store.put (transaction_a, tables::meta, version_key, version_value);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 int nano::lmdb::version_store::get (nano::transaction const & transaction_a) const

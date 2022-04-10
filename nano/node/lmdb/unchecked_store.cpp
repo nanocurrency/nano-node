@@ -7,13 +7,13 @@ nano::lmdb::unchecked_store::unchecked_store (nano::mdb_store & store_a) :
 void nano::lmdb::unchecked_store::clear (nano::write_transaction const & transaction_a)
 {
 	auto status = store.drop (transaction_a, tables::unchecked);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 void nano::lmdb::unchecked_store::put (nano::write_transaction const & transaction_a, nano::hash_or_account const & dependency, nano::unchecked_info const & info)
 {
 	auto status = store.put (transaction_a, tables::unchecked, nano::unchecked_key{ dependency, info.block->hash () }, info);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 bool nano::lmdb::unchecked_store::exists (nano::transaction const & transaction_a, nano::unchecked_key const & key)
@@ -27,7 +27,7 @@ bool nano::lmdb::unchecked_store::exists (nano::transaction const & transaction_
 void nano::lmdb::unchecked_store::del (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a)
 {
 	auto status (store.del (transaction_a, tables::unchecked, key_a));
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 nano::store_iterator<nano::unchecked_key, nano::unchecked_info> nano::lmdb::unchecked_store::end () const

@@ -9,13 +9,13 @@ nano::lmdb::online_weight_store::online_weight_store (nano::mdb_store & store_a)
 void nano::lmdb::online_weight_store::put (nano::write_transaction const & transaction, uint64_t time, nano::amount const & amount)
 {
 	auto status = store.put (transaction, tables::online_weight, time, amount);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 void nano::lmdb::online_weight_store::del (nano::write_transaction const & transaction, uint64_t time)
 {
 	auto status = store.del (transaction, tables::online_weight, time);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 nano::store_iterator<uint64_t, nano::amount> nano::lmdb::online_weight_store::begin (nano::transaction const & transaction) const
@@ -41,5 +41,5 @@ size_t nano::lmdb::online_weight_store::count (nano::transaction const & transac
 void nano::lmdb::online_weight_store::clear (nano::write_transaction const & transaction)
 {
 	auto status = store.drop (transaction, tables::online_weight);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }

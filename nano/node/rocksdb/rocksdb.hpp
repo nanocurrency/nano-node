@@ -129,6 +129,13 @@ private:
 
 	bool not_found (int status) const override;
 	bool success (int status) const override;
+	void release_assert_success (int const status) const
+	{
+		if (!success (status))
+		{
+			release_assert (false, error_string (status));
+		}
+	}
 	int status_code_not_found () const override;
 	int drop (nano::write_transaction const &, tables) override;
 

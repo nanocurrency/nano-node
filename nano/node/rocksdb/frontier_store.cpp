@@ -9,7 +9,7 @@ nano::rocksdb::frontier_store::frontier_store (nano::rocksdb_store & store) :
 void nano::rocksdb::frontier_store::put (nano::write_transaction const & transaction, nano::block_hash const & block, nano::account const & account)
 {
 	auto status = store.put (transaction, tables::frontiers, block, account);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 nano::account nano::rocksdb::frontier_store::get (nano::transaction const & transaction, nano::block_hash const & hash) const
@@ -28,7 +28,7 @@ nano::account nano::rocksdb::frontier_store::get (nano::transaction const & tran
 void nano::rocksdb::frontier_store::del (nano::write_transaction const & transaction, nano::block_hash const & hash)
 {
 	auto status = store.del (transaction, tables::frontiers, hash);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 nano::store_iterator<nano::block_hash, nano::account> nano::rocksdb::frontier_store::begin (nano::transaction const & transaction) const

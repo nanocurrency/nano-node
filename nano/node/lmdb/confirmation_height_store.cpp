@@ -9,7 +9,7 @@ nano::lmdb::confirmation_height_store::confirmation_height_store (nano::mdb_stor
 void nano::lmdb::confirmation_height_store::put (nano::write_transaction const & transaction, nano::account const & account, nano::confirmation_height_info const & confirmation_height_info)
 {
 	auto status = store.put (transaction, tables::confirmation_height, account, confirmation_height_info);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 bool nano::lmdb::confirmation_height_store::get (nano::transaction const & transaction, nano::account const & account, nano::confirmation_height_info & confirmation_height_info)
@@ -40,7 +40,7 @@ bool nano::lmdb::confirmation_height_store::exists (nano::transaction const & tr
 void nano::lmdb::confirmation_height_store::del (nano::write_transaction const & transaction, nano::account const & account)
 {
 	auto status = store.del (transaction, tables::confirmation_height, account);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 uint64_t nano::lmdb::confirmation_height_store::count (nano::transaction const & transaction_a)

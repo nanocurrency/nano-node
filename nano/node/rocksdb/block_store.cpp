@@ -44,7 +44,7 @@ void nano::rocksdb::block_store::raw_put (nano::write_transaction const & transa
 {
 	nano::rocksdb_val value{ data.size (), (void *)data.data () };
 	auto status = store.put (transaction_a, tables::blocks, hash_a, value);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 nano::block_hash nano::rocksdb::block_store::successor (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
@@ -130,7 +130,7 @@ std::shared_ptr<nano::block> nano::rocksdb::block_store::random (nano::transacti
 void nano::rocksdb::block_store::del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto status = store.del (transaction_a, tables::blocks, hash_a);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 bool nano::rocksdb::block_store::exists (nano::transaction const & transaction, nano::block_hash const & hash)
