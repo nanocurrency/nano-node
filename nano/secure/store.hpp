@@ -845,7 +845,7 @@ public:
 	);
 	// clang-format on
 	virtual ~store () = default;
-	virtual void initialize (nano::write_transaction const &, nano::ledger_cache &) = 0;
+	void initialize (nano::write_transaction const & transaction_a, nano::ledger_cache & ledger_cache_a, nano::ledger_constants & constants);
 	virtual uint64_t count (nano::transaction const & transaction_a, tables table_a) const = 0;
 	virtual int drop (nano::write_transaction const & transaction_a, tables table_a) = 0;
 	virtual bool not_found (int status) const = 0;
