@@ -846,6 +846,12 @@ public:
 	// clang-format on
 	virtual ~store () = default;
 	virtual void initialize (nano::write_transaction const &, nano::ledger_cache &) = 0;
+	virtual uint64_t count (nano::transaction const & transaction_a, tables table_a) const = 0;
+	virtual int drop (nano::write_transaction const & transaction_a, tables table_a) = 0;
+	virtual bool not_found (int status) const = 0;
+	virtual bool success (int status) const = 0;
+	virtual int status_code_not_found () const = 0;
+	virtual std::string error_string (int status) const = 0;
 
 	block_store & block;
 	frontier_store & frontier;

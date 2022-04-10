@@ -71,27 +71,5 @@ public:
 
 protected:
 	nano::ledger_constants & constants;
-
-	uint64_t count (nano::transaction const & transaction_a, std::initializer_list<tables> dbs_a) const
-	{
-		uint64_t total_count = 0;
-		for (auto db : dbs_a)
-		{
-			total_count += count (transaction_a, db);
-		}
-		return total_count;
-	}
-
-	int put (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a, nano::db_val<Val> const & value_a)
-	{
-		return static_cast<Derived_Store &> (*this).put (transaction_a, table_a, key_a, value_a);
-	}
-
-	virtual uint64_t count (nano::transaction const & transaction_a, tables table_a) const = 0;
-	virtual int drop (nano::write_transaction const & transaction_a, tables table_a) = 0;
-	virtual bool not_found (int status) const = 0;
-	virtual bool success (int status) const = 0;
-	virtual int status_code_not_found () const = 0;
-	virtual std::string error_string (int status) const = 0;
 };
 }
