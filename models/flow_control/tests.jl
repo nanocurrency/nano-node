@@ -370,7 +370,7 @@ end
 
 function test()
     print("Running tests...\n")
-    for t in [UInt8, UInt64, UInt128]
+    for t in [UInt8, UInt128]
         test_all(t)
     end
 end
