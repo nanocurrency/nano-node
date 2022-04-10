@@ -1,6 +1,5 @@
 #include <nano/node/rocksdb/block_store.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
-
 #include <nano/secure/parallel_traversal.hpp>
 
 namespace nano

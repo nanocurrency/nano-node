@@ -1,6 +1,5 @@
 #include <nano/node/rocksdb/frontier_store.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
-
 #include <nano/secure/parallel_traversal.hpp>
 
 nano::rocksdb::frontier_store::frontier_store (nano::rocksdb::store & store) :

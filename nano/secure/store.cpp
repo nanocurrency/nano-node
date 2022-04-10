@@ -135,7 +135,6 @@ nano::store::store (
 }
 // clang-format on
 
-
 /**
  * If using a different store version than the latest then you may need
  * to modify some of the objects in the store to be appropriate for the version before an upgrade.

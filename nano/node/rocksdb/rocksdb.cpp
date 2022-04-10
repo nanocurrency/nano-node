@@ -887,4 +887,3 @@ nano::rocksdb::store::tombstone_info::tombstone_info (uint64_t num_since_last_fl
 	max (max_a)
 {
 }
-
