@@ -2,6 +2,8 @@
 
 #include <nano/secure/store.hpp>
 
+#include <lmdb/libraries/liblmdb/lmdb.h>
+
 namespace nano
 {
 namespace lmdb
@@ -24,6 +26,12 @@ namespace lmdb
 		nano::store_iterator<nano::account, nano::confirmation_height_info> begin (nano::transaction const & transaction_a) const override;
 		nano::store_iterator<nano::account, nano::confirmation_height_info> end () const override;
 		void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::account, nano::confirmation_height_info>, nano::store_iterator<nano::account, nano::confirmation_height_info>)> const & action_a) const override;
+
+		/*
+		 * Confirmation height of an account, and the hash for the block at that height
+		 * nano::account -> uint64_t, nano::block_hash
+		 */
+		MDB_dbi confirmation_height_handle{ 0 };
 	};
 }
 }

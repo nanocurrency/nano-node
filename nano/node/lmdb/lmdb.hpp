@@ -94,144 +94,6 @@ namespace lmdb
 	public:
 		nano::mdb_env env;
 
-		/**
-	 * Maps head block to owning account
-	 * nano::block_hash -> nano::account
-	 */
-		MDB_dbi frontiers_handle{ 0 };
-
-		/**
-	 * Maps account v1 to account information, head, rep, open, balance, timestamp and block count. (Removed)
-	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
-	 */
-		MDB_dbi accounts_v0_handle{ 0 };
-
-		/**
-	 * Maps account v0 to account information, head, rep, open, balance, timestamp and block count. (Removed)
-	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
-	 */
-		MDB_dbi accounts_v1_handle{ 0 };
-
-		/**
-	 * Maps account v0 to account information, head, rep, open, balance, timestamp, block count and epoch
-	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t, nano::epoch
-	 */
-		MDB_dbi accounts_handle{ 0 };
-
-		/**
-	 * Maps block hash to send block. (Removed)
-	 * nano::block_hash -> nano::send_block
-	 */
-		MDB_dbi send_blocks_handle{ 0 };
-
-		/**
-	 * Maps block hash to receive block. (Removed)
-	 * nano::block_hash -> nano::receive_block
-	 */
-		MDB_dbi receive_blocks_handle{ 0 };
-
-		/**
-	 * Maps block hash to open block. (Removed)
-	 * nano::block_hash -> nano::open_block
-	 */
-		MDB_dbi open_blocks_handle{ 0 };
-
-		/**
-	 * Maps block hash to change block. (Removed)
-	 * nano::block_hash -> nano::change_block
-	 */
-		MDB_dbi change_blocks_handle{ 0 };
-
-		/**
-	 * Maps block hash to v0 state block. (Removed)
-	 * nano::block_hash -> nano::state_block
-	 */
-		MDB_dbi state_blocks_v0_handle{ 0 };
-
-		/**
-	 * Maps block hash to v1 state block. (Removed)
-	 * nano::block_hash -> nano::state_block
-	 */
-		MDB_dbi state_blocks_v1_handle{ 0 };
-
-		/**
-	 * Maps block hash to state block. (Removed)
-	 * nano::block_hash -> nano::state_block
-	 */
-		MDB_dbi state_blocks_handle{ 0 };
-
-		/**
-	 * Maps min_version 0 (destination account, pending block) to (source account, amount). (Removed)
-	 * nano::account, nano::block_hash -> nano::account, nano::amount
-	 */
-		MDB_dbi pending_v0_handle{ 0 };
-
-		/**
-	 * Maps min_version 1 (destination account, pending block) to (source account, amount). (Removed)
-	 * nano::account, nano::block_hash -> nano::account, nano::amount
-	 */
-		MDB_dbi pending_v1_handle{ 0 };
-
-		/**
-	 * Maps (destination account, pending block) to (source account, amount, version). (Removed)
-	 * nano::account, nano::block_hash -> nano::account, nano::amount, nano::epoch
-	 */
-		MDB_dbi pending_handle{ 0 };
-
-		/**
-	 * Representative weights. (Removed)
-	 * nano::account -> nano::uint128_t
-	 */
-		MDB_dbi representation_handle{ 0 };
-
-		/**
-	 * Unchecked bootstrap blocks info.
-	 * nano::block_hash -> nano::unchecked_info
-	 */
-		MDB_dbi unchecked_handle{ 0 };
-
-		/**
-	 * Samples of online vote weight
-	 * uint64_t -> nano::amount
-	 */
-		MDB_dbi online_weight_handle{ 0 };
-
-		/**
-	 * Meta information about block store, such as versions.
-	 * nano::uint256_union (arbitrary key) -> blob
-	 */
-		MDB_dbi meta_handle{ 0 };
-
-		/**
-	 * Pruned blocks hashes
-	 * nano::block_hash -> none
-	 */
-		MDB_dbi pruned_handle{ 0 };
-
-		/*
-	 * Endpoints for peers
-	 * nano::endpoint_key -> no_value
-	*/
-		MDB_dbi peers_handle{ 0 };
-
-		/*
-	 * Confirmation height of an account, and the hash for the block at that height
-	 * nano::account -> uint64_t, nano::block_hash
-	 */
-		MDB_dbi confirmation_height_handle{ 0 };
-
-		/*
-	 * Contains block_sideband and block for all block types (legacy send/change/open/receive & state blocks)
-	 * nano::block_hash -> nano::block_sideband, nano::block
-	 */
-		MDB_dbi blocks_handle{ 0 };
-
-		/**
-	 * Maps root to block hash for generated final votes.
-	 * nano::qualified_root -> nano::block_hash
-	 */
-		MDB_dbi final_votes_handle{ 0 };
-
 		bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
 
 		int get (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val & value_a) const;
@@ -317,6 +179,20 @@ namespace lmdb
 			uint64_t after_v0{ 0 };
 			uint64_t after_v1{ 0 };
 		};
+
+		friend class mdb_block_store_supported_version_upgrades_Test;
+		friend class mdb_block_store_upgrade_v14_v15_Test;
+		friend class mdb_block_store_upgrade_v15_v16_Test;
+		friend class mdb_block_store_upgrade_v16_v17_Test;
+		friend class mdb_block_store_upgrade_v17_v18_Test;
+		friend class mdb_block_store_upgrade_v18_v19_Test;
+		friend class mdb_block_store_upgrade_v19_v20_Test;
+		friend class mdb_block_store_upgrade_v20_v21_Test;
+		friend class block_store_DISABLED_change_dupsort_Test;
+		friend void write_sideband_v14 (nano::lmdb::store &, nano::transaction &, nano::block const &, MDB_dbi);
+		friend void write_sideband_v15 (nano::lmdb::store &, nano::transaction &, nano::block const &);
+		friend void modify_account_info_to_v14 (nano::lmdb::store &, nano::transaction const &, nano::account const &, uint64_t, nano::block_hash const &);
+		friend void modify_confirmation_height_to_v15 (nano::lmdb::store &, nano::transaction const &, nano::account const &, uint64_t);
 	};
 }
 
