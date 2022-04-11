@@ -221,7 +221,7 @@ void nano::lmdb::store::open_databases (bool & error_a, nano::transaction const 
 	account_store.accounts_handle = account_store.accounts_v0_handle;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "pending", flags, &pending_store.pending_v0_handle) != 0;
 	pending_store.pending_handle = pending_store.pending_v0_handle;
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "final_votes", flags, &final_votes_handle) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "final_votes", flags, &final_vote_store.final_votes_handle) != 0;
 
 	auto version_l = version.get (transaction_a);
 	if (version_l < 19)
@@ -774,7 +774,7 @@ void nano::lmdb::store::upgrade_v19_to_v20 (nano::write_transaction const & tran
 void nano::lmdb::store::upgrade_v20_to_v21 (nano::write_transaction const & transaction_a)
 {
 	logger.always_log ("Preparing v20 to v21 database upgrade...");
-	mdb_dbi_open (env.tx (transaction_a), "final_votes", MDB_CREATE, &final_votes_handle);
+	mdb_dbi_open (env.tx (transaction_a), "final_votes", MDB_CREATE, &final_vote_store.final_votes_handle);
 	version.put (transaction_a, 21);
 	logger.always_log ("Finished creating new final_vote table");
 }
@@ -881,7 +881,7 @@ MDB_dbi nano::lmdb::store::table_to_dbi (tables table_a) const
 		case tables::confirmation_height:
 			return confirmation_height_store.confirmation_height_handle;
 		case tables::final_votes:
-			return final_votes_handle;
+			return final_vote_store.final_votes_handle;
 		default:
 			release_assert (false);
 			return peer_store.peers_handle;

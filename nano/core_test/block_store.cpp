@@ -1869,33 +1869,39 @@ namespace lmdb
 }
 }
 
-TEST (mdb_block_store, upgrade_v20_v21)
+namespace nano
 {
-	if (nano::rocksdb_config::using_rocksdb_in_tests ())
+namespace lmdb
+{
+	TEST (mdb_block_store, upgrade_v20_v21)
 	{
-		// Don't test this in rocksdb mode
-		return;
-	}
-	auto path (nano::unique_path ());
-	nano::logger_mt logger;
-	nano::stat stats;
-	{
+		if (nano::rocksdb_config::using_rocksdb_in_tests ())
+		{
+			// Don't test this in rocksdb mode
+			return;
+		}
+		auto path (nano::unique_path ());
+		nano::logger_mt logger;
+		nano::stat stats;
+		{
+			nano::lmdb::store store (logger, path, nano::dev::constants);
+			nano::ledger ledger (store, stats, nano::dev::constants);
+			auto transaction (store.tx_begin_write ());
+			store.initialize (transaction, ledger.cache, ledger.constants);
+			// Delete pruned table
+			ASSERT_FALSE (mdb_drop (store.env.tx (transaction), store.final_vote_store.final_votes_handle, 1));
+			store.version.put (transaction, 20);
+		}
+		// Upgrading should create the table
 		nano::lmdb::store store (logger, path, nano::dev::constants);
-		nano::ledger ledger (store, stats, nano::dev::constants);
-		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, ledger.cache, ledger.constants);
-		// Delete pruned table
-		ASSERT_FALSE (mdb_drop (store.env.tx (transaction), store.final_votes_handle, 1));
-		store.version.put (transaction, 20);
-	}
-	// Upgrading should create the table
-	nano::lmdb::store store (logger, path, nano::dev::constants);
-	ASSERT_FALSE (store.init_error ());
-	ASSERT_NE (store.final_votes_handle, 0);
+		ASSERT_FALSE (store.init_error ());
+		ASSERT_NE (store.final_vote_store.final_votes_handle, 0);
 
-	// Version should be correct
-	auto transaction (store.tx_begin_read ());
-	ASSERT_LT (19, store.version.get (transaction));
+		// Version should be correct
+		auto transaction (store.tx_begin_read ());
+		ASSERT_LT (19, store.version.get (transaction));
+	}
+}
 }
 
 TEST (mdb_block_store, upgrade_backup)

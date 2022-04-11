@@ -154,12 +154,6 @@ namespace lmdb
 	 */
 		MDB_dbi blocks_handle{ 0 };
 
-		/**
-	 * Maps root to block hash for generated final votes.
-	 * nano::qualified_root -> nano::block_hash
-	 */
-		MDB_dbi final_votes_handle{ 0 };
-
 		bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
 
 		int get (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val & value_a) const;
@@ -250,6 +244,7 @@ namespace lmdb
 		friend class mdb_block_store_upgrade_v14_v15_Test;
 		friend class mdb_block_store_upgrade_v15_v16_Test;
 		friend class mdb_block_store_upgrade_v19_v20_Test;
+		friend class mdb_block_store_upgrade_v20_v21_Test;
 		friend void modify_account_info_to_v14 (nano::lmdb::store &, nano::transaction const &, nano::account const &, uint64_t, nano::block_hash const &);
 		friend void modify_confirmation_height_to_v15 (nano::lmdb::store &, nano::transaction const &, nano::account const &, uint64_t);
 	};
