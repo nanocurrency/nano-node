@@ -148,12 +148,6 @@ namespace lmdb
 	 */
 		MDB_dbi meta_handle{ 0 };
 
-		/**
-	 * Pruned blocks hashes
-	 * nano::block_hash -> none
-	 */
-		MDB_dbi pruned_handle{ 0 };
-
 		/*
 	 * Endpoints for peers
 	 * nano::endpoint_key -> no_value
@@ -267,6 +261,7 @@ namespace lmdb
 		friend class mdb_block_store_supported_version_upgrades_Test;
 		friend class mdb_block_store_upgrade_v14_v15_Test;
 		friend class mdb_block_store_upgrade_v15_v16_Test;
+		friend class mdb_block_store_upgrade_v19_v20_Test;
 		friend void modify_account_info_to_v14 (nano::lmdb::store &, nano::transaction const &, nano::account const &, uint64_t, nano::block_hash const &);
 	};
 }

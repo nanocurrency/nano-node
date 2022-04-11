@@ -1834,33 +1834,39 @@ TEST (mdb_block_store, upgrade_v18_v19)
 	ASSERT_LT (18, store.version.get (transaction));
 }
 
-TEST (mdb_block_store, upgrade_v19_v20)
+namespace nano
 {
-	if (nano::rocksdb_config::using_rocksdb_in_tests ())
+namespace lmdb
+{
+	TEST (mdb_block_store, upgrade_v19_v20)
 	{
-		// Don't test this in rocksdb mode
-		return;
-	}
-	auto path (nano::unique_path ());
-	nano::logger_mt logger;
-	nano::stat stats;
-	{
+		if (nano::rocksdb_config::using_rocksdb_in_tests ())
+		{
+			// Don't test this in rocksdb mode
+			return;
+		}
+		auto path (nano::unique_path ());
+		nano::logger_mt logger;
+		nano::stat stats;
+		{
+			nano::lmdb::store store (logger, path, nano::dev::constants);
+			nano::ledger ledger (store, stats, nano::dev::constants);
+			auto transaction (store.tx_begin_write ());
+			store.initialize (transaction, ledger.cache, nano::dev::constants);
+			// Delete pruned table
+			ASSERT_FALSE (mdb_drop (store.env.tx (transaction), store.pruned_store.pruned_handle, 1));
+			store.version.put (transaction, 19);
+		}
+		// Upgrading should create the table
 		nano::lmdb::store store (logger, path, nano::dev::constants);
-		nano::ledger ledger (store, stats, nano::dev::constants);
-		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, ledger.cache, nano::dev::constants);
-		// Delete pruned table
-		ASSERT_FALSE (mdb_drop (store.env.tx (transaction), store.pruned_handle, 1));
-		store.version.put (transaction, 19);
-	}
-	// Upgrading should create the table
-	nano::lmdb::store store (logger, path, nano::dev::constants);
-	ASSERT_FALSE (store.init_error ());
-	ASSERT_NE (store.pruned_handle, 0);
+		ASSERT_FALSE (store.init_error ());
+		ASSERT_NE (store.pruned_store.pruned_handle, 0);
 
-	// Version should be correct
-	auto transaction (store.tx_begin_read ());
-	ASSERT_LT (19, store.version.get (transaction));
+		// Version should be correct
+		auto transaction (store.tx_begin_read ());
+		ASSERT_LT (19, store.version.get (transaction));
+	}
+}
 }
 
 TEST (mdb_block_store, upgrade_v20_v21)

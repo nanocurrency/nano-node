@@ -215,7 +215,7 @@ void nano::lmdb::store::open_databases (bool & error_a, nano::transaction const 
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight_store.online_weight_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &meta_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peers_handle) != 0;
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "pruned", flags, &pruned_handle) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "pruned", flags, &pruned_store.pruned_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "confirmation_height", flags, &confirmation_height_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "accounts", flags, &account_store.accounts_v0_handle) != 0;
 	account_store.accounts_handle = account_store.accounts_v0_handle;
@@ -766,7 +766,7 @@ void nano::lmdb::store::upgrade_v18_to_v19 (nano::write_transaction const & tran
 void nano::lmdb::store::upgrade_v19_to_v20 (nano::write_transaction const & transaction_a)
 {
 	logger.always_log ("Preparing v19 to v20 database upgrade...");
-	mdb_dbi_open (env.tx (transaction_a), "pruned", MDB_CREATE, &pruned_handle);
+	mdb_dbi_open (env.tx (transaction_a), "pruned", MDB_CREATE, &pruned_store.pruned_handle);
 	version.put (transaction_a, 20);
 	logger.always_log ("Finished creating new pruned table");
 }
@@ -877,7 +877,7 @@ MDB_dbi nano::lmdb::store::table_to_dbi (tables table_a) const
 		case tables::peers:
 			return peers_handle;
 		case tables::pruned:
-			return pruned_handle;
+			return pruned_store.pruned_handle;
 		case tables::confirmation_height:
 			return confirmation_height_handle;
 		case tables::final_votes:
@@ -916,7 +916,7 @@ bool nano::lmdb::store::copy_db (boost::filesystem::path const & destination_fil
 void nano::lmdb::store::rebuild_db (nano::write_transaction const & transaction_a)
 {
 	// Tables with uint256_union key
-	std::vector<MDB_dbi> tables = { account_store.accounts_handle, blocks_handle, pruned_handle, confirmation_height_handle };
+	std::vector<MDB_dbi> tables = { account_store.accounts_handle, blocks_handle, pruned_store.pruned_handle, confirmation_height_handle };
 	for (auto const & table : tables)
 	{
 		MDB_dbi temp;
