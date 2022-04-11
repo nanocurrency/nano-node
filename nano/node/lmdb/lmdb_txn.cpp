@@ -99,8 +99,11 @@ void nano::write_mdb_txn::commit ()
 {
 	if (active)
 	{
-		auto status (mdb_txn_commit (handle));
-		release_assert (status == MDB_SUCCESS, mdb_strerror (status));
+		auto status = mdb_txn_commit (handle);
+		if (status != MDB_SUCCESS)
+		{
+			release_assert (false && "Unable to write to the LMDB database", mdb_strerror (status));
+		}
 		txn_callbacks.txn_end (this);
 		active = false;
 	}
