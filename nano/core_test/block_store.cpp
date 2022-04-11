@@ -356,7 +356,10 @@ TEST (unchecked, simple)
 	nano::system system{};
 	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	nano::unchecked_map unchecked{ *store, false };
+	nano::stat stats;
+	nano::ledger ledger{ *store, stats, nano::dev::constants };
+	auto max = std::numeric_limits<uint64_t>::max ();
+	nano::unchecked_map unchecked{ *store, ledger, max, false };
 	ASSERT_TRUE (!store->init_error ());
 	std::shared_ptr<nano::block> block = std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5);
 	// Asserts the block wasn't added yet to the unchecked table
@@ -393,7 +396,10 @@ TEST (unchecked, multiple)
 	}
 	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	nano::unchecked_map unchecked{ *store, false };
+	nano::stat stats;
+	nano::ledger ledger{ *store, stats, nano::dev::constants }
+;	auto max = std::numeric_limits<uint64_t>::max ();
+	nano::unchecked_map unchecked{ *store, ledger, max, false };
 	ASSERT_TRUE (!store->init_error ());
 	std::shared_ptr<nano::block> block = std::make_shared<nano::send_block> (4, 1, 2, nano::keypair ().prv, 4, 5);
 	// Asserts the block wasn't added yet to the unchecked table
@@ -418,7 +424,10 @@ TEST (unchecked, double_put)
 	nano::system system{};
 	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	nano::unchecked_map unchecked{ *store, false };
+	nano::stat stats;
+	nano::ledger ledger{ *store, stats, nano::dev::constants };
+	auto max = std::numeric_limits<uint64_t>::max ();
+	nano::unchecked_map unchecked{ *store, ledger, max, false };
 	ASSERT_TRUE (!store->init_error ());
 	std::shared_ptr<nano::block> block = std::make_shared<nano::send_block> (4, 1, 2, nano::keypair ().prv, 4, 5);
 	// Asserts the block wasn't added yet to the unchecked table
@@ -444,7 +453,10 @@ TEST (unchecked, multiple_get)
 	nano::system system{};
 	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	nano::unchecked_map unchecked{ *store, false };
+	nano::stat stats;
+	nano::ledger ledger{ *store, stats, nano::dev::constants };
+	auto max = std::numeric_limits<uint64_t>::max ();
+	nano::unchecked_map unchecked{ *store, ledger, max, false };
 	ASSERT_TRUE (!store->init_error ());
 	// Instantiates three blocks
 	std::shared_ptr<nano::block> block1 = std::make_shared<nano::send_block> (4, 1, 2, nano::keypair ().prv, 4, 5);
@@ -539,7 +551,10 @@ TEST (block_store, empty_bootstrap)
 {
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	nano::unchecked_map unchecked{ *store, false };
+	nano::stat stats;
+	nano::ledger ledger{ *store, stats, nano::dev::constants };
+	auto max = std::numeric_limits<uint64_t>::max ();
+	nano::unchecked_map unchecked{ *store, ledger, max, false };
 	ASSERT_TRUE (!store->init_error ());
 	auto transaction (store->tx_begin_read ());
 	auto [begin, end] = unchecked.full_range (transaction);
@@ -960,7 +975,10 @@ TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort ta
 	auto path (nano::unique_path ());
 	nano::logger_mt logger{};
 	nano::lmdb::store store{ logger, path, nano::dev::constants };
-	nano::unchecked_map unchecked{ store, false };
+	nano::stat stats;
+	nano::ledger ledger{ store, stats, nano::dev::constants };
+	auto max = std::numeric_limits<uint64_t>::max ();
+	nano::unchecked_map unchecked{ store, ledger, max, false };
 	auto transaction (store.tx_begin_write ());
 	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_handle, 1));
 	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE, &store.unchecked_handle));
@@ -2049,7 +2067,10 @@ TEST (rocksdb_block_store, tombstone_count)
 		nano::system system{};
 		nano::logger_mt logger{};
 		auto store = std::make_unique<nano::rocksdb::store> (logger, nano::unique_path (), nano::dev::constants);
-		nano::unchecked_map unchecked{ *store, false };
+		nano::stat stats;
+		nano::ledger ledger{ *store, stats, nano::dev::constants };
+		auto max = std::numeric_limits<uint64_t>::max ();
+		nano::unchecked_map unchecked{ *store, ledger, max, false };
 		ASSERT_TRUE (!store->init_error ());
 		std::shared_ptr<nano::block> block = std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5);
 		// Enqueues a block to be saved in the database

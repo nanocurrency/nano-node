@@ -10,6 +10,7 @@
 
 namespace nano
 {
+class ledger;
 class store;
 class transaction;
 class unchecked_info;
@@ -21,7 +22,7 @@ public:
 	using iterator = nano::unchecked_store::iterator;
 
 public:
-	unchecked_map (nano::store & store, bool const & do_delete);
+	unchecked_map (nano::store & store, nano::ledger & ledger, uint64_t const & max, bool const & do_delete);
 	~unchecked_map ();
 	void put (nano::hash_or_account const & dependency, nano::unchecked_info const & info);
 	std::pair<iterator, iterator> equal_range (nano::transaction const & transaction, nano::block_hash const & dependency);
@@ -52,6 +53,8 @@ private:
 	};
 	void run ();
 	nano::store & store;
+	nano::ledger & ledger;
+	uint64_t const & max;
 	bool const & disable_delete;
 	std::deque<boost::variant<insert, query>> buffer;
 	std::deque<boost::variant<insert, query>> back_buffer;

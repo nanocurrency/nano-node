@@ -33,6 +33,35 @@ size_t manually_count_pruned_blocks (nano::store & store)
 	return count;
 }
 
+TEST (system, fork_unchecked)
+{
+	nano::system system{ 1 };
+	auto & node = *system.nodes[0];
+	nano::state_block_builder builder;
+	auto work = *system.work.generate (1);
+	auto count = 1'000'000;
+	auto previous = 0;
+	for (auto i = 1, j = 0; i <= count; ++i, ++j)
+	{
+		auto block = builder.make_block ()
+					.account (nano::dev::genesis_key.pub)
+					.previous (1)
+					.representative (nano::dev::genesis_key.pub)
+					.balance (nano::dev::constants.genesis_amount - i)
+					.link (i)
+					.work (work)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.build_shared ();
+		node.process_active (block);
+		if (j > 10'000)
+		{
+			std::cerr << node.unchecked.count (node.store.tx_begin_read ()) << ' ';
+			j = 0;
+			ASSERT_TIMELY (5s, node.block_processor.size () == 0);
+		}
+	}
+}
+
 TEST (system, generate_mass_activity)
 {
 	nano::system system;

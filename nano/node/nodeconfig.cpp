@@ -106,6 +106,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("vote_generator_delay", vote_generator_delay.count (), "Delay before votes are sent to allow for efficient bundling of hashes in votes.\ntype:milliseconds");
 	toml.put ("vote_generator_threshold", vote_generator_threshold, "Number of bundled hashes required for an additional generator delay.\ntype:uint64,[1..11]");
 	toml.put ("unchecked_cutoff_time", unchecked_cutoff_time.count (), "Number of seconds before deleting an unchecked entry.\nWarning: lower values (e.g., 3600 seconds, or 1 hour) may result in unsuccessful bootstraps, especially a bootstrap from scratch.\ntype:seconds");
+	toml.put ("unchecked_max", unchecked_max, "Number of unchecked items allowed in the unchecked table.\nWarning: lower values (e.g., < 64,000) may result in unsuccessful bootstraps. This number is ignored while bootstrapping from scratch.\ntype:uint64");
 	toml.put ("tcp_io_timeout", tcp_io_timeout.count (), "Timeout for TCP connect-, read- and write operations.\nWarning: a low value (e.g., below 5 seconds) may result in TCP connections failing.\ntype:seconds");
 	toml.put ("pow_sleep_interval", pow_sleep_interval.count (), "Time to sleep between batch work generation attempts. Reduces max CPU usage at the expense of a longer generation time.\ntype:nanoseconds");
 	toml.put ("external_address", external_address, "The external address of this node (NAT). If not set, the node will request this information via UPnP.\ntype:string,ip");
@@ -315,6 +316,8 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		auto unchecked_cutoff_time_l = static_cast<unsigned long> (unchecked_cutoff_time.count ());
 		toml.get ("unchecked_cutoff_time", unchecked_cutoff_time_l);
 		unchecked_cutoff_time = std::chrono::seconds (unchecked_cutoff_time_l);
+		
+		toml.get<uint64_t> ("unchecked_max", unchecked_max);
 
 		auto tcp_io_timeout_l = static_cast<unsigned long> (tcp_io_timeout.count ());
 		toml.get ("tcp_io_timeout", tcp_io_timeout_l);

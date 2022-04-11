@@ -19,11 +19,15 @@ class context
 public:
 	context () :
 		store{ nano::make_store (logger, nano::unique_path (), nano::dev::constants) },
-		unchecked{ *store, false }
+		ledger{ *store, stats, nano::dev::constants },
+		unchecked{ *store, ledger, max, false }
 	{
 	}
+	uint64_t max{ std::numeric_limits<uint64_t>::max() };
 	nano::logger_mt logger;
 	std::unique_ptr<nano::store> store;
+	nano::stat stats;
+	nano::ledger ledger;
 	nano::unchecked_map unchecked;
 };
 std::shared_ptr<nano::block> block ()
@@ -58,7 +62,10 @@ TEST (block_store, one_bootstrap)
 	nano::system system{};
 	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	nano::unchecked_map unchecked{ *store, false };
+	nano::stat stats;
+	nano::ledger ledger{ *store, stats, nano::dev::constants };
+	auto max = std::numeric_limits<uint64_t>::max ();
+	nano::unchecked_map unchecked{ *store, ledger, max, false };
 	ASSERT_TRUE (!store->init_error ());
 	auto block1 = std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5);
 	unchecked.put (block1->hash (), nano::unchecked_info{ block1 });

@@ -170,11 +170,11 @@ public:
 	nano::logger_mt logger;
 	std::unique_ptr<nano::store> store_impl;
 	nano::store & store;
-	nano::unchecked_map unchecked;
 	std::unique_ptr<nano::wallets_store> wallets_store_impl;
 	nano::wallets_store & wallets_store;
 	nano::gap_cache gap_cache;
 	nano::ledger ledger;
+	nano::unchecked_map unchecked;
 	nano::signature_checker checker;
 	nano::network network;
 	std::shared_ptr<nano::telemetry> telemetry;

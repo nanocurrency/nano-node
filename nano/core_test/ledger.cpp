@@ -3601,9 +3601,10 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	boost::asio::ip::address_v6 address (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"));
 	uint16_t port = 100;
 	nano::lmdb::store store{ logger, path / "data.ldb", nano::dev::constants };
-	nano::unchecked_map unchecked{ store, false };
-	nano::stat stats{};
+	nano::stat stats;
 	nano::ledger ledger{ store, stats, nano::dev::constants };
+	auto max = std::numeric_limits<uint64_t>::max ();
+	nano::unchecked_map unchecked{ store, ledger, max, false };
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 
 	std::shared_ptr<nano::block> send = nano::state_block_builder ()
@@ -3643,7 +3644,8 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	ASSERT_FALSE (error);
 
 	nano::rocksdb::store rocksdb_store{ logger, path / "rocksdb", nano::dev::constants };
-	nano::unchecked_map rocksdb_unchecked{ rocksdb_store, false };
+	nano::ledger ledger_rocksdb{ rocksdb_store, stats, nano::dev::constants };
+	nano::unchecked_map rocksdb_unchecked{ rocksdb_store, ledger_rocksdb, max, false };
 	auto rocksdb_transaction (rocksdb_store.tx_begin_read ());
 
 	nano::pending_info pending_info{};

@@ -93,11 +93,11 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	logger (config_a.logging.min_time_between_log_output),
 	store_impl (nano::make_store (logger, application_path_a, network_params.ledger, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade)),
 	store (*store_impl),
-	unchecked{ store, flags.disable_block_processor_unchecked_deletion },
 	wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
 	wallets_store (*wallets_store_impl),
 	gap_cache (*this),
 	ledger (store, stats, network_params.ledger, flags_a.generate_cache),
+	unchecked{ store, ledger, config_a.unchecked_max, flags.disable_block_processor_unchecked_deletion },
 	checker (config.signature_checker_threads),
 	// empty `config.peering_port` means the user made no port choice at all;
 	// otherwise, any value is considered, with `0` having the special meaning of 'let the OS pick a port instead'
@@ -828,14 +828,13 @@ void nano::node::ongoing_bootstrap ()
 	}
 	// Differential bootstrap with max age (75% of all legacy attempts)
 	uint32_t frontiers_age (std::numeric_limits<uint32_t>::max ());
-	auto bootstrap_weight_reached (ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks);
 	auto previous_bootstrap_count (stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out) + stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate_legacy_age, nano::stat::dir::out));
 	/* 
 	- Maximum value for 25% of attempts or if block count is below preconfigured value (initial bootstrap not finished)
 	- Node shutdown time minus 1 hour for start attempts (warm up)
 	- Default age value otherwise (1 day for live network, 1 hour for beta)
 	*/
-	if (bootstrap_weight_reached)
+	if (ledger.bootstrap_weight_reached ())
 	{
 		if (warmed_up < 3)
 		{

@@ -6,8 +6,10 @@
 
 #include <boost/range/join.hpp>
 
-nano::unchecked_map::unchecked_map (nano::store & store, bool const & disable_delete) :
+nano::unchecked_map::unchecked_map (nano::store & store, nano::ledger & ledger, uint64_t const & max, bool const & disable_delete) :
 	store{ store },
+	ledger{ ledger },
+	max{ max },
 	disable_delete{ disable_delete },
 	thread{ [this] () { run (); } }
 {
@@ -97,6 +99,10 @@ nano::unchecked_map::item_visitor::item_visitor (unchecked_map & unchecked, nano
 void nano::unchecked_map::item_visitor::operator() (insert const & item)
 {
 	auto const & [dependency, info] = item;
+	if (unchecked.count (transaction) >= unchecked.max)
+	{
+		unchecked.clear (transaction);
+	}
 	unchecked.store.unchecked.put (transaction, dependency, { info.block, info.account, info.verified });
 }
 
