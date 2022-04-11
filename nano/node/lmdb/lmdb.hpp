@@ -149,12 +149,6 @@ namespace lmdb
 		MDB_dbi meta_handle{ 0 };
 
 		/*
-	 * Endpoints for peers
-	 * nano::endpoint_key -> no_value
-	*/
-		MDB_dbi peers_handle{ 0 };
-
-		/*
 	 * Confirmation height of an account, and the hash for the block at that height
 	 * nano::account -> uint64_t, nano::block_hash
 	 */

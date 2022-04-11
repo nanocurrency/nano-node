@@ -214,7 +214,7 @@ void nano::lmdb::store::open_databases (bool & error_a, nano::transaction const 
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "unchecked", flags, &unchecked_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight_store.online_weight_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &meta_handle) != 0;
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peers_handle) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peer_store.peers_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "pruned", flags, &pruned_store.pruned_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "confirmation_height", flags, &confirmation_height_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "accounts", flags, &account_store.accounts_v0_handle) != 0;
@@ -875,7 +875,7 @@ MDB_dbi nano::lmdb::store::table_to_dbi (tables table_a) const
 		case tables::meta:
 			return meta_handle;
 		case tables::peers:
-			return peers_handle;
+			return peer_store.peers_handle;
 		case tables::pruned:
 			return pruned_store.pruned_handle;
 		case tables::confirmation_height:
@@ -884,7 +884,7 @@ MDB_dbi nano::lmdb::store::table_to_dbi (tables table_a) const
 			return final_votes_handle;
 		default:
 			release_assert (false);
-			return peers_handle;
+			return peer_store.peers_handle;
 	}
 }
 
