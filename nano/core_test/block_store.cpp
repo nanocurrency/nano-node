@@ -965,30 +965,36 @@ TEST (block_store, pruned_random)
 	ASSERT_EQ (hash1, random_hash);
 }
 
-// Databases need to be dropped in order to convert to dupsort compatible
-TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort table
+namespace nano
 {
-	auto path (nano::unique_path ());
-	nano::logger_mt logger{};
-	nano::lmdb::store store{ logger, path, nano::dev::constants };
-	nano::unchecked_map unchecked{ store, false };
-	auto transaction (store.tx_begin_write ());
-	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_handle, 1));
-	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE, &store.unchecked_handle));
-	std::shared_ptr<nano::block> send1 = std::make_shared<nano::send_block> (0, 0, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
-	std::shared_ptr<nano::block> send2 = std::make_shared<nano::send_block> (1, 0, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
-	ASSERT_NE (send1->hash (), send2->hash ());
-	unchecked.put (send1->hash (), send1);
-	unchecked.put (send1->hash (), send2);
-	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_handle, 0));
-	mdb_dbi_close (store.env, store.unchecked_handle);
-	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked_handle));
-	unchecked.put (send1->hash (), send1);
-	unchecked.put (send1->hash (), send2);
-	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_handle, 1));
-	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked_handle));
-	unchecked.put (send1->hash (), send1);
-	unchecked.put (send1->hash (), send2);
+namespace lmdb
+{
+	// Databases need to be dropped in order to convert to dupsort compatible
+	TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort table
+	{
+		auto path (nano::unique_path ());
+		nano::logger_mt logger{};
+		nano::lmdb::store store{ logger, path, nano::dev::constants };
+		nano::unchecked_map unchecked{ store, false };
+		auto transaction (store.tx_begin_write ());
+		ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_store.unchecked_handle, 1));
+		ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE, &store.unchecked_store.unchecked_handle));
+		std::shared_ptr<nano::block> send1 = std::make_shared<nano::send_block> (0, 0, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
+		std::shared_ptr<nano::block> send2 = std::make_shared<nano::send_block> (1, 0, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
+		ASSERT_NE (send1->hash (), send2->hash ());
+		unchecked.put (send1->hash (), send1);
+		unchecked.put (send1->hash (), send2);
+		ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_store.unchecked_handle, 0));
+		mdb_dbi_close (store.env, store.unchecked_store.unchecked_handle);
+		ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked_store.unchecked_handle));
+		unchecked.put (send1->hash (), send1);
+		unchecked.put (send1->hash (), send2);
+		ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_store.unchecked_handle, 1));
+		ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked_store.unchecked_handle));
+		unchecked.put (send1->hash (), send1);
+		unchecked.put (send1->hash (), send2);
+	}
+}
 }
 
 TEST (block_store, state_block)

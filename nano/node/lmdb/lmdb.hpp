@@ -137,12 +137,6 @@ namespace lmdb
 		MDB_dbi state_blocks_handle{ 0 };
 
 		/**
-	 * Unchecked bootstrap blocks info.
-	 * nano::block_hash -> nano::unchecked_info
-	 */
-		MDB_dbi unchecked_handle{ 0 };
-
-		/**
 	 * Meta information about block store, such as versions.
 	 * nano::uint256_union (arbitrary key) -> blob
 	 */
@@ -245,6 +239,7 @@ namespace lmdb
 		friend class mdb_block_store_upgrade_v15_v16_Test;
 		friend class mdb_block_store_upgrade_v19_v20_Test;
 		friend class mdb_block_store_upgrade_v20_v21_Test;
+		friend class block_store_DISABLED_change_dupsort_Test;
 		friend void modify_account_info_to_v14 (nano::lmdb::store &, nano::transaction const &, nano::account const &, uint64_t, nano::block_hash const &);
 		friend void modify_confirmation_height_to_v15 (nano::lmdb::store &, nano::transaction const &, nano::account const &, uint64_t);
 	};
