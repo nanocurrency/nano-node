@@ -87,6 +87,7 @@ private:
 	nano::mutex mutex{ mutex_identifier (mutexes::block_processor) };
 	nano::state_block_signature_verification state_block_signature_verification;
 	std::thread processing_thread;
+	static uint64_t constexpr max = 256 * 1024;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (block_processor & block_processor, std::string const & name);
 };

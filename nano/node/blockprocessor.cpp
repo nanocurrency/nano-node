@@ -383,6 +383,10 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 
 			nano::unchecked_key unchecked_key (block->previous (), hash);
+			if (node.ledger.bootstrap_weight_reached () && node.store.unchecked.count (transaction_a) > max)
+			{
+				node.store.unchecked.clear (transaction_a);
+			}
 			node.store.unchecked.put (transaction_a, unchecked_key, info_a);
 
 			events_a.events.emplace_back ([this, hash] (nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
@@ -403,6 +407,10 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 
 			nano::unchecked_key unchecked_key (node.ledger.block_source (transaction_a, *(block)), hash);
+			if (node.ledger.bootstrap_weight_reached () && node.store.unchecked.count (transaction_a) > max)
+			{
+				node.store.unchecked.clear (transaction_a);
+			}
 			node.store.unchecked.put (transaction_a, unchecked_key, info_a);
 
 			events_a.events.emplace_back ([this, hash] (nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
@@ -423,6 +431,10 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 
 			nano::unchecked_key unchecked_key (block->account (), hash); // Specific unchecked key starting with epoch open block account public key
+			if (node.ledger.bootstrap_weight_reached () && node.store.unchecked.count (transaction_a) > max)
+			{
+				node.store.unchecked.clear (transaction_a);
+			}
 			node.store.unchecked.put (transaction_a, unchecked_key, info_a);
 
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
