@@ -210,7 +210,7 @@ nano::mdb_txn_callbacks nano::lmdb::store::create_txn_callbacks () const
 
 void nano::lmdb::store::open_databases (bool & error_a, nano::transaction const & transaction_a, unsigned flags)
 {
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "frontiers", flags, &frontiers_handle) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "frontiers", flags, &frontier_store.frontiers_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "unchecked", flags, &unchecked_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &meta_handle) != 0;
@@ -861,7 +861,7 @@ MDB_dbi nano::lmdb::store::table_to_dbi (tables table_a) const
 	switch (table_a)
 	{
 		case tables::frontiers:
-			return frontiers_handle;
+			return frontier_store.frontiers_handle;
 		case tables::accounts:
 			return accounts_handle;
 		case tables::blocks:

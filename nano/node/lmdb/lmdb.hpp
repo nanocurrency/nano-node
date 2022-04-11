@@ -95,12 +95,6 @@ namespace lmdb
 		nano::mdb_env env;
 
 		/**
-	 * Maps head block to owning account
-	 * nano::block_hash -> nano::account
-	 */
-		MDB_dbi frontiers_handle{ 0 };
-
-		/**
 	 * Maps account v1 to account information, head, rep, open, balance, timestamp and block count. (Removed)
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
 	 */
