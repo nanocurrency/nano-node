@@ -1326,7 +1326,7 @@ namespace lmdb
 			ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "accounts_v1", MDB_CREATE,
 			&store.account_store.accounts_v1_handle));
 			ASSERT_FALSE (
-			mdb_dbi_open (store.env.tx (transaction), "pending_v1", MDB_CREATE, &store.pending_v1_handle));
+			mdb_dbi_open (store.env.tx (transaction), "pending_v1", MDB_CREATE, &store.pending_store.pending_v1_handle));
 			ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "open", MDB_CREATE, &store.open_blocks_handle));
 			ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "send", MDB_CREATE, &store.send_blocks_handle));
 			ASSERT_FALSE (
@@ -1353,13 +1353,13 @@ namespace lmdb
 			store.block.del (transaction, epoch.hash ());
 
 			// Turn pending into v14
-			ASSERT_FALSE (mdb_put (store.env.tx (transaction), store.pending_v0_handle,
+			ASSERT_FALSE (mdb_put (store.env.tx (transaction), store.pending_store.pending_v0_handle,
 			nano::mdb_val (nano::pending_key (nano::dev::genesis_key.pub, send.hash ())),
 			nano::mdb_val (
 			nano::pending_info_v14 (nano::dev::genesis->account (), nano::Gxrb_ratio,
 			nano::epoch::epoch_0)),
 			0));
-			ASSERT_FALSE (mdb_put (store.env.tx (transaction), store.pending_v1_handle,
+			ASSERT_FALSE (mdb_put (store.env.tx (transaction), store.pending_store.pending_v1_handle,
 			nano::mdb_val (nano::pending_key (nano::dev::genesis_key.pub, state_send.hash ())),
 			nano::mdb_val (
 			nano::pending_info_v14 (nano::dev::genesis->account (), nano::Gxrb_ratio,
@@ -1404,7 +1404,7 @@ namespace lmdb
 		auto error_get_accounts_v1 (mdb_get (store.env.tx (transaction), store.account_store.accounts_v1_handle,
 		nano::mdb_val (nano::dev::genesis->account ()), value));
 		ASSERT_NE (error_get_accounts_v1, MDB_SUCCESS);
-		auto error_get_pending_v1 (mdb_get (store.env.tx (transaction), store.pending_v1_handle, nano::mdb_val (nano::pending_key (nano::dev::genesis_key.pub, state_send.hash ())), value));
+		auto error_get_pending_v1 (mdb_get (store.env.tx (transaction), store.pending_store.pending_v1_handle, nano::mdb_val (nano::pending_key (nano::dev::genesis_key.pub, state_send.hash ())), value));
 		ASSERT_NE (error_get_pending_v1, MDB_SUCCESS);
 		auto error_get_state_v1 (
 		mdb_get (store.env.tx (transaction), store.state_blocks_v1_handle, nano::mdb_val (state_send.hash ()),
