@@ -95,24 +95,6 @@ namespace lmdb
 		nano::mdb_env env;
 
 		/**
-	 * Maps account v1 to account information, head, rep, open, balance, timestamp and block count. (Removed)
-	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
-	 */
-		MDB_dbi accounts_v0_handle{ 0 };
-
-		/**
-	 * Maps account v0 to account information, head, rep, open, balance, timestamp and block count. (Removed)
-	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
-	 */
-		MDB_dbi accounts_v1_handle{ 0 };
-
-		/**
-	 * Maps account v0 to account information, head, rep, open, balance, timestamp, block count and epoch
-	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t, nano::epoch
-	 */
-		MDB_dbi accounts_handle{ 0 };
-
-		/**
 	 * Maps block hash to send block. (Removed)
 	 * nano::block_hash -> nano::send_block
 	 */
@@ -171,12 +153,6 @@ namespace lmdb
 	 * nano::account, nano::block_hash -> nano::account, nano::amount, nano::epoch
 	 */
 		MDB_dbi pending_handle{ 0 };
-
-		/**
-	 * Representative weights. (Removed)
-	 * nano::account -> nano::uint128_t
-	 */
-		MDB_dbi representation_handle{ 0 };
 
 		/**
 	 * Unchecked bootstrap blocks info.
@@ -311,6 +287,11 @@ namespace lmdb
 			uint64_t after_v0{ 0 };
 			uint64_t after_v1{ 0 };
 		};
+
+		friend class mdb_block_store_supported_version_upgrades_Test;
+		friend class mdb_block_store_upgrade_v14_v15_Test;
+		friend class mdb_block_store_upgrade_v15_v16_Test;
+		friend void modify_account_info_to_v14 (nano::lmdb::store &, nano::transaction const &, nano::account const &, uint64_t, nano::block_hash const &);
 	};
 }
 
