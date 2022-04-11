@@ -216,7 +216,7 @@ void nano::lmdb::store::open_databases (bool & error_a, nano::transaction const 
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &meta_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peer_store.peers_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "pruned", flags, &pruned_store.pruned_handle) != 0;
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "confirmation_height", flags, &confirmation_height_handle) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "confirmation_height", flags, &confirmation_height_store.confirmation_height_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "accounts", flags, &account_store.accounts_v0_handle) != 0;
 	account_store.accounts_handle = account_store.accounts_v0_handle;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "pending", flags, &pending_store.pending_v0_handle) != 0;
@@ -335,7 +335,7 @@ void nano::lmdb::store::upgrade_v14_to_v15 (nano::write_transaction & transactio
 		release_assert (rep_block != nullptr);
 		account_infos.emplace_back (account, nano::account_info{ account_info_v14.head, rep_block->representative (), account_info_v14.open_block, account_info_v14.balance, account_info_v14.modified, account_info_v14.block_count, i_account.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1 });
 		// Move confirmation height from account_info database to its own table
-		mdb_put (env.tx (transaction_a), confirmation_height_handle, nano::mdb_val (account), nano::mdb_val (account_info_v14.confirmation_height), MDB_APPEND);
+		mdb_put (env.tx (transaction_a), confirmation_height_store.confirmation_height_handle, nano::mdb_val (account), nano::mdb_val (account_info_v14.confirmation_height), MDB_APPEND);
 		i_account.from_first_database ? ++account_counters.after_v0 : ++account_counters.after_v1;
 	}
 
@@ -456,7 +456,7 @@ void nano::lmdb::store::upgrade_v16_to_v17 (nano::write_transaction const & tran
 	// Set the confirmed frontier for each account in the confirmation height table
 	std::vector<std::pair<nano::account, nano::confirmation_height_info>> confirmation_height_infos;
 	auto num = 0u;
-	for (nano::mdb_iterator<nano::account, uint64_t> i (transaction_a, confirmation_height_handle), n (nano::mdb_iterator<nano::account, uint64_t>{}); i != n; ++i, ++account_info_i, ++num)
+	for (nano::mdb_iterator<nano::account, uint64_t> i (transaction_a, confirmation_height_store.confirmation_height_handle), n (nano::mdb_iterator<nano::account, uint64_t>{}); i != n; ++i, ++account_info_i, ++num)
 	{
 		nano::account account (i->first);
 		uint64_t confirmation_height (i->second);
@@ -513,12 +513,12 @@ void nano::lmdb::store::upgrade_v16_to_v17 (nano::write_transaction const & tran
 	}
 
 	// Clear it then append
-	auto status (mdb_drop (env.tx (transaction_a), confirmation_height_handle, 0));
+	auto status (mdb_drop (env.tx (transaction_a), confirmation_height_store.confirmation_height_handle, 0));
 	release_assert_success (status);
 
 	for (auto const & confirmation_height_info_pair : confirmation_height_infos)
 	{
-		mdb_put (env.tx (transaction_a), confirmation_height_handle, nano::mdb_val (confirmation_height_info_pair.first), nano::mdb_val (confirmation_height_info_pair.second), MDB_APPEND);
+		mdb_put (env.tx (transaction_a), confirmation_height_store.confirmation_height_handle, nano::mdb_val (confirmation_height_info_pair.first), nano::mdb_val (confirmation_height_info_pair.second), MDB_APPEND);
 	}
 
 	version.put (transaction_a, 17);
@@ -879,7 +879,7 @@ MDB_dbi nano::lmdb::store::table_to_dbi (tables table_a) const
 		case tables::pruned:
 			return pruned_store.pruned_handle;
 		case tables::confirmation_height:
-			return confirmation_height_handle;
+			return confirmation_height_store.confirmation_height_handle;
 		case tables::final_votes:
 			return final_votes_handle;
 		default:
@@ -916,7 +916,7 @@ bool nano::lmdb::store::copy_db (boost::filesystem::path const & destination_fil
 void nano::lmdb::store::rebuild_db (nano::write_transaction const & transaction_a)
 {
 	// Tables with uint256_union key
-	std::vector<MDB_dbi> tables = { account_store.accounts_handle, blocks_handle, pruned_store.pruned_handle, confirmation_height_handle };
+	std::vector<MDB_dbi> tables = { account_store.accounts_handle, blocks_handle, pruned_store.pruned_handle, confirmation_height_store.confirmation_height_handle };
 	for (auto const & table : tables)
 	{
 		MDB_dbi temp;

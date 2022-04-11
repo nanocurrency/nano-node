@@ -149,12 +149,6 @@ namespace lmdb
 		MDB_dbi meta_handle{ 0 };
 
 		/*
-	 * Confirmation height of an account, and the hash for the block at that height
-	 * nano::account -> uint64_t, nano::block_hash
-	 */
-		MDB_dbi confirmation_height_handle{ 0 };
-
-		/*
 	 * Contains block_sideband and block for all block types (legacy send/change/open/receive & state blocks)
 	 * nano::block_hash -> nano::block_sideband, nano::block
 	 */
@@ -257,6 +251,7 @@ namespace lmdb
 		friend class mdb_block_store_upgrade_v15_v16_Test;
 		friend class mdb_block_store_upgrade_v19_v20_Test;
 		friend void modify_account_info_to_v14 (nano::lmdb::store &, nano::transaction const &, nano::account const &, uint64_t, nano::block_hash const &);
+		friend void modify_confirmation_height_to_v15 (nano::lmdb::store &, nano::transaction const &, nano::account const &, uint64_t);
 	};
 }
 
