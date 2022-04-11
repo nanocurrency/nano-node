@@ -143,12 +143,6 @@ namespace lmdb
 		MDB_dbi unchecked_handle{ 0 };
 
 		/**
-	 * Samples of online vote weight
-	 * uint64_t -> nano::amount
-	 */
-		MDB_dbi online_weight_handle{ 0 };
-
-		/**
 	 * Meta information about block store, such as versions.
 	 * nano::uint256_union (arbitrary key) -> blob
 	 */
