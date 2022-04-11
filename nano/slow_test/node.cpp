@@ -119,7 +119,7 @@ TEST (ledger, deep_account_compute)
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
-	store->initialize (transaction, ledger.cache);
+	store->initialize (transaction, ledger.cache, ledger.constants);
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair key;
 	auto balance (nano::dev::constants.genesis_amount - 1);
@@ -1049,7 +1049,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 
 	{
 		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, ledger.cache);
+		store->initialize (transaction, ledger.cache, ledger.constants);
 
 		// Send from genesis account to all other accounts and create open block for them
 		for (auto i = 0; i < num_accounts; ++i)

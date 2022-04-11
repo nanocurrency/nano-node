@@ -1,7 +1,7 @@
 #include <nano/node/rocksdb/online_weight_store.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
 
-nano::rocksdb::online_weight_store::online_weight_store (nano::rocksdb_store & store_a) :
+nano::rocksdb::online_weight_store::online_weight_store (nano::rocksdb::store & store_a) :
 	store{ store_a }
 {
 }
@@ -9,13 +9,13 @@ nano::rocksdb::online_weight_store::online_weight_store (nano::rocksdb_store & s
 void nano::rocksdb::online_weight_store::put (nano::write_transaction const & transaction, uint64_t time, nano::amount const & amount)
 {
 	auto status = store.put (transaction, tables::online_weight, time, amount);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 void nano::rocksdb::online_weight_store::del (nano::write_transaction const & transaction, uint64_t time)
 {
 	auto status = store.del (transaction, tables::online_weight, time);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 nano::store_iterator<uint64_t, nano::amount> nano::rocksdb::online_weight_store::begin (nano::transaction const & transaction) const
@@ -41,5 +41,5 @@ size_t nano::rocksdb::online_weight_store::count (nano::transaction const & tran
 void nano::rocksdb::online_weight_store::clear (nano::write_transaction const & transaction)
 {
 	auto status = store.drop (transaction, tables::online_weight);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }

@@ -4,16 +4,16 @@
 
 namespace nano
 {
-class mdb_store;
 namespace lmdb
 {
+	class store;
 	class pruned_store : public nano::pruned_store
 	{
 	private:
-		nano::mdb_store & store;
+		nano::lmdb::store & store;
 
 	public:
-		explicit pruned_store (nano::mdb_store & store_a);
+		explicit pruned_store (nano::lmdb::store & store_a);
 		void put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override;
 		void del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override;
 		bool exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override;

@@ -4,16 +4,16 @@
 
 namespace nano
 {
-class rocksdb_store;
 namespace rocksdb
 {
+	class store;
 	class pruned_store : public nano::pruned_store
 	{
 	private:
-		nano::rocksdb_store & store;
+		nano::rocksdb::store & store;
 
 	public:
-		explicit pruned_store (nano::rocksdb_store & store_a);
+		explicit pruned_store (nano::rocksdb::store & store_a);
 		void put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override;
 		void del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override;
 		bool exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override;

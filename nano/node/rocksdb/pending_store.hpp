@@ -4,16 +4,16 @@
 
 namespace nano
 {
-class rocksdb_store;
 namespace rocksdb
 {
+	class store;
 	class pending_store : public nano::pending_store
 	{
 	private:
-		nano::rocksdb_store & store;
+		nano::rocksdb::store & store;
 
 	public:
-		explicit pending_store (nano::rocksdb_store & store_a);
+		explicit pending_store (nano::rocksdb::store & store_a);
 		void put (nano::write_transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info const & pending_info_a) override;
 		void del (nano::write_transaction const & transaction_a, nano::pending_key const & key_a) override;
 		bool get (nano::transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info & pending_a) override;

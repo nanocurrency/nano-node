@@ -1,19 +1,20 @@
 #include <nano/node/rocksdb/pruned_store.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
+#include <nano/secure/parallel_traversal.hpp>
 
-nano::rocksdb::pruned_store::pruned_store (nano::rocksdb_store & store_a) :
+nano::rocksdb::pruned_store::pruned_store (nano::rocksdb::store & store_a) :
 	store{ store_a } {};
 
 void nano::rocksdb::pruned_store::put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	auto status = store.put_key (transaction_a, tables::pruned, hash_a);
-	release_assert_success (store, status);
+	auto status = store.put (transaction_a, tables::pruned, hash_a, nullptr);
+	store.release_assert_success (status);
 }
 
 void nano::rocksdb::pruned_store::del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto status = store.del (transaction_a, tables::pruned, hash_a);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 bool nano::rocksdb::pruned_store::exists (nano::transaction const & transaction, nano::block_hash const & hash_a) const
@@ -41,7 +42,7 @@ size_t nano::rocksdb::pruned_store::count (nano::transaction const & transaction
 void nano::rocksdb::pruned_store::clear (nano::write_transaction const & transaction_a)
 {
 	auto status = store.drop (transaction_a, tables::pruned);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 nano::store_iterator<nano::block_hash, std::nullptr_t> nano::rocksdb::pruned_store::begin (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const

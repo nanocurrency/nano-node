@@ -1,7 +1,8 @@
 #include <nano/node/lmdb/account_store.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
+#include <nano/secure/parallel_traversal.hpp>
 
-nano::lmdb::account_store::account_store (nano::mdb_store & store_a) :
+nano::lmdb::account_store::account_store (nano::lmdb::store & store_a) :
 	store (store_a){};
 
 void nano::lmdb::account_store::put (nano::write_transaction const & transaction, nano::account const & account, nano::account_info const & info)
@@ -27,7 +28,7 @@ bool nano::lmdb::account_store::get (nano::transaction const & transaction, nano
 void nano::lmdb::account_store::del (nano::write_transaction const & transaction_a, nano::account const & account_a)
 {
 	auto status = store.del (transaction_a, tables::accounts, account_a);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 bool nano::lmdb::account_store::exists (nano::transaction const & transaction_a, nano::account const & account_a)

@@ -4,16 +4,16 @@
 
 namespace nano
 {
-class mdb_store;
 namespace lmdb
 {
+	class store;
 	class pending_store : public nano::pending_store
 	{
 	private:
-		nano::mdb_store & store;
+		nano::lmdb::store & store;
 
 	public:
-		explicit pending_store (nano::mdb_store & store_a);
+		explicit pending_store (nano::lmdb::store & store_a);
 		void put (nano::write_transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info const & pending_info_a) override;
 		void del (nano::write_transaction const & transaction_a, nano::pending_key const & key_a) override;
 		bool get (nano::transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info & pending_a) override;

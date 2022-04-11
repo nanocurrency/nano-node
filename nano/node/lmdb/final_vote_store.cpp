@@ -1,7 +1,8 @@
 #include <nano/node/lmdb/final_vote_store.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
+#include <nano/secure/parallel_traversal.hpp>
 
-nano::lmdb::final_vote_store::final_vote_store (nano::mdb_store & store) :
+nano::lmdb::final_vote_store::final_vote_store (nano::lmdb::store & store) :
 	store{ store } {};
 
 bool nano::lmdb::final_vote_store::put (nano::write_transaction const & transaction, nano::qualified_root const & root, nano::block_hash const & hash)
@@ -17,7 +18,7 @@ bool nano::lmdb::final_vote_store::put (nano::write_transaction const & transact
 	else
 	{
 		status = store.put (transaction, tables::final_votes, root, hash);
-		release_assert_success (store, status);
+		store.release_assert_success (status);
 	}
 	return result;
 }
@@ -44,7 +45,7 @@ void nano::lmdb::final_vote_store::del (nano::write_transaction const & transact
 	for (auto & final_vote_qualified_root : final_vote_qualified_roots)
 	{
 		auto status = store.del (transaction, tables::final_votes, final_vote_qualified_root);
-		release_assert_success (store, status);
+		store.release_assert_success (status);
 	}
 }
 

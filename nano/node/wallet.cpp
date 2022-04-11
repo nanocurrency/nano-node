@@ -1390,7 +1390,7 @@ nano::wallets::wallets (bool error_a, nano::node & node_a) :
 		char const * store_path;
 		mdb_env_get_path (env, &store_path);
 		boost::filesystem::path const path (store_path);
-		nano::mdb_store::create_backup_file (env, path, node_a.logger);
+		nano::lmdb::store::create_backup_file (env, path, node_a.logger);
 	}
 	for (auto & item : items)
 	{
@@ -1700,7 +1700,7 @@ void nano::wallets::ongoing_compute_reps ()
 
 void nano::wallets::split_if_needed (nano::transaction & transaction_destination, nano::store & store_a)
 {
-	auto store_l (dynamic_cast<nano::mdb_store *> (&store_a));
+	auto store_l = dynamic_cast<nano::lmdb::store *> (&store_a);
 	if (store_l != nullptr)
 	{
 		if (items.empty ())

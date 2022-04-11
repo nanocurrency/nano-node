@@ -1,7 +1,7 @@
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/version_store.hpp>
 
-nano::lmdb::version_store::version_store (nano::mdb_store & store_a) :
+nano::lmdb::version_store::version_store (nano::lmdb::store & store_a) :
 	store{ store_a } {};
 
 void nano::lmdb::version_store::put (nano::write_transaction const & transaction_a, int version)
@@ -9,7 +9,7 @@ void nano::lmdb::version_store::put (nano::write_transaction const & transaction
 	nano::uint256_union version_key{ 1 };
 	nano::uint256_union version_value (version);
 	auto status = store.put (transaction_a, tables::meta, version_key, version_value);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 int nano::lmdb::version_store::get (nano::transaction const & transaction_a) const
@@ -17,7 +17,7 @@ int nano::lmdb::version_store::get (nano::transaction const & transaction_a) con
 	nano::uint256_union version_key{ 1 };
 	nano::mdb_val data;
 	auto status = store.get (transaction_a, tables::meta, version_key, data);
-	int result = store.minimum_version;
+	int result = store.version_minimum;
 	if (store.success (status))
 	{
 		nano::uint256_union version_value{ data };

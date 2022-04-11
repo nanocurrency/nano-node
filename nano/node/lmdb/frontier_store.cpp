@@ -1,7 +1,8 @@
 #include <nano/node/lmdb/frontier_store.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
+#include <nano/secure/parallel_traversal.hpp>
 
-nano::lmdb::frontier_store::frontier_store (nano::mdb_store & store) :
+nano::lmdb::frontier_store::frontier_store (nano::lmdb::store & store) :
 	store{ store }
 {
 }
@@ -9,7 +10,7 @@ nano::lmdb::frontier_store::frontier_store (nano::mdb_store & store) :
 void nano::lmdb::frontier_store::put (nano::write_transaction const & transaction, nano::block_hash const & hash, nano::account const & account)
 {
 	auto status = store.put (transaction, tables::frontiers, hash, account);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 nano::account nano::lmdb::frontier_store::get (nano::transaction const & transaction, nano::block_hash const & hash) const
@@ -28,7 +29,7 @@ nano::account nano::lmdb::frontier_store::get (nano::transaction const & transac
 void nano::lmdb::frontier_store::del (nano::write_transaction const & transaction, nano::block_hash const & hash)
 {
 	auto status = store.del (transaction, tables::frontiers, hash);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 nano::store_iterator<nano::block_hash, nano::account> nano::lmdb::frontier_store::begin (nano::transaction const & transaction) const

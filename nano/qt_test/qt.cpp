@@ -521,7 +521,7 @@ TEST (history, short_text)
 	nano::ledger ledger (*store, system.nodes[0]->stats, nano::dev::constants);
 	{
 		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, ledger.cache);
+		store->initialize (transaction, ledger.cache, ledger.constants);
 		nano::keypair key;
 		auto latest (ledger.latest (transaction, nano::dev::genesis_key.pub));
 		nano::send_block send (latest, nano::dev::genesis_key.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
@@ -561,7 +561,7 @@ TEST (history, pruned_source)
 	// Basic pruning for legacy blocks. Previous block is pruned, source is pruned
 	{
 		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, ledger.cache);
+		store->initialize (transaction, ledger.cache, nano::dev::constants);
 		auto latest (ledger.latest (transaction, nano::dev::genesis_key.pub));
 		nano::send_block send1 (latest, nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);

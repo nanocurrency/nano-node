@@ -1,19 +1,20 @@
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/pruned_store.hpp>
+#include <nano/secure/parallel_traversal.hpp>
 
-nano::lmdb::pruned_store::pruned_store (nano::mdb_store & store_a) :
+nano::lmdb::pruned_store::pruned_store (nano::lmdb::store & store_a) :
 	store{ store_a } {};
 
 void nano::lmdb::pruned_store::put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	auto status = store.put_key (transaction_a, tables::pruned, hash_a);
-	release_assert_success (store, status);
+	auto status = store.put (transaction_a, tables::pruned, hash_a, nullptr);
+	store.release_assert_success (status);
 }
 
 void nano::lmdb::pruned_store::del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto status = store.del (transaction_a, tables::pruned, hash_a);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 bool nano::lmdb::pruned_store::exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
@@ -41,7 +42,7 @@ size_t nano::lmdb::pruned_store::count (nano::transaction const & transaction_a)
 void nano::lmdb::pruned_store::clear (nano::write_transaction const & transaction_a)
 {
 	auto status = store.drop (transaction_a, tables::pruned);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 nano::store_iterator<nano::block_hash, std::nullptr_t> nano::lmdb::pruned_store::begin (nano::transaction const & transaction, nano::block_hash const & hash) const

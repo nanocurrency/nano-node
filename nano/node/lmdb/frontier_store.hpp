@@ -4,13 +4,13 @@
 
 namespace nano
 {
-class mdb_store;
 namespace lmdb
 {
+	class store;
 	class frontier_store : public nano::frontier_store
 	{
 	public:
-		frontier_store (nano::mdb_store & store);
+		frontier_store (nano::lmdb::store & store);
 		void put (nano::write_transaction const &, nano::block_hash const &, nano::account const &) override;
 		nano::account get (nano::transaction const &, nano::block_hash const &) const override;
 		void del (nano::write_transaction const &, nano::block_hash const &) override;
@@ -20,7 +20,7 @@ namespace lmdb
 		void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, nano::account>, nano::store_iterator<nano::block_hash, nano::account>)> const & action_a) const override;
 
 	private:
-		nano::mdb_store & store;
+		nano::lmdb::store & store;
 	};
 }
 }

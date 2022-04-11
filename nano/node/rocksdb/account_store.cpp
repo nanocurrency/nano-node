@@ -1,13 +1,14 @@
 #include <nano/node/rocksdb/account_store.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
+#include <nano/secure/parallel_traversal.hpp>
 
-nano::rocksdb::account_store::account_store (nano::rocksdb_store & store_a) :
+nano::rocksdb::account_store::account_store (nano::rocksdb::store & store_a) :
 	store (store_a){};
 
 void nano::rocksdb::account_store::put (nano::write_transaction const & transaction, nano::account const & account, nano::account_info const & info)
 {
 	auto status = store.put (transaction, tables::accounts, account, info);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 bool nano::rocksdb::account_store::get (nano::transaction const & transaction, nano::account const & account, nano::account_info & info)
@@ -27,7 +28,7 @@ bool nano::rocksdb::account_store::get (nano::transaction const & transaction, n
 void nano::rocksdb::account_store::del (nano::write_transaction const & transaction_a, nano::account const & account_a)
 {
 	auto status = store.del (transaction_a, tables::accounts, account_a);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 bool nano::rocksdb::account_store::exists (nano::transaction const & transaction_a, nano::account const & account_a)

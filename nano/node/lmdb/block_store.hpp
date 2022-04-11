@@ -4,18 +4,18 @@
 
 namespace nano
 {
-class mdb_store;
 using mdb_val = db_val<MDB_val>;
 class block_predecessor_mdb_set;
 namespace lmdb
 {
+	class store;
 	class block_store : public nano::block_store
 	{
 		friend class nano::block_predecessor_mdb_set;
-		nano::mdb_store & store;
+		nano::lmdb::store & store;
 
 	public:
-		explicit block_store (nano::mdb_store & store_a);
+		explicit block_store (nano::lmdb::store & store_a);
 		void put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a) override;
 		void raw_put (nano::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_hash const & hash_a) override;
 		nano::block_hash successor (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override;

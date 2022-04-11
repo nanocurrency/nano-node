@@ -764,7 +764,7 @@ TEST (confirmation_heightDeathTest, rollback_added_block)
 		auto send = std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
 		{
 			auto transaction (store->tx_begin_write ());
-			store->initialize (transaction, ledger.cache);
+			store->initialize (transaction, ledger.cache, ledger.constants);
 		}
 
 		uint64_t batch_write_size = 2048;
@@ -840,7 +840,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		auto send = std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
 		{
 			auto transaction (store->tx_begin_write ());
-			store->initialize (transaction, ledger.cache);
+			store->initialize (transaction, ledger.cache, ledger.constants);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
 		}
 
@@ -911,7 +911,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		auto open = std::make_shared<nano::state_block> (key1.pub, 0, 0, nano::Gxrb_ratio, send->hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
 		{
 			auto transaction (store->tx_begin_write ());
-			store->initialize (transaction, ledger.cache);
+			store->initialize (transaction, ledger.cache, ledger.constants);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *open).code);
 		}
@@ -1402,7 +1402,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 	auto send1 = std::make_shared<nano::send_block> (send->hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (send->hash ()));
 	{
 		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, ledger.cache);
+		store->initialize (transaction, ledger.cache, nano::dev::constants);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send1).code);
 	}
@@ -1454,7 +1454,7 @@ TEST (confirmation_height, pruned_source)
 	auto open2 = std::make_shared<nano::state_block> (key2.pub, 0, key1.pub, 50, send2->hash (), key2.prv, key2.pub, *pool.generate (key2.pub));
 	{
 		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, ledger.cache);
+		store->initialize (transaction, ledger.cache, nano::dev::constants);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send1).code);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *open1).code);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send2).code);

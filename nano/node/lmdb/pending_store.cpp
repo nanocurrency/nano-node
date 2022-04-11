@@ -1,19 +1,20 @@
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/pending_store.hpp>
+#include <nano/secure/parallel_traversal.hpp>
 
-nano::lmdb::pending_store::pending_store (nano::mdb_store & store) :
+nano::lmdb::pending_store::pending_store (nano::lmdb::store & store) :
 	store{ store } {};
 
 void nano::lmdb::pending_store::put (nano::write_transaction const & transaction, nano::pending_key const & key, nano::pending_info const & pending)
 {
 	auto status = store.put (transaction, tables::pending, key, pending);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 void nano::lmdb::pending_store::del (nano::write_transaction const & transaction, nano::pending_key const & key)
 {
 	auto status = store.del (transaction, tables::pending, key);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 bool nano::lmdb::pending_store::get (nano::transaction const & transaction, nano::pending_key const & key, nano::pending_info & pending_a)

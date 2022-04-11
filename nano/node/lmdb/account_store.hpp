@@ -4,16 +4,16 @@
 
 namespace nano
 {
-class mdb_store;
 namespace lmdb
 {
+	class store;
 	class account_store : public nano::account_store
 	{
 	private:
-		nano::mdb_store & store;
+		nano::lmdb::store & store;
 
 	public:
-		explicit account_store (nano::mdb_store & store_a);
+		explicit account_store (nano::lmdb::store & store_a);
 		void put (nano::write_transaction const & transaction, nano::account const & account, nano::account_info const & info) override;
 		bool get (nano::transaction const & transaction_a, nano::account const & account_a, nano::account_info & info_a) override;
 		void del (nano::write_transaction const & transaction_a, nano::account const & account_a) override;

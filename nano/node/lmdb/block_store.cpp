@@ -1,5 +1,6 @@
 #include <nano/node/lmdb/block_store.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
+#include <nano/secure/parallel_traversal.hpp>
 
 namespace nano
 {
@@ -22,7 +23,7 @@ public:
 };
 }
 
-nano::lmdb::block_store::block_store (nano::mdb_store & store_a) :
+nano::lmdb::block_store::block_store (nano::lmdb::store & store_a) :
 	store{ store_a } {};
 
 void nano::lmdb::block_store::put (nano::write_transaction const & transaction, nano::block_hash const & hash, nano::block const & block)
@@ -44,7 +45,7 @@ void nano::lmdb::block_store::raw_put (nano::write_transaction const & transacti
 {
 	nano::mdb_val value{ data.size (), (void *)data.data () };
 	auto status = store.put (transaction_a, tables::blocks, hash_a, value);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 nano::block_hash nano::lmdb::block_store::successor (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
@@ -130,7 +131,7 @@ std::shared_ptr<nano::block> nano::lmdb::block_store::random (nano::transaction 
 void nano::lmdb::block_store::del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto status = store.del (transaction_a, tables::blocks, hash_a);
-	release_assert_success (store, status);
+	store.release_assert_success (status);
 }
 
 bool nano::lmdb::block_store::exists (nano::transaction const & transaction, nano::block_hash const & hash)

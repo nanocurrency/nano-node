@@ -41,7 +41,6 @@ add_library(
   ${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp
   store.hpp
   store.cpp
-  store_partial.hpp
   buffer.hpp
   common.hpp
   common.cpp

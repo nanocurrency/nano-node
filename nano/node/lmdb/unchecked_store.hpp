@@ -4,16 +4,16 @@
 
 namespace nano
 {
-class mdb_store;
 namespace lmdb
 {
+	class store;
 	class unchecked_store : public nano::unchecked_store
 	{
 	private:
-		nano::mdb_store & store;
+		nano::lmdb::store & store;
 
 	public:
-		unchecked_store (nano::mdb_store & store_a);
+		unchecked_store (nano::lmdb::store & store_a);
 
 		void clear (nano::write_transaction const & transaction_a) override;
 		void put (nano::write_transaction const & transaction_a, nano::hash_or_account const & dependency, nano::unchecked_info const & info_a) override;
