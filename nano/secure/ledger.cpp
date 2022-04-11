@@ -1589,6 +1589,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 	return error;
 }
 
+bool nano::ledger::bootstrap_weight_reached () const
+{
+	return cache.block_count >= bootstrap_weight_max_blocks;
+}
+
 nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account) :
 	cemented_frontier (cemented_frontier), frontier (frontier), account (account)
 {
