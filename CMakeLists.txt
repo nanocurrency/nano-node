@@ -615,13 +615,29 @@ if(NANO_TEST OR RAIBLOCKS_TEST)
     COMMAND echo "BATCH BUILDING TESTS"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     DEPENDS core_test load_test rpc_test nano_node nano_rpc)
-
   add_custom_target(
     run_tests
     COMMAND ${PROJECT_SOURCE_DIR}/ci/test.sh ${CMAKE_BINARY_DIR}
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     DEPENDS build_tests)
 endif()
+
+if(NANO_TEST OR RAIBLOCKS_TEST)
+  if(NANO_GUI OR RAIBLOCKS_GUI)
+    add_custom_target(
+      quick_tests
+      COMMAND echo "BATCH QUICK TESTS"
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+      DEPENDS core_test rpc_test qt_test)
+  else()
+    add_custom_target(
+      quick_tests
+      COMMAND echo "BATCH QUICK TESTS -- qt_test is disabled"
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+      DEPENDS core_test rpc_test)
+  endif()
+endif()
+
 if(NANO_GUI OR RAIBLOCKS_GUI)
   install(FILES ${PROJECT_BINARY_DIR}/config-node.toml.sample DESTINATION .)
   install(FILES ${PROJECT_BINARY_DIR}/config-rpc.toml.sample DESTINATION .)
