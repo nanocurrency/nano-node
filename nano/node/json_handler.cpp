@@ -956,18 +956,25 @@ void nano::json_handler::accounts_create ()
 void nano::json_handler::accounts_frontiers ()
 {
 	boost::property_tree::ptree frontiers;
-	auto transaction (node.store.tx_begin_read ());
-	for (auto & accounts : request.get_child ("accounts"))
+	auto transaction = node.store.tx_begin_read ();
+	for (auto & account_from_request : request.get_child ("accounts"))
 	{
-		auto account (account_impl (accounts.second.data ()));
+		auto account = account_impl (account_from_request.second.data ());
 		if (!ec)
 		{
-			auto latest (node.ledger.latest (transaction, account));
+			auto latest = node.ledger.latest (transaction, account);
 			if (!latest.is_zero ())
 			{
 				frontiers.put (account.to_account (), latest.to_string ());
+				continue;
+			}
+			else
+			{
+				ec = nano::error_common::account_not_found;
 			}
 		}
+		frontiers.put (account_from_request.second.data (), boost::str (boost::format ("error: %1%") % ec.message ()));
+		ec = {};
 	}
 	response_l.add_child ("frontiers", frontiers);
 	response_errors ();
