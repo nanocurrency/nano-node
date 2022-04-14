@@ -905,7 +905,7 @@ void nano::json_handler::accounts_balances ()
 				entry.put ("balance", balance.first.convert_to<std::string> ());
 				entry.put ("pending", balance.second.convert_to<std::string> ());
 				entry.put ("receivable", balance.second.convert_to<std::string> ());
-				balances.push_back (std::make_pair (account_from_request.second.data (), entry));
+				balances.put_child (account_from_request.second.data (), entry);
 				continue;
 			}
 			else
@@ -914,7 +914,7 @@ void nano::json_handler::accounts_balances ()
 			}
 		}
 		entry.put ("error", ec.message ());
-		balances.push_back (std::make_pair (account_from_request.second.data (), entry));
+		balances.put_child (account_from_request.second.data (), entry);
 		ec = {};
 	}
 	response_l.add_child ("balances", balances);
