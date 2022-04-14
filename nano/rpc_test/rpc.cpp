@@ -3133,6 +3133,10 @@ TEST (rpc, deterministic_key)
 	ASSERT_EQ (account2.to_account (), validate_text);
 }
 
+/**
+ * Test the RPC accounts_balances with 3 accounts, one good one, one with an invalid account ID and one with
+ * an account that does not exist.
+ */
 TEST (rpc, accounts_balances)
 {
 	nano::system system;
@@ -3140,21 +3144,49 @@ TEST (rpc, accounts_balances)
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "accounts_balances");
-	boost::property_tree::ptree entry;
-	boost::property_tree::ptree peers_l;
-	entry.put ("", nano::dev::genesis_key.pub.to_account ());
-	peers_l.push_back (std::make_pair ("", entry));
-	request.add_child ("accounts", peers_l);
+	boost::property_tree::ptree accounts_l;
+
+	// Adds a valid account present in the ledger.
+	boost::property_tree::ptree entry1;
+	entry1.put ("", nano::dev::genesis_key.pub.to_account ());
+	accounts_l.push_back (std::make_pair ("", entry1));
+
+	// Adds a bad account number for getting an error response.
+	boost::property_tree::ptree entry2;
+	auto const bad_account_number = "nano_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtd1";
+	entry2.put ("", bad_account_number);
+	accounts_l.push_back (std::make_pair ("", entry2));
+
+	// Adds a valid account that isn't on the ledger for getting an error response.
+	boost::property_tree::ptree entry3;
+	auto const account_not_found = "nano_1os6txqxyuesnxrtshnfb5or1hesc1647wpk9rsr84pmki6eairwha79hk3j";
+	entry3.put ("", account_not_found);
+	accounts_l.push_back (std::make_pair ("", entry3));
+
+	request.add_child ("accounts", accounts_l);
 	auto response (wait_response (system, rpc_ctx, request));
-	for (auto & balances : response.get_child ("balances"))
-	{
-		std::string account_text (balances.first);
-		ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), account_text);
-		std::string balance_text (balances.second.get<std::string> ("balance"));
-		ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
-		std::string pending_text (balances.second.get<std::string> ("pending"));
-		ASSERT_EQ ("0", pending_text);
-	}
+
+	// Checking the valid entry is ok.
+	auto genesis_entry = response.get_child (boost::str (boost::format ("balances.%1%") % nano::dev::genesis_key.pub.to_account ()));
+	auto balance_text = genesis_entry.get<std::string> ("balance");
+	ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
+	auto receivable_text = genesis_entry.get<std::string> ("receivable");
+	ASSERT_EQ ("0", receivable_text);
+
+	auto get_error_message = [] (nano::error_common error_common) -> std::string {
+		std::error_code ec = error_common;
+		return ec.message ();
+	};
+
+	// Checking the account not found response
+	auto account_not_found_entry = response.get_child (boost::str (boost::format ("balances.%1%") % account_not_found));
+	auto error_text1 = account_not_found_entry.get<std::string> ("error");
+	ASSERT_EQ (get_error_message (nano::error_common::account_not_found), error_text1);
+
+	// Checking the bad account number response
+	auto bad_account_number_entry = response.get_child (boost::str (boost::format ("balances.%1%") % bad_account_number));
+	auto error_text2 = bad_account_number_entry.get<std::string> ("error");
+	ASSERT_EQ (get_error_message (nano::error_common::bad_account_number), error_text2);
 }
 
 TEST (rpc, accounts_representatives)
