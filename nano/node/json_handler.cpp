@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <vector>
 
 namespace
 {
@@ -911,18 +912,21 @@ void nano::json_handler::accounts_balances ()
 void nano::json_handler::accounts_representatives ()
 {
 	boost::property_tree::ptree representatives;
-	for (auto & accounts : request.get_child ("accounts"))
+	auto transaction = node.store.tx_begin_read ();
+	for (auto & account_from_request : request.get_child ("accounts"))
 	{
-		auto account (account_impl (accounts.second.data ()));
-		auto transaction (node.store.tx_begin_read ());
-		auto info (account_info_impl (transaction, account));
-
+		auto account = account_impl (account_from_request.second.data ());
 		if (!ec)
 		{
-			boost::property_tree::ptree entry;
-			entry.put ("", info.representative.to_account ());
-			representatives.push_back (std::make_pair (accounts.second.data (), entry));
+			auto info = account_info_impl (transaction, account);
+			if (!ec)
+			{
+				representatives.put (account_from_request.second.data (), info.representative.to_account ());
+				continue;
+			}
 		}
+		representatives.put (account_from_request.second.data (), boost::format ("error: %1%") % ec.message ());
+		ec = {};
 	}
 	response_l.add_child ("representatives", representatives);
 	response_errors ();
