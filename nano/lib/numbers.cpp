@@ -116,14 +116,18 @@ bool nano::public_key::decode_account (std::string const & source_a)
 					}
 					if (!error)
 					{
-						*this = (number_l >> 40).convert_to<nano::uint256_t> ();
+						nano::public_key temp = (number_l >> 40).convert_to<nano::uint256_t> ();
 						uint64_t check (number_l & static_cast<uint64_t> (0xffffffffff));
 						uint64_t validation (0);
 						blake2b_state hash;
 						blake2b_init (&hash, 5);
-						blake2b_update (&hash, bytes.data (), bytes.size ());
+						blake2b_update (&hash, temp.bytes.data (), temp.bytes.size ());
 						blake2b_final (&hash, reinterpret_cast<uint8_t *> (&validation), 5);
 						error = check != validation;
+						if (!error)
+						{
+							*this = temp;
+						}
 					}
 				}
 				else
