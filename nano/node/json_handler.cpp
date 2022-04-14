@@ -891,23 +891,31 @@ void nano::json_handler::account_weight ()
 void nano::json_handler::accounts_balances ()
 {
 	boost::property_tree::ptree balances;
+	auto transaction = node.store.tx_begin_read ();
 	for (auto & account_from_request : request.get_child ("accounts"))
 	{
 		boost::property_tree::ptree entry;
 		auto account = account_impl (account_from_request.second.data ());
 		if (!ec)
 		{
-			auto balance = node.balance_pending (account, false);
-			entry.put ("balance", balance.first.convert_to<std::string> ());
-			entry.put ("pending", balance.second.convert_to<std::string> ());
-			entry.put ("receivable", balance.second.convert_to<std::string> ());
+			nano::account_info info;
+			if (!node.store.account.get (transaction, account, info))
+			{
+				auto balance = node.balance_pending (account, false);
+				entry.put ("balance", balance.first.convert_to<std::string> ());
+				entry.put ("pending", balance.second.convert_to<std::string> ());
+				entry.put ("receivable", balance.second.convert_to<std::string> ());
+				balances.push_back (std::make_pair (account_from_request.second.data (), entry));
+				continue;
+			}
+			else
+			{
+				ec = nano::error_common::account_not_found;
+			}
 		}
-		else
-		{
-			entry.put ("error", ec.message ());
-			ec = {};
-		}
+		entry.put ("error", ec.message ());
 		balances.push_back (std::make_pair (account_from_request.second.data (), entry));
+		ec = {};
 	}
 	response_l.add_child ("balances", balances);
 	response_errors ();
