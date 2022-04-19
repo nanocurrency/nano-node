@@ -39,7 +39,6 @@ TEST (confirmation_solicitor, batches)
 		}
 		// Reached the maximum amount of requests for the channel
 		auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::normal));
-		ASSERT_TRUE (solicitor.add (*election));
 		// Broadcasting should be immediate
 		ASSERT_EQ (0, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
 		ASSERT_FALSE (solicitor.broadcast (*election));
