@@ -58,7 +58,7 @@ namespace transport
 		virtual nano::endpoint get_endpoint () const = 0;
 		virtual nano::tcp_endpoint get_tcp_endpoint () const = 0;
 		virtual nano::transport::transport_type get_type () const = 0;
-		virtual bool full ()
+		virtual bool max ()
 		{
 			return false;
 		}

@@ -68,7 +68,7 @@ namespace transport
 			return nano::transport::transport_type::tcp;
 		}
 
-		virtual bool full () override
+		virtual bool max () override
 		{
 			bool result = true;
 			if (auto socket_l = socket.lock ())
