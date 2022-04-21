@@ -97,8 +97,6 @@ public:
 	bool backup_before_upgrade{ false };
 	double max_work_generate_multiplier{ 64. };
 	uint32_t max_queued_requests{ 512 };
-	/** Maximum amount of confirmation requests (batches) to be sent to each channel */
-	uint32_t confirm_req_batches_max{ network_params.network.is_dev_network () ? 1u : 2u };
 	std::chrono::seconds max_pruning_age{ !network_params.network.is_beta_network () ? std::chrono::seconds (24 * 60 * 60) : std::chrono::seconds (5 * 60) }; // 1 day; 5 minutes for beta network
 	uint64_t max_pruning_depth{ 0 };
 	nano::rocksdb_config rocksdb_config;

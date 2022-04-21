@@ -187,7 +187,6 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_EQ (conf.node.work_threads, defaults.node.work_threads);
 	ASSERT_EQ (conf.node.max_queued_requests, defaults.node.max_queued_requests);
-	ASSERT_EQ (conf.node.confirm_req_batches_max, defaults.node.confirm_req_batches_max);
 
 	ASSERT_EQ (conf.node.logging.bulk_pull_logging_value, defaults.node.logging.bulk_pull_logging_value);
 	ASSERT_EQ (conf.node.logging.flush, defaults.node.logging.flush);
@@ -594,7 +593,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_NE (conf.node.work_threads, defaults.node.work_threads);
 	ASSERT_NE (conf.node.max_queued_requests, defaults.node.max_queued_requests);
-	ASSERT_EQ (conf.node.confirm_req_batches_max, defaults.node.confirm_req_batches_max);
 
 	ASSERT_NE (conf.node.logging.bulk_pull_logging_value, defaults.node.logging.bulk_pull_logging_value);
 	ASSERT_NE (conf.node.logging.flush, defaults.node.logging.flush);
@@ -828,21 +826,6 @@ TEST (toml, daemon_config_deserialize_errors)
 		conf.deserialize_toml (toml);
 
 		ASSERT_EQ (toml.get_error ().get_message (), "election_hint_weight_percent must be a number between 5 and 50");
-	}
-
-	{
-		std::stringstream ss;
-		ss << R"toml(
-		[node]
-		confirm_req_batches_max = 0
-		)toml";
-
-		nano::tomlconfig toml;
-		toml.read (ss);
-		nano::daemon_config conf;
-		conf.deserialize_toml (toml);
-
-		ASSERT_EQ (toml.get_error ().get_message (), "confirm_req_batches_max must be between 1 and 100");
 	}
 
 	{

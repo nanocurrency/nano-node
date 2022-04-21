@@ -68,6 +68,16 @@ namespace transport
 			return nano::transport::transport_type::tcp;
 		}
 
+		virtual bool max () override
+		{
+			bool result = true;
+			if (auto socket_l = socket.lock ())
+			{
+				result = socket_l->max ();
+			}
+			return result;
+		}
+
 	private:
 		nano::tcp_endpoint endpoint{ boost::asio::ip::address_v6::any (), 0 };
 	};
