@@ -62,6 +62,7 @@ public:
 	/* Use half available threads on the system for signature checking. The calling thread does checks as well, so these are extra worker threads */
 	unsigned signature_checker_threads{ std::thread::hardware_concurrency () / 2 };
 	bool enable_voting{ false };
+	bool enable_reverse_links{ false };
 	unsigned bootstrap_connections{ 4 };
 	unsigned bootstrap_connections_max{ 64 };
 	unsigned bootstrap_initiator_threads{ 1 };

@@ -59,6 +59,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("unchecked_clear", "Clear unchecked blocks")
 	("confirmation_height_clear", "Clear confirmation height")
 	("final_vote_clear", "Clear final votes")
+	("reverse_link_clear", "Clear reverse links")
 	("rebuild_database", "Rebuild LMDB database with vacuum for best compaction")
 	("migrate_database_lmdb_to_rocksdb", "Migrates LMDB database to RocksDB")
 	("diagnostics", "Run internal diagnostics")
@@ -219,7 +220,7 @@ void database_write_lock_error (std::error_code & ec)
 bool copy_database (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, boost::filesystem::path const & output_path, std::error_code & ec)
 {
 	bool success = false;
-	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear") || vm.count ("final_vote_clear") || vm.count ("rebuild_database");
+	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear") || vm.count ("final_vote_clear") || vm.count ("reverse_link_clear") || vm.count ("rebuild_database");
 
 	auto node_flags = nano::inactive_node_flag_defaults ();
 	node_flags.read_only = !needs_to_write;
@@ -251,6 +252,10 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 		if (vm.count ("final_vote_clear"))
 		{
 			node.node->store.final_vote.clear (store.tx_begin_write ());
+		}
+		if (vm.count ("reverse_link_clear"))
+		{
+			node.node->store.reverse_link.clear (store.tx_begin_write ());
 		}
 		if (vm.count ("rebuild_database"))
 		{
@@ -661,6 +666,23 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			{
 				std::cerr << "Either specify a single --root to clear or --all to clear all final votes (not recommended)" << std::endl;
 			}
+		}
+		else
+		{
+			database_write_lock_error (ec);
+		}
+	}
+	else if (vm.count ("reverse_link_clear"))
+	{
+		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+		auto node_flags = nano::inactive_node_flag_defaults ();
+		node_flags.read_only = false;
+		nano::update_flags (node_flags, vm);
+		nano::inactive_node node (data_path, node_flags);
+		if (!node.node->init_error ())
+		{
+			node.node->store.reverse_link.clear (node.node->store.tx_begin_write ());
+			std::cout << "All reverse links are cleared" << std::endl;
 		}
 		else
 		{

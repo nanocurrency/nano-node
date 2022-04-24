@@ -76,6 +76,7 @@ nano::rocksdb::store::store (nano::logger_mt & logger_a, boost::filesystem::path
 		peer_store,
 		confirmation_height_store,
 		final_vote_store,
+		reverse_link_store,
 		version_store
 	},
 	// clang-format on
@@ -89,6 +90,7 @@ nano::rocksdb::store::store (nano::logger_mt & logger_a, boost::filesystem::path
 	peer_store{ *this },
 	confirmation_height_store{ *this },
 	final_vote_store{ *this },
+	reverse_link_store{ *this },
 	version_store{ *this },
 	logger{ logger_a },
 	constants{ constants },
@@ -127,7 +129,8 @@ std::unordered_map<char const *, nano::tables> nano::rocksdb::store::create_cf_n
 		{ "peers", tables::peers },
 		{ "confirmation_height", tables::confirmation_height },
 		{ "pruned", tables::pruned },
-		{ "final_votes", tables::final_votes } };
+		{ "final_votes", tables::final_votes },
+		{ "reverse_links", tables::reverse_links } };
 
 	debug_assert (map.size () == all_tables ().size () + 1);
 	return map;
@@ -298,6 +301,11 @@ rocksdb::ColumnFamilyOptions nano::rocksdb::store::get_cf_options (std::string c
 		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
 	}
+	else if (cf_name_a == "reverse_links")
+	{
+		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
+		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
+	}
 	else if (cf_name_a == ::rocksdb::kDefaultColumnFamilyName)
 	{
 		// Do nothing.
@@ -388,6 +396,8 @@ rocksdb::ColumnFamilyHandle * nano::rocksdb::store::table_to_column_family (tabl
 			return get_handle ("confirmation_height");
 		case tables::final_votes:
 			return get_handle ("final_votes");
+		case tables::reverse_links:
+			return get_handle ("reverse_links");
 		default:
 			release_assert (false);
 			return get_handle ("");
@@ -546,6 +556,13 @@ uint64_t nano::rocksdb::store::count (nano::transaction const & transaction_a, t
 	else if (table_a == tables::confirmation_height)
 	{
 		for (auto i (confirmation_height.begin (transaction_a)), n (confirmation_height.end ()); i != n; ++i)
+		{
+			++sum;
+		}
+	}
+	else if (table_a == tables::reverse_links)
+	{
+		for (auto i (reverse_link.begin (transaction_a)), n (reverse_link.end ()); i != n; ++i)
 		{
 			++sum;
 		}
@@ -731,7 +748,7 @@ void nano::rocksdb::store::on_flush (::rocksdb::FlushJobInfo const & flush_job_i
 
 std::vector<nano::tables> nano::rocksdb::store::all_tables () const
 {
-	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::final_votes, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::unchecked, tables::vote };
+	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::final_votes, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::reverse_links, tables::unchecked, tables::vote };
 }
 
 bool nano::rocksdb::store::copy_db (boost::filesystem::path const & destination_path)

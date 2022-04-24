@@ -1545,6 +1545,15 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 			}
 		});
 
+		store.reverse_link.for_each_par (
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::reverse_links }));
+				rocksdb_store->reverse_link.put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
 		auto lmdb_transaction (store.tx_begin_read ());
 		auto version = store.version.get (lmdb_transaction);
 		auto rocksdb_transaction (rocksdb_store->tx_begin_write ());
@@ -1565,6 +1574,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		error |= store.pruned.count (lmdb_transaction) != rocksdb_store->pruned.count (rocksdb_transaction);
 		error |= store.final_vote.count (lmdb_transaction) != rocksdb_store->final_vote.count (rocksdb_transaction);
 		error |= store.online_weight.count (lmdb_transaction) != rocksdb_store->online_weight.count (rocksdb_transaction);
+		error |= store.reverse_link.count (lmdb_transaction) != rocksdb_store->reverse_link.count (rocksdb_transaction);
 		error |= store.version.get (lmdb_transaction) != rocksdb_store->version.get (rocksdb_transaction);
 
 		// For large tables a random key is used instead and makes sure it exists

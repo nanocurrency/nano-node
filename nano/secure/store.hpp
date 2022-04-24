@@ -550,6 +550,7 @@ enum class tables
 	peers,
 	pending,
 	pruned,
+	reverse_links,
 	unchecked,
 	vote
 };
@@ -849,6 +850,24 @@ public:
 	virtual uint64_t account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 };
 
+/**
+ * Manages reverse link storage and iteration
+ */
+class reverse_link_store : public iterable_store<nano::block_hash, nano::block_hash>
+{
+public:
+	virtual void put (nano::write_transaction const & transaction_a, nano::block_hash const &, nano::block_hash const &) = 0;
+	virtual nano::block_hash get (nano::transaction const &, nano::block_hash const &) const = 0;
+	virtual void del (nano::write_transaction const & transaction_a, nano::block_hash const &) = 0;
+	virtual bool exists (nano::transaction const & transaction_a, nano::block_hash const &) const = 0;
+	virtual size_t count (nano::transaction const & transaction_a) const = 0;
+	virtual void clear (nano::write_transaction const & transaction_a) = 0;
+	virtual nano::store_iterator<nano::block_hash, nano::block_hash> begin (nano::transaction const & transaction_a) const = 0;
+	virtual nano::store_iterator<nano::block_hash, nano::block_hash> begin (nano::transaction const &, nano::block_hash const &) const = 0;
+	virtual nano::store_iterator<nano::block_hash, nano::block_hash> end () const = 0;
+	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, nano::block_hash>, nano::store_iterator<nano::block_hash, nano::block_hash>)> const & action_a) const = 0;
+};
+
 class unchecked_map;
 /**
  * Store manager
@@ -868,6 +887,7 @@ public:
 		nano::peer_store &,
 		nano::confirmation_height_store &,
 		nano::final_vote_store &,
+		nano::reverse_link_store &,
 		nano::version_store &
 	);
 	// clang-format on
@@ -885,7 +905,7 @@ public:
 	account_store & account;
 	pending_store & pending;
 	static int constexpr version_minimum{ 14 };
-	static int constexpr version_current{ 21 };
+	static int constexpr version_current{ 22 };
 
 private:
 	unchecked_store & unchecked;
@@ -896,6 +916,7 @@ public:
 	peer_store & peer;
 	confirmation_height_store & confirmation_height;
 	final_vote_store & final_vote;
+	reverse_link_store & reverse_link;
 	version_store & version;
 
 	virtual unsigned max_block_write_batch_num () const = 0;

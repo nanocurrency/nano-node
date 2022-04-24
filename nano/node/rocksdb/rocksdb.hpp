@@ -12,6 +12,7 @@
 #include <nano/node/rocksdb/peer_store.hpp>
 #include <nano/node/rocksdb/pending_store.hpp>
 #include <nano/node/rocksdb/pruned_store.hpp>
+#include <nano/node/rocksdb/reverse_link_store.hpp>
 #include <nano/node/rocksdb/rocksdb_iterator.hpp>
 #include <nano/node/rocksdb/unchecked_store.hpp>
 #include <nano/node/rocksdb/version_store.hpp>
@@ -48,6 +49,7 @@ namespace rocksdb
 		nano::rocksdb::peer_store peer_store;
 		nano::rocksdb::pending_store pending_store;
 		nano::rocksdb::pruned_store pruned_store;
+		nano::rocksdb::reverse_link_store reverse_link_store;
 		nano::rocksdb::unchecked_store unchecked_store;
 		nano::rocksdb::version_store version_store;
 
@@ -61,6 +63,7 @@ namespace rocksdb
 		friend class nano::rocksdb::peer_store;
 		friend class nano::rocksdb::pending_store;
 		friend class nano::rocksdb::pruned_store;
+		friend class nano::rocksdb::reverse_link_store;
 		friend class nano::rocksdb::unchecked_store;
 		friend class nano::rocksdb::version_store;
 

@@ -214,6 +214,7 @@ public:
 	boost::optional<uint64_t> work_generate_blocking (nano::root const &);
 
 private:
+	void create_reverse_links (nano::write_transaction const &);
 	void long_inactivity_cleanup ();
 	void epoch_upgrader_impl (nano::raw_key const &, nano::epoch, uint64_t, uint64_t);
 	nano::locked<std::future<void>> epoch_upgrading;
