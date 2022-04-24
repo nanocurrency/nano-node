@@ -1,5 +1,5 @@
-#include <nano/node/lmdb/reverse_link_store.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
+#include <nano/node/lmdb/reverse_link_store.hpp>
 #include <nano/secure/parallel_traversal.hpp>
 
 nano::lmdb::reverse_link_store::reverse_link_store (nano::lmdb::store & store) :
