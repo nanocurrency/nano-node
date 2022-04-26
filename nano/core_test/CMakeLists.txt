@@ -1,3 +1,7 @@
+add_executable(lmdb_test lmdb_test_main.cc)
+
+target_link_libraries(lmdb_test gtest node secure lmdb Boost::boost)
+
 add_executable(
   core_test
   core_test_main.cc
