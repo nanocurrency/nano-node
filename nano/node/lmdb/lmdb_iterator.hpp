@@ -12,7 +12,7 @@ class mdb_iterator : public store_iterator_impl<T, U>
 public:
 	mdb_iterator (nano::transaction const & transaction_a, MDB_dbi db_a, MDB_val const & val_a = MDB_val{}, bool const direction_asc = true)
 	{
-		auto status (mdb_cursor_open (tx (transaction_a), db_a, &cursor));
+		auto status (mdb_cursor_open (static_cast<MDB_txn *> (transaction_a.get_handle ()), db_a, &cursor));
 		release_assert (status == 0);
 		auto operation (MDB_SET_RANGE);
 		if (val_a.mv_size != 0)
@@ -42,7 +42,7 @@ public:
 
 	mdb_iterator () = default;
 
-	mdb_iterator (nano::mdb_iterator<T, U> && other_a)
+	mdb_iterator (nano::mdb_iterator<T, U> && other_a) noexcept
 	{
 		cursor = other_a.cursor;
 		other_a.cursor = nullptr;
@@ -106,10 +106,11 @@ public:
 		return result;
 	}
 
-	bool is_end_sentinal () const override
+	bool is_end_sentinel () const override
 	{
 		return current.first.size () == 0;
 	}
+
 	void fill (std::pair<T, U> & value_a) const override
 	{
 		if (current.first.size () != 0)
@@ -129,14 +130,15 @@ public:
 			value_a.second = U ();
 		}
 	}
+
 	void clear ()
 	{
 		current.first = nano::db_val<MDB_val> ();
 		current.second = nano::db_val<MDB_val> ();
-		debug_assert (is_end_sentinal ());
+		debug_assert (is_end_sentinel ());
 	}
 
-	nano::mdb_iterator<T, U> & operator= (nano::mdb_iterator<T, U> && other_a)
+	nano::mdb_iterator<T, U> & operator= (nano::mdb_iterator<T, U> && other_a) noexcept
 	{
 		if (cursor != nullptr)
 		{
@@ -152,12 +154,6 @@ public:
 	nano::store_iterator_impl<T, U> & operator= (nano::store_iterator_impl<T, U> const &) = delete;
 	MDB_cursor * cursor{ nullptr };
 	std::pair<nano::db_val<MDB_val>, nano::db_val<MDB_val>> current;
-
-private:
-	MDB_txn * tx (nano::transaction const & transaction_a) const
-	{
-		return static_cast<MDB_txn *> (transaction_a.get_handle ());
-	}
 };
 
 /**
@@ -217,9 +213,9 @@ public:
 		return *impl1 == *other.impl1 && *impl2 == *other.impl2;
 	}
 
-	bool is_end_sentinal () const override
+	bool is_end_sentinel () const override
 	{
-		return least_iterator ().is_end_sentinal ();
+		return least_iterator ().is_end_sentinel ();
 	}
 
 	void fill (std::pair<T, U> & value_a) const override
@@ -251,12 +247,12 @@ private:
 	nano::mdb_iterator<T, U> & least_iterator () const
 	{
 		nano::mdb_iterator<T, U> * result;
-		if (impl1->is_end_sentinal ())
+		if (impl1->is_end_sentinel ())
 		{
 			result = impl2.get ();
 			from_first_database = false;
 		}
-		else if (impl2->is_end_sentinal ())
+		else if (impl2->is_end_sentinel ())
 		{
 			result = impl1.get ();
 			from_first_database = true;

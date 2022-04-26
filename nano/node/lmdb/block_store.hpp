@@ -15,6 +15,7 @@ namespace lmdb
 	{
 		friend class nano::block_predecessor_mdb_set;
 		nano::lmdb::store & store;
+		std::atomic_uint64_t last_block_index;
 
 	public:
 		explicit block_store (nano::lmdb::store & store_a);
@@ -33,6 +34,7 @@ namespace lmdb
 		nano::store_iterator<nano::block_hash, nano::block_w_sideband> begin (nano::transaction const & transaction_a) const override;
 		nano::store_iterator<nano::block_hash, nano::block_w_sideband> begin (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override;
 		nano::store_iterator<nano::block_hash, nano::block_w_sideband> end () const override;
+		void set_last_block_index (nano::transaction const & transaction_a);
 		nano::uint128_t balance (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
 		nano::uint128_t balance_calculated (std::shared_ptr<nano::block> const & block_a) const override;
 		nano::epoch version (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
@@ -94,8 +96,23 @@ namespace lmdb
 		 */
 		MDB_dbi blocks_handle{ 0 };
 
+		/**
+		 * Contains indexes for blocks
+		 * std::uint64_t -> nano::block_hash
+		 */
+		MDB_dbi block_indexes_handle{ 0 };
+
+		/**
+		 * Contains unordered block_sideband and block for all block types (legacy send/change/open/receive & state blocks)
+		 * nano::block_hash -> nano::block_sideband, nano::block
+		 */
+		MDB_dbi block_contents_handle{ 0 };
+
 	protected:
 		void block_raw_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::mdb_val & value) const;
+		int block_index_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::mdb_val & value) const;
+		nano::store_iterator<nano::block_hash, std::uint64_t> indexes_begin (nano::transaction const & transaction_a) const;
+		nano::store_iterator<nano::block_hash, std::uint64_t> indexes_end () const;
 		size_t block_successor_offset (nano::transaction const & transaction_a, size_t entry_size_a, nano::block_type type_a) const;
 		static nano::block_type block_type_from_raw (void * data_a);
 	};

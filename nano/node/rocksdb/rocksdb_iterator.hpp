@@ -154,7 +154,7 @@ public:
 		return result;
 	}
 
-	bool is_end_sentinal () const override
+	bool is_end_sentinel () const override
 	{
 		return current.first.size () == 0;
 	}
@@ -184,7 +184,7 @@ public:
 	{
 		current.first = nano::rocksdb_val{};
 		current.second = nano::rocksdb_val{};
-		debug_assert (is_end_sentinal ());
+		debug_assert (is_end_sentinel ());
 	}
 	nano::rocksdb_iterator<T, U> & operator= (nano::rocksdb_iterator<T, U> && other_a)
 	{

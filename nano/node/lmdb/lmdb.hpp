@@ -37,6 +37,20 @@ namespace nano
 {
 using mdb_val = db_val<MDB_val>;
 
+template <>
+void * mdb_val::data () const;
+template <>
+std::size_t mdb_val::size () const;
+template <>
+mdb_val::db_val (std::size_t size_a, void * data_a);
+template <>
+void mdb_val::convert_buffer_to_value ();
+}
+
+#include <nano/node/lmdb/lmdb_block_iterator.hpp>
+
+namespace nano
+{
 class logging_mt;
 class transaction;
 
@@ -97,7 +111,7 @@ namespace lmdb
 		bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
 
 		int get (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val & value_a) const;
-		int put (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val const & value_a) const;
+		int put (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val const & value_a, std::uint32_t flags = 0) const;
 		int del (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
 
 		bool copy_db (boost::filesystem::path const & destination_file) override;
@@ -113,6 +127,16 @@ namespace lmdb
 		nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key) const
 		{
 			return nano::store_iterator<Key, Value> (std::make_unique<nano::mdb_iterator<Key, Value>> (transaction_a, table_to_dbi (table_a), key));
+		}
+
+		nano::store_iterator<nano::block_hash, nano::block_w_sideband> make_block_iterator (nano::transaction const & transaction_a, bool const direction_asc = true) const
+		{
+			return nano::store_iterator<nano::block_hash, nano::block_w_sideband> (std::make_unique<nano::mdb_block_iterator> (transaction_a, table_to_dbi (tables::block_indexes), table_to_dbi (tables::block_contents), nano::mdb_val{}, direction_asc));
+		}
+
+		nano::store_iterator<nano::block_hash, nano::block_w_sideband> make_block_iterator (nano::transaction const & transaction_a, nano::mdb_val const & key) const
+		{
+			return nano::store_iterator<nano::block_hash, nano::block_w_sideband> (std::make_unique<nano::mdb_block_iterator> (transaction_a, table_to_dbi (tables::block_indexes), table_to_dbi (tables::block_contents), key));
 		}
 
 		bool init_error () const override;
@@ -195,13 +219,4 @@ namespace lmdb
 		friend void modify_confirmation_height_to_v15 (nano::lmdb::store &, nano::transaction const &, nano::account const &, uint64_t);
 	};
 }
-
-template <>
-void * mdb_val::data () const;
-template <>
-std::size_t mdb_val::size () const;
-template <>
-mdb_val::db_val (std::size_t size_a, void * data_a);
-template <>
-void mdb_val::convert_buffer_to_value ();
 }

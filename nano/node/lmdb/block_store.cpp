@@ -24,7 +24,10 @@ public:
 }
 
 nano::lmdb::block_store::block_store (nano::lmdb::store & store_a) :
-	store{ store_a } {};
+	store{ store_a },
+	last_block_index{}
+{
+}
 
 void nano::lmdb::block_store::put (nano::write_transaction const & transaction, nano::block_hash const & hash, nano::block const & block)
 {
@@ -43,8 +46,19 @@ void nano::lmdb::block_store::put (nano::write_transaction const & transaction, 
 
 void nano::lmdb::block_store::raw_put (nano::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_hash const & hash_a)
 {
-	nano::mdb_val value{ data.size (), (void *)data.data () };
-	auto status = store.put (transaction_a, tables::blocks, hash_a, value);
+	// check to see if hash_a already exists and if so, replace its corresponding contents, otherwise insert new
+	nano::mdb_val index{};
+	auto status = block_index_get (transaction_a, hash_a, index);
+	if (store.not_found (status))
+	{
+		const auto new_index = ++last_block_index;
+		index = nano::mdb_val{ sizeof (uint64_t), const_cast<void *> (reinterpret_cast<const void *> (&new_index)) };
+		status = store.put (transaction_a, tables::block_indexes, hash_a, index);
+		store.release_assert_success (status);
+	}
+
+	nano::mdb_val contents_value{ data.size (), (void *)data.data () };
+	status = store.put (transaction_a, tables::block_contents, index, contents_value, MDB_APPEND);
 	store.release_assert_success (status);
 }
 
@@ -117,7 +131,7 @@ std::shared_ptr<nano::block> nano::lmdb::block_store::get_no_sideband (nano::tra
 
 std::shared_ptr<nano::block> nano::lmdb::block_store::random (nano::transaction const & transaction)
 {
-	nano::block_hash hash;
+	nano::block_hash hash{};
 	nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 	auto existing = begin (transaction, hash);
 	if (existing == end ())
@@ -130,20 +144,29 @@ std::shared_ptr<nano::block> nano::lmdb::block_store::random (nano::transaction 
 
 void nano::lmdb::block_store::del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	auto status = store.del (transaction_a, tables::blocks, hash_a);
-	store.release_assert_success (status);
+	nano::mdb_val index{};
+	auto status = block_index_get (transaction_a, hash_a, index);
+
+	// TODO: is it an error if the hash could not be found in the block_indexes table?
+	if (!store.not_found (status))
+	{
+		status = store.del (transaction_a, tables::block_contents, index);
+		store.release_assert_success (status);
+
+		status = store.del (transaction_a, tables::block_indexes, hash_a);
+		store.release_assert_success (status);
+	}
 }
 
 bool nano::lmdb::block_store::exists (nano::transaction const & transaction, nano::block_hash const & hash)
 {
-	nano::mdb_val junk;
-	block_raw_get (transaction, hash, junk);
-	return junk.size () != 0;
+	nano::mdb_val junk{};
+	return !store.not_found (block_index_get (transaction, hash, junk));
 }
 
 uint64_t nano::lmdb::block_store::count (nano::transaction const & transaction_a)
 {
-	return store.count (transaction_a, tables::blocks);
+	return store.count (transaction_a, tables::block_indexes);
 }
 
 nano::account nano::lmdb::block_store::account (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
@@ -167,17 +190,30 @@ nano::account nano::lmdb::block_store::account_calculated (nano::block const & b
 
 nano::store_iterator<nano::block_hash, nano::block_w_sideband> nano::lmdb::block_store::begin (nano::transaction const & transaction) const
 {
-	return store.make_iterator<nano::block_hash, nano::block_w_sideband> (transaction, tables::blocks);
+	return store.make_block_iterator (transaction);
 }
 
 nano::store_iterator<nano::block_hash, nano::block_w_sideband> nano::lmdb::block_store::begin (nano::transaction const & transaction, nano::block_hash const & hash) const
 {
-	return store.make_iterator<nano::block_hash, nano::block_w_sideband> (transaction, tables::blocks, hash);
+	return store.make_block_iterator (transaction, hash);
 }
 
 nano::store_iterator<nano::block_hash, nano::block_w_sideband> nano::lmdb::block_store::end () const
 {
 	return nano::store_iterator<nano::block_hash, nano::block_w_sideband> (nullptr);
+}
+
+void nano::lmdb::block_store::set_last_block_index (nano::transaction const & transaction_a)
+{
+	std::uint64_t result{};
+
+	const auto end = indexes_end ();
+	for (auto itr = indexes_begin (transaction_a); itr != end; ++itr)
+	{
+		result = std::max (result, itr->second);
+	}
+
+	last_block_index = result;
 }
 
 nano::uint128_t nano::lmdb::block_store::balance (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
@@ -239,10 +275,33 @@ uint64_t nano::lmdb::block_store::account_height (nano::transaction const & tran
 	return block->sideband ().height;
 }
 
-void nano::lmdb::block_store::block_raw_get (nano::transaction const & transaction, nano::block_hash const & hash, nano::mdb_val & value) const
+void nano::lmdb::block_store::block_raw_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::mdb_val & value) const
 {
-	auto status = store.get (transaction, tables::blocks, hash, value);
+	nano::mdb_val index{};
+	auto status = block_index_get (transaction_a, hash_a, index);
+	if (!store.not_found (status))
+	{
+		status = store.get (transaction_a, tables::block_contents, index, value);
+		store.release_assert_success (status);
+	}
+}
+
+int nano::lmdb::block_store::block_index_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::mdb_val & value) const
+{
+	const auto status = store.get (transaction_a, tables::block_indexes, hash_a, value);
 	release_assert (store.success (status) || store.not_found (status));
+
+	return status;
+}
+
+nano::store_iterator<nano::block_hash, std::uint64_t> nano::lmdb::block_store::indexes_begin (nano::transaction const & transaction_a) const
+{
+	return store.make_iterator<nano::block_hash, std::uint64_t> (transaction_a, tables::block_indexes);
+}
+
+nano::store_iterator<nano::block_hash, std::uint64_t> nano::lmdb::block_store::indexes_end () const
+{
+	return nano::store_iterator<nano::block_hash, std::uint64_t> (nullptr);
 }
 
 size_t nano::lmdb::block_store::block_successor_offset (nano::transaction const & transaction_a, size_t entry_size_a, nano::block_type type_a) const

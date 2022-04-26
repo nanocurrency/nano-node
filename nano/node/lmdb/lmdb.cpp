@@ -3,7 +3,6 @@
 #include <nano/node/common.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/lmdb_iterator.hpp>
-#include <nano/node/lmdb/wallet_value.hpp>
 #include <nano/secure/buffer.hpp>
 #include <nano/secure/versioning.hpp>
 
@@ -122,6 +121,8 @@ nano::lmdb::store::store (nano::logger_mt & logger_a, boost::filesystem::path co
 			auto transaction (tx_begin_read ());
 			open_databases (error, transaction, 0);
 		}
+
+		block_store.set_last_block_index (tx_begin_read ());
 	}
 }
 
@@ -823,9 +824,9 @@ int nano::lmdb::store::get (nano::transaction const & transaction_a, tables tabl
 	return mdb_get (env.tx (transaction_a), table_to_dbi (table_a), key_a, value_a);
 }
 
-int nano::lmdb::store::put (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val const & value_a) const
+int nano::lmdb::store::put (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val const & value_a, std::uint32_t flags) const
 {
-	return (mdb_put (env.tx (transaction_a), table_to_dbi (table_a), key_a, value_a, 0));
+	return (mdb_put (env.tx (transaction_a), table_to_dbi (table_a), key_a, value_a, flags));
 }
 
 int nano::lmdb::store::del (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const
@@ -866,6 +867,10 @@ MDB_dbi nano::lmdb::store::table_to_dbi (tables table_a) const
 			return account_store.accounts_handle;
 		case tables::blocks:
 			return block_store.blocks_handle;
+		case tables::block_indexes:
+			return block_store.block_indexes_handle;
+		case tables::block_contents:
+			return block_store.block_contents_handle;
 		case tables::pending:
 			return pending_store.pending_handle;
 		case tables::unchecked:
