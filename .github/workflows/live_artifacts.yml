@@ -85,6 +85,7 @@ jobs:
           nanocurrency/nano-env:centos /bin/bash -c "ci/build-centos.sh"
         env:
           PAT: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${TAG}
       - name: Deploy Artifact
         run: ci/actions/deploy.sh
         env:
