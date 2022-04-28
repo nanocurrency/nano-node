@@ -29,17 +29,6 @@ add_subdirectory(../../flatbuffers
 # multiple fbs files, we currently only use one, to avoid include-file issues
 # with certain language bindings.
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/generated/flatbuffers)
-if(APPLE)
-  install(
-    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/
-    DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS/api/flatbuffers)
-elseif(LINUX)
-  install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/
-          DESTINATION ./bin/api/flatbuffers)
-else()
-  install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/
-          DESTINATION ./api/flatbuffers)
-endif()
 
 file(GLOB files
      "${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/nanoapi*.fbs")

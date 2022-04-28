@@ -81,6 +81,8 @@ _cmake_format_perform()
                                 -iwholename "$ROOTPATH/coverage/CMakeLists.txt" \
                                 -o                                              \
                                 -iwholename "$ROOTPATH/nano/*/CMakeLists.txt"   \
+                                -o                                              \
+                                -iwholename "$ROOTPATH/cmake/*/*.cmake"         \
                              \)                                                 \
                      -print0 |
         while read -d $'\0' file
