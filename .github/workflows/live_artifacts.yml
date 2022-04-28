@@ -78,6 +78,9 @@ jobs:
           repository: ${{ github.event.inputs.repo }}
       - name: centos base
         run: ci/build-docker-image.sh docker/ci/Dockerfile-centos nanocurrency/nano-env:centos
+      - name: Debug the vars
+        run: |
+          echo "TAG: ${TAG}"
       - name: Build Artifact
         run: |
           docker run -e LIVE=1 -v ${GITHUB_WORKSPACE}:/workspace \

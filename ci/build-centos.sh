@@ -3,6 +3,10 @@ TAG=$(echo $TAG)
 VERSIONS=${TAG//V/}
 RELEASE=$(echo $CI_JOB_ID)
 
+echo "Running build-centos.sh"
+echo "TAG: $TAG"
+echo "VERSIONS: $VERSIONS"
+
 run_source() {
 	./util/makesrc $TAG $(echo $PAT)
 }
