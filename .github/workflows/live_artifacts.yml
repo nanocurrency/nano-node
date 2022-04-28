@@ -76,16 +76,13 @@ jobs:
           submodules: "recursive"
           ref: ${{ github.event.inputs.ref }}
           repository: ${{ github.event.inputs.repo }}
-      - name: centos base
+      - name: CentOS base
         run: ci/build-docker-image.sh docker/ci/Dockerfile-centos nanocurrency/nano-env:centos
       - name: Build Artifact
         run: |
-          docker run -e LIVE=1 -v ${GITHUB_WORKSPACE}:/workspace \
+          docker run -e LIVE=1 -e PAT=${{ secrets.GITHUB_TOKEN }} -e TAG=$TAG -v ${GITHUB_WORKSPACE}:/workspace \
           -v artifacts:/root/rpmbuild/RPMS -v source:/root/rpmbuild/SOURCES \
           nanocurrency/nano-env:centos /bin/bash -c "ci/build-centos.sh"
-        env:
-          PAT: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${TAG}
       - name: Deploy Artifact
         run: ci/actions/deploy.sh
         env:
