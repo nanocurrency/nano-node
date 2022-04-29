@@ -195,6 +195,5 @@ TEST (system, transport_basic)
 	nano::transport::inproc::channel channel{ node0, node1 };
 	nano::keepalive keepalive{ nano::dev::network_params.network };
 	channel.send (keepalive);
-	std::cerr << &node1.stats << std::endl;
 	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) > 0);
 }
