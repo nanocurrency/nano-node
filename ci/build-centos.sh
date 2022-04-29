@@ -8,10 +8,12 @@ echo "TAG: $TAG"
 echo "VERSIONS: $VERSIONS"
 
 run_source() {
+  echo "run_source() function"
 	./util/makesrc $TAG $(echo $PAT)
 }
 
 run_build() {
+  echo "run_build() function"
 	mkdir -p ~/rpmbuild/SOURCES/
 	mv -f ~/nano-${VERSIONS}.tar.gz ~/rpmbuild/SOURCES/.
 	if [ "${LIVE:-}" == "1" ]; then
@@ -22,6 +24,7 @@ run_build() {
 }
 
 run_update() {
+  echo "run_update() function"
 	for file in ./nanocurrency*.in; do
 		outfile="${file//.in/}"
 
