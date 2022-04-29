@@ -1,3 +1,4 @@
+#include <nano/node/transport/inproc.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -182,4 +183,18 @@ TEST (system, rep_initialize_many)
 	auto node1 = system.add_node ();
 	ASSERT_EQ ((nano::dev::constants.genesis_amount - nano::Gxrb_ratio) / 2, node1->balance (key0.pub));
 	ASSERT_EQ ((nano::dev::constants.genesis_amount - nano::Gxrb_ratio) / 2, node1->balance (key1.pub));
+}
+
+TEST (system, transport_basic)
+{
+	nano::system system{ 1 };
+	auto & node0 = *system.nodes[0];
+	nano::system system1{ 1 };
+	auto & node1 = *system1.nodes[0];
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in));
+	nano::transport::inproc::channel channel{ node0, node1 };
+	nano::keepalive keepalive{ nano::dev::network_params.network };
+	channel.send (keepalive);
+	std::cerr << &node1.stats << std::endl;
+	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) > 0);
 }
