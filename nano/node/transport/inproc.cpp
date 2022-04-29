@@ -84,12 +84,7 @@ void nano::transport::inproc::channel::send_buffer (nano::shared_const_buffer co
 	auto remote_channel = std::make_shared<nano::transport::inproc::channel> (destination, node);
 	message_visitor_inbound visitor{ destination.network.inbound, remote_channel };
 	nano::message_parser parser{ destination.network.publish_filter, destination.block_uniquer, destination.vote_uniquer, visitor, destination.work, destination.network_params.network };
-	std::vector<uint8_t> bytes;
-	for (auto const & buffer : buffer_a)
-	{
-		bytes.resize (bytes.size () + buffer.size ());
-		std::copy ((uint8_t const *)buffer.data (), (uint8_t const *)buffer.data () + buffer.size (), bytes.data () + bytes.size () - buffer.size ());
-	}
+	auto bytes = buffer_a.to_bytes ();
 	parser.deserialize_buffer (bytes.data (), bytes.size ());
 }
 
