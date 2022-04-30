@@ -24,9 +24,9 @@ echo "VERSION: $VERSION"
 function make_source() {
   echo "make_source() function"
   echo "VERSION: $VERSION"
-	git clone --recursive --single-branch --branch ${TAG} https://github.com/nanocurrency/nano-node nano-$VERSION
+	git clone --recursive --single-branch --branch ${TAG} https://github.com/thsfs/nano-node nano-$VERSION
 	cd nano-$VERSION
-	git pull --tags
+	git fetch --tags
 	COUNT=$(git tag -l "${TAG}" | wc -l)
 	if [ "$COUNT" -eq 0 ]; then
 		echo "tag $TAG not found"
@@ -51,18 +51,19 @@ function source_information() {
   echo "COMMIT: $COMMIT"
   echo "TAG_DATE: $TAG_DATE"
 
-	(
-		eval "$(scl enable rh-python38 'echo -e "source /opt/rh/rh-python38/enable\n"')"
-		python -m pip install PyGithub mdutils
-
-		python ${scriptDir}/changelog.py -p ${PAT} -t ${TAG} -m full
-
-		if [ ! -s CHANGELOG.md ]; then
-			echo "CHANGELOG not generated"
-			exit 1
-		fi
-		exit 0
-	) || exit 1
+#	(
+#		eval "$(scl enable rh-python38 'echo -e "source /opt/rh/rh-python38/enable\n"')"
+#		python -m pip install PyGithub mdutils
+#
+#    echo "scriptDir: ${scriptDir}"
+#		python ${scriptDir}/changelog.py -p ${PAT} -t ${TAG} -m full -r thsfs/nano-node
+#
+#		if [ ! -s CHANGELOG.md ]; then
+#			echo "CHANGELOG not generated"
+#			exit 1
+#		fi
+#		exit 0
+#	) || exit 1
 
 	export TAG_DATE
 }
