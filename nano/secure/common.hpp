@@ -339,7 +339,7 @@ enum class process_result
 	gap_previous, // Block marked as previous is unknown
 	gap_source, // Block marked as source is unknown
 	gap_epoch_open_pending, // Block marked as pending blocks required for epoch open block are unknown
-	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
+	opened_burn_account, // Block attempts to open the burn account
 	balance_mismatch, // Balance and amount delta don't match
 	representative_mismatch, // Representative is changed when it is not allowed
 	block_position, // This block cannot follow the previous block

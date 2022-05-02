@@ -3312,6 +3312,9 @@ void nano::json_handler::process ()
 							rpc_l->ec = nano::error_process::insufficient_work;
 							break;
 						}
+						case nano::process_result::opened_burn_account:
+							rpc_l->ec = nano::error_process::opened_burn_account;
+							break;
 						default:
 						{
 							rpc_l->ec = nano::error_process::other;
