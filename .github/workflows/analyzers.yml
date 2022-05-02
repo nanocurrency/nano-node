@@ -1,40 +1,40 @@
 name: Static Analyzers
 
-on: [push, pull_request]
-
-jobs:
-  clang_format:
-    runs-on: ubuntu-20.04
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
-    steps:
-      - uses: actions/checkout@50fbc622fc4ef5163becd7fab6573eac35f8462e
-      - name: Installing clang-format 12
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: sudo apt-get install clang-format-12
-      - name: Check clang-format
-        run: ci/clang-format-check.sh
-  
-  cmake_format:
-    runs-on: ubuntu-20.04
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
-    steps:
-      - uses: actions/checkout@50fbc622fc4ef5163becd7fab6573eac35f8462e
-      - uses: actions/setup-python@41b7212b1668f5de9d65e9c82aa777e6bbedb3a8
-        with: 
-          python-version: '3.x'
-          architecture: 'x64'
-      - uses: BSFishy/pip-action@8f2d471d809dc20b6ada98c91910b6ae6243f318
-        with: 
-          packages: |
-            cmake-format
-      - name: Check cmake-format
-        run: ci/cmake-format-check.sh
-
-  code_inspector:
-    runs-on: ubuntu-20.04
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
-    steps:
-      - uses: actions/checkout@50fbc622fc4ef5163becd7fab6573eac35f8462e
-      - name: Run code-inspector
-        run: ci/code-inspector-check.sh
+#on: [push, pull_request]
+#
+#jobs:
+#  clang_format:
+#    runs-on: ubuntu-20.04
+#    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+#    steps:
+#      - uses: actions/checkout@50fbc622fc4ef5163becd7fab6573eac35f8462e
+#      - name: Installing clang-format 12
+#        env:
+#          DEBIAN_FRONTEND: noninteractive
+#        run: sudo apt-get install clang-format-12
+#      - name: Check clang-format
+#        run: ci/clang-format-check.sh
+#
+#  cmake_format:
+#    runs-on: ubuntu-20.04
+#    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+#    steps:
+#      - uses: actions/checkout@50fbc622fc4ef5163becd7fab6573eac35f8462e
+#      - uses: actions/setup-python@41b7212b1668f5de9d65e9c82aa777e6bbedb3a8
+#        with:
+#          python-version: '3.x'
+#          architecture: 'x64'
+#      - uses: BSFishy/pip-action@8f2d471d809dc20b6ada98c91910b6ae6243f318
+#        with:
+#          packages: |
+#            cmake-format
+#      - name: Check cmake-format
+#        run: ci/cmake-format-check.sh
+#
+#  code_inspector:
+#    runs-on: ubuntu-20.04
+#    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+#    steps:
+#      - uses: actions/checkout@50fbc622fc4ef5163becd7fab6573eac35f8462e
+#      - name: Run code-inspector
+#        run: ci/code-inspector-check.sh

@@ -37,8 +37,11 @@ jobs:
           -v artifacts:/root/rpmbuild/RPMS -v source:/root/rpmbuild/SOURCES \
           thsfs/nano-env:centos /bin/bash -c "ci/build-centos.sh"
           echo "Showing the files..."
-          find ~/rpmbuild
+          find /root
+          echo "WhoAmI"
+          echo `whoami`
           echo "Looking for the RPMs..."
+          find /root -name '*.rpm'
           find ~/ -name '*.rpm'
       - name: Create SSH key
         run: |
