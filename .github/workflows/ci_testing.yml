@@ -38,12 +38,12 @@ jobs:
           thsfs/nano-env:centos /bin/bash -c "ci/build-centos.sh"
           echo "WhoAmI"
           echo `whoami`
+          echo "Showing the files..."
+          find .
           echo "Looking for the RPMs..."
-          find artifacts -name '*.rpm'
-          echo "Showing the artifact files..."
-          find artifacts
-          echo "Showing the source files..."
-          find source
+          find . -name '*.rpm'
+          pwd
+          ls /
       - name: Create SSH key
         run: |
           install -m 600 -D /dev/null ~/.ssh/id_rsa
