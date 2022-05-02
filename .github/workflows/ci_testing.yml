@@ -36,13 +36,27 @@ jobs:
           docker run -e LIVE=1 -e PAT=${{ secrets.GITHUB_TOKEN }} -e TAG=$TAG -v ${GITHUB_WORKSPACE}:/workspace \
           -v artifacts:/root/rpmbuild/RPMS -v source:/root/rpmbuild/SOURCES \
           thsfs/nano-env:centos /bin/bash -c "ci/build-centos.sh"
-      - name: Deploy to Staging server
-        uses: easingthemes/ssh-deploy@main
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          ARGS: "-rltgoDzvO"
-          SOURCE: "rpmbuild/"
-          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
-          REMOTE_USER: ${{ secrets.REMOTE_USER }}
-          TARGET: ${{ secrets.REMOTE_TARGET }}
+      - name: Create SSH key
+        run: |
+          install -m 600 -D /dev/null ~/.ssh/id_rsa
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+      - name: Deploy with rsync
+        run: rsync -rav --delete rpmbuild/ ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:${{ secrets.REMOTE_TARGET }}
+
+  test_deploy:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 90
+    steps:
+      - name: Create file
+        run: |
+          mkdir /root/rpmbuild
+          touch /root/rpmbuild/blah.rpm
+      - name: Create SSH key
+        run: |
+          install -m 600 -D /dev/null ~/.ssh/id_rsa
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+      - name: Deploy with rsync
+        run: rsync -rav --delete rpmbuild/ ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:${{ secrets.REMOTE_TARGET }}
 
