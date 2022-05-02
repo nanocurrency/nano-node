@@ -1,4 +1,4 @@
-name: Live
+name: CI Testing
 on:
   workflow_dispatch:
     inputs:
@@ -36,7 +36,6 @@ jobs:
           docker run -e LIVE=1 -e PAT=${{ secrets.GITHUB_TOKEN }} -e TAG=$TAG -v ${GITHUB_WORKSPACE}:/workspace \
           -v artifacts:/root/rpmbuild/RPMS -v source:/root/rpmbuild/SOURCES \
           thsfs/nano-env:centos /bin/bash -c "ci/build-centos.sh"
-          
       - name: Deploy to Staging server
         uses: easingthemes/ssh-deploy@main
         env:
@@ -46,3 +45,4 @@ jobs:
           REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
           REMOTE_USER: ${{ secrets.REMOTE_USER }}
           TARGET: ${{ secrets.REMOTE_TARGET }}
+
