@@ -54,7 +54,7 @@ jobs:
     steps:
       - name: Create file
         run: |
-          mkdir ~/rpmbuild/blah
+          mkdir -p ~/rpmbuild/blah
           touch ~/rpmbuild/blah/blah.rpm
       - name: Create SSH key
         run: |
