@@ -20,6 +20,7 @@ public:
 	boost::asio::const_buffer const * end () const;
 
 	std::size_t size () const;
+	std::vector<uint8_t> to_bytes () const;
 
 private:
 	std::shared_ptr<std::vector<uint8_t>> m_data;
