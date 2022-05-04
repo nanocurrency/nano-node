@@ -69,7 +69,7 @@ TEST (message_parser, exact_confirm_ack_size)
 	nano::vote_uniquer vote_uniquer (block_uniquer);
 	nano::message_parser parser (filter, block_uniquer, vote_uniquer, visitor, system.work, nano::dev::network_params.network);
 	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, *system.work.generate (nano::root (1))));
-	auto vote (std::make_shared<nano::vote> (0, nano::keypair ().prv, 0, 0, std::move (block)));
+	auto vote (std::make_shared<nano::vote> (0, nano::keypair ().prv, 0, 0, std::vector<nano::block_hash>{ block->hash () }));
 	nano::confirm_ack message{ nano::dev::network_params.network, vote };
 	std::vector<uint8_t> bytes;
 	{
