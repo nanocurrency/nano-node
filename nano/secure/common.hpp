@@ -270,7 +270,7 @@ public:
 	void serialize (nano::stream &, nano::block_type) const;
 	void serialize (nano::stream &) const;
 	void serialize_json (boost::property_tree::ptree & tree) const;
-	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
+	bool deserialize (nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
 	bool validate () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> end () const;

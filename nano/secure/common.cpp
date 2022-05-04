@@ -557,47 +557,9 @@ nano::vote::vote (nano::vote const & other_a) :
 {
 }
 
-nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_uniquer * uniquer_a)
-{
-	error_a = deserialize (stream_a, uniquer_a);
-}
-
 nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type_a, nano::block_uniquer * uniquer_a)
 {
-	try
-	{
-		nano::read (stream_a, account.bytes);
-		nano::read (stream_a, signature.bytes);
-		nano::read (stream_a, timestamp_m);
-
-		while (stream_a.in_avail () > 0)
-		{
-			if (type_a == nano::block_type::not_a_block)
-			{
-				nano::block_hash block_hash;
-				nano::read (stream_a, block_hash);
-				blocks.push_back (block_hash);
-			}
-			else
-			{
-				auto block (nano::deserialize_block (stream_a, type_a, uniquer_a));
-				if (block == nullptr)
-				{
-					throw std::runtime_error ("Block is null");
-				}
-				blocks.push_back (block);
-			}
-		}
-	}
-	catch (std::runtime_error const &)
-	{
-		error_a = true;
-	}
-
-	if (blocks.empty ())
-	{
-		error_a = true;
-	}
+	error_a = deserialize (stream_a, type_a, uniquer_a);
 }
 
 nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, uint8_t duration, std::shared_ptr<nano::block> const & block_a) :
@@ -694,46 +656,18 @@ void nano::vote::serialize (nano::stream & stream_a, nano::block_type type) cons
 	}
 }
 
-void nano::vote::serialize (nano::stream & stream_a) const
+bool nano::vote::deserialize (nano::stream & stream_a, nano::block_type type_a, nano::block_uniquer * uniquer_a)
 {
-	write (stream_a, account);
-	write (stream_a, signature);
-	write (stream_a, boost::endian::native_to_little (timestamp_m));
-	for (auto const & block : blocks)
-	{
-		if (block.which ())
-		{
-			write (stream_a, nano::block_type::not_a_block);
-			write (stream_a, boost::get<nano::block_hash> (block));
-		}
-		else
-		{
-			nano::serialize_block (stream_a, *boost::get<std::shared_ptr<nano::block>> (block));
-		}
-	}
-}
-
-bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
-{
-	auto error (false);
+	auto result = false;
 	try
 	{
-		nano::read (stream_a, account);
-		nano::read (stream_a, signature);
+		nano::read (stream_a, account.bytes);
+		nano::read (stream_a, signature.bytes);
 		nano::read (stream_a, timestamp_m);
-		boost::endian::little_to_native_inplace (timestamp_m);
 
-		nano::block_type type;
-
-		while (true)
+		while (stream_a.in_avail () > 0)
 		{
-			if (nano::try_read (stream_a, type))
-			{
-				// Reached the end of the stream
-				break;
-			}
-
-			if (type == nano::block_type::not_a_block)
+			if (type_a == nano::block_type::not_a_block)
 			{
 				nano::block_hash block_hash;
 				nano::read (stream_a, block_hash);
@@ -741,27 +675,20 @@ bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uni
 			}
 			else
 			{
-				auto block (nano::deserialize_block (stream_a, type, uniquer_a));
+				auto block (nano::deserialize_block (stream_a, type_a, uniquer_a));
 				if (block == nullptr)
 				{
-					throw std::runtime_error ("Block is empty");
+					throw std::runtime_error ("Block is null");
 				}
-
 				blocks.push_back (block);
 			}
 		}
 	}
 	catch (std::runtime_error const &)
 	{
-		error = true;
+		result = true;
 	}
-
-	if (blocks.empty ())
-	{
-		error = true;
-	}
-
-	return error;
+	return result;
 }
 
 bool nano::vote::validate () const
