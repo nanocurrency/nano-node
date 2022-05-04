@@ -20,7 +20,7 @@ scriptDir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 function make_source() {
 	git clone --recursive --single-branch --branch ${TAG} https://github.com/nanocurrency/nano-node nano-$VERSION
 	cd nano-$VERSION
-	git pull --tags
+	git fetch --tags
 	COUNT=$(git tag -l "${TAG}" | wc -l)
 	if [ "$COUNT" -eq 0 ]; then
 		echo "tag $TAG not found"
@@ -40,18 +40,18 @@ function source_information() {
 	COMMIT=$(git log | head -1 | cut -d " " -f 2)
 	TAG_DATE=$(TZ=UTC date -d"$DATE" +%s)
 
-	(
-		eval "$(scl enable rh-python38 'echo -e "source /opt/rh/rh-python38/enable\n"')"
-		python -m pip install PyGithub mdutils
-
-		python ${scriptDir}/changelog.py -p ${PAT} -t ${TAG} -m full
-
-		if [ ! -s CHANGELOG.md ]; then
-			echo "CHANGELOG not generated"
-			exit 1
-		fi
-		exit 0
-	) || exit 1
+#	(
+#		eval "$(scl enable rh-python38 'echo -e "source /opt/rh/rh-python38/enable\n"')"
+#		python -m pip install PyGithub mdutils
+#
+#		python ${scriptDir}/changelog.py -p ${PAT} -t ${TAG} -m full
+#
+#		if [ ! -s CHANGELOG.md ]; then
+#			echo "CHANGELOG not generated"
+#			exit 1
+#		fi
+#		exit 0
+#	) || exit 1
 
 	export TAG_DATE
 }

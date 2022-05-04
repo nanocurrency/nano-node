@@ -7,7 +7,7 @@ yes | yum update -y
 
 yes | yum install -y git wget openssl bzip2 # <boost>
 
-yes | yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm # epel 7
+yes | yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm # epel 7
 yes | yum install -y jq || exit 1
 
 yes | yum install -y rpm-build || exit 1
