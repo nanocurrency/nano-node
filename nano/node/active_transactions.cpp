@@ -863,42 +863,21 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 	std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> process;
 	{
 		nano::unique_lock<nano::mutex> lock (mutex);
-		for (auto vote_block : vote_a->blocks)
+		for (auto const & hash : vote_a->hashes)
 		{
 			auto & recently_confirmed_by_hash (recently_confirmed.get<tag_hash> ());
-			if (vote_block.which ())
+			auto existing (blocks.find (hash));
+			if (existing != blocks.end ())
 			{
-				auto const & block_hash (boost::get<nano::block_hash> (vote_block));
-				auto existing (blocks.find (block_hash));
-				if (existing != blocks.end ())
-				{
-					process.emplace_back (existing->second, block_hash);
-				}
-				else if (recently_confirmed_by_hash.count (block_hash) == 0)
-				{
-					add_inactive_votes_cache (lock, block_hash, vote_a->account, vote_a->timestamp ());
-				}
-				else
-				{
-					++recently_confirmed_counter;
-				}
+				process.emplace_back (existing->second, hash);
+			}
+			else if (recently_confirmed_by_hash.count (hash) == 0)
+			{
+				add_inactive_votes_cache (lock, hash, vote_a->account, vote_a->timestamp ());
 			}
 			else
 			{
-				auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-				auto existing (roots.get<tag_root> ().find (block->qualified_root ()));
-				if (existing != roots.get<tag_root> ().end ())
-				{
-					process.emplace_back (existing->election, block->hash ());
-				}
-				else if (recently_confirmed_by_hash.count (block->hash ()) == 0)
-				{
-					add_inactive_votes_cache (lock, block->hash (), vote_a->account, vote_a->timestamp ());
-				}
-				else
-				{
-					++recently_confirmed_counter;
-				}
+				++recently_confirmed_counter;
 			}
 		}
 	}
@@ -925,7 +904,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 		}
 		result = replay ? nano::vote_code::replay : nano::vote_code::vote;
 	}
-	else if (recently_confirmed_counter == vote_a->blocks.size ())
+	else if (recently_confirmed_counter == vote_a->hashes.size ())
 	{
 		result = nano::vote_code::replay;
 	}

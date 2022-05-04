@@ -141,35 +141,6 @@ TEST (vote_uniquer, null)
 	ASSERT_EQ (nullptr, uniquer.unique (nullptr));
 }
 
-// Show that an identical vote can be uniqued
-TEST (vote_uniquer, same_vote)
-{
-	nano::block_uniquer block_uniquer;
-	nano::vote_uniquer uniquer (block_uniquer);
-	nano::keypair key;
-	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, std::make_shared<nano::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0)));
-	auto vote2 (std::make_shared<nano::vote> (*vote1));
-	ASSERT_EQ (vote1, uniquer.unique (vote1));
-	ASSERT_EQ (vote1, uniquer.unique (vote2));
-}
-
-// Show that a different vote for the same block will have the block uniqued
-TEST (vote_uniquer, same_block)
-{
-	nano::block_uniquer block_uniquer;
-	nano::vote_uniquer uniquer (block_uniquer);
-	nano::keypair key1;
-	nano::keypair key2;
-	auto block1 (std::make_shared<nano::state_block> (0, 0, 0, 0, 0, key1.prv, key1.pub, 0));
-	auto block2 (std::make_shared<nano::state_block> (*block1));
-	auto vote1 (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, 0, block1));
-	auto vote2 (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, 0, block2));
-	ASSERT_EQ (vote1, uniquer.unique (vote1));
-	ASSERT_EQ (vote2, uniquer.unique (vote2));
-	ASSERT_NE (vote1, vote2);
-	ASSERT_EQ (boost::get<std::shared_ptr<nano::block>> (vote1->blocks[0]), boost::get<std::shared_ptr<nano::block>> (vote2->blocks[0]));
-}
-
 TEST (vote_uniquer, vbh_one)
 {
 	nano::block_uniquer block_uniquer;

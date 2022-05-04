@@ -451,38 +451,7 @@ nano::block_info::block_info (nano::account const & account_a, nano::amount cons
 
 bool nano::vote::operator== (nano::vote const & other_a) const
 {
-	auto blocks_equal (true);
-	if (blocks.size () != other_a.blocks.size ())
-	{
-		blocks_equal = false;
-	}
-	else
-	{
-		for (auto i (0); blocks_equal && i < blocks.size (); ++i)
-		{
-			auto block (blocks[i]);
-			auto other_block (other_a.blocks[i]);
-			if (block.which () != other_block.which ())
-			{
-				blocks_equal = false;
-			}
-			else if (block.which ())
-			{
-				if (boost::get<nano::block_hash> (block) != boost::get<nano::block_hash> (other_block))
-				{
-					blocks_equal = false;
-				}
-			}
-			else
-			{
-				if (!(*boost::get<std::shared_ptr<nano::block>> (block) == *boost::get<std::shared_ptr<nano::block>> (other_block)))
-				{
-					blocks_equal = false;
-				}
-			}
-		}
-	}
-	return timestamp_m == other_a.timestamp_m && blocks_equal && account == other_a.account && signature == other_a.signature;
+	return timestamp_m == other_a.timestamp_m && hashes == other_a.hashes && account == other_a.account && signature == other_a.signature;
 }
 
 bool nano::vote::operator!= (nano::vote const & other_a) const
@@ -498,17 +467,10 @@ void nano::vote::serialize_json (boost::property_tree::ptree & tree) const
 	tree.put ("timestamp", std::to_string (timestamp ()));
 	tree.put ("duration", std::to_string (duration_bits ()));
 	boost::property_tree::ptree blocks_tree;
-	for (auto block : blocks)
+	for (auto const & hash : hashes)
 	{
 		boost::property_tree::ptree entry;
-		if (block.which ())
-		{
-			entry.put ("", boost::get<nano::block_hash> (block).to_string ());
-		}
-		else
-		{
-			entry.put ("", boost::get<std::shared_ptr<nano::block>> (block)->hash ().to_string ());
-		}
+		entry.put ("", hash.to_string ());
 		blocks_tree.push_back (std::make_pair ("", entry));
 	}
 	tree.add_child ("blocks", blocks_tree);
@@ -551,40 +513,29 @@ std::chrono::milliseconds nano::vote::duration () const
 
 nano::vote::vote (nano::vote const & other_a) :
 	timestamp_m{ other_a.timestamp_m },
-	blocks (other_a.blocks),
+	hashes{ other_a.hashes },
 	account (other_a.account),
 	signature (other_a.signature)
 {
 }
 
-nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type_a, nano::block_uniquer * uniquer_a)
+nano::vote::vote (bool & error_a, nano::stream & stream_a)
 {
-	error_a = deserialize (stream_a, type_a, uniquer_a);
+	error_a = deserialize (stream_a);
 }
 
-nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, uint8_t duration, std::shared_ptr<nano::block> const & block_a) :
-	timestamp_m{ packed_timestamp (timestamp_a, duration) },
-	blocks (1, block_a),
-	account (account_a),
-	signature (nano::sign_message (prv_a, account_a, hash ()))
-{
-}
-
-nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, uint8_t duration, std::vector<nano::block_hash> const & blocks_a) :
+nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, uint8_t duration, std::vector<nano::block_hash> const & hashes) :
+	hashes{ hashes },
 	timestamp_m{ packed_timestamp (timestamp_a, duration) },
 	account (account_a)
 {
-	debug_assert (!blocks_a.empty ());
-	debug_assert (blocks_a.size () <= 12);
-	blocks.reserve (blocks_a.size ());
-	std::copy (blocks_a.cbegin (), blocks_a.cend (), std::back_inserter (blocks));
 	signature = nano::sign_message (prv_a, account_a, hash ());
 }
 
 std::string nano::vote::hashes_string () const
 {
 	std::string result;
-	for (auto hash : *this)
+	for (auto const & hash : hashes)
 	{
 		result += hash.to_string ();
 		result += ", ";
@@ -599,11 +550,8 @@ nano::block_hash nano::vote::hash () const
 	nano::block_hash result;
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (result.bytes));
-	if (blocks.size () > 1 || (!blocks.empty () && blocks.front ().which ()))
-	{
-		blake2b_update (&hash, hash_prefix.data (), hash_prefix.size ());
-	}
-	for (auto block_hash : *this)
+	blake2b_update (&hash, hash_prefix.data (), hash_prefix.size ());
+	for (auto const & block_hash : hashes)
 	{
 		blake2b_update (&hash, block_hash.bytes.data (), sizeof (block_hash.bytes));
 	}
@@ -630,33 +578,18 @@ nano::block_hash nano::vote::full_hash () const
 	return result;
 }
 
-void nano::vote::serialize (nano::stream & stream_a, nano::block_type type) const
+void nano::vote::serialize (nano::stream & stream_a) const
 {
 	write (stream_a, account);
 	write (stream_a, signature);
 	write (stream_a, boost::endian::native_to_little (timestamp_m));
-	for (auto const & block : blocks)
+	for (auto const & hash : hashes)
 	{
-		if (block.which ())
-		{
-			debug_assert (type == nano::block_type::not_a_block);
-			write (stream_a, boost::get<nano::block_hash> (block));
-		}
-		else
-		{
-			if (type == nano::block_type::not_a_block)
-			{
-				write (stream_a, boost::get<std::shared_ptr<nano::block>> (block)->hash ());
-			}
-			else
-			{
-				boost::get<std::shared_ptr<nano::block>> (block)->serialize (stream_a);
-			}
-		}
+		write (stream_a, hash);
 	}
 }
 
-bool nano::vote::deserialize (nano::stream & stream_a, nano::block_type type_a, nano::block_uniquer * uniquer_a)
+bool nano::vote::deserialize (nano::stream & stream_a)
 {
 	auto result = false;
 	try
@@ -667,21 +600,9 @@ bool nano::vote::deserialize (nano::stream & stream_a, nano::block_type type_a, 
 
 		while (stream_a.in_avail () > 0)
 		{
-			if (type_a == nano::block_type::not_a_block)
-			{
-				nano::block_hash block_hash;
-				nano::read (stream_a, block_hash);
-				blocks.push_back (block_hash);
-			}
-			else
-			{
-				auto block (nano::deserialize_block (stream_a, type_a, uniquer_a));
-				if (block == nullptr)
-				{
-					throw std::runtime_error ("Block is null");
-				}
-				blocks.push_back (block);
-			}
+			nano::block_hash block_hash;
+			nano::read (stream_a, block_hash);
+			hashes.push_back (block_hash);
 		}
 	}
 	catch (std::runtime_error const &)
@@ -703,28 +624,9 @@ uint64_t nano::vote::packed_timestamp (uint64_t timestamp, uint8_t duration) con
 	return (timestamp & timestamp_mask) | duration;
 }
 
-nano::block_hash nano::iterate_vote_blocks_as_hash::operator() (boost::variant<std::shared_ptr<nano::block>, nano::block_hash> const & item) const
+nano::block_hash nano::iterate_vote_blocks_as_hash::operator() (nano::block_hash const & item) const
 {
-	nano::block_hash result;
-	if (item.which ())
-	{
-		result = boost::get<nano::block_hash> (item);
-	}
-	else
-	{
-		result = boost::get<std::shared_ptr<nano::block>> (item)->hash ();
-	}
-	return result;
-}
-
-boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> nano::vote::begin () const
-{
-	return boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> (blocks.begin (), nano::iterate_vote_blocks_as_hash ());
-}
-
-boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> nano::vote::end () const
-{
-	return boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> (blocks.end (), nano::iterate_vote_blocks_as_hash ());
+	return item;
 }
 
 nano::vote_uniquer::vote_uniquer (nano::block_uniquer & uniquer_a) :
@@ -734,16 +636,12 @@ nano::vote_uniquer::vote_uniquer (nano::block_uniquer & uniquer_a) :
 
 std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vote> const & vote_a)
 {
-	auto result (vote_a);
-	if (result != nullptr && !result->blocks.empty ())
+	auto result = vote_a;
+	if (result != nullptr)
 	{
-		if (!result->blocks.front ().which ())
-		{
-			result->blocks.front () = uniquer.unique (boost::get<std::shared_ptr<nano::block>> (result->blocks.front ()));
-		}
-		nano::block_hash key (vote_a->full_hash ());
-		nano::lock_guard<nano::mutex> lock (mutex);
-		auto & existing (votes[key]);
+		nano::block_hash key = vote_a->full_hash ();
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		auto & existing = votes[key];
 		if (auto block_l = existing.lock ())
 		{
 			result = block_l;

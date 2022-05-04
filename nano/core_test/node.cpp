@@ -2455,8 +2455,8 @@ TEST (node, local_votes_cache_generate_new_vote)
 	ASSERT_TIMELY (3s, !node.history.votes (nano::dev::genesis->root (), nano::dev::genesis->hash ()).empty ());
 	auto votes1 (node.history.votes (nano::dev::genesis->root (), nano::dev::genesis->hash ()));
 	ASSERT_EQ (1, votes1.size ());
-	ASSERT_EQ (1, votes1[0]->blocks.size ());
-	ASSERT_EQ (nano::dev::genesis->hash (), boost::get<nano::block_hash> (votes1[0]->blocks[0]));
+	ASSERT_EQ (1, votes1[0]->hashes.size ());
+	ASSERT_EQ (nano::dev::genesis->hash (), votes1[0]->hashes[0]);
 	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 1);
 	auto send1 = nano::state_block_builder ()
 				 .account (nano::dev::genesis_key.pub)
@@ -2475,7 +2475,7 @@ TEST (node, local_votes_cache_generate_new_vote)
 	ASSERT_TIMELY (3s, !node.history.votes (send1->root (), send1->hash ()).empty ());
 	auto votes2 (node.history.votes (send1->root (), send1->hash ()));
 	ASSERT_EQ (1, votes2.size ());
-	ASSERT_EQ (1, votes2[0]->blocks.size ());
+	ASSERT_EQ (1, votes2[0]->hashes.size ());
 	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 2);
 	ASSERT_FALSE (node.history.votes (nano::dev::genesis->root (), nano::dev::genesis->hash ()).empty ());
 	ASSERT_FALSE (node.history.votes (send1->root (), send1->hash ()).empty ());
@@ -2522,7 +2522,7 @@ TEST (node, local_votes_cache_fork)
 	node1.history.add (send1->root (), send1->hash (), vote);
 	auto votes2 (node1.history.votes (send1->root (), send1->hash ()));
 	ASSERT_EQ (1, votes2.size ());
-	ASSERT_EQ (1, votes2[0]->blocks.size ());
+	ASSERT_EQ (1, votes2[0]->hashes.size ());
 	// Start election for forked block
 	node_config.peering_port = nano::get_available_port ();
 	auto & node2 (*system.add_node (node_config, node_flags));
@@ -2609,9 +2609,9 @@ TEST (node, vote_by_hash_bundle)
 	system.wallet (0)->insert_adhoc (key1.prv);
 
 	system.nodes[0]->observers.vote.add ([&max_hashes] (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const &, nano::vote_code) {
-		if (vote_a->blocks.size () > max_hashes)
+		if (vote_a->hashes.size () > max_hashes)
 		{
-			max_hashes = vote_a->blocks.size ();
+			max_hashes = vote_a->hashes.size ();
 		}
 	});
 
