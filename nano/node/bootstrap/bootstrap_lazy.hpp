@@ -75,7 +75,7 @@ public:
 	explicit bootstrap_attempt_wallet (std::shared_ptr<nano::node> const & node_a, uint64_t incremental_id_a, std::string id_a = "");
 	~bootstrap_attempt_wallet ();
 	void request_pending (nano::unique_lock<nano::mutex> &);
-	void requeue_pending (nano::account const &) override;
+	void requeue_pending (nano::account const &);
 	void run () override;
 	void wallet_start (std::deque<nano::account> &);
 	bool wallet_finished ();

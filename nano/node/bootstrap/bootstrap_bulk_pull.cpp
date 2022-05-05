@@ -284,7 +284,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 	}
 }
 
-nano::bulk_pull_account_client::bulk_pull_account_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a, nano::account const & account_a) :
+nano::bulk_pull_account_client::bulk_pull_account_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt_wallet> const & attempt_a, nano::account const & account_a) :
 	connection (connection_a),
 	attempt (attempt_a),
 	account (account_a),
@@ -304,15 +304,13 @@ void nano::bulk_pull_account_client::request ()
 	req.account = account;
 	req.minimum_amount = connection->node->config.receive_minimum;
 	req.flags = nano::bulk_pull_account_flags::pending_hash_and_amount;
-	auto wallet = std::dynamic_pointer_cast<nano::bootstrap_attempt_wallet> (attempt);
-	auto wallet_size = wallet ? wallet->wallet_size () : 0;
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
-		connection->node->logger.try_log (boost::str (boost::format ("Requesting pending for account %1% from %2%. %3% accounts in queue") % req.account.to_account () % connection->channel->to_string () % wallet_size));
+		connection->node->logger.try_log (boost::str (boost::format ("Requesting pending for account %1% from %2%. %3% accounts in queue") % req.account.to_account () % connection->channel->to_string () % attempt->wallet_size ()));
 	}
 	else if (connection->node->config.logging.network_logging () && attempt->should_log ())
 	{
-		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % wallet_size));
+		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % attempt->wallet_size ()));
 	}
 	auto this_l (shared_from_this ());
 	connection->channel->send (

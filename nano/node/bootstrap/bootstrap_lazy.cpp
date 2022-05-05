@@ -488,7 +488,7 @@ void nano::bootstrap_attempt_wallet::request_pending (nano::unique_lock<nano::mu
 		auto account (wallet_accounts.front ());
 		wallet_accounts.pop_front ();
 		++pulling;
-		auto this_l (shared_from_this ());
+		auto this_l = std::dynamic_pointer_cast<nano::bootstrap_attempt_wallet> (shared_from_this ());
 		// The bulk_pull_account_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 		// Dispatch request in an external thread in case it needs to be destroyed
 		node->background ([connection_l, this_l, account] () {

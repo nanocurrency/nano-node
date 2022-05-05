@@ -149,8 +149,3 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> const 
 	}
 	return stop_pull;
 }
-
-void nano::bootstrap_attempt::requeue_pending (nano::account const &)
-{
-	debug_assert (mode == nano::bootstrap_mode::wallet_lazy);
-}
