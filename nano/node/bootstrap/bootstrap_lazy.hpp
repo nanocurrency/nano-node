@@ -50,7 +50,7 @@ public:
 	void lazy_blocks_insert (nano::block_hash const &);
 	void lazy_blocks_erase (nano::block_hash const &);
 	bool lazy_blocks_processed (nano::block_hash const &);
-	bool lazy_processed_or_exists (nano::block_hash const &) override;
+	bool lazy_processed_or_exists (nano::block_hash const &);
 	unsigned lazy_retry_limit_confirmed ();
 	void get_information (boost::property_tree::ptree &) override;
 	std::unordered_set<std::size_t> lazy_blocks;

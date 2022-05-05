@@ -31,7 +31,6 @@ public:
 	virtual void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
 	virtual bool request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &);
 	virtual void set_start_account (nano::account const &);
-	virtual bool lazy_processed_or_exists (nano::block_hash const &);
 	virtual bool process_block (std::shared_ptr<nano::block> const &, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, unsigned);
 	virtual void requeue_pending (nano::account const &);
 	virtual void wallet_start (std::deque<nano::account> &);

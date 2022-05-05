@@ -351,10 +351,13 @@ void nano::bootstrap_connections::request_pull (nano::unique_lock<nano::mutex> &
 			pulls.pop_front ();
 			attempt_l = node.bootstrap_initiator.attempts.find (pull.bootstrap_id);
 			// Check if lazy pull is obsolete (head was processed or head is 0 for destinations requests)
-			if (attempt_l != nullptr && attempt_l->mode == nano::bootstrap_mode::lazy && !pull.head.is_zero () && attempt_l->lazy_processed_or_exists (pull.head))
+			if (auto lazy = std::dynamic_pointer_cast<nano::bootstrap_attempt_lazy> (attempt_l))
 			{
-				attempt_l->pull_finished ();
-				attempt_l = nullptr;
+				if (!pull.head.is_zero () && lazy->lazy_processed_or_exists (pull.head))
+				{
+					attempt_l->pull_finished ();
+					attempt_l = nullptr;
+				}
 			}
 		}
 		if (attempt_l != nullptr)
@@ -386,8 +389,9 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 	auto attempt_l (node.bootstrap_initiator.attempts.find (pull.bootstrap_id));
 	if (attempt_l != nullptr)
 	{
+		auto lazy = std::dynamic_pointer_cast<nano::bootstrap_attempt_lazy> (attempt_l);
 		++attempt_l->requeued_pulls;
-		if (auto lazy = dynamic_pointer_cast<nano::bootstrap_attempt_lazy> (attempt_l))
+		if (lazy)
 		{
 			pull.count = lazy->lazy_batch_size ();
 		}
@@ -400,10 +404,10 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 			attempt_l->pull_started ();
 			condition.notify_all ();
 		}
-		else if (attempt_l->mode == nano::bootstrap_mode::lazy && (pull.attempts <= pull.retry_limit + (pull.processed / node.network_params.bootstrap.lazy_max_pull_blocks)))
+		else if (lazy && (pull.attempts <= pull.retry_limit + (pull.processed / node.network_params.bootstrap.lazy_max_pull_blocks)))
 		{
 			debug_assert (pull.account_or_head == pull.head);
-			if (!attempt_l->lazy_processed_or_exists (pull.account_or_head.as_block_hash ()))
+			if (!lazy->lazy_processed_or_exists (pull.account_or_head.as_block_hash ()))
 			{
 				{
 					nano::lock_guard<nano::mutex> lock (mutex);
@@ -421,12 +425,9 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 			}
 			node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in);
 
-			if (auto lazy = dynamic_pointer_cast<nano::bootstrap_attempt_lazy> (attempt_l))
+			if (lazy && pull.processed > 0)
 			{
-				if (pull.processed > 0)
-				{
-					lazy->lazy_add (pull);
-				}
+				lazy->lazy_add (pull);
 			}
 			else if (attempt_l->mode == nano::bootstrap_mode::legacy)
 			{

@@ -150,12 +150,6 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> const 
 	return stop_pull;
 }
 
-bool nano::bootstrap_attempt::lazy_processed_or_exists (nano::block_hash const &)
-{
-	debug_assert (mode == nano::bootstrap_mode::lazy);
-	return false;
-}
-
 void nano::bootstrap_attempt::requeue_pending (nano::account const &)
 {
 	debug_assert (mode == nano::bootstrap_mode::wallet_lazy);
