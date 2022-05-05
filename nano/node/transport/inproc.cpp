@@ -41,47 +41,7 @@ public:
 	// the channel to reply to, if a reply is generated
 	std::shared_ptr<nano::transport::inproc::channel> channel;
 
-	void keepalive (nano::keepalive const & message)
-	{
-		inbound (message, channel);
-	}
-	void publish (nano::publish const & message)
-	{
-		inbound (message, channel);
-	}
-	void confirm_req (nano::confirm_req const & message)
-	{
-		inbound (message, channel);
-	}
-	void confirm_ack (nano::confirm_ack const & message)
-	{
-		inbound (message, channel);
-	}
-	void bulk_pull (nano::bulk_pull const & message)
-	{
-		inbound (message, channel);
-	}
-	void bulk_pull_account (nano::bulk_pull_account const & message)
-	{
-		inbound (message, channel);
-	}
-	void bulk_push (nano::bulk_push const & message)
-	{
-		inbound (message, channel);
-	}
-	void frontier_req (nano::frontier_req const & message)
-	{
-		inbound (message, channel);
-	}
-	void node_id_handshake (nano::node_id_handshake const & message)
-	{
-		inbound (message, channel);
-	}
-	void telemetry_req (nano::telemetry_req const & message)
-	{
-		inbound (message, channel);
-	}
-	void telemetry_ack (nano::telemetry_ack const & message)
+	void unhandled (nano::message const & message) override
 	{
 		inbound (message, channel);
 	}
