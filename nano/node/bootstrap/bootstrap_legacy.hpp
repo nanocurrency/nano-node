@@ -26,7 +26,7 @@ public:
 	bool request_frontier (nano::unique_lock<nano::mutex> &, bool = false);
 	void request_push (nano::unique_lock<nano::mutex> &);
 	void add_frontier (nano::pull_info const &);
-	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &) override;
+	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
 	bool request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &) override;
 	void set_start_account (nano::account const &) override;
 	void run_start (nano::unique_lock<nano::mutex> &);

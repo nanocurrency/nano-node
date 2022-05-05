@@ -113,11 +113,6 @@ std::string nano::bootstrap_attempt::mode_text ()
 	return mode_text;
 }
 
-void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const &, nano::block_hash const &)
-{
-	debug_assert (mode == nano::bootstrap_mode::legacy);
-}
-
 bool nano::bootstrap_attempt::request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &)
 {
 	debug_assert (mode == nano::bootstrap_mode::legacy);
