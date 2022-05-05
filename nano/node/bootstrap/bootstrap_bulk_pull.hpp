@@ -49,15 +49,16 @@ public:
 	uint64_t unexpected_count;
 	bool network_error{ false };
 };
+class bootstrap_attempt_wallet;
 class bulk_pull_account_client final : public std::enable_shared_from_this<nano::bulk_pull_account_client>
 {
 public:
-	bulk_pull_account_client (std::shared_ptr<nano::bootstrap_client> const &, std::shared_ptr<nano::bootstrap_attempt> const &, nano::account const &);
+	bulk_pull_account_client (std::shared_ptr<nano::bootstrap_client> const &, std::shared_ptr<nano::bootstrap_attempt_wallet> const &, nano::account const &);
 	~bulk_pull_account_client ();
 	void request ();
 	void receive_pending ();
 	std::shared_ptr<nano::bootstrap_client> connection;
-	std::shared_ptr<nano::bootstrap_attempt> attempt;
+	std::shared_ptr<nano::bootstrap_attempt_wallet> attempt;
 	nano::account account;
 	uint64_t pull_blocks;
 };

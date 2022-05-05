@@ -1,5 +1,6 @@
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
+#include <nano/node/bootstrap/bootstrap_legacy.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
@@ -40,7 +41,7 @@ void nano::frontier_req_client::run (nano::account const & start_account_a, uint
 	nano::buffer_drop_policy::no_limiter_drop);
 }
 
-nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a) :
+nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt_legacy> const & attempt_a) :
 	connection (connection_a),
 	attempt (attempt_a),
 	count (0),

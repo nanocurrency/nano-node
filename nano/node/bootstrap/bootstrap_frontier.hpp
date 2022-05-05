@@ -7,7 +7,7 @@
 
 namespace nano
 {
-class bootstrap_attempt;
+class bootstrap_attempt_legacy;
 class bootstrap_client;
 
 /**
@@ -16,7 +16,7 @@ class bootstrap_client;
 class frontier_req_client final : public std::enable_shared_from_this<nano::frontier_req_client>
 {
 public:
-	explicit frontier_req_client (std::shared_ptr<nano::bootstrap_client> const &, std::shared_ptr<nano::bootstrap_attempt> const &);
+	explicit frontier_req_client (std::shared_ptr<nano::bootstrap_client> const &, std::shared_ptr<nano::bootstrap_attempt_legacy> const &);
 	void run (nano::account const & start_account_a, uint32_t const frontiers_age_a, uint32_t const count_a);
 	void receive_frontier ();
 	void received_frontier (boost::system::error_code const &, std::size_t);
@@ -24,7 +24,7 @@ public:
 	void unsynced (nano::block_hash const &, nano::block_hash const &);
 	void next ();
 	std::shared_ptr<nano::bootstrap_client> connection;
-	std::shared_ptr<nano::bootstrap_attempt> attempt;
+	std::shared_ptr<nano::bootstrap_attempt_legacy> attempt;
 	nano::account current;
 	nano::block_hash frontier;
 	unsigned count;
