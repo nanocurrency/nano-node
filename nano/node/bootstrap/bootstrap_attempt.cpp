@@ -150,12 +150,6 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> const 
 	return stop_pull;
 }
 
-uint32_t nano::bootstrap_attempt::lazy_batch_size ()
-{
-	debug_assert (mode == nano::bootstrap_mode::lazy);
-	return node->network_params.bootstrap.lazy_min_pull_blocks;
-}
-
 bool nano::bootstrap_attempt::lazy_processed_or_exists (nano::block_hash const &)
 {
 	debug_assert (mode == nano::bootstrap_mode::lazy);

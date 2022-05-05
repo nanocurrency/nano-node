@@ -387,9 +387,9 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 	if (attempt_l != nullptr)
 	{
 		++attempt_l->requeued_pulls;
-		if (attempt_l->mode == nano::bootstrap_mode::lazy)
+		if (auto lazy = dynamic_pointer_cast<nano::bootstrap_attempt_lazy> (attempt_l))
 		{
-			pull.count = attempt_l->lazy_batch_size ();
+			pull.count = lazy->lazy_batch_size ();
 		}
 		if (attempt_l->mode == nano::bootstrap_mode::legacy && (pull.attempts < pull.retry_limit + (pull.processed / nano::bootstrap_limits::requeued_pulls_processed_blocks_factor)))
 		{
