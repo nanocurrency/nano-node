@@ -27,7 +27,6 @@ public:
 	void pull_finished ();
 	bool should_log ();
 	std::string mode_text ();
-	virtual void add_frontier (nano::pull_info const &);
 	virtual void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
 	virtual bool request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &);
 	virtual void set_start_account (nano::account const &);
