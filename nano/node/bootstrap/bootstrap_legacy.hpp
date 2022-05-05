@@ -28,7 +28,7 @@ public:
 	void add_frontier (nano::pull_info const &);
 	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
 	bool request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &);
-	void set_start_account (nano::account const &) override;
+	void set_start_account (nano::account const &);
 	void run_start (nano::unique_lock<nano::mutex> &);
 	void get_information (boost::property_tree::ptree &) override;
 	nano::tcp_endpoint endpoint_frontier_request;
