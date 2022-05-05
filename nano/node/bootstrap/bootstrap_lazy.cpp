@@ -188,10 +188,9 @@ void nano::bootstrap_attempt_lazy::run ()
 	while ((still_pulling () || !lazy_finished ()) && !lazy_has_expired ())
 	{
 		unsigned iterations (0);
-		auto this_l (shared_from_this ());
 		while (still_pulling () && !lazy_has_expired ())
 		{
-			condition.wait (lock, [&stopped = stopped, &pulling = pulling, &lazy_pulls = lazy_pulls, this_l] { return stopped || pulling == 0 || (pulling < nano::bootstrap_limits::bootstrap_connection_scale_target_blocks && !lazy_pulls.empty ()) || this_l->lazy_has_expired (); });
+			condition.wait (lock, [this, &stopped = stopped, &pulling = pulling, &lazy_pulls = lazy_pulls] { return stopped || pulling == 0 || (pulling < nano::bootstrap_limits::bootstrap_connection_scale_target_blocks && !lazy_pulls.empty ()) || lazy_has_expired (); });
 			++iterations;
 			// Flushing lazy pulls
 			lazy_pull_flush (lock);

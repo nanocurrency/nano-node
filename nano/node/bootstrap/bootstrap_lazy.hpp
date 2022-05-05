@@ -40,7 +40,7 @@ public:
 	void lazy_add (nano::pull_info const &);
 	void lazy_requeue (nano::block_hash const &, nano::block_hash const &);
 	bool lazy_finished ();
-	bool lazy_has_expired () const override;
+	bool lazy_has_expired () const;
 	uint32_t lazy_batch_size ();
 	void lazy_pull_flush (nano::unique_lock<nano::mutex> & lock_a);
 	bool process_block_lazy (std::shared_ptr<nano::block> const &, nano::account const &, uint64_t, nano::bulk_pull::count_t, unsigned);
