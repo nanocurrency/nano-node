@@ -68,8 +68,8 @@ void nano::bootstrap_attempt_legacy::request_push (nano::unique_lock<nano::mutex
 	{
 		std::future<bool> future;
 		{
-			auto this_l (shared_from_this ());
-			auto client (std::make_shared<nano::bulk_push_client> (connection_l, this_l));
+			auto this_l = std::dynamic_pointer_cast<nano::bootstrap_attempt_legacy> (shared_from_this ());
+			auto client = std::make_shared<nano::bulk_push_client> (connection_l, this_l);
 			client->start ();
 			push = client;
 			future = client->promise.get_future ();
