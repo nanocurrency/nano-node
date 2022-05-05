@@ -79,7 +79,7 @@ public:
 	void run () override;
 	void wallet_start (std::deque<nano::account> &);
 	bool wallet_finished ();
-	std::size_t wallet_size () override;
+	std::size_t wallet_size ();
 	void get_information (boost::property_tree::ptree &) override;
 	std::deque<nano::account> wallet_accounts;
 };
