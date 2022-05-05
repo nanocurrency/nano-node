@@ -37,7 +37,7 @@ public:
 	void run () override;
 	bool lazy_start (nano::hash_or_account const &, bool confirmed = true);
 	void lazy_add (nano::hash_or_account const &, unsigned);
-	void lazy_add (nano::pull_info const &) override;
+	void lazy_add (nano::pull_info const &);
 	void lazy_requeue (nano::block_hash const &, nano::block_hash const &) override;
 	bool lazy_finished ();
 	bool lazy_has_expired () const override;

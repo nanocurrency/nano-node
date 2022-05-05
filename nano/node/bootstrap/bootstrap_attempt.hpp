@@ -31,7 +31,6 @@ public:
 	virtual void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
 	virtual bool request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &);
 	virtual void set_start_account (nano::account const &);
-	virtual void lazy_add (nano::pull_info const &);
 	virtual void lazy_requeue (nano::block_hash const &, nano::block_hash const &);
 	virtual uint32_t lazy_batch_size ();
 	virtual bool lazy_has_expired () const;

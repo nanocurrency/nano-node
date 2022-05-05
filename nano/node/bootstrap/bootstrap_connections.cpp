@@ -1,11 +1,14 @@
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
+#include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/bootstrap/bootstrap_connections.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
 #include <boost/format.hpp>
+
+#include <memory>
 
 constexpr double nano::bootstrap_limits::bootstrap_connection_scale_target_blocks;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_blocks_per_sec;
@@ -418,9 +421,12 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 			}
 			node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in);
 
-			if (attempt_l->mode == nano::bootstrap_mode::lazy && pull.processed > 0)
+			if (auto lazy = dynamic_pointer_cast<nano::bootstrap_attempt_lazy> (attempt_l))
 			{
-				attempt_l->lazy_add (pull);
+				if (pull.processed > 0)
+				{
+					lazy->lazy_add (pull);
+				}
 			}
 			else if (attempt_l->mode == nano::bootstrap_mode::legacy)
 			{
