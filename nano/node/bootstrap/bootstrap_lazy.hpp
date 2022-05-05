@@ -77,7 +77,7 @@ public:
 	void request_pending (nano::unique_lock<nano::mutex> &);
 	void requeue_pending (nano::account const &) override;
 	void run () override;
-	void wallet_start (std::deque<nano::account> &) override;
+	void wallet_start (std::deque<nano::account> &);
 	bool wallet_finished ();
 	std::size_t wallet_size () override;
 	void get_information (boost::property_tree::ptree &) override;

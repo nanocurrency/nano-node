@@ -155,11 +155,6 @@ void nano::bootstrap_attempt::requeue_pending (nano::account const &)
 	debug_assert (mode == nano::bootstrap_mode::wallet_lazy);
 }
 
-void nano::bootstrap_attempt::wallet_start (std::deque<nano::account> &)
-{
-	debug_assert (mode == nano::bootstrap_mode::wallet_lazy);
-}
-
 std::size_t nano::bootstrap_attempt::wallet_size ()
 {
 	debug_assert (mode == nano::bootstrap_mode::wallet_lazy);

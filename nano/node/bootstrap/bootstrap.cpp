@@ -240,10 +240,10 @@ std::shared_ptr<nano::bootstrap_attempt_lazy> nano::bootstrap_initiator::current
 	return std::dynamic_pointer_cast<nano::bootstrap_attempt_lazy> (find_attempt (nano::bootstrap_mode::lazy));
 }
 
-std::shared_ptr<nano::bootstrap_attempt> nano::bootstrap_initiator::current_wallet_attempt ()
+std::shared_ptr<nano::bootstrap_attempt_wallet> nano::bootstrap_initiator::current_wallet_attempt ()
 {
 	nano::lock_guard<nano::mutex> lock (mutex);
-	return find_attempt (nano::bootstrap_mode::wallet_lazy);
+	return std::dynamic_pointer_cast<nano::bootstrap_attempt_wallet> (find_attempt (nano::bootstrap_mode::wallet_lazy));
 }
 
 void nano::bootstrap_initiator::stop_attempts ()
