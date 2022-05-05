@@ -35,7 +35,7 @@ public:
 	~bootstrap_attempt_lazy ();
 	bool process_block (std::shared_ptr<nano::block> const &, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, unsigned) override;
 	void run () override;
-	bool lazy_start (nano::hash_or_account const &, bool confirmed = true) override;
+	bool lazy_start (nano::hash_or_account const &, bool confirmed = true);
 	void lazy_add (nano::hash_or_account const &, unsigned);
 	void lazy_add (nano::pull_info const &) override;
 	void lazy_requeue (nano::block_hash const &, nano::block_hash const &) override;

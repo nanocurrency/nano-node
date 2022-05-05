@@ -8,6 +8,7 @@
 #include <boost/format.hpp>
 
 #include <algorithm>
+#include <memory>
 
 nano::bootstrap_initiator::bootstrap_initiator (nano::node & node_a) :
 	node (node_a)
@@ -233,10 +234,10 @@ std::shared_ptr<nano::bootstrap_attempt> nano::bootstrap_initiator::current_atte
 	return find_attempt (nano::bootstrap_mode::legacy);
 }
 
-std::shared_ptr<nano::bootstrap_attempt> nano::bootstrap_initiator::current_lazy_attempt ()
+std::shared_ptr<nano::bootstrap_attempt_lazy> nano::bootstrap_initiator::current_lazy_attempt ()
 {
 	nano::lock_guard<nano::mutex> lock (mutex);
-	return find_attempt (nano::bootstrap_mode::lazy);
+	return dynamic_pointer_cast<nano::bootstrap_attempt_lazy> (find_attempt (nano::bootstrap_mode::lazy));
 }
 
 std::shared_ptr<nano::bootstrap_attempt> nano::bootstrap_initiator::current_wallet_attempt ()

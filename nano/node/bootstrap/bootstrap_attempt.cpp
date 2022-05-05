@@ -150,12 +150,6 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> const 
 	return stop_pull;
 }
 
-bool nano::bootstrap_attempt::lazy_start (nano::hash_or_account const &, bool)
-{
-	debug_assert (mode == nano::bootstrap_mode::lazy);
-	return false;
-}
-
 void nano::bootstrap_attempt::lazy_add (nano::pull_info const &)
 {
 	debug_assert (mode == nano::bootstrap_mode::lazy);
