@@ -41,7 +41,7 @@ public:
 	// the channel to reply to, if a reply is generated
 	std::shared_ptr<nano::transport::inproc::channel> channel;
 
-	void unhandled (nano::message const & message) override
+	void default_handler (nano::message const & message) override
 	{
 		inbound (message, channel);
 	}

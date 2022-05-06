@@ -499,49 +499,49 @@ class message_visitor
 public:
 	virtual void keepalive (nano::keepalive const & message)
 	{
-		unhandled (message);
+		default_handler (message);
 	};
 	virtual void publish (nano::publish const & message)
 	{
-		unhandled (message);
+		default_handler (message);
 	}
 	virtual void confirm_req (nano::confirm_req const & message)
 	{
-		unhandled (message);
+		default_handler (message);
 	}
 	virtual void confirm_ack (nano::confirm_ack const & message)
 	{
-		unhandled (message);
+		default_handler (message);
 	}
 	virtual void bulk_pull (nano::bulk_pull const & message)
 	{
-		unhandled (message);
+		default_handler (message);
 	}
 	virtual void bulk_pull_account (nano::bulk_pull_account const & message)
 	{
-		unhandled (message);
+		default_handler (message);
 	}
 	virtual void bulk_push (nano::bulk_push const & message)
 	{
-		unhandled (message);
+		default_handler (message);
 	}
 	virtual void frontier_req (nano::frontier_req const & message)
 	{
-		unhandled (message);
+		default_handler (message);
 	}
 	virtual void node_id_handshake (nano::node_id_handshake const & message)
 	{
-		unhandled (message);
+		default_handler (message);
 	}
 	virtual void telemetry_req (nano::telemetry_req const & message)
 	{
-		unhandled (message);
+		default_handler (message);
 	}
 	virtual void telemetry_ack (nano::telemetry_ack const & message)
 	{
-		unhandled (message);
+		default_handler (message);
 	}
-	virtual void unhandled (nano::message const &){};
+	virtual void default_handler (nano::message const &){};
 	virtual ~message_visitor ();
 };
 
