@@ -497,17 +497,51 @@ public:
 class message_visitor
 {
 public:
-	virtual void keepalive (nano::keepalive const &) = 0;
-	virtual void publish (nano::publish const &) = 0;
-	virtual void confirm_req (nano::confirm_req const &) = 0;
-	virtual void confirm_ack (nano::confirm_ack const &) = 0;
-	virtual void bulk_pull (nano::bulk_pull const &) = 0;
-	virtual void bulk_pull_account (nano::bulk_pull_account const &) = 0;
-	virtual void bulk_push (nano::bulk_push const &) = 0;
-	virtual void frontier_req (nano::frontier_req const &) = 0;
-	virtual void node_id_handshake (nano::node_id_handshake const &) = 0;
-	virtual void telemetry_req (nano::telemetry_req const &) = 0;
-	virtual void telemetry_ack (nano::telemetry_ack const &) = 0;
+	virtual void keepalive (nano::keepalive const & message)
+	{
+		default_handler (message);
+	};
+	virtual void publish (nano::publish const & message)
+	{
+		default_handler (message);
+	}
+	virtual void confirm_req (nano::confirm_req const & message)
+	{
+		default_handler (message);
+	}
+	virtual void confirm_ack (nano::confirm_ack const & message)
+	{
+		default_handler (message);
+	}
+	virtual void bulk_pull (nano::bulk_pull const & message)
+	{
+		default_handler (message);
+	}
+	virtual void bulk_pull_account (nano::bulk_pull_account const & message)
+	{
+		default_handler (message);
+	}
+	virtual void bulk_push (nano::bulk_push const & message)
+	{
+		default_handler (message);
+	}
+	virtual void frontier_req (nano::frontier_req const & message)
+	{
+		default_handler (message);
+	}
+	virtual void node_id_handshake (nano::node_id_handshake const & message)
+	{
+		default_handler (message);
+	}
+	virtual void telemetry_req (nano::telemetry_req const & message)
+	{
+		default_handler (message);
+	}
+	virtual void telemetry_ack (nano::telemetry_ack const & message)
+	{
+		default_handler (message);
+	}
+	virtual void default_handler (nano::message const &){};
 	virtual ~message_visitor ();
 };
 
