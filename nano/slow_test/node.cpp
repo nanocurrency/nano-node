@@ -464,10 +464,9 @@ TEST (store, vote_load)
 {
 	nano::system system (1);
 	auto & node (*system.nodes[0]);
-	auto block (std::make_shared<nano::send_block> (0, 0, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
 	for (auto i (0); i < 1000000; ++i)
 	{
-		auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, i, 0, block));
+		auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, i, 0, std::vector<nano::block_hash>{ i }));
 		node.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node, node));
 	}
 }

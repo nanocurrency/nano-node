@@ -347,7 +347,7 @@ public:
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
 	std::shared_ptr<nano::vote> vote;
-	static std::size_t size (nano::block_type, std::size_t = 0);
+	static std::size_t size (std::size_t count);
 };
 
 class frontier_req final : public message

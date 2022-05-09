@@ -233,7 +233,7 @@ bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> cons
 {
 	bool error = true;
 	nano::lock_guard<nano::mutex> lock (active_mutex);
-	for (auto i = vote_a->begin (), n = vote_a->end (); i != n; ++i)
+	for (auto i = vote_a->hashes.begin (), n = vote_a->hashes.end (); i != n; ++i)
 	{
 		if (active.count (*i) != 0)
 		{

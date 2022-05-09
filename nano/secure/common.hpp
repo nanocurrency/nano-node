@@ -246,31 +246,32 @@ namespace confirmation_height
 	uint64_t const unbounded_cutoff{ 16384 };
 }
 
-using vote_blocks_vec_iter = std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>>::const_iterator;
+using vote_blocks_vec_iter = std::vector<nano::block_hash>::const_iterator;
 class iterate_vote_blocks_as_hash final
 {
 public:
 	iterate_vote_blocks_as_hash () = default;
-	nano::block_hash operator() (boost::variant<std::shared_ptr<nano::block>, nano::block_hash> const & item) const;
+	nano::block_hash operator() (nano::block_hash const & item) const;
 };
 class vote final
 {
 public:
 	vote () = default;
 	vote (nano::vote const &);
-	vote (bool &, nano::stream &, nano::block_uniquer * = nullptr);
-	vote (bool &, nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
-	vote (nano::account const &, nano::raw_key const &, uint64_t timestamp, uint8_t duration, std::shared_ptr<nano::block> const &);
+	vote (bool &, nano::stream &);
 	vote (nano::account const &, nano::raw_key const &, uint64_t timestamp, uint8_t duration, std::vector<nano::block_hash> const &);
 	std::string hashes_string () const;
 	nano::block_hash hash () const;
 	nano::block_hash full_hash () const;
 	bool operator== (nano::vote const &) const;
 	bool operator!= (nano::vote const &) const;
-	void serialize (nano::stream &, nano::block_type) const;
 	void serialize (nano::stream &) const;
 	void serialize_json (boost::property_tree::ptree & tree) const;
-	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
+	/**
+	 * Deserializes a vote from the bytes in `stream'
+	 * Returns true if there was an error
+	 */
+	bool deserialize (nano::stream &);
 	bool validate () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> end () const;
@@ -288,8 +289,8 @@ private:
 	uint64_t timestamp_m;
 
 public:
-	// The blocks, or block hashes, that this vote is for
-	std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>> blocks;
+	// The hashes for which this vote directly covers
+	std::vector<nano::block_hash> hashes;
 	// Account that's voting
 	nano::account account;
 	// Signature of timestamp + block hashes

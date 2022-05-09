@@ -512,33 +512,14 @@ void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_co
 {
 	if (!ec)
 	{
-		auto error (false);
-		nano::bufferstream stream (receive_buffer->data (), size_a);
-		auto request (std::make_unique<nano::confirm_ack> (error, stream, header_a));
+		auto error = false;
+		nano::bufferstream stream{ receive_buffer->data (), size_a };
+		auto request = std::make_unique<nano::confirm_ack> (error, stream, header_a);
 		if (!error)
 		{
 			if (is_realtime_connection ())
 			{
-				bool process_vote (true);
-				if (header_a.block_type () != nano::block_type::not_a_block)
-				{
-					for (auto & vote_block : request->vote->blocks)
-					{
-						if (!vote_block.which ())
-						{
-							auto const & block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-							if (node->network_params.work.validate_entry (*block))
-							{
-								process_vote = false;
-								node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
-							}
-						}
-					}
-				}
-				if (process_vote)
-				{
-					add_request (std::unique_ptr<nano::message> (request.release ()));
-				}
+				add_request (std::move (request));
 			}
 			receive ();
 		}

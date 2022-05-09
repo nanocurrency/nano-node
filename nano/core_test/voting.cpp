@@ -65,7 +65,7 @@ TEST (vote_generator, cache)
 	ASSERT_TIMELY (1s, !node.history.votes (epoch1->root (), epoch1->hash ()).empty ());
 	auto votes (node.history.votes (epoch1->root (), epoch1->hash ()));
 	ASSERT_FALSE (votes.empty ());
-	ASSERT_TRUE (std::any_of (votes[0]->begin (), votes[0]->end (), [hash = epoch1->hash ()] (nano::block_hash const & hash_a) { return hash_a == hash; }));
+	ASSERT_TRUE (std::any_of (votes[0]->hashes.begin (), votes[0]->hashes.end (), [hash = epoch1->hash ()] (nano::block_hash const & hash_a) { return hash_a == hash; }));
 }
 
 TEST (vote_generator, multiple_representatives)

@@ -334,3 +334,12 @@ TEST (vote, timestamp_and_duration_masking)
 	ASSERT_EQ (vote->duration ().count (), 524288);
 	ASSERT_EQ (vote->duration_bits (), 0xf);
 }
+
+/**
+ * Test that a vote can encode an empty hash set
+ */
+TEST (vote, empty_hashes)
+{
+	nano::keypair key;
+	auto vote = std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, std::vector<nano::block_hash>{} /* empty */);
+}

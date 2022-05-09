@@ -71,25 +71,6 @@ TEST (message, publish_serialization)
 	ASSERT_EQ (nano::message_type::publish, header.type);
 }
 
-TEST (message, confirm_ack_serialization)
-{
-	nano::keypair key1;
-	auto vote (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, 0, std::make_shared<nano::send_block> (0, 1, 2, key1.prv, 4, 5)));
-	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream1 (bytes);
-		con1.serialize (stream1);
-	}
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	bool error (false);
-	nano::message_header header (error, stream2);
-	nano::confirm_ack con2 (error, stream2, header);
-	ASSERT_FALSE (error);
-	ASSERT_EQ (con1, con2);
-	ASSERT_EQ (header.block_type (), nano::block_type::send);
-}
-
 TEST (message, confirm_ack_hash_serialization)
 {
 	std::vector<nano::block_hash> hashes;
@@ -115,12 +96,7 @@ TEST (message, confirm_ack_hash_serialization)
 	nano::confirm_ack con2 (error, stream2, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (con1, con2);
-	std::vector<nano::block_hash> vote_blocks;
-	for (auto block : con2.vote->blocks)
-	{
-		vote_blocks.push_back (boost::get<nano::block_hash> (block));
-	}
-	ASSERT_EQ (hashes, vote_blocks);
+	ASSERT_EQ (hashes, con2.vote->hashes);
 	// Check overflow with max hashes
 	ASSERT_EQ (header.count_get (), hashes.size ());
 	ASSERT_EQ (header.block_type (), nano::block_type::not_a_block);
@@ -217,4 +193,14 @@ TEST (message, message_header_to_string)
 	nano::keepalive keepalive_msg{ nano::dev::network_params.network };
 	std::string header_string = keepalive_msg.header.to_string ();
 	ASSERT_EQ (expected_str, header_string);
+}
+
+/**
+ * Test that a confirm_ack can encode an empty hash set
+ */
+TEST (confirm_ack, empty_vote_hashes)
+{
+	nano::keypair key;
+	auto vote = std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, std::vector<nano::block_hash>{} /* empty */);
+	nano::confirm_ack message{ nano::dev::network_params.network, vote };
 }

@@ -1154,7 +1154,7 @@ TEST (node, fork_no_vote_quorum)
 	nano::raw_key key3;
 	auto transaction (system.wallet (1)->wallets.tx_begin_read ());
 	ASSERT_FALSE (system.wallet (1)->store.fetch (transaction, key1, key3));
-	auto vote (std::make_shared<nano::vote> (key1, key3, 0, 0, send2));
+	auto vote = std::make_shared<nano::vote> (key1, key3, 0, 0, std::vector<nano::block_hash>{ send2->hash () });
 	nano::confirm_ack confirm{ nano::dev::network_params.network, vote };
 	std::vector<uint8_t> buffer;
 	{
@@ -1816,9 +1816,9 @@ TEST (node, rep_weight)
 	ASSERT_NE (nullptr, channel2);
 	std::shared_ptr<nano::transport::channel> channel3 = nano::establish_tcp (system, node, node3.network.endpoint ());
 	ASSERT_NE (nullptr, channel3);
-	auto vote0 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, nano::dev::genesis);
-	auto vote1 = std::make_shared<nano::vote> (keypair1.pub, keypair1.prv, 0, 0, nano::dev::genesis);
-	auto vote2 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, 0, nano::dev::genesis);
+	auto vote0 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
+	auto vote1 = std::make_shared<nano::vote> (keypair1.pub, keypair1.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
+	auto vote2 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
 	node.rep_crawler.response (channel1, vote0);
 	node.rep_crawler.response (channel2, vote1);
 	node.rep_crawler.response (channel3, vote2);
@@ -1895,7 +1895,7 @@ TEST (node, rep_remove)
 	std::shared_ptr<nano::transport::channel> channel0 (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint0, node.network_params.network.protocol_version));
 	auto channel_udp = node.network.udp_channels.insert (endpoint0, node.network_params.network.protocol_version);
 	ASSERT_NE (channel_udp, nullptr);
-	auto vote1 = std::make_shared<nano::vote> (keypair1.pub, keypair1.prv, 0, 0, nano::dev::genesis);
+	auto vote1 = std::make_shared<nano::vote> (keypair1.pub, keypair1.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
 	ASSERT_FALSE (node.rep_crawler.response (channel0, vote1));
 	ASSERT_TIMELY (5s, node.rep_crawler.representative_count () == 1);
 	auto reps (node.rep_crawler.representatives (1));
@@ -1916,13 +1916,13 @@ TEST (node, rep_remove)
 	system.wallet (1)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto channel1 (node.network.find_channel (node1->network.endpoint ()));
 	ASSERT_NE (nullptr, channel1);
-	auto vote2 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, nano::dev::genesis);
+	auto vote2 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
 	node.rep_crawler.response (channel1, vote2);
 	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 1);
 	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), nano::node_config (nano::get_available_port (), system.logging), system.work));
 	node2->start ();
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	auto vote3 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, 0, nano::dev::genesis);
+	auto vote3 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
 	node.network.tcp_channels.start_tcp (node2->network.endpoint ());
 	std::shared_ptr<nano::transport::channel> channel2;
 	ASSERT_TIMELY (10s, (channel2 = node.network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node2->network.endpoint ()))) != nullptr);
@@ -2455,8 +2455,8 @@ TEST (node, local_votes_cache_generate_new_vote)
 	ASSERT_TIMELY (3s, !node.history.votes (nano::dev::genesis->root (), nano::dev::genesis->hash ()).empty ());
 	auto votes1 (node.history.votes (nano::dev::genesis->root (), nano::dev::genesis->hash ()));
 	ASSERT_EQ (1, votes1.size ());
-	ASSERT_EQ (1, votes1[0]->blocks.size ());
-	ASSERT_EQ (nano::dev::genesis->hash (), boost::get<nano::block_hash> (votes1[0]->blocks[0]));
+	ASSERT_EQ (1, votes1[0]->hashes.size ());
+	ASSERT_EQ (nano::dev::genesis->hash (), votes1[0]->hashes[0]);
 	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 1);
 	auto send1 = nano::state_block_builder ()
 				 .account (nano::dev::genesis_key.pub)
@@ -2475,7 +2475,7 @@ TEST (node, local_votes_cache_generate_new_vote)
 	ASSERT_TIMELY (3s, !node.history.votes (send1->root (), send1->hash ()).empty ());
 	auto votes2 (node.history.votes (send1->root (), send1->hash ()));
 	ASSERT_EQ (1, votes2.size ());
-	ASSERT_EQ (1, votes2[0]->blocks.size ());
+	ASSERT_EQ (1, votes2[0]->hashes.size ());
 	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 2);
 	ASSERT_FALSE (node.history.votes (nano::dev::genesis->root (), nano::dev::genesis->hash ()).empty ());
 	ASSERT_FALSE (node.history.votes (send1->root (), send1->hash ()).empty ());
@@ -2522,7 +2522,7 @@ TEST (node, local_votes_cache_fork)
 	node1.history.add (send1->root (), send1->hash (), vote);
 	auto votes2 (node1.history.votes (send1->root (), send1->hash ()));
 	ASSERT_EQ (1, votes2.size ());
-	ASSERT_EQ (1, votes2[0]->blocks.size ());
+	ASSERT_EQ (1, votes2[0]->hashes.size ());
 	// Start election for forked block
 	node_config.peering_port = nano::get_available_port ();
 	auto & node2 (*system.add_node (node_config, node_flags));
@@ -2557,7 +2557,7 @@ TEST (node, vote_republish)
 	node1.process_active (send1);
 	ASSERT_TIMELY (5s, node2.block (send1->hash ()));
 	node1.process_active (send2);
-	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, send2));
+	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ send2->hash () }));
 	ASSERT_TRUE (node1.active.active (*send1));
 	ASSERT_TIMELY (10s, node2.active.active (*send1));
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
@@ -2609,9 +2609,9 @@ TEST (node, vote_by_hash_bundle)
 	system.wallet (0)->insert_adhoc (key1.prv);
 
 	system.nodes[0]->observers.vote.add ([&max_hashes] (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const &, nano::vote_code) {
-		if (vote_a->blocks.size () > max_hashes)
+		if (vote_a->hashes.size () > max_hashes)
 		{
-			max_hashes = vote_a->blocks.size ();
+			max_hashes = vote_a->hashes.size ();
 		}
 	});
 
@@ -2830,8 +2830,8 @@ TEST (node, DISABLED_fork_invalid_block_signature)
 				 .build_shared ();
 	auto send2_corrupt (std::make_shared<nano::send_block> (*send2));
 	send2_corrupt->signature = nano::signature (123);
-	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, send2));
-	auto vote_corrupt (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, send2_corrupt));
+	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ send2->hash () }));
+	auto vote_corrupt (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ send2_corrupt->hash () }));
 
 	node1.process_active (send1);
 	ASSERT_TIMELY (5s, node1.block (send1->hash ()));
