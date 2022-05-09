@@ -1,4 +1,5 @@
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/transport/inproc.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
@@ -1256,14 +1257,14 @@ TEST (network, loopback_channel)
 	nano::system system (2);
 	auto & node1 = *system.nodes[0];
 	auto & node2 = *system.nodes[1];
-	nano::transport::channel_loopback channel1 (node1);
+	nano::transport::inproc::channel channel1 (node1, node1);
 	ASSERT_EQ (channel1.get_type (), nano::transport::transport_type::loopback);
 	ASSERT_EQ (channel1.get_endpoint (), node1.network.endpoint ());
 	ASSERT_EQ (channel1.get_tcp_endpoint (), nano::transport::map_endpoint_to_tcp (node1.network.endpoint ()));
 	ASSERT_EQ (channel1.get_network_version (), node1.network_params.network.protocol_version);
 	ASSERT_EQ (channel1.get_node_id (), node1.node_id.pub);
 	ASSERT_EQ (channel1.get_node_id_optional ().value_or (0), node1.node_id.pub);
-	nano::transport::channel_loopback channel2 (node2);
+	nano::transport::inproc::channel channel2 (node2, node2);
 	ASSERT_TRUE (channel1 == channel1);
 	ASSERT_FALSE (channel1 == channel2);
 	++node1.network.port;
@@ -1277,10 +1278,10 @@ TEST (network, filter)
 	auto & node1 = *system.nodes[0];
 	nano::keepalive keepalive{ nano::dev::network_params.network };
 	const_cast<nano::networks &> (keepalive.header.network) = nano::networks::nano_dev_network;
-	node1.network.inbound (keepalive, std::make_shared<nano::transport::channel_loopback> (node1));
+	node1.network.inbound (keepalive, std::make_shared<nano::transport::inproc::channel> (node1, node1));
 	ASSERT_EQ (0, node1.stats.count (nano::stat::type::message, nano::stat::detail::invalid_network));
 	const_cast<nano::networks &> (keepalive.header.network) = nano::networks::invalid;
-	node1.network.inbound (keepalive, std::make_shared<nano::transport::channel_loopback> (node1));
+	node1.network.inbound (keepalive, std::make_shared<nano::transport::inproc::channel> (node1, node1));
 	ASSERT_EQ (1, node1.stats.count (nano::stat::type::message, nano::stat::detail::invalid_network));
 }
 

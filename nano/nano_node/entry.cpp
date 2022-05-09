@@ -7,6 +7,7 @@
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/transport/inproc.hpp>
 
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/filesystem/operations.hpp>
@@ -1108,7 +1109,7 @@ int main (int argc, char * const * argv)
 			while (!votes.empty ())
 			{
 				auto vote (votes.front ());
-				auto channel (std::make_shared<nano::transport::channel_loopback> (*node));
+				auto channel (std::make_shared<nano::transport::inproc::channel> (*node, *node));
 				node->vote_processor.vote (vote, channel);
 				votes.pop_front ();
 			}

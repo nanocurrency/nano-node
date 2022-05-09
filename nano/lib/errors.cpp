@@ -251,7 +251,7 @@ std::string nano::error_process_messages::message (int ev) const
 		case nano::error_process::gap_epoch_open_pending:
 			return "Gap pending for open epoch block";
 		case nano::error_process::opened_burn_account:
-			return "Burning account";
+			return "Block attempts to open the burn account";
 		case nano::error_process::balance_mismatch:
 			return "Balance and amount delta do not match";
 		case nano::error_process::block_position:

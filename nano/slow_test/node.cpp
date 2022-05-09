@@ -1,6 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/transport/inproc.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/test_common/network.hpp>
@@ -467,7 +468,7 @@ TEST (store, vote_load)
 	for (auto i (0); i < 1000000; ++i)
 	{
 		auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, i, 0, block));
-		node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_loopback> (node));
+		node.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node, node));
 	}
 }
 

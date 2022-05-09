@@ -1,5 +1,6 @@
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/transport/inproc.hpp>
 #include <nano/node/transport/transport.hpp>
 
 #include <boost/asio/ip/address.hpp>
@@ -131,34 +132,6 @@ void nano::transport::channel::send (nano::message & message_a, std::function<vo
 			node.logger.always_log (boost::str (boost::format ("%1% of size %2% dropped") % node.stats.detail_to_string (detail) % buffer.size ()));
 		}
 	}
-}
-
-nano::transport::channel_loopback::channel_loopback (nano::node & node_a) :
-	channel (node_a), endpoint (node_a.network.endpoint ())
-{
-	set_node_id (node_a.node_id.pub);
-	set_network_version (node_a.network_params.network.protocol_version);
-}
-
-std::size_t nano::transport::channel_loopback::hash_code () const
-{
-	std::hash<::nano::endpoint> hash;
-	return hash (endpoint);
-}
-
-bool nano::transport::channel_loopback::operator== (nano::transport::channel const & other_a) const
-{
-	return endpoint == other_a.get_endpoint ();
-}
-
-void nano::transport::channel_loopback::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
-{
-	release_assert (false && "sending to a loopback channel is not supported");
-}
-
-std::string nano::transport::channel_loopback::to_string () const
-{
-	return boost::str (boost::format ("%1%") % endpoint);
 }
 
 boost::asio::ip::address_v6 nano::transport::mapped_from_v4_bytes (unsigned long address_a)

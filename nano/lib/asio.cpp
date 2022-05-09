@@ -43,3 +43,14 @@ std::size_t nano::shared_const_buffer::size () const
 {
 	return m_buffer.size ();
 }
+
+std::vector<uint8_t> nano::shared_const_buffer::to_bytes () const
+{
+	std::vector<uint8_t> bytes;
+	for (auto const & buffer : *this)
+	{
+		bytes.resize (bytes.size () + buffer.size ());
+		std::copy ((uint8_t const *)buffer.data (), (uint8_t const *)buffer.data () + buffer.size (), bytes.data () + bytes.size () - buffer.size ());
+	}
+	return bytes;
+}
