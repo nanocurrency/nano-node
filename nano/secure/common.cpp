@@ -591,7 +591,7 @@ void nano::vote::serialize (nano::stream & stream_a) const
 
 bool nano::vote::deserialize (nano::stream & stream_a)
 {
-	auto result = false;
+	auto error = false;
 	try
 	{
 		nano::read (stream_a, account.bytes);
@@ -607,9 +607,9 @@ bool nano::vote::deserialize (nano::stream & stream_a)
 	}
 	catch (std::runtime_error const &)
 	{
-		result = true;
+		error = true;
 	}
-	return result;
+	return error;
 }
 
 bool nano::vote::validate () const

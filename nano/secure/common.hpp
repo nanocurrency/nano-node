@@ -267,6 +267,10 @@ public:
 	bool operator!= (nano::vote const &) const;
 	void serialize (nano::stream &) const;
 	void serialize_json (boost::property_tree::ptree & tree) const;
+	/**
+	 * Deserializes a vote from the bytes in `stream'
+	 * Returns true if there was an error
+	 */
 	bool deserialize (nano::stream &);
 	bool validate () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
