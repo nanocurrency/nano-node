@@ -285,7 +285,7 @@ std::size_t nano::message_header::payload_length_bytes () const
 		}
 		case nano::message_type::confirm_ack:
 		{
-			return nano::confirm_ack::size (block_type (), count_get ());
+			return nano::confirm_ack::size (count_get ());
 		}
 		case nano::message_type::confirm_req:
 		{
@@ -860,17 +860,9 @@ void nano::confirm_ack::visit (nano::message_visitor & visitor_a) const
 	visitor_a.confirm_ack (*this);
 }
 
-std::size_t nano::confirm_ack::size (nano::block_type type_a, std::size_t count)
+std::size_t nano::confirm_ack::size (std::size_t count)
 {
-	std::size_t result (sizeof (nano::account) + sizeof (nano::signature) + sizeof (uint64_t));
-	if (type_a != nano::block_type::invalid && type_a != nano::block_type::not_a_block)
-	{
-		result += nano::block::size (type_a);
-	}
-	else if (type_a == nano::block_type::not_a_block)
-	{
-		result += count * sizeof (nano::block_hash);
-	}
+	std::size_t result = sizeof (nano::account) + sizeof (nano::signature) + sizeof (uint64_t) + count * sizeof (nano::block_hash);
 	return result;
 }
 
