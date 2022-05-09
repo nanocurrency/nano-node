@@ -46,24 +46,24 @@ function source_information() {
 	COMMIT=$(git log | head -1 | cut -d " " -f 2)
 	TAG_DATE=$(TZ=UTC date -d"$DATE" +%s)
 
-  echo "source_information() function"
-  echo "DATE: $DATE"
-  echo "COMMIT: $COMMIT"
-  echo "TAG_DATE: $TAG_DATE"
+  DEVELOP_HEAD=$(git show-ref -s origin/develop)
+  PREVIOUS_VERSION=$(( $(echo "${TAG}" | grep -o -E '[0-9]+' | head -1) - 1 ))
+  COMMON_ANCESTOR=$(git merge-base --octopus "${DEVELOP_HEAD}" "${PREVIOUS_VERSION}")
 
-#	(
-#		eval "$(scl enable rh-python38 'echo -e "source /opt/rh/rh-python38/enable\n"')"
-#		python -m pip install PyGithub mdutils
-#
-#    echo "scriptDir: ${scriptDir}"
-#		python ${scriptDir}/changelog.py -p ${PAT} -t ${TAG} -m full -r thsfs/nano-node
-#
-#		if [ ! -s CHANGELOG.md ]; then
-#			echo "CHANGELOG not generated"
-#			exit 1
-#		fi
-#		exit 0
-#	) || exit 1
+	(
+		eval "$(scl enable rh-python38 'echo -e "source /opt/rh/rh-python38/enable\n"')"
+		python -m pip install PyGithub mdutils
+
+		python ${scriptDir}/changelog.py -p ${PAT} -s ${COMMON_ANCESTOR} -e ${TAG}
+
+		if [ ! -s CHANGELOG.md ]; then
+			echo "CHANGELOG not generated"
+			exit 1
+    else
+      cp CHANGELOG.md ~/rpmbuild/.
+		fi
+		exit 0
+	) || exit 1
 
 	export TAG_DATE
 }
