@@ -1,25 +1,32 @@
 #!/bin/bash
 
-#    makesrc <tag>
-#    requires ruby gem github_changelog_generator
-#    API_KEY generated here https://github.com/settings/tokens/new?description=GitHub%20Changelog%20Generator%20token
+#    makesrc <tag> <pat> 
+#    personal access token allows around rate limit
 
-if [ -e $1 ]; then
-	echo "makesrc <tag>" >&2
+if [ -e $2 ]; then
+	echo "makesrc <tag> <pat>" >&2
 	echo "    tag      valid <tag> for nanocurrency/nano-node" >&2
+	echo "    pat      personal access token" >&2
 	exit 1
 fi
 
 TAG="$1"
+PAT="$2"
 VERSION=$(echo $TAG | sed 's/V//')
 TAG_DATE=""
 VERSION_MAJOR=$(echo $VERSION | cut -d "." -f 1)
 scriptDir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
+echo "Running makesrc"
+echo "TAG: $TAG"
+echo "VERSION: $VERSION"
+
 function make_source() {
-	git clone --recursive --single-branch --branch releases/v${VERSION_MAJOR} https://github.com/nanocurrency/nano-node nano-$VERSION
+  echo "make_source() function"
+  echo "VERSION: $VERSION"
+	git clone --recursive --single-branch --branch ${TAG} https://github.com/thsfs/nano-node nano-$VERSION
 	cd nano-$VERSION
-	git pull --tags
+	git fetch --tags
 	COUNT=$(git tag -l "${TAG}" | wc -l)
 	if [ "$COUNT" -eq 0 ]; then
 		echo "tag $TAG not found"
@@ -39,23 +46,31 @@ function source_information() {
 	COMMIT=$(git log | head -1 | cut -d " " -f 2)
 	TAG_DATE=$(TZ=UTC date -d"$DATE" +%s)
 
-	case "${VERSION}" in
-	*RC*)
-		"${scriptDir}/changelog_generator" nanocurrency/nano-node "V${VERSION}" only
-		;;
-	*)
-		"${scriptDir}/changelog_generator" nanocurrency/nano-node "V${VERSION}"
-		;;
-	esac
+  DEVELOP_HEAD=$(git show-ref -s origin/develop)
+  PREVIOUS_VERSION=$(( $(echo "${TAG}" | grep -o -E '[0-9]+' | head -1) - 1 ))
+  COMMON_ANCESTOR=$(git merge-base --octopus "${DEVELOP_HEAD}" "${PREVIOUS_VERSION}")
 
-	if [ ! -s CHANGELOG.md ]; then
-		echo "CHANGELOG not generated"
-		exit 1
-	fi
+	(
+		eval "$(scl enable rh-python38 'echo -e "source /opt/rh/rh-python38/enable\n"')"
+		python -m pip install PyGithub mdutils
+
+		python ${scriptDir}/changelog.py -p ${PAT} -s ${COMMON_ANCESTOR} -e ${TAG}
+
+		if [ ! -s CHANGELOG.md ]; then
+			echo "CHANGELOG not generated"
+			exit 1
+    else
+      cp CHANGELOG.md ~/rpmbuild/.
+		fi
+		exit 0
+	) || exit 1
 
 	export TAG_DATE
 }
 function cleanup_source() {
+  echo "cleanup_source() function"
+  echo "VERSION: $VERSION"
+  echo "TAG: $TAG"
 	mv nano-$VERSION.tar.gz ~/.
 	echo "ARCHIVE MOVDED TO HOME..."
 	rm -fr nano-$TAG/
@@ -64,6 +79,11 @@ function cleanup_source() {
 function tarball_creation() {
 	cd ..
 	ARCHIVE_FILE_NAME="nano-${VERSION}.tar.gz"
+
+  echo "tarball_creation() function"
+  echo "VERSION: $VERSION"
+  echo "ARCHIVE_FILE_NAME: $ARCHIVE_FILE_NAME"
+
 	echo "CREATING ${ARCHIVE_FILE_NAME}..."
 	# Determine if we can create a stable archive
 	tarArgs=()
