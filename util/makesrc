@@ -50,9 +50,17 @@ function source_information() {
   PREVIOUS_VERSION=$(( $(echo "${TAG}" | grep -o -E '[0-9]+' | head -1) - 1 ))
   COMMON_ANCESTOR=$(git merge-base --octopus "${DEVELOP_HEAD}" "${PREVIOUS_VERSION}")
 
+  echo "DEVELOP_HEAD: ${DEVELOP_HEAD}"
+  echo "PREVIOUS_VERSION: ${PREVIOUS_VERSION}"
+  echo "COMMON_ACESTOR: ${COMMON_ANCESTOR}"
+
 	(
 		eval "$(scl enable rh-python38 'echo -e "source /opt/rh/rh-python38/enable\n"')"
 		python -m pip install PyGithub mdutils
+
+    echo "DEVELOP_HEAD: ${DEVELOP_HEAD}"
+    echo "PREVIOUS_VERSION: ${PREVIOUS_VERSION}"
+    echo "COMMON_ACESTOR: ${COMMON_ANCESTOR}"
 
 		python ${scriptDir}/changelog.py -p ${PAT} -s ${COMMON_ANCESTOR} -e ${TAG}
 
