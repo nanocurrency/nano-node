@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <fstream>
 #include <future>
 #include <sstream>
 

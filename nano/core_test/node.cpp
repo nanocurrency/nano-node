@@ -11,6 +11,7 @@
 #include <boost/make_shared.hpp>
 #include <boost/variant.hpp>
 
+#include <fstream>
 #include <numeric>
 
 using namespace std::chrono_literals;
@@ -4493,7 +4494,7 @@ TEST (node_config, node_id_private_key_persistence)
 	ASSERT_EQ (kp2.prv, kp3.prv);
 
 	// write the key file manually and check that right key is loaded
-	std::ofstream ofs (priv_key_filename, std::ofstream::out | std::ofstream::trunc);
+	std::ofstream ofs (priv_key_filename.string (), std::ofstream::out | std::ofstream::trunc);
 	ofs << "3F28D035B8AA75EA53DF753BFD065CF6138E742971B2C99B84FD8FE328FED2D9" << std::flush;
 	ofs.close ();
 	nano::keypair kp4 = nano::load_or_create_node_id (path, logger);
