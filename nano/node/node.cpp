@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <fstream>
 #include <future>
 #include <sstream>
 
@@ -72,6 +73,33 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (re
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "active", count, sizeof_element }));
 	return composite;
+}
+
+nano::keypair nano::load_or_create_node_id (boost::filesystem::path const & application_path, nano::logger_mt & logger)
+{
+	auto node_private_key_path = application_path / "node_id_private.key";
+	std::ifstream ifs (node_private_key_path.c_str ());
+	if (ifs.good ())
+	{
+		logger.always_log (boost::str (boost::format ("%1% exists, reading node id from it") % node_private_key_path.string ()));
+		std::string node_private_key;
+		ifs >> node_private_key;
+		release_assert (node_private_key.size () == 64);
+		nano::keypair kp = nano::keypair (node_private_key);
+		return kp;
+	}
+	else
+	{
+		// no node_id found, generate new one
+		logger.always_log (boost::str (boost::format ("%1% does not exist, creating a new node_id") % node_private_key_path.string ()));
+		nano::keypair kp;
+		std::ofstream ofs (node_private_key_path.c_str (), std::ofstream::out | std::ofstream::trunc);
+		ofs << kp.prv.to_string () << std::endl
+			<< std::flush;
+		ofs.close ();
+		release_assert (!ofs.fail ());
+		return kp;
+	}
 }
 
 nano::node::node (boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, nano::logging const & logging_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
@@ -395,7 +423,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			logger.always_log (stream.str ());
 		}
 
-		node_id = nano::keypair ();
+		node_id = nano::load_or_create_node_id (application_path, logger);
 		logger.always_log ("Node ID: ", node_id.pub.to_node_id ());
 
 		if ((network_params.network.is_live_network () || network_params.network.is_beta_network ()) && !flags.inactive_node)
