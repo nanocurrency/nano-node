@@ -92,7 +92,7 @@ nano::keypair nano::load_or_create_node_id (boost::filesystem::path const & appl
 	{
 		// no node_id found, generate new one
 		logger.always_log (boost::str (boost::format ("%1% does not exist, creating a new node_id") % node_private_key_path.string ()));
-		nano::keypair kp = nano::keypair ();
+		nano::keypair kp;
 		std::ofstream ofs (node_private_key_path.c_str (), std::ofstream::out | std::ofstream::trunc);
 		ofs << kp.prv.to_string () << std::endl
 			<< std::flush;
