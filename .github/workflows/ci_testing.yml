@@ -64,7 +64,7 @@ jobs:
           docker run -e PAT=${{ secrets.GITHUB_TOKEN }} -e TAG=$TAG \
           -v ${GITHUB_WORKSPACE}:/workspace \
           -v ${GITHUB_WORKSPACE}/artifacts:/artifacts \
-          nanocurrency/nano-env:gcc /bin/bash -c "ci/generate-changelog.sh /artifacts"
+          nanocurrency/nano-env:gcc /bin/bash -c "/workspace/ci/generate-changelog.sh /artifacts"
       - name: Create SSH key
         run: |
           install -m 600 -D /dev/null ~/.ssh/id_rsa
