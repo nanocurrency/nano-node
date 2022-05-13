@@ -46,6 +46,33 @@ jobs:
       - name: Deploy with rsync
         run: rsync -rav artifacts/ ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:${{ secrets.REMOTE_TARGET }}
 
+  changelog_job:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 90
+    steps:
+      - name: tag
+        run: |
+          echo "TAG=${{ github.event.inputs.ref }}" >> $GITHUB_ENV
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          submodules: "recursive"
+          ref: ${{ github.event.inputs.ref }}
+          repository: ${{ github.event.inputs.repo }}
+      - name: Generating the CHANGELOG file
+        run: |
+          mkdir -p ${GITHUB_WORKSPACE}/artifacts
+          docker run -e PAT=${{ secrets.GITHUB_TOKEN }} -e TAG=$TAG \
+          -v ${GITHUB_WORKSPACE}:/workspace \
+          -v ${GITHUB_WORKSPACE}/artifacts:/artifacts \
+          nanocurrency/nano-env:gcc /bin/bash -c "ci/generate-changelog.sh /artifacts"
+      - name: Create SSH key
+        run: |
+          install -m 600 -D /dev/null ~/.ssh/id_rsa
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+      - name: Deploy with rsync
+        run: rsync -rav ${GITHUB_WORKSPACE}/artifacts/ ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:${{ secrets.REMOTE_TARGET }}
+
   test_deploy:
     runs-on: ubuntu-20.04
     timeout-minutes: 90
