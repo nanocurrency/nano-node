@@ -4,7 +4,14 @@ set -e
 
 TAG=$(echo "${TAG}")
 PAT=$(echo "${PAT}")
-output_dir="${1:-$(pwd)}"
+source_dir="${1:-$(pwd)}"
+output_dir="${2:-$(pwd)}"
+
+pushd "$source_dir"
+if [[ ! -d .git ]]; then
+    echo "The source directory: ${source_dir} is not a git repository"
+    exit 1
+fi
 
 # matches V1.0.0 and V1.0 formats
 version_re="^(V[0-9]+.[0-9]+(.[0-9]+)?)$"
