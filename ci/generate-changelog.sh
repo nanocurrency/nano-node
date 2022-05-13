@@ -8,7 +8,7 @@ output_dir="${1:-$(pwd)}"
 
 # matches V1.0.0 and V1.0 formats
 version_re="^(V[0-9]+.[0-9]+(.[0-9]+)?)$"
-# matches V1.0.0RC1, V.0.0DB1, V1.0RC1, V1.0DB1 formats
+# matches V1.0.0RC1, V1.0.0DB1, V1.0RC1, V1.0DB1 formats
 rc_beta_re="^(V[0-9]+.[0-9]+(.[0-9]+)?((RC[0-9]+)|(DB[0-9]+))?)$"
 
 echo "Validating the required input variables TAG and PAT"
@@ -19,7 +19,6 @@ echo "Validating the required input variables TAG and PAT"
     fi
 
     if [[ ${TAG} =~ $version_re ]]; then
-        echo "The tag ${TAG} is ok"
         exit 0
     elif [[ ${TAG} =~ $rc_beta_re ]]; then
         echo "RC and DB tags are not supported"
@@ -33,7 +32,7 @@ echo "Validating the required input variables TAG and PAT"
 read -r version_major version_minor version_revision <<< $( echo "${TAG}" | awk -F 'V' {'print $2'} | awk -F \. {'print $1, $2, $3'} )
 previous_version_major=$(( version_major - 1 ))
 
-echo "Getting the tag from the most recent minor version or revision from the previous release"
+echo "Getting the tag of the most recent previous version"
 version_tags=$(git tag | grep -E "^(V(${previous_version_major}).[0-9]+(.[0-9]+)?)$" | sort)
 for tag in $version_tags; do
     newest_previous_version=$tag
