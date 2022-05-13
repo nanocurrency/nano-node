@@ -8,25 +8,18 @@ from typing import Tuple
 Changelog generation script, requires PAT with public_repo access, 
 see https://github.com/settings/tokens
 
-usage: changelog [-h] [-e END] [-m {full,incremental}] -p PAT [-r REPO] [-s START] [-t TAG]
+usage: changelog [-h] [-e END] -p PAT [-r REPO] [-s START]
 
 Generate Changelogs between tags or commits
 
 optional arguments:
-  -h, --help            show this help message and exit
-  -e END, --end END     Ending reference for Changelog(newest)
-  -m {full,incremental}, --mode {full,incremental}
-                        Mode to run changelog for [full, incremental]
-  -p PAT, --pat PAT     Personal Access Token
-  -r REPO, --repo REPO  <org/repo> to generate logs for
-  -s START, --start START
-                        Starting reference for Changelog(oldest)
-  -t TAG, --tag TAG     Tag to use for changelog generation
+  -h, --help               Show this help message and exit
+  -e END, --end END        Ending reference for Changelog(newest)
+  -p PAT, --pat PAT        Personal Access Token
+  -r REPO, --repo REPO     <org/repo> to generate logs for
+  -s START, --start START  Starting reference for Changelog(oldest)
 """
 
-
-full = re.compile(r"^(V(\d)+.(\d)+.?(\d)?)$")
-incremental = re.compile(r"^(V(\d)+.(\d)+.?(\d)?(RC(\d)+)?(DB(\d)+)?)$")
 
 try:
     from github import Github, UnknownObjectException
@@ -99,24 +92,14 @@ SECTIONS = {
 class cliArgs():
     def __init__(self) -> dict:
 
-        changelog_choices = ["full", "incremental"]
-
         parse = argparse.ArgumentParser(
             prog="changelog",
             description="Generate Changelogs between tags or commits"
         )
-
         parse.add_argument(
             '-e', '--end',
             help="Ending reference for Changelog(newest)",
             type=str, action="store",
-        )
-        parse.add_argument(
-            "-m", "--mode",
-            help="Mode to run changelog for [full, incremental]",
-            type=str, action="store",
-            default="incremental",
-            choices=changelog_choices
         )
         parse.add_argument(
             '-p', '--pat',
@@ -135,18 +118,11 @@ class cliArgs():
             help="Starting reference for Changelog(oldest)",
             type=str, action="store",
         )
-        parse.add_argument(
-            '-t', '--tag',
-            help="Tag to use for changelog generation",
-            type=str, action="store"
-        )
         options = parse.parse_args()
         self.end = options.end
-        self.mode = options.mode
         self.pat = options.pat
         self.repo = options.repo.rstrip("/")
         self.start = options.start
-        self.tag = options.tag
 
 
 class generateTree:
@@ -154,18 +130,8 @@ class generateTree:
         github = Github(args.pat)
         self.name = args.repo
         self.repo = github.get_repo(self.name)
-        if args.tag:
-            self.tag = args.tag
-            self.end = self.repo.get_commit(args.tag).sha
-        elif args.end:
-            self.end = self.repo.get_commit(args.end).sha
-        else:
-            print("need end or tag")
-            exit(1)
-        if args.start:
-            self.start = self.repo.get_commit(args.start).sha
-        else:
-            self.start = self.get_common(args.mode)
+        self.end = self.repo.get_commit(args.end).sha
+        self.start = self.repo.get_commit(args.start).sha
         self.commits = {}
         self.other_commits = []
         commits = self.repo.get_commits(sha=self.end)
@@ -196,31 +162,14 @@ class generateTree:
                 "labels": labels
             }
 
-    def get_common(self, mode) -> str:
-        tags = []
-        for tag in self.repo.get_tags():
-            if mode == "full":
-                found = full.match(tag.name)
-            else:
-                found = incremental.match(tag.name)
-            if found:
-                tags.append(tag)
-        tree = self.repo.compare(self.end, tags[1].commit.sha)
-        return tree.merge_base_commit.sha
-
 
 class generateMarkdown():
     def __init__(self, repo: generateTree):
         self.mdFile = MdUtils(
             file_name='CHANGELOG', title='CHANGELOG'
         )
-        if repo.tag:
-            self.mdFile.new_line(
-                "## Release " +
-                f"[{repo.tag}](https://github.com/{repo.name}/tree/{repo.tag})", wrap_width=0)
-        else:
-            self.mdFile.new_line(
-                f"[{repo.end}](https://github.com/{repo.name}/tree/{repo.end})", wrap_width=0)
+        self.mdFile.new_line(
+            f"[{repo.end}](https://github.com/{repo.name}/tree/{repo.end})", wrap_width=0)
         self.mdFile.new_line(f"[Full Changelog](https://github.com/{repo.name}"
                              f"/compare/{repo.start}...{repo.end})", wrap_width=0)
         sort = self.pull_to_section(repo.commits)
