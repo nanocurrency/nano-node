@@ -213,6 +213,7 @@ private:
 	nano::locked<std::future<void>> epoch_upgrading;
 };
 
+nano::keypair load_or_create_node_id (boost::filesystem::path const & application_path, nano::logger_mt & logger);
 std::unique_ptr<container_info_component> collect_container_info (node & node, std::string const & name);
 
 nano::node_flags const & inactive_node_flag_defaults ();
