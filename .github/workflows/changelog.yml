@@ -1,0 +1,62 @@
+name: Changelog
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "Repository"
+        default: "nanocurrency/nano-node"
+        required: true
+      ref:
+        description: "Version (VX.Y tag)"
+        default: "VX.Y"
+        required: true
+      ref_start:
+        description: "Start (tag or rev)"
+        default: ""
+        required: false
+env:
+  artifact: 1
+
+jobs:
+  changelog_job:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 90
+    steps:
+      - name: Sets the tag and repo variables (to build)
+        run: |
+          echo "TAG=${{ github.event.inputs.ref }}" >> $GITHUB_ENV
+          echo "REF_START=${{ github.event.inputs.ref_start }}" >> $GITHUB_ENV
+          echo "REPO_TO_BUILD=${{ github.event.inputs.repo }}" >> $GITHUB_ENV
+      - name: Checks out the required workflow files (workflow repo)
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          ref: ${{ github.ref }}
+          repository: ${{ github.repository }}
+      - name: Generating the CHANGELOG file (automatic interval)
+        if: ${{ github.event.inputs.ref_start == '' }}
+        run: |
+          mkdir -p ${GITHUB_WORKSPACE}/source
+          mkdir -p ${GITHUB_WORKSPACE}/artifacts
+          docker run -e PAT=${{ secrets.GITHUB_TOKEN }} -e TAG=$TAG \
+          -v ${GITHUB_WORKSPACE}:/workspace \
+          -v ${GITHUB_WORKSPACE}/source:/source \
+          -v ${GITHUB_WORKSPACE}/artifacts:/artifacts \
+          nanocurrency/nano-env:gcc \
+          /bin/bash -c "/workspace/ci/changelog-gen-wrap.sh -s /source -o /artifacts -w /workspace -r $REPO_TO_BUILD"
+      - name: Generating the CHANGELOG file (interval from the input)
+        if: ${{ github.event.inputs.ref_start != '' }}
+        run: |
+          mkdir -p ${GITHUB_WORKSPACE}/source
+          mkdir -p ${GITHUB_WORKSPACE}/artifacts
+          docker run -e PAT=${{ secrets.GITHUB_TOKEN }} \
+          -v ${GITHUB_WORKSPACE}:/workspace \
+          -v ${GITHUB_WORKSPACE}/source:/source \
+          -v ${GITHUB_WORKSPACE}/artifacts:/artifacts \
+          nanocurrency/nano-env:gcc \
+          /bin/bash -c "/workspace/ci/changelog-gen-wrap.sh -s /source -o /artifacts -w /workspace -r $REPO_TO_BUILD -b $REF_START -e $TAG"
+      - name: Deploy the Changelog Artifact
+        run: ci/actions/deploy-changelog.sh $TAG
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-2
