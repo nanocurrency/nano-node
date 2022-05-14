@@ -707,7 +707,7 @@ nano::unchecked_key::unchecked_key (nano::hash_or_account const & dependency) :
 }
 
 nano::unchecked_key::unchecked_key (nano::hash_or_account const & previous_a, nano::block_hash const & hash_a) :
-	previous (previous_a.hash),
+	previous (previous_a.as_block_hash ()),
 	hash (hash_a)
 {
 }
