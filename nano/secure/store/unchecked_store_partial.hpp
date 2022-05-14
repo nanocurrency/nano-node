@@ -36,6 +36,8 @@ public:
 
 	void put (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a) override
 	{
+		if (get (transaction_a, key_a.previous).size () > 1)
+			return;
 		nano::db_val<Val> info (info_a);
 		auto status (store.put (transaction_a, tables::unchecked, key_a, info));
 		release_assert_success (store, status);
