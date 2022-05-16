@@ -70,9 +70,10 @@ jobs:
     runs-on: ubuntu-20.04
     timeout-minutes: 90
     steps:
-      - name: Checkout the Tag
+      - name: Sets the tag and repo variables (to build)
         run: |
           echo "TAG=${{ github.event.inputs.ref }}" >> $GITHUB_ENV
+          echo "REPO_TO_BUILD=${{ github.event.inputs.repo }}" >> $GITHUB_ENV
       - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           submodules: "recursive"
@@ -84,7 +85,8 @@ jobs:
         run: |
           mkdir -p ${GITHUB_WORKSPACE}/artifacts
           docker run -e LIVE=1 -e PAT=${{ secrets.GITHUB_TOKEN }} \
-          -e TAG=$TAG -v ${GITHUB_WORKSPACE}:/workspace \
+          -e TAG=$TAG -e REPO_TO_BUILD=$REPO_TO_BUILD
+          -v ${GITHUB_WORKSPACE}:/workspace \
           -v ${GITHUB_WORKSPACE}/artifacts:/root/rpmbuild \
           nanocurrency/nano-env:centos /bin/bash -c "ci/build-centos.sh"
       - name: Deploy Artifacts
