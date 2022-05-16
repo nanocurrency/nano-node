@@ -4,21 +4,23 @@
 #    personal access token allows around rate limit
 
 if [ -e $2 ]; then
-	echo "makesrc <tag> <pat>" >&2
-	echo "    tag      valid <tag> for nanocurrency/nano-node" >&2
+	echo "makesrc <tag> <pat> <repo>" >&2
+	echo "    tag      valid <tag> for <repo>" >&2
 	echo "    pat      personal access token" >&2
+	echo "    repo     repository to build" >&2
 	exit 1
 fi
 
 TAG="$1"
 PAT="$2"
+repository="${3:-nanocurrency/nano-node}"
 VERSION=$(echo $TAG | sed 's/V//')
 TAG_DATE=""
 VERSION_MAJOR=$(echo $VERSION | cut -d "." -f 1)
 scriptDir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 function make_source() {
-	git clone --recursive --single-branch --branch ${TAG} https://github.com/nanocurrency/nano-node nano-$VERSION
+	git clone --recursive --single-branch --branch "${TAG}" "https://github.com/${repository}" "nano-${VERSION}"
 	cd nano-$VERSION
 	git fetch --tags
 	COUNT=$(git tag -l "${TAG}" | wc -l)
