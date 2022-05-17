@@ -204,3 +204,21 @@ TEST (confirm_ack, empty_vote_hashes)
 	auto vote = std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, std::vector<nano::block_hash>{} /* empty */);
 	nano::confirm_ack message{ nano::dev::network_params.network, vote };
 }
+
+TEST (message, bulk_pull_serialization)
+{
+	nano::bulk_pull message_in{ nano::dev::network_params.network };
+	message_in.header.flag_set (nano::message_header::bulk_pull_ascending_flag);
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream{ bytes };
+		message_in.serialize (stream);
+	}
+	nano::bufferstream stream{ bytes.data (), bytes.size () };
+	bool error = false;
+	nano::message_header header{ error, stream };
+	ASSERT_FALSE (error);
+	nano::bulk_pull message_out{ error, stream, header };
+	ASSERT_FALSE (error);
+	ASSERT_TRUE (header.bulk_pull_ascending ());
+}

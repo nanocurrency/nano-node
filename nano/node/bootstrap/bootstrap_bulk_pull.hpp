@@ -80,6 +80,7 @@ public:
 	void sent_action (boost::system::error_code const &, std::size_t);
 	void send_finished ();
 	void no_block_sent (boost::system::error_code const &, std::size_t);
+	bool ascending () const;
 	std::shared_ptr<nano::bootstrap_server> connection;
 	std::unique_ptr<nano::bulk_pull> request;
 	nano::block_hash current;

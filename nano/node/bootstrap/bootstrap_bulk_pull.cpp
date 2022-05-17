@@ -452,7 +452,7 @@ void nano::bulk_pull_server::set_current_end ()
 		}
 		else
 		{
-			current = info.head;
+			current = ascending () ? info.open_block : info.head;
 			if (!request->end.is_zero ())
 			{
 				auto account (connection->node->ledger.account (transaction, request->end));
@@ -481,7 +481,7 @@ void nano::bulk_pull_server::set_current_end ()
 
 void nano::bulk_pull_server::send_next ()
 {
-	auto block (get_next ());
+	auto block = get_next ();
 	if (block != nullptr)
 	{
 		std::vector<uint8_t> send_buffer;
@@ -489,12 +489,11 @@ void nano::bulk_pull_server::send_next ()
 			nano::vectorstream stream (send_buffer);
 			nano::serialize_block (stream, *block);
 		}
-		auto this_l (shared_from_this ());
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
 			connection->node->logger.try_log (boost::str (boost::format ("Sending block: %1%") % block->hash ().to_string ()));
 		}
-		connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l] (boost::system::error_code const & ec, std::size_t size_a) {
+		connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l = shared_from_this ()] (boost::system::error_code const & ec, std::size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
 	}
@@ -548,10 +547,10 @@ std::shared_ptr<nano::block> nano::bulk_pull_server::get_next ()
 		result = connection->node->block (current);
 		if (result != nullptr && set_current_to_end == false)
 		{
-			auto previous (result->previous ());
-			if (!previous.is_zero ())
+			auto next = ascending () ? result->sideband ().successor : result->previous ();
+			if (!next.is_zero ())
 			{
-				current = previous;
+				current = next;
 			}
 			else
 			{
@@ -617,6 +616,11 @@ void nano::bulk_pull_server::no_block_sent (boost::system::error_code const & ec
 			connection->node->logger.try_log ("Unable to send not-a-block");
 		}
 	}
+}
+
+bool nano::bulk_pull_server::ascending () const
+{
+	return request->header.bulk_pull_ascending ();
 }
 
 nano::bulk_pull_server::bulk_pull_server (std::shared_ptr<nano::bootstrap_server> const & connection_a, std::unique_ptr<nano::bulk_pull> request_a) :

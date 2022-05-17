@@ -214,6 +214,19 @@ bool nano::message_header::bulk_pull_is_count_present () const
 	return result;
 }
 
+bool nano::message_header::bulk_pull_ascending () const
+{
+	auto result (false);
+	if (type == nano::message_type::bulk_pull)
+	{
+		if (extensions.test (bulk_pull_ascending_flag))
+		{
+			result = true;
+		}
+	}
+	return result;
+}
+
 bool nano::message_header::frontier_req_is_only_confirmed_present () const
 {
 	auto result (false);
