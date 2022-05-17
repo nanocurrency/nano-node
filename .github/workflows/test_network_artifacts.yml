@@ -82,6 +82,7 @@ jobs:
           COMPILER: gcc
         run: ci/actions/linux/install_deps.sh
       - name: Deploy Docker (nanocurrency/nano)
+        if: ${{ github.repository == 'nanocurrency/nano-node' }}
         run: TRAVIS_TAG=${TAG} ci/actions/linux/deploy-docker.sh
         env:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
