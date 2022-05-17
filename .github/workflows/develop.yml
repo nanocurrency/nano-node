@@ -22,6 +22,6 @@ jobs:
       - name: Deploy Docker (ghcr.io)
         run: ci/actions/linux/ghcr_push.sh
       - name: Deploy Docker (nanocurrency/nano-env)
-        run: ci/actions/linux/deploy-docker.sh
+        run: ci/actions/linux/docker-deploy.sh
         env:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
