@@ -41,6 +41,7 @@ public:
 	/** Note: node.active.mutex lock is required */
 	nano::vote_code vote_blocking (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &, bool = false);
 	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> const &);
+	/** Block until all queued votes are processed */
 	void flush ();
 	/** Block until the currently active processing cycle finishes */
 	void flush_active ();
@@ -70,7 +71,8 @@ private:
 	std::unordered_set<nano::account> representatives_1;
 	std::unordered_set<nano::account> representatives_2;
 	std::unordered_set<nano::account> representatives_3;
-	nano::condition_variable condition;
+	nano::condition_variable vote_condition;
+	nano::condition_variable flush_condition;
 	nano::mutex mutex{ mutex_identifier (mutexes::vote_processor) };
 	bool started;
 	bool stopped;

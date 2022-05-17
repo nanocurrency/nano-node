@@ -36,7 +36,7 @@ nano::vote_processor::vote_processor (nano::signature_checker & checker_a, nano:
 	})
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
-	condition.wait (lock, [&started = started] { return started; });
+	vote_condition.wait (lock, [&started = started] { return started; });
 }
 
 void nano::vote_processor::process_loop ()
@@ -48,7 +48,7 @@ void nano::vote_processor::process_loop ()
 	started = true;
 
 	lock.unlock ();
-	condition.notify_all ();
+	vote_condition.notify_all ();
 	lock.lock ();
 
 	while (!stopped)
@@ -75,7 +75,7 @@ void nano::vote_processor::process_loop ()
 			is_active = false;
 
 			lock.unlock ();
-			condition.notify_all ();
+			flush_condition.notify_all ();
 			total_processed += votes_l.size ();
 			lock.lock ();
 
@@ -86,7 +86,7 @@ void nano::vote_processor::process_loop ()
 		}
 		else
 		{
-			condition.wait (lock);
+			vote_condition.wait (lock);
 		}
 	}
 }
@@ -122,7 +122,7 @@ bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std
 		{
 			votes.emplace_back (vote_a, channel_a);
 			lock.unlock ();
-			condition.notify_all ();
+			vote_condition.notify_all ();
 			// Lock no longer required
 		}
 		else
@@ -209,7 +209,8 @@ void nano::vote_processor::stop ()
 		nano::lock_guard<nano::mutex> lock (mutex);
 		stopped = true;
 	}
-	condition.notify_all ();
+	vote_condition.notify_all ();
+	flush_condition.notify_all ();
 	if (thread.joinable ())
 	{
 		thread.join ();
@@ -221,16 +222,16 @@ void nano::vote_processor::flush ()
 	nano::unique_lock<nano::mutex> lock (mutex);
 	while (is_active || !votes.empty ())
 	{
-		condition.wait (lock);
+		flush_condition.wait (lock);
 	}
 }
 
 void nano::vote_processor::flush_active ()
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
-	while (is_active)
+	if (is_active)
 	{
-		condition.wait (lock);
+		flush_condition.wait (lock);
 	}
 }
 
