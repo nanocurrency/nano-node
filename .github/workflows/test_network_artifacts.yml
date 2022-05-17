@@ -81,7 +81,7 @@ jobs:
         env:
           COMPILER: gcc
         run: ci/actions/linux/install_deps.sh
-      - name: Deploy Docker (nanocurrency/nano)
+      - name: Deploy Docker Hub (nanocurrency/nano-test)
         if: ${{ github.repository == 'nanocurrency/nano-node' }}
         run: TRAVIS_TAG=${TAG} ci/actions/linux/deploy-docker.sh
         env:
