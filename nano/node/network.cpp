@@ -9,6 +9,7 @@
 #include <boost/format.hpp>
 #include <boost/variant/get.hpp>
 
+#include <chrono>
 #include <numeric>
 
 nano::network::network (nano::node & node_a, uint16_t port_a) :
@@ -476,6 +477,15 @@ public:
 		{
 			node.logger.try_log (boost::str (boost::format ("Received confirm_ack message from %1% for %2% timestamp %3%") % channel->to_string () % message_a.vote->hashes_string () % std::to_string (message_a.vote->timestamp ())));
 		}
+
+		auto timestamp = message_a.vote->timestamp ();
+		auto cutoff = nano::milliseconds_since_epoch() - std::chrono::duration_cast<std::chrono::milliseconds>(nano::vote_timestamp_cutoff).count();
+		if (timestamp != nano::vote::timestamp_max && timestamp < cutoff)
+		{
+			node.stats.inc (nano::stat::type::filter, nano::stat::detail::confirm_ack, nano::stat::dir::in);
+			return;
+		}
+
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in);
 		if (!message_a.vote->account.is_zero ())
 		{
