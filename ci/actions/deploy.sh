@@ -13,10 +13,11 @@ else
     BUILD="live"
 fi
 
-if [[ "${GITHUB_REPOSITORY}" -eq "nanocurrency/nano-node" ]]; then
+if [[ "${GITHUB_REPOSITORY:-}" == "nanocurrency/nano-node" ]]; then
     S3_BUCKET="repo.nano.org"
 else
     S3_BUCKET="private-build-repo"
+fi
 
 if [[ "$OS" == 'Linux' ]]; then
     sha256sum $GITHUB_WORKSPACE/build/nano-node-*-Linux.tar.bz2 >$GITHUB_WORKSPACE/nano-node-$TAG-Linux.tar.bz2.sha256
