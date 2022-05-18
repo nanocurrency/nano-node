@@ -363,6 +363,47 @@ TEST (network, send_insufficient_work)
 	ASSERT_EQ (2, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 }
 
+TEST (network, invalid_vote_timestamp)
+{
+	nano::system system (1);
+	auto & node1 (*system.nodes[0]);
+	auto block1 (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), 0, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
+	node1.work_generate_blocking (*block1);
+	ASSERT_EQ (nano::process_result::progress, node1.process (*block1).code);
+	node1.scheduler.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
+	nano::keypair key1;
+	auto channel1 (node1.network.udp_channels.create (node1.network.endpoint ()));
+	{
+		// Block too early timestamp
+		auto vote (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, 0, std::vector<nano::block_hash>{ block1->hash () }));
+		nano::confirm_ack con1{ nano::dev::network_params.network, vote };
+		node1.network.inbound (con1, channel1);
+		ASSERT_EQ (1, node1.stats.count (nano::stat::type::filter, nano::stat::detail::confirm_ack, nano::stat::dir::in));
+	}
+	{
+		// Block too late timestamp
+		auto vote (std::make_shared<nano::vote> (key1.pub, key1.prv, nano::milliseconds_since_epoch () + 1000 * 60 * 10, 0, std::vector<nano::block_hash>{ block1->hash () }));
+		nano::confirm_ack con1{ nano::dev::network_params.network, vote };
+		node1.network.inbound (con1, channel1);
+		ASSERT_EQ (2, node1.stats.count (nano::stat::type::filter, nano::stat::detail::confirm_ack, nano::stat::dir::in));
+	}
+	{
+		// Test overflow
+		auto vote (std::make_shared<nano::vote> (key1.pub, key1.prv, std::numeric_limits<uint64_t>::max (), 0, std::vector<nano::block_hash>{ block1->hash () }));
+		nano::confirm_ack con1{ nano::dev::network_params.network, vote };
+		node1.network.inbound (con1, channel1);
+		ASSERT_EQ (3, node1.stats.count (nano::stat::type::filter, nano::stat::detail::confirm_ack, nano::stat::dir::in));
+	}
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in));
+	{
+		// Allow valid timestamp
+		auto vote (std::make_shared<nano::vote> (key1.pub, key1.prv, nano::milliseconds_since_epoch (), 0, std::vector<nano::block_hash>{ block1->hash () }));
+		nano::confirm_ack con1{ nano::dev::network_params.network, vote };
+		node1.network.inbound (con1, node1.network.udp_channels.create (node1.network.endpoint ()));
+		ASSERT_EQ (1, node1.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in));
+	}
+}
+
 TEST (receivable_processor, confirm_insufficient_pos)
 {
 	nano::system system (1);

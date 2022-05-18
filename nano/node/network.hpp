@@ -198,4 +198,6 @@ public:
 	static std::size_t const confirm_ack_hashes_max = 12;
 };
 std::unique_ptr<container_info_component> collect_container_info (network & network, std::string const & name);
+
+static std::chrono::seconds constexpr vote_timestamp_cutoff{ 60 * 5 };
 }
