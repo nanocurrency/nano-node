@@ -356,8 +356,8 @@ std::size_t nano::message_header::light_payload_length_bytes () const
 
 			return (repCount * 96) + 32;
 		}
-		case nano::message_type_light::height_req:
-		case nano::message_type_light::height_ack: {
+		case nano::message_type_light::msg_height_req:
+		case nano::message_type_light::msg_height_ack: {
 			return 32;
 		}
 		default:
