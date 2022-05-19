@@ -81,8 +81,10 @@ jobs:
         env:
           COMPILER: gcc
         run: ci/actions/linux/install_deps.sh
+      - name: Build Docker (nanocurrency/nano)
+        run: TRAVIS_TAG=${TAG} ci/actions/linux/docker-build.sh
       - name: Deploy Docker (nanocurrency/nano)
-        run: TRAVIS_TAG=${TAG} ci/actions/linux/deploy-docker.sh
+        run: TRAVIS_TAG=${TAG} ci/actions/linux/docker-deploy.sh
         env:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       - name: Login to ghcr.io
