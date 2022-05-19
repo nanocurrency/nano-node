@@ -1101,6 +1101,11 @@ std::size_t nano::active_transactions::inactive_votes_cache_size ()
 
 void nano::active_transactions::add_inactive_votes_cache (nano::unique_lock<nano::mutex> & lock_a, nano::block_hash const & hash_a, nano::account const & representative_a, uint64_t const timestamp_a)
 {
+	if (node.flags.inactive_votes_cache_size == 0)
+	{
+		return;
+	}
+
 	// Check principal representative status
 	if (node.ledger.weight (representative_a) > node.minimum_principal_weight ())
 	{
