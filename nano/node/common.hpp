@@ -190,6 +190,15 @@ enum class message_type : uint8_t
 	protocol_upgrade = 0x1f
 };
 
+enum class message_type_light : uint8_t
+{
+	invalid = 0x0,
+	node_id_req = 0x1,
+	node_id_ack = 0x2,
+	height_req = 0x3,
+	height_ack = 0x4
+};
+
 std::string message_type_to_string (message_type);
 
 enum class bulk_pull_account_flags : uint8_t

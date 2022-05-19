@@ -131,6 +131,25 @@ std::string nano::message_type_to_string (nano::message_type message_type_l)
 	return "n/a";
 }
 
+std::string nano::light_message_type_to_string (nano::message_type message_type_l)
+{
+	switch (message_type_l)
+	{
+		case nano::message_type::invalid:
+			return "invalid";
+		case nano::message_type::node_id_req:
+			return "node_id_req";
+		case nano::message_type::node_id_ack:
+			return "node_id_ack";
+		case nano::message_type::height_req:
+			return "height_req";
+		case nano::message_type::height_ack:
+			return "height_ack";
+	}
+
+	return "n/a";
+}
+
 std::string nano::message_header::to_string ()
 {
 	// Cast to uint16_t to get integer value since uint8_t is treated as an unsigned char in string formatting.
