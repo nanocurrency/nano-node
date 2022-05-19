@@ -235,6 +235,19 @@ bool nano::message_header::bulk_pull_is_count_present () const
 	return result;
 }
 
+bool nano::message_header::cookie_is_present () const
+{
+	auto result (false);
+	if (type == nano::message_type_light::node_id_req)
+	{
+		if (extensions.test (cookie_present_flag))
+		{
+			result = true;
+		}
+	}
+	return result;
+}
+
 bool nano::message_header::frontier_req_is_only_confirmed_present () const
 {
 	auto result (false);
@@ -282,6 +295,7 @@ std::size_t nano::message_header::payload_length_bytes () const
 		{
 			return nano::bulk_pull::size + (bulk_pull_is_count_present () ? nano::bulk_pull::extended_parameters_size : 0);
 		}
+		case nano::message_type::protocol_upgrade:
 		case nano::message_type::bulk_push:
 		case nano::message_type::telemetry_req:
 		{
@@ -319,6 +333,22 @@ std::size_t nano::message_header::payload_length_bytes () const
 		case nano::message_type::telemetry_ack:
 		{
 			return nano::telemetry_ack::size (*this);
+		}
+		default:
+		{
+			debug_assert (false);
+			return 0;
+		}
+	}
+}
+
+std::size_t nano::message_header::light_payload_length_bytes () const
+{
+	switch (type)
+	{
+		case nano::message_type_light::node_id_req:
+		{
+			return 32 + (cookie_is_present () ? 30 : 0);;
 		}
 		default:
 		{
