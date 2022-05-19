@@ -350,6 +350,16 @@ std::size_t nano::message_header::light_payload_length_bytes () const
 		{
 			return 32 + (cookie_is_present () ? 30 : 0);;
 		}
+		case nano::message_type_light::node_id_ack:
+		{
+			int repCount = (extensions & 0x1f);
+
+			return (repCount * 96) + 32;
+		}
+		case nano::message_type_light::height_req:
+		case nano::message_type_light::height_ack: {
+			return 32;
+		}
 		default:
 		{
 			debug_assert (false);
