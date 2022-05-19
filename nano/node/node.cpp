@@ -593,6 +593,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 
 void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 {
+	// Add Checks for unchcekd and forks
 	block_arrival.add (incoming->hash ());
 	block_processor.add (incoming);
 }
