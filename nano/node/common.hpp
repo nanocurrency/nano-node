@@ -186,7 +186,8 @@ enum class message_type : uint8_t
 	node_id_handshake = 0x0a,
 	bulk_pull_account = 0x0b,
 	telemetry_req = 0x0c,
-	telemetry_ack = 0x0d
+	telemetry_ack = 0x0d,
+	protocol_upgrade = 0x1f
 };
 
 std::string message_type_to_string (message_type);

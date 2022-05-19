@@ -123,6 +123,8 @@ std::string nano::message_type_to_string (nano::message_type message_type_l)
 			return "telemetry_req";
 		case nano::message_type::telemetry_ack:
 			return "telemetry_ack";
+		case nano::message_type::protocol_upgrade:
+			return "protocol_upgrade";
 			// default case intentionally omitted to cause warnings for unhandled enums
 	}
 
