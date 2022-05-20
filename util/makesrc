@@ -1,19 +1,14 @@
 #!/bin/bash
 
-#    makesrc <tag> <pat> 
-#    personal access token allows around rate limit
-
 if [ -e $2 ]; then
-	echo "makesrc <tag> <pat> <repo>" >&2
+	echo "makesrc <tag> <repo>" >&2
 	echo "    tag      valid <tag> for <repo>" >&2
-	echo "    pat      personal access token" >&2
 	echo "    repo     repository to build" >&2
 	exit 1
 fi
 
 TAG="$1"
-PAT="$2"
-repository="${3:-nanocurrency/nano-node}"
+repository="${2:-nanocurrency/nano-node}"
 VERSION=$(echo $TAG | sed 's/V//')
 TAG_DATE=""
 VERSION_MAJOR=$(echo $VERSION | cut -d "." -f 1)
@@ -41,28 +36,14 @@ function source_information() {
 	DATE=$(git log --tags --simplify-by-decoration --pretty="format:%ai %d" | head -1 | cut -d " " -f1-3)
 	COMMIT=$(git log | head -1 | cut -d " " -f 2)
 	TAG_DATE=$(TZ=UTC date -d"$DATE" +%s)
-
-#	(
-#		eval "$(scl enable rh-python38 'echo -e "source /opt/rh/rh-python38/enable\n"')"
-#		python -m pip install PyGithub mdutils
-#
-#		python ${scriptDir}/changelog.py -p ${PAT} -t ${TAG} -m full
-#
-#		if [ ! -s CHANGELOG.md ]; then
-#			echo "CHANGELOG not generated"
-#			exit 1
-#		fi
-#		exit 0
-#	) || exit 1
-
 	export TAG_DATE
 }
 function cleanup_source() {
 	mv nano-$VERSION.tar.gz ~/.
 	echo "ARCHIVE MOVDED TO HOME..."
 	rm -fr nano-$TAG/
-
 }
+
 function tarball_creation() {
 	cd ..
 	ARCHIVE_FILE_NAME="nano-${VERSION}.tar.gz"
