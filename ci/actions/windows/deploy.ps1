@@ -10,7 +10,7 @@ else {
     $network_cfg = "live"
 }
 
-if ( ${env:GITHUB_REPOSITORY} == "nanocurrency/nano-node" ) {
+if ( ${env:GITHUB_REPOSITORY} -eq "nanocurrency/nano-node" ) {
     $directory=$network_cfg
 }
 else {
