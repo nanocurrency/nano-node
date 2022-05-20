@@ -5,7 +5,7 @@ RELEASE=$(echo $CI_JOB_ID)
 REPO_TO_BUILD=$(echo $REPO_TO_BUILD)
 
 run_source() {
-	./util/makesrc $TAG $(echo $PAT) $REPO_TO_BUILD
+	./util/makesrc $TAG $REPO_TO_BUILD
 }
 
 run_build() {
