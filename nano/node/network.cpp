@@ -15,14 +15,9 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 	id (nano::network_constants::active_network),
 	syn_cookies (node_a.network_params.network.max_peers_per_ip),
 	inbound{ [this] (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel) {
-		if (message.header.network == id)
-		{
-			process_message (message, channel);
-		}
-		else
-		{
-			this->node.stats.inc (nano::stat::type::message, nano::stat::detail::invalid_network);
-		}
+		debug_assert (message.header.network == node.network_params.network.current_network);
+		debug_assert (message.header.version_using >= node.network_params.network.protocol_version_min);
+		process_message (message, channel);
 	} },
 	buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 	resolver (node_a.io_ctx),

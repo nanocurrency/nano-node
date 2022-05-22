@@ -631,9 +631,10 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 					auto error (false);
 					nano::bufferstream stream (receive_buffer_a->data (), size_a);
 					nano::message_header header (error, stream);
+					// the header type should in principle be checked after checking the network bytes and the version numbers, I will not change it here since the benefits do not outweight the difficulties
 					if (!error && header.type == nano::message_type::node_id_handshake)
 					{
-						if (header.version_using >= node_l->network_params.network.protocol_version_min)
+						if (header.network == node_l->network_params.network.current_network && header.version_using >= node_l->network_params.network.protocol_version_min)
 						{
 							nano::node_id_handshake message (error, stream, header);
 							if (!error && message.response && message.query)
@@ -704,6 +705,16 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 						}
 						else
 						{
+							// error handling, either the networks bytes or the version is wrong
+							if (header.network == node_l->network_params.network.current_network)
+							{
+								node_l->stats.inc (nano::stat::type::message, nano::stat::detail::invalid_network);
+							}
+							else
+							{
+								node_l->stats.inc (nano::stat::type::message, nano::stat::detail::outdated_version);
+							}
+
 							// Version of channel is not high enough, just abort. Don't fallback to udp, instead cleanup attempt
 							cleanup_node_id_handshake_socket (endpoint_a);
 							{
