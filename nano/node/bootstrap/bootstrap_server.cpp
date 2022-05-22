@@ -204,6 +204,18 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 		nano::message_header header (error, type_stream);
 		if (!error)
 		{
+			if (header.network != node->network_params.network.current_network)
+			{
+				node->stats.inc (nano::stat::type::message, nano::stat::detail::invalid_network);
+				return;
+			}
+
+			if (header.version_using < node->network_params.network.protocol_version_min)
+			{
+				node->stats.inc (nano::stat::type::message, nano::stat::detail::outdated_version);
+				return;
+			}
+
 			auto this_l (shared_from_this ());
 			switch (header.type)
 			{
