@@ -84,7 +84,7 @@ jobs:
       - name: Build Artifact
         run: |
           mkdir -p ${GITHUB_WORKSPACE}/artifacts
-          docker run -e LIVE=1 -e TAG=$TAG -e REPO_TO_BUILD=$REPO_TO_BUILD \
+          docker run -e LIVE=1 -e TAG=$TAG -e REPO_TO_BUILD=$REPO_TO_BUILD -e RPM_RELEASE=1 \
           -v ${GITHUB_WORKSPACE}:/workspace \
           -v ${GITHUB_WORKSPACE}/artifacts:/root/rpmbuild \
           nanocurrency/nano-env:centos /bin/bash -c "ci/build-centos.sh"
