@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 TAG=$(echo $TAG)
 VERSIONS=${TAG//V/}
-RELEASE=$(echo $CI_JOB_ID)
+RPM_RELEASE=$(echo $RPM_RELEASE)
 REPO_TO_BUILD=$(echo $REPO_TO_BUILD)
 
 run_source() {
@@ -25,7 +25,7 @@ run_update() {
 		echo "Updating \"${outfile}\"..."
 
 		rm -f "${file}.new"
-		awk -v srch="@VERSION@" -v repl="$VERSIONS" -v srch2="@RELEASE@" -v repl2="$RELEASE" '{ sub(srch,repl,$0); sub(srch2,repl2, $0); print $0}' <${file} >${file}.new
+		awk -v srch="@VERSION@" -v repl="$VERSIONS" -v srch2="@RELEASE@" -v repl2="$RPM_RELEASE" '{ sub(srch,repl,$0); sub(srch2,repl2, $0); print $0}' <${file} >${file}.new
 		rm -fr "${outfile}"
 		cat "${file}.new" >"${outfile}"
 		rm -f "${file}.new"
