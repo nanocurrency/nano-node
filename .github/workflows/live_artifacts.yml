@@ -77,8 +77,8 @@ jobs:
       - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           submodules: "recursive"
-          ref: ${{ github.event.inputs.ref }}
-          repository: ${{ github.event.inputs.repo }}
+          ref: ${{ github.ref }}
+          repository: ${{ github.repository }}
       - name: CentOS Base
         run: ci/build-docker-image.sh docker/ci/Dockerfile-centos nanocurrency/nano-env:centos
       - name: Build Artifact
