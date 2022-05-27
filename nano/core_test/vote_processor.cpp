@@ -56,6 +56,63 @@ TEST (vote_processor, flush)
 	ASSERT_TRUE (node.vote_processor.empty ());
 }
 
+// Tests the normal behavior is more votes getting into the vote_processor than getting processed,
+// so the producer always wins. Also exercises the flush operation, so it must never deadlock.
+TEST (vote_processor, producer_consumer)
+{
+	nano::system system (1);
+	auto & node (*system.nodes[0]);
+	auto channel (std::make_shared<nano::transport::channel_loopback> (node));
+
+	unsigned number_of_votes{ 25'000 };
+	unsigned consumer_wins{ 0 };
+	unsigned producer_wins{ 0 };
+
+	auto producer = [&node, &channel, &number_of_votes] () -> void {
+		for (unsigned i = 0; i < number_of_votes; ++i)
+		{
+			auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * (1 + i), 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
+			node.vote_processor.vote (vote, channel);
+		}
+	};
+
+	auto consumer = [&node, &number_of_votes] () -> void {
+		while (node.vote_processor.total_processed.load () < number_of_votes)
+		{
+			if (node.vote_processor.size () >= number_of_votes / 100)
+			{
+				node.vote_processor.flush ();
+			}
+		}
+	};
+
+	auto monitor = [&node, &number_of_votes, &producer_wins, &consumer_wins] () -> void {
+		while (node.vote_processor.total_processed.load () < number_of_votes)
+		{
+			std::this_thread::sleep_for (std::chrono::milliseconds (50));
+			if (node.vote_processor.empty ())
+			{
+				++consumer_wins;
+			}
+			else
+			{
+				++producer_wins;
+			}
+		}
+	};
+
+	std::thread producer_thread{ producer };
+	std::thread consumer_thread{ consumer };
+	std::thread monitor_thread{ monitor };
+
+	ASSERT_TIMELY (10s, node.vote_processor.total_processed.load () >= number_of_votes);
+	producer_thread.join ();
+	consumer_thread.join ();
+	monitor_thread.join ();
+
+	ASSERT_TRUE (producer_wins > consumer_wins);
+}
+
 TEST (vote_processor, invalid_signature)
 {
 	nano::system system{ 1 };
@@ -72,10 +129,10 @@ TEST (vote_processor, invalid_signature)
 	ASSERT_EQ (1, election->votes ().size ());
 	node.vote_processor.vote (vote_invalid, channel);
 	node.vote_processor.flush ();
-	ASSERT_EQ (1, election->votes ().size ());
+	ASSERT_TIMELY (3s, 1 == election->votes ().size ());
 	node.vote_processor.vote (vote, channel);
 	node.vote_processor.flush ();
-	ASSERT_EQ (2, election->votes ().size ());
+	ASSERT_TIMELY (3s, 2 == election->votes ().size ());
 }
 
 TEST (vote_processor, no_capacity)
@@ -99,6 +156,7 @@ TEST (vote_processor, overflow)
 	nano::keypair key;
 	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () }));
 	auto channel (std::make_shared<nano::transport::channel_loopback> (node));
+	auto start_time = std::chrono::system_clock::now ();
 
 	// No way to lock the processor, but queueing votes in quick succession must result in overflow
 	size_t not_processed{ 0 };
@@ -113,6 +171,9 @@ TEST (vote_processor, overflow)
 	ASSERT_GT (not_processed, 0);
 	ASSERT_LT (not_processed, total);
 	ASSERT_EQ (not_processed, node.stats.count (nano::stat::type::vote, nano::stat::detail::vote_overflow));
+
+	// check that it did not timeout
+	ASSERT_LT (std::chrono::system_clock::now () - start_time, 10s);
 }
 
 namespace nano
