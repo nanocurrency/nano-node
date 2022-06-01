@@ -804,7 +804,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 					node.online_reps.observe (rep_a);
 				},
 				election_behavior_a);
-				roots.get<tag_root> ().emplace (nano::active_transactions::conflict_info{ root, result.election, epoch });
+				roots.get<tag_root> ().emplace (nano::active_transactions::conflict_info{ root, result.election, epoch, election_behavior_a });
 				blocks.emplace (hash, result.election);
 				auto const cache = find_inactive_votes_cache_impl (hash);
 				lock_a.unlock ();
@@ -830,6 +830,18 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 		}
 	}
 	return result;
+}
+
+nano::election_insertion_result nano::active_transactions::insert_hinted (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::block> const & block_a)
+{
+	auto & roots_by_behavior (roots.get<tag_election_behavior> ());
+	if (roots_by_behavior.count (nano::election_behavior::hinted) >= node.config.active_elections_hinted_reserved)
+	{
+		// Reached maximum number of hinted elections, drop new ones
+		return {};
+	}
+
+	return insert_impl (lock_a, block_a, nano::election_behavior::hinted);
 }
 
 // Validate a vote and apply it to the current election if one exists
@@ -1185,7 +1197,7 @@ void nano::active_transactions::trigger_inactive_votes_cache_election (std::shar
 	auto const status = find_inactive_votes_cache_impl (block_a->hash ()).status;
 	if (status.election_started)
 	{
-		insert_impl (lock, block_a);
+		insert_hinted (lock, block_a);
 	}
 }
 
@@ -1267,7 +1279,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 		if (block && status.election_started && !previously_a.election_started && !node.block_confirmed_or_being_confirmed (transaction, hash_a))
 		{
 			lock_a.lock ();
-			insert_impl (lock_a, block);
+			insert_hinted (lock_a, block);
 		}
 		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started && (!node.ledger.pruning || !node.store.pruned.exists (transaction, hash_a)))
 		{

@@ -43,7 +43,8 @@ public:
 enum class election_behavior
 {
 	normal,
-	optimistic
+	optimistic,
+	hinted
 };
 struct election_extended_status final
 {
