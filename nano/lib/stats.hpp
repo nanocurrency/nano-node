@@ -324,6 +324,7 @@ public:
 		election_drop_overflow,
 		election_drop_all,
 		election_restart,
+		election_hinted_overflow,
 
 		// udp
 		blocking,

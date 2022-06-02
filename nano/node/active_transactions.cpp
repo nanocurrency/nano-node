@@ -835,9 +835,10 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 nano::election_insertion_result nano::active_transactions::insert_hinted (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::block> const & block_a)
 {
 	auto & roots_by_behavior (roots.get<tag_election_behavior> ());
-	if (roots_by_behavior.count (nano::election_behavior::hinted) >= node.config.active_elections_hinted_reserved)
+	if (roots_by_behavior.count (nano::election_behavior::hinted) >= node.config.active_elections_hinted_limit)
 	{
 		// Reached maximum number of hinted elections, drop new ones
+		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_hinted_overflow);
 		return {};
 	}
 
@@ -1279,7 +1280,11 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 		if (block && status.election_started && !previously_a.election_started && !node.block_confirmed_or_being_confirmed (transaction, hash_a))
 		{
 			lock_a.lock ();
-			insert_hinted (lock_a, block);
+			auto result = insert_hinted (lock_a, block);
+			if (!result.inserted && result.election == nullptr)
+			{
+				status.election_started = false;
+			}
 		}
 		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started && (!node.ledger.pruning || !node.store.pruned.exists (transaction, hash_a)))
 		{

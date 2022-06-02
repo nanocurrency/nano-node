@@ -754,6 +754,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::election_restart:
 			res = "election_restart";
 			break;
+		case nano::stat::detail::election_hinted_overflow:
+			res = "election_hinted_overflow";
+			break;
 		case nano::stat::detail::blocking:
 			res = "blocking";
 			break;
