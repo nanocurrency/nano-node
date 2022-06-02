@@ -148,6 +148,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.rpc.child_process.rpc_path, defaults.rpc.child_process.rpc_path);
 
 	ASSERT_EQ (conf.node.active_elections_size, defaults.node.active_elections_size);
+	ASSERT_EQ (conf.node.active_elections_hinted_limit, defaults.node.active_elections_hinted_limit);
 	ASSERT_EQ (conf.node.allow_local_peers, defaults.node.allow_local_peers);
 	ASSERT_EQ (conf.node.backup_before_upgrade, defaults.node.backup_before_upgrade);
 	ASSERT_EQ (conf.node.bandwidth_limit, defaults.node.bandwidth_limit);
@@ -388,6 +389,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ss << R"toml(
 	[node]
 	active_elections_size = 999
+	active_elections_hinted_limit = 999
 	allow_local_peers = false
 	backup_before_upgrade = true
 	bandwidth_limit = 999
@@ -552,6 +554,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.rpc.child_process.rpc_path, defaults.rpc.child_process.rpc_path);
 
 	ASSERT_NE (conf.node.active_elections_size, defaults.node.active_elections_size);
+	ASSERT_NE (conf.node.active_elections_hinted_limit, defaults.node.active_elections_hinted_limit);
 	ASSERT_NE (conf.node.allow_local_peers, defaults.node.allow_local_peers);
 	ASSERT_NE (conf.node.backup_before_upgrade, defaults.node.backup_before_upgrade);
 	ASSERT_NE (conf.node.bandwidth_limit, defaults.node.bandwidth_limit);
