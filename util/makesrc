@@ -1,26 +1,25 @@
 #!/bin/bash
 
-if [ -e $2 ]; then
+if [ -e "${2}" ]; then
 	echo "makesrc <tag> <repo>" >&2
 	echo "    tag      valid <tag> for <repo>" >&2
 	echo "    repo     repository to build" >&2
 	exit 1
 fi
 
-TAG="$1"
+TAG="${1}"
 repository="${2:-nanocurrency/nano-node}"
-VERSION=$(echo $TAG | sed 's/V//')
+VERSION=$(echo "${TAG}" | sed 's/V//' | sed 's/-/_/g')
 TAG_DATE=""
-VERSION_MAJOR=$(echo $VERSION | cut -d "." -f 1)
 scriptDir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 function make_source() {
 	git clone --recursive --single-branch --branch "${TAG}" "https://github.com/${repository}" "nano-${VERSION}"
-	cd nano-$VERSION
+	cd "nano-${VERSION}"
 	git fetch --tags
 	COUNT=$(git tag -l "${TAG}" | wc -l)
 	if [ "$COUNT" -eq 0 ]; then
-		echo "tag $TAG not found"
+		echo "tag ${TAG} not found"
 		exit 1
 	else
 		git checkout "${TAG}"
@@ -35,13 +34,13 @@ function make_source() {
 function source_information() {
 	DATE=$(git log --tags --simplify-by-decoration --pretty="format:%ai %d" | head -1 | cut -d " " -f1-3)
 	COMMIT=$(git log | head -1 | cut -d " " -f 2)
-	TAG_DATE=$(TZ=UTC date -d"$DATE" +%s)
+	TAG_DATE=$(TZ=UTC date -d"${DATE}" +%s)
 	export TAG_DATE
 }
 function cleanup_source() {
-	mv nano-$VERSION.tar.gz ~/.
+	mv "nano-${VERSION}.tar.gz" ~/.
 	echo "ARCHIVE MOVDED TO HOME..."
-	rm -fr nano-$TAG/
+	rm -fr "nano-${VERSION}"/
 }
 
 function tarball_creation() {
@@ -61,7 +60,10 @@ function tarball_creation() {
 			tarArgs=("${tarArgs[@]}" --mtime="@${TAG_DATE}")
 		fi
 	fi
-	TZ=UTC LANG=C LC_ALL=C tar "${tarArgs[@]}" -cvf - nano-${VERSION} | TZ=UTC gzip --no-name -9c >"${ARCHIVE_FILE_NAME}" || exit 1
+	TZ=UTC LANG=C LC_ALL=C tar "${tarArgs[@]}" -cvf - "nano-${VERSION}" | TZ=UTC gzip --no-name -9c >"${ARCHIVE_FILE_NAME}" || exit 1
 }
+
+set -x
+
 make_source
 cleanup_source
