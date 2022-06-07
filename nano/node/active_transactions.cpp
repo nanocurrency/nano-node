@@ -860,7 +860,8 @@ nano::election_insertion_result nano::active_transactions::insert_hinted (nano::
 {
 	debug_assert (lock_a.owns_lock ());
 
-	if (active_hinted_elections_count >= node.config.active_elections_hinted_limit)
+	const std::size_t limit = node.config.active_elections_hinted_limit_ratio * node.config.active_elections_size / 100;
+	if (active_hinted_elections_count >= limit)
 	{
 		// Reached maximum number of hinted elections, drop new ones
 		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_hinted_overflow);
