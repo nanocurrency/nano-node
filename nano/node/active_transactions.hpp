@@ -148,9 +148,7 @@ public:
 	mi::indexed_by<
 		mi::random_access<mi::tag<tag_random_access>>,
 		mi::hashed_unique<mi::tag<tag_root>,
-			mi::member<conflict_info, nano::qualified_root, &conflict_info::root>>,
-		mi::hashed_non_unique<mi::tag<tag_election_behavior>,
-			mi::member<conflict_info, nano::election_behavior, &conflict_info::election_behavior>>
+			mi::member<conflict_info, nano::qualified_root, &conflict_info::root>>
 	>>;
 	// clang-format on
 	ordered_roots roots;
@@ -277,6 +275,7 @@ private:
 	expired_optimistic_election_infos;
 	// clang-format on
 	std::atomic<uint64_t> expired_optimistic_election_infos_size{ 0 };
+	int active_hinted_elections_count{ 0 };
 
 	// Frontiers confirmation
 	nano::frontiers_confirmation_info get_frontiers_confirmation_info ();

@@ -351,9 +351,15 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 
 void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex> & lock_a, nano::election const & election)
 {
+	debug_assert (lock_a.owns_lock ());
+
 	if (!election.confirmed ())
 	{
 		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop_all);
+	}
+	if (election.behavior == election_behavior::hinted)
+	{
+		--active_hinted_elections_count;
 	}
 
 	auto blocks_l = election.blocks ();
@@ -806,6 +812,11 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				election_behavior_a);
 				roots.get<tag_root> ().emplace (nano::active_transactions::conflict_info{ root, result.election, epoch, election_behavior_a });
 				blocks.emplace (hash, result.election);
+				// Increase hinted election counter while still holding lock
+				if (election_behavior_a == election_behavior::hinted)
+				{
+					active_hinted_elections_count++;
+				}
 				auto const cache = find_inactive_votes_cache_impl (hash);
 				lock_a.unlock ();
 				result.election->insert_inactive_votes_cache (cache);
@@ -834,8 +845,9 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 
 nano::election_insertion_result nano::active_transactions::insert_hinted (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::block> const & block_a)
 {
-	auto & roots_by_behavior (roots.get<tag_election_behavior> ());
-	if (roots_by_behavior.count (nano::election_behavior::hinted) >= node.config.active_elections_hinted_limit)
+	debug_assert (lock_a.owns_lock ());
+
+	if (active_hinted_elections_count >= node.config.active_elections_hinted_limit)
 	{
 		// Reached maximum number of hinted elections, drop new ones
 		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_hinted_overflow);
