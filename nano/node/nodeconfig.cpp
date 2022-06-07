@@ -105,7 +105,6 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("use_memory_pools", use_memory_pools, "If true, allocate memory from memory pools. Enabling this may improve performance. Memory is never released to the OS.\ntype:bool");
 	toml.put ("confirmation_history_size", confirmation_history_size, "Maximum confirmation history size. If tracking the rate of block confirmations, the websocket feature is recommended instead.\ntype:uint64");
 	toml.put ("active_elections_size", active_elections_size, "Number of active elections. Elections beyond this limit have limited survival time.\nWarning: modifying this value may result in a lower confirmation rate.\ntype:uint64,[250..]");
-	toml.put ("active_elections_hinted_limit", active_elections_hinted_limit, "Limit of active hinted elections. No more hinted elections will be started beyond this limit.\nWarning: modifying this value may result in a lower confirmation rate.\ntype:uint64");
 	toml.put ("bandwidth_limit", bandwidth_limit, "Outbound traffic limit in bytes/sec after which messages will be dropped.\nNote: changing to unlimited bandwidth (0) is not recommended for limited connections.\ntype:uint64");
 	toml.put ("bandwidth_limit_burst_ratio", bandwidth_limit_burst_ratio, "Burst ratio for outbound traffic shaping.\ntype:double");
 	toml.put ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time.count (), "Minimum write batching time when there are blocks pending confirmation height.\ntype:milliseconds");
@@ -345,7 +344,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<bool> ("use_memory_pools", use_memory_pools);
 		toml.get<std::size_t> ("confirmation_history_size", confirmation_history_size);
 		toml.get<std::size_t> ("active_elections_size", active_elections_size);
-		toml.get<std::size_t> ("active_elections_hinted_limit", active_elections_hinted_limit);
 		toml.get<std::size_t> ("bandwidth_limit", bandwidth_limit);
 		toml.get<double> ("bandwidth_limit_burst_ratio", bandwidth_limit_burst_ratio);
 		toml.get<bool> ("backup_before_upgrade", backup_before_upgrade);
@@ -407,10 +405,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (active_elections_size <= 250 && !network_params.network.is_dev_network ())
 		{
 			toml.get_error ().set ("active_elections_size must be greater than 250");
-		}
-		if (active_elections_hinted_limit > active_elections_size)
-		{
-			toml.get_error ().set ("active_elections_hinted_limit cannot be greater than active_elections_size");
 		}
 		if (bandwidth_limit > std::numeric_limits<std::size_t>::max ())
 		{
@@ -520,7 +514,6 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put_child ("diagnostics", diagnostics_l);
 	json.put ("confirmation_history_size", confirmation_history_size);
 	json.put ("active_elections_size", active_elections_size);
-	json.put ("active_elections_hinted_limit", active_elections_hinted_limit);
 	json.put ("bandwidth_limit", bandwidth_limit);
 	json.put ("backup_before_upgrade", backup_before_upgrade);
 	json.put ("work_watcher_period", 5);
