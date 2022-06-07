@@ -75,6 +75,7 @@ add_library(
   tlsconfig.cpp
   tomlconfig.hpp
   tomlconfig.cpp
+  ubsan_warnings.hpp
   utility.hpp
   utility.cpp
   walletconfig.hpp
