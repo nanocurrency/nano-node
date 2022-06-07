@@ -356,7 +356,20 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 	if (!election.confirmed ())
 	{
 		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop_all);
+		if (election.behavior == election_behavior::hinted)
+		{
+			node.stats.inc (nano::stat::type::election, nano::stat::detail::election_hinted_drop);
+		}
 	}
+	else
+	{
+		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_confirmed_all);
+		if (election.behavior == election_behavior::hinted)
+		{
+			node.stats.inc (nano::stat::type::election, nano::stat::detail::election_hinted_confirmed);
+		}
+	}
+
 	if (election.behavior == election_behavior::hinted)
 	{
 		--active_hinted_elections_count;
@@ -854,7 +867,12 @@ nano::election_insertion_result nano::active_transactions::insert_hinted (nano::
 		return {};
 	}
 
-	return insert_impl (lock_a, block_a, nano::election_behavior::hinted);
+	auto result = insert_impl (lock_a, block_a, nano::election_behavior::hinted);
+	if (result.inserted)
+	{
+		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_hinted_started);
+	}
+	return result;
 }
 
 // Validate a vote and apply it to the current election if one exists
