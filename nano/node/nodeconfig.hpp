@@ -85,7 +85,7 @@ public:
 	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_dev_network () && !is_sanitizer_build) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
 	std::size_t active_elections_size{ 5000 };
-	std::size_t active_elections_hinted_limit_ratio{ 20 }; // Limit of hinted elections as percentage of active_elections_size
+	std::size_t active_elections_hinted_limit_percentage{ 20 }; // Limit of hinted elections as percentage of active_elections_size
 	/** Default maximum incoming TCP connections, including realtime network & bootstrap */
 	unsigned tcp_incoming_connections_max{ 2048 };
 	bool use_memory_pools{ true };

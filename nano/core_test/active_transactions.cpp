@@ -1472,7 +1472,7 @@ TEST (active_transactions, limit_vote_hinted_elections)
 	nano::node_config config{ nano::get_available_port (), system.logging };
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	config.active_elections_size = 10;
-	config.active_elections_hinted_limit_ratio = 10; // Should give us a limit of 1 hinted election
+	config.active_elections_hinted_limit_percentage = 10; // Should give us a limit of 1 hinted election
 	auto & node = *system.add_node (config);
 
 	// Setup representatives
