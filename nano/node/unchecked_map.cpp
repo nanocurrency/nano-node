@@ -27,6 +27,24 @@ void nano::unchecked_map::put (nano::hash_or_account const & dependency, nano::u
 	condition.notify_all (); // Notify run ()
 }
 
+void nano::unchecked_map::for_each (
+nano::transaction const & transaction, std::function<void (nano::unchecked_key const &, nano::unchecked_info const &)> action, std::function<bool ()> predicate)
+{
+	for (auto [i, n] = full_range (transaction); predicate () && i != n; ++i)
+	{
+		action (i->first, i->second);
+	}
+}
+
+void nano::unchecked_map::for_each (
+nano::transaction const & transaction, nano::hash_or_account const & dependency, std::function<void (nano::unchecked_key const &, nano::unchecked_info const &)> action, std::function<bool ()> predicate)
+{
+	for (auto [i, n] = equal_range (transaction, dependency.as_block_hash ()); predicate () && i->first.key () == dependency && i != n; ++i)
+	{
+		action (i->first, i->second);
+	}
+}
+
 auto nano::unchecked_map::equal_range (nano::transaction const & transaction, nano::block_hash const & dependency) -> std::pair<iterator, iterator>
 {
 	return store.unchecked.equal_range (transaction, dependency);

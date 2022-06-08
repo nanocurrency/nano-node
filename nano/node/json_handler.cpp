@@ -4126,9 +4126,8 @@ void nano::json_handler::unchecked ()
 	{
 		boost::property_tree::ptree unchecked;
 		auto transaction (node.store.tx_begin_read ());
-		for (auto [i, n] = node.unchecked.full_range (transaction); i != n && unchecked.size () < count; ++i)
-		{
-			nano::unchecked_info const & info (i->second);
+		node.unchecked.for_each (
+		transaction, [&unchecked, &json_block_l] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 			if (json_block_l)
 			{
 				boost::property_tree::ptree block_node_l;
@@ -4140,8 +4139,7 @@ void nano::json_handler::unchecked ()
 				std::string contents;
 				info.block->serialize_json (contents);
 				unchecked.put (info.block->hash ().to_string (), contents);
-			}
-		}
+			} }, [iterations = 0, count = count] () mutable { return iterations++ < count; });
 		response_l.add_child ("blocks", unchecked);
 	}
 	response_errors ();
@@ -4164,29 +4162,21 @@ void nano::json_handler::unchecked_get ()
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
-		for (auto [i, n] = node.unchecked.full_range (transaction); i != n; ++i)
-		{
-			nano::unchecked_key const & key (i->first);
-			if (key.hash == hash)
+		node.unchecked.for_each (
+		transaction, hash, [this, &hash, &json_block_l] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+			response_l.put ("modified_timestamp", std::to_string (info.modified ()));
+			if (json_block_l)
 			{
-				nano::unchecked_info const & info (i->second);
-				response_l.put ("modified_timestamp", std::to_string (info.modified ()));
-
-				if (json_block_l)
-				{
-					boost::property_tree::ptree block_node_l;
-					info.block->serialize_json (block_node_l);
-					response_l.add_child ("contents", block_node_l);
-				}
-				else
-				{
-					std::string contents;
-					info.block->serialize_json (contents);
-					response_l.put ("contents", contents);
-				}
-				break;
+				boost::property_tree::ptree block_node_l;
+				info.block->serialize_json (block_node_l);
+				response_l.add_child ("contents", block_node_l);
 			}
-		}
+			else
+			{
+				std::string contents;
+				info.block->serialize_json (contents);
+				response_l.put ("contents", contents);
+			} }, [iterations = 0] () mutable { return iterations++ < 1; });
 		if (response_l.empty ())
 		{
 			ec = nano::error_blocks::not_found;
@@ -4212,11 +4202,10 @@ void nano::json_handler::unchecked_keys ()
 	{
 		boost::property_tree::ptree unchecked;
 		auto transaction (node.store.tx_begin_read ());
-		for (auto [i, n] = node.unchecked.equal_range (transaction, key); i != n && unchecked.size () < count; ++i)
-		{
+		node.unchecked.for_each (
+		transaction, key, [&unchecked, json_block_l] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 			boost::property_tree::ptree entry;
-			nano::unchecked_info const & info (i->second);
-			entry.put ("key", i->first.key ().to_string ());
+			entry.put ("key", key.key ().to_string ());
 			entry.put ("hash", info.block->hash ().to_string ());
 			entry.put ("modified_timestamp", std::to_string (info.modified ()));
 			if (json_block_l)
@@ -4231,8 +4220,7 @@ void nano::json_handler::unchecked_keys ()
 				info.block->serialize_json (contents);
 				entry.put ("contents", contents);
 			}
-			unchecked.push_back (std::make_pair ("", entry));
-		}
+			unchecked.push_back (std::make_pair ("", entry)); }, [&unchecked, &count] () { return unchecked.size () < count; });
 		response_l.add_child ("unchecked", unchecked);
 	}
 	response_errors ();

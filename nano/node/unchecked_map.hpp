@@ -18,14 +18,13 @@ class write_transaction;
 class unchecked_map
 {
 public:
-	using iterator = nano::unchecked_store::iterator;
-
-public:
 	unchecked_map (nano::store & store, bool const & do_delete);
 	~unchecked_map ();
 	void put (nano::hash_or_account const & dependency, nano::unchecked_info const & info);
-	std::pair<iterator, iterator> equal_range (nano::transaction const & transaction, nano::block_hash const & dependency);
-	std::pair<iterator, iterator> full_range (nano::transaction const & transaction);
+	void for_each (
+	nano::transaction const & transaction, std::function<void (nano::unchecked_key const &, nano::unchecked_info const &)> action, std::function<bool ()> predicate = [] () { return true; });
+	void for_each (
+	nano::transaction const & transaction, nano::hash_or_account const & dependency, std::function<void (nano::unchecked_key const &, nano::unchecked_info const &)> action, std::function<bool ()> predicate = [] () { return true; });
 	std::vector<nano::unchecked_info> get (nano::transaction const &, nano::block_hash const &);
 	bool exists (nano::transaction const & transaction, nano::unchecked_key const & key) const;
 	void del (nano::write_transaction const & transaction, nano::unchecked_key const & key);
@@ -39,6 +38,10 @@ public: // Trigger requested dependencies
 	std::function<void (nano::unchecked_info const &)> satisfied{ [] (nano::unchecked_info const &) {} };
 
 private:
+	using iterator = nano::unchecked_store::iterator;
+	std::pair<iterator, iterator> equal_range (nano::transaction const & transaction, nano::block_hash const & dependency);
+	std::pair<iterator, iterator> full_range (nano::transaction const & transaction);
+
 	using insert = std::pair<nano::hash_or_account, nano::unchecked_info>;
 	using query = nano::hash_or_account;
 	class item_visitor : boost::static_visitor<>
