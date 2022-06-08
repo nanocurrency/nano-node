@@ -753,7 +753,6 @@ public:
 	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> begin (nano::transaction const &, nano::unchecked_key const &) const = 0;
 	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> end () const = 0;
 	virtual size_t count (nano::transaction const &) = 0;
-	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>)> const & action_a) const = 0;
 };
 
 /**
