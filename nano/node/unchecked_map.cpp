@@ -30,29 +30,41 @@ void nano::unchecked_map::put (nano::hash_or_account const & dependency, nano::u
 void nano::unchecked_map::for_each (
 nano::transaction const & transaction, std::function<void (nano::unchecked_key const &, nano::unchecked_info const &)> action, std::function<bool ()> predicate)
 {
-	for (auto [i, n] = full_range (transaction); predicate () && i != n; ++i)
+	nano::lock_guard<std::recursive_mutex> lock{ mutex_entries };
+	if (entries == nullptr)
 	{
-		action (i->first, i->second);
+		for (auto [i, n] = store.unchecked.full_range (transaction); predicate () && i != n; ++i)
+		{
+			action (i->first, i->second);
+		}
+	}
+	else
+	{
+		for (auto i = entries->begin (), n = entries->end (); predicate () && i != n; ++i)
+		{
+			action (i->key, i->info);
+		}
 	}
 }
 
 void nano::unchecked_map::for_each (
 nano::transaction const & transaction, nano::hash_or_account const & dependency, std::function<void (nano::unchecked_key const &, nano::unchecked_info const &)> action, std::function<bool ()> predicate)
 {
-	for (auto [i, n] = equal_range (transaction, dependency.as_block_hash ()); predicate () && i->first.key () == dependency && i != n; ++i)
+	nano::lock_guard<std::recursive_mutex> lock{ mutex_entries };
+	if (entries == nullptr)
 	{
-		action (i->first, i->second);
+		for (auto [i, n] = store.unchecked.equal_range (transaction, dependency.as_block_hash ()); predicate () && i->first.key () == dependency && i != n; ++i)
+		{
+			action (i->first, i->second);
+		}
 	}
-}
-
-auto nano::unchecked_map::equal_range (nano::transaction const & transaction, nano::block_hash const & dependency) -> std::pair<iterator, iterator>
-{
-	return store.unchecked.equal_range (transaction, dependency);
-}
-
-auto nano::unchecked_map::full_range (nano::transaction const & transaction) -> std::pair<iterator, iterator>
-{
-	return store.unchecked.full_range (transaction);
+	else
+	{
+		for (auto i = entries->template get<tag_root> ().lower_bound (nano::unchecked_key{ dependency, 0 }), n = entries->template get<tag_root> ().end (); predicate () && i != n && i->key.key () == dependency; ++i)
+		{
+			action (i->key, i->info);
+		}
+	}
 }
 
 std::vector<nano::unchecked_info> nano::unchecked_map::get (nano::transaction const & transaction, nano::block_hash const & hash)
@@ -66,22 +78,55 @@ std::vector<nano::unchecked_info> nano::unchecked_map::get (nano::transaction co
 
 bool nano::unchecked_map::exists (nano::transaction const & transaction, nano::unchecked_key const & key) const
 {
-	return store.unchecked.exists (transaction, key);
+	nano::lock_guard<std::recursive_mutex> lock{ mutex_entries };
+	if (entries == nullptr)
+	{
+		return store.unchecked.exists (transaction, key);
+	}
+	else
+	{
+		return entries->template get<tag_root> ().count (key) != 0;
+	}
 }
 
 void nano::unchecked_map::del (nano::write_transaction const & transaction, nano::unchecked_key const & key)
 {
-	store.unchecked.del (transaction, key);
+	nano::lock_guard<std::recursive_mutex> lock{ mutex_entries };
+	if (entries == nullptr)
+	{
+		store.unchecked.del (transaction, key);
+	}
+	else
+	{
+		auto erased = entries->template get<tag_root> ().erase (key);
+		release_assert (erased);
+	}
 }
 
 void nano::unchecked_map::clear (nano::write_transaction const & transaction)
 {
-	store.unchecked.clear (transaction);
+	nano::lock_guard<std::recursive_mutex> lock{ mutex_entries };
+	if (entries == nullptr)
+	{
+		store.unchecked.clear (transaction);
+	}
+	else
+	{
+		entries->clear ();
+	}
 }
 
 size_t nano::unchecked_map::count (nano::transaction const & transaction) const
 {
-	return store.unchecked.count (transaction);
+	nano::lock_guard<std::recursive_mutex> lock{ mutex_entries };
+	if (entries == nullptr)
+	{
+		return store.unchecked.count (transaction);
+	}
+	else
+	{
+		return entries->size ();
+	}
 }
 
 void nano::unchecked_map::stop ()
@@ -116,30 +161,16 @@ nano::unchecked_map::item_visitor::item_visitor (unchecked_map & unchecked, nano
 	transaction{ transaction }
 {
 }
+
 void nano::unchecked_map::item_visitor::operator() (insert const & item)
 {
 	auto const & [dependency, info] = item;
-	unchecked.store.unchecked.put (transaction, dependency, { info.block, info.account, info.verified });
+	unchecked.insert_impl (transaction, dependency, info);
 }
 
 void nano::unchecked_map::item_visitor::operator() (query const & item)
 {
-	auto [i, n] = unchecked.store.unchecked.equal_range (transaction, item.hash);
-	std::deque<nano::unchecked_key> delete_queue;
-	for (; i != n; ++i)
-	{
-		auto const & key = i->first;
-		auto const & info = i->second;
-		delete_queue.push_back (key);
-		unchecked.satisfied (info);
-	}
-	if (!unchecked.disable_delete)
-	{
-		for (auto const & key : delete_queue)
-		{
-			unchecked.del (transaction, key);
-		}
-	}
+	unchecked.query_impl (transaction, item.hash);
 }
 
 void nano::unchecked_map::write_buffer (decltype (buffer) const & back_buffer)
@@ -174,6 +205,51 @@ void nano::unchecked_map::run ()
 			condition.wait (lock, [this] () {
 				return stopped || !buffer.empty ();
 			});
+		}
+	}
+}
+
+void nano::unchecked_map::insert_impl (nano::write_transaction const & transaction, nano::hash_or_account const & dependency, nano::unchecked_info const & info)
+{
+	nano::lock_guard<std::recursive_mutex> lock{ mutex_entries };
+	// Check if we should be using memory but the memory container hasn't been constructed i.e. we're transitioning from disk to memory.
+	if (entries == nullptr && use_memory ())
+	{
+		auto entries_new = std::make_unique<typename decltype (entries)::element_type> ();
+		for_each (
+		transaction, [&entries_new] (nano::unchecked_key const & key, nano::unchecked_info const & info) { entries_new->template get<tag_root> ().insert ({ key, info }); }, [&] () { return entries_new->size () < mem_block_count_max; });
+		clear (transaction);
+		entries = std::move (entries_new);
+	}
+	if (entries == nullptr)
+	{
+		store.unchecked.put (transaction, dependency, { info.block, info.account, info.verified });
+	}
+	else
+	{
+		nano::unchecked_key key{ dependency, info.block->hash () };
+		entries->template get<tag_root> ().insert ({ key, info });
+		while (entries->size () > mem_block_count_max)
+		{
+			entries->template get<tag_random_access> ().pop_front ();
+		}
+	}
+}
+
+void nano::unchecked_map::query_impl (nano::write_transaction const & transaction, nano::block_hash const & hash)
+{
+	nano::lock_guard<std::recursive_mutex> lock{ mutex_entries };
+
+	std::deque<nano::unchecked_key> delete_queue;
+	for_each (transaction, hash, [this, &delete_queue] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+		delete_queue.push_back (key);
+		satisfied (info);
+	});
+	if (!disable_delete)
+	{
+		for (auto const & key : delete_queue)
+		{
+			del (transaction, key);
 		}
 	}
 }
