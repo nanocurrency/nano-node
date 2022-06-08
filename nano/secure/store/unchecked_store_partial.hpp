@@ -82,6 +82,15 @@ public:
 		}
 	}
 
+	std::vector<nano::unchecked_info> get (nano::transaction const & tx, nano::block_hash const & hash) override
+	{
+		std::vector<nano::unchecked_info> result;
+		for_each (tx, hash, [&result] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+			result.push_back (info);
+		});
+		return result;
+	}
+
 	size_t count (nano::transaction const & transaction_a) override
 	{
 		return store.count (transaction_a, tables::unchecked);

@@ -35,7 +35,6 @@ class unchecked_rocksdb_store : public unchecked_store_partial<rocksdb::Slice, n
 {
 public:
 	explicit unchecked_rocksdb_store (nano::rocksdb_store &);
-	std::vector<nano::unchecked_info> get (nano::transaction const &, nano::block_hash const &);
 
 private:
 	nano::rocksdb_store & rocksdb_store;

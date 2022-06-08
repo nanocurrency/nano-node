@@ -624,44 +624,6 @@ nano::version_rocksdb_store::version_rocksdb_store (nano::rocksdb_store & rocksd
 	nano::version_store_partial<rocksdb::Slice, nano::rocksdb_store> (rocksdb_store_a),
 	rocksdb_store{ rocksdb_store_a } {};
 
-std::vector<nano::unchecked_info> nano::unchecked_rocksdb_store::get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
-{
-	auto cf = rocksdb_store.table_to_column_family (tables::unchecked);
-
-	std::unique_ptr<rocksdb::Iterator> iter;
-	nano::qualified_root upper (hash_a, nano::block_hash (std::numeric_limits<nano::uint256_t>::max ()));
-	nano::rocksdb_val upper_bound (sizeof (upper), (void *)&upper);
-	if (is_read (transaction_a))
-	{
-		auto read_options = snapshot_options (transaction_a);
-		read_options.prefix_same_as_start = true;
-		read_options.auto_prefix_mode = true;
-		read_options.iterate_upper_bound = upper_bound;
-		read_options.fill_cache = false;
-		iter.reset (rocksdb_store.db->NewIterator (read_options, cf));
-	}
-	else
-	{
-		rocksdb::ReadOptions read_options;
-		read_options.prefix_same_as_start = true;
-		read_options.auto_prefix_mode = true;
-		read_options.iterate_upper_bound = upper_bound;
-		read_options.fill_cache = false;
-		iter.reset (rocksdb_store.tx (transaction_a)->GetIterator (read_options, cf));
-	}
-
-	// Uses prefix extraction
-	std::vector<nano::unchecked_info> result;
-
-	auto prefix = nano::rocksdb_val (hash_a);
-	for (iter->Seek (prefix); iter->Valid () && iter->key ().starts_with (prefix); iter->Next ())
-	{
-		auto unchecked_info = static_cast<nano::unchecked_info> (nano::rocksdb_val (iter->value ()));
-		result.push_back (unchecked_info);
-	}
-	return result;
-}
-
 void nano::rocksdb_store::construct_column_family_mutexes ()
 {
 	for (auto table : all_tables ())

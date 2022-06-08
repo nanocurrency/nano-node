@@ -811,15 +811,6 @@ void nano::mdb_store::create_backup_file (nano::mdb_env & env_a, boost::filesyst
 	}
 }
 
-std::vector<nano::unchecked_info> nano::unchecked_mdb_store::get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
-{
-	std::vector<nano::unchecked_info> result;
-	for_each (transaction_a, hash_a, [&result] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
-		result.push_back (info);
-	});
-	return result;
-}
-
 nano::unchecked_mdb_store::unchecked_mdb_store (nano::mdb_store & mdb_store_a) :
 	unchecked_store_partial<MDB_val, mdb_store> (mdb_store_a){};
 
