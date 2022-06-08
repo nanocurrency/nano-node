@@ -57,7 +57,11 @@ auto nano::unchecked_map::full_range (nano::transaction const & transaction) -> 
 
 std::vector<nano::unchecked_info> nano::unchecked_map::get (nano::transaction const & transaction, nano::block_hash const & hash)
 {
-	return store.unchecked.get (transaction, hash);
+	std::vector<nano::unchecked_info> result;
+	for_each (transaction, hash, [&result] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+		result.push_back (info);
+	});
+	return result;
 }
 
 bool nano::unchecked_map::exists (nano::transaction const & transaction, nano::unchecked_key const & key) const
