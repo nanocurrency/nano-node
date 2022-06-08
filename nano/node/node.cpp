@@ -147,6 +147,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq)
 {
+	store.unchecked.use_memory = [this] () { return ledger.bootstrap_weight_reached (); };
 	if (!init_error ())
 	{
 		telemetry->start ();

@@ -757,6 +757,8 @@ public:
 	nano::transaction const & tx, nano::hash_or_account const & dependency, std::function<void (nano::unchecked_key const &, nano::unchecked_info const &)> action, std::function<bool ()> predicate = [] () { return true; })
 	= 0;
 	virtual size_t count (nano::transaction const &) = 0;
+
+	std::function<bool ()> use_memory = [] () { return true; };
 };
 
 /**
