@@ -64,19 +64,22 @@ public:
 		release_assert_success (store, status);
 	}
 
-	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> end () const override
+	void for_each (
+	nano::transaction const & tx, std::function<void (nano::unchecked_key const &, nano::unchecked_info const &)> action, std::function<bool ()> predicate = [] () { return true; }) override
 	{
-		return nano::store_iterator<nano::unchecked_key, nano::unchecked_info> (nullptr);
+		for (auto i = store.template make_iterator<nano::unchecked_key, nano::unchecked_info> (tx, tables::unchecked), n = nano::store_iterator<nano::unchecked_key, nano::unchecked_info> (nullptr); predicate () && i != n; ++i)
+		{
+			action (i->first, i->second);
+		}
 	}
 
-	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> begin (nano::transaction const & transaction_a) const override
+	void for_each (
+	nano::transaction const & tx, nano::hash_or_account const & dependency, std::function<void (nano::unchecked_key const &, nano::unchecked_info const &)> action, std::function<bool ()> predicate = [] () { return true; }) override
 	{
-		return store.template make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked);
-	}
-
-	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> begin (nano::transaction const & transaction_a, nano::unchecked_key const & key_a) const override
-	{
-		return store.template make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked, nano::db_val<Val> (key_a));
+		for (auto i = store.template make_iterator<nano::unchecked_key, nano::unchecked_info> (tx, tables::unchecked, nano::unchecked_key{ dependency, 0 }), n = nano::store_iterator<nano::unchecked_key, nano::unchecked_info> (nullptr); predicate () && i->first.key () == dependency && i != n; ++i)
+		{
+			action (i->first, i->second);
+		}
 	}
 
 	size_t count (nano::transaction const & transaction_a) override

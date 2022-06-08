@@ -482,9 +482,11 @@ TEST (block_store, empty_bootstrap)
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	auto transaction (store->tx_begin_read ());
-	auto begin (store->unchecked.begin (transaction));
-	auto end (store->unchecked.end ());
-	ASSERT_EQ (end, begin);
+	bool has_item = false;
+	store->unchecked.for_each (transaction, [&has_item] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+		has_item = true;
+	});
+	ASSERT_FALSE (has_item);
 }
 
 TEST (block_store, one_bootstrap)
@@ -495,17 +497,16 @@ TEST (block_store, one_bootstrap)
 	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
 	auto transaction (store->tx_begin_write ());
 	store->unchecked.put (transaction, block1->hash (), block1);
-	auto begin (store->unchecked.begin (transaction));
-	auto end (store->unchecked.end ());
-	ASSERT_NE (end, begin);
-	auto hash1 (begin->first.key ());
-	ASSERT_EQ (block1->hash (), hash1);
-	auto blocks (store->unchecked.get (transaction, hash1));
+	std::vector<nano::hash_or_account> dependencies;
+	store->unchecked.for_each (transaction, [&dependencies] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+		dependencies.push_back (key.key ());
+	});
+	std::vector<nano::hash_or_account> expected{ block1->hash () };
+	ASSERT_EQ (dependencies, expected);
+	auto blocks (store->unchecked.get (transaction, block1->hash ()));
 	ASSERT_EQ (1, blocks.size ());
 	auto block2 (blocks[0].block);
 	ASSERT_EQ (*block1, *block2);
-	++begin;
-	ASSERT_EQ (end, begin);
 }
 
 TEST (block_store, unchecked_begin_search)
@@ -930,32 +931,30 @@ TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort ta
 	ASSERT_NE (send1->hash (), send2->hash ());
 	store.unchecked.put (transaction, send1->hash (), send1);
 	store.unchecked.put (transaction, send1->hash (), send2);
-	{
-		auto iterator1 (store.unchecked.begin (transaction));
-		++iterator1;
-		ASSERT_EQ (store.unchecked.end (), iterator1);
-	}
+	std::vector<nano::hash_or_account> dependencies1;
+	store.unchecked.for_each (transaction, [&dependencies1] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+		dependencies1.push_back (key.key ());
+	});
+	ASSERT_TRUE (dependencies1.empty ());
 	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_handle, 0));
 	mdb_dbi_close (store.env, store.unchecked_handle);
 	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked_handle));
 	store.unchecked.put (transaction, send1->hash (), send1);
 	store.unchecked.put (transaction, send1->hash (), send2);
-	{
-		auto iterator1 (store.unchecked.begin (transaction));
-		++iterator1;
-		ASSERT_EQ (store.unchecked.end (), iterator1);
-	}
+	std::vector<nano::hash_or_account> dependencies2;
+	store.unchecked.for_each (transaction, [&dependencies2] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+		dependencies2.push_back (key.key ());
+	});
+	ASSERT_TRUE (dependencies2.empty ());
 	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_handle, 1));
 	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked_handle));
 	store.unchecked.put (transaction, send1->hash (), send1);
 	store.unchecked.put (transaction, send1->hash (), send2);
-	{
-		auto iterator1 (store.unchecked.begin (transaction));
-		++iterator1;
-		ASSERT_NE (store.unchecked.end (), iterator1);
-		++iterator1;
-		ASSERT_EQ (store.unchecked.end (), iterator1);
-	}
+	std::vector<nano::hash_or_account> dependencies3;
+	store.unchecked.for_each (transaction, [&dependencies3] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+		dependencies3.push_back (key.key ());
+	});
+	ASSERT_EQ (1, dependencies3.size ());
 }
 
 TEST (block_store, state_block)

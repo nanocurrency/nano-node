@@ -947,16 +947,13 @@ void nano::node::unchecked_cleanup ()
 		auto const now (nano::seconds_since_epoch ());
 		auto const transaction (store.tx_begin_read ());
 		// Max 1M records to clean, max 2 minutes reading to prevent slow i/o systems issues
-		for (auto i (store.unchecked.begin (transaction)), n (store.unchecked.end ()); i != n && cleaning_list.size () < 1024 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
-		{
-			nano::unchecked_key const & key (i->first);
-			nano::unchecked_info const & info (i->second);
+		store.unchecked.for_each (
+		transaction, [this, &digests, &cleaning_list, &now] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 			if ((now - info.modified) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
 			{
 				digests.push_back (network.publish_filter.hash (info.block));
 				cleaning_list.push_back (key);
-			}
-		}
+			} }, [iterations = 0, count = 1024 * 1024] () mutable { return iterations++ < count; });
 	}
 	if (!cleaning_list.empty ())
 	{
