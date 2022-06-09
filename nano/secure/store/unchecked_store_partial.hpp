@@ -87,19 +87,9 @@ public:
 
 	void put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a) override
 	{
-		nano::lock_guard<std::recursive_mutex> lock{ mutex };
-		if (entries == nullptr)
-		{
-			nano::unchecked_key key (hash_a, block_a->hash ());
-			nano::unchecked_info info{ block_a, block_a->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown };
-			put (transaction_a, key, info);
-		}
-		else
-		{
-			nano::unchecked_key key (hash_a, block_a->hash ());
-			nano::unchecked_info info{ block_a, block_a->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown };
-			put (transaction_a, key, info);
-		}
+		nano::unchecked_key key{ hash_a, block_a->hash () };
+		nano::unchecked_info info{ block_a, block_a->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown };
+		put (transaction_a, key, info);
 	}
 
 	bool exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) override
