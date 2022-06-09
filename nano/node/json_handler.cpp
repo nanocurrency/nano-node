@@ -4161,22 +4161,27 @@ void nano::json_handler::unchecked_get ()
 	auto hash (hash_impl ());
 	if (!ec)
 	{
-		auto transaction (node.store.tx_begin_read ());
+		bool done = false;
 		node.unchecked.for_each (
-		transaction, hash, [this, &hash, &json_block_l] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
-			response_l.put ("modified_timestamp", std::to_string (info.modified ()));
-			if (json_block_l)
+		node.store.tx_begin_read (), [&] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+			if (key.hash == hash)
 			{
-				boost::property_tree::ptree block_node_l;
-				info.block->serialize_json (block_node_l);
-				response_l.add_child ("contents", block_node_l);
-			}
-			else
-			{
-				std::string contents;
-				info.block->serialize_json (contents);
-				response_l.put ("contents", contents);
-			} }, [iterations = 0] () mutable { return iterations++ < 1; });
+				response_l.put ("modified_timestamp", std::to_string (info.modified ()));
+
+				if (json_block_l)
+				{
+					boost::property_tree::ptree block_node_l;
+					info.block->serialize_json (block_node_l);
+					response_l.add_child ("contents", block_node_l);
+				}
+				else
+				{
+					std::string contents;
+					info.block->serialize_json (contents);
+					response_l.put ("contents", contents);
+				}
+				done = true;
+			} }, [&] () { return !done; });
 		if (response_l.empty ())
 		{
 			ec = nano::error_blocks::not_found;
