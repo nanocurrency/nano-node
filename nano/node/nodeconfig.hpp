@@ -54,7 +54,7 @@ public:
 	std::chrono::milliseconds vote_generator_delay{ std::chrono::milliseconds (100) };
 	unsigned vote_generator_threshold{ 3 };
 	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
-	unsigned election_hint_weight_percent{ 10 };
+	unsigned election_hint_weight_percent{ 50 };
 	unsigned password_fanout{ 1024 };
 	unsigned io_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
 	unsigned network_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
@@ -83,6 +83,7 @@ public:
 	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_dev_network () && !is_sanitizer_build) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
 	std::size_t active_elections_size{ 5000 };
+	std::size_t active_elections_hinted_limit_percentage{ 20 }; // Limit of hinted elections as percentage of active_elections_size
 	/** Default maximum incoming TCP connections, including realtime network & bootstrap */
 	unsigned tcp_incoming_connections_max{ 2048 };
 	bool use_memory_pools{ true };
@@ -148,7 +149,7 @@ public:
 	std::size_t block_processor_batch_size{ 0 };
 	std::size_t block_processor_full_size{ 65536 };
 	std::size_t block_processor_verification_size{ 0 };
-	std::size_t inactive_votes_cache_size{ 0 };
+	std::size_t inactive_votes_cache_size{ 1024 * 128 };
 	std::size_t vote_processor_capacity{ 144 * 1024 };
 	std::size_t bootstrap_interval{ 0 }; // For testing only
 };
