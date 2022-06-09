@@ -122,7 +122,7 @@ void nano::election_scheduler::run ()
 			{
 				auto const [block, previous_balance, election_behavior, confirmation_action] = manual_queue.front ();
 				nano::unique_lock<nano::mutex> lock2 (node.active.mutex);
-				node.active.insert_impl (lock2, block, previous_balance, election_behavior, confirmation_action);
+				node.active.insert_impl (lock2, block, election_behavior, confirmation_action);
 				manual_queue.pop_front ();
 			}
 			else if (priority_queue_predicate ())

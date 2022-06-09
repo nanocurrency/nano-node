@@ -124,7 +124,7 @@ class active_transactions final
 		nano::qualified_root root;
 		std::shared_ptr<nano::election> election;
 		nano::epoch epoch;
-		nano::uint128_t previous_balance;
+		nano::election_behavior election_behavior; // Used to prioritize portion of AEC for vote hinting
 	};
 
 	friend class nano::election;
@@ -147,7 +147,8 @@ public:
 	mi::indexed_by<
 		mi::random_access<mi::tag<tag_random_access>>,
 		mi::hashed_unique<mi::tag<tag_root>,
-			mi::member<conflict_info, nano::qualified_root, &conflict_info::root>>>>;
+			mi::member<conflict_info, nano::qualified_root, &conflict_info::root>>
+	>>;
 	// clang-format on
 	ordered_roots roots;
 	using roots_iterator = active_transactions::ordered_roots::index_iterator<tag_root>::type;
@@ -225,8 +226,9 @@ private:
 
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	nano::election_insertion_result insert_impl (nano::unique_lock<nano::mutex> &, std::shared_ptr<nano::block> const&, boost::optional<nano::uint128_t> const & = boost::none, nano::election_behavior = nano::election_behavior::normal, std::function<void(std::shared_ptr<nano::block>const&)> const & = nullptr);
+	nano::election_insertion_result insert_impl (nano::unique_lock<nano::mutex> &, std::shared_ptr<nano::block> const&, nano::election_behavior = nano::election_behavior::normal, std::function<void(std::shared_ptr<nano::block>const&)> const & = nullptr);
 	// clang-format on
+	nano::election_insertion_result insert_hinted (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::block> const & block_a);
 	void request_loop ();
 	void request_confirm (nano::unique_lock<nano::mutex> &);
 	void erase (nano::qualified_root const &);
@@ -272,6 +274,7 @@ private:
 	expired_optimistic_election_infos;
 	// clang-format on
 	std::atomic<uint64_t> expired_optimistic_election_infos_size{ 0 };
+	int active_hinted_elections_count{ 0 };
 
 	// Frontiers confirmation
 	nano::frontiers_confirmation_info get_frontiers_confirmation_info ();
