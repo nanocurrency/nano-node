@@ -3690,11 +3690,6 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	ASSERT_EQ (confirmation_height_info.frontier, send->hash ());
 	ASSERT_TRUE (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ())).size () == 1);
 	ASSERT_EQ (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ()))[0], nano::block_hash (2));
-
-	auto unchecked_infos = rocksdb_store.unchecked.get (rocksdb_transaction, nano::dev::genesis->hash ());
-	ASSERT_EQ (unchecked_infos.size (), 1);
-	ASSERT_EQ (unchecked_infos.front ().account, nano::dev::genesis->account ());
-	ASSERT_EQ (*unchecked_infos.front ().block, *send);
 }
 
 TEST (ledger, unconfirmed_frontiers)
