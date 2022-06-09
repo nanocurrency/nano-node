@@ -60,6 +60,7 @@ public:
 	void put (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a) override
 	{
 		nano::lock_guard<std::recursive_mutex> lock{ mutex };
+		// Check if we should be using memory but the memory container hasn't been constructed i.e. we're transitioning from disk to memory.
 		if (entries == nullptr && use_memory ())
 		{
 			auto entries_new = std::make_unique<typename decltype (entries)::element_type> ();
