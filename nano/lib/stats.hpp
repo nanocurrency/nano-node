@@ -318,6 +318,7 @@ public:
 		late_block,
 		late_block_seconds,
 		election_start,
+		election_confirmed_all,
 		election_block_conflict,
 		election_difficulty_update,
 		election_drop_expired,
@@ -326,6 +327,10 @@ public:
 		election_restart,
 		election_confirmed,
 		election_not_confirmed,
+		election_hinted_overflow,
+		election_hinted_started,
+		election_hinted_confirmed,
+		election_hinted_drop,
 
 		// udp
 		blocking,

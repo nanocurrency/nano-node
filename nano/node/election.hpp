@@ -43,7 +43,8 @@ public:
 enum class election_behavior
 {
 	normal,
-	optimistic
+	optimistic,
+	hinted
 };
 struct election_extended_status final
 {
@@ -127,6 +128,7 @@ private:
 	void remove_votes (nano::block_hash const &);
 	void remove_block (nano::block_hash const &);
 	bool replace_by_weight (nano::unique_lock<nano::mutex> & lock_a, nano::block_hash const &);
+	std::chrono::milliseconds time_to_live ();
 
 private:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> last_blocks;
