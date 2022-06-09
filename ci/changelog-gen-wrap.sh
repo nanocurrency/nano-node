@@ -13,25 +13,26 @@ print_usage() {
     echo "$(basename ${0}) [OPTIONS]"
     echo "OPTIONS:"
     echo "  [-h]               Print this help info."
-    echo "  [-p <pat>]         Personal Access Token. Necessary if the PAT variable is not set"
-    echo "  [-t <version_tag>  Version tag. Necessary if the TAG variable is not set. Must not be used with -s or -e"
-    echo "                     The -t requires the formats: V1.0 that can be appended by RC1 or DB1. It'll"
+    echo "  [-p <pat>]         Personal Access Token. Necessary if the PAT variable is not set."
+    echo "  [-t <version_tag>  Version tag. Necessary if the TAG variable is not set. The -t requires the"
+    echo "                     formats: V1.0 that can be appended by RC1 or DB1. If -b is not provided, it'll"
     echo "                     look for the last version before it on the tag list."
-    echo "  [-b <revision_begin> -e <revision_end>]  Instead of -t it is possible to pass the begin/end revisions"
-    echo "  [-s <source_dir>]  Directory where the source-code will be downloaded to. Default is \$PWD"
-    echo "  [-o <output_dir>]  Directory where the changelog will be generated. Default is \$PWD"
-    echo "  [-w <workspace>]   Directory where the changelog.py can be found. Default is \$PWD"
-    echo "  [-r <repository>]  Repository name to be passed to changelog.py. Default is 'nanocurrency/nano-node'"
+    echo "  [-b <commit>]      Specifies the start commit for the changelog."
+    echo "  [-s <source_dir>]  Directory where the source-code will be downloaded to. Default is \$PWD."
+    echo "  [-o <output_dir>]  Directory where the changelog will be generated. Default is \$PWD."
+    echo "  [-w <workspace>]   Directory where the changelog.py can be found. Default is \$PWD."
+    echo "  [-r <repository>]  Repository name to be passed to changelog.py. Default is 'nanocurrency/nano-node'."
+    echo "  [-i]               Install Python dependencies."
 }
 
 revision_begin=""
-revision_end=""
 source_dir="$(pwd)"
 output_dir="$(pwd)"
 workspace="$(pwd)"
 repository="nanocurrency/nano-node"
+install_deps=false
 
-while getopts 'ht:t:p:b:e:s:o:w:r:' OPT; do
+while getopts 'ht:t:p:b:s:o:w:r:i' OPT; do
     case "${OPT}" in
     h)
         print_usage
@@ -52,13 +53,6 @@ while getopts 'ht:t:p:b:e:s:o:w:r:' OPT; do
     b)
         revision_begin="${OPTARG}"
         if [[ -z "$revision_begin" ]]; then
-            echo "Invalid revision"
-            exit 1
-        fi
-        ;;
-    e)
-        revision_end="${OPTARG}"
-        if [[ -z "$revision_end" ]]; then
             echo "Invalid revision"
             exit 1
         fi
@@ -91,6 +85,9 @@ while getopts 'ht:t:p:b:e:s:o:w:r:' OPT; do
             exit 1
         fi
         ;;
+    i)
+        install_deps=true
+        ;;
     *)
         print_usage >&2
         exit 1
@@ -106,13 +103,8 @@ rc_beta_re="^(V[0-9]+.[0-9]+(.[0-9]+)?((RC[0-9]+)|(DB[0-9]+))?)$"
 echo "Validating the required input variables"
 (
     set -x
-    if [[ -n "${TAG}" && (-n "${revision_begin}" || -n "${revision_end}") ]]; then
-        echo "It should be set either the TAG or the begin/end revisions"
-        exit 1
-    fi
-
-    if [[ (-n "${revision_begin}" && -z "${revision_end}") || (-z "${revision_begin}" && -n "${revision_end}") ]]; then
-        echo "The options -b and -e require each other"
+    if [[ -z "${TAG}" ]]; then
+        echo "The TAG must be set by either the environment variable TAG or by the -t option"
         exit 1
     fi
 
@@ -136,9 +128,8 @@ echo "Validating the required input variables"
     fi
 ) || exit 1
 
-if [[ -z "$TAG" ]]; then
-    echo "Selected the interval from $revision_begin to $revision_end"
-    TAG="$revision_end"
+if [[ -n "$revision_begin" ]]; then
+    echo "Selected the interval from $revision_begin to $TAG"
 fi
 
 set -x
@@ -155,10 +146,10 @@ git clone --branch "${TAG}" "https://github.com/${repository}" "nano-${TAG}"
 pushd "nano-${TAG}"
 git fetch --tags
 
+read -r version_major version_minor version_revision <<< $( echo "${TAG}" | awk -F 'V' {'print $2'} | awk -F \. {'print $1, $2, $3'} )
 if [[ -n "$revision_begin" ]]; then
     newest_previous_version="$revision_begin"
 else
-    read -r version_major version_minor version_revision <<< $( echo "${TAG}" | awk -F 'V' {'print $2'} | awk -F \. {'print $1, $2, $3'} )
     if [[ -n "${version_revision}" ]]; then
         echo "Version revision is currently not supported for automatic interval"
         exit 1
@@ -191,11 +182,11 @@ else
     fi
 fi
 
-develop_head=$(git show-ref -s origin/develop)
-common_ancestor=$(git merge-base --octopus "${develop_head}" "${newest_previous_version}")
-
 echo "Setting the python environment and running the changelog.py script"
-apt-get install -y python3.8 python3-pip virtualenv python3-venv
+if [[ $install_deps == true ]]; then
+    echo "Installing Python dependencies"
+    apt-get install -yqq python3.8 python3-pip virtualenv python3-venv
+fi
 (
     set -e
 
@@ -203,7 +194,23 @@ apt-get install -y python3.8 python3-pip virtualenv python3-venv
     source "${workspace}/venv/bin/activate"
     python -m pip install PyGithub mdutils
     set +x
-    python "${workspace}/util/changelog.py" --pat "${PAT}" -s "${common_ancestor}" -e "${TAG}" -r "${repository}"
+    if [[ -n "${revision_begin}" ]]; then
+        echo "Tracking the changes from ${revision_begin} to ${TAG}"
+        python "${workspace}/util/changelog.py" --pat "${PAT}" -s "${revision_begin}" -e "${TAG}" -r "${repository}"
+    else
+        read -r newest_version_major <<< $( echo "${TAG}" | awk -F 'V' {'print $2'} | awk -F \. {'print $1'} )
+        if [[ ${version_major} -gt ${newest_version_major} ]]; then
+            # Finding the common ancestor is necessary in case the newest previous change is on a different branch than
+            # the TAG, so it will track from the newest previous change ancestor on the development branch up to the TAG
+            develop_head=$(git show-ref -s origin/develop)
+            common_ancestor=$(git merge-base --octopus "${develop_head}" "${newest_previous_version}")
+            echo "Tracking the changes from a common ancestor between the develop branch and ${newest_previous_version}"
+            python "${workspace}/util/changelog.py" --pat "${PAT}" -s "${common_ancestor}" -e "${TAG}" -r "${repository}"
+        else
+            echo "Tracking the changes from ${newest_previous_version} to ${TAG}"
+            python "${workspace}/util/changelog.py" --pat "${PAT}" -s "${newest_previous_version}" -e "${TAG}" -r "${repository}"
+        fi
+    fi
     set -x
 
     if [ ! -s CHANGELOG.md ]; then

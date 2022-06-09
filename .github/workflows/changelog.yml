@@ -42,7 +42,7 @@ jobs:
           -v ${GITHUB_WORKSPACE}/source:/source \
           -v ${GITHUB_WORKSPACE}/artifacts:/artifacts \
           nanocurrency/nano-env:gcc \
-          /bin/bash -c "/workspace/ci/changelog-gen-wrap.sh -s /source -o /artifacts -w /workspace -r $REPO_TO_BUILD"
+          /bin/bash -c "/workspace/ci/changelog-gen-wrap.sh -s /source -o /artifacts -w /workspace -r $REPO_TO_BUILD -i"
       - name: Generating the CHANGELOG file (interval from the input)
         if: ${{ github.event.inputs.ref_start != '' }}
         run: |
@@ -53,7 +53,7 @@ jobs:
           -v ${GITHUB_WORKSPACE}/source:/source \
           -v ${GITHUB_WORKSPACE}/artifacts:/artifacts \
           nanocurrency/nano-env:gcc \
-          /bin/bash -c "/workspace/ci/changelog-gen-wrap.sh -s /source -o /artifacts -w /workspace -r $REPO_TO_BUILD -b $REF_START -e $TAG"
+          /bin/bash -c "/workspace/ci/changelog-gen-wrap.sh -s /source -o /artifacts -w /workspace -r $REPO_TO_BUILD -b $REF_START -t $TAG -i"
       - name: Deploy the Changelog Artifact
         run: ci/actions/deploy-changelog.sh $TAG
         env:
