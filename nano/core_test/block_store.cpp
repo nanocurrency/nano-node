@@ -468,10 +468,9 @@ TEST (unchecked, multiple_get)
 	auto count_unchecked_blocks_one_by_one = [&store, &unchecked] () {
 		size_t count = 0;
 		auto transaction = store->tx_begin_read ();
-		for (auto [i, end] = unchecked.full_range (transaction); i != end; ++i)
-		{
+		unchecked.for_each (transaction, [&count] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 			++count;
-		}
+		});
 		return count;
 	};
 
@@ -545,8 +544,11 @@ TEST (block_store, empty_bootstrap)
 	nano::unchecked_map unchecked{ *store, false };
 	ASSERT_TRUE (!store->init_error ());
 	auto transaction (store->tx_begin_read ());
-	auto [begin, end] = unchecked.full_range (transaction);
-	ASSERT_EQ (end, begin);
+	size_t count = 0;
+	unchecked.for_each (transaction, [&count] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+		++count;
+	});
+	ASSERT_EQ (count, 0);
 }
 
 TEST (block_store, unchecked_begin_search)

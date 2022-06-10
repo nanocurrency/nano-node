@@ -54,14 +54,3 @@ size_t nano::rocksdb::unchecked_store::count (nano::transaction const & transact
 {
 	return store.count (transaction_a, tables::unchecked);
 }
-
-void nano::rocksdb::unchecked_store::for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>)> const & action_a) const
-{
-	parallel_traversal<nano::uint512_t> (
-	[&action_a, this] (nano::uint512_t const & start, nano::uint512_t const & end, bool const is_last) {
-		nano::unchecked_key key_start (start);
-		nano::unchecked_key key_end (end);
-		auto transaction (this->store.tx_begin_read ());
-		action_a (transaction, this->lower_bound (transaction, key_start), !is_last ? this->lower_bound (transaction, key_end) : this->end ());
-	});
-}

@@ -68,14 +68,14 @@ TEST (block_store, one_bootstrap)
 	// Waits for the block1 to get saved in the database
 	ASSERT_TIMELY (10s, check_block_is_listed (store->tx_begin_read (), block1->hash ()));
 	auto transaction = store->tx_begin_read ();
-	auto [begin, end] = unchecked.full_range (transaction);
-	ASSERT_NE (end, begin);
-	auto hash1 = begin->first.key ();
+	std::vector<nano::block_hash> dependencies;
+	unchecked.for_each (transaction, [&dependencies] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+		dependencies.push_back (key.key ());
+	});
+	auto hash1 = dependencies[0];
 	ASSERT_EQ (block1->hash (), hash1);
 	auto blocks = unchecked.get (transaction, hash1);
 	ASSERT_EQ (1, blocks.size ());
 	auto block2 = blocks[0].block;
 	ASSERT_EQ (*block1, *block2);
-	++begin;
-	ASSERT_EQ (end, begin);
 }
