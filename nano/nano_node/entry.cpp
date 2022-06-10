@@ -439,7 +439,7 @@ int main (int argc, char * const * argv)
 			}
 
 			// Check all unchecked keys for matching frontier hashes. Indicates an issue with process_batch algorithm
-			node->store.unchecked.for_each (transaction, [&frontier_hashes] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+			node->unchecked.for_each (transaction, [&frontier_hashes] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 				auto it = frontier_hashes.find (key.key ());
 				if (it != frontier_hashes.cend ())
 				{
