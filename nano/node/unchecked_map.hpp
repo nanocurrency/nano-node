@@ -90,12 +90,14 @@ private: // In memory store
 		nano::unchecked_key key;
 		nano::unchecked_info info;
 	};
-	mutable std::recursive_mutex mutex_entries;
-	std::unique_ptr<mi::multi_index_container<entry,
-	mi::indexed_by<
-	mi::random_access<mi::tag<tag_random_access>>,
-	mi::ordered_unique<mi::tag<tag_root>,
-	mi::member<entry, nano::unchecked_key, &entry::key>>>>>
-	entries;
+	// clang-format off
+	using ordered_unchecked = boost::multi_index_container<entry,
+		mi::indexed_by<
+			mi::random_access<mi::tag<tag_random_access>>,
+			mi::ordered_unique<mi::tag<tag_root>,
+				mi::member<entry, nano::unchecked_key, &entry::key>>>>;
+	// clang-format on
+	std::unique_ptr<ordered_unchecked> entries;
+	mutable std::recursive_mutex entries_mutex;
 };
 }

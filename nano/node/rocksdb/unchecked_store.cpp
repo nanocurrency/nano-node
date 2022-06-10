@@ -13,10 +13,6 @@ void nano::rocksdb::unchecked_store::clear (nano::write_transaction const & tran
 
 void nano::rocksdb::unchecked_store::put (nano::write_transaction const & transaction_a, nano::hash_or_account const & dependency, nano::unchecked_info const & info)
 {
-	if (get (transaction_a, dependency.as_block_hash ()).size () > 1)
-	{
-		return;
-	}
 	auto status = store.put (transaction_a, tables::unchecked, nano::unchecked_key{ dependency, info.block->hash () }, info);
 	store.release_assert_success (status);
 }
