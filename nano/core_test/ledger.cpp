@@ -4087,7 +4087,7 @@ TEST (ledger, epoch_blocks_fork)
 	auto send1 = builder
 				 .send ()
 				 .previous (nano::dev::genesis->hash ())
-				 .destination (nano::account {})
+				 .destination (nano::account{})
 				 .balance (nano::dev::constants.genesis_amount)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*pool.generate (nano::dev::genesis->hash ()))

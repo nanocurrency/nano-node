@@ -622,7 +622,7 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 					 .build ();
 		auto receive1 = builder
 						.receive ()
-						.previous (send1->hash())
+						.previous (send1->hash ())
 						.source (send2->hash ())
 						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 						.work (*system.work.generate (send1->hash ()))

@@ -512,9 +512,9 @@ TEST (unchecked, double_put)
 	auto block_listing1 = unchecked.get (store->tx_begin_read (), block->previous ());
 	ASSERT_TRUE (block_listing1.empty ());
 	// Enqueues the block to be saved in the unchecked table
-	unchecked.put (block->previous (), nano::unchecked_info(block));
+	unchecked.put (block->previous (), nano::unchecked_info (block));
 	// Enqueues the block again in an attempt to have it there twice
-	unchecked.put (block->previous (), nano::unchecked_info(block));
+	unchecked.put (block->previous (), nano::unchecked_info (block));
 	auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
 		return unchecked.get (transaction_a, block_hash_a).size () > 0;
 	};
@@ -1231,7 +1231,7 @@ TEST (block_store, state_block)
 				  .sign (key1.prv, key1.pub)
 				  .work (7)
 				  .build ();
-		
+
 	block1->sideband_set ({});
 	{
 		nano::ledger_cache ledger_cache;
@@ -1849,15 +1849,15 @@ namespace lmdb
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 		nano::block_builder builder;
 		auto block1 = builder
-						  .state ()
-						  .account (nano::dev::genesis_key.pub)
-						  .previous (nano::dev::genesis->hash ())
-						  .representative (nano::dev::genesis_key.pub)
-						  .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
-						  .link (nano::dev::genesis_key.pub)
-						  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-						  .work (*pool.generate (nano::dev::genesis->hash ()))
-						  .build ();
+					  .state ()
+					  .account (nano::dev::genesis_key.pub)
+					  .previous (nano::dev::genesis->hash ())
+					  .representative (nano::dev::genesis_key.pub)
+					  .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+					  .link (nano::dev::genesis_key.pub)
+					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					  .work (*pool.generate (nano::dev::genesis->hash ()))
+					  .build ();
 		auto block2 = builder
 					  .state ()
 					  .account (nano::dev::genesis_key.pub)
@@ -2247,7 +2247,7 @@ namespace lmdb
 		}
 		auto path (nano::unique_path ());
 		nano::keypair key1;
-		nano::block_builder builder;		
+		nano::block_builder builder;
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 		auto send = builder
 					.send ()
