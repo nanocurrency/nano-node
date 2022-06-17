@@ -89,7 +89,15 @@ TEST (websocket, confirmation)
 	{
 		nano::block_hash previous (node1->latest (nano::dev::genesis_key.pub));
 		balance -= send_amount;
-		auto send (std::make_shared<nano::send_block> (previous, key.pub, balance, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (previous)));
+		nano::block_builder builder;
+		auto send = builder
+					.send ()
+					.previous (previous)
+					.destination (key.pub)
+					.balance (balance)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (previous))
+					.build_shared ();
 		node1->process_active (send);
 	}
 
@@ -140,7 +148,15 @@ TEST (websocket, stopped_election)
 
 	// Create election, then erase it, causing a websocket message to be emitted
 	nano::keypair key1;
-	auto send1 (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
+	nano::block_builder builder;
+	auto send1 = builder
+				 .send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key1.pub)
+				 .balance (0)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build_shared ();
 	nano::publish publish1{ nano::dev::network_params.network, send1 };
 	auto channel1 (node1->network.udp_channels.create (node1->network.endpoint ()));
 	node1->network.inbound (publish1, channel1);
@@ -287,7 +303,15 @@ TEST (websocket, confirmation_options)
 	// When filtering options are enabled, legacy blocks are always filtered
 	{
 		balance -= send_amount;
-		auto send (std::make_shared<nano::send_block> (previous, key.pub, balance, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (previous)));
+		nano::block_builder builder;
+		auto send = builder
+					.send ()
+					.previous (previous)
+					.destination (key.pub)
+					.balance (balance)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (previous))
+					.build_shared ();
 		node1->process_active (send);
 		previous = send->hash ();
 	}

@@ -1112,8 +1112,16 @@ TEST (wallet, epoch_2_receive_unopened)
 		auto send1 = wallet.send_action (nano::dev::genesis_key.pub, key.pub, amount, 1);
 
 		// Upgrade unopened account to epoch_2
-		auto epoch2_unopened = nano::state_block (key.pub, 0, 0, 0, node.network_params.ledger.epochs.link (nano::epoch::epoch_2), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (key.pub, node.network_params.work.epoch_2));
-		ASSERT_EQ (nano::process_result::progress, node.process (epoch2_unopened).code);
+		auto epoch2_unopened = builder
+							   .account (key.pub)
+							   .previous (0)
+							   .representative (0)
+							   .balance (0)
+							   .link (node.network_params.ledger.epochs.link (nano::epoch::epoch_2))
+							   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+							   .work (*system.work.generate (key.pub, node.network_params.work.epoch_2))
+							   .build ();
+		ASSERT_EQ (nano::process_result::progress, node.process (*epoch2_unopened).code);
 
 		wallet.insert_adhoc (key.prv, false);
 

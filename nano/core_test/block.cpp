@@ -25,20 +25,36 @@ TEST (ed25519, signing)
 TEST (transaction_block, empty)
 {
 	nano::keypair key1;
-	nano::send_block block (0, 1, 13, key1.prv, key1.pub, 2);
-	auto hash (block.hash ());
-	ASSERT_FALSE (nano::validate_message (key1.pub, hash, block.signature));
-	block.signature.bytes[32] ^= 0x1;
-	ASSERT_TRUE (nano::validate_message (key1.pub, hash, block.signature));
+	nano::block_builder builder;
+	auto block = builder
+				 .send ()
+				 .previous (0)
+				 .destination (1)
+				 .balance (13)
+				 .sign (key1.prv, key1.pub)
+				 .work (2)
+				 .build ();
+	auto hash (block->hash ());
+	ASSERT_FALSE (nano::validate_message (key1.pub, hash, block->signature));
+	block->signature.bytes[32] ^= 0x1;
+	ASSERT_TRUE (nano::validate_message (key1.pub, hash, block->signature));
 }
 
 TEST (block, send_serialize)
 {
-	nano::send_block block1 (0, 1, 2, nano::keypair ().prv, 4, 5);
+	nano::block_builder builder;
+	auto block1 = builder
+				  .send ()
+				  .previous (0)
+				  .destination (1)
+				  .balance (2)
+				  .sign (nano::keypair ().prv, 4)
+				  .work (5)
+				  .build ();
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream1 (bytes);
-		block1.serialize (stream1);
+		block1->serialize (stream1);
 	}
 	auto data (bytes.data ());
 	auto size (bytes.size ());
@@ -48,14 +64,22 @@ TEST (block, send_serialize)
 	bool error (false);
 	nano::send_block block2 (error, stream2);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (block1, block2);
+	ASSERT_EQ (*block1, block2);
 }
 
 TEST (block, send_serialize_json)
 {
-	nano::send_block block1 (0, 1, 2, nano::keypair ().prv, 4, 5);
+	nano::block_builder builder;
+	auto block1 = builder
+				  .send ()
+				  .previous (0)
+				  .destination (1)
+				  .balance (2)
+				  .sign (nano::keypair ().prv, 4)
+				  .work (5)
+				  .build ();
 	std::string string1;
-	block1.serialize_json (string1);
+	block1->serialize_json (string1);
 	ASSERT_NE (0, string1.size ());
 	boost::property_tree::ptree tree1;
 	std::stringstream istream (string1);
@@ -63,30 +87,44 @@ TEST (block, send_serialize_json)
 	bool error (false);
 	nano::send_block block2 (error, tree1);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (block1, block2);
+	ASSERT_EQ (*block1, block2);
 }
 
 TEST (block, receive_serialize)
 {
-	nano::receive_block block1 (0, 1, nano::keypair ().prv, 3, 4);
+	nano::block_builder builder;
+	auto block1 = builder
+				  .receive ()
+				  .previous (0)
+				  .source (1)
+				  .sign (nano::keypair ().prv, 3)
+				  .work (4)
+				  .build ();
 	nano::keypair key1;
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream1 (bytes);
-		block1.serialize (stream1);
+		block1->serialize (stream1);
 	}
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
 	bool error (false);
 	nano::receive_block block2 (error, stream2);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (block1, block2);
+	ASSERT_EQ (*block1, block2);
 }
 
 TEST (block, receive_serialize_json)
 {
-	nano::receive_block block1 (0, 1, nano::keypair ().prv, 3, 4);
+	nano::block_builder builder;
+	auto block1 = builder
+				  .receive ()
+				  .previous (0)
+				  .source (1)
+				  .sign (nano::keypair ().prv, 3)
+				  .work (4)
+				  .build ();
 	std::string string1;
-	block1.serialize_json (string1);
+	block1->serialize_json (string1);
 	ASSERT_NE (0, string1.size ());
 	boost::property_tree::ptree tree1;
 	std::stringstream istream (string1);
@@ -94,14 +132,22 @@ TEST (block, receive_serialize_json)
 	bool error (false);
 	nano::receive_block block2 (error, tree1);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (block1, block2);
+	ASSERT_EQ (*block1, block2);
 }
 
 TEST (block, open_serialize_json)
 {
-	nano::open_block block1 (0, 1, 0, nano::keypair ().prv, 0, 0);
+	nano::block_builder builder;
+	auto block1 = builder
+				  .open ()
+				  .source (0)
+				  .representative (1)
+				  .account (0)
+				  .sign (nano::keypair ().prv, 0)
+				  .work (0)
+				  .build ();
 	std::string string1;
-	block1.serialize_json (string1);
+	block1->serialize_json (string1);
 	ASSERT_NE (0, string1.size ());
 	boost::property_tree::ptree tree1;
 	std::stringstream istream (string1);
@@ -109,14 +155,21 @@ TEST (block, open_serialize_json)
 	bool error (false);
 	nano::open_block block2 (error, tree1);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (block1, block2);
+	ASSERT_EQ (*block1, block2);
 }
 
 TEST (block, change_serialize_json)
 {
-	nano::change_block block1 (0, 1, nano::keypair ().prv, 3, 4);
+	nano::block_builder builder;
+	auto block1 = builder
+				  .change ()
+				  .previous (0)
+				  .representative (1)
+				  .sign (nano::keypair ().prv, 3)
+				  .work (4)
+				  .build ();
 	std::string string1;
-	block1.serialize_json (string1);
+	block1->serialize_json (string1);
 	ASSERT_NE (0, string1.size ());
 	boost::property_tree::ptree tree1;
 	std::stringstream istream (string1);
@@ -124,7 +177,7 @@ TEST (block, change_serialize_json)
 	bool error (false);
 	nano::change_block block2 (error, tree1);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (block1, block2);
+	ASSERT_EQ (*block1, block2);
 }
 
 TEST (uint512_union, parse_zero)
@@ -196,65 +249,95 @@ TEST (uint512_union, parse_error_overflow)
 
 TEST (send_block, deserialize)
 {
-	nano::send_block block1 (0, 1, 2, nano::keypair ().prv, 4, 5);
-	ASSERT_EQ (block1.hash (), block1.hash ());
+	nano::block_builder builder;
+	auto block1 = builder
+				  .send ()
+				  .previous (0)
+				  .destination (1)
+				  .balance (2)
+				  .sign (nano::keypair ().prv, 4)
+				  .work (5)
+				  .build ();
+	ASSERT_EQ (block1->hash (), block1->hash ());
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream1 (bytes);
-		block1.serialize (stream1);
+		block1->serialize (stream1);
 	}
 	ASSERT_EQ (nano::send_block::size, bytes.size ());
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
 	bool error (false);
 	nano::send_block block2 (error, stream2);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (block1, block2);
+	ASSERT_EQ (*block1, block2);
 }
 
 TEST (receive_block, deserialize)
 {
-	nano::receive_block block1 (0, 1, nano::keypair ().prv, 3, 4);
-	ASSERT_EQ (block1.hash (), block1.hash ());
-	block1.hashables.previous = 2;
-	block1.hashables.source = 4;
+	nano::block_builder builder;
+	auto block1 = builder
+				  .receive ()
+				  .previous (0)
+				  .source (1)
+				  .sign (nano::keypair ().prv, 3)
+				  .work (4)
+				  .build ();
+	ASSERT_EQ (block1->hash (), block1->hash ());
+	block1->hashables.previous = 2;
+	block1->hashables.source = 4;
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream1 (bytes);
-		block1.serialize (stream1);
+		block1->serialize (stream1);
 	}
 	ASSERT_EQ (nano::receive_block::size, bytes.size ());
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
 	bool error (false);
 	nano::receive_block block2 (error, stream2);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (block1, block2);
+	ASSERT_EQ (*block1, block2);
 }
 
 TEST (open_block, deserialize)
 {
-	nano::open_block block1 (0, 1, 0, nano::keypair ().prv, 0, 0);
-	ASSERT_EQ (block1.hash (), block1.hash ());
+	nano::block_builder builder;
+	auto block1 = builder
+				  .open ()
+				  .source (0)
+				  .representative (1)
+				  .account (0)
+				  .sign (nano::keypair ().prv, 0)
+				  .work (0)
+				  .build ();
+	ASSERT_EQ (block1->hash (), block1->hash ());
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		block1.serialize (stream);
+		block1->serialize (stream);
 	}
 	ASSERT_EQ (nano::open_block::size, bytes.size ());
 	nano::bufferstream stream (bytes.data (), bytes.size ());
 	bool error (false);
 	nano::open_block block2 (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (block1, block2);
+	ASSERT_EQ (*block1, block2);
 }
 
 TEST (change_block, deserialize)
 {
-	nano::change_block block1 (1, 2, nano::keypair ().prv, 4, 5);
-	ASSERT_EQ (block1.hash (), block1.hash ());
+	nano::block_builder builder;
+	auto block1 = builder
+				  .change ()
+				  .previous (1)
+				  .representative (2)
+				  .sign (nano::keypair ().prv, 4)
+				  .work (5)
+				  .build ();
+	ASSERT_EQ (block1->hash (), block1->hash ());
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream1 (bytes);
-		block1.serialize (stream1);
+		block1->serialize (stream1);
 	}
 	ASSERT_EQ (nano::change_block::size, bytes.size ());
 	auto data (bytes.data ());
@@ -265,7 +348,7 @@ TEST (change_block, deserialize)
 	bool error (false);
 	nano::change_block block2 (error, stream2);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (block1, block2);
+	ASSERT_EQ (*block1, block2);
 }
 
 TEST (frontier_req, serialization)
@@ -292,7 +375,15 @@ TEST (block, publish_req_serialization)
 {
 	nano::keypair key1;
 	nano::keypair key2;
-	auto block (std::make_shared<nano::send_block> (0, key2.pub, 200, nano::keypair ().prv, 2, 3));
+	nano::block_builder builder;
+	auto block = builder
+				 .send ()
+				 .previous (0)
+				 .destination (key2.pub)
+				 .balance (200)
+				 .sign (nano::keypair ().prv, 2)
+				 .work (3)
+				 .build_shared ();
 	nano::publish req{ nano::dev::network_params.network, block };
 	std::vector<uint8_t> bytes;
 	{
@@ -311,8 +402,16 @@ TEST (block, publish_req_serialization)
 
 TEST (block, difficulty)
 {
-	nano::send_block block (0, 1, 2, nano::keypair ().prv, 4, 5);
-	ASSERT_EQ (nano::dev::network_params.work.difficulty (block), nano::dev::network_params.work.difficulty (block.work_version (), block.root (), block.block_work ()));
+	nano::block_builder builder;
+	auto block = builder
+				 .send ()
+				 .previous (0)
+				 .destination (1)
+				 .balance (2)
+				 .sign (nano::keypair ().prv, 4)
+				 .work (5)
+				 .build ();
+	ASSERT_EQ (nano::dev::network_params.work.difficulty (*block), nano::dev::network_params.work.difficulty (block->work_version (), block->root (), block->block_work ()));
 }
 
 TEST (state_block, serialization)

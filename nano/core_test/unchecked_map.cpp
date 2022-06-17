@@ -60,7 +60,15 @@ TEST (block_store, one_bootstrap)
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	nano::unchecked_map unchecked{ *store, false };
 	ASSERT_TRUE (!store->init_error ());
-	auto block1 = std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5);
+	nano::block_builder builder;
+	auto block1 = builder
+				  .send ()
+				  .previous (0)
+				  .destination (1)
+				  .balance (2)
+				  .sign (nano::keypair ().prv, 4)
+				  .work (5)
+				  .build_shared ();
 	unchecked.put (block1->hash (), nano::unchecked_info{ block1 });
 	auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
 		return unchecked.get (transaction_a, block_hash_a).size () > 0;
