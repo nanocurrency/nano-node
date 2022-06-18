@@ -12,7 +12,7 @@ public:
 	std::array<uint64_t, 16> s;
 	unsigned p{ 0 };
 
-	__IGNORE_ASAN_WARNINGS__
+	ATTRIBUTE_NO_SANITIZE_ADDRESS
 	uint64_t next ()
 	{
 		auto p_l (p);

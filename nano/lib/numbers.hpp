@@ -276,7 +276,7 @@ namespace std
 template <>
 struct hash<::nano::uint256_union>
 {
-	__IGNORE_ASAN_WARNINGS__
+	ATTRIBUTE_NO_SANITIZE_ADDRESS
 	size_t operator() (::nano::uint256_union const & data_a) const
 	{
 		return data_a.qwords[0] + data_a.qwords[1] + data_a.qwords[2] + data_a.qwords[3];
