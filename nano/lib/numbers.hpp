@@ -276,7 +276,7 @@ namespace std
 template <>
 struct hash<::nano::uint256_union>
 {
-	__IGNORE_UBSAN_UINT_OVERFLOW__
+	__IGNORE_ASAN_WARNINGS__
 	size_t operator() (::nano::uint256_union const & data_a) const
 	{
 		return data_a.qwords[0] + data_a.qwords[1] + data_a.qwords[2] + data_a.qwords[3];
