@@ -43,7 +43,6 @@ public:
 enum class election_behavior
 {
 	normal,
-	optimistic,
 	hinted
 };
 struct election_extended_status final
@@ -90,7 +89,6 @@ public: // State transitions
 public: // Status
 	bool confirmed () const;
 	bool failed () const;
-	bool optimistic () const;
 	nano::election_extended_status current_status () const;
 	std::shared_ptr<nano::block> winner () const;
 	std::atomic<unsigned> confirmation_request_count{ 0 };
