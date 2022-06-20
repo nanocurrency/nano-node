@@ -247,12 +247,16 @@ else()
   endif()
 
   if(${USING_ASAN} OR ${USING_ASAN_INT})
-    configure_file(asan_blacklist.in asan_blacklist)
+
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+      configure_file(asan_blacklist.in asan_blacklist)
+      add_compile_options(
+        "-fsanitize-blacklist=${CMAKE_BINARY_DIR}/asan_blacklist")
+    endif()
+
     if(${USING_ASAN_INT})
       if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         add_compile_options(-fsanitize=address,undefined,integer)
-        add_compile_options(
-          "-fsanitize-blacklist=${CMAKE_BINARY_DIR}/asan_blacklist")
       else()
         message(
           WARNING "ASAN_INT is only supported with clang, defaulting to ASAN")
@@ -261,6 +265,7 @@ else()
     else()
       add_compile_options(-fsanitize=address,undefined)
     endif()
+    
     add_definitions(-DED25519_NO_INLINE_ASM)
     add_definitions(-DROCKSDB_UBSAN_RUN)
   elseif(${USING_TSAN})
