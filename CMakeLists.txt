@@ -251,15 +251,16 @@ else()
     if(${USING_ASAN_INT})
       if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         add_compile_options(-fsanitize=address,undefined,integer)
+        add_compile_options(
+          "-fsanitize-blacklist=${CMAKE_BINARY_DIR}/asan_blacklist")
       else()
-        message(WARNING "ASAN_INT is only supported with clang, defaulting to ASAN")
+        message(
+          WARNING "ASAN_INT is only supported with clang, defaulting to ASAN")
         add_compile_options(-fsanitize=address,undefined)
       endif()
     else()
       add_compile_options(-fsanitize=address,undefined)
     endif()
-    add_compile_options(
-      "-fsanitize-blacklist=${CMAKE_BINARY_DIR}/asan_blacklist")
     add_definitions(-DED25519_NO_INLINE_ASM)
     add_definitions(-DROCKSDB_UBSAN_RUN)
   elseif(${USING_TSAN})
@@ -333,8 +334,13 @@ else()
   endif()
 
   if(${USING_ASAN_INT})
-    set(PLATFORM_LINK_FLAGS
-        "${PLATFORM_LINK_FLAGS} -fsanitize=address,undefined,integer")
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+      set(PLATFORM_LINK_FLAGS
+          "${PLATFORM_LINK_FLAGS} -fsanitize=address,undefined,integer")
+    else()
+      set(PLATFORM_LINK_FLAGS
+          "${PLATFORM_LINK_FLAGS} -fsanitize=address,undefined")
+    endif()
   elseif(${USING_ASAN})
     set(PLATFORM_LINK_FLAGS
         "${PLATFORM_LINK_FLAGS} -fsanitize=address,undefined")
