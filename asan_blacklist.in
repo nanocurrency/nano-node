@@ -1,0 +1,5 @@
+src:${BOOST_ROOT}/*
+src:${PROJECT_SOURCE_DIR}/crypto/*
+src:${PROJECT_SOURCE_DIR}/diskhash/*
+src:${PROJECT_SOURCE_DIR}/lmdb/*
+src:${PROJECT_SOURCE_DIR}/rocksdb/*

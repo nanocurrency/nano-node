@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/lib/ubsan_warnings.hpp>
+#include <nano/lib/asan_warnings.hpp>
 
 #include <boost/multiprecision/cpp_int.hpp>
 
@@ -276,7 +276,7 @@ namespace std
 template <>
 struct hash<::nano::uint256_union>
 {
-	ATTRIBUTE_NO_SANITIZE_ADDRESS
+	ATTRIBUTE_NO_SANITIZE_UINT_OVERFLOW
 	size_t operator() (::nano::uint256_union const & data_a) const
 	{
 		return data_a.qwords[0] + data_a.qwords[1] + data_a.qwords[2] + data_a.qwords[3];

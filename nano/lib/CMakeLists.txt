@@ -19,6 +19,7 @@ endif()
 add_library(
   nano_lib
   ${platform_sources}
+  asan_warnings.hpp
   asio.hpp
   asio.cpp
   blockbuilders.hpp
@@ -75,7 +76,6 @@ add_library(
   tlsconfig.cpp
   tomlconfig.hpp
   tomlconfig.cpp
-  ubsan_warnings.hpp
   utility.hpp
   utility.cpp
   walletconfig.hpp
