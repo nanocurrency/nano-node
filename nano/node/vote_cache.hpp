@@ -28,6 +28,9 @@ class node;
 class vote;
 class election;
 
+/**
+ *	A container holding votes that do not match any active or recently finished elections.
+ */
 class vote_cache final
 {
 public:
@@ -56,6 +59,14 @@ public:
 		void fill (std::shared_ptr<nano::election> const election) const;
 	};
 
+private:
+	class queue_entry final
+	{
+	public:
+		nano::block_hash hash{ 0 };
+		nano::uint128_t tally{ 0 };
+	};
+
 public:
 	explicit vote_cache (std::size_t max_size);
 
@@ -73,16 +84,18 @@ public:
 	 */
 	bool erase (nano::block_hash const & hash);
 	/**
-	 * Returns an entry with the highest tally. Can only be called single threaded, shall not be called when empty.
+	 * Returns an entry with the highest tally.
 	 */
-	entry peek () const;
+	std::optional<entry> peek (nano::uint128_t const & min_tally = 0) const;
 	/**
 	 * Returns an entry with the highest tally and removes it from container.
 	 */
 	std::optional<entry> pop (nano::uint128_t const & min_tally = 0);
+	void trigger (const nano::block_hash & hash);
 
 	std::size_t size () const;
 	bool empty () const;
+	bool queue_empty () const;
 
 public:
 	/**
@@ -91,7 +104,9 @@ public:
 	std::function<nano::uint128_t (nano::account const &)> rep_weight_query{ [] (nano::account const & rep) { return 0; } };
 
 private:
-	void vote_impl (nano::block_hash const & hash, nano::account const & representative, uint64_t const & timestamp, nano::uint128_t const & rep_weight);
+	void vote_impl_locked (nano::block_hash const & hash, nano::account const & representative, uint64_t const & timestamp, nano::uint128_t const & rep_weight);
+	std::optional<entry> find_locked (nano::block_hash const & hash) const;
+	void trim_overflow_locked ();
 
 	std::size_t max_size = 1024 * 128;
 
@@ -105,12 +120,21 @@ private:
 	using ordered_cache = boost::multi_index_container<entry,
 	mi::indexed_by<
 		mi::random_access<mi::tag<tag_random_access>>,
-		mi::ordered_non_unique<mi::tag<tag_tally>,
-			mi::member<entry, nano::uint128_t, &entry::tally>>,
 		mi::hashed_unique<mi::tag<tag_hash>,
 			mi::member<entry, nano::block_hash, &entry::hash>>>>;
 	// clang-format on
 	ordered_cache cache;
+
+	// clang-format off
+	using ordered_queue = boost::multi_index_container<queue_entry,
+	mi::indexed_by<
+		mi::random_access<mi::tag<tag_random_access>>,
+		mi::ordered_non_unique<mi::tag<tag_tally>,
+			mi::member<queue_entry, nano::uint128_t, &queue_entry::tally>>,
+		mi::hashed_unique<mi::tag<tag_hash>,
+			mi::member<queue_entry, nano::block_hash, &queue_entry::hash>>>>;
+	// clang-format on
+	ordered_queue queue;
 
 	mutable nano::mutex mutex;
 };

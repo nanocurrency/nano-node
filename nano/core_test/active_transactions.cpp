@@ -1493,39 +1493,37 @@ TEST (active_transactions, limit_vote_hinted_elections)
 		// Inactive vote
 		auto vote1 (std::make_shared<nano::vote> (rep1.pub, rep1.prv, 0, 0, std::vector<nano::block_hash>{ receive0->hash (), receive1->hash () }));
 		node.vote_processor.vote (vote1, std::make_shared<nano::transport::inproc::channel> (node, node));
-		ASSERT_TIMELY (1s, node.inactive_vote_cache.size () == 2);
+		ASSERT_TIMELY (3s, node.inactive_vote_cache.size () == 2);
 		ASSERT_TRUE (node.active.empty ());
 		ASSERT_EQ (7, node.ledger.cache.cemented_count);
 
 		// This vote should trigger election hinting for first receive block
 		auto vote2 (std::make_shared<nano::vote> (rep2.pub, rep2.prv, 0, 0, std::vector<nano::block_hash>{ receive0->hash () }));
 		node.vote_processor.vote (vote2, std::make_shared<nano::transport::inproc::channel> (node, node));
-		ASSERT_TIMELY (1s, 1 == node.active.size ());
+		ASSERT_TIMELY (3s, 1 == node.active.size ());
 		// Ensure first transaction becomes active
-		ASSERT_TIMELY (1s, node.active.election (receive0->qualified_root ()) != nullptr);
+		ASSERT_TIMELY (3s, node.active.election (receive0->qualified_root ()) != nullptr);
 
 		// This vote should trigger election hinting but not become active due to limit of active hinted elections
 		auto vote3 (std::make_shared<nano::vote> (rep2.pub, rep2.prv, 0, 0, std::vector<nano::block_hash>{ receive1->hash () }));
 		node.vote_processor.vote (vote3, std::make_shared<nano::transport::inproc::channel> (node, node));
-		ASSERT_TIMELY (1s, node.stats.count (nano::stat::type::election, nano::stat::detail::election_hinted_overflow) == 1);
-		ASSERT_TIMELY (1s, 1 == node.active.size ());
+		ASSERT_TIMELY (3s, 1 == node.active.size ());
 		// Ensure second transaction does not become active
-		ASSERT_TIMELY (1s, node.active.election (receive1->qualified_root ()) == nullptr);
+		ASSERT_TIMELY (3s, node.active.election (receive1->qualified_root ()) == nullptr);
 
 		// This final vote should confirm the first receive block
 		auto vote4 = (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ receive0->hash () }));
 		node.vote_processor.vote (vote4, std::make_shared<nano::transport::inproc::channel> (node, node));
-		ASSERT_TIMELY (1s, node.active.empty ());
-		ASSERT_EQ (8, node.ledger.cache.cemented_count);
-		ASSERT_TIMELY (1s, node.inactive_vote_cache.size () == 1);
+		ASSERT_TIMELY (3s, 8 == node.ledger.cache.cemented_count);
 
 		// Now it should be possible to vote hint second block
+		ASSERT_TIMELY (3s, node.active.election (receive1->qualified_root ()) != nullptr);
+
 		auto vote5 = (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ receive1->hash () }));
 		node.vote_processor.vote (vote5, std::make_shared<nano::transport::inproc::channel> (node, node));
-		ASSERT_TIMELY (1s, node.stats.count (nano::stat::type::election, nano::stat::detail::election_hinted_overflow) == 1);
-		ASSERT_TIMELY (1s, 1 == node.active.size ());
+		ASSERT_TIMELY (3s, 1 == node.active.size ());
 		ASSERT_EQ (8, node.ledger.cache.cemented_count);
-		ASSERT_TIMELY (1s, node.inactive_vote_cache.size () == 1);
+		ASSERT_TIMELY (3s, node.inactive_vote_cache.size () == 1);
 
 		// Ensure there was no overflow
 		ASSERT_EQ (0, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop_overflow));

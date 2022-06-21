@@ -11,6 +11,7 @@
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/election_hinting.hpp>
 #include <nano/node/election_scheduler.hpp>
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/network.hpp>
@@ -198,6 +199,7 @@ public:
 	nano::vote_cache inactive_vote_cache;
 	nano::active_transactions active;
 	nano::election_scheduler scheduler;
+	nano::election_hinting election_hinting;
 	nano::request_aggregator aggregator;
 	nano::wallets wallets;
 	std::chrono::steady_clock::time_point const startup_time;

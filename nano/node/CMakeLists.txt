@@ -56,6 +56,8 @@ add_library(
   distributed_work_factory.cpp
   election.hpp
   election.cpp
+  election_hinting.hpp
+  election_hinting.cpp
   election_scheduler.hpp
   election_scheduler.cpp
   gap_cache.hpp

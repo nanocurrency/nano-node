@@ -2,8 +2,6 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/node/election.hpp>
-#include <nano/node/inactive_cache_information.hpp>
-#include <nano/node/inactive_cache_status.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/secure/common.hpp>
 
@@ -94,6 +92,7 @@ public:
 	~active_transactions ();
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
 	nano::vote_code vote (std::shared_ptr<nano::vote> const &);
+	nano::election_insertion_result insert_hinted (std::shared_ptr<nano::block> const & block_a);
 	// Is the root of this block in the roots container
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
@@ -114,6 +113,7 @@ public:
 
 	int64_t vacancy () const;
 	std::function<void ()> vacancy_update{ [] () {} };
+	int64_t vacancy_hinted () const;
 
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_recently_cemented ();
@@ -123,7 +123,6 @@ public:
 	void add_recently_confirmed (nano::qualified_root const &, nano::block_hash const &);
 	void erase_recently_confirmed (nano::block_hash const &);
 	// Inserts an election if conditions are met
-	void trigger_inactive_votes_cache_election (std::shared_ptr<nano::block> const &);
 	nano::election_scheduler & scheduler;
 	nano::confirmation_height_processor & confirmation_height_processor;
 	nano::node & node;
@@ -144,7 +143,6 @@ private:
 	// clang-format off
 	nano::election_insertion_result insert_impl (nano::unique_lock<nano::mutex> &, std::shared_ptr<nano::block> const&, nano::election_behavior = nano::election_behavior::normal, std::function<void(std::shared_ptr<nano::block>const&)> const & = nullptr);
 	// clang-format on
-	nano::election_insertion_result insert_hinted (std::shared_ptr<nano::block> const & block_a);
 	void request_loop ();
 	void request_confirm (nano::unique_lock<nano::mutex> &);
 	void erase (nano::qualified_root const &);
@@ -153,8 +151,7 @@ private:
 	// Returns a list of elections sorted by difficulty, mutex must be locked
 	std::vector<std::shared_ptr<nano::election>> list_active_impl (std::size_t) const;
 
-	void add_inactive_vote_cache (nano::block_hash const & hash, std::shared_ptr<nano::vote> const vote);
-	void check_inactive_vote_cache (nano::block_hash const & hash);
+	void add_inactive_vote_cache (nano::block_hash const & hash, std::shared_ptr<nano::vote> vote);
 
 	nano::condition_variable condition;
 	bool started{ false };

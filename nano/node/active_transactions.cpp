@@ -171,6 +171,14 @@ int64_t nano::active_transactions::vacancy () const
 	return result;
 }
 
+int64_t nano::active_transactions::vacancy_hinted () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	const int64_t limit = node.config.active_elections_hinted_limit_percentage * node.config.active_elections_size / 100;
+	auto result = limit - active_hinted_elections_count;
+	return result;
+}
+
 void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> & lock_a)
 {
 	debug_assert (lock_a.owns_lock ());
@@ -458,10 +466,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 			}
 			else if (recently_confirmed_by_hash.count (hash) == 0)
 			{
-				lock.unlock ();
 				add_inactive_vote_cache (hash, vote_a);
-				check_inactive_vote_cache (hash);
-				lock.lock ();
 			}
 			else
 			{
@@ -679,49 +684,12 @@ boost::optional<nano::election_status_type> nano::active_transactions::confirm_b
 	return status_type;
 }
 
-void nano::active_transactions::add_inactive_vote_cache (nano::block_hash const & hash, std::shared_ptr<nano::vote> const vote)
+void nano::active_transactions::add_inactive_vote_cache (nano::block_hash const & hash, std::shared_ptr<nano::vote> vote)
 {
 	if (node.ledger.weight (vote->account) > node.minimum_principal_weight ())
 	{
 		node.inactive_vote_cache.vote (hash, vote);
 	}
-}
-
-void nano::active_transactions::check_inactive_vote_cache (nano::block_hash const & hash)
-{
-	if (auto entry = node.inactive_vote_cache.find (hash); entry)
-	{
-		const auto min_tally = (node.online_reps.trended () / 100) * node.config.election_hint_weight_percent;
-
-		// Check that we passed minimum voting weight threshold to start a hinted election
-		if (entry->tally > min_tally)
-		{
-			auto transaction (node.store.tx_begin_read ());
-			auto block = node.store.block.get (transaction, hash);
-			// Check if we have the block in ledger
-			if (block)
-			{
-				// We have the block, check that it's not yet confirmed
-				if (!node.block_confirmed_or_being_confirmed (transaction, hash))
-				{
-					insert_hinted (block);
-				}
-			}
-			else
-			{
-				if (!node.ledger.pruning || !node.store.pruned.exists (transaction, hash))
-				{
-					// We don't have the block, try to bootstrap it
-					node.gap_cache.bootstrap_start (hash);
-				}
-			}
-		}
-	}
-}
-
-void nano::active_transactions::trigger_inactive_votes_cache_election (std::shared_ptr<nano::block> const & block_a)
-{
-	check_inactive_vote_cache (block_a->hash ());
 }
 
 std::size_t nano::active_transactions::election_winner_details_size ()

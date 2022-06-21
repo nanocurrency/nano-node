@@ -65,11 +65,12 @@ TEST (vote_cache, insert_one_hash)
 	ASSERT_EQ (1, vote_cache.size ());
 	ASSERT_TRUE (vote_cache.find (hash1));
 	auto peek1 = vote_cache.peek ();
-	ASSERT_EQ (peek1.hash, hash1);
-	ASSERT_EQ (peek1.voters.size (), 1);
-	ASSERT_EQ (peek1.voters.front ().first, rep1.pub); // account
-	ASSERT_EQ (peek1.voters.front ().second, 1024 * 1024); // timestamp
-	ASSERT_EQ (peek1.tally, 7);
+	ASSERT_TRUE (peek1);
+	ASSERT_EQ (peek1->hash, hash1);
+	ASSERT_EQ (peek1->voters.size (), 1);
+	ASSERT_EQ (peek1->voters.front ().first, rep1.pub); // account
+	ASSERT_EQ (peek1->voters.front ().second, 1024 * 1024); // timestamp
+	ASSERT_EQ (peek1->tally, 7);
 }
 
 TEST (vote_cache, insert_one_hash_many_votes)
@@ -88,8 +89,9 @@ TEST (vote_cache, insert_one_hash_many_votes)
 	vote_cache.vote (vote3->hashes.front (), vote3);
 	ASSERT_EQ (1, vote_cache.size ());
 	auto peek1 = vote_cache.peek ();
-	ASSERT_EQ (peek1.voters.size (), 3);
-	ASSERT_EQ (peek1.tally, 7 + 9 + 11);
+	ASSERT_TRUE (peek1);
+	ASSERT_EQ (peek1->voters.size (), 3);
+	ASSERT_EQ (peek1->tally, 7 + 9 + 11);
 }
 
 TEST (vote_cache, insert_many_hashes_many_votes)
@@ -116,9 +118,10 @@ TEST (vote_cache, insert_many_hashes_many_votes)
 	ASSERT_TRUE (vote_cache.find (hash3));
 
 	auto peek1 = vote_cache.peek ();
-	ASSERT_EQ (peek1.voters.size (), 1);
-	ASSERT_EQ (peek1.tally, 11);
-	ASSERT_EQ (peek1.hash, hash3);
+	ASSERT_TRUE (peek1);
+	ASSERT_EQ (peek1->voters.size (), 1);
+	ASSERT_EQ (peek1->tally, 11);
+	ASSERT_EQ (peek1->hash, hash3);
 
 	vote_cache.vote (vote4->hashes.front (), vote4);
 
@@ -127,21 +130,21 @@ TEST (vote_cache, insert_many_hashes_many_votes)
 	ASSERT_EQ ((*pop1).voters.size (), 2);
 	ASSERT_EQ ((*pop1).tally, 7 + 13);
 	ASSERT_EQ ((*pop1).hash, hash1);
-	ASSERT_FALSE (vote_cache.find (hash1));
+	ASSERT_TRUE (vote_cache.find (hash1)); // Only pop from queue, votes should still be stored in cache
 
 	auto pop2 = vote_cache.pop ();
 	ASSERT_EQ ((*pop2).voters.size (), 1);
 	ASSERT_EQ ((*pop2).tally, 11);
 	ASSERT_EQ ((*pop2).hash, hash3);
-	ASSERT_FALSE (vote_cache.find (hash3));
+	ASSERT_TRUE (vote_cache.find (hash3));
 
 	auto pop3 = vote_cache.pop ();
 	ASSERT_EQ ((*pop3).voters.size (), 1);
 	ASSERT_EQ ((*pop3).tally, 9);
 	ASSERT_EQ ((*pop3).hash, hash2);
-	ASSERT_FALSE (vote_cache.find (hash2));
+	ASSERT_TRUE (vote_cache.find (hash2));
 
-	ASSERT_TRUE (vote_cache.empty ());
+	ASSERT_TRUE (vote_cache.queue_empty ());
 }
 
 TEST (vote_cache, insert_duplicate)
@@ -166,13 +169,15 @@ TEST (vote_cache, insert_newer)
 	auto vote1 = create_vote (rep1, 1 * 1024 * 1024, 0, { hash1 });
 	vote_cache.vote (vote1->hashes.front (), vote1);
 	auto peek1 = vote_cache.peek ();
+	ASSERT_TRUE (peek1);
 	auto vote2 = create_vote (rep1, nano::vote::timestamp_max, nano::vote::duration_max, { hash1 });
 	vote_cache.vote (vote2->hashes.front (), vote2);
 	auto peek2 = vote_cache.peek ();
+	ASSERT_TRUE (peek2);
 	ASSERT_EQ (1, vote_cache.size ());
-	ASSERT_EQ (1, peek2.voters.size ());
-	ASSERT_GT (peek2.voters.front ().second, peek1.voters.front ().second); // timestamp2 > timestamp1
-	ASSERT_EQ (peek2.voters.front ().second, std::numeric_limits<uint64_t>::max ()); // final timestamp
+	ASSERT_EQ (1, peek2->voters.size ());
+	ASSERT_GT (peek2->voters.front ().second, peek1->voters.front ().second); // timestamp2 > timestamp1
+	ASSERT_EQ (peek2->voters.front ().second, std::numeric_limits<uint64_t>::max ()); // final timestamp
 }
 
 TEST (vote_cache, insert_older)
@@ -184,12 +189,14 @@ TEST (vote_cache, insert_older)
 	auto vote1 = create_vote (rep1, 2 * 1024 * 1024, 0, { hash1 });
 	vote_cache.vote (vote1->hashes.front (), vote1);
 	auto peek1 = vote_cache.peek ();
+	ASSERT_TRUE (peek1);
 	auto vote2 = create_vote (rep1, 1 * 1024 * 1024, 0, { hash1 });
 	vote_cache.vote (vote2->hashes.front (), vote2);
 	auto peek2 = vote_cache.peek ();
+	ASSERT_TRUE (peek2);
 	ASSERT_EQ (1, vote_cache.size ());
-	ASSERT_EQ (1, peek2.voters.size ());
-	ASSERT_EQ (peek2.voters.front ().second, peek1.voters.front ().second); // timestamp2 == timestamp1
+	ASSERT_EQ (1, peek2->voters.size ());
+	ASSERT_EQ (peek2->voters.front ().second, peek1->voters.front ().second); // timestamp2 == timestamp1
 }
 
 TEST (vote_cache, erase)
@@ -239,7 +246,9 @@ TEST (vote_cache, overfill)
 		vote_cache.vote (vote1->hashes.front (), vote1);
 	}
 	ASSERT_LT (vote_cache.size (), count);
-	ASSERT_EQ (vote_cache.peek ().tally, default_size); // Check that oldest are dropped first
+	auto peek1 = vote_cache.peek ();
+	ASSERT_TRUE (peek1);
+	ASSERT_EQ (peek1->tally, default_size); // Check that oldest are dropped first
 }
 
 TEST (vote_cache, overfill_entry)
@@ -255,5 +264,4 @@ TEST (vote_cache, overfill_entry)
 		vote_cache.vote (vote1->hashes.front (), vote1);
 	}
 	ASSERT_EQ (1, vote_cache.size ());
-	ASSERT_LT (vote_cache.peek ().voters.size (), count);
 }

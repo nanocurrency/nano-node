@@ -322,7 +322,7 @@ void nano::block_processor::process_live (nano::transaction const & transaction_
 	}
 	else
 	{
-		node.active.trigger_inactive_votes_cache_election (block_a);
+		node.inactive_vote_cache.trigger (block_a->hash ());
 	}
 
 	// Announce block contents to the network
