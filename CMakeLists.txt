@@ -265,7 +265,7 @@ else()
     else()
       add_compile_options(-fsanitize=address,undefined)
     endif()
-    
+
     add_definitions(-DED25519_NO_INLINE_ASM)
     add_definitions(-DROCKSDB_UBSAN_RUN)
   elseif(${USING_TSAN})
