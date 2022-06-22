@@ -38,7 +38,7 @@ void nano::vote_cache::entry::fill (std::shared_ptr<nano::election> const electi
 {
 	for (const auto & [rep, timestamp] : voters)
 	{
-		election->vote (rep, timestamp, hash);
+		election->vote (rep, timestamp, hash, election_vote_source::vote_cache);
 	}
 }
 
