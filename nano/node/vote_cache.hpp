@@ -150,5 +150,7 @@ private:
 	ordered_queue queue;
 
 	mutable nano::mutex mutex;
+
+	friend std::unique_ptr<nano::container_info_component> collect_container_info (active_transactions &, std::string const &);
 };
 }

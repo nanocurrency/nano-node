@@ -158,6 +158,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	history{ config.network_params.voting },
 	vote_uniquer (block_uniquer),
 	confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
+	inactive_vote_cache{ flags.inactive_votes_cache_size },
 	active (*this, confirmation_height_processor),
 	scheduler{ *this },
 	aggregator (config, stats, active.generator, active.final_generator, history, ledger, wallets, active),
@@ -170,6 +171,11 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	unchecked.satisfied = [this] (nano::unchecked_info const & info) {
 		this->block_processor.add (info);
 	};
+
+	inactive_vote_cache.rep_weight_query = [this] (nano::account const & rep) {
+		return ledger.weight (rep);
+	};
+
 	if (!init_error ())
 	{
 		telemetry->start ();
