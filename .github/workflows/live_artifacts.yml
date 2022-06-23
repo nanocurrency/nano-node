@@ -66,6 +66,37 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2
 
+  linux_rpm_job:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 90
+    steps:
+      - name: Sets the tag and repo variables (to build)
+        run: |
+          echo "TAG=${{ github.event.inputs.ref }}" >> $GITHUB_ENV
+          echo "REPO_TO_BUILD=${{ github.event.inputs.repo }}" >> $GITHUB_ENV
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          submodules: "recursive"
+          ref: ${{ github.ref }}
+          repository: ${{ github.repository }}
+      - name: CentOS Base
+        run: ci/build-docker-image.sh docker/ci/Dockerfile-centos nanocurrency/nano-env:centos
+      - name: Build Artifact
+        run: |
+          mkdir -p ${GITHUB_WORKSPACE}/artifacts
+          docker run -e LIVE=1 -e TAG=$TAG -e REPO_TO_BUILD=$REPO_TO_BUILD -e RPM_RELEASE=1 \
+          -v ${GITHUB_WORKSPACE}:/workspace \
+          -v ${GITHUB_WORKSPACE}/artifacts:/root/rpmbuild \
+          nanocurrency/nano-env:centos /bin/bash -c "ci/build-centos.sh"
+      - name: Deploy Artifacts
+        run: ci/actions/deploy.sh
+        env:
+          LINUX_RPM: 1
+          S3_BUILD_DIRECTORY: ${{ secrets.S3_BUILD_DIRECTORY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-2
+
   linux_docker_job:
     runs-on: ubuntu-20.04
     timeout-minutes: 90
