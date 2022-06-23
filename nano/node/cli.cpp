@@ -321,7 +321,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		}
 		else
 		{
-			std::cerr << "account_create command requires one <wallet> option\n";
+			std::cerr << "account_create command requires one <wallet> option and optionally one <password> option\n";
 			ec = nano::error_cli::invalid_arguments;
 		}
 	}
