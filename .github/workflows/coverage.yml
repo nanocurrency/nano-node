@@ -40,7 +40,7 @@ jobs:
       - name: Build and Test
         env:
           TEST_USE_ROCKSDB: ${{ matrix.TEST_USE_ROCKSDB }}
-        run: ./ci/build-travis.sh /usr/lib/x86_64-linux=gnu/cmake/Qt5
+        run: ./ci/build-ci.sh /usr/lib/x86_64-linux=gnu/cmake/Qt5
       - uses: coverallsapp/github-action@8cbef1dea373ebce56de0a14c68d6267baa10b44
         with:
           github-token: ${{ secrets.github_token }}
