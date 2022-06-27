@@ -1,7 +1,7 @@
 FROM nanocurrency/nano-env:gcc
 
 ARG NETWORK=live
-ARG TRAVIS_TAG=DEV_BUILD
+ARG CI_TAG=DEV_BUILD
 ARG CI_BUILD=OFF
 ADD ./ /tmp/src
 
