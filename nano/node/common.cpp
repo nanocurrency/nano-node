@@ -320,6 +320,31 @@ std::size_t nano::message_header::payload_length_bytes () const
 	}
 }
 
+bool nano::message_header::is_valid_block_type () const
+{
+	switch (type)
+	{
+		case nano::message_type::bulk_pull:
+		case nano::message_type::bulk_push:
+		case nano::message_type::telemetry_req:
+		case nano::message_type::frontier_req:
+		case nano::message_type::bulk_pull_account:
+		case nano::message_type::keepalive:
+		case nano::message_type::publish:
+		case nano::message_type::confirm_ack:
+		case nano::message_type::confirm_req:
+		case nano::message_type::node_id_handshake:
+		case nano::message_type::telemetry_ack:
+		{
+			return true;
+		}
+		default:
+		{
+			return false;
+		}
+	}
+}
+
 // MTU - IP header - UDP header
 std::size_t const nano::message_parser::max_safe_udp_message_size = 508;
 
