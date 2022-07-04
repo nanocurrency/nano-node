@@ -97,6 +97,10 @@ public:
 	{
 		return type () == nano::socket::type_t::realtime || type () == nano::socket::type_t::realtime_response_server;
 	}
+	bool is_bootstrap_connection ()
+	{
+		return type () == nano::socket::type_t::bootstrap;
+	}
 	bool is_closed ()
 	{
 		return closed;
