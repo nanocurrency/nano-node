@@ -216,6 +216,13 @@ void nano::bootstrap_server::received_message (std::unique_ptr<nano::message> me
 	else
 	{
 		// Error while deserializing message
+		debug_assert (message_deserializer->status != bootstrap::message_deserializer::parse_status::success);
+		node->stats.inc (nano::stat::type::error, message_deserializer->parse_status_to_stat_detail ());
+		if (message_deserializer->status == bootstrap::message_deserializer::parse_status::duplicate_publish_message)
+		{
+			node->stats.inc (nano::stat::type::filter, nano::stat::detail::duplicate_publish);
+		}
+		// TODO: Make a counter, too many failed messages should stop the connection
 	}
 
 	if (should_continue)
@@ -226,6 +233,8 @@ void nano::bootstrap_server::received_message (std::unique_ptr<nano::message> me
 
 bool nano::bootstrap_server::process_message (std::unique_ptr<nano::message> message)
 {
+	node->stats.inc (nano::stat::type::bootstrap_server, nano::message_type_to_stat_detail (message->header.type), nano::stat::dir::in);
+
 	debug_assert (is_handshake_connection () || is_realtime_connection () || is_bootstrap_connection ());
 
 	if (is_handshake_connection ())

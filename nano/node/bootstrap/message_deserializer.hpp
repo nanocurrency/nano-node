@@ -32,12 +32,15 @@ namespace bootstrap
 			invalid_bulk_pull_message,
 			invalid_bulk_pull_account_message,
 			invalid_frontier_req_message,
+			invalid_network,
 			outdated_version,
 			duplicate_publish_message,
 			message_size_too_big,
 		};
 
 		using callback_type = std::function<void (boost::system::error_code, std::unique_ptr<nano::message>)>;
+
+		parse_status status;
 
 		message_deserializer (nano::network_constants const & network_constants, nano::network_filter & publish_filter, nano::block_uniquer & block_uniquer, nano::vote_uniquer & vote_uniquer);
 
@@ -63,7 +66,6 @@ namespace bootstrap
 		static bool at_end (nano::stream &);
 
 		std::shared_ptr<std::vector<uint8_t>> read_buffer;
-		parse_status status;
 
 		nano::network_constants const & network_constants;
 		nano::network_filter & publish_filter;
@@ -73,6 +75,10 @@ namespace bootstrap
 	private:
 		static constexpr std::size_t HEADER_SIZE = 8;
 		static constexpr std::size_t MAX_MESSAGE_SIZE = 1024 * 4;
+
+	public:
+		std::string parse_status_to_string ();
+		stat::detail parse_status_to_stat_detail ();
 	};
 }
 }

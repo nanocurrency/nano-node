@@ -6,6 +6,7 @@
 #include <nano/lib/asio.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/memory.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/network_filter.hpp>
 
@@ -190,6 +191,7 @@ enum class message_type : uint8_t
 };
 
 std::string message_type_to_string (message_type);
+stat::detail message_type_to_stat_detail (message_type);
 
 enum class bulk_pull_account_flags : uint8_t
 {

@@ -53,7 +53,7 @@ void nano::bootstrap::message_deserializer::received_header (std::shared_ptr<nan
 	}
 	if (header.network != network_constants.current_network)
 	{
-		status = parse_status::invalid_header;
+		status = parse_status::invalid_network;
 		callback (boost::system::error_code{}, nullptr);
 		return;
 	}
@@ -352,4 +352,92 @@ bool nano::bootstrap::message_deserializer::at_end (nano::stream & stream)
 	uint8_t junk;
 	auto end (nano::try_read (stream, junk));
 	return end;
+}
+
+nano::stat::detail nano::bootstrap::message_deserializer::parse_status_to_stat_detail ()
+{
+	switch (status)
+	{
+		case parse_status::success:
+			break;
+		case parse_status::insufficient_work:
+			return stat::detail::insufficient_work;
+		case parse_status::invalid_header:
+			return stat::detail::invalid_header;
+		case parse_status::invalid_message_type:
+			return stat::detail::invalid_message_type;
+		case parse_status::invalid_keepalive_message:
+			return stat::detail::invalid_keepalive_message;
+		case parse_status::invalid_publish_message:
+			return stat::detail::invalid_publish_message;
+		case parse_status::invalid_confirm_req_message:
+			return stat::detail::invalid_confirm_req_message;
+		case parse_status::invalid_confirm_ack_message:
+			return stat::detail::invalid_confirm_ack_message;
+		case parse_status::invalid_node_id_handshake_message:
+			return stat::detail::invalid_node_id_handshake_message;
+		case parse_status::invalid_telemetry_req_message:
+			return stat::detail::invalid_telemetry_req_message;
+		case parse_status::invalid_telemetry_ack_message:
+			return stat::detail::invalid_telemetry_ack_message;
+		case parse_status::invalid_bulk_pull_message:
+			return stat::detail::invalid_bulk_pull_message;
+		case parse_status::invalid_bulk_pull_account_message:
+			return stat::detail::invalid_bulk_pull_account_message;
+		case parse_status::invalid_frontier_req_message:
+			return stat::detail::invalid_frontier_req_message;
+		case parse_status::invalid_network:
+			return stat::detail::invalid_network;
+		case parse_status::outdated_version:
+			return stat::detail::outdated_version;
+		case parse_status::duplicate_publish_message:
+			return stat::detail::duplicate_publish;
+		case parse_status::message_size_too_big:
+			return stat::detail::message_too_big;
+	}
+	return {};
+}
+
+std::string nano::bootstrap::message_deserializer::parse_status_to_string ()
+{
+	switch (status)
+	{
+		case parse_status::success:
+			return "success";
+		case parse_status::insufficient_work:
+			return "insufficient_work";
+		case parse_status::invalid_header:
+			return "invalid_header";
+		case parse_status::invalid_message_type:
+			return "invalid_message_type";
+		case parse_status::invalid_keepalive_message:
+			return "invalid_keepalive_message";
+		case parse_status::invalid_publish_message:
+			return "invalid_publish_message";
+		case parse_status::invalid_confirm_req_message:
+			return "invalid_confirm_req_message";
+		case parse_status::invalid_confirm_ack_message:
+			return "invalid_confirm_ack_message";
+		case parse_status::invalid_node_id_handshake_message:
+			return "invalid_node_id_handshake_message";
+		case parse_status::invalid_telemetry_req_message:
+			return "invalid_telemetry_req_message";
+		case parse_status::invalid_telemetry_ack_message:
+			return "invalid_telemetry_ack_message";
+		case parse_status::invalid_bulk_pull_message:
+			return "invalid_bulk_pull_message";
+		case parse_status::invalid_bulk_pull_account_message:
+			return "invalid_bulk_pull_account_message";
+		case parse_status::invalid_frontier_req_message:
+			return "invalid_frontier_req_message";
+		case parse_status::invalid_network:
+			return "invalid_network";
+		case parse_status::outdated_version:
+			return "outdated_version";
+		case parse_status::duplicate_publish_message:
+			return "duplicate_publish_message";
+		case parse_status::message_size_too_big:
+			return "message_size_too_big";
+	}
+	return "n/a";
 }

@@ -173,6 +173,8 @@ public:
 	static std::size_t constexpr queue_size_max = 128;
 };
 
+std::string socket_type_to_string (socket::type_t type);
+
 using address_socket_mmap = std::multimap<boost::asio::ip::address, std::weak_ptr<socket>>;
 
 namespace socket_functions

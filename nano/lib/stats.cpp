@@ -474,6 +474,9 @@ std::string nano::stat::type_to_string (uint32_t key)
 		case nano::stat::type::bootstrap:
 			res = "bootstrap";
 			break;
+		case nano::stat::type::bootstrap_server:
+			res = "bootstrap_server";
+			break;
 		case nano::stat::type::error:
 			res = "error";
 			break;
@@ -645,11 +648,17 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 		case nano::stat::detail::insufficient_work:
 			res = "insufficient_work";
 			break;
+		case nano::stat::detail::invalid:
+			res = "invalid";
+			break;
 		case nano::stat::detail::invocations:
 			res = "invocations";
 			break;
 		case nano::stat::detail::keepalive:
 			res = "keepalive";
+			break;
+		case nano::stat::detail::not_a_type:
+			res = "not_a_type";
 			break;
 		case nano::stat::detail::open:
 			res = "open";
@@ -817,6 +826,18 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 			break;
 		case nano::stat::detail::invalid_telemetry_ack_message:
 			res = "invalid_telemetry_ack_message";
+			break;
+		case nano::stat::detail::invalid_bulk_pull_message:
+			res = "invalid_bulk_pull_message";
+			break;
+		case nano::stat::detail::invalid_bulk_pull_account_message:
+			res = "invalid_bulk_pull_account_message";
+			break;
+		case nano::stat::detail::invalid_frontier_req_message:
+			res = "invalid_frontier_req_message";
+			break;
+		case nano::stat::detail::message_too_big:
+			res = "message_too_big";
 			break;
 		case nano::stat::detail::outdated_version:
 			res = "outdated_version";
