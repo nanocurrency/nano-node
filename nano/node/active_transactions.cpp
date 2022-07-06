@@ -384,14 +384,13 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 			{
 				result.inserted = true;
 				auto hash (block_a->hash ());
-				auto epoch (block_a->sideband ().details.epoch);
 				result.election = nano::make_shared<nano::election> (
 				node, block_a, confirmation_action_a, [&node = node] (auto const & rep_a) {
 					// Representative is defined as online if replying to live votes or rep_crawler queries
 					node.online_reps.observe (rep_a);
 				},
 				election_behavior_a);
-				roots.get<tag_root> ().emplace (nano::active_transactions::conflict_info{ root, result.election, epoch, election_behavior_a });
+				roots.get<tag_root> ().emplace (nano::active_transactions::conflict_info{ root, result.election });
 				blocks.emplace (hash, result.election);
 				// Increase hinted election counter while still holding lock
 				if (election_behavior_a == election_behavior::hinted)

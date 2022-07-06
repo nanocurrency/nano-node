@@ -60,8 +60,6 @@ class active_transactions final
 	public:
 		nano::qualified_root root;
 		std::shared_ptr<nano::election> election;
-		nano::epoch epoch;
-		nano::election_behavior election_behavior; // Used to prioritize portion of AEC for vote hinting
 	};
 
 	friend class nano::election;
