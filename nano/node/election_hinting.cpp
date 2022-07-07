@@ -68,6 +68,10 @@ bool nano::election_hinting::run_one ()
 			if (!node.block_confirmed_or_being_confirmed (transaction, top->hash))
 			{
 				auto result = node.active.insert_hinted (block);
+				if (result.election)
+				{
+					result.election->transition_active ();
+				}
 				return result.inserted;
 			}
 		}
