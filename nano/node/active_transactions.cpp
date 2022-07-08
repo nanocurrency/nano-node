@@ -831,6 +831,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				auto const cache = find_inactive_votes_cache_impl (hash);
 				lock_a.unlock ();
 				result.election->insert_inactive_votes_cache (cache);
+				node.observers.active_started.notify (hash);
 				node.stats.inc (nano::stat::type::election, nano::stat::detail::election_start);
 				vacancy_update ();
 			}

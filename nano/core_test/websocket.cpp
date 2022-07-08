@@ -116,6 +116,46 @@ TEST (websocket, confirmation)
 	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
 }
 
+// Tests getting notification of a started election
+TEST (websocket, started_election)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
+
+	std::atomic<bool> ack_ready{ false };
+	auto task = ([&ack_ready, config, &node1] () {
+		fake_websocket_client client (node1->websocket_server->listening_port ());
+		client.send_message (R"json({"action": "subscribe", "topic": "started_election", "ack": "true"})json");
+		client.await_ack ();
+		ack_ready = true;
+		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::started_election));
+		return client.get_response ();
+	});
+	auto future = std::async (std::launch::async, task);
+
+	ASSERT_TIMELY (5s, ack_ready);
+
+	// Create election, causing a websocket message to be emitted
+	nano::keypair key1;
+	auto send1 (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
+	nano::publish publish1{ nano::dev::network_params.network, send1 };
+	auto channel1 (node1->network.udp_channels.create (node1->network.endpoint ()));
+	node1->network.inbound (publish1, channel1);	
+	ASSERT_TIMELY (1s, node1->active.election (send1->qualified_root ()));	
+	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
+
+	auto response = future.get ();
+	ASSERT_TRUE (response);
+	boost::property_tree::ptree event;
+	std::stringstream stream;
+	stream << response.get ();
+	boost::property_tree::read_json (stream, event);
+	ASSERT_EQ (event.get<std::string> ("topic"), "started_election");
+}
+
 // Tests getting notification of an erased election
 TEST (websocket, stopped_election)
 {

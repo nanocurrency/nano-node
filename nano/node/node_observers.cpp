@@ -6,6 +6,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (na
 	composite->add_component (collect_container_info (node_observers.blocks, "blocks"));
 	composite->add_component (collect_container_info (node_observers.wallet, "wallet"));
 	composite->add_component (collect_container_info (node_observers.vote, "vote"));
+	composite->add_component (collect_container_info (node_observers.active_started, "active_started"));
 	composite->add_component (collect_container_info (node_observers.active_stopped, "active_stopped"));
 	composite->add_component (collect_container_info (node_observers.account_balance, "account_balance"));
 	composite->add_component (collect_container_info (node_observers.endpoint, "endpoint"));
