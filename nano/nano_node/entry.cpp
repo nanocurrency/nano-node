@@ -439,14 +439,13 @@ int main (int argc, char * const * argv)
 			}
 
 			// Check all unchecked keys for matching frontier hashes. Indicates an issue with process_batch algorithm
-			for (auto [i, n] = node->unchecked.full_range (transaction); i != n; ++i)
-			{
-				auto it = frontier_hashes.find (i->first.key ());
+			node->unchecked.for_each (transaction, [&frontier_hashes] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+				auto it = frontier_hashes.find (key.key ());
 				if (it != frontier_hashes.cend ())
 				{
 					std::cout << it->to_string () << "\n";
 				}
-			}
+			});
 		}
 		else if (vm.count ("debug_account_count"))
 		{

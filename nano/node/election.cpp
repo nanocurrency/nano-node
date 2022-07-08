@@ -193,9 +193,8 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			debug_assert (false);
 			break;
 	}
-	auto const optimistic_expiration_time = 60 * 1000;
-	auto const expire_time = std::chrono::milliseconds (optimistic () ? optimistic_expiration_time : 5 * 60 * 1000);
-	if (!confirmed () && expire_time < std::chrono::steady_clock::now () - election_start)
+
+	if (!confirmed () && time_to_live () < std::chrono::steady_clock::now () - election_start)
 	{
 		nano::lock_guard<nano::mutex> guard (mutex);
 		// It is possible the election confirmed while acquiring the mutex
@@ -211,6 +210,19 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 		}
 	}
 	return result;
+}
+
+std::chrono::milliseconds nano::election::time_to_live ()
+{
+	switch (behavior)
+	{
+		case election_behavior::normal:
+			return std::chrono::milliseconds (5 * 60 * 1000);
+		case election_behavior::optimistic:
+			return std::chrono::milliseconds (node.network_params.network.is_dev_network () ? 500 : 60 * 1000);
+		case election_behavior::hinted:
+			return std::chrono::milliseconds (30 * 1000);
+	}
 }
 
 bool nano::election::have_quorum (nano::tally_t const & tally_a) const

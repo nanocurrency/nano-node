@@ -204,6 +204,18 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 		nano::message_header header (error, type_stream);
 		if (!error)
 		{
+			if (header.network != node->network_params.network.current_network)
+			{
+				node->stats.inc (nano::stat::type::message, nano::stat::detail::invalid_network);
+				return;
+			}
+
+			if (header.version_using < node->network_params.network.protocol_version_min)
+			{
+				node->stats.inc (nano::stat::type::message, nano::stat::detail::outdated_version);
+				return;
+			}
+
 			auto this_l (shared_from_this ());
 			switch (header.type)
 			{
@@ -679,10 +691,24 @@ public:
 	}
 	void node_id_handshake (nano::node_id_handshake const & message_a) override
 	{
+		// check for multiple handshake messages, there is no reason to receive more than one
+		if (message_a.query && connection->handshake_query_received)
+		{
+			if (connection->node->config.logging.network_node_id_handshake_logging ())
+			{
+				connection->node->logger.try_log (boost::str (boost::format ("Detected multiple node_id_handshake query from %1%") % connection->remote_endpoint));
+			}
+			connection->stop ();
+			return;
+		}
+
+		connection->handshake_query_received = true;
+
 		if (connection->node->config.logging.network_node_id_handshake_logging ())
 		{
 			connection->node->logger.try_log (boost::str (boost::format ("Received node_id_handshake message from %1%") % connection->remote_endpoint));
 		}
+
 		if (message_a.query)
 		{
 			boost::optional<std::pair<nano::account, nano::signature>> response (std::make_pair (connection->node->node_id.pub, nano::sign_message (connection->node->node_id.prv, connection->node->node_id.pub, *message_a.query)));
