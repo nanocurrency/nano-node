@@ -52,7 +52,15 @@ TEST (system, DISABLED_generate_send_existing)
 	// Have stake_preserver receive funds after generate_send_existing so it isn't chosen as the destination
 	{
 		auto transaction (node1.store.tx_begin_write ());
-		auto open_block (std::make_shared<nano::open_block> (send_block->hash (), nano::dev::genesis->account (), stake_preserver.pub, stake_preserver.prv, stake_preserver.pub, 0));
+		nano::block_builder builder;
+		auto open_block = builder
+						  .open ()
+						  .source (send_block->hash ())
+						  .representative (nano::dev::genesis->account ())
+						  .account (stake_preserver.pub)
+						  .sign (stake_preserver.prv, stake_preserver.pub)
+						  .work (0)
+						  .build_shared ();
 		node1.work_generate_blocking (*open_block);
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *open_block).code);
 	}
@@ -97,7 +105,15 @@ TEST (system, DISABLED_generate_send_new)
 	auto send_block (system.wallet (0)->send_action (nano::dev::genesis->account (), stake_preserver.pub, nano::dev::constants.genesis_amount / 3 * 2, true));
 	{
 		auto transaction (node1.store.tx_begin_write ());
-		auto open_block (std::make_shared<nano::open_block> (send_block->hash (), nano::dev::genesis->account (), stake_preserver.pub, stake_preserver.prv, stake_preserver.pub, 0));
+		nano::block_builder builder;
+		auto open_block = builder
+						  .open ()
+						  .source (send_block->hash ())
+						  .representative (nano::dev::genesis->account ())
+						  .account (stake_preserver.pub)
+						  .sign (stake_preserver.prv, stake_preserver.pub)
+						  .work (0)
+						  .build_shared ();
 		node1.work_generate_blocking (*open_block);
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *open_block).code);
 	}

@@ -40,7 +40,17 @@ TEST (confirmation_height, single)
 		nano::keypair key1;
 		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 		nano::block_hash latest1 (node->latest (nano::dev::genesis_key.pub));
-		auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, latest1, nano::dev::genesis_key.pub, amount - 100, key1.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest1)));
+		nano::block_builder builder;
+		auto send1 = builder
+					 .state ()
+					 .account (nano::dev::genesis_key.pub)
+					 .previous (latest1)
+					 .representative (nano::dev::genesis_key.pub)
+					 .balance (amount - 100)
+					 .link (key1.pub)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (latest1))
+					 .build_shared ();
 
 		// Check confirmation heights before, should be uninitialized (1 for genesis).
 		nano::confirmation_height_info confirmation_height_info;
@@ -91,43 +101,119 @@ TEST (confirmation_height, multiple_accounts)
 		nano::keypair key2;
 		nano::keypair key3;
 		nano::block_hash latest1 (system.nodes[0]->latest (nano::dev::genesis_key.pub));
+		nano::block_builder builder;
 
 		// Send to all accounts
-		nano::send_block send1 (latest1, key1.pub, node->online_reps.delta () + 300, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest1));
-		nano::send_block send2 (send1.hash (), key2.pub, node->online_reps.delta () + 200, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send1.hash ()));
-		nano::send_block send3 (send2.hash (), key3.pub, node->online_reps.delta () + 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send2.hash ()));
+		auto send1 = builder
+					 .send ()
+					 .previous (latest1)
+					 .destination (key1.pub)
+					 .balance (node->online_reps.delta () + 300)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (latest1))
+					 .build ();
+		auto send2 = builder
+					 .send ()
+					 .previous (send1->hash ())
+					 .destination (key2.pub)
+					 .balance (node->online_reps.delta () + 200)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (send1->hash ()))
+					 .build ();
+		auto send3 = builder
+					 .send ()
+					 .previous (send2->hash ())
+					 .destination (key3.pub)
+					 .balance (node->online_reps.delta () + 100)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (send2->hash ()))
+					 .build ();
 
 		// Open all accounts
-		nano::open_block open1 (send1.hash (), nano::dev::genesis->account (), key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));
-		nano::open_block open2 (send2.hash (), nano::dev::genesis->account (), key2.pub, key2.prv, key2.pub, *system.work.generate (key2.pub));
-		nano::open_block open3 (send3.hash (), nano::dev::genesis->account (), key3.pub, key3.prv, key3.pub, *system.work.generate (key3.pub));
+		auto open1 = builder
+					 .open ()
+					 .source (send1->hash ())
+					 .representative (nano::dev::genesis->account ())
+					 .account (key1.pub)
+					 .sign (key1.prv, key1.pub)
+					 .work (*system.work.generate (key1.pub))
+					 .build ();
+		auto open2 = builder
+					 .open ()
+					 .source (send2->hash ())
+					 .representative (nano::dev::genesis->account ())
+					 .account (key2.pub)
+					 .sign (key2.prv, key2.pub)
+					 .work (*system.work.generate (key2.pub))
+					 .build ();
+		auto open3 = builder
+					 .open ()
+					 .source (send3->hash ())
+					 .representative (nano::dev::genesis->account ())
+					 .account (key3.pub)
+					 .sign (key3.prv, key3.pub)
+					 .work (*system.work.generate (key3.pub))
+					 .build ();
 
 		// Send and receive various blocks to these accounts
-		nano::send_block send4 (open1.hash (), key2.pub, 50, key1.prv, key1.pub, *system.work.generate (open1.hash ()));
-		nano::send_block send5 (send4.hash (), key2.pub, 10, key1.prv, key1.pub, *system.work.generate (send4.hash ()));
+		auto send4 = builder
+					 .send ()
+					 .previous (open1->hash ())
+					 .destination (key2.pub)
+					 .balance (50)
+					 .sign (key1.prv, key1.pub)
+					 .work (*system.work.generate (open1->hash ()))
+					 .build ();
+		auto send5 = builder
+					 .send ()
+					 .previous (send4->hash ())
+					 .destination (key2.pub)
+					 .balance (10)
+					 .sign (key1.prv, key1.pub)
+					 .work (*system.work.generate (send4->hash ()))
+					 .build ();
 
-		nano::receive_block receive1 (open2.hash (), send4.hash (), key2.prv, key2.pub, *system.work.generate (open2.hash ()));
-		nano::send_block send6 (receive1.hash (), key3.pub, 10, key2.prv, key2.pub, *system.work.generate (receive1.hash ()));
-		nano::receive_block receive2 (send6.hash (), send5.hash (), key2.prv, key2.pub, *system.work.generate (send6.hash ()));
+		auto receive1 = builder
+						.receive ()
+						.previous (open2->hash ())
+						.source (send4->hash ())
+						.sign (key2.prv, key2.pub)
+						.work (*system.work.generate (open2->hash ()))
+						.build ();
+		auto send6 = builder
+					 .send ()
+					 .previous (receive1->hash ())
+					 .destination (key3.pub)
+					 .balance (10)
+					 .sign (key2.prv, key2.pub)
+					 .work (*system.work.generate (receive1->hash ()))
+					 .build ();
+		auto receive2 = builder
+						.receive ()
+						.previous (send6->hash ())
+						.source (send5->hash ())
+						.sign (key2.prv, key2.pub)
+						.work (*system.work.generate (send6->hash ()))
+						.build ();
 
 		add_callback_stats (*node);
 
 		{
 			auto transaction = node->store.tx_begin_write ();
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send2).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send3).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send1).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send2).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send3).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open1).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open2).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open3).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *open1).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *open2).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *open3).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send4).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send5).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send4).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send5).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive1).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send6).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive2).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *receive1).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send6).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *receive2).code);
 
 			// Check confirmation heights of all the accounts (except genesis) are uninitialized (0),
 			// as we have any just added them to the ledger and not processed any live transactions yet.
@@ -147,7 +233,13 @@ TEST (confirmation_height, multiple_accounts)
 		}
 
 		// The nodes process a live receive which propagates across to all accounts
-		auto receive3 = std::make_shared<nano::receive_block> (open3.hash (), send6.hash (), key3.prv, key3.pub, *system.work.generate (open3.hash ()));
+		auto receive3 = builder
+						.receive ()
+						.previous (open3->hash ())
+						.source (send6->hash ())
+						.sign (key3.prv, key3.pub)
+						.work (*system.work.generate (open3->hash ()))
+						.build_shared ();
 		node->process_active (receive3);
 		node->block_processor.flush ();
 		node->block_confirm (receive3);
@@ -165,17 +257,17 @@ TEST (confirmation_height, multiple_accounts)
 		ASSERT_FALSE (store.account.get (transaction, nano::dev::genesis_key.pub, account_info));
 		ASSERT_FALSE (node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub, confirmation_height_info));
 		ASSERT_EQ (4, confirmation_height_info.height);
-		ASSERT_EQ (send3.hash (), confirmation_height_info.frontier);
+		ASSERT_EQ (send3->hash (), confirmation_height_info.frontier);
 		ASSERT_EQ (4, account_info.block_count);
 		ASSERT_FALSE (store.account.get (transaction, key1.pub, account_info));
 		ASSERT_FALSE (node->store.confirmation_height.get (transaction, key1.pub, confirmation_height_info));
 		ASSERT_EQ (2, confirmation_height_info.height);
-		ASSERT_EQ (send4.hash (), confirmation_height_info.frontier);
+		ASSERT_EQ (send4->hash (), confirmation_height_info.frontier);
 		ASSERT_EQ (3, account_info.block_count);
 		ASSERT_FALSE (store.account.get (transaction, key2.pub, account_info));
 		ASSERT_FALSE (node->store.confirmation_height.get (transaction, key2.pub, confirmation_height_info));
 		ASSERT_EQ (3, confirmation_height_info.height);
-		ASSERT_EQ (send6.hash (), confirmation_height_info.frontier);
+		ASSERT_EQ (send6->hash (), confirmation_height_info.frontier);
 		ASSERT_EQ (4, account_info.block_count);
 		ASSERT_FALSE (store.account.get (transaction, key3.pub, account_info));
 		ASSERT_FALSE (node->store.confirmation_height.get (transaction, key3.pub, confirmation_height_info));
@@ -201,8 +293,8 @@ TEST (confirmation_height, multiple_accounts)
 			ASSERT_TRUE (node->ledger.rollback (transaction, node->latest (nano::dev::genesis_key.pub)));
 
 			// Attempt some others which have been cemented
-			ASSERT_TRUE (node->ledger.rollback (transaction, open1.hash ()));
-			ASSERT_TRUE (node->ledger.rollback (transaction, send2.hash ()));
+			ASSERT_TRUE (node->ledger.rollback (transaction, open1->hash ()));
+			ASSERT_TRUE (node->ledger.rollback (transaction, send2->hash ()));
 		}
 		ASSERT_EQ (10, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 		ASSERT_EQ (10, node->stats.count (nano::stat::type::confirmation_height, get_stats_detail (mode_a), nano::stat::dir::in));
@@ -224,19 +316,66 @@ TEST (confirmation_height, gap_bootstrap)
 		node_flags.confirmation_height_processor_mode = mode_a;
 		auto & node1 = *system.add_node (node_flags);
 		nano::keypair destination{};
-		auto send1 = std::make_shared<nano::state_block> (nano::dev::genesis->account (), nano::dev::genesis->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - nano::Gxrb_ratio, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
+		nano::block_builder builder;
+		auto send1 = builder
+					 .state ()
+					 .account (nano::dev::genesis->account ())
+					 .previous (nano::dev::genesis->hash ())
+					 .representative (nano::dev::genesis->account ())
+					 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+					 .link (destination.pub)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (0)
+					 .build_shared ();
 		node1.work_generate_blocking (*send1);
-		auto send2 = std::make_shared<nano::state_block> (nano::dev::genesis->account (), send1->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - 2 * nano::Gxrb_ratio, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
+		auto send2 = builder
+					 .state ()
+					 .account (nano::dev::genesis->account ())
+					 .previous (send1->hash ())
+					 .representative (nano::dev::genesis->account ())
+					 .balance (nano::dev::constants.genesis_amount - 2 * nano::Gxrb_ratio)
+					 .link (destination.pub)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (0)
+					 .build_shared ();
 		node1.work_generate_blocking (*send2);
-		auto send3 = std::make_shared<nano::state_block> (nano::dev::genesis->account (), send2->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - 3 * nano::Gxrb_ratio, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
+		auto send3 = builder
+					 .state ()
+					 .account (nano::dev::genesis->account ())
+					 .previous (send2->hash ())
+					 .representative (nano::dev::genesis->account ())
+					 .balance (nano::dev::constants.genesis_amount - 3 * nano::Gxrb_ratio)
+					 .link (destination.pub)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (0)
+					 .build_shared ();
 		node1.work_generate_blocking (*send3);
-		auto open1 = std::make_shared<nano::open_block> (send1->hash (), destination.pub, destination.pub, destination.prv, destination.pub, 0);
+		auto open1 = builder
+					 .open ()
+					 .source (send1->hash ())
+					 .representative (destination.pub)
+					 .account (destination.pub)
+					 .sign (destination.prv, destination.pub)
+					 .work (0)
+					 .build_shared ();
 		node1.work_generate_blocking (*open1);
 
 		// Receive
-		auto receive1 = std::make_shared<nano::receive_block> (open1->hash (), send2->hash (), destination.prv, destination.pub, 0);
+		auto receive1 = builder
+						.receive ()
+						.previous (open1->hash ())
+						.source (send2->hash ())
+						.sign (destination.prv, destination.pub)
+						.work (0)
+						.build_shared ();
 		node1.work_generate_blocking (*receive1);
-		auto receive2 = std::make_shared<nano::receive_block> (receive1->hash (), send3->hash (), destination.prv, destination.pub, 0);
+		auto receive2 = builder
+						.receive ()
+						.previous (receive1->hash ())
+						.source (send3->hash ())
+						.sign (destination.prv, destination.pub)
+						.work (0)
+						.build_shared ();
 		node1.work_generate_blocking (*receive2);
 
 		node1.block_processor.add (send1);
@@ -310,18 +449,65 @@ TEST (confirmation_height, gap_live)
 		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 		system.wallet (1)->insert_adhoc (destination.prv);
 
-		auto send1 = std::make_shared<nano::state_block> (nano::dev::genesis->account (), nano::dev::genesis->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - 1, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
+		nano::block_builder builder;
+		auto send1 = builder
+					 .state ()
+					 .account (nano::dev::genesis->account ())
+					 .previous (nano::dev::genesis->hash ())
+					 .representative (nano::dev::genesis->account ())
+					 .balance (nano::dev::constants.genesis_amount - 1)
+					 .link (destination.pub)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (0)
+					 .build_shared ();
 		node->work_generate_blocking (*send1);
-		auto send2 = std::make_shared<nano::state_block> (nano::dev::genesis->account (), send1->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - 2, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
+		auto send2 = builder
+					 .state ()
+					 .account (nano::dev::genesis->account ())
+					 .previous (send1->hash ())
+					 .representative (nano::dev::genesis->account ())
+					 .balance (nano::dev::constants.genesis_amount - 2)
+					 .link (destination.pub)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (0)
+					 .build_shared ();
 		node->work_generate_blocking (*send2);
-		auto send3 = std::make_shared<nano::state_block> (nano::dev::genesis->account (), send2->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - 3, destination.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
+		auto send3 = builder
+					 .state ()
+					 .account (nano::dev::genesis->account ())
+					 .previous (send2->hash ())
+					 .representative (nano::dev::genesis->account ())
+					 .balance (nano::dev::constants.genesis_amount - 3)
+					 .link (destination.pub)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (0)
+					 .build_shared ();
 		node->work_generate_blocking (*send3);
 
-		auto open1 = std::make_shared<nano::open_block> (send1->hash (), destination.pub, destination.pub, destination.prv, destination.pub, 0);
+		auto open1 = builder
+					 .open ()
+					 .source (send1->hash ())
+					 .representative (destination.pub)
+					 .account (destination.pub)
+					 .sign (destination.prv, destination.pub)
+					 .work (0)
+					 .build_shared ();
 		node->work_generate_blocking (*open1);
-		auto receive1 = std::make_shared<nano::receive_block> (open1->hash (), send2->hash (), destination.prv, destination.pub, 0);
+		auto receive1 = builder
+						.receive ()
+						.previous (open1->hash ())
+						.source (send2->hash ())
+						.sign (destination.prv, destination.pub)
+						.work (0)
+						.build_shared ();
 		node->work_generate_blocking (*receive1);
-		auto receive2 = std::make_shared<nano::receive_block> (receive1->hash (), send3->hash (), destination.prv, destination.pub, 0);
+		auto receive2 = builder
+						.receive ()
+						.previous (receive1->hash ())
+						.source (send3->hash ())
+						.sign (destination.prv, destination.pub)
+						.work (0)
+						.build_shared ();
 		node->work_generate_blocking (*receive2);
 
 		node->block_processor.add (send1);
@@ -393,38 +579,109 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		nano::keypair key1;
 		nano::block_hash latest (node->latest (nano::dev::genesis_key.pub));
 
-		nano::send_block send1 (latest, key1.pub, node->online_reps.delta () + 2, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
-
-		nano::open_block open1 (send1.hash (), nano::dev::genesis->account (), key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));
-		nano::send_block send2 (open1.hash (), nano::dev::genesis->account (), 1000, key1.prv, key1.pub, *system.work.generate (open1.hash ()));
-		nano::send_block send3 (send2.hash (), nano::dev::genesis->account (), 900, key1.prv, key1.pub, *system.work.generate (send2.hash ()));
-		nano::send_block send4 (send3.hash (), nano::dev::genesis->account (), 500, key1.prv, key1.pub, *system.work.generate (send3.hash ()));
-
-		nano::receive_block receive1 (send1.hash (), send2.hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send1.hash ()));
-		nano::receive_block receive2 (receive1.hash (), send3.hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (receive1.hash ()));
-		nano::receive_block receive3 (receive2.hash (), send4.hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (receive2.hash ()));
-
-		nano::send_block send5 (receive3.hash (), key1.pub, node->online_reps.delta () + 1, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (receive3.hash ()));
-		auto receive4 = std::make_shared<nano::receive_block> (send4.hash (), send5.hash (), key1.prv, key1.pub, *system.work.generate (send4.hash ()));
-		// Unpocketed send
+		nano::block_builder builder;
+		auto send1 = builder
+					 .send ()
+					 .previous (latest)
+					 .destination (key1.pub)
+					 .balance (node->online_reps.delta () + 2)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (latest))
+					 .build ();
+		auto open1 = builder
+					 .open ()
+					 .source (send1->hash ())
+					 .representative (nano::dev::genesis->account ())
+					 .account (key1.pub)
+					 .sign (key1.prv, key1.pub)
+					 .work (*system.work.generate (key1.pub))
+					 .build ();
+		auto send2 = builder
+					 .send ()
+					 .previous (open1->hash ())
+					 .destination (nano::dev::genesis->account ())
+					 .balance (1000)
+					 .sign (key1.prv, key1.pub)
+					 .work (*system.work.generate (open1->hash ()))
+					 .build ();
+		auto send3 = builder
+					 .send ()
+					 .previous (send2->hash ())
+					 .destination (nano::dev::genesis->account ())
+					 .balance (900)
+					 .sign (key1.prv, key1.pub)
+					 .work (*system.work.generate (send2->hash ()))
+					 .build ();
+		auto send4 = builder
+					 .send ()
+					 .previous (send3->hash ())
+					 .destination (nano::dev::genesis->account ())
+					 .balance (500)
+					 .sign (key1.prv, key1.pub)
+					 .work (*system.work.generate (send3->hash ()))
+					 .build ();
+		auto receive1 = builder
+						.receive ()
+						.previous (send1->hash ())
+						.source (send2->hash ())
+						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						.work (*system.work.generate (send1->hash ()))
+						.build ();
+		auto receive2 = builder
+						.receive ()
+						.previous (receive1->hash ())
+						.source (send3->hash ())
+						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						.work (*system.work.generate (receive1->hash ()))
+						.build ();
+		auto receive3 = builder
+						.receive ()
+						.previous (receive2->hash ())
+						.source (send4->hash ())
+						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						.work (*system.work.generate (receive2->hash ()))
+						.build ();
+		auto send5 = builder
+					 .send ()
+					 .previous (receive3->hash ())
+					 .destination (key1.pub)
+					 .balance (node->online_reps.delta () + 1)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (receive3->hash ()))
+					 .build ();
+		auto receive4 = builder
+						.receive ()
+						.previous (send4->hash ())
+						.source (send5->hash ())
+						.sign (key1.prv, key1.pub)
+						.work (*system.work.generate (send4->hash ()))
+						.build_shared ();
 		nano::keypair key2;
-		nano::send_block send6 (send5.hash (), key2.pub, node->online_reps.delta (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send5.hash ()));
+		auto send6 = builder
+					 .send ()
+					 .previous (send5->hash ())
+					 .destination (key2.pub)
+					 .balance (node->online_reps.delta () + 1)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (send5->hash ()))
+					 .build ();
+		// Unpocketed send
 		{
 			auto transaction = node->store.tx_begin_write ();
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open1).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send1).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *open1).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send2).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive1).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send2).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *receive1).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send3).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send4).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send3).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send4).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive2).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive3).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *receive2).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *receive3).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send5).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send6).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send5).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send6).code);
 		}
 
 		add_callback_stats (*node);
@@ -445,7 +702,7 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		ASSERT_FALSE (node->store.account.get (transaction, nano::dev::genesis_key.pub, account_info));
 		ASSERT_FALSE (node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub, confirmation_height_info));
 		ASSERT_EQ (6, confirmation_height_info.height);
-		ASSERT_EQ (send5.hash (), confirmation_height_info.frontier);
+		ASSERT_EQ (send5->hash (), confirmation_height_info.frontier);
 		ASSERT_EQ (7, account_info.block_count);
 
 		ASSERT_FALSE (node->store.account.get (transaction, key1.pub, account_info));
@@ -477,27 +734,73 @@ TEST (confirmation_height, send_receive_self)
 		auto node = system.add_node (node_config, node_flags);
 		nano::block_hash latest (node->latest (nano::dev::genesis_key.pub));
 
-		nano::send_block send1 (latest, nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 2, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
-		nano::receive_block receive1 (send1.hash (), send1.hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send1.hash ()));
-		nano::send_block send2 (receive1.hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 2, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (receive1.hash ()));
-		nano::send_block send3 (send2.hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 3, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send2.hash ()));
-
-		nano::receive_block receive2 (send3.hash (), send2.hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send3.hash ()));
-		auto receive3 = std::make_shared<nano::receive_block> (receive2.hash (), send3.hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (receive2.hash ()));
+		nano::block_builder builder;
+		auto send1 = builder
+					 .send ()
+					 .previous (latest)
+					 .destination (nano::dev::genesis_key.pub)
+					 .balance (nano::dev::constants.genesis_amount - 2)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (latest))
+					 .build ();
+		auto receive1 = builder
+						.receive ()
+						.previous (send1->hash ())
+						.source (send1->hash ())
+						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						.work (*system.work.generate (send1->hash ()))
+						.build_shared ();
+		auto send2 = builder
+					 .send ()
+					 .previous (receive1->hash ())
+					 .destination (nano::dev::genesis_key.pub)
+					 .balance (nano::dev::constants.genesis_amount - 2)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (receive1->hash ()))
+					 .build ();
+		auto send3 = builder
+					 .send ()
+					 .previous (send2->hash ())
+					 .destination (nano::dev::genesis_key.pub)
+					 .balance (nano::dev::constants.genesis_amount - 3)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (send2->hash ()))
+					 .build ();
+		auto receive2 = builder
+						.receive ()
+						.previous (send3->hash ())
+						.source (send2->hash ())
+						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						.work (*system.work.generate (send3->hash ()))
+						.build ();
+		auto receive3 = builder
+						.receive ()
+						.previous (receive2->hash ())
+						.source (send3->hash ())
+						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						.work (*system.work.generate (receive2->hash ()))
+						.build_shared ();
 
 		// Send to another account to prevent automatic receiving on the genesis account
 		nano::keypair key1;
-		nano::send_block send4 (receive3->hash (), key1.pub, node->online_reps.delta (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (receive3->hash ()));
+		auto send4 = builder
+					 .send ()
+					 .previous (receive3->hash ())
+					 .destination (key1.pub)
+					 .balance (node->online_reps.delta ())
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (receive3->hash ()))
+					 .build ();
 		{
 			auto transaction = node->store.tx_begin_write ();
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive1).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send2).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send3).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send1).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *receive1).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send2).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send3).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive2).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *receive2).code);
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *receive3).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send4).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send4).code);
 		}
 
 		add_callback_stats (*node);
@@ -542,60 +845,209 @@ TEST (confirmation_height, all_block_types)
 		nano::keypair key1;
 		nano::keypair key2;
 		auto & store = node->store;
-		nano::send_block send (latest, key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
-		nano::send_block send1 (send.hash (), key2.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send.hash ()));
+		nano::block_builder builder;
+		auto send = builder
+					.send ()
+					.previous (latest)
+					.destination (key1.pub)
+					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (latest))
+					.build ();
+		auto send1 = builder
+					 .send ()
+					 .previous (send->hash ())
+					 .destination (key2.pub)
+					 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (send->hash ()))
+					 .build ();
 
-		nano::open_block open (send.hash (), nano::dev::genesis_key.pub, key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));
-		nano::state_block state_open (key2.pub, 0, 0, nano::Gxrb_ratio, send1.hash (), key2.prv, key2.pub, *system.work.generate (key2.pub));
+		auto open = builder
+					.open ()
+					.source (send->hash ())
+					.representative (nano::dev::genesis_key.pub)
+					.account (key1.pub)
+					.sign (key1.prv, key1.pub)
+					.work (*system.work.generate (key1.pub))
+					.build ();
+		auto state_open = builder
+						  .state ()
+						  .account (key2.pub)
+						  .previous (0)
+						  .representative (0)
+						  .balance (nano::Gxrb_ratio)
+						  .link (send1->hash ())
+						  .sign (key2.prv, key2.pub)
+						  .work (*system.work.generate (key2.pub))
+						  .build ();
 
-		nano::send_block send2 (open.hash (), key2.pub, 0, key1.prv, key1.pub, *system.work.generate (open.hash ()));
-		nano::state_block state_receive (key2.pub, state_open.hash (), 0, nano::Gxrb_ratio * 2, send2.hash (), key2.prv, key2.pub, *system.work.generate (state_open.hash ()));
+		auto send2 = builder
+					 .send ()
+					 .previous (open->hash ())
+					 .destination (key2.pub)
+					 .balance (0)
+					 .sign (key1.prv, key1.pub)
+					 .work (*system.work.generate (open->hash ()))
+					 .build ();
+		auto state_receive = builder
+							 .state ()
+							 .account (key2.pub)
+							 .previous (state_open->hash ())
+							 .representative (0)
+							 .balance (nano::Gxrb_ratio * 2)
+							 .link (send2->hash ())
+							 .sign (key2.prv, key2.pub)
+							 .work (*system.work.generate (state_open->hash ()))
+							 .build ();
 
-		nano::state_block state_send (key2.pub, state_receive.hash (), 0, nano::Gxrb_ratio, key1.pub, key2.prv, key2.pub, *system.work.generate (state_receive.hash ()));
-		nano::receive_block receive (send2.hash (), state_send.hash (), key1.prv, key1.pub, *system.work.generate (send2.hash ()));
+		auto state_send = builder
+						  .state ()
+						  .account (key2.pub)
+						  .previous (state_receive->hash ())
+						  .representative (0)
+						  .balance (nano::Gxrb_ratio)
+						  .link (key1.pub)
+						  .sign (key2.prv, key2.pub)
+						  .work (*system.work.generate (state_receive->hash ()))
+						  .build ();
+		auto receive = builder
+					   .receive ()
+					   .previous (send2->hash ())
+					   .source (state_send->hash ())
+					   .sign (key1.prv, key1.pub)
+					   .work (*system.work.generate (send2->hash ()))
+					   .build ();
 
-		nano::change_block change (receive.hash (), key2.pub, key1.prv, key1.pub, *system.work.generate (receive.hash ()));
+		auto change = builder
+					  .change ()
+					  .previous (receive->hash ())
+					  .representative (key2.pub)
+					  .sign (key1.prv, key1.pub)
+					  .work (*system.work.generate (receive->hash ()))
+					  .build ();
 
-		nano::state_block state_change (key2.pub, state_send.hash (), nano::dev::genesis_key.pub, nano::Gxrb_ratio, 0, key2.prv, key2.pub, *system.work.generate (state_send.hash ()));
+		auto state_change = builder
+							.state ()
+							.account (key2.pub)
+							.previous (state_send->hash ())
+							.representative (nano::dev::genesis_key.pub)
+							.balance (nano::Gxrb_ratio)
+							.link (0)
+							.sign (key2.prv, key2.pub)
+							.work (*system.work.generate (state_send->hash ()))
+							.build ();
 
-		nano::state_block epoch (key2.pub, state_change.hash (), nano::dev::genesis_key.pub, nano::Gxrb_ratio, node->ledger.epoch_link (nano::epoch::epoch_1), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (state_change.hash ()));
+		auto epoch = builder
+					 .state ()
+					 .account (key2.pub)
+					 .previous (state_change->hash ())
+					 .representative (nano::dev::genesis_key.pub)
+					 .balance (nano::Gxrb_ratio)
+					 .link (node->ledger.epoch_link (nano::epoch::epoch_1))
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (state_change->hash ()))
+					 .build ();
 
-		nano::state_block epoch1 (key1.pub, change.hash (), key2.pub, nano::Gxrb_ratio, node->ledger.epoch_link (nano::epoch::epoch_1), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (change.hash ()));
-		nano::state_block state_send1 (key1.pub, epoch1.hash (), 0, nano::Gxrb_ratio - 1, key2.pub, key1.prv, key1.pub, *system.work.generate (epoch1.hash ()));
-		nano::state_block state_receive2 (key2.pub, epoch.hash (), 0, nano::Gxrb_ratio + 1, state_send1.hash (), key2.prv, key2.pub, *system.work.generate (epoch.hash ()));
+		auto epoch1 = builder
+					  .state ()
+					  .account (key1.pub)
+					  .previous (change->hash ())
+					  .representative (key2.pub)
+					  .balance (nano::Gxrb_ratio)
+					  .link (node->ledger.epoch_link (nano::epoch::epoch_1))
+					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					  .work (*system.work.generate (change->hash ()))
+					  .build ();
+		auto state_send1 = builder
+						   .state ()
+						   .account (key1.pub)
+						   .previous (epoch1->hash ())
+						   .representative (0)
+						   .balance (nano::Gxrb_ratio - 1)
+						   .link (key2.pub)
+						   .sign (key1.prv, key1.pub)
+						   .work (*system.work.generate (epoch1->hash ()))
+						   .build ();
+		auto state_receive2 = builder
+							  .state ()
+							  .account (key2.pub)
+							  .previous (epoch->hash ())
+							  .representative (0)
+							  .balance (nano::Gxrb_ratio + 1)
+							  .link (state_send1->hash ())
+							  .sign (key2.prv, key2.pub)
+							  .work (*system.work.generate (epoch->hash ()))
+							  .build ();
 
-		auto state_send2 = std::make_shared<nano::state_block> (key2.pub, state_receive2.hash (), 0, nano::Gxrb_ratio, key1.pub, key2.prv, key2.pub, *system.work.generate (state_receive2.hash ()));
-		nano::state_block state_send3 (key2.pub, state_send2->hash (), 0, nano::Gxrb_ratio - 1, key1.pub, key2.prv, key2.pub, *system.work.generate (state_send2->hash ()));
+		auto state_send2 = builder
+						   .state ()
+						   .account (key2.pub)
+						   .previous (state_receive2->hash ())
+						   .representative (0)
+						   .balance (nano::Gxrb_ratio)
+						   .link (key1.pub)
+						   .sign (key2.prv, key2.pub)
+						   .work (*system.work.generate (state_receive2->hash ()))
+						   .build_shared ();
+		auto state_send3 = builder
+						   .state ()
+						   .account (key2.pub)
+						   .previous (state_send2->hash ())
+						   .representative (0)
+						   .balance (nano::Gxrb_ratio - 1)
+						   .link (key1.pub)
+						   .sign (key2.prv, key2.pub)
+						   .work (*system.work.generate (state_send2->hash ()))
+						   .build ();
 
-		nano::state_block state_send4 (key1.pub, state_send1.hash (), 0, nano::Gxrb_ratio - 2, nano::dev::genesis_key.pub, key1.prv, key1.pub, *system.work.generate (state_send1.hash ()));
-		nano::state_block state_receive3 (nano::dev::genesis->account (), send1.hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2 + 1, state_send4.hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send1.hash ()));
+		auto state_send4 = builder
+						   .state ()
+						   .account (key1.pub)
+						   .previous (state_send1->hash ())
+						   .representative (0)
+						   .balance (nano::Gxrb_ratio - 2)
+						   .link (nano::dev::genesis_key.pub)
+						   .sign (key1.prv, key1.pub)
+						   .work (*system.work.generate (state_send1->hash ()))
+						   .build ();
+		auto state_receive3 = builder
+							  .state ()
+							  .account (nano::dev::genesis->account ())
+							  .previous (send1->hash ())
+							  .representative (nano::dev::genesis->account ())
+							  .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2 + 1)
+							  .link (state_send4->hash ())
+							  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+							  .work (*system.work.generate (send1->hash ()))
+							  .build ();
 
 		{
 			auto transaction (store.tx_begin_write ());
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, state_open).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send1).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *open).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *state_open).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send2).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, state_receive).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send2).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *state_receive).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, state_send).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, change).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, state_change).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *state_send).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *receive).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *change).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *state_change).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, epoch).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, epoch1).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *epoch).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *epoch1).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, state_send1).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, state_receive2).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *state_send1).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *state_receive2).code);
 
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *state_send2).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, state_send3).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *state_send3).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, state_send4).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, state_receive3).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *state_send4).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *state_receive3).code);
 		}
 
 		add_callback_stats (*node);
@@ -613,12 +1065,12 @@ TEST (confirmation_height, all_block_types)
 		ASSERT_FALSE (node->store.account.get (transaction, nano::dev::genesis_key.pub, account_info));
 		ASSERT_FALSE (node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub, confirmation_height_info));
 		ASSERT_EQ (3, confirmation_height_info.height);
-		ASSERT_EQ (send1.hash (), confirmation_height_info.frontier);
+		ASSERT_EQ (send1->hash (), confirmation_height_info.frontier);
 		ASSERT_LE (4, account_info.block_count);
 
 		ASSERT_FALSE (node->store.account.get (transaction, key1.pub, account_info));
 		ASSERT_FALSE (node->store.confirmation_height.get (transaction, key1.pub, confirmation_height_info));
-		ASSERT_EQ (state_send1.hash (), confirmation_height_info.frontier);
+		ASSERT_EQ (state_send1->hash (), confirmation_height_info.frontier);
 		ASSERT_EQ (6, confirmation_height_info.height);
 		ASSERT_LE (7, account_info.block_count);
 
@@ -761,7 +1213,15 @@ TEST (confirmation_heightDeathTest, rollback_added_block)
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 		nano::keypair key1;
-		auto send = std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
+		nano::block_builder builder;
+		auto send = builder
+					.send ()
+					.previous (nano::dev::genesis->hash ())
+					.destination (key1.pub)
+					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*pool.generate (nano::dev::genesis->hash ()))
+					.build_shared ();
 		{
 			auto transaction (store->tx_begin_write ());
 			store->initialize (transaction, ledger.cache, ledger.constants);
@@ -793,7 +1253,15 @@ TEST (confirmation_height, observers)
 		nano::keypair key1;
 		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 		nano::block_hash latest1 (node1->latest (nano::dev::genesis_key.pub));
-		auto send1 (std::make_shared<nano::send_block> (latest1, key1.pub, amount - node1->config.receive_minimum.number (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest1)));
+		nano::block_builder builder;
+		auto send1 = builder
+					 .send ()
+					 .previous (latest1)
+					 .destination (key1.pub)
+					 .balance (amount - node1->config.receive_minimum.number ())
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (latest1))
+					 .build_shared ();
 
 		add_callback_stats (*node1);
 
@@ -837,7 +1305,15 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 		nano::keypair key1;
-		auto send = std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
+		nano::block_builder builder;
+		auto send = builder
+					.send ()
+					.previous (nano::dev::genesis->hash ())
+					.destination (key1.pub)
+					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*pool.generate (nano::dev::genesis->hash ()))
+					.build_shared ();
 		{
 			auto transaction (store->tx_begin_write ());
 			store->initialize (transaction, ledger.cache, ledger.constants);
@@ -907,8 +1383,25 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 		nano::keypair key1;
-		auto send = std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
-		auto open = std::make_shared<nano::state_block> (key1.pub, 0, 0, nano::Gxrb_ratio, send->hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
+		nano::block_builder builder;
+		auto send = builder
+					.send ()
+					.previous (nano::dev::genesis->hash ())
+					.destination (key1.pub)
+					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*pool.generate (nano::dev::genesis->hash ()))
+					.build_shared ();
+		auto open = builder
+					.state ()
+					.account (key1.pub)
+					.previous (0)
+					.representative (0)
+					.balance (nano::Gxrb_ratio)
+					.link (send->hash ())
+					.sign (key1.prv, key1.pub)
+					.work (*pool.generate (key1.pub))
+					.build_shared ();
 		{
 			auto transaction (store->tx_begin_write ());
 			store->initialize (transaction, ledger.cache, ledger.constants);
@@ -970,12 +1463,27 @@ TEST (confirmation_height, pending_observer_callbacks)
 		nano::block_hash latest (node->latest (nano::dev::genesis_key.pub));
 
 		nano::keypair key1;
-		nano::send_block send (latest, key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
-		auto send1 = std::make_shared<nano::send_block> (send.hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send.hash ()));
+		nano::block_builder builder;
+		auto send = builder
+					.send ()
+					.previous (latest)
+					.destination (key1.pub)
+					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (latest))
+					.build ();
+		auto send1 = builder
+					 .send ()
+					 .previous (send->hash ())
+					 .destination (key1.pub)
+					 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (send->hash ()))
+					 .build_shared ();
 
 		{
 			auto transaction = node->store.tx_begin_write ();
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send1).code);
 		}
 
@@ -1012,13 +1520,28 @@ TEST (confirmation_height, callback_confirmed_history)
 		nano::block_hash latest (node->latest (nano::dev::genesis_key.pub));
 
 		nano::keypair key1;
-		auto send = std::make_shared<nano::send_block> (latest, key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
+		nano::block_builder builder;
+		auto send = builder
+					.send ()
+					.previous (latest)
+					.destination (key1.pub)
+					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (latest))
+					.build_shared ();
 		{
 			auto transaction = node->store.tx_begin_write ();
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
 		}
 
-		auto send1 = std::make_shared<nano::send_block> (send->hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send->hash ()));
+		auto send1 = builder
+					 .send ()
+					 .previous (send->hash ())
+					 .destination (key1.pub)
+					 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (send->hash ()))
+					 .build_shared ();
 
 		add_callback_stats (*node);
 
@@ -1093,9 +1616,31 @@ TEST (confirmation_height, dependent_election)
 		nano::block_hash latest (node->latest (nano::dev::genesis_key.pub));
 
 		nano::keypair key1;
-		auto send = std::make_shared<nano::send_block> (latest, key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
-		auto send1 = std::make_shared<nano::send_block> (send->hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send->hash ()));
-		auto send2 = std::make_shared<nano::send_block> (send1->hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 3, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send1->hash ()));
+		nano::block_builder builder;
+		auto send = builder
+					.send ()
+					.previous (latest)
+					.destination (key1.pub)
+					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (latest))
+					.build_shared ();
+		auto send1 = builder
+					 .send ()
+					 .previous (send->hash ())
+					 .destination (key1.pub)
+					 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (send->hash ()))
+					 .build_shared ();
+		auto send2 = builder
+					 .send ()
+					 .previous (send1->hash ())
+					 .destination (key1.pub)
+					 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 3)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (send1->hash ()))
+					 .build_shared ();
 		{
 			auto transaction = node->store.tx_begin_write ();
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
@@ -1143,42 +1688,118 @@ TEST (confirmation_height, cemented_gap_below_receive)
 		nano::block_hash latest (node->latest (nano::dev::genesis_key.pub));
 
 		nano::keypair key1;
+		nano::block_builder builder;
 		system.wallet (0)->insert_adhoc (key1.prv);
 
-		nano::send_block send (latest, key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
-		nano::send_block send1 (send.hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send.hash ()));
+		auto send = builder
+					.send ()
+					.previous (latest)
+					.destination (key1.pub)
+					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (latest))
+					.build ();
+		auto send1 = builder
+					 .send ()
+					 .previous (send->hash ())
+					 .destination (key1.pub)
+					 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (send->hash ()))
+					 .build ();
 		nano::keypair dummy_key;
-		nano::send_block dummy_send (send1.hash (), dummy_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 3, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send1.hash ()));
+		auto dummy_send = builder
+						  .send ()
+						  .previous (send1->hash ())
+						  .destination (dummy_key.pub)
+						  .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 3)
+						  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						  .work (*system.work.generate (send1->hash ()))
+						  .build ();
 
-		nano::open_block open (send.hash (), nano::dev::genesis->account (), key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));
-		nano::receive_block receive1 (open.hash (), send1.hash (), key1.prv, key1.pub, *system.work.generate (open.hash ()));
-		nano::send_block send2 (receive1.hash (), nano::dev::genesis_key.pub, nano::Gxrb_ratio, key1.prv, key1.pub, *system.work.generate (receive1.hash ()));
+		auto open = builder
+					.open ()
+					.source (send->hash ())
+					.representative (nano::dev::genesis->account ())
+					.account (key1.pub)
+					.sign (key1.prv, key1.pub)
+					.work (*system.work.generate (key1.pub))
+					.build ();
+		auto receive1 = builder
+						.receive ()
+						.previous (open->hash ())
+						.source (send1->hash ())
+						.sign (key1.prv, key1.pub)
+						.work (*system.work.generate (open->hash ()))
+						.build ();
+		auto send2 = builder
+					 .send ()
+					 .previous (receive1->hash ())
+					 .destination (nano::dev::genesis_key.pub)
+					 .balance (nano::Gxrb_ratio)
+					 .sign (key1.prv, key1.pub)
+					 .work (*system.work.generate (receive1->hash ()))
+					 .build ();
 
-		nano::receive_block receive2 (dummy_send.hash (), send2.hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (dummy_send.hash ()));
-		nano::send_block dummy_send1 (receive2.hash (), dummy_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 3, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (receive2.hash ()));
+		auto receive2 = builder
+						.receive ()
+						.previous (dummy_send->hash ())
+						.source (send2->hash ())
+						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						.work (*system.work.generate (dummy_send->hash ()))
+						.build ();
+		auto dummy_send1 = builder
+						   .send ()
+						   .previous (receive2->hash ())
+						   .destination (dummy_key.pub)
+						   .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 3)
+						   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						   .work (*system.work.generate (receive2->hash ()))
+						   .build ();
 
 		nano::keypair key2;
 		system.wallet (0)->insert_adhoc (key2.prv);
-		nano::send_block send3 (dummy_send1.hash (), key2.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 4, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (dummy_send1.hash ()));
-		nano::send_block dummy_send2 (send3.hash (), dummy_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 5, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send3.hash ()));
+		auto send3 = builder
+					 .send ()
+					 .previous (dummy_send1->hash ())
+					 .destination (key2.pub)
+					 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 4)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (dummy_send1->hash ()))
+					 .build ();
+		auto dummy_send2 = builder
+						   .send ()
+						   .previous (send3->hash ())
+						   .destination (dummy_key.pub)
+						   .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 5)
+						   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						   .work (*system.work.generate (send3->hash ()))
+						   .build ();
 
-		auto open1 = std::make_shared<nano::open_block> (send3.hash (), nano::dev::genesis->account (), key2.pub, key2.prv, key2.pub, *system.work.generate (key2.pub));
+		auto open1 = builder
+					 .open ()
+					 .source (send3->hash ())
+					 .representative (nano::dev::genesis->account ())
+					 .account (key2.pub)
+					 .sign (key2.prv, key2.pub)
+					 .work (*system.work.generate (key2.pub))
+					 .build_shared ();
 
 		{
 			auto transaction = node->store.tx_begin_write ();
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, dummy_send).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send1).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *dummy_send).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive1).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send2).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *open).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *receive1).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send2).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive2).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, dummy_send1).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *receive2).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *dummy_send1).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send3).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, dummy_send2).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send3).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *dummy_send2).code);
 
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *open1).code);
 		}
@@ -1204,7 +1825,7 @@ TEST (confirmation_height, cemented_gap_below_receive)
 		ASSERT_EQ (0, node->active.election_winner_details_size ());
 
 		// Check that the order of callbacks is correct
-		std::vector<nano::block_hash> expected_order = { send.hash (), open.hash (), send1.hash (), receive1.hash (), send2.hash (), dummy_send.hash (), receive2.hash (), dummy_send1.hash (), send3.hash (), open1->hash () };
+		std::vector<nano::block_hash> expected_order = { send->hash (), open->hash (), send1->hash (), receive1->hash (), send2->hash (), dummy_send->hash (), receive2->hash (), dummy_send1->hash (), send3->hash (), open1->hash () };
 		nano::lock_guard<nano::mutex> guard (mutex);
 		ASSERT_EQ (observer_order, expected_order);
 	};
@@ -1230,40 +1851,116 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 		nano::keypair key1;
 		system.wallet (0)->insert_adhoc (key1.prv);
 
-		nano::send_block send (latest, key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
-		nano::send_block send1 (send.hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send.hash ()));
+		nano::block_builder builder;
+		auto send = builder
+					.send ()
+					.previous (latest)
+					.destination (key1.pub)
+					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (latest))
+					.build ();
+		auto send1 = builder
+					 .send ()
+					 .previous (send->hash ())
+					 .destination (key1.pub)
+					 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (send->hash ()))
+					 .build ();
 		nano::keypair dummy_key;
-		nano::send_block dummy_send (send1.hash (), dummy_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 3, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send1.hash ()));
+		auto dummy_send = builder
+						  .send ()
+						  .previous (send1->hash ())
+						  .destination (dummy_key.pub)
+						  .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 3)
+						  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						  .work (*system.work.generate (send1->hash ()))
+						  .build ();
 
-		nano::open_block open (send.hash (), nano::dev::genesis->account (), key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));
-		nano::receive_block receive1 (open.hash (), send1.hash (), key1.prv, key1.pub, *system.work.generate (open.hash ()));
-		nano::send_block send2 (receive1.hash (), nano::dev::genesis_key.pub, nano::Gxrb_ratio, key1.prv, key1.pub, *system.work.generate (receive1.hash ()));
+		auto open = builder
+					.open ()
+					.source (send->hash ())
+					.representative (nano::dev::genesis->account ())
+					.account (key1.pub)
+					.sign (key1.prv, key1.pub)
+					.work (*system.work.generate (key1.pub))
+					.build ();
+		auto receive1 = builder
+						.receive ()
+						.previous (open->hash ())
+						.source (send1->hash ())
+						.sign (key1.prv, key1.pub)
+						.work (*system.work.generate (open->hash ()))
+						.build ();
+		auto send2 = builder
+					 .send ()
+					 .previous (receive1->hash ())
+					 .destination (nano::dev::genesis_key.pub)
+					 .balance (nano::Gxrb_ratio)
+					 .sign (key1.prv, key1.pub)
+					 .work (*system.work.generate (receive1->hash ()))
+					 .build ();
 
-		nano::receive_block receive2 (dummy_send.hash (), send2.hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (dummy_send.hash ()));
-		nano::send_block dummy_send1 (receive2.hash (), dummy_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 3, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (receive2.hash ()));
+		auto receive2 = builder
+						.receive ()
+						.previous (dummy_send->hash ())
+						.source (send2->hash ())
+						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						.work (*system.work.generate (dummy_send->hash ()))
+						.build ();
+		auto dummy_send1 = builder
+						   .send ()
+						   .previous (receive2->hash ())
+						   .destination (dummy_key.pub)
+						   .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 3)
+						   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						   .work (*system.work.generate (receive2->hash ()))
+						   .build ();
 
 		nano::keypair key2;
 		system.wallet (0)->insert_adhoc (key2.prv);
-		nano::send_block send3 (dummy_send1.hash (), key2.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 4, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (dummy_send1.hash ()));
-		nano::send_block dummy_send2 (send3.hash (), dummy_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 5, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send3.hash ()));
+		auto send3 = builder
+					 .send ()
+					 .previous (dummy_send1->hash ())
+					 .destination (key2.pub)
+					 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 4)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*system.work.generate (dummy_send1->hash ()))
+					 .build ();
+		auto dummy_send2 = builder
+						   .send ()
+						   .previous (send3->hash ())
+						   .destination (dummy_key.pub)
+						   .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 5)
+						   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						   .work (*system.work.generate (send3->hash ()))
+						   .build ();
 
-		auto open1 = std::make_shared<nano::open_block> (send3.hash (), nano::dev::genesis->account (), key2.pub, key2.prv, key2.pub, *system.work.generate (key2.pub));
+		auto open1 = builder
+					 .open ()
+					 .source (send3->hash ())
+					 .representative (nano::dev::genesis->account ())
+					 .account (key2.pub)
+					 .sign (key2.prv, key2.pub)
+					 .work (*system.work.generate (key2.pub))
+					 .build_shared ();
 
 		{
 			auto transaction = node->store.tx_begin_write ();
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, dummy_send).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send1).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *dummy_send).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive1).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send2).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *open).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *receive1).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send2).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive2).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, dummy_send1).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *receive2).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *dummy_send1).code);
 
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send3).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, dummy_send2).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send3).code);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *dummy_send2).code);
 
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *open1).code);
 		}
@@ -1271,8 +1968,8 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 		// Force some blocks to be cemented so that the cached confirmed info variable is empty
 		{
 			auto transaction (node->store.tx_begin_write ());
-			node->store.confirmation_height.put (transaction, nano::dev::genesis->account (), nano::confirmation_height_info{ 3, send1.hash () });
-			node->store.confirmation_height.put (transaction, key1.pub, nano::confirmation_height_info{ 2, receive1.hash () });
+			node->store.confirmation_height.put (transaction, nano::dev::genesis->account (), nano::confirmation_height_info{ 3, send1->hash () });
+			node->store.confirmation_height.put (transaction, key1.pub, nano::confirmation_height_info{ 2, receive1->hash () });
 		}
 
 		add_callback_stats (*node);
@@ -1371,7 +2068,15 @@ TEST (confirmation_height, election_winner_details_clearing_node_process_confirm
 	nano::system system (1);
 	auto node = system.nodes.front ();
 
-	auto send = std::make_shared<nano::send_block> (nano::dev::genesis->hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ()));
+	nano::block_builder builder;
+	auto send = builder
+				.send ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build_shared ();
 	// Add to election_winner_details. Use an unrealistic iteration so that it should fall into the else case and do a cleanup
 	node->active.add_election_winner_details (send->hash (), nullptr);
 	nano::election_status election;
@@ -1398,8 +2103,23 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::logging logging;
 	nano::keypair key1;
-	auto send = std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
-	auto send1 = std::make_shared<nano::send_block> (send->hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (send->hash ()));
+	nano::block_builder builder;
+	auto send = builder
+				.send ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (key1.pub)
+				.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.build_shared ();
+	auto send1 = builder
+				 .send ()
+				 .previous (send->hash ())
+				 .destination (key1.pub)
+				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send->hash ()))
+				 .build_shared ();
 	{
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger.cache, nano::dev::constants);
@@ -1447,11 +2167,57 @@ TEST (confirmation_height, pruned_source)
 	nano::write_database_queue write_database_queue (false);
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair key1, key2;
-	auto send1 = std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, nano::dev::genesis->hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 100, key1.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
-	auto open1 = std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, 100, send1->hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
-	auto send2 = std::make_shared<nano::state_block> (key1.pub, open1->hash (), key1.pub, 50, key2.pub, key1.prv, key1.pub, *pool.generate (open1->hash ()));
-	auto send3 = std::make_shared<nano::state_block> (key1.pub, send2->hash (), key1.pub, 25, key2.pub, key1.prv, key1.pub, *pool.generate (send2->hash ()));
-	auto open2 = std::make_shared<nano::state_block> (key2.pub, 0, key1.pub, 50, send2->hash (), key2.prv, key2.pub, *pool.generate (key2.pub));
+	nano::block_builder builder;
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build_shared ();
+	auto open1 = builder
+				 .state ()
+				 .account (key1.pub)
+				 .previous (0)
+				 .representative (key1.pub)
+				 .balance (100)
+				 .link (send1->hash ())
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (key1.pub))
+				 .build_shared ();
+	auto send2 = builder
+				 .state ()
+				 .account (key1.pub)
+				 .previous (open1->hash ())
+				 .representative (key1.pub)
+				 .balance (50)
+				 .link (key2.pub)
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (open1->hash ()))
+				 .build_shared ();
+	auto send3 = builder
+				 .state ()
+				 .account (key1.pub)
+				 .previous (send2->hash ())
+				 .representative (key1.pub)
+				 .balance (25)
+				 .link (key2.pub)
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (send2->hash ()))
+				 .build_shared ();
+	auto open2 = builder
+				 .state ()
+				 .account (key2.pub)
+				 .previous (0)
+				 .representative (key1.pub)
+				 .balance (50)
+				 .link (send2->hash ())
+				 .sign (key2.prv, key2.pub)
+				 .work (*pool.generate (key2.pub))
+				 .build_shared ();
 	{
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger.cache, nano::dev::constants);
