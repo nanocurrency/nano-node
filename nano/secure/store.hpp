@@ -826,6 +826,8 @@ class unchecked_map;
  */
 class store
 {
+	friend class rocksdb_block_store_tombstone_count_Test;
+
 public:
 	// clang-format off
 	explicit store (
