@@ -1,5 +1,7 @@
 add_library(
   test_common
+  ledger.hpp
+  ledger.cpp
   network.hpp
   network.cpp
   system.hpp
