@@ -16,9 +16,16 @@
 TEST (work, one)
 {
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
-	nano::change_block block (1, 1, nano::keypair ().prv, 3, 4);
-	block.block_work_set (*pool.generate (block.root ()));
-	ASSERT_LT (nano::dev::network_params.work.threshold_base (block.work_version ()), nano::dev::network_params.work.difficulty (block));
+	nano::block_builder builder;
+	auto block = builder
+				 .change ()
+				 .previous (1)
+				 .representative (1)
+				 .sign (nano::keypair ().prv, 3)
+				 .work (4)
+				 .build ();
+	block->block_work_set (*pool.generate (block->root ()));
+	ASSERT_LT (nano::dev::network_params.work.threshold_base (block->work_version ()), nano::dev::network_params.work.difficulty (*block));
 }
 
 TEST (work, disabled)
@@ -31,10 +38,18 @@ TEST (work, disabled)
 TEST (work, validate)
 {
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
-	nano::send_block send_block (1, 1, 2, nano::keypair ().prv, 4, 6);
-	ASSERT_LT (nano::dev::network_params.work.difficulty (send_block), nano::dev::network_params.work.threshold_base (send_block.work_version ()));
-	send_block.block_work_set (*pool.generate (send_block.root ()));
-	ASSERT_LT (nano::dev::network_params.work.threshold_base (send_block.work_version ()), nano::dev::network_params.work.difficulty (send_block));
+	nano::block_builder builder;
+	auto send_block = builder
+					  .send ()
+					  .previous (1)
+					  .destination (1)
+					  .balance (2)
+					  .sign (nano::keypair ().prv, 4)
+					  .work (6)
+					  .build ();
+	ASSERT_LT (nano::dev::network_params.work.difficulty (*send_block), nano::dev::network_params.work.threshold_base (send_block->work_version ()));
+	send_block->block_work_set (*pool.generate (send_block->root ()));
+	ASSERT_LT (nano::dev::network_params.work.threshold_base (send_block->work_version ()), nano::dev::network_params.work.difficulty (*send_block));
 }
 
 TEST (work, cancel)

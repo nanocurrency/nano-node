@@ -889,12 +889,20 @@ int main (int argc, char * const * argv)
 			while (true)
 			{
 				nano::keypair key;
+				nano::block_builder builder;
 				nano::block_hash latest (0);
 				auto begin1 (std::chrono::high_resolution_clock::now ());
 				for (uint64_t balance (0); balance < 1000; ++balance)
 				{
-					nano::send_block send (latest, key.pub, balance, key.prv, key.pub, 0);
-					latest = send.hash ();
+					auto send = builder
+								.send ()
+								.previous (latest)
+								.destination (key.pub)
+								.balance (balance)
+								.sign (key.prv, key.pub)
+								.work (0)
+								.build ();
+					latest = send->hash ();
 				}
 				auto end1 (std::chrono::high_resolution_clock::now ());
 				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
