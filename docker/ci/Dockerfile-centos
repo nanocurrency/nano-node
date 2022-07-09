@@ -1,0 +1,8 @@
+FROM centos:7
+
+WORKDIR /workspace
+
+ADD util /build
+RUN bash /build/build_prep/update-common
+RUN bash /build/build_prep/centos/prep.sh
+RUN rm -rf /build

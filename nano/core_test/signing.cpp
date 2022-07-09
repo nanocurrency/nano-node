@@ -13,7 +13,17 @@ TEST (signature_checker, empty)
 TEST (signature_checker, bulk_single_thread)
 {
 	nano::keypair key;
-	nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
+	nano::block_builder builder;
+	auto block = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (0)
+				 .representative (key.pub)
+				 .balance (0)
+				 .link (0)
+				 .sign (key.prv, key.pub)
+				 .work (0)
+				 .build ();
 	nano::signature_checker checker (0);
 	std::vector<nano::uint256_union> hashes;
 	size_t size (1000);
@@ -30,11 +40,11 @@ TEST (signature_checker, bulk_single_thread)
 	verifications.resize (size);
 	for (auto i (0); i < size; ++i)
 	{
-		hashes.push_back (block.hash ());
+		hashes.push_back (block->hash ());
 		messages.push_back (hashes.back ().bytes.data ());
 		lengths.push_back (sizeof (decltype (hashes)::value_type));
-		pub_keys.push_back (block.hashables.account.bytes.data ());
-		signatures.push_back (block.signature.bytes.data ());
+		pub_keys.push_back (block->hashables.account.bytes.data ());
+		signatures.push_back (block->signature.bytes.data ());
 	}
 	nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data () };
 	checker.verify (check);
@@ -48,12 +58,31 @@ TEST (signature_checker, many_multi_threaded)
 
 	auto signature_checker_work_func = [&checker] () {
 		nano::keypair key;
-		nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
-		auto block_hash = block.hash ();
+		nano::block_builder builder;
+		auto block = builder
+					 .state ()
+					 .account (key.pub)
+					 .previous (0)
+					 .representative (key.pub)
+					 .balance (0)
+					 .link (0)
+					 .sign (key.prv, key.pub)
+					 .work (0)
+					 .build ();
+		auto block_hash = block->hash ();
 
-		nano::state_block invalid_block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
-		invalid_block.signature.bytes[31] ^= 0x1;
-		auto invalid_block_hash = block.hash ();
+		auto invalid_block = builder
+							 .state ()
+							 .account (key.pub)
+							 .previous (0)
+							 .representative (key.pub)
+							 .balance (0)
+							 .link (0)
+							 .sign (key.prv, key.pub)
+							 .work (0)
+							 .build ();
+		invalid_block->signature.bytes[31] ^= 0x1;
+		auto invalid_block_hash = block->hash ();
 
 		constexpr auto num_check_sizes = 18;
 		constexpr std::array<size_t, num_check_sizes> check_sizes{ 2048, 256, 1024, 1,
@@ -84,12 +113,12 @@ TEST (signature_checker, many_multi_threaded)
 			std::fill (lengths[i].begin (), lengths[i].end (), sizeof (decltype (block_hash)));
 
 			pub_keys[i].resize (check_size);
-			std::fill (pub_keys[i].begin (), pub_keys[i].end (), block.hashables.account.bytes.data ());
-			pub_keys[i][last_signature_index] = invalid_block.hashables.account.bytes.data ();
+			std::fill (pub_keys[i].begin (), pub_keys[i].end (), block->hashables.account.bytes.data ());
+			pub_keys[i][last_signature_index] = invalid_block->hashables.account.bytes.data ();
 
 			signatures[i].resize (check_size);
-			std::fill (signatures[i].begin (), signatures[i].end (), block.signature.bytes.data ());
-			signatures[i][last_signature_index] = invalid_block.signature.bytes.data ();
+			std::fill (signatures[i].begin (), signatures[i].end (), block->signature.bytes.data ());
+			signatures[i][last_signature_index] = invalid_block->signature.bytes.data ();
 
 			verifications[i].resize (check_size);
 
@@ -125,11 +154,11 @@ TEST (signature_checker, one)
 		verifications.resize (size);
 		for (auto i (0); i < size; ++i)
 		{
-			hashes.push_back (block.hash ());
+			hashes.push_back (block->hash ());
 			messages.push_back (hashes.back ().bytes.data ());
 			lengths.push_back (sizeof (decltype (hashes)::value_type));
-			pub_keys.push_back (block.hashables.account.bytes.data ());
-			signatures.push_back (block.signature.bytes.data ());
+			pub_keys.push_back (block->hashables.account.bytes.data ());
+			signatures.push_back (block->signature.bytes.data ());
 		}
 		nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data () };
 		checker.verify (check);
@@ -137,14 +166,24 @@ TEST (signature_checker, one)
 	};
 
 	nano::keypair key;
-	nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
+	nano::block_builder builder;
+	auto block = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (0)
+				 .representative (key.pub)
+				 .balance (0)
+				 .link (0)
+				 .sign (key.prv, key.pub)
+				 .work (0)
+				 .build ();
 
 	// Make signaure invalid and check result is incorrect
-	block.signature.bytes[31] ^= 0x1;
+	block->signature.bytes[31] ^= 0x1;
 	verify_block (block, 0);
 
 	// Make it valid and check for succcess
-	block.signature.bytes[31] ^= 0x1;
+	block->signature.bytes[31] ^= 0x1;
 	verify_block (block, 1);
 }
 
@@ -174,7 +213,17 @@ TEST (signature_checker, boundary_checks)
 	std::vector<unsigned char const *> signatures;
 	signatures.reserve (max_size);
 	nano::keypair key;
-	nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
+	nano::block_builder builder;
+	auto block = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (0)
+				 .representative (key.pub)
+				 .balance (0)
+				 .link (0)
+				 .sign (key.prv, key.pub)
+				 .work (0)
+				 .build ();
 
 	size_t last_size = 0;
 	for (auto size : sizes)
@@ -186,11 +235,11 @@ TEST (signature_checker, boundary_checks)
 		verifications.resize (size);
 		for (auto i (0); i < extra_size; ++i)
 		{
-			hashes.push_back (block.hash ());
+			hashes.push_back (block->hash ());
 			messages.push_back (hashes.back ().bytes.data ());
 			lengths.push_back (sizeof (decltype (hashes)::value_type));
-			pub_keys.push_back (block.hashables.account.bytes.data ());
-			signatures.push_back (block.signature.bytes.data ());
+			pub_keys.push_back (block->hashables.account.bytes.data ());
+			signatures.push_back (block->signature.bytes.data ());
 		}
 		nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data () };
 		checker.verify (check);

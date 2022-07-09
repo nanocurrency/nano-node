@@ -158,6 +158,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq)
 {
+	unchecked.use_memory = [this] () { return ledger.bootstrap_weight_reached (); };
 	unchecked.satisfied = [this] (nano::unchecked_info const & info) {
 		this->block_processor.add (info);
 	};
@@ -866,7 +867,7 @@ void nano::node::ongoing_bootstrap ()
 	uint32_t frontiers_age (std::numeric_limits<uint32_t>::max ());
 	auto bootstrap_weight_reached (ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks);
 	auto previous_bootstrap_count (stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out) + stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate_legacy_age, nano::stat::dir::out));
-	/* 
+	/*
 	- Maximum value for 25% of attempts or if block count is below preconfigured value (initial bootstrap not finished)
 	- Node shutdown time minus 1 hour for start attempts (warm up)
 	- Default age value otherwise (1 day for live network, 1 hour for beta)
@@ -982,16 +983,13 @@ void nano::node::unchecked_cleanup ()
 		auto const now (nano::seconds_since_epoch ());
 		auto const transaction (store.tx_begin_read ());
 		// Max 1M records to clean, max 2 minutes reading to prevent slow i/o systems issues
-		for (auto [i, n] = unchecked.full_range (transaction); i != n && cleaning_list.size () < 1024 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
-		{
-			nano::unchecked_key const & key (i->first);
-			nano::unchecked_info const & info (i->second);
+		unchecked.for_each (
+		transaction, [this, &digests, &cleaning_list, &now] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 			if ((now - info.modified ()) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
 			{
 				digests.push_back (network.publish_filter.hash (info.block));
 				cleaning_list.push_back (key);
-			}
-		}
+			} }, [iterations = 0, count = 1024 * 1024] () mutable { return iterations++ < count; });
 	}
 	if (!cleaning_list.empty ())
 	{

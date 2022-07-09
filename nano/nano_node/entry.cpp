@@ -439,14 +439,13 @@ int main (int argc, char * const * argv)
 			}
 
 			// Check all unchecked keys for matching frontier hashes. Indicates an issue with process_batch algorithm
-			for (auto [i, n] = node->unchecked.full_range (transaction); i != n; ++i)
-			{
-				auto it = frontier_hashes.find (i->first.key ());
+			node->unchecked.for_each (transaction, [&frontier_hashes] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+				auto it = frontier_hashes.find (key.key ());
 				if (it != frontier_hashes.cend ())
 				{
 					std::cout << it->to_string () << "\n";
 				}
-			}
+			});
 		}
 		else if (vm.count ("debug_account_count"))
 		{
@@ -890,12 +889,20 @@ int main (int argc, char * const * argv)
 			while (true)
 			{
 				nano::keypair key;
+				nano::block_builder builder;
 				nano::block_hash latest (0);
 				auto begin1 (std::chrono::high_resolution_clock::now ());
 				for (uint64_t balance (0); balance < 1000; ++balance)
 				{
-					nano::send_block send (latest, key.pub, balance, key.prv, key.pub, 0);
-					latest = send.hash ();
+					auto send = builder
+								.send ()
+								.previous (latest)
+								.destination (key.pub)
+								.balance (balance)
+								.sign (key.prv, key.pub)
+								.work (0)
+								.build ();
+					latest = send->hash ();
 				}
 				auto end1 (std::chrono::high_resolution_clock::now ());
 				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());

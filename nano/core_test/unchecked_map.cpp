@@ -60,7 +60,15 @@ TEST (block_store, one_bootstrap)
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	nano::unchecked_map unchecked{ *store, false };
 	ASSERT_TRUE (!store->init_error ());
-	auto block1 = std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5);
+	nano::block_builder builder;
+	auto block1 = builder
+				  .send ()
+				  .previous (0)
+				  .destination (1)
+				  .balance (2)
+				  .sign (nano::keypair ().prv, 4)
+				  .work (5)
+				  .build_shared ();
 	unchecked.put (block1->hash (), nano::unchecked_info{ block1 });
 	auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
 		return unchecked.get (transaction_a, block_hash_a).size () > 0;
@@ -68,14 +76,14 @@ TEST (block_store, one_bootstrap)
 	// Waits for the block1 to get saved in the database
 	ASSERT_TIMELY (10s, check_block_is_listed (store->tx_begin_read (), block1->hash ()));
 	auto transaction = store->tx_begin_read ();
-	auto [begin, end] = unchecked.full_range (transaction);
-	ASSERT_NE (end, begin);
-	auto hash1 = begin->first.key ();
+	std::vector<nano::block_hash> dependencies;
+	unchecked.for_each (transaction, [&dependencies] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+		dependencies.push_back (key.key ());
+	});
+	auto hash1 = dependencies[0];
 	ASSERT_EQ (block1->hash (), hash1);
 	auto blocks = unchecked.get (transaction, hash1);
 	ASSERT_EQ (1, blocks.size ());
 	auto block2 = blocks[0].block;
 	ASSERT_EQ (*block1, *block2);
-	++begin;
-	ASSERT_EQ (end, begin);
 }

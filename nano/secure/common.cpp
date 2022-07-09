@@ -707,7 +707,7 @@ nano::unchecked_key::unchecked_key (nano::hash_or_account const & dependency) :
 }
 
 nano::unchecked_key::unchecked_key (nano::hash_or_account const & previous_a, nano::block_hash const & hash_a) :
-	previous (previous_a.hash),
+	previous (previous_a.as_block_hash ()),
 	hash (hash_a)
 {
 }
@@ -737,6 +737,11 @@ bool nano::unchecked_key::deserialize (nano::stream & stream_a)
 bool nano::unchecked_key::operator== (nano::unchecked_key const & other_a) const
 {
 	return previous == other_a.previous && hash == other_a.hash;
+}
+
+bool nano::unchecked_key::operator< (nano::unchecked_key const & other_a) const
+{
+	return previous != other_a.previous ? previous < other_a.previous : hash < other_a.hash;
 }
 
 nano::block_hash const & nano::unchecked_key::key () const

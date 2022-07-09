@@ -708,6 +708,9 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 		case nano::stat::detail::election_start:
 			res = "election_start";
 			break;
+		case nano::stat::detail::election_confirmed_all:
+			res = "election_confirmed_all";
+			break;
 		case nano::stat::detail::election_block_conflict:
 			res = "election_block_conflict";
 			break;
@@ -731,6 +734,17 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 			break;
 		case nano::stat::detail::election_not_confirmed:
 			res = "election_not_confirmed";
+		case nano::stat::detail::election_hinted_overflow:
+			res = "election_hinted_overflow";
+			break;
+		case nano::stat::detail::election_hinted_started:
+			res = "election_hinted_started";
+			break;
+		case nano::stat::detail::election_hinted_confirmed:
+			res = "election_hinted_confirmed";
+			break;
+		case nano::stat::detail::election_hinted_drop:
+			res = "election_hinted_drop";
 			break;
 		case nano::stat::detail::blocking:
 			res = "blocking";
