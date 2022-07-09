@@ -143,8 +143,8 @@ TEST (websocket, started_election)
 	auto send1 (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
 	nano::publish publish1{ nano::dev::network_params.network, send1 };
 	auto channel1 (node1->network.udp_channels.create (node1->network.endpoint ()));
-	node1->network.inbound (publish1, channel1);	
-	ASSERT_TIMELY (1s, node1->active.election (send1->qualified_root ()));	
+	node1->network.inbound (publish1, channel1);
+	ASSERT_TIMELY (1s, node1->active.election (send1->qualified_root ()));
 	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
 
 	auto response = future.get ();
