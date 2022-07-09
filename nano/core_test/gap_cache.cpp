@@ -165,8 +165,7 @@ TEST (gap_cache, two_dependencies)
 	node1.block_processor.add (send1);
 	node1.block_processor.flush ();
 	ASSERT_TIMELY (5s, node1.gap_cache.size () == 0);
-	auto transaction (node1.store.tx_begin_read ());
-	ASSERT_TRUE (node1.store.block.exists (transaction, send1->hash ()));
-	ASSERT_TRUE (node1.store.block.exists (transaction, send2->hash ()));
-	ASSERT_TRUE (node1.store.block.exists (transaction, open->hash ()));
+	ASSERT_TIMELY (5s, node1.store.block.exists (node1.store.tx_begin_read (), send1->hash ()));
+	ASSERT_TIMELY (5s, node1.store.block.exists (node1.store.tx_begin_read (), send2->hash ()));
+	ASSERT_TIMELY (5s, node1.store.block.exists (node1.store.tx_begin_read (), open->hash ()));
 }
