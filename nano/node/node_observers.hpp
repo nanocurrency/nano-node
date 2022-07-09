@@ -15,7 +15,7 @@ public:
 	blocks_t blocks;
 	nano::observer_set<bool> wallet;
 	nano::observer_set<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>, nano::vote_code> vote;
-	nano::observer_set<nano::block_hash const&> active_started;
+	nano::observer_set<nano::block_hash const &> active_started;
 	nano::observer_set<nano::block_hash const &> active_stopped;
 	nano::observer_set<nano::account const &, bool> account_balance;
 	nano::observer_set<std::shared_ptr<nano::transport::channel>> endpoint;

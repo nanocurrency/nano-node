@@ -282,7 +282,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 				}
 			});
 
-			observers.active_started.add ([this] (nano::block_hash const& hash_a) {
+			observers.active_started.add ([this] (nano::block_hash const & hash_a) {
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::started_election))
 				{
 					nano::websocket::message_builder builder;

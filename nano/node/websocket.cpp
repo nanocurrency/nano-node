@@ -697,14 +697,14 @@ void nano::websocket::listener::decrease_subscriber_count (nano::websocket::topi
 	count -= 1;
 }
 
-nano::websocket::message nano::websocket::message_builder::started_election(nano::block_hash const& hash_a)
+nano::websocket::message nano::websocket::message_builder::started_election (nano::block_hash const & hash_a)
 {
-	nano::websocket::message message_l(nano::websocket::topic::started_election);
-	set_common_fields(message_l);
+	nano::websocket::message message_l (nano::websocket::topic::started_election);
+	set_common_fields (message_l);
 
 	boost::property_tree::ptree message_node_l;
-	message_node_l.add("hash", hash_a.to_string());
-	message_l.contents.add_child("message", message_node_l);
+	message_node_l.add ("hash", hash_a.to_string ());
+	message_l.contents.add_child ("message", message_node_l);
 
 	return message_l;
 }
