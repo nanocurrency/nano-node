@@ -131,7 +131,7 @@ TEST (websocket, started_election)
 	nano::node_config config (nano::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
-	auto node1 (system.add_node (config));
+	auto node1 = system.add_node (config);
 
 	std::atomic<bool> ack_ready{ false };
 	auto task = ([&ack_ready, config, &node1] () {
@@ -148,9 +148,17 @@ TEST (websocket, started_election)
 
 	// Create election, causing a websocket message to be emitted
 	nano::keypair key1;
-	auto send1 (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
+	nano::block_builder builder;
+	auto send1 = builder
+				 .send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key1.pub)
+				 .balance (0)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build_shared ();
 	nano::publish publish1{ nano::dev::network_params.network, send1 };
-	auto channel1 (node1->network.udp_channels.create (node1->network.endpoint ()));
+	auto channel1 = node1->network.udp_channels.create (node1->network.endpoint ());
 	node1->network.inbound (publish1, channel1);
 	ASSERT_TIMELY (1s, node1->active.election (send1->qualified_root ()));
 	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
