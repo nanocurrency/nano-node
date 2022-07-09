@@ -1140,10 +1140,20 @@ TEST (node, fork_no_vote_quorum)
 	ASSERT_EQ (node1.config.receive_minimum.number (), node1.weight (key1));
 	ASSERT_EQ (node1.config.receive_minimum.number (), node2.weight (key1));
 	ASSERT_EQ (node1.config.receive_minimum.number (), node3.weight (key1));
-	nano::state_block send1 (nano::dev::genesis_key.pub, block->hash (), nano::dev::genesis_key.pub, (nano::dev::constants.genesis_amount / 4) - (node1.config.receive_minimum.number () * 2), key1, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (block->hash ()));
-	ASSERT_EQ (nano::process_result::progress, node1.process (send1).code);
-	ASSERT_EQ (nano::process_result::progress, node2.process (send1).code);
-	ASSERT_EQ (nano::process_result::progress, node3.process (send1).code);
+	nano::block_builder builder;
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (block->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance ((nano::dev::constants.genesis_amount / 4) - (node1.config.receive_minimum.number () * 2))
+				 .link (key1)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (block->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
+	ASSERT_EQ (nano::process_result::progress, node2.process (*send1).code);
+	ASSERT_EQ (nano::process_result::progress, node3.process (*send1).code);
 	auto key2 (system.wallet (2)->deterministic_insert ());
 	auto send2 = nano::send_block_builder ()
 				 .previous (block->hash ())
@@ -1166,9 +1176,9 @@ TEST (node, fork_no_vote_quorum)
 	ASSERT_NE (nullptr, channel);
 	channel->send_buffer (nano::shared_const_buffer (std::move (buffer)));
 	ASSERT_TIMELY (10s, node3.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in) >= 3);
-	ASSERT_TRUE (node1.latest (nano::dev::genesis_key.pub) == send1.hash ());
-	ASSERT_TRUE (node2.latest (nano::dev::genesis_key.pub) == send1.hash ());
-	ASSERT_TRUE (node3.latest (nano::dev::genesis_key.pub) == send1.hash ());
+	ASSERT_TRUE (node1.latest (nano::dev::genesis_key.pub) == send1->hash ());
+	ASSERT_TRUE (node2.latest (nano::dev::genesis_key.pub) == send1->hash ());
+	ASSERT_TRUE (node3.latest (nano::dev::genesis_key.pub) == send1->hash ());
 }
 
 // Disabled because it sometimes takes way too long (but still eventually finishes)
@@ -1508,16 +1518,24 @@ TEST (node, DISABLED_bootstrap_no_publish)
 	auto node1 (system1.nodes[0]);
 	nano::keypair key0;
 	// node0 knows about send0 but node1 doesn't.
-	nano::send_block send0 (node0->latest (nano::dev::genesis_key.pub), key0.pub, 500, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0);
+	nano::block_builder builder;
+	auto send0 = builder
+				 .send ()
+				 .previous (node0->latest (nano::dev::genesis_key.pub))
+				 .destination (key0.pub)
+				 .balance (500)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (0)
+				 .build ();
 	{
 		auto transaction (node0->store.tx_begin_write ());
-		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, send0).code);
+		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, *send0).code);
 	}
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TRUE (node1->active.empty ());
 	system1.deadline_set (10s);
-	while (node1->block (send0.hash ()) == nullptr)
+	while (node1->block (send0->hash ()) == nullptr)
 	{
 		// Poll until the TCP connection is torn down and in_progress goes false
 		system0.poll ();

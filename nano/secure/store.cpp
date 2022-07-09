@@ -168,19 +168,3 @@ auto nano::unchecked_store::full_range (nano::transaction const & transaction) -
 {
 	return std::make_pair (begin (transaction), end ());
 }
-
-std::vector<nano::unchecked_info> nano::unchecked_store::get (nano::transaction const & transaction, nano::block_hash const & dependency)
-{
-	auto range = equal_range (transaction, dependency);
-	std::vector<nano::unchecked_info> result;
-	auto & i = range.first;
-	auto & n = range.second;
-	for (; i != n; ++i)
-	{
-		auto const & key = i->first;
-		auto const & value = i->second;
-		debug_assert (key.hash == value.block->hash ());
-		result.push_back (value);
-	}
-	return result;
-}

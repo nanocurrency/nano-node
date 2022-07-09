@@ -31,7 +31,7 @@ jobs:
       - name: Fetch Deps
         run: ci/actions/osx/install_deps.sh
       - name: Build Artifact
-        run: TRAVIS_TAG=${TAG} ci/build-deploy.sh "/tmp/qt/lib/cmake/Qt5";
+        run: CI_TAG=${TAG} ci/build-deploy.sh "/tmp/qt/lib/cmake/Qt5";
       - name: Deploy Artifact
         run: ci/actions/deploy.sh
         env:
@@ -57,10 +57,41 @@ jobs:
           COMPILER: gcc
         run: ci/actions/linux/install_deps.sh
       - name: Build Artifact
-        run: docker run -v ${GITHUB_WORKSPACE}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && TRAVIS_TAG=${TAG} ci/build-deploy.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5"
+        run: docker run -v ${GITHUB_WORKSPACE}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && CI_TAG=${TAG} ci/build-deploy.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5"
       - name: Deploy Artifact
         run: ci/actions/deploy.sh
         env:
+          S3_BUILD_DIRECTORY: ${{ secrets.S3_BUILD_DIRECTORY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-2
+
+  linux_rpm_job:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 90
+    steps:
+      - name: Sets the tag and repo variables (to build)
+        run: |
+          echo "TAG=${{ github.event.inputs.ref }}" >> $GITHUB_ENV
+          echo "REPO_TO_BUILD=${{ github.event.inputs.repo }}" >> $GITHUB_ENV
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          submodules: "recursive"
+          ref: ${{ github.ref }}
+          repository: ${{ github.repository }}
+      - name: CentOS Base
+        run: ci/build-docker-image.sh docker/ci/Dockerfile-centos nanocurrency/nano-env:centos
+      - name: Build Artifact
+        run: |
+          mkdir -p ${GITHUB_WORKSPACE}/artifacts
+          docker run -e LIVE=1 -e TAG=$TAG -e REPO_TO_BUILD=$REPO_TO_BUILD -e RPM_RELEASE=1 \
+          -v ${GITHUB_WORKSPACE}:/workspace \
+          -v ${GITHUB_WORKSPACE}/artifacts:/root/rpmbuild \
+          nanocurrency/nano-env:centos /bin/bash -c "ci/build-centos.sh"
+      - name: Deploy Artifacts
+        run: ci/actions/deploy.sh
+        env:
+          LINUX_RPM: 1
           S3_BUILD_DIRECTORY: ${{ secrets.S3_BUILD_DIRECTORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -83,10 +114,10 @@ jobs:
           COMPILER: gcc
         run: ci/actions/linux/install_deps.sh
       - name: Build Docker (nanocurrency/nano)
-        run: TRAVIS_TAG=${TAG} ci/actions/linux/docker-build.sh
+        run: CI_TAG=${TAG} ci/actions/linux/docker-build.sh
       - name: Deploy Docker Hub (nanocurrency/nano)
         if: ${{ github.repository == 'nanocurrency/nano-node' }}
-        run: TRAVIS_TAG=${TAG} ci/actions/linux/docker-deploy.sh
+        run: CI_TAG=${TAG} ci/actions/linux/docker-deploy.sh
         env:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       - name: Login to ghcr.io

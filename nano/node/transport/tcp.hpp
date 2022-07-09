@@ -183,7 +183,6 @@ namespace transport
 			nano::account node_id () const
 			{
 				auto node_id (channel->get_node_id ());
-				debug_assert (!node_id.is_zero ());
 				return node_id;
 			}
 			uint8_t network_version () const

@@ -395,6 +395,12 @@ void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, std::si
 		nano::message_header header (error, stream);
 		if (!error)
 		{
+			if (header.network != network.current_network)
+			{
+				status = parse_status::invalid_header;
+				return;
+			}
+
 			if (header.version_using < network.protocol_version_min)
 			{
 				status = parse_status::outdated_version;

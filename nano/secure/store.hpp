@@ -756,14 +756,12 @@ public:
 	virtual void put (nano::write_transaction const &, nano::hash_or_account const & dependency, nano::unchecked_info const &) = 0;
 	std::pair<iterator, iterator> equal_range (nano::transaction const & transaction, nano::block_hash const & dependency);
 	std::pair<iterator, iterator> full_range (nano::transaction const & transaction);
-	std::vector<nano::unchecked_info> get (nano::transaction const &, nano::block_hash const &);
 	virtual bool exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) = 0;
 	virtual void del (nano::write_transaction const &, nano::unchecked_key const &) = 0;
 	virtual iterator begin (nano::transaction const &) const = 0;
 	virtual iterator lower_bound (nano::transaction const &, nano::unchecked_key const &) const = 0;
 	virtual iterator end () const = 0;
 	virtual size_t count (nano::transaction const &) = 0;
-	virtual void for_each_par (std::function<void (nano::read_transaction const &, iterator, iterator)> const & action_a) const = 0;
 };
 
 /**

@@ -32,27 +32,77 @@ nano::keypair & key3 ()
 }
 std::shared_ptr<nano::state_block> & blockzero ()
 {
-	static std::shared_ptr<nano::state_block> result = std::make_shared<nano::state_block> (keyzero ().pub, 0, keyzero ().pub, 0, 0, keyzero ().prv, keyzero ().pub, 0);
+	nano::block_builder builder;
+	static auto result = builder
+						 .state ()
+						 .account (keyzero ().pub)
+						 .previous (0)
+						 .representative (keyzero ().pub)
+						 .balance (0)
+						 .link (0)
+						 .sign (keyzero ().prv, keyzero ().pub)
+						 .work (0)
+						 .build_shared ();
 	return result;
 }
 std::shared_ptr<nano::state_block> & block0 ()
 {
-	static std::shared_ptr<nano::state_block> result = std::make_shared<nano::state_block> (key0 ().pub, 0, key0 ().pub, nano::Gxrb_ratio, 0, key0 ().prv, key0 ().pub, 0);
+	nano::block_builder builder;
+	static auto result = builder
+						 .state ()
+						 .account (key0 ().pub)
+						 .previous (0)
+						 .representative (key0 ().pub)
+						 .balance (nano::Gxrb_ratio)
+						 .link (0)
+						 .sign (key0 ().prv, key0 ().pub)
+						 .work (0)
+						 .build_shared ();
 	return result;
 }
 std::shared_ptr<nano::state_block> & block1 ()
 {
-	static std::shared_ptr<nano::state_block> result = std::make_shared<nano::state_block> (key1 ().pub, 0, key1 ().pub, nano::Mxrb_ratio, 0, key1 ().prv, key1 ().pub, 0);
+	nano::block_builder builder;
+	static auto result = builder
+						 .state ()
+						 .account (key1 ().pub)
+						 .previous (0)
+						 .representative (key1 ().pub)
+						 .balance (nano::Mxrb_ratio)
+						 .link (0)
+						 .sign (key1 ().prv, key1 ().pub)
+						 .work (0)
+						 .build_shared ();
 	return result;
 }
 std::shared_ptr<nano::state_block> & block2 ()
 {
-	static std::shared_ptr<nano::state_block> result = std::make_shared<nano::state_block> (key2 ().pub, 0, key2 ().pub, nano::Gxrb_ratio, 0, key2 ().prv, key2 ().pub, 0);
+	nano::block_builder builder;
+	static auto result = builder
+						 .state ()
+						 .account (key2 ().pub)
+						 .previous (0)
+						 .representative (key2 ().pub)
+						 .balance (nano::Gxrb_ratio)
+						 .link (0)
+						 .sign (key2 ().prv, key2 ().pub)
+						 .work (0)
+						 .build_shared ();
 	return result;
 }
 std::shared_ptr<nano::state_block> & block3 ()
 {
-	static std::shared_ptr<nano::state_block> result = std::make_shared<nano::state_block> (key3 ().pub, 0, key3 ().pub, nano::Mxrb_ratio, 0, key3 ().prv, key3 ().pub, 0);
+	nano::block_builder builder;
+	static auto result = builder
+						 .state ()
+						 .account (key3 ().pub)
+						 .previous (0)
+						 .representative (key3 ().pub)
+						 .balance (nano::Mxrb_ratio)
+						 .link (0)
+						 .sign (key3 ().prv, key3 ().pub)
+						 .work (0)
+						 .build_shared ();
 	return result;
 }
 
