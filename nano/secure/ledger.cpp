@@ -923,14 +923,19 @@ std::string nano::ledger::block_text (nano::block_hash const & hash_a)
 	return result;
 }
 
-bool nano::ledger::is_send (nano::transaction const & transaction_a, nano::state_block const & block_a) const
+bool nano::ledger::is_send (nano::transaction const & transaction_a, nano::block const & block_a) const
 {
+	if (block_a.type () != nano::block_type::state)
+	{
+		return block_a.type () == nano::block_type::send;
+	}
+	nano::block_hash previous = block_a.previous ();
 	/*
 	 * if block_a does not have a sideband, then is_send()
 	 * requires that the previous block exists in the database.
 	 * This is because it must retrieve the balance of the previous block.
 	 */
-	debug_assert (block_a.has_sideband () || block_a.hashables.previous.is_zero () || store.block.exists (transaction_a, block_a.hashables.previous));
+	debug_assert (block_a.has_sideband () || previous.is_zero () || store.block.exists (transaction_a, previous));
 
 	bool result (false);
 	if (block_a.has_sideband ())
@@ -939,10 +944,9 @@ bool nano::ledger::is_send (nano::transaction const & transaction_a, nano::state
 	}
 	else
 	{
-		nano::block_hash previous (block_a.hashables.previous);
 		if (!previous.is_zero ())
 		{
-			if (block_a.hashables.balance < balance (transaction_a, previous))
+			if (block_a.balance () < balance (transaction_a, previous))
 			{
 				result = true;
 			}
