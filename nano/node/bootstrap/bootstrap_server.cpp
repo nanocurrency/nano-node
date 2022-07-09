@@ -334,31 +334,7 @@ void nano::bootstrap_server::handshake_message_visitor::node_id_handshake (nano:
 
 	if (message.query)
 	{
-		boost::optional<std::pair<nano::account, nano::signature>> response (std::make_pair (server->node->node_id.pub, nano::sign_message (server->node->node_id.prv, server->node->node_id.pub, *message.query)));
-		debug_assert (!nano::validate_message (response->first, *message.query, response->second));
-
-		auto cookie (server->node->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (server->remote_endpoint)));
-		nano::node_id_handshake response_message (server->node->network_params.network, cookie, response);
-
-		auto shared_const_buffer = response_message.to_shared_const_buffer ();
-		server->socket->async_write (shared_const_buffer, [server = std::weak_ptr<nano::bootstrap_server> (server)] (boost::system::error_code const & ec, std::size_t size_a) {
-			if (auto server_l = server.lock ())
-			{
-				if (ec)
-				{
-					if (server_l->node->config.logging.network_node_id_handshake_logging ())
-					{
-						server_l->node->logger.try_log (boost::str (boost::format ("Error sending node_id_handshake to %1%: %2%") % server_l->remote_endpoint % ec.message ()));
-					}
-					// Stop invalid handshake
-					server_l->stop ();
-				}
-				else
-				{
-					server_l->node->stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out);
-				}
-			}
-		});
+		server->send_handshake_response (*message.query);
 	}
 	else if (message.response)
 	{
@@ -375,6 +351,32 @@ void nano::bootstrap_server::handshake_message_visitor::node_id_handshake (nano:
 	}
 
 	process = true;
+}
+
+void nano::bootstrap_server::send_handshake_response (nano::uint256_union query)
+{
+	boost::optional<std::pair<nano::account, nano::signature>> response (std::make_pair (node->node_id.pub, nano::sign_message (node->node_id.prv, node->node_id.pub, query)));
+	debug_assert (!nano::validate_message (response->first, query, response->second));
+
+	auto cookie (node->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (remote_endpoint)));
+	nano::node_id_handshake response_message (node->network_params.network, cookie, response);
+
+	auto shared_const_buffer = response_message.to_shared_const_buffer ();
+	socket->async_write (shared_const_buffer, [this_l = shared_from_this ()] (boost::system::error_code const & ec, std::size_t size_a) {
+		if (ec)
+		{
+			if (this_l->node->config.logging.network_node_id_handshake_logging ())
+			{
+				this_l->node->logger.try_log (boost::str (boost::format ("Error sending node_id_handshake to %1%: %2%") % this_l->remote_endpoint % ec.message ()));
+			}
+			// Stop invalid handshake
+			this_l->stop ();
+		}
+		else
+		{
+			this_l->node->stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out);
+		}
+	});
 }
 
 void nano::bootstrap_server::handshake_message_visitor::bulk_pull (const nano::bulk_pull & message)

@@ -52,6 +52,8 @@ public:
 
 	void timeout ();
 
+	void send_handshake_response (nano::uint256_union query);
+
 	std::shared_ptr<nano::socket> const socket;
 	std::shared_ptr<nano::node> const node;
 	nano::mutex mutex;
