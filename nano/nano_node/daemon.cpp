@@ -13,6 +13,7 @@
 #include <nano/rpc/rpc.hpp>
 
 #include <boost/format.hpp>
+#include <boost/interprocess/sync/named_mutex.hpp>
 
 #include <csignal>
 #include <iostream>
@@ -154,6 +155,8 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					std::cout << "Voting with more than one representative can limit performance: " << voting << " representatives are configured" << std::endl;
 				}
 				node->start ();
+				boost::interprocess::named_mutex process_mutex (boost::interprocess::open_or_create, "nano_node_process");
+				process_mutex.try_lock ();
 				nano::ipc::ipc_server ipc_server (*node, config.rpc);
 				std::unique_ptr<boost::process::child> rpc_process;
 				std::unique_ptr<boost::process::child> nano_pow_server_process;
@@ -237,6 +240,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				{
 					ipc_server.stop ();
 					node->stop ();
+					process_mutex.unlock ();
 					if (rpc)
 					{
 						rpc->stop ();
