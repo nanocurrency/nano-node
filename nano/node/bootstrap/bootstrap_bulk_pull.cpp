@@ -208,8 +208,17 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 	{
 		nano::bufferstream stream (connection->receive_buffer->data (), size_a);
 		auto block (nano::deserialize_block (stream, type_a));
-		if (block != nullptr && !connection->node->network_params.work.validate_entry (*block))
+		if (block != nullptr)
 		{
+			if (connection->node->network_params.work.validate_entry (*block))
+			{
+				if (connection->node->config.logging.bulk_pull_logging ())
+				{
+					connection->node->logger.try_log (boost::str (boost::format ("Insufficient work for bulk pull block: %1%") % block->hash ().to_string ()));
+				}
+				connection->node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
+				return;
+			}
 			auto hash (block->hash ());
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
@@ -256,21 +265,13 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 				connection->connections.pool_connection (connection);
 			}
 		}
-		else if (block == nullptr)
+		else
 		{
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
 				connection->node->logger.try_log ("Error deserializing block received from pull request");
 			}
 			connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_deserialize_receive_block, nano::stat::dir::in);
-		}
-		else // Work invalid
-		{
-			if (connection->node->config.logging.bulk_pull_logging ())
-			{
-				connection->node->logger.try_log (boost::str (boost::format ("Insufficient work for bulk pull block: %1%") % block->hash ().to_string ()));
-			}
-			connection->node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
 		}
 	}
 	else
