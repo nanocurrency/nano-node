@@ -1807,6 +1807,11 @@ uint64_t nano::node::get_confirmation_height (nano::transaction const & transact
 	nano::confirmation_height_info info;
 	store.confirmation_height.get (transaction_a, account_a, info);
 	return info.height;
+}
+
+nano::account nano::node::get_node_id () const
+{
+	return node_id.pub;
 };
 
 nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
