@@ -5646,3 +5646,32 @@ TEST (ledger, unconfirmed_frontiers)
 	ASSERT_EQ (uncemented_info1.cemented_frontier, uncemented_info2.cemented_frontier);
 	ASSERT_EQ (uncemented_info1.frontier, uncemented_info2.frontier);
 }
+
+TEST (ledger, is_send_genesis)
+{
+	auto ctx = nano::test::context::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & store = ctx.store ();
+	auto tx = store.tx_begin_read ();
+	ASSERT_FALSE (ledger.is_send (tx, *nano::dev::genesis));
+}
+
+TEST (ledger, is_send_state)
+{
+	auto ctx = nano::test::context::ledger_send_receive ();
+	auto & ledger = ctx.ledger ();
+	auto & store = ctx.store ();
+	auto tx = store.tx_begin_read ();
+	ASSERT_TRUE (ledger.is_send (tx, *ctx.blocks ()[0]));
+	ASSERT_FALSE (ledger.is_send (tx, *ctx.blocks ()[1]));
+}
+
+TEST (ledger, is_send_legacy)
+{
+	auto ctx = nano::test::context::ledger_send_receive_legacy ();
+	auto & ledger = ctx.ledger ();
+	auto & store = ctx.store ();
+	auto tx = store.tx_begin_read ();
+	ASSERT_TRUE (ledger.is_send (tx, *ctx.blocks ()[0]));
+	ASSERT_FALSE (ledger.is_send (tx, *ctx.blocks ()[1]));
+}

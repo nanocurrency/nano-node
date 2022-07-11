@@ -51,7 +51,7 @@ public:
 	bool root_exists (nano::transaction const &, nano::root const &);
 	std::string block_text (char const *);
 	std::string block_text (nano::block_hash const &);
-	bool is_send (nano::transaction const &, nano::state_block const &) const;
+	bool is_send (nano::transaction const &, nano::block const &) const;
 	nano::account const & block_destination (nano::transaction const &, nano::block const &);
 	nano::block_hash block_source (nano::transaction const &, nano::block const &);
 	std::pair<nano::block_hash, nano::block_hash> hash_root_random (nano::transaction const &) const;
