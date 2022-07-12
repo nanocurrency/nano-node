@@ -42,12 +42,31 @@ public:
 	nano::block_hash first ();
 	std::shared_ptr<nano::bootstrap_client> connection;
 	std::shared_ptr<nano::bootstrap_attempt> attempt;
-	nano::block_hash expected;
-	nano::account known_account;
-	nano::pull_info pull;
-	uint64_t pull_blocks;
-	uint64_t unexpected_count;
 	bool network_error{ false };
+
+private:
+	/**
+	 * Tracks the next block expected to be received starting with the block hash that was expected and followed by previous blocks for this account chain
+	 */
+	nano::block_hash expected{ 0 };
+	/**
+	 * Tracks the account number for this account chain
+	 * Used when an account chain has a mix between state blocks and legacy blocks which do not encode the account number in the block
+	 * 0 if the account is unknown
+	*/
+	nano::account known_account{ 0 };
+	/**
+	 * Original pull request
+	 */
+	nano::pull_info pull;
+	/**
+	 * Tracks the number of blocks successfully deserialized
+	 */
+	uint64_t pull_blocks{ 0 };
+	/**
+	 * Tracks the number of times an unexpected block was received
+	 */
+	uint64_t unexpected_count{ 0 };
 };
 class bootstrap_attempt_wallet;
 class bulk_pull_account_client final : public std::enable_shared_from_this<nano::bulk_pull_account_client>
