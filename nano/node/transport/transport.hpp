@@ -134,6 +134,9 @@ namespace transport
 			network_version = network_version_a;
 		}
 
+		nano::endpoint get_peering_endpoint () const;
+		void set_peering_endpoint (nano::endpoint endpoint);
+
 		mutable nano::mutex channel_mutex;
 
 	private:
@@ -142,6 +145,7 @@ namespace transport
 		std::chrono::steady_clock::time_point last_packet_sent{ std::chrono::steady_clock::now () };
 		boost::optional<nano::account> node_id{ boost::none };
 		std::atomic<uint8_t> network_version{ 0 };
+		std::optional<nano::endpoint> peering_endpoint{};
 
 	protected:
 		nano::node & node;
