@@ -8,6 +8,10 @@
 namespace nano
 {
 class bootstrap_attempt;
+namespace bootstrap
+{
+	class block_deserializer;
+};
 class pull_info
 {
 public:
@@ -37,8 +41,7 @@ public:
 	void request ();
 	void receive_block ();
 	void throttled_receive_block ();
-	void received_type ();
-	void received_block (boost::system::error_code const &, std::size_t, nano::block_type);
+	void received_block (boost::system::error_code ec, std::shared_ptr<nano::block> block);
 	nano::block_hash first ();
 	std::shared_ptr<nano::bootstrap_client> connection;
 	std::shared_ptr<nano::bootstrap_attempt> attempt;
@@ -67,6 +70,7 @@ private:
 	 * Tracks the number of times an unexpected block was received
 	 */
 	uint64_t unexpected_count{ 0 };
+	std::shared_ptr<nano::bootstrap::block_deserializer> block_deserializer;
 };
 class bootstrap_attempt_wallet;
 class bulk_pull_account_client final : public std::enable_shared_from_this<nano::bulk_pull_account_client>

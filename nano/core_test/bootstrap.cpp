@@ -1435,7 +1435,7 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 				 .work (*node0->work_generate_blocking (receive1->hash ()))
 				 .build_shared ();
 
-	// Processing test c`hain
+	// Processing test chain
 	node0->block_processor.add (send1);
 	node0->block_processor.add (receive1);
 	node0->block_processor.add (send2);
