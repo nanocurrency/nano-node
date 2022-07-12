@@ -19,6 +19,7 @@ endif()
 add_library(
   nano_lib
   ${platform_sources}
+  asan_warnings.hpp
   asio.hpp
   asio.cpp
   blockbuilders.hpp

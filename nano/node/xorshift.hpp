@@ -1,4 +1,7 @@
 #pragma once
+
+#include <nano/lib/asan_warnings.hpp>
+
 #include <array>
 
 namespace nano
@@ -8,6 +11,8 @@ class xorshift1024star final
 public:
 	std::array<uint64_t, 16> s;
 	unsigned p{ 0 };
+
+	ATTRIBUTE_NO_SANITIZE_UINT_OVERFLOW
 	uint64_t next ()
 	{
 		auto p_l (p);
