@@ -201,84 +201,75 @@ void nano::bulk_pull_client::received_type ()
 
 void nano::bulk_pull_client::received_block (boost::system::error_code const & ec, std::size_t size_a, nano::block_type type_a)
 {
-	if (!ec)
+	if (ec)
 	{
-		nano::bufferstream stream (connection->receive_buffer->data (), size_a);
-		auto block (nano::deserialize_block (stream, type_a));
-		if (block != nullptr)
-		{
-			if (connection->node->network_params.work.validate_entry (*block))
-			{
-				if (connection->node->config.logging.bulk_pull_logging ())
-				{
-					connection->node->logger.try_log (boost::str (boost::format ("Insufficient work for bulk pull block: %1%") % block->hash ().to_string ()));
-				}
-				connection->node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
-				return;
-			}
-			auto hash (block->hash ());
-			if (connection->node->config.logging.bulk_pull_logging ())
-			{
-				std::string block_l;
-				block->serialize_json (block_l, connection->node->config.logging.single_line_record ());
-				connection->node->logger.try_log (boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l));
-			}
-			// Is block expected?
-			bool block_expected (false);
-			// Unconfirmed head is used only for lazy destinations if legacy bootstrap is not available, see nano::bootstrap_attempt::lazy_destinations_increment (...)
-			bool unconfirmed_account_head (connection->node->flags.disable_legacy_bootstrap && pull_blocks == 0 && pull.retry_limit <= connection->node->network_params.bootstrap.lazy_retry_limit && expected == pull.account_or_head && block->account () == pull.account_or_head);
-			if (hash == expected || unconfirmed_account_head)
-			{
-				expected = block->previous ();
-				block_expected = true;
-			}
-			else
-			{
-				unexpected_count++;
-			}
-			if (pull_blocks == 0 && block_expected)
-			{
-				known_account = block->account ();
-			}
-			if (connection->block_count++ == 0)
-			{
-				connection->set_start_time (std::chrono::steady_clock::now ());
-			}
-			attempt->total_blocks++;
-			pull_blocks++;
-			bool stop_pull (attempt->process_block (block, known_account, pull_blocks, pull.count, block_expected, pull.retry_limit));
-			if (!stop_pull && !connection->hard_stop.load ())
-			{
-				/* Process block in lazy pull if not stopped
-				Stop usual pull request with unexpected block & more than 16k blocks processed
-				to prevent spam */
-				if (attempt->mode != nano::bootstrap_mode::legacy || unexpected_count < 16384)
-				{
-					throttled_receive_block ();
-				}
-			}
-			else if (stop_pull && block_expected)
-			{
-				connection->connections.pool_connection (connection);
-			}
-		}
-		else
-		{
-			if (connection->node->config.logging.bulk_pull_logging ())
-			{
-				connection->node->logger.try_log ("Error deserializing block received from pull request");
-			}
-			connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_deserialize_receive_block, nano::stat::dir::in);
-		}
+		network_error = true;
+		return;
 	}
-	else
+	nano::bufferstream stream{ connection->receive_buffer->data (), size_a };
+	auto block = nano::deserialize_block (stream, type_a);
+	if (block == nullptr)
+	{
+		// Avoid re-using slow peers, or peers that sent the wrong blocks.
+		if (!connection->pending_stop && (expected == pull.end || (pull.count != 0 && pull.count == pull_blocks)))
+		{
+			connection->connections.pool_connection (connection);
+		}
+		return;
+	}
+	if (connection->node->network_params.work.validate_entry (*block))
 	{
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			connection->node->logger.try_log (boost::str (boost::format ("Error bulk receiving block: %1%") % ec.message ()));
+			connection->node->logger.try_log (boost::str (boost::format ("Insufficient work for bulk pull block: %1%") % block->hash ().to_string ()));
 		}
-		connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_receive_block_failure, nano::stat::dir::in);
-		network_error = true;
+		connection->node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
+		return;
+	}
+	auto hash (block->hash ());
+	if (connection->node->config.logging.bulk_pull_logging ())
+	{
+		std::string block_l;
+		block->serialize_json (block_l, connection->node->config.logging.single_line_record ());
+		connection->node->logger.try_log (boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l));
+	}
+	// Is block expected?
+	bool block_expected (false);
+	// Unconfirmed head is used only for lazy destinations if legacy bootstrap is not available, see nano::bootstrap_attempt::lazy_destinations_increment (...)
+	bool unconfirmed_account_head (connection->node->flags.disable_legacy_bootstrap && pull_blocks == 0 && pull.retry_limit <= connection->node->network_params.bootstrap.lazy_retry_limit && expected == pull.account_or_head && block->account () == pull.account_or_head);
+	if (hash == expected || unconfirmed_account_head)
+	{
+		expected = block->previous ();
+		block_expected = true;
+	}
+	else
+	{
+		unexpected_count++;
+	}
+	if (pull_blocks == 0 && block_expected)
+	{
+		known_account = block->account ();
+	}
+	if (connection->block_count++ == 0)
+	{
+		connection->set_start_time (std::chrono::steady_clock::now ());
+	}
+	attempt->total_blocks++;
+	pull_blocks++;
+	bool stop_pull (attempt->process_block (block, known_account, pull_blocks, pull.count, block_expected, pull.retry_limit));
+	if (!stop_pull && !connection->hard_stop.load ())
+	{
+		/* Process block in lazy pull if not stopped
+		Stop usual pull request with unexpected block & more than 16k blocks processed
+		to prevent spam */
+		if (attempt->mode != nano::bootstrap_mode::legacy || unexpected_count < 16384)
+		{
+			throttled_receive_block ();
+		}
+	}
+	else if (stop_pull && block_expected)
+	{
+		connection->connections.pool_connection (connection);
 	}
 }
 
