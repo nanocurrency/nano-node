@@ -1,3 +1,4 @@
+#include <nano/node/bootstrap/block_deserializer.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/test_common/system.hpp>
@@ -2031,4 +2032,9 @@ TEST (bulk_pull_account, basics)
 		ASSERT_EQ (nullptr, block_data.first.get ());
 		ASSERT_EQ (nullptr, block_data.second.get ());
 	}
+}
+
+TEST (block_deserializer, construction)
+{
+	auto deserializer = std::make_shared<nano::bootstrap::block_deserializer> ();
 }
