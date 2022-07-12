@@ -257,7 +257,7 @@ nano::tcp_endpoint nano::transport::tcp_channels::bootstrap_peer (uint8_t connec
 	{
 		if (i->channel->get_network_version () >= connection_protocol_version_min)
 		{
-			result = i->endpoint ();
+			result = nano::transport::map_endpoint_to_tcp (i->channel->get_peering_endpoint ());
 			channels.get<last_bootstrap_attempt_tag> ().modify (i, [] (channel_tcp_wrapper & wrapper_a) {
 				wrapper_a.channel->set_last_bootstrap_attempt (std::chrono::steady_clock::now ());
 			});
