@@ -105,6 +105,7 @@ void nano::election_hinting::run ()
 			{
 				lock.unlock ();
 				run_one (minimum_tally);
+				notify ();
 				lock.lock ();
 			}
 		}
