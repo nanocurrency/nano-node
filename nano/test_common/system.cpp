@@ -50,12 +50,13 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & no
 		{
 			auto node1 (*i);
 			auto node2 (*j);
-			auto starting1 (node1->network.size ());
-			size_t starting_listener1 (node1->bootstrap.realtime_count);
-			decltype (starting1) new1;
-			auto starting2 (node2->network.size ());
-			size_t starting_listener2 (node2->bootstrap.realtime_count);
-			decltype (starting2) new2;
+
+			auto starting_size_1 = node1->network.size ();
+			auto starting_size_2 = node2->network.size ();
+
+			auto starting_realtime_1 = node1->bootstrap.realtime_count.load ();
+			auto starting_realtime_2 = node2->bootstrap.realtime_count.load ();
+
 			if (type_a == nano::transport::transport_type::tcp)
 			{
 				(*j)->network.merge_peer ((*i)->network.endpoint ());
@@ -66,42 +67,34 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & no
 				auto channel (std::make_shared<nano::transport::channel_udp> ((*j)->network.udp_channels, (*i)->network.endpoint (), node1->network_params.network.protocol_version));
 				(*j)->network.send_keepalive (channel);
 			}
-			do
-			{
-				poll ();
-				new1 = node1->network.size ();
-				new2 = node2->network.size ();
-			} while (new1 == starting1 || new2 == starting2);
+
+			poll_until_true (3s, [&node1, &node2, starting_size_1, starting_size_2] () {
+				auto size_1 = node1->network.size ();
+				auto size_2 = node2->network.size ();
+				return size_1 > starting_size_1 && size_2 > starting_size_2;
+			});
+
 			if (type_a == nano::transport::transport_type::tcp && node_config_a.tcp_incoming_connections_max != 0 && !node_flags_a.disable_tcp_realtime)
 			{
 				// Wait for initial connection finish
-				decltype (starting_listener1) new_listener1;
-				decltype (starting_listener2) new_listener2;
-				do
-				{
-					poll ();
-					new_listener1 = node1->bootstrap.realtime_count;
-					new_listener2 = node2->bootstrap.realtime_count;
-				} while (new_listener1 == starting_listener1 || new_listener2 == starting_listener2);
+				poll_until_true (3s, [&node1, &node2, starting_realtime_1, starting_realtime_2] () {
+					auto realtime_1 = node1->bootstrap.realtime_count.load ();
+					auto realtime_2 = node2->bootstrap.realtime_count.load ();
+					return realtime_1 > starting_realtime_1 && realtime_2 > starting_realtime_2;
+				});
 			}
 		}
-		auto iterations1 (0);
-		while (std::any_of (begin, nodes.end (), [] (std::shared_ptr<nano::node> const & node_a) { return node_a->bootstrap_initiator.in_progress (); }))
-		{
-			poll ();
-			++iterations1;
-			debug_assert (iterations1 < 10000);
-		}
+
+		// Ensure no bootstrap initiators are in progress
+		poll_until_true (3s, [this, &begin] () {
+			return std::all_of (begin, nodes.end (), [] (std::shared_ptr<nano::node> const & node_a) { return !node_a->bootstrap_initiator.in_progress (); });
+		});
 	}
 	else
 	{
-		auto iterations1 (0);
-		while (node->bootstrap_initiator.in_progress ())
-		{
-			poll ();
-			++iterations1;
-			debug_assert (iterations1 < 10000);
-		}
+		poll_until_true (3s, [&node] () {
+			return !node->bootstrap_initiator.in_progress ();
+		});
 	}
 
 	return node;
