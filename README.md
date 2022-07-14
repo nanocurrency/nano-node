@@ -1,4 +1,4 @@
-<p style="text-align:center;"><img src="/images/logo.svg" width="300px" height="auto" alt="Logo"></p>
+<p style="text-align:center;"><img src="/images/logo.svg" height="auto" alt="Logo"></p>
 
 [![Live Artifacts](https://github.com/nanocurrency/nano-node/workflows/Live/badge.svg)](https://github.com/nanocurrency/nano-node/actions?query=workflow%3ALive)
 [![Beta Artifacts](https://github.com/nanocurrency/nano-node/workflows/Beta/badge.svg)](https://github.com/nanocurrency/nano-node/actions?query=workflow%3ABeta)
