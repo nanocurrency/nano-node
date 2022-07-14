@@ -62,12 +62,13 @@ bool nano::election_hinting::run_one ()
 {
 	if (auto top = node.inactive_vote_cache.pop (tally_threshold ()); top)
 	{
+		auto hash = top->hash;
 		auto transaction (node.store.tx_begin_read ());
-		auto block = node.store.block.get (transaction, top->hash);
+		auto block = node.store.block.get (transaction, hash);
 		if (block != nullptr)
 		{
-			debug_assert (block->hash () == top->hash);
-			if (!node.block_confirmed_or_being_confirmed (transaction, top->hash))
+			debug_assert (block->hash () == hash);
+			if (!node.block_confirmed_or_being_confirmed (transaction, hash))
 			{
 				auto result = node.active.insert_hinted (block);
 				if (result.election)
@@ -79,14 +80,8 @@ bool nano::election_hinting::run_one ()
 		}
 		else
 		{
-			// Missing block in ledger to start an election
-			// TODO: When new bootstrapper is ready add logic to queue this block
-			// TODO: Encapsulate as node.bootstrap_block (hash)
-			if (!node.ledger.pruning || !node.store.pruned.exists (transaction, top->hash))
-			{
-				// We don't have the block, try to bootstrap it
-				node.gap_cache.bootstrap_start (top->hash);
-			}
+			// Missing block in ledger to start an election, request bootstrapping it
+			node.bootstrap_block (transaction, hash);
 		}
 	}
 	return false;

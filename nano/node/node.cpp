@@ -1828,6 +1828,15 @@ uint64_t nano::node::get_confirmation_height (nano::transaction const & transact
 	nano::confirmation_height_info info;
 	store.confirmation_height.get (transaction_a, account_a, info);
 	return info.height;
+}
+
+void nano::node::bootstrap_block (nano::transaction const & transaction, const nano::block_hash & hash)
+{
+	if (!ledger.pruning || !store.pruned.exists (transaction, hash))
+	{
+		// We don't have the block, try to bootstrap it
+		gap_cache.bootstrap_start (hash);
+	}
 };
 
 nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
