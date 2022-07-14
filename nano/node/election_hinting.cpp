@@ -46,8 +46,10 @@ void nano::election_hinting::notify ()
 
 bool nano::election_hinting::predicate () const
 {
+	// Check if there is space in AEC for starting a new hinted election
 	if (node.active.vacancy_hinted () > 0)
 	{
+		// Check if we have a potential block in hinted queue that reaches minimum voting weight threshold
 		if (node.inactive_vote_cache.peek (tally_threshold ()))
 		{
 			return true;
@@ -96,7 +98,7 @@ void nano::election_hinting::run ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		// Periodically wakeup for condition checking as we do not call notify when new votes arrive in cache
+		// Periodically wakeup for condition checking as we do not call notify when new votes arrive in cache as that happens too often (we only notify on aec vaccancy)
 		condition.wait_for (lock, std::chrono::seconds (1), [this] () {
 			return stopped || predicate ();
 		});
