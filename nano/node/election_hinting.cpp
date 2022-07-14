@@ -105,7 +105,9 @@ void nano::election_hinting::run ()
 		{
 			if (predicate ())
 			{
+				lock.unlock ();
 				run_one ();
+				lock.lock ();
 			}
 		}
 	}
