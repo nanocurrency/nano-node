@@ -40,9 +40,9 @@ public:
 	bool empty () const;
 
 private:
-	bool predicate () const;
+	bool predicate (nano::uint128_t minimum_tally) const;
 	void run ();
-	bool run_one ();
+	bool run_one (nano::uint128_t minimum_tally);
 
 	nano::uint128_t tally_threshold () const;
 

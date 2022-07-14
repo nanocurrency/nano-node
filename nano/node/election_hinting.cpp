@@ -44,13 +44,13 @@ void nano::election_hinting::notify ()
 	condition.notify_all ();
 }
 
-bool nano::election_hinting::predicate () const
+bool nano::election_hinting::predicate (nano::uint128_t minimum_tally) const
 {
 	// Check if there is space in AEC for starting a new hinted election
 	if (node.active.vacancy_hinted () > 0)
 	{
 		// Check if we have a potential block in hinted queue that reaches minimum voting weight threshold
-		if (node.inactive_vote_cache.peek (tally_threshold ()))
+		if (node.inactive_vote_cache.peek (minimum_tally))
 		{
 			return true;
 		}
@@ -58,9 +58,9 @@ bool nano::election_hinting::predicate () const
 	return false;
 }
 
-bool nano::election_hinting::run_one ()
+bool nano::election_hinting::run_one (nano::uint128_t minimum_tally)
 {
-	if (auto top = node.inactive_vote_cache.pop (tally_threshold ()); top)
+	if (auto top = node.inactive_vote_cache.pop (minimum_tally); top)
 	{
 		auto hash = top->hash;
 		auto transaction (node.store.tx_begin_read ());
@@ -95,15 +95,16 @@ void nano::election_hinting::run ()
 	{
 		// Periodically wakeup for condition checking as we do not call notify when new votes arrive in cache as that happens too often (we only notify on aec vaccancy)
 		condition.wait_for (lock, std::chrono::seconds (1), [this] () {
-			return stopped || predicate ();
+			return stopped || predicate (tally_threshold ());
 		});
 		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
 		if (!stopped)
 		{
-			if (predicate ())
+			auto minimum_tally = tally_threshold ();
+			if (predicate (minimum_tally))
 			{
 				lock.unlock ();
-				run_one ();
+				run_one (minimum_tally);
 				lock.lock ();
 			}
 		}
