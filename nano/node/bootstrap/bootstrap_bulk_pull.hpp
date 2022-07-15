@@ -8,6 +8,10 @@
 namespace nano
 {
 class bootstrap_attempt;
+namespace bootstrap
+{
+	class block_deserializer;
+};
 class pull_info
 {
 public:
@@ -37,17 +41,36 @@ public:
 	void request ();
 	void receive_block ();
 	void throttled_receive_block ();
-	void received_type ();
-	void received_block (boost::system::error_code const &, std::size_t, nano::block_type);
+	void received_block (boost::system::error_code ec, std::shared_ptr<nano::block> block);
 	nano::block_hash first ();
 	std::shared_ptr<nano::bootstrap_client> connection;
 	std::shared_ptr<nano::bootstrap_attempt> attempt;
-	nano::block_hash expected;
-	nano::account known_account;
-	nano::pull_info pull;
-	uint64_t pull_blocks;
-	uint64_t unexpected_count;
 	bool network_error{ false };
+
+private:
+	/**
+	 * Tracks the next block expected to be received starting with the block hash that was expected and followed by previous blocks for this account chain
+	 */
+	nano::block_hash expected{ 0 };
+	/**
+	 * Tracks the account number for this account chain
+	 * Used when an account chain has a mix between state blocks and legacy blocks which do not encode the account number in the block
+	 * 0 if the account is unknown
+	*/
+	nano::account known_account{ 0 };
+	/**
+	 * Original pull request
+	 */
+	nano::pull_info pull;
+	/**
+	 * Tracks the number of blocks successfully deserialized
+	 */
+	uint64_t pull_blocks{ 0 };
+	/**
+	 * Tracks the number of times an unexpected block was received
+	 */
+	uint64_t unexpected_count{ 0 };
+	std::shared_ptr<nano::bootstrap::block_deserializer> block_deserializer;
 };
 class bootstrap_attempt_wallet;
 class bulk_pull_account_client final : public std::enable_shared_from_this<nano::bulk_pull_account_client>

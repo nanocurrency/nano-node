@@ -1,3 +1,4 @@
+#include <nano/node/bootstrap/block_deserializer.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/test_common/system.hpp>
@@ -1440,7 +1441,7 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 	node0->block_processor.add (send2);
 	node0->block_processor.flush ();
 	// Start wallet lazy bootstrap
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto node1 = system.add_node ();
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.network.protocol_version);
 	auto wallet (node1->wallets.create (nano::random_wallet_id ()));
 	ASSERT_NE (nullptr, wallet);
@@ -1448,7 +1449,6 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 	node1->bootstrap_wallet ();
 	// Check processed blocks
 	ASSERT_TIMELY (10s, node1->ledger.block_or_pruned_exists (send2->hash ()));
-	node1->stop ();
 }
 
 TEST (bootstrap_processor, multiple_attempts)
@@ -2032,4 +2032,9 @@ TEST (bulk_pull_account, basics)
 		ASSERT_EQ (nullptr, block_data.first.get ());
 		ASSERT_EQ (nullptr, block_data.second.get ());
 	}
+}
+
+TEST (block_deserializer, construction)
+{
+	auto deserializer = std::make_shared<nano::bootstrap::block_deserializer> ();
 }
