@@ -16,6 +16,7 @@ public:
 	explicit backlog_population (nano::node & node);
 	~backlog_population ();
 
+	void start ();
 	void stop ();
 	void trigger ();
 	void notify ();

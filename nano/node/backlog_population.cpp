@@ -2,15 +2,25 @@
 #include <nano/node/node.hpp>
 
 nano::backlog_population::backlog_population (nano::node & node_a) :
-	node{ node_a },
-	thread{ [this] () { run (); } }
+	node{ node_a }
 {
 }
 
 nano::backlog_population::~backlog_population ()
 {
 	stop ();
-	thread.join ();
+	if (thread.joinable ())
+	{
+		thread.join ();
+	}
+}
+
+void nano::backlog_population::start ()
+{
+	if (!thread.joinable ())
+	{
+		thread = std::thread{ [this] () { run (); } };
+	}
 }
 
 void nano::backlog_population::stop ()

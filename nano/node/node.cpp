@@ -703,6 +703,7 @@ void nano::node::start ()
 		port_mapping.start ();
 	}
 	wallets.start ();
+	backlog.start ();
 }
 
 void nano::node::stop ()
