@@ -16,6 +16,8 @@ add_library(
   ${platform_sources}
   active_transactions.hpp
   active_transactions.cpp
+  backlog_population.hpp
+  backlog_population.cpp
   blockprocessor.hpp
   blockprocessor.cpp
   bootstrap/bootstrap_attempt.hpp
