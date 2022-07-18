@@ -96,7 +96,7 @@ void nano::vote_cache::vote_impl_locked (const nano::block_hash & hash, const na
 	}
 }
 
-bool nano::vote_cache::empty () const
+bool nano::vote_cache::cache_empty () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	return cache.empty ();
@@ -108,10 +108,16 @@ bool nano::vote_cache::queue_empty () const
 	return queue.empty ();
 }
 
-std::size_t nano::vote_cache::size () const
+std::size_t nano::vote_cache::cache_size () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	return cache.size ();
+}
+
+std::size_t nano::vote_cache::queue_size () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return queue.size ();
 }
 
 std::optional<nano::vote_cache::entry> nano::vote_cache::find (const nano::block_hash & hash) const

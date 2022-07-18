@@ -30,6 +30,14 @@ class election;
 
 /**
  *	A container holding votes that do not match any active or recently finished elections.
+ *	It keeps track of votes in two internal structures: cache and queue
+ *
+ *	Cache: Stores votes associated with a particular block hash with a bounded maximum number of votes per hash.
+ *			When cache size exceeds `max_size` oldest entries are evicted first.
+ *
+ *	Queue: Keeps track of block hashes ordered by total cached vote tally.
+ *			When inserting a new vote into cache, the queue is atomically updated.
+ *			When queue size exceeds `max_size` oldest entries are evicted first.
  */
 class vote_cache final
 {
@@ -56,7 +64,7 @@ public:
 		/**
 		 * Inserts votes stored in this entry into an election
 		 */
-		void fill (std::shared_ptr<nano::election> const election) const;
+		void fill (std::shared_ptr<nano::election> election) const;
 	};
 
 private:
@@ -73,7 +81,7 @@ public:
 	/**
 	 * Adds a new vote to cache
 	 */
-	void vote (nano::block_hash const & hash, std::shared_ptr<nano::vote> const vote);
+	void vote (nano::block_hash const & hash, std::shared_ptr<nano::vote> vote);
 	/**
 	 * Tries to find an entry associated with block hash
 	 */
@@ -91,10 +99,14 @@ public:
 	 * Returns an entry with the highest tally and removes it from container.
 	 */
 	std::optional<entry> pop (nano::uint128_t const & min_tally = 0);
+	/**
+	 * Reinserts a block into the queue.
+	 */
 	void trigger (const nano::block_hash & hash);
 
-	std::size_t size () const;
-	bool empty () const;
+	std::size_t cache_size () const;
+	std::size_t queue_size () const;
+	bool cache_empty () const;
 	bool queue_empty () const;
 
 public:
@@ -108,7 +120,7 @@ private:
 	std::optional<entry> find_locked (nano::block_hash const & hash) const;
 	void trim_overflow_locked ();
 
-	std::size_t max_size = 1024 * 128;
+	const std::size_t max_size = 1024 * 128;
 
 	// clang-format off
 	class tag_random_access {};

@@ -31,12 +31,12 @@ void nano::election_hinting::flush ()
 
 bool nano::election_hinting::empty () const
 {
-	return node.inactive_vote_cache.empty ();
+	return node.inactive_vote_cache.queue_empty ();
 }
 
 std::size_t nano::election_hinting::size () const
 {
-	return node.inactive_vote_cache.size ();
+	return node.inactive_vote_cache.queue_size ();
 }
 
 void nano::election_hinting::notify ()

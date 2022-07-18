@@ -48,8 +48,8 @@ constexpr int default_size = 1024;
 TEST (vote_cache, construction)
 {
 	nano::vote_cache vote_cache{ default_size };
-	ASSERT_EQ (0, vote_cache.size ());
-	ASSERT_TRUE (vote_cache.empty ());
+	ASSERT_EQ (0, vote_cache.cache_size ());
+	ASSERT_TRUE (vote_cache.cache_empty ());
 	auto hash1 = random_hash ();
 	ASSERT_FALSE (vote_cache.find (hash1));
 }
@@ -62,7 +62,7 @@ TEST (vote_cache, insert_one_hash)
 	auto hash1 = random_hash ();
 	auto vote1 = create_vote (rep1, 1024 * 1024, 0, { hash1 });
 	vote_cache.vote (vote1->hashes.front (), vote1);
-	ASSERT_EQ (1, vote_cache.size ());
+	ASSERT_EQ (1, vote_cache.cache_size ());
 	ASSERT_TRUE (vote_cache.find (hash1));
 	auto peek1 = vote_cache.peek ();
 	ASSERT_TRUE (peek1);
@@ -87,7 +87,7 @@ TEST (vote_cache, insert_one_hash_many_votes)
 	vote_cache.vote (vote1->hashes.front (), vote1);
 	vote_cache.vote (vote2->hashes.front (), vote2);
 	vote_cache.vote (vote3->hashes.front (), vote3);
-	ASSERT_EQ (1, vote_cache.size ());
+	ASSERT_EQ (1, vote_cache.cache_size ());
 	auto peek1 = vote_cache.peek ();
 	ASSERT_TRUE (peek1);
 	ASSERT_EQ (peek1->voters.size (), 3);
@@ -112,7 +112,7 @@ TEST (vote_cache, insert_many_hashes_many_votes)
 	vote_cache.vote (vote1->hashes.front (), vote1);
 	vote_cache.vote (vote2->hashes.front (), vote2);
 	vote_cache.vote (vote3->hashes.front (), vote3);
-	ASSERT_EQ (3, vote_cache.size ());
+	ASSERT_EQ (3, vote_cache.cache_size ());
 	ASSERT_TRUE (vote_cache.find (hash1));
 	ASSERT_TRUE (vote_cache.find (hash2));
 	ASSERT_TRUE (vote_cache.find (hash3));
@@ -157,7 +157,7 @@ TEST (vote_cache, insert_duplicate)
 	auto vote2 = create_vote (rep1, 1 * 1024 * 1024, 0, { hash1 });
 	vote_cache.vote (vote1->hashes.front (), vote1);
 	vote_cache.vote (vote2->hashes.front (), vote2);
-	ASSERT_EQ (1, vote_cache.size ());
+	ASSERT_EQ (1, vote_cache.cache_size ());
 }
 
 TEST (vote_cache, insert_newer)
@@ -174,7 +174,7 @@ TEST (vote_cache, insert_newer)
 	vote_cache.vote (vote2->hashes.front (), vote2);
 	auto peek2 = vote_cache.peek ();
 	ASSERT_TRUE (peek2);
-	ASSERT_EQ (1, vote_cache.size ());
+	ASSERT_EQ (1, vote_cache.cache_size ());
 	ASSERT_EQ (1, peek2->voters.size ());
 	ASSERT_GT (peek2->voters.front ().second, peek1->voters.front ().second); // timestamp2 > timestamp1
 	ASSERT_EQ (peek2->voters.front ().second, std::numeric_limits<uint64_t>::max ()); // final timestamp
@@ -194,7 +194,7 @@ TEST (vote_cache, insert_older)
 	vote_cache.vote (vote2->hashes.front (), vote2);
 	auto peek2 = vote_cache.peek ();
 	ASSERT_TRUE (peek2);
-	ASSERT_EQ (1, vote_cache.size ());
+	ASSERT_EQ (1, vote_cache.cache_size ());
 	ASSERT_EQ (1, peek2->voters.size ());
 	ASSERT_EQ (peek2->voters.front ().second, peek1->voters.front ().second); // timestamp2 == timestamp1
 }
@@ -216,12 +216,12 @@ TEST (vote_cache, erase)
 	vote_cache.vote (vote1->hashes.front (), vote1);
 	vote_cache.vote (vote2->hashes.front (), vote2);
 	vote_cache.vote (vote3->hashes.front (), vote3);
-	ASSERT_EQ (3, vote_cache.size ());
+	ASSERT_EQ (3, vote_cache.cache_size ());
 	ASSERT_TRUE (vote_cache.find (hash1));
 	ASSERT_TRUE (vote_cache.find (hash2));
 	ASSERT_TRUE (vote_cache.find (hash3));
 	vote_cache.erase (hash2);
-	ASSERT_EQ (2, vote_cache.size ());
+	ASSERT_EQ (2, vote_cache.cache_size ());
 	ASSERT_TRUE (vote_cache.find (hash1));
 	ASSERT_FALSE (vote_cache.find (hash2));
 	ASSERT_TRUE (vote_cache.find (hash3));
@@ -230,7 +230,7 @@ TEST (vote_cache, erase)
 	ASSERT_FALSE (vote_cache.find (hash1));
 	ASSERT_FALSE (vote_cache.find (hash2));
 	ASSERT_FALSE (vote_cache.find (hash3));
-	ASSERT_TRUE (vote_cache.empty ());
+	ASSERT_TRUE (vote_cache.cache_empty ());
 }
 
 TEST (vote_cache, overfill)
@@ -245,7 +245,7 @@ TEST (vote_cache, overfill)
 		auto vote1 = create_vote (rep1, 1024 * 1024, 0, { hash1 });
 		vote_cache.vote (vote1->hashes.front (), vote1);
 	}
-	ASSERT_LT (vote_cache.size (), count);
+	ASSERT_LT (vote_cache.cache_size (), count);
 	auto peek1 = vote_cache.peek ();
 	ASSERT_TRUE (peek1);
 	ASSERT_EQ (peek1->tally, default_size); // Check that oldest are dropped first
@@ -263,5 +263,5 @@ TEST (vote_cache, overfill_entry)
 		auto vote1 = create_vote (rep1, 1024 * 1024, 0, { hash1 });
 		vote_cache.vote (vote1->hashes.front (), vote1);
 	}
-	ASSERT_EQ (1, vote_cache.size ());
+	ASSERT_EQ (1, vote_cache.cache_size ());
 }
