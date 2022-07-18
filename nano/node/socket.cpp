@@ -246,6 +246,11 @@ void nano::socket::set_default_timeout_value (std::chrono::seconds timeout_a)
 	default_timeout = timeout_a;
 }
 
+std::chrono::seconds nano::socket::get_default_timeout_value () const
+{
+	return default_timeout;
+}
+
 void nano::socket::set_silent_connection_tolerance_time (std::chrono::seconds tolerance_time_a)
 {
 	auto this_l (shared_from_this ());
