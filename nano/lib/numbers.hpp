@@ -296,6 +296,14 @@ struct hash<::nano::block_hash>
 	}
 };
 template <>
+struct hash<::nano::hash_or_account>
+{
+	size_t operator() (::nano::hash_or_account const & data_a) const
+	{
+		return hash<::nano::block_hash> () (data_a.as_block_hash ());
+	}
+};
+template <>
 struct hash<::nano::raw_key>
 {
 	size_t operator() (::nano::raw_key const & data_a) const
