@@ -682,8 +682,10 @@ public:
 	}
 	void frontier_req (nano::frontier_req const &) override
 	{
-		auto response (std::make_shared<nano::frontier_req_server> (connection, std::unique_ptr<nano::frontier_req> (static_cast<nano::frontier_req *> (connection->requests.front ().release ()))));
-		response->send_next ();
+		connection->node->bootstrap_workers.push_task ([connection = connection] () {
+			auto response (std::make_shared<nano::frontier_req_server> (connection, std::unique_ptr<nano::frontier_req> (static_cast<nano::frontier_req *> (connection->requests.front ().release ()))));
+			response->send_next ();
+		});
 	}
 	void telemetry_req (nano::telemetry_req const & message_a) override
 	{
