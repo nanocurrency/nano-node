@@ -68,6 +68,7 @@ public:
 	std::atomic<bool> flushing{ false };
 	// Delay required for average network propagartion before requesting confirmation
 	static std::chrono::milliseconds constexpr confirmation_request_delay{ 1500 };
+	nano::observer_set<nano::transaction const &, nano::process_return const &, nano::block const &> processed;
 
 private:
 	void queue_unchecked (nano::write_transaction const &, nano::hash_or_account const &);

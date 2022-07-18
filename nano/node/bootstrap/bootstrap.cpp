@@ -172,6 +172,15 @@ bool nano::bootstrap_initiator::in_progress ()
 	return !attempts_list.empty ();
 }
 
+void nano::bootstrap_initiator::block_processed (nano::transaction const & tx, nano::process_return const & result, nano::block const & block)
+{
+	nano::lock_guard<nano::mutex> lock (mutex);
+	for (auto & i: attempts_list)
+	{
+		i->block_processed (tx, result, block);
+	}
+}
+
 std::shared_ptr<nano::bootstrap_attempt> nano::bootstrap_initiator::find_attempt (nano::bootstrap_mode mode_a)
 {
 	for (auto & i : attempts_list)
