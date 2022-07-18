@@ -663,13 +663,17 @@ public:
 	}
 	void bulk_pull (nano::bulk_pull const &) override
 	{
-		auto response (std::make_shared<nano::bulk_pull_server> (connection, std::unique_ptr<nano::bulk_pull> (static_cast<nano::bulk_pull *> (connection->requests.front ().release ()))));
-		response->send_next ();
+		connection->node->bootstrap_workers.push_task ([connection = connection] () {
+			auto response (std::make_shared<nano::bulk_pull_server> (connection, std::unique_ptr<nano::bulk_pull> (static_cast<nano::bulk_pull *> (connection->requests.front ().release ()))));
+			response->send_next ();
+		});
 	}
 	void bulk_pull_account (nano::bulk_pull_account const &) override
 	{
-		auto response (std::make_shared<nano::bulk_pull_account_server> (connection, std::unique_ptr<nano::bulk_pull_account> (static_cast<nano::bulk_pull_account *> (connection->requests.front ().release ()))));
-		response->send_frontier ();
+		connection->node->bootstrap_workers.push_task ([connection = connection] () {
+			auto response (std::make_shared<nano::bulk_pull_account_server> (connection, std::unique_ptr<nano::bulk_pull_account> (static_cast<nano::bulk_pull_account *> (connection->requests.front ().release ()))));
+			response->send_frontier ();
+		});
 	}
 	void bulk_push (nano::bulk_push const &) override
 	{
