@@ -69,7 +69,7 @@ void nano::bootstrap::message_deserializer::received_header (std::shared_ptr<nan
 	}
 
 	std::size_t payload_size = header.payload_length_bytes ();
-	if (payload_size >= MAX_MESSAGE_SIZE)
+	if (payload_size > MAX_MESSAGE_SIZE)
 	{
 		status = parse_status::message_size_too_big;
 		callback (boost::asio::error::fault, nullptr);
@@ -115,7 +115,7 @@ void nano::bootstrap::message_deserializer::received_message (nano::message_head
 
 std::unique_ptr<nano::message> nano::bootstrap::message_deserializer::deserialize (nano::message_header header, std::size_t payload_size)
 {
-	release_assert (payload_size < MAX_MESSAGE_SIZE);
+	release_assert (payload_size <= MAX_MESSAGE_SIZE);
 	nano::bufferstream stream{ read_buffer->data (), payload_size };
 	switch (header.type)
 	{
