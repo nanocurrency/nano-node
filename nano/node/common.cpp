@@ -356,7 +356,7 @@ std::size_t nano::message_header::payload_length_bytes () const
 	}
 }
 
-bool nano::message_header::is_valid_block_type () const
+bool nano::message_header::is_valid_message_type () const
 {
 	switch (type)
 	{

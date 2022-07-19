@@ -49,7 +49,7 @@ void nano::bootstrap::message_deserializer::received_header (std::shared_ptr<nan
 		callback (boost::system::error_code{}, nullptr);
 		return;
 	}
-	if (!header.is_valid_block_type ())
+	if (!header.is_valid_message_type ())
 	{
 		status = parse_status::invalid_header;
 		callback (boost::system::error_code{}, nullptr);
