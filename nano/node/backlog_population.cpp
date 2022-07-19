@@ -55,6 +55,7 @@ bool nano::backlog_population::predicate () const
 void nano::backlog_population::run ()
 {
 	nano::thread_role::set (nano::thread_role::name::backlog_population);
+	const auto delay = config.network_params.network.is_dev_network () ? std::chrono::seconds{ 1 } : std::chrono::duration_cast<std::chrono::seconds> (std::chrono::minutes{ 5 });
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
@@ -65,8 +66,6 @@ void nano::backlog_population::run ()
 			populate_backlog ();
 			lock.lock ();
 		}
-
-		auto delay = config.network_params.network.is_dev_network () ? std::chrono::seconds{ 1 } : std::chrono::duration_cast<std::chrono::seconds> (std::chrono::minutes{ 5 });
 
 		condition.wait_for (lock, delay, [this] () {
 			return stopped || predicate ();
