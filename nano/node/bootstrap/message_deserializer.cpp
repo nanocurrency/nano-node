@@ -46,25 +46,25 @@ void nano::bootstrap::message_deserializer::received_header (std::shared_ptr<nan
 	if (error)
 	{
 		status = parse_status::invalid_header;
-		callback (boost::system::error_code{}, nullptr);
-		return;
-	}
-	if (!header.is_valid_message_type ())
-	{
-		status = parse_status::invalid_header;
-		callback (boost::system::error_code{}, nullptr);
+		callback (boost::asio::error::fault, nullptr);
 		return;
 	}
 	if (header.network != network_constants.current_network)
 	{
 		status = parse_status::invalid_network;
-		callback (boost::system::error_code{}, nullptr);
+		callback (boost::asio::error::fault, nullptr);
 		return;
 	}
 	if (header.version_using < network_constants.protocol_version_min)
 	{
 		status = parse_status::outdated_version;
-		callback (boost::system::error_code{}, nullptr);
+		callback (boost::asio::error::fault, nullptr);
+		return;
+	}
+	if (!header.is_valid_message_type ())
+	{
+		status = parse_status::invalid_header;
+		callback (boost::asio::error::fault, nullptr);
 		return;
 	}
 
@@ -72,7 +72,7 @@ void nano::bootstrap::message_deserializer::received_header (std::shared_ptr<nan
 	if (payload_size >= MAX_MESSAGE_SIZE)
 	{
 		status = parse_status::message_size_too_big;
-		callback (boost::system::error_code{}, nullptr);
+		callback (boost::asio::error::fault, nullptr);
 		return;
 	}
 	debug_assert (payload_size <= read_buffer->capacity ());
