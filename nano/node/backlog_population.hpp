@@ -29,11 +29,17 @@ private:
 
 	void populate_backlog ();
 
+	/** This is a manual trigger, the ongoing backlog population does not use this.
+	 *  It can be triggered even when backlog population (frontiers confirmation) is disabled. */
 	bool triggered{ false };
+
 	std::atomic<bool> stopped{ false };
 
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
+
+	/** Thread that runs the backlog implementation logic. The thread always runs, even if
+	 *  backlog population is disabled, so that it can service a manual trigger (e.g. via RPC). */
 	std::thread thread;
 
 private: // Dependencies
