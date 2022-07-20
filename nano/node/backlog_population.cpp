@@ -6,7 +6,7 @@
 
 nano::backlog_population::backlog_population (nano::node_config & config_a, nano::store & store_a, nano::election_scheduler & scheduler_a) :
 	config{ config_a },
-	store{ store_a },
+	store_m{ store_a },
 	scheduler{ scheduler_a }
 {
 }
@@ -81,16 +81,16 @@ void nano::backlog_population::populate_backlog ()
 	uint64_t total = 0;
 	while (!stopped && !done)
 	{
-		auto transaction = store.tx_begin_read ();
+		auto transaction = store_m.tx_begin_read ();
 		auto count = 0;
-		auto i = store.account.begin (transaction, next);
-		const auto end = store.account.end ();
+		auto i = store_m.account.begin (transaction, next);
+		const auto end = store_m.account.end ();
 		for (; !stopped && i != end && count < chunk_size; ++i, ++count, ++total)
 		{
 			auto const & account = i->first;
 			scheduler.activate (account, transaction);
 			next = account.number () + 1;
 		}
-		done = store.account.begin (transaction, next) == end;
+		done = store_m.account.begin (transaction, next) == end;
 	}
 }

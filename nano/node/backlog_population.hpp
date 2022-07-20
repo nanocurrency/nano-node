@@ -44,7 +44,7 @@ private:
 
 private: // Dependencies
 	node_config & config;
-	store & store;
+	store & store_m;
 	election_scheduler & scheduler;
 };
 }
