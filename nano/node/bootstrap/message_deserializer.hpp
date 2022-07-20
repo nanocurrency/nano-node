@@ -42,7 +42,7 @@ namespace bootstrap
 
 		parse_status status;
 
-		message_deserializer (nano::network_constants const & network_constants, nano::network_filter & publish_filter, nano::block_uniquer & block_uniquer, nano::vote_uniquer & vote_uniquer);
+		message_deserializer (network_constants const &, network_filter &, block_uniquer &, vote_uniquer &);
 
 		void read (std::shared_ptr<nano::socket> socket, callback_type const && callback);
 
@@ -67,18 +67,19 @@ namespace bootstrap
 
 		std::shared_ptr<std::vector<uint8_t>> read_buffer;
 
-		nano::network_constants const & network_constants;
-		nano::network_filter & publish_filter;
-		nano::block_uniquer & block_uniquer;
-		nano::vote_uniquer & vote_uniquer;
-
-	private:
-		static constexpr std::size_t HEADER_SIZE = 8;
-		static constexpr std::size_t MAX_MESSAGE_SIZE = 1024 * 4;
-
 	public:
 		std::string parse_status_to_string ();
 		stat::detail parse_status_to_stat_detail ();
+
+	private: // Constants
+		static constexpr std::size_t HEADER_SIZE = 8;
+		static constexpr std::size_t MAX_MESSAGE_SIZE = 1024 * 4;
+
+	private: // Dependencies
+		nano::network_constants const & network_constants_m;
+		nano::network_filter & publish_filter_m;
+		nano::block_uniquer & block_uniquer_m;
+		nano::vote_uniquer & vote_uniquer_m;
 	};
 }
 }

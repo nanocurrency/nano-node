@@ -1,12 +1,12 @@
 #include <nano/node/bootstrap/message_deserializer.hpp>
 #include <nano/node/node.hpp>
 
-nano::bootstrap::message_deserializer::message_deserializer (nano::network_constants const & network_constants, nano::network_filter & publish_filter, nano::block_uniquer & block_uniquer, nano::vote_uniquer & vote_uniquer) :
+nano::bootstrap::message_deserializer::message_deserializer (nano::network_constants const & network_constants_a, nano::network_filter & publish_filter_a, nano::block_uniquer & block_uniquer_a, nano::vote_uniquer & vote_uniquer_a) :
 	read_buffer{ std::make_shared<std::vector<uint8_t>> () },
-	network_constants{ network_constants },
-	publish_filter{ publish_filter },
-	block_uniquer{ block_uniquer },
-	vote_uniquer{ vote_uniquer }
+	network_constants_m{ network_constants_a },
+	publish_filter_m{ publish_filter_a },
+	block_uniquer_m{ block_uniquer_a },
+	vote_uniquer_m{ vote_uniquer_a }
 {
 	read_buffer->resize (MAX_MESSAGE_SIZE);
 }
@@ -17,7 +17,7 @@ void nano::bootstrap::message_deserializer::read (std::shared_ptr<nano::socket> 
 
 	// Increase timeout to receive TCP header (idle server socket)
 	auto prev_timeout = socket->get_default_timeout_value ();
-	socket->set_default_timeout_value (network_constants.idle_timeout);
+	socket->set_default_timeout_value (network_constants_m.idle_timeout);
 
 	socket->async_read (read_buffer, HEADER_SIZE, [this_l = shared_from_this (), socket, callback = std::move (callback), prev_timeout] (boost::system::error_code const & ec, std::size_t size_a) {
 		if (ec)
@@ -49,13 +49,13 @@ void nano::bootstrap::message_deserializer::received_header (std::shared_ptr<nan
 		callback (boost::asio::error::fault, nullptr);
 		return;
 	}
-	if (header.network != network_constants.current_network)
+	if (header.network != network_constants_m.current_network)
 	{
 		status = parse_status::invalid_network;
 		callback (boost::asio::error::fault, nullptr);
 		return;
 	}
-	if (header.version_using < network_constants.protocol_version_min)
+	if (header.version_using < network_constants_m.protocol_version_min)
 	{
 		status = parse_status::outdated_version;
 		callback (boost::asio::error::fault, nullptr);
@@ -126,7 +126,7 @@ std::unique_ptr<nano::message> nano::bootstrap::message_deserializer::deserializ
 		case nano::message_type::publish:
 		{
 			nano::uint128_t digest;
-			if (!publish_filter.apply (read_buffer->data (), payload_size, &digest))
+			if (!publish_filter_m.apply (read_buffer->data (), payload_size, &digest))
 			{
 				return deserialize_publish (stream, header, digest);
 			}
@@ -199,11 +199,11 @@ std::unique_ptr<nano::keepalive> nano::bootstrap::message_deserializer::deserial
 std::unique_ptr<nano::publish> nano::bootstrap::message_deserializer::deserialize_publish (nano::stream & stream, nano::message_header const & header, nano::uint128_t const & digest_a)
 {
 	auto error = false;
-	auto incoming = std::make_unique<nano::publish> (error, stream, header, digest_a, &block_uniquer);
+	auto incoming = std::make_unique<nano::publish> (error, stream, header, digest_a, &block_uniquer_m);
 	if (!error && at_end (stream))
 	{
 		release_assert (incoming->block);
-		if (!network_constants.work.validate_entry (*incoming->block))
+		if (!network_constants_m.work.validate_entry (*incoming->block))
 		{
 			return incoming;
 		}
@@ -222,10 +222,10 @@ std::unique_ptr<nano::publish> nano::bootstrap::message_deserializer::deserializ
 std::unique_ptr<nano::confirm_req> nano::bootstrap::message_deserializer::deserialize_confirm_req (nano::stream & stream, nano::message_header const & header)
 {
 	auto error = false;
-	auto incoming = std::make_unique<nano::confirm_req> (error, stream, header, &block_uniquer);
+	auto incoming = std::make_unique<nano::confirm_req> (error, stream, header, &block_uniquer_m);
 	if (!error && at_end (stream))
 	{
-		if (incoming->block == nullptr || !network_constants.work.validate_entry (*incoming->block))
+		if (incoming->block == nullptr || !network_constants_m.work.validate_entry (*incoming->block))
 		{
 			return incoming;
 		}
@@ -244,7 +244,7 @@ std::unique_ptr<nano::confirm_req> nano::bootstrap::message_deserializer::deseri
 std::unique_ptr<nano::confirm_ack> nano::bootstrap::message_deserializer::deserialize_confirm_ack (nano::stream & stream, nano::message_header const & header)
 {
 	auto error = false;
-	auto incoming = std::make_unique<nano::confirm_ack> (error, stream, header, &vote_uniquer);
+	auto incoming = std::make_unique<nano::confirm_ack> (error, stream, header, &vote_uniquer_m);
 	if (!error && at_end (stream))
 	{
 		return incoming;

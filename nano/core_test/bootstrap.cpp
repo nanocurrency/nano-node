@@ -128,7 +128,6 @@ TEST (bulk_pull, ascending_one_hash)
 	req->start = nano::dev::genesis->hash ();
 	req->end = nano::dev::genesis->hash ();
 	req->header.flag_set (nano::message_header::bulk_pull_ascending_flag);
-	connection->requests.push (std::unique_ptr<nano::message>{});
 	auto request = std::make_shared<nano::bulk_pull_server> (connection, std::move (req));
 	auto block_out1 = request->get_next ();
 	ASSERT_NE (nullptr, block_out1);
@@ -161,7 +160,6 @@ TEST (bulk_pull, ascending_two_account)
 	req->start = nano::dev::genesis->hash ();
 	req->end.clear ();
 	req->header.flag_set (nano::message_header::bulk_pull_ascending_flag);
-	connection->requests.push (std::unique_ptr<nano::message>{});
 	auto request = std::make_shared<nano::bulk_pull_server> (connection, std::move (req));
 	auto block_out1 = request->get_next ();
 	ASSERT_NE (nullptr, block_out1);
@@ -197,7 +195,6 @@ TEST (bulk_pull, ascending_end)
 	req->start = nano::dev::genesis_key.pub;
 	req->end = block1->hash ();
 	req->header.flag_set (nano::message_header::bulk_pull_ascending_flag);
-	connection->requests.push (std::unique_ptr<nano::message>{});
 	auto request = std::make_shared<nano::bulk_pull_server> (connection, std::move (req));
 	auto block_out1 = request->get_next ();
 	ASSERT_NE (nullptr, block_out1);
