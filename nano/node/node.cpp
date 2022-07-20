@@ -35,10 +35,10 @@ extern std::size_t nano_bootstrap_weights_beta_size;
 
 nano::backlog_population::config nodeconfig_to_backlog_population_config (const nano::node_config & config)
 {
-	return nano::backlog_population::config{
-		.ongoing_backlog_population_enabled = config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled,
-		.delay_between_runs_in_seconds = config.network_params.network.is_dev_network () ? 1u : 300u
-	};
+	nano::backlog_population::config cfg;
+	cfg.ongoing_backlog_population_enabled = config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled;
+	cfg.delay_between_runs_in_seconds = config.network_params.network.is_dev_network () ? 1u : 300u;
+	return cfg;
 }
 
 void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
