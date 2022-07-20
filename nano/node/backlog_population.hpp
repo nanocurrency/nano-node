@@ -21,6 +21,8 @@ public:
 	void start ();
 	void stop ();
 	void trigger ();
+
+	/** Other components call this to notify us about external changes, so we can check our predicate. */
 	void notify ();
 
 private:
