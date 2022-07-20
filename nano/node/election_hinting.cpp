@@ -7,7 +7,7 @@
 #include <nano/node/vote_cache.hpp>
 #include <nano/secure/store.hpp>
 
-nano::election_hinting::election_hinting (nano::node & node_a, nano::node_config & config_a, nano::vote_cache & vote_cache_a, nano::active_transactions & active_a, nano::store & store_a, nano::online_reps & online_reps_a) :
+nano::election_hinting::election_hinting (nano::node & node_a, const config & config_a, nano::vote_cache & vote_cache_a, nano::active_transactions & active_a, nano::store & store_a, nano::online_reps & online_reps_a) :
 	stopped{ false },
 	node_m{ node_a },
 	config_m{ config_a },
@@ -111,7 +111,7 @@ void nano::election_hinting::run ()
 		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
 		if (!stopped)
 		{
-			auto minimum_tally = tally_threshold ();
+			const auto minimum_tally = tally_threshold ();
 			if (predicate (minimum_tally))
 			{
 				lock.unlock ();

@@ -88,6 +88,8 @@ std::unique_ptr<container_info_component> collect_container_info (block_arrival 
 
 std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 
+election_hinting::config nodeconfig_to_election_hinting_config (const nano::node_config & config);
+
 class node final : public std::enable_shared_from_this<nano::node>
 {
 public:

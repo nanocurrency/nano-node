@@ -33,6 +33,13 @@ extern unsigned char nano_bootstrap_weights_beta[];
 extern std::size_t nano_bootstrap_weights_beta_size;
 }
 
+nano::election_hinting::config nano::nodeconfig_to_election_hinting_config (const nano::node_config & config)
+{
+	nano::election_hinting::config cfg;
+	cfg.election_hint_weight_percent = config.election_hint_weight_percent;
+	return cfg;
+}
+
 void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 {
 	auto node_l (shared_from_this ());
@@ -154,7 +161,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	inactive_vote_cache{ flags.inactive_votes_cache_size },
 	active (*this, confirmation_height_processor),
 	scheduler{ *this },
-	election_hinting{ *this, config, inactive_vote_cache, active, store, online_reps },
+	election_hinting{ *this, nano::nodeconfig_to_election_hinting_config (config), inactive_vote_cache, active, store, online_reps },
 	aggregator (config, stats, active.generator, active.final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
 	startup_time (std::chrono::steady_clock::now ()),

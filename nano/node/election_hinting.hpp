@@ -34,8 +34,14 @@ class vote_cache;
 
 class election_hinting final
 {
+public: // Config
+	struct config
+	{
+		unsigned election_hint_weight_percent;
+	};
+
 public:
-	explicit election_hinting (node &, node_config &, vote_cache &, active_transactions &, store &, online_reps &);
+	explicit election_hinting (node &, const config &, vote_cache &, active_transactions &, store &, online_reps &);
 	~election_hinting ();
 	void stop ();
 	void flush ();
@@ -55,9 +61,10 @@ private:
 	mutable nano::mutex mutex;
 	std::thread thread;
 
+	const config config_m;
+
 private: // Dependencies
 	node & node_m;
-	node_config & config_m;
 	vote_cache & vote_cache_m;
 	active_transactions & active_m;
 	store & store_m;
