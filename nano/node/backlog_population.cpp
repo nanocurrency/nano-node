@@ -55,10 +55,10 @@ void nano::backlog_population::run ()
 	{
 		if (predicate () || (node.config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled))
 		{
+			triggered = false;
 			lock.unlock ();
 			populate_backlog ();
 			lock.lock ();
-			triggered = false;
 		}
 
 		auto delay = node.config.network_params.network.is_dev_network () ? std::chrono::seconds{ 1 } : std::chrono::duration_cast<std::chrono::seconds> (std::chrono::minutes{ 5 });
