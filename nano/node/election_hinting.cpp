@@ -9,12 +9,12 @@
 
 nano::election_hinting::election_hinting (nano::node & node_a, nano::node_config & config_a, nano::vote_cache & vote_cache_a, nano::active_transactions & active_a, nano::store & store_a, nano::online_reps & online_reps_a) :
 	stopped{ false },
-	node{ node_a },
-	config{ config_a },
-	vote_cache{ vote_cache_a },
-	active{ active_a },
-	store{ store_a },
-	online_reps{ online_reps_a },
+	node_m{ node_a },
+	config_m{ config_a },
+	vote_cache_m{ vote_cache_a },
+	active_m{ active_a },
+	store_m{ store_a },
+	online_reps_m{ online_reps_a },
 	thread{ [this] () { run (); } }
 {
 }
@@ -36,18 +36,18 @@ void nano::election_hinting::flush ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	condition.wait (lock, [this] () {
-		return stopped || empty () || active.vacancy () <= 0;
+		return stopped || empty () || active_m.vacancy () <= 0;
 	});
 }
 
 bool nano::election_hinting::empty () const
 {
-	return vote_cache.queue_empty ();
+	return vote_cache_m.queue_empty ();
 }
 
 std::size_t nano::election_hinting::size () const
 {
-	return vote_cache.queue_size ();
+	return vote_cache_m.queue_size ();
 }
 
 void nano::election_hinting::notify ()
@@ -58,10 +58,10 @@ void nano::election_hinting::notify ()
 bool nano::election_hinting::predicate (nano::uint128_t minimum_tally) const
 {
 	// Check if there is space in AEC for starting a new hinted election
-	if (active.vacancy_hinted () > 0)
+	if (active_m.vacancy_hinted () > 0)
 	{
 		// Check if we have a potential block in hinted queue that reaches minimum voting weight threshold
-		if (vote_cache.peek (minimum_tally))
+		if (vote_cache_m.peek (minimum_tally))
 		{
 			return true;
 		}
@@ -71,17 +71,17 @@ bool nano::election_hinting::predicate (nano::uint128_t minimum_tally) const
 
 bool nano::election_hinting::run_one (nano::uint128_t minimum_tally)
 {
-	if (auto top = vote_cache.pop (minimum_tally); top)
+	if (auto top = vote_cache_m.pop (minimum_tally); top)
 	{
 		auto hash = top->hash;
-		auto transaction (store.tx_begin_read ());
-		auto block = store.block.get (transaction, hash);
+		auto transaction (store_m.tx_begin_read ());
+		auto block = store_m.block.get (transaction, hash);
 		if (block != nullptr)
 		{
 			debug_assert (block->hash () == hash);
-			if (!node.block_confirmed_or_being_confirmed (transaction, hash))
+			if (!node_m.block_confirmed_or_being_confirmed (transaction, hash))
 			{
-				auto result = active.insert_hinted (block);
+				auto result = active_m.insert_hinted (block);
 				if (result.election)
 				{
 					result.election->transition_active ();
@@ -92,7 +92,7 @@ bool nano::election_hinting::run_one (nano::uint128_t minimum_tally)
 		else
 		{
 			// Missing block in ledger to start an election, request bootstrapping it
-			node.bootstrap_block (transaction, hash);
+			node_m.bootstrap_block (transaction, hash);
 		}
 	}
 	return false;
@@ -125,6 +125,6 @@ void nano::election_hinting::run ()
 
 nano::uint128_t nano::election_hinting::tally_threshold () const
 {
-	const auto min_tally = (online_reps.trended () / 100) * config.election_hint_weight_percent;
+	const auto min_tally = (online_reps_m.trended () / 100) * config_m.election_hint_weight_percent;
 	return min_tally;
 }

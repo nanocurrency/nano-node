@@ -56,11 +56,11 @@ private:
 	std::thread thread;
 
 private: // Dependencies
-	node & node;
-	node_config & config;
-	vote_cache & vote_cache;
-	active_transactions & active;
-	store & store;
-	online_reps & online_reps;
+	node & node_m;
+	node_config & config_m;
+	vote_cache & vote_cache_m;
+	active_transactions & active_m;
+	store & store_m;
+	online_reps & online_reps_m;
 };
 }
