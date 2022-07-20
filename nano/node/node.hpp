@@ -4,6 +4,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/active_transactions.hpp>
+#include <nano/node/backlog_population.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
@@ -83,8 +84,10 @@ public:
 };
 
 std::unique_ptr<container_info_component> collect_container_info (block_arrival & block_arrival, std::string const & name);
-
 std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
+
+// Configs
+backlog_population::config nodeconfig_to_backlog_population_config (const node_config & config);
 
 class node final : public std::enable_shared_from_this<nano::node>
 {
@@ -120,7 +123,6 @@ public:
 	void ongoing_bootstrap ();
 	void ongoing_peer_store ();
 	void ongoing_unchecked_cleanup ();
-	void ongoing_backlog_population ();
 	void backup_wallet ();
 	void search_receivable_all ();
 	void bootstrap_wallet ();
@@ -151,7 +153,6 @@ public:
 	bool epoch_upgrader (nano::raw_key const &, nano::epoch, uint64_t, uint64_t);
 	void set_bandwidth_params (std::size_t limit, double ratio);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
-	void populate_backlog ();
 	uint64_t get_confirmation_height (nano::transaction const &, nano::account &);
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
@@ -195,6 +196,8 @@ public:
 	nano::election_scheduler scheduler;
 	nano::request_aggregator aggregator;
 	nano::wallets wallets;
+	nano::backlog_population backlog;
+
 	std::chrono::steady_clock::time_point const startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	std::atomic<bool> unresponsive_work_peers{ false };

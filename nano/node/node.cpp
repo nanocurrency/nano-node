@@ -33,6 +33,14 @@ extern unsigned char nano_bootstrap_weights_beta[];
 extern std::size_t nano_bootstrap_weights_beta_size;
 }
 
+nano::backlog_population::config nano::nodeconfig_to_backlog_population_config (const nano::node_config & config)
+{
+	nano::backlog_population::config cfg;
+	cfg.ongoing_backlog_population_enabled = config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled;
+	cfg.delay_between_runs_in_seconds = config.network_params.network.is_dev_network () ? 1u : 300u;
+	return cfg;
+}
+
 void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 {
 	auto node_l (shared_from_this ());
@@ -155,6 +163,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	scheduler{ *this },
 	aggregator (config, stats, active.generator, active.final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
+	backlog{ nano::nodeconfig_to_backlog_population_config (config), store, scheduler },
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq)
 {
@@ -702,12 +711,7 @@ void nano::node::start ()
 		port_mapping.start ();
 	}
 	wallets.start ();
-	if (config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled)
-	{
-		workers.push_task ([this_l = shared ()] () {
-			this_l->ongoing_backlog_population ();
-		});
-	}
+	backlog.start ();
 }
 
 void nano::node::stop ()
@@ -1019,15 +1023,6 @@ void nano::node::ongoing_unchecked_cleanup ()
 	unchecked_cleanup ();
 	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.unchecked_cleaning_interval, [this_l = shared ()] () {
 		this_l->ongoing_unchecked_cleanup ();
-	});
-}
-
-void nano::node::ongoing_backlog_population ()
-{
-	populate_backlog ();
-	auto delay = config.network_params.network.is_dev_network () ? std::chrono::seconds{ 1 } : std::chrono::duration_cast<std::chrono::seconds> (std::chrono::minutes{ 5 });
-	workers.add_timed_task (std::chrono::steady_clock::now () + delay, [this_l = shared ()] () {
-		this_l->ongoing_backlog_population ();
 	});
 }
 
@@ -1792,26 +1787,6 @@ std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> nano::node::get_
 		}
 	}
 	return { max_blocks, weights };
-}
-
-void nano::node::populate_backlog ()
-{
-	auto done = false;
-	uint64_t const chunk_size = 65536;
-	nano::account next = 0;
-	uint64_t total = 0;
-	while (!stopped && !done)
-	{
-		auto transaction = store.tx_begin_read ();
-		auto count = 0;
-		for (auto i = store.account.begin (transaction, next), n = store.account.end (); !stopped && i != n && count < chunk_size; ++i, ++count, ++total)
-		{
-			auto const & account = i->first;
-			scheduler.activate (account, transaction);
-			next = account.number () + 1;
-		}
-		done = store.account.begin (transaction, next) == store.account.end ();
-	}
 }
 
 /** Convenience function to easily return the confirmation height of an account. */
