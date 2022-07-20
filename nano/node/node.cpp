@@ -155,7 +155,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	scheduler{ *this },
 	aggregator (config, stats, active.generator, active.final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
-	backlog{ *this },
+	backlog{ config, store, scheduler },
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq)
 {

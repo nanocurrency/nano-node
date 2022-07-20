@@ -8,12 +8,14 @@
 
 namespace nano
 {
-class node;
+class node_config;
+class store;
+class election_scheduler;
 
 class backlog_population final
 {
 public:
-	explicit backlog_population (nano::node & node);
+	explicit backlog_population (node_config & config, store & store, election_scheduler & scheduler);
 	~backlog_population ();
 
 	void start ();
@@ -27,13 +29,16 @@ private:
 
 	void populate_backlog ();
 
-	nano::node & node;
-
 	bool triggered{ false };
 	std::atomic<bool> stopped{ false };
 
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
 	std::thread thread;
+
+private: // Dependencies
+	node_config & config;
+	store & store;
+	election_scheduler & scheduler;
 };
 }

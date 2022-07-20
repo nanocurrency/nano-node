@@ -1,8 +1,13 @@
+#include <nano/lib/threading.hpp>
 #include <nano/node/backlog_population.hpp>
-#include <nano/node/node.hpp>
+#include <nano/node/election_scheduler.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/secure/store.hpp>
 
-nano::backlog_population::backlog_population (nano::node & node_a) :
-	node{ node_a }
+nano::backlog_population::backlog_population (nano::node_config & config_a, nano::store & store_a, nano::election_scheduler & scheduler_a) :
+	config{ config_a },
+	store{ store_a },
+	scheduler{ scheduler_a }
 {
 }
 
@@ -53,7 +58,7 @@ void nano::backlog_population::run ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		if (predicate () || (node.config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled))
+		if (predicate () || (config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled))
 		{
 			triggered = false;
 			lock.unlock ();
@@ -61,7 +66,7 @@ void nano::backlog_population::run ()
 			lock.lock ();
 		}
 
-		auto delay = node.config.network_params.network.is_dev_network () ? std::chrono::seconds{ 1 } : std::chrono::duration_cast<std::chrono::seconds> (std::chrono::minutes{ 5 });
+		auto delay = config.network_params.network.is_dev_network () ? std::chrono::seconds{ 1 } : std::chrono::duration_cast<std::chrono::seconds> (std::chrono::minutes{ 5 });
 
 		condition.wait_for (lock, delay, [this] () {
 			return stopped || predicate ();
@@ -77,14 +82,14 @@ void nano::backlog_population::populate_backlog ()
 	uint64_t total = 0;
 	while (!stopped && !done)
 	{
-		auto transaction = node.store.tx_begin_read ();
+		auto transaction = store.tx_begin_read ();
 		auto count = 0;
-		for (auto i = node.store.account.begin (transaction, next), n = node.store.account.end (); !stopped && i != n && count < chunk_size; ++i, ++count, ++total)
+		for (auto i = store.account.begin (transaction, next), n = store.account.end (); !stopped && i != n && count < chunk_size; ++i, ++count, ++total)
 		{
 			auto const & account = i->first;
-			node.scheduler.activate (account, transaction);
+			scheduler.activate (account, transaction);
 			next = account.number () + 1;
 		}
-		done = node.store.account.begin (transaction, next) == node.store.account.end ();
+		done = store.account.begin (transaction, next) == store.account.end ();
 	}
 }
