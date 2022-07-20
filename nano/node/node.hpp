@@ -84,8 +84,10 @@ public:
 };
 
 std::unique_ptr<container_info_component> collect_container_info (block_arrival & block_arrival, std::string const & name);
-
 std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
+
+// Configs
+backlog_population::config nodeconfig_to_backlog_population_config (const node_config & config);
 
 class node final : public std::enable_shared_from_this<nano::node>
 {

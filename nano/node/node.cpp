@@ -33,7 +33,7 @@ extern unsigned char nano_bootstrap_weights_beta[];
 extern std::size_t nano_bootstrap_weights_beta_size;
 }
 
-nano::backlog_population::config nodeconfig_to_backlog_population_config (const nano::node_config & config)
+nano::backlog_population::config nano::nodeconfig_to_backlog_population_config (const nano::node_config & config)
 {
 	nano::backlog_population::config cfg;
 	cfg.ongoing_backlog_population_enabled = config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled;
@@ -163,7 +163,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	scheduler{ *this },
 	aggregator (config, stats, active.generator, active.final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
-	backlog{ nodeconfig_to_backlog_population_config (config), store, scheduler },
+	backlog{ nano::nodeconfig_to_backlog_population_config (config), store, scheduler },
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq)
 {
