@@ -8,14 +8,19 @@
 
 namespace nano
 {
-class node_config;
 class store;
 class election_scheduler;
 
 class backlog_population final
 {
 public:
-	explicit backlog_population (node_config & config, store & store, election_scheduler & scheduler);
+	struct config
+	{
+		bool ongoing_backlog_population_enabled;
+		unsigned int delay_between_runs_in_seconds;
+	};
+
+	explicit backlog_population (const config & config_a, store & store, election_scheduler & scheduler);
 	~backlog_population ();
 
 	void start ();
@@ -44,8 +49,9 @@ private:
 	 *  backlog population is disabled, so that it can service a manual trigger (e.g. via RPC). */
 	std::thread thread;
 
+	config config_m;
+
 private: // Dependencies
-	node_config & config;
 	store & store_m;
 	election_scheduler & scheduler;
 };

@@ -4,8 +4,8 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/secure/store.hpp>
 
-nano::backlog_population::backlog_population (nano::node_config & config_a, nano::store & store_a, nano::election_scheduler & scheduler_a) :
-	config{ config_a },
+nano::backlog_population::backlog_population (const config & config_a, nano::store & store_a, nano::election_scheduler & scheduler_a) :
+	config_m{ config_a },
 	store_m{ store_a },
 	scheduler{ scheduler_a }
 {
@@ -55,11 +55,11 @@ bool nano::backlog_population::predicate () const
 void nano::backlog_population::run ()
 {
 	nano::thread_role::set (nano::thread_role::name::backlog_population);
-	const auto delay = config.network_params.network.is_dev_network () ? std::chrono::seconds{ 1 } : std::chrono::duration_cast<std::chrono::seconds> (std::chrono::minutes{ 5 });
+	const auto delay = std::chrono::seconds{ config_m.delay_between_runs_in_seconds };
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		if (predicate () || (config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled))
+		if (predicate () || config_m.ongoing_backlog_population_enabled)
 		{
 			triggered = false;
 			lock.unlock ();
