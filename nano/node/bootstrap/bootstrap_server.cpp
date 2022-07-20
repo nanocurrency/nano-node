@@ -198,7 +198,8 @@ void nano::bootstrap_server::receive_message ()
 	message_deserializer->read (socket, [this_l = shared_from_this ()] (boost::system::error_code ec, std::unique_ptr<nano::message> message) {
 		if (ec)
 		{
-			// IO error
+			// IO error or critical error when deserializing message
+			this_l->node->stats.inc (nano::stat::type::error, this_l->message_deserializer->parse_status_to_stat_detail ());
 			this_l->stop ();
 			return;
 		}
@@ -222,7 +223,6 @@ void nano::bootstrap_server::received_message (std::unique_ptr<nano::message> me
 		{
 			node->stats.inc (nano::stat::type::filter, nano::stat::detail::duplicate_publish);
 		}
-		// TODO: Make a counter, too many failed messages should stop the connection
 	}
 
 	if (should_continue)

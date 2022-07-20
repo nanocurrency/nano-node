@@ -15,6 +15,8 @@ void nano::bootstrap::message_deserializer::read (std::shared_ptr<nano::socket> 
 {
 	debug_assert (callback);
 
+	status = parse_status::none;
+
 	// Increase timeout to receive TCP header (idle server socket)
 	auto prev_timeout = socket->get_default_timeout_value ();
 	socket->set_default_timeout_value (network_constants_m.idle_timeout);
@@ -104,11 +106,13 @@ void nano::bootstrap::message_deserializer::received_message (nano::message_head
 	auto message = deserialize (header, payload_size);
 	if (message)
 	{
+		debug_assert (status == parse_status::none);
+		status = parse_status::success;
 		callback (boost::system::error_code{}, std::move (message));
 	}
 	else
 	{
-		debug_assert (status != parse_status::success);
+		debug_assert (status != parse_status::none);
 		callback (boost::system::error_code{}, nullptr);
 	}
 }
@@ -362,6 +366,7 @@ nano::stat::detail nano::bootstrap::message_deserializer::parse_status_to_stat_d
 {
 	switch (status)
 	{
+		case parse_status::none:
 		case parse_status::success:
 			break;
 		case parse_status::insufficient_work:
@@ -406,6 +411,8 @@ std::string nano::bootstrap::message_deserializer::parse_status_to_string ()
 {
 	switch (status)
 	{
+		case parse_status::none:
+			return "none";
 		case parse_status::success:
 			return "success";
 		case parse_status::insufficient_work:

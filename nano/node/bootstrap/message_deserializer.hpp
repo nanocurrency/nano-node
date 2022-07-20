@@ -18,6 +18,7 @@ namespace bootstrap
 	public:
 		enum class parse_status
 		{
+			none,
 			success,
 			insufficient_work,
 			invalid_header,
