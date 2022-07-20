@@ -83,12 +83,14 @@ void nano::backlog_population::populate_backlog ()
 	{
 		auto transaction = store.tx_begin_read ();
 		auto count = 0;
-		for (auto i = store.account.begin (transaction, next), n = store.account.end (); !stopped && i != n && count < chunk_size; ++i, ++count, ++total)
+		auto i = store.account.begin (transaction, next);
+		const auto end = store.account.end ();
+		for (; !stopped && i != end && count < chunk_size; ++i, ++count, ++total)
 		{
 			auto const & account = i->first;
 			scheduler.activate (account, transaction);
 			next = account.number () + 1;
 		}
-		done = store.account.begin (transaction, next) == store.account.end ();
+		done = store.account.begin (transaction, next) == end;
 	}
 }
