@@ -110,6 +110,108 @@ TEST (bulk_pull, get_next_on_open)
 	ASSERT_EQ (request->current, request->request->end);
 }
 
+/**
+	Tests that the ascending flag is respected in the bulk_pull message when given a known block hash
+ */
+TEST (bulk_pull, ascending_one_hash)
+{
+	nano::system system{ 1 };
+	auto & node = *system.nodes[0];
+	nano::state_block_builder builder;
+	auto block1 = builder
+				  .account (nano::dev::genesis_key.pub)
+				  .previous (nano::dev::genesis->hash ())
+				  .representative (nano::dev::genesis_key.pub)
+				  .balance (nano::dev::constants.genesis_amount - 100)
+				  .link (nano::dev::genesis_key.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (0)
+				  .build_shared ();
+	node.work_generate_blocking (*block1);
+	ASSERT_EQ (nano::process_result::progress, node.process (*block1).code);
+	auto socket = std::make_shared<nano::socket> (node, nano::socket::endpoint_type_t::server);
+	auto connection = std::make_shared<nano::bootstrap_server> (socket, system.nodes[0]);
+	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
+	req->start = nano::dev::genesis->hash ();
+	req->end = nano::dev::genesis->hash ();
+	req->header.flag_set (nano::message_header::bulk_pull_ascending_flag);
+	connection->requests.push (std::unique_ptr<nano::message>{});
+	auto request = std::make_shared<nano::bulk_pull_server> (connection, std::move (req));
+	auto block_out1 = request->get_next ();
+	ASSERT_NE (nullptr, block_out1);
+	ASSERT_EQ (block_out1->hash (), nano::dev::genesis->hash ());
+	ASSERT_EQ (nullptr, request->get_next ());
+}
+
+/**
+	Tests that the ascending flag is respected in the bulk_pull message when given an account number
+ */
+TEST (bulk_pull, ascending_two_account)
+{
+	nano::system system{ 1 };
+	auto & node = *system.nodes[0];
+	nano::state_block_builder builder;
+	auto block1 = builder
+				  .account (nano::dev::genesis_key.pub)
+				  .previous (nano::dev::genesis->hash ())
+				  .representative (nano::dev::genesis_key.pub)
+				  .balance (nano::dev::constants.genesis_amount - 100)
+				  .link (nano::dev::genesis_key.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (0)
+				  .build_shared ();
+	node.work_generate_blocking (*block1);
+	ASSERT_EQ (nano::process_result::progress, node.process (*block1).code);
+	auto socket = std::make_shared<nano::socket> (node, nano::socket::endpoint_type_t::server);
+	auto connection = std::make_shared<nano::bootstrap_server> (socket, system.nodes[0]);
+	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
+	req->start = nano::dev::genesis->hash ();
+	req->end.clear ();
+	req->header.flag_set (nano::message_header::bulk_pull_ascending_flag);
+	connection->requests.push (std::unique_ptr<nano::message>{});
+	auto request = std::make_shared<nano::bulk_pull_server> (connection, std::move (req));
+	auto block_out1 = request->get_next ();
+	ASSERT_NE (nullptr, block_out1);
+	ASSERT_EQ (block_out1->hash (), nano::dev::genesis->hash ());
+	auto block_out2 = request->get_next ();
+	ASSERT_NE (nullptr, block_out2);
+	ASSERT_EQ (block_out2->hash (), block1->hash ());
+	ASSERT_EQ (nullptr, request->get_next ());
+}
+
+/**
+	Tests that the `end' value is respected in the bulk_pull message
+ */
+TEST (bulk_pull, ascending_end)
+{
+	nano::system system{ 1 };
+	auto & node = *system.nodes[0];
+	nano::state_block_builder builder;
+	auto block1 = builder
+				  .account (nano::dev::genesis_key.pub)
+				  .previous (nano::dev::genesis->hash ())
+				  .representative (nano::dev::genesis_key.pub)
+				  .balance (nano::dev::constants.genesis_amount - 100)
+				  .link (nano::dev::genesis_key.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (0)
+				  .build_shared ();
+	node.work_generate_blocking (*block1);
+	ASSERT_EQ (nano::process_result::progress, node.process (*block1).code);
+	auto socket = std::make_shared<nano::socket> (node, nano::socket::endpoint_type_t::server);
+	auto connection = std::make_shared<nano::bootstrap_server> (socket, system.nodes[0]);
+	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
+	req->start = nano::dev::genesis_key.pub;
+	req->end = block1->hash ();
+	req->header.flag_set (nano::message_header::bulk_pull_ascending_flag);
+	connection->requests.push (std::unique_ptr<nano::message>{});
+	auto request = std::make_shared<nano::bulk_pull_server> (connection, std::move (req));
+	auto block_out1 = request->get_next ();
+	ASSERT_NE (nullptr, block_out1);
+	ASSERT_EQ (block_out1->hash (), nano::dev::genesis->hash ());
+	ASSERT_EQ (nullptr, request->get_next ());
+}
+
 TEST (bulk_pull, by_block)
 {
 	nano::system system (1);

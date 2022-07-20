@@ -223,7 +223,9 @@ public:
 
 	void flag_set (uint8_t);
 	static uint8_t constexpr bulk_pull_count_present_flag = 0;
+	static uint8_t constexpr bulk_pull_ascending_flag = 1;
 	bool bulk_pull_is_count_present () const;
+	bool bulk_pull_ascending () const;
 	static uint8_t constexpr frontier_req_only_confirmed = 1;
 	bool frontier_req_is_only_confirmed_present () const;
 	static uint8_t constexpr node_id_handshake_query_flag = 0;
