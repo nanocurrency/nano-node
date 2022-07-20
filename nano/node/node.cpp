@@ -154,7 +154,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	inactive_vote_cache{ flags.inactive_votes_cache_size },
 	active (*this, confirmation_height_processor),
 	scheduler{ *this },
-	election_hinting{ *this },
+	election_hinting{ *this, config, inactive_vote_cache, active, store, online_reps },
 	aggregator (config, stats, active.generator, active.final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
 	startup_time (std::chrono::steady_clock::now ()),

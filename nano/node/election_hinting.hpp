@@ -24,14 +24,18 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
-class node;
-class vote;
+class active_transactions;
 class election;
+class node;
+class online_reps;
+class store;
+class vote;
+class vote_cache;
 
 class election_hinting final
 {
 public:
-	explicit election_hinting (nano::node & node);
+	explicit election_hinting (node &, node_config &, vote_cache &, active_transactions &, store &, online_reps &);
 	~election_hinting ();
 	void stop ();
 	void flush ();
@@ -46,10 +50,17 @@ private:
 
 	nano::uint128_t tally_threshold () const;
 
-	nano::node & node;
 	bool stopped;
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
 	std::thread thread;
+
+private: // Dependencies
+	node & node;
+	node_config & config;
+	vote_cache & vote_cache;
+	active_transactions & active;
+	store & store;
+	online_reps & online_reps;
 };
 }
