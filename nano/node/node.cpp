@@ -809,12 +809,7 @@ nano::block_hash nano::node::rep_block (nano::account const & account_a)
 
 nano::uint128_t nano::node::minimum_principal_weight ()
 {
-	return minimum_principal_weight (online_reps.trended ());
-}
-
-nano::uint128_t nano::node::minimum_principal_weight (nano::uint128_t const & online_stake)
-{
-	return online_stake / network_params.network.principal_weight_factor;
+	return online_reps.trended () / network_params.network.principal_weight_factor;
 }
 
 void nano::node::long_inactivity_cleanup ()
