@@ -24,6 +24,8 @@ add_library(
   blockprocessor.cpp
   bootstrap/block_deserializer.hpp
   bootstrap/block_deserializer.cpp
+  bootstrap/bootstrap_ascending.hpp
+  bootstrap/bootstrap_ascending.cpp
   bootstrap/bootstrap_attempt.hpp
   bootstrap/bootstrap_attempt.cpp
   bootstrap/bootstrap_bulk_pull.hpp
