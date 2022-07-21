@@ -150,7 +150,6 @@ private:
 	nano::node & node;
 	mutable nano::mutex mutex;
 
-	static std::chrono::seconds constexpr late_blocks_delay{ 5 };
 	static std::size_t constexpr max_blocks{ 10 };
 
 	friend class active_transactions;

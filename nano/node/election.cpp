@@ -463,15 +463,6 @@ std::size_t nano::election::insert_inactive_votes_cache (nano::inactive_cache_in
 	}
 	if (!confirmed ())
 	{
-		if (!cache_a.voters.empty ())
-		{
-			auto delay (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - cache_a.arrival));
-			if (delay > late_blocks_delay)
-			{
-				node.stats.inc (nano::stat::type::election, nano::stat::detail::late_block);
-				node.stats.add (nano::stat::type::election, nano::stat::detail::late_block_seconds, nano::stat::dir::in, delay.count (), true);
-			}
-		}
 		if (last_votes.size () > 1) // null account
 		{
 			// Even if no votes were in cache, they could be in the election
