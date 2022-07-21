@@ -95,22 +95,18 @@ void nano::bootstrap_attempt::stop ()
 	node->bootstrap_initiator.connections->clear_pulls (incremental_id);
 }
 
-std::string nano::bootstrap_attempt::mode_text ()
+char const * nano::bootstrap_attempt::mode_text ()
 {
-	std::string mode_text;
-	if (mode == nano::bootstrap_mode::legacy)
+	switch (mode)
 	{
-		mode_text = "legacy";
+		case nano::bootstrap_mode::legacy:
+			return "legacy";
+		case nano::bootstrap_mode::lazy:
+			return "lazy";
+		case nano::bootstrap_mode::wallet_lazy:
+			return "wallet_lazy";
 	}
-	else if (mode == nano::bootstrap_mode::lazy)
-	{
-		mode_text = "lazy";
-	}
-	else if (mode == nano::bootstrap_mode::wallet_lazy)
-	{
-		mode_text = "wallet_lazy";
-	}
-	return mode_text;
+	return "unknown";
 }
 
 bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> const & block_a, nano::account const & known_account_a, uint64_t pull_blocks_processed, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
