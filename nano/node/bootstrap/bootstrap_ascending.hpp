@@ -84,6 +84,12 @@ namespace bootstrap
 			std::map<nano::account, float> backoff;
 			static size_t constexpr backoff_exclusion = 4;
 			std::default_random_engine rng;
+
+			/**
+				Convert a vector of attempt counts to a probability vector suitable for std::discrete_distribution
+				This implementation applies 1/2^i for each element, effectivly an exponential backoff
+			*/
+			std::vector<double> probability_transform (std::vector<decltype (backoff)::mapped_type> const & attempts) const;
 		};
 		class thread : public std::enable_shared_from_this<thread>
 		{
