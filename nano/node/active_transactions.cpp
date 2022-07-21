@@ -391,7 +391,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				}
 				auto const cache = find_inactive_votes_cache_impl (hash);
 				lock_a.unlock ();
-				result.election->insert_inactive_votes_cache (cache);
+				cache.fill (result.election);
 				node.observers.active_started.notify (hash);
 				node.stats.inc (nano::stat::type::election, nano::stat::detail::election_start);
 				vacancy_update ();
@@ -624,7 +624,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> const & bl
 			blocks.emplace (block_a->hash (), election);
 			auto const cache = find_inactive_votes_cache_impl (block_a->hash ());
 			lock.unlock ();
-			election->insert_inactive_votes_cache (cache);
+			cache.fill (election);
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::election_block_conflict);
 		}
 	}

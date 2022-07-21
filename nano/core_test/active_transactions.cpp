@@ -337,10 +337,10 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	nano::unique_lock<nano::mutex> active_lock (node.active.mutex);
 	node.active.add_inactive_votes_cache (active_lock, send->hash (), key.pub, 0);
 	active_lock.unlock ();
-	auto cache (node.active.find_inactive_votes_cache (send->hash ()));
+	const auto cache (node.active.find_inactive_votes_cache (send->hash ()));
 	active_lock.lock ();
 	ASSERT_EQ (1, cache.voters.size ());
-	election->insert_inactive_votes_cache (cache);
+	cache.fill (election);
 	// Check that election data is not changed
 	ASSERT_EQ (2, election->votes ().size ());
 	auto last_vote2 (election->votes ()[key.pub]);
