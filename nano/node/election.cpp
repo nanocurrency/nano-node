@@ -128,7 +128,7 @@ bool nano::election::state_change (nano::election::state_t expected_a, nano::ele
 
 void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_a)
 {
-	if ((base_latency () * (optimistic () ? 10 : 5)) < (std::chrono::steady_clock::now () - last_req))
+	if ((base_latency () * 5) < (std::chrono::steady_clock::now () - last_req))
 	{
 		nano::lock_guard<nano::mutex> guard (mutex);
 		if (!solicitor_a.add (*this))
@@ -218,11 +218,10 @@ std::chrono::milliseconds nano::election::time_to_live ()
 	{
 		case election_behavior::normal:
 			return std::chrono::milliseconds (5 * 60 * 1000);
-		case election_behavior::optimistic:
-			return std::chrono::milliseconds (node.network_params.network.is_dev_network () ? 500 : 60 * 1000);
 		case election_behavior::hinted:
 			return std::chrono::milliseconds (30 * 1000);
 	}
+	release_assert (false);
 }
 
 bool nano::election::have_quorum (nano::tally_t const & tally_a) const
@@ -478,11 +477,6 @@ std::size_t nano::election::insert_inactive_votes_cache (nano::inactive_cache_in
 		}
 	}
 	return cache_a.voters.size ();
-}
-
-bool nano::election::optimistic () const
-{
-	return behavior == nano::election_behavior::optimistic;
 }
 
 nano::election_extended_status nano::election::current_status () const
