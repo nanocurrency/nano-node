@@ -199,7 +199,7 @@ REGISTER_ERROR_CODES (nano, error_config);
 #if BOOST_VERSION >= 107800
 /* no need for error_code bridge */
 #else
-# define NANO_USE_BOOST_TO_STD_ERROR_BRIDGE
+#define NANO_USE_BOOST_TO_STD_ERROR_BRIDGE
 #endif
 
 #if defined(NANO_USE_BOOST_TO_STD_ERROR_BRIDGE)
