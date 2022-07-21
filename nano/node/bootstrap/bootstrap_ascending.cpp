@@ -106,14 +106,25 @@ void nano::bootstrap::bootstrap_ascending::account_sets::unblock (nano::account 
 	backoff[account] = 0.0f;
 }
 
+std::vector<double> nano::bootstrap::bootstrap_ascending::account_sets::probability_transform (std::vector<decltype (backoff)::mapped_type> const & attempts) const
+{
+	std::vector<double> result;
+	result.reserve (attempts.size ());
+	for (auto i = attempts.begin (), n = attempts.end (); i != n; ++i)
+	{
+		result.push_back (1.0 / std::pow (2.0, *i));
+	}
+	return result;
+}
+
 nano::account nano::bootstrap::bootstrap_ascending::account_sets::random ()
 {
 	debug_assert (!backoff.empty ());
-	std::vector<decltype (backoff)::mapped_type> weights;
+	std::vector<decltype (backoff)::mapped_type> attempts;
 	std::vector<nano::account> candidates;
 	while (candidates.size () < account_sets::backoff_exclusion)
 	{
-		debug_assert (candidates.size () == weights.size ());
+		debug_assert (candidates.size () == attempts.size ());
 		nano::account search;
 		nano::random_pool::generate_block (search.bytes.data (), search.bytes.size ());
 		auto iter = backoff.lower_bound (search);
@@ -121,14 +132,11 @@ nano::account nano::bootstrap::bootstrap_ascending::account_sets::random ()
 		{
 			iter = backoff.begin ();
 		}
-		auto const [account, weight] = *iter;
-		weights.push_back (weight);
+		auto const [account, count] = *iter;
+		attempts.push_back (count);
 		candidates.push_back (account);
 	}
-	for (auto i = weights.begin (), n = weights.end (); i != n; ++i)
-	{
-		*i = 1.0f / std::pow (2.0f, *i);
-	}
+	auto weights = probability_transform (attempts);
 	std::discrete_distribution dist{ weights.begin (), weights.end () };
 	auto selection = dist (rng);
 	debug_assert (!weights.empty () && selection < weights.size ());
