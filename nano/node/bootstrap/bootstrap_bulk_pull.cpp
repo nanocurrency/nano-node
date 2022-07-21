@@ -348,7 +348,7 @@ void nano::bulk_pull_server::set_current_end ()
 			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull request for block hash: %1%") % request->start.to_string ()));
 		}
 
-		current = request->start.as_block_hash ();
+		current = ascending () ? connection->node->store.block.successor (transaction, request->start.as_block_hash ()) : request->start.as_block_hash ();
 		include_start = true;
 	}
 	else
