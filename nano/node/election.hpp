@@ -131,7 +131,11 @@ private:
 	void remove_votes (nano::block_hash const &);
 	void remove_block (nano::block_hash const &);
 	bool replace_by_weight (nano::unique_lock<nano::mutex> & lock_a, nano::block_hash const &);
-	std::chrono::milliseconds time_to_live ();
+	std::chrono::milliseconds time_to_live () const;
+	/*
+	 * Calculates minimum time delay between subsequent votes when processing non-final votes
+	 */
+	std::chrono::seconds cooldown_time (nano::uint128_t weight) const;
 
 private:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> last_blocks;

@@ -212,7 +212,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 	return result;
 }
 
-std::chrono::milliseconds nano::election::time_to_live ()
+std::chrono::milliseconds nano::election::time_to_live () const
 {
 	switch (behavior)
 	{
@@ -221,7 +221,22 @@ std::chrono::milliseconds nano::election::time_to_live ()
 		case election_behavior::hinted:
 			return std::chrono::milliseconds (30 * 1000);
 	}
-	release_assert (false);
+	return {};
+}
+
+std::chrono::seconds nano::election::cooldown_time (nano::uint128_t weight) const
+{
+	auto online_stake = node.online_reps.trended ();
+	if (weight > online_stake / 20) // Reps with more than 5% weight
+	{
+		return std::chrono::seconds{ 1 };
+	}
+	if (weight > online_stake / 100) // Reps with more than 1% weight
+	{
+		return std::chrono::seconds{ 5 };
+	}
+	// The rest of smaller reps
+	return std::chrono::seconds{ 15 };
 }
 
 bool nano::election::have_quorum (nano::tally_t const & tally_a) const
@@ -351,25 +366,12 @@ std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash
 
 nano::election_vote_result nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano::block_hash const & block_hash_a)
 {
-	auto replay (false);
-	auto online_stake (node.online_reps.trended ());
-	auto weight (node.ledger.weight (rep));
-	auto should_process (false);
-	if (node.network_params.network.is_dev_network () || weight > node.minimum_principal_weight (online_stake))
+	auto replay = false;
+	auto weight = node.ledger.weight (rep);
+	auto should_process = false;
+	if (node.network_params.network.is_dev_network () || weight > node.minimum_principal_weight ())
 	{
-		unsigned int cooldown;
-		if (weight < online_stake / 100) // 0.1% to 1%
-		{
-			cooldown = 15;
-		}
-		else if (weight < online_stake / 20) // 1% to 5%
-		{
-			cooldown = 5;
-		}
-		else // 5% or above
-		{
-			cooldown = 1;
-		}
+		const auto cooldown = cooldown_time (weight);
 
 		nano::unique_lock<nano::mutex> lock (mutex);
 
