@@ -127,12 +127,12 @@ TEST (bulk_pull, ascending_one_hash)
 	auto connection = std::make_shared<nano::bootstrap_server> (socket, system.nodes[0]);
 	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
 	req->start = nano::dev::genesis->hash ();
-	req->end = nano::dev::genesis->hash ();
+	req->end.clear ();
 	req->header.flag_set (nano::message_header::bulk_pull_ascending_flag);
 	auto request = std::make_shared<nano::bulk_pull_server> (connection, std::move (req));
 	auto block_out1 = request->get_next ();
 	ASSERT_NE (nullptr, block_out1);
-	ASSERT_EQ (block_out1->hash (), nano::dev::genesis->hash ());
+	ASSERT_EQ (block_out1->hash (), block1->hash ());
 	ASSERT_EQ (nullptr, request->get_next ());
 }
 
@@ -158,7 +158,7 @@ TEST (bulk_pull, ascending_two_account)
 	auto socket = std::make_shared<nano::socket> (node, nano::socket::endpoint_type_t::server);
 	auto connection = std::make_shared<nano::bootstrap_server> (socket, system.nodes[0]);
 	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
-	req->start = nano::dev::genesis->hash ();
+	req->start = nano::dev::genesis->account ();
 	req->end.clear ();
 	req->header.flag_set (nano::message_header::bulk_pull_ascending_flag);
 	auto request = std::make_shared<nano::bulk_pull_server> (connection, std::move (req));
@@ -172,7 +172,7 @@ TEST (bulk_pull, ascending_two_account)
 }
 
 /**
-	Tests that the `end' value is respected in the bulk_pull message
+	Tests that the `end' value is respected in the bulk_pull message when the ascending flag is used.
  */
 TEST (bulk_pull, ascending_end)
 {

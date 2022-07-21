@@ -1,5 +1,6 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_ascending.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/bootstrap/bootstrap_legacy.hpp>
 #include <nano/node/common.hpp>
@@ -128,6 +129,17 @@ void nano::bootstrap_initiator::bootstrap_wallet (std::deque<nano::account> & ac
 	condition.notify_all ();
 }
 
+std::shared_ptr<nano::bootstrap::bootstrap_ascending> nano::bootstrap_initiator::bootstrap_ascending ()
+{
+	node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_ascending, nano::stat::dir::out);
+	nano::lock_guard<nano::mutex> lock (mutex);
+	auto attempt = std::make_shared<nano::bootstrap::bootstrap_ascending> (node.shared (), attempts.incremental++, "");
+	attempts_list.push_back (attempt);
+	attempts.add (attempt);
+	condition.notify_all ();
+	return attempt;
+}
+
 void nano::bootstrap_initiator::run_bootstrap ()
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
@@ -253,6 +265,12 @@ std::shared_ptr<nano::bootstrap_attempt_wallet> nano::bootstrap_initiator::curre
 {
 	nano::lock_guard<nano::mutex> lock (mutex);
 	return std::dynamic_pointer_cast<nano::bootstrap_attempt_wallet> (find_attempt (nano::bootstrap_mode::wallet_lazy));
+}
+
+std::shared_ptr<nano::bootstrap::bootstrap_ascending> nano::bootstrap_initiator::current_ascending_attempt ()
+{
+	nano::lock_guard<nano::mutex> lock (mutex);
+	return std::dynamic_pointer_cast<nano::bootstrap::bootstrap_ascending> (find_attempt (nano::bootstrap_mode::ascending));
 }
 
 void nano::bootstrap_initiator::stop_attempts ()
