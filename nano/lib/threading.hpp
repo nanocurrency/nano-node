@@ -36,6 +36,7 @@ namespace thread_role
 		rpc_process_container,
 		confirmation_height_processing,
 		worker,
+		bootstrap_worker,
 		request_aggregator,
 		state_block_signature_verification,
 		epoch_upgrader,

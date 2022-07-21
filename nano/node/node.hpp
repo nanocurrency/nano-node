@@ -161,6 +161,7 @@ public:
 	nano::network_params & network_params;
 	nano::stat stats;
 	nano::thread_pool workers;
+	nano::thread_pool bootstrap_workers;
 	std::shared_ptr<nano::websocket::listener> websocket_server;
 	nano::node_flags flags;
 	nano::work_pool & work;
