@@ -1,4 +1,5 @@
 #include <nano/qt/qt.hpp>
+#include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -44,7 +45,8 @@ TEST (wallet, DISABLED_status)
 		return wallet->active_status.active.find (status_ty) != wallet->active_status.active.end ();
 	};
 	ASSERT_EQ ("Status: Disconnected, Blocks: 1", wallet->status->text ().toStdString ());
-	system.nodes[0]->network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000), 0);
+	auto outer_node = nano::test::add_outer_node (system, nano::test::get_available_port ());
+	nano::test::establish_tcp (system, *system.nodes[0], outer_node->network.endpoint ());
 	// Because of the wallet "vulnerable" message, this won't be the message displayed.
 	// However, it will still be part of the status set.
 	ASSERT_FALSE (wallet_has (nano_qt::status_types::synchronizing));
