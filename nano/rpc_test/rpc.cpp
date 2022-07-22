@@ -7,6 +7,7 @@
 #include <nano/node/node_rpc_config.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/telemetry.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -1899,7 +1900,7 @@ TEST (rpc, keepalive)
 	auto port (boost::str (boost::format ("%1%") % node1->network.endpoint ().port ()));
 	request.put ("address", address);
 	request.put ("port", port);
-	ASSERT_EQ (nullptr, node0->network.udp_channels.channel (node1->network.endpoint ()));
+	ASSERT_EQ (nullptr, node0->network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ())));
 	ASSERT_EQ (0, node0->network.size ());
 	auto response (wait_response (system, rpc_ctx, request));
 	system.deadline_set (10s);
@@ -1915,46 +1916,33 @@ TEST (rpc, peers)
 {
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
-	auto port = nano::test::get_available_port ();
-	auto const node2 = system.add_node (nano::node_config (port, system.logging));
-	nano::endpoint endpoint (boost::asio::ip::make_address_v6 ("fc00::1"), 4000);
-	node->network.udp_channels.insert (endpoint, node->network_params.network.protocol_version);
+	auto const node2 = system.add_node (nano::node_config (nano::test::get_available_port (), system.logging));
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "peers");
 	auto response (wait_response (system, rpc_ctx, request));
 	auto & peers_node (response.get_child ("peers"));
-	ASSERT_EQ (2, peers_node.size ());
+	ASSERT_EQ (1, peers_node.size ());
 	ASSERT_EQ (std::to_string (node->network_params.network.protocol_version), peers_node.get<std::string> ((boost::format ("[::1]:%1%") % node2->network.endpoint ().port ()).str ()));
-	// Previously "[::ffff:80.80.80.80]:4000", but IPv4 address cause "No such node thrown in the test body" issue with peers_node.get
-	std::stringstream endpoint_text;
-	endpoint_text << endpoint;
-	ASSERT_EQ (std::to_string (node->network_params.network.protocol_version), peers_node.get<std::string> (endpoint_text.str ()));
+	// The previous version of this test had an UDP connection to an arbitrary IP address, so it could check for two peers. This doesn't work with TCP.
 }
 
 TEST (rpc, peers_node_id)
 {
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
-	auto port = nano::test::get_available_port ();
-	auto const node2 = system.add_node (nano::node_config (port, system.logging));
-	nano::endpoint endpoint (boost::asio::ip::make_address_v6 ("fc00::1"), 4000);
-	node->network.udp_channels.insert (endpoint, node->network_params.network.protocol_version);
+	auto const node2 = system.add_node (nano::node_config (nano::test::get_available_port (), system.logging));
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "peers");
 	request.put ("peer_details", true);
 	auto response (wait_response (system, rpc_ctx, request));
 	auto & peers_node (response.get_child ("peers"));
-	ASSERT_EQ (2, peers_node.size ());
+	ASSERT_EQ (1, peers_node.size ());
 	auto tree1 (peers_node.get_child ((boost::format ("[::1]:%1%") % node2->network.endpoint ().port ()).str ()));
 	ASSERT_EQ (std::to_string (node->network_params.network.protocol_version), tree1.get<std::string> ("protocol_version"));
 	ASSERT_EQ (system.nodes[1]->node_id.pub.to_node_id (), tree1.get<std::string> ("node_id"));
-	std::stringstream endpoint_text;
-	endpoint_text << endpoint;
-	auto tree2 (peers_node.get_child (endpoint_text.str ()));
-	ASSERT_EQ (std::to_string (node->network_params.network.protocol_version), tree2.get<std::string> ("protocol_version"));
-	ASSERT_EQ ("", tree2.get<std::string> ("node_id"));
+	// The previous version of this test had an UDP connection to an arbitrary IP address, so it could check for two peers. This doesn't work with TCP.
 }
 
 TEST (rpc, pending)
@@ -7105,7 +7093,7 @@ TEST (rpc, account_lazy_start)
 	node_config.ipc_config.transport_tcp.enabled = true;
 	node_config.ipc_config.transport_tcp.port = nano::test::get_available_port ();
 	auto node2 = system.add_node (node_config, node_flags);
-	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.network.protocol_version);
+	nano::test::establish_tcp (system, *node2, node1->network.endpoint ());
 	auto const rpc_ctx = add_rpc (system, node2);
 	boost::property_tree::ptree request;
 	request.put ("action", "account_info");
@@ -7428,12 +7416,12 @@ TEST (rpc, telemetry_all)
 // Also tests all forms of ipv4/ipv6
 TEST (rpc, telemetry_self)
 {
-	nano::test::system system;
+	nano::test::system system{ 1 };
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 
-	// Just to have peer count at 1
-	node1->network.udp_channels.insert (nano::endpoint (boost::asio::ip::make_address_v6 ("::1"), nano::test_node_port ()), 0);
+	auto outer_node = system.nodes[0];
+	nano::test::establish_tcp (system, *node1, outer_node->network.endpoint ());
 
 	boost::property_tree::ptree request;
 	request.put ("action", "telemetry");
