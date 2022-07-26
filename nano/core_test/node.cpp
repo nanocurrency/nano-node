@@ -1874,12 +1874,10 @@ TEST (node, rep_weight)
 	ASSERT_TRUE (node.rep_crawler.is_pr (*channel3));
 }
 
-// TODO: test written for UDP, should be rewritten or deleted if unuseful
 TEST (node, rep_remove)
 {
 	nano::system system;
 	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
 	auto & node = *system.add_node (node_flags);
 	nano::keypair keypair1;
 	nano::keypair keypair2;
@@ -1931,11 +1929,9 @@ TEST (node, rep_remove)
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *block3).code);
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *block4).code);
 	}
-	// Add inactive UDP representative channel
+	// Add inactive TCP representative channel
 	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), nano::test_node_port ());
-	std::shared_ptr<nano::transport::channel> channel0 (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint0, node.network_params.network.protocol_version));
-	auto channel_udp = node.network.udp_channels.insert (endpoint0, node.network_params.network.protocol_version);
-	ASSERT_NE (channel_udp, nullptr);
+	std::shared_ptr<nano::transport::channel> channel0 (std::make_shared<nano::transport::channel_tcp> (node, std::weak_ptr<nano::socket> ()));
 	auto vote1 = std::make_shared<nano::vote> (keypair1.pub, keypair1.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
 	ASSERT_FALSE (node.rep_crawler.response (channel0, vote1));
 	ASSERT_TIMELY (5s, node.rep_crawler.representative_count () == 1);
@@ -1944,12 +1940,7 @@ TEST (node, rep_remove)
 	ASSERT_EQ (node.minimum_principal_weight () * 2, reps[0].weight.number ());
 	ASSERT_EQ (keypair1.pub, reps[0].account);
 	ASSERT_EQ (*channel0, reps[0].channel_ref ());
-	// Modify last_packet_received so the channel is removed faster
-	std::chrono::steady_clock::time_point fake_timepoint{};
-	node.network.udp_channels.modify (channel_udp, [fake_timepoint] (std::shared_ptr<nano::transport::channel_udp> const & channel_a) {
-		channel_a->set_last_packet_received (fake_timepoint);
-	});
-	// This UDP channel is not reachable and should timeout
+	// This channel is not reachable and should timeout
 	ASSERT_EQ (1, node.rep_crawler.representative_count ());
 	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 0);
 	// Add working representative
