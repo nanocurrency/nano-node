@@ -90,3 +90,6 @@ fi
 latest_build_number=$(echo "$last_tag" | grep -oP "(DB[0-9]+)" | grep -oP "[0-9]+")
 export build_number=$(( latest_build_number + 1 ))
 export build_tag="V${current_version_major}.${current_version_minor}DB${build_number}"
+
+set +o nounset
+set +o xtrace

@@ -1,7 +1,7 @@
 name: Beta
 on:
   schedule:
-    - cron: "0 0 * * 6"
+    - cron: "0 0 * * 3,6"
   workflow_dispatch:
     inputs:
       repo:
@@ -20,6 +20,8 @@ jobs:
   build_auto_setup_job:
     if: ${{ github.event.inputs.ref == '' }}
     runs-on: ubuntu-20.04
+    outputs:
+      build_tag: ${{ steps.tag_gen.outputs.build_tag }}
     steps:
       - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
@@ -31,10 +33,14 @@ jobs:
       - name: Generate the new tag
         id: tag_gen
         run: |
-          source ci/actions/dev-build-tag-gen.sh
-          echo "TAG=$build_tag" >> $GITHUB_ENV
+          (
+              source ci/actions/dev-build-tag-gen.sh
+              echo "::set-output name=build_tag::$build_tag"
+          )
       - name: Push the new tag
         run: |
+          # Set the tag locally
+          TAG="${{ steps.tag_gen.outputs.build_tag }}"
           # Set git configuration
           git config user.name "${GITHUB_ACTOR}"
           git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
@@ -51,9 +57,8 @@ jobs:
       BOOST_ROOT: /tmp/boost
     steps:
       - name: Set the tag
-        if: ${{ github.event.inputs.ref != '' }}
         run: |
-          echo "TAG=${{ github.event.inputs.ref }}" >> $GITHUB_ENV
+          echo "TAG=${{ github.event.inputs.ref != '' && needs.build_auto_setup_job.build_tag || github.event.inputs.ref }}" >> $GITHUB_ENV
       - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           submodules: "recursive"
@@ -78,9 +83,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Set the tag
-        if: ${{ github.event.inputs.ref != '' }}
         run: |
-          echo "TAG=${{ github.event.inputs.ref }}" >> $GITHUB_ENV
+          echo "TAG=${{ github.event.inputs.ref != '' && needs.build_auto_setup_job.build_tag || github.event.inputs.ref }}" >> $GITHUB_ENV
       - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           submodules: "recursive"
@@ -107,9 +111,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Set the tag
-        if: ${{ github.event.inputs.ref != '' }}
         run: |
-          echo "TAG=${{ github.event.inputs.ref }}" >> $GITHUB_ENV
+          echo "TAG=${{ github.event.inputs.ref != '' && needs.build_auto_setup_job.build_tag || github.event.inputs.ref }}" >> $GITHUB_ENV
       - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           submodules: "recursive"
@@ -142,9 +145,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Set the tag
-        if: ${{ github.event.inputs.ref != '' }}
         run: |
-          Write-Output "TAG=${{ github.event.inputs.ref }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Output "TAG=${{ github.event.inputs.ref != '' && needs.build_auto_setup_job.build_tag || github.event.inputs.ref }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           submodules: "recursive"
