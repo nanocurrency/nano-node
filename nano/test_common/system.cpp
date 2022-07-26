@@ -57,6 +57,9 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & no
 			auto starting_realtime_1 = node1->bootstrap.realtime_count.load ();
 			auto starting_realtime_2 = node2->bootstrap.realtime_count.load ();
 
+			auto starting_keepalives_1 = node1->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
+			auto starting_keepalives_2 = node2->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
+
 			if (type_a == nano::transport::transport_type::tcp)
 			{
 				(*j)->network.merge_peer ((*i)->network.endpoint ());
@@ -81,6 +84,13 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & no
 					auto realtime_1 = node1->bootstrap.realtime_count.load ();
 					auto realtime_2 = node2->bootstrap.realtime_count.load ();
 					return realtime_1 > starting_realtime_1 && realtime_2 > starting_realtime_2;
+				});
+
+				// Wait for keepalive message exchange
+				poll_until_true (3s, [&node1, &node2, starting_keepalives_1, starting_keepalives_2] () {
+					auto keepalives_1 = node1->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
+					auto keepalives_2 = node2->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
+					return keepalives_1 > starting_keepalives_1 && keepalives_2 > starting_keepalives_2;
 				});
 			}
 		}
