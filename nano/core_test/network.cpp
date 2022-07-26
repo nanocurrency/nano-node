@@ -1075,60 +1075,59 @@ TEST (network, duplicate_revert_publish)
 	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
 }
 
-// TODO: Convert from UDP to TCP
-//// The test must be completed in less than 1 second
-//TEST (network, bandwidth_limiter)
-//{
-//	nano::system system;
-//	nano::publish message{ nano::dev::network_params.network, nano::dev::genesis };
-//	auto message_size = message.to_bytes ()->size ();
-//	auto message_limit = 4; // must be multiple of the number of channels
-//	nano::node_config node_config (nano::get_available_port (), system.logging);
-//	node_config.bandwidth_limit = message_limit * message_size;
-//	node_config.bandwidth_limit_burst_ratio = 1.0;
-//	auto & node = *system.add_node (node_config);
-//
-//	auto port = nano::get_available_port ();
-//	boost::asio::io_context io_ctx;
-//	nano::simple_socket_server server (io_ctx, boost::asio::ip::address_v6::any (), port);
-//
-//	auto channel1 = nano::establish_tcp (system, node, nano::endpoint{ boost::asio::ip::address_v6::loopback (), port });
-//	auto channel2 = nano::establish_tcp (system, node, nano::endpoint{ boost::asio::ip::address_v6::loopback (), port });
-//	// Send droppable messages
-//	for (auto i = 0; i < message_limit; i += 2) // number of channels
-//	{
-//		channel1->send (message);
-//		channel2->send (message);
-//	}
-//	// Only sent messages below limit, so we don't expect any drops
-//	ASSERT_TIMELY (1s, 0 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
-//
-//	// Send droppable message; drop stats should increase by one now
-//	channel1->send (message);
-//	ASSERT_TIMELY (1s, 1 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
-//
-//	// Send non-droppable message, i.e. drop stats should not increase
-//	channel2->send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
-//	ASSERT_TIMELY (1s, 1 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
-//
-//	// change the bandwidth settings, 2 packets will be dropped
-//	node.network.set_bandwidth_params (1.1, message_size * 2);
-//	channel1->send (message);
-//	channel2->send (message);
-//	channel1->send (message);
-//	channel2->send (message);
-//	ASSERT_TIMELY (1s, 3 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
-//
-//	// change the bandwidth settings, no packet will be dropped
-//	node.network.set_bandwidth_params (4, message_size);
-//	channel1->send (message);
-//	channel2->send (message);
-//	channel1->send (message);
-//	channel2->send (message);
-//	ASSERT_TIMELY (1s, 3 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
-//
-//	node.stop ();
-//}
+TEST (network, bandwidth_limiter)
+{
+	nano::system system;
+	nano::publish message{ nano::dev::network_params.network, nano::dev::genesis };
+	auto message_size = message.to_bytes ()->size ();
+	auto message_limit = 4; // must be multiple of the number of channels
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.bandwidth_limit = message_limit * message_size;
+	node_config.bandwidth_limit_burst_ratio = 1.0;
+	auto & node = *system.add_node (node_config);
+
+	// Another node instance just for the inproc channels.
+	auto other_node (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
+	other_node->start ();
+	system.nodes.push_back (other_node);
+
+	nano::transport::inproc::channel channel1{ node, *other_node };
+	nano::transport::inproc::channel channel2{ node, *other_node };
+	// Send droppable messages
+	for (auto i = 0; i < message_limit; i += 2) // number of channels
+	{
+		channel1.send (message);
+		channel2.send (message);
+	}
+	// Only sent messages below limit, so we don't expect any drops
+	ASSERT_TIMELY (1s, 0 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+
+	// Send droppable message; drop stats should increase by one now
+	channel1.send (message);
+	ASSERT_TIMELY (1s, 1 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+
+	// Send non-droppable message, i.e. drop stats should not increase
+	channel2.send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
+	ASSERT_TIMELY (1s, 1 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+
+	// change the bandwidth settings, 2 packets will be dropped
+	node.network.set_bandwidth_params (1.1, message_size * 2);
+	channel1.send (message);
+	channel2.send (message);
+	channel1.send (message);
+	channel2.send (message);
+	ASSERT_TIMELY (1s, 3 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+
+	// change the bandwidth settings, no packet will be dropped
+	node.network.set_bandwidth_params (4, message_size);
+	channel1.send (message);
+	channel2.send (message);
+	channel1.send (message);
+	channel2.send (message);
+	ASSERT_TIMELY (1s, 3 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+
+	node.stop ();
+}
 
 namespace nano
 {
