@@ -418,12 +418,16 @@ public:
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in);
 		node.network.merge_peers (message_a.peers);
+
 		// Check for special node port data
 		auto peer0 (message_a.peers[0]);
 		if (peer0.address () == boost::asio::ip::address_v6{} && peer0.port () != 0)
 		{
 			nano::endpoint new_endpoint (channel->get_tcp_endpoint ().address (), peer0.port ());
 			node.network.merge_peer (new_endpoint);
+
+			// Remember this for future forwarding to other peers
+			channel->set_peering_endpoint (new_endpoint);
 		}
 	}
 	void publish (nano::publish const & message_a) override
@@ -652,9 +656,9 @@ void nano::network::random_fill (std::array<nano::endpoint, 8> & target_a) const
 	auto j (target_a.begin ());
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i, ++j)
 	{
-		debug_assert ((*i)->get_endpoint ().address ().is_v6 ());
+		debug_assert ((*i)->get_peering_endpoint ().address ().is_v6 ());
 		debug_assert (j < target_a.end ());
-		*j = (*i)->get_endpoint ();
+		*j = (*i)->get_peering_endpoint ();
 	}
 }
 

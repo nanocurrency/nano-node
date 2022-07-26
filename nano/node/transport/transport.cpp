@@ -134,6 +134,23 @@ void nano::transport::channel::send (nano::message & message_a, std::function<vo
 	}
 }
 
+void nano::transport::channel::set_peering_endpoint (nano::endpoint endpoint)
+{
+	peering_endpoint = endpoint;
+}
+
+nano::endpoint nano::transport::channel::get_peering_endpoint () const
+{
+	if (peering_endpoint)
+	{
+		return *peering_endpoint;
+	}
+	else
+	{
+		return get_endpoint ();
+	}
+}
+
 boost::asio::ip::address_v6 nano::transport::mapped_from_v4_bytes (unsigned long address_a)
 {
 	return boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (address_a));
