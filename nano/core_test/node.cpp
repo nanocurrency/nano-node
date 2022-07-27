@@ -1874,99 +1874,122 @@ TEST (node, rep_weight)
 	ASSERT_TRUE (node.rep_crawler.is_pr (*channel3));
 }
 
+// Test that rep_crawler removes unreachable reps from its search results.
+// This test creates three principal representatives (rep1, rep2, genesis_rep) and
+// one node for searching them (searching_node).
 TEST (node, rep_remove)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	auto & node = *system.add_node (node_flags);
-	nano::keypair keypair1;
-	nano::keypair keypair2;
+	auto & searching_node = *system.add_node (); // will be used to find principal representatives
+	nano::keypair keys_rep1; // Principal representative 1
+	nano::keypair keys_rep2; // Principal representative 2
 	nano::block_builder builder;
-	std::shared_ptr<nano::block> block1 = builder
-										  .state ()
-										  .account (nano::dev::genesis_key.pub)
-										  .previous (nano::dev::genesis->hash ())
-										  .representative (nano::dev::genesis_key.pub)
-										  .balance (nano::dev::constants.genesis_amount - node.minimum_principal_weight () * 2)
-										  .link (keypair1.pub)
-										  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-										  .work (*system.work.generate (nano::dev::genesis->hash ()))
-										  .build ();
-	std::shared_ptr<nano::block> block2 = builder
-										  .state ()
-										  .account (keypair1.pub)
-										  .previous (0)
-										  .representative (keypair1.pub)
-										  .balance (node.minimum_principal_weight () * 2)
-										  .link (block1->hash ())
-										  .sign (keypair1.prv, keypair1.pub)
-										  .work (*system.work.generate (keypair1.pub))
-										  .build ();
-	std::shared_ptr<nano::block> block3 = builder
-										  .state ()
-										  .account (nano::dev::genesis_key.pub)
-										  .previous (block1->hash ())
-										  .representative (nano::dev::genesis_key.pub)
-										  .balance (nano::dev::constants.genesis_amount - node.minimum_principal_weight () * 4)
-										  .link (keypair2.pub)
-										  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-										  .work (*system.work.generate (block1->hash ()))
-										  .build ();
-	std::shared_ptr<nano::block> block4 = builder
-										  .state ()
-										  .account (keypair2.pub)
-										  .previous (0)
-										  .representative (keypair2.pub)
-										  .balance (node.minimum_principal_weight () * 2)
-										  .link (block3->hash ())
-										  .sign (keypair2.prv, keypair2.pub)
-										  .work (*system.work.generate (keypair2.pub))
-										  .build ();
+
+	// Send enough nanos to Rep1 to make it a principal representative
+	std::shared_ptr<nano::block> send_to_rep1 = builder
+												.state ()
+												.account (nano::dev::genesis_key.pub)
+												.previous (nano::dev::genesis->hash ())
+												.representative (nano::dev::genesis_key.pub)
+												.balance (nano::dev::constants.genesis_amount - searching_node.minimum_principal_weight () * 2)
+												.link (keys_rep1.pub)
+												.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+												.work (*system.work.generate (nano::dev::genesis->hash ()))
+												.build ();
+
+	// Receive by Rep1
+	std::shared_ptr<nano::block> receive_rep1 = builder
+												.state ()
+												.account (keys_rep1.pub)
+												.previous (0)
+												.representative (keys_rep1.pub)
+												.balance (searching_node.minimum_principal_weight () * 2)
+												.link (send_to_rep1->hash ())
+												.sign (keys_rep1.prv, keys_rep1.pub)
+												.work (*system.work.generate (keys_rep1.pub))
+												.build ();
+
+	// Send enough nanos to Rep2 to make it a principal representative
+	std::shared_ptr<nano::block> send_to_rep2 = builder
+												.state ()
+												.account (nano::dev::genesis_key.pub)
+												.previous (send_to_rep1->hash ())
+												.representative (nano::dev::genesis_key.pub)
+												.balance (nano::dev::constants.genesis_amount - searching_node.minimum_principal_weight () * 4)
+												.link (keys_rep2.pub)
+												.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+												.work (*system.work.generate (send_to_rep1->hash ()))
+												.build ();
+
+	// Receive by Rep2
+	std::shared_ptr<nano::block> receive_rep2 = builder
+												.state ()
+												.account (keys_rep2.pub)
+												.previous (0)
+												.representative (keys_rep2.pub)
+												.balance (searching_node.minimum_principal_weight () * 2)
+												.link (send_to_rep2->hash ())
+												.sign (keys_rep2.prv, keys_rep2.pub)
+												.work (*system.work.generate (keys_rep2.pub))
+												.build ();
 	{
-		auto transaction = node.store.tx_begin_write ();
-		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *block1).code);
-		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *block2).code);
-		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *block3).code);
-		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *block4).code);
+		auto transaction = searching_node.store.tx_begin_write ();
+		ASSERT_EQ (nano::process_result::progress, searching_node.ledger.process (transaction, *send_to_rep1).code);
+		ASSERT_EQ (nano::process_result::progress, searching_node.ledger.process (transaction, *receive_rep1).code);
+		ASSERT_EQ (nano::process_result::progress, searching_node.ledger.process (transaction, *send_to_rep2).code);
+		ASSERT_EQ (nano::process_result::progress, searching_node.ledger.process (transaction, *receive_rep2).code);
 	}
-	// Add inactive TCP representative channel
-	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), nano::test_node_port ());
-	std::shared_ptr<nano::transport::channel> channel0 (std::make_shared<nano::transport::channel_tcp> (node, std::weak_ptr<nano::socket> ()));
-	auto vote1 = std::make_shared<nano::vote> (keypair1.pub, keypair1.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
-	ASSERT_FALSE (node.rep_crawler.response (channel0, vote1));
-	ASSERT_TIMELY (5s, node.rep_crawler.representative_count () == 1);
-	auto reps (node.rep_crawler.representatives (1));
+
+	// Create inactive TCP channel for Rep1
+	std::shared_ptr<nano::transport::channel> channel_rep1 (std::make_shared<nano::transport::channel_tcp> (searching_node, std::weak_ptr<nano::socket> ()));
+
+	// Ensure Rep1 is found by the rep_crawler after receiving a vote from it
+	auto vote_rep1 = std::make_shared<nano::vote> (keys_rep1.pub, keys_rep1.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
+	ASSERT_FALSE (searching_node.rep_crawler.response (channel_rep1, vote_rep1));
+	ASSERT_TIMELY (5s, searching_node.rep_crawler.representative_count () == 1);
+	auto reps (searching_node.rep_crawler.representatives (1));
 	ASSERT_EQ (1, reps.size ());
-	ASSERT_EQ (node.minimum_principal_weight () * 2, reps[0].weight.number ());
-	ASSERT_EQ (keypair1.pub, reps[0].account);
-	ASSERT_EQ (*channel0, reps[0].channel_ref ());
-	// This channel is not reachable and should timeout
-	ASSERT_EQ (1, node.rep_crawler.representative_count ());
-	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 0);
-	// Add working representative
-	auto node1 = system.add_node (nano::node_config (nano::get_available_port (), system.logging));
+	ASSERT_EQ (searching_node.minimum_principal_weight () * 2, reps[0].weight.number ());
+	ASSERT_EQ (keys_rep1.pub, reps[0].account);
+	ASSERT_EQ (*channel_rep1, reps[0].channel_ref ());
+
+	// channel_rep1 is not reachable and should time out
+	ASSERT_EQ (1, searching_node.rep_crawler.representative_count ());
+	ASSERT_TIMELY (10s, searching_node.rep_crawler.representative_count () == 0);
+
+	// Add working node for genesis representative
+	auto node_genesis_rep = system.add_node (nano::node_config (nano::get_available_port (), system.logging));
 	system.wallet (1)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto channel1 (node.network.find_channel (node1->network.endpoint ()));
-	ASSERT_NE (nullptr, channel1);
-	auto vote2 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
-	node.rep_crawler.response (channel1, vote2);
-	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 1);
-	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), nano::node_config (nano::get_available_port (), system.logging), system.work));
-	node2->start ();
-	std::weak_ptr<nano::node> node_w (node.shared ());
-	auto vote3 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
-	node.network.tcp_channels.start_tcp (node2->network.endpoint ());
-	std::shared_ptr<nano::transport::channel> channel2;
-	ASSERT_TIMELY (10s, (channel2 = node.network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node2->network.endpoint ()))) != nullptr);
-	ASSERT_FALSE (node.rep_crawler.response (channel2, vote3));
-	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 2);
-	node2->stop ();
-	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 1);
-	reps = node.rep_crawler.representatives (1);
+	auto channel_genesis_rep (searching_node.network.find_channel (node_genesis_rep->network.endpoint ()));
+	ASSERT_NE (nullptr, channel_genesis_rep);
+
+	// genesis_rep should be found as principal representative after receiving a vote from it
+	auto vote_genesis_rep = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
+	searching_node.rep_crawler.response (channel_genesis_rep, vote_genesis_rep);
+	ASSERT_TIMELY (10s, searching_node.rep_crawler.representative_count () == 1);
+
+	// Start a node for Rep2 and wait until it is connected
+	auto node_rep2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), nano::node_config (nano::get_available_port (), system.logging), system.work));
+	node_rep2->start ();
+	searching_node.network.tcp_channels.start_tcp (node_rep2->network.endpoint ());
+	std::shared_ptr<nano::transport::channel> channel_rep2;
+	ASSERT_TIMELY (10s, (channel_rep2 = searching_node.network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node_rep2->network.endpoint ()))) != nullptr);
+
+	// Rep2 should be found as a principal representative after receiving a vote from it
+	auto vote_rep2 = std::make_shared<nano::vote> (keys_rep2.pub, keys_rep2.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
+	ASSERT_FALSE (searching_node.rep_crawler.response (channel_rep2, vote_rep2));
+	ASSERT_TIMELY (10s, searching_node.rep_crawler.representative_count () == 2);
+
+	// When Rep2 is stopped, it should not be found as principal representative anymore
+	node_rep2->stop ();
+	ASSERT_TIMELY (10s, searching_node.rep_crawler.representative_count () == 1);
+
+	// Now only genesisRep should be found:
+	reps = searching_node.rep_crawler.representatives (1);
 	ASSERT_EQ (nano::dev::genesis_key.pub, reps[0].account);
-	ASSERT_EQ (1, node.network.size ());
-	auto list (node.network.list (1));
-	ASSERT_EQ (node1->network.endpoint (), list[0]->get_endpoint ());
+	ASSERT_EQ (1, searching_node.network.size ());
+	auto list (searching_node.network.list (1));
+	ASSERT_EQ (node_genesis_rep->network.endpoint (), list[0]->get_endpoint ());
 }
 
 TEST (node, rep_connection_close)
