@@ -18,6 +18,8 @@ add_library(
   active_transactions.cpp
   backlog_population.hpp
   backlog_population.cpp
+  block_arrival.hpp
+  block_arrival.cpp
   blockprocessor.hpp
   blockprocessor.cpp
   bootstrap/block_deserializer.hpp
