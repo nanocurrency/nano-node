@@ -45,10 +45,10 @@ TEST (wallet, DISABLED_status)
 		return wallet->active_status.active.find (status_ty) != wallet->active_status.active.end ();
 	};
 	ASSERT_EQ ("Status: Disconnected, Blocks: 1", wallet->status->text ().toStdString ());
-	auto outer_node (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto outer_node (std::make_shared<nano::node> (system.io_ctx, nano::test::get_available_port (), nano::unique_path (), system.logging, system.work));
 	outer_node->start ();
 	system.nodes.push_back (outer_node);
-	nano::establish_tcp (system, *system.nodes[0], outer_node->network.endpoint ());
+	nano::test::establish_tcp (system, *system.nodes[0], outer_node->network.endpoint ());
 	// Because of the wallet "vulnerable" message, this won't be the message displayed.
 	// However, it will still be part of the status set.
 	ASSERT_FALSE (wallet_has (nano_qt::status_types::synchronizing));
