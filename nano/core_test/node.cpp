@@ -834,32 +834,21 @@ TEST (node, fork_flip)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	nano::publish publish2{ nano::dev::network_params.network, send2 };
+	auto ignored_channel{ std::make_shared<nano::transport::channel_tcp> (node1, std::weak_ptr<nano::socket> ()) };
 
-	// Dangling node instance just to be a tcp client for channel1.
-	auto outer_node1 (std::make_shared<nano::node> (system.io_ctx, nano::test::get_available_port (), nano::unique_path (), system.logging, system.work));
-	outer_node1->start ();
-	system.nodes.push_back (outer_node1);
-
-	auto channel1 = nano::test::establish_tcp (system, *outer_node1, node1.network.endpoint ());
-	node1.network.inbound (publish1, channel1);
+	node1.network.inbound (publish1, ignored_channel);
 	node1.block_processor.flush ();
 	node1.scheduler.flush ();
 
-	// Dangling node instance just to be a tcp client for channel2.
-	auto outer_node2 (std::make_shared<nano::node> (system.io_ctx, nano::test::get_available_port (), nano::unique_path (), system.logging, system.work));
-	outer_node2->start ();
-	system.nodes.push_back (outer_node2);
-
-	auto channel2 = nano::test::establish_tcp (system, *outer_node2, node1.network.endpoint ());
-	node2.network.inbound (publish2, channel2);
+	node2.network.inbound (publish2, ignored_channel);
 	node2.block_processor.flush ();
 	node2.scheduler.flush ();
 	ASSERT_EQ (1, node1.active.size ());
 	ASSERT_EQ (1, node2.active.size ());
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	node1.network.inbound (publish2, channel1);
+	node1.network.inbound (publish2, ignored_channel);
 	node1.block_processor.flush ();
-	node2.network.inbound (publish1, channel2);
+	node2.network.inbound (publish1, ignored_channel);
 	node2.block_processor.flush ();
 	auto election1 (node2.active.election (nano::qualified_root (nano::dev::genesis->hash (), nano::dev::genesis->hash ())));
 	ASSERT_NE (nullptr, election1);
