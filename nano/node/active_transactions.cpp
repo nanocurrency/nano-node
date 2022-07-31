@@ -869,11 +869,6 @@ std::size_t nano::active_transactions::election_winner_details_size ()
 	return election_winner_details.size ();
 }
 
-nano::cementable_account::cementable_account (nano::account const & account_a, std::size_t blocks_uncemented_a) :
-	account (account_a), blocks_uncemented (blocks_uncemented_a)
-{
-}
-
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (active_transactions & active_transactions, std::string const & name)
 {
 	std::size_t roots_count;

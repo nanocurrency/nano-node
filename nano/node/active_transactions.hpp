@@ -38,14 +38,6 @@ class transaction;
 class confirmation_height_processor;
 class stat;
 
-class cementable_account final
-{
-public:
-	cementable_account (nano::account const & account_a, std::size_t blocks_uncemented_a);
-	nano::account account;
-	uint64_t blocks_uncemented{ 0 };
-};
-
 class election_insertion_result final
 {
 public:
