@@ -972,6 +972,7 @@ TEST (node, fork_bootstrap_flip)
 	ASSERT_TRUE (node2.store.block.exists (node2.store.tx_begin_read (), send2->hash ()));
 	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ()); // Additionally add new peer to confirm & replace bootstrap block
 	auto again (true);
+	system0.deadline_set (50s);
 	system1.deadline_set (50s);
 	while (again)
 	{
