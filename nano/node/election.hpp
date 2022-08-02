@@ -53,6 +53,14 @@ struct election_extended_status final
 };
 class election final : public std::enable_shared_from_this<nano::election>
 {
+public:
+	enum class vote_source
+	{
+		live,
+		cache,
+	};
+
+private:
 	// Minimum time between broadcasts of the current winner of an election, as a backup to requesting confirmations
 	std::chrono::milliseconds base_latency () const;
 	std::function<void (std::shared_ptr<nano::block> const &)> confirmation_action;
@@ -108,9 +116,8 @@ public: // Interface
 	 * Process vote. Internally uses cooldown to throttle non-final votes
 	 * If the election reaches consensus, it will be confirmed
 	 */
-	nano::election_vote_result vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash);
+	nano::election_vote_result vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash, vote_source = vote_source::live);
 	bool publish (std::shared_ptr<nano::block> const & block_a);
-	std::size_t insert_inactive_votes_cache (nano::inactive_cache_information const &);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (nano::unique_lock<nano::mutex> &);
 
@@ -150,7 +157,6 @@ private:
 	nano::node & node;
 	mutable nano::mutex mutex;
 
-	static std::chrono::seconds constexpr late_blocks_delay{ 5 };
 	static std::size_t constexpr max_blocks{ 10 };
 
 	friend class active_transactions;

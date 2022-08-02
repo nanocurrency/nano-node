@@ -1,3 +1,4 @@
+#include <nano/node/election.hpp>
 #include <nano/node/inactive_cache_information.hpp>
 
 using namespace std::chrono;
@@ -14,4 +15,18 @@ std::string nano::inactive_cache_information::to_string () const
 		ss << " " << rep.to_account () << "/" << timestamp;
 	}
 	return ss.str ();
+}
+
+std::size_t nano::inactive_cache_information::fill (std::shared_ptr<nano::election> election) const
+{
+	std::size_t inserted = 0;
+	for (auto const & [rep, timestamp] : voters)
+	{
+		auto [is_replay, processed] = election->vote (rep, timestamp, hash, nano::election::vote_source::cache);
+		if (processed)
+		{
+			inserted++;
+		}
+	}
+	return inserted;
 }

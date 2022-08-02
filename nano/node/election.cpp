@@ -364,15 +364,13 @@ std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash
 	return result;
 }
 
-nano::election_vote_result nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano::block_hash const & block_hash_a)
+nano::election_vote_result nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano::block_hash const & block_hash_a, vote_source vote_source_a)
 {
 	auto replay = false;
 	auto weight = node.ledger.weight (rep);
 	auto should_process = false;
 	if (node.network_params.network.is_dev_network () || weight > node.minimum_principal_weight ())
 	{
-		const auto cooldown = cooldown_time (weight);
-
 		nano::unique_lock<nano::mutex> lock (mutex);
 
 		auto last_vote_it (last_votes.find (rep));
@@ -386,7 +384,15 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 			if (last_vote_l.timestamp < timestamp_a || (last_vote_l.timestamp == timestamp_a && last_vote_l.hash < block_hash_a))
 			{
 				auto max_vote = timestamp_a == std::numeric_limits<uint64_t>::max () && last_vote_l.timestamp < timestamp_a;
-				auto past_cooldown = last_vote_l.time <= std::chrono::steady_clock::now () - std::chrono::seconds (cooldown);
+
+				bool past_cooldown = true;
+				// Only cooldown live votes
+				if (vote_source_a == vote_source::live)
+				{
+					const auto cooldown = cooldown_time (weight);
+					past_cooldown = last_vote_l.time <= std::chrono::steady_clock::now () - cooldown;
+				}
+
 				should_process = max_vote || past_cooldown;
 			}
 			else
@@ -396,9 +402,14 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 		}
 		if (should_process)
 		{
-			node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_new);
 			last_votes[rep] = { std::chrono::steady_clock::now (), timestamp_a, block_hash_a };
-			live_vote_action (rep);
+			if (vote_source_a == vote_source::live)
+			{
+				live_vote_action (rep);
+			}
+
+			node.stats.inc (nano::stat::type::election, vote_source_a == vote_source::live ? nano::stat::detail::vote_new : nano::stat::detail::vote_cached);
+
 			if (!confirmed ())
 			{
 				confirm_if_quorum (lock);
@@ -448,37 +459,6 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 	3) given block in already in election & election contains less than 10 blocks (replacing block content with new)
 	*/
 	return result;
-}
-
-std::size_t nano::election::insert_inactive_votes_cache (nano::inactive_cache_information const & cache_a)
-{
-	nano::unique_lock<nano::mutex> lock (mutex);
-	for (auto const & [rep, timestamp] : cache_a.voters)
-	{
-		auto inserted (last_votes.emplace (rep, nano::vote_info{ std::chrono::steady_clock::time_point::min (), timestamp, cache_a.hash }));
-		if (inserted.second)
-		{
-			node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_cached);
-		}
-	}
-	if (!confirmed ())
-	{
-		if (!cache_a.voters.empty ())
-		{
-			auto delay (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - cache_a.arrival));
-			if (delay > late_blocks_delay)
-			{
-				node.stats.inc (nano::stat::type::election, nano::stat::detail::late_block);
-				node.stats.add (nano::stat::type::election, nano::stat::detail::late_block_seconds, nano::stat::dir::in, delay.count (), true);
-			}
-		}
-		if (last_votes.size () > 1) // null account
-		{
-			// Even if no votes were in cache, they could be in the election
-			confirm_if_quorum (lock);
-		}
-	}
-	return cache_a.voters.size ();
 }
 
 nano::election_extended_status nano::election::current_status () const
