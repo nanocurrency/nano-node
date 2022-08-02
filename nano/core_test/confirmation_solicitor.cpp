@@ -17,7 +17,7 @@ TEST (confirmation_solicitor, batches)
 	auto & node1 = *system.add_node (node_flags);
 	node_flags.disable_request_loop = true;
 	auto & node2 = *system.add_node (node_flags);
-	auto channel1 = nano::establish_tcp (system, node2, node1.network.endpoint ());
+	auto channel1 = nano::test::establish_tcp (system, node2, node1.network.endpoint ());
 	// Solicitor will only solicit from this representative
 	nano::representative representative (nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, channel1);
 	std::vector<nano::representative> representatives{ representative };
@@ -67,7 +67,7 @@ TEST (confirmation_solicitor, different_hash)
 	node_flags.disable_rep_crawler = true;
 	auto & node1 = *system.add_node (node_flags);
 	auto & node2 = *system.add_node (node_flags);
-	auto channel1 = nano::establish_tcp (system, node2, node1.network.endpoint ());
+	auto channel1 = nano::test::establish_tcp (system, node2, node1.network.endpoint ());
 	// Solicitor will only solicit from this representative
 	nano::representative representative (nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, channel1);
 	std::vector<nano::representative> representatives{ representative };

@@ -221,8 +221,8 @@ TEST (request_aggregator, two_endpoints)
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (node1.store.tx_begin_write (), *send1).code);
 
 	// Simulate connections only for the remote endpoint fields to be valid.
-	boost::asio::ip::tcp::endpoint listen_endpoint1{ boost::asio::ip::address_v6::any (), nano::get_available_port () };
-	boost::asio::ip::tcp::endpoint listen_endpoint2{ boost::asio::ip::address_v6::any (), nano::get_available_port () };
+	boost::asio::ip::tcp::endpoint listen_endpoint1{ boost::asio::ip::address_v6::any (), nano::test::get_available_port () };
+	boost::asio::ip::tcp::endpoint listen_endpoint2{ boost::asio::ip::address_v6::any (), nano::test::get_available_port () };
 	auto server_socket1 = std::make_shared<nano::server_socket> (node2, listen_endpoint1, 1);
 	{
 		boost::system::error_code ec;
