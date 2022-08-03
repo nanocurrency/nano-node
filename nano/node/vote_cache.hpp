@@ -43,6 +43,13 @@ class vote;
 class vote_cache final
 {
 public:
+	class config final
+	{
+	public:
+		std::size_t max_size;
+	};
+
+public:
 	/**
 	 * Class that stores votes associated with a single block hash
 	 */
@@ -77,7 +84,7 @@ private:
 	};
 
 public:
-	explicit vote_cache (std::size_t max_size);
+	explicit vote_cache (const config);
 
 	/**
 	 * Adds a new vote to cache
@@ -121,7 +128,7 @@ private:
 	std::optional<entry> find_locked (nano::block_hash const & hash) const;
 	void trim_overflow_locked ();
 
-	const std::size_t max_size = 1024 * 128;
+	const std::size_t max_size;
 
 	// clang-format off
 	class tag_random_access {};

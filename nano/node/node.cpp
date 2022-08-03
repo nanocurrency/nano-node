@@ -39,6 +39,13 @@ nano::backlog_population::config nano::nodeconfig_to_backlog_population_config (
 	return cfg;
 }
 
+nano::vote_cache::config nano::nodeconfig_to_vote_cache_config (node_config const & config, node_flags const & flags)
+{
+	vote_cache::config cfg;
+	cfg.max_size = flags.inactive_votes_cache_size;
+	return cfg;
+}
+
 void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 {
 	auto node_l (shared_from_this ());
@@ -158,7 +165,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	history{ config.network_params.voting },
 	vote_uniquer (block_uniquer),
 	confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
-	inactive_vote_cache{ flags.inactive_votes_cache_size },
+	inactive_vote_cache{ nodeconfig_to_vote_cache_config (config, flags) },
 	active (*this, confirmation_height_processor),
 	scheduler{ *this },
 	aggregator (config, stats, active.generator, active.final_generator, history, ledger, wallets, active),
