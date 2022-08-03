@@ -29,6 +29,7 @@ namespace mi = boost::multi_index;
 namespace nano
 {
 class node;
+class active_transactions;
 class block;
 class block_sideband;
 class election;
@@ -37,6 +38,46 @@ class vote;
 class transaction;
 class confirmation_height_processor;
 class stat;
+
+class recently_confirmed final
+{
+public:
+	using entry_t = std::pair<nano::qualified_root, nano::block_hash>;
+
+	explicit recently_confirmed (std::size_t max_size);
+
+	void put (nano::qualified_root const &, nano::block_hash const &);
+	void erase (nano::block_hash const &);
+	void clear ();
+	std::size_t size () const;
+
+	bool exists (nano::qualified_root const &) const;
+	bool exists (nano::block_hash const &) const;
+
+public: // Tests
+	entry_t back () const;
+
+private:
+	// clang-format off
+	class tag_root {};
+	class tag_hash {};
+
+	using ordered_recent_confirmations = boost::multi_index_container<entry_t,
+	mi::indexed_by<
+		mi::sequenced<mi::tag<tag_sequence>>,
+		mi::hashed_unique<mi::tag<tag_root>,
+			mi::member<entry_t, nano::qualified_root, &entry_t::first>>,
+		mi::hashed_unique<mi::tag<tag_hash>,
+			mi::member<entry_t, nano::block_hash, &entry_t::second>>>>;
+	// clang-format on
+	ordered_recent_confirmations confirmed;
+
+	std::size_t const max_size;
+
+	mutable nano::mutex mutex;
+
+	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, std::string const &);
+};
 
 class election_insertion_result final
 {
@@ -110,8 +151,6 @@ public:
 	std::deque<nano::election_status> recently_cemented;
 
 	void add_recently_cemented (nano::election_status const &);
-	void add_recently_confirmed (nano::qualified_root const &, nano::block_hash const &);
-	void erase_recently_confirmed (nano::block_hash const &);
 	void add_inactive_votes_cache (nano::unique_lock<nano::mutex> &, nano::block_hash const &, nano::account const &, uint64_t const);
 	// Inserts an election if conditions are met
 	void trigger_inactive_votes_cache_election (std::shared_ptr<nano::block> const &);
@@ -128,6 +167,8 @@ public:
 
 	nano::vote_generator generator;
 	nano::vote_generator final_generator;
+
+	recently_confirmed recently_confirmed;
 
 #ifdef MEMORY_POOL_DISABLED
 	using allocator = std::allocator<nano::inactive_cache_information>;
@@ -168,19 +209,6 @@ private:
 
 	// Maximum time an election can be kept active if it is extending the container
 	std::chrono::seconds const election_time_to_live;
-
-	static std::size_t constexpr recently_confirmed_size{ 65536 };
-	using recent_confirmation = std::pair<nano::qualified_root, nano::block_hash>;
-	// clang-format off
-	boost::multi_index_container<recent_confirmation,
-	mi::indexed_by<
-		mi::sequenced<mi::tag<tag_sequence>>,
-		mi::hashed_unique<mi::tag<tag_root>,
-			mi::member<recent_confirmation, nano::qualified_root, &recent_confirmation::first>>,
-		mi::hashed_unique<mi::tag<tag_hash>,
-			mi::member<recent_confirmation, nano::block_hash, &recent_confirmation::second>>>>
-	recently_confirmed;
-	// clang-format on
 
 	int active_hinted_elections_count{ 0 };
 

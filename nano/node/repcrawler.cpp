@@ -172,7 +172,8 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 	}
 	if (!channels_a.empty ())
 	{
-		node.active.erase_recently_confirmed (hash_root.first);
+		// In case our random block is a recently confirmed one, we remove an entry otherwise votes will be marked as replay and not forwarded to repcrawler
+		node.active.recently_confirmed.erase (hash_root.first);
 	}
 	for (auto i (channels_a.begin ()), n (channels_a.end ()); i != n; ++i)
 	{
