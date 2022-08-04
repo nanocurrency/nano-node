@@ -716,6 +716,8 @@ void nano::active_transactions::add_inactive_votes_cache (nano::unique_lock<nano
 				inactive_by_arrival.erase (inactive_by_arrival.begin ());
 			}
 		}
+
+		node.stats.inc (nano::stat::type::vote_cache, nano::stat::detail::vote_new);
 	}
 }
 

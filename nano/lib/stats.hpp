@@ -242,7 +242,8 @@ public:
 		requests,
 		filter,
 		telemetry,
-		vote_generator
+		vote_generator,
+		vote_cache
 	};
 
 	/** Optional detail type */

@@ -542,6 +542,9 @@ std::string nano::stat::type_to_string (stat::type type)
 		case nano::stat::type::vote_generator:
 			res = "vote_generator";
 			break;
+		case nano::stat::type::vote_cache:
+			res = "vote_cache";
+			break;
 	}
 	return res;
 }
