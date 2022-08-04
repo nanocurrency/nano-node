@@ -840,6 +840,13 @@ std::size_t nano::active_transactions::election_winner_details_size ()
 	return election_winner_details.size ();
 }
 
+void nano::active_transactions::clear ()
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	blocks.clear ();
+	roots.clear ();
+}
+
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (active_transactions & active_transactions, std::string const & name)
 {
 	std::size_t roots_count;

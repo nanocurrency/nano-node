@@ -245,6 +245,9 @@ private:
 	friend class election_scheduler;
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, std::string const &);
 
+public: // Tests
+	void clear ();
+
 	friend class active_transactions_vote_replays_Test;
 	friend class frontiers_confirmation_prioritize_frontiers_Test;
 	friend class frontiers_confirmation_prioritize_frontiers_max_optimistic_elections_Test;
