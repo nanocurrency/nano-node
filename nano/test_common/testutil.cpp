@@ -36,3 +36,81 @@ void nano::test::wait_peer_connections (nano::test::system & system_a)
 	wait_peer_count (true);
 	wait_peer_count (false);
 }
+
+bool nano::test::process (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
+{
+	for (auto & block : blocks)
+	{
+		auto result = node.process (*block);
+		if (result.code != nano::process_result::progress)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+bool nano::test::confirm (nano::node & node, std::vector<nano::block_hash> hashes)
+{
+	// Finish processing all blocks
+	node.block_processor.flush ();
+	for (auto & hash : hashes)
+	{
+		if (node.block_confirmed (hash))
+		{
+			continue;
+		}
+
+		auto disk_block = node.block (hash);
+		// A sideband is required to start an election
+		release_assert (disk_block != nullptr);
+		release_assert (disk_block->has_sideband ());
+		// This only starts election
+		auto election = node.block_confirm (disk_block);
+		if (election == nullptr)
+		{
+			return false;
+		}
+		// Here we actually confirm the block
+		election->force_confirm ();
+	}
+	return true;
+}
+
+bool nano::test::confirm (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
+{
+	std::vector<nano::block_hash> hashes;
+	std::transform (blocks.begin (), blocks.end (), std::back_inserter (hashes), [] (auto & block) { return block->hash (); });
+	return confirm (node, hashes);
+}
+
+bool nano::test::confirmed (nano::node & node, std::vector<nano::block_hash> hashes)
+{
+	for (auto & hash : hashes)
+	{
+		if (!node.block_confirmed (hash))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+bool nano::test::confirmed (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
+{
+	std::vector<nano::block_hash> hashes;
+	std::transform (blocks.begin (), blocks.end (), std::back_inserter (hashes), [] (auto & block) { return block->hash (); });
+	return confirmed (node, hashes);
+}
+
+std::shared_ptr<nano::vote> nano::test::make_vote (nano::keypair key, std::vector<nano::block_hash> hashes, uint64_t timestamp, uint8_t duration)
+{
+	return std::make_shared<nano::vote> (key.pub, key.prv, timestamp, duration, hashes);
+}
+
+std::shared_ptr<nano::vote> nano::test::make_vote (nano::keypair key, std::vector<std::shared_ptr<nano::block>> blocks, uint64_t timestamp, uint8_t duration)
+{
+	std::vector<nano::block_hash> hashes;
+	std::transform (blocks.begin (), blocks.end (), std::back_inserter (hashes), [] (auto & block) { return block->hash (); });
+	return make_vote (key, hashes, timestamp, duration);
+}

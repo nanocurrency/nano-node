@@ -41,16 +41,25 @@ namespace test
 		/** Generate work with difficulty between \p min_difficulty_a (inclusive) and \p max_difficulty_a (exclusive) */
 		uint64_t work_generate_limited (nano::block_hash const & root_a, uint64_t min_difficulty_a, uint64_t max_difficulty_a);
 		/**
-	 * Polls, sleep if there's no work to be done (default 50ms), then check the deadline
-	 * @returns 0 or nano::deadline_expired
+		 * Polls, sleep if there's no work to be done (default 50ms), then check the deadline
+		 * @returns 0 or nano::deadline_expired
 		 */
 		std::error_code poll (std::chrono::nanoseconds const & sleep_time = std::chrono::milliseconds (50));
 		std::error_code poll_until_true (std::chrono::nanoseconds deadline, std::function<bool ()>);
 		void delay_ms (std::chrono::milliseconds const & delay);
 		void stop ();
 		void deadline_set (std::chrono::duration<double, std::nano> const & delta);
+		/*
+		 * Convenience function to get a reference to a node at given index. Does bound checking.
+		 */
+		nano::node & node (std::size_t index) const;
 		std::shared_ptr<nano::node> add_node (nano::node_flags = nano::node_flags (), nano::transport::transport_type = nano::transport::transport_type::tcp);
 		std::shared_ptr<nano::node> add_node (nano::node_config const &, nano::node_flags = nano::node_flags (), nano::transport::transport_type = nano::transport::transport_type::tcp);
+		/*
+		 * Returns default config for node running in test environment
+		 */
+		nano::node_config default_config ();
+
 		boost::asio::io_context io_ctx;
 		std::vector<std::shared_ptr<nano::node>> nodes;
 		nano::logging logging;

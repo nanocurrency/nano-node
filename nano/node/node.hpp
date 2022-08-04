@@ -108,7 +108,11 @@ public:
 	boost::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::root const &, uint64_t, boost::optional<nano::account> const & = boost::none);
 	void work_generate (nano::work_version const, nano::root const &, uint64_t, std::function<void (boost::optional<uint64_t>)>, boost::optional<nano::account> const & = boost::none, bool const = false);
 	void add_initial_peers ();
-	void block_confirm (std::shared_ptr<nano::block> const &);
+	/*
+	 * Starts an election for the block, DOES NOT confirm it
+	 * TODO: Rename to `start_election`
+	 */
+	std::shared_ptr<nano::election> block_confirm (std::shared_ptr<nano::block> const &);
 	bool block_confirmed (nano::block_hash const &);
 	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string> const &, std::shared_ptr<std::string> const &, std::shared_ptr<boost::asio::ip::tcp::resolver> const &);
