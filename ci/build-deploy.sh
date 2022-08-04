@@ -1,7 +1,6 @@
 #!/bin/bash
 
 qt_dir=${1}
-src_dir=${2}
 
 set -o errexit
 set -o nounset
