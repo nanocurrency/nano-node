@@ -595,8 +595,14 @@ public:
 	/** Returns a new JSON log sink */
 	std::unique_ptr<stat_log_sink> log_sink_json () const;
 
+	/** Returns string representation of type */
+	static std::string type_to_string (stat::type type);
+
 	/** Returns string representation of detail */
 	static std::string detail_to_string (stat::detail detail);
+
+	/** Returns string representation of dir */
+	static std::string dir_to_string (stat::dir detail);
 
 	/** Stop stats being output */
 	void stop ();

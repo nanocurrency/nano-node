@@ -462,6 +462,11 @@ void nano::stat::clear ()
 std::string nano::stat::type_to_string (uint32_t key)
 {
 	auto type = static_cast<stat::type> (key >> 16 & 0x000000ff);
+	return type_to_string (type);
+}
+
+std::string nano::stat::type_to_string (stat::type type)
+{
 	std::string res;
 	switch (type)
 	{
@@ -939,6 +944,11 @@ std::string nano::stat::detail_to_string (uint32_t key)
 std::string nano::stat::dir_to_string (uint32_t key)
 {
 	auto dir = static_cast<stat::dir> (key & 0x000000ff);
+	return dir_to_string (dir);
+}
+
+std::string nano::stat::dir_to_string (dir dir)
+{
 	std::string res;
 	switch (dir)
 	{
