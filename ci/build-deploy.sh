@@ -1,6 +1,10 @@
 #!/bin/bash
 
 qt_dir=${1}
+ci_version_pre_release="OFF"
+if [[ -n "${CI_VERSION_PRE_RELEASE}" ]]; then
+    ci_version_pre_release="$CI_VERSION_PRE_RELEASE"
+fi
 
 set -o errexit
 set -o nounset
@@ -32,6 +36,7 @@ cmake \
 -DNANO_SHARED_BOOST=ON \
 -DQt5_DIR=${qt_dir} \
 -DCI_BUILD=true \
+-DCI_VERSION_PRE_RELEASE="${ci_version_pre_release}" \
 ..
 
 if [[ "$OS" == 'Linux' ]]; then
