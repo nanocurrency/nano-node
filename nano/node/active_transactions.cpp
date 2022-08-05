@@ -883,12 +883,12 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
  * class recently_confirmed
  */
 
-nano::recently_confirmed::recently_confirmed (std::size_t max_size_a) :
+nano::recently_confirmed_cache::recently_confirmed_cache (std::size_t max_size_a) :
 	max_size{ max_size_a }
 {
 }
 
-void nano::recently_confirmed::put (const nano::qualified_root & root, const nano::block_hash & hash)
+void nano::recently_confirmed_cache::put (const nano::qualified_root & root, const nano::block_hash & hash)
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	confirmed.get<tag_sequence> ().emplace_back (root, hash);
@@ -898,37 +898,37 @@ void nano::recently_confirmed::put (const nano::qualified_root & root, const nan
 	}
 }
 
-void nano::recently_confirmed::erase (const nano::block_hash & hash)
+void nano::recently_confirmed_cache::erase (const nano::block_hash & hash)
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	confirmed.get<tag_hash> ().erase (hash);
 }
 
-void nano::recently_confirmed::clear ()
+void nano::recently_confirmed_cache::clear ()
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	confirmed.clear ();
 }
 
-bool nano::recently_confirmed::exists (const nano::block_hash & hash) const
+bool nano::recently_confirmed_cache::exists (const nano::block_hash & hash) const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return confirmed.get<tag_hash> ().find (hash) != confirmed.get<tag_hash> ().end ();
 }
 
-bool nano::recently_confirmed::exists (const nano::qualified_root & root) const
+bool nano::recently_confirmed_cache::exists (const nano::qualified_root & root) const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return confirmed.get<tag_root> ().find (root) != confirmed.get<tag_root> ().end ();
 }
 
-std::size_t nano::recently_confirmed::size () const
+std::size_t nano::recently_confirmed_cache::size () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return confirmed.size ();
 }
 
-nano::recently_confirmed::entry_t nano::recently_confirmed::back () const
+nano::recently_confirmed_cache::entry_t nano::recently_confirmed_cache::back () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return confirmed.back ();

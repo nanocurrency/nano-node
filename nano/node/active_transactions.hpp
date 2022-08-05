@@ -39,12 +39,12 @@ class transaction;
 class confirmation_height_processor;
 class stat;
 
-class recently_confirmed final
+class recently_confirmed_cache final
 {
 public:
 	using entry_t = std::pair<nano::qualified_root, nano::block_hash>;
 
-	explicit recently_confirmed (std::size_t max_size);
+	explicit recently_confirmed_cache (std::size_t max_size);
 
 	void put (nano::qualified_root const &, nano::block_hash const &);
 	void erase (nano::block_hash const &);
@@ -168,7 +168,7 @@ public:
 	nano::vote_generator generator;
 	nano::vote_generator final_generator;
 
-	recently_confirmed recently_confirmed;
+	recently_confirmed_cache recently_confirmed;
 
 #ifdef MEMORY_POOL_DISABLED
 	using allocator = std::allocator<nano::inactive_cache_information>;
