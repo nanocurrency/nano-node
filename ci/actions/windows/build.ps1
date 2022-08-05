@@ -15,8 +15,12 @@ if (${env:artifact} -eq 1) {
     $env:NANO_SHARED_BOOST = "ON"
     $env:NANO_TEST = "-DNANO_TEST=OFF"
     $env:CI_TAG = ${env:TAG}
-    
-    $env:CI = "-DCI_BUILD=ON"
+    if ([string]::IsNullOrEmpty(${env:VERSION_PRE_RELEASE})) {
+        $env:CI_VERSION_PRE_RELEASE = "OFF"
+    } else {
+        $env:CI_VERSION_PRE_RELEASE = ${env:VERSION_PRE_RELEASE}
+    }
+    $env:CI = "-DCI_BUILD=ON -DCI_VERSION_PRE_RELEASE=${env:CI_VERSION_PRE_RELEASE}"
     $env:RUN = "artifact"
 }
 else {
