@@ -2227,7 +2227,7 @@ TEST (node, block_confirm)
 		node2.block_confirm (send1_copy);
 		auto election = node2.active.election (send1_copy->qualified_root ());
 		ASSERT_NE (nullptr, election);
-		ASSERT_TIMELY (10s, node1.active.list_recently_cemented ().size () == 1);
+		ASSERT_TIMELY (10s, node1.active.recently_cemented.list ().size () == 1);
 	}
 }
 
