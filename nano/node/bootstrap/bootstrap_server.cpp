@@ -235,9 +235,20 @@ bool nano::bootstrap_server::process_message (std::unique_ptr<nano::message> mes
 {
 	node->stats.inc (nano::stat::type::bootstrap_server, nano::message_type_to_stat_detail (message->header.type), nano::stat::dir::in);
 
-	debug_assert (is_handshake_connection () || is_realtime_connection () || is_bootstrap_connection ());
+	debug_assert (is_undefined_connection () || is_realtime_connection () || is_bootstrap_connection ());
 
-	if (is_handshake_connection ())
+	/*
+	 * Server initially starts in undefined state, where it waits for either a handshake or booststrap request message
+	 * If the server receives a handshake (and it is successfully validated) it will switch to a realtime mode.
+	 * In realtime mode messages are deserialized and queued to `tcp_message_manager` for further processing.
+	 * In realtime mode any bootstrap requests are ignored.
+	 *
+	 * If the server receives a bootstrap request before receiving a handshake, it will switch to a bootstrap mode.
+	 * In bootstrap mode once a valid bootstrap request message is received, the server will start a corresponding bootstrap server and pass control to that server.
+	 * Once that server finishes its task, control is passed back to this server to read and process any subsequent messages.
+	 * In bootstrap mode any realtime messages are ignored
+	 */
+	if (is_undefined_connection ())
 	{
 		handshake_message_visitor handshake_visitor{ shared_from_this () };
 		message->visit (handshake_visitor);
@@ -546,7 +557,7 @@ bool nano::bootstrap_server::to_realtime_connection (nano::account const & node_
 	return false;
 }
 
-bool nano::bootstrap_server::is_handshake_connection () const
+bool nano::bootstrap_server::is_undefined_connection () const
 {
 	return socket->type () == nano::socket::type_t::undefined;
 }

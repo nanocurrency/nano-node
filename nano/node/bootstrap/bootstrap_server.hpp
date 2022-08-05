@@ -71,7 +71,7 @@ private:
 
 	bool to_bootstrap_connection ();
 	bool to_realtime_connection (nano::account const & node_id);
-	bool is_handshake_connection () const;
+	bool is_undefined_connection () const;
 	bool is_bootstrap_connection () const;
 	bool is_realtime_connection () const;
 
