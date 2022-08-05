@@ -45,12 +45,23 @@ namespace bootstrap
 
 		message_deserializer (network_constants const &, network_filter &, block_uniquer &, vote_uniquer &);
 
+		/*
+		 * Asynchronously read next message from socket.
+		 * If an irrecoverable error is encountered callback will be called with an error code set and null message.
+		 * If a 'soft' error is encountered (eg. duplicate block publish) error won't be set but message will be null. In that case, `status` field will be set to code indicating reason for failure.
+		 * If message is received successfully, error code won't be set and message will be non-null. `status` field will be set to `success`.
+		 * Should not be called until the previous invocation finishes and calls the callback.
+		 */
 		void read (std::shared_ptr<nano::socket> socket, callback_type const && callback);
 
 	private:
 		void received_header (std::shared_ptr<nano::socket> socket, callback_type const && callback);
 		void received_message (nano::message_header header, std::size_t payload_size, callback_type const && callback);
 
+		/*
+		 * Deserializes message using data in `read_buffer`.
+		 * @return If successful returns non-null message, otherwise sets `status` to error appropriate code and returns nullptr
+		 */
 		std::unique_ptr<nano::message> deserialize (nano::message_header header, std::size_t payload_size);
 		std::unique_ptr<nano::keepalive> deserialize_keepalive (nano::stream &, nano::message_header const &);
 		std::unique_ptr<nano::publish> deserialize_publish (nano::stream &, nano::message_header const &, nano::uint128_t const & = 0);

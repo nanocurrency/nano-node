@@ -81,6 +81,7 @@ void nano::bootstrap::message_deserializer::received_header (std::shared_ptr<nan
 
 	if (payload_size == 0)
 	{
+		// Payload size will be 0 for `bulk_push` & `telemetry_req` message type
 		received_message (header, 0, std::move (callback));
 	}
 	else
@@ -129,6 +130,7 @@ std::unique_ptr<nano::message> nano::bootstrap::message_deserializer::deserializ
 		}
 		case nano::message_type::publish:
 		{
+			// Early filtering to not waste time deserializing duplicate blocks
 			nano::uint128_t digest;
 			if (!publish_filter_m.apply (read_buffer->data (), payload_size, &digest))
 			{
@@ -277,16 +279,8 @@ std::unique_ptr<nano::node_id_handshake> nano::bootstrap::message_deserializer::
 
 std::unique_ptr<nano::telemetry_req> nano::bootstrap::message_deserializer::deserialize_telemetry_req (nano::stream & stream, nano::message_header const & header)
 {
-	auto incoming = std::make_unique<nano::telemetry_req> (header);
-	if (at_end (stream))
-	{
-		return incoming;
-	}
-	else
-	{
-		status = parse_status::invalid_telemetry_req_message;
-	}
-	return {};
+	// Message does not use stream payload (header only)
+	return std::make_unique<nano::telemetry_req> (header);
 }
 
 std::unique_ptr<nano::telemetry_ack> nano::bootstrap::message_deserializer::deserialize_telemetry_ack (nano::stream & stream, nano::message_header const & header)
@@ -352,6 +346,7 @@ std::unique_ptr<nano::frontier_req> nano::bootstrap::message_deserializer::deser
 
 std::unique_ptr<nano::bulk_push> nano::bootstrap::message_deserializer::deserialize_bulk_push (nano::stream & stream, const nano::message_header & header)
 {
+	// Message does not use stream payload (header only)
 	return std::make_unique<nano::bulk_push> (header);
 }
 
