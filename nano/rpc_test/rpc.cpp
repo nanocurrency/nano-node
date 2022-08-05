@@ -3786,7 +3786,7 @@ TEST (rpc, wallet_info)
 
 	// do another send to be able to expect some "pending" down below
 	auto send2 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, 1));
-	ASSERT_EQ (4, node->ledger.cache.block_count);
+	ASSERT_TIMELY (5s, 4 == node->ledger.cache.block_count && 4 == node->ledger.cache.cemented_count);
 
 	nano::account account (system.wallet (0)->deterministic_insert ());
 	{
@@ -3808,7 +3808,7 @@ TEST (rpc, wallet_info)
 	std::string block_count_text (response.get<std::string> ("accounts_block_count"));
 	ASSERT_EQ ("4", block_count_text);
 	std::string cemented_block_count_text (response.get<std::string> ("accounts_cemented_block_count"));
-	ASSERT_EQ ("3", cemented_block_count_text);
+	ASSERT_EQ ("4", cemented_block_count_text);
 	std::string adhoc_count (response.get<std::string> ("adhoc_count"));
 	ASSERT_EQ ("2", adhoc_count);
 	std::string deterministic_count (response.get<std::string> ("deterministic_count"));
