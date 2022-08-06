@@ -71,6 +71,7 @@ public:
 	bool has_timed_out () const;
 	/** This can be called to change the maximum idle time, e.g. based on the type of traffic detected. */
 	void set_default_timeout_value (std::chrono::seconds);
+	std::chrono::seconds get_default_timeout_value () const;
 	void set_timeout (std::chrono::seconds);
 	void set_silent_connection_tolerance_time (std::chrono::seconds tolerance_time_a);
 	bool max () const
@@ -96,6 +97,10 @@ public:
 	bool is_realtime_connection ()
 	{
 		return type () == nano::socket::type_t::realtime || type () == nano::socket::type_t::realtime_response_server;
+	}
+	bool is_bootstrap_connection ()
+	{
+		return type () == nano::socket::type_t::bootstrap;
 	}
 	bool is_closed ()
 	{
@@ -168,6 +173,8 @@ private:
 public:
 	static std::size_t constexpr queue_size_max = 128;
 };
+
+std::string socket_type_to_string (socket::type_t type);
 
 using address_socket_mmap = std::multimap<boost::asio::ip::address, std::weak_ptr<socket>>;
 

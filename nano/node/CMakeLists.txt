@@ -42,6 +42,8 @@ add_library(
   bootstrap/bootstrap_server.cpp
   bootstrap/bootstrap.hpp
   bootstrap/bootstrap.cpp
+  bootstrap/message_deserializer.hpp
+  bootstrap/message_deserializer.cpp
   cli.hpp
   cli.cpp
   common.hpp

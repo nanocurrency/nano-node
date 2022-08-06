@@ -734,7 +734,7 @@ TEST (node, port_mapping)
 	node0->port_mapping.start ();
 	auto end (std::chrono::steady_clock::now () + std::chrono::seconds (500));
 	(void)end;
-	//while (std::chrono::steady_clock::now () < end)
+	// while (std::chrono::steady_clock::now () < end)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -1382,7 +1382,7 @@ TEST (network, filter_invalid_network_bytes)
 	const_cast<nano::networks &> (keepalive.header.network) = nano::networks::invalid;
 	channel->send (keepalive);
 
-	ASSERT_TIMELY (5s, 1 == node1.stats.count (nano::stat::type::message, nano::stat::detail::invalid_network));
+	ASSERT_TIMELY (5s, 1 == node1.stats.count (nano::stat::type::error, nano::stat::detail::invalid_network));
 }
 
 // Ensure the network filters messages with the incorrect minimum version
@@ -1401,7 +1401,7 @@ TEST (network, filter_invalid_version_using)
 	const_cast<uint8_t &> (keepalive.header.version_using) = nano::dev::network_params.network.protocol_version_min - 1;
 	channel->send (keepalive);
 
-	ASSERT_TIMELY (5s, 1 == node1.stats.count (nano::stat::type::message, nano::stat::detail::outdated_version));
+	ASSERT_TIMELY (5s, 1 == node1.stats.count (nano::stat::type::error, nano::stat::detail::outdated_version));
 }
 
 TEST (network, fill_keepalive_self)

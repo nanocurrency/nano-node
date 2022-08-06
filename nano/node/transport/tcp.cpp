@@ -665,7 +665,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 													// Listen for possible responses
 													response_server->socket->type_set (nano::socket::type_t::realtime_response_server);
 													response_server->remote_node_id = channel_a->get_node_id ();
-													response_server->receive ();
+													response_server->start ();
 
 													if (!node_l->flags.disable_initial_telemetry_requests)
 													{

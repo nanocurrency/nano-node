@@ -213,7 +213,7 @@ void nano::bulk_push_server::received_type ()
 		}
 		case nano::block_type::not_a_block:
 		{
-			connection->finish_request ();
+			connection->start ();
 			break;
 		}
 		default:

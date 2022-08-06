@@ -522,7 +522,7 @@ void nano::bulk_pull_server::no_block_sent (boost::system::error_code const & ec
 	if (!ec)
 	{
 		debug_assert (size_a == 1);
-		connection->finish_request ();
+		connection->start ();
 	}
 	else
 	{
@@ -849,7 +849,7 @@ void nano::bulk_pull_account_server::complete (boost::system::error_code const &
 			}
 		}
 
-		connection->finish_request ();
+		connection->start ();
 	}
 	else
 	{

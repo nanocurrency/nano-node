@@ -300,7 +300,7 @@ void nano::frontier_req_server::no_block_sent (boost::system::error_code const &
 {
 	if (!ec)
 	{
-		connection->finish_request ();
+		connection->start ();
 	}
 	else
 	{

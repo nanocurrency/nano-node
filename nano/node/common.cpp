@@ -129,6 +129,42 @@ std::string nano::message_type_to_string (nano::message_type message_type_l)
 	return "n/a";
 }
 
+nano::stat::detail nano::message_type_to_stat_detail (nano::message_type message_type)
+{
+	switch (message_type)
+	{
+		case nano::message_type::invalid:
+			return nano::stat::detail::invalid;
+		case nano::message_type::not_a_type:
+			return nano::stat::detail::not_a_type;
+		case nano::message_type::keepalive:
+			return nano::stat::detail::keepalive;
+		case nano::message_type::publish:
+			return nano::stat::detail::publish;
+		case nano::message_type::confirm_req:
+			return nano::stat::detail::confirm_req;
+		case nano::message_type::confirm_ack:
+			return nano::stat::detail::confirm_ack;
+		case nano::message_type::bulk_pull:
+			return nano::stat::detail::bulk_pull;
+		case nano::message_type::bulk_push:
+			return nano::stat::detail::bulk_push;
+		case nano::message_type::frontier_req:
+			return nano::stat::detail::frontier_req;
+		case nano::message_type::node_id_handshake:
+			return nano::stat::detail::node_id_handshake;
+		case nano::message_type::bulk_pull_account:
+			return nano::stat::detail::bulk_pull_account;
+		case nano::message_type::telemetry_req:
+			return nano::stat::detail::telemetry_req;
+		case nano::message_type::telemetry_ack:
+			return nano::stat::detail::telemetry_ack;
+			// default case intentionally omitted to cause warnings for unhandled enums
+	}
+	debug_assert (false);
+	return {};
+}
+
 std::string nano::message_header::to_string ()
 {
 	// Cast to uint16_t to get integer value since uint8_t is treated as an unsigned char in string formatting.
@@ -316,6 +352,31 @@ std::size_t nano::message_header::payload_length_bytes () const
 		{
 			debug_assert (false);
 			return 0;
+		}
+	}
+}
+
+bool nano::message_header::is_valid_message_type () const
+{
+	switch (type)
+	{
+		case nano::message_type::bulk_pull:
+		case nano::message_type::bulk_push:
+		case nano::message_type::telemetry_req:
+		case nano::message_type::frontier_req:
+		case nano::message_type::bulk_pull_account:
+		case nano::message_type::keepalive:
+		case nano::message_type::publish:
+		case nano::message_type::confirm_ack:
+		case nano::message_type::confirm_req:
+		case nano::message_type::node_id_handshake:
+		case nano::message_type::telemetry_ack:
+		{
+			return true;
+		}
+		default:
+		{
+			return false;
 		}
 	}
 }
