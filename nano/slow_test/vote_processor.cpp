@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <thread>
+#include <vector>
 
 using namespace std::chrono_literals;
 
@@ -17,6 +18,7 @@ TEST (vote_processor, producer_consumer)
 	auto & node (*system.nodes[0]);
 	auto channel (std::make_shared<nano::transport::inproc::channel> (node, node));
 
+	unsigned number_of_producers{ 40 }; // Enough to overwhelm any vote processing threads
 	unsigned number_of_votes{ 25'000 };
 	unsigned consumer_wins{ 0 };
 	unsigned producer_wins{ 0 };
@@ -54,12 +56,22 @@ TEST (vote_processor, producer_consumer)
 		}
 	};
 
-	std::thread producer_thread{ producer };
+	// Run multiple producers in parallel
+	std::vector<std::thread> producers;
+	for (int n = 0; n < number_of_producers; ++n)
+	{
+		producers.emplace_back (producer);
+	}
+
 	std::thread consumer_thread{ consumer };
 	std::thread monitor_thread{ monitor };
 
-	ASSERT_TIMELY (10s, node.vote_processor.total_processed.load () >= number_of_votes);
-	producer_thread.join ();
+	ASSERT_TIMELY (30s, node.vote_processor.total_processed.load () >= number_of_votes);
+
+	for (auto & producer : producers)
+	{
+		producer.join ();
+	}
 	consumer_thread.join ();
 	monitor_thread.join ();
 
