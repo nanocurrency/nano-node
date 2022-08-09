@@ -9,7 +9,7 @@ using namespace std::chrono_literals;
 
 TEST (system, work_generate_limited)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::block_hash key (1);
 	auto min = nano::dev::network_params.work.entry;
 	auto max = nano::dev::network_params.work.base;
@@ -25,7 +25,7 @@ TEST (system, work_generate_limited)
 // All nodes in the system should agree on the genesis balance
 TEST (system, system_genesis)
 {
-	nano::system system (2);
+	nano::test::system system (2);
 	for (auto & i : system.nodes)
 	{
 		auto transaction (i->store.tx_begin_read ());
@@ -35,7 +35,7 @@ TEST (system, system_genesis)
 
 TEST (system, DISABLED_generate_send_existing)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::thread_runner runner (system.io_ctx, node1.config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -90,7 +90,7 @@ TEST (system, DISABLED_generate_send_existing)
 
 TEST (system, DISABLED_generate_send_new)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::thread_runner runner (system.io_ctx, node1.config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -148,7 +148,7 @@ TEST (system, DISABLED_generate_send_new)
 
 TEST (system, rep_initialize_one)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::keypair key;
 	system.ledger_initialization_set ({ key });
 	auto node = system.add_node ();
@@ -157,7 +157,7 @@ TEST (system, rep_initialize_one)
 
 TEST (system, rep_initialize_two)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::keypair key0;
 	nano::keypair key1;
 	system.ledger_initialization_set ({ key0, key1 });
@@ -168,7 +168,7 @@ TEST (system, rep_initialize_two)
 
 TEST (system, rep_initialize_one_reserve)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::keypair key;
 	system.ledger_initialization_set ({ key }, nano::Gxrb_ratio);
 	auto node = system.add_node ();
@@ -178,7 +178,7 @@ TEST (system, rep_initialize_one_reserve)
 
 TEST (system, rep_initialize_two_reserve)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::keypair key0;
 	nano::keypair key1;
 	system.ledger_initialization_set ({ key0, key1 }, nano::Gxrb_ratio);
@@ -189,7 +189,7 @@ TEST (system, rep_initialize_two_reserve)
 
 TEST (system, rep_initialize_many)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::keypair key0;
 	nano::keypair key1;
 	system.ledger_initialization_set ({ key0, key1 }, nano::Gxrb_ratio);
@@ -203,10 +203,10 @@ TEST (system, rep_initialize_many)
 
 TEST (system, transport_basic)
 {
-	nano::system system{ 1 };
+	nano::test::system system{ 1 };
 	auto & node0 = *system.nodes[0];
 	// Start nodes in separate systems so they don't automatically connect with each other.
-	nano::system system1{ 1 };
+	nano::test::system system1{ 1 };
 	auto & node1 = *system1.nodes[0];
 	ASSERT_EQ (0, node1.stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in));
 	nano::transport::inproc::channel channel{ node0, node1 };

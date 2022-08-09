@@ -5,7 +5,7 @@
 
 TEST (peer_container, empty_peers)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	nano::network & network (system.nodes[0]->network);
 	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now ());
 	ASSERT_EQ (0, network.size ());
@@ -13,7 +13,7 @@ TEST (peer_container, empty_peers)
 
 TEST (peer_container, no_recontact)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::network & network (node1.network);
 	auto observed_peer (0);
@@ -33,14 +33,14 @@ TEST (peer_container, no_recontact)
 
 TEST (peer_container, no_self_incoming)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	ASSERT_EQ (nullptr, system.nodes[0]->network.udp_channels.insert (system.nodes[0]->network.endpoint (), 0));
 	ASSERT_TRUE (system.nodes[0]->network.empty ());
 }
 
 TEST (peer_container, reserved_peers_no_contact)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & channels (system.nodes[0]->network.udp_channels);
 	ASSERT_EQ (nullptr, channels.insert (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x00000001)), 10000), 0));
 	ASSERT_EQ (nullptr, channels.insert (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0xc0000201)), 10000), 0));
@@ -54,7 +54,7 @@ TEST (peer_container, reserved_peers_no_contact)
 
 TEST (peer_container, split)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	auto now (std::chrono::steady_clock::now ());
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 100);
@@ -80,7 +80,7 @@ TEST (peer_container, split)
 
 TEST (channels, fill_random_clear)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	std::array<nano::endpoint, 8> target;
 	std::fill (target.begin (), target.end (), nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
 	system.nodes[0]->network.random_fill (target);
@@ -89,7 +89,7 @@ TEST (channels, fill_random_clear)
 
 TEST (channels, fill_random_full)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	for (uint16_t i (0u); i < 100u; ++i)
 	{
 		system.nodes[0]->network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), i), 0);
@@ -102,7 +102,7 @@ TEST (channels, fill_random_full)
 
 TEST (channels, fill_random_part)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	std::array<nano::endpoint, 8> target;
 	auto half (target.size () / 2);
 	for (auto i (0); i < half; ++i)
@@ -118,7 +118,7 @@ TEST (channels, fill_random_part)
 
 TEST (peer_container, list_fanout)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node (*system.nodes[0]);
 	ASSERT_EQ (0, node.network.size ());
 	ASSERT_EQ (0.0, node.network.size_sqrt ());
@@ -155,11 +155,11 @@ TEST (peer_container, list_fanout)
 // Test to make sure we don't repeatedly send keepalive messages to nodes that aren't responding
 TEST (peer_container, reachout)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_udp = false;
 	auto & node1 = *system.add_node (node_flags);
-	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
+	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), nano::test::get_available_port ());
 	// Make sure having been contacted by them already indicates we shouldn't reach out
 	node1.network.udp_channels.insert (endpoint0, node1.network_params.network.protocol_version);
 	ASSERT_TRUE (node1.network.reachout (endpoint0));
@@ -177,7 +177,7 @@ TEST (peer_container, reachout)
 
 TEST (peer_container, depeer)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), nano::test_node_port ());
 	nano::keepalive message{ nano::dev::network_params.network };
 	const_cast<uint8_t &> (message.header.version_using) = 1;

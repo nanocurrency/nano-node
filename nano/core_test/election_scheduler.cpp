@@ -10,12 +10,12 @@ using namespace std::chrono_literals;
 
 TEST (election_scheduler, construction)
 {
-	nano::system system{ 1 };
+	nano::test::system system{ 1 };
 }
 
 TEST (election_scheduler, activate_one_timely)
 {
-	nano::system system{ 1 };
+	nano::test::system system{ 1 };
 	nano::state_block_builder builder;
 	auto send1 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)
@@ -33,7 +33,7 @@ TEST (election_scheduler, activate_one_timely)
 
 TEST (election_scheduler, activate_one_flush)
 {
-	nano::system system{ 1 };
+	nano::test::system system{ 1 };
 	nano::state_block_builder builder;
 	auto send1 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)
@@ -67,9 +67,9 @@ TEST (election_scheduler, activate_one_flush)
  */
 TEST (election_scheduler, no_vacancy)
 {
-	nano::system system{};
+	nano::test::system system{};
 
-	nano::node_config config{ nano::get_available_port (), system.logging };
+	nano::node_config config{ nano::test::get_available_port (), system.logging };
 	config.active_elections_size = 1;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 
@@ -144,8 +144,8 @@ TEST (election_scheduler, no_vacancy)
 // Ensure that election_scheduler::flush terminates even if no elections can currently be queued e.g. shutdown or no active_transactions vacancy
 TEST (election_scheduler, flush_vacancy)
 {
-	nano::system system;
-	nano::node_config config{ nano::get_available_port (), system.logging };
+	nano::test::system system;
+	nano::node_config config{ nano::test::get_available_port (), system.logging };
 	// No elections can be activated
 	config.active_elections_size = 0;
 	auto & node = *system.add_node (config);

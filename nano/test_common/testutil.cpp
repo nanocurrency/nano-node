@@ -9,7 +9,7 @@
 
 using namespace std::chrono_literals;
 
-void nano::wait_peer_connections (nano::system & system_a)
+void nano::wait_peer_connections (nano::test::system & system_a)
 {
 	auto wait_peer_count = [&system_a] (bool in_memory) {
 		auto num_nodes = system_a.nodes.size ();

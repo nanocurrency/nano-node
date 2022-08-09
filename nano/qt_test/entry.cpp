@@ -6,7 +6,10 @@
 QApplication * test_application = nullptr;
 namespace nano
 {
-void cleanup_dev_directories_on_exit ();
+namespace test
+{
+	void cleanup_dev_directories_on_exit ();
+}
 void force_nano_dev_network ();
 }
 

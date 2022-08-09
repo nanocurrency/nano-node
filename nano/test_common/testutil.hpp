@@ -51,7 +51,11 @@ class public_key;
 class block_hash;
 class telemetry_data;
 class network_params;
-class system;
+
+namespace test
+{
+	class system;
+}
 
 extern nano::uint128_t const & genesis_amount;
 
@@ -204,5 +208,5 @@ namespace util
 	};
 }
 
-void wait_peer_connections (nano::system &);
+void wait_peer_connections (nano::test::system &);
 }

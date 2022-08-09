@@ -8,7 +8,7 @@ using namespace std::chrono_literals;
 
 TEST (wallets, open_create)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	bool error (false);
 	nano::wallets wallets (error, *system.nodes[0]);
 	ASSERT_FALSE (error);
@@ -22,7 +22,7 @@ TEST (wallets, open_create)
 
 TEST (wallets, open_existing)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto id (nano::random_wallet_id ());
 	{
 		bool error (false);
@@ -52,7 +52,7 @@ TEST (wallets, open_existing)
 
 TEST (wallets, remove)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	nano::wallet_id one (1);
 	{
 		bool error (false);
@@ -75,7 +75,7 @@ TEST (wallets, remove)
 
 TEST (wallets, reload)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::wallet_id one (1);
 	bool error (false);
@@ -93,7 +93,7 @@ TEST (wallets, reload)
 
 TEST (wallets, vote_minimum)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::keypair key1;
 	nano::keypair key2;
@@ -157,7 +157,7 @@ TEST (wallets, vote_minimum)
 
 TEST (wallets, exists)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node (*system.nodes[0]);
 	nano::keypair key1;
 	nano::keypair key2;
@@ -184,8 +184,8 @@ TEST (wallets, search_receivable)
 {
 	for (auto search_all : { false, true })
 	{
-		nano::system system;
-		nano::node_config config (nano::get_available_port (), system.logging);
+		nano::test::system system;
+		nano::node_config config (nano::test::get_available_port (), system.logging);
 		config.enable_voting = false;
 		config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		nano::node_flags flags;

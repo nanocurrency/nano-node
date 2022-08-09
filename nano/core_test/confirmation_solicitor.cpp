@@ -9,7 +9,7 @@ using namespace std::chrono_literals;
 
 TEST (confirmation_solicitor, batches)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
 	node_flags.disable_rep_crawler = true;
@@ -61,7 +61,7 @@ namespace nano
 {
 TEST (confirmation_solicitor, different_hash)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
 	node_flags.disable_rep_crawler = true;
@@ -103,7 +103,7 @@ TEST (confirmation_solicitor, different_hash)
 
 TEST (confirmation_solicitor, bypass_max_requests_cap)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
 	node_flags.disable_rep_crawler = true;
