@@ -305,7 +305,7 @@ TEST (telemetry, basic)
 	}
 
 	// Check the metrics are correct
-	nano::compare_default_telemetry_response_data (telemetry_data, node_server->network_params, node_server->config.bandwidth_limit, node_server->default_difficulty (nano::work_version::work_1), node_server->node_id);
+	nano::test::compare_default_telemetry_response_data (telemetry_data, node_server->network_params, node_server->config.bandwidth_limit, node_server->default_difficulty (nano::work_version::work_1), node_server->node_id);
 
 	// Call again straight away. It should use the cache
 	{
@@ -357,7 +357,7 @@ TEST (telemetry, over_udp)
 	auto channel = node_client->network.find_channel (node_server->network.endpoint ());
 	node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &node_server] (nano::telemetry_data_response const & response_a) {
 		ASSERT_FALSE (response_a.error);
-		nano::compare_default_telemetry_response_data (response_a.telemetry_data, node_server->network_params, node_server->config.bandwidth_limit, node_server->default_difficulty (nano::work_version::work_1), node_server->node_id);
+		nano::test::compare_default_telemetry_response_data (response_a.telemetry_data, node_server->network_params, node_server->config.bandwidth_limit, node_server->default_difficulty (nano::work_version::work_1), node_server->node_id);
 		done = true;
 	});
 
@@ -422,7 +422,7 @@ TEST (telemetry, blocking_request)
 	// Now try single request metric
 	auto telemetry_data_response = node_client->telemetry->get_metrics_single_peer (node_client->network.find_channel (node_server->network.endpoint ()));
 	ASSERT_FALSE (telemetry_data_response.error);
-	nano::compare_default_telemetry_response_data (telemetry_data_response.telemetry_data, node_server->network_params, node_server->config.bandwidth_limit, node_server->default_difficulty (nano::work_version::work_1), node_server->node_id);
+	nano::test::compare_default_telemetry_response_data (telemetry_data_response.telemetry_data, node_server->network_params, node_server->config.bandwidth_limit, node_server->default_difficulty (nano::work_version::work_1), node_server->node_id);
 
 	done = true;
 	promise.get_future ().wait ();
@@ -565,7 +565,7 @@ TEST (telemetry, disable_metrics)
 	auto channel1 = node_server->network.find_channel (node_client->network.endpoint ());
 	node_server->telemetry->get_metrics_single_peer_async (channel1, [&done, node_client] (nano::telemetry_data_response const & response_a) {
 		ASSERT_FALSE (response_a.error);
-		nano::compare_default_telemetry_response_data (response_a.telemetry_data, node_client->network_params, node_client->config.bandwidth_limit, node_client->default_difficulty (nano::work_version::work_1), node_client->node_id);
+		nano::test::compare_default_telemetry_response_data (response_a.telemetry_data, node_client->network_params, node_client->config.bandwidth_limit, node_client->default_difficulty (nano::work_version::work_1), node_client->node_id);
 		done = true;
 	});
 
