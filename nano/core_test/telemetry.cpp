@@ -286,7 +286,7 @@ TEST (telemetry, basic)
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
-	nano::wait_peer_connections (system);
+	nano::test::wait_peer_connections (system);
 
 	// Request telemetry metrics
 	nano::telemetry_data telemetry_data;
@@ -351,7 +351,7 @@ TEST (telemetry, over_udp)
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
-	nano::wait_peer_connections (system);
+	nano::test::wait_peer_connections (system);
 
 	std::atomic<bool> done{ false };
 	auto channel = node_client->network.find_channel (node_server->network.endpoint ());
@@ -397,7 +397,7 @@ TEST (telemetry, blocking_request)
 	auto node_client = system.nodes.front ();
 	auto node_server = system.nodes.back ();
 
-	nano::wait_peer_connections (system);
+	nano::test::wait_peer_connections (system);
 
 	// Request telemetry metrics
 	std::atomic<bool> done{ false };
@@ -436,7 +436,7 @@ TEST (telemetry, disconnects)
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
-	nano::wait_peer_connections (system);
+	nano::test::wait_peer_connections (system);
 
 	// Try and request metrics from a node which is turned off but a channel is not closed yet
 	auto channel = node_client->network.find_channel (node_server->network.endpoint ());
@@ -462,7 +462,7 @@ TEST (telemetry, dos_tcp)
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
-	nano::wait_peer_connections (system);
+	nano::test::wait_peer_connections (system);
 
 	nano::telemetry_req message{ nano::dev::network_params.network };
 	auto channel = node_client->network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node_server->network.endpoint ()));
@@ -505,7 +505,7 @@ TEST (telemetry, dos_udp)
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
-	nano::wait_peer_connections (system);
+	nano::test::wait_peer_connections (system);
 
 	nano::telemetry_req message{ nano::dev::network_params.network };
 	auto channel (node_client->network.udp_channels.create (node_server->network.endpoint ()));
@@ -546,7 +546,7 @@ TEST (telemetry, disable_metrics)
 	node_flags.disable_providing_telemetry_metrics = true;
 	auto node_server = system.add_node (node_flags);
 
-	nano::wait_peer_connections (system);
+	nano::test::wait_peer_connections (system);
 
 	// Try and request metrics from a node which is turned off but a channel is not closed yet
 	auto channel = node_client->network.find_channel (node_server->network.endpoint ());
@@ -585,7 +585,7 @@ TEST (telemetry, max_possible_size)
 	data.unknown_data.resize (nano::message_header::telemetry_size_mask.to_ulong () - nano::telemetry_data::latest_size);
 
 	nano::telemetry_ack message{ nano::dev::network_params.network, data };
-	nano::wait_peer_connections (system);
+	nano::test::wait_peer_connections (system);
 
 	auto channel = node_client->network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node_server->network.endpoint ()));
 	channel->send (message, [] (boost::system::error_code const & ec, size_t size_a) {
@@ -712,7 +712,7 @@ TEST (telemetry, maker_pruning)
 	config.enable_voting = false;
 	auto node_server = system.add_node (config, node_flags);
 
-	nano::wait_peer_connections (system);
+	nano::test::wait_peer_connections (system);
 
 	// Request telemetry metrics
 	nano::telemetry_data telemetry_data;

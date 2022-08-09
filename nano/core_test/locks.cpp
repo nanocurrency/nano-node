@@ -29,7 +29,7 @@ unsigned num_matches (std::string const & str)
 TEST (locks, no_conflicts)
 {
 	std::stringstream ss;
-	nano::cout_redirect (ss.rdbuf ());
+	nano::test::cout_redirect (ss.rdbuf ());
 
 	nano::mutex guard_mutex;
 	nano::lock_guard<nano::mutex> guard (guard_mutex);
@@ -47,7 +47,7 @@ TEST (locks, lock_guard)
 	ASSERT_LE (NANO_TIMED_LOCKS, 10000);
 
 	std::stringstream ss;
-	nano::cout_redirect redirect (ss.rdbuf ());
+	nano::test::cout_redirect redirect (ss.rdbuf ());
 
 	nano::mutex mutex{ xstr (NANO_TIMED_LOCKS_FILTER) };
 
@@ -81,7 +81,7 @@ TEST (locks, unique_lock)
 	ASSERT_LE (NANO_TIMED_LOCKS, 10000);
 
 	std::stringstream ss;
-	nano::cout_redirect redirect (ss.rdbuf ());
+	nano::test::cout_redirect redirect (ss.rdbuf ());
 
 	nano::mutex mutex{ xstr (NANO_TIMED_LOCKS_FILTER) };
 
@@ -119,7 +119,7 @@ TEST (locks, condition_variable_wait)
 	ASSERT_LE (NANO_TIMED_LOCKS, 10000);
 
 	std::stringstream ss;
-	nano::cout_redirect redirect (ss.rdbuf ());
+	nano::test::cout_redirect redirect (ss.rdbuf ());
 
 	nano::condition_variable cv;
 	nano::mutex mutex;
@@ -152,7 +152,7 @@ TEST (locks, condition_variable_wait_until)
 	ASSERT_LE (NANO_TIMED_LOCKS, 10000);
 
 	std::stringstream ss;
-	nano::cout_redirect redirect (ss.rdbuf ());
+	nano::test::cout_redirect redirect (ss.rdbuf ());
 
 	nano::condition_variable cv;
 	nano::mutex mutex;

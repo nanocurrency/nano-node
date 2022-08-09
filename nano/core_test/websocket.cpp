@@ -895,7 +895,7 @@ TEST (websocket, bootstrap_exited)
 
 	// Start bootstrap, exit after subscription
 	std::atomic<bool> bootstrap_started{ false };
-	nano::util::counted_completion subscribed_completion (1);
+	nano::test::counted_completion subscribed_completion (1);
 	std::thread bootstrap_thread ([node1, &system, &bootstrap_started, &subscribed_completion] () {
 		std::shared_ptr<nano::bootstrap_attempt> attempt;
 		while (attempt == nullptr)
@@ -984,7 +984,7 @@ TEST (websocket, telemetry)
 	config.websocket_config.port = nano::test::get_available_port ();
 	auto node2 (system.add_node (config, node_flags));
 
-	nano::wait_peer_connections (system);
+	nano::test::wait_peer_connections (system);
 
 	std::atomic<bool> done{ false };
 	auto task = ([config = node1->config, &node1, &done] () {

@@ -52,80 +52,77 @@ class block_hash;
 class telemetry_data;
 class network_params;
 
+extern nano::uint128_t const & genesis_amount;
+
 namespace test
 {
 	class system;
-}
 
-extern nano::uint128_t const & genesis_amount;
-
-class stringstream_mt_sink : public boost::iostreams::sink
-{
-public:
-	stringstream_mt_sink () = default;
-	stringstream_mt_sink (stringstream_mt_sink const & sink)
+	class stringstream_mt_sink : public boost::iostreams::sink
 	{
-		nano::lock_guard<nano::mutex> guard (mutex);
-		ss << sink.ss.str ();
-	}
+	public:
+		stringstream_mt_sink () = default;
+		stringstream_mt_sink (stringstream_mt_sink const & sink)
+		{
+			nano::lock_guard<nano::mutex> guard (mutex);
+			ss << sink.ss.str ();
+		}
 
-	std::streamsize write (char const * string_to_write, std::streamsize size)
+		std::streamsize write (char const * string_to_write, std::streamsize size)
+		{
+			nano::lock_guard<nano::mutex> guard (mutex);
+			ss << std::string (string_to_write, size);
+			return size;
+		}
+
+		std::string str ()
+		{
+			nano::lock_guard<nano::mutex> guard (mutex);
+			return ss.str ();
+		}
+
+	private:
+		mutable nano::mutex mutex;
+		std::stringstream ss;
+	};
+
+	class boost_log_cerr_redirect
 	{
-		nano::lock_guard<nano::mutex> guard (mutex);
-		ss << std::string (string_to_write, size);
-		return size;
-	}
+	public:
+		boost_log_cerr_redirect (std::streambuf * new_buffer) :
+			old (std::cerr.rdbuf (new_buffer))
+		{
+			console_sink = (boost::log::add_console_log (std::cerr, boost::log::keywords::format = "%Message%"));
+		}
 
-	std::string str ()
+		~boost_log_cerr_redirect ()
+		{
+			std::cerr.rdbuf (old);
+			boost::log::core::get ()->remove_sink (console_sink);
+		}
+
+	private:
+		std::streambuf * old;
+		boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_ostream_backend>> console_sink;
+	};
+
+	class cout_redirect
 	{
-		nano::lock_guard<nano::mutex> guard (mutex);
-		return ss.str ();
-	}
+	public:
+		cout_redirect (std::streambuf * new_buffer)
+		{
+			std::cout.rdbuf (new_buffer);
+		}
 
-private:
-	mutable nano::mutex mutex;
-	std::stringstream ss;
-};
+		~cout_redirect ()
+		{
+			std::cout.rdbuf (old);
+		}
 
-class boost_log_cerr_redirect
-{
-public:
-	boost_log_cerr_redirect (std::streambuf * new_buffer) :
-		old (std::cerr.rdbuf (new_buffer))
-	{
-		console_sink = (boost::log::add_console_log (std::cerr, boost::log::keywords::format = "%Message%"));
-	}
+	private:
+		std::streambuf * old{ std::cout.rdbuf () };
+	};
 
-	~boost_log_cerr_redirect ()
-	{
-		std::cerr.rdbuf (old);
-		boost::log::core::get ()->remove_sink (console_sink);
-	}
-
-private:
-	std::streambuf * old;
-	boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_ostream_backend>> console_sink;
-};
-
-class cout_redirect
-{
-public:
-	cout_redirect (std::streambuf * new_buffer)
-	{
-		std::cout.rdbuf (new_buffer);
-	}
-
-	~cout_redirect ()
-	{
-		std::cout.rdbuf (old);
-	}
-
-private:
-	std::streambuf * old{ std::cout.rdbuf () };
-};
-
-namespace util
-{
 	/**
 	 * Helper to signal completion of async handlers in tests.
 	 * Subclasses implement specific conditions for completion.
@@ -206,7 +203,7 @@ namespace util
 		std::atomic<unsigned> count{ 0 };
 		std::atomic<unsigned> required_count;
 	};
-}
 
-void wait_peer_connections (nano::test::system &);
+	void wait_peer_connections (nano::test::system &);
+}
 }

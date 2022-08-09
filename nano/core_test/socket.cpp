@@ -438,7 +438,7 @@ TEST (socket, drop_policy)
 
 		auto client = std::make_shared<nano::client_socket> (*node);
 		nano::transport::channel_tcp channel{ *node, client };
-		nano::util::counted_completion write_completion (static_cast<unsigned> (total_message_count));
+		nano::test::counted_completion write_completion (static_cast<unsigned> (total_message_count));
 
 		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), server_socket->listening_port ()),
 		[&channel, total_message_count, node, &write_completion, &drop_policy, client] (boost::system::error_code const & ec_a) mutable {
@@ -492,7 +492,7 @@ TEST (socket, concurrent_writes)
 	constexpr size_t total_message_count = client_count * message_count;
 
 	// We're expecting client_count*4 messages
-	nano::util::counted_completion read_count_completion (total_message_count);
+	nano::test::counted_completion read_count_completion (total_message_count);
 	std::function<void (std::shared_ptr<nano::socket> const &)> reader = [&read_count_completion, &total_message_count, &reader] (std::shared_ptr<nano::socket> const & socket_a) {
 		auto buff (std::make_shared<std::vector<uint8_t>> ());
 		buff->resize (1);
@@ -546,7 +546,7 @@ TEST (socket, concurrent_writes)
 		return true;
 	});
 
-	nano::util::counted_completion connection_count_completion (client_count);
+	nano::test::counted_completion connection_count_completion (client_count);
 	std::vector<std::shared_ptr<nano::socket>> clients;
 	for (unsigned i = 0; i < client_count; i++)
 	{

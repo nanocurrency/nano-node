@@ -1368,7 +1368,7 @@ public:
 class shared_data
 {
 public:
-	nano::util::counted_completion write_completion{ 0 };
+	nano::test::counted_completion write_completion{ 0 };
 	std::atomic<bool> done{ false };
 };
 
@@ -1401,7 +1401,7 @@ TEST (telemetry, ongoing_requests)
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
-	nano::wait_peer_connections (system);
+	nano::test::wait_peer_connections (system);
 
 	ASSERT_EQ (0, node_client->telemetry->telemetry_data_size ());
 	ASSERT_EQ (0, node_server->telemetry->telemetry_data_size ());
@@ -1437,7 +1437,7 @@ namespace transport
 			system.add_node (node_flags);
 		}
 
-		nano::wait_peer_connections (system);
+		nano::test::wait_peer_connections (system);
 
 		std::vector<std::thread> threads;
 		auto const num_threads = 4;
@@ -1590,7 +1590,7 @@ TEST (telemetry, cache_read_and_timeout)
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
-	nano::wait_peer_connections (system);
+	nano::test::wait_peer_connections (system);
 
 	// Request telemetry metrics
 	nano::telemetry_data telemetry_data;
@@ -1679,7 +1679,7 @@ TEST (telemetry, many_nodes)
 		}
 	}
 
-	nano::wait_peer_connections (system);
+	nano::test::wait_peer_connections (system);
 
 	// Give all nodes a non-default number of blocks
 	nano::keypair key;
