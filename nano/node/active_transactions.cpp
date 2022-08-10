@@ -20,6 +20,7 @@ nano::active_transactions::active_transactions (nano::node & node_a, nano::confi
 	node{ node_a },
 	generator{ node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats, false },
 	final_generator{ node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats, true },
+	recently_confirmed{ 65536 },
 	election_time_to_live{ node_a.network_params.network.is_dev_network () ? 0s : 2s },
 	thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::request_loop);
@@ -372,7 +373,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 		auto existing (roots.get<tag_root> ().find (root));
 		if (existing == roots.get<tag_root> ().end ())
 		{
-			if (recently_confirmed.get<tag_root> ().find (root) == recently_confirmed.get<tag_root> ().end ())
+			if (!recently_confirmed.exists (root))
 			{
 				result.inserted = true;
 				auto hash (block_a->hash ());
@@ -447,13 +448,12 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 		nano::unique_lock<nano::mutex> lock (mutex);
 		for (auto const & hash : vote_a->hashes)
 		{
-			auto & recently_confirmed_by_hash (recently_confirmed.get<tag_hash> ());
 			auto existing (blocks.find (hash));
 			if (existing != blocks.end ())
 			{
 				process.emplace_back (existing->second, hash);
 			}
-			else if (recently_confirmed_by_hash.count (hash) == 0)
+			else if (!recently_confirmed.exists (hash))
 			{
 				add_inactive_votes_cache (lock, hash, vote_a->account, vote_a->timestamp ());
 			}
@@ -545,22 +545,6 @@ void nano::active_transactions::add_recently_cemented (nano::election_status con
 	{
 		recently_cemented.pop_front ();
 	}
-}
-
-void nano::active_transactions::add_recently_confirmed (nano::qualified_root const & root_a, nano::block_hash const & hash_a)
-{
-	nano::lock_guard<nano::mutex> guard (mutex);
-	recently_confirmed.get<tag_sequence> ().emplace_back (root_a, hash_a);
-	if (recently_confirmed.size () > recently_confirmed_size)
-	{
-		recently_confirmed.get<tag_sequence> ().pop_front ();
-	}
-}
-
-void nano::active_transactions::erase_recently_confirmed (nano::block_hash const & hash_a)
-{
-	nano::lock_guard<nano::mutex> guard (mutex);
-	recently_confirmed.get<tag_hash> ().erase (hash_a);
 }
 
 void nano::active_transactions::erase (nano::block const & block_a)
@@ -869,11 +853,6 @@ std::size_t nano::active_transactions::election_winner_details_size ()
 	return election_winner_details.size ();
 }
 
-nano::cementable_account::cementable_account (nano::account const & account_a, std::size_t blocks_uncemented_a) :
-	account (account_a), blocks_uncemented (blocks_uncemented_a)
-{
-}
-
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (active_transactions & active_transactions, std::string const & name)
 {
 	std::size_t roots_count;
@@ -893,9 +872,64 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "roots", roots_count, sizeof (decltype (active_transactions.roots)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (active_transactions.blocks)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "election_winner_details", active_transactions.election_winner_details_size (), sizeof (decltype (active_transactions.election_winner_details)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recently_confirmed", recently_confirmed_count, sizeof (decltype (active_transactions.recently_confirmed)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recently_confirmed", recently_confirmed_count, sizeof (decltype (active_transactions.recently_confirmed.confirmed)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recently_cemented", recently_cemented_count, sizeof (decltype (active_transactions.recently_cemented)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "inactive_votes_cache", active_transactions.inactive_votes_cache_size (), sizeof (nano::gap_information) }));
 	composite->add_component (collect_container_info (active_transactions.generator, "generator"));
 	return composite;
+}
+
+/*
+ * class recently_confirmed
+ */
+
+nano::recently_confirmed_cache::recently_confirmed_cache (std::size_t max_size_a) :
+	max_size{ max_size_a }
+{
+}
+
+void nano::recently_confirmed_cache::put (const nano::qualified_root & root, const nano::block_hash & hash)
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	confirmed.get<tag_sequence> ().emplace_back (root, hash);
+	if (confirmed.size () > max_size)
+	{
+		confirmed.get<tag_sequence> ().pop_front ();
+	}
+}
+
+void nano::recently_confirmed_cache::erase (const nano::block_hash & hash)
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	confirmed.get<tag_hash> ().erase (hash);
+}
+
+void nano::recently_confirmed_cache::clear ()
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	confirmed.clear ();
+}
+
+bool nano::recently_confirmed_cache::exists (const nano::block_hash & hash) const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return confirmed.get<tag_hash> ().find (hash) != confirmed.get<tag_hash> ().end ();
+}
+
+bool nano::recently_confirmed_cache::exists (const nano::qualified_root & root) const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return confirmed.get<tag_root> ().find (root) != confirmed.get<tag_root> ().end ();
+}
+
+std::size_t nano::recently_confirmed_cache::size () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return confirmed.size ();
+}
+
+nano::recently_confirmed_cache::entry_t nano::recently_confirmed_cache::back () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return confirmed.back ();
 }

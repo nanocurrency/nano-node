@@ -1401,7 +1401,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 	auto const num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
 	if (auto block_l = ledger.store.block.get (ledger.store.tx_begin_read (), hash))
 	{
-		active.add_recently_confirmed (block_l->qualified_root (), hash);
+		active.recently_confirmed.put (block_l->qualified_root (), hash);
 		confirmation_height_processor.add (block_l);
 	}
 	else if (iteration_a < num_iters)

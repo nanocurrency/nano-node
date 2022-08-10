@@ -4281,7 +4281,7 @@ TEST (rep_crawler, recently_confirmed)
 	auto & node1 (*system.nodes[0]);
 	ASSERT_EQ (1, node1.ledger.cache.block_count);
 	auto const block = nano::dev::genesis;
-	node1.active.add_recently_confirmed (block->qualified_root (), block->hash ());
+	node1.active.recently_confirmed.put (block->qualified_root (), block->hash ());
 	auto & node2 (*system.add_node ());
 	system.wallet (1)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto channel = node1.network.find_channel (node2.network.endpoint ());
