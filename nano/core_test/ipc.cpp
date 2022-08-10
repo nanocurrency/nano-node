@@ -19,7 +19,7 @@ using namespace std::chrono_literals;
 
 TEST (ipc, asynchronous)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	system.nodes[0]->config.ipc_config.transport_tcp.enabled = true;
 	system.nodes[0]->config.ipc_config.transport_tcp.port = 24077;
 	nano::node_rpc_config node_rpc_config;
@@ -59,7 +59,7 @@ TEST (ipc, asynchronous)
 
 TEST (ipc, synchronous)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	system.nodes[0]->config.ipc_config.transport_tcp.enabled = true;
 	system.nodes[0]->config.ipc_config.transport_tcp.port = 24077;
 	nano::node_rpc_config node_rpc_config;
@@ -192,7 +192,7 @@ TEST (ipc, permissions_default_user_order)
 
 TEST (ipc, invalid_endpoint)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	system.nodes[0]->config.ipc_config.transport_tcp.enabled = true;
 	system.nodes[0]->config.ipc_config.transport_tcp.port = 24077;
 	nano::node_rpc_config node_rpc_config;

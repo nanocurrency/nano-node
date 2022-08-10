@@ -8,7 +8,7 @@ using namespace std::chrono_literals;
 
 TEST (election, construction)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node = *system.nodes[0];
 	node.block_confirm (nano::dev::genesis);
 	node.scheduler.flush ();
@@ -18,9 +18,9 @@ TEST (election, construction)
 
 TEST (election, quorum_minimum_flip_success)
 {
-	nano::system system{};
+	nano::test::system system{};
 
-	nano::node_config node_config{ nano::get_available_port (), system.logging };
+	nano::node_config node_config{ nano::test::get_available_port (), system.logging };
 	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 
@@ -69,9 +69,9 @@ TEST (election, quorum_minimum_flip_success)
 
 TEST (election, quorum_minimum_flip_fail)
 {
-	nano::system system{};
+	nano::test::system system{};
 
-	nano::node_config node_config{ nano::get_available_port (), system.logging };
+	nano::node_config node_config{ nano::test::get_available_port (), system.logging };
 	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 
@@ -122,8 +122,8 @@ TEST (election, quorum_minimum_flip_fail)
 
 TEST (election, quorum_minimum_confirm_success)
 {
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
@@ -155,8 +155,8 @@ TEST (election, quorum_minimum_confirm_success)
 
 TEST (election, quorum_minimum_confirm_fail)
 {
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
@@ -190,9 +190,9 @@ namespace nano
 {
 TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 {
-	nano::system system{};
+	nano::test::system system{};
 
-	nano::node_config node_config{ nano::get_available_port (), system.logging };
+	nano::node_config node_config{ nano::test::get_available_port (), system.logging };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 
 	auto & node1 = *system.add_node (node_config);
@@ -226,7 +226,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send2).code);
 	ASSERT_TIMELY (5s, node1.ledger.cache.block_count == 4);
 
-	node_config.peering_port = nano::get_available_port ();
+	node_config.peering_port = nano::test::get_available_port ();
 	auto & node2 = *system.add_node (node_config);
 
 	system.wallet (1)->insert_adhoc (key1.prv);

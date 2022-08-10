@@ -10,7 +10,7 @@ using namespace std::chrono_literals;
 
 TEST (conflicts, start_stop)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::keypair key1;
 	nano::block_builder builder;
@@ -35,7 +35,7 @@ TEST (conflicts, start_stop)
 
 TEST (conflicts, add_existing)
 {
-	nano::system system{ 1 };
+	nano::test::system system{ 1 };
 	auto & node1 = *system.nodes[0];
 	nano::keypair key1;
 	nano::block_builder builder;
@@ -67,7 +67,7 @@ TEST (conflicts, add_existing)
 
 TEST (conflicts, add_two)
 {
-	nano::system system{};
+	nano::test::system system{};
 	auto const & node = system.add_node ();
 
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);

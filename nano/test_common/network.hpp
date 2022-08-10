@@ -5,7 +5,6 @@
 namespace nano
 {
 class node;
-class system;
 
 namespace transport
 {
@@ -13,6 +12,10 @@ namespace transport
 	class channel_tcp;
 }
 
-/** Waits until a TCP connection is established and returns the TCP channel on success*/
-std::shared_ptr<nano::transport::channel_tcp> establish_tcp (nano::system &, nano::node &, nano::endpoint const &);
+namespace test
+{
+	class system;
+	/** Waits until a TCP connection is established and returns the TCP channel on success*/
+	std::shared_ptr<nano::transport::channel_tcp> establish_tcp (nano::test::system &, nano::node &, nano::endpoint const &);
+}
 }

@@ -14,7 +14,7 @@ using namespace std::chrono_literals;
 // so the producer always wins. Also exercises the flush operation, so it must never deadlock.
 TEST (vote_processor, producer_consumer)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node (*system.nodes[0]);
 	auto channel (std::make_shared<nano::transport::inproc::channel> (node, node));
 

@@ -13,8 +13,8 @@ TEST (frontiers_confirmation, mode)
 	nano::node_flags node_flags;
 	// Always mode
 	{
-		nano::system system;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::test::system system;
+		nano::node_config node_config (nano::test::get_available_port (), system.logging);
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::always;
 		auto node = system.add_node (node_config, node_flags);
 		auto send = builder
@@ -35,8 +35,8 @@ TEST (frontiers_confirmation, mode)
 	}
 	// Auto mode
 	{
-		nano::system system;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::test::system system;
+		nano::node_config node_config (nano::test::get_available_port (), system.logging);
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::automatic;
 		auto node = system.add_node (node_config, node_flags);
 		auto send = builder
@@ -57,8 +57,8 @@ TEST (frontiers_confirmation, mode)
 	}
 	// Disabled mode
 	{
-		nano::system system;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::test::system system;
+		nano::node_config node_config (nano::test::get_available_port (), system.logging);
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 		auto send = builder

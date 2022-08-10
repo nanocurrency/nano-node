@@ -18,11 +18,11 @@ using namespace std::chrono_literals;
 
 TEST (socket, max_connections)
 {
-	nano::system system;
+	nano::test::system system;
 
 	auto node = system.add_node ();
 
-	auto server_port = nano::get_available_port ();
+	auto server_port = nano::test::get_available_port ();
 	boost::asio::ip::tcp::endpoint listen_endpoint{ boost::asio::ip::address_v6::any (), server_port };
 	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), server_port };
 
@@ -109,12 +109,12 @@ TEST (socket, max_connections)
 
 TEST (socket, max_connections_per_ip)
 {
-	nano::system system;
+	nano::test::system system;
 
 	auto node = system.add_node ();
 	ASSERT_FALSE (node->flags.disable_max_peers_per_ip);
 
-	auto server_port = nano::get_available_port ();
+	auto server_port = nano::test::get_available_port ();
 	boost::asio::ip::tcp::endpoint listen_endpoint{ boost::asio::ip::address_v6::any (), server_port };
 	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), server_port };
 
@@ -192,7 +192,7 @@ TEST (socket, last_ipv6_subnet_address)
 
 TEST (socket, count_subnetwork_connections)
 {
-	nano::system system;
+	nano::test::system system;
 	auto node = system.add_node ();
 
 	auto address0 = boost::asio::ip::make_address ("a41d:b7b1:ffff:ffff:ffff:ffff:ffff:ffff"); // out of network prefix
@@ -226,7 +226,7 @@ TEST (socket, count_subnetwork_connections)
 
 TEST (socket, max_connections_per_subnetwork)
 {
-	nano::system system;
+	nano::test::system system;
 
 	nano::node_flags node_flags;
 	// disabling IP limit because it will be used the same IP address to check they come from the same subnetwork.
@@ -236,7 +236,7 @@ TEST (socket, max_connections_per_subnetwork)
 	ASSERT_TRUE (node->flags.disable_max_peers_per_ip);
 	ASSERT_FALSE (node->flags.disable_max_peers_per_subnetwork);
 
-	auto server_port = nano::get_available_port ();
+	auto server_port = nano::test::get_available_port ();
 	boost::asio::ip::tcp::endpoint listen_endpoint{ boost::asio::ip::address_v6::any (), server_port };
 	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), server_port };
 
@@ -292,14 +292,14 @@ TEST (socket, max_connections_per_subnetwork)
 
 TEST (socket, disabled_max_peers_per_ip)
 {
-	nano::system system;
+	nano::test::system system;
 
 	nano::node_flags node_flags;
 	node_flags.disable_max_peers_per_ip = true;
 	auto node = system.add_node (node_flags);
 	ASSERT_TRUE (node->flags.disable_max_peers_per_ip);
 
-	auto server_port = nano::get_available_port ();
+	auto server_port = nano::test::get_available_port ();
 	boost::asio::ip::tcp::endpoint listen_endpoint{ boost::asio::ip::address_v6::any (), server_port };
 	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), server_port };
 
@@ -355,7 +355,7 @@ TEST (socket, disabled_max_peers_per_ip)
 
 TEST (socket, disconnection_of_silent_connections)
 {
-	nano::system system;
+	nano::test::system system;
 
 	nano::node_config config;
 	// Increasing the timer timeout, so we don't let the connection to timeout due to the timer checker.
@@ -366,7 +366,7 @@ TEST (socket, disconnection_of_silent_connections)
 
 	auto node = system.add_node (config);
 
-	auto server_port = nano::get_available_port ();
+	auto server_port = nano::test::get_available_port ();
 	boost::asio::ip::tcp::endpoint listen_endpoint{ boost::asio::ip::address_v6::any (), server_port };
 	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), server_port };
 
@@ -422,7 +422,7 @@ TEST (socket, drop_policy)
 	std::vector<std::shared_ptr<nano::socket>> connections;
 
 	auto func = [&] (size_t total_message_count, nano::buffer_drop_policy drop_policy) {
-		auto server_port (nano::get_available_port ());
+		auto server_port (nano::test::get_available_port ());
 		boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::any (), server_port);
 
 		auto server_socket = std::make_shared<nano::server_socket> (*node, endpoint, 1);
@@ -438,7 +438,7 @@ TEST (socket, drop_policy)
 
 		auto client = std::make_shared<nano::client_socket> (*node);
 		nano::transport::channel_tcp channel{ *node, client };
-		nano::util::counted_completion write_completion (static_cast<unsigned> (total_message_count));
+		nano::test::counted_completion write_completion (static_cast<unsigned> (total_message_count));
 
 		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), server_socket->listening_port ()),
 		[&channel, total_message_count, node, &write_completion, &drop_policy, client] (boost::system::error_code const & ec_a) mutable {
@@ -492,7 +492,7 @@ TEST (socket, concurrent_writes)
 	constexpr size_t total_message_count = client_count * message_count;
 
 	// We're expecting client_count*4 messages
-	nano::util::counted_completion read_count_completion (total_message_count);
+	nano::test::counted_completion read_count_completion (total_message_count);
 	std::function<void (std::shared_ptr<nano::socket> const &)> reader = [&read_count_completion, &total_message_count, &reader] (std::shared_ptr<nano::socket> const & socket_a) {
 		auto buff (std::make_shared<std::vector<uint8_t>> ());
 		buff->resize (1);
@@ -546,7 +546,7 @@ TEST (socket, concurrent_writes)
 		return true;
 	});
 
-	nano::util::counted_completion connection_count_completion (client_count);
+	nano::test::counted_completion connection_count_completion (client_count);
 	std::vector<std::shared_ptr<nano::socket>> clients;
 	for (unsigned i = 0; i < client_count; i++)
 	{
@@ -618,14 +618,14 @@ TEST (socket, concurrent_writes)
 TEST (socket_timeout, connect)
 {
 	// create one node and set timeout to 1 second
-	nano::system system (1);
+	nano::test::system system (1);
 	std::shared_ptr<nano::node> node = system.nodes[0];
 	node->config.tcp_io_timeout = std::chrono::seconds (1);
 
 	// try to connect to an IP address that most likely does not exist and will not reply
 	// we want the tcp stack to not receive a negative reply, we want it to see silence and to keep trying
 	// I use the un-routable IP address 10.255.254.253, which is likely to not exist
-	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::make_address_v6 ("::ffff:10.255.254.253"), nano::get_available_port ());
+	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::make_address_v6 ("::ffff:10.255.254.253"), nano::test::get_available_port ());
 
 	// create a client socket and try to connect to the IP address that wil not respond
 	auto socket = std::make_shared<nano::client_socket> (*node);
@@ -651,12 +651,12 @@ TEST (socket_timeout, connect)
 TEST (socket_timeout, read)
 {
 	// create one node and set timeout to 1 second
-	nano::system system (1);
+	nano::test::system system (1);
 	std::shared_ptr<nano::node> node = system.nodes[0];
 	node->config.tcp_io_timeout = std::chrono::seconds (2);
 
 	// create a server socket
-	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
+	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), nano::test::get_available_port ());
 	boost::asio::ip::tcp::acceptor acceptor (system.io_ctx);
 	acceptor.open (endpoint.protocol ());
 	acceptor.bind (endpoint);
@@ -696,12 +696,12 @@ TEST (socket_timeout, read)
 TEST (socket_timeout, write)
 {
 	// create one node and set timeout to 1 second
-	nano::system system (1);
+	nano::test::system system (1);
 	std::shared_ptr<nano::node> node = system.nodes[0];
 	node->config.tcp_io_timeout = std::chrono::seconds (2);
 
 	// create a server socket
-	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
+	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), nano::test::get_available_port ());
 	boost::asio::ip::tcp::acceptor acceptor (system.io_ctx);
 	acceptor.open (endpoint.protocol ());
 	acceptor.bind (endpoint);
@@ -746,12 +746,12 @@ TEST (socket_timeout, write)
 TEST (socket_timeout, read_overlapped)
 {
 	// create one node and set timeout to 1 second
-	nano::system system (1);
+	nano::test::system system (1);
 	std::shared_ptr<nano::node> node = system.nodes[0];
 	node->config.tcp_io_timeout = std::chrono::seconds (2);
 
 	// create a server socket
-	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
+	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), nano::test::get_available_port ());
 	boost::asio::ip::tcp::acceptor acceptor (system.io_ctx);
 	acceptor.open (endpoint.protocol ());
 	acceptor.bind (endpoint);
@@ -802,12 +802,12 @@ TEST (socket_timeout, read_overlapped)
 TEST (socket_timeout, write_overlapped)
 {
 	// create one node and set timeout to 1 second
-	nano::system system (1);
+	nano::test::system system (1);
 	std::shared_ptr<nano::node> node = system.nodes[0];
 	node->config.tcp_io_timeout = std::chrono::seconds (2);
 
 	// create a server socket
-	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
+	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), nano::test::get_available_port ());
 	boost::asio::ip::tcp::acceptor acceptor (system.io_ctx);
 	acceptor.open (endpoint.protocol ());
 	acceptor.bind (endpoint);

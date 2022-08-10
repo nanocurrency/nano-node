@@ -55,7 +55,7 @@ TEST (unchecked_map, put_one)
 
 TEST (block_store, one_bootstrap)
 {
-	nano::system system{};
+	nano::test::system system{};
 	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	nano::unchecked_map unchecked{ *store, false };

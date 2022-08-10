@@ -416,7 +416,7 @@ TEST (block_store, genesis)
 // deleting it from the database
 TEST (unchecked, simple)
 {
-	nano::system system{};
+	nano::test::system system{};
 	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	nano::unchecked_map unchecked{ *store, false };
@@ -456,7 +456,7 @@ TEST (unchecked, simple)
 // This test ensures the unchecked table is able to receive more than one block
 TEST (unchecked, multiple)
 {
-	nano::system system{};
+	nano::test::system system{};
 	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
@@ -494,7 +494,7 @@ TEST (unchecked, multiple)
 // This test ensures that a block can't occur twice in the unchecked table.
 TEST (unchecked, double_put)
 {
-	nano::system system{};
+	nano::test::system system{};
 	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	nano::unchecked_map unchecked{ *store, false };
@@ -528,7 +528,7 @@ TEST (unchecked, double_put)
 // Tests that recurrent get calls return the correct values
 TEST (unchecked, multiple_get)
 {
-	nano::system system{};
+	nano::test::system system{};
 	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	nano::unchecked_map unchecked{ *store, false };
@@ -2649,7 +2649,7 @@ TEST (rocksdb_block_store, tombstone_count)
 	{
 		return;
 	}
-	nano::system system{};
+	nano::test::system system{};
 	nano::logger_mt logger;
 	auto store = std::make_unique<nano::rocksdb::store> (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());

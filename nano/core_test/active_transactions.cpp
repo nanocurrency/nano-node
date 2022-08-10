@@ -32,7 +32,7 @@ namespace nano
 
 TEST (active_transactions, confirm_election_by_request)
 {
-	nano::system system{};
+	nano::test::system system{};
 	auto & node1 = *system.add_node ();
 
 	nano::node_flags node_flags2{};
@@ -86,7 +86,7 @@ namespace nano
 {
 TEST (active_transactions, confirm_frontier)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
 	// Voting node
@@ -132,9 +132,9 @@ TEST (active_transactions, confirm_frontier)
 
 TEST (active_transactions, keep_local)
 {
-	nano::system system{};
+	nano::test::system system{};
 
-	nano::node_config node_config{ nano::get_available_port (), system.logging };
+	nano::node_config node_config{ nano::test::get_available_port (), system.logging };
 	node_config.enable_voting = false;
 	// Bound to 2, won't drop wallet created transactions, but good to test dropping remote
 	node_config.active_elections_size = 2;
@@ -208,7 +208,7 @@ TEST (active_transactions, keep_local)
 
 TEST (active_transactions, inactive_votes_cache)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node = *system.nodes[0];
 	nano::block_hash latest (node.latest (nano::dev::genesis_key.pub));
 	nano::keypair key;
@@ -230,7 +230,7 @@ TEST (active_transactions, inactive_votes_cache)
 
 TEST (active_transactions, inactive_votes_cache_non_final)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node = *system.nodes[0];
 	nano::block_hash latest (node.latest (nano::dev::genesis_key.pub));
 	nano::keypair key;
@@ -255,7 +255,7 @@ TEST (active_transactions, inactive_votes_cache_non_final)
 
 TEST (active_transactions, inactive_votes_cache_fork)
 {
-	nano::system system{ 1 };
+	nano::test::system system{ 1 };
 	auto & node = *system.nodes[0];
 
 	auto const latest = node.latest (nano::dev::genesis_key.pub);
@@ -295,8 +295,8 @@ TEST (active_transactions, inactive_votes_cache_fork)
 
 TEST (active_transactions, inactive_votes_cache_existing_vote)
 {
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
 	nano::block_hash latest (node.latest (nano::dev::genesis_key.pub));
@@ -355,8 +355,8 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 // Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3632
 TEST (active_transactions, DISABLED_inactive_votes_cache_multiple_votes)
 {
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
 	nano::block_hash latest (node.latest (nano::dev::genesis_key.pub));
@@ -406,8 +406,8 @@ TEST (active_transactions, DISABLED_inactive_votes_cache_multiple_votes)
 
 TEST (active_transactions, inactive_votes_cache_election_start)
 {
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
 	nano::block_hash latest (node.latest (nano::dev::genesis_key.pub));
@@ -512,8 +512,8 @@ namespace nano
 {
 TEST (active_transactions, vote_replays)
 {
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.enable_voting = false;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
@@ -541,7 +541,7 @@ TEST (active_transactions, vote_replays)
 	ASSERT_NE (nullptr, open1);
 	node.process_active (send1);
 	node.process_active (open1);
-	nano::blocks_confirm (node, { send1, open1 });
+	nano::test::blocks_confirm (node, { send1, open1 });
 	ASSERT_EQ (2, node.active.size ());
 	// First vote is not a replay and confirms the election, second vote should be a replay since the election has confirmed but not yet removed
 	auto vote_send1 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ send1->hash () }));
@@ -570,7 +570,7 @@ TEST (active_transactions, vote_replays)
 				 .build_shared ();
 	ASSERT_NE (nullptr, send2);
 	node.process_active (send2);
-	nano::blocks_confirm (node, { send2 });
+	nano::test::blocks_confirm (node, { send2 });
 	ASSERT_EQ (1, node.active.size ());
 	auto vote1_send2 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ send2->hash () }));
 	auto vote2_send2 (std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, std::vector<nano::block_hash>{ send2->hash () }));
@@ -601,7 +601,7 @@ TEST (active_transactions, vote_replays)
 // Tests that blocks are correctly cleared from the duplicate filter for unconfirmed elections
 TEST (active_transactions, dropped_cleanup)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::node_flags flags;
 	flags.disable_request_loop = true;
 	auto & node (*system.add_node (flags));
@@ -659,11 +659,11 @@ TEST (active_transactions, dropped_cleanup)
 
 TEST (active_transactions, republish_winner)
 {
-	nano::system system;
-	nano::node_config node_config{ nano::get_available_port (), system.logging };
+	nano::test::system system;
+	nano::node_config node_config{ nano::test::get_available_port (), system.logging };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
-	node_config.peering_port = nano::get_available_port ();
+	node_config.peering_port = nano::test::get_available_port ();
 	auto & node2 = *system.add_node (node_config);
 
 	nano::keypair key;
@@ -726,9 +726,9 @@ TEST (active_transactions, republish_winner)
 
 TEST (active_transactions, fork_filter_cleanup)
 {
-	nano::system system{};
+	nano::test::system system{};
 
-	nano::node_config node_config{ nano::get_available_port (), system.logging };
+	nano::node_config node_config{ nano::test::get_available_port (), system.logging };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 
 	auto & node1 = *system.add_node (node_config);
@@ -776,7 +776,7 @@ TEST (active_transactions, fork_filter_cleanup)
 	ASSERT_EQ (1, node1.active.size ());
 
 	// Instantiate a new node
-	node_config.peering_port = nano::get_available_port ();
+	node_config.peering_port = nano::test::get_available_port ();
 	auto & node2 = *system.add_node (node_config);
 
 	// Process the first initial block on node2
@@ -798,8 +798,8 @@ TEST (active_transactions, fork_filter_cleanup)
 
 TEST (active_transactions, fork_replacement_tally)
 {
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 (*system.add_node (node_config));
 
@@ -904,7 +904,7 @@ TEST (active_transactions, fork_replacement_tally)
 	}
 
 	// Process correct block
-	node_config.peering_port = nano::get_available_port ();
+	node_config.peering_port = nano::test::get_available_port ();
 	auto & node2 (*system.add_node (node_config));
 	node2.network.flood_block (send_last);
 	ASSERT_TIMELY (3s, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) > 0);
@@ -944,8 +944,8 @@ namespace nano
 // Blocks that won an election must always be seen as confirming or cemented
 TEST (active_transactions, confirmation_consistency)
 {
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -974,7 +974,7 @@ TEST (active_transactions, confirmation_consistency)
 // Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3634
 TEST (active_transactions, DISABLED_confirm_new)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 = *system.nodes[0];
 	auto send = nano::send_block_builder ()
 				.previous (nano::dev::genesis->hash ())
@@ -999,7 +999,7 @@ TEST (active_transactions, DISABLED_confirm_new)
 // Ensures votes are tallied on election::publish even if no vote is inserted through inactive_votes_cache
 TEST (active_transactions, conflicting_block_vote_existing_election)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
 	auto & node = *system.add_node (node_flags);
@@ -1043,9 +1043,9 @@ TEST (active_transactions, conflicting_block_vote_existing_election)
 
 TEST (active_transactions, activate_account_chain)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::node_flags flags;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (config, flags);
 
@@ -1143,9 +1143,9 @@ TEST (active_transactions, activate_account_chain)
 
 TEST (active_transactions, activate_inactive)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::node_flags flags;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (config, flags);
 
@@ -1202,7 +1202,7 @@ TEST (active_transactions, activate_inactive)
 
 TEST (active_transactions, list_active)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node = *system.nodes[0];
 
 	nano::keypair key;
@@ -1243,7 +1243,7 @@ TEST (active_transactions, list_active)
 
 	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
 
-	nano::blocks_confirm (node, { send, send2, open });
+	nano::test::blocks_confirm (node, { send, send2, open });
 	ASSERT_EQ (3, node.active.size ());
 	ASSERT_EQ (1, node.active.list_active (1).size ());
 	ASSERT_EQ (2, node.active.list_active (2).size ());
@@ -1257,8 +1257,8 @@ TEST (active_transactions, list_active)
 
 TEST (active_transactions, vacancy)
 {
-	nano::system system;
-	nano::node_config config{ nano::get_available_port (), system.logging };
+	nano::test::system system;
+	nano::node_config config{ nano::test::get_available_port (), system.logging };
 	config.active_elections_size = 1;
 	auto & node = *system.add_node (config);
 	nano::state_block_builder builder;
@@ -1292,9 +1292,9 @@ TEST (active_transactions, vacancy)
 // Ensure transactions in excess of capacity are removed in fifo order
 TEST (active_transactions, fifo)
 {
-	nano::system system{};
+	nano::test::system system{};
 
-	nano::node_config config{ nano::get_available_port (), system.logging };
+	nano::node_config config{ nano::test::get_available_port (), system.logging };
 	config.active_elections_size = 1;
 
 	auto & node = *system.add_node (config);
@@ -1374,8 +1374,8 @@ TEST (active_transactions, fifo)
 // Ensures we limit the number of vote hinted elections in AEC
 TEST (active_transactions, limit_vote_hinted_elections)
 {
-	nano::system system;
-	nano::node_config config{ nano::get_available_port (), system.logging };
+	nano::test::system system;
+	nano::node_config config{ nano::test::get_available_port (), system.logging };
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	config.active_elections_size = 10;
 	config.active_elections_hinted_limit_percentage = 10; // Should give us a limit of 1 hinted election
@@ -1426,7 +1426,7 @@ TEST (active_transactions, limit_vote_hinted_elections)
 		ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
 		ASSERT_EQ (nano::process_result::progress, node.process (*open1).code);
 		ASSERT_EQ (nano::process_result::progress, node.process (*open2).code);
-		nano::blocks_confirm (node, { send1, send2, open1, open2 }, true);
+		nano::test::blocks_confirm (node, { send1, send2, open1, open2 }, true);
 		ASSERT_TIMELY (1s, node.block_confirmed (send1->hash ()));
 		ASSERT_TIMELY (1s, node.block_confirmed (send2->hash ()));
 		ASSERT_TIMELY (1s, node.block_confirmed (open1->hash ()));
@@ -1452,7 +1452,7 @@ TEST (active_transactions, limit_vote_hinted_elections)
 					 .work (*system.work.generate (latest))
 					 .build_shared ();
 		ASSERT_EQ (nano::process_result::progress, node.process (*send0).code);
-		nano::blocks_confirm (node, { send0 }, true);
+		nano::test::blocks_confirm (node, { send0 }, true);
 		ASSERT_TIMELY (1s, node.block_confirmed (send0->hash ()));
 		ASSERT_TIMELY (1s, node.active.empty ());
 		auto send1 = builder.make_block ()
@@ -1465,7 +1465,7 @@ TEST (active_transactions, limit_vote_hinted_elections)
 					 .work (*system.work.generate (send0->hash ()))
 					 .build_shared ();
 		ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
-		nano::blocks_confirm (node, { send1 }, true);
+		nano::test::blocks_confirm (node, { send1 }, true);
 		ASSERT_TIMELY (1s, node.block_confirmed (send1->hash ()));
 		ASSERT_TIMELY (1s, node.active.empty ());
 

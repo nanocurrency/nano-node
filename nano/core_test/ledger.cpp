@@ -895,8 +895,8 @@ TEST (ledger, double_receive)
 
 TEST (votes, check_signature)
 {
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.online_weight_minimum = std::numeric_limits<nano::uint128_t>::max ();
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key1;
@@ -928,7 +928,7 @@ TEST (votes, check_signature)
 
 TEST (votes, add_one)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::keypair key1;
 	nano::block_builder builder;
@@ -967,8 +967,8 @@ namespace nano
 // Higher timestamps change the vote
 TEST (votes, add_existing)
 {
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
@@ -1029,7 +1029,7 @@ TEST (votes, add_existing)
 // Lower timestamps are ignored
 TEST (votes, add_old)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::keypair key1;
 	nano::block_builder builder;
@@ -1080,7 +1080,7 @@ TEST (votes, add_old)
 // Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3631
 TEST (votes, DISABLED_add_old_different_account)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::keypair key1;
 	nano::block_builder builder;
@@ -1104,7 +1104,7 @@ TEST (votes, DISABLED_add_old_different_account)
 	node1.work_generate_blocking (*send2);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send2).code);
-	nano::blocks_confirm (node1, { send1, send2 });
+	nano::test::blocks_confirm (node1, { send1, send2 });
 	auto election1 = node1.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election1);
 	auto election2 = node1.active.election (send2->qualified_root ());
@@ -1135,7 +1135,7 @@ TEST (votes, DISABLED_add_old_different_account)
 // The voting cooldown is respected
 TEST (votes, add_cooldown)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::keypair key1;
 	nano::block_builder builder;
@@ -1178,7 +1178,7 @@ TEST (votes, add_cooldown)
 // Query for block successor
 TEST (ledger, successor)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::keypair key1;
 	nano::block_builder builder;
@@ -3909,7 +3909,7 @@ TEST (ledger, epoch_blocks_fork)
 
 TEST (ledger, successor_epoch)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::keypair key1;
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -3976,7 +3976,7 @@ TEST (ledger, successor_epoch)
 TEST (ledger, epoch_open_pending)
 {
 	nano::block_builder builder{};
-	nano::system system{ 1 };
+	nano::test::system system{ 1 };
 	auto & node1 = *system.nodes[0];
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair key1{};
@@ -4018,7 +4018,7 @@ TEST (ledger, epoch_open_pending)
 TEST (ledger, block_hash_account_conflict)
 {
 	nano::block_builder builder;
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::keypair key1;
 	nano::keypair key2;
@@ -4086,7 +4086,7 @@ TEST (ledger, block_hash_account_conflict)
 	ASSERT_EQ (nano::process_result::progress, node1.process (*receive1).code);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send2).code);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*open_epoch1).code);
-	nano::blocks_confirm (node1, { send1, receive1, send2, open_epoch1 });
+	nano::test::blocks_confirm (node1, { send1, receive1, send2, open_epoch1 });
 	auto election1 = node1.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election1);
 	auto election2 = node1.active.election (receive1->qualified_root ());
@@ -4249,7 +4249,7 @@ TEST (ledger, could_fit)
 
 TEST (ledger, unchecked_epoch)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::keypair destination;
 	nano::block_builder builder;
@@ -4308,8 +4308,8 @@ TEST (ledger, unchecked_epoch)
 
 TEST (ledger, unchecked_epoch_invalid)
 {
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 (*system.add_node (node_config));
 	nano::keypair destination;
@@ -4395,7 +4395,7 @@ TEST (ledger, unchecked_epoch_invalid)
 
 TEST (ledger, unchecked_open)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::keypair destination;
 	nano::block_builder builder;
@@ -4447,7 +4447,7 @@ TEST (ledger, unchecked_open)
 
 TEST (ledger, unchecked_receive)
 {
-	nano::system system{ 1 };
+	nano::test::system system{ 1 };
 	auto & node1 = *system.nodes[0];
 	nano::keypair destination{};
 	nano::block_builder builder;
@@ -4561,7 +4561,7 @@ TEST (ledger, confirmation_height_not_updated)
 
 TEST (ledger, zero_rep)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::block_builder builder;
 	auto block1 = builder.state ()
