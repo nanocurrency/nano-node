@@ -79,6 +79,29 @@ private:
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, std::string const &);
 };
 
+/*
+ * Helper container for storing recently cemented elections (a block from election might be confirmed but not yet cemented by confirmation height processor)
+ */
+class recently_cemented_cache final
+{
+public:
+	using queue_t = std::deque<nano::election_status>;
+
+	explicit recently_cemented_cache (std::size_t max_size);
+
+	void put (nano::election_status const &);
+	queue_t list () const;
+	std::size_t size () const;
+
+private:
+	queue_t cemented;
+	std::size_t const max_size;
+
+	mutable nano::mutex mutex;
+
+	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, std::string const &);
+};
+
 class election_insertion_result final
 {
 public:
@@ -147,10 +170,7 @@ public:
 	std::function<void ()> vacancy_update{ [] () {} };
 
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
-	std::deque<nano::election_status> list_recently_cemented ();
-	std::deque<nano::election_status> recently_cemented;
 
-	void add_recently_cemented (nano::election_status const &);
 	void add_inactive_votes_cache (nano::unique_lock<nano::mutex> &, nano::block_hash const &, nano::account const &, uint64_t const);
 	// Inserts an election if conditions are met
 	void trigger_inactive_votes_cache_election (std::shared_ptr<nano::block> const &);
@@ -169,6 +189,7 @@ public:
 	nano::vote_generator final_generator;
 
 	recently_confirmed_cache recently_confirmed;
+	recently_cemented_cache recently_cemented;
 
 #ifdef MEMORY_POOL_DISABLED
 	using allocator = std::allocator<nano::inactive_cache_information>;

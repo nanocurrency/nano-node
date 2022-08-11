@@ -21,6 +21,7 @@ nano::active_transactions::active_transactions (nano::node & node_a, nano::confi
 	generator{ node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats, false },
 	final_generator{ node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats, true },
 	recently_confirmed{ 65536 },
+	recently_cemented{ node.config.confirmation_history_size },
 	election_time_to_live{ node_a.network_params.network.is_dev_network () ? 0s : 2s },
 	thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::request_loop);
@@ -88,7 +89,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 					nano::unique_lock<nano::mutex> election_lk (election->mutex);
 					auto status_l = election->status;
 					election_lk.unlock ();
-					add_recently_cemented (status_l);
+					recently_cemented.put (status_l);
 					auto destination (block_a->link ().is_zero () ? block_a->destination () : block_a->link ().as_account ());
 					node.receive_confirmed (transaction, hash, destination);
 					nano::account account{};
@@ -531,22 +532,6 @@ std::shared_ptr<nano::block> nano::active_transactions::winner (nano::block_hash
 	return result;
 }
 
-std::deque<nano::election_status> nano::active_transactions::list_recently_cemented ()
-{
-	nano::lock_guard<nano::mutex> lock (mutex);
-	return recently_cemented;
-}
-
-void nano::active_transactions::add_recently_cemented (nano::election_status const & status_a)
-{
-	nano::lock_guard<nano::mutex> guard (mutex);
-	recently_cemented.push_back (status_a);
-	if (recently_cemented.size () > node.config.confirmation_history_size)
-	{
-		recently_cemented.pop_front ();
-	}
-}
-
 void nano::active_transactions::erase (nano::block const & block_a)
 {
 	erase (block_a.qualified_root ());
@@ -873,7 +858,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (active_transactions.blocks)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "election_winner_details", active_transactions.election_winner_details_size (), sizeof (decltype (active_transactions.election_winner_details)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recently_confirmed", recently_confirmed_count, sizeof (decltype (active_transactions.recently_confirmed.confirmed)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recently_cemented", recently_cemented_count, sizeof (decltype (active_transactions.recently_cemented)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recently_cemented", recently_cemented_count, sizeof (decltype (active_transactions.recently_cemented.cemented)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "inactive_votes_cache", active_transactions.inactive_votes_cache_size (), sizeof (nano::gap_information) }));
 	composite->add_component (collect_container_info (active_transactions.generator, "generator"));
 	return composite;
@@ -932,4 +917,35 @@ nano::recently_confirmed_cache::entry_t nano::recently_confirmed_cache::back () 
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return confirmed.back ();
+}
+
+/*
+ * class recently_cemented
+ */
+
+nano::recently_cemented_cache::recently_cemented_cache (std::size_t max_size_a) :
+	max_size{ max_size_a }
+{
+}
+
+void nano::recently_cemented_cache::put (const nano::election_status & status)
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	cemented.push_back (status);
+	if (cemented.size () > max_size)
+	{
+		cemented.pop_front ();
+	}
+}
+
+nano::recently_cemented_cache::queue_t nano::recently_cemented_cache::list () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return cemented;
+}
+
+std::size_t nano::recently_cemented_cache::size () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return cemented.size ();
 }
