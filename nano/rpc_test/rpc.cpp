@@ -5875,9 +5875,9 @@ TEST (rpc, confirmation_history)
 	auto node = add_ipc_enabled_node (system);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	ASSERT_TRUE (node->active.list_recently_cemented ().empty ());
+	ASSERT_TRUE (node->active.recently_cemented.list ().empty ());
 	auto block (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, nano::Gxrb_ratio));
-	ASSERT_TIMELY (10s, !node->active.list_recently_cemented ().empty ());
+	ASSERT_TIMELY (10s, !node->active.recently_cemented.list ().empty ());
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "confirmation_history");
@@ -5906,11 +5906,11 @@ TEST (rpc, confirmation_history_hash)
 	auto node = add_ipc_enabled_node (system);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	ASSERT_TRUE (node->active.list_recently_cemented ().empty ());
+	ASSERT_TRUE (node->active.recently_cemented.list ().empty ());
 	auto send1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	auto send2 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	auto send3 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, nano::Gxrb_ratio));
-	ASSERT_TIMELY (10s, node->active.list_recently_cemented ().size () == 3);
+	ASSERT_TIMELY (10s, node->active.recently_cemented.list ().size () == 3);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "confirmation_history");
@@ -5995,7 +5995,7 @@ TEST (rpc, block_confirm_confirmed)
 	auto response (wait_response (system, rpc_ctx, request));
 	ASSERT_EQ ("1", response.get<std::string> ("started"));
 	// Check confirmation history
-	auto confirmed (node->active.list_recently_cemented ());
+	auto confirmed (node->active.recently_cemented.list ());
 	ASSERT_EQ (1, confirmed.size ());
 	ASSERT_EQ (nano::dev::genesis->hash (), confirmed.begin ()->winner->hash ());
 	// Check callback
