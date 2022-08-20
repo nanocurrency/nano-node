@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -7,11 +7,8 @@ build-essential \
 g++ \
 wget \
 python \
-zlib1g-dev
-
-RUN wget -O cmake_install.sh https://github.com/Kitware/CMake/releases/download/v3.15.4/cmake-3.15.4-Linux-x86_64.sh && \
-chmod +x cmake_install.sh && \
-./cmake_install.sh --prefix=/usr --exclude-subdir --skip-license
+zlib1g-dev \
+cmake
 
 RUN apt-get update -qq && apt-get install -yqq \
 qt5-default \
