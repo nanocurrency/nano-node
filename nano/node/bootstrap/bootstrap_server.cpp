@@ -472,9 +472,13 @@ void nano::bootstrap_server::bootstrap_message_visitor::bulk_pull (const nano::b
 		server->node->logger.try_log (boost::str (boost::format ("Received bulk pull for %1% down to %2%, maximum of %3% from %4%") % message.start.to_string () % message.end.to_string () % message.count % server->remote_endpoint));
 	}
 
-	// TODO: Add completion callback to bulk pull server
-	auto bulk_pull_server = std::make_shared<nano::bulk_pull_server> (server, std::make_unique<nano::bulk_pull> (message));
-	bulk_pull_server->send_next ();
+	server->node->bootstrap_workers.push_task ([server = server, message = message] () {
+		// TODO: Add completion callback to bulk pull server
+		// TODO: There should be no need to re-copy message as unique pointer, refactor those bulk/frontier pull/push servers
+		auto bulk_pull_server = std::make_shared<nano::bulk_pull_server> (server, std::make_unique<nano::bulk_pull> (message));
+		bulk_pull_server->send_next ();
+	});
+
 	processed = true;
 }
 
@@ -490,17 +494,24 @@ void nano::bootstrap_server::bootstrap_message_visitor::bulk_pull_account (const
 		server->node->logger.try_log (boost::str (boost::format ("Received bulk pull account for %1% with a minimum amount of %2%") % message.account.to_account () % nano::amount (message.minimum_amount).format_balance (nano::Mxrb_ratio, 10, true)));
 	}
 
-	// TODO: Add completion callback to bulk pull server
-	auto bulk_pull_account_server = std::make_shared<nano::bulk_pull_account_server> (server, std::make_unique<nano::bulk_pull_account> (message));
-	bulk_pull_account_server->send_frontier ();
+	server->node->bootstrap_workers.push_task ([server = server, message = message] () {
+		// TODO: Add completion callback to bulk pull server
+		// TODO: There should be no need to re-copy message as unique pointer, refactor those bulk/frontier pull/push servers
+		auto bulk_pull_account_server = std::make_shared<nano::bulk_pull_account_server> (server, std::make_unique<nano::bulk_pull_account> (message));
+		bulk_pull_account_server->send_frontier ();
+	});
+
 	processed = true;
 }
 
 void nano::bootstrap_server::bootstrap_message_visitor::bulk_push (const nano::bulk_push &)
 {
-	// TODO: Add completion callback to bulk pull server
-	auto bulk_push_server = std::make_shared<nano::bulk_push_server> (server);
-	bulk_push_server->throttled_receive ();
+	server->node->bootstrap_workers.push_task ([server = server] () {
+		// TODO: Add completion callback to bulk pull server
+		auto bulk_push_server = std::make_shared<nano::bulk_push_server> (server);
+		bulk_push_server->throttled_receive ();
+	});
+
 	processed = true;
 }
 
@@ -511,8 +522,12 @@ void nano::bootstrap_server::bootstrap_message_visitor::frontier_req (const nano
 		server->node->logger.try_log (boost::str (boost::format ("Received frontier request for %1% with age %2%") % message.start.to_string () % message.age));
 	}
 
-	auto response = std::make_shared<nano::frontier_req_server> (server, std::make_unique<nano::frontier_req> (message));
-	response->send_next ();
+	server->node->bootstrap_workers.push_task ([server = server, message = message] () {
+		// TODO: There should be no need to re-copy message as unique pointer, refactor those bulk/frontier pull/push servers
+		auto response = std::make_shared<nano::frontier_req_server> (server, std::make_unique<nano::frontier_req> (message));
+		response->send_next ();
+	});
+
 	processed = true;
 }
 
