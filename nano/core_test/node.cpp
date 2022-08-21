@@ -1857,7 +1857,7 @@ TEST (node, rep_remove)
 	// Add working node for genesis representative
 	auto node_genesis_rep = system.add_node (nano::node_config (nano::test::get_available_port (), system.logging));
 	system.wallet (1)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto channel_genesis_rep (searching_node.network.find_channel (node_genesis_rep->network.endpoint ()));
+	auto channel_genesis_rep (searching_node.network.find_node_id (node_genesis_rep->get_node_id ()));
 	ASSERT_NE (nullptr, channel_genesis_rep);
 
 	// genesis_rep should be found as principal representative after receiving a vote from it
@@ -1870,7 +1870,7 @@ TEST (node, rep_remove)
 	node_rep2->start ();
 	searching_node.network.tcp_channels.start_tcp (node_rep2->network.endpoint ());
 	std::shared_ptr<nano::transport::channel> channel_rep2;
-	ASSERT_TIMELY (10s, (channel_rep2 = searching_node.network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node_rep2->network.endpoint ()))) != nullptr);
+	ASSERT_TIMELY (10s, (channel_rep2 = searching_node.network.tcp_channels.find_node_id (node_rep2->get_node_id ())) != nullptr);
 
 	// Rep2 should be found as a principal representative after receiving a vote from it
 	auto vote_rep2 = std::make_shared<nano::vote> (keys_rep2.pub, keys_rep2.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
@@ -3196,11 +3196,11 @@ TEST (node, peers)
 	// Confirm that the peers match with the endpoints we are expecting
 	ASSERT_EQ (1, node1->network.size ());
 	auto list1 (node1->network.list (2));
-	ASSERT_EQ (node2->network.endpoint (), list1[0]->get_endpoint ());
+	ASSERT_EQ (node2->get_node_id (), list1[0]->get_node_id ());
 	ASSERT_EQ (nano::transport::transport_type::tcp, list1[0]->get_type ());
 	ASSERT_EQ (1, node2->network.size ());
 	auto list2 (node2->network.list (2));
-	ASSERT_EQ (node1->network.endpoint (), list2[0]->get_endpoint ());
+	ASSERT_EQ (node1->get_node_id (), list2[0]->get_node_id ());
 	ASSERT_EQ (nano::transport::transport_type::tcp, list2[0]->get_type ());
 	// Stop the peer node and check that it is removed from the store
 	node1->stop ();
@@ -4244,7 +4244,7 @@ TEST (rep_crawler, recently_confirmed)
 	node1.active.recently_confirmed.put (block->qualified_root (), block->hash ());
 	auto & node2 (*system.add_node ());
 	system.wallet (1)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto channel = node1.network.find_channel (node2.network.endpoint ());
+	auto channel = node1.network.find_node_id (node2.get_node_id ());
 	ASSERT_NE (nullptr, channel);
 	node1.rep_crawler.query (channel);
 	ASSERT_TIMELY (3s, node1.rep_crawler.representative_count () == 1);

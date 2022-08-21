@@ -1002,7 +1002,7 @@ TEST (websocket, telemetry)
 
 	ASSERT_TIMELY (10s, done);
 
-	node1->telemetry->get_metrics_single_peer_async (node1->network.find_channel (node2->network.endpoint ()), [] (auto const & response_a) {
+	node1->telemetry->get_metrics_single_peer_async (node1->network.find_node_id (node2->get_node_id ()), [] (auto const & response_a) {
 		ASSERT_FALSE (response_a.error);
 	});
 
