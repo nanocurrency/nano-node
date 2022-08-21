@@ -152,8 +152,9 @@ TEST (vote_cache, perf_singlethreaded)
 
 	std::cout << "preparation done" << std::endl;
 
+	// Start monitoring rate of blocks processed by vote cache
 	nano::test::rate_observer rate;
-	rate.observe (node, nano::stat::type::vote_cache, nano::stat::detail::vote_new, nano::stat::dir::in);
+	rate.observe (node, nano::stat::type::vote_cache, nano::stat::detail::vote_processed, nano::stat::dir::in);
 	rate.background_print (3s);
 
 	// Ensure votes are not inserted into active elections
@@ -182,10 +183,10 @@ TEST (vote_cache, perf_singlethreaded)
 		}
 	}
 
-	std::cout << "total votes processed: " << node.stats.count (nano::stat::type::vote_cache, nano::stat::detail::vote_new, nano::stat::dir::in) << std::endl;
+	std::cout << "total votes processed: " << node.stats.count (nano::stat::type::vote_cache, nano::stat::detail::vote_processed, nano::stat::dir::in) << std::endl;
 
 	// Ensure we processed all the votes
-	ASSERT_EQ (node.stats.count (nano::stat::type::vote_cache, nano::stat::detail::vote_new, nano::stat::dir::in), vote_count * single_vote_size * single_vote_reps);
+	ASSERT_EQ (node.stats.count (nano::stat::type::vote_cache, nano::stat::detail::vote_processed, nano::stat::dir::in), vote_count * single_vote_size * single_vote_reps);
 
 	// Ensure vote cache size is at max capacity
 	ASSERT_EQ (node.active.inactive_votes_cache_size (), flags.inactive_votes_cache_size);
@@ -212,17 +213,22 @@ TEST (vote_cache, perf_multithreaded)
 
 	std::cout << "preparation done" << std::endl;
 
+	// Start monitoring rate of blocks processed by vote cache
 	nano::test::rate_observer rate;
-	rate.observe (node, nano::stat::type::vote_cache, nano::stat::detail::vote_new, nano::stat::dir::in);
+	rate.observe (node, nano::stat::type::vote_cache, nano::stat::detail::vote_processed, nano::stat::dir::in);
 	rate.background_print (3s);
 
-	// Ensure votes are not inserted into active elections
+	// Ensure our generated votes go to inactive vote cache instead of active elections
 	node.active.clear ();
 
 	run_parallel (thread_count, [&node, &reps, &blocks] (int index) {
 		int block_idx = index;
 		int rep_idx = index;
 		std::vector<nano::block_hash> hashes;
+
+		// Each iteration generates vote with `single_vote_size` hashes in it
+		// and that vote is then independently signed by `single_vote_reps` representatives
+		// So total votes per thread is `vote_count` * `single_vote_reps`
 		for (int n = 0; n < vote_count; ++n)
 		{
 			// Fill block hashes for this vote
@@ -244,7 +250,7 @@ TEST (vote_cache, perf_multithreaded)
 		}
 	});
 
-	std::cout << "total votes processed: " << node.stats.count (nano::stat::type::vote_cache, nano::stat::detail::vote_new, nano::stat::dir::in) << std::endl;
+	std::cout << "total votes processed: " << node.stats.count (nano::stat::type::vote_cache, nano::stat::detail::vote_processed, nano::stat::dir::in) << std::endl;
 
 	// Ensure vote cache size is at max capacity
 	ASSERT_EQ (node.active.inactive_votes_cache_size (), flags.inactive_votes_cache_size);

@@ -713,6 +713,9 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 		case nano::stat::detail::vote_new:
 			res = "vote_new";
 			break;
+		case nano::stat::detail::vote_processed:
+			res = "vote_processed";
+			break;
 		case nano::stat::detail::vote_cached:
 			res = "vote_cached";
 			break;

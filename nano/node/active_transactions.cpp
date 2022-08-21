@@ -717,7 +717,7 @@ void nano::active_transactions::add_inactive_votes_cache (nano::unique_lock<nano
 			}
 		}
 
-		node.stats.inc (nano::stat::type::vote_cache, nano::stat::detail::vote_new);
+		node.stats.inc (nano::stat::type::vote_cache, nano::stat::detail::vote_processed);
 	}
 }
 

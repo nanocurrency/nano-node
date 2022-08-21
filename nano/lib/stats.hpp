@@ -318,6 +318,7 @@ public:
 
 		// election specific
 		vote_new,
+		vote_processed,
 		vote_cached,
 		late_block,
 		late_block_seconds,
