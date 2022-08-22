@@ -3495,8 +3495,7 @@ TEST (node, aggressive_flooding)
 	auto & wallet1 (*system.wallet (0));
 	wallet1.insert_adhoc (nano::dev::genesis_key.prv);
 	std::vector<std::pair<std::shared_ptr<nano::node>, std::shared_ptr<nano::wallet>>> nodes_wallets;
-	bool const sanitizer_or_valgrind (is_sanitizer_build || nano::running_within_valgrind ());
-	nodes_wallets.resize (!sanitizer_or_valgrind ? 5 : 3);
+	nodes_wallets.resize (!nano::memory_intensive_instrumentation () ? 5 : 3);
 
 	std::generate (nodes_wallets.begin (), nodes_wallets.end (), [&system, node_flags] () {
 		nano::node_config node_config (nano::test::get_available_port (), system.logging);
@@ -3547,12 +3546,12 @@ TEST (node, aggressive_flooding)
 		});
 	};
 
-	ASSERT_TIMELY (!sanitizer_or_valgrind ? 10s : 40s, all_received ());
+	ASSERT_TIMELY (!nano::slow_instrumentation () ? 10s : 40s, all_received ());
 
-	ASSERT_TIMELY (!sanitizer_or_valgrind ? 10s : 40s, node1.ledger.cache.block_count == 1 + 2 * nodes_wallets.size ());
+	ASSERT_TIMELY (!nano::slow_instrumentation () ? 10s : 40s, node1.ledger.cache.block_count == 1 + 2 * nodes_wallets.size ());
 
 	// Wait until the main node sees all representatives
-	ASSERT_TIMELY (!sanitizer_or_valgrind ? 10s : 40s, node1.rep_crawler.principal_representatives ().size () == nodes_wallets.size ());
+	ASSERT_TIMELY (!nano::slow_instrumentation () ? 10s : 40s, node1.rep_crawler.principal_representatives ().size () == nodes_wallets.size ());
 
 	// Generate blocks and ensure they are sent to all representatives
 	nano::state_block_builder builder;
@@ -3578,11 +3577,11 @@ TEST (node, aggressive_flooding)
 		});
 	};
 
-	ASSERT_TIMELY (!sanitizer_or_valgrind ? 5s : 25s, all_have_block (block->hash ()));
+	ASSERT_TIMELY (!nano::slow_instrumentation () ? 5s : 25s, all_have_block (block->hash ()));
 
 	// Do the same for a wallet block
 	auto wallet_block = wallet1.send_sync (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, 10);
-	ASSERT_TIMELY (!sanitizer_or_valgrind ? 5s : 25s, all_have_block (wallet_block));
+	ASSERT_TIMELY (!nano::slow_instrumentation () ? 5s : 25s, all_have_block (wallet_block));
 
 	// All blocks: genesis + (send+open) for each representative + 2 local blocks
 	// The main node only sees all blocks if other nodes are flooding their PR's open block to all other PRs

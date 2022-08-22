@@ -129,7 +129,7 @@ private:
 	std::chrono::seconds const cache_cutoff{ nano::telemetry_cache_cutoffs::network_to_time (network_params.network) };
 
 	// The maximum time spent waiting for a response to a telemetry request
-	std::chrono::seconds const response_time_cutoff{ network_params.network.is_dev_network () ? (is_sanitizer_build || nano::running_within_valgrind () ? 6 : 3) : 10 };
+	std::chrono::seconds const response_time_cutoff{ network_params.network.is_dev_network () ? (is_sanitizer_build () || nano::running_within_valgrind () ? 6 : 3) : 10 };
 
 	std::unordered_map<nano::endpoint, std::vector<std::function<void (telemetry_data_response const &)>>> callbacks;
 
