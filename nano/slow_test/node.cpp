@@ -513,11 +513,11 @@ TEST (store, unchecked_load)
 
 TEST (store, vote_load)
 {
-	nano::test::system system (1);
-	auto & node (*system.nodes[0]);
-	for (auto i (0); i < 1000000; ++i)
+	nano::test::system system{ 1 };
+	auto & node = *system.nodes[0];
+	for (auto i = 0u; i < 1000000u; ++i)
 	{
-		auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, i, 0, std::vector<nano::block_hash>{ i }));
+		auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, i, 0, std::vector<nano::block_hash>{ i });
 		node.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node, node));
 	}
 }
