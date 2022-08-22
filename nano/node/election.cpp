@@ -130,9 +130,9 @@ void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_
 {
 	if ((base_latency () * 5) < (std::chrono::steady_clock::now () - last_req))
 	{
-		nano::lock_guard<nano::mutex> guard (mutex);
-		if (!solicitor_a.add (*this))
+		if (solicitor_add (solicitor_a))
 		{
+			// Ops not requiring mutex lock
 			last_req = std::chrono::steady_clock::now ();
 			++confirmation_request_count;
 		}
@@ -158,12 +158,24 @@ void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a
 {
 	if (base_latency () * 15 < std::chrono::steady_clock::now () - last_block)
 	{
-		nano::lock_guard<nano::mutex> guard (mutex);
-		if (!solicitor_a.broadcast (*this))
+		if (solicitor_broadcast (solicitor_a))
 		{
+			// Ops not requiring mutex lock
 			last_block = std::chrono::steady_clock::now ();
 		}
 	}
+}
+
+bool nano::election::solicitor_add (nano::confirmation_solicitor & solicitor) const
+{
+	nano::lock_guard<nano::mutex> guard (mutex);
+	return !solicitor.add (status.winner, last_votes);
+}
+
+bool nano::election::solicitor_broadcast (nano::confirmation_solicitor & solicitor) const
+{
+	nano::lock_guard<nano::mutex> guard (mutex);
+	return !solicitor.broadcast (status.winner, last_votes);
 }
 
 bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a)

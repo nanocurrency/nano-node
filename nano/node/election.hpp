@@ -138,11 +138,24 @@ private:
 	void remove_votes (nano::block_hash const &);
 	void remove_block (nano::block_hash const &);
 	bool replace_by_weight (nano::unique_lock<nano::mutex> & lock_a, nano::block_hash const &);
+	/*
+	 * Return amount of time after which this election should expire.
+	 */
 	std::chrono::milliseconds time_to_live () const;
 	/*
 	 * Calculates minimum time delay between subsequent votes when processing non-final votes
 	 */
 	std::chrono::seconds cooldown_time (nano::uint128_t weight) const;
+	/*
+	 * Call `confirmation_solicitor::add` with data from this election
+	 * @returns true if successful, false otherwise
+	 */
+	bool solicitor_add (nano::confirmation_solicitor &) const;
+	/*
+	 * Call `confirmation_solicitor::broadcast` with data from this election
+	 * @returns true if successful, false otherwise
+	 */
+	bool solicitor_broadcast (nano::confirmation_solicitor &) const;
 
 private:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> last_blocks;

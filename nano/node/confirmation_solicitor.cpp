@@ -24,54 +24,58 @@ void nano::confirmation_solicitor::prepare (std::vector<nano::representative> co
 	prepared = true;
 }
 
-bool nano::confirmation_solicitor::broadcast (nano::election const & election_a)
+bool nano::confirmation_solicitor::broadcast (std::shared_ptr<nano::block> const & winner, std::unordered_map<nano::account, nano::vote_info> const & last_votes)
 {
+	debug_assert (winner != nullptr);
 	debug_assert (prepared);
+
 	bool error (true);
 	if (rebroadcasted++ < max_block_broadcasts)
 	{
-		auto const & hash (election_a.status.winner->hash ());
-		nano::publish winner{ config.network_params.network, election_a.status.winner };
+		auto const & hash = winner->hash ();
+		nano::publish publish_winner{ config.network_params.network, winner };
 		unsigned count = 0;
 		// Directed broadcasting to principal representatives
 		for (auto i (representatives_broadcasts.begin ()), n (representatives_broadcasts.end ()); i != n && count < max_election_broadcasts; ++i)
 		{
-			auto existing (election_a.last_votes.find (i->account));
-			bool const exists (existing != election_a.last_votes.end ());
-			bool const different (exists && existing->second.hash != hash);
+			const auto existing = last_votes.find (i->account);
+			const bool exists = existing != last_votes.end ();
+			const bool different = (exists && existing->second.hash != hash);
 			if (!exists || different)
 			{
-				i->channel->send (winner);
+				i->channel->send (publish_winner);
 				count += different ? 0 : 1;
 			}
 		}
 		// Random flood for block propagation
-		network.flood_message (winner, nano::buffer_drop_policy::limiter, 0.5f);
+		network.flood_message (publish_winner, nano::buffer_drop_policy::limiter, 0.5f);
 		error = false;
 	}
 	return error;
 }
 
-bool nano::confirmation_solicitor::add (nano::election const & election_a)
+bool nano::confirmation_solicitor::add (std::shared_ptr<nano::block> const & winner, std::unordered_map<nano::account, nano::vote_info> const & last_votes)
 {
+	debug_assert (winner != nullptr);
 	debug_assert (prepared);
+
 	bool error (true);
 	unsigned count = 0;
-	auto const & hash (election_a.status.winner->hash ());
+	auto const & hash = winner->hash ();
 	for (auto i (representatives_requests.begin ()); i != representatives_requests.end () && count < max_election_requests;)
 	{
 		bool full_queue (false);
 		auto rep (*i);
-		auto existing (election_a.last_votes.find (rep.account));
-		bool const exists (existing != election_a.last_votes.end ());
-		bool const is_final (exists && (!election_a.is_quorum.load () || existing->second.timestamp == std::numeric_limits<uint64_t>::max ()));
-		bool const different (exists && existing->second.hash != hash);
+		const auto existing = last_votes.find (rep.account);
+		const bool exists = (existing != last_votes.end ());
+		const bool is_final = (exists && existing->second.timestamp == std::numeric_limits<uint64_t>::max ());
+		const bool different = (exists && existing->second.hash != hash);
 		if (!exists || !is_final || different)
 		{
 			auto & request_queue (requests[rep.channel]);
 			if (!rep.channel->max ())
 			{
-				request_queue.emplace_back (election_a.status.winner->hash (), election_a.status.winner->root ());
+				request_queue.emplace_back (winner->hash (), winner->root ());
 				count += different ? 0 : 1;
 				error = false;
 			}
