@@ -716,6 +716,8 @@ void nano::active_transactions::add_inactive_votes_cache (nano::unique_lock<nano
 				inactive_by_arrival.erase (inactive_by_arrival.begin ());
 			}
 		}
+
+		node.stats.inc (nano::stat::type::vote_cache, nano::stat::detail::vote_processed);
 	}
 }
 
@@ -836,6 +838,13 @@ std::size_t nano::active_transactions::election_winner_details_size ()
 {
 	nano::lock_guard<nano::mutex> guard (election_winner_details_mutex);
 	return election_winner_details.size ();
+}
+
+void nano::active_transactions::clear ()
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	blocks.clear ();
+	roots.clear ();
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (active_transactions & active_transactions, std::string const & name)

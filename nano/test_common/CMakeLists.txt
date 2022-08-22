@@ -4,6 +4,8 @@ add_library(
   ledger.cpp
   network.hpp
   network.cpp
+  rate_observer.cpp
+  rate_observer.hpp
   system.hpp
   system.cpp
   telemetry.hpp

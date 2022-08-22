@@ -23,9 +23,15 @@ std::string nano::error_system_messages::message (int ev) const
 	return "Invalid error code";
 }
 
+nano::node & nano::test::system::node (std::size_t index) const
+{
+	debug_assert (index < nodes.size ());
+	return *nodes[index];
+}
+
 std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_flags node_flags_a, nano::transport::transport_type type_a)
 {
-	return add_node (nano::node_config (nano::test::get_available_port (), logging), node_flags_a, type_a);
+	return add_node (default_config (), node_flags_a, type_a);
 }
 
 /** Returns the node added. */
@@ -138,8 +144,7 @@ nano::test::system::system (uint16_t count_a, nano::transport::transport_type ty
 	nodes.reserve (count_a);
 	for (uint16_t i (0); i < count_a; ++i)
 	{
-		nano::node_config config (nano::test::get_available_port (), logging);
-		add_node (config, flags_a, type_a);
+		add_node (default_config (), flags_a, type_a);
 	}
 }
 
@@ -581,6 +586,12 @@ void nano::test::system::stop ()
 		i->stop ();
 	}
 	work.stop ();
+}
+
+nano::node_config nano::test::system::default_config ()
+{
+	nano::node_config config{ nano::test::get_available_port (), logging };
+	return config;
 }
 
 uint16_t nano::test::get_available_port ()

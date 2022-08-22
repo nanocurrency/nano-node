@@ -45,12 +45,15 @@
 /* Convenience globals for gtest projects */
 namespace nano
 {
+class node;
 using uint128_t = boost::multiprecision::uint128_t;
 class keypair;
 class public_key;
 class block_hash;
 class telemetry_data;
 class network_params;
+class vote;
+class block;
 
 extern nano::uint128_t const & genesis_amount;
 
@@ -205,5 +208,41 @@ namespace test
 	};
 
 	void wait_peer_connections (nano::test::system &);
+
+	/**
+		Convenience function to call `node::process` function for multiple blocks at once.
+		@return true if all blocks were successfully processed and inserted into ledger
+	 */
+	bool process (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Convenience function to confirm a list of blocks
+	 * The actual confirmation will happen asynchronously, check for that with `nano::test::confirmed (..)` function
+	 * @return true if successfully scheduled blocks to be confirmed
+	 */
+	bool confirm (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Convenience function to confirm a list of hashes
+	 * The actual confirmation will happen asynchronously, check for that with `nano::test::confirmed (..)` function
+	 * @return true if successfully scheduled blocks to be confirmed
+	 */
+	bool confirm (nano::node & node, std::vector<nano::block_hash> hashes);
+	/*
+	 * Convenience function to check whether a list of blocks is confirmed.
+	 * @return true if all blocks are confirmed, false otherwise
+	 */
+	bool confirmed (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Convenience function to check whether a list of hashes is confirmed.
+	 * @return true if all blocks are confirmed, false otherwise
+	 */
+	bool confirmed (nano::node & node, std::vector<nano::block_hash> hashes);
+	/*
+	 * Convenience function to create a new vote from list of blocks
+	 */
+	std::shared_ptr<nano::vote> make_vote (nano::keypair key, std::vector<std::shared_ptr<nano::block>> blocks, uint64_t timestamp = 0, uint8_t duration = 0);
+	/*
+	 * Convenience function to create a new vote from list of block hashes
+	 */
+	std::shared_ptr<nano::vote> make_vote (nano::keypair key, std::vector<nano::block_hash> hashes, uint64_t timestamp = 0, uint8_t duration = 0);
 }
 }
