@@ -32,7 +32,7 @@ public:
 	bool add (std::shared_ptr<nano::block> const & winner, std::unordered_map<nano::account, nano::vote_info> const & last_votes);
 	/** Dispatch bundled requests to each channel*/
 	void flush ();
-	
+
 	/** Global maximum amount of block broadcasts */
 	std::size_t const max_block_broadcasts;
 	/** Maximum amount of requests to be sent per election, bypassed if an existing vote is for a different hash*/
