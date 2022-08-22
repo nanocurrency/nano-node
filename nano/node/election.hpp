@@ -180,6 +180,7 @@ public: // Only used in tests
 	std::unordered_map<nano::account, nano::vote_info> votes () const;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
 
+	friend class confirmation_solicitor_batches_Test;
 	friend class confirmation_solicitor_different_hash_Test;
 	friend class confirmation_solicitor_bypass_max_requests_cap_Test;
 	friend class votes_add_existing_Test;

@@ -7,6 +7,8 @@
 
 using namespace std::chrono_literals;
 
+namespace nano
+{
 TEST (confirmation_solicitor, batches)
 {
 	nano::test::system system;
@@ -43,13 +45,13 @@ TEST (confirmation_solicitor, batches)
 		for (size_t i (0); i < nano::network::confirm_req_hashes_max; ++i)
 		{
 			auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::normal));
-			ASSERT_FALSE (solicitor.add (*election));
+			ASSERT_TRUE (election->solicitor_add (solicitor));
 		}
 		// Reached the maximum amount of requests for the channel
 		auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::normal));
 		// Broadcasting should be immediate
 		ASSERT_EQ (0, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
-		ASSERT_FALSE (solicitor.broadcast (*election));
+		ASSERT_TRUE (election->solicitor_broadcast (solicitor));
 	}
 	// One publish through directed broadcasting and another through random flooding
 	ASSERT_EQ (2, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
@@ -57,8 +59,6 @@ TEST (confirmation_solicitor, batches)
 	ASSERT_EQ (1, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out));
 }
 
-namespace nano
-{
 TEST (confirmation_solicitor, different_hash)
 {
 	nano::test::system system;
@@ -93,8 +93,8 @@ TEST (confirmation_solicitor, different_hash)
 	// Add a vote for something else, not the winner
 	election->last_votes[representative.account] = { std::chrono::steady_clock::now (), 1, 1 };
 	// Ensure the request and broadcast goes through
-	ASSERT_FALSE (solicitor.add (*election));
-	ASSERT_FALSE (solicitor.broadcast (*election));
+	ASSERT_TRUE (election->solicitor_add (solicitor));
+	ASSERT_TRUE (election->solicitor_broadcast (solicitor));
 	// One publish through directed broadcasting and another through random flooding
 	ASSERT_EQ (2, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
 	solicitor.flush ();
@@ -140,16 +140,16 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 		nano::lock_guard<nano::mutex> guard (election->mutex);
 		election->last_votes[rep.account] = { std::chrono::steady_clock::now (), 1, 1 };
 	}
-	ASSERT_FALSE (solicitor.add (*election));
-	ASSERT_FALSE (solicitor.broadcast (*election));
+	ASSERT_TRUE (election->solicitor_add (solicitor));
+	ASSERT_TRUE (election->solicitor_broadcast (solicitor));
 	solicitor.flush ();
 	// All requests went through, the last one would normally not go through due to the cap but a vote for a different hash does not count towards the cap
 	ASSERT_EQ (max_representatives + 1, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out));
 
 	solicitor.prepare (representatives);
 	auto election2 (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::normal));
-	ASSERT_FALSE (solicitor.add (*election2));
-	ASSERT_FALSE (solicitor.broadcast (*election2));
+	ASSERT_TRUE (election2->solicitor_add (solicitor));
+	ASSERT_TRUE (election2->solicitor_broadcast (solicitor));
 
 	solicitor.flush ();
 
