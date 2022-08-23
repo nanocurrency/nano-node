@@ -529,27 +529,6 @@ TEST (node, unlock_search)
 	ASSERT_TIMELY (10s, !node->balance (key2.pub).is_zero ());
 }
 
-// TODO: This test isn't applicable to the TCP channels, should be removed with UDP support.
-TEST (node, connect_after_junk)
-{
-	nano::test::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	auto node0 = system.add_node (node_flags);
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::test::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
-	std::vector<uint8_t> junk_buffer;
-	junk_buffer.push_back (0);
-	auto channel1 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node0->network.endpoint (), node1->network_params.network.protocol_version));
-	channel1->send_buffer (nano::shared_const_buffer (std::move (junk_buffer)), [] (boost::system::error_code const &, size_t) {});
-	ASSERT_TIMELY (10s, node0->stats.count (nano::stat::type::error) != 0);
-	node1->start ();
-	system.nodes.push_back (node1);
-	auto channel2 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node0->network.endpoint (), node1->network_params.network.protocol_version));
-	node1->network.send_keepalive (channel2);
-	ASSERT_TIMELY (10s, !node1->network.empty ());
-	node1->stop ();
-}
-
 TEST (node, working)
 {
 	auto path (nano::working_path ());
@@ -593,81 +572,6 @@ TEST (node_config, random_rep)
 	nano::node_config config1 (100, logging1);
 	auto rep (config1.random_representative ());
 	ASSERT_NE (config1.preconfigured_representatives.end (), std::find (config1.preconfigured_representatives.begin (), config1.preconfigured_representatives.end (), rep));
-}
-
-// TODO: Remove this test with UDP support, it tests UDP works when the TCP is disabled
-TEST (node_flags, disable_tcp_realtime)
-{
-	nano::test::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	auto node1 = system.add_node (node_flags);
-	node_flags.disable_tcp_realtime = true;
-	auto node2 = system.add_node (node_flags);
-	ASSERT_EQ (1, node1->network.size ());
-	auto list1 (node1->network.list (2));
-	ASSERT_EQ (node2->network.endpoint (), list1[0]->get_endpoint ());
-	ASSERT_EQ (nano::transport::transport_type::udp, list1[0]->get_type ());
-	ASSERT_EQ (1, node2->network.size ());
-	auto list2 (node2->network.list (2));
-	ASSERT_EQ (node1->network.endpoint (), list2[0]->get_endpoint ());
-	ASSERT_EQ (nano::transport::transport_type::udp, list2[0]->get_type ());
-}
-
-// TODO: Remove this test with UDP support, it tests UDP works when the TCP is disabled
-TEST (node_flags, disable_tcp_realtime_and_bootstrap_listener)
-{
-	nano::test::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	auto node1 = system.add_node (node_flags);
-	node_flags.disable_tcp_realtime = true;
-	node_flags.disable_bootstrap_listener = true;
-	auto node2 = system.add_node (node_flags);
-	ASSERT_EQ (nano::tcp_endpoint (boost::asio::ip::address_v6::loopback (), 0), node2->bootstrap.endpoint ());
-	ASSERT_NE (nano::endpoint (boost::asio::ip::address_v6::loopback (), 0), node2->network.endpoint ());
-	ASSERT_EQ (1, node1->network.size ());
-	auto list1 (node1->network.list (2));
-	ASSERT_EQ (node2->network.endpoint (), list1[0]->get_endpoint ());
-	ASSERT_EQ (nano::transport::transport_type::udp, list1[0]->get_type ());
-	ASSERT_EQ (1, node2->network.size ());
-	auto list2 (node2->network.list (2));
-	ASSERT_EQ (node1->network.endpoint (), list2[0]->get_endpoint ());
-	ASSERT_EQ (nano::transport::transport_type::udp, list2[0]->get_type ());
-}
-
-// UDP is disabled by default
-// TODO: Remove this test with UDP support, it tests UDP works when the TCP is disabled
-TEST (node_flags, disable_udp)
-{
-	nano::test::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	auto node1 = system.add_node (node_flags);
-	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), nano::node_config (nano::test::get_available_port (), system.logging), system.work));
-	system.nodes.push_back (node2);
-	node2->start ();
-	ASSERT_EQ (nano::endpoint (boost::asio::ip::address_v6::loopback (), 0), node2->network.udp_channels.get_local_endpoint ());
-	ASSERT_NE (nano::endpoint (boost::asio::ip::address_v6::loopback (), 0), node2->network.endpoint ());
-	// Send UDP message
-	auto channel (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node2->network.endpoint (), node2->network_params.network.protocol_version));
-	node1->network.send_keepalive (channel);
-	std::this_thread::sleep_for (std::chrono::milliseconds (500));
-	// Check empty network
-	ASSERT_EQ (0, node1->network.size ());
-	ASSERT_EQ (0, node2->network.size ());
-	// Send TCP handshake
-	node1->network.merge_peer (node2->network.endpoint ());
-	ASSERT_TIMELY (5s, node1->bootstrap.realtime_count == 1 && node2->bootstrap.realtime_count == 1);
-	ASSERT_EQ (1, node1->network.size ());
-	auto list1 (node1->network.list (2));
-	ASSERT_EQ (node2->network.endpoint (), list1[0]->get_endpoint ());
-	ASSERT_EQ (nano::transport::transport_type::tcp, list1[0]->get_type ());
-	ASSERT_EQ (1, node2->network.size ());
-	auto list2 (node2->network.list (2));
-	ASSERT_EQ (node1->network.endpoint (), list2[0]->get_endpoint ());
-	ASSERT_EQ (nano::transport::transport_type::tcp, list2[0]->get_type ());
-	node2->stop ();
 }
 
 TEST (node, fork_publish)
