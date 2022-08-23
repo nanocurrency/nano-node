@@ -690,6 +690,10 @@ void nano::active_transactions::check_inactive_vote_cache (nano::block_hash cons
 	}
 }
 
+/*
+ * This is called when a new block is received from live network
+ * We check if maybe we already have enough inactive votes stored for it to start an election
+ */
 void nano::active_transactions::trigger_inactive_votes_cache_election (std::shared_ptr<nano::block> const & block_a)
 {
 	check_inactive_vote_cache (block_a->hash ());
