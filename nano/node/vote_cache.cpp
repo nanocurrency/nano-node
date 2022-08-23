@@ -233,3 +233,11 @@ void nano::vote_cache::trim_overflow_locked ()
 		queue.get<tag_random_access> ().pop_front ();
 	}
 }
+
+std::unique_ptr<nano::container_info_component> nano::vote_cache::collect_container_info (const std::string & name)
+{
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cache", cache_size (), sizeof (ordered_cache::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "queue", queue_size (), sizeof (ordered_queue::value_type) }));
+	return composite;
+}

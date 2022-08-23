@@ -729,8 +729,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "election_winner_details", active_transactions.election_winner_details_size (), sizeof (decltype (active_transactions.election_winner_details)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recently_confirmed", recently_confirmed_count, sizeof (decltype (active_transactions.recently_confirmed.confirmed)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recently_cemented", recently_cemented_count, sizeof (decltype (active_transactions.recently_cemented.cemented)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "inactive_votes_cache", active_transactions.node.inactive_vote_cache.cache_size (), sizeof (vote_cache::ordered_cache::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "inactive_votes_queue", active_transactions.node.inactive_vote_cache.queue_size (), sizeof (vote_cache::ordered_queue::value_type) }));
 	composite->add_component (collect_container_info (active_transactions.generator, "generator"));
 	return composite;
 }

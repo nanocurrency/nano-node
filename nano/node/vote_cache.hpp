@@ -117,6 +117,9 @@ public:
 	bool cache_empty () const;
 	bool queue_empty () const;
 
+public: // Container info
+	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name);
+
 public:
 	/**
 	 * Function used to query rep weight for tally calculation
