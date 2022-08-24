@@ -42,6 +42,16 @@
 		ASSERT_NO_ERROR (system.poll ()); \
 	}
 
+/*
+ * Waits specified number of time while keeping system running.
+ * Useful for asserting conditions that should still hold after some delay of time
+ */
+#define WAIT(time)              \
+	system.deadline_set (time); \
+	while (!system.poll ())     \
+	{                           \
+	}
+
 /* Convenience globals for gtest projects */
 namespace nano
 {
