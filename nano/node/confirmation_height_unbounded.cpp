@@ -361,9 +361,6 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 	}
 }
 
-/*
- * Returns true if there was an error in finding one of the blocks to write a confirmation height for, false otherwise
- */
 void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & scoped_write_guard_a)
 {
 	nano::timer<std::chrono::milliseconds> cemented_batch_timer;

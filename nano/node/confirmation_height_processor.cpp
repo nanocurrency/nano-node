@@ -14,10 +14,16 @@
 nano::confirmation_height_processor::confirmation_height_processor (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, boost::latch & latch, confirmation_height_mode mode_a) :
 	ledger (ledger_a),
 	write_database_queue (write_database_queue_a),
-	// clang-format off
-unbounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
-bounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
-	// clang-format on
+	unbounded_processor (
+	ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, batch_write_size,
+	/* cemented_callback */ [this] (auto & cemented_blocks) { this->notify_cemented (cemented_blocks); },
+	/* already cemented_callback */ [this] (auto const & block_hash_a) { this->notify_already_cemented (block_hash_a); },
+	/* awaiting_processing_size_query */ [this] () { return this->awaiting_processing_size (); }),
+	bounded_processor (
+	ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, batch_write_size,
+	/* cemented_callback */ [this] (auto & cemented_blocks) { this->notify_cemented (cemented_blocks); },
+	/* already cemented_callback */ [this] (auto const & block_hash_a) { this->notify_already_cemented (block_hash_a); },
+	/* awaiting_processing_size_query */ [this] () { return this->awaiting_processing_size (); }),
 	thread ([this, &latch, mode_a] () {
 		nano::thread_role::set (nano::thread_role::name::confirmation_height_processing);
 		// Do not start running the processing thread until other threads have finished their operations
@@ -181,7 +187,7 @@ void nano::confirmation_height_processor::add_block_already_cemented_observer (s
 	block_already_cemented_observers.push_back (callback_a);
 }
 
-void nano::confirmation_height_processor::notify_observers (std::vector<std::shared_ptr<nano::block>> const & cemented_blocks)
+void nano::confirmation_height_processor::notify_cemented (std::vector<std::shared_ptr<nano::block>> const & cemented_blocks)
 {
 	for (auto const & block_callback_data : cemented_blocks)
 	{
@@ -192,7 +198,7 @@ void nano::confirmation_height_processor::notify_observers (std::vector<std::sha
 	}
 }
 
-void nano::confirmation_height_processor::notify_observers (nano::block_hash const & hash_already_cemented_a)
+void nano::confirmation_height_processor::notify_already_cemented (nano::block_hash const & hash_already_cemented_a)
 {
 	for (auto const & observer : block_already_cemented_observers)
 	{
