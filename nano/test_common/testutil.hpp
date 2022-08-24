@@ -215,6 +215,12 @@ namespace test
 	 */
 	bool process (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
 	/*
+	 * Convenience function to process multiple blocks as if they were live blocks arriving from the network
+	 * It is not guaranted that those blocks will be inserted into ledger (there might be forks, missing links etc)
+	 * @return true if all blocks were successfully processed
+	 */
+	bool process_live (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
 	 * Convenience function to confirm a list of blocks
 	 * The actual confirmation will happen asynchronously, check for that with `nano::test::confirmed (..)` function
 	 * @return true if successfully scheduled blocks to be confirmed
@@ -237,6 +243,36 @@ namespace test
 	 */
 	bool confirmed (nano::node & node, std::vector<nano::block_hash> hashes);
 	/*
+	 * Convenience function to check whether a list of hashes exists in node ledger.
+	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
+	 */
+	bool exist (nano::node & node, std::vector<nano::block_hash> hashes);
+	/*
+	 * Convenience function to check whether a list of blocks exists in node ledger.
+	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
+	 */
+	bool exist (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Convenience function to start elections for a list of hashes. Blocks are loaded from ledger.
+	 * @return true if all blocks exist and were queued to election scheduler
+	 */
+	bool activate (nano::node & node, std::vector<nano::block_hash> hashes);
+	/*
+	 * Convenience function to start elections for a list of hashes. Blocks are loaded from ledger.
+	 * @return true if all blocks exist and were queued to election scheduler
+	 */
+	bool activate (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Convenience function that checks whether all hashes from list have currently active elections
+	 * @return true if all blocks have currently active elections, false othersie
+	 */
+	bool active (nano::node & node, std::vector<nano::block_hash> hashes);
+	/*
+	 * Convenience function that checks whether all hashes from list have currently active elections
+	 * @return true if all blocks have currently active elections, false othersie
+	 */
+	bool active (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
 	 * Convenience function to create a new vote from list of blocks
 	 */
 	std::shared_ptr<nano::vote> make_vote (nano::keypair key, std::vector<std::shared_ptr<nano::block>> blocks, uint64_t timestamp = 0, uint8_t duration = 0);
@@ -244,5 +280,9 @@ namespace test
 	 * Convenience function to create a new vote from list of block hashes
 	 */
 	std::shared_ptr<nano::vote> make_vote (nano::keypair key, std::vector<nano::block_hash> hashes, uint64_t timestamp = 0, uint8_t duration = 0);
+	/*
+	 * Converts list of blocks to list of hashes
+	 */
+	std::vector<nano::block_hash> blocks_to_hashes (std::vector<std::shared_ptr<nano::block>> blocks);
 }
 }
