@@ -1,5 +1,6 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
+#include <nano/node/transport/inproc.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -100,7 +101,6 @@ TEST (confirmation_solicitor, different_hash)
 	ASSERT_EQ (1, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out));
 }
 
-// TODO: fix failing test
 TEST (confirmation_solicitor, bypass_max_requests_cap)
 {
 	nano::test::system system;
@@ -115,9 +115,8 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 	representatives.reserve (max_representatives + 1);
 	for (auto i (0); i < max_representatives + 1; ++i)
 	{
-		auto client = std::make_shared<nano::client_socket> (node2);
-		std::shared_ptr<nano::transport::channel> channel = std::make_shared<nano::transport::channel_tcp> (node1, client);
-		//		auto channel (node2.network.udp_channels.create (node1.network.endpoint ()));
+		// Make a temporary channel associated with node2
+		auto channel = std::make_shared<nano::transport::inproc::channel> (node2, node2);
 		nano::representative representative (nano::account (i), i, channel);
 		representatives.push_back (representative);
 	}
