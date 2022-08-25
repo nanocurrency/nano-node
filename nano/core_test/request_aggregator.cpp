@@ -1,5 +1,6 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/request_aggregator.hpp>
+#include <nano/node/transport/inproc.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -193,7 +194,6 @@ TEST (request_aggregator, two)
 	ASSERT_EQ (vote1.front (), vote2.front ());
 }
 
-// TODO: fix this test
 TEST (request_aggregator, two_endpoints)
 {
 	nano::test::system system;
@@ -219,49 +219,8 @@ TEST (request_aggregator, two_endpoints)
 	std::vector<std::pair<nano::block_hash, nano::root>> request;
 	request.emplace_back (send1->hash (), send1->root ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (node1.store.tx_begin_write (), *send1).code);
-
-	// Simulate connections only for the remote endpoint fields to be valid.
-	boost::asio::ip::tcp::endpoint listen_endpoint1{ boost::asio::ip::address_v6::any (), nano::test::get_available_port () };
-	boost::asio::ip::tcp::endpoint listen_endpoint2{ boost::asio::ip::address_v6::any (), nano::test::get_available_port () };
-	auto server_socket1 = std::make_shared<nano::server_socket> (node2, listen_endpoint1, 1);
-	{
-		boost::system::error_code ec;
-		server_socket1->start (ec);
-		ASSERT_FALSE (ec);
-	}
-	auto server_socket2 = std::make_shared<nano::server_socket> (node1, listen_endpoint2, 1);
-	{
-		boost::system::error_code ec;
-		server_socket2->start (ec);
-		ASSERT_FALSE (ec);
-	}
-	std::shared_ptr<nano::socket> server1_sockets;
-	std::shared_ptr<nano::socket> server2_sockets;
-	{
-		server_socket1->on_connection ([&server1_sockets] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
-			server1_sockets = new_connection;
-			return true;
-		});
-		server_socket2->on_connection ([&server2_sockets] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
-			server2_sockets = new_connection;
-			return true;
-		});
-	}
-	// client side connection tracking, needed to know the connections are ok
-	std::atomic<size_t> connection_attempts = 0;
-	auto connect_handler = [&connection_attempts] (boost::system::error_code const & ec_a) {
-		ASSERT_EQ (ec_a.value (), 0);
-		++connection_attempts;
-	};
-
-	auto client1 = std::make_shared<nano::client_socket> (node1);
-	client1->async_connect (boost::asio::ip::tcp::endpoint{ boost::asio::ip::address_v6::loopback (), listen_endpoint1.port () }, connect_handler);
-	auto client2 = std::make_shared<nano::client_socket> (node2);
-	client2->async_connect (boost::asio::ip::tcp::endpoint{ boost::asio::ip::address_v6::loopback (), listen_endpoint2.port () }, connect_handler);
-
-	ASSERT_TIMELY (3s, 2 == connection_attempts && server1_sockets != nullptr && server2_sockets != nullptr);
-	auto dummy_channel1 = std::make_shared<nano::transport::channel_tcp> (node1, client1);
-	auto dummy_channel2 = std::make_shared<nano::transport::channel_tcp> (node2, client2);
+	auto dummy_channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
+	auto dummy_channel2 = std::make_shared<nano::transport::inproc::channel> (node2, node2);
 	ASSERT_NE (nano::transport::map_endpoint_to_v6 (dummy_channel1->get_endpoint ()), nano::transport::map_endpoint_to_v6 (dummy_channel2->get_endpoint ()));
 	// Use the aggregator from node1 only, making requests from both nodes
 	node1.aggregator.add (dummy_channel1, request);
