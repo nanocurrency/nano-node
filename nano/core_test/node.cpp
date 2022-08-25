@@ -1049,13 +1049,15 @@ TEST (node, fork_open)
 
 TEST (node, fork_open_flip)
 {
-	nano::test::system system (2);
-	auto & node1 (*system.nodes[0]);
-	auto & node2 (*system.nodes[1]);
-	ASSERT_EQ (1, node1.network.size ());
+	nano::test::system system (1);
+	auto & node1 = *system.nodes[0];
+
+	std::shared_ptr<nano::election> election;
 	nano::keypair key1;
 	nano::keypair rep1;
 	nano::keypair rep2;
+
+	// send 1 raw from genesis to key1 on both node1 and node2
 	auto send1 = nano::send_block_builder ()
 				 .previous (nano::dev::genesis->hash ())
 				 .destination (key1.pub)
@@ -1063,10 +1065,8 @@ TEST (node, fork_open_flip)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
-	// A copy is necessary to avoid data races during ledger processing, which sets the sideband
-	auto send1_copy (std::make_shared<nano::send_block> (*send1));
 	node1.process_active (send1);
-	node2.process_active (send1_copy);
+
 	// We should be keeping this block
 	nano::open_block_builder builder;
 	auto open1 = builder.make_block ()
@@ -1076,7 +1076,8 @@ TEST (node, fork_open_flip)
 				 .sign (key1.prv, key1.pub)
 				 .work (*system.work.generate (key1.pub))
 				 .build_shared ();
-	// This block should be evicted
+
+	// create a fork of block open1, this block will lose the election
 	auto open2 = builder.make_block ()
 				 .source (send1->hash ())
 				 .representative (rep2.pub)
@@ -1085,35 +1086,50 @@ TEST (node, fork_open_flip)
 				 .work (*system.work.generate (key1.pub))
 				 .build_shared ();
 	ASSERT_FALSE (*open1 == *open2);
-	// node1 gets copy that will remain
+
+	// give block open1 to node1, manually trigger an election for open1 and ensure it is in the ledger
 	node1.process_active (open1);
-	node1.block_processor.flush ();
-	node1.block_confirm (open1);
-	// node2 gets copy that will be evicted
-	node2.process_active (open2);
-	node2.block_processor.flush ();
-	node2.block_confirm (open2);
-	ASSERT_EQ (2, node1.active.size ());
-	ASSERT_EQ (2, node2.active.size ());
+	ASSERT_TIMELY (5s, node1.block (open1->hash ()) != nullptr);
+	node1.scheduler.manual (open1);
+	ASSERT_TIMELY (5s, (election = node1.active.election (open1->qualified_root ())) != nullptr);
+	election->transition_active ();
+
+	// create node2, with blocks send1 and open2 pre-initialised in the ledger,
+	// so that block open1 cannot possibly get in the ledger before open2 via background sync
+	system.initialization_blocks.push_back (send1);
+	system.initialization_blocks.push_back (open2);
+	auto & node2 = *system.add_node ();
+	system.initialization_blocks.clear ();
+
+	// give block open2 to node2, manually trigger an election for open2 and ensure it is in the ledger
+	ASSERT_TIMELY (5s, node2.block (open2->hash ()) != nullptr);
+	node2.scheduler.manual (open2);
+	ASSERT_TIMELY (5s, (election = node2.active.election (open2->qualified_root ())) != nullptr);
+	election->transition_active ();
+
+	ASSERT_TIMELY (5s, 2 == node1.active.size ());
+	ASSERT_TIMELY (5s, 2 == node2.active.size ());
+
+	// allow node1 to vote
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	// Notify both nodes that a fork exists
+
+	// Notify both nodes of both blocks, both nodes will become aware that a fork exists
 	node1.process_active (open2);
-	node1.block_processor.flush ();
 	node2.process_active (open1);
-	node2.block_processor.flush ();
-	auto election1 (node2.active.election (open1->qualified_root ()));
-	ASSERT_NE (nullptr, election1);
-	ASSERT_EQ (1, election1->votes ().size ());
-	ASSERT_TRUE (node1.block (open1->hash ()) != nullptr);
-	ASSERT_TRUE (node2.block (open2->hash ()) != nullptr);
+
+	std::shared_ptr<nano::election> election1;
+	ASSERT_TIMELY (5s, (election1 = node2.active.election (open1->qualified_root ())) != nullptr);
+	ASSERT_TIMELY (5s, 1 == election1->votes ().size ());
+
 	// Node2 should eventually settle on open1
 	ASSERT_TIMELY (10s, node2.block (open1->hash ()));
-	node2.block_processor.flush ();
-	auto transaction1 (node1.store.tx_begin_read ());
-	auto transaction2 (node2.store.tx_begin_read ());
-	auto winner (*election1->tally ().begin ());
+	auto winner = *election1->tally ().begin ();
 	ASSERT_EQ (*open1, *winner.second);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 1, winner.first);
+
+	// check the correct blocks are in the ledgers
+	auto transaction1 (node1.store.tx_begin_read ());
+	auto transaction2 (node2.store.tx_begin_read ());
 	ASSERT_TRUE (node1.store.block.exists (transaction1, open1->hash ()));
 	ASSERT_TRUE (node2.store.block.exists (transaction2, open1->hash ()));
 	ASSERT_FALSE (node2.store.block.exists (transaction2, open2->hash ()));
