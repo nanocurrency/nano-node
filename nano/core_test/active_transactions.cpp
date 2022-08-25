@@ -796,6 +796,16 @@ TEST (active_transactions, fork_filter_cleanup)
 	ASSERT_TIMELY (5s, node1.network.publish_filter.apply (send_block_bytes.data (), send_block_bytes.size ()));
 }
 
+/*
+ * What this test is doing:
+ * Create 20 representatives with minimum principal weight each
+ * Create a send block on the genesis account (the last send block)
+ * Create 20 forks of the last send block using genesis as representative (no votes produced)
+ * Check that only 10 blocks remain in the election (due to max 10 forks per election object limit)
+ * Create 20 more forks of the last send block using the new reps as representatives and produce votes for them
+ *     (9 votes from this batch should survive and replace existing blocks in the election, why not 10?)
+ * Then send winning block and it should replace one of the existing blocks
+ */
 TEST (active_transactions, fork_replacement_tally)
 {
 	nano::test::system system;
@@ -803,7 +813,7 @@ TEST (active_transactions, fork_replacement_tally)
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 (*system.add_node (node_config));
 
-	size_t reps_count = 20;
+	size_t const reps_count = 20;
 	size_t const max_blocks = 10;
 	std::vector<nano::keypair> keys (reps_count);
 	auto latest (nano::dev::genesis->hash ());
@@ -840,7 +850,6 @@ TEST (active_transactions, fork_replacement_tally)
 		auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ send->hash (), open->hash () }));
 		node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
 	}
-	node1.block_processor.flush ();
 	ASSERT_TIMELY (5s, node1.ledger.cache.cemented_count == 1 + 2 * reps_count);
 
 	nano::keypair key;
@@ -868,12 +877,12 @@ TEST (active_transactions, fork_replacement_tally)
 					.build_shared ();
 		node1.process_active (fork);
 	}
-	node1.block_processor.flush ();
-	ASSERT_TIMELY (3s, !node1.active.empty ());
+	ASSERT_TIMELY (5s, !node1.active.empty ());
+
 	// Check overflow of blocks
-	auto election (node1.active.election (send_last->qualified_root ()));
+	auto election = node1.active.election (send_last->qualified_root ());
 	ASSERT_NE (nullptr, election);
-	ASSERT_EQ (max_blocks, election->blocks ().size ());
+	ASSERT_TIMELY (5s, max_blocks == election->blocks ().size ());
 
 	// Generate forks with votes to prevent new block insertion to election
 	for (auto i (0); i < reps_count; i++)
@@ -892,24 +901,39 @@ TEST (active_transactions, fork_replacement_tally)
 		node1.vote_processor.flush ();
 		node1.process_active (fork);
 	}
-	node1.block_processor.flush ();
+
+	// function to count the number of rep votes (non genesis) found in election
+	// it also checks that there are 10 votes in the election
+	auto count_rep_votes_in_election = [&election, &keys] () {
+		// Check that only max weight blocks remains (and start winner)
+		auto votes_l = election->votes ();
+		if (max_blocks != votes_l.size ())
+		{
+			return -1;
+		}
+		int vote_count = 0;
+		for (auto i = 0; i < reps_count; i++)
+		{
+			if (votes_l.find (keys[i].pub) != votes_l.end ())
+			{
+				vote_count++;
+			}
+		}
+		return vote_count;
+	};
+
 	// Check overflow of blocks
+	ASSERT_TIMELY (10s, count_rep_votes_in_election () == 9);
 	ASSERT_EQ (max_blocks, election->blocks ().size ());
-	// Check that only max weight blocks remains (and start winner)
-	auto votes1 (election->votes ());
-	ASSERT_EQ (max_blocks, votes1.size ());
-	for (auto i (max_blocks + 1); i < reps_count; i++)
-	{
-		ASSERT_TRUE (votes1.find (keys[i].pub) != votes1.end ());
-	}
 
 	// Process correct block
 	node_config.peering_port = nano::test::get_available_port ();
 	auto & node2 (*system.add_node (node_config));
+	node1.network.publish_filter.clear ();
 	node2.network.flood_block (send_last);
 	ASSERT_TIMELY (3s, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) > 0);
 	node1.block_processor.flush ();
-	std::this_thread::sleep_for (50ms);
+	system.delay_ms (50ms);
 
 	// Correct block without votes is ignored
 	auto blocks1 (election->blocks ());
@@ -920,22 +944,23 @@ TEST (active_transactions, fork_replacement_tally)
 	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ send_last->hash () }));
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
 	node1.vote_processor.flush ();
+	// ensure vote arrives before the block
+	ASSERT_TIMELY (5s, 1 == node1.active.find_inactive_votes_cache (send_last->hash ()).voters.size ());
+	node1.network.publish_filter.clear ();
 	node2.network.flood_block (send_last);
-	ASSERT_TIMELY (3s, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) > 1);
-	node1.block_processor.flush ();
-	std::this_thread::sleep_for (50ms);
+	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) > 1);
 
-	auto blocks2 (election->blocks ());
-	ASSERT_EQ (max_blocks, blocks2.size ());
-	ASSERT_TRUE (blocks2.find (send_last->hash ()) != blocks2.end ());
+	// the send_last block should replace one of the existing block of the election because it has higher vote weight
+	auto find_send_last_block = [&election, &send_last] () {
+		auto blocks2 = election->blocks ();
+		return blocks2.find (send_last->hash ()) != blocks2.end ();
+	};
+	ASSERT_TIMELY (5s, find_send_last_block ())
+	ASSERT_EQ (max_blocks, election->blocks ().size ());
+
+	ASSERT_TIMELY (5s, count_rep_votes_in_election () == 8);
+
 	auto votes2 (election->votes ());
-	ASSERT_EQ (max_blocks, votes2.size ());
-	for (auto i (max_blocks + 2); i < reps_count; i++)
-	{
-		ASSERT_TRUE (votes2.find (keys[i].pub) != votes2.end ());
-	}
-	ASSERT_FALSE (votes2.find (keys[max_blocks].pub) != votes2.end ());
-	ASSERT_FALSE (votes2.find (keys[max_blocks + 1].pub) != votes2.end ());
 	ASSERT_TRUE (votes2.find (nano::dev::genesis_key.pub) != votes2.end ());
 }
 
