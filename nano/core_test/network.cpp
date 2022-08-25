@@ -17,43 +17,92 @@ using namespace std::chrono_literals;
 
 TEST (network, tcp_connection)
 {
-	boost::asio::io_context io_ctx;
-	boost::asio::ip::tcp::acceptor acceptor (io_ctx);
-	auto port = nano::test::get_available_port ();
-	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v4::any (), port);
-	acceptor.open (endpoint.protocol ());
-	acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
-	acceptor.bind (endpoint);
-	acceptor.listen ();
-	boost::asio::ip::tcp::socket incoming (io_ctx);
-	std::atomic<bool> done1 (false);
-	std::string message1;
-	acceptor.async_accept (incoming,
-	[&done1, &message1] (boost::system::error_code const & ec_a) {
-		   if (ec_a)
-		   {
-			   message1 = ec_a.message ();
-			   std::cerr << message1;
-		   }
-		   done1 = true; });
-	boost::asio::ip::tcp::socket connector (io_ctx);
-	std::atomic<bool> done2 (false);
-	std::string message2;
-	connector.async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), acceptor.local_endpoint ().port ()),
-	[&done2, &message2] (boost::system::error_code const & ec_a) {
-		if (ec_a)
-		{
-			message2 = ec_a.message ();
-			std::cerr << message2;
-		}
-		done2 = true;
-	});
-	while (!done1 || !done2)
+	// Organizes the code used for a connection into distinguished classes (base class/client/server)
+	struct simple_socket : public boost::enable_shared_from_this<simple_socket>
 	{
-		io_ctx.poll ();
-	}
-	ASSERT_EQ (0, message1.size ());
-	ASSERT_EQ (0, message2.size ());
+		std::atomic<bool> connected;
+		uint16_t port;
+		boost::asio::ip::tcp::endpoint endpoint;
+		boost::asio::ip::tcp::socket socket;
+		std::string error_message;
+
+		explicit simple_socket (boost::asio::io_context & io_ctx_a, boost::asio::ip::address ip_address_a, uint16_t port_a) :
+			connected{ false },
+			port{ port_a },
+			endpoint{ ip_address_a, port_a },
+			socket{ io_ctx_a }
+		{
+		}
+
+		virtual void async_write (std::string message)
+		{
+		}
+		virtual void async_read ()
+		{
+		}
+	};
+
+	struct simple_server_socket final : public simple_socket
+	{
+		boost::asio::ip::tcp::acceptor acceptor;
+
+		explicit simple_server_socket (boost::asio::io_context & io_ctx_a, boost::asio::ip::address ip_address_a, uint16_t port_a) :
+			simple_socket{ io_ctx_a, ip_address_a, port_a },
+			acceptor{ io_ctx_a }
+		{
+			accept ();
+		}
+
+		void accept ()
+		{
+			acceptor.open (endpoint.protocol ());
+			acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
+			acceptor.bind (endpoint);
+			acceptor.listen ();
+			acceptor.async_accept (socket,
+			[this] (boost::system::error_code const & ec_a) {
+				if (ec_a)
+				{
+					this->error_message = ec_a.message ();
+					std::cerr << this->error_message;
+				}
+				else
+				{
+					this->connected = true;
+					this->async_read ();
+				}
+			});
+		}
+	};
+
+	struct simple_client_socket final : public simple_socket
+	{
+		explicit simple_client_socket (boost::asio::io_context & io_ctx_a, boost::asio::ip::address ip_address_a, uint16_t port_a) :
+			simple_socket{ io_ctx_a, ip_address_a, port_a }
+		{
+			socket.async_connect (boost::asio::ip::tcp::endpoint (ip_address_a, port_a),
+			[this] (boost::system::error_code const & ec_a) {
+				if (ec_a)
+				{
+					this->error_message = ec_a.message ();
+					std::cerr << error_message;
+				}
+				else
+				{
+					this->connected = true;
+				}
+			});
+		}
+	};
+
+	nano::test::system system;
+	auto port = nano::test::get_available_port ();
+	simple_server_socket server (system.io_ctx, boost::asio::ip::address_v4::any (), port);
+	simple_client_socket client (system.io_ctx, boost::asio::ip::address_v4::loopback (), port);
+
+	ASSERT_TIMELY (5s, server.connected && client.connected);
+	ASSERT_EQ (0, client.error_message.size ());
+	ASSERT_EQ (0, server.error_message.size ());
 }
 
 TEST (network, construction_with_specified_port)
