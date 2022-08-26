@@ -1110,20 +1110,20 @@ TEST (node, fork_open_flip)
 	ASSERT_TIMELY (5s, 2 == node1.active.size ());
 	ASSERT_TIMELY (5s, 2 == node2.active.size ());
 
-	// allow node1 to vote
+	// allow node1 to vote and wait for open1 to be confirmed on node1
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	ASSERT_TIMELY (5s, node1.block_confirmed (open1->hash ()));
 
 	// Notify both nodes of both blocks, both nodes will become aware that a fork exists
 	node1.process_active (open2);
 	node2.process_active (open1);
 
-	std::shared_ptr<nano::election> election1;
-	ASSERT_TIMELY (5s, (election1 = node2.active.election (open1->qualified_root ())) != nullptr);
-	ASSERT_TIMELY (5s, 1 == election1->votes ().size ());
+	ASSERT_TIMELY (5s, 2 == election->votes ().size ()); // one more than expected due to elections having dummy votes
 
 	// Node2 should eventually settle on open1
 	ASSERT_TIMELY (10s, node2.block (open1->hash ()));
-	auto winner = *election1->tally ().begin ();
+	ASSERT_TIMELY (5s, node1.block_confirmed (open1->hash ()));
+	auto winner = *election->tally ().begin ();
 	ASSERT_EQ (*open1, *winner.second);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 1, winner.first);
 
