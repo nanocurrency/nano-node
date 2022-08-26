@@ -904,7 +904,7 @@ TEST (active_transactions, fork_replacement_tally)
 
 	// function to count the number of rep votes (non genesis) found in election
 	// it also checks that there are 10 votes in the election
-	auto count_rep_votes_in_election = [&election, &keys] () {
+	auto count_rep_votes_in_election = [&max_blocks, &reps_count, &election, &keys] () {
 		// Check that only max weight blocks remains (and start winner)
 		auto votes_l = election->votes ();
 		if (max_blocks != votes_l.size ())
