@@ -1101,7 +1101,7 @@ TEST (node, fork_open_flip)
 	auto & node2 = *system.add_node ();
 	system.initialization_blocks.clear ();
 
-	// give block open2 to node2, manually trigger an election for open2 and ensure it is in the ledger
+	// ensure open2 is in node2 ledger (and therefore has sideband) and manually trigger an election for open2
 	ASSERT_TIMELY (5s, node2.block (open2->hash ()) != nullptr);
 	node2.scheduler.manual (open2);
 	ASSERT_TIMELY (5s, (election = node2.active.election (open2->qualified_root ())) != nullptr);
