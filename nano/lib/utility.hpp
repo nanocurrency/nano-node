@@ -160,7 +160,7 @@ public:
 	{
 		nano::unique_lock<nano::mutex> lock (mutex);
 		auto observers_copy = observers;
-		lock.unlock();
+		lock.unlock ();
 
 		for (auto & i : observers_copy)
 		{
