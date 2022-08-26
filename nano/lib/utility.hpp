@@ -158,8 +158,11 @@ public:
 	}
 	void notify (T... args)
 	{
-		nano::lock_guard<nano::mutex> lock (mutex);
-		for (auto & i : observers)
+		nano::unique_lock<nano::mutex> lock (mutex);
+		auto observers_copy = observers;
+		lock.unlock();
+
+		for (auto & i : observers_copy)
 		{
 			i (args...);
 		}
