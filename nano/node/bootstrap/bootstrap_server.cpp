@@ -98,7 +98,7 @@ void nano::bootstrap_listener::accept_action (boost::system::error_code const & 
 {
 	if (!node.network.excluded_peers.check (socket_a->remote_endpoint ()))
 	{
-		auto server = std::make_shared<nano::bootstrap_server> (socket_a, node.shared ());
+		auto server = std::make_shared<nano::bootstrap_server> (socket_a, node.shared (), true);
 		nano::lock_guard<nano::mutex> lock (mutex);
 		connections[server.get ()] = server;
 		server->start ();
@@ -134,9 +134,10 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bo
 	return composite;
 }
 
-nano::bootstrap_server::bootstrap_server (std::shared_ptr<nano::socket> socket_a, std::shared_ptr<nano::node> node_a) :
+nano::bootstrap_server::bootstrap_server (std::shared_ptr<nano::socket> socket_a, std::shared_ptr<nano::node> node_a, bool allow_bootstrap_a) :
 	socket{ std::move (socket_a) },
 	node{ std::move (node_a) },
+	allow_bootstrap{ allow_bootstrap_a },
 	message_deserializer{ std::make_shared<nano::bootstrap::message_deserializer> (node->network_params.network, node->network.publish_filter, node->block_uniquer, node->vote_uniquer) }
 {
 	debug_assert (socket != nullptr);
@@ -259,8 +260,17 @@ bool nano::bootstrap_server::process_message (std::unique_ptr<nano::message> mes
 		}
 		else if (handshake_visitor.bootstrap)
 		{
-			// Switch to bootstrap connection mode and handle message in subsequent bootstrap visitor
-			to_bootstrap_connection ();
+			if (allow_bootstrap)
+			{
+				// Switch to bootstrap connection mode and handle message in subsequent bootstrap visitor
+				to_bootstrap_connection ();
+			}
+			else
+			{
+				// Received bootstrap request in a connection that only allows for realtime traffic, abort
+				stop ();
+				return false;
+			}
 		}
 		else
 		{
