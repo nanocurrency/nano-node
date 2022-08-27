@@ -421,7 +421,7 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 				entry->samples.push_back (entry->sample_current);
 				entry->sample_current.set_value (0);
 
-				if (!entry->sample_observers.observers.empty ())
+				if (!entry->sample_observers.empty ())
 				{
 					auto snapshot (entry->samples);
 					entry->sample_observers.notify (snapshot);

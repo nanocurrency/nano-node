@@ -147,45 +147,6 @@ std::string generate_stacktrace ();
 std::size_t get_file_descriptor_limit ();
 void set_file_descriptor_limit (std::size_t limit);
 
-template <typename... T>
-class observer_set final
-{
-public:
-	void add (std::function<void (T...)> const & observer_a)
-	{
-		nano::lock_guard<nano::mutex> lock (mutex);
-		observers.push_back (observer_a);
-	}
-	void notify (T... args)
-	{
-		nano::unique_lock<nano::mutex> lock (mutex);
-		auto observers_copy = observers;
-		lock.unlock ();
-
-		for (auto & i : observers_copy)
-		{
-			i (args...);
-		}
-	}
-	nano::mutex mutex{ mutex_identifier (mutexes::observer_set) };
-	std::vector<std::function<void (T...)>> observers;
-};
-
-template <typename... T>
-std::unique_ptr<container_info_component> collect_container_info (observer_set<T...> & observer_set, std::string const & name)
-{
-	size_t count = 0;
-	{
-		nano::lock_guard<nano::mutex> lock (observer_set.mutex);
-		count = observer_set.observers.size ();
-	}
-
-	auto sizeof_element = sizeof (typename decltype (observer_set.observers)::value_type);
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "observers", count, sizeof_element }));
-	return composite;
-}
-
 void remove_all_files_in_dir (boost::filesystem::path const & dir);
 void move_all_files_to_dir (boost::filesystem::path const & from, boost::filesystem::path const & to);
 

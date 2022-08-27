@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/errors.hpp>
+#include <nano/lib/observer_set.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/circular_buffer.hpp>
