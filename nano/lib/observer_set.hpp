@@ -1,14 +1,13 @@
 #pragma once
 
-#include <functional>
-#include <vector>
-
 #include <nano/lib/locks.hpp>
 #include <nano/lib/utility.hpp>
 
+#include <functional>
+#include <vector>
+
 namespace nano
 {
-
 template <typename... T>
 class observer_set final
 {
@@ -34,14 +33,14 @@ public:
 	bool empty () const
 	{
 		nano::lock_guard<nano::mutex> lock (mutex);
-		return observers.empty();
+		return observers.empty ();
 	}
 
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const
 	{
 		nano::unique_lock<nano::mutex> lock (mutex);
 		auto count = observers.size ();
-		lock.unlock();
+		lock.unlock ();
 		auto sizeof_element = sizeof (typename decltype (observers)::value_type);
 		auto composite = std::make_unique<container_info_composite> (name);
 		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "observers", count, sizeof_element }));

@@ -241,6 +241,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (wo
 	auto sizeof_element = sizeof (decltype (work_pool.pending)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending", count, sizeof_element }));
-	composite->add_component (work_pool.work_observers.collect_container_info ( "work_observers"));
+	composite->add_component (work_pool.work_observers.collect_container_info ("work_observers"));
 	return composite;
 }
