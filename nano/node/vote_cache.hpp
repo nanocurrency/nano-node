@@ -101,14 +101,18 @@ public:
 	bool erase (nano::block_hash const & hash);
 	/**
 	 * Returns an entry with the highest tally.
+	 * @param min_tally minimum tally threshold, entries below with their voting weight below this will be ignored
 	 */
 	std::optional<entry> peek (nano::uint128_t const & min_tally = 0) const;
 	/**
 	 * Returns an entry with the highest tally and removes it from container.
+	 * @param min_tally minimum tally threshold, entries below with their voting weight below this will be ignored
 	 */
 	std::optional<entry> pop (nano::uint128_t const & min_tally = 0);
 	/**
 	 * Reinserts a block into the queue.
+	 * It is possible that we dequeue a hash that doesn't have a received block yet (for eg. if publish message was lost).
+	 * We need a way to reinsert that hash into the queue when we finally receive the block
 	 */
 	void trigger (const nano::block_hash & hash);
 
@@ -160,7 +164,5 @@ private:
 	ordered_queue queue;
 
 	mutable nano::mutex mutex;
-
-	friend std::unique_ptr<nano::container_info_component> collect_container_info (active_transactions &, std::string const &);
 };
 }

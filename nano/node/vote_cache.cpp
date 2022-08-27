@@ -13,6 +13,7 @@ bool nano::vote_cache::entry::vote (const nano::account & representative, const 
 	{
 		// We already have a vote from this rep
 		// Update timestamp if newer but tally remains unchanged as we already counted this rep weight
+		// It is not essential to keep tally up to date if rep voting weight changes, elections do tally calculations independently, so in the worst case scenario only our queue ordering will be a bit off
 		if (timestamp > existing->second)
 		{
 			existing->second = timestamp;
@@ -74,15 +75,14 @@ void nano::vote_cache::vote_impl (const nano::block_hash & hash, const nano::acc
 		bool success = cache_by_hash.modify (existing, [&representative, &timestamp, &rep_weight] (entry & ent) {
 			ent.vote (representative, timestamp, rep_weight);
 		});
-		if (success) // Should never fail, but a check ensures the iterator `existing` is valid
+		release_assert (success); // Ensure iterator `existing` is valid
+
+		auto & queue_by_hash = queue.get<tag_hash> ();
+		if (auto queue_existing = queue_by_hash.find (hash); queue_existing != queue_by_hash.end ())
 		{
-			auto & queue_by_hash = queue.get<tag_hash> ();
-			if (auto queue_existing = queue_by_hash.find (hash); queue_existing != queue_by_hash.end ())
-			{
-				queue_by_hash.modify (queue_existing, [&existing] (queue_entry & ent) {
-					ent.tally = existing->tally;
-				});
-			}
+			queue_by_hash.modify (queue_existing, [&existing] (queue_entry & ent) {
+				ent.tally = existing->tally;
+			});
 		}
 	}
 	else
