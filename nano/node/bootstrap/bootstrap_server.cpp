@@ -295,7 +295,7 @@ bool nano::bootstrap_server::process_message (std::unique_ptr<nano::message> mes
 		message->visit (bootstrap_visitor);
 		return !bootstrap_visitor.processed; // Stop receiving new messages if bootstrap serving started
 	}
-	debug_assert (false);
+	debug_assert (false); // Message should be handled in one of the previous stages
 	return true; // Continue receiving new messages
 }
 
@@ -325,7 +325,8 @@ void nano::bootstrap_server::handshake_message_visitor::node_id_handshake (nano:
 		return;
 	}
 
-	if (message.query && server->handshake_query_received)
+	// Check if handshake query was already received, if that's the case abort the connection
+	if (message.query && server->handshake_query_received.exchange (true))
 	{
 		if (server->node->config.logging.network_node_id_handshake_logging ())
 		{
@@ -335,23 +336,26 @@ void nano::bootstrap_server::handshake_message_visitor::node_id_handshake (nano:
 		return;
 	}
 
-	server->handshake_query_received = true;
-
 	if (server->node->config.logging.network_node_id_handshake_logging ())
 	{
 		server->node->logger.try_log (boost::str (boost::format ("Received node_id_handshake message from %1%") % server->remote_endpoint));
 	}
 
+	// Handshake message can contain both query and response
 	if (message.query)
 	{
+		// Sending response automatically sends query cookie, so once the remote peer sends response to that query our side will switch to realtime mode too
 		server->send_handshake_response (*message.query);
 	}
-	else if (message.response)
+	if (message.response)
 	{
-		nano::account const & node_id (message.response->first);
-		if (!server->node->network.syn_cookies.validate (nano::transport::map_tcp_to_endpoint (server->remote_endpoint), node_id, message.response->second) && node_id != server->node->node_id.pub)
+		if (server->validate_handshake_response (message.response))
 		{
+			nano::account const & node_id = message.response->first;
 			server->to_realtime_connection (node_id);
+			// Let the node process this message
+			// When first message from an unknown channel is received, that channel is inserted as temporary channel
+			process = true;
 		}
 		else
 		{
@@ -359,8 +363,42 @@ void nano::bootstrap_server::handshake_message_visitor::node_id_handshake (nano:
 			server->stop ();
 		}
 	}
+}
 
-	process = true;
+bool nano::bootstrap_server::validate_handshake_response (const boost::optional<std::pair<nano::account, nano::signature>> & response)
+{
+	nano::account const & node_id = response->first;
+	return !node->network.syn_cookies.validate (nano::transport::map_tcp_to_endpoint (remote_endpoint), node_id, response->second) && node_id != node->node_id.pub;
+}
+
+void nano::bootstrap_server::send_handshake_query ()
+{
+	// TCP node ID handshake
+	auto cookie (node->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (remote_endpoint)));
+	nano::node_id_handshake message (node->network_params.network, cookie, boost::none);
+
+	if (node->config.logging.network_node_id_handshake_logging ())
+	{
+		node->logger.try_log (boost::str (boost::format ("Node ID handshake request sent with node ID %1% to %2%: query %3%") % node->node_id.pub.to_node_id () % remote_endpoint % (cookie.has_value () ? cookie->to_string () : "not set")));
+	}
+
+	auto shared_const_buffer = message.to_shared_const_buffer ();
+	socket->async_write (shared_const_buffer, [this_l = shared_from_this ()] (boost::system::error_code const & ec, std::size_t size_a) {
+		if (ec)
+		{
+			if (this_l->node->config.logging.network_node_id_handshake_logging ())
+			{
+				this_l->node->logger.try_log (boost::str (boost::format ("Error sending node_id_handshake to %1%: %2%") % this_l->remote_endpoint % ec.message ()));
+			}
+			// Stop server if handshake sending failed
+			this_l->stop ();
+		}
+		else
+		{
+			// TODO: Differentiate between query and response stat
+			this_l->node->stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out);
+		}
+	});
 }
 
 void nano::bootstrap_server::send_handshake_response (nano::uint256_union query)

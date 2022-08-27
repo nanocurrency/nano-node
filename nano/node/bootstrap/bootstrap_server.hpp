@@ -51,7 +51,12 @@ public:
 	void stop ();
 
 	void timeout ();
+	/*
+	 * @return true if handshake response is valid, false otherwise
+	 */
+	bool validate_handshake_response (boost::optional<std::pair<nano::account, nano::signature>> const & response);
 
+	void send_handshake_query ();
 	void send_handshake_response (nano::uint256_union query);
 
 	std::shared_ptr<nano::socket> const socket;

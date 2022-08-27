@@ -538,52 +538,20 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 		node.network.tcp_channels.udp_fallback (endpoint_a);
 		return;
 	}
+
 	auto socket = std::make_shared<nano::client_socket> (node);
-	std::weak_ptr<nano::socket> socket_w (socket);
-	auto channel (std::make_shared<nano::transport::channel_tcp> (node, socket_w));
-	std::weak_ptr<nano::node> node_w (node.shared ());
-	socket->async_connect (nano::transport::map_endpoint_to_tcp (endpoint_a),
-	[node_w, channel, socket, endpoint_a] (boost::system::error_code const & ec) {
-		if (auto node_l = node_w.lock ())
+
+	socket->async_connect (nano::transport::map_endpoint_to_tcp (endpoint_a), [socket, node = node.shared ()] (boost::system::error_code const & ec) {
+		if (ec)
 		{
-			if (!ec && channel)
-			{
-				// TCP node ID handshake
-				auto cookie (node_l->network.syn_cookies.assign (endpoint_a));
-				nano::node_id_handshake message (node_l->network_params.network, cookie, boost::none);
-				if (node_l->config.logging.network_node_id_handshake_logging ())
-				{
-					node_l->logger.try_log (boost::str (boost::format ("Node ID handshake request sent with node ID %1% to %2%: query %3%") % node_l->node_id.pub.to_node_id () % endpoint_a % (cookie.has_value () ? cookie->to_string () : "not set")));
-				}
-				channel->set_endpoint ();
-				std::shared_ptr<std::vector<uint8_t>> receive_buffer (std::make_shared<std::vector<uint8_t>> ());
-				receive_buffer->resize (256);
-				channel->send (message, [node_w, channel, endpoint_a, receive_buffer] (boost::system::error_code const & ec, std::size_t size_a) {
-					if (auto node_l = node_w.lock ())
-					{
-						if (!ec)
-						{
-							node_l->network.tcp_channels.start_tcp_receive_node_id (channel, endpoint_a, receive_buffer);
-						}
-						else
-						{
-							if (auto socket_l = channel->socket.lock ())
-							{
-								socket_l->close ();
-							}
-							if (node_l->config.logging.network_node_id_handshake_logging ())
-							{
-								node_l->logger.try_log (boost::str (boost::format ("Error sending node_id_handshake to %1%: %2%") % endpoint_a % ec.message ()));
-							}
-							node_l->network.tcp_channels.udp_fallback (endpoint_a);
-						}
-					}
-				});
-			}
-			else
-			{
-				node_l->network.tcp_channels.udp_fallback (endpoint_a);
-			}
+			// Failed connect
+			// TODO: Stat & log
+		}
+		else
+		{
+			auto server = std::make_shared<nano::bootstrap_server> (socket, node, false);
+			server->start ();
+			server->send_handshake_query ();
 		}
 	});
 }
