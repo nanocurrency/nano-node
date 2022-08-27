@@ -528,8 +528,6 @@ std::string nano::socket_type_to_string (nano::socket::type_t type)
 			return "bootstrap";
 		case nano::socket::type_t::realtime:
 			return "realtime";
-		case nano::socket::type_t::realtime_response_server:
-			return "realtime_response_server";
 	}
 	return "n/a";
 }

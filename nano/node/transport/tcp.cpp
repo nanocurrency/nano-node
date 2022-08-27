@@ -16,10 +16,7 @@ nano::transport::channel_tcp::~channel_tcp ()
 	// Close socket. Exception: socket is used by bootstrap_server
 	if (auto socket_l = socket.lock ())
 	{
-		if (!temporary)
-		{
-			socket_l->close ();
-		}
+		socket_l->close ();
 	}
 }
 
@@ -124,10 +121,7 @@ bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::cha
 		if (existing == channels.get<endpoint_tag> ().end ())
 		{
 			auto node_id (channel_a->get_node_id ());
-			if (!channel_a->temporary)
-			{
-				channels.get<node_id_tag> ().erase (node_id);
-			}
+			channels.get<node_id_tag> ().erase (node_id);
 			channels.get<endpoint_tag> ().emplace (channel_a, socket_a, bootstrap_server_a);
 			attempts.get<endpoint_tag> ().erase (endpoint);
 			error = false;
@@ -166,7 +160,7 @@ std::shared_ptr<nano::transport::channel_tcp> nano::transport::tcp_channels::fin
 	return result;
 }
 
-std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::tcp_channels::random_set (std::size_t count_a, uint8_t min_version, bool include_temporary_channels_a) const
+std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::tcp_channels::random_set (std::size_t count_a, uint8_t min_version) const
 {
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> result;
 	result.reserve (count_a);
@@ -183,7 +177,7 @@ std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::t
 			auto index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
 
 			auto channel = channels.get<random_access_tag> ()[index].channel;
-			if (channel->get_network_version () >= min_version && (include_temporary_channels_a || !channel->temporary))
+			if (channel->get_network_version () >= min_version)
 			{
 				result.insert (channel);
 			}
@@ -285,13 +279,11 @@ void nano::transport::tcp_channels::process_messages ()
 
 void nano::transport::tcp_channels::process_message (nano::message const & message_a, nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a, std::shared_ptr<nano::socket> const & socket_a)
 {
-	auto type_a = socket_a->type ();
 	if (!stopped && message_a.header.version_using >= node.network_params.network.protocol_version_min)
 	{
-		auto channel (node.network.find_channel (nano::transport::map_tcp_to_endpoint (endpoint_a)));
+		auto channel = node.network.find_channel (nano::transport::map_tcp_to_endpoint (endpoint_a));
 		if (channel)
 		{
-			sink (message_a, channel);
 		}
 		else
 		{
@@ -310,13 +302,9 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 					debug_assert (endpoint_a == temporary_channel->get_tcp_endpoint ());
 					temporary_channel->set_node_id (node_id_a);
 					temporary_channel->set_network_version (message_a.header.version_using);
-					temporary_channel->temporary = true;
-					debug_assert (type_a == nano::socket::type_t::realtime || type_a == nano::socket::type_t::realtime_response_server);
+					debug_assert (socket_a->type () == nano::socket::type_t::realtime);
 					// Don't insert temporary channels for response_server
-					if (type_a == nano::socket::type_t::realtime)
-					{
-						insert (temporary_channel, socket_a, nullptr);
-					}
+					insert (temporary_channel, socket_a, nullptr);
 					sink (message_a, temporary_channel);
 				}
 				else
@@ -327,8 +315,10 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 				}
 			}
 		}
+
 		if (channel)
 		{
+			sink (message_a, channel);
 			channel->set_last_packet_received (std::chrono::steady_clock::now ());
 		}
 	}
@@ -497,12 +487,12 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 	});
 }
 
-void nano::transport::tcp_channels::list (std::deque<std::shared_ptr<nano::transport::channel>> & deque_a, uint8_t minimum_version_a, bool include_temporary_channels_a)
+void nano::transport::tcp_channels::list (std::deque<std::shared_ptr<nano::transport::channel>> & deque_a, uint8_t minimum_version_a)
 {
 	nano::lock_guard<nano::mutex> lock (mutex);
 	// clang-format off
 	nano::transform_if (channels.get<random_access_tag> ().begin (), channels.get<random_access_tag> ().end (), std::back_inserter (deque_a),
-		[include_temporary_channels_a, minimum_version_a](auto & channel_a) { return channel_a.channel->get_network_version () >= minimum_version_a && (include_temporary_channels_a || !channel_a.channel->temporary); },
+		[minimum_version_a](auto & channel_a) { return channel_a.channel->get_network_version () >= minimum_version_a; },
 		[](auto const & channel) { return channel.channel; });
 	// clang-format on
 }

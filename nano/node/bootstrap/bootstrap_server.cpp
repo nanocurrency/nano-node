@@ -160,7 +160,6 @@ nano::bootstrap_server::~bootstrap_server ()
 		auto exisiting_response_channel (node->network.tcp_channels.find_channel (remote_endpoint));
 		if (exisiting_response_channel != nullptr)
 		{
-			exisiting_response_channel->temporary = false;
 			node->network.tcp_channels.erase (remote_endpoint);
 		}
 	}
