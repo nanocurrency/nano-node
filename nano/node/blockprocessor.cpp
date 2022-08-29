@@ -320,10 +320,9 @@ void nano::block_processor::process_live (nano::transaction const & transaction_
 		auto account = block_a->account ().is_zero () ? block_a->sideband ().account : block_a->account ();
 		node.scheduler.activate (account, transaction_a);
 	}
-	else
-	{
-		node.active.trigger_inactive_votes_cache_election (block_a);
-	}
+
+	// Notify inactive vote cache about a new live block
+	node.inactive_vote_cache.trigger (block_a->hash ());
 
 	// Announce block contents to the network
 	if (origin_a == nano::block_origin::local)

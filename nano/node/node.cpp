@@ -168,6 +168,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	inactive_vote_cache{ nodeconfig_to_vote_cache_config (config, flags) },
 	active (*this, confirmation_height_processor),
 	scheduler{ *this },
+	hinting{ *this, inactive_vote_cache, active, online_reps },
 	aggregator (config, stats, active.generator, active.final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
 	backlog{ nano::nodeconfig_to_backlog_population_config (config), store, scheduler },
@@ -187,7 +188,11 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	{
 		telemetry->start ();
 
-		active.vacancy_update = [this] () { scheduler.notify (); };
+		// Notify election schedulers when AEC frees election slot
+		active.vacancy_update = [this] () {
+			scheduler.notify ();
+			hinting.notify ();
+		};
 
 		if (config.websocket_config.enabled)
 		{
@@ -725,6 +730,7 @@ void nano::node::start ()
 	}
 	wallets.start ();
 	backlog.start ();
+	hinting.start ();
 }
 
 void nano::node::stop ()
@@ -740,6 +746,7 @@ void nano::node::stop ()
 		aggregator.stop ();
 		vote_processor.stop ();
 		scheduler.stop ();
+		hinting.stop ();
 		active.stop ();
 		confirmation_height_processor.stop ();
 		network.stop ();

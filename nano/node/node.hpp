@@ -15,6 +15,7 @@
 #include <nano/node/election.hpp>
 #include <nano/node/election_scheduler.hpp>
 #include <nano/node/gap_cache.hpp>
+#include <nano/node/hinted_scheduler.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -172,6 +173,7 @@ public:
 	nano::vote_cache inactive_vote_cache;
 	nano::active_transactions active;
 	nano::election_scheduler scheduler;
+	nano::hinted_scheduler hinting;
 	nano::request_aggregator aggregator;
 	nano::wallets wallets;
 	nano::backlog_population backlog;

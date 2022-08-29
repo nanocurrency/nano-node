@@ -173,6 +173,14 @@ int64_t nano::active_transactions::vacancy () const
 	return result;
 }
 
+int64_t nano::active_transactions::vacancy_hinted () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	const uint64_t limit = node.config.active_elections_hinted_limit_percentage * node.config.active_elections_size / 100;
+	auto result = static_cast<int64_t> (limit) - active_hinted_elections_count;
+	return result;
+}
+
 void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> & lock_a)
 {
 	debug_assert (lock_a.owns_lock ());
@@ -422,15 +430,10 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 
 nano::election_insertion_result nano::active_transactions::insert_hinted (std::shared_ptr<nano::block> const & block_a)
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
+	debug_assert (block_a != nullptr);
+	debug_assert (vacancy_hinted () > 0); // Should only be called when there are free hinted election slots
 
-	const std::size_t limit = node.config.active_elections_hinted_limit_percentage * node.config.active_elections_size / 100;
-	if (active_hinted_elections_count >= limit)
-	{
-		// Reached maximum number of hinted elections, drop new ones
-		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_hinted_overflow);
-		return {};
-	}
+	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	auto result = insert_impl (lock, block_a, nano::election_behavior::hinted);
 	if (result.inserted)
@@ -446,7 +449,10 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 	nano::vote_code result{ nano::vote_code::indeterminate };
 	// If all hashes were recently confirmed then it is a replay
 	unsigned recently_confirmed_counter (0);
+
 	std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> process;
+	std::vector<nano::block_hash> inactive; // Hashes that should be added to inactive vote cache
+
 	{
 		nano::unique_lock<nano::mutex> lock (mutex);
 		for (auto const & hash : vote_a->hashes)
@@ -458,16 +464,19 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 			}
 			else if (!recently_confirmed.exists (hash))
 			{
-				lock.unlock ();
-				add_inactive_vote_cache (hash, vote_a);
-				check_inactive_vote_cache (hash);
-				lock.lock ();
+				inactive.emplace_back (hash);
 			}
 			else
 			{
 				++recently_confirmed_counter;
 			}
 		}
+	}
+
+	// Process inactive votes outside of the critical section
+	for (auto & hash : inactive)
+	{
+		add_inactive_vote_cache (hash, vote_a);
 	}
 
 	if (!process.empty ())
@@ -661,44 +670,6 @@ void nano::active_transactions::add_inactive_vote_cache (nano::block_hash const 
 
 		node.stats.inc (nano::stat::type::vote_cache, nano::stat::detail::vote_processed);
 	}
-}
-
-void nano::active_transactions::check_inactive_vote_cache (nano::block_hash const & hash)
-{
-	if (auto entry = node.inactive_vote_cache.find (hash); entry)
-	{
-		const auto min_tally = (node.online_reps.trended () / 100) * node.config.election_hint_weight_percent;
-
-		// Check that we passed minimum voting weight threshold to start a hinted election
-		if (entry->tally > min_tally)
-		{
-			auto transaction (node.store.tx_begin_read ());
-			auto block = node.store.block.get (transaction, hash);
-			// Check if we have the block in ledger
-			if (block)
-			{
-				// We have the block, check that it's not yet confirmed
-				if (!node.block_confirmed_or_being_confirmed (hash))
-				{
-					insert_hinted (block);
-				}
-			}
-			else
-			{
-				// We don't have the block yet, try to bootstrap it
-				node.bootstrap_block (hash);
-			}
-		}
-	}
-}
-
-/*
- * This is called when a new block is received from live network
- * We check if maybe we already have enough inactive votes stored for it to start an election
- */
-void nano::active_transactions::trigger_inactive_votes_cache_election (std::shared_ptr<nano::block> const & block_a)
-{
-	check_inactive_vote_cache (block_a->hash ());
 }
 
 std::size_t nano::active_transactions::election_winner_details_size ()
