@@ -108,7 +108,7 @@ bool nano::test::confirmed (nano::node & node, std::vector<std::shared_ptr<nano:
 	return confirmed (node, blocks_to_hashes (blocks));
 }
 
-bool nano::test::exist (nano::node & node, std::vector<nano::block_hash> hashes)
+bool nano::test::exists (nano::node & node, std::vector<nano::block_hash> hashes)
 {
 	for (auto & hash : hashes)
 	{
@@ -120,9 +120,9 @@ bool nano::test::exist (nano::node & node, std::vector<nano::block_hash> hashes)
 	return true;
 }
 
-bool nano::test::exist (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
+bool nano::test::exists (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
 {
-	return exist (node, blocks_to_hashes (blocks));
+	return exists (node, blocks_to_hashes (blocks));
 }
 
 bool nano::test::activate (nano::node & node, std::vector<nano::block_hash> hashes)

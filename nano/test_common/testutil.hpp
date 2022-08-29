@@ -246,12 +246,12 @@ namespace test
 	 * Convenience function to check whether a list of hashes exists in node ledger.
 	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
 	 */
-	bool exist (nano::node & node, std::vector<nano::block_hash> hashes);
+	bool exists (nano::node & node, std::vector<nano::block_hash> hashes);
 	/*
 	 * Convenience function to check whether a list of blocks exists in node ledger.
 	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
 	 */
-	bool exist (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	bool exists (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
 	/*
 	 * Convenience function to start elections for a list of hashes. Blocks are loaded from ledger.
 	 * @return true if all blocks exist and were queued to election scheduler

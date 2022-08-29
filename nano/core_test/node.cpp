@@ -2807,8 +2807,8 @@ TEST (node, epoch_conflict_confirm)
 	ASSERT_TRUE (nano::test::process_live (node0, { change, epoch_open }));
 
 	// Ensure blocks were propagated to both nodes
-	ASSERT_TIMELY (5s, nano::test::exist (node0, { change, epoch_open }));
-	ASSERT_TIMELY (5s, nano::test::exist (node1, { change, epoch_open }));
+	ASSERT_TIMELY (5s, nano::test::exists (node0, { change, epoch_open }));
+	ASSERT_TIMELY (5s, nano::test::exists (node1, { change, epoch_open }));
 
 	// Confirm initial blocks in node1 to allow generating votes later
 	ASSERT_TRUE (nano::test::confirm (node1, { change, epoch_open, send2 }));
