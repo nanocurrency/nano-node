@@ -86,15 +86,4 @@ TEST (memory_pool, validate_cleanup)
 	ASSERT_EQ (nano::determine_shared_ptr_pool_size<nano::change_block> (), get_allocated_size<nano::change_block> () - sizeof (size_t));
 	ASSERT_EQ (nano::determine_shared_ptr_pool_size<nano::state_block> (), get_allocated_size<nano::state_block> () - sizeof (size_t));
 	ASSERT_EQ (nano::determine_shared_ptr_pool_size<nano::vote> (), get_allocated_size<nano::vote> () - sizeof (size_t));
-
-	{
-		nano::active_transactions::ordered_cache inactive_votes_cache;
-		nano::account representative{ 1 };
-		nano::block_hash hash{ 1 };
-		uint64_t timestamp{ 1 };
-		nano::inactive_cache_status default_status{};
-		inactive_votes_cache.emplace (std::chrono::steady_clock::now (), hash, representative, timestamp, default_status);
-	}
-
-	ASSERT_TRUE (nano::purge_singleton_inactive_votes_cache_pool_memory ());
 }

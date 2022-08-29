@@ -196,6 +196,8 @@ add_library(
   transport/udp.cpp
   unchecked_map.cpp
   unchecked_map.hpp
+  vote_cache.hpp
+  vote_cache.cpp
   vote_processor.hpp
   vote_processor.cpp
   voting.hpp

@@ -189,7 +189,7 @@ TEST (vote_cache, perf_singlethreaded)
 	ASSERT_EQ (node.stats.count (nano::stat::type::vote_cache, nano::stat::detail::vote_processed, nano::stat::dir::in), vote_count * single_vote_size * single_vote_reps);
 
 	// Ensure vote cache size is at max capacity
-	ASSERT_EQ (node.active.inactive_votes_cache_size (), flags.inactive_votes_cache_size);
+	ASSERT_EQ (node.inactive_vote_cache.cache_size (), flags.inactive_votes_cache_size);
 }
 
 TEST (vote_cache, perf_multithreaded)
@@ -253,5 +253,5 @@ TEST (vote_cache, perf_multithreaded)
 	std::cout << "total votes processed: " << node.stats.count (nano::stat::type::vote_cache, nano::stat::detail::vote_processed, nano::stat::dir::in) << std::endl;
 
 	// Ensure vote cache size is at max capacity
-	ASSERT_EQ (node.active.inactive_votes_cache_size (), flags.inactive_votes_cache_size);
+	ASSERT_EQ (node.inactive_vote_cache.cache_size (), flags.inactive_votes_cache_size);
 }

@@ -25,6 +25,7 @@
 #include <nano/node/signatures.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/unchecked_map.hpp>
+#include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/write_database_queue.hpp>
@@ -54,7 +55,8 @@ class work_pool;
 std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 
 // Configs
-backlog_population::config nodeconfig_to_backlog_population_config (const node_config & config);
+backlog_population::config nodeconfig_to_backlog_population_config (node_config const & config);
+vote_cache::config nodeconfig_to_vote_cache_config (node_config const &, node_flags const &);
 
 class node final : public std::enable_shared_from_this<nano::node>
 {
@@ -163,6 +165,7 @@ public:
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
 	nano::confirmation_height_processor confirmation_height_processor;
+	nano::vote_cache inactive_vote_cache;
 	nano::active_transactions active;
 	nano::election_scheduler scheduler;
 	nano::request_aggregator aggregator;
