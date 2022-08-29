@@ -50,6 +50,11 @@ std::size_t nano::vote_cache::entry::fill (std::shared_ptr<nano::election> elect
 	return inserted;
 }
 
+std::size_t nano::vote_cache::entry::size () const
+{
+	return voters.size ();
+}
+
 nano::vote_cache::vote_cache (const config config_a) :
 	max_size{ config_a.max_size }
 {

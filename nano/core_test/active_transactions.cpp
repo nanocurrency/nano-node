@@ -943,7 +943,8 @@ TEST (active_transactions, fork_replacement_tally)
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
 	node1.vote_processor.flush ();
 	// ensure vote arrives before the block
-	ASSERT_TIMELY (5s, 1 == node1.active.find_inactive_votes_cache (send_last->hash ()).voters.size ());
+	ASSERT_TIMELY (5s, node1.inactive_vote_cache.find (send_last->hash ()));
+	ASSERT_TIMELY (5s, 1 == node1.inactive_vote_cache.find (send_last->hash ())->size ());
 	node1.network.publish_filter.clear ();
 	node2.network.flood_block (send_last);
 	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) > 1);
