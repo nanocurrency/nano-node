@@ -507,7 +507,7 @@ TEST (active_transactions, inactive_votes_cache_election_start)
 	// An election is started for send6 but does not confirm
 	ASSERT_TIMELY (5s, 1 == node.active.size ());
 	node.vote_processor.flush ();
-	ASSERT_FALSE (node.block_confirmed_or_being_confirmed (node.store.tx_begin_read (), send3->hash ()));
+	ASSERT_FALSE (node.block_confirmed_or_being_confirmed (send3->hash ()));
 	// send7 cannot be voted on but an election should be started from inactive votes
 	ASSERT_FALSE (node.ledger.dependents_confirmed (node.store.tx_begin_read (), *send4));
 	node.process_active (send4);
@@ -1230,7 +1230,7 @@ TEST (active_transactions, activate_inactive)
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_conf_height, nano::stat::dir::out));
 
 	// The first block was not active so no activation takes place
-	ASSERT_FALSE (node.active.active (open->qualified_root ()) || node.block_confirmed_or_being_confirmed (node.store.tx_begin_read (), open->hash ()));
+	ASSERT_FALSE (node.active.active (open->qualified_root ()) || node.block_confirmed_or_being_confirmed (open->hash ()));
 }
 
 TEST (active_transactions, list_active)

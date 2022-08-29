@@ -678,7 +678,7 @@ void nano::active_transactions::check_inactive_vote_cache (nano::block_hash cons
 			if (block)
 			{
 				// We have the block, check that it's not yet confirmed
-				if (!node.block_confirmed_or_being_confirmed (transaction, hash))
+				if (!node.block_confirmed_or_being_confirmed (hash))
 				{
 					insert_hinted (block);
 				}
