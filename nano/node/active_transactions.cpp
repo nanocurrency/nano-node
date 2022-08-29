@@ -686,11 +686,7 @@ void nano::active_transactions::check_inactive_vote_cache (nano::block_hash cons
 			else
 			{
 				// We don't have the block yet, try to bootstrap it
-				// TODO: Details of bootstraping a block are not `active_transactions` concern, encapsulate somewhere
-				if (!node.ledger.pruning || !node.store.pruned.exists (transaction, hash))
-				{
-					node.gap_cache.bootstrap_start (hash);
-				}
+				node.bootstrap_block (hash);
 			}
 		}
 	}

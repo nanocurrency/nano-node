@@ -126,6 +126,10 @@ public:
 	void set_bandwidth_params (std::size_t limit, double ratio);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
 	uint64_t get_confirmation_height (nano::transaction const &, nano::account &);
+	/*
+	 * Attempts to bootstrap block. This is the best effort, there is no guarantee that the block will be bootstrapped.
+	 */
+	void bootstrap_block (nano::block_hash const &);
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;

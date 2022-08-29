@@ -1765,6 +1765,16 @@ std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> nano::node::get_
 	return { max_blocks, weights };
 }
 
+void nano::node::bootstrap_block (const nano::block_hash & hash)
+{
+	// If we are running pruning node check if block was not already pruned
+	if (!ledger.pruning || !store.pruned.exists (store.tx_begin_read (), hash))
+	{
+		// We don't have the block, try to bootstrap it
+		gap_cache.bootstrap_start (hash);
+	}
+}
+
 /** Convenience function to easily return the confirmation height of an account. */
 uint64_t nano::node::get_confirmation_height (nano::transaction const & transaction_a, nano::account & account_a)
 {
