@@ -73,6 +73,10 @@ public:
 		 * Inserts votes stored in this entry into an election
 		 */
 		std::size_t fill (std::shared_ptr<nano::election> election) const;
+		/*
+		 * Size of this entry
+		 */
+		std::size_t size () const;
 	};
 
 private:
