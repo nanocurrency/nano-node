@@ -2672,6 +2672,9 @@ TEST (node, vote_by_hash_bundle)
 	ASSERT_TIMELY (20s, max_hashes.load () >= 3);
 }
 
+// This test places block send1 onto every node. Then it creates block send2 (which is a fork of send1) and sends it to node1.
+// Then it sends a vote for send2 to node1 and expects node2 to also get the block plus vote and confirm send2.
+// TODO: This test enforces the order block followed by vote on node1, should vote followed by block also work? It doesn't currently.
 TEST (node, vote_by_hash_republish)
 {
 	nano::test::system system{ 2 };
@@ -2679,6 +2682,8 @@ TEST (node, vote_by_hash_republish)
 	auto & node2 = *system.nodes[1];
 	nano::keypair key2;
 	system.wallet (1)->insert_adhoc (key2.prv);
+
+	// send1 and send2 are forks of each other
 	nano::send_block_builder builder;
 	auto send1 = builder.make_block ()
 				 .previous (nano::dev::genesis->hash ())
@@ -2694,21 +2699,30 @@ TEST (node, vote_by_hash_republish)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
+
+	// give block send1 to node1 and check that an election for send1 starts on both nodes
 	node1.process_active (send1);
+	ASSERT_TIMELY (5s, node1.active.active (*send1));
 	ASSERT_TIMELY (5s, node2.active.active (*send1));
+
+	// give block send2 to node1 and wait until the block is received and processed by node1
+	node1.network.publish_filter.clear ();
 	node1.process_active (send2);
+	ASSERT_TIMELY (5s, node1.active.active (*send2));
+
+	// construct a vote for send2 in order to overturn send1
 	std::vector<nano::block_hash> vote_blocks;
 	vote_blocks.push_back (send2->hash ());
-	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, vote_blocks); // Final vote for confirmation
-	ASSERT_TRUE (node1.active.active (*send1));
-	ASSERT_TRUE (node2.active.active (*send1));
+	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, vote_blocks);
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
-	ASSERT_TIMELY (10s, node1.block (send2->hash ()));
-	ASSERT_TIMELY (10s, node2.block (send2->hash ()));
+
+	// send2 should win on both nodes
+	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
+	ASSERT_TIMELY (5s, node2.block_confirmed (send2->hash ()));
 	ASSERT_FALSE (node1.block (send1->hash ()));
 	ASSERT_FALSE (node2.block (send1->hash ()));
 	ASSERT_TIMELY (5s, node2.balance (key2.pub) == node1.config.receive_minimum.number () * 2);
-	ASSERT_TIMELY (10s, node1.balance (key2.pub) == node1.config.receive_minimum.number () * 2);
+	ASSERT_TIMELY (5s, node1.balance (key2.pub) == node1.config.receive_minimum.number () * 2);
 }
 
 // Test disabled because it's failing intermittently.
