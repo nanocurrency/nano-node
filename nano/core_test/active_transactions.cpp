@@ -12,50 +12,62 @@ using namespace std::chrono_literals;
 
 namespace nano
 {
-// Tests that an election can be confirmed as the result of a confirmation request
-//
-// Set-up:
-// - node1 with:
-//       - enabled frontiers_confirmation (default) -> allows it to confirm blocks and subsequently generates votes
-// - node2 with:
-//       - disabled rep crawler -> this inhibits node2 from learning that node1 is a rep
-//
-// Steps:
-// - create a block (send1), process it locally (without creating an election for it) on node1
-// - process send1 (as incoming from network -- process_active) on node2
-// - expect that election has been started for send1 on node2, but no confirmation_requests are sent for it
-// - stick genesis key into node1, then add node1 as a rep to node2's probable reps list
-// - expect at least one confirmation_request for the election (having been sent to node1 -- which is a rep now)
-// - expect a (non-final) vote to come back
-// - expected confirmation_request count has increased -- two round trips for the election to get confirmed
-// - expect election is confirmed
-
+/*
+ * Tests that an election can be confirmed as the result of a confirmation request
+ *
+ * Set-up:
+ * - node1 with:
+ * 		- enabled frontiers_confirmation (default) -> allows it to confirm blocks and subsequently generates votes
+ * - node2 with:
+ * 		- disabled rep crawler -> this inhibits node2 from learning that node1 is a rep
+ */
 TEST (active_transactions, confirm_election_by_request)
 {
 	nano::test::system system{};
 	auto & node1 = *system.add_node ();
 
+	nano::state_block_builder builder{};
+	auto send1 = builder
+				 .account (nano::dev::genesis_key.pub)
+				 .representative (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .link (nano::public_key ())
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build_shared ();
+
+	// Process send1 locally on node1
+	ASSERT_TRUE (nano::test::process (node1, { send1 }));
+
+	// Add rep key to node1
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	// Ensure election on node1 is already confirmed before connecting with node2
+	ASSERT_TIMELY (5s, nano::test::confirmed (node1, { send1 }));
+
+	// At this point node1 should not generate votes for send1 block unless it receives a request
+
+	// Create a second node
 	nano::node_flags node_flags2{};
 	node_flags2.disable_rep_crawler = true;
 	auto & node2 = *system.add_node (node_flags2);
 
-	auto send1 = nano::state_block_builder{}.make_block ().account (nano::dev::genesis_key.pub).representative (nano::dev::genesis_key.pub).previous (nano::dev::genesis->hash ()).link (nano::public_key ()).balance (nano::dev::constants.genesis_amount - 100).sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub).work (*system.work.generate (nano::dev::genesis->hash ())).build_shared ();
-
-	// Process send1 locally on node1
-	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
-
-	// Start an election for send1 on node2
+	// Process send1 block as live block on node2, this should start an election
 	node2.process_active (send1);
+
+	// Ensure election is started on node2
 	std::shared_ptr<nano::election> election{};
 	ASSERT_TIMELY (5s, (election = node2.active.election (send1->qualified_root ())) != nullptr);
+
+	// Ensure election on node2 did not get confirmed without us requesting votes
+	WAIT (1s);
+	ASSERT_FALSE (election->confirmed ());
 
 	// Expect that node2 has nobody to send a confirmation_request to (no reps)
 	ASSERT_EQ (0, election->confirmation_request_count);
 
-	// Add key to node1
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-
-	// Get random peer list (of size 1) from node2 -- so basically just node1
+	// Get random peer list (of size 1) from node2 -- so basically just node2
 	auto const peers = node2.network.random_set (1);
 	ASSERT_FALSE (peers.empty ());
 
@@ -65,20 +77,17 @@ TEST (active_transactions, confirm_election_by_request)
 		node2.rep_crawler.probable_reps.emplace (nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, *peers.cbegin ());
 	}
 
-	// At least one confirmation request sent to the freshly inserted rep (node1)
-	std::size_t confirm_req_count{};
-	ASSERT_TIMELY (5s, (confirm_req_count = election->confirmation_request_count) > 0);
+	// Expect a vote to come back
+	ASSERT_TIMELY (5s, election->votes ().size () >= 1);
 
-	// Expect a (non-final) vote come back
-	ASSERT_TIMELY (5s, election->votes ().size () > 1);
-
-	// There need to be 2 round trips in order for the election to get confirmed
-	ASSERT_TIMELY (5s, election->confirmation_request_count > confirm_req_count);
+	// There needs to be at least one request to get the election confirmed,
+	// Rep has this block already confirmed so should reply with final vote only
+	ASSERT_TIMELY (5s, election->confirmation_request_count >= 1);
 
 	// Expect election was confirmed
 	ASSERT_TIMELY (5s, election->confirmed ());
-	ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
-	ASSERT_TIMELY (5s, node2.block_confirmed (send1->hash ()));
+	ASSERT_TIMELY (5s, nano::test::confirmed (node1, { send1 }));
+	ASSERT_TIMELY (5s, nano::test::confirmed (node2, { send1 }));
 }
 }
 
