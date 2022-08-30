@@ -60,7 +60,7 @@ fi
 
 pushd "$source_dir"
 last_tag=""
-version_tags=$(git tag | sort -r | grep -E "^(V(${current_version_major}).(${current_version_minor})(DB[0-9]+))$")
+version_tags=$(git tag | sort -V -r | grep -E "^(V(${current_version_major}).(${current_version_minor})(DB[0-9]+))$")
 for tag in $version_tags; do
     if [[ -n "$tag" ]]; then
         last_tag=$tag
