@@ -2398,6 +2398,10 @@ TEST (node, DISABLED_local_votes_cache_batch)
 	ASSERT_EQ (6, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 }
 
+/**
+ * There is a cache for locally generated votes. This test checks that the node
+ * properly caches and uses those votes when replying to confirm_req requests.
+ */
 TEST (node, local_votes_cache_generate_new_vote)
 {
 	nano::test::system system;
@@ -2405,17 +2409,20 @@ TEST (node, local_votes_cache_generate_new_vote)
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node (*system.add_node (node_config));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	// Repsond with cached vote
+
+	// Send a confirm req for genesis block to node
 	nano::confirm_req message1{ nano::dev::network_params.network, nano::dev::genesis };
-	auto other_node = nano::test::add_outer_node (system, nano::test::get_available_port ());
-	auto channel = nano::test::establish_tcp (system, *other_node, node.network.endpoint ());
+	auto channel = std::make_shared<nano::transport::inproc::channel> (node, node);
 	node.network.inbound (message1, channel);
-	ASSERT_TIMELY (3s, !node.history.votes (nano::dev::genesis->root (), nano::dev::genesis->hash ()).empty ());
-	auto votes1 (node.history.votes (nano::dev::genesis->root (), nano::dev::genesis->hash ()));
+
+	// check that the node generated a vote for the genesis block and that it is stored in the local vote cache and it is the only vote
+	ASSERT_TIMELY (5s, !node.history.votes (nano::dev::genesis->root (), nano::dev::genesis->hash ()).empty ());
+	auto votes1 = node.history.votes (nano::dev::genesis->root (), nano::dev::genesis->hash ());
 	ASSERT_EQ (1, votes1.size ());
 	ASSERT_EQ (1, votes1[0]->hashes.size ());
 	ASSERT_EQ (nano::dev::genesis->hash (), votes1[0]->hashes[0]);
 	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 1);
+
 	auto send1 = nano::state_block_builder ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (nano::dev::genesis->hash ())
