@@ -246,6 +246,13 @@ bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> cons
 	return error;
 }
 
+bool nano::rep_crawler::add_to_active (const nano::block_hash & hash_a)
+{
+	nano::lock_guard<nano::mutex> lock (active_mutex);
+	auto result = active.insert (hash_a);
+	return result.second;
+}
+
 nano::uint128_t nano::rep_crawler::total_weight () const
 {
 	nano::lock_guard<nano::mutex> lock (probable_reps_mutex);

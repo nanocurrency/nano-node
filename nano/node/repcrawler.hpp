@@ -102,6 +102,9 @@ public:
 	 */
 	bool response (std::shared_ptr<nano::transport::channel> const &, std::shared_ptr<nano::vote> const &);
 
+	/** add block hash to the active list of hashes, this should be used only for testing purposes for injecting responses into rep crawler */
+	bool add_to_active (const nano::block_hash &);
+
 	/** Get total available weight from representatives */
 	nano::uint128_t total_weight () const;
 

@@ -243,6 +243,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	ASSERT_NE (channel, nullptr);
 
 	auto const vote2 = std::make_shared<nano::vote> (key1.pub, key1.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ send1->hash () });
+	node1.rep_crawler.add_to_active (send1->hash ());
 	ASSERT_TIMELY (10s, !node1.rep_crawler.response (channel, vote2));
 
 	ASSERT_FALSE (election->confirmed ());
