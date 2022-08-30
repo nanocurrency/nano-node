@@ -2663,6 +2663,18 @@ TEST (rpc, nano_to_raw_one_tenth_nano)
 	ASSERT_EQ ((nano::Mxrb_ratio / 10).convert_to<std::string> (), response.get<std::string> ("amount"));
 }
 
+TEST (rpc, nano_to_raw_leading_dot)
+{
+	nano::system system;
+	auto node1 = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node1);
+	boost::property_tree::ptree request1;
+	request1.put ("action", "nano_to_raw");
+	request1.put ("amount", ".01");
+	auto response (wait_response (system, rpc_ctx, request1));
+	ASSERT_EQ ((nano::Mxrb_ratio / 100).convert_to<std::string> (), response.get<std::string> ("amount"));
+}
+
 TEST (rpc, nano_to_raw_one_raw)
 {
 	nano::system system;
@@ -2684,7 +2696,7 @@ TEST (rpc, nano_to_raw_value_less_than_one_raw)
 	request1.put ("action", "nano_to_raw");
 	request1.put ("amount", "0.0000000000000000000000000000000000001");
 	auto response (wait_response (system, rpc_ctx, request1));
-	ASSERT_EQ ("0", response.get<std::string> ("amount"));
+	ASSERT_EQ (std::error_code (nano::error_common::invalid_amount_loss_of_precision).message (), response.get<std::string> ("error"));
 }
 
 TEST (rpc, nano_to_raw_ten_million_nano)
@@ -2694,9 +2706,21 @@ TEST (rpc, nano_to_raw_ten_million_nano)
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
 	request1.put ("action", "nano_to_raw");
-	request1.put ("amount", "1000000000");
+	request1.put ("amount", "10000000");
 	auto response (wait_response (system, rpc_ctx, request1));
-	ASSERT_EQ ((1000000000 * nano::Mxrb_ratio).convert_to<std::string> (), response.get<std::string> ("amount"));
+	ASSERT_EQ ((10000000 * nano::Mxrb_ratio).convert_to<std::string> (), response.get<std::string> ("amount"));
+}
+
+TEST (rpc, nano_to_raw_one_billion_nano)
+{
+	nano::system system;
+	auto node1 = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node1);
+	boost::property_tree::ptree request1;
+	request1.put ("action", "nano_to_raw");
+	request1.put ("amount", "100000000000");
+	auto response (wait_response (system, rpc_ctx, request1));
+	ASSERT_EQ (std::error_code (nano::error_common::invalid_amount_big).message (), response.get<std::string> ("error"));
 }
 
 TEST (rpc, nano_to_raw_negative_value)
@@ -2745,6 +2769,66 @@ TEST (rpc, nano_to_raw_integer_as_decimal)
 	request1.put ("amount", "1.00000");
 	auto response (wait_response (system, rpc_ctx, request1));
 	ASSERT_EQ (nano::Mxrb_ratio.convert_to<std::string> (), response.get<std::string> ("amount"));
+}
+
+TEST (rpc, nano_to_raw_leading_plus)
+{
+	nano::system system;
+	auto node1 = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node1);
+	boost::property_tree::ptree request1;
+	request1.put ("action", "nano_to_raw");
+	request1.put ("amount", "+31");
+	auto response (wait_response (system, rpc_ctx, request1));
+	ASSERT_EQ (std::error_code (nano::error_common::invalid_amount).message (), response.get<std::string> ("error"));
+}
+
+TEST (rpc, nano_to_raw_comma_seperator)
+{
+	nano::system system;
+	auto node1 = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node1);
+	boost::property_tree::ptree request1;
+	request1.put ("action", "nano_to_raw");
+	request1.put ("amount", "3,14");
+	auto response (wait_response (system, rpc_ctx, request1));
+	ASSERT_EQ (std::error_code (nano::error_common::invalid_amount).message (), response.get<std::string> ("error"));
+}
+
+TEST (rpc, nano_to_raw_empty_string)
+{
+	nano::system system;
+	auto node1 = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node1);
+	boost::property_tree::ptree request1;
+	request1.put ("action", "nano_to_raw");
+	request1.put ("amount", "");
+	auto response (wait_response (system, rpc_ctx, request1));
+	ASSERT_EQ (std::error_code (nano::error_common::invalid_amount).message (), response.get<std::string> ("error"));
+}
+
+TEST (rpc, nano_to_raw_hex_notation)
+{
+	nano::system system;
+	auto node1 = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node1);
+	boost::property_tree::ptree request1;
+	request1.put ("action", "nano_to_raw");
+	request1.put ("amount", "0xA8");
+	auto response (wait_response (system, rpc_ctx, request1));
+	ASSERT_EQ (std::error_code (nano::error_common::invalid_amount).message (), response.get<std::string> ("error"));
+}
+
+TEST (rpc, nano_to_raw_scientific_notation)
+{
+	nano::system system;
+	auto node1 = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node1);
+	boost::property_tree::ptree request1;
+	request1.put ("action", "nano_to_raw");
+	request1.put ("amount", "1e+11");
+	auto response (wait_response (system, rpc_ctx, request1));
+	ASSERT_EQ (std::error_code (nano::error_common::invalid_amount).message (), response.get<std::string> ("error"));
 }
 
 TEST (rpc, raw_to_nano)
