@@ -151,6 +151,10 @@ public:
 	// Is the root of this block in the roots container
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
+	/*
+	 * Is the block hash present in any active election
+	 */
+	bool active (nano::block_hash const &);
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
 	std::shared_ptr<nano::block> winner (nano::block_hash const &) const;
 	// Returns a list of elections sorted by difficulty

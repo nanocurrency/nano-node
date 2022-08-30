@@ -511,6 +511,12 @@ bool nano::active_transactions::active (nano::block const & block_a)
 	return roots.get<tag_root> ().find (block_a.qualified_root ()) != roots.get<tag_root> ().end () && blocks.find (block_a.hash ()) != blocks.end ();
 }
 
+bool nano::active_transactions::active (const nano::block_hash & hash)
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return blocks.find (hash) != blocks.end ();
+}
+
 std::shared_ptr<nano::election> nano::active_transactions::election (nano::qualified_root const & root_a) const
 {
 	std::shared_ptr<nano::election> result;
