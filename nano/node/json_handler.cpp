@@ -283,37 +283,66 @@ nano::amount nano::json_handler::amount_impl ()
 	return result;
 }
 
+/// <summary>
+/// Converts a Nano value with a maximum of 30 decimals into the corresponding raw value.
+/// Accepts positive integer and decimal values from zero to 100,000,000
+/// </summary>
+/// <returns>raw value</returns>
 nano::amount nano::json_handler::decimal_amount_impl ()
 {
 	nano::amount wholeNumber (0);
 	nano::amount decimalNumber (0);
 	nano::amount result (0);
-	if (!ec)
+	if (ec)
 	{
-		std::string amount_text (request.get<std::string> ("amount"));
-
-		int dotIndex = amount_text.find (".");
-		auto WholeNumberFractionString = amount_text.substr (0, dotIndex);
-
-		if (wholeNumber.decode_dec (WholeNumberFractionString))
-		{
-			ec = nano::error_common::invalid_amount;
-		}
-		if (dotIndex > 0)
-		{
-			auto decimalFractionString = amount_text.substr (dotIndex + 1, 30);
-			auto missingZeros = 30 - decimalFractionString.size ();
-			decimalFractionString.insert (decimalFractionString.size (), missingZeros, '0');
-
-			decimalFractionString.erase (0, decimalFractionString.find_first_not_of ('0'));
-
-			if (decimalNumber.decode_dec (decimalFractionString))
-			{
-				ec = nano::error_common::invalid_amount;
-			}
-		}
-		result = (wholeNumber.number () * nano::Mxrb_ratio) + decimalNumber.number ();
+		return result;
 	}
+
+	std::string amount_text (request.get<std::string> ("amount"));
+
+	if (amount_text.empty ())
+	{
+		ec = nano::error_common::invalid_amount;
+		return result;
+	}
+
+	int dotPosition = amount_text.find (".");
+	auto WholeNumberFractionString = amount_text.substr (0, dotPosition);
+
+	if (wholeNumber.decode_dec (WholeNumberFractionString))
+	{
+		ec = nano::error_common::invalid_amount;
+		return result;
+	}
+
+	if (wholeNumber.number () > 100000000)
+	{
+		ec = nano::error_common::invalid_amount_big;
+		return result;
+	}
+
+	if (dotPosition == -1) // no decimal part
+	{
+		result = (wholeNumber.number () * nano::Mxrb_ratio);
+		return result;
+	}
+
+	auto decimalFractionString = amount_text.substr (dotPosition + 1);
+	if (decimalFractionString.length () > 30)
+	{
+		ec = nano::error_common::invalid_amount_loss_of_precision;
+		return result;
+	}
+	auto missingZeros = 30 - decimalFractionString.size ();
+	decimalFractionString.insert (decimalFractionString.size (), missingZeros, '0');
+
+	decimalFractionString.erase (0, decimalFractionString.find_first_not_of ('0'));
+
+	if (decimalNumber.decode_dec (decimalFractionString))
+	{
+		ec = nano::error_common::invalid_amount;
+	}
+	result = (wholeNumber.number () * nano::Mxrb_ratio) + decimalNumber.number ();
 	return result;
 }
 
