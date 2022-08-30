@@ -176,6 +176,15 @@ public:
 	void block_cemented_callback (std::shared_ptr<nano::block> const &);
 	void block_already_cemented_callback (nano::block_hash const &);
 
+	/*
+	 * Maximum number of all elections that should be present in this container.
+	 * This is only a soft limit, it is possible for this container to exceed this count.
+	 */
+	int64_t limit () const;
+	/*
+	 * Maximum number of hinted elections that should be present in this container.
+	 */
+	int64_t hinted_limit () const;
 	int64_t vacancy () const;
 	/*
 	 * How many election slots are available for hinted elections.

@@ -166,18 +166,28 @@ void nano::active_transactions::block_already_cemented_callback (nano::block_has
 	remove_election_winner_details (hash_a);
 }
 
+int64_t nano::active_transactions::limit () const
+{
+	return static_cast<int64_t> (node.config.active_elections_size);
+}
+
+int64_t nano::active_transactions::hinted_limit () const
+{
+	const uint64_t limit = node.config.active_elections_hinted_limit_percentage * node.config.active_elections_size / 100;
+	return static_cast<int64_t> (limit);
+}
+
 int64_t nano::active_transactions::vacancy () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto result = static_cast<int64_t> (node.config.active_elections_size) - static_cast<int64_t> (roots.size ());
+	auto result = limit () - static_cast<int64_t> (roots.size ());
 	return result;
 }
 
 int64_t nano::active_transactions::vacancy_hinted () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	const uint64_t limit = node.config.active_elections_hinted_limit_percentage * node.config.active_elections_size / 100;
-	auto result = static_cast<int64_t> (limit) - active_hinted_elections_count;
+	auto result = hinted_limit () - active_hinted_elections_count;
 	return result;
 }
 
