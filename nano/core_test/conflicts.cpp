@@ -38,6 +38,8 @@ TEST (conflicts, add_existing)
 	nano::test::system system{ 1 };
 	auto & node1 = *system.nodes[0];
 	nano::keypair key1;
+
+	// create a send block to send all of the nano supply to key1
 	nano::block_builder builder;
 	auto send1 = builder
 				 .send ()
@@ -48,8 +50,19 @@ TEST (conflicts, add_existing)
 				 .work (0)
 				 .build_shared ();
 	node1.work_generate_blocking (*send1);
+
+	// add the block to ledger as an unconfirmed block
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
+
+	// wait for send1 to be inserted in the ledger
+	ASSERT_TIMELY (5s, node1.block (send1->hash ()));
+
+	// instruct the election scheduler to trigger an election for send1
 	node1.scheduler.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
+
+	// wait for election to be started before processing send2
+	ASSERT_TIMELY (5s, node1.active.active (*send1));
+
 	nano::keypair key2;
 	auto send2 = builder
 				 .send ()
@@ -61,7 +74,12 @@ TEST (conflicts, add_existing)
 				 .build_shared ();
 	node1.work_generate_blocking (*send2);
 	send2->sideband_set ({});
+
+	// the block processor will notice that the block is a fork and it will try to publish it
+	// which will update the election object
 	node1.block_processor.add (send2);
+
+	ASSERT_TRUE (node1.active.active (*send1));
 	ASSERT_TIMELY (5s, node1.active.active (*send2));
 }
 
