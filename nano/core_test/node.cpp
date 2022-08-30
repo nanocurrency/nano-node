@@ -2288,8 +2288,7 @@ TEST (node, local_votes_cache)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::confirm_req message1{ nano::dev::network_params.network, send1 };
 	nano::confirm_req message2{ nano::dev::network_params.network, send2 };
-	auto other_node = nano::test::add_outer_node (system, nano::test::get_available_port ());
-	auto channel = nano::test::establish_tcp (system, *other_node, node.network.endpoint ());
+	auto channel = std::make_shared<nano::transport::inproc::channel> (node, node);
 	node.network.inbound (message1, channel);
 	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 1);
 	node.network.inbound (message2, channel);
