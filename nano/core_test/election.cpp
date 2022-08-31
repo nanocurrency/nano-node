@@ -188,6 +188,7 @@ TEST (election, quorum_minimum_confirm_fail)
 
 namespace nano
 {
+// FIXME: this test fails on rare occasions. It needs a review.
 TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 {
 	nano::test::system system{};
@@ -243,7 +244,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	ASSERT_NE (channel, nullptr);
 
 	auto const vote2 = std::make_shared<nano::vote> (key1.pub, key1.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ send1->hash () });
-	ASSERT_TIMELY (10s, !node1.rep_crawler.response (channel, vote2));
+	ASSERT_FALSE (node1.rep_crawler.response (channel, vote2, true));
 
 	ASSERT_FALSE (election->confirmed ());
 	{
