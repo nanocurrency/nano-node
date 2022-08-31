@@ -2908,7 +2908,7 @@ TEST (rpc, nano_to_raw_one_nano)
 
 TEST (rpc, nano_to_raw_zero_nano)
 {
-	nano::system system;
+	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
@@ -2920,7 +2920,7 @@ TEST (rpc, nano_to_raw_zero_nano)
 
 TEST (rpc, nano_to_raw_one_tenth_nano)
 {
-	nano::system system;
+	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
@@ -2932,7 +2932,7 @@ TEST (rpc, nano_to_raw_one_tenth_nano)
 
 TEST (rpc, nano_to_raw_leading_dot)
 {
-	nano::system system;
+	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
@@ -2944,7 +2944,7 @@ TEST (rpc, nano_to_raw_leading_dot)
 
 TEST (rpc, nano_to_raw_one_raw)
 {
-	nano::system system;
+	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
@@ -2956,7 +2956,7 @@ TEST (rpc, nano_to_raw_one_raw)
 
 TEST (rpc, nano_to_raw_value_less_than_one_raw)
 {
-	nano::system system;
+	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
@@ -2968,7 +2968,7 @@ TEST (rpc, nano_to_raw_value_less_than_one_raw)
 
 TEST (rpc, nano_to_raw_ten_million_nano)
 {
-	nano::system system;
+	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
@@ -2980,7 +2980,7 @@ TEST (rpc, nano_to_raw_ten_million_nano)
 
 TEST (rpc, nano_to_raw_one_billion_nano)
 {
-	nano::system system;
+	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
@@ -2992,7 +2992,7 @@ TEST (rpc, nano_to_raw_one_billion_nano)
 
 TEST (rpc, nano_to_raw_negative_value)
 {
-	nano::system system;
+	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
@@ -3004,7 +3004,7 @@ TEST (rpc, nano_to_raw_negative_value)
 
 TEST (rpc, nano_to_raw_invalid_input)
 {
-	nano::system system;
+	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
@@ -3016,7 +3016,7 @@ TEST (rpc, nano_to_raw_invalid_input)
 
 TEST (rpc, nano_to_raw_zero_as_decimal)
 {
-	nano::system system;
+	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
@@ -3028,7 +3028,7 @@ TEST (rpc, nano_to_raw_zero_as_decimal)
 
 TEST (rpc, nano_to_raw_integer_as_decimal)
 {
-	nano::system system;
+	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
@@ -3040,7 +3040,7 @@ TEST (rpc, nano_to_raw_integer_as_decimal)
 
 TEST (rpc, nano_to_raw_leading_plus)
 {
-	nano::system system;
+	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
@@ -3052,7 +3052,7 @@ TEST (rpc, nano_to_raw_leading_plus)
 
 TEST (rpc, nano_to_raw_comma_seperator)
 {
-	nano::system system;
+	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
@@ -3064,7 +3064,7 @@ TEST (rpc, nano_to_raw_comma_seperator)
 
 TEST (rpc, nano_to_raw_empty_string)
 {
-	nano::system system;
+	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
@@ -3076,7 +3076,7 @@ TEST (rpc, nano_to_raw_empty_string)
 
 TEST (rpc, nano_to_raw_hex_notation)
 {
-	nano::system system;
+	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
@@ -3088,7 +3088,7 @@ TEST (rpc, nano_to_raw_hex_notation)
 
 TEST (rpc, nano_to_raw_scientific_notation)
 {
-	nano::system system;
+	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
