@@ -11,10 +11,10 @@
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <boost/regex.hpp>
 
 #include <algorithm>
 #include <chrono>
-#include <boost/regex.hpp>
 
 namespace
 {
