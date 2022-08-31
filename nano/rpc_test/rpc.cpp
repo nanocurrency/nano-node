@@ -2672,7 +2672,7 @@ TEST (rpc, nano_to_raw_leading_dot)
 	request1.put ("action", "nano_to_raw");
 	request1.put ("amount", ".01");
 	auto response (wait_response (system, rpc_ctx, request1));
-	ASSERT_EQ ((nano::Mxrb_ratio / 100).convert_to<std::string> (), response.get<std::string> ("amount"));
+	ASSERT_EQ (std::error_code (nano::error_common::invalid_amount).message (), response.get<std::string> ("error"));
 }
 
 TEST (rpc, nano_to_raw_one_raw)

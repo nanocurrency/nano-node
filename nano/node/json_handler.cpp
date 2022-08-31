@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <boost/regex.hpp>
 
 namespace
 {
@@ -285,7 +286,7 @@ nano::amount nano::json_handler::amount_impl ()
 
 /// <summary>
 /// Converts a Nano value with a maximum of 30 decimals into the corresponding raw value.
-/// Accepts positive integer and decimal values from zero to 100,000,000
+/// Accepted inputs are digits only or digits seperated by one dot
 /// </summary>
 /// <returns>raw value</returns>
 nano::amount nano::json_handler::decimal_amount_impl ()
@@ -300,7 +301,8 @@ nano::amount nano::json_handler::decimal_amount_impl ()
 
 	std::string amount_text (request.get<std::string> ("amount"));
 
-	if (amount_text.empty ())
+	const boost::regex e ("^\\d+(\\.\\d+)?$");
+	if (!regex_match (amount_text, e))
 	{
 		ec = nano::error_common::invalid_amount;
 		return result;
