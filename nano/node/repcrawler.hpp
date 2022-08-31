@@ -98,12 +98,10 @@ public:
 	/**
 	 * Called when a non-replay vote on a block previously sent by query() is received. This indicates
 	 * with high probability that the endpoint is a representative node.
-	 * @return false if the vote corresponded to any active hash.
+	 * The force flag can be set to skip the active check in unit testing when we want to force a vote in the rep crawler.
+	 * @return false if any vote passed the checks and was added to the response queue of the rep crawler
 	 */
-	bool response (std::shared_ptr<nano::transport::channel> const &, std::shared_ptr<nano::vote> const &);
-
-	/** add block hash to the active list of hashes, this should be used only for testing purposes for injecting responses into rep crawler */
-	bool add_to_active (const nano::block_hash &);
+	bool response (std::shared_ptr<nano::transport::channel> const &, std::shared_ptr<nano::vote> const &, bool force = false);
 
 	/** Get total available weight from representatives */
 	nano::uint128_t total_weight () const;
