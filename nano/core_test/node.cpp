@@ -1,7 +1,6 @@
 #include <nano/node/election.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/node/transport/inproc.hpp>
-#include <nano/node/transport/udp.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -355,6 +354,7 @@ TEST (node, auto_bootstrap_age)
 	node1->stop ();
 }
 
+// Test ensures the block processor adds the published block to the gap cache.
 TEST (node, receive_gap)
 {
 	nano::test::system system (1);
@@ -369,9 +369,7 @@ TEST (node, receive_gap)
 				 .build_shared ();
 	node1.work_generate_blocking (*block);
 	nano::publish message{ nano::dev::network_params.network, block };
-	// Another node instance just to be a tcp client for channel1.
-	auto other_node = nano::test::add_outer_node (system, nano::test::get_available_port ());
-	auto channel1 = nano::test::establish_tcp (system, *other_node, node1.network.endpoint ());
+	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
 	node1.network.inbound (message, channel1);
 	node1.block_processor.flush ();
 	ASSERT_EQ (1, node1.gap_cache.size ());
@@ -713,7 +711,6 @@ TEST (node, fork_keep)
 	ASSERT_TRUE (node2.store.block.exists (transaction1, send1->hash ()));
 }
 
-// TODO: Fix failing test
 TEST (node, fork_flip)
 {
 	nano::test::system system (2);
@@ -807,10 +804,8 @@ TEST (node, fork_multi_flip)
 				 .work (*system.work.generate (publish2.block->hash ()))
 				 .build_shared ();
 	nano::publish publish3{ nano::dev::network_params.network, send3 };
-	auto outer_node1 = nano::test::add_outer_node (system, nano::test::get_available_port ());
-	auto outer_node2 = nano::test::add_outer_node (system, nano::test::get_available_port ());
-	auto channel1 = nano::test::establish_tcp (system, *outer_node1, node1.network.endpoint ());
-	auto channel2 = nano::test::establish_tcp (system, *outer_node2, node1.network.endpoint ());
+	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
+	auto channel2 = std::make_shared<nano::transport::inproc::channel> (node2, node2);
 	node1.network.inbound (publish1, channel1);
 	node2.network.inbound (publish2, channel2);
 	node2.network.inbound (publish3, channel2);
@@ -909,8 +904,7 @@ TEST (node, fork_open)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	nano::publish publish1{ nano::dev::network_params.network, send1 };
-	auto outer_node1 = nano::test::add_outer_node (system, nano::test::get_available_port ());
-	auto channel1 = nano::test::establish_tcp (system, *outer_node1, node.network.endpoint ());
+	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node, node);
 	node.network.inbound (publish1, channel1);
 	ASSERT_TIMELY (5s, (election = node.active.election (publish1.block->qualified_root ())) != nullptr);
 	election->force_confirm ();
@@ -2371,8 +2365,7 @@ TEST (node, DISABLED_local_votes_cache_batch)
 	ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *receive1).code);
 	std::vector<std::pair<nano::block_hash, nano::root>> batch{ { send2->hash (), send2->root () }, { receive1->hash (), receive1->root () } };
 	nano::confirm_req message{ nano::dev::network_params.network, batch };
-	auto other_node = nano::test::add_outer_node (system, nano::test::get_available_port ());
-	auto channel = nano::test::establish_tcp (system, *other_node, node.network.endpoint ());
+	auto channel = std::make_shared<nano::transport::inproc::channel> (node, node);
 	// Generates and sends one vote for both hashes which is then cached
 	node.network.inbound (message, channel);
 	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out) == 1);
@@ -2858,8 +2851,7 @@ TEST (node, fork_election_invalid_block_signature)
 				 .sign (nano::dev::genesis_key.prv, 0) // Invalid signature
 				 .build_shared ();
 
-	auto other_node = nano::test::add_outer_node (system, nano::test::get_available_port ());
-	auto channel1 = nano::test::establish_tcp (system, *other_node, node1.network.endpoint ());
+	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
 	node1.network.inbound (nano::publish{ nano::dev::network_params.network, send1 }, channel1);
 	ASSERT_TIMELY (5s, node1.active.active (send1->qualified_root ()));
 	auto election (node1.active.election (send1->qualified_root ()));
@@ -3623,8 +3615,7 @@ TEST (node, rollback_vote_self)
 		ASSERT_TRUE (node.history.votes (send2->root (), send2->hash ()).empty ());
 		ASSERT_TRUE (node.history.votes (fork->root (), fork->hash ()).empty ());
 		auto & node2 = *system.add_node ();
-		auto outer_node = nano::test::add_outer_node (system, nano::test::get_available_port ());
-		auto channel = nano::test::establish_tcp (system, *outer_node, node2.network.endpoint ());
+		auto channel = std::make_shared<nano::transport::inproc::channel> (node2, node2);
 		node.aggregator.add (channel, { { send2->hash (), send2->root () } });
 		ASSERT_TIMELY (5s, !node.history.votes (fork->root (), fork->hash ()).empty ());
 		ASSERT_TRUE (node.history.votes (send2->root (), send2->hash ()).empty ());
