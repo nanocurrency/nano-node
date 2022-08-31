@@ -324,6 +324,10 @@ void nano::rep_crawler::cleanup_reps ()
 				equal = true;
 			}
 		}
+		else if (i->get_type () == nano::transport::transport_type::fake)
+		{
+			equal = true;
+		}
 		if (!equal)
 		{
 			nano::lock_guard<nano::mutex> lock (probable_reps_mutex);
