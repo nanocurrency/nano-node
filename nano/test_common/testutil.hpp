@@ -63,6 +63,14 @@
 	}                                              \
 	EXPECT_NO_ERROR (ec);
 
+/** Asserts that the condition becomes true within the deadline */
+#define ASSERT_TIMELY_EQ(time, val1, val2)         \
+	system.deadline_set (time);                    \
+	while (!((val1) == (val2)) && !system.poll ()) \
+	{                                              \
+	}                                              \
+	ASSERT_EQ (val1, val2);
+
 /*
  * Waits specified number of time while keeping system running.
  * Useful for asserting conditions that should still hold after some delay of time
@@ -71,6 +79,26 @@
 	system.deadline_set (time); \
 	while (!system.poll ())     \
 	{                           \
+	}
+
+/*
+ * Asserts that condition is always true during the specified amount of time
+ */
+#define ASSERT_ALWAYS(time, condition) \
+	system.deadline_set (time);        \
+	while (!system.poll ())            \
+	{                                  \
+		ASSERT_TRUE (condition);       \
+	}
+
+/*
+ * Asserts that condition is never true during the specified amount of time
+ */
+#define ASSERT_NEVER(time, condition) \
+	system.deadline_set (time);       \
+	while (!system.poll ())           \
+	{                                 \
+		ASSERT_FALSE (condition);     \
 	}
 
 /* Convenience globals for gtest projects */
