@@ -421,7 +421,7 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 				entry->samples.push_back (entry->sample_current);
 				entry->sample_current.set_value (0);
 
-				if (!entry->sample_observers.observers.empty ())
+				if (!entry->sample_observers.empty ())
 				{
 					auto snapshot (entry->samples);
 					entry->sample_observers.notify (snapshot);
@@ -462,6 +462,11 @@ void nano::stat::clear ()
 std::string nano::stat::type_to_string (uint32_t key)
 {
 	auto type = static_cast<stat::type> (key >> 16 & 0x000000ff);
+	return type_to_string (type);
+}
+
+std::string nano::stat::type_to_string (stat::type type)
+{
 	std::string res;
 	switch (type)
 	{
@@ -473,6 +478,9 @@ std::string nano::stat::type_to_string (uint32_t key)
 			break;
 		case nano::stat::type::bootstrap:
 			res = "bootstrap";
+			break;
+		case nano::stat::type::bootstrap_server:
+			res = "bootstrap_server";
 			break;
 		case nano::stat::type::error:
 			res = "error";
@@ -533,6 +541,9 @@ std::string nano::stat::type_to_string (uint32_t key)
 			break;
 		case nano::stat::type::vote_generator:
 			res = "vote_generator";
+			break;
+		case nano::stat::type::vote_cache:
+			res = "vote_cache";
 			break;
 	}
 	return res;
@@ -612,6 +623,9 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 		case nano::stat::detail::gap_source:
 			res = "gap_source";
 			break;
+		case nano::stat::detail::rollback_failed:
+			res = "rollback_failed";
+			break;
 		case nano::stat::detail::frontier_confirmation_failed:
 			res = "frontier_confirmation_failed";
 			break;
@@ -642,11 +656,17 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 		case nano::stat::detail::insufficient_work:
 			res = "insufficient_work";
 			break;
+		case nano::stat::detail::invalid:
+			res = "invalid";
+			break;
 		case nano::stat::detail::invocations:
 			res = "invocations";
 			break;
 		case nano::stat::detail::keepalive:
 			res = "keepalive";
+			break;
+		case nano::stat::detail::not_a_type:
+			res = "not_a_type";
 			break;
 		case nano::stat::detail::open:
 			res = "open";
@@ -693,6 +713,9 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 		case nano::stat::detail::vote_new:
 			res = "vote_new";
 			break;
+		case nano::stat::detail::vote_processed:
+			res = "vote_processed";
+			break;
 		case nano::stat::detail::vote_cached:
 			res = "vote_cached";
 			break;
@@ -704,6 +727,9 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 			break;
 		case nano::stat::detail::election_start:
 			res = "election_start";
+			break;
+		case nano::stat::detail::election_confirmed_all:
+			res = "election_confirmed_all";
 			break;
 		case nano::stat::detail::election_block_conflict:
 			res = "election_block_conflict";
@@ -728,6 +754,17 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 			break;
 		case nano::stat::detail::election_not_confirmed:
 			res = "election_not_confirmed";
+		case nano::stat::detail::election_hinted_overflow:
+			res = "election_hinted_overflow";
+			break;
+		case nano::stat::detail::election_hinted_started:
+			res = "election_hinted_started";
+			break;
+		case nano::stat::detail::election_hinted_confirmed:
+			res = "election_hinted_confirmed";
+			break;
+		case nano::stat::detail::election_hinted_drop:
+			res = "election_hinted_drop";
 			break;
 		case nano::stat::detail::blocking:
 			res = "blocking";
@@ -800,6 +837,18 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 			break;
 		case nano::stat::detail::invalid_telemetry_ack_message:
 			res = "invalid_telemetry_ack_message";
+			break;
+		case nano::stat::detail::invalid_bulk_pull_message:
+			res = "invalid_bulk_pull_message";
+			break;
+		case nano::stat::detail::invalid_bulk_pull_account_message:
+			res = "invalid_bulk_pull_account_message";
+			break;
+		case nano::stat::detail::invalid_frontier_req_message:
+			res = "invalid_frontier_req_message";
+			break;
+		case nano::stat::detail::message_too_big:
+			res = "message_too_big";
 			break;
 		case nano::stat::detail::outdated_version:
 			res = "outdated_version";
@@ -901,6 +950,11 @@ std::string nano::stat::detail_to_string (uint32_t key)
 std::string nano::stat::dir_to_string (uint32_t key)
 {
 	auto dir = static_cast<stat::dir> (key & 0x000000ff);
+	return dir_to_string (dir);
+}
+
+std::string nano::stat::dir_to_string (dir dir)
+{
 	std::string res;
 	switch (dir)
 	{

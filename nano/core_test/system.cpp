@@ -1,3 +1,4 @@
+#include <nano/node/transport/inproc.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -8,7 +9,7 @@ using namespace std::chrono_literals;
 
 TEST (system, work_generate_limited)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::block_hash key (1);
 	auto min = nano::dev::network_params.work.entry;
 	auto max = nano::dev::network_params.work.base;
@@ -24,7 +25,7 @@ TEST (system, work_generate_limited)
 // All nodes in the system should agree on the genesis balance
 TEST (system, system_genesis)
 {
-	nano::system system (2);
+	nano::test::system system (2);
 	for (auto & i : system.nodes)
 	{
 		auto transaction (i->store.tx_begin_read ());
@@ -34,7 +35,7 @@ TEST (system, system_genesis)
 
 TEST (system, DISABLED_generate_send_existing)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::thread_runner runner (system.io_ctx, node1.config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -51,7 +52,15 @@ TEST (system, DISABLED_generate_send_existing)
 	// Have stake_preserver receive funds after generate_send_existing so it isn't chosen as the destination
 	{
 		auto transaction (node1.store.tx_begin_write ());
-		auto open_block (std::make_shared<nano::open_block> (send_block->hash (), nano::dev::genesis->account (), stake_preserver.pub, stake_preserver.prv, stake_preserver.pub, 0));
+		nano::block_builder builder;
+		auto open_block = builder
+						  .open ()
+						  .source (send_block->hash ())
+						  .representative (nano::dev::genesis->account ())
+						  .account (stake_preserver.pub)
+						  .sign (stake_preserver.prv, stake_preserver.pub)
+						  .work (0)
+						  .build_shared ();
 		node1.work_generate_blocking (*open_block);
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *open_block).code);
 	}
@@ -81,7 +90,7 @@ TEST (system, DISABLED_generate_send_existing)
 
 TEST (system, DISABLED_generate_send_new)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::thread_runner runner (system.io_ctx, node1.config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -96,7 +105,15 @@ TEST (system, DISABLED_generate_send_new)
 	auto send_block (system.wallet (0)->send_action (nano::dev::genesis->account (), stake_preserver.pub, nano::dev::constants.genesis_amount / 3 * 2, true));
 	{
 		auto transaction (node1.store.tx_begin_write ());
-		auto open_block (std::make_shared<nano::open_block> (send_block->hash (), nano::dev::genesis->account (), stake_preserver.pub, stake_preserver.prv, stake_preserver.pub, 0));
+		nano::block_builder builder;
+		auto open_block = builder
+						  .open ()
+						  .source (send_block->hash ())
+						  .representative (nano::dev::genesis->account ())
+						  .account (stake_preserver.pub)
+						  .sign (stake_preserver.prv, stake_preserver.pub)
+						  .work (0)
+						  .build_shared ();
 		node1.work_generate_blocking (*open_block);
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *open_block).code);
 	}
@@ -131,7 +148,7 @@ TEST (system, DISABLED_generate_send_new)
 
 TEST (system, rep_initialize_one)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::keypair key;
 	system.ledger_initialization_set ({ key });
 	auto node = system.add_node ();
@@ -140,7 +157,7 @@ TEST (system, rep_initialize_one)
 
 TEST (system, rep_initialize_two)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::keypair key0;
 	nano::keypair key1;
 	system.ledger_initialization_set ({ key0, key1 });
@@ -151,7 +168,7 @@ TEST (system, rep_initialize_two)
 
 TEST (system, rep_initialize_one_reserve)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::keypair key;
 	system.ledger_initialization_set ({ key }, nano::Gxrb_ratio);
 	auto node = system.add_node ();
@@ -161,7 +178,7 @@ TEST (system, rep_initialize_one_reserve)
 
 TEST (system, rep_initialize_two_reserve)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::keypair key0;
 	nano::keypair key1;
 	system.ledger_initialization_set ({ key0, key1 }, nano::Gxrb_ratio);
@@ -172,7 +189,7 @@ TEST (system, rep_initialize_two_reserve)
 
 TEST (system, rep_initialize_many)
 {
-	nano::system system;
+	nano::test::system system;
 	nano::keypair key0;
 	nano::keypair key1;
 	system.ledger_initialization_set ({ key0, key1 }, nano::Gxrb_ratio);
@@ -182,4 +199,20 @@ TEST (system, rep_initialize_many)
 	auto node1 = system.add_node ();
 	ASSERT_EQ ((nano::dev::constants.genesis_amount - nano::Gxrb_ratio) / 2, node1->balance (key0.pub));
 	ASSERT_EQ ((nano::dev::constants.genesis_amount - nano::Gxrb_ratio) / 2, node1->balance (key1.pub));
+}
+
+TEST (system, transport_basic)
+{
+	nano::test::system system{ 1 };
+	auto & node0 = *system.nodes[0];
+	// Start nodes in separate systems so they don't automatically connect with each other.
+	nano::test::system system1{ 1 };
+	auto & node1 = *system1.nodes[0];
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in));
+	nano::transport::inproc::channel channel{ node0, node1 };
+	// Send a keepalive message since they are easy to construct
+	nano::keepalive junk{ nano::dev::network_params.network };
+	channel.send (junk);
+	// Ensure the keepalive has been reecived on the target.
+	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) > 0);
 }

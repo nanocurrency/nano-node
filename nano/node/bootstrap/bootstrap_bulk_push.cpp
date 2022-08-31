@@ -1,11 +1,12 @@
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
+#include <nano/node/bootstrap/bootstrap_legacy.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
 #include <boost/format.hpp>
 
-nano::bulk_push_client::bulk_push_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a) :
+nano::bulk_push_client::bulk_push_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt_legacy> const & attempt_a) :
 	connection (connection_a),
 	attempt (attempt_a)
 {
@@ -212,7 +213,7 @@ void nano::bulk_push_server::received_type ()
 		}
 		case nano::block_type::not_a_block:
 		{
-			connection->finish_request ();
+			connection->start ();
 			break;
 		}
 		default:
@@ -232,25 +233,26 @@ void nano::bulk_push_server::received_block (boost::system::error_code const & e
 	{
 		nano::bufferstream stream (receive_buffer->data (), size_a);
 		auto block (nano::deserialize_block (stream, type_a));
-		if (block != nullptr && !connection->node->network_params.work.validate_entry (*block))
+		if (block != nullptr)
 		{
+			if (connection->node->network_params.work.validate_entry (*block))
+			{
+				if (connection->node->config.logging.bulk_pull_logging ())
+				{
+					connection->node->logger.try_log (boost::str (boost::format ("Insufficient work for bulk push block: %1%") % block->hash ().to_string ()));
+				}
+				connection->node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
+				return;
+			}
 			connection->node->process_active (std::move (block));
 			throttled_receive ();
 		}
-		else if (block == nullptr)
+		else
 		{
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
 				connection->node->logger.try_log ("Error deserializing block received from pull request");
 			}
-		}
-		else // Work invalid
-		{
-			if (connection->node->config.logging.bulk_pull_logging ())
-			{
-				connection->node->logger.try_log (boost::str (boost::format ("Insufficient work for bulk push block: %1%") % block->hash ().to_string ()));
-			}
-			connection->node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
 		}
 	}
 }

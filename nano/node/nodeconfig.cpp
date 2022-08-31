@@ -99,6 +99,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("bootstrap_connections", bootstrap_connections, "Number of outbound bootstrap connections. Must be a power of 2. Defaults to 4.\nWarning: a larger amount of connections may use substantially more system memory.\ntype:uint64");
 	toml.put ("bootstrap_connections_max", bootstrap_connections_max, "Maximum number of inbound bootstrap connections. Defaults to 64.\nWarning: a larger amount of connections may use additional system memory.\ntype:uint64");
 	toml.put ("bootstrap_initiator_threads", bootstrap_initiator_threads, "Number of threads dedicated to concurrent bootstrap attempts. Defaults to 1.\nWarning: a larger amount of attempts may use additional system memory and disk IO.\ntype:uint64");
+	toml.put ("bootstrap_serving_threads", bootstrap_serving_threads, "Number of threads dedicated to serving bootstrap data to other peers. Defaults to half the number of CPU threads, and at least 2.\ntype:uint64");
 	toml.put ("bootstrap_frontier_request_count", bootstrap_frontier_request_count, "Number frontiers per bootstrap frontier request. Defaults to 1048576.\ntype:uint32,[1024..4294967295]");
 	toml.put ("block_processor_batch_max_time", block_processor_batch_max_time.count (), "The maximum time the block processor can continuously process blocks for.\ntype:milliseconds");
 	toml.put ("allow_local_peers", allow_local_peers, "Enable or disable local host peering.\ntype:bool");
@@ -121,7 +122,6 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("max_work_generate_multiplier", max_work_generate_multiplier, "Maximum allowed difficulty multiplier for work generation.\ntype:double,[1..]");
 	toml.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation), "Mode controlling frontier confirmation rate.\ntype:string,{auto,always,disabled}");
 	toml.put ("max_queued_requests", max_queued_requests, "Limit for number of queued confirmation requests for one channel, after which new requests are dropped until the queue drops below this value.\ntype:uint32");
-	toml.put ("confirm_req_batches_max", confirm_req_batches_max, "Limit for the number of confirmation requests for one channel per request attempt\ntype:uint32");
 	toml.put ("rep_crawler_weight_minimum", rep_crawler_weight_minimum.to_string_dec (), "Rep crawler minimum weight, if this is less than minimum principal weight then this is taken as the minimum weight a rep must have to be tracked. If you want to track all reps set this to 0. If you do not want this to influence anything then set it to max value. This is only useful for debugging or for people who really know what they are doing.\ntype:string,amount,raw");
 
 	auto work_peers_l (toml.create_array ("work_peers", "A list of \"address:port\" entries to identify work peers."));
@@ -336,6 +336,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<unsigned> ("bootstrap_connections", bootstrap_connections);
 		toml.get<unsigned> ("bootstrap_connections_max", bootstrap_connections_max);
 		toml.get<unsigned> ("bootstrap_initiator_threads", bootstrap_initiator_threads);
+		toml.get<unsigned> ("bootstrap_serving_threads", bootstrap_serving_threads);
 		toml.get<uint32_t> ("bootstrap_frontier_request_count", bootstrap_frontier_request_count);
 		toml.get<bool> ("enable_voting", enable_voting);
 		toml.get<bool> ("allow_local_peers", allow_local_peers);
@@ -370,7 +371,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<double> ("max_work_generate_multiplier", max_work_generate_multiplier);
 
 		toml.get<uint32_t> ("max_queued_requests", max_queued_requests);
-		toml.get<uint32_t> ("confirm_req_batches_max", confirm_req_batches_max);
 
 		auto rep_crawler_weight_minimum_l (rep_crawler_weight_minimum.to_string_dec ());
 		if (toml.has_key ("rep_crawler_weight_minimum"))
@@ -444,10 +444,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (max_pruning_age < std::chrono::seconds (5 * 60) && !network_params.network.is_dev_network ())
 		{
 			toml.get_error ().set ("max_pruning_age must be greater than or equal to 5 minutes");
-		}
-		if (confirm_req_batches_max < 1 || confirm_req_batches_max > 100)
-		{
-			toml.get_error ().set ("confirm_req_batches_max must be between 1 and 100");
 		}
 		if (bootstrap_frontier_request_count < 1024)
 		{

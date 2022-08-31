@@ -57,7 +57,7 @@ TEST (local_vote_history, basic)
 
 TEST (vote_generator, cache)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node (*system.nodes[0]);
 	auto epoch1 = system.upgrade_genesis_epoch (node, nano::epoch::epoch_1);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -65,12 +65,12 @@ TEST (vote_generator, cache)
 	ASSERT_TIMELY (1s, !node.history.votes (epoch1->root (), epoch1->hash ()).empty ());
 	auto votes (node.history.votes (epoch1->root (), epoch1->hash ()));
 	ASSERT_FALSE (votes.empty ());
-	ASSERT_TRUE (std::any_of (votes[0]->begin (), votes[0]->end (), [hash = epoch1->hash ()] (nano::block_hash const & hash_a) { return hash_a == hash; }));
+	ASSERT_TRUE (std::any_of (votes[0]->hashes.begin (), votes[0]->hashes.end (), [hash = epoch1->hash ()] (nano::block_hash const & hash_a) { return hash_a == hash; }));
 }
 
 TEST (vote_generator, multiple_representatives)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node (*system.nodes[0]);
 	nano::keypair key1, key2, key3;
 	auto & wallet (*system.wallet (0));
@@ -105,7 +105,7 @@ TEST (vote_generator, multiple_representatives)
 
 TEST (vote_generator, session)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto node (system.nodes[0]);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::vote_generator_session generator_session (node->active.generator);
@@ -156,7 +156,8 @@ TEST (vote_spacing, vote_generator)
 {
 	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	nano::system system;
+	config.active_elections_hinted_limit_percentage = 0; // Disable election hinting
+	nano::test::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_search_pending = true;
 	auto & node = *system.add_node (config, node_flags);
@@ -199,7 +200,8 @@ TEST (vote_spacing, rapid)
 {
 	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	nano::system system;
+	config.active_elections_hinted_limit_percentage = 0; // Disable election hinting
+	nano::test::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_search_pending = true;
 	auto & node = *system.add_node (config, node_flags);

@@ -80,6 +80,8 @@ public:
 	std::map<uint64_t, std::shared_ptr<nano::bootstrap_attempt>> attempts;
 };
 
+class bootstrap_attempt_lazy;
+class bootstrap_attempt_wallet;
 /**
  * Client side portion to initiate bootstrap sessions. Prevents multiple legacy-type bootstrap sessions from being started at the same time. Does permit
  * lazy/wallet bootstrap sessions to overlap with legacy sessions.
@@ -98,13 +100,14 @@ public:
 	void notify_listeners (bool);
 	void add_observer (std::function<void (bool)> const &);
 	bool in_progress ();
+	void block_processed (nano::transaction const & tx, nano::process_return const & result, nano::block const & block);
 	std::shared_ptr<nano::bootstrap_connections> connections;
 	std::shared_ptr<nano::bootstrap_attempt> new_attempt ();
 	bool has_new_attempts ();
 	void remove_attempt (std::shared_ptr<nano::bootstrap_attempt>);
 	std::shared_ptr<nano::bootstrap_attempt> current_attempt ();
-	std::shared_ptr<nano::bootstrap_attempt> current_lazy_attempt ();
-	std::shared_ptr<nano::bootstrap_attempt> current_wallet_attempt ();
+	std::shared_ptr<nano::bootstrap_attempt_lazy> current_lazy_attempt ();
+	std::shared_ptr<nano::bootstrap_attempt_wallet> current_wallet_attempt ();
 	nano::pulls_cache cache;
 	nano::bootstrap_attempts attempts;
 	void stop ();

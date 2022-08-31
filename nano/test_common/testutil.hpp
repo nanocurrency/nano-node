@@ -42,86 +42,100 @@
 		ASSERT_NO_ERROR (system.poll ()); \
 	}
 
+/*
+ * Waits specified number of time while keeping system running.
+ * Useful for asserting conditions that should still hold after some delay of time
+ */
+#define WAIT(time)              \
+	system.deadline_set (time); \
+	while (!system.poll ())     \
+	{                           \
+	}
+
 /* Convenience globals for gtest projects */
 namespace nano
 {
+class node;
 using uint128_t = boost::multiprecision::uint128_t;
 class keypair;
 class public_key;
 class block_hash;
 class telemetry_data;
 class network_params;
-class system;
+class vote;
+class block;
 
 extern nano::uint128_t const & genesis_amount;
 
-class stringstream_mt_sink : public boost::iostreams::sink
+namespace test
 {
-public:
-	stringstream_mt_sink () = default;
-	stringstream_mt_sink (stringstream_mt_sink const & sink)
+	class system;
+
+	class stringstream_mt_sink : public boost::iostreams::sink
 	{
-		nano::lock_guard<nano::mutex> guard (mutex);
-		ss << sink.ss.str ();
-	}
+	public:
+		stringstream_mt_sink () = default;
+		stringstream_mt_sink (stringstream_mt_sink const & sink)
+		{
+			nano::lock_guard<nano::mutex> guard (mutex);
+			ss << sink.ss.str ();
+		}
 
-	std::streamsize write (char const * string_to_write, std::streamsize size)
+		std::streamsize write (char const * string_to_write, std::streamsize size)
+		{
+			nano::lock_guard<nano::mutex> guard (mutex);
+			ss << std::string (string_to_write, size);
+			return size;
+		}
+
+		std::string str ()
+		{
+			nano::lock_guard<nano::mutex> guard (mutex);
+			return ss.str ();
+		}
+
+	private:
+		mutable nano::mutex mutex;
+		std::stringstream ss;
+	};
+
+	class boost_log_cerr_redirect
 	{
-		nano::lock_guard<nano::mutex> guard (mutex);
-		ss << std::string (string_to_write, size);
-		return size;
-	}
+	public:
+		boost_log_cerr_redirect (std::streambuf * new_buffer) :
+			old (std::cerr.rdbuf (new_buffer))
+		{
+			console_sink = (boost::log::add_console_log (std::cerr, boost::log::keywords::format = "%Message%"));
+		}
 
-	std::string str ()
+		~boost_log_cerr_redirect ()
+		{
+			std::cerr.rdbuf (old);
+			boost::log::core::get ()->remove_sink (console_sink);
+		}
+
+	private:
+		std::streambuf * old;
+		boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_ostream_backend>> console_sink;
+	};
+
+	class cout_redirect
 	{
-		nano::lock_guard<nano::mutex> guard (mutex);
-		return ss.str ();
-	}
+	public:
+		cout_redirect (std::streambuf * new_buffer)
+		{
+			std::cout.rdbuf (new_buffer);
+		}
 
-private:
-	mutable nano::mutex mutex;
-	std::stringstream ss;
-};
+		~cout_redirect ()
+		{
+			std::cout.rdbuf (old);
+		}
 
-class boost_log_cerr_redirect
-{
-public:
-	boost_log_cerr_redirect (std::streambuf * new_buffer) :
-		old (std::cerr.rdbuf (new_buffer))
-	{
-		console_sink = (boost::log::add_console_log (std::cerr, boost::log::keywords::format = "%Message%"));
-	}
+	private:
+		std::streambuf * old{ std::cout.rdbuf () };
+	};
 
-	~boost_log_cerr_redirect ()
-	{
-		std::cerr.rdbuf (old);
-		boost::log::core::get ()->remove_sink (console_sink);
-	}
-
-private:
-	std::streambuf * old;
-	boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_ostream_backend>> console_sink;
-};
-
-class cout_redirect
-{
-public:
-	cout_redirect (std::streambuf * new_buffer)
-	{
-		std::cout.rdbuf (new_buffer);
-	}
-
-	~cout_redirect ()
-	{
-		std::cout.rdbuf (old);
-	}
-
-private:
-	std::streambuf * old{ std::cout.rdbuf () };
-};
-
-namespace util
-{
 	/**
 	 * Helper to signal completion of async handlers in tests.
 	 * Subclasses implement specific conditions for completion.
@@ -202,7 +216,83 @@ namespace util
 		std::atomic<unsigned> count{ 0 };
 		std::atomic<unsigned> required_count;
 	};
-}
 
-void wait_peer_connections (nano::system &);
+	void wait_peer_connections (nano::test::system &);
+
+	/**
+		Convenience function to call `node::process` function for multiple blocks at once.
+		@return true if all blocks were successfully processed and inserted into ledger
+	 */
+	bool process (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Convenience function to process multiple blocks as if they were live blocks arriving from the network
+	 * It is not guaranted that those blocks will be inserted into ledger (there might be forks, missing links etc)
+	 * @return true if all blocks were successfully processed
+	 */
+	bool process_live (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Convenience function to confirm a list of blocks
+	 * The actual confirmation will happen asynchronously, check for that with `nano::test::confirmed (..)` function
+	 * @return true if successfully scheduled blocks to be confirmed
+	 */
+	bool confirm (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Convenience function to confirm a list of hashes
+	 * The actual confirmation will happen asynchronously, check for that with `nano::test::confirmed (..)` function
+	 * @return true if successfully scheduled blocks to be confirmed
+	 */
+	bool confirm (nano::node & node, std::vector<nano::block_hash> hashes);
+	/*
+	 * Convenience function to check whether a list of blocks is confirmed.
+	 * @return true if all blocks are confirmed, false otherwise
+	 */
+	bool confirmed (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Convenience function to check whether a list of hashes is confirmed.
+	 * @return true if all blocks are confirmed, false otherwise
+	 */
+	bool confirmed (nano::node & node, std::vector<nano::block_hash> hashes);
+	/*
+	 * Convenience function to check whether a list of hashes exists in node ledger.
+	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
+	 */
+	bool exists (nano::node & node, std::vector<nano::block_hash> hashes);
+	/*
+	 * Convenience function to check whether a list of blocks exists in node ledger.
+	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
+	 */
+	bool exists (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Convenience function to start elections for a list of hashes. Blocks are loaded from ledger.
+	 * @return true if all blocks exist and were queued to election scheduler
+	 */
+	bool activate (nano::node & node, std::vector<nano::block_hash> hashes);
+	/*
+	 * Convenience function to start elections for a list of hashes. Blocks are loaded from ledger.
+	 * @return true if all blocks exist and were queued to election scheduler
+	 */
+	bool activate (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Convenience function that checks whether all hashes from list have currently active elections
+	 * @return true if all blocks have currently active elections, false othersie
+	 */
+	bool active (nano::node & node, std::vector<nano::block_hash> hashes);
+	/*
+	 * Convenience function that checks whether all hashes from list have currently active elections
+	 * @return true if all blocks have currently active elections, false othersie
+	 */
+	bool active (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Convenience function to create a new vote from list of blocks
+	 */
+	std::shared_ptr<nano::vote> make_vote (nano::keypair key, std::vector<std::shared_ptr<nano::block>> blocks, uint64_t timestamp = 0, uint8_t duration = 0);
+	/*
+	 * Convenience function to create a new vote from list of block hashes
+	 */
+	std::shared_ptr<nano::vote> make_vote (nano::keypair key, std::vector<nano::block_hash> hashes, uint64_t timestamp = 0, uint8_t duration = 0);
+	/*
+	 * Converts list of blocks to list of hashes
+	 */
+	std::vector<nano::block_hash> blocks_to_hashes (std::vector<std::shared_ptr<nano::block>> blocks);
+}
 }

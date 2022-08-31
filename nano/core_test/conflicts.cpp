@@ -10,10 +10,18 @@ using namespace std::chrono_literals;
 
 TEST (conflicts, start_stop)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::keypair key1;
-	auto send1 (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
+	nano::block_builder builder;
+	auto send1 = builder
+				 .send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key1.pub)
+				 .balance (0)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (0)
+				 .build_shared ();
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 	ASSERT_EQ (0, node1.active.size ());
@@ -27,31 +35,57 @@ TEST (conflicts, start_stop)
 
 TEST (conflicts, add_existing)
 {
-	nano::system system (1);
-	auto & node1 (*system.nodes[0]);
+	nano::test::system system{ 1 };
+	auto & node1 = *system.nodes[0];
 	nano::keypair key1;
-	auto send1 (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
+
+	// create a send block to send all of the nano supply to key1
+	nano::block_builder builder;
+	auto send1 = builder
+				 .send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key1.pub)
+				 .balance (0)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (0)
+				 .build_shared ();
 	node1.work_generate_blocking (*send1);
+
+	// add the block to ledger as an unconfirmed block
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
+
+	// wait for send1 to be inserted in the ledger
+	ASSERT_TIMELY (5s, node1.block (send1->hash ()));
+
+	// instruct the election scheduler to trigger an election for send1
 	node1.scheduler.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
+
+	// wait for election to be started before processing send2
+	ASSERT_TIMELY (5s, node1.active.active (*send1));
+
 	nano::keypair key2;
-	auto send2 (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key2.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, 0));
+	auto send2 = builder
+				 .send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key2.pub)
+				 .balance (0)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (0)
+				 .build_shared ();
+	node1.work_generate_blocking (*send2);
 	send2->sideband_set ({});
-	node1.scheduler.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
-	node1.scheduler.flush ();
-	auto election1 = node1.active.election (send2->qualified_root ());
-	ASSERT_NE (nullptr, election1);
-	ASSERT_EQ (1, node1.active.size ());
-	auto vote1 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, 0, send2));
-	node1.active.vote (vote1);
-	ASSERT_EQ (2, election1->votes ().size ());
-	auto votes (election1->votes ());
-	ASSERT_NE (votes.end (), votes.find (key2.pub));
+
+	// the block processor will notice that the block is a fork and it will try to publish it
+	// which will update the election object
+	node1.block_processor.add (send2);
+
+	ASSERT_TRUE (node1.active.active (*send1));
+	ASSERT_TIMELY (5s, node1.active.active (*send2));
 }
 
 TEST (conflicts, add_two)
 {
-	nano::system system{};
+	nano::test::system system{};
 	auto const & node = system.add_node ();
 
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -148,41 +182,22 @@ TEST (vote_uniquer, null)
 	ASSERT_EQ (nullptr, uniquer.unique (nullptr));
 }
 
-// Show that an identical vote can be uniqued
-TEST (vote_uniquer, same_vote)
-{
-	nano::block_uniquer block_uniquer;
-	nano::vote_uniquer uniquer (block_uniquer);
-	nano::keypair key;
-	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, std::make_shared<nano::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0)));
-	auto vote2 (std::make_shared<nano::vote> (*vote1));
-	ASSERT_EQ (vote1, uniquer.unique (vote1));
-	ASSERT_EQ (vote1, uniquer.unique (vote2));
-}
-
-// Show that a different vote for the same block will have the block uniqued
-TEST (vote_uniquer, same_block)
-{
-	nano::block_uniquer block_uniquer;
-	nano::vote_uniquer uniquer (block_uniquer);
-	nano::keypair key1;
-	nano::keypair key2;
-	auto block1 (std::make_shared<nano::state_block> (0, 0, 0, 0, 0, key1.prv, key1.pub, 0));
-	auto block2 (std::make_shared<nano::state_block> (*block1));
-	auto vote1 (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, 0, block1));
-	auto vote2 (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, 0, block2));
-	ASSERT_EQ (vote1, uniquer.unique (vote1));
-	ASSERT_EQ (vote2, uniquer.unique (vote2));
-	ASSERT_NE (vote1, vote2);
-	ASSERT_EQ (boost::get<std::shared_ptr<nano::block>> (vote1->blocks[0]), boost::get<std::shared_ptr<nano::block>> (vote2->blocks[0]));
-}
-
 TEST (vote_uniquer, vbh_one)
 {
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer uniquer (block_uniquer);
 	nano::keypair key;
-	auto block (std::make_shared<nano::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0));
+	nano::block_builder builder;
+	auto block = builder
+				 .state ()
+				 .account (0)
+				 .previous (0)
+				 .representative (0)
+				 .balance (0)
+				 .link (0)
+				 .sign (key.prv, key.pub)
+				 .work (0)
+				 .build_shared ();
 	std::vector<nano::block_hash> hashes;
 	hashes.push_back (block->hash ());
 	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, hashes));
@@ -196,10 +211,29 @@ TEST (vote_uniquer, vbh_two)
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer uniquer (block_uniquer);
 	nano::keypair key;
-	auto block1 (std::make_shared<nano::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0));
+	nano::block_builder builder;
+	auto block1 = builder
+				  .state ()
+				  .account (0)
+				  .previous (0)
+				  .representative (0)
+				  .balance (0)
+				  .link (0)
+				  .sign (key.prv, key.pub)
+				  .work (0)
+				  .build_shared ();
 	std::vector<nano::block_hash> hashes1;
 	hashes1.push_back (block1->hash ());
-	auto block2 (std::make_shared<nano::state_block> (1, 0, 0, 0, 0, key.prv, key.pub, 0));
+	auto block2 = builder
+				  .state ()
+				  .account (1)
+				  .previous (0)
+				  .representative (0)
+				  .balance (0)
+				  .link (0)
+				  .sign (key.prv, key.pub)
+				  .work (0)
+				  .build_shared ();
 	std::vector<nano::block_hash> hashes2;
 	hashes2.push_back (block2->hash ());
 	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, hashes1));
@@ -213,10 +247,10 @@ TEST (vote_uniquer, cleanup)
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer uniquer (block_uniquer);
 	nano::keypair key;
-	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, std::make_shared<nano::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0)));
-	auto vote2 (std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_min * 1, 0, std::make_shared<nano::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0)));
-	auto vote3 (uniquer.unique (vote1));
-	auto vote4 (uniquer.unique (vote2));
+	auto vote1 = std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, std::vector<nano::block_hash>{ nano::block_hash{ 0 } });
+	auto vote2 = std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ nano::block_hash{ 0 } });
+	auto vote3 = uniquer.unique (vote1);
+	auto vote4 = uniquer.unique (vote2);
 	vote2.reset ();
 	vote4.reset ();
 	ASSERT_EQ (2, uniquer.size ());

@@ -44,17 +44,25 @@ public:
 	bool is_processing_block (nano::block_hash const &) const;
 	nano::block_hash current () const;
 
+	/*
+	 * Called for each newly cemented block
+	 * Called from confirmation height processor thread
+	 */
 	void add_cemented_observer (std::function<void (std::shared_ptr<nano::block> const &)> const &);
+	/*
+	 * Called when the block was added to the confirmation height processor but is already confirmed
+	 * Called from confirmation height processor thread
+	 */
 	void add_block_already_cemented_observer (std::function<void (nano::block_hash const &)> const &);
 
 private:
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::confirmation_height_processor) };
+
 	// Hashes which have been added to the confirmation height processor, but not yet processed
-	// clang-format off
 	struct block_wrapper
 	{
-		block_wrapper (std::shared_ptr<nano::block> const & block_a) :
-		block (block_a)
+		explicit block_wrapper (std::shared_ptr<nano::block> const & block_a) :
+			block (block_a)
 		{
 		}
 
@@ -65,6 +73,7 @@ private:
 
 		std::shared_ptr<nano::block> block;
 	};
+	// clang-format off
 	class tag_sequence {};
 	class tag_hash {};
 	boost::multi_index_container<block_wrapper,
@@ -97,10 +106,12 @@ private:
 	std::thread thread;
 
 	void set_next_hash ();
-	void notify_observers (std::vector<std::shared_ptr<nano::block>> const &);
-	void notify_observers (nano::block_hash const &);
+	void notify_cemented (std::vector<std::shared_ptr<nano::block>> const &);
+	void notify_already_cemented (nano::block_hash const &);
 
 	friend std::unique_ptr<container_info_component> collect_container_info (confirmation_height_processor &, std::string const &);
+
+private: // Tests
 	friend class confirmation_height_pending_observer_callbacks_Test;
 	friend class confirmation_height_dependent_election_Test;
 	friend class confirmation_height_dependent_election_after_already_cemented_Test;

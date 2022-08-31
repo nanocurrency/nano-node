@@ -43,7 +43,7 @@ public:
 enum class election_behavior
 {
 	normal,
-	optimistic
+	hinted
 };
 struct election_extended_status final
 {
@@ -53,6 +53,14 @@ struct election_extended_status final
 };
 class election final : public std::enable_shared_from_this<nano::election>
 {
+public:
+	enum class vote_source
+	{
+		live,
+		cache,
+	};
+
+private:
 	// Minimum time between broadcasts of the current winner of an election, as a backup to requesting confirmations
 	std::chrono::milliseconds base_latency () const;
 	std::function<void (std::shared_ptr<nano::block> const &)> confirmation_action;
@@ -89,7 +97,6 @@ public: // State transitions
 public: // Status
 	bool confirmed () const;
 	bool failed () const;
-	bool optimistic () const;
 	nano::election_extended_status current_status () const;
 	std::shared_ptr<nano::block> winner () const;
 	std::atomic<unsigned> confirmation_request_count{ 0 };
@@ -102,11 +109,15 @@ public: // Status
 	nano::election_status status;
 
 public: // Interface
-	election (nano::node &, std::shared_ptr<nano::block> const &, std::function<void (std::shared_ptr<nano::block> const &)> const &, std::function<void (nano::account const &)> const &, nano::election_behavior);
+	election (nano::node &, std::shared_ptr<nano::block> const & block, std::function<void (std::shared_ptr<nano::block> const &)> const & confirmation_action, std::function<void (nano::account const &)> const & vote_action, nano::election_behavior behavior);
+
 	std::shared_ptr<nano::block> find (nano::block_hash const &) const;
-	nano::election_vote_result vote (nano::account const &, uint64_t, nano::block_hash const &);
+	/*
+	 * Process vote. Internally uses cooldown to throttle non-final votes
+	 * If the election reaches consensus, it will be confirmed
+	 */
+	nano::election_vote_result vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash, vote_source = vote_source::live);
 	bool publish (std::shared_ptr<nano::block> const & block_a);
-	std::size_t insert_inactive_votes_cache (nano::inactive_cache_information const &);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (nano::unique_lock<nano::mutex> &);
 
@@ -127,6 +138,11 @@ private:
 	void remove_votes (nano::block_hash const &);
 	void remove_block (nano::block_hash const &);
 	bool replace_by_weight (nano::unique_lock<nano::mutex> & lock_a, nano::block_hash const &);
+	std::chrono::milliseconds time_to_live () const;
+	/*
+	 * Calculates minimum time delay between subsequent votes when processing non-final votes
+	 */
+	std::chrono::seconds cooldown_time (nano::uint128_t weight) const;
 
 private:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> last_blocks;
@@ -141,7 +157,6 @@ private:
 	nano::node & node;
 	mutable nano::mutex mutex;
 
-	static std::chrono::seconds constexpr late_blocks_delay{ 5 };
 	static std::size_t constexpr max_blocks{ 10 };
 
 	friend class active_transactions;

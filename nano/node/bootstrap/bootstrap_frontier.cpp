@@ -1,5 +1,6 @@
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
+#include <nano/node/bootstrap/bootstrap_legacy.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
@@ -40,7 +41,7 @@ void nano::frontier_req_client::run (nano::account const & start_account_a, uint
 	nano::buffer_drop_policy::no_limiter_drop);
 }
 
-nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a) :
+nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt_legacy> const & attempt_a) :
 	connection (connection_a),
 	attempt (attempt_a),
 	count (0),
@@ -299,7 +300,7 @@ void nano::frontier_req_server::no_block_sent (boost::system::error_code const &
 {
 	if (!ec)
 	{
-		connection->finish_request ();
+		connection->start ();
 	}
 	else
 	{
@@ -315,7 +316,10 @@ void nano::frontier_req_server::sent_action (boost::system::error_code const & e
 	if (!ec)
 	{
 		count++;
-		send_next ();
+
+		connection->node->bootstrap_workers.push_task ([this_l = shared_from_this ()] () {
+			this_l->send_next ();
+		});
 	}
 	else
 	{

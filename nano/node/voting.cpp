@@ -3,6 +3,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/transport/inproc.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/node/wallet.hpp>
@@ -325,7 +326,7 @@ void nano::vote_generator::reply (nano::unique_lock<nano::mutex> & lock_a, reque
 			{
 				if (cached_sent.insert (cached_vote).second)
 				{
-					stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached_late_hashes, stat::dir::in, cached_vote->blocks.size ());
+					stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached_late_hashes, stat::dir::in, cached_vote->hashes.size ());
 					stats.inc (nano::stat::type::requests, nano::stat::detail::requests_cached_late_votes, stat::dir::in);
 					reply_action (cached_vote, request_a.second);
 				}
@@ -380,7 +381,7 @@ void nano::vote_generator::broadcast_action (std::shared_ptr<nano::vote> const &
 {
 	network.flood_vote_pr (vote_a);
 	network.flood_vote (vote_a, 2.0f);
-	vote_processor.vote (vote_a, std::make_shared<nano::transport::channel_loopback> (network.node));
+	vote_processor.vote (vote_a, std::make_shared<nano::transport::inproc::channel> (network.node, network.node));
 }
 
 void nano::vote_generator::run ()

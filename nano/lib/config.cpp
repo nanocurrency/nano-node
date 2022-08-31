@@ -43,7 +43,7 @@ nano::work_thresholds const nano::work_thresholds::publish_dev (
 0xf000000000000000 // 8x lower than epoch_1
 );
 
-nano::work_thresholds const nano::work_thresholds::publish_test ( //defaults to live network levels
+nano::work_thresholds const nano::work_thresholds::publish_test ( // defaults to live network levels
 get_env_threshold_or_default ("NANO_TEST_EPOCH_1", 0xffffffc000000000),
 get_env_threshold_or_default ("NANO_TEST_EPOCH_2", 0xfffffff800000000), // 8x higher than epoch_1
 get_env_threshold_or_default ("NANO_TEST_EPOCH_2_RECV", 0xfffffe0000000000) // 8x lower than epoch_1
@@ -305,3 +305,9 @@ std::string get_tls_toml_config_path (boost::filesystem::path const & data_path)
 	return (data_path / "config-tls.toml").string ();
 }
 } // namespace nano
+
+uint32_t nano::test_scan_wallet_reps_delay ()
+{
+	auto test_env = nano::get_env_or_default ("NANO_TEST_WALLET_SCAN_REPS_DELAY", "900000"); // 15 minutes by default
+	return boost::lexical_cast<uint32_t> (test_env);
+}

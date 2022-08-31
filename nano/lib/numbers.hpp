@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/functional/hash.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
 namespace nano
@@ -293,6 +294,14 @@ struct hash<::nano::block_hash>
 	size_t operator() (::nano::block_hash const & data_a) const
 	{
 		return hash<::nano::uint256_union> () (data_a);
+	}
+};
+template <>
+struct hash<::nano::hash_or_account>
+{
+	size_t operator() (::nano::hash_or_account const & data_a) const
+	{
+		return hash<::nano::block_hash> () (data_a.as_block_hash ());
 	}
 };
 template <>

@@ -6,6 +6,7 @@
 #include <nano/lib/asio.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/memory.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/network_filter.hpp>
 
@@ -190,6 +191,7 @@ enum class message_type : uint8_t
 };
 
 std::string message_type_to_string (message_type);
+stat::detail message_type_to_stat_detail (message_type);
 
 enum class bulk_pull_account_flags : uint8_t
 {
@@ -223,7 +225,9 @@ public:
 
 	void flag_set (uint8_t);
 	static uint8_t constexpr bulk_pull_count_present_flag = 0;
+	static uint8_t constexpr bulk_pull_ascending_flag = 1;
 	bool bulk_pull_is_count_present () const;
+	bool bulk_pull_ascending () const;
 	static uint8_t constexpr frontier_req_only_confirmed = 1;
 	bool frontier_req_is_only_confirmed_present () const;
 	static uint8_t constexpr node_id_handshake_query_flag = 0;
@@ -233,6 +237,7 @@ public:
 
 	/** Size of the payload in bytes. For some messages, the payload size is based on header flags. */
 	std::size_t payload_length_bytes () const;
+	bool is_valid_message_type () const;
 
 	static std::bitset<16> constexpr block_type_mask{ 0x0f00 };
 	static std::bitset<16> constexpr count_mask{ 0xf000 };
@@ -347,7 +352,7 @@ public:
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
 	std::shared_ptr<nano::vote> vote;
-	static std::size_t size (nano::block_type, std::size_t = 0);
+	static std::size_t size (std::size_t count);
 };
 
 class frontier_req final : public message
@@ -497,17 +502,51 @@ public:
 class message_visitor
 {
 public:
-	virtual void keepalive (nano::keepalive const &) = 0;
-	virtual void publish (nano::publish const &) = 0;
-	virtual void confirm_req (nano::confirm_req const &) = 0;
-	virtual void confirm_ack (nano::confirm_ack const &) = 0;
-	virtual void bulk_pull (nano::bulk_pull const &) = 0;
-	virtual void bulk_pull_account (nano::bulk_pull_account const &) = 0;
-	virtual void bulk_push (nano::bulk_push const &) = 0;
-	virtual void frontier_req (nano::frontier_req const &) = 0;
-	virtual void node_id_handshake (nano::node_id_handshake const &) = 0;
-	virtual void telemetry_req (nano::telemetry_req const &) = 0;
-	virtual void telemetry_ack (nano::telemetry_ack const &) = 0;
+	virtual void keepalive (nano::keepalive const & message)
+	{
+		default_handler (message);
+	};
+	virtual void publish (nano::publish const & message)
+	{
+		default_handler (message);
+	}
+	virtual void confirm_req (nano::confirm_req const & message)
+	{
+		default_handler (message);
+	}
+	virtual void confirm_ack (nano::confirm_ack const & message)
+	{
+		default_handler (message);
+	}
+	virtual void bulk_pull (nano::bulk_pull const & message)
+	{
+		default_handler (message);
+	}
+	virtual void bulk_pull_account (nano::bulk_pull_account const & message)
+	{
+		default_handler (message);
+	}
+	virtual void bulk_push (nano::bulk_push const & message)
+	{
+		default_handler (message);
+	}
+	virtual void frontier_req (nano::frontier_req const & message)
+	{
+		default_handler (message);
+	}
+	virtual void node_id_handshake (nano::node_id_handshake const & message)
+	{
+		default_handler (message);
+	}
+	virtual void telemetry_req (nano::telemetry_req const & message)
+	{
+		default_handler (message);
+	}
+	virtual void telemetry_ack (nano::telemetry_ack const & message)
+	{
+		default_handler (message);
+	}
+	virtual void default_handler (nano::message const &){};
 	virtual ~message_visitor ();
 };
 

@@ -52,6 +52,7 @@ add_library(
   memory.cpp
   numbers.hpp
   numbers.cpp
+  observer_set.hpp
   optional_ptr.hpp
   rate_limiting.hpp
   rate_limiting.cpp

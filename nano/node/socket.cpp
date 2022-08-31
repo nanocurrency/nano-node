@@ -246,6 +246,11 @@ void nano::socket::set_default_timeout_value (std::chrono::seconds timeout_a)
 	default_timeout = timeout_a;
 }
 
+std::chrono::seconds nano::socket::get_default_timeout_value () const
+{
+	return default_timeout;
+}
+
 void nano::socket::set_silent_connection_tolerance_time (std::chrono::seconds tolerance_time_a)
 {
 	auto this_l (shared_from_this ());
@@ -511,4 +516,20 @@ void nano::server_socket::evict_dead_connections ()
 		}
 		++it;
 	}
+}
+
+std::string nano::socket_type_to_string (nano::socket::type_t type)
+{
+	switch (type)
+	{
+		case nano::socket::type_t::undefined:
+			return "undefined";
+		case nano::socket::type_t::bootstrap:
+			return "bootstrap";
+		case nano::socket::type_t::realtime:
+			return "realtime";
+		case nano::socket::type_t::realtime_response_server:
+			return "realtime_response_server";
+	}
+	return "n/a";
 }

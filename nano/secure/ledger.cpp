@@ -901,6 +901,11 @@ bool nano::ledger::block_or_pruned_exists (nano::transaction const & transaction
 	return store.block.exists (transaction_a, hash_a);
 }
 
+bool nano::ledger::root_exists (nano::transaction const & transaction_a, nano::root const & root_a)
+{
+	return store.block.exists (transaction_a, root_a.as_block_hash ()) || store.account.exists (transaction_a, root_a.as_account ());
+}
+
 std::string nano::ledger::block_text (char const * hash_a)
 {
 	return block_text (nano::block_hash (hash_a));
@@ -918,14 +923,19 @@ std::string nano::ledger::block_text (nano::block_hash const & hash_a)
 	return result;
 }
 
-bool nano::ledger::is_send (nano::transaction const & transaction_a, nano::state_block const & block_a) const
+bool nano::ledger::is_send (nano::transaction const & transaction_a, nano::block const & block_a) const
 {
+	if (block_a.type () != nano::block_type::state)
+	{
+		return block_a.type () == nano::block_type::send;
+	}
+	nano::block_hash previous = block_a.previous ();
 	/*
 	 * if block_a does not have a sideband, then is_send()
 	 * requires that the previous block exists in the database.
 	 * This is because it must retrieve the balance of the previous block.
 	 */
-	debug_assert (block_a.has_sideband () || block_a.hashables.previous.is_zero () || store.block.exists (transaction_a, block_a.hashables.previous));
+	debug_assert (block_a.has_sideband () || previous.is_zero () || store.block.exists (transaction_a, previous));
 
 	bool result (false);
 	if (block_a.has_sideband ())
@@ -934,10 +944,9 @@ bool nano::ledger::is_send (nano::transaction const & transaction_a, nano::state
 	}
 	else
 	{
-		nano::block_hash previous (block_a.hashables.previous);
 		if (!previous.is_zero ())
 		{
-			if (block_a.hashables.balance < balance (transaction_a, previous))
+			if (block_a.balance () < balance (transaction_a, previous))
 			{
 				result = true;
 			}
@@ -1582,6 +1591,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		error = true;
 	}
 	return error;
+}
+
+bool nano::ledger::bootstrap_weight_reached () const
+{
+	return cache.block_count >= bootstrap_weight_max_blocks;
 }
 
 nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account) :

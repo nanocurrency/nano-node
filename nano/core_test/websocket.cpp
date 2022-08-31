@@ -1,5 +1,6 @@
 #include <nano/core_test/fakes/websocket_client.hpp>
 #include <nano/node/websocket.hpp>
+#include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/telemetry.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -20,10 +21,10 @@ using namespace std::chrono_literals;
 // Tests clients subscribing multiple times or unsubscribing without a subscription
 TEST (websocket, subscription_edge)
 {
-	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = nano::get_available_port ();
+	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
 	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
@@ -51,10 +52,10 @@ TEST (websocket, subscription_edge)
 // Subscribes to block confirmations, confirms a block and then awaits websocket notification
 TEST (websocket, confirmation)
 {
-	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = nano::get_available_port ();
+	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
 	std::atomic<bool> ack_ready{ false };
@@ -89,7 +90,15 @@ TEST (websocket, confirmation)
 	{
 		nano::block_hash previous (node1->latest (nano::dev::genesis_key.pub));
 		balance -= send_amount;
-		auto send (std::make_shared<nano::send_block> (previous, key.pub, balance, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (previous)));
+		nano::block_builder builder;
+		auto send = builder
+					.send ()
+					.previous (previous)
+					.destination (key.pub)
+					.balance (balance)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (previous))
+					.build_shared ();
 		node1->process_active (send);
 	}
 
@@ -116,13 +125,63 @@ TEST (websocket, confirmation)
 	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
 }
 
+// Tests getting notification of a started election
+TEST (websocket, started_election)
+{
+	nano::test::system system;
+	nano::node_config config (nano::test::get_available_port (), system.logging);
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = nano::test::get_available_port ();
+	auto node1 = system.add_node (config);
+
+	std::atomic<bool> ack_ready{ false };
+	auto task = ([&ack_ready, config, &node1] () {
+		fake_websocket_client client (node1->websocket_server->listening_port ());
+		client.send_message (R"json({"action": "subscribe", "topic": "started_election", "ack": "true"})json");
+		client.await_ack ();
+		ack_ready = true;
+		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::started_election));
+		return client.get_response ();
+	});
+	auto future = std::async (std::launch::async, task);
+
+	ASSERT_TIMELY (5s, ack_ready);
+
+	// Create election, causing a websocket message to be emitted
+	nano::keypair key1;
+	nano::block_builder builder;
+	auto send1 = builder
+				 .send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key1.pub)
+				 .balance (0)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build_shared ();
+	nano::publish publish1{ nano::dev::network_params.network, send1 };
+	// Another node instance just to be a tcp client for channel1.
+	auto other_node = nano::test::add_outer_node (system, nano::test::get_available_port ());
+	auto channel1 = nano::test::establish_tcp (system, *other_node, node1->network.endpoint ());
+	node1->network.inbound (publish1, channel1);
+	ASSERT_TIMELY (1s, node1->active.election (send1->qualified_root ()));
+	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
+
+	auto response = future.get ();
+	ASSERT_TRUE (response);
+	boost::property_tree::ptree event;
+	std::stringstream stream;
+	stream << response.get ();
+	boost::property_tree::read_json (stream, event);
+	ASSERT_EQ (event.get<std::string> ("topic"), "started_election");
+}
+
 // Tests getting notification of an erased election
 TEST (websocket, stopped_election)
 {
-	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = nano::get_available_port ();
+	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
 	std::atomic<bool> ack_ready{ false };
@@ -140,9 +199,19 @@ TEST (websocket, stopped_election)
 
 	// Create election, then erase it, causing a websocket message to be emitted
 	nano::keypair key1;
-	auto send1 (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
+	nano::block_builder builder;
+	auto send1 = builder
+				 .send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key1.pub)
+				 .balance (0)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build_shared ();
 	nano::publish publish1{ nano::dev::network_params.network, send1 };
-	auto channel1 (node1->network.udp_channels.create (node1->network.endpoint ()));
+	// Another node instance just to be a tcp client for channel1.
+	auto other_node = nano::test::add_outer_node (system, nano::test::get_available_port ());
+	auto channel1 = nano::test::establish_tcp (system, *other_node, node1->network.endpoint ());
 	node1->network.inbound (publish1, channel1);
 	node1->block_processor.flush ();
 	ASSERT_TIMELY (1s, node1->active.election (send1->qualified_root ()));
@@ -162,10 +231,10 @@ TEST (websocket, stopped_election)
 // Tests the filtering options of block confirmations
 TEST (websocket, confirmation_options)
 {
-	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = nano::get_available_port ();
+	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
 	std::atomic<bool> ack_ready{ false };
@@ -287,7 +356,15 @@ TEST (websocket, confirmation_options)
 	// When filtering options are enabled, legacy blocks are always filtered
 	{
 		balance -= send_amount;
-		auto send (std::make_shared<nano::send_block> (previous, key.pub, balance, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (previous)));
+		nano::block_builder builder;
+		auto send = builder
+					.send ()
+					.previous (previous)
+					.destination (key.pub)
+					.balance (balance)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (previous))
+					.build_shared ();
 		node1->process_active (send);
 		previous = send->hash ();
 	}
@@ -297,10 +374,10 @@ TEST (websocket, confirmation_options)
 
 TEST (websocket, confirmation_options_votes)
 {
-	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = nano::get_available_port ();
+	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
 	std::atomic<bool> ack_ready{ false };
@@ -384,10 +461,10 @@ TEST (websocket, confirmation_options_votes)
 
 TEST (websocket, confirmation_options_sideband)
 {
-	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = nano::get_available_port ();
+	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
 	std::atomic<bool> ack_ready{ false };
@@ -454,10 +531,10 @@ TEST (websocket, confirmation_options_sideband)
 // Tests updating options of block confirmations
 TEST (websocket, confirmation_options_update)
 {
-	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = nano::get_available_port ();
+	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
 	std::atomic<bool> added{ false };
@@ -529,10 +606,10 @@ TEST (websocket, confirmation_options_update)
 // Subscribes to votes, sends a block and awaits websocket notification of a vote arrival
 TEST (websocket, vote)
 {
-	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = nano::get_available_port ();
+	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
 	std::atomic<bool> ack_ready{ false };
@@ -579,10 +656,10 @@ TEST (websocket, vote)
 // Tests vote subscription options - vote type
 TEST (websocket, vote_options_type)
 {
-	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = nano::get_available_port ();
+	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
 	std::atomic<bool> ack_ready{ false };
@@ -599,7 +676,7 @@ TEST (websocket, vote_options_type)
 	ASSERT_TIMELY (5s, ack_ready);
 
 	// Custom made votes for simplicity
-	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, nano::dev::genesis));
+	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () }));
 	nano::websocket::message_builder builder;
 	auto msg (builder.vote_received (vote, nano::vote_code::replay));
 	node1->websocket_server->broadcast (msg);
@@ -620,10 +697,10 @@ TEST (websocket, vote_options_type)
 // Tests vote subscription options - list of representatives
 TEST (websocket, vote_options_representatives)
 {
-	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = nano::get_available_port ();
+	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
 	std::atomic<bool> ack_ready{ false };
@@ -695,10 +772,10 @@ TEST (websocket, vote_options_representatives)
 // Test client subscribing to notifications for work generation
 TEST (websocket, work)
 {
-	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = nano::get_available_port ();
+	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
 	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::work));
@@ -765,10 +842,10 @@ TEST (websocket, work)
 // Test client subscribing to notifications for bootstrap
 TEST (websocket, bootstrap)
 {
-	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = nano::get_available_port ();
+	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
 	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::bootstrap));
@@ -815,15 +892,15 @@ TEST (websocket, bootstrap)
 
 TEST (websocket, bootstrap_exited)
 {
-	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = nano::get_available_port ();
+	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
 	// Start bootstrap, exit after subscription
 	std::atomic<bool> bootstrap_started{ false };
-	nano::util::counted_completion subscribed_completion (1);
+	nano::test::counted_completion subscribed_completion (1);
 	std::thread bootstrap_thread ([node1, &system, &bootstrap_started, &subscribed_completion] () {
 		std::shared_ptr<nano::bootstrap_attempt> attempt;
 		while (attempt == nullptr)
@@ -880,10 +957,10 @@ TEST (websocket, bootstrap_exited)
 // Tests sending keepalive
 TEST (websocket, ws_keepalive)
 {
-	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = nano::get_available_port ();
+	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
 	auto task = ([&node1] () {
@@ -899,20 +976,20 @@ TEST (websocket, ws_keepalive)
 // Tests sending telemetry
 TEST (websocket, telemetry)
 {
-	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = nano::get_available_port ();
+	config.websocket_config.port = nano::test::get_available_port ();
 	nano::node_flags node_flags;
 	node_flags.disable_initial_telemetry_requests = true;
 	node_flags.disable_ongoing_telemetry_requests = true;
 	auto node1 (system.add_node (config, node_flags));
-	config.peering_port = nano::get_available_port ();
+	config.peering_port = nano::test::get_available_port ();
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = nano::get_available_port ();
+	config.websocket_config.port = nano::test::get_available_port ();
 	auto node2 (system.add_node (config, node_flags));
 
-	wait_peer_connections (system);
+	nano::test::wait_peer_connections (system);
 
 	std::atomic<bool> done{ false };
 	auto task = ([config = node1->config, &node1, &done] () {
@@ -947,7 +1024,7 @@ TEST (websocket, telemetry)
 	nano::jsonconfig telemetry_contents (contents);
 	nano::telemetry_data telemetry_data;
 	telemetry_data.deserialize_json (telemetry_contents, false);
-	compare_default_telemetry_response_data (telemetry_data, node2->network_params, node2->config.bandwidth_limit, node2->default_difficulty (nano::work_version::work_1), node2->node_id);
+	nano::test::compare_default_telemetry_response_data (telemetry_data, node2->network_params, node2->config.bandwidth_limit, node2->default_difficulty (nano::work_version::work_1), node2->node_id);
 
 	ASSERT_EQ (contents.get<std::string> ("address"), node2->network.endpoint ().address ().to_string ());
 	ASSERT_EQ (contents.get<uint16_t> ("port"), node2->network.endpoint ().port ());
@@ -958,10 +1035,10 @@ TEST (websocket, telemetry)
 
 TEST (websocket, new_unconfirmed_block)
 {
-	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::test::system system;
+	nano::node_config config (nano::test::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = nano::get_available_port ();
+	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
 	std::atomic<bool> ack_ready{ false };

@@ -29,6 +29,7 @@ execute_process(
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 option(CI_BUILD false)
+option(CI_VERSION_PRE_RELEASE false)
 
 set(COVERAGE
     OFF
@@ -49,11 +50,15 @@ endif()
 set(CPACK_PACKAGE_VERSION_MAJOR "24")
 set(CPACK_PACKAGE_VERSION_MINOR "0")
 set(CPACK_PACKAGE_VERSION_PATCH "0")
-set(CPACK_PACKAGE_VERSION_PRE_RELEASE "99")
+if(CI_BUILD AND CI_VERSION_PRE_RELEASE)
+  set(CPACK_PACKAGE_VERSION_PRE_RELEASE "${CI_VERSION_PRE_RELEASE}")
+else()
+  set(CPACK_PACKAGE_VERSION_PRE_RELEASE "99")
+endif()
 set(CPACK_PACKAGE_VENDOR "Nano Currency")
 
 if(CI_BUILD)
-  set(TAG_VERSION_STRING "$ENV{TRAVIS_TAG}")
+  set(TAG_VERSION_STRING "$ENV{CI_TAG}")
 else()
   set(TAG_VERSION_STRING
       "V${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}")
@@ -615,13 +620,29 @@ if(NANO_TEST OR RAIBLOCKS_TEST)
     COMMAND echo "BATCH BUILDING TESTS"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     DEPENDS core_test load_test rpc_test nano_node nano_rpc)
-
   add_custom_target(
     run_tests
     COMMAND ${PROJECT_SOURCE_DIR}/ci/test.sh ${CMAKE_BINARY_DIR}
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     DEPENDS build_tests)
 endif()
+
+if(NANO_TEST OR RAIBLOCKS_TEST)
+  if(NANO_GUI OR RAIBLOCKS_GUI)
+    add_custom_target(
+      quick_tests
+      COMMAND echo "BATCH QUICK TESTS"
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+      DEPENDS core_test rpc_test qt_test)
+  else()
+    add_custom_target(
+      quick_tests
+      COMMAND echo "BATCH QUICK TESTS -- qt_test is disabled"
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+      DEPENDS core_test rpc_test)
+  endif()
+endif()
+
 if(NANO_GUI OR RAIBLOCKS_GUI)
   install(FILES ${PROJECT_BINARY_DIR}/config-node.toml.sample DESTINATION .)
   install(FILES ${PROJECT_BINARY_DIR}/config-rpc.toml.sample DESTINATION .)

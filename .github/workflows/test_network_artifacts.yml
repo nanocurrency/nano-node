@@ -16,7 +16,7 @@ env:
 
 jobs:
   osx_job:
-    runs-on: macOS-10.15
+    runs-on: macOS-11
     timeout-minutes: 90
     env:
       BOOST_ROOT: /tmp/boost
@@ -32,10 +32,11 @@ jobs:
       - name: Fetch Deps
         run: ci/actions/osx/install_deps.sh
       - name: Build Artifact
-        run: TRAVIS_TAG=${TAG} ci/build-deploy.sh "/tmp/qt/lib/cmake/Qt5";
+        run: CI_TAG=${TAG} ci/build-deploy.sh "/tmp/qt/lib/cmake/Qt5";
       - name: Deploy Artifact
         run: ci/actions/deploy.sh
         env:
+          S3_BUILD_DIRECTORY: ${{ secrets.S3_BUILD_DIRECTORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2
@@ -57,10 +58,11 @@ jobs:
           COMPILER: gcc
         run: ci/actions/linux/install_deps.sh
       - name: Build Artifact
-        run: docker run -e TEST -v ${GITHUB_WORKSPACE}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && TRAVIS_TAG=${TAG} ci/build-deploy.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5"
+        run: docker run -e TEST -v ${GITHUB_WORKSPACE}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && CI_TAG=${TAG} ci/build-deploy.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5"
       - name: Deploy Artifact
         run: ci/actions/deploy.sh
         env:
+          S3_BUILD_DIRECTORY: ${{ secrets.S3_BUILD_DIRECTORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2
@@ -81,8 +83,11 @@ jobs:
         env:
           COMPILER: gcc
         run: ci/actions/linux/install_deps.sh
-      - name: Deploy Docker (nanocurrency/nano)
-        run: TRAVIS_TAG=${TAG} ci/actions/linux/deploy-docker.sh
+      - name: Build Docker (nanocurrency/nano)
+        run: CI_TAG=${TAG} ci/actions/linux/docker-build.sh
+      - name: Deploy Docker Hub (nanocurrency/nano-test)
+        if: ${{ github.repository == 'nanocurrency/nano-node' }}
+        run: CI_TAG=${TAG} ci/actions/linux/docker-deploy.sh
         env:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       - name: Login to ghcr.io
@@ -116,6 +121,7 @@ jobs:
       - name: Deploy Artifact
         run: ci/actions/windows/deploy.ps1
         env:
+          S3_BUILD_DIRECTORY: ${{ secrets.S3_BUILD_DIRECTORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2

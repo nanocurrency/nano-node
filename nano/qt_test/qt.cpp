@@ -1,4 +1,5 @@
 #include <nano/qt/qt.hpp>
+#include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -17,7 +18,7 @@ extern QApplication * test_application;
 TEST (wallet, construction)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (1);
+	nano::test::system system (1);
 	auto wallet_l (system.nodes[0]->wallets.create (nano::random_wallet_id ()));
 	auto key (wallet_l->deterministic_insert ());
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key));
@@ -34,7 +35,7 @@ TEST (wallet, construction)
 TEST (wallet, DISABLED_status)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (1);
+	nano::test::system system (1);
 	auto wallet_l (system.nodes[0]->wallets.create (nano::random_wallet_id ()));
 	nano::keypair key;
 	wallet_l->insert_adhoc (key.prv);
@@ -44,7 +45,8 @@ TEST (wallet, DISABLED_status)
 		return wallet->active_status.active.find (status_ty) != wallet->active_status.active.end ();
 	};
 	ASSERT_EQ ("Status: Disconnected, Blocks: 1", wallet->status->text ().toStdString ());
-	system.nodes[0]->network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000), 0);
+	auto outer_node = nano::test::add_outer_node (system, nano::test::get_available_port ());
+	nano::test::establish_tcp (system, *system.nodes[0], outer_node->network.endpoint ());
 	// Because of the wallet "vulnerable" message, this won't be the message displayed.
 	// However, it will still be part of the status set.
 	ASSERT_FALSE (wallet_has (nano_qt::status_types::synchronizing));
@@ -66,7 +68,7 @@ TEST (wallet, DISABLED_status)
 TEST (wallet, status_with_peer)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (2);
+	nano::test::system system (2);
 	auto wallet_l = system.nodes[0]->wallets.create (nano::random_wallet_id ());
 	nano::keypair key;
 	wallet_l->insert_adhoc (key.prv);
@@ -96,7 +98,7 @@ TEST (wallet, status_with_peer)
 TEST (wallet, startup_balance)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (1);
+	nano::test::system system (1);
 	auto wallet_l (system.nodes[0]->wallets.create (nano::random_wallet_id ()));
 	nano::keypair key;
 	wallet_l->insert_adhoc (key.prv);
@@ -110,7 +112,7 @@ TEST (wallet, startup_balance)
 TEST (wallet, select_account)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (1);
+	nano::test::system system (1);
 	auto wallet_l (system.nodes[0]->wallets.create (nano::random_wallet_id ()));
 	nano::public_key key1 (wallet_l->deterministic_insert ());
 	nano::public_key key2 (wallet_l->deterministic_insert ());
@@ -142,7 +144,7 @@ TEST (wallet, select_account)
 TEST (wallet, main)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (1);
+	nano::test::system system (1);
 	auto wallet_l (system.nodes[0]->wallets.create (nano::random_wallet_id ()));
 	nano::keypair key;
 	wallet_l->insert_adhoc (key.prv);
@@ -173,7 +175,7 @@ TEST (wallet, main)
 TEST (wallet, password_change)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (1);
+	nano::test::system system (1);
 	nano::account account;
 	system.wallet (0)->insert_adhoc (nano::keypair ().prv);
 	{
@@ -209,7 +211,7 @@ TEST (wallet, password_change)
 TEST (client, password_nochange)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (1);
+	nano::test::system system (1);
 	nano::account account;
 	system.wallet (0)->insert_adhoc (nano::keypair ().prv);
 	{
@@ -253,7 +255,7 @@ TEST (client, password_nochange)
 TEST (wallet, enter_password)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (2);
+	nano::test::system system (2);
 	nano::account account;
 	system.wallet (0)->insert_adhoc (nano::keypair ().prv);
 	{
@@ -290,7 +292,7 @@ TEST (wallet, enter_password)
 TEST (wallet, send)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (2);
+	nano::test::system system (2);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::public_key key1 (system.wallet (1)->insert_adhoc (nano::keypair ().prv));
 	auto account (nano::dev::genesis_key.pub);
@@ -323,7 +325,7 @@ TEST (wallet, send)
 TEST (wallet, send_locked)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (1);
+	nano::test::system system (1);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key1;
 	{
@@ -351,7 +353,7 @@ TEST (wallet, send_locked)
 TEST (wallet, DISABLED_process_block)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (1);
+	nano::test::system system (1);
 	nano::account account;
 	nano::block_hash latest (system.nodes[0]->latest (nano::dev::genesis->account ()));
 	system.wallet (0)->insert_adhoc (nano::keypair ().prv);
@@ -396,7 +398,7 @@ TEST (wallet, create_send)
 {
 	nano_qt::eventloop_processor processor;
 	nano::keypair key;
-	nano::system system (1);
+	nano::test::system system (1);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto account (nano::dev::genesis_key.pub);
@@ -426,7 +428,7 @@ TEST (wallet, create_open_receive)
 {
 	nano_qt::eventloop_processor processor;
 	nano::keypair key;
-	nano::system system (1);
+	nano::test::system system (1);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, 100);
 	nano::block_hash latest1 (system.nodes[0]->latest (nano::dev::genesis_key.pub));
@@ -475,7 +477,7 @@ TEST (wallet, create_change)
 {
 	nano_qt::eventloop_processor processor;
 	nano::keypair key;
-	nano::system system (1);
+	nano::test::system system (1);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto account (nano::dev::genesis_key.pub);
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
@@ -508,7 +510,7 @@ TEST (history, short_text)
 	}
 	nano_qt::eventloop_processor processor;
 	nano::keypair key;
-	nano::system system (1);
+	nano::test::system system (1);
 	system.wallet (0)->insert_adhoc (key.prv);
 	nano::account account;
 	{
@@ -521,7 +523,7 @@ TEST (history, short_text)
 	nano::ledger ledger (*store, system.nodes[0]->stats, nano::dev::constants);
 	{
 		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, ledger.cache);
+		store->initialize (transaction, ledger.cache, ledger.constants);
 		nano::keypair key;
 		auto latest (ledger.latest (transaction, nano::dev::genesis_key.pub));
 		nano::send_block send (latest, nano::dev::genesis_key.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
@@ -545,7 +547,7 @@ TEST (history, pruned_source)
 	}
 	nano_qt::eventloop_processor processor;
 	nano::keypair key;
-	nano::system system (1);
+	nano::test::system system (1);
 	system.wallet (0)->insert_adhoc (key.prv);
 	nano::account account;
 	{
@@ -561,7 +563,7 @@ TEST (history, pruned_source)
 	// Basic pruning for legacy blocks. Previous block is pruned, source is pruned
 	{
 		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, ledger.cache);
+		store->initialize (transaction, ledger.cache, nano::dev::constants);
 		auto latest (ledger.latest (transaction, nano::dev::genesis_key.pub));
 		nano::send_block send1 (latest, nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
@@ -611,7 +613,7 @@ TEST (wallet, startup_work)
 {
 	nano_qt::eventloop_processor processor;
 	nano::keypair key;
-	nano::system system (1);
+	nano::test::system system (1);
 	system.wallet (0)->insert_adhoc (key.prv);
 	nano::account account;
 	{
@@ -643,7 +645,7 @@ TEST (wallet, block_viewer)
 {
 	nano_qt::eventloop_processor processor;
 	nano::keypair key;
-	nano::system system (1);
+	nano::test::system system (1);
 	system.wallet (0)->insert_adhoc (key.prv);
 	nano::account account;
 	{
@@ -667,7 +669,7 @@ TEST (wallet, block_viewer)
 TEST (wallet, import)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (2);
+	nano::test::system system (2);
 	std::string json;
 	nano::keypair key1;
 	nano::keypair key2;
@@ -701,7 +703,7 @@ TEST (wallet, import)
 TEST (wallet, republish)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (2);
+	nano::test::system system (2);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key;
 	nano::block_hash hash;
@@ -732,7 +734,7 @@ TEST (wallet, republish)
 TEST (wallet, ignore_empty_adhoc)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (1);
+	nano::test::system system (1);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (key1.prv);
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1.pub));
@@ -759,7 +761,7 @@ TEST (wallet, ignore_empty_adhoc)
 TEST (wallet, change_seed)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (1);
+	nano::test::system system (1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
 	system.wallet (0)->deterministic_insert ();
 	nano::raw_key seed3;
@@ -812,7 +814,7 @@ TEST (wallet, change_seed)
 TEST (wallet, seed_work_generation)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (1);
+	nano::test::system system (1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1));
 	wallet->start ();
@@ -844,7 +846,7 @@ TEST (wallet, seed_work_generation)
 TEST (wallet, backup_seed)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (1);
+	nano::test::system system (1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1));
 	wallet->start ();
@@ -862,7 +864,7 @@ TEST (wallet, backup_seed)
 TEST (wallet, import_locked)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (1);
+	nano::test::system system (1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin_write ());
@@ -900,8 +902,8 @@ TEST (wallet, import_locked)
 TEST (wallet, DISABLED_synchronizing)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system0 (1);
-	nano::system system1 (1);
+	nano::test::system system0 (1);
+	nano::test::system system1 (1);
 	auto key1 (system0.wallet (0)->deterministic_insert ());
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system0.nodes[0], system0.wallet (0), key1));
 	wallet->start ();
@@ -932,7 +934,7 @@ TEST (wallet, DISABLED_synchronizing)
 TEST (wallet, epoch_2_validation)
 {
 	nano_qt::eventloop_processor processor;
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node = system.nodes[0];
 
 	// Upgrade the genesis account to epoch 2

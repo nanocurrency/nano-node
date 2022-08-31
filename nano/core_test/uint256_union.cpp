@@ -375,6 +375,20 @@ TEST (uint256_union, decode_nano_variant)
 	ASSERT_FALSE (key.decode_account ("nano_1111111111111111111111111111111111111111111111111111hifc8npp"));
 }
 
+/**
+ * It used to be the case that when the address was wrong only in the checksum part
+ * then the decode_account would return error and it would also write the address with
+ * fixed checksum into 'key', which is not desirable.
+ */
+TEST (uint256_union, key_is_not_updated_on_checksum_error)
+{
+	nano::account key;
+	ASSERT_EQ (key, 0);
+	bool result = key.decode_account ("nano_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtd1");
+	ASSERT_EQ (key, 0);
+	ASSERT_TRUE (result);
+}
+
 TEST (uint256_union, account_transcode)
 {
 	nano::account value;

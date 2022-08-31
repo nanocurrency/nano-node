@@ -72,6 +72,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::worker:
 			thread_role_name_string = "Worker";
 			break;
+		case nano::thread_role::name::bootstrap_worker:
+			thread_role_name_string = "Bootstrap work";
+			break;
 		case nano::thread_role::name::request_aggregator:
 			thread_role_name_string = "Req aggregator";
 			break;
@@ -90,16 +93,19 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::unchecked:
 			thread_role_name_string = "Unchecked";
 			break;
+		case nano::thread_role::name::backlog_population:
+			thread_role_name_string = "Backlog";
+			break;
 		default:
 			debug_assert (false && "nano::thread_role::get_string unhandled thread role");
 	}
 
 	/*
-		 * We want to constrain the thread names to 15
-		 * characters, since this is the smallest maximum
-		 * length supported by the platforms we support
-		 * (specifically, Linux)
-		 */
+	 * We want to constrain the thread names to 15
+	 * characters, since this is the smallest maximum
+	 * length supported by the platforms we support
+	 * (specifically, Linux)
+	 */
 	debug_assert (thread_role_name_string.size () < 16);
 	return (thread_role_name_string);
 }
@@ -121,7 +127,7 @@ void nano::thread_role::set (nano::thread_role::name role)
 void nano::thread_attributes::set (boost::thread::attributes & attrs)
 {
 	auto attrs_l (&attrs);
-	attrs_l->set_stack_size (8000000); //8MB
+	attrs_l->set_stack_size (8000000); // 8MB
 }
 
 nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned service_threads_a) :

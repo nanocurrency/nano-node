@@ -3,6 +3,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/observer_set.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/optional.hpp>

@@ -20,8 +20,8 @@ namespace filesystem
 #define ver_str(a) #a
 
 /**
-* Returns build version information
-*/
+ * Returns build version information
+ */
 char const * const NANO_VERSION_STRING = xstr (TAG_VERSION_STRING);
 char const * const NANO_MAJOR_VERSION_STRING = xstr (MAJOR_VERSION_STRING);
 char const * const NANO_MINOR_VERSION_STRING = xstr (MINOR_VERSION_STRING);
@@ -59,6 +59,10 @@ uint16_t test_rpc_port ();
 uint16_t test_ipc_port ();
 uint16_t test_websocket_port ();
 std::array<uint8_t, 2> test_magic_number ();
+/*
+ * How often to scan for representatives in local wallet, in milliseconds
+ */
+uint32_t test_scan_wallet_reps_delay ();
 
 /**
  * Network variants with different genesis blocks and network parameters
@@ -274,7 +278,7 @@ public:
 	/** Initial value is ACTIVE_NETWORK compile flag, but can be overridden by a CLI flag */
 	static nano::networks active_network;
 	/** Current protocol version */
-	uint8_t const protocol_version = 0x12;
+	uint8_t const protocol_version = 0x13;
 	/** Minimum accepted protocol version */
 	uint8_t const protocol_version_min = 0x12;
 };

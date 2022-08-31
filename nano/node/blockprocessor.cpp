@@ -280,6 +280,7 @@ void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 				std::vector<std::shared_ptr<nano::block>> rollback_list;
 				if (node.ledger.rollback (transaction, successor->hash (), rollback_list))
 				{
+					node.stats.inc (nano::stat::type::ledger, nano::stat::detail::rollback_failed);
 					node.logger.always_log (nano::severity_level::error, boost::str (boost::format ("Failed to roll back %1% because it or a successor was confirmed") % successor->hash ().to_string ()));
 				}
 				else if (node.config.logging.ledger_rollback_logging ())
@@ -346,6 +347,9 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 	auto block (info_a.block);
 	auto hash (block->hash ());
 	result = node.ledger.process (transaction_a, *block, info_a.verified);
+	events_a.events.emplace_back ([this, result, block = info_a.block] (nano::transaction const & tx) {
+		processed.notify (tx, result, *block);
+	});
 	switch (result.code)
 	{
 		case nano::process_result::progress:
@@ -380,7 +384,10 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				node.logger.try_log (boost::str (boost::format ("Gap previous for: %1%") % hash.to_string ()));
 			}
 			info_a.verified = result.verified;
+
+			debug_assert (info_a.modified () != 0);
 			node.unchecked.put (block->previous (), info_a);
+
 			events_a.events.emplace_back ([this, hash] (nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_previous);
 			break;
@@ -392,7 +399,10 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				node.logger.try_log (boost::str (boost::format ("Gap source for: %1%") % hash.to_string ()));
 			}
 			info_a.verified = result.verified;
+
+			debug_assert (info_a.modified () != 0);
 			node.unchecked.put (node.ledger.block_source (transaction_a, *(block)), info_a);
+
 			events_a.events.emplace_back ([this, hash] (nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
@@ -404,7 +414,10 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				node.logger.try_log (boost::str (boost::format ("Gap pending entries for epoch open: %1%") % hash.to_string ()));
 			}
 			info_a.verified = result.verified;
+
+			debug_assert (info_a.modified () != 0);
 			node.unchecked.put (block->account (), info_a); // Specific unchecked key starting with epoch open block account public key
+
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
 		}
@@ -454,7 +467,10 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		}
 		case nano::process_result::opened_burn_account:
 		{
-			node.logger.always_log (boost::str (boost::format ("*** Rejecting open block for burn account ***: %1%") % hash.to_string ()));
+			if (node.config.logging.ledger_logging ())
+			{
+				node.logger.try_log (boost::str (boost::format ("Rejecting open block for burn account: %1%") % hash.to_string ()));
+			}
 			break;
 		}
 		case nano::process_result::balance_mismatch:

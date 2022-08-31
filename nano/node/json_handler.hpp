@@ -89,6 +89,7 @@ public:
 	void pending_exists ();
 	void receivable ();
 	void receivable_exists ();
+	void populate_backlog ();
 	void process ();
 	void pruned_exists ();
 	void receive ();

@@ -19,7 +19,7 @@ jobs:
       BOOST_ROOT: /tmp/boost
       TEST_USE_ROCKSDB: ${{ matrix.TEST_USE_ROCKSDB }}
       RELEASE: ${{ matrix.RELEASE }}
-    runs-on: macOS-10.15
+    runs-on: macOS-11
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
@@ -28,7 +28,7 @@ jobs:
       - name: Fetch Deps
         run: TEST=1 ci/actions/osx/install_deps.sh
       - name: Build Tests
-        run: ci/build-travis.sh "/tmp/qt/lib/cmake/Qt5";
+        run: ci/build-ci.sh "/tmp/qt/lib/cmake/Qt5";
       - name: Run Tests lmdb
         if: ${{ matrix.TEST_USE_ROCKSDB == 0 }}
         run: cd build && sudo TEST_USE_ROCKSDB=$TEST_USE_ROCKSDB ../ci/test.sh .
@@ -61,7 +61,7 @@ jobs:
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Build Tests
-        run: docker run -e TEST_USE_ROCKSDB  -e RELEASE -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace && ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5"
+        run: docker run -e TEST_USE_ROCKSDB  -e RELEASE -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace && ./ci/build-ci.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5"
       - name: Run Tests lmdb
         if: ${{ matrix.TEST_USE_ROCKSDB == 0 }}
         run: docker run  -e RELEASE -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace/build && ../ci/test.sh ."
