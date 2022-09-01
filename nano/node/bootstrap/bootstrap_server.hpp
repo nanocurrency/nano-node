@@ -45,12 +45,19 @@ namespace bootstrap
 class bootstrap_server final : public std::enable_shared_from_this<nano::bootstrap_server>
 {
 public:
-	bootstrap_server (std::shared_ptr<nano::socket>, std::shared_ptr<nano::node>);
+	bootstrap_server (std::shared_ptr<nano::socket>, std::shared_ptr<nano::node>, bool allow_bootstrap = true);
 	~bootstrap_server ();
 	void start ();
 	void stop ();
 
 	void timeout ();
+	/*
+	 * @return true if handshake response is valid, false otherwise
+	 */
+	bool validate_handshake_response (boost::optional<std::pair<nano::account, nano::signature>> const & response);
+
+	void send_handshake_query ();
+	void send_handshake_response (nano::uint256_union query);
 
 	std::shared_ptr<nano::socket> const socket;
 	std::shared_ptr<nano::node> const node;
@@ -76,6 +83,8 @@ private:
 	bool is_realtime_connection () const;
 
 	std::shared_ptr<nano::bootstrap::message_deserializer> message_deserializer;
+
+	bool allow_bootstrap;
 
 private:
 	class handshake_message_visitor : public nano::message_visitor

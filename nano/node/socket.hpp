@@ -44,7 +44,6 @@ public:
 		undefined,
 		bootstrap,
 		realtime,
-		realtime_response_server // special type for tcp channel response server
 	};
 
 	enum class endpoint_type_t
@@ -96,7 +95,7 @@ public:
 	}
 	bool is_realtime_connection ()
 	{
-		return type () == nano::socket::type_t::realtime || type () == nano::socket::type_t::realtime_response_server;
+		return type () == nano::socket::type_t::realtime;
 	}
 	bool is_bootstrap_connection ()
 	{
