@@ -2492,11 +2492,13 @@ TEST (node, local_votes_cache_fork)
 TEST (node, vote_republish)
 {
 	nano::test::system system (2);
-	auto & node1 (*system.nodes[0]);
-	auto & node2 (*system.nodes[1]);
+	auto & node1 = *system.nodes[0];
+	auto & node2 = *system.nodes[1];
 	nano::keypair key2;
-	// by not setting a private key on node1's wallet, it is stopped from voting
+	// by not setting a private key on node1's wallet for genesis account, it is stopped from voting
 	system.wallet (1)->insert_adhoc (key2.prv);
+
+	// send1 and send2 are forks of each other
 	nano::send_block_builder builder;
 	auto send1 = builder.make_block ()
 				 .previous (nano::dev::genesis->hash ())
@@ -2512,19 +2514,38 @@ TEST (node, vote_republish)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
+
+	// process send1 first, this will make sure send1 goes into the ledger and an election is started
 	node1.process_active (send1);
 	ASSERT_TIMELY (5s, node2.block (send1->hash ()));
+	ASSERT_TIMELY (5s, node1.active.active (*send1));
+	ASSERT_TIMELY (5s, node2.active.active (*send1));
+
+	// now process send2, send2 will not go in the ledger because only the first block of a fork goes in the ledger
 	node1.process_active (send2);
+	ASSERT_TIMELY (5s, node1.active.active (*send2));
+
+	// send2 cannot be synced because it is not in the ledger of node1, it is only in the election object in RAM on node1
+	ASSERT_FALSE (node1.block (send2->hash ()));
+
+	// the vote causes the election to reach quorum and for the vote (and block?) to be published from node1 to node2
 	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ send2->hash () }));
-	ASSERT_TRUE (node1.active.active (*send1));
-	ASSERT_TIMELY (10s, node2.active.active (*send1));
-	node1.vote_processor.vote (vote, std::make_shared<nano::transport::fake::channel> (node1));
-	ASSERT_TIMELY (10s, node1.block (send2->hash ()));
-	ASSERT_TIMELY (10s, node2.block (send2->hash ()));
+	node1.vote_processor.vote (vote, std::make_shared<nano::transport::fake::channel> (node1, node1));
+
+	// FIXME: there is a race condition here, if the vote arrives before the block then the vote is wasted and the test fails
+	// we could resend the vote but then there is a race condition between the vote resending and the election reaching quorum on node1
+	// the proper fix would be to observe on node2 that both the block and the vote arrived in whatever order
+	// the real node will do a confirm request if it needs to find a lost vote
+
+	// check that send2 won on both nodes
+	ASSERT_TIMELY (5s, node1.block_confirmed(send2->hash ()));
+	ASSERT_TIMELY (5s, node2.block_confirmed(send2->hash ()));
+
+	// check that send1 is deleted from the ledger on nodes
 	ASSERT_FALSE (node1.block (send1->hash ()));
 	ASSERT_FALSE (node2.block (send1->hash ()));
-	ASSERT_TIMELY (10s, node2.balance (key2.pub) == node1.config.receive_minimum.number () * 2);
-	ASSERT_TIMELY (10s, node1.balance (key2.pub) == node1.config.receive_minimum.number () * 2);
+	ASSERT_TIMELY (5s, node2.balance (key2.pub) == node1.config.receive_minimum.number () * 2);
+	ASSERT_TIMELY (5s, node1.balance (key2.pub) == node1.config.receive_minimum.number () * 2);
 }
 
 TEST (node, vote_by_hash_bundle)
