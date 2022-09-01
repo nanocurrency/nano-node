@@ -11,7 +11,6 @@
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include <boost/regex.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -302,8 +301,7 @@ nano::amount nano::json_handler::decimal_amount_impl ()
 
 	std::string amount_text (request.get<std::string> ("amount"));
 
-	const boost::regex e ("^\\d+(\\.\\d+)?$");
-	if (!regex_match (amount_text, e))
+	if (amount_text.empty ())
 	{
 		ec = nano::error_common::invalid_amount;
 		return result;
@@ -324,13 +322,20 @@ nano::amount nano::json_handler::decimal_amount_impl ()
 		return result;
 	}
 
-	if (dotPosition == -1) // no decimal part
+	if (dotPosition == -1) // no decimal part. Just use the integer part
 	{
 		result = (wholeNumber.number () * nano::Mxrb_ratio);
 		return result;
 	}
 
 	auto decimalFractionString = amount_text.substr (dotPosition + 1);
+
+	if (dotPosition == 0 || decimalFractionString.length () <= 0) // check that input has digits on both sides of the dot
+	{
+		ec = nano::error_common::invalid_amount;
+		return result;
+	}
+
 	if (decimalFractionString.length () > 30)
 	{
 		ec = nano::error_common::invalid_amount_loss_of_precision;
@@ -345,6 +350,7 @@ nano::amount nano::json_handler::decimal_amount_impl ()
 	{
 		ec = nano::error_common::invalid_amount;
 	}
+
 	result = (wholeNumber.number () * nano::Mxrb_ratio) + decimalNumber.number ();
 	return result;
 }
