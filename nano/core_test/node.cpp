@@ -2538,8 +2538,8 @@ TEST (node, vote_republish)
 	// the real node will do a confirm request if it needs to find a lost vote
 
 	// check that send2 won on both nodes
-	ASSERT_TIMELY (5s, node1.block_confirmed(send2->hash ()));
-	ASSERT_TIMELY (5s, node2.block_confirmed(send2->hash ()));
+	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
+	ASSERT_TIMELY (5s, node2.block_confirmed (send2->hash ()));
 
 	// check that send1 is deleted from the ledger on nodes
 	ASSERT_FALSE (node1.block (send1->hash ()));
