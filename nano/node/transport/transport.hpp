@@ -41,7 +41,8 @@ namespace transport
 		undefined = 0,
 		udp = 1,
 		tcp = 2,
-		loopback = 3
+		loopback = 3,
+		fake = 4
 	};
 	class channel
 	{

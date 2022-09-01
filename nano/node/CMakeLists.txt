@@ -186,6 +186,8 @@ add_library(
   state_block_signature_verification.cpp
   telemetry.hpp
   telemetry.cpp
+  transport/fake.hpp
+  transport/fake.cpp
   transport/inproc.hpp
   transport/inproc.cpp
   transport/tcp.hpp
