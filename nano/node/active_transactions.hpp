@@ -76,7 +76,8 @@ private:
 
 	mutable nano::mutex mutex;
 
-	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, std::string const &);
+public: // Container info
+	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 };
 
 /*
@@ -99,7 +100,8 @@ private:
 
 	mutable nano::mutex mutex;
 
-	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, std::string const &);
+public: // Container info
+	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 };
 
 class election_insertion_result final

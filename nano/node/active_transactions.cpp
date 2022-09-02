@@ -701,6 +701,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 	std::size_t blocks_count;
 	std::size_t recently_confirmed_count;
 	std::size_t recently_cemented_count;
+	std::size_t hinted_count;
 
 	{
 		nano::lock_guard<nano::mutex> guard (active_transactions.mutex);
@@ -708,15 +709,19 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 		blocks_count = active_transactions.blocks.size ();
 		recently_confirmed_count = active_transactions.recently_confirmed.size ();
 		recently_cemented_count = active_transactions.recently_cemented.size ();
+		hinted_count = active_transactions.active_hinted_elections_count;
 	}
 
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "roots", roots_count, sizeof (decltype (active_transactions.roots)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (active_transactions.blocks)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "election_winner_details", active_transactions.election_winner_details_size (), sizeof (decltype (active_transactions.election_winner_details)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recently_confirmed", recently_confirmed_count, sizeof (decltype (active_transactions.recently_confirmed.confirmed)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recently_cemented", recently_cemented_count, sizeof (decltype (active_transactions.recently_cemented.cemented)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "hinted", hinted_count, 0 }));
 	composite->add_component (collect_container_info (active_transactions.generator, "generator"));
+
+	composite->add_component (active_transactions.recently_confirmed.collect_container_info ("recently_confirmed"));
+	composite->add_component (active_transactions.recently_cemented.collect_container_info ("recently_cemented"));
+
 	return composite;
 }
 
@@ -775,6 +780,15 @@ nano::recently_confirmed_cache::entry_t nano::recently_confirmed_cache::back () 
 	return confirmed.back ();
 }
 
+std::unique_ptr<nano::container_info_component> nano::recently_confirmed_cache::collect_container_info (const std::string & name)
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "confirmed", confirmed.size (), sizeof (decltype (confirmed)::value_type) }));
+	return composite;
+}
+
 /*
  * class recently_cemented
  */
@@ -804,4 +818,13 @@ std::size_t nano::recently_cemented_cache::size () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return cemented.size ();
+}
+
+std::unique_ptr<nano::container_info_component> nano::recently_cemented_cache::collect_container_info (const std::string & name)
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cemented", cemented.size (), sizeof (decltype (cemented)::value_type) }));
+	return composite;
 }
