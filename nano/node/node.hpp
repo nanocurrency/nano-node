@@ -56,8 +56,9 @@ class work_pool;
 std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 
 // Configs
-backlog_population::config nodeconfig_to_backlog_population_config (node_config const & config);
+backlog_population::config nodeconfig_to_backlog_population_config (node_config const &);
 vote_cache::config nodeconfig_to_vote_cache_config (node_config const &, node_flags const &);
+hinted_scheduler::config nodeconfig_to_hinted_scheduler_config (node_config const &);
 
 class node final : public std::enable_shared_from_this<nano::node>
 {

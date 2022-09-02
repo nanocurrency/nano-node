@@ -1,7 +1,8 @@
 #include <nano/node/hinted_scheduler.hpp>
 #include <nano/node/node.hpp>
 
-nano::hinted_scheduler::hinted_scheduler (nano::node & node_a, nano::vote_cache & inactive_vote_cache_a, nano::active_transactions & active_a, nano::online_reps & online_reps_a) :
+nano::hinted_scheduler::hinted_scheduler (config const & config_a, nano::node & node_a, nano::vote_cache & inactive_vote_cache_a, nano::active_transactions & active_a, nano::online_reps & online_reps_a) :
+	config_m{ config_a },
 	node{ node_a },
 	inactive_vote_cache{ inactive_vote_cache_a },
 	active{ active_a },
@@ -93,7 +94,7 @@ void nano::hinted_scheduler::run ()
 
 		// Periodically wakeup for condition checking
 		// We are not notified every time new vote arrives in inactive vote cache as that happens too often
-		condition.wait_for (lock, std::chrono::seconds (1), [this, minimum_tally] () {
+		condition.wait_for (lock, std::chrono::milliseconds (config_m.vote_cache_check_interval_ms), [this, minimum_tally] () {
 			return stopped || predicate (minimum_tally);
 		});
 

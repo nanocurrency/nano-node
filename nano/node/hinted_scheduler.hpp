@@ -21,8 +21,15 @@ class online_reps;
 
 class hinted_scheduler final
 {
+public: // Config
+	struct config final
+	{
+		// Interval of wakeup to check inactive vote cache when idle
+		uint64_t vote_cache_check_interval_ms;
+	};
+
 public:
-	explicit hinted_scheduler (nano::node &, nano::vote_cache &, nano::active_transactions &, nano::online_reps &);
+	explicit hinted_scheduler (config const &, nano::node &, nano::vote_cache &, nano::active_transactions &, nano::online_reps &);
 	~hinted_scheduler ();
 
 	void start ();
@@ -43,6 +50,8 @@ private: // Dependencies
 	nano::online_reps & online_reps;
 
 private:
+	config const config_m;
+
 	bool stopped;
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
