@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/node/transport/fake.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -174,9 +175,24 @@ std::shared_ptr<nano::vote> nano::test::make_vote (nano::keypair key, std::vecto
 	return make_vote (key, hashes, timestamp, duration);
 }
 
+std::shared_ptr<nano::vote> nano::test::make_final_vote (nano::keypair key, std::vector<nano::block_hash> hashes)
+{
+	return make_vote (key, hashes, nano::vote::timestamp_max, nano::vote::duration_max);
+}
+
+std::shared_ptr<nano::vote> nano::test::make_final_vote (nano::keypair key, std::vector<std::shared_ptr<nano::block>> blocks)
+{
+	return make_vote (key, blocks, nano::vote::timestamp_max, nano::vote::duration_max);
+}
+
 std::vector<nano::block_hash> nano::test::blocks_to_hashes (std::vector<std::shared_ptr<nano::block>> blocks)
 {
 	std::vector<nano::block_hash> hashes;
 	std::transform (blocks.begin (), blocks.end (), std::back_inserter (hashes), [] (auto & block) { return block->hash (); });
 	return hashes;
+}
+
+std::shared_ptr<nano::transport::channel> nano::test::fake_channel (nano::node & node)
+{
+	return std::make_shared<nano::transport::fake::channel> (node);
 }

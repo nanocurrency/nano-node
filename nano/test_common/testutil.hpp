@@ -3,6 +3,7 @@
 #include <nano/lib/errors.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/node/transport/transport.hpp>
 
 #include <gtest/gtest.h>
 
@@ -340,8 +341,20 @@ namespace test
 	 */
 	std::shared_ptr<nano::vote> make_vote (nano::keypair key, std::vector<nano::block_hash> hashes, uint64_t timestamp = 0, uint8_t duration = 0);
 	/*
+	 * Convenience function to create a new final vote from list of blocks
+	 */
+	std::shared_ptr<nano::vote> make_final_vote (nano::keypair key, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Convenience function to create a new final vote from list of block hashes
+	 */
+	std::shared_ptr<nano::vote> make_final_vote (nano::keypair key, std::vector<nano::block_hash> hashes);
+	/*
 	 * Converts list of blocks to list of hashes
 	 */
 	std::vector<nano::block_hash> blocks_to_hashes (std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Creates a new fake channel associated with `node`
+	 */
+	std::shared_ptr<nano::transport::channel> fake_channel (nano::node & node);
 }
 }
