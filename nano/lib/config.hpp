@@ -138,35 +138,55 @@ public:
 class network_constants
 {
 public:
-	network_constants (nano::work_thresholds & work, nano::networks network_a) :
-		current_network (network_a),
-		work{ work }
+	network_constants (nano::work_thresholds & work_, nano::networks network_a) :
+		current_network(network_a),
+		work(work_),
+		principal_weight_factor(1000), // 0.1% A representative is classified as principal based on its weight and this factor
+		default_node_port(44000),
+		default_rpc_port(45000),
+		default_ipc_port(46000),
+		default_websocket_port(47000),
+		request_interval_ms(500),
+		cleanup_period(std::chrono::seconds(60)),
+		idle_timeout(std::chrono::seconds(120)),
+		silent_connection_tolerance_time(std::chrono::seconds(120)),
+		syn_cookie_cutoff(std::chrono::seconds(5)),
+		bootstrap_interval(std::chrono::seconds(15 * 60)),
+		max_peers_per_ip(10),
+		max_peers_per_subnetwork(40),
+		ipv6_subnetwork_prefix_for_limiting(64), // Equivalent to network prefix /64.
+		peer_dump_interval(std::chrono::seconds(5 * 60))
 	{
-		// A representative is classified as principal based on its weight and this factor
-		principal_weight_factor = 1000; // 0.1%
-
-		default_node_port = is_live_network () ? 7075 : is_beta_network () ? 54000
-		: is_test_network ()                                               ? test_node_port ()
-																		   : 44000;
-		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000
-		: is_test_network ()                                              ? test_rpc_port ()
-																		  : 45000;
-		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000
-		: is_test_network ()                                              ? test_ipc_port ()
-																		  : 46000;
-		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000
-		: is_test_network ()                                                    ? test_websocket_port ()
-																				: 47000;
-		request_interval_ms = is_dev_network () ? 20 : 500;
-		cleanup_period = is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (60);
-		idle_timeout = is_dev_network () ? cleanup_period * 15 : cleanup_period * 2;
-		silent_connection_tolerance_time = std::chrono::seconds (120);
-		syn_cookie_cutoff = std::chrono::seconds (5);
-		bootstrap_interval = std::chrono::seconds (15 * 60);
-		max_peers_per_ip = is_dev_network () ? 20 : 10;
-		max_peers_per_subnetwork = max_peers_per_ip * 4;
-		ipv6_subnetwork_prefix_for_limiting = 64; // Equivalent to network prefix /64.
-		peer_dump_interval = is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
+		if (is_live_network())
+		{
+			default_node_port = 7075;
+			default_rpc_port = 7076;
+			default_ipc_port = 7077;
+			default_websocket_port = 7078;
+		}
+		else if (is_beta_network())
+		{
+			default_node_port = 54000;
+			default_rpc_port = 55000;
+			default_ipc_port = 56000;
+			default_websocket_port = 57000;
+		}
+		else if (is_test_network())
+		{
+			default_node_port = test_node_port();
+			default_rpc_port = test_rpc_port();
+			default_ipc_port = test_ipc_port();
+			default_websocket_port = test_websocket_port();
+		}
+		else if (is_dev_network())
+		{
+			request_interval_ms = 20;
+			cleanup_period = std::chrono::seconds(1);
+			idle_timeout = cleanup_period * 15;
+			max_peers_per_ip = 20;
+			max_peers_per_subnetwork = 80;
+			peer_dump_interval = std::chrono::seconds(1);
+		}
 	}
 
 	/** Error message when an invalid network is specified */
