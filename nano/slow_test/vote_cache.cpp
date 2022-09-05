@@ -39,11 +39,7 @@ nano::keypair setup_rep (nano::test::system & system, nano::node & node, nano::u
 
 	EXPECT_TRUE (nano::test::process (node, { send, open }));
 	EXPECT_TRUE (nano::test::confirm (node, { send, open }));
-	// TODO: Create `EXPECT_TIMELY` macro to remove this boilerplate
-	system.poll_until_true (3s, [&node, &send, &open] () {
-		return nano::test::confirmed (node, { send, open });
-	});
-	EXPECT_TRUE (nano::test::confirmed (node, { send, open }));
+	EXPECT_TIMELY (5s, nano::test::confirmed (node, { send, open }));
 
 	return key;
 }
@@ -106,12 +102,7 @@ std::vector<std::shared_ptr<nano::block>> setup_blocks (nano::test::system & sys
 
 	// Confirm whole genesis chain at once
 	EXPECT_TRUE (nano::test::confirm (node, { sends.back () }));
-
-	// TODO: Create `EXPECT_TIMELY` macro to remove this boilerplate
-	system.poll_until_true (60s, [&node, &sends] () {
-		return nano::test::confirmed (node, { sends });
-	});
-	EXPECT_TRUE (nano::test::confirmed (node, { sends }));
+	EXPECT_TIMELY (5s, nano::test::confirmed (node, { sends }));
 
 	return receives;
 }

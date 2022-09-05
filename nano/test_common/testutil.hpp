@@ -4,6 +4,8 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/timer.hpp>
 
+#include <gtest/gtest.h>
+
 #include <boost/iostreams/concepts.hpp>
 #include <boost/log/sinks/text_ostream_backend.hpp>
 #include <boost/log/utility/setup/console.hpp>
@@ -29,10 +31,20 @@
 	GTEST_TEST_ERROR_CODE (!(condition), #condition, condition.message ().c_str (), "", \
 	GTEST_FATAL_FAILURE_)
 
+/** Extends gtest with a std::error_code assert that prints the error code message when non-zero */
+#define EXPECT_NO_ERROR(condition)                                                      \
+	GTEST_TEST_ERROR_CODE (!(condition), #condition, condition.message ().c_str (), "", \
+	GTEST_NONFATAL_FAILURE_)
+
 /** Extends gtest with a std::error_code assert that expects an error */
-#define ASSERT_IS_ERROR(condition)                                                            \
-	GTEST_TEST_ERROR_CODE ((condition.value () > 0), #condition, "An error was expected", "", \
+#define ASSERT_IS_ERROR(condition)                                                             \
+	GTEST_TEST_ERROR_CODE ((condition.value () != 0), #condition, "An error was expected", "", \
 	GTEST_FATAL_FAILURE_)
+
+/** Extends gtest with a std::error_code assert that expects an error */
+#define EXPECT_IS_ERROR(condition)                                                             \
+	GTEST_TEST_ERROR_CODE ((condition.value () != 0), #condition, "An error was expected", "", \
+	GTEST_NONFATAL_FAILURE_)
 
 /** Asserts that the condition becomes true within the deadline */
 #define ASSERT_TIMELY(time, condition)    \
@@ -41,6 +53,15 @@
 	{                                     \
 		ASSERT_NO_ERROR (system.poll ()); \
 	}
+
+/** Expects that the condition becomes true within the deadline */
+#define EXPECT_TIMELY(time, condition)             \
+	system.deadline_set (time);                    \
+	std::error_code ec;                            \
+	while (!(condition) && !(ec = system.poll ())) \
+	{                                              \
+	}                                              \
+	EXPECT_NO_ERROR (ec);
 
 /*
  * Waits specified number of time while keeping system running.
