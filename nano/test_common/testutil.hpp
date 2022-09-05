@@ -37,13 +37,13 @@
 	GTEST_NONFATAL_FAILURE_)
 
 /** Extends gtest with a std::error_code assert that expects an error */
-#define ASSERT_IS_ERROR(condition)                                                            \
-	GTEST_TEST_ERROR_CODE ((condition.value () > 0), #condition, "An error was expected", "", \
+#define ASSERT_IS_ERROR(condition)                                                             \
+	GTEST_TEST_ERROR_CODE ((condition.value () != 0), #condition, "An error was expected", "", \
 	GTEST_FATAL_FAILURE_)
 
 /** Extends gtest with a std::error_code assert that expects an error */
-#define EXPECT_IS_ERROR(condition)                                                            \
-	GTEST_TEST_ERROR_CODE ((condition.value () > 0), #condition, "An error was expected", "", \
+#define EXPECT_IS_ERROR(condition)                                                             \
+	GTEST_TEST_ERROR_CODE ((condition.value () != 0), #condition, "An error was expected", "", \
 	GTEST_NONFATAL_FAILURE_)
 
 /** Asserts that the condition becomes true within the deadline */
