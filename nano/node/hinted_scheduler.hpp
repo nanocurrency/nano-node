@@ -19,6 +19,9 @@ class active_transactions;
 class vote_cache;
 class online_reps;
 
+/*
+ * Monitors inactive vote cache and schedules elections with the highest observed vote tally.
+ */
 class hinted_scheduler final
 {
 public: // Config
@@ -34,6 +37,9 @@ public:
 
 	void start ();
 	void stop ();
+	/*
+	 * Notify about changes in AEC vacancy
+	 */
 	void notify ();
 
 private:

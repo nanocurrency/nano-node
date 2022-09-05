@@ -64,7 +64,10 @@
 	}                                              \
 	EXPECT_NO_ERROR (ec);
 
-/** Asserts that the condition becomes true within the deadline */
+/*
+ * Asserts that the `val1 == val2` condition becomes true within the deadline
+ * Checked expressions should not modify any state
+ */
 #define ASSERT_TIMELY_EQ(time, val1, val2)         \
 	system.deadline_set (time);                    \
 	while (!((val1) == (val2)) && !system.poll ()) \
