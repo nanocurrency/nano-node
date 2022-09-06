@@ -1,4 +1,5 @@
 #include <nano/core_test/fakes/websocket_client.hpp>
+#include <nano/node/transport/fake.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
@@ -159,9 +160,7 @@ TEST (websocket, started_election)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	nano::publish publish1{ nano::dev::network_params.network, send1 };
-	// Another node instance just to be a tcp client for channel1.
-	auto other_node = nano::test::add_outer_node (system, nano::test::get_available_port ());
-	auto channel1 = nano::test::establish_tcp (system, *other_node, node1->network.endpoint ());
+	auto channel1 = std::make_shared<nano::transport::fake::channel> (*node1);
 	node1->network.inbound (publish1, channel1);
 	ASSERT_TIMELY (1s, node1->active.election (send1->qualified_root ()));
 	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
@@ -209,9 +208,7 @@ TEST (websocket, stopped_election)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	nano::publish publish1{ nano::dev::network_params.network, send1 };
-	// Another node instance just to be a tcp client for channel1.
-	auto other_node = nano::test::add_outer_node (system, nano::test::get_available_port ());
-	auto channel1 = nano::test::establish_tcp (system, *other_node, node1->network.endpoint ());
+	auto channel1 = std::make_shared<nano::transport::fake::channel> (*node1);
 	node1->network.inbound (publish1, channel1);
 	node1->block_processor.flush ();
 	ASSERT_TIMELY (1s, node1->active.election (send1->qualified_root ()));
