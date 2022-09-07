@@ -1,5 +1,6 @@
 #include <nano/node/election.hpp>
 #include <nano/node/transport/fake.hpp>
+#include <nano/node/transport/inproc.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -4250,7 +4251,7 @@ TEST (rep_crawler, local)
 	nano::node_flags flags;
 	flags.disable_rep_crawler = true;
 	auto & node = *system.add_node (flags);
-	auto loopback = std::make_shared<nano::transport::fake::channel> (node);
+	auto loopback = std::make_shared<nano::transport::inproc::channel> (node, node);
 	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector{ nano::dev::genesis->hash () });
 	{
 		nano::lock_guard<nano::mutex> guard (node.rep_crawler.probable_reps_mutex);
