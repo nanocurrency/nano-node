@@ -1,8 +1,18 @@
+#include <nano/lib/rpcconfig.hpp>
 #include <nano/node/bootstrap/bootstrap_ascending.hpp>
+#include <nano/node/ipc/ipc_server.hpp>
+#include <nano/node/json_handler.hpp>
+#include <nano/rpc/rpc.hpp>
+#include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
+#include <boost/format.hpp>
+
 #include <gtest/gtest.h>
+
+#include <thread>
 
 using namespace std::chrono_literals;
 
@@ -40,7 +50,7 @@ TEST (account_sets, unblock)
  */
 TEST (bootstrap_ascending, construction)
 {
-	nano::system system{ 1 };
+	nano::test::system system{ 1 };
 	auto & node = *system.nodes[0];
 	auto attempt = std::make_shared<nano::bootstrap::bootstrap_ascending> (node.shared (), 0, "");
 }
@@ -50,7 +60,7 @@ TEST (bootstrap_ascending, construction)
  */
 TEST (bootstrap_ascending, start_stop)
 {
-	nano::system system{ 1 };
+	nano::test::system system{ 1 };
 	auto & node = *system.nodes[0];
 	auto attempt = node.bootstrap_initiator.bootstrap_ascending ();
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate_ascending, nano::stat::dir::out) > 0);
@@ -62,7 +72,7 @@ TEST (bootstrap_ascending, start_stop)
 TEST (bootstrap_ascending, account_base)
 {
 	nano::node_flags flags;
-	nano::system system{ 1, nano::transport::transport_type::tcp, flags };
+	nano::test::system system{ 1, nano::transport::transport_type::tcp, flags };
 	auto & node0 = *system.nodes[0];
 	nano::state_block_builder builder;
 	auto send1 = builder.make_block ()
@@ -85,7 +95,7 @@ TEST (bootstrap_ascending, account_base)
 TEST (bootstrap_ascending, account_inductive)
 {
 	nano::node_flags flags;
-	nano::system system{ 1, nano::transport::transport_type::tcp, flags };
+	nano::test::system system{ 1, nano::transport::transport_type::tcp, flags };
 	auto & node0 = *system.nodes[0];
 	nano::state_block_builder builder;
 	auto send1 = builder.make_block ()
@@ -122,7 +132,7 @@ TEST (bootstrap_ascending, trace_base)
 {
 	nano::node_flags flags;
 	flags.disable_legacy_bootstrap = true;
-	nano::system system{ 1, nano::transport::transport_type::tcp, flags };
+	nano::test::system system{ 1, nano::transport::transport_type::tcp, flags };
 	auto & node0 = *system.nodes[0];
 	nano::keypair key;
 	nano::state_block_builder builder;
@@ -157,4 +167,55 @@ TEST (bootstrap_ascending, trace_base)
 	std::cerr << "node0: " << node0.network.endpoint () << std::endl;
 	std::cerr << "node1: " << node1.network.endpoint () << std::endl;
 	ASSERT_TIMELY (10s, node1.block (receive1->hash ()) != nullptr);
+}
+
+TEST (bootstrap_ascending, profile)
+{
+	auto path_server = "/Users/clemahieu/Library/NanoBeta";
+	auto path_client = "/Users/clemahieu/NanoBeta2";
+	uint16_t rpc_port = 55000;
+	nano::test::system system;
+	nano::thread_runner runner{ system.io_ctx, 2 };
+	nano::network_params params_beta { nano::networks::nano_beta_network };
+
+	// Set up client and server nodes
+	nano::node_config config_server{ params_beta };
+	config_server.preconfigured_peers.clear ();
+	nano::node_flags flags_server;
+	flags_server.disable_legacy_bootstrap = true;
+	flags_server.disable_wallet_bootstrap = true;
+	flags_server.disable_add_initial_peers = true;
+	flags_server.disable_ongoing_bootstrap = true;
+	auto server = std::make_shared<nano::node> (system.io_ctx, path_server, config_server, system.work);
+	system.nodes.push_back (server);
+	server->start ();
+	nano::node_config config_client{ params_beta };
+	config_client.preconfigured_peers.clear ();
+	nano::node_flags flags_client;
+	flags_client.disable_legacy_bootstrap = true;
+	flags_client.disable_wallet_bootstrap = true;
+	flags_client.disable_add_initial_peers = true;
+	flags_client.disable_ongoing_bootstrap = true;
+	config_client.ipc_config.transport_tcp.enabled = true;
+	auto client = std::make_shared<nano::node> (system.io_ctx, path_client, config_client, system.work);
+	system.nodes.push_back (client);
+	client->start ();
+
+	// Set up client RPC
+	nano::node_rpc_config node_rpc_config;
+	nano::rpc_config rpc_config{ params_beta.network, rpc_port, true };
+	nano::ipc::ipc_server ipc (*client, node_rpc_config);
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+
+	nano::test::establish_tcp (system, *client, server->network.endpoint ());
+	//client->bootstrap_initiator.bootstrap_ascending ();
+	client->bootstrap_initiator.bootstrap ();
+	
+	std::cerr << boost::str (boost::format ("Server: %1%, client: %2%\n") % server->network.port.load () % client->network.port.load ());
+	int junk;
+	std::cin >> junk;
+	server->stop ();
+	client->stop ();
 }
