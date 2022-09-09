@@ -1,12 +1,14 @@
+#include <nano/lib/stats.hpp>
 #include <nano/node/hinted_scheduler.hpp>
 #include <nano/node/node.hpp>
 
-nano::hinted_scheduler::hinted_scheduler (config const & config_a, nano::node & node_a, nano::vote_cache & inactive_vote_cache_a, nano::active_transactions & active_a, nano::online_reps & online_reps_a) :
+nano::hinted_scheduler::hinted_scheduler (config const & config_a, nano::node & node_a, nano::vote_cache & inactive_vote_cache_a, nano::active_transactions & active_a, nano::online_reps & online_reps_a, nano::stat & stats_a) :
 	config_m{ config_a },
 	node{ node_a },
 	inactive_vote_cache{ inactive_vote_cache_a },
 	active{ active_a },
 	online_reps{ online_reps_a },
+	stats{ stats_a },
 	stopped{ false }
 {
 }
@@ -70,6 +72,9 @@ bool nano::hinted_scheduler::run_one (nano::uint128_t const & minimum_tally)
 				// Try to insert it into AEC as hinted election
 				// We check for AEC vacancy inside our predicate
 				auto result = node.active.insert_hinted (block);
+
+				stats.inc (nano::stat::type::hinting, result.inserted ? nano::stat::detail::hinted : nano::stat::detail::insert_failed);
+
 				return result.inserted; // Return whether block was inserted
 			}
 		}
@@ -77,6 +82,8 @@ bool nano::hinted_scheduler::run_one (nano::uint128_t const & minimum_tally)
 		{
 			// Missing block in ledger to start an election
 			node.bootstrap_block (hash);
+
+			stats.inc (nano::stat::type::hinting, nano::stat::detail::missing_block);
 		}
 	}
 	return false;

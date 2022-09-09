@@ -545,6 +545,9 @@ std::string nano::stat::type_to_string (stat::type type)
 		case nano::stat::type::vote_cache:
 			res = "vote_cache";
 			break;
+		case nano::stat::type::hinting:
+			res = "hinting";
+			break;
 	}
 	return res;
 }
@@ -936,6 +939,15 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 			break;
 		case nano::stat::detail::invalid_network:
 			res = "invalid_network";
+			break;
+		case nano::stat::detail::hinted:
+			res = "hinted";
+			break;
+		case nano::stat::detail::insert_failed:
+			res = "insert_failed";
+			break;
+		case nano::stat::detail::missing_block:
+			res = "missing_block";
 			break;
 	}
 	return res;
