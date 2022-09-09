@@ -30,6 +30,11 @@ namespace transport
 			bool operator== (nano::transport::channel const &) const override;
 			bool operator== (nano::transport::fake::channel const & other_a) const;
 
+			void set_endpoint (nano::endpoint const & endpoint_a)
+			{
+				endpoint = endpoint_a;
+			}
+
 			nano::endpoint get_endpoint () const override
 			{
 				return endpoint;
@@ -45,8 +50,13 @@ namespace transport
 				return nano::transport::transport_type::fake;
 			}
 
+			void disconnect ()
+			{
+				endpoint = nano::endpoint (boost::asio::ip::address_v6::any (), 0);
+			}
+
 		private:
-			nano::endpoint const endpoint;
+			nano::endpoint endpoint;
 		};
 	} // namespace fake
 } // namespace transport
