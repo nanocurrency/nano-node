@@ -66,7 +66,7 @@
 
 /*
  * Asserts that the `val1 == val2` condition becomes true within the deadline
- * Checked expressions should not modify any state
+ * Condition must hold for at least 2 consecutive reads
  */
 #define ASSERT_TIMELY_EQ(time, val1, val2)         \
 	system.deadline_set (time);                    \
