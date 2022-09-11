@@ -229,12 +229,6 @@ uint8_t get_pre_release_node_version ()
 	return boost::numeric_cast<uint8_t> (boost::lexical_cast<int> (NANO_PRE_RELEASE_VERSION_STRING));
 }
 
-std::string get_env_or_default (char const * variable_name, std::string default_value)
-{
-	auto value = getenv (variable_name);
-	return value ? value : default_value;
-}
-
 uint64_t get_env_threshold_or_default (char const * variable_name, uint64_t const default_value)
 {
 	auto * value = getenv (variable_name);
@@ -305,6 +299,32 @@ std::string get_tls_toml_config_path (boost::filesystem::path const & data_path)
 	return (data_path / "config-tls.toml").string ();
 }
 } // namespace nano
+
+std::optional<std::string> nano::get_env (const char * variable_name)
+{
+	auto value = std::getenv (variable_name);
+	if (value)
+	{
+		return value;
+	}
+	return {};
+}
+
+std::string nano::get_env_or_default (char const * variable_name, std::string default_value)
+{
+	auto value = nano::get_env (variable_name);
+	return value ? *value : default_value;
+}
+
+int nano::get_env_int_or_default (const char * variable_name, const int default_value)
+{
+	auto value = nano::get_env (variable_name); // 15 minutes by default
+	if (value)
+	{
+		return boost::lexical_cast<int> (*value);
+	}
+	return default_value;
+}
 
 uint32_t nano::test_scan_wallet_reps_delay ()
 {
