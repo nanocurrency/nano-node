@@ -56,16 +56,16 @@ public:
 	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
 	unsigned election_hint_weight_percent{ 50 };
 	unsigned password_fanout{ 1024 };
-	unsigned io_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
-	unsigned network_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
-	unsigned work_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
+	unsigned io_threads{ std::max (4u, nano::hardware_concurrency ()) };
+	unsigned network_threads{ std::max (4u, nano::hardware_concurrency ()) };
+	unsigned work_threads{ std::max (4u, nano::hardware_concurrency ()) };
 	/* Use half available threads on the system for signature checking. The calling thread does checks as well, so these are extra worker threads */
-	unsigned signature_checker_threads{ std::thread::hardware_concurrency () / 2 };
+	unsigned signature_checker_threads{ std::max (2u, nano::hardware_concurrency () / 2) };
 	bool enable_voting{ false };
 	unsigned bootstrap_connections{ 4 };
 	unsigned bootstrap_connections_max{ 64 };
 	unsigned bootstrap_initiator_threads{ 1 };
-	unsigned bootstrap_serving_threads{ std::max<unsigned> (2, std::thread::hardware_concurrency () / 2) };
+	unsigned bootstrap_serving_threads{ std::max (2u, nano::hardware_concurrency () / 2) };
 	uint32_t bootstrap_frontier_request_count{ 1024 * 1024 };
 	nano::websocket::config websocket_config;
 	nano::diagnostics_config diagnostics_config;

@@ -744,7 +744,7 @@ bool nano::rocksdb::store::copy_db (boost::filesystem::path const & destination_
 		backup_options.share_table_files = true;
 
 		// Increase number of threads used for copying
-		backup_options.max_background_operations = std::thread::hardware_concurrency ();
+		backup_options.max_background_operations = nano::hardware_concurrency ();
 		auto status = ::rocksdb::BackupEngine::Open (::rocksdb::Env::Default (), backup_options, &backup_engine_raw);
 		backup_engine.reset (backup_engine_raw);
 		if (!status.ok ())
