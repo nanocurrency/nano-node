@@ -66,8 +66,13 @@ void nano::test::rate_observer::print_once ()
 		// Convert delta milliseconds to seconds (double precision) and then divide the counter delta to get rate per second
 		auto per_sec = observation.delta / (observation.time_delta.count () / 1000.0);
 
-		std::cout << "rate of '" << counter->name << "': "
-				  << std::setw (12) << std::setprecision (2) << std::fixed << per_sec << " /s"
+		auto prettier_name = "'" + counter->name + "'";
+
+		std::cout << "counter: " << std::setw (30) << std::left << prettier_name
+				  << " | "
+				  << "total: " << std::setw (14) << observation.total
+				  << " | "
+				  << "rate /s: " << std::setw (12) << std::setprecision (2) << std::fixed << per_sec
 				  << std::endl;
 	}
 }
