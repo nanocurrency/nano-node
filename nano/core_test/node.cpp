@@ -2530,7 +2530,7 @@ TEST (node, vote_republish)
 
 	// the vote causes the election to reach quorum and for the vote (and block?) to be published from node1 to node2
 	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ send2->hash () }));
-	node1.vote_processor.vote (vote, std::make_shared<nano::transport::fake::channel> (node1, node1));
+	node1.vote_processor.vote (vote, std::make_shared<nano::transport::fake::channel> (node1));
 
 	// FIXME: there is a race condition here, if the vote arrives before the block then the vote is wasted and the test fails
 	// we could resend the vote but then there is a race condition between the vote resending and the election reaching quorum on node1
