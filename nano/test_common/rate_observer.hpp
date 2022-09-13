@@ -14,42 +14,34 @@ class rate_observer
 {
 public:
 	/*
-	 * Base class used as a base to build counters
+	 * Used as a base to build counters
 	 */
-	class counter
+	class counter final
 	{
 	public:
-		/*
-		 * Calculate count and time delta since last call
-		 */
-		std::pair<uint64_t, std::chrono::milliseconds> observe ();
+		using value_t = int64_t;
 
-		virtual uint64_t count () = 0;
-		virtual std::string name () = 0;
+		struct observation
+		{
+			value_t total;
+			value_t delta;
+			std::chrono::milliseconds time_delta;
+		};
+
+	public:
+		/*
+		 * Calculate value total, value delta and time delta since last call
+		 */
+		observation observe ();
+
+		explicit counter (std::string name, std::function<value_t ()> count);
+
+		const std::string name;
+		const std::function<value_t ()> count;
 
 	private:
 		std::chrono::system_clock::time_point last_observation{};
-	};
-
-	/*
-	 * Counter that uses node stat container to provide info about rate
-	 */
-	class stat_counter final : public counter
-	{
-	public:
-		explicit stat_counter (nano::stat & stats, nano::stat::type type, nano::stat::detail detail, nano::stat::dir dir);
-
-		uint64_t count () override;
-		std::string name () override;
-
-	private:
-		const nano::stat::type type;
-		const nano::stat::detail detail;
-		const nano::stat::dir dir;
-
-		uint64_t last_count{ 0 };
-
-		nano::stat & stats;
+		value_t last_count{ 0 };
 	};
 
 public:
@@ -61,6 +53,7 @@ public:
 	 */
 	void background_print (std::chrono::seconds interval);
 
+	void observe (std::string name, std::function<int64_t ()> count);
 	/*
 	 * Starts observing a particular node stat from stat container
 	 */

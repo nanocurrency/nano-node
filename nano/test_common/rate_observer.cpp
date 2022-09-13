@@ -1,54 +1,34 @@
 #include <nano/lib/stats.hpp>
 #include <nano/node/node.hpp>
 #include <nano/test_common/rate_observer.hpp>
-/*
- * rate_observer::counter
- */
 
-std::pair<uint64_t, std::chrono::milliseconds> nano::test::rate_observer::counter::observe ()
+#include <utility>
+
+nano::test::rate_observer::counter::counter (std::string name_a, std::function<value_t ()> count_a) :
+	name{ std::move (name_a) },
+	count{ std::move (count_a) }
+{
+}
+
+nano::test::rate_observer::counter::observation nano::test::rate_observer::counter::observe ()
 {
 	auto now = std::chrono::system_clock::now ();
+	auto total = count ();
 	if (last_observation.time_since_epoch ().count () > 0)
 	{
 		auto time_delta = std::chrono::duration_cast<std::chrono::milliseconds> (now - last_observation);
 		last_observation = now;
-		return { count (), time_delta };
+		auto delta = total - last_count;
+		last_count = total;
+		return { total, delta, time_delta };
 	}
 	else
 	{
 		last_observation = now;
-		return { 0, std::chrono::milliseconds{ 0 } };
+		last_count = total;
+		return { 0, 0, std::chrono::milliseconds{ 0 } };
 	}
 }
-
-nano::test::rate_observer::stat_counter::stat_counter (nano::stat & stats_a, nano::stat::type type_a, nano::stat::detail detail_a, nano::stat::dir dir_a) :
-	stats{ stats_a },
-	type{ type_a },
-	detail{ detail_a },
-	dir{ dir_a }
-{
-}
-
-/*
- * rate_observer::stat_counter
- */
-
-uint64_t nano::test::rate_observer::stat_counter::count ()
-{
-	uint64_t cnt = stats.count (type, detail, dir);
-	uint64_t delta = cnt - last_count;
-	last_count = cnt;
-	return delta;
-}
-
-std::string nano::test::rate_observer::stat_counter::name ()
-{
-	return nano::stat::type_to_string (type) + "::" + nano::stat::detail_to_string (detail) + "::" + nano::stat::dir_to_string (dir);
-}
-
-/*
- * rate_observer
- */
 
 nano::test::rate_observer::~rate_observer ()
 {
@@ -84,16 +64,25 @@ void nano::test::rate_observer::print_once ()
 		const auto observation = counter->observe ();
 
 		// Convert delta milliseconds to seconds (double precision) and then divide the counter delta to get rate per second
-		auto per_sec = observation.first / (observation.second.count () / 1000.0);
+		auto per_sec = observation.delta / (observation.time_delta.count () / 1000.0);
 
-		std::cout << "rate of '" << counter->name () << "': "
+		std::cout << "rate of '" << counter->name << "': "
 				  << std::setw (12) << std::setprecision (2) << std::fixed << per_sec << " /s"
 				  << std::endl;
 	}
 }
 
+void nano::test::rate_observer::observe (std::string name, std::function<int64_t ()> observe)
+{
+	auto counter_instance = std::make_shared<counter> (name, observe);
+	counters.push_back (counter_instance);
+}
+
 void nano::test::rate_observer::observe (nano::node & node, nano::stat::type type, nano::stat::detail detail, nano::stat::dir dir)
 {
-	auto counter = std::make_shared<stat_counter> (node.stats, type, detail, dir);
-	counters.push_back (counter);
+	auto name = nano::stat::type_to_string (type) + "::" + nano::stat::detail_to_string (detail) + "::" + nano::stat::dir_to_string (dir);
+
+	observe (name, [&node, type, detail, dir] () {
+		return node.stats.count (type, detail, dir);
+	});
 }
