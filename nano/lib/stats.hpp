@@ -244,7 +244,8 @@ public:
 		filter,
 		telemetry,
 		vote_generator,
-		vote_cache
+		vote_cache,
+		hinting
 	};
 
 	/** Optional detail type */
@@ -413,7 +414,12 @@ public:
 		generator_broadcasts,
 		generator_replies,
 		generator_replies_discarded,
-		generator_spacing
+		generator_spacing,
+
+		// hinting
+		hinted,
+		insert_failed,
+		missing_block,
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

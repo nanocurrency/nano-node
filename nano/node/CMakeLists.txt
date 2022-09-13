@@ -68,6 +68,8 @@ add_library(
   election_scheduler.cpp
   gap_cache.hpp
   gap_cache.cpp
+  hinted_scheduler.hpp
+  hinted_scheduler.cpp
   inactive_cache_information.hpp
   inactive_cache_information.cpp
   inactive_cache_status.hpp

@@ -99,7 +99,12 @@ bool nano::election_scheduler::manual_queue_predicate () const
 
 bool nano::election_scheduler::overfill_predicate () const
 {
-	return node.active.vacancy () < 0;
+	/*
+	 * Both normal and hinted election schedulers are well-behaved, meaning they first check for AEC vacancy before inserting new elections.
+	 * However, it is possible that AEC will be temporarily overfilled in case it's running at full capacity and election hinting or manual queue kicks in.
+	 * That case will lead to unwanted churning of elections, so this allows for AEC to be overfilled to 125% until erasing of elections happens.
+	 */
+	return node.active.vacancy () < -(node.active.limit () / 4);
 }
 
 void nano::election_scheduler::run ()

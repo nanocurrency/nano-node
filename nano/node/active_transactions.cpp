@@ -166,10 +166,28 @@ void nano::active_transactions::block_already_cemented_callback (nano::block_has
 	remove_election_winner_details (hash_a);
 }
 
+int64_t nano::active_transactions::limit () const
+{
+	return static_cast<int64_t> (node.config.active_elections_size);
+}
+
+int64_t nano::active_transactions::hinted_limit () const
+{
+	const uint64_t limit = node.config.active_elections_hinted_limit_percentage * node.config.active_elections_size / 100;
+	return static_cast<int64_t> (limit);
+}
+
 int64_t nano::active_transactions::vacancy () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto result = static_cast<int64_t> (node.config.active_elections_size) - static_cast<int64_t> (roots.size ());
+	auto result = limit () - static_cast<int64_t> (roots.size ());
+	return result;
+}
+
+int64_t nano::active_transactions::vacancy_hinted () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	auto result = hinted_limit () - active_hinted_elections_count;
 	return result;
 }
 
@@ -422,15 +440,10 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 
 nano::election_insertion_result nano::active_transactions::insert_hinted (std::shared_ptr<nano::block> const & block_a)
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
+	debug_assert (block_a != nullptr);
+	debug_assert (vacancy_hinted () > 0); // Should only be called when there are free hinted election slots
 
-	const std::size_t limit = node.config.active_elections_hinted_limit_percentage * node.config.active_elections_size / 100;
-	if (active_hinted_elections_count >= limit)
-	{
-		// Reached maximum number of hinted elections, drop new ones
-		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_hinted_overflow);
-		return {};
-	}
+	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	auto result = insert_impl (lock, block_a, nano::election_behavior::hinted);
 	if (result.inserted)
@@ -446,7 +459,10 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 	nano::vote_code result{ nano::vote_code::indeterminate };
 	// If all hashes were recently confirmed then it is a replay
 	unsigned recently_confirmed_counter (0);
+
 	std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> process;
+	std::vector<nano::block_hash> inactive; // Hashes that should be added to inactive vote cache
+
 	{
 		nano::unique_lock<nano::mutex> lock (mutex);
 		for (auto const & hash : vote_a->hashes)
@@ -458,16 +474,19 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 			}
 			else if (!recently_confirmed.exists (hash))
 			{
-				lock.unlock ();
-				add_inactive_vote_cache (hash, vote_a);
-				check_inactive_vote_cache (hash);
-				lock.lock ();
+				inactive.emplace_back (hash);
 			}
 			else
 			{
 				++recently_confirmed_counter;
 			}
 		}
+	}
+
+	// Process inactive votes outside of the critical section
+	for (auto & hash : inactive)
+	{
+		add_inactive_vote_cache (hash, vote_a);
 	}
 
 	if (!process.empty ())
@@ -663,48 +682,6 @@ void nano::active_transactions::add_inactive_vote_cache (nano::block_hash const 
 	}
 }
 
-void nano::active_transactions::check_inactive_vote_cache (nano::block_hash const & hash)
-{
-	if (auto entry = node.inactive_vote_cache.find (hash); entry)
-	{
-		const auto min_tally = (node.online_reps.trended () / 100) * node.config.election_hint_weight_percent;
-
-		// Check that we passed minimum voting weight threshold to start a hinted election
-		if (entry->tally > min_tally)
-		{
-			auto transaction (node.store.tx_begin_read ());
-			auto block = node.store.block.get (transaction, hash);
-			// Check if we have the block in ledger
-			if (block)
-			{
-				// We have the block, check that it's not yet confirmed
-				if (!node.block_confirmed_or_being_confirmed (transaction, hash))
-				{
-					insert_hinted (block);
-				}
-			}
-			else
-			{
-				// We don't have the block yet, try to bootstrap it
-				// TODO: Details of bootstraping a block are not `active_transactions` concern, encapsulate somewhere
-				if (!node.ledger.pruning || !node.store.pruned.exists (transaction, hash))
-				{
-					node.gap_cache.bootstrap_start (hash);
-				}
-			}
-		}
-	}
-}
-
-/*
- * This is called when a new block is received from live network
- * We check if maybe we already have enough inactive votes stored for it to start an election
- */
-void nano::active_transactions::trigger_inactive_votes_cache_election (std::shared_ptr<nano::block> const & block_a)
-{
-	check_inactive_vote_cache (block_a->hash ());
-}
-
 std::size_t nano::active_transactions::election_winner_details_size ()
 {
 	nano::lock_guard<nano::mutex> guard (election_winner_details_mutex);
@@ -724,6 +701,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 	std::size_t blocks_count;
 	std::size_t recently_confirmed_count;
 	std::size_t recently_cemented_count;
+	std::size_t hinted_count;
 
 	{
 		nano::lock_guard<nano::mutex> guard (active_transactions.mutex);
@@ -731,15 +709,19 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 		blocks_count = active_transactions.blocks.size ();
 		recently_confirmed_count = active_transactions.recently_confirmed.size ();
 		recently_cemented_count = active_transactions.recently_cemented.size ();
+		hinted_count = active_transactions.active_hinted_elections_count;
 	}
 
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "roots", roots_count, sizeof (decltype (active_transactions.roots)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (active_transactions.blocks)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "election_winner_details", active_transactions.election_winner_details_size (), sizeof (decltype (active_transactions.election_winner_details)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recently_confirmed", recently_confirmed_count, sizeof (decltype (active_transactions.recently_confirmed.confirmed)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recently_cemented", recently_cemented_count, sizeof (decltype (active_transactions.recently_cemented.cemented)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "hinted", hinted_count, 0 }));
 	composite->add_component (collect_container_info (active_transactions.generator, "generator"));
+
+	composite->add_component (active_transactions.recently_confirmed.collect_container_info ("recently_confirmed"));
+	composite->add_component (active_transactions.recently_cemented.collect_container_info ("recently_cemented"));
+
 	return composite;
 }
 
@@ -798,6 +780,15 @@ nano::recently_confirmed_cache::entry_t nano::recently_confirmed_cache::back () 
 	return confirmed.back ();
 }
 
+std::unique_ptr<nano::container_info_component> nano::recently_confirmed_cache::collect_container_info (const std::string & name)
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "confirmed", confirmed.size (), sizeof (decltype (confirmed)::value_type) }));
+	return composite;
+}
+
 /*
  * class recently_cemented
  */
@@ -827,4 +818,13 @@ std::size_t nano::recently_cemented_cache::size () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return cemented.size ();
+}
+
+std::unique_ptr<nano::container_info_component> nano::recently_cemented_cache::collect_container_info (const std::string & name)
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cemented", cemented.size (), sizeof (decltype (cemented)::value_type) }));
+	return composite;
 }

@@ -15,6 +15,7 @@
 #include <nano/node/election.hpp>
 #include <nano/node/election_scheduler.hpp>
 #include <nano/node/gap_cache.hpp>
+#include <nano/node/hinted_scheduler.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -55,8 +56,9 @@ class work_pool;
 std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 
 // Configs
-backlog_population::config nodeconfig_to_backlog_population_config (node_config const & config);
+backlog_population::config nodeconfig_to_backlog_population_config (node_config const &);
 vote_cache::config nodeconfig_to_vote_cache_config (node_config const &, node_flags const &);
+hinted_scheduler::config nodeconfig_to_hinted_scheduler_config (node_config const &);
 
 class node final : public std::enable_shared_from_this<nano::node>
 {
@@ -116,7 +118,7 @@ public:
 	 */
 	std::shared_ptr<nano::election> block_confirm (std::shared_ptr<nano::block> const &);
 	bool block_confirmed (nano::block_hash const &);
-	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
+	bool block_confirmed_or_being_confirmed (nano::block_hash const &);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string> const &, std::shared_ptr<std::string> const &, std::shared_ptr<boost::asio::ip::tcp::resolver> const &);
 	void ongoing_online_weight_calculation ();
 	void ongoing_online_weight_calculation_queue ();
@@ -126,6 +128,10 @@ public:
 	void set_bandwidth_params (std::size_t limit, double ratio);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
 	uint64_t get_confirmation_height (nano::transaction const &, nano::account &);
+	/*
+	 * Attempts to bootstrap block. This is the best effort, there is no guarantee that the block will be bootstrapped.
+	 */
+	void bootstrap_block (nano::block_hash const &);
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
@@ -168,6 +174,7 @@ public:
 	nano::vote_cache inactive_vote_cache;
 	nano::active_transactions active;
 	nano::election_scheduler scheduler;
+	nano::hinted_scheduler hinting;
 	nano::request_aggregator aggregator;
 	nano::wallets wallets;
 	nano::backlog_population backlog;

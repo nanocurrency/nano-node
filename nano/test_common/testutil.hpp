@@ -3,6 +3,7 @@
 #include <nano/lib/errors.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/node/transport/transport.hpp>
 
 #include <gtest/gtest.h>
 
@@ -64,6 +65,17 @@
 	EXPECT_NO_ERROR (ec);
 
 /*
+ * Asserts that the `val1 == val2` condition becomes true within the deadline
+ * Condition must hold for at least 2 consecutive reads
+ */
+#define ASSERT_TIMELY_EQ(time, val1, val2)         \
+	system.deadline_set (time);                    \
+	while (!((val1) == (val2)) && !system.poll ()) \
+	{                                              \
+	}                                              \
+	ASSERT_EQ (val1, val2);
+
+/*
  * Waits specified number of time while keeping system running.
  * Useful for asserting conditions that should still hold after some delay of time
  */
@@ -71,6 +83,26 @@
 	system.deadline_set (time); \
 	while (!system.poll ())     \
 	{                           \
+	}
+
+/*
+ * Asserts that condition is always true during the specified amount of time
+ */
+#define ASSERT_ALWAYS(time, condition) \
+	system.deadline_set (time);        \
+	while (!system.poll ())            \
+	{                                  \
+		ASSERT_TRUE (condition);       \
+	}
+
+/*
+ * Asserts that condition is never true during the specified amount of time
+ */
+#define ASSERT_NEVER(time, condition) \
+	system.deadline_set (time);       \
+	while (!system.poll ())           \
+	{                                 \
+		ASSERT_FALSE (condition);     \
 	}
 
 /* Convenience globals for gtest projects */
@@ -312,8 +344,20 @@ namespace test
 	 */
 	std::shared_ptr<nano::vote> make_vote (nano::keypair key, std::vector<nano::block_hash> hashes, uint64_t timestamp = 0, uint8_t duration = 0);
 	/*
+	 * Convenience function to create a new final vote from list of blocks
+	 */
+	std::shared_ptr<nano::vote> make_final_vote (nano::keypair key, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Convenience function to create a new final vote from list of block hashes
+	 */
+	std::shared_ptr<nano::vote> make_final_vote (nano::keypair key, std::vector<nano::block_hash> hashes);
+	/*
 	 * Converts list of blocks to list of hashes
 	 */
 	std::vector<nano::block_hash> blocks_to_hashes (std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Creates a new fake channel associated with `node`
+	 */
+	std::shared_ptr<nano::transport::channel> fake_channel (nano::node & node);
 }
 }

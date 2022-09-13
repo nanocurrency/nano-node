@@ -76,7 +76,8 @@ private:
 
 	mutable nano::mutex mutex;
 
-	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, std::string const &);
+public: // Container info
+	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 };
 
 /*
@@ -99,7 +100,8 @@ private:
 
 	mutable nano::mutex mutex;
 
-	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, std::string const &);
+public: // Container info
+	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 };
 
 class election_insertion_result final
@@ -146,6 +148,12 @@ public:
 
 	explicit active_transactions (nano::node &, nano::confirmation_height_processor &);
 	~active_transactions ();
+
+	/*
+	 * Starts new election with hinted behavior type
+	 * Hinted elections have shorter timespan and only can take up limited space inside active elections container
+	 */
+	nano::election_insertion_result insert_hinted (std::shared_ptr<nano::block> const & block_a);
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
 	nano::vote_code vote (std::shared_ptr<nano::vote> const &);
 	// Is the root of this block in the roots container
@@ -170,13 +178,25 @@ public:
 	void block_cemented_callback (std::shared_ptr<nano::block> const &);
 	void block_already_cemented_callback (nano::block_hash const &);
 
+	/*
+	 * Maximum number of all elections that should be present in this container.
+	 * This is only a soft limit, it is possible for this container to exceed this count.
+	 */
+	int64_t limit () const;
+	/*
+	 * Maximum number of hinted elections that should be present in this container.
+	 */
+	int64_t hinted_limit () const;
 	int64_t vacancy () const;
+	/*
+	 * How many election slots are available for hinted elections.
+	 * The limit of AEC taken up by hinted elections is controlled by `node_config::active_elections_hinted_limit_percentage`
+	 */
+	int64_t vacancy_hinted () const;
 	std::function<void ()> vacancy_update{ [] () {} };
 
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 
-	// Inserts an election if conditions are met
-	void trigger_inactive_votes_cache_election (std::shared_ptr<nano::block> const &);
 	nano::election_scheduler & scheduler;
 	nano::confirmation_height_processor & confirmation_height_processor;
 	nano::node & node;
@@ -197,10 +217,7 @@ private:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> election_winner_details;
 
 	// Call action with confirmed block, may be different than what we started with
-	// clang-format off
-	nano::election_insertion_result insert_impl (nano::unique_lock<nano::mutex> &, std::shared_ptr<nano::block> const&, nano::election_behavior = nano::election_behavior::normal, std::function<void(std::shared_ptr<nano::block>const&)> const & = nullptr);
-	// clang-format on
-	nano::election_insertion_result insert_hinted (std::shared_ptr<nano::block> const & block_a);
+	nano::election_insertion_result insert_impl (nano::unique_lock<nano::mutex> &, std::shared_ptr<nano::block> const &, nano::election_behavior = nano::election_behavior::normal, std::function<void (std::shared_ptr<nano::block> const &)> const & = nullptr);
 	void request_loop ();
 	void request_confirm (nano::unique_lock<nano::mutex> &);
 	void erase (nano::qualified_root const &);
@@ -209,8 +226,11 @@ private:
 	// Returns a list of elections sorted by difficulty, mutex must be locked
 	std::vector<std::shared_ptr<nano::election>> list_active_impl (std::size_t) const;
 
+	/*
+	 * Checks if vote passes minimum representative weight threshold and adds it to inactive vote cache
+	 * TODO: Should be moved to `vote_cache` class
+	 */
 	void add_inactive_vote_cache (nano::block_hash const & hash, std::shared_ptr<nano::vote> const vote);
-	void check_inactive_vote_cache (nano::block_hash const & hash);
 
 	nano::condition_variable condition;
 	bool started{ false };
