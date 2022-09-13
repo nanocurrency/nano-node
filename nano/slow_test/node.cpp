@@ -1653,7 +1653,7 @@ TEST (telemetry, many_nodes)
 	node_flags.disable_initial_telemetry_requests = true;
 	node_flags.disable_request_loop = true;
 	// The telemetry responses can timeout if using a large number of nodes under sanitizers, so lower the number.
-	auto const num_nodes = (is_sanitizer_build || nano::running_within_valgrind ()) ? 4 : 10;
+	auto const num_nodes = nano::memory_intensive_instrumentation () ? 4 : 10;
 	for (auto i = 0; i < num_nodes; ++i)
 	{
 		nano::node_config node_config (nano::test::get_available_port (), system.logging);
