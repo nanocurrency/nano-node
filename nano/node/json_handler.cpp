@@ -287,7 +287,8 @@ nano::amount nano::json_handler::amount_impl ()
 
 /// <summary>
 /// Converts a Nano value with a maximum of 30 decimals into the corresponding raw value.
-/// Accepted inputs are digits only or digits seperated by one dot
+/// Accepted inputs are either digits only, or digits seperated by one dot. Any other format is rejected
+/// Minimum value is 0 and maximum is 340 million
 /// </summary>
 /// <returns>raw value</returns>
 nano::amount nano::json_handler::decimal_amount_impl ()
@@ -318,7 +319,7 @@ nano::amount nano::json_handler::decimal_amount_impl ()
 		return result;
 	}
 
-	if (wholeNumber.number () > 100000000)
+	if (wholeNumber.number () > 340000000)
 	{
 		ec = nano::error_common::invalid_amount_big;
 		return result;

@@ -2966,16 +2966,16 @@ TEST (rpc, nano_to_raw_value_less_than_one_raw)
 	ASSERT_EQ (std::error_code (nano::error_common::invalid_amount_loss_of_precision).message (), response.get<std::string> ("error"));
 }
 
-TEST (rpc, nano_to_raw_ten_million_nano)
+TEST (rpc, nano_to_raw_three_hundred_and_forty_million_nano)
 {
 	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
 	request1.put ("action", "nano_to_raw");
-	request1.put ("amount", "10000000");
+	request1.put ("amount", "340000000");
 	auto response (wait_response (system, rpc_ctx, request1));
-	ASSERT_EQ ((10000000 * nano::Mxrb_ratio).convert_to<std::string> (), response.get<std::string> ("amount"));
+	ASSERT_EQ ((340000000 * nano::Mxrb_ratio).convert_to<std::string> (), response.get<std::string> ("amount"));
 }
 
 TEST (rpc, nano_to_raw_one_billion_nano)
