@@ -382,24 +382,28 @@ void nano::bootstrap::bootstrap_ascending::run ()
 		}
 		this_l->inspect (tx, result, block);
 	});
-	std::deque<std::future<void>> futures;
+
+	std::deque<std::thread> threads;
 	for (auto i = 0; i < parallelism; ++i)
 	{
-		futures.emplace_back (std::async (std::launch::async, [this_l = shared ()] () {
+		threads.emplace_back ([this_l = shared ()] () {
+			nano::thread_role::set (nano::thread_role::name::ascending_bootstrap);
 			auto thread = std::make_shared<bootstrap_ascending::thread> (this_l);
 			thread->run ();
-		}));
+		});
 	}
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped)
+
 	{
+		nano::unique_lock<nano::mutex> lock{ mutex };
 		condition.wait_for (lock, std::chrono::seconds{ 10 }, [this] () { return stopped.load (); });
-		lock.unlock ();
-		dump_stats ();
-		lock.lock ();
 	}
-	lock.unlock ();
-	futures.clear ();
+
+	dump_stats ();
+
+	for (auto & thread : threads)
+	{
+		thread.join ();
+	}
 }
 
 void nano::bootstrap::bootstrap_ascending::get_information (boost::property_tree::ptree &)
