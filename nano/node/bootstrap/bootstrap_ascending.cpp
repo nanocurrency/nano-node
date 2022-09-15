@@ -62,7 +62,7 @@ void nano::bootstrap::bootstrap_ascending::account_sets::dump () const
 	for (auto & [account, count] : backoff)
 	{
 		auto log = std::log2 (std::max<decltype (count)> (count, 1));
-		//std::cerr << "log: " << log << ' ';
+		// std::cerr << "log: " << log << ' ';
 		auto index = static_cast<size_t> (log);
 		if (weight_counts.size () <= index)
 		{
@@ -172,7 +172,7 @@ nano::bootstrap::bootstrap_ascending::async_tag::async_tag (std::shared_ptr<nano
 	nano::lock_guard<nano::mutex> lock{ bootstrap->bootstrap.mutex };
 	++bootstrap->requests;
 	bootstrap->bootstrap.condition.notify_all ();
-	//std::cerr << boost::str (boost::format ("Request started\n"));
+	// std::cerr << boost::str (boost::format ("Request started\n"));
 }
 
 nano::bootstrap::bootstrap_ascending::async_tag::~async_tag ()
@@ -189,7 +189,7 @@ nano::bootstrap::bootstrap_ascending::async_tag::~async_tag ()
 		bootstrap->bootstrap.pool (*connection_m);
 	}
 	bootstrap->bootstrap.condition.notify_all ();
-	//std::cerr << boost::str (boost::format ("Request completed\n"));
+	// std::cerr << boost::str (boost::format ("Request completed\n"));
 }
 
 void nano::bootstrap::bootstrap_ascending::async_tag::success ()
@@ -222,7 +222,7 @@ void nano::bootstrap::bootstrap_ascending::thread::send (std::shared_ptr<async_t
 	message.start = start;
 	message.end = 0;
 	message.count = request_message_count;
-	//std::cerr << boost::str (boost::format ("Request sent for: %1% to: %2%\n") % message.start.to_string () % tag->connection ().first->remote_endpoint ());
+	// std::cerr << boost::str (boost::format ("Request sent for: %1% to: %2%\n") % message.start.to_string () % tag->connection ().first->remote_endpoint ());
 	auto channel = tag->connection ().second;
 	++bootstrap.requests_total;
 	channel->send (message, [this_l = shared (), tag] (boost::system::error_code const & ec, std::size_t size) {
@@ -237,11 +237,11 @@ void nano::bootstrap::bootstrap_ascending::thread::read_block (std::shared_ptr<a
 	deserializer->read (*socket, [this_l = shared (), tag] (boost::system::error_code ec, std::shared_ptr<nano::block> block) {
 		if (block == nullptr)
 		{
-			//std::cerr << "stream end\n";
+			// std::cerr << "stream end\n";
 			tag->success ();
 			return;
 		}
-		//std::cerr << boost::str (boost::format ("block: %1%\n") % block->hash ().to_string ());
+		// std::cerr << boost::str (boost::format ("block: %1%\n") % block->hash ().to_string ());
 		this_l->bootstrap.node->block_processor.add (block);
 		this_l->read_block (tag);
 		++tag->blocks;
@@ -377,7 +377,7 @@ void nano::bootstrap::bootstrap_ascending::run ()
 		auto this_l = this_w.lock ();
 		if (this_l == nullptr)
 		{
-			//std::cerr << boost::str (boost::format ("Missed block: %1%\n") % block.hash ().to_string ());
+			// std::cerr << boost::str (boost::format ("Missed block: %1%\n") % block.hash ().to_string ());
 			return;
 		}
 		this_l->inspect (tx, result, block);
