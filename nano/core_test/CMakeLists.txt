@@ -37,6 +37,7 @@ add_executable(
   signal_manager.cpp
   signing.cpp
   socket.cpp
+  ssl.cpp
   system.cpp
   telemetry.cpp
   toml.cpp
@@ -65,4 +66,5 @@ target_link_libraries(
   libminiupnpc-static
   Boost::log_setup
   Boost::log
-  Boost::boost)
+  Boost::boost
+  CONAN_PKG::nanossl)

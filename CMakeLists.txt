@@ -362,6 +362,26 @@ else()
   set(OPENSSL_LIBRARIES "")
 endif()
 
+find_program(CONAN conan)
+if (NOT CONAN)
+  message(FATAL_ERROR "Cannot find conan. Is it installed?")
+endif()
+
+set(CONAN_BUILD_INFO_SCRIPT "${CMAKE_BINARY_DIR}/conanbuildinfo.cmake")
+if (NOT EXISTS "${CONAN_BUILD_INFO_SCRIPT}")
+  execute_process(COMMAND "${CONAN}" install .
+          --build=missing
+          "--install-folder=${CMAKE_BINARY_DIR}"
+          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+          RESULT_VARIABLE RESULT)
+  if (NOT RESULT STREQUAL "0")
+    message(FATAL_ERROR "Unable to fetch dependencies: `conan install` failed. See errors above.")
+  endif()
+endif()
+
+include("${CONAN_BUILD_INFO_SCRIPT}")
+conan_basic_setup(TARGETS)
+
 include_directories(${CMAKE_SOURCE_DIR})
 
 if(WIN32
