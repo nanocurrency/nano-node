@@ -323,9 +323,10 @@ nano::amount nano::json_handler::decimal_amount_impl ()
 		if (c == '.')
 		{
 			// Throw an error if a dot was already seen (only 1 dot accepted)
-			if (dotPosition != -1) {
-			ec = nano::error_common::invalid_amount;
-			return result;
+			if (dotPosition != -1)
+			{
+				ec = nano::error_common::invalid_amount;
+				return result;
 			}
 
 			dotPosition = i;
