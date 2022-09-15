@@ -18,20 +18,20 @@ using namespace std::chrono_literals;
 
 TEST (account_sets, construction)
 {
-	nano::bootstrap::bootstrap_ascending::account_sets sets;
+	nano::bootstrap::bootstrap_ascending::account_sets sets{ nano::unique_path () };
 }
 
 TEST (account_sets, empty_blocked)
 {
 	nano::account account{ 1 };
-	nano::bootstrap::bootstrap_ascending::account_sets sets;
+	nano::bootstrap::bootstrap_ascending::account_sets sets{ nano::unique_path () };
 	ASSERT_FALSE (sets.blocked (account));
 }
 
 TEST (account_sets, block)
 {
 	nano::account account{ 1 };
-	nano::bootstrap::bootstrap_ascending::account_sets sets;
+	nano::bootstrap::bootstrap_ascending::account_sets sets{ nano::unique_path () };
 	sets.block (account);
 	ASSERT_TRUE (sets.blocked (account));
 }
@@ -39,7 +39,7 @@ TEST (account_sets, block)
 TEST (account_sets, unblock)
 {
 	nano::account account{ 1 };
-	nano::bootstrap::bootstrap_ascending::account_sets sets;
+	nano::bootstrap::bootstrap_ascending::account_sets sets{ nano::unique_path () };
 	sets.block (account);
 	sets.unblock (account);
 	ASSERT_FALSE (sets.blocked (account));
@@ -210,8 +210,8 @@ TEST (bootstrap_ascending, profile)
 	rpc.start ();
 
 	nano::test::establish_tcp (system, *client, server->network.endpoint ());
-	//client->bootstrap_initiator.bootstrap_ascending ();
-	client->bootstrap_initiator.bootstrap ();
+	client->bootstrap_initiator.bootstrap_ascending ();
+	//client->bootstrap_initiator.bootstrap ();
 	
 	std::cerr << boost::str (boost::format ("Server: %1%, client: %2%\n") % server->network.port.load () % client->network.port.load ());
 	int junk;

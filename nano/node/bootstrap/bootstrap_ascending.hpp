@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
+#include <nano/node/lmdb/lmdb_env.hpp>
 
 #include <random>
 #include <thread>
@@ -67,12 +68,13 @@ namespace bootstrap
 		class account_sets
 		{
 		public:
-			account_sets ();
+			account_sets (boost::filesystem::path const & application_path);
 			void prioritize (nano::account const & account, float priority);
 			void block (nano::account const & account);
 			void unblock (nano::account const & account);
 			void dump () const;
 			nano::account next ();
+			bool error ();
 
 		public:
 			bool blocked (nano::account const & account) const;
@@ -81,15 +83,18 @@ namespace bootstrap
 			nano::account random ();
 			std::unordered_set<nano::account> forwarding;
 			std::unordered_set<nano::account> blocking;
-			std::map<nano::account, float> backoff;
 			static size_t constexpr backoff_exclusion = 4;
 			std::default_random_engine rng;
+			bool error_m{ false };
+			nano::mdb_env env;
+			MDB_dbi backoff_handle{ 0 };
+			size_t backoff_size () const;
 
 			/**
 				Convert a vector of attempt counts to a probability vector suitable for std::discrete_distribution
 				This implementation applies 1/2^i for each element, effectivly an exponential backoff
 			*/
-			std::vector<double> probability_transform (std::vector<decltype (backoff)::mapped_type> const & attempts) const;
+			std::vector<double> probability_transform (std::vector<float> const & attempts) const;
 		};
 		class thread : public std::enable_shared_from_this<thread>
 		{
@@ -136,7 +141,7 @@ namespace bootstrap
 		account_sets accounts;
 		connection_pool pool;
 		static std::size_t constexpr parallelism = 1;
-		static std::size_t constexpr request_message_count = 16;
+		static std::size_t constexpr request_message_count = 32;
 		std::atomic<int> responses{ 0 };
 		std::atomic<int> requests_total{ 0 };
 		std::atomic<float> weights{ 0 };

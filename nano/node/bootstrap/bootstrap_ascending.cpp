@@ -3,6 +3,8 @@
 #include <nano/node/node.hpp>
 #include <nano/secure/common.hpp>
 
+#include <nano/lib/lmdbconfig.hpp>
+
 #include <boost/format.hpp>
 
 using namespace std::chrono_literals;
@@ -51,16 +53,21 @@ bool nano::bootstrap::bootstrap_ascending::connection_pool::operator() (std::sha
 	}
 }
 
-nano::bootstrap::bootstrap_ascending::account_sets::account_sets ()
+nano::bootstrap::bootstrap_ascending::account_sets::account_sets (boost::filesystem::path const & application_path) :
+	env{ error_m, application_path / "bootstrap.ldb", nano::mdb_env::options::make ().override_config_map_size (16ul * 1024 * 1024 * 1024).override_config_sync (nano::lmdb_config::sync_strategy::nosync_unsafe) }
 {
+	error_m |= mdb_dbi_open (env.tx (env.tx_begin_write ()), "backoff", MDB_CREATE, &backoff_handle);
 }
 
 void nano::bootstrap::bootstrap_ascending::account_sets::dump () const
 {
 	std::cerr << boost::str (boost::format ("Forwarding: %1%   blocking: %2%\n") % forwarding.size () % blocking.size ());
 	std::deque<size_t> weight_counts;
-	for (auto & [account, count] : backoff)
+	auto tx = env.tx_begin_read ();
+	for (auto i = mdb_iterator<nano::account, float>{ tx, backoff_handle }, n = mdb_iterator<nano::account, float>{}; i != n; ++i)
 	{
+		nano::account account = static_cast<nano::account> (i->first);
+		float count = static_cast<float> (i->second);
 		auto log = std::log2 (std::max<decltype (count)> (count, 1));
 		//std::cerr << "log: " << log << ' ';
 		auto index = static_cast<size_t> (log);
@@ -71,7 +78,7 @@ void nano::bootstrap::bootstrap_ascending::account_sets::dump () const
 		++weight_counts[index];
 	}
 	std::string output;
-	output += "Backoff hist (size: " + std::to_string (backoff.size ()) + "): ";
+	output += "Backoff hist (size: " + std::to_string (backoff_size ()) + "): ";
 	for (size_t i = 0, n = weight_counts.size (); i < n; ++i)
 	{
 		output += std::to_string (weight_counts[i]) + ' ';
@@ -85,28 +92,32 @@ void nano::bootstrap::bootstrap_ascending::account_sets::prioritize (nano::accou
 	if (blocking.count (account) == 0)
 	{
 		forwarding.insert (account);
-		auto iter = backoff.find (account);
-		if (iter == backoff.end ())
+		auto tx = env.tx_begin_write ();
+		float junk;
+		if (mdb_get (env.tx (tx), backoff_handle, nano::mdb_val{ account }, nano::mdb_val{ junk }) != MDB_SUCCESS)
 		{
-			backoff.emplace (account, priority);
+			auto error = mdb_put (env.tx (tx), backoff_handle, nano::mdb_val{ account }, nano::mdb_val{ priority }, 0);
+			release_assert (error == MDB_SUCCESS);
 		}
 	}
 }
 
 void nano::bootstrap::bootstrap_ascending::account_sets::block (nano::account const & account)
 {
-	backoff.erase (account);
+	auto tx = env.tx_begin_write ();
+	mdb_del (env.tx (tx), backoff_handle, nano::mdb_val{ account }, 0);
 	forwarding.erase (account);
 	blocking.insert (account);
 }
 
 void nano::bootstrap::bootstrap_ascending::account_sets::unblock (nano::account const & account)
 {
+	auto tx = env.tx_begin_write ();
 	blocking.erase (account);
-	backoff[account] = 0.0f;
+	mdb_put (env.tx (tx), backoff_handle, mdb_val{ account }, mdb_val{ 0.0f }, 0);
 }
 
-std::vector<double> nano::bootstrap::bootstrap_ascending::account_sets::probability_transform (std::vector<decltype (backoff)::mapped_type> const & attempts) const
+std::vector<double> nano::bootstrap::bootstrap_ascending::account_sets::probability_transform (std::vector<float> const & attempts) const
 {
 	std::vector<double> result;
 	result.reserve (attempts.size ());
@@ -119,20 +130,22 @@ std::vector<double> nano::bootstrap::bootstrap_ascending::account_sets::probabil
 
 nano::account nano::bootstrap::bootstrap_ascending::account_sets::random ()
 {
-	debug_assert (!backoff.empty ());
-	std::vector<decltype (backoff)::mapped_type> attempts;
+	debug_assert (backoff_size () != 0);
+	std::vector<float> attempts;
 	std::vector<nano::account> candidates;
+	auto tx = env.tx_begin_read ();
 	while (candidates.size () < account_sets::backoff_exclusion)
 	{
 		debug_assert (candidates.size () == attempts.size ());
 		nano::account search;
 		nano::random_pool::generate_block (search.bytes.data (), search.bytes.size ());
-		auto iter = backoff.lower_bound (search);
-		if (iter == backoff.end ())
+		mdb_iterator<nano::account, float> iter{ tx, backoff_handle };
+		if (iter == mdb_iterator<nano::account, float>{})
 		{
-			iter = backoff.begin ();
+			iter = mdb_iterator<nano::account, float>{ tx, backoff_handle };
 		}
-		auto const [account, count] = *iter;
+		auto account = static_cast<nano::account> (iter->first);
+		auto count = static_cast<float> (iter->second);
 		attempts.push_back (count);
 		candidates.push_back (account);
 	}
@@ -142,6 +155,15 @@ nano::account nano::bootstrap::bootstrap_ascending::account_sets::random ()
 	debug_assert (!weights.empty () && selection < weights.size ());
 	auto result = candidates[selection];
 	return result;
+}
+
+size_t nano::bootstrap::bootstrap_ascending::account_sets::backoff_size () const
+{
+	auto tx = env.tx_begin_read ();
+	MDB_stat stats;
+	auto status = mdb_stat (env.tx (tx), backoff_handle, &stats);
+	release_assert (status == MDB_SUCCESS);
+	return stats.ms_entries;
 }
 
 nano::account nano::bootstrap::bootstrap_ascending::account_sets::next ()
@@ -157,7 +179,13 @@ nano::account nano::bootstrap::bootstrap_ascending::account_sets::next ()
 	{
 		result = random ();
 	}
-	backoff[result] += 1.0f;
+	auto tx = env.tx_begin_write ();
+	mdb_val count{ 0.0f };
+	auto error_get = mdb_get (env.tx (tx), backoff_handle, mdb_val{ result }, count);
+	debug_assert (error_get == MDB_SUCCESS || error_get == MDB_NOTFOUND);
+	count = mdb_val{ static_cast<float>(count) + 1.0f };
+	auto error_put = mdb_put (env.tx (tx), backoff_handle, mdb_val{ result }, count, 0);
+	debug_assert (error_put == MDB_SUCCESS);
 	return result;
 }
 
@@ -314,6 +342,7 @@ bool nano::bootstrap::bootstrap_ascending::thread::wait_available_request ()
 
 nano::bootstrap::bootstrap_ascending::bootstrap_ascending (std::shared_ptr<nano::node> const & node_a, uint64_t incremental_id_a, std::string id_a) :
 	bootstrap_attempt{ node_a, nano::bootstrap_mode::ascending, incremental_id_a, id_a },
+	accounts{ node_a->application_path },
 	pool{ *node }
 {
 	auto tx = node_a->store.tx_begin_read ();

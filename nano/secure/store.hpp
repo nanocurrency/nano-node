@@ -161,6 +161,16 @@ public:
 		}
 		convert_buffer_to_value ();
 	}
+	
+	db_val (float val_a) :
+		buffer (std::make_shared<std::vector<uint8_t>> ())
+	{
+		{
+			nano::vectorstream stream (*buffer);
+			nano::write (stream, val_a);
+		}
+		convert_buffer_to_value ();
+	}
 
 	explicit operator nano::account_info () const
 	{
@@ -403,6 +413,16 @@ public:
 		(void)error;
 		debug_assert (!error);
 		boost::endian::big_to_native_inplace (result);
+		return result;
+	}
+	
+	explicit operator float () const
+	{
+		float result;
+		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
+		auto error (nano::try_read (stream, result));
+		(void)error;
+		debug_assert (!error);
 		return result;
 	}
 
