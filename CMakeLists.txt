@@ -717,6 +717,11 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
   if(NANO_TEST OR RAIBLOCKS_TEST)
     add_executable(qt_test nano/qt_test/entry.cpp nano/qt_test/qt.cpp)
 
+    find_package(Qt6 COMPONENTS Test)
+    if(NOT Qt6_FOUND)
+      find_package(Qt5 5.15 COMPONENTS Test REQUIRED)
+    endif()
+
     target_link_libraries(
       qt_test
       node
