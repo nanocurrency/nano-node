@@ -40,7 +40,7 @@ TEST (account_sets, unblock)
  */
 TEST (bootstrap_ascending, construction)
 {
-	nano::system system{ 1 };
+	nano::test::system system{ 1 };
 	auto & node = *system.nodes[0];
 	auto attempt = std::make_shared<nano::bootstrap::bootstrap_ascending> (node.shared (), 0, "");
 }
@@ -50,7 +50,7 @@ TEST (bootstrap_ascending, construction)
  */
 TEST (bootstrap_ascending, start_stop)
 {
-	nano::system system{ 1 };
+	nano::test::system system{ 1 };
 	auto & node = *system.nodes[0];
 	auto attempt = node.bootstrap_initiator.bootstrap_ascending ();
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate_ascending, nano::stat::dir::out) > 0);
@@ -62,7 +62,7 @@ TEST (bootstrap_ascending, start_stop)
 TEST (bootstrap_ascending, account_base)
 {
 	nano::node_flags flags;
-	nano::system system{ 1, nano::transport::transport_type::tcp, flags };
+	nano::test::system system{ 1, nano::transport::transport_type::tcp, flags };
 	auto & node0 = *system.nodes[0];
 	nano::state_block_builder builder;
 	auto send1 = builder.make_block ()
@@ -85,7 +85,7 @@ TEST (bootstrap_ascending, account_base)
 TEST (bootstrap_ascending, account_inductive)
 {
 	nano::node_flags flags;
-	nano::system system{ 1, nano::transport::transport_type::tcp, flags };
+	nano::test::system system{ 1, nano::transport::transport_type::tcp, flags };
 	auto & node0 = *system.nodes[0];
 	nano::state_block_builder builder;
 	auto send1 = builder.make_block ()
@@ -122,7 +122,7 @@ TEST (bootstrap_ascending, trace_base)
 {
 	nano::node_flags flags;
 	flags.disable_legacy_bootstrap = true;
-	nano::system system{ 1, nano::transport::transport_type::tcp, flags };
+	nano::test::system system{ 1, nano::transport::transport_type::tcp, flags };
 	auto & node0 = *system.nodes[0];
 	nano::keypair key;
 	nano::state_block_builder builder;
