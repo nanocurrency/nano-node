@@ -11,7 +11,6 @@
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include <boost/regex.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -303,14 +302,41 @@ nano::amount nano::json_handler::decimal_amount_impl ()
 
 	std::string amount_text (request.get<std::string> ("amount"));
 
-	const boost::regex e ("^\\d+(\\.\\d+)?$");
-	if (!regex_match (amount_text, e))
-	{
-		ec = nano::error_common::invalid_amount;
-		return result;
-	}
+	if (amount_text.length () == 0)
+    {
+        ec = nano::error_common::invalid_amount;
+        return result;
+    }
 
-	int dotPosition = amount_text.find (".");
+    if (amount_text.at (0) == '.')
+    {
+        ec = nano::error_common::invalid_amount;
+        return result;
+    }
+
+    int dotPosition = -1;
+
+    for (int i = 0; i < amount_text.length (); i++)
+    {
+        char c = amount_text.at (i);
+
+        if (c == '.')
+        {
+            // Throw an error if a dot was already seen (only 1 dot accepted)
+            if (dotPosition != -1) {
+                ec = nano::error_common::invalid_amount;
+                return result;
+            }
+
+            dotPosition = i;
+        }
+        else if (c < '0' || c > '9')
+        {
+            ec = nano::error_common::invalid_amount;
+            return result;
+        }
+    }
+
 	auto WholeNumberFractionString = amount_text.substr (0, dotPosition);
 
 	if (wholeNumber.decode_dec (WholeNumberFractionString))
