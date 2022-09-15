@@ -656,7 +656,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
   if(NOT Qt6_FOUND)
     find_package(
       Qt5
-      COMPONENTS Core Gui Widgets
+      COMPONENTS Core Gui Widgets ${PLATFORM_QT_PACKAGES}
       REQUIRED)
   endif()
 
