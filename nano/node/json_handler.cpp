@@ -286,8 +286,10 @@ nano::amount nano::json_handler::amount_impl ()
 
 /// <summary>
 /// Converts a Nano value with a maximum of 30 decimals into the corresponding raw value.
-/// Accepted inputs are either digits only, or digits seperated by one dot. Any other format is rejected
-/// Minimum value is 0 and maximum is 340 million
+/// Input validation rules:
+/// 9 characters [0-9] allowed
+/// Optionally followed by up to one '.' character and then 30 characters [0-9]
+/// Max value is 340 million
 /// </summary>
 /// <returns>raw value</returns>
 nano::amount nano::json_handler::decimal_amount_impl ()
@@ -339,6 +341,14 @@ nano::amount nano::json_handler::decimal_amount_impl ()
 	}
 
 	auto WholeNumberFractionString = amount_text.substr (0, dotPosition);
+
+	WholeNumberFractionString.erase (0, WholeNumberFractionString.find_first_not_of ('0')); // remove leading zeros
+
+	if (WholeNumberFractionString.length () > 9)
+	{
+		ec = nano::error_common::invalid_amount_big;
+		return result;
+	}
 
 	if (wholeNumber.decode_dec (WholeNumberFractionString))
 	{

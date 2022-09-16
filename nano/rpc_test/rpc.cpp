@@ -2942,6 +2942,18 @@ TEST (rpc, nano_to_raw_leading_dot)
 	ASSERT_EQ (std::error_code (nano::error_common::invalid_amount).message (), response.get<std::string> ("error"));
 }
 
+TEST (rpc, nano_to_raw_leading_zeros)
+{
+	nano::test::system system;
+	auto node1 = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node1);
+	boost::property_tree::ptree request1;
+	request1.put ("action", "nano_to_raw");
+	request1.put ("amount", "0000001");
+	auto response (wait_response (system, rpc_ctx, request1));
+	ASSERT_EQ (nano::Mxrb_ratio.convert_to<std::string> (), response.get<std::string> ("amount"));
+}
+
 TEST (rpc, nano_to_raw_one_raw)
 {
 	nano::test::system system;
