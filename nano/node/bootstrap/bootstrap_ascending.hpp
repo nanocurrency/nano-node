@@ -98,7 +98,7 @@ namespace bootstrap
 			thread (std::shared_ptr<bootstrap_ascending> bootstrap);
 			/// Wait for there to be space for an additional request
 			bool wait_available_request ();
-			void request_one ();
+			bool request_one ();
 			void run ();
 			std::shared_ptr<thread> shared ();
 			nano::account pick_account ();
