@@ -58,7 +58,7 @@ namespace bootstrap
 		public:
 			connection_pool (nano::node & node);
 			bool operator() (std::shared_ptr<async_tag> tag, std::function<void ()> op);
-			void operator() (socket_channel const & connection);
+			void add (socket_channel const & connection);
 
 		private:
 			nano::node & node;
