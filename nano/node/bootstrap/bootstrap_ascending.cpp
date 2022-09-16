@@ -327,13 +327,14 @@ nano::bootstrap::bootstrap_ascending::bootstrap_ascending (std::shared_ptr<nano:
 	}
 }
 
-void nano::bootstrap::bootstrap_ascending::thread::request_one ()
+bool nano::bootstrap::bootstrap_ascending::thread::request_one ()
 {
 	wait_available_request ();
 	if (bootstrap.stopped)
 	{
-		return;
+		return false;
 	}
+
 	auto this_l = shared ();
 	auto tag = std::make_shared<async_tag> (this_l);
 	auto account = pick_account ();
@@ -348,10 +349,7 @@ void nano::bootstrap::bootstrap_ascending::thread::request_one ()
 		this_l->send (tag, start);
 	});
 	lock.unlock ();
-	if (error)
-	{
-		bootstrap.stop ();
-	}
+	return error;
 }
 
 static int pass_number = 0;
@@ -361,7 +359,11 @@ void nano::bootstrap::bootstrap_ascending::thread::run ()
 	std::cerr << "!! Starting with:" << std::to_string (pass_number++) << std::endl;
 	while (!bootstrap.stopped)
 	{
-		request_one ();
+		auto error = request_one ();
+		if (error)
+		{
+			std::this_thread::sleep_for (10s);
+		}
 	}
 	std::cerr << "!! stopping" << std::endl;
 }
