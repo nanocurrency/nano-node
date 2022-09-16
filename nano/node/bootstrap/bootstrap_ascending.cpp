@@ -241,10 +241,17 @@ void nano::bootstrap::bootstrap_ascending::thread::read_block (std::shared_ptr<a
 			tag->success ();
 			return;
 		}
-		// std::cerr << boost::str (boost::format ("block: %1%\n") % block->hash ().to_string ());
-		this_l->bootstrap.node->block_processor.add (block);
+		if (this_l->bootstrap.node->network_params.work.validate_entry (*block))
+		{
+			// TODO: should we close the socket at this point?
+			this_l->bootstrap.node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
+		}
+		else
+		{
+			this_l->bootstrap.node->block_processor.add (block);
+			++tag->blocks;
+		}
 		this_l->read_block (tag);
-		++tag->blocks;
 	});
 }
 
