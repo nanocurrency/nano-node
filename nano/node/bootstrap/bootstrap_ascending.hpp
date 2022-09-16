@@ -65,6 +65,7 @@ namespace bootstrap
 			std::deque<socket_channel> connections;
 		};
 		using socket_channel = connection_pool::socket_channel;
+		/** This class tracks saccounts various account sets which are shared among the multiple bootstrap threads*/
 		class account_sets
 		{
 		public:
@@ -80,8 +81,13 @@ namespace bootstrap
 
 		private:
 			nano::account random ();
+			// A forwarded account is an account that has recently had a new block inserted and is a more likely candidate for furthur block retrieval
 			std::unordered_set<nano::account> forwarding;
+			// A blocked account is an account that has failed to insert a block because the source block is gapped.
+			// An account is unblocked once it has a block successfully inserted.
 			std::unordered_set<nano::account> blocking;
+			// Tracks the number of requests for additional blocks without a block being successfully returned
+			// Each time a block is inserted to an account, this number is reset.
 			std::map<nano::account, float> backoff;
 			static size_t constexpr backoff_exclusion = 4;
 			std::default_random_engine rng;
@@ -92,6 +98,9 @@ namespace bootstrap
 			*/
 			std::vector<double> probability_transform (std::vector<decltype (backoff)::mapped_type> const & attempts) const;
 		};
+		/** A single thread performing the ascending bootstrap algorithm
+			Each thread tracks the number of outstanding requests over the network that have not yet completed.
+		*/
 		class thread : public std::enable_shared_from_this<thread>
 		{
 		public:
@@ -102,7 +111,9 @@ namespace bootstrap
 			void run ();
 			std::shared_ptr<thread> shared ();
 			nano::account pick_account ();
+			// Send a request for a specific account or hash `start' to `tag' which contains a bootstrap socket.
 			void send (std::shared_ptr<async_tag> tag, nano::hash_or_account const & start);
+			// Reads a block from a specific `tag' / bootstrap socket.
 			void read_block (std::shared_ptr<async_tag> tag);
 
 			std::atomic<int> requests{ 0 };
@@ -112,15 +123,23 @@ namespace bootstrap
 			std::shared_ptr<bootstrap_ascending> bootstrap_ptr;
 			bootstrap_ascending & bootstrap{ *bootstrap_ptr };
 		};
+		/** This class tracks the lifetime of a network request within a bootstrap attempt thread
+			Each async_tag will increment the number of bootstrap requests tracked by a bootstrap_ascending::thread object
+			A shared_ptr is used  for its copy semantics, as is required by callbacks through the boost asio system
+			The tag also tracks success of a specific request. Success is defined by the correct receipt of a stream of blocks, followed by a not_a_block terminator
+		*/
 		class async_tag : public std::enable_shared_from_this<async_tag>
 		{
 		public:
 			async_tag (std::shared_ptr<nano::bootstrap::bootstrap_ascending::thread> bootstrap);
+			// bootstrap_ascending::thread::requests will be decemented when destroyed.
+			// If success () has been called, the socket will be reused, otherwise it will be abandoned therefore destroyed.
 			~async_tag ();
 			void success ();
 			void connection_set (socket_channel const & connection);
 			socket_channel & connection ();
 
+			// Tracks the number of blocks recevied from this request
 			std::atomic<int> blocks{ 0 };
 			std::optional<socket_channel> requeue;
 
