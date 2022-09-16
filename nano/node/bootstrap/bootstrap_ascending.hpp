@@ -41,6 +41,7 @@ namespace bootstrap
 		bool request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &)
 		{
 			std::cerr << '\0';
+			return true;
 		}
 
 	private:
