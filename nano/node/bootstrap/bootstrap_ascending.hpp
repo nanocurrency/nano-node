@@ -81,7 +81,7 @@ namespace bootstrap
 
 		private:
 			nano::account random ();
-			// A forwarded account is an account that has recently had a new block inserted and is a more likely candidate for furthur block retrieval
+			// A forwarded account is an account that has recently had a new block inserted or has been a destination reference and therefore is a more likely candidate for furthur block retrieval
 			std::unordered_set<nano::account> forwarding;
 			// A blocked account is an account that has failed to insert a block because the source block is gapped.
 			// An account is unblocked once it has a block successfully inserted.
