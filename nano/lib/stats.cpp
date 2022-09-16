@@ -695,6 +695,9 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 		case nano::stat::detail::initiate_wallet_lazy:
 			res = "initiate_wallet_lazy";
 			break;
+		case nano::stat::detail::initiate_ascending:
+			res = "initiate_ascending";
+			break;
 		case nano::stat::detail::insufficient_work:
 			res = "insufficient_work";
 			break;
