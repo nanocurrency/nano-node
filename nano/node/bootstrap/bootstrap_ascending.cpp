@@ -12,7 +12,7 @@ nano::bootstrap::bootstrap_ascending::connection_pool::connection_pool (nano::no
 {
 }
 
-void nano::bootstrap::bootstrap_ascending::connection_pool::operator() (socket_channel const & connection)
+void nano::bootstrap::bootstrap_ascending::connection_pool::add (socket_channel const & connection)
 {
 	connections.push_back (connection);
 }
@@ -186,7 +186,7 @@ nano::bootstrap::bootstrap_ascending::async_tag::~async_tag ()
 	if (success_m)
 	{
 		debug_assert (connection_m);
-		bootstrap->bootstrap.pool (*connection_m);
+		bootstrap->bootstrap.pool.add (*connection_m);
 	}
 	bootstrap->bootstrap.condition.notify_all ();
 	// std::cerr << boost::str (boost::format ("Request completed\n"));
