@@ -2,6 +2,7 @@
 #include <nano/lib/config.hpp>
 
 #include <boost/filesystem/path.hpp>
+#include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include <valgrind/valgrind.h>
@@ -321,7 +322,16 @@ int nano::get_env_int_or_default (const char * variable_name, const int default_
 	auto value = nano::get_env (variable_name); // 15 minutes by default
 	if (value)
 	{
-		return boost::lexical_cast<int> (*value);
+		try
+		{
+			return boost::lexical_cast<int> (*value);
+		}
+		catch (...)
+		{
+			// It is unexpected that this exception will be caught, log to cerr the reason.
+			std::cerr << boost::str (boost::format ("Error parsing environment variable: %1% value: %2%") % variable_name % *value);
+			throw;
+		}
 	}
 	return default_value;
 }
