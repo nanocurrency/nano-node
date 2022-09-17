@@ -66,3 +66,5 @@ target_link_libraries(
 
 target_compile_definitions(secure PUBLIC -DQT_NO_KEYWORDS
                                          -DBOOST_ASIO_HAS_STD_ARRAY=1)
+
+include_directories(${CMAKE_SOURCE_DIR}/submodules)

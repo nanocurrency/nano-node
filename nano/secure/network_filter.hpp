@@ -3,8 +3,8 @@
 
 #include <nano/lib/numbers.hpp>
 
-#include <crypto/cryptopp/seckey.h>
-#include <crypto/cryptopp/siphash.h>
+#include <cryptopp/seckey.h>
+#include <cryptopp/siphash.h>
 
 #include <mutex>
 

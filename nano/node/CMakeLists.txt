@@ -253,3 +253,6 @@ target_compile_definitions(
 # This ensures that any changes to Flatbuffers source files will cause a
 # regeneration of any C++ header files.
 add_dependencies(node ipc_flatbuffers_lib)
+
+include_directories(${CMAKE_SOURCE_DIR}/submodules)
+include_directories(${CMAKE_SOURCE_DIR}/submodules/nano-pow-server/deps/cpptoml/include)

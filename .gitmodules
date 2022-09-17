@@ -1,32 +1,32 @@
-[submodule "miniupnp"]
+[submodule "submodules/miniupnp"]
 	path = submodules/miniupnp
 	url = https://github.com/miniupnp/miniupnp.git
-[submodule "lmdb"]
+[submodule "submodules/lmdb"]
 	path = submodules/lmdb
 	url = https://github.com/nanocurrency/lmdb.git
 	branch = lmdb_0_9_23
-[submodule "cryptopp"]
+[submodule "submodules/cryptopp"]
 	path = submodules/cryptopp
 	url = https://github.com/weidai11/cryptopp.git
-[submodule "phc-winner-argon2"]
+[submodule "submodules/phc-winner-argon2"]
 	path = submodules/phc-winner-argon2
 	url = https://github.com/nanocurrency/phc-winner-argon2.git
-[submodule "gtest"]
+[submodule "submodules/gtest"]
 	path = submodules/gtest
 	url = https://github.com/google/googletest.git
-[submodule "cpptoml"]
+[submodule "submodules/cpptoml"]
 	path = submodules/cpptoml
 	url = https://github.com/cryptocode/cpptoml.git
-[submodule "nano-pow-server"]
+[submodule "submodules/nano-pow-server"]
 	path = submodules/nano-pow-server
 	url = https://github.com/nanocurrency/nano-pow-server.git
-[submodule "flatbuffers"]
+[submodule "submodules/flatbuffers"]
 	path = submodules/flatbuffers
 	url = https://github.com/google/flatbuffers.git
-[submodule "rocksdb"]
+[submodule "submodules/rocksdb"]
 	path = submodules/rocksdb
 	url = https://github.com/nanocurrency/rocksdb.git
 	branch = 6.13.3
-[submodule "diskhash"]
+[submodule "submodules/diskhash"]
 	path = submodules/diskhash
 	url = https://github.com/nanocurrency/diskhash.git

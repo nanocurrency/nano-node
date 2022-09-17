@@ -6,7 +6,7 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/transport.hpp>
 
-#include <crypto/cryptopp/words.h>
+#include <cryptopp/words.h>
 
 #include <boost/format.hpp>
 

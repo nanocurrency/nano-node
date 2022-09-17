@@ -400,7 +400,7 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
 endif()
 
 # RocksDB
-include_directories(rocksdb/include)
+include_directories(${CMAKE_SOURCE_DIR}/submodules/rocksdb/include)
 set(USE_RTTI
     ON
     CACHE BOOL "")
@@ -431,7 +431,7 @@ else()
       ON
       CACHE BOOL "" FORCE)
 endif()
-add_subdirectory(rocksdb EXCLUDE_FROM_ALL)
+add_subdirectory(submodules/rocksdb EXCLUDE_FROM_ALL)
 
 include_directories(cpptoml/include)
 add_subdirectory(crypto/ed25519-donna)
@@ -442,7 +442,7 @@ add_subdirectory(nano/ipc_flatbuffers_test)
 set(UPNPC_BUILD_SHARED
     OFF
     CACHE BOOL "")
-add_subdirectory(miniupnp/miniupnpc EXCLUDE_FROM_ALL)
+add_subdirectory(submodules/miniupnp/miniupnpc EXCLUDE_FROM_ALL)
 
 set(BUILD_SHARED
     OFF
@@ -455,7 +455,7 @@ set(USE_INTERMEDIATE_OBJECTS_TARGET
     CACHE BOOL "")
 set(CRYPTOPP_EXTRA "")
 if(WIN32)
-  set(CRYPTOPP_EXTRA crypto/cryptopp/x64dll.asm crypto/cryptopp/x64masm.asm)
+  set(CRYPTOPP_EXTRA submodules/cryptopp/x64dll.asm submodules/cryptopp/x64masm.asm)
   enable_language(ASM)
   enable_language(ASM_MASM)
   # similar to SSE2 settings
@@ -463,8 +463,8 @@ if(WIN32)
 elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64"
        AND (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS))
   set(CRYPTOPP_EXTRA
-      crypto/cryptopp/crc_simd.cpp crypto/cryptopp/gcm_simd.cpp
-      crypto/cryptopp/gf2n_simd.cpp crypto/cryptopp/neon_simd.cpp)
+      submodules/cryptopp/crc_simd.cpp submodules/cryptopp/gcm_simd.cpp
+      submodules/cryptopp/gf2n_simd.cpp submodules/cryptopp/neon_simd.cpp)
   add_definitions(-DCRYPTOPP_NO_CPU_FEATURE_PROBES)
 endif()
 # Some Clang cannot handle mixed asm with positional arguments, where the body
@@ -484,68 +484,68 @@ add_definitions(-DCRYPTOPP_DISABLE_CLMUL)
 set(CRYPTOPP_LIBRARY cryptopp)
 add_library(
   cryptopp
-  crypto/cryptopp/algparam.cpp
-  crypto/cryptopp/allocate.cpp
-  crypto/cryptopp/asn.cpp
-  crypto/cryptopp/basecode.cpp
-  crypto/cryptopp/cpu.cpp
-  crypto/cryptopp/cryptlib.cpp
-  crypto/cryptopp/default.cpp
-  crypto/cryptopp/des.cpp
-  crypto/cryptopp/dessp.cpp
-  crypto/cryptopp/dll.cpp
-  crypto/cryptopp/ec2n.cpp
-  crypto/cryptopp/ecp.cpp
-  crypto/cryptopp/filters.cpp
-  crypto/cryptopp/fips140.cpp
-  crypto/cryptopp/gcm.cpp
-  crypto/cryptopp/gf2n.cpp
-  crypto/cryptopp/gfpcrypt.cpp
-  crypto/cryptopp/hex.cpp
-  crypto/cryptopp/hmac.cpp
-  crypto/cryptopp/hrtimer.cpp
-  crypto/cryptopp/integer.cpp
-  crypto/cryptopp/iterhash.cpp
-  crypto/cryptopp/misc.cpp
-  crypto/cryptopp/modes.cpp
-  crypto/cryptopp/mqueue.cpp
-  crypto/cryptopp/nbtheory.cpp
-  crypto/cryptopp/oaep.cpp
-  crypto/cryptopp/osrng.cpp
-  crypto/cryptopp/pubkey.cpp
-  crypto/cryptopp/queue.cpp
-  crypto/cryptopp/randpool.cpp
-  crypto/cryptopp/rdtables.cpp
-  crypto/cryptopp/rijndael.cpp
-  crypto/cryptopp/rijndael_simd.cpp
-  crypto/cryptopp/rng.cpp
-  crypto/cryptopp/sha.cpp
-  crypto/cryptopp/sha_simd.cpp
-  crypto/cryptopp/simple.cpp
-  crypto/cryptopp/sse_simd.cpp
+  submodules/cryptopp/algparam.cpp
+  submodules/cryptopp/allocate.cpp
+  submodules/cryptopp/asn.cpp
+  submodules/cryptopp/basecode.cpp
+  submodules/cryptopp/cpu.cpp
+  submodules/cryptopp/cryptlib.cpp
+  submodules/cryptopp/default.cpp
+  submodules/cryptopp/des.cpp
+  submodules/cryptopp/dessp.cpp
+  submodules/cryptopp/dll.cpp
+  submodules/cryptopp/ec2n.cpp
+  submodules/cryptopp/ecp.cpp
+  submodules/cryptopp/filters.cpp
+  submodules/cryptopp/fips140.cpp
+  submodules/cryptopp/gcm.cpp
+  submodules/cryptopp/gf2n.cpp
+  submodules/cryptopp/gfpcrypt.cpp
+  submodules/cryptopp/hex.cpp
+  submodules/cryptopp/hmac.cpp
+  submodules/cryptopp/hrtimer.cpp
+  submodules/cryptopp/integer.cpp
+  submodules/cryptopp/iterhash.cpp
+  submodules/cryptopp/misc.cpp
+  submodules/cryptopp/modes.cpp
+  submodules/cryptopp/mqueue.cpp
+  submodules/cryptopp/nbtheory.cpp
+  submodules/cryptopp/oaep.cpp
+  submodules/cryptopp/osrng.cpp
+  submodules/cryptopp/pubkey.cpp
+  submodules/cryptopp/queue.cpp
+  submodules/cryptopp/randpool.cpp
+  submodules/cryptopp/rdtables.cpp
+  submodules/cryptopp/rijndael.cpp
+  submodules/cryptopp/rijndael_simd.cpp
+  submodules/cryptopp/rng.cpp
+  submodules/cryptopp/sha.cpp
+  submodules/cryptopp/sha_simd.cpp
+  submodules/cryptopp/simple.cpp
+  submodules/cryptopp/sse_simd.cpp
   ${CRYPTOPP_EXTRA})
 
 if(WIN32 OR CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
-  set(ARGON_CORE crypto/phc-winner-argon2/src/opt.c)
+  set(ARGON_CORE submodules/phc-winner-argon2/src/opt.c)
 else()
-  set(ARGON_CORE crypto/phc-winner-argon2/src/ref.c)
+  set(ARGON_CORE submodules/phc-winner-argon2/src/ref.c)
 endif()
 
 add_library(
   argon2
-  crypto/phc-winner-argon2/src/argon2.c
-  crypto/phc-winner-argon2/include/argon2.h
-  crypto/phc-winner-argon2/src/core.c
-  crypto/phc-winner-argon2/src/thread.c
-  crypto/phc-winner-argon2/src/encoding.c
+  submodules/phc-winner-argon2/src/argon2.c
+  submodules/phc-winner-argon2/include/argon2.h
+  submodules/phc-winner-argon2/src/core.c
+  submodules/phc-winner-argon2/src/thread.c
+  submodules/phc-winner-argon2/src/encoding.c
   ${ARGON_CORE})
 
-target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/include)
-target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/src)
+target_include_directories(argon2 PUBLIC submodules/phc-winner-argon2/include)
+target_include_directories(argon2 PUBLIC submodules/phc-winner-argon2/src)
 target_include_directories(argon2 PUBLIC crypto/blake2)
 
-add_library(lmdb lmdb/libraries/liblmdb/lmdb.h lmdb/libraries/liblmdb/mdb.c
-                 lmdb/libraries/liblmdb/midl.c)
+add_library(lmdb submodules/lmdb/libraries/liblmdb/lmdb.h submodules/lmdb/libraries/liblmdb/mdb.c
+                 submodules/lmdb/libraries/liblmdb/midl.c)
 
 if(WIN32)
   target_link_libraries(lmdb ntdll)

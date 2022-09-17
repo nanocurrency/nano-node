@@ -9,6 +9,8 @@ target_link_libraries(
   Boost::boost
   ${PLATFORM_LIBS})
 
+include_directories(${CMAKE_SOURCE_DIR}/submodules)
+
 if(NANO_STACKTRACE_BACKTRACE)
   target_link_libraries(nano_node backtrace)
 endif()
@@ -36,3 +38,4 @@ if((NANO_GUI OR RAIBLOCKS_GUI) AND NOT APPLE)
     install(TARGETS nano_node RUNTIME DESTINATION ./bin)
   endif()
 endif()
+
