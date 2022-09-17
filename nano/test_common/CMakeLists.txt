@@ -15,3 +15,7 @@ add_library(
 
 target_link_libraries(test_common node gtest Boost::log_setup Boost::log
                       Boost::boost)
+
+include_directories(${CMAKE_SOURCE_DIR}/submodules)
+include_directories(${CMAKE_SOURCE_DIR}/submodules/gtest/googletest/include)
+include_directories(${CMAKE_SOURCE_DIR}/submodules/lmdb)

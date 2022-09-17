@@ -7,3 +7,6 @@ target_compile_definitions(
   PUBLIC -DACTIVE_NETWORK=${ACTIVE_NETWORK}
   PRIVATE -DTAG_VERSION_STRING=${TAG_VERSION_STRING}
           -DGIT_COMMIT_HASH=${GIT_COMMIT_HASH})
+
+include_directories(${CMAKE_SOURCE_DIR}/submodules)
+include_directories(${CMAKE_SOURCE_DIR}/submodules/gtest/googletest/include)
