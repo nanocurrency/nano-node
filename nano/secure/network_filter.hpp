@@ -3,10 +3,10 @@
 
 #include <nano/lib/numbers.hpp>
 
+#include <mutex>
+
 #include <cryptopp/seckey.h>
 #include <cryptopp/siphash.h>
-
-#include <mutex>
 
 namespace nano
 {

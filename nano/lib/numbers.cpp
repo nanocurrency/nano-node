@@ -5,10 +5,9 @@
 #include <nano/lib/utility.hpp>
 #include <nano/secure/common.hpp>
 
+#include <crypto/ed25519-donna/ed25519.h>
 #include <cryptopp/aes.h>
 #include <cryptopp/modes.h>
-
-#include <crypto/ed25519-donna/ed25519.h>
 
 namespace
 {

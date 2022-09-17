@@ -5,12 +5,12 @@
 #include <nano/lib/threading.hpp>
 #include <nano/secure/common.hpp>
 
-#include <cryptopp/words.h>
-
 #include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <bitset>
+
+#include <cryptopp/words.h>
 
 /** Compare blocks, first by type, then content. This is an optimization over dynamic_cast, which is very slow on some platforms. */
 namespace
