@@ -38,4 +38,3 @@ if((NANO_GUI OR RAIBLOCKS_GUI) AND NOT APPLE)
     install(TARGETS nano_node RUNTIME DESTINATION ./bin)
   endif()
 endif()
-

@@ -455,7 +455,8 @@ set(USE_INTERMEDIATE_OBJECTS_TARGET
     CACHE BOOL "")
 set(CRYPTOPP_EXTRA "")
 if(WIN32)
-  set(CRYPTOPP_EXTRA submodules/cryptopp/x64dll.asm submodules/cryptopp/x64masm.asm)
+  set(CRYPTOPP_EXTRA submodules/cryptopp/x64dll.asm
+                     submodules/cryptopp/x64masm.asm)
   enable_language(ASM)
   enable_language(ASM_MASM)
   # similar to SSE2 settings
@@ -544,8 +545,11 @@ target_include_directories(argon2 PUBLIC submodules/phc-winner-argon2/include)
 target_include_directories(argon2 PUBLIC submodules/phc-winner-argon2/src)
 target_include_directories(argon2 PUBLIC crypto/blake2)
 
-add_library(lmdb submodules/lmdb/libraries/liblmdb/lmdb.h submodules/lmdb/libraries/liblmdb/mdb.c
-                 submodules/lmdb/libraries/liblmdb/midl.c)
+add_library(
+  lmdb
+  submodules/lmdb/libraries/liblmdb/lmdb.h
+  submodules/lmdb/libraries/liblmdb/mdb.c
+  submodules/lmdb/libraries/liblmdb/midl.c)
 
 if(WIN32)
   target_link_libraries(lmdb ntdll)
