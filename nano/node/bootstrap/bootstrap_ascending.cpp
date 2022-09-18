@@ -241,7 +241,13 @@ void nano::bootstrap::bootstrap_ascending::thread::read_block (std::shared_ptr<a
 			tag->success ();
 			return;
 		}
-		if (this_l->bootstrap.node->network_params.work.validate_entry (*block))
+		// FIXME: temporary measure to get the ascending bootstrapper working on the test network
+		if (this_l->bootstrap.node->network_params.network.is_test_network() && block->hash() == nano::block_hash("B1D60C0B886B57401EF5A1DAA04340E53726AA6F4D706C085706F31BBD100CEE"))
+		{
+			// skip test net genesis because it has a bad pow
+			std::cerr << "skipping test genesis block\n";
+		}
+		else if (this_l->bootstrap.node->network_params.work.validate_entry (*block))
 		{
 			// TODO: should we close the socket at this point?
 			this_l->bootstrap.node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
