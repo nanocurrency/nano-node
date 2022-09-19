@@ -672,15 +672,16 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 		channel_a->set_network_version (header.version_using);
 		auto node_id (message.response->first);
 		bool process (!node_l->network.syn_cookies.validate (endpoint_a, node_id, message.response->second) && node_id != node_l->node_id.pub);
-		if (process)
+		if (!process)
 		{
-			/* If node ID is known, don't establish new connection
+			return;
+		}
+		/* If node ID is known, don't establish new connection
 Exception: temporary channels from bootstrap_server */
-			auto existing_channel (node_l->network.tcp_channels.find_node_id (node_id));
-			if (existing_channel)
-			{
-				process = existing_channel->temporary;
-			}
+		auto existing_channel (node_l->network.tcp_channels.find_node_id (node_id));
+		if (existing_channel)
+		{
+			process = existing_channel->temporary;
 		}
 		if (process)
 		{
