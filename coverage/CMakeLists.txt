@@ -26,10 +26,10 @@ add_custom_target(
   COMMAND echo "REMOVING FLUFF FROM REPORT"
   COMMAND
     ${LCOV_PATH} --remove lcov.info.raw '/usr/*' '/tmp/*'
-    '${PROJECT_SOURCE_DIR}/cpptoml/*' '${PROJECT_SOURCE_DIR}/crypto/*'
-    '${PROJECT_SOURCE_DIR}/flatbuffers/*' '${PROJECT_SOURCE_DIR}/gtest/*'
-    '${PROJECT_SOURCE_DIR}/rocksdb/*' '${PROJECT_SOURCE_DIR}/valgrind/*'
-    '${PROJECT_SOURCE_DIR}/nano/core_test/*' '${PROJECT_SOURCE_DIR}/diskhash/*'
+    '${PROJECT_SOURCE_DIR}/submodules/cpptoml/*' '${PROJECT_SOURCE_DIR}/crypto/*'
+    '${PROJECT_SOURCE_DIR}/submodules/flatbuffers/*' '${PROJECT_SOURCE_DIR}/submodules/gtest/*'
+    '${PROJECT_SOURCE_DIR}/submodules/rocksdb/*' '${PROJECT_SOURCE_DIR}/valgrind/*'
+    '${PROJECT_SOURCE_DIR}/nano/core_test/*' '${PROJECT_SOURCE_DIR}/submodules/diskhash/*'
     '${PROJECT_SOURCE_DIR}/nano/load_test/*'
     '${PROJECT_SOURCE_DIR}/nano/ipc_flatbuffers_test/*'
     '${PROJECT_SOURCE_DIR}/nano/ipc_flatbuffers_lib/*'
