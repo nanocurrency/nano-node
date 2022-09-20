@@ -707,22 +707,24 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 				return;
 			}
 			// Insert new node ID connection
-			if (auto socket_l = channel_a->socket.lock ())
+			auto socket_l = channel_a->socket.lock ();
+			if (!socket_l)
 			{
-				channel_a->set_last_packet_sent (std::chrono::steady_clock::now ());
-				auto response_server = std::make_shared<nano::bootstrap_server> (socket_l, node_l);
-				node_l->network.tcp_channels.insert (channel_a, socket_l, response_server);
-				// Listen for possible responses
-				response_server->socket->type_set (nano::socket::type_t::realtime_response_server);
-				response_server->remote_node_id = channel_a->get_node_id ();
-				response_server->start ();
+				return;
+			}
+			channel_a->set_last_packet_sent (std::chrono::steady_clock::now ());
+			auto response_server = std::make_shared<nano::bootstrap_server> (socket_l, node_l);
+			node_l->network.tcp_channels.insert (channel_a, socket_l, response_server);
+			// Listen for possible responses
+			response_server->socket->type_set (nano::socket::type_t::realtime_response_server);
+			response_server->remote_node_id = channel_a->get_node_id ();
+			response_server->start ();
 
-				if (!node_l->flags.disable_initial_telemetry_requests)
-				{
-					node_l->telemetry->get_metrics_single_peer_async (channel_a, [] (nano::telemetry_data_response const &) {
-						// Intentionally empty, starts the telemetry request cycle to more quickly disconnect from invalid peers
-					});
-				}
+			if (!node_l->flags.disable_initial_telemetry_requests)
+			{
+				node_l->telemetry->get_metrics_single_peer_async (channel_a, [] (nano::telemetry_data_response const &) {
+					// Intentionally empty, starts the telemetry request cycle to more quickly disconnect from invalid peers
+				});
 			}
 		});
 	});
