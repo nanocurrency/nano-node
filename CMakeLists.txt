@@ -660,6 +660,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
   find_package(Qt5 COMPONENTS Core Gui Widgets Test ${PLATFORM_QT_PACKAGES})
 
   add_library(qt nano/qt/qt.cpp nano/qt/qt.hpp)
+  include_directories(${CMAKE_SOURCE_DIR}/submodules)
 
   target_link_libraries(
     qt
