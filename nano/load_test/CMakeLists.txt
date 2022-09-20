@@ -9,3 +9,6 @@ target_link_libraries(
   Boost::boost
   Boost::coroutine
   Boost::context)
+
+include_directories(${CMAKE_SOURCE_DIR}/submodules)
+include_directories(${CMAKE_SOURCE_DIR}/submodules/cpptoml/include)
