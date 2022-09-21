@@ -9,7 +9,7 @@ template <typename T>
 void parallel_traversal (std::function<void (T const &, T const &, bool const)> const & action)
 {
 	// Between 10 and 40 threads, scales well even in low power systems as long as actions are I/O bound
-	unsigned const thread_count = std::max (10u, std::min (40u, 10 * std::thread::hardware_concurrency ()));
+	unsigned const thread_count = std::max (10u, std::min (40u, 10 * nano::hardware_concurrency ()));
 	T const value_max{ std::numeric_limits<T>::max () };
 	T const split = value_max / thread_count;
 	std::vector<std::thread> threads;

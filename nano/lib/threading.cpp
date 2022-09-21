@@ -308,3 +308,15 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (th
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "count", thread_pool.num_queued_tasks (), sizeof (std::function<void ()>) }));
 	return composite;
 }
+
+unsigned int nano::hardware_concurrency ()
+{
+	// Try to read overridden value from environment variable
+	static int value = nano::get_env_int_or_default ("NANO_HARDWARE_CONCURRENCY", 0);
+	if (value <= 0)
+	{
+		// Not present or invalid, use default
+		return std::thread::hardware_concurrency ();
+	}
+	return value;
+}

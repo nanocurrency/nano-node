@@ -201,4 +201,9 @@ private:
 };
 
 std::unique_ptr<nano::container_info_component> collect_container_info (thread_pool & thread_pool, std::string const & name);
+
+/*
+ * Number of available logical processor cores. Might be overridden by setting `NANO_HARDWARE_CONCURRENCY` environment variable
+ */
+unsigned int hardware_concurrency ();
 }
