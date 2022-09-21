@@ -338,15 +338,6 @@ void nano::active_transactions::request_loop ()
 
 	while (!stopped && !node.flags.disable_request_loop)
 	{
-		// If many votes are queued, ensure at least the currently active ones finish processing
-		lock.unlock ();
-		condition.notify_all ();
-		if (node.vote_processor.half_full ())
-		{
-			node.vote_processor.flush ();
-		}
-		lock.lock ();
-
 		auto const stamp_l = std::chrono::steady_clock::now ();
 
 		request_confirm (lock);
