@@ -319,7 +319,7 @@ std::string nano::get_env_or_default (char const * variable_name, std::string de
 
 int nano::get_env_int_or_default (const char * variable_name, const int default_value)
 {
-	auto value = nano::get_env (variable_name); // 15 minutes by default
+	auto value = nano::get_env (variable_name);
 	if (value)
 	{
 		try
