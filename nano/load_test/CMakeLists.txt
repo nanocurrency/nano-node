@@ -12,3 +12,4 @@ target_link_libraries(
 
 include_directories(${CMAKE_SOURCE_DIR}/submodules)
 include_directories(${CMAKE_SOURCE_DIR}/submodules/cpptoml/include)
+include_directories(${CMAKE_SOURCE_DIR}/submodules/gtest/googletest/include)
