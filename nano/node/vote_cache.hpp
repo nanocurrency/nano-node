@@ -142,7 +142,7 @@ private:
 	const std::size_t max_size;
 
 	// clang-format off
-	class tag_random_access {};
+	class tag_sequenced {};
 	class tag_tally {};
 	class tag_hash {};
 	// clang-format on
@@ -150,7 +150,7 @@ private:
 	// clang-format off
 	using ordered_cache = boost::multi_index_container<entry,
 	mi::indexed_by<
-		mi::random_access<mi::tag<tag_random_access>>,
+		mi::sequenced<mi::tag<tag_sequenced>>,
 		mi::hashed_unique<mi::tag<tag_hash>,
 			mi::member<entry, nano::block_hash, &entry::hash>>>>;
 	// clang-format on
@@ -159,7 +159,7 @@ private:
 	// clang-format off
 	using ordered_queue = boost::multi_index_container<queue_entry,
 	mi::indexed_by<
-		mi::random_access<mi::tag<tag_random_access>>,
+		mi::sequenced<mi::tag<tag_sequenced>>,
 		mi::ordered_non_unique<mi::tag<tag_tally>,
 			mi::member<queue_entry, nano::uint128_t, &queue_entry::tally>>,
 		mi::hashed_unique<mi::tag<tag_hash>,
