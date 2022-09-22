@@ -40,9 +40,10 @@ void nano::test::wait_peer_connections (nano::test::system & system_a)
 
 bool nano::test::process (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
 {
+	auto const transaction = node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending });
 	for (auto & block : blocks)
 	{
-		auto result = node.process (*block);
+		auto result = node.process (transaction, *block);
 		if (result.code != nano::process_result::progress)
 		{
 			return false;

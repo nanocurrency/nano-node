@@ -640,11 +640,15 @@ void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 	block_processor.add (incoming);
 }
 
-nano::process_return nano::node::process (nano::block & block_a)
+[[nodiscard]] nano::process_return nano::node::process (nano::write_transaction const & transaction, nano::block & block)
 {
-	auto const transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
-	auto result (ledger.process (transaction, block_a));
-	return result;
+	return ledger.process (transaction, block);
+}
+
+nano::process_return nano::node::process (nano::block & block)
+{
+	auto const transaction = store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending });
+	return process (transaction, block);
 }
 
 nano::process_return nano::node::process_local (std::shared_ptr<nano::block> const & block_a)

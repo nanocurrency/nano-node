@@ -96,13 +96,18 @@ std::vector<std::shared_ptr<nano::block>> setup_blocks (nano::test::system & sys
 
 		sends.push_back (send);
 		receives.push_back (open);
-
-		EXPECT_TRUE (nano::test::process (node, { send, open }));
 	}
+
+	std::cout << "setup_blocks confirming" << std::endl;
+
+	EXPECT_TRUE (nano::test::process (node, sends));
+	EXPECT_TRUE (nano::test::process (node, receives));
 
 	// Confirm whole genesis chain at once
 	EXPECT_TRUE (nano::test::confirm (node, { sends.back () }));
 	EXPECT_TIMELY (5s, nano::test::confirmed (node, { sends }));
+
+	std::cout << "setup_blocks done" << std::endl;
 
 	return receives;
 }
@@ -127,13 +132,12 @@ TEST (vote_cache, perf_singlethreaded)
 {
 	nano::test::system system;
 	nano::node_flags flags;
-	flags.inactive_votes_cache_size = 5000; // Keep it below block count size so it is forced to constantly evict stale entries
 	nano::node_config config = system.default_config ();
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (config, flags);
 
 	const int rep_count = 50;
-	const int block_count = 20000;
+	const int block_count = 1024 * 128 * 2; // 2x the inactive vote cache size
 	const int vote_count = 100000;
 	const int single_vote_size = 7;
 	const int single_vote_reps = 7;
@@ -187,14 +191,13 @@ TEST (vote_cache, perf_multithreaded)
 {
 	nano::test::system system;
 	nano::node_flags flags;
-	flags.inactive_votes_cache_size = 5000; // Keep it below block count size so it is forced to constantly evict stale entries
 	nano::node_config config = system.default_config ();
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (config, flags);
 
 	const int thread_count = 12;
 	const int rep_count = 50;
-	const int block_count = 20000;
+	const int block_count = 1024 * 128 * 2; // 2x the inactive vote cache size
 	const int vote_count = 200000 / thread_count;
 	const int single_vote_size = 7;
 	const int single_vote_reps = 7;

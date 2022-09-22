@@ -200,6 +200,7 @@ public: // Testing convenience functions
 		Transaction is comitted before function return
 	 */
 	[[nodiscard]] nano::process_return process (nano::block & block);
+	[[nodiscard]] nano::process_return process (nano::write_transaction const &, nano::block & block);
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
 
