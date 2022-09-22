@@ -141,7 +141,6 @@ namespace bootstrap
 
 			// Tracks the number of blocks recevied from this request
 			std::atomic<int> blocks{ 0 };
-			std::optional<socket_channel> requeue;
 
 		private:
 			bool success_m{ false };
