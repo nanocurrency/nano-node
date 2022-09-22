@@ -266,7 +266,10 @@ nano::account nano::bootstrap::bootstrap_ascending::thread::pick_account ()
 	nano::lock_guard<nano::mutex> lock{ bootstrap.mutex };
 	return bootstrap.accounts.next ();
 }
-
+/** Inspects a block that has been processed by the block processor
+- Marks an account as blocked if the result code is gap source as there is no reason request additional blocks for this account until the dependency is resolved
+- Marks an account as forwarded if it has been recently referenced by a block that has been inserted.
+ */
 void nano::bootstrap::bootstrap_ascending::inspect (nano::transaction const & tx, nano::process_return const & result, nano::block const & block)
 {
 	switch (result.code)
@@ -276,13 +279,19 @@ void nano::bootstrap::bootstrap_ascending::inspect (nano::transaction const & tx
 			auto account = node->ledger.account (tx, block.hash ());
 			auto is_send = node->ledger.is_send (tx, block);
 			nano::lock_guard<nano::mutex> lock{ mutex };
+			// If we've inserted any block in to an account, unmark it as blocked
 			accounts.unblock (account);
+			// Forward and initialize backoff value with 0.0 for the current account
+			// 0.0 has the highest priority
 			accounts.prioritize (account, 0.0f);
 			if (is_send)
 			{
+				// Initialize with value of 1.0 a value of lower priority than an account itselt
+				// This is the same priority as if it had already already made 1 attempt.
 				auto const send_factor = 1.0f;
 				switch (block.type ())
 				{
+					// Forward and initialize backoff for the referenced account
 					case nano::block_type::send:
 						accounts.prioritize (block.destination (), send_factor);
 						break;
@@ -300,6 +309,7 @@ void nano::bootstrap::bootstrap_ascending::inspect (nano::transaction const & tx
 		{
 			auto account = block.previous ().is_zero () ? block.account () : node->ledger.account (tx, block.previous ());
 			nano::lock_guard<nano::mutex> lock{ mutex };
+			// Mark account as blocked because the result is gap-source
 			accounts.block (account);
 			break;
 		}
