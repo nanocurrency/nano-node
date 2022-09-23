@@ -15,6 +15,7 @@ nano::bootstrap::bootstrap_ascending::connection_pool::connection_pool (nano::no
 
 void nano::bootstrap::bootstrap_ascending::connection_pool::add (socket_channel const & connection)
 {
+	bootstrap.debug_log (boost::str (boost::format ("connection push back %1%\n") % connection.first->remote_endpoint ()));
 	connections.push_back (connection);
 }
 
@@ -27,7 +28,7 @@ bool nano::bootstrap::bootstrap_ascending::connection_pool::operator() (std::sha
 		connections.pop_front ();
 		op ();
 		bootstrap.debug_log (boost::str (boost::format ("popped connection %1%, connections.size=%2%")
-		% tag->connection ().second->to_string () % connections.size ()));
+		% tag->connection ().first->remote_endpoint () % connections.size ()));
 		return false;
 	}
 
@@ -195,12 +196,19 @@ nano::bootstrap::bootstrap_ascending::async_tag::~async_tag ()
 		debug_assert (connection_m);
 		bootstrap->bootstrap.pool.add (*connection_m);
 		bootstrap->bootstrap.debug_log (boost::str (boost::format ("Request completed successfully: peer=%1% blocks=%2%")
-		% connection_m->first % blocks));
+		% connection_m->first->remote_endpoint () % blocks));
 	}
 	else
 	{
-		bootstrap->bootstrap.debug_log (boost::str (boost::format ("Request completed abnormally: peer=%1% blocks=%2%")
-		% connection_m->first % blocks));
+		if (connection_m)
+		{
+			bootstrap->bootstrap.debug_log (boost::str (boost::format ("Request completed abnormally: peer=%1% blocks=%2%")
+			% connection_m->first->remote_endpoint () % blocks));
+		}
+		else
+		{
+			bootstrap->bootstrap.debug_log ("Request abandoned without trying connecting to a peer");
+		}
 	}
 	bootstrap->bootstrap.condition.notify_all ();
 }
@@ -252,8 +260,8 @@ void nano::bootstrap::bootstrap_ascending::thread::read_block (std::shared_ptr<a
 	deserializer->read (*socket, [this_l = shared (), tag] (boost::system::error_code ec, std::shared_ptr<nano::block> block) {
 		if (block == nullptr)
 		{
-			this_l->bootstrap.debug_log (boost::str (boost::format ("graceful stream end: %1%")
-			% tag->connection ().first));
+			this_l->bootstrap.debug_log (boost::str (boost::format ("graceful stream end: %1% blocks=%2%")
+			% tag->connection ().first->remote_endpoint () % tag->blocks));
 			tag->success ();
 			return;
 		}
@@ -268,12 +276,12 @@ void nano::bootstrap::bootstrap_ascending::thread::read_block (std::shared_ptr<a
 			// TODO: should we close the socket at this point?
 			this_l->bootstrap.node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
 			this_l->bootstrap.debug_log (boost::str (boost::format ("bad block from peer %1%: hash=%2% %3%")
-			% tag->connection ().first % block->hash ().to_string () % block->to_json ()));
+			% tag->connection ().first->remote_endpoint () % block->hash ().to_string () % block->to_json ()));
 		}
 		else
 		{
 			this_l->bootstrap.debug_log (boost::str (boost::format ("Read block from peer %1%: hash=%2% %3%")
-			% tag->connection ().first % block->hash ().to_string () % block->to_json ()));
+			% tag->connection ().first->remote_endpoint () % block->hash ().to_string () % block->to_json ()));
 			this_l->bootstrap.node->block_processor.add (block);
 			++tag->blocks;
 		}
