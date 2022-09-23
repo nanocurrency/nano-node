@@ -174,6 +174,7 @@ bool nano::bootstrap::bootstrap_ascending::account_sets::blocked (nano::account 
 nano::bootstrap::bootstrap_ascending::async_tag::async_tag (std::shared_ptr<nano::bootstrap::bootstrap_ascending::thread> bootstrap) :
 	bootstrap{ bootstrap }
 {
+	// FIXME: the lifetime of a request should not be allowed to be infinite, it should be bounded
 	nano::lock_guard<nano::mutex> lock{ bootstrap->bootstrap.mutex };
 	++bootstrap->requests;
 	bootstrap->bootstrap.debug_log (boost::str (boost::format ("Request started requests=%1%")
