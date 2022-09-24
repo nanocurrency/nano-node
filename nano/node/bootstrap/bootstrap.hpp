@@ -100,7 +100,6 @@ public:
 	void bootstrap (bool force = false, std::string id_a = "", uint32_t const frontiers_age_a = std::numeric_limits<uint32_t>::max (), nano::account const & start_account_a = nano::account{});
 	bool bootstrap_lazy (nano::hash_or_account const &, bool force = false, bool confirmed = true, std::string id_a = "");
 	void bootstrap_wallet (std::deque<nano::account> &);
-	std::shared_ptr<nano::bootstrap::bootstrap_ascending> bootstrap_ascending ();
 	void run_bootstrap ();
 	void lazy_requeue (nano::block_hash const &, nano::block_hash const &);
 	void notify_listeners (bool);

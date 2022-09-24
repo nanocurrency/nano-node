@@ -66,7 +66,7 @@ TEST (bootstrap_ascending, profile)
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
 
-	client->bootstrap_initiator.bootstrap_ascending ();
+	//client->bootstrap_initiator.bootstrap_ascending ();
 	//	client->bootstrap_initiator.bootstrap ();
 
 	std::cerr << boost::str (boost::format ("Server: %1%, client: %2%\n") % server->network.port.load () % client->network.port.load ());

@@ -180,7 +180,8 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	wallets (wallets_store.init_error (), *this),
 	backlog{ nano::nodeconfig_to_backlog_population_config (config), store, scheduler },
 	startup_time (std::chrono::steady_clock::now ()),
-	node_seq (seq)
+	node_seq (seq),
+	ascendboot (*this)
 {
 	unchecked.satisfied = [this] (nano::unchecked_info const & info) {
 		this->block_processor.add (info);
@@ -741,6 +742,13 @@ void nano::node::start ()
 	wallets.start ();
 	backlog.start ();
 	hinting.start ();
+
+	// TODO: use a flag and command line arg rather than a env variable for disabling ascending bootstrap
+	if (!std::getenv ("NANO_DISABLE_BOOTSTRAP_ASCENDING") && !flags.disable_ongoing_bootstrap)
+	{
+		ascendboot.init ();
+		ascendboot.start ();
+	}
 }
 
 void nano::node::stop ()
@@ -750,6 +758,7 @@ void nano::node::stop ()
 		logger.always_log ("Node stopping");
 		// Cancels ongoing work generation tasks, which may be blocking other threads
 		// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
+		ascendboot.stop ();
 		distributed_work.stop ();
 		unchecked.stop ();
 		block_processor.stop ();

@@ -13,39 +13,24 @@ namespace transport
 }
 namespace bootstrap
 {
-	class bootstrap_ascending : public nano::bootstrap_attempt
+	class bootstrap_ascending
 	{
 	public:
-		explicit bootstrap_ascending (std::shared_ptr<nano::node> const & node_a, uint64_t incremental_id_a, std::string id_a);
+		explicit bootstrap_ascending (nano::node & node_a);
+		virtual ~bootstrap_ascending ();
 
-		void run () override;
-		void get_information (boost::property_tree::ptree &) override;
-
-		explicit bootstrap_ascending (std::shared_ptr<nano::node> const & node_a, uint64_t const incremental_id_a, std::string const & id_a, uint32_t const frontiers_age_a, nano::account const & start_account_a) :
-			bootstrap_ascending{ node_a, incremental_id_a, id_a }
-		{
-			std::cerr << '\0';
-		}
-		void add_frontier (nano::pull_info const &)
-		{
-			std::cerr << '\0';
-		}
-		void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &)
-		{
-			std::cerr << '\0';
-		}
-		void set_start_account (nano::account const &)
-		{
-			std::cerr << '\0';
-		}
-		bool request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &)
-		{
-			std::cerr << '\0';
-			return true;
-		}
+		void init ();
+		void start ();
+		void stop ();
+		void run ();
+		void get_information (boost::property_tree::ptree &);
 
 	private:
-		std::shared_ptr<nano::bootstrap::bootstrap_ascending> shared ();
+		nano::node & node;
+		bool stopped;
+		nano::condition_variable condition;
+		mutable nano::mutex mutex;
+		std::thread main_thread;
 		void debug_log (const std::string &) const;
 		// void dump_miss_histogram ();
 
@@ -119,7 +104,7 @@ namespace bootstrap
 		class thread : public std::enable_shared_from_this<thread>
 		{
 		public:
-			thread (std::shared_ptr<bootstrap_ascending> bootstrap);
+			thread (bootstrap_ascending & bootstrap);
 			/// Wait for there to be space for an additional request
 			bool wait_available_request ();
 			bool request_one ();
@@ -134,9 +119,8 @@ namespace bootstrap
 			std::atomic<int> requests{ 0 };
 			static constexpr int requests_max = 1;
 
-		public: // Convinience reference rather than internally using a pointer
-			std::shared_ptr<bootstrap_ascending> bootstrap_ptr;
-			bootstrap_ascending & bootstrap{ *bootstrap_ptr };
+		public:
+			bootstrap_ascending & bootstrap;
 		};
 
 		/** This class tracks the lifetime of a network request within a bootstrap attempt thread
@@ -164,7 +148,6 @@ namespace bootstrap
 			std::shared_ptr<bootstrap_ascending::thread> bootstrap;
 		};
 
-		void request_one ();
 		bool blocked (nano::account const & account);
 		void inspect (nano::transaction const & tx, nano::process_return const & result, nano::block const & block);
 		void dump_stats ();

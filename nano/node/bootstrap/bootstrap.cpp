@@ -129,17 +129,6 @@ void nano::bootstrap_initiator::bootstrap_wallet (std::deque<nano::account> & ac
 	condition.notify_all ();
 }
 
-std::shared_ptr<nano::bootstrap::bootstrap_ascending> nano::bootstrap_initiator::bootstrap_ascending ()
-{
-	node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_ascending, nano::stat::dir::out);
-	nano::lock_guard<nano::mutex> lock (mutex);
-	auto attempt = std::make_shared<nano::bootstrap::bootstrap_ascending> (node.shared (), attempts.incremental++, "");
-	attempts_list.push_back (attempt);
-	attempts.add (attempt);
-	condition.notify_all ();
-	return attempt;
-}
-
 void nano::bootstrap_initiator::run_bootstrap ()
 {
 	nano::unique_lock<nano::mutex> lock (mutex);

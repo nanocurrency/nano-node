@@ -1871,8 +1871,8 @@ void nano::json_handler::bootstrap_lazy ()
 
 void nano::json_handler::bootstrap_ascending ()
 {
-	node.bootstrap_initiator.bootstrap_ascending ();
-	response_l.put ("success", "");
+	//node.bootstrap_initiator.bootstrap_ascending ();
+	response_l.put ("not implemented", "");
 	response_errors ();
 }
 

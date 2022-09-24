@@ -46,6 +46,7 @@ namespace thread_role
 		backlog_population,
 		election_hinting,
 		ascending_bootstrap,
+		ascending_bootstrap_main,
 	};
 
 	/*

@@ -53,7 +53,7 @@ TEST (bootstrap_ascending, construction)
 {
 	nano::test::system system{ 1 };
 	auto & node = *system.nodes[0];
-	auto attempt = std::make_shared<nano::bootstrap::bootstrap_ascending> (node.shared (), 0, "");
+	auto ascending = std::make_shared<nano::bootstrap::bootstrap_ascending> (node);
 }
 
 /**
@@ -61,9 +61,8 @@ TEST (bootstrap_ascending, construction)
  */
 TEST (bootstrap_ascending, start_stop)
 {
-	nano::test::system system{ 1 };
+	nano::test::system system{ 2 };
 	auto & node = *system.nodes[0];
-	auto attempt = node.bootstrap_initiator.bootstrap_ascending ();
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate_ascending, nano::stat::dir::out) > 0);
 }
 
