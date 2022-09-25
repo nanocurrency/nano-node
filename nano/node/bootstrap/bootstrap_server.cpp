@@ -263,7 +263,11 @@ bool nano::bootstrap_server::process_message (std::unique_ptr<nano::message> mes
 			if (allow_bootstrap)
 			{
 				// Switch to bootstrap connection mode and handle message in subsequent bootstrap visitor
-				to_bootstrap_connection ();
+				if (!to_bootstrap_connection ())
+				{
+					stop ();
+					return false;
+				}
 			}
 			else
 			{
@@ -288,7 +292,7 @@ bool nano::bootstrap_server::process_message (std::unique_ptr<nano::message> mes
 		}
 		return true;
 	}
-	// It is possible for server to switch to bootstrap mode immediately after processing handshake, thus no `else if`
+	// the server will switch to bootstrap mode immediately after processing the first bootstrap message, thus no `else if`
 	if (is_bootstrap_connection ())
 	{
 		bootstrap_message_visitor bootstrap_visitor{ shared_from_this () };
