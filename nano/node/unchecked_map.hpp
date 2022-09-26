@@ -7,6 +7,7 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
+#include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
 
 #include <atomic>
@@ -24,16 +25,10 @@ class unchecked_key;
 class write_transaction;
 class unchecked_map
 {
-	class tag_random_access
-	{
-	};
-	class tag_root
-	{
-	};
-
 public:
 	unchecked_map (nano::store & store, bool const & do_delete);
 	~unchecked_map ();
+
 	void put (nano::hash_or_account const & dependency, nano::unchecked_info const & info);
 	void for_each (
 	nano::transaction const & transaction, std::function<void (nano::unchecked_key const &, nano::unchecked_info const &)> action, std::function<bool ()> predicate = [] () { return true; });
@@ -90,14 +85,19 @@ private: // In memory store
 		nano::unchecked_key key;
 		nano::unchecked_info info;
 	};
+
 	// clang-format off
+	class tag_sequenced {};
+	class tag_root {};
+
 	using ordered_unchecked = boost::multi_index_container<entry,
 		mi::indexed_by<
-			mi::random_access<mi::tag<tag_random_access>>,
+			mi::random_access<mi::tag<tag_sequenced>>,
 			mi::ordered_unique<mi::tag<tag_root>,
 				mi::member<entry, nano::unchecked_key, &entry::key>>>>;
 	// clang-format on
 	std::unique_ptr<ordered_unchecked> entries;
+
 	mutable std::recursive_mutex entries_mutex;
 };
 }
