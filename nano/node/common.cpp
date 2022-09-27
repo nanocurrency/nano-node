@@ -696,6 +696,19 @@ void nano::keepalive::serialize (nano::stream & stream_a) const
 	}
 }
 
+std::string nano::keepalive::to_string ()
+{
+	std::string out_string = header.to_string () + "\n";
+
+	for (auto peer (peers.begin ()), j (peers.end ()); peer != j; ++peer)
+	{
+		out_string += peer->address ().to_string () + ":" + std::to_string (peer->port ()) + "\n";
+	}
+
+	return out_string;
+}
+
+
 bool nano::keepalive::deserialize (nano::stream & stream_a)
 {
 	debug_assert (header.type == nano::message_type::keepalive);
