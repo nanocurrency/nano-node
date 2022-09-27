@@ -918,6 +918,21 @@ std::size_t nano::confirm_req::size (nano::block_type type_a, std::size_t count)
 	return result;
 }
 
+std::string nano::confirm_req::to_string () const
+{
+	std::stringstream stream;
+
+	stream << header.to_string () + "\n";
+
+	for (auto roots_hash = roots_hashes.begin (), end = roots_hashes.end (); roots_hash != end; ++roots_hash)
+	{
+		stream << "Pair: " + roots_hash->first.to_string () + " | ";
+		stream << roots_hash->second.to_string () + "\n";
+	}
+
+	return stream.str ();
+}
+
 nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::vote_uniquer * uniquer_a) :
 	message (header_a),
 	vote (nano::make_shared<nano::vote> (error_a, stream_a))
@@ -1016,8 +1031,8 @@ std::string nano::frontier_req::to_string () const
 	std::stringstream stream;
 
 	stream << "Start account: " + start.to_string ();
-	stream << "\nMaximum age of account: " + age;
-	stream << "\nMaximum number of accounts to include: " + count;
+	stream << " | Maximum age of account: " + age;
+	stream << " | Maximum number of accounts to include: " + count;
 
 	return stream.str ();
 }

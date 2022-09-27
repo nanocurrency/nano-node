@@ -342,6 +342,7 @@ public:
 	std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes;
 	std::string roots_string () const;
 	static std::size_t size (nano::block_type, std::size_t = 0);
+	std::string to_string () const;
 };
 
 class confirm_ack final : public message
