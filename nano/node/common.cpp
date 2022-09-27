@@ -1011,6 +1011,17 @@ bool nano::frontier_req::operator== (nano::frontier_req const & other_a) const
 	return start == other_a.start && age == other_a.age && count == other_a.count;
 }
 
+std::string nano::frontier_req::to_string ()
+{
+	std::stringstream stream;
+
+	stream << "\nStart account: " + start.to_string ();
+	stream << "\nMaximum age of account: " + age;
+	stream << "\nMaximum number of accounts to include: " + count;
+
+	return stream.str ();
+}
+
 nano::bulk_pull::bulk_pull (nano::network_constants const & constants) :
 	message (constants, nano::message_type::bulk_pull)
 {
