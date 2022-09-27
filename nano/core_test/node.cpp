@@ -2579,10 +2579,11 @@ TEST (node, vote_by_hash_bundle)
 		blocks.push_back (block);
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *blocks.back ()).code);
 	}
-	node.block_confirm (blocks.back ());
-	auto election = node.active.election (blocks.back ()->qualified_root ());
-	ASSERT_NE (nullptr, election);
-	election->force_confirm ();
+
+	// Confirming last block will confirm whole chain and allow us to generate votes for those blocks later
+	ASSERT_TRUE (nano::test::confirm (node, { blocks.back () }));
+	ASSERT_TIMELY (5s, nano::test::confirmed (node, { blocks.back () }));
+
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (key1.prv);
