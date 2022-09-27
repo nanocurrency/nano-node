@@ -165,7 +165,7 @@ nano::stat::detail nano::message_type_to_stat_detail (nano::message_type message
 	return {};
 }
 
-std::string nano::message_header::to_string ()
+std::string nano::message_header::to_string () const
 {
 	// Cast to uint16_t to get integer value since uint8_t is treated as an unsigned char in string formatting.
 	uint16_t type_l = static_cast<uint16_t> (type);
@@ -696,13 +696,13 @@ void nano::keepalive::serialize (nano::stream & stream_a) const
 	}
 }
 
-std::string nano::keepalive::to_string ()
+std::string nano::keepalive::to_string () const
 {
 	std::stringstream stream;
 
-	stream << "\n" + header.to_string () + "\n";
+	stream << header.to_string () + "\n";
 
-	for (auto peer (peers.begin ()), j (peers.end ()); peer != j; ++peer)
+	for (auto peer = peers.begin (), j (peers.end ()); peer != j; ++peer)
 	{
 		stream << peer->address ().to_string () + ":" + std::to_string (peer->port ()) + "\n";
 	}
@@ -1011,11 +1011,11 @@ bool nano::frontier_req::operator== (nano::frontier_req const & other_a) const
 	return start == other_a.start && age == other_a.age && count == other_a.count;
 }
 
-std::string nano::frontier_req::to_string ()
+std::string nano::frontier_req::to_string () const
 {
 	std::stringstream stream;
 
-	stream << "\nStart account: " + start.to_string ();
+	stream << "Start account: " + start.to_string ();
 	stream << "\nMaximum age of account: " + age;
 	stream << "\nMaximum number of accounts to include: " + count;
 
@@ -1215,14 +1215,7 @@ void nano::telemetry_req::visit (nano::message_visitor & visitor_a) const
 	visitor_a.telemetry_req (*this);
 }
 
-std::string nano::telemetry_req::to_string () 
-{
-	std::stringstream stream;
-
-	stream << header.to_string ();
-
-	return stream.str ();
-}
+std::string nano::telemetry_req::to_string () const { return header.to_string (); }
 
 nano::telemetry_ack::telemetry_ack (nano::network_constants const & constants) :
 	message (constants, nano::message_type::telemetry_ack)
@@ -1256,14 +1249,7 @@ void nano::telemetry_ack::serialize (nano::stream & stream_a) const
 	}
 }
 
-std::string nano::telemetry_ack::to_string () const
-{
-	std::stringstream stream;
-
-	stream << data.to_string ();
-
-	return stream.str ();
-}
+std::string nano::telemetry_ack::to_string () const { return data.to_string (); }
 
 bool nano::telemetry_ack::deserialize (nano::stream & stream_a)
 {

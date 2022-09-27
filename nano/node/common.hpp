@@ -216,7 +216,7 @@ public:
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;
-	std::string to_string ();
+	std::string to_string () const;
 
 public:
 	nano::message_type type;
@@ -311,7 +311,7 @@ public:
 	bool operator== (nano::keepalive const &) const;
 	std::array<nano::endpoint, 8> peers;
 	static std::size_t constexpr size = 8 * (16 + 2);
-	std::string to_string ();
+	std::string to_string () const;
 };
 
 class publish final : public message
@@ -369,7 +369,7 @@ public:
 	uint32_t age;
 	uint32_t count;
 	static std::size_t constexpr size = sizeof (start) + sizeof (age) + sizeof (count);
-	std::string to_string ();
+	std::string to_string () const;
 };
 
 enum class telemetry_maker : uint8_t
@@ -426,7 +426,7 @@ public:
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
-	std::string to_string ();
+	std::string to_string () const;
 };
 
 class telemetry_ack final : public message
