@@ -425,6 +425,7 @@ public:
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
+	std::string to_string ();
 };
 
 class telemetry_ack final : public message
@@ -440,6 +441,7 @@ public:
 	bool is_empty_payload () const;
 	static uint16_t size (nano::message_header const &);
 	nano::telemetry_data data;
+	std::string to_string () const;
 };
 
 class bulk_pull final : public message

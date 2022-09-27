@@ -698,14 +698,16 @@ void nano::keepalive::serialize (nano::stream & stream_a) const
 
 std::string nano::keepalive::to_string ()
 {
-	std::string out_string = header.to_string () + "\n";
+	std::stringstream stream;
+
+	stream << "\n" + header.to_string () + "\n";
 
 	for (auto peer (peers.begin ()), j (peers.end ()); peer != j; ++peer)
 	{
-		out_string += peer->address ().to_string () + ":" + std::to_string (peer->port ()) + "\n";
+		stream << peer->address ().to_string () + ":" + std::to_string (peer->port ()) + "\n";
 	}
 
-	return out_string;
+	return stream.str ();
 }
 
 
@@ -1202,6 +1204,15 @@ void nano::telemetry_req::visit (nano::message_visitor & visitor_a) const
 	visitor_a.telemetry_req (*this);
 }
 
+std::string nano::telemetry_req::to_string () 
+{
+	std::stringstream stream;
+
+	stream << header.to_string ();
+
+	return stream.str ();
+}
+
 nano::telemetry_ack::telemetry_ack (nano::network_constants const & constants) :
 	message (constants, nano::message_type::telemetry_ack)
 {
@@ -1232,6 +1243,15 @@ void nano::telemetry_ack::serialize (nano::stream & stream_a) const
 	{
 		data.serialize (stream_a);
 	}
+}
+
+std::string nano::telemetry_ack::to_string () const
+{
+	std::stringstream stream;
+
+	stream << data.to_string ();
+
+	return stream.str ();
 }
 
 bool nano::telemetry_ack::deserialize (nano::stream & stream_a)
