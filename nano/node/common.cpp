@@ -702,7 +702,7 @@ std::string nano::keepalive::to_string () const
 
 	stream << header.to_string () + "\n";
 
-	for (auto peer = peers.begin (), j (peers.end ()); peer != j; ++peer)
+	for (auto peer = peers.begin (), peers_end = peers.end (); peer != peers_end; ++peer)
 	{
 		stream << peer->address ().to_string () + ":" + std::to_string (peer->port ()) + "\n";
 	}
@@ -976,6 +976,15 @@ std::size_t nano::confirm_ack::size (std::size_t count)
 	return result;
 }
 
+std::string nano::confirm_ack::to_string () const
+{
+	std::stringstream stream;
+
+	stream << "Account: " + vote->account.to_string () + "\n";
+	
+	return stream.str ();
+}
+
 nano::frontier_req::frontier_req (nano::network_constants const & constants) :
 	message (constants, nano::message_type::frontier_req)
 {
@@ -1031,8 +1040,8 @@ std::string nano::frontier_req::to_string () const
 	std::stringstream stream;
 
 	stream << "Start account: " + start.to_string ();
-	stream << " | Maximum age of account: " + age;
-	stream << " | Maximum number of accounts to include: " + count;
+	stream << " | Maximum age of account: " + std::to_string(age);
+	stream << " | Maximum number of accounts to include: " + std::to_string(count);
 
 	return stream.str ();
 }
