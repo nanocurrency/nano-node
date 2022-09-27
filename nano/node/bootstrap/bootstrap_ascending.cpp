@@ -264,6 +264,11 @@ void nano::bootstrap::bootstrap_ascending::thread::send (std::shared_ptr<async_t
 	auto channel = tag->connection ().second;
 	++bootstrap.requests_total;
 	channel->send (message, [this_l = shared (), tag] (boost::system::error_code const & ec, std::size_t size) {
+		if (ec)
+		{
+			std::cerr << "Error during bulk_pull send: " << ec.value () << "\n";
+			return;
+		}
 		this_l->read_block (tag);
 	});
 }
