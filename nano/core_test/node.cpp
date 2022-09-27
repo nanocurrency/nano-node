@@ -1425,6 +1425,7 @@ TEST (node, rep_self_vote)
 	auto & scheduler = node0->scheduler;
 	scheduler.activate (nano::dev::genesis_key.pub, node0->store.tx_begin_read ());
 	scheduler.flush ();
+	ASSERT_TIMELY (5s, active.election (block0->qualified_root ()));
 	auto election1 = active.election (block0->qualified_root ());
 	ASSERT_NE (nullptr, election1);
 	// Wait until representatives are activated & make vote
