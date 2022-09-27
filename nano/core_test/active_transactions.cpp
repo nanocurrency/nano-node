@@ -406,7 +406,6 @@ TEST (active_transactions, DISABLED_inactive_votes_cache_multiple_votes)
 	ASSERT_TIMELY (5s, node.inactive_vote_cache.find (send1->hash ())->voters.size () == 2);
 	ASSERT_EQ (1, node.inactive_vote_cache.cache_size ());
 	node.scheduler.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
-	node.scheduler.flush ();
 	ASSERT_TIMELY (5s, node.active.election (send1->qualified_root ()));
 	auto election = node.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election);
@@ -624,7 +623,6 @@ TEST (active_transactions, dropped_cleanup)
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
 	node.block_confirm (nano::dev::genesis);
-	node.scheduler.flush ();
 	ASSERT_TIMELY (5s, node.active.election (nano::dev::genesis->qualified_root ()));
 	auto election = node.active.election (nano::dev::genesis->qualified_root ());
 	ASSERT_NE (nullptr, election);
@@ -649,7 +647,6 @@ TEST (active_transactions, dropped_cleanup)
 	// Repeat test for a confirmed election
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 	node.block_confirm (nano::dev::genesis);
-	node.scheduler.flush ();
 	ASSERT_TIMELY (5s, node.active.election (nano::dev::genesis->qualified_root ()));
 	election = node.active.election (nano::dev::genesis->qualified_root ());
 	ASSERT_NE (nullptr, election);
@@ -1021,7 +1018,6 @@ TEST (active_transactions, DISABLED_confirm_new)
 				.build_shared ();
 	node1.process_active (send);
 	node1.block_processor.flush ();
-	node1.scheduler.flush ();
 	ASSERT_TIMELY_EQ (5s, 1, node1.active.size ());
 	auto & node2 = *system.add_node ();
 	// Add key to node2
@@ -1062,7 +1058,6 @@ TEST (active_transactions, conflicting_block_vote_existing_election)
 	auto vote_fork (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ fork->hash () }));
 
 	ASSERT_EQ (nano::process_result::progress, node.process_local (send).code);
-	node.scheduler.flush ();
 	ASSERT_TIMELY_EQ (5s, 1, node.active.size ());
 
 	// Vote for conflicting block, but the block does not yet exist in the ledger
@@ -1139,7 +1134,6 @@ TEST (active_transactions, activate_account_chain)
 	ASSERT_EQ (nano::process_result::progress, node.process (*receive).code);
 
 	node.scheduler.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
-	node.scheduler.flush ();
 	ASSERT_TIMELY (5s, node.active.election (send->qualified_root ()));
 	auto election1 = node.active.election (send->qualified_root ());
 	ASSERT_EQ (1, node.active.size ());
