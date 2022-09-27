@@ -278,6 +278,11 @@ void nano::bootstrap::bootstrap_ascending::thread::read_block (std::shared_ptr<a
 	auto deserializer = std::make_shared<nano::bootstrap::block_deserializer> ();
 	auto socket = tag->connection ().first;
 	deserializer->read (*socket, [this_l = shared (), tag] (boost::system::error_code ec, std::shared_ptr<nano::block> block) {
+		if (ec)
+		{
+			this_l->bootstrap.debug_log (boost::str (boost::format ("Error during bulk_pull read: %1%") % ec.value ()));
+			return;
+		}
 		if (block == nullptr)
 		{
 			this_l->bootstrap.debug_log (boost::str (boost::format ("graceful stream end: %1% blocks=%2%")
