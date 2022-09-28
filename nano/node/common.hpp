@@ -503,6 +503,7 @@ public:
 	boost::optional<std::pair<nano::account, nano::signature>> response;
 	std::size_t size () const;
 	static std::size_t size (nano::message_header const &);
+	std::string to_string () const;
 };
 
 class message_visitor
