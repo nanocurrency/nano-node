@@ -982,7 +982,7 @@ std::string nano::confirm_ack::to_string () const
 {
 	std::stringstream stream;
 
-	stream << "Account: " + vote->account.to_string () + "\n";
+	stream << vote->account.to_string () + "\n";
 	
 	return stream.str ();
 }
@@ -1041,9 +1041,9 @@ std::string nano::frontier_req::to_string () const
 {
 	std::stringstream stream;
 
-	stream << "Start account: " + start.to_string ();
-	stream << " | Maximum age of account: " + std::to_string(age);
-	stream << " | Maximum number of accounts to include: " + std::to_string(count);
+	stream << start.to_string ();
+	stream << "maxage: " + std::to_string(age);
+	stream << "count: " + std::to_string(count);
 
 	return stream.str ();
 }
@@ -1148,9 +1148,9 @@ std::string nano::bulk_pull::to_string () const
 {
 	std::stringstream stream;
 
-	stream << "Start account: " + start.to_string () + " | ";
-	stream << "End block hash: " + end.to_string () + " | ";
-	stream << "Count: " + std::to_string ( count ) + "\n";
+	stream << start.to_string ();
+	stream << "endhash=" + end.to_string ();
+	stream << "count=" + std::to_string ( count ) + "\n";
 
 	return stream.str ();
 }
@@ -1206,18 +1206,18 @@ std::string nano::bulk_pull_account::to_string () const
 {
 	std::stringstream stream;
 
-	stream << "Account: " + account.to_string () + " | Minimum amount: ";
-	stream << minimum_amount.to_string () + " | ";
+	stream << account.to_string () + "minamt=";
+	stream << minimum_amount.to_string ();
 	switch(flags)
 	{
 		case bulk_pull_account_flags::pending_hash_and_amount:
-			stream << "Pending hash and amount\n";
+			stream << "pend hash and amt\n";
 			break;
 		case bulk_pull_account_flags::pending_address_only:
-			stream << "Pending address only\n";
+			stream << "pend addr\n";
 			break;
 		case bulk_pull_account_flags::pending_hash_amount_and_address:
-			stream << "Pending hash amount and address\n";
+			stream << "pend hash amt and addr\n";
 			break;
 	}
 	
@@ -1646,11 +1646,11 @@ std::string nano::node_id_handshake::to_string () const
 	std::stringstream stream;
 
 	stream << header.to_string () + "\n";
-	stream << "Query cookie: " + query->to_string () + "\n";
+	stream << "cookie=" + query->to_string () + "\n";
 
 	if (response.has_value ())
 	{
-		stream << "Account: " + response->first.to_string ();
+		stream << response->first.to_string ();
 		stream << " | " + response->second.to_string () + "\n";
 	}
 
