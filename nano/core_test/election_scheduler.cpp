@@ -46,7 +46,6 @@ TEST (election_scheduler, activate_one_flush)
 				 .build_shared ();
 	system.nodes[0]->ledger.process (system.nodes[0]->store.tx_begin_write (), *send1);
 	system.nodes[0]->scheduler.activate (nano::dev::genesis_key.pub, system.nodes[0]->store.tx_begin_read ());
-	system.nodes[0]->scheduler.flush ();
 	ASSERT_TIMELY (5s, system.nodes[0]->active.election (send1->qualified_root ()));
 }
 
