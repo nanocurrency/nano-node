@@ -1206,7 +1206,7 @@ std::string nano::bulk_pull_account::to_string () const
 {
 	std::stringstream stream;
 
-	stream << account.to_string () + "minamt=";
+	stream << account.to_string () + "min=";
 	stream << minimum_amount.to_string ();
 	switch(flags)
 	{
@@ -1650,8 +1650,8 @@ std::string nano::node_id_handshake::to_string () const
 
 	if (response.has_value ())
 	{
-		stream << response->first.to_string ();
-		stream << " | " + response->second.to_string () + "\n";
+		stream << response->first.to_string () + " ";
+		stream << response->second.to_string () + "\n";
 	}
 
 	return stream.str ();
