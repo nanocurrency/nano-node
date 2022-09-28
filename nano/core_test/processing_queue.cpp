@@ -64,8 +64,7 @@ TEST (processing_queue, max_queue_size)
 		queue.add (1);
 	}
 
-	ASSERT_TRUE (queue.size () == 1024);
-	ASSERT_EQ (queue.size (), 0);
+	ASSERT_EQ (queue.size (), 1024);
 }
 
 TEST (processing_queue, max_batch_size)

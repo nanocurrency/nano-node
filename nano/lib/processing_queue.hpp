@@ -14,13 +14,21 @@
 
 namespace nano
 {
-
+/**
+ * Queue that processes enqueued elements in (possibly parallel) batches
+ */
 template <typename T>
 class processing_queue final
 {
 public:
 	using value_t = T;
 
+	/**
+	 * @param thread_role Spawned processing threads will use this name
+	 * @param thread_count Number of processing threads
+	 * @param max_queue_size Max number of items enqueued, items beyond this value will be discarded
+	 * @param max_batch_size Max number of elements processed in single batch, 0 for unlimited (default)
+	 */
 	processing_queue (nano::thread_role::name thread_role, std::size_t thread_count, std::size_t max_queue_size, std::size_t max_batch_size = 0) :
 		thread_role{ thread_role },
 		thread_count{ thread_count },
@@ -38,7 +46,7 @@ public:
 	{
 		for (int n = 0; n < thread_count; ++n)
 		{
-			threads.template emplace_back ([this] () {
+			threads.emplace_back ([this] () {
 				run ();
 			});
 		}
@@ -55,7 +63,7 @@ public:
 		threads.clear ();
 	}
 
-	/*
+	/**
 	 * Queues item for batch processing
 	 */
 	void add (T const & item)
@@ -151,5 +159,4 @@ private:
 	nano::condition_variable condition;
 	std::vector<std::thread> threads;
 };
-
 }
