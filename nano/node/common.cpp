@@ -1212,10 +1212,13 @@ std::string nano::bulk_pull_account::to_string () const
 	{
 		case bulk_pull_account_flags::pending_hash_and_amount:
 			stream << "Pending hash and amount\n";
+			break;
 		case bulk_pull_account_flags::pending_address_only:
 			stream << "Pending address only\n";
+			break;
 		case bulk_pull_account_flags::pending_hash_amount_and_address:
 			stream << "Pending hash amount and address\n";
+			break;
 	}
 	
 	return stream.str ();
