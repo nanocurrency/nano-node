@@ -42,7 +42,7 @@ void assert_internal (char const * check_expr, char const * func, char const * f
 #endif
 
 #ifdef NDEBUG
-#define debug_assert(check) (void)0
+#define debug_assert(...) (void)0
 #else
 #define debug_assert_1(check) check ? (void)0 : assert_internal (#check, BOOST_CURRENT_FUNCTION, __FILE__, __LINE__, false)
 #define debug_assert_2(check, error_msg) check ? (void)0 : assert_internal (#check, BOOST_CURRENT_FUNCTION, __FILE__, __LINE__, false, error_msg)
