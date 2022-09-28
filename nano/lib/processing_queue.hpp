@@ -69,6 +69,12 @@ public:
 		}
 	}
 
+	std::size_t size () const
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		return queue.size ();
+	}
+
 public: // Container info
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name)
 	{
