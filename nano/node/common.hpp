@@ -325,6 +325,7 @@ public:
 	bool operator== (nano::publish const &) const;
 	std::shared_ptr<nano::block> block;
 	nano::uint128_t digest{ 0 };
+	std::string to_string () const;
 };
 
 class confirm_req final : public message
@@ -464,6 +465,7 @@ public:
 	static std::size_t constexpr count_present_flag = nano::message_header::bulk_pull_count_present_flag;
 	static std::size_t constexpr extended_parameters_size = 8;
 	static std::size_t constexpr size = sizeof (start) + sizeof (end);
+	std::string to_string () const;
 };
 
 class bulk_pull_account final : public message
@@ -478,6 +480,7 @@ public:
 	nano::amount minimum_amount;
 	bulk_pull_account_flags flags;
 	static std::size_t constexpr size = sizeof (account) + sizeof (minimum_amount) + sizeof (bulk_pull_account_flags);
+	std::string to_string () const;
 };
 
 class bulk_push final : public message
@@ -488,6 +491,7 @@ public:
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
+	std::string to_string () const;
 };
 
 class node_id_handshake final : public message

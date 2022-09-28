@@ -778,6 +778,8 @@ bool nano::publish::operator== (nano::publish const & other_a) const
 	return *block == *other_a.block;
 }
 
+std::string nano::publish::to_string () const { return block->to_json (); }
+
 nano::confirm_req::confirm_req (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::block_uniquer * uniquer_a) :
 	message (header_a)
 {
@@ -1142,6 +1144,17 @@ void nano::bulk_pull::set_count_present (bool value_a)
 	header.extensions.set (count_present_flag, value_a);
 }
 
+std::string nano::bulk_pull::to_string () const
+{
+	std::stringstream stream;
+
+	stream << "Start account: " + start.to_string () + " | ";
+	stream << "End block hash: " + end.to_string () + " | ";
+	stream << "Count: " + std::to_string ( count ) + "\n";
+
+	return stream.str ();
+}
+
 nano::bulk_pull_account::bulk_pull_account (nano::network_constants const & constants) :
 	message (constants, nano::message_type::bulk_pull_account)
 {
@@ -1187,6 +1200,27 @@ bool nano::bulk_pull_account::deserialize (nano::stream & stream_a)
 	return error;
 }
 
+
+
+std::string nano::bulk_pull_account::to_string () const
+{
+	std::stringstream stream;
+
+	stream << "Account: " + account.to_string () + " | Minimum amount: ";
+	stream << minimum_amount.to_string () + " | ";
+	switch(flags)
+	{
+		case bulk_pull_account_flags::pending_hash_and_amount:
+			stream << "Pending hash and amount\n";
+		case bulk_pull_account_flags::pending_address_only:
+			stream << "Pending address only\n";
+		case bulk_pull_account_flags::pending_hash_amount_and_address:
+			stream << "Pending hash amount and address\n";
+	}
+	
+	return stream.str ();
+}
+
 nano::bulk_push::bulk_push (nano::network_constants const & constants) :
 	message (constants, nano::message_type::bulk_push)
 {
@@ -1212,6 +1246,8 @@ void nano::bulk_push::visit (nano::message_visitor & visitor_a) const
 {
 	visitor_a.bulk_push (*this);
 }
+
+std::string nano::bulk_push::to_string () const { return header.to_string (); }
 
 nano::telemetry_req::telemetry_req (nano::network_constants const & constants) :
 	message (constants, nano::message_type::telemetry_req)
