@@ -54,6 +54,7 @@ add_library(
   numbers.cpp
   observer_set.hpp
   optional_ptr.hpp
+  processing_queue.hpp
   rate_limiting.hpp
   rate_limiting.cpp
   rep_weights.hpp
