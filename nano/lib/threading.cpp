@@ -99,6 +99,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::election_hinting:
 			thread_role_name_string = "Hinting";
 			break;
+		case nano::thread_role::name::vote_generator_queue:
+			thread_role_name_string = "Voting que";
+			break;
 		default:
 			debug_assert (false && "nano::thread_role::get_string unhandled thread role");
 	}

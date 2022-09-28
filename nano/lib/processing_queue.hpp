@@ -21,7 +21,7 @@ class processing_queue final
 public:
 	using value_t = T;
 
-	processing_queue (nano::thread_role::name thread_role, std::size_t max_queue_size, std::size_t thread_count, std::size_t max_batch_size = 0) :
+	processing_queue (nano::thread_role::name thread_role, std::size_t thread_count, std::size_t max_queue_size, std::size_t max_batch_size = 0) :
 		thread_role{ thread_role },
 		thread_count{ thread_count },
 		max_queue_size{ max_queue_size },
