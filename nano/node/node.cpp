@@ -182,7 +182,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq)
 {
-	unchecked.use_memory = [this] () { return ledger.bootstrap_weight_reached (); };
 	unchecked.satisfied = [this] (nano::unchecked_info const & info) {
 		this->block_processor.add (info);
 	};
@@ -487,7 +486,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			if (!flags.disable_unchecked_drop && !use_bootstrap_weight && !flags.read_only)
 			{
 				auto const transaction (store.tx_begin_write ({ tables::unchecked }));
-				unchecked.clear (transaction);
+				unchecked.clear ();
 				logger.always_log ("Dropping unchecked blocks");
 			}
 		}
@@ -1014,7 +1013,7 @@ void nano::node::unchecked_cleanup ()
 		auto const transaction (store.tx_begin_read ());
 		// Max 1M records to clean, max 2 minutes reading to prevent slow i/o systems issues
 		unchecked.for_each (
-		transaction, [this, &digests, &cleaning_list, &now] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+		[this, &digests, &cleaning_list, &now] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 			if ((now - info.modified ()) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
 			{
 				digests.push_back (network.publish_filter.hash (info.block));
@@ -1034,9 +1033,9 @@ void nano::node::unchecked_cleanup ()
 		{
 			auto key (cleaning_list.front ());
 			cleaning_list.pop_front ();
-			if (unchecked.exists (transaction, key))
+			if (unchecked.exists (key))
 			{
-				unchecked.del (transaction, key);
+				unchecked.del (key);
 			}
 		}
 	}

@@ -71,18 +71,18 @@ TEST (block_store, one_bootstrap)
 				  .build_shared ();
 	unchecked.put (block1->hash (), nano::unchecked_info{ block1 });
 	auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
-		return unchecked.get (transaction_a, block_hash_a).size () > 0;
+		return unchecked.get (block_hash_a).size () > 0;
 	};
 	// Waits for the block1 to get saved in the database
 	ASSERT_TIMELY (10s, check_block_is_listed (store->tx_begin_read (), block1->hash ()));
 	auto transaction = store->tx_begin_read ();
 	std::vector<nano::block_hash> dependencies;
-	unchecked.for_each (transaction, [&dependencies] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+	unchecked.for_each ([&dependencies] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 		dependencies.push_back (key.key ());
 	});
 	auto hash1 = dependencies[0];
 	ASSERT_EQ (block1->hash (), hash1);
-	auto blocks = unchecked.get (transaction, hash1);
+	auto blocks = unchecked.get (hash1);
 	ASSERT_EQ (1, blocks.size ());
 	auto block2 = blocks[0].block;
 	ASSERT_EQ (*block1, *block2);
