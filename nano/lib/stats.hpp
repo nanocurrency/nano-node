@@ -247,12 +247,14 @@ public:
 		vote_cache,
 		hinting,
 		blockprocessor,
+		unchecked,
 	};
 
 	/** Optional detail type */
 	enum class detail : uint8_t
 	{
 		all = 0,
+		unknown,
 
 		// processing queue
 		queue,
@@ -436,6 +438,11 @@ public:
 		hinted,
 		insert_failed,
 		missing_block,
+
+		// unchecked
+		put,
+		satisfied,
+		trigger,
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

@@ -419,7 +419,7 @@ TEST (unchecked, simple)
 	nano::test::system system{};
 	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	nano::unchecked_map unchecked{ *store, false };
+	nano::unchecked_map unchecked{ *store, system.stats, false };
 	ASSERT_TRUE (!store->init_error ());
 	nano::block_builder builder;
 	auto block = builder
@@ -464,7 +464,7 @@ TEST (unchecked, multiple)
 	}
 	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	nano::unchecked_map unchecked{ *store, false };
+	nano::unchecked_map unchecked{ *store, system.stats, false };
 	ASSERT_TRUE (!store->init_error ());
 	nano::block_builder builder;
 	auto block = builder
@@ -497,7 +497,7 @@ TEST (unchecked, double_put)
 	nano::test::system system{};
 	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	nano::unchecked_map unchecked{ *store, false };
+	nano::unchecked_map unchecked{ *store, system.stats, false };
 	ASSERT_TRUE (!store->init_error ());
 	nano::block_builder builder;
 	auto block = builder
@@ -531,7 +531,7 @@ TEST (unchecked, multiple_get)
 	nano::test::system system{};
 	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	nano::unchecked_map unchecked{ *store, false };
+	nano::unchecked_map unchecked{ *store, system.stats, false };
 	ASSERT_TRUE (!store->init_error ());
 	// Instantiates three blocks
 	nano::block_builder builder;
@@ -652,9 +652,10 @@ TEST (block_store, one_block)
 
 TEST (block_store, empty_bootstrap)
 {
+	nano::test::system system{};
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	nano::unchecked_map unchecked{ *store, false };
+	nano::unchecked_map unchecked{ *store, system.stats, false };
 	ASSERT_TRUE (!store->init_error ());
 	size_t count = 0;
 	unchecked.for_each ([&count] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
@@ -1174,10 +1175,11 @@ namespace lmdb
 	// Databases need to be dropped in order to convert to dupsort compatible
 	TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort table
 	{
+		nano::test::system system{};
 		auto path (nano::unique_path ());
 		nano::logger_mt logger{};
 		nano::lmdb::store store{ logger, path, nano::dev::constants };
-		nano::unchecked_map unchecked{ store, false };
+		nano::unchecked_map unchecked{ store, system.stats, false };
 		auto transaction (store.tx_begin_write ());
 		ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_store.unchecked_handle, 1));
 		ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE, &store.unchecked_store.unchecked_handle));
