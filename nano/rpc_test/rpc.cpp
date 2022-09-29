@@ -6054,7 +6054,7 @@ TEST (rpc, unchecked)
 	node->process_active (open);
 	node->process_active (open2);
 	// Waits for the last block of the queue to get saved in the database
-	ASSERT_TIMELY (10s, 2 == node->unchecked.count (node->store.tx_begin_read ()));
+	ASSERT_TIMELY (10s, 2 == node->unchecked.count ());
 	boost::property_tree::ptree request;
 	request.put ("action", "unchecked");
 	request.put ("count", 2);
@@ -6095,7 +6095,7 @@ TEST (rpc, unchecked_get)
 				.build_shared ();
 	node->process_active (open);
 	// Waits for the open block to get saved in the database
-	ASSERT_TIMELY (10s, 1 == node->unchecked.count (node->store.tx_begin_read ()));
+	ASSERT_TIMELY (10s, 1 == node->unchecked.count ());
 	boost::property_tree::ptree request{};
 	request.put ("action", "unchecked_get");
 	request.put ("hash", open->hash ().to_string ());
@@ -6135,12 +6135,12 @@ TEST (rpc, unchecked_clear)
 	node->process_active (open);
 	boost::property_tree::ptree request{};
 	// Waits for the open block to get saved in the database
-	ASSERT_TIMELY (10s, 1 == node->unchecked.count (node->store.tx_begin_read ()));
+	ASSERT_TIMELY (10s, 1 == node->unchecked.count ());
 	request.put ("action", "unchecked_clear");
 	auto response = wait_response (system, rpc_ctx, request);
 
 	// Waits for the open block to get saved in the database
-	ASSERT_TIMELY (10s, 0 == node->unchecked.count (node->store.tx_begin_read ()));
+	ASSERT_TIMELY (10s, 0 == node->unchecked.count ());
 }
 
 TEST (rpc, unopened)
