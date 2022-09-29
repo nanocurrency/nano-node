@@ -4214,7 +4214,8 @@ void nano::json_handler::unchecked_keys ()
 	{
 		boost::property_tree::ptree unchecked;
 		auto transaction (node.store.tx_begin_read ());
-		node.unchecked.for_each (key,
+		node.unchecked.for_each (
+		key,
 		[&unchecked, json_block_l] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 			boost::property_tree::ptree entry;
 			entry.put ("key", key.key ().to_string ());
