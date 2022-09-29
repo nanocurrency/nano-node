@@ -142,7 +142,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	logger (config_a.logging.min_time_between_log_output),
 	store_impl (nano::make_store (logger, application_path_a, network_params.ledger, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade)),
 	store (*store_impl),
-	unchecked{ store, flags.disable_block_processor_unchecked_deletion },
+	unchecked{ store, stats, flags.disable_block_processor_unchecked_deletion },
 	wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
 	wallets_store (*wallets_store_impl),
 	gap_cache (*this),

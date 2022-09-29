@@ -18,15 +18,17 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
+class stat;
 class store;
 class transaction;
 class unchecked_info;
 class unchecked_key;
 class write_transaction;
+
 class unchecked_map
 {
 public:
-	unchecked_map (nano::store & store, bool const & do_delete);
+	unchecked_map (nano::store &, nano::stat &, bool const & do_delete);
 	~unchecked_map ();
 
 	void put (nano::hash_or_account const & dependency, nano::unchecked_info const & info);
@@ -52,6 +54,7 @@ private:
 
 private: // Dependencies
 	nano::store & store;
+	nano::stat & stats;
 
 private:
 	bool const & disable_delete;
