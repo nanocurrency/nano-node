@@ -89,7 +89,7 @@ public: // Container info
 		nano::lock_guard<nano::mutex> guard{ mutex };
 
 		auto composite = std::make_unique<container_info_composite> (name);
-		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "queue", queue.size (), sizeof (decltype (queue)::value_type) }));
+		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "queue", queue.size (), sizeof (typename decltype (queue)::value_type) }));
 		return composite;
 	}
 

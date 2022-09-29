@@ -478,5 +478,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (na
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "candidates", candidates_count, sizeof_candidate_element }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "requests", requests_count, sizeof_request_element }));
+	composite->add_component (vote_generator.vote_generation_queue.collect_container_info ("vote_generation_queue"));
 	return composite;
 }
