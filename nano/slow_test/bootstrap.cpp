@@ -75,7 +75,7 @@ TEST (bootstrap_ascending, profile)
 
 	nano::test::rate_observer rate;
 	rate.observe ("count", [&] () { return client->ledger.cache.block_count.load (); });
-	rate.observe ("unchecked", [&] () { return client->unchecked.count (client->store.tx_begin_read ()); });
+	rate.observe ("unchecked", [&] () { return client->unchecked.count (); });
 	rate.background_print (3s);
 
 	wait_for_key ();
