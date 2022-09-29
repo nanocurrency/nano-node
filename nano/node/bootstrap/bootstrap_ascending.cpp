@@ -187,45 +187,55 @@ nano::bootstrap::bootstrap_ascending::account_sets::backoff_info_t nano::bootstr
 	return { forwarding, blocking, backoff };
 }
 
-nano::bootstrap::bootstrap_ascending::async_tag::async_tag (std::shared_ptr<nano::bootstrap::bootstrap_ascending::thread> bootstrap) :
-	bootstrap{ bootstrap }
+nano::bootstrap::bootstrap_ascending::async_tag::async_tag (std::shared_ptr<nano::bootstrap::bootstrap_ascending::thread> thread_a) :
+	thread_weak{ thread_a },
+	node_weak{ thread_a->bootstrap.node.shared () }
 {
 	// FIXME: the lifetime of a request should not be allowed to be infinite, it should be bounded
-	nano::lock_guard<nano::mutex> lock{ bootstrap->bootstrap.mutex };
-	++bootstrap->requests;
-	bootstrap->bootstrap.debug_log (boost::str (boost::format ("Request started requests=%1%")
-	% bootstrap->requests));
-	bootstrap->bootstrap.condition.notify_all ();
+	nano::lock_guard<nano::mutex> lock{ thread_a->bootstrap.mutex };
+	++thread_a->requests;
+	thread_a->bootstrap.debug_log (boost::str (boost::format ("Request started requests=%1%")
+	% thread_a->requests));
+	thread_a->bootstrap.condition.notify_all ();
 }
 
 nano::bootstrap::bootstrap_ascending::async_tag::~async_tag ()
 {
-	nano::lock_guard<nano::mutex> lock{ bootstrap->bootstrap.mutex };
-	--bootstrap->requests;
+	// ensure that both thread object and the node are still alive
+	// the ascending bootstrap is a component of node and, if node is alive, it will be alive too
+	auto thread = thread_weak.lock ();
+	auto node = node_weak.lock ();
+	if (!thread || !node)
+	{
+		return;
+	}
+
+	nano::lock_guard<nano::mutex> lock{ thread->bootstrap.mutex };
+	--thread->requests;
 	if (blocks != 0)
 	{
-		++bootstrap->bootstrap.responses;
+		++thread->bootstrap.responses;
 	}
 	if (success_m)
 	{
 		debug_assert (connection_m);
-		bootstrap->bootstrap.pool.add (*connection_m);
-		bootstrap->bootstrap.debug_log (boost::str (boost::format ("Request completed successfully: peer=%1% blocks=%2%")
+		thread->bootstrap.pool.add (*connection_m);
+		thread->bootstrap.debug_log (boost::str (boost::format ("Request completed successfully: peer=%1% blocks=%2%")
 		% connection_m->first->remote_endpoint () % blocks));
 	}
 	else
 	{
 		if (connection_m)
 		{
-			bootstrap->bootstrap.debug_log (boost::str (boost::format ("Request completed abnormally: peer=%1% blocks=%2%")
+			thread->bootstrap.debug_log (boost::str (boost::format ("Request completed abnormally: peer=%1% blocks=%2%")
 			% connection_m->first->remote_endpoint () % blocks));
 		}
 		else
 		{
-			bootstrap->bootstrap.debug_log ("Request abandoned without trying connecting to a peer");
+			thread->bootstrap.debug_log ("Request abandoned without trying connecting to a peer");
 		}
 	}
-	bootstrap->bootstrap.condition.notify_all ();
+	thread->bootstrap.condition.notify_all ();
 }
 
 void nano::bootstrap::bootstrap_ascending::async_tag::success ()
@@ -237,7 +247,6 @@ void nano::bootstrap::bootstrap_ascending::async_tag::success ()
 void nano::bootstrap::bootstrap_ascending::async_tag::connection_set (socket_channel const & connection)
 {
 	connection_m = connection;
-	bootstrap->bootstrap.debug_log (boost::str (boost::format ("async tag connection_set to %1%") % connection.first->remote_endpoint ()));
 }
 
 auto nano::bootstrap::bootstrap_ascending::async_tag::connection () -> socket_channel &
@@ -489,7 +498,7 @@ void nano::bootstrap::bootstrap_ascending::thread::run ()
 		auto error = request_one ();
 		if (error)
 		{
-			auto delay = bootstrap.node.network_params.network.is_dev_network() ? 50ms : 5s;
+			auto delay = bootstrap.node.network_params.network.is_dev_network () ? 50ms : 5s;
 			std::this_thread::sleep_for (delay);
 		}
 	}
@@ -507,7 +516,7 @@ void nano::bootstrap::bootstrap_ascending::run ()
 
 	debug_log (boost::str (boost::format ("Starting ascending bootstrap main thread, parallelism=%1%") % parallelism));
 
-	std::weak_ptr<nano::node> node_weak = node.shared();
+	std::weak_ptr<nano::node> node_weak = node.shared ();
 	node.block_processor.processed.add ([node_weak] (nano::transaction const & tx, nano::process_return const & result, nano::block const & block) {
 		auto node = node_weak.lock ();
 		if (!node)

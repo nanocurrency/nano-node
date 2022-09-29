@@ -145,7 +145,11 @@ namespace bootstrap
 		private:
 			bool success_m{ false };
 			std::optional<socket_channel> connection_m;
-			std::shared_ptr<bootstrap_ascending::thread> bootstrap;
+
+			// storing weak pointers to dependencies to avoid dependency cycles
+			// which cause problems during shutdown
+			std::weak_ptr<bootstrap_ascending::thread> thread_weak;
+			std::weak_ptr<nano::node> node_weak;
 		};
 
 		bool blocked (nano::account const & account);
