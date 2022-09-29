@@ -3293,17 +3293,17 @@ TEST (node, unchecked_cleanup)
 	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
 	node.process_active (open);
 	// Waits for the open block to get saved in the database
-	ASSERT_TIMELY (15s, 1 == node.unchecked.count (node.store.tx_begin_read ()));
+	ASSERT_TIMELY (15s, 1 == node.unchecked.count ());
 	node.config.unchecked_cutoff_time = std::chrono::seconds (2);
-	ASSERT_EQ (1, node.unchecked.count (node.store.tx_begin_read ()));
+	ASSERT_EQ (1, node.unchecked.count ());
 	std::this_thread::sleep_for (std::chrono::seconds (1));
 	node.unchecked_cleanup ();
 	ASSERT_TRUE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
-	ASSERT_EQ (1, node.unchecked.count (node.store.tx_begin_read ()));
+	ASSERT_EQ (1, node.unchecked.count ());
 	std::this_thread::sleep_for (std::chrono::seconds (2));
 	node.unchecked_cleanup ();
 	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
-	ASSERT_EQ (0, node.unchecked.count (node.store.tx_begin_read ()));
+	ASSERT_EQ (0, node.unchecked.count ());
 }
 
 /** This checks that a node can be opened (without being blocked) when a write lock is held elsewhere */
