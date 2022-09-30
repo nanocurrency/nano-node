@@ -99,14 +99,24 @@ void nano::bootstrap::bootstrap_ascending::account_sets::prioritize (nano::accou
 	}
 }
 
-void nano::bootstrap::bootstrap_ascending::account_sets::block (nano::account const & account)
+void nano::bootstrap::bootstrap_ascending::account_sets::block (nano::account const & account, nano::block_hash const & dependency)
 {
 	backoff.erase (account);
 	forwarding.erase (account);
-	blocking.insert (account);
+	blocking[account] = dependency;
 }
 
-void nano::bootstrap::bootstrap_ascending::account_sets::unblock (nano::account const & account)
+void nano::bootstrap::bootstrap_ascending::account_sets::unblock (nano::account const & account, nano::block_hash const & hash)
+{
+	// Unblock only if the dependency is fulfilled
+	if (blocking.count (account) > 0 && blocking[account] == hash)
+	{
+		blocking.erase (account);
+		backoff[account] = 0.0f;
+	}
+}
+
+void nano::bootstrap::bootstrap_ascending::account_sets::force_unblock (const nano::account & account)
 {
 	blocking.erase (account);
 	backoff[account] = 0.0f;
@@ -300,30 +310,38 @@ nano::account nano::bootstrap::bootstrap_ascending::thread::pick_account ()
  */
 void nano::bootstrap::bootstrap_ascending::inspect (nano::transaction const & tx, nano::process_return const & result, nano::block const & block)
 {
+	auto const hash = block.hash ();
+
 	switch (result.code)
 	{
 		case nano::process_result::progress:
 		{
-			auto account = node->ledger.account (tx, block.hash ());
-			auto is_send = node->ledger.is_send (tx, block);
+			const auto account = node->ledger.account (tx, hash);
+			const auto is_send = node->ledger.is_send (tx, block);
+
 			nano::lock_guard<nano::mutex> lock{ mutex };
+
 			// If we've inserted any block in to an account, unmark it as blocked
-			accounts.unblock (account);
+			accounts.force_unblock (account);
 			// Forward and initialize backoff value with 0.0 for the current account
 			// 0.0 has the highest priority
 			accounts.prioritize (account, 0.0f);
+
 			if (is_send)
 			{
 				// Initialize with value of 1.0 a value of lower priority than an account itselt
-				// This is the same priority as if it had already already made 1 attempt.
+				// This is the same priority as if it had already made 1 attempt.
 				auto const send_factor = 1.0f;
+
 				switch (block.type ())
 				{
 					// Forward and initialize backoff for the referenced account
 					case nano::block_type::send:
+						accounts.unblock (block.destination (), hash);
 						accounts.prioritize (block.destination (), send_factor);
 						break;
 					case nano::block_type::state:
+						accounts.unblock (block.link ().as_account (), hash);
 						accounts.prioritize (block.link ().as_account (), send_factor);
 						break;
 					default:
@@ -335,10 +353,12 @@ void nano::bootstrap::bootstrap_ascending::inspect (nano::transaction const & tx
 		}
 		case nano::process_result::gap_source:
 		{
-			auto account = block.previous ().is_zero () ? block.account () : node->ledger.account (tx, block.previous ());
+			const auto account = block.previous ().is_zero () ? block.account () : node->ledger.account (tx, block.previous ());
+			const auto source = block.source ().is_zero () ? block.link ().as_block_hash () : block.source ();
+
 			nano::lock_guard<nano::mutex> lock{ mutex };
-			// Mark account as blocked because the result is gap-source
-			accounts.block (account);
+			// Mark account as blocked because it is missing the source block
+			accounts.block (account, source);
 			break;
 		}
 		case nano::process_result::gap_previous:

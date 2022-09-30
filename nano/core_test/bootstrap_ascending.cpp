@@ -6,6 +6,16 @@
 
 using namespace std::chrono_literals;
 
+namespace
+{
+nano::block_hash random_hash ()
+{
+	nano::block_hash random_hash;
+	nano::random_pool::generate_block (random_hash.bytes.data (), random_hash.bytes.size ());
+	return random_hash;
+}
+}
+
 TEST (account_sets, construction)
 {
 	nano::bootstrap::bootstrap_ascending::account_sets sets;
@@ -22,7 +32,7 @@ TEST (account_sets, block)
 {
 	nano::account account{ 1 };
 	nano::bootstrap::bootstrap_ascending::account_sets sets;
-	sets.block (account);
+	sets.block (account, random_hash ());
 	ASSERT_TRUE (sets.blocked (account));
 }
 
@@ -30,8 +40,9 @@ TEST (account_sets, unblock)
 {
 	nano::account account{ 1 };
 	nano::bootstrap::bootstrap_ascending::account_sets sets;
-	sets.block (account);
-	sets.unblock (account);
+	auto hash = random_hash ();
+	sets.block (account, hash);
+	sets.unblock (account, hash);
 	ASSERT_FALSE (sets.blocked (account));
 }
 
