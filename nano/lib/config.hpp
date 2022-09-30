@@ -296,34 +296,46 @@ public:
 	}
 
 	/**
-	 * Optionally called on startup to override the global active network.
-	 * If not called, the compile-time option will be used.
-	 * @param network_a The new active network. Valid values are "live", "beta" and "dev"
+	 * Convert a network string to enum. On error it returns nano::networks::invalid.
 	 */
-	static bool set_active_network (std::string network_a)
+	static nano::networks network_string_to_enum (const std::string & network_a)
 	{
-		auto error{ false };
 		if (network_a == "live")
 		{
-			active_network = nano::networks::nano_live_network;
+			return nano::networks::nano_live_network;
 		}
 		else if (network_a == "beta")
 		{
-			active_network = nano::networks::nano_beta_network;
+			return nano::networks::nano_beta_network;
 		}
 		else if (network_a == "dev")
 		{
-			active_network = nano::networks::nano_dev_network;
+			return nano::networks::nano_dev_network;
 		}
 		else if (network_a == "test")
 		{
-			active_network = nano::networks::nano_test_network;
+			return nano::networks::nano_test_network;
 		}
 		else
 		{
-			error = true;
+			return nano::networks::invalid;
 		}
-		return error;
+	}
+
+	/**
+	 * Optionally called on startup to override the global active network.
+	 * If not called, the compile-time option will be used.
+	 * @param network_a The new active network. Valid values are "live", "beta", "test" and "dev"
+	 */
+	static bool set_active_network (std::string network_a)
+	{
+		auto result = network_string_to_enum (network_a);
+		if (result == nano::networks::invalid)
+		{
+			return true; // error
+		}
+		active_network = result;
+		return false;
 	}
 
 	char const * get_current_network_as_string ()
