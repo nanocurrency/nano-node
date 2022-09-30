@@ -1,6 +1,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/json_error_response.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/node/bootstrap/bootstrap_ascending.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
@@ -5239,6 +5240,53 @@ void nano::json_handler::populate_backlog ()
 	response_errors ();
 }
 
+void nano::json_handler::backoff_info ()
+{
+	if (!ec)
+	{
+		auto ascending = node.bootstrap_initiator.current_ascending_attempt ();
+		if (ascending)
+		{
+			auto [forwarding, blocking, backoffs] = ascending->backoff_info ();
+
+			// backoff
+			{
+				boost::property_tree::ptree response_backoffs;
+				for (auto const & [account, backoff] : backoffs)
+				{
+					response_backoffs.put (account.to_account (), backoff);
+				}
+				response_l.add_child ("backoff", response_backoffs);
+			}
+			// forwarding
+			{
+				boost::property_tree::ptree response_forwarding;
+				for (auto const & account : forwarding)
+				{
+					boost::property_tree::ptree entry;
+					entry.put ("", account.to_account ());
+					response_forwarding.push_back (std::make_pair ("", entry));
+				}
+				response_l.add_child ("forwarding", response_forwarding);
+			}
+			// blocking
+			{
+				boost::property_tree::ptree response_blocking;
+				for (auto const & [account, dependency] : blocking)
+				{
+					response_blocking.put (account.to_account (), dependency.to_string ());
+				}
+				response_l.add_child ("blocking", response_blocking);
+			}
+		}
+		else
+		{
+			ec = nano::error_common::generic;
+		}
+	}
+	response_errors ();
+}
+
 void nano::inprocess_rpc_handler::process_request (std::string const &, std::string const & body_a, std::function<void (std::string const &)> response_a)
 {
 	// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
@@ -5405,6 +5453,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("work_peers", &nano::json_handler::work_peers);
 	no_arg_funcs.emplace ("work_peers_clear", &nano::json_handler::work_peers_clear);
 	no_arg_funcs.emplace ("populate_backlog", &nano::json_handler::populate_backlog);
+	no_arg_funcs.emplace ("backoff_info", &nano::json_handler::backoff_info);
 	return no_arg_funcs;
 }
 

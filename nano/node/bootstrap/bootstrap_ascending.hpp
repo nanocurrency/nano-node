@@ -47,7 +47,7 @@ namespace bootstrap
 	private:
 		std::shared_ptr<nano::bootstrap::bootstrap_ascending> shared ();
 		void debug_log (const std::string &) const;
-		//void dump_miss_histogram ();
+		// void dump_miss_histogram ();
 
 	public:
 		class async_tag;
@@ -75,6 +75,7 @@ namespace bootstrap
 		{
 		public:
 			account_sets ();
+
 			void prioritize (nano::account const & account, float priority);
 			void block (nano::account const & account, nano::block_hash const & dependency);
 			void unblock (nano::account const & account, nano::block_hash const & hash);
@@ -105,6 +106,11 @@ namespace bootstrap
 				This implementation applies 1/2^i for each element, effectivly an exponential backoff
 			*/
 			std::vector<double> probability_transform (std::vector<decltype (backoff)::mapped_type> const & attempts) const;
+
+		public:
+			using backoff_info_t = std::tuple<decltype (forwarding), decltype (blocking), decltype (backoff)>; // <forwarding, blocking, backoff>
+
+			backoff_info_t backoff_info () const;
 		};
 
 		/** A single thread performing the ascending bootstrap algorithm
@@ -128,7 +134,7 @@ namespace bootstrap
 			std::atomic<int> requests{ 0 };
 			static constexpr int requests_max = 1;
 
-		public: //private: // Convinience reference rather than internally using a pointer
+		public: // Convinience reference rather than internally using a pointer
 			std::shared_ptr<bootstrap_ascending> bootstrap_ptr;
 			bootstrap_ascending & bootstrap{ *bootstrap_ptr };
 		};
@@ -163,10 +169,15 @@ namespace bootstrap
 		void inspect (nano::transaction const & tx, nano::process_return const & result, nano::block const & block);
 		void dump_stats ();
 
+		account_sets::backoff_info_t backoff_info () const;
+
+	private:
 		account_sets accounts;
 		connection_pool pool;
+
 		static std::size_t constexpr parallelism = 1;
 		static std::size_t constexpr request_message_count = 16;
+
 		std::atomic<int> responses{ 0 };
 		std::atomic<int> requests_total{ 0 };
 		std::atomic<float> weights{ 0 };

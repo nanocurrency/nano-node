@@ -153,6 +153,7 @@ std::unordered_set<std::string> create_rpc_control_impls ()
 	set.emplace ("account_remove");
 	set.emplace ("account_representative_set");
 	set.emplace ("accounts_create");
+	set.emplace ("backoff_info");
 	set.emplace ("block_create");
 	set.emplace ("bootstrap_lazy");
 	set.emplace ("confirmation_height_currently_processing");

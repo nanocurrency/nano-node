@@ -47,6 +47,7 @@ public:
 	void accounts_receivable ();
 	void active_difficulty ();
 	void available_supply ();
+	void backoff_info ();
 	void block_info ();
 	void block_confirm ();
 	void blocks ();

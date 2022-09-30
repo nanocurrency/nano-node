@@ -182,6 +182,11 @@ bool nano::bootstrap::bootstrap_ascending::account_sets::blocked (nano::account 
 	return blocking.count (account) > 0;
 }
 
+nano::bootstrap::bootstrap_ascending::account_sets::backoff_info_t nano::bootstrap::bootstrap_ascending::account_sets::backoff_info () const
+{
+	return { forwarding, blocking, backoff };
+}
+
 nano::bootstrap::bootstrap_ascending::async_tag::async_tag (std::shared_ptr<nano::bootstrap::bootstrap_ascending::thread> bootstrap) :
 	bootstrap{ bootstrap }
 {
@@ -304,6 +309,7 @@ nano::account nano::bootstrap::bootstrap_ascending::thread::pick_account ()
 	nano::lock_guard<nano::mutex> lock{ bootstrap.mutex };
 	return bootstrap.accounts.next ();
 }
+
 /** Inspects a block that has been processed by the block processor
 - Marks an account as blocked if the result code is gap source as there is no reason request additional blocks for this account until the dependency is resolved
 - Marks an account as forwarded if it has been recently referenced by a block that has been inserted.
@@ -518,4 +524,10 @@ std::shared_ptr<nano::bootstrap::bootstrap_ascending> nano::bootstrap::bootstrap
 void nano::bootstrap::bootstrap_ascending::debug_log (const std::string & s) const
 {
 	std::cerr << s << std::endl;
+}
+
+nano::bootstrap::bootstrap_ascending::account_sets::backoff_info_t nano::bootstrap::bootstrap_ascending::backoff_info () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return accounts.backoff_info ();
 }
