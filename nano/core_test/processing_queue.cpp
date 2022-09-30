@@ -1,4 +1,5 @@
 #include <nano/lib/processing_queue.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -8,15 +9,15 @@ using namespace std::chrono_literals;
 
 TEST (processing_queue, construction)
 {
-	nano::processing_queue<int> queue{ {}, 4, 8 * 1024, 1024 };
+	nano::test::system system{};
+	nano::processing_queue<int> queue{ system.stats, {}, {}, 4, 8 * 1024, 1024 };
 	ASSERT_EQ (queue.size (), 0);
 }
 
 TEST (processing_queue, process_one)
 {
 	nano::test::system system{};
-
-	nano::processing_queue<int> queue{ {}, 4, 8 * 1024, 1024 };
+	nano::processing_queue<int> queue{ system.stats, {}, {}, 4, 8 * 1024, 1024 };
 
 	std::atomic<std::size_t> processed{ 0 };
 	queue.process_batch = [&] (auto & batch) {
@@ -34,8 +35,7 @@ TEST (processing_queue, process_one)
 TEST (processing_queue, process_many)
 {
 	nano::test::system system{};
-
-	nano::processing_queue<int> queue{ {}, 4, 8 * 1024, 1024 };
+	nano::processing_queue<int> queue{ system.stats, {}, {}, 4, 8 * 1024, 1024 };
 
 	std::atomic<std::size_t> processed{ 0 };
 	queue.process_batch = [&] (auto & batch) {
@@ -56,7 +56,8 @@ TEST (processing_queue, process_many)
 
 TEST (processing_queue, max_queue_size)
 {
-	nano::processing_queue<int> queue{ {}, 4, 1024, 128 };
+	nano::test::system system{};
+	nano::processing_queue<int> queue{ system.stats, {}, {}, 4, 1024, 128 };
 
 	const int count = 2 * 1024; // Double the max queue size
 	for (int n = 0; n < count; ++n)
@@ -70,8 +71,7 @@ TEST (processing_queue, max_queue_size)
 TEST (processing_queue, max_batch_size)
 {
 	nano::test::system system{};
-
-	nano::processing_queue<int> queue{ {}, 4, 1024, 128 };
+	nano::processing_queue<int> queue{ system.stats, {}, {}, 4, 1024, 128 };
 
 	// Fill queue before starting processing threads
 	const int count = 1024;
@@ -97,8 +97,7 @@ TEST (processing_queue, max_batch_size)
 TEST (processing_queue, parallel)
 {
 	nano::test::system system{};
-
-	nano::processing_queue<int> queue{ {}, 16, 1024, 1 };
+	nano::processing_queue<int> queue{ system.stats, {}, {}, 16, 1024, 1 };
 
 	std::atomic<std::size_t> processed{ 0 };
 	queue.process_batch = [&] (auto & batch) {

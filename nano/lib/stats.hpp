@@ -253,6 +253,11 @@ public:
 	{
 		all = 0,
 
+		// processing queue
+		queue,
+		overfill,
+		batch,
+
 		// error specific
 		bad_sender,
 		insufficient_work,

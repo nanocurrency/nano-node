@@ -2,6 +2,7 @@
 
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 
@@ -29,7 +30,9 @@ public:
 	 * @param max_queue_size Max number of items enqueued, items beyond this value will be discarded
 	 * @param max_batch_size Max number of elements processed in single batch, 0 for unlimited (default)
 	 */
-	processing_queue (nano::thread_role::name thread_role, std::size_t thread_count, std::size_t max_queue_size, std::size_t max_batch_size = 0) :
+	processing_queue (nano::stat & stats, nano::stat::type stat_type, nano::thread_role::name thread_role, std::size_t thread_count, std::size_t max_queue_size, std::size_t max_batch_size = 0) :
+		stats{ stats },
+		stat_type{ stat_type },
 		thread_role{ thread_role },
 		thread_count{ thread_count },
 		max_queue_size{ max_queue_size },
@@ -74,6 +77,11 @@ public:
 			queue.emplace_back (item);
 			lock.unlock ();
 			condition.notify_one ();
+			stats.inc (stat_type, nano::stat::detail::queue);
+		}
+		else
+		{
+			stats.inc (stat_type, nano::stat::detail::overfill);
 		}
 	}
 
@@ -138,6 +146,7 @@ private:
 		{
 			auto batch = next_batch (lock);
 			lock.unlock ();
+			stats.inc (stat_type, nano::stat::detail::batch);
 			process_batch (batch);
 			lock.lock ();
 		}
@@ -147,6 +156,9 @@ public:
 	std::function<void (std::deque<value_t> &)> process_batch{ [] (auto &) { debug_assert (false, "processing queue callback empty"); } };
 
 private:
+	nano::stat & stats;
+
+	const nano::stat::type stat_type;
 	const nano::thread_role::name thread_role;
 	const std::size_t thread_count;
 	const std::size_t max_queue_size;
