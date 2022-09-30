@@ -554,6 +554,18 @@ std::string nano::stat::type_to_string (stat::type type)
 		case nano::stat::type::unchecked:
 			res = "unchecked";
 			break;
+		case nano::stat::type::bootstrap_ascending:
+			res = "bootstrap_ascending";
+			break;
+		case nano::stat::type::bootstrap_ascending_connections:
+			res = "bootstrap_ascending_connections";
+			break;
+		case nano::stat::type::bootstrap_ascending_thread:
+			res = "bootstrap_ascending_thread";
+			break;
+		case nano::stat::type::bootstrap_ascending_accounts:
+			res = "bootstrap_ascending_accounts";
+			break;
 	}
 	return res;
 }
@@ -1004,6 +1016,57 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 			break;
 		case nano::stat::detail::trigger:
 			res = "trigger";
+			break;
+		case nano::stat::detail::connect:
+			res = "connect";
+			break;
+		case nano::stat::detail::connect_missing:
+			res = "connect_missing";
+			break;
+		case nano::stat::detail::connect_failed:
+			res = "connect_failed";
+			break;
+		case nano::stat::detail::connect_success:
+			res = "connect_success";
+			break;
+		case nano::stat::detail::reuse:
+			res = "reuse";
+			break;
+		case nano::stat::detail::request:
+			res = "request";
+			break;
+		case nano::stat::detail::read_block:
+			res = "read_block";
+			break;
+		case nano::stat::detail::read_block_done:
+			res = "read_block_done";
+			break;
+		case nano::stat::detail::read_block_end:
+			res = "read_block_end";
+			break;
+		case nano::stat::detail::read_block_error:
+			res = "read_block_error";
+			break;
+		case nano::stat::detail::prioritize:
+			res = "prioritize";
+			break;
+		case nano::stat::detail::prioritize_failed:
+			res = "prioritize_failed";
+			break;
+		case nano::stat::detail::block:
+			res = "block";
+			break;
+		case nano::stat::detail::unblock:
+			res = "unblock";
+			break;
+		case nano::stat::detail::unblock_failed:
+			res = "unblock_failed";
+			break;
+		case nano::stat::detail::next_forwarding:
+			res = "next_forwarding";
+			break;
+		case nano::stat::detail::next_random:
+			res = "next_random";
 			break;
 	}
 	return res;
