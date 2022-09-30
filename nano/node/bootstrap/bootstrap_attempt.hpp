@@ -43,7 +43,7 @@ public:
 	std::chrono::steady_clock::time_point attempt_start{ std::chrono::steady_clock::now () };
 	std::atomic<bool> frontiers_received{ false };
 	nano::bootstrap_mode mode;
-	nano::mutex mutex;
+	mutable nano::mutex mutex;
 	nano::condition_variable condition;
 };
 }
