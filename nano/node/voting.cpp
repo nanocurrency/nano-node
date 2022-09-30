@@ -171,14 +171,20 @@ nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::
 	spacing{ config_a.network_params.voting.delay },
 	network (network_a),
 	stats (stats_a),
-	thread ([this] () { run (); }),
-	is_final (is_final_a)
+	is_final (is_final_a),
+	vote_generation_queue{ stats, nano::stat::type::vote_generator, nano::thread_role::name::vote_generator_queue, /* single threaded */ 1, /* max queue size */ 1024 * 32, /* max batch size */ 1024 * 4 }
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
-	condition.wait (lock, [&started = started] { return started; });
+	vote_generation_queue.process_batch = [this] (auto & batch) {
+		process_batch (batch);
+	};
 }
 
-void nano::vote_generator::add (nano::root const & root_a, nano::block_hash const & hash_a)
+nano::vote_generator::~vote_generator ()
+{
+	stop ();
+}
+
+void nano::vote_generator::process (nano::write_transaction const & transaction, nano::root const & root_a, nano::block_hash const & hash_a)
 {
 	auto cached_votes (history.votes (root_a, hash_a, is_final));
 	if (!cached_votes.empty ())
@@ -193,14 +199,12 @@ void nano::vote_generator::add (nano::root const & root_a, nano::block_hash cons
 		auto should_vote (false);
 		if (is_final)
 		{
-			auto transaction (ledger.store.tx_begin_write ({ tables::final_votes }));
 			auto block (ledger.store.block.get (transaction, hash_a));
 			should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block) && ledger.store.final_vote.put (transaction, block->qualified_root (), hash_a);
 			debug_assert (block == nullptr || root_a == block->root ());
 		}
 		else
 		{
-			auto transaction (ledger.store.tx_begin_read ());
 			auto block (ledger.store.block.get (transaction, hash_a));
 			should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block);
 		}
@@ -217,8 +221,18 @@ void nano::vote_generator::add (nano::root const & root_a, nano::block_hash cons
 	}
 }
 
+void nano::vote_generator::start ()
+{
+	debug_assert (!thread.joinable ());
+	thread = std::thread ([this] () { run (); });
+
+	vote_generation_queue.start ();
+}
+
 void nano::vote_generator::stop ()
 {
+	vote_generation_queue.stop ();
+
 	nano::unique_lock<nano::mutex> lock (mutex);
 	stopped = true;
 
@@ -228,6 +242,21 @@ void nano::vote_generator::stop ()
 	if (thread.joinable ())
 	{
 		thread.join ();
+	}
+}
+
+void nano::vote_generator::add (const root & root, const block_hash & hash)
+{
+	vote_generation_queue.add (std::make_pair (root, hash));
+}
+
+void nano::vote_generator::process_batch (std::deque<queue_entry_t> & batch)
+{
+	auto transaction = ledger.store.tx_begin_write ({ tables::final_votes });
+
+	for (auto & [root, hash] : batch)
+	{
+		process (transaction, root, hash);
 	}
 }
 
@@ -388,10 +417,6 @@ void nano::vote_generator::run ()
 {
 	nano::thread_role::set (nano::thread_role::name::voting);
 	nano::unique_lock<nano::mutex> lock (mutex);
-	started = true;
-	lock.unlock ();
-	condition.notify_all ();
-	lock.lock ();
 	while (!stopped)
 	{
 		if (candidates.size () >= nano::network::confirm_ack_hashes_max)
@@ -453,5 +478,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (na
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "candidates", candidates_count, sizeof_candidate_element }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "requests", requests_count, sizeof_request_element }));
+	composite->add_component (vote_generator.vote_generation_queue.collect_container_info ("vote_generation_queue"));
 	return composite;
 }

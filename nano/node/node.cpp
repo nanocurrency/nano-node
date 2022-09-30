@@ -173,10 +173,12 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	vote_uniquer (block_uniquer),
 	confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 	inactive_vote_cache{ nano::nodeconfig_to_vote_cache_config (config, flags) },
+	generator{ config, ledger, wallets, vote_processor, history, network, stats, /* non-final */ false },
+	final_generator{ config, ledger, wallets, vote_processor, history, network, stats, /* final */ true },
 	active (*this, confirmation_height_processor),
 	scheduler{ *this },
 	hinting{ nano::nodeconfig_to_hinted_scheduler_config (config), *this, inactive_vote_cache, active, online_reps, stats },
-	aggregator (config, stats, active.generator, active.final_generator, history, ledger, wallets, active),
+	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
 	backlog{ nano::nodeconfig_to_backlog_population_config (config), store, scheduler },
 	startup_time (std::chrono::steady_clock::now ()),
@@ -631,6 +633,8 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.aggregator, "request_aggregator"));
 	composite->add_component (node.scheduler.collect_container_info ("election_scheduler"));
 	composite->add_component (node.inactive_vote_cache.collect_container_info ("inactive_vote_cache"));
+	composite->add_component (collect_container_info (node.generator, "vote_generator"));
+	composite->add_component (collect_container_info (node.final_generator, "vote_generator_final"));
 	return composite;
 }
 
@@ -740,6 +744,8 @@ void nano::node::start ()
 		port_mapping.start ();
 	}
 	wallets.start ();
+	generator.start ();
+	final_generator.start ();
 	backlog.start ();
 	hinting.start ();
 }
@@ -759,6 +765,8 @@ void nano::node::stop ()
 		scheduler.stop ();
 		hinting.stop ();
 		active.stop ();
+		generator.stop ();
+		final_generator.stop ();
 		confirmation_height_processor.stop ();
 		network.stop ();
 		telemetry->stop ();

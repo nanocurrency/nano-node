@@ -563,6 +563,15 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 		case nano::stat::detail::all:
 			res = "all";
 			break;
+		case nano::stat::detail::queue:
+			res = "queue";
+			break;
+		case nano::stat::detail::overfill:
+			res = "overfill";
+			break;
+		case nano::stat::detail::batch:
+			res = "batch";
+			break;
 		case nano::stat::detail::bad_sender:
 			res = "bad_sender";
 			break;
