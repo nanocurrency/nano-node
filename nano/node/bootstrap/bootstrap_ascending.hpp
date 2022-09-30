@@ -76,8 +76,9 @@ namespace bootstrap
 		public:
 			account_sets ();
 			void prioritize (nano::account const & account, float priority);
-			void block (nano::account const & account);
-			void unblock (nano::account const & account);
+			void block (nano::account const & account, nano::block_hash const & dependency);
+			void unblock (nano::account const & account, nano::block_hash const & hash);
+			void force_unblock (nano::account const & account);
 			void dump () const;
 			nano::account next ();
 
@@ -86,14 +87,16 @@ namespace bootstrap
 
 		private:
 			nano::account random ();
+
 			// A forwarded account is an account that has recently had a new block inserted or has been a destination reference and therefore is a more likely candidate for furthur block retrieval
 			std::unordered_set<nano::account> forwarding;
 			// A blocked account is an account that has failed to insert a block because the source block is gapped.
 			// An account is unblocked once it has a block successfully inserted.
-			std::unordered_set<nano::account> blocking;
+			std::map<nano::account, nano::block_hash> blocking;
 			// Tracks the number of requests for additional blocks without a block being successfully returned
 			// Each time a block is inserted to an account, this number is reset.
 			std::map<nano::account, float> backoff;
+
 			static size_t constexpr backoff_exclusion = 4;
 			std::default_random_engine rng;
 
