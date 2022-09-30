@@ -43,14 +43,20 @@ bool nano::bootstrap::bootstrap_ascending::connection_pool::operator() (std::sha
 	auto channel = std::make_shared<nano::transport::channel_tcp> (bootstrap.node, socket);
 	tag->connection_set (std::make_pair (socket, channel));
 	bootstrap.debug_log (boost::str (boost::format ("connecting to possible peer %1% ") % endpoint));
+	std::weak_ptr<nano::node> node_weak = bootstrap.node.shared ();
 	socket->async_connect (endpoint,
-	[endpoint, socket, op] (boost::system::error_code const & ec) {
-		if (ec)
+	[node_weak, endpoint, socket, op] (boost::system::error_code const & ec) {
+		auto node = node_weak.lock ();
+		if (!node)
 		{
-			std::cerr << boost::str (boost::format ("connect failed to: %1%\n") % endpoint);
 			return;
 		}
-		std::cerr << boost::str (boost::format ("connected to: %1%\n") % socket->remote_endpoint ());
+		if (ec)
+		{
+			node->ascendboot.debug_log (boost::str (boost::format ("connect failed to: %1%") % endpoint));
+			return;
+		}
+		node->ascendboot.debug_log (boost::str (boost::format ("connected to: %1%") % socket->remote_endpoint ()));
 		op ();
 	});
 	return false;
@@ -271,10 +277,18 @@ void nano::bootstrap::bootstrap_ascending::thread::send (std::shared_ptr<async_t
 	% message.start.to_string () % tag->connection ().first->remote_endpoint ()));
 	auto channel = tag->connection ().second;
 	++bootstrap.requests_total;
-	channel->send (message, [this_l = shared (), tag] (boost::system::error_code const & ec, std::size_t size) {
+	std::weak_ptr<nano::node> node_weak = bootstrap.node.shared ();
+	std::weak_ptr<bootstrap_ascending::thread> this_weak = shared ();
+	channel->send (message, [node_weak, this_weak, tag] (boost::system::error_code const & ec, std::size_t size) {
+		auto node = node_weak.lock ();
+		auto this_l = this_weak.lock ();
+		if (!node || !this_l)
+		{
+			return;
+		}
 		if (ec)
 		{
-			std::cerr << "Error during bulk_pull send: " << ec.value () << "\n";
+			node->ascendboot.debug_log (boost::str (boost::format ("Error during bulk_pull send: %1!") % ec.value ()));
 			return;
 		}
 		this_l->read_block (tag);
@@ -285,7 +299,15 @@ void nano::bootstrap::bootstrap_ascending::thread::read_block (std::shared_ptr<a
 {
 	auto deserializer = std::make_shared<nano::bootstrap::block_deserializer> ();
 	auto socket = tag->connection ().first;
-	deserializer->read (*socket, [this_l = shared (), tag] (boost::system::error_code ec, std::shared_ptr<nano::block> block) {
+	std::weak_ptr<nano::node> node_weak = bootstrap.node.shared ();
+	std::weak_ptr<bootstrap_ascending::thread> this_weak = shared ();
+	deserializer->read (*socket, [node_weak, this_weak, tag] (boost::system::error_code ec, std::shared_ptr<nano::block> block) {
+		auto node = node_weak.lock ();
+		auto this_l = this_weak.lock ();
+		if (!node || !this_l)
+		{
+			return;
+		}
 		if (ec)
 		{
 			this_l->bootstrap.debug_log (boost::str (boost::format ("Error during bulk_pull read: %1%") % ec.value ()));
@@ -480,7 +502,15 @@ bool nano::bootstrap::bootstrap_ascending::thread::request_one ()
 
 	// pick a connection and send the pull request and setup response processing callback
 	nano::unique_lock<nano::mutex> lock{ bootstrap.mutex };
-	auto error = bootstrap.pool (tag, [this_l = shared (), start, tag] () {
+	std::weak_ptr<nano::node> node_weak = bootstrap.node.shared ();
+	std::weak_ptr<bootstrap_ascending::thread> this_weak = shared ();
+	auto error = bootstrap.pool (tag, [node_weak, this_weak, start, tag] () {
+		auto node = node_weak.lock ();
+		auto this_l = this_weak.lock ();
+		if (!node || !this_l)
+		{
+			return;
+		}
 		this_l->send (tag, start);
 	});
 	lock.unlock ();
