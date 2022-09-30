@@ -43,13 +43,12 @@ namespace bootstrap
 			using socket_channel = std::pair<std::shared_ptr<nano::socket>, std::shared_ptr<nano::transport::channel>>;
 
 		public:
-			connection_pool (nano::node & node, nano::bootstrap::bootstrap_ascending & bootstrap);
+			connection_pool (nano::bootstrap::bootstrap_ascending & bootstrap);
 			/** Given a tag context, find or create a connection to a peer and then call the op callback */
 			bool operator() (std::shared_ptr<async_tag> tag, std::function<void ()> op);
 			void add (socket_channel const & connection);
 
 		private:
-			nano::node & node;
 			std::deque<socket_channel> connections;
 			const nano::bootstrap::bootstrap_ascending & bootstrap;
 		};

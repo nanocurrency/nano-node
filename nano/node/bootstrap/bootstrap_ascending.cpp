@@ -7,8 +7,7 @@
 
 using namespace std::chrono_literals;
 
-nano::bootstrap::bootstrap_ascending::connection_pool::connection_pool (nano::node & node, nano::bootstrap::bootstrap_ascending & bootstrap) :
-	node{ node },
+nano::bootstrap::bootstrap_ascending::connection_pool::connection_pool (nano::bootstrap::bootstrap_ascending & bootstrap) :
 	bootstrap{ bootstrap }
 {
 }
@@ -33,15 +32,15 @@ bool nano::bootstrap::bootstrap_ascending::connection_pool::operator() (std::sha
 	}
 
 	// connections is empty, try to find peers to bootstrap with
-	auto endpoint = node.network.bootstrap_peer (true);
+	auto endpoint = bootstrap.node.network.bootstrap_peer (true);
 	if (endpoint == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0))
 	{
 		bootstrap.debug_log ("Could not find a possible peer to connect with.");
 		return true;
 	}
 
-	auto socket = std::make_shared<nano::client_socket> (node);
-	auto channel = std::make_shared<nano::transport::channel_tcp> (node, socket);
+	auto socket = std::make_shared<nano::client_socket> (bootstrap.node);
+	auto channel = std::make_shared<nano::transport::channel_tcp> (bootstrap.node, socket);
 	tag->connection_set (std::make_pair (socket, channel));
 	bootstrap.debug_log (boost::str (boost::format ("connecting to possible peer %1% ") % endpoint));
 	socket->async_connect (endpoint,
@@ -411,7 +410,7 @@ bool nano::bootstrap::bootstrap_ascending::thread::wait_available_request ()
 
 nano::bootstrap::bootstrap_ascending::bootstrap_ascending (nano::node & node_a) :
 	node{ node_a },
-	pool{ node, *this }
+	pool{ *this }
 {
 	debug_log (boost::str (boost::format ("bootstrap_ascending constructor")));
 }
