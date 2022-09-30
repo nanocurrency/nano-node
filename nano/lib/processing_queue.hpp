@@ -131,7 +131,7 @@ private:
 			for (int n = 0; n < max_batch_size; ++n)
 			{
 				debug_assert (!queue.empty ());
-				queue_l.emplace_front (queue.front ());
+				queue_l.emplace_back (queue.front ());
 				queue.pop_front ();
 			}
 			return queue_l;
