@@ -588,7 +588,11 @@ void nano::bootstrap::bootstrap_ascending::get_information (boost::property_tree
 
 void nano::bootstrap::bootstrap_ascending::debug_log (const std::string & s) const
 {
-	std::cerr << s << std::endl;
+	static bool enable = nano::get_env_or_default ("NANO_ASCENDBOOT_DEBUG", "no") == std::string ("yes");
+	if (enable)
+	{
+		std::cerr << s << std::endl;
+	}
 }
 
 void nano::bootstrap::bootstrap_ascending::start ()
