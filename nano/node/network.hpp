@@ -25,13 +25,13 @@ public:
 	nano::endpoint endpoint;
 };
 /**
-  * A circular buffer for servicing nano realtime messages.
-  * This container follows a producer/consumer model where the operating system is producing data in to
-  * buffers which are serviced by internal threads.
-  * If buffers are not serviced fast enough they're internally dropped.
-  * This container has a maximum space to hold N buffers of M size and will allocate them in round-robin order.
-  * All public methods are thread-safe
-*/
+ * A circular buffer for servicing nano realtime messages.
+ * This container follows a producer/consumer model where the operating system is producing data in to
+ * buffers which are serviced by internal threads.
+ * If buffers are not serviced fast enough they're internally dropped.
+ * This container has a maximum space to hold N buffers of M size and will allocate them in round-robin order.
+ * All public methods are thread-safe
+ */
 class message_buffer_manager final
 {
 public:
@@ -87,8 +87,8 @@ private:
 	friend class network_tcp_message_manager_Test;
 };
 /**
-  * Node ID cookies for node ID handshakes
-*/
+ * Node ID cookies for node ID handshakes
+ */
 class syn_cookies final
 {
 public:
@@ -156,8 +156,11 @@ public:
 	void fill_keepalive_self (std::array<nano::endpoint, 8> &) const;
 	// Note: The minimum protocol version is used after the random selection, so number of peers can be less than expected.
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t, uint8_t = 0, bool = false) const;
-	// Get the next peer for attempting a tcp bootstrap connection
-	nano::tcp_endpoint bootstrap_peer (bool = false);
+	/**
+	 * Get the next peer for attempting a tcp bootstrap connection
+	 * @param protocol_version_min minimum network version of peer
+	 */
+	nano::tcp_endpoint next_bootstrap_peer (uint8_t protocol_version_min);
 	nano::endpoint endpoint ();
 	void cleanup (std::chrono::steady_clock::time_point const &);
 	void ongoing_cleanup ();
