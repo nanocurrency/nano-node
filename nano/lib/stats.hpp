@@ -248,6 +248,10 @@ public:
 		hinting,
 		blockprocessor,
 		unchecked,
+		bootstrap_ascending,
+		bootstrap_ascending_connections,
+		bootstrap_ascending_thread,
+		bootstrap_ascending_accounts,
 	};
 
 	/** Optional detail type */
@@ -438,6 +442,29 @@ public:
 		put,
 		satisfied,
 		trigger,
+
+		// bootstrap ascending connections
+		connect,
+		connect_missing,
+		connect_failed,
+		connect_success,
+		reuse,
+
+		// bootstrap ascending thread
+		request,
+		read_block,
+		read_block_done,
+		read_block_end,
+		read_block_error,
+
+		// bootstrap ascending accounts
+		prioritize,
+		prioritize_failed,
+		block,
+		unblock,
+		unblock_failed,
+		next_forwarding,
+		next_random,
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */
@@ -454,7 +481,7 @@ public:
 	 * Initialize stats with a config.
 	 * @param config Configuration object; deserialized from config.json
 	 */
-	stat (nano::stat_config config);
+	explicit stat (nano::stat_config config);
 
 	/**
 	 * Call this to override the default sample interval and capacity, for a specific stat entry.

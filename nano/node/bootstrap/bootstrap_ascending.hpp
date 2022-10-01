@@ -25,6 +25,9 @@ namespace bootstrap
 		void run ();
 		void get_information (boost::property_tree::ptree &);
 
+	private: // Dependencies
+		nano::stat & stats;
+
 	private:
 		nano::node & node;
 		bool stopped;
@@ -52,13 +55,14 @@ namespace bootstrap
 			std::deque<socket_channel> connections;
 			const nano::bootstrap::bootstrap_ascending & bootstrap;
 		};
+
 		using socket_channel = connection_pool::socket_channel;
 
 		/** This class tracks accounts various account sets which are shared among the multiple bootstrap threads */
 		class account_sets
 		{
 		public:
-			account_sets ();
+			explicit account_sets (nano::stat &);
 
 			void prioritize (nano::account const & account, float priority);
 			void block (nano::account const & account, nano::block_hash const & dependency);
@@ -69,6 +73,9 @@ namespace bootstrap
 
 		public:
 			bool blocked (nano::account const & account) const;
+
+		private: // Dependencies
+			nano::stat & stats;
 
 		private:
 			nano::account random ();
@@ -103,7 +110,8 @@ namespace bootstrap
 		class thread : public std::enable_shared_from_this<thread>
 		{
 		public:
-			thread (bootstrap_ascending & bootstrap);
+			explicit thread (bootstrap_ascending & bootstrap);
+
 			/// Wait for there to be space for an additional request
 			bool wait_available_request ();
 			bool request_one ();
@@ -130,7 +138,8 @@ namespace bootstrap
 		class async_tag : public std::enable_shared_from_this<async_tag>
 		{
 		public:
-			async_tag (std::shared_ptr<nano::bootstrap::bootstrap_ascending::thread> bootstrap);
+			explicit async_tag (std::shared_ptr<nano::bootstrap::bootstrap_ascending::thread> bootstrap);
+
 			// bootstrap_ascending::thread::requests will be decemented when destroyed.
 			// If success () has been called, the socket will be reused, otherwise it will be abandoned therefore destroyed.
 			~async_tag ();

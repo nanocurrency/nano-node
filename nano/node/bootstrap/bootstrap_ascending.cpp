@@ -22,6 +22,8 @@ bool nano::bootstrap::bootstrap_ascending::connection_pool::operator() (std::sha
 {
 	if (!connections.empty ())
 	{
+		bootstrap.stats.inc (nano::stat::type::bootstrap_ascending_connections, nano::stat::detail::reuse);
+
 		// connections is not empty, pop a connection, assign it to the async tag and call the callback
 		tag->connection_set (connections.front ());
 		connections.pop_front ();
@@ -35,6 +37,7 @@ bool nano::bootstrap::bootstrap_ascending::connection_pool::operator() (std::sha
 	auto endpoint = bootstrap.node.network.bootstrap_peer (true);
 	if (endpoint == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0))
 	{
+		bootstrap.stats.inc (nano::stat::type::bootstrap_ascending_connections, nano::stat::detail::connect_missing);
 		bootstrap.debug_log ("Could not find a possible peer to connect with.");
 		return true;
 	}
@@ -42,7 +45,9 @@ bool nano::bootstrap::bootstrap_ascending::connection_pool::operator() (std::sha
 	auto socket = std::make_shared<nano::client_socket> (bootstrap.node);
 	auto channel = std::make_shared<nano::transport::channel_tcp> (bootstrap.node, socket);
 	tag->connection_set (std::make_pair (socket, channel));
+
 	bootstrap.debug_log (boost::str (boost::format ("connecting to possible peer %1% ") % endpoint));
+	bootstrap.stats.inc (nano::stat::type::bootstrap_ascending_connections, nano::stat::detail::connect);
 	std::weak_ptr<nano::node> node_weak = bootstrap.node.shared ();
 	socket->async_connect (endpoint,
 	[node_weak, endpoint, socket, op] (boost::system::error_code const & ec) {
@@ -53,16 +58,20 @@ bool nano::bootstrap::bootstrap_ascending::connection_pool::operator() (std::sha
 		}
 		if (ec)
 		{
+			node->ascendboot.stats.inc (nano::stat::type::bootstrap_ascending_connections, nano::stat::detail::connect_failed);
 			node->ascendboot.debug_log (boost::str (boost::format ("connect failed to: %1%") % endpoint));
 			return;
 		}
 		node->ascendboot.debug_log (boost::str (boost::format ("connected to: %1%") % socket->remote_endpoint ()));
+		node->ascendboot.stats.inc (nano::stat::type::bootstrap_ascending_connections, nano::stat::detail::connect_success);
+
 		op ();
 	});
 	return false;
 }
 
-nano::bootstrap::bootstrap_ascending::account_sets::account_sets ()
+nano::bootstrap::bootstrap_ascending::account_sets::account_sets (nano::stat & stats_a) :
+	stats{ stats_a }
 {
 }
 
@@ -95,6 +104,8 @@ void nano::bootstrap::bootstrap_ascending::account_sets::prioritize (nano::accou
 {
 	if (blocking.count (account) == 0)
 	{
+		stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::prioritize);
+
 		forwarding.insert (account);
 		auto iter = backoff.find (account);
 		if (iter == backoff.end ())
@@ -102,10 +113,16 @@ void nano::bootstrap::bootstrap_ascending::account_sets::prioritize (nano::accou
 			backoff.emplace (account, priority);
 		}
 	}
+	else
+	{
+		stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::prioritize_failed);
+	}
 }
 
 void nano::bootstrap::bootstrap_ascending::account_sets::block (nano::account const & account, nano::block_hash const & dependency)
 {
+	stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::block);
+
 	backoff.erase (account);
 	forwarding.erase (account);
 	blocking[account] = dependency;
@@ -116,8 +133,14 @@ void nano::bootstrap::bootstrap_ascending::account_sets::unblock (nano::account 
 	// Unblock only if the dependency is fulfilled
 	if (blocking.count (account) > 0 && blocking[account] == hash)
 	{
+		stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::unblock);
+
 		blocking.erase (account);
 		backoff[account] = 0.0f;
+	}
+	else
+	{
+		stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::unblock_failed);
 	}
 }
 
@@ -170,12 +193,16 @@ nano::account nano::bootstrap::bootstrap_ascending::account_sets::next ()
 	nano::account result;
 	if (!forwarding.empty ())
 	{
+		stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::next_forwarding);
+
 		auto iter = forwarding.begin ();
 		result = *iter;
 		forwarding.erase (iter);
 	}
 	else
 	{
+		stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::next_random);
+
 		result = random ();
 	}
 	backoff[result] += 1.0f;
@@ -273,10 +300,13 @@ void nano::bootstrap::bootstrap_ascending::thread::send (std::shared_ptr<async_t
 	message.start = start;
 	message.end = 0;
 	message.count = request_message_count;
+
+	++bootstrap.requests_total;
 	bootstrap.debug_log (boost::str (boost::format ("Request sent for: %1% to: %2%")
 	% message.start.to_string () % tag->connection ().first->remote_endpoint ()));
+	bootstrap.stats.inc (nano::stat::type::bootstrap_ascending_thread, nano::stat::detail::request);
+
 	auto channel = tag->connection ().second;
-	++bootstrap.requests_total;
 	std::weak_ptr<nano::node> node_weak = bootstrap.node.shared ();
 	std::weak_ptr<bootstrap_ascending::thread> this_weak = shared ();
 	channel->send (message, [node_weak, this_weak, tag] (boost::system::error_code const & ec, std::size_t size) {
@@ -291,12 +321,15 @@ void nano::bootstrap::bootstrap_ascending::thread::send (std::shared_ptr<async_t
 			node->ascendboot.debug_log (boost::str (boost::format ("Error during bulk_pull send: %1!") % ec.value ()));
 			return;
 		}
+
 		this_l->read_block (tag);
 	});
 }
 
 void nano::bootstrap::bootstrap_ascending::thread::read_block (std::shared_ptr<async_tag> tag)
 {
+	bootstrap.stats.inc (nano::stat::type::bootstrap_ascending_thread, nano::stat::detail::read_block);
+
 	auto deserializer = std::make_shared<nano::bootstrap::block_deserializer> ();
 	auto socket = tag->connection ().first;
 	std::weak_ptr<nano::node> node_weak = bootstrap.node.shared ();
@@ -310,13 +343,16 @@ void nano::bootstrap::bootstrap_ascending::thread::read_block (std::shared_ptr<a
 		}
 		if (ec)
 		{
+			this_l->bootstrap.stats.inc (nano::stat::type::bootstrap_ascending_thread, nano::stat::detail::read_block_error);
 			this_l->bootstrap.debug_log (boost::str (boost::format ("Error during bulk_pull read: %1%") % ec.value ()));
 			return;
 		}
 		if (block == nullptr)
 		{
+			this_l->bootstrap.stats.inc (nano::stat::type::bootstrap_ascending_thread, nano::stat::detail::read_block_end);
 			this_l->bootstrap.debug_log (boost::str (boost::format ("graceful stream end: %1% blocks=%2%")
 			% tag->connection ().first->remote_endpoint () % tag->blocks));
+
 			tag->success ();
 			return;
 		}
@@ -329,12 +365,13 @@ void nano::bootstrap::bootstrap_ascending::thread::read_block (std::shared_ptr<a
 		else if (this_l->bootstrap.node.network_params.work.validate_entry (*block))
 		{
 			// TODO: should we close the socket at this point?
-			this_l->bootstrap.node.stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
+			this_l->bootstrap.stats.inc (nano::stat::type::bootstrap_ascending_thread, nano::stat::detail::insufficient_work);
 			this_l->bootstrap.debug_log (boost::str (boost::format ("bad block from peer %1%: hash=%2% %3%")
 			% tag->connection ().first->remote_endpoint () % block->hash ().to_string () % block->to_json ()));
 		}
 		else
 		{
+			this_l->bootstrap.stats.inc (nano::stat::type::bootstrap_ascending_thread, nano::stat::detail::read_block_done);
 			this_l->bootstrap.debug_log (boost::str (boost::format ("Read block from peer %1%: hash=%2% %3%")
 			% tag->connection ().first->remote_endpoint () % block->hash ().to_string () % block->to_json ()));
 			this_l->bootstrap.node.block_processor.add (block);
@@ -432,7 +469,9 @@ bool nano::bootstrap::bootstrap_ascending::thread::wait_available_request ()
 
 nano::bootstrap::bootstrap_ascending::bootstrap_ascending (nano::node & node_a) :
 	node{ node_a },
-	pool{ *this }
+	pool{ *this },
+	stats{ node_a.stats }, // TODO: For convenience, once ascending bootstrap is a separate node component, pass via constructor
+	accounts{ node_a.stats }
 {
 	debug_log (boost::str (boost::format ("bootstrap_ascending constructor")));
 }

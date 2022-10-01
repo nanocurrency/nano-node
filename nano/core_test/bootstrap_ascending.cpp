@@ -1,3 +1,4 @@
+#include <nano/lib/stats.hpp>
 #include <nano/node/bootstrap/bootstrap_ascending.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -18,20 +19,23 @@ nano::block_hash random_hash ()
 
 TEST (account_sets, construction)
 {
-	nano::bootstrap::bootstrap_ascending::account_sets sets;
+	nano::stat stats;
+	nano::bootstrap::bootstrap_ascending::account_sets sets{ stats };
 }
 
 TEST (account_sets, empty_blocked)
 {
 	nano::account account{ 1 };
-	nano::bootstrap::bootstrap_ascending::account_sets sets;
+	nano::stat stats;
+	nano::bootstrap::bootstrap_ascending::account_sets sets{ stats };
 	ASSERT_FALSE (sets.blocked (account));
 }
 
 TEST (account_sets, block)
 {
 	nano::account account{ 1 };
-	nano::bootstrap::bootstrap_ascending::account_sets sets;
+	nano::stat stats;
+	nano::bootstrap::bootstrap_ascending::account_sets sets{ stats };
 	sets.block (account, random_hash ());
 	ASSERT_TRUE (sets.blocked (account));
 }
@@ -39,7 +43,8 @@ TEST (account_sets, block)
 TEST (account_sets, unblock)
 {
 	nano::account account{ 1 };
-	nano::bootstrap::bootstrap_ascending::account_sets sets;
+	nano::stat stats;
+	nano::bootstrap::bootstrap_ascending::account_sets sets{ stats };
 	auto hash = random_hash ();
 	sets.block (account, hash);
 	sets.unblock (account, hash);
