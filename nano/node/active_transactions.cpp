@@ -681,9 +681,11 @@ std::size_t nano::active_transactions::election_winner_details_size ()
 
 void nano::active_transactions::clear ()
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	blocks.clear ();
-	roots.clear ();
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		blocks.clear ();
+		roots.clear ();
+	}
 	vacancy_update ();
 }
 
