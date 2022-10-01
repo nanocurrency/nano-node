@@ -684,6 +684,7 @@ void nano::active_transactions::clear ()
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	blocks.clear ();
 	roots.clear ();
+	vacancy_update ();
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (active_transactions & active_transactions, std::string const & name)
