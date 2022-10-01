@@ -57,7 +57,7 @@ TEST (bootstrap_ascending, profile)
 	flags_client.disable_legacy_bootstrap = true;
 	flags_client.disable_wallet_bootstrap = true;
 	flags_client.disable_add_initial_peers = true;
-	flags_client.disable_ongoing_bootstrap = true;
+	flags_client.disable_legacy_bootstrap = true;
 	config_client.ipc_config.transport_tcp.enabled = true;
 	auto client = system.add_node (config_client, flags_client);
 
