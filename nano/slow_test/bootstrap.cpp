@@ -28,13 +28,16 @@ void wait_for_key ()
 
 TEST (bootstrap_ascending, profile)
 {
-	//	const auto path_server = "/Users/clemahieu/Library/NanoBeta";
-
 	uint16_t rpc_port = 55000;
 	nano::test::system system;
 	nano::thread_runner runner{ system.io_ctx, 2 };
-	nano::networks network = nano::networks::nano_live_network;
+	auto net_string = nano::get_env_or_default ("NANO_TEST_ASCENDBOOT_NETWORK", "live");
+	nano::networks network = nano::network_constants::network_string_to_enum (net_string);
+	ASSERT_NE (network, nano::networks::invalid);
 	nano::network_params network_params{ network };
+
+	// Select a ledger for the server node, default to ledger from standard network location
+	auto path_server = nano::get_env_or_default ("NANO_TEST_ASCENDBOOT_LEDGER", nano::working_path (network).string ());
 
 	// Set up client and server nodes
 	nano::node_config config_server{ network_params };
@@ -44,7 +47,7 @@ TEST (bootstrap_ascending, profile)
 	flags_server.disable_wallet_bootstrap = true;
 	flags_server.disable_add_initial_peers = true;
 	flags_server.disable_ongoing_bootstrap = true;
-	auto server = std::make_shared<nano::node> (system.io_ctx, nano::working_path (network), config_server, system.work);
+	auto server = std::make_shared<nano::node> (system.io_ctx, path_server, config_server, system.work);
 	system.nodes.push_back (server);
 	server->start ();
 
