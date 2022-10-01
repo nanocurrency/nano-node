@@ -35,7 +35,7 @@ bool nano::bootstrap::bootstrap_ascending::connection_pool::operator() (std::sha
 	}
 
 	// connections is empty, try to find peers to bootstrap with
-	auto endpoint = node.network.bootstrap_peer (true);
+	auto endpoint = node.network.next_bootstrap_peer (node.network_params.network.bootstrap_protocol_version_min);
 	if (endpoint == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0))
 	{
 		bootstrap.stats.inc (nano::stat::type::bootstrap_ascending_connections, nano::stat::detail::connect_missing);
