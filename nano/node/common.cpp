@@ -1035,8 +1035,8 @@ std::string nano::frontier_req::to_string () const
 	std::stringstream stream;
 
 	stream << start.to_string ();
-	stream << "maxage: " + std::to_string(age);
-	stream << "count: " + std::to_string(count);
+	stream << " maxage=" + std::to_string(age);
+	stream << " count=" + std::to_string(count);
 
 	return stream.str ();
 }
