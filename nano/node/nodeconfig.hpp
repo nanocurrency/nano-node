@@ -124,6 +124,7 @@ public:
 	bool disable_bootstrap_bulk_pull_server{ false };
 	bool disable_bootstrap_bulk_push_client{ false };
 	bool disable_ongoing_bootstrap{ false }; // For testing only
+	bool disable_ascending_bootstrap{ false };
 	bool disable_rep_crawler{ false };
 	bool disable_request_loop{ false }; // For testing only
 	bool disable_tcp_realtime{ false };
@@ -136,8 +137,8 @@ public:
 	bool disable_block_processor_unchecked_deletion{ false };
 	bool disable_block_processor_republishing{ false };
 	bool allow_bootstrap_peers_duplicates{ false };
-	bool disable_max_peers_per_ip{ false }; // For testing only
-	bool disable_max_peers_per_subnetwork{ false }; // For testing only
+	bool disable_max_peers_per_ip{ true }; // For testing only
+	bool disable_max_peers_per_subnetwork{ true }; // For testing only
 	bool force_use_write_database_queue{ false }; // For testing only. RocksDB does not use the database queue, but some tests rely on it being used.
 	bool disable_search_pending{ false }; // For testing only
 	bool enable_pruning{ false };

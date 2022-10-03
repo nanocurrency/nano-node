@@ -1869,13 +1869,6 @@ void nano::json_handler::bootstrap_lazy ()
 	response_errors ();
 }
 
-void nano::json_handler::bootstrap_ascending ()
-{
-	node.bootstrap_initiator.bootstrap_ascending ();
-	response_l.put ("success", "");
-	response_errors ();
-}
-
 /*
  * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
  */
@@ -5244,44 +5237,36 @@ void nano::json_handler::backoff_info ()
 {
 	if (!ec)
 	{
-		auto ascending = node.bootstrap_initiator.current_ascending_attempt ();
-		if (ascending)
-		{
-			auto [forwarding, blocking, backoffs] = ascending->backoff_info ();
+		auto [forwarding, blocking, backoffs] = node.ascendboot.backoff_info ();
 
-			// backoff
-			{
-				boost::property_tree::ptree response_backoffs;
-				for (auto const & [account, backoff] : backoffs)
-				{
-					response_backoffs.put (account.to_account (), backoff);
-				}
-				response_l.add_child ("backoff", response_backoffs);
-			}
-			// forwarding
-			{
-				boost::property_tree::ptree response_forwarding;
-				for (auto const & account : forwarding)
-				{
-					boost::property_tree::ptree entry;
-					entry.put ("", account.to_account ());
-					response_forwarding.push_back (std::make_pair ("", entry));
-				}
-				response_l.add_child ("forwarding", response_forwarding);
-			}
-			// blocking
-			{
-				boost::property_tree::ptree response_blocking;
-				for (auto const & [account, dependency] : blocking)
-				{
-					response_blocking.put (account.to_account (), dependency.to_string ());
-				}
-				response_l.add_child ("blocking", response_blocking);
-			}
-		}
-		else
+		// backoff
 		{
-			ec = nano::error_common::generic;
+			boost::property_tree::ptree response_backoffs;
+			for (auto const & [account, backoff] : backoffs)
+			{
+				response_backoffs.put (account.to_account (), backoff);
+			}
+			response_l.add_child ("backoff", response_backoffs);
+		}
+		// forwarding
+		{
+			boost::property_tree::ptree response_forwarding;
+			for (auto const & account : forwarding)
+			{
+				boost::property_tree::ptree entry;
+				entry.put ("", account.to_account ());
+				response_forwarding.push_back (std::make_pair ("", entry));
+			}
+			response_l.add_child ("forwarding", response_forwarding);
+		}
+		// blocking
+		{
+			boost::property_tree::ptree response_blocking;
+			for (auto const & [account, dependency] : blocking)
+			{
+				response_blocking.put (account.to_account (), dependency.to_string ());
+			}
+			response_l.add_child ("blocking", response_blocking);
 		}
 	}
 	response_errors ();
@@ -5369,7 +5354,6 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("bootstrap", &nano::json_handler::bootstrap);
 	no_arg_funcs.emplace ("bootstrap_any", &nano::json_handler::bootstrap_any);
 	no_arg_funcs.emplace ("bootstrap_lazy", &nano::json_handler::bootstrap_lazy);
-	no_arg_funcs.emplace ("bootstrap_ascending", &nano::json_handler::bootstrap_ascending);
 	no_arg_funcs.emplace ("bootstrap_status", &nano::json_handler::bootstrap_status);
 	no_arg_funcs.emplace ("confirmation_active", &nano::json_handler::confirmation_active);
 	no_arg_funcs.emplace ("confirmation_height_currently_processing", &nano::json_handler::confirmation_height_currently_processing);

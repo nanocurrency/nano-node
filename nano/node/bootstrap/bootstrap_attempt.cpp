@@ -105,8 +105,6 @@ char const * nano::bootstrap_attempt::mode_text ()
 			return "lazy";
 		case nano::bootstrap_mode::wallet_lazy:
 			return "wallet_lazy";
-		case nano::bootstrap_mode::ascending:
-			return "ascending";
 	}
 	return "unknown";
 }

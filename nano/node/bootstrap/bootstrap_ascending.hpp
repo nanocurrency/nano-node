@@ -1,79 +1,79 @@
 #pragma once
 
+#include <nano/lib/utility.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
 
+#include <functional>
+#include <future>
 #include <random>
 #include <thread>
+#include <vector>
 
 namespace nano
 {
+class block_processor;
+class ledger;
+
 namespace transport
 {
 	class channel;
 }
+
 namespace bootstrap
 {
-	class bootstrap_ascending : public nano::bootstrap_attempt
+	class bootstrap_ascending
 	{
 	public:
-		explicit bootstrap_ascending (std::shared_ptr<nano::node> const & node_a, uint64_t incremental_id_a, std::string id_a);
+		bootstrap_ascending (nano::node &, nano::store &, nano::block_processor &, nano::ledger &, nano::stat &);
+		~bootstrap_ascending ();
 
-		void run () override;
-		void get_information (boost::property_tree::ptree &) override;
+		void start ();
+		void stop ();
 
-		explicit bootstrap_ascending (std::shared_ptr<nano::node> const & node_a, uint64_t const incremental_id_a, std::string const & id_a, uint32_t const frontiers_age_a, nano::account const & start_account_a) :
-			bootstrap_ascending{ node_a, incremental_id_a, id_a }
-		{
-			std::cerr << '\0';
-		}
-		void add_frontier (nano::pull_info const &)
-		{
-			std::cerr << '\0';
-		}
-		void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &)
-		{
-			std::cerr << '\0';
-		}
-		void set_start_account (nano::account const &)
-		{
-			std::cerr << '\0';
-		}
-		bool request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &)
-		{
-			std::cerr << '\0';
-			return true;
-		}
+		/**
+		 * Inspects a block that has been processed by the block processor
+		 * - Marks an account as blocked if the result code is gap source as there is no reason request additional blocks for this account until the dependency is resolved
+		 * - Marks an account as forwarded if it has been recently referenced by a block that has been inserted.
+		 */
+		void inspect (nano::transaction const & tx, nano::process_return const & result, nano::block const & block);
+
+		bool blocked (nano::account const & account) const;
+
+		void dump_stats ();
 
 	private: // Dependencies
+		nano::node & node;
+		nano::store & store;
+		nano::block_processor & block_processor;
+		nano::ledger & ledger;
 		nano::stat & stats;
 
 	private:
-		std::shared_ptr<nano::bootstrap::bootstrap_ascending> shared ();
+		/**
+		 * Seed backoffs with accounts from the ledger
+		 */
+		void seed ();
+
 		void debug_log (const std::string &) const;
 		// void dump_miss_histogram ();
 
 	public:
-		class async_tag;
+		using socket_channel_t = std::pair<std::shared_ptr<nano::socket>, std::shared_ptr<nano::transport::channel>>;
 
 		class connection_pool
 		{
 		public:
-			using socket_channel = std::pair<std::shared_ptr<nano::socket>, std::shared_ptr<nano::transport::channel>>;
-
-		public:
-			connection_pool (nano::node & node, nano::bootstrap::bootstrap_ascending & bootstrap);
+			explicit connection_pool (bootstrap_ascending & bootstrap);
 			/** Given a tag context, find or create a connection to a peer and then call the op callback */
-			bool operator() (std::shared_ptr<async_tag> tag, std::function<void ()> op);
-			void add (socket_channel const & connection);
+			std::future<std::optional<socket_channel_t>> request ();
+			void put (socket_channel_t const & connection);
 
 		private:
-			nano::node & node;
 			bootstrap_ascending & bootstrap;
 
-			std::deque<socket_channel> connections;
+			std::deque<socket_channel_t> connections;
+			mutable nano::mutex mutex;
 		};
-
-		using socket_channel = connection_pool::socket_channel;
 
 		/** This class tracks accounts various account sets which are shared among the multiple bootstrap threads */
 		class account_sets
@@ -121,31 +121,66 @@ namespace bootstrap
 			backoff_info_t backoff_info () const;
 		};
 
+		class pull_tag : public std::enable_shared_from_this<pull_tag>
+		{
+		public:
+			enum class process_result
+			{
+				success,
+				end,
+				error,
+				malice,
+			};
+
+		public:
+			pull_tag (bootstrap_ascending &, socket_channel_t, nano::hash_or_account const & start);
+
+			std::future<bool> send ();
+			std::future<bool> read ();
+
+			std::function<void (std::shared_ptr<nano::block> & block)> process_block{ [] (auto &) { debug_assert (false, "bootstrap_ascending::bulk_pull_tag callback empty"); } };
+
+		private:
+			void read_block (std::function<void (process_result)> callback);
+			process_result block_received (boost::system::error_code ec, std::shared_ptr<nano::block> block);
+
+		private:
+			bootstrap_ascending & bootstrap;
+
+			std::shared_ptr<nano::socket> socket;
+			std::shared_ptr<nano::transport::channel> channel;
+			const nano::hash_or_account start;
+
+			std::shared_ptr<nano::bootstrap::block_deserializer> deserializer;
+
+		private:
+			std::atomic<int> block_counter{ 0 };
+		};
+
 		/** A single thread performing the ascending bootstrap algorithm
 			Each thread tracks the number of outstanding requests over the network that have not yet completed.
 		*/
-		class thread : public std::enable_shared_from_this<thread>
+		class thread
 		{
 		public:
-			explicit thread (std::shared_ptr<bootstrap_ascending> bootstrap);
+			explicit thread (bootstrap_ascending & bootstrap);
 
+			void run ();
+
+			std::function<void (std::shared_ptr<nano::block> & block)> process_block{ [] (auto &) { debug_assert (false, "bootstrap_ascending::thread callback empty"); } };
+
+		private:
 			/// Wait for there to be space for an additional request
 			bool wait_available_request ();
 			bool request_one ();
-			void run ();
-			std::shared_ptr<thread> shared ();
+			std::optional<socket_channel_t> pick_connection ();
 			nano::account pick_account ();
-			// Send a request for a specific account or hash `start' to `tag' which contains a bootstrap socket.
-			void send (std::shared_ptr<async_tag> tag, nano::hash_or_account const & start);
-			// Reads a block from a specific `tag' / bootstrap socket.
-			void read_block (std::shared_ptr<async_tag> tag);
 
 			std::atomic<int> requests{ 0 };
 			static constexpr int requests_max = 1;
 
 		public: // Convinience reference rather than internally using a pointer
-			std::shared_ptr<bootstrap_ascending> bootstrap_ptr;
-			bootstrap_ascending & bootstrap{ *bootstrap_ptr };
+			bootstrap_ascending & bootstrap;
 		};
 
 		/** This class tracks the lifetime of a network request within a bootstrap attempt thread
@@ -162,22 +197,19 @@ namespace bootstrap
 			// If success () has been called, the socket will be reused, otherwise it will be abandoned therefore destroyed.
 			~async_tag ();
 			void success ();
-			void connection_set (socket_channel const & connection);
-			socket_channel & connection ();
+			void connection_set (socket_channel_t const & connection);
+			socket_channel_t & connection ();
 
 			// Tracks the number of blocks received from this request
 			std::atomic<int> blocks{ 0 };
 
 		private:
-			bool success_m{ false };
-			std::optional<socket_channel> connection_m;
-			std::shared_ptr<bootstrap_ascending::thread> bootstrap;
-		};
+			bootstrap_ascending & bootstrap;
+			bootstrap_ascending::thread & bootstrap_thread;
 
-		void request_one ();
-		bool blocked (nano::account const & account);
-		void inspect (nano::transaction const & tx, nano::process_return const & result, nano::block const & block);
-		void dump_stats ();
+			bool success_m{ false };
+			std::optional<socket_channel_t> connection_m;
+		};
 
 		account_sets::backoff_info_t backoff_info () const;
 
@@ -185,8 +217,13 @@ namespace bootstrap
 		account_sets accounts;
 		connection_pool pool;
 
-		static std::size_t constexpr parallelism = 1;
-		static std::size_t constexpr request_message_count = 16;
+		std::atomic<bool> stopped{ false };
+		mutable nano::mutex mutex;
+		nano::condition_variable condition;
+		std::vector<std::thread> threads;
+
+		static std::size_t constexpr parallelism = 4;
+		static std::size_t constexpr request_message_count = 128;
 
 		std::atomic<int> responses{ 0 };
 		std::atomic<int> requests_total{ 0 };
@@ -194,5 +231,13 @@ namespace bootstrap
 		std::atomic<int> forwarded{ 0 };
 		std::atomic<int> block_total{ 0 };
 	};
+}
+
+template <typename T>
+std::shared_ptr<std::promise<T>> shared_promise ()
+{
+	std::promise<bool> promise;
+	auto shared_promise = std::make_shared<decltype (promise)> (std::move (promise));
+	return shared_promise;
 }
 }

@@ -32,7 +32,7 @@ TEST (bootstrap_ascending, profile)
 
 	uint16_t rpc_port = 55000;
 	nano::test::system system;
-	nano::thread_runner runner{ system.io_ctx, 2 };
+	nano::thread_runner runner{ system.io_ctx, 8 };
 	nano::networks network = nano::networks::nano_live_network;
 	nano::network_params network_params{ network };
 
@@ -44,9 +44,12 @@ TEST (bootstrap_ascending, profile)
 	flags_server.disable_wallet_bootstrap = true;
 	flags_server.disable_add_initial_peers = true;
 	flags_server.disable_ongoing_bootstrap = true;
-	auto server = std::make_shared<nano::node> (system.io_ctx, nano::working_path (network), config_server, system.work);
+	flags_server.disable_ascending_bootstrap = true;
+	auto server = std::make_shared<nano::node> (system.io_ctx, nano::working_path (network), config_server, system.work, flags_server);
 	system.nodes.push_back (server);
 	server->start ();
+
+	std::cout << "server started" << std::endl;
 
 	nano::node_config config_client{ network_params };
 	config_client.preconfigured_peers.clear ();
@@ -58,6 +61,8 @@ TEST (bootstrap_ascending, profile)
 	config_client.ipc_config.transport_tcp.enabled = true;
 	auto client = system.add_node (config_client, flags_client);
 
+	std::cout << "client started" << std::endl;
+
 	// Set up client RPC
 	nano::node_rpc_config node_rpc_config;
 	nano::rpc_config rpc_config{ network_params.network, rpc_port, true };
@@ -65,9 +70,6 @@ TEST (bootstrap_ascending, profile)
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
-
-	client->bootstrap_initiator.bootstrap_ascending ();
-	//	client->bootstrap_initiator.bootstrap ();
 
 	std::cerr << boost::str (boost::format ("Server: %1%, client: %2%\n") % server->network.port.load () % client->network.port.load ());
 

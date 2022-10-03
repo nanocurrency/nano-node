@@ -181,6 +181,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
 	backlog{ nano::nodeconfig_to_backlog_population_config (config), store, scheduler },
+	ascendboot{ *this, store, block_processor, ledger, stats },
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq)
 {
@@ -747,6 +748,11 @@ void nano::node::start ()
 	final_generator.start ();
 	backlog.start ();
 	hinting.start ();
+
+	if (!flags.disable_ascending_bootstrap)
+	{
+		ascendboot.start ();
+	}
 }
 
 void nano::node::stop ()
@@ -757,6 +763,7 @@ void nano::node::stop ()
 		// Cancels ongoing work generation tasks, which may be blocking other threads
 		// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
 		distributed_work.stop ();
+		ascendboot.stop ();
 		unchecked.stop ();
 		block_processor.stop ();
 		aggregator.stop ();
