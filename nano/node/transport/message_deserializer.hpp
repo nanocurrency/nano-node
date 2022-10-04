@@ -12,9 +12,10 @@
 namespace nano
 {
 class socket;
-namespace bootstrap
+
+namespace transport
 {
-	class message_deserializer : public std::enable_shared_from_this<nano::bootstrap::message_deserializer>
+	class message_deserializer : public std::enable_shared_from_this<nano::transport::message_deserializer>
 	{
 	public:
 		enum class parse_status

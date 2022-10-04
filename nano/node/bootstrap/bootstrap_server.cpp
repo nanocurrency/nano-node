@@ -1,9 +1,9 @@
 #include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
-#include <nano/node/bootstrap/message_deserializer.hpp>
 #include <nano/node/messages.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/transport/message_deserializer.hpp>
 #include <nano/node/transport/tcp.hpp>
 
 #include <boost/format.hpp>
@@ -139,7 +139,7 @@ nano::bootstrap_server::bootstrap_server (std::shared_ptr<nano::socket> socket_a
 	socket{ std::move (socket_a) },
 	node{ std::move (node_a) },
 	allow_bootstrap{ allow_bootstrap_a },
-	message_deserializer{ std::make_shared<nano::bootstrap::message_deserializer> (node->network_params.network, node->network.publish_filter, node->block_uniquer, node->vote_uniquer) }
+	message_deserializer{ std::make_shared<nano::transport::message_deserializer> (node->network_params.network, node->network.publish_filter, node->block_uniquer, node->vote_uniquer) }
 {
 	debug_assert (socket != nullptr);
 }
@@ -219,9 +219,9 @@ void nano::bootstrap_server::received_message (std::unique_ptr<nano::message> me
 	else
 	{
 		// Error while deserializing message
-		debug_assert (message_deserializer->status != bootstrap::message_deserializer::parse_status::success);
+		debug_assert (message_deserializer->status != transport::message_deserializer::parse_status::success);
 		node->stats.inc (nano::stat::type::error, message_deserializer->parse_status_to_stat_detail ());
-		if (message_deserializer->status == bootstrap::message_deserializer::parse_status::duplicate_publish_message)
+		if (message_deserializer->status == transport::message_deserializer::parse_status::duplicate_publish_message)
 		{
 			node->stats.inc (nano::stat::type::filter, nano::stat::detail::duplicate_publish);
 		}

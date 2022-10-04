@@ -38,7 +38,7 @@ std::unique_ptr<container_info_component> collect_container_info (bootstrap_list
 
 class message;
 
-namespace bootstrap
+namespace transport
 {
 	class message_deserializer;
 };
@@ -78,7 +78,7 @@ private:
 	bool is_bootstrap_connection () const;
 	bool is_realtime_connection () const;
 
-	std::shared_ptr<nano::bootstrap::message_deserializer> message_deserializer;
+	std::shared_ptr<nano::transport::message_deserializer> message_deserializer;
 
 	bool allow_bootstrap;
 
