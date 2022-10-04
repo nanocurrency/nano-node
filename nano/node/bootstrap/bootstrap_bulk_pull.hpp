@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/node/common.hpp>
+#include <nano/node/messages.hpp>
 #include <nano/node/socket.hpp>
 
 #include <unordered_set>
@@ -56,7 +57,7 @@ private:
 	 * Tracks the account number for this account chain
 	 * Used when an account chain has a mix between state blocks and legacy blocks which do not encode the account number in the block
 	 * 0 if the account is unknown
-	*/
+	 */
 	nano::account known_account{ 0 };
 	/**
 	 * Original pull request

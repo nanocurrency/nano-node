@@ -54,7 +54,7 @@ nano::transport::channel::channel (nano::node & node_a) :
 void nano::transport::channel::send (nano::message & message_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
 {
 	auto buffer (message_a.to_shared_const_buffer ());
-	auto detail = nano::message_type_to_stat_detail (message_a.header.type);
+	auto detail = nano::to_stat_detail (message_a.header.type);
 	auto is_droppable_by_limiter = drop_policy_a == nano::buffer_drop_policy::limiter;
 	auto should_drop (node.network.limiter.should_drop (buffer.size ()));
 	if (!is_droppable_by_limiter || !should_drop)
