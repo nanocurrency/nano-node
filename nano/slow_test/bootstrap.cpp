@@ -31,13 +31,13 @@ TEST (bootstrap_ascending, profile)
 	uint16_t rpc_port = 55000;
 	nano::test::system system;
 	nano::thread_runner runner{ system.io_ctx, 2 };
-	auto net_string = nano::get_env_or_default ("NANO_TEST_ASCENDBOOT_NETWORK", "live");
+	auto net_string = nano::get_env_or_default ("NANO_ASCENDBOOT_NETWORK", "live");
 	nano::networks network = nano::network_constants::network_string_to_enum (net_string);
 	ASSERT_NE (network, nano::networks::invalid);
 	nano::network_params network_params{ network };
 
 	// Select a ledger for the server node, default to ledger from standard network location
-	auto path_server = nano::get_env_or_default ("NANO_TEST_ASCENDBOOT_LEDGER", nano::working_path (network).string ());
+	auto path_server = nano::get_env_or_default ("NANO_ASCENDBOOT_LEDGER", nano::working_path (network).string ());
 
 	// Set up client and server nodes
 	nano::node_config config_server{ network_params };
