@@ -14,10 +14,10 @@ class bootstrap_server;
 /**
  * Server side portion of bootstrap sessions. Listens for new socket connections and spawns bootstrap_server objects when connected.
  */
-class bootstrap_listener final
+class tcp_listener final
 {
 public:
-	bootstrap_listener (uint16_t, nano::node &);
+	tcp_listener (uint16_t, nano::node &);
 	void start ();
 	void stop ();
 	void accept_action (boost::system::error_code const &, std::shared_ptr<nano::socket> const &);
@@ -34,7 +34,7 @@ public:
 	uint16_t port;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (bootstrap_listener & bootstrap_listener, std::string const & name);
+std::unique_ptr<container_info_component> collect_container_info (tcp_listener & bootstrap_listener, std::string const & name);
 
 class message;
 
