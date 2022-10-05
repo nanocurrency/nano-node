@@ -111,41 +111,55 @@ TEST (prioritization, construction)
 	nano::prioritization prioritization;
 	ASSERT_EQ (0, prioritization.size ());
 	ASSERT_TRUE (prioritization.empty ());
-	ASSERT_EQ (129, prioritization.bucket_count ());
+	ASSERT_EQ (62, prioritization.bucket_count ());
 }
 
-TEST (prioritization, insert_zero)
+TEST (prioritization, index_min)
+{
+	nano::prioritization prioritization;
+	ASSERT_EQ (0, prioritization.index (std::numeric_limits<nano::uint128_t>::min ()));
+}
+
+TEST (prioritization, index_max)
+{
+	nano::prioritization prioritization;
+	ASSERT_EQ (prioritization.bucket_count () - 1, prioritization.index (std::numeric_limits<nano::uint128_t>::max ()));
+}
+
+TEST (prioritization, insert_Gxrb)
 {
 	nano::prioritization prioritization;
 	prioritization.push (1000, block0 ());
 	ASSERT_EQ (1, prioritization.size ());
-	ASSERT_EQ (1, prioritization.bucket_size (110));
+	ASSERT_EQ (1, prioritization.bucket_size (48));
 }
 
-TEST (prioritization, insert_one)
+TEST (prioritization, insert_Mxrb)
 {
 	nano::prioritization prioritization;
 	prioritization.push (1000, block1 ());
 	ASSERT_EQ (1, prioritization.size ());
-	ASSERT_EQ (1, prioritization.bucket_size (100));
+	ASSERT_EQ (1, prioritization.bucket_size (13));
 }
 
+// Test two blocks with the same priority
 TEST (prioritization, insert_same_priority)
 {
 	nano::prioritization prioritization;
 	prioritization.push (1000, block0 ());
 	prioritization.push (1000, block2 ());
 	ASSERT_EQ (2, prioritization.size ());
-	ASSERT_EQ (2, prioritization.bucket_size (110));
+	ASSERT_EQ (2, prioritization.bucket_size (48));
 }
 
+// Test the same block inserted multiple times
 TEST (prioritization, insert_duplicate)
 {
 	nano::prioritization prioritization;
 	prioritization.push (1000, block0 ());
 	prioritization.push (1000, block0 ());
 	ASSERT_EQ (1, prioritization.size ());
-	ASSERT_EQ (1, prioritization.bucket_size (110));
+	ASSERT_EQ (1, prioritization.bucket_size (48));
 }
 
 TEST (prioritization, insert_older)

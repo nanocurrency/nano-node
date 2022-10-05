@@ -63,6 +63,7 @@ public:
 	std::size_t bucket_size (std::size_t index) const;
 	bool empty () const;
 	void dump () const;
+	std::size_t index (nano::uint128_t const & balance) const;
 
 	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const &);
 };
