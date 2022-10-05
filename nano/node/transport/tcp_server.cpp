@@ -64,7 +64,7 @@ void nano::transport::tcp_listener::start ()
 		}
 	}
 
-	listening_socket->on_connection ([this] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
+	listening_socket->accept_connection ([this] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
 		if (!ec_a)
 		{
 			accept_action (ec_a, new_connection);

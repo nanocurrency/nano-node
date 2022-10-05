@@ -202,7 +202,7 @@ public:
 	/** Stop accepting new connections */
 	void close () override;
 	/** Register callback for new connections. The callback must return true to keep accepting new connections. */
-	void on_connection (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);
+	void accept_connection (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)> callback_a);
 	uint16_t listening_port ()
 	{
 		return acceptor.local_endpoint ().port ();
@@ -214,7 +214,7 @@ private:
 	boost::asio::ip::tcp::endpoint local;
 	std::size_t max_inbound_connections;
 	void evict_dead_connections ();
-	void on_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);
+	void accept_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)> callback_a);
 	/** Checks whether the maximum number of connections per IP was reached. If so, it returns true. */
 	bool limit_reached_for_incoming_ip_connections (std::shared_ptr<nano::socket> const & new_connection);
 	bool limit_reached_for_incoming_subnetwork_connections (std::shared_ptr<nano::socket> const & new_connection);

@@ -398,7 +398,7 @@ bool nano::server_socket::limit_reached_for_incoming_ip_connections (std::shared
 	return counted_connections >= node.network_params.network.max_peers_per_ip;
 }
 
-void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nano::socket> const &, boost::system::error_code const &)> callback_a)
+void nano::server_socket::accept_connection (std::function<bool (std::shared_ptr<nano::socket> const &, boost::system::error_code const &)> callback_a)
 {
 	auto this_l (std::static_pointer_cast<nano::server_socket> (shared_from_this ()));
 
@@ -420,7 +420,7 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 			{
 				this_l->node.logger.try_log ("Network: max_inbound_connections reached, unable to open new connection");
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
-				this_l->on_connection_requeue_delayed (std::move (cbk));
+				this_l->accept_connection_requeue_delayed (std::move (cbk));
 				return;
 			}
 
@@ -432,7 +432,7 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 				% remote_ip_address.to_string ());
 				this_l->node.logger.try_log (log_message);
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::in);
-				this_l->on_connection_requeue_delayed (std::move (cbk));
+				this_l->accept_connection_requeue_delayed (std::move (cbk));
 				return;
 			}
 
@@ -447,7 +447,7 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 				% remote_ip_address.to_string ());
 				this_l->node.logger.try_log (log_message);
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_subnetwork, nano::stat::dir::in);
-				this_l->on_connection_requeue_delayed (std::move (cbk));
+				this_l->accept_connection_requeue_delayed (std::move (cbk));
 				return;
 			}
 
@@ -461,7 +461,7 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 				this_l->connections_per_address.emplace (new_connection->remote.address (), new_connection);
 				if (cbk (new_connection, ec_a))
 				{
-					this_l->on_connection (std::move (cbk));
+					this_l->accept_connection (std::move (cbk));
 					return;
 				}
 				this_l->node.logger.always_log ("Network: Stopping to accept connections");
@@ -475,14 +475,14 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 			if (is_temporary_error (ec_a))
 			{
 				// if it is a temporary error, just retry it
-				this_l->on_connection_requeue_delayed (std::move (cbk));
+				this_l->accept_connection_requeue_delayed (std::move (cbk));
 				return;
 			}
 
 			// if it is not a temporary error, check how the listener wants to handle this error
 			if (cbk (new_connection, ec_a))
 			{
-				this_l->on_connection_requeue_delayed (std::move (cbk));
+				this_l->accept_connection_requeue_delayed (std::move (cbk));
 				return;
 			}
 
@@ -495,11 +495,11 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 // If we are unable to accept a socket, for any reason, we wait just a little (1ms) before rescheduling the next connection accept.
 // The intention is to throttle back the connection requests and break up any busy loops that could possibly form and
 // give the rest of the system a chance to recover.
-void nano::server_socket::on_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const &, boost::system::error_code const &)> callback_a)
+void nano::server_socket::accept_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const &, boost::system::error_code const &)> callback_a)
 {
 	auto this_l (std::static_pointer_cast<nano::server_socket> (shared_from_this ()));
 	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (1), [this_l, callback = std::move (callback_a)] () mutable {
-		this_l->on_connection (std::move (callback));
+		this_l->accept_connection (std::move (callback));
 	});
 }
 
