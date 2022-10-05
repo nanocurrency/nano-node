@@ -39,6 +39,7 @@ add_executable(
   signal_manager.cpp
   signing.cpp
   socket.cpp
+  ssl.cpp
   system.cpp
   telemetry.cpp
   toml.cpp
@@ -58,6 +59,8 @@ target_compile_definitions(
   core_test PRIVATE -DTAG_VERSION_STRING=${TAG_VERSION_STRING}
                     -DGIT_COMMIT_HASH=${GIT_COMMIT_HASH} -DCI=${CI_TEST})
 
+find_package(OpenSSL REQUIRED COMPONENTS Crypto SSL)
+
 target_link_libraries(
   core_test
   node
@@ -67,4 +70,6 @@ target_link_libraries(
   libminiupnpc-static
   Boost::log_setup
   Boost::log
-  Boost::boost)
+  Boost::boost
+  OpenSSL::Crypto
+  OpenSSL::SSL)
