@@ -86,18 +86,18 @@ public:
 	nano::account account;
 	uint64_t pull_blocks;
 };
-class bootstrap_server;
+class tcp_server;
 class bulk_pull;
 
 /**
- * Server side of a bulk_pull request. Created when bootstrap_server receives a bulk_pull message and is exited after the contents
+ * Server side of a bulk_pull request. Created when tcp_server receives a bulk_pull message and is exited after the contents
  * have been sent. If the 'start' in the bulk_pull message is an account, send blocks for that account down to 'end'. If the 'start'
  * is a block hash, send blocks for that chain down to 'end'. If end doesn't exist, send all accounts in the chain.
  */
 class bulk_pull_server final : public std::enable_shared_from_this<nano::bulk_pull_server>
 {
 public:
-	bulk_pull_server (std::shared_ptr<nano::bootstrap_server> const &, std::unique_ptr<nano::bulk_pull>);
+	bulk_pull_server (std::shared_ptr<nano::tcp_server> const &, std::unique_ptr<nano::bulk_pull>);
 	void set_current_end ();
 	std::shared_ptr<nano::block> get_next ();
 	void send_next ();
@@ -105,7 +105,7 @@ public:
 	void send_finished ();
 	void no_block_sent (boost::system::error_code const &, std::size_t);
 	bool ascending () const;
-	std::shared_ptr<nano::bootstrap_server> connection;
+	std::shared_ptr<nano::tcp_server> connection;
 	std::unique_ptr<nano::bulk_pull> request;
 	nano::block_hash current;
 	bool include_start;
@@ -116,7 +116,7 @@ class bulk_pull_account;
 class bulk_pull_account_server final : public std::enable_shared_from_this<nano::bulk_pull_account_server>
 {
 public:
-	bulk_pull_account_server (std::shared_ptr<nano::bootstrap_server> const &, std::unique_ptr<nano::bulk_pull_account>);
+	bulk_pull_account_server (std::shared_ptr<nano::tcp_server> const &, std::unique_ptr<nano::bulk_pull_account>);
 	void set_params ();
 	std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info>> get_next ();
 	void send_frontier ();
@@ -124,7 +124,7 @@ public:
 	void sent_action (boost::system::error_code const &, std::size_t);
 	void send_finished ();
 	void complete (boost::system::error_code const &, std::size_t);
-	std::shared_ptr<nano::bootstrap_server> connection;
+	std::shared_ptr<nano::tcp_server> connection;
 	std::unique_ptr<nano::bulk_pull_account> request;
 	std::unordered_set<nano::uint256_union> deduplication;
 	nano::pending_key current_key;

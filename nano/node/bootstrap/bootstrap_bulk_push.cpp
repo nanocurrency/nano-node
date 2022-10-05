@@ -112,7 +112,7 @@ void nano::bulk_push_client::push_block (nano::block const & block_a)
 	});
 }
 
-nano::bulk_push_server::bulk_push_server (std::shared_ptr<nano::bootstrap_server> const & connection_a) :
+nano::bulk_push_server::bulk_push_server (std::shared_ptr<nano::tcp_server> const & connection_a) :
 	receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
 	connection (connection_a)
 {

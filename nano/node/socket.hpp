@@ -139,7 +139,7 @@ protected:
 	std::atomic<uint64_t> last_receive_time_or_init;
 
 	/** Flag that is set when cleanup decides to close the socket due to timeout.
-	 *  NOTE: Currently used by bootstrap_server::timeout() but I suspect that this and bootstrap_server::timeout() are not needed.
+	 *  NOTE: Currently used by tcp_server::timeout() but I suspect that this and tcp_server::timeout() are not needed.
 	 */
 	std::atomic<bool> timed_out{ false };
 

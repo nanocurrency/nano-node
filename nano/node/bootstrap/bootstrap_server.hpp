@@ -9,10 +9,10 @@
 
 namespace nano
 {
-class bootstrap_server;
+class tcp_server;
 
 /**
- * Server side portion of bootstrap sessions. Listens for new socket connections and spawns bootstrap_server objects when connected.
+ * Server side portion of bootstrap sessions. Listens for new socket connections and spawns tcp_server objects when connected.
  */
 class tcp_listener final
 {
@@ -24,7 +24,7 @@ public:
 	std::size_t connection_count ();
 
 	nano::mutex mutex;
-	std::unordered_map<nano::bootstrap_server *, std::weak_ptr<nano::bootstrap_server>> connections;
+	std::unordered_map<nano::tcp_server *, std::weak_ptr<nano::tcp_server>> connections;
 	nano::tcp_endpoint endpoint ();
 	nano::node & node;
 	std::shared_ptr<nano::server_socket> listening_socket;
@@ -43,11 +43,12 @@ namespace transport
 	class message_deserializer;
 };
 
-class bootstrap_server final : public std::enable_shared_from_this<nano::bootstrap_server>
+class tcp_server final : public std::enable_shared_from_this<tcp_server>
 {
 public:
-	bootstrap_server (std::shared_ptr<nano::socket>, std::shared_ptr<nano::node>, bool allow_bootstrap = true);
-	~bootstrap_server ();
+	tcp_server (std::shared_ptr<nano::socket>, std::shared_ptr<nano::node>, bool allow_bootstrap = true);
+	~tcp_server ();
+
 	void start ();
 	void stop ();
 
@@ -89,7 +90,7 @@ private:
 		bool process{ false };
 		bool bootstrap{ false };
 
-		explicit handshake_message_visitor (std::shared_ptr<bootstrap_server>);
+		explicit handshake_message_visitor (std::shared_ptr<tcp_server>);
 
 		void node_id_handshake (nano::node_id_handshake const &) override;
 		void bulk_pull (nano::bulk_pull const &) override;
@@ -98,7 +99,7 @@ private:
 		void frontier_req (nano::frontier_req const &) override;
 
 	private:
-		std::shared_ptr<bootstrap_server> server;
+		std::shared_ptr<tcp_server> server;
 	};
 
 	class realtime_message_visitor : public nano::message_visitor
@@ -106,7 +107,7 @@ private:
 	public:
 		bool process{ false };
 
-		explicit realtime_message_visitor (bootstrap_server &);
+		explicit realtime_message_visitor (tcp_server &);
 
 		void keepalive (nano::keepalive const &) override;
 		void publish (nano::publish const &) override;
@@ -117,7 +118,7 @@ private:
 		void telemetry_ack (nano::telemetry_ack const &) override;
 
 	private:
-		bootstrap_server & server;
+		tcp_server & server;
 	};
 
 	class bootstrap_message_visitor : public nano::message_visitor
@@ -125,7 +126,7 @@ private:
 	public:
 		bool processed{ false };
 
-		explicit bootstrap_message_visitor (std::shared_ptr<bootstrap_server>);
+		explicit bootstrap_message_visitor (std::shared_ptr<tcp_server>);
 
 		void bulk_pull (nano::bulk_pull const &) override;
 		void bulk_pull_account (nano::bulk_pull_account const &) override;
@@ -133,11 +134,7 @@ private:
 		void frontier_req (nano::frontier_req const &) override;
 
 	private:
-		std::shared_ptr<bootstrap_server> server;
+		std::shared_ptr<tcp_server> server;
 	};
-
-	friend class handshake_message_visitor;
-	friend class realtime_message_visitor;
-	friend class bootstrap_message_visitor;
 };
 }
