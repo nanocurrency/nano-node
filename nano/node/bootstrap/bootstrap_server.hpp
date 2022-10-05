@@ -9,6 +9,12 @@
 
 namespace nano
 {
+class message;
+}
+
+namespace nano::transport
+{
+class message_deserializer;
 class tcp_server;
 
 /**
@@ -24,7 +30,7 @@ public:
 	std::size_t connection_count ();
 
 	nano::mutex mutex;
-	std::unordered_map<nano::tcp_server *, std::weak_ptr<nano::tcp_server>> connections;
+	std::unordered_map<nano::transport::tcp_server *, std::weak_ptr<nano::transport::tcp_server>> connections;
 	nano::tcp_endpoint endpoint ();
 	nano::node & node;
 	std::shared_ptr<nano::server_socket> listening_socket;
@@ -35,13 +41,6 @@ public:
 };
 
 std::unique_ptr<container_info_component> collect_container_info (tcp_listener & bootstrap_listener, std::string const & name);
-
-class message;
-
-namespace transport
-{
-	class message_deserializer;
-};
 
 class tcp_server final : public std::enable_shared_from_this<tcp_server>
 {

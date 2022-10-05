@@ -16,7 +16,6 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
-class tcp_server;
 class tcp_message_item final
 {
 public:
@@ -27,7 +26,9 @@ public:
 };
 namespace transport
 {
+	class tcp_server;
 	class tcp_channels;
+
 	class channel_tcp : public nano::transport::channel
 	{
 		friend class nano::transport::tcp_channels;
@@ -88,7 +89,7 @@ namespace transport
 
 	public:
 		explicit tcp_channels (nano::node &, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> = nullptr);
-		bool insert (std::shared_ptr<nano::transport::channel_tcp> const &, std::shared_ptr<nano::socket> const &, std::shared_ptr<nano::tcp_server> const &);
+		bool insert (std::shared_ptr<nano::transport::channel_tcp> const &, std::shared_ptr<nano::socket> const &, std::shared_ptr<nano::transport::tcp_server> const &);
 		void erase (nano::tcp_endpoint const &);
 		std::size_t size () const;
 		std::shared_ptr<nano::transport::channel_tcp> find_channel (nano::tcp_endpoint const &) const;
@@ -154,8 +155,8 @@ namespace transport
 		public:
 			std::shared_ptr<nano::transport::channel_tcp> channel;
 			std::shared_ptr<nano::socket> socket;
-			std::shared_ptr<nano::tcp_server> response_server;
-			channel_tcp_wrapper (std::shared_ptr<nano::transport::channel_tcp> channel_a, std::shared_ptr<nano::socket> socket_a, std::shared_ptr<nano::tcp_server> server_a) :
+			std::shared_ptr<nano::transport::tcp_server> response_server;
+			channel_tcp_wrapper (std::shared_ptr<nano::transport::channel_tcp> channel_a, std::shared_ptr<nano::socket> socket_a, std::shared_ptr<nano::transport::tcp_server> server_a) :
 				channel (std::move (channel_a)), socket (std::move (socket_a)), response_server (std::move (server_a))
 			{
 			}

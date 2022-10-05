@@ -9,10 +9,15 @@
 namespace nano
 {
 class bootstrap_attempt;
+namespace transport
+{
+	class tcp_server;
+}
 namespace bootstrap
 {
 	class block_deserializer;
 };
+
 class pull_info
 {
 public:
@@ -86,7 +91,7 @@ public:
 	nano::account account;
 	uint64_t pull_blocks;
 };
-class tcp_server;
+
 class bulk_pull;
 
 /**
@@ -97,7 +102,7 @@ class bulk_pull;
 class bulk_pull_server final : public std::enable_shared_from_this<nano::bulk_pull_server>
 {
 public:
-	bulk_pull_server (std::shared_ptr<nano::tcp_server> const &, std::unique_ptr<nano::bulk_pull>);
+	bulk_pull_server (std::shared_ptr<nano::transport::tcp_server> const &, std::unique_ptr<nano::bulk_pull>);
 	void set_current_end ();
 	std::shared_ptr<nano::block> get_next ();
 	void send_next ();
@@ -105,7 +110,7 @@ public:
 	void send_finished ();
 	void no_block_sent (boost::system::error_code const &, std::size_t);
 	bool ascending () const;
-	std::shared_ptr<nano::tcp_server> connection;
+	std::shared_ptr<nano::transport::tcp_server> connection;
 	std::unique_ptr<nano::bulk_pull> request;
 	nano::block_hash current;
 	bool include_start;
@@ -116,7 +121,7 @@ class bulk_pull_account;
 class bulk_pull_account_server final : public std::enable_shared_from_this<nano::bulk_pull_account_server>
 {
 public:
-	bulk_pull_account_server (std::shared_ptr<nano::tcp_server> const &, std::unique_ptr<nano::bulk_pull_account>);
+	bulk_pull_account_server (std::shared_ptr<nano::transport::tcp_server> const &, std::unique_ptr<nano::bulk_pull_account>);
 	void set_params ();
 	std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info>> get_next ();
 	void send_frontier ();
@@ -124,7 +129,7 @@ public:
 	void sent_action (boost::system::error_code const &, std::size_t);
 	void send_finished ();
 	void complete (boost::system::error_code const &, std::size_t);
-	std::shared_ptr<nano::tcp_server> connection;
+	std::shared_ptr<nano::transport::tcp_server> connection;
 	std::unique_ptr<nano::bulk_pull_account> request;
 	std::unordered_set<nano::uint256_union> deduplication;
 	nano::pending_key current_key;

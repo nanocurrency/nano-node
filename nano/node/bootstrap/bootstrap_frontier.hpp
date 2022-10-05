@@ -9,6 +9,10 @@ namespace nano
 {
 class bootstrap_attempt_legacy;
 class bootstrap_client;
+namespace transport
+{
+	class tcp_server;
+}
 
 /**
  * Client side of a frontier request. Created to send and listen for frontier sequences from the server.
@@ -38,7 +42,7 @@ public:
 	uint32_t count_limit{ std::numeric_limits<uint32_t>::max () };
 	static std::size_t constexpr size_frontier = sizeof (nano::account) + sizeof (nano::block_hash);
 };
-class tcp_server;
+
 class frontier_req;
 
 /**
@@ -47,14 +51,14 @@ class frontier_req;
 class frontier_req_server final : public std::enable_shared_from_this<nano::frontier_req_server>
 {
 public:
-	frontier_req_server (std::shared_ptr<nano::tcp_server> const &, std::unique_ptr<nano::frontier_req>);
+	frontier_req_server (std::shared_ptr<nano::transport::tcp_server> const &, std::unique_ptr<nano::frontier_req>);
 	void send_next ();
 	void sent_action (boost::system::error_code const &, std::size_t);
 	void send_finished ();
 	void no_block_sent (boost::system::error_code const &, std::size_t);
 	void next ();
 	bool send_confirmed ();
-	std::shared_ptr<nano::tcp_server> connection;
+	std::shared_ptr<nano::transport::tcp_server> connection;
 	nano::account current;
 	nano::block_hash frontier;
 	std::unique_ptr<nano::frontier_req> request;

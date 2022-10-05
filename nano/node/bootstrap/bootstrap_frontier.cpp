@@ -239,7 +239,7 @@ void nano::frontier_req_client::next ()
 	accounts.pop_front ();
 }
 
-nano::frontier_req_server::frontier_req_server (std::shared_ptr<nano::tcp_server> const & connection_a, std::unique_ptr<nano::frontier_req> request_a) :
+nano::frontier_req_server::frontier_req_server (std::shared_ptr<nano::transport::tcp_server> const & connection_a, std::unique_ptr<nano::frontier_req> request_a) :
 	connection (connection_a),
 	current (request_a->start.number () - 1),
 	frontier (0),

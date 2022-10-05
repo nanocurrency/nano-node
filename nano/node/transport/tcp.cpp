@@ -111,7 +111,7 @@ nano::transport::tcp_channels::tcp_channels (nano::node & node, std::function<vo
 {
 }
 
-bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::socket> const & socket_a, std::shared_ptr<nano::tcp_server> const & bootstrap_server_a)
+bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::socket> const & socket_a, std::shared_ptr<nano::transport::tcp_server> const & bootstrap_server_a)
 {
 	auto endpoint (channel_a->get_tcp_endpoint ());
 	debug_assert (endpoint.address ().is_v6 ());
@@ -713,7 +713,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 				return;
 			}
 			channel_a->set_last_packet_sent (std::chrono::steady_clock::now ());
-			auto response_server = std::make_shared<nano::tcp_server> (socket_l, node_l);
+			auto response_server = std::make_shared<nano::transport::tcp_server> (socket_l, node_l);
 			node_l->network.tcp_channels.insert (channel_a, socket_l, response_server);
 			// Listen for possible responses
 			response_server->socket->type_set (nano::socket::type_t::realtime_response_server);
