@@ -38,8 +38,6 @@ add_library(
   bootstrap/bootstrap_lazy.cpp
   bootstrap/bootstrap_legacy.hpp
   bootstrap/bootstrap_legacy.cpp
-  bootstrap/bootstrap_server.hpp
-  bootstrap/bootstrap_server.cpp
   bootstrap/bootstrap.hpp
   bootstrap/bootstrap.cpp
   cli.hpp
@@ -194,6 +192,8 @@ add_library(
   transport/message_deserializer.cpp
   transport/tcp.hpp
   transport/tcp.cpp
+  transport/tcp_server.hpp
+  transport/tcp_server.cpp
   transport/transport.hpp
   transport/transport.cpp
   transport/udp.hpp
