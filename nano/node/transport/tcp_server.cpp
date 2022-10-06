@@ -238,7 +238,7 @@ void nano::transport::tcp_server::received_message (std::unique_ptr<nano::messag
 
 bool nano::transport::tcp_server::process_message (std::unique_ptr<nano::message> message)
 {
-	node->stats.inc (nano::stat::type::bootstrap_server, nano::to_stat_detail (message->header.type), nano::stat::dir::in);
+	node->stats.inc (nano::stat::type::tcp_server, nano::to_stat_detail (message->header.type), nano::stat::dir::in);
 
 	debug_assert (is_undefined_connection () || is_realtime_connection () || is_bootstrap_connection ());
 
@@ -421,8 +421,8 @@ void nano::transport::tcp_server::handshake_message_visitor::frontier_req (const
  * Realtime
  */
 
-nano::transport::tcp_server::realtime_message_visitor::realtime_message_visitor (nano::transport::tcp_server & bootstrap_server) :
-	server{ bootstrap_server }
+nano::transport::tcp_server::realtime_message_visitor::realtime_message_visitor (nano::transport::tcp_server & server_a) :
+	server{ server_a }
 {
 }
 
