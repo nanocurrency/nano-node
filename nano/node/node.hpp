@@ -157,7 +157,7 @@ public:
 	nano::network network;
 	std::shared_ptr<nano::telemetry> telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;
-	nano::transport::tcp_listener bootstrap;
+	nano::transport::tcp_listener tcp_listener;
 	boost::filesystem::path application_path;
 	nano::node_observers observers;
 	nano::port_mapping port_mapping;

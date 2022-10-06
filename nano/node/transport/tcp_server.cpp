@@ -150,13 +150,15 @@ nano::transport::tcp_server::~tcp_server ()
 	{
 		node->logger.try_log ("Exiting incoming TCP/bootstrap server");
 	}
+
 	if (socket->type () == nano::socket::type_t::bootstrap)
 	{
-		--node->bootstrap.bootstrap_count;
+		--node->tcp_listener.bootstrap_count;
 	}
 	else if (socket->type () == nano::socket::type_t::realtime)
 	{
-		--node->bootstrap.realtime_count;
+		--node->tcp_listener.realtime_count;
+
 		// Clear temporary channel
 		auto exisiting_response_channel (node->network.tcp_channels.find_channel (remote_endpoint));
 		if (exisiting_response_channel != nullptr)
@@ -165,10 +167,11 @@ nano::transport::tcp_server::~tcp_server ()
 			node->network.tcp_channels.erase (remote_endpoint);
 		}
 	}
+
 	stop ();
 
-	nano::lock_guard<nano::mutex> lock (node->bootstrap.mutex);
-	node->bootstrap.connections.erase (this);
+	nano::lock_guard<nano::mutex> lock (node->tcp_listener.mutex);
+	node->tcp_listener.connections.erase (this);
 }
 
 void nano::transport::tcp_server::start ()
@@ -559,8 +562,8 @@ void nano::transport::tcp_server::timeout ()
 			node->logger.try_log ("Closing incoming tcp / bootstrap server by timeout");
 		}
 		{
-			nano::lock_guard<nano::mutex> lock (node->bootstrap.mutex);
-			node->bootstrap.connections.erase (this);
+			nano::lock_guard<nano::mutex> lock (node->tcp_listener.mutex);
+			node->tcp_listener.connections.erase (this);
 		}
 		socket->close ();
 	}
@@ -568,9 +571,9 @@ void nano::transport::tcp_server::timeout ()
 
 bool nano::transport::tcp_server::to_bootstrap_connection ()
 {
-	if (socket->type () == nano::socket::type_t::undefined && !node->flags.disable_bootstrap_listener && node->bootstrap.bootstrap_count < node->config.bootstrap_connections_max)
+	if (socket->type () == nano::socket::type_t::undefined && !node->flags.disable_bootstrap_listener && node->tcp_listener.bootstrap_count < node->config.bootstrap_connections_max)
 	{
-		++node->bootstrap.bootstrap_count;
+		++node->tcp_listener.bootstrap_count;
 		socket->type_set (nano::socket::type_t::bootstrap);
 		return true;
 	}
@@ -582,7 +585,7 @@ bool nano::transport::tcp_server::to_realtime_connection (nano::account const & 
 	if (socket->type () == nano::socket::type_t::undefined && !node->flags.disable_tcp_realtime)
 	{
 		remote_node_id = node_id;
-		++node->bootstrap.realtime_count;
+		++node->tcp_listener.realtime_count;
 		socket->type_set (nano::socket::type_t::realtime);
 		return true;
 	}
