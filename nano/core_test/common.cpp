@@ -3,12 +3,11 @@
 
 TEST (keepalive, to_string)
 {
-	//nano::keepalive keepalive = keepalive (nullptr, nano::stream (), nano::message_header (nano::network_constants::active_network, nano::message_type::keepalive));
-	
 	nano::work_thresholds work_threshold = nano::work_thresholds (0, 0, 0);
 	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
 	nano::keepalive keepalive = nano::keepalive (network_constants);
-	ASSERT_EQ (true, true);
+
+	ASSERT_EQ (keepalive.to_string (), "NetID: 5241(dev), VerMaxUsingMin: 19/19/18, MsgType: 2(keepalive), Extensions: 0000\n:::0\n:::0\n:::0\n:::0\n:::0\n:::0\n:::0\n:::0\n");
 }
 
 
