@@ -64,11 +64,19 @@ namespace bootstrap
 		public:
 			explicit account_sets (nano::stat &);
 
+			/**
+			 * If an account is not blocked, then add it to the forwarding set and, additioally, if it does not exist in the backoff set, set the priority.
+			 */
 			void prioritize (nano::account const & account, float priority);
 			void block (nano::account const & account, nano::block_hash const & dependency);
 			void unblock (nano::account const & account, nano::block_hash const & hash);
 			void force_unblock (nano::account const & account);
 			void dump () const;
+
+			/**
+			 * Pop an account out of forwarding set, or get a random account, if forwardinbg set is empty.
+			 * Then move it into backoff set with priority 1 so that another account can get a chance to be pulled.
+			 */
 			nano::account next ();
 
 		public:
