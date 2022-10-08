@@ -711,7 +711,6 @@ std::string nano::keepalive::to_string () const
 	return stream.str ();
 }
 
-
 bool nano::keepalive::deserialize (nano::stream & stream_a)
 {
 	debug_assert (header.type == nano::message_type::keepalive);
@@ -779,7 +778,10 @@ bool nano::publish::operator== (nano::publish const & other_a) const
 	return *block == *other_a.block;
 }
 
-std::string nano::publish::to_string () const { return block->to_json (); }
+std::string nano::publish::to_string () const
+{
+	return block->to_json ();
+}
 
 nano::confirm_req::confirm_req (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::block_uniquer * uniquer_a) :
 	message (header_a)
@@ -979,7 +981,10 @@ std::size_t nano::confirm_ack::size (std::size_t count)
 	return result;
 }
 
-std::string nano::confirm_ack::to_string () const { return vote->account.to_string () + "\n"; }
+std::string nano::confirm_ack::to_string () const
+{
+	return vote->account.to_string () + "\n";
+}
 
 nano::frontier_req::frontier_req (nano::network_constants const & constants) :
 	message (constants, nano::message_type::frontier_req)
@@ -1036,8 +1041,8 @@ std::string nano::frontier_req::to_string () const
 	std::stringstream stream;
 
 	stream << start.to_string ();
-	stream << " maxage=" + std::to_string(age);
-	stream << " count=" + std::to_string(count);
+	stream << " maxage=" + std::to_string (age);
+	stream << " count=" + std::to_string (count);
 
 	return stream.str ();
 }
@@ -1144,7 +1149,7 @@ std::string nano::bulk_pull::to_string () const
 
 	stream << start.to_string ();
 	stream << "endhash=" + end.to_string ();
-	stream << "count=" + std::to_string ( count ) + "\n";
+	stream << "count=" + std::to_string (count) + "\n";
 
 	return stream.str ();
 }
@@ -1194,15 +1199,13 @@ bool nano::bulk_pull_account::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-
-
 std::string nano::bulk_pull_account::to_string () const
 {
 	std::stringstream stream;
 
 	stream << account.to_string () + "min=";
 	stream << minimum_amount.to_string ();
-	switch(flags)
+	switch (flags)
 	{
 		case bulk_pull_account_flags::pending_hash_and_amount:
 			stream << "pend hash and amt\n";
@@ -1214,7 +1217,7 @@ std::string nano::bulk_pull_account::to_string () const
 			stream << "pend hash amt and addr\n";
 			break;
 	}
-	
+
 	return stream.str ();
 }
 
@@ -1244,7 +1247,10 @@ void nano::bulk_push::visit (nano::message_visitor & visitor_a) const
 	visitor_a.bulk_push (*this);
 }
 
-std::string nano::bulk_push::to_string () const { return header.to_string (); }
+std::string nano::bulk_push::to_string () const
+{
+	return header.to_string ();
+}
 
 nano::telemetry_req::telemetry_req (nano::network_constants const & constants) :
 	message (constants, nano::message_type::telemetry_req)
@@ -1272,7 +1278,10 @@ void nano::telemetry_req::visit (nano::message_visitor & visitor_a) const
 	visitor_a.telemetry_req (*this);
 }
 
-std::string nano::telemetry_req::to_string () const { return header.to_string (); }
+std::string nano::telemetry_req::to_string () const
+{
+	return header.to_string ();
+}
 
 nano::telemetry_ack::telemetry_ack (nano::network_constants const & constants) :
 	message (constants, nano::message_type::telemetry_ack)
@@ -1306,7 +1315,10 @@ void nano::telemetry_ack::serialize (nano::stream & stream_a) const
 	}
 }
 
-std::string nano::telemetry_ack::to_string () const { return data.to_string (); }
+std::string nano::telemetry_ack::to_string () const
+{
+	return data.to_string ();
+}
 
 bool nano::telemetry_ack::deserialize (nano::stream & stream_a)
 {

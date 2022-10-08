@@ -1,4 +1,5 @@
 #include <nano/node/common.hpp>
+
 #include <gtest/gtest.h>
 
 TEST (keepalive, to_string)
