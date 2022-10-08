@@ -700,11 +700,12 @@ std::string nano::keepalive::to_string () const
 {
 	std::stringstream stream;
 
-	stream << header.to_string () + "\n";
+	stream << header.to_string ();
 
 	for (auto peer = peers.begin (), peers_end = peers.end (); peer != peers_end; ++peer)
 	{
-		stream << peer->address ().to_string () + ":" + std::to_string (peer->port ()) + "\n";
+		stream << "\n"
+			   << peer->address ().to_string () + ":" + std::to_string (peer->port ());
 	}
 
 	return stream.str ();
