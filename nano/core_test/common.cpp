@@ -7,9 +7,13 @@ TEST (keepalive, to_string)
 	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
 	nano::keepalive keepalive = nano::keepalive (network_constants);
 
-	ASSERT_EQ (keepalive.to_string (), "NetID: 5241(dev), VerMaxUsingMin: 19/19/18, MsgType: 2(keepalive), Extensions: 0000\n:::0\n:::0\n:::0\n:::0\n:::0\n:::0\n:::0\n:::0\n");
-}
+	keepalive.peers[0] = nano::endpoint{ boost::asio::ip::make_address_v6 ("::ffff:1.2.3.4"), 1234 };
 
+	std::string expected = "NetID: 5241(dev), VerMaxUsingMin: 19/19/18, MsgType: 2(keepalive), Extensions: 0000\n";
+	expected += "::ffff:1.2.3.4:1234\n";
+	expected += ":::0\n:::0\n:::0\n:::0\n:::0\n:::0\n:::0";
+	ASSERT_EQ (keepalive.to_string (), expected);
+}
 
 TEST (control_req, to_string)
 {
