@@ -18,6 +18,14 @@ void nano::bootstrap::bootstrap_ascending::connection_pool::add (socket_channel 
 	connections.push_back (connection);
 }
 
+std::unique_ptr<nano::container_info_component> nano::bootstrap::bootstrap_ascending::connection_pool::collect_container_info (const std::string & name)
+{
+	auto composite = std::make_unique<container_info_composite> (name);
+	auto info = container_info{ "connections", connections.size (), sizeof (decltype (connections)::value_type) };
+	composite->add_component (std::make_unique<container_info_leaf> (info));
+	return composite;
+}
+
 bool nano::bootstrap::bootstrap_ascending::connection_pool::operator() (std::shared_ptr<async_tag> tag, std::function<void ()> op)
 {
 	if (!connections.empty ())
@@ -217,6 +225,18 @@ bool nano::bootstrap::bootstrap_ascending::account_sets::blocked (nano::account 
 nano::bootstrap::bootstrap_ascending::account_sets::backoff_info_t nano::bootstrap::bootstrap_ascending::account_sets::backoff_info () const
 {
 	return { forwarding, blocking, backoff };
+}
+
+std::unique_ptr<nano::container_info_component> nano::bootstrap::bootstrap_ascending::account_sets::collect_container_info (const std::string & name)
+{
+	auto composite = std::make_unique<container_info_composite> (name);
+	auto info1 = container_info{ "forwarding", forwarding.size (), sizeof (decltype (forwarding)::value_type) };
+	composite->add_component (std::make_unique<container_info_leaf> (info1));
+	auto info2 = container_info{ "blocking", blocking.size (), sizeof (decltype (blocking)::value_type) };
+	composite->add_component (std::make_unique<container_info_leaf> (info2));
+	auto info3 = container_info{ "backoff", backoff.size (), sizeof (decltype (backoff)::value_type) };
+	composite->add_component (std::make_unique<container_info_leaf> (info3));
+	return composite;
 }
 
 nano::bootstrap::bootstrap_ascending::async_tag::async_tag (std::shared_ptr<nano::bootstrap::bootstrap_ascending::thread> thread_a) :
@@ -655,4 +675,12 @@ nano::bootstrap::bootstrap_ascending::account_sets::backoff_info_t nano::bootstr
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	return accounts.backoff_info ();
+}
+
+std::unique_ptr<nano::container_info_component> nano::bootstrap::bootstrap_ascending::collect_container_info (const std::string & name)
+{
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (pool.collect_container_info ("pool"));
+	composite->add_component (accounts.collect_container_info ("accounts"));
+	return composite;
 }

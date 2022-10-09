@@ -24,6 +24,7 @@ namespace bootstrap
 		void stop ();
 		void run ();
 		void get_information (boost::property_tree::ptree &);
+		std::unique_ptr<nano::container_info_component> collect_container_info (const std::string & name);
 
 	private: // Dependencies
 		nano::stat & stats;
@@ -50,6 +51,7 @@ namespace bootstrap
 			/** Given a tag context, find or create a connection to a peer and then call the op callback */
 			bool operator() (std::shared_ptr<async_tag> tag, std::function<void ()> op);
 			void add (socket_channel const & connection);
+			std::unique_ptr<nano::container_info_component> collect_container_info (const std::string & name);
 
 		private:
 			std::deque<socket_channel> connections;
@@ -72,6 +74,7 @@ namespace bootstrap
 			void unblock (nano::account const & account, nano::block_hash const & hash);
 			void force_unblock (nano::account const & account);
 			void dump () const;
+			std::unique_ptr<nano::container_info_component> collect_container_info (const std::string & name);
 
 			/**
 			 * Pop an account out of forwarding set, or get a random account, if forwardinbg set is empty.
