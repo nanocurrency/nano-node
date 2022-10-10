@@ -47,7 +47,7 @@ TEST (bootstrap_ascending, profile)
 	flags_server.disable_wallet_bootstrap = true;
 	flags_server.disable_add_initial_peers = true;
 	flags_server.disable_ongoing_bootstrap = true;
-	auto server = std::make_shared<nano::node> (system.io_ctx, path_server, config_server, system.work);
+	auto server = std::make_shared<nano::node> (system.io_ctx, path_server, config_server, system.work, flags_server);
 	system.nodes.push_back (server);
 	server->start ();
 
