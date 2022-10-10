@@ -680,7 +680,7 @@ void nano::node::start ()
 	long_inactivity_cleanup ();
 	network.start ();
 	add_initial_peers ();
-	if (!flags.disable_legacy_bootstrap && !flags.disable_ongoing_bootstrap)
+	if (!config.disable_legacy_bootstrap && !config.disable_ongoing_bootstrap)
 	{
 		ongoing_bootstrap ();
 	}
@@ -727,7 +727,7 @@ void nano::node::start ()
 	{
 		search_receivable_all ();
 	}
-	if (!flags.disable_wallet_bootstrap)
+	if (!config.disable_wallet_bootstrap)
 	{
 		// Delay to start wallet lazy bootstrap
 		auto this_l (shared ());
@@ -745,7 +745,7 @@ void nano::node::start ()
 	hinting.start ();
 
 	// TODO: use a flag and command line arg rather than a env variable for disabling ascending bootstrap
-	if (!std::getenv ("NANO_DISABLE_BOOTSTRAP_ASCENDING") && !flags.disable_ongoing_bootstrap)
+	if (!std::getenv ("NANO_DISABLE_BOOTSTRAP_ASCENDING") && !config.disable_ongoing_bootstrap)
 	{
 		ascendboot.init ();
 		ascendboot.start ();

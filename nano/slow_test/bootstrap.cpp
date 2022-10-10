@@ -42,23 +42,23 @@ TEST (bootstrap_ascending, profile)
 	// Set up client and server nodes
 	nano::node_config config_server{ network_params };
 	config_server.preconfigured_peers.clear ();
+	config_server.disable_legacy_bootstrap = true;
+	config_server.disable_wallet_bootstrap = true;
+	config_server.disable_ongoing_bootstrap = true;
 	nano::node_flags flags_server;
-	flags_server.disable_legacy_bootstrap = true;
-	flags_server.disable_wallet_bootstrap = true;
 	flags_server.disable_add_initial_peers = true;
-	flags_server.disable_ongoing_bootstrap = true;
 	auto server = std::make_shared<nano::node> (system.io_ctx, path_server, config_server, system.work, flags_server);
 	system.nodes.push_back (server);
 	server->start ();
 
 	nano::node_config config_client{ network_params };
 	config_client.preconfigured_peers.clear ();
-	nano::node_flags flags_client;
-	flags_client.disable_legacy_bootstrap = true;
-	flags_client.disable_wallet_bootstrap = true;
-	flags_client.disable_add_initial_peers = true;
-	flags_client.disable_legacy_bootstrap = true;
+	config_client.disable_legacy_bootstrap = true;
+	config_client.disable_wallet_bootstrap = true;
+	config_client.disable_legacy_bootstrap = true;
 	config_client.ipc_config.transport_tcp.enabled = true;
+	nano::node_flags flags_client;
+	flags_client.disable_add_initial_peers = true;
 	auto client = system.add_node (config_client, flags_client);
 
 	// Set up client RPC

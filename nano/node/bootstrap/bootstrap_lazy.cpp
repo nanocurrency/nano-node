@@ -30,7 +30,7 @@ bool nano::bootstrap_attempt_lazy::lazy_start (nano::hash_or_account const & has
 	nano::unique_lock<nano::mutex> lock (mutex);
 	bool inserted (false);
 	// Add start blocks, limit 1024 (4k with disabled legacy bootstrap)
-	std::size_t max_keys (node->flags.disable_legacy_bootstrap ? 4 * 1024 : 1024);
+	std::size_t max_keys (node->config.disable_legacy_bootstrap ? 4 * 1024 : 1024);
 	if (lazy_keys.size () < max_keys && lazy_keys.find (hash_or_account_a.as_block_hash ()) == lazy_keys.end () && !lazy_blocks_processed (hash_or_account_a.as_block_hash ()))
 	{
 		lazy_keys.insert (hash_or_account_a.as_block_hash ());
@@ -166,12 +166,12 @@ bool nano::bootstrap_attempt_lazy::lazy_has_expired () const
 {
 	bool result (false);
 	// Max 30 minutes run with enabled legacy bootstrap
-	static std::chrono::minutes const max_lazy_time (node->flags.disable_legacy_bootstrap ? 7 * 24 * 60 : 30);
+	static std::chrono::minutes const max_lazy_time (node->config.disable_legacy_bootstrap ? 7 * 24 * 60 : 30);
 	if (std::chrono::steady_clock::now () - lazy_start_time >= max_lazy_time)
 	{
 		result = true;
 	}
-	else if (!node->flags.disable_legacy_bootstrap && lazy_blocks_count > nano::bootstrap_limits::lazy_blocks_restart_limit)
+	else if (!node->config.disable_legacy_bootstrap && lazy_blocks_count > nano::bootstrap_limits::lazy_blocks_restart_limit)
 	{
 		result = true;
 	}
@@ -181,7 +181,7 @@ bool nano::bootstrap_attempt_lazy::lazy_has_expired () const
 void nano::bootstrap_attempt_lazy::run ()
 {
 	debug_assert (started);
-	debug_assert (!node->flags.disable_lazy_bootstrap);
+	debug_assert (!node->config.disable_lazy_bootstrap);
 	node->bootstrap_initiator.connections->populate_connections (false);
 	lazy_start_time = std::chrono::steady_clock::now ();
 	nano::unique_lock<nano::mutex> lock (mutex);
@@ -448,7 +448,7 @@ unsigned nano::bootstrap_attempt_lazy::lazy_retry_limit_confirmed ()
 		// Prevent too frequent network locks
 		peer_count = node->network.size ();
 	}
-	auto multiplier (node->flags.disable_legacy_bootstrap ? 2 : 1.25);
+	auto multiplier (node->config.disable_legacy_bootstrap ? 2 : 1.25);
 	return multiplier * std::max (node->network_params.bootstrap.lazy_retry_limit, 2 * nano::narrow_cast<unsigned> (peer_count));
 }
 
@@ -529,7 +529,7 @@ bool nano::bootstrap_attempt_wallet::wallet_finished ()
 void nano::bootstrap_attempt_wallet::run ()
 {
 	debug_assert (started);
-	debug_assert (!node->flags.disable_wallet_bootstrap);
+	debug_assert (!node->config.disable_wallet_bootstrap);
 	node->bootstrap_initiator.connections->populate_connections (false);
 	auto start_time (std::chrono::steady_clock::now ());
 	auto max_time (std::chrono::minutes (10));

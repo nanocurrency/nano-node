@@ -135,10 +135,12 @@ TEST (bootstrap_ascending, account_inductive)
  */
 TEST (bootstrap_ascending, trace_base)
 {
-	nano::node_flags flags;
-	flags.disable_legacy_bootstrap = true;
-	nano::test::system system{ 1, nano::transport::transport_type::tcp, flags };
-	auto & node0 = *system.nodes[0];
+	nano::test::system system;
+
+	nano::node_config config (nano::test::get_available_port (), system.logging);
+	config.disable_legacy_bootstrap = true;
+	auto & node0 = *system.add_node (config);
+
 	nano::keypair key;
 	nano::state_block_builder builder;
 	auto send1 = builder.make_block ()

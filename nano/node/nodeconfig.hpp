@@ -106,6 +106,11 @@ public:
 	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
 	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);
+	bool disable_lazy_bootstrap = false;
+	bool disable_legacy_bootstrap = false;
+	bool disable_wallet_bootstrap = false;
+	bool disable_ongoing_bootstrap = false;
+
 	/** Entry is ignored if it cannot be parsed as a valid address:port */
 	void deserialize_address (std::string const &, std::vector<std::pair<std::string, uint16_t>> &) const;
 };
@@ -117,13 +122,9 @@ public:
 	std::vector<std::string> rpc_config_overrides;
 	bool disable_add_initial_peers{ false }; // For testing only
 	bool disable_backup{ false };
-	bool disable_lazy_bootstrap{ false };
-	bool disable_legacy_bootstrap{ false };
-	bool disable_wallet_bootstrap{ false };
 	bool disable_bootstrap_listener{ false };
 	bool disable_bootstrap_bulk_pull_server{ false };
 	bool disable_bootstrap_bulk_push_client{ false };
-	bool disable_ongoing_bootstrap{ false }; // For testing only
 	bool disable_rep_crawler{ false };
 	bool disable_request_loop{ false }; // For testing only
 	bool disable_tcp_realtime{ false };

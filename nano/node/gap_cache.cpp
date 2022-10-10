@@ -75,14 +75,14 @@ bool nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters
 		tally += node.ledger.weight (voter);
 	}
 	bool start_bootstrap (false);
-	if (!node.flags.disable_lazy_bootstrap)
+	if (!node.config.disable_lazy_bootstrap)
 	{
 		if (tally >= node.online_reps.delta ())
 		{
 			start_bootstrap = true;
 		}
 	}
-	else if (!node.flags.disable_legacy_bootstrap && tally > bootstrap_threshold ())
+	else if (!node.config.disable_legacy_bootstrap && tally > bootstrap_threshold ())
 	{
 		start_bootstrap = true;
 	}
@@ -103,11 +103,11 @@ void nano::gap_cache::bootstrap_start (nano::block_hash const & hash_a)
 			{
 				node_l->logger.try_log (boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash_a.to_string ()));
 			}
-			if (!node_l->flags.disable_lazy_bootstrap)
+			if (!node_l->config.disable_lazy_bootstrap)
 			{
 				node_l->bootstrap_initiator.bootstrap_lazy (hash_a);
 			}
-			else if (!node_l->flags.disable_legacy_bootstrap)
+			else if (!node_l->config.disable_legacy_bootstrap)
 			{
 				node_l->bootstrap_initiator.bootstrap ();
 			}

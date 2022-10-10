@@ -102,6 +102,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("bootstrap_serving_threads", bootstrap_serving_threads, "Number of threads dedicated to serving bootstrap data to other peers. Defaults to half the number of CPU threads, and at least 2.\ntype:uint64");
 	toml.put ("bootstrap_frontier_request_count", bootstrap_frontier_request_count, "Number frontiers per bootstrap frontier request. Defaults to 1048576.\ntype:uint32,[1024..4294967295]");
 	toml.put ("block_processor_batch_max_time", block_processor_batch_max_time.count (), "The maximum time the block processor can continuously process blocks for.\ntype:milliseconds");
+	toml.put ("disable_lazy_bootstrap", disable_lazy_bootstrap, "Enable or disable lazy bootstrap.\ntype:bool");
+	toml.put ("disable_legacy_bootstrap", disable_legacy_bootstrap, "Enable or disable legacy bootstrap.\ntype:bool");
+	toml.put ("disable_wallet_bootstrap", disable_wallet_bootstrap, "Enable or disable wallet bootstrap.\ntype:bool");
+	toml.put ("disable_ongoing_bootstrap", disable_ongoing_bootstrap, "Enable or disable ongoing bootstrap.\ntype:bool");
 	toml.put ("allow_local_peers", allow_local_peers, "Enable or disable local host peering.\ntype:bool");
 	toml.put ("vote_minimum", vote_minimum.to_string_dec (), "Local representatives do not vote if the delegated weight is under this threshold. Saves on system resources.\ntype:string,amount,raw");
 	toml.put ("vote_generator_delay", vote_generator_delay.count (), "Delay before votes are sent to allow for efficient bundling of hashes in votes.\ntype:milliseconds");
@@ -338,6 +342,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<unsigned> ("bootstrap_initiator_threads", bootstrap_initiator_threads);
 		toml.get<unsigned> ("bootstrap_serving_threads", bootstrap_serving_threads);
 		toml.get<uint32_t> ("bootstrap_frontier_request_count", bootstrap_frontier_request_count);
+		toml.get<bool> ("disable_lazy_bootstrap", disable_lazy_bootstrap);
+		toml.get<bool> ("disable_legacy_bootstrap", disable_legacy_bootstrap);
+		toml.get<bool> ("disable_wallet_bootstrap", disable_wallet_bootstrap);
+		toml.get<bool> ("disable_ongoing_bootstrap", disable_ongoing_bootstrap);
 		toml.get<bool> ("enable_voting", enable_voting);
 		toml.get<bool> ("allow_local_peers", allow_local_peers);
 		toml.get<unsigned> (signature_checker_threads_key, signature_checker_threads);

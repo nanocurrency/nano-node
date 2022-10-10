@@ -89,13 +89,16 @@ TEST (gap_cache, comparison)
 // Upon receiving enough votes for a gapped block, a lazy bootstrap should be initiated
 TEST (gap_cache, gap_bootstrap)
 {
-	nano::node_flags node_flags;
-	node_flags.disable_legacy_bootstrap = true;
-	node_flags.disable_request_loop = true; // to avoid fallback behavior of broadcasting blocks
-	nano::test::system system (2, nano::transport::transport_type::tcp, node_flags);
+	nano::test::system system;
 
-	auto & node1 (*system.nodes[0]);
-	auto & node2 (*system.nodes[1]);
+	nano::node_flags node_flags;
+	node_flags.disable_request_loop = true; // to avoid fallback behavior of broadcasting blocks
+	nano::node_config config (nano::test::get_available_port (), system.logging);
+	config.disable_legacy_bootstrap = true;
+	auto & node1 = *system.add_node (config, node_flags);
+	config.peering_port = nano::test::get_available_port ();
+	auto & node2 = *system.add_node (config, node_flags);
+
 	nano::block_hash latest (node1.latest (nano::dev::genesis_key.pub));
 	nano::keypair key;
 	nano::block_builder builder;

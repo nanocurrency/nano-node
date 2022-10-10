@@ -7061,9 +7061,9 @@ TEST (rpc, epoch_upgrade_multithreaded)
 TEST (rpc, account_lazy_start)
 {
 	nano::test::system system{};
-	nano::node_flags node_flags{};
-	node_flags.disable_legacy_bootstrap = true;
-	auto node1 = system.add_node (node_flags);
+	nano::node_config config1 (nano::test::get_available_port (), system.logging);
+	config1.disable_legacy_bootstrap = true;
+	auto node1 = system.add_node (config1);
 	nano::keypair key{};
 	nano::block_builder builder;
 	// Generating test chain
@@ -7089,10 +7089,11 @@ TEST (rpc, account_lazy_start)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
 
 	// Start lazy bootstrap with account
-	nano::node_config node_config{ nano::test::get_available_port (), system.logging };
-	node_config.ipc_config.transport_tcp.enabled = true;
-	node_config.ipc_config.transport_tcp.port = nano::test::get_available_port ();
-	auto node2 = system.add_node (node_config, node_flags);
+	nano::node_config config2{ nano::test::get_available_port (), system.logging };
+	config2.ipc_config.transport_tcp.enabled = true;
+	config2.ipc_config.transport_tcp.port = nano::test::get_available_port ();
+	config2.disable_legacy_bootstrap = true;
+	auto node2 = system.add_node (config2);
 	nano::test::establish_tcp (system, *node2, node1->network.endpoint ());
 	auto const rpc_ctx = add_rpc (system, node2);
 	boost::property_tree::ptree request;

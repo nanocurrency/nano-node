@@ -159,6 +159,10 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.bootstrap_serving_threads, defaults.node.bootstrap_serving_threads);
 	ASSERT_EQ (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_EQ (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
+	ASSERT_EQ (conf.node.disable_lazy_bootstrap, defaults.node.disable_lazy_bootstrap);
+	ASSERT_EQ (conf.node.disable_legacy_bootstrap, defaults.node.disable_legacy_bootstrap);
+	ASSERT_EQ (conf.node.disable_wallet_bootstrap, defaults.node.disable_wallet_bootstrap);
+	ASSERT_EQ (conf.node.disable_ongoing_bootstrap, defaults.node.disable_ongoing_bootstrap);
 	ASSERT_EQ (conf.node.conf_height_processor_batch_min_time, defaults.node.conf_height_processor_batch_min_time);
 	ASSERT_EQ (conf.node.confirmation_history_size, defaults.node.confirmation_history_size);
 	ASSERT_EQ (conf.node.enable_voting, defaults.node.enable_voting);
@@ -399,6 +403,10 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	bootstrap_serving_threads = 999
 	bootstrap_frontier_request_count = 9999
 	bootstrap_fraction_numerator = 999
+	disable_lazy_bootstrap = true
+	disable_legacy_bootstrap = true
+	disable_wallet_bootstrap = true
+	disable_ongoing_bootstrap = true
 	conf_height_processor_batch_min_time = 999
 	confirmation_history_size = 999
 	enable_voting = false
@@ -564,6 +572,10 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.bootstrap_serving_threads, defaults.node.bootstrap_serving_threads);
 	ASSERT_NE (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_NE (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
+	ASSERT_NE (conf.node.disable_lazy_bootstrap, defaults.node.disable_lazy_bootstrap);
+	ASSERT_NE (conf.node.disable_legacy_bootstrap, defaults.node.disable_legacy_bootstrap);
+	ASSERT_NE (conf.node.disable_wallet_bootstrap, defaults.node.disable_wallet_bootstrap);
+	ASSERT_NE (conf.node.disable_ongoing_bootstrap, defaults.node.disable_ongoing_bootstrap);
 	ASSERT_NE (conf.node.conf_height_processor_batch_min_time, defaults.node.conf_height_processor_batch_min_time);
 	ASSERT_NE (conf.node.confirmation_history_size, defaults.node.confirmation_history_size);
 	ASSERT_NE (conf.node.enable_voting, defaults.node.enable_voting);
