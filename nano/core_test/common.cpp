@@ -1,4 +1,5 @@
 #include <nano/node/common.hpp>
+
 #include <gtest/gtest.h>
 
 TEST (keepalive, to_string)
@@ -29,7 +30,6 @@ TEST (keepalive, to_string)
 
 	ASSERT_EQ (keepalive.to_string (), expectedString);
 }
-
 
 TEST (control_req, to_string)
 {
