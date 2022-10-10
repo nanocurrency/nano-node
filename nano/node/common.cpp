@@ -1143,7 +1143,7 @@ std::string nano::bulk_pull::to_string () const
 
 	stream << start.to_string ();
 	stream << "endhash=" + end.to_string ();
-	stream << "count=" + std::to_string ( count ) + "\n";
+	stream << "count=" + std::to_string ( count );
 
 	return stream.str ();
 }
@@ -1204,13 +1204,13 @@ std::string nano::bulk_pull_account::to_string () const
 	switch(flags)
 	{
 		case bulk_pull_account_flags::pending_hash_and_amount:
-			stream << "pend hash and amt\n";
+			stream << "pend hash and amt";
 			break;
 		case bulk_pull_account_flags::pending_address_only:
-			stream << "pend addr\n";
+			stream << "pend addr";
 			break;
 		case bulk_pull_account_flags::pending_hash_amount_and_address:
-			stream << "pend hash amt and addr\n";
+			stream << "pend hash amt and addr";
 			break;
 	}
 	
@@ -1639,12 +1639,12 @@ std::string nano::node_id_handshake::to_string () const
 	std::stringstream stream;
 
 	stream << header.to_string () + "\n";
-	stream << "cookie=" + query->to_string () + "\n";
+	stream << "cookie=" + query->to_string ();
 
 	if (response.has_value ())
 	{
 		stream << response->first.to_string () + " ";
-		stream << response->second.to_string () + "\n";
+		stream << response->second.to_string ();
 	}
 
 	return stream.str ();
