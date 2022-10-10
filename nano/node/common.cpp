@@ -927,12 +927,12 @@ std::string nano::confirm_req::to_string () const
 {
 	std::stringstream stream;
 
-	stream << header.to_string () + "\n";
+	stream << header.to_string ();
 
 	for (auto roots_hash = roots_hashes.begin (), end = roots_hashes.end (); roots_hash != end; ++roots_hash)
 	{
-		stream << "Pair: " + roots_hash->first.to_string () + " | ";
-		stream << roots_hash->second.to_string () + "\n";
+		stream << "\nPair: " + roots_hash->first.to_string () + " | ";
+		stream << roots_hash->second.to_string ();
 	}
 
 	return stream.str ();
@@ -983,7 +983,7 @@ std::size_t nano::confirm_ack::size (std::size_t count)
 
 std::string nano::confirm_ack::to_string () const
 {
-	return vote->account.to_string () + "\n";
+	return vote->account.to_string ();
 }
 
 nano::frontier_req::frontier_req (nano::network_constants const & constants) :
@@ -1148,8 +1148,8 @@ std::string nano::bulk_pull::to_string () const
 	std::stringstream stream;
 
 	stream << start.to_string ();
-	stream << "endhash=" + end.to_string ();
-	stream << "count=" + std::to_string ( count );
+	stream << " endhash=" + end.to_string ();
+	stream << " count=" + std::to_string ( count );
 
 	return stream.str ();
 }
@@ -1203,18 +1203,18 @@ std::string nano::bulk_pull_account::to_string () const
 {
 	std::stringstream stream;
 
-	stream << account.to_string () + "min=";
+	stream << account.to_string () + " min=";
 	stream << minimum_amount.to_string ();
 	switch (flags)
 	{
 		case bulk_pull_account_flags::pending_hash_and_amount:
-			stream << "pend hash and amt";
+			stream << " pend hash and amt";
 			break;
 		case bulk_pull_account_flags::pending_address_only:
-			stream << "pend addr";
+			stream << " pend addr";
 			break;
 		case bulk_pull_account_flags::pending_hash_amount_and_address:
-			stream << "pend hash amt and addr";
+			stream << " pend hash amt and addr";
 			break;
 	}
 
