@@ -202,15 +202,18 @@ X509V3_CTX * X509V3Ctx::breakConst () const
 ssl_context::ssl_context (const std::filesystem::path & certificate_dir, const key_group_t key_group) :
 	m_value{ boost::asio::ssl::context::tlsv12 }
 {
-	static std::once_flag once_flag{};
-	std::call_once (once_flag, [certificate_dir, key_group] () { nano::ssl::generatePki (certificate_dir, key_group); });
-
-	configure ();
+	//	static std::once_flag once_flag{};
+	//	std::call_once (once_flag, [certificate_dir, key_group, this] () {
+	//		nano::ssl::generatePki (certificate_dir, key_group);
+	//		this->configure ();
+	//	});
+	nano::ssl::generatePki (certificate_dir, key_group);
+	this->configure ();
 }
 
 boost::asio::ssl::context & ssl_context::get ()
 {
-	return m_value;
+	return std::ref (m_value);
 }
 
 boost::asio::ssl::context & ssl_context::operator* ()
@@ -225,8 +228,12 @@ void ssl_context::configure ()
 	const auto leaf_private_key_file = pki_resources_directory / nano::ssl::LEAF_PRIVATE_KEY_PEM_FILE;
 
 	m_value.set_options (
-	//	boost::asio::ssl::context::no_sslv2 | boost::asio::ssl::context::no_sslv3 | boost::asio::ssl::context::no_tlsv1 | boost::asio::ssl::context::no_tlsv1_1 | boost::asio::ssl::context::no_tlsv1_2);
-	boost::asio::ssl::context::no_sslv2 | boost::asio::ssl::context::no_sslv3 | boost::asio::ssl::context::no_tlsv1 | boost::asio::ssl::context::no_tlsv1_1);
+	boost::asio::ssl::context::default_workarounds
+	| boost::asio::ssl::context::no_sslv2
+	| boost::asio::ssl::context::no_sslv3
+	| boost::asio::ssl::context::no_tlsv1
+	| boost::asio::ssl::context::no_tlsv1_1
+	| boost::asio::ssl::context::single_dh_use);
 
 	m_value.set_verify_mode (boost::asio::ssl::verify_peer | boost::asio::ssl::verify_fail_if_no_peer_cert);
 	m_value.use_certificate_chain_file (certificates_chain_file.native ());

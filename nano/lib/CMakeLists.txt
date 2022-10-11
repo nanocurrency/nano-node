@@ -84,6 +84,8 @@ add_library(
   work.hpp
   work.cpp)
 
+find_package(OpenSSL REQUIRED COMPONENTS Crypto SSL)
+
 target_link_libraries(
   nano_lib
   ed25519
@@ -94,7 +96,9 @@ target_link_libraries(
   ${CRYPTOPP_LIBRARY}
   ${CMAKE_DL_LIBS}
   Boost::boost
-  Boost::program_options)
+  Boost::program_options
+  OpenSSL::Crypto
+  OpenSSL::SSL)
 
 if(NANO_STACKTRACE_BACKTRACE)
   target_link_libraries(nano_lib backtrace)

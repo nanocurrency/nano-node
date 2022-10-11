@@ -2,6 +2,7 @@
 
 #include <nano/node/common.hpp>
 #include <nano/node/peer_exclusion.hpp>
+#include <nano/node/ssl/ssl_classes.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/secure/network_filter.hpp>
@@ -9,6 +10,7 @@
 #include <boost/thread/thread.hpp>
 
 #include <memory>
+#include <optional>
 #include <queue>
 #include <unordered_set>
 
@@ -186,6 +188,7 @@ public:
 	nano::tcp_message_manager tcp_message_manager;
 	nano::node & node;
 	nano::network_filter publish_filter;
+	std::optional<nano::ssl::ssl_context> ssl_context;
 	nano::transport::udp_channels udp_channels;
 	nano::transport::tcp_channels tcp_channels;
 	std::atomic<uint16_t> port{ 0 };
