@@ -317,7 +317,6 @@ TEST (bootstrap_processor, process_one)
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_NE (node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub));
 	ASSERT_TIMELY (10s, node1->latest (nano::dev::genesis_key.pub) == node0->latest (nano::dev::genesis_key.pub));
-	ASSERT_EQ (0, node1->active.size ());
 	node1->stop ();
 }
 
