@@ -457,11 +457,10 @@ TEST (active_transactions, inactive_votes_cache_election_start)
 				 .sign (key2.prv, key2.pub)
 				 .work (*system.work.generate (key2.pub))
 				 .build_shared ();
-	node.block_processor.add (send1);
-	node.block_processor.add (send2);
-	node.block_processor.add (open1);
-	node.block_processor.add (open2);
-	node.block_processor.flush ();
+	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*open1).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*open2).code);
 	ASSERT_TIMELY (5s, 5 == node.ledger.cache.block_count);
 	ASSERT_TRUE (node.active.empty ());
 	ASSERT_EQ (1, node.ledger.cache.cemented_count);
