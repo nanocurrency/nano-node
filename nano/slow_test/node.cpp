@@ -2154,7 +2154,7 @@ TEST (system, block_sequence)
 	config.preconfigured_peers.push_back ("::ffff:127.0.0.1:" + std::to_string (root->network.endpoint ().port ()));
 	auto wallet = root->wallets.items.begin ()->second;
 	wallet->insert_adhoc (nano::dev::genesis_key.prv);
-	for (auto rep: reps)
+	for (auto rep : reps)
 	{
 		system.wallet (0);
 		config.peering_port = nano::test::get_available_port ();
@@ -2173,11 +2173,11 @@ TEST (system, block_sequence)
 	{
 		system.poll ();
 	}
-	for (auto & node: system.nodes)
+	for (auto & node : system.nodes)
 	{
 		std::cerr << std::to_string (node->network.port) << ": ";
 		auto prs = node->rep_crawler.principal_representatives ();
-		for (auto pr: prs)
+		for (auto pr : prs)
 		{
 			std::cerr << pr.account.to_account () << ' ';
 		}
@@ -2204,17 +2204,17 @@ TEST (system, block_sequence)
 		if (std::chrono::system_clock::now () - last > interval)
 		{
 			std::string message;
-			for (auto i: system.nodes)
+			for (auto i : system.nodes)
 			{
 				message += boost::str (boost::format ("N:%1% b:%2% c:%3% a:%4% s:%5% p:%6%\n") % std::to_string (i->network.port) % std::to_string (i->ledger.cache.block_count) % std::to_string (i->ledger.cache.cemented_count) % std::to_string (i->active.size ()) % std::to_string (i->scheduler.size ()) % std::to_string (i->network.size ()));
 				nano::lock_guard<nano::mutex> lock{ i->active.mutex };
-				for (auto const & j: i->active.roots)
+				for (auto const & j : i->active.roots)
 				{
 					auto election = j.election;
 					if (election->confirmation_request_count > 10)
 					{
 						message += boost::str (boost::format ("\t r:%1% i:%2%\n") % j.root.to_string () % std::to_string (election->confirmation_request_count));
-						for (auto const & k: election->votes ())
+						for (auto const & k : election->votes ())
 						{
 							message += boost::str (boost::format ("\t\t r:%1% t:%2%\n") % k.first.to_account () % std::to_string (k.second.timestamp));
 						}
