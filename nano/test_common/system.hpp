@@ -56,7 +56,7 @@ namespace test
 		 */
 		nano::node & node (std::size_t index) const;
 		std::shared_ptr<nano::node> add_node (nano::node_flags = nano::node_flags (), nano::transport::transport_type = nano::transport::transport_type::tcp);
-		std::shared_ptr<nano::node> add_node (nano::node_config const &, nano::node_flags = nano::node_flags (), nano::transport::transport_type = nano::transport::transport_type::tcp);
+		std::shared_ptr<nano::node> add_node (nano::node_config const &, nano::node_flags = nano::node_flags (), nano::transport::transport_type = nano::transport::transport_type::tcp, std::optional<nano::keypair> const & rep = std::nullopt);
 		/*
 		 * Returns default config for node running in test environment
 		 */

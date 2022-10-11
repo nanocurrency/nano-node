@@ -35,7 +35,7 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_flags node_
 }
 
 /** Returns the node added. */
-std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config const & node_config_a, nano::node_flags node_flags_a, nano::transport::transport_type type_a)
+std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config const & node_config_a, nano::node_flags node_flags_a, nano::transport::transport_type type_a, std::optional<nano::keypair> const & rep)
 {
 	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config_a, work, node_flags_a, node_sequence++));
 	for (auto i : initialization_blocks)
@@ -44,8 +44,12 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 		debug_assert (result.code == nano::process_result::progress);
 	}
 	debug_assert (!node->init_error ());
+	auto wallet = node->wallets.create (nano::random_wallet_id ());
+	if (rep)
+	{
+		wallet->insert_adhoc (rep->prv);
+	}
 	node->start ();
-	node->wallets.create (nano::random_wallet_id ());
 	nodes.reserve (nodes.size () + 1);
 	nodes.push_back (node);
 	if (nodes.size () > 1)
