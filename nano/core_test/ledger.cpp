@@ -4377,7 +4377,6 @@ TEST (ledger, unchecked_epoch_invalid)
 	{
 		auto transaction = node1.store.tx_begin_read ();
 		ASSERT_FALSE (node1.store.block.exists (transaction, epoch1->hash ()));
-		ASSERT_TRUE (node1.active.empty ());
 		auto unchecked_count = node1.unchecked.count (transaction);
 		ASSERT_EQ (unchecked_count, 0);
 		ASSERT_EQ (unchecked_count, node1.unchecked.count (transaction));
