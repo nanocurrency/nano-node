@@ -625,11 +625,8 @@ bool nano::bootstrap::bootstrap_ascending::thread::request_one ()
 	return error;
 }
 
-static int pass_number = 0;
-
 void nano::bootstrap::bootstrap_ascending::thread::run ()
 {
-	std::cerr << "!! Starting with:" << std::to_string (pass_number++) << std::endl;
 	while (!bootstrap.stopped)
 	{
 		auto error = request_one ();
@@ -639,7 +636,6 @@ void nano::bootstrap::bootstrap_ascending::thread::run ()
 			std::this_thread::sleep_for (delay);
 		}
 	}
-	std::cerr << "!! stopping" << std::endl;
 }
 
 auto nano::bootstrap::bootstrap_ascending::thread::shared () -> std::shared_ptr<thread>
@@ -679,8 +675,6 @@ void nano::bootstrap::bootstrap_ascending::run ()
 		condition.wait_for (lock, std::chrono::seconds{ 10 }, [this] () { return stopped; });
 	}
 
-	dump_stats ();
-
 	debug_log (boost::str (boost::format ("Waiting for the ascending bootstrap sub-threads")));
 	for (auto & thread : threads)
 	{
@@ -710,12 +704,10 @@ void nano::bootstrap::bootstrap_ascending::debug_log (const std::string & s) con
 
 void nano::bootstrap::bootstrap_ascending::start ()
 {
-	std::cerr << "starting\n";
 	debug_assert (!main_thread.joinable ());
 	main_thread = std::thread{
 		[this] () { run (); },
 	};
-	std::cerr << "started\n";
 }
 
 void nano::bootstrap::bootstrap_ascending::stop ()
