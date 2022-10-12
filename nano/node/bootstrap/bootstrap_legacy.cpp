@@ -202,7 +202,7 @@ void nano::bootstrap_attempt_legacy::run_start (nano::unique_lock<nano::mutex> &
 void nano::bootstrap_attempt_legacy::run ()
 {
 	debug_assert (started);
-	debug_assert (!node->config.disable_legacy_bootstrap);
+	//debug_assert (!node->config.disable_legacy_bootstrap);
 	node->bootstrap_initiator.connections->populate_connections (false);
 	nano::unique_lock<nano::mutex> lock (mutex);
 	run_start (lock);

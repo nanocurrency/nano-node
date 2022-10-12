@@ -181,7 +181,7 @@ bool nano::bootstrap_attempt_lazy::lazy_has_expired () const
 void nano::bootstrap_attempt_lazy::run ()
 {
 	debug_assert (started);
-	debug_assert (!node->config.disable_lazy_bootstrap);
+	//debug_assert (!node->config.disable_lazy_bootstrap);
 	node->bootstrap_initiator.connections->populate_connections (false);
 	lazy_start_time = std::chrono::steady_clock::now ();
 	nano::unique_lock<nano::mutex> lock (mutex);
@@ -529,7 +529,7 @@ bool nano::bootstrap_attempt_wallet::wallet_finished ()
 void nano::bootstrap_attempt_wallet::run ()
 {
 	debug_assert (started);
-	debug_assert (!node->config.disable_wallet_bootstrap);
+	//debug_assert (!node->config.disable_wallet_bootstrap);
 	node->bootstrap_initiator.connections->populate_connections (false);
 	auto start_time (std::chrono::steady_clock::now ());
 	auto max_time (std::chrono::minutes (10));

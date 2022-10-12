@@ -106,9 +106,9 @@ public:
 	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
 	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);
-	bool disable_lazy_bootstrap = false;
-	bool disable_legacy_bootstrap = false;
-	bool disable_wallet_bootstrap = false;
+	bool disable_lazy_bootstrap = true;
+	bool disable_legacy_bootstrap = true;
+	bool disable_wallet_bootstrap = true;
 	bool disable_ongoing_bootstrap = false;
 
 	/** Entry is ignored if it cannot be parsed as a valid address:port */

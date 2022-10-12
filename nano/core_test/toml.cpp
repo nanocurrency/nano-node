@@ -403,9 +403,9 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	bootstrap_serving_threads = 999
 	bootstrap_frontier_request_count = 9999
 	bootstrap_fraction_numerator = 999
-	disable_lazy_bootstrap = true
-	disable_legacy_bootstrap = true
-	disable_wallet_bootstrap = true
+	disable_lazy_bootstrap = false
+	disable_legacy_bootstrap = false
+	disable_wallet_bootstrap = false
 	disable_ongoing_bootstrap = true
 	conf_height_processor_batch_min_time = 999
 	confirmation_history_size = 999
