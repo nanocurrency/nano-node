@@ -547,9 +547,11 @@ bool nano::bootstrap::bootstrap_ascending::thread::request_one ()
 	nano::hash_or_account start = account;
 
 	// check if the account picked has blocks, if it does, start the pull from the highest block
-	if (!bootstrap.node.store.account.get (bootstrap.node.store.tx_begin_read (), account, info))
+	nano::confirmation_height_info conf_info;
+	bootstrap.node.store.confirmation_height.get (bootstrap.node.store.tx_begin_read (), account, conf_info);
+	if (conf_info.height > 0)
 	{
-		start = info.head;
+		start = conf_info.frontier;
 		bootstrap.debug_log (boost::str (boost::format ("request one: %1% (%2%) from block %3%")
 		% account.to_account () % account.to_string () % start.to_string ()));
 	}
