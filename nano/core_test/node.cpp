@@ -1526,22 +1526,25 @@ TEST (node, bootstrap_fork_open)
 	for (auto node : system.nodes)
 	{
 		node->block_confirm (node->block (node->latest (nano::dev::genesis_key.pub)));
-		ASSERT_TIMELY (1s, node->active.election (send0.qualified_root ()));
+		ASSERT_TIMELY (5s, node->active.election (send0.qualified_root ()));
 		auto election = node->active.election (send0.qualified_root ());
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
-		ASSERT_TIMELY (2s, node->active.empty ());
+		ASSERT_TIMELY (5s, node->active.empty ());
 	}
-	ASSERT_TIMELY (3s, node0->block_confirmed (send0.hash ()));
+	ASSERT_TIMELY (5s, node0->block_confirmed (send0.hash ()));
+	ASSERT_TIMELY (5s, node1->block_confirmed (send0.hash ()));
+
 	// They disagree about open0/open1
 	ASSERT_EQ (nano::process_result::progress, node0->process (open0).code);
 	ASSERT_EQ (nano::process_result::progress, node1->process (open1).code);
+
+	// only node0 can vote, so open0 should win the election
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
 	ASSERT_FALSE (node1->ledger.block_or_pruned_exists (open0.hash ()));
-	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_TIMELY (1s, node1->active.empty ());
-	ASSERT_TIMELY (10s, !node1->ledger.block_or_pruned_exists (open1.hash ()) && node1->ledger.block_or_pruned_exists (open0.hash ()));
+	ASSERT_TIMELY (5s, node1->active.empty ());
+	ASSERT_TIMELY (5s, !node1->ledger.block_or_pruned_exists (open1.hash ()) && node1->ledger.block_or_pruned_exists (open0.hash ()));
 }
 
 // Unconfirmed blocks from bootstrap should be confirmed
