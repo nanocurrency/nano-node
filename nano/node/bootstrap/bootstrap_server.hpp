@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/node/common.hpp>
+#include <nano/node/messages.hpp>
 #include <nano/node/socket.hpp>
 
 #include <atomic>

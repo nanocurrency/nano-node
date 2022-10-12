@@ -2,6 +2,7 @@
 
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/messages.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
@@ -77,7 +78,7 @@ public:
 
 	/*
 	 * This makes a telemetry request to the specific channel.
-	 * Error is set for: no response received, no payload received, invalid signature or unsound metrics in message (e.g different genesis block) 
+	 * Error is set for: no response received, no payload received, invalid signature or unsound metrics in message (e.g different genesis block)
 	 */
 	void get_metrics_single_peer_async (std::shared_ptr<nano::transport::channel> const &, std::function<void (telemetry_data_response const &)> const &);
 
