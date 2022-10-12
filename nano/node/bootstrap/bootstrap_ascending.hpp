@@ -191,8 +191,8 @@ namespace bootstrap
 		account_sets accounts;
 		connection_pool pool;
 
-		static std::size_t constexpr parallelism = 1;
-		static std::size_t constexpr request_message_count = 16;
+		static std::size_t constexpr parallelism = 16;
+		static std::size_t constexpr request_message_count = 128;
 
 		std::atomic<int> responses{ 0 };
 		std::atomic<int> requests_total{ 0 };
