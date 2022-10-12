@@ -132,6 +132,7 @@ public:
 	 * Attempts to bootstrap block. This is the best effort, there is no guarantee that the block will be bootstrapped.
 	 */
 	void bootstrap_block (nano::block_hash const &);
+	nano::account get_node_id () const;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
