@@ -670,11 +670,6 @@ void nano::bootstrap::bootstrap_ascending::run ()
 		});
 	}
 
-	{
-		nano::unique_lock<nano::mutex> lock{ mutex };
-		condition.wait_for (lock, std::chrono::seconds{ 10 }, [this] () { return stopped; });
-	}
-
 	debug_log (boost::str (boost::format ("Waiting for the ascending bootstrap sub-threads")));
 	for (auto & thread : threads)
 	{
