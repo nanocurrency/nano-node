@@ -23,6 +23,10 @@ namespace bootstrap
 		void start ();
 		void stop ();
 		void run ();
+
+		// Make an account known to ascending bootstrap and set its priority
+		void prioritize (nano::account const & account_a, float priority_a);
+
 		void get_information (boost::property_tree::ptree &);
 		std::unique_ptr<nano::container_info_component> collect_container_info (const std::string & name);
 

@@ -1544,6 +1544,11 @@ TEST (node, bootstrap_fork_open)
 
 	ASSERT_FALSE (node1->ledger.block_or_pruned_exists (open0.hash ()));
 	ASSERT_TIMELY (5s, node1->active.empty ());
+
+	// the ascending bootstrap has no way to know about the account that was opened
+	// because the send0 block was force added to the ledger without going through te block processor
+	node1->ascendboot.prioritize (send0.destination (), 0.0f);
+
 	ASSERT_TIMELY (5s, !node1->ledger.block_or_pruned_exists (open1.hash ()) && node1->ledger.block_or_pruned_exists (open0.hash ()));
 }
 

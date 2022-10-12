@@ -668,6 +668,11 @@ void nano::bootstrap::bootstrap_ascending::run ()
 	debug_log (boost::str (boost::format ("Exiting ascending bootstrap main thread")));
 }
 
+void nano::bootstrap::bootstrap_ascending::prioritize (nano::account const & account_a, float priority_a)
+{
+	accounts.prioritize (account_a, priority_a);
+}
+
 void nano::bootstrap::bootstrap_ascending::get_information (boost::property_tree::ptree &)
 {
 }
