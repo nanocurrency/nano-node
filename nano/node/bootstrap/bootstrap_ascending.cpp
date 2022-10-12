@@ -108,6 +108,31 @@ void nano::bootstrap::bootstrap_ascending::account_sets::dump () const
 	std::cerr << output;
 }
 
+std::string nano::bootstrap::bootstrap_ascending::account_sets::to_string () const
+{
+	std::stringstream ss;
+
+	ss << boost::str (boost::format ("Blocked (size=%1%)\n") % blocking.size ());
+	for (auto & [account, hash] : blocking)
+	{
+		ss << boost::str (boost::format ("%1% (%2%) hash=%3%\n") % account.to_account () % account.to_string () % hash.to_string ());
+	}
+
+	ss << boost::str (boost::format ("Forwarding (size=%1%)\n") % forwarding.size ());
+	for (auto & account : forwarding)
+	{
+		ss << "  " << account.to_account () << ", " << account.to_string () << "\n";
+	}
+
+	ss << boost::str (boost::format ("Backoff (size=%1%)\n") % backoff.size ());
+	for (auto & [account, weight] : backoff)
+	{
+		ss << boost::str (boost::format ("%1% (%2%) weight=%3%\n") % account.to_account () % account.to_string () % weight);
+	}
+
+	return ss.str ();
+}
+
 void nano::bootstrap::bootstrap_ascending::account_sets::prioritize (nano::account const & account, float priority)
 {
 	if (blocking.count (account) == 0)

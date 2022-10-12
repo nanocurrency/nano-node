@@ -74,6 +74,7 @@ namespace bootstrap
 			void unblock (nano::account const & account, nano::block_hash const & hash);
 			void force_unblock (nano::account const & account);
 			void dump () const;
+			std::string to_string () const;
 			std::unique_ptr<nano::container_info_component> collect_container_info (const std::string & name);
 
 			/**
