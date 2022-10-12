@@ -139,10 +139,12 @@ namespace bootstrap
 			// Reads a block from a specific `tag' / bootstrap socket.
 			void read_block (std::shared_ptr<async_tag> tag);
 
+			// given an account, pick the start point of the pull request
+			nano::hash_or_account pick_start (const nano::account & account_a);
+
 			std::atomic<int> requests{ 0 };
 			static constexpr int requests_max = 1;
 
-		public:
 			bootstrap_ascending & bootstrap;
 		};
 
@@ -181,6 +183,9 @@ namespace bootstrap
 		void dump_stats ();
 
 		account_sets::backoff_info_t backoff_info () const;
+
+		// pull optimistically, pull unconfirmed blocks without limit
+		bool optimistic_pulling = false;
 
 	private:
 		account_sets accounts;

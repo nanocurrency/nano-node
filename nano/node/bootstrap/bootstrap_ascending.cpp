@@ -552,6 +552,44 @@ void nano::bootstrap::bootstrap_ascending::init ()
 	% account_count % receivable_count));
 }
 
+nano::hash_or_account nano::bootstrap::bootstrap_ascending::thread::pick_start (const nano::account & account_a)
+{
+	nano::hash_or_account start = account_a;
+
+	// check if the account picked has blocks, if it does, start the pull from the highest block
+
+	if (bootstrap.optimistic_pulling)
+	{
+		nano::account_info info;
+		if (!bootstrap.node.store.account.get (bootstrap.node.store.tx_begin_read (), account_a, info))
+		{
+			start = info.head;
+		}
+	}
+	else
+	{
+		nano::confirmation_height_info conf_info;
+		bootstrap.node.store.confirmation_height.get (bootstrap.node.store.tx_begin_read (), account_a, conf_info);
+		if (conf_info.height > 0)
+		{
+			start = conf_info.frontier;
+		}
+	}
+
+	if (start != account_a)
+	{
+		bootstrap.debug_log (boost::str (boost::format ("request one: %1% (%2%) from block %3%")
+		% account_a.to_account () % account_a.to_string () % start.to_string ()));
+	}
+	else
+	{
+		bootstrap.debug_log (boost::str (boost::format ("request one: %1% (%2%)")
+		% account_a.to_account () % account_a.to_string ()));
+	}
+
+	return start;
+}
+
 bool nano::bootstrap::bootstrap_ascending::thread::request_one ()
 {
 	// do not do too many requests in parallel, impose throttling
@@ -568,23 +606,7 @@ bool nano::bootstrap::bootstrap_ascending::thread::request_one ()
 	auto this_l = shared ();
 	auto tag = std::make_shared<async_tag> (this_l);
 	auto account = pick_account ();
-	nano::account_info info;
-	nano::hash_or_account start = account;
-
-	// check if the account picked has blocks, if it does, start the pull from the highest block
-	nano::confirmation_height_info conf_info;
-	bootstrap.node.store.confirmation_height.get (bootstrap.node.store.tx_begin_read (), account, conf_info);
-	if (conf_info.height > 0)
-	{
-		start = conf_info.frontier;
-		bootstrap.debug_log (boost::str (boost::format ("request one: %1% (%2%) from block %3%")
-		% account.to_account () % account.to_string () % start.to_string ()));
-	}
-	else
-	{
-		bootstrap.debug_log (boost::str (boost::format ("request one: %1% (%2%)")
-		% account.to_account () % account.to_string ()));
-	}
+	nano::hash_or_account start = pick_start (account);
 
 	// pick a connection and send the pull request and setup response processing callback
 	nano::unique_lock<nano::mutex> lock{ bootstrap.mutex };
