@@ -124,12 +124,12 @@ private:
 	boost::asio::ip::tcp::socket tcp_socket;
 
 	/** SSL/TLS require a specific stream and a validation function */
-	std::unique_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>> ssl_stream;
+	std::unique_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket &>> ssl_stream;
 	std::unique_ptr<nano::ssl::ssl_manual_validation_ensurer> ssl_ensurer;
 
 protected:
 	/** SSL/TLS initialization function -- should be called only for secure connections */
-	void ssl_initialize ();
+	void ssl_initialize (boost::asio::ip::tcp::socket & tcp_socket);
 
 	/** SSL/TLS functions for the handshake step (after connection is established) */
 	void ssl_handshake_start (std::function<void (boost::system::error_code const &)> callback_a);

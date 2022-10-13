@@ -60,13 +60,13 @@ nano::socket::~socket ()
 	close_internal ();
 }
 
-void nano::socket::ssl_initialize ()
+void nano::socket::ssl_initialize (boost::asio::ip::tcp::socket & tcp_socket)
 {
 	debug_assert (!node.flags.disable_ssl_sockets);
 	debug_assert (!ssl_stream && !ssl_ensurer);
 	debug_assert (node.network.ssl_context.has_value ());
 
-	ssl_stream = std::make_unique<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>> (node.io_ctx, *node.network.ssl_context.value ());
+	ssl_stream = std::make_unique<boost::asio::ssl::stream<boost::asio::ip::tcp::socket &>> (tcp_socket, *node.network.ssl_context.value ());
 	ssl_ensurer = std::make_unique<nano::ssl::ssl_manual_validation_ensurer> ();
 
 	nano::ssl::setCaPublicKeyValidator (nano::ssl::SslPtrView::make (ssl_stream->native_handle ()), ssl_ensurer->get_handler ());
@@ -153,24 +153,15 @@ void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::fu
 	if (node.flags.disable_ssl_sockets)
 	{
 		tcp_socket.async_connect (endpoint_a, boost::asio::bind_executor (strand, std::move (on_connection)));
+		return;
 	}
 	else
 	{
-		debug_assert (!this_l->ssl_stream && !this_l->ssl_ensurer);
-		this_l->ssl_initialize ();
-		this_l->ssl_stream->lowest_layer ().async_connect (endpoint_a,
-		boost::asio::bind_executor (this_l->strand,
-		[this_l, on_connection] (boost::system::error_code const & ec) {
-			if (ec)
-			{
-				std::cout << "async_connect: " << ec.message () << std::endl;
-			}
-			else
-			{
-				std::cout << "async_connect: success" << std::endl;
-			}
-			this_l->ssl_handshake_start (std::move (on_connection));
-		}));
+		auto handshake_start = [this_l, on_connection_cb = std::move (on_connection)] (boost::system::error_code const & ec) {
+			this_l->ssl_handshake_start (std::move (on_connection_cb));
+		};
+		ssl_initialize (tcp_socket);
+		tcp_socket.async_connect (endpoint_a, boost::asio::bind_executor (strand, std::move (handshake_start)));
 	}
 }
 
@@ -404,17 +395,8 @@ void nano::socket::close_internal ()
 	boost::system::error_code ec;
 
 	// Ignore error code for shutdown as it is best-effort
-	if (node.flags.disable_ssl_sockets)
-	{
-		tcp_socket.shutdown (boost::asio::ip::tcp::socket::shutdown_both, ec);
-		tcp_socket.close (ec);
-	}
-	else
-	{
-		// TODO: Come back to this and shutdown ssl_stream properly
-		//		ssl_stream->lowest_layer ().shutdown (boost::asio::ip::tcp::socket::shutdown_both, ec);
-		//		ssl_stream->lowest_layer ().close (ec);
-	}
+	tcp_socket.shutdown (boost::asio::ip::tcp::socket::shutdown_both, ec);
+	tcp_socket.close (ec);
 
 	if (ec)
 	{
@@ -653,33 +635,16 @@ void nano::server_socket::accept_connection (std::function<bool (std::shared_ptr
 		};
 
 		auto new_connection = std::make_shared<nano::socket> (this_l->node, endpoint_type_t::server);
+		if (!this_l->node.flags.disable_ssl_sockets)
+		{
+			new_connection->ssl_initialize (new_connection->tcp_socket);
+		}
 
-		if (this_l->node.flags.disable_ssl_sockets)
-		{
-			this_l->acceptor.async_accept (new_connection->tcp_socket, new_connection->remote,
-			boost::asio::bind_executor (this_l->strand,
-			[this_l, new_connection, callback = std::move (callback_l), on_accept_connection_cb = std::move (on_accept_connection)] (boost::system::error_code const & ec_a) {
-				// Prepare new connection
-				on_accept_connection_cb (new_connection, ec_a, callback);
-			}));
-		}
-		else
-		{
-			new_connection->ssl_initialize ();
-			this_l->acceptor.async_accept (new_connection->ssl_stream->lowest_layer (), new_connection->remote,
-			boost::asio::bind_executor (this_l->strand,
-			[this_l, new_connection, callback = std::move (callback_l), on_accept_connection_cb = std::move (on_accept_connection)] (boost::system::error_code const & ec_a) {
-				if (ec_a)
-				{
-					std::cout << "async_accept: " << ec_a.message () << std::endl;
-				}
-				else
-				{
-					std::cout << "async_accept: success" << std::endl;
-				}
-				on_accept_connection_cb (new_connection, ec_a, callback);
-			}));
-		}
+		this_l->acceptor.async_accept (new_connection->tcp_socket, new_connection->remote,
+		boost::asio::bind_executor (this_l->strand,
+		[this_l, new_connection, callback = std::move (callback_l), on_accept_connection_cb = std::move (on_accept_connection)] (boost::system::error_code const & ec_a) {
+			on_accept_connection_cb (new_connection, ec_a, callback);
+		}));
 	}));
 }
 
