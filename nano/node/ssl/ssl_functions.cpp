@@ -112,14 +112,14 @@ Buffer hexToBinary (const std::string_view & input)
 	return result;
 }
 
-Buffer getCaPrivateKey (const key_group_t key_group)
+Buffer getCaPrivateKey (key_group const & key_group)
 {
-	return hexToBinary (key_group == key_group_t::GROUP_1 ? CA_PRIVATE_KEY_HEX_1 : CA_PRIVATE_KEY_HEX_2);
+	return hexToBinary (key_group.key_private);
 }
 
-Buffer getCaPublicKey (const key_group_t key_group)
+Buffer getCaPublicKey (key_group const & key_group)
 {
-	return hexToBinary (key_group == key_group_t::GROUP_1 ? CA_PUBLIC_KEY_HEX_1 : CA_PUBLIC_KEY_HEX_2);
+	return hexToBinary (key_group.key_public);
 }
 
 std::string readFromBio (const BioPtrView & bio)
@@ -920,7 +920,7 @@ void markCertificateAsCa (const X509PtrView & certificate, const X509V3Ctx & ext
 	addIsCaExtension (certificate, extensionContext, true);
 }
 
-void generateCaCertificate (const std::filesystem::path & resources_dir, const key_group_t key_group)
+void generateCaCertificate (key_group const & key_group, std::filesystem::path const & resources_dir)
 {
 	const auto publicKey = getCaPublicKey (key_group);
 	const auto evpPublicKey = getEvpPublicKeyFromCustomPublicKey (publicKey);
@@ -950,7 +950,7 @@ void signIntermediateCertificate (const X509PtrView & certificate, const BufferV
 	addCertificateCustomSignature (certificate, customSignature);
 }
 
-void generateIntermediateCertificate (const std::filesystem::path & resources_dir, const key_group_t key_group)
+void generateIntermediateCertificate (key_group const & key_group, std::filesystem::path const & resources_dir)
 {
 	const auto publicKey = parsePublicKeyFromPemFile (resources_dir / INTERMEDIATE_PUBLIC_KEY_PEM_FILE);
 	const auto certificate = generateCertificate (
@@ -1049,14 +1049,14 @@ void createResourcesDirectory (const std::filesystem::path & resources_dir)
 	}
 }
 
-void generatePki (const std::filesystem::path & certificate_dir, const key_group_t key_group)
+void generatePki (key_group const & key_group, std::filesystem::path const & certificate_dir)
 {
 	createResourcesDirectory (certificate_dir);
 
-	generateCaCertificate (certificate_dir, key_group); // this CA certificate (meaning ROOT certificate) has as private key the node private key
+	generateCaCertificate (key_group, certificate_dir); // this CA certificate (meaning ROOT certificate) has as private key the node private key
 
 	static_cast<void> (generatePrivateKeyAndSave (certificate_dir / INTERMEDIATE_PRIVATE_KEY_PEM_FILE, certificate_dir / INTERMEDIATE_PUBLIC_KEY_PEM_FILE));
-	generateIntermediateCertificate (certificate_dir, key_group);
+	generateIntermediateCertificate (key_group, certificate_dir);
 
 	static_cast<void> (generatePrivateKeyAndSave (certificate_dir / LEAF_PRIVATE_KEY_PEM_FILE, certificate_dir / LEAF_PUBLIC_KEY_PEM_FILE));
 	generateLeafCertificate (certificate_dir);

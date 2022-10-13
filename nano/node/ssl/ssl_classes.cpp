@@ -199,7 +199,7 @@ X509V3_CTX * X509V3Ctx::breakConst () const
 	return &const_cast<X509V3Ctx *> (this)->operator* ();
 }
 
-ssl_context::ssl_context (const std::filesystem::path & certificate_dir, const key_group_t key_group) :
+ssl_context::ssl_context (key_group const & key_group, std::filesystem::path const & certificate_dir) :
 	m_value{ boost::asio::ssl::context::tlsv12 }
 {
 	//	static std::once_flag once_flag{};
@@ -207,7 +207,7 @@ ssl_context::ssl_context (const std::filesystem::path & certificate_dir, const k
 	//		nano::ssl::generatePki (certificate_dir, key_group);
 	//		this->configure ();
 	//	});
-	nano::ssl::generatePki (certificate_dir, key_group);
+	nano::ssl::generatePki (key_group, certificate_dir);
 	this->configure ();
 }
 

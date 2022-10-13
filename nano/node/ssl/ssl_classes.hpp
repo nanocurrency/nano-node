@@ -137,16 +137,22 @@ private:
 	X509V3_CTX mContext;
 };
 
-enum class key_group_t
+class key_group
 {
-	GROUP_1,
-	GROUP_2
+public:
+	key_group (std::string_view prv, std::string_view pub) :
+		key_private{ std::move (prv) },
+		key_public{ std::move (pub) }
+	{
+	}
+	std::string_view const key_private;
+	std::string_view const key_public;
 };
 
 class ssl_context
 {
 public:
-	ssl_context (const std::filesystem::path & certificate_dir = std::filesystem::path{ PKI_RESOURCES_DIRECTORY_PATH }, const key_group_t key_group = nano::ssl::key_group_t::GROUP_1);
+	ssl_context (key_group const & key_group, std::filesystem::path const & certificate_dir = std::filesystem::path{ PKI_RESOURCES_DIRECTORY_PATH });
 
 	[[nodiscard]] boost::asio::ssl::context & get ();
 

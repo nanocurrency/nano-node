@@ -24,6 +24,11 @@
 #include <utility>
 #include <vector>
 
+constexpr std::string_view CA_PRIVATE_KEY_HEX_1 = "c1e9ad082d069109d8552e547717815e25bb3d682ff86d1d097a0c80e7db9a65";
+constexpr std::string_view CA_PUBLIC_KEY_HEX_1 = "25927d85eba160169c9ccc036d974695249a67bd8b93c00e6f842ddab1ad3b77";
+constexpr std::string_view CA_PRIVATE_KEY_HEX_2 = "254d14339368027bf7510d45077ac3e67d7b3507be13a4cf3c6cfb5a2b6a5359";
+constexpr std::string_view CA_PUBLIC_KEY_HEX_2 = "1b04ed75774b09f1427a664b90b8728ab11e9e9b4bb739c8498d2e1767c5a66e";
+
 namespace
 {
 void expect (bool condition)
@@ -411,7 +416,7 @@ class ssl_server final : public server
 public:
 	explicit ssl_server (boost::asio::io_context & io_context) :
 		server{ io_context },
-		m_ssl_context{ "server_pki", nano::ssl::key_group_t::GROUP_1 }
+		m_ssl_context{ nano::ssl::key_group{ CA_PRIVATE_KEY_HEX_1, CA_PUBLIC_KEY_HEX_1 }, "test_server_pki" }
 	{
 	}
 
@@ -599,7 +604,7 @@ public:
 	explicit ssl_client (boost::asio::io_context & io_context) :
 		client{ io_context },
 		m_try_ssl{ true },
-		m_ssl_context{ "client_pki", nano::ssl::key_group_t::GROUP_2 },
+		m_ssl_context{ nano::ssl::key_group{ CA_PRIVATE_KEY_HEX_2, CA_PUBLIC_KEY_HEX_2 }, "test_client_pki" },
 		m_socket{},
 		m_ssl_socket{}
 	{

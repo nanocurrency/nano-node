@@ -16,9 +16,9 @@ std::string binaryToHex (const BufferView & input);
 
 Buffer hexToBinary (const std::string_view & input);
 
-Buffer getCaPrivateKey (const key_group_t key_group);
+Buffer getCaPrivateKey (key_group const & key_group);
 
-Buffer getCaPublicKey (const key_group_t key_group);
+Buffer getCaPublicKey (key_group const & key_group);
 
 std::string readFromBio (const BioPtrView & bio);
 
@@ -153,11 +153,11 @@ VerifiedCertificateSignatures verifyCaCertificate (const X509PtrView & certifica
 
 void markCertificateAsCa (const X509PtrView & certificate, const X509V3Ctx & extensionContext);
 
-void generateCaCertificate (const std::filesystem::path & resources_dir, const key_group_t key_group);
+void generateCaCertificate (key_group const & key_group, std::filesystem::path const & resources_dir);
 
 void signIntermediateCertificate (const X509PtrView & certificate, const BufferView & privateKey);
 
-void generateIntermediateCertificate (const std::filesystem::path & resources_dir, const key_group_t key_group);
+void generateIntermediateCertificate (key_group const & key_group, std::filesystem::path const & resources_dir);
 
 void signLeafCertificate (const X509PtrView & certificate, const EvpPkeyPtrView & privateKey);
 
@@ -169,7 +169,7 @@ void composeCertificateChainPemFile (const std::filesystem::path & resources_dir
 
 void createResourcesDirectory (const std::filesystem::path & resources_dir);
 
-void generatePki (const std::filesystem::path &, const key_group_t);
+void generatePki (key_group const &, std::filesystem::path const &);
 
 std::string getCertificateSubject (const X509PtrView & certificate);
 
