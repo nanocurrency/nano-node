@@ -7,6 +7,8 @@
 
 using namespace std::chrono_literals;
 
+bool nano::bootstrap::bootstrap_ascending::optimistic_pulling = false;
+
 nano::bootstrap::bootstrap_ascending::connection_pool::connection_pool (nano::bootstrap::bootstrap_ascending & bootstrap) :
 	bootstrap{ bootstrap }
 {

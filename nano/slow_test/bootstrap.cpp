@@ -28,6 +28,9 @@ void wait_for_key ()
 
 TEST (bootstrap_ascending, profile)
 {
+	// this test does not do cementing, so we need to disable waiting for the confirmed frontier to catch up
+	nano::bootstrap::bootstrap_ascending::optimistic_pulling = true;
+
 	uint16_t rpc_port = 55000;
 	nano::test::system system;
 	nano::thread_runner runner{ system.io_ctx, 2 };
@@ -60,7 +63,6 @@ TEST (bootstrap_ascending, profile)
 	nano::node_flags flags_client;
 	flags_client.disable_add_initial_peers = true;
 	auto client = system.add_node (config_client, flags_client);
-	client->ascendboot.optimistic_pulling = true;
 
 	// Set up client RPC
 	nano::node_rpc_config node_rpc_config;

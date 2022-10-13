@@ -185,7 +185,7 @@ namespace bootstrap
 		account_sets::backoff_info_t backoff_info () const;
 
 		// pull optimistically, pull unconfirmed blocks without limit
-		bool optimistic_pulling = false;
+		static bool optimistic_pulling;
 
 	private:
 		account_sets accounts;
