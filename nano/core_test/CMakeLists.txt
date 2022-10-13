@@ -39,7 +39,6 @@ add_executable(
   signal_manager.cpp
   signing.cpp
   socket.cpp
-  ssl.cpp
   ssl_node.cpp
   system.cpp
   telemetry.cpp

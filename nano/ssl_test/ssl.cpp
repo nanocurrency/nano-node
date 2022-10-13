@@ -1,4 +1,4 @@
-#include <nano/test_common/ssl.hpp>
+#include <nano/ssl_test/ssl.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
