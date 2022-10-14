@@ -2,6 +2,7 @@
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/bootstrap/message_deserializer.hpp>
+#include <nano/node/messages.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
@@ -234,7 +235,7 @@ void nano::bootstrap_server::received_message (std::unique_ptr<nano::message> me
 
 bool nano::bootstrap_server::process_message (std::unique_ptr<nano::message> message)
 {
-	node->stats.inc (nano::stat::type::bootstrap_server, nano::message_type_to_stat_detail (message->header.type), nano::stat::dir::in);
+	node->stats.inc (nano::stat::type::bootstrap_server, nano::to_stat_detail (message->header.type), nano::stat::dir::in);
 
 	debug_assert (is_undefined_connection () || is_realtime_connection () || is_bootstrap_connection ());
 

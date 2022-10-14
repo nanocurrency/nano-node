@@ -203,9 +203,6 @@ public:
 	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
 	void remove_election_winner_details (nano::block_hash const &);
 
-	nano::vote_generator generator;
-	nano::vote_generator final_generator;
-
 	recently_confirmed_cache recently_confirmed;
 	recently_cemented_cache recently_cemented;
 

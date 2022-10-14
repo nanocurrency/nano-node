@@ -245,13 +245,19 @@ public:
 		telemetry,
 		vote_generator,
 		vote_cache,
-		hinting
+		hinting,
+		blockprocessor,
 	};
 
 	/** Optional detail type */
 	enum class detail : uint8_t
 	{
 		all = 0,
+
+		// processing queue
+		queue,
+		overfill,
+		batch,
 
 		// error specific
 		bad_sender,
@@ -277,6 +283,15 @@ public:
 		gap_previous,
 		gap_source,
 		rollback_failed,
+		progress,
+		bad_signature,
+		negative_spend,
+		unreceivable,
+		gap_epoch_open_pending,
+		opened_burn_account,
+		balance_mismatch,
+		representative_mismatch,
+		block_position,
 
 		// message specific
 		not_a_type,

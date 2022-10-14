@@ -1,4 +1,5 @@
 #include <nano/node/common.hpp>
+#include <nano/node/messages.hpp>
 #include <nano/test_common/telemetry.hpp>
 
 #include <gtest/gtest.h>

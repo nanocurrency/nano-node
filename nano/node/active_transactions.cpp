@@ -18,8 +18,6 @@ nano::active_transactions::active_transactions (nano::node & node_a, nano::confi
 	scheduler{ node_a.scheduler }, // Move dependencies requiring this circular reference
 	confirmation_height_processor{ confirmation_height_processor_a },
 	node{ node_a },
-	generator{ node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats, false },
-	final_generator{ node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats, true },
 	recently_confirmed{ 65536 },
 	recently_cemented{ node.config.confirmation_history_size },
 	election_time_to_live{ node_a.network_params.network.is_dev_network () ? 0s : 2s },
@@ -202,8 +200,8 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 
 	nano::confirmation_solicitor solicitor (node.network, node.config);
 	solicitor.prepare (node.rep_crawler.principal_representatives (std::numeric_limits<std::size_t>::max ()));
-	nano::vote_generator_session generator_session (generator);
-	nano::vote_generator_session final_generator_session (generator);
+	nano::vote_generator_session generator_session (node.generator);
+	nano::vote_generator_session final_generator_session (node.final_generator);
 
 	std::size_t unconfirmed_count_l (0);
 	nano::timer<std::chrono::milliseconds> elapsed (nano::timer_state::started);
@@ -366,8 +364,6 @@ void nano::active_transactions::stop ()
 	{
 		thread.join ();
 	}
-	generator.stop ();
-	final_generator.stop ();
 	lock.lock ();
 	roots.clear ();
 }
@@ -681,25 +677,24 @@ std::size_t nano::active_transactions::election_winner_details_size ()
 
 void nano::active_transactions::clear ()
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	blocks.clear ();
-	roots.clear ();
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		blocks.clear ();
+		roots.clear ();
+	}
+	vacancy_update ();
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (active_transactions & active_transactions, std::string const & name)
 {
 	std::size_t roots_count;
 	std::size_t blocks_count;
-	std::size_t recently_confirmed_count;
-	std::size_t recently_cemented_count;
 	std::size_t hinted_count;
 
 	{
 		nano::lock_guard<nano::mutex> guard (active_transactions.mutex);
 		roots_count = active_transactions.roots.size ();
 		blocks_count = active_transactions.blocks.size ();
-		recently_confirmed_count = active_transactions.recently_confirmed.size ();
-		recently_cemented_count = active_transactions.recently_cemented.size ();
 		hinted_count = active_transactions.active_hinted_elections_count;
 	}
 
@@ -708,7 +703,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (active_transactions.blocks)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "election_winner_details", active_transactions.election_winner_details_size (), sizeof (decltype (active_transactions.election_winner_details)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "hinted", hinted_count, 0 }));
-	composite->add_component (collect_container_info (active_transactions.generator, "generator"));
 
 	composite->add_component (active_transactions.recently_confirmed.collect_container_info ("recently_confirmed"));
 	composite->add_component (active_transactions.recently_cemented.collect_container_info ("recently_cemented"));

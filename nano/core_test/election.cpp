@@ -11,7 +11,7 @@ TEST (election, construction)
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
 	node.block_confirm (nano::dev::genesis);
-	node.scheduler.flush ();
+	ASSERT_TIMELY (5s, node.active.election (nano::dev::genesis->qualified_root ()));
 	auto election = node.active.election (nano::dev::genesis->qualified_root ());
 	election->transition_active ();
 }
@@ -142,7 +142,7 @@ TEST (election, quorum_minimum_confirm_success)
 	node1.process_active (send1);
 	node1.block_processor.flush ();
 	node1.scheduler.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
-	node1.scheduler.flush ();
+	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
 	auto election = node1.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	ASSERT_EQ (1, election->blocks ().size ());
@@ -175,7 +175,7 @@ TEST (election, quorum_minimum_confirm_fail)
 	node1.process_active (send1);
 	node1.block_processor.flush ();
 	node1.scheduler.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
-	node1.scheduler.flush ();
+	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
 	auto election = node1.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	ASSERT_EQ (1, election->blocks ().size ());
@@ -240,7 +240,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	auto const vote1 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ send1->hash () });
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
 
-	auto channel = node1.network.find_channel (node2.network.endpoint ());
+	auto channel = node1.network.find_node_id (node2.get_node_id ());
 	ASSERT_NE (channel, nullptr);
 
 	auto const vote2 = std::make_shared<nano::vote> (key1.pub, key1.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ send1->hash () });

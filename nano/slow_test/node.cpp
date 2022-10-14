@@ -989,7 +989,7 @@ TEST (confirmation_height, dynamic_algorithm)
  *    of blocks uncemented is > unbounded_cutoff so that it hits the bounded processor), the main `run` loop on the conf height processor is iterated.
  *
  * This cause unbounded pending entries not to be written, and then the bounded processor would write them, causing some inconsistencies.
-*/
+ */
 TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 {
 	// Repeat in case of intermittent issues not replicating the issue talked about above.
@@ -1595,7 +1595,7 @@ TEST (telemetry, cache_read_and_timeout)
 	nano::telemetry_data telemetry_data;
 	{
 		std::atomic<bool> done{ false };
-		auto channel = node_client->network.find_channel (node_server->network.endpoint ());
+		auto channel = node_client->network.find_node_id (node_server->get_node_id ());
 		node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &telemetry_data] (nano::telemetry_data_response const & response_a) {
 			telemetry_data = response_a.telemetry_data;
 			done = true;
@@ -1625,7 +1625,7 @@ TEST (telemetry, cache_read_and_timeout)
 	// Request telemetry metrics again
 	{
 		std::atomic<bool> done{ false };
-		auto channel = node_client->network.find_channel (node_server->network.endpoint ());
+		auto channel = node_client->network.find_node_id (node_server->get_node_id ());
 		node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &telemetry_data] (nano::telemetry_data_response const & response_a) {
 			telemetry_data = response_a.telemetry_data;
 			done = true;
@@ -1845,7 +1845,7 @@ TEST (node, mass_epoch_upgrader)
 		nano::test::system system;
 		nano::node_config node_config (nano::test::get_available_port (), system.logging);
 		node_config.work_threads = 4;
-		//node_config.work_peers = { { "192.168.1.101", 7000 } };
+		// node_config.work_peers = { { "192.168.1.101", 7000 } };
 		auto & node = *system.add_node (node_config);
 
 		auto balance = node.balance (nano::dev::genesis_key.pub);

@@ -548,6 +548,9 @@ std::string nano::stat::type_to_string (stat::type type)
 		case nano::stat::type::hinting:
 			res = "hinting";
 			break;
+		case nano::stat::type::blockprocessor:
+			res = "blockprocessor";
+			break;
 	}
 	return res;
 }
@@ -559,6 +562,15 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 	{
 		case nano::stat::detail::all:
 			res = "all";
+			break;
+		case nano::stat::detail::queue:
+			res = "queue";
+			break;
+		case nano::stat::detail::overfill:
+			res = "overfill";
+			break;
+		case nano::stat::detail::batch:
+			res = "batch";
 			break;
 		case nano::stat::detail::bad_sender:
 			res = "bad_sender";
@@ -628,6 +640,33 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 			break;
 		case nano::stat::detail::rollback_failed:
 			res = "rollback_failed";
+			break;
+		case nano::stat::detail::progress:
+			res = "progress";
+			break;
+		case nano::stat::detail::bad_signature:
+			res = "bad_signature";
+			break;
+		case nano::stat::detail::negative_spend:
+			res = "negative_spend";
+			break;
+		case nano::stat::detail::unreceivable:
+			res = "unreceivable";
+			break;
+		case nano::stat::detail::gap_epoch_open_pending:
+			res = "gap_epoch_open_pending";
+			break;
+		case nano::stat::detail::opened_burn_account:
+			res = "opened_burn_account";
+			break;
+		case nano::stat::detail::balance_mismatch:
+			res = "balance_mismatch";
+			break;
+		case nano::stat::detail::representative_mismatch:
+			res = "representative_mismatch";
+			break;
+		case nano::stat::detail::block_position:
+			res = "block_position";
 			break;
 		case nano::stat::detail::frontier_confirmation_failed:
 			res = "frontier_confirmation_failed";

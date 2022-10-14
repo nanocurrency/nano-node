@@ -1,11 +1,9 @@
-FROM nanocurrency/nano-env:base
+ARG ENV_REPOSITORY=nanocurrency/nano-env
+FROM ${ENV_REPOSITORY}:base
 
-RUN apt update -qq && apt-get install -yqq git
+RUN apt-get update -qq && apt-get install -yqq \
+git \
+libboost-all-dev
 
-ENV BOOST_ROOT=/tmp/boost
-
-ADD util/build_prep/fetch_boost.sh fetch_boost.sh
-
-RUN COMPILER=gcc ./fetch_boost.sh
 ARG REPOSITORY=nanocurrency/nano-node
 LABEL org.opencontainers.image.source https://github.com/$REPOSITORY
