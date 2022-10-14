@@ -117,6 +117,7 @@ if ! version_min 'qtpaths --qt-version' 5.8.999 5.11.999; then
 	exit 1
 fi
 qt5_dir="$(qtpaths --install-prefix)/lib/cmake/Qt5"
+openssl_root_dir="$(brew --prefix openssl@1.1)"
 
 echo "All verified."
 echo ""
@@ -124,6 +125,7 @@ echo "Next steps:"
 echo "    CC='${CC:-cc} ${wrap_compilers_add_options[*]}'"
 echo "    CXX='${CXX:-c++} ${wrap_compilers_add_options[*]}'"
 echo "    export CC CXX"
+echo "    export OPENSSL_ROOT_DIR='${openssl_root_dir}'"
 echo "    cmake -DBOOST_ROOT=${boost_dir} -DNANO_GUI=ON -DQt5_DIR=${qt5_dir} <dir>"
 echo "    cpack -G \"DragNDrop\""
 
