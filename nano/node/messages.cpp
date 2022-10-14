@@ -72,9 +72,9 @@ bool nano::message_header::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-std::string nano::to_string (nano::message_type message_type_l)
+std::string nano::to_string (nano::message_type type)
 {
-	switch (message_type_l)
+	switch (type)
 	{
 		case nano::message_type::invalid:
 			return "invalid";
@@ -102,15 +102,19 @@ std::string nano::to_string (nano::message_type message_type_l)
 			return "telemetry_req";
 		case nano::message_type::telemetry_ack:
 			return "telemetry_ack";
+		case nano::message_type::asc_pull_req:
+			return "asc_pull_req";
+		case nano::message_type::asc_pull_ack:
+			return "asc_pull_ack";
 			// default case intentionally omitted to cause warnings for unhandled enums
 	}
 
 	return "n/a";
 }
 
-nano::stat::detail nano::to_stat_detail (nano::message_type message_type)
+nano::stat::detail nano::to_stat_detail (nano::message_type type)
 {
-	switch (message_type)
+	switch (type)
 	{
 		case nano::message_type::invalid:
 			return nano::stat::detail::invalid;
@@ -138,6 +142,10 @@ nano::stat::detail nano::to_stat_detail (nano::message_type message_type)
 			return nano::stat::detail::telemetry_req;
 		case nano::message_type::telemetry_ack:
 			return nano::stat::detail::telemetry_ack;
+		case nano::message_type::asc_pull_req:
+			return nano::stat::detail::asc_pull_req;
+		case nano::message_type::asc_pull_ack:
+			return nano::stat::detail::asc_pull_ack;
 			// default case intentionally omitted to cause warnings for unhandled enums
 	}
 	debug_assert (false);
@@ -304,6 +312,14 @@ std::size_t nano::message_header::payload_length_bytes () const
 		{
 			return nano::telemetry_ack::size (*this);
 		}
+		case nano::message_type::asc_pull_req:
+		{
+			return nano::asc_pull_req::size;
+		}
+		case nano::message_type::asc_pull_ack:
+		{
+			return nano::asc_pull_ack::size (*this);
+		}
 		default:
 		{
 			debug_assert (false);
@@ -327,6 +343,8 @@ bool nano::message_header::is_valid_message_type () const
 		case nano::message_type::confirm_req:
 		case nano::message_type::node_id_handshake:
 		case nano::message_type::telemetry_ack:
+		case nano::message_type::asc_pull_req:
+		case nano::message_type::asc_pull_ack:
 		{
 			return true;
 		}
@@ -362,6 +380,11 @@ std::shared_ptr<std::vector<uint8_t>> nano::message::to_bytes () const
 nano::shared_const_buffer nano::message::to_shared_const_buffer () const
 {
 	return shared_const_buffer (to_bytes ());
+}
+
+nano::message_type nano::message::type () const
+{
+	return header.type;
 }
 
 /*
@@ -1581,4 +1604,151 @@ std::size_t nano::node_id_handshake::size (nano::message_header const & header_a
 		result += sizeof (nano::account) + sizeof (nano::signature);
 	}
 	return result;
+}
+
+/*
+ * asc_pull_req
+ */
+
+nano::asc_pull_req::asc_pull_req (const nano::network_constants & constants) :
+	message (constants, nano::message_type::asc_pull_req)
+{
+}
+
+nano::asc_pull_req::asc_pull_req (bool & error, nano::stream & stream, const nano::message_header & header) :
+	message (header)
+{
+	error = deserialize (stream);
+}
+
+void nano::asc_pull_req::visit (nano::message_visitor & visitor) const
+{
+	visitor.asc_pull_req (*this);
+}
+
+void nano::asc_pull_req::serialize (nano::stream & stream) const
+{
+	header.serialize (stream);
+	nano::write (stream, type);
+	nano::write (stream, id);
+	nano::write (stream, start);
+}
+
+bool nano::asc_pull_req::deserialize (nano::stream & stream)
+{
+	debug_assert (header.type == nano::message_type::asc_pull_req);
+	bool error = false;
+	try
+	{
+		nano::read (stream, type);
+		nano::read (stream, id);
+		nano::read (stream, start);
+	}
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+	return error;
+}
+
+/*
+ * asc_pull_ack
+ */
+
+nano::asc_pull_ack::asc_pull_ack (const nano::network_constants & constants) :
+	message (constants, nano::message_type::asc_pull_ack)
+{
+	update_header ();
+}
+
+nano::asc_pull_ack::asc_pull_ack (bool & error, nano::stream & stream, const nano::message_header & header) :
+	message (header)
+{
+	error = deserialize (stream);
+	if (!error)
+	{
+		update_header ();
+	}
+}
+
+void nano::asc_pull_ack::visit (nano::message_visitor & visitor) const
+{
+	visitor.asc_pull_ack (*this);
+}
+
+void nano::asc_pull_ack::serialize (nano::stream & stream) const
+{
+	debug_assert (header.extensions.to_ulong () > 0); // Block payload must have least `not_a_block` terminator
+	header.serialize (stream);
+	nano::write (stream, type);
+	nano::write (stream, id);
+	serialize_blocks (stream);
+}
+
+void nano::asc_pull_ack::serialize_blocks (nano::stream & stream) const
+{
+	debug_assert (blocks_m.size () <= max_blocks);
+	for (auto & block : blocks_m)
+	{
+		debug_assert (block != nullptr);
+		nano::serialize_block (stream, *block);
+	}
+	// For convenience, end with null block terminator
+	nano::serialize_block_type (stream, nano::block_type::not_a_block);
+}
+
+std::vector<std::shared_ptr<nano::block>> nano::asc_pull_ack::blocks () const
+{
+	return blocks_m;
+}
+
+void nano::asc_pull_ack::update_header ()
+{
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream blocks_stream (bytes);
+		serialize_blocks (blocks_stream);
+	}
+	debug_assert (bytes.size () <= 65535u); // Max int16 for storing size
+	debug_assert (bytes.size () >= 1); // At least `not_a_block` terminator
+	header.extensions = std::bitset<16> (bytes.size ());
+}
+
+void nano::asc_pull_ack::blocks (std::vector<std::shared_ptr<nano::block>> & blocks)
+{
+	blocks_m = blocks;
+	update_header ();
+}
+
+bool nano::asc_pull_ack::deserialize (nano::stream & stream)
+{
+	debug_assert (header.type == nano::message_type::asc_pull_ack);
+	bool error = false;
+	try
+	{
+		nano::read (stream, type);
+		nano::read (stream, id);
+		deserialize_blocks (stream);
+	}
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+	return error;
+}
+
+void nano::asc_pull_ack::deserialize_blocks (nano::stream & stream)
+{
+	auto current = nano::deserialize_block (stream);
+	while (current && blocks_m.size () < max_blocks)
+	{
+		blocks_m.push_back (current);
+		current = nano::deserialize_block (stream);
+	}
+}
+
+std::size_t nano::asc_pull_ack::size (const nano::message_header & header)
+{
+	uint16_t payload_length = nano::narrow_cast<uint16_t> (header.extensions.to_ulong ());
+	return partial_size + payload_length;
 }
