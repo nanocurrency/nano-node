@@ -83,8 +83,7 @@ std::unique_ptr<nano::asc_pull_ack> nano::bootstrap_server::process (nano::trans
 	// `start` can represent either account or block hash
 	if (store.block.exists (transaction, message.start.as_block_hash ()))
 	{
-		auto start = store.block.successor (transaction, message.start.as_block_hash ());
-		return prepare_response (transaction, message.id, start, max_blocks);
+		return prepare_response (transaction, message.id, message.start.as_block_hash (), max_blocks);
 	}
 	if (store.account.exists (transaction, message.start.as_account ()))
 	{

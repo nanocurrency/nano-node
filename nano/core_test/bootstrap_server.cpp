@@ -211,8 +211,7 @@ TEST (bootstrap_server, serve_hash)
 	// Ensure we got response exactly for what we asked for
 	ASSERT_EQ (response.id, 7);
 	ASSERT_EQ (response.blocks ().size (), 128);
-	// We do not resend the starting block, so when comparing skip the first one
-	ASSERT_TRUE (compare_blocks (response.blocks (), blocks, 1));
+	ASSERT_TRUE (compare_blocks (response.blocks (), blocks));
 }
 
 TEST (bootstrap_server, serve_end_of_chain)
@@ -240,8 +239,9 @@ TEST (bootstrap_server, serve_end_of_chain)
 	auto response = responses.get ().front ();
 	// Ensure we got response exactly for what we asked for
 	ASSERT_EQ (response.id, 7);
-	// There should be nothing sent
-	ASSERT_EQ (response.blocks ().size (), 0);
+	// Response should contain only the last block from chain
+	ASSERT_EQ (response.blocks ().size (), 1);
+	ASSERT_EQ (*response.blocks ().front (), *blocks.back ());
 }
 
 TEST (bootstrap_server, serve_missing)
