@@ -1,11 +1,29 @@
 #include <nano/node/common.hpp>
 #include <nano/node/network.hpp>
 #include <nano/secure/buffer.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/variant/get.hpp>
+
+namespace
+{
+std::shared_ptr<nano::block> random_block ()
+{
+	nano::block_builder builder;
+	auto block = builder
+				 .send ()
+				 .previous (nano::test::random_hash ())
+				 .destination (nano::keypair ().pub)
+				 .balance (2)
+				 .sign (nano::keypair ().prv, 4)
+				 .work (5)
+				 .build_shared ();
+	return block;
+}
+}
 
 TEST (message, keepalive_serialization)
 {
@@ -45,15 +63,7 @@ TEST (message, keepalive_deserialize)
 
 TEST (message, publish_serialization)
 {
-	nano::block_builder builder;
-	auto block = builder
-				 .send ()
-				 .previous (0)
-				 .destination (1)
-				 .balance (2)
-				 .sign (nano::keypair ().prv, 4)
-				 .work (5)
-				 .build_shared ();
+	auto block = random_block ();
 	nano::publish publish{ nano::dev::network_params.network, block };
 	ASSERT_EQ (nano::block_type::send, publish.header.block_type ());
 	std::vector<uint8_t> bytes;
@@ -275,4 +285,75 @@ TEST (message, bulk_pull_serialization)
 	nano::bulk_pull message_out{ error, stream, header };
 	ASSERT_FALSE (error);
 	ASSERT_TRUE (header.bulk_pull_ascending ());
+}
+
+TEST (message, asc_pull_req_serialization)
+{
+	nano::asc_pull_req original{ nano::dev::network_params.network };
+	original.id = 7;
+	original.start = nano::test::random_hash ();
+
+	// Serialize
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream{ bytes };
+		original.serialize (stream);
+	}
+	nano::bufferstream stream{ bytes.data (), bytes.size () };
+
+	// Header
+	bool error = false;
+	nano::message_header header (error, stream);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (nano::message_type::asc_pull_req, header.type);
+
+	// Message
+	nano::asc_pull_req message (error, stream, header);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (original.type, message.type);
+	ASSERT_EQ (original.id, message.id);
+	ASSERT_EQ (original.start, message.start);
+}
+
+TEST (message, asc_pull_ack_serialization)
+{
+	nano::asc_pull_ack original{ nano::dev::network_params.network };
+	original.id = 11;
+
+	const int num_blocks = 128; // Maximum allowed
+
+	// Generate blocks
+	std::vector<std::shared_ptr<nano::block>> blocks;
+	for (int n = 0; n < num_blocks; ++n)
+	{
+		blocks.push_back (random_block ());
+	}
+	original.blocks (blocks);
+
+	// Serialize
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream{ bytes };
+		original.serialize (stream);
+	}
+	nano::bufferstream stream{ bytes.data (), bytes.size () };
+
+	// Header
+	bool error = false;
+	nano::message_header header (error, stream);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (nano::message_type::asc_pull_ack, header.type);
+
+	// Message
+	nano::asc_pull_ack message (error, stream, header);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (original.type, message.type);
+	ASSERT_EQ (original.id, message.id);
+	ASSERT_EQ (original.blocks ().size (), message.blocks ().size ());
+
+	// Compare blocks
+	auto message_blocks = message.blocks ();
+	ASSERT_TRUE (std::equal (blocks.begin (), blocks.end (), message_blocks.begin (), message_blocks.end (), [] (auto a, auto b) {
+		return *a == *b;
+	}));
 }
