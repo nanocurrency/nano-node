@@ -161,7 +161,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	//         Thus, be very careful if you change the order: if `bootstrap` gets constructed before `network`,
 	//         the latter would inherit the port from the former (if TCP is active, otherwise `network` picks first)
 	//
-	bootstrap (network.port, *this),
+	tcp_listener (network.port, *this),
 	application_path (application_path_a),
 	port_mapping (*this),
 	rep_crawler (*this),
@@ -611,7 +611,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.ledger, "ledger"));
 	composite->add_component (collect_container_info (node.active, "active"));
 	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
-	composite->add_component (collect_container_info (node.bootstrap, "bootstrap"));
+	composite->add_component (collect_container_info (node.tcp_listener, "tcp_listener"));
 	composite->add_component (collect_container_info (node.network, "network"));
 	if (node.telemetry)
 	{
@@ -708,15 +708,16 @@ void nano::node::start ()
 	ongoing_rep_calculation ();
 	ongoing_peer_store ();
 	ongoing_online_weight_calculation_queue ();
-	bool tcp_enabled (false);
+
+	bool tcp_enabled = false;
 	if (config.tcp_incoming_connections_max > 0 && !(flags.disable_bootstrap_listener && flags.disable_tcp_realtime))
 	{
-		bootstrap.start ();
+		tcp_listener.start ();
 		tcp_enabled = true;
 
-		if (flags.disable_udp && network.port != bootstrap.port)
+		if (flags.disable_udp && network.port != tcp_listener.port)
 		{
-			network.port = bootstrap.port;
+			network.port = tcp_listener.port;
 		}
 
 		logger.always_log (boost::str (boost::format ("Node started with peering port `%1%`.") % network.port));
@@ -775,7 +776,7 @@ void nano::node::stop ()
 			websocket_server->stop ();
 		}
 		bootstrap_initiator.stop ();
-		bootstrap.stop ();
+		tcp_listener.stop ();
 		port_mapping.stop ();
 		checker.stop ();
 		wallets.stop ();

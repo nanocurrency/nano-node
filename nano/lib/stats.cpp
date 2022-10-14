@@ -479,8 +479,8 @@ std::string nano::stat::type_to_string (stat::type type)
 		case nano::stat::type::bootstrap:
 			res = "bootstrap";
 			break;
-		case nano::stat::type::bootstrap_server:
-			res = "bootstrap_server";
+		case nano::stat::type::tcp_server:
+			res = "tcp_server";
 			break;
 		case nano::stat::type::error:
 			res = "error";
