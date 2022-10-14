@@ -11,18 +11,6 @@
 
 namespace nano
 {
-class bandwidth_limiter final
-{
-public:
-	// initialize with limit 0 = unbounded
-	bandwidth_limiter (double, std::size_t);
-	bool should_drop (std::size_t const &);
-	void reset (double, std::size_t);
-
-private:
-	nano::rate::token_bucket bucket;
-};
-
 namespace transport
 {
 	nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);

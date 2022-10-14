@@ -18,6 +18,8 @@ add_library(
   active_transactions.cpp
   backlog_population.hpp
   backlog_population.cpp
+        bandwidth_limiter.hpp
+        bandwidth_limiter.cpp
   block_arrival.hpp
   block_arrival.cpp
   blockprocessor.hpp

@@ -56,7 +56,7 @@ void nano::transport::channel::send (nano::message & message_a, std::function<vo
 	auto buffer (message_a.to_shared_const_buffer ());
 	auto detail = nano::to_stat_detail (message_a.header.type);
 	auto is_droppable_by_limiter = drop_policy_a == nano::buffer_drop_policy::limiter;
-	auto should_drop (node.network.limiter.should_drop (buffer.size ()));
+	auto should_drop (node.outbound_limiter.should_drop (buffer.size ()));
 	if (!is_droppable_by_limiter || !should_drop)
 	{
 		send_buffer (buffer, callback_a, drop_policy_a);
@@ -208,21 +208,4 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 		}
 	}
 	return result;
-}
-
-using namespace std::chrono_literals;
-
-nano::bandwidth_limiter::bandwidth_limiter (double const limit_burst_ratio_a, std::size_t const limit_a) :
-	bucket (static_cast<std::size_t> (limit_a * limit_burst_ratio_a), limit_a)
-{
-}
-
-bool nano::bandwidth_limiter::should_drop (std::size_t const & message_size_a)
-{
-	return !bucket.try_consume (nano::narrow_cast<unsigned int> (message_size_a));
-}
-
-void nano::bandwidth_limiter::reset (double const limit_burst_ratio_a, std::size_t const limit_a)
-{
-	bucket.reset (static_cast<std::size_t> (limit_a * limit_burst_ratio_a), limit_a);
 }

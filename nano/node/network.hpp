@@ -11,6 +11,7 @@
 #include <memory>
 #include <queue>
 #include <unordered_set>
+
 namespace nano
 {
 class channel;
@@ -115,11 +116,13 @@ private:
 	std::unordered_map<boost::asio::ip::address, unsigned> cookies_per_ip;
 	std::size_t max_cookies_per_ip;
 };
+
 class network final
 {
 public:
 	network (nano::node &, uint16_t);
 	~network ();
+
 	nano::networks id;
 	void start ();
 	void stop ();
@@ -169,7 +172,6 @@ public:
 	float size_sqrt () const;
 	bool empty () const;
 	void erase (nano::transport::channel const &);
-	void set_bandwidth_params (double, std::size_t);
 	static std::string to_string (nano::networks);
 
 private:
@@ -180,7 +182,6 @@ public:
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
-	nano::bandwidth_limiter limiter;
 	nano::peer_exclusion excluded_peers;
 	nano::tcp_message_manager tcp_message_manager;
 	nano::node & node;

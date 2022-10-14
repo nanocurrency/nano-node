@@ -21,7 +21,6 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 	} },
 	buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 	resolver (node_a.io_ctx),
-	limiter (node_a.config.bandwidth_limit_burst_ratio, node_a.config.bandwidth_limit),
 	tcp_message_manager (node_a.config.tcp_incoming_connections_max),
 	node (node_a),
 	publish_filter (256 * 1024),
@@ -830,11 +829,6 @@ void nano::network::erase (nano::transport::channel const & channel_a)
 		udp_channels.erase (channel_a.get_endpoint ());
 		udp_channels.clean_node_id (channel_a.get_node_id ());
 	}
-}
-
-void nano::network::set_bandwidth_params (double limit_burst_ratio_a, std::size_t limit_a)
-{
-	limiter.reset (limit_burst_ratio_a, limit_a);
 }
 
 nano::message_buffer_manager::message_buffer_manager (nano::stat & stats_a, std::size_t size, std::size_t count) :

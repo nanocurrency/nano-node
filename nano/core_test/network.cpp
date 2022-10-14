@@ -1144,7 +1144,7 @@ TEST (network, bandwidth_limiter)
 	ASSERT_TIMELY (1s, 1 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
 
 	// change the bandwidth settings, 2 packets will be dropped
-	node.network.set_bandwidth_params (1.1, message_size * 2);
+	node.set_bandwidth_params (message_size * 2, 1.1);
 	channel1->send (message);
 	channel2->send (message);
 	channel1->send (message);
@@ -1152,7 +1152,7 @@ TEST (network, bandwidth_limiter)
 	ASSERT_TIMELY (1s, 3 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
 
 	// change the bandwidth settings, no packet will be dropped
-	node.network.set_bandwidth_params (4, message_size);
+	node.set_bandwidth_params (message_size, 4);
 	channel1->send (message);
 	channel2->send (message);
 	channel1->send (message);
