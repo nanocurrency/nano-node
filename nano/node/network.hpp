@@ -148,7 +148,7 @@ public:
 	bool not_a_peer (nano::endpoint const &, bool);
 	// Should we reach out to this endpoint with a keepalive message
 	bool reachout (nano::endpoint const &, bool = false);
-	std::deque<std::shared_ptr<nano::transport::channel>> list (std::size_t, uint8_t = 0, bool = true);
+	std::deque<std::shared_ptr<nano::transport::channel>> list (std::size_t max_count = 0, uint8_t = 0, bool = true);
 	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (std::size_t);
 	// Desired fanout for a given scale
 	std::size_t fanout (float scale = 1.0f) const;
@@ -158,7 +158,7 @@ public:
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t, uint8_t = 0, bool = false) const;
 	// Get the next peer for attempting a tcp bootstrap connection
 	nano::tcp_endpoint bootstrap_peer (bool = false);
-	nano::endpoint endpoint ();
+	nano::endpoint endpoint () const;
 	void cleanup (std::chrono::steady_clock::time_point const &);
 	void ongoing_cleanup ();
 	// Node ID cookies cleanup
