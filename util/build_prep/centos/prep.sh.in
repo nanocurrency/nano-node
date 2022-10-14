@@ -15,7 +15,7 @@ yes | yum install -y glibc-devel glibc-headers make which libstdc++-static || ex
 yes | yum install -y centos-release-scl || exit 1
 yes | yum install -y devtoolset-7-gcc-c++ || exit 1
 yes | yum install -y rh-python38 || exit 1
-
+yes | yum install -y openssl-devel || exit 1
 
 wget -O cmake_install.sh https://github.com/Kitware/CMake/releases/download/v3.15.4/cmake-3.15.4-Linux-x86_64.sh
 chmod +x cmake_install.sh

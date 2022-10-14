@@ -3,7 +3,8 @@ FROM ${ENV_REPOSITORY}:base
 
 RUN apt-get update -qq && apt-get install -yqq \
 git \
-libboost-all-dev
+libboost-all-dev \
+libssl-dev
 
 ARG REPOSITORY=nanocurrency/nano-node
 LABEL org.opencontainers.image.source https://github.com/$REPOSITORY

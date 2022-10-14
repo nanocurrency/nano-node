@@ -5,7 +5,8 @@ RUN apt-get update -qq && apt-get install -yqq \
 clang \
 lldb \
 git \
-libboost-all-dev
+libboost-all-dev \
+libssl-dev
 
 ENV CXX=/usr/bin/clang++
 ENV CC=/usr/bin/clang
