@@ -266,18 +266,8 @@ bool nano::transport::tcp_server::process_message (std::unique_ptr<nano::message
 		}
 		else if (handshake_visitor.bootstrap)
 		{
-			if (allow_bootstrap)
+			if (!to_bootstrap_connection ())
 			{
-				// Switch to bootstrap connection mode and handle message in subsequent bootstrap visitor
-				if (!to_bootstrap_connection ())
-				{
-					stop ();
-					return false;
-				}
-			}
-			else
-			{
-				// Received bootstrap request in a connection that only allows for realtime traffic, abort
 				stop ();
 				return false;
 			}
@@ -583,13 +573,26 @@ void nano::transport::tcp_server::timeout ()
 
 bool nano::transport::tcp_server::to_bootstrap_connection ()
 {
-	if (socket->type () == nano::socket::type_t::undefined && !node->flags.disable_bootstrap_listener && node->tcp_listener.bootstrap_count < node->config.bootstrap_connections_max)
+	if (!allow_bootstrap)
 	{
-		++node->tcp_listener.bootstrap_count;
-		socket->type_set (nano::socket::type_t::bootstrap);
-		return true;
+		return false;
 	}
-	return false;
+	if (node->flags.disable_bootstrap_listener)
+	{
+		return false;
+	}
+	if (node->tcp_listener.bootstrap_count >= node->config.bootstrap_connections_max)
+	{
+		return false;
+	}
+	if (socket->type () != nano::socket::type_t::undefined)
+	{
+		return false;
+	}
+
+	++node->tcp_listener.bootstrap_count;
+	socket->type_set (nano::socket::type_t::bootstrap);
+	return true;
 }
 
 bool nano::transport::tcp_server::to_realtime_connection (nano::account const & node_id)
