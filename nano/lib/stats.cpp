@@ -731,6 +731,12 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 		case nano::stat::detail::telemetry_ack:
 			res = "telemetry_ack";
 			break;
+		case nano::stat::detail::asc_pull_req:
+			res = "asc_pull_req";
+			break;
+		case nano::stat::detail::asc_pull_ack:
+			res = "asc_pull_ack";
+			break;
 		case nano::stat::detail::state_block:
 			res = "state_block";
 			break;
@@ -888,6 +894,12 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 			break;
 		case nano::stat::detail::invalid_frontier_req_message:
 			res = "invalid_frontier_req_message";
+			break;
+		case nano::stat::detail::invalid_asc_pull_req_message:
+			res = "invalid_asc_pull_req_message";
+			break;
+		case nano::stat::detail::invalid_asc_pull_ack_message:
+			res = "invalid_asc_pull_ack_message";
 			break;
 		case nano::stat::detail::message_too_big:
 			res = "message_too_big";
