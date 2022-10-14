@@ -1,4 +1,4 @@
-#include <nano/node/common.hpp>
+#include <nano/node/messages.hpp>
 
 #include <gtest/gtest.h>
 
@@ -8,7 +8,7 @@ TEST (keepalive, to_string)
 	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
 	nano::keepalive keepalive = nano::keepalive (network_constants);
 
-	std::string expectedString = "NetID: 5241(dev), VerMaxUsingMin: 19/19/18, MsgType: 2(keepalive), Extensions: 0000";	
+	std::string expectedString = "NetID: 5241(dev), VerMaxUsingMin: 19/19/18, MsgType: 2(keepalive), Extensions: 0000";
 
 	for (auto peer = keepalive.peers.begin (), peers_end = keepalive.peers.end (); peer != peers_end; ++peer)
 	{
@@ -18,11 +18,10 @@ TEST (keepalive, to_string)
 		int port = 7072;
 		std::array<char, 64> external_address_1 = {};
 
-		int ip_length = test_ip.length();
-		
+		int ip_length = test_ip.length ();
+
 		for (int i = 0; i < ip_length; i++)
 			external_address_1[i] = test_ip[i];
-
 
 		keepalive.peers[index] = nano::endpoint (boost::asio::ip::make_address_v6 (test_ip), port);
 		expectedString.append ("\n" + test_ip + ":" + std::to_string (port));
@@ -48,7 +47,7 @@ TEST (confirm_req, to_string)
 		nano::root root = nano::root (10);
 
 		confirm_req.roots_hashes.push_back (std::pair (block_hash, root));
-		expected_string.append ("\nPair: " + block_hash.to_string() + " | " + root.to_string());
+		expected_string.append ("\nPair: " + block_hash.to_string () + " | " + root.to_string ());
 	}
 
 	ASSERT_EQ (confirm_req.to_string (), expected_string);
@@ -60,7 +59,7 @@ TEST (telemetry_ack, to_string)
 	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
 	nano::telemetry_ack telemetry_ack = nano::telemetry_ack (network_constants);
 
-	nano::telemetry_data telemetry_data = nano::telemetry_data (); 
+	nano::telemetry_data telemetry_data = nano::telemetry_data ();
 
 	telemetry_ack.data = telemetry_data;
 
@@ -116,7 +115,7 @@ TEST (node_id_handshake, to_string_response_has_value)
 
 	nano::account account = nano::account ("123456789875654321");
 	nano::signature signature = nano::signature (0);
-		
+
 	nano::work_thresholds work_threshold = nano::work_thresholds (0, 0, 0);
 	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
 	nano::node_id_handshake node_id_handshake = nano::node_id_handshake (network_constants, query, std::pair (account, signature));
@@ -152,7 +151,7 @@ TEST (publish, to_string)
 	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
 	nano::publish publish = nano::publish (network_constants, block_ptr);
 
-	ASSERT_EQ (publish.to_string (), block_ptr->to_json());
+	ASSERT_EQ (publish.to_string (), block_ptr->to_json ());
 }
 
 TEST (bulk_pull, to_string)
@@ -181,7 +180,7 @@ TEST (bulk_pull_account, to_string_pending_hash_and_amount)
 	nano::bulk_pull_account bulk_pull_account = nano::bulk_pull_account (network_constants);
 
 	nano::account account = nano::account ("12345678987654321");
-	nano::amount minimum_amount = nano::amount(1234);
+	nano::amount minimum_amount = nano::amount (1234);
 	nano::bulk_pull_account_flags flags = nano::bulk_pull_account_flags::pending_hash_and_amount;
 
 	bulk_pull_account.account = account;
