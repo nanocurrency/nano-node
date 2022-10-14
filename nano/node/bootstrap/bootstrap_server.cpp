@@ -148,11 +148,13 @@ void nano::bootstrap_server::process_batch (std::deque<response_t> & batch)
 		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::response, nano::stat::dir::out);
 		on_response.notify (*response, channel);
 
-		channel->send (*response, [this] (auto & ec, auto size) {
+		channel->send (
+		*response, [this] (auto & ec, auto size) {
 			if (ec)
 			{
 				stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::write_error, nano::stat::dir::out);
 			}
-		});
+		},
+		nano::buffer_drop_policy::limiter, nano::bandwidth_limit_type::bootstrap);
 	}
 }
