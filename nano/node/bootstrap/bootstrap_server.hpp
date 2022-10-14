@@ -15,6 +15,13 @@ namespace transport
 	class channel;
 }
 
+/**
+ * Processes bootstrap requests (`asc_pull_req` messages) and replies with bootstrap responses (`asc_pull_ack`)
+ *
+ * In order to ensure maximum throughput, there are two internal processing queues:
+ * - One for doing ledger lookups and preparing responses (`request_queue`)
+ * - One for sending back those responses over the network (`response_queue`)
+ */
 class bootstrap_server final
 {
 public:
@@ -29,6 +36,10 @@ public:
 	void start ();
 	void stop ();
 
+	/**
+	 * Process `asc_pull_req` message coming from network.
+	 * Reply will be sent back over passed in `channel`
+	 */
 	bool request (nano::asc_pull_req const & message, std::shared_ptr<nano::transport::channel> channel);
 
 public: // Events
