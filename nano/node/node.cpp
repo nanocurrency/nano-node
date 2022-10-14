@@ -62,9 +62,8 @@ nano::outbound_bandwidth_limiter::config nano::outbound_bandwidth_limiter_config
 	outbound_bandwidth_limiter::config cfg;
 	cfg.standard_limit = config.bandwidth_limit;
 	cfg.standard_burst_ratio = config.bandwidth_limit_burst_ratio;
-	// TODO: Add config entries
-	cfg.bootstrap_limit = 16 * 1024 * 1024; // 16MB/s ~ 128Mbit/s
-	cfg.bootstrap_burst_ratio = 1.0; // Bootstrap traffic does not need bursts
+	cfg.bootstrap_limit = config.bootstrap_bandwidth_limit;
+	cfg.bootstrap_burst_ratio = config.bootstrap_bandwidth_burst_ratio;
 	return cfg;
 }
 
