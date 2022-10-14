@@ -1,11 +1,13 @@
 #include <nano/node/ssl/ssl_functions.hpp>
 
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
+
 #include <cerrno>
 #include <chrono>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -55,11 +57,6 @@ constexpr std::string_view ADDITIONAL_SIGNATURES_EXTENSION_OBJECT_LONG_NAME = "X
 constexpr std::size_t ADDITIONAL_SIGNATURES_DUMMY_COUNT = 5;
 constexpr std::size_t CA_CERTIFICATE_VALIDITY_SECONDS = std::chrono::duration_cast<std::chrono::seconds> (30 * detail::ONE_YEAR_DURATION).count ();
 constexpr std::string_view CA_CERTIFICATE_PEM_FILE = "CA.pem";
-
-constexpr std::string_view CA_PRIVATE_KEY_HEX_1 = "c1e9ad082d069109d8552e547717815e25bb3d682ff86d1d097a0c80e7db9a65";
-constexpr std::string_view CA_PUBLIC_KEY_HEX_1 = "25927d85eba160169c9ccc036d974695249a67bd8b93c00e6f842ddab1ad3b77";
-constexpr std::string_view CA_PRIVATE_KEY_HEX_2 = "254d14339368027bf7510d45077ac3e67d7b3507be13a4cf3c6cfb5a2b6a5359";
-constexpr std::string_view CA_PUBLIC_KEY_HEX_2 = "1b04ed75774b09f1427a664b90b8728ab11e9e9b4bb739c8498d2e1767c5a66e";
 
 constexpr std::string_view INTERMEDIATE_CERTIFICATE_NAME = "Nano Node Intermediate CA";
 constexpr std::uint64_t INTERMEDIATE_CERTIFICATE_SERIAL_NUMBER = 2;
@@ -188,56 +185,56 @@ void setCaPublicKeyValidator (const SslPtrView & ssl, CaPublicKeyValidator & val
 	}
 }
 
-std::ifstream openFileForReading (const std::filesystem::path & filePath, const std::ios_base::openmode mode)
+std::ifstream openFileForReading (const boost::filesystem::path & filePath, const std::ios_base::openmode mode)
 {
-	std::ifstream fileStream{ filePath, mode };
+	std::ifstream fileStream{ filePath.string (), mode };
 	if (!fileStream)
 	{
-		throw std::runtime_error{ "openFileForReading: unable to open " + filePath.native () };
+		throw std::runtime_error{ "openFileForReading: unable to open " + filePath.string () };
 	}
 
 	return fileStream;
 }
 
-std::string readFromFile (const std::filesystem::path & filePath)
+std::string readFromFile (const boost::filesystem::path & filePath)
 {
 	auto stream = openFileForReading (filePath, std::ios_base::in);
 	return std::string{ std::istreambuf_iterator<char>{ stream }, std::istreambuf_iterator<char>{} };
 }
 
-EvpPkeyPtr parsePrivateKeyFromPemFile (const std::filesystem::path & filePath)
+EvpPkeyPtr parsePrivateKeyFromPemFile (const boost::filesystem::path & filePath)
 {
 	return parseFromPemFile<PEM_read_bio_PrivateKey, EvpPkeyPtr> (filePath);
 }
 
-EvpPkeyPtr parsePublicKeyFromPemFile (const std::filesystem::path & filePath)
+EvpPkeyPtr parsePublicKeyFromPemFile (const boost::filesystem::path & filePath)
 {
 	return parseFromPemFile<PEM_read_bio_PUBKEY, EvpPkeyPtr> (filePath);
 }
 
-X509Ptr parseCertificateFromPemFile (const std::filesystem::path & filePath)
+X509Ptr parseCertificateFromPemFile (const boost::filesystem::path & filePath)
 {
 	return parseFromPemFile<PEM_read_bio_X509, X509Ptr> (filePath);
 }
 
-std::ofstream openFileForWriting (const std::filesystem::path & filePath, const std::ios_base::openmode mode)
+std::ofstream openFileForWriting (const boost::filesystem::path & filePath, const std::ios_base::openmode mode)
 {
-	std::ofstream fileStream{ filePath, mode };
+	std::ofstream fileStream{ filePath.string (), mode };
 	if (!fileStream)
 	{
-		throw std::runtime_error{ "openFileForWriting: unable to open " + filePath.native () };
+		throw std::runtime_error{ "openFileForWriting: unable to open " + filePath.string () };
 	}
 
 	return fileStream;
 }
 
-void writeToFile (const std::string_view & data, const std::filesystem::path & filePath)
+void writeToFile (const std::string_view & data, const boost::filesystem::path & filePath)
 {
 	auto stream = openFileForWriting (filePath, std::ios_base::out);
 	stream << data;
 }
 
-void serializePrivateKeyIntoPemFile (const EvpPkeyPtrView & privateKey, const std::filesystem::path & filePath)
+void serializePrivateKeyIntoPemFile (const EvpPkeyPtrView & privateKey, const boost::filesystem::path & filePath)
 {
 	return serializeIntoPemFile (
 	privateKey,
@@ -253,12 +250,12 @@ void serializePrivateKeyIntoPemFile (const EvpPkeyPtrView & privateKey, const st
 	filePath);
 }
 
-void serializePublicKeyIntoPemFile (const EvpPkeyPtrView & publicKey, const std::filesystem::path & filePath)
+void serializePublicKeyIntoPemFile (const EvpPkeyPtrView & publicKey, const boost::filesystem::path & filePath)
 {
 	return serializeIntoPemFile (publicKey, PEM_write_bio_PUBKEY, filePath);
 }
 
-void serializeCertificateIntoPemFile (const X509PtrView & certificate, const std::filesystem::path & filePath)
+void serializeCertificateIntoPemFile (const X509PtrView & certificate, const boost::filesystem::path & filePath)
 {
 	return serializeIntoPemFile (certificate, PEM_write_bio_X509, filePath);
 }
@@ -714,7 +711,7 @@ EvpPkeyPtr generatePrivateKey ()
 	return result;
 }
 
-EvpPkeyPtr generatePrivateKeyAndSave (const std::filesystem::path & privatePemFile, const std::filesystem::path & publicPemFile)
+EvpPkeyPtr generatePrivateKeyAndSave (const boost::filesystem::path & privatePemFile, const boost::filesystem::path & publicPemFile)
 {
 	auto result = generatePrivateKey ();
 
@@ -920,7 +917,7 @@ void markCertificateAsCa (const X509PtrView & certificate, const X509V3Ctx & ext
 	addIsCaExtension (certificate, extensionContext, true);
 }
 
-void generateCaCertificate (key_group const & key_group, std::filesystem::path const & resources_dir)
+void generateCaCertificate (key_group const & key_group, boost::filesystem::path const & resources_dir)
 {
 	const auto publicKey = getCaPublicKey (key_group);
 	const auto evpPublicKey = getEvpPublicKeyFromCustomPublicKey (publicKey);
@@ -950,7 +947,7 @@ void signIntermediateCertificate (const X509PtrView & certificate, const BufferV
 	addCertificateCustomSignature (certificate, customSignature);
 }
 
-void generateIntermediateCertificate (key_group const & key_group, std::filesystem::path const & resources_dir)
+void generateIntermediateCertificate (key_group const & key_group, boost::filesystem::path const & resources_dir)
 {
 	const auto publicKey = parsePublicKeyFromPemFile (resources_dir / INTERMEDIATE_PUBLIC_KEY_PEM_FILE);
 	const auto certificate = generateCertificate (
@@ -1008,7 +1005,7 @@ void markCertificateAsLeaf (const X509PtrView & certificate, const X509V3Ctx & e
 	}
 }
 
-void generateLeafCertificate (const std::filesystem::path & resources_dir)
+void generateLeafCertificate (const boost::filesystem::path & resources_dir)
 {
 	const auto publicKey = parsePublicKeyFromPemFile (resources_dir / LEAF_PUBLIC_KEY_PEM_FILE);
 
@@ -1032,7 +1029,7 @@ void generateLeafCertificate (const std::filesystem::path & resources_dir)
 	serializeCertificateIntoPemFile (certificate, resources_dir / LEAF_CERTIFICATE_PEM_FILE);
 }
 
-void composeCertificateChainPemFile (const std::filesystem::path & resources_dir)
+void composeCertificateChainPemFile (const boost::filesystem::path & resources_dir)
 {
 	const auto leafCertificatePem = readFromFile (resources_dir / LEAF_CERTIFICATE_PEM_FILE);
 	const auto intermediateCertificatePem = readFromFile (resources_dir / INTERMEDIATE_CERTIFICATE_PEM_FILE);
@@ -1041,15 +1038,15 @@ void composeCertificateChainPemFile (const std::filesystem::path & resources_dir
 	writeToFile (leafCertificatePem + intermediateCertificatePem + caCertificatePem, resources_dir / CERTIFICATES_CHAIN_PEM_FILE);
 }
 
-void createResourcesDirectory (const std::filesystem::path & resources_dir)
+void createResourcesDirectory (const boost::filesystem::path & resources_dir)
 {
-	if (!std::filesystem::exists (resources_dir))
+	if (!boost::filesystem::exists (resources_dir))
 	{
-		std::filesystem::create_directory (resources_dir);
+		boost::filesystem::create_directory (resources_dir);
 	}
 }
 
-void generatePki (key_group const & key_group, std::filesystem::path const & certificate_dir)
+void generatePki (key_group const & key_group, boost::filesystem::path const & certificate_dir)
 {
 	createResourcesDirectory (certificate_dir);
 
@@ -1272,4 +1269,9 @@ void configureSslContext (const SslCtxPtrView & sslContext)
 	}
 }
 
+}
+
+boost::filesystem::path operator/ (boost::filesystem::path const & lhs, std::string_view const & rhs)
+{
+	return boost::filesystem::path{ lhs } / rhs.data ();
 }

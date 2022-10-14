@@ -3,10 +3,10 @@
 #include <nano/node/ssl/ssl_ptr.hpp>
 
 #include <boost/asio/ssl/context.hpp>
+#include <boost/filesystem/path.hpp>
 
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
 #include <functional>
 #include <optional>
 #include <unordered_map>
@@ -152,7 +152,7 @@ public:
 class ssl_context
 {
 public:
-	ssl_context (key_group const & key_group, std::filesystem::path const & certificate_dir = std::filesystem::path{ PKI_RESOURCES_DIRECTORY_PATH });
+	ssl_context (key_group const & key_group, boost::filesystem::path const & certificate_dir = boost::filesystem::path{ std::string{ PKI_RESOURCES_DIRECTORY_PATH } });
 
 	[[nodiscard]] boost::asio::ssl::context & get ();
 

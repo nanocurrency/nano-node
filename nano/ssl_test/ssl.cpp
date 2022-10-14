@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/filesystem/path.hpp>
+
 #include <algorithm>
 #include <chrono>
 #include <memory>
@@ -73,7 +75,7 @@ void run_one_to_one (const std::shared_ptr<nano::test::ssl::server> & server, co
 template <typename ServerT, typename ClientT>
 void build_and_run_one_to_one (boost::asio::io_context & io_context)
 {
-	nano::ssl::generatePki (nano::ssl::key_group{ CA_PRIVATE_KEY_HEX_1, CA_PUBLIC_KEY_HEX_1 }, std::filesystem::path{ "test_pki" });
+	nano::ssl::generatePki (nano::ssl::key_group{ CA_PRIVATE_KEY_HEX_1, CA_PUBLIC_KEY_HEX_1 }, boost::filesystem::path{ "test_pki" });
 	const auto server = std::make_shared<ServerT> (io_context);
 	const auto client = std::make_shared<ClientT> (io_context);
 	run_one_to_one (server, client);

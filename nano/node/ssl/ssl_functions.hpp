@@ -3,8 +3,9 @@
 #include <nano/node/ssl/ssl_classes.hpp>
 #include <nano/node/ssl/ssl_ptr.hpp>
 
+#include <boost/filesystem/path.hpp>
+
 #include <cstdint>
-#include <filesystem>
 #include <ios>
 #include <stdexcept>
 #include <string>
@@ -30,25 +31,25 @@ const ExpectedFailuresMap & getAutomaticVerificationExpectedFailures ();
 
 void setCaPublicKeyValidator (const SslPtrView & ssl, CaPublicKeyValidator & validator);
 
-std::ifstream openFileForReading (const std::filesystem::path & filePath, std::ios_base::openmode mode);
+std::ifstream openFileForReading (const boost::filesystem::path & filePath, std::ios_base::openmode mode);
 
-std::string readFromFile (const std::filesystem::path & filePath);
+std::string readFromFile (const boost::filesystem::path & filePath);
 
-EvpPkeyPtr parsePrivateKeyFromPemFile (const std::filesystem::path & filePath);
+EvpPkeyPtr parsePrivateKeyFromPemFile (const boost::filesystem::path & filePath);
 
-EvpPkeyPtr parsePublicKeyFromPemFile (const std::filesystem::path & filePath);
+EvpPkeyPtr parsePublicKeyFromPemFile (const boost::filesystem::path & filePath);
 
-X509Ptr parseCertificateFromPemFile (const std::filesystem::path & filePath);
+X509Ptr parseCertificateFromPemFile (const boost::filesystem::path & filePath);
 
-std::ofstream openFileForWriting (const std::filesystem::path & filePath, std::ios_base::openmode mode);
+std::ofstream openFileForWriting (const boost::filesystem::path & filePath, std::ios_base::openmode mode);
 
-void writeToFile (const std::string_view & data, const std::filesystem::path & filePath);
+void writeToFile (const std::string_view & data, const boost::filesystem::path & filePath);
 
-void serializePrivateKeyIntoPemFile (const EvpPkeyPtrView & privateKey, const std::filesystem::path & filePath);
+void serializePrivateKeyIntoPemFile (const EvpPkeyPtrView & privateKey, const boost::filesystem::path & filePath);
 
-void serializePublicKeyIntoPemFile (const EvpPkeyPtrView & publicKey, const std::filesystem::path & filePath);
+void serializePublicKeyIntoPemFile (const EvpPkeyPtrView & publicKey, const boost::filesystem::path & filePath);
 
-void serializeCertificateIntoPemFile (const X509PtrView & certificate, const std::filesystem::path & filePath);
+void serializeCertificateIntoPemFile (const X509PtrView & certificate, const boost::filesystem::path & filePath);
 
 CertificateSignature getCertificateSignatureImpl (const X509PtrView & certificate);
 
@@ -130,7 +131,7 @@ Buffer createCustomSignature (const BufferView & privateKey, const BufferView & 
 
 EvpPkeyPtr generatePrivateKey ();
 
-EvpPkeyPtr generatePrivateKeyAndSave (const std::filesystem::path & privatePemFile, const std::filesystem::path & publicPemFile);
+EvpPkeyPtr generatePrivateKeyAndSave (const boost::filesystem::path & privatePemFile, const boost::filesystem::path & publicPemFile);
 
 void addCertificateFakeSignature (const X509PtrView & certificate);
 
@@ -153,23 +154,23 @@ VerifiedCertificateSignatures verifyCaCertificate (const X509PtrView & certifica
 
 void markCertificateAsCa (const X509PtrView & certificate, const X509V3Ctx & extensionContext);
 
-void generateCaCertificate (key_group const & key_group, std::filesystem::path const & resources_dir);
+void generateCaCertificate (key_group const & key_group, boost::filesystem::path const & resources_dir);
 
 void signIntermediateCertificate (const X509PtrView & certificate, const BufferView & privateKey);
 
-void generateIntermediateCertificate (key_group const & key_group, std::filesystem::path const & resources_dir);
+void generateIntermediateCertificate (key_group const & key_group, boost::filesystem::path const & resources_dir);
 
 void signLeafCertificate (const X509PtrView & certificate, const EvpPkeyPtrView & privateKey);
 
 void markCertificateAsLeaf (const X509PtrView & certificate, const X509V3Ctx & extensionContext);
 
-void generateLeafCertificate (const std::filesystem::path & resources_dir);
+void generateLeafCertificate (const boost::filesystem::path & resources_dir);
 
-void composeCertificateChainPemFile (const std::filesystem::path & resources_dir);
+void composeCertificateChainPemFile (const boost::filesystem::path & resources_dir);
 
-void createResourcesDirectory (const std::filesystem::path & resources_dir);
+void createResourcesDirectory (const boost::filesystem::path & resources_dir);
 
-void generatePki (key_group const &, std::filesystem::path const &);
+void generatePki (key_group const &, boost::filesystem::path const &);
 
 std::string getCertificateSubject (const X509PtrView & certificate);
 
@@ -205,13 +206,13 @@ template <auto parseFunction, typename OpenSslPtrT>
 auto parseFromPem (const std::string_view & data);
 
 template <auto parseFunction, typename OpenSslPtrT>
-auto parseFromPemFile (const std::filesystem::path & filePath);
+auto parseFromPemFile (const boost::filesystem::path & filePath);
 
 template <typename OpenSslPtrT, typename WriteFunctionT>
 std::string serializeIntoPem (const OpenSslPtrT & data, const WriteFunctionT & writeFunction);
 
 template <typename OpenSslPtrT, typename WriteFunctionT>
-void serializeIntoPemFile (const OpenSslPtrT & data, const WriteFunctionT & writeFunction, const std::filesystem::path & filePath);
+void serializeIntoPemFile (const OpenSslPtrT & data, const WriteFunctionT & writeFunction, const boost::filesystem::path & filePath);
 
 template <auto setFunction, typename OpenSslPtrT>
 OpenSslPtrT createAsn1SpecificType (const BufferView & data);
@@ -240,7 +241,7 @@ auto parseFromPem (const std::string_view & data)
 }
 
 template <auto parseFunction, typename OpenSslPtrT>
-auto parseFromPemFile (const std::filesystem::path & filePath)
+auto parseFromPemFile (const boost::filesystem::path & filePath)
 {
 	const auto serializedData = readFromFile (filePath);
 	return parseFromPem<parseFunction, OpenSslPtrT> (serializedData);
@@ -261,7 +262,7 @@ std::string serializeIntoPem (const OpenSslPtrT & data, const WriteFunctionT & w
 }
 
 template <typename OpenSslPtrT, typename WriteFunctionT>
-void serializeIntoPemFile (const OpenSslPtrT & data, const WriteFunctionT & writeFunction, const std::filesystem::path & filePath)
+void serializeIntoPemFile (const OpenSslPtrT & data, const WriteFunctionT & writeFunction, const boost::filesystem::path & filePath)
 {
 	const auto serializedData = serializeIntoPem (data, writeFunction);
 	writeToFile (serializedData, filePath);
@@ -322,3 +323,5 @@ OpenSslPtrT parseFromAsn1 (const BufferView & data)
 }
 
 }
+
+boost::filesystem::path operator/ (boost::filesystem::path const & lhs, std::string_view const & rhs);

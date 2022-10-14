@@ -2,6 +2,9 @@
 #include <nano/node/ssl/ssl_functions.hpp>
 #include <nano/node/ssl/ssl_recognize_rep_keys.hpp>
 
+#include <boost/asio/ssl/context.hpp>
+#include <boost/filesystem/path.hpp>
+
 #include <iostream>
 #include <mutex>
 #include <stdexcept>
@@ -199,7 +202,7 @@ X509V3_CTX * X509V3Ctx::breakConst () const
 	return &const_cast<X509V3Ctx *> (this)->operator* ();
 }
 
-ssl_context::ssl_context (key_group const & key_group, std::filesystem::path const & certificate_dir) :
+ssl_context::ssl_context (key_group const & key_group, boost::filesystem::path const & certificate_dir) :
 	m_value{ boost::asio::ssl::context::tlsv12 }
 {
 	//	static std::once_flag once_flag{};
@@ -223,7 +226,7 @@ boost::asio::ssl::context & ssl_context::operator* ()
 
 void ssl_context::configure ()
 {
-	const std::filesystem::path pki_resources_directory{ nano::ssl::PKI_RESOURCES_DIRECTORY_PATH };
+	const boost::filesystem::path pki_resources_directory{ nano::ssl::PKI_RESOURCES_DIRECTORY_PATH.data () };
 	const auto certificates_chain_file = pki_resources_directory / nano::ssl::CERTIFICATES_CHAIN_PEM_FILE;
 	const auto leaf_private_key_file = pki_resources_directory / nano::ssl::LEAF_PRIVATE_KEY_PEM_FILE;
 
@@ -236,8 +239,8 @@ void ssl_context::configure ()
 	| boost::asio::ssl::context::single_dh_use);
 
 	m_value.set_verify_mode (boost::asio::ssl::verify_peer | boost::asio::ssl::verify_fail_if_no_peer_cert);
-	m_value.use_certificate_chain_file (certificates_chain_file.native ());
-	m_value.use_private_key_file (leaf_private_key_file.native (), boost::asio::ssl::context::pem);
+	m_value.use_certificate_chain_file (certificates_chain_file.string ());
+	m_value.use_private_key_file (leaf_private_key_file.string (), boost::asio::ssl::context::pem);
 
 	nano::ssl::configureSslContext (nano::ssl::SslCtxPtrView::make (m_value.native_handle ()));
 }
