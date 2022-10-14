@@ -247,6 +247,9 @@ public:
 		vote_cache,
 		hinting,
 		blockprocessor,
+		bootstrap_server,
+		bootstrap_server_requests,
+		bootstrap_server_responses,
 	};
 
 	/** Optional detail type */
@@ -439,6 +442,12 @@ public:
 		hinted,
 		insert_failed,
 		missing_block,
+
+		// bootstrap server
+		response,
+		write_drop,
+		write_error,
+		blocks,
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

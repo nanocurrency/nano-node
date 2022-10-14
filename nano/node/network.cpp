@@ -549,10 +549,12 @@ public:
 
 	void asc_pull_req (nano::asc_pull_req const & message) override
 	{
+		node.bootstrap_server.request (message, channel);
 	}
 
 	void asc_pull_ack (nano::asc_pull_ack const & message) override
 	{
+		// TODO: Process in ascending bootstrap client
 	}
 
 private:

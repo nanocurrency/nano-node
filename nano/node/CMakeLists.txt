@@ -40,6 +40,8 @@ add_library(
   bootstrap/bootstrap_legacy.cpp
   bootstrap/bootstrap.hpp
   bootstrap/bootstrap.cpp
+        bootstrap/bootstrap_server.hpp
+        bootstrap/bootstrap_server.cpp
   cli.hpp
   cli.cpp
   common.hpp

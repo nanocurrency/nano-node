@@ -551,6 +551,15 @@ std::string nano::stat::type_to_string (stat::type type)
 		case nano::stat::type::blockprocessor:
 			res = "blockprocessor";
 			break;
+		case nano::stat::type::bootstrap_server:
+			res = "bootstrap_server";
+			break;
+		case nano::stat::type::bootstrap_server_requests:
+			res = "bootstrap_server_requests";
+			break;
+		case nano::stat::type::bootstrap_server_responses:
+			res = "bootstrap_server_responses";
+			break;
 	}
 	return res;
 }
@@ -999,6 +1008,18 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 			break;
 		case nano::stat::detail::missing_block:
 			res = "missing_block";
+			break;
+		case nano::stat::detail::response:
+			res = "response";
+			break;
+		case nano::stat::detail::write_drop:
+			res = "write_drop";
+			break;
+		case nano::stat::detail::write_error:
+			res = "write_error";
+			break;
+		case nano::stat::detail::blocks:
+			res = "blocks";
 			break;
 	}
 	return res;
