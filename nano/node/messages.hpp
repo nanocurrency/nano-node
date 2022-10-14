@@ -64,7 +64,7 @@ public:
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;
-	std::string to_string ();
+	std::string to_string () const;
 
 public:
 	nano::message_type type;

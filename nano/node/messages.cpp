@@ -144,7 +144,7 @@ nano::stat::detail nano::to_stat_detail (nano::message_type message_type)
 	return {};
 }
 
-std::string nano::message_header::to_string ()
+std::string nano::message_header::to_string () const
 {
 	// Cast to uint16_t to get integer value since uint8_t is treated as an unsigned char in string formatting.
 	uint16_t type_l = static_cast<uint16_t> (type);
