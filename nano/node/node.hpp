@@ -61,6 +61,7 @@ std::unique_ptr<container_info_component> collect_container_info (rep_crawler & 
 backlog_population::config nodeconfig_to_backlog_population_config (node_config const &);
 vote_cache::config nodeconfig_to_vote_cache_config (node_config const &, node_flags const &);
 hinted_scheduler::config nodeconfig_to_hinted_scheduler_config (node_config const &);
+outbound_bandwidth_limiter::config outbound_bandwidth_limiter_config (node_config const &);
 
 class node final : public std::enable_shared_from_this<nano::node>
 {
@@ -156,7 +157,7 @@ public:
 	nano::gap_cache gap_cache;
 	nano::ledger ledger;
 	nano::signature_checker checker;
-	nano::bandwidth_limiter outbound_limiter;
+	nano::outbound_bandwidth_limiter outbound_limiter;
 	nano::network network;
 	std::shared_ptr<nano::telemetry> telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;

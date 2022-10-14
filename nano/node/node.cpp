@@ -31,6 +31,10 @@ extern unsigned char nano_bootstrap_weights_beta[];
 extern std::size_t nano_bootstrap_weights_beta_size;
 }
 
+/*
+ * Configs
+ */
+
 nano::backlog_population::config nano::nodeconfig_to_backlog_population_config (const nano::node_config & config)
 {
 	nano::backlog_population::config cfg;
@@ -52,6 +56,21 @@ nano::hinted_scheduler::config nano::nodeconfig_to_hinted_scheduler_config (cons
 	cfg.vote_cache_check_interval_ms = config.network_params.network.is_dev_network () ? 100u : 1000u;
 	return cfg;
 }
+
+nano::outbound_bandwidth_limiter::config nano::outbound_bandwidth_limiter_config (const nano::node_config & config)
+{
+	outbound_bandwidth_limiter::config cfg;
+	cfg.standard_limit = config.bandwidth_limit;
+	cfg.standard_burst_ratio = config.bandwidth_limit_burst_ratio;
+	// TODO: Add config entries
+	cfg.bootstrap_limit = 16 * 1024 * 1024; // 16MB/s ~ 128Mbit/s
+	cfg.bootstrap_burst_ratio = 1.0; // Bootstrap traffic does not need bursts
+	return cfg;
+}
+
+/*
+ * node
+ */
 
 void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 {
@@ -148,7 +167,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	gap_cache (*this),
 	ledger (store, stats, network_params.ledger, flags_a.generate_cache),
 	checker (config.signature_checker_threads),
-	outbound_limiter{ config.bandwidth_limit, config.bandwidth_limit_burst_ratio },
+	outbound_limiter{ outbound_bandwidth_limiter_config (config) },
 	// empty `config.peering_port` means the user made no port choice at all;
 	// otherwise, any value is considered, with `0` having the special meaning of 'let the OS pick a port instead'
 	//
