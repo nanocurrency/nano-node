@@ -160,6 +160,7 @@ public:
 	bool operator== (nano::keepalive const &) const;
 	std::array<nano::endpoint, 8> peers;
 	static std::size_t constexpr size = 8 * (16 + 2);
+	std::string to_string () const;
 };
 
 class publish final : public message
