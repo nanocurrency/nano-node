@@ -18,8 +18,8 @@ add_library(
   active_transactions.cpp
   backlog_population.hpp
   backlog_population.cpp
-        bandwidth_limiter.hpp
-        bandwidth_limiter.cpp
+  bandwidth_limiter.hpp
+  bandwidth_limiter.cpp
   block_arrival.hpp
   block_arrival.cpp
   blockprocessor.hpp
@@ -42,8 +42,8 @@ add_library(
   bootstrap/bootstrap_legacy.cpp
   bootstrap/bootstrap.hpp
   bootstrap/bootstrap.cpp
-        bootstrap/bootstrap_server.hpp
-        bootstrap/bootstrap_server.cpp
+  bootstrap/bootstrap_server.hpp
+  bootstrap/bootstrap_server.cpp
   cli.hpp
   cli.cpp
   common.hpp
