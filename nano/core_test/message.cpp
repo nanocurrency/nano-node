@@ -276,3 +276,29 @@ TEST (message, bulk_pull_serialization)
 	ASSERT_FALSE (error);
 	ASSERT_TRUE (header.bulk_pull_ascending ());
 }
+
+TEST (message, keepalive_to_string)
+{
+	nano::keepalive keepalive = nano::keepalive (nano::dev::network_params.network);
+
+	std::string expectedString = "NetID: 5241(dev), VerMaxUsingMin: 19/19/18, MsgType: 2(keepalive), Extensions: 0000";
+
+	for (auto peer = keepalive.peers.begin (), peers_end = keepalive.peers.end (); peer != peers_end; ++peer)
+	{
+		int index = std::distance (keepalive.peers.begin (), peer);
+
+		std::string test_ip = "::ffff:1.2.3.4";
+		int port = 7072;
+		std::array<char, 64> external_address_1 = {};
+
+		int ip_length = test_ip.length ();
+
+		for (int i = 0; i < ip_length; i++)
+			external_address_1[i] = test_ip[i];
+
+		keepalive.peers[index] = nano::endpoint (boost::asio::ip::make_address_v6 (test_ip), port);
+		expectedString.append ("\n" + test_ip + ":" + std::to_string (port));
+	}
+
+	ASSERT_EQ (keepalive.to_string (), expectedString);
+}
