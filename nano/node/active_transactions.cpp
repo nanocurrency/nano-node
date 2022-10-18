@@ -215,8 +215,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 
 	nano::confirmation_solicitor solicitor (node.network, node.config);
 	solicitor.prepare (node.rep_crawler.principal_representatives (std::numeric_limits<std::size_t>::max ()));
-	nano::vote_generator_session generator_session (node.generator);
-	nano::vote_generator_session final_generator_session (node.final_generator);
 
 	std::size_t unconfirmed_count_l (0);
 	nano::timer<std::chrono::milliseconds> elapsed (nano::timer_state::started);
@@ -245,8 +243,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 	}
 
 	solicitor.flush ();
-	generator_session.flush ();
-	final_generator_session.flush ();
 	lock_a.lock ();
 
 	if (node.config.logging.timing_logging ())

@@ -15,7 +15,7 @@ class channel;
 class confirmation_solicitor;
 class inactive_cache_information;
 class node;
-class vote_generator_session;
+
 class vote_info final
 {
 public:
