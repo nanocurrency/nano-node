@@ -448,6 +448,7 @@ public:
 		write_drop,
 		write_error,
 		blocks,
+		drop,
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

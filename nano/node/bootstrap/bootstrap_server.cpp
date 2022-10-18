@@ -51,6 +51,15 @@ bool nano::bootstrap_server::request (nano::asc_pull_req const & message, std::s
 	// Futureproofing
 	if (!valid_request_type (message.type))
 	{
+		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::invalid_message_type);
+		return false;
+	}
+
+	// If channel is full our response will be dropped anyway, so filter that early
+	// TODO: Add per channel limits (this ideally should be done on the channel message processing side)
+	if (channel->max ())
+	{
+		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::drop);
 		return false;
 	}
 

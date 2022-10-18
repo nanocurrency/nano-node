@@ -1021,6 +1021,9 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 		case nano::stat::detail::blocks:
 			res = "blocks";
 			break;
+		case nano::stat::detail::drop:
+			res = "drop";
+			break;
 	}
 	return res;
 }
