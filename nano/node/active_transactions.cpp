@@ -20,11 +20,7 @@ nano::active_transactions::active_transactions (nano::node & node_a, nano::confi
 	node{ node_a },
 	recently_confirmed{ 65536 },
 	recently_cemented{ node.config.confirmation_history_size },
-	election_time_to_live{ node_a.network_params.network.is_dev_network () ? 0s : 2s },
-	thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::request_loop);
-		request_loop ();
-	})
+	election_time_to_live{ node_a.network_params.network.is_dev_network () ? 0s : 2s }
 {
 	// Register a callback which will get called after a block is cemented
 	confirmation_height_processor.add_cemented_observer ([this] (std::shared_ptr<nano::block> const & callback_block_a) {
@@ -35,14 +31,33 @@ nano::active_transactions::active_transactions (nano::node & node_a, nano::confi
 	confirmation_height_processor.add_block_already_cemented_observer ([this] (nano::block_hash const & hash_a) {
 		this->block_already_cemented_callback (hash_a);
 	});
-
-	nano::unique_lock<nano::mutex> lock (mutex);
-	condition.wait (lock, [&started = started] { return started; });
 }
 
 nano::active_transactions::~active_transactions ()
 {
-	stop ();
+	// Thread must be stopped before destruction
+	debug_assert (!thread.joinable ());
+}
+
+void nano::active_transactions::start ()
+{
+	debug_assert (!thread.joinable ());
+
+	thread = std::thread ([this] () {
+		nano::thread_role::set (nano::thread_role::name::request_loop);
+		request_loop ();
+	});
+}
+
+void nano::active_transactions::stop ()
+{
+	stopped = true;
+	condition.notify_all ();
+	if (thread.joinable ())
+	{
+		thread.join ();
+	}
+	clear ();
 }
 
 void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::block> const & block_a)
@@ -324,16 +339,6 @@ std::vector<std::shared_ptr<nano::election>> nano::active_transactions::list_act
 void nano::active_transactions::request_loop ()
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
-	started = true;
-	lock.unlock ();
-	condition.notify_all ();
-
-	// The wallets and active_transactions objects are mutually dependent, so we need a fully
-	// constructed node before proceeding.
-	this->node.node_initialized_latch.wait ();
-
-	lock.lock ();
-
 	while (!stopped && !node.flags.disable_request_loop)
 	{
 		auto const stamp_l = std::chrono::steady_clock::now ();
@@ -348,24 +353,6 @@ void nano::active_transactions::request_loop ()
 			condition.wait_until (lock, wakeup_l, [&wakeup_l, &stopped = stopped] { return stopped || std::chrono::steady_clock::now () >= wakeup_l; });
 		}
 	}
-}
-
-void nano::active_transactions::stop ()
-{
-	nano::unique_lock<nano::mutex> lock (mutex);
-	if (!started)
-	{
-		condition.wait (lock, [&started = started] { return started; });
-	}
-	stopped = true;
-	lock.unlock ();
-	condition.notify_all ();
-	if (thread.joinable ())
-	{
-		thread.join ();
-	}
-	lock.lock ();
-	roots.clear ();
 }
 
 nano::election_insertion_result nano::active_transactions::insert_impl (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::block> const & block_a, nano::election_behavior election_behavior_a, std::function<void (std::shared_ptr<nano::block> const &)> const & confirmation_action_a)
@@ -505,19 +492,19 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 	return result;
 }
 
-bool nano::active_transactions::active (nano::qualified_root const & root_a)
+bool nano::active_transactions::active (nano::qualified_root const & root_a) const
 {
 	nano::lock_guard<nano::mutex> lock (mutex);
 	return roots.get<tag_root> ().find (root_a) != roots.get<tag_root> ().end ();
 }
 
-bool nano::active_transactions::active (nano::block const & block_a)
+bool nano::active_transactions::active (nano::block const & block_a) const
 {
 	nano::lock_guard<nano::mutex> guard (mutex);
 	return roots.get<tag_root> ().find (block_a.qualified_root ()) != roots.get<tag_root> ().end () && blocks.find (block_a.hash ()) != blocks.end ();
 }
 
-bool nano::active_transactions::active (const nano::block_hash & hash)
+bool nano::active_transactions::active (const nano::block_hash & hash) const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return blocks.find (hash) != blocks.end ();
@@ -582,13 +569,13 @@ void nano::active_transactions::erase_oldest ()
 	}
 }
 
-bool nano::active_transactions::empty ()
+bool nano::active_transactions::empty () const
 {
 	nano::lock_guard<nano::mutex> lock (mutex);
 	return roots.empty ();
 }
 
-std::size_t nano::active_transactions::size ()
+std::size_t nano::active_transactions::size () const
 {
 	nano::lock_guard<nano::mutex> lock (mutex);
 	return roots.size ();

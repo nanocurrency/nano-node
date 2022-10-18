@@ -933,6 +933,7 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	// Processing chain to prune for node1
 	config.peering_port = nano::test::get_available_port ();
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), config, system.work, node_flags, 1));
+	node1->start ();
 	node1->process_active (send1);
 	node1->process_active (receive1);
 	node1->process_active (change1);

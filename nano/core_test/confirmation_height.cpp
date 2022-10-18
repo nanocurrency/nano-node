@@ -1561,10 +1561,7 @@ TEST (confirmation_height, callback_confirmed_history)
 			election->force_confirm ();
 			ASSERT_TIMELY (10s, node->active.size () == 0);
 			ASSERT_EQ (0, node->active.recently_cemented.list ().size ());
-			{
-				nano::lock_guard<nano::mutex> guard (node->active.mutex);
-				ASSERT_EQ (0, node->active.blocks.size ());
-			}
+			ASSERT_TRUE (node->active.empty ());
 
 			auto transaction = node->store.tx_begin_read ();
 			ASSERT_FALSE (node->ledger.block_confirmed (transaction, send->hash ()));
@@ -1584,7 +1581,7 @@ TEST (confirmation_height, callback_confirmed_history)
 		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out) == 1);
 
 		ASSERT_EQ (1, node->active.recently_cemented.list ().size ());
-		ASSERT_EQ (0, node->active.blocks.size ());
+		ASSERT_TRUE (node->active.empty ());
 
 		// Confirm the callback is not called under this circumstance
 		ASSERT_EQ (2, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
