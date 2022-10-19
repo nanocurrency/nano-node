@@ -57,6 +57,12 @@ bool nano::bootstrap_server::request (nano::asc_pull_req const & message, std::s
 		return false;
 	}
 
+	if (message.count == 0 || message.count > max_blocks)
+	{
+		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::bad_count);
+		return false;
+	}
+
 	request_queue.add (std::make_pair (message, channel));
 	return true;
 }
@@ -85,10 +91,12 @@ void nano::bootstrap_server::process_batch (std::deque<request_t> & batch)
 
 nano::asc_pull_ack nano::bootstrap_server::process (nano::transaction & transaction, nano::asc_pull_req const & message)
 {
+	const std::size_t count = std::min (static_cast<std::size_t> (message.count), max_blocks);
+
 	// `start` can represent either account or block hash
 	if (store.block.exists (transaction, message.start.as_block_hash ()))
 	{
-		return prepare_response (transaction, message.id, message.start.as_block_hash (), max_blocks);
+		return prepare_response (transaction, message.id, message.start.as_block_hash (), count);
 	}
 	if (store.account.exists (transaction, message.start.as_account ()))
 	{
@@ -96,7 +104,11 @@ nano::asc_pull_ack nano::bootstrap_server::process (nano::transaction & transact
 		if (info)
 		{
 			// Start from open block if pulling by account
-			return prepare_response (transaction, message.id, info->open_block, max_blocks);
+			return prepare_response (transaction, message.id, info->open_block, count);
+		}
+		else
+		{
+			debug_assert (false, "account exists but cannot be retrieved");
 		}
 	}
 
@@ -106,6 +118,8 @@ nano::asc_pull_ack nano::bootstrap_server::process (nano::transaction & transact
 
 nano::asc_pull_ack nano::bootstrap_server::prepare_response (nano::transaction & transaction, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count)
 {
+	debug_assert (count <= max_blocks);
+
 	auto blocks = prepare_blocks (transaction, start_block, count);
 	debug_assert (blocks.size () <= count);
 
@@ -124,6 +138,8 @@ nano::asc_pull_ack nano::bootstrap_server::prepare_empty_response (nano::asc_pul
 
 std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks (nano::transaction & transaction, nano::block_hash start_block, std::size_t count) const
 {
+	debug_assert (count <= max_blocks);
+
 	std::vector<std::shared_ptr<nano::block>> result;
 	if (!start_block.is_zero ())
 	{

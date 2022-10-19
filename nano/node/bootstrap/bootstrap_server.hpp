@@ -61,7 +61,7 @@ private: // Dependencies
 private:
 	processing_queue<request_t> request_queue;
 
-private: // Config
+public: // Config
 	/** Maximum number of blocks to send in a single response, cannot be higher than capacity of a single `asc_pull_ack` message */
 	constexpr static std::size_t max_blocks = nano::asc_pull_ack::max_blocks;
 };

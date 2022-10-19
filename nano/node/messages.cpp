@@ -1632,6 +1632,7 @@ void nano::asc_pull_req::serialize (nano::stream & stream) const
 	nano::write (stream, type);
 	nano::write (stream, boost::endian::native_to_big (id));
 	nano::write (stream, start);
+	nano::write (stream, count);
 }
 
 bool nano::asc_pull_req::deserialize (nano::stream & stream)
@@ -1644,6 +1645,7 @@ bool nano::asc_pull_req::deserialize (nano::stream & stream)
 		nano::read (stream, id);
 		boost::endian::big_to_native_inplace (id);
 		nano::read (stream, start);
+		nano::read (stream, count);
 	}
 	catch (std::runtime_error const &)
 	{

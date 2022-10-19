@@ -1024,6 +1024,9 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 		case nano::stat::detail::drop:
 			res = "drop";
 			break;
+		case nano::stat::detail::bad_count:
+			res = "bad_count";
+			break;
 	}
 	return res;
 }

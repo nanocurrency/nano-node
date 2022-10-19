@@ -449,6 +449,7 @@ public:
 		write_error,
 		blocks,
 		drop,
+		bad_count,
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

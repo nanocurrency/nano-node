@@ -292,6 +292,7 @@ TEST (message, asc_pull_req_serialization)
 	nano::asc_pull_req original{ nano::dev::network_params.network };
 	original.id = 7;
 	original.start = nano::test::random_hash ();
+	original.count = 111;
 
 	// Serialize
 	std::vector<uint8_t> bytes;
@@ -313,6 +314,7 @@ TEST (message, asc_pull_req_serialization)
 	ASSERT_EQ (original.type, message.type);
 	ASSERT_EQ (original.id, message.id);
 	ASSERT_EQ (original.start, message.start);
+	ASSERT_EQ (original.count, message.count);
 }
 
 TEST (message, asc_pull_ack_serialization)

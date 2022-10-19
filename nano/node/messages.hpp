@@ -380,9 +380,10 @@ public: // Payload
 	asc_pull_type type{ asc_pull_type::blocks };
 	id_t id{ 0 };
 	nano::hash_or_account start{ 0 };
+	uint8_t count{ 0 };
 
 public:
-	constexpr static std::size_t size = sizeof (id) + sizeof (start);
+	constexpr static std::size_t size = sizeof (id) + sizeof (start) + sizeof (count);
 };
 
 /**

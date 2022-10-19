@@ -167,6 +167,7 @@ TEST (bootstrap_server, serve_account)
 	nano::asc_pull_req request{ node.network_params.network };
 	request.id = 7;
 	request.start = first_account;
+	request.count = nano::bootstrap_server::max_blocks;
 
 	node.network.inbound (request, nano::test::fake_channel (node));
 
@@ -202,6 +203,7 @@ TEST (bootstrap_server, serve_hash)
 	nano::asc_pull_req request{ node.network_params.network };
 	request.id = 7;
 	request.start = blocks.front ()->hash ();
+	request.count = nano::bootstrap_server::max_blocks;
 
 	node.network.inbound (request, nano::test::fake_channel (node));
 
@@ -212,6 +214,39 @@ TEST (bootstrap_server, serve_hash)
 	ASSERT_EQ (response.id, 7);
 	ASSERT_EQ (response.blocks ().size (), 128);
 	ASSERT_TRUE (compare_blocks (response.blocks (), blocks));
+}
+
+TEST (bootstrap_server, serve_hash_one)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	node.bootstrap_server.on_response.add ([&] (auto & response, auto & channel) {
+		responses.add (response);
+	});
+
+	auto chains = setup_chains (system, node, 1, 256);
+	auto [account, blocks] = chains.front ();
+
+	// Skip a few blocks to request hash in the middle of the chain
+	blocks = block_list_t (std::next (blocks.begin (), 9), blocks.end ());
+
+	// Request blocks from the middle of the chain
+	nano::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.start = blocks.front ()->hash ();
+	request.count = 1;
+
+	node.network.inbound (request, nano::test::fake_channel (node));
+
+	ASSERT_TIMELY (5s, responses.size () == 1);
+
+	auto response = responses.get ().front ();
+	// Ensure we got response exactly for what we asked for
+	ASSERT_EQ (response.id, 7);
+	ASSERT_EQ (response.blocks ().size (), 1);
+	ASSERT_TRUE (response.blocks ().front ()->hash () == request.start);
 }
 
 TEST (bootstrap_server, serve_end_of_chain)
@@ -231,6 +266,7 @@ TEST (bootstrap_server, serve_end_of_chain)
 	nano::asc_pull_req request{ node.network_params.network };
 	request.id = 7;
 	request.start = blocks.back ()->hash ();
+	request.count = nano::bootstrap_server::max_blocks;
 
 	node.network.inbound (request, nano::test::fake_channel (node));
 
@@ -260,6 +296,7 @@ TEST (bootstrap_server, serve_missing)
 	nano::asc_pull_req request{ node.network_params.network };
 	request.id = 7;
 	request.start = nano::test::random_hash ();
+	request.count = nano::bootstrap_server::max_blocks;
 
 	node.network.inbound (request, nano::test::fake_channel (node));
 
@@ -293,6 +330,7 @@ TEST (bootstrap_server, serve_multiple)
 			nano::asc_pull_req request{ node.network_params.network };
 			request.id = next_id++;
 			request.start = account;
+			request.count = nano::bootstrap_server::max_blocks;
 
 			node.network.inbound (request, nano::test::fake_channel (node));
 		}
