@@ -27,7 +27,6 @@ class bootstrap_server final
 public:
 	// `asc_pull_req` message is small, store by value
 	using request_t = std::pair<nano::asc_pull_req, std::shared_ptr<nano::transport::channel>>; // <request, response channel>
-	using response_t = std::pair<std::unique_ptr<nano::asc_pull_ack>, std::shared_ptr<nano::transport::channel>>; // <response, response channel>
 
 public:
 	bootstrap_server (nano::store &, nano::network_constants const &, nano::stat &);
@@ -45,16 +44,14 @@ public:
 public: // Events
 	nano::observer_set<nano::asc_pull_ack &, std::shared_ptr<nano::transport::channel> &> on_response;
 
-private: // Requests
+private:
 	void process_batch (std::deque<request_t> & batch);
-	std::unique_ptr<nano::asc_pull_ack> process (nano::transaction &, nano::asc_pull_req const & message);
-	std::unique_ptr<nano::asc_pull_ack> prepare_response (nano::transaction &, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count);
-	std::unique_ptr<nano::asc_pull_ack> prepare_empty_response (nano::asc_pull_req::id_t id);
+	nano::asc_pull_ack process (nano::transaction &, nano::asc_pull_req const & message);
+	nano::asc_pull_ack prepare_response (nano::transaction &, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count);
+	nano::asc_pull_ack prepare_empty_response (nano::asc_pull_req::id_t id);
 	std::vector<std::shared_ptr<nano::block>> prepare_blocks (nano::transaction &, nano::block_hash start_block, std::size_t count) const;
 	bool valid_request_type (nano::asc_pull_type) const;
-
-private: // Responses
-	void process_batch (std::deque<response_t> & batch);
+	void respond (nano::asc_pull_ack &, std::shared_ptr<nano::transport::channel> &);
 
 private: // Dependencies
 	nano::store & store;
@@ -63,10 +60,9 @@ private: // Dependencies
 
 private:
 	processing_queue<request_t> request_queue;
-	processing_queue<response_t> response_queue;
 
 private: // Config
-	/** Maximum number of blocks to send in a single response, cannot be higher than capacity of single `asc_pull_ack` message */
+	/** Maximum number of blocks to send in a single response, cannot be higher than capacity of a single `asc_pull_ack` message */
 	constexpr static std::size_t max_blocks = nano::asc_pull_ack::max_blocks;
 };
 }
