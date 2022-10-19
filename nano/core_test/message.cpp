@@ -287,12 +287,17 @@ TEST (message, bulk_pull_serialization)
 	ASSERT_TRUE (header.bulk_pull_ascending ());
 }
 
-TEST (message, asc_pull_req_serialization)
+TEST (message, asc_pull_req_serialization_blocks)
 {
 	nano::asc_pull_req original{ nano::dev::network_params.network };
 	original.id = 7;
-	original.start = nano::test::random_hash ();
-	original.count = 111;
+	original.type = nano::asc_pull_type::blocks;
+
+	nano::asc_pull_req::blocks_payload original_payload;
+	original_payload.start = nano::test::random_hash ();
+	original_payload.count = 111;
+	original.payload = original_payload;
+	original.update_header ();
 
 	// Serialize
 	std::vector<uint8_t> bytes;
@@ -311,26 +316,30 @@ TEST (message, asc_pull_req_serialization)
 	// Message
 	nano::asc_pull_req message (error, stream, header);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (original.type, message.type);
 	ASSERT_EQ (original.id, message.id);
-	ASSERT_EQ (original.start, message.start);
-	ASSERT_EQ (original.count, message.count);
+	ASSERT_EQ (original.type, message.type);
+
+	nano::asc_pull_req::blocks_payload message_payload;
+	ASSERT_NO_THROW (message_payload = std::get<nano::asc_pull_req::blocks_payload> (message.payload));
+	ASSERT_EQ (original_payload.start, message_payload.start);
+	ASSERT_EQ (original_payload.count, message_payload.count);
 }
 
-TEST (message, asc_pull_ack_serialization)
+TEST (message, asc_pull_ack_serialization_blocks)
 {
 	nano::asc_pull_ack original{ nano::dev::network_params.network };
 	original.id = 11;
+	original.type = nano::asc_pull_type::blocks;
 
-	const int num_blocks = 128; // Maximum allowed
-
+	nano::asc_pull_ack::blocks_payload original_payload;
 	// Generate blocks
-	std::vector<std::shared_ptr<nano::block>> blocks;
+	const int num_blocks = 128; // Maximum allowed
 	for (int n = 0; n < num_blocks; ++n)
 	{
-		blocks.push_back (random_block ());
+		original_payload.blocks.push_back (random_block ());
 	}
-	original.blocks (blocks);
+	original.payload = original_payload;
+	original.update_header ();
 
 	// Serialize
 	std::vector<uint8_t> bytes;
@@ -349,13 +358,15 @@ TEST (message, asc_pull_ack_serialization)
 	// Message
 	nano::asc_pull_ack message (error, stream, header);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (original.type, message.type);
 	ASSERT_EQ (original.id, message.id);
-	ASSERT_EQ (original.blocks ().size (), message.blocks ().size ());
+	ASSERT_EQ (original.type, message.type);
+
+	nano::asc_pull_ack::blocks_payload message_payload;
+	ASSERT_NO_THROW (message_payload = std::get<nano::asc_pull_ack::blocks_payload> (message.payload));
 
 	// Compare blocks
-	auto message_blocks = message.blocks ();
-	ASSERT_TRUE (std::equal (blocks.begin (), blocks.end (), message_blocks.begin (), message_blocks.end (), [] (auto a, auto b) {
+	ASSERT_EQ (original_payload.blocks.size (), message_payload.blocks.size ());
+	ASSERT_TRUE (std::equal (original_payload.blocks.begin (), original_payload.blocks.end (), message_payload.blocks.begin (), message_payload.blocks.end (), [] (auto a, auto b) {
 		return *a == *b;
 	}));
 }

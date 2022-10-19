@@ -10,6 +10,7 @@
 
 namespace nano
 {
+class ledger;
 namespace transport
 {
 	class channel;
@@ -29,7 +30,7 @@ public:
 	using request_t = std::pair<nano::asc_pull_req, std::shared_ptr<nano::transport::channel>>; // <request, response channel>
 
 public:
-	bootstrap_server (nano::store &, nano::network_constants const &, nano::stat &);
+	bootstrap_server (nano::store &, nano::ledger &, nano::network_constants const &, nano::stat &);
 	~bootstrap_server ();
 
 	void start ();
@@ -46,15 +47,31 @@ public: // Events
 
 private:
 	void process_batch (std::deque<request_t> & batch);
-	nano::asc_pull_ack process (nano::transaction &, nano::asc_pull_req const & message);
-	nano::asc_pull_ack prepare_response (nano::transaction &, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count);
-	nano::asc_pull_ack prepare_empty_response (nano::asc_pull_req::id_t id);
-	std::vector<std::shared_ptr<nano::block>> prepare_blocks (nano::transaction &, nano::block_hash start_block, std::size_t count) const;
-	bool valid_request_type (nano::asc_pull_type) const;
+	nano::asc_pull_ack process (nano::transaction const &, nano::asc_pull_req const & message);
 	void respond (nano::asc_pull_ack &, std::shared_ptr<nano::transport::channel> &);
+
+	/*
+	 * Blocks response
+	 */
+	nano::asc_pull_ack process (nano::transaction const &, nano::asc_pull_req::id_t id, nano::asc_pull_req::blocks_payload const & request);
+	nano::asc_pull_ack prepare_response (nano::transaction const &, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count);
+	nano::asc_pull_ack prepare_empty_blocks_response (nano::asc_pull_req::id_t id);
+	std::vector<std::shared_ptr<nano::block>> prepare_blocks (nano::transaction const &, nano::block_hash start_block, std::size_t count) const;
+
+	/*
+	 * Account info response
+	 */
+	nano::asc_pull_ack process (nano::transaction const &, nano::asc_pull_req::id_t id, nano::asc_pull_req::account_info_payload const & request);
+
+	/*
+	 * Checks if the request should be dropped early on
+	 */
+	bool verify (nano::asc_pull_req const & message) const;
+	bool verify_request_type (nano::asc_pull_type) const;
 
 private: // Dependencies
 	nano::store & store;
+	nano::ledger & ledger;
 	nano::network_constants const & network_constants;
 	nano::stat & stats;
 
@@ -63,6 +80,6 @@ private:
 
 public: // Config
 	/** Maximum number of blocks to send in a single response, cannot be higher than capacity of a single `asc_pull_ack` message */
-	constexpr static std::size_t max_blocks = nano::asc_pull_ack::max_blocks;
+	constexpr static std::size_t max_blocks = nano::asc_pull_ack::blocks_payload::max_blocks;
 };
 }

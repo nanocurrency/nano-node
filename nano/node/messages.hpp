@@ -12,6 +12,7 @@
 #include <nano/secure/network_filter.hpp>
 
 #include <bitset>
+#include <variant>
 
 namespace nano
 {
@@ -354,10 +355,16 @@ public:
 	static std::size_t size (nano::message_header const &);
 };
 
+/**
+ * Type of requested asc pull data
+ * - blocks:
+ * - account_info:
+ */
 enum class asc_pull_type : uint8_t
 {
 	invalid = 0x0,
 	blocks = 0x1,
+	account_info = 0x2,
 };
 
 /**
@@ -375,15 +382,56 @@ public:
 	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
 
+	static std::size_t size (nano::message_header const &);
+
+	/**
+	 * Update payload size stored in header
+	 * IMPORTANT: Must be called after any update to the payload
+	 */
+	void update_header ();
+
+	void serialize_payload (nano::stream &) const;
+	void deserialize_payload (nano::stream &);
+
+private: // Debug
+	/**
+	 * Asserts that payload type is consistent with actual payload
+	 */
+	bool verify_consistency () const;
+
+public: // Payload definitions
+	class blocks_payload
+	{
+	public:
+		void serialize (nano::stream &) const;
+		void deserialize (nano::stream &);
+
+	public:
+		nano::hash_or_account start{ 0 };
+		uint8_t count{ 0 };
+	};
+
+	class account_info_payload
+	{
+	public:
+		void serialize (nano::stream &) const;
+		void deserialize (nano::stream &);
+
+	public:
+		nano::hash_or_account target{ 0 };
+	};
+
 public: // Payload
 	/** Currently unused, allows extensions in the future */
-	asc_pull_type type{ asc_pull_type::blocks };
+	asc_pull_type type{ asc_pull_type::invalid };
 	id_t id{ 0 };
-	nano::hash_or_account start{ 0 };
-	uint8_t count{ 0 };
+
+	/** Payload depends on `asc_pull_type` */
+	std::variant<blocks_payload, account_info_payload> payload;
 
 public:
-	constexpr static std::size_t size = sizeof (id) + sizeof (start) + sizeof (count);
+	/** Size of message without payload */
+	constexpr static std::size_t partial_size = sizeof (type) + sizeof (id);
 };
 
 /**
@@ -403,34 +451,62 @@ public:
 
 	static std::size_t size (nano::message_header const &);
 
-private:
-	/**
-	 * Serialize blocks payload to byte vector, end with null block
-	 */
-	void serialize_blocks (nano::stream &) const;
-	void deserialize_blocks (nano::stream &);
 	/**
 	 * Update payload size stored in header
+	 * IMPORTANT: Must be called after any update to the payload
 	 */
 	void update_header ();
 
+	void serialize_payload (nano::stream &) const;
+	void deserialize_payload (nano::stream &);
+
+private: // Debug
+	/**
+	 * Asserts that payload type is consistent with actual payload
+	 */
+	bool verify_consistency () const;
+
+public: // Payload definitions
+	class blocks_payload
+	{
+	public:
+		void serialize (nano::stream &) const;
+		void deserialize (nano::stream &);
+
+	public:
+		std::vector<std::shared_ptr<nano::block>> blocks{};
+
+	public:
+		/* Header allows for 16 bit extensions; 65535 bytes / 500 bytes (block size with some future margin) ~ 131 */
+		constexpr static std::size_t max_blocks = 128;
+	};
+
+	class account_info_payload
+	{
+	public:
+		void serialize (nano::stream &) const;
+		void deserialize (nano::stream &);
+
+	public:
+		nano::account account{ 0 };
+		nano::block_hash account_open{ 0 };
+		nano::block_hash account_head{ 0 };
+		uint64_t account_block_count{ 0 };
+		nano::block_hash account_conf_frontier{ 0 };
+		uint64_t account_conf_height{ 0 };
+	};
+
 public: // Payload
 	/** Currently unused, allows extensions in the future */
-	asc_pull_type type{ asc_pull_type::blocks };
+	asc_pull_type type{ asc_pull_type::invalid };
 	id_t id{ 0 };
-	/** Get blocks payload */
-	std::vector<std::shared_ptr<nano::block>> blocks () const;
-	/** Sets blocks payload and updates size in header */
-	void blocks (std::vector<std::shared_ptr<nano::block>> &);
 
-private: // Payload
-	std::vector<std::shared_ptr<nano::block>> blocks_m;
+	/** Payload depends on `asc_pull_type` */
+	std::variant<blocks_payload, account_info_payload> payload;
 
 public:
-	constexpr static std::size_t partial_size = sizeof (id);
-
-	/* Header allows for 16 bit extensions; 65535 bytes / 500 bytes (block size with some future margin) ~ 131 */
-	constexpr static std::size_t max_blocks = 128;
+	/** Size of message without payload */
+	constexpr static std::size_t partial_size = sizeof (type) + sizeof (id);
 };
 
 class message_visitor

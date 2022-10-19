@@ -150,7 +150,7 @@ bool compare_blocks (std::vector<std::shared_ptr<nano::block>> blocks_a, std::ve
 }
 }
 
-TEST (bootstrap_server, serve_account)
+TEST (bootstrap_server, serve_account_blocks)
 {
 	nano::test::system system{};
 	auto & node = *system.add_node ();
@@ -166,8 +166,12 @@ TEST (bootstrap_server, serve_account)
 	// Request blocks from account root
 	nano::asc_pull_req request{ node.network_params.network };
 	request.id = 7;
-	request.start = first_account;
-	request.count = nano::bootstrap_server::max_blocks;
+	request.type = nano::asc_pull_type::blocks;
+
+	nano::asc_pull_req::blocks_payload request_payload;
+	request_payload.start = first_account;
+	request_payload.count = nano::bootstrap_server::max_blocks;
+	request.payload = request_payload;
 
 	node.network.inbound (request, nano::test::fake_channel (node));
 
@@ -176,8 +180,12 @@ TEST (bootstrap_server, serve_account)
 	auto response = responses.get ().front ();
 	// Ensure we got response exactly for what we asked for
 	ASSERT_EQ (response.id, 7);
-	ASSERT_EQ (response.blocks ().size (), 128);
-	ASSERT_TRUE (compare_blocks (response.blocks (), first_blocks));
+	ASSERT_EQ (response.type, nano::asc_pull_type::blocks);
+
+	nano::asc_pull_ack::blocks_payload response_payload;
+	ASSERT_NO_THROW (response_payload = std::get<nano::asc_pull_ack::blocks_payload> (response.payload));
+	ASSERT_EQ (response_payload.blocks.size (), 128);
+	ASSERT_TRUE (compare_blocks (response_payload.blocks, first_blocks));
 
 	// Ensure we don't get any unexpected responses
 	ASSERT_ALWAYS (1s, responses.size () == 1);
@@ -202,8 +210,12 @@ TEST (bootstrap_server, serve_hash)
 	// Request blocks from the middle of the chain
 	nano::asc_pull_req request{ node.network_params.network };
 	request.id = 7;
-	request.start = blocks.front ()->hash ();
-	request.count = nano::bootstrap_server::max_blocks;
+	request.type = nano::asc_pull_type::blocks;
+
+	nano::asc_pull_req::blocks_payload request_payload;
+	request_payload.start = blocks.front ()->hash ();
+	request_payload.count = nano::bootstrap_server::max_blocks;
+	request.payload = request_payload;
 
 	node.network.inbound (request, nano::test::fake_channel (node));
 
@@ -212,8 +224,15 @@ TEST (bootstrap_server, serve_hash)
 	auto response = responses.get ().front ();
 	// Ensure we got response exactly for what we asked for
 	ASSERT_EQ (response.id, 7);
-	ASSERT_EQ (response.blocks ().size (), 128);
-	ASSERT_TRUE (compare_blocks (response.blocks (), blocks));
+	ASSERT_EQ (response.type, nano::asc_pull_type::blocks);
+
+	nano::asc_pull_ack::blocks_payload response_payload;
+	ASSERT_NO_THROW (response_payload = std::get<nano::asc_pull_ack::blocks_payload> (response.payload));
+	ASSERT_EQ (response_payload.blocks.size (), 128);
+	ASSERT_TRUE (compare_blocks (response_payload.blocks, blocks));
+
+	// Ensure we don't get any unexpected responses
+	ASSERT_ALWAYS (1s, responses.size () == 1);
 }
 
 TEST (bootstrap_server, serve_hash_one)
@@ -235,8 +254,12 @@ TEST (bootstrap_server, serve_hash_one)
 	// Request blocks from the middle of the chain
 	nano::asc_pull_req request{ node.network_params.network };
 	request.id = 7;
-	request.start = blocks.front ()->hash ();
-	request.count = 1;
+	request.type = nano::asc_pull_type::blocks;
+
+	nano::asc_pull_req::blocks_payload request_payload;
+	request_payload.start = blocks.front ()->hash ();
+	request_payload.count = 1;
+	request.payload = request_payload;
 
 	node.network.inbound (request, nano::test::fake_channel (node));
 
@@ -245,8 +268,12 @@ TEST (bootstrap_server, serve_hash_one)
 	auto response = responses.get ().front ();
 	// Ensure we got response exactly for what we asked for
 	ASSERT_EQ (response.id, 7);
-	ASSERT_EQ (response.blocks ().size (), 1);
-	ASSERT_TRUE (response.blocks ().front ()->hash () == request.start);
+	ASSERT_EQ (response.type, nano::asc_pull_type::blocks);
+
+	nano::asc_pull_ack::blocks_payload response_payload;
+	ASSERT_NO_THROW (response_payload = std::get<nano::asc_pull_ack::blocks_payload> (response.payload));
+	ASSERT_EQ (response_payload.blocks.size (), 1);
+	ASSERT_TRUE (response_payload.blocks.front ()->hash () == request_payload.start);
 }
 
 TEST (bootstrap_server, serve_end_of_chain)
@@ -265,8 +292,12 @@ TEST (bootstrap_server, serve_end_of_chain)
 	// Request blocks from account frontier
 	nano::asc_pull_req request{ node.network_params.network };
 	request.id = 7;
-	request.start = blocks.back ()->hash ();
-	request.count = nano::bootstrap_server::max_blocks;
+	request.type = nano::asc_pull_type::blocks;
+
+	nano::asc_pull_req::blocks_payload request_payload;
+	request_payload.start = blocks.back ()->hash ();
+	request_payload.count = nano::bootstrap_server::max_blocks;
+	request.payload = request_payload;
 
 	node.network.inbound (request, nano::test::fake_channel (node));
 
@@ -275,9 +306,13 @@ TEST (bootstrap_server, serve_end_of_chain)
 	auto response = responses.get ().front ();
 	// Ensure we got response exactly for what we asked for
 	ASSERT_EQ (response.id, 7);
+	ASSERT_EQ (response.type, nano::asc_pull_type::blocks);
+
+	nano::asc_pull_ack::blocks_payload response_payload;
+	ASSERT_NO_THROW (response_payload = std::get<nano::asc_pull_ack::blocks_payload> (response.payload));
 	// Response should contain only the last block from chain
-	ASSERT_EQ (response.blocks ().size (), 1);
-	ASSERT_EQ (*response.blocks ().front (), *blocks.back ());
+	ASSERT_EQ (response_payload.blocks.size (), 1);
+	ASSERT_EQ (*response_payload.blocks.front (), *blocks.back ());
 }
 
 TEST (bootstrap_server, serve_missing)
@@ -295,8 +330,12 @@ TEST (bootstrap_server, serve_missing)
 	// Request blocks from account frontier
 	nano::asc_pull_req request{ node.network_params.network };
 	request.id = 7;
-	request.start = nano::test::random_hash ();
-	request.count = nano::bootstrap_server::max_blocks;
+	request.type = nano::asc_pull_type::blocks;
+
+	nano::asc_pull_req::blocks_payload request_payload;
+	request_payload.start = nano::test::random_hash ();
+	request_payload.count = nano::bootstrap_server::max_blocks;
+	request.payload = request_payload;
 
 	node.network.inbound (request, nano::test::fake_channel (node));
 
@@ -305,8 +344,12 @@ TEST (bootstrap_server, serve_missing)
 	auto response = responses.get ().front ();
 	// Ensure we got response exactly for what we asked for
 	ASSERT_EQ (response.id, 7);
+	ASSERT_EQ (response.type, nano::asc_pull_type::blocks);
+
+	nano::asc_pull_ack::blocks_payload response_payload;
+	ASSERT_NO_THROW (response_payload = std::get<nano::asc_pull_ack::blocks_payload> (response.payload));
 	// There should be nothing sent
-	ASSERT_EQ (response.blocks ().size (), 0);
+	ASSERT_EQ (response_payload.blocks.size (), 0);
 }
 
 TEST (bootstrap_server, serve_multiple)
@@ -329,8 +372,12 @@ TEST (bootstrap_server, serve_multiple)
 			// Request blocks from account root
 			nano::asc_pull_req request{ node.network_params.network };
 			request.id = next_id++;
-			request.start = account;
-			request.count = nano::bootstrap_server::max_blocks;
+			request.type = nano::asc_pull_type::blocks;
+
+			nano::asc_pull_req::blocks_payload request_payload;
+			request_payload.start = account;
+			request_payload.count = nano::bootstrap_server::max_blocks;
+			request.payload = request_payload;
 
 			node.network.inbound (request, nano::test::fake_channel (node));
 		}
@@ -350,8 +397,12 @@ TEST (bootstrap_server, serve_multiple)
 
 			// Ensure we got response exactly for what we asked for
 			ASSERT_EQ (response.id, next_id);
-			ASSERT_EQ (response.blocks ().size (), 17); // 1 open block + 16 random blocks
-			ASSERT_TRUE (compare_blocks (response.blocks (), blocks));
+			ASSERT_EQ (response.type, nano::asc_pull_type::blocks);
+
+			nano::asc_pull_ack::blocks_payload response_payload;
+			ASSERT_NO_THROW (response_payload = std::get<nano::asc_pull_ack::blocks_payload> (response.payload));
+			ASSERT_EQ (response_payload.blocks.size (), 17); // 1 open block + 16 random blocks
+			ASSERT_TRUE (compare_blocks (response_payload.blocks, blocks));
 
 			++next_id;
 		}

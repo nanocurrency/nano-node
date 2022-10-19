@@ -518,7 +518,7 @@ public:
 		return *this;
 	}
 	nano::store_iterator<T, U> & operator= (nano::store_iterator<T, U> const &) = delete;
-	std::pair<T, U> * operator-> ()
+	std::pair<T, U> * operator->()
 	{
 		return &current;
 	}
@@ -733,7 +733,7 @@ public:
 	 *  Ruturns true on error, false on success.
 	 */
 	virtual bool get (nano::transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info & confirmation_height_info_a) = 0;
-
+	std::optional<nano::confirmation_height_info> get (nano::transaction const & transaction_a, nano::account const & account_a);
 	virtual bool exists (nano::transaction const & transaction_a, nano::account const & account_a) const = 0;
 	virtual void del (nano::write_transaction const & transaction_a, nano::account const & account_a) = 0;
 	virtual uint64_t count (nano::transaction const & transaction_a) = 0;

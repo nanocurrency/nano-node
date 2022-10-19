@@ -1,12 +1,14 @@
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/transport/transport.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/secure/store.hpp>
 
 #include <boost/asio/error.hpp>
 
 // TODO: Make threads configurable
-nano::bootstrap_server::bootstrap_server (nano::store & store_a, nano::network_constants const & network_constants_a, nano::stat & stats_a) :
+nano::bootstrap_server::bootstrap_server (nano::store & store_a, nano::ledger & ledger_a, nano::network_constants const & network_constants_a, nano::stat & stats_a) :
 	store{ store_a },
+	ledger{ ledger_a },
 	network_constants{ network_constants_a },
 	stats{ stats_a },
 	request_queue{ stats, nano::stat::type::bootstrap_server, nano::thread_role::name::bootstrap_server, /* threads */ 1, /* max size */ 1024 * 16, /* max batch */ 128 }
@@ -31,21 +33,46 @@ void nano::bootstrap_server::stop ()
 	request_queue.stop ();
 }
 
-bool nano::bootstrap_server::valid_request_type (nano::asc_pull_type type) const
+bool nano::bootstrap_server::verify_request_type (nano::asc_pull_type type) const
 {
-	if (type == nano::asc_pull_type::blocks)
+	switch (type)
 	{
-		return true;
+		case asc_pull_type::invalid:
+			return false;
+		case asc_pull_type::blocks:
+		case asc_pull_type::account_info:
+			return true;
 	}
 	return false;
 }
 
+bool nano::bootstrap_server::verify (const nano::asc_pull_req & message) const
+{
+	if (!verify_request_type (message.type))
+	{
+		return false;
+	}
+
+	struct verify_visitor
+	{
+		bool operator() (nano::asc_pull_req::blocks_payload const & pld) const
+		{
+			return pld.count > 0 && pld.count <= max_blocks;
+		}
+		bool operator() (nano::asc_pull_req::account_info_payload const & pld) const
+		{
+			return !pld.target.is_zero ();
+		}
+	};
+
+	return std::visit (verify_visitor{}, message.payload);
+}
+
 bool nano::bootstrap_server::request (nano::asc_pull_req const & message, std::shared_ptr<nano::transport::channel> channel)
 {
-	// Futureproofing
-	if (!valid_request_type (message.type))
+	if (!verify (message))
 	{
-		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::invalid_message_type);
+		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::invalid);
 		return false;
 	}
 
@@ -57,14 +84,39 @@ bool nano::bootstrap_server::request (nano::asc_pull_req const & message, std::s
 		return false;
 	}
 
-	if (message.count == 0 || message.count > max_blocks)
-	{
-		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::bad_count);
-		return false;
-	}
-
 	request_queue.add (std::make_pair (message, channel));
 	return true;
+}
+
+void nano::bootstrap_server::respond (nano::asc_pull_ack & response, std::shared_ptr<nano::transport::channel> & channel)
+{
+	stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::response, nano::stat::dir::out);
+
+	// Increase relevant stats depending on payload type
+	struct stat_visitor
+	{
+		nano::stat & stats;
+
+		void operator() (nano::asc_pull_ack::blocks_payload const & pld)
+		{
+			stats.add (nano::stat::type::bootstrap_server, nano::stat::detail::blocks, nano::stat::dir::out, pld.blocks.size ());
+		}
+		void operator() (nano::asc_pull_ack::account_info_payload const & pld)
+		{
+		}
+	};
+	std::visit (stat_visitor{ stats }, response.payload);
+
+	on_response.notify (response, channel);
+
+	channel->send (
+	response, [this] (auto & ec, auto size) {
+		if (ec)
+		{
+			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::write_error, nano::stat::dir::out);
+		}
+	},
+	nano::buffer_drop_policy::limiter, nano::bandwidth_limit_type::bootstrap);
 }
 
 /*
@@ -89,22 +141,31 @@ void nano::bootstrap_server::process_batch (std::deque<request_t> & batch)
 	}
 }
 
-nano::asc_pull_ack nano::bootstrap_server::process (nano::transaction & transaction, nano::asc_pull_req const & message)
+nano::asc_pull_ack nano::bootstrap_server::process (nano::transaction const & transaction, const nano::asc_pull_req & message)
 {
-	const std::size_t count = std::min (static_cast<std::size_t> (message.count), max_blocks);
+	return std::visit ([this, &transaction, &message] (auto && request) { return process (transaction, message.id, request); }, message.payload);
+}
+
+/*
+ * Blocks response
+ */
+
+nano::asc_pull_ack nano::bootstrap_server::process (nano::transaction const & transaction, nano::asc_pull_req::id_t id, nano::asc_pull_req::blocks_payload const & request)
+{
+	const std::size_t count = std::min (static_cast<std::size_t> (request.count), max_blocks);
 
 	// `start` can represent either account or block hash
-	if (store.block.exists (transaction, message.start.as_block_hash ()))
+	if (store.block.exists (transaction, request.start.as_block_hash ()))
 	{
-		return prepare_response (transaction, message.id, message.start.as_block_hash (), count);
+		return prepare_response (transaction, id, request.start.as_block_hash (), count);
 	}
-	if (store.account.exists (transaction, message.start.as_account ()))
+	if (store.account.exists (transaction, request.start.as_account ()))
 	{
-		auto info = store.account.get (transaction, message.start.as_account ());
+		auto info = store.account.get (transaction, request.start.as_account ());
 		if (info)
 		{
 			// Start from open block if pulling by account
-			return prepare_response (transaction, message.id, info->open_block, count);
+			return prepare_response (transaction, id, info->open_block, count);
 		}
 		else
 		{
@@ -113,10 +174,10 @@ nano::asc_pull_ack nano::bootstrap_server::process (nano::transaction & transact
 	}
 
 	// Neither block nor account found, send empty response to indicate that
-	return prepare_empty_response (message.id);
+	return prepare_empty_blocks_response (id);
 }
 
-nano::asc_pull_ack nano::bootstrap_server::prepare_response (nano::transaction & transaction, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count)
+nano::asc_pull_ack nano::bootstrap_server::prepare_response (nano::transaction const & transaction, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count)
 {
 	debug_assert (count <= max_blocks);
 
@@ -125,18 +186,30 @@ nano::asc_pull_ack nano::bootstrap_server::prepare_response (nano::transaction &
 
 	nano::asc_pull_ack response{ network_constants };
 	response.id = id;
-	response.blocks (blocks);
+	response.type = nano::asc_pull_type::blocks;
+
+	nano::asc_pull_ack::blocks_payload response_payload;
+	response_payload.blocks = blocks;
+	response.payload = response_payload;
+
+	response.update_header ();
 	return response;
 }
 
-nano::asc_pull_ack nano::bootstrap_server::prepare_empty_response (nano::asc_pull_req::id_t id)
+nano::asc_pull_ack nano::bootstrap_server::prepare_empty_blocks_response (nano::asc_pull_req::id_t id)
 {
 	nano::asc_pull_ack response{ network_constants };
 	response.id = id;
+	response.type = nano::asc_pull_type::blocks;
+
+	nano::asc_pull_ack::blocks_payload empty_payload{};
+	response.payload = empty_payload;
+
+	response.update_header ();
 	return response;
 }
 
-std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks (nano::transaction & transaction, nano::block_hash start_block, std::size_t count) const
+std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks (nano::transaction const & transaction, nano::block_hash start_block, std::size_t count) const
 {
 	debug_assert (count <= max_blocks);
 
@@ -155,19 +228,44 @@ std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks
 	return result;
 }
 
-void nano::bootstrap_server::respond (nano::asc_pull_ack & response, std::shared_ptr<nano::transport::channel> & channel)
+/*
+ * Account info response
+ */
+
+nano::asc_pull_ack nano::bootstrap_server::process (const nano::transaction & transaction, nano::asc_pull_req::id_t id, const nano::asc_pull_req::account_info_payload & request)
 {
-	stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::response, nano::stat::dir::out);
-	stats.add (nano::stat::type::bootstrap_server, nano::stat::detail::blocks, nano::stat::dir::out, response.blocks ().size ());
+	nano::asc_pull_ack response{ network_constants };
+	response.id = id;
+	response.type = nano::asc_pull_type::account_info;
 
-	on_response.notify (response, channel);
+	auto target = request.target.as_account ();
+	// Try to lookup account assuming target is block hash
+	if (auto account_from_hash = ledger.account_safe (transaction, request.target.as_block_hash ()); !account_from_hash.is_zero ())
+	{
+		target = account_from_hash;
+	}
+	// Otherwise assume target is an actual account
 
-	channel->send (
-	response, [this] (auto & ec, auto size) {
-		if (ec)
+	nano::asc_pull_ack::account_info_payload response_payload{};
+	response_payload.account = target;
+
+	auto account_info = store.account.get (transaction, target);
+	if (account_info)
+	{
+		response_payload.account_open = account_info->open_block;
+		response_payload.account_head = account_info->head;
+		response_payload.account_block_count = account_info->block_count;
+
+		auto conf_info = store.confirmation_height.get (transaction, target);
+		if (conf_info)
 		{
-			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::write_error, nano::stat::dir::out);
+			response_payload.account_conf_frontier = conf_info->frontier;
+			response_payload.account_conf_height = conf_info->height;
 		}
-	},
-	nano::buffer_drop_policy::limiter, nano::bandwidth_limit_type::bootstrap);
+	}
+	// If account is missing the response payload will contain all 0 fields, except for the target
+
+	response.payload = response_payload;
+	response.update_header ();
+	return response;
 }
