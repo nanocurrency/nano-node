@@ -3,11 +3,8 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 
-#include <cerrno>
 #include <chrono>
 #include <cstddef>
-#include <cstdlib>
-#include <cstring>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -19,13 +16,10 @@
 #include <unordered_map>
 #include <vector>
 
-#include <arpa/inet.h>
 #include <crypto/ed25519-donna/ed25519.h>
-#include <netinet/in.h>
 #include <openssl/asn1.h>
 #include <openssl/bio.h>
 #include <openssl/crypto.h>
-#include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/objects.h>
 #include <openssl/pem.h>
@@ -33,8 +27,6 @@
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
-#include <sys/socket.h>
-#include <unistd.h>
 
 namespace nano::ssl
 {

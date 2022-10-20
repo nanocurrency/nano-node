@@ -6,7 +6,6 @@
 #include <boost/filesystem/path.hpp>
 
 #include <iostream>
-#include <mutex>
 #include <stdexcept>
 
 namespace
