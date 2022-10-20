@@ -11,6 +11,7 @@ cmake .. ^
   %ROCKS_LIB% ^
   -DPORTABLE=1 ^
   -DQt5_DIR="c:\qt\5.13.1\msvc2017_64\lib\cmake\Qt5" ^
+  -DOPENSSL_ROOT_DIR="c:\local\OpenSSL-1.1.1q-Win_x64" ^
   -DNANO_GUI=ON ^
   -DCMAKE_BUILD_TYPE=%BUILD_TYPE% ^
   -DACTIVE_NETWORK=nano_%NETWORK_CFG%_network ^

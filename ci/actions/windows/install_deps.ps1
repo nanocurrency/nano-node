@@ -55,6 +55,8 @@ $qt5base_url = Get-RedirectedUri "https://repo.nano.org/artifacts/5.13.1-0-20190
 $qt5winextra_url = Get-RedirectedUri "https://repo.nano.org/artifacts/5.13.1-0-201909031231qtwinextras-Windows-Windows_10-MSVC2017-Windows-Windows_10-X86_64.7z"
 $qt5base_artifact = "${env:TMP}\qt5base.7z"
 $qt5winextra_artifact = "${env:TMP}\qt5winextra.7z"
+$openssl_url = Get-RedirectedUri "https://repo.nano.org/artifacts/OpenSSL-1.1.1q-Win_x64.7z"
+$OPENSSL_ROOT_DIR = "c:\local\OpenSSL-1.1.1q-Win_x64"
 
 (New-Object System.Net.WebClient).DownloadFile($qt5base_url, $qt5base_artifact)
 (New-Object System.Net.WebClient).DownloadFile($qt5winextra_url, $qt5winextra_artifact)
@@ -69,3 +71,10 @@ Write-Output "BOOST_ROOT=$BOOST_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Enco
 (New-Object System.Net.WebClient).DownloadFile($boost_url, "${env:TMP}\boost-msvc.zip")
 Push-Location $BOOST_ROOT
 7z x "${env:TMP}\boost-msvc.zip" -aoa
+
+
+mkdir $OPENSSL_ROOT_DIR
+Write-Output "OPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+(New-Object System.Net.WebClient).DownloadFile($openssl_url, "${env:TMP}\openssl-win64-msvc.7z")
+Push-Location $OPENSSL_ROOT_DIR
+7z x "${env:TMP}\openssl-win64-msvc.7z" -aoa
