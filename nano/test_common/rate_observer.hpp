@@ -2,6 +2,7 @@
 
 #include <nano/lib/stats.hpp>
 
+#include <atomic>
 #include <chrono>
 #include <string>
 #include <thread>
