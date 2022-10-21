@@ -2,6 +2,8 @@
 
 #include <nano/lib/utility.hpp>
 
+#include <boost/endian/conversion.hpp>
+
 #include <streambuf>
 
 namespace nano
@@ -59,5 +61,22 @@ inline bool at_end (nano::stream & stream)
 	uint8_t junk;
 	auto end (nano::try_read (stream, junk));
 	return end;
+}
+
+/*
+ * Use little endian as standard message endianness, due to major platforms being little endian already (x86, arm)
+ */
+template <typename T>
+void write_little_endian (nano::stream & stream, T const & value)
+{
+	nano::write (stream, boost::endian::native_to_little (value));
+}
+
+template <typename T>
+void read_little_endian (nano::stream & stream, T & value)
+{
+	T tmp;
+	nano::read (stream, tmp);
+	value = boost::endian::little_to_native (tmp);
 }
 }

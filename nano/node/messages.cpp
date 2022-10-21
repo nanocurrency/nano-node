@@ -1630,7 +1630,7 @@ void nano::asc_pull_req::serialize (nano::stream & stream) const
 {
 	header.serialize (stream);
 	nano::write (stream, type);
-	nano::write (stream, boost::endian::native_to_big (id));
+	nano::write_little_endian (stream, id);
 
 	serialize_payload (stream);
 }
@@ -1642,8 +1642,7 @@ bool nano::asc_pull_req::deserialize (nano::stream & stream)
 	try
 	{
 		nano::read (stream, type);
-		nano::read (stream, id);
-		boost::endian::big_to_native_inplace (id);
+		nano::read_little_endian (stream, id);
 
 		deserialize_payload (stream);
 	}
@@ -1663,7 +1662,6 @@ void nano::asc_pull_req::serialize_payload (nano::stream & stream) const
 
 void nano::asc_pull_req::deserialize_payload (nano::stream & stream)
 {
-	// TODO: Ensure it is safe to switch on `type`
 	switch (type)
 	{
 		case asc_pull_type::blocks:
@@ -1728,7 +1726,6 @@ bool nano::asc_pull_req::verify_consistency () const
 
 void nano::asc_pull_req::blocks_payload::serialize (nano::stream & stream) const
 {
-	// TODO: Ensure proper endianness for complex nano types
 	nano::write (stream, start);
 	nano::write (stream, count);
 }
@@ -1745,7 +1742,6 @@ void nano::asc_pull_req::blocks_payload::deserialize (nano::stream & stream)
 
 void nano::asc_pull_req::account_info_payload::serialize (stream & stream) const
 {
-	// TODO: Ensure proper endianness for complex nano types
 	nano::write (stream, target);
 }
 
@@ -1779,7 +1775,7 @@ void nano::asc_pull_ack::serialize (nano::stream & stream) const
 	debug_assert (header.extensions.to_ulong () > 0); // Block payload must have least `not_a_block` terminator
 	header.serialize (stream);
 	nano::write (stream, type);
-	nano::write (stream, boost::endian::native_to_big (id));
+	nano::write_little_endian (stream, id);
 
 	serialize_payload (stream);
 }
@@ -1791,8 +1787,7 @@ bool nano::asc_pull_ack::deserialize (nano::stream & stream)
 	try
 	{
 		nano::read (stream, type);
-		nano::read (stream, id);
-		boost::endian::big_to_native_inplace (id);
+		nano::read_little_endian (stream, id);
 
 		deserialize_payload (stream);
 	}
@@ -1812,7 +1807,6 @@ void nano::asc_pull_ack::serialize_payload (nano::stream & stream) const
 
 void nano::asc_pull_ack::deserialize_payload (nano::stream & stream)
 {
-	// TODO: Ensure it is safe to switch on `type`
 	switch (type)
 	{
 		case asc_pull_type::blocks:
@@ -1903,13 +1897,12 @@ void nano::asc_pull_ack::blocks_payload::deserialize (nano::stream & stream)
 
 void nano::asc_pull_ack::account_info_payload::serialize (nano::stream & stream) const
 {
-	// TODO: Ensure proper endianness for complex nano types
 	nano::write (stream, account);
 	nano::write (stream, account_open);
 	nano::write (stream, account_head);
-	nano::write (stream, account_block_count);
+	nano::write_little_endian (stream, account_block_count);
 	nano::write (stream, account_conf_frontier);
-	nano::write (stream, account_conf_height);
+	nano::write_little_endian (stream, account_conf_height);
 }
 
 void nano::asc_pull_ack::account_info_payload::deserialize (nano::stream & stream)
@@ -1917,7 +1910,7 @@ void nano::asc_pull_ack::account_info_payload::deserialize (nano::stream & strea
 	nano::read (stream, account);
 	nano::read (stream, account_open);
 	nano::read (stream, account_head);
-	nano::read (stream, account_block_count);
+	nano::read_little_endian (stream, account_block_count);
 	nano::read (stream, account_conf_frontier);
-	nano::read (stream, account_conf_height);
+	nano::read_little_endian (stream, account_conf_height);
 }
