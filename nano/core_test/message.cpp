@@ -296,6 +296,7 @@ TEST (message, asc_pull_req_serialization_blocks)
 	nano::asc_pull_req::blocks_payload original_payload;
 	original_payload.start = nano::test::random_hash ();
 	original_payload.count = 111;
+
 	original.payload = original_payload;
 	original.update_header ();
 
@@ -323,6 +324,47 @@ TEST (message, asc_pull_req_serialization_blocks)
 	ASSERT_NO_THROW (message_payload = std::get<nano::asc_pull_req::blocks_payload> (message.payload));
 	ASSERT_EQ (original_payload.start, message_payload.start);
 	ASSERT_EQ (original_payload.count, message_payload.count);
+
+	ASSERT_TRUE (nano::at_end (stream));
+}
+
+TEST (message, asc_pull_req_serialization_account_info)
+{
+	nano::asc_pull_req original{ nano::dev::network_params.network };
+	original.id = 7;
+	original.type = nano::asc_pull_type::account_info;
+
+	nano::asc_pull_req::account_info_payload original_payload;
+	original_payload.target = nano::test::random_hash ();
+
+	original.payload = original_payload;
+	original.update_header ();
+
+	// Serialize
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream{ bytes };
+		original.serialize (stream);
+	}
+	nano::bufferstream stream{ bytes.data (), bytes.size () };
+
+	// Header
+	bool error = false;
+	nano::message_header header (error, stream);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (nano::message_type::asc_pull_req, header.type);
+
+	// Message
+	nano::asc_pull_req message (error, stream, header);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (original.id, message.id);
+	ASSERT_EQ (original.type, message.type);
+
+	nano::asc_pull_req::account_info_payload message_payload;
+	ASSERT_NO_THROW (message_payload = std::get<nano::asc_pull_req::account_info_payload> (message.payload));
+	ASSERT_EQ (original_payload.target, message_payload.target);
+
+	ASSERT_TRUE (nano::at_end (stream));
 }
 
 TEST (message, asc_pull_ack_serialization_blocks)
@@ -338,6 +380,7 @@ TEST (message, asc_pull_ack_serialization_blocks)
 	{
 		original_payload.blocks.push_back (random_block ());
 	}
+
 	original.payload = original_payload;
 	original.update_header ();
 
@@ -369,4 +412,56 @@ TEST (message, asc_pull_ack_serialization_blocks)
 	ASSERT_TRUE (std::equal (original_payload.blocks.begin (), original_payload.blocks.end (), message_payload.blocks.begin (), message_payload.blocks.end (), [] (auto a, auto b) {
 		return *a == *b;
 	}));
+
+	ASSERT_TRUE (nano::at_end (stream));
+}
+
+TEST (message, asc_pull_ack_serialization_account_info)
+{
+	nano::asc_pull_ack original{ nano::dev::network_params.network };
+	original.id = 11;
+	original.type = nano::asc_pull_type::account_info;
+
+	nano::asc_pull_ack::account_info_payload original_payload;
+	original_payload.account = nano::test::random_account ();
+	original_payload.account_open = nano::test::random_hash ();
+	original_payload.account_head = nano::test::random_hash ();
+	original_payload.account_block_count = 932932132;
+	original_payload.account_conf_frontier = nano::test::random_hash ();
+	original_payload.account_conf_height = 847312;
+
+	original.payload = original_payload;
+	original.update_header ();
+
+	// Serialize
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream{ bytes };
+		original.serialize (stream);
+	}
+	nano::bufferstream stream{ bytes.data (), bytes.size () };
+
+	// Header
+	bool error = false;
+	nano::message_header header (error, stream);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (nano::message_type::asc_pull_ack, header.type);
+
+	// Message
+	nano::asc_pull_ack message (error, stream, header);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (original.id, message.id);
+	ASSERT_EQ (original.type, message.type);
+
+	nano::asc_pull_ack::account_info_payload message_payload;
+	ASSERT_NO_THROW (message_payload = std::get<nano::asc_pull_ack::account_info_payload> (message.payload));
+
+	ASSERT_EQ (original_payload.account, message_payload.account);
+	ASSERT_EQ (original_payload.account_open, message_payload.account_open);
+	ASSERT_EQ (original_payload.account_head, message_payload.account_head);
+	ASSERT_EQ (original_payload.account_block_count, message_payload.account_block_count);
+	ASSERT_EQ (original_payload.account_conf_frontier, message_payload.account_conf_frontier);
+	ASSERT_EQ (original_payload.account_conf_height, message_payload.account_conf_height);
+
+	ASSERT_TRUE (nano::at_end (stream));
 }
