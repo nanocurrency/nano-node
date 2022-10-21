@@ -279,26 +279,28 @@ TEST (message, bulk_pull_serialization)
 
 TEST (message, keepalive_to_string)
 {
+	nano::message_header hdr{ nano::dev::network_params.network, nano::message_type::keepalive };
+	std::string expected = hdr.to_string ();
+
 	nano::keepalive keepalive = nano::keepalive (nano::dev::network_params.network);
+	ASSERT_EQ (keepalive.to_string (), expected + "\n:::0\n:::0\n:::0\n:::0\n:::0\n:::0\n:::0\n:::0");
 
-	std::string expectedString = "NetID: 5241(dev), VerMaxUsingMin: 19/19/18, MsgType: 2(keepalive), Extensions: 0000";
+	expected.append ("\n:::0");
 
-	for (auto peer = keepalive.peers.begin (), peers_end = keepalive.peers.end (); peer != peers_end; ++peer)
+	keepalive.peers[1] = nano::endpoint{ boost::asio::ip::make_address_v6 ("::1"), 45 };
+	expected.append ("\n::1:45");
+
+	keepalive.peers[2] = nano::endpoint{ boost::asio::ip::make_address_v6 ("2001:db8:85a3:8d3:1319:8a2e:370:7348"), 0 };
+	expected.append ("\n2001:db8:85a3:8d3:1319:8a2e:370:7348:0");
+
+	keepalive.peers[3] = nano::endpoint{ boost::asio::ip::make_address_v6 ("::"), 65535 };
+	expected.append ("\n:::65535");
+
+	for (int i = 4; i < keepalive.peers.size (); i++)
 	{
-		int index = std::distance (keepalive.peers.begin (), peer);
-
-		std::string test_ip = "::ffff:1.2.3.4";
-		int port = 7072;
-		std::array<char, 64> external_address_1 = {};
-
-		int ip_length = test_ip.length ();
-
-		for (int i = 0; i < ip_length; i++)
-			external_address_1[i] = test_ip[i];
-
-		keepalive.peers[index] = nano::endpoint (boost::asio::ip::make_address_v6 (test_ip), port);
-		expectedString.append ("\n" + test_ip + ":" + std::to_string (port));
+		keepalive.peers[i] = nano::endpoint{ boost::asio::ip::make_address_v6 ("::ffff:1.2.3.4"), 1234 };
+		expected.append ("\n::ffff:1.2.3.4:1234");
 	}
 
-	ASSERT_EQ (keepalive.to_string (), expectedString);
+	ASSERT_EQ (keepalive.to_string (), expected);
 }
