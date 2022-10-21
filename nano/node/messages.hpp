@@ -64,7 +64,7 @@ public:
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;
-	std::string to_string ();
+	std::string to_string () const;
 
 public:
 	nano::message_type type;
@@ -160,6 +160,7 @@ public:
 	bool operator== (nano::keepalive const &) const;
 	std::array<nano::endpoint, 8> peers;
 	static std::size_t constexpr size = 8 * (16 + 2);
+	std::string to_string () const;
 };
 
 class publish final : public message

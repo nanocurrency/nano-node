@@ -276,3 +276,31 @@ TEST (message, bulk_pull_serialization)
 	ASSERT_FALSE (error);
 	ASSERT_TRUE (header.bulk_pull_ascending ());
 }
+
+TEST (message, keepalive_to_string)
+{
+	nano::message_header hdr{ nano::dev::network_params.network, nano::message_type::keepalive };
+	std::string expected = hdr.to_string ();
+
+	nano::keepalive keepalive = nano::keepalive (nano::dev::network_params.network);
+	ASSERT_EQ (keepalive.to_string (), expected + "\n:::0\n:::0\n:::0\n:::0\n:::0\n:::0\n:::0\n:::0");
+
+	expected.append ("\n:::0");
+
+	keepalive.peers[1] = nano::endpoint{ boost::asio::ip::make_address_v6 ("::1"), 45 };
+	expected.append ("\n::1:45");
+
+	keepalive.peers[2] = nano::endpoint{ boost::asio::ip::make_address_v6 ("2001:db8:85a3:8d3:1319:8a2e:370:7348"), 0 };
+	expected.append ("\n2001:db8:85a3:8d3:1319:8a2e:370:7348:0");
+
+	keepalive.peers[3] = nano::endpoint{ boost::asio::ip::make_address_v6 ("::"), 65535 };
+	expected.append ("\n:::65535");
+
+	for (int i = 4; i < keepalive.peers.size (); i++)
+	{
+		keepalive.peers[i] = nano::endpoint{ boost::asio::ip::make_address_v6 ("::ffff:1.2.3.4"), 1234 };
+		expected.append ("\n::ffff:1.2.3.4:1234");
+	}
+
+	ASSERT_EQ (keepalive.to_string (), expected);
+}
