@@ -450,6 +450,9 @@ public:
 		blocks,
 		drop,
 		bad_count,
+		response_blocks,
+		response_account_info,
+		channel_full,
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

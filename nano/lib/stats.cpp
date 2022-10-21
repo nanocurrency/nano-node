@@ -1027,6 +1027,15 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 		case nano::stat::detail::bad_count:
 			res = "bad_count";
 			break;
+		case nano::stat::detail::response_blocks:
+			res = "response_blocks";
+			break;
+		case nano::stat::detail::response_account_info:
+			res = "response_account_info";
+			break;
+		case nano::stat::detail::channel_full:
+			res = "channel_full";
+			break;
 	}
 	return res;
 }

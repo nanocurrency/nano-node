@@ -80,7 +80,7 @@ bool nano::bootstrap_server::request (nano::asc_pull_req const & message, std::s
 	// TODO: Add per channel limits (this ideally should be done on the channel message processing side)
 	if (channel->max ())
 	{
-		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::drop);
+		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::channel_full, nano::stat::dir::in);
 		return false;
 	}
 
@@ -99,10 +99,12 @@ void nano::bootstrap_server::respond (nano::asc_pull_ack & response, std::shared
 
 		void operator() (nano::asc_pull_ack::blocks_payload const & pld)
 		{
+			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::response_blocks, nano::stat::dir::out);
 			stats.add (nano::stat::type::bootstrap_server, nano::stat::detail::blocks, nano::stat::dir::out, pld.blocks.size ());
 		}
 		void operator() (nano::asc_pull_ack::account_info_payload const & pld)
 		{
+			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::response_account_info, nano::stat::dir::out);
 		}
 	};
 	std::visit (stat_visitor{ stats }, response.payload);
@@ -136,7 +138,7 @@ void nano::bootstrap_server::process_batch (std::deque<request_t> & batch)
 		}
 		else
 		{
-			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::drop);
+			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::channel_full, nano::stat::dir::out);
 		}
 	}
 }
