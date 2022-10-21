@@ -1605,7 +1605,7 @@ nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_fronti
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (ledger & ledger, std::string const & name)
 {
-	auto count = ledger.bootstrap_weights_size.load ();
+	auto count = ledger.bootstrap_weights.size ();
 	auto sizeof_element = sizeof (decltype (ledger.bootstrap_weights)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "bootstrap_weights", count, sizeof_element }));
