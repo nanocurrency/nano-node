@@ -215,7 +215,7 @@ TEST (vote_cache, perf_multithreaded)
 	// Ensure our generated votes go to inactive vote cache instead of active elections
 	node.active.clear ();
 
-	run_parallel (thread_count, [&node, &reps, &blocks] (int index) {
+	run_parallel (thread_count, [&node, &reps, &blocks, &vote_count, &single_vote_size, &single_vote_reps] (int index) {
 		int block_idx = index;
 		int rep_idx = index;
 		std::vector<nano::block_hash> hashes;

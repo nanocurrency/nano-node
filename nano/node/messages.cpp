@@ -152,7 +152,7 @@ nano::stat::detail nano::to_stat_detail (nano::message_type type)
 	return {};
 }
 
-std::string nano::message_header::to_string ()
+std::string nano::message_header::to_string () const
 {
 	// Cast to uint16_t to get integer value since uint8_t is treated as an unsigned char in string formatting.
 	uint16_t type_l = static_cast<uint16_t> (type);
@@ -733,6 +733,21 @@ bool nano::keepalive::deserialize (nano::stream & stream_a)
 bool nano::keepalive::operator== (nano::keepalive const & other_a) const
 {
 	return peers == other_a.peers;
+}
+
+std::string nano::keepalive::to_string () const
+{
+	std::stringstream stream;
+
+	stream << header.to_string ();
+
+	for (auto peer = peers.begin (); peer != peers.end (); ++peer)
+	{
+		stream << "\n"
+			   << peer->address ().to_string () + ":" + std::to_string (peer->port ());
+	}
+
+	return stream.str ();
 }
 
 /*
