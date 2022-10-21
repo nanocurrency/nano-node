@@ -199,7 +199,7 @@ std::unique_ptr<nano::keepalive> nano::transport::message_deserializer::deserial
 {
 	auto error = false;
 	auto incoming = std::make_unique<nano::keepalive> (error, stream, header);
-	if (!error && at_end (stream))
+	if (!error && nano::at_end (stream))
 	{
 		return incoming;
 	}
@@ -214,7 +214,7 @@ std::unique_ptr<nano::publish> nano::transport::message_deserializer::deserializ
 {
 	auto error = false;
 	auto incoming = std::make_unique<nano::publish> (error, stream, header, digest_a, &block_uniquer_m);
-	if (!error && at_end (stream))
+	if (!error && nano::at_end (stream))
 	{
 		release_assert (incoming->block);
 		if (!network_constants_m.work.validate_entry (*incoming->block))
@@ -237,7 +237,7 @@ std::unique_ptr<nano::confirm_req> nano::transport::message_deserializer::deseri
 {
 	auto error = false;
 	auto incoming = std::make_unique<nano::confirm_req> (error, stream, header, &block_uniquer_m);
-	if (!error && at_end (stream))
+	if (!error && nano::at_end (stream))
 	{
 		if (incoming->block == nullptr || !network_constants_m.work.validate_entry (*incoming->block))
 		{
@@ -259,7 +259,7 @@ std::unique_ptr<nano::confirm_ack> nano::transport::message_deserializer::deseri
 {
 	auto error = false;
 	auto incoming = std::make_unique<nano::confirm_ack> (error, stream, header, &vote_uniquer_m);
-	if (!error && at_end (stream))
+	if (!error && nano::at_end (stream))
 	{
 		return incoming;
 	}
@@ -274,7 +274,7 @@ std::unique_ptr<nano::node_id_handshake> nano::transport::message_deserializer::
 {
 	bool error = false;
 	auto incoming = std::make_unique<nano::node_id_handshake> (error, stream, header);
-	if (!error && at_end (stream))
+	if (!error && nano::at_end (stream))
 	{
 		return incoming;
 	}
@@ -311,7 +311,7 @@ std::unique_ptr<nano::bulk_pull> nano::transport::message_deserializer::deserial
 {
 	bool error = false;
 	auto incoming = std::make_unique<nano::bulk_pull> (error, stream, header);
-	if (!error && at_end (stream))
+	if (!error && nano::at_end (stream))
 	{
 		return incoming;
 	}
@@ -326,7 +326,7 @@ std::unique_ptr<nano::bulk_pull_account> nano::transport::message_deserializer::
 {
 	bool error = false;
 	auto incoming = std::make_unique<nano::bulk_pull_account> (error, stream, header);
-	if (!error && at_end (stream))
+	if (!error && nano::at_end (stream))
 	{
 		return incoming;
 	}
@@ -341,7 +341,7 @@ std::unique_ptr<nano::frontier_req> nano::transport::message_deserializer::deser
 {
 	bool error = false;
 	auto incoming = std::make_unique<nano::frontier_req> (error, stream, header);
-	if (!error && at_end (stream))
+	if (!error && nano::at_end (stream))
 	{
 		return incoming;
 	}
@@ -362,7 +362,8 @@ std::unique_ptr<nano::asc_pull_req> nano::transport::message_deserializer::deser
 {
 	bool error = false;
 	auto incoming = std::make_unique<nano::asc_pull_req> (error, stream, header);
-	if (!error && at_end (stream))
+	// Intentionally not checking if at the end of stream, because these messages support backwards/forwards compatibility
+	if (!error)
 	{
 		return incoming;
 	}
@@ -377,7 +378,8 @@ std::unique_ptr<nano::asc_pull_ack> nano::transport::message_deserializer::deser
 {
 	bool error = false;
 	auto incoming = std::make_unique<nano::asc_pull_ack> (error, stream, header);
-	if (!error && at_end (stream))
+	// Intentionally not checking if at the end of stream, because these messages support backwards/forwards compatibility
+	if (!error)
 	{
 		return incoming;
 	}
@@ -386,13 +388,6 @@ std::unique_ptr<nano::asc_pull_ack> nano::transport::message_deserializer::deser
 		status = parse_status::invalid_asc_pull_ack_message;
 	}
 	return {};
-}
-
-bool nano::transport::message_deserializer::at_end (nano::stream & stream)
-{
-	uint8_t junk;
-	auto end (nano::try_read (stream, junk));
-	return end;
 }
 
 nano::stat::detail nano::transport::message_deserializer::to_stat_detail (parse_status status)

@@ -81,8 +81,6 @@ namespace transport
 		std::unique_ptr<nano::asc_pull_req> deserialize_asc_pull_req (nano::stream &, nano::message_header const &);
 		std::unique_ptr<nano::asc_pull_ack> deserialize_asc_pull_ack (nano::stream &, nano::message_header const &);
 
-		static bool at_end (nano::stream &);
-
 		std::shared_ptr<std::vector<uint8_t>> read_buffer;
 
 	private: // Constants
