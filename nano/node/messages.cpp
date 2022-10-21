@@ -1722,6 +1722,10 @@ bool nano::asc_pull_req::verify_consistency () const
 	{
 		nano::asc_pull_type type;
 
+		void operator() (empty_payload) const
+		{
+			debug_assert (false, "missing payload");
+		}
 		void operator() (blocks_payload) const
 		{
 			debug_assert (type == asc_pull_type::blocks);
@@ -1867,6 +1871,10 @@ bool nano::asc_pull_ack::verify_consistency () const
 	{
 		nano::asc_pull_type type;
 
+		void operator() (empty_payload) const
+		{
+			debug_assert (false, "missing payload");
+		}
 		void operator() (blocks_payload) const
 		{
 			debug_assert (type == asc_pull_type::blocks);

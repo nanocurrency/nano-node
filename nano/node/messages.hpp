@@ -368,6 +368,19 @@ enum class asc_pull_type : uint8_t
 	account_info = 0x2,
 };
 
+class empty_payload
+{
+public:
+	void serialize (nano::stream &) const
+	{
+		debug_assert (false);
+	}
+	void deserialize (nano::stream &)
+	{
+		debug_assert (false);
+	}
+};
+
 /**
  * Ascending bootstrap pull request
  */
@@ -428,7 +441,7 @@ public: // Payload
 	id_t id{ 0 };
 
 	/** Payload depends on `asc_pull_type` */
-	std::variant<blocks_payload, account_info_payload> payload;
+	std::variant<empty_payload, blocks_payload, account_info_payload> payload;
 
 public:
 	/** Size of message without payload */
@@ -503,7 +516,7 @@ public: // Payload
 	id_t id{ 0 };
 
 	/** Payload depends on `asc_pull_type` */
-	std::variant<blocks_payload, account_info_payload> payload;
+	std::variant<empty_payload, blocks_payload, account_info_payload> payload;
 
 public:
 	/** Size of message without payload */

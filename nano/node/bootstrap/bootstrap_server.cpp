@@ -55,6 +55,10 @@ bool nano::bootstrap_server::verify (const nano::asc_pull_req & message) const
 
 	struct verify_visitor
 	{
+		bool operator() (nano::empty_payload const &) const
+		{
+			return false;
+		}
 		bool operator() (nano::asc_pull_req::blocks_payload const & pld) const
 		{
 			return pld.count > 0 && pld.count <= max_blocks;
@@ -97,6 +101,10 @@ void nano::bootstrap_server::respond (nano::asc_pull_ack & response, std::shared
 	{
 		nano::stat & stats;
 
+		void operator() (nano::empty_payload const &)
+		{
+			debug_assert (false, "missing payload");
+		}
 		void operator() (nano::asc_pull_ack::blocks_payload const & pld)
 		{
 			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::response_blocks, nano::stat::dir::out);
@@ -146,6 +154,16 @@ void nano::bootstrap_server::process_batch (std::deque<request_t> & batch)
 nano::asc_pull_ack nano::bootstrap_server::process (nano::transaction const & transaction, const nano::asc_pull_req & message)
 {
 	return std::visit ([this, &transaction, &message] (auto && request) { return process (transaction, message.id, request); }, message.payload);
+}
+
+nano::asc_pull_ack nano::bootstrap_server::process (const nano::transaction &, nano::asc_pull_req::id_t id, const nano::empty_payload & request)
+{
+	// Empty payload should never be possible, but return empty response anyway
+	debug_assert (false, "missing payload");
+	nano::asc_pull_ack response{ network_constants };
+	response.id = id;
+	response.type = nano::asc_pull_type::invalid;
+	return response;
 }
 
 /*

@@ -50,6 +50,8 @@ private:
 	nano::asc_pull_ack process (nano::transaction const &, nano::asc_pull_req const & message);
 	void respond (nano::asc_pull_ack &, std::shared_ptr<nano::transport::channel> &);
 
+	nano::asc_pull_ack process (nano::transaction const &, nano::asc_pull_req::id_t id, nano::empty_payload const & request);
+
 	/*
 	 * Blocks response
 	 */

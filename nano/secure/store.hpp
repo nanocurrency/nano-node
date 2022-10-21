@@ -518,7 +518,7 @@ public:
 		return *this;
 	}
 	nano::store_iterator<T, U> & operator= (nano::store_iterator<T, U> const &) = delete;
-	std::pair<T, U> * operator->()
+	std::pair<T, U> * operator-> ()
 	{
 		return &current;
 	}
