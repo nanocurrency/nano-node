@@ -2124,3 +2124,107 @@ TEST (node, wallet_create_block_confirm_conflicts)
 		t.join ();
 	}
 }
+
+/**
+ * This test creates a small network of evenly weighted PRs and ensures a sequence of blocks from the genesis account to random accounts are able to be processed
+ * Ongoing bootstrap is disabled to directly test election activation. A failure to activate a block on any PR will cause the test to stall
+ */
+TEST (system, block_sequence)
+{
+	size_t const block_count = 400;
+	size_t const pr_count = 4;
+	size_t const listeners_per_pr = 0;
+	nano::test::system system;
+	std::vector<nano::keypair> reps;
+	for (auto i = 0; i < pr_count; ++i)
+	{
+		reps.push_back (nano::keypair{});
+	}
+	system.ledger_initialization_set (reps, nano::Gxrb_ratio);
+	system.deadline_set (3600s);
+	nano::node_config config;
+	config.peering_port = nano::test::get_available_port ();
+	//config.bandwidth_limit = 16 * 1024;
+	config.enable_voting = true;
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags flags;
+	flags.disable_max_peers_per_ip = true;
+	flags.disable_ongoing_bootstrap = true;
+	auto root = system.add_node (config, flags);
+	config.preconfigured_peers.push_back ("::ffff:127.0.0.1:" + std::to_string (root->network.endpoint ().port ()));
+	auto wallet = root->wallets.items.begin ()->second;
+	wallet->insert_adhoc (nano::dev::genesis_key.prv);
+	for (auto rep : reps)
+	{
+		system.wallet (0);
+		config.peering_port = nano::test::get_available_port ();
+		auto pr = system.add_node (config, flags, nano::transport::transport_type::tcp, rep);
+		for (auto j = 0; j < listeners_per_pr; ++j)
+		{
+			config.peering_port = nano::test::get_available_port ();
+			system.add_node (config, flags);
+		}
+		std::cerr << rep.pub.to_account () << ' ' << pr->wallets.items.begin ()->second->exists (rep.pub) << pr->weight (rep.pub) << ' ' << '\n';
+	}
+	while (std::any_of (system.nodes.begin (), system.nodes.end (), [] (std::shared_ptr<nano::node> const & node) {
+		//std::cerr << node->rep_crawler.representative_count () << ' ';
+		return node->rep_crawler.representative_count () < 3;
+	}))
+	{
+		system.poll ();
+	}
+	for (auto & node : system.nodes)
+	{
+		std::cerr << std::to_string (node->network.port) << ": ";
+		auto prs = node->rep_crawler.principal_representatives ();
+		for (auto pr : prs)
+		{
+			std::cerr << pr.account.to_account () << ' ';
+		}
+		std::cerr << '\n';
+	}
+	nano::keypair key;
+	auto start = std::chrono::system_clock::now ();
+	std::deque<std::shared_ptr<nano::block>> blocks;
+	for (auto i = 0; i < block_count; ++i)
+	{
+		if ((i % 1000) == 0)
+		{
+			std::cerr << "Block: " << std::to_string (i) << " ms: " << std::to_string (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now () - start).count ()) << "\n";
+		}
+		auto block = wallet->send_action (nano::dev::genesis_key.pub, key.pub, 1);
+		debug_assert (block != nullptr);
+		blocks.push_back (block);
+	}
+	auto done = false;
+	std::chrono::system_clock::time_point last;
+	auto interval = 1000ms;
+	while (!done)
+	{
+		if (std::chrono::system_clock::now () - last > interval)
+		{
+			std::string message;
+			for (auto i : system.nodes)
+			{
+				message += boost::str (boost::format ("N:%1% b:%2% c:%3% a:%4% s:%5% p:%6%\n") % std::to_string (i->network.port) % std::to_string (i->ledger.cache.block_count) % std::to_string (i->ledger.cache.cemented_count) % std::to_string (i->active.size ()) % std::to_string (i->scheduler.size ()) % std::to_string (i->network.size ()));
+				nano::lock_guard<nano::mutex> lock{ i->active.mutex };
+				for (auto const & j : i->active.roots)
+				{
+					auto election = j.election;
+					if (election->confirmation_request_count > 10)
+					{
+						message += boost::str (boost::format ("\t r:%1% i:%2%\n") % j.root.to_string () % std::to_string (election->confirmation_request_count));
+						for (auto const & k : election->votes ())
+						{
+							message += boost::str (boost::format ("\t\t r:%1% t:%2%\n") % k.first.to_account () % std::to_string (k.second.timestamp));
+						}
+					}
+				}
+			}
+			std::cerr << message << std::endl;
+			last = std::chrono::system_clock::now ();
+		}
+		done = std::all_of (system.nodes.begin (), system.nodes.end (), [&blocks] (std::shared_ptr<nano::node> node) { return node->block_confirmed (blocks.back ()->hash ()); });
+		system.poll ();
+	}
+}
