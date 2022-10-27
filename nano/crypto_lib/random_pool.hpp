@@ -15,6 +15,8 @@ class random_pool
 public:
 	static void generate_block (unsigned char * output, size_t size);
 	static unsigned generate_word32 (unsigned min, unsigned max);
+	/** Generates a random uint64_t in the range min to max. min and max are inclusive. */
+	static uint64_t generate_word64 (uint64_t min, uint64_t max);
 	static unsigned char generate_byte ();
 
 	random_pool () = delete;

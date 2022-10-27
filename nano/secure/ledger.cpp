@@ -1004,8 +1004,7 @@ std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (na
 	else
 	{
 		uint64_t count (cache.block_count);
-		release_assert (std::numeric_limits<CryptoPP::word32>::max () > count);
-		auto region = static_cast<size_t> (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (count - 1)));
+		auto region = nano::random_pool::generate_word64 (0, count - 1);
 		// Pruned cache cannot guarantee that pruned blocks are already commited
 		if (region < cache.pruned_count)
 		{
