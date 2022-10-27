@@ -62,7 +62,7 @@ nano::socket::~socket ()
 
 void nano::socket::ssl_initialize (boost::asio::ip::tcp::socket & tcp_socket)
 {
-	debug_assert (!node.flags.disable_ssl_sockets);
+	debug_assert (node.network_params.network.ssl_support_enabled);
 	debug_assert (!ssl_stream && !ssl_ensurer);
 	debug_assert (node.network.ssl_context.has_value ());
 
@@ -75,7 +75,7 @@ void nano::socket::ssl_initialize (boost::asio::ip::tcp::socket & tcp_socket)
 void nano::socket::ssl_handshake_start (std::function<void (boost::system::error_code const &)> callback_a)
 {
 	debug_assert (endpoint_type () == endpoint_type_t::client);
-	debug_assert (!node.flags.disable_ssl_sockets);
+	debug_assert (node.network_params.network.ssl_support_enabled);
 	debug_assert (ssl_stream && ssl_ensurer);
 
 	std::cout << "ssl_socket::ssl_handshake_start: calling async_handshake" << std::endl;
@@ -105,7 +105,7 @@ void nano::socket::ssl_handshake_start (std::function<void (boost::system::error
 void nano::socket::ssl_handshake_accept (std::function<void (boost::system::error_code const & error_code)> callback_a)
 {
 	debug_assert (endpoint_type () == endpoint_type_t::server);
-	debug_assert (!node.flags.disable_ssl_sockets);
+	debug_assert (node.network_params.network.ssl_support_enabled);
 	debug_assert (ssl_stream && ssl_ensurer);
 
 	std::cout << "ssl_socket::ssl_handshake_accept: calling async_handshake" << std::endl;
@@ -150,7 +150,7 @@ void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::fu
 		callback (ec);
 	};
 
-	if (node.flags.disable_ssl_sockets)
+	if (!node.network_params.network.ssl_support_enabled)
 	{
 		tcp_socket.async_connect (endpoint_a, boost::asio::bind_executor (strand, std::move (on_connection)));
 		return;
@@ -198,7 +198,7 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buf
 			callback (ec, size_a);
 		};
 
-		if (this_l->node.flags.disable_ssl_sockets)
+		if (!this_l->node.network_params.network.ssl_support_enabled)
 		{
 			boost::asio::async_read (this_l->tcp_socket,
 			boost::asio::buffer (buffer_a->data (), size_a),
@@ -262,7 +262,7 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 
 		this_l->set_default_timeout ();
 
-		if (this_l->node.flags.disable_ssl_sockets)
+		if (!this_l->node.network_params.network.ssl_support_enabled)
 		{
 			nano::async_write (this_l->tcp_socket, buffer,
 			boost::asio::bind_executor (this_l->strand,
@@ -335,7 +335,7 @@ void nano::socket::checkup ()
 				{
 					// The remote end may have closed the connection before this side timing out, in which case the remote address is no longer available.
 					boost::system::error_code ec_remote_l;
-					boost::asio::ip::tcp::endpoint remote_endpoint_l = this_l->node.flags.disable_ssl_sockets ? this_l->tcp_socket.remote_endpoint (ec_remote_l) : this_l->ssl_stream->lowest_layer ().remote_endpoint (ec_remote_l);
+					boost::asio::ip::tcp::endpoint remote_endpoint_l = this_l->node.network_params.network.ssl_support_enabled ? this_l->ssl_stream->lowest_layer ().remote_endpoint (ec_remote_l) : this_l->tcp_socket.remote_endpoint (ec_remote_l);
 					if (!ec_remote_l)
 					{
 						this_l->node.logger.try_log (boost::str (boost::format ("Disconnecting from %1% due to timeout") % remote_endpoint_l));
@@ -412,7 +412,7 @@ nano::tcp_endpoint nano::socket::remote_endpoint () const
 
 nano::tcp_endpoint nano::socket::local_endpoint () const
 {
-	if (node.flags.disable_ssl_sockets)
+	if (!node.network_params.network.ssl_support_enabled)
 	{
 		return tcp_socket.local_endpoint ();
 	}
@@ -607,7 +607,7 @@ void nano::server_socket::accept_connection (std::function<bool (std::shared_ptr
 			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
 			this_l->connections_per_address.emplace (accepted_connection->remote.address (), accepted_connection);
 
-			if (this_l->node.flags.disable_ssl_sockets)
+			if (!this_l->node.network_params.network.ssl_support_enabled)
 			{
 				if (cbk (accepted_connection, ec_a))
 				{
@@ -635,7 +635,7 @@ void nano::server_socket::accept_connection (std::function<bool (std::shared_ptr
 		};
 
 		auto new_connection = std::make_shared<nano::socket> (this_l->node, endpoint_type_t::server);
-		if (!this_l->node.flags.disable_ssl_sockets)
+		if (this_l->node.network_params.network.ssl_support_enabled)
 		{
 			new_connection->ssl_initialize (new_connection->tcp_socket);
 		}

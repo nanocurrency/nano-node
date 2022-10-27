@@ -24,7 +24,7 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 	tcp_message_manager (node_a.config.tcp_incoming_connections_max),
 	node (node_a),
 	publish_filter (256 * 1024),
-	ssl_context{ node_a.flags.disable_ssl_sockets ? std::nullopt : std::make_optional<nano::ssl::ssl_context> (nano::ssl::key_group{ node.node_id.prv.to_string (), node.node_id.pub.to_string () }) },
+	ssl_context{ node_a.network_params.network.ssl_support_enabled ? std::make_optional<nano::ssl::ssl_context> (nano::ssl::key_group{ node.node_id.prv.to_string (), node.node_id.pub.to_string () }) : std::nullopt },
 	udp_channels (node_a, port_a, inbound),
 	tcp_channels (node_a, inbound),
 	port (port_a),
