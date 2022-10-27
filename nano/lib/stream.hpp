@@ -64,19 +64,19 @@ inline bool at_end (nano::stream & stream)
 }
 
 /*
- * Use little endian as standard message endianness, due to major platforms being little endian already (x86, arm)
+ * We use big endian as standard for all network communications
  */
 template <typename T>
-void write_little_endian (nano::stream & stream, T const & value)
+void write_big_endian (nano::stream & stream, T const & value)
 {
-	nano::write (stream, boost::endian::native_to_little (value));
+	nano::write (stream, boost::endian::native_to_big (value));
 }
 
 template <typename T>
-void read_little_endian (nano::stream & stream, T & value)
+void read_big_endian (nano::stream & stream, T & value)
 {
 	T tmp;
 	nano::read (stream, tmp);
-	value = boost::endian::little_to_native (tmp);
+	value = boost::endian::big_to_native (tmp);
 }
 }

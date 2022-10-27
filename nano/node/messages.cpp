@@ -1645,7 +1645,7 @@ void nano::asc_pull_req::serialize (nano::stream & stream) const
 {
 	header.serialize (stream);
 	nano::write (stream, type);
-	nano::write_little_endian (stream, id);
+	nano::write_big_endian (stream, id);
 
 	serialize_payload (stream);
 }
@@ -1657,7 +1657,7 @@ bool nano::asc_pull_req::deserialize (nano::stream & stream)
 	try
 	{
 		nano::read (stream, type);
-		nano::read_little_endian (stream, id);
+		nano::read_big_endian (stream, id);
 
 		deserialize_payload (stream);
 	}
@@ -1794,7 +1794,7 @@ void nano::asc_pull_ack::serialize (nano::stream & stream) const
 	debug_assert (header.extensions.to_ulong () > 0); // Block payload must have least `not_a_block` terminator
 	header.serialize (stream);
 	nano::write (stream, type);
-	nano::write_little_endian (stream, id);
+	nano::write_big_endian (stream, id);
 
 	serialize_payload (stream);
 }
@@ -1806,7 +1806,7 @@ bool nano::asc_pull_ack::deserialize (nano::stream & stream)
 	try
 	{
 		nano::read (stream, type);
-		nano::read_little_endian (stream, id);
+		nano::read_big_endian (stream, id);
 
 		deserialize_payload (stream);
 	}
@@ -1923,9 +1923,9 @@ void nano::asc_pull_ack::account_info_payload::serialize (nano::stream & stream)
 	nano::write (stream, account);
 	nano::write (stream, account_open);
 	nano::write (stream, account_head);
-	nano::write_little_endian (stream, account_block_count);
+	nano::write_big_endian (stream, account_block_count);
 	nano::write (stream, account_conf_frontier);
-	nano::write_little_endian (stream, account_conf_height);
+	nano::write_big_endian (stream, account_conf_height);
 }
 
 void nano::asc_pull_ack::account_info_payload::deserialize (nano::stream & stream)
@@ -1933,7 +1933,7 @@ void nano::asc_pull_ack::account_info_payload::deserialize (nano::stream & strea
 	nano::read (stream, account);
 	nano::read (stream, account_open);
 	nano::read (stream, account_head);
-	nano::read_little_endian (stream, account_block_count);
+	nano::read_big_endian (stream, account_block_count);
 	nano::read (stream, account_conf_frontier);
-	nano::read_little_endian (stream, account_conf_height);
+	nano::read_big_endian (stream, account_conf_height);
 }
