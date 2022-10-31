@@ -35,7 +35,7 @@ namespace bootstrap
 
 	private:
 		nano::node & node;
-		bool stopped;
+		bool stopped{ false };
 		nano::condition_variable condition;
 		mutable nano::mutex mutex;
 		std::thread main_thread;
