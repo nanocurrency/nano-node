@@ -365,7 +365,7 @@ void nano::bootstrap::bootstrap_ascending::thread::send (std::shared_ptr<async_t
 		}
 		if (ec)
 		{
-			node->ascendboot.debug_log (boost::str (boost::format ("Error during bulk_pull send: %1!") % ec.value ()));
+			node->ascendboot.debug_log (boost::str (boost::format ("Error during bulk_pull send: %1%") % ec.value ()));
 			return;
 		}
 
