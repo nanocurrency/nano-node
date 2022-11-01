@@ -28,7 +28,7 @@ jobs:
       - name: Fetch Deps
         run: TEST=1 ci/actions/osx/install_deps.sh
       - name: Build Tests
-        run: ci/build-ci.sh "/tmp/qt/lib/cmake/Qt5";
+        run: ci/build-ci.sh "/tmp/qt/lib/cmake/Qt5" "$(brew --prefix openssl@1.1)";
       - name: Run Tests lmdb
         if: ${{ matrix.TEST_USE_ROCKSDB == 0 }}
         run: cd build && sudo TEST_USE_ROCKSDB=$TEST_USE_ROCKSDB ../ci/test.sh .

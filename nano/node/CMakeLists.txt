@@ -180,6 +180,17 @@ add_library(
   rocksdb/rocksdb_iterator.hpp
   rocksdb/rocksdb_txn.hpp
   rocksdb/rocksdb_txn.cpp
+  ssl/ssl_classes.hpp
+  ssl/ssl_classes.cpp
+  ssl/ssl_error.hpp
+  ssl/ssl_error.cpp
+  ssl/ssl_functions.hpp
+  ssl/ssl_functions.cpp
+  ssl/ssl_ptr.hpp
+  ssl/ssl_ptr_helper.hpp
+  ssl/ssl_ptr_helper.cpp
+  ssl/ssl_recognize_rep_keys.hpp
+  ssl/ssl_recognize_rep_keys.cpp
   signatures.hpp
   signatures.cpp
   socket.hpp

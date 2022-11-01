@@ -1,13 +1,20 @@
 #include <nano/boost/asio/bind_executor.hpp>
+#include <nano/boost/asio/connect.hpp>
 #include <nano/boost/asio/dispatch.hpp>
 #include <nano/boost/asio/ip/address.hpp>
 #include <nano/boost/asio/ip/address_v6.hpp>
 #include <nano/boost/asio/ip/network_v6.hpp>
 #include <nano/boost/asio/read.hpp>
+#include <nano/lib/asio.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/socket.hpp>
+#include <nano/node/ssl/ssl_classes.hpp>
+#include <nano/node/ssl/ssl_functions.hpp>
 #include <nano/node/transport/transport.hpp>
 
+#include <boost/asio/basic_stream_socket.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/ssl.hpp>
 #include <boost/format.hpp>
 
 #include <cstdint>
@@ -53,61 +60,160 @@ nano::socket::~socket ()
 	close_internal ();
 }
 
-void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::function<void (boost::system::error_code const &)> callback_a)
+void nano::socket::ssl_initialize (boost::asio::ip::tcp::socket & tcp_socket)
+{
+	debug_assert (node.network_params.network.ssl_support_enabled);
+	debug_assert (!ssl_stream && !ssl_ensurer);
+	debug_assert (node.network.ssl_context.has_value ());
+
+	ssl_stream = std::make_unique<boost::asio::ssl::stream<boost::asio::ip::tcp::socket &>> (tcp_socket, *node.network.ssl_context.value ());
+	ssl_ensurer = std::make_unique<nano::ssl::ssl_manual_validation_ensurer> ();
+
+	nano::ssl::setCaPublicKeyValidator (nano::ssl::SslPtrView::make (ssl_stream->native_handle ()), ssl_ensurer->get_handler ());
+}
+
+void nano::socket::ssl_handshake_start (std::function<void (boost::system::error_code const &)> callback_a)
 {
 	debug_assert (endpoint_type () == endpoint_type_t::client);
-	checkup ();
-	auto this_l (shared_from_this ());
-	set_default_timeout ();
-	this_l->tcp_socket.async_connect (endpoint_a,
-	boost::asio::bind_executor (this_l->strand,
-	[this_l, callback = std::move (callback_a), endpoint_a] (boost::system::error_code const & ec) {
-		if (ec)
+	debug_assert (node.network_params.network.ssl_support_enabled);
+	debug_assert (ssl_stream && ssl_ensurer);
+
+	std::cout << "ssl_socket::ssl_handshake_start: calling async_handshake" << std::endl;
+
+	ssl_stream->async_handshake (
+	boost::asio::ssl::stream_base::client,
+	boost::asio::bind_executor (strand,
+	[this_l = shared_from_this (), callback = std::move (callback_a)] (boost::system::error_code const & ec) {
+		if (!ec)
 		{
-			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_connect_error, nano::stat::dir::in);
+			std::cout << "ssl_socket::ssl_handshake_start: success " << std::endl;
+			if (!this_l->ssl_ensurer->was_invoked ())
+			{
+				throw std::runtime_error{ "ssl_socket::start_ssl_handshake: ssl_manual_validation_ensurer not invoked -- this can be a potential MiTM attack" };
+			}
+			this_l->ssl_ensurer.reset ();
+			this_l->set_last_completion ();
 		}
 		else
 		{
-			this_l->set_last_completion ();
+			std::cout << "ssl_socket::ssl_handshake_start: " << ec.message () << std::endl;
 		}
-		this_l->remote = endpoint_a;
 		callback (ec);
 	}));
 }
 
-void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
+void nano::socket::ssl_handshake_accept (std::function<void (boost::system::error_code const & error_code)> callback_a)
 {
-	if (size_a <= buffer_a->size ())
-	{
-		auto this_l (shared_from_this ());
-		if (!closed)
+	debug_assert (endpoint_type () == endpoint_type_t::server);
+	debug_assert (node.network_params.network.ssl_support_enabled);
+	debug_assert (ssl_stream && ssl_ensurer);
+
+	std::cout << "ssl_socket::ssl_handshake_accept: calling async_handshake" << std::endl;
+
+	ssl_stream->async_handshake (
+	boost::asio::ssl::stream_base::server,
+	boost::asio::bind_executor (strand,
+	[this_l = std::static_pointer_cast<nano::server_socket> (shared_from_this ()), callback = std::move (callback_a)] (boost::system::error_code const & ec) {
+		if (!ec)
 		{
-			set_default_timeout ();
-			boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback = std::move (callback_a), size_a, this_l] () mutable {
-				boost::asio::async_read (this_l->tcp_socket, boost::asio::buffer (buffer_a->data (), size_a),
-				boost::asio::bind_executor (this_l->strand,
-				[this_l, buffer_a, cbk = std::move (callback)] (boost::system::error_code const & ec, std::size_t size_a) {
-					if (ec)
-					{
-						this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_read_error, nano::stat::dir::in);
-					}
-					else
-					{
-						this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::in, size_a);
-						this_l->set_last_completion ();
-						this_l->set_last_receive_time ();
-					}
-					cbk (ec, size_a);
-				}));
-			}));
+			std::cout << "ssl_socket::ssl_handshake_accept: success" << std::endl;
+			if (!this_l->ssl_ensurer->was_invoked ())
+			{
+				throw std::runtime_error{ "ssl_socket::accept_ssl_handshake: ssl_manual_validation_ensurer not invoked -- this can be a potential MiTM attack" };
+			}
+			this_l->ssl_ensurer.reset ();
+			// Up to this point, the connection was accepted and the TLS handshake is complete.
 		}
+		else
+		{
+			std::cout << "ssl_socket::ssl_handshake_accept: " << ec.message () << "\n";
+		}
+		callback (ec);
+	}));
+}
+
+void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::function<void (boost::system::error_code const &)> callback_a)
+{
+	debug_assert (endpoint_type () == endpoint_type_t::client);
+	checkup ();
+	set_default_timeout ();
+	remote = endpoint_a;
+
+	auto this_l = shared_from_this ();
+	auto on_connection = [this_l, callback = std::move (callback_a), endpoint_a] (boost::system::error_code const & ec) {
+		if (ec)
+		{
+			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_connect_error, nano::stat::dir::in);
+			return callback (ec);
+		}
+		this_l->set_last_completion ();
+		callback (ec);
+	};
+
+	if (!node.network_params.network.ssl_support_enabled)
+	{
+		tcp_socket.async_connect (endpoint_a, boost::asio::bind_executor (strand, std::move (on_connection)));
+		return;
 	}
 	else
+	{
+		auto handshake_start = [this_l, on_connection_cb = std::move (on_connection)] (boost::system::error_code const & ec) {
+			this_l->ssl_handshake_start (std::move (on_connection_cb));
+		};
+		ssl_initialize (tcp_socket);
+		tcp_socket.async_connect (endpoint_a, boost::asio::bind_executor (strand, std::move (handshake_start)));
+	}
+}
+
+void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
+{
+	if (size_a > buffer_a->size ())
 	{
 		debug_assert (false && "nano::socket::async_read called with incorrect buffer size");
 		boost::system::error_code ec_buffer = boost::system::errc::make_error_code (boost::system::errc::no_buffer_space);
 		callback_a (ec_buffer, 0);
+		return;
 	}
+
+	if (closed)
+	{
+		return;
+	}
+	set_default_timeout ();
+
+	boost::asio::post (strand,
+	boost::asio::bind_executor (strand,
+	[buffer_a, size_a, callback = std::move (callback_a), this_l = shared_from_this ()] () mutable {
+		auto on_async_read = [this_l, callback] (boost::system::error_code const & ec, std::size_t size_a) {
+			if (ec)
+			{
+				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_read_error, nano::stat::dir::in);
+			}
+			else
+			{
+				this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::in, size_a);
+				this_l->set_last_completion ();
+				this_l->set_last_receive_time ();
+			}
+			callback (ec, size_a);
+		};
+
+		if (!this_l->node.network_params.network.ssl_support_enabled)
+		{
+			boost::asio::async_read (this_l->tcp_socket,
+			boost::asio::buffer (buffer_a->data (), size_a),
+			boost::asio::bind_executor (this_l->strand,
+			std::move (on_async_read)));
+		}
+		else
+		{
+			debug_assert (this_l->ssl_stream);
+			boost::asio::async_read (*this_l->ssl_stream,
+			boost::asio::buffer (buffer_a->data (), size_a),
+			boost::asio::bind_executor (this_l->strand,
+			std::move (on_async_read)));
+		}
+	}));
 }
 
 void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
@@ -120,30 +226,25 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 				callback (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
 			});
 		}
-
 		return;
 	}
 
 	++queue_size;
 
-	boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback = std::move (callback_a), this_l = shared_from_this ()] () mutable {
+	boost::asio::post (strand,
+	boost::asio::bind_executor (strand,
+	[buffer = std::move (buffer_a), callback = std::move (callback_a), this_l = shared_from_this ()] () mutable {
 		if (this_l->closed)
 		{
 			if (callback)
 			{
 				callback (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
 			}
-
 			return;
 		}
 
-		this_l->set_default_timeout ();
-
-		nano::async_write (this_l->tcp_socket, buffer_a,
-		boost::asio::bind_executor (this_l->strand,
-		[buffer_a, cbk = std::move (callback), this_l] (boost::system::error_code ec, std::size_t size_a) {
+		auto on_async_write = [callback, this_l] (boost::system::error_code ec, std::size_t size_a) {
 			--this_l->queue_size;
-
 			if (ec)
 			{
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in);
@@ -153,12 +254,27 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 				this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
 				this_l->set_last_completion ();
 			}
-
-			if (cbk)
+			if (callback)
 			{
-				cbk (ec, size_a);
+				callback (ec, size_a);
 			}
-		}));
+		};
+
+		this_l->set_default_timeout ();
+
+		if (!this_l->node.network_params.network.ssl_support_enabled)
+		{
+			nano::async_write (this_l->tcp_socket, buffer,
+			boost::asio::bind_executor (this_l->strand,
+			std::move (on_async_write)));
+		}
+		else
+		{
+			debug_assert (this_l->ssl_stream);
+			nano::async_write (*this_l->ssl_stream, buffer,
+			boost::asio::bind_executor (this_l->strand,
+			std::move (on_async_write)));
+		}
 	}));
 }
 
@@ -219,7 +335,7 @@ void nano::socket::checkup ()
 				{
 					// The remote end may have closed the connection before this side timing out, in which case the remote address is no longer available.
 					boost::system::error_code ec_remote_l;
-					boost::asio::ip::tcp::endpoint remote_endpoint_l = this_l->tcp_socket.remote_endpoint (ec_remote_l);
+					boost::asio::ip::tcp::endpoint remote_endpoint_l = this_l->node.network_params.network.ssl_support_enabled ? this_l->ssl_stream->lowest_layer ().remote_endpoint (ec_remote_l) : this_l->tcp_socket.remote_endpoint (ec_remote_l);
 					if (!ec_remote_l)
 					{
 						this_l->node.logger.try_log (boost::str (boost::format ("Disconnecting from %1% due to timeout") % remote_endpoint_l));
@@ -270,19 +386,22 @@ void nano::socket::close ()
 // This must be called from a strand or the destructor
 void nano::socket::close_internal ()
 {
-	if (!closed.exchange (true))
+	if (closed.exchange (true))
 	{
-		default_timeout = std::chrono::seconds (0);
-		boost::system::error_code ec;
+		return;
+	}
 
-		// Ignore error code for shutdown as it is best-effort
-		tcp_socket.shutdown (boost::asio::ip::tcp::socket::shutdown_both, ec);
-		tcp_socket.close (ec);
-		if (ec)
-		{
-			node.logger.try_log ("Failed to close socket gracefully: ", ec.message ());
-			node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::error_socket_close);
-		}
+	default_timeout = std::chrono::seconds (0);
+	boost::system::error_code ec;
+
+	// Ignore error code for shutdown as it is best-effort
+	tcp_socket.shutdown (boost::asio::ip::tcp::socket::shutdown_both, ec);
+	tcp_socket.close (ec);
+
+	if (ec)
+	{
+		node.logger.try_log ("Failed to close socket gracefully: ", ec.message ());
+		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::error_socket_close);
 	}
 }
 
@@ -293,7 +412,15 @@ nano::tcp_endpoint nano::socket::remote_endpoint () const
 
 nano::tcp_endpoint nano::socket::local_endpoint () const
 {
-	return tcp_socket.local_endpoint ();
+	if (!node.network_params.network.ssl_support_enabled)
+	{
+		return tcp_socket.local_endpoint ();
+	}
+	else
+	{
+		debug_assert (ssl_stream);
+		return ssl_stream->lowest_layer ().local_endpoint ();
+	}
 }
 
 nano::server_socket::server_socket (nano::node & node_a, boost::asio::ip::tcp::endpoint local_a, std::size_t max_connections_a) :
@@ -398,47 +525,44 @@ bool nano::server_socket::limit_reached_for_incoming_ip_connections (std::shared
 	return counted_connections >= node.network_params.network.max_peers_per_ip;
 }
 
-void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nano::socket> const &, boost::system::error_code const &)> callback_a)
+void nano::server_socket::accept_connection (std::function<bool (std::shared_ptr<nano::socket> const &, boost::system::error_code const &)> callback_a)
 {
-	auto this_l (std::static_pointer_cast<nano::server_socket> (shared_from_this ()));
-
-	boost::asio::post (strand, boost::asio::bind_executor (strand, [this_l, callback = std::move (callback_a)] () mutable {
+	boost::asio::post (strand,
+	boost::asio::bind_executor (strand,
+	[this_l = std::static_pointer_cast<nano::server_socket> (shared_from_this ()), callback_l = std::move (callback_a)] {
 		if (!this_l->acceptor.is_open ())
 		{
 			this_l->node.logger.always_log ("Network: Acceptor is not open");
 			return;
 		}
 
-		// Prepare new connection
-		auto new_connection = std::make_shared<nano::socket> (this_l->node, endpoint_type_t::server);
-		this_l->acceptor.async_accept (new_connection->tcp_socket, new_connection->remote,
-		boost::asio::bind_executor (this_l->strand,
-		[this_l, new_connection, cbk = std::move (callback)] (boost::system::error_code const & ec_a) mutable {
+		auto on_accept_connection = [this_l] (std::shared_ptr<nano::socket> accepted_connection, boost::system::error_code const & ec_a,
+									std::function<bool (std::shared_ptr<nano::socket> const &, boost::system::error_code const &)> cbk) {
 			this_l->evict_dead_connections ();
 
 			if (this_l->connections_per_address.size () >= this_l->max_inbound_connections)
 			{
 				this_l->node.logger.try_log ("Network: max_inbound_connections reached, unable to open new connection");
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
-				this_l->on_connection_requeue_delayed (std::move (cbk));
+				this_l->accept_connection_requeue_delayed (std::move (cbk));
 				return;
 			}
 
-			if (this_l->limit_reached_for_incoming_ip_connections (new_connection))
+			if (this_l->limit_reached_for_incoming_ip_connections (accepted_connection))
 			{
-				auto const remote_ip_address = new_connection->remote_endpoint ().address ();
+				auto const remote_ip_address = accepted_connection->remote_endpoint ().address ();
 				auto const log_message = boost::str (
 				boost::format ("Network: max connections per IP (max_peers_per_ip) was reached for %1%, unable to open new connection")
 				% remote_ip_address.to_string ());
 				this_l->node.logger.try_log (log_message);
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::in);
-				this_l->on_connection_requeue_delayed (std::move (cbk));
+				this_l->accept_connection_requeue_delayed (std::move (cbk));
 				return;
 			}
 
-			if (this_l->limit_reached_for_incoming_subnetwork_connections (new_connection))
+			if (this_l->limit_reached_for_incoming_subnetwork_connections (accepted_connection))
 			{
-				auto const remote_ip_address = new_connection->remote_endpoint ().address ();
+				auto const remote_ip_address = accepted_connection->remote_endpoint ().address ();
 				debug_assert (remote_ip_address.is_v6 ());
 				auto const remote_subnet = socket_functions::get_ipv6_subnet_address (remote_ip_address.to_v6 (), this_l->node.network_params.network.max_peers_per_subnetwork);
 				auto const log_message = boost::str (
@@ -447,47 +571,79 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 				% remote_ip_address.to_string ());
 				this_l->node.logger.try_log (log_message);
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_subnetwork, nano::stat::dir::in);
-				this_l->on_connection_requeue_delayed (std::move (cbk));
+				this_l->accept_connection_requeue_delayed (std::move (cbk));
 				return;
 			}
 
-			if (!ec_a)
+			if (ec_a)
 			{
-				// Make sure the new connection doesn't idle. Note that in most cases, the callback is going to start
-				// an IO operation immediately, which will start a timer.
-				new_connection->checkup ();
-				new_connection->set_timeout (this_l->node.network_params.network.idle_timeout);
-				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
-				this_l->connections_per_address.emplace (new_connection->remote.address (), new_connection);
-				if (cbk (new_connection, ec_a))
+				// accept error
+				this_l->node.logger.try_log ("Network: Unable to accept connection: ", ec_a.message ());
+				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
+
+				if (is_temporary_error (ec_a))
 				{
-					this_l->on_connection (std::move (cbk));
+					// if it is a temporary error, just retry it
+					this_l->accept_connection_requeue_delayed (std::move (cbk));
 					return;
 				}
+
+				// if it is not a temporary error, check how the listener wants to handle this error
+				if (cbk (accepted_connection, ec_a))
+				{
+					this_l->accept_connection_requeue_delayed (std::move (cbk));
+					return;
+				}
+
+				// No requeue if we reach here, no incoming socket connections will be handled
 				this_l->node.logger.always_log ("Network: Stopping to accept connections");
 				return;
 			}
 
-			// accept error
-			this_l->node.logger.try_log ("Network: Unable to accept connection: ", ec_a.message ());
-			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
+			// Make sure the new connection doesn't idle. Note that in most cases, the callback is going to start
+			// an IO operation immediately, which will start a timer.
+			accepted_connection->checkup ();
+			accepted_connection->set_timeout (this_l->node.network_params.network.idle_timeout);
+			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
+			this_l->connections_per_address.emplace (accepted_connection->remote.address (), accepted_connection);
 
-			if (is_temporary_error (ec_a))
+			if (!this_l->node.network_params.network.ssl_support_enabled)
 			{
-				// if it is a temporary error, just retry it
-				this_l->on_connection_requeue_delayed (std::move (cbk));
-				return;
+				if (cbk (accepted_connection, ec_a))
+				{
+					this_l->accept_connection (std::move (cbk));
+					return;
+				}
+				this_l->node.logger.always_log ("Network: Stopping to accept connections");
 			}
-
-			// if it is not a temporary error, check how the listener wants to handle this error
-			if (cbk (new_connection, ec_a))
+			else
 			{
-				this_l->on_connection_requeue_delayed (std::move (cbk));
-				return;
+				debug_assert (this_l->strand.running_in_this_thread ());
+				accepted_connection->ssl_handshake_accept (
+				boost::asio::bind_executor (accepted_connection->strand,
+				[this_l, accepted_connection, cbk] (boost::system::error_code const & ec_a) {
+					debug_assert (accepted_connection->strand.running_in_this_thread ());
+					debug_assert (!ec_a);
+					if (cbk (accepted_connection, ec_a))
+					{
+						this_l->accept_connection (std::move (cbk));
+						return;
+					}
+					this_l->node.logger.always_log ("Network: Stopping to accept connections");
+				}));
 			}
+		};
 
-			// No requeue if we reach here, no incoming socket connections will be handled
-			this_l->node.logger.always_log ("Network: Stopping to accept connections");
+		auto new_connection = std::make_shared<nano::socket> (this_l->node, endpoint_type_t::server);
+		if (this_l->node.network_params.network.ssl_support_enabled)
+		{
+			new_connection->ssl_initialize (new_connection->tcp_socket);
+		}
+
+		this_l->acceptor.async_accept (new_connection->tcp_socket, new_connection->remote,
+		boost::asio::bind_executor (this_l->strand,
+		[this_l, new_connection, callback = std::move (callback_l), on_accept_connection_cb = std::move (on_accept_connection)] (boost::system::error_code const & ec_a) {
+			on_accept_connection_cb (new_connection, ec_a, callback);
 		}));
 	}));
 }
@@ -495,11 +651,11 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 // If we are unable to accept a socket, for any reason, we wait just a little (1ms) before rescheduling the next connection accept.
 // The intention is to throttle back the connection requests and break up any busy loops that could possibly form and
 // give the rest of the system a chance to recover.
-void nano::server_socket::on_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const &, boost::system::error_code const &)> callback_a)
+void nano::server_socket::accept_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const &, boost::system::error_code const &)> callback_a)
 {
 	auto this_l (std::static_pointer_cast<nano::server_socket> (shared_from_this ()));
 	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (1), [this_l, callback = std::move (callback_a)] () mutable {
-		this_l->on_connection (std::move (callback));
+		this_l->accept_connection (std::move (callback));
 	});
 }
 

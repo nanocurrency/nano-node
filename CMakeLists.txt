@@ -613,13 +613,14 @@ if(NANO_TEST OR RAIBLOCKS_TEST)
 
   add_subdirectory(nano/test_common)
   add_subdirectory(nano/core_test)
+  add_subdirectory(nano/ssl_test)
   add_subdirectory(nano/rpc_test)
   add_subdirectory(nano/slow_test)
   add_custom_target(
     build_tests
     COMMAND echo "BATCH BUILDING TESTS"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    DEPENDS core_test load_test rpc_test nano_node nano_rpc)
+    DEPENDS core_test load_test ssl_test rpc_test nano_node nano_rpc)
   add_custom_target(
     run_tests
     COMMAND ${PROJECT_SOURCE_DIR}/ci/test.sh ${CMAKE_BINARY_DIR}
@@ -633,13 +634,13 @@ if(NANO_TEST OR RAIBLOCKS_TEST)
       quick_tests
       COMMAND echo "BATCH QUICK TESTS"
       WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-      DEPENDS core_test rpc_test qt_test)
+      DEPENDS core_test ssl_test rpc_test qt_test)
   else()
     add_custom_target(
       quick_tests
       COMMAND echo "BATCH QUICK TESTS -- qt_test is disabled"
       WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-      DEPENDS core_test rpc_test)
+      DEPENDS core_test ssl_test rpc_test)
   endif()
 endif()
 

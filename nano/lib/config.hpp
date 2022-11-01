@@ -210,7 +210,8 @@ public:
 		max_peers_per_ip (default_max_peers_per_ip),
 		max_peers_per_subnetwork (default_max_peers_per_ip * 4),
 		ipv6_subnetwork_prefix_for_limiting (64), // Equivalent to network prefix /64.
-		peer_dump_interval (std::chrono::seconds (5 * 60))
+		peer_dump_interval (std::chrono::seconds (5 * 60)),
+		ssl_support_enabled{ false }
 	{
 		if (is_live_network ())
 		{
@@ -278,6 +279,8 @@ public:
 	size_t max_peers_per_subnetwork;
 	size_t ipv6_subnetwork_prefix_for_limiting;
 	std::chrono::seconds peer_dump_interval;
+	/** Enables secure communication SSL/TLS */
+	bool ssl_support_enabled;
 
 	/** Returns the network this object contains values for */
 	nano::networks network () const

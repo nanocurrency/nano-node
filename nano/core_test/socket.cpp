@@ -34,7 +34,7 @@ TEST (socket, max_connections)
 
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::socket>> server_sockets;
-	server_socket->on_connection ([&server_sockets] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
+	server_socket->accept_connection ([&server_sockets] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
 		server_sockets.push_back (new_connection);
 		return true;
 	});
@@ -130,7 +130,7 @@ TEST (socket, max_connections_per_ip)
 
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::socket>> server_sockets;
-	server_socket->on_connection ([&server_sockets] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
+	server_socket->accept_connection ([&server_sockets] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
 		server_sockets.push_back (new_connection);
 		return true;
 	});
@@ -252,7 +252,7 @@ TEST (socket, max_connections_per_subnetwork)
 
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::socket>> server_sockets;
-	server_socket->on_connection ([&server_sockets] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
+	server_socket->accept_connection ([&server_sockets] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
 		server_sockets.push_back (new_connection);
 		return true;
 	});
@@ -315,7 +315,7 @@ TEST (socket, disabled_max_peers_per_ip)
 
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::socket>> server_sockets;
-	server_socket->on_connection ([&server_sockets] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
+	server_socket->accept_connection ([&server_sockets] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
 		server_sockets.push_back (new_connection);
 		return true;
 	});
@@ -378,7 +378,7 @@ TEST (socket, disconnection_of_silent_connections)
 
 	// on a connection, a server data socket is created. The shared pointer guarantees the object's lifecycle until the end of this test.
 	std::shared_ptr<nano::socket> server_data_socket;
-	server_socket->on_connection ([&server_data_socket] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
+	server_socket->accept_connection ([&server_data_socket] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
 		server_data_socket = new_connection;
 		return true;
 	});
@@ -431,7 +431,7 @@ TEST (socket, drop_policy)
 		ASSERT_FALSE (ec);
 
 		// Accept connection, but don't read so the writer will drop.
-		server_socket->on_connection ([&connections] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
+		server_socket->accept_connection ([&connections] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
 			connections.push_back (new_connection);
 			return true;
 		});
@@ -532,10 +532,10 @@ TEST (socket, concurrent_writes)
 	std::vector<std::shared_ptr<nano::socket>> connections;
 
 	// On every new connection, start reading data
-	server_socket->on_connection ([&connections, &reader] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
+	server_socket->accept_connection ([&connections, &reader] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
 		if (ec_a)
 		{
-			std::cerr << "on_connection: " << ec_a.message () << std::endl;
+			std::cerr << "accept_connection: " << ec_a.message () << std::endl;
 		}
 		else
 		{

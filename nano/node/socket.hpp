@@ -3,7 +3,9 @@
 #include <nano/boost/asio/ip/tcp.hpp>
 #include <nano/boost/asio/strand.hpp>
 #include <nano/lib/asio.hpp>
+#include <nano/node/ssl/ssl_classes.hpp>
 
+#include <boost/asio/ssl.hpp>
 #include <boost/optional.hpp>
 
 #include <chrono>
@@ -117,7 +119,22 @@ protected:
 	};
 
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
+
+private:
 	boost::asio::ip::tcp::socket tcp_socket;
+
+	/** SSL/TLS require a specific stream and a validation function */
+	std::unique_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket &>> ssl_stream;
+	std::unique_ptr<nano::ssl::ssl_manual_validation_ensurer> ssl_ensurer;
+
+protected:
+	/** SSL/TLS initialization function -- should be called only for secure connections */
+	void ssl_initialize (boost::asio::ip::tcp::socket & tcp_socket);
+
+	/** SSL/TLS functions for the handshake step (after connection is established) */
+	void ssl_handshake_start (std::function<void (boost::system::error_code const &)> callback_a);
+	void ssl_handshake_accept (std::function<void (boost::system::error_code const &)> callback_a);
+
 	nano::node & node;
 
 	/** The other end of the connection */
@@ -201,8 +218,10 @@ public:
 	void start (boost::system::error_code &);
 	/** Stop accepting new connections */
 	void close () override;
+
+public:
 	/** Register callback for new connections. The callback must return true to keep accepting new connections. */
-	void on_connection (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);
+	void accept_connection (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)> callback_a);
 	uint16_t listening_port ()
 	{
 		return acceptor.local_endpoint ().port ();
@@ -214,7 +233,7 @@ private:
 	boost::asio::ip::tcp::endpoint local;
 	std::size_t max_inbound_connections;
 	void evict_dead_connections ();
-	void on_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);
+	void accept_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)> callback_a);
 	/** Checks whether the maximum number of connections per IP was reached. If so, it returns true. */
 	bool limit_reached_for_incoming_ip_connections (std::shared_ptr<nano::socket> const & new_connection);
 	bool limit_reached_for_incoming_subnetwork_connections (std::shared_ptr<nano::socket> const & new_connection);

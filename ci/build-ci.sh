@@ -1,6 +1,7 @@
 #!/bin/bash
 
 qt_dir=${1}
+openssl_root_dir=${2:-}
 
 set -o errexit
 set -o nounset
@@ -38,6 +39,10 @@ if [[ "$OS" == 'Linux' ]]; then
     fi
 else
     BACKTRACE=""
+fi
+
+if [[ -n "${openssl_root_dir}" ]]; then
+    export OPENSSL_ROOT_DIR=${openssl_root_dir}
 fi
 
 cmake \
