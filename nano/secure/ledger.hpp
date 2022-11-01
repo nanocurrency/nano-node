@@ -28,8 +28,19 @@ class ledger final
 {
 public:
 	ledger (nano::store &, nano::stat &, nano::ledger_constants & constants, nano::generate_cache const & = nano::generate_cache ());
+	/**
+	 * Return account containing hash, expects that block hash exists in ledger
+	 */
 	nano::account account (nano::transaction const &, nano::block_hash const &) const;
+	/**
+	 * For non-prunning nodes same as `ledger::account()`
+	 * For prunning nodes ensures that block hash exists, otherwise returns zero account
+	 */
 	nano::account account_safe (nano::transaction const &, nano::block_hash const &, bool &) const;
+	/**
+	 * Return account containing hash, returns zero account if account can not be found
+	 */
+	nano::account account_safe (nano::transaction const &, nano::block_hash const &) const;
 	nano::uint128_t amount (nano::transaction const &, nano::account const &);
 	nano::uint128_t amount (nano::transaction const &, nano::block_hash const &);
 	/** Safe for previous block, but block hash_a must exist */

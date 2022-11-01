@@ -72,9 +72,9 @@ bool nano::message_header::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-std::string nano::to_string (nano::message_type message_type_l)
+std::string nano::to_string (nano::message_type type)
 {
-	switch (message_type_l)
+	switch (type)
 	{
 		case nano::message_type::invalid:
 			return "invalid";
@@ -102,15 +102,19 @@ std::string nano::to_string (nano::message_type message_type_l)
 			return "telemetry_req";
 		case nano::message_type::telemetry_ack:
 			return "telemetry_ack";
+		case nano::message_type::asc_pull_req:
+			return "asc_pull_req";
+		case nano::message_type::asc_pull_ack:
+			return "asc_pull_ack";
 			// default case intentionally omitted to cause warnings for unhandled enums
 	}
 
 	return "n/a";
 }
 
-nano::stat::detail nano::to_stat_detail (nano::message_type message_type)
+nano::stat::detail nano::to_stat_detail (nano::message_type type)
 {
-	switch (message_type)
+	switch (type)
 	{
 		case nano::message_type::invalid:
 			return nano::stat::detail::invalid;
@@ -138,6 +142,10 @@ nano::stat::detail nano::to_stat_detail (nano::message_type message_type)
 			return nano::stat::detail::telemetry_req;
 		case nano::message_type::telemetry_ack:
 			return nano::stat::detail::telemetry_ack;
+		case nano::message_type::asc_pull_req:
+			return nano::stat::detail::asc_pull_req;
+		case nano::message_type::asc_pull_ack:
+			return nano::stat::detail::asc_pull_ack;
 			// default case intentionally omitted to cause warnings for unhandled enums
 	}
 	debug_assert (false);
@@ -304,6 +312,14 @@ std::size_t nano::message_header::payload_length_bytes () const
 		{
 			return nano::telemetry_ack::size (*this);
 		}
+		case nano::message_type::asc_pull_req:
+		{
+			return nano::asc_pull_req::size (*this);
+		}
+		case nano::message_type::asc_pull_ack:
+		{
+			return nano::asc_pull_ack::size (*this);
+		}
 		default:
 		{
 			debug_assert (false);
@@ -327,6 +343,8 @@ bool nano::message_header::is_valid_message_type () const
 		case nano::message_type::confirm_req:
 		case nano::message_type::node_id_handshake:
 		case nano::message_type::telemetry_ack:
+		case nano::message_type::asc_pull_req:
+		case nano::message_type::asc_pull_ack:
 		{
 			return true;
 		}
@@ -362,6 +380,11 @@ std::shared_ptr<std::vector<uint8_t>> nano::message::to_bytes () const
 nano::shared_const_buffer nano::message::to_shared_const_buffer () const
 {
 	return shared_const_buffer (to_bytes ());
+}
+
+nano::message_type nano::message::type () const
+{
+	return header.type;
 }
 
 /*
@@ -1596,4 +1619,321 @@ std::size_t nano::node_id_handshake::size (nano::message_header const & header_a
 		result += sizeof (nano::account) + sizeof (nano::signature);
 	}
 	return result;
+}
+
+/*
+ * asc_pull_req
+ */
+
+nano::asc_pull_req::asc_pull_req (const nano::network_constants & constants) :
+	message (constants, nano::message_type::asc_pull_req)
+{
+}
+
+nano::asc_pull_req::asc_pull_req (bool & error, nano::stream & stream, const nano::message_header & header) :
+	message (header)
+{
+	error = deserialize (stream);
+}
+
+void nano::asc_pull_req::visit (nano::message_visitor & visitor) const
+{
+	visitor.asc_pull_req (*this);
+}
+
+void nano::asc_pull_req::serialize (nano::stream & stream) const
+{
+	header.serialize (stream);
+	nano::write (stream, type);
+	nano::write_big_endian (stream, id);
+
+	serialize_payload (stream);
+}
+
+bool nano::asc_pull_req::deserialize (nano::stream & stream)
+{
+	debug_assert (header.type == nano::message_type::asc_pull_req);
+	bool error = false;
+	try
+	{
+		nano::read (stream, type);
+		nano::read_big_endian (stream, id);
+
+		deserialize_payload (stream);
+	}
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+	return error;
+}
+
+void nano::asc_pull_req::serialize_payload (nano::stream & stream) const
+{
+	debug_assert (verify_consistency ());
+
+	std::visit ([&stream] (auto && pld) { pld.serialize (stream); }, payload);
+}
+
+void nano::asc_pull_req::deserialize_payload (nano::stream & stream)
+{
+	switch (type)
+	{
+		case asc_pull_type::blocks:
+		{
+			blocks_payload pld;
+			pld.deserialize (stream);
+			payload = pld;
+			break;
+		}
+		case asc_pull_type::account_info:
+		{
+			account_info_payload pld;
+			pld.deserialize (stream);
+			payload = pld;
+			break;
+		}
+		default:
+			throw std::runtime_error ("Unknown asc_pull_type");
+	}
+}
+
+void nano::asc_pull_req::update_header ()
+{
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream payload_stream (bytes);
+		serialize_payload (payload_stream);
+	}
+	debug_assert (bytes.size () <= 65535u); // Max int16 for storing size
+	debug_assert (bytes.size () >= 1);
+	header.extensions = std::bitset<16> (bytes.size ());
+}
+
+std::size_t nano::asc_pull_req::size (const nano::message_header & header)
+{
+	uint16_t payload_length = nano::narrow_cast<uint16_t> (header.extensions.to_ulong ());
+	return partial_size + payload_length;
+}
+
+bool nano::asc_pull_req::verify_consistency () const
+{
+	struct consistency_visitor
+	{
+		nano::asc_pull_type type;
+
+		void operator() (empty_payload) const
+		{
+			debug_assert (false, "missing payload");
+		}
+		void operator() (blocks_payload) const
+		{
+			debug_assert (type == asc_pull_type::blocks);
+		}
+		void operator() (account_info_payload) const
+		{
+			debug_assert (type == asc_pull_type::account_info);
+		}
+	};
+	std::visit (consistency_visitor{ type }, payload);
+	return true; // Just for convenience of calling from asserts
+}
+
+/*
+ * asc_pull_req::blocks_payload
+ */
+
+void nano::asc_pull_req::blocks_payload::serialize (nano::stream & stream) const
+{
+	nano::write (stream, start);
+	nano::write (stream, count);
+}
+
+void nano::asc_pull_req::blocks_payload::deserialize (nano::stream & stream)
+{
+	nano::read (stream, start);
+	nano::read (stream, count);
+}
+
+/*
+ * asc_pull_req::account_info_payload
+ */
+
+void nano::asc_pull_req::account_info_payload::serialize (stream & stream) const
+{
+	nano::write (stream, target);
+}
+
+void nano::asc_pull_req::account_info_payload::deserialize (stream & stream)
+{
+	nano::read (stream, target);
+}
+
+/*
+ * asc_pull_ack
+ */
+
+nano::asc_pull_ack::asc_pull_ack (const nano::network_constants & constants) :
+	message (constants, nano::message_type::asc_pull_ack)
+{
+}
+
+nano::asc_pull_ack::asc_pull_ack (bool & error, nano::stream & stream, const nano::message_header & header) :
+	message (header)
+{
+	error = deserialize (stream);
+}
+
+void nano::asc_pull_ack::visit (nano::message_visitor & visitor) const
+{
+	visitor.asc_pull_ack (*this);
+}
+
+void nano::asc_pull_ack::serialize (nano::stream & stream) const
+{
+	debug_assert (header.extensions.to_ulong () > 0); // Block payload must have least `not_a_block` terminator
+	header.serialize (stream);
+	nano::write (stream, type);
+	nano::write_big_endian (stream, id);
+
+	serialize_payload (stream);
+}
+
+bool nano::asc_pull_ack::deserialize (nano::stream & stream)
+{
+	debug_assert (header.type == nano::message_type::asc_pull_ack);
+	bool error = false;
+	try
+	{
+		nano::read (stream, type);
+		nano::read_big_endian (stream, id);
+
+		deserialize_payload (stream);
+	}
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+	return error;
+}
+
+void nano::asc_pull_ack::serialize_payload (nano::stream & stream) const
+{
+	debug_assert (verify_consistency ());
+
+	std::visit ([&stream] (auto && pld) { pld.serialize (stream); }, payload);
+}
+
+void nano::asc_pull_ack::deserialize_payload (nano::stream & stream)
+{
+	switch (type)
+	{
+		case asc_pull_type::blocks:
+		{
+			blocks_payload pld;
+			pld.deserialize (stream);
+			payload = pld;
+			break;
+		}
+		case asc_pull_type::account_info:
+		{
+			account_info_payload pld;
+			pld.deserialize (stream);
+			payload = pld;
+			break;
+		}
+		default:
+			throw std::runtime_error ("Unknown asc_pull_type");
+	}
+}
+
+void nano::asc_pull_ack::update_header ()
+{
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream payload_stream (bytes);
+		serialize_payload (payload_stream);
+	}
+	debug_assert (bytes.size () <= 65535u); // Max int16 for storing size
+	debug_assert (bytes.size () >= 1);
+	header.extensions = std::bitset<16> (bytes.size ());
+}
+
+std::size_t nano::asc_pull_ack::size (const nano::message_header & header)
+{
+	uint16_t payload_length = nano::narrow_cast<uint16_t> (header.extensions.to_ulong ());
+	return partial_size + payload_length;
+}
+
+bool nano::asc_pull_ack::verify_consistency () const
+{
+	struct consistency_visitor
+	{
+		nano::asc_pull_type type;
+
+		void operator() (empty_payload) const
+		{
+			debug_assert (false, "missing payload");
+		}
+		void operator() (blocks_payload) const
+		{
+			debug_assert (type == asc_pull_type::blocks);
+		}
+		void operator() (account_info_payload) const
+		{
+			debug_assert (type == asc_pull_type::account_info);
+		}
+	};
+	std::visit (consistency_visitor{ type }, payload);
+	return true; // Just for convenience of calling from asserts
+}
+
+/*
+ * asc_pull_ack::blocks_payload
+ */
+
+void nano::asc_pull_ack::blocks_payload::serialize (nano::stream & stream) const
+{
+	debug_assert (blocks.size () <= max_blocks);
+	for (auto & block : blocks)
+	{
+		debug_assert (block != nullptr);
+		nano::serialize_block (stream, *block);
+	}
+	// For convenience, end with null block terminator
+	nano::serialize_block_type (stream, nano::block_type::not_a_block);
+}
+
+void nano::asc_pull_ack::blocks_payload::deserialize (nano::stream & stream)
+{
+	auto current = nano::deserialize_block (stream);
+	while (current && blocks.size () < max_blocks)
+	{
+		blocks.push_back (current);
+		current = nano::deserialize_block (stream);
+	}
+}
+
+/*
+ * asc_pull_ack::account_info_payload
+ */
+
+void nano::asc_pull_ack::account_info_payload::serialize (nano::stream & stream) const
+{
+	nano::write (stream, account);
+	nano::write (stream, account_open);
+	nano::write (stream, account_head);
+	nano::write_big_endian (stream, account_block_count);
+	nano::write (stream, account_conf_frontier);
+	nano::write_big_endian (stream, account_conf_height);
+}
+
+void nano::asc_pull_ack::account_info_payload::deserialize (nano::stream & stream)
+{
+	nano::read (stream, account);
+	nano::read (stream, account_open);
+	nano::read (stream, account_head);
+	nano::read_big_endian (stream, account_block_count);
+	nano::read (stream, account_conf_frontier);
+	nano::read_big_endian (stream, account_conf_height);
 }

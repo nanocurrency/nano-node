@@ -643,6 +643,7 @@ class account_store
 public:
 	virtual void put (nano::write_transaction const &, nano::account const &, nano::account_info const &) = 0;
 	virtual bool get (nano::transaction const &, nano::account const &, nano::account_info &) = 0;
+	std::optional<nano::account_info> get (nano::transaction const &, nano::account const &);
 	virtual void del (nano::write_transaction const &, nano::account const &) = 0;
 	virtual bool exists (nano::transaction const &, nano::account const &) = 0;
 	virtual size_t count (nano::transaction const &) = 0;
@@ -732,7 +733,7 @@ public:
 	 *  Ruturns true on error, false on success.
 	 */
 	virtual bool get (nano::transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info & confirmation_height_info_a) = 0;
-
+	std::optional<nano::confirmation_height_info> get (nano::transaction const & transaction_a, nano::account const & account_a);
 	virtual bool exists (nano::transaction const & transaction_a, nano::account const & account_a) const = 0;
 	virtual void del (nano::write_transaction const & transaction_a, nano::account const & account_a) = 0;
 	virtual uint64_t count (nano::transaction const & transaction_a) = 0;

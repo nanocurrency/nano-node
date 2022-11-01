@@ -5,10 +5,12 @@
 #include <nano/lib/work.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/backlog_population.hpp>
+#include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/block_arrival.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
+#include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/election.hpp>
@@ -59,6 +61,7 @@ std::unique_ptr<container_info_component> collect_container_info (rep_crawler & 
 backlog_population::config nodeconfig_to_backlog_population_config (node_config const &);
 vote_cache::config nodeconfig_to_vote_cache_config (node_config const &, node_flags const &);
 hinted_scheduler::config nodeconfig_to_hinted_scheduler_config (node_config const &);
+outbound_bandwidth_limiter::config outbound_bandwidth_limiter_config (node_config const &);
 
 class node final : public std::enable_shared_from_this<nano::node>
 {
@@ -154,9 +157,11 @@ public:
 	nano::gap_cache gap_cache;
 	nano::ledger ledger;
 	nano::signature_checker checker;
+	nano::outbound_bandwidth_limiter outbound_limiter;
 	nano::network network;
 	std::shared_ptr<nano::telemetry> telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;
+	nano::bootstrap_server bootstrap_server;
 	nano::transport::tcp_listener tcp_listener;
 	boost::filesystem::path application_path;
 	nano::node_observers observers;

@@ -273,6 +273,19 @@ namespace test
 	void wait_peer_connections (nano::test::system &);
 
 	/**
+	 * Generate a random block hash
+	 */
+	nano::hash_or_account random_hash_or_account ();
+	/**
+	 * Generate a random block hash
+	 */
+	nano::block_hash random_hash ();
+	/**
+	 * Generate a random block hash
+	 */
+	nano::account random_account ();
+
+	/**
 		Convenience function to call `node::process` function for multiple blocks at once.
 		@return true if all blocks were successfully processed and inserted into ledger
 	 */

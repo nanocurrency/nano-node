@@ -38,6 +38,23 @@ void nano::test::wait_peer_connections (nano::test::system & system_a)
 	wait_peer_count (false);
 }
 
+nano::hash_or_account nano::test::random_hash_or_account ()
+{
+	nano::hash_or_account random_hash;
+	nano::random_pool::generate_block (random_hash.bytes.data (), random_hash.bytes.size ());
+	return random_hash;
+}
+
+nano::block_hash nano::test::random_hash ()
+{
+	return nano::test::random_hash_or_account ().as_block_hash ();
+}
+
+nano::account nano::test::random_account ()
+{
+	return nano::test::random_hash_or_account ().as_account ();
+}
+
 bool nano::test::process (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
 {
 	auto const transaction = node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending });

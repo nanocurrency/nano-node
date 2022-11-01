@@ -31,6 +31,10 @@ extern unsigned char nano_bootstrap_weights_beta[];
 extern std::size_t nano_bootstrap_weights_beta_size;
 }
 
+/*
+ * Configs
+ */
+
 nano::backlog_population::config nano::nodeconfig_to_backlog_population_config (const nano::node_config & config)
 {
 	nano::backlog_population::config cfg;
@@ -52,6 +56,20 @@ nano::hinted_scheduler::config nano::nodeconfig_to_hinted_scheduler_config (cons
 	cfg.vote_cache_check_interval_ms = config.network_params.network.is_dev_network () ? 100u : 1000u;
 	return cfg;
 }
+
+nano::outbound_bandwidth_limiter::config nano::outbound_bandwidth_limiter_config (const nano::node_config & config)
+{
+	outbound_bandwidth_limiter::config cfg;
+	cfg.standard_limit = config.bandwidth_limit;
+	cfg.standard_burst_ratio = config.bandwidth_limit_burst_ratio;
+	cfg.bootstrap_limit = config.bootstrap_bandwidth_limit;
+	cfg.bootstrap_burst_ratio = config.bootstrap_bandwidth_burst_ratio;
+	return cfg;
+}
+
+/*
+ * node
+ */
 
 void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 {
@@ -148,12 +166,14 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	gap_cache (*this),
 	ledger (store, stats, network_params.ledger, flags_a.generate_cache),
 	checker (config.signature_checker_threads),
+	outbound_limiter{ outbound_bandwidth_limiter_config (config) },
 	// empty `config.peering_port` means the user made no port choice at all;
 	// otherwise, any value is considered, with `0` having the special meaning of 'let the OS pick a port instead'
 	//
 	network (*this, config.peering_port.has_value () ? *config.peering_port : 0),
 	telemetry (std::make_shared<nano::telemetry> (network, workers, observers.telemetry, stats, network_params, flags.disable_ongoing_telemetry_requests)),
 	bootstrap_initiator (*this),
+	bootstrap_server{ store, ledger, network_params.network, stats },
 	// BEWARE: `bootstrap` takes `network.port` instead of `config.peering_port` because when the user doesn't specify
 	//         a peering port and wants the OS to pick one, the picking happens when `network` gets initialized
 	//         (if UDP is active, otherwise it happens when `bootstrap` gets initialized), so then for TCP traffic
@@ -749,6 +769,7 @@ void nano::node::start ()
 	final_generator.start ();
 	backlog.start ();
 	hinting.start ();
+	bootstrap_server.start ();
 }
 
 void nano::node::stop ()
@@ -775,6 +796,7 @@ void nano::node::stop ()
 		{
 			websocket_server->stop ();
 		}
+		bootstrap_server.stop ();
 		bootstrap_initiator.stop ();
 		tcp_listener.stop ();
 		port_mapping.stop ();
@@ -1500,7 +1522,7 @@ void nano::node::set_bandwidth_params (std::size_t limit, double ratio)
 {
 	config.bandwidth_limit_burst_ratio = ratio;
 	config.bandwidth_limit = limit;
-	network.set_bandwidth_params (limit, ratio);
+	outbound_limiter.reset (limit, ratio);
 	logger.always_log (boost::str (boost::format ("set_bandwidth_params(%1%, %2%)") % limit % ratio));
 }
 
