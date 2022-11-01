@@ -87,7 +87,7 @@ nano::bootstrap::bootstrap_ascending::account_sets::account_sets (nano::stat & s
 
 void nano::bootstrap::bootstrap_ascending::account_sets::dump () const
 {
-	std::cerr << boost::str (boost::format ("Forwarding: %1%   blocking: %2%\n") % forwarding.size () % blocking.size ());
+	std::cerr << boost::str (boost::format ("Blocking: %2%\n") % blocking.size ());
 	std::deque<size_t> weight_counts;
 	for (auto & [account, count] : backoff)
 	{
@@ -120,12 +120,6 @@ std::string nano::bootstrap::bootstrap_ascending::account_sets::to_string () con
 		ss << boost::str (boost::format ("%1% (%2%) hash=%3%\n") % account.to_account () % account.to_string () % hash.to_string ());
 	}
 
-	ss << boost::str (boost::format ("Forwarding (size=%1%)\n") % forwarding.size ());
-	for (auto & account : forwarding)
-	{
-		ss << "  " << account.to_account () << ", " << account.to_string () << "\n";
-	}
-
 	ss << boost::str (boost::format ("Backoff (size=%1%)\n") % backoff.size ());
 	for (auto & [account, weight] : backoff)
 	{
@@ -141,7 +135,6 @@ void nano::bootstrap::bootstrap_ascending::account_sets::prioritize (nano::accou
 	{
 		stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::prioritize);
 
-		forwarding.insert (account);
 		auto iter = backoff.find (account);
 		if (iter == backoff.end ())
 		{
@@ -159,7 +152,6 @@ void nano::bootstrap::bootstrap_ascending::account_sets::block (nano::account co
 	stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::block);
 
 	backoff.erase (account);
-	forwarding.erase (account);
 	blocking[account] = dependency;
 }
 
@@ -226,20 +218,8 @@ nano::account nano::bootstrap::bootstrap_ascending::account_sets::random ()
 nano::account nano::bootstrap::bootstrap_ascending::account_sets::next ()
 {
 	nano::account result;
-	if (!forwarding.empty ())
-	{
-		stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::next_forwarding);
-
-		auto iter = forwarding.begin ();
-		result = *iter;
-		forwarding.erase (iter);
-	}
-	else
-	{
-		stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::next_random);
-
-		result = random ();
-	}
+	stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::next_random);
+	result = random ();
 	backoff[result] += 1.0f;
 	return result;
 }
@@ -251,18 +231,16 @@ bool nano::bootstrap::bootstrap_ascending::account_sets::blocked (nano::account 
 
 nano::bootstrap::bootstrap_ascending::account_sets::backoff_info_t nano::bootstrap::bootstrap_ascending::account_sets::backoff_info () const
 {
-	return { forwarding, blocking, backoff };
+	return { blocking, backoff };
 }
 
 std::unique_ptr<nano::container_info_component> nano::bootstrap::bootstrap_ascending::account_sets::collect_container_info (const std::string & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
-	auto info1 = container_info{ "forwarding", forwarding.size (), sizeof (decltype (forwarding)::value_type) };
+	auto info1 = container_info{ "blocking", blocking.size (), sizeof (decltype (blocking)::value_type) };
 	composite->add_component (std::make_unique<container_info_leaf> (info1));
-	auto info2 = container_info{ "blocking", blocking.size (), sizeof (decltype (blocking)::value_type) };
+	auto info2 = container_info{ "backoff", backoff.size (), sizeof (decltype (backoff)::value_type) };
 	composite->add_component (std::make_unique<container_info_leaf> (info2));
-	auto info3 = container_info{ "backoff", backoff.size (), sizeof (decltype (backoff)::value_type) };
-	composite->add_component (std::make_unique<container_info_leaf> (info3));
 	return composite;
 }
 

@@ -5247,7 +5247,7 @@ void nano::json_handler::backoff_info ()
 		auto ascending = node.bootstrap_initiator.current_ascending_attempt ();
 		if (ascending)
 		{
-			auto [forwarding, blocking, backoffs] = ascending->backoff_info ();
+			auto [blocking, backoffs] = ascending->backoff_info ();
 
 			// backoff
 			{
@@ -5257,17 +5257,6 @@ void nano::json_handler::backoff_info ()
 					response_backoffs.put (account.to_account (), backoff);
 				}
 				response_l.add_child ("backoff", response_backoffs);
-			}
-			// forwarding
-			{
-				boost::property_tree::ptree response_forwarding;
-				for (auto const & account : forwarding)
-				{
-					boost::property_tree::ptree entry;
-					entry.put ("", account.to_account ());
-					response_forwarding.push_back (std::make_pair ("", entry));
-				}
-				response_l.add_child ("forwarding", response_forwarding);
 			}
 			// blocking
 			{
