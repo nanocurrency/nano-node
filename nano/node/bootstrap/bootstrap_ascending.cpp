@@ -7,7 +7,7 @@
 
 using namespace std::chrono_literals;
 
-bool nano::bootstrap::bootstrap_ascending::optimistic_pulling = false;
+bool nano::bootstrap::bootstrap_ascending::optimistic_pulling = true;
 
 nano::bootstrap::bootstrap_ascending::connection_pool::connection_pool (nano::bootstrap::bootstrap_ascending & bootstrap) :
 	bootstrap{ bootstrap }
@@ -80,28 +80,26 @@ bool nano::bootstrap::bootstrap_ascending::connection_pool::operator() (std::sha
 	return false;
 }
 
-nano::bootstrap::bootstrap_ascending::account_sets::account_sets (nano::stat & stats_a) :
-	stats{ stats_a }
+nano::bootstrap::bootstrap_ascending::account_sets::account_sets (nano::stat & stats_a, nano::store & store) :
+	stats{ stats_a },
+	store{ store }
 {
 }
 
 void nano::bootstrap::bootstrap_ascending::account_sets::dump () const
 {
-	std::cerr << boost::str (boost::format ("Blocking: %2%\n") % blocking.size ());
+	std::cerr << boost::str (boost::format ("Blocking: %1%\n") % blocking.size ());
 	std::deque<size_t> weight_counts;
-	for (auto & [account, count] : backoff)
+	for (auto const & [account, count] : priorities)
 	{
-		auto log = std::log2 (std::max<decltype (count)> (count, 1));
-		// std::cerr << "log: " << log << ' ';
-		auto index = static_cast<size_t> (log);
-		if (weight_counts.size () <= index)
+		if (weight_counts.size () <= count)
 		{
-			weight_counts.resize (index + 1);
+			weight_counts.resize (count + 1);
 		}
-		++weight_counts[index];
+		++weight_counts[count];
 	}
 	std::string output;
-	output += "Backoff hist (size: " + std::to_string (backoff.size ()) + "): ";
+	output += "Priorities hist (size: " + std::to_string (priorities.size ()) + "): ";
 	for (size_t i = 0, n = weight_counts.size (); i < n; ++i)
 	{
 		output += std::to_string (weight_counts[i]) + ' ';
@@ -115,13 +113,14 @@ std::string nano::bootstrap::bootstrap_ascending::account_sets::to_string () con
 	std::stringstream ss;
 
 	ss << boost::str (boost::format ("Blocked (size=%1%)\n") % blocking.size ());
-	for (auto & [account, hash] : blocking)
+	for (auto & [account, data] : blocking)
 	{
-		ss << boost::str (boost::format ("%1% (%2%) hash=%3%\n") % account.to_account () % account.to_string () % hash.to_string ());
+		auto & [hash, count] = data;
+		ss << boost::str (boost::format ("%1% (%2%) hash=%3% count %4%\n") % account.to_account () % account.to_string () % hash.to_string () % std::to_string (count));
 	}
 
-	ss << boost::str (boost::format ("Backoff (size=%1%)\n") % backoff.size ());
-	for (auto & [account, weight] : backoff)
+	ss << boost::str (boost::format ("Priorities (size=%1%)\n") % priorities.size ());
+	for (auto & [account, weight] : priorities)
 	{
 		ss << boost::str (boost::format ("%1% (%2%) weight=%3%\n") % account.to_account () % account.to_string () % weight);
 	}
@@ -129,16 +128,20 @@ std::string nano::bootstrap::bootstrap_ascending::account_sets::to_string () con
 	return ss.str ();
 }
 
-void nano::bootstrap::bootstrap_ascending::account_sets::prioritize (nano::account const & account, float priority)
+void nano::bootstrap::bootstrap_ascending::account_sets::priority_up (nano::account const & account)
 {
 	if (blocking.count (account) == 0)
 	{
 		stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::prioritize);
 
-		auto iter = backoff.find (account);
-		if (iter == backoff.end ())
+		auto iter = priorities.find (account);
+		if (iter != priorities.end ())
 		{
-			backoff.emplace (account, priority);
+			iter->second += 1.0f;
+		}
+		else
+		{
+			priorities[account] = 2.0f;
 		}
 	}
 	else
@@ -147,23 +150,40 @@ void nano::bootstrap::bootstrap_ascending::account_sets::prioritize (nano::accou
 	}
 }
 
+void nano::bootstrap::bootstrap_ascending::account_sets::priority_down (nano::account const & account)
+{
+	auto iter = priorities.find (account);
+	if (iter != priorities.end ())
+	{
+		if (iter->second < 4.0f)
+		{
+			priorities.erase (iter);
+		}
+		else
+		{
+			iter->second /= 2.0f;
+		}
+	}
+}
+
 void nano::bootstrap::bootstrap_ascending::account_sets::block (nano::account const & account, nano::block_hash const & dependency)
 {
 	stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::block);
-
-	backoff.erase (account);
-	blocking[account] = dependency;
+	auto existing = priorities.find (account);
+	auto count = existing == priorities.end () ? 1.0f : existing->second;
+	priorities.erase (account);
+	blocking[account] = std::make_pair (dependency, count);
 }
 
 void nano::bootstrap::bootstrap_ascending::account_sets::unblock (nano::account const & account, nano::block_hash const & hash)
 {
+	auto existing = blocking.find (account);
 	// Unblock only if the dependency is fulfilled
-	if (blocking.count (account) > 0 && blocking[account] == hash)
+	if (existing != blocking.end () && existing->second.first == hash)
 	{
 		stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::unblock);
-
+		priorities[account] = existing->second.second;
 		blocking.erase (account);
-		backoff[account] = 0.0f;
 	}
 	else
 	{
@@ -174,40 +194,78 @@ void nano::bootstrap::bootstrap_ascending::account_sets::unblock (nano::account 
 void nano::bootstrap::bootstrap_ascending::account_sets::force_unblock (const nano::account & account)
 {
 	blocking.erase (account);
-	backoff[account] = 0.0f;
-}
-
-std::vector<double> nano::bootstrap::bootstrap_ascending::account_sets::probability_transform (std::vector<decltype (backoff)::mapped_type> const & attempts) const
-{
-	std::vector<double> result;
-	result.reserve (attempts.size ());
-	for (auto i = attempts.begin (), n = attempts.end (); i != n; ++i)
-	{
-		result.push_back (1.0 / std::pow (2.0, *i));
-	}
-	return result;
 }
 
 nano::account nano::bootstrap::bootstrap_ascending::account_sets::random ()
 {
-	debug_assert (!backoff.empty ());
-	std::vector<decltype (backoff)::mapped_type> attempts;
+	std::vector<decltype (priorities)::mapped_type> weights;
 	std::vector<nano::account> candidates;
-	while (candidates.size () < account_sets::backoff_exclusion)
 	{
-		debug_assert (candidates.size () == attempts.size ());
-		nano::account search;
-		nano::random_pool::generate_block (search.bytes.data (), search.bytes.size ());
-		auto iter = backoff.lower_bound (search);
-		if (iter == backoff.end ())
+		while (!priorities.empty () && candidates.size () < account_sets::backoff_exclusion)
 		{
-			iter = backoff.begin ();
+			debug_assert (candidates.size () == weights.size ());
+			nano::account search;
+			nano::random_pool::generate_block (search.bytes.data (), search.bytes.size ());
+			auto iter = priorities.lower_bound (search);
+			if (iter == priorities.end ())
+			{
+				iter = priorities.begin ();
+			}
+			candidates.push_back (iter->first);
+			weights.push_back (iter->second);
 		}
-		auto const [account, count] = *iter;
-		attempts.push_back (count);
-		candidates.push_back (account);
+		auto tx = store.tx_begin_read ();
+		do
+		{
+			nano::account search;
+			nano::random_pool::generate_block (search.bytes.data (), search.bytes.size ());
+			if (nano::random_pool::generate_byte () & 0x1)
+			{
+				nano::account_info info;
+				auto iter = store.account.begin (tx, search);
+				if (iter == store.account.end ())
+				{
+					iter = store.account.begin (tx);
+				}
+				candidates.push_back (iter->first);
+				weights.push_back (1.0f);
+			}
+			else
+			{
+				nano::pending_info info;
+				auto iter = store.pending.begin (tx, nano::pending_key{ search, 0 });
+				if (iter == store.pending.end ())
+				{
+					iter = store.pending.begin (tx);
+				}
+				if (iter != store.pending.end ())
+				{
+					candidates.push_back (iter->first.account);
+					weights.push_back (1.0f);
+				}
+			}
+		} while (candidates.empty ());
 	}
-	auto weights = probability_transform (attempts);
+	std::string dump;
+	/*dump += "------------\n";
+	for (auto i = 0; i < candidates.size (); ++i)
+	{
+		dump += candidates[i].to_account();
+		dump += " ";
+		dump += std::to_string (weights[i]);
+		dump += "\n";
+	}
+	this->dump ();*/
+	/*dump += "============\n";
+	for (auto i: priorities)
+	{
+		dump += i.first.to_account ();
+		dump += " ";
+		dump += std::to_string (i.second);
+		dump += "\n";
+	}*/
+	std::cerr << dump;
+
 	std::discrete_distribution dist{ weights.begin (), weights.end () };
 	auto selection = dist (rng);
 	debug_assert (!weights.empty () && selection < weights.size ());
@@ -220,7 +278,6 @@ nano::account nano::bootstrap::bootstrap_ascending::account_sets::next ()
 	nano::account result;
 	stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::next_random);
 	result = random ();
-	backoff[result] += 1.0f;
 	return result;
 }
 
@@ -229,9 +286,23 @@ bool nano::bootstrap::bootstrap_ascending::account_sets::blocked (nano::account 
 	return blocking.count (account) > 0;
 }
 
+float nano::bootstrap::bootstrap_ascending::account_sets::priority (nano::account const & account) const
+{
+	if (blocking.find (account) != blocking.end ())
+	{
+		return 0.0f;
+	}
+	auto prioritized = priorities.find (account);
+	if (prioritized == priorities.end ())
+	{
+		return 1.0f;
+	}
+	return prioritized->second;
+}
+
 nano::bootstrap::bootstrap_ascending::account_sets::backoff_info_t nano::bootstrap::bootstrap_ascending::account_sets::backoff_info () const
 {
-	return { blocking, backoff };
+	return { blocking, priorities };
 }
 
 std::unique_ptr<nano::container_info_component> nano::bootstrap::bootstrap_ascending::account_sets::collect_container_info (const std::string & name)
@@ -239,12 +310,13 @@ std::unique_ptr<nano::container_info_component> nano::bootstrap::bootstrap_ascen
 	auto composite = std::make_unique<container_info_composite> (name);
 	auto info1 = container_info{ "blocking", blocking.size (), sizeof (decltype (blocking)::value_type) };
 	composite->add_component (std::make_unique<container_info_leaf> (info1));
-	auto info2 = container_info{ "backoff", backoff.size (), sizeof (decltype (backoff)::value_type) };
+	auto info2 = container_info{ "priorities", priorities.size (), sizeof (decltype (priorities)::value_type) };
 	composite->add_component (std::make_unique<container_info_leaf> (info2));
 	return composite;
 }
 
-nano::bootstrap::bootstrap_ascending::async_tag::async_tag (std::shared_ptr<nano::bootstrap::bootstrap_ascending::thread> thread_a) :
+nano::bootstrap::bootstrap_ascending::async_tag::async_tag (std::shared_ptr<nano::bootstrap::bootstrap_ascending::thread> thread_a, nano::account const & account_a) :
+	account{ account_a },
 	thread_weak{ thread_a },
 	node_weak{ thread_a->bootstrap.node.shared () }
 {
@@ -379,6 +451,7 @@ void nano::bootstrap::bootstrap_ascending::thread::read_block (std::shared_ptr<a
 			% tag->connection ().first->remote_endpoint () % tag->blocks));
 
 			tag->success ();
+			this_l->bootstrap.priority_down (tag->account);
 			return;
 		}
 		// FIXME: temporary measure to get the ascending bootstrapper working on the test network
@@ -433,24 +506,20 @@ void nano::bootstrap::bootstrap_ascending::inspect (nano::transaction const & tx
 			accounts.force_unblock (account);
 			// Forward and initialize backoff value with 0.0 for the current account
 			// 0.0 has the highest priority
-			accounts.prioritize (account, 0.0f);
+			accounts.priority_up (account);
 
 			if (is_send)
 			{
-				// Initialize with value of 1.0 a value of lower priority than an account itselt
-				// This is the same priority as if it had already made 1 attempt.
-				auto const send_factor = 1.0f;
-
 				switch (block.type ())
 				{
 					// Forward and initialize backoff for the referenced account
 					case nano::block_type::send:
 						accounts.unblock (block.destination (), hash);
-						accounts.prioritize (block.destination (), send_factor);
+						accounts.priority_up (block.destination ());
 						break;
 					case nano::block_type::state:
 						accounts.unblock (block.link ().as_account (), hash);
-						accounts.prioritize (block.link ().as_account (), send_factor);
+						accounts.priority_up (block.link ().as_account ());
 						break;
 					default:
 						debug_assert (false);
@@ -496,7 +565,7 @@ nano::bootstrap::bootstrap_ascending::bootstrap_ascending (nano::node & node_a) 
 	node{ node_a },
 	pool{ *this },
 	stats{ node_a.stats }, // TODO: For convenience, once ascending bootstrap is a separate node component, pass via constructor
-	accounts{ node_a.stats }
+	accounts{ node_a.stats, node_a.store }
 {
 	debug_log (boost::str (boost::format ("bootstrap_ascending constructor")));
 }
@@ -515,18 +584,6 @@ nano::bootstrap::bootstrap_ascending::~bootstrap_ascending ()
 void nano::bootstrap::bootstrap_ascending::init ()
 {
 	uint64_t account_count = 0, receivable_count = 0;
-
-	auto tx = node.store.tx_begin_read ();
-	for (auto i = node.store.account.begin (tx), n = node.store.account.end (); i != n; ++i)
-	{
-		accounts.prioritize (i->first, 0.0f);
-		account_count++;
-	}
-	for (auto i = node.store.pending.begin (tx), n = node.store.pending.end (); i != n; ++i)
-	{
-		accounts.prioritize (i->first.key (), 0.0f);
-		receivable_count++;
-	}
 
 	debug_log (boost::str (boost::format ("bootstrap_ascending init: accounts=%1% receivable=%2%")
 	% account_count % receivable_count));
@@ -584,8 +641,8 @@ bool nano::bootstrap::bootstrap_ascending::thread::request_one ()
 	bootstrap.node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_ascending, nano::stat::dir::out);
 
 	auto this_l = shared ();
-	auto tag = std::make_shared<async_tag> (this_l);
 	auto account = pick_account ();
+	auto tag = std::make_shared<async_tag> (this_l, account);
 	nano::hash_or_account start = pick_start (account);
 
 	// pick a connection and send the pull request and setup response processing callback
@@ -616,6 +673,7 @@ void nano::bootstrap::bootstrap_ascending::thread::run ()
 			std::this_thread::sleep_for (delay);
 		}
 	}
+	bootstrap.debug_log (boost::str (boost::format ("Exiting parallelism thread\n")));
 }
 
 auto nano::bootstrap::bootstrap_ascending::thread::shared () -> std::shared_ptr<thread>
@@ -659,9 +717,14 @@ void nano::bootstrap::bootstrap_ascending::run ()
 	debug_log (boost::str (boost::format ("Exiting ascending bootstrap main thread")));
 }
 
-void nano::bootstrap::bootstrap_ascending::prioritize (nano::account const & account_a, float priority_a)
+void nano::bootstrap::bootstrap_ascending::priority_up (nano::account const & account_a)
 {
-	accounts.prioritize (account_a, priority_a);
+	accounts.priority_up (account_a);
+}
+
+void nano::bootstrap::bootstrap_ascending::priority_down (nano::account const & account_a)
+{
+	accounts.priority_down (account_a);
 }
 
 void nano::bootstrap::bootstrap_ascending::get_information (boost::property_tree::ptree &)
@@ -687,6 +750,7 @@ void nano::bootstrap::bootstrap_ascending::start ()
 
 void nano::bootstrap::bootstrap_ascending::stop ()
 {
+	debug_log (boost::str (boost::format ("Stopping attempt %1%\n") % node.network.port.load ()));
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	stopped = true;
 	condition.notify_all ();

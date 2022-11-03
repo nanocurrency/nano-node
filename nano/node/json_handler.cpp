@@ -5261,8 +5261,9 @@ void nano::json_handler::backoff_info ()
 			// blocking
 			{
 				boost::property_tree::ptree response_blocking;
-				for (auto const & [account, dependency] : blocking)
+				for (auto const & [account, data] : blocking)
 				{
+					auto const & [dependency, count] = data;
 					response_blocking.put (account.to_account (), dependency.to_string ());
 				}
 				response_l.add_child ("blocking", response_blocking);

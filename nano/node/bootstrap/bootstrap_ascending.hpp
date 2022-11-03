@@ -25,7 +25,8 @@ namespace bootstrap
 		void run ();
 
 		// Make an account known to ascending bootstrap and set its priority
-		void prioritize (nano::account const & account_a, float priority_a);
+		void priority_up (nano::account const & account_a);
+		void priority_down (nano::account const & account_a);
 
 		void get_information (boost::property_tree::ptree &);
 		std::unique_ptr<nano::container_info_component> collect_container_info (const std::string & name);
@@ -68,12 +69,13 @@ namespace bootstrap
 		class account_sets
 		{
 		public:
-			explicit account_sets (nano::stat &);
+			explicit account_sets (nano::stat &, nano::store & store);
 
 			/**
 			 * If an account is not blocked, then add it to the forwarding set and, additioally, if it does not exist in the backoff set, set the priority.
 			 */
-			void prioritize (nano::account const & account, float priority);
+			void priority_up (nano::account const & account);
+			void priority_down (nano::account const & account);
 			void block (nano::account const & account, nano::block_hash const & dependency);
 			void unblock (nano::account const & account, nano::block_hash const & hash);
 			void force_unblock (nano::account const & account);
@@ -89,31 +91,30 @@ namespace bootstrap
 
 		public:
 			bool blocked (nano::account const & account) const;
+			float priority (nano::account const & account) const;
 
 		private: // Dependencies
 			nano::stat & stats;
+			nano::store & store;
 
 		private:
 			nano::account random ();
 
 			// A blocked account is an account that has failed to insert a block because the source block is gapped.
 			// An account is unblocked once it has a block successfully inserted.
-			std::map<nano::account, nano::block_hash> blocking;
-			// Tracks the number of requests for additional blocks without a block being successfully returned
-			// Each time a block is inserted to an account, this number is reset.
-			std::map<nano::account, float> backoff;
+			// Maps "blocked account" -> ["blocked hash", "Priority count"]
+			std::map<nano::account, std::pair<nano::block_hash, float>> blocking;
+			// Tracks the ongoing account priorities
+			// This only stores account priorities > 1.0f.
+			// Accounts in the ledger but not in this list are assumed priority 1.0f.
+			// Blocked accounts are assumed priority 0.0f
+			std::map<nano::account, float> priorities;
 
 			static size_t constexpr backoff_exclusion = 4;
 			std::default_random_engine rng;
 
-			/**
-				Convert a vector of attempt counts to a probability vector suitable for std::discrete_distribution
-				This implementation applies 1/2^i for each element, effectivly an exponential backoff
-			*/
-			std::vector<double> probability_transform (std::vector<decltype (backoff)::mapped_type> const & attempts) const;
-
 		public:
-			using backoff_info_t = std::tuple<decltype (blocking), decltype (backoff)>; // <blocking, backoff>
+			using backoff_info_t = std::tuple<decltype (blocking), decltype (priorities)>; // <blocking, priorities>
 
 			backoff_info_t backoff_info () const;
 		};
@@ -154,7 +155,7 @@ namespace bootstrap
 		class async_tag : public std::enable_shared_from_this<async_tag>
 		{
 		public:
-			explicit async_tag (std::shared_ptr<nano::bootstrap::bootstrap_ascending::thread> bootstrap);
+			explicit async_tag (std::shared_ptr<nano::bootstrap::bootstrap_ascending::thread> bootstrap, nano::account const & account_a);
 
 			// bootstrap_ascending::thread::requests will be decemented when destroyed.
 			// If success () has been called, the socket will be reused, otherwise it will be abandoned therefore destroyed.
@@ -165,6 +166,7 @@ namespace bootstrap
 
 			// Tracks the number of blocks received from this request
 			std::atomic<int> blocks{ 0 };
+			nano::account const account;
 
 		private:
 			bool success_m{ false };
@@ -189,8 +191,8 @@ namespace bootstrap
 		account_sets accounts;
 		connection_pool pool;
 
-		static std::size_t constexpr parallelism = 16;
-		static std::size_t constexpr request_message_count = 128;
+		static std::size_t constexpr parallelism = 1;
+		static std::size_t constexpr request_message_count = 1;
 
 		std::atomic<int> responses{ 0 };
 		std::atomic<int> requests_total{ 0 };

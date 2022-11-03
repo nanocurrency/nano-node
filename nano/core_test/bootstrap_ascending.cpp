@@ -20,14 +20,20 @@ nano::block_hash random_hash ()
 TEST (account_sets, construction)
 {
 	nano::stat stats;
-	nano::bootstrap::bootstrap_ascending::account_sets sets{ stats };
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	ASSERT_FALSE (store->init_error ());
+	nano::bootstrap::bootstrap_ascending::account_sets sets{ stats, *store };
 }
 
 TEST (account_sets, empty_blocked)
 {
 	nano::account account{ 1 };
 	nano::stat stats;
-	nano::bootstrap::bootstrap_ascending::account_sets sets{ stats };
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	ASSERT_FALSE (store->init_error ());
+	nano::bootstrap::bootstrap_ascending::account_sets sets{ stats, *store };
 	ASSERT_FALSE (sets.blocked (account));
 }
 
@@ -35,7 +41,10 @@ TEST (account_sets, block)
 {
 	nano::account account{ 1 };
 	nano::stat stats;
-	nano::bootstrap::bootstrap_ascending::account_sets sets{ stats };
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	ASSERT_FALSE (store->init_error ());
+	nano::bootstrap::bootstrap_ascending::account_sets sets{ stats, *store };
 	sets.block (account, random_hash ());
 	ASSERT_TRUE (sets.blocked (account));
 }
@@ -44,11 +53,82 @@ TEST (account_sets, unblock)
 {
 	nano::account account{ 1 };
 	nano::stat stats;
-	nano::bootstrap::bootstrap_ascending::account_sets sets{ stats };
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	ASSERT_FALSE (store->init_error ());
+	nano::bootstrap::bootstrap_ascending::account_sets sets{ stats, *store };
 	auto hash = random_hash ();
 	sets.block (account, hash);
 	sets.unblock (account, hash);
 	ASSERT_FALSE (sets.blocked (account));
+}
+
+TEST (account_sets, priority_base)
+{
+	nano::account account{ 1 };
+	nano::stat stats;
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	ASSERT_FALSE (store->init_error ());
+	nano::bootstrap::bootstrap_ascending::account_sets sets{ stats, *store };
+	ASSERT_EQ (1.0f, sets.priority (account));
+}
+
+TEST (account_sets, priority_blocked)
+{
+	nano::account account{ 1 };
+	nano::stat stats;
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	ASSERT_FALSE (store->init_error ());
+	nano::bootstrap::bootstrap_ascending::account_sets sets{ stats, *store };
+	sets.block (account, random_hash ());
+	ASSERT_EQ (0.0f, sets.priority (account));
+}
+
+// When account is unblocked, check that it retains it former priority
+TEST (account_sets, priority_unblock_keep)
+{
+	nano::account account{ 1 };
+	nano::stat stats;
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	ASSERT_FALSE (store->init_error ());
+	nano::bootstrap::bootstrap_ascending::account_sets sets{ stats, *store };
+	sets.priority_up (account);
+	ASSERT_EQ (2.0f, sets.priority (account));
+	auto hash = random_hash ();
+	sets.block (account, hash);
+	ASSERT_EQ (0.0f, sets.priority (account));
+	sets.unblock (account, hash);
+	ASSERT_EQ (2.0f, sets.priority (account));
+}
+
+TEST (account_sets, priority_up_down)
+{
+	nano::account account{ 1 };
+	nano::stat stats;
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	ASSERT_FALSE (store->init_error ());
+	nano::bootstrap::bootstrap_ascending::account_sets sets{ stats, *store };
+	sets.priority_up (account);
+	ASSERT_EQ (2.0f, sets.priority (account));
+	sets.priority_down (account);
+	ASSERT_EQ (1.0f, sets.priority (account));
+}
+
+// Check that priority downward saturates to 1.0f
+TEST (account_sets, priority_down_sat)
+{
+	nano::account account{ 1 };
+	nano::stat stats;
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	ASSERT_FALSE (store->init_error ());
+	nano::bootstrap::bootstrap_ascending::account_sets sets{ stats, *store };
+	sets.priority_down (account);
+	ASSERT_EQ (1.0f, sets.priority (account));
 }
 
 /**
