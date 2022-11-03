@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+
 jobs:
   linux_job:
     runs-on: ubuntu-20.04
@@ -14,11 +15,7 @@ jobs:
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Login to ghcr.io
-        uses: docker/login-action@adb73476b6e06caddec5db0bc1deacbec8cdd947
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GHCR_PAT }}
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
       - name: Deploy Docker (ghcr.io)
         run: ci/actions/linux/ghcr_push.sh
       - name: Deploy Docker (nanocurrency/nano-env)
