@@ -41,7 +41,7 @@ block_list_t setup_chain (nano::test::system & system, nano::node & node, nano::
 
 	EXPECT_TRUE (nano::test::process (node, blocks));
 	// Confirm whole chain at once
-	EXPECT_TRUE (nano::test::confirm (node, { blocks.back () }));
+	EXPECT_TIMELY (5s, nano::test::confirm (node, { blocks.back () }));
 	EXPECT_TIMELY (5s, nano::test::confirmed (node, blocks));
 
 	return blocks;
