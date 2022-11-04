@@ -84,7 +84,7 @@ std::vector<std::pair<nano::account, block_list_t>> setup_chains (nano::test::sy
 
 		// Ensure blocks are in the ledger and confirmed
 		EXPECT_TRUE (nano::test::process (node, { send, open }));
-		EXPECT_TRUE (nano::test::confirm (node, { send, open }));
+		EXPECT_TIMELY (5s, nano::test::confirm (node, { send, open }));
 		EXPECT_TIMELY (5s, nano::test::confirmed (node, { send, open }));
 
 		auto added_blocks = setup_chain (system, node, key, block_count);
