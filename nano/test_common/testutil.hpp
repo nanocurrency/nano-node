@@ -56,13 +56,15 @@
 	}
 
 /** Expects that the condition becomes true within the deadline */
-#define EXPECT_TIMELY(time, condition)             \
-	system.deadline_set (time);                    \
-	std::error_code ec;                            \
-	while (!(condition) && !(ec = system.poll ())) \
-	{                                              \
-	}                                              \
-	EXPECT_NO_ERROR (ec);
+#define EXPECT_TIMELY(time, condition)                  \
+	system.deadline_set (time);                         \
+	{                                                   \
+		std::error_code _ec;                            \
+		while (!(condition) && !(_ec = system.poll ())) \
+		{                                               \
+		}                                               \
+		EXPECT_NO_ERROR (_ec);                          \
+	}
 
 /*
  * Asserts that the `val1 == val2` condition becomes true within the deadline
