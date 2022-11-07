@@ -104,11 +104,30 @@ namespace bootstrap
 			// An account is unblocked once it has a block successfully inserted.
 			// Maps "blocked account" -> ["blocked hash", "Priority count"]
 			std::map<nano::account, std::pair<nano::block_hash, float>> blocking;
+			class priority_t
+			{
+			public:
+				nano::account account;
+				float priority;
+			};
+			class tag_hash
+			{
+			};
+			class tag_priority
+			{
+			};
 			// Tracks the ongoing account priorities
 			// This only stores account priorities > 1.0f.
 			// Accounts in the ledger but not in this list are assumed priority 1.0f.
 			// Blocked accounts are assumed priority 0.0f
-			std::map<nano::account, float> priorities;
+			boost::multi_index_container<priority_t,
+			boost::multi_index::indexed_by<
+			boost::multi_index::ordered_unique<boost::multi_index::tag<tag_hash>,
+			boost::multi_index::member<priority_t, nano::account, &priority_t::account>>,
+			boost::multi_index::ordered_non_unique<boost::multi_index::tag<tag_priority>,
+			boost::multi_index::member<priority_t, float, &priority_t::priority>>>>
+			priorities;
+			static size_t const priorities_max = 65536;
 
 			static size_t constexpr backoff_exclusion = 2;
 			std::default_random_engine rng;
