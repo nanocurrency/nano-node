@@ -796,6 +796,12 @@ bool nano::publish::operator== (nano::publish const & other_a) const
 	return *block == *other_a.block;
 }
 
+std::string nano::publish::to_string () const
+{
+	return block->to_json ();
+}
+
+
 /*
  * confirm_req
  */

@@ -181,6 +181,7 @@ public:
 	bool operator== (nano::publish const &) const;
 	std::shared_ptr<nano::block> block;
 	nano::uint128_t digest{ 0 };
+	std::string to_string () const;
 };
 
 class confirm_req final : public message
