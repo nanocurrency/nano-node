@@ -1250,6 +1250,11 @@ void nano::telemetry_req::visit (nano::message_visitor & visitor_a) const
 	visitor_a.telemetry_req (*this);
 }
 
+std::string nano::telemetry_req::to_string () const
+{
+	return header.to_string ();
+}
+
 /*
  * telemetry_ack
  */
