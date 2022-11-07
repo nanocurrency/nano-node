@@ -987,6 +987,11 @@ std::size_t nano::confirm_ack::size (std::size_t count)
 	return result;
 }
 
+std::string nano::confirm_ack::to_string () const
+{
+	return vote->account.to_string ();
+}
+
 /*
  * frontier_req
  */

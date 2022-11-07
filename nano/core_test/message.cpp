@@ -269,6 +269,21 @@ TEST (confirm_ack, empty_vote_hashes)
 	nano::confirm_ack message{ nano::dev::network_params.network, vote };
 }
 
+TEST (message, confirm_ack_to_string)
+{
+	nano::vote vote = nano::vote ();
+	nano::account start = nano::account (12345678987564312);
+	vote.account = start;
+
+	std::shared_ptr vote_ptr = std::make_shared<nano::vote> (vote);
+
+	nano::work_thresholds work_threshold = nano::work_thresholds (0, 0, 0);
+	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
+	nano::confirm_ack confirm_ack = nano::confirm_ack (network_constants, vote_ptr);
+
+	ASSERT_EQ (confirm_ack.to_string (), vote_ptr->account.to_string ());
+}
+
 TEST (message, bulk_pull_serialization)
 {
 	nano::bulk_pull message_in{ nano::dev::network_params.network };
