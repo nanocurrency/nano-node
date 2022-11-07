@@ -1141,6 +1141,17 @@ void nano::bulk_pull::set_count_present (bool value_a)
 	header.extensions.set (count_present_flag, value_a);
 }
 
+std::string nano::bulk_pull::to_string () const
+{
+	std::stringstream stream;
+
+	stream << start.to_string ();
+	stream << " endhash=" + end.to_string ();
+	stream << " count=" + std::to_string (count);
+
+	return stream.str ();
+}
+
 /*
  * bulk_pull_account
  */

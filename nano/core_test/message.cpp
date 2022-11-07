@@ -287,6 +287,25 @@ TEST (message, bulk_pull_serialization)
 	ASSERT_TRUE (header.bulk_pull_ascending ());
 }
 
+TEST (message, bulk_pull_to_string)
+{
+	nano::work_thresholds work_threshold = nano::work_thresholds (0, 0, 0);
+	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
+	nano::bulk_pull bulk_pull = nano::bulk_pull (network_constants);
+
+	nano::hash_or_account start = nano::account ("12345678987654321");
+	nano::block_hash end = nano::block_hash ();
+	uint32_t count = 3;
+
+	bulk_pull.start = start;
+	bulk_pull.end = end;
+	bulk_pull.count = count;
+
+	std::string expected_string = start.to_string () + " endhash=" + end.to_string () + " count=" + std::to_string (count);
+
+	ASSERT_EQ (bulk_pull.to_string (), expected_string);
+}
+
 TEST (message, asc_pull_req_serialization_blocks)
 {
 	nano::asc_pull_req original{ nano::dev::network_params.network };
