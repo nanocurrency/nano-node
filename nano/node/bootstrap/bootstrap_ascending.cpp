@@ -155,7 +155,8 @@ void nano::bootstrap::bootstrap_ascending::account_sets::priority_down (nano::ac
 	auto iter = priorities.find (account);
 	if (iter != priorities.end ())
 	{
-		if (iter->second < 4.0f)
+		auto priority_new = iter->second / 2.0f;
+		if (priority_new < 2.0f)
 		{
 			priorities.erase (iter);
 		}
@@ -257,12 +258,12 @@ nano::account nano::bootstrap::bootstrap_ascending::account_sets::random ()
 			dump += std::to_string (weights[i]);
 			dump += "\n";
 		}
-	}
+	}*/
 	static int count = 0;
 	if (count++ % 10000 == 0)
 	{
 		this->dump ();
-	}*/
+	}
 	/*dump += "============\n";
 	for (auto i: priorities)
 	{
