@@ -225,6 +225,7 @@ public:
 	uint32_t age;
 	uint32_t count;
 	static std::size_t constexpr size = sizeof (start) + sizeof (age) + sizeof (count);
+	std::string to_string () const;
 };
 
 enum class telemetry_maker : uint8_t

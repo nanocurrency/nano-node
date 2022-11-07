@@ -1041,6 +1041,17 @@ bool nano::frontier_req::operator== (nano::frontier_req const & other_a) const
 	return start == other_a.start && age == other_a.age && count == other_a.count;
 }
 
+std::string nano::frontier_req::to_string () const
+{
+	std::stringstream stream;
+
+	stream << start.to_string ();
+	stream << " maxage=" + std::to_string (age);
+	stream << " count=" + std::to_string (count);
+
+	return stream.str ();
+}
+
 /*
  * bulk_pull
  */

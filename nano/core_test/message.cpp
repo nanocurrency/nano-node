@@ -259,6 +259,25 @@ TEST (message, message_header_to_string)
 	ASSERT_EQ (expected_str, header_string);
 }
 
+TEST (message, frontier_req_to_string)
+{
+	nano::work_thresholds work_threshold = nano::work_thresholds (0, 0, 0);
+	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
+	nano::frontier_req frontier_req = nano::frontier_req (network_constants);
+
+	nano::account start = nano::account (12345678987564312);
+	uint32_t age = 99999999;
+	uint32_t count = 1234;
+
+	frontier_req.start = start;
+	frontier_req.age = age;
+	frontier_req.count = count;
+
+	std::string expected_output = start.to_string () + " maxage=" + std::to_string (age) + " count=" + std::to_string (count);
+
+	ASSERT_EQ (frontier_req.to_string (), expected_output);
+}
+
 /**
  * Test that a confirm_ack can encode an empty hash set
  */
