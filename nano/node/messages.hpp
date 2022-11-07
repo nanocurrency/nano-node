@@ -296,6 +296,7 @@ public:
 	bool is_empty_payload () const;
 	static uint16_t size (nano::message_header const &);
 	nano::telemetry_data data;
+	std::string to_string () const;
 };
 
 class bulk_pull final : public message
