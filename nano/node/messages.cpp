@@ -940,6 +940,21 @@ std::size_t nano::confirm_req::size (nano::block_type type_a, std::size_t count)
 	return result;
 }
 
+std::string nano::confirm_req::to_string () const
+{
+	std::stringstream stream;
+
+	stream << header.to_string ();
+
+	for (auto roots_hash = roots_hashes.begin (), end = roots_hashes.end (); roots_hash != end; ++roots_hash)
+	{
+		stream << "\nPair: " + roots_hash->first.to_string () + " | ";
+		stream << roots_hash->second.to_string ();
+	}
+
+	return stream.str ();
+}
+
 /*
  * confirm_ack
  */

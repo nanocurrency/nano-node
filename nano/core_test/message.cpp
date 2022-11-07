@@ -243,6 +243,29 @@ TEST (message, confirm_req_hash_batch_serialization)
 	ASSERT_EQ (header.count_get (), req.roots_hashes.size ());
 }
 
+TEST (message, confirm_req_to_string)
+{
+	nano::send_block block = nano::send_block ();
+	std::shared_ptr block_ptr = std::make_shared<nano::send_block> (block);
+
+	nano::work_thresholds work_threshold = nano::work_thresholds (0, 0, 0);
+	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
+	nano::confirm_req confirm_req = nano::confirm_req (network_constants, block_ptr);
+
+	std::string expected_string = "NetID: 5241(dev), VerMaxUsingMin: 19/19/18, MsgType: 4(confirm_req), Extensions: 0200";
+
+	for (auto roots_hash = 0, roots_hash_end = 3; roots_hash != roots_hash_end; ++roots_hash)
+	{
+		nano::block_hash block_hash = nano::block_hash ("123456786987654321");
+		nano::root root = nano::root (10);
+
+		confirm_req.roots_hashes.push_back (std::pair (block_hash, root));
+		expected_string.append ("\nPair: " + block_hash.to_string () + " | " + root.to_string ());
+	}
+
+	ASSERT_EQ (confirm_req.to_string (), expected_string);
+}
+
 // this unit test checks that conversion of message_header to string works as expected
 TEST (message, message_header_to_string)
 {
