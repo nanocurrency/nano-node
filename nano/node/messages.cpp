@@ -801,7 +801,6 @@ std::string nano::publish::to_string () const
 	return block->to_json ();
 }
 
-
 /*
  * confirm_req
  */
