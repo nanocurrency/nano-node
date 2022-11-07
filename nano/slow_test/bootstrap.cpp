@@ -84,6 +84,8 @@ TEST (bootstrap_ascending, profile)
 	rate.observe ("unchecked", [&] () { return client->unchecked.count (); });
 	rate.background_print (3s);
 
+	while (true)
+		std::this_thread::sleep_for (1s);
 	wait_for_key ();
 
 	server->stop ();

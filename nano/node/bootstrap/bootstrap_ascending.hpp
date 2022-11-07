@@ -110,7 +110,7 @@ namespace bootstrap
 			// Blocked accounts are assumed priority 0.0f
 			std::map<nano::account, float> priorities;
 
-			static size_t constexpr backoff_exclusion = 4;
+			static size_t constexpr backoff_exclusion = 2;
 			std::default_random_engine rng;
 
 		public:

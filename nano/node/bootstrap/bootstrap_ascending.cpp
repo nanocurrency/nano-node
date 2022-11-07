@@ -201,7 +201,7 @@ nano::account nano::bootstrap::bootstrap_ascending::account_sets::random ()
 	std::vector<decltype (priorities)::mapped_type> weights;
 	std::vector<nano::account> candidates;
 	{
-		while (!priorities.empty () && candidates.size () < account_sets::backoff_exclusion)
+		while (!priorities.empty () && candidates.size () < account_sets::backoff_exclusion / 2)
 		{
 			debug_assert (candidates.size () == weights.size ());
 			nano::account search;
@@ -244,18 +244,25 @@ nano::account nano::bootstrap::bootstrap_ascending::account_sets::random ()
 					weights.push_back (1.0f);
 				}
 			}
-		} while (candidates.empty ());
+		} while (candidates.size () < account_sets::backoff_exclusion);
 	}
 	std::string dump;
-	/*dump += "------------\n";
-	for (auto i = 0; i < candidates.size (); ++i)
+	/*if (std::any_of (weights.begin (), weights.end (), [] (float const & val) { return val > 2.0f; }))
 	{
-		dump += candidates[i].to_account();
-		dump += " ";
-		dump += std::to_string (weights[i]);
-		dump += "\n";
+		dump += "------------\n";
+		for (auto i = 0; i < candidates.size (); ++i)
+		{
+			dump += candidates[i].to_account();
+			dump += " ";
+			dump += std::to_string (weights[i]);
+			dump += "\n";
+		}
 	}
-	this->dump ();*/
+	static int count = 0;
+	if (count++ % 10000 == 0)
+	{
+		this->dump ();
+	}*/
 	/*dump += "============\n";
 	for (auto i: priorities)
 	{
@@ -719,11 +726,13 @@ void nano::bootstrap::bootstrap_ascending::run ()
 
 void nano::bootstrap::bootstrap_ascending::priority_up (nano::account const & account_a)
 {
+	std::lock_guard lock{ mutex };
 	accounts.priority_up (account_a);
 }
 
 void nano::bootstrap::bootstrap_ascending::priority_down (nano::account const & account_a)
 {
+	std::lock_guard lock{ mutex };
 	accounts.priority_down (account_a);
 }
 
