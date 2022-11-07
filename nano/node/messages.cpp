@@ -1327,7 +1327,7 @@ bool nano::telemetry_ack::is_empty_payload () const
 
 std::string nano::telemetry_ack::to_string () const
 {
-	if (!this->is_empty_payload)
+	if (!this->is_empty_payload())
 	{
 		return data.to_string ();
 	}
