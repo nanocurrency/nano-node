@@ -329,6 +329,7 @@ public:
 	nano::amount minimum_amount;
 	bulk_pull_account_flags flags;
 	static std::size_t constexpr size = sizeof (account) + sizeof (minimum_amount) + sizeof (bulk_pull_account_flags);
+	std::string to_string () const;
 };
 
 class bulk_push final : public message
