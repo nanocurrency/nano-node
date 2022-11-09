@@ -2573,7 +2573,7 @@ TEST (node, vote_by_hash_bundle)
 	}
 
 	// Confirming last block will confirm whole chain and allow us to generate votes for those blocks later
-	ASSERT_TRUE (nano::test::confirm (node, { blocks.back () }));
+	ASSERT_TIMELY (5s, nano::test::confirm (node, { blocks.back () }));
 	ASSERT_TIMELY (5s, nano::test::confirmed (node, { blocks.back () }));
 
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -2752,7 +2752,7 @@ TEST (node, epoch_conflict_confirm)
 	ASSERT_TRUE (nano::test::process (node1, { send, send2, open }));
 
 	// Confirm open block in node1 to allow generating votes
-	ASSERT_TRUE (nano::test::confirm (node1, { open }));
+	ASSERT_TIMELY (5s, nano::test::confirm (node1, { open }));
 	ASSERT_TIMELY (5s, nano::test::confirmed (node1, { open }));
 
 	// Process initial blocks on node0
@@ -2766,7 +2766,7 @@ TEST (node, epoch_conflict_confirm)
 	ASSERT_TIMELY (5s, nano::test::exists (node1, { change, epoch_open }));
 
 	// Confirm initial blocks in node1 to allow generating votes later
-	ASSERT_TRUE (nano::test::confirm (node1, { change, epoch_open, send2 }));
+	ASSERT_TIMELY (5s, nano::test::confirm (node1, { change, epoch_open, send2 }));
 	ASSERT_TIMELY (5s, nano::test::confirmed (node1, { change, epoch_open, send2 }));
 
 	// Start elections for node0 for conflicting change and epoch_open blocks (those two blocks have the same root)
