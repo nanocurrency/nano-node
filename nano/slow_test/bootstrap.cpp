@@ -60,6 +60,7 @@ TEST (bootstrap_ascending, profile)
 	config_client.disable_wallet_bootstrap = true;
 	config_client.disable_legacy_bootstrap = true;
 	config_client.ipc_config.transport_tcp.enabled = true;
+	config_client.lmdb_config.sync = nano::lmdb_config::sync_strategy::nosync_unsafe;
 	nano::node_flags flags_client;
 	flags_client.disable_add_initial_peers = true;
 	auto client = system.add_node (config_client, flags_client);
@@ -82,6 +83,7 @@ TEST (bootstrap_ascending, profile)
 	nano::test::rate_observer rate;
 	rate.observe ("count", [&] () { return client->ledger.cache.block_count.load (); });
 	rate.observe ("unchecked", [&] () { return client->unchecked.count (); });
+	rate.observe ("block_processor", [&] () { return client->block_processor.size (); });
 	rate.background_print (3s);
 
 	while (true)

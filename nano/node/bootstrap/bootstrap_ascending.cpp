@@ -574,7 +574,7 @@ void nano::bootstrap::bootstrap_ascending::dump_stats ()
 bool nano::bootstrap::bootstrap_ascending::thread::wait_available_request ()
 {
 	nano::unique_lock<nano::mutex> lock{ bootstrap.mutex };
-	bootstrap.condition.wait (lock, [this] () { return bootstrap.stopped || requests < requests_max; });
+	bootstrap.condition.wait (lock, [this] () { return bootstrap.stopped || (requests < requests_max && !bootstrap.node.block_processor.half_full ()); });
 	bootstrap.debug_log (boost::str (boost::format ("wait_available_request stopped=%1% request=%2%") % bootstrap.stopped % requests));
 	return bootstrap.stopped;
 }
