@@ -53,6 +53,10 @@ namespace transport
 		{
 			return false;
 		}
+		virtual bool alive () const
+		{
+			return true;
+		}
 
 		std::chrono::steady_clock::time_point get_last_bootstrap_attempt () const
 		{

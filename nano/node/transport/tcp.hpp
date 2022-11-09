@@ -79,6 +79,15 @@ namespace transport
 			return result;
 		}
 
+		virtual bool alive () const override
+		{
+			if (auto socket_l = socket.lock ())
+			{
+				return socket_l->alive ();
+			}
+			return false;
+		}
+
 	private:
 		nano::tcp_endpoint endpoint{ boost::asio::ip::address_v6::any (), 0 };
 	};

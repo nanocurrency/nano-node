@@ -769,7 +769,7 @@ void nano::network::ongoing_cleanup ()
 {
 	cleanup (std::chrono::steady_clock::now () - node.network_params.network.cleanup_cutoff ());
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.network.cleanup_period, [node_w] () {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (1), [node_w] () {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.ongoing_cleanup ();

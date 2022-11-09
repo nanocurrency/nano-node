@@ -55,7 +55,9 @@ nano::socket::~socket ()
 
 void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::function<void (boost::system::error_code const &)> callback_a)
 {
+	debug_assert (callback_a);
 	debug_assert (endpoint_type () == endpoint_type_t::client);
+
 	checkup ();
 	auto this_l (shared_from_this ());
 	set_default_timeout ();
@@ -65,6 +67,7 @@ void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::fu
 		if (ec)
 		{
 			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_connect_error, nano::stat::dir::in);
+			this_l->close ();
 		}
 		else
 		{
@@ -77,6 +80,8 @@ void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::fu
 
 void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
 {
+	debug_assert (callback_a);
+
 	if (size_a <= buffer_a->size ())
 	{
 		auto this_l (shared_from_this ());
@@ -90,6 +95,7 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buf
 					if (ec)
 					{
 						this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_read_error, nano::stat::dir::in);
+						this_l->close ();
 					}
 					else
 					{
@@ -147,6 +153,7 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 			if (ec)
 			{
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in);
+				this_l->close ();
 			}
 			else
 			{
@@ -195,6 +202,13 @@ void nano::socket::checkup ()
 	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (2), [this_w] () {
 		if (auto this_l = this_w.lock ())
 		{
+			// If the socket is already dead, close just in case, and stop doing checkups
+			if (!this_l->alive ())
+			{
+				this_l->close ();
+				return;
+			}
+
 			uint64_t now (nano::seconds_since_epoch ());
 			auto condition_to_disconnect{ false };
 
@@ -217,13 +231,7 @@ void nano::socket::checkup ()
 			{
 				if (this_l->node.config.logging.network_timeout_logging ())
 				{
-					// The remote end may have closed the connection before this side timing out, in which case the remote address is no longer available.
-					boost::system::error_code ec_remote_l;
-					boost::asio::ip::tcp::endpoint remote_endpoint_l = this_l->tcp_socket.remote_endpoint (ec_remote_l);
-					if (!ec_remote_l)
-					{
-						this_l->node.logger.try_log (boost::str (boost::format ("Disconnecting from %1% due to timeout") % remote_endpoint_l));
-					}
+					this_l->node.logger.try_log (boost::str (boost::format ("Disconnecting from %1% due to timeout") % this_l->remote));
 				}
 				this_l->timed_out = true;
 				this_l->close ();
