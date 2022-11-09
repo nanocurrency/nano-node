@@ -1851,7 +1851,7 @@ TEST (node, rep_remove)
 	ASSERT_EQ (*channel_rep1, reps[0].channel_ref ());
 
 	// When rep1 disconnects then rep1 should not be found anymore
-	channel_rep1->disconnect ();
+	channel_rep1->close ();
 	ASSERT_TIMELY (5s, searching_node.rep_crawler.representative_count () == 0);
 
 	// Add working node for genesis representative
@@ -1884,7 +1884,7 @@ TEST (node, rep_remove)
 	// Now only genesisRep should be found:
 	reps = searching_node.rep_crawler.representatives (1);
 	ASSERT_EQ (nano::dev::genesis_key.pub, reps[0].account);
-	ASSERT_EQ (1, searching_node.network.size ());
+	ASSERT_TIMELY_EQ (5s, searching_node.network.size (), 1);
 	auto list (searching_node.network.list (1));
 	ASSERT_EQ (node_genesis_rep->network.endpoint (), list[0]->get_endpoint ());
 }
