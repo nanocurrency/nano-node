@@ -203,6 +203,7 @@ public:
 		default_websocket_port (47000),
 		request_interval_ms (500),
 		cleanup_period (default_cleanup_period),
+		keepalive_period (std::chrono::seconds (15)),
 		idle_timeout (default_cleanup_period * 2),
 		silent_connection_tolerance_time (std::chrono::seconds (120)),
 		syn_cookie_cutoff (std::chrono::seconds (5)),
@@ -237,6 +238,7 @@ public:
 		{
 			request_interval_ms = 20;
 			cleanup_period = std::chrono::seconds (1);
+			keepalive_period = std::chrono::seconds (1);
 			idle_timeout = cleanup_period * 15;
 			max_peers_per_ip = 20;
 			max_peers_per_subnetwork = max_peers_per_ip * 4;
@@ -267,6 +269,8 @@ public:
 	{
 		return cleanup_period * 5;
 	}
+	/** How often to send keepalive messages */
+	std::chrono::seconds keepalive_period;
 	/** Default maximum idle time for a socket before it's automatically closed */
 	std::chrono::seconds idle_timeout;
 	std::chrono::seconds silent_connection_tolerance_time;
