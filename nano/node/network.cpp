@@ -624,7 +624,7 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (std::
 	tcp_channels.list (result, minimum_version_a, include_tcp_temporary_channels_a);
 	udp_channels.list (result, minimum_version_a);
 	nano::random_pool_shuffle (result.begin (), result.end ());
-	if (result.size () > count_a)
+	if (count_a > 0 && result.size () > count_a)
 	{
 		result.resize (count_a, nullptr);
 	}

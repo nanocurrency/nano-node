@@ -61,6 +61,7 @@ void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::fu
 	checkup ();
 	auto this_l (shared_from_this ());
 	set_default_timeout ();
+
 	this_l->tcp_socket.async_connect (endpoint_a,
 	boost::asio::bind_executor (this_l->strand,
 	[this_l, callback = std::move (callback_a), endpoint_a] (boost::system::error_code const & ec) {
@@ -74,6 +75,7 @@ void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::fu
 			this_l->set_last_completion ();
 		}
 		this_l->remote = endpoint_a;
+		this_l->node.observers.socket_connected.notify (*this_l);
 		callback (ec);
 	}));
 }
@@ -467,6 +469,7 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 				new_connection->set_timeout (this_l->node.network_params.network.idle_timeout);
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
 				this_l->connections_per_address.emplace (new_connection->remote.address (), new_connection);
+				this_l->node.observers.socket_accepted.notify (*new_connection);
 				if (cbk (new_connection, ec_a))
 				{
 					this_l->on_connection (std::move (cbk));

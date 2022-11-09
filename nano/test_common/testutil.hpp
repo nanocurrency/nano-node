@@ -96,6 +96,16 @@
 	}
 
 /*
+ * Asserts that condition is always true during the specified amount of time
+ */
+#define ASSERT_ALWAYS_EQ(time, val1, val2) \
+	system.deadline_set (time);            \
+	while (!system.poll ())                \
+	{                                      \
+		ASSERT_EQ (val1, val2);            \
+	}
+
+/*
  * Asserts that condition is never true during the specified amount of time
  */
 #define ASSERT_NEVER(time, condition) \
