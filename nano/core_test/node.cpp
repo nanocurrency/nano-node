@@ -3202,19 +3202,17 @@ TEST (node, peers)
 	auto list2 (node2->network.list (2));
 	ASSERT_EQ (node1->get_node_id (), list2[0]->get_node_id ());
 	ASSERT_EQ (nano::transport::transport_type::tcp, list2[0]->get_type ());
+
+	// Uncontactable peer should not be stored
+	ASSERT_TIMELY_EQ (5s, store.peer.count (store.tx_begin_read ()), 1);
+	ASSERT_TRUE (store.peer.exists (store.tx_begin_read (), endpoint_key));
+
 	// Stop the peer node and check that it is removed from the store
 	node1->stop ();
 
-	ASSERT_TIMELY (10s, node2->network.size () != 1);
-
-	ASSERT_TRUE (node2->network.empty ());
-
-	// Uncontactable peer should not be stored
-	auto transaction (store.tx_begin_read ());
-	ASSERT_EQ (store.peer.count (transaction), 1);
-	ASSERT_TRUE (store.peer.exists (transaction, endpoint_key));
-
-	node2->stop ();
+	// TODO: In `tcp_channels::store_all` we skip store operation when there are no peers present,
+	// so the best we can do here is check if network is empty
+	ASSERT_TIMELY (10s, node2->network.empty ());
 }
 
 TEST (node, peer_cache_restart)
