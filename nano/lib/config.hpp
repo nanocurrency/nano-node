@@ -201,7 +201,7 @@ public:
 		default_rpc_port (45000),
 		default_ipc_port (46000),
 		default_websocket_port (47000),
-		request_interval_ms (300), // Update AEC ~3 times per second
+		aec_loop_interval_ms (300), // Update AEC ~3 times per second
 		cleanup_period (default_cleanup_period),
 		keepalive_period (std::chrono::seconds (15)),
 		idle_timeout (default_cleanup_period * 2),
@@ -236,7 +236,7 @@ public:
 		}
 		else if (is_dev_network ())
 		{
-			request_interval_ms = 20;
+			aec_loop_interval_ms = 20;
 			cleanup_period = std::chrono::seconds (1);
 			keepalive_period = std::chrono::seconds (1);
 			idle_timeout = cleanup_period * 15;
@@ -258,7 +258,7 @@ public:
 	uint16_t default_rpc_port;
 	uint16_t default_ipc_port;
 	uint16_t default_websocket_port;
-	unsigned request_interval_ms;
+	unsigned aec_loop_interval_ms;
 
 	std::chrono::seconds cleanup_period;
 	std::chrono::milliseconds cleanup_period_half () const
