@@ -184,11 +184,8 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			send_confirm_req (solicitor_a);
 			break;
 		case nano::election::state_t::confirmed:
-			if (base_latency () * confirmed_duration_factor < std::chrono::steady_clock::now ().time_since_epoch () - state_start.load ())
-			{
-				result = true;
-				state_change (nano::election::state_t::confirmed, nano::election::state_t::expired_confirmed);
-			}
+			result = true; // Return true to indicate this election should be cleaned up
+			state_change (nano::election::state_t::confirmed, nano::election::state_t::expired_confirmed);
 			break;
 		case nano::election::state_t::expired_unconfirmed:
 		case nano::election::state_t::expired_confirmed:
@@ -203,7 +200,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 		// state_change returning true would indicate it
 		if (!state_change (state_m.load (), nano::election::state_t::expired_unconfirmed))
 		{
-			result = true;
+			result = true; // Return true to indicate this election should be cleaned up
 			if (node.config.logging.election_expiration_tally_logging ())
 			{
 				log_votes (tally_impl (), "Election expired: ");

@@ -77,7 +77,6 @@ private: // State management
 	};
 	static unsigned constexpr passive_duration_factor = 5;
 	static unsigned constexpr active_request_count_min = 2;
-	static unsigned constexpr confirmed_duration_factor = 5;
 	std::atomic<nano::election::state_t> state_m = { state_t::passive };
 
 	static_assert (std::is_trivial<std::chrono::steady_clock::duration> ());
