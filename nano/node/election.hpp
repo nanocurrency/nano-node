@@ -130,6 +130,9 @@ public: // Interface
 	 */
 	void broadcast_vote ();
 
+private: // Dependencies
+	nano::node & node;
+
 public: // Information
 	uint64_t const height;
 	nano::root const root;
@@ -169,7 +172,6 @@ private:
 	/** Time to wait before next vote broadcast for current winner, starts at 1s and doubles for each broadcast, up to `max_vote_broadcast_interval` */
 	uint64_t vote_broadcast_interval{ 1000 };
 
-	nano::node & node;
 	mutable nano::mutex mutex;
 
 private: // Constants
