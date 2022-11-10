@@ -75,6 +75,7 @@ private: // State management
 		expired_confirmed,
 		expired_unconfirmed
 	};
+
 	static unsigned constexpr passive_duration_factor = 5;
 	static unsigned constexpr active_request_count_min = 2;
 	static unsigned constexpr confirmed_duration_factor = 5;
@@ -85,7 +86,9 @@ private: // State management
 
 	// These are modified while not holding the mutex from transition_time only
 	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::now () };
-	std::chrono::steady_clock::time_point last_req = { std::chrono::steady_clock::time_point () };
+	std::chrono::steady_clock::time_point last_req = {};
+	/** The last time vote for this election was generated */
+	std::chrono::steady_clock::time_point last_vote = {};
 
 	bool valid_change (nano::election::state_t, nano::election::state_t) const;
 	bool state_change (nano::election::state_t, nano::election::state_t);
@@ -121,6 +124,12 @@ public: // Interface
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (nano::unique_lock<nano::mutex> &);
 
+	/**
+	 * Broadcasts vote for the current winner of this election
+	 * Checks if sufficient amount of time (`vote_generation_interval`) passed since the last vote generation
+	 */
+	void broadcast_vote ();
+
 public: // Information
 	uint64_t const height;
 	nano::root const root;
@@ -133,8 +142,11 @@ private:
 	void confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	void broadcast_block (nano::confirmation_solicitor &);
 	void send_confirm_req (nano::confirmation_solicitor &);
-	// Calculate votes for local representatives
-	void generate_votes () const;
+	/**
+	 * Broadcast vote for current election winner. Generates final vote if reached quorum or already confirmed
+	 * Requires mutex lock
+	 */
+	void broadcast_vote_impl ();
 	void remove_votes (nano::block_hash const &);
 	void remove_block (nano::block_hash const &);
 	bool replace_by_weight (nano::unique_lock<nano::mutex> & lock_a, nano::block_hash const &);
@@ -158,6 +170,8 @@ private:
 	mutable nano::mutex mutex;
 
 	static std::size_t constexpr max_blocks{ 10 };
+	/** How often to generate and broadcasts votes for active elections (seconds) */
+	static std::size_t constexpr vote_generation_interval{ 15 };
 
 	friend class active_transactions;
 	friend class confirmation_solicitor;

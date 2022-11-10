@@ -339,6 +339,8 @@ void nano::active_transactions::request_loop ()
 	{
 		auto const stamp_l = std::chrono::steady_clock::now ();
 
+		node.stats.inc (nano::stat::type::active, nano::stat::detail::loop);
+
 		request_confirm (lock);
 		debug_assert (lock.owns_lock ());
 
@@ -402,7 +404,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 		// Votes are generated for inserted or ongoing elections
 		if (result.election)
 		{
-			result.election->generate_votes ();
+			result.election->broadcast_vote ();
 		}
 	}
 	return result;

@@ -248,14 +248,16 @@ public:
 		hinting,
 		blockprocessor,
 		bootstrap_server,
-		bootstrap_server_requests,
-		bootstrap_server_responses,
+		active,
 	};
 
 	/** Optional detail type */
 	enum class detail : uint8_t
 	{
 		all = 0,
+
+		// common
+		loop,
 
 		// processing queue
 		queue,
@@ -358,6 +360,9 @@ public:
 		election_hinted_started,
 		election_hinted_confirmed,
 		election_hinted_drop,
+		generate_vote,
+		generate_vote_normal,
+		generate_vote_final,
 
 		// udp
 		blocking,

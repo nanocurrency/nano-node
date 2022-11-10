@@ -30,10 +30,6 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 {
 	last_votes.emplace (nano::account::null (), nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
 	last_blocks.emplace (block_a->hash (), block_a);
-	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
-	{
-		node.generator.add (root, block_a->hash ());
-	}
 }
 
 void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano::election_status_type type_a)
@@ -168,6 +164,16 @@ void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a
 	}
 }
 
+void nano::election::broadcast_vote ()
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	if (last_vote + std::chrono::seconds (vote_generation_interval) < std::chrono::steady_clock::now ())
+	{
+		broadcast_vote_impl ();
+		last_vote = std::chrono::steady_clock::now ();
+	}
+}
+
 bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a)
 {
 	bool result = false;
@@ -180,6 +186,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			}
 			break;
 		case nano::election::state_t::active:
+			broadcast_vote ();
 			broadcast_block (solicitor_a);
 			send_confirm_req (solicitor_a);
 			break;
@@ -479,21 +486,23 @@ std::shared_ptr<nano::block> nano::election::winner () const
 	return status.winner;
 }
 
-void nano::election::generate_votes () const
+void nano::election::broadcast_vote_impl ()
 {
+	debug_assert (!mutex.try_lock ());
+
 	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 	{
-		nano::unique_lock<nano::mutex> lock (mutex);
+		node.stats.inc (nano::stat::type::election, nano::stat::detail::generate_vote);
+
 		if (confirmed () || have_quorum (tally_impl ()))
 		{
-			auto hash = status.winner->hash ();
-			lock.unlock ();
-			node.final_generator.add (root, hash);
-			lock.lock ();
+			node.stats.inc (nano::stat::type::election, nano::stat::detail::generate_vote_final);
+			node.final_generator.add (root, status.winner->hash ()); // Broadcasts vote to the network
 		}
 		else
 		{
-			node.generator.add (root, status.winner->hash ());
+			node.stats.inc (nano::stat::type::election, nano::stat::detail::generate_vote_normal);
+			node.generator.add (root, status.winner->hash ()); // Broadcasts vote to the network
 		}
 	}
 }
