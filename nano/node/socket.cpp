@@ -201,7 +201,7 @@ void nano::socket::set_last_receive_time ()
 void nano::socket::checkup ()
 {
 	std::weak_ptr<nano::socket> this_w (shared_from_this ());
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (2), [this_w] () {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (node.network_params.network.is_dev_network () ? 1 : 5), [this_w] () {
 		if (auto this_l = this_w.lock ())
 		{
 			// If the socket is already dead, close just in case, and stop doing checkups
