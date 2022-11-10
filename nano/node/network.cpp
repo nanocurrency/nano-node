@@ -624,7 +624,7 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (std::
 	tcp_channels.list (result, minimum_version_a, include_tcp_temporary_channels_a);
 	udp_channels.list (result, minimum_version_a);
 	nano::random_pool_shuffle (result.begin (), result.end ());
-	if (result.size () > count_a)
+	if (count_a > 0 && result.size () > count_a)
 	{
 		result.resize (count_a, nullptr);
 	}
@@ -769,7 +769,7 @@ void nano::network::ongoing_cleanup ()
 {
 	cleanup (std::chrono::steady_clock::now () - node.network_params.network.cleanup_cutoff ());
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.network.cleanup_period, [node_w] () {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (node.network_params.network.is_dev_network () ? 1 : 5), [node_w] () {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.ongoing_cleanup ();
@@ -794,7 +794,7 @@ void nano::network::ongoing_keepalive ()
 	flood_keepalive (0.75f);
 	flood_keepalive_self (0.25f);
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.network.cleanup_period_half (), [node_w] () {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.network.keepalive_period, [node_w] () {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.ongoing_keepalive ();

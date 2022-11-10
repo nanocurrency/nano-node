@@ -8,7 +8,7 @@ namespace transport
 {
 	/**
 	 * Fake channel that connects to nothing and allows its attributes to be manipulated. Mostly useful for unit tests.
-	**/
+	 **/
 	namespace fake
 	{
 		class channel final : public nano::transport::channel
@@ -50,13 +50,20 @@ namespace transport
 				return nano::transport::transport_type::fake;
 			}
 
-			void disconnect ()
+			void close ()
 			{
-				endpoint = nano::endpoint (boost::asio::ip::address_v6::any (), 0);
+				closed = true;
+			}
+
+			bool alive () const override
+			{
+				return !closed;
 			}
 
 		private:
 			nano::endpoint endpoint;
+
+			std::atomic<bool> closed{ false };
 		};
 	} // namespace fake
 } // namespace transport

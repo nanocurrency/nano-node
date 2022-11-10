@@ -1,4 +1,6 @@
+#include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/socket.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/test_common/network.hpp>
@@ -1411,4 +1413,148 @@ TEST (network, fill_keepalive_self)
 	std::array<nano::endpoint, 8> target;
 	system.nodes[0]->network.fill_keepalive_self (target);
 	ASSERT_TRUE (target[2].port () == system.nodes[1]->network.port);
+}
+
+/*
+ * Tests that channel and channel container removes channels with dead local sockets
+ */
+TEST (network, purge_dead_channel_outgoing)
+{
+	nano::test::system system{};
+
+	nano::node_flags flags;
+	// Disable non realtime sockets
+	flags.disable_bootstrap_bulk_push_client = true;
+	flags.disable_bootstrap_bulk_pull_server = true;
+	flags.disable_bootstrap_listener = true;
+	flags.disable_lazy_bootstrap = true;
+	flags.disable_legacy_bootstrap = true;
+	flags.disable_wallet_bootstrap = true;
+
+	auto & node1 = *system.add_node (flags);
+
+	// We expect one incoming and one outgoing connection
+	std::shared_ptr<nano::socket> outgoing;
+	std::shared_ptr<nano::socket> incoming;
+
+	std::atomic<int> connected_count{ 0 };
+	node1.observers.socket_connected.add ([&] (nano::socket & socket) {
+		connected_count++;
+		outgoing = socket.shared_from_this ();
+
+		std::cout << "connected: " << socket.remote_endpoint () << std::endl;
+	});
+
+	std::atomic<int> accepted_count{ 0 };
+	node1.observers.socket_accepted.add ([&] (nano::socket & socket) {
+		accepted_count++;
+		incoming = socket.shared_from_this ();
+
+		std::cout << "accepted: " << socket.remote_endpoint () << std::endl;
+	});
+
+	auto & node2 = *system.add_node (flags);
+
+	ASSERT_TIMELY_EQ (5s, connected_count, 1);
+	ASSERT_ALWAYS_EQ (1s, connected_count, 1);
+
+	ASSERT_TIMELY_EQ (5s, accepted_count, 1);
+	ASSERT_ALWAYS_EQ (1s, accepted_count, 1);
+
+	ASSERT_EQ (node1.network.size (), 1);
+	ASSERT_ALWAYS_EQ (1s, node1.network.size (), 1);
+
+	// Store reference to the only channel
+	auto channels = node1.network.list ();
+	ASSERT_EQ (channels.size (), 1);
+	auto channel = channels.front ();
+	ASSERT_TRUE (channel);
+
+	// When socket is dead ensure channel knows about that
+	ASSERT_TRUE (channel->alive ());
+	outgoing->close ();
+	ASSERT_TIMELY (5s, !channel->alive ());
+
+	// Shortly after that a new channel should be established
+	ASSERT_TIMELY_EQ (5s, connected_count, 2);
+	ASSERT_ALWAYS_EQ (1s, connected_count, 2);
+
+	// Check that a new channel is healthy
+	auto channels2 = node1.network.list ();
+	ASSERT_EQ (channels2.size (), 1);
+	auto channel2 = channels2.front ();
+	ASSERT_TRUE (channel2);
+	ASSERT_TRUE (channel2->alive ());
+}
+
+/*
+ * Tests that channel and channel container removes channels with dead remote sockets
+ */
+TEST (network, purge_dead_channel_incoming)
+{
+	nano::test::system system{};
+
+	nano::node_flags flags;
+	// Disable non realtime sockets
+	flags.disable_bootstrap_bulk_push_client = true;
+	flags.disable_bootstrap_bulk_pull_server = true;
+	flags.disable_bootstrap_listener = true;
+	flags.disable_lazy_bootstrap = true;
+	flags.disable_legacy_bootstrap = true;
+	flags.disable_wallet_bootstrap = true;
+
+	auto & node1 = *system.add_node (flags);
+
+	// We expect one incoming and one outgoing connection
+	std::shared_ptr<nano::socket> outgoing;
+	std::shared_ptr<nano::socket> incoming;
+
+	std::atomic<int> connected_count{ 0 };
+	node1.observers.socket_connected.add ([&] (nano::socket & socket) {
+		connected_count++;
+		outgoing = socket.shared_from_this ();
+
+		std::cout << "connected: " << socket.remote_endpoint () << std::endl;
+	});
+
+	std::atomic<int> accepted_count{ 0 };
+	node1.observers.socket_accepted.add ([&] (nano::socket & socket) {
+		accepted_count++;
+		incoming = socket.shared_from_this ();
+
+		std::cout << "accepted: " << socket.remote_endpoint () << std::endl;
+	});
+
+	auto & node2 = *system.add_node (flags);
+
+	ASSERT_TIMELY_EQ (5s, connected_count, 1);
+	ASSERT_ALWAYS_EQ (1s, connected_count, 1);
+
+	ASSERT_TIMELY_EQ (5s, accepted_count, 1);
+	ASSERT_ALWAYS_EQ (1s, accepted_count, 1);
+
+	ASSERT_EQ (node2.network.size (), 1);
+	ASSERT_ALWAYS_EQ (1s, node2.network.size (), 1);
+
+	// Store reference to the only channel
+	auto channels = node2.network.list ();
+	ASSERT_EQ (channels.size (), 1);
+	auto channel = channels.front ();
+	ASSERT_TRUE (channel);
+
+	// When remote socket is dead ensure channel knows about that
+	ASSERT_TRUE (channel->alive ());
+	incoming->close ();
+	ASSERT_TIMELY (5s, !channel->alive ());
+
+	// Shortly after that a new channel should be established
+	ASSERT_TIMELY_EQ (5s, accepted_count, 2);
+	ASSERT_ALWAYS_EQ (1s, accepted_count, 2);
+
+	// Check that a new channel is healthy
+	auto channels2 = node2.network.list ();
+	ASSERT_EQ (channels2.size (), 1);
+	auto channel2 = channels2.front ();
+	ASSERT_TRUE (channel2);
+	ASSERT_TRUE (channel2->alive ());
 }
