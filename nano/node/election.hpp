@@ -169,15 +169,13 @@ private:
 	nano::election_behavior const behavior{ nano::election_behavior::normal };
 	std::chrono::steady_clock::time_point const election_start = { std::chrono::steady_clock::now () };
 
-	/** Time to wait before next vote broadcast for current winner, starts at 1s and doubles for each broadcast, up to `max_vote_broadcast_interval` */
-	uint64_t vote_broadcast_interval{ 1000 };
+	/** Time to wait before next vote broadcast for current winner, doubles for each broadcast, up to `max_vote_broadcast_interval` */
+	uint64_t vote_broadcast_interval;
 
 	mutable nano::mutex mutex;
 
 private: // Constants
 	static std::size_t constexpr max_blocks{ 10 };
-	/** Maximum interval for vote broadcast (milliseconds) */
-	static uint64_t constexpr max_vote_broadcast_interval{ 16 * 1000 };
 
 	friend class active_transactions;
 	friend class confirmation_solicitor;
