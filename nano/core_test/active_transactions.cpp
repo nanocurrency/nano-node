@@ -628,7 +628,7 @@ TEST (active_transactions, dropped_cleanup)
 
 	// Not yet removed
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
-	ASSERT_TRUE (node.active.active(nano::dev::genesis->hash ()));
+	ASSERT_TRUE (node.active.active (nano::dev::genesis->hash ()));
 
 	// Now simulate dropping the election
 	ASSERT_FALSE (election->confirmed ());
