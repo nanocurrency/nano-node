@@ -289,9 +289,7 @@ TEST (message, bulk_pull_serialization)
 
 TEST (message, bulk_pull_account_to_string_pending_hash_and_amount)
 {
-	nano::work_thresholds work_threshold = nano::work_thresholds (0, 0, 0);
-	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
-	nano::bulk_pull_account bulk_pull_account = nano::bulk_pull_account (network_constants);
+	nano::bulk_pull_account bulk_pull_account = nano::bulk_pull_account (nano::dev::network_params.network);
 
 	nano::account account = nano::account ("12345678987654321");
 	nano::amount minimum_amount = nano::amount (1234);
@@ -308,9 +306,7 @@ TEST (message, bulk_pull_account_to_string_pending_hash_and_amount)
 
 TEST (message, bulk_pull_account_to_string_pending_address_only)
 {
-	nano::work_thresholds work_threshold = nano::work_thresholds (0, 0, 0);
-	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
-	nano::bulk_pull_account bulk_pull_account = nano::bulk_pull_account (network_constants);
+	nano::bulk_pull_account bulk_pull_account = nano::bulk_pull_account (nano::dev::network_params.network);
 
 	nano::account account = nano::account ("12345678987654321");
 	nano::amount minimum_amount = nano::amount (1234);
@@ -327,9 +323,7 @@ TEST (message, bulk_pull_account_to_string_pending_address_only)
 
 TEST (message, bulk_pull_account_to_string_pending_hash_amount_and_address)
 {
-	nano::work_thresholds work_threshold = nano::work_thresholds (0, 0, 0);
-	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
-	nano::bulk_pull_account bulk_pull_account = nano::bulk_pull_account (network_constants);
+	nano::bulk_pull_account bulk_pull_account = nano::bulk_pull_account (nano::dev::network_params.network);
 
 	nano::account account = nano::account ("12345678987654321");
 	nano::amount minimum_amount = nano::amount (1234);
