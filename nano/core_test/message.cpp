@@ -261,9 +261,7 @@ TEST (message, message_header_to_string)
 
 TEST (message, frontier_req_to_string)
 {
-	nano::work_thresholds work_threshold = nano::work_thresholds (0, 0, 0);
-	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
-	nano::frontier_req frontier_req = nano::frontier_req (network_constants);
+	nano::frontier_req frontier_req = nano::frontier_req (nano::dev::network_params.network);
 
 	nano::account start = nano::account (12345678987564321);
 	uint32_t age = 99999999;
