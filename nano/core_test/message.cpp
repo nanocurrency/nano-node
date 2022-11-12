@@ -265,7 +265,7 @@ TEST (message, frontier_req_to_string)
 	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
 	nano::frontier_req frontier_req = nano::frontier_req (network_constants);
 
-	nano::account start = nano::account (12345678987564312);
+	nano::account start = nano::account (12345678987564321);
 	uint32_t age = 99999999;
 	uint32_t count = 1234;
 
