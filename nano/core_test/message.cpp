@@ -289,9 +289,7 @@ TEST (message, bulk_pull_serialization)
 
 TEST (message, bulk_pull_to_string)
 {
-	nano::work_thresholds work_threshold = nano::work_thresholds (0, 0, 0);
-	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
-	nano::bulk_pull bulk_pull = nano::bulk_pull (network_constants);
+	nano::bulk_pull bulk_pull = nano::bulk_pull (nano::dev::network_params.network);
 
 	nano::hash_or_account start = nano::account ("12345678987654321");
 	nano::block_hash end = nano::block_hash ();
