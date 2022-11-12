@@ -946,10 +946,17 @@ std::string nano::confirm_req::to_string () const
 
 	stream << header.to_string ();
 
-	for (auto roots_hash = roots_hashes.begin (), end = roots_hashes.end (); roots_hash != end; ++roots_hash)
+	if (header.block_type () == nano::block_type::not_a_block)
 	{
-		stream << "\nPair: " + roots_hash->first.to_string () + " | ";
-		stream << roots_hash->second.to_string ();
+		for (auto && roots_hash : roots_hashes)
+		{
+			stream << "\nPair: " + roots_hash.first.to_string () + " | ";
+			stream << roots_hash.second.to_string ();
+		}
+	}
+	else
+	{
+		stream << "\n" + block->to_json ();
 	}
 
 	return stream.str ();
