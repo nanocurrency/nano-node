@@ -269,15 +269,22 @@ TEST (confirm_ack, empty_vote_hashes)
 	nano::confirm_ack message{ nano::dev::network_params.network, vote };
 }
 
-TEST (message, telemetry_ack_to_string)
+TEST (message, telemetry_ack_to_string_empty_payload)
 {
-	nano::work_thresholds work_threshold = nano::work_thresholds (0, 0, 0);
-	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
-	nano::telemetry_ack telemetry_ack = nano::telemetry_ack (network_constants);
+	nano::telemetry_ack telemetry_ack = nano::telemetry_ack (nano::dev::network_params.network);
 
+	ASSERT_EQ (telemetry_ack.to_string (), "empty payload");
+}
+
+TEST (message, telemetry_ack_to_string_not_empty_payload)
+{
+	nano::telemetry_ack telemetry_ack = nano::telemetry_ack (nano::dev::network_params.network);
 	nano::telemetry_data telemetry_data = nano::telemetry_data ();
+	nano::message_header hdr{ nano::dev::network_params.network, nano::message_type::confirm_req };
+	hdr.block_type_set (nano::block_type::not_a_block);
 
 	telemetry_ack.data = telemetry_data;
+	telemetry_ack.header = hdr;
 
 	ASSERT_EQ (telemetry_ack.to_string (), telemetry_data.to_string ());
 }
