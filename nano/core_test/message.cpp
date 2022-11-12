@@ -30,9 +30,7 @@ TEST (message, publish_to_string)
 	nano::send_block block = nano::send_block ();
 	std::shared_ptr block_ptr = std::make_shared<nano::send_block> (block);
 
-	nano::work_thresholds work_threshold = nano::work_thresholds (0, 0, 0);
-	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
-	nano::publish publish = nano::publish (network_constants, block_ptr);
+	nano::publish publish = nano::publish (nano::dev::network_params.network, block_ptr);
 
 	ASSERT_EQ (publish.to_string (), block_ptr->to_json ());
 }
