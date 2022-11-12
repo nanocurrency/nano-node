@@ -287,7 +287,6 @@ TEST (message, bulk_pull_serialization)
 	ASSERT_TRUE (header.bulk_pull_ascending ());
 }
 
-
 TEST (message, bulk_pull_account_to_string_pending_hash_and_amount)
 {
 	nano::work_thresholds work_threshold = nano::work_thresholds (0, 0, 0);
