@@ -280,7 +280,7 @@ TEST (message, confirm_req_to_string_block)
 	hdr.block_type_set (block_ptr->type ());
 
 	std::string expected_string = hdr.to_string ();
-	expected_string.append ("\n" + block_ptr->to_json());
+	expected_string.append ("\n" + block_ptr->to_json ());
 
 	ASSERT_EQ (confirm_req.to_string (), expected_string);
 }
