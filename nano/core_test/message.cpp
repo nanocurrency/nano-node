@@ -32,9 +32,7 @@ TEST (message, node_id_handshake_to_string_response_has_value)
 	nano::account account = nano::account ("123456789875654321");
 	nano::signature signature = nano::signature (0);
 
-	nano::work_thresholds work_threshold = nano::work_thresholds (0, 0, 0);
-	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
-	nano::node_id_handshake node_id_handshake = nano::node_id_handshake (network_constants, query, std::pair (account, signature));
+	nano::node_id_handshake node_id_handshake = nano::node_id_handshake (nano::dev::network_params.network, query, std::pair (account, signature));
 
 	std::string expected_output = "NetID: 5241(dev), VerMaxUsingMin: 19/19/18, MsgType: 10(node_id_handshake), Extensions: 0003\n";
 	expected_output += "cookie=" + query.to_string ();
@@ -48,9 +46,7 @@ TEST (message, node_id_handshake_to_string_response_has_no_value)
 {
 	nano::uint256_union query = 010010101101110101101;
 
-	nano::work_thresholds work_threshold = nano::work_thresholds (0, 0, 0);
-	nano::network_constants network_constants = nano::network_constants (work_threshold, nano::networks::nano_dev_network);
-	nano::node_id_handshake node_id_handshake = nano::node_id_handshake (network_constants, query, boost::none);
+	nano::node_id_handshake node_id_handshake = nano::node_id_handshake (nano::dev::network_params.network, query, boost::none);
 
 	std::string expected_output = "NetID: 5241(dev), VerMaxUsingMin: 19/19/18, MsgType: 10(node_id_handshake), Extensions: 0001\n";
 	expected_output += "cookie=" + query.to_string ();
