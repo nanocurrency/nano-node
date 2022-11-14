@@ -4,10 +4,11 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/secure/store.hpp>
 
-nano::backlog_population::backlog_population (const config & config_a, nano::store & store_a, nano::election_scheduler & scheduler_a) :
+nano::backlog_population::backlog_population (const config & config_a, nano::store & store_a, nano::election_scheduler & scheduler_a, nano::stat & stats_a) :
 	config_m{ config_a },
 	store{ store_a },
-	scheduler{ scheduler_a }
+	scheduler{ scheduler_a },
+	stats{ stats_a }
 {
 }
 
@@ -60,6 +61,8 @@ void nano::backlog_population::run ()
 	{
 		if (predicate ())
 		{
+			stats.inc (nano::stat::type::backlog, nano::stat::detail::loop);
+
 			triggered = false;
 			lock.unlock ();
 			populate_backlog ();
@@ -87,8 +90,15 @@ void nano::backlog_population::populate_backlog ()
 			const auto end = store.account.end ();
 			for (; !stopped && i != end && count < chunk_size; ++i, ++count, ++total)
 			{
+				stats.inc (nano::stat::type::backlog, nano::stat::detail::total);
+
 				auto const & account = i->first;
-				scheduler.activate (account, transaction);
+				bool activated = scheduler.activate (account, transaction);
+				if (activated)
+				{
+					stats.inc (nano::stat::type::backlog, nano::stat::detail::activated);
+				}
+
 				next = account.number () + 1;
 			}
 			done = store.account.begin (transaction, next) == end;

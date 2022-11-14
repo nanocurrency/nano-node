@@ -8,6 +8,7 @@
 
 namespace nano
 {
+class stat;
 class store;
 class election_scheduler;
 
@@ -19,7 +20,7 @@ public:
 		bool ongoing_backlog_population_enabled;
 	};
 
-	backlog_population (const config &, nano::store &, nano::election_scheduler &);
+	backlog_population (const config &, nano::store &, nano::election_scheduler &, nano::stat &);
 	~backlog_population ();
 
 	void start ();
@@ -34,6 +35,7 @@ public:
 private: // Dependencies
 	nano::store & store;
 	nano::election_scheduler & scheduler;
+	nano::stat & stats;
 
 	config config_m;
 

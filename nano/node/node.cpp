@@ -197,7 +197,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	hinting{ nano::nodeconfig_to_hinted_scheduler_config (config), *this, inactive_vote_cache, active, online_reps, stats },
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
-	backlog{ nano::backlog_population_config (config), store, scheduler },
+	backlog{ nano::backlog_population_config (config), store, scheduler, stats },
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq)
 {
