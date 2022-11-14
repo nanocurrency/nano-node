@@ -272,7 +272,7 @@ TEST (confirm_ack, empty_vote_hashes)
 TEST (message, confirm_ack_to_string)
 {
 	nano::vote vote = nano::vote ();
-	nano::account start = nano::account (12345678987564312);
+	nano::account start = nano::account (12345678987564321);
 	vote.account = start;
 
 	std::shared_ptr vote_ptr = std::make_shared<nano::vote> (vote);
