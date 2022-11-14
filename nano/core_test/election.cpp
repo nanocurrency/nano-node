@@ -257,3 +257,42 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	ASSERT_NE (nullptr, node1.block (send1->hash ()));
 }
 }
+
+TEST (election, continuous_voting)
+{
+	nano::test::system system{};
+	auto & node1 = *system.add_node ();
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	// We want genesis to have just enough voting weight to be a principal rep, but not enough to confirm blocks on their own
+	nano::keypair key1{};
+	nano::send_block_builder builder{};
+	auto send1 = builder.make_block ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key1.pub)
+				 .balance (node1.balance (nano::dev::genesis_key.pub) / 10 * 1)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build_shared ();
+
+	ASSERT_TRUE (nano::test::process (node1, { send1 }));
+	ASSERT_TIMELY (5s, nano::test::confirm (node1, { send1 }));
+	ASSERT_TIMELY (5s, nano::test::confirmed (node1, { send1 }));
+
+	node1.stats.clear ();
+
+	// Create a block that should be staying in AEC but not get confirmed
+	auto send2 = builder.make_block ()
+				 .previous (send1->hash ())
+				 .destination (key1.pub)
+				 .balance (node1.balance (nano::dev::genesis_key.pub) - 1)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (send1->hash ()))
+				 .build_shared ();
+
+	ASSERT_TRUE (nano::test::process (node1, { send2 }));
+	ASSERT_TIMELY (5s, node1.active.active (*send2));
+
+	// Ensure votes are generated in continuous manner
+	ASSERT_TIMELY_EQ (5s, node1.stats.count (nano::stat::type::election, nano::stat::detail::generate_vote), 5);
+}

@@ -177,16 +177,4 @@ private:
 };
 
 std::unique_ptr<container_info_component> collect_container_info (vote_generator & generator, std::string const & name);
-
-class vote_generator_session final
-{
-public:
-	explicit vote_generator_session (vote_generator & vote_generator_a);
-	void add (nano::root const &, nano::block_hash const &);
-	void flush ();
-
-private:
-	nano::vote_generator & generator;
-	std::vector<std::pair<nano::root, nano::block_hash>> items;
-};
 }

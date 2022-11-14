@@ -444,26 +444,6 @@ void nano::vote_generator::run ()
 	}
 }
 
-nano::vote_generator_session::vote_generator_session (nano::vote_generator & vote_generator_a) :
-	generator (vote_generator_a)
-{
-}
-
-void nano::vote_generator_session::add (nano::root const & root_a, nano::block_hash const & hash_a)
-{
-	debug_assert (nano::thread_role::get () == nano::thread_role::name::request_loop);
-	items.emplace_back (root_a, hash_a);
-}
-
-void nano::vote_generator_session::flush ()
-{
-	debug_assert (nano::thread_role::get () == nano::thread_role::name::request_loop);
-	for (auto const & [root, hash] : items)
-	{
-		generator.add (root, hash);
-	}
-}
-
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::vote_generator & vote_generator, std::string const & name)
 {
 	std::size_t candidates_count = 0;

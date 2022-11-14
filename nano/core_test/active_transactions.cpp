@@ -628,7 +628,7 @@ TEST (active_transactions, dropped_cleanup)
 
 	// Not yet removed
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
-	ASSERT_EQ (1, node.active.blocks.count (nano::dev::genesis->hash ()));
+	ASSERT_TRUE (node.active.active (nano::dev::genesis->hash ()));
 
 	// Now simulate dropping the election
 	ASSERT_FALSE (election->confirmed ());
@@ -641,7 +641,7 @@ TEST (active_transactions, dropped_cleanup)
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop_all));
 
 	// Block cleared from active
-	ASSERT_EQ (0, node.active.blocks.count (nano::dev::genesis->hash ()));
+	ASSERT_FALSE (node.active.active (nano::dev::genesis->hash ()));
 
 	// Repeat test for a confirmed election
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
@@ -660,7 +660,7 @@ TEST (active_transactions, dropped_cleanup)
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop_all));
 
 	// Block cleared from active
-	ASSERT_EQ (0, node.active.blocks.count (nano::dev::genesis->hash ()));
+	ASSERT_FALSE (node.active.active (nano::dev::genesis->hash ()));
 }
 
 TEST (active_transactions, republish_winner)

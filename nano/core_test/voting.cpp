@@ -103,22 +103,6 @@ TEST (vote_generator, multiple_representatives)
 	}
 }
 
-TEST (vote_generator, session)
-{
-	nano::test::system system (1);
-	auto node (system.nodes[0]);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::vote_generator_session generator_session (node->generator);
-	boost::thread thread ([node, &generator_session] () {
-		nano::thread_role::set (nano::thread_role::name::request_loop);
-		generator_session.add (nano::dev::genesis->account (), nano::dev::genesis->hash ());
-		ASSERT_EQ (0, node->stats.count (nano::stat::type::vote, nano::stat::detail::vote_indeterminate));
-		generator_session.flush ();
-	});
-	thread.join ();
-	ASSERT_TIMELY (2s, 1 == node->stats.count (nano::stat::type::vote, nano::stat::detail::vote_indeterminate));
-}
-
 TEST (vote_spacing, basic)
 {
 	nano::vote_spacing spacing{ std::chrono::milliseconds{ 100 } };
