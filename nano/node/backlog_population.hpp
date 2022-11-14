@@ -17,18 +17,25 @@ public:
 	struct config
 	{
 		bool ongoing_backlog_population_enabled;
-		unsigned int delay_between_runs_in_seconds;
 	};
 
-	explicit backlog_population (const config & config_a, store & store, election_scheduler & scheduler);
+	backlog_population (const config &, nano::store &, nano::election_scheduler &);
 	~backlog_population ();
 
 	void start ();
 	void stop ();
+
+	/** Manually trigger backlog population */
 	void trigger ();
 
-	/** Other components call this to notify us about external changes, so we can check our predicate. */
+	/** Notify about AEC vacancy */
 	void notify ();
+
+private: // Dependencies
+	nano::store & store;
+	nano::election_scheduler & scheduler;
+
+	config config_m;
 
 private:
 	void run ();
@@ -49,10 +56,21 @@ private:
 	 *  backlog population is disabled, so that it can service a manual trigger (e.g. via RPC). */
 	std::thread thread;
 
-	config config_m;
+private: // Config
+	/*
+	 * TODO: It could be possible to expose below configuration values in node config, however I'm not sure if it is a good idea
+	 *       Those settings are implementation specific and require at least some knowledge about node internals, therefore most users outside node development should not modify them.
+	 */
 
-private: // Dependencies
-	store & store_m;
-	election_scheduler & scheduler;
+	/**
+	 * How many accounts to scan in one internal loop pass
+	 * Should not be too high to limit the time a database transaction is held
+	 */
+	static uint64_t constexpr chunk_size = 1024;
+	/**
+	 * Amount of time to sleep between processing chunks
+	 * Should not be too low as not to steal too many resources from other node operations
+	 */
+	static std::chrono::milliseconds constexpr chunk_interval = std::chrono::milliseconds (100);
 };
 }
