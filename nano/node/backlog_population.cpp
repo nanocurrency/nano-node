@@ -4,10 +4,9 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/secure/store.hpp>
 
-nano::backlog_population::backlog_population (const config & config_a, nano::store & store_a, nano::election_scheduler & scheduler_a, nano::stat & stats_a) :
+nano::backlog_population::backlog_population (const config & config_a, nano::store & store_a, nano::stat & stats_a) :
 	config_m{ config_a },
 	store{ store_a },
-	scheduler{ scheduler_a },
 	stats{ stats_a }
 {
 }
@@ -93,12 +92,7 @@ void nano::backlog_population::populate_backlog ()
 				stats.inc (nano::stat::type::backlog, nano::stat::detail::total);
 
 				auto const & account = i->first;
-				bool activated = scheduler.activate (account, transaction);
-				if (activated)
-				{
-					stats.inc (nano::stat::type::backlog, nano::stat::detail::activated);
-				}
-
+				activate (transaction, account);
 				next = account.number () + 1;
 			}
 			done = store.account.begin (transaction, next) == end;
@@ -106,5 +100,28 @@ void nano::backlog_population::populate_backlog ()
 
 		// Give the rest of the node time to progress without holding database lock
 		std::this_thread::sleep_for (chunk_interval);
+	}
+}
+
+void nano::backlog_population::activate (nano::transaction const & transaction, nano::account const & account)
+{
+	debug_assert (!activate_callback.empty ());
+
+	auto const maybe_account_info = store.account.get (transaction, account);
+	if (!maybe_account_info)
+	{
+		return;
+	}
+	auto const account_info = *maybe_account_info;
+
+	auto const maybe_conf_info = store.confirmation_height.get (transaction, account);
+	auto const conf_info = maybe_conf_info.value_or (nano::confirmation_height_info{});
+
+	// If conf info is empty then it means then it means nothing is confirmed yet
+	if (conf_info.height < account_info.block_count)
+	{
+		stats.inc (nano::stat::type::backlog, nano::stat::detail::activated);
+
+		activate_callback.notify (transaction, account, account_info, conf_info);
 	}
 }

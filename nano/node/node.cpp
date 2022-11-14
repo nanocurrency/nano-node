@@ -197,7 +197,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	hinting{ nano::nodeconfig_to_hinted_scheduler_config (config), *this, inactive_vote_cache, active, online_reps, stats },
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
-	backlog{ nano::backlog_population_config (config), store, scheduler, stats },
+	backlog{ nano::backlog_population_config (config), store, stats },
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq)
 {
@@ -209,6 +209,10 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	inactive_vote_cache.rep_weight_query = [this] (nano::account const & rep) {
 		return ledger.weight (rep);
 	};
+
+	backlog.activate_callback.add ([this] (nano::transaction const & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info) {
+		scheduler.activate (account, transaction);
+	});
 
 	if (!init_error ())
 	{
