@@ -238,6 +238,8 @@ TEST (store, load)
 	}
 }
 
+namespace nano
+{
 TEST (node, fork_storm)
 {
 	// WIP against issue #3709
@@ -342,6 +344,7 @@ TEST (node, fork_storm)
 	}
 	ASSERT_TRUE (true);
 }
+} // namespace nano
 
 namespace
 {
@@ -1942,13 +1945,15 @@ TEST (node, mass_epoch_upgrader)
 	perform_test (std::numeric_limits<size_t>::max ());
 }
 
+namespace nano
+{
 TEST (node, mass_block_new)
 {
 	nano::test::system system;
 	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
-	node.network_params.network.request_interval_ms = 500;
+	node.network_params.network.aec_loop_interval_ms = 500;
 
 #ifndef NDEBUG
 	auto const num_blocks = 5000;
@@ -2069,6 +2074,7 @@ TEST (node, mass_block_new)
 	process_all (receive_blocks);
 	std::cout << "Receive blocks time: " << timer.stop ().count () << " " << timer.unit () << "\n\n";
 }
+}
 
 TEST (node, wallet_create_block_confirm_conflicts)
 {
@@ -2125,6 +2131,8 @@ TEST (node, wallet_create_block_confirm_conflicts)
 	}
 }
 
+namespace nano
+{
 /**
  * This test creates a small network of evenly weighted PRs and ensures a sequence of blocks from the genesis account to random accounts are able to be processed
  * Ongoing bootstrap is disabled to directly test election activation. A failure to activate a block on any PR will cause the test to stall
@@ -2228,3 +2236,4 @@ TEST (system, block_sequence)
 		system.poll ();
 	}
 }
+} // namespace nano
