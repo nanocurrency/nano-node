@@ -106,6 +106,12 @@ public:
 	nano::rocksdb_config rocksdb_config;
 	nano::lmdb_config lmdb_config;
 	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
+	/** Number of accounts per second to process when doing backlog population scan */
+	uint64_t backlog_scan_rate{ 10 * 1000 };
+	/** Number of times per second to run backlog population batches. Number of accounts per single batch is `backlog_scan_rate / backlog_scan_frequency` */
+	uint backlog_scan_frequency{ 10 };
+
+public:
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
 	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);
 	/** Entry is ignored if it cannot be parsed as a valid address:port */

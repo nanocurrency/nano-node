@@ -37,9 +37,8 @@ nano::backlog_population::config nano::backlog_population_config (const nano::no
 {
 	nano::backlog_population::config cfg{};
 	cfg.enabled = config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled;
-	// TODO: Add nodeconfig settings
-	cfg.frequency = 10;
-	cfg.rate = 1024 * 10;
+	cfg.frequency = config.backlog_scan_frequency;
+	cfg.rate = config.backlog_scan_rate;
 	return cfg;
 }
 
