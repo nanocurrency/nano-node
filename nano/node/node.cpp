@@ -36,7 +36,10 @@ extern std::size_t nano_bootstrap_weights_beta_size;
 nano::backlog_population::config nano::backlog_population_config (const nano::node_config & config)
 {
 	nano::backlog_population::config cfg{};
-	cfg.ongoing_backlog_population_enabled = config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled;
+	cfg.enabled = config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled;
+	// TODO: Add nodeconfig settings
+	cfg.frequency = 10;
+	cfg.rate = 1024 * 10;
 	return cfg;
 }
 

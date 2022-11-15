@@ -20,7 +20,14 @@ class backlog_population final
 public:
 	struct config
 	{
-		bool ongoing_backlog_population_enabled;
+		/** Control if ongoing backlog population is enabled. If not, backlog population can still be triggered by RPC */
+		bool enabled;
+
+		/** Number of accounts per second to process. Number of accounts per single batch is this value divided by `frequency` */
+		uint64_t rate;
+
+		/** Number of batches to run per second. Batches run in 1 second / `frequency` intervals */
+		uint frequency;
 	};
 
 	backlog_population (const config &, nano::store &, nano::stat &);
@@ -66,17 +73,5 @@ private:
 	/** Thread that runs the backlog implementation logic. The thread always runs, even if
 	 *  backlog population is disabled, so that it can service a manual trigger (e.g. via RPC). */
 	std::thread thread;
-
-private: // Config
-	/**
-	 * How many accounts to scan in one internal loop pass
-	 * Should not be too high to limit the time a database transaction is held
-	 */
-	static uint64_t constexpr chunk_size = 1024;
-	/**
-	 * Amount of time to sleep between processing chunks
-	 * Should not be too low as not to steal too many resources from other node operations
-	 */
-	static std::chrono::milliseconds constexpr chunk_interval = std::chrono::milliseconds (100);
 };
 }

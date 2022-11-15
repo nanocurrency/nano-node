@@ -50,7 +50,7 @@ void nano::backlog_population::notify ()
 
 bool nano::backlog_population::predicate () const
 {
-	return triggered || config_m.ongoing_backlog_population_enabled;
+	return triggered || config_m.enabled;
 }
 
 void nano::backlog_population::run ()
@@ -76,6 +76,9 @@ void nano::backlog_population::run ()
 
 void nano::backlog_population::populate_backlog ()
 {
+	debug_assert (config_m.frequency > 0);
+
+	const auto chunk_size = config_m.rate / config_m.frequency;
 	auto done = false;
 	nano::account next = 0;
 	uint64_t total = 0;
@@ -99,7 +102,7 @@ void nano::backlog_population::populate_backlog ()
 		}
 
 		// Give the rest of the node time to progress without holding database lock
-		std::this_thread::sleep_for (chunk_interval);
+		std::this_thread::sleep_for (std::chrono::milliseconds (1000 / config_m.frequency));
 	}
 }
 
