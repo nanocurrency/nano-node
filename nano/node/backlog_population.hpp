@@ -24,10 +24,10 @@ public:
 		bool enabled;
 
 		/** Number of accounts per second to process. Number of accounts per single batch is this value divided by `frequency` */
-		uint64_t rate;
+		unsigned rate;
 
 		/** Number of batches to run per second. Batches run in 1 second / `frequency` intervals */
-		uint frequency;
+		unsigned frequency;
 	};
 
 	backlog_population (const config &, nano::store &, nano::stat &);

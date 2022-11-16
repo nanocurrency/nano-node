@@ -128,7 +128,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation), "Mode controlling frontier confirmation rate.\ntype:string,{auto,always,disabled}");
 	toml.put ("max_queued_requests", max_queued_requests, "Limit for number of queued confirmation requests for one channel, after which new requests are dropped until the queue drops below this value.\ntype:uint32");
 	toml.put ("rep_crawler_weight_minimum", rep_crawler_weight_minimum.to_string_dec (), "Rep crawler minimum weight, if this is less than minimum principal weight then this is taken as the minimum weight a rep must have to be tracked. If you want to track all reps set this to 0. If you do not want this to influence anything then set it to max value. This is only useful for debugging or for people who really know what they are doing.\ntype:string,amount,raw");
-	toml.put ("backlog_scan_rate", backlog_scan_rate, "Number of accounts per second to process when doing backlog population scan. Increasing this value will help unconfirmed frontiers get into election prioritization queue faster, however it will also increase resource usage. \ntype:unit64");
+	toml.put ("backlog_scan_rate", backlog_scan_rate, "Number of accounts per second to process when doing backlog population scan. Increasing this value will help unconfirmed frontiers get into election prioritization queue faster, however it will also increase resource usage. \ntype:unit");
 	toml.put ("backlog_scan_frequency", backlog_scan_frequency, "Backlog scan divides the scan into smaller batches, number of which is controlled by this value. Higher frequency helps to utilize resources more uniformly, however it also introduces more overhead. The resulting number of accounts per single batch is `backlog_scan_rate / backlog_scan_frequency` \ntype:uint");
 
 	auto work_peers_l (toml.create_array ("work_peers", "A list of \"address:port\" entries to identify work peers."));
@@ -400,8 +400,8 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			frontiers_confirmation = deserialize_frontiers_confirmation (frontiers_confirmation_l);
 		}
 
-		toml.get<uint64_t> ("backlog_scan_rate", backlog_scan_rate);
-		toml.get<uint> ("backlog_scan_frequency", backlog_scan_frequency);
+		toml.get<unsigned> ("backlog_scan_rate", backlog_scan_rate);
+		toml.get<unsigned> ("backlog_scan_frequency", backlog_scan_frequency);
 
 		if (toml.has_key ("experimental"))
 		{
