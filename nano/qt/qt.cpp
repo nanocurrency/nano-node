@@ -957,7 +957,7 @@ std::string nano_qt::status::text ()
 	}
 
 	result += ", Blocks: ";
-	count_string += ", Queued: " + std::to_string (unchecked);
+	count_string += ", Unchecked: " + std::to_string (unchecked);
 	count_string += ", Cemented: " + std::to_string (cemented);
 
 	if (wallet.node.flags.enable_pruning)
