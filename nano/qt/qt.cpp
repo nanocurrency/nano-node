@@ -957,15 +957,8 @@ std::string nano_qt::status::text ()
 	}
 
 	result += ", Blocks: ";
-	if (unchecked != 0 && wallet.node.bootstrap_initiator.in_progress ())
-	{
-		count_string += ", Queued: " + std::to_string (unchecked);
-	}
-	
-	if (cemented != 0)
-	{
-		count_string += ", Cemented: " + std::to_string (cemented);
-	}
+	count_string += ", Queued: " + std::to_string (unchecked);
+	count_string += ", Cemented: " + std::to_string (cemented);
 
 	if (wallet.node.flags.enable_pruning)
 	{
