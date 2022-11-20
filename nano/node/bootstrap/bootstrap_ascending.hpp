@@ -72,33 +72,54 @@ namespace bootstrap
 			explicit account_sets (nano::stat &, nano::store & store);
 
 			/**
-			 * If an account is not blocked, then add it to the forwarding set and, additioally, if it does not exist in the backoff set, set the priority.
+			 * If an account is not blocked, increase its priority.
+			 * Priority is increased whether it is in the normal priority set, or it is currently blocked and in the blocked set.
+			 * Current implementation increases priority by 1.0f each increment
 			 */
 			void priority_up (nano::account const & account);
+			/**
+			 * Decreases account priority
+			 * Current implementation divides priority by 2.0f and saturates down to 1.0f.
+			 */
 			void priority_down (nano::account const & account);
+			/**
+			 * Marks an account as blocked and it receives 0.0f priority
+			 */
 			void block (nano::account const & account, nano::block_hash const & dependency);
+			/**
+			 * Unblock an account but only if it was blocked waiting for a specific hash.
+			 * This is useful when a source block dependency is satisfied
+			 */
 			void unblock (nano::account const & account, nano::block_hash const & hash);
+			/**
+			 * Unblocks an account regardless of the block that has been added
+			 * This is useful for if an account was blocked and a block has now been inserted
+			 * Regardless of what we were waiting for before, the account is no longer blocked.
+			*/
 			void force_unblock (nano::account const & account);
 			void dump () const;
 			std::string to_string () const;
 			std::unique_ptr<nano::container_info_component> collect_container_info (const std::string & name);
 
-			/**
-			 * Pop an account out of forwarding set, or get a random account, if forwardinbg set is empty.
-			 * Then move it into backoff set with priority 1 so that another account can get a chance to be pulled.
-			 */
-			nano::account next ();
-
 		public:
 			bool blocked (nano::account const & account) const;
 			float priority (nano::account const & account) const;
+			/**
+			 * Selects a random account from either:
+			 * 1) The priority set in memory
+			 * 2) The accounts in the ledger
+			 * 3) Pending entries in the ledger
+			 * Creates consideration set of "consideration_count" items and returns on randomly weighted by priority
+			 * Half are considered from the "priorities" container, half are considered from the ledger.
+			 */
+			nano::account random ();
 
 		private: // Dependencies
 			nano::stat & stats;
 			nano::store & store;
 
 		private:
-			nano::account random ();
+			static size_t constexpr consideration_count = 2;
 
 			// A blocked account is an account that has failed to insert a block because the source block is gapped.
 			// An account is unblocked once it has a block successfully inserted.
@@ -129,7 +150,6 @@ namespace bootstrap
 			priorities;
 			static size_t const priorities_max = 65536;
 
-			static size_t constexpr backoff_exclusion = 2;
 			std::default_random_engine rng;
 
 		public:
@@ -210,7 +230,7 @@ namespace bootstrap
 		account_sets accounts;
 		connection_pool pool;
 
-		static std::size_t constexpr parallelism = 1;
+		static std::size_t constexpr parallelism = 16;
 		static std::size_t constexpr request_message_count = 128;
 
 		std::atomic<int> responses{ 0 };

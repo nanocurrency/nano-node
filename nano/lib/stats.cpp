@@ -1042,9 +1042,6 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 		case nano::stat::detail::prioritize:
 			res = "prioritize";
 			break;
-		case nano::stat::detail::prioritize_failed:
-			res = "prioritize_failed";
-			break;
 		case nano::stat::detail::block:
 			res = "block";
 			break;
@@ -1056,9 +1053,6 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 			break;
 		case nano::stat::detail::next_forwarding:
 			res = "next_forwarding";
-			break;
-		case nano::stat::detail::next_random:
-			res = "next_random";
 			break;
 	}
 	return res;

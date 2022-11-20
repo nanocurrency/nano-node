@@ -459,12 +459,10 @@ public:
 
 		// bootstrap ascending accounts
 		prioritize,
-		prioritize_failed,
 		block,
 		unblock,
 		unblock_failed,
 		next_forwarding,
-		next_random,
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

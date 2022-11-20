@@ -130,7 +130,8 @@ std::string nano::bootstrap::bootstrap_ascending::account_sets::to_string () con
 
 void nano::bootstrap::bootstrap_ascending::account_sets::priority_up (nano::account const & account)
 {
-	if (blocking.count (account) == 0)
+	auto blocking_iter = blocking.find (account);
+	if (blocking_iter == blocking.end ())
 	{
 		stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::prioritize);
 
@@ -151,7 +152,7 @@ void nano::bootstrap::bootstrap_ascending::account_sets::priority_up (nano::acco
 	}
 	else
 	{
-		stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::prioritize_failed);
+		blocking_iter->second.second += 1.0f;
 	}
 }
 
@@ -212,7 +213,7 @@ nano::account nano::bootstrap::bootstrap_ascending::account_sets::random ()
 	std::vector<float> weights;
 	std::vector<nano::account> candidates;
 	{
-		while (!priorities.empty () && candidates.size () < account_sets::backoff_exclusion / 2)
+		while (!priorities.empty () && candidates.size () < account_sets::consideration_count / 2)
 		{
 			debug_assert (candidates.size () == weights.size ());
 			nano::account search;
@@ -255,7 +256,7 @@ nano::account nano::bootstrap::bootstrap_ascending::account_sets::random ()
 					weights.push_back (1.0f);
 				}
 			}
-		} while (candidates.size () < account_sets::backoff_exclusion);
+		} while (candidates.size () < account_sets::consideration_count);
 	}
 	std::string dump;
 	/*if (std::any_of (weights.begin (), weights.end (), [] (float const & val) { return val > 2.0f; }))
@@ -288,14 +289,6 @@ nano::account nano::bootstrap::bootstrap_ascending::account_sets::random ()
 	auto selection = dist (rng);
 	debug_assert (!weights.empty () && selection < weights.size ());
 	auto result = candidates[selection];
-	return result;
-}
-
-nano::account nano::bootstrap::bootstrap_ascending::account_sets::next ()
-{
-	nano::account result;
-	stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::next_random);
-	result = random ();
 	return result;
 }
 
@@ -500,7 +493,7 @@ void nano::bootstrap::bootstrap_ascending::thread::read_block (std::shared_ptr<a
 nano::account nano::bootstrap::bootstrap_ascending::thread::pick_account ()
 {
 	nano::lock_guard<nano::mutex> lock{ bootstrap.mutex };
-	return bootstrap.accounts.next ();
+	return bootstrap.accounts.random ();
 }
 
 /** Inspects a block that has been processed by the block processor
@@ -574,7 +567,15 @@ void nano::bootstrap::bootstrap_ascending::dump_stats ()
 bool nano::bootstrap::bootstrap_ascending::thread::wait_available_request ()
 {
 	nano::unique_lock<nano::mutex> lock{ bootstrap.mutex };
-	bootstrap.condition.wait (lock, [this] () { return bootstrap.stopped || (requests < requests_max && !bootstrap.node.block_processor.half_full ()); });
+	auto done = [this] () {
+		return bootstrap.stopped || (requests < requests_max /* && !bootstrap.node.block_processor.half_full ()*/);
+	};
+	while (!done ())
+	{
+		// We do not receive a notification from block_processor when the contents of the queue is updated.
+		// Sleep-poll for availability.
+		bootstrap.condition.wait_for (lock, 250ms, done);
+	}
 	bootstrap.debug_log (boost::str (boost::format ("wait_available_request stopped=%1% request=%2%") % bootstrap.stopped % requests));
 	return bootstrap.stopped;
 }
