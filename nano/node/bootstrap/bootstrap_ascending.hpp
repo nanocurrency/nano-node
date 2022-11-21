@@ -103,6 +103,7 @@ namespace bootstrap
 
 		public:
 			bool blocked (nano::account const & account) const;
+			size_t blocked_size () const;
 			float priority (nano::account const & account) const;
 			/**
 			 * Selects a random account from either:
@@ -148,7 +149,7 @@ namespace bootstrap
 			boost::multi_index::ordered_non_unique<boost::multi_index::tag<tag_priority>,
 			boost::multi_index::member<priority_t, float, &priority_t::priority>>>>
 			priorities;
-			static size_t const priorities_max = 65536;
+			static size_t const priorities_max = 1024 * 1024;
 
 			std::default_random_engine rng;
 
@@ -217,7 +218,7 @@ namespace bootstrap
 			std::weak_ptr<nano::node> node_weak;
 		};
 
-		bool blocked (nano::account const & account);
+		size_t blocked_size () const;
 		void inspect (nano::transaction const & tx, nano::process_return const & result, nano::block const & block);
 		void dump_stats ();
 
@@ -237,7 +238,6 @@ namespace bootstrap
 		std::atomic<int> requests_total{ 0 };
 		std::atomic<float> weights{ 0 };
 		std::atomic<int> forwarded{ 0 };
-		std::atomic<int> block_total{ 0 };
 	};
 }
 }

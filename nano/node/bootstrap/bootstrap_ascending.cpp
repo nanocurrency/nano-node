@@ -273,7 +273,7 @@ nano::account nano::bootstrap::bootstrap_ascending::account_sets::random ()
 	static int count = 0;
 	if (count++ % 100'000 == 0)
 	{
-		this->dump ();
+		//this->dump ();
 	}
 	/*dump += "============\n";
 	for (auto i: priorities)
@@ -295,6 +295,11 @@ nano::account nano::bootstrap::bootstrap_ascending::account_sets::random ()
 bool nano::bootstrap::bootstrap_ascending::account_sets::blocked (nano::account const & account) const
 {
 	return blocking.count (account) > 0;
+}
+
+size_t nano::bootstrap::bootstrap_ascending::account_sets::blocked_size () const
+{
+	return blocking.size ();
 }
 
 float nano::bootstrap::bootstrap_ascending::account_sets::priority (nano::account const & account) const
@@ -496,6 +501,12 @@ nano::account nano::bootstrap::bootstrap_ascending::thread::pick_account ()
 	return bootstrap.accounts.random ();
 }
 
+size_t nano::bootstrap::bootstrap_ascending::blocked_size () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return accounts.blocked_size ();
+}
+
 /** Inspects a block that has been processed by the block processor
 - Marks an account as blocked if the result code is gap source as there is no reason request additional blocks for this account until the dependency is resolved
 - Marks an account as forwarded if it has been recently referenced by a block that has been inserted.
@@ -568,7 +579,7 @@ bool nano::bootstrap::bootstrap_ascending::thread::wait_available_request ()
 {
 	nano::unique_lock<nano::mutex> lock{ bootstrap.mutex };
 	auto done = [this] () {
-		return bootstrap.stopped || (requests < requests_max /* && !bootstrap.node.block_processor.half_full ()*/);
+		return bootstrap.stopped || (requests < requests_max && !bootstrap.node.block_processor.half_full ());
 	};
 	while (!done ())
 	{
