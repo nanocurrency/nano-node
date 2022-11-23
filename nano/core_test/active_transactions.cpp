@@ -1287,36 +1287,38 @@ TEST (active_transactions, list_active)
 
 TEST (active_transactions, vacancy)
 {
-	nano::test::system system;
-	nano::node_config config{ nano::test::get_available_port (), system.logging };
-	config.active_elections_size = 1;
-	auto & node = *system.add_node (config);
-	nano::state_block_builder builder;
-	auto send = builder.make_block ()
-				.account (nano::dev::genesis_key.pub)
-				.previous (nano::dev::genesis->hash ())
-				.representative (nano::dev::genesis_key.pub)
-				.link (nano::dev::genesis_key.pub)
-				.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*system.work.generate (nano::dev::genesis->hash ()))
-				.build_shared ();
 	std::atomic<bool> updated = false;
-	node.active.vacancy_update = [&updated] () { updated = true; };
-	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
-	ASSERT_EQ (1, node.active.vacancy ());
-	ASSERT_EQ (0, node.active.size ());
-	node.scheduler.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
-	ASSERT_TIMELY (1s, updated);
-	updated = false;
-	ASSERT_EQ (0, node.active.vacancy ());
-	ASSERT_EQ (1, node.active.size ());
-	auto election1 = node.active.election (send->qualified_root ());
-	ASSERT_NE (nullptr, election1);
-	election1->force_confirm ();
-	ASSERT_TIMELY (1s, updated);
-	ASSERT_EQ (1, node.active.vacancy ());
-	ASSERT_EQ (0, node.active.size ());
+	{
+		nano::test::system system;
+		nano::node_config config{ nano::test::get_available_port (), system.logging };
+		config.active_elections_size = 1;
+		auto & node = *system.add_node (config);
+		nano::state_block_builder builder;
+		auto send = builder.make_block ()
+					.account (nano::dev::genesis_key.pub)
+					.previous (nano::dev::genesis->hash ())
+					.representative (nano::dev::genesis_key.pub)
+					.link (nano::dev::genesis_key.pub)
+					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (nano::dev::genesis->hash ()))
+					.build_shared ();
+		node.active.vacancy_update = [&updated] () { updated = true; };
+		ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
+		ASSERT_EQ (1, node.active.vacancy ());
+		ASSERT_EQ (0, node.active.size ());
+		node.scheduler.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
+		ASSERT_TIMELY (1s, updated);
+		updated = false;
+		ASSERT_EQ (0, node.active.vacancy ());
+		ASSERT_EQ (1, node.active.size ());
+		auto election1 = node.active.election (send->qualified_root ());
+		ASSERT_NE (nullptr, election1);
+		election1->force_confirm ();
+		ASSERT_TIMELY (1s, updated);
+		ASSERT_EQ (1, node.active.vacancy ());
+		ASSERT_EQ (0, node.active.size ());
+	}
 }
 
 // Ensure transactions in excess of capacity are removed in fifo order
