@@ -37,10 +37,13 @@ nano::bandwidth_limiter & nano::outbound_bandwidth_limiter::select_limiter (nano
 	{
 		case bandwidth_limit_type::bootstrap:
 			return limiter_bootstrap;
+		case bandwidth_limit_type::standard:
+			break;
 		default:
-			return limiter_standard;
+			debug_assert (false);
+			break;
 	}
-	debug_assert (false);
+	return limiter_standard;
 }
 
 bool nano::outbound_bandwidth_limiter::should_pass (std::size_t buffer_size, nano::bandwidth_limit_type type)
