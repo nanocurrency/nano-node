@@ -16,7 +16,7 @@ RUN update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 100
 # BOOST_STACKTRACE_BACKTRACE_INCLUDE_FILE
 # see https://www.boost.org/doc/libs/1_70_0/doc/html/stacktrace/configuration_and_build.html#stacktrace.configuration_and_build.f3
 
-RUN ln -s /usr/lib/gcc/x86_64-linux-gnu/5/include/backtrace.h /tmp/backtrace.h
+RUN backtrace_file=$(find /usr/lib/gcc/x86_64-linux-gnu/ -name 'backtrace.h' | head -n 1) && test -f $backtrace_file && ln -s $backtrace_file /tmp/backtrace.h
 
 ARG REPOSITORY=nanocurrency/nano-node
 LABEL org.opencontainers.image.source https://github.com/$REPOSITORY
