@@ -9,7 +9,7 @@ sudo mkdir -p /etc/docker && echo '{"ipv6":true,"fixed-cidr-v6":"2001:db8:1::/64
 
 ci/build-docker-image.sh docker/ci/Dockerfile-base nanocurrency/nano-env:base
 if [[ "${COMPILER:-}" != "" ]]; then
-    ci/build-docker-image.sh docker/ci/Dockerfile-gcc nanocurrency/nano-env:${COMPILER}
+    ci/build-docker-image.sh docker/ci/Dockerfile-${COMPILER} nanocurrency/nano-env:${COMPILER}
 else
     ci/build-docker-image.sh docker/ci/Dockerfile-gcc nanocurrency/nano-env:gcc
     ci/build-docker-image.sh docker/ci/Dockerfile-clang nanocurrency/nano-env:clang
