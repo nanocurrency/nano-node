@@ -145,10 +145,13 @@ private:
 		while (!stopped)
 		{
 			auto batch = next_batch (lock);
-			lock.unlock ();
-			stats.inc (stat_type, nano::stat::detail::batch);
-			process_batch (batch);
-			lock.lock ();
+			if (!batch.empty ())
+			{
+				lock.unlock ();
+				stats.inc (stat_type, nano::stat::detail::batch);
+				process_batch (batch);
+				lock.lock ();
+			}
 		}
 	}
 
