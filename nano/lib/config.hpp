@@ -212,7 +212,7 @@ public:
 		max_peers_per_subnetwork (default_max_peers_per_ip * 4),
 		ipv6_subnetwork_prefix_for_limiting (64), // Equivalent to network prefix /64.
 		peer_dump_interval (std::chrono::seconds (5 * 60)),
-		vote_broadcast_interval (1000)
+		vote_broadcast_interval (15 * 1000)
 	{
 		if (is_live_network ())
 		{
@@ -244,7 +244,7 @@ public:
 			max_peers_per_ip = 20;
 			max_peers_per_subnetwork = max_peers_per_ip * 4;
 			peer_dump_interval = std::chrono::seconds (1);
-			vote_broadcast_interval = 100;
+			vote_broadcast_interval = 500;
 		}
 	}
 
@@ -284,10 +284,8 @@ public:
 	size_t max_peers_per_subnetwork;
 	size_t ipv6_subnetwork_prefix_for_limiting;
 	std::chrono::seconds peer_dump_interval;
-	/** Time to wait before vote rebroadcasts for active elections, this is doubled for each broadcast, up to `max_vote_broadcast_interval` (milliseconds) */
+	/** Time to wait before vote rebroadcasts for active elections (milliseconds) */
 	uint64_t vote_broadcast_interval;
-	/** Maximum interval for vote broadcasts for active elections (milliseconds) */
-	static uint64_t constexpr max_vote_broadcast_interval{ 16 * 1000 };
 
 	/** Returns the network this object contains values for */
 	nano::networks network () const
