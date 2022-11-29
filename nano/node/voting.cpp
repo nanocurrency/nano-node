@@ -186,37 +186,26 @@ nano::vote_generator::~vote_generator ()
 
 void nano::vote_generator::process (nano::write_transaction const & transaction, nano::root const & root_a, nano::block_hash const & hash_a)
 {
-	auto cached_votes (history.votes (root_a, hash_a, is_final));
-	if (!cached_votes.empty ())
+	bool should_vote = false;
+	if (is_final)
 	{
-		for (auto const & vote : cached_votes)
-		{
-			broadcast_action (vote);
-		}
+		auto block (ledger.store.block.get (transaction, hash_a));
+		should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block) && ledger.store.final_vote.put (transaction, block->qualified_root (), hash_a);
+		debug_assert (block == nullptr || root_a == block->root ());
 	}
 	else
 	{
-		auto should_vote (false);
-		if (is_final)
+		auto block (ledger.store.block.get (transaction, hash_a));
+		should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block);
+	}
+	if (should_vote)
+	{
+		nano::unique_lock<nano::mutex> lock (mutex);
+		candidates.emplace_back (root_a, hash_a);
+		if (candidates.size () >= nano::network::confirm_ack_hashes_max)
 		{
-			auto block (ledger.store.block.get (transaction, hash_a));
-			should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block) && ledger.store.final_vote.put (transaction, block->qualified_root (), hash_a);
-			debug_assert (block == nullptr || root_a == block->root ());
-		}
-		else
-		{
-			auto block (ledger.store.block.get (transaction, hash_a));
-			should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block);
-		}
-		if (should_vote)
-		{
-			nano::unique_lock<nano::mutex> lock (mutex);
-			candidates.emplace_back (root_a, hash_a);
-			if (candidates.size () >= nano::network::confirm_ack_hashes_max)
-			{
-				lock.unlock ();
-				condition.notify_all ();
-			}
+			lock.unlock ();
+			condition.notify_all ();
 		}
 	}
 }
@@ -294,7 +283,7 @@ void nano::vote_generator::set_reply_action (std::function<void (std::shared_ptr
 void nano::vote_generator::broadcast (nano::unique_lock<nano::mutex> & lock_a)
 {
 	debug_assert (lock_a.owns_lock ());
-	std::unordered_set<std::shared_ptr<nano::vote>> cached_sent;
+
 	std::vector<nano::block_hash> hashes;
 	std::vector<nano::root> roots;
 	hashes.reserve (nano::network::confirm_ack_hashes_max);
@@ -302,15 +291,7 @@ void nano::vote_generator::broadcast (nano::unique_lock<nano::mutex> & lock_a)
 	while (!candidates.empty () && hashes.size () < nano::network::confirm_ack_hashes_max)
 	{
 		auto const & [root, hash] = candidates.front ();
-		auto cached_votes = history.votes (root, hash, is_final);
-		for (auto const & cached_vote : cached_votes)
-		{
-			if (cached_sent.insert (cached_vote).second)
-			{
-				broadcast_action (cached_vote);
-			}
-		}
-		if (cached_votes.empty () && std::find (roots.begin (), roots.end (), root) == roots.end ())
+		if (std::find (roots.begin (), roots.end (), root) == roots.end ())
 		{
 			if (spacing.votable (root, hash))
 			{
@@ -338,7 +319,6 @@ void nano::vote_generator::broadcast (nano::unique_lock<nano::mutex> & lock_a)
 void nano::vote_generator::reply (nano::unique_lock<nano::mutex> & lock_a, request_t && request_a)
 {
 	lock_a.unlock ();
-	std::unordered_set<std::shared_ptr<nano::vote>> cached_sent;
 	auto i (request_a.first.cbegin ());
 	auto n (request_a.first.cend ());
 	while (i != n && !stopped)
@@ -350,17 +330,7 @@ void nano::vote_generator::reply (nano::unique_lock<nano::mutex> & lock_a, reque
 		for (; i != n && hashes.size () < nano::network::confirm_ack_hashes_max; ++i)
 		{
 			auto const & [root, hash] = *i;
-			auto cached_votes = history.votes (root, hash, is_final);
-			for (auto const & cached_vote : cached_votes)
-			{
-				if (cached_sent.insert (cached_vote).second)
-				{
-					stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached_late_hashes, stat::dir::in, cached_vote->hashes.size ());
-					stats.inc (nano::stat::type::requests, nano::stat::detail::requests_cached_late_votes, stat::dir::in);
-					reply_action (cached_vote, request_a.second);
-				}
-			}
-			if (cached_votes.empty () && std::find (roots.begin (), roots.end (), root) == roots.end ())
+			if (std::find (roots.begin (), roots.end (), root) == roots.end ())
 			{
 				if (spacing.votable (root, hash))
 				{
