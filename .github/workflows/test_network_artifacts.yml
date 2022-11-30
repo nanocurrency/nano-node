@@ -91,7 +91,7 @@ jobs:
         env:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       - name: Login to ghcr.io
-        uses: docker/login-action@adb73476b6e06caddec5db0bc1deacbec8cdd947
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a #v2.1.0
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
