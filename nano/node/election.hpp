@@ -173,9 +173,6 @@ private:
 	nano::election_behavior const behavior{ nano::election_behavior::normal };
 	std::chrono::steady_clock::time_point const election_start = { std::chrono::steady_clock::now () };
 
-	/** Time to wait before next vote broadcast for current winner, doubles for each broadcast, up to `max_vote_broadcast_interval` */
-	uint64_t vote_broadcast_interval;
-
 	mutable nano::mutex mutex;
 
 private: // Constants

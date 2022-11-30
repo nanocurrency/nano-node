@@ -294,5 +294,5 @@ TEST (election, continuous_voting)
 	ASSERT_TIMELY (5s, node1.active.active (*send2));
 
 	// Ensure votes are generated in continuous manner
-	ASSERT_TIMELY_EQ (5s, node1.stats.count (nano::stat::type::election, nano::stat::detail::generate_vote), 5);
+	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::election, nano::stat::detail::generate_vote) >= 5);
 }
