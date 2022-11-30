@@ -50,17 +50,32 @@ void nano::prioritization::populate_schedule ()
 nano::prioritization::prioritization (uint64_t maximum) :
 	maximum{ maximum }
 {
-	static std::size_t constexpr bucket_count = 129;
-	buckets.resize (bucket_count);
-	nano::uint128_t minimum{ 1 };
-	minimums.push_back (0);
-	for (auto i = 1; i < bucket_count; ++i)
-	{
-		minimums.push_back (minimum);
-		minimum <<= 1;
-	}
+	auto build_region = [this] (uint128_t const & begin, uint128_t const & end, size_t count) {
+		auto width = (end - begin) / count;
+		for (auto i = 0; i < count; ++i)
+		{
+			minimums.push_back (begin + i * width);
+		}
+	};
+	minimums.push_back (uint128_t{ 0 });
+	build_region (uint128_t{ 1 } << 88, uint128_t{ 1 } << 92, 2);
+	build_region (uint128_t{ 1 } << 92, uint128_t{ 1 } << 96, 4);
+	build_region (uint128_t{ 1 } << 96, uint128_t{ 1 } << 100, 8);
+	build_region (uint128_t{ 1 } << 100, uint128_t{ 1 } << 104, 16);
+	build_region (uint128_t{ 1 } << 104, uint128_t{ 1 } << 108, 16);
+	build_region (uint128_t{ 1 } << 108, uint128_t{ 1 } << 112, 8);
+	build_region (uint128_t{ 1 } << 112, uint128_t{ 1 } << 116, 4);
+	build_region (uint128_t{ 1 } << 116, uint128_t{ 1 } << 120, 2);
+	minimums.push_back (uint128_t{ 1 } << 120);
+	buckets.resize (minimums.size ());
 	populate_schedule ();
 	current = schedule.begin ();
+}
+
+std::size_t nano::prioritization::index (nano::uint128_t const & balance) const
+{
+	auto index = std::upper_bound (minimums.begin (), minimums.end (), balance) - minimums.begin () - 1;
+	return index;
 }
 
 /**
@@ -73,8 +88,7 @@ void nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> blo
 	auto block_has_balance = block->type () == nano::block_type::state || block->type () == nano::block_type::send;
 	debug_assert (block_has_balance || block->has_sideband ());
 	auto balance = block_has_balance ? block->balance () : block->sideband ().balance;
-	auto index = std::upper_bound (minimums.begin (), minimums.end (), balance.number ()) - 1 - minimums.begin ();
-	auto & bucket = buckets[index];
+	auto & bucket = buckets[index (balance.number ())];
 	bucket.emplace (value_type{ time, block });
 	if (bucket.size () > std::max (decltype (maximum){ 1 }, maximum / buckets.size ()))
 	{

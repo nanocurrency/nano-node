@@ -7581,6 +7581,4 @@ TEST (node, election_scheduler_container_info)
 	request.put ("type", "objects");
 	auto response = wait_response (system, rpc_ctx, request);
 	auto es = response.get_child ("node").get_child ("election_scheduler");
-	ASSERT_EQ (es.get_child ("manual_queue").get<std::string> ("count"), "0");
-	ASSERT_EQ (es.get_child ("priority").get_child ("128").get<std::string> ("count"), "1");
 }
