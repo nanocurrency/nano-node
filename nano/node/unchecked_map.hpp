@@ -92,7 +92,7 @@ private: // In memory store
 
 	using ordered_unchecked = boost::multi_index_container<entry,
 		mi::indexed_by<
-			mi::random_access<mi::tag<tag_sequenced>>,
+			mi::sequenced<mi::tag<tag_sequenced>>,
 			mi::ordered_unique<mi::tag<tag_root>,
 				mi::member<entry, nano::unchecked_key, &entry::key>>>>;
 	// clang-format on
