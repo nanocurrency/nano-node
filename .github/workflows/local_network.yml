@@ -1,0 +1,47 @@
+name: Local network
+
+on: [push, pull_request]
+
+env:
+  RELEASE: 0
+  artifact: 0
+
+jobs:
+
+  linux_local_network:
+    name: Linux Local Network [TEST_USE_ROCKSDB=${{ matrix.TEST_USE_ROCKSDB }} - COMPILER=${{ matrix.COMPILER }}]
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        TEST_USE_ROCKSDB: [0, 1]
+        COMPILER: [gcc, clang]
+        RELEASE:
+          - ${{ startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-20.04
+    env:
+      COMPILER: ${{ matrix.COMPILER }}
+      TEST_USE_ROCKSDB: ${{ matrix.TEST_USE_ROCKSDB }}
+      RELEASE: ${{ matrix.RELEASE }}
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    steps:
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+        with:
+          submodules: "recursive"
+      - name: Fetch Deps
+        run: ci/actions/linux/install_deps.sh
+      - name: Build nano_node
+        run: docker build -f docker/node/Dockerfile -t nano_node_cdci .
+      - name: Check nano-speed-testsuite
+        uses: actions/checkout@v3
+        with:
+          repository: gr0vity-dev/nano-speed-testsuite
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: nanolocal_cdci
+      - name: Pull LFS
+        uses: cresh-io/action-cached-git-lfs-pull@v1
+      - name: Setup python venv
+        run: ./setup_python_venv.sh
+      - name: Run tests
+        run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_bintree_100k.json
+    
