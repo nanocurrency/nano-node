@@ -1,7 +1,6 @@
 name: Local network
 
 on: [push, pull_request]
-
 jobs:
 
   linux_local_network:
