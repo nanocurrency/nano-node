@@ -45,7 +45,7 @@ jobs:
       # - name: Run 6node_tc3_change_desync
       #   run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_tc3_change_desync.json
       # - name: Run 6node_tc4_independant_sends
-        run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_tc4_independant_sends.json
+      #   run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_tc4_independant_sends.json
       - name: query_testcases_all_rows
         run: ./venv_bnano_testsuite/bin/python3 -c "from sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_testcases_all_rows())"
       - name: query_testcases_detail
