@@ -22,7 +22,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: gr0vity-dev/nano-speed-testsuite
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.SPEED_TESTSUITE }}
           ref: nanolocal_cdci
       - name: Pull LFS
         uses: cresh-io/action-cached-git-lfs-pull@v1
