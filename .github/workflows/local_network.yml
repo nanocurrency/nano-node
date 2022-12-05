@@ -28,6 +28,12 @@ jobs:
         run: ls -lrt testcases/nanolocal/saved_blocks/       
       - name: Setup python venv
         run: ./setup_python_venv.sh
-      - name: Run tests
+      - name: Run 6node_bintree_100k
         run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_bintree_100k.json
+      - name: print test reults
+        run: python3 -c "from sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_status_by_testid())"
+      - name: Suite status
+        run: python3 -c "from sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_suite_status())"
+
+
     
