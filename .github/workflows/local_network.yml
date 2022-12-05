@@ -6,7 +6,7 @@ jobs:
   linux_local_network:
     name: Linux Local Network
     timeout-minutes: 90 
-    runs-on: ubuntu-20.04
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
         with:
@@ -39,7 +39,7 @@ jobs:
       # - name: Run 6node_independant_sends
       #   run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_independant_sends.json
       - name: Run 6node_tc1_change
-        run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_tc1_change.json && cat ./nanolocal/nano_nodes/docker-compose.yml
+        run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_tc1_change.json
       # - name: Run 6node_tc2_bintree
       #   run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_tc2_bintree.json
       # - name: Run 6node_tc3_change_desync
