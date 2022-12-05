@@ -22,7 +22,8 @@ jobs:
           token: ${{ secrets.SPEED_TESTSUITE }}
           ref: nanolocal_cdci
       - name: Pull LFS
-        uses: cresh-io/action-cached-git-lfs-pull@v1
+        run: git lfs pull
+        #uses: cresh-io/action-cached-git-lfs-pull@v1
       - name: Setup python venv
         run: ./setup_python_venv.sh
       - name: Run tests
