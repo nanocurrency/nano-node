@@ -5,7 +5,7 @@ jobs:
 
   linux_local_network:
     name: Linux Local Network
-    timeout-minutes: 91 
+    timeout-minutes: 90 
     runs-on: ubuntu-20.04
     steps:
       # - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
@@ -27,7 +27,7 @@ jobs:
       - name: ls saved blocks
         run: ls -lrt testcases/nanolocal/saved_blocks/       
       - name: Setup python venv
-        run: ./setup_python_venv.sh
+        run: ./setup_p  ython_venv.sh
       - name: Run tests
         run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_bintree_100k.json
     
