@@ -45,9 +45,9 @@ jobs:
       - name: Run 6node_tc4_independant_sends
         run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_tc4_independant_sends.json
       - name: print test reults
-        run: python3 -c "from sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_status_by_testid())"
+        run: ./venv_bnano_testsuite/bin/python3 -c "from sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_status_by_testid())"
       - name: Suite status
-        run: python3 -c "from sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_suite_status())"
+        run: ./venv_bnano_testsuite/bin/python3 -c "from sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_suite_status())"
 
 
     
