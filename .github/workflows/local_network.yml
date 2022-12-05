@@ -39,7 +39,7 @@ jobs:
       # - name: Run 6node_independant_sends
       #   run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_independant_sends.json
       - name: Run 6node_tc1_change
-        run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_tc1_change.json
+        run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_tc1_change.json && cat ./nanolocal/nano_nodes/docker-compose.yml
       # - name: Run 6node_tc2_bintree
       #   run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_tc2_bintree.json
       # - name: Run 6node_tc3_change_desync
