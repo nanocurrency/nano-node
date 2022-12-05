@@ -15,13 +15,13 @@ jobs:
       #  run: ci/actions/linux/install_deps.sh
       # - name: Build nano_node
       #   run: docker build -f docker/node/Dockerfile -t nano_node_cdci .
-      # - name: Check nano-speed-testsuite
-      #   uses: actions/checkout@v3
-      #   with:
-      #     repository: gr0vity-dev/nano-speed-testsuite
-      #     token: ${{ secrets.SPEED_TESTSUITE }}
-      #     ref: nanolocal_cdci
-      #     lfs: true
+      - name: Check nano-speed-testsuite
+        uses: actions/checkout@v3
+        with:
+          repository: gr0vity-dev/nano-speed-testsuite
+          token: ${{ secrets.SPEED_TESTSUITE }}
+          ref: nanolocal_cdci
+          lfs: true
       # - name: Pull LFS
       #   uses: cresh-io/action-cached-git-lfs-pull@v1
       - name: ls saved blocks
