@@ -2,9 +2,7 @@ name: Local network
 
 on: [push, pull_request]
 
-env:
-  RELEASE: 0
-  artifact: 0
+permissions: read-all
 
 jobs:
 
