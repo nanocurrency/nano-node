@@ -21,9 +21,11 @@ jobs:
           repository: gr0vity-dev/nano-speed-testsuite
           token: ${{ secrets.SPEED_TESTSUITE }}
           ref: nanolocal_cdci
-      - name: Pull LFS
-        run: git lfs pull
-        #uses: cresh-io/action-cached-git-lfs-pull@v1
+          lfs: true
+      # - name: Pull LFS
+      #   uses: cresh-io/action-cached-git-lfs-pull@v1
+      - name: ls saved blocks
+        run: ls -lrt testcases/nanolocal/saved_blocks/       
       - name: Setup python venv
         run: ./setup_python_venv.sh
       - name: Run tests
