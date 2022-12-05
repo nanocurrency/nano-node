@@ -417,12 +417,20 @@ public: // Payload definitions
 	class blocks_payload
 	{
 	public:
+		enum class type : uint8_t
+		{
+			block = 1,
+			account = 2,
+		};
+
+	public:
 		void serialize (nano::stream &) const;
 		void deserialize (nano::stream &);
 
 	public:
 		nano::hash_or_account start{ 0 };
 		uint8_t count{ 0 };
+		type start_type{ 0 };
 	};
 
 	class account_info_payload

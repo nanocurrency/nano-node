@@ -174,23 +174,26 @@ nano::asc_pull_ack nano::bootstrap_server::process (nano::transaction const & tr
 {
 	const std::size_t count = std::min (static_cast<std::size_t> (request.count), max_blocks);
 
-	// `start` can represent either account or block hash
-	if (store.block.exists (transaction, request.start.as_block_hash ()))
+	switch (request.start_type)
 	{
-		return prepare_response (transaction, id, request.start.as_block_hash (), count);
-	}
-	if (store.account.exists (transaction, request.start.as_account ()))
-	{
-		auto info = store.account.get (transaction, request.start.as_account ());
-		if (info)
+		case asc_pull_req::blocks_payload::type::block:
 		{
-			// Start from open block if pulling by account
-			return prepare_response (transaction, id, info->open_block, count);
+			if (store.block.exists (transaction, request.start.as_block_hash ()))
+			{
+				return prepare_response (transaction, id, request.start.as_block_hash (), count);
+			}
 		}
-		else
+		break;
+		case asc_pull_req::blocks_payload::type::account:
 		{
-			debug_assert (false, "account exists but cannot be retrieved");
+			auto info = store.account.get (transaction, request.start.as_account ());
+			if (info)
+			{
+				// Start from open block if pulling by account
+				return prepare_response (transaction, id, info->open_block, count);
+			}
 		}
+		break;
 	}
 
 	// Neither block nor account found, send empty response to indicate that
