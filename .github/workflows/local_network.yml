@@ -11,9 +11,7 @@ jobs:
       - name: Checkout nano-node
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
         with:
-          submodules: "recursive"
-      # - name: Fetch Deps
-      #  run: ci/actions/linux/install_deps.sh
+          submodules: "recursive"      
       - name: Build nano_node
         run: docker build -f docker/node/Dockerfile -t nano_node_cdci .
       - name: Check nano-speed-testsuite
@@ -22,11 +20,7 @@ jobs:
           repository: gr0vity-dev/nano-speed-testsuite
           token: ${{ secrets.SPEED_TESTSUITE }}
           ref: nanolocal_cdci
-          lfs: true
-      # - name: Pull LFS
-      #   uses: cresh-io/action-cached-git-lfs-pull@v1
-      # - name: ls saved blocks
-      #   run: ls -lrt testcases/nanolocal/saved_blocks/  
+          lfs: true 
       # - name: replace_default_docker_tag
       #   run: sed -i 's/nano_node_cdci/nanocurrency\/nano:V24.0RC1/g' testcases/nanolocal/run/*.json    
       - name: Setup python venv
@@ -53,8 +47,12 @@ jobs:
         run: ./venv_bnano_testsuite/bin/python3 -c "from sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_testcases_detail())"
       - name: query_status_by_testid
         run: ./venv_bnano_testsuite/bin/python3 -c "from sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_status_by_testid())"
-      - name: cleanup
-        run: ./nl_run.py destroy && rm -rf * 
+      - name: PASS or FAIL
+        run: |
+          export T_STATUS=$(./venv_bnano_testsuite/bin/python3 -c "from sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_suite_status())") && \
+          if [ $T_STATUS = 'FAIL' ]; then exit 1; else exit 0; fi
+          
+
       
 
 
