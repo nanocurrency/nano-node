@@ -53,7 +53,7 @@ jobs:
       - name: query_status_by_testid
         run: ./venv_bnano_testsuite/bin/python3 -c "from sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_status_by_testid())"
       # - name: cleanup
-      #   run: ./nl_run.py destroy && rm -rf *
+      #   run: ./nl_run.py destroy && rm -rf * 
       
 
 
