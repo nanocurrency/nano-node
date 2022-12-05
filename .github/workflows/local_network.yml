@@ -27,7 +27,7 @@ jobs:
       - name: ls saved blocks
         run: ls -lrt testcases/nanolocal/saved_blocks/       
       - name: Setup python venv
-        run: ./setup_p  ython_venv.sh
+        run: ./setup_python_venv.sh
       - name: Run tests
         run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_bintree_100k.json
     
