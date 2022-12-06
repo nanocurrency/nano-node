@@ -1,4 +1,4 @@
-name: Local network
+name: 6node local network
 
 on: [push, pull_request]
 jobs:
