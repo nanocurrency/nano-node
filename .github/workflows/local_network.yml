@@ -1,7 +1,7 @@
 name: 6node local network
 
 on: [push, pull_request]
-jobs:
+jobs: 
 
   linux_local_network:
     name: Linux Local Network
