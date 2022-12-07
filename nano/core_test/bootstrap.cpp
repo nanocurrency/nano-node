@@ -812,7 +812,7 @@ TEST (bootstrap_processor, lazy_hash_bootstrap_id)
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::test::get_available_port (), nano::unique_path (), system.logging, system.work));
 	nano::test::establish_tcp (system, *node1, node0->network.endpoint ());
-	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true, true, "123456");
+	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true, "123456");
 	{
 		auto lazy_attempt (node1->bootstrap_initiator.current_lazy_attempt ());
 		ASSERT_NE (nullptr, lazy_attempt);
