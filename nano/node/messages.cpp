@@ -1764,11 +1764,13 @@ void nano::asc_pull_req::blocks_payload::deserialize (nano::stream & stream)
 void nano::asc_pull_req::account_info_payload::serialize (stream & stream) const
 {
 	nano::write (stream, target);
+	nano::write (stream, target_type);
 }
 
 void nano::asc_pull_req::account_info_payload::deserialize (stream & stream)
 {
 	nano::read (stream, target);
+	nano::read (stream, target_type);
 }
 
 /*

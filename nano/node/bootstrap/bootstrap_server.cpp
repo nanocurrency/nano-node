@@ -176,7 +176,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (nano::transaction const & tr
 
 	switch (request.start_type)
 	{
-		case asc_pull_req::blocks_payload::type::block:
+		case asc_pull_req::hash_type::block:
 		{
 			if (store.block.exists (transaction, request.start.as_block_hash ()))
 			{
@@ -184,7 +184,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (nano::transaction const & tr
 			}
 		}
 		break;
-		case asc_pull_req::blocks_payload::type::account:
+		case asc_pull_req::hash_type::account:
 		{
 			auto info = store.account.get (transaction, request.start.as_account ());
 			if (info)
@@ -261,13 +261,21 @@ nano::asc_pull_ack nano::bootstrap_server::process (const nano::transaction & tr
 	response.id = id;
 	response.type = nano::asc_pull_type::account_info;
 
-	auto target = request.target.as_account ();
-	// Try to lookup account assuming target is block hash
-	if (auto account_from_hash = ledger.account_safe (transaction, request.target.as_block_hash ()); !account_from_hash.is_zero ())
+	nano::account target{ 0 };
+	switch (request.target_type)
 	{
-		target = account_from_hash;
+		case asc_pull_req::hash_type::account:
+		{
+			target = request.target.as_account ();
+		}
+		break;
+		case asc_pull_req::hash_type::block:
+		{
+			// Try to lookup account assuming target is block hash
+			target = ledger.account_safe (transaction, request.target.as_block_hash ());
+		}
+		break;
 	}
-	// Otherwise assume target is an actual account
 
 	nano::asc_pull_ack::account_info_payload response_payload{};
 	response_payload.account = target;
