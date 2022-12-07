@@ -276,7 +276,7 @@ void nano::bulk_pull_account_client::receive_pending ()
 							{
 								if (!this_l->connection->node->ledger.block_or_pruned_exists (pending))
 								{
-									this_l->connection->node->bootstrap_initiator.bootstrap_lazy (pending, false, false);
+									this_l->connection->node->bootstrap_initiator.bootstrap_lazy (pending, false);
 								}
 							}
 						}

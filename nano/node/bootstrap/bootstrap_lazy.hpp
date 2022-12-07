@@ -35,7 +35,7 @@ public:
 	~bootstrap_attempt_lazy ();
 	bool process_block (std::shared_ptr<nano::block> const &, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, unsigned) override;
 	void run () override;
-	bool lazy_start (nano::hash_or_account const &, bool confirmed = true);
+	bool lazy_start (nano::hash_or_account const &);
 	void lazy_add (nano::hash_or_account const &, unsigned);
 	void lazy_add (nano::pull_info const &);
 	void lazy_requeue (nano::block_hash const &, nano::block_hash const &);
@@ -51,7 +51,6 @@ public:
 	void lazy_blocks_erase (nano::block_hash const &);
 	bool lazy_blocks_processed (nano::block_hash const &);
 	bool lazy_processed_or_exists (nano::block_hash const &);
-	unsigned lazy_retry_limit_confirmed ();
 	void get_information (boost::property_tree::ptree &) override;
 	std::unordered_set<std::size_t> lazy_blocks;
 	std::unordered_map<nano::block_hash, nano::lazy_state_backlog_item> lazy_state_backlog;
