@@ -224,7 +224,7 @@ public:
 		traffic_tcp,
 		error,
 		message,
-		block,
+		block_pipeline,
 		ledger,
 		rollback,
 		bootstrap,
@@ -458,6 +458,26 @@ public:
 		response_blocks,
 		response_account_info,
 		channel_full,
+
+		// Block pipeline details
+		account_state_filter_pass,
+		account_state_filter_reject_existing,
+		account_state_filter_reject_gap,
+		block_position_filter_pass,
+		block_position_filter_reject,
+		link_filter_hash,
+		link_filter_account,
+		link_filter_noop,
+		link_filter_epoch,
+		metastable_filter_pass,
+		metastable_filter_reject,
+		receive_restrictions_filter_pass,
+		receive_restrictions_filter_reject_balance,
+		receive_restrictions_filter_reject_pending,
+		reserved_account_filter_pass,
+		reserved_account_filter_reject,
+		send_restrictions_filter_pass,
+		send_restrictions_filter_reject,
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */
@@ -646,7 +666,7 @@ public:
 	static std::string type_to_string (stat::type type);
 
 	/** Returns string representation of detail */
-	static std::string detail_to_string (stat::detail detail);
+	static std::string detail_to_string (nano::stat::detail detail);
 
 	/** Returns string representation of dir */
 	static std::string dir_to_string (stat::dir detail);

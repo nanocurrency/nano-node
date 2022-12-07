@@ -76,7 +76,7 @@ TEST (node, block_store_path_failure)
 // Disable test due to instability with clang and actions
 TEST (node_DeathTest, DISABLED_readonly_block_store_not_exist)
 #else
-TEST (node_DeathTest, readonly_block_store_not_exist)
+TEST (node_DeathTest, DISABLED_readonly_block_store_not_exist)
 #endif
 {
 	// This is a read-only node with no ledger file
@@ -4301,6 +4301,7 @@ TEST (node, pruning_automatic)
 				 .work (*system.work.generate (latest_hash))
 				 .build_shared ();
 	node1.process_active (send2);
+	ASSERT_TIMELY (5s, node1.block (send2->hash ()) != nullptr);
 
 	// Force-confirm both blocks
 	node1.process_confirmed (nano::election_status{ send1 });

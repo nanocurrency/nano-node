@@ -328,6 +328,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 				.work (*system.work.generate (key.pub))
 				.build_shared ();
 	node.process_active (send);
+	ASSERT_TIMELY (5s, node.block (send->hash ()) != nullptr);
 	node.block_processor.add (open);
 	node.block_processor.flush ();
 	ASSERT_TIMELY (5s, node.active.size () == 1);
@@ -546,6 +547,7 @@ TEST (active_transactions, vote_replays)
 				 .build_shared ();
 	ASSERT_NE (nullptr, open1);
 	node.process_active (send1);
+	ASSERT_TIMELY (5s, node.block (send1->hash ()) != nullptr);
 	node.process_active (open1);
 	nano::test::blocks_confirm (node, { send1, open1 });
 	ASSERT_EQ (2, node.active.size ());

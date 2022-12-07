@@ -473,8 +473,8 @@ std::string nano::stat::type_to_string (stat::type type)
 		case nano::stat::type::ipc:
 			res = "ipc";
 			break;
-		case nano::stat::type::block:
-			res = "block";
+		case nano::stat::type::block_pipeline:
+			res = "block_pipeline";
 			break;
 		case nano::stat::type::bootstrap:
 			res = "bootstrap";
@@ -1044,6 +1044,60 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 			break;
 		case nano::stat::detail::channel_full:
 			res = "channel_full";
+			break;
+		case nano::stat::detail::account_state_filter_pass:
+			res = "account_state_filter_pass";
+			break;
+		case nano::stat::detail::account_state_filter_reject_existing:
+			res = "account_state_filter_reject_existing";
+			break;
+		case nano::stat::detail::account_state_filter_reject_gap:
+			res = "account_state_filter_reject_gap";
+			break;
+		case nano::stat::detail::block_position_filter_pass:
+			res = "block_position_filter_pass";
+			break;
+		case nano::stat::detail::block_position_filter_reject:
+			res = "block_position_filter_reject";
+			break;
+		case nano::stat::detail::link_filter_hash:
+			res = "link_filter_hash";
+			break;
+		case nano::stat::detail::link_filter_account:
+			res = "link_filter_account";
+			break;
+		case nano::stat::detail::link_filter_noop:
+			res = "link_filter_noop";
+			break;
+		case nano::stat::detail::link_filter_epoch:
+			res = "link_filter_epoch";
+			break;
+		case nano::stat::detail::metastable_filter_pass:
+			res = "metastable_filter_pass";
+			break;
+		case nano::stat::detail::metastable_filter_reject:
+			res = "metastable_filter_reject";
+			break;
+		case nano::stat::detail::receive_restrictions_filter_pass:
+			res = "receive_restrictions_filter_pass";
+			break;
+		case nano::stat::detail::receive_restrictions_filter_reject_balance:
+			res = "receive_restrictions_filter_reject_balance";
+			break;
+		case nano::stat::detail::receive_restrictions_filter_reject_pending:
+			res = "receive_restrictions_filter_reject_pending";
+			break;
+		case nano::stat::detail::reserved_account_filter_pass:
+			res = "reserved_account_filter_pass";
+			break;
+		case nano::stat::detail::reserved_account_filter_reject:
+			res = "reserved_account_filter_reject";
+			break;
+		case nano::stat::detail::send_restrictions_filter_pass:
+			res = "send_restrictions_filter_pass";
+			break;
+		case nano::stat::detail::send_restrictions_filter_reject:
+			res = "send_restrictions_filter_reject";
 			break;
 	}
 	return res;

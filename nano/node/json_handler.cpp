@@ -3326,7 +3326,7 @@ void nano::json_handler::process ()
 				{
 					if (block->type () == nano::block_type::state)
 					{
-						rpc_l->node.process_local_async (block);
+						rpc_l->node.process_active (block);
 						rpc_l->response_l.put ("started", "1");
 					}
 					else

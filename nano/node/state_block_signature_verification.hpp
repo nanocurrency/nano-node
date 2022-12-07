@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/locks.hpp>
+#include <nano/node/block_pipeline/context.hpp>
 #include <nano/secure/common.hpp>
 
 #include <deque>
@@ -17,7 +18,7 @@ class signature_checker;
 class state_block_signature_verification
 {
 public:
-	using value_type = std::tuple<std::shared_ptr<nano::block>>;
+	using value_type = nano::block_pipeline::context;
 
 	state_block_signature_verification (nano::signature_checker &, nano::epochs &, nano::node_config &, nano::logger_mt &, uint64_t);
 	~state_block_signature_verification ();

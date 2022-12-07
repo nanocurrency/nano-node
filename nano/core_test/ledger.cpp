@@ -4428,9 +4428,9 @@ TEST (ledger, unchecked_open)
 	node1.block_processor.add (open2);
 	{
 		// Waits for the last blocks to pass through block_processor and unchecked.put queues
-		ASSERT_TIMELY (10s, 1 == node1.unchecked.count (node1.store.tx_begin_read ()));
+		ASSERT_TIMELY (10s, 2 == node1.unchecked.count (node1.store.tx_begin_read ()));
 		auto blocks = node1.unchecked.get (node1.store.tx_begin_read (), open1->source ());
-		ASSERT_EQ (blocks.size (), 1);
+		ASSERT_EQ (blocks.size (), 2);
 	}
 	node1.block_processor.add (send1);
 	// Waits for the send1 block to pass through block_processor and unchecked.put queues

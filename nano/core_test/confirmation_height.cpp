@@ -232,6 +232,7 @@ TEST (confirmation_height, multiple_accounts)
 			ASSERT_EQ (nano::block_hash (0), confirmation_height_info.frontier);
 		}
 
+		node->block_processor.flush ();
 		// The nodes process a live receive which propagates across to all accounts
 		auto receive3 = builder
 						.receive ()
