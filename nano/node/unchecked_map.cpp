@@ -223,7 +223,7 @@ void nano::unchecked_map::insert_impl (nano::write_transaction const & transacti
 	}
 	if (entries == nullptr)
 	{
-		store.unchecked.put (transaction, dependency, { info.block, info.account, info.verified });
+		store.unchecked.put (transaction, dependency, { info.block, info.account });
 	}
 	else
 	{

@@ -1832,7 +1832,7 @@ int main (int argc, char * const * argv)
 							{
 								std::cout << boost::str (boost::format ("%1% blocks retrieved") % count) << std::endl;
 							}
-							nano::unchecked_info unchecked_info (block, account, nano::signature_verification::unknown);
+							nano::unchecked_info unchecked_info (block, account);
 							node.node->block_processor.add (unchecked_info);
 							if (block->type () == nano::block_type::state && block->previous ().is_zero () && source_node->ledger.is_epoch_link (block->link ()))
 							{
