@@ -16,12 +16,13 @@ jobs:
       - name: Build nano_node
         run: docker build -f docker/node/Dockerfile -t nano_node_cdci .
       - name: Check nano-speed-testsuite
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+        #uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+        uses: nschloe/action-cached-lfs-checkout@v1
         with:
           repository: gr0vity-dev/nano-speed-testsuite
           token: ${{ secrets.SPEED_TESTSUITE }}
           ref: nanolocal_cdci
-          lfs: true 
+          #lfs: true 
       # - name: DEBUG run specific docker version
       #   run: sed -i 's/nano_node_cdci/nanocurrency\/nano:V24.0RC1/g' testcases/nanolocal/run/*.json    
       - name: Setup python venv
