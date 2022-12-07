@@ -131,7 +131,7 @@ void nano::state_block_signature_verification::verify_state_blocks (std::deque<v
 		signatures.reserve (size);
 		std::vector<int> verifications;
 		verifications.resize (size, 0);
-		for (auto const & [block, account, unused] : items)
+		for (auto const & [block, account] : items)
 		{
 			hashes.push_back (block->hash ());
 			messages.push_back (hashes.back ().bytes.data ());
