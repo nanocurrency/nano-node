@@ -129,7 +129,7 @@ TEST (prioritization, index_max)
 TEST (prioritization, insert_Gxrb)
 {
 	nano::prioritization prioritization;
-	prioritization.push (1000, block0 (), 0);
+	prioritization.push (1000, block0 (), nano::Gxrb_ratio);
 	ASSERT_EQ (1, prioritization.size ());
 	ASSERT_EQ (1, prioritization.bucket_size (48));
 }
@@ -137,25 +137,17 @@ TEST (prioritization, insert_Gxrb)
 TEST (prioritization, insert_Mxrb)
 {
 	nano::prioritization prioritization;
-	prioritization.push (1000, block1 (), 0);
+	prioritization.push (1000, block1 (), nano::Mxrb_ratio);
 	ASSERT_EQ (1, prioritization.size ());
 	ASSERT_EQ (1, prioritization.bucket_size (13));
-}
-
-TEST (prioritization, insert_prev_balance)
-{
-	nano::prioritization prioritization;
-	prioritization.push (1000, block1 (), nano::Gxrb_ratio);
-	ASSERT_EQ (1, prioritization.size ());
-	ASSERT_EQ (1, prioritization.bucket_size (48));
 }
 
 // Test two blocks with the same priority
 TEST (prioritization, insert_same_priority)
 {
 	nano::prioritization prioritization;
-	prioritization.push (1000, block0 (), 0);
-	prioritization.push (1000, block2 (), 0);
+	prioritization.push (1000, block0 (), nano::Gxrb_ratio);
+	prioritization.push (1000, block2 (), nano::Gxrb_ratio);
 	ASSERT_EQ (2, prioritization.size ());
 	ASSERT_EQ (2, prioritization.bucket_size (48));
 }
@@ -164,8 +156,8 @@ TEST (prioritization, insert_same_priority)
 TEST (prioritization, insert_duplicate)
 {
 	nano::prioritization prioritization;
-	prioritization.push (1000, block0 (), 0);
-	prioritization.push (1000, block0 (), 0);
+	prioritization.push (1000, block0 (), nano::Gxrb_ratio);
+	prioritization.push (1000, block0 (), nano::Gxrb_ratio);
 	ASSERT_EQ (1, prioritization.size ());
 	ASSERT_EQ (1, prioritization.bucket_size (48));
 }
@@ -173,8 +165,8 @@ TEST (prioritization, insert_duplicate)
 TEST (prioritization, insert_older)
 {
 	nano::prioritization prioritization;
-	prioritization.push (1000, block0 (), 0);
-	prioritization.push (1100, block2 (), 0);
+	prioritization.push (1000, block0 (), nano::Gxrb_ratio);
+	prioritization.push (1100, block2 (), nano::Gxrb_ratio);
 	ASSERT_EQ (block0 (), prioritization.top ());
 	prioritization.pop ();
 	ASSERT_EQ (block2 (), prioritization.top ());
@@ -185,7 +177,7 @@ TEST (prioritization, pop)
 {
 	nano::prioritization prioritization;
 	ASSERT_TRUE (prioritization.empty ());
-	prioritization.push (1000, block0 (), 0);
+	prioritization.push (1000, block0 (), nano::Gxrb_ratio);
 	ASSERT_FALSE (prioritization.empty ());
 	prioritization.pop ();
 	ASSERT_TRUE (prioritization.empty ());
@@ -194,15 +186,15 @@ TEST (prioritization, pop)
 TEST (prioritization, top_one)
 {
 	nano::prioritization prioritization;
-	prioritization.push (1000, block0 (), 0);
+	prioritization.push (1000, block0 (), nano::Gxrb_ratio);
 	ASSERT_EQ (block0 (), prioritization.top ());
 }
 
 TEST (prioritization, top_two)
 {
 	nano::prioritization prioritization;
-	prioritization.push (1000, block0 (), 0);
-	prioritization.push (1, block1 (), 0);
+	prioritization.push (1000, block0 (), nano::Gxrb_ratio);
+	prioritization.push (1, block1 (), nano::Mxrb_ratio);
 	ASSERT_EQ (block0 (), prioritization.top ());
 	prioritization.pop ();
 	ASSERT_EQ (block1 (), prioritization.top ());
@@ -215,9 +207,9 @@ TEST (prioritization, top_round_robin)
 	nano::prioritization prioritization;
 	prioritization.push (1000, blockzero (), 0);
 	ASSERT_EQ (blockzero (), prioritization.top ());
-	prioritization.push (1000, block0 (), 0);
-	prioritization.push (1000, block1 (), 0);
-	prioritization.push (1100, block3 (), 0);
+	prioritization.push (1000, block0 (), nano::Gxrb_ratio);
+	prioritization.push (1000, block1 (), nano::Mxrb_ratio);
+	prioritization.push (1100, block3 (), nano::Mxrb_ratio);
 	prioritization.pop (); // blockzero
 	EXPECT_EQ (block1 (), prioritization.top ());
 	prioritization.pop ();
@@ -231,8 +223,8 @@ TEST (prioritization, top_round_robin)
 TEST (prioritization, trim_normal)
 {
 	nano::prioritization prioritization{ 1 };
-	prioritization.push (1000, block0 (), 0);
-	prioritization.push (1100, block2 (), 0);
+	prioritization.push (1000, block0 (), nano::Gxrb_ratio);
+	prioritization.push (1100, block2 (), nano::Gxrb_ratio);
 	ASSERT_EQ (1, prioritization.size ());
 	ASSERT_EQ (block0 (), prioritization.top ());
 }
@@ -240,8 +232,8 @@ TEST (prioritization, trim_normal)
 TEST (prioritization, trim_reverse)
 {
 	nano::prioritization prioritization{ 1 };
-	prioritization.push (1100, block2 (), 0);
-	prioritization.push (1000, block0 (), 0);
+	prioritization.push (1100, block2 (), nano::Gxrb_ratio);
+	prioritization.push (1000, block0 (), nano::Gxrb_ratio);
 	ASSERT_EQ (1, prioritization.size ());
 	ASSERT_EQ (block0 (), prioritization.top ());
 }
@@ -249,11 +241,11 @@ TEST (prioritization, trim_reverse)
 TEST (prioritization, trim_even)
 {
 	nano::prioritization prioritization{ 2 };
-	prioritization.push (1000, block0 (), 0);
-	prioritization.push (1100, block2 (), 0);
+	prioritization.push (1000, block0 (), nano::Gxrb_ratio);
+	prioritization.push (1100, block2 (), nano::Gxrb_ratio);
 	ASSERT_EQ (1, prioritization.size ());
 	ASSERT_EQ (block0 (), prioritization.top ());
-	prioritization.push (1000, block1 (), 0);
+	prioritization.push (1000, block1 (), nano::Mxrb_ratio);
 	ASSERT_EQ (2, prioritization.size ());
 	ASSERT_EQ (block0 (), prioritization.top ());
 	prioritization.pop ();
