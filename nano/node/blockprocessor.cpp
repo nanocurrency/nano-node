@@ -99,18 +99,17 @@ bool nano::block_processor::half_full ()
 
 void nano::block_processor::add (std::shared_ptr<nano::block> const & block_a)
 {
-	nano::unchecked_info info (block_a, 0);
+	nano::unchecked_info info (block_a);
 	add (info);
 }
 
 void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
 	auto const & block = info_a.block;
-	auto const & account = info_a.account;
 	debug_assert (!node.network_params.work.validate_entry (*block));
-	if (block->type () == nano::block_type::state || block->type () == nano::block_type::open || !account.is_zero ())
+	if (block->type () == nano::block_type::state || block->type () == nano::block_type::open)
 	{
-		state_block_signature_verification.add ({ block, account });
+		state_block_signature_verification.add ({ block });
 	}
 	else
 	{
@@ -125,7 +124,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 void nano::block_processor::add_local (nano::unchecked_info const & info_a)
 {
 	debug_assert (!node.network_params.work.validate_entry (*info_a.block));
-	state_block_signature_verification.add ({ info_a.block, info_a.account });
+	state_block_signature_verification.add ({ info_a.block });
 }
 
 void nano::block_processor::force (std::shared_ptr<nano::block> const & block_a)
@@ -196,28 +195,28 @@ void nano::block_processor::process_verified_state_blocks (std::deque<nano::stat
 		{
 			debug_assert (verifications[i] == 1 || verifications[i] == 0);
 			auto & item = items.front ();
-			auto & [block, account] = item;
+			auto & [block] = item;
 			if (!block->link ().is_zero () && node.ledger.is_epoch_link (block->link ()))
 			{
 				// Epoch blocks
 				if (verifications[i] == 1)
 				{
-					blocks.emplace_back (block, account);
+					blocks.emplace_back (block);
 				}
 				else
 				{
 					// Possible regular state blocks with epoch link (send subtype)
-					blocks.emplace_back (block, account);
+					blocks.emplace_back (block);
 				}
 			}
 			else if (verifications[i] == 1)
 			{
 				// Non epoch blocks
-				blocks.emplace_back (block, account);
+				blocks.emplace_back (block);
 			}
 			else
 			{
-				requeue_invalid (hashes[i], { block, account });
+				requeue_invalid (hashes[i], { block });
 			}
 			items.pop_front ();
 		}
@@ -255,7 +254,7 @@ void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 		}
 		else
 		{
-			info = nano::unchecked_info (forced.front (), 0);
+			info = nano::unchecked_info (forced.front ());
 			forced.pop_front ();
 			hash = info.block->hash ();
 			force = true;
@@ -348,7 +347,6 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 	{
 		case nano::process_result::progress:
 		{
-			release_assert (info_a.account.is_zero () || info_a.account == node.store.block.account_calculated (*block));
 			if (node.config.logging.ledger_logging ())
 			{
 				std::string block_string;
@@ -504,7 +502,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 
 nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, std::shared_ptr<nano::block> const & block_a)
 {
-	nano::unchecked_info info (block_a, block_a->account ());
+	nano::unchecked_info info (block_a);
 	auto result (process_one (transaction_a, events_a, info));
 	return result;
 }

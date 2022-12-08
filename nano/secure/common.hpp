@@ -199,13 +199,11 @@ class unchecked_info final
 {
 public:
 	unchecked_info () = default;
-	unchecked_info (std::shared_ptr<nano::block> const &, nano::account const &);
 	unchecked_info (std::shared_ptr<nano::block> const &);
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	uint64_t modified () const;
 	std::shared_ptr<nano::block> block;
-	nano::account account{};
 
 private:
 	/** Seconds since posix epoch */
