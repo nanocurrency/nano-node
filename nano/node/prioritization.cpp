@@ -82,12 +82,13 @@ std::size_t nano::prioritization::index (nano::uint128_t const & balance) const
  * Push a block and its associated time into the prioritization container.
  * The time is given here because sideband might not exist in the case of state blocks.
  */
-void nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> block)
+void nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> block, nano::amount const & previous_balance)
 {
 	auto was_empty = empty ();
 	auto block_has_balance = block->type () == nano::block_type::state || block->type () == nano::block_type::send;
 	debug_assert (block_has_balance || block->has_sideband ());
 	auto balance = block_has_balance ? block->balance () : block->sideband ().balance;
+	balance = std::max (balance, previous_balance);
 	auto & bucket = buckets[index (balance.number ())];
 	bucket.emplace (value_type{ time, block });
 	if (bucket.size () > std::max (decltype (maximum){ 1 }, maximum / buckets.size ()))

@@ -37,8 +37,9 @@ void nano::election_scheduler::activate (nano::account const & account_a, nano::
 			debug_assert (block != nullptr);
 			if (node.ledger.dependents_confirmed (transaction, *block))
 			{
+				auto previous_balance = node.ledger.balance (transaction, conf_info.frontier);
 				nano::lock_guard<nano::mutex> lock{ mutex };
-				priority.push (account_info.modified, block);
+				priority.push (account_info.modified, block, previous_balance);
 				notify ();
 			}
 		}
