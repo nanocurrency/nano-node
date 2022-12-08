@@ -174,23 +174,26 @@ nano::asc_pull_ack nano::bootstrap_server::process (nano::transaction const & tr
 {
 	const std::size_t count = std::min (static_cast<std::size_t> (request.count), max_blocks);
 
-	// `start` can represent either account or block hash
-	if (store.block.exists (transaction, request.start.as_block_hash ()))
+	switch (request.start_type)
 	{
-		return prepare_response (transaction, id, request.start.as_block_hash (), count);
-	}
-	if (store.account.exists (transaction, request.start.as_account ()))
-	{
-		auto info = store.account.get (transaction, request.start.as_account ());
-		if (info)
+		case asc_pull_req::hash_type::block:
 		{
-			// Start from open block if pulling by account
-			return prepare_response (transaction, id, info->open_block, count);
+			if (store.block.exists (transaction, request.start.as_block_hash ()))
+			{
+				return prepare_response (transaction, id, request.start.as_block_hash (), count);
+			}
 		}
-		else
+		break;
+		case asc_pull_req::hash_type::account:
 		{
-			debug_assert (false, "account exists but cannot be retrieved");
+			auto info = store.account.get (transaction, request.start.as_account ());
+			if (info)
+			{
+				// Start from open block if pulling by account
+				return prepare_response (transaction, id, info->open_block, count);
+			}
 		}
+		break;
 	}
 
 	// Neither block nor account found, send empty response to indicate that
@@ -258,13 +261,21 @@ nano::asc_pull_ack nano::bootstrap_server::process (const nano::transaction & tr
 	response.id = id;
 	response.type = nano::asc_pull_type::account_info;
 
-	auto target = request.target.as_account ();
-	// Try to lookup account assuming target is block hash
-	if (auto account_from_hash = ledger.account_safe (transaction, request.target.as_block_hash ()); !account_from_hash.is_zero ())
+	nano::account target{ 0 };
+	switch (request.target_type)
 	{
-		target = account_from_hash;
+		case asc_pull_req::hash_type::account:
+		{
+			target = request.target.as_account ();
+		}
+		break;
+		case asc_pull_req::hash_type::block:
+		{
+			// Try to lookup account assuming target is block hash
+			target = ledger.account_safe (transaction, request.target.as_block_hash ());
+		}
+		break;
 	}
-	// Otherwise assume target is an actual account
 
 	nano::asc_pull_ack::account_info_payload response_payload{};
 	response_payload.account = target;
