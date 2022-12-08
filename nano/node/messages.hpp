@@ -414,6 +414,12 @@ private: // Debug
 	bool verify_consistency () const;
 
 public: // Payload definitions
+	enum class hash_type : uint8_t
+	{
+		account = 0,
+		block = 1,
+	};
+
 	class blocks_payload
 	{
 	public:
@@ -423,6 +429,7 @@ public: // Payload definitions
 	public:
 		nano::hash_or_account start{ 0 };
 		uint8_t count{ 0 };
+		asc_pull_req::hash_type start_type{ 0 };
 	};
 
 	class account_info_payload
@@ -433,6 +440,7 @@ public: // Payload definitions
 
 	public:
 		nano::hash_or_account target{ 0 };
+		asc_pull_req::hash_type target_type{ 0 };
 	};
 
 public: // Payload
