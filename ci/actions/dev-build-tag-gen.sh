@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# This script gets the last DB tag for the next release version and checks whether the develop branch contains new
+# This script gets the last DB tag for the current release version and checks whether the develop branch contains new
 # commits since the last develop build. If so, it sets and outputs the variable $build_tag with the correct numbering
 # for the next DB build, and the build number used for it as $build_number variable.
-# If the option -r is set, then it looks for the latest release branch, that is numbered as '<current major version>-1'.
+# If the option -r is set, then it looks for the latest release branch, numbered as '<current major version>-1'.
 # The -r option also outputs the release branch name as $release_branch.
 # Error exit codes:
 # 0: success, the build tag was generated!

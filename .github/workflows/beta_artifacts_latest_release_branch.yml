@@ -1,4 +1,4 @@
-name: Beta (Release Branch)
+name: Beta (Latest Release Branch)
 on:
   schedule:
     - cron: "0 0 * * 3,6"
