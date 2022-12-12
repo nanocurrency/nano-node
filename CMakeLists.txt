@@ -9,11 +9,6 @@ if(CMAKE_VERSION VERSION_GREATER 3.13 OR CMAKE_VERSION VERSION_EQUAL 3.13)
   cmake_policy(SET CMP0077 NEW)
 endif()
 
-if(CMAKE_VERSION VERSION_LESS 3.13)
-  # compatibility for boost import targets use bundled 3.13 FindBoost.cmake
-  list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/legacyModules")
-endif()
-
 # compatibility for osx sierra and on needs to be set before project
 set(CMAKE_OSX_DEPLOYMENT_TARGET
     10.14
@@ -66,7 +61,7 @@ endif()
 
 if(APPLE)
   set(CMAKE_INSTALL_RPATH
-      "@executable_path/../Frameworks;@executable_path/../boost/lib")
+      "@executable_path/../Frameworks")
 else()
   set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib")
 endif()
@@ -364,32 +359,11 @@ endif()
 
 include_directories(${CMAKE_SOURCE_DIR})
 
-if(WIN32
-   AND NANO_TEST
-   AND NANO_SHARED_BOOST)
-  message(
-    SEND_ERROR
-      " Linking errors occur if NANO_SHARED_BOOST is used with tests on Windows"
-      " Disable NANO_SHARED_BOOST or NANO_TEST on Windows")
-  set(NANO_SHARED_BOOST)
-endif()
-
-set(NANO_SHARED_BOOST
-    OFF
-    CACHE BOOL "Build Nano with shared boost")
-
-if(NANO_SHARED_BOOST)
-  set(Boost_USE_STATIC_LIBS OFF)
-  set(Boost_USE_STATIC_RUNTIME OFF)
-  set(Boost_NO_BOOST_CMAKE ON)
-  add_definitions(-DBOOST_ALL_DYN_LINK -DBoost_ALL_NO_LIB)
-else()
-  set(Boost_USE_STATIC_LIBS ON)
-endif()
+set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_MULTITHREADED ON)
-
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
+add_subdirectory(boost EXCLUDE_FROM_ALL)
 find_package(Boost 1.70.0 REQUIRED COMPONENTS filesystem log log_setup thread
                                               program_options system)
 
@@ -586,7 +560,6 @@ if(NANO_FUZZER_TEST)
 endif()
 
 if(NANO_TEST OR RAIBLOCKS_TEST)
-  find_package(Boost 1.70.0 REQUIRED COMPONENTS coroutine context)
   if(WIN32)
     if(MSVC_VERSION)
       if(MSVC_VERSION GREATER_EQUAL 1910)
@@ -757,16 +730,6 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
     install(FILES "${Qt5_DIR}/../../../plugins/platforms/libqcocoa.dylib"
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/PlugIns/platforms)
-    if(NANO_SHARED_BOOST)
-      foreach(boost_lib IN LISTS Boost_LIBRARIES)
-        string(REGEX MATCH "(.+/.*boost_[^-]+)" boost_lib_name ${boost_lib})
-        set(boost_dll "${CMAKE_MATCH_1}")
-        if(${boost_dll} MATCHES "boost")
-          install(FILES ${boost_dll}
-                  DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/boost/lib)
-        endif()
-      endforeach(boost_lib)
-    endif()
     if(NANO_POW_SERVER)
       install(TARGETS nano_pow_server
               DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
@@ -801,25 +764,6 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     get_filename_component(Qt5_bin_DIR ${Qt5_DIR}/../../../bin ABSOLUTE)
     install(TARGETS nano_wallet DESTINATION .)
     install(TARGETS nano_wallet_com DESTINATION .)
-    if(NANO_SHARED_BOOST)
-      foreach(boost_lib IN LISTS Boost_LIBRARIES)
-        if(${CMAKE_BUILD_TYPE} MATCHES "Rel")
-          string(REGEX MATCH "(.+/.*boost_[^-]+-.+-mt-x64.+\)(.lib|a)"
-                       boost_lib_name ${boost_lib})
-          set(boost_dll "${CMAKE_MATCH_1}.dll")
-          if(${boost_dll} MATCHES "boost")
-            install(FILES ${boost_dll} DESTINATION .)
-          endif()
-        else()
-          string(REGEX MATCH "(.+/.*boost_[^-]+-.+-mt-.+-x64.+\)(.lib|a)"
-                       boost_lib_name ${boost_lib})
-          set(boost_dll "${CMAKE_MATCH_1}.dll")
-          if(${boost_dll} MATCHES "boost")
-            install(FILES ${boost_dll} DESTINATION .)
-          endif()
-        endif()
-      endforeach(boost_lib)
-    endif()
     if(NANO_POW_SERVER)
       install(TARGETS nano_pow_server DESTINATION .)
       install(DIRECTORY ${PROJECT_SOURCE_DIR}/nano-pow-server/public
@@ -838,15 +782,6 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
         "qt5-default | qtbase5-dev, qtchooser, qt5-qmake, qtbase5-dev-tools")
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "russel@nano.org")
     install(TARGETS nano_wallet RUNTIME DESTINATION ./bin)
-    if(NANO_SHARED_BOOST)
-      foreach(boost_lib IN LISTS Boost_LIBRARIES)
-        string(REGEX MATCH "(.+/.*boost_[^-]+)" boost_lib_name ${boost_lib})
-        set(boost_dll "${CMAKE_MATCH_1}.${Boost_VERSION_STRING}")
-        if(${boost_dll} MATCHES "boost")
-          install(FILES ${boost_dll} DESTINATION ./lib)
-        endif()
-      endforeach(boost_lib)
-    endif()
     if(NANO_POW_SERVER)
       install(TARGETS nano_pow_server DESTINATION ./bin)
       install(DIRECTORY ${PROJECT_SOURCE_DIR}/nano-pow-server/public

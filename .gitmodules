@@ -30,3 +30,6 @@
 [submodule "diskhash"]
 	path = diskhash
 	url = https://github.com/nanocurrency/diskhash.git
+[submodule "boost"]
+	path = boost
+	url = https://github.com/boostorg/boost.git
