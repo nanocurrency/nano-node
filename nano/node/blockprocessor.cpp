@@ -206,10 +206,6 @@ void nano::block_processor::process_verified_state_blocks (std::deque<nano::stat
 				// Non epoch blocks
 				blocks.emplace_back (block);
 			}
-			else
-			{
-				requeue_invalid (hashes[i], { block });
-			}
 			items.pop_front ();
 		}
 	}
@@ -416,7 +412,6 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				node.logger.try_log (boost::str (boost::format ("Bad signature for: %1%") % hash.to_string ()));
 			}
-			events_a.events.emplace_back ([this, hash, info_a] (nano::transaction const & /* unused */) { requeue_invalid (hash, info_a); });
 			break;
 		}
 		case nano::process_result::negative_spend:
@@ -503,12 +498,6 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 {
 	node.unchecked.trigger (hash_or_account_a);
 	node.gap_cache.erase (hash_or_account_a.hash);
-}
-
-void nano::block_processor::requeue_invalid (nano::block_hash const & hash_a, nano::unchecked_info const & info_a)
-{
-	debug_assert (hash_a == info_a.block->hash ());
-	node.bootstrap_initiator.lazy_requeue (hash_a, info_a.block->previous ());
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_processor & block_processor, std::string const & name)
