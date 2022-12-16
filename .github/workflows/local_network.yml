@@ -5,7 +5,7 @@ jobs:
 
   linux_local_network:
     name: Linux Local Network
-    timeout-minutes: 120 
+    timeout-minutes: 180 
     #runs-on: ubuntu-22.04
     runs-on: self-hosted
     steps:
