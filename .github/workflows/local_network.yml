@@ -27,7 +27,7 @@ jobs:
       #   run: sed -i 's/nano_node_cdci/nanocurrency\/nano:V24.0RC1/g' testcases/nanolocal/run/*.json    
       - name: Setup python venv
         run: ./setup_python_venv.sh
-      - name: Run 6node from scratch 7 in 1
+      - name: Run 6node from scratch - 7 small successive testcases
         run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_from_scratch.json
       - name: Run 6node_bintree_100k
         run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_bintree_100k.json
