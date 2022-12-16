@@ -7,7 +7,7 @@ jobs:
     name: Linux Local Network
     timeout-minutes: 60 
     #runs-on: ubuntu-20.04
-    runs-on: self-hosted
+    runs-on: ubuntu:22.04
     steps:
       - name: Checkout nano-node
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
@@ -46,14 +46,14 @@ jobs:
       - name: Run 6node_tc4_independant_sends
         run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_tc4_independant_sends.json
       - name: query_testcases_all_rows
-        run: ./venv_bnano_testsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_testcases_all_rows())"
+        run: ./venv_speedsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_testcases_all_rows())"
       - name: query_testcases_detail
-        run: ./venv_bnano_testsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_testcases_detail())"
+        run: ./venv_speedsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_testcases_detail())"
       - name: query_status_by_testid
-        run: ./venv_bnano_testsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_status_by_testid())"
+        run: ./venv_speedsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_status_by_testid())"
       - name: Destroy local network
         run: ./nl_run.py destroy
       - name: PASS or FAIL
         run: |
-          export T_STATUS=$(./venv_bnano_testsuite/bin/python3 -c "from sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_suite_status())") && \
+          export T_STATUS=$(./venv_speedsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_suite_status())") && \
           if [ $T_STATUS = 'FAIL' ]; then exit 1; else exit 0; fi
