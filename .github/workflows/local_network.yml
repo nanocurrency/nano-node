@@ -21,34 +21,36 @@ jobs:
         with:
           repository: gr0vity-dev/nano-speed-testsuite
           token: ${{ secrets.SPEED_TESTSUITE }}
-          ref: nanolocal_cdci
+          ref: cdci_simplify
           #lfs: true 
       # - name: DEBUG run specific docker version
       #   run: sed -i 's/nano_node_cdci/nanocurrency\/nano:V24.0RC1/g' testcases/nanolocal/run/*.json    
       - name: Setup python venv
         run: ./setup_python_venv.sh
+      - name: Run 6node from scratch 7 in 1
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_from_scratch.json
       - name: Run 6node_bintree_100k
-        run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_bintree_100k.json
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_bintree_100k.json
       - name: Run 6node_change_100k
-        run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_change_100k.json
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_change_100k.json
       - name: Run 6node_dependant_sends
-        run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_dependant_sends.json
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_dependant_sends.json
       - name: Run 6node_independant_sends
-        run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_independant_sends.json
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_independant_sends.json
       - name: Run 6node_tc1_change
-        run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_tc1_change.json
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_tc1_change.json
       - name: Run 6node_tc2_bintree
-        run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_tc2_bintree.json
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_tc2_bintree.json
       - name: Run 6node_tc3_change_desync
-        run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_tc3_change_desync.json
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_tc3_change_desync.json
       - name: Run 6node_tc4_independant_sends
-        run: ./ns_testsuite_run.py testcases/nanolocal/run/6node_tc4_independant_sends.json
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_tc4_independant_sends.json
       - name: query_testcases_all_rows
-        run: ./venv_bnano_testsuite/bin/python3 -c "from sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_testcases_all_rows())"
+        run: ./venv_bnano_testsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_testcases_all_rows())"
       - name: query_testcases_detail
-        run: ./venv_bnano_testsuite/bin/python3 -c "from sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_testcases_detail())"
+        run: ./venv_bnano_testsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_testcases_detail())"
       - name: query_status_by_testid
-        run: ./venv_bnano_testsuite/bin/python3 -c "from sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_status_by_testid())"
+        run: ./venv_bnano_testsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_status_by_testid())"
       - name: Destroy local network
         run: ./nl_run.py destroy
       - name: PASS or FAIL
