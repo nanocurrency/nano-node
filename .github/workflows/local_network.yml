@@ -26,33 +26,33 @@ jobs:
       #   run: sed -i 's/nano_node_cdci/nanocurrency\/nano:V24.0RC1/g' testcases/nanolocal/run/*.json    
       - name: Setup python venv
         run: ./setup_python_venv.sh
-      # - name: Run 6node from scratch - 7 small successive testcases
-      #   run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_from_scratch.json
-      # - name: Run 6node_bintree_100k
-      #   run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_bintree_100k.json
-      # - name: Run 6node_change_100k
-      #   run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_change_100k.json
-      # - name: Run 6node_dependant_sends
-      #   run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_dependant_sends.json
-      # - name: Run 6node_independant_sends
-      #   run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_independant_sends.json
-      # - name: Run 6node_tc1_change
-      #   run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_tc1_change.json
-      # - name: Run 6node_tc2_bintree
-      #   run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_tc2_bintree.json
-      # - name: Run 6node_tc3_change_desync
-      #   run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_tc3_change_desync.json
-      # - name: Run 6node_tc4_independant_sends
-      #   run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_tc4_independant_sends.json
-      # - name: query_testcases_all_rows
-      #   run: ./venv_speedsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_testcases_all_rows())"
-      # - name: query_testcases_detail
-      #   run: ./venv_speedsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_testcases_detail())"
-      # - name: query_status_by_testid
-      #   run: ./venv_speedsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_status_by_testid())"
-      # - name: Destroy local network
-      #   run: ./nl_run.py destroy
-      # - name: PASS or FAIL
-      #   run: |
-      #     export T_STATUS=$(./venv_speedsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_suite_status())") && \
-      #     if [ $T_STATUS = 'FAIL' ]; then exit 1; else exit 0; fi
+      - name: Run 6node from scratch - 7 small successive testcases
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_from_scratch.json
+      - name: Run 6node_bintree_100k
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_bintree_100k.json
+      - name: Run 6node_change_100k
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_change_100k.json
+      - name: Run 6node_dependant_sends
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_dependant_sends.json
+      - name: Run 6node_independant_sends
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_independant_sends.json
+      - name: Run 6node_tc1_change
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_tc1_change.json
+      - name: Run 6node_tc2_bintree
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_tc2_bintree.json
+      - name: Run 6node_tc3_change_desync
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_tc3_change_desync.json
+      - name: Run 6node_tc4_independant_sends
+        run: ./speedsuite.py speedsuite/testcases/nanolocal/run/6node_tc4_independant_sends.json
+      - name: query_testcases_all_rows
+        run: ./venv_speedsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_testcases_all_rows())"
+      - name: query_testcases_detail
+        run: ./venv_speedsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_testcases_detail())"
+      - name: query_status_by_testid
+        run: ./venv_speedsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_status_by_testid())"
+      - name: Destroy local network
+        run: ./nl_run.py destroy
+      - name: PASS or FAIL
+        run: |
+          export T_STATUS=$(./venv_speedsuite/bin/python3 -c "from speedsuite.sql.query_testcase import NanoSqlQuery; print(NanoSqlQuery().query_suite_status())") && \
+          if [ $T_STATUS = 'FAIL' ]; then exit 1; else exit 0; fi
