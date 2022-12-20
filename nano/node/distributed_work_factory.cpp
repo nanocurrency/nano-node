@@ -54,21 +54,7 @@ void nano::distributed_work_factory::cancel (nano::root const & root_a)
 void nano::distributed_work_factory::cleanup_finished ()
 {
 	nano::lock_guard<nano::mutex> guard (mutex);
-	// std::erase_if in c++20
-	auto erase_if = [] (decltype (items) & container, auto pred) {
-		for (auto it = container.begin (), end = container.end (); it != end;)
-		{
-			if (pred (*it))
-			{
-				it = container.erase (it);
-			}
-			else
-			{
-				++it;
-			}
-		}
-	};
-	erase_if (items, [] (decltype (items)::value_type item) { return item.second.expired (); });
+	nano::erase_if (items, [] (auto const & item) { return item.second.expired (); });
 }
 
 void nano::distributed_work_factory::stop ()

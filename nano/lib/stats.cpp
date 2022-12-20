@@ -572,6 +572,18 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 		case nano::stat::detail::loop:
 			res = "loop";
 			break;
+		case nano::stat::detail::process:
+			res = "process";
+			break;
+		case nano::stat::detail::update:
+			res = "update";
+			break;
+		case nano::stat::detail::insert:
+			res = "insert";
+			break;
+		case nano::stat::detail::request:
+			res = "request";
+			break;
 		case nano::stat::detail::queue:
 			res = "queue";
 			break;
@@ -993,6 +1005,15 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 			break;
 		case nano::stat::detail::failed_send_telemetry_req:
 			res = "failed_send_telemetry_req";
+			break;
+		case nano::stat::detail::empty_payload:
+			res = "empty_payload";
+			break;
+		case nano::stat::detail::cleanup_outdated:
+			res = "cleanup_outdated";
+			break;
+		case nano::stat::detail::cleanup_dead:
+			res = "cleanup_dead";
 			break;
 		case nano::stat::detail::generator_broadcasts:
 			res = "generator_broadcasts";

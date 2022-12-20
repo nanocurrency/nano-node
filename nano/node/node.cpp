@@ -32,12 +32,12 @@ extern std::size_t nano_bootstrap_weights_beta_size;
 }
 
 /*
- * Configs
+ * configs
  */
 
 nano::backlog_population::config nano::nodeconfig_to_backlog_population_config (const nano::node_config & config)
 {
-	nano::backlog_population::config cfg;
+	nano::backlog_population::config cfg{};
 	cfg.ongoing_backlog_population_enabled = config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled;
 	cfg.delay_between_runs_in_seconds = config.network_params.network.is_dev_network () ? 1u : 300u;
 	return cfg;
@@ -45,25 +45,34 @@ nano::backlog_population::config nano::nodeconfig_to_backlog_population_config (
 
 nano::vote_cache::config nano::nodeconfig_to_vote_cache_config (node_config const & config, node_flags const & flags)
 {
-	vote_cache::config cfg;
+	vote_cache::config cfg{};
 	cfg.max_size = flags.inactive_votes_cache_size;
 	return cfg;
 }
 
 nano::hinted_scheduler::config nano::nodeconfig_to_hinted_scheduler_config (const nano::node_config & config)
 {
-	hinted_scheduler::config cfg;
+	hinted_scheduler::config cfg{};
 	cfg.vote_cache_check_interval_ms = config.network_params.network.is_dev_network () ? 100u : 1000u;
 	return cfg;
 }
 
 nano::outbound_bandwidth_limiter::config nano::outbound_bandwidth_limiter_config (const nano::node_config & config)
 {
-	outbound_bandwidth_limiter::config cfg;
+	outbound_bandwidth_limiter::config cfg{};
 	cfg.standard_limit = config.bandwidth_limit;
 	cfg.standard_burst_ratio = config.bandwidth_limit_burst_ratio;
 	cfg.bootstrap_limit = config.bootstrap_bandwidth_limit;
 	cfg.bootstrap_burst_ratio = config.bootstrap_bandwidth_burst_ratio;
+	return cfg;
+}
+
+nano::telemetry::config nano::telemetry_config (const node_config & config, const node_flags & flags)
+{
+	nano::telemetry::config cfg{};
+	cfg.request_interval = config.network_params.network.is_dev_network () ? 500 : 1000 * 30;
+	cfg.cache_cutoff = config.network_params.network.is_dev_network () ? 3000 : 1000 * 60;
+	cfg.enable_ongoing_requests = !flags.disable_ongoing_telemetry_requests;
 	return cfg;
 }
 
@@ -171,7 +180,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	// otherwise, any value is considered, with `0` having the special meaning of 'let the OS pick a port instead'
 	//
 	network (*this, config.peering_port.has_value () ? *config.peering_port : 0),
-	telemetry (std::make_shared<nano::telemetry> (network, workers, observers.telemetry, stats, network_params, flags.disable_ongoing_telemetry_requests)),
+	telemetry{ telemetry_config (config, flags), network, observers, network_params, stats },
 	bootstrap_initiator (*this),
 	bootstrap_server{ store, ledger, network_params.network, stats },
 	// BEWARE: `bootstrap` takes `network.port` instead of `config.peering_port` because when the user doesn't specify
@@ -215,8 +224,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 
 	if (!init_error ())
 	{
-		telemetry->start ();
-
 		// Notify election schedulers when AEC frees election slot
 		active.vacancy_update = [this] () {
 			scheduler.notify ();
@@ -353,11 +360,11 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 				}
 			});
 
-			observers.telemetry.add ([this] (nano::telemetry_data const & telemetry_data, nano::endpoint const & endpoint) {
+			observers.telemetry.add ([this] (nano::telemetry_data const & telemetry_data, std::shared_ptr<nano::transport::channel> const & channel) {
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::telemetry))
 				{
 					nano::websocket::message_builder builder;
-					this->websocket_server->broadcast (builder.telemetry_received (telemetry_data, endpoint));
+					this->websocket_server->broadcast (builder.telemetry_received (telemetry_data, channel->get_endpoint ()));
 				}
 			});
 		}
@@ -633,10 +640,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
 	composite->add_component (collect_container_info (node.tcp_listener, "tcp_listener"));
 	composite->add_component (collect_container_info (node.network, "network"));
-	if (node.telemetry)
-	{
-		composite->add_component (collect_container_info (*node.telemetry, "telemetry"));
-	}
+	composite->add_component (node.telemetry.collect_container_info ("telemetry"));
 	composite->add_component (collect_container_info (node.workers, "workers"));
 	composite->add_component (collect_container_info (node.observers, "observers"));
 	composite->add_component (collect_container_info (node.wallets, "wallets"));
@@ -768,6 +772,7 @@ void nano::node::start ()
 	backlog.start ();
 	hinting.start ();
 	bootstrap_server.start ();
+	telemetry.start ();
 }
 
 void nano::node::stop ()
@@ -778,6 +783,7 @@ void nano::node::stop ()
 		// Cancels ongoing work generation tasks, which may be blocking other threads
 		// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
 		distributed_work.stop ();
+		telemetry.stop ();
 		unchecked.stop ();
 		block_processor.stop ();
 		aggregator.stop ();
@@ -789,7 +795,6 @@ void nano::node::stop ()
 		final_generator.stop ();
 		confirmation_height_processor.stop ();
 		network.stop ();
-		telemetry->stop ();
 		if (websocket_server)
 		{
 			websocket_server->stop ();

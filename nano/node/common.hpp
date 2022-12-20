@@ -168,16 +168,6 @@ struct hash<boost::asio::ip::address>
 
 namespace nano
 {
-class telemetry_cache_cutoffs
-{
-public:
-	static std::chrono::seconds constexpr dev{ 3 };
-	static std::chrono::seconds constexpr beta{ 15 };
-	static std::chrono::seconds constexpr live{ 60 };
-
-	static std::chrono::seconds network_to_time (network_constants const & network_constants);
-};
-
 /** Helper guard which contains all the necessary purge (remove all memory even if used) functions */
 class node_singleton_memory_pool_purge_guard
 {

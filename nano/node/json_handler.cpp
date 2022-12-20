@@ -3957,15 +3957,13 @@ void nano::json_handler::stop ()
 
 void nano::json_handler::telemetry ()
 {
-	auto rpc_l (shared_from_this ());
-
 	auto address_text (request.get_optional<std::string> ("address"));
 	auto port_text (request.get_optional<std::string> ("port"));
 
 	if (address_text.is_initialized () || port_text.is_initialized ())
 	{
 		// Check both are specified
-		std::shared_ptr<nano::transport::channel> channel;
+		nano::endpoint endpoint{};
 		if (address_text.is_initialized () && port_text.is_initialized ())
 		{
 			uint16_t port;
@@ -3974,11 +3972,12 @@ void nano::json_handler::telemetry ()
 				boost::asio::ip::address address;
 				if (!nano::parse_address (*address_text, address))
 				{
-					nano::endpoint endpoint (address, port);
-					if (address.is_loopback () && port == rpc_l->node.network.endpoint ().port ())
+					endpoint = { address, port };
+
+					if (address.is_loopback () && port == node.network.endpoint ().port ())
 					{
 						// Requesting telemetry metrics locally
-						auto telemetry_data = nano::local_telemetry_data (rpc_l->node.ledger, rpc_l->node.network, rpc_l->node.unchecked, rpc_l->node.config.bandwidth_limit, rpc_l->node.network_params, rpc_l->node.startup_time, rpc_l->node.default_difficulty (nano::work_version::work_1), rpc_l->node.node_id);
+						auto telemetry_data = nano::local_telemetry_data (node.ledger, node.network, node.unchecked, node.config.bandwidth_limit, node.network_params, node.startup_time, node.default_difficulty (nano::work_version::work_1), node.node_id);
 
 						nano::jsonconfig config_l;
 						auto const should_ignore_identification_metrics = false;
@@ -3987,19 +3986,11 @@ void nano::json_handler::telemetry ()
 
 						if (!err)
 						{
-							rpc_l->response_l.insert (rpc_l->response_l.begin (), ptree.begin (), ptree.end ());
+							response_l.insert (response_l.begin (), ptree.begin (), ptree.end ());
 						}
 
-						rpc_l->response_errors ();
+						response_errors ();
 						return;
-					}
-					else
-					{
-						channel = node.network.find_channel (nano::transport::map_endpoint_to_v6 (endpoint));
-						if (!channel)
-						{
-							ec = nano::error_rpc::peer_not_found;
-						}
 					}
 				}
 				else
@@ -4019,38 +4010,30 @@ void nano::json_handler::telemetry ()
 
 		if (!ec)
 		{
-			debug_assert (channel);
-			if (node.telemetry)
+			auto maybe_telemetry = node.telemetry.get_telemetry (endpoint);
+			if (maybe_telemetry)
 			{
-				node.telemetry->get_metrics_single_peer_async (channel, [rpc_l] (auto const & telemetry_response_a) {
-					if (!telemetry_response_a.error)
-					{
-						nano::jsonconfig config_l;
-						auto const should_ignore_identification_metrics = false;
-						auto err = telemetry_response_a.telemetry_data.serialize_json (config_l, should_ignore_identification_metrics);
-						auto const & ptree = config_l.get_tree ();
+				auto telemetry = *maybe_telemetry;
+				nano::jsonconfig config_l;
+				auto const should_ignore_identification_metrics = false;
+				auto err = telemetry.serialize_json (config_l, should_ignore_identification_metrics);
+				auto const & ptree = config_l.get_tree ();
 
-						if (!err)
-						{
-							rpc_l->response_l.insert (rpc_l->response_l.begin (), ptree.begin (), ptree.end ());
-						}
-						else
-						{
-							rpc_l->ec = nano::error_rpc::generic;
-						}
-					}
-					else
-					{
-						rpc_l->ec = nano::error_rpc::generic;
-					}
-
-					rpc_l->response_errors ();
-				});
+				if (!err)
+				{
+					response_l.insert (response_l.begin (), ptree.begin (), ptree.end ());
+				}
+				else
+				{
+					ec = nano::error_rpc::generic;
+				}
 			}
 			else
 			{
-				response_errors ();
+				ec = nano::error_rpc::peer_not_found;
 			}
+
+			response_errors ();
 		}
 		else
 		{
@@ -4063,54 +4046,52 @@ void nano::json_handler::telemetry ()
 		// setting "raw" to true returns metrics from all nodes requested.
 		auto raw = request.get_optional<bool> ("raw");
 		auto output_raw = raw.value_or (false);
-		if (node.telemetry)
-		{
-			auto telemetry_responses = node.telemetry->get_metrics ();
-			if (output_raw)
-			{
-				boost::property_tree::ptree metrics;
-				for (auto & telemetry_metrics : telemetry_responses)
-				{
-					nano::jsonconfig config_l;
-					auto const should_ignore_identification_metrics = false;
-					auto err = telemetry_metrics.second.serialize_json (config_l, should_ignore_identification_metrics);
-					config_l.put ("address", telemetry_metrics.first.address ());
-					config_l.put ("port", telemetry_metrics.first.port ());
-					if (!err)
-					{
-						metrics.push_back (std::make_pair ("", config_l.get_tree ()));
-					}
-					else
-					{
-						ec = nano::error_rpc::generic;
-					}
-				}
 
-				response_l.put_child ("metrics", metrics);
-			}
-			else
+		auto telemetry_responses = node.telemetry.get_all_telemetries ();
+		if (output_raw)
+		{
+			boost::property_tree::ptree metrics;
+			for (auto & telemetry_metrics : telemetry_responses)
 			{
 				nano::jsonconfig config_l;
-				std::vector<nano::telemetry_data> telemetry_datas;
-				telemetry_datas.reserve (telemetry_responses.size ());
-				std::transform (telemetry_responses.begin (), telemetry_responses.end (), std::back_inserter (telemetry_datas), [] (auto const & endpoint_telemetry_data) {
-					return endpoint_telemetry_data.second;
-				});
-
-				auto average_telemetry_metrics = nano::consolidate_telemetry_data (telemetry_datas);
-				// Don't add node_id/signature in consolidated metrics
-				auto const should_ignore_identification_metrics = true;
-				auto err = average_telemetry_metrics.serialize_json (config_l, should_ignore_identification_metrics);
-				auto const & ptree = config_l.get_tree ();
-
+				auto const should_ignore_identification_metrics = false;
+				auto err = telemetry_metrics.second.serialize_json (config_l, should_ignore_identification_metrics);
+				config_l.put ("address", telemetry_metrics.first.address ());
+				config_l.put ("port", telemetry_metrics.first.port ());
 				if (!err)
 				{
-					response_l.insert (response_l.begin (), ptree.begin (), ptree.end ());
+					metrics.push_back (std::make_pair ("", config_l.get_tree ()));
 				}
 				else
 				{
 					ec = nano::error_rpc::generic;
 				}
+			}
+
+			response_l.put_child ("metrics", metrics);
+		}
+		else
+		{
+			nano::jsonconfig config_l;
+			std::vector<nano::telemetry_data> telemetry_datas;
+			telemetry_datas.reserve (telemetry_responses.size ());
+			std::transform (telemetry_responses.begin (), telemetry_responses.end (), std::back_inserter (telemetry_datas), [] (auto const & endpoint_telemetry_data) {
+				return endpoint_telemetry_data.second;
+			});
+
+			auto average_telemetry_metrics = nano::consolidate_telemetry_data (telemetry_datas);
+			// Don't add node_id/signature in consolidated metrics
+			auto const should_ignore_identification_metrics = true;
+			auto err = average_telemetry_metrics.serialize_json (config_l, should_ignore_identification_metrics);
+			auto const & ptree = config_l.get_tree ();
+
+			if (!err)
+			{
+				response_l.insert (response_l.begin (), ptree.begin (), ptree.end ());
+			}
+			else
+			{
+				ec = nano::error_rpc::generic;
 			}
 		}
 

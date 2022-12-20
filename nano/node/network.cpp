@@ -540,10 +540,7 @@ public:
 			node.logger.try_log (boost::str (boost::format ("Received telemetry_ack message from %1%") % channel->to_string ()));
 		}
 
-		if (node.telemetry)
-		{
-			node.telemetry->set (message_a, *channel);
-		}
+		node.telemetry.process (message_a, channel);
 	}
 
 	void asc_pull_req (nano::asc_pull_req const & message) override

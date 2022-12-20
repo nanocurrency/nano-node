@@ -1,6 +1,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/network.hpp>
+#include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/transport.hpp>
@@ -19,471 +20,231 @@
 
 using namespace std::chrono_literals;
 
-nano::telemetry::telemetry (nano::network & network_a, nano::thread_pool & workers_a, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> & observers_a, nano::stat & stats_a, nano::network_params & network_params_a, bool disable_ongoing_requests_a) :
-	network (network_a),
-	workers (workers_a),
-	observers (observers_a),
-	stats (stats_a),
-	network_params (network_params_a),
-	disable_ongoing_requests (disable_ongoing_requests_a)
+nano::telemetry::telemetry (const config & config_a, nano::network & network_a, nano::node_observers & observers_a, nano::network_params & network_params_a, nano::stat & stats_a) :
+	config_m{ config_a },
+	network{ network_a },
+	observers{ observers_a },
+	network_params{ network_params_a },
+	stats{ stats_a }
 {
+}
+
+nano::telemetry::~telemetry ()
+{
+	// Thread must be stopped before destruction
+	debug_assert (!thread.joinable ());
 }
 
 void nano::telemetry::start ()
 {
-	// Cannot be done in the constructor as a shared_from_this () call is made in ongoing_req_all_peers
-	if (!disable_ongoing_requests)
-	{
-		ongoing_req_all_peers (std::chrono::milliseconds (0));
-	}
+	debug_assert (!thread.joinable ());
+
+	thread = std::thread ([this] () {
+		nano::thread_role::set (nano::thread_role::name::telemetry);
+		run ();
+	});
 }
 
 void nano::telemetry::stop ()
 {
 	stopped = true;
-}
-
-void nano::telemetry::set (nano::telemetry_ack const & message_a, nano::transport::channel const & channel_a)
-{
-	if (!stopped)
+	condition.notify_all ();
+	if (thread.joinable ())
 	{
-		nano::unique_lock<nano::mutex> lk (mutex);
-		nano::endpoint endpoint = channel_a.get_endpoint ();
-		auto it = recent_or_initial_request_telemetry_data.find (endpoint);
-		if (it == recent_or_initial_request_telemetry_data.cend () || !it->undergoing_request)
-		{
-			// Not requesting telemetry data from this peer so ignore it
-			stats.inc (nano::stat::type::telemetry, nano::stat::detail::unsolicited_telemetry_ack);
-			return;
-		}
-
-		recent_or_initial_request_telemetry_data.modify (it, [&message_a] (nano::telemetry_info & telemetry_info_a) {
-			telemetry_info_a.data = message_a.data;
-		});
-
-		// This can also remove the peer
-		auto error = verify_message (message_a, channel_a);
-
-		if (!error)
-		{
-			// Received telemetry data from a peer which hasn't disabled providing telemetry metrics and there's no errors with the data
-			lk.unlock ();
-			observers.notify (message_a.data, endpoint);
-			lk.lock ();
-		}
-		channel_processed (endpoint, error);
+		thread.join ();
 	}
 }
 
-bool nano::telemetry::verify_message (nano::telemetry_ack const & message_a, nano::transport::channel const & channel_a)
+bool nano::telemetry::verify (const nano::telemetry_ack & telemetry, const std::shared_ptr<nano::transport::channel> & channel) const
 {
-	if (message_a.is_empty_payload ())
+	if (telemetry.is_empty_payload ())
 	{
-		return true;
+		stats.inc (nano::stat::type::telemetry, nano::stat::detail::empty_payload);
+		return false;
 	}
 
-	auto remove_channel = false;
-	// We want to ensure that the node_id of the channel matches that in the message before attempting to
-	// use the data to remove any peers.
-	auto node_id_mismatch = (channel_a.get_node_id () != message_a.data.node_id);
-	if (!node_id_mismatch)
-	{
-		// The data could be correctly signed but for a different node id
-		remove_channel = message_a.data.validate_signature ();
-		if (!remove_channel)
-		{
-			// Check for different genesis blocks
-			remove_channel = (message_a.data.genesis_block != network_params.ledger.genesis->hash ());
-			if (remove_channel)
-			{
-				stats.inc (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash);
-			}
-		}
-		else
-		{
-			stats.inc (nano::stat::type::telemetry, nano::stat::detail::invalid_signature);
-		}
-	}
-	else
+	// Check if telemetry node id matches channel node id
+	if (telemetry.data.node_id != channel->get_node_id ())
 	{
 		stats.inc (nano::stat::type::telemetry, nano::stat::detail::node_id_mismatch);
+		return false;
 	}
 
-	if (remove_channel)
+	// Check whether data is signed by node id presented in telemetry message
+	if (telemetry.data.validate_signature ()) // Returns false when signature OK
 	{
-		// Add to peer exclusion list
-		network.excluded_peers.add (channel_a.get_tcp_endpoint (), network.size ());
-
-		// Disconnect from peer with incorrect telemetry data
-		network.erase (channel_a);
+		stats.inc (nano::stat::type::telemetry, nano::stat::detail::invalid_signature);
+		return false;
 	}
 
-	return remove_channel || node_id_mismatch;
+	// Check for different genesis blocks
+	if (telemetry.data.genesis_block != network_params.ledger.genesis->hash ())
+	{
+		stats.inc (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash);
+		return false;
+	}
+
+	return true; // Telemetry is OK
 }
 
-std::chrono::milliseconds nano::telemetry::cache_plus_buffer_cutoff_time () const
+void nano::telemetry::process (const nano::telemetry_ack & telemetry, const std::shared_ptr<nano::transport::channel> & channel)
 {
-	// This include the waiting time for the response as well as a buffer (1 second) waiting for the alarm operation to be scheduled and completed
-	return cache_cutoff + response_time_cutoff + 1s;
-}
+	if (!verify (telemetry, channel))
+	{
+		return;
+	}
 
-bool nano::telemetry::within_cache_plus_buffer_cutoff (telemetry_info const & telemetry_info) const
-{
-	auto is_within = (telemetry_info.last_response + cache_plus_buffer_cutoff_time ()) >= std::chrono::steady_clock::now ();
-	return !telemetry_info.awaiting_first_response () && is_within;
-}
+	nano::unique_lock<nano::mutex> lock{ mutex };
 
-bool nano::telemetry::within_cache_cutoff (telemetry_info const & telemetry_info) const
-{
-	auto is_within = (telemetry_info.last_response + cache_cutoff) >= std::chrono::steady_clock::now ();
-	return !telemetry_info.awaiting_first_response () && is_within;
-}
+	const auto endpoint = channel->get_endpoint ();
 
-void nano::telemetry::ongoing_req_all_peers (std::chrono::milliseconds next_request_interval)
-{
-	workers.add_timed_task (std::chrono::steady_clock::now () + next_request_interval, [this_w = std::weak_ptr<telemetry> (shared_from_this ())] () {
-		if (auto this_l = this_w.lock ())
-		{
-			// Check if there are any peers which are in the peers list which haven't been request, or any which are below or equal to the cache cutoff time
-			if (!this_l->stopped)
-			{
-				class tag_channel
-				{
-				};
+	if (auto it = telemetries.get<tag_endpoint> ().find (endpoint); it != telemetries.get<tag_endpoint> ().end ())
+	{
+		stats.inc (nano::stat::type::telemetry, nano::stat::detail::update);
 
-				struct channel_wrapper
-				{
-					std::shared_ptr<nano::transport::channel> channel;
-					channel_wrapper (std::shared_ptr<nano::transport::channel> const & channel_a) :
-						channel (channel_a)
-					{
-					}
-					nano::endpoint endpoint () const
-					{
-						return channel->get_endpoint ();
-					}
-				};
-
-				// clang-format off
-				namespace mi = boost::multi_index;
-				boost::multi_index_container<channel_wrapper,
-				mi::indexed_by<
-					mi::hashed_unique<mi::tag<tag_endpoint>,
-						mi::const_mem_fun<channel_wrapper, nano::endpoint, &channel_wrapper::endpoint>>,
-					mi::hashed_unique<mi::tag<tag_channel>,
-						mi::member<channel_wrapper, std::shared_ptr<nano::transport::channel>, &channel_wrapper::channel>>>> peers;
-				// clang-format on
-
-				{
-					// Copy peers to the multi index container so can get better asymptotic complexity in future operations
-					auto temp_peers = this_l->network.list (std::numeric_limits<std::size_t>::max ());
-					peers.insert (temp_peers.begin (), temp_peers.end ());
-				}
-
-				{
-					// Cleanup any stale saved telemetry data for non-existent peers
-					nano::lock_guard<nano::mutex> guard (this_l->mutex);
-					for (auto it = this_l->recent_or_initial_request_telemetry_data.begin (); it != this_l->recent_or_initial_request_telemetry_data.end ();)
-					{
-						if (!it->undergoing_request && !this_l->within_cache_cutoff (*it) && peers.count (it->endpoint) == 0)
-						{
-							it = this_l->recent_or_initial_request_telemetry_data.erase (it);
-						}
-						else
-						{
-							++it;
-						}
-					}
-
-					// Remove from peers list if it exists and is within the cache cutoff
-					for (auto peers_it = peers.begin (); peers_it != peers.end ();)
-					{
-						auto it = this_l->recent_or_initial_request_telemetry_data.find (peers_it->endpoint ());
-						if (it != this_l->recent_or_initial_request_telemetry_data.cend () && this_l->within_cache_cutoff (*it))
-						{
-							peers_it = peers.erase (peers_it);
-						}
-						else
-						{
-							++peers_it;
-						}
-					}
-				}
-
-				// Request data from new peers, or ones which are out of date
-				for (auto const & peer : boost::make_iterator_range (peers))
-				{
-					this_l->get_metrics_single_peer_async (peer.channel, [] (auto const &) {
-						// Intentionally empty, just using to refresh the cache
-					});
-				}
-
-				// Schedule the next request; Use the default request time unless a telemetry request cache expires sooner
-				nano::lock_guard<nano::mutex> guard (this_l->mutex);
-				long long next_round = std::chrono::duration_cast<std::chrono::milliseconds> (this_l->cache_cutoff + this_l->response_time_cutoff).count ();
-				if (!this_l->recent_or_initial_request_telemetry_data.empty ())
-				{
-					auto range = boost::make_iterator_range (this_l->recent_or_initial_request_telemetry_data.get<tag_last_updated> ());
-					for (auto telemetry_info : range)
-					{
-						if (!telemetry_info.undergoing_request && peers.count (telemetry_info.endpoint) == 0)
-						{
-							auto const last_response = telemetry_info.last_response;
-							auto now = std::chrono::steady_clock::now ();
-							if (now > last_response + this_l->cache_cutoff)
-							{
-								next_round = std::min<long long> (next_round, std::chrono::duration_cast<std::chrono::milliseconds> (now - (last_response + this_l->cache_cutoff)).count ());
-							}
-							// We are iterating in sorted order from last_updated, so can break once we have found the first valid one.
-							break;
-						}
-					}
-				}
-
-				this_l->ongoing_req_all_peers (std::chrono::milliseconds (next_round));
-			}
-		}
-	});
-}
-
-std::unordered_map<nano::endpoint, nano::telemetry_data> nano::telemetry::get_metrics ()
-{
-	std::unordered_map<nano::endpoint, nano::telemetry_data> telemetry_data;
-
-	nano::lock_guard<nano::mutex> guard (mutex);
-	auto range = boost::make_iterator_range (recent_or_initial_request_telemetry_data);
-	// clang-format off
-	nano::transform_if (range.begin (), range.end (), std::inserter (telemetry_data, telemetry_data.end ()),
-		[this](auto const & telemetry_info) { return this->within_cache_plus_buffer_cutoff (telemetry_info); },
-		[](auto const & telemetry_info) { return std::pair<nano::endpoint const, nano::telemetry_data>{ telemetry_info.endpoint, telemetry_info.data }; });
-	// clang-format on
-
-	return telemetry_data;
-}
-
-void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::transport::channel> const & channel_a, std::function<void (telemetry_data_response const &)> const & callback_a)
-{
-	auto invoke_callback_with_error = [&callback_a, &workers = this->workers, channel_a] () {
-		nano::endpoint endpoint;
-		if (channel_a)
-		{
-			endpoint = channel_a->get_endpoint ();
-		}
-		workers.push_task ([callback_a, endpoint] () {
-			auto const error = true;
-			callback_a ({ nano::telemetry_data{}, endpoint, error });
+		telemetries.get<tag_endpoint> ().modify (it, [&telemetry, &endpoint] (auto & entry) {
+			debug_assert (entry.endpoint == endpoint);
+			entry.data = telemetry.data;
+			entry.last_updated = std::chrono::steady_clock::now ();
 		});
-	};
-
-	if (!stopped)
-	{
-		if (channel_a)
-		{
-			auto add_callback_async = [&workers = this->workers, &callback_a] (telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a) {
-				telemetry_data_response telemetry_data_response_l{ telemetry_data_a, endpoint_a, false };
-				workers.push_task ([telemetry_data_response_l, callback_a] () {
-					callback_a (telemetry_data_response_l);
-				});
-			};
-
-			// Check if this is within the cache
-			nano::lock_guard<nano::mutex> guard (mutex);
-			auto it = recent_or_initial_request_telemetry_data.find (channel_a->get_endpoint ());
-			if (it != recent_or_initial_request_telemetry_data.cend () && within_cache_cutoff (*it))
-			{
-				add_callback_async (it->data, it->endpoint);
-			}
-			else
-			{
-				if (it != recent_or_initial_request_telemetry_data.cend () && it->undergoing_request)
-				{
-					// A request is currently undergoing, add the callback
-					debug_assert (callbacks.count (it->endpoint) > 0);
-					callbacks[it->endpoint].push_back (callback_a);
-				}
-				else
-				{
-					if (it == recent_or_initial_request_telemetry_data.cend ())
-					{
-						// Insert dummy values, it's important not to use "last_response" time here without first checking that awaiting_first_response () returns false.
-						recent_or_initial_request_telemetry_data.emplace (channel_a->get_endpoint (), nano::telemetry_data (), std::chrono::steady_clock::now (), true);
-						it = recent_or_initial_request_telemetry_data.find (channel_a->get_endpoint ());
-					}
-					else
-					{
-						recent_or_initial_request_telemetry_data.modify (it, [] (nano::telemetry_info & telemetry_info_a) {
-							telemetry_info_a.undergoing_request = true;
-						});
-					}
-					callbacks[it->endpoint].push_back (callback_a);
-					fire_request_message (channel_a);
-				}
-			}
-		}
-		else
-		{
-			invoke_callback_with_error ();
-		}
 	}
 	else
 	{
-		invoke_callback_with_error ();
+		stats.inc (nano::stat::type::telemetry, nano::stat::detail::insert);
+		telemetries.get<tag_endpoint> ().insert ({ endpoint, telemetry.data, std::chrono::steady_clock::now (), channel });
+
+		if (telemetries.size () > max_size)
+		{
+			stats.inc (nano::stat::type::telemetry, nano::stat::detail::overfill);
+			telemetries.get<tag_sequenced> ().pop_front (); // Erase oldest entry
+		}
 	}
+
+	lock.unlock ();
+
+	observers.telemetry.notify (telemetry.data, channel);
 }
 
-nano::telemetry_data_response nano::telemetry::get_metrics_single_peer (std::shared_ptr<nano::transport::channel> const & channel_a)
+void nano::telemetry::trigger ()
 {
-	std::promise<telemetry_data_response> promise;
-	get_metrics_single_peer_async (channel_a, [&promise] (telemetry_data_response const & single_metric_data_a) {
-		promise.set_value (single_metric_data_a);
-	});
-
-	return promise.get_future ().get ();
+	triggered = true;
+	condition.notify_all ();
 }
 
-void nano::telemetry::fire_request_message (std::shared_ptr<nano::transport::channel> const & channel_a)
+std::size_t nano::telemetry::size () const
 {
-	uint64_t round_l;
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return telemetries.size ();
+}
+
+void nano::telemetry::run ()
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	while (!stopped)
 	{
-		auto it = recent_or_initial_request_telemetry_data.find (channel_a->get_endpoint ());
-		recent_or_initial_request_telemetry_data.modify (it, [] (nano::telemetry_info & telemetry_info_a) {
-			++telemetry_info_a.round;
-		});
-		round_l = it->round;
-	}
+		stats.inc (nano::stat::type::telemetry, nano::stat::detail::loop);
 
-	std::weak_ptr<nano::telemetry> this_w (shared_from_this ());
+		cleanup ();
+
+		if (config_m.enable_ongoing_requests || triggered)
+		{
+			lock.unlock ();
+			triggered = false;
+			run_requests ();
+			lock.lock ();
+		}
+
+		condition.wait_for (lock, std::chrono::milliseconds (config_m.request_interval));
+	}
+}
+
+void nano::telemetry::run_requests ()
+{
+	auto peers = network.list ();
+
+	for (auto & channel : peers)
+	{
+		request (channel);
+	}
+}
+
+void nano::telemetry::request (std::shared_ptr<nano::transport::channel> & channel)
+{
+	stats.inc (nano::stat::type::telemetry, nano::stat::detail::request);
+
 	nano::telemetry_req message{ network_params.network };
-	// clang-format off
-	channel_a->send (message, [this_w, endpoint = channel_a->get_endpoint (), round_l](boost::system::error_code const & ec, std::size_t size_a) {
-		if (auto this_l = this_w.lock ())
-		{
-			if (ec)
-			{
-				// Error sending the telemetry_req message
-				this_l->stats.inc (nano::stat::type::telemetry, nano::stat::detail::failed_send_telemetry_req);
-				nano::lock_guard<nano::mutex> guard (this_l->mutex);
-				this_l->channel_processed (endpoint, true);
-			}
-			else
-			{
-				// If no response is seen after a certain period of time remove it
-				this_l->workers.add_timed_task (std::chrono::steady_clock::now () + this_l->response_time_cutoff, [round_l, this_w, endpoint]() {
-					if (auto this_l = this_w.lock ())
-					{
-						nano::lock_guard<nano::mutex> guard (this_l->mutex);
-						auto it = this_l->recent_or_initial_request_telemetry_data.find (endpoint);
-						if (it != this_l->recent_or_initial_request_telemetry_data.cend () && it->undergoing_request && round_l == it->round)
-						{
-							this_l->stats.inc (nano::stat::type::telemetry, nano::stat::detail::no_response_received);
-							this_l->channel_processed (endpoint, true);
-						}
-					}
-				});			
-			}
-		}
-	},
-	nano::buffer_drop_policy::no_socket_drop);
-	// clang-format on
+	channel->send (message);
 }
 
-void nano::telemetry::channel_processed (nano::endpoint const & endpoint_a, bool error_a)
+void nano::telemetry::cleanup ()
 {
-	auto it = recent_or_initial_request_telemetry_data.find (endpoint_a);
-	if (it != recent_or_initial_request_telemetry_data.end ())
-	{
-		if (!error_a)
-		{
-			recent_or_initial_request_telemetry_data.modify (it, [] (nano::telemetry_info & telemetry_info_a) {
-				telemetry_info_a.last_response = std::chrono::steady_clock::now ();
-				telemetry_info_a.undergoing_request = false;
-			});
-		}
-		else
-		{
-			recent_or_initial_request_telemetry_data.erase (endpoint_a);
-		}
-		flush_callbacks_async (endpoint_a, error_a);
-	}
-}
+	debug_assert (!mutex.try_lock ());
 
-void nano::telemetry::flush_callbacks_async (nano::endpoint const & endpoint_a, bool error_a)
-{
-	// Post to thread_pool so that it's truly async and not on the calling thread (same problem as std::async otherwise)
-	workers.push_task ([endpoint_a, error_a, this_w = std::weak_ptr<nano::telemetry> (shared_from_this ())] () {
-		if (auto this_l = this_w.lock ())
+	nano::erase_if (telemetries, [this] (entry const & entry) {
+		// Remove if telemetry data is stale
+		if (!check_timeout (entry))
 		{
-			nano::unique_lock<nano::mutex> lk (this_l->mutex);
-			while (!this_l->callbacks[endpoint_a].empty ())
-			{
-				lk.unlock ();
-				this_l->invoke_callbacks (endpoint_a, error_a);
-				lk.lock ();
-			}
+			stats.inc (nano::stat::type::telemetry, nano::stat::detail::cleanup_outdated);
+			return true; // Erase
 		}
+
+		// Remove if channel that sent the telemetry is disconnected
+		if (!entry.channel->alive ())
+		{
+			stats.inc (nano::stat::type::telemetry, nano::stat::detail::cleanup_dead);
+			return true; // Erase
+		}
+
+		return false; // Do not erase
 	});
 }
 
-void nano::telemetry::invoke_callbacks (nano::endpoint const & endpoint_a, bool error_a)
+bool nano::telemetry::check_timeout (const entry & entry) const
 {
-	std::vector<std::function<void (telemetry_data_response const &)>> callbacks_l;
-	telemetry_data_response response_data{ nano::telemetry_data (), endpoint_a, error_a };
-	{
-		// Copy data so that it can be used outside of holding the lock
-		nano::lock_guard<nano::mutex> guard (mutex);
+	return entry.last_updated + std::chrono::milliseconds (config_m.cache_cutoff) >= std::chrono::steady_clock::now ();
+}
 
-		callbacks_l = callbacks[endpoint_a];
-		auto it = recent_or_initial_request_telemetry_data.find (endpoint_a);
-		if (it != recent_or_initial_request_telemetry_data.end ())
+std::optional<nano::telemetry_data> nano::telemetry::get_telemetry (const nano::endpoint & endpoint) const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
+	if (auto it = telemetries.get<tag_endpoint> ().find (endpoint); it != telemetries.get<tag_endpoint> ().end ())
+	{
+		if (check_timeout (*it))
 		{
-			response_data.telemetry_data = it->data;
+			return it->data;
 		}
-		callbacks.erase (endpoint_a);
 	}
+	return {};
+}
 
-	// Need to account for nodes which disable telemetry data in responses
-	for (auto & callback : callbacks_l)
+std::unordered_map<nano::endpoint, nano::telemetry_data> nano::telemetry::get_all_telemetries () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
+	std::unordered_map<nano::endpoint, nano::telemetry_data> result;
+	for (auto const & entry : telemetries)
 	{
-		callback (response_data);
+		if (check_timeout (entry))
+		{
+			result[entry.endpoint] = entry.data;
+		}
 	}
+	return result;
 }
 
-std::size_t nano::telemetry::telemetry_data_size ()
+std::unique_ptr<nano::container_info_component> nano::telemetry::collect_container_info (const std::string & name)
 {
-	nano::lock_guard<nano::mutex> guard (mutex);
-	return recent_or_initial_request_telemetry_data.size ();
-}
+	nano::lock_guard<nano::mutex> guard{ mutex };
 
-nano::telemetry_info::telemetry_info (nano::endpoint const & endpoint_a, nano::telemetry_data const & data_a, std::chrono::steady_clock::time_point last_response_a, bool undergoing_request_a) :
-	endpoint (endpoint_a),
-	data (data_a),
-	last_response (last_response_a),
-	undergoing_request (undergoing_request_a)
-{
-}
-
-bool nano::telemetry_info::awaiting_first_response () const
-{
-	return data == nano::telemetry_data ();
-}
-
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (telemetry & telemetry, std::string const & name)
-{
 	auto composite = std::make_unique<container_info_composite> (name);
-	std::size_t callbacks_count;
-	{
-		nano::lock_guard<nano::mutex> guard (telemetry.mutex);
-		std::unordered_map<nano::endpoint, std::vector<std::function<void (telemetry_data_response const &)>>> callbacks;
-		callbacks_count = std::accumulate (callbacks.begin (), callbacks.end (), static_cast<std::size_t> (0), [] (auto total, auto const & callback_a) {
-			return total += callback_a.second.size ();
-		});
-	}
-
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recent_or_initial_request_telemetry_data", telemetry.telemetry_data_size (), sizeof (decltype (telemetry.recent_or_initial_request_telemetry_data)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "callbacks", callbacks_count, sizeof (decltype (telemetry.callbacks)::value_type::second_type) }));
-
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "telemetries", telemetries.size (), sizeof (decltype (telemetries)::value_type) }));
 	return composite;
 }
+
+/*
+ * old
+ */
 
 nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemetry_data> const & telemetry_datas)
 {

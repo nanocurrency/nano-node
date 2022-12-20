@@ -258,6 +258,10 @@ public:
 
 		// common
 		loop,
+		process,
+		update,
+		insert,
+		request,
 
 		// processing queue
 		queue,
@@ -436,6 +440,9 @@ public:
 		no_response_received,
 		unsolicited_telemetry_ack,
 		failed_send_telemetry_req,
+		empty_payload,
+		cleanup_outdated,
+		cleanup_dead,
 
 		// vote generator
 		generator_broadcasts,
