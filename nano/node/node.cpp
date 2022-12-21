@@ -1831,6 +1831,35 @@ nano::account nano::node::get_node_id () const
 	return node_id.pub;
 };
 
+nano::telemetry_data nano::node::local_telemetry () const
+{
+	nano::telemetry_data telemetry_data;
+	telemetry_data.node_id = node_id.pub;
+	telemetry_data.block_count = ledger.cache.block_count;
+	telemetry_data.cemented_count = ledger.cache.cemented_count;
+	telemetry_data.bandwidth_cap = config.bandwidth_limit;
+	telemetry_data.protocol_version = network_params.network.protocol_version;
+	telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - startup_time).count ();
+	telemetry_data.unchecked_count = unchecked.count (ledger.store.tx_begin_read ());
+	telemetry_data.genesis_block = network_params.ledger.genesis->hash ();
+	telemetry_data.peer_count = nano::narrow_cast<decltype (telemetry_data.peer_count)> (network.size ());
+	telemetry_data.account_count = ledger.cache.account_count;
+	telemetry_data.major_version = nano::get_major_node_version ();
+	telemetry_data.minor_version = nano::get_minor_node_version ();
+	telemetry_data.patch_version = nano::get_patch_node_version ();
+	telemetry_data.pre_release_version = nano::get_pre_release_node_version ();
+	telemetry_data.maker = static_cast<std::underlying_type_t<telemetry_maker>> (ledger.pruning ? telemetry_maker::nf_pruned_node : telemetry_maker::nf_node);
+	telemetry_data.timestamp = std::chrono::system_clock::now ();
+	telemetry_data.active_difficulty = default_difficulty (nano::work_version::work_1);
+	// Make sure this is the final operation!
+	telemetry_data.sign (node_id);
+	return telemetry_data;
+}
+
+/*
+ * node_wrapper
+ */
+
 nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
 	network_params{ nano::network_constants::active_network },
 	io_context (std::make_shared<boost::asio::io_context> ()),
@@ -1869,6 +1898,10 @@ nano::node_wrapper::~node_wrapper ()
 {
 	node->stop ();
 }
+
+/*
+ * inactive_node
+ */
 
 nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
 	node_wrapper (path_a, config_path_a, node_flags_a),

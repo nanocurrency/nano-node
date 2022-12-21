@@ -3977,7 +3977,7 @@ void nano::json_handler::telemetry ()
 					if (address.is_loopback () && port == node.network.endpoint ().port ())
 					{
 						// Requesting telemetry metrics locally
-						auto telemetry_data = nano::local_telemetry_data (node.ledger, node.network, node.unchecked, node.config.bandwidth_limit, node.network_params, node.startup_time, node.default_difficulty (nano::work_version::work_1), node.node_id);
+						auto telemetry_data = node.local_telemetry ();
 
 						nano::jsonconfig config_l;
 						auto const should_ignore_identification_metrics = false;

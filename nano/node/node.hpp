@@ -135,6 +135,9 @@ public:
 	 */
 	void bootstrap_block (nano::block_hash const &);
 	nano::account get_node_id () const;
+	nano::telemetry_data local_telemetry () const;
+
+public:
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;

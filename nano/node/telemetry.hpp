@@ -142,5 +142,4 @@ private:
 };
 
 nano::telemetry_data consolidate_telemetry_data (std::vector<telemetry_data> const & telemetry_data);
-nano::telemetry_data local_telemetry_data (nano::ledger const & ledger_a, nano::network &, nano::unchecked_map const &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point, uint64_t, nano::keypair const &);
 }
