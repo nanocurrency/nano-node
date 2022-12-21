@@ -3,6 +3,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/messages.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
@@ -45,10 +46,11 @@ public:
 	struct config
 	{
 		bool enable_ongoing_requests{ true };
-		/// milliseconds
-		uint32_t request_interval{ 0 };
-		/// milliseconds
-		uint32_t cache_cutoff{ 0 };
+
+		config (nano::node_config const & config, nano::node_flags const & flags) :
+			enable_ongoing_requests{ !flags.disable_ongoing_telemetry_requests }
+		{
+		}
 	};
 
 public:

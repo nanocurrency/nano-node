@@ -61,7 +61,6 @@ backlog_population::config nodeconfig_to_backlog_population_config (node_config 
 vote_cache::config nodeconfig_to_vote_cache_config (node_config const &, node_flags const &);
 hinted_scheduler::config nodeconfig_to_hinted_scheduler_config (node_config const &);
 outbound_bandwidth_limiter::config outbound_bandwidth_limiter_config (node_config const &);
-telemetry::config telemetry_config (node_config const &, node_flags const &);
 
 class node final : public std::enable_shared_from_this<nano::node>
 {

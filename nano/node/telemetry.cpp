@@ -154,7 +154,7 @@ void nano::telemetry::run ()
 			lock.lock ();
 		}
 
-		condition.wait_for (lock, std::chrono::milliseconds (config_m.request_interval));
+		condition.wait_for (lock, network_params.network.telemetry_request_interval);
 	}
 }
 
@@ -201,7 +201,7 @@ void nano::telemetry::cleanup ()
 
 bool nano::telemetry::check_timeout (const entry & entry) const
 {
-	return entry.last_updated + std::chrono::milliseconds (config_m.cache_cutoff) >= std::chrono::steady_clock::now ();
+	return entry.last_updated + network_params.network.telemetry_cache_cutoff >= std::chrono::steady_clock::now ();
 }
 
 std::optional<nano::telemetry_data> nano::telemetry::get_telemetry (const nano::endpoint & endpoint) const

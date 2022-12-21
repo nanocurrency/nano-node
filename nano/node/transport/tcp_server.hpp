@@ -137,9 +137,5 @@ private:
 	private:
 		std::shared_ptr<tcp_server> server;
 	};
-
-public:
-	/** We do not reply to telemetry requests made within cooldown period */
-	static std::chrono::seconds constexpr telemetry_request_cooldown = std::chrono::seconds (10);
 };
 }

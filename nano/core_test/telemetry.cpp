@@ -381,7 +381,7 @@ TEST (telemetry, dos_tcp)
 		});
 	}
 
-	ASSERT_TIMELY (5s, (nano::transport::tcp_server::telemetry_request_cooldown + orig) <= std::chrono::steady_clock::now ());
+	ASSERT_TIMELY (5s, (nano::dev::network_params.network.telemetry_request_cooldown + orig) <= std::chrono::steady_clock::now ());
 
 	// Should process no more telemetry_req messages
 	ASSERT_EQ (1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
