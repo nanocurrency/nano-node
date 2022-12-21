@@ -986,7 +986,6 @@ TEST (network, replace_port)
 	nano::node_flags node_flags;
 	node_flags.disable_udp = false;
 	node_flags.disable_ongoing_telemetry_requests = true;
-	node_flags.disable_initial_telemetry_requests = true;
 	nano::node_config node0_config (nano::test::get_available_port (), system.logging);
 	node0_config.io_threads = 8;
 	auto node0 = system.add_node (node0_config, node_flags);

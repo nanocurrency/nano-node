@@ -134,7 +134,6 @@ public:
 	bool disable_unchecked_drop{ true };
 	bool disable_providing_telemetry_metrics{ false };
 	bool disable_ongoing_telemetry_requests{ false };
-	bool disable_initial_telemetry_requests{ false }; // TODO: Clean unused flag
 	bool disable_block_processor_unchecked_deletion{ false };
 	bool disable_block_processor_republishing{ false };
 	bool allow_bootstrap_peers_duplicates{ false };
