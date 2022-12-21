@@ -584,6 +584,9 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 		case nano::stat::detail::request:
 			res = "request";
 			break;
+		case nano::stat::detail::broadcast:
+			res = "broadcast";
+			break;
 		case nano::stat::detail::queue:
 			res = "queue";
 			break;

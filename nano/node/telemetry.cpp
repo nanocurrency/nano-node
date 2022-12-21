@@ -1,6 +1,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/network.hpp>
+#include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/telemetry.hpp>
@@ -20,8 +21,9 @@
 
 using namespace std::chrono_literals;
 
-nano::telemetry::telemetry (const config & config_a, nano::network & network_a, nano::node_observers & observers_a, nano::network_params & network_params_a, nano::stat & stats_a) :
+nano::telemetry::telemetry (const config & config_a, nano::node & node_a, nano::network & network_a, nano::node_observers & observers_a, nano::network_params & network_params_a, nano::stat & stats_a) :
 	config_m{ config_a },
+	node{ node_a },
 	network{ network_a },
 	observers{ observers_a },
 	network_params{ network_params_a },
@@ -116,6 +118,8 @@ void nano::telemetry::process (const nano::telemetry_ack & telemetry, const std:
 	lock.unlock ();
 
 	observers.telemetry.notify (telemetry.data, channel);
+
+	stats.inc (nano::stat::type::telemetry, nano::stat::detail::process);
 }
 
 void nano::telemetry::trigger ()
@@ -130,6 +134,32 @@ std::size_t nano::telemetry::size () const
 	return telemetries.size ();
 }
 
+bool nano::telemetry::request_predicate () const
+{
+	debug_assert (!mutex.try_lock ());
+
+	if (triggered)
+	{
+		return true;
+	}
+	if (config_m.enable_ongoing_requests)
+	{
+		return last_request + network_params.network.telemetry_request_interval < std::chrono::steady_clock::now ();
+	}
+	return false;
+}
+
+bool nano::telemetry::broadcast_predicate () const
+{
+	debug_assert (!mutex.try_lock ());
+
+	if (config_m.enable_ongoing_broadcasts)
+	{
+		return last_broadcast + network_params.network.telemetry_broadcast_interval < std::chrono::steady_clock::now ();
+	}
+	return false;
+}
+
 void nano::telemetry::run ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
@@ -139,15 +169,24 @@ void nano::telemetry::run ()
 
 		cleanup ();
 
-		if (config_m.enable_ongoing_requests || triggered)
+		if (request_predicate ())
 		{
 			lock.unlock ();
 			triggered = false;
 			run_requests ();
 			lock.lock ();
+			last_request = std::chrono::steady_clock::now ();
 		}
 
-		condition.wait_for (lock, network_params.network.telemetry_request_interval);
+		if (broadcast_predicate ())
+		{
+			lock.unlock ();
+			run_broadcasts ();
+			lock.lock ();
+			last_broadcast = std::chrono::steady_clock::now ();
+		}
+
+		condition.wait_for (lock, std::min (network_params.network.telemetry_request_interval, network_params.network.telemetry_broadcast_interval) / 2);
 	}
 }
 
@@ -166,6 +205,25 @@ void nano::telemetry::request (std::shared_ptr<nano::transport::channel> & chann
 	stats.inc (nano::stat::type::telemetry, nano::stat::detail::request);
 
 	nano::telemetry_req message{ network_params.network };
+	channel->send (message);
+}
+
+void nano::telemetry::run_broadcasts ()
+{
+	auto telemetry = node.local_telemetry ();
+	auto peers = network.list ();
+
+	for (auto & channel : peers)
+	{
+		broadcast (channel, telemetry);
+	}
+}
+
+void nano::telemetry::broadcast (std::shared_ptr<nano::transport::channel> & channel, const nano::telemetry_data & telemetry)
+{
+	stats.inc (nano::stat::type::telemetry, nano::stat::detail::broadcast);
+
+	nano::telemetry_ack message{ network_params.network, telemetry };
 	channel->send (message);
 }
 

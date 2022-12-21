@@ -424,6 +424,7 @@ TEST (telemetry, max_possible_size)
 	nano::test::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_ongoing_telemetry_requests = true;
+	node_flags.disable_providing_telemetry_metrics = true;
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
@@ -494,4 +495,16 @@ TEST (telemetry, mismatched_node_id)
 
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::node_id_mismatch) > 0);
 	ASSERT_ALWAYS (1s, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::process) == 0)
+}
+
+TEST (telemetry, ongoing_broadcasts)
+{
+	nano::test::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	auto & node1 = *system.add_node (node_flags);
+	auto & node2 = *system.add_node (node_flags);
+
+	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::telemetry, nano::stat::detail::process) >= 3);
+	ASSERT_TIMELY (5s, node2.stats.count (nano::stat::type::telemetry, nano::stat::detail::process) >= 3)
 }

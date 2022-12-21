@@ -262,6 +262,7 @@ public:
 		update,
 		insert,
 		request,
+		broadcast,
 
 		// processing queue
 		queue,

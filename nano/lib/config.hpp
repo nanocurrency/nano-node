@@ -250,6 +250,7 @@ public:
 			telemetry_request_cooldown = 500ms;
 			telemetry_cache_cutoff = 2000ms;
 			telemetry_request_interval = 500ms;
+			telemetry_broadcast_interval = 500ms;
 		}
 	}
 
@@ -296,6 +297,8 @@ public:
 	std::chrono::milliseconds telemetry_request_cooldown{ 1000 * 10 };
 	/** How often to request telemetry from peers */
 	std::chrono::milliseconds telemetry_request_interval{ 1000 * 15 };
+	/** How often to broadcast telemetry to peers */
+	std::chrono::milliseconds telemetry_broadcast_interval{ 1000 * 15 };
 	/** Telemetry data older than this value is considered stale */
 	std::chrono::milliseconds telemetry_cache_cutoff{ 1000 * 60 };
 

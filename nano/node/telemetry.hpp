@@ -20,6 +20,7 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
+class node;
 class network;
 class node_observers;
 class stat;
@@ -46,15 +47,17 @@ public:
 	struct config
 	{
 		bool enable_ongoing_requests{ true };
+		bool enable_ongoing_broadcasts{ true };
 
 		config (nano::node_config const & config, nano::node_flags const & flags) :
-			enable_ongoing_requests{ !flags.disable_ongoing_telemetry_requests }
+			enable_ongoing_requests{ !flags.disable_ongoing_telemetry_requests },
+			enable_ongoing_broadcasts{ !flags.disable_providing_telemetry_metrics }
 		{
 		}
 	};
 
 public:
-	telemetry (config const &, nano::network &, nano::node_observers &, nano::network_params &, nano::stat &);
+	telemetry (config const &, nano::node &, nano::network &, nano::node_observers &, nano::network_params &, nano::stat &);
 	~telemetry ();
 
 	void start ();
@@ -86,6 +89,7 @@ public: // Container info
 	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name);
 
 private: // Dependencies
+	nano::node & node;
 	nano::network & network;
 	nano::node_observers & observers;
 	nano::network_params & network_params;
@@ -103,11 +107,16 @@ private:
 	};
 
 private:
+	bool request_predicate () const;
+	bool broadcast_predicate () const;
+
 	void run ();
 	void run_requests ();
+	void run_broadcasts ();
 	void cleanup ();
 
 	void request (std::shared_ptr<nano::transport::channel> &);
+	void broadcast (std::shared_ptr<nano::transport::channel> &, nano::telemetry_data const &);
 
 	bool verify (nano::telemetry_ack const &, std::shared_ptr<nano::transport::channel> const &) const;
 	bool check_timeout (entry const &) const;
@@ -130,7 +139,9 @@ private:
 
 	ordered_telemetries telemetries;
 
-	std::atomic<bool> triggered;
+	std::atomic<bool> triggered{ false };
+	std::chrono::steady_clock::time_point last_request{};
+	std::chrono::steady_clock::time_point last_broadcast{};
 
 	std::atomic<bool> stopped{ false };
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::telemetry) };
