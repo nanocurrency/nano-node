@@ -4010,7 +4010,7 @@ void nano::json_handler::telemetry ()
 
 		if (!ec)
 		{
-			auto maybe_telemetry = node.telemetry.get_telemetry (endpoint);
+			auto maybe_telemetry = node.telemetry.get_telemetry (nano::transport::map_endpoint_to_v6 (endpoint));
 			if (maybe_telemetry)
 			{
 				auto telemetry = *maybe_telemetry;

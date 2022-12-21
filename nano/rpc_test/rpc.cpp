@@ -7372,14 +7372,11 @@ TEST (rpc, telemetry_all)
 	ASSERT_TIMELY (10s, node1->store.peer.count (node1->store.tx_begin_read ()) != 0);
 
 	// First need to set up the cached data
-	std::atomic<bool> done{ false };
 	auto node = system.nodes.front ();
-	node1->telemetry->get_metrics_single_peer_async (node1->network.find_node_id (node->get_node_id ()), [&done] (nano::telemetry_data_response const & telemetry_data_response_a) {
-		ASSERT_FALSE (telemetry_data_response_a.error);
-		done = true;
-	});
 
-	ASSERT_TIMELY (10s, done);
+	auto channel = node1->network.find_node_id (node->get_node_id ());
+	ASSERT_TRUE (channel);
+	ASSERT_TIMELY (10s, node1->telemetry.get_telemetry (channel->get_endpoint ()));
 
 	boost::property_tree::ptree request;
 	request.put ("action", "telemetry");
