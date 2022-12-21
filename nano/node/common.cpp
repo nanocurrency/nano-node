@@ -117,6 +117,16 @@ bool nano::parse_endpoint (std::string const & string, nano::endpoint & endpoint
 	return result;
 }
 
+std::optional<nano::endpoint> nano::parse_endpoint (const std::string & str)
+{
+	nano::endpoint endpoint;
+	if (!parse_endpoint (str, endpoint))
+	{
+		return endpoint; // Success
+	}
+	return {};
+}
+
 bool nano::parse_tcp_endpoint (std::string const & string, nano::tcp_endpoint & endpoint_a)
 {
 	boost::asio::ip::address address;

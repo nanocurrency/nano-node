@@ -979,7 +979,6 @@ TEST (websocket, telemetry)
 	config.websocket_config.port = nano::test::get_available_port ();
 	nano::node_flags node_flags;
 	node_flags.disable_initial_telemetry_requests = true;
-	node_flags.disable_ongoing_telemetry_requests = true;
 	auto node1 (system.add_node (config, node_flags));
 	config.peering_port = nano::test::get_available_port ();
 	config.websocket_config.enabled = true;
@@ -1002,9 +1001,9 @@ TEST (websocket, telemetry)
 
 	ASSERT_TIMELY (10s, done);
 
-	node1->telemetry->get_metrics_single_peer_async (node1->network.find_node_id (node2->get_node_id ()), [] (auto const & response_a) {
-		ASSERT_FALSE (response_a.error);
-	});
+	auto channel = node1->network.find_node_id (node2->get_node_id ());
+	ASSERT_NE (channel, nullptr);
+	ASSERT_TIMELY (5s, node1->telemetry.get_telemetry (channel->get_endpoint ()));
 
 	ASSERT_TIMELY (10s, future.wait_for (0s) == std::future_status::ready);
 

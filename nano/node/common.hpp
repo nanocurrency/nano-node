@@ -11,15 +11,18 @@
 #include <nano/secure/network_filter.hpp>
 
 #include <bitset>
+#include <optional>
 
 namespace nano
 {
 using endpoint = boost::asio::ip::udp::endpoint;
+using tcp_endpoint = boost::asio::ip::tcp::endpoint;
+
 bool parse_port (std::string const &, uint16_t &);
 bool parse_address (std::string const &, boost::asio::ip::address &);
 bool parse_address_port (std::string const &, boost::asio::ip::address &, uint16_t &);
-using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 bool parse_endpoint (std::string const &, nano::endpoint &);
+std::optional<nano::endpoint> parse_endpoint (std::string const &);
 bool parse_tcp_endpoint (std::string const &, nano::tcp_endpoint &);
 uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint16_t port = 0);
 }
