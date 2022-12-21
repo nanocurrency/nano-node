@@ -1404,8 +1404,8 @@ TEST (telemetry, ongoing_requests)
 
 	nano::test::wait_peer_connections (system);
 
-	ASSERT_EQ (0, node_client->telemetry->telemetry_data_size ());
-	ASSERT_EQ (0, node_server->telemetry->telemetry_data_size ());
+	ASSERT_EQ (0, node_client->telemetry.size ());
+	ASSERT_EQ (0, node_server->telemetry.size ());
 	ASSERT_EQ (0, node_client->stats.count (nano::stat::type::bootstrap, nano::stat::detail::telemetry_ack, nano::stat::dir::in));
 	ASSERT_EQ (0, node_client->stats.count (nano::stat::type::bootstrap, nano::stat::detail::telemetry_req, nano::stat::dir::out));
 
@@ -1413,7 +1413,7 @@ TEST (telemetry, ongoing_requests)
 
 	// Wait till the next ongoing will be called, and add a 1s buffer for the actual processing
 	auto time = std::chrono::steady_clock::now ();
-	ASSERT_TIMELY (10s, std::chrono::steady_clock::now () >= (time + node_client->telemetry->cache_plus_buffer_cutoff_time () + 1s));
+	ASSERT_TIMELY (10s, std::chrono::steady_clock::now () >= (time + nano::dev::network_params.network.telemetry_cache_cutoff + 1s));
 
 	ASSERT_EQ (2, node_client->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in));
 	ASSERT_EQ (2, node_client->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
@@ -1466,10 +1466,12 @@ namespace transport
 
 							// Pick first peer to be consistent
 							auto peer = data.node->network.tcp_channels.channels[0].channel;
-							data.node->telemetry->get_metrics_single_peer_async (peer, [&shared_data, &data, &node_data] (nano::telemetry_data_response const & telemetry_data_response_a) {
-								ASSERT_FALSE (telemetry_data_response_a.error);
-								callback_process (shared_data, data, node_data, telemetry_data_response_a.telemetry_data.timestamp);
-							});
+
+							auto maybe_telemetry = data.node->telemetry.get_telemetry (peer->get_endpoint ());
+							if (maybe_telemetry)
+							{
+								callback_process (shared_data, data, node_data, maybe_telemetry->timestamp);
+							}
 						}
 						std::this_thread::sleep_for (1ms);
 					}
@@ -1591,18 +1593,14 @@ TEST (telemetry, cache_read_and_timeout)
 	nano::test::wait_peer_connections (system);
 
 	// Request telemetry metrics
-	nano::telemetry_data telemetry_data;
-	{
-		std::atomic<bool> done{ false };
-		auto channel = node_client->network.find_node_id (node_server->get_node_id ());
-		node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &telemetry_data] (nano::telemetry_data_response const & response_a) {
-			telemetry_data = response_a.telemetry_data;
-			done = true;
-		});
-		ASSERT_TIMELY (10s, done);
-	}
+	std::optional<nano::telemetry_data> telemetry_data;
+	auto channel = node_client->network.find_node_id (node_server->get_node_id ());
+	ASSERT_NE (channel, nullptr);
 
-	auto responses = node_client->telemetry->get_metrics ();
+	node_client->telemetry.trigger ();
+	ASSERT_TIMELY (5s, telemetry_data = node_client->telemetry.get_telemetry (channel->get_endpoint ()));
+
+	auto responses = node_client->telemetry.get_all_telemetries ();
 	ASSERT_TRUE (!responses.empty ());
 	ASSERT_EQ (telemetry_data, responses.begin ()->second);
 
@@ -1615,24 +1613,17 @@ TEST (telemetry, cache_read_and_timeout)
 	ASSERT_EQ (0, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::out));
 
 	// wait until the telemetry data times out
-	ASSERT_TIMELY (node_server->telemetry->cache_plus_buffer_cutoff_time (), node_client->telemetry->get_metrics ().empty ());
+	ASSERT_TIMELY (5s, node_client->telemetry.get_all_telemetries ().empty ());
 
 	// the telemetry data cache should be empty now
-	responses = node_client->telemetry->get_metrics ();
+	responses = node_client->telemetry.get_all_telemetries ();
 	ASSERT_TRUE (responses.empty ());
 
 	// Request telemetry metrics again
-	{
-		std::atomic<bool> done{ false };
-		auto channel = node_client->network.find_node_id (node_server->get_node_id ());
-		node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &telemetry_data] (nano::telemetry_data_response const & response_a) {
-			telemetry_data = response_a.telemetry_data;
-			done = true;
-		});
-		ASSERT_TIMELY (10s, done);
-	}
+	node_client->telemetry.trigger ();
+	ASSERT_TIMELY (5s, telemetry_data = node_client->telemetry.get_telemetry (channel->get_endpoint ()));
 
-	responses = node_client->telemetry->get_metrics ();
+	responses = node_client->telemetry.get_all_telemetries ();
 	ASSERT_TRUE (!responses.empty ());
 	ASSERT_EQ (telemetry_data, responses.begin ()->second);
 
@@ -1648,7 +1639,6 @@ TEST (telemetry, many_nodes)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
-	node_flags.disable_ongoing_telemetry_requests = true;
 	node_flags.disable_request_loop = true;
 	// The telemetry responses can timeout if using a large number of nodes under sanitizers, so lower the number.
 	auto const num_nodes = nano::memory_intensive_instrumentation () ? 4 : 10;
@@ -1700,27 +1690,17 @@ TEST (telemetry, many_nodes)
 	// This is the node which will request metrics from all other nodes
 	auto node_client = system.nodes.front ();
 
-	nano::mutex mutex;
 	std::vector<nano::telemetry_data> telemetry_datas;
 	auto peers = node_client->network.list (num_nodes - 1);
 	ASSERT_EQ (peers.size (), num_nodes - 1);
 	for (auto const & peer : peers)
 	{
-		node_client->telemetry->get_metrics_single_peer_async (peer, [&telemetry_datas, &mutex] (nano::telemetry_data_response const & response_a) {
-			ASSERT_FALSE (response_a.error);
-			nano::lock_guard<nano::mutex> guard (mutex);
-			telemetry_datas.push_back (response_a.telemetry_data);
-		});
+		std::optional<nano::telemetry_data> telemetry_data;
+		ASSERT_TIMELY (5s, telemetry_data = node_client->telemetry.get_telemetry (peer->get_endpoint ()));
+		telemetry_datas.push_back (*telemetry_data);
 	}
 
-	system.deadline_set (20s);
-	nano::unique_lock<nano::mutex> lk (mutex);
-	while (telemetry_datas.size () != num_nodes - 1)
-	{
-		lk.unlock ();
-		ASSERT_NO_ERROR (system.poll ());
-		lk.lock ();
-	}
+	ASSERT_EQ (telemetry_datas.size (), num_nodes - 1);
 
 	// Check the metrics
 	for (auto & data : telemetry_datas)
@@ -2147,7 +2127,7 @@ TEST (system, block_sequence)
 	system.deadline_set (3600s);
 	nano::node_config config;
 	config.peering_port = nano::test::get_available_port ();
-	//config.bandwidth_limit = 16 * 1024;
+	// config.bandwidth_limit = 16 * 1024;
 	config.enable_voting = true;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags flags;
@@ -2170,7 +2150,7 @@ TEST (system, block_sequence)
 		std::cerr << rep.pub.to_account () << ' ' << pr->wallets.items.begin ()->second->exists (rep.pub) << pr->weight (rep.pub) << ' ' << '\n';
 	}
 	while (std::any_of (system.nodes.begin (), system.nodes.end (), [] (std::shared_ptr<nano::node> const & node) {
-		//std::cerr << node->rep_crawler.representative_count () << ' ';
+		// std::cerr << node->rep_crawler.representative_count () << ' ';
 		return node->rep_crawler.representative_count () < 3;
 	}))
 	{
