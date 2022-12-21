@@ -297,7 +297,7 @@ TEST (telemetry, basic)
 	ASSERT_EQ (node_server->get_node_id (), telemetry_data->node_id);
 
 	// Check the metrics are correct
-	nano::test::compare_default_telemetry_response_data (*telemetry_data, node_server->network_params, node_server->config.bandwidth_limit, node_server->default_difficulty (nano::work_version::work_1), node_server->node_id);
+	ASSERT_TRUE (nano::test::compare_telemetry (*telemetry_data, *node_server));
 
 	// Call again straight away. It should use the cache
 	auto telemetry_data_2 = node_client->telemetry.get_telemetry (channel->get_endpoint ());
@@ -416,7 +416,7 @@ TEST (telemetry, disable_metrics)
 	std::optional<nano::telemetry_data> telemetry_data;
 	ASSERT_TIMELY (5s, telemetry_data = node_server->telemetry.get_telemetry (channel1->get_endpoint ()));
 
-	nano::test::compare_default_telemetry_response_data (*telemetry_data, node_client->network_params, node_client->config.bandwidth_limit, node_client->default_difficulty (nano::work_version::work_1), node_client->node_id);
+	ASSERT_TRUE (nano::test::compare_telemetry (*telemetry_data, *node_client));
 }
 
 TEST (telemetry, max_possible_size)

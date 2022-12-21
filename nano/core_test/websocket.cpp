@@ -1019,7 +1019,8 @@ TEST (websocket, telemetry)
 	nano::jsonconfig telemetry_contents (contents);
 	nano::telemetry_data telemetry_data;
 	telemetry_data.deserialize_json (telemetry_contents, false);
-	nano::test::compare_default_telemetry_response_data (telemetry_data, node2->network_params, node2->config.bandwidth_limit, node2->default_difficulty (nano::work_version::work_1), node2->node_id);
+
+	ASSERT_TRUE (nano::test::compare_telemetry (telemetry_data, *node2));
 
 	ASSERT_EQ (contents.get<std::string> ("address"), node2->network.endpoint ().address ().to_string ());
 	ASSERT_EQ (contents.get<uint16_t> ("port"), node2->network.endpoint ().port ());

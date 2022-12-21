@@ -4,13 +4,21 @@
 
 namespace nano
 {
-class keypair;
-class network_params;
+class node;
 class telemetry_data;
-
-namespace test
-{
-	void compare_default_telemetry_response_data_excluding_signature (nano::telemetry_data const & telemetry_data_a, nano::network_params const & network_params_a, uint64_t bandwidth_limit_a, uint64_t active_difficulty_a);
-	void compare_default_telemetry_response_data (nano::telemetry_data const & telemetry_data_a, nano::network_params const & network_params_a, uint64_t bandwidth_limit_a, uint64_t active_difficulty_a, nano::keypair const & node_id_a);
 }
+
+namespace nano::test
+{
+/**
+ * Compares telemetry data without signatures
+ * @return true if comparison OK
+ */
+bool compare_telemetry_data (nano::telemetry_data const &, nano::telemetry_data const &);
+
+/**
+ * Compares telemetry data and checks signature matches node_id
+ * @return true if comparison OK
+ */
+bool compare_telemetry (nano::telemetry_data const &, nano::node const &);
 }
