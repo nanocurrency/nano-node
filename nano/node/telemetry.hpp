@@ -125,15 +125,12 @@ private:
 	// clang-format off
 	class tag_sequenced {};
 	class tag_endpoint {};
-	class tag_last_updated {};
 
 	using ordered_telemetries = boost::multi_index_container<entry,
 	mi::indexed_by<
 		mi::sequenced<mi::tag<tag_sequenced>>,
 		mi::hashed_unique<mi::tag<tag_endpoint>,
-			mi::member<entry, nano::endpoint, &entry::endpoint>>,
-		mi::ordered_non_unique<mi::tag<tag_last_updated>,
-			mi::member<entry, std::chrono::steady_clock::time_point, &entry::last_updated>>
+			mi::member<entry, nano::endpoint, &entry::endpoint>>
 	>>;
 	// clang-format on
 
@@ -145,7 +142,7 @@ private:
 
 	std::atomic<bool> stopped{ false };
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::telemetry) };
-	mutable nano::condition_variable condition;
+	nano::condition_variable condition;
 	std::thread thread;
 
 private:

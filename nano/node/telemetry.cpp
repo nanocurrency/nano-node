@@ -3,13 +3,9 @@
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
-#include <nano/node/nodeconfig.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/transport.hpp>
-#include <nano/node/unchecked_map.hpp>
-#include <nano/secure/buffer.hpp>
 #include <nano/secure/ledger.hpp>
-#include <nano/secure/store.hpp>
 
 #include <boost/algorithm/string.hpp>
 
@@ -292,10 +288,6 @@ std::unique_ptr<nano::container_info_component> nano::telemetry::collect_contain
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "telemetries", telemetries.size (), sizeof (decltype (telemetries)::value_type) }));
 	return composite;
 }
-
-/*
- * old
- */
 
 nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemetry_data> const & telemetry_datas)
 {
