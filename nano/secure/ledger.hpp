@@ -66,7 +66,7 @@ public:
 	nano::account const & block_destination (nano::transaction const &, nano::block const &);
 	nano::block_hash block_source (nano::transaction const &, nano::block const &);
 	std::pair<nano::block_hash, nano::block_hash> hash_root_random (nano::transaction const &) const;
-	nano::process_return process (nano::write_transaction const &, nano::block &, nano::signature_verification = nano::signature_verification::unknown);
+	nano::process_return process (nano::write_transaction const &, nano::block &);
 	bool rollback (nano::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
 	bool rollback (nano::write_transaction const &, nano::block_hash const &);
 	void update_account (nano::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);

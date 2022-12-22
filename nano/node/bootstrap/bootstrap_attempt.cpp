@@ -119,7 +119,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> const 
 	}
 	else
 	{
-		nano::unchecked_info info (block_a, known_account_a, nano::signature_verification::unknown);
+		nano::unchecked_info info (block_a);
 		node->block_processor.add (info);
 	}
 	return stop_pull;

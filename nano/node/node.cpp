@@ -679,14 +679,12 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> con
 {
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
-	// Set current time to trigger automatic rebroadcast and election
-	nano::unchecked_info info (block_a, block_a->account (), nano::signature_verification::unknown);
 	// Notify block processor to release write lock
 	block_processor.wait_write ();
 	// Process block
 	block_post_events post_events ([&store = store] { return store.tx_begin_read (); });
 	auto const transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
-	return block_processor.process_one (transaction, post_events, info, false, nano::block_origin::local);
+	return block_processor.process_one (transaction, post_events, block_a, false, nano::block_origin::local);
 }
 
 void nano::node::process_local_async (std::shared_ptr<nano::block> const & block_a)
@@ -694,8 +692,7 @@ void nano::node::process_local_async (std::shared_ptr<nano::block> const & block
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
 	// Set current time to trigger automatic rebroadcast and election
-	nano::unchecked_info info (block_a, block_a->account (), nano::signature_verification::unknown);
-	block_processor.add_local (info);
+	block_processor.add_local (block_a);
 }
 
 void nano::node::start ()

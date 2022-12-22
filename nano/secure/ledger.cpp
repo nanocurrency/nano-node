@@ -183,7 +183,7 @@ public:
 class ledger_processor : public nano::mutable_block_visitor
 {
 public:
-	ledger_processor (nano::ledger &, nano::write_transaction const &, nano::signature_verification = nano::signature_verification::unknown);
+	ledger_processor (nano::ledger &, nano::write_transaction const &);
 	virtual ~ledger_processor () = default;
 	void send_block (nano::send_block &) override;
 	void receive_block (nano::receive_block &) override;
@@ -194,7 +194,6 @@ public:
 	void epoch_block_impl (nano::state_block &);
 	nano::ledger & ledger;
 	nano::write_transaction const & transaction;
-	nano::signature_verification verification;
 	nano::process_return result;
 
 private:
@@ -213,7 +212,7 @@ bool ledger_processor::validate_epoch_block (nano::state_block const & block_a)
 		{
 			prev_balance = ledger.balance (transaction, block_a.hashables.previous);
 		}
-		else if (result.verified == nano::signature_verification::unknown)
+		else
 		{
 			// Check for possible regular state blocks with epoch link (send subtype)
 			if (validate_message (block_a.hashables.account, block_a.hash (), block_a.signature))
@@ -221,17 +220,8 @@ bool ledger_processor::validate_epoch_block (nano::state_block const & block_a)
 				// Is epoch block signed correctly
 				if (validate_message (ledger.epoch_signer (block_a.link ()), block_a.hash (), block_a.signature))
 				{
-					result.verified = nano::signature_verification::invalid;
 					result.code = nano::process_result::bad_signature;
 				}
-				else
-				{
-					result.verified = nano::signature_verification::valid_epoch;
-				}
-			}
-			else
-			{
-				result.verified = nano::signature_verification::valid;
 			}
 		}
 	}
@@ -268,15 +258,10 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 	result.code = existing ? nano::process_result::old : nano::process_result::progress; // Have we seen this block before? (Unambiguous)
 	if (result.code == nano::process_result::progress)
 	{
-		// Validate block if not verified outside of ledger
-		if (result.verified != nano::signature_verification::valid)
-		{
-			result.code = validate_message (block_a.hashables.account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Unambiguous)
-		}
+		result.code = validate_message (block_a.hashables.account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Unambiguous)
 		if (result.code == nano::process_result::progress)
 		{
 			debug_assert (!validate_message (block_a.hashables.account, hash, block_a.signature));
-			result.verified = nano::signature_verification::valid;
 			result.code = block_a.hashables.account.is_zero () ? nano::process_result::opened_burn_account : nano::process_result::progress; // Is this for the burn account? (Unambiguous)
 			if (result.code == nano::process_result::progress)
 			{
@@ -395,15 +380,10 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 	result.code = existing ? nano::process_result::old : nano::process_result::progress; // Have we seen this block before? (Unambiguous)
 	if (result.code == nano::process_result::progress)
 	{
-		// Validate block if not verified outside of ledger
-		if (result.verified != nano::signature_verification::valid_epoch)
-		{
-			result.code = validate_message (ledger.epoch_signer (block_a.hashables.link), hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Unambiguous)
-		}
+		result.code = validate_message (ledger.epoch_signer (block_a.hashables.link), hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Unambiguous)
 		if (result.code == nano::process_result::progress)
 		{
 			debug_assert (!validate_message (ledger.epoch_signer (block_a.hashables.link), hash, block_a.signature));
-			result.verified = nano::signature_verification::valid_epoch;
 			result.code = block_a.hashables.account.is_zero () ? nano::process_result::opened_burn_account : nano::process_result::progress; // Is this for the burn account? (Unambiguous)
 			if (result.code == nano::process_result::progress)
 			{
@@ -490,11 +470,7 @@ void ledger_processor::change_block (nano::change_block & block_a)
 					(void)latest_error;
 					debug_assert (!latest_error);
 					debug_assert (info.head == block_a.hashables.previous);
-					// Validate block if not verified outside of ledger
-					if (result.verified != nano::signature_verification::valid)
-					{
-						result.code = validate_message (account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Malformed)
-					}
+					result.code = validate_message (account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Malformed)
 					if (result.code == nano::process_result::progress)
 					{
 						nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
@@ -502,7 +478,6 @@ void ledger_processor::change_block (nano::change_block & block_a)
 						if (result.code == nano::process_result::progress)
 						{
 							debug_assert (!validate_message (account, hash, block_a.signature));
-							result.verified = nano::signature_verification::valid;
 							block_a.sideband_set (nano::block_sideband (account, 0, info.balance, info.block_count + 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
 							ledger.store.block.put (transaction, hash, block_a);
 							auto balance (ledger.balance (transaction, block_a.hashables.previous));
@@ -539,11 +514,7 @@ void ledger_processor::send_block (nano::send_block & block_a)
 				result.code = account.is_zero () ? nano::process_result::fork : nano::process_result::progress;
 				if (result.code == nano::process_result::progress)
 				{
-					// Validate block if not verified outside of ledger
-					if (result.verified != nano::signature_verification::valid)
-					{
-						result.code = validate_message (account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Malformed)
-					}
+					result.code = validate_message (account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Malformed)
 					if (result.code == nano::process_result::progress)
 					{
 						nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
@@ -551,7 +522,6 @@ void ledger_processor::send_block (nano::send_block & block_a)
 						if (result.code == nano::process_result::progress)
 						{
 							debug_assert (!validate_message (account, hash, block_a.signature));
-							result.verified = nano::signature_verification::valid;
 							nano::account_info info;
 							auto latest_error (ledger.store.account.get (transaction, account, info));
 							(void)latest_error;
@@ -598,15 +568,10 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 				result.code = account.is_zero () ? nano::process_result::gap_previous : nano::process_result::progress; // Have we seen the previous block? No entries for account at all (Harmless)
 				if (result.code == nano::process_result::progress)
 				{
-					// Validate block if not verified outside of ledger
-					if (result.verified != nano::signature_verification::valid)
-					{
-						result.code = validate_message (account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is the signature valid (Malformed)
-					}
+					result.code = validate_message (account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is the signature valid (Malformed)
 					if (result.code == nano::process_result::progress)
 					{
 						debug_assert (!validate_message (account, hash, block_a.signature));
-						result.verified = nano::signature_verification::valid;
 						result.code = ledger.block_or_pruned_exists (transaction, block_a.hashables.source) ? nano::process_result::progress : nano::process_result::gap_source; // Have we seen the source block already? (Harmless)
 						if (result.code == nano::process_result::progress)
 						{
@@ -669,15 +634,10 @@ void ledger_processor::open_block (nano::open_block & block_a)
 	result.code = existing ? nano::process_result::old : nano::process_result::progress; // Have we seen this block already? (Harmless)
 	if (result.code == nano::process_result::progress)
 	{
-		// Validate block if not verified outside of ledger
-		if (result.verified != nano::signature_verification::valid)
-		{
-			result.code = validate_message (block_a.hashables.account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is the signature valid (Malformed)
-		}
+		result.code = validate_message (block_a.hashables.account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is the signature valid (Malformed)
 		if (result.code == nano::process_result::progress)
 		{
 			debug_assert (!validate_message (block_a.hashables.account, hash, block_a.signature));
-			result.verified = nano::signature_verification::valid;
 			result.code = ledger.block_or_pruned_exists (transaction, block_a.hashables.source) ? nano::process_result::progress : nano::process_result::gap_source; // Have we seen the source block? (Harmless)
 			if (result.code == nano::process_result::progress)
 			{
@@ -727,12 +687,10 @@ void ledger_processor::open_block (nano::open_block & block_a)
 	}
 }
 
-ledger_processor::ledger_processor (nano::ledger & ledger_a, nano::write_transaction const & transaction_a, nano::signature_verification verification_a) :
+ledger_processor::ledger_processor (nano::ledger & ledger_a, nano::write_transaction const & transaction_a) :
 	ledger (ledger_a),
-	transaction (transaction_a),
-	verification (verification_a)
+	transaction (transaction_a)
 {
-	result.verified = verification;
 }
 } // namespace
 
@@ -861,10 +819,10 @@ nano::uint128_t nano::ledger::account_receivable (nano::transaction const & tran
 	return result;
 }
 
-nano::process_return nano::ledger::process (nano::write_transaction const & transaction_a, nano::block & block_a, nano::signature_verification verification)
+nano::process_return nano::ledger::process (nano::write_transaction const & transaction_a, nano::block & block_a)
 {
 	debug_assert (!constants.work.validate_entry (block_a) || constants.genesis == nano::dev::genesis);
-	ledger_processor processor (*this, transaction_a, verification);
+	ledger_processor processor (*this, transaction_a);
 	block_a.visit (processor);
 	if (processor.result.code == nano::process_result::progress)
 	{

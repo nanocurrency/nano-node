@@ -193,37 +193,21 @@ public:
 };
 
 /**
- * Tag for block signature verification result
- */
-enum class signature_verification : uint8_t
-{
-	unknown = 0,
-	invalid = 1,
-	valid = 2,
-	valid_epoch = 3 // Valid for epoch blocks
-};
-
-/**
  * Information on an unchecked block
  */
 class unchecked_info final
 {
 public:
 	unchecked_info () = default;
-	unchecked_info (std::shared_ptr<nano::block> const &, nano::account const &, nano::signature_verification = nano::signature_verification::unknown);
 	unchecked_info (std::shared_ptr<nano::block> const &);
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	uint64_t modified () const;
 	std::shared_ptr<nano::block> block;
-	nano::account account{};
 
 private:
 	/** Seconds since posix epoch */
 	uint64_t modified_m{ 0 };
-
-public:
-	nano::signature_verification verified{ nano::signature_verification::unknown };
 };
 
 class block_info final
@@ -361,7 +345,6 @@ class process_return final
 {
 public:
 	nano::process_result code;
-	nano::signature_verification verified;
 	nano::amount previous_balance;
 };
 enum class tally_result
