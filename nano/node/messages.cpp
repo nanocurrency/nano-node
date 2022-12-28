@@ -942,24 +942,21 @@ std::size_t nano::confirm_req::size (nano::block_type type_a, std::size_t count)
 
 std::string nano::confirm_req::to_string () const
 {
-	std::stringstream stream;
-
-	stream << header.to_string ();
+	std::string s = header.to_string ();
 
 	if (header.block_type () == nano::block_type::not_a_block)
 	{
 		for (auto && roots_hash : roots_hashes)
 		{
-			stream << "\nPair: " + roots_hash.first.to_string () + " | ";
-			stream << roots_hash.second.to_string ();
+			s += "\n" + roots_hash.first.to_string () + ":" + roots_hash.second.to_string ();
 		}
 	}
 	else
 	{
-		stream << "\n" + block->to_json ();
+		s += "\n" + block->to_json ();
 	}
 
-	return stream.str ();
+	return s;
 }
 
 /*

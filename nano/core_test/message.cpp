@@ -254,19 +254,19 @@ TEST (message, confirm_req_to_string_roots_hashes)
 	hdr.count_set (1);
 
 	std::string expected_string = hdr.to_string ();
-	expected_string.append ("\nPair: " + block_hash.to_string () + " | " + root.to_string ());
+	expected_string.append ("\n" + block_hash.to_string () + ":" + root.to_string ());
 
 	ASSERT_EQ (confirm_req.to_string (), expected_string);
 
 	block_hash = nano::block_hash (nano::uint256_union (UINT64_MAX).to_string ());
 	root = nano::root (UINT64_MAX);
 	confirm_req.roots_hashes.push_back (std::pair (block_hash, root));
-	expected_string.append ("\nPair: " + block_hash.to_string () + " | " + root.to_string ());
+	expected_string.append ("\n" + block_hash.to_string () + ":" + root.to_string ());
 
 	block_hash = nano::block_hash ("1234");
 	root = nano::root (0);
 	confirm_req.roots_hashes.push_back (std::pair (block_hash, root));
-	expected_string.append ("\nPair: " + block_hash.to_string () + " | " + root.to_string ());
+	expected_string.append ("\n" + block_hash.to_string () + ":" + root.to_string ());
 
 	ASSERT_EQ (confirm_req.to_string (), expected_string);
 }
