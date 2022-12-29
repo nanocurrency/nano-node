@@ -282,6 +282,7 @@ public:
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
+	std::string to_string () const;
 };
 
 class telemetry_ack final : public message
