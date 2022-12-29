@@ -940,6 +940,25 @@ std::size_t nano::confirm_req::size (nano::block_type type_a, std::size_t count)
 	return result;
 }
 
+std::string nano::confirm_req::to_string () const
+{
+	std::string s = header.to_string ();
+
+	if (header.block_type () == nano::block_type::not_a_block)
+	{
+		for (auto && roots_hash : roots_hashes)
+		{
+			s += "\n" + roots_hash.first.to_string () + ":" + roots_hash.second.to_string ();
+		}
+	}
+	else
+	{
+		s += "\n" + block->to_json ();
+	}
+
+	return s;
+}
+
 /*
  * confirm_ack
  */
