@@ -259,13 +259,6 @@ TEST (message, message_header_to_string)
 	ASSERT_EQ (expected_str, header_string);
 }
 
-TEST (message, telemetry_req_to_string)
-{
-	nano::telemetry_req telemetry_req = nano::telemetry_req (nano::dev::network_params.network);
-
-	ASSERT_EQ (telemetry_req.to_string (), "NetID: 5241(dev), VerMaxUsingMin: 19/19/18, MsgType: 12(telemetry_req), Extensions: 0000");
-}
-
 /**
  * Test that a confirm_ack can encode an empty hash set
  */
