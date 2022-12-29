@@ -243,48 +243,6 @@ TEST (message, confirm_req_hash_batch_serialization)
 	ASSERT_EQ (header.count_get (), req.roots_hashes.size ());
 }
 
-TEST (message, confirm_req_to_string_roots_hashes)
-{
-	nano::block_hash block_hash = nano::block_hash ("0");
-	nano::root root = nano::root (0);
-	nano::confirm_req confirm_req = nano::confirm_req (nano::dev::network_params.network, block_hash, root);
-
-	nano::message_header hdr{ nano::dev::network_params.network, nano::message_type::confirm_req };
-	hdr.block_type_set (nano::block_type::not_a_block);
-	hdr.count_set (1);
-
-	std::string expected_string = hdr.to_string ();
-	expected_string.append ("\n" + block_hash.to_string () + ":" + root.to_string ());
-
-	ASSERT_EQ (confirm_req.to_string (), expected_string);
-
-	block_hash = nano::block_hash (nano::uint256_union (UINT64_MAX).to_string ());
-	root = nano::root (UINT64_MAX);
-	confirm_req.roots_hashes.push_back (std::pair (block_hash, root));
-	expected_string.append ("\n" + block_hash.to_string () + ":" + root.to_string ());
-
-	block_hash = nano::block_hash ("1234");
-	root = nano::root (0);
-	confirm_req.roots_hashes.push_back (std::pair (block_hash, root));
-	expected_string.append ("\n" + block_hash.to_string () + ":" + root.to_string ());
-
-	ASSERT_EQ (confirm_req.to_string (), expected_string);
-}
-
-TEST (message, confirm_req_to_string_block)
-{
-	std::shared_ptr block_ptr = std::make_shared<nano::send_block> (nano::send_block ());
-	nano::confirm_req confirm_req = nano::confirm_req (nano::dev::network_params.network, block_ptr);
-
-	nano::message_header hdr{ nano::dev::network_params.network, nano::message_type::confirm_req };
-	hdr.block_type_set (block_ptr->type ());
-
-	std::string expected_string = hdr.to_string ();
-	expected_string.append ("\n" + block_ptr->to_json ());
-
-	ASSERT_EQ (confirm_req.to_string (), expected_string);
-}
-
 // this unit test checks that conversion of message_header to string works as expected
 TEST (message, message_header_to_string)
 {
