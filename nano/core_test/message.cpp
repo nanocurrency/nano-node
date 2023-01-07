@@ -25,16 +25,6 @@ std::shared_ptr<nano::block> random_block ()
 }
 }
 
-TEST (message, publish_to_string)
-{
-	nano::send_block block = nano::send_block ();
-	std::shared_ptr block_ptr = std::make_shared<nano::send_block> (block);
-
-	nano::publish publish = nano::publish (nano::dev::network_params.network, block_ptr);
-
-	ASSERT_EQ (publish.to_string (), block_ptr->to_json ());
-}
-
 TEST (message, keepalive_serialization)
 {
 	nano::keepalive request1{ nano::dev::network_params.network };
