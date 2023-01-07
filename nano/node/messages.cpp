@@ -798,7 +798,7 @@ bool nano::publish::operator== (nano::publish const & other_a) const
 
 std::string nano::publish::to_string () const
 {
-	return block->to_json ();
+	return header.to_string () + "\n" + block->to_json ();
 }
 
 /*
