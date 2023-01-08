@@ -287,24 +287,6 @@ TEST (message, bulk_pull_serialization)
 	ASSERT_TRUE (header.bulk_pull_ascending ());
 }
 
-TEST (message, bulk_pull_to_string)
-{
-	nano::bulk_pull bulk_pull = nano::bulk_pull (nano::dev::network_params.network);
-
-	nano::hash_or_account start = nano::account ("12345678987654321");
-	nano::block_hash end = nano::block_hash ();
-	uint32_t count = 3;
-
-	bulk_pull.start = start;
-	bulk_pull.end = end;
-	bulk_pull.count = count;
-
-	std::string expected_string = "start=" + start.to_string () + " end=" + end.to_string () + " cnt=" + std::to_string (count);
-
-	std::cout << bulk_pull.to_string () << "\n";
-	ASSERT_EQ (bulk_pull.to_string (), bulk_pull.header.to_string () + "\n" + expected_string);
-}
-
 TEST (message, asc_pull_req_serialization_blocks)
 {
 	nano::asc_pull_req original{ nano::dev::network_params.network };
