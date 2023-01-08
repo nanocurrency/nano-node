@@ -263,7 +263,7 @@ TEST (message, frontier_req_to_string)
 {
 	nano::frontier_req frontier_req = nano::frontier_req (nano::dev::network_params.network);
 
-	nano::account start = nano::account (12345678987564321);
+	nano::account start = nano::account ("12345678987564321");
 	uint32_t age = 99999999;
 	uint32_t count = 1234;
 
@@ -271,8 +271,9 @@ TEST (message, frontier_req_to_string)
 	frontier_req.age = age;
 	frontier_req.count = count;
 
-	std::string expected_output = start.to_string () + " maxage=" + std::to_string (age) + " count=" + std::to_string (count);
+	std::string expected_output = frontier_req.header.to_string () + "\nstart=" + start.to_string () + " maxage=" + std::to_string (age) + " count=" + std::to_string (count);
 
+	std::cout << frontier_req.to_string () << "\n";
 	ASSERT_EQ (frontier_req.to_string (), expected_output);
 }
 
