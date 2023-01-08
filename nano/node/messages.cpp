@@ -1192,24 +1192,22 @@ bool nano::bulk_pull_account::deserialize (nano::stream & stream_a)
 
 std::string nano::bulk_pull_account::to_string () const
 {
-	std::stringstream stream;
-
-	stream << account.to_string () + " min=";
-	stream << minimum_amount.to_string ();
+	std::string s = header.to_string () + "\n";
+	s += "acc=" + account.to_string ();
+	s += " min=" + minimum_amount.to_string ();
 	switch (flags)
 	{
 		case bulk_pull_account_flags::pending_hash_and_amount:
-			stream << " pend hash and amt";
+			s += " pending_hash_and_amount";
 			break;
 		case bulk_pull_account_flags::pending_address_only:
-			stream << " pend addr";
+			s += " pending_address_only";
 			break;
 		case bulk_pull_account_flags::pending_hash_amount_and_address:
-			stream << " pend hash amt and addr";
+			s += " pending_hash_amount_and_address";
 			break;
 	}
-
-	return stream.str ();
+	return s;
 }
 
 /*
