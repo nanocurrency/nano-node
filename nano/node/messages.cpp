@@ -1623,22 +1623,20 @@ std::size_t nano::node_id_handshake::size (nano::message_header const & header_a
 
 std::string nano::node_id_handshake::to_string () const
 {
-	std::stringstream stream;
-
-	stream << header.to_string () + "\n";
+	std::string s = header.to_string () + "\n";
 
 	if (query.has_value ())
 	{
-		stream << "cookie=" + query->to_string ();
+		s += "cookie=" + query->to_string () + "\n";
 	}
 
 	if (response.has_value ())
 	{
-		stream << response->first.to_string () + " ";
-		stream << response->second.to_string ();
+		s += "resp_node_id=" + response->first.to_string () + "\n";
+		s += "resp_sig=" + response->second.to_string ();
 	}
 
-	return stream.str ();
+	return s;
 }
 
 /*
