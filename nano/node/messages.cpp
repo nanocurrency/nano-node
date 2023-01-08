@@ -1682,6 +1682,24 @@ std::size_t nano::node_id_handshake::size (nano::message_header const & header_a
 	return result;
 }
 
+std::string nano::node_id_handshake::to_string () const
+{
+	std::string s = header.to_string ();
+
+	if (query.has_value ())
+	{
+		s += "\ncookie=" + query->to_string ();
+	}
+
+	if (response.has_value ())
+	{
+		s += "\nresp_node_id=" + response->first.to_string ();
+		s += "\nresp_sig=" + response->second.to_string ();
+	}
+
+	return s;
+}
+
 /*
  * asc_pull_req
  */
