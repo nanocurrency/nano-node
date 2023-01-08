@@ -1214,6 +1214,29 @@ bool nano::bulk_pull_account::deserialize (nano::stream & stream_a)
 	return error;
 }
 
+std::string nano::bulk_pull_account::to_string () const
+{
+	std::string s = header.to_string () + "\n";
+	s += "acc=" + account.to_string ();
+	s += " min=" + minimum_amount.to_string ();
+	switch (flags)
+	{
+		case bulk_pull_account_flags::pending_hash_and_amount:
+			s += " pending_hash_and_amount";
+			break;
+		case bulk_pull_account_flags::pending_address_only:
+			s += " pending_address_only";
+			break;
+		case bulk_pull_account_flags::pending_hash_amount_and_address:
+			s += " pending_hash_amount_and_address";
+			break;
+		default:
+			s += " unknown flags";
+			break;
+	}
+	return s;
+}
+
 /*
  * bulk_push
  */
