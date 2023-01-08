@@ -1206,6 +1206,9 @@ std::string nano::bulk_pull_account::to_string () const
 		case bulk_pull_account_flags::pending_hash_amount_and_address:
 			s += " pending_hash_amount_and_address";
 			break;
+		default:
+			s += " unknown flags";
+			break;
 	}
 	return s;
 }
