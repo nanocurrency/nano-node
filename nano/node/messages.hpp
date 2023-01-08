@@ -318,6 +318,7 @@ public:
 	static std::size_t constexpr count_present_flag = nano::message_header::bulk_pull_count_present_flag;
 	static std::size_t constexpr extended_parameters_size = 8;
 	static std::size_t constexpr size = sizeof (start) + sizeof (end);
+	std::string to_string () const;
 };
 
 class bulk_pull_account final : public message
