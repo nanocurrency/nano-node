@@ -299,9 +299,10 @@ TEST (message, bulk_pull_to_string)
 	bulk_pull.end = end;
 	bulk_pull.count = count;
 
-	std::string expected_string = start.to_string () + " endhash=" + end.to_string () + " count=" + std::to_string (count);
+	std::string expected_string = "start=" + start.to_string () + " end=" + end.to_string () + " cnt=" + std::to_string (count);
 
-	ASSERT_EQ (bulk_pull.to_string (), expected_string);
+	std::cout << bulk_pull.to_string () << "\n";
+	ASSERT_EQ (bulk_pull.to_string (), bulk_pull.header.to_string () + "\n" + expected_string);
 }
 
 TEST (message, asc_pull_req_serialization_blocks)
