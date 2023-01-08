@@ -27,7 +27,7 @@ std::shared_ptr<nano::block> random_block ()
 
 TEST (message, node_id_handshake_to_string_response_has_value)
 {
-	nano::uint256_union query = 010010101101110101101;
+	nano::uint256_union query ("0123456789ABCDEF");
 
 	nano::account account = nano::account ("123456789875654321");
 	nano::signature signature = nano::signature (0);
@@ -35,10 +35,11 @@ TEST (message, node_id_handshake_to_string_response_has_value)
 	nano::node_id_handshake node_id_handshake = nano::node_id_handshake (nano::dev::network_params.network, query, std::pair (account, signature));
 
 	std::string expected_output = "NetID: 5241(dev), VerMaxUsingMin: 19/19/18, MsgType: 10(node_id_handshake), Extensions: 0003\n";
-	expected_output += "cookie=" + query.to_string ();
-	expected_output += account.to_string () + " ";
-	expected_output += signature.to_string ();
+	expected_output += "cookie=" + query.to_string () + "\n";
+	expected_output += "resp_node_id=" + account.to_string () + "\n";
+	expected_output += "resp_sig=" + signature.to_string ();
 
+	std::cout << node_id_handshake.to_string () << "\n";
 	ASSERT_EQ (node_id_handshake.to_string (), expected_output);
 }
 
@@ -51,6 +52,7 @@ TEST (message, node_id_handshake_to_string_response_has_no_value)
 	std::string expected_output = "NetID: 5241(dev), VerMaxUsingMin: 19/19/18, MsgType: 10(node_id_handshake), Extensions: 0001\n";
 	expected_output += "cookie=" + query.to_string ();
 
+	std::cout << node_id_handshake.to_string () << "\n";
 	ASSERT_EQ (node_id_handshake.to_string (), expected_output);
 }
 
