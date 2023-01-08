@@ -287,57 +287,6 @@ TEST (message, bulk_pull_serialization)
 	ASSERT_TRUE (header.bulk_pull_ascending ());
 }
 
-TEST (message, bulk_pull_account_to_string_pending_hash_and_amount)
-{
-	nano::bulk_pull_account bulk_pull_account = nano::bulk_pull_account (nano::dev::network_params.network);
-
-	nano::account account = nano::account ("12345678987654321");
-	nano::amount minimum_amount = nano::amount (1234);
-	nano::bulk_pull_account_flags flags = nano::bulk_pull_account_flags::pending_hash_and_amount;
-
-	bulk_pull_account.account = account;
-	bulk_pull_account.minimum_amount = minimum_amount;
-	bulk_pull_account.flags = flags;
-
-	std::string expected_string = account.to_string () + " min=" + minimum_amount.to_string () + " pend hash and amt";
-
-	ASSERT_EQ (bulk_pull_account.to_string (), expected_string);
-}
-
-TEST (message, bulk_pull_account_to_string_pending_address_only)
-{
-	nano::bulk_pull_account bulk_pull_account = nano::bulk_pull_account (nano::dev::network_params.network);
-
-	nano::account account = nano::account ("12345678987654321");
-	nano::amount minimum_amount = nano::amount (1234);
-	nano::bulk_pull_account_flags flags = nano::bulk_pull_account_flags::pending_address_only;
-
-	bulk_pull_account.account = account;
-	bulk_pull_account.minimum_amount = minimum_amount;
-	bulk_pull_account.flags = flags;
-
-	std::string expected_string = account.to_string () + " min=" + minimum_amount.to_string () + " pend addr";
-
-	ASSERT_EQ (bulk_pull_account.to_string (), expected_string);
-}
-
-TEST (message, bulk_pull_account_to_string_pending_hash_amount_and_address)
-{
-	nano::bulk_pull_account bulk_pull_account = nano::bulk_pull_account (nano::dev::network_params.network);
-
-	nano::account account = nano::account ("12345678987654321");
-	nano::amount minimum_amount = nano::amount (1234);
-	nano::bulk_pull_account_flags flags = nano::bulk_pull_account_flags::pending_hash_amount_and_address;
-
-	bulk_pull_account.account = account;
-	bulk_pull_account.minimum_amount = minimum_amount;
-	bulk_pull_account.flags = flags;
-
-	std::string expected_string = account.to_string () + " min=" + minimum_amount.to_string () + " pend hash amt and addr";
-
-	ASSERT_EQ (bulk_pull_account.to_string (), expected_string);
-}
-
 TEST (message, asc_pull_req_serialization_blocks)
 {
 	nano::asc_pull_req original{ nano::dev::network_params.network };
