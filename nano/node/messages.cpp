@@ -1043,13 +1043,11 @@ bool nano::frontier_req::operator== (nano::frontier_req const & other_a) const
 
 std::string nano::frontier_req::to_string () const
 {
-	std::stringstream stream;
-
-	stream << start.to_string ();
-	stream << " maxage=" + std::to_string (age);
-	stream << " count=" + std::to_string (count);
-
-	return stream.str ();
+	std::string s = header.to_string();
+	s += "\nstart=" + start.to_string ();
+	s += " maxage=" + std::to_string (age);
+	s += " count=" + std::to_string (count);
+	return s;
 }
 
 /*
