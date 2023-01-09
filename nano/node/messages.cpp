@@ -1395,6 +1395,20 @@ bool nano::telemetry_ack::is_empty_payload () const
 	return size () == 0;
 }
 
+std::string nano::telemetry_ack::to_string () const
+{
+	std::string s = header.to_string () + "\n";
+	if (is_empty_payload ())
+	{
+		s += "empty telemetry payload";
+	}
+	else
+	{
+		s += data.to_string ();
+	}
+	return s;
+}
+
 /*
  * telemetry_data
  */
