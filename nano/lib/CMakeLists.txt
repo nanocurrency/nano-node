@@ -54,6 +54,7 @@ add_library(
   numbers.cpp
   observer_set.hpp
   optional_ptr.hpp
+  processing_queue.hpp
   rate_limiting.hpp
   rate_limiting.cpp
   rep_weights.hpp
@@ -88,6 +89,7 @@ target_link_libraries(
   ed25519
   crypto_lib
   blake2
+  secure
   ipc_flatbuffers_lib
   ${CRYPTOPP_LIBRARY}
   ${CMAKE_DL_LIBS}

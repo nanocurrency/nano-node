@@ -1900,11 +1900,11 @@ TEST (rpc, keepalive)
 	auto port (boost::str (boost::format ("%1%") % node1->network.endpoint ().port ()));
 	request.put ("address", address);
 	request.put ("port", port);
-	ASSERT_EQ (nullptr, node0->network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ())));
+	ASSERT_EQ (nullptr, node0->network.tcp_channels.find_node_id (node1->get_node_id ()));
 	ASSERT_EQ (0, node0->network.size ());
 	auto response (wait_response (system, rpc_ctx, request));
 	system.deadline_set (10s);
-	while (node0->network.find_channel (node1->network.endpoint ()) == nullptr)
+	while (node0->network.find_node_id (node1->get_node_id ()) == nullptr)
 	{
 		ASSERT_EQ (0, node0->network.size ());
 		ASSERT_NO_ERROR (system.poll ());
@@ -7578,7 +7578,7 @@ TEST (rpc, telemetry_all)
 	// First need to set up the cached data
 	std::atomic<bool> done{ false };
 	auto node = system.nodes.front ();
-	node1->telemetry->get_metrics_single_peer_async (node1->network.find_channel (node->network.endpoint ()), [&done] (nano::telemetry_data_response const & telemetry_data_response_a) {
+	node1->telemetry->get_metrics_single_peer_async (node1->network.find_node_id (node->get_node_id ()), [&done] (nano::telemetry_data_response const & telemetry_data_response_a) {
 		ASSERT_FALSE (telemetry_data_response_a.error);
 		done = true;
 	});
@@ -7785,6 +7785,4 @@ TEST (node, election_scheduler_container_info)
 	request.put ("type", "objects");
 	auto response = wait_response (system, rpc_ctx, request);
 	auto es = response.get_child ("node").get_child ("election_scheduler");
-	ASSERT_EQ (es.get_child ("manual_queue").get<std::string> ("count"), "0");
-	ASSERT_EQ (es.get_child ("priority").get_child ("128").get<std::string> ("count"), "1");
 }

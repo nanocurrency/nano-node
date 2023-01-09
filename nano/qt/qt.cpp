@@ -957,15 +957,13 @@ std::string nano_qt::status::text ()
 	}
 
 	result += ", Blocks: ";
-	if (unchecked != 0 && wallet.node.bootstrap_initiator.in_progress ())
-	{
-		count_string += ", Queued: " + std::to_string (unchecked);
-	}
+	count_string += ", Unchecked: " + std::to_string (unchecked);
+	count_string += ", Cemented: " + std::to_string (cemented);
 
 	if (wallet.node.flags.enable_pruning)
 	{
-		count_string += "Full: " + std::to_string (wallet.wallet_m->wallets.node.ledger.cache.block_count - wallet.wallet_m->wallets.node.ledger.cache.pruned_count);
-		count_string += ", Pruned: ", std::to_string (wallet.wallet_m->wallets.node.ledger.cache.pruned_count);
+		count_string += ", Full: " + std::to_string (wallet.wallet_m->wallets.node.ledger.cache.block_count - wallet.wallet_m->wallets.node.ledger.cache.pruned_count);
+		count_string += ", Pruned: " + std::to_string (wallet.wallet_m->wallets.node.ledger.cache.pruned_count);
 	}
 
 	result += count_string.c_str ();

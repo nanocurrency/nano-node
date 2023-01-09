@@ -25,7 +25,7 @@ nano::bootstrap_attempt_lazy::~bootstrap_attempt_lazy ()
 	node->bootstrap_initiator.notify_listeners (false);
 }
 
-bool nano::bootstrap_attempt_lazy::lazy_start (nano::hash_or_account const & hash_or_account_a, bool confirmed)
+bool nano::bootstrap_attempt_lazy::lazy_start (nano::hash_or_account const & hash_or_account_a)
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
 	bool inserted (false);
@@ -34,7 +34,7 @@ bool nano::bootstrap_attempt_lazy::lazy_start (nano::hash_or_account const & has
 	if (lazy_keys.size () < max_keys && lazy_keys.find (hash_or_account_a.as_block_hash ()) == lazy_keys.end () && !lazy_blocks_processed (hash_or_account_a.as_block_hash ()))
 	{
 		lazy_keys.insert (hash_or_account_a.as_block_hash ());
-		lazy_pulls.emplace_back (hash_or_account_a, confirmed ? lazy_retry_limit_confirmed () : node->network_params.bootstrap.lazy_retry_limit);
+		lazy_pulls.emplace_back (hash_or_account_a, node->network_params.bootstrap.lazy_retry_limit);
 		lock.unlock ();
 		condition.notify_all ();
 		inserted = true;
@@ -267,7 +267,7 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 		}
 		lazy_block_state_backlog_check (block_a, hash);
 		lock.unlock ();
-		nano::unchecked_info info (block_a, known_account_a, nano::signature_verification::unknown);
+		nano::unchecked_info info (block_a);
 		node->block_processor.add (info);
 	}
 	// Force drop lazy bootstrap connection for long bulk_pull
@@ -438,18 +438,6 @@ bool nano::bootstrap_attempt_lazy::lazy_processed_or_exists (nano::block_hash co
 		}
 	}
 	return result;
-}
-
-unsigned nano::bootstrap_attempt_lazy::lazy_retry_limit_confirmed ()
-{
-	debug_assert (!mutex.try_lock ());
-	if (total_blocks % 1024 == 512 || peer_count == 0)
-	{
-		// Prevent too frequent network locks
-		peer_count = node->network.size ();
-	}
-	auto multiplier (node->flags.disable_legacy_bootstrap ? 2 : 1.25);
-	return multiplier * std::max (node->network_params.bootstrap.lazy_retry_limit, 2 * nano::narrow_cast<unsigned> (peer_count));
 }
 
 void nano::bootstrap_attempt_lazy::get_information (boost::property_tree::ptree & tree_a)

@@ -8,6 +8,7 @@ add_executable(
   block_store.cpp
   blockprocessor.cpp
   bootstrap.cpp
+  bootstrap_server.cpp
   cli.cpp
   confirmation_height.cpp
   confirmation_solicitor.cpp
@@ -30,6 +31,7 @@ add_executable(
   network.cpp
   network_filter.cpp
   node.cpp
+  processing_queue.cpp
   processor_service.cpp
   peer_container.cpp
   prioritization.cpp

@@ -3,6 +3,9 @@
 #include <nano/lib/errors.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/node/transport/transport.hpp>
+
+#include <gtest/gtest.h>
 
 #include <boost/iostreams/concepts.hpp>
 #include <boost/log/sinks/text_ostream_backend.hpp>
@@ -29,10 +32,20 @@
 	GTEST_TEST_ERROR_CODE (!(condition), #condition, condition.message ().c_str (), "", \
 	GTEST_FATAL_FAILURE_)
 
+/** Extends gtest with a std::error_code assert that prints the error code message when non-zero */
+#define EXPECT_NO_ERROR(condition)                                                      \
+	GTEST_TEST_ERROR_CODE (!(condition), #condition, condition.message ().c_str (), "", \
+	GTEST_NONFATAL_FAILURE_)
+
 /** Extends gtest with a std::error_code assert that expects an error */
-#define ASSERT_IS_ERROR(condition)                                                            \
-	GTEST_TEST_ERROR_CODE ((condition.value () > 0), #condition, "An error was expected", "", \
+#define ASSERT_IS_ERROR(condition)                                                             \
+	GTEST_TEST_ERROR_CODE ((condition.value () != 0), #condition, "An error was expected", "", \
 	GTEST_FATAL_FAILURE_)
+
+/** Extends gtest with a std::error_code assert that expects an error */
+#define EXPECT_IS_ERROR(condition)                                                             \
+	GTEST_TEST_ERROR_CODE ((condition.value () != 0), #condition, "An error was expected", "", \
+	GTEST_NONFATAL_FAILURE_)
 
 /** Asserts that the condition becomes true within the deadline */
 #define ASSERT_TIMELY(time, condition)    \
@@ -42,6 +55,28 @@
 		ASSERT_NO_ERROR (system.poll ()); \
 	}
 
+/** Expects that the condition becomes true within the deadline */
+#define EXPECT_TIMELY(time, condition)                  \
+	system.deadline_set (time);                         \
+	{                                                   \
+		std::error_code _ec;                            \
+		while (!(condition) && !(_ec = system.poll ())) \
+		{                                               \
+		}                                               \
+		EXPECT_NO_ERROR (_ec);                          \
+	}
+
+/*
+ * Asserts that the `val1 == val2` condition becomes true within the deadline
+ * Condition must hold for at least 2 consecutive reads
+ */
+#define ASSERT_TIMELY_EQ(time, val1, val2)         \
+	system.deadline_set (time);                    \
+	while (!((val1) == (val2)) && !system.poll ()) \
+	{                                              \
+	}                                              \
+	ASSERT_EQ (val1, val2);
+
 /*
  * Waits specified number of time while keeping system running.
  * Useful for asserting conditions that should still hold after some delay of time
@@ -50,6 +85,36 @@
 	system.deadline_set (time); \
 	while (!system.poll ())     \
 	{                           \
+	}
+
+/*
+ * Asserts that condition is always true during the specified amount of time
+ */
+#define ASSERT_ALWAYS(time, condition) \
+	system.deadline_set (time);        \
+	while (!system.poll ())            \
+	{                                  \
+		ASSERT_TRUE (condition);       \
+	}
+
+/*
+ * Asserts that condition is always true during the specified amount of time
+ */
+#define ASSERT_ALWAYS_EQ(time, val1, val2) \
+	system.deadline_set (time);            \
+	while (!system.poll ())                \
+	{                                      \
+		ASSERT_EQ (val1, val2);            \
+	}
+
+/*
+ * Asserts that condition is never true during the specified amount of time
+ */
+#define ASSERT_NEVER(time, condition) \
+	system.deadline_set (time);       \
+	while (!system.poll ())           \
+	{                                 \
+		ASSERT_FALSE (condition);     \
 	}
 
 /* Convenience globals for gtest projects */
@@ -220,6 +285,19 @@ namespace test
 	void wait_peer_connections (nano::test::system &);
 
 	/**
+	 * Generate a random block hash
+	 */
+	nano::hash_or_account random_hash_or_account ();
+	/**
+	 * Generate a random block hash
+	 */
+	nano::block_hash random_hash ();
+	/**
+	 * Generate a random block hash
+	 */
+	nano::account random_account ();
+
+	/**
 		Convenience function to call `node::process` function for multiple blocks at once.
 		@return true if all blocks were successfully processed and inserted into ledger
 	 */
@@ -291,8 +369,20 @@ namespace test
 	 */
 	std::shared_ptr<nano::vote> make_vote (nano::keypair key, std::vector<nano::block_hash> hashes, uint64_t timestamp = 0, uint8_t duration = 0);
 	/*
+	 * Convenience function to create a new final vote from list of blocks
+	 */
+	std::shared_ptr<nano::vote> make_final_vote (nano::keypair key, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Convenience function to create a new final vote from list of block hashes
+	 */
+	std::shared_ptr<nano::vote> make_final_vote (nano::keypair key, std::vector<nano::block_hash> hashes);
+	/*
 	 * Converts list of blocks to list of hashes
 	 */
 	std::vector<nano::block_hash> blocks_to_hashes (std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Creates a new fake channel associated with `node`
+	 */
+	std::shared_ptr<nano::transport::channel> fake_channel (nano::node & node);
 }
 }

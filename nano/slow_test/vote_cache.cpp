@@ -38,12 +38,8 @@ nano::keypair setup_rep (nano::test::system & system, nano::node & node, nano::u
 				.build_shared ();
 
 	EXPECT_TRUE (nano::test::process (node, { send, open }));
-	EXPECT_TRUE (nano::test::confirm (node, { send, open }));
-	// TODO: Create `EXPECT_TIMELY` macro to remove this boilerplate
-	system.poll_until_true (3s, [&node, &send, &open] () {
-		return nano::test::confirmed (node, { send, open });
-	});
-	EXPECT_TRUE (nano::test::confirmed (node, { send, open }));
+	EXPECT_TIMELY (5s, nano::test::confirm (node, { send, open }));
+	EXPECT_TIMELY (5s, nano::test::confirmed (node, { send, open }));
 
 	return key;
 }
@@ -100,18 +96,18 @@ std::vector<std::shared_ptr<nano::block>> setup_blocks (nano::test::system & sys
 
 		sends.push_back (send);
 		receives.push_back (open);
-
-		EXPECT_TRUE (nano::test::process (node, { send, open }));
 	}
 
-	// Confirm whole genesis chain at once
-	EXPECT_TRUE (nano::test::confirm (node, { sends.back () }));
+	std::cout << "setup_blocks confirming" << std::endl;
 
-	// TODO: Create `EXPECT_TIMELY` macro to remove this boilerplate
-	system.poll_until_true (60s, [&node, &sends] () {
-		return nano::test::confirmed (node, { sends });
-	});
-	EXPECT_TRUE (nano::test::confirmed (node, { sends }));
+	EXPECT_TRUE (nano::test::process (node, sends));
+	EXPECT_TRUE (nano::test::process (node, receives));
+
+	// Confirm whole genesis chain at once
+	EXPECT_TIMELY (5s, nano::test::confirm (node, { sends.back () }));
+	EXPECT_TIMELY (5s, nano::test::confirmed (node, { sends }));
+
+	std::cout << "setup_blocks done" << std::endl;
 
 	return receives;
 }
@@ -136,13 +132,12 @@ TEST (vote_cache, perf_singlethreaded)
 {
 	nano::test::system system;
 	nano::node_flags flags;
-	flags.inactive_votes_cache_size = 5000; // Keep it below block count size so it is forced to constantly evict stale entries
 	nano::node_config config = system.default_config ();
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (config, flags);
 
 	const int rep_count = 50;
-	const int block_count = 20000;
+	const int block_count = 1024 * 128 * 2; // 2x the inactive vote cache size
 	const int vote_count = 100000;
 	const int single_vote_size = 7;
 	const int single_vote_reps = 7;
@@ -196,14 +191,13 @@ TEST (vote_cache, perf_multithreaded)
 {
 	nano::test::system system;
 	nano::node_flags flags;
-	flags.inactive_votes_cache_size = 5000; // Keep it below block count size so it is forced to constantly evict stale entries
 	nano::node_config config = system.default_config ();
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (config, flags);
 
 	const int thread_count = 12;
 	const int rep_count = 50;
-	const int block_count = 20000;
+	const int block_count = 1024 * 128 * 2; // 2x the inactive vote cache size
 	const int vote_count = 200000 / thread_count;
 	const int single_vote_size = 7;
 	const int single_vote_reps = 7;
@@ -221,7 +215,7 @@ TEST (vote_cache, perf_multithreaded)
 	// Ensure our generated votes go to inactive vote cache instead of active elections
 	node.active.clear ();
 
-	run_parallel (thread_count, [&node, &reps, &blocks] (int index) {
+	run_parallel (thread_count, [&node, &reps, &blocks, &vote_count, &single_vote_size, &single_vote_reps] (int index) {
 		int block_idx = index;
 		int rep_idx = index;
 		std::vector<nano::block_hash> hashes;

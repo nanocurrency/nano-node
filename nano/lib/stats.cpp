@@ -479,8 +479,8 @@ std::string nano::stat::type_to_string (stat::type type)
 		case nano::stat::type::bootstrap:
 			res = "bootstrap";
 			break;
-		case nano::stat::type::bootstrap_server:
-			res = "bootstrap_server";
+		case nano::stat::type::tcp_server:
+			res = "tcp_server";
 			break;
 		case nano::stat::type::error:
 			res = "error";
@@ -545,6 +545,18 @@ std::string nano::stat::type_to_string (stat::type type)
 		case nano::stat::type::vote_cache:
 			res = "vote_cache";
 			break;
+		case nano::stat::type::hinting:
+			res = "hinting";
+			break;
+		case nano::stat::type::blockprocessor:
+			res = "blockprocessor";
+			break;
+		case nano::stat::type::bootstrap_server:
+			res = "bootstrap_server";
+			break;
+		case nano::stat::type::active:
+			res = "active";
+			break;
 	}
 	return res;
 }
@@ -556,6 +568,18 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 	{
 		case nano::stat::detail::all:
 			res = "all";
+			break;
+		case nano::stat::detail::loop:
+			res = "loop";
+			break;
+		case nano::stat::detail::queue:
+			res = "queue";
+			break;
+		case nano::stat::detail::overfill:
+			res = "overfill";
+			break;
+		case nano::stat::detail::batch:
+			res = "batch";
 			break;
 		case nano::stat::detail::bad_sender:
 			res = "bad_sender";
@@ -626,6 +650,33 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 		case nano::stat::detail::rollback_failed:
 			res = "rollback_failed";
 			break;
+		case nano::stat::detail::progress:
+			res = "progress";
+			break;
+		case nano::stat::detail::bad_signature:
+			res = "bad_signature";
+			break;
+		case nano::stat::detail::negative_spend:
+			res = "negative_spend";
+			break;
+		case nano::stat::detail::unreceivable:
+			res = "unreceivable";
+			break;
+		case nano::stat::detail::gap_epoch_open_pending:
+			res = "gap_epoch_open_pending";
+			break;
+		case nano::stat::detail::opened_burn_account:
+			res = "opened_burn_account";
+			break;
+		case nano::stat::detail::balance_mismatch:
+			res = "balance_mismatch";
+			break;
+		case nano::stat::detail::representative_mismatch:
+			res = "representative_mismatch";
+			break;
+		case nano::stat::detail::block_position:
+			res = "block_position";
+			break;
 		case nano::stat::detail::frontier_confirmation_failed:
 			res = "frontier_confirmation_failed";
 			break;
@@ -688,6 +739,12 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 			break;
 		case nano::stat::detail::telemetry_ack:
 			res = "telemetry_ack";
+			break;
+		case nano::stat::detail::asc_pull_req:
+			res = "asc_pull_req";
+			break;
+		case nano::stat::detail::asc_pull_ack:
+			res = "asc_pull_ack";
 			break;
 		case nano::stat::detail::state_block:
 			res = "state_block";
@@ -765,6 +822,15 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 			break;
 		case nano::stat::detail::election_hinted_drop:
 			res = "election_hinted_drop";
+			break;
+		case nano::stat::detail::generate_vote:
+			res = "generate_vote";
+			break;
+		case nano::stat::detail::generate_vote_normal:
+			res = "generate_vote_normal";
+			break;
+		case nano::stat::detail::generate_vote_final:
+			res = "generate_vote_final";
 			break;
 		case nano::stat::detail::blocking:
 			res = "blocking";
@@ -846,6 +912,12 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 			break;
 		case nano::stat::detail::invalid_frontier_req_message:
 			res = "invalid_frontier_req_message";
+			break;
+		case nano::stat::detail::invalid_asc_pull_req_message:
+			res = "invalid_asc_pull_req_message";
+			break;
+		case nano::stat::detail::invalid_asc_pull_ack_message:
+			res = "invalid_asc_pull_ack_message";
 			break;
 		case nano::stat::detail::message_too_big:
 			res = "message_too_big";
@@ -936,6 +1008,42 @@ std::string nano::stat::detail_to_string (stat::detail detail)
 			break;
 		case nano::stat::detail::invalid_network:
 			res = "invalid_network";
+			break;
+		case nano::stat::detail::hinted:
+			res = "hinted";
+			break;
+		case nano::stat::detail::insert_failed:
+			res = "insert_failed";
+			break;
+		case nano::stat::detail::missing_block:
+			res = "missing_block";
+			break;
+		case nano::stat::detail::response:
+			res = "response";
+			break;
+		case nano::stat::detail::write_drop:
+			res = "write_drop";
+			break;
+		case nano::stat::detail::write_error:
+			res = "write_error";
+			break;
+		case nano::stat::detail::blocks:
+			res = "blocks";
+			break;
+		case nano::stat::detail::drop:
+			res = "drop";
+			break;
+		case nano::stat::detail::bad_count:
+			res = "bad_count";
+			break;
+		case nano::stat::detail::response_blocks:
+			res = "response_blocks";
+			break;
+		case nano::stat::detail::response_account_info:
+			res = "response_account_info";
+			break;
+		case nano::stat::detail::channel_full:
+			res = "channel_full";
 			break;
 	}
 	return res;

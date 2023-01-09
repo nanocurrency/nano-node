@@ -55,7 +55,7 @@ class prioritization final
 
 public:
 	prioritization (uint64_t maximum = 250000u);
-	void push (uint64_t time, std::shared_ptr<nano::block> block);
+	void push (uint64_t time, std::shared_ptr<nano::block> block, nano::amount const & priority);
 	std::shared_ptr<nano::block> top () const;
 	void pop ();
 	std::size_t size () const;
@@ -63,6 +63,7 @@ public:
 	std::size_t bucket_size (std::size_t index) const;
 	bool empty () const;
 	void dump () const;
+	std::size_t index (nano::uint128_t const & balance) const;
 
 	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const &);
 };

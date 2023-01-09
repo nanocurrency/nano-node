@@ -28,8 +28,19 @@ class ledger final
 {
 public:
 	ledger (nano::store &, nano::stat &, nano::ledger_constants & constants, nano::generate_cache const & = nano::generate_cache ());
+	/**
+	 * Return account containing hash, expects that block hash exists in ledger
+	 */
 	nano::account account (nano::transaction const &, nano::block_hash const &) const;
+	/**
+	 * For non-prunning nodes same as `ledger::account()`
+	 * For prunning nodes ensures that block hash exists, otherwise returns zero account
+	 */
 	nano::account account_safe (nano::transaction const &, nano::block_hash const &, bool &) const;
+	/**
+	 * Return account containing hash, returns zero account if account can not be found
+	 */
+	nano::account account_safe (nano::transaction const &, nano::block_hash const &) const;
 	nano::uint128_t amount (nano::transaction const &, nano::account const &);
 	nano::uint128_t amount (nano::transaction const &, nano::block_hash const &);
 	/** Safe for previous block, but block hash_a must exist */
@@ -55,7 +66,7 @@ public:
 	nano::account const & block_destination (nano::transaction const &, nano::block const &);
 	nano::block_hash block_source (nano::transaction const &, nano::block const &);
 	std::pair<nano::block_hash, nano::block_hash> hash_root_random (nano::transaction const &) const;
-	nano::process_return process (nano::write_transaction const &, nano::block &, nano::signature_verification = nano::signature_verification::unknown);
+	nano::process_return process (nano::write_transaction const &, nano::block &);
 	bool rollback (nano::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
 	bool rollback (nano::write_transaction const &, nano::block_hash const &);
 	void update_account (nano::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
@@ -77,7 +88,6 @@ public:
 	nano::ledger_cache cache;
 	nano::stat & stats;
 	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;
-	std::atomic<size_t> bootstrap_weights_size{ 0 };
 	uint64_t bootstrap_weight_max_blocks{ 1 };
 	std::atomic<bool> check_bootstrap_weights;
 	bool pruning{ false };

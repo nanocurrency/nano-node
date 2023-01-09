@@ -15,7 +15,7 @@ class channel;
 class confirmation_solicitor;
 class inactive_cache_information;
 class node;
-class vote_generator_session;
+
 class vote_info final
 {
 public:
@@ -23,6 +23,7 @@ public:
 	uint64_t timestamp;
 	nano::block_hash hash;
 };
+
 class vote_with_weight_info final
 {
 public:
@@ -32,6 +33,7 @@ public:
 	nano::block_hash hash;
 	nano::uint128_t weight;
 };
+
 class election_vote_result final
 {
 public:
@@ -40,17 +42,20 @@ public:
 	bool replay{ false };
 	bool processed{ false };
 };
+
 enum class election_behavior
 {
 	normal,
 	hinted
 };
+
 struct election_extended_status final
 {
 	nano::election_status status;
 	std::unordered_map<nano::account, nano::vote_info> votes;
 	nano::tally_t tally;
 };
+
 class election final : public std::enable_shared_from_this<nano::election>
 {
 public:
@@ -75,9 +80,9 @@ private: // State management
 		expired_confirmed,
 		expired_unconfirmed
 	};
+
 	static unsigned constexpr passive_duration_factor = 5;
 	static unsigned constexpr active_request_count_min = 2;
-	static unsigned constexpr confirmed_duration_factor = 5;
 	std::atomic<nano::election::state_t> state_m = { state_t::passive };
 
 	static_assert (std::is_trivial<std::chrono::steady_clock::duration> ());
@@ -85,7 +90,9 @@ private: // State management
 
 	// These are modified while not holding the mutex from transition_time only
 	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::now () };
-	std::chrono::steady_clock::time_point last_req = { std::chrono::steady_clock::time_point () };
+	std::chrono::steady_clock::time_point last_req = {};
+	/** The last time vote for this election was generated */
+	std::chrono::steady_clock::time_point last_vote = {};
 
 	bool valid_change (nano::election::state_t, nano::election::state_t) const;
 	bool state_change (nano::election::state_t, nano::election::state_t);
@@ -121,6 +128,15 @@ public: // Interface
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (nano::unique_lock<nano::mutex> &);
 
+	/**
+	 * Broadcasts vote for the current winner of this election
+	 * Checks if sufficient amount of time (`vote_generation_interval`) passed since the last vote generation
+	 */
+	void broadcast_vote ();
+
+private: // Dependencies
+	nano::node & node;
+
 public: // Information
 	uint64_t const height;
 	nano::root const root;
@@ -133,8 +149,11 @@ private:
 	void confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	void broadcast_block (nano::confirmation_solicitor &);
 	void send_confirm_req (nano::confirmation_solicitor &);
-	// Calculate votes for local representatives
-	void generate_votes () const;
+	/**
+	 * Broadcast vote for current election winner. Generates final vote if reached quorum or already confirmed
+	 * Requires mutex lock
+	 */
+	void broadcast_vote_impl ();
 	void remove_votes (nano::block_hash const &);
 	void remove_block (nano::block_hash const &);
 	bool replace_by_weight (nano::unique_lock<nano::mutex> & lock_a, nano::block_hash const &);
@@ -154,9 +173,9 @@ private:
 	nano::election_behavior const behavior{ nano::election_behavior::normal };
 	std::chrono::steady_clock::time_point const election_start = { std::chrono::steady_clock::now () };
 
-	nano::node & node;
 	mutable nano::mutex mutex;
 
+private: // Constants
 	static std::size_t constexpr max_blocks{ 10 };
 
 	friend class active_transactions;

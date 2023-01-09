@@ -272,7 +272,7 @@ TEST (wallet, enter_password)
 	QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
 	QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
 	test_application->processEvents ();
-	ASSERT_EQ ("Status: Wallet password empty, Blocks: 1", wallet->status->text ().toStdString ());
+	ASSERT_NE (wallet->status->text ().toStdString ().rfind ("Status: Wallet password empty", 0), std::string::npos);
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_write ());
 		ASSERT_FALSE (system.wallet (0)->store.rekey (transaction, "abc"));
@@ -280,12 +280,12 @@ TEST (wallet, enter_password)
 	QTest::mouseClick (wallet->settings_button, Qt::LeftButton);
 	QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
 	test_application->processEvents ();
-	ASSERT_EQ ("Status: Wallet locked, Blocks: 1", wallet->status->text ().toStdString ());
+	ASSERT_NE (wallet->status->text ().toStdString ().rfind ("Status: Wallet locked", 0), std::string::npos);
 	wallet->settings.new_password->setText ("");
 	QTest::keyClicks (wallet->settings.password, "abc");
 	QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
 	test_application->processEvents ();
-	ASSERT_EQ ("Status: Running, Blocks: 1", wallet->status->text ().toStdString ());
+	ASSERT_NE (wallet->status->text ().toStdString ().rfind ("Status: Running", 0), std::string::npos);
 	ASSERT_EQ ("", wallet->settings.password->text ());
 }
 

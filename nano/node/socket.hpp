@@ -94,17 +94,21 @@ public:
 	{
 		return endpoint_type_m;
 	}
-	bool is_realtime_connection ()
+	bool is_realtime_connection () const
 	{
 		return type () == nano::socket::type_t::realtime || type () == nano::socket::type_t::realtime_response_server;
 	}
-	bool is_bootstrap_connection ()
+	bool is_bootstrap_connection () const
 	{
 		return type () == nano::socket::type_t::bootstrap;
 	}
-	bool is_closed ()
+	bool is_closed () const
 	{
 		return closed;
+	}
+	bool alive () const
+	{
+		return !closed && tcp_socket.is_open ();
 	}
 
 protected:
@@ -139,7 +143,7 @@ protected:
 	std::atomic<uint64_t> last_receive_time_or_init;
 
 	/** Flag that is set when cleanup decides to close the socket due to timeout.
-	 *  NOTE: Currently used by bootstrap_server::timeout() but I suspect that this and bootstrap_server::timeout() are not needed.
+	 *  NOTE: Currently used by tcp_server::timeout() but I suspect that this and tcp_server::timeout() are not needed.
 	 */
 	std::atomic<bool> timed_out{ false };
 

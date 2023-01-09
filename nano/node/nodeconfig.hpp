@@ -56,16 +56,16 @@ public:
 	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
 	unsigned election_hint_weight_percent{ 50 };
 	unsigned password_fanout{ 1024 };
-	unsigned io_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
-	unsigned network_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
-	unsigned work_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
+	unsigned io_threads{ std::max (4u, nano::hardware_concurrency ()) };
+	unsigned network_threads{ std::max (4u, nano::hardware_concurrency ()) };
+	unsigned work_threads{ std::max (4u, nano::hardware_concurrency ()) };
 	/* Use half available threads on the system for signature checking. The calling thread does checks as well, so these are extra worker threads */
-	unsigned signature_checker_threads{ std::thread::hardware_concurrency () / 2 };
+	unsigned signature_checker_threads{ std::max (2u, nano::hardware_concurrency () / 2) };
 	bool enable_voting{ false };
 	unsigned bootstrap_connections{ 4 };
 	unsigned bootstrap_connections_max{ 64 };
 	unsigned bootstrap_initiator_threads{ 1 };
-	unsigned bootstrap_serving_threads{ std::max<unsigned> (2, std::thread::hardware_concurrency () / 2) };
+	unsigned bootstrap_serving_threads{ std::max (2u, nano::hardware_concurrency () / 2) };
 	uint32_t bootstrap_frontier_request_count{ 1024 * 1024 };
 	nano::websocket::config websocket_config;
 	nano::diagnostics_config diagnostics_config;
@@ -81,20 +81,22 @@ public:
 	std::chrono::milliseconds block_processor_batch_max_time{ network_params.network.is_dev_network () ? std::chrono::milliseconds (500) : std::chrono::milliseconds (5000) };
 	std::chrono::seconds unchecked_cutoff_time{ std::chrono::seconds (4 * 60 * 60) }; // 4 hours
 	/** Timeout for initiated async operations */
-	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_dev_network () && !is_sanitizer_build) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
+	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_dev_network () && !is_sanitizer_build ()) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
 	std::size_t active_elections_size{ 5000 };
 	std::size_t active_elections_hinted_limit_percentage{ 20 }; // Limit of hinted elections as percentage of active_elections_size
 	/** Default maximum incoming TCP connections, including realtime network & bootstrap */
 	unsigned tcp_incoming_connections_max{ 2048 };
 	bool use_memory_pools{ true };
-	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
-	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
 	/** Default outbound traffic shaping is 10MB/s */
 	std::size_t bandwidth_limit{ 10 * 1024 * 1024 };
 	/** By default, allow bursts of 15MB/s (not sustainable) */
 	double bandwidth_limit_burst_ratio{ 3. };
+	/** Default boostrap outbound traffic limit is 16MB/s ~ 128Mbit/s */
+	std::size_t bootstrap_bandwidth_limit{ 16 * 1024 * 1024 };
+	/** Bootstrap traffic does not need bursts */
+	double bootstrap_bandwidth_burst_ratio{ 1. };
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
 	bool backup_before_upgrade{ false };
 	double max_work_generate_multiplier{ 64. };

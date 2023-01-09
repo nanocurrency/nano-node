@@ -117,6 +117,9 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			std::cout << initialization_text << std::endl;
 			logger.always_log (initialization_text);
 
+			// Print info about number of logical cores detected, those are used to decide how many IO, worker and signature checker threads to spawn
+			logger.always_log (boost::format ("Hardware concurrency: %1% ( configured: %2% )") % std::thread::hardware_concurrency () % nano::hardware_concurrency ());
+
 			nano::set_file_descriptor_limit (OPEN_FILE_DESCRIPTORS_LIMIT);
 			auto const file_descriptor_limit = nano::get_file_descriptor_limit ();
 			if (file_descriptor_limit < OPEN_FILE_DESCRIPTORS_LIMIT)

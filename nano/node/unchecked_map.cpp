@@ -223,7 +223,7 @@ void nano::unchecked_map::insert_impl (nano::write_transaction const & transacti
 	}
 	if (entries == nullptr)
 	{
-		store.unchecked.put (transaction, dependency, { info.block, info.account, info.verified });
+		store.unchecked.put (transaction, dependency, { info.block });
 	}
 	else
 	{
@@ -231,7 +231,7 @@ void nano::unchecked_map::insert_impl (nano::write_transaction const & transacti
 		entries->template get<tag_root> ().insert ({ key, info });
 		while (entries->size () > mem_block_count_max)
 		{
-			entries->template get<tag_random_access> ().pop_front ();
+			entries->template get<tag_sequenced> ().pop_front ();
 		}
 	}
 }

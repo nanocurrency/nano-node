@@ -231,11 +231,11 @@ void nano::vote_cache::trim_overflow_locked ()
 	// When cache overflown remove the oldest entry
 	if (cache.size () > max_size)
 	{
-		cache.get<tag_random_access> ().pop_front ();
+		cache.get<tag_sequenced> ().pop_front ();
 	}
 	if (queue.size () > max_size)
 	{
-		queue.get<tag_random_access> ().pop_front ();
+		queue.get<tag_sequenced> ().pop_front ();
 	}
 }
 

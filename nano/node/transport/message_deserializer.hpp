@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/node/common.hpp>
+#include <nano/node/messages.hpp>
 #include <nano/node/socket.hpp>
 
 #include <boost/system/error_code.hpp>
@@ -11,9 +12,10 @@
 namespace nano
 {
 class socket;
-namespace bootstrap
+
+namespace transport
 {
-	class message_deserializer : public std::enable_shared_from_this<nano::bootstrap::message_deserializer>
+	class message_deserializer : public std::enable_shared_from_this<nano::transport::message_deserializer>
 	{
 	public:
 		enum class parse_status
@@ -33,6 +35,8 @@ namespace bootstrap
 			invalid_bulk_pull_message,
 			invalid_bulk_pull_account_message,
 			invalid_frontier_req_message,
+			invalid_asc_pull_req_message,
+			invalid_asc_pull_ack_message,
 			invalid_network,
 			outdated_version,
 			duplicate_publish_message,
@@ -74,24 +78,25 @@ namespace bootstrap
 		std::unique_ptr<nano::bulk_pull_account> deserialize_bulk_pull_account (nano::stream &, nano::message_header const &);
 		std::unique_ptr<nano::bulk_push> deserialize_bulk_push (nano::stream &, nano::message_header const &);
 		std::unique_ptr<nano::frontier_req> deserialize_frontier_req (nano::stream &, nano::message_header const &);
-
-		static bool at_end (nano::stream &);
+		std::unique_ptr<nano::asc_pull_req> deserialize_asc_pull_req (nano::stream &, nano::message_header const &);
+		std::unique_ptr<nano::asc_pull_ack> deserialize_asc_pull_ack (nano::stream &, nano::message_header const &);
 
 		std::shared_ptr<std::vector<uint8_t>> read_buffer;
 
-	public:
-		std::string parse_status_to_string ();
-		stat::detail parse_status_to_stat_detail ();
-
 	private: // Constants
 		static constexpr std::size_t HEADER_SIZE = 8;
-		static constexpr std::size_t MAX_MESSAGE_SIZE = 1024 * 4;
+		static constexpr std::size_t MAX_MESSAGE_SIZE = 1024 * 65;
 
 	private: // Dependencies
 		nano::network_constants const & network_constants_m;
 		nano::network_filter & publish_filter_m;
 		nano::block_uniquer & block_uniquer_m;
 		nano::vote_uniquer & vote_uniquer_m;
+
+	public:
+		static stat::detail to_stat_detail (parse_status);
+		static std::string to_string (parse_status);
 	};
+
 }
 }

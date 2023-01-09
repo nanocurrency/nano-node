@@ -25,8 +25,7 @@
 	url = https://github.com/google/flatbuffers.git
 [submodule "rocksdb"]
 	path = rocksdb
-	url = https://github.com/nanocurrency/rocksdb.git
-	branch = 6.13.3
+	url = https://github.com/facebook/rocksdb.git
 [submodule "diskhash"]
 	path = diskhash
 	url = https://github.com/nanocurrency/diskhash.git

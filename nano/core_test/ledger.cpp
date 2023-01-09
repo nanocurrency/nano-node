@@ -915,7 +915,7 @@ TEST (votes, check_signature)
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	}
 	node1.scheduler.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
-	node1.scheduler.flush ();
+	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
 	auto election1 = node1.active.election (send1->qualified_root ());
 	ASSERT_EQ (1, election1->votes ().size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ send1->hash () }));
@@ -944,7 +944,7 @@ TEST (votes, add_one)
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	node1.block_confirm (send1);
-	node1.scheduler.flush ();
+	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
 	auto election1 = node1.active.election (send1->qualified_root ());
 	ASSERT_EQ (1, election1->votes ().size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ send1->hash () }));
@@ -986,7 +986,7 @@ TEST (votes, add_existing)
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (node1.store.tx_begin_write (), *send1).code);
 	node1.scheduler.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
-	node1.scheduler.flush ();
+	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
 	auto election1 = node1.active.election (send1->qualified_root ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ send1->hash () }));
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
@@ -1045,7 +1045,7 @@ TEST (votes, add_old)
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	node1.block_confirm (send1);
-	node1.scheduler.flush ();
+	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
 	auto election1 = node1.active.election (send1->qualified_root ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * 2, 0, std::vector<nano::block_hash>{ send1->hash () }));
 	auto channel (std::make_shared<nano::transport::inproc::channel> (node1, node1));
@@ -1151,7 +1151,7 @@ TEST (votes, add_cooldown)
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	node1.block_confirm (send1);
-	node1.scheduler.flush ();
+	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
 	auto election1 = node1.active.election (send1->qualified_root ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ send1->hash () }));
 	auto channel (std::make_shared<nano::transport::inproc::channel> (node1, node1));
@@ -3991,7 +3991,6 @@ TEST (ledger, epoch_open_pending)
 					  .build_shared ();
 	auto process_result = node1.ledger.process (node1.store.tx_begin_write (), *epoch_open);
 	ASSERT_EQ (nano::process_result::gap_epoch_open_pending, process_result.code);
-	ASSERT_EQ (nano::signature_verification::valid_epoch, process_result.verified);
 	node1.block_processor.add (epoch_open);
 	// Waits for the block to get saved in the database
 	ASSERT_TIMELY (10s, 1 == node1.unchecked.count (node1.store.tx_begin_read ()));
@@ -4000,7 +3999,6 @@ TEST (ledger, epoch_open_pending)
 	auto blocks = node1.unchecked.get (node1.store.tx_begin_read (), nano::hash_or_account (epoch_open->account ()).hash);
 	ASSERT_EQ (blocks.size (), 1);
 	ASSERT_EQ (blocks[0].block->full_hash (), epoch_open->full_hash ());
-	ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid_epoch);
 	// New block to process epoch open
 	auto send1 = builder.state ()
 				 .account (nano::dev::genesis->account ())
@@ -4292,7 +4290,6 @@ TEST (ledger, unchecked_epoch)
 		ASSERT_TIMELY (10s, 1 == node1.unchecked.count (node1.store.tx_begin_read ()));
 		auto blocks = node1.unchecked.get (node1.store.tx_begin_read (), epoch1->previous ());
 		ASSERT_EQ (blocks.size (), 1);
-		ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid_epoch);
 	}
 	node1.block_processor.add (send1);
 	node1.block_processor.add (open1);
@@ -4367,8 +4364,6 @@ TEST (ledger, unchecked_epoch_invalid)
 		ASSERT_TIMELY (10s, 2 == node1.unchecked.count (node1.store.tx_begin_read ()));
 		auto blocks = node1.unchecked.get (node1.store.tx_begin_read (), epoch1->previous ());
 		ASSERT_EQ (blocks.size (), 2);
-		ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid);
-		ASSERT_EQ (blocks[1].verified, nano::signature_verification::valid);
 	}
 	node1.block_processor.add (send1);
 	node1.block_processor.add (open1);
@@ -4377,7 +4372,6 @@ TEST (ledger, unchecked_epoch_invalid)
 	{
 		auto transaction = node1.store.tx_begin_read ();
 		ASSERT_FALSE (node1.store.block.exists (transaction, epoch1->hash ()));
-		ASSERT_TRUE (node1.active.empty ());
 		auto unchecked_count = node1.unchecked.count (transaction);
 		ASSERT_EQ (unchecked_count, 0);
 		ASSERT_EQ (unchecked_count, node1.unchecked.count (transaction));
@@ -4437,7 +4431,6 @@ TEST (ledger, unchecked_open)
 		ASSERT_TIMELY (10s, 1 == node1.unchecked.count (node1.store.tx_begin_read ()));
 		auto blocks = node1.unchecked.get (node1.store.tx_begin_read (), open1->source ());
 		ASSERT_EQ (blocks.size (), 1);
-		ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid);
 	}
 	node1.block_processor.add (send1);
 	// Waits for the send1 block to pass through block_processor and unchecked.put queues
@@ -4501,7 +4494,6 @@ TEST (ledger, unchecked_receive)
 		ASSERT_TIMELY (15s, check_block_is_listed (node1.store.tx_begin_read (), receive1->previous ()));
 		auto blocks = node1.unchecked.get (node1.store.tx_begin_read (), receive1->previous ());
 		ASSERT_EQ (blocks.size (), 1);
-		ASSERT_EQ (blocks[0].verified, nano::signature_verification::unknown);
 	}
 	// Waits for the open1 block to pass through block_processor and unchecked.put queues
 	node1.block_processor.add (open1);
@@ -4511,7 +4503,6 @@ TEST (ledger, unchecked_receive)
 		auto transaction = node1.store.tx_begin_read ();
 		auto blocks (node1.unchecked.get (transaction, receive1->source ()));
 		ASSERT_EQ (blocks.size (), 1);
-		ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid);
 	}
 	node1.block_processor.add (send2);
 	ASSERT_TIMELY (10s, node1.store.block.exists (node1.store.tx_begin_read (), receive1->hash ()));

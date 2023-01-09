@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/node/transport/fake.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -37,11 +38,29 @@ void nano::test::wait_peer_connections (nano::test::system & system_a)
 	wait_peer_count (false);
 }
 
+nano::hash_or_account nano::test::random_hash_or_account ()
+{
+	nano::hash_or_account random_hash;
+	nano::random_pool::generate_block (random_hash.bytes.data (), random_hash.bytes.size ());
+	return random_hash;
+}
+
+nano::block_hash nano::test::random_hash ()
+{
+	return nano::test::random_hash_or_account ().as_block_hash ();
+}
+
+nano::account nano::test::random_account ()
+{
+	return nano::test::random_hash_or_account ().as_account ();
+}
+
 bool nano::test::process (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
 {
+	auto const transaction = node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending });
 	for (auto & block : blocks)
 	{
-		auto result = node.process (*block);
+		auto result = node.process (transaction, *block);
 		if (result.code != nano::process_result::progress)
 		{
 			return false;
@@ -174,9 +193,24 @@ std::shared_ptr<nano::vote> nano::test::make_vote (nano::keypair key, std::vecto
 	return make_vote (key, hashes, timestamp, duration);
 }
 
+std::shared_ptr<nano::vote> nano::test::make_final_vote (nano::keypair key, std::vector<nano::block_hash> hashes)
+{
+	return make_vote (key, hashes, nano::vote::timestamp_max, nano::vote::duration_max);
+}
+
+std::shared_ptr<nano::vote> nano::test::make_final_vote (nano::keypair key, std::vector<std::shared_ptr<nano::block>> blocks)
+{
+	return make_vote (key, blocks, nano::vote::timestamp_max, nano::vote::duration_max);
+}
+
 std::vector<nano::block_hash> nano::test::blocks_to_hashes (std::vector<std::shared_ptr<nano::block>> blocks)
 {
 	std::vector<nano::block_hash> hashes;
 	std::transform (blocks.begin (), blocks.end (), std::back_inserter (hashes), [] (auto & block) { return block->hash (); });
 	return hashes;
+}
+
+std::shared_ptr<nano::transport::channel> nano::test::fake_channel (nano::node & node)
+{
+	return std::make_shared<nano::transport::fake::channel> (node);
 }

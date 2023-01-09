@@ -47,7 +47,7 @@ if(MSVC)
   add_definitions(/MP)
 endif()
 
-set(CPACK_PACKAGE_VERSION_MAJOR "24")
+set(CPACK_PACKAGE_VERSION_MAJOR "25")
 set(CPACK_PACKAGE_VERSION_MINOR "0")
 set(CPACK_PACKAGE_VERSION_PATCH "0")
 if(CI_BUILD AND CI_VERSION_PRE_RELEASE)
@@ -431,6 +431,11 @@ else()
       ON
       CACHE BOOL "" FORCE)
 endif()
+set(FAIL_ON_WARNINGS
+    OFF
+    CACHE BOOL "") # Ignore unreachable code warning in merging_iterator.cc
+                   # RocksDB v7.8.3 on Windows
+                   # https://github.com/facebook/rocksdb/issues/11072
 add_subdirectory(rocksdb EXCLUDE_FROM_ALL)
 
 include_directories(cpptoml/include)

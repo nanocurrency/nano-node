@@ -3,25 +3,15 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/rate_limiting.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/messages.hpp>
 #include <nano/node/socket.hpp>
 
 #include <boost/asio/ip/network_v6.hpp>
 
 namespace nano
 {
-class bandwidth_limiter final
-{
-public:
-	// initialize with limit 0 = unbounded
-	bandwidth_limiter (double, std::size_t);
-	bool should_drop (std::size_t const &);
-	void reset (double, std::size_t);
-
-private:
-	nano::rate::token_bucket bucket;
-};
-
 namespace transport
 {
 	nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
@@ -41,7 +31,8 @@ namespace transport
 		undefined = 0,
 		udp = 1,
 		tcp = 2,
-		loopback = 3
+		loopback = 3,
+		fake = 4
 	};
 	class channel
 	{
@@ -50,7 +41,7 @@ namespace transport
 		virtual ~channel () = default;
 		virtual std::size_t hash_code () const = 0;
 		virtual bool operator== (nano::transport::channel const &) const = 0;
-		void send (nano::message & message_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a = nullptr, nano::buffer_drop_policy policy_a = nano::buffer_drop_policy::limiter);
+		void send (nano::message & message_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a = nullptr, nano::buffer_drop_policy policy_a = nano::buffer_drop_policy::limiter, nano::bandwidth_limit_type = nano::bandwidth_limit_type::standard);
 		// TODO: investigate clang-tidy warning about default parameters on virtual/override functions
 		//
 		virtual void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) = 0;
@@ -61,6 +52,10 @@ namespace transport
 		virtual bool max ()
 		{
 			return false;
+		}
+		virtual bool alive () const
+		{
+			return true;
 		}
 
 		std::chrono::steady_clock::time_point get_last_bootstrap_attempt () const

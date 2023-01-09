@@ -131,7 +131,7 @@ void nano::state_block_signature_verification::verify_state_blocks (std::deque<v
 		signatures.reserve (size);
 		std::vector<int> verifications;
 		verifications.resize (size, 0);
-		for (auto const & [block, account, unused] : items)
+		for (auto const & [block] : items)
 		{
 			hashes.push_back (block->hash ());
 			messages.push_back (hashes.back ().bytes.data ());
@@ -140,10 +140,6 @@ void nano::state_block_signature_verification::verify_state_blocks (std::deque<v
 			if (!block->link ().is_zero () && epochs.is_epoch_link (block->link ()))
 			{
 				account_l = epochs.signer (epochs.epoch (block->link ()));
-			}
-			else if (!account.is_zero ())
-			{
-				account_l = account;
 			}
 			accounts.push_back (account_l);
 			pub_keys.push_back (accounts.back ().bytes.data ());

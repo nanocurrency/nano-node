@@ -238,6 +238,8 @@ TEST (store, load)
 	}
 }
 
+namespace nano
+{
 TEST (node, fork_storm)
 {
 	// WIP against issue #3709
@@ -342,6 +344,7 @@ TEST (node, fork_storm)
 	}
 	ASSERT_TRUE (true);
 }
+} // namespace nano
 
 namespace
 {
@@ -989,7 +992,7 @@ TEST (confirmation_height, dynamic_algorithm)
  *    of blocks uncemented is > unbounded_cutoff so that it hits the bounded processor), the main `run` loop on the conf height processor is iterated.
  *
  * This cause unbounded pending entries not to be written, and then the bounded processor would write them, causing some inconsistencies.
-*/
+ */
 TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 {
 	// Repeat in case of intermittent issues not replicating the issue talked about above.
@@ -1595,7 +1598,7 @@ TEST (telemetry, cache_read_and_timeout)
 	nano::telemetry_data telemetry_data;
 	{
 		std::atomic<bool> done{ false };
-		auto channel = node_client->network.find_channel (node_server->network.endpoint ());
+		auto channel = node_client->network.find_node_id (node_server->get_node_id ());
 		node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &telemetry_data] (nano::telemetry_data_response const & response_a) {
 			telemetry_data = response_a.telemetry_data;
 			done = true;
@@ -1625,7 +1628,7 @@ TEST (telemetry, cache_read_and_timeout)
 	// Request telemetry metrics again
 	{
 		std::atomic<bool> done{ false };
-		auto channel = node_client->network.find_channel (node_server->network.endpoint ());
+		auto channel = node_client->network.find_node_id (node_server->get_node_id ());
 		node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &telemetry_data] (nano::telemetry_data_response const & response_a) {
 			telemetry_data = response_a.telemetry_data;
 			done = true;
@@ -1653,7 +1656,7 @@ TEST (telemetry, many_nodes)
 	node_flags.disable_initial_telemetry_requests = true;
 	node_flags.disable_request_loop = true;
 	// The telemetry responses can timeout if using a large number of nodes under sanitizers, so lower the number.
-	auto const num_nodes = (is_sanitizer_build || nano::running_within_valgrind ()) ? 4 : 10;
+	auto const num_nodes = nano::memory_intensive_instrumentation () ? 4 : 10;
 	for (auto i = 0; i < num_nodes; ++i)
 	{
 		nano::node_config node_config (nano::test::get_available_port (), system.logging);
@@ -1845,7 +1848,7 @@ TEST (node, mass_epoch_upgrader)
 		nano::test::system system;
 		nano::node_config node_config (nano::test::get_available_port (), system.logging);
 		node_config.work_threads = 4;
-		//node_config.work_peers = { { "192.168.1.101", 7000 } };
+		// node_config.work_peers = { { "192.168.1.101", 7000 } };
 		auto & node = *system.add_node (node_config);
 
 		auto balance = node.balance (nano::dev::genesis_key.pub);
@@ -1942,13 +1945,15 @@ TEST (node, mass_epoch_upgrader)
 	perform_test (std::numeric_limits<size_t>::max ());
 }
 
+namespace nano
+{
 TEST (node, mass_block_new)
 {
 	nano::test::system system;
 	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
-	node.network_params.network.request_interval_ms = 500;
+	node.network_params.network.aec_loop_interval_ms = 500;
 
 #ifndef NDEBUG
 	auto const num_blocks = 5000;
@@ -2069,6 +2074,7 @@ TEST (node, mass_block_new)
 	process_all (receive_blocks);
 	std::cout << "Receive blocks time: " << timer.stop ().count () << " " << timer.unit () << "\n\n";
 }
+}
 
 TEST (node, wallet_create_block_confirm_conflicts)
 {
@@ -2124,3 +2130,110 @@ TEST (node, wallet_create_block_confirm_conflicts)
 		t.join ();
 	}
 }
+
+namespace nano
+{
+/**
+ * This test creates a small network of evenly weighted PRs and ensures a sequence of blocks from the genesis account to random accounts are able to be processed
+ * Ongoing bootstrap is disabled to directly test election activation. A failure to activate a block on any PR will cause the test to stall
+ */
+TEST (system, block_sequence)
+{
+	size_t const block_count = 400;
+	size_t const pr_count = 4;
+	size_t const listeners_per_pr = 0;
+	nano::test::system system;
+	std::vector<nano::keypair> reps;
+	for (auto i = 0; i < pr_count; ++i)
+	{
+		reps.push_back (nano::keypair{});
+	}
+	system.ledger_initialization_set (reps, nano::Gxrb_ratio);
+	system.deadline_set (3600s);
+	nano::node_config config;
+	config.peering_port = nano::test::get_available_port ();
+	//config.bandwidth_limit = 16 * 1024;
+	config.enable_voting = true;
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags flags;
+	flags.disable_max_peers_per_ip = true;
+	flags.disable_ongoing_bootstrap = true;
+	auto root = system.add_node (config, flags);
+	config.preconfigured_peers.push_back ("::ffff:127.0.0.1:" + std::to_string (root->network.endpoint ().port ()));
+	auto wallet = root->wallets.items.begin ()->second;
+	wallet->insert_adhoc (nano::dev::genesis_key.prv);
+	for (auto rep : reps)
+	{
+		system.wallet (0);
+		config.peering_port = nano::test::get_available_port ();
+		auto pr = system.add_node (config, flags, nano::transport::transport_type::tcp, rep);
+		for (auto j = 0; j < listeners_per_pr; ++j)
+		{
+			config.peering_port = nano::test::get_available_port ();
+			system.add_node (config, flags);
+		}
+		std::cerr << rep.pub.to_account () << ' ' << pr->wallets.items.begin ()->second->exists (rep.pub) << pr->weight (rep.pub) << ' ' << '\n';
+	}
+	while (std::any_of (system.nodes.begin (), system.nodes.end (), [] (std::shared_ptr<nano::node> const & node) {
+		//std::cerr << node->rep_crawler.representative_count () << ' ';
+		return node->rep_crawler.representative_count () < 3;
+	}))
+	{
+		system.poll ();
+	}
+	for (auto & node : system.nodes)
+	{
+		std::cerr << std::to_string (node->network.port) << ": ";
+		auto prs = node->rep_crawler.principal_representatives ();
+		for (auto pr : prs)
+		{
+			std::cerr << pr.account.to_account () << ' ';
+		}
+		std::cerr << '\n';
+	}
+	nano::keypair key;
+	auto start = std::chrono::system_clock::now ();
+	std::deque<std::shared_ptr<nano::block>> blocks;
+	for (auto i = 0; i < block_count; ++i)
+	{
+		if ((i % 1000) == 0)
+		{
+			std::cerr << "Block: " << std::to_string (i) << " ms: " << std::to_string (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now () - start).count ()) << "\n";
+		}
+		auto block = wallet->send_action (nano::dev::genesis_key.pub, key.pub, 1);
+		debug_assert (block != nullptr);
+		blocks.push_back (block);
+	}
+	auto done = false;
+	std::chrono::system_clock::time_point last;
+	auto interval = 1000ms;
+	while (!done)
+	{
+		if (std::chrono::system_clock::now () - last > interval)
+		{
+			std::string message;
+			for (auto i : system.nodes)
+			{
+				message += boost::str (boost::format ("N:%1% b:%2% c:%3% a:%4% s:%5% p:%6%\n") % std::to_string (i->network.port) % std::to_string (i->ledger.cache.block_count) % std::to_string (i->ledger.cache.cemented_count) % std::to_string (i->active.size ()) % std::to_string (i->scheduler.size ()) % std::to_string (i->network.size ()));
+				nano::lock_guard<nano::mutex> lock{ i->active.mutex };
+				for (auto const & j : i->active.roots)
+				{
+					auto election = j.election;
+					if (election->confirmation_request_count > 10)
+					{
+						message += boost::str (boost::format ("\t r:%1% i:%2%\n") % j.root.to_string () % std::to_string (election->confirmation_request_count));
+						for (auto const & k : election->votes ())
+						{
+							message += boost::str (boost::format ("\t\t r:%1% t:%2%\n") % k.first.to_account () % std::to_string (k.second.timestamp));
+						}
+					}
+				}
+			}
+			std::cerr << message << std::endl;
+			last = std::chrono::system_clock::now ();
+		}
+		done = std::all_of (system.nodes.begin (), system.nodes.end (), [&blocks] (std::shared_ptr<nano::node> node) { return node->block_confirmed (blocks.back ()->hash ()); });
+		system.poll ();
+	}
+}
+} // namespace nano

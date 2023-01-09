@@ -31,6 +31,10 @@ extern unsigned char nano_bootstrap_weights_beta[];
 extern std::size_t nano_bootstrap_weights_beta_size;
 }
 
+/*
+ * Configs
+ */
+
 nano::backlog_population::config nano::nodeconfig_to_backlog_population_config (const nano::node_config & config)
 {
 	nano::backlog_population::config cfg;
@@ -45,6 +49,27 @@ nano::vote_cache::config nano::nodeconfig_to_vote_cache_config (node_config cons
 	cfg.max_size = flags.inactive_votes_cache_size;
 	return cfg;
 }
+
+nano::hinted_scheduler::config nano::nodeconfig_to_hinted_scheduler_config (const nano::node_config & config)
+{
+	hinted_scheduler::config cfg;
+	cfg.vote_cache_check_interval_ms = config.network_params.network.is_dev_network () ? 100u : 1000u;
+	return cfg;
+}
+
+nano::outbound_bandwidth_limiter::config nano::outbound_bandwidth_limiter_config (const nano::node_config & config)
+{
+	outbound_bandwidth_limiter::config cfg;
+	cfg.standard_limit = config.bandwidth_limit;
+	cfg.standard_burst_ratio = config.bandwidth_limit_burst_ratio;
+	cfg.bootstrap_limit = config.bootstrap_bandwidth_limit;
+	cfg.bootstrap_burst_ratio = config.bootstrap_bandwidth_burst_ratio;
+	return cfg;
+}
+
+/*
+ * node
+ */
 
 void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 {
@@ -141,12 +166,14 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	gap_cache (*this),
 	ledger (store, stats, network_params.ledger, flags_a.generate_cache),
 	checker (config.signature_checker_threads),
+	outbound_limiter{ outbound_bandwidth_limiter_config (config) },
 	// empty `config.peering_port` means the user made no port choice at all;
 	// otherwise, any value is considered, with `0` having the special meaning of 'let the OS pick a port instead'
 	//
 	network (*this, config.peering_port.has_value () ? *config.peering_port : 0),
 	telemetry (std::make_shared<nano::telemetry> (network, workers, observers.telemetry, stats, network_params, flags.disable_ongoing_telemetry_requests)),
 	bootstrap_initiator (*this),
+	bootstrap_server{ store, ledger, network_params.network, stats },
 	// BEWARE: `bootstrap` takes `network.port` instead of `config.peering_port` because when the user doesn't specify
 	//         a peering port and wants the OS to pick one, the picking happens when `network` gets initialized
 	//         (if UDP is active, otherwise it happens when `bootstrap` gets initialized), so then for TCP traffic
@@ -154,7 +181,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	//         Thus, be very careful if you change the order: if `bootstrap` gets constructed before `network`,
 	//         the latter would inherit the port from the former (if TCP is active, otherwise `network` picks first)
 	//
-	bootstrap (network.port, *this),
+	tcp_listener (network.port, *this),
 	application_path (application_path_a),
 	port_mapping (*this),
 	rep_crawler (*this),
@@ -165,10 +192,13 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	history{ config.network_params.voting },
 	vote_uniquer (block_uniquer),
 	confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
-	inactive_vote_cache{ nodeconfig_to_vote_cache_config (config, flags) },
+	inactive_vote_cache{ nano::nodeconfig_to_vote_cache_config (config, flags) },
+	generator{ config, ledger, wallets, vote_processor, history, network, stats, /* non-final */ false },
+	final_generator{ config, ledger, wallets, vote_processor, history, network, stats, /* final */ true },
 	active (*this, confirmation_height_processor),
 	scheduler{ *this },
-	aggregator (config, stats, active.generator, active.final_generator, history, ledger, wallets, active),
+	hinting{ nano::nodeconfig_to_hinted_scheduler_config (config), *this, inactive_vote_cache, active, online_reps, stats },
+	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
 	backlog{ nano::nodeconfig_to_backlog_population_config (config), store, scheduler },
 	startup_time (std::chrono::steady_clock::now ()),
@@ -187,7 +217,11 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	{
 		telemetry->start ();
 
-		active.vacancy_update = [this] () { scheduler.notify (); };
+		// Notify election schedulers when AEC frees election slot
+		active.vacancy_update = [this] () {
+			scheduler.notify ();
+			hinting.notify ();
+		};
 
 		if (config.websocket_config.enabled)
 		{
@@ -597,7 +631,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.ledger, "ledger"));
 	composite->add_component (collect_container_info (node.active, "active"));
 	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
-	composite->add_component (collect_container_info (node.bootstrap, "bootstrap"));
+	composite->add_component (collect_container_info (node.tcp_listener, "tcp_listener"));
 	composite->add_component (collect_container_info (node.network, "network"));
 	if (node.telemetry)
 	{
@@ -619,6 +653,8 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.aggregator, "request_aggregator"));
 	composite->add_component (node.scheduler.collect_container_info ("election_scheduler"));
 	composite->add_component (node.inactive_vote_cache.collect_container_info ("inactive_vote_cache"));
+	composite->add_component (collect_container_info (node.generator, "vote_generator"));
+	composite->add_component (collect_container_info (node.final_generator, "vote_generator_final"));
 	return composite;
 }
 
@@ -628,25 +664,27 @@ void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 	block_processor.add (incoming);
 }
 
-nano::process_return nano::node::process (nano::block & block_a)
+[[nodiscard]] nano::process_return nano::node::process (nano::write_transaction const & transaction, nano::block & block)
 {
-	auto const transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
-	auto result (ledger.process (transaction, block_a));
-	return result;
+	return ledger.process (transaction, block);
+}
+
+nano::process_return nano::node::process (nano::block & block)
+{
+	auto const transaction = store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending });
+	return process (transaction, block);
 }
 
 nano::process_return nano::node::process_local (std::shared_ptr<nano::block> const & block_a)
 {
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
-	// Set current time to trigger automatic rebroadcast and election
-	nano::unchecked_info info (block_a, block_a->account (), nano::signature_verification::unknown);
 	// Notify block processor to release write lock
 	block_processor.wait_write ();
 	// Process block
 	block_post_events post_events ([&store = store] { return store.tx_begin_read (); });
 	auto const transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
-	return block_processor.process_one (transaction, post_events, info, false, nano::block_origin::local);
+	return block_processor.process_one (transaction, post_events, block_a, false, nano::block_origin::local);
 }
 
 void nano::node::process_local_async (std::shared_ptr<nano::block> const & block_a)
@@ -654,8 +692,7 @@ void nano::node::process_local_async (std::shared_ptr<nano::block> const & block
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
 	// Set current time to trigger automatic rebroadcast and election
-	nano::unchecked_info info (block_a, block_a->account (), nano::signature_verification::unknown);
-	block_processor.add_local (info);
+	block_processor.add_local (block_a);
 }
 
 void nano::node::start ()
@@ -688,15 +725,16 @@ void nano::node::start ()
 	ongoing_rep_calculation ();
 	ongoing_peer_store ();
 	ongoing_online_weight_calculation_queue ();
-	bool tcp_enabled (false);
+
+	bool tcp_enabled = false;
 	if (config.tcp_incoming_connections_max > 0 && !(flags.disable_bootstrap_listener && flags.disable_tcp_realtime))
 	{
-		bootstrap.start ();
+		tcp_listener.start ();
 		tcp_enabled = true;
 
-		if (flags.disable_udp && network.port != bootstrap.port)
+		if (flags.disable_udp && network.port != tcp_listener.port)
 		{
-			network.port = bootstrap.port;
+			network.port = tcp_listener.port;
 		}
 
 		logger.always_log (boost::str (boost::format ("Node started with peering port `%1%`.") % network.port));
@@ -724,7 +762,12 @@ void nano::node::start ()
 		port_mapping.start ();
 	}
 	wallets.start ();
+	active.start ();
+	generator.start ();
+	final_generator.start ();
 	backlog.start ();
+	hinting.start ();
+	bootstrap_server.start ();
 }
 
 void nano::node::stop ()
@@ -740,7 +783,10 @@ void nano::node::stop ()
 		aggregator.stop ();
 		vote_processor.stop ();
 		scheduler.stop ();
+		hinting.stop ();
 		active.stop ();
+		generator.stop ();
+		final_generator.stop ();
 		confirmation_height_processor.stop ();
 		network.stop ();
 		telemetry->stop ();
@@ -748,8 +794,9 @@ void nano::node::stop ()
 		{
 			websocket_server->stop ();
 		}
+		bootstrap_server.stop ();
 		bootstrap_initiator.stop ();
-		bootstrap.stop ();
+		tcp_listener.stop ();
 		port_mapping.stop ();
 		checker.stop ();
 		wallets.stop ();
@@ -1303,9 +1350,9 @@ bool nano::node::block_confirmed (nano::block_hash const & hash_a)
 	return ledger.block_confirmed (transaction, hash_a);
 }
 
-bool nano::node::block_confirmed_or_being_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & hash_a)
 {
-	return confirmation_height_processor.is_processing_block (hash_a) || ledger.block_confirmed (transaction_a, hash_a);
+	return confirmation_height_processor.is_processing_block (hash_a) || ledger.block_confirmed (store.tx_begin_read (), hash_a);
 }
 
 void nano::node::ongoing_online_weight_calculation_queue ()
@@ -1473,7 +1520,7 @@ void nano::node::set_bandwidth_params (std::size_t limit, double ratio)
 {
 	config.bandwidth_limit_burst_ratio = ratio;
 	config.bandwidth_limit = limit;
-	network.set_bandwidth_params (limit, ratio);
+	outbound_limiter.reset (limit, ratio);
 	logger.always_log (boost::str (boost::format ("set_bandwidth_params(%1%, %2%)") % limit % ratio));
 }
 
@@ -1765,12 +1812,27 @@ std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> nano::node::get_
 	return { max_blocks, weights };
 }
 
+void nano::node::bootstrap_block (const nano::block_hash & hash)
+{
+	// If we are running pruning node check if block was not already pruned
+	if (!ledger.pruning || !store.pruned.exists (store.tx_begin_read (), hash))
+	{
+		// We don't have the block, try to bootstrap it
+		gap_cache.bootstrap_start (hash);
+	}
+}
+
 /** Convenience function to easily return the confirmation height of an account. */
 uint64_t nano::node::get_confirmation_height (nano::transaction const & transaction_a, nano::account & account_a)
 {
 	nano::confirmation_height_info info;
 	store.confirmation_height.get (transaction_a, account_a, info);
 	return info.height;
+}
+
+nano::account nano::node::get_node_id () const
+{
+	return node_id.pub;
 };
 
 nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :

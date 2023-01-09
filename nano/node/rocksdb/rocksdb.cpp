@@ -12,7 +12,7 @@
 #include <rocksdb/merge_operator.h>
 #include <rocksdb/slice.h>
 #include <rocksdb/slice_transform.h>
-#include <rocksdb/utilities/backupable_db.h>
+#include <rocksdb/utilities/backup_engine.h>
 #include <rocksdb/utilities/transaction.h>
 #include <rocksdb/utilities/transaction_db.h>
 
@@ -739,12 +739,12 @@ bool nano::rocksdb::store::copy_db (boost::filesystem::path const & destination_
 	std::unique_ptr<::rocksdb::BackupEngine> backup_engine;
 	{
 		::rocksdb::BackupEngine * backup_engine_raw;
-		::rocksdb::BackupableDBOptions backup_options (destination_path.string ());
+		::rocksdb::BackupEngineOptions backup_options (destination_path.string ());
 		// Use incremental backups (default)
 		backup_options.share_table_files = true;
 
 		// Increase number of threads used for copying
-		backup_options.max_background_operations = std::thread::hardware_concurrency ();
+		backup_options.max_background_operations = nano::hardware_concurrency ();
 		auto status = ::rocksdb::BackupEngine::Open (::rocksdb::Env::Default (), backup_options, &backup_engine_raw);
 		backup_engine.reset (backup_engine_raw);
 		if (!status.ok ())
@@ -775,7 +775,7 @@ bool nano::rocksdb::store::copy_db (boost::filesystem::path const & destination_
 		std::unique_ptr<::rocksdb::BackupEngineReadOnly> backup_engine_read;
 		{
 			::rocksdb::BackupEngineReadOnly * backup_engine_read_raw;
-			status = ::rocksdb::BackupEngineReadOnly::Open (::rocksdb::Env::Default (), ::rocksdb::BackupableDBOptions (destination_path.string ()), &backup_engine_read_raw);
+			status = ::rocksdb::BackupEngineReadOnly::Open (::rocksdb::Env::Default (), ::rocksdb::BackupEngineOptions (destination_path.string ()), &backup_engine_read_raw);
 		}
 		if (!status.ok ())
 		{

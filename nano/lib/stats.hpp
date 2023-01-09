@@ -228,7 +228,7 @@ public:
 		ledger,
 		rollback,
 		bootstrap,
-		bootstrap_server,
+		tcp_server,
 		vote,
 		election,
 		http_callback,
@@ -244,13 +244,25 @@ public:
 		filter,
 		telemetry,
 		vote_generator,
-		vote_cache
+		vote_cache,
+		hinting,
+		blockprocessor,
+		bootstrap_server,
+		active,
 	};
 
 	/** Optional detail type */
 	enum class detail : uint8_t
 	{
 		all = 0,
+
+		// common
+		loop,
+
+		// processing queue
+		queue,
+		overfill,
+		batch,
 
 		// error specific
 		bad_sender,
@@ -276,6 +288,15 @@ public:
 		gap_previous,
 		gap_source,
 		rollback_failed,
+		progress,
+		bad_signature,
+		negative_spend,
+		unreceivable,
+		gap_epoch_open_pending,
+		opened_burn_account,
+		balance_mismatch,
+		representative_mismatch,
+		block_position,
 
 		// message specific
 		not_a_type,
@@ -288,6 +309,8 @@ public:
 		node_id_handshake,
 		telemetry_req,
 		telemetry_ack,
+		asc_pull_req,
+		asc_pull_ack,
 
 		// bootstrap, callback
 		initiate,
@@ -337,6 +360,9 @@ public:
 		election_hinted_started,
 		election_hinted_confirmed,
 		election_hinted_drop,
+		generate_vote,
+		generate_vote_normal,
+		generate_vote_final,
 
 		// udp
 		blocking,
@@ -353,6 +379,8 @@ public:
 		invalid_bulk_pull_message,
 		invalid_bulk_pull_account_message,
 		invalid_frontier_req_message,
+		invalid_asc_pull_req_message,
+		invalid_asc_pull_ack_message,
 		message_too_big,
 		outdated_version,
 		udp_max_per_ip,
@@ -413,7 +441,23 @@ public:
 		generator_broadcasts,
 		generator_replies,
 		generator_replies_discarded,
-		generator_spacing
+		generator_spacing,
+
+		// hinting
+		hinted,
+		insert_failed,
+		missing_block,
+
+		// bootstrap server
+		response,
+		write_drop,
+		write_error,
+		blocks,
+		drop,
+		bad_count,
+		response_blocks,
+		response_account_info,
+		channel_full,
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

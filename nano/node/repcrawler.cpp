@@ -252,14 +252,17 @@ nano::uint128_t nano::rep_crawler::total_weight () const
 	nano::uint128_t result (0);
 	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n; ++i)
 	{
-		auto weight (i->weight.number ());
-		if (weight > 0)
+		if (i->channel->alive ())
 		{
-			result = result + weight;
-		}
-		else
-		{
-			break;
+			auto weight (i->weight.number ());
+			if (weight > 0)
+			{
+				result = result + weight;
+			}
+			else
+			{
+				break;
+			}
 		}
 	}
 	return result;
@@ -292,7 +295,7 @@ void nano::rep_crawler::cleanup_reps ()
 		auto iterator (probable_reps.get<tag_last_request> ().begin ());
 		while (iterator != probable_reps.get<tag_last_request> ().end ())
 		{
-			if (iterator->channel->get_tcp_endpoint ().address () != boost::asio::ip::address_v6::any ())
+			if (iterator->channel->alive ())
 			{
 				channels.push_back (iterator->channel);
 				++iterator;
@@ -323,6 +326,10 @@ void nano::rep_crawler::cleanup_reps ()
 			{
 				equal = true;
 			}
+		}
+		else if (i->get_type () == nano::transport::transport_type::fake)
+		{
+			equal = true;
 		}
 		if (!equal)
 		{

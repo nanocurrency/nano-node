@@ -21,8 +21,8 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> const & block_a, std::function<void (std::shared_ptr<nano::block> const &)> const & confirmation_action_a, std::function<void (nano::account const &)> const & live_vote_action_a, nano::election_behavior election_behavior_a) :
 	confirmation_action (confirmation_action_a),
 	live_vote_action (live_vote_action_a),
-	behavior (election_behavior_a),
 	node (node_a),
+	behavior (election_behavior_a),
 	status ({ block_a, 0, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing }),
 	height (block_a->sideband ().height),
 	root (block_a->root ()),
@@ -30,10 +30,6 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 {
 	last_votes.emplace (nano::account::null (), nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
 	last_blocks.emplace (block_a->hash (), block_a);
-	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
-	{
-		node.active.generator.add (root, block_a->hash ());
-	}
 }
 
 void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano::election_status_type type_a)
@@ -53,8 +49,10 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano
 		status.type = type_a;
 		auto const status_l = status;
 		lock_a.unlock ();
-		node.process_confirmed (status_l);
+
 		node.background ([node_l = node.shared (), status_l, confirmation_action_l = confirmation_action] () {
+			node_l->process_confirmed (status_l);
+
 			if (confirmation_action_l)
 			{
 				confirmation_action_l (status_l.winner);
@@ -166,6 +164,16 @@ void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a
 	}
 }
 
+void nano::election::broadcast_vote ()
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	if (last_vote + std::chrono::milliseconds (node.config.network_params.network.vote_broadcast_interval) < std::chrono::steady_clock::now ())
+	{
+		broadcast_vote_impl ();
+		last_vote = std::chrono::steady_clock::now ();
+	}
+}
+
 bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a)
 {
 	bool result = false;
@@ -178,15 +186,13 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			}
 			break;
 		case nano::election::state_t::active:
+			broadcast_vote ();
 			broadcast_block (solicitor_a);
 			send_confirm_req (solicitor_a);
 			break;
 		case nano::election::state_t::confirmed:
-			if (base_latency () * confirmed_duration_factor < std::chrono::steady_clock::now ().time_since_epoch () - state_start.load ())
-			{
-				result = true;
-				state_change (nano::election::state_t::confirmed, nano::election::state_t::expired_confirmed);
-			}
+			result = true; // Return true to indicate this election should be cleaned up
+			state_change (nano::election::state_t::confirmed, nano::election::state_t::expired_confirmed);
 			break;
 		case nano::election::state_t::expired_unconfirmed:
 		case nano::election::state_t::expired_confirmed:
@@ -201,7 +207,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 		// state_change returning true would indicate it
 		if (!state_change (state_m.load (), nano::election::state_t::expired_unconfirmed))
 		{
-			result = true;
+			result = true; // Return true to indicate this election should be cleaned up
 			if (node.config.logging.election_expiration_tally_logging ())
 			{
 				log_votes (tally_impl (), "Election expired: ");
@@ -320,7 +326,7 @@ void nano::election::confirm_if_quorum (nano::unique_lock<nano::mutex> & lock_a)
 		{
 			auto hash = status.winner->hash ();
 			lock_a.unlock ();
-			node.active.final_generator.add (root, hash);
+			node.final_generator.add (root, hash);
 			lock_a.lock ();
 		}
 		if (!node.ledger.cache.final_votes_confirmation_canary.load () || final_weight >= node.online_reps.delta ())
@@ -477,21 +483,23 @@ std::shared_ptr<nano::block> nano::election::winner () const
 	return status.winner;
 }
 
-void nano::election::generate_votes () const
+void nano::election::broadcast_vote_impl ()
 {
+	debug_assert (!mutex.try_lock ());
+
 	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 	{
-		nano::unique_lock<nano::mutex> lock (mutex);
+		node.stats.inc (nano::stat::type::election, nano::stat::detail::generate_vote);
+
 		if (confirmed () || have_quorum (tally_impl ()))
 		{
-			auto hash = status.winner->hash ();
-			lock.unlock ();
-			node.active.final_generator.add (root, hash);
-			lock.lock ();
+			node.stats.inc (nano::stat::type::election, nano::stat::detail::generate_vote_final);
+			node.final_generator.add (root, status.winner->hash ()); // Broadcasts vote to the network
 		}
 		else
 		{
-			node.active.generator.add (root, status.winner->hash ());
+			node.stats.inc (nano::stat::type::election, nano::stat::detail::generate_vote_normal);
+			node.generator.add (root, status.winner->hash ()); // Broadcasts vote to the network
 		}
 	}
 }
