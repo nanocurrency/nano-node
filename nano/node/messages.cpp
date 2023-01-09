@@ -979,6 +979,7 @@ bool nano::confirm_ack::operator== (nano::confirm_ack const & other_a) const
 void nano::confirm_ack::visit (nano::message_visitor & visitor_a) const
 {
 	visitor_a.confirm_ack (*this);
+	std::cout << this->to_string ();
 }
 
 std::size_t nano::confirm_ack::size (std::size_t count)
@@ -989,7 +990,13 @@ std::size_t nano::confirm_ack::size (std::size_t count)
 
 std::string nano::confirm_ack::to_string () const
 {
-	return vote->account.to_string ();
+	std::string s = header.to_string () + "\n";
+	s += "timestamp: " + std::to_string(vote->timestamp ()) + "\n";
+	s += "account: " + vote->account.to_string () + "\n";
+	s += "signature: " + vote->signature.to_string () + "\n";
+	s += "hashes: " + vote->hashes_string ();
+
+	return s;
 }
 
 /*

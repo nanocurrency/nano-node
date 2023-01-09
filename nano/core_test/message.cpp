@@ -274,12 +274,19 @@ TEST (message, confirm_ack_to_string)
 	nano::vote vote = nano::vote ();
 	nano::account start = nano::account (12345678987564321);
 	vote.account = start;
-
+	vote.signature = nano::signature (11111111111111111);
+	
 	std::shared_ptr vote_ptr = std::make_shared<nano::vote> (vote);
+
+	std::string expected_output = "NetID: 5241(dev), VerMaxUsingMin: 19/19/18, MsgType: 5(confirm_ack), Extensions: 0100\n";
+	expected_output += "timestamp: " + std::to_string (vote_ptr->timestamp ()) + "\n";
+	expected_output += "account: " + vote_ptr->account.to_string () + "\n";
+	expected_output += "signature: " + vote_ptr->signature.to_string () + "\n";
+	expected_output += "hashes: " + vote_ptr->hashes_string ();
 
 	nano::confirm_ack confirm_ack = nano::confirm_ack (nano::dev::network_params.network, vote_ptr);
 
-	ASSERT_EQ (confirm_ack.to_string (), vote_ptr->account.to_string ());
+	ASSERT_EQ (confirm_ack.to_string (), expected_output);
 }
 
 TEST (message, bulk_pull_serialization)
