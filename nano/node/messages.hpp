@@ -208,9 +208,9 @@ public:
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
-	std::shared_ptr<nano::vote> vote;
 	static std::size_t size (std::size_t count);
 	std::string to_string () const;
+	std::shared_ptr<nano::vote> vote;
 };
 
 class frontier_req final : public message
