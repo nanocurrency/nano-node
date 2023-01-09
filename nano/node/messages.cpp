@@ -989,13 +989,7 @@ std::size_t nano::confirm_ack::size (std::size_t count)
 
 std::string nano::confirm_ack::to_string () const
 {
-	std::string s = header.to_string () + "\n";
-	s += "timestamp: " + std::to_string(vote->timestamp ()) + "\n";
-	s += "account: " + vote->account.to_string () + "\n";
-	s += "signature: " + vote->signature.to_string () + "\n";
-	s += "hashes: " + vote->hashes_string ();
-
-	return s;
+	return header.to_string () + "\n" + vote->to_json();
 }
 
 /*
