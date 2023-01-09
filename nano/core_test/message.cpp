@@ -273,7 +273,9 @@ TEST (message, telemetry_ack_to_string_empty_payload)
 {
 	nano::telemetry_ack telemetry_ack = nano::telemetry_ack (nano::dev::network_params.network);
 
-	ASSERT_EQ (telemetry_ack.to_string (), "empty payload");
+	auto expected = telemetry_ack.header.to_string () + "\n" + "empty telemetry payload";
+	std::cout << telemetry_ack.to_string () << "\n";
+	ASSERT_EQ (telemetry_ack.to_string (), expected);
 }
 
 TEST (message, telemetry_ack_to_string_not_empty_payload)
@@ -286,7 +288,9 @@ TEST (message, telemetry_ack_to_string_not_empty_payload)
 	telemetry_ack.data = telemetry_data;
 	telemetry_ack.header = hdr;
 
-	ASSERT_EQ (telemetry_ack.to_string (), telemetry_data.to_string ());
+	auto expected = telemetry_ack.header.to_string () + "\n" + telemetry_data.to_string ();
+	std::cout << telemetry_ack.to_string () << "\n";
+	ASSERT_EQ (telemetry_ack.to_string (), expected);
 }
 
 TEST (message, bulk_pull_serialization)
