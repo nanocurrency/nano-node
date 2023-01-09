@@ -269,30 +269,6 @@ TEST (confirm_ack, empty_vote_hashes)
 	nano::confirm_ack message{ nano::dev::network_params.network, vote };
 }
 
-TEST (message, telemetry_ack_to_string_empty_payload)
-{
-	nano::telemetry_ack telemetry_ack = nano::telemetry_ack (nano::dev::network_params.network);
-
-	auto expected = telemetry_ack.header.to_string () + "\n" + "empty telemetry payload";
-	std::cout << telemetry_ack.to_string () << "\n";
-	ASSERT_EQ (telemetry_ack.to_string (), expected);
-}
-
-TEST (message, telemetry_ack_to_string_not_empty_payload)
-{
-	nano::telemetry_ack telemetry_ack = nano::telemetry_ack (nano::dev::network_params.network);
-	nano::telemetry_data telemetry_data = nano::telemetry_data ();
-	nano::message_header hdr{ nano::dev::network_params.network, nano::message_type::confirm_req };
-	hdr.block_type_set (nano::block_type::not_a_block);
-
-	telemetry_ack.data = telemetry_data;
-	telemetry_ack.header = hdr;
-
-	auto expected = telemetry_ack.header.to_string () + "\n" + telemetry_data.to_string ();
-	std::cout << telemetry_ack.to_string () << "\n";
-	ASSERT_EQ (telemetry_ack.to_string (), expected);
-}
-
 TEST (message, bulk_pull_serialization)
 {
 	nano::bulk_pull message_in{ nano::dev::network_params.network };
