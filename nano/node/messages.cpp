@@ -989,7 +989,7 @@ std::size_t nano::confirm_ack::size (std::size_t count)
 
 std::string nano::confirm_ack::to_string () const
 {
-	return header.to_string () + "\n" + vote->to_json();
+	return header.to_string () + "\n" + vote->to_json ();
 }
 
 /*
