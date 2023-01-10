@@ -11,9 +11,17 @@ on:
         default: "VX.Y"
         required: true
       ref_start:
-        description: "Start (tag or rev)"
+        description: "Start (VX.Y tag)"
         default: ""
         required: false
+      mode:
+        description: "Find tag as start"
+        type: choice
+        options:
+          - final
+          - beta
+        default: final
+        required: true
 env:
   artifact: 1
 
@@ -26,38 +34,32 @@ jobs:
         run: |
           echo "TAG=${{ github.event.inputs.ref }}" >> $GITHUB_ENV
           echo "REF_START=${{ github.event.inputs.ref_start }}" >> $GITHUB_ENV
-          echo "REPO_TO_BUILD=${{ github.event.inputs.repo }}" >> $GITHUB_ENV
+          echo "REPO_TO_RUN=${{ github.event.inputs.repo }}" >> $GITHUB_ENV
+          echo "MODE=${{ github.event.inputs.mode }}" >> $GITHUB_ENV
       - name: Checks out the required workflow files (workflow repo)
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
         with:
           ref: ${{ github.ref }}
           repository: ${{ github.repository }}
+      - name: Install Dependencies
+        run: sudo apt-get install -yqq uuid
+      - name: Setup Python 3.x
+        uses: actions/setup-python@13ae5bb136fac2878aff31522b9efb785519f984 #v4.3.0
+        with:
+          python-version: '3.x'
+      - name: Installs PIP Packages
+        run: |
+          pip install PyGithub
+          pip install mdutils
       - name: Generating the CHANGELOG file (automatic interval)
         if: ${{ github.event.inputs.ref_start == '' }}
-        run: |
-          mkdir -p ${GITHUB_WORKSPACE}/source
-          mkdir -p ${GITHUB_WORKSPACE}/artifacts
-          docker run -e PAT=${{ secrets.GITHUB_TOKEN }} -e TAG=$TAG \
-          -v ${GITHUB_WORKSPACE}:/workspace \
-          -v ${GITHUB_WORKSPACE}/source:/source \
-          -v ${GITHUB_WORKSPACE}/artifacts:/artifacts \
-          nanocurrency/nano-env:gcc \
-          /bin/bash -c "/workspace/ci/changelog-gen-wrap.sh -s /source -o /artifacts -w /workspace -r $REPO_TO_BUILD -i"
-      - name: Generating the CHANGELOG file (interval from the input)
+        run: python util/changelog.py -v --repo $REPO_TO_RUN -m $MODE -t $TAG -p "${{ secrets.GITHUB_TOKEN }}"
+      - name: Generating the CHANGELOG file (selected interval)
         if: ${{ github.event.inputs.ref_start != '' }}
-        run: |
-          mkdir -p ${GITHUB_WORKSPACE}/source
-          mkdir -p ${GITHUB_WORKSPACE}/artifacts
-          docker run -e PAT=${{ secrets.GITHUB_TOKEN }} \
-          -v ${GITHUB_WORKSPACE}:/workspace \
-          -v ${GITHUB_WORKSPACE}/source:/source \
-          -v ${GITHUB_WORKSPACE}/artifacts:/artifacts \
-          nanocurrency/nano-env:gcc \
-          /bin/bash -c "/workspace/ci/changelog-gen-wrap.sh -s /source -o /artifacts -w /workspace -r $REPO_TO_BUILD -b $REF_START -t $TAG -i"
-      - name: Deploy the Changelog Artifact
-        run: ci/actions/deploy-changelog.sh $TAG
-        env:
-          S3_BUILD_DIRECTORY: ${{ secrets.S3_BUILD_DIRECTORY }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-2
+        run: python util/changelog.py -v --repo $REPO_TO_RUN --start-tag $REF_START -t $TAG -p "${{ secrets.GITHUB_TOKEN }}"
+      - name: Upload the Changelog Artifact
+        uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb #v3.1.1
+        with:
+          name: CHANGELOG_${{ env.TAG }}.md
+          path: |
+            ${{ github.workspace }}/CHANGELOG.md
