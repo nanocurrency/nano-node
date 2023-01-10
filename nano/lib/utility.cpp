@@ -5,6 +5,7 @@
 #include <boost/program_options.hpp>
 
 #include <cstddef>
+#include <fstream>
 #include <iostream>
 
 #ifdef _WIN32
