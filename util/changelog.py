@@ -26,9 +26,6 @@ optional arguments:
                         Tag to use for changelog generation
   --start-tag START_TAG 
                         Tag to use as start reference (instead of -s)
-  --previous-branch PREVIOUS_BRANCH
-                        Branch name of the previous version
-                        Reference: --tag or --end
   -v, --verbose         Verbose mode
 """
 
@@ -155,13 +152,6 @@ class CliArgs:
             type=str, action="store"
         )
         parse.add_argument(
-            '--previous-branch',
-            dest='previous_branch',
-            help='Branch name of the previous version',
-            type=str, action='store',
-            required=True
-        )
-        parse.add_argument(
             '-v', '--verbose',
             help="Verbose mode",
             action="store_true"
@@ -174,7 +164,6 @@ class CliArgs:
         self.start = options.start
         self.tag = options.tag
         self.verbose = options.verbose
-        self.previous_branch = options.previous_branch
         self.start_tag = options.start_tag
 
 
@@ -194,7 +183,6 @@ class GenerateTree:
         self.name = args.repo
         self.repo = github.get_repo(self.name)
         self.args = args
-        self.previous_branch = args.previous_branch
         if args.tag:
             self.tag = args.tag
             self.end = self.repo.get_commit(args.tag).sha
@@ -289,12 +277,7 @@ class GenerateTree:
                 return True
         return False
 
-    def get_common_ancestor(self) -> str:
-        if not self.previous_branch:
-            print(f"argument required: the target end or tag doesn't have a {self.args.mode} ancestor in the same"
-                  "major version, the argument --previous-branch is required to find the ancestor")
-            exit(1)
-
+    def get_common_ancestor(self, start_tag: str) -> str:
         print("info: will look for the common ancestor by local git repo")
         cmd = f'''
         repo_path=/tmp/$(uuid)
@@ -305,12 +288,8 @@ class GenerateTree:
             fi
             pushd "$repo_path"
             git clone https://github.com/{self.name} .
-            git checkout origin/{self.previous_branch} -b {self.previous_branch}
-            common_ancestor=$( \
-                diff -u <(git rev-list --first-parent "develop") \
-                <(git rev-list --first-parent "HEAD") \
-                | sed -ne "s/^ //p" | head -1 \
-            )
+            develop_head=$(git show-ref -s origin/develop)
+            common_ancestor=$(git merge-base --octopus "$develop_head" "{start_tag}")
             echo "$common_ancestor" > "$repo_path/output_file"
             popd
         ) > /dev/null 2>&1
@@ -367,7 +346,7 @@ class GenerateTree:
                       f"has the same major version of the end tag ({self.tag})")
             return start_commit
 
-        return self.get_common_ancestor()
+        return self.get_common_ancestor(start_tag)
 
 
 class GenerateMarkdown:
