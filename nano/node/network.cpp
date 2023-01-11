@@ -488,6 +488,10 @@ public:
 		{
 			node.vote_processor.vote (message_a.vote, channel);
 		}
+		else
+		{
+			node.stats.inc (nano::stat::type::drop, nano::stat::detail::vote_zero_early);
+		}
 	}
 
 	void bulk_pull (nano::bulk_pull const &) override

@@ -339,6 +339,8 @@ public:
 		vote_indeterminate,
 		vote_invalid,
 		vote_overflow,
+		vote_zero_early,
+		vote_zero_late,
 
 		// election specific
 		vote_new,

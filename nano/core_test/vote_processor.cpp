@@ -347,3 +347,47 @@ TEST (vote, empty_hashes)
 	nano::keypair key;
 	auto vote = std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, std::vector<nano::block_hash>{} /* empty */);
 }
+
+static std::shared_ptr<nano::vote> zero_account_vote ()
+{
+	nano::raw_key junk_key{ 0 }; // A signature is made by nano::vote from this key but is overwritten by direct signature deserialization
+	uint64_t junk_timestamp = 0;
+	std::vector<nano::block_hash> junk_hashes;
+
+	// Changing this value will cause the vote to never validate
+	nano::account account{ 0 };
+	// Chosen to make the vote validate
+	// Changing this will make the vote sometimes validate
+	uint8_t chosen_duration = 3;
+
+	auto vote = std::make_shared<nano::vote> (account, junk_key, junk_timestamp, chosen_duration, junk_hashes);
+	// Signature will verify for the 0 account for some messages.
+	auto decode_error = vote->signature.decode_hex ("00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000");
+	debug_assert (!decode_error);
+	auto validate_error = vote->validate ();
+	debug_assert (!validate_error);
+	return vote;
+}
+
+TEST (vote, sign_zero_account)
+{
+	auto vote = zero_account_vote ();
+}
+
+TEST (vote_processor, zero_vote_filter_early)
+{
+	nano::system system{ 1 };
+	auto vote = zero_account_vote ();
+	auto channel = std::make_shared<nano::transport::inproc::channel> (*system.nodes[0], *system.nodes[0]);
+	nano::confirm_ack message{ nano::dev::network_params.network, vote };
+	system.nodes[0]->network.inbound (message, channel);
+	ASSERT_TIMELY (1s, 1 == system.nodes[0]->stats.count (nano::stat::type::drop, nano::stat::detail::vote_zero_early));
+}
+
+TEST (vote_processor, zero_vote_filter_late)
+{
+	nano::system system{ 1 };
+	auto vote = zero_account_vote ();
+	system.nodes[0]->active.vote (vote);
+	ASSERT_TIMELY (1s, 1 == system.nodes[0]->stats.count (nano::stat::type::drop, nano::stat::detail::vote_zero_late));
+}

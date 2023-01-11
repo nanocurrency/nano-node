@@ -428,6 +428,11 @@ nano::election_insertion_result nano::active_transactions::insert_hinted (std::s
 // Validate a vote and apply it to the current election if one exists
 nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> const & vote_a)
 {
+	if (vote_a->account.is_zero ())
+	{
+		node.stats.inc (nano::stat::type::drop, nano::stat::detail::vote_zero_late);
+		return nano::vote_code::invalid;
+	}
 	nano::vote_code result{ nano::vote_code::indeterminate };
 	// If all hashes were recently confirmed then it is a replay
 	unsigned recently_confirmed_counter (0);
