@@ -17,9 +17,6 @@
 [submodule "cpptoml"]
 	path = cpptoml
 	url = https://github.com/cryptocode/cpptoml.git
-[submodule "nano-pow-server"]
-	path = nano-pow-server
-	url = https://github.com/nanocurrency/nano-pow-server.git
 [submodule "flatbuffers"]
 	path = flatbuffers
 	url = https://github.com/google/flatbuffers.git
