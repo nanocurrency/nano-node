@@ -147,8 +147,6 @@ add_library(
   portmapping.cpp
   prioritization.cpp
   prioritization.hpp
-  node_pow_server_config.hpp
-  node_pow_server_config.cpp
   repcrawler.hpp
   repcrawler.cpp
   request_aggregator.hpp
