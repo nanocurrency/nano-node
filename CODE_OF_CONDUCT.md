@@ -126,3 +126,6 @@ enforcement ladder](https://github.com/mozilla/diversity).
 For answers to common questions about this code of conduct, see the FAQ at
 https://www.contributor-covenant.org/faq. Translations are available at
 https://www.contributor-covenant.org/translations.
+
+Community Leaders are Nano Foundation members, Nano core dev team members
+and Nano Discord moderators, as and where applicable.
