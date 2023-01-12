@@ -242,7 +242,6 @@ target_link_libraries(
   Boost::program_options
   Boost::system
   Boost::thread
-  Boost::boost
   rocksdb
   ${DISKHASH}
   ${CMAKE_DL_LIBS}
