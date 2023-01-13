@@ -48,7 +48,7 @@ nano::bootstrap_attempt::~bootstrap_attempt ()
 
 bool nano::bootstrap_attempt::should_log ()
 {
-	nano::lock_guard<nano::mutex> guard (next_log_mutex);
+	nano::lock_guard<nano::mutex> guard{ next_log_mutex };
 	auto result (false);
 	auto now (std::chrono::steady_clock::now ());
 	if (next_log < now)
@@ -70,7 +70,7 @@ bool nano::bootstrap_attempt::still_pulling ()
 void nano::bootstrap_attempt::pull_started ()
 {
 	{
-		nano::lock_guard<nano::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard{ mutex };
 		++pulling;
 	}
 	condition.notify_all ();
@@ -79,7 +79,7 @@ void nano::bootstrap_attempt::pull_started ()
 void nano::bootstrap_attempt::pull_finished ()
 {
 	{
-		nano::lock_guard<nano::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard{ mutex };
 		--pulling;
 	}
 	condition.notify_all ();
@@ -88,7 +88,7 @@ void nano::bootstrap_attempt::pull_finished ()
 void nano::bootstrap_attempt::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		stopped = true;
 	}
 	condition.notify_all ();
