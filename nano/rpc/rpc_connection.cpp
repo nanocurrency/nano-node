@@ -105,7 +105,7 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 	auto header_field_credentials_l (header_parser->get ()["nano-api-key"]);
 	auto header_corr_id_l (header_parser->get ()["nano-correlation-id"]);
 	auto body_parser (std::make_shared<boost::beast::http::request_parser<boost::beast::http::string_body>> (std::move (*header_parser)));
-	auto path_l (body_parser->get ().target ().to_string ());
+	std::string path_l = body_parser->get ().target ();
 	boost::beast::http::async_read (stream, buffer, *body_parser, boost::asio::bind_executor (strand, [this_l, body_parser, header_field_credentials_l, header_corr_id_l, path_l, &stream] (boost::system::error_code const & ec, size_t bytes_transferred) {
 		if (!ec)
 		{
@@ -142,8 +142,8 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 						auto handler (std::make_shared<nano::rpc_handler> (this_l->rpc_config, req.body (), request_id, response_handler, this_l->rpc_handler_interface, this_l->logger));
 						nano::rpc_handler_request_params request_params;
 						request_params.rpc_version = rpc_version_l;
-						request_params.credentials = header_field_credentials_l.to_string ();
-						request_params.correlation_id = header_corr_id_l.to_string ();
+						request_params.credentials = header_field_credentials_l;
+						request_params.correlation_id = header_corr_id_l;
 						request_params.path = boost::algorithm::erase_first_copy (path_l, api_path_l);
 						request_params.path = boost::algorithm::erase_first_copy (request_params.path, "/");
 						handler->process_request (request_params);
