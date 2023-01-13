@@ -83,9 +83,6 @@ set(NANO_TEST
 set(NANO_SECURE_RPC
     OFF
     CACHE BOOL "")
-set(NANO_POW_SERVER
-    OFF
-    CACHE BOOL "")
 set(NANO_WARN_TO_ERR
     OFF
     CACHE BOOL "")
@@ -571,9 +568,6 @@ add_library(blake2 crypto/blake2/blake2-config.h crypto/blake2/blake2-impl.h
 
 target_compile_definitions(blake2 PRIVATE -D__SSE2__)
 
-if(NANO_POW_SERVER)
-  add_subdirectory(nano-pow-server)
-endif()
 add_subdirectory(nano/crypto_lib)
 add_subdirectory(nano/secure)
 add_subdirectory(nano/lib)
@@ -772,12 +766,6 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
         endif()
       endforeach(boost_lib)
     endif()
-    if(NANO_POW_SERVER)
-      install(TARGETS nano_pow_server
-              DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
-      install(DIRECTORY ${PROJECT_SOURCE_DIR}/nano-pow-server/public
-              DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
-    endif()
     install(FILES Nano.icns
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Resources)
   elseif(WIN32)
@@ -825,11 +813,6 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
         endif()
       endforeach(boost_lib)
     endif()
-    if(NANO_POW_SERVER)
-      install(TARGETS nano_pow_server DESTINATION .)
-      install(DIRECTORY ${PROJECT_SOURCE_DIR}/nano-pow-server/public
-              DESTINATION .)
-    endif()
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${WIN_REDIST} DESTINATION .)
     install(FILES ${Qt5_bin_DIR}/libGLESv2.dll DESTINATION .)
     install(FILES ${Qt5_bin_DIR}/Qt5Core.dll DESTINATION .)
@@ -851,11 +834,6 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
           install(FILES ${boost_dll} DESTINATION ./lib)
         endif()
       endforeach(boost_lib)
-    endif()
-    if(NANO_POW_SERVER)
-      install(TARGETS nano_pow_server DESTINATION ./bin)
-      install(DIRECTORY ${PROJECT_SOURCE_DIR}/nano-pow-server/public
-              DESTINATION ./bin)
     endif()
     set(DEBIAN_POSTINST postinst.in)
     set(DEBIAN_POSTRM postrm.in)

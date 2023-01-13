@@ -159,19 +159,6 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				node->start ();
 				nano::ipc::ipc_server ipc_server (*node, config.rpc);
 				std::unique_ptr<boost::process::child> rpc_process;
-				std::unique_ptr<boost::process::child> nano_pow_server_process;
-
-				/*if (config.pow_server.enable)
-				{
-					if (!boost::filesystem::exists (config.pow_server.pow_server_path))
-					{
-						std::cerr << std::string ("nano_pow_server is configured to start as a child process, however the file cannot be found at: ") + config.pow_server.pow_server_path << std::endl;
-						std::exit (1);
-					}
-
-					nano_pow_server_process = std::make_unique<boost::process::child> (config.pow_server.pow_server_path, "--config_path", data_path / "config-nano-pow-server.toml");
-				}*/
-
 				std::unique_ptr<nano::rpc> rpc;
 				std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 				if (config.rpc_enable)

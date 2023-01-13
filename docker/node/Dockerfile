@@ -13,13 +13,11 @@ RUN \
 cmake /tmp/src \
 -DCI_BUILD=${CI_BUILD} \
 -DPORTABLE=1 \
--DACTIVE_NETWORK=nano_${NETWORK}_network \
--DNANO_POW_SERVER=ON
+-DACTIVE_NETWORK=nano_${NETWORK}_network
 
 RUN \ 
 make nano_node -j $(nproc) && \
 make nano_rpc -j $(nproc) && \
-make nano_pow_server -j $(nproc) && \
 cd .. && \
 echo ${NETWORK} >/etc/nano-network
 
@@ -30,7 +28,6 @@ useradd --uid 1000 --gid nanocurrency --shell /bin/bash --create-home nanocurren
 
 COPY --from=0 /tmp/build/nano_node /usr/bin
 COPY --from=0 /tmp/build/nano_rpc /usr/bin
-COPY --from=0 /tmp/build/nano_pow_server /usr/bin
 COPY --from=0 /tmp/src/api/ /usr/bin/api/
 COPY --from=0 /etc/nano-network /etc
 COPY docker/node/entry.sh /usr/bin/entry.sh
