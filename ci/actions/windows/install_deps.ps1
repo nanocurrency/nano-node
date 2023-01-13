@@ -13,7 +13,7 @@ function Get-RedirectedUri {
     .NOTES
         Code from: Redone per issue #2896 in core https://github.com/PowerShell/PowerShell/issues/2896
     #>
- 
+
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
@@ -31,7 +31,7 @@ function Get-RedirectedUri {
                     # This is for Powershell core
                     $redirectUri = $request.BaseResponse.RequestMessage.RequestUri.AbsoluteUri
                 }
- 
+
                 $retry = $false
             }
             catch {
@@ -44,12 +44,10 @@ function Get-RedirectedUri {
                 }
             }
         } while ($retry)
- 
+
         $redirectUri
     }
 }
-$boost_url = Get-RedirectedUri "https://repo.nano.org/artifacts/boost-msvc14.2-1.70-full.zip"
-$BOOST_ROOT = "c:\local\boost_1_70_0"
 $qt5_root = "c:\qt"
 $qt5base_url = Get-RedirectedUri "https://repo.nano.org/artifacts/5.13.1-0-201909031231qtbase-Windows-Windows_10-MSVC2017-Windows-Windows_10-X86_64.7z"
 $qt5winextra_url = Get-RedirectedUri "https://repo.nano.org/artifacts/5.13.1-0-201909031231qtwinextras-Windows-Windows_10-MSVC2017-Windows-Windows_10-X86_64.7z"
@@ -62,10 +60,3 @@ mkdir $qt5_root
 Push-Location $qt5_root
 7z x "${env:TMP}\qt5*.7z" -aoa
 Pop-Location
-
-
-mkdir $BOOST_ROOT
-Write-Output "BOOST_ROOT=$BOOST_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-(New-Object System.Net.WebClient).DownloadFile($boost_url, "${env:TMP}\boost-msvc.zip")
-Push-Location $BOOST_ROOT
-7z x "${env:TMP}\boost-msvc.zip" -aoa
