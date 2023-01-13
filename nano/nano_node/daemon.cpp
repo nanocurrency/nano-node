@@ -56,21 +56,6 @@ volatile sig_atomic_t sig_int_or_term = 0;
 constexpr std::size_t OPEN_FILE_DESCRIPTORS_LIMIT = 16384;
 }
 
-static void load_and_set_bandwidth_params (std::shared_ptr<nano::node> const & node, boost::filesystem::path const & data_path, nano::node_flags const & flags)
-{
-	nano::daemon_config config{ data_path, node->network_params };
-
-	auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
-	if (!error)
-	{
-		error = nano::flags_config_conflicts (flags, config.node);
-		if (!error)
-		{
-			node->set_bandwidth_params (config.node.bandwidth_limit, config.node.bandwidth_limit_burst_ratio);
-		}
-	}
-}
-
 void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
 	install_abort_signal_handler ();
@@ -109,7 +94,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		nano::work_pool opencl_work (config.node.network_params.network, config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
 			return opencl->generate_work (version_a, root_a, difficulty_a, ticket_a);
 		}
-																																		  : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
+																																		  : std::function<boost::optional<uint64_t> (nano::work_version, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
 		try
 		{
 			// This avoid a blank prompt during any node initialization delays
