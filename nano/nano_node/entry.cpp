@@ -1511,7 +1511,7 @@ int main (int argc, char * const * argv)
 						// Epoch blocks
 						if (block->type () == nano::block_type::state)
 						{
-							auto & state_block (static_cast<nano::state_block &> (*block.get ()));
+							auto & state_block (static_cast<nano::state_block &> (*block));
 							nano::amount prev_balance (0);
 							bool error_or_pruned (false);
 							if (!state_block.hashables.previous.is_zero ())
