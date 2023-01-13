@@ -32,10 +32,10 @@ TEST (locks, no_conflicts)
 	nano::test::cout_redirect (ss.rdbuf ());
 
 	nano::mutex guard_mutex;
-	nano::lock_guard<nano::mutex> guard (guard_mutex);
+	nano::lock_guard<nano::mutex> guard{ guard_mutex };
 
 	nano::mutex lk_mutex;
-	nano::unique_lock<nano::mutex> lk (lk_mutex);
+	nano::unique_lock<nano::mutex> lk{ lk_mutex };
 
 	// This could fail if NANO_TIMED_LOCKS is such a low value that the above mutexes are held longer than that before reaching this statement
 	ASSERT_EQ (ss.str (), "");
@@ -54,7 +54,7 @@ TEST (locks, lock_guard)
 	// Depending on timing the mutex could be reached first in
 	std::promise<void> promise;
 	std::thread t ([&mutex, &promise] {
-		nano::lock_guard<nano::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard{ mutex };
 		promise.set_value ();
 		// Tries to make sure that the other guard to held for a minimum of NANO_TIMED_LOCKS, may need to increase this for low NANO_TIMED_LOCKS values
 		std::this_thread::sleep_for (std::chrono::milliseconds (NANO_TIMED_LOCKS * 2));
@@ -63,7 +63,7 @@ TEST (locks, lock_guard)
 	// Wait until the lock_guard has been reached in the other thread
 	promise.get_future ().wait ();
 	{
-		nano::lock_guard<nano::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard{ mutex };
 		t.join ();
 	}
 
@@ -88,7 +88,7 @@ TEST (locks, unique_lock)
 	// Depending on timing the mutex could be reached first in
 	std::promise<void> promise;
 	std::thread t ([&mutex, &promise] {
-		nano::unique_lock<nano::mutex> lk (mutex);
+		nano::unique_lock<nano::mutex> lk{ mutex };
 		std::this_thread::sleep_for (std::chrono::milliseconds (NANO_TIMED_LOCKS));
 		lk.unlock ();
 		lk.lock ();
@@ -101,7 +101,7 @@ TEST (locks, unique_lock)
 	// Wait until the lock_guard has been reached in the other thread
 	promise.get_future ().wait ();
 	{
-		nano::unique_lock<nano::mutex> lk (mutex);
+		nano::unique_lock<nano::mutex> lk{ mutex };
 		t.join ();
 	}
 
@@ -134,7 +134,7 @@ TEST (locks, condition_variable_wait)
 		}
 	});
 
-	nano::unique_lock<nano::mutex> lk (mutex);
+	nano::unique_lock<nano::mutex> lk{ mutex };
 	std::this_thread::sleep_for (std::chrono::milliseconds (NANO_TIMED_LOCKS));
 	cv.wait (lk, [&notified] {
 		return notified.load ();
@@ -159,7 +159,7 @@ TEST (locks, condition_variable_wait_until)
 	auto impl = [&] (auto time_to_sleep) {
 		std::atomic<bool> notified{ false };
 		std::atomic<bool> finished{ false };
-		nano::unique_lock<nano::mutex> lk (mutex);
+		nano::unique_lock<nano::mutex> lk{ mutex };
 		std::this_thread::sleep_for (std::chrono::milliseconds (time_to_sleep));
 		std::thread t ([&] {
 			while (!finished)
@@ -188,7 +188,7 @@ TEST (locks, condition_variable_wait_until)
 TEST (locks, defer_lock)
 {
 	nano::mutex mutex;
-	nano::unique_lock<nano::mutex> lock (mutex, std::defer_lock);
+	nano::unique_lock<nano::mutex> lock{ mutex, std::defer_lock };
 	ASSERT_FALSE (lock.owns_lock ());
 	ASSERT_TRUE (lock.try_lock ());
 	ASSERT_TRUE (lock.owns_lock ());
