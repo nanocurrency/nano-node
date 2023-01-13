@@ -450,7 +450,7 @@ boost::optional<uint64_t> nano::opencl_work::generate_work (nano::work_version c
 
 boost::optional<uint64_t> nano::opencl_work::generate_work (nano::work_version const version_a, nano::root const & root_a, uint64_t const difficulty_a, std::atomic<int> & ticket_a)
 {
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	bool error (false);
 	int ticket_l (ticket_a);
 	uint64_t result (0);
