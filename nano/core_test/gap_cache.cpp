@@ -35,7 +35,7 @@ TEST (gap_cache, add_existing)
 				  .work (5)
 				  .build_shared ();
 	cache.add (block1->hash ());
-	nano::unique_lock<nano::mutex> lock (cache.mutex);
+	nano::unique_lock<nano::mutex> lock{ cache.mutex };
 	auto existing1 (cache.blocks.get<1> ().find (block1->hash ()));
 	ASSERT_NE (cache.blocks.get<1> ().end (), existing1);
 	auto arrival (existing1->arrival);
@@ -63,7 +63,7 @@ TEST (gap_cache, comparison)
 				  .work (5)
 				  .build_shared ();
 	cache.add (block1->hash ());
-	nano::unique_lock<nano::mutex> lock (cache.mutex);
+	nano::unique_lock<nano::mutex> lock{ cache.mutex };
 	auto existing1 (cache.blocks.get<1> ().find (block1->hash ()));
 	ASSERT_NE (cache.blocks.get<1> ().end (), existing1);
 	auto arrival (existing1->arrival);
