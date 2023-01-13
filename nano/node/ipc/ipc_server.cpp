@@ -129,7 +129,7 @@ public:
 		};
 
 		static nano::mutex subscriber_mutex;
-		nano::unique_lock<nano::mutex> lock (subscriber_mutex);
+		nano::unique_lock<nano::mutex> lock{ subscriber_mutex };
 
 		if (!subscriber)
 		{

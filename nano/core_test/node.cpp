@@ -515,7 +515,7 @@ TEST (node, unlock_search)
 	ASSERT_TIMELY (10s, node->active.empty ());
 	system.wallet (0)->insert_adhoc (key2.prv);
 	{
-		nano::lock_guard<std::recursive_mutex> lock (system.wallet (0)->store.mutex);
+		nano::lock_guard<std::recursive_mutex> lock{ system.wallet (0)->store.mutex };
 		system.wallet (0)->store.password.value_set (nano::keypair ().prv);
 	}
 	{
@@ -2079,7 +2079,7 @@ TEST (node, online_reps_rep_crawler)
 	ASSERT_EQ (0, node1.online_reps.online ());
 	// After inserting to rep crawler
 	{
-		nano::lock_guard<nano::mutex> guard (node1.rep_crawler.probable_reps_mutex);
+		nano::lock_guard<nano::mutex> guard{ node1.rep_crawler.probable_reps_mutex };
 		node1.rep_crawler.active.insert (nano::dev::genesis->hash ());
 	}
 	node1.vote_processor.vote_blocking (vote, std::make_shared<nano::transport::fake::channel> (node1));
@@ -4255,7 +4255,7 @@ TEST (rep_crawler, local)
 	auto loopback = std::make_shared<nano::transport::inproc::channel> (node, node);
 	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector{ nano::dev::genesis->hash () });
 	{
-		nano::lock_guard<nano::mutex> guard (node.rep_crawler.probable_reps_mutex);
+		nano::lock_guard<nano::mutex> guard{ node.rep_crawler.probable_reps_mutex };
 		node.rep_crawler.active.insert (nano::dev::genesis->hash ());
 		node.rep_crawler.responses.emplace_back (loopback, vote);
 	}

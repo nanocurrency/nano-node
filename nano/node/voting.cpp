@@ -68,7 +68,7 @@ bool nano::local_vote_history::consistency_check (nano::root const & root_a) con
 
 void nano::local_vote_history::add (nano::root const & root_a, nano::block_hash const & hash_a, std::shared_ptr<nano::vote> const & vote_a)
 {
-	nano::lock_guard<nano::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard{ mutex };
 	clean ();
 	auto add_vote (true);
 	auto & history_by_root (history.get<tag_root> ());
@@ -102,7 +102,7 @@ void nano::local_vote_history::add (nano::root const & root_a, nano::block_hash 
 
 void nano::local_vote_history::erase (nano::root const & root_a)
 {
-	nano::lock_guard<nano::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard{ mutex };
 	auto & history_by_root (history.get<tag_root> ());
 	auto range (history_by_root.equal_range (root_a));
 	history_by_root.erase (range.first, range.second);
@@ -110,7 +110,7 @@ void nano::local_vote_history::erase (nano::root const & root_a)
 
 std::vector<std::shared_ptr<nano::vote>> nano::local_vote_history::votes (nano::root const & root_a) const
 {
-	nano::lock_guard<nano::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard{ mutex };
 	std::vector<std::shared_ptr<nano::vote>> result;
 	auto range (history.get<tag_root> ().equal_range (root_a));
 	std::transform (range.first, range.second, std::back_inserter (result), [] (auto const & entry) { return entry.vote; });
@@ -119,7 +119,7 @@ std::vector<std::shared_ptr<nano::vote>> nano::local_vote_history::votes (nano::
 
 std::vector<std::shared_ptr<nano::vote>> nano::local_vote_history::votes (nano::root const & root_a, nano::block_hash const & hash_a, bool const is_final_a) const
 {
-	nano::lock_guard<nano::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard{ mutex };
 	std::vector<std::shared_ptr<nano::vote>> result;
 	auto range (history.get<tag_root> ().equal_range (root_a));
 	// clang-format off
@@ -132,7 +132,7 @@ std::vector<std::shared_ptr<nano::vote>> nano::local_vote_history::votes (nano::
 
 bool nano::local_vote_history::exists (nano::root const & root_a) const
 {
-	nano::lock_guard<nano::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard{ mutex };
 	return history.get<tag_root> ().find (root_a) != history.get<tag_root> ().end ();
 }
 
@@ -148,7 +148,7 @@ void nano::local_vote_history::clean ()
 
 std::size_t nano::local_vote_history::size () const
 {
-	nano::lock_guard<nano::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard{ mutex };
 	return history.size ();
 }
 
@@ -200,7 +200,7 @@ void nano::vote_generator::process (nano::write_transaction const & transaction,
 	}
 	if (should_vote)
 	{
-		nano::unique_lock<nano::mutex> lock (mutex);
+		nano::unique_lock<nano::mutex> lock{ mutex };
 		candidates.emplace_back (root_a, hash_a);
 		if (candidates.size () >= nano::network::confirm_ack_hashes_max)
 		{
@@ -222,7 +222,7 @@ void nano::vote_generator::stop ()
 {
 	vote_generation_queue.stop ();
 
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	stopped = true;
 
 	lock.unlock ();
@@ -263,7 +263,7 @@ std::size_t nano::vote_generator::generate (std::vector<std::shared_ptr<nano::bl
 		nano::transform_if (blocks_a.begin (), blocks_a.end (), std::back_inserter (req_candidates), dependents_confirmed, as_candidate);
 	}
 	auto const result = req_candidates.size ();
-	nano::lock_guard<nano::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard{ mutex };
 	requests.emplace_back (std::move (req_candidates), channel_a);
 	while (requests.size () > max_requests)
 	{
@@ -386,7 +386,7 @@ void nano::vote_generator::broadcast_action (std::shared_ptr<nano::vote> const &
 void nano::vote_generator::run ()
 {
 	nano::thread_role::set (nano::thread_role::name::voting);
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		if (candidates.size () >= nano::network::confirm_ack_hashes_max)
@@ -419,7 +419,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (na
 	std::size_t candidates_count = 0;
 	std::size_t requests_count = 0;
 	{
-		nano::lock_guard<nano::mutex> guard (vote_generator.mutex);
+		nano::lock_guard<nano::mutex> guard{ vote_generator.mutex };
 		candidates_count = vote_generator.candidates.size ();
 		requests_count = vote_generator.requests.size ();
 	}

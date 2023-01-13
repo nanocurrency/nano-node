@@ -215,7 +215,7 @@ nano::stat_histogram::stat_histogram (std::initializer_list<uint64_t> intervals_
 
 void nano::stat_histogram::add (uint64_t index_a, uint64_t addend_a)
 {
-	nano::lock_guard<nano::mutex> lk (histogram_mutex);
+	nano::lock_guard<nano::mutex> lk{ histogram_mutex };
 	debug_assert (!bins.empty ());
 
 	// The search for a bin is linear, but we're searching just a few
@@ -248,7 +248,7 @@ void nano::stat_histogram::add (uint64_t index_a, uint64_t addend_a)
 
 std::vector<nano::stat_histogram::bin> nano::stat_histogram::get_bins () const
 {
-	nano::lock_guard<nano::mutex> lk (histogram_mutex);
+	nano::lock_guard<nano::mutex> lk{ histogram_mutex };
 	return bins;
 }
 
@@ -264,7 +264,7 @@ std::shared_ptr<nano::stat_entry> nano::stat::get_entry (uint32_t key)
 
 std::shared_ptr<nano::stat_entry> nano::stat::get_entry (uint32_t key, size_t interval, size_t capacity)
 {
-	nano::unique_lock<nano::mutex> lock (stat_mutex);
+	nano::unique_lock<nano::mutex> lock{ stat_mutex };
 	return get_entry_impl (key, interval, capacity);
 }
 
@@ -291,7 +291,7 @@ std::unique_ptr<nano::stat_log_sink> nano::stat::log_sink_json () const
 
 void nano::stat::log_counters (stat_log_sink & sink)
 {
-	nano::unique_lock<nano::mutex> lock (stat_mutex);
+	nano::unique_lock<nano::mutex> lock{ stat_mutex };
 	log_counters_impl (sink);
 }
 
@@ -326,7 +326,7 @@ void nano::stat::log_counters_impl (stat_log_sink & sink)
 
 void nano::stat::log_samples (stat_log_sink & sink)
 {
-	nano::unique_lock<nano::mutex> lock (stat_mutex);
+	nano::unique_lock<nano::mutex> lock{ stat_mutex };
 	log_samples_impl (sink);
 }
 
@@ -389,7 +389,7 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 
 	auto now (std::chrono::steady_clock::now ());
 
-	nano::unique_lock<nano::mutex> lock (stat_mutex);
+	nano::unique_lock<nano::mutex> lock{ stat_mutex };
 	if (!stopped)
 	{
 		auto entry (get_entry_impl (key_a, config.interval, config.capacity));
@@ -441,20 +441,20 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 
 std::chrono::seconds nano::stat::last_reset ()
 {
-	nano::unique_lock<nano::mutex> lock (stat_mutex);
+	nano::unique_lock<nano::mutex> lock{ stat_mutex };
 	auto now (std::chrono::steady_clock::now ());
 	return std::chrono::duration_cast<std::chrono::seconds> (now - timestamp);
 }
 
 void nano::stat::stop ()
 {
-	nano::lock_guard<nano::mutex> guard (stat_mutex);
+	nano::lock_guard<nano::mutex> guard{ stat_mutex };
 	stopped = true;
 }
 
 void nano::stat::clear ()
 {
-	nano::unique_lock<nano::mutex> lock (stat_mutex);
+	nano::unique_lock<nano::mutex> lock{ stat_mutex };
 	entries.clear ();
 	timestamp = std::chrono::steady_clock::now ();
 }
@@ -1078,14 +1078,14 @@ std::string nano::stat::dir_to_string (dir dir)
 
 nano::stat_datapoint::stat_datapoint (stat_datapoint const & other_a)
 {
-	nano::lock_guard<nano::mutex> lock (other_a.datapoint_mutex);
+	nano::lock_guard<nano::mutex> lock{ other_a.datapoint_mutex };
 	value = other_a.value;
 	timestamp = other_a.timestamp;
 }
 
 nano::stat_datapoint & nano::stat_datapoint::operator= (stat_datapoint const & other_a)
 {
-	nano::lock_guard<nano::mutex> lock (other_a.datapoint_mutex);
+	nano::lock_guard<nano::mutex> lock{ other_a.datapoint_mutex };
 	value = other_a.value;
 	timestamp = other_a.timestamp;
 	return *this;
@@ -1093,32 +1093,32 @@ nano::stat_datapoint & nano::stat_datapoint::operator= (stat_datapoint const & o
 
 uint64_t nano::stat_datapoint::get_value () const
 {
-	nano::lock_guard<nano::mutex> lock (datapoint_mutex);
+	nano::lock_guard<nano::mutex> lock{ datapoint_mutex };
 	return value;
 }
 
 void nano::stat_datapoint::set_value (uint64_t value_a)
 {
-	nano::lock_guard<nano::mutex> lock (datapoint_mutex);
+	nano::lock_guard<nano::mutex> lock{ datapoint_mutex };
 	value = value_a;
 }
 
 std::chrono::system_clock::time_point nano::stat_datapoint::get_timestamp () const
 {
-	nano::lock_guard<nano::mutex> lock (datapoint_mutex);
+	nano::lock_guard<nano::mutex> lock{ datapoint_mutex };
 	return timestamp;
 }
 
 void nano::stat_datapoint::set_timestamp (std::chrono::system_clock::time_point timestamp_a)
 {
-	nano::lock_guard<nano::mutex> lock (datapoint_mutex);
+	nano::lock_guard<nano::mutex> lock{ datapoint_mutex };
 	timestamp = timestamp_a;
 }
 
 /** Add \addend to the current value and optionally update the timestamp */
 void nano::stat_datapoint::add (uint64_t addend, bool update_timestamp)
 {
-	nano::lock_guard<nano::mutex> lock (datapoint_mutex);
+	nano::lock_guard<nano::mutex> lock{ datapoint_mutex };
 	value += addend;
 	if (update_timestamp)
 	{

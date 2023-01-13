@@ -14,13 +14,13 @@ class observer_set final
 public:
 	void add (std::function<void (T...)> const & observer_a)
 	{
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		observers.push_back (observer_a);
 	}
 
 	void notify (T... args) const
 	{
-		nano::unique_lock<nano::mutex> lock (mutex);
+		nano::unique_lock<nano::mutex> lock{ mutex };
 		auto observers_copy = observers;
 		lock.unlock ();
 
@@ -32,13 +32,13 @@ public:
 
 	bool empty () const
 	{
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		return observers.empty ();
 	}
 
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const
 	{
-		nano::unique_lock<nano::mutex> lock (mutex);
+		nano::unique_lock<nano::mutex> lock{ mutex };
 		auto count = observers.size ();
 		lock.unlock ();
 		auto sizeof_element = sizeof (typename decltype (observers)::value_type);

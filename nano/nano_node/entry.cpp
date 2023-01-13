@@ -1375,7 +1375,7 @@ int main (int argc, char * const * argv)
 				if (!silent)
 				{
 					static nano::mutex cerr_mutex;
-					nano::lock_guard<nano::mutex> lock (cerr_mutex);
+					nano::lock_guard<nano::mutex> lock{ cerr_mutex };
 					std::cerr << error_message_a;
 				}
 				++errors;
@@ -1386,7 +1386,7 @@ int main (int argc, char * const * argv)
 				{
 					threads.emplace_back ([&function_a, node, &mutex, &condition, &finished, &deque_a] () {
 						auto transaction (node->store.tx_begin_read ());
-						nano::unique_lock<nano::mutex> lock (mutex);
+						nano::unique_lock<nano::mutex> lock{ mutex };
 						while (!deque_a.empty () || !finished)
 						{
 							while (deque_a.empty () && !finished)
@@ -1638,7 +1638,7 @@ int main (int argc, char * const * argv)
 			for (auto i (node->store.account.begin (transaction)), n (node->store.account.end ()); i != n; ++i)
 			{
 				{
-					nano::unique_lock<nano::mutex> lock (mutex);
+					nano::unique_lock<nano::mutex> lock{ mutex };
 					if (accounts.size () > accounts_deque_overflow)
 					{
 						auto wait_ms (250 * accounts.size () / accounts_deque_overflow);
@@ -1650,7 +1650,7 @@ int main (int argc, char * const * argv)
 				condition.notify_all ();
 			}
 			{
-				nano::lock_guard<nano::mutex> lock (mutex);
+				nano::lock_guard<nano::mutex> lock{ mutex };
 				finished = true;
 			}
 			condition.notify_all ();
@@ -1749,7 +1749,7 @@ int main (int argc, char * const * argv)
 			for (auto i (node->store.pending.begin (transaction)), n (node->store.pending.end ()); i != n; ++i)
 			{
 				{
-					nano::unique_lock<nano::mutex> lock (mutex);
+					nano::unique_lock<nano::mutex> lock{ mutex };
 					if (pending.size () > pending_deque_overflow)
 					{
 						auto wait_ms (50 * pending.size () / pending_deque_overflow);
@@ -1761,7 +1761,7 @@ int main (int argc, char * const * argv)
 				condition.notify_all ();
 			}
 			{
-				nano::lock_guard<nano::mutex> lock (mutex);
+				nano::lock_guard<nano::mutex> lock{ mutex };
 				finished = true;
 			}
 			condition.notify_all ();
