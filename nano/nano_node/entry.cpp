@@ -628,7 +628,7 @@ int main (int argc, char * const * argv)
 							nano::work_pool work_pool{ network_params.network, 0, std::chrono::nanoseconds (0), opencl ? [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
 														  return opencl->generate_work (version_a, root_a, difficulty_a);
 													  }
-																													   : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr) };
+																													   : std::function<boost::optional<uint64_t> (nano::work_version , nano::root const &, uint64_t, std::atomic<int> &)> (nullptr) };
 							nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x (%5%x from base difficulty %6$#x)\n") % platform % device % threads % difficulty % nano::to_string (nano::difficulty::to_multiplier (difficulty, nano::work_thresholds::publish_full.base), 4) % nano::work_thresholds::publish_full.base);
 							for (uint64_t i (0); true; ++i)
