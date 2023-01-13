@@ -956,7 +956,7 @@ TEST (votes, add_one)
 	auto existing1 (votes1.find (nano::dev::genesis_key.pub));
 	ASSERT_NE (votes1.end (), existing1);
 	ASSERT_EQ (send1->hash (), existing1->second.hash);
-	nano::lock_guard<nano::mutex> guard (node1.active.mutex);
+	nano::lock_guard<nano::mutex> guard{ node1.active.mutex };
 	auto winner (*election1->tally ().begin ());
 	ASSERT_EQ (*send1, *winner.second);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, winner.first);
@@ -1008,7 +1008,7 @@ TEST (votes, add_existing)
 	ASSERT_TIMELY (5s, node1.active.active (*send2));
 	auto vote2 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * 2, 0, std::vector<nano::block_hash>{ send2->hash () }));
 	// Pretend we've waited the timeout
-	nano::unique_lock<nano::mutex> lock (election1->mutex);
+	nano::unique_lock<nano::mutex> lock{ election1->mutex };
 	election1->last_votes[nano::dev::genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	lock.unlock ();
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote2));
@@ -1062,7 +1062,7 @@ TEST (votes, add_old)
 	node1.work_generate_blocking (*send2);
 	auto vote2 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ send2->hash () });
 	{
-		nano::lock_guard<nano::mutex> lock (election1->mutex);
+		nano::lock_guard<nano::mutex> lock{ election1->mutex };
 		election1->last_votes[nano::dev::genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	}
 	node1.vote_processor.vote_blocking (vote2, channel);
