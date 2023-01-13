@@ -7,7 +7,6 @@
 #include <nano/node/transport/tcp_server.hpp>
 
 #include <boost/format.hpp>
-#include <boost/variant/get.hpp>
 
 nano::transport::tcp_listener::tcp_listener (uint16_t port_a, nano::node & node_a) :
 	node (node_a),

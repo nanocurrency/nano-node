@@ -3,8 +3,6 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/store.hpp>
 
-#include <boost/asio/error.hpp>
-
 // TODO: Make threads configurable
 nano::bootstrap_server::bootstrap_server (nano::store & store_a, nano::ledger & ledger_a, nano::network_constants const & network_constants_a, nano::stat & stats_a) :
 	store{ store_a },

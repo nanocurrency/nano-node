@@ -2,8 +2,6 @@
 
 #include <miniupnp/miniupnpc/include/miniupnpc.h>
 
-#include <mutex>
-
 namespace nano
 {
 class node;

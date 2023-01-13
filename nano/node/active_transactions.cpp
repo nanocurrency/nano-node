@@ -8,9 +8,6 @@
 #include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
-#include <boost/variant/get.hpp>
-
-#include <numeric>
 
 using namespace std::chrono;
 

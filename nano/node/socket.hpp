@@ -4,10 +4,7 @@
 #include <nano/boost/asio/strand.hpp>
 #include <nano/lib/asio.hpp>
 
-#include <boost/optional.hpp>
-
 #include <chrono>
-#include <deque>
 #include <map>
 #include <memory>
 #include <vector>

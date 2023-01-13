@@ -1,5 +1,4 @@
 #include <nano/boost/asio/bind_executor.hpp>
-#include <nano/boost/asio/dispatch.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/node.hpp>

@@ -5,11 +5,7 @@
 #include <nano/node/telemetry.hpp>
 #include <nano/secure/buffer.hpp>
 
-#include <boost/asio/steady_timer.hpp>
 #include <boost/format.hpp>
-#include <boost/variant/get.hpp>
-
-#include <numeric>
 
 nano::network::network (nano::node & node_a, uint16_t port_a) :
 	id (nano::network_constants::active_network),
