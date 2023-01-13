@@ -2,7 +2,7 @@
 
 bool nano::block_arrival::add (nano::block_hash const & hash_a)
 {
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto now (std::chrono::steady_clock::now ());
 	auto inserted (arrival.get<tag_sequence> ().emplace_back (nano::block_arrival_info{ now, hash_a }));
 	auto result (!inserted.second);
@@ -11,7 +11,7 @@ bool nano::block_arrival::add (nano::block_hash const & hash_a)
 
 bool nano::block_arrival::recent (nano::block_hash const & hash_a)
 {
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto now (std::chrono::steady_clock::now ());
 	while (arrival.size () > arrival_size_min && arrival.get<tag_sequence> ().front ().arrival + arrival_time_min < now)
 	{
@@ -24,7 +24,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bl
 {
 	std::size_t count = 0;
 	{
-		nano::lock_guard<nano::mutex> guard (block_arrival.mutex);
+		nano::lock_guard<nano::mutex> guard{ block_arrival.mutex };
 		count = block_arrival.arrival.size ();
 	}
 
