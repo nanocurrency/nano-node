@@ -1,10 +1,13 @@
 add_executable(nano_node daemon.cpp daemon.hpp entry.cpp)
 
-target_link_libraries(nano_node node rpc secure argon2 ${PLATFORM_LIBS})
-
-if(NANO_STACKTRACE_BACKTRACE)
-  target_link_libraries(nano_node backtrace)
-endif()
+target_link_libraries(
+  nano_node
+  Boost::process
+  node
+  rpc
+  secure
+  argon2
+  ${PLATFORM_LIBS})
 
 target_compile_definitions(
   nano_node PRIVATE -DTAG_VERSION_STRING=${TAG_VERSION_STRING}

@@ -12,7 +12,6 @@
 #include <boost/log/utility/setup/file.hpp>
 
 #ifdef BOOST_WINDOWS
-#include <boost/log/sinks/event_log_backend.hpp>
 #else
 #define BOOST_LOG_USE_NATIVE_SYSLOG
 #include <boost/log/sinks/syslog_backend.hpp>
@@ -37,20 +36,6 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 		}
 
 #ifdef BOOST_WINDOWS
-		if (nano::event_log_reg_entry_exists () || nano::is_windows_elevated ())
-		{
-			static auto event_sink = boost::make_shared<boost::log::sinks::synchronous_sink<boost::log::sinks::simple_event_log_backend>> (boost::log::keywords::log_name = "Nano", boost::log::keywords::log_source = "Nano");
-			event_sink->set_formatter (format);
-
-			// Currently only mapping sys log errors
-			boost::log::sinks::event_log::custom_event_type_mapping<nano::severity_level> mapping ("Severity");
-			mapping[nano::severity_level::error] = boost::log::sinks::event_log::error;
-			event_sink->locked_backend ()->set_event_type_mapper (mapping);
-
-			// Only allow messages or error or greater severity to the event log
-			event_sink->set_filter (severity >= nano::severity_level::error);
-			boost::log::core::get ()->add_sink (event_sink);
-		}
 #else
 		static auto sys_sink = boost::make_shared<boost::log::sinks::synchronous_sink<boost::log::sinks::syslog_backend>> (boost::log::keywords::facility = boost::log::sinks::syslog::user, boost::log::keywords::use_impl = boost::log::sinks::syslog::impl_types::native);
 		sys_sink->set_formatter (format);

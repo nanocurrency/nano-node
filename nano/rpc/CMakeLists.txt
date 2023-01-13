@@ -15,4 +15,4 @@ add_library(
   rpc_request_processor.hpp
   rpc_request_processor.cpp)
 
-target_link_libraries(rpc nano_lib ${OPENSSL_LIBRARIES})
+target_link_libraries(rpc Boost::beast nano_lib ${OPENSSL_LIBRARIES})

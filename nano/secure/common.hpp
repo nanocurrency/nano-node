@@ -15,6 +15,7 @@
 #include <boost/property_tree/ptree_fwd.hpp>
 #include <boost/variant/variant.hpp>
 
+#include <array>
 #include <unordered_map>
 
 namespace boost
