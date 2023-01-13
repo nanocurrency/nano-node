@@ -17,7 +17,7 @@ nano::transport::tcp_listener::tcp_listener (uint16_t port_a, nano::node & node_
 
 void nano::transport::tcp_listener::start ()
 {
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	on = true;
 	listening_socket = std::make_shared<nano::server_socket> (node, boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port), node.config.tcp_incoming_connections_max);
 	boost::system::error_code ec;
@@ -77,13 +77,13 @@ void nano::transport::tcp_listener::stop ()
 {
 	decltype (connections) connections_l;
 	{
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		on = false;
 		connections_l.swap (connections);
 	}
 	if (listening_socket)
 	{
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		listening_socket->close ();
 		listening_socket = nullptr;
 	}
@@ -91,7 +91,7 @@ void nano::transport::tcp_listener::stop ()
 
 std::size_t nano::transport::tcp_listener::connection_count ()
 {
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	return connections.size ();
 }
 
@@ -100,7 +100,7 @@ void nano::transport::tcp_listener::accept_action (boost::system::error_code con
 	if (!node.network.excluded_peers.check (socket_a->remote_endpoint ()))
 	{
 		auto server = std::make_shared<nano::transport::tcp_server> (socket_a, node.shared (), true);
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		connections[server.get ()] = server;
 		server->start ();
 	}
@@ -116,7 +116,7 @@ void nano::transport::tcp_listener::accept_action (boost::system::error_code con
 
 boost::asio::ip::tcp::endpoint nano::transport::tcp_listener::endpoint ()
 {
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	if (on && listening_socket)
 	{
 		return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), port);
@@ -170,7 +170,7 @@ nano::transport::tcp_server::~tcp_server ()
 
 	stop ();
 
-	nano::lock_guard<nano::mutex> lock (node->tcp_listener.mutex);
+	nano::lock_guard<nano::mutex> lock{ node->tcp_listener.mutex };
 	node->tcp_listener.connections.erase (this);
 }
 
@@ -564,7 +564,7 @@ void nano::transport::tcp_server::timeout ()
 			node->logger.try_log ("Closing incoming tcp / bootstrap server by timeout");
 		}
 		{
-			nano::lock_guard<nano::mutex> lock (node->tcp_listener.mutex);
+			nano::lock_guard<nano::mutex> lock{ node->tcp_listener.mutex };
 			node->tcp_listener.connections.erase (this);
 		}
 		socket->close ();
