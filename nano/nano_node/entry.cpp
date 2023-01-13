@@ -9,12 +9,10 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/inproc.hpp>
 
-#include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
-#include <boost/range/adaptor/reversed.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
 
