@@ -93,7 +93,6 @@ target_link_libraries(
   ipc_flatbuffers_lib
   ${CRYPTOPP_LIBRARY}
   ${CMAKE_DL_LIBS}
-  Boost::boost
   Boost::program_options)
 
 if(NANO_STACKTRACE_BACKTRACE)
