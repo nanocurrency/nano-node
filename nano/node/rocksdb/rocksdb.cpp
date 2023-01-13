@@ -1,10 +1,8 @@
-#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
 #include <nano/node/rocksdb/rocksdb_iterator.hpp>
 #include <nano/node/rocksdb/rocksdb_txn.hpp>
 
-#include <boost/endian/conversion.hpp>
 #include <boost/format.hpp>
 #include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -14,7 +12,6 @@
 #include <rocksdb/slice_transform.h>
 #include <rocksdb/utilities/backup_engine.h>
 #include <rocksdb/utilities/transaction.h>
-#include <rocksdb/utilities/transaction_db.h>
 
 namespace
 {

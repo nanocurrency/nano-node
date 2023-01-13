@@ -4,8 +4,6 @@
 #include <nano/node/unchecked_map.hpp>
 #include <nano/secure/store.hpp>
 
-#include <boost/range/join.hpp>
-
 nano::unchecked_map::unchecked_map (nano::store & store, bool const & disable_delete) :
 	store{ store },
 	disable_delete{ disable_delete },

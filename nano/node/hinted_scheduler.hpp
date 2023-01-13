@@ -2,15 +2,10 @@
 
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/lib/utility.hpp>
 #include <nano/secure/common.hpp>
 
 #include <condition_variable>
-#include <memory>
-#include <queue>
 #include <thread>
-#include <vector>
 
 namespace nano
 {

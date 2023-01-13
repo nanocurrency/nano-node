@@ -1,8 +1,5 @@
 #include <nano/boost/asio/bind_executor.hpp>
-#include <nano/boost/asio/dispatch.hpp>
-#include <nano/boost/asio/ip/address.hpp>
 #include <nano/boost/asio/ip/address_v6.hpp>
-#include <nano/boost/asio/ip/network_v6.hpp>
 #include <nano/boost/asio/read.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/socket.hpp>

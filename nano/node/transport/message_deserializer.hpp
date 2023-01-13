@@ -4,8 +4,6 @@
 #include <nano/node/messages.hpp>
 #include <nano/node/socket.hpp>
 
-#include <boost/system/error_code.hpp>
-
 #include <memory>
 #include <vector>
 

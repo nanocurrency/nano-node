@@ -11,7 +11,6 @@
 #include <nano/node/vote_processor.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
-#include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
 

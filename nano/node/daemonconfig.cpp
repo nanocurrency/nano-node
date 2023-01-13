@@ -1,7 +1,6 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
-#include <nano/lib/walletconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
 
 #include <sstream>
