@@ -3,6 +3,8 @@
 #include <boost/functional/hash.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
+#include <array>
+
 namespace nano
 {
 using uint128_t = boost::multiprecision::uint128_t;
