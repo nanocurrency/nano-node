@@ -29,7 +29,7 @@ bool nano::bootstrap_attempt_legacy::consume_future (std::future<bool> & future_
 
 void nano::bootstrap_attempt_legacy::stop ()
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	stopped = true;
 	lock.unlock ();
 	condition.notify_all ();
@@ -93,20 +93,20 @@ void nano::bootstrap_attempt_legacy::add_frontier (nano::pull_info const & pull_
 	// Prevent incorrect or malicious pulls with frontier 0 insertion
 	if (!pull_a.head.is_zero ())
 	{
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		frontier_pulls.push_back (pull_a);
 	}
 }
 
 void nano::bootstrap_attempt_legacy::add_bulk_push_target (nano::block_hash const & head, nano::block_hash const & end)
 {
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	bulk_push_targets.emplace_back (head, end);
 }
 
 bool nano::bootstrap_attempt_legacy::request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> & current_target_a)
 {
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto empty (bulk_push_targets.empty ());
 	if (!empty)
 	{
@@ -119,7 +119,7 @@ bool nano::bootstrap_attempt_legacy::request_bulk_push_target (std::pair<nano::b
 void nano::bootstrap_attempt_legacy::set_start_account (nano::account const & start_account_a)
 {
 	// Add last account fron frontier request
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	start_account = start_account_a;
 }
 
@@ -204,7 +204,7 @@ void nano::bootstrap_attempt_legacy::run ()
 	debug_assert (started);
 	debug_assert (!node->flags.disable_legacy_bootstrap);
 	node->bootstrap_initiator.connections->populate_connections (false);
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	run_start (lock);
 	while (still_pulling ())
 	{
@@ -248,7 +248,7 @@ void nano::bootstrap_attempt_legacy::run ()
 
 void nano::bootstrap_attempt_legacy::get_information (boost::property_tree::ptree & tree_a)
 {
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	tree_a.put ("frontier_pulls", std::to_string (frontier_pulls.size ()));
 	tree_a.put ("frontiers_received", static_cast<bool> (frontiers_received));
 	tree_a.put ("frontiers_age", std::to_string (frontiers_age));
