@@ -5,8 +5,6 @@
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/node.hpp>
 
-#include <iostream>
-
 namespace
 {
 nano::account parse_account (std::string const & account, bool & out_is_deprecated_format)

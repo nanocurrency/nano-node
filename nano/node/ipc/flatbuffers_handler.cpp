@@ -9,12 +9,9 @@
 
 #include <iostream>
 #include <sstream>
-#include <unordered_map>
 
 #include <flatbuffers/flatbuffers.h>
 #include <flatbuffers/idl.h>
-#include <flatbuffers/minireflect.h>
-#include <flatbuffers/registry.h>
 #include <flatbuffers/util.h>
 
 namespace

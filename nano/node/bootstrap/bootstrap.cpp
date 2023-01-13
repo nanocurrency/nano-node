@@ -5,8 +5,6 @@
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 
-#include <boost/format.hpp>
-
 #include <algorithm>
 #include <memory>
 

@@ -5,7 +5,6 @@
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/node/unchecked_map.hpp>
-#include <nano/secure/buffer.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/store.hpp>
 

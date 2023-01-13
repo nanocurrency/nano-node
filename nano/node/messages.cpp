@@ -12,9 +12,7 @@
 #include <boost/endian/conversion.hpp>
 #include <boost/format.hpp>
 #include <boost/pool/pool_alloc.hpp>
-#include <boost/variant/get.hpp>
 
-#include <numeric>
 #include <sstream>
 
 /*

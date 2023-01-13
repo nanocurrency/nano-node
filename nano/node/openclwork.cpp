@@ -7,7 +7,6 @@
 #include <boost/format.hpp>
 
 #include <array>
-#include <iostream>
 #include <string>
 #include <vector>
 

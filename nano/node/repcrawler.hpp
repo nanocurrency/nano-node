@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/node/common.hpp>
 #include <nano/node/transport/transport.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
