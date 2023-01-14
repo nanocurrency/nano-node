@@ -406,7 +406,7 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 		}
 		else if (lazy && (pull.attempts <= pull.retry_limit + (pull.processed / node.network_params.bootstrap.lazy_max_pull_blocks)))
 		{
-			debug_assert (pull.account_or_head == pull.head);
+			debug_assert (pull.account_or_head.as_block_hash () == pull.head);
 			if (!lazy->lazy_processed_or_exists (pull.account_or_head.as_block_hash ()))
 			{
 				{
