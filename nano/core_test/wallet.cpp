@@ -696,7 +696,7 @@ TEST (wallet, work_cache_delayed)
 	ASSERT_EQ (block1->hash (), node1.latest (nano::dev::genesis_key.pub));
 	auto block2 (wallet->send_action (nano::dev::genesis_key.pub, key.pub, 100));
 	ASSERT_EQ (block2->hash (), node1.latest (nano::dev::genesis_key.pub));
-	ASSERT_EQ (block2->hash (), node1.wallets.delayed_work->operator[] (nano::dev::genesis_key.pub));
+	ASSERT_EQ (block2->hash (), node1.wallets.delayed_work->operator[] (nano::dev::genesis_key.pub).as_block_hash ());
 	auto threshold (node1.default_difficulty (nano::work_version::work_1));
 	auto again (true);
 	system.deadline_set (10s);

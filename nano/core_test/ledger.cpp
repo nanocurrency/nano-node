@@ -2012,7 +2012,7 @@ TEST (ledger, latest_root)
 	auto transaction = store.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair key;
-	ASSERT_EQ (key.pub, ledger.latest_root (transaction, key.pub));
+	ASSERT_EQ (key.pub, ledger.latest_root (transaction, key.pub).as_account ());
 	auto hash1 = ledger.latest (transaction, nano::dev::genesis_key.pub);
 	nano::block_builder builder;
 	auto send = builder
@@ -2024,7 +2024,7 @@ TEST (ledger, latest_root)
 				.work (*pool.generate (hash1))
 				.build ();
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
-	ASSERT_EQ (send->hash (), ledger.latest_root (transaction, nano::dev::genesis_key.pub));
+	ASSERT_EQ (send->hash (), ledger.latest_root (transaction, nano::dev::genesis_key.pub).as_block_hash ());
 }
 
 TEST (ledger, change_representative_move_representation)

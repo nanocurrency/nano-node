@@ -51,14 +51,14 @@ nano::transaction const & transaction, nano::hash_or_account const & dependency,
 	nano::lock_guard<std::recursive_mutex> lock{ entries_mutex };
 	if (entries == nullptr)
 	{
-		for (auto [i, n] = store.unchecked.equal_range (transaction, dependency.as_block_hash ()); predicate () && i->first.key () == dependency && i != n; ++i)
+		for (auto [i, n] = store.unchecked.equal_range (transaction, dependency.as_block_hash ()); predicate () && i->first.key () == dependency.as_block_hash () && i != n; ++i)
 		{
 			action (i->first, i->second);
 		}
 	}
 	else
 	{
-		for (auto i = entries->template get<tag_root> ().lower_bound (nano::unchecked_key{ dependency, 0 }), n = entries->template get<tag_root> ().end (); predicate () && i != n && i->key.key () == dependency; ++i)
+		for (auto i = entries->template get<tag_root> ().lower_bound (nano::unchecked_key{ dependency, 0 }), n = entries->template get<tag_root> ().end (); predicate () && i != n && i->key.key () == dependency.as_block_hash (); ++i)
 		{
 			action (i->key, i->info);
 		}

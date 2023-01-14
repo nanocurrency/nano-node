@@ -160,7 +160,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code ec, std::
 	// Is block expected?
 	bool block_expected (false);
 	// Unconfirmed head is used only for lazy destinations if legacy bootstrap is not available, see nano::bootstrap_attempt::lazy_destinations_increment (...)
-	bool unconfirmed_account_head (connection->node->flags.disable_legacy_bootstrap && pull_blocks == 0 && pull.retry_limit <= connection->node->network_params.bootstrap.lazy_retry_limit && expected == pull.account_or_head && block->account () == pull.account_or_head);
+	bool unconfirmed_account_head = connection->node->flags.disable_legacy_bootstrap && pull_blocks == 0 && pull.retry_limit <= connection->node->network_params.bootstrap.lazy_retry_limit && (expected == pull.account_or_head.as_block_hash ()) && (block->account () == pull.account_or_head.as_account ());
 	if (hash == expected || unconfirmed_account_head)
 	{
 		expected = block->previous ();
@@ -369,7 +369,7 @@ void nano::bulk_pull_server::set_current_end ()
 			if (!request->end.is_zero ())
 			{
 				auto account (connection->node->ledger.account (transaction, request->end));
-				if (account != request->start)
+				if (account != request->start.as_account ())
 				{
 					if (connection->node->config.logging.bulk_pull_logging ())
 					{
