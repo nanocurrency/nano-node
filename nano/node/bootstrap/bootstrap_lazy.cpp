@@ -53,7 +53,7 @@ void nano::bootstrap_attempt_lazy::lazy_add (nano::hash_or_account const & hash_
 
 void nano::bootstrap_attempt_lazy::lazy_add (nano::pull_info const & pull_a)
 {
-	debug_assert (pull_a.account_or_head == pull_a.head);
+	debug_assert (pull_a.account_or_head.as_block_hash () == pull_a.head);
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	lazy_add (pull_a.account_or_head, pull_a.retry_limit);
 }
