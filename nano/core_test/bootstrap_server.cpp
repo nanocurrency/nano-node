@@ -282,7 +282,7 @@ TEST (bootstrap_server, serve_hash_one)
 	nano::asc_pull_ack::blocks_payload response_payload;
 	ASSERT_NO_THROW (response_payload = std::get<nano::asc_pull_ack::blocks_payload> (response.payload));
 	ASSERT_EQ (response_payload.blocks.size (), 1);
-	ASSERT_TRUE (response_payload.blocks.front ()->hash () == request_payload.start);
+	ASSERT_TRUE (response_payload.blocks.front ()->hash () == request_payload.start.as_block_hash ());
 }
 
 TEST (bootstrap_server, serve_end_of_chain)
@@ -515,7 +515,7 @@ TEST (bootstrap_server, serve_account_info_missing)
 	nano::asc_pull_ack::account_info_payload response_payload;
 	ASSERT_NO_THROW (response_payload = std::get<nano::asc_pull_ack::account_info_payload> (response.payload));
 
-	ASSERT_EQ (response_payload.account, request_payload.target);
+	ASSERT_EQ (response_payload.account, request_payload.target.as_account ());
 	ASSERT_EQ (response_payload.account_open, 0);
 	ASSERT_EQ (response_payload.account_head, 0);
 	ASSERT_EQ (response_payload.account_block_count, 0);
