@@ -79,7 +79,7 @@ public:
 class account_info final
 {
 public:
-	bool operator== (account_info const & other)
+	bool operator== (account_info const & other) const
 	{
 		return frontier == other.frontier && block_count == other.block_count && balance == other.balance && error == other.error;
 	}
