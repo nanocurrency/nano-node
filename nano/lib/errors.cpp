@@ -87,6 +87,8 @@ std::string nano::error_common_messages::message (int ev) const
 			return "Must be a state block";
 		case nano::error_common::numeric_conversion:
 			return "Numeric conversion error";
+		case nano::error_common::reverse_link_not_found:
+			return "Reverse link not found";
 		case nano::error_common::tracking_not_enabled:
 			return "Database transaction tracking is not enabled in the config";
 		case nano::error_common::wallet_lmdb_max_dbs:

@@ -218,6 +218,23 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 
 	if (!init_error ())
 	{
+		if (config.enable_reverse_links)
+		{
+			auto transaction = store.tx_begin_write ();
+			if (store.reverse_link.begin (transaction) == store.reverse_link.end ())
+			{
+				create_reverse_links (transaction);
+			}
+		}
+		else
+		{
+			auto transaction = store.tx_begin_write ();
+			if (store.reverse_link.begin (transaction) != store.reverse_link.end ())
+			{
+				store.reverse_link.clear (transaction);
+			}
+		}
+
 		telemetry->start ();
 
 		// Notify election schedulers when AEC frees election slot
@@ -873,6 +890,50 @@ nano::block_hash nano::node::rep_block (nano::account const & account_a)
 nano::uint128_t nano::node::minimum_principal_weight ()
 {
 	return online_reps.trended () / network_params.network.principal_weight_factor;
+}
+
+void nano::node::create_reverse_links (nano::write_transaction const & transaction_a)
+{
+	logger.always_log ("Start creating reverse links...");
+	auto blocks_count (store.block.count (transaction_a));
+	auto blocks_processed = 0u;
+	for (auto i = store.block.begin (transaction_a), n = store.block.end (); i != n && !stopped.load (); ++i, ++blocks_processed)
+	{
+		nano::block_hash const & block_hash = i->first;
+		nano::block_w_sideband const & block_w_sideband = i->second;
+		nano::block const & block = *block_w_sideband.block;
+
+		// Every so often output to the log to indicate progress
+		constexpr auto output_cutoff = 1000000;
+		if (blocks_processed > 0 && blocks_processed % output_cutoff == 0)
+		{
+			logger.always_log (boost::str (boost::format ("Create reverse links: %1% million blocks processed (out of %2%)") % (blocks_processed / output_cutoff) % blocks_count));
+		}
+
+		// Skip unconfirmed blocks
+		nano::confirmation_height_info confirmation_height_info;
+		store.confirmation_height.get (transaction_a, block.account ().is_zero () ? block.sideband ().account : block.account (), confirmation_height_info);
+		if (confirmation_height_info.height < block.sideband ().height)
+		{
+			continue;
+		}
+
+		// Create a reverse link for receive blocks
+		nano::block_hash send_block_hash = ledger.block_source (transaction_a, block);
+		if (!send_block_hash.is_zero ())
+		{
+			store.reverse_link.put (transaction_a, send_block_hash, block_hash);
+		}
+	}
+	if (blocks_processed >= blocks_count)
+	{
+		logger.always_log ("Finished creating reverse links");
+	}
+	else
+	{
+		logger.always_log ("Stopped creating reverse links");
+		store.reverse_link.clear (transaction_a);
+	}
 }
 
 void nano::node::long_inactivity_cleanup ()

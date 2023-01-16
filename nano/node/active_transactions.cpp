@@ -59,6 +59,16 @@ void nano::active_transactions::stop ()
 
 void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::block> const & block_a)
 {
+	if (node.config.enable_reverse_links)
+	{
+		auto transaction = node.store.tx_begin_write ({ tables::reverse_links });
+		nano::block_hash source = node.ledger.block_source (transaction, *block_a);
+		if (!source.is_zero ())
+		{
+			node.store.reverse_link.put (transaction, source, block_a->hash ());
+		}
+	}
+
 	auto transaction = node.store.tx_begin_read ();
 
 	boost::optional<nano::election_status_type> election_status_type;

@@ -55,6 +55,7 @@ enum class error_common
 	insufficient_balance,
 	is_not_state_block,
 	numeric_conversion,
+	reverse_link_not_found,
 	tracking_not_enabled,
 	wallet_lmdb_max_dbs,
 	wallet_locked,

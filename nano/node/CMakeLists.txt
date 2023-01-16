@@ -110,6 +110,8 @@ add_library(
   lmdb/pending_store.cpp
   lmdb/pruned_store.hpp
   lmdb/pruned_store.cpp
+  lmdb/reverse_link_store.hpp
+  lmdb/reverse_link_store.cpp
   lmdb/version_store.hpp
   lmdb/version_store.cpp
   lmdb/unchecked_store.hpp
@@ -169,6 +171,8 @@ add_library(
   rocksdb/pending_store.cpp
   rocksdb/pruned_store.hpp
   rocksdb/pruned_store.cpp
+  rocksdb/reverse_link_store.hpp
+  rocksdb/reverse_link_store.cpp
   rocksdb/unchecked_store.hpp
   rocksdb/unchecked_store.cpp
   rocksdb/version_store.hpp

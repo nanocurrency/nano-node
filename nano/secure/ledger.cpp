@@ -1224,6 +1224,19 @@ std::shared_ptr<nano::block> nano::ledger::find_receive_block_by_send_hash (nano
 	std::shared_ptr<nano::block> result;
 	debug_assert (send_block_hash != 0);
 
+	// try to find the receive block by a confirmed reverse link
+	nano::block_hash receive_hash = store.reverse_link.get (transaction, send_block_hash);
+	if (!receive_hash.is_zero ())
+	{
+		return store.block.get (transaction, receive_hash);
+	}
+
+	// avoid unneccessary searches in case the send block is receivable
+	if (store.pending.exists (transaction, nano::pending_key (destination, send_block_hash)))
+	{
+		return nullptr;
+	}
+
 	// get the cemented frontier
 	nano::confirmation_height_info info;
 	if (store.confirmation_height.get (transaction, destination, info))
@@ -1518,6 +1531,15 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 			}
 		});
 
+		store.reverse_link.for_each_par (
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::reverse_links }));
+				rocksdb_store->reverse_link.put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
 		auto lmdb_transaction (store.tx_begin_read ());
 		auto version = store.version.get (lmdb_transaction);
 		auto rocksdb_transaction (rocksdb_store->tx_begin_write ());
@@ -1538,6 +1560,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		error |= store.pruned.count (lmdb_transaction) != rocksdb_store->pruned.count (rocksdb_transaction);
 		error |= store.final_vote.count (lmdb_transaction) != rocksdb_store->final_vote.count (rocksdb_transaction);
 		error |= store.online_weight.count (lmdb_transaction) != rocksdb_store->online_weight.count (rocksdb_transaction);
+		error |= store.reverse_link.count (lmdb_transaction) != rocksdb_store->reverse_link.count (rocksdb_transaction);
 		error |= store.version.get (lmdb_transaction) != rocksdb_store->version.get (rocksdb_transaction);
 
 		// For large tables a random key is used instead and makes sure it exists

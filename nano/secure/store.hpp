@@ -550,6 +550,7 @@ enum class tables
 	peers,
 	pending,
 	pruned,
+	reverse_links,
 	unchecked,
 	vote
 };
@@ -621,9 +622,36 @@ private:
 class ledger_cache;
 
 /**
+ * This class declares two abstract methods to iterate over the elements of a store and implements a method for accurate counting.
+ */
+template <typename T, typename U>
+class iterable_store
+{
+public:
+	virtual nano::store_iterator<T, U> begin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<T, U> end () const = 0;
+
+	/**
+	 * Function to count the entries of a store one by one, because the rocksdb count feature is not accurate.
+	 * Counting accurate may be slow depending on the amount of elements in the store.
+	 */
+	size_t count_accurate (nano::transaction const & transaction_a)
+	{
+		size_t count = 0;
+		auto i = begin (transaction_a);
+		auto n = end ();
+		for (; i != n; ++i)
+		{
+			++count;
+		}
+		return count;
+	}
+};
+
+/**
  * Manages frontier storage and iteration
  */
-class frontier_store
+class frontier_store : public iterable_store<nano::block_hash, nano::account>
 {
 public:
 	virtual void put (nano::write_transaction const &, nano::block_hash const &, nano::account const &) = 0;
@@ -638,7 +666,7 @@ public:
 /**
  * Manages account storage and iteration
  */
-class account_store
+class account_store : public iterable_store<nano::account, nano::account_info>
 {
 public:
 	virtual void put (nano::write_transaction const &, nano::account const &, nano::account_info const &) = 0;
@@ -657,7 +685,7 @@ public:
 /**
  * Manages pending storage and iteration
  */
-class pending_store
+class pending_store : public iterable_store<nano::pending_key, nano::pending_info>
 {
 public:
 	virtual void put (nano::write_transaction const &, nano::pending_key const &, nano::pending_info const &) = 0;
@@ -674,7 +702,7 @@ public:
 /**
  * Manages peer storage and iteration
  */
-class peer_store
+class peer_store : public iterable_store<nano::endpoint_key, nano::no_value>
 {
 public:
 	virtual void put (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) = 0;
@@ -689,7 +717,7 @@ public:
 /**
  * Manages online weight storage and iteration
  */
-class online_weight_store
+class online_weight_store : public iterable_store<uint64_t, nano::amount>
 {
 public:
 	virtual void put (nano::write_transaction const &, uint64_t, nano::amount const &) = 0;
@@ -704,7 +732,7 @@ public:
 /**
  * Manages pruned storage and iteration
  */
-class pruned_store
+class pruned_store : public iterable_store<nano::block_hash, std::nullptr_t>
 {
 public:
 	virtual void put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) = 0;
@@ -722,7 +750,7 @@ public:
 /**
  * Manages confirmation height storage and iteration
  */
-class confirmation_height_store
+class confirmation_height_store : public iterable_store<nano::account, nano::confirmation_height_info>
 {
 public:
 	virtual void put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info const & confirmation_height_info_a) = 0;
@@ -748,7 +776,7 @@ public:
 /**
  * Manages unchecked storage and iteration
  */
-class unchecked_store
+class unchecked_store : public iterable_store<nano::unchecked_key, nano::unchecked_info>
 {
 public:
 	using iterator = nano::store_iterator<nano::unchecked_key, nano::unchecked_info>;
@@ -768,7 +796,7 @@ public:
 /**
  * Manages final vote storage and iteration
  */
-class final_vote_store
+class final_vote_store : public iterable_store<nano::qualified_root, nano::block_hash>
 {
 public:
 	virtual bool put (nano::write_transaction const & transaction_a, nano::qualified_root const & root_a, nano::block_hash const & hash_a) = 0;
@@ -796,7 +824,7 @@ public:
 /**
  * Manages block storage and iteration
  */
-class block_store
+class block_store : public iterable_store<nano::block_hash, block_w_sideband>
 {
 public:
 	virtual void put (nano::write_transaction const &, nano::block_hash const &, nano::block const &) = 0;
@@ -821,6 +849,24 @@ public:
 	virtual uint64_t account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 };
 
+/**
+ * Manages reverse link storage and iteration
+ */
+class reverse_link_store : public iterable_store<nano::block_hash, nano::block_hash>
+{
+public:
+	virtual void put (nano::write_transaction const & transaction_a, nano::block_hash const &, nano::block_hash const &) = 0;
+	virtual nano::block_hash get (nano::transaction const &, nano::block_hash const &) const = 0;
+	virtual void del (nano::write_transaction const & transaction_a, nano::block_hash const &) = 0;
+	virtual bool exists (nano::transaction const & transaction_a, nano::block_hash const &) const = 0;
+	virtual size_t count (nano::transaction const & transaction_a) const = 0;
+	virtual void clear (nano::write_transaction const & transaction_a) = 0;
+	virtual nano::store_iterator<nano::block_hash, nano::block_hash> begin (nano::transaction const & transaction_a) const = 0;
+	virtual nano::store_iterator<nano::block_hash, nano::block_hash> begin (nano::transaction const &, nano::block_hash const &) const = 0;
+	virtual nano::store_iterator<nano::block_hash, nano::block_hash> end () const = 0;
+	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, nano::block_hash>, nano::store_iterator<nano::block_hash, nano::block_hash>)> const & action_a) const = 0;
+};
+
 class unchecked_map;
 /**
  * Store manager
@@ -842,6 +888,7 @@ public:
 		nano::peer_store &,
 		nano::confirmation_height_store &,
 		nano::final_vote_store &,
+		nano::reverse_link_store &,
 		nano::version_store &
 	);
 	// clang-format on
@@ -859,7 +906,7 @@ public:
 	account_store & account;
 	pending_store & pending;
 	static int constexpr version_minimum{ 14 };
-	static int constexpr version_current{ 21 };
+	static int constexpr version_current{ 22 };
 
 private:
 	unchecked_store & unchecked;
@@ -870,6 +917,7 @@ public:
 	peer_store & peer;
 	confirmation_height_store & confirmation_height;
 	final_vote_store & final_vote;
+	reverse_link_store & reverse_link;
 	version_store & version;
 
 	virtual unsigned max_block_write_batch_num () const = 0;

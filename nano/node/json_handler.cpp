@@ -3686,6 +3686,58 @@ void nano::json_handler::republish ()
 	response_errors ();
 }
 
+void nano::json_handler::reverse_link ()
+{
+	nano::block_hash send_hash = hash_impl ();
+	if (!ec)
+	{
+		nano::block_hash receive_hash = node.store.reverse_link.get (node.store.tx_begin_read (), send_hash);
+		if (!receive_hash.is_zero ())
+		{
+			response_l.put ("send_hash", send_hash.to_string ());
+			response_l.put ("receive_hash", receive_hash.to_string ());
+		}
+		else
+		{
+			ec = nano::error_common::reverse_link_not_found;
+		}
+	}
+	response_errors ();
+}
+
+void nano::json_handler::reverse_links ()
+{
+	bool const include_not_found = request.get<bool> ("include_not_found", false);
+
+	boost::property_tree::ptree reverse_links;
+	auto transaction = node.store.tx_begin_read ();
+	for (boost::property_tree::ptree::value_type & hashes : request.get_child ("hashes"))
+	{
+		if (!ec)
+		{
+			break;
+		}
+
+		nano::block_hash hash;
+		if (hash.decode_hex (hashes.second.data ()))
+		{
+			ec = nano::error_blocks::bad_hash_number;
+			break;
+		}
+
+		nano::block_hash receive_hash = node.store.reverse_link.get (transaction, hash);
+		if (!receive_hash.is_zero () || include_not_found)
+		{
+			reverse_links.put (hash.to_string (), receive_hash.to_string ());
+		}
+	}
+	if (!ec)
+	{
+		response_l.add_child ("reverse_links", reverse_links);
+	}
+	response_errors ();
+}
+
 void nano::json_handler::search_pending ()
 {
 	response_l.put ("deprecated", "1");
@@ -5348,6 +5400,8 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("representatives", &nano::json_handler::representatives);
 	no_arg_funcs.emplace ("representatives_online", &nano::json_handler::representatives_online);
 	no_arg_funcs.emplace ("republish", &nano::json_handler::republish);
+	no_arg_funcs.emplace ("reverse_link", &nano::json_handler::reverse_link);
+	no_arg_funcs.emplace ("reverse_links", &nano::json_handler::reverse_links);
 	no_arg_funcs.emplace ("search_pending", &nano::json_handler::search_pending);
 	no_arg_funcs.emplace ("search_receivable", &nano::json_handler::search_receivable);
 	no_arg_funcs.emplace ("search_pending_all", &nano::json_handler::search_pending_all);
