@@ -33,11 +33,12 @@ extern std::size_t nano_bootstrap_weights_beta_size;
  * Configs
  */
 
-nano::backlog_population::config nano::nodeconfig_to_backlog_population_config (const nano::node_config & config)
+nano::backlog_population::config nano::backlog_population_config (const nano::node_config & config)
 {
-	nano::backlog_population::config cfg;
-	cfg.ongoing_backlog_population_enabled = config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled;
-	cfg.delay_between_runs_in_seconds = config.network_params.network.is_dev_network () ? 1u : 300u;
+	nano::backlog_population::config cfg{};
+	cfg.enabled = config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled;
+	cfg.frequency = config.backlog_scan_frequency;
+	cfg.batch_size = config.backlog_scan_batch_size;
 	return cfg;
 }
 
@@ -198,7 +199,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	hinting{ nano::nodeconfig_to_hinted_scheduler_config (config), *this, inactive_vote_cache, active, online_reps, stats },
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
-	backlog{ nano::nodeconfig_to_backlog_population_config (config), store, scheduler },
+	backlog{ nano::backlog_population_config (config), store, stats },
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq)
 {
@@ -210,6 +211,10 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	inactive_vote_cache.rep_weight_query = [this] (nano::account const & rep) {
 		return ledger.weight (rep);
 	};
+
+	backlog.activate_callback.add ([this] (nano::transaction const & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info) {
+		scheduler.activate (account, transaction);
+	});
 
 	if (!init_error ())
 	{
@@ -776,6 +781,7 @@ void nano::node::stop ()
 		// Cancels ongoing work generation tasks, which may be blocking other threads
 		// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
 		distributed_work.stop ();
+		backlog.stop ();
 		unchecked.stop ();
 		block_processor.stop ();
 		aggregator.stop ();
