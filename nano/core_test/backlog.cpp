@@ -14,9 +14,10 @@ using block_list_t = std::vector<std::shared_ptr<nano::block>>;
 
 /*
  * Creates `count` 1 raw sends from genesis to unique accounts and corresponding open blocks.
- * The genesis chain is then confirmed, but leaves open blocks unconfirmed.
+ * The genesis chain is then confirmed, but leaves open blocks unconfirmed
+ * The list of unconfirmed open blocks is returned.
  */
-std::vector<std::shared_ptr<nano::block>> setup_independent_blocks (nano::test::system & system, nano::node & node, int count)
+block_list_t setup_independent_blocks (nano::test::system & system, nano::node & node, int count)
 {
 	std::vector<std::shared_ptr<nano::block>> blocks;
 
@@ -30,20 +31,24 @@ std::vector<std::shared_ptr<nano::block>> setup_independent_blocks (nano::test::
 
 		balance -= 1;
 		auto send = builder
-					.send ()
+					.state ()
+					.account (nano::dev::genesis_key.pub)
 					.previous (latest)
-					.destination (key.pub)
+					.representative (nano::dev::genesis_key.pub)
 					.balance (balance)
+					.link (key.pub)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*system.work.generate (latest))
 					.build_shared ();
 		latest = send->hash ();
 
 		auto open = builder
-					.open ()
-					.source (send->hash ())
-					.representative (key.pub)
+					.state ()
 					.account (key.pub)
+					.previous (0)
+					.representative (key.pub)
+					.balance (1)
+					.link (send->hash ())
 					.sign (key.prv, key.pub)
 					.work (*system.work.generate (key.pub))
 					.build_shared ();
@@ -82,18 +87,15 @@ TEST (backlog, population)
 	auto blocks = setup_independent_blocks (system, node, 256);
 
 	// Checks if `activated` set contains all accounts we previously set up
-	auto sum_all_activated = [&] () {
+	auto all_activated = [&] () {
 		nano::lock_guard<nano::mutex> lock{ mutex };
-
-		return std::accumulate (blocks.begin (), blocks.end (), 0, [&] (auto const & sum, auto const & block) {
-			auto account = block->account ();
+		return std::all_of (blocks.begin (), blocks.end (), [&] (auto const & item) {
+			auto account = item->account ();
 			debug_assert (!account.is_zero ());
-
-			return sum + activated.count (account);
+			return activated.count (account) != 0;
 		});
 	};
-
-	ASSERT_TIMELY_EQ (5s, sum_all_activated (), blocks.size ());
+	ASSERT_TIMELY (5s, all_activated ());
 
 	// Clear activated set to ensure we activate those accounts more than once
 	{
@@ -101,5 +103,5 @@ TEST (backlog, population)
 		activated.clear ();
 	}
 
-	ASSERT_TIMELY_EQ (5s, sum_all_activated (), blocks.size ());
+	ASSERT_TIMELY (5s, all_activated ());
 }
