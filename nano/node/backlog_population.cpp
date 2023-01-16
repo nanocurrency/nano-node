@@ -78,7 +78,7 @@ void nano::backlog_population::populate_backlog ()
 {
 	debug_assert (config_m.frequency > 0);
 
-	const auto chunk_size = config_m.rate / config_m.frequency;
+	const auto chunk_size = config_m.batch_size / config_m.frequency;
 	auto done = false;
 	nano::account next = 0;
 	uint64_t total = 0;

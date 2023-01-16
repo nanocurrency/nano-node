@@ -24,7 +24,7 @@ public:
 		bool enabled;
 
 		/** Number of accounts per second to process. Number of accounts per single batch is this value divided by `frequency` */
-		unsigned rate;
+		unsigned batch_size;
 
 		/** Number of batches to run per second. Batches run in 1 second / `frequency` intervals */
 		unsigned frequency;
