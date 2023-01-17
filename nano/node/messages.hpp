@@ -181,6 +181,7 @@ public:
 	bool operator== (nano::publish const &) const;
 	std::shared_ptr<nano::block> block;
 	nano::uint128_t digest{ 0 };
+	std::string to_string () const;
 };
 
 class confirm_req final : public message
@@ -198,6 +199,7 @@ public:
 	std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes;
 	std::string roots_string () const;
 	static std::size_t size (nano::block_type, std::size_t = 0);
+	std::string to_string () const;
 };
 
 class confirm_ack final : public message
@@ -208,8 +210,9 @@ public:
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
-	std::shared_ptr<nano::vote> vote;
 	static std::size_t size (std::size_t count);
+	std::string to_string () const;
+	std::shared_ptr<nano::vote> vote;
 };
 
 class frontier_req final : public message
@@ -225,6 +228,7 @@ public:
 	uint32_t age;
 	uint32_t count;
 	static std::size_t constexpr size = sizeof (start) + sizeof (age) + sizeof (count);
+	std::string to_string () const;
 };
 
 enum class telemetry_maker : uint8_t
@@ -281,6 +285,7 @@ public:
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
+	std::string to_string () const;
 };
 
 class telemetry_ack final : public message
@@ -294,6 +299,7 @@ public:
 	bool deserialize (nano::stream &);
 	uint16_t size () const;
 	bool is_empty_payload () const;
+	std::string to_string () const;
 	static uint16_t size (nano::message_header const &);
 	nano::telemetry_data data;
 };
@@ -315,6 +321,7 @@ public:
 	static std::size_t constexpr count_present_flag = nano::message_header::bulk_pull_count_present_flag;
 	static std::size_t constexpr extended_parameters_size = 8;
 	static std::size_t constexpr size = sizeof (start) + sizeof (end);
+	std::string to_string () const;
 };
 
 class bulk_pull_account final : public message
@@ -329,6 +336,7 @@ public:
 	nano::amount minimum_amount;
 	bulk_pull_account_flags flags;
 	static std::size_t constexpr size = sizeof (account) + sizeof (minimum_amount) + sizeof (bulk_pull_account_flags);
+	std::string to_string () const;
 };
 
 class bulk_push final : public message
@@ -354,6 +362,7 @@ public:
 	boost::optional<std::pair<nano::account, nano::signature>> response;
 	std::size_t size () const;
 	static std::size_t size (nano::message_header const &);
+	std::string to_string () const;
 };
 
 /**

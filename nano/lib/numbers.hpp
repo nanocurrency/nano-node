@@ -3,6 +3,8 @@
 #include <boost/functional/hash.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
+#include <array>
+
 namespace nano
 {
 using uint128_t = boost::multiprecision::uint128_t;
@@ -73,9 +75,6 @@ public:
 	void encrypt (nano::raw_key const &, nano::raw_key const &, uint128_union const &);
 	uint256_union & operator^= (nano::uint256_union const &);
 	uint256_union operator^ (nano::uint256_union const &) const;
-	bool operator== (nano::uint256_union const &) const;
-	bool operator!= (nano::uint256_union const &) const;
-	bool operator< (nano::uint256_union const &) const;
 	void encode_hex (std::string &) const;
 	bool decode_hex (std::string const &);
 	void encode_dec (std::string &) const;
@@ -95,6 +94,18 @@ public:
 		std::array<uint128_union, 2> owords;
 	};
 };
+inline bool operator== (nano::uint256_union const & lhs, nano::uint256_union const & rhs)
+{
+	return lhs.bytes == rhs.bytes;
+}
+inline bool operator!= (nano::uint256_union const & lhs, nano::uint256_union const & rhs)
+{
+	return !(lhs == rhs);
+}
+inline bool operator< (nano::uint256_union const & lhs, nano::uint256_union const & rhs)
+{
+	return std::memcmp (lhs.bytes.data (), rhs.bytes.data (), 32) < 0;
+}
 static_assert (std::is_nothrow_move_constructible<uint256_union>::value, "uint256_union should be noexcept MoveConstructible");
 
 class link;
@@ -131,8 +142,6 @@ public:
 	operator nano::hash_or_account const & () const;
 	bool operator== (std::nullptr_t) const;
 	bool operator!= (std::nullptr_t) const;
-	using uint256_union::operator==;
-	using uint256_union::operator!=;
 };
 
 class wallet_id : public uint256_union

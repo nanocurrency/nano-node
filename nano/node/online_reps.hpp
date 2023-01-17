@@ -10,7 +10,6 @@
 #include <boost/multi_index_container.hpp>
 
 #include <memory>
-#include <unordered_set>
 #include <vector>
 
 namespace nano

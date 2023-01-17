@@ -15,7 +15,6 @@
 
 #include <condition_variable>
 #include <deque>
-#include <mutex>
 #include <thread>
 
 namespace mi = boost::multi_index;

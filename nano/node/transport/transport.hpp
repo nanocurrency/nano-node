@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nano/lib/locks.hpp>
-#include <nano/lib/rate_limiting.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/common.hpp>

@@ -92,7 +92,7 @@ void nano::ipc::access::clear ()
 
 nano::error nano::ipc::access::deserialize_toml (nano::tomlconfig & toml)
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	clear ();
 
 	nano::error error;
@@ -208,7 +208,7 @@ nano::error nano::ipc::access::deserialize_toml (nano::tomlconfig & toml)
 
 bool nano::ipc::access::has_access (std::string const & credentials_a, nano::ipc::access_permission permssion_a) const
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	bool permitted = false;
 	auto user = users.find (credentials_a);
 	if (user != users.end ())
@@ -224,7 +224,7 @@ bool nano::ipc::access::has_access (std::string const & credentials_a, nano::ipc
 
 bool nano::ipc::access::has_access_to_all (std::string const & credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	bool permitted = false;
 	auto user = users.find (credentials_a);
 	if (user != users.end ())
@@ -243,7 +243,7 @@ bool nano::ipc::access::has_access_to_all (std::string const & credentials_a, st
 
 bool nano::ipc::access::has_access_to_oneof (std::string const & credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	bool permitted = false;
 	auto user = users.find (credentials_a);
 	if (user != users.end ())

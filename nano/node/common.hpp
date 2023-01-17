@@ -2,11 +2,8 @@
 
 #include <nano/boost/asio/ip/tcp.hpp>
 #include <nano/boost/asio/ip/udp.hpp>
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/asio.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/memory.hpp>
-#include <nano/lib/stats.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/network_filter.hpp>
 

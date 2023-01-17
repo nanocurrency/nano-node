@@ -142,20 +142,20 @@ namespace test
 		stringstream_mt_sink () = default;
 		stringstream_mt_sink (stringstream_mt_sink const & sink)
 		{
-			nano::lock_guard<nano::mutex> guard (mutex);
+			nano::lock_guard<nano::mutex> guard{ mutex };
 			ss << sink.ss.str ();
 		}
 
 		std::streamsize write (char const * string_to_write, std::streamsize size)
 		{
-			nano::lock_guard<nano::mutex> guard (mutex);
+			nano::lock_guard<nano::mutex> guard{ mutex };
 			ss << std::string (string_to_write, size);
 			return size;
 		}
 
 		std::string str ()
 		{
-			nano::lock_guard<nano::mutex> guard (mutex);
+			nano::lock_guard<nano::mutex> guard{ mutex };
 			return ss.str ();
 		}
 
@@ -254,7 +254,7 @@ namespace test
 				error = count < required_count;
 				if (error)
 				{
-					nano::unique_lock<nano::mutex> lock (mutex);
+					nano::unique_lock<nano::mutex> lock{ mutex };
 					cv.wait_for (lock, std::chrono::milliseconds (1));
 				}
 			}

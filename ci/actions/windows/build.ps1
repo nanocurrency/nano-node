@@ -12,7 +12,6 @@ if (${env:artifact} -eq 1) {
     else {
         $env:NETWORK_CFG = "live"
     }
-    $env:NANO_SHARED_BOOST = "ON"
     $env:NANO_TEST = "-DNANO_TEST=OFF"
     $env:CI_TAG = ${env:TAG}
     if ([string]::IsNullOrEmpty(${env:VERSION_PRE_RELEASE})) {
@@ -27,10 +26,9 @@ else {
     if ( ${env:RELEASE} -eq "true" -or ${env:TEST_USE_ROCKSDB} -eq 1 ) {
         $env:BUILD_TYPE = "RelWithDebInfo"
     }
-    else { 
+    else {
         $env:BUILD_TYPE = "Debug"
     }
-    $env:NANO_SHARED_BOOST = "OFF"
     $env:NETWORK_CFG = "dev"
     $env:NANO_TEST = "-DNANO_TEST=ON"
     $env:CI = '-DCI_TEST="1"'
@@ -39,9 +37,6 @@ else {
 
 mkdir build
 Push-Location build
-
-#accessibility of Boost dlls for generating config samples
-$ENV:PATH = "$ENV:PATH;$ENV:BOOST_ROOT\lib64-msvc-14.2"
 
 & ..\ci\actions\windows\configure.bat
 if (${LastExitCode} -ne 0) {

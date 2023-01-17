@@ -4992,7 +4992,7 @@ void nano::json_handler::work_generate ()
 			block = block_impl (true);
 			if (block != nullptr)
 			{
-				if (hash != block->root ())
+				if (hash != block->root ().as_block_hash ())
 				{
 					ec = nano::error_rpc::block_root_mismatch;
 				}

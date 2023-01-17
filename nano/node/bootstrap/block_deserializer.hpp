@@ -2,8 +2,6 @@
 
 #include <nano/lib/blocks.hpp>
 
-#include <boost/system/error_code.hpp>
-
 #include <memory>
 #include <vector>
 

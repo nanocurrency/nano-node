@@ -5,7 +5,6 @@
 #include <nano/node/socket.hpp>
 
 #include <atomic>
-#include <queue>
 
 namespace nano
 {

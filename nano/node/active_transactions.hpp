@@ -2,27 +2,20 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/node/election.hpp>
-#include <nano/node/inactive_cache_information.hpp>
-#include <nano/node/inactive_cache_status.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/secure/common.hpp>
 
-#include <boost/circular_buffer.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
-#include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
-#include <boost/optional.hpp>
-#include <boost/thread/thread.hpp>
 
 #include <atomic>
 #include <condition_variable>
 #include <deque>
 #include <memory>
 #include <unordered_map>
-#include <unordered_set>
 
 namespace mi = boost::multi_index;
 

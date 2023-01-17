@@ -5,11 +5,7 @@
 #include <nano/node/telemetry.hpp>
 #include <nano/secure/buffer.hpp>
 
-#include <boost/asio/steady_timer.hpp>
 #include <boost/format.hpp>
-#include <boost/variant/get.hpp>
-
-#include <numeric>
 
 nano::network::network (nano::node & node_a, uint16_t port_a) :
 	id (nano::network_constants::active_network),
@@ -849,7 +845,7 @@ nano::message_buffer_manager::message_buffer_manager (nano::stat & stats_a, std:
 
 nano::message_buffer * nano::message_buffer_manager::allocate ()
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	if (!stopped && free.empty () && full.empty ())
 	{
 		stats.inc (nano::stat::type::udp, nano::stat::detail::blocking, nano::stat::dir::in);
@@ -875,7 +871,7 @@ void nano::message_buffer_manager::enqueue (nano::message_buffer * data_a)
 {
 	debug_assert (data_a != nullptr);
 	{
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		full.push_back (data_a);
 	}
 	condition.notify_all ();
@@ -883,7 +879,7 @@ void nano::message_buffer_manager::enqueue (nano::message_buffer * data_a)
 
 nano::message_buffer * nano::message_buffer_manager::dequeue ()
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped && full.empty ())
 	{
 		condition.wait (lock);
@@ -901,7 +897,7 @@ void nano::message_buffer_manager::release (nano::message_buffer * data_a)
 {
 	debug_assert (data_a != nullptr);
 	{
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		free.push_back (data_a);
 	}
 	condition.notify_all ();
@@ -910,7 +906,7 @@ void nano::message_buffer_manager::release (nano::message_buffer * data_a)
 void nano::message_buffer_manager::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		stopped = true;
 	}
 	condition.notify_all ();
@@ -925,7 +921,7 @@ nano::tcp_message_manager::tcp_message_manager (unsigned incoming_connections_ma
 void nano::tcp_message_manager::put_message (nano::tcp_message_item const & item_a)
 {
 	{
-		nano::unique_lock<nano::mutex> lock (mutex);
+		nano::unique_lock<nano::mutex> lock{ mutex };
 		while (entries.size () >= max_entries && !stopped)
 		{
 			producer_condition.wait (lock);
@@ -938,7 +934,7 @@ void nano::tcp_message_manager::put_message (nano::tcp_message_item const & item
 nano::tcp_message_item nano::tcp_message_manager::get_message ()
 {
 	nano::tcp_message_item result;
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (entries.empty () && !stopped)
 	{
 		consumer_condition.wait (lock);
@@ -960,7 +956,7 @@ nano::tcp_message_item nano::tcp_message_manager::get_message ()
 void nano::tcp_message_manager::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		stopped = true;
 	}
 	consumer_condition.notify_all ();
@@ -976,7 +972,7 @@ boost::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint c
 {
 	auto ip_addr (endpoint_a.address ());
 	debug_assert (ip_addr.is_v6 ());
-	nano::lock_guard<nano::mutex> lock (syn_cookie_mutex);
+	nano::lock_guard<nano::mutex> lock{ syn_cookie_mutex };
 	unsigned & ip_cookies = cookies_per_ip[ip_addr];
 	boost::optional<nano::uint256_union> result;
 	if (ip_cookies < max_cookies_per_ip)
@@ -998,7 +994,7 @@ bool nano::syn_cookies::validate (nano::endpoint const & endpoint_a, nano::accou
 {
 	auto ip_addr (endpoint_a.address ());
 	debug_assert (ip_addr.is_v6 ());
-	nano::lock_guard<nano::mutex> lock (syn_cookie_mutex);
+	nano::lock_guard<nano::mutex> lock{ syn_cookie_mutex };
 	auto result (true);
 	auto cookie_it (cookies.find (endpoint_a));
 	if (cookie_it != cookies.end () && !nano::validate_message (node_id, cookie_it->second.cookie, sig))
@@ -1020,7 +1016,7 @@ bool nano::syn_cookies::validate (nano::endpoint const & endpoint_a, nano::accou
 
 void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cutoff_a)
 {
-	nano::lock_guard<nano::mutex> lock (syn_cookie_mutex);
+	nano::lock_guard<nano::mutex> lock{ syn_cookie_mutex };
 	auto it (cookies.begin ());
 	while (it != cookies.end ())
 	{
@@ -1047,7 +1043,7 @@ void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cut
 
 std::size_t nano::syn_cookies::cookies_size ()
 {
-	nano::lock_guard<nano::mutex> lock (syn_cookie_mutex);
+	nano::lock_guard<nano::mutex> lock{ syn_cookie_mutex };
 	return cookies.size ();
 }
 
@@ -1066,7 +1062,7 @@ std::unique_ptr<nano::container_info_component> nano::syn_cookies::collect_conta
 	std::size_t syn_cookies_count;
 	std::size_t syn_cookies_per_ip_count;
 	{
-		nano::lock_guard<nano::mutex> syn_cookie_guard (syn_cookie_mutex);
+		nano::lock_guard<nano::mutex> syn_cookie_guard{ syn_cookie_mutex };
 		syn_cookies_count = cookies.size ();
 		syn_cookies_per_ip_count = cookies_per_ip.size ();
 	}

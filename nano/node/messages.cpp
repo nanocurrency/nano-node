@@ -12,9 +12,7 @@
 #include <boost/endian/conversion.hpp>
 #include <boost/format.hpp>
 #include <boost/pool/pool_alloc.hpp>
-#include <boost/variant/get.hpp>
 
-#include <numeric>
 #include <sstream>
 
 /*
@@ -796,6 +794,11 @@ bool nano::publish::operator== (nano::publish const & other_a) const
 	return *block == *other_a.block;
 }
 
+std::string nano::publish::to_string () const
+{
+	return header.to_string () + "\n" + block->to_json ();
+}
+
 /*
  * confirm_req
  */
@@ -940,6 +943,25 @@ std::size_t nano::confirm_req::size (nano::block_type type_a, std::size_t count)
 	return result;
 }
 
+std::string nano::confirm_req::to_string () const
+{
+	std::string s = header.to_string ();
+
+	if (header.block_type () == nano::block_type::not_a_block)
+	{
+		for (auto && roots_hash : roots_hashes)
+		{
+			s += "\n" + roots_hash.first.to_string () + ":" + roots_hash.second.to_string ();
+		}
+	}
+	else
+	{
+		s += "\n" + block->to_json ();
+	}
+
+	return s;
+}
+
 /*
  * confirm_ack
  */
@@ -985,6 +1007,11 @@ std::size_t nano::confirm_ack::size (std::size_t count)
 {
 	std::size_t result = sizeof (nano::account) + sizeof (nano::signature) + sizeof (uint64_t) + count * sizeof (nano::block_hash);
 	return result;
+}
+
+std::string nano::confirm_ack::to_string () const
+{
+	return header.to_string () + "\n" + vote->to_json ();
 }
 
 /*
@@ -1039,6 +1066,15 @@ void nano::frontier_req::visit (nano::message_visitor & visitor_a) const
 bool nano::frontier_req::operator== (nano::frontier_req const & other_a) const
 {
 	return start == other_a.start && age == other_a.age && count == other_a.count;
+}
+
+std::string nano::frontier_req::to_string () const
+{
+	std::string s = header.to_string ();
+	s += "\nstart=" + start.to_string ();
+	s += " maxage=" + std::to_string (age);
+	s += " count=" + std::to_string (count);
+	return s;
 }
 
 /*
@@ -1141,6 +1177,15 @@ void nano::bulk_pull::set_count_present (bool value_a)
 	header.extensions.set (count_present_flag, value_a);
 }
 
+std::string nano::bulk_pull::to_string () const
+{
+	std::string s = header.to_string ();
+	s += "\nstart=" + start.to_string ();
+	s += " end=" + end.to_string ();
+	s += " cnt=" + std::to_string (count);
+	return s;
+}
+
 /*
  * bulk_pull_account
  */
@@ -1188,6 +1233,29 @@ bool nano::bulk_pull_account::deserialize (nano::stream & stream_a)
 	}
 
 	return error;
+}
+
+std::string nano::bulk_pull_account::to_string () const
+{
+	std::string s = header.to_string () + "\n";
+	s += "acc=" + account.to_string ();
+	s += " min=" + minimum_amount.to_string ();
+	switch (flags)
+	{
+		case bulk_pull_account_flags::pending_hash_and_amount:
+			s += " pending_hash_and_amount";
+			break;
+		case bulk_pull_account_flags::pending_address_only:
+			s += " pending_address_only";
+			break;
+		case bulk_pull_account_flags::pending_hash_amount_and_address:
+			s += " pending_hash_amount_and_address";
+			break;
+		default:
+			s += " unknown flags";
+			break;
+	}
+	return s;
 }
 
 /*
@@ -1248,6 +1316,11 @@ void nano::telemetry_req::serialize (nano::stream & stream_a) const
 void nano::telemetry_req::visit (nano::message_visitor & visitor_a) const
 {
 	visitor_a.telemetry_req (*this);
+}
+
+std::string nano::telemetry_req::to_string () const
+{
+	return header.to_string ();
 }
 
 /*
@@ -1323,6 +1396,20 @@ uint16_t nano::telemetry_ack::size (nano::message_header const & message_header_
 bool nano::telemetry_ack::is_empty_payload () const
 {
 	return size () == 0;
+}
+
+std::string nano::telemetry_ack::to_string () const
+{
+	std::string s = header.to_string () + "\n";
+	if (is_empty_payload ())
+	{
+		s += "empty telemetry payload";
+	}
+	else
+	{
+		s += data.to_string ();
+	}
+	return s;
 }
 
 /*
@@ -1619,6 +1706,24 @@ std::size_t nano::node_id_handshake::size (nano::message_header const & header_a
 		result += sizeof (nano::account) + sizeof (nano::signature);
 	}
 	return result;
+}
+
+std::string nano::node_id_handshake::to_string () const
+{
+	std::string s = header.to_string ();
+
+	if (query.has_value ())
+	{
+		s += "\ncookie=" + query->to_string ();
+	}
+
+	if (response.has_value ())
+	{
+		s += "\nresp_node_id=" + response->first.to_string ();
+		s += "\nresp_sig=" + response->second.to_string ();
+	}
+
+	return s;
 }
 
 /*

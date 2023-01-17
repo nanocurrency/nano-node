@@ -311,7 +311,7 @@ TEST (node, fork_storm)
 			}
 			else
 			{
-				nano::unique_lock<nano::mutex> lock (node_a->active.mutex);
+				nano::unique_lock<nano::mutex> lock{ node_a->active.mutex };
 				auto election = node_a->active.roots.begin ()->election;
 				lock.unlock ();
 				if (election->votes ().size () == 1)
@@ -1952,7 +1952,7 @@ TEST (node, mass_block_new)
 		node.block_processor.flush ();
 		// Clear all active
 		{
-			nano::lock_guard<nano::mutex> guard (node.active.mutex);
+			nano::lock_guard<nano::mutex> guard{ node.active.mutex };
 			node.active.roots.clear ();
 			node.active.blocks.clear ();
 		}

@@ -14,7 +14,6 @@ class peer_exclusion final
 	class item final
 	{
 	public:
-		item () = delete;
 		std::chrono::steady_clock::time_point exclude_until;
 		decltype (std::declval<nano::tcp_endpoint> ().address ()) address;
 		uint64_t score;

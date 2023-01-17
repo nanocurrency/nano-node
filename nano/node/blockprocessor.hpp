@@ -4,16 +4,9 @@
 #include <nano/node/state_block_signature_verification.hpp>
 #include <nano/secure/common.hpp>
 
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/member.hpp>
-#include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index/sequenced_index.hpp>
-#include <boost/multi_index_container.hpp>
-
 #include <chrono>
 #include <memory>
 #include <thread>
-#include <unordered_set>
 
 namespace nano
 {
