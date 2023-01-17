@@ -11,7 +11,7 @@ buildThreads=1
 buildCArgs=()
 buildCXXArgs=()
 buildLDArgs=()
-boostVersion='1.70'
+boostVersion='1.81.0'
 while getopts 'hmscCkpvB:j:' OPT; do
 	case "${OPT}" in
 	h)
@@ -83,6 +83,11 @@ if [ "${useClang}" = 'true' ]; then
 fi
 
 case "${boostVersion}" in
+1.81.0)
+	BOOST_BASENAME=boost_1_81_0
+	BOOST_URL=https://sourceforge.net/projects/boost/files/boost/1.81.0/${BOOST_BASENAME}.tar.bz2/download
+	BOOST_ARCHIVE_SHA256='71feeed900fbccca04a3b4f2f84a7c217186f28a940ed8b7ed4725986baf99fa'
+	;;
 1.70)
 	BOOST_BASENAME=boost_1_70_0
 	BOOST_URL=https://sourceforge.net/projects/boost/files/boost/1.70.0/${BOOST_BASENAME}.tar.bz2/download
