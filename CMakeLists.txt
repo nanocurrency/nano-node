@@ -9,9 +9,9 @@ if(CMAKE_VERSION VERSION_GREATER 3.13 OR CMAKE_VERSION VERSION_EQUAL 3.13)
   cmake_policy(SET CMP0077 NEW)
 endif()
 
-# compatibility for osx sierra and on needs to be set before project
+# OSX compatibility needs to be set before project is declared
 set(CMAKE_OSX_DEPLOYMENT_TARGET
-    10.14
+    10.15
     CACHE STRING "")
 
 project(nano-node)
