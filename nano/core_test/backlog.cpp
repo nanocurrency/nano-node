@@ -75,32 +75,44 @@ TEST (backlog, population)
 	nano::test::system system{};
 	auto & node = *system.add_node ();
 
-	nano::mutex mutex;
-	std::unordered_set<nano::account> activated;
+	// the node destruction happens in the background and parts of the node object
+	// are still alive after the test case has exited its scope and therefore
+	// the callback we register, must check that the resources it needs are still
+	// alive before using them
 
-	node.backlog.activate_callback.add ([&] (nano::transaction const & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info) {
-		nano::lock_guard<nano::mutex> lock{ mutex };
+	auto mutex = std::make_shared<nano::mutex> ();
+	std::weak_ptr<nano::mutex> mutex_weak{ mutex };
 
-		activated.insert (account);
+	auto activated = std::make_shared<std::unordered_set<nano::account>> ();
+	std::weak_ptr<std::unordered_set<nano::account>> activated_weak{ activated };
+
+	node.backlog.activate_callback.add ([mutex_weak, activated_weak] (nano::transaction const & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info) {
+		auto mutex_l = mutex_weak.lock ();
+		auto activated_l = activated_weak.lock ();
+		if (mutex_l && activated_l)
+		{
+			nano::lock_guard<nano::mutex> lock{ *mutex_l };
+			activated_l->insert (account);
+		}
 	});
 
 	auto blocks = setup_independent_blocks (system, node, 256);
 
 	// Checks if `activated` set contains all accounts we previously set up
-	auto all_activated = [&] () {
-		nano::lock_guard<nano::mutex> lock{ mutex };
+	auto all_activated = [&mutex, &activated, &blocks] () {
+		nano::lock_guard<nano::mutex> lock{ *mutex };
 		return std::all_of (blocks.begin (), blocks.end (), [&] (auto const & item) {
 			auto account = item->account ();
 			debug_assert (!account.is_zero ());
-			return activated.count (account) != 0;
+			return activated->count (account) != 0;
 		});
 	};
 	ASSERT_TIMELY (5s, all_activated ());
 
 	// Clear activated set to ensure we activate those accounts more than once
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		activated.clear ();
+		nano::lock_guard<nano::mutex> lock{ *mutex };
+		activated->clear ();
 	}
 
 	ASSERT_TIMELY (5s, all_activated ());
