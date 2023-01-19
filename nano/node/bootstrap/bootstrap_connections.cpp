@@ -1,11 +1,14 @@
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_connections.hpp>
+#include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
 #include <boost/format.hpp>
+
+#include <memory>
 
 constexpr double nano::bootstrap_limits::bootstrap_connection_scale_target_blocks;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_blocks_per_sec;
@@ -40,13 +43,13 @@ double nano::bootstrap_client::sample_block_rate ()
 
 void nano::bootstrap_client::set_start_time (std::chrono::steady_clock::time_point start_time_a)
 {
-	nano::lock_guard<nano::mutex> guard (start_time_mutex);
+	nano::lock_guard<nano::mutex> guard{ start_time_mutex };
 	start_time_m = start_time_a;
 }
 
 double nano::bootstrap_client::elapsed_seconds () const
 {
-	nano::lock_guard<nano::mutex> guard (start_time_mutex);
+	nano::lock_guard<nano::mutex> guard{ start_time_mutex };
 	return std::chrono::duration_cast<std::chrono::duration<double>> (std::chrono::steady_clock::now () - start_time_m).count ();
 }
 
@@ -66,7 +69,7 @@ nano::bootstrap_connections::bootstrap_connections (nano::node & node_a) :
 
 std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::connection (std::shared_ptr<nano::bootstrap_attempt> const & attempt_a, bool use_front_connection)
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	condition.wait (lock, [&stopped = stopped, &idle = idle, &new_connections_empty = new_connections_empty] { return stopped || !idle.empty () || new_connections_empty; });
 	std::shared_ptr<nano::bootstrap_client> result;
 	if (!stopped && !idle.empty ())
@@ -93,11 +96,11 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::connection 
 
 void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstrap_client> const & client_a, bool new_client, bool push_front)
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	auto const & socket_l = client_a->socket;
 	if (!stopped && !client_a->pending_stop && !node.network.excluded_peers.check (client_a->channel->get_tcp_endpoint ()))
 	{
-		socket_l->start_timer (node.network_params.network.idle_timeout);
+		socket_l->set_timeout (node.network_params.network.idle_timeout);
 		// Push into idle deque
 		if (!push_front)
 		{
@@ -127,7 +130,7 @@ void nano::bootstrap_connections::add_connection (nano::endpoint const & endpoin
 
 std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::find_connection (nano::tcp_endpoint const & endpoint_a)
 {
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	std::shared_ptr<nano::bootstrap_client> result;
 	for (auto i (idle.begin ()), end (idle.end ()); i != end && !stopped; ++i)
 	{
@@ -144,7 +147,7 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::find_connec
 void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & endpoint_a, bool push_front)
 {
 	++connections_count;
-	auto socket (std::make_shared<nano::socket> (node));
+	auto socket (std::make_shared<nano::client_socket> (node));
 	auto this_l (shared_from_this ());
 	socket->async_connect (endpoint_a,
 	[this_l, socket, endpoint_a, push_front] (boost::system::error_code const & ec) {
@@ -209,7 +212,7 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 	std::priority_queue<std::shared_ptr<nano::bootstrap_client>, std::vector<std::shared_ptr<nano::bootstrap_client>>, block_rate_cmp> sorted_connections;
 	std::unordered_set<nano::tcp_endpoint> endpoints;
 	{
-		nano::unique_lock<nano::mutex> lock (mutex);
+		nano::unique_lock<nano::mutex> lock{ mutex };
 		num_pulls = pulls.size ();
 		std::deque<std::weak_ptr<nano::bootstrap_client>> new_clients;
 		for (auto & c : clients)
@@ -288,13 +291,13 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 			{
 				connect_client (endpoint);
 				endpoints.insert (endpoint);
-				nano::lock_guard<nano::mutex> lock (mutex);
+				nano::lock_guard<nano::mutex> lock{ mutex };
 				new_connections_empty = false;
 			}
 			else if (connections_count == 0)
 			{
 				{
-					nano::lock_guard<nano::mutex> lock (mutex);
+					nano::lock_guard<nano::mutex> lock{ mutex };
 					new_connections_empty = true;
 				}
 				condition.notify_all ();
@@ -326,7 +329,7 @@ void nano::bootstrap_connections::add_pull (nano::pull_info const & pull_a)
 	nano::pull_info pull (pull_a);
 	node.bootstrap_initiator.cache.update_pull (pull);
 	{
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		pulls.push_back (pull);
 	}
 	condition.notify_all ();
@@ -348,10 +351,13 @@ void nano::bootstrap_connections::request_pull (nano::unique_lock<nano::mutex> &
 			pulls.pop_front ();
 			attempt_l = node.bootstrap_initiator.attempts.find (pull.bootstrap_id);
 			// Check if lazy pull is obsolete (head was processed or head is 0 for destinations requests)
-			if (attempt_l != nullptr && attempt_l->mode == nano::bootstrap_mode::lazy && !pull.head.is_zero () && attempt_l->lazy_processed_or_exists (pull.head))
+			if (auto lazy = std::dynamic_pointer_cast<nano::bootstrap_attempt_lazy> (attempt_l))
 			{
-				attempt_l->pull_finished ();
-				attempt_l = nullptr;
+				if (!pull.head.is_zero () && lazy->lazy_processed_or_exists (pull.head))
+				{
+					attempt_l->pull_finished ();
+					attempt_l = nullptr;
+				}
 			}
 		}
 		if (attempt_l != nullptr)
@@ -383,27 +389,28 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 	auto attempt_l (node.bootstrap_initiator.attempts.find (pull.bootstrap_id));
 	if (attempt_l != nullptr)
 	{
+		auto lazy = std::dynamic_pointer_cast<nano::bootstrap_attempt_lazy> (attempt_l);
 		++attempt_l->requeued_pulls;
-		if (attempt_l->mode == nano::bootstrap_mode::lazy)
+		if (lazy)
 		{
-			pull.count = attempt_l->lazy_batch_size ();
+			pull.count = lazy->lazy_batch_size ();
 		}
 		if (attempt_l->mode == nano::bootstrap_mode::legacy && (pull.attempts < pull.retry_limit + (pull.processed / nano::bootstrap_limits::requeued_pulls_processed_blocks_factor)))
 		{
 			{
-				nano::lock_guard<nano::mutex> lock (mutex);
+				nano::lock_guard<nano::mutex> lock{ mutex };
 				pulls.push_front (pull);
 			}
 			attempt_l->pull_started ();
 			condition.notify_all ();
 		}
-		else if (attempt_l->mode == nano::bootstrap_mode::lazy && (pull.attempts <= pull.retry_limit + (pull.processed / node.network_params.bootstrap.lazy_max_pull_blocks)))
+		else if (lazy && (pull.attempts <= pull.retry_limit + (pull.processed / node.network_params.bootstrap.lazy_max_pull_blocks)))
 		{
-			debug_assert (pull.account_or_head == pull.head);
-			if (!attempt_l->lazy_processed_or_exists (pull.account_or_head.as_block_hash ()))
+			debug_assert (pull.account_or_head.as_block_hash () == pull.head);
+			if (!lazy->lazy_processed_or_exists (pull.account_or_head.as_block_hash ()))
 			{
 				{
-					nano::lock_guard<nano::mutex> lock (mutex);
+					nano::lock_guard<nano::mutex> lock{ mutex };
 					pulls.push_back (pull);
 				}
 				attempt_l->pull_started ();
@@ -418,9 +425,9 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 			}
 			node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in);
 
-			if (attempt_l->mode == nano::bootstrap_mode::lazy && pull.processed > 0)
+			if (lazy && pull.processed > 0)
 			{
-				attempt_l->lazy_add (pull);
+				lazy->lazy_add (pull);
 			}
 			else if (attempt_l->mode == nano::bootstrap_mode::legacy)
 			{
@@ -433,7 +440,7 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 void nano::bootstrap_connections::clear_pulls (uint64_t bootstrap_id_a)
 {
 	{
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		auto i (pulls.begin ());
 		while (i != pulls.end ())
 		{
@@ -453,7 +460,7 @@ void nano::bootstrap_connections::clear_pulls (uint64_t bootstrap_id_a)
 void nano::bootstrap_connections::run ()
 {
 	start_populate_connections ();
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		if (!pulls.empty ())
@@ -472,7 +479,7 @@ void nano::bootstrap_connections::run ()
 
 void nano::bootstrap_connections::stop ()
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	stopped = true;
 	lock.unlock ();
 	condition.notify_all ();

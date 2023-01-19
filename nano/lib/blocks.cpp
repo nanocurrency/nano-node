@@ -1362,6 +1362,17 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 	return result;
 }
 
+void nano::serialize_block_type (nano::stream & stream, const nano::block_type & type)
+{
+	nano::write (stream, type);
+}
+
+void nano::serialize_block (nano::stream & stream_a, nano::block const & block_a)
+{
+	nano::serialize_block_type (stream_a, block_a.type ());
+	block_a.serialize (stream_a);
+}
+
 std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a)
 {
 	nano::block_type type;
@@ -1403,6 +1414,11 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 		{
 			result = ::deserialize_block<nano::state_block> (stream_a);
 			break;
+		}
+		case nano::block_type::not_a_block:
+		{
+			// Skip null block terminators
+			return {};
 		}
 		default:
 #ifndef NANO_FUZZER_TEST
@@ -1861,7 +1877,7 @@ std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::
 	if (result != nullptr)
 	{
 		nano::uint256_union key (block_a->full_hash ());
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		auto & existing (blocks[key]);
 		if (auto block_l = existing.lock ())
 		{
@@ -1898,7 +1914,7 @@ std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::
 
 size_t nano::block_uniquer::size ()
 {
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	return blocks.size ();
 }
 

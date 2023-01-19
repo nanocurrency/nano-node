@@ -7,6 +7,7 @@
 #include <nano/lib/epoch.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rep_weights.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/iterator/transform_iterator.hpp>
@@ -14,6 +15,7 @@
 #include <boost/property_tree/ptree_fwd.hpp>
 #include <boost/variant/variant.hpp>
 
+#include <array>
 #include <unordered_map>
 
 namespace boost
@@ -33,6 +35,15 @@ struct hash<::nano::block_hash>
 	size_t operator() (::nano::block_hash const & value_a) const
 	{
 		return std::hash<::nano::block_hash> () (value_a);
+	}
+};
+
+template <>
+struct hash<::nano::hash_or_account>
+{
+	size_t operator() (::nano::hash_or_account const & data_a) const
+	{
+		return std::hash<::nano::hash_or_account> () (data_a);
 	}
 };
 
@@ -141,19 +152,19 @@ public:
 	endpoint_key () = default;
 
 	/*
-     * @param address_a This should be in network byte order
-     * @param port_a This should be in host byte order
-     */
+	 * @param address_a This should be in network byte order
+	 * @param port_a This should be in host byte order
+	 */
 	endpoint_key (std::array<uint8_t, 16> const & address_a, uint16_t port_a);
 
 	/*
-     * @return The ipv6 address in network byte order
-     */
+	 * @return The ipv6 address in network byte order
+	 */
 	std::array<uint8_t, 16> const & address_bytes () const;
 
 	/*
-     * @return The port in host byte order
-     */
+	 * @return The port in host byte order
+	 */
 	uint16_t port () const;
 
 private:
@@ -176,20 +187,10 @@ public:
 	unchecked_key (nano::uint512_union const &);
 	bool deserialize (nano::stream &);
 	bool operator== (nano::unchecked_key const &) const;
+	bool operator< (nano::unchecked_key const &) const;
 	nano::block_hash const & key () const;
 	nano::block_hash previous{ 0 };
 	nano::block_hash hash{ 0 };
-};
-
-/**
- * Tag for block signature verification result
- */
-enum class signature_verification : uint8_t
-{
-	unknown = 0,
-	invalid = 1,
-	valid = 2,
-	valid_epoch = 3 // Valid for epoch blocks
 };
 
 /**
@@ -199,16 +200,15 @@ class unchecked_info final
 {
 public:
 	unchecked_info () = default;
-	unchecked_info (std::shared_ptr<nano::block> const &, nano::account const &, uint64_t, nano::signature_verification = nano::signature_verification::unknown, bool = false);
 	unchecked_info (std::shared_ptr<nano::block> const &);
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
+	uint64_t modified () const;
 	std::shared_ptr<nano::block> block;
-	nano::account account{};
+
+private:
 	/** Seconds since posix epoch */
-	uint64_t modified{ 0 };
-	nano::signature_verification verified{ nano::signature_verification::unknown };
-	bool confirmed{ false };
+	uint64_t modified_m{ 0 };
 };
 
 class block_info final
@@ -225,10 +225,15 @@ class confirmation_height_info final
 public:
 	confirmation_height_info () = default;
 	confirmation_height_info (uint64_t, nano::block_hash const &);
+
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
-	uint64_t height;
-	nano::block_hash frontier;
+
+	/** height of the cemented frontier */
+	uint64_t height{};
+
+	/** hash of the highest cemented block, the cemented/confirmed frontier */
+	nano::block_hash frontier{};
 };
 
 namespace confirmation_height
@@ -237,31 +242,32 @@ namespace confirmation_height
 	uint64_t const unbounded_cutoff{ 16384 };
 }
 
-using vote_blocks_vec_iter = std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>>::const_iterator;
+using vote_blocks_vec_iter = std::vector<nano::block_hash>::const_iterator;
 class iterate_vote_blocks_as_hash final
 {
 public:
 	iterate_vote_blocks_as_hash () = default;
-	nano::block_hash operator() (boost::variant<std::shared_ptr<nano::block>, nano::block_hash> const & item) const;
+	nano::block_hash operator() (nano::block_hash const & item) const;
 };
 class vote final
 {
 public:
 	vote () = default;
 	vote (nano::vote const &);
-	vote (bool &, nano::stream &, nano::block_uniquer * = nullptr);
-	vote (bool &, nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
-	vote (nano::account const &, nano::raw_key const &, uint64_t timestamp, uint8_t duration, std::shared_ptr<nano::block> const &);
+	vote (bool &, nano::stream &);
 	vote (nano::account const &, nano::raw_key const &, uint64_t timestamp, uint8_t duration, std::vector<nano::block_hash> const &);
 	std::string hashes_string () const;
 	nano::block_hash hash () const;
 	nano::block_hash full_hash () const;
 	bool operator== (nano::vote const &) const;
 	bool operator!= (nano::vote const &) const;
-	void serialize (nano::stream &, nano::block_type) const;
 	void serialize (nano::stream &) const;
 	void serialize_json (boost::property_tree::ptree & tree) const;
-	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
+	/**
+	 * Deserializes a vote from the bytes in `stream'
+	 * Returns true if there was an error
+	 */
+	bool deserialize (nano::stream &);
 	bool validate () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> end () const;
@@ -279,8 +285,8 @@ private:
 	uint64_t timestamp_m;
 
 public:
-	// The blocks, or block hashes, that this vote is for
-	std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>> blocks;
+	// The hashes for which this vote directly covers
+	std::vector<nano::block_hash> hashes;
 	// Account that's voting
 	nano::account account;
 	// Signature of timestamp + block hashes
@@ -330,7 +336,7 @@ enum class process_result
 	gap_previous, // Block marked as previous is unknown
 	gap_source, // Block marked as source is unknown
 	gap_epoch_open_pending, // Block marked as pending blocks required for epoch open block are unknown
-	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
+	opened_burn_account, // Block attempts to open the burn account
 	balance_mismatch, // Balance and amount delta don't match
 	representative_mismatch, // Representative is changed when it is not allowed
 	block_position, // This block cannot follow the previous block
@@ -340,7 +346,6 @@ class process_return final
 {
 public:
 	nano::process_result code;
-	nano::signature_verification verified;
 	nano::amount previous_balance;
 };
 enum class tally_result
@@ -349,6 +354,8 @@ enum class tally_result
 	changed,
 	confirm
 };
+
+nano::stat::detail to_stat_detail (process_result);
 
 class network_params;
 
@@ -476,7 +483,7 @@ enum class confirmation_height_mode
 };
 
 /* Holds flags for various cacheable data. For most CLI operations caching is unnecessary
-     * (e.g getting the cemented block count) so it can be disabled for performance reasons. */
+ * (e.g getting the cemented block count) so it can be disabled for performance reasons. */
 class generate_cache
 {
 public:

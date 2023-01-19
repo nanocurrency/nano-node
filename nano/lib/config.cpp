@@ -2,6 +2,7 @@
 #include <nano/lib/config.hpp>
 
 #include <boost/filesystem/path.hpp>
+#include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include <valgrind/valgrind.h>
@@ -43,7 +44,7 @@ nano::work_thresholds const nano::work_thresholds::publish_dev (
 0xf000000000000000 // 8x lower than epoch_1
 );
 
-nano::work_thresholds const nano::work_thresholds::publish_test ( //defaults to live network levels
+nano::work_thresholds const nano::work_thresholds::publish_test ( // defaults to live network levels
 get_env_threshold_or_default ("NANO_TEST_EPOCH_1", 0xffffffc000000000),
 get_env_threshold_or_default ("NANO_TEST_EPOCH_2", 0xfffffff800000000), // 8x higher than epoch_1
 get_env_threshold_or_default ("NANO_TEST_EPOCH_2_RECV", 0xfffffe0000000000) // 8x lower than epoch_1
@@ -229,12 +230,6 @@ uint8_t get_pre_release_node_version ()
 	return boost::numeric_cast<uint8_t> (boost::lexical_cast<int> (NANO_PRE_RELEASE_VERSION_STRING));
 }
 
-std::string get_env_or_default (char const * variable_name, std::string default_value)
-{
-	auto value = getenv (variable_name);
-	return value ? value : default_value;
-}
-
 uint64_t get_env_threshold_or_default (char const * variable_name, uint64_t const default_value)
 {
 	auto * value = getenv (variable_name);
@@ -280,14 +275,19 @@ bool running_within_valgrind ()
 	return (RUNNING_ON_VALGRIND > 0);
 }
 
-std::string get_config_path (boost::filesystem::path const & data_path)
+bool memory_intensive_instrumentation ()
 {
-	return (data_path / "config.json").string ();
+	return is_tsan_build () || nano::running_within_valgrind ();
 }
 
-std::string get_rpc_config_path (boost::filesystem::path const & data_path)
+bool slow_instrumentation ()
 {
-	return (data_path / "rpc_config.json").string ();
+	return is_tsan_build () || nano::running_within_valgrind ();
+}
+
+bool is_sanitizer_build ()
+{
+	return is_asan_build () || is_tsan_build ();
 }
 
 std::string get_node_toml_config_path (boost::filesystem::path const & data_path)
@@ -315,3 +315,44 @@ std::string get_tls_toml_config_path (boost::filesystem::path const & data_path)
 	return (data_path / "config-tls.toml").string ();
 }
 } // namespace nano
+
+std::optional<std::string> nano::get_env (const char * variable_name)
+{
+	auto value = std::getenv (variable_name);
+	if (value)
+	{
+		return value;
+	}
+	return {};
+}
+
+std::string nano::get_env_or_default (char const * variable_name, std::string default_value)
+{
+	auto value = nano::get_env (variable_name);
+	return value ? *value : default_value;
+}
+
+int nano::get_env_int_or_default (const char * variable_name, const int default_value)
+{
+	auto value = nano::get_env (variable_name);
+	if (value)
+	{
+		try
+		{
+			return boost::lexical_cast<int> (*value);
+		}
+		catch (...)
+		{
+			// It is unexpected that this exception will be caught, log to cerr the reason.
+			std::cerr << boost::str (boost::format ("Error parsing environment variable: %1% value: %2%") % variable_name % *value);
+			throw;
+		}
+	}
+	return default_value;
+}
+
+uint32_t nano::test_scan_wallet_reps_delay ()
+{
+	auto test_env = nano::get_env_or_default ("NANO_TEST_WALLET_SCAN_REPS_DELAY", "900000"); // 15 minutes by default
+	return boost::lexical_cast<uint32_t> (test_env);
+}

@@ -63,6 +63,10 @@ public:
 	// clang-format on
 	constexpr static std::size_t cache_size_max = 10000;
 };
+
+/**
+ * Container for bootstrap sessions that are active. Owned by bootstrap_initiator.
+ */
 class bootstrap_attempts final
 {
 public:
@@ -76,6 +80,12 @@ public:
 	std::map<uint64_t, std::shared_ptr<nano::bootstrap_attempt>> attempts;
 };
 
+class bootstrap_attempt_lazy;
+class bootstrap_attempt_wallet;
+/**
+ * Client side portion to initiate bootstrap sessions. Prevents multiple legacy-type bootstrap sessions from being started at the same time. Does permit
+ * lazy/wallet bootstrap sessions to overlap with legacy sessions.
+ */
 class bootstrap_initiator final
 {
 public:
@@ -83,20 +93,21 @@ public:
 	~bootstrap_initiator ();
 	void bootstrap (nano::endpoint const &, bool add_to_peers = true, std::string id_a = "");
 	void bootstrap (bool force = false, std::string id_a = "", uint32_t const frontiers_age_a = std::numeric_limits<uint32_t>::max (), nano::account const & start_account_a = nano::account{});
-	bool bootstrap_lazy (nano::hash_or_account const &, bool force = false, bool confirmed = true, std::string id_a = "");
+	bool bootstrap_lazy (nano::hash_or_account const &, bool force = false, std::string id_a = "");
 	void bootstrap_wallet (std::deque<nano::account> &);
 	void run_bootstrap ();
-	void lazy_requeue (nano::block_hash const &, nano::block_hash const &, bool);
+	void lazy_requeue (nano::block_hash const &, nano::block_hash const &);
 	void notify_listeners (bool);
 	void add_observer (std::function<void (bool)> const &);
 	bool in_progress ();
+	void block_processed (nano::transaction const & tx, nano::process_return const & result, nano::block const & block);
 	std::shared_ptr<nano::bootstrap_connections> connections;
 	std::shared_ptr<nano::bootstrap_attempt> new_attempt ();
 	bool has_new_attempts ();
 	void remove_attempt (std::shared_ptr<nano::bootstrap_attempt>);
 	std::shared_ptr<nano::bootstrap_attempt> current_attempt ();
-	std::shared_ptr<nano::bootstrap_attempt> current_lazy_attempt ();
-	std::shared_ptr<nano::bootstrap_attempt> current_wallet_attempt ();
+	std::shared_ptr<nano::bootstrap_attempt_lazy> current_lazy_attempt ();
+	std::shared_ptr<nano::bootstrap_attempt_wallet> current_wallet_attempt ();
 	nano::pulls_cache cache;
 	nano::bootstrap_attempts attempts;
 	void stop ();
@@ -117,6 +128,10 @@ private:
 };
 
 std::unique_ptr<container_info_component> collect_container_info (bootstrap_initiator & bootstrap_initiator, std::string const & name);
+
+/**
+ * Defines the numeric values for the bootstrap feature.
+ */
 class bootstrap_limits final
 {
 public:

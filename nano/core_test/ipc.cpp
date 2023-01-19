@@ -19,7 +19,7 @@ using namespace std::chrono_literals;
 
 TEST (ipc, asynchronous)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	system.nodes[0]->config.ipc_config.transport_tcp.enabled = true;
 	system.nodes[0]->config.ipc_config.transport_tcp.port = 24077;
 	nano::node_rpc_config node_rpc_config;
@@ -59,7 +59,7 @@ TEST (ipc, asynchronous)
 
 TEST (ipc, synchronous)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	system.nodes[0]->config.ipc_config.transport_tcp.enabled = true;
 	system.nodes[0]->config.ipc_config.transport_tcp.port = 24077;
 	nano::node_rpc_config node_rpc_config;
@@ -188,4 +188,20 @@ TEST (ipc, permissions_default_user_order)
 
 	nano::ipc::access access;
 	ASSERT_TRUE (access.deserialize_toml (toml));
+}
+
+TEST (ipc, invalid_endpoint)
+{
+	nano::test::system system (1);
+	system.nodes[0]->config.ipc_config.transport_tcp.enabled = true;
+	system.nodes[0]->config.ipc_config.transport_tcp.port = 24077;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_client client (system.nodes[0]->io_ctx);
+
+	std::atomic<bool> call_completed{ false };
+	client.async_connect ("::-1", 24077, [&client, &call_completed] (nano::error err) {
+		ASSERT_IS_ERROR (static_cast<std::error_code> (err));
+		call_completed = true;
+	});
+	ASSERT_TIMELY (5s, call_completed);
 }

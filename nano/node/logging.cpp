@@ -12,7 +12,6 @@
 #include <boost/log/utility/setup/file.hpp>
 
 #ifdef BOOST_WINDOWS
-#include <boost/log/sinks/event_log_backend.hpp>
 #else
 #define BOOST_LOG_USE_NATIVE_SYSLOG
 #include <boost/log/sinks/syslog_backend.hpp>
@@ -37,20 +36,6 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 		}
 
 #ifdef BOOST_WINDOWS
-		if (nano::event_log_reg_entry_exists () || nano::is_windows_elevated ())
-		{
-			static auto event_sink = boost::make_shared<boost::log::sinks::synchronous_sink<boost::log::sinks::simple_event_log_backend>> (boost::log::keywords::log_name = "Nano", boost::log::keywords::log_source = "Nano");
-			event_sink->set_formatter (format);
-
-			// Currently only mapping sys log errors
-			boost::log::sinks::event_log::custom_event_type_mapping<nano::severity_level> mapping ("Severity");
-			mapping[nano::severity_level::error] = boost::log::sinks::event_log::error;
-			event_sink->locked_backend ()->set_event_type_mapper (mapping);
-
-			// Only allow messages or error or greater severity to the event log
-			event_sink->set_filter (severity >= nano::severity_level::error);
-			boost::log::core::get ()->add_sink (event_sink);
-		}
 #else
 		static auto sys_sink = boost::make_shared<boost::log::sinks::synchronous_sink<boost::log::sinks::syslog_backend>> (boost::log::keywords::facility = boost::log::sinks::syslog::user, boost::log::keywords::use_impl = boost::log::sinks::syslog::impl_types::native);
 		sys_sink->set_formatter (format);
@@ -166,6 +151,7 @@ nano::error nano::logging::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("upnp_details", upnp_details_logging_value, "Log UPNP discovery details..\nWarning: this may include information.\nabout discovered devices, such as product identification. Please review before sharing logs.\ntype:bool");
 	toml.put ("timing", timing_logging_value, "Log detailed timing information for various node operations.\ntype:bool");
 	toml.put ("active_update", active_update_value, "Log when a block is updated while in active transactions.\ntype:bool");
+	toml.put ("election_result", election_result_logging_value, "Log election result when cleaning up election from active election container.\ntype:bool");
 	toml.put ("log_to_cerr", log_to_cerr_value, "Log to standard error in addition to the log file. Not recommended for production systems.\ntype:bool");
 	toml.put ("max_size", max_size, "Maximum log file size in bytes.\ntype:uint64");
 	toml.put ("rotation_size", rotation_size, "Log file rotation size in character count.\ntype:uint64");
@@ -203,6 +189,7 @@ nano::error nano::logging::deserialize_toml (nano::tomlconfig & toml)
 	toml.get<bool> ("upnp_details", upnp_details_logging_value);
 	toml.get<bool> ("timing", timing_logging_value);
 	toml.get<bool> ("active_update", active_update_value);
+	toml.get<bool> ("election_result", election_result_logging_value);
 	toml.get<bool> ("log_to_cerr", log_to_cerr_value);
 	toml.get<bool> ("flush", flush);
 	toml.get<bool> ("single_line_record", single_line_record_value);
@@ -214,95 +201,6 @@ nano::error nano::logging::deserialize_toml (nano::tomlconfig & toml)
 	toml.get ("stable_log_filename", stable_log_filename);
 
 	return toml.get_error ();
-}
-
-nano::error nano::logging::serialize_json (nano::jsonconfig & json) const
-{
-	json.put ("version", json_version ());
-	json.put ("ledger", ledger_logging_value);
-	json.put ("ledger_duplicate", ledger_duplicate_logging_value);
-	json.put ("vote", vote_logging_value);
-	json.put ("rep_crawler", rep_crawler_logging_value);
-	json.put ("network", network_logging_value);
-	json.put ("network_timeout", network_timeout_logging_value);
-	json.put ("network_message", network_message_logging_value);
-	json.put ("network_publish", network_publish_logging_value);
-	json.put ("network_packet", network_packet_logging_value);
-	json.put ("network_keepalive", network_keepalive_logging_value);
-	json.put ("network_node_id_handshake", network_node_id_handshake_logging_value);
-	json.put ("network_telemetry_logging", network_telemetry_logging_value);
-	json.put ("network_rejected_logging", network_rejected_logging_value);
-	json.put ("node_lifetime_tracing", node_lifetime_tracing_value);
-	json.put ("insufficient_work", insufficient_work_logging_value);
-	json.put ("log_ipc", log_ipc_value);
-	json.put ("bulk_pull", bulk_pull_logging_value);
-	json.put ("work_generation_time", work_generation_time_value);
-	json.put ("upnp_details", upnp_details_logging_value);
-	json.put ("timing", timing_logging_value);
-	json.put ("log_to_cerr", log_to_cerr_value);
-	json.put ("max_size", max_size);
-	json.put ("rotation_size", rotation_size);
-	json.put ("flush", flush);
-	json.put ("min_time_between_output", min_time_between_log_output.count ());
-	json.put ("single_line_record", single_line_record_value);
-	return json.get_error ();
-}
-
-bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
-{
-	json.put ("version", json_version ());
-	switch (version_a)
-	{
-		case 1:
-		case 2:
-		case 3:
-		case 4:
-		case 5:
-		case 6:
-			throw std::runtime_error ("logging_config version is unsupported for upgrade. Upgrade to a v19, v20 or v21 node first, or delete the config and ledger files");
-		case 7:
-			json.put ("single_line_record", single_line_record_value);
-		case 8:
-			break;
-		default:
-			throw std::runtime_error ("Unknown logging_config version");
-			break;
-	}
-	return version_a < json_version ();
-}
-
-nano::error nano::logging::deserialize_json (bool & upgraded_a, nano::jsonconfig & json)
-{
-	int version_l{ 1 };
-	json.get_required<int> ("version", version_l);
-	upgraded_a |= upgrade_json (version_l, json);
-	json.get<bool> ("ledger", ledger_logging_value);
-	json.get<bool> ("ledger_duplicate", ledger_duplicate_logging_value);
-	json.get<bool> ("vote", vote_logging_value);
-	json.get<bool> ("rep_crawler", rep_crawler_logging_value);
-	json.get<bool> ("network", network_logging_value);
-	json.get<bool> ("network_timeout", network_timeout_logging_value);
-	json.get<bool> ("network_message", network_message_logging_value);
-	json.get<bool> ("network_publish", network_publish_logging_value);
-	json.get<bool> ("network_packet", network_packet_logging_value);
-	json.get<bool> ("network_keepalive", network_keepalive_logging_value);
-	json.get<bool> ("network_node_id_handshake", network_node_id_handshake_logging_value);
-	json.get<bool> ("node_lifetime_tracing", node_lifetime_tracing_value);
-	json.get<bool> ("insufficient_work", insufficient_work_logging_value);
-	json.get<bool> ("log_ipc", log_ipc_value);
-	json.get<bool> ("bulk_pull", bulk_pull_logging_value);
-	json.get<bool> ("work_generation_time", work_generation_time_value);
-	json.get<bool> ("upnp_details", upnp_details_logging_value);
-	json.get<bool> ("timing", timing_logging_value);
-	json.get<bool> ("log_to_cerr", log_to_cerr_value);
-	json.get<bool> ("flush", flush);
-	json.get<bool> ("single_line_record", single_line_record_value);
-	json.get<uintmax_t> ("max_size", max_size);
-	json.get<uintmax_t> ("rotation_size", rotation_size);
-	uintmax_t min_time_between_log_output_raw;
-	json.get<uintmax_t> ("min_time_between_output", min_time_between_log_output_raw);
-	min_time_between_log_output = std::chrono::milliseconds (min_time_between_log_output_raw);
-	return json.get_error ();
 }
 
 bool nano::logging::ledger_logging () const
@@ -428,6 +326,11 @@ bool nano::logging::timing_logging () const
 bool nano::logging::active_update_logging () const
 {
 	return active_update_value;
+}
+
+bool nano::logging::election_result_logging () const
+{
+	return election_result_logging_value;
 }
 
 bool nano::logging::log_to_cerr () const

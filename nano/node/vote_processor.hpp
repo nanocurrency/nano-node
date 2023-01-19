@@ -6,7 +6,6 @@
 
 #include <deque>
 #include <memory>
-#include <mutex>
 #include <thread>
 #include <unordered_set>
 
@@ -41,9 +40,9 @@ public:
 	/** Note: node.active.mutex lock is required */
 	nano::vote_code vote_blocking (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &, bool = false);
 	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> const &);
+	/** Function blocks until either the current queue size (a established flush boundary as it'll continue to increase)
+	  * is processed or the queue is empty (end condition or cutoff's guard, as it is positioned ahead) */
 	void flush ();
-	/** Block until the currently active processing cycle finishes */
-	void flush_active ();
 	std::size_t size ();
 	bool empty ();
 	bool half_full ();
@@ -64,7 +63,7 @@ private:
 	nano::rep_crawler & rep_crawler;
 	nano::ledger & ledger;
 	nano::network_params & network_params;
-	std::size_t max_votes;
+	std::size_t const max_votes;
 	std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> votes;
 	/** Representatives levels for random early detection */
 	std::unordered_set<nano::account> representatives_1;
@@ -74,7 +73,6 @@ private:
 	nano::mutex mutex{ mutex_identifier (mutexes::vote_processor) };
 	bool started;
 	bool stopped;
-	bool is_active;
 	std::thread thread;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, std::string const & name);

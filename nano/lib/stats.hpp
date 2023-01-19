@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/errors.hpp>
+#include <nano/lib/observer_set.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -26,7 +27,6 @@ class stat_config final
 {
 public:
 	/** Reads the JSON statistics node */
-	nano::error deserialize_json (nano::jsonconfig & json);
 	nano::error deserialize_toml (nano::tomlconfig & toml);
 	nano::error serialize_toml (nano::tomlconfig & toml) const;
 
@@ -228,6 +228,7 @@ public:
 		ledger,
 		rollback,
 		bootstrap,
+		tcp_server,
 		vote,
 		election,
 		http_callback,
@@ -242,13 +243,28 @@ public:
 		requests,
 		filter,
 		telemetry,
-		vote_generator
+		vote_generator,
+		vote_cache,
+		hinting,
+		blockprocessor,
+		bootstrap_server,
+		active,
+		backlog,
 	};
 
 	/** Optional detail type */
 	enum class detail : uint8_t
 	{
 		all = 0,
+
+		// common
+		loop,
+		total,
+
+		// processing queue
+		queue,
+		overfill,
+		batch,
 
 		// error specific
 		bad_sender,
@@ -273,8 +289,20 @@ public:
 		old,
 		gap_previous,
 		gap_source,
+		rollback_failed,
+		progress,
+		bad_signature,
+		negative_spend,
+		unreceivable,
+		gap_epoch_open_pending,
+		opened_burn_account,
+		balance_mismatch,
+		representative_mismatch,
+		block_position,
 
 		// message specific
+		not_a_type,
+		invalid,
 		keepalive,
 		publish,
 		republish_vote,
@@ -283,6 +311,8 @@ public:
 		node_id_handshake,
 		telemetry_req,
 		telemetry_ack,
+		asc_pull_req,
+		asc_pull_ack,
 
 		// bootstrap, callback
 		initiate,
@@ -314,16 +344,27 @@ public:
 
 		// election specific
 		vote_new,
+		vote_processed,
 		vote_cached,
 		late_block,
 		late_block_seconds,
 		election_start,
+		election_confirmed_all,
 		election_block_conflict,
 		election_difficulty_update,
 		election_drop_expired,
 		election_drop_overflow,
 		election_drop_all,
 		election_restart,
+		election_confirmed,
+		election_not_confirmed,
+		election_hinted_overflow,
+		election_hinted_started,
+		election_hinted_confirmed,
+		election_hinted_drop,
+		generate_vote,
+		generate_vote_normal,
+		generate_vote_final,
 
 		// udp
 		blocking,
@@ -337,6 +378,12 @@ public:
 		invalid_node_id_handshake_message,
 		invalid_telemetry_req_message,
 		invalid_telemetry_ack_message,
+		invalid_bulk_pull_message,
+		invalid_bulk_pull_account_message,
+		invalid_frontier_req_message,
+		invalid_asc_pull_req_message,
+		invalid_asc_pull_ack_message,
+		message_too_big,
 		outdated_version,
 		udp_max_per_ip,
 		udp_max_per_subnetwork,
@@ -351,6 +398,9 @@ public:
 		tcp_max_per_subnetwork,
 		tcp_silent_connection_drop,
 		tcp_io_timeout_drop,
+		tcp_connect_error,
+		tcp_read_error,
+		tcp_write_error,
 
 		// ipc
 		invocations,
@@ -393,7 +443,26 @@ public:
 		generator_broadcasts,
 		generator_replies,
 		generator_replies_discarded,
-		generator_spacing
+		generator_spacing,
+
+		// hinting
+		hinted,
+		insert_failed,
+		missing_block,
+
+		// bootstrap server
+		response,
+		write_drop,
+		write_error,
+		blocks,
+		drop,
+		bad_count,
+		response_blocks,
+		response_account_info,
+		channel_full,
+
+		// backlog
+		activated,
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */
@@ -578,8 +647,14 @@ public:
 	/** Returns a new JSON log sink */
 	std::unique_ptr<stat_log_sink> log_sink_json () const;
 
+	/** Returns string representation of type */
+	static std::string type_to_string (stat::type type);
+
 	/** Returns string representation of detail */
-	static std::string detail_to_string (uint32_t key);
+	static std::string detail_to_string (stat::detail detail);
+
+	/** Returns string representation of dir */
+	static std::string dir_to_string (stat::dir detail);
 
 	/** Stop stats being output */
 	void stop ();
@@ -587,6 +662,7 @@ public:
 private:
 	static std::string type_to_string (uint32_t key);
 	static std::string dir_to_string (uint32_t key);
+	static std::string detail_to_string (uint32_t key);
 
 	/** Constructs a key given type, detail and direction. This is used as input to update(...) and get_entry(...) */
 	uint32_t key_of (stat::type type, stat::detail detail, stat::dir dir) const

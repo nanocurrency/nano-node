@@ -138,7 +138,7 @@ enum class error_process
 	gap_previous, // Block marked as previous is unknown
 	gap_source, // Block marked as source is unknown
 	gap_epoch_open_pending, // Block marked as pending blocks required for epoch open block are unknown
-	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
+	opened_burn_account, // Block attempts to open the burn account
 	balance_mismatch, // Balance and amount delta don't match
 	block_position, // This block cannot follow the previous block
 	insufficient_work, // Insufficient work for this block, even though it passed the minimal validation
@@ -196,6 +196,13 @@ REGISTER_ERROR_CODES (nano, error_rpc);
 REGISTER_ERROR_CODES (nano, error_process);
 REGISTER_ERROR_CODES (nano, error_config);
 
+#if BOOST_VERSION >= 107800
+/* no need for error_code bridge */
+#else
+#define NANO_USE_BOOST_TO_STD_ERROR_BRIDGE
+#endif
+
+#if defined(NANO_USE_BOOST_TO_STD_ERROR_BRIDGE)
 /* boost->std error_code bridge */
 namespace nano
 {
@@ -232,6 +239,7 @@ namespace error_conversion
 	std::error_code convert (boost::system::error_code const & error);
 }
 }
+#endif
 
 namespace nano
 {
@@ -244,18 +252,24 @@ public:
 	error (nano::error && error_a) = default;
 
 	error (std::error_code code_a);
+#if defined(NANO_USE_BOOST_TO_STD_ERROR_BRIDGE)
 	error (boost::system::error_code const & code_a);
+#endif
 	error (std::string message_a);
 	error (std::exception const & exception_a);
 	error & operator= (nano::error const & err_a);
 	error & operator= (nano::error && err_a);
 	error & operator= (std::error_code code_a);
+#if defined(NANO_USE_BOOST_TO_STD_ERROR_BRIDGE)
 	error & operator= (boost::system::error_code const & code_a);
 	error & operator= (boost::system::errc::errc_t const & code_a);
+#endif
 	error & operator= (std::string message_a);
 	error & operator= (std::exception const & exception_a);
 	bool operator== (std::error_code code_a) const;
+#if defined(NANO_USE_BOOST_TO_STD_ERROR_BRIDGE)
 	bool operator== (boost::system::error_code code_a) const;
+#endif
 	error & then (std::function<nano::error &()> next);
 	template <typename... ErrorCode>
 	error & accept (ErrorCode... err)

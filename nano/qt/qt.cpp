@@ -267,7 +267,7 @@ void nano_qt::accounts::refresh_wallet_balance ()
 	{
 		nano::public_key const & key (i->first);
 		balance = balance + (this->wallet.node.ledger.account_balance (block_transaction, key));
-		pending = pending + (this->wallet.node.ledger.account_pending (block_transaction, key));
+		pending = pending + (this->wallet.node.ledger.account_receivable (block_transaction, key));
 	}
 	auto final_text (std::string ("Balance: ") + wallet.format_balance (balance));
 	if (!pending.is_zero ())
@@ -923,7 +923,7 @@ std::string nano_qt::status::text ()
 	std::string count_string;
 	{
 		auto size (wallet.wallet_m->wallets.node.ledger.cache.block_count.load ());
-		unchecked = wallet.wallet_m->wallets.node.store.unchecked.count (wallet.wallet_m->wallets.node.store.tx_begin_read ());
+		unchecked = wallet.wallet_m->wallets.node.unchecked.count (wallet.wallet_m->wallets.node.store.tx_begin_read ());
 		cemented = wallet.wallet_m->wallets.node.ledger.cache.cemented_count.load ();
 		count_string = std::to_string (size);
 	}
@@ -957,15 +957,13 @@ std::string nano_qt::status::text ()
 	}
 
 	result += ", Blocks: ";
-	if (unchecked != 0 && wallet.node.bootstrap_initiator.in_progress ())
-	{
-		count_string += "\nUnchecked: " + std::to_string (unchecked) + ", Cemented: " + std::to_string (cemented);
-	}
+	count_string += ", Unchecked: " + std::to_string (unchecked);
+	count_string += ", Cemented: " + std::to_string (cemented);
 
 	if (wallet.node.flags.enable_pruning)
 	{
-		count_string += "Full: " + std::to_string (wallet.wallet_m->wallets.node.ledger.cache.block_count - wallet.wallet_m->wallets.node.ledger.cache.pruned_count);
-		count_string += ", Pruned: ", std::to_string (wallet.wallet_m->wallets.node.ledger.cache.pruned_count);
+		count_string += ", Full: " + std::to_string (wallet.wallet_m->wallets.node.ledger.cache.block_count - wallet.wallet_m->wallets.node.ledger.cache.pruned_count);
+		count_string += ", Pruned: " + std::to_string (wallet.wallet_m->wallets.node.ledger.cache.pruned_count);
 	}
 
 	result += count_string.c_str ();
@@ -1894,7 +1892,7 @@ nano_qt::advanced_actions::advanced_actions (nano_qt::wallet & wallet_a) :
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (search_for_receivables, &QPushButton::released, [this] () {
-		std::thread ([this] { this->wallet.wallet_m->search_pending (this->wallet.wallet_m->wallets.tx_begin_read ()); }).detach ();
+		std::thread ([this] { this->wallet.wallet_m->search_receivable (this->wallet.wallet_m->wallets.tx_begin_read ()); }).detach ();
 	});
 	QObject::connect (bootstrap, &QPushButton::released, [this] () {
 		std::thread ([this] { this->wallet.node.bootstrap_initiator.bootstrap (); }).detach ();

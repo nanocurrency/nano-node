@@ -7,61 +7,6 @@
 #include <boost/asio/ip/address_v6.hpp>
 #include <boost/format.hpp>
 
-#include <numeric>
-
-namespace
-{
-class callback_visitor : public nano::message_visitor
-{
-public:
-	void keepalive (nano::keepalive const & message_a) override
-	{
-		result = nano::stat::detail::keepalive;
-	}
-	void publish (nano::publish const & message_a) override
-	{
-		result = nano::stat::detail::publish;
-	}
-	void confirm_req (nano::confirm_req const & message_a) override
-	{
-		result = nano::stat::detail::confirm_req;
-	}
-	void confirm_ack (nano::confirm_ack const & message_a) override
-	{
-		result = nano::stat::detail::confirm_ack;
-	}
-	void bulk_pull (nano::bulk_pull const & message_a) override
-	{
-		result = nano::stat::detail::bulk_pull;
-	}
-	void bulk_pull_account (nano::bulk_pull_account const & message_a) override
-	{
-		result = nano::stat::detail::bulk_pull_account;
-	}
-	void bulk_push (nano::bulk_push const & message_a) override
-	{
-		result = nano::stat::detail::bulk_push;
-	}
-	void frontier_req (nano::frontier_req const & message_a) override
-	{
-		result = nano::stat::detail::frontier_req;
-	}
-	void node_id_handshake (nano::node_id_handshake const & message_a) override
-	{
-		result = nano::stat::detail::node_id_handshake;
-	}
-	void telemetry_req (nano::telemetry_req const & message_a) override
-	{
-		result = nano::stat::detail::telemetry_req;
-	}
-	void telemetry_ack (nano::telemetry_ack const & message_a) override
-	{
-		result = nano::stat::detail::telemetry_ack;
-	}
-	nano::stat::detail result;
-};
-}
-
 nano::endpoint nano::transport::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
 {
 	auto endpoint_l (endpoint_a);
@@ -103,15 +48,13 @@ nano::transport::channel::channel (nano::node & node_a) :
 	set_network_version (node_a.network_params.network.protocol_version);
 }
 
-void nano::transport::channel::send (nano::message & message_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
+void nano::transport::channel::send (nano::message & message_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a, nano::bandwidth_limit_type limiter_type)
 {
-	callback_visitor visitor;
-	message_a.visit (visitor);
 	auto buffer (message_a.to_shared_const_buffer ());
-	auto detail (visitor.result);
+	auto detail = nano::to_stat_detail (message_a.header.type);
 	auto is_droppable_by_limiter = drop_policy_a == nano::buffer_drop_policy::limiter;
-	auto should_drop (node.network.limiter.should_drop (buffer.size ()));
-	if (!is_droppable_by_limiter || !should_drop)
+	auto should_pass (node.outbound_limiter.should_pass (buffer.size (), limiter_type));
+	if (!is_droppable_by_limiter || should_pass)
 	{
 		send_buffer (buffer, callback_a, drop_policy_a);
 		node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
@@ -128,38 +71,29 @@ void nano::transport::channel::send (nano::message & message_a, std::function<vo
 		node.stats.inc (nano::stat::type::drop, detail, nano::stat::dir::out);
 		if (node.config.logging.network_packet_logging ())
 		{
-			auto key = static_cast<uint8_t> (detail) << 8;
-			node.logger.always_log (boost::str (boost::format ("%1% of size %2% dropped") % node.stats.detail_to_string (key) % buffer.size ()));
+			node.logger.always_log (boost::str (boost::format ("%1% of size %2% dropped") % node.stats.detail_to_string (detail) % buffer.size ()));
 		}
 	}
 }
 
-nano::transport::channel_loopback::channel_loopback (nano::node & node_a) :
-	channel (node_a), endpoint (node_a.network.endpoint ())
+void nano::transport::channel::set_peering_endpoint (nano::endpoint endpoint)
 {
-	set_node_id (node_a.node_id.pub);
-	set_network_version (node_a.network_params.network.protocol_version);
+	nano::lock_guard<nano::mutex> lock{ channel_mutex };
+	peering_endpoint = endpoint;
 }
 
-std::size_t nano::transport::channel_loopback::hash_code () const
+nano::endpoint nano::transport::channel::get_peering_endpoint () const
 {
-	std::hash<::nano::endpoint> hash;
-	return hash (endpoint);
-}
-
-bool nano::transport::channel_loopback::operator== (nano::transport::channel const & other_a) const
-{
-	return endpoint == other_a.get_endpoint ();
-}
-
-void nano::transport::channel_loopback::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
-{
-	release_assert (false && "sending to a loopback channel is not supported");
-}
-
-std::string nano::transport::channel_loopback::to_string () const
-{
-	return boost::str (boost::format ("%1%") % endpoint);
+	nano::unique_lock<nano::mutex> lock{ channel_mutex };
+	if (peering_endpoint)
+	{
+		return *peering_endpoint;
+	}
+	else
+	{
+		lock.unlock ();
+		return get_endpoint ();
+	}
 }
 
 boost::asio::ip::address_v6 nano::transport::mapped_from_v4_bytes (unsigned long address_a)
@@ -274,21 +208,4 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 		}
 	}
 	return result;
-}
-
-using namespace std::chrono_literals;
-
-nano::bandwidth_limiter::bandwidth_limiter (double const limit_burst_ratio_a, std::size_t const limit_a) :
-	bucket (static_cast<std::size_t> (limit_a * limit_burst_ratio_a), limit_a)
-{
-}
-
-bool nano::bandwidth_limiter::should_drop (std::size_t const & message_size_a)
-{
-	return !bucket.try_consume (nano::narrow_cast<unsigned int> (message_size_a));
-}
-
-void nano::bandwidth_limiter::reset (double const limit_burst_ratio_a, std::size_t const limit_a)
-{
-	bucket.reset (static_cast<std::size_t> (limit_a * limit_burst_ratio_a), limit_a);
 }

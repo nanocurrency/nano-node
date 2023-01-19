@@ -375,6 +375,20 @@ TEST (uint256_union, decode_nano_variant)
 	ASSERT_FALSE (key.decode_account ("nano_1111111111111111111111111111111111111111111111111111hifc8npp"));
 }
 
+/**
+ * It used to be the case that when the address was wrong only in the checksum part
+ * then the decode_account would return error and it would also write the address with
+ * fixed checksum into 'key', which is not desirable.
+ */
+TEST (uint256_union, key_is_not_updated_on_checksum_error)
+{
+	nano::account key;
+	ASSERT_EQ (key, 0);
+	bool result = key.decode_account ("nano_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtd1");
+	ASSERT_EQ (key, 0);
+	ASSERT_TRUE (result);
+}
+
 TEST (uint256_union, account_transcode)
 {
 	nano::account value;
@@ -585,4 +599,30 @@ TEST (random_pool, multithreading)
 	{
 		i.join ();
 	}
+}
+
+// Test that random 64bit numbers are within the given range
+TEST (random_pool, generate_word64)
+{
+	int occurrences[10] = { 0 };
+	for (auto i = 0; i < 1000; ++i)
+	{
+		auto random = nano::random_pool::generate_word64 (1, 9);
+		ASSERT_TRUE (random >= 1 && random <= 9);
+		occurrences[random] += 1;
+	}
+
+	for (auto i = 1; i < 10; ++i)
+	{
+		ASSERT_TRUE (occurrences[i] > 0);
+	}
+}
+
+// Test random numbers > uint32 max
+TEST (random_pool, generate_word64_big_number)
+{
+	uint64_t min = static_cast<uint64_t> (std::numeric_limits<uint32_t>::max ()) + 1;
+	uint64_t max = std::numeric_limits<uint64_t>::max ();
+	auto big_random = nano::random_pool::generate_word64 (min, max);
+	ASSERT_TRUE (big_random >= min);
 }

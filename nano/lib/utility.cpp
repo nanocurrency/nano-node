@@ -2,41 +2,22 @@
 
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/filesystem.hpp>
-
-#include <cstddef>
-#include <iostream>
+#include <boost/program_options.hpp>
 
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #endif
+#include <boost/stacktrace.hpp>
 
+#include <cstddef>
+#include <fstream>
+#include <iostream>
 #include <limits>
 #include <sstream>
 #include <string_view>
 #include <thread>
-
-// Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".
-#ifndef _WIN32
-#ifdef NANO_STACKTRACE_BACKTRACE
-#define BOOST_STACKTRACE_USE_BACKTRACE
-#endif
-#ifndef _GNU_SOURCE
-#define BEFORE_GNU_SOURCE 0
-#define _GNU_SOURCE
-#else
-#define BEFORE_GNU_SOURCE 1
-#endif
-#endif
-// On Windows this include defines min/max macros, so keep below other includes
-// to reduce conflicts with other std functions
-#include <boost/stacktrace.hpp>
-#ifndef _WIN32
-#if !BEFORE_GNU_SOURCE
-#undef _GNU_SOURCE
-#endif
-#endif
 
 #ifndef _WIN32
 #include <sys/resource.h>
@@ -195,4 +176,24 @@ void assert_internal (char const * check_expr, char const * func, char const * f
 #endif
 
 	abort ();
+}
+
+// Issue #3748
+void nano::sort_options_description (const boost::program_options::options_description & source, boost::program_options::options_description & target)
+{
+	// Grab all of the options, get the option display name, stick it in a map using the display name as
+	// the key (the map will sort) and the value as the option itself.
+	const auto & options = source.options ();
+	std::map<std::string, boost::shared_ptr<boost::program_options::option_description>> sorted_options;
+	for (const auto & option : options)
+	{
+		auto pair = std::make_pair (option->canonical_display_name (2), option);
+		sorted_options.insert (pair);
+	}
+
+	// Rebuild for display purposes only.
+	for (const auto & option_pair : sorted_options)
+	{
+		target.add (option_pair.second);
+	}
 }

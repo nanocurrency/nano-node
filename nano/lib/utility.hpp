@@ -22,6 +22,11 @@ namespace system
 {
 	class error_code;
 }
+
+namespace program_options
+{
+	class options_description;
+}
 }
 
 void assert_internal (char const * check_expr, char const * func, char const * file, unsigned int line, bool is_release_assert, std::string_view error = "");
@@ -37,7 +42,7 @@ void assert_internal (char const * check_expr, char const * func, char const * f
 #endif
 
 #ifdef NDEBUG
-#define debug_assert(check) (void)0
+#define debug_assert(...) (void)0
 #else
 #define debug_assert_1(check) check ? (void)0 : assert_internal (#check, BOOST_CURRENT_FUNCTION, __FILE__, __LINE__, false)
 #define debug_assert_2(check, error_msg) check ? (void)0 : assert_internal (#check, BOOST_CURRENT_FUNCTION, __FILE__, __LINE__, false, error_msg)
@@ -142,42 +147,6 @@ std::string generate_stacktrace ();
 std::size_t get_file_descriptor_limit ();
 void set_file_descriptor_limit (std::size_t limit);
 
-template <typename... T>
-class observer_set final
-{
-public:
-	void add (std::function<void (T...)> const & observer_a)
-	{
-		nano::lock_guard<nano::mutex> lock (mutex);
-		observers.push_back (observer_a);
-	}
-	void notify (T... args)
-	{
-		nano::lock_guard<nano::mutex> lock (mutex);
-		for (auto & i : observers)
-		{
-			i (args...);
-		}
-	}
-	nano::mutex mutex{ mutex_identifier (mutexes::observer_set) };
-	std::vector<std::function<void (T...)>> observers;
-};
-
-template <typename... T>
-std::unique_ptr<container_info_component> collect_container_info (observer_set<T...> & observer_set, std::string const & name)
-{
-	size_t count = 0;
-	{
-		nano::lock_guard<nano::mutex> lock (observer_set.mutex);
-		count = observer_set.observers.size ();
-	}
-
-	auto sizeof_element = sizeof (typename decltype (observer_set.observers)::value_type);
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "observers", count, sizeof_element }));
-	return composite;
-}
-
 void remove_all_files_in_dir (boost::filesystem::path const & dir);
 void move_all_files_to_dir (boost::filesystem::path const & from, boost::filesystem::path const & to);
 
@@ -203,4 +172,7 @@ constexpr TARGET_TYPE narrow_cast (SOURCE_TYPE const & val)
 	debug_assert (val == static_cast<SOURCE_TYPE> (res));
 	return res;
 }
+
+// Issue #3748
+void sort_options_description (const boost::program_options::options_description & source, boost::program_options::options_description & target);
 }

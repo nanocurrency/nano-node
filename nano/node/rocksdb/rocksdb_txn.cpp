@@ -66,7 +66,10 @@ void nano::write_rocksdb_txn::commit ()
 			++attempt_num;
 		}
 
-		release_assert (status.ok (), status.ToString ());
+		if (!status.ok ())
+		{
+			release_assert (false && "Unable to write to the RocksDB database", status.ToString ());
+		}
 		active = false;
 	}
 }

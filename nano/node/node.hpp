@@ -4,6 +4,9 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/active_transactions.hpp>
+#include <nano/node/backlog_population.hpp>
+#include <nano/node/bandwidth_limiter.hpp>
+#include <nano/node/block_arrival.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
@@ -13,6 +16,7 @@
 #include <nano/node/election.hpp>
 #include <nano/node/election_scheduler.hpp>
 #include <nano/node/gap_cache.hpp>
+#include <nano/node/hinted_scheduler.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -22,17 +26,15 @@
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/signatures.hpp>
 #include <nano/node/telemetry.hpp>
+#include <nano/node/transport/tcp_server.hpp>
+#include <nano/node/unchecked_map.hpp>
+#include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
 
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/member.hpp>
-#include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index/sequenced_index.hpp>
-#include <boost/multi_index_container.hpp>
 #include <boost/program_options.hpp>
 #include <boost/thread/latch.hpp>
 
@@ -42,6 +44,9 @@
 
 namespace nano
 {
+namespace rocksdb
+{
+} // Declare a namespace rocksdb inside nano so all references to the rocksdb library need to be globally scoped e.g. ::rocksdb::Slice
 namespace websocket
 {
 	class listener;
@@ -49,38 +54,14 @@ namespace websocket
 class node;
 class telemetry;
 class work_pool;
-class block_arrival_info final
-{
-public:
-	std::chrono::steady_clock::time_point arrival;
-	nano::block_hash hash;
-};
-// This class tracks blocks that are probably live because they arrived in a UDP packet
-// This gives a fairly reliable way to differentiate between blocks being inserted via bootstrap or new, live blocks.
-class block_arrival final
-{
-public:
-	// Return `true' to indicated an error if the block has already been inserted
-	bool add (nano::block_hash const &);
-	bool recent (nano::block_hash const &);
-	// clang-format off
-	class tag_sequence {};
-	class tag_hash {};
-	boost::multi_index_container<nano::block_arrival_info,
-		boost::multi_index::indexed_by<
-			boost::multi_index::sequenced<boost::multi_index::tag<tag_sequence>>,
-			boost::multi_index::hashed_unique<boost::multi_index::tag<tag_hash>,
-				boost::multi_index::member<nano::block_arrival_info, nano::block_hash, &nano::block_arrival_info::hash>>>>
-	arrival;
-	// clang-format on
-	nano::mutex mutex{ mutex_identifier (mutexes::block_arrival) };
-	static std::size_t constexpr arrival_size_min = 8 * 1024;
-	static std::chrono::seconds constexpr arrival_time_min = std::chrono::seconds (300);
-};
-
-std::unique_ptr<container_info_component> collect_container_info (block_arrival & block_arrival, std::string const & name);
 
 std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
+
+// Configs
+backlog_population::config backlog_population_config (node_config const &);
+vote_cache::config nodeconfig_to_vote_cache_config (node_config const &, node_flags const &);
+hinted_scheduler::config nodeconfig_to_hinted_scheduler_config (node_config const &);
+outbound_bandwidth_limiter::config outbound_bandwidth_limiter_config (node_config const &);
 
 class node final : public std::enable_shared_from_this<nano::node>
 {
@@ -103,25 +84,20 @@ public:
 	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block> const &, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, bool &, nano::account &);
 	void process_confirmed (nano::election_status const &, uint64_t = 0);
 	void process_active (std::shared_ptr<nano::block> const &);
-	[[nodiscard]] nano::process_return process (nano::block &);
 	nano::process_return process_local (std::shared_ptr<nano::block> const &);
 	void process_local_async (std::shared_ptr<nano::block> const &);
 	void keepalive_preconfigured (std::vector<std::string> const &);
-	nano::block_hash latest (nano::account const &);
-	nano::uint128_t balance (nano::account const &);
 	std::shared_ptr<nano::block> block (nano::block_hash const &);
 	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &, bool only_confirmed);
 	nano::uint128_t weight (nano::account const &);
 	nano::block_hash rep_block (nano::account const &);
 	nano::uint128_t minimum_principal_weight ();
-	nano::uint128_t minimum_principal_weight (nano::uint128_t const &);
 	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
 	void ongoing_peer_store ();
 	void ongoing_unchecked_cleanup ();
-	void ongoing_backlog_population ();
 	void backup_wallet ();
-	void search_pending ();
+	void search_receivable_all ();
 	void bootstrap_wallet ();
 	void unchecked_cleanup ();
 	bool collect_ledger_pruning_targets (std::deque<nano::block_hash> &, nano::account &, uint64_t const, uint64_t const, uint64_t const);
@@ -139,9 +115,13 @@ public:
 	boost::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::root const &, uint64_t, boost::optional<nano::account> const & = boost::none);
 	void work_generate (nano::work_version const, nano::root const &, uint64_t, std::function<void (boost::optional<uint64_t>)>, boost::optional<nano::account> const & = boost::none, bool const = false);
 	void add_initial_peers ();
-	void block_confirm (std::shared_ptr<nano::block> const &);
+	/*
+	 * Starts an election for the block, DOES NOT confirm it
+	 * TODO: Rename to `start_election`
+	 */
+	std::shared_ptr<nano::election> block_confirm (std::shared_ptr<nano::block> const &);
 	bool block_confirmed (nano::block_hash const &);
-	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
+	bool block_confirmed_or_being_confirmed (nano::block_hash const &);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string> const &, std::shared_ptr<std::string> const &, std::shared_ptr<boost::asio::ip::tcp::resolver> const &);
 	void ongoing_online_weight_calculation ();
 	void ongoing_online_weight_calculation_queue ();
@@ -150,7 +130,12 @@ public:
 	bool epoch_upgrader (nano::raw_key const &, nano::epoch, uint64_t, uint64_t);
 	void set_bandwidth_params (std::size_t limit, double ratio);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
-	void populate_backlog ();
+	uint64_t get_confirmation_height (nano::transaction const &, nano::account &);
+	/*
+	 * Attempts to bootstrap block. This is the best effort, there is no guarantee that the block will be bootstrapped.
+	 */
+	void bootstrap_block (nano::block_hash const &);
+	nano::account get_node_id () const;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
@@ -158,6 +143,7 @@ public:
 	nano::network_params & network_params;
 	nano::stat stats;
 	nano::thread_pool workers;
+	nano::thread_pool bootstrap_workers;
 	std::shared_ptr<nano::websocket::listener> websocket_server;
 	nano::node_flags flags;
 	nano::work_pool & work;
@@ -165,15 +151,18 @@ public:
 	nano::logger_mt logger;
 	std::unique_ptr<nano::store> store_impl;
 	nano::store & store;
+	nano::unchecked_map unchecked;
 	std::unique_ptr<nano::wallets_store> wallets_store_impl;
 	nano::wallets_store & wallets_store;
 	nano::gap_cache gap_cache;
 	nano::ledger ledger;
 	nano::signature_checker checker;
+	nano::outbound_bandwidth_limiter outbound_limiter;
 	nano::network network;
 	std::shared_ptr<nano::telemetry> telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;
-	nano::bootstrap_listener bootstrap;
+	nano::bootstrap_server bootstrap_server;
+	nano::transport::tcp_listener tcp_listener;
 	boost::filesystem::path application_path;
 	nano::node_observers observers;
 	nano::port_mapping port_mapping;
@@ -188,10 +177,16 @@ public:
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
 	nano::confirmation_height_processor confirmation_height_processor;
+	nano::vote_cache inactive_vote_cache;
+	nano::vote_generator generator;
+	nano::vote_generator final_generator;
 	nano::active_transactions active;
 	nano::election_scheduler scheduler;
+	nano::hinted_scheduler hinting;
 	nano::request_aggregator aggregator;
 	nano::wallets wallets;
+	nano::backlog_population backlog;
+
 	std::chrono::steady_clock::time_point const startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	std::atomic<bool> unresponsive_work_peers{ false };
@@ -207,12 +202,23 @@ public:
 	// For tests only
 	boost::optional<uint64_t> work_generate_blocking (nano::root const &);
 
+public: // Testing convenience functions
+	/**
+		Creates a new write transaction and inserts `block' and returns result
+		Transaction is comitted before function return
+	 */
+	[[nodiscard]] nano::process_return process (nano::block & block);
+	[[nodiscard]] nano::process_return process (nano::write_transaction const &, nano::block & block);
+	nano::block_hash latest (nano::account const &);
+	nano::uint128_t balance (nano::account const &);
+
 private:
 	void long_inactivity_cleanup ();
 	void epoch_upgrader_impl (nano::raw_key const &, nano::epoch, uint64_t, uint64_t);
 	nano::locked<std::future<void>> epoch_upgrading;
 };
 
+nano::keypair load_or_create_node_id (boost::filesystem::path const & application_path, nano::logger_mt & logger);
 std::unique_ptr<container_info_component> collect_container_info (node & node, std::string const & name);
 
 nano::node_flags const & inactive_node_flag_defaults ();

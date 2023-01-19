@@ -64,7 +64,7 @@ public:
 			}
 			else
 			{
-				callback (ec, *end);
+				callback (ec, boost::asio::ip::tcp::endpoint ());
 			}
 		});
 	}

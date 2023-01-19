@@ -96,6 +96,16 @@ public:
 		return &current;
 	}
 
+	bool operator== (nano::mdb_iterator<T, U> const & base_a) const
+	{
+		auto const other_a (boost::polymorphic_downcast<nano::mdb_iterator<T, U> const *> (&base_a));
+		auto result (current.first.data () == other_a->current.first.data ());
+		debug_assert (!result || (current.first.size () == other_a->current.first.size ()));
+		debug_assert (!result || (current.second.data () == other_a->current.second.data ()));
+		debug_assert (!result || (current.second.size () == other_a->current.second.size ()));
+		return result;
+	}
+
 	bool operator== (nano::store_iterator_impl<T, U> const & base_a) const override
 	{
 		auto const other_a (boost::polymorphic_downcast<nano::mdb_iterator<T, U> const *> (&base_a));
@@ -210,11 +220,21 @@ public:
 		return least_iterator ().operator-> ();
 	}
 
+	bool operator== (nano::mdb_merge_iterator<T, U> const & other) const
+	{
+		return *impl1 == *other.impl1 && *impl2 == *other.impl2;
+	}
+
+	bool operator!= (nano::mdb_merge_iterator<T, U> const & base_a) const
+	{
+		return !(*this == base_a);
+	}
+
 	bool operator== (nano::store_iterator_impl<T, U> const & base_a) const override
 	{
 		debug_assert ((dynamic_cast<nano::mdb_merge_iterator<T, U> const *> (&base_a) != nullptr) && "Incompatible iterator comparison");
 		auto & other (static_cast<nano::mdb_merge_iterator<T, U> const &> (base_a));
-		return *impl1 == *other.impl1 && *impl2 == *other.impl2;
+		return *this == other;
 	}
 
 	bool is_end_sentinal () const override

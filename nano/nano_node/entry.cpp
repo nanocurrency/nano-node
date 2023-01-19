@@ -7,6 +7,7 @@
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/transport/inproc.hpp>
 
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/filesystem/operations.hpp>
@@ -14,6 +15,12 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
 #include <boost/range/adaptor/reversed.hpp>
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#endif
+#include <boost/stacktrace.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
 
@@ -21,25 +28,6 @@
 #include <sstream>
 
 #include <argon2.h>
-
-// Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".
-#ifndef _WIN32
-#ifdef NANO_STACKTRACE_BACKTRACE
-#define BOOST_STACKTRACE_USE_BACKTRACE
-#endif
-#ifndef _GNU_SOURCE
-#define BEFORE_GNU_SOURCE 0
-#define _GNU_SOURCE
-#else
-#define BEFORE_GNU_SOURCE 1
-#endif
-#endif
-#include <boost/stacktrace.hpp>
-#ifndef _WIN32
-#if !BEFORE_GNU_SOURCE
-#undef _GNU_SOURCE
-#endif
-#endif
 
 namespace
 {
@@ -72,6 +60,7 @@ int main (int argc, char * const * argv)
 		("help", "Print out options")
 		("version", "Prints out version")
 		("config", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
+		("rpcconfig", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass rpc configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
 		("compare_rep_weights", "Display a summarized comparison between the hardcoded bootstrap weights and representative weights from the ledger. Full comparison is output to logs")
 		("debug_block_dump", "Display all the blocks in the ledger in text format")
@@ -437,14 +426,13 @@ int main (int argc, char * const * argv)
 			}
 
 			// Check all unchecked keys for matching frontier hashes. Indicates an issue with process_batch algorithm
-			for (auto [i, n] = node->store.unchecked.full_range (transaction); i != n; ++i)
-			{
-				auto it = frontier_hashes.find (i->first.key ());
+			node->unchecked.for_each (transaction, [&frontier_hashes] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+				auto it = frontier_hashes.find (key.key ());
 				if (it != frontier_hashes.cend ())
 				{
 					std::cout << it->to_string () << "\n";
 				}
-			}
+			});
 		}
 		else if (vm.count ("debug_account_count"))
 		{
@@ -888,12 +876,20 @@ int main (int argc, char * const * argv)
 			while (true)
 			{
 				nano::keypair key;
+				nano::block_builder builder;
 				nano::block_hash latest (0);
 				auto begin1 (std::chrono::high_resolution_clock::now ());
 				for (uint64_t balance (0); balance < 1000; ++balance)
 				{
-					nano::send_block send (latest, key.pub, balance, key.prv, key.pub, 0);
-					latest = send.hash ();
+					auto send = builder
+								.send ()
+								.previous (latest)
+								.destination (key.pub)
+								.balance (balance)
+								.sign (key.prv, key.pub)
+								.work (0)
+								.build ();
+					latest = send->hash ();
 				}
 				auto end1 (std::chrono::high_resolution_clock::now ());
 				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
@@ -1003,7 +999,7 @@ int main (int argc, char * const * argv)
 				if (timer_l.after_deadline (std::chrono::seconds (15)))
 				{
 					timer_l.restart ();
-					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked), %3% remaining") % node->ledger.cache.block_count % node->store.unchecked.count (node->store.tx_begin_read ()) % node->block_processor.size ()) << std::endl;
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked), %3% remaining") % node->ledger.cache.block_count % node->unchecked.count (node->store.tx_begin_read ()) % node->block_processor.size ()) << std::endl;
 				}
 			}
 
@@ -1107,7 +1103,7 @@ int main (int argc, char * const * argv)
 			while (!votes.empty ())
 			{
 				auto vote (votes.front ());
-				auto channel (std::make_shared<nano::transport::channel_loopback> (*node));
+				auto channel (std::make_shared<nano::transport::inproc::channel> (*node, *node));
 				node->vote_processor.vote (vote, channel);
 				votes.pop_front ();
 			}
@@ -1379,7 +1375,7 @@ int main (int argc, char * const * argv)
 				if (!silent)
 				{
 					static nano::mutex cerr_mutex;
-					nano::lock_guard<nano::mutex> lock (cerr_mutex);
+					nano::lock_guard<nano::mutex> lock{ cerr_mutex };
 					std::cerr << error_message_a;
 				}
 				++errors;
@@ -1390,7 +1386,7 @@ int main (int argc, char * const * argv)
 				{
 					threads.emplace_back ([&function_a, node, &mutex, &condition, &finished, &deque_a] () {
 						auto transaction (node->store.tx_begin_read ());
-						nano::unique_lock<nano::mutex> lock (mutex);
+						nano::unique_lock<nano::mutex> lock{ mutex };
 						while (!deque_a.empty () || !finished)
 						{
 							while (deque_a.empty () && !finished)
@@ -1642,7 +1638,7 @@ int main (int argc, char * const * argv)
 			for (auto i (node->store.account.begin (transaction)), n (node->store.account.end ()); i != n; ++i)
 			{
 				{
-					nano::unique_lock<nano::mutex> lock (mutex);
+					nano::unique_lock<nano::mutex> lock{ mutex };
 					if (accounts.size () > accounts_deque_overflow)
 					{
 						auto wait_ms (250 * accounts.size () / accounts_deque_overflow);
@@ -1654,7 +1650,7 @@ int main (int argc, char * const * argv)
 				condition.notify_all ();
 			}
 			{
-				nano::lock_guard<nano::mutex> lock (mutex);
+				nano::lock_guard<nano::mutex> lock{ mutex };
 				finished = true;
 			}
 			condition.notify_all ();
@@ -1753,7 +1749,7 @@ int main (int argc, char * const * argv)
 			for (auto i (node->store.pending.begin (transaction)), n (node->store.pending.end ()); i != n; ++i)
 			{
 				{
-					nano::unique_lock<nano::mutex> lock (mutex);
+					nano::unique_lock<nano::mutex> lock{ mutex };
 					if (pending.size () > pending_deque_overflow)
 					{
 						auto wait_ms (50 * pending.size () / pending_deque_overflow);
@@ -1765,7 +1761,7 @@ int main (int argc, char * const * argv)
 				condition.notify_all ();
 			}
 			{
-				nano::lock_guard<nano::mutex> lock (mutex);
+				nano::lock_guard<nano::mutex> lock{ mutex };
 				finished = true;
 			}
 			condition.notify_all ();
@@ -1823,7 +1819,7 @@ int main (int argc, char * const * argv)
 							{
 								std::cout << boost::str (boost::format ("%1% blocks retrieved") % count) << std::endl;
 							}
-							nano::unchecked_info unchecked_info (block, account, 0, nano::signature_verification::unknown);
+							nano::unchecked_info unchecked_info (block);
 							node.node->block_processor.add (unchecked_info);
 							if (block->type () == nano::block_type::state && block->previous ().is_zero () && source_node->ledger.is_epoch_link (block->link ()))
 							{
@@ -1852,7 +1848,7 @@ int main (int argc, char * const * argv)
 				if (timer_l.after_deadline (std::chrono::seconds (60)))
 				{
 					timer_l.restart ();
-					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked)") % node.node->ledger.cache.block_count % node.node->store.unchecked.count (node.node->store.tx_begin_read ())) << std::endl;
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked)") % node.node->ledger.cache.block_count % node.node->unchecked.count (node.node->store.tx_begin_read ())) << std::endl;
 				}
 			}
 
@@ -2032,7 +2028,11 @@ int main (int argc, char * const * argv)
 		}
 		else
 		{
-			std::cout << description << std::endl;
+			// Issue #3748
+			// Regardless how the options were added, output the options in alphabetical order so they are easy to find.
+			boost::program_options::options_description sorted_description ("Command line options");
+			nano::sort_options_description (description, sorted_description);
+			std::cout << sorted_description << std::endl;
 			result = -1;
 		}
 	}

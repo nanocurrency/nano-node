@@ -156,7 +156,11 @@ int main (int argc, char * const * argv)
 	}
 	else
 	{
-		std::cout << description << std::endl;
+		// Issue #3748
+		// Regardless how the options were added, output the options in alphabetical order so they are easy to find.
+		boost::program_options::options_description sorted_description ("Command line options");
+		nano::sort_options_description (description, sorted_description);
+		std::cout << sorted_description << std::endl;
 	}
 
 	return 1;

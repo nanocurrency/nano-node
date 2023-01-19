@@ -152,10 +152,13 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.backup_before_upgrade, defaults.node.backup_before_upgrade);
 	ASSERT_EQ (conf.node.bandwidth_limit, defaults.node.bandwidth_limit);
 	ASSERT_EQ (conf.node.bandwidth_limit_burst_ratio, defaults.node.bandwidth_limit_burst_ratio);
+	ASSERT_EQ (conf.node.bootstrap_bandwidth_limit, defaults.node.bootstrap_bandwidth_limit);
+	ASSERT_EQ (conf.node.bootstrap_bandwidth_burst_ratio, defaults.node.bootstrap_bandwidth_burst_ratio);
 	ASSERT_EQ (conf.node.block_processor_batch_max_time, defaults.node.block_processor_batch_max_time);
 	ASSERT_EQ (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
 	ASSERT_EQ (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
 	ASSERT_EQ (conf.node.bootstrap_initiator_threads, defaults.node.bootstrap_initiator_threads);
+	ASSERT_EQ (conf.node.bootstrap_serving_threads, defaults.node.bootstrap_serving_threads);
 	ASSERT_EQ (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_EQ (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
 	ASSERT_EQ (conf.node.conf_height_processor_batch_min_time, defaults.node.conf_height_processor_batch_min_time);
@@ -187,7 +190,8 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_EQ (conf.node.work_threads, defaults.node.work_threads);
 	ASSERT_EQ (conf.node.max_queued_requests, defaults.node.max_queued_requests);
-	ASSERT_EQ (conf.node.confirm_req_batches_max, defaults.node.confirm_req_batches_max);
+	ASSERT_EQ (conf.node.backlog_scan_batch_size, defaults.node.backlog_scan_batch_size);
+	ASSERT_EQ (conf.node.backlog_scan_frequency, defaults.node.backlog_scan_frequency);
 
 	ASSERT_EQ (conf.node.logging.bulk_pull_logging_value, defaults.node.logging.bulk_pull_logging_value);
 	ASSERT_EQ (conf.node.logging.flush, defaults.node.logging.flush);
@@ -392,10 +396,13 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	backup_before_upgrade = true
 	bandwidth_limit = 999
 	bandwidth_limit_burst_ratio = 999.9
+	bootstrap_bandwidth_limit = 999
+	bootstrap_bandwidth_burst_ratio = 999.9
 	block_processor_batch_max_time = 999
 	bootstrap_connections = 999
 	bootstrap_connections_max = 999
 	bootstrap_initiator_threads = 999
+	bootstrap_serving_threads = 999
 	bootstrap_frontier_request_count = 9999
 	bootstrap_fraction_numerator = 999
 	conf_height_processor_batch_min_time = 999
@@ -428,6 +435,9 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	max_work_generate_multiplier = 1.0
 	max_queued_requests = 999
 	frontiers_confirmation = "always"
+	backlog_scan_batch_size = 999
+	backlog_scan_frequency = 999
+
 	[node.diagnostics.txn_tracking]
 	enable = true
 	ignore_writes_below_block_processor_max_time = false
@@ -556,10 +566,13 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.backup_before_upgrade, defaults.node.backup_before_upgrade);
 	ASSERT_NE (conf.node.bandwidth_limit, defaults.node.bandwidth_limit);
 	ASSERT_NE (conf.node.bandwidth_limit_burst_ratio, defaults.node.bandwidth_limit_burst_ratio);
+	ASSERT_NE (conf.node.bootstrap_bandwidth_limit, defaults.node.bootstrap_bandwidth_limit);
+	ASSERT_NE (conf.node.bootstrap_bandwidth_burst_ratio, defaults.node.bootstrap_bandwidth_burst_ratio);
 	ASSERT_NE (conf.node.block_processor_batch_max_time, defaults.node.block_processor_batch_max_time);
 	ASSERT_NE (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
 	ASSERT_NE (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
 	ASSERT_NE (conf.node.bootstrap_initiator_threads, defaults.node.bootstrap_initiator_threads);
+	ASSERT_NE (conf.node.bootstrap_serving_threads, defaults.node.bootstrap_serving_threads);
 	ASSERT_NE (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_NE (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
 	ASSERT_NE (conf.node.conf_height_processor_batch_min_time, defaults.node.conf_height_processor_batch_min_time);
@@ -594,7 +607,8 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_NE (conf.node.work_threads, defaults.node.work_threads);
 	ASSERT_NE (conf.node.max_queued_requests, defaults.node.max_queued_requests);
-	ASSERT_EQ (conf.node.confirm_req_batches_max, defaults.node.confirm_req_batches_max);
+	ASSERT_NE (conf.node.backlog_scan_batch_size, defaults.node.backlog_scan_batch_size);
+	ASSERT_NE (conf.node.backlog_scan_frequency, defaults.node.backlog_scan_frequency);
 
 	ASSERT_NE (conf.node.logging.bulk_pull_logging_value, defaults.node.logging.bulk_pull_logging_value);
 	ASSERT_NE (conf.node.logging.flush, defaults.node.logging.flush);
@@ -828,21 +842,6 @@ TEST (toml, daemon_config_deserialize_errors)
 		conf.deserialize_toml (toml);
 
 		ASSERT_EQ (toml.get_error ().get_message (), "election_hint_weight_percent must be a number between 5 and 50");
-	}
-
-	{
-		std::stringstream ss;
-		ss << R"toml(
-		[node]
-		confirm_req_batches_max = 0
-		)toml";
-
-		nano::tomlconfig toml;
-		toml.read (ss);
-		nano::daemon_config conf;
-		conf.deserialize_toml (toml);
-
-		ASSERT_EQ (toml.get_error ().get_message (), "confirm_req_batches_max must be between 1 and 100");
 	}
 
 	{

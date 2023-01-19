@@ -4,7 +4,7 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/transport.hpp>
-#include <nano/secure/buffer.hpp>
+#include <nano/node/unchecked_map.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/store.hpp>
 
@@ -541,6 +541,10 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	auto num_either_side_to_remove = telemetry_datas.size () / 10;
 
 	auto strip_outliers_and_sum = [num_either_side_to_remove] (auto & counts) {
+		if (num_either_side_to_remove * 2 >= counts.size ())
+		{
+			return nano::uint128_t (0);
+		}
 		counts.erase (counts.begin (), std::next (counts.begin (), num_either_side_to_remove));
 		counts.erase (std::next (counts.rbegin (), num_either_side_to_remove).base (), counts.end ());
 		return std::accumulate (counts.begin (), counts.end (), nano::uint128_t (0), [] (nano::uint128_t total, auto count) {
@@ -624,7 +628,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	return consolidated_data;
 }
 
-nano::telemetry_data nano::local_telemetry_data (nano::ledger const & ledger_a, nano::network & network_a, uint64_t bandwidth_limit_a, nano::network_params const & network_params_a, std::chrono::steady_clock::time_point statup_time_a, uint64_t active_difficulty_a, nano::keypair const & node_id_a)
+nano::telemetry_data nano::local_telemetry_data (nano::ledger const & ledger_a, nano::network & network_a, nano::unchecked_map const & unchecked, uint64_t bandwidth_limit_a, nano::network_params const & network_params_a, std::chrono::steady_clock::time_point statup_time_a, uint64_t active_difficulty_a, nano::keypair const & node_id_a)
 {
 	nano::telemetry_data telemetry_data;
 	telemetry_data.node_id = node_id_a.pub;
@@ -633,7 +637,7 @@ nano::telemetry_data nano::local_telemetry_data (nano::ledger const & ledger_a, 
 	telemetry_data.bandwidth_cap = bandwidth_limit_a;
 	telemetry_data.protocol_version = network_params_a.network.protocol_version;
 	telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - statup_time_a).count ();
-	telemetry_data.unchecked_count = ledger_a.store.unchecked.count (ledger_a.store.tx_begin_read ());
+	telemetry_data.unchecked_count = unchecked.count (ledger_a.store.tx_begin_read ());
 	telemetry_data.genesis_block = network_params_a.ledger.genesis->hash ();
 	telemetry_data.peer_count = nano::narrow_cast<decltype (telemetry_data.peer_count)> (network_a.size ());
 	telemetry_data.account_count = ledger_a.cache.account_count;

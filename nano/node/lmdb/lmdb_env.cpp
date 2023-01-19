@@ -21,11 +21,11 @@ void nano::mdb_env::init (bool & error_a, boost::filesystem::path const & path_a
 			auto status2 (mdb_env_set_maxdbs (environment, options_a.config.max_databases));
 			release_assert (status2 == 0);
 			auto map_size = options_a.config.map_size;
-			auto max_valgrind_map_size = 16 * 1024 * 1024;
-			if (running_within_valgrind () && map_size > max_valgrind_map_size)
+			auto max_instrumented_map_size = 16 * 1024 * 1024;
+			if (memory_intensive_instrumentation () && map_size > max_instrumented_map_size)
 			{
-				// In order to run LMDB under Valgrind, the maximum map size must be smaller than half your available RAM
-				map_size = max_valgrind_map_size;
+				// In order to run LMDB with some types of memory instrumentation, the maximum map size must be smaller than what is normally used when non-instrumented
+				map_size = max_instrumented_map_size;
 			}
 			auto status3 (mdb_env_set_mapsize (environment, map_size));
 			release_assert (status3 == 0);
@@ -47,7 +47,7 @@ void nano::mdb_env::init (bool & error_a, boost::filesystem::path const & path_a
 				environment_flags |= MDB_NOSYNC | MDB_WRITEMAP | MDB_MAPASYNC;
 			}
 
-			if (!running_within_valgrind () && options_a.use_no_mem_init)
+			if (!memory_intensive_instrumentation () && options_a.use_no_mem_init)
 			{
 				environment_flags |= MDB_NOMEMINIT;
 			}

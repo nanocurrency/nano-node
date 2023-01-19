@@ -1,23 +1,22 @@
-FROM nanocurrency/nano-env:base
+ARG ENV_REPOSITORY=nanocurrency/nano-env
+FROM ${ENV_REPOSITORY}:base
 
 RUN apt-get update -qq && apt-get install -yqq \
-clang-3.9 lldb-3.9 git
+clang \
+lldb \
+git \
+libboost-all-dev
 
 ENV CXX=/usr/bin/clang++
 ENV CC=/usr/bin/clang
-RUN ln -s /usr/bin/clang-3.9 /usr/bin/clang
-RUN ln -s /usr/bin/clang++-3.9 /usr/bin/clang++
 RUN update-alternatives --install /usr/bin/cc cc /usr/bin/clang 100
 RUN update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 100
-ENV BOOST_ROOT=/tmp/boost
-
-ADD util/build_prep/fetch_boost.sh fetch_boost.sh
-RUN ./fetch_boost.sh
 
 # workaround to get a path that can be easily passed into cmake for
 # BOOST_STACKTRACE_BACKTRACE_INCLUDE_FILE
 # see https://www.boost.org/doc/libs/1_70_0/doc/html/stacktrace/configuration_and_build.html#stacktrace.configuration_and_build.f3
 
-RUN ln -s /usr/lib/gcc/x86_64-linux-gnu/5/include/backtrace.h /tmp/backtrace.h
+RUN backtrace_file=$(find /usr/lib/gcc/x86_64-linux-gnu/ -name 'backtrace.h' | head -n 1) && test -f $backtrace_file && ln -s $backtrace_file /tmp/backtrace.h
+
 ARG REPOSITORY=nanocurrency/nano-node
 LABEL org.opencontainers.image.source https://github.com/$REPOSITORY

@@ -57,7 +57,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("online_weight_clear", "Clear online weight history records")
 	("peer_clear", "Clear online peers database dump")
 	("unchecked_clear", "Clear unchecked blocks")
-	("confirmation_height_clear", "Clear confirmation height")
+	("confirmation_height_clear", "Clear confirmation height. Requires an <account> option that can be 'all' to clear all accounts")
 	("final_vote_clear", "Clear final votes")
 	("rebuild_database", "Rebuild LMDB database with vacuum for best compaction")
 	("migrate_database_lmdb_to_rocksdb", "Migrates LMDB database to RocksDB")
@@ -230,7 +230,7 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 		auto & store (node.node->store);
 		if (vm.count ("unchecked_clear"))
 		{
-			node.node->store.unchecked.clear (store.tx_begin_write ());
+			node.node->unchecked.clear (store.tx_begin_write ());
 		}
 		if (vm.count ("clear_send_ids"))
 		{
@@ -321,7 +321,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		}
 		else
 		{
-			std::cerr << "wallet_add command requires one <wallet> option and one <key> option and optionally one <password> option\n";
+			std::cerr << "account_create command requires one <wallet> option and optionally one <password> option\n";
 			ec = nano::error_cli::invalid_arguments;
 		}
 	}
@@ -508,7 +508,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
-			node.node->store.unchecked.clear (transaction);
+			node.node->unchecked.clear (transaction);
 			std::cout << "Unchecked blocks deleted" << std::endl;
 		}
 		else
@@ -579,10 +579,9 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::inactive_node node (data_path, node_flags);
 		if (!node.node->init_error ())
 		{
-			auto account_it = vm.find ("account");
-			if (account_it != vm.cend ())
+			if (vm.count ("account") == 1)
 			{
-				auto account_str = account_it->second.as<std::string> ();
+				auto account_str = vm["account"].as<std::string> ();
 				nano::account account;
 				if (!account.decode_account (account_str))
 				{
@@ -609,17 +608,22 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						ec = nano::error_cli::generic;
 					}
 				}
+				else if (account_str == "all")
+				{
+					auto transaction (node.node->store.tx_begin_write ());
+					reset_confirmation_heights (transaction, node.node->network_params.ledger, node.node->store);
+					std::cout << "Confirmation heights of all accounts (except genesis which is set to 1) are set to 0" << std::endl;
+				}
 				else
 				{
-					std::cerr << "Invalid account id\n";
+					std::cerr << "Specify either valid account id or 'all'\n";
 					ec = nano::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
-				auto transaction (node.node->store.tx_begin_write ());
-				reset_confirmation_heights (transaction, node.node->network_params.ledger, node.node->store);
-				std::cout << "Confirmation heights of all accounts (except genesis which is set to 1) are set to 0" << std::endl;
+				std::cerr << "confirmation_height_clear command requires one <account> option that may contain an account or the value 'all'\n";
+				ec = nano::error_cli::invalid_arguments;
 			}
 		}
 		else
@@ -1115,7 +1119,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 							{
 								bool error (true);
 								{
-									nano::lock_guard<nano::mutex> lock (node->wallets.mutex);
+									nano::lock_guard<nano::mutex> lock{ node->wallets.mutex };
 									auto transaction (node->wallets.tx_begin_write ());
 									nano::wallet wallet (error, transaction, node->wallets, wallet_id.to_string (), contents.str ());
 								}
@@ -1127,7 +1131,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 								else
 								{
 									node->wallets.reload ();
-									nano::lock_guard<nano::mutex> lock (node->wallets.mutex);
+									nano::lock_guard<nano::mutex> lock{ node->wallets.mutex };
 									release_assert (node->wallets.items.find (wallet_id) != node->wallets.items.end ());
 									std::cout << "Import completed\n";
 								}

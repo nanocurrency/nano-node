@@ -7,10 +7,8 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/node/common.hpp>
 #include <nano/node/ipc/action_handler.hpp>
 #include <nano/node/ipc/flatbuffers_handler.hpp>
-#include <nano/node/ipc/flatbuffers_util.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
@@ -21,7 +19,6 @@
 
 #include <atomic>
 #include <chrono>
-#include <list>
 
 #include <flatbuffers/flatbuffers.h>
 
@@ -129,7 +126,7 @@ public:
 		};
 
 		static nano::mutex subscriber_mutex;
-		nano::unique_lock<nano::mutex> lock (subscriber_mutex);
+		nano::unique_lock<nano::mutex> lock{ subscriber_mutex };
 
 		if (!subscriber)
 		{
@@ -511,23 +508,30 @@ public:
 		// Prepare the next session
 		auto new_session (std::make_shared<session<SOCKET_TYPE>> (server, context (), config_transport));
 
-		acceptor->async_accept (new_session->get_socket (), [this, new_session] (boost::system::error_code const & ec) {
+		std::weak_ptr<nano::node> nano_weak = server.node.shared ();
+		acceptor->async_accept (new_session->get_socket (), [this, new_session, nano_weak] (boost::system::error_code const & ec) {
+			auto node = nano_weak.lock ();
+			if (!node)
+			{
+				return;
+			}
+
 			if (!ec)
 			{
 				new_session->read_next_request ();
 			}
 			else
 			{
-				server.node.logger.always_log ("IPC: acceptor error: ", ec.message ());
+				node->logger.always_log ("IPC: acceptor error: ", ec.message ());
 			}
 
 			if (ec != boost::asio::error::operation_aborted && acceptor->is_open ())
 			{
-				this->accept ();
+				accept ();
 			}
 			else
 			{
-				server.node.logger.always_log ("IPC: shutting down");
+				node->logger.always_log ("IPC: shutting down");
 			}
 		});
 	}

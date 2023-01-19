@@ -74,11 +74,11 @@ bool nano::state_block_signature_verification::is_active ()
 	return active;
 }
 
-void nano::state_block_signature_verification::add (nano::unchecked_info const & info_a)
+void nano::state_block_signature_verification::add (value_type const & item)
 {
 	{
 		nano::lock_guard<nano::mutex> guard (mutex);
-		state_blocks.emplace_back (info_a);
+		state_blocks.emplace_back (item);
 	}
 	condition.notify_one ();
 }
@@ -89,9 +89,9 @@ std::size_t nano::state_block_signature_verification::size ()
 	return state_blocks.size ();
 }
 
-std::deque<nano::unchecked_info> nano::state_block_signature_verification::setup_items (std::size_t max_count)
+auto nano::state_block_signature_verification::setup_items (std::size_t max_count) -> std::deque<value_type>
 {
-	std::deque<nano::unchecked_info> items;
+	std::deque<value_type> items;
 	if (state_blocks.size () <= max_count)
 	{
 		items.swap (state_blocks);
@@ -108,7 +108,7 @@ std::deque<nano::unchecked_info> nano::state_block_signature_verification::setup
 	return items;
 }
 
-void nano::state_block_signature_verification::verify_state_blocks (std::deque<nano::unchecked_info> & items)
+void nano::state_block_signature_verification::verify_state_blocks (std::deque<value_type> & items)
 {
 	if (!items.empty ())
 	{
@@ -131,23 +131,19 @@ void nano::state_block_signature_verification::verify_state_blocks (std::deque<n
 		signatures.reserve (size);
 		std::vector<int> verifications;
 		verifications.resize (size, 0);
-		for (auto & item : items)
+		for (auto const & [block] : items)
 		{
-			hashes.push_back (item.block->hash ());
+			hashes.push_back (block->hash ());
 			messages.push_back (hashes.back ().bytes.data ());
 			lengths.push_back (sizeof (decltype (hashes)::value_type));
-			nano::account account (item.block->account ());
-			if (!item.block->link ().is_zero () && epochs.is_epoch_link (item.block->link ()))
+			nano::account account_l = block->account ();
+			if (!block->link ().is_zero () && epochs.is_epoch_link (block->link ()))
 			{
-				account = epochs.signer (epochs.epoch (item.block->link ()));
+				account_l = epochs.signer (epochs.epoch (block->link ()));
 			}
-			else if (!item.account.is_zero ())
-			{
-				account = item.account;
-			}
-			accounts.push_back (account);
+			accounts.push_back (account_l);
 			pub_keys.push_back (accounts.back ().bytes.data ());
-			blocks_signatures.push_back (item.block->block_signature ());
+			blocks_signatures.push_back (block->block_signature ());
 			signatures.push_back (blocks_signatures.back ().bytes.data ());
 		}
 		nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data () };
@@ -163,6 +159,6 @@ void nano::state_block_signature_verification::verify_state_blocks (std::deque<n
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (state_block_signature_verification & state_block_signature_verification, std::string const & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "state_blocks", state_block_signature_verification.size (), sizeof (nano::unchecked_info) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "state_blocks", state_block_signature_verification.size (), sizeof (state_block_signature_verification::value_type) }));
 	return composite;
 }

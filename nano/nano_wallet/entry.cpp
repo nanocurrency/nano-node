@@ -163,19 +163,6 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			nano::ipc::ipc_server ipc (*node, config.rpc);
 
 			std::unique_ptr<boost::process::child> rpc_process;
-			std::unique_ptr<boost::process::child> nano_pow_server_process;
-
-			if (config.pow_server.enable)
-			{
-				if (!boost::filesystem::exists (config.pow_server.pow_server_path))
-				{
-					splash->hide ();
-					show_error (std::string ("nano_pow_server is configured to start as a child process, however the file cannot be found at: ") + config.pow_server.pow_server_path);
-					std::exit (1);
-				}
-
-				nano_pow_server_process = std::make_unique<boost::process::child> (config.pow_server.pow_server_path, "--config_path", data_path / "config-nano-pow-server.toml");
-			}
 			std::unique_ptr<nano::rpc> rpc;
 			std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 			if (config.rpc_enable)
@@ -219,11 +206,6 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				if (rpc_process)
 				{
 					rpc_process->terminate ();
-				}
-
-				if (nano_pow_server_process)
-				{
-					nano_pow_server_process->terminate ();
 				}
 #endif
 				runner.stop_event_processing ();

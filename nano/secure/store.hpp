@@ -643,6 +643,7 @@ class account_store
 public:
 	virtual void put (nano::write_transaction const &, nano::account const &, nano::account_info const &) = 0;
 	virtual bool get (nano::transaction const &, nano::account const &, nano::account_info &) = 0;
+	std::optional<nano::account_info> get (nano::transaction const &, nano::account const &);
 	virtual void del (nano::write_transaction const &, nano::account const &) = 0;
 	virtual bool exists (nano::transaction const &, nano::account const &) = 0;
 	virtual size_t count (nano::transaction const &) = 0;
@@ -725,7 +726,14 @@ class confirmation_height_store
 {
 public:
 	virtual void put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info const & confirmation_height_info_a) = 0;
+
+	/** Retrieves confirmation height info relating to an account.
+	 *  The parameter confirmation_height_info_a is always written.
+	 *  On error, the confirmation height and frontier hash are set to 0.
+	 *  Ruturns true on error, false on success.
+	 */
 	virtual bool get (nano::transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info & confirmation_height_info_a) = 0;
+	std::optional<nano::confirmation_height_info> get (nano::transaction const & transaction_a, nano::account const & account_a);
 	virtual bool exists (nano::transaction const & transaction_a, nano::account const & account_a) const = 0;
 	virtual void del (nano::write_transaction const & transaction_a, nano::account const & account_a) = 0;
 	virtual uint64_t count (nano::transaction const & transaction_a) = 0;
@@ -749,14 +757,12 @@ public:
 	virtual void put (nano::write_transaction const &, nano::hash_or_account const & dependency, nano::unchecked_info const &) = 0;
 	std::pair<iterator, iterator> equal_range (nano::transaction const & transaction, nano::block_hash const & dependency);
 	std::pair<iterator, iterator> full_range (nano::transaction const & transaction);
-	std::vector<nano::unchecked_info> get (nano::transaction const &, nano::block_hash const &);
 	virtual bool exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) = 0;
 	virtual void del (nano::write_transaction const &, nano::unchecked_key const &) = 0;
 	virtual iterator begin (nano::transaction const &) const = 0;
 	virtual iterator lower_bound (nano::transaction const &, nano::unchecked_key const &) const = 0;
 	virtual iterator end () const = 0;
 	virtual size_t count (nano::transaction const &) = 0;
-	virtual void for_each_par (std::function<void (nano::read_transaction const &, iterator, iterator)> const & action_a) const = 0;
 };
 
 /**
@@ -815,11 +821,14 @@ public:
 	virtual uint64_t account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 };
 
+class unchecked_map;
 /**
  * Store manager
  */
 class store
 {
+	friend class rocksdb_block_store_tombstone_count_Test;
+
 public:
 	// clang-format off
 	explicit store (
@@ -837,14 +846,25 @@ public:
 	);
 	// clang-format on
 	virtual ~store () = default;
-	virtual void initialize (nano::write_transaction const &, nano::ledger_cache &) = 0;
-	virtual bool root_exists (nano::transaction const &, nano::root const &) = 0;
+	void initialize (nano::write_transaction const & transaction_a, nano::ledger_cache & ledger_cache_a, nano::ledger_constants & constants);
+	virtual uint64_t count (nano::transaction const & transaction_a, tables table_a) const = 0;
+	virtual int drop (nano::write_transaction const & transaction_a, tables table_a) = 0;
+	virtual bool not_found (int status) const = 0;
+	virtual bool success (int status) const = 0;
+	virtual int status_code_not_found () const = 0;
+	virtual std::string error_string (int status) const = 0;
 
 	block_store & block;
 	frontier_store & frontier;
 	account_store & account;
 	pending_store & pending;
+	static int constexpr version_minimum{ 14 };
+	static int constexpr version_current{ 21 };
+
+private:
 	unchecked_store & unchecked;
+
+public:
 	online_weight_store & online_weight;
 	pruned_store & pruned;
 	peer_store & peer;
@@ -870,6 +890,8 @@ public:
 	virtual nano::read_transaction tx_begin_read () const = 0;
 
 	virtual std::string vendor_get () const = 0;
+
+	friend class unchecked_map;
 };
 
 std::unique_ptr<nano::store> make_store (nano::logger_mt & logger, boost::filesystem::path const & path, nano::ledger_constants & constants, bool open_read_only = false, bool add_db_postfix = false, nano::rocksdb_config const & rocksdb_config = nano::rocksdb_config{}, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);

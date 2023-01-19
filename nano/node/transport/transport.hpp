@@ -1,27 +1,16 @@
 #pragma once
 
 #include <nano/lib/locks.hpp>
-#include <nano/lib/rate_limiting.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/messages.hpp>
 #include <nano/node/socket.hpp>
 
 #include <boost/asio/ip/network_v6.hpp>
 
 namespace nano
 {
-class bandwidth_limiter final
-{
-public:
-	// initialize with limit 0 = unbounded
-	bandwidth_limiter (double, std::size_t);
-	bool should_drop (std::size_t const &);
-	void reset (double, std::size_t);
-
-private:
-	nano::rate::token_bucket bucket;
-};
-
 namespace transport
 {
 	nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
@@ -41,7 +30,8 @@ namespace transport
 		undefined = 0,
 		udp = 1,
 		tcp = 2,
-		loopback = 3
+		loopback = 3,
+		fake = 4
 	};
 	class channel
 	{
@@ -50,7 +40,7 @@ namespace transport
 		virtual ~channel () = default;
 		virtual std::size_t hash_code () const = 0;
 		virtual bool operator== (nano::transport::channel const &) const = 0;
-		void send (nano::message & message_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a = nullptr, nano::buffer_drop_policy policy_a = nano::buffer_drop_policy::limiter);
+		void send (nano::message & message_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a = nullptr, nano::buffer_drop_policy policy_a = nano::buffer_drop_policy::limiter, nano::bandwidth_limit_type = nano::bandwidth_limit_type::standard);
 		// TODO: investigate clang-tidy warning about default parameters on virtual/override functions
 		//
 		virtual void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) = 0;
@@ -58,6 +48,14 @@ namespace transport
 		virtual nano::endpoint get_endpoint () const = 0;
 		virtual nano::tcp_endpoint get_tcp_endpoint () const = 0;
 		virtual nano::transport::transport_type get_type () const = 0;
+		virtual bool max ()
+		{
+			return false;
+		}
+		virtual bool alive () const
+		{
+			return true;
+		}
 
 		std::chrono::steady_clock::time_point get_last_bootstrap_attempt () const
 		{
@@ -130,6 +128,9 @@ namespace transport
 			network_version = network_version_a;
 		}
 
+		nano::endpoint get_peering_endpoint () const;
+		void set_peering_endpoint (nano::endpoint endpoint);
+
 		mutable nano::mutex channel_mutex;
 
 	private:
@@ -138,43 +139,10 @@ namespace transport
 		std::chrono::steady_clock::time_point last_packet_sent{ std::chrono::steady_clock::now () };
 		boost::optional<nano::account> node_id{ boost::none };
 		std::atomic<uint8_t> network_version{ 0 };
+		std::optional<nano::endpoint> peering_endpoint{};
 
 	protected:
 		nano::node & node;
-	};
-
-	class channel_loopback final : public nano::transport::channel
-	{
-	public:
-		explicit channel_loopback (nano::node &);
-		std::size_t hash_code () const override;
-		bool operator== (nano::transport::channel const &) const override;
-		// TODO: investigate clang-tidy warning about default parameters on virtual/override functions
-		//
-		void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) override;
-		std::string to_string () const override;
-		bool operator== (nano::transport::channel_loopback const & other_a) const
-		{
-			return endpoint == other_a.get_endpoint ();
-		}
-
-		nano::endpoint get_endpoint () const override
-		{
-			return endpoint;
-		}
-
-		nano::tcp_endpoint get_tcp_endpoint () const override
-		{
-			return nano::transport::map_endpoint_to_tcp (endpoint);
-		}
-
-		nano::transport::transport_type get_type () const override
-		{
-			return nano::transport::transport_type::loopback;
-		}
-
-	private:
-		nano::endpoint const endpoint;
 	};
 } // namespace transport
 } // namespace nano

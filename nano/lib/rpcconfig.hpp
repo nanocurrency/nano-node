@@ -2,7 +2,9 @@
 
 #include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
+#include <nano/lib/threading.hpp>
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <thread>
@@ -18,7 +20,6 @@ namespace filesystem
 
 namespace nano
 {
-class jsonconfig;
 class tomlconfig;
 class tls_config;
 
@@ -29,8 +30,6 @@ class tls_config;
 class rpc_secure_config final
 {
 public:
-	nano::error serialize_json (nano::jsonconfig &) const;
-	nano::error deserialize_json (nano::jsonconfig &);
 	nano::error serialize_toml (nano::tomlconfig &) const;
 	nano::error deserialize_toml (nano::tomlconfig &);
 
@@ -56,15 +55,11 @@ class rpc_process_config final
 public:
 	rpc_process_config (nano::network_constants & network_constants);
 	nano::network_constants & network_constants;
-	unsigned io_threads{ (4 < std::thread::hardware_concurrency ()) ? std::thread::hardware_concurrency () : 4 };
+	unsigned io_threads{ std::max (nano::hardware_concurrency (), 4u) };
 	std::string ipc_address;
 	uint16_t ipc_port{ network_constants.default_ipc_port };
 	unsigned num_ipc_connections{ (network_constants.is_live_network () || network_constants.is_test_network ()) ? 8u : network_constants.is_beta_network () ? 4u
 																																							 : 1u };
-	static unsigned json_version ()
-	{
-		return 1;
-	}
 };
 
 class rpc_logging_config final
@@ -78,8 +73,6 @@ class rpc_config final
 public:
 	explicit rpc_config (nano::network_constants & network_constants);
 	explicit rpc_config (nano::network_constants & network_constants, uint16_t, bool);
-	nano::error serialize_json (nano::jsonconfig &) const;
-	nano::error deserialize_json (bool & upgraded_a, nano::jsonconfig &);
 	nano::error serialize_toml (nano::tomlconfig &) const;
 	nano::error deserialize_toml (nano::tomlconfig &);
 
@@ -93,14 +86,9 @@ public:
 	nano::rpc_logging_config rpc_logging;
 	/** Optional TLS config */
 	std::shared_ptr<nano::tls_config> tls_config;
-	static unsigned json_version ()
-	{
-		return 1;
-	}
 };
 
 nano::error read_rpc_config_toml (boost::filesystem::path const & data_path_a, nano::rpc_config & config_a, std::vector<std::string> const & config_overrides = std::vector<std::string> ());
-nano::error read_and_update_rpc_config (boost::filesystem::path const & data_path, nano::rpc_config & config_a);
 
 std::string get_default_rpc_filepath ();
 }

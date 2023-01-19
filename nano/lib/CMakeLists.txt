@@ -52,7 +52,9 @@ add_library(
   memory.cpp
   numbers.hpp
   numbers.cpp
+  observer_set.hpp
   optional_ptr.hpp
+  processing_queue.hpp
   rate_limiting.hpp
   rate_limiting.cpp
   rep_weights.hpp
@@ -87,14 +89,18 @@ target_link_libraries(
   ed25519
   crypto_lib
   blake2
+  secure
   ipc_flatbuffers_lib
   ${CRYPTOPP_LIBRARY}
   ${CMAKE_DL_LIBS}
-  Boost::boost)
-
-if(NANO_STACKTRACE_BACKTRACE)
-  target_link_libraries(nano_lib backtrace)
-endif()
+  Boost::asio
+  Boost::circular_buffer
+  Boost::dll
+  Boost::log_setup
+  Boost::log
+  Boost::multiprecision
+  Boost::program_options
+  Boost::stacktrace)
 
 target_compile_definitions(
   nano_lib

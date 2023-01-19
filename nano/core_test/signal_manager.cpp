@@ -19,6 +19,7 @@
 
 #include <csignal>
 #include <iostream>
+#include <thread>
 
 static void handler_print_signal (int signum)
 {

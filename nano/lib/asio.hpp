@@ -20,6 +20,7 @@ public:
 	boost::asio::const_buffer const * end () const;
 
 	std::size_t size () const;
+	std::vector<uint8_t> to_bytes () const;
 
 private:
 	std::shared_ptr<std::vector<uint8_t>> m_data;
@@ -32,7 +33,7 @@ template <typename AsyncWriteStream, typename WriteHandler>
 BOOST_ASIO_INITFN_RESULT_TYPE (WriteHandler, void (boost::system::error_code, std::size_t))
 async_write (AsyncWriteStream & s, nano::shared_const_buffer const & buffer, WriteHandler && handler)
 {
-	return boost::asio::async_write (s, buffer, std::move (handler));
+	return boost::asio::async_write (s, buffer, std::forward<WriteHandler> (handler));
 }
 
 /**
@@ -44,6 +45,6 @@ template <typename AsyncWriteStream, typename BufferType, typename WriteHandler>
 BOOST_ASIO_INITFN_RESULT_TYPE (WriteHandler, void (boost::system::error_code, std::size_t))
 unsafe_async_write (AsyncWriteStream & s, BufferType && buffer, WriteHandler && handler)
 {
-	return boost::asio::async_write (s, buffer, std::move (handler));
+	return boost::asio::async_write (s, buffer, std::forward<WriteHandler> (handler));
 }
 }

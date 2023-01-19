@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <optional>
 #include <string>
 
 namespace boost
@@ -20,8 +21,8 @@ namespace filesystem
 #define ver_str(a) #a
 
 /**
-* Returns build version information
-*/
+ * Returns build version information
+ */
 char const * const NANO_VERSION_STRING = xstr (TAG_VERSION_STRING);
 char const * const NANO_MAJOR_VERSION_STRING = xstr (MAJOR_VERSION_STRING);
 char const * const NANO_MINOR_VERSION_STRING = xstr (MINOR_VERSION_STRING);
@@ -30,18 +31,54 @@ char const * const NANO_PRE_RELEASE_VERSION_STRING = xstr (PRE_RELEASE_VERSION_S
 
 char const * const BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
 
-/** Is TSAN/ASAN dev build */
 #if defined(__has_feature)
-#if __has_feature(thread_sanitizer) || __has_feature(address_sanitizer)
-bool const is_sanitizer_build = true;
+#if __has_feature(address_sanitizer)
+inline bool is_asan_build ()
+{
+	return true;
+}
 #else
-bool const is_sanitizer_build = false;
+inline bool is_asan_build ()
+{
+	return false;
+}
 #endif
 // GCC builds
-#elif defined(__SANITIZE_THREAD__) || defined(__SANITIZE_ADDRESS__)
-const bool is_sanitizer_build = true;
+#elif defined(__SANITIZE_ADDRESS__)
+inline bool is_asan_build ()
+{
+	return true;
+}
 #else
-bool const is_sanitizer_build = false;
+inline bool is_asan_build ()
+{
+	return false;
+}
+#endif
+
+#if defined(__has_feature)
+#if __has_feature(thread_sanitizer)
+inline bool is_tsan_build ()
+{
+	return true;
+}
+#else
+inline bool is_tsan_build ()
+{
+	return false;
+}
+#endif
+// GCC builds
+#elif defined(__SANITIZE_THREAD__)
+inline bool is_tsan_build ()
+{
+	return true;
+}
+#else
+inline bool is_tsan_build ()
+{
+	return false;
+}
 #endif
 
 namespace nano
@@ -51,7 +88,22 @@ uint8_t get_minor_node_version ();
 uint8_t get_patch_node_version ();
 uint8_t get_pre_release_node_version ();
 
+/*
+ * Environment variables
+ */
+
+/*
+ * Get environment variable as string or none if variable is not present
+ */
+std::optional<std::string> get_env (char const * variable_name);
+/*
+ * Get environment variable as string or `default_value` if variable is not present
+ */
 std::string get_env_or_default (char const * variable_name, std::string const default_value);
+/*
+ * Get environment variable as int or `default_value` if variable is not present
+ */
+int get_env_int_or_default (char const * variable_name, int const default_value);
 uint64_t get_env_threshold_or_default (char const * variable_name, uint64_t const default_value);
 
 uint16_t test_node_port ();
@@ -59,6 +111,10 @@ uint16_t test_rpc_port ();
 uint16_t test_ipc_port ();
 uint16_t test_websocket_port ();
 std::array<uint8_t, 2> test_magic_number ();
+/*
+ * How often to scan for representatives in local wallet, in milliseconds
+ */
+uint32_t test_scan_wallet_reps_delay ();
 
 /**
  * Network variants with different genesis blocks and network parameters
@@ -133,36 +189,63 @@ public:
 
 class network_constants
 {
-public:
-	network_constants (nano::work_thresholds & work, nano::networks network_a) :
-		current_network (network_a),
-		work{ work }
-	{
-		// A representative is classified as principal based on its weight and this factor
-		principal_weight_factor = 1000; // 0.1%
+	static constexpr std::chrono::seconds default_cleanup_period = std::chrono::seconds (60);
+	static constexpr size_t default_max_peers_per_ip = 10;
 
-		default_node_port = is_live_network () ? 7075 : is_beta_network () ? 54000
-		: is_test_network ()                                               ? test_node_port ()
-																		   : 44000;
-		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000
-		: is_test_network ()                                              ? test_rpc_port ()
-																		  : 45000;
-		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000
-		: is_test_network ()                                              ? test_ipc_port ()
-																		  : 46000;
-		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000
-		: is_test_network ()                                                    ? test_websocket_port ()
-																				: 47000;
-		request_interval_ms = is_dev_network () ? 20 : 500;
-		cleanup_period = is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (60);
-		idle_timeout = is_dev_network () ? cleanup_period * 15 : cleanup_period * 2;
-		silent_connection_tolerance_time = std::chrono::seconds (120);
-		syn_cookie_cutoff = std::chrono::seconds (5);
-		bootstrap_interval = std::chrono::seconds (15 * 60);
-		max_peers_per_ip = is_dev_network () ? 20 : 10;
-		max_peers_per_subnetwork = max_peers_per_ip * 4;
-		ipv6_subnetwork_prefix_for_limiting = 64; // Equivalent to network prefix /64.
-		peer_dump_interval = is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
+public:
+	network_constants (nano::work_thresholds & work_, nano::networks network_a) :
+		current_network (network_a),
+		work (work_),
+		principal_weight_factor (1000), // 0.1% A representative is classified as principal based on its weight and this factor
+		default_node_port (44000),
+		default_rpc_port (45000),
+		default_ipc_port (46000),
+		default_websocket_port (47000),
+		aec_loop_interval_ms (300), // Update AEC ~3 times per second
+		cleanup_period (default_cleanup_period),
+		keepalive_period (std::chrono::seconds (15)),
+		idle_timeout (default_cleanup_period * 2),
+		silent_connection_tolerance_time (std::chrono::seconds (120)),
+		syn_cookie_cutoff (std::chrono::seconds (5)),
+		bootstrap_interval (std::chrono::seconds (15 * 60)),
+		max_peers_per_ip (default_max_peers_per_ip),
+		max_peers_per_subnetwork (default_max_peers_per_ip * 4),
+		ipv6_subnetwork_prefix_for_limiting (64), // Equivalent to network prefix /64.
+		peer_dump_interval (std::chrono::seconds (5 * 60)),
+		vote_broadcast_interval (15 * 1000)
+	{
+		if (is_live_network ())
+		{
+			default_node_port = 7075;
+			default_rpc_port = 7076;
+			default_ipc_port = 7077;
+			default_websocket_port = 7078;
+		}
+		else if (is_beta_network ())
+		{
+			default_node_port = 54000;
+			default_rpc_port = 55000;
+			default_ipc_port = 56000;
+			default_websocket_port = 57000;
+		}
+		else if (is_test_network ())
+		{
+			default_node_port = test_node_port ();
+			default_rpc_port = test_rpc_port ();
+			default_ipc_port = test_ipc_port ();
+			default_websocket_port = test_websocket_port ();
+		}
+		else if (is_dev_network ())
+		{
+			aec_loop_interval_ms = 20;
+			cleanup_period = std::chrono::seconds (1);
+			keepalive_period = std::chrono::seconds (1);
+			idle_timeout = cleanup_period * 15;
+			max_peers_per_ip = 20;
+			max_peers_per_subnetwork = max_peers_per_ip * 4;
+			peer_dump_interval = std::chrono::seconds (1);
+			vote_broadcast_interval = 500;
+		}
 	}
 
 	/** Error message when an invalid network is specified */
@@ -177,7 +260,7 @@ public:
 	uint16_t default_rpc_port;
 	uint16_t default_ipc_port;
 	uint16_t default_websocket_port;
-	unsigned request_interval_ms;
+	unsigned aec_loop_interval_ms;
 
 	std::chrono::seconds cleanup_period;
 	std::chrono::milliseconds cleanup_period_half () const
@@ -188,6 +271,8 @@ public:
 	{
 		return cleanup_period * 5;
 	}
+	/** How often to send keepalive messages */
+	std::chrono::seconds keepalive_period;
 	/** Default maximum idle time for a socket before it's automatically closed */
 	std::chrono::seconds idle_timeout;
 	std::chrono::seconds silent_connection_tolerance_time;
@@ -199,6 +284,8 @@ public:
 	size_t max_peers_per_subnetwork;
 	size_t ipv6_subnetwork_prefix_for_limiting;
 	std::chrono::seconds peer_dump_interval;
+	/** Time to wait before vote rebroadcasts for active elections (milliseconds) */
+	uint64_t vote_broadcast_interval;
 
 	/** Returns the network this object contains values for */
 	nano::networks network () const
@@ -274,13 +361,11 @@ public:
 	/** Initial value is ACTIVE_NETWORK compile flag, but can be overridden by a CLI flag */
 	static nano::networks active_network;
 	/** Current protocol version */
-	uint8_t const protocol_version = 0x12;
+	uint8_t const protocol_version = 0x13;
 	/** Minimum accepted protocol version */
 	uint8_t const protocol_version_min = 0x12;
 };
 
-std::string get_config_path (boost::filesystem::path const & data_path);
-std::string get_rpc_config_path (boost::filesystem::path const & data_path);
 std::string get_node_toml_config_path (boost::filesystem::path const & data_path);
 std::string get_rpc_toml_config_path (boost::filesystem::path const & data_path);
 std::string get_access_toml_config_path (boost::filesystem::path const & data_path);
@@ -289,6 +374,17 @@ std::string get_tls_toml_config_path (boost::filesystem::path const & data_path)
 
 /** Checks if we are running inside a valgrind instance */
 bool running_within_valgrind ();
+
+/** Checks if we are running with instrumentation that significantly affects memory consumption and can cause large virtual memory allocations to fail
+	Returns true if running within Valgrind or with ThreadSanitizer tooling*/
+bool memory_intensive_instrumentation ();
+
+/** Check if we're running with instrumentation that can greatly affect performance
+	Returns true if running within Valgrind or with ThreadSanitizer tooling*/
+bool slow_instrumentation ();
+
+/** Checks if we are running with either AddressSanitizer or ThreadSanitizer*/
+bool is_sanitizer_build ();
 
 /** Set the active network to the dev network */
 void force_nano_dev_network ();

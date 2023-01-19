@@ -26,6 +26,7 @@ nano::websocket::confirmation_options::confirmation_options (boost::property_tre
 	include_block = options_a.get<bool> ("include_block", true);
 	include_election_info = options_a.get<bool> ("include_election_info", false);
 	include_election_info_with_votes = options_a.get<bool> ("include_election_info_with_votes", false);
+	include_sideband_info = options_a.get<bool> ("include_sideband_info", false);
 
 	confirmation_types = 0;
 	auto type_l (options_a.get<std::string> ("confirmation_type", "all"));
@@ -374,6 +375,10 @@ nano::websocket::topic to_topic (std::string const & topic_a)
 	{
 		topic = nano::websocket::topic::confirmation;
 	}
+	else if (topic_a == "started_election")
+	{
+		topic = nano::websocket::topic::started_election;
+	}
 	else if (topic_a == "stopped_election")
 	{
 		topic = nano::websocket::topic::stopped_election;
@@ -412,6 +417,10 @@ std::string from_topic (nano::websocket::topic topic_a)
 	if (topic_a == nano::websocket::topic::confirmation)
 	{
 		topic = "confirmation";
+	}
+	else if (topic_a == nano::websocket::topic::started_election)
+	{
+		topic = "started_election";
 	}
 	else if (topic_a == nano::websocket::topic::stopped_election)
 	{
@@ -656,10 +665,6 @@ void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::bl
 				{
 					msg_without_block = builder.block_confirmed (block_a, account_a, amount_a, subtype, include_block, election_status_a, election_votes_a, *conf_options);
 				}
-				else
-				{
-					debug_assert (false);
-				}
 
 				session_ptr->write (include_block ? msg_with_block.get () : msg_without_block.get ());
 			}
@@ -690,6 +695,18 @@ void nano::websocket::listener::decrease_subscriber_count (nano::websocket::topi
 	auto & count (topic_subscriber_count[static_cast<std::size_t> (topic_a)]);
 	release_assert (count > 0);
 	count -= 1;
+}
+
+nano::websocket::message nano::websocket::message_builder::started_election (nano::block_hash const & hash_a)
+{
+	nano::websocket::message message_l (nano::websocket::topic::started_election);
+	set_common_fields (message_l);
+
+	boost::property_tree::ptree message_node_l;
+	message_node_l.add ("hash", hash_a.to_string ());
+	message_l.contents.add_child ("message", message_node_l);
+
+	return message_l;
 }
 
 nano::websocket::message nano::websocket::message_builder::stopped_election (nano::block_hash const & hash_a)
@@ -768,6 +785,14 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 			block_node_l.add ("subtype", subtype);
 		}
 		message_node_l.add_child ("block", block_node_l);
+	}
+
+	if (options_a.get_include_sideband_info ())
+	{
+		boost::property_tree::ptree sideband_node_l;
+		sideband_node_l.add ("height", std::to_string (block_a->sideband ().height));
+		sideband_node_l.add ("local_timestamp", std::to_string (block_a->sideband ().timestamp));
+		message_node_l.add_child ("sideband", sideband_node_l);
 	}
 
 	message_l.contents.add_child ("message", message_node_l);

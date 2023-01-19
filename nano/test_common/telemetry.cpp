@@ -1,9 +1,10 @@
 #include <nano/node/common.hpp>
+#include <nano/node/messages.hpp>
 #include <nano/test_common/telemetry.hpp>
 
 #include <gtest/gtest.h>
 
-void nano::compare_default_telemetry_response_data_excluding_signature (nano::telemetry_data const & telemetry_data_a, nano::network_params const & network_params_a, uint64_t bandwidth_limit_a, uint64_t active_difficulty_a)
+void nano::test::compare_default_telemetry_response_data_excluding_signature (nano::telemetry_data const & telemetry_data_a, nano::network_params const & network_params_a, uint64_t bandwidth_limit_a, uint64_t active_difficulty_a)
 {
 	ASSERT_EQ (telemetry_data_a.block_count, 1);
 	ASSERT_EQ (telemetry_data_a.cemented_count, 1);
@@ -24,7 +25,7 @@ void nano::compare_default_telemetry_response_data_excluding_signature (nano::te
 	ASSERT_EQ (telemetry_data_a.unknown_data, std::vector<uint8_t>{});
 }
 
-void nano::compare_default_telemetry_response_data (nano::telemetry_data const & telemetry_data_a, nano::network_params const & network_params_a, uint64_t bandwidth_limit_a, uint64_t active_difficulty_a, nano::keypair const & node_id_a)
+void nano::test::compare_default_telemetry_response_data (nano::telemetry_data const & telemetry_data_a, nano::network_params const & network_params_a, uint64_t bandwidth_limit_a, uint64_t active_difficulty_a, nano::keypair const & node_id_a)
 {
 	ASSERT_FALSE (telemetry_data_a.validate_signature ());
 	nano::telemetry_data telemetry_data_l = telemetry_data_a;
@@ -32,6 +33,6 @@ void nano::compare_default_telemetry_response_data (nano::telemetry_data const &
 	telemetry_data_l.sign (node_id_a);
 	// Signature should be different because uptime/timestamp will have changed.
 	ASSERT_NE (telemetry_data_a.signature, telemetry_data_l.signature);
-	compare_default_telemetry_response_data_excluding_signature (telemetry_data_a, network_params_a, bandwidth_limit_a, active_difficulty_a);
+	nano::test::compare_default_telemetry_response_data_excluding_signature (telemetry_data_a, network_params_a, bandwidth_limit_a, active_difficulty_a);
 	ASSERT_EQ (telemetry_data_a.node_id, node_id_a.pub);
 }

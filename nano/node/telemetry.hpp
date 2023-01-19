@@ -2,6 +2,7 @@
 
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/messages.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
@@ -20,6 +21,7 @@ class network;
 class stat;
 class ledger;
 class thread_pool;
+class unchecked_map;
 namespace transport
 {
 	class channel;
@@ -76,7 +78,7 @@ public:
 
 	/*
 	 * This makes a telemetry request to the specific channel.
-	 * Error is set for: no response received, no payload received, invalid signature or unsound metrics in message (e.g different genesis block) 
+	 * Error is set for: no response received, no payload received, invalid signature or unsound metrics in message (e.g different genesis block)
 	 */
 	void get_metrics_single_peer_async (std::shared_ptr<nano::transport::channel> const &, std::function<void (telemetry_data_response const &)> const &);
 
@@ -128,7 +130,7 @@ private:
 	std::chrono::seconds const cache_cutoff{ nano::telemetry_cache_cutoffs::network_to_time (network_params.network) };
 
 	// The maximum time spent waiting for a response to a telemetry request
-	std::chrono::seconds const response_time_cutoff{ network_params.network.is_dev_network () ? (is_sanitizer_build || nano::running_within_valgrind () ? 6 : 3) : 10 };
+	std::chrono::seconds const response_time_cutoff{ network_params.network.is_dev_network () ? (is_sanitizer_build () || nano::running_within_valgrind () ? 6 : 3) : 10 };
 
 	std::unordered_map<nano::endpoint, std::vector<std::function<void (telemetry_data_response const &)>>> callbacks;
 
@@ -149,5 +151,5 @@ private:
 std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, std::string const & name);
 
 nano::telemetry_data consolidate_telemetry_data (std::vector<telemetry_data> const & telemetry_data);
-nano::telemetry_data local_telemetry_data (nano::ledger const & ledger_a, nano::network &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point, uint64_t, nano::keypair const &);
+nano::telemetry_data local_telemetry_data (nano::ledger const & ledger_a, nano::network &, nano::unchecked_map const &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point, uint64_t, nano::keypair const &);
 }

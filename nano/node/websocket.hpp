@@ -12,7 +12,6 @@
 
 #include <deque>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -41,6 +40,8 @@ namespace websocket
 		ack,
 		/** A confirmation message */
 		confirmation,
+		/** Started election message*/
+		started_election,
 		/** Stopped election message (dropped elections due to bounding or block lost the elections) */
 		stopped_election,
 		/** A vote message **/
@@ -81,6 +82,7 @@ namespace websocket
 	{
 	public:
 		message block_confirmed (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a, nano::websocket::confirmation_options const & options_a);
+		message started_election (nano::block_hash const & hash_a);
 		message stopped_election (nano::block_hash const & hash_a);
 		message vote_received (std::shared_ptr<nano::vote> const & vote_a, nano::vote_code code_a);
 		message work_generation (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const work_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool const completed_a = true, bool const cancelled_a = false);
@@ -174,6 +176,12 @@ namespace websocket
 			return include_election_info_with_votes;
 		}
 
+		/** Returns whether or not to include sideband info */
+		bool get_include_sideband_info () const
+		{
+			return include_sideband_info;
+		}
+
 		static constexpr uint8_t const type_active_quorum = 1;
 		static constexpr uint8_t const type_active_confirmation_height = 2;
 		static constexpr uint8_t const type_inactive = 4;
@@ -187,6 +195,7 @@ namespace websocket
 		boost::optional<nano::logger_mt &> logger;
 		bool include_election_info{ false };
 		bool include_election_info_with_votes{ false };
+		bool include_sideband_info{ false };
 		bool include_block{ true };
 		bool has_account_filtering_options{ false };
 		bool all_local_accounts{ false };

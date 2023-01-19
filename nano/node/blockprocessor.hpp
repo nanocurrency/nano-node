@@ -4,16 +4,9 @@
 #include <nano/node/state_block_signature_verification.hpp>
 #include <nano/secure/common.hpp>
 
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/member.hpp>
-#include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index/sequenced_index.hpp>
-#include <boost/multi_index_container.hpp>
-
 #include <chrono>
 #include <memory>
 #include <thread>
-#include <unordered_set>
 
 namespace nano
 {
@@ -55,7 +48,7 @@ public:
 	bool half_full ();
 	void add_local (nano::unchecked_info const & info_a);
 	void add (nano::unchecked_info const &);
-	void add (std::shared_ptr<nano::block> const &, uint64_t = 0);
+	void add (std::shared_ptr<nano::block> const &);
 	void force (std::shared_ptr<nano::block> const &);
 	void wait_write ();
 	bool should_log ();
@@ -67,13 +60,14 @@ public:
 	std::atomic<bool> flushing{ false };
 	// Delay required for average network propagartion before requesting confirmation
 	static std::chrono::milliseconds constexpr confirmation_request_delay{ 1500 };
+	nano::observer_set<nano::transaction const &, nano::process_return const &, nano::block const &> processed;
 
 private:
 	void queue_unchecked (nano::write_transaction const &, nano::hash_or_account const &);
 	void process_batch (nano::unique_lock<nano::mutex> &);
 	void process_live (nano::transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &, nano::process_return const &, nano::block_origin const = nano::block_origin::remote);
 	void requeue_invalid (nano::block_hash const &, nano::unchecked_info const &);
-	void process_verified_state_blocks (std::deque<nano::unchecked_info> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);
+	void process_verified_state_blocks (std::deque<nano::state_block_signature_verification::value_type> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);
 	bool stopped{ false };
 	bool active{ false };
 	bool awaiting_write{ false };

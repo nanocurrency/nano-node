@@ -22,7 +22,7 @@ uint64_t nano::peer_exclusion::add (nano::tcp_endpoint const & endpoint_a, std::
 	if (existing == peers_by_endpoint.end ())
 	{
 		// Insert new endpoint
-		auto inserted (peers.emplace (peer_exclusion::item{ std::chrono::steady_clock::steady_clock::now () + exclude_time_hours, address, 1 }));
+		auto inserted (peers.insert (peer_exclusion::item{ std::chrono::steady_clock::steady_clock::now () + exclude_time_hours, address, 1 }));
 		(void)inserted;
 		debug_assert (inserted.second);
 		result = 1;

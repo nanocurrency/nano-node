@@ -16,8 +16,16 @@ add_library(
   ${platform_sources}
   active_transactions.hpp
   active_transactions.cpp
+  backlog_population.hpp
+  backlog_population.cpp
+  bandwidth_limiter.hpp
+  bandwidth_limiter.cpp
+  block_arrival.hpp
+  block_arrival.cpp
   blockprocessor.hpp
   blockprocessor.cpp
+  bootstrap/block_deserializer.hpp
+  bootstrap/block_deserializer.cpp
   bootstrap/bootstrap_attempt.hpp
   bootstrap/bootstrap_attempt.cpp
   bootstrap/bootstrap_bulk_pull.hpp
@@ -32,10 +40,10 @@ add_library(
   bootstrap/bootstrap_lazy.cpp
   bootstrap/bootstrap_legacy.hpp
   bootstrap/bootstrap_legacy.cpp
-  bootstrap/bootstrap_server.hpp
-  bootstrap/bootstrap_server.cpp
   bootstrap/bootstrap.hpp
   bootstrap/bootstrap.cpp
+  bootstrap/bootstrap_server.hpp
+  bootstrap/bootstrap_server.cpp
   cli.hpp
   cli.cpp
   common.hpp
@@ -60,6 +68,12 @@ add_library(
   election_scheduler.cpp
   gap_cache.hpp
   gap_cache.cpp
+  hinted_scheduler.hpp
+  hinted_scheduler.cpp
+  inactive_cache_information.hpp
+  inactive_cache_information.cpp
+  inactive_cache_status.hpp
+  inactive_cache_status.cpp
   ipc/action_handler.hpp
   ipc/action_handler.cpp
   ipc/flatbuffers_handler.hpp
@@ -78,6 +92,28 @@ add_library(
   json_handler.cpp
   ledger_walker.hpp
   ledger_walker.cpp
+  lmdb/account_store.hpp
+  lmdb/account_store.cpp
+  lmdb/block_store.hpp
+  lmdb/block_store.cpp
+  lmdb/confirmation_height_store.hpp
+  lmdb/confirmation_height_store.cpp
+  lmdb/final_vote_store.hpp
+  lmdb/final_vote_store.cpp
+  lmdb/frontier_store.hpp
+  lmdb/frontier_store.cpp
+  lmdb/online_weight_store.hpp
+  lmdb/online_weight_store.cpp
+  lmdb/peer_store.hpp
+  lmdb/peer_store.cpp
+  lmdb/pending_store.hpp
+  lmdb/pending_store.cpp
+  lmdb/pruned_store.hpp
+  lmdb/pruned_store.cpp
+  lmdb/version_store.hpp
+  lmdb/version_store.cpp
+  lmdb/unchecked_store.hpp
+  lmdb/unchecked_store.cpp
   lmdb/lmdb.hpp
   lmdb/lmdb.cpp
   lmdb/lmdb_env.hpp
@@ -111,12 +147,32 @@ add_library(
   portmapping.cpp
   prioritization.cpp
   prioritization.hpp
-  node_pow_server_config.hpp
-  node_pow_server_config.cpp
   repcrawler.hpp
   repcrawler.cpp
   request_aggregator.hpp
   request_aggregator.cpp
+  rocksdb/account_store.hpp
+  rocksdb/account_store.cpp
+  rocksdb/block_store.hpp
+  rocksdb/block_store.cpp
+  rocksdb/confirmation_height_store.hpp
+  rocksdb/confirmation_height_store.cpp
+  rocksdb/final_vote_store.hpp
+  rocksdb/final_vote_store.cpp
+  rocksdb/frontier_store.hpp
+  rocksdb/frontier_store.cpp
+  rocksdb/online_weight_store.hpp
+  rocksdb/online_weight_store.cpp
+  rocksdb/peer_store.hpp
+  rocksdb/peer_store.cpp
+  rocksdb/pending_store.hpp
+  rocksdb/pending_store.cpp
+  rocksdb/pruned_store.hpp
+  rocksdb/pruned_store.cpp
+  rocksdb/unchecked_store.hpp
+  rocksdb/unchecked_store.cpp
+  rocksdb/version_store.hpp
+  rocksdb/version_store.cpp
   rocksdb/rocksdb.hpp
   rocksdb/rocksdb.cpp
   rocksdb/rocksdb_iterator.hpp
@@ -130,12 +186,24 @@ add_library(
   state_block_signature_verification.cpp
   telemetry.hpp
   telemetry.cpp
+  transport/fake.hpp
+  transport/fake.cpp
+  transport/inproc.hpp
+  transport/inproc.cpp
+  transport/message_deserializer.hpp
+  transport/message_deserializer.cpp
   transport/tcp.hpp
   transport/tcp.cpp
+  transport/tcp_server.hpp
+  transport/tcp_server.cpp
   transport/transport.hpp
   transport/transport.cpp
   transport/udp.hpp
   transport/udp.cpp
+  unchecked_map.cpp
+  unchecked_map.hpp
+  vote_cache.hpp
+  vote_cache.cpp
   vote_processor.hpp
   vote_processor.cpp
   voting.hpp
@@ -150,6 +218,8 @@ add_library(
   websocket_stream.cpp
   write_database_queue.hpp
   write_database_queue.cpp
+  messages.hpp
+  messages.cpp
   xorshift.hpp)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -164,21 +234,18 @@ target_link_libraries(
   libminiupnpc-static
   argon2
   lmdb
+  Boost::beast
   Boost::filesystem
   Boost::log_setup
   Boost::log
   Boost::program_options
+  Boost::stacktrace
   Boost::system
   Boost::thread
-  Boost::boost
   rocksdb
   ${DISKHASH}
   ${CMAKE_DL_LIBS}
   ${psapi_lib})
-
-if(NANO_STACKTRACE_BACKTRACE)
-  target_link_libraries(node backtrace)
-endif()
 
 target_compile_definitions(
   node PRIVATE -DTAG_VERSION_STRING=${TAG_VERSION_STRING}

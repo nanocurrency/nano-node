@@ -30,43 +30,6 @@ public:
 	jsonconfig ();
 	jsonconfig (boost::property_tree::ptree & tree_a, std::shared_ptr<nano::error> const & error_a = nullptr);
 	nano::error & read (boost::filesystem::path const & path_a);
-
-	/**
-	 * Reads a json object from the stream and if it was changed, write the object back to the stream.
-	 * @return nano::error&, including a descriptive error message if the config file is malformed.
-	 */
-	template <typename T>
-	nano::error & read_and_update (T & object, boost::filesystem::path const & path_a)
-	{
-		auto file_exists (boost::filesystem::exists (path_a));
-		read (path_a);
-		if (!*error)
-		{
-			std::fstream stream;
-			auto updated (false);
-			*error = object.deserialize_json (updated, *this);
-			if (!*error && updated)
-			{
-				// Before updating the config file during an upgrade make a backup first
-				if (file_exists)
-				{
-					create_backup_file (path_a);
-				}
-				stream.open (path_a.string (), std::ios_base::out | std::ios_base::trunc);
-				try
-				{
-					write_json (stream);
-				}
-				catch (std::runtime_error const & ex)
-				{
-					*error = ex;
-				}
-				stream.close ();
-			}
-		}
-		return *error;
-	}
-
 	void write (boost::filesystem::path const & path_a);
 	void write (std::ostream & stream_a) const;
 	void read (std::istream & stream_a);

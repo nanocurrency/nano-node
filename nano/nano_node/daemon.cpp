@@ -117,6 +117,9 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			std::cout << initialization_text << std::endl;
 			logger.always_log (initialization_text);
 
+			// Print info about number of logical cores detected, those are used to decide how many IO, worker and signature checker threads to spawn
+			logger.always_log (boost::format ("Hardware concurrency: %1% ( configured: %2% )") % std::thread::hardware_concurrency () % nano::hardware_concurrency ());
+
 			nano::set_file_descriptor_limit (OPEN_FILE_DESCRIPTORS_LIMIT);
 			auto const file_descriptor_limit = nano::get_file_descriptor_limit ();
 			if (file_descriptor_limit < OPEN_FILE_DESCRIPTORS_LIMIT)
@@ -126,6 +129,14 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			else
 			{
 				logger.always_log (boost::format ("Open file descriptors limit is %1%") % file_descriptor_limit);
+			}
+
+			// for the daemon start up, if the user hasn't specified a port in
+			// the config, we must use the default peering port for the network
+			//
+			if (!config.node.peering_port.has_value ())
+			{
+				config.node.peering_port = network_params.network.default_node_port;
 			}
 
 			auto node (std::make_shared<nano::node> (io_ctx, data_path, config.node, opencl_work, flags));
@@ -148,19 +159,6 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				node->start ();
 				nano::ipc::ipc_server ipc_server (*node, config.rpc);
 				std::unique_ptr<boost::process::child> rpc_process;
-				std::unique_ptr<boost::process::child> nano_pow_server_process;
-
-				/*if (config.pow_server.enable)
-				{
-					if (!boost::filesystem::exists (config.pow_server.pow_server_path))
-					{
-						std::cerr << std::string ("nano_pow_server is configured to start as a child process, however the file cannot be found at: ") + config.pow_server.pow_server_path << std::endl;
-						std::exit (1);
-					}
-
-					nano_pow_server_process = std::make_unique<boost::process::child> (config.pow_server.pow_server_path, "--config_path", data_path / "config-nano-pow-server.toml");
-				}*/
-
 				std::unique_ptr<nano::rpc> rpc;
 				std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 				if (config.rpc_enable)

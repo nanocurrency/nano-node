@@ -11,6 +11,7 @@
 #include <memory>
 #include <queue>
 #include <unordered_set>
+
 namespace nano
 {
 class channel;
@@ -115,11 +116,13 @@ private:
 	std::unordered_map<boost::asio::ip::address, unsigned> cookies_per_ip;
 	std::size_t max_cookies_per_ip;
 };
+
 class network final
 {
 public:
 	network (nano::node &, uint16_t);
 	~network ();
+
 	nano::networks id;
 	void start ();
 	void stop ();
@@ -148,7 +151,7 @@ public:
 	bool not_a_peer (nano::endpoint const &, bool);
 	// Should we reach out to this endpoint with a keepalive message
 	bool reachout (nano::endpoint const &, bool = false);
-	std::deque<std::shared_ptr<nano::transport::channel>> list (std::size_t, uint8_t = 0, bool = true);
+	std::deque<std::shared_ptr<nano::transport::channel>> list (std::size_t max_count = 0, uint8_t = 0, bool = true);
 	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (std::size_t);
 	// Desired fanout for a given scale
 	std::size_t fanout (float scale = 1.0f) const;
@@ -158,7 +161,7 @@ public:
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t, uint8_t = 0, bool = false) const;
 	// Get the next peer for attempting a tcp bootstrap connection
 	nano::tcp_endpoint bootstrap_peer (bool = false);
-	nano::endpoint endpoint ();
+	nano::endpoint endpoint () const;
 	void cleanup (std::chrono::steady_clock::time_point const &);
 	void ongoing_cleanup ();
 	// Node ID cookies cleanup
@@ -169,7 +172,7 @@ public:
 	float size_sqrt () const;
 	bool empty () const;
 	void erase (nano::transport::channel const &);
-	void set_bandwidth_params (double, std::size_t);
+	static std::string to_string (nano::networks);
 
 private:
 	void process_message (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
@@ -179,7 +182,6 @@ public:
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
-	nano::bandwidth_limiter limiter;
 	nano::peer_exclusion excluded_peers;
 	nano::tcp_message_manager tcp_message_manager;
 	nano::node & node;

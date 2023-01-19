@@ -13,7 +13,7 @@ using namespace std::chrono_literals;
 
 TEST (ledger_walker, genesis_block)
 {
-	nano::system system{};
+	nano::test::system system{};
 	auto const node = system.add_node ();
 
 	nano::ledger_walker ledger_walker{ node->ledger };
@@ -41,8 +41,8 @@ namespace nano
 {
 TEST (ledger_walker, genesis_account_longer)
 {
-	nano::system system{};
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::test::system system{};
+	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.enable_voting = true;
 	node_config.receive_minimum = 1;
 
@@ -90,8 +90,8 @@ TEST (ledger_walker, genesis_account_longer)
 
 TEST (ledger_walker, cross_account)
 {
-	nano::system system{};
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::test::system system{};
+	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.enable_voting = true;
 	node_config.receive_minimum = 1;
 
@@ -140,9 +140,9 @@ TEST (ledger_walker, cross_account)
 // Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3603
 TEST (ledger_walker, DISABLED_ladder_geometry)
 {
-	nano::system system{};
+	nano::test::system system{};
 
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.enable_voting = true;
 	node_config.receive_minimum = 1;
 

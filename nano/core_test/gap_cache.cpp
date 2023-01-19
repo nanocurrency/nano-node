@@ -7,19 +7,35 @@ using namespace std::chrono_literals;
 
 TEST (gap_cache, add_new)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	nano::gap_cache cache (*system.nodes[0]);
-	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
+	nano::block_builder builder;
+	auto block1 = builder
+				  .send ()
+				  .previous (0)
+				  .destination (1)
+				  .balance (2)
+				  .sign (nano::keypair ().prv, 4)
+				  .work (5)
+				  .build_shared ();
 	cache.add (block1->hash ());
 }
 
 TEST (gap_cache, add_existing)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	nano::gap_cache cache (*system.nodes[0]);
-	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
+	nano::block_builder builder;
+	auto block1 = builder
+				  .send ()
+				  .previous (0)
+				  .destination (1)
+				  .balance (2)
+				  .sign (nano::keypair ().prv, 4)
+				  .work (5)
+				  .build_shared ();
 	cache.add (block1->hash ());
-	nano::unique_lock<nano::mutex> lock (cache.mutex);
+	nano::unique_lock<nano::mutex> lock{ cache.mutex };
 	auto existing1 (cache.blocks.get<1> ().find (block1->hash ()));
 	ASSERT_NE (cache.blocks.get<1> ().end (), existing1);
 	auto arrival (existing1->arrival);
@@ -35,17 +51,32 @@ TEST (gap_cache, add_existing)
 
 TEST (gap_cache, comparison)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	nano::gap_cache cache (*system.nodes[0]);
-	auto block1 (std::make_shared<nano::send_block> (1, 0, 2, nano::keypair ().prv, 4, 5));
+	nano::block_builder builder;
+	auto block1 = builder
+				  .send ()
+				  .previous (1)
+				  .destination (0)
+				  .balance (2)
+				  .sign (nano::keypair ().prv, 4)
+				  .work (5)
+				  .build_shared ();
 	cache.add (block1->hash ());
-	nano::unique_lock<nano::mutex> lock (cache.mutex);
+	nano::unique_lock<nano::mutex> lock{ cache.mutex };
 	auto existing1 (cache.blocks.get<1> ().find (block1->hash ()));
 	ASSERT_NE (cache.blocks.get<1> ().end (), existing1);
 	auto arrival (existing1->arrival);
 	lock.unlock ();
 	ASSERT_TIMELY (20s, std::chrono::steady_clock::now () != arrival);
-	auto block3 (std::make_shared<nano::send_block> (0, 42, 1, nano::keypair ().prv, 3, 4));
+	auto block3 = builder
+				  .send ()
+				  .previous (0)
+				  .destination (42)
+				  .balance (1)
+				  .sign (nano::keypair ().prv, 3)
+				  .work (4)
+				  .build_shared ();
 	cache.add (block3->hash ());
 	ASSERT_EQ (2, cache.size ());
 	lock.lock ();
@@ -61,13 +92,21 @@ TEST (gap_cache, gap_bootstrap)
 	nano::node_flags node_flags;
 	node_flags.disable_legacy_bootstrap = true;
 	node_flags.disable_request_loop = true; // to avoid fallback behavior of broadcasting blocks
-	nano::system system (2, nano::transport::transport_type::tcp, node_flags);
+	nano::test::system system (2, nano::transport::transport_type::tcp, node_flags);
 
 	auto & node1 (*system.nodes[0]);
 	auto & node2 (*system.nodes[1]);
 	nano::block_hash latest (node1.latest (nano::dev::genesis_key.pub));
 	nano::keypair key;
-	auto send (std::make_shared<nano::send_block> (latest, key.pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest)));
+	nano::block_builder builder;
+	auto send = builder
+				.send ()
+				.previous (latest)
+				.destination (key.pub)
+				.balance (nano::dev::constants.genesis_amount - 100)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (latest))
+				.build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send).code);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, node1.balance (nano::dev::genesis->account ()));
 	ASSERT_EQ (nano::dev::constants.genesis_amount, node2.balance (nano::dev::genesis->account ()));
@@ -88,24 +127,45 @@ TEST (gap_cache, gap_bootstrap)
 
 TEST (gap_cache, two_dependencies)
 {
-	nano::system system (1);
+	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::keypair key;
-	auto send1 (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key.pub, 1, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
-	auto send2 (std::make_shared<nano::send_block> (send1->hash (), key.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send1->hash ())));
-	auto open (std::make_shared<nano::open_block> (send1->hash (), key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	nano::block_builder builder;
+	auto send1 = builder
+				 .send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key.pub)
+				 .balance (1)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build_shared ();
+	auto send2 = builder
+				 .send ()
+				 .previous (send1->hash ())
+				 .destination (key.pub)
+				 .balance (0)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (send1->hash ()))
+				 .build_shared ();
+	auto open = builder
+				.open ()
+				.source (send1->hash ())
+				.representative (key.pub)
+				.account (key.pub)
+				.sign (key.prv, key.pub)
+				.work (*system.work.generate (key.pub))
+				.build_shared ();
 	ASSERT_EQ (0, node1.gap_cache.size ());
-	node1.block_processor.add (send2, nano::seconds_since_epoch ());
+	node1.block_processor.add (send2);
 	node1.block_processor.flush ();
 	ASSERT_EQ (1, node1.gap_cache.size ());
-	node1.block_processor.add (open, nano::seconds_since_epoch ());
+	node1.block_processor.add (open);
 	node1.block_processor.flush ();
 	ASSERT_EQ (2, node1.gap_cache.size ());
-	node1.block_processor.add (send1, nano::seconds_since_epoch ());
+	node1.block_processor.add (send1);
 	node1.block_processor.flush ();
-	ASSERT_EQ (0, node1.gap_cache.size ());
-	auto transaction (node1.store.tx_begin_read ());
-	ASSERT_TRUE (node1.store.block.exists (transaction, send1->hash ()));
-	ASSERT_TRUE (node1.store.block.exists (transaction, send2->hash ()));
-	ASSERT_TRUE (node1.store.block.exists (transaction, open->hash ()));
+	ASSERT_TIMELY (5s, node1.gap_cache.size () == 0);
+	ASSERT_TIMELY (5s, node1.store.block.exists (node1.store.tx_begin_read (), send1->hash ()));
+	ASSERT_TIMELY (5s, node1.store.block.exists (node1.store.tx_begin_read (), send2->hash ()));
+	ASSERT_TIMELY (5s, node1.store.block.exists (node1.store.tx_begin_read (), open->hash ()));
 }

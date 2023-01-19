@@ -116,14 +116,18 @@ bool nano::public_key::decode_account (std::string const & source_a)
 					}
 					if (!error)
 					{
-						*this = (number_l >> 40).convert_to<nano::uint256_t> ();
+						nano::public_key temp = (number_l >> 40).convert_to<nano::uint256_t> ();
 						uint64_t check (number_l & static_cast<uint64_t> (0xffffffffff));
 						uint64_t validation (0);
 						blake2b_state hash;
 						blake2b_init (&hash, 5);
-						blake2b_update (&hash, bytes.data (), bytes.size ());
+						blake2b_update (&hash, temp.bytes.data (), temp.bytes.size ());
 						blake2b_final (&hash, reinterpret_cast<uint8_t *> (&validation), 5);
 						error = check != validation;
+						if (!error)
+						{
+							*this = temp;
+						}
 					}
 				}
 				else
@@ -146,11 +150,6 @@ nano::uint256_union::uint256_union (nano::uint256_t const & number_a)
 	boost::multiprecision::export_bits (number_a, bytes.rbegin (), 8, false);
 }
 
-bool nano::uint256_union::operator== (nano::uint256_union const & other_a) const
-{
-	return bytes == other_a.bytes;
-}
-
 // Construct a uint256_union = AES_ENC_CTR (cleartext, key, iv)
 void nano::uint256_union::encrypt (nano::raw_key const & cleartext, nano::raw_key const & key, uint128_union const & iv)
 {
@@ -169,11 +168,6 @@ std::string nano::uint256_union::to_string () const
 	std::string result;
 	encode_hex (result);
 	return result;
-}
-
-bool nano::uint256_union::operator< (nano::uint256_union const & other_a) const
-{
-	return std::memcmp (bytes.data (), other_a.bytes.data (), 32) < 0;
 }
 
 nano::uint256_union & nano::uint256_union::operator^= (nano::uint256_union const & other_a)
@@ -291,11 +285,6 @@ bool nano::uint256_union::decode_dec (std::string const & text)
 nano::uint256_union::uint256_union (uint64_t value0)
 {
 	*this = nano::uint256_t (value0);
-}
-
-bool nano::uint256_union::operator!= (nano::uint256_union const & other_a) const
-{
-	return !(*this == other_a);
 }
 
 bool nano::uint512_union::operator== (nano::uint512_union const & other_a) const
@@ -866,6 +855,14 @@ std::string nano::to_string_hex (uint64_t const value_a)
 {
 	std::stringstream stream;
 	stream << std::hex << std::noshowbase << std::setw (16) << std::setfill ('0');
+	stream << value_a;
+	return stream.str ();
+}
+
+std::string nano::to_string_hex (uint16_t const value_a)
+{
+	std::stringstream stream;
+	stream << std::hex << std::noshowbase << std::setw (4) << std::setfill ('0');
 	stream << value_a;
 	return stream.str ();
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/errors.hpp>
+#include <nano/lib/threading.hpp>
 
 #include <thread>
 
@@ -24,6 +25,6 @@ public:
 
 	bool enable{ false };
 	uint8_t memory_multiplier{ 2 };
-	unsigned io_threads{ std::thread::hardware_concurrency () };
+	unsigned io_threads{ nano::hardware_concurrency () };
 };
 }

@@ -5,7 +5,6 @@
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/request_aggregator.hpp>
-#include <nano/node/transport/udp.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
@@ -31,7 +30,7 @@ nano::request_aggregator::request_aggregator (nano::node_config const & config_a
 	final_generator.set_reply_action ([this] (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) {
 		this->reply_action (vote_a, channel_a);
 	});
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	condition.wait (lock, [&started = started] { return started; });
 }
 
@@ -40,7 +39,7 @@ void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> co
 	debug_assert (wallets.reps ().voting > 0);
 	bool error = true;
 	auto const endpoint (nano::transport::map_endpoint_to_v6 (channel_a->get_endpoint ()));
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	// Protecting from ever-increasing memory usage when request are consumed slower than generated
 	// Reject request if the oldest request has not yet been processed after its deadline + a modest margin
 	if (requests.empty () || (requests.get<tag_deadline> ().begin ()->deadline + 2 * this->max_delay > std::chrono::steady_clock::now ()))
@@ -74,7 +73,7 @@ void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> co
 void nano::request_aggregator::run ()
 {
 	nano::thread_role::set (nano::thread_role::name::request_aggregator);
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	started = true;
 	lock.unlock ();
 	condition.notify_all ();
@@ -128,7 +127,7 @@ void nano::request_aggregator::run ()
 void nano::request_aggregator::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard{ mutex };
 		stopped = true;
 	}
 	condition.notify_all ();
@@ -140,7 +139,7 @@ void nano::request_aggregator::stop ()
 
 std::size_t nano::request_aggregator::size ()
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	return requests.size ();
 }
 
@@ -169,18 +168,30 @@ void nano::request_aggregator::erase_duplicates (std::vector<std::pair<nano::blo
 std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr<nano::block>>> nano::request_aggregator::aggregate (std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const
 {
 	auto transaction (ledger.store.tx_begin_read ());
-	std::size_t cached_hashes = 0;
 	std::vector<std::shared_ptr<nano::block>> to_generate;
 	std::vector<std::shared_ptr<nano::block>> to_generate_final;
 	std::vector<std::shared_ptr<nano::vote>> cached_votes;
+	std::unordered_set<nano::block_hash> cached_hashes;
 	for (auto const & [hash, root] : requests_a)
 	{
+		// 0. Hashes already sent
+		if (cached_hashes.count (hash) > 0)
+		{
+			continue;
+		}
+
 		// 1. Votes in cache
 		auto find_votes (local_votes.votes (root, hash));
 		if (!find_votes.empty ())
 		{
-			++cached_hashes;
-			cached_votes.insert (cached_votes.end (), find_votes.begin (), find_votes.end ());
+			for (auto & found_vote : find_votes)
+			{
+				cached_votes.push_back (found_vote);
+				for (auto & found_hash : found_vote->hashes)
+				{
+					cached_hashes.insert (found_hash);
+				}
+			}
 		}
 		else
 		{
@@ -188,7 +199,7 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 			bool generate_final_vote (false);
 			std::shared_ptr<nano::block> block;
 
-			//2. Final votes
+			// 2. Final votes
 			auto final_vote_hashes (ledger.store.final_vote.get (transaction, root));
 			if (!final_vote_hashes.empty ())
 			{
@@ -295,7 +306,7 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 	{
 		reply_action (vote, channel_a);
 	}
-	stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached_hashes, stat::dir::in, cached_hashes);
+	stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached_hashes, stat::dir::in, cached_hashes.size ());
 	stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached_votes, stat::dir::in, cached_votes.size ());
 	return std::make_pair (to_generate, to_generate_final);
 }
