@@ -13,6 +13,7 @@ nano::backlog_population::backlog_population (const config & config_a, nano::sto
 
 nano::backlog_population::~backlog_population ()
 {
+	stop ();
 	// Thread must be stopped before destruction
 	debug_assert (!thread.joinable ());
 }
