@@ -58,7 +58,7 @@ TEST (vote_processor, producer_consumer)
 
 	// Run multiple producers in parallel
 	std::vector<std::thread> producers;
-	for (int n = 0; n < number_of_producers; ++n)
+	for (size_t n = 0; n < number_of_producers; ++n)
 	{
 		producers.emplace_back (producer);
 	}

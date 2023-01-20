@@ -87,7 +87,7 @@ void nano::backlog_population::populate_backlog ()
 		{
 			auto transaction = store.tx_begin_read ();
 
-			auto count = 0;
+			auto count = 0u;
 			auto i = store.account.begin (transaction, next);
 			const auto end = store.account.end ();
 			for (; !stopped && i != end && count < chunk_size; ++i, ++count, ++total)
