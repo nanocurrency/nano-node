@@ -495,6 +495,10 @@ set(FAIL_ON_WARNINGS
 add_subdirectory(rocksdb EXCLUDE_FROM_ALL)
 
 include_directories(cpptoml/include)
+
+# magic_enum
+include_directories(magic_enum/include)
+
 add_subdirectory(crypto/ed25519-donna)
 
 add_subdirectory(nano/ipc_flatbuffers_lib)

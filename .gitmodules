@@ -29,3 +29,6 @@
 [submodule "boost"]
 	path = boost
 	url = https://github.com/boostorg/boost.git
+[submodule "magic_enum"]
+	path = magic_enum
+	url = https://github.com/Neargye/magic_enum.git
