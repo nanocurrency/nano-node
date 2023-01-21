@@ -694,7 +694,7 @@ ledger_processor::ledger_processor (nano::ledger & ledger_a, nano::write_transac
 }
 } // namespace
 
-nano::ledger::ledger (nano::store & store_a, nano::stat & stat_a, nano::ledger_constants & constants, nano::generate_cache const & generate_cache_a) :
+nano::ledger::ledger (nano::store & store_a, nano::stats & stat_a, nano::ledger_constants & constants, nano::generate_cache const & generate_cache_a) :
 	constants{ constants },
 	store{ store_a },
 	stats{ stat_a },

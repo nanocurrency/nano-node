@@ -26,7 +26,7 @@ nano::store & nano::test::context::ledger_context::store ()
 	return *store_m;
 }
 
-nano::stat & nano::test::context::ledger_context::stats ()
+nano::stats & nano::test::context::ledger_context::stats ()
 {
 	return stats_m;
 }

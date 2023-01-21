@@ -39,7 +39,7 @@ public:
 	// Stats - Statistics
 	// Size - Size of each individual buffer
 	// Count - Number of buffers to allocate
-	message_buffer_manager (nano::stat & stats, std::size_t, std::size_t);
+	message_buffer_manager (nano::stats & stats, std::size_t, std::size_t);
 	// Return a buffer where message data can be put
 	// Method will attempt to return the first free buffer
 	// If there are no free buffers, an unserviced buffer will be dequeued and returned
@@ -58,7 +58,7 @@ public:
 	void stop ();
 
 private:
-	nano::stat & stats;
+	nano::stats & stats;
 	nano::mutex mutex;
 	nano::condition_variable condition;
 	boost::circular_buffer<nano::message_buffer *> free;

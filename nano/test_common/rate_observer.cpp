@@ -1,6 +1,9 @@
 #include <nano/lib/stats.hpp>
 #include <nano/node/node.hpp>
 #include <nano/test_common/rate_observer.hpp>
+
+#include <sstream>
+
 /*
  * rate_observer::counter
  */
@@ -21,7 +24,7 @@ std::pair<uint64_t, std::chrono::milliseconds> nano::test::rate_observer::counte
 	}
 }
 
-nano::test::rate_observer::stat_counter::stat_counter (nano::stat & stats_a, nano::stat::type type_a, nano::stat::detail detail_a, nano::stat::dir dir_a) :
+nano::test::rate_observer::stat_counter::stat_counter (nano::stats & stats_a, nano::stat::type type_a, nano::stat::detail detail_a, nano::stat::dir dir_a) :
 	stats{ stats_a },
 	type{ type_a },
 	detail{ detail_a },
@@ -43,7 +46,9 @@ uint64_t nano::test::rate_observer::stat_counter::count ()
 
 std::string nano::test::rate_observer::stat_counter::name ()
 {
-	return nano::stat::type_to_string (type) + "::" + nano::stat::detail_to_string (detail) + "::" + nano::stat::dir_to_string (dir);
+	std::stringstream ss;
+	ss << nano::to_string (type) << "::" << nano::to_string (detail) << "::" << nano::to_string (dir);
+	return ss.str ();
 }
 
 /*
