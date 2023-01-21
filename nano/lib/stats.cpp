@@ -10,7 +10,7 @@
 #include <fstream>
 #include <sstream>
 
-nano::error nano::stat_config::deserialize_toml (nano::tomlconfig & toml)
+nano::error nano::stats_config::deserialize_toml (nano::tomlconfig & toml)
 {
 	auto sampling_l (toml.get_optional_child ("sampling"));
 	if (sampling_l)
@@ -40,7 +40,7 @@ nano::error nano::stat_config::deserialize_toml (nano::tomlconfig & toml)
 	return toml.get_error ();
 }
 
-nano::error nano::stat_config::serialize_toml (nano::tomlconfig & toml) const
+nano::error nano::stats_config::serialize_toml (nano::tomlconfig & toml) const
 {
 	nano::tomlconfig sampling_l;
 	sampling_l.put ("enable", sampling_enabled, "Enable or disable sampling.\ntype:bool");
@@ -256,7 +256,7 @@ std::vector<nano::stat_histogram::bin> nano::stat_histogram::get_bins () const
  * stats
  */
 
-nano::stats::stats (nano::stat_config config) :
+nano::stats::stats (nano::stats_config config) :
 	config (config)
 {
 }

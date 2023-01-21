@@ -183,7 +183,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put_child ("diagnostics", diagnostics_l);
 
 	nano::tomlconfig stat_l;
-	stat_config.serialize_toml (stat_l);
+	stats_config.serialize_toml (stat_l);
 	toml.put_child ("statistics", stat_l);
 
 	nano::tomlconfig rocksdb_l;
@@ -235,8 +235,8 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 
 		if (toml.has_key ("statistics"))
 		{
-			auto stat_config_l (toml.get_required_child ("statistics"));
-			stat_config.deserialize_toml (stat_config_l);
+			auto stats_config_l (toml.get_required_child ("statistics"));
+			stats_config.deserialize_toml (stats_config_l);
 		}
 
 		if (toml.has_key ("rocksdb"))

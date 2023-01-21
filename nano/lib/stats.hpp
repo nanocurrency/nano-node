@@ -19,12 +19,13 @@ namespace nano
 class node;
 class tomlconfig;
 class jsonconfig;
+
 /**
  * Serialize and deserialize the 'statistics' node from config.json
  * All configuration values have defaults. In particular, file logging of statistics
  * is disabled by default.
  */
-class stat_config final
+class stats_config final
 {
 public:
 	/** Reads the JSON statistics node */
@@ -225,7 +226,7 @@ public:
 	 * Initialize stats with a config.
 	 * @param config Configuration object; deserialized from config.json
 	 */
-	stats (nano::stat_config config);
+	stats (nano::stats_config config);
 
 	/**
 	 * Call this to override the default sample interval and capacity, for a specific stat entry.
@@ -433,7 +434,7 @@ private:
 	std::chrono::steady_clock::time_point timestamp{ std::chrono::steady_clock::now () };
 
 	/** Configuration deserialized from config.json */
-	nano::stat_config config;
+	nano::stats_config config;
 
 	/** Stat entries are sorted by key to simplify processing of log output */
 	std::map<uint32_t, std::shared_ptr<nano::stat_entry>> entries;
