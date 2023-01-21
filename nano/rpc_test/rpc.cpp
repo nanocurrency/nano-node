@@ -3484,8 +3484,10 @@ TEST (rpc, accounts_balances)
 
 	// Checking the account not found response
 	auto account_not_found_entry = response.get_child (boost::str (boost::format ("balances.%1%") % account_not_found));
-	auto error_text1 = account_not_found_entry.get<std::string> ("error");
-	ASSERT_EQ (get_error_message (nano::error_common::account_not_found), error_text1);
+	auto account_balance_text = account_not_found_entry.get<std::string> ("balance");
+	ASSERT_EQ ("0", account_balance_text);
+	auto account_receivable_text = account_not_found_entry.get<std::string> ("receivable");
+	ASSERT_EQ ("0", account_receivable_text);
 
 	// Checking the bad account number response
 	auto bad_account_number_entry = response.get_child (boost::str (boost::format ("balances.%1%") % bad_account_number));
