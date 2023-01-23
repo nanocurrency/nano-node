@@ -133,9 +133,16 @@ if [[ $previous_release_gen == false ]]; then
     last_tag=$(get_first_item "$version_tags")
 else
     previous_release_major=$(( current_version_major - 1 ))
-    version_tags=$(git tag | sort -V -r | grep -E "^(V(${previous_release_major}).([0-9]+)(DB[0-9]+)?)$" || true)
+    version_tags=$(git tag | sort -V -r | grep -E "^(V(${previous_release_major}).([0-9]+))$" || true)
+    if [[ -z "$version_tags" ]]; then
+        previous_release_minor=0
+    else
+        last_minor_release=$(get_first_item "$version_tags")
+        last_minor=$(echo "$last_minor_release" | grep -oP "\.([0-9]+)" | grep -oP "[0-9]+")
+        previous_release_minor=$(( last_minor + 1 ))
+    fi
+    version_tags=$(git tag | sort -V -r | grep -E "^(V(${previous_release_major}).(${previous_release_minor})(DB[0-9]+)?)$" || true)
     last_tag=$(get_first_item "$version_tags")
-    previous_release_minor=$(echo "$last_tag" | grep -oP "\.([0-9]+)" | grep -oP "[0-9]+")
     release_branch="releases/v${previous_release_major}"
     output_variable release_branch
 fi
