@@ -5,8 +5,6 @@
 #include <nano/secure/common.hpp>
 #include <nano/secure/store.hpp>
 
-#include <crypto/cryptopp/words.h>
-
 #include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/variant/get.hpp>
@@ -15,6 +13,7 @@
 #include <queue>
 
 #include <crypto/ed25519-donna/ed25519.h>
+#include <cryptopp/words.h>
 
 size_t constexpr nano::send_block::size;
 size_t constexpr nano::receive_block::size;
