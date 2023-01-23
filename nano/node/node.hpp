@@ -69,6 +69,11 @@ public:
 	node (boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
 	node (boost::asio::io_context &, boost::filesystem::path const &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
 	~node ();
+
+private:
+	void init_websockets ();
+
+public:
 	template <typename T>
 	void background (T action_a)
 	{
