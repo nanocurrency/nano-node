@@ -200,6 +200,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
 	backlog{ nano::backlog_population_config (config), store, stats },
+	websocket{ config.websocket_config, observers, wallets, ledger, io_ctx, logger },
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq)
 {
@@ -225,13 +226,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			scheduler.notify ();
 			hinting.notify ();
 		};
-
-		if (config.websocket_config.enabled)
-		{
-			auto endpoint_l (nano::tcp_endpoint (boost::asio::ip::make_address_v6 (config.websocket_config.address), config.websocket_config.port));
-			websocket_server = std::make_shared<nano::websocket::listener> (config.websocket_config.tls_config, logger, wallets, io_ctx, endpoint_l);
-			this->websocket_server->run ();
-		}
 
 		wallets.observer = [this] (bool active) {
 			observers.wallet.notify (active);
@@ -355,12 +349,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			this->work.cancel (root_a);
 			this->distributed_work.cancel (root_a);
 		});
-
-		// Setup observers for publishing websocket events
-		if (websocket_server)
-		{
-			init_websockets ();
-		}
 
 		logger.always_log ("Node starting, version: ", NANO_VERSION_STRING);
 		logger.always_log ("Build information: ", BUILD_INFO);
@@ -486,74 +474,6 @@ nano::node::~node ()
 		logger.always_log ("Destructing node");
 	}
 	stop ();
-}
-
-void nano::node::init_websockets ()
-{
-	observers.blocks.add ([this] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
-		debug_assert (status_a.type != nano::election_status_type::ongoing);
-
-		if (this->websocket_server->any_subscriber (nano::websocket::topic::confirmation))
-		{
-			auto block_a (status_a.winner);
-			std::string subtype;
-			if (is_state_send_a)
-			{
-				subtype = "send";
-			}
-			else if (block_a->type () == nano::block_type::state)
-			{
-				if (block_a->link ().is_zero ())
-				{
-					subtype = "change";
-				}
-				else if (is_state_epoch_a)
-				{
-					debug_assert (amount_a == 0 && this->ledger.is_epoch_link (block_a->link ()));
-					subtype = "epoch";
-				}
-				else
-				{
-					subtype = "receive";
-				}
-			}
-
-			this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a, votes_a);
-		}
-	});
-
-	observers.active_started.add ([this] (nano::block_hash const & hash_a) {
-		if (this->websocket_server->any_subscriber (nano::websocket::topic::started_election))
-		{
-			nano::websocket::message_builder builder;
-			this->websocket_server->broadcast (builder.started_election (hash_a));
-		}
-	});
-
-	observers.active_stopped.add ([this] (nano::block_hash const & hash_a) {
-		if (this->websocket_server->any_subscriber (nano::websocket::topic::stopped_election))
-		{
-			nano::websocket::message_builder builder;
-			this->websocket_server->broadcast (builder.stopped_election (hash_a));
-		}
-	});
-
-	observers.telemetry.add ([this] (nano::telemetry_data const & telemetry_data, nano::endpoint const & endpoint) {
-		if (this->websocket_server->any_subscriber (nano::websocket::topic::telemetry))
-		{
-			nano::websocket::message_builder builder;
-			this->websocket_server->broadcast (builder.telemetry_received (telemetry_data, endpoint));
-		}
-	});
-
-	observers.vote.add ([this] (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, nano::vote_code code_a) {
-		if (this->websocket_server->any_subscriber (nano::websocket::topic::vote))
-		{
-			nano::websocket::message_builder builder;
-			auto msg (builder.vote_received (vote_a, code_a));
-			this->websocket_server->broadcast (msg);
-		}
-	});
 }
 
 void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const & address, uint16_t port, std::shared_ptr<std::string> const & target, std::shared_ptr<std::string> const & body, std::shared_ptr<boost::asio::ip::tcp::resolver> const & resolver)
@@ -778,6 +698,7 @@ void nano::node::start ()
 	backlog.start ();
 	hinting.start ();
 	bootstrap_server.start ();
+	websocket.start ();
 }
 
 void nano::node::stop ()
@@ -801,10 +722,7 @@ void nano::node::stop ()
 		confirmation_height_processor.stop ();
 		network.stop ();
 		telemetry->stop ();
-		if (websocket_server)
-		{
-			websocket_server->stop ();
-		}
+		websocket.stop ();
 		bootstrap_server.stop ();
 		bootstrap_initiator.stop ();
 		tcp_listener.stop ();
