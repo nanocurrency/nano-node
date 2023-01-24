@@ -8,6 +8,7 @@ target_link_libraries(
   secure
   argon2
   ${PLATFORM_LIBS})
+include_directories(${CMAKE_SOURCE_DIR}/submodules)
 
 target_compile_definitions(
   nano_node PRIVATE -DTAG_VERSION_STRING=${TAG_VERSION_STRING}
