@@ -164,8 +164,8 @@ popd
 
 build_tag=""
 if [[ -z "$last_tag" ]]; then
-#   If the last tag was no found previously, it means there was no previous beta-build for this major and minor numbers,
-#   then the build number is 1.
+#   If the last tag was not found previously, it means there was no previous beta-build for this major and minor
+#   numbers, then the build number is 1.
     build_number=1
     echo "info: no tag found, build_number=${build_number}"
     if [[ $previous_release_gen == false ]]; then
