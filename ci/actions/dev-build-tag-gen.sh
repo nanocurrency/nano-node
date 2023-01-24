@@ -108,7 +108,7 @@ current_version_pre_release=$(grep -P "(set)(.)*(CPACK_PACKAGE_VERSION_PRE_RELEA
 
 # Get the list of version tags that can be either official releases or release candidates. The list comes
 # ordered by version, in reverse order.
-version_tags=$(git tag | sort -V -r | grep -E "^(V([0-9]+).([0-9]+)(RC[0-9]+)?)$")
+version_tags=$(git tag | sort -V -r | grep -E "^(V([0-9]+)\.([0-9]+)(RC[0-9]+)?)$")
 
 # Get the first tag of the list, that means, the latest version.
 last_tag=$(get_first_item "$version_tags")
@@ -138,12 +138,12 @@ previous_release_minor=0
 # otherwise.
 if [[ $previous_release_gen == false ]]; then
 #   List of all beta-build (DB) tags in reverse version order.
-    version_tags=$(git tag | sort -V -r | grep -E "^(V(${current_version_major}).(${current_version_minor})(DB[0-9]+))$" || true)
+    version_tags=$(git tag | sort -V -r | grep -E "^(V(${current_version_major})\.(${current_version_minor})(DB[0-9]+))$" || true)
     last_tag=$(get_first_item "$version_tags")
 else
     previous_release_major=$(( current_version_major - 1 ))
 #   List of official release tags in reverse order.
-    version_tags=$(git tag | sort -V -r | grep -E "^(V(${previous_release_major}).([0-9]+))$" || true)
+    version_tags=$(git tag | sort -V -r | grep -E "^(V(${previous_release_major})\.([0-9]+))$" || true)
     if [[ -z "$version_tags" ]]; then
 #       Previous release minor is 0 if no official release is found in the branch.
         previous_release_minor=0
@@ -154,7 +154,7 @@ else
         previous_release_minor=$(( last_minor + 1 ))
     fi
 #   List of tags in reverse version order that may or many not include beta-build (DB) tags.
-    version_tags=$(git tag | sort -V -r | grep -E "^(V(${previous_release_major}).(${previous_release_minor})(DB[0-9]+)?)$" || true)
+    version_tags=$(git tag | sort -V -r | grep -E "^(V(${previous_release_major})\.(${previous_release_minor})(DB[0-9]+)?)$" || true)
     last_tag=$(get_first_item "$version_tags")
 #   The reference release branch in Git repository should follow the pattern 'releases/vXY'.
     release_branch="releases/v${previous_release_major}"
