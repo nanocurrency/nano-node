@@ -22,10 +22,10 @@ nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> const & 
 
 	node->logger.always_log (boost::str (boost::format ("Starting %1% bootstrap attempt with ID %2%") % mode_text () % id));
 	node->bootstrap_initiator.notify_listeners (true);
-	if (node->websocket_server)
+	if (node->websocket.server)
 	{
 		nano::websocket::message_builder builder;
-		node->websocket_server->broadcast (builder.bootstrap_started (id, mode_text ()));
+		node->websocket.server->broadcast (builder.bootstrap_started (id, mode_text ()));
 	}
 }
 
@@ -33,10 +33,10 @@ nano::bootstrap_attempt::~bootstrap_attempt ()
 {
 	node->logger.always_log (boost::str (boost::format ("Exiting %1% bootstrap attempt with ID %2%") % mode_text () % id));
 	node->bootstrap_initiator.notify_listeners (false);
-	if (node->websocket_server)
+	if (node->websocket.server)
 	{
 		nano::websocket::message_builder builder;
-		node->websocket_server->broadcast (builder.bootstrap_exited (id, mode_text (), attempt_start, total_blocks));
+		node->websocket.server->broadcast (builder.bootstrap_exited (id, mode_text (), attempt_start, total_blocks));
 	}
 }
 
