@@ -72,11 +72,10 @@ block_list_t setup_independent_blocks (nano::test::system & system, nano::node &
  */
 TEST (backlog, population)
 {
-	nano::test::system system{};
-	auto & node = *system.add_node ();
-
 	nano::mutex mutex;
 	std::unordered_set<nano::account> activated;
+	nano::test::system system{};
+	auto & node = *system.add_node ();
 
 	node.backlog.activate_callback.add ([&] (nano::transaction const & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info) {
 		nano::lock_guard<nano::mutex> lock{ mutex };

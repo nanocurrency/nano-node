@@ -59,14 +59,14 @@ private:
 	void run ();
 	bool predicate () const;
 
-	void populate_backlog ();
+	void populate_backlog (nano::unique_lock<nano::mutex> & lock);
 	void activate (nano::transaction const &, nano::account const &);
 
 	/** This is a manual trigger, the ongoing backlog population does not use this.
 	 *  It can be triggered even when backlog population (frontiers confirmation) is disabled. */
 	bool triggered{ false };
 
-	std::atomic<bool> stopped{ false };
+	bool stopped{ false };
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
 

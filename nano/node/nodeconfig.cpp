@@ -6,9 +6,9 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/transport.hpp>
 
-#include <crypto/cryptopp/words.h>
-
 #include <boost/format.hpp>
+
+#include <cryptopp/words.h>
 
 namespace
 {
