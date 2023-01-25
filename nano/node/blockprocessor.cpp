@@ -243,7 +243,7 @@ bool nano::block_processor::have_blocks ()
 void nano::block_processor::pipeline_dump ()
 {
 	auto dump_stage = [this] (nano::stat::detail detail) {
-		std::cerr << nano::stat::detail_to_string (detail) << ": " << std::to_string (node.stats.count (nano::stat::type::block_pipeline, detail)) << '\n';
+		std::cerr << boost::str (boost::format ("%1%: %2%\n") % nano::stat::detail_to_string (detail) % std::to_string (node.stats.count (nano::stat::type::block_pipeline, detail)));
 	};
 	dump_stage (nano::stat::detail::account_state_filter_pass);
 	dump_stage (nano::stat::detail::account_state_filter_reject_existing);
