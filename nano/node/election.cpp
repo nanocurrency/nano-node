@@ -652,3 +652,8 @@ std::vector<nano::vote_with_weight_info> nano::election::votes_with_weight () co
 	std::transform (sorted_votes.begin (), sorted_votes.end (), std::back_inserter (result), [] (auto const & entry) { return entry.second; });
 	return result;
 }
+
+nano::election_behavior nano::election::get_behavior () const
+{
+	return behavior;
+}

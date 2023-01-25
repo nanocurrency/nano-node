@@ -143,6 +143,7 @@ public: // Information
 	nano::root const root;
 	nano::qualified_root const qualified_root;
 	std::vector<nano::vote_with_weight_info> votes_with_weight () const;
+	nano::election_behavior get_behavior () const;
 
 private:
 	nano::tally_t tally_impl () const;

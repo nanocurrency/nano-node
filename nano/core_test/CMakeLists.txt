@@ -33,6 +33,7 @@ add_executable(
   network.cpp
   network_filter.cpp
   node.cpp
+  optimistic_scheduler.cpp
   processing_queue.cpp
   processor_service.cpp
   peer_container.cpp

@@ -2,7 +2,7 @@
 
 using namespace std::chrono_literals;
 
-nano::block_list_t nano::test::setup_chain (nano::test::system & system, nano::node & node, int count, nano::keypair target)
+nano::block_list_t nano::test::setup_chain (nano::test::system & system, nano::node & node, int count, nano::keypair target, bool confirm)
 {
 	auto latest = node.latest (target.pub);
 	auto balance = node.balance (target.pub);
@@ -30,14 +30,17 @@ nano::block_list_t nano::test::setup_chain (nano::test::system & system, nano::n
 
 	EXPECT_TRUE (nano::test::process (node, blocks));
 
-	// Confirm whole chain at once
-	EXPECT_TIMELY (5s, nano::test::confirm (node, { blocks.back () }));
-	EXPECT_TIMELY (5s, nano::test::confirmed (node, blocks));
+	if (confirm)
+	{
+		// Confirm whole chain at once
+		EXPECT_TIMELY (5s, nano::test::confirm (node, { blocks.back () }));
+		EXPECT_TIMELY (5s, nano::test::confirmed (node, blocks));
+	}
 
 	return blocks;
 }
 
-std::vector<std::pair<nano::account, nano::block_list_t>> nano::test::setup_chains (nano::test::system & system, nano::node & node, int chain_count, int block_count, nano::keypair source)
+std::vector<std::pair<nano::account, nano::block_list_t>> nano::test::setup_chains (nano::test::system & system, nano::node & node, int chain_count, int block_count, nano::keypair source, bool confirm)
 {
 	auto latest = node.latest (source.pub);
 	auto balance = node.balance (source.pub);
@@ -69,12 +72,16 @@ std::vector<std::pair<nano::account, nano::block_list_t>> nano::test::setup_chai
 
 		latest = send->hash ();
 
-		// Ensure blocks are in the ledger and confirmed
 		EXPECT_TRUE (nano::test::process (node, { send, open }));
-		EXPECT_TIMELY (5s, nano::test::confirm (node, { send, open }));
-		EXPECT_TIMELY (5s, nano::test::confirmed (node, { send, open }));
 
-		auto added_blocks = nano::test::setup_chain (system, node, block_count, key);
+		if (confirm)
+		{
+			// Ensure blocks are in the ledger and confirmed
+			EXPECT_TIMELY (5s, nano::test::confirm (node, { send, open }));
+			EXPECT_TIMELY (5s, nano::test::confirmed (node, { send, open }));
+		}
+
+		auto added_blocks = nano::test::setup_chain (system, node, block_count, key, confirm);
 
 		auto blocks = block_list_t{ open };
 		blocks.insert (blocks.end (), added_blocks.begin (), added_blocks.end ());
