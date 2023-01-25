@@ -264,6 +264,10 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
 	ASSERT_EQ (conf.node.rocksdb_config.memory_multiplier, defaults.node.rocksdb_config.memory_multiplier);
 	ASSERT_EQ (conf.node.rocksdb_config.io_threads, defaults.node.rocksdb_config.io_threads);
+
+	ASSERT_EQ (conf.node.optimistic_scheduler_config.enabled, defaults.node.optimistic_scheduler_config.enabled);
+	ASSERT_EQ (conf.node.optimistic_scheduler_config.gap_threshold, defaults.node.optimistic_scheduler_config.gap_threshold);
+	ASSERT_EQ (conf.node.optimistic_scheduler_config.max_size, defaults.node.optimistic_scheduler_config.max_size);
 }
 
 TEST (toml, optional_child)
@@ -519,6 +523,11 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	max_databases = 999
 	map_size = 999
 
+	[node.optimistic_scheduler]
+	enabled = false
+	gap_threshold = 999
+	max_size = 999
+
 	[node.rocksdb]
 	enable = true
 	memory_multiplier = 3
@@ -682,6 +691,10 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_EQ (nano::rocksdb_config::using_rocksdb_in_tests (), defaults.node.rocksdb_config.enable);
 	ASSERT_NE (conf.node.rocksdb_config.memory_multiplier, defaults.node.rocksdb_config.memory_multiplier);
 	ASSERT_NE (conf.node.rocksdb_config.io_threads, defaults.node.rocksdb_config.io_threads);
+
+	ASSERT_NE (conf.node.optimistic_scheduler_config.enabled, defaults.node.optimistic_scheduler_config.enabled);
+	ASSERT_NE (conf.node.optimistic_scheduler_config.gap_threshold, defaults.node.optimistic_scheduler_config.gap_threshold);
+	ASSERT_NE (conf.node.optimistic_scheduler_config.max_size, defaults.node.optimistic_scheduler_config.max_size);
 }
 
 /** There should be no required values **/

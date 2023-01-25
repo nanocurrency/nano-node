@@ -53,7 +53,6 @@ enum class detail : uint8_t
 	total,
 	process,
 	update,
-	insert,
 	request,
 	broadcast,
 

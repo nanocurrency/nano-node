@@ -20,6 +20,12 @@ class active_transactions;
 class optimistic_scheduler_config final
 {
 public:
+	nano::error deserialize (nano::tomlconfig & toml);
+	nano::error serialize (nano::tomlconfig & toml) const;
+
+public:
+	bool enabled{ true };
+
 	/** Minimum difference between confirmation frontier and account frontier to become a candidate for optimistic confirmation */
 	std::size_t gap_threshold{ 32 };
 

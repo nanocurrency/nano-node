@@ -1,4 +1,5 @@
 #include <nano/lib/stats.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/optimistic_scheduler.hpp>
 
@@ -20,10 +21,13 @@ void nano::optimistic_scheduler::start ()
 {
 	debug_assert (!thread.joinable ());
 
-	thread = std::thread{ [this] () {
-		nano::thread_role::set (nano::thread_role::name::optimistic_scheduler);
-		run ();
-	} };
+	if (config.enabled)
+	{
+		thread = std::thread{ [this] () {
+			nano::thread_role::set (nano::thread_role::name::optimistic_scheduler);
+			run ();
+		} };
+	}
 }
 
 void nano::optimistic_scheduler::stop ()
@@ -60,6 +64,11 @@ bool nano::optimistic_scheduler::activate_predicate (const nano::account_info & 
 
 bool nano::optimistic_scheduler::activate (const nano::account & account, const nano::account_info & account_info, const nano::confirmation_height_info & conf_info)
 {
+	if (!config.enabled)
+	{
+		return false;
+	}
+
 	debug_assert (account_info.block_count >= conf_info.height);
 
 	if (activate_predicate (account_info, conf_info))
@@ -128,4 +137,26 @@ void nano::optimistic_scheduler::run_one (nano::account candidate)
 			stats.inc (nano::stat::type::optimistic, result.inserted ? nano::stat::detail::insert : nano::stat::detail::insert_failed);
 		}
 	}
+}
+
+/*
+ * optimistic_scheduler_config
+ */
+
+nano::error nano::optimistic_scheduler_config::deserialize (nano::tomlconfig & toml)
+{
+	toml.get ("enabled", enabled);
+	toml.get ("gap_threshold", gap_threshold);
+	toml.get ("max_size", max_size);
+
+	return toml.get_error ();
+}
+
+nano::error nano::optimistic_scheduler_config::serialize (nano::tomlconfig & toml) const
+{
+	toml.put ("enable", enabled, "Enable or disable optimistic elections\ntype:bool");
+	toml.put ("gap_threshold", gap_threshold, "Minimum difference between confirmation frontier and account frontier to become a candidate for optimistic confirmation\ntype:uint64");
+	toml.put ("max_size", max_size, "Maximum number of candidates stored in memory\ntype:uint64");
+
+	return toml.get_error ();
 }
