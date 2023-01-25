@@ -3498,6 +3498,7 @@ TEST (rpc, accounts_balances)
 /**
  * Test the case where an account has no blocks at all (unopened) but has receivables
  * In other words, sending to an a unopened account without receiving the funds
+ * It also checks the operation of the include_only_confirmed flag
  */
 TEST (rpc, accounts_balances_unopened_account_with_receivables)
 {
@@ -3516,7 +3517,7 @@ TEST (rpc, accounts_balances_unopened_account_with_receivables)
 				.work (*node->work_generate_blocking (nano::dev::genesis->hash ()))
 				.build_shared ();
 	{
-		auto transaction (node->store.tx_begin_write ());
+		auto transaction = node->store.tx_begin_write ();
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
 	}
 	ASSERT_TIMELY (5s, node->block (send->hash ()));
@@ -3530,12 +3531,26 @@ TEST (rpc, accounts_balances_unopened_account_with_receivables)
 	accounts_l.push_back (std::make_pair ("", entry));
 	request.add_child ("accounts", accounts_l);
 	request.put ("action", "accounts_balances");
-	auto response (wait_response (system, rpc_ctx, request));
 
-	// Check receivable amount
-	auto genesis_entry = response.get_child ("balances." + unopened_account.pub.to_account ());
-	ASSERT_EQ ("0", genesis_entry.get<std::string> ("balance"));
-	ASSERT_EQ ("1", genesis_entry.get<std::string> ("receivable"));
+	// Check confirmed receivable amount
+	auto response = wait_response (system, rpc_ctx, request);
+	auto response_entry = response.get_child ("balances." + unopened_account.pub.to_account ());
+	ASSERT_EQ ("0", response_entry.get<std::string> ("balance"));
+	ASSERT_EQ ("0", response_entry.get<std::string> ("receivable"));
+
+	// check unconfirmed receivable amount
+	request.put ("include_only_confirmed", "false");
+	response = wait_response (system, rpc_ctx, request);
+	response_entry = response.get_child ("balances." + unopened_account.pub.to_account ());
+	ASSERT_EQ ("0", response_entry.get<std::string> ("balance"));
+	ASSERT_EQ ("1", response_entry.get<std::string> ("receivable"));
+
+	// check confirmed receivable amount by explicitly setting include_only_confirmed
+	request.put ("include_only_confirmed", "true");
+	response = wait_response (system, rpc_ctx, request);
+	response_entry = response.get_child ("balances." + unopened_account.pub.to_account ());
+	ASSERT_EQ ("0", response_entry.get<std::string> ("balance"));
+	ASSERT_EQ ("0", response_entry.get<std::string> ("receivable"));
 }
 
 // Tests the  happy path of retrieving an account's representative
