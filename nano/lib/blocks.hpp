@@ -128,6 +128,9 @@ protected:
 private:
 	nano::block_hash generate_hash () const;
 };
+
+using block_list_t = std::vector<std::shared_ptr<nano::block>>;
+
 class send_hashables
 {
 public:
