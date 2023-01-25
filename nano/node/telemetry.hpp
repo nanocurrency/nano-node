@@ -136,11 +136,11 @@ private:
 
 	ordered_telemetries telemetries;
 
-	std::atomic<bool> triggered{ false };
+	bool triggered{ false };
 	std::chrono::steady_clock::time_point last_request{};
 	std::chrono::steady_clock::time_point last_broadcast{};
 
-	std::atomic<bool> stopped{ false };
+	bool stopped{ false };
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::telemetry) };
 	nano::condition_variable condition;
 	std::thread thread;

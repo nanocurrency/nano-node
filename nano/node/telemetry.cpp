@@ -45,12 +45,12 @@ void nano::telemetry::start ()
 
 void nano::telemetry::stop ()
 {
-	stopped = true;
-	condition.notify_all ();
-	if (thread.joinable ())
 	{
-		thread.join ();
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		stopped = true;
 	}
+	condition.notify_all ();
+	nano::join_or_pass (thread);
 }
 
 bool nano::telemetry::verify (const nano::telemetry_ack & telemetry, const std::shared_ptr<nano::transport::channel> & channel) const
@@ -120,7 +120,10 @@ void nano::telemetry::process (const nano::telemetry_ack & telemetry, const std:
 
 void nano::telemetry::trigger ()
 {
-	triggered = true;
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		triggered = true;
+	}
 	condition.notify_all ();
 }
 
@@ -167,9 +170,11 @@ void nano::telemetry::run ()
 
 		if (request_predicate ())
 		{
-			lock.unlock ();
 			triggered = false;
+			lock.unlock ();
+
 			run_requests ();
+
 			lock.lock ();
 			last_request = std::chrono::steady_clock::now ();
 		}
@@ -177,7 +182,9 @@ void nano::telemetry::run ()
 		if (broadcast_predicate ())
 		{
 			lock.unlock ();
+
 			run_broadcasts ();
+
 			lock.lock ();
 			last_broadcast = std::chrono::steady_clock::now ();
 		}
