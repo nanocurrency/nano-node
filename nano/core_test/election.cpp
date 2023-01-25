@@ -212,6 +212,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 					   .work (*system.work.generate (latest))
 					   .build_shared ();
 	node1.process_active (send1);
+	ASSERT_TIMELY (1s, node1.block (send1->hash ()) != nullptr);
 
 	auto const open1 = nano::open_block_builder{}.make_block ().account (key1.pub).source (send1->hash ()).representative (key1.pub).sign (key1.prv, key1.pub).work (*system.work.generate (key1.pub)).build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1.process (*open1).code);

@@ -3156,6 +3156,7 @@ TEST (node, confirm_back)
 	node.process_active (send1);
 	node.process_active (open);
 	node.process_active (send2);
+	ASSERT_TIMELY (1s, node.block (send2->hash ()) != nullptr);
 	nano::test::blocks_confirm (node, { send1, open, send2 });
 	ASSERT_EQ (3, node.active.size ());
 	std::vector<nano::block_hash> vote_blocks;
