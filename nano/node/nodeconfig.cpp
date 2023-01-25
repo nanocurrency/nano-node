@@ -137,7 +137,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 		work_peers_l->push_back (boost::str (boost::format ("%1%:%2%") % i->first % i->second));
 	}
 
-	auto preconfigured_peers_l (toml.create_array ("preconfigured_peers", "A list of \"address\" (hostname or ipv6 notation ip address) entries to identify preconfigured peers."));
+	auto preconfigured_peers_l (toml.create_array ("preconfigured_peers", "A list of \"address\" (hostname or ipv6 notation ip address) entries to identify preconfigured peers.\nCan also be overriden by the NANO_DEFAULT_PEER environment variable."));
 	for (auto i (preconfigured_peers.begin ()), n (preconfigured_peers.end ()); i != n; ++i)
 	{
 		preconfigured_peers_l->push_back (*i);
