@@ -46,7 +46,8 @@ public:
 enum class election_behavior
 {
 	normal,
-	hinted
+	hinted,
+	optimistic,
 };
 
 struct election_extended_status final
@@ -158,10 +159,14 @@ private:
 	void remove_block (nano::block_hash const &);
 	bool replace_by_weight (nano::unique_lock<nano::mutex> & lock_a, nano::block_hash const &);
 	std::chrono::milliseconds time_to_live () const;
-	/*
+	/**
 	 * Calculates minimum time delay between subsequent votes when processing non-final votes
 	 */
 	std::chrono::seconds cooldown_time (nano::uint128_t weight) const;
+	/**
+	 * Calculates time delay between broadcasting confirmation requests
+	 */
+	std::chrono::milliseconds confirm_req_time () const;
 
 private:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> last_blocks;

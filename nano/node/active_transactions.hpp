@@ -149,7 +149,13 @@ public:
 	 * Starts new election with hinted behavior type
 	 * Hinted elections have shorter timespan and only can take up limited space inside active elections container
 	 */
-	nano::election_insertion_result insert_hinted (std::shared_ptr<nano::block> const & block_a);
+	nano::election_insertion_result insert_hinted (std::shared_ptr<nano::block> const &);
+	/*
+	 * Starts new election with optimistic behavior type
+	 * Optimistic elections have shorter timespan and only can take up limited space inside active elections container
+	 */
+	nano::election_insertion_result insert_optimistic (std::shared_ptr<nano::block> const &);
+
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
 	nano::vote_code vote (std::shared_ptr<nano::vote> const &);
 	// Is the root of this block in the roots container
@@ -182,12 +188,24 @@ public:
 	 * Maximum number of hinted elections that should be present in this container.
 	 */
 	int64_t hinted_limit () const;
+	/** Maximum number of optimistic elections that should be present in this container */
+	int64_t optimistic_limit () const;
+
+	/**
+	 * TODO: Docs
+	 */
 	int64_t vacancy () const;
 	/**
 	 * How many election slots are available for hinted elections.
 	 * The limit of AEC taken up by hinted elections is controlled by `node_config::active_elections_hinted_limit_percentage`
 	 */
 	int64_t vacancy_hinted () const;
+	/**
+	 * How many election slots are available for optimistic elections
+	 * The limit of AEC taken up by hinted elections is controlled by `node_config::active_elections_optimistic_limit_percentage`
+	 */
+	int64_t vacancy_optimistic () const;
+
 	std::function<void ()> vacancy_update{ [] () {} };
 
 	std::size_t election_winner_details_size ();
@@ -230,7 +248,9 @@ private:
 	// Maximum time an election can be kept active if it is extending the container
 	std::chrono::seconds const election_time_to_live;
 
-	int active_hinted_elections_count{ 0 };
+	/** Counts of special election types */
+	std::size_t hinted_count{ 0 };
+	std::size_t optimistic_count{ 0 };
 
 	nano::condition_variable condition;
 	bool stopped{ false };

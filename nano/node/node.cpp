@@ -195,6 +195,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	generator{ config, ledger, wallets, vote_processor, history, network, stats, /* non-final */ false },
 	final_generator{ config, ledger, wallets, vote_processor, history, network, stats, /* final */ true },
 	active (*this, confirmation_height_processor),
+	optimistic{ nano::optimistic_scheduler_config{}, *this, active, stats },
 	scheduler{ *this },
 	hinting{ nano::nodeconfig_to_hinted_scheduler_config (config), *this, inactive_vote_cache, active, online_reps, stats },
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
@@ -216,6 +217,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 
 	backlog.activate_callback.add ([this] (nano::transaction const & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info) {
 		scheduler.activate (account, transaction);
+		optimistic.activate (account, account_info, conf_info);
 	});
 
 	if (!init_error ())
@@ -224,6 +226,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 		active.vacancy_update = [this] () {
 			scheduler.notify ();
 			hinting.notify ();
+			optimistic.notify ();
 		};
 
 		wallets.observer = [this] (bool active) {
@@ -691,6 +694,7 @@ void nano::node::start ()
 	active.start ();
 	generator.start ();
 	final_generator.start ();
+	optimistic.start ();
 	scheduler.start ();
 	backlog.start ();
 	hinting.start ();
@@ -718,6 +722,7 @@ void nano::node::stop ()
 	aggregator.stop ();
 	vote_processor.stop ();
 	scheduler.stop ();
+	optimistic.stop ();
 	hinting.stop ();
 	active.stop ();
 	generator.stop ();
@@ -765,6 +770,17 @@ std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)
 {
 	auto const transaction (store.tx_begin_read ());
 	return store.block.get (transaction, hash_a);
+}
+
+std::shared_ptr<nano::block> nano::node::head_block (const nano::account & account)
+{
+	auto transaction = store.tx_begin_read ();
+	auto info = store.account.get (transaction, account);
+	if (info)
+	{
+		return store.block.get (transaction, info->head);
+	}
+	return nullptr;
 }
 
 std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::account const & account_a, bool only_confirmed_a)
