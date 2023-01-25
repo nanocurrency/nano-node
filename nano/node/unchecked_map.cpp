@@ -209,6 +209,11 @@ void nano::unchecked_map::run ()
 
 void nano::unchecked_map::insert_impl (nano::write_transaction const & transaction, nano::hash_or_account const & dependency, nano::unchecked_info const & info)
 {
+	if (store.block.exists (transaction, dependency.as_block_hash ()))
+	{
+		satisfied (info);
+		return;
+	}
 	nano::lock_guard<std::recursive_mutex> lock{ entries_mutex };
 	// Check if we should be using memory but the memory container hasn't been constructed i.e. we're transitioning from disk to memory.
 	if (entries == nullptr && use_memory ())
