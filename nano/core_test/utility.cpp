@@ -159,7 +159,7 @@ TEST (thread_pool_alarm, one)
 	nano::condition_variable condition;
 	workers.add_timed_task (std::chrono::steady_clock::now (), [&] () {
 		{
-			nano::lock_guard<nano::mutex> lock (mutex);
+			nano::lock_guard<nano::mutex> lock{ mutex };
 			done = true;
 		}
 		condition.notify_one ();
@@ -178,7 +178,7 @@ TEST (thread_pool_alarm, many)
 	{
 		workers.add_timed_task (std::chrono::steady_clock::now (), [&] () {
 			{
-				nano::lock_guard<nano::mutex> lock (mutex);
+				nano::lock_guard<nano::mutex> lock{ mutex };
 				count += 1;
 			}
 			condition.notify_one ();
@@ -196,17 +196,17 @@ TEST (thread_pool_alarm, top_execution)
 	nano::mutex mutex;
 	std::promise<bool> promise;
 	workers.add_timed_task (std::chrono::steady_clock::now (), [&] () {
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		value1 = 1;
 		value2 = 1;
 	});
 	workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (1), [&] () {
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		value2 = 2;
 		promise.set_value (false);
 	});
 	promise.get_future ().get ();
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	ASSERT_EQ (1, value1);
 	ASSERT_EQ (2, value2);
 }

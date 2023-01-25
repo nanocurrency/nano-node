@@ -7,8 +7,6 @@
 #include <boost/property_tree/ptree_fwd.hpp>
 #include <boost/stacktrace/stacktrace_fwd.hpp>
 
-#include <mutex>
-
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
 namespace nano

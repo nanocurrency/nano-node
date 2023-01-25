@@ -5,10 +5,9 @@
 #include <nano/lib/utility.hpp>
 #include <nano/secure/common.hpp>
 
-#include <crypto/cryptopp/aes.h>
-#include <crypto/cryptopp/modes.h>
-
 #include <crypto/ed25519-donna/ed25519.h>
+#include <cryptopp/aes.h>
+#include <cryptopp/modes.h>
 
 namespace
 {
@@ -150,11 +149,6 @@ nano::uint256_union::uint256_union (nano::uint256_t const & number_a)
 	boost::multiprecision::export_bits (number_a, bytes.rbegin (), 8, false);
 }
 
-bool nano::uint256_union::operator== (nano::uint256_union const & other_a) const
-{
-	return bytes == other_a.bytes;
-}
-
 // Construct a uint256_union = AES_ENC_CTR (cleartext, key, iv)
 void nano::uint256_union::encrypt (nano::raw_key const & cleartext, nano::raw_key const & key, uint128_union const & iv)
 {
@@ -173,11 +167,6 @@ std::string nano::uint256_union::to_string () const
 	std::string result;
 	encode_hex (result);
 	return result;
-}
-
-bool nano::uint256_union::operator< (nano::uint256_union const & other_a) const
-{
-	return std::memcmp (bytes.data (), other_a.bytes.data (), 32) < 0;
 }
 
 nano::uint256_union & nano::uint256_union::operator^= (nano::uint256_union const & other_a)
@@ -295,11 +284,6 @@ bool nano::uint256_union::decode_dec (std::string const & text)
 nano::uint256_union::uint256_union (uint64_t value0)
 {
 	*this = nano::uint256_t (value0);
-}
-
-bool nano::uint256_union::operator!= (nano::uint256_union const & other_a) const
-{
-	return !(*this == other_a);
 }
 
 bool nano::uint512_union::operator== (nano::uint512_union const & other_a) const

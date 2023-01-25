@@ -6,9 +6,6 @@
 #include <nano/node/ipc/ipc_broker.hpp>
 #include <nano/node/node_rpc_config.hpp>
 
-#include <atomic>
-#include <mutex>
-
 namespace flatbuffers
 {
 class Parser;

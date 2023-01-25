@@ -956,7 +956,7 @@ TEST (votes, add_one)
 	auto existing1 (votes1.find (nano::dev::genesis_key.pub));
 	ASSERT_NE (votes1.end (), existing1);
 	ASSERT_EQ (send1->hash (), existing1->second.hash);
-	nano::lock_guard<nano::mutex> guard (node1.active.mutex);
+	nano::lock_guard<nano::mutex> guard{ node1.active.mutex };
 	auto winner (*election1->tally ().begin ());
 	ASSERT_EQ (*send1, *winner.second);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, winner.first);
@@ -1008,7 +1008,7 @@ TEST (votes, add_existing)
 	ASSERT_TIMELY (5s, node1.active.active (*send2));
 	auto vote2 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * 2, 0, std::vector<nano::block_hash>{ send2->hash () }));
 	// Pretend we've waited the timeout
-	nano::unique_lock<nano::mutex> lock (election1->mutex);
+	nano::unique_lock<nano::mutex> lock{ election1->mutex };
 	election1->last_votes[nano::dev::genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	lock.unlock ();
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote2));
@@ -1062,7 +1062,7 @@ TEST (votes, add_old)
 	node1.work_generate_blocking (*send2);
 	auto vote2 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ send2->hash () });
 	{
-		nano::lock_guard<nano::mutex> lock (election1->mutex);
+		nano::lock_guard<nano::mutex> lock{ election1->mutex };
 		election1->last_votes[nano::dev::genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	}
 	node1.vote_processor.vote_blocking (vote2, channel);
@@ -2012,7 +2012,7 @@ TEST (ledger, latest_root)
 	auto transaction = store.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair key;
-	ASSERT_EQ (key.pub, ledger.latest_root (transaction, key.pub));
+	ASSERT_EQ (key.pub, ledger.latest_root (transaction, key.pub).as_account ());
 	auto hash1 = ledger.latest (transaction, nano::dev::genesis_key.pub);
 	nano::block_builder builder;
 	auto send = builder
@@ -2024,7 +2024,7 @@ TEST (ledger, latest_root)
 				.work (*pool.generate (hash1))
 				.build ();
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
-	ASSERT_EQ (send->hash (), ledger.latest_root (transaction, nano::dev::genesis_key.pub));
+	ASSERT_EQ (send->hash (), ledger.latest_root (transaction, nano::dev::genesis_key.pub).as_block_hash ());
 }
 
 TEST (ledger, change_representative_move_representation)

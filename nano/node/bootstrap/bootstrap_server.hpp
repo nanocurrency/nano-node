@@ -5,7 +5,6 @@
 #include <nano/node/messages.hpp>
 
 #include <memory>
-#include <queue>
 #include <utility>
 
 namespace nano

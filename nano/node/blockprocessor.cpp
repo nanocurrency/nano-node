@@ -118,7 +118,7 @@ nano::block_processor::block_processor (nano::node & node_a, nano::write_databas
 		{
 			{
 				// Prevent a race with condition.wait in block_processor::flush
-				nano::lock_guard<nano::mutex> guard (this->mutex);
+				nano::lock_guard<nano::mutex> guard{ this->mutex };
 			}
 			this->condition.notify_all ();
 		}
@@ -129,30 +129,22 @@ nano::block_processor::block_processor (nano::node & node_a, nano::write_databas
 	});
 }
 
-nano::block_processor::~block_processor ()
-{
-	stop ();
-	if (processing_thread.joinable ())
-	{
-		processing_thread.join ();
-	}
-}
-
 void nano::block_processor::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		stopped = true;
 	}
 	condition.notify_all ();
 	state_block_signature_verification.stop ();
+	nano::join_or_pass (processing_thread);
 }
 
 void nano::block_processor::flush ()
 {
 	node.checker.flush ();
 	flushing = true;
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped && (have_blocks () || active || state_block_signature_verification.is_active ()))
 	{
 		condition.wait (lock);
@@ -162,7 +154,7 @@ void nano::block_processor::flush ()
 
 std::size_t nano::block_processor::size ()
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	return (blocks.size () + state_block_signature_verification.size () + forced.size ());
 }
 
@@ -176,22 +168,22 @@ bool nano::block_processor::half_full ()
 	return size () >= node.flags.block_processor_full_size / 2;
 }
 
-void nano::block_processor::add (std::shared_ptr<nano::block> const & block_a)
-{
-	value_type item{ block_a };
-	add (item);
-}
-
 void nano::block_processor::add (value_type & item)
 {
 	debug_assert (!node.network_params.work.validate_entry (*item.block));
 	pipeline (item);
 }
 
+void nano::block_processor::add (std::shared_ptr<nano::block> const & block_a)
+{
+	value_type item{ block_a };
+	add (item);
+}
+
 void nano::block_processor::force (std::shared_ptr<nano::block> const & block_a)
 {
 	{
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		forced.push_back (block_a);
 	}
 	condition.notify_all ();
@@ -199,13 +191,13 @@ void nano::block_processor::force (std::shared_ptr<nano::block> const & block_a)
 
 void nano::block_processor::wait_write ()
 {
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	awaiting_write = true;
 }
 
 void nano::block_processor::process_blocks ()
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		if (have_blocks_ready ())
@@ -379,9 +371,9 @@ void nano::block_processor::process_live (nano::transaction const & transaction_
 		node.network.flood_block (block_a, nano::buffer_drop_policy::limiter);
 	}
 
-	if (node.websocket_server && node.websocket_server->any_subscriber (nano::websocket::topic::new_unconfirmed_block))
+	if (node.websocket.server && node.websocket.server->any_subscriber (nano::websocket::topic::new_unconfirmed_block))
 	{
-		node.websocket_server->broadcast (nano::websocket::message_builder ().new_block_arrived (*block_a));
+		node.websocket.server->broadcast (nano::websocket::message_builder ().new_block_arrived (*block_a));
 	}
 }
 
@@ -579,7 +571,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bl
 	std::size_t forced_count;
 
 	{
-		nano::lock_guard<nano::mutex> guard (block_processor.mutex);
+		nano::lock_guard<nano::mutex> guard{ block_processor.mutex };
 		blocks_count = block_processor.blocks.size ();
 		forced_count = block_processor.forced.size ();
 	}

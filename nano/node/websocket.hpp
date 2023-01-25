@@ -6,13 +6,13 @@
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/websocket_stream.hpp>
+#include <nano/node/websocketconfig.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
 #include <deque>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -26,7 +26,9 @@ class vote;
 class election_status;
 class telemetry_data;
 class tls_config;
+class node_observers;
 enum class election_status_type : uint8_t;
+
 namespace websocket
 {
 	class listener;
@@ -354,4 +356,28 @@ namespace websocket
 		std::atomic<bool> stopped{ false };
 	};
 }
+
+/**
+ * Wrapper of websocket related functionality that node interacts with
+ */
+class websocket_server
+{
+public:
+	websocket_server (nano::websocket::config &, nano::node_observers &, nano::wallets &, nano::ledger &, boost::asio::io_context &, nano::logger_mt &);
+
+	void start ();
+	void stop ();
+
+private: // Dependencies
+	nano::websocket::config const & config;
+	nano::node_observers & observers;
+	nano::wallets & wallets;
+	nano::ledger & ledger;
+	boost::asio::io_context & io_ctx;
+	nano::logger_mt & logger;
+
+public:
+	// TODO: Encapsulate, this is public just because existing code needs it
+	std::shared_ptr<nano::websocket::listener> server;
+};
 }

@@ -1,5 +1,4 @@
 #include <nano/boost/asio/bind_executor.hpp>
-#include <nano/boost/asio/post.hpp>
 #include <nano/node/distributed_work.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/websocket.hpp>
@@ -38,20 +37,20 @@ nano::distributed_work::~distributed_work ()
 	debug_assert (status != work_generation_status::ongoing);
 	if (auto node_l = node_w.lock ())
 	{
-		if (!node_l->stopped && node_l->websocket_server && node_l->websocket_server->any_subscriber (nano::websocket::topic::work))
+		if (!node_l->stopped && node_l->websocket.server && node_l->websocket.server->any_subscriber (nano::websocket::topic::work))
 		{
 			nano::websocket::message_builder builder;
 			if (status == work_generation_status::success)
 			{
-				node_l->websocket_server->broadcast (builder.work_generation (request.version, request.root.as_block_hash (), work_result, request.difficulty, node_l->default_difficulty (request.version), elapsed.value (), winner, bad_peers));
+				node_l->websocket.server->broadcast (builder.work_generation (request.version, request.root.as_block_hash (), work_result, request.difficulty, node_l->default_difficulty (request.version), elapsed.value (), winner, bad_peers));
 			}
 			else if (status == work_generation_status::cancelled)
 			{
-				node_l->websocket_server->broadcast (builder.work_cancelled (request.version, request.root.as_block_hash (), request.difficulty, node_l->default_difficulty (request.version), elapsed.value (), bad_peers));
+				node_l->websocket.server->broadcast (builder.work_cancelled (request.version, request.root.as_block_hash (), request.difficulty, node_l->default_difficulty (request.version), elapsed.value (), bad_peers));
 			}
 			else if (status == work_generation_status::failure_local || status == work_generation_status::failure_peers)
 			{
-				node_l->websocket_server->broadcast (builder.work_failed (request.version, request.root.as_block_hash (), request.difficulty, node_l->default_difficulty (request.version), elapsed.value (), bad_peers));
+				node_l->websocket.server->broadcast (builder.work_failed (request.version, request.root.as_block_hash (), request.difficulty, node_l->default_difficulty (request.version), elapsed.value (), bad_peers));
 			}
 		}
 		stop_once (true);
@@ -129,7 +128,7 @@ void nano::distributed_work::do_request (nano::tcp_endpoint const & endpoint_a)
 	auto this_l (shared_from_this ());
 	auto connection (std::make_shared<peer_request> (node.io_ctx, endpoint_a));
 	{
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		connections.emplace_back (connection);
 	}
 	connection->socket.async_connect (connection->endpoint,
@@ -271,7 +270,7 @@ void nano::distributed_work::stop_once (bool const local_stop_a)
 {
 	if (!stopped.exchange (true))
 	{
-		nano::lock_guard<nano::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard{ mutex };
 		if (local_stop_a && node.local_work_generation_enabled ())
 		{
 			node.work.cancel (request.root);
@@ -389,6 +388,6 @@ void nano::distributed_work::handle_failure ()
 
 void nano::distributed_work::add_bad_peer (nano::tcp_endpoint const & endpoint_a)
 {
-	nano::lock_guard<nano::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard{ mutex };
 	bad_peers.emplace_back (boost::str (boost::format ("%1%:%2%") % endpoint_a.address () % endpoint_a.port ()));
 }

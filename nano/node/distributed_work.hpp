@@ -9,10 +9,6 @@
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
 
-#include <boost/optional.hpp>
-
-#include <mutex>
-
 using request_type = boost::beast::http::request<boost::beast::http::string_body>;
 
 namespace boost

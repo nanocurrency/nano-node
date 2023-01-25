@@ -46,6 +46,10 @@ TEST (active_transactions, confirm_election_by_request)
 	// Ensure election on node1 is already confirmed before connecting with node2
 	ASSERT_TIMELY (5s, nano::test::confirmed (node1, { send1 }));
 
+	// Wait for the election to be removed and give time for any in-flight vote broadcasts to settle
+	ASSERT_TIMELY (5s, node1.active.empty ());
+	WAIT (1s);
+
 	// At this point node1 should not generate votes for send1 block unless it receives a request
 
 	// Create a second node

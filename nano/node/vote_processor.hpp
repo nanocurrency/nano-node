@@ -6,7 +6,6 @@
 
 #include <deque>
 #include <memory>
-#include <mutex>
 #include <thread>
 #include <unordered_set>
 

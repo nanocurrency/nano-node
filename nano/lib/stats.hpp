@@ -249,6 +249,7 @@ public:
 		blockprocessor,
 		bootstrap_server,
 		active,
+		backlog,
 	};
 
 	/** Optional detail type */
@@ -258,6 +259,7 @@ public:
 
 		// common
 		loop,
+		total,
 
 		// processing queue
 		queue,
@@ -478,6 +480,9 @@ public:
 		reserved_account_filter_reject,
 		send_restrictions_filter_pass,
 		send_restrictions_filter_reject,
+
+		// backlog
+		activated,
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

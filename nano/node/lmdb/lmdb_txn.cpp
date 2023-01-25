@@ -8,26 +8,12 @@
 
 #include <boost/format.hpp>
 
-// Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".
-#ifndef _WIN32
-#ifdef NANO_STACKTRACE_BACKTRACE
-#define BOOST_STACKTRACE_USE_BACKTRACE
-#endif
-#ifndef _GNU_SOURCE
-#define BEFORE_GNU_SOURCE 0
-#define _GNU_SOURCE
-#else
-#define BEFORE_GNU_SOURCE 1
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
 #endif
 #endif
-// On Windows this include defines min/max macros, so keep below other includes
-// to reduce conflicts with other std functions
 #include <boost/stacktrace.hpp>
-#ifndef _WIN32
-#if !BEFORE_GNU_SOURCE
-#undef _GNU_SOURCE
-#endif
-#endif
 
 namespace
 {

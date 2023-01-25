@@ -5,12 +5,12 @@
 #include <nano/lib/threading.hpp>
 #include <nano/secure/common.hpp>
 
-#include <crypto/cryptopp/words.h>
-
 #include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <bitset>
+
+#include <cryptopp/words.h>
 
 /** Compare blocks, first by type, then content. This is an optimization over dynamic_cast, which is very slow on some platforms. */
 namespace
@@ -1877,7 +1877,7 @@ std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::
 	if (result != nullptr)
 	{
 		nano::uint256_union key (block_a->full_hash ());
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		auto & existing (blocks[key]);
 		if (auto block_l = existing.lock ())
 		{
@@ -1914,7 +1914,7 @@ std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::
 
 size_t nano::block_uniquer::size ()
 {
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	return blocks.size ();
 }
 

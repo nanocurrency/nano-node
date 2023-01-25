@@ -18,7 +18,7 @@ void nano::online_reps::observe (nano::account const & rep_a)
 {
 	if (ledger.weight (rep_a) > 0)
 	{
-		nano::lock_guard<nano::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		auto now = std::chrono::steady_clock::now ();
 		auto new_insert = reps.get<tag_account> ().erase (rep_a) == 0;
 		reps.insert ({ now, rep_a });
@@ -34,7 +34,7 @@ void nano::online_reps::observe (nano::account const & rep_a)
 
 void nano::online_reps::sample ()
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	nano::uint128_t online_l = online_m;
 	lock.unlock ();
 	nano::uint128_t trend_l;
@@ -83,19 +83,19 @@ nano::uint128_t nano::online_reps::calculate_trend (nano::transaction & transact
 
 nano::uint128_t nano::online_reps::trended () const
 {
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	return trended_m;
 }
 
 nano::uint128_t nano::online_reps::online () const
 {
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	return online_m;
 }
 
 nano::uint128_t nano::online_reps::delta () const
 {
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	// Using a larger container to ensure maximum precision
 	auto weight = static_cast<nano::uint256_t> (std::max ({ online_m, trended_m, config.online_weight_minimum.number () }));
 	return ((weight * online_weight_quorum) / 100).convert_to<nano::uint128_t> ();
@@ -104,14 +104,14 @@ nano::uint128_t nano::online_reps::delta () const
 std::vector<nano::account> nano::online_reps::list ()
 {
 	std::vector<nano::account> result;
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	std::for_each (reps.begin (), reps.end (), [&result] (rep_info const & info_a) { result.push_back (info_a.account); });
 	return result;
 }
 
 void nano::online_reps::clear ()
 {
-	nano::lock_guard<nano::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	reps.clear ();
 	online_m = 0;
 }
@@ -120,7 +120,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (on
 {
 	std::size_t count;
 	{
-		nano::lock_guard<nano::mutex> guard (online_reps.mutex);
+		nano::lock_guard<nano::mutex> guard{ online_reps.mutex };
 		count = online_reps.reps.size ();
 	}
 

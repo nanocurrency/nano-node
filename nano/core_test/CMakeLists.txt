@@ -5,6 +5,7 @@ add_executable(
   fakes/websocket_client.hpp
   fakes/work_peer.hpp
   active_transactions.cpp
+  backlog.cpp
   block.cpp
   block_position_filter.cpp
   block_store.cpp
@@ -74,5 +75,8 @@ target_link_libraries(
   gtest
   libminiupnpc-static
   Boost::log_setup
-  Boost::log
-  Boost::boost)
+  Boost::log)
+
+include_directories(${CMAKE_SOURCE_DIR}/submodules)
+include_directories(${CMAKE_SOURCE_DIR}/submodules/cpptoml/include)
+include_directories(${CMAKE_SOURCE_DIR}/submodules/gtest/googletest/include)

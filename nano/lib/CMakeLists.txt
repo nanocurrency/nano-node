@@ -84,6 +84,11 @@ add_library(
   work.hpp
   work.cpp)
 
+include_directories(${CMAKE_SOURCE_DIR}/submodules)
+include_directories(${CMAKE_SOURCE_DIR}/submodules/cpptoml/include)
+include_directories(
+  ${CMAKE_SOURCE_DIR}/submodules/nano-pow-server/deps/cpptoml/include)
+
 target_link_libraries(
   nano_lib
   ed25519
@@ -93,12 +98,14 @@ target_link_libraries(
   ipc_flatbuffers_lib
   ${CRYPTOPP_LIBRARY}
   ${CMAKE_DL_LIBS}
-  Boost::boost
-  Boost::program_options)
-
-if(NANO_STACKTRACE_BACKTRACE)
-  target_link_libraries(nano_lib backtrace)
-endif()
+  Boost::asio
+  Boost::circular_buffer
+  Boost::dll
+  Boost::log_setup
+  Boost::log
+  Boost::multiprecision
+  Boost::program_options
+  Boost::stacktrace)
 
 target_compile_definitions(
   nano_lib
