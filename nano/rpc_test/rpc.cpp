@@ -3455,13 +3455,13 @@ TEST (rpc, accounts_balances)
 	entry1.put ("", nano::dev::genesis_key.pub.to_account ());
 	accounts_l.push_back (std::make_pair ("", entry1));
 
-	// Adds a bad account number for getting an error response.
+	// Adds a bad account string for getting an error response (the nano_ address checksum is wrong)
 	boost::property_tree::ptree entry2;
 	auto const bad_account_number = "nano_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtd1";
 	entry2.put ("", bad_account_number);
 	accounts_l.push_back (std::make_pair ("", entry2));
 
-	// Adds a valid account that isn't on the ledger for getting an error response.
+	// Adds a valid account string that isn't on the ledger for getting an error response.
 	boost::property_tree::ptree entry3;
 	auto const account_not_found = "nano_1os6txqxyuesnxrtshnfb5or1hesc1647wpk9rsr84pmki6eairwha79hk3j";
 	entry3.put ("", account_not_found);
@@ -3482,15 +3482,60 @@ TEST (rpc, accounts_balances)
 		return ec.message ();
 	};
 
-	// Checking the account not found response
+	// Checking the account not found response - we do not distinguish between account not found and zero balance, zero receivables
 	auto account_not_found_entry = response.get_child (boost::str (boost::format ("balances.%1%") % account_not_found));
-	auto error_text1 = account_not_found_entry.get<std::string> ("error");
-	ASSERT_EQ (get_error_message (nano::error_common::account_not_found), error_text1);
+	auto account_balance_text = account_not_found_entry.get<std::string> ("balance");
+	ASSERT_EQ ("0", account_balance_text);
+	auto account_receivable_text = account_not_found_entry.get<std::string> ("receivable");
+	ASSERT_EQ ("0", account_receivable_text);
 
 	// Checking the bad account number response
 	auto bad_account_number_entry = response.get_child (boost::str (boost::format ("balances.%1%") % bad_account_number));
 	auto error_text2 = bad_account_number_entry.get<std::string> ("error");
 	ASSERT_EQ (get_error_message (nano::error_common::bad_account_number), error_text2);
+}
+
+/**
+ * Test the case where an account has no blocks at all (unopened) but has receivables
+ * In other words, sending to an a unopened account without receiving the funds
+ */
+TEST (rpc, accounts_balances_unopened_account_with_receivables)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+
+	// send a 1 raw to the unopened account which will have receivables
+	nano::keypair unopened_account;
+	auto send = nano::state_block_builder{}
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.link (unopened_account.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*node->work_generate_blocking (nano::dev::genesis->hash ()))
+				.build_shared ();
+	{
+		auto transaction (node->store.tx_begin_write ());
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
+	}
+	ASSERT_TIMELY (5s, node->block (send->hash ()));
+
+	// create and send the rpc request for the unopened account and wait for the response
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	boost::property_tree::ptree accounts_l;
+	boost::property_tree::ptree entry;
+	entry.put ("", unopened_account.pub.to_account ());
+	accounts_l.push_back (std::make_pair ("", entry));
+	request.add_child ("accounts", accounts_l);
+	request.put ("action", "accounts_balances");
+	auto response (wait_response (system, rpc_ctx, request));
+
+	// Check receivable amount
+	auto genesis_entry = response.get_child ("balances." + unopened_account.pub.to_account ());
+	ASSERT_EQ ("0", genesis_entry.get<std::string> ("balance"));
+	ASSERT_EQ ("1", genesis_entry.get<std::string> ("receivable"));
 }
 
 // Tests the  happy path of retrieving an account's representative
