@@ -899,7 +899,8 @@ void nano::json_handler::accounts_balances ()
 		auto account = account_impl (account_from_request.second.data ());
 		if (!ec)
 		{
-			auto balance = node.balance_pending (account, false);
+			bool const include_only_confirmed = request.get<bool> ("include_only_confirmed", true);
+			auto balance = node.balance_pending (account, include_only_confirmed);
 			entry.put ("balance", balance.first.convert_to<std::string> ());
 			entry.put ("pending", balance.second.convert_to<std::string> ());
 			entry.put ("receivable", balance.second.convert_to<std::string> ());
