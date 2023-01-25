@@ -31,6 +31,7 @@
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
+#include <nano/node/websocket.hpp>
 #include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
@@ -47,10 +48,6 @@ namespace nano
 namespace rocksdb
 {
 } // Declare a namespace rocksdb inside nano so all references to the rocksdb library need to be globally scoped e.g. ::rocksdb::Slice
-namespace websocket
-{
-	class listener;
-}
 class node;
 class work_pool;
 
@@ -68,6 +65,8 @@ public:
 	node (boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
 	node (boost::asio::io_context &, boost::filesystem::path const &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
 	~node ();
+
+public:
 	template <typename T>
 	void background (T action_a)
 	{
@@ -146,7 +145,6 @@ public:
 	nano::stat stats;
 	nano::thread_pool workers;
 	nano::thread_pool bootstrap_workers;
-	std::shared_ptr<nano::websocket::listener> websocket_server;
 	nano::node_flags flags;
 	nano::work_pool & work;
 	nano::distributed_work_factory distributed_work;
@@ -188,6 +186,7 @@ public:
 	nano::request_aggregator aggregator;
 	nano::wallets wallets;
 	nano::backlog_population backlog;
+	nano::websocket_server websocket;
 
 	std::chrono::steady_clock::time_point const startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week

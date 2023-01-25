@@ -28,22 +28,22 @@ TEST (websocket, subscription_edge)
 	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
-	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+	ASSERT_EQ (0, node1->websocket.server->subscriber_count (nano::websocket::topic::confirmation));
 
 	auto task = ([config, &node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": true})json");
 		client.await_ack ();
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::confirmation));
 		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": true})json");
 		client.await_ack ();
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::confirmation));
 		client.send_message (R"json({"action": "unsubscribe", "topic": "confirmation", "ack": true})json");
 		client.await_ack ();
-		EXPECT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+		EXPECT_EQ (0, node1->websocket.server->subscriber_count (nano::websocket::topic::confirmation));
 		client.send_message (R"json({"action": "unsubscribe", "topic": "confirmation", "ack": true})json");
 		client.await_ack ();
-		EXPECT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+		EXPECT_EQ (0, node1->websocket.server->subscriber_count (nano::websocket::topic::confirmation));
 	});
 	auto future = std::async (std::launch::async, task);
 
@@ -62,11 +62,11 @@ TEST (websocket, confirmation)
 	std::atomic<bool> ack_ready{ false };
 	std::atomic<bool> unsubscribed{ false };
 	auto task = ([&ack_ready, &unsubscribed, config, &node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": true})json");
 		client.await_ack ();
 		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::confirmation));
 		auto response = client.get_response ();
 		EXPECT_TRUE (response);
 		boost::property_tree::ptree event;
@@ -137,11 +137,11 @@ TEST (websocket, started_election)
 
 	std::atomic<bool> ack_ready{ false };
 	auto task = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "started_election", "ack": "true"})json");
 		client.await_ack ();
 		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::started_election));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::started_election));
 		return client.get_response ();
 	});
 	auto future = std::async (std::launch::async, task);
@@ -185,11 +185,11 @@ TEST (websocket, stopped_election)
 
 	std::atomic<bool> ack_ready{ false };
 	auto task = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "stopped_election", "ack": "true"})json");
 		client.await_ack ();
 		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::stopped_election));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::stopped_election));
 		return client.get_response ();
 	});
 	auto future = std::async (std::launch::async, task);
@@ -236,11 +236,11 @@ TEST (websocket, confirmation_options)
 
 	std::atomic<bool> ack_ready{ false };
 	auto task1 = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "accounts": ["xrb_invalid"]}})json");
 		client.await_ack ();
 		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::confirmation));
 		auto response = client.get_response (1s);
 		EXPECT_FALSE (response);
 	});
@@ -275,11 +275,11 @@ TEST (websocket, confirmation_options)
 
 	ack_ready = false;
 	auto task2 = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "all_local_accounts": "true", "include_election_info": "true"}})json");
 		client.await_ack ();
 		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::confirmation));
 		return client.get_response ();
 	});
 	auto future2 = std::async (std::launch::async, task2);
@@ -337,11 +337,11 @@ TEST (websocket, confirmation_options)
 
 	ack_ready = false;
 	auto task3 = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "all_local_accounts": "true"}})json");
 		client.await_ack ();
 		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::confirmation));
 		auto response = client.get_response (1s);
 		EXPECT_FALSE (response);
 	});
@@ -379,11 +379,11 @@ TEST (websocket, confirmation_options_votes)
 
 	std::atomic<bool> ack_ready{ false };
 	auto task1 = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "include_election_info_with_votes": "true", "include_block": "false"}})json");
 		client.await_ack ();
 		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::confirmation));
 		return client.get_response ();
 	});
 	auto future1 = std::async (std::launch::async, task1);
@@ -470,7 +470,7 @@ TEST (websocket, confirmation_options_sideband)
 		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "include_block": "false", "include_sideband_info": "true"}})json");
 		client.await_ack ();
 		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::confirmation));
 		return client.get_response ();
 	});
 	auto future1 = std::async (std::launch::async, task1);
@@ -537,23 +537,23 @@ TEST (websocket, confirmation_options_update)
 	std::atomic<bool> added{ false };
 	std::atomic<bool> deleted{ false };
 	auto task = ([&added, &deleted, config, &node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		// Subscribe initially with empty options, everything will be filtered
 		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {}})json");
 		client.await_ack ();
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::confirmation));
 		// Now update filter with an account and wait for a response
 		std::string add_message = boost::str (boost::format (R"json({"action": "update", "topic": "confirmation", "ack": "true", "options": {"accounts_add": ["%1%"]}})json") % nano::dev::genesis_key.pub.to_account ());
 		client.send_message (add_message);
 		client.await_ack ();
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::confirmation));
 		added = true;
 		EXPECT_TRUE (client.get_response ());
 		// Update the filter again, removing the account
 		std::string delete_message = boost::str (boost::format (R"json({"action": "update", "topic": "confirmation", "ack": "true", "options": {"accounts_del": ["%1%"]}})json") % nano::dev::genesis_key.pub.to_account ());
 		client.send_message (delete_message);
 		client.await_ack ();
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::confirmation));
 		deleted = true;
 		EXPECT_FALSE (client.get_response (1s));
 	});
@@ -611,11 +611,11 @@ TEST (websocket, vote)
 
 	std::atomic<bool> ack_ready{ false };
 	auto task = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "vote", "ack": true})json");
 		client.await_ack ();
 		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::vote));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::vote));
 		return client.get_response ();
 	});
 	auto future = std::async (std::launch::async, task);
@@ -661,11 +661,11 @@ TEST (websocket, vote_options_type)
 
 	std::atomic<bool> ack_ready{ false };
 	auto task = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "vote", "ack": true, "options": {"include_replays": "true", "include_indeterminate": "false"}})json");
 		client.await_ack ();
 		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::vote));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::vote));
 		return client.get_response ();
 	});
 	auto future = std::async (std::launch::async, task);
@@ -676,7 +676,7 @@ TEST (websocket, vote_options_type)
 	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () }));
 	nano::websocket::message_builder builder;
 	auto msg (builder.vote_received (vote, nano::vote_code::replay));
-	node1->websocket_server->broadcast (msg);
+	node1->websocket.server->broadcast (msg);
 
 	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
 
@@ -702,12 +702,12 @@ TEST (websocket, vote_options_representatives)
 
 	std::atomic<bool> ack_ready{ false };
 	auto task1 = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		std::string message = boost::str (boost::format (R"json({"action": "subscribe", "topic": "vote", "ack": "true", "options": {"representatives": ["%1%"]}})json") % nano::dev::genesis_key.pub.to_account ());
 		client.send_message (message);
 		client.await_ack ();
 		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::vote));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::vote));
 		auto response = client.get_response ();
 		EXPECT_TRUE (response);
 		boost::property_tree::ptree event;
@@ -746,11 +746,11 @@ TEST (websocket, vote_options_representatives)
 
 	ack_ready = false;
 	auto task2 = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "vote", "ack": "true", "options": {"representatives": ["xrb_invalid"]}})json");
 		client.await_ack ();
 		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::vote));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::vote));
 		auto response = client.get_response ();
 		// A list of invalid representatives is the same as no filter
 		EXPECT_TRUE (response);
@@ -775,23 +775,23 @@ TEST (websocket, work)
 	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
-	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::work));
+	ASSERT_EQ (0, node1->websocket.server->subscriber_count (nano::websocket::topic::work));
 
 	// Subscribe to work and wait for response asynchronously
 	std::atomic<bool> ack_ready{ false };
 	auto task = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "work", "ack": true})json");
 		client.await_ack ();
 		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::work));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::work));
 		return client.get_response ();
 	});
 	auto future = std::async (std::launch::async, task);
 
 	// Wait for acknowledge
 	ASSERT_TIMELY (5s, ack_ready);
-	ASSERT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::work));
+	ASSERT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::work));
 
 	// Generate work
 	nano::block_hash hash{ 1 };
@@ -845,16 +845,16 @@ TEST (websocket, bootstrap)
 	config.websocket_config.port = nano::test::get_available_port ();
 	auto node1 (system.add_node (config));
 
-	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::bootstrap));
+	ASSERT_EQ (0, node1->websocket.server->subscriber_count (nano::websocket::topic::bootstrap));
 
 	// Subscribe to bootstrap and wait for response asynchronously
 	std::atomic<bool> ack_ready{ false };
 	auto task = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "bootstrap", "ack": true})json");
 		client.await_ack ();
 		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::bootstrap));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::bootstrap));
 		return client.get_response ();
 	});
 	auto future = std::async (std::launch::async, task);
@@ -917,11 +917,11 @@ TEST (websocket, bootstrap_exited)
 	// Subscribe to bootstrap and wait for response asynchronously
 	std::atomic<bool> ack_ready{ false };
 	auto task = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "bootstrap", "ack": true})json");
 		client.await_ack ();
 		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::bootstrap));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::bootstrap));
 		return client.get_response ();
 	});
 	auto future = std::async (std::launch::async, task);
@@ -961,7 +961,7 @@ TEST (websocket, ws_keepalive)
 	auto node1 (system.add_node (config));
 
 	auto task = ([&node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "ping"})json");
 		client.await_ack ();
 	});
@@ -988,11 +988,11 @@ TEST (websocket, telemetry)
 
 	std::atomic<bool> done{ false };
 	auto task = ([config = node1->config, &node1, &done] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "telemetry", "ack": true})json");
 		client.await_ack ();
 		done = true;
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::telemetry));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::telemetry));
 		return client.get_response ();
 	});
 
@@ -1026,7 +1026,7 @@ TEST (websocket, telemetry)
 	ASSERT_EQ (contents.get<uint16_t> ("port"), node2->network.endpoint ().port ());
 
 	// Other node should have no subscribers
-	EXPECT_EQ (0, node2->websocket_server->subscriber_count (nano::websocket::topic::telemetry));
+	EXPECT_EQ (0, node2->websocket.server->subscriber_count (nano::websocket::topic::telemetry));
 }
 
 TEST (websocket, new_unconfirmed_block)
@@ -1039,11 +1039,11 @@ TEST (websocket, new_unconfirmed_block)
 
 	std::atomic<bool> ack_ready{ false };
 	auto task = ([&ack_ready, config, node1] () {
-		fake_websocket_client client (node1->websocket_server->listening_port ());
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "new_unconfirmed_block", "ack": "true"})json");
 		client.await_ack ();
 		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::new_unconfirmed_block));
+		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::new_unconfirmed_block));
 		return client.get_response ();
 	});
 	auto future = std::async (std::launch::async, task);

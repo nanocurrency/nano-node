@@ -50,15 +50,6 @@ nano::block_processor::block_processor (nano::node & node_a, nano::write_databas
 	});
 }
 
-nano::block_processor::~block_processor ()
-{
-	stop ();
-	if (processing_thread.joinable ())
-	{
-		processing_thread.join ();
-	}
-}
-
 void nano::block_processor::stop ()
 {
 	{
@@ -67,6 +58,7 @@ void nano::block_processor::stop ()
 	}
 	condition.notify_all ();
 	state_block_signature_verification.stop ();
+	nano::join_or_pass (processing_thread);
 }
 
 void nano::block_processor::flush ()
@@ -328,9 +320,9 @@ void nano::block_processor::process_live (nano::transaction const & transaction_
 		node.network.flood_block (block_a, nano::buffer_drop_policy::limiter);
 	}
 
-	if (node.websocket_server && node.websocket_server->any_subscriber (nano::websocket::topic::new_unconfirmed_block))
+	if (node.websocket.server && node.websocket.server->any_subscriber (nano::websocket::topic::new_unconfirmed_block))
 	{
-		node.websocket_server->broadcast (nano::websocket::message_builder ().new_block_arrived (*block_a));
+		node.websocket.server->broadcast (nano::websocket::message_builder ().new_block_arrived (*block_a));
 	}
 }
 

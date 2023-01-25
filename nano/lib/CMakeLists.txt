@@ -84,6 +84,11 @@ add_library(
   work.hpp
   work.cpp)
 
+include_directories(${CMAKE_SOURCE_DIR}/submodules)
+include_directories(${CMAKE_SOURCE_DIR}/submodules/cpptoml/include)
+include_directories(
+  ${CMAKE_SOURCE_DIR}/submodules/nano-pow-server/deps/cpptoml/include)
+
 target_link_libraries(
   nano_lib
   ed25519

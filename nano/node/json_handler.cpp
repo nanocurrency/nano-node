@@ -899,20 +899,13 @@ void nano::json_handler::accounts_balances ()
 		auto account = account_impl (account_from_request.second.data ());
 		if (!ec)
 		{
-			nano::account_info info;
-			if (!node.store.account.get (transaction, account, info))
-			{
-				auto balance = node.balance_pending (account, false);
-				entry.put ("balance", balance.first.convert_to<std::string> ());
-				entry.put ("pending", balance.second.convert_to<std::string> ());
-				entry.put ("receivable", balance.second.convert_to<std::string> ());
-				balances.put_child (account_from_request.second.data (), entry);
-				continue;
-			}
-			else
-			{
-				ec = nano::error_common::account_not_found;
-			}
+			bool const include_only_confirmed = request.get<bool> ("include_only_confirmed", true);
+			auto balance = node.balance_pending (account, include_only_confirmed);
+			entry.put ("balance", balance.first.convert_to<std::string> ());
+			entry.put ("pending", balance.second.convert_to<std::string> ());
+			entry.put ("receivable", balance.second.convert_to<std::string> ());
+			balances.put_child (account_from_request.second.data (), entry);
+			continue;
 		}
 		entry.put ("error", ec.message ());
 		balances.put_child (account_from_request.second.data (), entry);

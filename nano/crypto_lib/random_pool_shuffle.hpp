@@ -2,7 +2,7 @@
 
 #include <nano/crypto_lib/random_pool.hpp>
 
-#include <crypto/cryptopp/osrng.h>
+#include <cryptopp/osrng.h>
 
 namespace nano
 {
