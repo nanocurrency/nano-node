@@ -583,9 +583,8 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 #ifdef NDEBUG
 											if (ledger.store.block.exists (transaction, block_a.hashables.source))
 											{
-												nano::account_info source_info;
-												[[maybe_unused]] auto error (ledger.store.account.get (transaction, pending.source, source_info));
-												debug_assert (!error);
+												auto info = ledger.account_info (transaction, pending.source);
+												debug_assert (info);
 											}
 #endif
 											ledger.store.pending.del (transaction, key);
@@ -1290,10 +1289,10 @@ std::shared_ptr<nano::block> nano::ledger::successor (nano::transaction const & 
 	auto get_from_previous = false;
 	if (root_a.previous ().is_zero ())
 	{
-		nano::account_info info;
-		if (!store.account.get (transaction_a, root_a.root ().as_account (), info))
+		auto info = account_info (transaction_a, root_a.root ().as_account ());
+		if (info)
 		{
-			successor = info.open_block;
+			successor = info->open_block;
 		}
 		else
 		{
