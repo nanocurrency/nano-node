@@ -19,6 +19,8 @@ nano::active_transactions::active_transactions (nano::node & node_a, nano::confi
 	recently_cemented{ node.config.confirmation_history_size },
 	election_time_to_live{ node_a.network_params.network.is_dev_network () ? 0s : 2s }
 {
+	count_by_behavior.fill (0); // Zero initialize array
+
 	// Register a callback which will get called after a block is cemented
 	confirmation_height_processor.add_cemented_observer ([this] (std::shared_ptr<nano::block> const & callback_block_a) {
 		this->block_cemented_callback (callback_block_a);
@@ -181,41 +183,48 @@ void nano::active_transactions::block_already_cemented_callback (nano::block_has
 	remove_election_winner_details (hash_a);
 }
 
-int64_t nano::active_transactions::limit () const
+int64_t nano::active_transactions::limit (nano::election_behavior behavior) const
 {
-	return static_cast<int64_t> (node.config.active_elections_size);
+	switch (behavior)
+	{
+		case nano::election_behavior::normal:
+		{
+			return static_cast<int64_t> (node.config.active_elections_size);
+		}
+		case nano::election_behavior::hinted:
+		{
+			const uint64_t limit = node.config.active_elections_hinted_limit_percentage * node.config.active_elections_size / 100;
+			return static_cast<int64_t> (limit);
+		}
+		case nano::election_behavior::optimistic:
+		{
+			const uint64_t limit = node.config.active_elections_optimistic_limit_percentage * node.config.active_elections_size / 100;
+			return static_cast<int64_t> (limit);
+		}
+	}
+
+	debug_assert (false, "unknown election behavior");
+	return 0;
 }
 
-int64_t nano::active_transactions::hinted_limit () const
+int64_t nano::active_transactions::vacancy (nano::election_behavior behavior) const
 {
-	const uint64_t limit = node.config.active_elections_hinted_limit_percentage * node.config.active_elections_size / 100;
-	return static_cast<int64_t> (limit);
-}
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	switch (behavior)
+	{
+		case nano::election_behavior::normal:
+		{
+			return limit () - static_cast<int64_t> (roots.size ());
+		}
+		case nano::election_behavior::hinted:
+		case nano::election_behavior::optimistic:
+		{
+			return limit (behavior) - count_by_behavior[behavior];
+		}
+	}
 
-int64_t nano::active_transactions::optimistic_limit () const
-{
-	return 500;
-}
-
-int64_t nano::active_transactions::vacancy () const
-{
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto result = limit () - static_cast<int64_t> (roots.size ());
-	return result;
-}
-
-int64_t nano::active_transactions::vacancy_hinted () const
-{
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto result = hinted_limit () - hinted_count;
-	return result;
-}
-
-int64_t nano::active_transactions::vacancy_optimistic () const
-{
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto result = optimistic_limit () - optimistic_count;
-	return result;
+	debug_assert (false, "unknown election behavior");
+	return 0;
 }
 
 void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> & lock_a)
@@ -267,6 +276,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 
 void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::election> election)
 {
+	debug_assert (!mutex.try_lock ());
 	debug_assert (lock_a.owns_lock ());
 
 	if (!election->confirmed ())
@@ -286,20 +296,9 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 		}
 	}
 
-	switch (election->behavior)
-	{
-		case election_behavior::hinted:
-			debug_assert (hinted_count > 0);
-			--hinted_count;
-			break;
-		case election_behavior::optimistic:
-			debug_assert (optimistic_count > 0);
-			--optimistic_count;
-			break;
-		default:
-			// Do nothing
-			break;
-	}
+	// Keep track of election count by election type
+	debug_assert (count_by_behavior[election->behavior] > 0);
+	count_by_behavior[election->behavior]--;
 
 	auto blocks_l = election->blocks ();
 	for (auto const & [hash, block] : blocks_l)
@@ -312,6 +311,7 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 	roots.get<tag_root> ().erase (roots.get<tag_root> ().find (election->qualified_root));
 
 	lock_a.unlock ();
+
 	vacancy_update ();
 	for (auto const & [hash, block] : blocks_l)
 	{
@@ -377,10 +377,26 @@ void nano::active_transactions::request_loop ()
 	}
 }
 
+nano::election_insertion_result nano::active_transactions::insert (const std::shared_ptr<nano::block> & block, nano::election_behavior behavior)
+{
+	debug_assert (block != nullptr);
+
+	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	auto result = insert_impl (lock, block, behavior);
+	if (result.inserted)
+	{
+		node.stats.inc (nano::stat::type::active_started, nano::to_stat_detail (behavior));
+	}
+	return result;
+}
+
 nano::election_insertion_result nano::active_transactions::insert_impl (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::block> const & block_a, nano::election_behavior election_behavior_a, std::function<void (std::shared_ptr<nano::block> const &)> const & confirmation_action_a)
 {
+	debug_assert (!mutex.try_lock ());
 	debug_assert (lock_a.owns_lock ());
 	debug_assert (block_a->has_sideband ());
+
 	nano::election_insertion_result result;
 	if (!stopped)
 	{
@@ -401,21 +417,12 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				roots.get<tag_root> ().emplace (nano::active_transactions::conflict_info{ root, result.election });
 				blocks.emplace (hash, result.election);
 
-				// Increase election counters while still holding lock
-				switch (result.election->behavior)
-				{
-					case election_behavior::hinted:
-						++hinted_count;
-						break;
-					case election_behavior::optimistic:
-						++optimistic_count;
-						break;
-					default:
-						// Do nothing
-						break;
-				}
+				// Keep track of election count by election type
+				debug_assert (count_by_behavior[result.election->behavior] >= 0);
+				count_by_behavior[result.election->behavior]++;
 
 				lock_a.unlock ();
+
 				if (auto const cache = node.inactive_vote_cache.find (hash); cache)
 				{
 					cache->fill (result.election);
@@ -440,36 +447,6 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 		{
 			result.election->broadcast_vote ();
 		}
-	}
-	return result;
-}
-
-nano::election_insertion_result nano::active_transactions::insert_hinted (std::shared_ptr<nano::block> const & block)
-{
-	debug_assert (block != nullptr);
-	debug_assert (vacancy_hinted () > 0); // Should only be called when there are free hinted election slots
-
-	nano::unique_lock<nano::mutex> lock{ mutex };
-
-	auto result = insert_impl (lock, block, nano::election_behavior::hinted);
-	if (result.inserted)
-	{
-		node.stats.inc (nano::stat::type::active, nano::stat::detail::started_hinted);
-	}
-	return result;
-}
-
-nano::election_insertion_result nano::active_transactions::insert_optimistic (const std::shared_ptr<nano::block> & block)
-{
-	debug_assert (block != nullptr);
-	debug_assert (vacancy_optimistic () > 0); // Should only be called when there are free election slots
-
-	nano::unique_lock<nano::mutex> lock{ mutex };
-
-	auto result = insert_impl (lock, block, nano::election_behavior::optimistic);
-	if (result.inserted)
-	{
-		node.stats.inc (nano::stat::type::active, nano::stat::detail::started_optimistic);
 	}
 	return result;
 }
@@ -721,14 +698,15 @@ void nano::active_transactions::clear ()
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (active_transactions & active_transactions, std::string const & name)
 {
-	nano::lock_guard<nano::mutex> guard (active_transactions.mutex);
+	nano::lock_guard<nano::mutex> guard{ active_transactions.mutex };
 
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "roots", active_transactions.roots.size (), sizeof (decltype (active_transactions.roots)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", active_transactions.blocks.size (), sizeof (decltype (active_transactions.blocks)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "election_winner_details", active_transactions.election_winner_details_size (), sizeof (decltype (active_transactions.election_winner_details)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "hinted", active_transactions.hinted_count, 0 }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "optimistic", active_transactions.optimistic_count, 0 }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "normal", static_cast<std::size_t> (active_transactions.count_by_behavior[nano::election_behavior::normal]), 0 }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "hinted", static_cast<std::size_t> (active_transactions.count_by_behavior[nano::election_behavior::hinted]), 0 }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "optimistic", static_cast<std::size_t> (active_transactions.count_by_behavior[nano::election_behavior::optimistic]), 0 }));
 
 	composite->add_component (active_transactions.recently_confirmed.collect_container_info ("recently_confirmed"));
 	composite->add_component (active_transactions.recently_cemented.collect_container_info ("recently_cemented"));

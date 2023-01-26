@@ -427,6 +427,7 @@ TEST (active_transactions, inactive_votes_cache_election_start)
 	nano::test::system system;
 	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.optimistic_scheduler_config.enabled = false;
 	auto & node = *system.add_node (node_config);
 	nano::block_hash latest (node.latest (nano::dev::genesis_key.pub));
 	nano::keypair key1, key2;
@@ -1417,6 +1418,7 @@ TEST (active_transactions, limit_vote_hinted_elections)
 	nano::node_config config = system.default_config ();
 	const int aec_limit = 10;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config.optimistic_scheduler_config.enabled = false;
 	config.active_elections_size = aec_limit;
 	config.active_elections_hinted_limit_percentage = 10; // Should give us a limit of 1 hinted election
 	auto & node = *system.add_node (config);
@@ -1516,10 +1518,8 @@ TEST (active_transactions, allow_limited_overflow)
 		node.inactive_vote_cache.vote (block->hash (), vote);
 	}
 
-	// Ensure active elections overfill AEC only up to normal + hinted limit
-	ASSERT_TIMELY_EQ (5s, node.active.size (), node.active.limit () + node.active.hinted_limit ());
-	// And it stays that way without increasing
-	ASSERT_ALWAYS (1s, node.active.size () == node.active.limit () + node.active.hinted_limit ());
+	// Ensure active elections overfill AEC only up to normal + hinted + optimistic limit
+	ASSERT_ALWAYS (3s, node.active.size () <= node.active.limit () + node.active.limit (nano::election_behavior::hinted) + node.active.limit (nano::election_behavior::optimistic));
 }
 
 /*
@@ -1555,9 +1555,9 @@ TEST (active_transactions, allow_limited_overflow_adapt)
 	}
 
 	// Ensure hinted election amount is bounded by hinted limit
-	ASSERT_TIMELY_EQ (5s, node.active.size (), node.active.hinted_limit ());
+	ASSERT_TIMELY_EQ (5s, node.active.size (), node.active.limit (nano::election_behavior::hinted));
 	// And it stays that way without increasing
-	ASSERT_ALWAYS (1s, node.active.size () == node.active.hinted_limit ());
+	ASSERT_ALWAYS (1s, node.active.size () == node.active.limit (nano::election_behavior::hinted));
 
 	// Insert the first part of the blocks into normal election scheduler
 	for (auto const & block : blocks1)

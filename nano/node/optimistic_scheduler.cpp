@@ -19,15 +19,17 @@ nano::optimistic_scheduler::~optimistic_scheduler ()
 
 void nano::optimistic_scheduler::start ()
 {
+	if (!config.enabled)
+	{
+		return;
+	}
+
 	debug_assert (!thread.joinable ());
 
-	if (config.enabled)
-	{
-		thread = std::thread{ [this] () {
-			nano::thread_role::set (nano::thread_role::name::optimistic_scheduler);
-			run ();
-		} };
-	}
+	thread = std::thread{ [this] () {
+		nano::thread_role::set (nano::thread_role::name::optimistic_scheduler);
+		run ();
+	} };
 }
 
 void nano::optimistic_scheduler::stop ()
@@ -96,7 +98,7 @@ bool nano::optimistic_scheduler::predicate () const
 {
 	debug_assert (!mutex.try_lock ());
 
-	return !candidates.empty () && active.vacancy_optimistic () > 0;
+	return !candidates.empty () && active.vacancy (nano::election_behavior::optimistic) > 0;
 }
 
 void nano::optimistic_scheduler::run ()
@@ -132,7 +134,7 @@ void nano::optimistic_scheduler::run_one (nano::account candidate)
 		{
 			// Try to insert it into AEC
 			// We check for AEC vacancy inside our predicate
-			auto result = node.active.insert_optimistic (block);
+			auto result = node.active.insert (block, nano::election_behavior::optimistic);
 
 			stats.inc (nano::stat::type::optimistic, result.inserted ? nano::stat::detail::insert : nano::stat::detail::insert_failed);
 		}

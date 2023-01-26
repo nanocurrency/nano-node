@@ -146,15 +146,9 @@ public:
 	void stop ();
 
 	/**
-	 * Starts new election with hinted behavior type
-	 * Hinted elections have shorter timespan and only can take up limited space inside active elections container
+	 * Starts new election with a specified behavior type
 	 */
-	nano::election_insertion_result insert_hinted (std::shared_ptr<nano::block> const &);
-	/*
-	 * Starts new election with optimistic behavior type
-	 * Optimistic elections have shorter timespan and only can take up limited space inside active elections container
-	 */
-	nano::election_insertion_result insert_optimistic (std::shared_ptr<nano::block> const &);
+	nano::election_insertion_result insert (std::shared_ptr<nano::block> const & block, nano::election_behavior behavior = nano::election_behavior::normal);
 
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
 	nano::vote_code vote (std::shared_ptr<nano::vote> const &);
@@ -180,31 +174,14 @@ public:
 	void block_already_cemented_callback (nano::block_hash const &);
 
 	/**
-	 * Maximum number of all elections that should be present in this container.
-	 * This is only a soft limit, it is possible for this container to exceed this count.
+	 * Maximum number of elections that should be present in this container
+	 * NOTE: This is only a soft limit, it is possible for this container to exceed this count
 	 */
-	int64_t limit () const;
+	int64_t limit (nano::election_behavior behavior = nano::election_behavior::normal) const;
 	/**
-	 * Maximum number of hinted elections that should be present in this container.
+	 * How many election slots are available for specified election type
 	 */
-	int64_t hinted_limit () const;
-	/** Maximum number of optimistic elections that should be present in this container */
-	int64_t optimistic_limit () const;
-
-	/**
-	 * TODO: Docs
-	 */
-	int64_t vacancy () const;
-	/**
-	 * How many election slots are available for hinted elections.
-	 * The limit of AEC taken up by hinted elections is controlled by `node_config::active_elections_hinted_limit_percentage`
-	 */
-	int64_t vacancy_hinted () const;
-	/**
-	 * How many election slots are available for optimistic elections
-	 * The limit of AEC taken up by hinted elections is controlled by `node_config::active_elections_optimistic_limit_percentage`
-	 */
-	int64_t vacancy_optimistic () const;
+	int64_t vacancy (nano::election_behavior behavior = nano::election_behavior::normal) const;
 
 	std::function<void ()> vacancy_update{ [] () {} };
 
@@ -248,9 +225,8 @@ private:
 	// Maximum time an election can be kept active if it is extending the container
 	std::chrono::seconds const election_time_to_live;
 
-	/** Counts of special election types */
-	std::size_t hinted_count{ 0 };
-	std::size_t optimistic_count{ 0 };
+	/** Keeps track of number of elections by election behavior (normal, hinted, optimistic) */
+	nano::enum_array<nano::election_behavior, int64_t> count_by_behavior;
 
 	nano::condition_variable condition;
 	bool stopped{ false };

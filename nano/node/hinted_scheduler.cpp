@@ -46,7 +46,7 @@ void nano::hinted_scheduler::notify ()
 bool nano::hinted_scheduler::predicate (nano::uint128_t const & minimum_tally) const
 {
 	// Check if there is space inside AEC for a new hinted election
-	if (active.vacancy_hinted () > 0)
+	if (active.vacancy (nano::election_behavior::hinted) > 0)
 	{
 		// Check if there is any vote cache entry surpassing our minimum vote tally threshold
 		if (inactive_vote_cache.peek (minimum_tally))
@@ -72,7 +72,7 @@ bool nano::hinted_scheduler::run_one (nano::uint128_t const & minimum_tally)
 			{
 				// Try to insert it into AEC as hinted election
 				// We check for AEC vacancy inside our predicate
-				auto result = node.active.insert_hinted (block);
+				auto result = node.active.insert (block, nano::election_behavior::hinted);
 
 				stats.inc (nano::stat::type::hinting, result.inserted ? nano::stat::detail::insert : nano::stat::detail::insert_failed);
 

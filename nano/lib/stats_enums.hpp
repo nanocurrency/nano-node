@@ -37,6 +37,7 @@ enum class type : uint8_t
 	blockprocessor,
 	bootstrap_server,
 	active,
+	active_started,
 	backlog,
 	optimistic,
 
@@ -161,6 +162,11 @@ enum class detail : uint8_t
 	generate_vote_normal,
 	generate_vote_final,
 
+	// election types
+	normal,
+	hinted,
+	optimistic,
+
 	// udp
 	blocking,
 	overflow,
@@ -245,9 +251,6 @@ enum class detail : uint8_t
 	generator_spacing,
 
 	// hinting
-	hinted,
-	insert,
-	insert_failed,
 	missing_block,
 
 	// bootstrap server
@@ -263,10 +266,10 @@ enum class detail : uint8_t
 
 	// backlog
 	activated,
-	
+
 	// active
-	started_hinted,
-	started_optimistic,
+	insert,
+	insert_failed,
 
 	_last // Must be the last enum
 };
