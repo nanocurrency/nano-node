@@ -383,7 +383,7 @@ TEST (confirmation_height, gap_bootstrap)
 		node1.block_processor.add (send2);
 		node1.block_processor.add (send3);
 		node1.block_processor.add (receive1);
-		node1.block_processor.flush ();
+		ASSERT_TIMELY (1s, node1.block (send3->hash ()) != nullptr);
 
 		add_callback_stats (node1);
 
