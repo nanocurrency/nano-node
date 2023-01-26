@@ -32,10 +32,10 @@ void nano::election_scheduler::stop ()
 	nano::join_or_pass (thread);
 }
 
-void nano::election_scheduler::manual (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a, std::function<void (std::shared_ptr<nano::block> const &)> const & confirmation_action_a)
+void nano::election_scheduler::manual (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	manual_queue.push_back (std::make_tuple (block_a, previous_balance_a, election_behavior_a, confirmation_action_a));
+	manual_queue.push_back (std::make_tuple (block_a, previous_balance_a, election_behavior_a));
 	notify ();
 }
 
@@ -140,23 +140,22 @@ void nano::election_scheduler::run ()
 			}
 			else if (manual_queue_predicate ())
 			{
-				auto const [block, previous_balance, election_behavior, confirmation_action] = manual_queue.front ();
+				auto const [block, previous_balance, election_behavior] = manual_queue.front ();
 				manual_queue.pop_front ();
 				lock.unlock ();
-				nano::unique_lock<nano::mutex> lock2 (node.active.mutex);
-				node.active.insert_impl (lock2, block, election_behavior, confirmation_action);
+				
+				node.active.insert (block, election_behavior);
 			}
 			else if (priority_queue_predicate ())
 			{
 				auto block = priority.top ();
 				priority.pop ();
 				lock.unlock ();
-				std::shared_ptr<nano::election> election;
-				nano::unique_lock<nano::mutex> lock2 (node.active.mutex);
-				election = node.active.insert_impl (lock2, block).election;
-				if (election != nullptr)
+
+				auto result = node.active.insert (block);
+				if (result.election != nullptr)
 				{
-					election->transition_active ();
+					result.election->transition_active ();
 				}
 			}
 			else

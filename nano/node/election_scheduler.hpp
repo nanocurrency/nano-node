@@ -27,7 +27,7 @@ public:
 
 	// Manualy start an election for a block
 	// Call action with confirmed block, may be different than what we started with
-	void manual (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, nano::election_behavior = nano::election_behavior::normal, std::function<void (std::shared_ptr<nano::block> const &)> const & = nullptr);
+	void manual (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, nano::election_behavior = nano::election_behavior::normal);
 	/**
 	 * Activates the first unconfirmed block of \p account_a
 	 * @return true if account was activated
@@ -52,8 +52,8 @@ private:
 	bool overfill_predicate () const;
 
 	nano::prioritization priority;
-	std::deque<std::tuple<std::shared_ptr<nano::block>, boost::optional<nano::uint128_t>, nano::election_behavior, std::function<void (std::shared_ptr<nano::block>)>>> manual_queue;
 
+	std::deque<std::tuple<std::shared_ptr<nano::block>, boost::optional<nano::uint128_t>, nano::election_behavior>> manual_queue;
 	bool stopped{ false };
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
