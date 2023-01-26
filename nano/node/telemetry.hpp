@@ -18,7 +18,7 @@ namespace mi = boost::multi_index;
 namespace nano
 {
 class network;
-class stat;
+class stats;
 class ledger;
 class thread_pool;
 class unchecked_map;
@@ -62,7 +62,7 @@ public:
 class telemetry : public std::enable_shared_from_this<telemetry>
 {
 public:
-	telemetry (nano::network &, nano::thread_pool &, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> &, nano::stat &, nano::network_params &, bool);
+	telemetry (nano::network &, nano::thread_pool &, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> &, nano::stats &, nano::network_params &, bool);
 	void start ();
 	void stop ();
 
@@ -108,7 +108,7 @@ private:
 	nano::network & network;
 	nano::thread_pool & workers;
 	nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> & observers;
-	nano::stat & stats;
+	nano::stats & stats;
 	/* Important that this is a reference to the node network_params for tests which want to modify genesis block */
 	nano::network_params & network_params;
 	bool disable_ongoing_requests;

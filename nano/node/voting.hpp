@@ -24,7 +24,7 @@ namespace nano
 class ledger;
 class network;
 class node_config;
-class stat;
+class stats;
 class vote_processor;
 class wallets;
 namespace transport
@@ -121,7 +121,7 @@ private:
 	using queue_entry_t = std::pair<nano::root, nano::block_hash>;
 
 public:
-	vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stat & stats_a, bool is_final_a);
+	vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stats & stats_a, bool is_final_a);
 	~vote_generator ();
 
 	/** Queue items for vote generation, or broadcast votes already in cache */
@@ -157,7 +157,7 @@ private: // Dependencies
 	nano::local_vote_history & history;
 	nano::vote_spacing spacing;
 	nano::network & network;
-	nano::stat & stats;
+	nano::stats & stats;
 
 private:
 	processing_queue<queue_entry_t> vote_generation_queue;

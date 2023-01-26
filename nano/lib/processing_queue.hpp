@@ -30,7 +30,7 @@ public:
 	 * @param max_queue_size Max number of items enqueued, items beyond this value will be discarded
 	 * @param max_batch_size Max number of elements processed in single batch, 0 for unlimited (default)
 	 */
-	processing_queue (nano::stat & stats, nano::stat::type stat_type, nano::thread_role::name thread_role, std::size_t thread_count, std::size_t max_queue_size, std::size_t max_batch_size = 0) :
+	processing_queue (nano::stats & stats, nano::stat::type stat_type, nano::thread_role::name thread_role, std::size_t thread_count, std::size_t max_queue_size, std::size_t max_batch_size = 0) :
 		stats{ stats },
 		stat_type{ stat_type },
 		thread_role{ thread_role },
@@ -159,7 +159,7 @@ public:
 	std::function<void (std::deque<value_t> &)> process_batch{ [] (auto &) { debug_assert (false, "processing queue callback empty"); } };
 
 private:
-	nano::stat & stats;
+	nano::stats & stats;
 
 	const nano::stat::type stat_type;
 	const nano::thread_role::name thread_role;

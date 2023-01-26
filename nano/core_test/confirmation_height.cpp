@@ -1208,7 +1208,7 @@ TEST (confirmation_heightDeathTest, rollback_added_block)
 		auto path (nano::unique_path ());
 		auto store = nano::make_store (logger, path, nano::dev::constants);
 		ASSERT_TRUE (!store->init_error ());
-		nano::stat stats;
+		nano::stats stats;
 		nano::ledger ledger (*store, stats, nano::dev::constants);
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -1300,7 +1300,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		auto path (nano::unique_path ());
 		auto store = nano::make_store (logger, path, nano::dev::constants);
 		ASSERT_TRUE (!store->init_error ());
-		nano::stat stats;
+		nano::stats stats;
 		nano::ledger ledger (*store, stats, nano::dev::constants);
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -1378,7 +1378,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		auto path (nano::unique_path ());
 		auto store = nano::make_store (logger, path, nano::dev::constants);
 		ASSERT_TRUE (!store->init_error ());
-		nano::stat stats;
+		nano::stats stats;
 		nano::ledger ledger (*store, stats, nano::dev::constants);
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -2093,7 +2093,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 	auto path (nano::unique_path ());
 	auto store = nano::make_store (logger, path, nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::stat stats;
+	nano::stats stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	nano::write_database_queue write_database_queue (false);
 	boost::latch initialized_latch{ 0 };
@@ -2158,7 +2158,7 @@ TEST (confirmation_height, pruned_source)
 	auto path (nano::unique_path ());
 	auto store = nano::make_store (logger, path, nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::stat stats;
+	nano::stats stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	nano::write_database_queue write_database_queue (false);

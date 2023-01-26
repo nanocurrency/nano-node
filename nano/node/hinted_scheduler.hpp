@@ -27,7 +27,7 @@ public: // Config
 	};
 
 public:
-	explicit hinted_scheduler (config const &, nano::node &, nano::vote_cache &, nano::active_transactions &, nano::online_reps &, nano::stat &);
+	explicit hinted_scheduler (config const &, nano::node &, nano::vote_cache &, nano::active_transactions &, nano::online_reps &, nano::stats &);
 	~hinted_scheduler ();
 
 	void start ();
@@ -49,7 +49,7 @@ private: // Dependencies
 	nano::vote_cache & inactive_vote_cache;
 	nano::active_transactions & active;
 	nano::online_reps & online_reps;
-	nano::stat & stats;
+	nano::stats & stats;
 
 private:
 	config const config_m;

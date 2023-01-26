@@ -30,7 +30,7 @@ class election_scheduler;
 class vote;
 class transaction;
 class confirmation_height_processor;
-class stat;
+class stats;
 
 class recently_confirmed_cache final
 {

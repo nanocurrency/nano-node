@@ -140,7 +140,7 @@ public:
 	boost::latch node_initialized_latch;
 	nano::node_config config;
 	nano::network_params & network_params;
-	nano::stat stats;
+	nano::stats stats;
 	nano::thread_pool workers;
 	nano::thread_pool bootstrap_workers;
 	nano::node_flags flags;

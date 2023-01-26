@@ -9,7 +9,7 @@
 namespace nano
 {
 class store;
-class stat;
+class stats;
 class write_transaction;
 
 // map of vote weight per block, ordered greater first
@@ -27,7 +27,7 @@ public:
 class ledger final
 {
 public:
-	ledger (nano::store &, nano::stat &, nano::ledger_constants & constants, nano::generate_cache const & = nano::generate_cache ());
+	ledger (nano::store &, nano::stats &, nano::ledger_constants & constants, nano::generate_cache const & = nano::generate_cache ());
 	/**
 	 * Return account containing hash, expects that block hash exists in ledger
 	 */
@@ -86,7 +86,7 @@ public:
 	nano::ledger_constants & constants;
 	nano::store & store;
 	nano::ledger_cache cache;
-	nano::stat & stats;
+	nano::stats & stats;
 	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;
 	uint64_t bootstrap_weight_max_blocks{ 1 };
 	std::atomic<bool> check_bootstrap_weights;
