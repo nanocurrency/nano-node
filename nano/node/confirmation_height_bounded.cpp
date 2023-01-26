@@ -237,9 +237,9 @@ nano::block_hash nano::confirmation_height_bounded::get_least_unconfirmed_hash_f
 	else
 	{
 		// No blocks have been confirmed, so the first block will be the open block
-		nano::account_info account_info;
-		release_assert (!ledger.store.account.get (transaction_a, account_a, account_info));
-		least_unconfirmed_hash = account_info.open_block;
+		auto info = ledger.account_info (transaction_a, account_a);
+		release_assert (info);
+		least_unconfirmed_hash = info->open_block;
 		block_height_a = 1;
 	}
 	return least_unconfirmed_hash;

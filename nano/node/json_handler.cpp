@@ -261,10 +261,15 @@ nano::account_info nano::json_handler::account_info_impl (nano::transaction cons
 	nano::account_info result;
 	if (!ec)
 	{
-		if (node.store.account.get (transaction_a, account_a, result))
+		auto info = node.ledger.account_info (transaction_a, account_a);
+		if (!info)
 		{
 			ec = nano::error_common::account_not_found;
 			node.bootstrap_initiator.bootstrap_lazy (account_a, false, account_a.to_account ());
+		}
+		else
+		{
+			result = *info;
 		}
 	}
 	return result;
@@ -3377,14 +3382,14 @@ void nano::json_handler::receive ()
 					auto work (work_optional_impl ());
 					if (!ec && work)
 					{
-						nano::account_info info;
 						nano::root head;
 						nano::epoch epoch = pending_info.epoch;
-						if (!node.store.account.get (block_transaction, account, info))
+						auto info = node.ledger.account_info (block_transaction, account);
+						if (info)
 						{
-							head = info.head;
+							head = info->head;
 							// When receiving, epoch version is the higher between the previous and the source blocks
-							epoch = std::max (info.epoch (), epoch);
+							epoch = std::max (info->epoch (), epoch);
 						}
 						else
 						{

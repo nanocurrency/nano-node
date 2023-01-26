@@ -730,10 +730,10 @@ TEST (rpc, wallet_representative_set_force)
 	while (representative != key.pub)
 	{
 		auto transaction (node->store.tx_begin_read ());
-		nano::account_info info;
-		if (!node->store.account.get (transaction, nano::dev::genesis_key.pub, info))
+		auto info = node->ledger.account_info (transaction, nano::dev::genesis_key.pub);
+		if (info)
 		{
-			representative = info.representative;
+			representative = info->representative;
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
