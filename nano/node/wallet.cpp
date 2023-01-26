@@ -849,12 +849,11 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 					{
 						store.work_get (transaction, account_a, work_a);
 					}
-					nano::account_info info;
-					auto new_account (wallets.node.ledger.store.account.get (block_transaction, account_a, info));
-					if (!new_account)
+					auto info = wallets.node.ledger.account_info (block_transaction, account_a);
+					if (info)
 					{
-						block = std::make_shared<nano::state_block> (account_a, info.head, info.representative, info.balance.number () + pending_info.amount.number (), send_hash_a, prv, account_a, work_a);
-						details.epoch = std::max (info.epoch (), pending_info.epoch);
+						block = std::make_shared<nano::state_block> (account_a, info->head, info->representative, info->balance.number () + pending_info.amount.number (), send_hash_a, prv, account_a, work_a);
+						details.epoch = std::max (info->epoch (), pending_info.epoch);
 					}
 					else
 					{
@@ -905,10 +904,8 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 			auto existing (store.find (transaction, source_a));
 			if (existing != store.end () && !wallets.node.ledger.latest (block_transaction, source_a).is_zero ())
 			{
-				nano::account_info info;
-				auto error1 (wallets.node.ledger.store.account.get (block_transaction, source_a, info));
-				(void)error1;
-				debug_assert (!error1);
+				auto info = wallets.node.ledger.account_info (block_transaction, source_a);
+				debug_assert (info);
 				nano::raw_key prv;
 				auto error2 (store.fetch (transaction, source_a, prv));
 				(void)error2;
@@ -917,8 +914,8 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 				{
 					store.work_get (transaction, source_a, work_a);
 				}
-				block = std::make_shared<nano::state_block> (source_a, info.head, representative_a, info.balance, 0, prv, source_a, work_a);
-				details.epoch = info.epoch ();
+				block = std::make_shared<nano::state_block> (source_a, info->head, representative_a, info->balance, 0, prv, source_a, work_a);
+				details.epoch = info->epoch ();
 			}
 		}
 	}
@@ -977,10 +974,8 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 					auto balance (wallets.node.ledger.account_balance (block_transaction, source_a));
 					if (!balance.is_zero () && balance >= amount_a)
 					{
-						nano::account_info info;
-						auto error1 (wallets.node.ledger.store.account.get (block_transaction, source_a, info));
-						(void)error1;
-						debug_assert (!error1);
+						auto info = wallets.node.ledger.account_info (block_transaction, source_a);
+						debug_assert (info);
 						nano::raw_key prv;
 						auto error2 (store.fetch (transaction, source_a, prv));
 						(void)error2;
@@ -989,8 +984,8 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 						{
 							store.work_get (transaction, source_a, work_a);
 						}
-						block = std::make_shared<nano::state_block> (source_a, info.head, info.representative, balance - amount_a, account_a, prv, source_a, work_a);
-						details.epoch = info.epoch ();
+						block = std::make_shared<nano::state_block> (source_a, info->head, info->representative, balance - amount_a, account_a, prv, source_a, work_a);
+						details.epoch = info->epoch ();
 						if (id_mdb_val && block != nullptr)
 						{
 							auto status (mdb_put (wallets.env.tx (transaction), wallets.node.wallets.send_action_ids, *id_mdb_val, nano::mdb_val (block->hash ()), 0));

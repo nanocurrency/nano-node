@@ -907,17 +907,18 @@ TEST (confirmation_height, long_chains)
 	ASSERT_TIMELY (30s, node->ledger.block_confirmed (node->store.tx_begin_read (), receive1->hash ()));
 
 	auto transaction (node->store.tx_begin_read ());
-	nano::account_info account_info;
-	ASSERT_FALSE (node->store.account.get (transaction, nano::dev::genesis_key.pub, account_info));
+	auto info = node->ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	ASSERT_TRUE (info);
 	nano::confirmation_height_info confirmation_height_info;
 	ASSERT_FALSE (node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub, confirmation_height_info));
 	ASSERT_EQ (num_blocks + 2, confirmation_height_info.height);
-	ASSERT_EQ (num_blocks + 3, account_info.block_count); // Includes the unpocketed send
+	ASSERT_EQ (num_blocks + 3, info->block_count); // Includes the unpocketed send
 
-	ASSERT_FALSE (node->store.account.get (transaction, key1.pub, account_info));
+	info = node->ledger.account_info (transaction, key1.pub);
+	ASSERT_TRUE (info);
 	ASSERT_FALSE (node->store.confirmation_height.get (transaction, key1.pub, confirmation_height_info));
 	ASSERT_EQ (num_blocks + 1, confirmation_height_info.height);
-	ASSERT_EQ (num_blocks + 1, account_info.block_count);
+	ASSERT_EQ (num_blocks + 1, info->block_count);
 
 	size_t cemented_count = 0;
 	for (auto i (node->ledger.store.confirmation_height.begin (transaction)), n (node->ledger.store.confirmation_height.end ()); i != n; ++i)

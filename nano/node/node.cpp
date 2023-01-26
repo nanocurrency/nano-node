@@ -783,11 +783,11 @@ nano::uint128_t nano::node::weight (nano::account const & account_a)
 nano::block_hash nano::node::rep_block (nano::account const & account_a)
 {
 	auto const transaction (store.tx_begin_read ());
-	nano::account_info info;
 	nano::block_hash result (0);
-	if (!store.account.get (transaction, account_a, info))
+	auto info = ledger.account_info (transaction, account_a);
+	if (info)
 	{
-		result = ledger.representative (transaction, info.head);
+		result = ledger.representative (transaction, info->head);
 	}
 	return result;
 }

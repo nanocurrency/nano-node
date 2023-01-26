@@ -128,18 +128,18 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 			for (auto i (accounts_list.get<modified_tag> ().begin ()), n (accounts_list.get<modified_tag> ().end ()); i != n && attempts < upgrade_batch_size && attempts < count_limit && !stopped; ++i)
 			{
 				auto transaction (store.tx_begin_read ());
-				nano::account_info info;
 				nano::account const & account (i->account);
-				if (!store.account.get (transaction, account, info) && info.epoch () < epoch_a)
+				auto info = ledger.account_info (transaction, account);
+				if (info && info->epoch () < epoch_a)
 				{
 					++attempts;
 					auto difficulty (node.network_params.work.threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
-					nano::root const & root (info.head);
+					nano::root const & root (info->head);
 					std::shared_ptr<nano::block> epoch = builder.state ()
 														 .account (account)
-														 .previous (info.head)
-														 .representative (info.representative)
-														 .balance (info.balance)
+														 .previous (info->head)
+														 .representative (info->representative)
+														 .balance (info->balance)
 														 .link (link)
 														 .sign (raw_key, signer)
 														 .work (0)
