@@ -2876,10 +2876,10 @@ TEST (node, fork_election_invalid_block_signature)
 
 TEST (node, block_processor_signatures)
 {
-	nano::test::system system0 (1);
-	auto & node1 (*system0.nodes[0]);
-	system0.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::block_hash latest (system0.nodes[0]->latest (nano::dev::genesis_key.pub));
+	nano::test::system system (1);
+	auto & node1 (*system.nodes[0]);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	nano::block_hash latest (system.nodes[0]->latest (nano::dev::genesis_key.pub));
 	nano::state_block_builder builder;
 	nano::keypair key1;
 	nano::keypair key2;
@@ -2977,7 +2977,9 @@ TEST (node, block_processor_signatures)
 	node1.process_active (receive3);
 	node1.block_processor.flush ();
 	node1.block_processor.force (send5);
-	node1.block_processor.flush ();
+	ASSERT_TIMELY (1s, node1.block (send3->hash ()) != nullptr);
+	ASSERT_TIMELY (1s, node1.block (receive1->hash ()) != nullptr);
+	ASSERT_TIMELY (1s, node1.block (receive2->hash ()) != nullptr);
 	auto transaction (node1.store.tx_begin_read ());
 	ASSERT_TRUE (node1.store.block.exists (transaction, send1->hash ()));
 	ASSERT_TRUE (node1.store.block.exists (transaction, send2->hash ()));
