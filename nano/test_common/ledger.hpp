@@ -20,13 +20,13 @@ namespace test
 			ledger_context (std::deque<std::shared_ptr<nano::block>> && blocks = std::deque<std::shared_ptr<nano::block>>{});
 			nano::ledger & ledger ();
 			nano::store & store ();
-			nano::stat & stats ();
+			nano::stats & stats ();
 			std::deque<std::shared_ptr<nano::block>> const & blocks () const;
 
 		private:
 			nano::logger_mt logger;
 			std::unique_ptr<nano::store> store_m;
-			nano::stat stats_m;
+			nano::stats stats_m;
 			nano::ledger ledger_m;
 			std::deque<std::shared_ptr<nano::block>> blocks_m;
 		};

@@ -346,7 +346,7 @@ TEST (block_store, pending_iterator_comparison)
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::stat stats;
+	nano::stats stats;
 	auto transaction (store->tx_begin_write ());
 	// Populate pending
 	store->pending.put (transaction, nano::pending_key (nano::account (3), nano::block_hash (1)), nano::pending_info (nano::account (10), nano::amount (1), nano::epoch::epoch_0));
@@ -853,7 +853,7 @@ namespace lmdb
 		nano::logger_mt logger;
 		{
 			nano::lmdb::store store (logger, path, nano::dev::constants);
-			nano::stat stats;
+			nano::stats stats;
 			nano::ledger ledger (store, stats, nano::dev::constants);
 			auto transaction (store.tx_begin_write ());
 			store.initialize (transaction, ledger.cache, nano::dev::constants);
@@ -871,7 +871,7 @@ namespace lmdb
 		// Now try with the minimum version
 		{
 			nano::lmdb::store store (logger, path1, nano::dev::constants);
-			nano::stat stats;
+			nano::stats stats;
 			nano::ledger ledger (store, stats, nano::dev::constants);
 			auto transaction (store.tx_begin_write ());
 			store.initialize (transaction, ledger.cache, nano::dev::constants);
@@ -1271,8 +1271,8 @@ TEST (mdb_block_store, sideband_height)
 	nano::keypair key3;
 	nano::lmdb::store store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store.init_error ());
-	nano::stat stat;
-	nano::ledger ledger (store, stat, nano::dev::constants);
+	nano::stats stats;
+	nano::ledger ledger (store, stats, nano::dev::constants);
 	nano::block_builder builder;
 	auto transaction (store.tx_begin_write ());
 	store.initialize (transaction, ledger.cache, nano::dev::constants);
@@ -1673,7 +1673,7 @@ namespace lmdb
 		{
 			nano::logger_mt logger;
 			nano::lmdb::store store (logger, path, nano::dev::constants);
-			nano::stat stats;
+			nano::stats stats;
 			nano::ledger ledger (store, stats, nano::dev::constants);
 			auto transaction (store.tx_begin_write ());
 			store.initialize (transaction, ledger.cache, nano::dev::constants);
@@ -1806,7 +1806,7 @@ namespace lmdb
 		{
 			nano::logger_mt logger;
 			nano::lmdb::store store (logger, path, nano::dev::constants);
-			nano::stat stats;
+			nano::stats stats;
 			nano::ledger ledger (store, stats, nano::dev::constants);
 			auto transaction (store.tx_begin_write ());
 			store.initialize (transaction, ledger.cache, nano::dev::constants);
@@ -1887,7 +1887,7 @@ namespace lmdb
 			{
 				nano::logger_mt logger;
 				nano::lmdb::store store (logger, path, nano::dev::constants);
-				nano::stat stats;
+				nano::stats stats;
 				nano::ledger ledger (store, stats, nano::dev::constants);
 				auto transaction (store.tx_begin_write ());
 				store.initialize (transaction, ledger.cache, nano::dev::constants);
@@ -2066,7 +2066,7 @@ namespace lmdb
 			nano::logger_mt logger;
 			nano::lmdb::store store (logger, path, nano::dev::constants);
 			auto transaction (store.tx_begin_write ());
-			nano::stat stats;
+			nano::stats stats;
 			nano::ledger ledger (store, stats, nano::dev::constants);
 			store.initialize (transaction, ledger.cache, nano::dev::constants);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send_zero).code);
@@ -2306,7 +2306,7 @@ namespace lmdb
 		{
 			nano::logger_mt logger;
 			nano::lmdb::store store (logger, path, nano::dev::constants);
-			nano::stat stats;
+			nano::stats stats;
 			nano::ledger ledger (store, stats, nano::dev::constants);
 			auto transaction (store.tx_begin_write ());
 			store.initialize (transaction, ledger.cache, nano::dev::constants);
@@ -2386,7 +2386,7 @@ namespace lmdb
 		}
 		auto path (nano::unique_path ());
 		nano::logger_mt logger;
-		nano::stat stats;
+		nano::stats stats;
 		{
 			nano::lmdb::store store (logger, path, nano::dev::constants);
 			nano::ledger ledger (store, stats, nano::dev::constants);
@@ -2415,7 +2415,7 @@ namespace lmdb
 		}
 		auto path (nano::unique_path ());
 		nano::logger_mt logger;
-		nano::stat stats;
+		nano::stats stats;
 		{
 			nano::lmdb::store store (logger, path, nano::dev::constants);
 			nano::ledger ledger (store, stats, nano::dev::constants);

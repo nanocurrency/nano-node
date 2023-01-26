@@ -10,7 +10,7 @@
 #include <fstream>
 #include <sstream>
 
-nano::error nano::stat_config::deserialize_toml (nano::tomlconfig & toml)
+nano::error nano::stats_config::deserialize_toml (nano::tomlconfig & toml)
 {
 	auto sampling_l (toml.get_optional_child ("sampling"));
 	if (sampling_l)
@@ -40,7 +40,7 @@ nano::error nano::stat_config::deserialize_toml (nano::tomlconfig & toml)
 	return toml.get_error ();
 }
 
-nano::error nano::stat_config::serialize_toml (nano::tomlconfig & toml) const
+nano::error nano::stats_config::serialize_toml (nano::tomlconfig & toml) const
 {
 	nano::tomlconfig sampling_l;
 	sampling_l.put ("enable", sampling_enabled, "Enable or disable sampling.\ntype:bool");
@@ -252,23 +252,27 @@ std::vector<nano::stat_histogram::bin> nano::stat_histogram::get_bins () const
 	return bins;
 }
 
-nano::stat::stat (nano::stat_config config) :
+/*
+ * stats
+ */
+
+nano::stats::stats (nano::stats_config config) :
 	config (config)
 {
 }
 
-std::shared_ptr<nano::stat_entry> nano::stat::get_entry (uint32_t key)
+std::shared_ptr<nano::stat_entry> nano::stats::get_entry (uint32_t key)
 {
 	return get_entry (key, config.interval, config.capacity);
 }
 
-std::shared_ptr<nano::stat_entry> nano::stat::get_entry (uint32_t key, size_t interval, size_t capacity)
+std::shared_ptr<nano::stat_entry> nano::stats::get_entry (uint32_t key, size_t interval, size_t capacity)
 {
 	nano::unique_lock<nano::mutex> lock{ stat_mutex };
 	return get_entry_impl (key, interval, capacity);
 }
 
-std::shared_ptr<nano::stat_entry> nano::stat::get_entry_impl (uint32_t key, size_t interval, size_t capacity)
+std::shared_ptr<nano::stat_entry> nano::stats::get_entry_impl (uint32_t key, size_t interval, size_t capacity)
 {
 	std::shared_ptr<nano::stat_entry> res;
 	auto entry = entries.find (key);
@@ -284,18 +288,18 @@ std::shared_ptr<nano::stat_entry> nano::stat::get_entry_impl (uint32_t key, size
 	return res;
 }
 
-std::unique_ptr<nano::stat_log_sink> nano::stat::log_sink_json () const
+std::unique_ptr<nano::stat_log_sink> nano::stats::log_sink_json () const
 {
 	return std::make_unique<json_writer> ();
 }
 
-void nano::stat::log_counters (stat_log_sink & sink)
+void nano::stats::log_counters (stat_log_sink & sink)
 {
 	nano::unique_lock<nano::mutex> lock{ stat_mutex };
 	log_counters_impl (sink);
 }
 
-void nano::stat::log_counters_impl (stat_log_sink & sink)
+void nano::stats::log_counters_impl (stat_log_sink & sink)
 {
 	sink.begin ();
 	if (sink.entries () >= config.log_rotation_count)
@@ -324,13 +328,13 @@ void nano::stat::log_counters_impl (stat_log_sink & sink)
 	sink.finalize ();
 }
 
-void nano::stat::log_samples (stat_log_sink & sink)
+void nano::stats::log_samples (stat_log_sink & sink)
 {
 	nano::unique_lock<nano::mutex> lock{ stat_mutex };
 	log_samples_impl (sink);
 }
 
-void nano::stat::log_samples_impl (stat_log_sink & sink)
+void nano::stats::log_samples_impl (stat_log_sink & sink)
 {
 	sink.begin ();
 	if (sink.entries () >= config.log_rotation_count)
@@ -362,27 +366,27 @@ void nano::stat::log_samples_impl (stat_log_sink & sink)
 	sink.finalize ();
 }
 
-void nano::stat::define_histogram (stat::type type, stat::detail detail, stat::dir dir, std::initializer_list<uint64_t> intervals_a, size_t bin_count_a /*=0*/)
+void nano::stats::define_histogram (stat::type type, stat::detail detail, stat::dir dir, std::initializer_list<uint64_t> intervals_a, size_t bin_count_a /*=0*/)
 {
 	auto entry (get_entry (key_of (type, detail, dir)));
 	entry->histogram = std::make_unique<nano::stat_histogram> (intervals_a, bin_count_a);
 }
 
-void nano::stat::update_histogram (stat::type type, stat::detail detail, stat::dir dir, uint64_t index_a, uint64_t addend_a)
+void nano::stats::update_histogram (stat::type type, stat::detail detail, stat::dir dir, uint64_t index_a, uint64_t addend_a)
 {
 	auto entry (get_entry (key_of (type, detail, dir)));
 	debug_assert (entry->histogram != nullptr);
 	entry->histogram->add (index_a, addend_a);
 }
 
-nano::stat_histogram * nano::stat::get_histogram (stat::type type, stat::detail detail, stat::dir dir)
+nano::stat_histogram * nano::stats::get_histogram (stat::type type, stat::detail detail, stat::dir dir)
 {
 	auto entry (get_entry (key_of (type, detail, dir)));
 	debug_assert (entry->histogram != nullptr);
 	return entry->histogram.get ();
 }
 
-void nano::stat::update (uint32_t key_a, uint64_t value)
+void nano::stats::update (uint32_t key_a, uint64_t value)
 {
 	static file_writer log_count (config.log_counters_filename);
 	static file_writer log_sample (config.log_samples_filename);
@@ -439,705 +443,42 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 	}
 }
 
-std::chrono::seconds nano::stat::last_reset ()
+std::chrono::seconds nano::stats::last_reset ()
 {
 	nano::unique_lock<nano::mutex> lock{ stat_mutex };
 	auto now (std::chrono::steady_clock::now ());
 	return std::chrono::duration_cast<std::chrono::seconds> (now - timestamp);
 }
 
-void nano::stat::stop ()
+void nano::stats::stop ()
 {
 	nano::lock_guard<nano::mutex> guard{ stat_mutex };
 	stopped = true;
 }
 
-void nano::stat::clear ()
+void nano::stats::clear ()
 {
 	nano::unique_lock<nano::mutex> lock{ stat_mutex };
 	entries.clear ();
 	timestamp = std::chrono::steady_clock::now ();
 }
 
-std::string nano::stat::type_to_string (uint32_t key)
+std::string nano::stats::type_to_string (uint32_t key)
 {
 	auto type = static_cast<stat::type> (key >> 16 & 0x000000ff);
-	return type_to_string (type);
+	return std::string{ nano::to_string (type) };
 }
 
-std::string nano::stat::type_to_string (stat::type type)
-{
-	std::string res;
-	switch (type)
-	{
-		case nano::stat::type::ipc:
-			res = "ipc";
-			break;
-		case nano::stat::type::block_pipeline:
-			res = "block_pipeline";
-			break;
-		case nano::stat::type::bootstrap:
-			res = "bootstrap";
-			break;
-		case nano::stat::type::tcp_server:
-			res = "tcp_server";
-			break;
-		case nano::stat::type::error:
-			res = "error";
-			break;
-		case nano::stat::type::http_callback:
-			res = "http_callback";
-			break;
-		case nano::stat::type::ledger:
-			res = "ledger";
-			break;
-		case nano::stat::type::tcp:
-			res = "tcp";
-			break;
-		case nano::stat::type::udp:
-			res = "udp";
-			break;
-		case nano::stat::type::peering:
-			res = "peering";
-			break;
-		case nano::stat::type::rollback:
-			res = "rollback";
-			break;
-		case nano::stat::type::traffic_udp:
-			res = "traffic_udp";
-			break;
-		case nano::stat::type::traffic_tcp:
-			res = "traffic_tcp";
-			break;
-		case nano::stat::type::vote:
-			res = "vote";
-			break;
-		case nano::stat::type::election:
-			res = "election";
-			break;
-		case nano::stat::type::message:
-			res = "message";
-			break;
-		case nano::stat::type::confirmation_observer:
-			res = "observer";
-			break;
-		case nano::stat::type::confirmation_height:
-			res = "confirmation_height";
-			break;
-		case nano::stat::type::drop:
-			res = "drop";
-			break;
-		case nano::stat::type::aggregator:
-			res = "aggregator";
-			break;
-		case nano::stat::type::requests:
-			res = "requests";
-			break;
-		case nano::stat::type::filter:
-			res = "filter";
-			break;
-		case nano::stat::type::telemetry:
-			res = "telemetry";
-			break;
-		case nano::stat::type::vote_generator:
-			res = "vote_generator";
-			break;
-		case nano::stat::type::vote_cache:
-			res = "vote_cache";
-			break;
-		case nano::stat::type::hinting:
-			res = "hinting";
-			break;
-		case nano::stat::type::blockprocessor:
-			res = "blockprocessor";
-			break;
-		case nano::stat::type::bootstrap_server:
-			res = "bootstrap_server";
-			break;
-		case nano::stat::type::active:
-			res = "active";
-			break;
-		case nano::stat::type::backlog:
-			res = "backlog";
-			break;
-	}
-	return res;
-}
-
-std::string nano::stat::detail_to_string (stat::detail detail)
-{
-	std::string res;
-	switch (detail)
-	{
-		case nano::stat::detail::all:
-			res = "all";
-			break;
-		case nano::stat::detail::loop:
-			res = "loop";
-			break;
-		case nano::stat::detail::total:
-			res = "total";
-			break;
-		case nano::stat::detail::queue:
-			res = "queue";
-			break;
-		case nano::stat::detail::overfill:
-			res = "overfill";
-			break;
-		case nano::stat::detail::batch:
-			res = "batch";
-			break;
-		case nano::stat::detail::bad_sender:
-			res = "bad_sender";
-			break;
-		case nano::stat::detail::bulk_pull:
-			res = "bulk_pull";
-			break;
-		case nano::stat::detail::bulk_pull_account:
-			res = "bulk_pull_account";
-			break;
-		case nano::stat::detail::bulk_pull_deserialize_receive_block:
-			res = "bulk_pull_deserialize_receive_block";
-			break;
-		case nano::stat::detail::bulk_pull_error_starting_request:
-			res = "bulk_pull_error_starting_request";
-			break;
-		case nano::stat::detail::bulk_pull_failed_account:
-			res = "bulk_pull_failed_account";
-			break;
-		case nano::stat::detail::bulk_pull_receive_block_failure:
-			res = "bulk_pull_receive_block_failure";
-			break;
-		case nano::stat::detail::bulk_pull_request_failure:
-			res = "bulk_pull_request_failure";
-			break;
-		case nano::stat::detail::bulk_push:
-			res = "bulk_push";
-			break;
-		case nano::stat::detail::active_quorum:
-			res = "observer_confirmation_active_quorum";
-			break;
-		case nano::stat::detail::active_conf_height:
-			res = "observer_confirmation_active_conf_height";
-			break;
-		case nano::stat::detail::inactive_conf_height:
-			res = "observer_confirmation_inactive";
-			break;
-		case nano::stat::detail::error_socket_close:
-			res = "error_socket_close";
-			break;
-		case nano::stat::detail::request_underflow:
-			res = "request_underflow";
-			break;
-		case nano::stat::detail::change:
-			res = "change";
-			break;
-		case nano::stat::detail::confirm_ack:
-			res = "confirm_ack";
-			break;
-		case nano::stat::detail::node_id_handshake:
-			res = "node_id_handshake";
-			break;
-		case nano::stat::detail::confirm_req:
-			res = "confirm_req";
-			break;
-		case nano::stat::detail::fork:
-			res = "fork";
-			break;
-		case nano::stat::detail::old:
-			res = "old";
-			break;
-		case nano::stat::detail::gap_previous:
-			res = "gap_previous";
-			break;
-		case nano::stat::detail::gap_source:
-			res = "gap_source";
-			break;
-		case nano::stat::detail::rollback_failed:
-			res = "rollback_failed";
-			break;
-		case nano::stat::detail::progress:
-			res = "progress";
-			break;
-		case nano::stat::detail::bad_signature:
-			res = "bad_signature";
-			break;
-		case nano::stat::detail::negative_spend:
-			res = "negative_spend";
-			break;
-		case nano::stat::detail::unreceivable:
-			res = "unreceivable";
-			break;
-		case nano::stat::detail::gap_epoch_open_pending:
-			res = "gap_epoch_open_pending";
-			break;
-		case nano::stat::detail::opened_burn_account:
-			res = "opened_burn_account";
-			break;
-		case nano::stat::detail::balance_mismatch:
-			res = "balance_mismatch";
-			break;
-		case nano::stat::detail::representative_mismatch:
-			res = "representative_mismatch";
-			break;
-		case nano::stat::detail::block_position:
-			res = "block_position";
-			break;
-		case nano::stat::detail::frontier_confirmation_failed:
-			res = "frontier_confirmation_failed";
-			break;
-		case nano::stat::detail::frontier_confirmation_successful:
-			res = "frontier_confirmation_successful";
-			break;
-		case nano::stat::detail::frontier_req:
-			res = "frontier_req";
-			break;
-		case nano::stat::detail::handshake:
-			res = "handshake";
-			break;
-		case nano::stat::detail::http_callback:
-			res = "http_callback";
-			break;
-		case nano::stat::detail::initiate:
-			res = "initiate";
-			break;
-		case nano::stat::detail::initiate_legacy_age:
-			res = "initiate_legacy_age";
-			break;
-		case nano::stat::detail::initiate_lazy:
-			res = "initiate_lazy";
-			break;
-		case nano::stat::detail::initiate_wallet_lazy:
-			res = "initiate_wallet_lazy";
-			break;
-		case nano::stat::detail::insufficient_work:
-			res = "insufficient_work";
-			break;
-		case nano::stat::detail::invalid:
-			res = "invalid";
-			break;
-		case nano::stat::detail::invocations:
-			res = "invocations";
-			break;
-		case nano::stat::detail::keepalive:
-			res = "keepalive";
-			break;
-		case nano::stat::detail::not_a_type:
-			res = "not_a_type";
-			break;
-		case nano::stat::detail::open:
-			res = "open";
-			break;
-		case nano::stat::detail::publish:
-			res = "publish";
-			break;
-		case nano::stat::detail::receive:
-			res = "receive";
-			break;
-		case nano::stat::detail::republish_vote:
-			res = "republish_vote";
-			break;
-		case nano::stat::detail::send:
-			res = "send";
-			break;
-		case nano::stat::detail::telemetry_req:
-			res = "telemetry_req";
-			break;
-		case nano::stat::detail::telemetry_ack:
-			res = "telemetry_ack";
-			break;
-		case nano::stat::detail::asc_pull_req:
-			res = "asc_pull_req";
-			break;
-		case nano::stat::detail::asc_pull_ack:
-			res = "asc_pull_ack";
-			break;
-		case nano::stat::detail::state_block:
-			res = "state_block";
-			break;
-		case nano::stat::detail::epoch_block:
-			res = "epoch_block";
-			break;
-		case nano::stat::detail::vote_valid:
-			res = "vote_valid";
-			break;
-		case nano::stat::detail::vote_replay:
-			res = "vote_replay";
-			break;
-		case nano::stat::detail::vote_indeterminate:
-			res = "vote_indeterminate";
-			break;
-		case nano::stat::detail::vote_invalid:
-			res = "vote_invalid";
-			break;
-		case nano::stat::detail::vote_overflow:
-			res = "vote_overflow";
-			break;
-		case nano::stat::detail::vote_new:
-			res = "vote_new";
-			break;
-		case nano::stat::detail::vote_processed:
-			res = "vote_processed";
-			break;
-		case nano::stat::detail::vote_cached:
-			res = "vote_cached";
-			break;
-		case nano::stat::detail::late_block:
-			res = "late_block";
-			break;
-		case nano::stat::detail::late_block_seconds:
-			res = "late_block_seconds";
-			break;
-		case nano::stat::detail::election_start:
-			res = "election_start";
-			break;
-		case nano::stat::detail::election_confirmed_all:
-			res = "election_confirmed_all";
-			break;
-		case nano::stat::detail::election_block_conflict:
-			res = "election_block_conflict";
-			break;
-		case nano::stat::detail::election_difficulty_update:
-			res = "election_difficulty_update";
-			break;
-		case nano::stat::detail::election_drop_expired:
-			res = "election_drop_expired";
-			break;
-		case nano::stat::detail::election_drop_overflow:
-			res = "election_drop_overflow";
-			break;
-		case nano::stat::detail::election_drop_all:
-			res = "election_drop_all";
-			break;
-		case nano::stat::detail::election_restart:
-			res = "election_restart";
-			break;
-		case nano::stat::detail::election_confirmed:
-			res = "election_confirmed";
-			break;
-		case nano::stat::detail::election_not_confirmed:
-			res = "election_not_confirmed";
-			break;
-		case nano::stat::detail::election_hinted_overflow:
-			res = "election_hinted_overflow";
-			break;
-		case nano::stat::detail::election_hinted_started:
-			res = "election_hinted_started";
-			break;
-		case nano::stat::detail::election_hinted_confirmed:
-			res = "election_hinted_confirmed";
-			break;
-		case nano::stat::detail::election_hinted_drop:
-			res = "election_hinted_drop";
-			break;
-		case nano::stat::detail::generate_vote:
-			res = "generate_vote";
-			break;
-		case nano::stat::detail::generate_vote_normal:
-			res = "generate_vote_normal";
-			break;
-		case nano::stat::detail::generate_vote_final:
-			res = "generate_vote_final";
-			break;
-		case nano::stat::detail::blocking:
-			res = "blocking";
-			break;
-		case nano::stat::detail::overflow:
-			res = "overflow";
-			break;
-		case nano::stat::detail::tcp_accept_success:
-			res = "accept_success";
-			break;
-		case nano::stat::detail::tcp_accept_failure:
-			res = "accept_failure";
-			break;
-		case nano::stat::detail::tcp_write_drop:
-			res = "tcp_write_drop";
-			break;
-		case nano::stat::detail::tcp_write_no_socket_drop:
-			res = "tcp_write_no_socket_drop";
-			break;
-		case nano::stat::detail::tcp_excluded:
-			res = "tcp_excluded";
-			break;
-		case nano::stat::detail::tcp_max_per_ip:
-			res = "tcp_max_per_ip";
-			break;
-		case nano::stat::detail::tcp_max_per_subnetwork:
-			res = "tcp_max_per_subnetwork";
-			break;
-		case nano::stat::detail::tcp_silent_connection_drop:
-			res = "tcp_silent_connection_drop";
-			break;
-		case nano::stat::detail::tcp_io_timeout_drop:
-			res = "tcp_io_timeout_drop";
-			break;
-		case nano::stat::detail::tcp_connect_error:
-			res = "tcp_connect_error";
-			break;
-		case nano::stat::detail::tcp_read_error:
-			res = "tcp_read_error";
-			break;
-		case nano::stat::detail::tcp_write_error:
-			res = "tcp_write_error";
-			break;
-		case nano::stat::detail::unreachable_host:
-			res = "unreachable_host";
-			break;
-		case nano::stat::detail::invalid_header:
-			res = "invalid_header";
-			break;
-		case nano::stat::detail::invalid_message_type:
-			res = "invalid_message_type";
-			break;
-		case nano::stat::detail::invalid_keepalive_message:
-			res = "invalid_keepalive_message";
-			break;
-		case nano::stat::detail::invalid_publish_message:
-			res = "invalid_publish_message";
-			break;
-		case nano::stat::detail::invalid_confirm_req_message:
-			res = "invalid_confirm_req_message";
-			break;
-		case nano::stat::detail::invalid_confirm_ack_message:
-			res = "invalid_confirm_ack_message";
-			break;
-		case nano::stat::detail::invalid_node_id_handshake_message:
-			res = "invalid_node_id_handshake_message";
-			break;
-		case nano::stat::detail::invalid_telemetry_req_message:
-			res = "invalid_telemetry_req_message";
-			break;
-		case nano::stat::detail::invalid_telemetry_ack_message:
-			res = "invalid_telemetry_ack_message";
-			break;
-		case nano::stat::detail::invalid_bulk_pull_message:
-			res = "invalid_bulk_pull_message";
-			break;
-		case nano::stat::detail::invalid_bulk_pull_account_message:
-			res = "invalid_bulk_pull_account_message";
-			break;
-		case nano::stat::detail::invalid_frontier_req_message:
-			res = "invalid_frontier_req_message";
-			break;
-		case nano::stat::detail::invalid_asc_pull_req_message:
-			res = "invalid_asc_pull_req_message";
-			break;
-		case nano::stat::detail::invalid_asc_pull_ack_message:
-			res = "invalid_asc_pull_ack_message";
-			break;
-		case nano::stat::detail::message_too_big:
-			res = "message_too_big";
-			break;
-		case nano::stat::detail::outdated_version:
-			res = "outdated_version";
-			break;
-		case nano::stat::detail::udp_max_per_ip:
-			res = "udp_max_per_ip";
-			break;
-		case nano::stat::detail::udp_max_per_subnetwork:
-			res = "udp_max_per_subnetwork";
-			break;
-		case nano::stat::detail::blocks_confirmed:
-			res = "blocks_confirmed";
-			break;
-		case nano::stat::detail::blocks_confirmed_unbounded:
-			res = "blocks_confirmed_unbounded";
-			break;
-		case nano::stat::detail::blocks_confirmed_bounded:
-			res = "blocks_confirmed_bounded";
-			break;
-		case nano::stat::detail::aggregator_accepted:
-			res = "aggregator_accepted";
-			break;
-		case nano::stat::detail::aggregator_dropped:
-			res = "aggregator_dropped";
-			break;
-		case nano::stat::detail::requests_cached_hashes:
-			res = "requests_cached_hashes";
-			break;
-		case nano::stat::detail::requests_generated_hashes:
-			res = "requests_generated_hashes";
-			break;
-		case nano::stat::detail::requests_cached_votes:
-			res = "requests_cached_votes";
-			break;
-		case nano::stat::detail::requests_generated_votes:
-			res = "requests_generated_votes";
-			break;
-		case nano::stat::detail::requests_cached_late_hashes:
-			res = "requests_cached_late_hashes";
-			break;
-		case nano::stat::detail::requests_cached_late_votes:
-			res = "requests_cached_late_votes";
-			break;
-		case nano::stat::detail::requests_cannot_vote:
-			res = "requests_cannot_vote";
-			break;
-		case nano::stat::detail::requests_unknown:
-			res = "requests_unknown";
-			break;
-		case nano::stat::detail::duplicate_publish:
-			res = "duplicate_publish";
-			break;
-		case nano::stat::detail::different_genesis_hash:
-			res = "different_genesis_hash";
-			break;
-		case nano::stat::detail::invalid_signature:
-			res = "invalid_signature";
-			break;
-		case nano::stat::detail::node_id_mismatch:
-			res = "node_id_mismatch";
-			break;
-		case nano::stat::detail::request_within_protection_cache_zone:
-			res = "request_within_protection_cache_zone";
-			break;
-		case nano::stat::detail::no_response_received:
-			res = "no_response_received";
-			break;
-		case nano::stat::detail::unsolicited_telemetry_ack:
-			res = "unsolicited_telemetry_ack";
-			break;
-		case nano::stat::detail::failed_send_telemetry_req:
-			res = "failed_send_telemetry_req";
-			break;
-		case nano::stat::detail::generator_broadcasts:
-			res = "generator_broadcasts";
-			break;
-		case nano::stat::detail::generator_replies:
-			res = "generator_replies";
-			break;
-		case nano::stat::detail::generator_replies_discarded:
-			res = "generator_replies_discarded";
-			break;
-		case nano::stat::detail::generator_spacing:
-			res = "generator_spacing";
-			break;
-		case nano::stat::detail::invalid_network:
-			res = "invalid_network";
-			break;
-		case nano::stat::detail::hinted:
-			res = "hinted";
-			break;
-		case nano::stat::detail::insert_failed:
-			res = "insert_failed";
-			break;
-		case nano::stat::detail::missing_block:
-			res = "missing_block";
-			break;
-		case nano::stat::detail::response:
-			res = "response";
-			break;
-		case nano::stat::detail::write_drop:
-			res = "write_drop";
-			break;
-		case nano::stat::detail::write_error:
-			res = "write_error";
-			break;
-		case nano::stat::detail::blocks:
-			res = "blocks";
-			break;
-		case nano::stat::detail::drop:
-			res = "drop";
-			break;
-		case nano::stat::detail::bad_count:
-			res = "bad_count";
-			break;
-		case nano::stat::detail::response_blocks:
-			res = "response_blocks";
-			break;
-		case nano::stat::detail::response_account_info:
-			res = "response_account_info";
-			break;
-		case nano::stat::detail::channel_full:
-			res = "channel_full";
-			break;
-		case nano::stat::detail::account_state_filter_pass:
-			res = "account_state_filter_pass";
-			break;
-		case nano::stat::detail::account_state_filter_reject_existing:
-			res = "account_state_filter_reject_existing";
-			break;
-		case nano::stat::detail::account_state_filter_reject_gap:
-			res = "account_state_filter_reject_gap";
-			break;
-		case nano::stat::detail::block_position_filter_pass:
-			res = "block_position_filter_pass";
-			break;
-		case nano::stat::detail::block_position_filter_reject:
-			res = "block_position_filter_reject";
-			break;
-		case nano::stat::detail::link_filter_hash:
-			res = "link_filter_hash";
-			break;
-		case nano::stat::detail::link_filter_account:
-			res = "link_filter_account";
-			break;
-		case nano::stat::detail::link_filter_noop:
-			res = "link_filter_noop";
-			break;
-		case nano::stat::detail::link_filter_epoch:
-			res = "link_filter_epoch";
-			break;
-		case nano::stat::detail::metastable_filter_pass:
-			res = "metastable_filter_pass";
-			break;
-		case nano::stat::detail::metastable_filter_reject:
-			res = "metastable_filter_reject";
-			break;
-		case nano::stat::detail::receive_restrictions_filter_pass:
-			res = "receive_restrictions_filter_pass";
-			break;
-		case nano::stat::detail::receive_restrictions_filter_reject_balance:
-			res = "receive_restrictions_filter_reject_balance";
-			break;
-		case nano::stat::detail::receive_restrictions_filter_reject_pending:
-			res = "receive_restrictions_filter_reject_pending";
-			break;
-		case nano::stat::detail::reserved_account_filter_pass:
-			res = "reserved_account_filter_pass";
-			break;
-		case nano::stat::detail::reserved_account_filter_reject:
-			res = "reserved_account_filter_reject";
-			break;
-		case nano::stat::detail::send_restrictions_filter_pass:
-			res = "send_restrictions_filter_pass";
-			break;
-		case nano::stat::detail::send_restrictions_filter_reject:
-			res = "send_restrictions_filter_reject";
-			break;
-		case nano::stat::detail::activated:
-			res = "activated";
-			break;
-	}
-	return res;
-}
-
-std::string nano::stat::detail_to_string (uint32_t key)
+std::string nano::stats::detail_to_string (uint32_t key)
 {
 	auto detail = static_cast<stat::detail> (key >> 8 & 0x000000ff);
-	return detail_to_string (detail);
+	return std::string{ nano::to_string (detail) };
 }
 
-std::string nano::stat::dir_to_string (uint32_t key)
+std::string nano::stats::dir_to_string (uint32_t key)
 {
 	auto dir = static_cast<stat::dir> (key & 0x000000ff);
-	return dir_to_string (dir);
-}
-
-std::string nano::stat::dir_to_string (dir dir)
-{
-	std::string res;
-	switch (dir)
-	{
-		case nano::stat::dir::in:
-			res = "in";
-			break;
-		case nano::stat::dir::out:
-			res = "out";
-			break;
-	}
-	return res;
+	return std::string{ nano::to_string (dir) };
 }
 
 nano::stat_datapoint::stat_datapoint (stat_datapoint const & other_a)

@@ -38,7 +38,7 @@ public:
 	class stat_counter final : public counter
 	{
 	public:
-		explicit stat_counter (nano::stat & stats, nano::stat::type type, nano::stat::detail detail, nano::stat::dir dir);
+		stat_counter (nano::stats & stats, nano::stat::type type, nano::stat::detail detail, nano::stat::dir dir);
 
 		uint64_t count () override;
 		std::string name () override;
@@ -50,7 +50,7 @@ public:
 
 		uint64_t last_count{ 0 };
 
-		nano::stat & stats;
+		nano::stats & stats;
 	};
 
 public:

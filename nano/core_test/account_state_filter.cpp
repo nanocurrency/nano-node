@@ -30,7 +30,7 @@ public:
 			reject_existing.push_back (context);
 		};
 	}
-	nano::stat stats;
+	nano::stats stats;
 	nano::logger_mt logger;
 	std::shared_ptr<nano::store> store;
 	nano::ledger ledger;

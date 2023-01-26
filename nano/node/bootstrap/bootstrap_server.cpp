@@ -4,7 +4,7 @@
 #include <nano/secure/store.hpp>
 
 // TODO: Make threads configurable
-nano::bootstrap_server::bootstrap_server (nano::store & store_a, nano::ledger & ledger_a, nano::network_constants const & network_constants_a, nano::stat & stats_a) :
+nano::bootstrap_server::bootstrap_server (nano::store & store_a, nano::ledger & ledger_a, nano::network_constants const & network_constants_a, nano::stats & stats_a) :
 	store{ store_a },
 	ledger{ ledger_a },
 	network_constants{ network_constants_a },
@@ -97,7 +97,7 @@ void nano::bootstrap_server::respond (nano::asc_pull_ack & response, std::shared
 	// Increase relevant stats depending on payload type
 	struct stat_visitor
 	{
-		nano::stat & stats;
+		nano::stats & stats;
 
 		void operator() (nano::empty_payload const &)
 		{

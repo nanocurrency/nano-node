@@ -2,7 +2,7 @@
 #include <nano/node/hinted_scheduler.hpp>
 #include <nano/node/node.hpp>
 
-nano::hinted_scheduler::hinted_scheduler (config const & config_a, nano::node & node_a, nano::vote_cache & inactive_vote_cache_a, nano::active_transactions & active_a, nano::online_reps & online_reps_a, nano::stat & stats_a) :
+nano::hinted_scheduler::hinted_scheduler (config const & config_a, nano::node & node_a, nano::vote_cache & inactive_vote_cache_a, nano::active_transactions & active_a, nano::online_reps & online_reps_a, nano::stats & stats_a) :
 	config_m{ config_a },
 	node{ node_a },
 	inactive_vote_cache{ inactive_vote_cache_a },
