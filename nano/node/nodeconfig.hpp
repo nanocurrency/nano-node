@@ -45,7 +45,7 @@ public:
 	nano::account random_representative () const;
 	nano::network_params network_params;
 	std::optional<uint16_t> peering_port{};
-	nano::optimistic_scheduler_config optimistic_scheduler_config;
+	nano::optimistic_scheduler_config optimistic_scheduler;
 	nano::logging logging;
 	std::vector<std::pair<std::string, uint16_t>> work_peers;
 	std::vector<std::pair<std::string, uint16_t>> secondary_work_peers{ { "127.0.0.1", 8076 } }; /* Default of nano-pow-server */

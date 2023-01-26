@@ -195,7 +195,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	generator{ config, ledger, wallets, vote_processor, history, network, stats, /* non-final */ false },
 	final_generator{ config, ledger, wallets, vote_processor, history, network, stats, /* final */ true },
 	active (*this, confirmation_height_processor),
-	optimistic{ config.optimistic_scheduler_config, *this, active, stats },
+	optimistic{ config.optimistic_scheduler, *this, active, stats },
 	scheduler{ *this },
 	hinting{ nano::nodeconfig_to_hinted_scheduler_config (config), *this, inactive_vote_cache, active, online_reps, stats },
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
