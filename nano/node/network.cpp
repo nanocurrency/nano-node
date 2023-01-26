@@ -824,7 +824,7 @@ void nano::network::erase (nano::transport::channel const & channel_a)
 	}
 }
 
-nano::message_buffer_manager::message_buffer_manager (nano::stat & stats_a, std::size_t size, std::size_t count) :
+nano::message_buffer_manager::message_buffer_manager (nano::stats & stats_a, std::size_t size, std::size_t count) :
 	stats (stats_a),
 	free (count),
 	full (count),

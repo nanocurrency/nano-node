@@ -745,7 +745,7 @@ TEST (node, port_mapping)
 
 TEST (message_buffer_manager, one_buffer)
 {
-	nano::stat stats;
+	nano::stats stats;
 	nano::message_buffer_manager buffer (stats, 512, 1);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
@@ -759,7 +759,7 @@ TEST (message_buffer_manager, one_buffer)
 
 TEST (message_buffer_manager, two_buffers)
 {
-	nano::stat stats;
+	nano::stats stats;
 	nano::message_buffer_manager buffer (stats, 512, 2);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
@@ -782,7 +782,7 @@ TEST (message_buffer_manager, two_buffers)
 
 TEST (message_buffer_manager, one_overflow)
 {
-	nano::stat stats;
+	nano::stats stats;
 	nano::message_buffer_manager buffer (stats, 512, 1);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
@@ -793,7 +793,7 @@ TEST (message_buffer_manager, one_overflow)
 
 TEST (message_buffer_manager, two_overflow)
 {
-	nano::stat stats;
+	nano::stats stats;
 	nano::message_buffer_manager buffer (stats, 512, 2);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
@@ -810,7 +810,7 @@ TEST (message_buffer_manager, two_overflow)
 
 TEST (message_buffer_manager, one_buffer_multithreaded)
 {
-	nano::stat stats;
+	nano::stats stats;
 	nano::message_buffer_manager buffer (stats, 512, 1);
 	boost::thread thread ([&buffer] () {
 		auto done (false);
@@ -835,7 +835,7 @@ TEST (message_buffer_manager, one_buffer_multithreaded)
 
 TEST (message_buffer_manager, many_buffers_multithreaded)
 {
-	nano::stat stats;
+	nano::stats stats;
 	nano::message_buffer_manager buffer (stats, 512, 16);
 	std::vector<boost::thread> threads;
 	for (auto i (0); i < 4; ++i)
@@ -883,7 +883,7 @@ TEST (message_buffer_manager, many_buffers_multithreaded)
 
 TEST (message_buffer_manager, stats)
 {
-	nano::stat stats;
+	nano::stats stats;
 	nano::message_buffer_manager buffer (stats, 512, 1);
 	auto buffer1 (buffer.allocate ());
 	buffer.enqueue (buffer1);

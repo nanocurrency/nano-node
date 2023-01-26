@@ -162,7 +162,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (na
 	return composite;
 }
 
-nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stat & stats_a, bool is_final_a) :
+nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stats & stats_a, bool is_final_a) :
 	config (config_a),
 	ledger (ledger_a),
 	wallets (wallets_a),

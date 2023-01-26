@@ -17,7 +17,7 @@
 
 using namespace std::chrono_literals;
 
-nano::telemetry::telemetry (const config & config_a, nano::node & node_a, nano::network & network_a, nano::node_observers & observers_a, nano::network_params & network_params_a, nano::stat & stats_a) :
+nano::telemetry::telemetry (const config & config_a, nano::node & node_a, nano::network & network_a, nano::node_observers & observers_a, nano::network_params & network_params_a, nano::stats & stats_a) :
 	config_m{ config_a },
 	node{ node_a },
 	network{ network_a },

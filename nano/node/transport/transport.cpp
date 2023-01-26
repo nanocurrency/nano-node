@@ -71,7 +71,7 @@ void nano::transport::channel::send (nano::message & message_a, std::function<vo
 		node.stats.inc (nano::stat::type::drop, detail, nano::stat::dir::out);
 		if (node.config.logging.network_packet_logging ())
 		{
-			node.logger.always_log (boost::str (boost::format ("%1% of size %2% dropped") % node.stats.detail_to_string (detail) % buffer.size ()));
+			node.logger.always_log (boost::str (boost::format ("%1% of size %2% dropped") % nano::to_string (detail) % buffer.size ()));
 		}
 	}
 }

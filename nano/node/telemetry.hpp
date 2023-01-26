@@ -23,7 +23,7 @@ namespace nano
 class node;
 class network;
 class node_observers;
-class stat;
+class stats;
 class ledger;
 class thread_pool;
 class unchecked_map;
@@ -57,7 +57,7 @@ public:
 	};
 
 public:
-	telemetry (config const &, nano::node &, nano::network &, nano::node_observers &, nano::network_params &, nano::stat &);
+	telemetry (config const &, nano::node &, nano::network &, nano::node_observers &, nano::network_params &, nano::stats &);
 	~telemetry ();
 
 	void start ();
@@ -93,7 +93,7 @@ private: // Dependencies
 	nano::network & network;
 	nano::node_observers & observers;
 	nano::network_params & network_params;
-	nano::stat & stats;
+	nano::stats & stats;
 
 	const config config_m;
 
