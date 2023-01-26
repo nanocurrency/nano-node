@@ -40,6 +40,8 @@ nano::account nano::block_pipeline::context::account () const
 			debug_assert (false);
 			break;
 	}
+	// std::unreachable (); c++23
+	return 1; // Return an account that cannot be signed for.
 }
 
 nano::block_hash nano::block_pipeline::context::source () const
@@ -58,6 +60,8 @@ nano::block_hash nano::block_pipeline::context::source () const
 		case nano::block_type::invalid:
 			return 0;
 	}
+	debug_assert (false);
+	return 0;
 }
 
 nano::account nano::block_pipeline::context::signer (nano::epochs const & epochs) const
@@ -95,6 +99,8 @@ nano::account nano::block_pipeline::context::signer (nano::epochs const & epochs
 			debug_assert (false);
 			break;
 	}
+	// std::unreachable (); c++23
+	return 1; // Return an account that cannot be signed for.
 }
 
 bool nano::block_pipeline::context::gap_previous () const
