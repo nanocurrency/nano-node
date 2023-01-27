@@ -1314,12 +1314,11 @@ void nano::node::receive_confirmed (nano::transaction const & block_transaction_
 		if (wallet->store.exists (wallet_transaction, destination_a))
 		{
 			nano::account representative;
-			nano::pending_info pending;
 			representative = wallet->store.representative (wallet_transaction);
-			auto error (store.pending.get (block_transaction_a, nano::pending_key (destination_a, hash_a), pending));
-			if (!error)
+			auto pending = ledger.pending_info (block_transaction_a, nano::pending_key (destination_a, hash_a));
+			if (pending)
 			{
-				auto amount (pending.amount.number ());
+				auto amount (pending->amount.number ());
 				wallet->receive_async (hash_a, representative, amount, destination_a, [] (std::shared_ptr<nano::block> const &) {});
 			}
 			else
