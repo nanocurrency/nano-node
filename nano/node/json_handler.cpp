@@ -2290,7 +2290,7 @@ void nano::json_handler::epoch_upgrade ()
 		{
 			if (nano::pub_key (prv) == node.ledger.epoch_signer (node.ledger.epoch_link (epoch)))
 			{
-				if (!node.epoch_upgrader (prv, epoch, count_limit, threads))
+				if (!node.epoch_upgrader.start (prv, epoch, count_limit, threads))
 				{
 					response_l.put ("started", "1");
 				}

@@ -15,6 +15,7 @@
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/election_scheduler.hpp>
+#include <nano/node/epoch_upgrader.hpp>
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/hinted_scheduler.hpp>
 #include <nano/node/network.hpp>
@@ -126,7 +127,6 @@ public:
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;
 	bool init_error () const;
-	bool epoch_upgrader (nano::raw_key const &, nano::epoch, uint64_t, uint64_t);
 	void set_bandwidth_params (std::size_t limit, double ratio);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
 	uint64_t get_confirmation_height (nano::transaction const &, nano::account &);
@@ -185,6 +185,7 @@ public:
 	nano::wallets wallets;
 	nano::backlog_population backlog;
 	nano::websocket_server websocket;
+	nano::epoch_upgrader epoch_upgrader;
 
 	std::chrono::steady_clock::time_point const startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
@@ -213,8 +214,6 @@ public: // Testing convenience functions
 
 private:
 	void long_inactivity_cleanup ();
-	void epoch_upgrader_impl (nano::raw_key const &, nano::epoch, uint64_t, uint64_t);
-	nano::locked<std::future<void>> epoch_upgrading;
 };
 
 nano::keypair load_or_create_node_id (boost::filesystem::path const & application_path, nano::logger_mt & logger);
