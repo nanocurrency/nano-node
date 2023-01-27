@@ -802,6 +802,16 @@ nano::uint128_t nano::ledger::account_receivable (nano::transaction const & tran
 	return result;
 }
 
+std::optional<nano::pending_info> nano::ledger::pending_info (nano::transaction const & transaction, nano::pending_key const & key) const
+{
+	nano::pending_info result;
+	if (!store.pending.get (transaction, key, result))
+	{
+		return result;
+	}
+	return std::nullopt;
+}
+
 nano::process_return nano::ledger::process (nano::write_transaction const & transaction_a, nano::block & block_a)
 {
 	debug_assert (!constants.work.validate_entry (block_a) || constants.genesis == nano::dev::genesis);

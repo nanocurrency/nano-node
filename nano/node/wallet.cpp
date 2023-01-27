@@ -837,10 +837,10 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 	{
 		auto block_transaction (wallets.node.ledger.store.tx_begin_read ());
 		auto transaction (wallets.tx_begin_read ());
-		nano::pending_info pending_info;
 		if (wallets.node.ledger.block_or_pruned_exists (block_transaction, send_hash_a))
 		{
-			if (!wallets.node.ledger.store.pending.get (block_transaction, nano::pending_key (account_a, send_hash_a), pending_info))
+			auto pending_info = wallets.node.ledger.pending_info (block_transaction, nano::pending_key (account_a, send_hash_a));
+			if (pending_info)
 			{
 				nano::raw_key prv;
 				if (!store.fetch (transaction, account_a, prv))
@@ -852,13 +852,13 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 					auto info = wallets.node.ledger.account_info (block_transaction, account_a);
 					if (info)
 					{
-						block = std::make_shared<nano::state_block> (account_a, info->head, info->representative, info->balance.number () + pending_info.amount.number (), send_hash_a, prv, account_a, work_a);
-						details.epoch = std::max (info->epoch (), pending_info.epoch);
+						block = std::make_shared<nano::state_block> (account_a, info->head, info->representative, info->balance.number () + pending_info->amount.number (), send_hash_a, prv, account_a, work_a);
+						details.epoch = std::max (info->epoch (), pending_info->epoch);
 					}
 					else
 					{
-						block = std::make_shared<nano::state_block> (account_a, 0, representative_a, pending_info.amount, reinterpret_cast<nano::link const &> (send_hash_a), prv, account_a, work_a);
-						details.epoch = pending_info.epoch;
+						block = std::make_shared<nano::state_block> (account_a, 0, representative_a, pending_info->amount, reinterpret_cast<nano::link const &> (send_hash_a), prv, account_a, work_a);
+						details.epoch = pending_info->epoch;
 					}
 				}
 				else

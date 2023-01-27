@@ -6925,9 +6925,9 @@ TEST (rpc, epoch_upgrade)
 	{
 		// Check pending entry
 		auto transaction (node->store.tx_begin_read ());
-		nano::pending_info info;
-		ASSERT_FALSE (node->store.pending.get (transaction, nano::pending_key (key3.pub, send7->hash ()), info));
-		ASSERT_EQ (nano::epoch::epoch_1, info.epoch);
+		auto info = node->ledger.pending_info (transaction, nano::pending_key (key3.pub, send7->hash ()));
+		ASSERT_TRUE (info);
+		ASSERT_EQ (nano::epoch::epoch_1, info->epoch);
 	}
 
 	rpc_ctx.io_scope->renew ();
@@ -7091,9 +7091,9 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	{
 		// Check pending entry
 		auto transaction (node->store.tx_begin_read ());
-		nano::pending_info info;
-		ASSERT_FALSE (node->store.pending.get (transaction, nano::pending_key (key3.pub, send7->hash ()), info));
-		ASSERT_EQ (nano::epoch::epoch_1, info.epoch);
+		auto info = node->ledger.pending_info (transaction, nano::pending_key (key3.pub, send7->hash ()));
+		ASSERT_TRUE (info);
+		ASSERT_EQ (nano::epoch::epoch_1, info->epoch);
 	}
 
 	rpc_ctx.io_scope->renew ();
