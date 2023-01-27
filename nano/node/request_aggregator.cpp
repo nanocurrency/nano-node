@@ -242,11 +242,10 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 				// Search for account root
 				if (successor.is_zero ())
 				{
-					nano::account_info info;
-					auto error (ledger.store.account.get (transaction, root.as_account (), info));
-					if (!error)
+					auto info = ledger.account_info (transaction, root.as_account ());
+					if (info)
 					{
-						successor = info.open_block;
+						successor = info->open_block;
 					}
 				}
 				if (!successor.is_zero ())

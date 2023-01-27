@@ -1,6 +1,7 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/transport/inproc.hpp>
+#include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -1409,94 +1410,6 @@ TEST (active_transactions, fifo)
 	ASSERT_TIMELY (1s, node.active.election (receive2->qualified_root ()) != nullptr);
 }
 
-namespace
-{
-/*
- * Sends `amount` raw from genesis chain into a new account and makes it a representative
- */
-nano::keypair setup_rep (nano::test::system & system, nano::node & node, nano::uint128_t const amount)
-{
-	auto latest = node.latest (nano::dev::genesis_key.pub);
-	auto balance = node.balance (nano::dev::genesis_key.pub);
-
-	nano::keypair key;
-	nano::block_builder builder;
-
-	auto send = builder
-				.send ()
-				.previous (latest)
-				.destination (key.pub)
-				.balance (balance - amount)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*system.work.generate (latest))
-				.build_shared ();
-
-	auto open = builder
-				.open ()
-				.source (send->hash ())
-				.representative (key.pub)
-				.account (key.pub)
-				.sign (key.prv, key.pub)
-				.work (*system.work.generate (key.pub))
-				.build_shared ();
-
-	EXPECT_TRUE (nano::test::process (node, { send, open }));
-	EXPECT_TIMELY (5s, nano::test::confirm (node, { send, open }));
-	EXPECT_TIMELY (5s, nano::test::confirmed (node, { send, open }));
-
-	return key;
-}
-
-/*
- * Creates `count` 1 raw sends from genesis to unique accounts and corresponding open blocks.
- * The genesis chain is then confirmed, but leaves open blocks unconfirmed.
- */
-std::vector<std::shared_ptr<nano::block>> setup_independent_blocks (nano::test::system & system, nano::node & node, int count)
-{
-	std::vector<std::shared_ptr<nano::block>> blocks;
-
-	auto latest = node.latest (nano::dev::genesis_key.pub);
-	auto balance = node.balance (nano::dev::genesis_key.pub);
-
-	for (int n = 0; n < count; ++n)
-	{
-		nano::keypair key;
-		nano::block_builder builder;
-
-		balance -= 1;
-		auto send = builder
-					.send ()
-					.previous (latest)
-					.destination (key.pub)
-					.balance (balance)
-					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					.work (*system.work.generate (latest))
-					.build_shared ();
-		latest = send->hash ();
-
-		auto open = builder
-					.open ()
-					.source (send->hash ())
-					.representative (key.pub)
-					.account (key.pub)
-					.sign (key.prv, key.pub)
-					.work (*system.work.generate (key.pub))
-					.build_shared ();
-
-		EXPECT_TRUE (nano::test::process (node, { send, open }));
-		EXPECT_TIMELY (5s, nano::test::exists (node, { send, open })); // Ensure blocks are in the ledger
-
-		blocks.push_back (open);
-	}
-
-	// Confirm whole genesis chain at once
-	EXPECT_TIMELY (5s, nano::test::confirm (node, { latest }));
-	EXPECT_TIMELY (5s, nano::test::confirmed (node, { latest }));
-
-	return blocks;
-}
-}
-
 /*
  * Ensures we limit the number of vote hinted elections in AEC
  */
@@ -1513,10 +1426,10 @@ TEST (active_transactions, limit_vote_hinted_elections)
 	// Setup representatives
 	// Enough weight to trigger election hinting but not enough to confirm block on its own
 	const auto amount = ((node.online_reps.trended () / 100) * node.config.election_hint_weight_percent) + 1000 * nano::Gxrb_ratio;
-	nano::keypair rep1 = setup_rep (system, node, amount / 2);
-	nano::keypair rep2 = setup_rep (system, node, amount / 2);
+	nano::keypair rep1 = nano::test::setup_rep (system, node, amount / 2);
+	nano::keypair rep2 = nano::test::setup_rep (system, node, amount / 2);
 
-	auto blocks = setup_independent_blocks (system, node, 2);
+	auto blocks = nano::test::setup_independent_blocks (system, node, 2);
 	auto open0 = blocks[0];
 	auto open1 = blocks[1];
 
@@ -1575,7 +1488,7 @@ TEST (active_transactions, allow_limited_overflow)
 	config.active_elections_hinted_limit_percentage = 20; // Should give us a limit of 4 hinted elections
 	auto & node = *system.add_node (config);
 
-	auto blocks = setup_independent_blocks (system, node, aec_limit * 4);
+	auto blocks = nano::test::setup_independent_blocks (system, node, aec_limit * 4);
 
 	// Split blocks in two halves
 	std::vector<std::shared_ptr<nano::block>> blocks1 (blocks.begin (), blocks.begin () + blocks.size () / 2);
@@ -1624,7 +1537,7 @@ TEST (active_transactions, allow_limited_overflow_adapt)
 	config.active_elections_hinted_limit_percentage = 20; // Should give us a limit of 4 hinted elections
 	auto & node = *system.add_node (config);
 
-	auto blocks = setup_independent_blocks (system, node, aec_limit * 4);
+	auto blocks = nano::test::setup_independent_blocks (system, node, aec_limit * 4);
 
 	// Split blocks in two halves
 	std::vector<std::shared_ptr<nano::block>> blocks1 (blocks.begin (), blocks.begin () + blocks.size () / 2);

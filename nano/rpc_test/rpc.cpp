@@ -730,10 +730,10 @@ TEST (rpc, wallet_representative_set_force)
 	while (representative != key.pub)
 	{
 		auto transaction (node->store.tx_begin_read ());
-		nano::account_info info;
-		if (!node->store.account.get (transaction, nano::dev::genesis_key.pub, info))
+		auto info = node->ledger.account_info (transaction, nano::dev::genesis_key.pub);
+		if (info)
 		{
-			representative = info.representative;
+			representative = info->representative;
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -7195,9 +7195,9 @@ TEST (rpc, receive)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto receive_text (response.get<std::string> ("block"));
-		nano::account_info info;
-		ASSERT_FALSE (node->store.account.get (node->store.tx_begin_read (), key1.pub, info));
-		ASSERT_EQ (info.head, nano::block_hash{ receive_text });
+		auto info = node->ledger.account_info (node->store.tx_begin_read (), key1.pub);
+		ASSERT_TRUE (info);
+		ASSERT_EQ (info->head, nano::block_hash{ receive_text });
 	}
 	// Trying to receive the same block should fail with unreceivable
 	{
@@ -7236,11 +7236,11 @@ TEST (rpc, receive_unopened)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto receive_text (response.get<std::string> ("block"));
-		nano::account_info info;
-		ASSERT_FALSE (node->store.account.get (node->store.tx_begin_read (), key1.pub, info));
-		ASSERT_EQ (info.head, info.open_block);
-		ASSERT_EQ (info.head.to_string (), receive_text);
-		ASSERT_EQ (info.representative, nano::dev::genesis_key.pub);
+		auto info = node->ledger.account_info (node->store.tx_begin_read (), key1.pub);
+		ASSERT_TRUE (info);
+		ASSERT_EQ (info->head, info->open_block);
+		ASSERT_EQ (info->head.to_string (), receive_text);
+		ASSERT_EQ (info->representative, nano::dev::genesis_key.pub);
 	}
 	rpc_ctx.io_scope->reset ();
 
@@ -7260,11 +7260,11 @@ TEST (rpc, receive_unopened)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto receive_text (response.get<std::string> ("block"));
-		nano::account_info info;
-		ASSERT_FALSE (node->store.account.get (node->store.tx_begin_read (), key2.pub, info));
-		ASSERT_EQ (info.head, info.open_block);
-		ASSERT_EQ (info.head.to_string (), receive_text);
-		ASSERT_EQ (info.representative, rep);
+		auto info = node->ledger.account_info (node->store.tx_begin_read (), key2.pub);
+		ASSERT_TRUE (info);
+		ASSERT_EQ (info->head, info->open_block);
+		ASSERT_EQ (info->head.to_string (), receive_text);
+		ASSERT_EQ (info->representative, rep);
 	}
 }
 
@@ -7345,9 +7345,9 @@ TEST (rpc, receive_pruned)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto receive_text (response.get<std::string> ("block"));
-		nano::account_info info;
-		ASSERT_FALSE (node2->store.account.get (node2->store.tx_begin_read (), key1.pub, info));
-		ASSERT_EQ (info.head, nano::block_hash{ receive_text });
+		auto info = node2->ledger.account_info (node2->store.tx_begin_read (), key1.pub);
+		ASSERT_TRUE (info);
+		ASSERT_EQ (info->head, nano::block_hash{ receive_text });
 	}
 	// Trying to receive the same block should fail with unreceivable
 	{

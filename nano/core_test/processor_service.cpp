@@ -17,17 +17,17 @@ TEST (processor_service, bad_send_signature)
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache, ledger.constants);
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
-	nano::account_info info1;
-	ASSERT_FALSE (store->account.get (transaction, nano::dev::genesis_key.pub, info1));
+	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	ASSERT_TRUE (info1);
 	nano::keypair key2;
 	nano::block_builder builder;
 	auto send = builder
 				.send ()
-				.previous (info1.head)
+				.previous (info1->head)
 				.destination (nano::dev::genesis_key.pub)
 				.balance (50)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*pool.generate (info1.head))
+				.work (*pool.generate (info1->head))
 				.build ();
 	send->signature.bytes[32] ^= 0x1;
 	ASSERT_EQ (nano::process_result::bad_signature, ledger.process (transaction, *send).code);
@@ -43,21 +43,21 @@ TEST (processor_service, bad_receive_signature)
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache, ledger.constants);
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
-	nano::account_info info1;
-	ASSERT_FALSE (store->account.get (transaction, nano::dev::genesis_key.pub, info1));
+	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	ASSERT_TRUE (info1);
 	nano::block_builder builder;
 	auto send = builder
 				.send ()
-				.previous (info1.head)
+				.previous (info1->head)
 				.destination (nano::dev::genesis_key.pub)
 				.balance (50)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*pool.generate (info1.head))
+				.work (*pool.generate (info1->head))
 				.build ();
 	nano::block_hash hash1 (send->hash ());
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
-	nano::account_info info2;
-	ASSERT_FALSE (store->account.get (transaction, nano::dev::genesis_key.pub, info2));
+	auto info2 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	ASSERT_TRUE (info2);
 	auto receive = builder
 				   .receive ()
 				   .previous (hash1)

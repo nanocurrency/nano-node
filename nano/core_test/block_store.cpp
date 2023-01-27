@@ -1677,8 +1677,8 @@ namespace lmdb
 			nano::ledger ledger (store, stats, nano::dev::constants);
 			auto transaction (store.tx_begin_write ());
 			store.initialize (transaction, ledger.cache, nano::dev::constants);
-			nano::account_info account_info;
-			ASSERT_FALSE (store.account.get (transaction, nano::dev::genesis->account (), account_info));
+			auto account_info = ledger.account_info (transaction, nano::dev::genesis->account ());
+			ASSERT_TRUE (account_info);
 			nano::confirmation_height_info confirmation_height_info;
 			ASSERT_FALSE (store.confirmation_height.get (transaction, nano::dev::genesis->account (),
 			confirmation_height_info));

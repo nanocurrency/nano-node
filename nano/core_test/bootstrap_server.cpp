@@ -1,3 +1,4 @@
+#include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -9,98 +10,6 @@ using namespace std::chrono_literals;
 
 namespace
 {
-using block_list_t = std::vector<std::shared_ptr<nano::block>>;
-
-/**
- * Creates `block_count` random send blocks in an account chain
- */
-block_list_t setup_chain (nano::test::system & system, nano::node & node, nano::keypair key, int block_count)
-{
-	auto latest = node.latest (key.pub);
-	auto balance = node.balance (key.pub);
-
-	std::vector<std::shared_ptr<nano::block>> blocks;
-	for (int n = 0; n < block_count; ++n)
-	{
-		nano::keypair throwaway;
-		nano::block_builder builder;
-
-		balance -= 1;
-		auto send = builder
-					.send ()
-					.previous (latest)
-					.destination (throwaway.pub)
-					.balance (balance)
-					.sign (key.prv, key.pub)
-					.work (*system.work.generate (latest))
-					.build_shared ();
-
-		latest = send->hash ();
-		blocks.push_back (send);
-	}
-
-	EXPECT_TRUE (nano::test::process (node, blocks));
-	// Confirm whole chain at once
-	EXPECT_TIMELY (5s, nano::test::confirm (node, { blocks.back () }));
-	EXPECT_TIMELY (5s, nano::test::confirmed (node, blocks));
-
-	return blocks;
-}
-
-/**
- * Creates `count` account chains, each with `block_count` blocks
- */
-std::vector<std::pair<nano::account, block_list_t>> setup_chains (nano::test::system & system, nano::node & node, int count, int block_count)
-{
-	auto latest = node.latest (nano::dev::genesis_key.pub);
-	auto balance = node.balance (nano::dev::genesis_key.pub);
-
-	std::vector<std::pair<nano::account, block_list_t>> chains;
-	for (int n = 0; n < count; ++n)
-	{
-		nano::keypair key;
-		nano::block_builder builder;
-
-		balance -= block_count * 2; // Send enough to later create `block_count` blocks
-		auto send = builder
-					.send ()
-					.previous (latest)
-					.destination (key.pub)
-					.balance (balance)
-					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					.work (*system.work.generate (latest))
-					.build_shared ();
-
-		auto open = builder
-					.open ()
-					.source (send->hash ())
-					.representative (key.pub)
-					.account (key.pub)
-					.sign (key.prv, key.pub)
-					.work (*system.work.generate (key.pub))
-					.build_shared ();
-
-		latest = send->hash ();
-
-		// Ensure blocks are in the ledger and confirmed
-		EXPECT_TRUE (nano::test::process (node, { send, open }));
-		EXPECT_TIMELY (5s, nano::test::confirm (node, { send, open }));
-		EXPECT_TIMELY (5s, nano::test::confirmed (node, { send, open }));
-
-		auto added_blocks = setup_chain (system, node, key, block_count);
-
-		auto blocks = block_list_t{ open };
-		blocks.insert (blocks.end (), added_blocks.begin (), added_blocks.end ());
-
-		chains.emplace_back (key.pub, blocks);
-	}
-
-	return chains;
-}
-
-/**
- * Helper to track responses in thread safe way
- */
 class responses_helper final
 {
 public:
@@ -160,7 +69,7 @@ TEST (bootstrap_server, serve_account_blocks)
 		responses.add (response);
 	});
 
-	auto chains = setup_chains (system, node, 1, 128);
+	auto chains = nano::test::setup_chains (system, node, 1, 128);
 	auto [first_account, first_blocks] = chains.front ();
 
 	// Request blocks from account root
@@ -204,11 +113,11 @@ TEST (bootstrap_server, serve_hash)
 		responses.add (response);
 	});
 
-	auto chains = setup_chains (system, node, 1, 256);
+	auto chains = nano::test::setup_chains (system, node, 1, 256);
 	auto [account, blocks] = chains.front ();
 
 	// Skip a few blocks to request hash in the middle of the chain
-	blocks = block_list_t (std::next (blocks.begin (), 9), blocks.end ());
+	blocks = nano::block_list_t{ std::next (blocks.begin (), 9), blocks.end () };
 
 	// Request blocks from the middle of the chain
 	nano::asc_pull_req request{ node.network_params.network };
@@ -251,11 +160,11 @@ TEST (bootstrap_server, serve_hash_one)
 		responses.add (response);
 	});
 
-	auto chains = setup_chains (system, node, 1, 256);
+	auto chains = nano::test::setup_chains (system, node, 1, 256);
 	auto [account, blocks] = chains.front ();
 
 	// Skip a few blocks to request hash in the middle of the chain
-	blocks = block_list_t (std::next (blocks.begin (), 9), blocks.end ());
+	blocks = nano::block_list_t{ std::next (blocks.begin (), 9), blocks.end () };
 
 	// Request blocks from the middle of the chain
 	nano::asc_pull_req request{ node.network_params.network };
@@ -295,7 +204,7 @@ TEST (bootstrap_server, serve_end_of_chain)
 		responses.add (response);
 	});
 
-	auto chains = setup_chains (system, node, 1, 128);
+	auto chains = nano::test::setup_chains (system, node, 1, 128);
 	auto [account, blocks] = chains.front ();
 
 	// Request blocks from account frontier
@@ -337,7 +246,7 @@ TEST (bootstrap_server, serve_missing)
 		responses.add (response);
 	});
 
-	auto chains = setup_chains (system, node, 1, 128);
+	auto chains = nano::test::setup_chains (system, node, 1, 128);
 
 	// Request blocks from account frontier
 	nano::asc_pull_req request{ node.network_params.network };
@@ -377,7 +286,7 @@ TEST (bootstrap_server, serve_multiple)
 		responses.add (response);
 	});
 
-	auto chains = setup_chains (system, node, 32, 16);
+	auto chains = nano::test::setup_chains (system, node, 32, 16);
 
 	{
 		// Request blocks from multiple chains at once
@@ -440,7 +349,7 @@ TEST (bootstrap_server, serve_account_info)
 		responses.add (response);
 	});
 
-	auto chains = setup_chains (system, node, 1, 128);
+	auto chains = nano::test::setup_chains (system, node, 1, 128);
 	auto [account, blocks] = chains.front ();
 
 	// Request blocks from account root
@@ -488,7 +397,7 @@ TEST (bootstrap_server, serve_account_info_missing)
 		responses.add (response);
 	});
 
-	auto chains = setup_chains (system, node, 1, 128);
+	auto chains = nano::test::setup_chains (system, node, 1, 128);
 	auto [account, blocks] = chains.front ();
 
 	// Request blocks from account root
