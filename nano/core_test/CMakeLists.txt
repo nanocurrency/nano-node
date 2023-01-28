@@ -20,6 +20,7 @@ add_executable(
   distributed_work.cpp
   election.cpp
   election_scheduler.cpp
+  enums.cpp
   epoch_restrictions_filter.cpp
   epochs.cpp
   metastable_filter.cpp

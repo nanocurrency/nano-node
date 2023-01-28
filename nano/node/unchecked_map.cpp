@@ -209,6 +209,7 @@ void nano::unchecked_map::run ()
 
 void nano::unchecked_map::insert_impl (nano::write_transaction const & transaction, nano::hash_or_account const & dependency, nano::unchecked_info const & info)
 {
+	// Check if block dependency has been satisfied while waiting to be placed in the unchecked map
 	if (store.block.exists (transaction, dependency.as_block_hash ()))
 	{
 		satisfied (info);

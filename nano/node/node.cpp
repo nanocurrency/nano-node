@@ -688,6 +688,7 @@ void nano::node::start ()
 	active.start ();
 	generator.start ();
 	final_generator.start ();
+	scheduler.start ();
 	backlog.start ();
 	hinting.start ();
 	bootstrap_server.start ();
@@ -696,37 +697,41 @@ void nano::node::start ()
 
 void nano::node::stop ()
 {
-	if (!stopped.exchange (true))
+	// Ensure stop can only be called once
+	if (stopped.exchange (true))
 	{
-		logger.always_log ("Node stopping");
-		// Cancels ongoing work generation tasks, which may be blocking other threads
-		// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
-		distributed_work.stop ();
-		backlog.stop ();
-		unchecked.stop ();
-		block_processor.stop ();
-		aggregator.stop ();
-		vote_processor.stop ();
-		scheduler.stop ();
-		hinting.stop ();
-		active.stop ();
-		generator.stop ();
-		final_generator.stop ();
-		confirmation_height_processor.stop ();
-		network.stop ();
-		telemetry->stop ();
-		websocket.stop ();
-		bootstrap_server.stop ();
-		bootstrap_initiator.stop ();
-		tcp_listener.stop ();
-		port_mapping.stop ();
-		checker.stop ();
-		wallets.stop ();
-		stats.stop ();
-		epoch_upgrader.stop ();
-		workers.stop ();
-		// work pool is not stopped on purpose due to testing setup
+		return;
 	}
+
+	logger.always_log ("Node stopping");
+
+	// Cancels ongoing work generation tasks, which may be blocking other threads
+	// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
+	distributed_work.stop ();
+	backlog.stop ();
+	unchecked.stop ();
+	block_processor.stop ();
+	aggregator.stop ();
+	vote_processor.stop ();
+	scheduler.stop ();
+	hinting.stop ();
+	active.stop ();
+	generator.stop ();
+	final_generator.stop ();
+	confirmation_height_processor.stop ();
+	network.stop ();
+	telemetry->stop ();
+	websocket.stop ();
+	bootstrap_server.stop ();
+	bootstrap_initiator.stop ();
+	tcp_listener.stop ();
+	port_mapping.stop ();
+	checker.stop ();
+	wallets.stop ();
+	stats.stop ();
+	epoch_upgrader.stop ();
+	workers.stop ();
+	// work pool is not stopped on purpose due to testing setup
 }
 
 void nano::node::keepalive_preconfigured (std::vector<std::string> const & peers_a)
@@ -1306,12 +1311,11 @@ void nano::node::receive_confirmed (nano::transaction const & block_transaction_
 		if (wallet->store.exists (wallet_transaction, destination_a))
 		{
 			nano::account representative;
-			nano::pending_info pending;
 			representative = wallet->store.representative (wallet_transaction);
-			auto error (store.pending.get (block_transaction_a, nano::pending_key (destination_a, hash_a), pending));
-			if (!error)
+			auto pending = ledger.pending_info (block_transaction_a, nano::pending_key (destination_a, hash_a));
+			if (pending)
 			{
-				auto amount (pending.amount.number ());
+				auto amount (pending->amount.number ());
 				wallet->receive_async (hash_a, representative, amount, destination_a, [] (std::shared_ptr<nano::block> const &) {});
 			}
 			else

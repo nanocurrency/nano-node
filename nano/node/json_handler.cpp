@@ -3376,14 +3376,14 @@ void nano::json_handler::receive ()
 			auto block_transaction (node.store.tx_begin_read ());
 			if (node.ledger.block_or_pruned_exists (block_transaction, hash))
 			{
-				nano::pending_info pending_info;
-				if (!node.store.pending.get (block_transaction, nano::pending_key (account, hash), pending_info))
+				auto pending_info = node.ledger.pending_info (block_transaction, nano::pending_key (account, hash));
+				if (pending_info)
 				{
 					auto work (work_optional_impl ());
 					if (!ec && work)
 					{
 						nano::root head;
-						nano::epoch epoch = pending_info.epoch;
+						nano::epoch epoch = pending_info->epoch;
 						auto info = node.ledger.account_info (block_transaction, account);
 						if (info)
 						{
