@@ -242,13 +242,6 @@ void nano::telemetry::cleanup ()
 			return true; // Erase
 		}
 
-		// Remove if channel that sent the telemetry is disconnected
-		if (!entry.channel->alive ())
-		{
-			stats.inc (nano::stat::type::telemetry, nano::stat::detail::cleanup_dead);
-			return true; // Erase
-		}
-
 		return false; // Do not erase
 	});
 }
