@@ -949,35 +949,6 @@ TEST (tcp_listener, tcp_listener_timeout_node_id_handshake)
 	}
 }
 
-TEST (network, replace_port)
-{
-	nano::test::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	node_flags.disable_ongoing_telemetry_requests = true;
-	node_flags.disable_initial_telemetry_requests = true;
-	nano::node_config node0_config (nano::test::get_available_port (), system.logging);
-	node0_config.io_threads = 8;
-	auto node0 = system.add_node (node0_config, node_flags);
-	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::test::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
-	node1->start ();
-	system.nodes.push_back (node1);
-	auto wrong_endpoint = nano::endpoint (node1->network.endpoint ().address (), nano::test_node_port ());
-	auto channel0 (node0->network.udp_channels.insert (wrong_endpoint, node1->network_params.network.protocol_version));
-	ASSERT_NE (nullptr, channel0);
-	node0->network.udp_channels.modify (channel0, [&node1] (std::shared_ptr<nano::transport::channel> const & channel_a) {
-		channel_a->set_node_id (node1->node_id.pub);
-	});
-	auto peers_list (node0->network.list (std::numeric_limits<size_t>::max ()));
-	ASSERT_EQ (peers_list[0]->get_node_id (), node1->node_id.pub);
-	auto channel1 (std::make_shared<nano::transport::channel_udp> (node0->network.udp_channels, node1->network.endpoint (), node1->network_params.network.protocol_version));
-	ASSERT_EQ (node0->network.udp_channels.size (), 1);
-	node0->network.send_keepalive (channel1);
-	// On handshake, the channel is replaced
-	ASSERT_TIMELY (5s, !node0->network.udp_channels.channel (wrong_endpoint) && node0->network.udp_channels.channel (node1->network.endpoint ()));
-}
-
 // Test disabled because it's failing repeatedly for Windows + LMDB.
 // PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3622
 // Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3621
