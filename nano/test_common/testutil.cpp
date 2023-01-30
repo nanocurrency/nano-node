@@ -80,7 +80,7 @@ bool nano::test::process_live (nano::node & node, std::vector<std::shared_ptr<na
 
 bool nano::test::confirm (nano::node & node, std::vector<nano::block_hash> hashes)
 {
-	// Finish processing all blocks
+	// Finish processing all blocks - FIXME: block processor flush is broken and should be removed
 	node.block_processor.flush ();
 	for (auto & hash : hashes)
 	{

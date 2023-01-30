@@ -282,6 +282,28 @@ namespace test
 		std::atomic<unsigned> required_count;
 	};
 
+	/**
+	 * A helper that calls `start` from constructor and `stop` from destructor
+	 */
+	template <class T>
+	class start_stop_guard
+	{
+	public:
+		explicit start_stop_guard (T & ref_a) :
+			ref{ ref_a }
+		{
+			ref.start ();
+		}
+
+		~start_stop_guard ()
+		{
+			ref.stop ();
+		}
+
+	private:
+		T & ref;
+	};
+
 	void wait_peer_connections (nano::test::system &);
 
 	/**

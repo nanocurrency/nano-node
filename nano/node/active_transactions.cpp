@@ -38,6 +38,11 @@ nano::active_transactions::~active_transactions ()
 
 void nano::active_transactions::start ()
 {
+	if (node.flags.disable_request_loop)
+	{
+		return;
+	}
+
 	debug_assert (!thread.joinable ());
 
 	thread = std::thread ([this] () {
@@ -48,12 +53,12 @@ void nano::active_transactions::start ()
 
 void nano::active_transactions::stop ()
 {
-	stopped = true;
-	condition.notify_all ();
-	if (thread.joinable ())
 	{
-		thread.join ();
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		stopped = true;
 	}
+	condition.notify_all ();
+	nano::join_or_pass (thread);
 	clear ();
 }
 
@@ -332,7 +337,7 @@ std::vector<std::shared_ptr<nano::election>> nano::active_transactions::list_act
 void nano::active_transactions::request_loop ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped && !node.flags.disable_request_loop)
+	while (!stopped)
 	{
 		auto const stamp_l = std::chrono::steady_clock::now ();
 

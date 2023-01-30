@@ -2,7 +2,6 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/socket.hpp>
 #include <nano/node/transport/inproc.hpp>
-#include <nano/node/transport/udp.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -17,43 +16,92 @@ using namespace std::chrono_literals;
 
 TEST (network, tcp_connection)
 {
-	boost::asio::io_context io_ctx;
-	boost::asio::ip::tcp::acceptor acceptor (io_ctx);
-	auto port = nano::test::get_available_port ();
-	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v4::any (), port);
-	acceptor.open (endpoint.protocol ());
-	acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
-	acceptor.bind (endpoint);
-	acceptor.listen ();
-	boost::asio::ip::tcp::socket incoming (io_ctx);
-	std::atomic<bool> done1 (false);
-	std::string message1;
-	acceptor.async_accept (incoming,
-	[&done1, &message1] (boost::system::error_code const & ec_a) {
-		   if (ec_a)
-		   {
-			   message1 = ec_a.message ();
-			   std::cerr << message1;
-		   }
-		   done1 = true; });
-	boost::asio::ip::tcp::socket connector (io_ctx);
-	std::atomic<bool> done2 (false);
-	std::string message2;
-	connector.async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), acceptor.local_endpoint ().port ()),
-	[&done2, &message2] (boost::system::error_code const & ec_a) {
-		if (ec_a)
-		{
-			message2 = ec_a.message ();
-			std::cerr << message2;
-		}
-		done2 = true;
-	});
-	while (!done1 || !done2)
+	// Organizes the code used for a connection into distinguished classes (base class/client/server)
+	struct simple_socket : public boost::enable_shared_from_this<simple_socket>
 	{
-		io_ctx.poll ();
-	}
-	ASSERT_EQ (0, message1.size ());
-	ASSERT_EQ (0, message2.size ());
+		std::atomic<bool> connected;
+		uint16_t port;
+		boost::asio::ip::tcp::endpoint endpoint;
+		boost::asio::ip::tcp::socket socket;
+		std::string error_message;
+
+		explicit simple_socket (boost::asio::io_context & io_ctx_a, boost::asio::ip::address ip_address_a, uint16_t port_a) :
+			connected{ false },
+			port{ port_a },
+			endpoint{ ip_address_a, port_a },
+			socket{ io_ctx_a }
+		{
+		}
+
+		virtual void async_write (std::string message)
+		{
+		}
+		virtual void async_read ()
+		{
+		}
+	};
+
+	struct simple_server_socket final : public simple_socket
+	{
+		boost::asio::ip::tcp::acceptor acceptor;
+
+		explicit simple_server_socket (boost::asio::io_context & io_ctx_a, boost::asio::ip::address ip_address_a, uint16_t port_a) :
+			simple_socket{ io_ctx_a, ip_address_a, port_a },
+			acceptor{ io_ctx_a }
+		{
+			accept ();
+		}
+
+		void accept ()
+		{
+			acceptor.open (endpoint.protocol ());
+			acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
+			acceptor.bind (endpoint);
+			acceptor.listen ();
+			acceptor.async_accept (socket,
+			[this] (boost::system::error_code const & ec_a) {
+				if (ec_a)
+				{
+					this->error_message = ec_a.message ();
+					std::cerr << this->error_message;
+				}
+				else
+				{
+					this->connected = true;
+					this->async_read ();
+				}
+			});
+		}
+	};
+
+	struct simple_client_socket final : public simple_socket
+	{
+		explicit simple_client_socket (boost::asio::io_context & io_ctx_a, boost::asio::ip::address ip_address_a, uint16_t port_a) :
+			simple_socket{ io_ctx_a, ip_address_a, port_a }
+		{
+			socket.async_connect (boost::asio::ip::tcp::endpoint (ip_address_a, port_a),
+			[this] (boost::system::error_code const & ec_a) {
+				if (ec_a)
+				{
+					this->error_message = ec_a.message ();
+					std::cerr << error_message;
+				}
+				else
+				{
+					this->connected = true;
+				}
+			});
+		}
+	};
+
+	nano::test::system system;
+	auto port = nano::test::get_available_port ();
+	simple_server_socket server (system.io_ctx, boost::asio::ip::address_v4::any (), port);
+	simple_client_socket client (system.io_ctx, boost::asio::ip::address_v4::loopback (), port);
+
+	ASSERT_TIMELY (5s, server.connected && client.connected);
+	ASSERT_EQ (0, client.error_message.size ());
+	ASSERT_EQ (0, server.error_message.size ());
 }
 
 TEST (network, construction_with_specified_port)
@@ -86,36 +134,6 @@ TEST (network, self_discard)
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
 	system.nodes[0]->network.udp_channels.receive_action (&data);
 	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
-}
-
-// Test disabled because it's failing intermittently.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3611
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3612
-TEST (network, DISABLED_send_node_id_handshake)
-{
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	nano::test::system system;
-	auto node0 = system.add_node (node_flags);
-	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::test::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
-	node1->start ();
-	system.nodes.push_back (node1);
-	auto initial (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
-	auto initial_node1 (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
-	auto channel (std::make_shared<nano::transport::channel_udp> (node0->network.udp_channels, node1->network.endpoint (), node1->network_params.network.protocol_version));
-	node0->network.send_keepalive (channel);
-	ASSERT_EQ (0, node0->network.size ());
-	ASSERT_EQ (0, node1->network.size ());
-	ASSERT_TIMELY (10s, node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in) != initial_node1);
-	ASSERT_TIMELY (10s, node0->network.size () == 0 || node1->network.size () == 1);
-	ASSERT_TIMELY (10s, node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in) == initial + 2);
-	ASSERT_TIMELY (10s, node0->network.size () == 1 || node1->network.size () == 1);
-	auto list1 (node0->network.list (1));
-	ASSERT_EQ (node1->network.endpoint (), list1[0]->get_endpoint ());
-	auto list2 (node1->network.list (1));
-	ASSERT_EQ (node0->network.endpoint (), list2[0]->get_endpoint ());
-	node1->stop ();
 }
 
 TEST (network, send_node_id_handshake_tcp)
@@ -271,103 +289,61 @@ TEST (network, send_invalid_publish)
 
 TEST (network, send_valid_confirm_ack)
 {
-	std::vector<nano::transport::transport_type> types{ nano::transport::transport_type::tcp, nano::transport::transport_type::udp };
-	for (auto & type : types)
-	{
-		nano::node_flags node_flags;
-		if (type == nano::transport::transport_type::udp)
-		{
-			node_flags.disable_tcp_realtime = true;
-			node_flags.disable_bootstrap_listener = true;
-			node_flags.disable_udp = false;
-		}
-		nano::test::system system (2, type, node_flags);
-		auto & node1 (*system.nodes[0]);
-		auto & node2 (*system.nodes[1]);
-		nano::keypair key2;
-		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-		system.wallet (1)->insert_adhoc (key2.prv);
-		nano::block_hash latest1 (node1.latest (nano::dev::genesis_key.pub));
-		nano::block_builder builder;
-		auto block2 = builder
-					  .send ()
-					  .previous (latest1)
-					  .destination (key2.pub)
-					  .balance (50)
-					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					  .work (*system.work.generate (latest1))
-					  .build ();
-		nano::block_hash latest2 (node2.latest (nano::dev::genesis_key.pub));
-		node1.process_active (std::make_shared<nano::send_block> (*block2));
-		// Keep polling until latest block changes
-		ASSERT_TIMELY (10s, node2.latest (nano::dev::genesis_key.pub) != latest2);
-		// Make sure the balance has decreased after processing the block.
-		ASSERT_EQ (50, node2.balance (nano::dev::genesis_key.pub));
-	}
+	auto type = nano::transport::transport_type::tcp;
+	nano::node_flags node_flags;
+	nano::test::system system (2, type, node_flags);
+	auto & node1 (*system.nodes[0]);
+	auto & node2 (*system.nodes[1]);
+	nano::keypair key2;
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	system.wallet (1)->insert_adhoc (key2.prv);
+	nano::block_hash latest1 (node1.latest (nano::dev::genesis_key.pub));
+	nano::block_builder builder;
+	auto block2 = builder
+				  .send ()
+				  .previous (latest1)
+				  .destination (key2.pub)
+				  .balance (50)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*system.work.generate (latest1))
+				  .build ();
+	nano::block_hash latest2 (node2.latest (nano::dev::genesis_key.pub));
+	node1.process_active (std::make_shared<nano::send_block> (*block2));
+	// Keep polling until latest block changes
+	ASSERT_TIMELY (10s, node2.latest (nano::dev::genesis_key.pub) != latest2);
+	// Make sure the balance has decreased after processing the block.
+	ASSERT_EQ (50, node2.balance (nano::dev::genesis_key.pub));
 }
 
 TEST (network, send_valid_publish)
 {
-	std::vector<nano::transport::transport_type> types{ nano::transport::transport_type::tcp, nano::transport::transport_type::udp };
-	for (auto & type : types)
-	{
-		nano::node_flags node_flags;
-		if (type == nano::transport::transport_type::udp)
-		{
-			node_flags.disable_tcp_realtime = true;
-			node_flags.disable_bootstrap_listener = true;
-			node_flags.disable_udp = false;
-		}
-		nano::test::system system (2, type, node_flags);
-		auto & node1 (*system.nodes[0]);
-		auto & node2 (*system.nodes[1]);
-		node1.bootstrap_initiator.stop ();
-		node2.bootstrap_initiator.stop ();
-		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-		nano::keypair key2;
-		system.wallet (1)->insert_adhoc (key2.prv);
-		nano::block_hash latest1 (node1.latest (nano::dev::genesis_key.pub));
-		nano::block_builder builder;
-		auto block2 = builder
-					  .send ()
-					  .previous (latest1)
-					  .destination (key2.pub)
-					  .balance (50)
-					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					  .work (*system.work.generate (latest1))
-					  .build ();
-		auto hash2 (block2->hash ());
-		nano::block_hash latest2 (node2.latest (nano::dev::genesis_key.pub));
-		node2.process_active (std::make_shared<nano::send_block> (*block2));
-		ASSERT_TIMELY (10s, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) != 0);
-		ASSERT_NE (hash2, latest2);
-		ASSERT_TIMELY (10s, node2.latest (nano::dev::genesis_key.pub) != latest2);
-		ASSERT_EQ (50, node2.balance (nano::dev::genesis_key.pub));
-	}
-}
-
-TEST (network, send_insufficient_work_udp)
-{
-	nano::test::system system;
+	auto type = nano::transport::transport_type::tcp;
 	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	auto & node1 = *system.add_node (node_flags);
-	auto & node2 = *system.add_node (node_flags);
+	nano::test::system system (2, type, node_flags);
+	auto & node1 (*system.nodes[0]);
+	auto & node2 (*system.nodes[1]);
+	node1.bootstrap_initiator.stop ();
+	node2.bootstrap_initiator.stop ();
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	nano::keypair key2;
+	system.wallet (1)->insert_adhoc (key2.prv);
+	nano::block_hash latest1 (node1.latest (nano::dev::genesis_key.pub));
 	nano::block_builder builder;
-	auto block = builder
-				 .send ()
-				 .previous (0)
-				 .destination (1)
-				 .balance (20)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (0)
-				 .build_shared ();
-	nano::publish publish{ nano::dev::network_params.network, block };
-	nano::transport::channel_udp channel (node1.network.udp_channels, node2.network.endpoint (), node1.network_params.network.protocol_version);
-	channel.send (publish, [] (boost::system::error_code const & ec, size_t size) {});
-	ASSERT_EQ (0, node1.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
-	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work) != 0);
-	ASSERT_EQ (1, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
+	auto block2 = builder
+				  .send ()
+				  .previous (latest1)
+				  .destination (key2.pub)
+				  .balance (50)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*system.work.generate (latest1))
+				  .build ();
+	auto hash2 (block2->hash ());
+	nano::block_hash latest2 (node2.latest (nano::dev::genesis_key.pub));
+	node2.process_active (std::make_shared<nano::send_block> (*block2));
+	ASSERT_TIMELY (10s, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) != 0);
+	ASSERT_NE (hash2, latest2);
+	ASSERT_TIMELY (10s, node2.latest (nano::dev::genesis_key.pub) != latest2);
+	ASSERT_EQ (50, node2.balance (nano::dev::genesis_key.pub));
 }
 
 TEST (network, send_insufficient_work)
@@ -456,7 +432,8 @@ TEST (receivable_processor, confirm_insufficient_pos)
 	nano::keypair key1;
 	auto vote (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, 0, std::vector<nano::block_hash>{ block1->hash () }));
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
-	node1.network.inbound (con1, node1.network.udp_channels.create (node1.network.endpoint ()));
+	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
+	node1.network.inbound (con1, channel1);
 }
 
 TEST (receivable_processor, confirm_sufficient_pos)
@@ -477,56 +454,48 @@ TEST (receivable_processor, confirm_sufficient_pos)
 	node1.scheduler.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
 	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ block1->hash () }));
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
-	node1.network.inbound (con1, node1.network.udp_channels.create (node1.network.endpoint ()));
+	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
+	node1.network.inbound (con1, channel1);
 }
 
 TEST (receivable_processor, send_with_receive)
 {
-	std::vector<nano::transport::transport_type> types{ nano::transport::transport_type::tcp, nano::transport::transport_type::udp };
-	for (auto & type : types)
-	{
-		nano::node_flags node_flags;
-		if (type == nano::transport::transport_type::udp)
-		{
-			node_flags.disable_tcp_realtime = true;
-			node_flags.disable_bootstrap_listener = true;
-			node_flags.disable_udp = false;
-		}
-		nano::test::system system (2, type, node_flags);
-		auto & node1 (*system.nodes[0]);
-		auto & node2 (*system.nodes[1]);
-		auto amount (std::numeric_limits<nano::uint128_t>::max ());
-		nano::keypair key2;
-		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-		nano::block_hash latest1 (node1.latest (nano::dev::genesis_key.pub));
-		system.wallet (1)->insert_adhoc (key2.prv);
-		nano::block_builder builder;
-		auto block1 = builder
-					  .send ()
-					  .previous (latest1)
-					  .destination (key2.pub)
-					  .balance (amount - node1.config.receive_minimum.number ())
-					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					  .work (*system.work.generate (latest1))
-					  .build_shared ();
-		ASSERT_EQ (amount, node1.balance (nano::dev::genesis_key.pub));
-		ASSERT_EQ (0, node1.balance (key2.pub));
-		ASSERT_EQ (amount, node2.balance (nano::dev::genesis_key.pub));
-		ASSERT_EQ (0, node2.balance (key2.pub));
-		node1.process_active (block1);
-		node1.block_processor.flush ();
-		node2.process_active (block1);
-		node2.block_processor.flush ();
-		ASSERT_EQ (amount - node1.config.receive_minimum.number (), node1.balance (nano::dev::genesis_key.pub));
-		ASSERT_EQ (0, node1.balance (key2.pub));
-		ASSERT_EQ (amount - node1.config.receive_minimum.number (), node2.balance (nano::dev::genesis_key.pub));
-		ASSERT_EQ (0, node2.balance (key2.pub));
-		ASSERT_TIMELY (10s, node1.balance (key2.pub) == node1.config.receive_minimum.number () && node2.balance (key2.pub) == node1.config.receive_minimum.number ());
-		ASSERT_EQ (amount - node1.config.receive_minimum.number (), node1.balance (nano::dev::genesis_key.pub));
-		ASSERT_EQ (node1.config.receive_minimum.number (), node1.balance (key2.pub));
-		ASSERT_EQ (amount - node1.config.receive_minimum.number (), node2.balance (nano::dev::genesis_key.pub));
-		ASSERT_EQ (node1.config.receive_minimum.number (), node2.balance (key2.pub));
-	}
+	auto type = nano::transport::transport_type::tcp;
+	nano::node_flags node_flags;
+	nano::test::system system (2, type, node_flags);
+	auto & node1 (*system.nodes[0]);
+	auto & node2 (*system.nodes[1]);
+	auto amount (std::numeric_limits<nano::uint128_t>::max ());
+	nano::keypair key2;
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	nano::block_hash latest1 (node1.latest (nano::dev::genesis_key.pub));
+	system.wallet (1)->insert_adhoc (key2.prv);
+	nano::block_builder builder;
+	auto block1 = builder
+				  .send ()
+				  .previous (latest1)
+				  .destination (key2.pub)
+				  .balance (amount - node1.config.receive_minimum.number ())
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*system.work.generate (latest1))
+				  .build_shared ();
+	ASSERT_EQ (amount, node1.balance (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, node1.balance (key2.pub));
+	ASSERT_EQ (amount, node2.balance (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, node2.balance (key2.pub));
+	node1.process_active (block1);
+	node1.block_processor.flush ();
+	node2.process_active (block1);
+	node2.block_processor.flush ();
+	ASSERT_EQ (amount - node1.config.receive_minimum.number (), node1.balance (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, node1.balance (key2.pub));
+	ASSERT_EQ (amount - node1.config.receive_minimum.number (), node2.balance (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, node2.balance (key2.pub));
+	ASSERT_TIMELY (10s, node1.balance (key2.pub) == node1.config.receive_minimum.number () && node2.balance (key2.pub) == node1.config.receive_minimum.number ());
+	ASSERT_EQ (amount - node1.config.receive_minimum.number (), node1.balance (nano::dev::genesis_key.pub));
+	ASSERT_EQ (node1.config.receive_minimum.number (), node1.balance (key2.pub));
+	ASSERT_EQ (amount - node1.config.receive_minimum.number (), node2.balance (nano::dev::genesis_key.pub));
+	ASSERT_EQ (node1.config.receive_minimum.number (), node2.balance (key2.pub));
 }
 
 TEST (network, receive_weight_change)
@@ -980,34 +949,6 @@ TEST (tcp_listener, tcp_listener_timeout_node_id_handshake)
 	}
 }
 
-TEST (network, replace_port)
-{
-	nano::test::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	node_flags.disable_ongoing_telemetry_requests = true;
-	nano::node_config node0_config (nano::test::get_available_port (), system.logging);
-	node0_config.io_threads = 8;
-	auto node0 = system.add_node (node0_config, node_flags);
-	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::test::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
-	node1->start ();
-	system.nodes.push_back (node1);
-	auto wrong_endpoint = nano::endpoint (node1->network.endpoint ().address (), nano::test_node_port ());
-	auto channel0 (node0->network.udp_channels.insert (wrong_endpoint, node1->network_params.network.protocol_version));
-	ASSERT_NE (nullptr, channel0);
-	node0->network.udp_channels.modify (channel0, [&node1] (std::shared_ptr<nano::transport::channel> const & channel_a) {
-		channel_a->set_node_id (node1->node_id.pub);
-	});
-	auto peers_list (node0->network.list (std::numeric_limits<size_t>::max ()));
-	ASSERT_EQ (peers_list[0]->get_node_id (), node1->node_id.pub);
-	auto channel1 (std::make_shared<nano::transport::channel_udp> (node0->network.udp_channels, node1->network.endpoint (), node1->network_params.network.protocol_version));
-	ASSERT_EQ (node0->network.udp_channels.size (), 1);
-	node0->network.send_keepalive (channel1);
-	// On handshake, the channel is replaced
-	ASSERT_TIMELY (5s, !node0->network.udp_channels.channel (wrong_endpoint) && node0->network.udp_channels.channel (node1->network.endpoint ()));
-}
-
 // Test disabled because it's failing repeatedly for Windows + LMDB.
 // PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3622
 // Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3621
@@ -1058,28 +999,25 @@ namespace transport
 }
 }
 
+// Send two publish messages and asserts that the duplication is detected.
 TEST (network, duplicate_detection)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	auto & node0 (*system.add_node (node_flags));
-	auto & node1 (*system.add_node (node_flags));
-	auto udp_channel (std::make_shared<nano::transport::channel_udp> (node0.network.udp_channels, node1.network.endpoint (), node1.network_params.network.protocol_version));
+	auto & node0 = *system.add_node (node_flags);
+	auto & node1 = *system.add_node (node_flags);
 	nano::publish publish{ nano::dev::network_params.network, nano::dev::genesis };
 
-	// Publish duplicate detection through UDP
 	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish));
-	udp_channel->send (publish);
-	udp_channel->send (publish);
-	ASSERT_TIMELY (2s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish) == 1);
 
 	// Publish duplicate detection through TCP
-	auto tcp_channel (node0.network.tcp_channels.find_node_id (node1.get_node_id ()));
+	auto tcp_channel = node0.network.tcp_channels.find_node_id (node1.get_node_id ());
 	ASSERT_NE (nullptr, tcp_channel);
-	ASSERT_EQ (1, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish));
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish));
 	tcp_channel->send (publish);
-	ASSERT_TIMELY (2s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish) == 2);
+	ASSERT_TIMELY (2s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish) == 0);
+	tcp_channel->send (publish);
+	ASSERT_TIMELY (2s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish) == 1);
 }
 
 TEST (network, duplicate_revert_publish)
@@ -1125,39 +1063,39 @@ TEST (network, bandwidth_limiter)
 	node_config.bandwidth_limit = message_limit * message_size;
 	node_config.bandwidth_limit_burst_ratio = 1.0;
 	auto & node = *system.add_node (node_config);
-	auto channel1 (node.network.udp_channels.create (node.network.endpoint ()));
-	auto channel2 (node.network.udp_channels.create (node.network.endpoint ()));
+	nano::transport::inproc::channel channel1{ node, node };
+	nano::transport::inproc::channel channel2{ node, node };
 	// Send droppable messages
 	for (auto i = 0; i < message_limit; i += 2) // number of channels
 	{
-		channel1->send (message);
-		channel2->send (message);
+		channel1.send (message);
+		channel2.send (message);
 	}
 	// Only sent messages below limit, so we don't expect any drops
 	ASSERT_TIMELY (1s, 0 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
 
 	// Send droppable message; drop stats should increase by one now
-	channel1->send (message);
+	channel1.send (message);
 	ASSERT_TIMELY (1s, 1 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
 
 	// Send non-droppable message, i.e. drop stats should not increase
-	channel2->send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
+	channel2.send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
 	ASSERT_TIMELY (1s, 1 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
 
 	// change the bandwidth settings, 2 packets will be dropped
 	node.set_bandwidth_params (message_size * 2, 1.1);
-	channel1->send (message);
-	channel2->send (message);
-	channel1->send (message);
-	channel2->send (message);
+	channel1.send (message);
+	channel2.send (message);
+	channel1.send (message);
+	channel2.send (message);
 	ASSERT_TIMELY (1s, 3 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
 
 	// change the bandwidth settings, no packet will be dropped
 	node.set_bandwidth_params (message_size, 4);
-	channel1->send (message);
-	channel2->send (message);
-	channel1->send (message);
-	channel2->send (message);
+	channel1.send (message);
+	channel2.send (message);
+	channel1.send (message);
+	channel2.send (message);
 	ASSERT_TIMELY (1s, 3 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
 
 	node.stop ();
@@ -1329,11 +1267,6 @@ TEST (network, cleanup_purge)
 	ASSERT_EQ (0, node1.network.size ());
 	node1.network.cleanup (test_start);
 	ASSERT_EQ (0, node1.network.size ());
-
-	node1.network.udp_channels.insert (node2->network.endpoint (), node1.network_params.network.protocol_version);
-	ASSERT_EQ (1, node1.network.size ());
-	node1.network.cleanup (test_start);
-	ASSERT_EQ (1, node1.network.size ());
 
 	node1.network.cleanup (std::chrono::steady_clock::now ());
 	ASSERT_EQ (0, node1.network.size ());

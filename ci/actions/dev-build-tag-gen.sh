@@ -100,11 +100,17 @@ function output_variable {
 set -o nounset
 set -o xtrace
 
+# The reference branch is 'develop', that is the current release being developed. Here it is extracting the
+# major and minor numbers from the CMakeLists.txt file.
 current_version_major=$(grep -P "(set)(.)*(CPACK_PACKAGE_VERSION_MAJOR)" "${source_dir}/CMakeLists.txt" | grep -oP "([0-9]+)")
 current_version_minor=$(grep -P "(set)(.)*(CPACK_PACKAGE_VERSION_MINOR)" "${source_dir}/CMakeLists.txt" | grep -oP "([0-9]+)")
 current_version_pre_release=$(grep -P "(set)(.)*(CPACK_PACKAGE_VERSION_PRE_RELEASE)" "${source_dir}/CMakeLists.txt" | grep -oP "([0-9]+)")
 
-version_tags=$(git tag | sort -V -r | grep -E "^(V([0-9]+).([0-9]+)(RC[0-9]+)?)$")
+# Get the list of version tags that can be either official releases or release candidates. The list comes
+# ordered by version, in reverse order.
+version_tags=$(git tag | sort -V -r | grep -E "^(V([0-9]+)\.([0-9]+)(RC[0-9]+)?)$")
+
+# Get the first tag of the list, that means, the latest version.
 last_tag=$(get_first_item "$version_tags")
 tag_version_major=$(echo "$last_tag" | grep -oP "\V([0-9]+)\." | grep -oP "[0-9]+")
 if [[ ${tag_version_major} -ge ${current_version_major} ]]; then
@@ -128,14 +134,29 @@ last_tag=""
 version_tags=""
 previous_release_major=0
 previous_release_minor=0
+# If option -r is set, then the script will handle tag generation as for the release branch, it'd do 'develop' branch
+# otherwise.
 if [[ $previous_release_gen == false ]]; then
-    version_tags=$(git tag | sort -V -r | grep -E "^(V(${current_version_major}).(${current_version_minor})(DB[0-9]+))$" || true)
+#   List of all beta-build (DB) tags in reverse version order.
+    version_tags=$(git tag | sort -V -r | grep -E "^(V(${current_version_major})\.(${current_version_minor})(DB[0-9]+))$" || true)
     last_tag=$(get_first_item "$version_tags")
 else
     previous_release_major=$(( current_version_major - 1 ))
-    version_tags=$(git tag | sort -V -r | grep -E "^(V(${previous_release_major}).([0-9]+)(DB[0-9]+)?)$" || true)
+#   List of official release tags in reverse order.
+    version_tags=$(git tag | sort -V -r | grep -E "^(V(${previous_release_major})\.([0-9]+))$" || true)
+    if [[ -z "$version_tags" ]]; then
+#       Previous release minor is 0 if no official release is found in the branch.
+        previous_release_minor=0
+    else
+#       Previous release minor version is increased by 1 because next beta-build should go on unreleased minor versions.
+        last_minor_release=$(get_first_item "$version_tags")
+        last_minor=$(echo "$last_minor_release" | grep -oP "\.([0-9]+)" | grep -oP "[0-9]+")
+        previous_release_minor=$(( last_minor + 1 ))
+    fi
+#   List of tags in reverse version order that may or many not include beta-build (DB) tags.
+    version_tags=$(git tag | sort -V -r | grep -E "^(V(${previous_release_major})\.(${previous_release_minor})(DB[0-9]+)?)$" || true)
     last_tag=$(get_first_item "$version_tags")
-    previous_release_minor=$(echo "$last_tag" | grep -oP "\.([0-9]+)" | grep -oP "[0-9]+")
+#   The reference release branch in Git repository should follow the pattern 'releases/vXY'.
     release_branch="releases/v${previous_release_major}"
     output_variable release_branch
 fi
@@ -143,6 +164,8 @@ popd
 
 build_tag=""
 if [[ -z "$last_tag" ]]; then
+#   If the last tag was not found previously, it means there was no previous beta-build for this major and minor
+#   numbers, then the build number is 1.
     build_number=1
     echo "info: no tag found, build_number=${build_number}"
     if [[ $previous_release_gen == false ]]; then
@@ -156,6 +179,8 @@ if [[ -z "$last_tag" ]]; then
 fi
 
 pushd "$source_dir"
+# This code block looks for the branch head in order to know if there is already a tag for it. There is no need
+# to generate a new tag if the beta-build has already been created.
 develop_head=""
 if [[ $previous_release_gen == false ]]; then
     develop_head=$(git rev-parse "${git_upstream}/develop")
@@ -170,6 +195,7 @@ if [[ "$develop_head" == "$tag_head" ]]; then
     exit 2
 fi
 
+# Prepares the build number to be used.
 latest_build_number=$(echo "$last_tag" | grep -oP "(DB[0-9]+)" | grep -oP "[0-9]+")
 build_number=$(( latest_build_number + 1 ))
 if [[ $previous_release_gen == false ]]; then

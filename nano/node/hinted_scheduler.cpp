@@ -8,33 +8,34 @@ nano::hinted_scheduler::hinted_scheduler (config const & config_a, nano::node & 
 	inactive_vote_cache{ inactive_vote_cache_a },
 	active{ active_a },
 	online_reps{ online_reps_a },
-	stats{ stats_a },
-	stopped{ false }
+	stats{ stats_a }
 {
 }
 
 nano::hinted_scheduler::~hinted_scheduler ()
 {
-	stop ();
-	if (thread.joinable ()) // Ensure thread was started
-	{
-		thread.join ();
-	}
+	// Thread must be stopped before destruction
+	debug_assert (!thread.joinable ());
 }
 
 void nano::hinted_scheduler::start ()
 {
 	debug_assert (!thread.joinable ());
-	thread = std::thread{
-		[this] () { run (); }
-	};
+
+	thread = std::thread{ [this] () {
+		nano::thread_role::set (nano::thread_role::name::election_hinting);
+		run ();
+	} };
 }
 
 void nano::hinted_scheduler::stop ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	stopped = true;
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		stopped = true;
+	}
 	notify ();
+	nano::join_or_pass (thread);
 }
 
 void nano::hinted_scheduler::notify ()
@@ -91,7 +92,6 @@ bool nano::hinted_scheduler::run_one (nano::uint128_t const & minimum_tally)
 
 void nano::hinted_scheduler::run ()
 {
-	nano::thread_role::set (nano::thread_role::name::election_hinting);
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
@@ -124,6 +124,6 @@ void nano::hinted_scheduler::run ()
 
 nano::uint128_t nano::hinted_scheduler::tally_threshold () const
 {
-	const auto min_tally = (online_reps.trended () / 100) * node.config.election_hint_weight_percent;
+	auto min_tally = (online_reps.trended () / 100) * node.config.election_hint_weight_percent;
 	return min_tally;
 }

@@ -730,10 +730,10 @@ TEST (rpc, wallet_representative_set_force)
 	while (representative != key.pub)
 	{
 		auto transaction (node->store.tx_begin_read ());
-		nano::account_info info;
-		if (!node->store.account.get (transaction, nano::dev::genesis_key.pub, info))
+		auto info = node->ledger.account_info (transaction, nano::dev::genesis_key.pub);
+		if (info)
 		{
-			representative = info.representative;
+			representative = info->representative;
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -1358,7 +1358,11 @@ TEST (rpc, history_pruning)
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
 	auto node0 = add_ipc_enabled_node (system, node_config, node_flags);
+	std::vector<std::shared_ptr<nano::block>> blocks;
+
 	nano::block_builder builder;
+
+	// noop change block
 	auto change = builder
 				  .change ()
 				  .previous (nano::dev::genesis->hash ())
@@ -1366,7 +1370,9 @@ TEST (rpc, history_pruning)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (*node0->work.generate (nano::dev::genesis->hash ()))
 				  .build_shared ();
-	node0->process_active (change);
+	blocks.push_back (change);
+
+	// legacy send to itself
 	auto send = builder
 				.send ()
 				.previous (change->hash ())
@@ -1375,7 +1381,9 @@ TEST (rpc, history_pruning)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*node0->work.generate (change->hash ()))
 				.build_shared ();
-	node0->process_active (send);
+	blocks.push_back (send);
+
+	// legacy receive the legacy self send
 	auto receive = builder
 				   .receive ()
 				   .previous (send->hash ())
@@ -1383,7 +1391,9 @@ TEST (rpc, history_pruning)
 				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				   .work (*node0->work.generate (send->hash ()))
 				   .build_shared ();
-	node0->process_active (receive);
+	blocks.push_back (receive);
+
+	// non legacy self send
 	auto usend = builder
 				 .state ()
 				 .account (nano::dev::genesis->account ())
@@ -1394,6 +1404,9 @@ TEST (rpc, history_pruning)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*node0->work_generate_blocking (receive->hash ()))
 				 .build_shared ();
+	blocks.push_back (usend);
+
+	// non legacy receive of the non legacy self send
 	auto ureceive = builder
 					.state ()
 					.account (nano::dev::genesis->account ())
@@ -1404,6 +1417,9 @@ TEST (rpc, history_pruning)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*node0->work_generate_blocking (usend->hash ()))
 					.build_shared ();
+	blocks.push_back (ureceive);
+
+	// change genesis to a random rep
 	auto uchange = builder
 				   .state ()
 				   .account (nano::dev::genesis->account ())
@@ -1414,127 +1430,91 @@ TEST (rpc, history_pruning)
 				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				   .work (*node0->work_generate_blocking (ureceive->hash ()))
 				   .build_shared ();
-	node0->process_active (usend);
-	node0->process_active (ureceive);
-	node0->process_active (uchange);
-	node0->block_processor.flush ();
+	blocks.push_back (uchange);
+
+	nano::test::process_live (*node0, blocks);
+	ASSERT_TIMELY (5s, nano::test::exists (*node0, blocks));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	// Confirm last block to prune previous
-	{
-		auto election = node0->active.election (change->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node0->block_confirmed (change->hash ()) && node0->active.active (send->qualified_root ()));
-	{
-		auto election = node0->active.election (send->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node0->block_confirmed (send->hash ()) && node0->active.active (receive->qualified_root ()));
-	{
-		auto election = node0->active.election (receive->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node0->block_confirmed (receive->hash ()) && node0->active.active (usend->qualified_root ()));
-	{
-		auto election = node0->active.election (usend->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node0->block_confirmed (usend->hash ()) && node0->active.active (ureceive->qualified_root ()));
-	{
-		auto election = node0->active.election (ureceive->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node0->block_confirmed (ureceive->hash ()) && node0->active.active (uchange->qualified_root ()));
-	{
-		auto election = node0->active.election (uchange->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node0->active.empty () && node0->block_confirmed (uchange->hash ()));
-	ASSERT_TIMELY (2s, node0->ledger.cache.cemented_count == 7 && node0->confirmation_height_processor.current ().is_zero () && node0->confirmation_height_processor.awaiting_processing_size () == 0);
-	// Pruning action
+
+	// WORKAROUND: this is called repeatedly inside an assert timely because nano::test::confirm()
+	// uses block_processor.flush internally which can fail to flush
+	ASSERT_TIMELY (5s, nano::test::confirm (*node0, blocks));
+
+	ASSERT_TIMELY (5s, node0->block_confirmed (uchange->hash ()));
+	nano::confirmation_height_info confirmation_height_info;
+	node0->store.confirmation_height.get (node0->store.tx_begin_read (), nano::dev::genesis_key.pub, confirmation_height_info);
+	ASSERT_EQ (7, confirmation_height_info.height);
+
+	// Prune block "change"
 	{
 		auto transaction (node0->store.tx_begin_write ());
 		ASSERT_EQ (1, node0->ledger.pruning_action (transaction, change->hash (), 1));
 	}
+
 	auto const rpc_ctx = add_rpc (system, node0);
 	boost::property_tree::ptree request;
 	request.put ("action", "history");
 	request.put ("hash", send->hash ().to_string ());
 	request.put ("count", 100);
-	auto response (wait_response (system, rpc_ctx, request));
-	std::vector<std::tuple<std::string, std::string, std::string, std::string>> history_l;
-	auto & history_node (response.get_child ("history"));
-	for (auto i (history_node.begin ()), n (history_node.end ()); i != n; ++i)
-	{
-		history_l.push_back (std::make_tuple (i->second.get<std::string> ("type"), i->second.get<std::string> ("account", "-1"), i->second.get<std::string> ("amount", "-1"), i->second.get<std::string> ("hash")));
-		boost::optional<std::string> amount (i->second.get_optional<std::string> ("amount"));
-		ASSERT_FALSE (amount.is_initialized ()); // Cannot calculate amount
-	}
-	ASSERT_EQ (1, history_l.size ());
-	ASSERT_EQ ("send", std::get<0> (history_l[0]));
-	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<1> (history_l[0]));
-	ASSERT_EQ ("-1", std::get<2> (history_l[0]));
-	ASSERT_EQ (send->hash ().to_string (), std::get<3> (history_l[0]));
-	// Pruning action
+	auto response = wait_response (system, rpc_ctx, request);
+	auto history_node = response.get_child ("history");
+	ASSERT_EQ (history_node.size (), 1);
+	auto entry = (*history_node.begin ()).second;
+	ASSERT_EQ ("send", entry.get<std::string> ("type"));
+	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), entry.get<std::string> ("account", "N/A"));
+	ASSERT_EQ ("N/A", entry.get<std::string> ("amount", "N/A"));
+	ASSERT_EQ (send->hash ().to_string (), entry.get<std::string> ("hash"));
+
+	// Prune block "send"
 	{
 		rpc_ctx.io_scope->reset ();
 		auto transaction (node0->store.tx_begin_write ());
 		ASSERT_EQ (1, node0->ledger.pruning_action (transaction, send->hash (), 1));
 		rpc_ctx.io_scope->renew ();
 	}
+
 	boost::property_tree::ptree request2;
 	request2.put ("action", "history");
 	request2.put ("hash", receive->hash ().to_string ());
 	request2.put ("count", 100);
-	auto response2 (wait_response (system, rpc_ctx, request2));
-	history_l.clear ();
-	auto & history_node2 (response2.get_child ("history"));
-	for (auto i (history_node2.begin ()), n (history_node2.end ()); i != n; ++i)
-	{
-		history_l.push_back (std::make_tuple (i->second.get<std::string> ("type"), i->second.get<std::string> ("account", "-1"), i->second.get<std::string> ("amount", "-1"), i->second.get<std::string> ("hash")));
-		boost::optional<std::string> amount (i->second.get_optional<std::string> ("amount"));
-		ASSERT_FALSE (amount.is_initialized ()); // Cannot calculate amount
-		boost::optional<std::string> account (i->second.get_optional<std::string> ("account"));
-		ASSERT_FALSE (account.is_initialized ()); // Cannot find source account
-	}
-	ASSERT_EQ (1, history_l.size ());
-	ASSERT_EQ ("receive", std::get<0> (history_l[0]));
-	ASSERT_EQ ("-1", std::get<1> (history_l[0]));
-	ASSERT_EQ ("-1", std::get<2> (history_l[0]));
-	ASSERT_EQ (receive->hash ().to_string (), std::get<3> (history_l[0]));
-	// Pruning action
+	response = wait_response (system, rpc_ctx, request2);
+	history_node = response.get_child ("history");
+	ASSERT_EQ (history_node.size (), 1);
+	entry = (*history_node.begin ()).second;
+	ASSERT_EQ ("receive", entry.get<std::string> ("type"));
+	ASSERT_EQ ("N/A", entry.get<std::string> ("account", "N/A"));
+	ASSERT_EQ ("N/A", entry.get<std::string> ("amount", "N/A"));
+	ASSERT_EQ (receive->hash ().to_string (), entry.get<std::string> ("hash"));
+
+	// Prune block "receive"
 	{
 		rpc_ctx.io_scope->reset ();
 		auto transaction (node0->store.tx_begin_write ());
 		ASSERT_EQ (1, node0->ledger.pruning_action (transaction, receive->hash (), 1));
 		rpc_ctx.io_scope->renew ();
 	}
+
 	boost::property_tree::ptree request3;
 	request3.put ("action", "history");
 	request3.put ("hash", uchange->hash ().to_string ());
 	request3.put ("count", 100);
-	auto response3 (wait_response (system, rpc_ctx, request3));
-	history_l.clear ();
-	auto & history_node3 (response3.get_child ("history"));
-	for (auto i (history_node3.begin ()), n (history_node3.end ()); i != n; ++i)
-	{
-		history_l.push_back (std::make_tuple (i->second.get<std::string> ("type"), i->second.get<std::string> ("account", "-1"), i->second.get<std::string> ("amount", "-1"), i->second.get<std::string> ("hash")));
-	}
-	ASSERT_EQ (2, history_l.size ());
-	ASSERT_EQ ("receive", std::get<0> (history_l[0]));
-	ASSERT_EQ (ureceive->hash ().to_string (), std::get<3> (history_l[0]));
-	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<1> (history_l[0]));
-	ASSERT_EQ (nano::Gxrb_ratio.convert_to<std::string> (), std::get<2> (history_l[0]));
-	ASSERT_EQ ("unknown", std::get<0> (history_l[1]));
-	ASSERT_EQ ("-1", std::get<1> (history_l[1]));
-	ASSERT_EQ ("-1", std::get<2> (history_l[1]));
-	ASSERT_EQ (usend->hash ().to_string (), std::get<3> (history_l[1]));
+	response = wait_response (system, rpc_ctx, request3);
+	history_node = response.get_child ("history");
+	ASSERT_EQ (history_node.size (), 2);
+
+	// first array element
+	entry = (*history_node.begin ()).second;
+	ASSERT_EQ ("receive", entry.get<std::string> ("type"));
+	ASSERT_EQ (ureceive->hash ().to_string (), entry.get<std::string> ("hash"));
+	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), entry.get<std::string> ("account", "N/A"));
+	ASSERT_EQ (nano::Gxrb_ratio.convert_to<std::string> (), entry.get<std::string> ("amount", "N/A"));
+
+	// second array element
+	entry = (*(++history_node.begin ())).second;
+	ASSERT_EQ ("unknown", entry.get<std::string> ("type"));
+	ASSERT_EQ ("N/A", entry.get<std::string> ("account", "N/A"));
+	ASSERT_EQ ("N/A", entry.get<std::string> ("amount", "N/A"));
+	ASSERT_EQ (usend->hash ().to_string (), entry.get<std::string> ("hash"));
 }
 
 TEST (rpc, process_block)
@@ -6925,9 +6905,9 @@ TEST (rpc, epoch_upgrade)
 	{
 		// Check pending entry
 		auto transaction (node->store.tx_begin_read ());
-		nano::pending_info info;
-		ASSERT_FALSE (node->store.pending.get (transaction, nano::pending_key (key3.pub, send7->hash ()), info));
-		ASSERT_EQ (nano::epoch::epoch_1, info.epoch);
+		auto info = node->ledger.pending_info (transaction, nano::pending_key (key3.pub, send7->hash ()));
+		ASSERT_TRUE (info);
+		ASSERT_EQ (nano::epoch::epoch_1, info->epoch);
 	}
 
 	rpc_ctx.io_scope->renew ();
@@ -7091,9 +7071,9 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	{
 		// Check pending entry
 		auto transaction (node->store.tx_begin_read ());
-		nano::pending_info info;
-		ASSERT_FALSE (node->store.pending.get (transaction, nano::pending_key (key3.pub, send7->hash ()), info));
-		ASSERT_EQ (nano::epoch::epoch_1, info.epoch);
+		auto info = node->ledger.pending_info (transaction, nano::pending_key (key3.pub, send7->hash ()));
+		ASSERT_TRUE (info);
+		ASSERT_EQ (nano::epoch::epoch_1, info->epoch);
 	}
 
 	rpc_ctx.io_scope->renew ();
@@ -7195,9 +7175,9 @@ TEST (rpc, receive)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto receive_text (response.get<std::string> ("block"));
-		nano::account_info info;
-		ASSERT_FALSE (node->store.account.get (node->store.tx_begin_read (), key1.pub, info));
-		ASSERT_EQ (info.head, nano::block_hash{ receive_text });
+		auto info = node->ledger.account_info (node->store.tx_begin_read (), key1.pub);
+		ASSERT_TRUE (info);
+		ASSERT_EQ (info->head, nano::block_hash{ receive_text });
 	}
 	// Trying to receive the same block should fail with unreceivable
 	{
@@ -7236,11 +7216,11 @@ TEST (rpc, receive_unopened)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto receive_text (response.get<std::string> ("block"));
-		nano::account_info info;
-		ASSERT_FALSE (node->store.account.get (node->store.tx_begin_read (), key1.pub, info));
-		ASSERT_EQ (info.head, info.open_block);
-		ASSERT_EQ (info.head.to_string (), receive_text);
-		ASSERT_EQ (info.representative, nano::dev::genesis_key.pub);
+		auto info = node->ledger.account_info (node->store.tx_begin_read (), key1.pub);
+		ASSERT_TRUE (info);
+		ASSERT_EQ (info->head, info->open_block);
+		ASSERT_EQ (info->head.to_string (), receive_text);
+		ASSERT_EQ (info->representative, nano::dev::genesis_key.pub);
 	}
 	rpc_ctx.io_scope->reset ();
 
@@ -7260,11 +7240,11 @@ TEST (rpc, receive_unopened)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto receive_text (response.get<std::string> ("block"));
-		nano::account_info info;
-		ASSERT_FALSE (node->store.account.get (node->store.tx_begin_read (), key2.pub, info));
-		ASSERT_EQ (info.head, info.open_block);
-		ASSERT_EQ (info.head.to_string (), receive_text);
-		ASSERT_EQ (info.representative, rep);
+		auto info = node->ledger.account_info (node->store.tx_begin_read (), key2.pub);
+		ASSERT_TRUE (info);
+		ASSERT_EQ (info->head, info->open_block);
+		ASSERT_EQ (info->head.to_string (), receive_text);
+		ASSERT_EQ (info->representative, rep);
 	}
 }
 
@@ -7345,9 +7325,9 @@ TEST (rpc, receive_pruned)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto receive_text (response.get<std::string> ("block"));
-		nano::account_info info;
-		ASSERT_FALSE (node2->store.account.get (node2->store.tx_begin_read (), key1.pub, info));
-		ASSERT_EQ (info.head, nano::block_hash{ receive_text });
+		auto info = node2->ledger.account_info (node2->store.tx_begin_read (), key1.pub);
+		ASSERT_TRUE (info);
+		ASSERT_EQ (info->head, nano::block_hash{ receive_text });
 	}
 	// Trying to receive the same block should fail with unreceivable
 	{
