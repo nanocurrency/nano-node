@@ -1358,7 +1358,11 @@ TEST (rpc, history_pruning)
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
 	auto node0 = add_ipc_enabled_node (system, node_config, node_flags);
+	std::vector<std::shared_ptr<nano::block>> blocks;
+
 	nano::block_builder builder;
+
+	// noop change block
 	auto change = builder
 				  .change ()
 				  .previous (nano::dev::genesis->hash ())
@@ -1366,7 +1370,9 @@ TEST (rpc, history_pruning)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (*node0->work.generate (nano::dev::genesis->hash ()))
 				  .build_shared ();
-	node0->process_active (change);
+	blocks.push_back (change);
+
+	// legacy send to itself
 	auto send = builder
 				.send ()
 				.previous (change->hash ())
@@ -1375,7 +1381,9 @@ TEST (rpc, history_pruning)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*node0->work.generate (change->hash ()))
 				.build_shared ();
-	node0->process_active (send);
+	blocks.push_back (send);
+
+	// legacy receive the legacy self send
 	auto receive = builder
 				   .receive ()
 				   .previous (send->hash ())
@@ -1383,7 +1391,9 @@ TEST (rpc, history_pruning)
 				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				   .work (*node0->work.generate (send->hash ()))
 				   .build_shared ();
-	node0->process_active (receive);
+	blocks.push_back (receive);
+
+	// non legacy self send
 	auto usend = builder
 				 .state ()
 				 .account (nano::dev::genesis->account ())
@@ -1394,6 +1404,9 @@ TEST (rpc, history_pruning)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*node0->work_generate_blocking (receive->hash ()))
 				 .build_shared ();
+	blocks.push_back (usend);
+
+	// non legacy receive of the non legacy self send
 	auto ureceive = builder
 					.state ()
 					.account (nano::dev::genesis->account ())
@@ -1404,6 +1417,9 @@ TEST (rpc, history_pruning)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*node0->work_generate_blocking (usend->hash ()))
 					.build_shared ();
+	blocks.push_back (ureceive);
+
+	// change genesis to a random rep
 	auto uchange = builder
 				   .state ()
 				   .account (nano::dev::genesis->account ())
@@ -1414,50 +1430,16 @@ TEST (rpc, history_pruning)
 				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				   .work (*node0->work_generate_blocking (ureceive->hash ()))
 				   .build_shared ();
-	node0->process_active (usend);
-	node0->process_active (ureceive);
-	node0->process_active (uchange);
-	node0->block_processor.flush ();
+	blocks.push_back (uchange);
+
+	nano::test::process_live (*node0, blocks);
+	ASSERT_TIMELY (5s, nano::test::exists (*node0, blocks));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	// Confirm last block to prune previous
-	{
-		auto election = node0->active.election (change->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (5s, node0->block_confirmed (change->hash ()) && node0->active.active (send->qualified_root ()));
-	{
-		auto election = node0->active.election (send->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (5s, node0->block_confirmed (send->hash ()) && node0->active.active (receive->qualified_root ()));
-	{
-		auto election = node0->active.election (receive->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (5s, node0->block_confirmed (receive->hash ()) && node0->active.active (usend->qualified_root ()));
-	{
-		auto election = node0->active.election (usend->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (5s, node0->block_confirmed (usend->hash ()) && node0->active.active (ureceive->qualified_root ()));
-	{
-		auto election = node0->active.election (ureceive->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (5s, node0->block_confirmed (ureceive->hash ()) && node0->active.active (uchange->qualified_root ()));
-	{
-		auto election = node0->active.election (uchange->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (5s, node0->active.empty () && node0->block_confirmed (uchange->hash ()));
-	ASSERT_TIMELY (5s, node0->ledger.cache.cemented_count == 7 && node0->confirmation_height_processor.current ().is_zero () && node0->confirmation_height_processor.awaiting_processing_size () == 0);
-	// Pruning action
+
+	// WORKAROUND: this is called repeatedly inside an assert timely because nano::test::confirm()
+	// uses block_processor.flush internally which can fail to flush
+	ASSERT_TIMELY (5s, nano::test::confirm (*node0, blocks));
+
 	{
 		auto transaction (node0->store.tx_begin_write ());
 		ASSERT_EQ (1, node0->ledger.pruning_action (transaction, change->hash (), 1));
