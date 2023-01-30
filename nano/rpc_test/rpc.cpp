@@ -1440,83 +1440,81 @@ TEST (rpc, history_pruning)
 	// uses block_processor.flush internally which can fail to flush
 	ASSERT_TIMELY (5s, nano::test::confirm (*node0, blocks));
 
+	ASSERT_TIMELY (5s, node0->block_confirmed (uchange->hash ()));
+	nano::confirmation_height_info confirmation_height_info;
+	node0->store.confirmation_height.get (node0->store.tx_begin_read (), nano::dev::genesis_key.pub, confirmation_height_info);
+	ASSERT_EQ (7, confirmation_height_info.height);
+
+	// Prune block "change"
 	{
 		auto transaction (node0->store.tx_begin_write ());
 		ASSERT_EQ (1, node0->ledger.pruning_action (transaction, change->hash (), 1));
 	}
+
 	auto const rpc_ctx = add_rpc (system, node0);
 	boost::property_tree::ptree request;
 	request.put ("action", "history");
 	request.put ("hash", send->hash ().to_string ());
 	request.put ("count", 100);
-	auto response (wait_response (system, rpc_ctx, request));
-	std::vector<std::tuple<std::string, std::string, std::string, std::string>> history_l;
-	auto & history_node (response.get_child ("history"));
-	for (auto i (history_node.begin ()), n (history_node.end ()); i != n; ++i)
-	{
-		history_l.push_back (std::make_tuple (i->second.get<std::string> ("type"), i->second.get<std::string> ("account", "-1"), i->second.get<std::string> ("amount", "-1"), i->second.get<std::string> ("hash")));
-		boost::optional<std::string> amount (i->second.get_optional<std::string> ("amount"));
-		ASSERT_FALSE (amount.is_initialized ()); // Cannot calculate amount
-	}
-	ASSERT_EQ (1, history_l.size ());
-	ASSERT_EQ ("send", std::get<0> (history_l[0]));
-	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<1> (history_l[0]));
-	ASSERT_EQ ("-1", std::get<2> (history_l[0]));
-	ASSERT_EQ (send->hash ().to_string (), std::get<3> (history_l[0]));
-	// Pruning action
+	auto response = wait_response (system, rpc_ctx, request);
+	auto history_node = response.get_child ("history");
+	ASSERT_EQ (history_node.size (), 1);
+	auto entry = (*history_node.begin ()).second;
+	ASSERT_EQ ("send", entry.get<std::string> ("type"));
+	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), entry.get<std::string> ("account", "N/A"));
+	ASSERT_EQ ("N/A", entry.get<std::string> ("amount", "N/A"));
+	ASSERT_EQ (send->hash ().to_string (), entry.get<std::string> ("hash"));
+
+	// Prune block "send"
 	{
 		rpc_ctx.io_scope->reset ();
 		auto transaction (node0->store.tx_begin_write ());
 		ASSERT_EQ (1, node0->ledger.pruning_action (transaction, send->hash (), 1));
 		rpc_ctx.io_scope->renew ();
 	}
+
 	boost::property_tree::ptree request2;
 	request2.put ("action", "history");
 	request2.put ("hash", receive->hash ().to_string ());
 	request2.put ("count", 100);
-	auto response2 (wait_response (system, rpc_ctx, request2));
-	history_l.clear ();
-	auto & history_node2 (response2.get_child ("history"));
-	for (auto i (history_node2.begin ()), n (history_node2.end ()); i != n; ++i)
-	{
-		history_l.push_back (std::make_tuple (i->second.get<std::string> ("type"), i->second.get<std::string> ("account", "-1"), i->second.get<std::string> ("amount", "-1"), i->second.get<std::string> ("hash")));
-		boost::optional<std::string> amount (i->second.get_optional<std::string> ("amount"));
-		ASSERT_FALSE (amount.is_initialized ()); // Cannot calculate amount
-		boost::optional<std::string> account (i->second.get_optional<std::string> ("account"));
-		ASSERT_FALSE (account.is_initialized ()); // Cannot find source account
-	}
-	ASSERT_EQ (1, history_l.size ());
-	ASSERT_EQ ("receive", std::get<0> (history_l[0]));
-	ASSERT_EQ ("-1", std::get<1> (history_l[0]));
-	ASSERT_EQ ("-1", std::get<2> (history_l[0]));
-	ASSERT_EQ (receive->hash ().to_string (), std::get<3> (history_l[0]));
-	// Pruning action
+	response = wait_response (system, rpc_ctx, request2);
+	history_node = response.get_child ("history");
+	ASSERT_EQ (history_node.size (), 1);
+	entry = (*history_node.begin ()).second;
+	ASSERT_EQ ("receive", entry.get<std::string> ("type"));
+	ASSERT_EQ ("N/A", entry.get<std::string> ("account", "N/A"));
+	ASSERT_EQ ("N/A", entry.get<std::string> ("amount", "N/A"));
+	ASSERT_EQ (receive->hash ().to_string (), entry.get<std::string> ("hash"));
+
+	// Prune block "receive"
 	{
 		rpc_ctx.io_scope->reset ();
 		auto transaction (node0->store.tx_begin_write ());
 		ASSERT_EQ (1, node0->ledger.pruning_action (transaction, receive->hash (), 1));
 		rpc_ctx.io_scope->renew ();
 	}
+
 	boost::property_tree::ptree request3;
 	request3.put ("action", "history");
 	request3.put ("hash", uchange->hash ().to_string ());
 	request3.put ("count", 100);
-	auto response3 (wait_response (system, rpc_ctx, request3));
-	history_l.clear ();
-	auto & history_node3 (response3.get_child ("history"));
-	for (auto i (history_node3.begin ()), n (history_node3.end ()); i != n; ++i)
-	{
-		history_l.push_back (std::make_tuple (i->second.get<std::string> ("type"), i->second.get<std::string> ("account", "-1"), i->second.get<std::string> ("amount", "-1"), i->second.get<std::string> ("hash")));
-	}
-	ASSERT_EQ (2, history_l.size ());
-	ASSERT_EQ ("receive", std::get<0> (history_l[0]));
-	ASSERT_EQ (ureceive->hash ().to_string (), std::get<3> (history_l[0]));
-	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<1> (history_l[0]));
-	ASSERT_EQ (nano::Gxrb_ratio.convert_to<std::string> (), std::get<2> (history_l[0]));
-	ASSERT_EQ ("unknown", std::get<0> (history_l[1]));
-	ASSERT_EQ ("-1", std::get<1> (history_l[1]));
-	ASSERT_EQ ("-1", std::get<2> (history_l[1]));
-	ASSERT_EQ (usend->hash ().to_string (), std::get<3> (history_l[1]));
+	response = wait_response (system, rpc_ctx, request3);
+	history_node = response.get_child ("history");
+	ASSERT_EQ (history_node.size (), 2);
+
+	// first array element
+	entry = (*history_node.begin ()).second;
+	ASSERT_EQ ("receive", entry.get<std::string> ("type"));
+	ASSERT_EQ (ureceive->hash ().to_string (), entry.get<std::string> ("hash"));
+	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), entry.get<std::string> ("account", "N/A"));
+	ASSERT_EQ (nano::Gxrb_ratio.convert_to<std::string> (), entry.get<std::string> ("amount", "N/A"));
+
+	// second array element
+	entry = (*(++history_node.begin ())).second;
+	ASSERT_EQ ("unknown", entry.get<std::string> ("type"));
+	ASSERT_EQ ("N/A", entry.get<std::string> ("account", "N/A"));
+	ASSERT_EQ ("N/A", entry.get<std::string> ("amount", "N/A"));
+	ASSERT_EQ (usend->hash ().to_string (), entry.get<std::string> ("hash"));
 }
 
 TEST (rpc, process_block)
