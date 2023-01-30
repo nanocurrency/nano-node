@@ -33,13 +33,13 @@ namespace transport
 }
 
 /**
- * TODO: Update description
+ * This class periodically broadcasts and requests telemetry from peers.
+ * Those intervals are configurable via `telemetry_request_interval` & `telemetry_broadcast_interval` network constants
+ * Telemetry datas are only removed after becoming stale (configurable via `telemetry_cache_cutoff` network constant), so peer data will still be available for a short period after that peer is disconnected
  *
- * This class requests node telemetry metrics from peers and invokes any callbacks which have been aggregated.
- * All calls to get_metrics return cached data, it does not do any requests, these are periodically done in
- * ongoing_req_all_peers. This can be disabled with the disable_ongoing_telemetry_requests node flag.
- * Calls to get_metrics_single_peer_async will wait until a response is made if it is not within the cache
- * cut off.
+ * Requests can be disabled via `disable_ongoing_telemetry_requests` node flag
+ * Broadcasts can be disabled via `disable_providing_telemetry_metrics` node flag
+ *
  */
 class telemetry
 {
