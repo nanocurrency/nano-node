@@ -42,7 +42,8 @@ public:
 
 	~processing_queue ()
 	{
-		stop ();
+		// Threads must be stopped before destruction
+		debug_assert (threads.empty ());
 	}
 
 	void start ()
@@ -50,6 +51,7 @@ public:
 		for (int n = 0; n < thread_count; ++n)
 		{
 			threads.emplace_back ([this] () {
+				nano::thread_role::set (thread_role);
 				run ();
 			});
 		}
@@ -57,7 +59,10 @@ public:
 
 	void stop ()
 	{
-		stopped = true;
+		{
+			nano::lock_guard<nano::mutex> guard{ mutex };
+			stopped = true;
+		}
 		condition.notify_all ();
 		for (auto & thread : threads)
 		{
@@ -140,7 +145,6 @@ private:
 
 	void run ()
 	{
-		nano::thread_role::set (thread_role);
 		nano::unique_lock<nano::mutex> lock{ mutex };
 		while (!stopped)
 		{
@@ -169,7 +173,8 @@ private:
 
 private:
 	std::deque<value_t> queue;
-	std::atomic<bool> stopped{ false };
+
+	bool stopped{ false };
 	mutable nano::mutex mutex;
 	nano::condition_variable condition;
 	std::vector<std::thread> threads;

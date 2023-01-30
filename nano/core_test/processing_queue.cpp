@@ -23,7 +23,7 @@ TEST (processing_queue, process_one)
 	queue.process_batch = [&] (auto & batch) {
 		processed += batch.size ();
 	};
-	queue.start ();
+	nano::test::start_stop_guard queue_guard{ queue };
 
 	queue.add (1);
 
@@ -41,7 +41,7 @@ TEST (processing_queue, process_many)
 	queue.process_batch = [&] (auto & batch) {
 		processed += batch.size ();
 	};
-	queue.start ();
+	nano::test::start_stop_guard queue_guard{ queue };
 
 	const int count = 1024;
 	for (int n = 0; n < count; ++n)
@@ -87,7 +87,7 @@ TEST (processing_queue, max_batch_size)
 			max_batch = batch.size ();
 		}
 	};
-	queue.start ();
+	nano::test::start_stop_guard queue_guard{ queue };
 
 	ASSERT_TIMELY (5s, max_batch == 128);
 	ASSERT_ALWAYS (1s, max_batch == 128);
@@ -104,7 +104,7 @@ TEST (processing_queue, parallel)
 		std::this_thread::sleep_for (2s);
 		processed += batch.size ();
 	};
-	queue.start ();
+	nano::test::start_stop_guard queue_guard{ queue };
 
 	const int count = 16;
 	for (int n = 0; n < count; ++n)
