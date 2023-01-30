@@ -7,97 +7,99 @@ env:
   artifact: 0
 
 jobs:
-  osx_test:
-    name: OSX unit tests [TEST_USE_ROCKSDB=${{ matrix.TEST_USE_ROCKSDB }}]
+  macos_test:
+    name: macOS [${{ matrix.BACKEND }}]
     strategy:
       fail-fast: false
       matrix:
-        TEST_USE_ROCKSDB: [0, 1]
+        BACKEND: [lmdb, rocksdb]
         RELEASE:
           - ${{ startsWith(github.ref, 'refs/tags/') }}
     env:
-      TEST_USE_ROCKSDB: ${{ matrix.TEST_USE_ROCKSDB }}
+      BACKEND: ${{ matrix.BACKEND }}
+      TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
       RELEASE: ${{ matrix.RELEASE }}
-    runs-on: macOS-11
+    runs-on: macos-12
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
           submodules: "recursive"
+
       - name: Fetch Deps
         run: TEST=1 ci/actions/osx/install_deps.sh
+
       - name: Build Tests
         run: ci/build-ci.sh "/tmp/qt/lib/cmake/Qt5";
-      - name: Run Tests lmdb
-        if: ${{ matrix.TEST_USE_ROCKSDB == 0 }}
+
+      - name: Run Tests
         run: cd build && sudo TEST_USE_ROCKSDB=$TEST_USE_ROCKSDB ../ci/test.sh .
-      - name: Run Tests rocksdb
         env:
-          DEADLINE_SCALE_FACTOR: 2
-        if: ${{ matrix.TEST_USE_ROCKSDB == 1 }}
-        run: cd build && sudo TEST_USE_ROCKSDB=$TEST_USE_ROCKSDB ../ci/test.sh .
+          DEADLINE_SCALE_FACTOR: ${{ env.TEST_USE_ROCKSDB == 1 && '2' || '1' }}
 
   linux_test:
-    name: Linux Unit Tests [TEST_USE_ROCKSDB=${{ matrix.TEST_USE_ROCKSDB }} - COMPILER=${{ matrix.COMPILER }}]
+    name: Linux [${{ matrix.BACKEND }} | ${{ matrix.COMPILER }}]
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        TEST_USE_ROCKSDB: [0, 1]
+        BACKEND: [lmdb, rocksdb]
         COMPILER: [gcc, clang]
         RELEASE:
           - ${{ startsWith(github.ref, 'refs/tags/') }}
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       COMPILER: ${{ matrix.COMPILER }}
-      TEST_USE_ROCKSDB: ${{ matrix.TEST_USE_ROCKSDB }}
+      BACKEND: ${{ matrix.BACKEND }}
+      TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
       RELEASE: ${{ matrix.RELEASE }}
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
           submodules: "recursive"
+
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
+
       - name: Build Tests
         run: docker run -e TEST_USE_ROCKSDB  -e RELEASE -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace && ./ci/build-ci.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5"
-      - name: Run Tests lmdb
-        if: ${{ matrix.TEST_USE_ROCKSDB == 0 }}
-        run: docker run  -e RELEASE -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace/build && ../ci/test.sh ."
-      - name: Run Tests rocksdb
-        if: ${{ matrix.TEST_USE_ROCKSDB == 1 }}
-        run: docker run -e TEST_USE_ROCKSDB -e DEADLINE_SCALE_FACTOR=2  -e RELEASE -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace/build && ../ci/test.sh ."
+
+      - name: Run Tests
+        run: docker run -e RELEASE -e TEST_USE_ROCKSDB -e DEADLINE_SCALE_FACTOR -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace/build && ../ci/test.sh ."
+        env:
+          DEADLINE_SCALE_FACTOR: ${{ env.TEST_USE_ROCKSDB == 1 && '2' || '1' }}
 
   windows_test:
-    name: Windows Unit Tests [TEST_USE_ROCKSDB=${{ matrix.TEST_USE_ROCKSDB }}]
+    name: Windows [${{ matrix.BACKEND }}]
     timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
-        TEST_USE_ROCKSDB: [0, 1]
+        BACKEND: [lmdb, rocksdb]
         RELEASE:
           - ${{ startsWith(github.ref, 'refs/tags/') }}
-        exclude:
-          - RELEASE: true
-            TEST_USE_ROCKSDB: 1
     runs-on: windows-latest
     env:
-      TEST_USE_ROCKSDB: ${{ matrix.TEST_USE_ROCKSDB }}
+      BACKEND: ${{ matrix.BACKEND }}
+      TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
       RELEASE: ${{ matrix.RELEASE }}
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
           submodules: "recursive"
+
       - name: Windows Defender
         run: ci/actions/windows/disable_windows_defender.ps1
+
       - name: Fetch Deps
         run: ci/actions/windows/install_deps.ps1
-      - name: Run Tests lmdb
-        if: ${{ matrix.TEST_USE_ROCKSDB == 0 }}
+
+      - name: Build & Run Tests
         run: ci/actions/windows/build.ps1
-      - name: Run Tests rocksdb
-        if: ${{ matrix.TEST_USE_ROCKSDB == 1 }}
         env:
-          DEADLINE_SCALE_FACTOR: 2
-        run: ci/actions/windows/build.ps1
+          DEADLINE_SCALE_FACTOR: ${{ env.TEST_USE_ROCKSDB == 1 && '2' || '1' }}
