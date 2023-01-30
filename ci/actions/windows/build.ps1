@@ -52,12 +52,8 @@ if (${env:RUN} -eq "artifact") {
 if (${LastExitCode} -ne 0) {
     throw "Failed to build ${env:RUN}"
 }
+
 $env:cmake_path = Split-Path -Path(get-command cmake.exe).Path
 . "$PSScriptRoot\signing.ps1"
-
-& ..\ci\actions\windows\run.bat
-if (${LastExitCode} -ne 0) {
-    throw "Failed to Pass Test ${env:RUN}"
-}
 
 Pop-Location

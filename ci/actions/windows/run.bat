@@ -18,9 +18,3 @@ echo Core Test %core_code%
 echo RPC Test %rpc_code%
 
 exit /B %core_code%
-
-:artifact
-echo "Packaging NSIS"
-call "%cmake_path%\cpack.exe" -C %BUILD_TYPE%
-echo "Packaging ZIP"
-call "%cmake_path%\cpack.exe" -G ZIP -C %BUILD_TYPE%
