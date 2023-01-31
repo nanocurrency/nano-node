@@ -648,10 +648,13 @@ TEST (node, DISABLED_fork_publish_inactive)
 	node.process_active (send1);
 	ASSERT_TIMELY (5s, node.block (send1->hash ()));
 
+	std::shared_ptr<nano::election> election;
+	ASSERT_TIMELY (5s, election = node.active.election (send1->qualified_root ()));
+
 	ASSERT_EQ (nano::process_result::fork, node.process_local (send2).code);
-	auto election = node.active.election (send1->qualified_root ());
-	ASSERT_NE (election, nullptr);
+
 	auto blocks = election->blocks ();
+	ASSERT_TIMELY_EQ (5s, blocks.size (), 2);
 	ASSERT_NE (blocks.end (), blocks.find (send1->hash ()));
 	ASSERT_NE (blocks.end (), blocks.find (send2->hash ()));
 	ASSERT_EQ (election->winner ()->hash (), send1->hash ());
