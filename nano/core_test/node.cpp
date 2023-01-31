@@ -617,10 +617,7 @@ TEST (node, fork_publish)
 	ASSERT_TRUE (node0.expired ());
 }
 
-// Test disabled because it's failing intermittently.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3611
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3614
-TEST (node, DISABLED_fork_publish_inactive)
+TEST (node, fork_publish_inactive)
 {
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
