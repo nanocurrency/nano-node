@@ -1053,7 +1053,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ne
 	composite->add_component (network.tcp_channels.collect_container_info ("tcp_channels"));
 	composite->add_component (network.udp_channels.collect_container_info ("udp_channels"));
 	composite->add_component (network.syn_cookies.collect_container_info ("syn_cookies"));
-	composite->add_component (collect_container_info (network.excluded_peers, "excluded_peers"));
+	composite->add_component (network.excluded_peers.collect_container_info ("excluded_peers"));
 	return composite;
 }
 
