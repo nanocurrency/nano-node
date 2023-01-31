@@ -397,6 +397,9 @@ public:
 	/** Stop stats being output */
 	void stop ();
 
+	/** Return string showing stats counters (convenience function for debugging) */
+	std::string to_string (std::string type = "counters");
+
 private:
 	static std::string type_to_string (uint32_t key);
 	static std::string dir_to_string (uint32_t key);
