@@ -456,6 +456,25 @@ void nano::stats::stop ()
 	stopped = true;
 }
 
+std::string nano::stats::to_string (std::string type)
+{
+	auto sink = log_sink_json ();
+	if (type == "counters")
+	{
+		log_counters (*sink);
+		return sink->to_string ();
+	}
+	else if (type == "samples")
+	{
+		log_samples (*sink);
+		return sink->to_string ();
+	}
+	else
+	{
+		return "type not supported: " + type;
+	}
+}
+
 void nano::stats::clear ()
 {
 	nano::unique_lock<nano::mutex> lock{ stat_mutex };
