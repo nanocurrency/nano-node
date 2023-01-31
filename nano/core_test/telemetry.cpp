@@ -508,3 +508,26 @@ TEST (telemetry, ongoing_broadcasts)
 	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::telemetry, nano::stat::detail::process) >= 3);
 	ASSERT_TIMELY (5s, node2.stats.count (nano::stat::type::telemetry, nano::stat::detail::process) >= 3)
 }
+
+TEST (telemetry, mismatched_genesis)
+{
+	// Only second node will broadcast telemetry
+	nano::test::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	node_flags.disable_providing_telemetry_metrics = true;
+	auto & node1 = *system.add_node (node_flags);
+
+	// Set up a node with different genesis
+	nano::network_params network_params{ nano::networks::nano_dev_network };
+	network_params.ledger.genesis = network_params.ledger.nano_live_genesis;
+	nano::node_config node_config{ network_params };
+	node_flags.disable_providing_telemetry_metrics = false;
+	auto & node2 = *system.add_node (node_config, node_flags);
+
+	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::telemetry, nano::stat::detail::genesis_mismatch) > 0);
+	ASSERT_ALWAYS (1s, node1.stats.count (nano::stat::type::telemetry, nano::stat::detail::process) == 0)
+
+	// Ensure node with different genesis gets disconnected
+	ASSERT_TIMELY (5s, !node1.network.find_node_id (node2.get_node_id ()));
+}

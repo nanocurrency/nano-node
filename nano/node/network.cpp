@@ -7,6 +7,10 @@
 
 #include <boost/format.hpp>
 
+/*
+ * network
+ */
+
 nano::network::network (nano::node & node_a, uint16_t port_a) :
 	id (nano::network_constants::active_network),
 	syn_cookies (node_a.network_params.network.max_peers_per_ip),
@@ -823,6 +827,19 @@ void nano::network::erase (nano::transport::channel const & channel_a)
 		udp_channels.clean_node_id (channel_a.get_node_id ());
 	}
 }
+
+void nano::network::exclude (std::shared_ptr<nano::transport::channel> const & channel)
+{
+	// Add to peer exclusion list
+	excluded_peers.add (channel->get_tcp_endpoint ());
+
+	// Disconnect
+	erase (*channel);
+}
+
+/*
+ * message_buffer_manager
+ */
 
 nano::message_buffer_manager::message_buffer_manager (nano::stats & stats_a, std::size_t size, std::size_t count) :
 	stats (stats_a),

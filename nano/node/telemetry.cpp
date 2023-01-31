@@ -75,6 +75,14 @@ bool nano::telemetry::verify (const nano::telemetry_ack & telemetry, const std::
 		return false;
 	}
 
+	if (telemetry.data.genesis_block != network_params.ledger.genesis->hash ())
+	{
+		network.exclude (channel);
+
+		stats.inc (nano::stat::type::telemetry, nano::stat::detail::genesis_mismatch);
+		return false;
+	}
+
 	return true; // Telemetry is OK
 }
 
