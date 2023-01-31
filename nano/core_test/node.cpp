@@ -623,9 +623,12 @@ TEST (node, fork_publish)
 TEST (node, DISABLED_fork_publish_inactive)
 {
 	nano::test::system system (1);
+	auto & node = *system.nodes[0];
 	nano::keypair key1;
 	nano::keypair key2;
+
 	nano::send_block_builder builder;
+
 	auto send1 = builder.make_block ()
 				 .previous (nano::dev::genesis->hash ())
 				 .destination (key1.pub)
@@ -633,6 +636,7 @@ TEST (node, DISABLED_fork_publish_inactive)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
+
 	auto send2 = builder.make_block ()
 				 .previous (nano::dev::genesis->hash ())
 				 .destination (key2.pub)
@@ -640,9 +644,10 @@ TEST (node, DISABLED_fork_publish_inactive)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (send1->block_work ())
 				 .build_shared ();
-	auto & node = *system.nodes[0];
+
 	node.process_active (send1);
-	ASSERT_TIMELY (3s, nullptr != node.block (send1->hash ()));
+	ASSERT_TIMELY (5s, node.block (send1->hash ()));
+
 	ASSERT_EQ (nano::process_result::fork, node.process_local (send2).code);
 	auto election = node.active.election (send1->qualified_root ());
 	ASSERT_NE (election, nullptr);
