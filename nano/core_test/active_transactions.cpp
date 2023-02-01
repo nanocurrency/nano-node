@@ -363,25 +363,23 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
 
-// Test disabled because it's failing intermittently.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3632
-TEST (active_transactions, DISABLED_inactive_votes_cache_multiple_votes)
+TEST (active_transactions, inactive_votes_cache_multiple_votes)
 {
 	nano::test::system system;
 	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
-	nano::block_hash latest (node.latest (nano::dev::genesis_key.pub));
 	nano::keypair key1;
 	nano::block_builder builder;
+
 	auto send1 = builder.send ()
-				 .previous (latest)
+				 .previous (nano::dev::genesis->hash ())
 				 .destination (key1.pub)
 				 .balance (nano::dev::constants.genesis_amount - 100 * nano::Gxrb_ratio)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (latest))
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
+
 	auto send2 = builder.send ()
 				 .previous (send1->hash ())
 				 .destination (key1.pub)
@@ -389,6 +387,7 @@ TEST (active_transactions, DISABLED_inactive_votes_cache_multiple_votes)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send1->hash ()))
 				 .build_shared ();
+
 	auto open = builder.state ()
 				.account (key1.pub)
 				.previous (0)
@@ -398,22 +397,24 @@ TEST (active_transactions, DISABLED_inactive_votes_cache_multiple_votes)
 				.sign (key1.prv, key1.pub)
 				.work (*system.work.generate (key1.pub))
 				.build_shared ();
-	node.block_processor.add (send1);
-	node.block_processor.add (send2);
-	node.block_processor.add (open);
-	node.block_processor.flush ();
+
+	// put the blocks in the ledger witout triggering an election
+	nano::test::process (node, { send1, send2, open });
+	ASSERT_TIMELY (5s, nano::test::exists (node, { send1, send2, open }));
+
 	// Process votes
 	auto vote1 (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, 0, std::vector<nano::block_hash> (1, send1->hash ())));
 	node.vote_processor.vote (vote1, std::make_shared<nano::transport::inproc::channel> (node, node));
+
 	auto vote2 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash> (1, send1->hash ())));
 	node.vote_processor.vote (vote2, std::make_shared<nano::transport::inproc::channel> (node, node));
+
 	ASSERT_TIMELY (5s, node.inactive_vote_cache.find (send1->hash ()));
 	ASSERT_TIMELY (5s, node.inactive_vote_cache.find (send1->hash ())->voters.size () == 2);
 	ASSERT_EQ (1, node.inactive_vote_cache.cache_size ());
 	node.scheduler.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
-	ASSERT_TIMELY (5s, node.active.election (send1->qualified_root ()));
-	auto election = node.active.election (send1->qualified_root ());
-	ASSERT_NE (nullptr, election);
+	std::shared_ptr<nano::election> election;
+	ASSERT_TIMELY (5s, election = node.active.election (send1->qualified_root ()));
 	ASSERT_EQ (3, election->votes ().size ()); // 2 votes and 1 default not_an_acount
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
