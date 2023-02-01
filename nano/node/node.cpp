@@ -696,6 +696,7 @@ void nano::node::start ()
 	active.start ();
 	generator.start ();
 	final_generator.start ();
+	scheduler.start ();
 	backlog.start ();
 	hinting.start ();
 	bootstrap_server.start ();
@@ -704,37 +705,41 @@ void nano::node::start ()
 
 void nano::node::stop ()
 {
-	if (!stopped.exchange (true))
+	// Ensure stop can only be called once
+	if (stopped.exchange (true))
 	{
-		logger.always_log ("Node stopping");
-		// Cancels ongoing work generation tasks, which may be blocking other threads
-		// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
-		distributed_work.stop ();
-		backlog.stop ();
-		unchecked.stop ();
-		block_processor.stop ();
-		aggregator.stop ();
-		vote_processor.stop ();
-		scheduler.stop ();
-		hinting.stop ();
-		active.stop ();
-		generator.stop ();
-		final_generator.stop ();
-		confirmation_height_processor.stop ();
-		network.stop ();
-		telemetry->stop ();
-		websocket.stop ();
-		bootstrap_server.stop ();
-		bootstrap_initiator.stop ();
-		tcp_listener.stop ();
-		port_mapping.stop ();
-		checker.stop ();
-		wallets.stop ();
-		stats.stop ();
-		epoch_upgrader.stop ();
-		workers.stop ();
-		// work pool is not stopped on purpose due to testing setup
+		return;
 	}
+
+	logger.always_log ("Node stopping");
+
+	// Cancels ongoing work generation tasks, which may be blocking other threads
+	// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
+	distributed_work.stop ();
+	backlog.stop ();
+	unchecked.stop ();
+	block_processor.stop ();
+	aggregator.stop ();
+	vote_processor.stop ();
+	scheduler.stop ();
+	hinting.stop ();
+	active.stop ();
+	generator.stop ();
+	final_generator.stop ();
+	confirmation_height_processor.stop ();
+	network.stop ();
+	telemetry->stop ();
+	websocket.stop ();
+	bootstrap_server.stop ();
+	bootstrap_initiator.stop ();
+	tcp_listener.stop ();
+	port_mapping.stop ();
+	checker.stop ();
+	wallets.stop ();
+	stats.stop ();
+	epoch_upgrader.stop ();
+	workers.stop ();
+	// work pool is not stopped on purpose due to testing setup
 }
 
 void nano::node::keepalive_preconfigured (std::vector<std::string> const & peers_a)
