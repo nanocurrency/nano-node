@@ -33,7 +33,6 @@ public:
 	 */
 	nano::account account (nano::transaction const &, nano::block_hash const &) const;
 	std::optional<nano::account_info> account_info (nano::transaction const & transaction, nano::account const & account) const;
-	std::optional<nano::pending_info> pending_info (nano::transaction const & transaction, nano::pending_key const & key) const;
 	/**
 	 * For non-prunning nodes same as `ledger::account()`
 	 * For prunning nodes ensures that block hash exists, otherwise returns zero account

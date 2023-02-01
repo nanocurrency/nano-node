@@ -1075,16 +1075,6 @@ std::optional<nano::account_info> nano::ledger::account_info (nano::transaction 
 	return store.account.get (transaction, account);
 }
 
-std::optional<nano::pending_info> nano::ledger::pending_info (nano::transaction const & transaction, nano::pending_key const & key) const
-{
-	nano::pending_info result;
-	if (!store.pending.get (transaction, key, result))
-	{
-		return result;
-	}
-	return std::nullopt;
-}
-
 // Return amount decrease or increase for block
 nano::uint128_t nano::ledger::amount (nano::transaction const & transaction_a, nano::account const & account_a)
 {
