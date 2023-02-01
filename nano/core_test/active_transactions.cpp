@@ -399,7 +399,7 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 				.build_shared ();
 
 	// put the blocks in the ledger witout triggering an election
-	ASSERT_TRUE(nano::test::process (node, { send1, send2, open }));
+	ASSERT_TRUE (nano::test::process (node, { send1, send2, open }));
 	ASSERT_TIMELY (5s, nano::test::exists (node, { send1, send2, open }));
 
 	// Process votes
