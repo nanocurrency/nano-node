@@ -3028,91 +3028,95 @@ void nano::json_handler::receivable ()
 	bool const include_active = request.get<bool> ("include_active", false);
 	bool const include_only_confirmed = request.get<bool> ("include_only_confirmed", true);
 	bool const sorting = request.get<bool> ("sorting", false);
-	if (!ec)
+
+	if (ec)
 	{
-		boost::property_tree::ptree peers_l;
-		auto transaction (node.store.tx_begin_read ());
+		response_errors ();
+		return;
+	}
 
-		// We can't create vector from iterator because store_iterator is not a specialization of iterator_traits.
-		// Maybe we could limit this loop iterations to count (if not sorting) instead of ranges::take_view?
-		std::vector<std::pair<nano::pending_key, nano::pending_info>> pending;
-		for (auto i (node.store.pending.begin (transaction, nano::pending_key (account, 0))), n (node.store.pending.end ()); i != n && nano::pending_key (i->first).account == account; ++i)
+	boost::property_tree::ptree peers_l;
+	auto transaction (node.store.tx_begin_read ());
+
+	// We can't create vector from iterator because store_iterator is not a specialization of iterator_traits.
+	// Maybe we could limit this loop iterations to count (if not sorting) instead of ranges::take_view?
+	std::vector<std::pair<nano::pending_key, nano::pending_info>> pending;
+	for (auto i (node.store.pending.begin (transaction, nano::pending_key (account, 0))), n (node.store.pending.end ()); i != n && nano::pending_key (i->first).account == account; ++i)
+	{
+		pending.push_back (std::make_pair (i->first, i->second));
+	}
+
+	auto block_confirmed_lambda = [this, &transaction, include_active, include_only_confirmed] (auto & i) {
+		return block_confirmed (node, transaction, i.first.hash, include_active, include_only_confirmed);
+	};
+	auto confirmed = pending | std::views::filter (block_confirmed_lambda);
+	auto common_view = std::views::common (confirmed.base ());
+
+	std::shared_ptr<std::vector<std::pair<nano::pending_key, nano::pending_info>>> filtered_vector;
+	if (sorting)
+	{
+		filtered_vector = std::make_shared<std::vector<std::pair<nano::pending_key, nano::pending_info>>> (confirmed.begin (), confirmed.end ());
+		std::ranges::sort (*filtered_vector, std::greater<>{}, [] (std::pair<nano::pending_key, nano::pending_info> & i) { return i.second.amount; });
+		common_view = std::views::common (*filtered_vector);
+	}
+
+	auto thresholod_lambda = [&threshold] (auto & i) { return i.second.amount.number () >= threshold.number (); };
+	auto final_view = common_view | std::views::filter (thresholod_lambda) | std::views::drop (offset) | std::views::take (std::min (count, pending.size ()));
+
+	//Strategy-like approach to avoid ifs on every loop. Let me know if it's worth.
+	std::function<void (const nano::pending_key & key, const nano::pending_info & info)> output_func;
+	std::function<void (boost::property_tree::ptree & pending_tree, const nano::pending_info & info)> put_fields_func;
+	if (source || min_version)
+	{
+		if (source && min_version)
 		{
-			pending.push_back (std::make_pair (i->first, i->second));
+			put_fields_func = [] (boost::property_tree::ptree & pending_tree, const nano::pending_info & info) {
+				pending_tree.put ("source", info.source.to_account ());
+				pending_tree.put ("min_version", epoch_as_string (info.epoch));
+			};
 		}
-
-		auto block_confirmed_lambda = [this, &transaction, include_active, include_only_confirmed] (auto & i) {
-			return block_confirmed (node, transaction, i.first.hash, include_active, include_only_confirmed);
+		else if (source)
+		{
+			put_fields_func = [] (boost::property_tree::ptree & pending_tree, const nano::pending_info & info) {
+				pending_tree.put ("source", info.source.to_account ());
+			};
+		}
+		else if (min_version)
+		{
+			put_fields_func = [] (boost::property_tree::ptree & pending_tree, const nano::pending_info & info) {
+				pending_tree.put ("min_version", epoch_as_string (info.epoch));
+			};
+		}
+		output_func = [&peers_l, &put_fields_func] (const nano::pending_key & key, const nano::pending_info & info) {
+			boost::property_tree::ptree pending_tree;
+			pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
+			put_fields_func (pending_tree, info);
+			peers_l.add_child (key.hash.to_string (), pending_tree);
 		};
-		auto confirmed = pending | std::views::filter (block_confirmed_lambda);
-		auto common_view = std::views::common (confirmed.base ());
-
-		std::shared_ptr<std::vector<std::pair<nano::pending_key, nano::pending_info>>> filtered_vector;
-		if (sorting)
+	}
+	else
+	{
+		if (threshold.number () > 0 || sorting)
 		{
-			filtered_vector = std::make_shared<std::vector<std::pair<nano::pending_key, nano::pending_info>>> (confirmed.begin (), confirmed.end ());
-			std::ranges::sort (*filtered_vector, std::greater<>{}, [] (std::pair<nano::pending_key, nano::pending_info> & i) { return i.second.amount; });
-			common_view = std::views::common (*filtered_vector);
-		}
-
-		auto thresholod_lambda = [&threshold] (auto & i) { return i.second.amount.number () >= threshold.number (); };
-		auto final_view = common_view | std::views::filter (thresholod_lambda) | std::views::drop (offset) | std::views::take (std::min (count, pending.size ()));
-
-		//Strategy-like approach to avoid ifs on every loop. Let me know if it's worth.
-		std::function<void (const nano::pending_key & key, const nano::pending_info & info)> output_func;
-		std::function<void (boost::property_tree::ptree & pending_tree, const nano::pending_info & info)> put_fields_func;
-		if (source || min_version)
-		{
-			if (source && min_version)
-			{
-				put_fields_func = [] (boost::property_tree::ptree & pending_tree, const nano::pending_info & info) {
-					pending_tree.put ("source", info.source.to_account ());
-					pending_tree.put ("min_version", epoch_as_string (info.epoch));
-				};
-			}
-			else if (source)
-			{
-				put_fields_func = [] (boost::property_tree::ptree & pending_tree, const nano::pending_info & info) {
-					pending_tree.put ("source", info.source.to_account ());
-				};
-			}
-			else if (min_version)
-			{
-				put_fields_func = [] (boost::property_tree::ptree & pending_tree, const nano::pending_info & info) {
-					pending_tree.put ("min_version", epoch_as_string (info.epoch));
-				};
-			}
-			output_func = [&peers_l, &put_fields_func] (const nano::pending_key & key, const nano::pending_info & info) {
-				boost::property_tree::ptree pending_tree;
-				pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-				put_fields_func (pending_tree, info);
-				peers_l.add_child (key.hash.to_string (), pending_tree);
+			output_func = [&peers_l] (const nano::pending_key & key, const nano::pending_info & info) {
+				peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
 			};
 		}
 		else
 		{
-			if (threshold.number () > 0 || sorting)
-			{
-				output_func = [&peers_l] (const nano::pending_key & key, const nano::pending_info & info) {
-					peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
-				};
-			}
-			else
-			{
-				output_func = [&peers_l] (const nano::pending_key & key, const nano::pending_info & info) {
-					boost::property_tree::ptree pending_tree;
-					pending_tree.put ("", key.hash.to_string ());
-					peers_l.push_back (std::make_pair ("", pending_tree));
-				};
-			}
+			output_func = [&peers_l] (const nano::pending_key & key, const nano::pending_info & info) {
+				boost::property_tree::ptree pending_tree;
+				pending_tree.put ("", key.hash.to_string ());
+				peers_l.push_back (std::make_pair ("", pending_tree));
+			};
 		}
-		for (const auto & entry : final_view)
-		{
-			output_func (entry.first, entry.second);
-		}
-
-		response_l.add_child ("blocks", peers_l);
 	}
+	for (const auto & entry : final_view)
+	{
+		output_func (entry.first, entry.second);
+	}
+
+	response_l.add_child ("blocks", peers_l);
 	response_errors ();
 }
 
