@@ -18,6 +18,7 @@ add_executable(
   distributed_work.cpp
   election.cpp
   election_scheduler.cpp
+  enums.cpp
   epochs.cpp
   frontiers_confirmation.cpp
   gap_cache.cpp
