@@ -1,6 +1,6 @@
 #pragma once
 
-#include <magic_enum.hpp>
+#include <nano/lib/magic_enum.hpp>
 
 namespace nano::stat
 {
@@ -37,6 +37,8 @@ enum class type : uint8_t
 	bootstrap_server,
 	active,
 	backlog,
+
+	_last // Must be the last enum
 };
 
 /** Optional detail type */
@@ -259,13 +261,17 @@ enum class detail : uint8_t
 
 	// backlog
 	activated,
+
+	_last // Must be the last enum
 };
 
 /** Direction of the stat. If the direction is irrelevant, use in */
 enum class dir : uint8_t
 {
 	in,
-	out
+	out,
+
+	_last // Must be the last enum
 };
 }
 
