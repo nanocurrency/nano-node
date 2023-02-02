@@ -1,6 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/transport/udp.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -70,16 +69,9 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 			auto starting_keepalives_1 = node1->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
 			auto starting_keepalives_2 = node2->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
 
-			if (type_a == nano::transport::transport_type::tcp)
-			{
-				(*j)->network.merge_peer ((*i)->network.endpoint ());
-			}
-			else
-			{
-				// UDP connection
-				auto channel (std::make_shared<nano::transport::channel_udp> ((*j)->network.udp_channels, (*i)->network.endpoint (), node1->network_params.network.protocol_version));
-				(*j)->network.send_keepalive (channel);
-			}
+			// TCP is the only transport layer available.
+			debug_assert (type_a == nano::transport::transport_type::tcp);
+			(*j)->network.merge_peer ((*i)->network.endpoint ());
 
 			{
 				auto ec = poll_until_true (3s, [&node1, &node2, starting_size_1, starting_size_2] () {
