@@ -19,6 +19,6 @@ namespace test
 	/** Waits until a TCP connection is established and returns the TCP channel on success*/
 	std::shared_ptr<nano::transport::channel_tcp> establish_tcp (nano::test::system &, nano::node &, nano::endpoint const &);
 	/** Adds a node to the system without establishing connections */
-	std::shared_ptr<nano::node> add_outer_node (nano::test::system & system, uint16_t port_a = nano::test::get_available_port ());
+	std::shared_ptr<nano::node> add_outer_node (nano::test::system & system, uint16_t port_a = nano::test::get_available_port (), nano::node_flags = nano::node_flags ());
 }
 }
