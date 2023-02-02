@@ -630,3 +630,33 @@ void nano::test::cleanup_dev_directories_on_exit ()
 		nano::remove_temporary_directories ();
 	}
 }
+
+std::shared_ptr<nano::election> nano::test::system::start_election (nano::node & node_a, const std::shared_ptr<nano::block> & block_a)
+{
+	deadline_set (5s);
+
+	// wait until and ensure that the block is in the ledger
+	while (!node_a.block (block_a->hash ()))
+	{
+		if (poll ())
+		{
+			return {};
+		}
+	}
+
+	node_a.scheduler.manual (block_a);
+
+	// wait for the election to appear
+	std::shared_ptr<nano::election> election = node_a.active.election (block_a->qualified_root ());
+	while (!election)
+	{
+		if (poll ())
+		{
+			return {};
+		}
+		election = node_a.active.election (block_a->qualified_root ());
+	}
+
+	election->transition_active ();
+	return election;
+}
