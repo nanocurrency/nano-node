@@ -57,11 +57,11 @@ TEST (peer_container, reserved_peers_no_contact)
 {
 	nano::test::system system{ 1 };
 	auto & channels = system.nodes[0]->network.tcp_channels;
-	auto insert_channel = [&node = *system.nodes[0], &channels] (nano::endpoint endpoint_a) -> bool {
+	auto insert_channel = [&node = system.nodes[0], &channels] (nano::endpoint endpoint_a) -> bool {
 		// Create dummy socket and channel only for passing the IP address
-		auto ignored_socket = std::make_shared<nano::server_socket> (node, nano::transport::map_endpoint_to_tcp (endpoint_a), 10);
-		auto ignored_channel = std::make_shared<nano::transport::channel_tcp> (node, ignored_socket->weak_from_this ());
-		return channels.insert (ignored_channel, std::shared_ptr<nano::socket> (), std::shared_ptr<nano::bootstrap_server> ());
+		auto ignored_socket = std::make_shared<nano::server_socket> (*node, nano::transport::map_endpoint_to_tcp (endpoint_a), 10);
+		auto ignored_channel = std::make_shared<nano::transport::channel_tcp> (*node, ignored_socket->weak_from_this ());
+		return channels.insert (ignored_channel, std::shared_ptr<nano::socket> (), std::make_shared<nano::transport::tcp_server> (ignored_socket, node));
 	};
 
 	// The return value as true means an error.
