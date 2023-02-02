@@ -3619,15 +3619,15 @@ TEST (node, rollback_vote_self)
 		// The write guard prevents the block processor from performing the rollback
 		auto write_guard = node.write_database_queue.wait (nano::writer::testing);
 
-		// Insert genesis key in the wallet
-		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-
 		ASSERT_EQ (0, election->votes_with_weight ().size ());
 		// Vote with key to switch the winner
 		election->vote (key.pub, 0, fork->hash ());
 		ASSERT_EQ (1, election->votes_with_weight ().size ());
 		// The winner changed
 		ASSERT_EQ (election->winner ()->hash (), fork->hash ());
+
+		// Insert genesis key in the wallet
+		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
 		// Even without the rollback being finished, the aggregator must reply with a vote for the new winner, not the old one
 		ASSERT_TRUE (node.history.votes (send2->root (), send2->hash ()).empty ());
