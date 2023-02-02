@@ -105,6 +105,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::bootstrap_server:
 			thread_role_name_string = "Bootstrp serv";
 			break;
+		case nano::thread_role::name::telemetry:
+			thread_role_name_string = "Telemetry";
+			break;
 		default:
 			debug_assert (false && "nano::thread_role::get_string unhandled thread role");
 	}

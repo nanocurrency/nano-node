@@ -444,9 +444,8 @@ void nano::transport::tcp_server::realtime_message_visitor::frontier_req (const 
 
 void nano::transport::tcp_server::realtime_message_visitor::telemetry_req (const nano::telemetry_req & message)
 {
-	// Only handle telemetry requests if they are outside of the cutoff time
-	bool cache_exceeded = std::chrono::steady_clock::now () >= server.last_telemetry_req + nano::telemetry_cache_cutoffs::network_to_time (server.node->network_params.network);
-	if (cache_exceeded)
+	// Only handle telemetry requests if they are outside the cooldown period
+	if (server.last_telemetry_req + server.node->network_params.network.telemetry_request_cooldown < std::chrono::steady_clock::now ())
 	{
 		server.last_telemetry_req = std::chrono::steady_clock::now ();
 		process = true;

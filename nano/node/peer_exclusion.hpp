@@ -19,13 +19,16 @@ class peer_exclusion final
 		uint64_t score;
 	};
 
+public:
+	explicit peer_exclusion (std::size_t max_size = 5000);
+
+private:
+	std::size_t const max_size;
+
 	// clang-format off
 	class tag_endpoint {};
 	class tag_exclusion {};
-	// clang-format on
 
-public:
-	// clang-format off
 	using ordered_endpoints = boost::multi_index_container<peer_exclusion::item,
 	mi::indexed_by<
 		mi::ordered_non_unique<mi::tag<tag_exclusion>,
@@ -34,27 +37,22 @@ public:
 			mi::member<peer_exclusion::item, decltype(peer_exclusion::item::address), &peer_exclusion::item::address>>>>;
 	// clang-format on
 
-private:
 	ordered_endpoints peers;
+
 	mutable nano::mutex mutex;
 
 public:
-	constexpr static std::size_t size_max = 5000;
-	constexpr static double peers_percentage_limit = 0.5;
 	constexpr static uint64_t score_limit = 2;
 	constexpr static std::chrono::hours exclude_time_hours = std::chrono::hours (1);
 	constexpr static std::chrono::hours exclude_remove_hours = std::chrono::hours (24);
 
-	uint64_t add (nano::tcp_endpoint const &, std::size_t const);
-	bool check (nano::tcp_endpoint const &);
+	uint64_t add (nano::tcp_endpoint const &);
+	uint64_t score (nano::tcp_endpoint const &) const;
+	std::chrono::steady_clock::time_point until (nano::tcp_endpoint const &) const;
+	bool check (nano::tcp_endpoint const &) const;
 	void remove (nano::tcp_endpoint const &);
-	std::size_t limited_size (std::size_t const) const;
 	std::size_t size () const;
 
-	friend class telemetry_DISABLED_remove_peer_different_genesis_Test;
-	friend class telemetry_remove_peer_different_genesis_udp_Test;
-	friend class telemetry_remove_peer_invalid_signature_Test;
-	friend class peer_exclusion_validate_Test;
+	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
 };
-std::unique_ptr<container_info_component> collect_container_info (peer_exclusion const & excluded_peers, std::string const & name);
 }

@@ -172,6 +172,9 @@ public:
 	float size_sqrt () const;
 	bool empty () const;
 	void erase (nano::transport::channel const &);
+	/** Disconnects and adds peer to exclusion list */
+	void exclude (std::shared_ptr<nano::transport::channel> const & channel);
+
 	static std::string to_string (nano::networks);
 
 private:
