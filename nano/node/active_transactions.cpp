@@ -259,7 +259,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 			// Locks active mutex, cleans up the election and erases it from the main container
 			if (!confirmed_l)
 			{
-				node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop_expired);
+				node.stats.inc (nano::stat::type::active, nano::stat::detail::election_drop_expired);
 			}
 			erase (election_l->qualified_root);
 		}
@@ -279,22 +279,7 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 	debug_assert (!mutex.try_lock ());
 	debug_assert (lock_a.owns_lock ());
 
-	if (!election->confirmed ())
-	{
-		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop_all);
-		if (election->behavior == election_behavior::hinted)
-		{
-			node.stats.inc (nano::stat::type::election, nano::stat::detail::election_hinted_drop);
-		}
-	}
-	else
-	{
-		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_confirmed_all);
-		if (election->behavior == election_behavior::hinted)
-		{
-			node.stats.inc (nano::stat::type::election, nano::stat::detail::election_hinted_confirmed);
-		}
-	}
+	node.stats.inc (election->confirmed () ? nano::stat::type::active_confirmed : nano::stat::type::active_dropped, nano::to_stat_detail (election->get_behavior ()));
 
 	// Keep track of election count by election type
 	debug_assert (count_by_behavior[election->behavior] > 0);
@@ -313,6 +298,7 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 	lock_a.unlock ();
 
 	vacancy_update ();
+
 	for (auto const & [hash, block] : blocks_l)
 	{
 		// Notify observers about dropped elections & blocks lost confirmed elections
@@ -328,7 +314,7 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 		}
 	}
 
-	node.stats.inc (nano::stat::type::election, election->confirmed () ? nano::stat::detail::election_confirmed : nano::stat::detail::election_not_confirmed);
+	node.stats.inc (nano::stat::type::active, election->confirmed () ? nano::stat::detail::election_confirmed : nano::stat::detail::election_not_confirmed);
 	if (node.config.logging.election_result_logging ())
 	{
 		node.logger.try_log (boost::str (boost::format ("Election erased for root %1%, confirmed: %2$b") % election->qualified_root.to_string () % election->confirmed ()));
@@ -428,7 +414,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 					cache->fill (result.election);
 				}
 				node.observers.active_started.notify (hash);
-				node.stats.inc (nano::stat::type::election, nano::stat::detail::election_start);
+				node.stats.inc (nano::stat::type::active, nano::stat::detail::election_start);
 				vacancy_update ();
 			}
 		}
@@ -587,7 +573,7 @@ void nano::active_transactions::erase_oldest ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	if (!roots.empty ())
 	{
-		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop_overflow);
+		node.stats.inc (nano::stat::type::active, nano::stat::detail::election_drop_overflow);
 		auto item = roots.get<tag_sequenced> ().front ();
 		cleanup_election (lock, item.election);
 	}
@@ -624,7 +610,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> const & bl
 			{
 				cache->fill (election);
 			}
-			node.stats.inc (nano::stat::type::election, nano::stat::detail::election_block_conflict);
+			node.stats.inc (nano::stat::type::active, nano::stat::detail::election_block_conflict);
 		}
 	}
 	return result;
@@ -675,8 +661,6 @@ void nano::active_transactions::add_inactive_vote_cache (nano::block_hash const 
 	if (node.ledger.weight (vote->account) > node.minimum_principal_weight ())
 	{
 		node.inactive_vote_cache.vote (hash, vote);
-
-		node.stats.inc (nano::stat::type::vote_cache, nano::stat::detail::vote_processed);
 	}
 }
 

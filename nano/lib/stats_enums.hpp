@@ -38,6 +38,8 @@ enum class type : uint8_t
 	bootstrap_server,
 	active,
 	active_started,
+	active_confirmed,
+	active_dropped,
 	backlog,
 	optimistic,
 
