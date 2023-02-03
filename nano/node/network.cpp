@@ -24,7 +24,6 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 	tcp_message_manager (node_a.config.tcp_incoming_connections_max),
 	node (node_a),
 	publish_filter (256 * 1024),
-	udp_channels (node_a, port_a, inbound),
 	tcp_channels (node_a, inbound),
 	port (port_a),
 	disconnect_observer ([] () {})
