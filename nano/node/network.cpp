@@ -712,7 +712,7 @@ void nano::network::fill_keepalive_self (std::array<nano::endpoint, 8> & target_
 	}
 }
 
-nano::tcp_endpoint nano::network::bootstrap_peer (bool lazy_bootstrap)
+nano::tcp_endpoint nano::network::bootstrap_peer ()
 {
 	nano::tcp_endpoint result (boost::asio::ip::address_v6::any (), 0);
 	bool use_udp_peer (nano::random_pool::generate_word32 (0, 1));
