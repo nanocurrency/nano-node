@@ -120,11 +120,6 @@ void nano::network::start ()
 		ongoing_cleanup ();
 	}
 	ongoing_syn_cookie_cleanup ();
-	if (!node.flags.disable_udp)
-	{
-		udp_channels.start ();
-		debug_assert (udp_channels.get_local_endpoint ().port () == port);
-	}
 	if (!node.flags.disable_tcp_realtime)
 	{
 		tcp_channels.start ();
@@ -136,7 +131,6 @@ void nano::network::stop ()
 {
 	if (!stopped.exchange (true))
 	{
-		udp_channels.stop ();
 		tcp_channels.stop ();
 		resolver.cancel ();
 		buffer_container.stop ();
