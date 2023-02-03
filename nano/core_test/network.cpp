@@ -124,20 +124,6 @@ TEST (network, construction_without_specified_port)
 	EXPECT_EQ (port, node->tcp_listener.endpoint ().port ());
 }
 
-// This test checks a message is not accepted when the sender has the same endpoint
-// of the node. For TCP this is covered by peer_container.no_self_incoming
-TEST (network, self_discard)
-{
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	nano::test::system system (1, nano::transport::transport_type::tcp, node_flags);
-	nano::message_buffer data;
-	data.endpoint = system.nodes[0]->network.endpoint ();
-	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
-	system.nodes[0]->network.udp_channels.receive_action (&data);
-	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
-}
-
 TEST (network, send_node_id_handshake_tcp)
 {
 	nano::test::system system (1);
