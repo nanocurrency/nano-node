@@ -16,9 +16,7 @@ enum class error_cli
 	unknown_command = 4,
 	database_write_error = 5,
 	reading_config = 6,
-	disable_all_network = 7,
-	ambiguous_udp_options = 8,
-	ambiguous_pruning_voting_options = 9
+	ambiguous_pruning_voting_options = 7
 };
 
 void add_node_options (boost::program_options::options_description &);
