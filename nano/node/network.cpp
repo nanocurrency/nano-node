@@ -603,8 +603,7 @@ bool nano::network::reachout (nano::endpoint const & endpoint_a, bool allow_loca
 	bool error = not_a_peer (endpoint_a, allow_local_peers);
 	if (!error)
 	{
-		error |= udp_channels.reachout (endpoint_a);
-		error |= tcp_channels.reachout (endpoint_a);
+		error = tcp_channels.reachout (endpoint_a);
 	}
 	return error;
 }
@@ -613,7 +612,6 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (std::
 {
 	std::deque<std::shared_ptr<nano::transport::channel>> result;
 	tcp_channels.list (result, minimum_version_a, include_tcp_temporary_channels_a);
-	udp_channels.list (result, minimum_version_a);
 	nano::random_pool_shuffle (result.begin (), result.end ());
 	if (count_a > 0 && result.size () > count_a)
 	{
@@ -626,7 +624,6 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list_non_pr
 {
 	std::deque<std::shared_ptr<nano::transport::channel>> result;
 	tcp_channels.list (result);
-	udp_channels.list (result);
 	nano::random_pool_shuffle (result.begin (), result.end ());
 	result.erase (std::remove_if (result.begin (), result.end (), [this] (std::shared_ptr<nano::transport::channel> const & channel) {
 		return this->node.rep_crawler.is_pr (*channel);
@@ -723,22 +720,12 @@ nano::tcp_endpoint nano::network::bootstrap_peer ()
 
 std::shared_ptr<nano::transport::channel> nano::network::find_channel (nano::endpoint const & endpoint_a)
 {
-	std::shared_ptr<nano::transport::channel> result (tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (endpoint_a)));
-	if (!result)
-	{
-		result = udp_channels.channel (endpoint_a);
-	}
-	return result;
+	return tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (endpoint_a));
 }
 
 std::shared_ptr<nano::transport::channel> nano::network::find_node_id (nano::account const & node_id_a)
 {
-	std::shared_ptr<nano::transport::channel> result (tcp_channels.find_node_id (node_id_a));
-	if (!result)
-	{
-		result = udp_channels.find_node_id (node_id_a);
-	}
-	return result;
+	return tcp_channels.find_node_id (node_id_a);
 }
 
 nano::endpoint nano::network::endpoint () const
@@ -749,7 +736,6 @@ nano::endpoint nano::network::endpoint () const
 void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutoff_a)
 {
 	tcp_channels.purge (cutoff_a);
-	udp_channels.purge (cutoff_a);
 	if (node.network.empty ())
 	{
 		disconnect_observer ();
@@ -795,7 +781,7 @@ void nano::network::ongoing_keepalive ()
 
 std::size_t nano::network::size () const
 {
-	return tcp_channels.size () + udp_channels.size ();
+	return tcp_channels.size ();
 }
 
 float nano::network::size_sqrt () const
@@ -814,11 +800,6 @@ void nano::network::erase (nano::transport::channel const & channel_a)
 	if (channel_type == nano::transport::transport_type::tcp)
 	{
 		tcp_channels.erase (channel_a.get_tcp_endpoint ());
-	}
-	else if (channel_type != nano::transport::transport_type::loopback)
-	{
-		udp_channels.erase (channel_a.get_endpoint ());
-		udp_channels.clean_node_id (channel_a.get_node_id ());
 	}
 }
 
@@ -1062,7 +1043,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ne
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (network.tcp_channels.collect_container_info ("tcp_channels"));
-	composite->add_component (network.udp_channels.collect_container_info ("udp_channels"));
 	composite->add_component (network.syn_cookies.collect_container_info ("syn_cookies"));
 	composite->add_component (network.excluded_peers.collect_container_info ("excluded_peers"));
 	return composite;
