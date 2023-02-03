@@ -893,8 +893,7 @@ void nano::node::ongoing_bootstrap ()
 
 void nano::node::ongoing_peer_store ()
 {
-	const bool stored (network.tcp_channels.store_all (true));
-	network.udp_channels.store_all (!stored);
+	const bool stored{ network.tcp_channels.store_all (true) };
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
 	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.network.peer_dump_interval, [node_w] () {
 		if (auto node_l = node_w.lock ())
