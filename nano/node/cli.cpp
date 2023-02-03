@@ -102,7 +102,6 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_request_loop", "Disable request loop")
 		("disable_bootstrap_listener", "Disables bootstrap processing for TCP listener (not including realtime network TCP connections)")
 		("disable_tcp_realtime", "Disables TCP realtime network")
-		("disable_udp", "(Deprecated) UDP is disabled by default")
 		("enable_udp", "Enables UDP realtime network")
 		("disable_unchecked_cleanup", "Disables periodic cleanup of old records from unchecked table")
 		("disable_unchecked_drop", "Disables drop of unchecked table at startup")
@@ -141,8 +140,7 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	{
 		ec = nano::error_cli::ambiguous_udp_options;
 	}
-	flags_a.disable_udp = (vm.count ("enable_udp") == 0);
-	if (flags_a.disable_tcp_realtime && flags_a.disable_udp)
+	if (flags_a.disable_tcp_realtime)
 	{
 		ec = nano::error_cli::disable_all_network;
 	}
