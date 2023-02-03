@@ -200,8 +200,6 @@ add_library(
   transport/tcp_server.cpp
   transport/transport.hpp
   transport/transport.cpp
-  transport/udp.hpp
-  transport/udp.cpp
   unchecked_map.cpp
   unchecked_map.hpp
   vote_cache.hpp
