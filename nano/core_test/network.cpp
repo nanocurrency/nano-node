@@ -124,6 +124,8 @@ TEST (network, construction_without_specified_port)
 	EXPECT_EQ (port, node->tcp_listener.endpoint ().port ());
 }
 
+// This test checks a message is not accepted when the sender has the same endpoint
+// of the node. For TCP this is covered by peer_container.no_self_incoming
 TEST (network, self_discard)
 {
 	nano::node_flags node_flags;
