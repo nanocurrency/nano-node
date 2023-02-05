@@ -3995,6 +3995,7 @@ TEST (ledger, epoch_open_pending)
 					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					  .work (*pool.generate (key1.pub))
 					  .build_shared ();
+	std::cerr << boost::str (boost::format ("epoch open: %1%\n") % epoch_open->hash ().to_string ());
 	auto process_result = node1.ledger.process (node1.store.tx_begin_write (), *epoch_open);
 	ASSERT_EQ (nano::process_result::gap_epoch_open_pending, process_result.code);
 	node1.block_processor.add (epoch_open);

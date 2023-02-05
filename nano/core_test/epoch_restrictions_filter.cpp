@@ -1,6 +1,9 @@
 #include <nano/node/block_pipeline/context.hpp>
 #include <nano/node/block_pipeline/epoch_restrictions_filter.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
+#include <nano/secure/utility.hpp>
 
 #include <gtest/gtest.h>
 
@@ -9,7 +12,10 @@ namespace
 class context
 {
 public:
-	context ()
+	context () :
+		store{ nano::make_store (logger, nano::unique_path (), nano::dev::constants) },
+		ledger{ *store, stats, nano::dev::constants },
+		filter{ ledger }
 	{
 		filter.pass = [this] (nano::block_pipeline::context & context) {
 			pass.push_back (context);
@@ -20,11 +26,19 @@ public:
 		filter.reject_representative = [this] (nano::block_pipeline::context & context) {
 			reject_representative.push_back (context);
 		};
+		filter.reject_gap_open = [this] (nano::block_pipeline::context & context) {
+			reject_gap_open.push_back (context);
+		};
 	}
+	nano::stats stats;
+	nano::logger_mt logger;
+	std::shared_ptr<nano::store> store;
+	nano::ledger ledger;
 	nano::block_pipeline::epoch_restrictions_filter filter;
 	std::vector<nano::block_pipeline::context> pass;
 	std::vector<nano::block_pipeline::context> reject_balance;
 	std::vector<nano::block_pipeline::context> reject_representative;
+	std::vector<nano::block_pipeline::context> reject_gap_open;
 };
 nano::block_pipeline::context epoch_pass_blocks ()
 {
@@ -84,6 +98,24 @@ nano::block_pipeline::context epoch_reject_representative_blocks ()
 	result.state->representative = dummy.pub; // Changed representative
 	return result;
 }
+nano::block_pipeline::context epoch_reject_gap_open_blocks ()
+{
+	nano::block_builder builder;
+	nano::block_pipeline::context result;
+	nano::keypair dummy;
+	result.block = builder.state ()
+				   .account (dummy.pub)
+				   .previous (0) // First block
+				   .representative (0)
+				   .balance (0)
+				   .link (nano::dev::constants.epochs.link (nano::epoch::epoch_1))
+				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				   .work (0)
+				   .build_shared ();
+	result.previous = nano::dev::genesis;
+	result.state = nano::account_info{};
+	return result;
+}
 }
 
 TEST (epoch_restrictions_filter, epoch_pass)
@@ -108,4 +140,12 @@ TEST (epoch_restrictions_filter, epoch_reject_representative)
 	auto blocks = epoch_reject_representative_blocks ();
 	context.filter.sink (blocks);
 	ASSERT_EQ (1, context.reject_representative.size ());
+}
+
+TEST (epoch_restrictions_filter, epoch_reject_gap_open)
+{
+	context context;
+	auto blocks = epoch_reject_gap_open_blocks ();
+	context.filter.sink (blocks);
+	ASSERT_EQ (1, context.reject_gap_open.size ());
 }
