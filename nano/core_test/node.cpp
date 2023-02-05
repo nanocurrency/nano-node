@@ -2876,10 +2876,10 @@ TEST (node, fork_election_invalid_block_signature)
 
 TEST (node, block_processor_signatures)
 {
-	nano::test::system system (1);
-	auto & node1 (*system.nodes[0]);
+	nano::test::system system{ 1 };
+	auto & node1 = *system.nodes[0];
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::block_hash latest (system.nodes[0]->latest (nano::dev::genesis_key.pub));
+	nano::block_hash latest = system.nodes[0]->latest (nano::dev::genesis_key.pub);
 	nano::state_block_builder builder;
 	nano::keypair key1;
 	nano::keypair key2;
@@ -2923,23 +2923,18 @@ TEST (node, block_processor_signatures)
 				 .build_shared ();
 	send4->signature.bytes[32] ^= 0x1;
 	// Invalid signature bit (force)
-	std::shared_ptr<nano::block> send5 = builder.make_block ()
-										 .account (nano::dev::genesis_key.pub)
-										 .previous (send3->hash ())
-										 .representative (nano::dev::genesis_key.pub)
-										 .balance (nano::dev::constants.genesis_amount - 5 * nano::Gxrb_ratio)
-										 .link (key3.pub)
-										 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-										 .work (*node1.work_generate_blocking (send3->hash ()))
-										 .build_shared ();
-	auto signature = send5->block_signature ();
-	signature.bytes[31] ^= 0x1;
-	send5->signature_set (signature);
+	auto send5 = builder.make_block ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send3->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 5 * nano::Gxrb_ratio)
+				 .link (key3.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*node1.work_generate_blocking (send3->hash ()))
+				 .build_shared ();
+	send5->signature.bytes[32] ^= 0x1;
 	// Invalid signature to unchecked
-	{
-		auto transaction (node1.store.tx_begin_write ());
-		node1.unchecked.put (send5->previous (), send5);
-	}
+	node1.unchecked.put (send5->previous (), nano::unchecked_info{ send5 });
 	auto receive1 = builder.make_block ()
 					.account (key1.pub)
 					.previous (0)
@@ -2975,20 +2970,11 @@ TEST (node, block_processor_signatures)
 	node1.process_active (receive1);
 	node1.process_active (receive2);
 	node1.process_active (receive3);
-	node1.block_processor.flush ();
-	node1.block_processor.force (send5);
-	ASSERT_TIMELY (1s, node1.block (send3->hash ()) != nullptr);
-	ASSERT_TIMELY (1s, node1.block (receive1->hash ()) != nullptr);
-	ASSERT_TIMELY (1s, node1.block (receive2->hash ()) != nullptr);
-	auto transaction (node1.store.tx_begin_read ());
-	ASSERT_TRUE (node1.store.block.exists (transaction, send1->hash ()));
-	ASSERT_TRUE (node1.store.block.exists (transaction, send2->hash ()));
-	ASSERT_TRUE (node1.store.block.exists (transaction, send3->hash ()));
-	ASSERT_FALSE (node1.store.block.exists (transaction, send4->hash ()));
-	ASSERT_FALSE (node1.store.block.exists (transaction, send5->hash ()));
-	ASSERT_TRUE (node1.store.block.exists (transaction, receive1->hash ()));
-	ASSERT_TRUE (node1.store.block.exists (transaction, receive2->hash ()));
-	ASSERT_FALSE (node1.store.block.exists (transaction, receive3->hash ()));
+	ASSERT_TIMELY (5s, node1.block (receive2->hash ()) != nullptr); // Implies send1, send2, send3, receive1.
+	ASSERT_TIMELY (5s, node1.unchecked.count (node1.store.tx_begin_read ()) == 0);
+	ASSERT_EQ (nullptr, node1.block (receive3->hash ())); // Invalid signer
+	ASSERT_EQ (nullptr, node1.block (send4->hash ())); // Invalid signature via process_active
+	ASSERT_EQ (nullptr, node1.block (send5->hash ())); // Invalid signature via unchecked
 }
 
 /*
@@ -3067,14 +3053,14 @@ TEST (node, block_processor_full)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*node.work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build_shared ();
-	node.block_processor.stop ();
+	node.block_processor.stop (); // Stop processing the block queue
 	node.block_processor.add (send1);
 	ASSERT_FALSE (node.block_processor.full ());
 	node.block_processor.add (send2);
 	ASSERT_FALSE (node.block_processor.full ());
 	node.block_processor.add (send3);
 	// Block processor may be not full during state blocks signatures verification
-	ASSERT_TIMELY (2s, node.block_processor.full ());
+	ASSERT_TIMELY (5s, node.block_processor.full ());
 }
 
 TEST (node, block_processor_half_full)
@@ -3160,7 +3146,7 @@ TEST (node, confirm_back)
 	node.process_active (send1);
 	node.process_active (open);
 	node.process_active (send2);
-	ASSERT_TIMELY (1s, node.block (send2->hash ()) != nullptr);
+	ASSERT_TIMELY (5s, node.block (send2->hash ()) != nullptr);
 	nano::test::blocks_confirm (node, { send1, open, send2 });
 	ASSERT_EQ (3, node.active.size ());
 	std::vector<nano::block_hash> vote_blocks;
@@ -3553,6 +3539,10 @@ TEST (node, node_sequence)
 	ASSERT_EQ (2, system.nodes[2]->node_seq);
 }
 
+/**
+ * This test checks that a node can generate a self generated vote to rollback an election.
+ * It also checks that the vote aggregrator replies with the election winner at the time.
+ */
 TEST (node, rollback_vote_self)
 {
 	nano::test::system system;
@@ -3561,25 +3551,29 @@ TEST (node, rollback_vote_self)
 	auto & node = *system.add_node (flags);
 	nano::state_block_builder builder;
 	nano::keypair key;
-	auto weight = node.online_reps.delta ();
+
+	// send half the voting weight to a non voting rep to ensure quorum cannot be reached
 	auto send1 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (nano::dev::genesis->hash ())
 				 .representative (nano::dev::genesis_key.pub)
 				 .link (key.pub)
-				 .balance (nano::dev::constants.genesis_amount - weight)
+				 .balance (nano::dev::constants.genesis_amount - (nano::dev::constants.genesis_amount / 2))
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
+
 	auto open = builder.make_block ()
 				.account (key.pub)
 				.previous (0)
 				.representative (key.pub)
 				.link (send1->hash ())
-				.balance (weight)
+				.balance (nano::dev::constants.genesis_amount / 2)
 				.sign (key.prv, key.pub)
 				.work (*system.work.generate (key.pub))
 				.build_shared ();
+
+	// send 1 raw
 	auto send2 = builder.make_block ()
 				 .from (*send1)
 				 .previous (send1->hash ())
@@ -3588,58 +3582,65 @@ TEST (node, rollback_vote_self)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send1->hash ()))
 				 .build_shared ();
+
+	// fork of send2 block
 	auto fork = builder.make_block ()
 				.from (*send2)
-				.balance (send2->balance ().number () - 2)
+				.balance (send1->balance ().number () - 2)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.build_shared ();
-	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
-	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
-	// Confirm blocks to allow voting
-	node.block_confirm (open);
-	auto election = node.active.election (open->qualified_root ());
-	ASSERT_NE (nullptr, election);
-	election->force_confirm ();
+
+	// Process and mark the first 2 blocks as confirmed to allow voting
+	ASSERT_TRUE (nano::test::process (node, { send1, open }));
+	ASSERT_TIMELY (5s, nano::test::confirm (node, { send1, open }));
 	ASSERT_TIMELY (5s, node.ledger.cache.cemented_count == 3);
-	ASSERT_EQ (weight, node.weight (key.pub));
+
+	// wait until the rep weights have caught up with the weight transfer
+	ASSERT_TIMELY_EQ (5s, nano::dev::constants.genesis_amount / 2, node.weight (key.pub));
+
+	// process forked blocks, send2 will be the winner because it was first and there are no votes yet
 	node.process_active (send2);
-	node.block_processor.flush ();
+	std::shared_ptr<nano::election> election;
+	ASSERT_TIMELY (5s, election = node.active.election (send2->qualified_root ()));
 	node.process_active (fork);
-	node.block_processor.flush ();
-	ASSERT_TIMELY (5s, node.active.election (send2->qualified_root ()));
-	election = node.active.election (send2->qualified_root ());
-	ASSERT_NE (nullptr, election);
-	ASSERT_EQ (2, election->blocks ().size ());
-	// Insert genesis key in the wallet
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	ASSERT_TIMELY_EQ (5s, 2, election->blocks ().size ());
+	ASSERT_EQ (election->winner ()->hash (), send2->hash ());
+
 	{
 		// The write guard prevents the block processor from performing the rollback
 		auto write_guard = node.write_database_queue.wait (nano::writer::testing);
-		{
-			ASSERT_EQ (1, election->votes ().size ());
-			// Vote with key to switch the winner
-			election->vote (key.pub, 0, fork->hash ());
-			ASSERT_EQ (2, election->votes ().size ());
-			// The winner changed
-			ASSERT_EQ (election->winner (), fork);
-		}
+
+		ASSERT_EQ (0, election->votes_with_weight ().size ());
+		// Vote with key to switch the winner
+		election->vote (key.pub, 0, fork->hash ());
+		ASSERT_EQ (1, election->votes_with_weight ().size ());
+		// The winner changed
+		ASSERT_EQ (election->winner ()->hash (), fork->hash ());
+
+		// Insert genesis key in the wallet
+		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
 		// Even without the rollback being finished, the aggregator must reply with a vote for the new winner, not the old one
 		ASSERT_TRUE (node.history.votes (send2->root (), send2->hash ()).empty ());
 		ASSERT_TRUE (node.history.votes (fork->root (), fork->hash ()).empty ());
-		auto & node2 = *system.add_node ();
-		auto channel = std::make_shared<nano::transport::fake::channel> (node2);
+		auto channel = std::make_shared<nano::transport::fake::channel> (node);
 		node.aggregator.add (channel, { { send2->hash (), send2->root () } });
 		ASSERT_TIMELY (5s, !node.history.votes (fork->root (), fork->hash ()).empty ());
 		ASSERT_TRUE (node.history.votes (send2->root (), send2->hash ()).empty ());
 
 		// Going out of the scope allows the rollback to complete
 	}
+
 	// A vote is eventually generated from the local representative
-	ASSERT_TIMELY (5s, 3 == election->votes ().size ());
-	auto votes (election->votes ());
-	auto vote (votes.find (nano::dev::genesis_key.pub));
-	ASSERT_NE (votes.end (), vote);
-	ASSERT_EQ (fork->hash (), vote->second.hash);
+	auto is_genesis_vote = [] (nano::vote_with_weight_info info) {
+		return info.representative == nano::dev::genesis_key.pub;
+	};
+	ASSERT_TIMELY_EQ (5s, 2, election->votes_with_weight ().size ());
+	auto votes_with_weight = election->votes_with_weight ();
+	ASSERT_EQ (1, std::count_if (votes_with_weight.begin (), votes_with_weight.end (), is_genesis_vote));
+	auto vote = std::find_if (votes_with_weight.begin (), votes_with_weight.end (), is_genesis_vote);
+	ASSERT_NE (votes_with_weight.end (), vote);
+	ASSERT_EQ (fork->hash (), vote->hash);
 }
 
 TEST (node, rollback_gap_source)

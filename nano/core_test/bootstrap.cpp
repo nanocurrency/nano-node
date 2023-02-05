@@ -928,7 +928,7 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	node0->block_processor.add (receive2);
 	node0->block_processor.add (send3);
 	node0->block_processor.add (receive3);
-	ASSERT_TIMELY (1s, 9 == node0->ledger.cache.block_count);
+	ASSERT_TIMELY_EQ (5s, 9, node0->ledger.cache.block_count);
 	// Processing chain to prune for node1
 	config.peering_port = nano::test::get_available_port ();
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), config, system.work, node_flags, 1));
@@ -937,10 +937,10 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	node1->process_active (receive1);
 	node1->process_active (change1);
 	node1->process_active (change2);
-	ASSERT_TIMELY (1s, node1->block (change2->hash ()) != nullptr);
+	ASSERT_TIMELY (5s, node1->block (change2->hash ()) != nullptr);
 	// Confirm last block to prune previous
 	nano::test::blocks_confirm (*node1, { send1, receive1, change1, change2 }, true);
-	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (receive1->hash ()) && node1->block_confirmed (change1->hash ()) && node1->block_confirmed (change2->hash ()) && node1->active.empty ());
+	ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (receive1->hash ()) && node1->block_confirmed (change1->hash ()) && node1->block_confirmed (change2->hash ()) && node1->active.empty ());
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	ASSERT_EQ (5, node1->ledger.cache.cemented_count);
 	// Pruning action
@@ -953,9 +953,9 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	nano::test::establish_tcp (system, *node1, node0->network.endpoint ());
 	node1->bootstrap_initiator.bootstrap_lazy (receive3->hash (), true);
 	// Check processed blocks
-	ASSERT_TIMELY (10s, node1->ledger.cache.block_count == 9);
-	ASSERT_TIMELY (10s, node1->balance (key2.pub) != 0);
-	ASSERT_TIMELY (10s, !node1->bootstrap_initiator.in_progress ());
+	ASSERT_TIMELY (5s, node1->ledger.cache.block_count == 9);
+	ASSERT_TIMELY (5s, node1->balance (key2.pub) != 0);
+	ASSERT_TIMELY (5s, !node1->bootstrap_initiator.in_progress ());
 	node1->stop ();
 }
 
@@ -1319,10 +1319,10 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 					  .build_shared ();
 
 	node1->process_active (state_open);
-	ASSERT_TIMELY (1s, node1->block (state_open->hash ()) != nullptr);
+	ASSERT_TIMELY (5s, node1->block (state_open->hash ()) != nullptr);
 	// Confirm last block to prune previous
 	nano::test::blocks_confirm (*node1, { send1, send2, open, state_open }, true);
-	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (send2->hash ()) && node1->block_confirmed (open->hash ()) && node1->block_confirmed (state_open->hash ()) && node1->active.empty ());
+	ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (send2->hash ()) && node1->block_confirmed (open->hash ()) && node1->block_confirmed (state_open->hash ()) && node1->active.empty ());
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	ASSERT_EQ (5, node1->ledger.cache.cemented_count);
 	// Pruning action
@@ -1356,7 +1356,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	// Insert missing block
 	node2->process_active (send1);
 	node2->block_processor.flush ();
-	ASSERT_TIMELY (10s, !node2->bootstrap_initiator.in_progress ());
+	ASSERT_TIMELY (5s, !node2->bootstrap_initiator.in_progress ());
 	node2->block_processor.flush ();
 	ASSERT_EQ (3, node2->ledger.cache.block_count);
 	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ()));

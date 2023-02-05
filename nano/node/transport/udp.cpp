@@ -435,7 +435,7 @@ public:
 		if (find_channel)
 		{
 			auto is_very_first_message = find_channel->get_last_telemetry_req () == std::chrono::steady_clock::time_point{};
-			auto cache_exceeded = std::chrono::steady_clock::now () >= find_channel->get_last_telemetry_req () + nano::telemetry_cache_cutoffs::network_to_time (node.network_params.network);
+			auto cache_exceeded = std::chrono::steady_clock::now () >= find_channel->get_last_telemetry_req () + node.network_params.network.telemetry_request_cooldown;
 			if (is_very_first_message || cache_exceeded)
 			{
 				node.network.udp_channels.modify (find_channel, [] (std::shared_ptr<nano::transport::channel_udp> const & channel_a) {

@@ -978,8 +978,6 @@ TEST (websocket, telemetry)
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::test::get_available_port ();
 	nano::node_flags node_flags;
-	node_flags.disable_initial_telemetry_requests = true;
-	node_flags.disable_ongoing_telemetry_requests = true;
 	auto node1 (system.add_node (config, node_flags));
 	config.peering_port = nano::test::get_available_port ();
 	config.websocket_config.enabled = true;
@@ -1002,9 +1000,9 @@ TEST (websocket, telemetry)
 
 	ASSERT_TIMELY (10s, done);
 
-	node1->telemetry->get_metrics_single_peer_async (node1->network.find_node_id (node2->get_node_id ()), [] (auto const & response_a) {
-		ASSERT_FALSE (response_a.error);
-	});
+	auto channel = node1->network.find_node_id (node2->get_node_id ());
+	ASSERT_NE (channel, nullptr);
+	ASSERT_TIMELY (5s, node1->telemetry.get_telemetry (channel->get_endpoint ()));
 
 	ASSERT_TIMELY (10s, future.wait_for (0s) == std::future_status::ready);
 
@@ -1021,7 +1019,8 @@ TEST (websocket, telemetry)
 	nano::jsonconfig telemetry_contents (contents);
 	nano::telemetry_data telemetry_data;
 	telemetry_data.deserialize_json (telemetry_contents, false);
-	nano::test::compare_default_telemetry_response_data (telemetry_data, node2->network_params, node2->config.bandwidth_limit, node2->default_difficulty (nano::work_version::work_1), node2->node_id);
+
+	ASSERT_TRUE (nano::test::compare_telemetry (telemetry_data, *node2));
 
 	ASSERT_EQ (contents.get<std::string> ("address"), node2->network.endpoint ().address ().to_string ());
 	ASSERT_EQ (contents.get<uint16_t> ("port"), node2->network.endpoint ().port ());

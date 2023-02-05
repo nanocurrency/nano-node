@@ -71,7 +71,7 @@ jobs:
 
   windows_test:
     name: Windows Unit Tests [TEST_USE_ROCKSDB=${{ matrix.TEST_USE_ROCKSDB }}]
-    timeout-minutes: 120
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:

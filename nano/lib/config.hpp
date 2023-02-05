@@ -9,6 +9,8 @@
 #include <optional>
 #include <string>
 
+using namespace std::chrono_literals;
+
 namespace boost
 {
 namespace filesystem
@@ -245,6 +247,10 @@ public:
 			max_peers_per_subnetwork = max_peers_per_ip * 4;
 			peer_dump_interval = std::chrono::seconds (1);
 			vote_broadcast_interval = 500;
+			telemetry_request_cooldown = 500ms;
+			telemetry_cache_cutoff = 2000ms;
+			telemetry_request_interval = 500ms;
+			telemetry_broadcast_interval = 500ms;
 		}
 	}
 
@@ -286,6 +292,15 @@ public:
 	std::chrono::seconds peer_dump_interval;
 	/** Time to wait before vote rebroadcasts for active elections (milliseconds) */
 	uint64_t vote_broadcast_interval;
+
+	/** We do not reply to telemetry requests made within cooldown period */
+	std::chrono::milliseconds telemetry_request_cooldown{ 1000 * 15 };
+	/** How often to request telemetry from peers */
+	std::chrono::milliseconds telemetry_request_interval{ 1000 * 60 };
+	/** How often to broadcast telemetry to peers */
+	std::chrono::milliseconds telemetry_broadcast_interval{ 1000 * 60 };
+	/** Telemetry data older than this value is considered stale */
+	std::chrono::milliseconds telemetry_cache_cutoff{ 1000 * 130 }; // 2 * `telemetry_broadcast_interval` + some margin
 
 	/** Returns the network this object contains values for */
 	nano::networks network () const

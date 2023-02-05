@@ -1031,11 +1031,11 @@ nano::websocket_server::websocket_server (nano::websocket::config & config_a, na
 		}
 	});
 
-	observers.telemetry.add ([this] (nano::telemetry_data const & telemetry_data, nano::endpoint const & endpoint) {
+	observers.telemetry.add ([this] (nano::telemetry_data const & telemetry_data, std::shared_ptr<nano::transport::channel> const & channel) {
 		if (server->any_subscriber (nano::websocket::topic::telemetry))
 		{
 			nano::websocket::message_builder builder;
-			server->broadcast (builder.telemetry_received (telemetry_data, endpoint));
+			server->broadcast (builder.telemetry_received (telemetry_data, channel->get_endpoint ()));
 		}
 	});
 

@@ -47,6 +47,7 @@ namespace thread_role
 		election_hinting,
 		vote_generator_queue,
 		bootstrap_server,
+		telemetry,
 	};
 
 	/*

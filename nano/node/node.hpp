@@ -50,7 +50,6 @@ namespace rocksdb
 {
 } // Declare a namespace rocksdb inside nano so all references to the rocksdb library need to be globally scoped e.g. ::rocksdb::Slice
 class node;
-class telemetry;
 class work_pool;
 
 std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
@@ -134,6 +133,9 @@ public:
 	 */
 	void bootstrap_block (nano::block_hash const &);
 	nano::account get_node_id () const;
+	nano::telemetry_data local_telemetry () const;
+
+public:
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
@@ -156,7 +158,7 @@ public:
 	nano::signature_checker checker;
 	nano::outbound_bandwidth_limiter outbound_limiter;
 	nano::network network;
-	std::shared_ptr<nano::telemetry> telemetry;
+	nano::telemetry telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;
 	nano::bootstrap_server bootstrap_server;
 	nano::transport::tcp_listener tcp_listener;

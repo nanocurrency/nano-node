@@ -5874,9 +5874,9 @@ TEST (rpc, confirmation_height_currently_processing)
 	{
 		// Write guard prevents the confirmation height processor writing the blocks, so that we can inspect contents during the response
 		auto write_guard = node->write_database_queue.wait (nano::writer::testing);
-		node->block_confirm (frontier);
+		nano::test::start_election (system, *node, frontier);
 
-		ASSERT_TIMELY (10s, node->confirmation_height_processor.current () == frontier->hash ());
+		ASSERT_TIMELY (5s, node->confirmation_height_processor.current () == frontier->hash ());
 
 		// Make the request
 		{
@@ -6516,14 +6516,10 @@ TEST (rpc, block_confirmed)
 				.work (*system.work.generate (latest))
 				.build_shared ();
 	node->process_active (send);
-	node->block_processor.flush ();
-	node->block_confirm (send);
-	auto election = node->active.election (send->qualified_root ());
-	ASSERT_NE (nullptr, election);
-	election->force_confirm ();
+	ASSERT_TIMELY (5s, nano::test::confirm (*node, { send }));
 
 	// Wait until the confirmation height has been set
-	ASSERT_TIMELY (10s, node->ledger.block_confirmed (node->store.tx_begin_read (), send->hash ()) && !node->confirmation_height_processor.is_processing_block (send->hash ()));
+	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->store.tx_begin_read (), send->hash ()) && !node->confirmation_height_processor.is_processing_block (send->hash ()));
 
 	// Requesting confirmation for this should now succeed
 	request.put ("hash", send->hash ().to_string ());
@@ -7398,7 +7394,7 @@ TEST (rpc, telemetry_single)
 		nano::telemetry_data telemetry_data;
 		auto const should_ignore_identification_metrics = false;
 		ASSERT_FALSE (telemetry_data.deserialize_json (config, should_ignore_identification_metrics));
-		nano::test::compare_default_telemetry_response_data (telemetry_data, node->network_params, node->config.bandwidth_limit, node->default_difficulty (nano::work_version::work_1), node->node_id);
+		ASSERT_TRUE (nano::test::compare_telemetry (telemetry_data, *node));
 	}
 }
 
@@ -7412,14 +7408,11 @@ TEST (rpc, telemetry_all)
 	ASSERT_TIMELY (10s, node1->store.peer.count (node1->store.tx_begin_read ()) != 0);
 
 	// First need to set up the cached data
-	std::atomic<bool> done{ false };
 	auto node = system.nodes.front ();
-	node1->telemetry->get_metrics_single_peer_async (node1->network.find_node_id (node->get_node_id ()), [&done] (nano::telemetry_data_response const & telemetry_data_response_a) {
-		ASSERT_FALSE (telemetry_data_response_a.error);
-		done = true;
-	});
 
-	ASSERT_TIMELY (10s, done);
+	auto channel = node1->network.find_node_id (node->get_node_id ());
+	ASSERT_TRUE (channel);
+	ASSERT_TIMELY (10s, node1->telemetry.get_telemetry (channel->get_endpoint ()));
 
 	boost::property_tree::ptree request;
 	request.put ("action", "telemetry");
@@ -7429,7 +7422,7 @@ TEST (rpc, telemetry_all)
 		nano::telemetry_data telemetry_data;
 		auto const should_ignore_identification_metrics = true;
 		ASSERT_FALSE (telemetry_data.deserialize_json (config, should_ignore_identification_metrics));
-		nano::test::compare_default_telemetry_response_data_excluding_signature (telemetry_data, node->network_params, node->config.bandwidth_limit, node->default_difficulty (nano::work_version::work_1));
+		ASSERT_TRUE (nano::test::compare_telemetry_data (telemetry_data, node->local_telemetry ()));
 		ASSERT_FALSE (response.get_optional<std::string> ("node_id").is_initialized ());
 		ASSERT_FALSE (response.get_optional<std::string> ("signature").is_initialized ());
 	}
@@ -7446,7 +7439,7 @@ TEST (rpc, telemetry_all)
 	nano::telemetry_data data;
 	auto const should_ignore_identification_metrics = false;
 	ASSERT_FALSE (data.deserialize_json (config, should_ignore_identification_metrics));
-	nano::test::compare_default_telemetry_response_data (data, node->network_params, node->config.bandwidth_limit, node->default_difficulty (nano::work_version::work_1), node->node_id);
+	ASSERT_TRUE (nano::test::compare_telemetry (data, *node));
 
 	ASSERT_EQ (node->network.endpoint ().address ().to_string (), metrics.get<std::string> ("address"));
 	ASSERT_EQ (node->network.endpoint ().port (), metrics.get<uint16_t> ("port"));
@@ -7473,7 +7466,7 @@ TEST (rpc, telemetry_self)
 		nano::telemetry_data data;
 		nano::jsonconfig config (response);
 		ASSERT_FALSE (data.deserialize_json (config, should_ignore_identification_metrics));
-		nano::test::compare_default_telemetry_response_data (data, node1->network_params, node1->config.bandwidth_limit, node1->default_difficulty (nano::work_version::work_1), node1->node_id);
+		ASSERT_TRUE (nano::test::compare_telemetry (data, *node1));
 	}
 
 	request.put ("address", "[::1]");
@@ -7482,7 +7475,7 @@ TEST (rpc, telemetry_self)
 		nano::telemetry_data data;
 		nano::jsonconfig config (response);
 		ASSERT_FALSE (data.deserialize_json (config, should_ignore_identification_metrics));
-		nano::test::compare_default_telemetry_response_data (data, node1->network_params, node1->config.bandwidth_limit, node1->default_difficulty (nano::work_version::work_1), node1->node_id);
+		ASSERT_TRUE (nano::test::compare_telemetry (data, *node1));
 	}
 
 	request.put ("address", "127.0.0.1");
@@ -7491,7 +7484,7 @@ TEST (rpc, telemetry_self)
 		nano::telemetry_data data;
 		nano::jsonconfig config (response);
 		ASSERT_FALSE (data.deserialize_json (config, should_ignore_identification_metrics));
-		nano::test::compare_default_telemetry_response_data (data, node1->network_params, node1->config.bandwidth_limit, node1->default_difficulty (nano::work_version::work_1), node1->node_id);
+		ASSERT_TRUE (nano::test::compare_telemetry (data, *node1));
 	}
 
 	// Incorrect port should fail

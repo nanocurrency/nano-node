@@ -160,7 +160,7 @@ public:
 	// Note: The minimum protocol version is used after the random selection, so number of peers can be less than expected.
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t, uint8_t = 0, bool = false) const;
 	// Get the next peer for attempting a tcp bootstrap connection
-	nano::tcp_endpoint bootstrap_peer (bool = false);
+	nano::tcp_endpoint bootstrap_peer ();
 	nano::endpoint endpoint () const;
 	void cleanup (std::chrono::steady_clock::time_point const &);
 	void ongoing_cleanup ();
@@ -172,6 +172,9 @@ public:
 	float size_sqrt () const;
 	bool empty () const;
 	void erase (nano::transport::channel const &);
+	/** Disconnects and adds peer to exclusion list */
+	void exclude (std::shared_ptr<nano::transport::channel> const & channel);
+
 	static std::string to_string (nano::networks);
 
 private:
