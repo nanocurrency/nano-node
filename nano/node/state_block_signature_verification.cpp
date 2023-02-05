@@ -132,7 +132,7 @@ void nano::state_block_signature_verification::verify_state_blocks (std::deque<v
 		for (auto const & item : items)
 		{
 			auto const & block = item.block;
-			auto signer = item.signer (epochs);
+			auto const & signer = item.signer (epochs);
 			hashes.push_back (block->hash ());
 			messages.push_back (hashes.back ().bytes.data ());
 			lengths.push_back (sizeof (decltype (hashes)::value_type));

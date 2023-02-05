@@ -4431,13 +4431,16 @@ TEST (ledger, unchecked_open)
 				 .build_shared ();
 	node1.work_generate_blocking (*open2);
 	open2->signature.bytes[0] ^= 1;
-	node1.block_processor.add (open1);
+	// Insert open2 first
 	node1.block_processor.add (open2);
+	node1.block_processor.add (open1);
 	{
 		// Waits for the last blocks to pass through block_processor and unchecked.put queues
-		ASSERT_TIMELY (10s, 2 == node1.unchecked.count (node1.store.tx_begin_read ()));
+		size_t count = 0;
+		ASSERT_TIMELY (10s, 1 == (count = node1.unchecked.count (node1.store.tx_begin_read ())));
+		// Existence of open1 in unchecked implies open2 has been processed and rejected due to signature check failure
 		auto blocks = node1.unchecked.get (node1.store.tx_begin_read (), open1->source ());
-		ASSERT_EQ (blocks.size (), 2);
+		ASSERT_EQ (blocks.size (), 1);
 	}
 	node1.block_processor.add (send1);
 	// Waits for the send1 block to pass through block_processor and unchecked.put queues

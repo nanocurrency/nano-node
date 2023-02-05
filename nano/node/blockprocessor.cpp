@@ -66,9 +66,20 @@ nano::block_processor::block_processor (nano::node & node_a, nano::write_databas
 		node.stats.inc (nano::stat::type::block_pipeline, nano::stat::detail::block_position_filter_reject);
 	};
 	state_block_signature_verification.blocks_verified_callback = [this] (std::deque<nano::state_block_signature_verification::value_type> & items, std::vector<int> const & verifications, std::vector<nano::block_hash> const & hashes, std::vector<nano::signature> const & blocks_signatures) {
-		for (auto & item : items)
+		debug_assert (items.size () == verifications.size ());
+		debug_assert (items.size () == hashes.size ());
+		debug_assert (items.size () == blocks_signatures.size ());
+		for (auto i = 0; i < items.size (); ++i)
 		{
-			metastable.sink (item);
+			release_assert (verifications[i] == 0 || verifications[i] == 1);
+			if (verifications[i] == 1)
+			{
+				metastable.sink (items [i]);
+			}
+			else
+			{
+				std::cerr << "Signature failure\n";
+			}
 		}
 	};
 	metastable.pass = [this] (block_pipeline::context & context) {
@@ -353,7 +364,16 @@ void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 			}
 		}
 		number_of_blocks_processed++;
-		process_one (transaction, post_events, info, force);
+		auto result = process_one (transaction, post_events, info, force);
+		switch (result.code)
+		{
+			case nano::process_result::progress:
+			case nano::process_result::old:
+			case nano::process_result::fork:
+				break;
+			default:
+				break;
+		}
 		lock_a.lock ();
 	}
 	awaiting_write = false;

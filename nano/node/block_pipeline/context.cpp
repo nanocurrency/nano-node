@@ -1,5 +1,7 @@
 #include <nano/node/block_pipeline/context.hpp>
 
+nano::account const nano::block_pipeline::context:: account_one = { 1u };
+
 bool nano::block_pipeline::context::is_send () const
 {
 	debug_assert (state.has_value ());
@@ -64,7 +66,7 @@ nano::block_hash nano::block_pipeline::context::source () const
 	return 0;
 }
 
-nano::account nano::block_pipeline::context::signer (nano::epochs const & epochs) const
+nano::account const & nano::block_pipeline::context::signer (nano::epochs const & epochs) const
 {
 	debug_assert (block != nullptr);
 	switch (block->type ())
@@ -100,7 +102,7 @@ nano::account nano::block_pipeline::context::signer (nano::epochs const & epochs
 			break;
 	}
 	// std::unreachable (); c++23
-	return 1; // Return an account that cannot be signed for.
+	return account_one; // Return an account that cannot be signed for.
 }
 
 bool nano::block_pipeline::context::gap_previous () const
