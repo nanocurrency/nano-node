@@ -4,7 +4,7 @@
 #include <nano/secure/store.hpp>
 
 nano::block_pipeline::epoch_restrictions_filter::epoch_restrictions_filter (nano::ledger & ledger) :
-ledger{ ledger }
+	ledger{ ledger }
 {
 }
 

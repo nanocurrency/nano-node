@@ -74,7 +74,7 @@ nano::block_processor::block_processor (nano::node & node_a, nano::write_databas
 			release_assert (verifications[i] == 0 || verifications[i] == 1);
 			if (verifications[i] == 1)
 			{
-				metastable.sink (items [i]);
+				metastable.sink (items[i]);
 			}
 			else
 			{

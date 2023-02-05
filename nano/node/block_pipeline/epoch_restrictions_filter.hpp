@@ -21,6 +21,7 @@ namespace block_pipeline
 		std::function<void (context & context)> reject_balance;
 		std::function<void (context & context)> reject_representative;
 		std::function<void (context & context)> reject_gap_open;
+
 	private:
 		nano::ledger & ledger;
 	};

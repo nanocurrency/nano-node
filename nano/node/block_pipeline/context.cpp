@@ -1,6 +1,6 @@
 #include <nano/node/block_pipeline/context.hpp>
 
-nano::account const nano::block_pipeline::context:: account_one = { 1u };
+nano::account const nano::block_pipeline::context::account_one = { 1u };
 
 bool nano::block_pipeline::context::is_send () const
 {
