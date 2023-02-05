@@ -76,10 +76,6 @@ nano::block_processor::block_processor (nano::node & node_a, nano::write_databas
 			{
 				metastable.sink (items[i]);
 			}
-			else
-			{
-				std::cerr << "Signature failure\n";
-			}
 		}
 	};
 	metastable.pass = [this] (block_pipeline::context & context) {
