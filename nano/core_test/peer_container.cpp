@@ -244,14 +244,24 @@ TEST (peer_container, reachout)
 	ASSERT_FALSE (node1.network.reachout (outer_node2->network.endpoint ()));
 }
 
-TEST (peer_container, depeer)
+// This test is similar to network.filter_invalid_version_using with the difference that
+// this one checks for the channel's connection to get stopped when an incoming message
+// is from an outdated node version.
+TEST (peer_container, depeer_on_outdated_version)
 {
-	nano::test::system system (1);
-	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), nano::test_node_port ());
-	nano::keepalive message{ nano::dev::network_params.network };
-	const_cast<uint8_t &> (message.header.version_using) = 1;
-	auto bytes (message.to_bytes ());
-	nano::message_buffer buffer = { bytes->data (), bytes->size (), endpoint0 };
-	system.nodes[0]->network.udp_channels.receive_action (&buffer);
-	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::udp, nano::stat::detail::outdated_version));
+	nano::test::system system{ 2 };
+	auto & node1 = *system.nodes[0];
+	auto & node2 = *system.nodes[1];
+
+	// find the comms channel that goes from node2 to node1
+	auto channel = node2.network.find_node_id (node1.get_node_id ());
+	ASSERT_NE (nullptr, channel);
+
+	// send a keepalive, from node2 to node1, with the wrong version_using
+	nano::keepalive keepalive{ nano::dev::network_params.network };
+	const_cast<uint8_t &> (keepalive.header.version_using) = nano::dev::network_params.network.protocol_version_min - 1;
+	ASSERT_TIMELY (5s, channel->alive ());
+	channel->send (keepalive);
+
+	ASSERT_TIMELY (5s, !channel->alive ());
 }
