@@ -25,34 +25,40 @@ namespace rate
 	public:
 		/**
 		 * Set up a token bucket.
-		 * @param max_token_count_a Maximum number of tokens in this bucket, which limits bursts.
-		 * @param refill_rate_a Token refill rate, which limits the long term rate (tokens per seconds)
+		 * @param max_token_count Maximum number of tokens in this bucket, which limits bursts.
+		 * @param refill_rate Token refill rate, which limits the long term rate (tokens per seconds)
 		 */
-		token_bucket (size_t max_token_count_a, size_t refill_rate_a);
+		token_bucket (std::size_t max_token_count, std::size_t refill_rate);
 
 		/**
-		 * Determine if an operation of cost \p tokens_required_a is possible, and deduct from the
+		 * Determine if an operation of cost \p tokens_required is possible, and deduct from the
 		 * bucket if that's the case.
 		 * The default cost is 1 token, but resource intensive operations may request
 		 * more tokens to be available.
 		 */
-		bool try_consume (unsigned tokens_required_a = 1);
+		bool try_consume (unsigned tokens_required = 1);
 
 		/** Returns the largest burst observed */
-		size_t largest_burst () const;
+		std::size_t largest_burst () const;
 
 		/** Update the max_token_count and/or refill_rate_a parameters */
-		void reset (size_t max_token_count_a, size_t refill_rate_a);
+		void reset (std::size_t max_token_count, std::size_t refill_rate);
 
 	private:
 		void refill ();
-		size_t max_token_count;
-		size_t refill_rate;
-		size_t current_size{ 0 };
+
+	private:
+		std::size_t max_token_count;
+		std::size_t refill_rate;
+
+		std::size_t current_size{ 0 };
 		/** The minimum observed bucket size, from which the largest burst can be derived */
-		size_t smallest_size{ 0 };
+		std::size_t smallest_size{ 0 };
 		std::chrono::steady_clock::time_point last_refill;
-		mutable nano::mutex bucket_mutex;
+
+		mutable nano::mutex mutex;
+
+		static std::size_t constexpr unlimited_rate_sentinel{ static_cast<std::size_t> (1e9) };
 	};
 }
 }
