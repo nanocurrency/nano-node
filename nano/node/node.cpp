@@ -319,14 +319,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			}
 		});
 		observers.endpoint.add ([this] (std::shared_ptr<nano::transport::channel> const & channel_a) {
-			if (channel_a->get_type () == nano::transport::transport_type::udp)
-			{
-				this->network.send_keepalive (channel_a);
-			}
-			else
-			{
-				this->network.send_keepalive_self (channel_a);
-			}
+			this->network.send_keepalive_self (channel_a);
 		});
 		observers.vote.add ([this] (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, nano::vote_code code_a) {
 			debug_assert (code_a != nano::vote_code::invalid);
