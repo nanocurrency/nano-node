@@ -610,7 +610,7 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> con
 	// Process block
 	block_post_events post_events ([&store = store] { return store.tx_begin_read (); });
 	auto const transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
-	return block_processor.process_one (transaction, post_events, { block_a }, false, nano::block_origin::local);
+	return block_processor.process_one (transaction, post_events, { block_a }, nano::block_origin::local);
 }
 
 void nano::node::start ()

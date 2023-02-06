@@ -59,13 +59,14 @@ public:
 	bool half_full ();
 	void add (value_type & item);
 	void add (std::shared_ptr<nano::block> const &);
+	void rollback_competitor (nano::block const & block);
 	void force (std::shared_ptr<nano::block> const &);
 	void wait_write ();
 	bool should_log ();
 	bool have_blocks_ready ();
 	bool have_blocks ();
 	void process_blocks ();
-	nano::process_return process_one (nano::write_transaction const &, block_post_events &, value_type const & item, bool const = false, nano::block_origin const = nano::block_origin::remote);
+	nano::process_return process_one (nano::write_transaction const &, block_post_events &, value_type const & item, nano::block_origin const = nano::block_origin::remote);
 	nano::process_return process_one (nano::write_transaction const &, block_post_events &, std::shared_ptr<nano::block> const &);
 	std::atomic<bool> flushing{ false };
 	// Delay required for average network propagartion before requesting confirmation
@@ -84,7 +85,6 @@ private:
 	bool awaiting_write{ false };
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<value_type> blocks;
-	std::deque<std::shared_ptr<nano::block>> forced;
 	nano::condition_variable condition;
 	nano::node & node;
 	nano::write_database_queue & write_database_queue;

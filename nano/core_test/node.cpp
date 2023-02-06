@@ -3682,6 +3682,10 @@ TEST (node, rollback_gap_source)
 				.link (send2->hash ())
 				.sign (key.prv, key.pub)
 				.build_shared ();
+	std::cerr << boost::str (boost::format ("send1: %1%\n") % send1->hash ().to_string ());
+	std::cerr << boost::str (boost::format ("fork: %1%\n") % fork->hash ().to_string ());
+	std::cerr << boost::str (boost::format ("send2: %1%\n") % send2->hash ().to_string ());
+	std::cerr << boost::str (boost::format ("open: %1%\n") % open->hash ().to_string ());
 	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
 	ASSERT_EQ (nano::process_result::progress, node.process (*fork).code);
 	// Node has fork & doesn't have source for correct block open (send2)
