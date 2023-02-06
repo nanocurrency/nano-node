@@ -19,26 +19,6 @@ TEST (peer_container, empty_peers)
 	ASSERT_EQ (0, network.size ());
 }
 
-TEST (peer_container, no_recontact)
-{
-	nano::test::system system (1);
-	auto & node1 (*system.nodes[0]);
-	nano::network & network (node1.network);
-	auto observed_peer (0);
-	auto observed_disconnect (false);
-	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 10000);
-	ASSERT_EQ (0, network.size ());
-	network.channel_observer = [&observed_peer] (std::shared_ptr<nano::transport::channel> const &) { ++observed_peer; };
-	node1.network.disconnect_observer = [&observed_disconnect] () { observed_disconnect = true; };
-	auto channel (network.udp_channels.insert (endpoint1, node1.network_params.network.protocol_version));
-	ASSERT_EQ (1, network.size ());
-	ASSERT_EQ (channel, network.udp_channels.insert (endpoint1, node1.network_params.network.protocol_version));
-	node1.network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (5));
-	ASSERT_TRUE (network.empty ());
-	ASSERT_EQ (1, observed_peer);
-	ASSERT_TRUE (observed_disconnect);
-}
-
 // Test a node cannot connect to its own endpoint.
 TEST (peer_container, no_self_incoming)
 {
