@@ -111,7 +111,7 @@ TEST (gap_cache, gap_bootstrap)
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, node1.balance (nano::dev::genesis->account ()));
 	ASSERT_EQ (nano::dev::constants.genesis_amount, node2.balance (nano::dev::genesis->account ()));
 	// Confirm send block, allowing voting on the upcoming block
-	auto election = system.start_election (node1, send);
+	auto election = nano::test::start_election (system, node1, send);
 	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
 	ASSERT_TIMELY (5s, node1.block_confirmed (send->hash ()));

@@ -241,7 +241,7 @@ TEST (confirmation_height, multiple_accounts)
 						.work (*system.work.generate (open3->hash ()))
 						.build_shared ();
 		node->process_active (receive3);
-		auto election = system.start_election (*node, receive3);
+		auto election = nano::test::start_election (system, *node, receive3);
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
 
@@ -533,7 +533,7 @@ TEST (confirmation_height, gap_live)
 		}
 
 		// Vote and confirm all existing blocks
-		system.start_election (*node, send1);
+		nano::test::start_election (system, *node, send1);
 		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 3);
 
 		// Now complete the chain where the block comes in on the live network
@@ -688,7 +688,7 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		add_callback_stats (*node);
 
 		node->process_active (receive4);
-		auto election = system.start_election (*node, receive4);
+		auto election = nano::test::start_election (system, *node, receive4);
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
 
@@ -805,7 +805,7 @@ TEST (confirmation_height, send_receive_self)
 
 		add_callback_stats (*node);
 
-		auto election = system.start_election (*node, receive3);
+		auto election = nano::test::start_election (system, *node, receive3);
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
 
@@ -1050,7 +1050,7 @@ TEST (confirmation_height, all_block_types)
 		}
 
 		add_callback_stats (*node);
-		auto election = system.start_election (*node, state_send2);
+		auto election = nano::test::start_election (system, *node, state_send2);
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
 
@@ -1546,7 +1546,7 @@ TEST (confirmation_height, callback_confirmed_history)
 		add_callback_stats (*node);
 
 		node->process_active (send1);
-		ASSERT_NE (system.start_election (*node, send1), nullptr);
+		ASSERT_NE (nano::test::start_election (system, *node, send1), nullptr);
 		{
 			node->process_active (send);
 			node->block_processor.flush ();
@@ -1647,9 +1647,9 @@ TEST (confirmation_height, dependent_election)
 		add_callback_stats (*node);
 
 		// This election should be confirmed as active_conf_height
-		ASSERT_TRUE (system.start_election (*node, send1));
+		ASSERT_TRUE (nano::test::start_election (system, *node, send1));
 		// Start an election and confirm it
-		auto election = system.start_election (*node, send2);
+		auto election = nano::test::start_election (system, *node, send2);
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
 
@@ -1803,7 +1803,7 @@ TEST (confirmation_height, cemented_gap_below_receive)
 		nano::mutex mutex;
 		add_callback_stats (*node, &observer_order, &mutex);
 
-		auto election = system.start_election (*node, open1);
+		auto election = nano::test::start_election (system, *node, open1);
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
 		ASSERT_TIMELY (5s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 10);
@@ -1968,7 +1968,7 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 
 		add_callback_stats (*node);
 
-		auto election = system.start_election (*node, open1);
+		auto election = nano::test::start_election (system, *node, open1);
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
 		ASSERT_TIMELY (5s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 6);

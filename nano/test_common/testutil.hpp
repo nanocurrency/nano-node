@@ -129,6 +129,7 @@ class telemetry_data;
 class network_params;
 class vote;
 class block;
+class election;
 
 extern nano::uint128_t const & genesis_amount;
 
@@ -406,5 +407,11 @@ namespace test
 	 * Creates a new fake channel associated with `node`
 	 */
 	std::shared_ptr<nano::transport::channel> fake_channel (nano::node & node, nano::account node_id = { 0 });
+	/*
+	 * Start an election on system system_a, node node_a and block block_a by adding the block to the manual election scheduler queue.
+	 * It waits up to 5 seconds for the election to start and calls the system poll function while waiting.
+	 * Returns nullptr if the election did not start within the timeframe.
+	 */
+	std::shared_ptr<nano::election> start_election (nano::test::system & system_a, nano::node & node_a, const std::shared_ptr<nano::block> & block_a);
 }
 }
