@@ -640,7 +640,7 @@ std::shared_ptr<nano::election> nano::test::system::start_election (nano::node &
 	{
 		if (poll ())
 		{
-			return {};
+			return nullptr;
 		}
 	}
 
@@ -652,7 +652,7 @@ std::shared_ptr<nano::election> nano::test::system::start_election (nano::node &
 	{
 		if (poll ())
 		{
-			return {};
+			return nullptr;
 		}
 		election = node_a.active.election (block_a->qualified_root ());
 	}
