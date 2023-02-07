@@ -27,7 +27,7 @@ nano::error nano::daemon_config::serialize_toml (nano::tomlconfig & toml)
 
 	nano::tomlconfig opencl_l;
 	opencl.serialize_toml (opencl_l);
-	opencl_l.doc ("enable", "Enable or disable OpenCL work generation\ntype:bool");
+	opencl_l.doc ("enable", "Enable or disable OpenCL work generation\nIf enabled, consider freeing up CPU resources by setting [work_threads] to zero\ntype:bool");
 	opencl_l.put ("enable", opencl_enable);
 	toml.put_child ("opencl", opencl_l);
 
