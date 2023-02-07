@@ -5874,9 +5874,9 @@ TEST (rpc, confirmation_height_currently_processing)
 	{
 		// Write guard prevents the confirmation height processor writing the blocks, so that we can inspect contents during the response
 		auto write_guard = node->write_database_queue.wait (nano::writer::testing);
-		node->block_confirm (frontier);
+		nano::test::start_election (system, *node, frontier);
 
-		ASSERT_TIMELY (10s, node->confirmation_height_processor.current () == frontier->hash ());
+		ASSERT_TIMELY (5s, node->confirmation_height_processor.current () == frontier->hash ());
 
 		// Make the request
 		{
@@ -6516,14 +6516,10 @@ TEST (rpc, block_confirmed)
 				.work (*system.work.generate (latest))
 				.build_shared ();
 	node->process_active (send);
-	node->block_processor.flush ();
-	node->block_confirm (send);
-	auto election = node->active.election (send->qualified_root ());
-	ASSERT_NE (nullptr, election);
-	election->force_confirm ();
+	ASSERT_TIMELY (5s, nano::test::confirm (*node, { send }));
 
 	// Wait until the confirmation height has been set
-	ASSERT_TIMELY (10s, node->ledger.block_confirmed (node->store.tx_begin_read (), send->hash ()) && !node->confirmation_height_processor.is_processing_block (send->hash ()));
+	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->store.tx_begin_read (), send->hash ()) && !node->confirmation_height_processor.is_processing_block (send->hash ()));
 
 	// Requesting confirmation for this should now succeed
 	request.put ("hash", send->hash ().to_string ());
