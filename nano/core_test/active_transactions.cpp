@@ -630,9 +630,7 @@ TEST (active_transactions, dropped_cleanup)
 	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
-	node.block_confirm (nano::dev::genesis);
-	ASSERT_TIMELY (5s, node.active.election (nano::dev::genesis->qualified_root ()));
-	auto election = node.active.election (nano::dev::genesis->qualified_root ());
+	auto election = nano::test::start_election (system, node, nano::dev::genesis);
 	ASSERT_NE (nullptr, election);
 
 	// Not yet removed
@@ -654,9 +652,8 @@ TEST (active_transactions, dropped_cleanup)
 
 	// Repeat test for a confirmed election
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
-	node.block_confirm (nano::dev::genesis);
-	ASSERT_TIMELY (5s, node.active.election (nano::dev::genesis->qualified_root ()));
-	election = node.active.election (nano::dev::genesis->qualified_root ());
+
+	election = nano::test::start_election (system, node, nano::dev::genesis);
 	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
 	ASSERT_TRUE (election->confirmed ());
@@ -1222,8 +1219,7 @@ TEST (active_transactions, activate_inactive)
 	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
 	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
 
-	node.block_confirm (send2);
-	auto election = node.active.election (send2->qualified_root ());
+	auto election = nano::test::start_election (system, node, send2);
 	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
 

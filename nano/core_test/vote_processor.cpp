@@ -67,16 +67,14 @@ TEST (vote_processor, invalid_signature)
 	vote_invalid->signature.bytes[0] ^= 1;
 	auto channel = std::make_shared<nano::transport::inproc::channel> (node, node);
 
-	node.block_confirm (nano::dev::genesis);
-	auto election = node.active.election (nano::dev::genesis->qualified_root ());
-	ASSERT_TRUE (election);
+	auto election = nano::test::start_election (system, node, nano::dev::genesis);
+	ASSERT_NE (election, nullptr);
 	ASSERT_EQ (1, election->votes ().size ());
+
 	node.vote_processor.vote (vote_invalid, channel);
-	node.vote_processor.flush ();
-	ASSERT_TIMELY (3s, 1 == election->votes ().size ());
+	ASSERT_TIMELY (5s, 1 == election->votes ().size ());
 	node.vote_processor.vote (vote, channel);
-	node.vote_processor.flush ();
-	ASSERT_TIMELY (3s, 2 == election->votes ().size ());
+	ASSERT_TIMELY (5s, 2 == election->votes ().size ());
 }
 
 TEST (vote_processor, no_capacity)
