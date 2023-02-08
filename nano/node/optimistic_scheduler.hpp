@@ -15,6 +15,7 @@
 namespace nano
 {
 class node;
+class ledger;
 class active_transactions;
 
 class optimistic_scheduler_config final
@@ -36,7 +37,7 @@ public:
 class optimistic_scheduler final
 {
 public:
-	optimistic_scheduler (optimistic_scheduler_config const &, nano::node &, nano::active_transactions &, nano::stats &);
+	optimistic_scheduler (optimistic_scheduler_config const &, nano::node &, nano::ledger &, nano::active_transactions &, nano::stats &);
 	~optimistic_scheduler ();
 
 	void start ();
@@ -58,11 +59,12 @@ private:
 
 	bool predicate () const;
 	void run ();
-	void run_one (nano::account candidate);
+	void run_one (nano::transaction const &, nano::account candidate);
 
 private: // Dependencies
 	optimistic_scheduler_config const & config;
 	nano::node & node;
+	nano::ledger & ledger;
 	nano::active_transactions & active;
 	nano::stats & stats;
 

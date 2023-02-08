@@ -3,9 +3,10 @@
 #include <nano/node/node.hpp>
 #include <nano/node/optimistic_scheduler.hpp>
 
-nano::optimistic_scheduler::optimistic_scheduler (optimistic_scheduler_config const & config_a, nano::node & node_a, nano::active_transactions & active_a, nano::stats & stats_a) :
+nano::optimistic_scheduler::optimistic_scheduler (optimistic_scheduler_config const & config_a, nano::node & node_a, nano::ledger & ledger_a, nano::active_transactions & active_a, nano::stats & stats_a) :
 	config{ config_a },
 	node{ node_a },
+	ledger{ ledger_a },
 	active{ active_a },
 	stats{ stats_a }
 {
@@ -106,16 +107,22 @@ void nano::optimistic_scheduler::run ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
+		stats.inc (nano::stat::type::optimistic, nano::stat::detail::loop);
+
 		if (predicate ())
 		{
-			stats.inc (nano::stat::type::optimistic, nano::stat::detail::loop);
+			auto transaction = ledger.store.tx_begin_read ();
 
-			auto candidate = candidates.front ();
-			candidates.pop_front ();
+			while (predicate ())
+			{
+				debug_assert (!candidates.empty ());
+				auto candidate = candidates.front ();
+				candidates.pop_front ();
 
-			lock.unlock ();
-			run_one (candidate);
-			lock.lock ();
+				lock.unlock ();
+				run_one (transaction, candidate);
+				lock.lock ();
+			}
 		}
 
 		condition.wait (lock, [this] () {
@@ -124,9 +131,9 @@ void nano::optimistic_scheduler::run ()
 	}
 }
 
-void nano::optimistic_scheduler::run_one (nano::account candidate)
+void nano::optimistic_scheduler::run_one (nano::transaction const & transaction, nano::account candidate)
 {
-	auto block = node.head_block (candidate);
+	auto block = ledger.head_block (transaction, candidate);
 	if (block)
 	{
 		// Ensure block is not already confirmed

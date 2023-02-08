@@ -195,7 +195,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	generator{ config, ledger, wallets, vote_processor, history, network, stats, /* non-final */ false },
 	final_generator{ config, ledger, wallets, vote_processor, history, network, stats, /* final */ true },
 	active (*this, confirmation_height_processor),
-	optimistic{ config.optimistic_scheduler, *this, active, stats },
+	optimistic{ config.optimistic_scheduler, *this, ledger, active, stats },
 	scheduler{ *this },
 	hinting{ nano::nodeconfig_to_hinted_scheduler_config (config), *this, inactive_vote_cache, active, online_reps, stats },
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
@@ -770,17 +770,6 @@ std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)
 {
 	auto const transaction (store.tx_begin_read ());
 	return store.block.get (transaction, hash_a);
-}
-
-std::shared_ptr<nano::block> nano::node::head_block (const nano::account & account)
-{
-	auto transaction = store.tx_begin_read ();
-	auto info = store.account.get (transaction, account);
-	if (info)
-	{
-		return store.block.get (transaction, info->head);
-	}
-	return nullptr;
 }
 
 std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::account const & account_a, bool only_confirmed_a)
