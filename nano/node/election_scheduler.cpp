@@ -143,7 +143,7 @@ void nano::election_scheduler::run ()
 				auto const [block, previous_balance, election_behavior] = manual_queue.front ();
 				manual_queue.pop_front ();
 				lock.unlock ();
-				
+
 				node.active.insert (block, election_behavior);
 			}
 			else if (priority_queue_predicate ())
