@@ -617,6 +617,14 @@ TEST (node, fork_publish)
 	ASSERT_TRUE (node0.expired ());
 }
 
+// In test case there used to be a race condition, it was worked around in:.
+// https://github.com/nanocurrency/nano-node/pull/4091
+// The election and the processing of block send2 happen in parallel.
+// Usually the election happens first and the send2 block is added to the election.
+// However, if the send2 block is processed before the election is started then
+// there is a race somewhere and the election might not notice the send2 block.
+// The test case can be made to pass by ensuring the election is started before the send2 is processed.
+// However, is this a problem with the test case or this is a problem with the node handling of forks?
 TEST (node, fork_publish_inactive)
 {
 	nano::test::system system (1);
