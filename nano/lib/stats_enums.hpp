@@ -1,6 +1,7 @@
 #pragma once
 
-#include <nano/lib/magic_enum.hpp>
+#include <cstdint>
+#include <string_view>
 
 namespace nano::stat
 {
@@ -277,21 +278,7 @@ enum class dir : uint8_t
 
 namespace nano
 {
-/** Returns string representation of type */
-inline std::string_view to_string (stat::type type)
-{
-	return magic_enum::enum_name (type);
-}
-
-/** Returns string representation of detail */
-inline std::string_view to_string (stat::detail detail)
-{
-	return magic_enum::enum_name (detail);
-}
-
-/** Returns string representation of dir */
-inline std::string_view to_string (stat::dir dir)
-{
-	return magic_enum::enum_name (dir);
-}
+std::string_view to_string (stat::type type);
+std::string_view to_string (stat::detail detail);
+std::string_view to_string (stat::dir dir);
 }
