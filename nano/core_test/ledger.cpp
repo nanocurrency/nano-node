@@ -4430,17 +4430,18 @@ TEST (ledger, unchecked_open)
 				 .build_shared ();
 	node1.work_generate_blocking (*open2);
 	open2->signature.bytes[0] ^= 1;
+	node1.block_processor.add (open2); // Insert open2 in to the queue before open1
 	node1.block_processor.add (open1);
-	node1.block_processor.add (open2);
 	{
 		// Waits for the last blocks to pass through block_processor and unchecked.put queues
-		ASSERT_TIMELY (10s, 1 == node1.unchecked.count (node1.store.tx_begin_read ()));
+		ASSERT_TIMELY (5s, 1 == node1.unchecked.count (node1.store.tx_begin_read ()));
+		// When open1 existists in unchecked, we know open2 has been processed.
 		auto blocks = node1.unchecked.get (node1.store.tx_begin_read (), open1->source ());
 		ASSERT_EQ (blocks.size (), 1);
 	}
 	node1.block_processor.add (send1);
 	// Waits for the send1 block to pass through block_processor and unchecked.put queues
-	ASSERT_TIMELY (10s, node1.store.block.exists (node1.store.tx_begin_read (), open1->hash ()));
+	ASSERT_TIMELY (5s, node1.store.block.exists (node1.store.tx_begin_read (), open1->hash ()));
 	ASSERT_EQ (0, node1.unchecked.count (node1.store.tx_begin_read ()));
 }
 

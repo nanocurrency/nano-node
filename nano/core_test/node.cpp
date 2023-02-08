@@ -2876,10 +2876,10 @@ TEST (node, fork_election_invalid_block_signature)
 
 TEST (node, block_processor_signatures)
 {
-	nano::test::system system0 (1);
-	auto & node1 (*system0.nodes[0]);
-	system0.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::block_hash latest (system0.nodes[0]->latest (nano::dev::genesis_key.pub));
+	nano::test::system system{ 1 };
+	auto & node1 = *system.nodes[0];
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	nano::block_hash latest = system.nodes[0]->latest (nano::dev::genesis_key.pub);
 	nano::state_block_builder builder;
 	nano::keypair key1;
 	nano::keypair key2;
@@ -2923,23 +2923,18 @@ TEST (node, block_processor_signatures)
 				 .build_shared ();
 	send4->signature.bytes[32] ^= 0x1;
 	// Invalid signature bit (force)
-	std::shared_ptr<nano::block> send5 = builder.make_block ()
-										 .account (nano::dev::genesis_key.pub)
-										 .previous (send3->hash ())
-										 .representative (nano::dev::genesis_key.pub)
-										 .balance (nano::dev::constants.genesis_amount - 5 * nano::Gxrb_ratio)
-										 .link (key3.pub)
-										 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-										 .work (*node1.work_generate_blocking (send3->hash ()))
-										 .build_shared ();
-	auto signature = send5->block_signature ();
-	signature.bytes[31] ^= 0x1;
-	send5->signature_set (signature);
+	auto send5 = builder.make_block ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send3->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 5 * nano::Gxrb_ratio)
+				 .link (key3.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*node1.work_generate_blocking (send3->hash ()))
+				 .build_shared ();
+	send5->signature.bytes[32] ^= 0x1;
 	// Invalid signature to unchecked
-	{
-		auto transaction (node1.store.tx_begin_write ());
-		node1.unchecked.put (send5->previous (), send5);
-	}
+	node1.unchecked.put (send5->previous (), nano::unchecked_info{ send5 });
 	auto receive1 = builder.make_block ()
 					.account (key1.pub)
 					.previous (0)
@@ -2975,18 +2970,11 @@ TEST (node, block_processor_signatures)
 	node1.process_active (receive1);
 	node1.process_active (receive2);
 	node1.process_active (receive3);
-	node1.block_processor.flush ();
-	node1.block_processor.force (send5);
-	node1.block_processor.flush ();
-	auto transaction (node1.store.tx_begin_read ());
-	ASSERT_TRUE (node1.store.block.exists (transaction, send1->hash ()));
-	ASSERT_TRUE (node1.store.block.exists (transaction, send2->hash ()));
-	ASSERT_TRUE (node1.store.block.exists (transaction, send3->hash ()));
-	ASSERT_FALSE (node1.store.block.exists (transaction, send4->hash ()));
-	ASSERT_FALSE (node1.store.block.exists (transaction, send5->hash ()));
-	ASSERT_TRUE (node1.store.block.exists (transaction, receive1->hash ()));
-	ASSERT_TRUE (node1.store.block.exists (transaction, receive2->hash ()));
-	ASSERT_FALSE (node1.store.block.exists (transaction, receive3->hash ()));
+	ASSERT_TIMELY (5s, node1.block (receive2->hash ()) != nullptr); // Implies send1, send2, send3, receive1.
+	ASSERT_TIMELY (5s, node1.unchecked.count (node1.store.tx_begin_read ()) == 0);
+	ASSERT_EQ (nullptr, node1.block (receive3->hash ())); // Invalid signer
+	ASSERT_EQ (nullptr, node1.block (send4->hash ())); // Invalid signature via process_active
+	ASSERT_EQ (nullptr, node1.block (send5->hash ())); // Invalid signature via unchecked
 }
 
 /*
@@ -3047,31 +3035,30 @@ TEST (node, block_processor_full)
 				 .build_shared ();
 	auto send2 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)
-				 .previous (send1->hash ())
+				 .previous (nano::dev::genesis->hash ())
 				 .representative (nano::dev::genesis_key.pub)
 				 .balance (nano::dev::constants.genesis_amount - 2 * nano::Gxrb_ratio)
 				 .link (nano::dev::genesis_key.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*node.work_generate_blocking (send1->hash ()))
+				 .work (*node.work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	auto send3 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)
-				 .previous (send2->hash ())
+				 .previous (nano::dev::genesis->hash ())
 				 .representative (nano::dev::genesis_key.pub)
 				 .balance (nano::dev::constants.genesis_amount - 3 * nano::Gxrb_ratio)
 				 .link (nano::dev::genesis_key.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*node.work_generate_blocking (send2->hash ()))
+				 .work (*node.work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build_shared ();
-	// The write guard prevents block processor doing any writes
-	auto write_guard = node.write_database_queue.wait (nano::writer::testing);
+	node.block_processor.stop (); // Stop processing the block queue
 	node.block_processor.add (send1);
 	ASSERT_FALSE (node.block_processor.full ());
 	node.block_processor.add (send2);
 	ASSERT_FALSE (node.block_processor.full ());
 	node.block_processor.add (send3);
 	// Block processor may be not full during state blocks signatures verification
-	ASSERT_TIMELY (2s, node.block_processor.full ());
+	ASSERT_TIMELY (5s, node.block_processor.full ());
 }
 
 TEST (node, block_processor_half_full)
@@ -3156,6 +3143,7 @@ TEST (node, confirm_back)
 	node.process_active (send1);
 	node.process_active (open);
 	node.process_active (send2);
+	ASSERT_TIMELY (5s, node.block (send2->hash ()) != nullptr);
 	nano::test::blocks_confirm (node, { send1, open, send2 });
 	ASSERT_EQ (3, node.active.size ());
 	std::vector<nano::block_hash> vote_blocks;
@@ -4316,6 +4304,7 @@ TEST (node, pruning_automatic)
 				 .work (*system.work.generate (latest_hash))
 				 .build_shared ();
 	node1.process_active (send2);
+	ASSERT_TIMELY (5s, node1.block (send2->hash ()) != nullptr);
 
 	// Force-confirm both blocks
 	node1.process_confirmed (nano::election_status{ send1 });

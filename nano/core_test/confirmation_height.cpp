@@ -385,7 +385,7 @@ TEST (confirmation_height, gap_bootstrap)
 		node1.block_processor.add (send2);
 		node1.block_processor.add (send3);
 		node1.block_processor.add (receive1);
-		node1.block_processor.flush ();
+		ASSERT_TIMELY (5s, node1.block (send3->hash ()) != nullptr);
 
 		add_callback_stats (node1);
 
@@ -395,7 +395,7 @@ TEST (confirmation_height, gap_bootstrap)
 		auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
 			return !node1.unchecked.get (transaction_a, block_hash_a).empty ();
 		};
-		ASSERT_TIMELY (15s, check_block_is_listed (node1.store.tx_begin_read (), receive2->previous ()));
+		ASSERT_TIMELY (5s, check_block_is_listed (node1.store.tx_begin_read (), receive2->previous ()));
 
 		// Confirmation heights should not be updated
 		{
@@ -412,7 +412,7 @@ TEST (confirmation_height, gap_bootstrap)
 		// Now complete the chain where the block comes in on the bootstrap network.
 		node1.block_processor.add (open1);
 
-		ASSERT_TIMELY (10s, node1.unchecked.count (node1.store.tx_begin_read ()) == 0);
+		ASSERT_TIMELY (5s, node1.unchecked.count (node1.store.tx_begin_read ()) == 0);
 		// Confirmation height should be unchanged and unchecked should now be 0
 		{
 			auto transaction = node1.store.tx_begin_read ();
