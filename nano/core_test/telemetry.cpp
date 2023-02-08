@@ -324,7 +324,7 @@ TEST (telemetry, invalid_endpoint)
 	// Give some time for nodes to exchange telemetry
 	WAIT (1s);
 
-	nano::endpoint endpoint = *nano::parse_endpoint ("240.0.0.0:12345");
+	nano::endpoint endpoint = *nano::parse_endpoint ("::ffff:240.0.0.0:12345");
 	ASSERT_FALSE (node_client->telemetry.get_telemetry (endpoint));
 }
 
