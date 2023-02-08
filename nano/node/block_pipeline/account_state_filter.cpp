@@ -23,6 +23,7 @@ void nano::block_pipeline::account_state_filter::sink (context & context) const
 				context.state = nano::account_info{};
 			}
 			context.pending = ledger.pending_info (transaction, { context.account (), context.source () });
+			context.any_pending = ledger.store.pending.any (transaction, context.account ());
 		}
 		if (ledger.store.block.exists (transaction, context.block->hash ()))
 		{

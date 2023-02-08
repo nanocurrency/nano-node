@@ -28,7 +28,6 @@ nano::block_post_events::~block_post_events ()
 
 nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
 	account_state{ node.ledger },
-	epoch_restrictions{ node.ledger },
 	link{ node.ledger.constants.epochs },
 	next_log (std::chrono::steady_clock::now ()),
 	node (node_a),

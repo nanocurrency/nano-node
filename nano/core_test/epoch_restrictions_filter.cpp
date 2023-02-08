@@ -12,10 +12,7 @@ namespace
 class context
 {
 public:
-	context () :
-		store{ nano::make_store (logger, nano::unique_path (), nano::dev::constants) },
-		ledger{ *store, stats, nano::dev::constants },
-		filter{ ledger }
+	context ()
 	{
 		filter.pass = [this] (nano::block_pipeline::context & context) {
 			pass.push_back (context);
@@ -30,10 +27,6 @@ public:
 			reject_gap_open.push_back (context);
 		};
 	}
-	nano::stats stats;
-	nano::logger_mt logger;
-	std::shared_ptr<nano::store> store;
-	nano::ledger ledger;
 	nano::block_pipeline::epoch_restrictions_filter filter;
 	std::vector<nano::block_pipeline::context> pass;
 	std::vector<nano::block_pipeline::context> reject_balance;

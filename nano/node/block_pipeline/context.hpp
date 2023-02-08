@@ -24,6 +24,7 @@ namespace block_pipeline
 		std::shared_ptr<nano::block> previous;
 		std::optional<nano::account_info> state;
 		std::optional<nano::pending_info> pending;
+		bool any_pending{ false };
 	};
 }
 }
