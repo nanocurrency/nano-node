@@ -69,6 +69,7 @@ add_library(
   stats.hpp
   stats.cpp
   stats_enums.hpp
+  stats_enums.cpp
   stream.hpp
   threading.hpp
   threading.cpp
