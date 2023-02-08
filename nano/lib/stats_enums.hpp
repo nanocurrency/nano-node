@@ -37,6 +37,7 @@ enum class type : uint8_t
 	bootstrap_server,
 	active,
 	backlog,
+	block_pipeline,
 
 	_last // Must be the last enum
 };
@@ -258,6 +259,30 @@ enum class detail : uint8_t
 	response_blocks,
 	response_account_info,
 	channel_full,
+
+	// Block pipeline details
+	account_state_filter_pass,
+	account_state_filter_reject_existing,
+	account_state_filter_reject_gap,
+	block_position_filter_pass,
+	block_position_filter_reject,
+	epoch_restrictions_pass,
+	epoch_restrictions_reject_balance,
+	epoch_restrictions_reject_gap_open,
+	epoch_restrictions_reject_representative,
+	link_filter_hash,
+	link_filter_account,
+	link_filter_noop,
+	link_filter_epoch,
+	metastable_filter_pass,
+	metastable_filter_reject,
+	receive_restrictions_filter_pass,
+	receive_restrictions_filter_reject_balance,
+	receive_restrictions_filter_reject_pending,
+	reserved_account_filter_pass,
+	reserved_account_filter_reject,
+	send_restrictions_filter_pass,
+	send_restrictions_filter_reject,
 
 	// backlog
 	activated,

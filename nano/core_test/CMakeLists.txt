@@ -1,11 +1,13 @@
 add_executable(
   core_test
+  account_state_filter.cpp
   core_test_main.cc
   fakes/websocket_client.hpp
   fakes/work_peer.hpp
   active_transactions.cpp
   backlog.cpp
   block.cpp
+  block_position_filter.cpp
   block_store.cpp
   blockprocessor.cpp
   bootstrap.cpp
@@ -19,12 +21,15 @@ add_executable(
   election.cpp
   election_scheduler.cpp
   enums.cpp
+  epoch_restrictions_filter.cpp
   epochs.cpp
+  metastable_filter.cpp
   frontiers_confirmation.cpp
   gap_cache.cpp
   ipc.cpp
   ledger.cpp
   ledger_walker.cpp
+  link_filter.cpp
   locks.cpp
   logger.cpp
   message.cpp
@@ -37,7 +42,10 @@ add_executable(
   processor_service.cpp
   peer_container.cpp
   prioritization.cpp
+  receive_restrictions_filter.cpp
   request_aggregator.cpp
+  reserved_account_filter.cpp
+  send_restrictions_filter.cpp
   signal_manager.cpp
   signing.cpp
   socket.cpp

@@ -266,8 +266,7 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 		}
 		lazy_block_state_backlog_check (block_a, hash);
 		lock.unlock ();
-		nano::unchecked_info info (block_a);
-		node->block_processor.add (info);
+		node->block_processor.add ({ block_a });
 	}
 	// Force drop lazy bootstrap connection for long bulk_pull
 	if (pull_blocks_processed > max_blocks)

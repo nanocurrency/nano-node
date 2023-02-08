@@ -207,7 +207,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 {
 	unchecked.use_memory = [this] () { return ledger.bootstrap_weight_reached (); };
 	unchecked.satisfied = [this] (nano::unchecked_info const & info) {
-		this->block_processor.add (info);
+		this->block_processor.add (info.block);
 	};
 
 	inactive_vote_cache.rep_weight_query = [this] (nano::account const & rep) {
@@ -610,15 +610,7 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> con
 	// Process block
 	block_post_events post_events ([&store = store] { return store.tx_begin_read (); });
 	auto const transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
-	return block_processor.process_one (transaction, post_events, block_a, false, nano::block_origin::local);
-}
-
-void nano::node::process_local_async (std::shared_ptr<nano::block> const & block_a)
-{
-	// Add block hash as recently arrived to trigger automatic rebroadcast and election
-	block_arrival.add (block_a->hash ());
-	// Set current time to trigger automatic rebroadcast and election
-	block_processor.add_local (block_a);
+	return block_processor.process_one (transaction, post_events, { block_a }, nano::block_origin::local);
 }
 
 void nano::node::start ()

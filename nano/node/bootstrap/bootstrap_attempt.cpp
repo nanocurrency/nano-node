@@ -113,8 +113,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> const 
 	}
 	else
 	{
-		nano::unchecked_info info (block_a);
-		node->block_processor.add (info);
+		node->block_processor.add ({ block_a });
 	}
 	return stop_pull;
 }
