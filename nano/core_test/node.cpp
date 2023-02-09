@@ -3157,7 +3157,7 @@ TEST (node, confirm_back)
 	node.process_active (open);
 	node.process_active (send2);
 	ASSERT_TIMELY (5s, node.block (send2->hash ()) != nullptr);
-	nano::test::blocks_confirm (system, node, { send1, open, send2 });
+	nano::test::start_elections (system, node, { send1, open, send2 });
 	ASSERT_EQ (3, node.active.size ());
 	std::vector<nano::block_hash> vote_blocks;
 	vote_blocks.push_back (send2->hash ());
@@ -3486,9 +3486,9 @@ TEST (node, aggressive_flooding)
 		ASSERT_EQ (node1.latest (nano::dev::genesis_key.pub), node_wallet.first->latest (nano::dev::genesis_key.pub));
 		ASSERT_EQ (genesis_blocks.back ()->hash (), node_wallet.first->latest (nano::dev::genesis_key.pub));
 		// Confirm blocks for rep crawler & receiving
-		nano::test::blocks_confirm (system, *node_wallet.first, { genesis_blocks.back () }, true);
+		nano::test::start_elections (system, *node_wallet.first, { genesis_blocks.back () }, true);
 	}
-	nano::test::blocks_confirm (system, node1, { genesis_blocks.back () }, true);
+	nano::test::start_elections (system, node1, { genesis_blocks.back () }, true);
 
 	// Wait until all genesis blocks are received
 	auto all_received = [&nodes_wallets] () {
@@ -3697,7 +3697,7 @@ TEST (node, rollback_gap_source)
 	// Node has fork & doesn't have source for correct block open (send2)
 	ASSERT_EQ (nullptr, node.block (send2->hash ()));
 	// Start election for fork
-	nano::test::blocks_confirm (system, node, { fork });
+	nano::test::start_elections (system, node, { fork });
 	{
 		auto election = node.active.election (fork->qualified_root ());
 		ASSERT_NE (nullptr, election);
@@ -3725,7 +3725,7 @@ TEST (node, rollback_gap_source)
 	ASSERT_NE (nullptr, node.block (fork->hash ()));
 	// With send2 block in ledger election can start again to remove fork block
 	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
-	nano::test::blocks_confirm (system, node, { fork });
+	nano::test::start_elections (system, node, { fork });
 	{
 		auto election = node.active.election (fork->qualified_root ());
 		ASSERT_NE (nullptr, election);
