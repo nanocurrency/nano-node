@@ -75,7 +75,6 @@ namespace test
 	};
 
 	std::unique_ptr<nano::state_block> upgrade_epoch (nano::work_pool &, nano::ledger &, nano::epoch);
-	void blocks_confirm (nano::node &, std::vector<std::shared_ptr<nano::block>> const &, bool const = false);
 	uint16_t get_available_port ();
 	void cleanup_dev_directories_on_exit ();
 }

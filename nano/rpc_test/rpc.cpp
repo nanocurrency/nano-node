@@ -7525,7 +7525,7 @@ TEST (rpc, confirmation_active)
 				 .build_shared ();
 	node1->process_active (send1);
 	node1->process_active (send2);
-	nano::test::blocks_confirm (*node1, { send1, send2 });
+	nano::test::start_elections (system, *node1, { send1, send2 });
 	ASSERT_EQ (2, node1->active.size ());
 	auto election (node1->active.election (send1->qualified_root ()));
 	ASSERT_NE (nullptr, election);
