@@ -33,27 +33,25 @@ TEST (peer_container, no_self_incoming)
 	ASSERT_TRUE (system.nodes[0]->network.empty ());
 }
 
-// Tests the function nano::transport::tcp_channels.insert () doesn't accept peers from the reserved addresses list
-TEST (peer_container, reserved_peers_no_contact)
+// Tests the function network not_a_peer function used by the nano::transport::tcp_channels.insert ()
+TEST (peer_container, reserved_ip_is_not_a_peer)
 {
 	nano::test::system system{ 1 };
-	auto & channels = system.nodes[0]->network.tcp_channels;
-	auto insert_channel = [&node = system.nodes[0], &channels] (nano::endpoint endpoint_a) -> bool {
-		// Create dummy socket and channel only for passing the IP address
-		auto ignored_socket = std::make_shared<nano::server_socket> (*node, nano::transport::map_endpoint_to_tcp (endpoint_a), 10);
-		auto ignored_channel = std::make_shared<nano::transport::channel_tcp> (*node, ignored_socket->weak_from_this ());
-		return channels.insert (ignored_channel, std::shared_ptr<nano::socket> (), std::make_shared<nano::transport::tcp_server> (ignored_socket, node));
+	auto not_a_peer = [&node = system.nodes[0]] (nano::endpoint endpoint_a) -> bool {
+		return node->network.not_a_peer (endpoint_a, true);
 	};
 
-	// The return value as true means an error.
-	ASSERT_TRUE (insert_channel (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x00000001)), 10000)));
-	ASSERT_TRUE (insert_channel (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0xc0000201)), 10000)));
-	ASSERT_TRUE (insert_channel (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0xc6336401)), 10000)));
-	ASSERT_TRUE (insert_channel (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0xcb007101)), 10000)));
-	ASSERT_TRUE (insert_channel (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0xe9fc0001)), 10000)));
-	ASSERT_TRUE (insert_channel (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0xf0000001)), 10000)));
-	ASSERT_TRUE (insert_channel (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0xffffffff)), 10000)));
-	ASSERT_EQ (0, system.nodes[0]->network.size ());
+	// The return value as true means an error because the IP address is for reserved use
+	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0x00000001)), 10000))));
+	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xc0000201)), 10000))));
+	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xc6336401)), 10000))));
+	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xcb007101)), 10000))));
+	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xe9fc0001)), 10000))));
+	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xf0000001)), 10000))));
+	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xffffffff)), 10000))));
+
+	// Test with a valid IP address
+	ASSERT_FALSE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0x08080808)), 10000))));
 }
 
 // Test the TCP channel cleanup function works properly. It is used to remove peers that are not
