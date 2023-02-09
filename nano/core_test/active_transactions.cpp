@@ -630,7 +630,7 @@ TEST (active_transactions, dropped_cleanup)
 	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
-	auto election = nano::test::start_election (system, node, nano::dev::genesis);
+	auto election = nano::test::start_election (system, node, nano::dev::genesis->hash ());
 	ASSERT_NE (nullptr, election);
 
 	// Not yet removed
@@ -653,7 +653,7 @@ TEST (active_transactions, dropped_cleanup)
 	// Repeat test for a confirmed election
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
-	election = nano::test::start_election (system, node, nano::dev::genesis);
+	election = nano::test::start_election (system, node, nano::dev::genesis->hash ());
 	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
 	ASSERT_TRUE (election->confirmed ());
@@ -1219,7 +1219,7 @@ TEST (active_transactions, activate_inactive)
 	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
 	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
 
-	auto election = nano::test::start_election (system, node, send2);
+	auto election = nano::test::start_election (system, node, send2->hash ());
 	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
 
