@@ -263,19 +263,6 @@ std::unique_ptr<nano::state_block> nano::test::upgrade_epoch (nano::work_pool & 
 	return !error ? std::move (epoch) : nullptr;
 }
 
-void nano::test::start_elections (nano::test::system & system_a, nano::node & node_a, std::vector<std::shared_ptr<nano::block>> const & blocks_a, bool const forced_a)
-{
-	for (auto const & block : blocks_a)
-	{
-		auto election = nano::test::start_election (system_a, node_a, block->hash ());
-		release_assert (election);
-		if (forced_a)
-		{
-			election->force_confirm ();
-		}
-	}
-}
-
 std::unique_ptr<nano::state_block> nano::test::system::upgrade_genesis_epoch (nano::node & node_a, nano::epoch const epoch_a)
 {
 	return upgrade_epoch (work, node_a.ledger, epoch_a);

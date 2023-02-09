@@ -415,5 +415,17 @@ namespace test
 	 * Returns nullptr if the election did not start within the timeframe.
 	 */
 	std::shared_ptr<nano::election> start_election (nano::test::system & system_a, nano::node & node_a, const nano::block_hash & hash_a);
+	/*
+	 * Call start_election for every block identified in the hash vector.
+	 * Optionally, force confirm the election if forced_a is set.
+	 * NOTE: Each election is given 5 second to complete, if it does not complete in 5 second, it will assert.
+	 */
+	void start_elections (nano::test::system &, nano::node &, std::vector<nano::block_hash> const &, bool const = false);
+	/*
+	 * Call start_election for every block in the vector.
+	 * Optionally, force confirm the election if forced_a is set.
+	 * NOTE: Each election is given 5 second to complete, if it does not complete in 5 second, it will assert.
+	 */
+	void start_elections (nano::test::system &, nano::node &, std::vector<std::shared_ptr<nano::block>> const &, bool const = false);
 }
 }
