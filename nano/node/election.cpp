@@ -389,7 +389,11 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 	else
 	{
 		auto last_vote_l (last_vote_it->second);
-		if (last_vote_l.timestamp < timestamp_a || (last_vote_l.timestamp == timestamp_a && last_vote_l.hash < block_hash_a))
+		if (last_vote_l.timestamp >= timestamp_a && !(last_vote_l.timestamp == timestamp_a && last_vote_l.hash < block_hash_a))
+		{
+			replay = true;
+		}
+		else
 		{
 			auto max_vote = timestamp_a == std::numeric_limits<uint64_t>::max () && last_vote_l.timestamp < timestamp_a;
 
@@ -402,10 +406,6 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 			}
 
 			should_process = max_vote || past_cooldown;
-		}
-		else
-		{
-			replay = true;
 		}
 	}
 	if (should_process)
