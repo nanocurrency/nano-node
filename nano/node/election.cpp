@@ -377,7 +377,6 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 	{
 		return nano::election_vote_result (false, false);
 	}
-	auto replay = false;
 	auto should_process = false;
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
@@ -425,7 +424,7 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 			confirm_if_quorum (lock);
 		}
 	}
-	return nano::election_vote_result (replay, should_process);
+	return nano::election_vote_result (false, should_process);
 }
 
 bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
