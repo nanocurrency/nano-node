@@ -377,7 +377,6 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 	{
 		return nano::election_vote_result (false, false);
 	}
-	auto should_process = true;
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	auto last_vote_it (last_votes.find (rep));
@@ -403,11 +402,10 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 			past_cooldown = last_vote_l.time <= std::chrono::steady_clock::now () - cooldown;
 		}
 
-		should_process = max_vote || past_cooldown;
-	}
-	if (!should_process)
-	{
-		return nano::election_vote_result (false, false);
+		if (!max_vote && !past_cooldown)
+		{
+			return nano::election_vote_result (false, false);
+		}
 	}
 
 	last_votes[rep] = { std::chrono::steady_clock::now (), timestamp_a, block_hash_a };
