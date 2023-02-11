@@ -377,15 +377,11 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 	{
 		return nano::election_vote_result (false, false);
 	}
-	auto should_process = false;
+	auto should_process = true;
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	auto last_vote_it (last_votes.find (rep));
-	if (last_vote_it == last_votes.end ())
-	{
-		should_process = true;
-	}
-	else
+	if (last_vote_it != last_votes.end ())
 	{
 		auto last_vote_l (last_vote_it->second);
 		if (last_vote_l.timestamp > timestamp_a)
