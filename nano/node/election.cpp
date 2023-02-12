@@ -404,10 +404,10 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 		}
 
 		should_process = max_vote || past_cooldown;
-	}
-	if (!should_process)
-	{
-		return nano::election_vote_result (false, false);
+		if (!should_process)
+		{
+			return nano::election_vote_result (false, false);
+		}
 	}
 	last_votes[rep] = { std::chrono::steady_clock::now (), timestamp_a, block_hash_a };
 	if (vote_source_a == vote_source::live)
