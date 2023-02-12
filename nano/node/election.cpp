@@ -409,22 +409,23 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 
 		should_process = max_vote || past_cooldown;
 	}
-	if (should_process)
+	if (!should_process)
 	{
-		last_votes[rep] = { std::chrono::steady_clock::now (), timestamp_a, block_hash_a };
-		if (vote_source_a == vote_source::live)
-		{
-			live_vote_action (rep);
-		}
-
-		node.stats.inc (nano::stat::type::election, vote_source_a == vote_source::live ? nano::stat::detail::vote_new : nano::stat::detail::vote_cached);
-
-		if (!confirmed ())
-		{
-			confirm_if_quorum (lock);
-		}
+		return nano::election_vote_result (false, false);
 	}
-	return nano::election_vote_result (false, should_process);
+	last_votes[rep] = { std::chrono::steady_clock::now (), timestamp_a, block_hash_a };
+	if (vote_source_a == vote_source::live)
+	{
+		live_vote_action (rep);
+	}
+
+	node.stats.inc (nano::stat::type::election, vote_source_a == vote_source::live ? nano::stat::detail::vote_new : nano::stat::detail::vote_cached);
+
+	if (!confirmed ())
+	{
+		confirm_if_quorum (lock);
+	}
+	return nano::election_vote_result (false, true);
 }
 
 bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
