@@ -391,7 +391,7 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 		auto last_vote_l (last_vote_it->second);
 		if (last_vote_l.timestamp >= timestamp_a && !(last_vote_l.timestamp == timestamp_a && last_vote_l.hash < block_hash_a))
 		{
-			replay = true;
+			return nano::election_vote_result (true, false);
 		}
 		else
 		{
