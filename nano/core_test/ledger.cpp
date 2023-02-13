@@ -5673,3 +5673,12 @@ TEST (ledger, is_send_legacy)
 	ASSERT_TRUE (ledger.is_send (tx, *ctx.blocks ()[0]));
 	ASSERT_FALSE (ledger.is_send (tx, *ctx.blocks ()[1]));
 }
+
+TEST (ledger, head_block)
+{
+	auto ctx = nano::test::context::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & store = ctx.store ();
+	auto tx = store.tx_begin_read ();
+	ASSERT_EQ (*nano::dev::genesis, *ledger.head_block (tx, nano::dev::genesis->account ()));
+}
