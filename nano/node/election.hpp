@@ -142,6 +142,7 @@ public: // Information
 	nano::root const root;
 	nano::qualified_root const qualified_root;
 	std::vector<nano::vote_with_weight_info> votes_with_weight () const;
+	nano::election_behavior behavior () const;
 
 private:
 	nano::tally_t tally_impl () const;
@@ -170,7 +171,7 @@ private:
 	mutable nano::uint128_t final_weight{ 0 };
 	mutable std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 
-	nano::election_behavior const behavior{ nano::election_behavior::normal };
+	nano::election_behavior const behavior_m{ nano::election_behavior::normal };
 	std::chrono::steady_clock::time_point const election_start = { std::chrono::steady_clock::now () };
 
 	mutable nano::mutex mutex;

@@ -16,6 +16,14 @@ TEST (election, construction)
 	election->transition_active ();
 }
 
+TEST (election, behavior)
+{
+	nano::test::system system (1);
+	auto election = nano::test::start_election (system, *system.nodes[0], nano::dev::genesis->hash ());
+	ASSERT_NE (nullptr, election);
+	ASSERT_EQ (nano::election_behavior::normal, election->behavior ());
+}
+
 TEST (election, quorum_minimum_flip_success)
 {
 	nano::test::system system{};
