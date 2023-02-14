@@ -408,10 +408,24 @@ namespace test
 	 */
 	std::shared_ptr<nano::transport::channel> fake_channel (nano::node & node, nano::account node_id = { 0 });
 	/*
-	 * Start an election on system system_a, node node_a and block block_a by adding the block to the manual election scheduler queue.
-	 * It waits up to 5 seconds for the election to start and calls the system poll function while waiting.
+	 * Start an election on system system_a, node node_a and hash hash_a by reading the block
+	 * out of the ledger and adding it to the manual election scheduler queue.
+	 * It waits up to 5 seconds for the block to appear in the ledger and the election to start
+	 * and calls the system poll function while waiting.
 	 * Returns nullptr if the election did not start within the timeframe.
 	 */
-	std::shared_ptr<nano::election> start_election (nano::test::system & system_a, nano::node & node_a, const std::shared_ptr<nano::block> & block_a);
+	std::shared_ptr<nano::election> start_election (nano::test::system & system_a, nano::node & node_a, const nano::block_hash & hash_a);
+	/*
+	 * Call start_election for every block identified in the hash vector.
+	 * Optionally, force confirm the election if forced_a is set.
+	 * NOTE: Each election is given 5 seconds to complete, if it does not complete in 5 seconds, it will assert.
+	 */
+	void start_elections (nano::test::system &, nano::node &, std::vector<nano::block_hash> const &, bool const forced_a = false);
+	/*
+	 * Call start_election for every block in the vector.
+	 * Optionally, force confirm the election if forced_a is set.
+	 * NOTE: Each election is given 5 seconds to complete, if it does not complete in 5 seconds, it will assert.
+	 */
+	void start_elections (nano::test::system &, nano::node &, std::vector<std::shared_ptr<nano::block>> const &, bool const forced_a = false);
 }
 }

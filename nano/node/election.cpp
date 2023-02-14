@@ -22,7 +22,7 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 	confirmation_action (confirmation_action_a),
 	live_vote_action (live_vote_action_a),
 	node (node_a),
-	behavior (election_behavior_a),
+	behavior_m (election_behavior_a),
 	status ({ block_a, 0, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing }),
 	height (block_a->sideband ().height),
 	root (block_a->root ()),
@@ -126,7 +126,7 @@ bool nano::election::state_change (nano::election::state_t expected_a, nano::ele
 
 std::chrono::milliseconds nano::election::confirm_req_time () const
 {
-	switch (behavior)
+	switch (behavior ())
 	{
 		case election_behavior::normal:
 		case election_behavior::hinted:
@@ -234,7 +234,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 
 std::chrono::milliseconds nano::election::time_to_live () const
 {
-	switch (behavior)
+	switch (behavior ())
 	{
 		case election_behavior::normal:
 			return std::chrono::milliseconds (5 * 60 * 1000);
@@ -653,11 +653,6 @@ std::vector<nano::vote_with_weight_info> nano::election::votes_with_weight () co
 	return result;
 }
 
-nano::election_behavior nano::election::get_behavior () const
-{
-	return behavior;
-}
-
 nano::stat::detail nano::to_stat_detail (nano::election_behavior behavior)
 {
 	switch (behavior)
@@ -678,4 +673,9 @@ nano::stat::detail nano::to_stat_detail (nano::election_behavior behavior)
 
 	debug_assert (false, "unknown election behavior");
 	return {};
+}
+
+nano::election_behavior nano::election::behavior () const
+{
+	return behavior_m;
 }

@@ -681,6 +681,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			valid_type = true;
 			nano::network_params network_params{ nano::network_constants::active_network };
 			nano::daemon_config config{ data_path, network_params };
+			// set the peering port to the default value so that it is printed in the example toml file
+			config.node.peering_port = network_params.network.default_node_port;
 			config.serialize_toml (toml);
 		}
 		else if (type == "rpc")

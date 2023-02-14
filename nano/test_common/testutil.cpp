@@ -220,32 +220,52 @@ std::shared_ptr<nano::transport::channel> nano::test::fake_channel (nano::node &
 	return channel;
 }
 
-std::shared_ptr<nano::election> nano::test::start_election (nano::test::system & system_a, nano::node & node_a, const std::shared_ptr<nano::block> & block_a)
+std::shared_ptr<nano::election> nano::test::start_election (nano::test::system & system_a, nano::node & node_a, const nano::block_hash & hash_a)
 {
 	system_a.deadline_set (5s);
 
 	// wait until and ensure that the block is in the ledger
-	while (!node_a.block (block_a->hash ()))
+	auto block_l = node_a.block (hash_a);
+	while (!block_l)
 	{
 		if (system_a.poll ())
 		{
 			return nullptr;
 		}
+		block_l = node_a.block (hash_a);
 	}
 
-	node_a.scheduler.manual (block_a);
+	node_a.scheduler.manual (block_l);
 
 	// wait for the election to appear
-	std::shared_ptr<nano::election> election = node_a.active.election (block_a->qualified_root ());
+	std::shared_ptr<nano::election> election = node_a.active.election (block_l->qualified_root ());
 	while (!election)
 	{
 		if (system_a.poll ())
 		{
 			return nullptr;
 		}
-		election = node_a.active.election (block_a->qualified_root ());
+		election = node_a.active.election (block_l->qualified_root ());
 	}
 
 	election->transition_active ();
 	return election;
+}
+
+void nano::test::start_elections (nano::test::system & system_a, nano::node & node_a, std::vector<nano::block_hash> const & hashes_a, bool const forced_a)
+{
+	for (auto const & hash_l : hashes_a)
+	{
+		auto election = nano::test::start_election (system_a, node_a, hash_l);
+		release_assert (election);
+		if (forced_a)
+		{
+			election->force_confirm ();
+		}
+	}
+}
+
+void nano::test::start_elections (nano::test::system & system_a, nano::node & node_a, std::vector<std::shared_ptr<nano::block>> const & blocks_a, bool const forced_a)
+{
+	nano::test::start_elections (system_a, node_a, blocks_to_hashes (blocks_a), forced_a);
 }

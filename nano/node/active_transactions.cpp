@@ -279,11 +279,11 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 	debug_assert (!mutex.try_lock ());
 	debug_assert (lock_a.owns_lock ());
 
-	node.stats.inc (election->confirmed () ? nano::stat::type::active_confirmed : nano::stat::type::active_dropped, nano::to_stat_detail (election->get_behavior ()));
+	node.stats.inc (election->confirmed () ? nano::stat::type::active_confirmed : nano::stat::type::active_dropped, nano::to_stat_detail (election->behavior ()));
 
 	// Keep track of election count by election type
-	debug_assert (count_by_behavior[election->behavior] > 0);
-	count_by_behavior[election->behavior]--;
+	debug_assert (count_by_behavior[election->behavior ()] > 0);
+	count_by_behavior[election->behavior ()]--;
 
 	auto blocks_l = election->blocks ();
 	for (auto const & [hash, block] : blocks_l)
@@ -404,8 +404,8 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				blocks.emplace (hash, result.election);
 
 				// Keep track of election count by election type
-				debug_assert (count_by_behavior[result.election->behavior] >= 0);
-				count_by_behavior[result.election->behavior]++;
+				debug_assert (count_by_behavior[result.election->behavior ()] >= 0);
+				count_by_behavior[result.election->behavior ()]++;
 
 				lock_a.unlock ();
 

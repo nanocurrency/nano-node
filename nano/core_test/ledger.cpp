@@ -1101,7 +1101,7 @@ TEST (votes, DISABLED_add_old_different_account)
 	node1.work_generate_blocking (*send2);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send2).code);
-	nano::test::blocks_confirm (node1, { send1, send2 });
+	nano::test::start_elections (system, node1, { send1, send2 });
 	auto election1 = node1.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election1);
 	auto election2 = node1.active.election (send2->qualified_root ());
@@ -4090,7 +4090,7 @@ TEST (ledger, block_hash_account_conflict)
 	ASSERT_EQ (nano::process_result::progress, node1.process (*receive1).code);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send2).code);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*open_epoch1).code);
-	nano::test::blocks_confirm (node1, { send1, receive1, send2, open_epoch1 });
+	nano::test::start_elections (system, node1, { send1, receive1, send2, open_epoch1 });
 	auto election1 = node1.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election1);
 	auto election2 = node1.active.election (receive1->qualified_root ());
@@ -5672,4 +5672,13 @@ TEST (ledger, is_send_legacy)
 	auto tx = store.tx_begin_read ();
 	ASSERT_TRUE (ledger.is_send (tx, *ctx.blocks ()[0]));
 	ASSERT_FALSE (ledger.is_send (tx, *ctx.blocks ()[1]));
+}
+
+TEST (ledger, head_block)
+{
+	auto ctx = nano::test::context::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & store = ctx.store ();
+	auto tx = store.tx_begin_read ();
+	ASSERT_EQ (*nano::dev::genesis, *ledger.head_block (tx, nano::dev::genesis->account ()));
 }
