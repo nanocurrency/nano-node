@@ -260,7 +260,7 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 	if (!election->confirmed ())
 	{
 		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop_all);
-		if (election->behavior == election_behavior::hinted)
+		if (election->behavior () == election_behavior::hinted)
 		{
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::election_hinted_drop);
 		}
@@ -268,13 +268,13 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 	else
 	{
 		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_confirmed_all);
-		if (election->behavior == election_behavior::hinted)
+		if (election->behavior () == election_behavior::hinted)
 		{
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::election_hinted_confirmed);
 		}
 	}
 
-	if (election->behavior == election_behavior::hinted)
+	if (election->behavior () == election_behavior::hinted)
 	{
 		--active_hinted_elections_count;
 	}
