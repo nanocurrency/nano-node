@@ -2135,7 +2135,6 @@ TEST (system, block_sequence)
 	flags.disable_max_peers_per_ip = true;
 	flags.disable_ongoing_bootstrap = true;
 	auto root = system.add_node (config, flags);
-	config.preconfigured_peers.push_back ("::ffff:127.0.0.1:" + std::to_string (root->network.endpoint ().port ()));
 	auto wallet = root->wallets.items.begin ()->second;
 	wallet->insert_adhoc (nano::dev::genesis_key.prv);
 	for (auto rep : reps)
