@@ -53,6 +53,7 @@ public:
 	nano::uint128_t weight (nano::account const &);
 	std::shared_ptr<nano::block> successor (nano::transaction const &, nano::qualified_root const &);
 	std::shared_ptr<nano::block> forked_block (nano::transaction const &, nano::block const &);
+	std::shared_ptr<nano::block> head_block (nano::transaction const &, nano::account const &);
 	bool block_confirmed (nano::transaction const &, nano::block_hash const &) const;
 	nano::block_hash latest (nano::transaction const &, nano::account const &);
 	nano::root latest_root (nano::transaction const &, nano::account const &);
