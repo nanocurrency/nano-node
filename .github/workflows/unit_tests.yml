@@ -16,7 +16,6 @@ jobs:
         RELEASE:
           - ${{ startsWith(github.ref, 'refs/tags/') }}
     env:
-      BOOST_ROOT: /tmp/boost
       TEST_USE_ROCKSDB: ${{ matrix.TEST_USE_ROCKSDB }}
       RELEASE: ${{ matrix.RELEASE }}
     runs-on: macOS-11

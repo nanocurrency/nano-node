@@ -8,7 +8,8 @@ g++ \
 wget \
 python \
 zlib1g-dev \
-cmake
+cmake \
+git
 
 RUN apt-get update -qq && apt-get install -yqq \
 qt5-default \

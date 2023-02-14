@@ -3,9 +3,7 @@ FROM ${ENV_REPOSITORY}:base
 
 RUN apt-get update -qq && apt-get install -yqq \
 clang \
-lldb \
-git \
-libboost-all-dev
+lldb
 
 ENV CXX=/usr/bin/clang++
 ENV CC=/usr/bin/clang
