@@ -166,37 +166,35 @@ TEST (peer_container, list_fanout)
 	ASSERT_EQ (0, node->network.size ());
 	ASSERT_EQ (0.0, node->network.size_sqrt ());
 	ASSERT_EQ (0, node->network.fanout ());
-	auto list1 = node->network.list (node->network.fanout ());
-	ASSERT_TRUE (list1.empty ());
-	auto add_peer = [&node, &system] (uint16_t const port_a) {
+	ASSERT_TRUE (node->network.list (node->network.fanout ()).empty ());
+
+	auto add_peer = [&node, &system] () {
 		auto outer_node = nano::test::add_outer_node (system);
 		auto channel = nano::test::establish_tcp (system, *node, outer_node->network.endpoint ());
 	};
-	add_peer (9998);
+
+	add_peer ();
 	ASSERT_EQ (1, node->network.size ());
 	ASSERT_EQ (1.f, node->network.size_sqrt ());
 	ASSERT_EQ (1, node->network.fanout ());
-	auto list2 = node->network.list (node->network.fanout ());
-	ASSERT_EQ (1, list2.size ());
-	add_peer (9999);
+	ASSERT_EQ (1, node->network.list (node->network.fanout ()).size ());
+
+	add_peer ();
 	ASSERT_EQ (2, node->network.size ());
 	ASSERT_EQ (std::sqrt (2.f), node->network.size_sqrt ());
 	ASSERT_EQ (2, node->network.fanout ());
-	auto list3 = node->network.list (node->network.fanout ());
-	ASSERT_EQ (2, list3.size ());
-	// The previous version of this test used 1000 peers. Reduced to 10 due to the use of node instances
-	unsigned number_of_peers{ 20 };
-	for (auto i = 0; i < number_of_peers; ++i)
+	ASSERT_EQ (2, node->network.list (node->network.fanout ()).size ());
+
+	unsigned number_of_peers = 10;
+	for (auto i = 2; i < number_of_peers; ++i)
 	{
-		add_peer (10000 + i);
+		add_peer ();
 	}
-	number_of_peers += 2;
+
 	ASSERT_EQ (number_of_peers, node->network.size ());
 	ASSERT_EQ (std::sqrt (float (number_of_peers)), node->network.size_sqrt ());
-	auto expected_size (static_cast<size_t> (std::ceil (std::sqrt (float (number_of_peers)))));
-	ASSERT_EQ (expected_size, node->network.fanout ());
-	auto list4 = node->network.list (node->network.fanout ());
-	ASSERT_EQ (expected_size, list4.size ());
+	ASSERT_EQ (4, node->network.fanout ());
+	ASSERT_EQ (4, node->network.list (node->network.fanout ()).size ());
 }
 
 // Test to make sure we don't repeatedly send keepalive messages to nodes that aren't responding
