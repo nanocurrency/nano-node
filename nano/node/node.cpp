@@ -676,7 +676,7 @@ void nano::node::start ()
 		});
 	}
 	// Start port mapping if external address is not defined and TCP ports are enabled
-	if (config.external_address == boost::asio::ip::address_v6{}.any ().to_string () && tcp_enabled)
+	if (config.external_address == boost::asio::ip::address_v6::any ().to_string () && tcp_enabled)
 	{
 		port_mapping.start ();
 	}
