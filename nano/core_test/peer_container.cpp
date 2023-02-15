@@ -174,13 +174,13 @@ TEST (peer_container, list_fanout)
 	};
 
 	add_peer ();
-	ASSERT_EQ (1, node->network.size ());
+	ASSERT_TIMELY_EQ (5s, 1, node->network.size ());
 	ASSERT_EQ (1.f, node->network.size_sqrt ());
 	ASSERT_EQ (1, node->network.fanout ());
 	ASSERT_EQ (1, node->network.list (node->network.fanout ()).size ());
 
 	add_peer ();
-	ASSERT_EQ (2, node->network.size ());
+	ASSERT_TIMELY_EQ (5s, 2, node->network.size ());
 	ASSERT_EQ (std::sqrt (2.f), node->network.size_sqrt ());
 	ASSERT_EQ (2, node->network.fanout ());
 	ASSERT_EQ (2, node->network.list (node->network.fanout ()).size ());
@@ -191,7 +191,7 @@ TEST (peer_container, list_fanout)
 		add_peer ();
 	}
 
-	ASSERT_EQ (number_of_peers, node->network.size ());
+	ASSERT_TIMELY_EQ (5s, number_of_peers, node->network.size ());
 	ASSERT_EQ (std::sqrt (float (number_of_peers)), node->network.size_sqrt ());
 	ASSERT_EQ (4, node->network.fanout ());
 	ASSERT_EQ (4, node->network.list (node->network.fanout ()).size ());
