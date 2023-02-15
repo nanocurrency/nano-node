@@ -2177,6 +2177,42 @@ namespace lmdb
 		auto transaction (store.tx_begin_read ());
 		ASSERT_LT (19, store.version.get (transaction));
 	}
+
+	TEST (mdb_block_store, upgrade_v21_v22)
+	{
+		if (nano::rocksdb_config::using_rocksdb_in_tests ())
+		{
+			// Don't test this in rocksdb mode
+			GTEST_SKIP ();
+		}
+
+		auto path (nano::unique_path ());
+		nano::logger_mt logger;
+		nano::stats stats;
+		auto const check_correct_state = [&] () {
+			nano::lmdb::store store (logger, path, nano::dev::constants);
+			auto transaction (store.tx_begin_write ());
+			ASSERT_EQ (store.version.get (transaction), store.version_current);
+			MDB_dbi unchecked_handle{ 0 };
+			ASSERT_EQ (MDB_NOTFOUND, mdb_dbi_open (store.env.tx (transaction), "unchecked", 0, &unchecked_handle));
+		};
+
+		// Testing current version doesn't contain the unchecked table
+		check_correct_state ();
+
+		// Setting the database to its 21st version state
+		{
+			nano::lmdb::store store (logger, path, nano::dev::constants);
+			auto transaction (store.tx_begin_write ());
+			store.version.put (transaction, 21);
+			MDB_dbi unchecked_handle{ 0 };
+			ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE, &unchecked_handle));
+			ASSERT_EQ (store.version.get (transaction), 21);
+		}
+
+		// Testing the upgrade code worked
+		check_correct_state ();
+	}
 }
 }
 

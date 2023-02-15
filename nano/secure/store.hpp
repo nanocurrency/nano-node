@@ -772,6 +772,7 @@ public:
 class store
 {
 	friend class rocksdb_block_store_tombstone_count_Test;
+	friend class mdb_block_store_upgrade_v21_v22_Test;
 
 public:
 	// clang-format off
@@ -802,7 +803,7 @@ public:
 	account_store & account;
 	pending_store & pending;
 	static int constexpr version_minimum{ 14 };
-	static int constexpr version_current{ 21 };
+	static int constexpr version_current{ 22 };
 
 public:
 	online_weight_store & online_weight;
