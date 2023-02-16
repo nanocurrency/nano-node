@@ -123,7 +123,7 @@ TEST (election, quorum_minimum_flip_fail)
 	// give the election 5 seconds before asserting it is not confirmed so that in case
 	// it would be wrongfully confirmed, have that immediately fail instead of race
 	//
-	std::this_thread::sleep_for (5s);
+	WAIT (1s);
 	ASSERT_FALSE (election->confirmed ());
 	ASSERT_FALSE (node1.block_confirmed (send2->hash ()));
 }
