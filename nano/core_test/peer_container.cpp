@@ -127,13 +127,13 @@ TEST (channels, fill_random_full)
 {
 	nano::test::system system{ 1 };
 
-	// create 4 peer nodes so that the random_fill is half real connections and half fillers
-	for (int i = 0; i < 4; ++i)
+	// create 8 peer nodes so that the random_fill is completely filled with real connection data
+	for (int i = 0; i < 8; ++i)
 	{
 		auto outer_node = nano::test::add_outer_node (system);
 		ASSERT_NE (nullptr, nano::test::establish_tcp (system, *system.nodes[0], outer_node->network.endpoint ()));
 	}
-	ASSERT_TIMELY_EQ (5s, 4, system.nodes[0]->network.tcp_channels.size ());
+	ASSERT_TIMELY_EQ (5s, 8, system.nodes[0]->network.tcp_channels.size ());
 
 	// create an array of 8 endpoints with a known filler value
 	auto filler_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000);
