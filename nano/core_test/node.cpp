@@ -4166,27 +4166,21 @@ TEST (node, deferred_dependent_elections)
 				.sign (key.prv, key.pub)
 				.build_shared ();
 
-	node.process_local (send1);
-	node.block_processor.flush ();
-	ASSERT_TIMELY (5s, node.active.election (send1->qualified_root ()));
-	auto election_send1 = node.active.election (send1->qualified_root ());
+	nano::test::process (node, { send1 });
+	auto election_send1 = nano::test::start_election (system, node, send1->hash ());
 	ASSERT_NE (nullptr, election_send1);
 
 	// Should process and republish but not start an election for any dependent blocks
-	node.process_local (open);
-	node.process_local (send2);
-	node.block_processor.flush ();
+	nano::test::process (node, { open, send2 });
 	ASSERT_TIMELY (5s, node.block (open->hash ()));
 	ASSERT_TIMELY (5s, node.block (send2->hash ()));
-	ASSERT_NEVER (1s, node.active.active (open->qualified_root ()));
-	ASSERT_NEVER (1s, node.active.active (send2->qualified_root ()));
+	ASSERT_NEVER (1s, node.active.active (open->qualified_root ()) || node.active.active (send2->qualified_root ()));
 	ASSERT_TIMELY (5s, node2.block (open->hash ()));
 	ASSERT_TIMELY (5s, node2.block (send2->hash ()));
 
 	// Re-processing older blocks with updated work also does not start an election
 	node.work_generate_blocking (*open, nano::dev::network_params.work.difficulty (*open) + 1);
 	node.process_local (open);
-	node.block_processor.flush ();
 	ASSERT_NEVER (1s, node.active.active (open->qualified_root ()));
 
 	// It is however possible to manually start an election from elsewhere
