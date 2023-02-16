@@ -183,11 +183,11 @@ TEST (election, quorum_minimum_confirm_fail)
 	ASSERT_NE (nullptr, election);
 	ASSERT_EQ (1, election->blocks ().size ());
 
-	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, {send1->hash ()});
+	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { send1->hash () });
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote));
 
 	// give the election a chance to confirm
-	WAIT(1s);
+	WAIT (1s);
 
 	// it should not confirm because there should not be enough quorum
 	ASSERT_TRUE (node1.block (send1->hash ()));
