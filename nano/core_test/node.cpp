@@ -4166,32 +4166,25 @@ TEST (node, deferred_dependent_elections)
 				.sign (key.prv, key.pub)
 				.build_shared ();
 
-	node.process_local (send1);
-	node.block_processor.flush ();
-	ASSERT_TIMELY (5s, node.active.election (send1->qualified_root ()));
-	auto election_send1 = node.active.election (send1->qualified_root ());
+	nano::test::process (node, { send1 });
+	auto election_send1 = nano::test::start_election (system, node, send1->hash ());
 	ASSERT_NE (nullptr, election_send1);
 
 	// Should process and republish but not start an election for any dependent blocks
-	node.process_local (open);
-	node.process_local (send2);
-	node.block_processor.flush ();
+	nano::test::process (node, { open, send2 });
 	ASSERT_TIMELY (5s, node.block (open->hash ()));
 	ASSERT_TIMELY (5s, node.block (send2->hash ()));
-	ASSERT_NEVER (1s, node.active.active (open->qualified_root ()));
-	ASSERT_NEVER (1s, node.active.active (send2->qualified_root ()));
+	ASSERT_NEVER (0.5s, node.active.active (open->qualified_root ()) || node.active.active (send2->qualified_root ()));
 	ASSERT_TIMELY (5s, node2.block (open->hash ()));
 	ASSERT_TIMELY (5s, node2.block (send2->hash ()));
 
 	// Re-processing older blocks with updated work also does not start an election
 	node.work_generate_blocking (*open, nano::dev::network_params.work.difficulty (*open) + 1);
 	node.process_local (open);
-	node.block_processor.flush ();
-	ASSERT_NEVER (1s, node.active.active (open->qualified_root ()));
+	ASSERT_NEVER (0.5s, node.active.active (open->qualified_root ()));
 
 	// It is however possible to manually start an election from elsewhere
-	node.block_confirm (open);
-	ASSERT_TRUE (node.active.active (open->qualified_root ()));
+	ASSERT_TRUE (nano::test::start_election (system, node, open->hash ()));
 	node.active.erase (*open);
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 
@@ -4199,8 +4192,7 @@ TEST (node, deferred_dependent_elections)
 	node.work_generate_blocking (*open, nano::dev::network_params.work.difficulty (*open) + 1);
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 	node.process_local (open);
-	node.block_processor.flush ();
-	ASSERT_NEVER (1s, node.active.active (open->qualified_root ()));
+	ASSERT_NEVER (0.5s, node.active.active (open->qualified_root ()));
 
 	// Drop both elections
 	node.active.erase (*open);
@@ -4224,19 +4216,17 @@ TEST (node, deferred_dependent_elections)
 	election_open->force_confirm ();
 	ASSERT_TIMELY (5s, node.block_confirmed (open->hash ()));
 	ASSERT_FALSE (node.ledger.dependents_confirmed (node.store.tx_begin_read (), *receive));
-	ASSERT_NEVER (1s, node.active.active (receive->qualified_root ()));
+	ASSERT_NEVER (0.5s, node.active.active (receive->qualified_root ()));
 	ASSERT_FALSE (node.ledger.rollback (node.store.tx_begin_write (), receive->hash ()));
 	ASSERT_FALSE (node.block (receive->hash ()));
 	node.process_local (receive);
-	node.block_processor.flush ();
 	ASSERT_TIMELY (5s, node.block (receive->hash ()));
-	ASSERT_NEVER (1s, node.active.active (receive->qualified_root ()));
+	ASSERT_NEVER (0.5s, node.active.active (receive->qualified_root ()));
 
 	// Processing a fork will also not start an election
 	ASSERT_EQ (nano::process_result::fork, node.process (*fork).code);
 	node.process_local (fork);
-	node.block_processor.flush ();
-	ASSERT_NEVER (1s, node.active.active (receive->qualified_root ()));
+	ASSERT_NEVER (0.5s, node.active.active (receive->qualified_root ()));
 
 	// Confirming the other dependency allows starting an election from a fork
 	election_send2->force_confirm ();
