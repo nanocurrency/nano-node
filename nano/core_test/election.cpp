@@ -158,6 +158,7 @@ TEST (election, quorum_minimum_confirm_success)
 	ASSERT_TRUE (election->confirmed ());
 }
 
+// checks that block cannot be confirmed if there is no enough votes to reach quorum
 TEST (election, quorum_minimum_confirm_fail)
 {
 	nano::test::system system;
@@ -165,29 +166,31 @@ TEST (election, quorum_minimum_confirm_fail)
 	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
-	nano::keypair key1;
+
 	nano::block_builder builder;
 	auto send1 = builder.state ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (nano::dev::genesis->hash ())
 				 .representative (nano::dev::genesis_key.pub)
 				 .balance (node1.online_reps.delta () - 1)
-				 .link (key1.pub)
-				 .work (0)
+				 .link (nano::keypair{}.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .build_shared ();
-	node1.work_generate_blocking (*send1);
+
 	node1.process_active (send1);
-	node1.block_processor.flush ();
-	node1.scheduler.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
-	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
-	auto election = node1.active.election (send1->qualified_root ());
+	auto election = nano::test::start_election (system, node1, send1->hash ());
 	ASSERT_NE (nullptr, election);
 	ASSERT_EQ (1, election->blocks ().size ());
-	auto vote1 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ send1->hash () }));
-	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
-	node1.block_processor.flush ();
-	ASSERT_NE (nullptr, node1.block (send1->hash ()));
+
+	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, {send1->hash ()});
+	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote));
+
+	// give the election a chance to confirm
+	WAIT(1s);
+
+	// it should not confirm because there should not be enough quorum
+	ASSERT_TRUE (node1.block (send1->hash ()));
 	ASSERT_FALSE (election->confirmed ());
 }
 
