@@ -4190,8 +4190,7 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_NEVER (1s, node.active.active (open->qualified_root ()));
 
 	// It is however possible to manually start an election from elsewhere
-	node.block_confirm (open);
-	ASSERT_TRUE (node.active.active (open->qualified_root ()));
+	ASSERT_TRUE (nano::test::start_election (system, node, open->hash ()));
 	node.active.erase (*open);
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 
