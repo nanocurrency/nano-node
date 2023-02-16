@@ -4199,7 +4199,6 @@ TEST (node, deferred_dependent_elections)
 	node.work_generate_blocking (*open, nano::dev::network_params.work.difficulty (*open) + 1);
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 	node.process_local (open);
-	node.block_processor.flush ();
 	ASSERT_NEVER (1s, node.active.active (open->qualified_root ()));
 
 	// Drop both elections
@@ -4228,14 +4227,12 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_FALSE (node.ledger.rollback (node.store.tx_begin_write (), receive->hash ()));
 	ASSERT_FALSE (node.block (receive->hash ()));
 	node.process_local (receive);
-	node.block_processor.flush ();
 	ASSERT_TIMELY (5s, node.block (receive->hash ()));
 	ASSERT_NEVER (1s, node.active.active (receive->qualified_root ()));
 
 	// Processing a fork will also not start an election
 	ASSERT_EQ (nano::process_result::fork, node.process (*fork).code);
 	node.process_local (fork);
-	node.block_processor.flush ();
 	ASSERT_NEVER (1s, node.active.active (receive->qualified_root ()));
 
 	// Confirming the other dependency allows starting an election from a fork
