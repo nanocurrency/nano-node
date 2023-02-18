@@ -159,7 +159,7 @@ enum class detail : uint8_t
 	generate_vote_normal,
 	generate_vote_final,
 
-	// udp
+	// received messages
 	blocking,
 	overflow,
 	invalid_header,
