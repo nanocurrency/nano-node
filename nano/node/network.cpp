@@ -19,7 +19,6 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 		debug_assert (message.header.version_using >= node.network_params.network.protocol_version_min);
 		process_message (message, channel);
 	} },
-	buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 	resolver (node_a.io_ctx),
 	tcp_message_manager (node_a.config.tcp_incoming_connections_max),
 	node (node_a),
@@ -92,7 +91,6 @@ void nano::network::stop ()
 	{
 		tcp_channels.stop ();
 		resolver.cancel ();
-		buffer_container.stop ();
 		tcp_message_manager.stop ();
 		port = 0;
 		for (auto & thread : packet_processing_threads)

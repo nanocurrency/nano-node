@@ -181,7 +181,6 @@ private:
 
 public:
 	std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> inbound;
-	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
 	nano::peer_exclusion excluded_peers;
