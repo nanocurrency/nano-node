@@ -24,48 +24,6 @@ public:
 	std::size_t size{ 0 };
 	nano::endpoint endpoint;
 };
-/**
-  * A circular buffer for servicing nano realtime messages.
-  * This container follows a producer/consumer model where the operating system is producing data in to
-  * buffers which are serviced by internal threads.
-  * If buffers are not serviced fast enough they're internally dropped.
-  * This container has a maximum space to hold N buffers of M size and will allocate them in round-robin order.
-  * All public methods are thread-safe
-*/
-class message_buffer_manager final
-{
-public:
-	// Stats - Statistics
-	// Size - Size of each individual buffer
-	// Count - Number of buffers to allocate
-	message_buffer_manager (nano::stats & stats, std::size_t, std::size_t);
-	// Return a buffer where message data can be put
-	// Method will attempt to return the first free buffer
-	// If there are no free buffers, an unserviced buffer will be dequeued and returned
-	// Function will block if there are no free or unserviced buffers
-	// Return nullptr if the container has stopped
-	nano::message_buffer * allocate ();
-	// Queue a buffer that has been filled with message data and notify servicing threads
-	void enqueue (nano::message_buffer *);
-	// Return a buffer that has been filled with message data
-	// Function will block until a buffer has been added
-	// Return nullptr if the container has stopped
-	nano::message_buffer * dequeue ();
-	// Return a buffer to the freelist after is has been serviced
-	void release (nano::message_buffer *);
-	// Stop container and notify waiting threads
-	void stop ();
-
-private:
-	nano::stats & stats;
-	nano::mutex mutex;
-	nano::condition_variable condition;
-	boost::circular_buffer<nano::message_buffer *> free;
-	boost::circular_buffer<nano::message_buffer *> full;
-	std::vector<uint8_t> slab;
-	std::vector<nano::message_buffer> entries;
-	bool stopped;
-};
 class tcp_message_manager final
 {
 public:
