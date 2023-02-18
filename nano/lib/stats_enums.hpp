@@ -160,8 +160,6 @@ enum class detail : uint8_t
 	generate_vote_final,
 
 	// received messages
-	blocking,
-	overflow,
 	invalid_header,
 	invalid_message_type,
 	invalid_keepalive_message,
