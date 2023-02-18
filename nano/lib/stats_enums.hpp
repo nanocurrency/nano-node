@@ -8,7 +8,6 @@ namespace nano::stat
 /** Primary statistics type */
 enum class type : uint8_t
 {
-	traffic_udp,
 	traffic_tcp,
 	error,
 	message,
@@ -23,7 +22,6 @@ enum class type : uint8_t
 	peering,
 	ipc,
 	tcp,
-	udp,
 	confirmation_height,
 	confirmation_observer,
 	drop,
@@ -180,8 +178,6 @@ enum class detail : uint8_t
 	invalid_asc_pull_ack_message,
 	message_too_big,
 	outdated_version,
-	udp_max_per_ip,
-	udp_max_per_subnetwork,
 
 	// tcp
 	tcp_accept_success,
