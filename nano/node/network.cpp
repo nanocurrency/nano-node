@@ -3,7 +3,6 @@
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/telemetry.hpp>
-#include <nano/secure/buffer.hpp>
 
 #include <boost/format.hpp>
 
