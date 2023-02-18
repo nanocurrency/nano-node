@@ -3,7 +3,6 @@
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/telemetry.hpp>
-#include <nano/secure/buffer.hpp>
 
 #include <boost/format.hpp>
 
@@ -19,7 +18,6 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 		debug_assert (message.header.version_using >= node.network_params.network.protocol_version_min);
 		process_message (message, channel);
 	} },
-	buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 	resolver (node_a.io_ctx),
 	tcp_message_manager (node_a.config.tcp_incoming_connections_max),
 	node (node_a),
@@ -92,7 +90,6 @@ void nano::network::stop ()
 	{
 		tcp_channels.stop ();
 		resolver.cancel ();
-		buffer_container.stop ();
 		tcp_message_manager.stop ();
 		port = 0;
 		for (auto & thread : packet_processing_threads)
@@ -749,98 +746,6 @@ void nano::network::exclude (std::shared_ptr<nano::transport::channel> const & c
 
 	// Disconnect
 	erase (*channel);
-}
-
-/*
- * message_buffer_manager
- */
-
-nano::message_buffer_manager::message_buffer_manager (nano::stats & stats_a, std::size_t size, std::size_t count) :
-	stats (stats_a),
-	free (count),
-	full (count),
-	slab (size * count),
-	entries (count),
-	stopped (false)
-{
-	debug_assert (count > 0);
-	debug_assert (size > 0);
-	auto slab_data (slab.data ());
-	auto entry_data (entries.data ());
-	for (auto i (0); i < count; ++i, ++entry_data)
-	{
-		*entry_data = { slab_data + i * size, 0, nano::endpoint () };
-		free.push_back (entry_data);
-	}
-}
-
-nano::message_buffer * nano::message_buffer_manager::allocate ()
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	if (!stopped && free.empty () && full.empty ())
-	{
-		stats.inc (nano::stat::type::udp, nano::stat::detail::blocking, nano::stat::dir::in);
-		condition.wait (lock, [&stopped = stopped, &free = free, &full = full] { return stopped || !free.empty () || !full.empty (); });
-	}
-	nano::message_buffer * result (nullptr);
-	if (!free.empty ())
-	{
-		result = free.front ();
-		free.pop_front ();
-	}
-	if (result == nullptr && !full.empty ())
-	{
-		result = full.front ();
-		full.pop_front ();
-		stats.inc (nano::stat::type::udp, nano::stat::detail::overflow, nano::stat::dir::in);
-	}
-	release_assert (result || stopped);
-	return result;
-}
-
-void nano::message_buffer_manager::enqueue (nano::message_buffer * data_a)
-{
-	debug_assert (data_a != nullptr);
-	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		full.push_back (data_a);
-	}
-	condition.notify_all ();
-}
-
-nano::message_buffer * nano::message_buffer_manager::dequeue ()
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped && full.empty ())
-	{
-		condition.wait (lock);
-	}
-	nano::message_buffer * result (nullptr);
-	if (!full.empty ())
-	{
-		result = full.front ();
-		full.pop_front ();
-	}
-	return result;
-}
-
-void nano::message_buffer_manager::release (nano::message_buffer * data_a)
-{
-	debug_assert (data_a != nullptr);
-	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		free.push_back (data_a);
-	}
-	condition.notify_all ();
-}
-
-void nano::message_buffer_manager::stop ()
-{
-	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		stopped = true;
-	}
-	condition.notify_all ();
 }
 
 nano::tcp_message_manager::tcp_message_manager (unsigned incoming_connections_max_a) :
