@@ -17,13 +17,6 @@ class channel;
 class node;
 class stats;
 class transaction;
-class message_buffer final
-{
-public:
-	uint8_t * buffer{ nullptr };
-	std::size_t size{ 0 };
-	nano::endpoint endpoint;
-};
 class tcp_message_manager final
 {
 public:
