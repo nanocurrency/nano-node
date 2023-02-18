@@ -13,10 +13,7 @@
 
 namespace nano
 {
-class channel;
 class node;
-class stats;
-class transaction;
 class tcp_message_manager final
 {
 public:
