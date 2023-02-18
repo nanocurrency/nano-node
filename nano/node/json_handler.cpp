@@ -2996,7 +2996,8 @@ void nano::json_handler::peers ()
 			{
 				pending_tree.put ("node_id", "");
 			}
-			pending_tree.put ("type", channel->get_type () == nano::transport::transport_type::tcp ? "tcp" : "udp");
+			debug_assert (channel->get_type () == nano::transport::transport_type::tcp);
+			pending_tree.put ("type", "tcp");
 			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), pending_tree));
 		}
 		else
