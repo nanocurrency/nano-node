@@ -7,8 +7,8 @@
 
 #include <boost/thread/thread.hpp>
 
+#include <deque>
 #include <memory>
-#include <queue>
 #include <unordered_set>
 
 namespace nano
