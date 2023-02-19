@@ -81,10 +81,6 @@ public:
 	bool bulk_pull_ascending () const;
 	static uint8_t constexpr frontier_req_only_confirmed = 1;
 	bool frontier_req_is_only_confirmed_present () const;
-	static uint8_t constexpr node_id_handshake_query_flag = 0;
-	static uint8_t constexpr node_id_handshake_response_flag = 1;
-	bool node_id_handshake_is_query () const;
-	bool node_id_handshake_is_response () const;
 
 	/** Size of the payload in bytes. For some messages, the payload size is based on header flags. */
 	std::size_t payload_length_bytes () const;
@@ -363,6 +359,14 @@ public:
 	std::size_t size () const;
 	static std::size_t size (nano::message_header const &);
 	std::string to_string () const;
+
+public: // Header
+	static uint8_t constexpr query_flag = 0;
+	static uint8_t constexpr response_flag = 1;
+
+	static bool is_query (nano::message_header const &);
+	static bool is_response (nano::message_header const &);
+
 };
 
 /**
