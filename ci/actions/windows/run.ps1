@@ -2,7 +2,6 @@ $ErrorActionPreference = "Continue"
 
 $env:BUILD_TYPE = "Debug"
 $env:NETWORK_CFG = "dev"
-$env:RUN = "test"
 
 Push-Location build
 
