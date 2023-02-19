@@ -52,14 +52,14 @@ nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, 
 			break;
 		case nano::networks::nano_beta_network:
 		{
-			preconfigured_peers.emplace_back (default_beta_peer_network);
+			preconfigured_peers.emplace_back (std::pair (default_beta_peer_network, network_params.network.default_node_port));
 			nano::account offline_representative;
 			release_assert (!offline_representative.decode_account ("nano_1defau1t9off1ine9rep99999999999999999999999999999999wgmuzxxy"));
 			preconfigured_representatives.emplace_back (offline_representative);
 			break;
 		}
 		case nano::networks::nano_live_network:
-			preconfigured_peers.emplace_back (default_live_peer_network);
+			preconfigured_peers.emplace_back (std::pair (default_live_peer_network, network_params.network.default_node_port));
 			preconfigured_representatives.emplace_back ("A30E0A32ED41C8607AA9212843392E853FCBCB4E7CB194E35C94F07F91DE59EF");
 			preconfigured_representatives.emplace_back ("67556D31DDFC2A440BF6147501449B4CB9572278D034EE686A6BEE29851681DF");
 			preconfigured_representatives.emplace_back ("5C2FBB148E006A8E8BA7A75DD86C9FE00C83F5FFDBFD76EAA09531071436B6AF");
@@ -70,7 +70,7 @@ nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, 
 			preconfigured_representatives.emplace_back ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56");
 			break;
 		case nano::networks::nano_test_network:
-			preconfigured_peers.push_back (default_test_peer_network);
+			preconfigured_peers.push_back (std::pair<std::string, uint16_t> (default_test_peer_network, network_params.network.default_node_port));
 			preconfigured_representatives.push_back (network_params.ledger.genesis->account ());
 			break;
 		default:
@@ -140,7 +140,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	auto preconfigured_peers_l (toml.create_array ("preconfigured_peers", "A list of \"address\" (hostname or ipv6 notation ip address) entries to identify preconfigured peers.\nThe contents of the NANO_DEFAULT_PEER environment variable are added to preconfigured_peers."));
 	for (auto i (preconfigured_peers.begin ()), n (preconfigured_peers.end ()); i != n; ++i)
 	{
-		preconfigured_peers_l->push_back (*i);
+		preconfigured_peers_l->push_back (boost::str (boost::format ("%1%:%2%") % i->first % i->second));
 	}
 
 	auto preconfigured_representatives_l (toml.create_array ("preconfigured_representatives", "A list of representative account addresses used when creating new accounts in internal wallets."));
@@ -257,7 +257,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			preconfigured_peers.clear ();
 			toml.array_entries_required<std::string> (preconfigured_peers_key, [this] (std::string entry) {
-				preconfigured_peers.push_back (entry);
+				this->deserialize_address (entry, this->preconfigured_peers); //TODO: Make port optional
 			});
 		}
 

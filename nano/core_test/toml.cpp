@@ -71,10 +71,11 @@ TEST (toml, daemon_config_update_array)
 	nano::tomlconfig t;
 	boost::filesystem::path data_path (".");
 	nano::daemon_config c{ data_path, nano::dev::network_params };
-	c.node.preconfigured_peers.push_back ("dev-peer.org");
+	c.node.preconfigured_peers.push_back (std::pair ("dev-peer.org", 999));
 	c.serialize_toml (t);
 	c.deserialize_toml (t);
-	ASSERT_EQ (c.node.preconfigured_peers[0], "dev-peer.org");
+	ASSERT_EQ (c.node.preconfigured_peers[0].first, "dev-peer.org");
+	ASSERT_EQ (c.node.preconfigured_peers[0].second, 999);
 }
 
 /** Empty rpc config file should match a default config object */
@@ -419,7 +420,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	password_fanout = 999
 	peering_port = 999
 	pow_sleep_interval= 999
-	preconfigured_peers = ["dev.org"]
+	preconfigured_peers = ["dev.org:999"]
 	preconfigured_representatives = ["nano_3arg3asgtigae3xckabaaewkx3bzsh7nwz7jkmjos79ihyaxwphhm6qgjps4"]
 	receive_minimum = "999"
 	signature_checker_threads = 999
