@@ -1,0 +1,9 @@
+name: "restore-git-mtimes"
+description: "Restore file modification timestamps from git commit timestamps"
+runs:
+  using: "composite"
+  steps:
+    - run: python3 $GITHUB_ACTION_PATH/git-restore-mtime.py
+      shell: bash
+    - run: git submodule foreach --recursive 'python3 $GITHUB_ACTION_PATH/git-restore-mtime.py'
+      shell: bash
