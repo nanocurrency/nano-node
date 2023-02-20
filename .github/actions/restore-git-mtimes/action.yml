@@ -5,10 +5,10 @@ runs:
   steps:
     - uses: actions/checkout@v3
       with:
-        repository: "git-tools"
+        repository: "MestreLion/git-tools"
         ref: a42a069bc755f0fa81316965335cb33dbf22a968 # pin latest commit
         path: "git-tools"
-    - run: python3 git-tools/git-restore-mtime.py
+    - run: $GITHUB_WORKSPACE/git-tools/git-restore-mtime
       shell: bash
-    - run: git submodule foreach --recursive 'python3 git-tools/git-restore-mtime.py'
+    - run: git submodule foreach --recursive '$GITHUB_WORKSPACE/git-tools/git-restore-mtime'
       shell: bash

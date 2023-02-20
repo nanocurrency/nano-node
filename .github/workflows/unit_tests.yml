@@ -48,7 +48,7 @@ jobs:
       - name: Save Build Cache
         # only save build cache from develop to avoid polluting it by other branches / PRs
         if: github.ref == 'refs/heads/develop' && success()
-        uses: actions/cache/restore@v3
+        uses: actions/cache/save@v3
         continue-on-error: true
         with:
           path: build
@@ -103,7 +103,7 @@ jobs:
       - name: Save Build Cache
         # only save build cache from develop to avoid polluting it by other branches / PRs
         if: github.ref == 'refs/heads/develop' && success()
-        uses: actions/cache/restore@v3
+        uses: actions/cache/save@v3
         continue-on-error: true
         with:
           path: build
@@ -159,7 +159,7 @@ jobs:
       - name: Save Build Cache
         # only save build cache from develop to avoid polluting it by other branches / PRs
         if: github.ref == 'refs/heads/develop' && success()
-        uses: actions/cache/restore@v3
+        uses: actions/cache/save@v3
         continue-on-error: true
         with:
           path: build

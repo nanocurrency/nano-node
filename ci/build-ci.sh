@@ -11,7 +11,7 @@ OS=$(uname)
 source "$(dirname "$BASH_SOURCE")/impl/code-inspector.sh"
 code_inspect "${ROOTPATH:-.}"
 
-mkdir build
+mkdir -p build
 pushd build
 
 if [[ "${RELEASE:-false}" == "true" ]]; then
