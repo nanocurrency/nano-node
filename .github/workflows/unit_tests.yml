@@ -26,6 +26,11 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: "recursive"
+          fetch-depth: 0 # full history needed for restoring file timestamps
+
+      - name: Restore Timestamps
+        uses: ./.github/actions/restore-git-mtimes
+        continue-on-error: true
 
       - name: Fetch Deps
         run: TEST=1 ci/actions/osx/install_deps.sh
@@ -60,6 +65,11 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: "recursive"
+          fetch-depth: 0 # full history needed for restoring file timestamps
+
+      - name: Restore Timestamps
+        uses: ./.github/actions/restore-git-mtimes
+        continue-on-error: true
 
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
@@ -92,6 +102,11 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: "recursive"
+          fetch-depth: 0 # full history needed for restoring file timestamps
+
+      - name: Restore Timestamps
+        uses: ./.github/actions/restore-git-mtimes
+        continue-on-error: true
 
       - name: Windows Defender
         run: ci/actions/windows/disable_windows_defender.ps1
