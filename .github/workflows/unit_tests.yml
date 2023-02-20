@@ -32,6 +32,13 @@ jobs:
         uses: ./.github/actions/restore-git-mtimes
         continue-on-error: true
 
+      - name: Restore Build Cache
+        uses: actions/cache/restore@v3
+        continue-on-error: true
+        with:
+          path: build
+          key: ${{ runner.os }}-build-cache
+
       - name: Fetch Deps
         run: TEST=1 ci/actions/osx/install_deps.sh
 
@@ -42,6 +49,15 @@ jobs:
         run: cd build && sudo TEST_USE_ROCKSDB=$TEST_USE_ROCKSDB ../ci/test.sh .
         env:
           DEADLINE_SCALE_FACTOR: ${{ env.TEST_USE_ROCKSDB == 1 && '2' || '1' }}
+
+      - name: Save Build Cache
+        # only save build cache from develop to avoid polluting it by other branches / PRs
+        if: github.ref == 'refs/heads/develop'
+        uses: actions/cache/restore@v3
+        continue-on-error: true
+        with:
+          path: build
+          key: ${{ runner.os }}-build-cache
 
   linux_test:
     name: Linux [${{ matrix.BACKEND }} | ${{ matrix.COMPILER }}]
@@ -71,6 +87,13 @@ jobs:
         uses: ./.github/actions/restore-git-mtimes
         continue-on-error: true
 
+      - name: Restore Build Cache
+        uses: actions/cache/restore@v3
+        continue-on-error: true
+        with:
+          path: build
+          key: ${{ runner.os }}-build-cache
+
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
 
@@ -81,6 +104,15 @@ jobs:
         run: docker run -e RELEASE -e TEST_USE_ROCKSDB -e DEADLINE_SCALE_FACTOR -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace/build && ../ci/test.sh ."
         env:
           DEADLINE_SCALE_FACTOR: ${{ env.TEST_USE_ROCKSDB == 1 && '2' || '1' }}
+
+      - name: Save Build Cache
+        # only save build cache from develop to avoid polluting it by other branches / PRs
+        if: github.ref == 'refs/heads/develop'
+        uses: actions/cache/restore@v3
+        continue-on-error: true
+        with:
+          path: build
+          key: ${{ runner.os }}-build-cache
 
   windows_test:
     name: Windows [${{ matrix.BACKEND }}]
@@ -108,6 +140,13 @@ jobs:
         uses: ./.github/actions/restore-git-mtimes
         continue-on-error: true
 
+      - name: Restore Build Cache
+        uses: actions/cache/restore@v3
+        continue-on-error: true
+        with:
+          path: build
+          key: ${{ runner.os }}-build-cache
+
       - name: Windows Defender
         run: ci/actions/windows/disable_windows_defender.ps1
 
@@ -121,3 +160,12 @@ jobs:
         run: ci/actions/windows/run.ps1
         env:
           DEADLINE_SCALE_FACTOR: ${{ env.TEST_USE_ROCKSDB == 1 && '2' || '1' }}
+
+      - name: Save Build Cache
+        # only save build cache from develop to avoid polluting it by other branches / PRs
+        if: github.ref == 'refs/heads/develop'
+        uses: actions/cache/restore@v3
+        continue-on-error: true
+        with:
+          path: build
+          key: ${{ runner.os }}-build-cache
