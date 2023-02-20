@@ -3,7 +3,12 @@ description: "Restore file modification timestamps from git commit timestamps"
 runs:
   using: "composite"
   steps:
-    - run: python3 $GITHUB_ACTION_PATH/git-restore-mtime.py
+    - uses: actions/checkout@v3
+      with:
+        repository: "git-tools"
+        ref: a42a069bc755f0fa81316965335cb33dbf22a968 # pin latest commit
+        path: "git-tools"
+    - run: python3 git-tools/git-restore-mtime.py
       shell: bash
-    - run: git submodule foreach --recursive 'python3 $GITHUB_ACTION_PATH/git-restore-mtime.py'
+    - run: git submodule foreach --recursive 'python3 git-tools/git-restore-mtime.py'
       shell: bash
