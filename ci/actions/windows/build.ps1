@@ -23,7 +23,7 @@ if (${env:artifact} -eq 1) {
     $env:RUN = "artifact"
 }
 else {
-    if ( ${env:RELEASE} -eq "true" -or ${env:TEST_USE_ROCKSDB} -eq 1 ) {
+    if (${env:RELEASE} -eq "true") {
         $env:BUILD_TYPE = "RelWithDebInfo"
     }
     else {
@@ -52,12 +52,8 @@ if (${env:RUN} -eq "artifact") {
 if (${LastExitCode} -ne 0) {
     throw "Failed to build ${env:RUN}"
 }
+
 $env:cmake_path = Split-Path -Path(get-command cmake.exe).Path
 . "$PSScriptRoot\signing.ps1"
-
-& ..\ci\actions\windows\run.bat
-if (${LastExitCode} -ne 0) {
-    throw "Failed to Pass Test ${env:RUN}"
-}
 
 Pop-Location

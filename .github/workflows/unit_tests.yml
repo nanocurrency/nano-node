@@ -99,7 +99,10 @@ jobs:
       - name: Fetch Deps
         run: ci/actions/windows/install_deps.ps1
 
-      - name: Build & Run Tests
+      - name: Build Tests
         run: ci/actions/windows/build.ps1
+
+      - name: Run Tests [TEST_USE_ROCKSDB=${{ env.TEST_USE_ROCKSDB }}]
+        run: ci/actions/windows/run.ps1
         env:
           DEADLINE_SCALE_FACTOR: ${{ env.TEST_USE_ROCKSDB == 1 && '2' || '1' }}
