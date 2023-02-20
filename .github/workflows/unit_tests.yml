@@ -45,19 +45,19 @@ jobs:
       - name: Build Tests
         run: ci/build-ci.sh "/tmp/qt/lib/cmake/Qt5";
 
-      - name: Run Tests
-        run: cd build && sudo TEST_USE_ROCKSDB=$TEST_USE_ROCKSDB ../ci/test.sh .
-        env:
-          DEADLINE_SCALE_FACTOR: ${{ env.TEST_USE_ROCKSDB == 1 && '2' || '1' }}
-
       - name: Save Build Cache
         # only save build cache from develop to avoid polluting it by other branches / PRs
-        if: github.ref == 'refs/heads/develop'
+        if: github.ref == 'refs/heads/develop' && success()
         uses: actions/cache/restore@v3
         continue-on-error: true
         with:
           path: build
           key: ${{ runner.os }}-build-cache
+
+      - name: Run Tests
+        run: cd build && sudo TEST_USE_ROCKSDB=$TEST_USE_ROCKSDB ../ci/test.sh .
+        env:
+          DEADLINE_SCALE_FACTOR: ${{ env.TEST_USE_ROCKSDB == 1 && '2' || '1' }}
 
   linux_test:
     name: Linux [${{ matrix.BACKEND }} | ${{ matrix.COMPILER }}]
@@ -100,19 +100,19 @@ jobs:
       - name: Build Tests
         run: docker run -e TEST_USE_ROCKSDB  -e RELEASE -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace && ./ci/build-ci.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5"
 
-      - name: Run Tests
-        run: docker run -e RELEASE -e TEST_USE_ROCKSDB -e DEADLINE_SCALE_FACTOR -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace/build && ../ci/test.sh ."
-        env:
-          DEADLINE_SCALE_FACTOR: ${{ env.TEST_USE_ROCKSDB == 1 && '2' || '1' }}
-
       - name: Save Build Cache
         # only save build cache from develop to avoid polluting it by other branches / PRs
-        if: github.ref == 'refs/heads/develop'
+        if: github.ref == 'refs/heads/develop' && success()
         uses: actions/cache/restore@v3
         continue-on-error: true
         with:
           path: build
           key: ${{ runner.os }}-build-cache
+
+      - name: Run Tests
+        run: docker run -e RELEASE -e TEST_USE_ROCKSDB -e DEADLINE_SCALE_FACTOR -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace/build && ../ci/test.sh ."
+        env:
+          DEADLINE_SCALE_FACTOR: ${{ env.TEST_USE_ROCKSDB == 1 && '2' || '1' }}
 
   windows_test:
     name: Windows [${{ matrix.BACKEND }}]
@@ -156,16 +156,16 @@ jobs:
       - name: Build Tests
         run: ci/actions/windows/build.ps1
 
-      - name: Run Tests [TEST_USE_ROCKSDB=${{ env.TEST_USE_ROCKSDB }}]
-        run: ci/actions/windows/run.ps1
-        env:
-          DEADLINE_SCALE_FACTOR: ${{ env.TEST_USE_ROCKSDB == 1 && '2' || '1' }}
-
       - name: Save Build Cache
         # only save build cache from develop to avoid polluting it by other branches / PRs
-        if: github.ref == 'refs/heads/develop'
+        if: github.ref == 'refs/heads/develop' && success()
         uses: actions/cache/restore@v3
         continue-on-error: true
         with:
           path: build
           key: ${{ runner.os }}-build-cache
+
+      - name: Run Tests [TEST_USE_ROCKSDB=${{ env.TEST_USE_ROCKSDB }}]
+        run: ci/actions/windows/run.ps1
+        env:
+          DEADLINE_SCALE_FACTOR: ${{ env.TEST_USE_ROCKSDB == 1 && '2' || '1' }}
