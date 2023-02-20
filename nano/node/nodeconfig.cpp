@@ -510,11 +510,14 @@ nano::frontiers_confirmation_mode nano::node_config::deserialize_frontiers_confi
 
 void nano::node_config::deserialize_address (std::string const & entry_a, std::vector<std::pair<std::string, uint16_t>> & container_a) const
 {
-	auto port_position (entry_a.rfind (':'));
+	// In case of IPv6 the format would be [address]:port, otherwise address:port.
+	const std::string separator = entry_a[0] == '[' ? "]:" : ":";
+
+	auto port_position (entry_a.rfind (separator));
 	bool result = (port_position == -1);
 	if (!result)
 	{
-		auto port_str (entry_a.substr (port_position + 1));
+		auto port_str (entry_a.substr (port_position + separator.length ()));
 		uint16_t port;
 		result |= parse_port (port_str, port);
 		if (!result)
