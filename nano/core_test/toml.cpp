@@ -964,18 +964,18 @@ TEST (toml, tls_config_defaults)
 	ASSERT_EQ (conf.server_dh_path, defaults.server_dh_path);
 }
 
-TEST(toml, deserialize_address)
+TEST (toml, deserialize_address)
 {
 	nano::node_config node_config;
 	std::vector<std::pair<std::string, uint16_t>> container, no_port_container;
 
-	node_config.deserialize_address ("dev-peer.org:999", container);
-	node_config.deserialize_address ("1.2.3.4:999", container);
-	node_config.deserialize_address ("[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]:999", container);
+	node_config.deserialize_address ("dev-peer.org:999", true, container);
+	node_config.deserialize_address ("1.2.3.4:999", true, container);
+	node_config.deserialize_address ("[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]:999", true, container);
 	ASSERT_EQ (container.size (), 3);
 
-	node_config.deserialize_address ("dev-peer.org", no_port_container);
-	node_config.deserialize_address ("1.2.3.4", no_port_container);
-	node_config.deserialize_address ("[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]", no_port_container);
+	node_config.deserialize_address ("dev-peer.org", true, no_port_container);
+	node_config.deserialize_address ("1.2.3.4", true, no_port_container);
+	node_config.deserialize_address ("[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]", true, no_port_container);
 	ASSERT_TRUE (no_port_container.empty ());
 }

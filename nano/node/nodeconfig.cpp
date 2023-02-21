@@ -249,7 +249,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			work_peers.clear ();
 			toml.array_entries_required<std::string> ("work_peers", [this] (std::string const & entry_a) {
-				this->deserialize_address (entry_a, this->work_peers);
+				this->deserialize_address (entry_a, true, this->work_peers);
 			});
 		}
 
@@ -257,7 +257,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			preconfigured_peers.clear ();
 			toml.array_entries_required<std::string> (preconfigured_peers_key, [this] (std::string entry) {
-				this->deserialize_address (entry, this->preconfigured_peers); //TODO: Make port optional
+				this->deserialize_address (entry, false, this->preconfigured_peers);
 			});
 		}
 
@@ -410,7 +410,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			{
 				secondary_work_peers.clear ();
 				experimental_config_l.array_entries_required<std::string> ("secondary_work_peers", [this] (std::string const & entry_a) {
-					this->deserialize_address (entry_a, this->secondary_work_peers);
+					this->deserialize_address (entry_a, true, this->secondary_work_peers);
 				});
 			}
 			auto max_pruning_age_l (max_pruning_age.count ());
@@ -508,7 +508,7 @@ nano::frontiers_confirmation_mode nano::node_config::deserialize_frontiers_confi
 	}
 }
 
-void nano::node_config::deserialize_address (std::string const & entry_a, std::vector<std::pair<std::string, uint16_t>> & container_a) const
+void nano::node_config::deserialize_address (std::string const & entry_a, bool port_required, std::vector<std::pair<std::string, uint16_t>> & container_a) const
 {
 	// In case of IPv6 the format would be [address]:port, otherwise address:port.
 	const std::string separator = entry_a[0] == '[' ? "]:" : ":";
@@ -525,6 +525,10 @@ void nano::node_config::deserialize_address (std::string const & entry_a, std::v
 			auto address (entry_a.substr (0, port_position));
 			container_a.emplace_back (address, port);
 		}
+	}
+	else if (!port_required)
+	{
+		container_a.emplace_back (entry_a, network_params.network.default_node_port);
 	}
 }
 
