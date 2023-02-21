@@ -979,6 +979,7 @@ TEST (toml, deserialize_address)
 	node_config.deserialize_address ("dev-peer.org", true, no_port_container);
 	node_config.deserialize_address ("1.2.3.4", true, no_port_container);
 	node_config.deserialize_address ("[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]", true, no_port_container);
+	node_config.deserialize_address ("FEDC:BA98:7654:3210:FEDC:BA98:7654:3210", true, no_port_container);
 	ASSERT_TRUE (no_port_container.empty ());
 
 	//Port not required

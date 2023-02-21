@@ -523,7 +523,10 @@ void nano::node_config::deserialize_address (std::string const & entry_a, bool p
 		if (!is_ip_v6 && address.find (':') != -1)
 		{
 			//The whole entry_a is an IPv6 address without brackets.
-			container_a.emplace_back (entry_a, network_params.network.default_node_port);
+			if (!port_required)
+			{
+				container_a.emplace_back (entry_a, network_params.network.default_node_port);
+			}
 			return;
 		}
 
