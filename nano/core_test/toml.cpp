@@ -974,6 +974,7 @@ TEST (toml, deserialize_address)
 	node_config.deserialize_address ("1.2.3.4:999", true, container);
 	node_config.deserialize_address ("[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]:999", true, container);
 	ASSERT_EQ (container.size (), 3);
+	ASSERT_EQ (container.at (2).first, "FEDC:BA98:7654:3210:FEDC:BA98:7654:3210");
 
 	node_config.deserialize_address ("dev-peer.org", true, no_port_container);
 	node_config.deserialize_address ("1.2.3.4", true, no_port_container);
@@ -985,4 +986,5 @@ TEST (toml, deserialize_address)
 	node_config.deserialize_address ("1.2.3.4", false, no_port_container);
 	node_config.deserialize_address ("[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]", false, no_port_container);
 	ASSERT_EQ (no_port_container.size (), 3);
+	ASSERT_EQ (container.at (2).first, "FEDC:BA98:7654:3210:FEDC:BA98:7654:3210");
 }
