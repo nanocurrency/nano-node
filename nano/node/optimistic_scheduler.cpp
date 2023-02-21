@@ -3,11 +3,12 @@
 #include <nano/node/node.hpp>
 #include <nano/node/optimistic_scheduler.hpp>
 
-nano::optimistic_scheduler::optimistic_scheduler (optimistic_scheduler_config const & config_a, nano::node & node_a, nano::ledger & ledger_a, nano::active_transactions & active_a, nano::stats & stats_a) :
+nano::optimistic_scheduler::optimistic_scheduler (optimistic_scheduler_config const & config_a, nano::node & node_a, nano::ledger & ledger_a, nano::active_transactions & active_a, nano::network_constants const & network_constants_a, nano::stats & stats_a) :
 	config{ config_a },
 	node{ node_a },
 	ledger{ ledger_a },
 	active{ active_a },
+	network_constants{ network_constants_a },
 	stats{ stats_a }
 {
 }
@@ -110,7 +111,7 @@ bool nano::optimistic_scheduler::predicate () const
 	}
 
 	auto candidate = candidates.front ();
-	bool result = nano::elapsed (candidate.timestamp, std::chrono::seconds{ 5 });
+	bool result = nano::elapsed (candidate.timestamp, network_constants.optimistic_activation_delay);
 	return result;
 }
 

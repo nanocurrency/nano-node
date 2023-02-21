@@ -47,7 +47,7 @@ class optimistic_scheduler final
 	struct entry;
 
 public:
-	optimistic_scheduler (optimistic_scheduler_config const &, nano::node &, nano::ledger &, nano::active_transactions &, nano::stats &);
+	optimistic_scheduler (optimistic_scheduler_config const &, nano::node &, nano::ledger &, nano::active_transactions &, nano::network_constants const & network_constants, nano::stats &);
 	~optimistic_scheduler ();
 
 	void start ();
@@ -76,6 +76,7 @@ private: // Dependencies
 	nano::node & node;
 	nano::ledger & ledger;
 	nano::active_transactions & active;
+	nano::network_constants const & network_constants;
 	nano::stats & stats;
 
 private:
