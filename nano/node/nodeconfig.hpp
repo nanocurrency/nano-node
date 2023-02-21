@@ -116,7 +116,7 @@ public:
 public:
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
 	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);
-	/** Entry is ignored if it cannot be parsed as a valid address:port */
+	/** When `port_required` is true entry is ignored if it cannot be parsed as a valid address:port */
 	void deserialize_address (std::string const &, bool port_required, std::vector<std::pair<std::string, uint16_t>> &) const;
 };
 

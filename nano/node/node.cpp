@@ -735,9 +735,6 @@ void nano::node::keepalive_preconfigured (std::vector<std::pair<std::string, uin
 {
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
 	{
-		// can't use `network.port` here because preconfigured peers are referenced
-		// just by their address, so we rely on them listening on the default port
-		//
 		keepalive (i->first, i->second);
 	}
 }
