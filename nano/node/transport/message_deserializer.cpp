@@ -13,13 +13,13 @@ channel_read_fn_type channel_read_fn_a) :
 	read_buffer->resize (MAX_MESSAGE_SIZE);
 }
 
-void nano::transport::message_deserializer::read (std::shared_ptr<nano::transport::socket> socket, const nano::transport::message_deserializer::callback_type && callback)
+void nano::transport::message_deserializer::read (const nano::transport::message_deserializer::callback_type && callback)
 {
 	debug_assert (callback);
 
 	status = parse_status::none;
 
-	channel_read_fn (read_buffer, HEADER_SIZE, [this_l = shared_from_this (), socket, callback = std::move (callback)] (boost::system::error_code const & ec, std::size_t size_a) {
+	channel_read_fn (read_buffer, HEADER_SIZE, [this_l = shared_from_this (), callback = std::move (callback)] (boost::system::error_code const & ec, std::size_t size_a) {
 		if (ec)
 		{
 			callback (ec, nullptr);
@@ -30,11 +30,11 @@ void nano::transport::message_deserializer::read (std::shared_ptr<nano::transpor
 			callback (boost::asio::error::fault, nullptr);
 			return;
 		}
-		this_l->received_header (socket, std::move (callback));
+		this_l->received_header (std::move (callback));
 	});
 }
 
-void nano::transport::message_deserializer::received_header (std::shared_ptr<nano::transport::socket> socket, const nano::transport::message_deserializer::callback_type && callback)
+void nano::transport::message_deserializer::received_header (const nano::transport::message_deserializer::callback_type && callback)
 {
 	nano::bufferstream stream{ read_buffer->data (), HEADER_SIZE };
 	auto error = false;

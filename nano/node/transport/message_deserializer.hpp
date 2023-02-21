@@ -2,15 +2,12 @@
 
 #include <nano/node/common.hpp>
 #include <nano/node/messages.hpp>
-#include <nano/node/transport/socket.hpp>
 
 #include <memory>
 #include <vector>
 
 namespace nano
 {
-class socket;
-
 namespace transport
 {
 	class message_deserializer : public std::enable_shared_from_this<nano::transport::message_deserializer>
@@ -55,10 +52,10 @@ namespace transport
 		 * If message is received successfully, error code won't be set and message will be non-null. `status` field will be set to `success`.
 		 * Should not be called until the previous invocation finishes and calls the callback.
 		 */
-		void read (std::shared_ptr<nano::transport::socket> socket, callback_type const && callback);
+		void read (callback_type const && callback);
 
 	private:
-		void received_header (std::shared_ptr<nano::transport::socket> socket, callback_type const && callback);
+		void received_header (callback_type const && callback);
 		void received_message (nano::message_header header, std::size_t payload_size, callback_type const && callback);
 
 		/*

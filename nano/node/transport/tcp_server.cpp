@@ -197,7 +197,7 @@ void nano::transport::tcp_server::receive_message ()
 		return;
 	}
 
-	message_deserializer->read (socket, [this_l = shared_from_this ()] (boost::system::error_code ec, std::unique_ptr<nano::message> message) {
+	message_deserializer->read ([this_l = shared_from_this ()] (boost::system::error_code ec, std::unique_ptr<nano::message> message) {
 		if (ec)
 		{
 			// IO error or critical error when deserializing message
