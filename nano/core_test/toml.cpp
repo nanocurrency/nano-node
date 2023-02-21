@@ -985,6 +985,8 @@ TEST (toml, deserialize_address)
 	node_config.deserialize_address ("dev-peer.org", false, no_port_container);
 	node_config.deserialize_address ("1.2.3.4", false, no_port_container);
 	node_config.deserialize_address ("[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]", false, no_port_container);
-	ASSERT_EQ (no_port_container.size (), 3);
-	ASSERT_EQ (container.at (2).first, "FEDC:BA98:7654:3210:FEDC:BA98:7654:3210");
+	node_config.deserialize_address ("FEDC:BA98:7654:3210:FEDC:BA98:7654:3210", false, no_port_container);
+	ASSERT_EQ (no_port_container.size (), 4);
+	ASSERT_EQ (no_port_container.at (2).first, "FEDC:BA98:7654:3210:FEDC:BA98:7654:3210");
+	ASSERT_EQ (no_port_container.at (3).first, "FEDC:BA98:7654:3210:FEDC:BA98:7654:3210");
 }

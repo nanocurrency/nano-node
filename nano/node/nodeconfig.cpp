@@ -511,26 +511,33 @@ nano::frontiers_confirmation_mode nano::node_config::deserialize_frontiers_confi
 void nano::node_config::deserialize_address (std::string const & entry_a, bool port_required, std::vector<std::pair<std::string, uint16_t>> & container_a) const
 {
 	// In case of IPv6 the format would be [address]:port, otherwise address:port.
-	bool isIPv6 = entry_a[0] == '[';
-	const std::string separator = isIPv6 ? "]:" : ":";
+	bool is_ip_v6 = entry_a[0] == '[';
+	const std::string separator = is_ip_v6 ? "]:" : ":";
 
 	auto port_position (entry_a.rfind (separator));
 	bool result = (port_position == -1);
 	if (!result)
 	{
+		auto start_position = is_ip_v6 ? 1 : 0;
+		auto address (entry_a.substr (start_position, port_position - start_position));
+		if (!is_ip_v6 && address.find (':') != -1)
+		{
+			//The whole entry_a is an IPv6 address without brackets.
+			container_a.emplace_back (entry_a, network_params.network.default_node_port);
+			return;
+		}
+
 		auto port_str (entry_a.substr (port_position + separator.length ()));
 		uint16_t port;
 		result |= parse_port (port_str, port);
 		if (!result)
 		{
-			auto start_position = isIPv6 ? 1 : 0;
-			auto address (entry_a.substr (start_position, port_position - start_position));
 			container_a.emplace_back (address, port);
 		}
 	}
 	else if (!port_required)
 	{
-		auto address = isIPv6 ? entry_a.substr (1, entry_a.length () - 2) : entry_a;
+		auto address = is_ip_v6 ? entry_a.substr (1, entry_a.length () - 2) : entry_a;
 		container_a.emplace_back (address, network_params.network.default_node_port);
 	}
 }
