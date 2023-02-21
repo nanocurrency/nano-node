@@ -139,7 +139,7 @@ void nano::optimistic_scheduler::run ()
 			}
 		}
 
-		condition.wait (lock, [this] () {
+		condition.wait_for (lock, network_constants.optimistic_activation_delay / 2, [this] () {
 			return stopped || predicate ();
 		});
 	}
