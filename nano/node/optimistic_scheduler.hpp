@@ -6,11 +6,19 @@
 #include <nano/lib/utility.hpp>
 #include <nano/secure/common.hpp>
 
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/sequenced_index.hpp>
+#include <boost/multi_index_container.hpp>
+
 #include <condition_variable>
 #include <memory>
 #include <queue>
 #include <thread>
 #include <vector>
+
+namespace mi = boost::multi_index;
 
 namespace nano
 {
@@ -77,8 +85,20 @@ private:
 		nano::clock::time_point timestamp;
 	};
 
+	// clang-format off
+	class tag_sequenced {};
+	class tag_account {};
+
+	using ordered_candidates = boost::multi_index_container<entry,
+	mi::indexed_by<
+		mi::sequenced<mi::tag<tag_sequenced>>,
+		mi::hashed_unique<mi::tag<tag_account>,
+			mi::member<entry, nano::account, &entry::account>>
+	>>;
+	// clang-format on
+
 	/** Accounts eligible for optimistic scheduling */
-	std::deque<entry> candidates;
+	ordered_candidates candidates;
 
 	bool stopped{ false };
 	nano::condition_variable condition;

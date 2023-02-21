@@ -55,13 +55,11 @@ bool nano::optimistic_scheduler::activate_predicate (const nano::account_info & 
 	{
 		return true;
 	}
-
 	// Account with nothing confirmed yet
 	if (conf_info.height == 0)
 	{
 		return true;
 	}
-
 	return false;
 }
 
@@ -73,23 +71,28 @@ bool nano::optimistic_scheduler::activate (const nano::account & account, const 
 	}
 
 	debug_assert (account_info.block_count >= conf_info.height);
-
 	if (activate_predicate (account_info, conf_info))
 	{
 		{
 			nano::lock_guard<nano::mutex> lock{ mutex };
 
-			// Limit candidates container size
-			if (candidates.size () < config.max_size)
+			// Prevent duplicate candidate accounts
+			if (candidates.get<tag_account> ().contains (account))
 			{
-				stats.inc (nano::stat::type::optimistic, nano::stat::detail::activated);
-				candidates.push_back ({ account, nano::clock::now () });
+				return false; // Not activated
 			}
+			// Limit candidates container size
+			if (candidates.size () >= config.max_size)
+			{
+				return false; // Not activated
+			}
+
+			stats.inc (nano::stat::type::optimistic, nano::stat::detail::activated);
+			candidates.push_back ({ account, nano::clock::now () });
 		}
 		notify ();
 		return true; // Activated
 	}
-
 	return false; // Not activated
 }
 
@@ -97,7 +100,18 @@ bool nano::optimistic_scheduler::predicate () const
 {
 	debug_assert (!mutex.try_lock ());
 
-	return !candidates.empty () && active.vacancy (nano::election_behavior::optimistic) > 0;
+	if (active.vacancy (nano::election_behavior::optimistic) <= 0)
+	{
+		return false;
+	}
+	if (candidates.empty ())
+	{
+		return false;
+	}
+
+	auto candidate = candidates.front ();
+	bool result = nano::elapsed (candidate.timestamp, std::chrono::seconds{ 5 });
+	return result;
 }
 
 void nano::optimistic_scheduler::run ()
@@ -115,16 +129,12 @@ void nano::optimistic_scheduler::run ()
 			{
 				debug_assert (!candidates.empty ());
 				auto candidate = candidates.front ();
+				candidates.pop_front ();
+				lock.unlock ();
 
-				if (nano::elapsed (candidate.timestamp, std::chrono::seconds{ 5 }))
-				{
-					candidates.pop_front ();
-					lock.unlock ();
+				run_one (transaction, candidate);
 
-					run_one (transaction, candidate);
-
-					lock.lock ();
-				}
+				lock.lock ();
 			}
 		}
 
