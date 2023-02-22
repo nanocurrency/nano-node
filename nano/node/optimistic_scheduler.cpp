@@ -88,7 +88,7 @@ bool nano::optimistic_scheduler::activate (const nano::account & account, const 
 				return false; // Not activated
 			}
 
-			stats.inc (nano::stat::type::optimistic, nano::stat::detail::activated);
+			stats.inc (nano::stat::type::optimistic_scheduler, nano::stat::detail::activated);
 			candidates.push_back ({ account, nano::clock::now () });
 		}
 		notify ();
@@ -120,7 +120,7 @@ void nano::optimistic_scheduler::run ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		stats.inc (nano::stat::type::optimistic, nano::stat::detail::loop);
+		stats.inc (nano::stat::type::optimistic_scheduler, nano::stat::detail::loop);
 
 		if (predicate ())
 		{
@@ -157,7 +157,7 @@ void nano::optimistic_scheduler::run_one (nano::transaction const & transaction,
 			// We check for AEC vacancy inside our predicate
 			auto result = node.active.insert (block, nano::election_behavior::optimistic);
 
-			stats.inc (nano::stat::type::optimistic, result.inserted ? nano::stat::detail::insert : nano::stat::detail::insert_failed);
+			stats.inc (nano::stat::type::optimistic_scheduler, result.inserted ? nano::stat::detail::insert : nano::stat::detail::insert_failed);
 		}
 	}
 }

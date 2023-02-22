@@ -41,7 +41,7 @@ enum class type : uint8_t
 	active_confirmed,
 	active_dropped,
 	backlog,
-	optimistic,
+	optimistic_scheduler,
 
 	_last // Must be the last enum
 };
