@@ -143,8 +143,7 @@ void nano::election_scheduler::run ()
 				auto const [block, previous_balance, election_behavior] = manual_queue.front ();
 				manual_queue.pop_front ();
 				lock.unlock ();
-				nano::unique_lock<nano::mutex> lock2 (node.active.mutex);
-				node.active.insert_impl (lock2, block, election_behavior);
+				node.active.insert (block, election_behavior);
 			}
 			else if (priority_queue_predicate ())
 			{
@@ -152,8 +151,7 @@ void nano::election_scheduler::run ()
 				priority.pop ();
 				lock.unlock ();
 				std::shared_ptr<nano::election> election;
-				nano::unique_lock<nano::mutex> lock2 (node.active.mutex);
-				election = node.active.insert_impl (lock2, block).election;
+				election = node.active.insert (block).election;
 				if (election != nullptr)
 				{
 					election->transition_active ();

@@ -181,29 +181,37 @@ void nano::active_transactions::block_already_cemented_callback (nano::block_has
 	remove_election_winner_details (hash_a);
 }
 
-int64_t nano::active_transactions::limit () const
+int64_t nano::active_transactions::limit (nano::election_behavior behavior) const
 {
-	return static_cast<int64_t> (node.config.active_elections_size);
+	switch (behavior)
+	{
+		case nano::election_behavior::normal:
+		{
+			return static_cast<int64_t> (node.config.active_elections_size);
+		}
+		case nano::election_behavior::hinted:
+		{
+			const uint64_t limit = node.config.active_elections_hinted_limit_percentage * node.config.active_elections_size / 100;
+			return static_cast<int64_t> (limit);
+		}
+	}
+
+	debug_assert (false, "unknown election behavior");
+	return 0;
 }
 
-int64_t nano::active_transactions::hinted_limit () const
+int64_t nano::active_transactions::vacancy (nano::election_behavior behavior) const
 {
-	const uint64_t limit = node.config.active_elections_hinted_limit_percentage * node.config.active_elections_size / 100;
-	return static_cast<int64_t> (limit);
-}
-
-int64_t nano::active_transactions::vacancy () const
-{
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto result = limit () - static_cast<int64_t> (roots.size ());
-	return result;
-}
-
-int64_t nano::active_transactions::vacancy_hinted () const
-{
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto result = hinted_limit () - active_hinted_elections_count;
-	return result;
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	switch (behavior)
+	{
+		case nano::election_behavior::normal:
+			return limit () - static_cast<int64_t> (roots.size ());
+		case nano::election_behavior::hinted:
+			return limit (nano::election_behavior::hinted) - active_hinted_elections_count;;
+	}
+	debug_assert (false); // Unknown enum
+	return 0;
 }
 
 void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> & lock_a)
@@ -346,6 +354,16 @@ void nano::active_transactions::request_loop ()
 	}
 }
 
+nano::election_insertion_result nano::active_transactions::insert (const std::shared_ptr<nano::block> & block, nano::election_behavior behavior)
+{
+	debug_assert (block != nullptr);
+
+	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	auto result = insert_impl (lock, block, behavior);
+	return result;
+}
+
 nano::election_insertion_result nano::active_transactions::insert_impl (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::block> const & block_a, nano::election_behavior election_behavior_a, std::function<void (std::shared_ptr<nano::block> const &)> const & confirmation_action_a)
 {
 	debug_assert (lock_a.owns_lock ());
@@ -400,17 +418,6 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 			result.election->broadcast_vote ();
 		}
 	}
-	return result;
-}
-
-nano::election_insertion_result nano::active_transactions::insert_hinted (std::shared_ptr<nano::block> const & block_a)
-{
-	debug_assert (block_a != nullptr);
-	debug_assert (vacancy_hinted () > 0); // Should only be called when there are free hinted election slots
-
-	nano::unique_lock<nano::mutex> lock{ mutex };
-
-	auto result = insert_impl (lock, block_a, nano::election_behavior::hinted);
 	return result;
 }
 
