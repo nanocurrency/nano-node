@@ -35,6 +35,10 @@ enum class type : uint8_t
 	blockprocessor,
 	bootstrap_server,
 	active,
+	active_started,
+	active_confirmed,
+	active_dropped,
+	active_timeout,
 	backlog,
 	unchecked,
 
@@ -142,23 +146,19 @@ enum class detail : uint8_t
 	vote_cached,
 	late_block,
 	late_block_seconds,
-	election_start,
-	election_confirmed_all,
 	election_block_conflict,
-	election_difficulty_update,
-	election_drop_expired,
-	election_drop_overflow,
-	election_drop_all,
 	election_restart,
-	election_confirmed,
 	election_not_confirmed,
 	election_hinted_overflow,
-	election_hinted_started,
 	election_hinted_confirmed,
 	election_hinted_drop,
 	generate_vote,
 	generate_vote_normal,
 	generate_vote_final,
+
+	// election types
+	normal,
+	hinted,
 
 	// received messages
 	invalid_header,
@@ -240,7 +240,6 @@ enum class detail : uint8_t
 	generator_spacing,
 
 	// hinting
-	hinted,
 	insert_failed,
 	missing_block,
 
