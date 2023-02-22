@@ -91,7 +91,6 @@ bool nano::optimistic_scheduler::activate (const nano::account & account, const 
 			stats.inc (nano::stat::type::optimistic_scheduler, nano::stat::detail::activated);
 			candidates.push_back ({ account, nano::clock::now () });
 		}
-		notify ();
 		return true; // Activated
 	}
 	return false; // Not activated
