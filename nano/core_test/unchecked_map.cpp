@@ -1,5 +1,6 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/logger_mt.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/secure/store.hpp>
 #include <nano/secure/utility.hpp>
@@ -19,10 +20,11 @@ class context
 public:
 	context () :
 		store{ nano::make_store (logger, nano::unique_path (), nano::dev::constants) },
-		unchecked{ *store, false }
+		unchecked{ *store, stats, false }
 	{
 	}
 	nano::logger_mt logger;
+	nano::stats stats;
 	std::unique_ptr<nano::store> store;
 	nano::unchecked_map unchecked;
 };
@@ -58,7 +60,7 @@ TEST (block_store, one_bootstrap)
 	nano::test::system system{};
 	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	nano::unchecked_map unchecked{ *store, false };
+	nano::unchecked_map unchecked{ *store, system.stats, false };
 	ASSERT_TRUE (!store->init_error ());
 	nano::block_builder builder;
 	auto block1 = builder
