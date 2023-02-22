@@ -77,15 +77,13 @@ bool nano::optimistic_scheduler::activate (const nano::account & account, const 
 	if (activate_predicate (account_info, conf_info))
 	{
 		{
-			stats.inc (nano::stat::type::optimistic, nano::stat::detail::activated);
-
-			nano::unique_lock<nano::mutex> lock{ mutex };
-			candidates.push_back (account);
+			nano::lock_guard<nano::mutex> lock{ mutex };
 
 			// Limit candidates container size
-			if (candidates.size () > config.max_size)
+			if (candidates.size () < config.max_size)
 			{
-				candidates.pop_front ();
+				stats.inc (nano::stat::type::optimistic, nano::stat::detail::activated);
+				candidates.push_back ({ account, nano::clock::now () });
 			}
 		}
 		notify ();
@@ -117,11 +115,16 @@ void nano::optimistic_scheduler::run ()
 			{
 				debug_assert (!candidates.empty ());
 				auto candidate = candidates.front ();
-				candidates.pop_front ();
 
-				lock.unlock ();
-				run_one (transaction, candidate);
-				lock.lock ();
+				if (nano::elapsed (candidate.timestamp, std::chrono::seconds{ 5 }))
+				{
+					candidates.pop_front ();
+					lock.unlock ();
+
+					run_one (transaction, candidate);
+
+					lock.lock ();
+				}
 			}
 		}
 
@@ -131,9 +134,9 @@ void nano::optimistic_scheduler::run ()
 	}
 }
 
-void nano::optimistic_scheduler::run_one (nano::transaction const & transaction, nano::account candidate)
+void nano::optimistic_scheduler::run_one (nano::transaction const & transaction, entry const & candidate)
 {
-	auto block = ledger.head_block (transaction, candidate);
+	auto block = ledger.head_block (transaction, candidate.account);
 	if (block)
 	{
 		// Ensure block is not already confirmed

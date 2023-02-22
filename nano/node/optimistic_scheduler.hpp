@@ -36,6 +36,8 @@ public:
 
 class optimistic_scheduler final
 {
+	struct entry;
+
 public:
 	optimistic_scheduler (optimistic_scheduler_config const &, nano::node &, nano::ledger &, nano::active_transactions &, nano::stats &);
 	~optimistic_scheduler ();
@@ -59,7 +61,7 @@ private:
 
 	bool predicate () const;
 	void run ();
-	void run_one (nano::transaction const &, nano::account candidate);
+	void run_one (nano::transaction const &, entry const & candidate);
 
 private: // Dependencies
 	optimistic_scheduler_config const & config;
@@ -69,8 +71,14 @@ private: // Dependencies
 	nano::stats & stats;
 
 private:
+	struct entry
+	{
+		nano::account account;
+		nano::clock::time_point timestamp;
+	};
+
 	/** Accounts eligible for optimistic scheduling */
-	std::deque<nano::account> candidates;
+	std::deque<entry> candidates;
 
 	bool stopped{ false };
 	nano::condition_variable condition;
