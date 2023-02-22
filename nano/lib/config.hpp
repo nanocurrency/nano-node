@@ -251,7 +251,7 @@ public:
 			telemetry_cache_cutoff = 2000ms;
 			telemetry_request_interval = 500ms;
 			telemetry_broadcast_interval = 500ms;
-			optimistic_activation_delay = 1s;
+			optimistic_activation_delay = 2s;
 		}
 	}
 
