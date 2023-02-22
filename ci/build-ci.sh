@@ -3,9 +3,6 @@
 qt_dir=${1}
 build_target=${2:-all}
 
-set -o errexit
-set -o nounset
-set -o xtrace
 OS=$(uname)
 
 source "$(dirname "$BASH_SOURCE")/impl/code-inspector.sh"
@@ -49,7 +46,6 @@ cmake \
 -DPORTABLE=1 \
 -DNANO_WARN_TO_ERR=ON \
 -DCMAKE_BUILD_TYPE=${BUILD_TYPE:-Debug} \
--DCMAKE_VERBOSE_MAKEFILE=ON \
 -DQt5_DIR=${qt_dir} \
 -DCI_TEST="1" \
 ${BACKTRACE:-} \
