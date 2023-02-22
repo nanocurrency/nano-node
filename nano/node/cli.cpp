@@ -30,10 +30,6 @@ std::string nano::error_cli_messages::message (int ev) const
 			return "Database write error";
 		case nano::error_cli::reading_config:
 			return "Config file read error";
-		case nano::error_cli::disable_all_network:
-			return "Flags --disable_tcp_realtime and --disable_udp cannot be used together";
-		case nano::error_cli::ambiguous_udp_options:
-			return "Flags --disable_udp and --enable_udp cannot be used together";
 		case nano::error_cli::ambiguous_pruning_voting_options:
 			return "Flag --enable_pruning and enable_voting in node config cannot be used together";
 	}
@@ -101,9 +97,6 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_rep_crawler", "Disable rep crawler")
 		("disable_request_loop", "Disable request loop")
 		("disable_bootstrap_listener", "Disables bootstrap processing for TCP listener (not including realtime network TCP connections)")
-		("disable_tcp_realtime", "Disables TCP realtime network")
-		("disable_udp", "(Deprecated) UDP is disabled by default")
-		("enable_udp", "Enables UDP realtime network")
 		("disable_unchecked_cleanup", "Disables periodic cleanup of old records from unchecked table")
 		("disable_unchecked_drop", "Disables drop of unchecked table at startup")
 		("disable_providing_telemetry_metrics", "Disable using any node information in the telemetry_ack messages.")
@@ -134,18 +127,8 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	if (!flags_a.inactive_node)
 	{
 		flags_a.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
-		flags_a.disable_tcp_realtime = (vm.count ("disable_tcp_realtime") > 0);
 	}
 	flags_a.disable_providing_telemetry_metrics = (vm.count ("disable_providing_telemetry_metrics") > 0);
-	if ((vm.count ("disable_udp") > 0) && (vm.count ("enable_udp") > 0))
-	{
-		ec = nano::error_cli::ambiguous_udp_options;
-	}
-	flags_a.disable_udp = (vm.count ("enable_udp") == 0);
-	if (flags_a.disable_tcp_realtime && flags_a.disable_udp)
-	{
-		ec = nano::error_cli::disable_all_network;
-	}
 	flags_a.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
 	flags_a.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
 	flags_a.disable_block_processor_unchecked_deletion = (vm.count ("disable_block_processor_unchecked_deletion") > 0);

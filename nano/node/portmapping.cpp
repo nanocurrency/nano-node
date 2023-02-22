@@ -17,7 +17,9 @@ std::string nano::mapping_protocol::to_string ()
 
 nano::port_mapping::port_mapping (nano::node & node_a) :
 	node (node_a),
-	protocols ({ { { "TCP", boost::asio::ip::address_v4::any (), 0, true }, { "UDP", boost::asio::ip::address_v4::any (), 0, !node_a.flags.disable_udp } } })
+	// Kept UDP in the array (set disabled) so the port mapping is still
+	// implemented in case other transport protocols that rely on it is added.
+	protocols ({ { { "TCP", boost::asio::ip::address_v4::any (), 0, true }, { "UDP", boost::asio::ip::address_v4::any (), 0, false } } })
 {
 }
 

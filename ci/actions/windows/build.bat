@@ -23,6 +23,12 @@ cmake --build . ^
   --config %BUILD_TYPE% ^
   -- /m:2
 set exit_code=%errorlevel%
+
+echo "Packaging NSIS"
+call "%cmake_path%\cpack.exe" -C %BUILD_TYPE%
+echo "Packaging ZIP"
+call "%cmake_path%\cpack.exe" -G ZIP -C %BUILD_TYPE%
+
 goto exit
 
 :exit

@@ -388,57 +388,54 @@ std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash
 
 nano::election_vote_result nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano::block_hash const & block_hash_a, vote_source vote_source_a)
 {
-	auto replay = false;
 	auto weight = node.ledger.weight (rep);
-	auto should_process = false;
-	if (node.network_params.network.is_dev_network () || weight > node.minimum_principal_weight ())
+	if (!node.network_params.network.is_dev_network () && weight <= node.minimum_principal_weight ())
 	{
-		nano::unique_lock<nano::mutex> lock{ mutex };
+		return nano::election_vote_result (false, false);
+	}
+	nano::unique_lock<nano::mutex> lock{ mutex };
 
-		auto last_vote_it (last_votes.find (rep));
-		if (last_vote_it == last_votes.end ())
+	auto last_vote_it (last_votes.find (rep));
+	if (last_vote_it != last_votes.end ())
+	{
+		auto last_vote_l (last_vote_it->second);
+		if (last_vote_l.timestamp > timestamp_a)
 		{
-			should_process = true;
+			return nano::election_vote_result (true, false);
 		}
-		else
+		if (last_vote_l.timestamp == timestamp_a && !(last_vote_l.hash < block_hash_a))
 		{
-			auto last_vote_l (last_vote_it->second);
-			if (last_vote_l.timestamp < timestamp_a || (last_vote_l.timestamp == timestamp_a && last_vote_l.hash < block_hash_a))
-			{
-				auto max_vote = timestamp_a == std::numeric_limits<uint64_t>::max () && last_vote_l.timestamp < timestamp_a;
-
-				bool past_cooldown = true;
-				// Only cooldown live votes
-				if (vote_source_a == vote_source::live)
-				{
-					const auto cooldown = cooldown_time (weight);
-					past_cooldown = last_vote_l.time <= std::chrono::steady_clock::now () - cooldown;
-				}
-
-				should_process = max_vote || past_cooldown;
-			}
-			else
-			{
-				replay = true;
-			}
+			return nano::election_vote_result (true, false);
 		}
-		if (should_process)
+
+		auto max_vote = timestamp_a == std::numeric_limits<uint64_t>::max () && last_vote_l.timestamp < timestamp_a;
+
+		bool past_cooldown = true;
+		// Only cooldown live votes
+		if (vote_source_a == vote_source::live)
 		{
-			last_votes[rep] = { std::chrono::steady_clock::now (), timestamp_a, block_hash_a };
-			if (vote_source_a == vote_source::live)
-			{
-				live_vote_action (rep);
-			}
+			const auto cooldown = cooldown_time (weight);
+			past_cooldown = last_vote_l.time <= std::chrono::steady_clock::now () - cooldown;
+		}
 
-			node.stats.inc (nano::stat::type::election, vote_source_a == vote_source::live ? nano::stat::detail::vote_new : nano::stat::detail::vote_cached);
-
-			if (!confirmed ())
-			{
-				confirm_if_quorum (lock);
-			}
+		if (!max_vote && !past_cooldown)
+		{
+			return nano::election_vote_result (false, false);
 		}
 	}
-	return nano::election_vote_result (replay, should_process);
+	last_votes[rep] = { std::chrono::steady_clock::now (), timestamp_a, block_hash_a };
+	if (vote_source_a == vote_source::live)
+	{
+		live_vote_action (rep);
+	}
+
+	node.stats.inc (nano::stat::type::election, vote_source_a == vote_source::live ? nano::stat::detail::vote_new : nano::stat::detail::vote_cached);
+
+	if (!confirmed ())
+	{
+		confirm_if_quorum (lock);
+	}
+	return nano::election_vote_result (false, true);
 }
 
 bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)

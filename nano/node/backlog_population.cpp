@@ -29,9 +29,10 @@ void nano::backlog_population::start ()
 
 void nano::backlog_population::stop ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	stopped = true;
-	lock.unlock ();
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		stopped = true;
+	}
 	notify ();
 	nano::join_or_pass (thread);
 }
@@ -85,6 +86,7 @@ void nano::backlog_population::populate_backlog (nano::unique_lock<nano::mutex> 
 	while (!stopped && !done)
 	{
 		lock.unlock ();
+
 		{
 			auto transaction = store.tx_begin_read ();
 
@@ -101,9 +103,11 @@ void nano::backlog_population::populate_backlog (nano::unique_lock<nano::mutex> 
 			}
 			done = store.account.begin (transaction, next) == end;
 		}
+
 		lock.lock ();
+
 		// Give the rest of the node time to progress without holding database lock
-		std::this_thread::sleep_for (std::chrono::milliseconds (1000 / config_m.frequency));
+		condition.wait_for (lock, std::chrono::milliseconds{ 1000 / config_m.frequency });
 	}
 }
 

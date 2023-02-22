@@ -2,8 +2,7 @@ ARG ENV_REPOSITORY=nanocurrency/nano-env
 FROM ${ENV_REPOSITORY}:base
 
 RUN apt-get update -qq && apt-get install -yqq \
-git \
-libboost-all-dev
+..
 
 ARG REPOSITORY=nanocurrency/nano-node
 LABEL org.opencontainers.image.source https://github.com/$REPOSITORY

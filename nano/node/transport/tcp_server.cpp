@@ -27,33 +27,20 @@ void nano::transport::tcp_listener::start ()
 		throw std::runtime_error (ec.message ());
 	}
 
-	// the user can either specify a port value in the config or it can leave the choice up to the OS;
-	// independently of user's port choice, he may have also opted to disable UDP or not; this gives us 4 possibilities:
-	// (1): UDP enabled, port specified
-	// (2): UDP enabled, port not specified
-	// (3): UDP disabled, port specified
-	// (4): UDP disabled, port not specified
+	// the user can either specify a port value in the config or it can leave the choice up to the OS:
+	// (1): port specified
+	// (2): port not specified
 	//
 	const auto listening_port = listening_socket->listening_port ();
-	if (!node.flags.disable_udp)
 	{
-		// (1) and (2) -- no matter if (1) or (2), since UDP socket binding happens before this TCP socket binding,
-		// we must have already been constructed with a valid port value, so check that it really is the same everywhere
-		//
-		debug_assert (port == listening_port);
-		debug_assert (port == node.network.port);
-		debug_assert (port == node.network.endpoint ().port ());
-	}
-	else
-	{
-		// (3) -- nothing to do, just check that port values match everywhere
+		// (1) -- nothing to do, just check that port values match everywhere
 		//
 		if (port == listening_port)
 		{
 			debug_assert (port == node.network.port);
 			debug_assert (port == node.network.endpoint ().port ());
 		}
-		// (4) -- OS port choice happened at TCP socket bind time, so propagate this port value back;
+		// (2) -- OS port choice happened at TCP socket bind time, so propagate this port value back;
 		// the propagation is done here for the `tcp_listener` itself, whereas for `network`, the node does it
 		// after calling `tcp_listener.start ()`
 		//

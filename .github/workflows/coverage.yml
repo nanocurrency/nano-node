@@ -16,7 +16,6 @@ jobs:
     env:
       LCOV: 1
       COMPILER: gcc
-      BOOST_ROOT: /tmp/boost
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -33,7 +32,6 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -yqq build-essential g++ wget python zlib1g-dev qt5-default \
           valgrind xorg xvfb xauth xfonts-100dpi xfonts-75dpi xfonts-scalable xfonts-cyrillic ocl-icd-opencl-dev \
           git lcov python3-pip
-          util/build_prep/fetch_boost.sh
           wget -O cmake_install.sh https://github.com/Kitware/CMake/releases/download/v3.15.4/cmake-3.15.4-Linux-x86_64.sh
           chmod +x cmake_install.sh
           sudo ./cmake_install.sh --prefix=/usr --exclude-subdir --skip-license

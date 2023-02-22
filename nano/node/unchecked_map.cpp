@@ -1,11 +1,14 @@
 #include <nano/lib/locks.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/stats_enums.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/secure/store.hpp>
 
-nano::unchecked_map::unchecked_map (nano::store & store, bool const & disable_delete) :
+nano::unchecked_map::unchecked_map (nano::store & store, nano::stats & stats, bool const & disable_delete) :
 	store{ store },
+	stats{ stats },
 	disable_delete{ disable_delete },
 	thread{ [this] () { run (); } }
 {
@@ -22,6 +25,7 @@ void nano::unchecked_map::put (nano::hash_or_account const & dependency, nano::u
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	buffer.push_back (std::make_pair (dependency, info));
 	lock.unlock ();
+	stats.inc (nano::stat::type::unchecked, nano::stat::detail::put);
 	condition.notify_all (); // Notify run ()
 }
 
@@ -151,6 +155,7 @@ void nano::unchecked_map::trigger (nano::hash_or_account const & dependency)
 	buffer.push_back (dependency);
 	debug_assert (buffer.back ().which () == 1); // which stands for "query".
 	lock.unlock ();
+	stats.inc (nano::stat::type::unchecked, nano::stat::detail::trigger);
 	condition.notify_all (); // Notify run ()
 }
 
@@ -247,6 +252,7 @@ void nano::unchecked_map::query_impl (nano::write_transaction const & transactio
 	std::deque<nano::unchecked_key> delete_queue;
 	for_each (transaction, hash, [this, &delete_queue] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 		delete_queue.push_back (key);
+		stats.inc (nano::stat::type::unchecked, nano::stat::detail::satisfied);
 		satisfied (info);
 	});
 	if (!disable_delete)

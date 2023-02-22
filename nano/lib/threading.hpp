@@ -81,14 +81,18 @@ namespace thread_attributes
 class thread_runner final
 {
 public:
-	thread_runner (boost::asio::io_context &, unsigned);
+	thread_runner (boost::asio::io_context &, unsigned num_threads);
 	~thread_runner ();
+
 	/** Tells the IO context to stop processing events.*/
 	void stop_event_processing ();
 	/** Wait for IO threads to complete */
 	void join ();
 	std::vector<boost::thread> threads;
 	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> io_guard;
+
+private:
+	void run (boost::asio::io_context &);
 };
 
 /* Default memory order of normal std::atomic operations is std::memory_order_seq_cst which provides

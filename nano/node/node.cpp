@@ -159,7 +159,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	logger (config_a.logging.min_time_between_log_output),
 	store_impl (nano::make_store (logger, application_path_a, network_params.ledger, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade)),
 	store (*store_impl),
-	unchecked{ store, flags.disable_block_processor_unchecked_deletion },
+	unchecked{ store, stats, flags.disable_block_processor_unchecked_deletion },
 	wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
 	wallets_store (*wallets_store_impl),
 	gap_cache (*this),
@@ -322,14 +322,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			}
 		});
 		observers.endpoint.add ([this] (std::shared_ptr<nano::transport::channel> const & channel_a) {
-			if (channel_a->get_type () == nano::transport::transport_type::udp)
-			{
-				this->network.send_keepalive (channel_a);
-			}
-			else
-			{
-				this->network.send_keepalive_self (channel_a);
-			}
+			this->network.send_keepalive_self (channel_a);
 		});
 		observers.vote.add ([this] (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, nano::vote_code code_a) {
 			debug_assert (code_a != nano::vote_code::invalid);
@@ -661,7 +654,7 @@ void nano::node::start ()
 		tcp_listener.start ();
 		tcp_enabled = true;
 
-		if (flags.disable_udp && network.port != tcp_listener.port)
+		if (network.port != tcp_listener.port)
 		{
 			network.port = tcp_listener.port;
 		}
@@ -685,8 +678,8 @@ void nano::node::start ()
 			this_l->bootstrap_wallet ();
 		});
 	}
-	// Start port mapping if external address is not defined and TCP or UDP ports are enabled
-	if (config.external_address == boost::asio::ip::address_v6{}.any ().to_string () && (tcp_enabled || !flags.disable_udp))
+	// Start port mapping if external address is not defined and TCP ports are enabled
+	if (config.external_address == boost::asio::ip::address_v6::any ().to_string () && tcp_enabled)
 	{
 		port_mapping.start ();
 	}
@@ -898,8 +891,7 @@ void nano::node::ongoing_bootstrap ()
 
 void nano::node::ongoing_peer_store ()
 {
-	const bool stored (network.tcp_channels.store_all (true));
-	network.udp_channels.store_all (!stored);
+	const bool stored{ network.tcp_channels.store_all (true) };
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
 	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.network.peer_dump_interval, [node_w] () {
 		if (auto node_l = node_w.lock ())

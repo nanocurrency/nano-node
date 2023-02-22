@@ -16,15 +16,17 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
+class stats;
 class store;
 class transaction;
 class unchecked_info;
 class unchecked_key;
 class write_transaction;
+
 class unchecked_map
 {
 public:
-	unchecked_map (nano::store & store, bool const & do_delete);
+	unchecked_map (nano::store &, nano::stats &, bool const & do_delete);
 	~unchecked_map ();
 
 	void put (nano::hash_or_account const & dependency, nano::unchecked_info const & info);
@@ -62,6 +64,9 @@ private:
 	void insert_impl (nano::write_transaction const & transaction, nano::hash_or_account const & dependency, nano::unchecked_info const & info);
 	void query_impl (nano::write_transaction const & transaction, nano::block_hash const & hash);
 	nano::store & store;
+	nano::stats & stats;
+
+private:
 	bool const & disable_delete;
 	std::deque<boost::variant<insert, query>> buffer;
 	std::deque<boost::variant<insert, query>> back_buffer;
