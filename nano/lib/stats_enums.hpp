@@ -36,6 +36,7 @@ enum class type : uint8_t
 	bootstrap_server,
 	active,
 	backlog,
+	unchecked,
 
 	_last // Must be the last enum
 };
@@ -256,6 +257,11 @@ enum class detail : uint8_t
 
 	// backlog
 	activated,
+
+	// unchecked
+	put,
+	satisfied,
+	trigger,
 
 	_last // Must be the last enum
 };

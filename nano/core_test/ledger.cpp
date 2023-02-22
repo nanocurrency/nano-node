@@ -5535,12 +5535,13 @@ TEST (ledger, hash_root_random)
 
 TEST (ledger, migrate_lmdb_to_rocksdb)
 {
+	nano::test::system system{};
 	auto path = nano::unique_path ();
 	nano::logger_mt logger{};
 	boost::asio::ip::address_v6 address (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"));
 	uint16_t port = 100;
 	nano::lmdb::store store{ logger, path / "data.ldb", nano::dev::constants };
-	nano::unchecked_map unchecked{ store, false };
+	nano::unchecked_map unchecked{ store, system.stats, false };
 	nano::stats stats{};
 	nano::ledger ledger{ store, stats, nano::dev::constants };
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -5582,7 +5583,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	ASSERT_FALSE (error);
 
 	nano::rocksdb::store rocksdb_store{ logger, path / "rocksdb", nano::dev::constants };
-	nano::unchecked_map rocksdb_unchecked{ rocksdb_store, false };
+	nano::unchecked_map rocksdb_unchecked{ rocksdb_store, system.stats, false };
 	auto rocksdb_transaction (rocksdb_store.tx_begin_read ());
 
 	nano::pending_info pending_info{};
