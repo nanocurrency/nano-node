@@ -304,7 +304,7 @@ public:
 	std::chrono::milliseconds telemetry_cache_cutoff{ 1000 * 130 }; // 2 * `telemetry_broadcast_interval` + some margin
 
 	/** How much to delay activation of optimistic elections to avoid interfering with election scheduler */
-	std::chrono::seconds optimistic_activation_delay{ 5 };
+	std::chrono::seconds optimistic_activation_delay{ 30 };
 
 	/** Returns the network this object contains values for */
 	nano::networks network () const

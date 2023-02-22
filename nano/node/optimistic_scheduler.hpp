@@ -39,7 +39,7 @@ public:
 	std::size_t gap_threshold{ 32 };
 
 	/** Maximum number of candidates stored in memory */
-	std::size_t max_size{ 1024 * 16 };
+	std::size_t max_size{ 1024 * 64 };
 };
 
 class optimistic_scheduler final
