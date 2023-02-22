@@ -19,6 +19,8 @@ nano::active_transactions::active_transactions (nano::node & node_a, nano::confi
 	recently_cemented{ node.config.confirmation_history_size },
 	election_time_to_live{ node_a.network_params.network.is_dev_network () ? 0s : 2s }
 {
+	count_by_behavior.fill (0); // Zero initialize array
+
 	// Register a callback which will get called after a block is cemented
 	confirmation_height_processor.add_cemented_observer ([this] (std::shared_ptr<nano::block> const & callback_block_a) {
 		this->block_cemented_callback (callback_block_a);
@@ -208,7 +210,8 @@ int64_t nano::active_transactions::vacancy (nano::election_behavior behavior) co
 		case nano::election_behavior::normal:
 			return limit () - static_cast<int64_t> (roots.size ());
 		case nano::election_behavior::hinted:
-			return limit (nano::election_behavior::hinted) - active_hinted_elections_count;;
+			return limit (nano::election_behavior::hinted) - count_by_behavior[nano::election_behavior::hinted];
+			;
 	}
 	debug_assert (false); // Unknown enum
 	return 0;
@@ -261,10 +264,9 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 	debug_assert (lock_a.owns_lock ());
 
 	node.stats.inc (completion_type (*election), nano::to_stat_detail (election->behavior ()));
-	if (election->behavior () == election_behavior::hinted)
-	{
-		--active_hinted_elections_count;
-	}
+	// Keep track of election count by election type
+	debug_assert (count_by_behavior[election->behavior ()] > 0);
+	count_by_behavior[election->behavior ()]--;
 
 	auto blocks_l = election->blocks ();
 	for (auto const & [hash, block] : blocks_l)
@@ -387,11 +389,10 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				election_behavior_a);
 				roots.get<tag_root> ().emplace (nano::active_transactions::conflict_info{ root, result.election });
 				blocks.emplace (hash, result.election);
-				// Increase hinted election counter while still holding lock
-				if (election_behavior_a == election_behavior::hinted)
-				{
-					active_hinted_elections_count++;
-				}
+				// Keep track of election count by election type
+				debug_assert (count_by_behavior[result.election->behavior ()] >= 0);
+				count_by_behavior[result.election->behavior ()]++;
+
 				lock_a.unlock ();
 				if (auto const cache = node.inactive_vote_cache.find (hash); cache)
 				{
@@ -667,22 +668,14 @@ void nano::active_transactions::clear ()
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (active_transactions & active_transactions, std::string const & name)
 {
-	std::size_t roots_count;
-	std::size_t blocks_count;
-	std::size_t hinted_count;
-
-	{
-		nano::lock_guard<nano::mutex> guard{ active_transactions.mutex };
-		roots_count = active_transactions.roots.size ();
-		blocks_count = active_transactions.blocks.size ();
-		hinted_count = active_transactions.active_hinted_elections_count;
-	}
+	nano::lock_guard<nano::mutex> guard{ active_transactions.mutex };
 
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "roots", roots_count, sizeof (decltype (active_transactions.roots)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (active_transactions.blocks)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "roots", active_transactions.roots.size (), sizeof (decltype (active_transactions.roots)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", active_transactions.blocks.size (), sizeof (decltype (active_transactions.blocks)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "election_winner_details", active_transactions.election_winner_details_size (), sizeof (decltype (active_transactions.election_winner_details)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "hinted", hinted_count, 0 }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "normal", static_cast<std::size_t> (active_transactions.count_by_behavior[nano::election_behavior::normal]), 0 }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "hinted", static_cast<std::size_t> (active_transactions.count_by_behavior[nano::election_behavior::hinted]), 0 }));
 
 	composite->add_component (active_transactions.recently_confirmed.collect_container_info ("recently_confirmed"));
 	composite->add_component (active_transactions.recently_cemented.collect_container_info ("recently_cemented"));

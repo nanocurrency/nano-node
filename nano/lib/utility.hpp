@@ -11,6 +11,8 @@
 #include <mutex>
 #include <vector>
 
+#include <magic_enum_containers.hpp>
+
 namespace boost
 {
 namespace filesystem
@@ -57,6 +59,12 @@ void assert_internal (char const * check_expr, char const * func, char const * f
 
 namespace nano
 {
+/**
+ * Array indexable by enum values
+ */
+template <typename Index, typename Value>
+using enum_array = magic_enum::containers::array<Index, Value>;
+
 /* These containers are used to collect information about sequence containers.
  * It makes use of the composite design pattern to collect information
  * from sequence containers and sequence containers inside member variables.
