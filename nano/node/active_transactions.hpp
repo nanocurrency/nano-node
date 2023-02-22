@@ -202,6 +202,7 @@ private:
 	void erase (nano::qualified_root const &);
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void cleanup_election (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::election>);
+	nano::stat::type completion_type (nano::election const & election) const;
 	// Returns a list of elections sorted by difficulty, mutex must be locked
 	std::vector<std::shared_ptr<nano::election>> list_active_impl (std::size_t) const;
 	/**
