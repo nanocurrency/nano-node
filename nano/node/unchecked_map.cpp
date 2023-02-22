@@ -263,4 +263,3 @@ void nano::unchecked_map::query_impl (nano::write_transaction const & transactio
 		}
 	}
 }
-
