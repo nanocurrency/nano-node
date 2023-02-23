@@ -38,8 +38,10 @@ enum class type : uint8_t
 	active_started,
 	active_confirmed,
 	active_dropped,
+	active_timeout,
 	backlog,
 	unchecked,
+	election_scheduler,
 	optimistic_scheduler,
 
 	_last // Must be the last enum
@@ -145,18 +147,10 @@ enum class detail : uint8_t
 	vote_cached,
 	late_block,
 	late_block_seconds,
-	election_start,
-	election_confirmed_all,
 	election_block_conflict,
-	election_difficulty_update,
-	election_drop_expired,
-	election_drop_overflow,
-	election_drop_all,
 	election_restart,
-	election_confirmed,
 	election_not_confirmed,
 	election_hinted_overflow,
-	election_hinted_started,
 	election_hinted_confirmed,
 	election_hinted_drop,
 	generate_vote,
@@ -272,6 +266,12 @@ enum class detail : uint8_t
 	put,
 	satisfied,
 	trigger,
+
+	// election scheduler
+	insert_manual,
+	insert_priority,
+	insert_priority_success,
+	erase_oldest,
 
 	_last // Must be the last enum
 };

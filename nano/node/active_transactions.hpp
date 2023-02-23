@@ -149,7 +149,6 @@ public:
 	 * Starts new election with a specified behavior type
 	 */
 	nano::election_insertion_result insert (std::shared_ptr<nano::block> const & block, nano::election_behavior behavior = nano::election_behavior::normal);
-
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
 	nano::vote_code vote (std::shared_ptr<nano::vote> const &);
 	// Is the root of this block in the roots container
@@ -182,7 +181,6 @@ public:
 	 * How many election slots are available for specified election type
 	 */
 	int64_t vacancy (nano::election_behavior behavior = nano::election_behavior::normal) const;
-
 	std::function<void ()> vacancy_update{ [] () {} };
 
 	std::size_t election_winner_details_size ();
@@ -197,6 +195,7 @@ private:
 	void erase (nano::qualified_root const &);
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void cleanup_election (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::election>);
+	nano::stat::type completion_type (nano::election const & election) const;
 	// Returns a list of elections sorted by difficulty, mutex must be locked
 	std::vector<std::shared_ptr<nano::election>> list_active_impl (std::size_t) const;
 	/**

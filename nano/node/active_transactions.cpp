@@ -213,17 +213,12 @@ int64_t nano::active_transactions::vacancy (nano::election_behavior behavior) co
 	switch (behavior)
 	{
 		case nano::election_behavior::normal:
-		{
 			return limit () - static_cast<int64_t> (roots.size ());
-		}
 		case nano::election_behavior::hinted:
 		case nano::election_behavior::optimistic:
-		{
-			return limit (behavior) - count_by_behavior[behavior];
-		}
+			return limit (nano::election_behavior::hinted) - count_by_behavior[nano::election_behavior::hinted];
 	}
-
-	debug_assert (false, "unknown election behavior");
+	debug_assert (false); // Unknown enum
 	return 0;
 }
 
@@ -256,11 +251,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 
 		if (election_l->transition_time (solicitor))
 		{
-			// Locks active mutex, cleans up the election and erases it from the main container
-			if (!confirmed_l)
-			{
-				node.stats.inc (nano::stat::type::active, nano::stat::detail::election_drop_expired);
-			}
 			erase (election_l->qualified_root);
 		}
 	}
@@ -279,8 +269,7 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 	debug_assert (!mutex.try_lock ());
 	debug_assert (lock_a.owns_lock ());
 
-	node.stats.inc (election->confirmed () ? nano::stat::type::active_confirmed : nano::stat::type::active_dropped, nano::to_stat_detail (election->behavior ()));
-
+	node.stats.inc (completion_type (*election), nano::to_stat_detail (election->behavior ()));
 	// Keep track of election count by election type
 	debug_assert (count_by_behavior[election->behavior ()] > 0);
 	count_by_behavior[election->behavior ()]--;
@@ -314,11 +303,23 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 		}
 	}
 
-	node.stats.inc (nano::stat::type::active, election->confirmed () ? nano::stat::detail::election_confirmed : nano::stat::detail::election_not_confirmed);
 	if (node.config.logging.election_result_logging ())
 	{
 		node.logger.try_log (boost::str (boost::format ("Election erased for root %1%, confirmed: %2$b") % election->qualified_root.to_string () % election->confirmed ()));
 	}
+}
+
+nano::stat::type nano::active_transactions::completion_type (nano::election const & election) const
+{
+	if (election.confirmed ())
+	{
+		return nano::stat::type::active_confirmed;
+	}
+	if (election.failed ())
+	{
+		return nano::stat::type::active_timeout;
+	}
+	return nano::stat::type::active_dropped;
 }
 
 std::vector<std::shared_ptr<nano::election>> nano::active_transactions::list_active (std::size_t max_a)
@@ -370,10 +371,6 @@ nano::election_insertion_result nano::active_transactions::insert (const std::sh
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	auto result = insert_impl (lock, block, behavior);
-	if (result.inserted)
-	{
-		node.stats.inc (nano::stat::type::active_started, nano::to_stat_detail (behavior));
-	}
 	return result;
 }
 
@@ -402,7 +399,6 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				election_behavior_a);
 				roots.get<tag_root> ().emplace (nano::active_transactions::conflict_info{ root, result.election });
 				blocks.emplace (hash, result.election);
-
 				// Keep track of election count by election type
 				debug_assert (count_by_behavior[result.election->behavior ()] >= 0);
 				count_by_behavior[result.election->behavior ()]++;
@@ -413,8 +409,8 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				{
 					cache->fill (result.election);
 				}
+				node.stats.inc (nano::stat::type::active_started, nano::to_stat_detail (election_behavior_a));
 				node.observers.active_started.notify (hash);
-				node.stats.inc (nano::stat::type::active, nano::stat::detail::election_start);
 				vacancy_update ();
 			}
 		}
@@ -573,7 +569,6 @@ void nano::active_transactions::erase_oldest ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	if (!roots.empty ())
 	{
-		node.stats.inc (nano::stat::type::active, nano::stat::detail::election_drop_overflow);
 		auto item = roots.get<tag_sequenced> ().front ();
 		cleanup_election (lock, item.election);
 	}
