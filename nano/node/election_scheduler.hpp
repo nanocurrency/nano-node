@@ -19,7 +19,7 @@ class node;
 class election_scheduler final
 {
 public:
-	election_scheduler (nano::node &);
+	election_scheduler (nano::node &, nano::stats &);
 	~election_scheduler ();
 
 	void start ();
@@ -43,6 +43,7 @@ public:
 
 private: // Dependencies
 	nano::node & node;
+	nano::stats & stats;
 
 private:
 	void run ();
