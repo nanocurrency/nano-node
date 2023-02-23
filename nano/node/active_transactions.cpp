@@ -216,7 +216,7 @@ int64_t nano::active_transactions::vacancy (nano::election_behavior behavior) co
 			return limit () - static_cast<int64_t> (roots.size ());
 		case nano::election_behavior::hinted:
 		case nano::election_behavior::optimistic:
-			return limit (nano::election_behavior::hinted) - count_by_behavior[nano::election_behavior::hinted];
+			return limit (behavior) - count_by_behavior[behavior];
 	}
 	debug_assert (false); // Unknown enum
 	return 0;
@@ -285,9 +285,7 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 	roots.get<tag_root> ().erase (roots.get<tag_root> ().find (election->qualified_root));
 
 	lock_a.unlock ();
-
 	vacancy_update ();
-
 	for (auto const & [hash, block] : blocks_l)
 	{
 		// Notify observers about dropped elections & blocks lost confirmed elections
@@ -379,7 +377,6 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 	debug_assert (!mutex.try_lock ());
 	debug_assert (lock_a.owns_lock ());
 	debug_assert (block_a->has_sideband ());
-
 	nano::election_insertion_result result;
 	if (!stopped)
 	{
@@ -404,7 +401,6 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				count_by_behavior[result.election->behavior ()]++;
 
 				lock_a.unlock ();
-
 				if (auto const cache = node.inactive_vote_cache.find (hash); cache)
 				{
 					cache->fill (result.election);
