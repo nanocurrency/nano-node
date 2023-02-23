@@ -1518,9 +1518,9 @@ TEST (active_transactions, allow_limited_overflow)
 	}
 
 	// Ensure active elections overfill AEC only up to normal + hinted limit
-	ASSERT_TIMELY_EQ (5s, node.active.size (), node.active.limit () + node.active.hinted_limit ());
+	ASSERT_TIMELY_EQ (5s, node.active.size (), node.active.limit () + node.active.limit (nano::election_behavior::hinted));
 	// And it stays that way without increasing
-	ASSERT_ALWAYS (1s, node.active.size () == node.active.limit () + node.active.hinted_limit ());
+	ASSERT_ALWAYS (1s, node.active.size () == node.active.limit () + node.active.limit (nano::election_behavior::hinted));
 }
 
 /*
@@ -1556,9 +1556,9 @@ TEST (active_transactions, allow_limited_overflow_adapt)
 	}
 
 	// Ensure hinted election amount is bounded by hinted limit
-	ASSERT_TIMELY_EQ (5s, node.active.size (), node.active.hinted_limit ());
+	ASSERT_TIMELY_EQ (5s, node.active.size (), node.active.limit (nano::election_behavior::hinted));
 	// And it stays that way without increasing
-	ASSERT_ALWAYS (1s, node.active.size () == node.active.hinted_limit ());
+	ASSERT_ALWAYS (1s, node.active.size () == node.active.limit (nano::election_behavior::hinted));
 
 	// Insert the first part of the blocks into normal election scheduler
 	for (auto const & block : blocks1)
