@@ -156,7 +156,6 @@ void nano::election_scheduler::run ()
 				auto block = priority.top ();
 				priority.pop ();
 				lock.unlock ();
-				std::shared_ptr<nano::election> election;
 				stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_priority);
 				auto result = node.active.insert (block);
 				if (result.inserted)

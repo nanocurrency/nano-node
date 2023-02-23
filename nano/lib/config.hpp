@@ -251,6 +251,7 @@ public:
 			telemetry_cache_cutoff = 2000ms;
 			telemetry_request_interval = 500ms;
 			telemetry_broadcast_interval = 500ms;
+			optimistic_activation_delay = 2s;
 		}
 	}
 
@@ -301,6 +302,9 @@ public:
 	std::chrono::milliseconds telemetry_broadcast_interval{ 1000 * 60 };
 	/** Telemetry data older than this value is considered stale */
 	std::chrono::milliseconds telemetry_cache_cutoff{ 1000 * 130 }; // 2 * `telemetry_broadcast_interval` + some margin
+
+	/** How much to delay activation of optimistic elections to avoid interfering with election scheduler */
+	std::chrono::seconds optimistic_activation_delay{ 30 };
 
 	/** Returns the network this object contains values for */
 	nano::networks network () const

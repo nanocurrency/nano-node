@@ -22,6 +22,7 @@
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
+#include <nano/node/optimistic_scheduler.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/request_aggregator.hpp>
@@ -181,6 +182,7 @@ public:
 	nano::vote_generator generator;
 	nano::vote_generator final_generator;
 	nano::active_transactions active;
+	nano::optimistic_scheduler optimistic;
 	nano::election_scheduler scheduler;
 	nano::hinted_scheduler hinting;
 	nano::request_aggregator aggregator;

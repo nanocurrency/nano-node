@@ -124,9 +124,23 @@ bool nano::election::state_change (nano::election::state_t expected_a, nano::ele
 	return result;
 }
 
+std::chrono::milliseconds nano::election::confirm_req_time () const
+{
+	switch (behavior ())
+	{
+		case election_behavior::normal:
+		case election_behavior::hinted:
+			return base_latency () * 5;
+		case election_behavior::optimistic:
+			return base_latency () * 2;
+	}
+	debug_assert (false);
+	return {};
+}
+
 void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_a)
 {
-	if ((base_latency () * 5) < (std::chrono::steady_clock::now () - last_req))
+	if (confirm_req_time () < (std::chrono::steady_clock::now () - last_req))
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		if (!solicitor_a.add (*this))
@@ -225,8 +239,10 @@ std::chrono::milliseconds nano::election::time_to_live () const
 		case election_behavior::normal:
 			return std::chrono::milliseconds (5 * 60 * 1000);
 		case election_behavior::hinted:
+		case election_behavior::optimistic:
 			return std::chrono::milliseconds (30 * 1000);
 	}
+	debug_assert (false);
 	return {};
 }
 
@@ -645,6 +661,10 @@ nano::stat::detail nano::to_stat_detail (nano::election_behavior behavior)
 		case nano::election_behavior::hinted:
 		{
 			return nano::stat::detail::hinted;
+		}
+		case nano::election_behavior::optimistic:
+		{
+			return nano::stat::detail::optimistic;
 		}
 	}
 

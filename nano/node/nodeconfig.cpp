@@ -194,6 +194,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	lmdb_config.serialize_toml (lmdb_l);
 	toml.put_child ("lmdb", lmdb_l);
 
+	nano::tomlconfig optimistic_l;
+	optimistic_scheduler.serialize (optimistic_l);
+	toml.put_child ("optimistic_scheduler", optimistic_l);
+
 	return toml.get_error ();
 }
 
@@ -243,6 +247,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto rocksdb_config_l (toml.get_required_child ("rocksdb"));
 			rocksdb_config.deserialize_toml (rocksdb_config_l);
+		}
+
+		if (toml.has_key ("optimistic_scheduler"))
+		{
+			auto config_l = toml.get_required_child ("optimistic_scheduler");
+			optimistic_scheduler.deserialize (config_l);
 		}
 
 		if (toml.has_key ("work_peers"))

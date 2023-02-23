@@ -428,6 +428,7 @@ TEST (active_transactions, inactive_votes_cache_election_start)
 	nano::test::system system;
 	nano::node_config node_config (nano::test::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.optimistic_scheduler.enabled = false;
 	auto & node = *system.add_node (node_config);
 	nano::block_hash latest (node.latest (nano::dev::genesis_key.pub));
 	nano::keypair key1, key2;
@@ -1418,6 +1419,7 @@ TEST (active_transactions, limit_vote_hinted_elections)
 	nano::node_config config = system.default_config ();
 	const int aec_limit = 10;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config.optimistic_scheduler.enabled = false;
 	config.active_elections_size = aec_limit;
 	config.active_elections_hinted_limit_percentage = 10; // Should give us a limit of 1 hinted election
 	auto & node = *system.add_node (config);

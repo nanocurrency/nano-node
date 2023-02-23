@@ -196,6 +196,11 @@ int64_t nano::active_transactions::limit (nano::election_behavior behavior) cons
 			const uint64_t limit = node.config.active_elections_hinted_limit_percentage * node.config.active_elections_size / 100;
 			return static_cast<int64_t> (limit);
 		}
+		case nano::election_behavior::optimistic:
+		{
+			const uint64_t limit = node.config.active_elections_optimistic_limit_percentage * node.config.active_elections_size / 100;
+			return static_cast<int64_t> (limit);
+		}
 	}
 
 	debug_assert (false, "unknown election behavior");
@@ -210,8 +215,8 @@ int64_t nano::active_transactions::vacancy (nano::election_behavior behavior) co
 		case nano::election_behavior::normal:
 			return limit () - static_cast<int64_t> (roots.size ());
 		case nano::election_behavior::hinted:
-			return limit (nano::election_behavior::hinted) - count_by_behavior[nano::election_behavior::hinted];
-			;
+		case nano::election_behavior::optimistic:
+			return limit (behavior) - count_by_behavior[behavior];
 	}
 	debug_assert (false); // Unknown enum
 	return 0;
@@ -261,6 +266,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 
 void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::election> election)
 {
+	debug_assert (!mutex.try_lock ());
 	debug_assert (lock_a.owns_lock ());
 
 	node.stats.inc (completion_type (*election), nano::to_stat_detail (election->behavior ()));
@@ -368,6 +374,7 @@ nano::election_insertion_result nano::active_transactions::insert (const std::sh
 
 nano::election_insertion_result nano::active_transactions::insert_impl (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::block> const & block_a, nano::election_behavior election_behavior_a, std::function<void (std::shared_ptr<nano::block> const &)> const & confirmation_action_a)
 {
+	debug_assert (!mutex.try_lock ());
 	debug_assert (lock_a.owns_lock ());
 	debug_assert (block_a->has_sideband ());
 	nano::election_insertion_result result;
@@ -594,7 +601,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> const & bl
 			{
 				cache->fill (election);
 			}
-			node.stats.inc (nano::stat::type::election, nano::stat::detail::election_block_conflict);
+			node.stats.inc (nano::stat::type::active, nano::stat::detail::election_block_conflict);
 		}
 	}
 	return result;
@@ -645,8 +652,6 @@ void nano::active_transactions::add_inactive_vote_cache (nano::block_hash const 
 	if (node.ledger.weight (vote->account) > node.minimum_principal_weight ())
 	{
 		node.inactive_vote_cache.vote (hash, vote);
-
-		node.stats.inc (nano::stat::type::vote_cache, nano::stat::detail::vote_processed);
 	}
 }
 
@@ -676,6 +681,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "election_winner_details", active_transactions.election_winner_details_size (), sizeof (decltype (active_transactions.election_winner_details)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "normal", static_cast<std::size_t> (active_transactions.count_by_behavior[nano::election_behavior::normal]), 0 }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "hinted", static_cast<std::size_t> (active_transactions.count_by_behavior[nano::election_behavior::hinted]), 0 }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "optimistic", static_cast<std::size_t> (active_transactions.count_by_behavior[nano::election_behavior::optimistic]), 0 }));
 
 	composite->add_component (active_transactions.recently_confirmed.collect_container_info ("recently_confirmed"));
 	composite->add_component (active_transactions.recently_cemented.collect_container_info ("recently_cemented"));

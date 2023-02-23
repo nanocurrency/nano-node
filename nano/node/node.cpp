@@ -195,6 +195,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	generator{ config, ledger, wallets, vote_processor, history, network, stats, /* non-final */ false },
 	final_generator{ config, ledger, wallets, vote_processor, history, network, stats, /* final */ true },
 	active (*this, confirmation_height_processor),
+	optimistic{ config.optimistic_scheduler, *this, ledger, active, network_params.network, stats },
 	scheduler{ *this, stats },
 	hinting{ nano::nodeconfig_to_hinted_scheduler_config (config), *this, inactive_vote_cache, active, online_reps, stats },
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
@@ -216,6 +217,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 
 	backlog.activate_callback.add ([this] (nano::transaction const & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info) {
 		scheduler.activate (account, transaction);
+		optimistic.activate (account, account_info, conf_info);
 	});
 
 	if (!init_error ())
@@ -224,6 +226,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 		active.vacancy_update = [this] () {
 			scheduler.notify ();
 			hinting.notify ();
+			optimistic.notify ();
 		};
 
 		wallets.observer = [this] (bool active) {
@@ -684,6 +687,7 @@ void nano::node::start ()
 	active.start ();
 	generator.start ();
 	final_generator.start ();
+	optimistic.start ();
 	scheduler.start ();
 	backlog.start ();
 	hinting.start ();
@@ -711,6 +715,7 @@ void nano::node::stop ()
 	aggregator.stop ();
 	vote_processor.stop ();
 	scheduler.stop ();
+	optimistic.stop ();
 	hinting.stop ();
 	active.stop ();
 	generator.stop ();

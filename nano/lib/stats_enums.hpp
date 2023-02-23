@@ -42,6 +42,7 @@ enum class type : uint8_t
 	backlog,
 	unchecked,
 	election_scheduler,
+	optimistic_scheduler,
 
 	_last // Must be the last enum
 };
@@ -159,6 +160,7 @@ enum class detail : uint8_t
 	// election types
 	normal,
 	hinted,
+	optimistic,
 
 	// received messages
 	invalid_header,
