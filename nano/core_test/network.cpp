@@ -1,7 +1,7 @@
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
-#include <nano/node/socket.hpp>
 #include <nano/node/transport/inproc.hpp>
+#include <nano/node/transport/socket.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>

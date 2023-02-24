@@ -1,7 +1,7 @@
 #include <nano/boost/asio/ip/address_v6.hpp>
 #include <nano/boost/asio/ip/network_v6.hpp>
 #include <nano/lib/threading.hpp>
-#include <nano/node/socket.hpp>
+#include <nano/node/transport/socket.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 

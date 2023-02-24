@@ -2,7 +2,7 @@
 #include <nano/boost/asio/ip/address_v6.hpp>
 #include <nano/boost/asio/read.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/socket.hpp>
+#include <nano/node/transport/socket.hpp>
 #include <nano/node/transport/transport.hpp>
 
 #include <boost/format.hpp>
