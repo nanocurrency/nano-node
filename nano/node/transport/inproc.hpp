@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/transport.hpp>
 
 namespace nano
@@ -8,7 +9,7 @@ namespace transport
 {
 	/**
 	 * In-process transport channel. Mostly useful for unit tests
-	**/
+	 **/
 	namespace inproc
 	{
 		class channel final : public nano::transport::channel
