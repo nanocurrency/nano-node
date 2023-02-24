@@ -1195,7 +1195,7 @@ TEST (confirmation_heightDeathTest, rollback_added_block)
 	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
-		return;
+		GTEST_SKIP();
 	}
 	// For ASSERT_DEATH_IF_SUPPORTED
 	testing::FLAGS_gtest_death_test_style = "threadsafe";
@@ -1287,7 +1287,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
-		return;
+		GTEST_SKIP();
 	}
 	// For ASSERT_DEATH_IF_SUPPORTED
 	testing::FLAGS_gtest_death_test_style = "threadsafe";
@@ -1365,7 +1365,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
-		return;
+		GTEST_SKIP();
 	}
 	// For ASSERT_DEATH_IF_SUPPORTED
 	testing::FLAGS_gtest_death_test_style = "threadsafe";
@@ -2083,7 +2083,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
-		return;
+		GTEST_SKIP();
 	}
 	nano::logger_mt logger;
 	auto path (nano::unique_path ());
