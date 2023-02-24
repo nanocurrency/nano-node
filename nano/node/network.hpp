@@ -35,8 +35,8 @@ private:
 	friend class network_tcp_message_manager_Test;
 };
 /**
-  * Node ID cookies for node ID handshakes
-*/
+ * Node ID cookies for node ID handshakes
+ */
 class syn_cookies final
 {
 public:
@@ -87,7 +87,7 @@ public:
 	void merge_peer (nano::endpoint const &);
 	void send_keepalive (std::shared_ptr<nano::transport::channel> const &);
 	void send_keepalive_self (std::shared_ptr<nano::transport::channel> const &);
-	void send_node_id_handshake (std::shared_ptr<nano::transport::channel> const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
+	void send_node_id_handshake (std::shared_ptr<nano::transport::channel> const &, std::optional<nano::uint256_union> const & cookie, std::optional<nano::uint256_union> const & respond_to);
 	void send_confirm_req (std::shared_ptr<nano::transport::channel> const & channel_a, std::pair<nano::block_hash, nano::block_hash> const & hash_root_a);
 	void broadcast_confirm_req (std::shared_ptr<nano::block> const &);
 	void broadcast_confirm_req_base (std::shared_ptr<nano::block> const &, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>> const &, unsigned, bool = false);

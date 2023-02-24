@@ -347,15 +347,40 @@ public:
 
 class node_id_handshake final : public message
 {
+public: // Payload definitions
+	class query_payload
+	{
+	public:
+		void serialize (nano::stream &) const;
+		void deserialize (nano::stream &);
+
+		static std::size_t constexpr size = sizeof (nano::uint256_union);
+
+	public:
+		nano::uint256_union cookie;
+	};
+
+	class response_payload
+	{
+	public:
+		void serialize (nano::stream &) const;
+		void deserialize (nano::stream &);
+
+		static std::size_t constexpr size = sizeof (nano::account) + sizeof (nano::signature);
+
+	public:
+		nano::account node_id;
+		nano::signature signature;
+	};
+
 public:
+	explicit node_id_handshake (nano::network_constants const &, std::optional<query_payload> query = std::nullopt, std::optional<response_payload> response = std::nullopt);
 	node_id_handshake (bool &, nano::stream &, nano::message_header const &);
-	node_id_handshake (nano::network_constants const & constants, boost::optional<nano::uint256_union>, boost::optional<std::pair<nano::account, nano::signature>>);
+
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
+
 	void visit (nano::message_visitor &) const override;
-	bool operator== (nano::node_id_handshake const &) const;
-	boost::optional<nano::uint256_union> query;
-	boost::optional<std::pair<nano::account, nano::signature>> response;
 	std::size_t size () const;
 	static std::size_t size (nano::message_header const &);
 	std::string to_string () const;
@@ -367,6 +392,9 @@ public: // Header
 	static bool is_query (nano::message_header const &);
 	static bool is_response (nano::message_header const &);
 
+public: // Payload
+	std::optional<query_payload> query;
+	std::optional<response_payload> response;
 };
 
 /**

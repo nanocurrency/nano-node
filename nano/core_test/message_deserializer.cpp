@@ -178,7 +178,7 @@ TEST (message_deserializer, exact_bulk_push)
 
 TEST (message_deserializer, exact_node_id_handshake)
 {
-	nano::node_id_handshake message{ nano::dev::network_params.network, boost::none, boost::none };
+	nano::node_id_handshake message{ nano::dev::network_params.network, std::nullopt, std::nullopt };
 	message_deserializer_success_checker<decltype (message)> (message);
 }
 
