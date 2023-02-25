@@ -24,7 +24,7 @@ namespace transport
 			void send_buffer (
 				nano::shared_const_buffer const &,
 				std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr,
-				nano::buffer_drop_policy = nano::buffer_drop_policy::limiter
+				nano::transport::buffer_drop_policy = nano::transport::buffer_drop_policy::limiter
 			) override;
 			// clang-format on
 

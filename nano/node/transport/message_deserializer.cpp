@@ -11,7 +11,7 @@ nano::transport::message_deserializer::message_deserializer (nano::network_const
 	read_buffer->resize (MAX_MESSAGE_SIZE);
 }
 
-void nano::transport::message_deserializer::read (std::shared_ptr<nano::socket> socket, const nano::transport::message_deserializer::callback_type && callback)
+void nano::transport::message_deserializer::read (std::shared_ptr<nano::transport::socket> socket, const nano::transport::message_deserializer::callback_type && callback)
 {
 	debug_assert (callback);
 
@@ -40,7 +40,7 @@ void nano::transport::message_deserializer::read (std::shared_ptr<nano::socket> 
 	});
 }
 
-void nano::transport::message_deserializer::received_header (std::shared_ptr<nano::socket> socket, const nano::transport::message_deserializer::callback_type && callback)
+void nano::transport::message_deserializer::received_header (std::shared_ptr<nano::transport::socket> socket, const nano::transport::message_deserializer::callback_type && callback)
 {
 	nano::bufferstream stream{ read_buffer->data (), HEADER_SIZE };
 	auto error = false;

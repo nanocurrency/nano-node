@@ -18,7 +18,7 @@ void nano::transport::tcp_listener::start ()
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	on = true;
-	listening_socket = std::make_shared<nano::server_socket> (node, boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port), node.config.tcp_incoming_connections_max);
+	listening_socket = std::make_shared<nano::transport::server_socket> (node, boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port), node.config.tcp_incoming_connections_max);
 	boost::system::error_code ec;
 	listening_socket->start (ec);
 	if (ec)
@@ -50,7 +50,7 @@ void nano::transport::tcp_listener::start ()
 		}
 	}
 
-	listening_socket->on_connection ([this] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
+	listening_socket->on_connection ([this] (std::shared_ptr<nano::transport::socket> const & new_connection, boost::system::error_code const & ec_a) {
 		if (!ec_a)
 		{
 			accept_action (ec_a, new_connection);
@@ -81,7 +81,7 @@ std::size_t nano::transport::tcp_listener::connection_count ()
 	return connections.size ();
 }
 
-void nano::transport::tcp_listener::accept_action (boost::system::error_code const & ec, std::shared_ptr<nano::socket> const & socket_a)
+void nano::transport::tcp_listener::accept_action (boost::system::error_code const & ec, std::shared_ptr<nano::transport::socket> const & socket_a)
 {
 	if (!node.network.excluded_peers.check (socket_a->remote_endpoint ()))
 	{
@@ -121,7 +121,7 @@ std::unique_ptr<nano::container_info_component> nano::transport::collect_contain
 	return composite;
 }
 
-nano::transport::tcp_server::tcp_server (std::shared_ptr<nano::socket> socket_a, std::shared_ptr<nano::node> node_a, bool allow_bootstrap_a) :
+nano::transport::tcp_server::tcp_server (std::shared_ptr<nano::transport::socket> socket_a, std::shared_ptr<nano::node> node_a, bool allow_bootstrap_a) :
 	socket{ std::move (socket_a) },
 	node{ std::move (node_a) },
 	allow_bootstrap{ allow_bootstrap_a },
@@ -137,11 +137,11 @@ nano::transport::tcp_server::~tcp_server ()
 		node->logger.try_log ("Exiting incoming TCP/bootstrap server");
 	}
 
-	if (socket->type () == nano::socket::type_t::bootstrap)
+	if (socket->type () == nano::transport::socket::type_t::bootstrap)
 	{
 		--node->tcp_listener.bootstrap_count;
 	}
-	else if (socket->type () == nano::socket::type_t::realtime)
+	else if (socket->type () == nano::transport::socket::type_t::realtime)
 	{
 		--node->tcp_listener.realtime_count;
 
@@ -570,23 +570,23 @@ bool nano::transport::tcp_server::to_bootstrap_connection ()
 	{
 		return false;
 	}
-	if (socket->type () != nano::socket::type_t::undefined)
+	if (socket->type () != nano::transport::socket::type_t::undefined)
 	{
 		return false;
 	}
 
 	++node->tcp_listener.bootstrap_count;
-	socket->type_set (nano::socket::type_t::bootstrap);
+	socket->type_set (nano::transport::socket::type_t::bootstrap);
 	return true;
 }
 
 bool nano::transport::tcp_server::to_realtime_connection (nano::account const & node_id)
 {
-	if (socket->type () == nano::socket::type_t::undefined && !node->flags.disable_tcp_realtime)
+	if (socket->type () == nano::transport::socket::type_t::undefined && !node->flags.disable_tcp_realtime)
 	{
 		remote_node_id = node_id;
 		++node->tcp_listener.realtime_count;
-		socket->type_set (nano::socket::type_t::realtime);
+		socket->type_set (nano::transport::socket::type_t::realtime);
 		return true;
 	}
 	return false;
@@ -594,7 +594,7 @@ bool nano::transport::tcp_server::to_realtime_connection (nano::account const & 
 
 bool nano::transport::tcp_server::is_undefined_connection () const
 {
-	return socket->type () == nano::socket::type_t::undefined;
+	return socket->type () == nano::transport::socket::type_t::undefined;
 }
 
 bool nano::transport::tcp_server::is_bootstrap_connection () const

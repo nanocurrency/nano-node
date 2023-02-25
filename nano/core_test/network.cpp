@@ -1,7 +1,7 @@
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
-#include <nano/node/socket.hpp>
 #include <nano/node/transport/inproc.hpp>
+#include <nano/node/transport/socket.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -177,8 +177,8 @@ TEST (network, last_contacted)
 
 	{
 		// check that the endpoints are part of the same connection
-		std::shared_ptr<nano::socket> sock0 = channel0->socket.lock ();
-		std::shared_ptr<nano::socket> sock1 = channel1->socket.lock ();
+		std::shared_ptr<nano::transport::socket> sock0 = channel0->socket.lock ();
+		std::shared_ptr<nano::transport::socket> sock1 = channel1->socket.lock ();
 		ASSERT_TRUE (sock0->local_endpoint () == sock1->remote_endpoint ());
 		ASSERT_TRUE (sock1->local_endpoint () == sock0->remote_endpoint ());
 	}
@@ -703,7 +703,7 @@ TEST (node, port_mapping)
 TEST (tcp_listener, tcp_node_id_handshake)
 {
 	nano::test::system system (1);
-	auto socket (std::make_shared<nano::client_socket> (*system.nodes[0]));
+	auto socket (std::make_shared<nano::transport::client_socket> (*system.nodes[0]));
 	auto bootstrap_endpoint (system.nodes[0]->tcp_listener.endpoint ());
 	auto cookie (system.nodes[0]->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (bootstrap_endpoint)));
 	nano::node_id_handshake node_id_handshake{ nano::dev::network_params.network, cookie, boost::none };
@@ -739,7 +739,7 @@ TEST (tcp_listener, DISABLED_tcp_listener_timeout_empty)
 {
 	nano::test::system system (1);
 	auto node0 (system.nodes[0]);
-	auto socket (std::make_shared<nano::client_socket> (*node0));
+	auto socket (std::make_shared<nano::transport::client_socket> (*node0));
 	std::atomic<bool> connected (false);
 	socket->async_connect (node0->tcp_listener.endpoint (), [&connected] (boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
@@ -762,7 +762,7 @@ TEST (tcp_listener, tcp_listener_timeout_node_id_handshake)
 {
 	nano::test::system system (1);
 	auto node0 (system.nodes[0]);
-	auto socket (std::make_shared<nano::client_socket> (*node0));
+	auto socket (std::make_shared<nano::transport::client_socket> (*node0));
 	auto cookie (node0->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (node0->tcp_listener.endpoint ())));
 	nano::node_id_handshake node_id_handshake{ nano::dev::network_params.network, cookie, boost::none };
 	auto channel = std::make_shared<nano::transport::channel_tcp> (*node0, socket);
@@ -919,7 +919,7 @@ TEST (network, bandwidth_limiter)
 	ASSERT_TIMELY (1s, 1 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
 
 	// Send non-droppable message, i.e. drop stats should not increase
-	channel2.send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
+	channel2.send (message, nullptr, nano::transport::buffer_drop_policy::no_limiter_drop);
 	ASSERT_TIMELY (1s, 1 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
 
 	// change the bandwidth settings, 2 packets will be dropped
@@ -1195,11 +1195,11 @@ TEST (network, purge_dead_channel_outgoing)
 	auto & node1 = *system.add_node (flags);
 
 	// We expect one incoming and one outgoing connection
-	std::shared_ptr<nano::socket> outgoing;
-	std::shared_ptr<nano::socket> incoming;
+	std::shared_ptr<nano::transport::socket> outgoing;
+	std::shared_ptr<nano::transport::socket> incoming;
 
 	std::atomic<int> connected_count{ 0 };
-	node1.observers.socket_connected.add ([&] (nano::socket & socket) {
+	node1.observers.socket_connected.add ([&] (nano::transport::socket & socket) {
 		connected_count++;
 		outgoing = socket.shared_from_this ();
 
@@ -1207,7 +1207,7 @@ TEST (network, purge_dead_channel_outgoing)
 	});
 
 	std::atomic<int> accepted_count{ 0 };
-	node1.observers.socket_accepted.add ([&] (nano::socket & socket) {
+	node1.observers.socket_accepted.add ([&] (nano::transport::socket & socket) {
 		accepted_count++;
 		incoming = socket.shared_from_this ();
 
@@ -1267,11 +1267,11 @@ TEST (network, purge_dead_channel_incoming)
 	auto & node1 = *system.add_node (flags);
 
 	// We expect one incoming and one outgoing connection
-	std::shared_ptr<nano::socket> outgoing;
-	std::shared_ptr<nano::socket> incoming;
+	std::shared_ptr<nano::transport::socket> outgoing;
+	std::shared_ptr<nano::transport::socket> incoming;
 
 	std::atomic<int> connected_count{ 0 };
-	node1.observers.socket_connected.add ([&] (nano::socket & socket) {
+	node1.observers.socket_connected.add ([&] (nano::transport::socket & socket) {
 		connected_count++;
 		outgoing = socket.shared_from_this ();
 
@@ -1279,7 +1279,7 @@ TEST (network, purge_dead_channel_incoming)
 	});
 
 	std::atomic<int> accepted_count{ 0 };
-	node1.observers.socket_accepted.add ([&] (nano::socket & socket) {
+	node1.observers.socket_accepted.add ([&] (nano::transport::socket & socket) {
 		accepted_count++;
 		incoming = socket.shared_from_this ();
 

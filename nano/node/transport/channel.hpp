@@ -5,7 +5,7 @@
 #include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/messages.hpp>
-#include <nano/node/socket.hpp>
+#include <nano/node/transport/socket.hpp>
 
 #include <boost/asio/ip/network_v6.hpp>
 
@@ -27,10 +27,10 @@ public:
 
 	virtual std::size_t hash_code () const = 0;
 	virtual bool operator== (nano::transport::channel const &) const = 0;
-	void send (nano::message & message_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a = nullptr, nano::buffer_drop_policy policy_a = nano::buffer_drop_policy::limiter, nano::bandwidth_limit_type = nano::bandwidth_limit_type::standard);
+	void send (nano::message & message_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a = nullptr, nano::transport::buffer_drop_policy policy_a = nano::transport::buffer_drop_policy::limiter, nano::bandwidth_limit_type = nano::bandwidth_limit_type::standard);
 	// TODO: investigate clang-tidy warning about default parameters on virtual/override functions
 	//
-	virtual void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) = 0;
+	virtual void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr, nano::transport::buffer_drop_policy = nano::transport::buffer_drop_policy::limiter) = 0;
 	virtual std::string to_string () const = 0;
 	virtual nano::endpoint get_endpoint () const = 0;
 	virtual nano::tcp_endpoint get_tcp_endpoint () const = 0;

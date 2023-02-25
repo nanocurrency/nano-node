@@ -34,7 +34,7 @@ void nano::bulk_push_client::start ()
 			}
 		}
 	},
-	nano::buffer_drop_policy::no_limiter_drop);
+	nano::transport::buffer_drop_policy::no_limiter_drop);
 }
 
 void nano::bulk_push_client::push ()
