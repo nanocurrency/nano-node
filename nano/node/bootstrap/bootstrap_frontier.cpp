@@ -38,7 +38,7 @@ void nano::frontier_req_client::run (nano::account const & start_account_a, uint
 			}
 		}
 	},
-	nano::buffer_drop_policy::no_limiter_drop);
+	nano::transport::buffer_drop_policy::no_limiter_drop);
 }
 
 nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt_legacy> const & attempt_a) :

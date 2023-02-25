@@ -96,7 +96,7 @@ void nano::bulk_pull_client::request ()
 			this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_request_failure, nano::stat::dir::in);
 		}
 	},
-	nano::buffer_drop_policy::no_limiter_drop);
+	nano::transport::buffer_drop_policy::no_limiter_drop);
 }
 
 void nano::bulk_pull_client::throttled_receive_block ()
@@ -242,7 +242,7 @@ void nano::bulk_pull_account_client::request ()
 			this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_error_starting_request, nano::stat::dir::in);
 		}
 	},
-	nano::buffer_drop_policy::no_limiter_drop);
+	nano::transport::buffer_drop_policy::no_limiter_drop);
 }
 
 void nano::bulk_pull_account_client::receive_pending ()

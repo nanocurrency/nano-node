@@ -54,10 +54,10 @@ namespace transport
 		 * If message is received successfully, error code won't be set and message will be non-null. `status` field will be set to `success`.
 		 * Should not be called until the previous invocation finishes and calls the callback.
 		 */
-		void read (std::shared_ptr<nano::socket> socket, callback_type const && callback);
+		void read (std::shared_ptr<nano::transport::socket> socket, callback_type const && callback);
 
 	private:
-		void received_header (std::shared_ptr<nano::socket> socket, callback_type const && callback);
+		void received_header (std::shared_ptr<nano::transport::socket> socket, callback_type const && callback);
 		void received_message (nano::message_header header, std::size_t payload_size, callback_type const && callback);
 
 		/*

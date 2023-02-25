@@ -109,7 +109,7 @@ void nano::transport::socket::async_read (std::shared_ptr<std::vector<uint8_t>> 
 	}
 	else
 	{
-		debug_assert (false && "nano::socket::async_read called with incorrect buffer size");
+		debug_assert (false && "nano::transport::socket::async_read called with incorrect buffer size");
 		boost::system::error_code ec_buffer = boost::system::errc::make_error_code (boost::system::errc::no_buffer_space);
 		callback_a (ec_buffer, 0);
 	}

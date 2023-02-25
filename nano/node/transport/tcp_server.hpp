@@ -25,14 +25,14 @@ public:
 	tcp_listener (uint16_t, nano::node &);
 	void start ();
 	void stop ();
-	void accept_action (boost::system::error_code const &, std::shared_ptr<nano::socket> const &);
+	void accept_action (boost::system::error_code const &, std::shared_ptr<nano::transport::socket> const &);
 	std::size_t connection_count ();
 
 	nano::mutex mutex;
 	std::unordered_map<nano::transport::tcp_server *, std::weak_ptr<nano::transport::tcp_server>> connections;
 	nano::tcp_endpoint endpoint ();
 	nano::node & node;
-	std::shared_ptr<nano::server_socket> listening_socket;
+	std::shared_ptr<nano::transport::server_socket> listening_socket;
 	bool on{ false };
 	std::atomic<std::size_t> bootstrap_count{ 0 };
 	std::atomic<std::size_t> realtime_count{ 0 };
@@ -44,7 +44,7 @@ std::unique_ptr<container_info_component> collect_container_info (tcp_listener &
 class tcp_server final : public std::enable_shared_from_this<tcp_server>
 {
 public:
-	tcp_server (std::shared_ptr<nano::socket>, std::shared_ptr<nano::node>, bool allow_bootstrap = true);
+	tcp_server (std::shared_ptr<nano::transport::socket>, std::shared_ptr<nano::node>, bool allow_bootstrap = true);
 	~tcp_server ();
 
 	void start ();
@@ -54,7 +54,7 @@ public:
 
 	void send_handshake_response (nano::uint256_union query);
 
-	std::shared_ptr<nano::socket> const socket;
+	std::shared_ptr<nano::transport::socket> const socket;
 	std::shared_ptr<nano::node> const node;
 	nano::mutex mutex;
 	std::atomic<bool> stopped{ false };

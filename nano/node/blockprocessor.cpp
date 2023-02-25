@@ -313,7 +313,7 @@ void nano::block_processor::process_live (nano::transaction const & transaction_
 	}
 	else if (!node.flags.disable_block_processor_republishing && node.block_arrival.recent (hash_a))
 	{
-		node.network.flood_block (block_a, nano::buffer_drop_policy::limiter);
+		node.network.flood_block (block_a, nano::transport::buffer_drop_policy::limiter);
 	}
 
 	if (node.websocket.server && node.websocket.server->any_subscriber (nano::websocket::topic::new_unconfirmed_block))

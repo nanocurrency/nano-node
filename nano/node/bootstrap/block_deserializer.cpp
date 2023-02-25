@@ -8,7 +8,7 @@ nano::bootstrap::block_deserializer::block_deserializer () :
 {
 }
 
-void nano::bootstrap::block_deserializer::read (nano::socket & socket, callback_type const && callback)
+void nano::bootstrap::block_deserializer::read (nano::transport::socket & socket, callback_type const && callback)
 {
 	debug_assert (callback);
 	read_buffer->resize (1);
@@ -27,7 +27,7 @@ void nano::bootstrap::block_deserializer::read (nano::socket & socket, callback_
 	});
 }
 
-void nano::bootstrap::block_deserializer::received_type (nano::socket & socket, callback_type const && callback)
+void nano::bootstrap::block_deserializer::received_type (nano::transport::socket & socket, callback_type const && callback)
 {
 	nano::block_type type = static_cast<nano::block_type> (read_buffer->data ()[0]);
 	if (type == nano::block_type::not_a_block)

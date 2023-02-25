@@ -23,8 +23,8 @@ public:
 	nano::observer_set<nano::root const &> work_cancel;
 	nano::observer_set<nano::telemetry_data const &, std::shared_ptr<nano::transport::channel> const &> telemetry;
 
-	nano::observer_set<nano::socket &> socket_connected;
-	nano::observer_set<nano::socket &> socket_accepted;
+	nano::observer_set<nano::transport::socket &> socket_connected;
+	nano::observer_set<nano::transport::socket &> socket_accepted;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (node_observers & node_observers, std::string const & name);
