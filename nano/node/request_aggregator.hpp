@@ -2,6 +2,7 @@
 
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/transport.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
@@ -24,6 +25,7 @@ class node_config;
 class stats;
 class vote_generator;
 class wallets;
+
 /**
  * Pools together confirmation requests, separately for each endpoint.
  * Requests are added from network messages, and aggregated to minimize bandwidth and vote generation. Example:

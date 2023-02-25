@@ -1,4 +1,5 @@
 #include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/store.hpp>

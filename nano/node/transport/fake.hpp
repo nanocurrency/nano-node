@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/transport.hpp>
 
 namespace nano
