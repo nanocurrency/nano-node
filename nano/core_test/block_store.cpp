@@ -639,7 +639,7 @@ namespace lmdb
 		if (nano::rocksdb_config::using_rocksdb_in_tests ())
 		{
 			// Don't test this in rocksdb mode
-			GTEST_SKIP()
+			GTEST_SKIP ()
 			return;
 		}
 		// Check that upgrading from an unsupported version is not supported
@@ -694,7 +694,7 @@ TEST (mdb_block_store, bad_path)
 	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
-		GTEST_SKIP();
+		GTEST_SKIP ();
 	}
 	nano::logger_mt logger;
 	nano::lmdb::store store (logger, boost::filesystem::path ("///"), nano::dev::constants);
@@ -1058,7 +1058,7 @@ TEST (mdb_block_store, sideband_height)
 	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
-		GTEST_SKIP();
+		GTEST_SKIP ();
 	}
 	nano::logger_mt logger;
 	nano::keypair key1;
@@ -1431,7 +1431,7 @@ namespace lmdb
 		if (nano::rocksdb_config::using_rocksdb_in_tests ())
 		{
 			// Don't test this in rocksdb mode
-			GTEST_SKIP();
+			GTEST_SKIP ();
 		}
 		// Extract confirmation height to a separate database
 		auto path (nano::unique_path ());
@@ -1594,7 +1594,7 @@ namespace lmdb
 		if (nano::rocksdb_config::using_rocksdb_in_tests ())
 		{
 			// Don't test this in rocksdb mode
-			GTEST_SKIP();
+			GTEST_SKIP ();
 		}
 		auto path (nano::unique_path ());
 		nano::mdb_val value;
@@ -1641,7 +1641,7 @@ namespace lmdb
 		if (nano::rocksdb_config::using_rocksdb_in_tests ())
 		{
 			// Don't test this in rocksdb mode
-			GTEST_SKIP();
+			GTEST_SKIP ();
 		}
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 		nano::block_builder builder;
@@ -1731,7 +1731,7 @@ namespace lmdb
 		if (nano::rocksdb_config::using_rocksdb_in_tests ())
 		{
 			// Don't test this in rocksdb mode
-			GTEST_SKIP();
+			GTEST_SKIP ();
 		}
 		auto path (nano::unique_path ());
 		nano::block_builder builder;
@@ -2040,7 +2040,7 @@ namespace lmdb
 		if (nano::rocksdb_config::using_rocksdb_in_tests ())
 		{
 			// Don't test this in rocksdb mode
-			GTEST_SKIP();
+			GTEST_SKIP ();
 		}
 		auto path (nano::unique_path ());
 		nano::keypair key1;
@@ -2177,7 +2177,7 @@ namespace lmdb
 		if (nano::rocksdb_config::using_rocksdb_in_tests ())
 		{
 			// Don't test this in rocksdb mode
-			GTEST_SKIP();
+			GTEST_SKIP ();
 		}
 		auto path (nano::unique_path ());
 		nano::logger_mt logger;
@@ -2206,7 +2206,7 @@ namespace lmdb
 		if (nano::rocksdb_config::using_rocksdb_in_tests ())
 		{
 			// Don't test this in rocksdb mode
-			GTEST_SKIP();
+			GTEST_SKIP ();
 		}
 		auto path (nano::unique_path ());
 		nano::logger_mt logger;
@@ -2237,7 +2237,7 @@ TEST (mdb_block_store, upgrade_backup)
 	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
-		GTEST_SKIP();
+		GTEST_SKIP ();
 	}
 	auto dir (nano::unique_path ());
 	namespace fs = boost::filesystem;
@@ -2278,7 +2278,7 @@ TEST (block_store, confirmation_height)
 	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
-		GTEST_SKIP();
+		GTEST_SKIP ();
 	}
 	auto path (nano::unique_path ());
 	nano::logger_mt logger;
@@ -2324,7 +2324,7 @@ TEST (block_store, final_vote)
 	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode as deletions cause inaccurate counts
-		GTEST_SKIP();
+		GTEST_SKIP ();
 	}
 	auto path (nano::unique_path ());
 	nano::logger_mt logger;
@@ -2442,7 +2442,7 @@ TEST (rocksdb_block_store, tombstone_count)
 {
 	if (!nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
-		GTEST_SKIP();
+		GTEST_SKIP ();
 	}
 	nano::test::system system{};
 	nano::logger_mt logger;

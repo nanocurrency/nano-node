@@ -3338,7 +3338,7 @@ TEST (node, bidirectional_tcp)
 	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
-		GTEST_SKIP();
+		GTEST_SKIP ();
 	}
 #endif
 	nano::test::system system;

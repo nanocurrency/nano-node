@@ -17,7 +17,7 @@ TEST (ledger, store_error)
 	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
-		GTEST_SKIP();
+		GTEST_SKIP ();
 	}
 	auto ctx = nano::test::context::ledger_empty ();
 }
