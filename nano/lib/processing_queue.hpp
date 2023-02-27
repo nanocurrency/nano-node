@@ -6,6 +6,7 @@
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 
+#include <algorithm>
 #include <condition_variable>
 #include <deque>
 #include <functional>
@@ -70,6 +71,13 @@ public:
 			thread.join ();
 		}
 		threads.clear ();
+	}
+
+	bool joinable () const
+	{
+		return std::any_of (threads.cbegin (), threads.cend (), [] (auto const & thread) {
+			return thread.joinable ();
+		});
 	}
 
 	/**
