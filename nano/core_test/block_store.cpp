@@ -639,8 +639,7 @@ namespace lmdb
 		if (nano::rocksdb_config::using_rocksdb_in_tests ())
 		{
 			// Don't test this in rocksdb mode
-			GTEST_SKIP ()
-			return;
+			GTEST_SKIP ();
 		}
 		// Check that upgrading from an unsupported version is not supported
 		auto path (nano::unique_path ());
