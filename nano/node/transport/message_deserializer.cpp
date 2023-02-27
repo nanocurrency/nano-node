@@ -19,6 +19,10 @@ void nano::transport::message_deserializer::read (const nano::transport::message
 
 	status = parse_status::none;
 
+	if (!channel_read_fn)
+	{
+		return;
+	}
 	channel_read_fn (read_buffer, HEADER_SIZE, [this_l = shared_from_this (), callback = std::move (callback)] (boost::system::error_code const & ec, std::size_t size_a) {
 		if (ec)
 		{
@@ -80,6 +84,7 @@ void nano::transport::message_deserializer::received_header (const nano::transpo
 	}
 	else
 	{
+		debug_assert (channel_read_fn);
 		channel_read_fn (read_buffer, payload_size, [this_l = shared_from_this (), payload_size, header, callback = std::move (callback)] (boost::system::error_code const & ec, std::size_t size_a) {
 			if (ec)
 			{
