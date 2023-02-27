@@ -1,5 +1,7 @@
+#include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/inproc.hpp>
+#include <nano/node/transport/message_deserializer.hpp>
 
 #include <boost/format.hpp>
 
@@ -53,23 +55,41 @@ public:
  */
 void nano::transport::inproc::channel::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a, nano::transport::buffer_drop_policy drop_policy_a)
 {
-	// we create a temporary channel for the reply path, in case the receiver of the message wants to reply
-	auto remote_channel = std::make_shared<nano::transport::inproc::channel> (destination, node);
+	auto offset = 0u;
+	auto const buffer_read_fn = [&offset, buffer_v = buffer_a.to_bytes ()] (std::shared_ptr<std::vector<uint8_t>> const & data_a, size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a) {
+		debug_assert (buffer_v.size () >= (offset + size_a));
+		data_a->resize (size_a);
+		auto const copy_start = buffer_v.begin () + offset;
+		std::copy (copy_start, copy_start + size_a, data_a->data ());
+		offset += size_a;
+		callback_a (boost::system::errc::make_error_code (boost::system::errc::success), size_a);
+	};
 
-	// create an inbound message visitor class to handle incoming messages because that's what the message parser expects
-	message_visitor_inbound visitor{ destination.network.inbound, remote_channel };
+	auto const message_deserializer = std::make_shared<nano::transport::message_deserializer> (node.network_params.network, node.network.publish_filter, node.block_uniquer, node.vote_uniquer, buffer_read_fn);
+	message_deserializer->read (
+	[this] (boost::system::error_code ec_a, std::unique_ptr<nano::message> message_a) {
+		if (ec_a || !message_a)
+		{
+			return;
+		}
 
-	nano::message_parser parser{ destination.network.publish_filter, destination.block_uniquer, destination.vote_uniquer, visitor, destination.work, destination.network_params.network };
+		// we create a temporary channel for the reply path, in case the receiver of the message wants to reply
+		auto remote_channel = std::make_shared<nano::transport::inproc::channel> (destination, node);
 
-	// parse the message and action any work that needs to be done on that object via the visitor object
-	auto bytes = buffer_a.to_bytes ();
-	auto size = bytes.size ();
-	parser.deserialize_buffer (bytes.data (), size);
+		// process message
+		{
+			node.stats.inc (nano::stat::type::message, nano::to_stat_detail (message_a->header.type), nano::stat::dir::in);
+
+			// create an inbound message visitor class to handle incoming messages
+			message_visitor_inbound visitor{ destination.network.inbound, remote_channel };
+			message_a->visit (visitor);
+		}
+	});
 
 	if (callback_a)
 	{
-		node.background ([callback_a, size] () {
-			callback_a (boost::system::errc::make_error_code (boost::system::errc::success), size);
+		node.background ([callback_l = std::move (callback_a), buffer_size = buffer_a.size ()] () {
+			callback_l (boost::system::errc::make_error_code (boost::system::errc::success), buffer_size);
 		});
 	}
 }
