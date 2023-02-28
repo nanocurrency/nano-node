@@ -221,7 +221,7 @@ nano::keypair::keypair (std::string const & prv_a)
 	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
 }
 
-nano::account_info::account_info (nano::block_hash const & head_a, nano::account const & representative_a, nano::block_hash const & open_block_a, nano::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, nano::epoch epoch_a) :
+nano::account_info::account_info (nano::block_hash const & head_a, nano::account const & representative_a, nano::block_hash const & open_block_a, nano::amount const & balance_a, nano::seconds_t modified_a, uint64_t block_count_a, nano::epoch epoch_a) :
 	head (head_a),
 	representative (representative_a),
 	open_block (open_block_a),

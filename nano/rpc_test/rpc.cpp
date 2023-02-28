@@ -4421,7 +4421,7 @@ TEST (rpc, account_info)
 				.work (*node1->work_generate_blocking (latest))
 				.build ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send).code);
-	auto time (nano::seconds_since_epoch ());
+	auto time = nano::seconds_since_epoch ();
 	{
 		auto transaction = node1->store.tx_begin_write ();
 		node1->store.confirmation_height.put (transaction, nano::dev::genesis_key.pub, { 1, nano::dev::genesis->hash () });
@@ -5086,7 +5086,7 @@ TEST (rpc, ledger)
 				.work (*node->work_generate_blocking (key.pub))
 				.build ();
 	ASSERT_EQ (nano::process_result::progress, node->process (*open).code);
-	auto time (nano::seconds_since_epoch ());
+	auto time = nano::seconds_since_epoch ();
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "ledger");
@@ -5686,7 +5686,7 @@ TEST (rpc, wallet_ledger)
 				.work (*node1->work_generate_blocking (key.pub))
 				.build ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
-	auto time (nano::seconds_since_epoch ());
+	auto time = nano::seconds_since_epoch ();
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_ledger");
@@ -6142,7 +6142,7 @@ TEST (rpc, unchecked_get)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		ASSERT_EQ (1, response.count ("contents"));
-		auto timestamp (response.get<uint64_t> ("modified_timestamp"));
+		auto timestamp (response.get<nano::seconds_t> ("modified_timestamp"));
 		ASSERT_LE (timestamp, nano::seconds_since_epoch ());
 	}
 	request.put ("json_block", true);
@@ -6150,7 +6150,7 @@ TEST (rpc, unchecked_get)
 		auto response (wait_response (system, rpc_ctx, request));
 		auto & contents (response.get_child ("contents"));
 		ASSERT_EQ ("state", contents.get<std::string> ("type"));
-		auto timestamp (response.get<uint64_t> ("modified_timestamp"));
+		auto timestamp (response.get<nano::seconds_t> ("modified_timestamp"));
 		ASSERT_LE (timestamp, nano::seconds_since_epoch ());
 	}
 }
@@ -6297,14 +6297,14 @@ TEST (rpc, DISABLED_wallet_history)
 	node_config.enable_voting = false;
 	auto node = add_ipc_enabled_node (system, node_config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto timestamp1 (nano::seconds_since_epoch ());
+	auto timestamp1 = nano::seconds_since_epoch ();
 	auto send (system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, node->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send);
-	auto timestamp2 (nano::seconds_since_epoch ());
+	auto timestamp2 = nano::seconds_since_epoch ();
 	auto receive (system.wallet (0)->receive_action (send->hash (), nano::dev::genesis_key.pub, node->config.receive_minimum.number (), send->link ().as_account ()));
 	ASSERT_NE (nullptr, receive);
 	nano::keypair key;
-	auto timestamp3 (nano::seconds_since_epoch ());
+	auto timestamp3 = nano::seconds_since_epoch ();
 	auto send2 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, node->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send2);
 	system.deadline_set (10s);
