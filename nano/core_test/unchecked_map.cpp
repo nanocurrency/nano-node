@@ -138,7 +138,7 @@ TEST (unchecked, multiple)
 	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
-		return;
+		GTEST_SKIP ();
 	}
 	nano::logger_mt logger{};
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
