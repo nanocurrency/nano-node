@@ -208,7 +208,7 @@ void nano::transport::socket::checkup ()
 				return;
 			}
 
-			uint64_t now (nano::seconds_since_epoch ());
+			nano::seconds_t now = nano::seconds_since_epoch ();
 			auto condition_to_disconnect{ false };
 
 			// if this is a server socket, and no data is received for silent_connection_tolerance_time seconds then disconnect
