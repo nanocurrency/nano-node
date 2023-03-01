@@ -99,11 +99,17 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
 	if (full ())
 	{
-		node.stats.inc (nano::stat::type::blockprocessor, nano::stat::detail::drop);
+		node.stats.inc (nano::stat::type::blockprocessor, nano::stat::detail::overfill);
 		return;
 	}
+	if (node.network_params.work.validate_entry (*info_a.block)) // true => error
+	{
+		node.stats.inc (nano::stat::type::blockprocessor, nano::stat::detail::insufficient_work);
+		return;
+	}
+
 	auto const & block = info_a.block;
-	debug_assert (!node.network_params.work.validate_entry (*block));
+
 	if (block->type () == nano::block_type::state || block->type () == nano::block_type::open)
 	{
 		state_block_signature_verification.add ({ block });
@@ -122,10 +128,15 @@ void nano::block_processor::add_local (nano::unchecked_info const & info_a)
 {
 	if (full ())
 	{
-		node.stats.inc (nano::stat::type::blockprocessor, nano::stat::detail::drop);
+		node.stats.inc (nano::stat::type::blockprocessor, nano::stat::detail::overfill);
 		return;
 	}
-	debug_assert (!node.network_params.work.validate_entry (*info_a.block));
+	if (node.network_params.work.validate_entry (*info_a.block)) // true => error
+	{
+		node.stats.inc (nano::stat::type::blockprocessor, nano::stat::detail::insufficient_work);
+		return;
+	}
+
 	state_block_signature_verification.add ({ info_a.block });
 }
 
