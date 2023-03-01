@@ -248,8 +248,8 @@ void nano::transport::socket::read_impl (std::shared_ptr<std::vector<uint8_t>> c
 	// Increase timeout to receive TCP header (idle server socket)
 	auto const prev_timeout = get_default_timeout_value ();
 	set_default_timeout_value (node.network_params.network.idle_timeout);
-	async_read (data_a, size_a, [callback_l = std::move (callback_a), prev_timeout, this] (boost::system::error_code const & ec_a, std::size_t size_a) {
-	set_default_timeout_value (prev_timeout);
+	async_read (data_a, size_a, [callback_l = std::move (callback_a), prev_timeout, this_l = shared_from_this ()] (boost::system::error_code const & ec_a, std::size_t size_a) {
+		this_l->set_default_timeout_value (prev_timeout);
 		callback_l (ec_a, size_a);
 	});
 }
