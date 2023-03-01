@@ -128,13 +128,7 @@ nano::transport::tcp_server::tcp_server (std::shared_ptr<nano::transport::socket
 	message_deserializer{
 		std::make_shared<nano::transport::message_deserializer> (node->network_params.network, node->network.publish_filter, node->block_uniquer, node->vote_uniquer,
 		[this] (std::shared_ptr<std::vector<uint8_t>> const & data_a, size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a) {
-			// Increase timeout to receive TCP header (idle server socket)
-			auto const prev_timeout = socket->get_default_timeout_value ();
-			socket->set_default_timeout_value (node->network_params.network.idle_timeout);
-			socket->async_read (data_a, size_a, [callback_l = std::move (callback_a), prev_timeout, this] (boost::system::error_code const & ec_a, std::size_t size_a) {
-				socket->set_default_timeout_value (prev_timeout);
-				callback_l (ec_a, size_a);
-			});
+			socket->read_impl (data_a, size_a, callback_a);
 		})
 	}
 {

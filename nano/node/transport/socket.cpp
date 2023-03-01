@@ -243,6 +243,17 @@ void nano::transport::socket::checkup ()
 	});
 }
 
+void nano::transport::socket::read_impl (std::shared_ptr<std::vector<uint8_t>> const & data_a, size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
+{
+	// Increase timeout to receive TCP header (idle server socket)
+	auto const prev_timeout = get_default_timeout_value ();
+	set_default_timeout_value (node.network_params.network.idle_timeout);
+	async_read (data_a, size_a, [callback_l = std::move (callback_a), prev_timeout, this] (boost::system::error_code const & ec_a, std::size_t size_a) {
+	set_default_timeout_value (prev_timeout);
+		callback_l (ec_a, size_a);
+	});
+}
+
 bool nano::transport::socket::has_timed_out () const
 {
 	return timed_out;
