@@ -21,7 +21,6 @@ void nano::transport::message_deserializer::read (const nano::transport::message
 
 	status = parse_status::none;
 
-
 	read_op (read_buffer, HEADER_SIZE, [this_l = shared_from_this (), callback = std::move (callback)] (boost::system::error_code const & ec, std::size_t size_a) {
 		if (ec)
 		{
