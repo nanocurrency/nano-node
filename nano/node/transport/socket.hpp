@@ -39,6 +39,7 @@ class server_socket;
 class socket : public std::enable_shared_from_this<nano::transport::socket>
 {
 	friend class server_socket;
+	friend class tcp_server;
 
 public:
 	enum class type_t
@@ -172,6 +173,7 @@ protected:
 	void set_last_completion ();
 	void set_last_receive_time ();
 	void checkup ();
+	void read_impl (std::shared_ptr<std::vector<uint8_t>> const & data_a, size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a);
 
 private:
 	type_t type_m{ type_t::undefined };

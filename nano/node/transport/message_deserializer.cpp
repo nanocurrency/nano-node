@@ -1,27 +1,27 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/message_deserializer.hpp>
 
-nano::transport::message_deserializer::message_deserializer (nano::network_constants const & network_constants_a, nano::network_filter & publish_filter_a, nano::block_uniquer & block_uniquer_a, nano::vote_uniquer & vote_uniquer_a) :
+nano::transport::message_deserializer::message_deserializer (nano::network_constants const & network_constants_a, nano::network_filter & publish_filter_a, nano::block_uniquer & block_uniquer_a, nano::vote_uniquer & vote_uniquer_a,
+read_query read_op) :
 	read_buffer{ std::make_shared<std::vector<uint8_t>> () },
 	network_constants_m{ network_constants_a },
 	publish_filter_m{ publish_filter_a },
 	block_uniquer_m{ block_uniquer_a },
-	vote_uniquer_m{ vote_uniquer_a }
+	vote_uniquer_m{ vote_uniquer_a },
+	read_op{ std::move (read_op) }
 {
+	debug_assert (this->read_op);
 	read_buffer->resize (MAX_MESSAGE_SIZE);
 }
 
-void nano::transport::message_deserializer::read (std::shared_ptr<nano::transport::socket> socket, const nano::transport::message_deserializer::callback_type && callback)
+void nano::transport::message_deserializer::read (const nano::transport::message_deserializer::callback_type && callback)
 {
 	debug_assert (callback);
+	debug_assert (read_op);
 
 	status = parse_status::none;
 
-	// Increase timeout to receive TCP header (idle server socket)
-	auto prev_timeout = socket->get_default_timeout_value ();
-	socket->set_default_timeout_value (network_constants_m.idle_timeout);
-
-	socket->async_read (read_buffer, HEADER_SIZE, [this_l = shared_from_this (), socket, callback = std::move (callback), prev_timeout] (boost::system::error_code const & ec, std::size_t size_a) {
+	read_op (read_buffer, HEADER_SIZE, [this_l = shared_from_this (), callback = std::move (callback)] (boost::system::error_code const & ec, std::size_t size_a) {
 		if (ec)
 		{
 			callback (ec, nullptr);
@@ -32,15 +32,11 @@ void nano::transport::message_deserializer::read (std::shared_ptr<nano::transpor
 			callback (boost::asio::error::fault, nullptr);
 			return;
 		}
-
-		// Decrease timeout to default
-		socket->set_default_timeout_value (prev_timeout);
-
-		this_l->received_header (socket, std::move (callback));
+		this_l->received_header (std::move (callback));
 	});
 }
 
-void nano::transport::message_deserializer::received_header (std::shared_ptr<nano::transport::socket> socket, const nano::transport::message_deserializer::callback_type && callback)
+void nano::transport::message_deserializer::received_header (const nano::transport::message_deserializer::callback_type && callback)
 {
 	nano::bufferstream stream{ read_buffer->data (), HEADER_SIZE };
 	auto error = false;
@@ -86,7 +82,8 @@ void nano::transport::message_deserializer::received_header (std::shared_ptr<nan
 	}
 	else
 	{
-		socket->async_read (read_buffer, payload_size, [this_l = shared_from_this (), payload_size, header, callback = std::move (callback)] (boost::system::error_code const & ec, std::size_t size_a) {
+		debug_assert (read_op);
+		read_op (read_buffer, payload_size, [this_l = shared_from_this (), payload_size, header, callback = std::move (callback)] (boost::system::error_code const & ec, std::size_t size_a) {
 			if (ec)
 			{
 				callback (ec, nullptr);

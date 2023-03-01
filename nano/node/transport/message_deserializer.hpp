@@ -2,15 +2,12 @@
 
 #include <nano/node/common.hpp>
 #include <nano/node/messages.hpp>
-#include <nano/node/transport/socket.hpp>
 
 #include <memory>
 #include <vector>
 
 namespace nano
 {
-class socket;
-
 namespace transport
 {
 	class message_deserializer : public std::enable_shared_from_this<nano::transport::message_deserializer>
@@ -45,19 +42,20 @@ namespace transport
 
 		parse_status status;
 
-		message_deserializer (network_constants const &, network_filter &, block_uniquer &, vote_uniquer &);
+		using read_query = std::function<void (std::shared_ptr<std::vector<uint8_t>> const &, size_t, std::function<void (boost::system::error_code const &, std::size_t)>)>;
+		message_deserializer (network_constants const &, network_filter &, block_uniquer &, vote_uniquer &, read_query read_op);
 
 		/*
-		 * Asynchronously read next message from socket.
+		 * Asynchronously read next message from the channel_read_fn.
 		 * If an irrecoverable error is encountered callback will be called with an error code set and null message.
 		 * If a 'soft' error is encountered (eg. duplicate block publish) error won't be set but message will be null. In that case, `status` field will be set to code indicating reason for failure.
 		 * If message is received successfully, error code won't be set and message will be non-null. `status` field will be set to `success`.
 		 * Should not be called until the previous invocation finishes and calls the callback.
 		 */
-		void read (std::shared_ptr<nano::transport::socket> socket, callback_type const && callback);
+		void read (callback_type const && callback);
 
 	private:
-		void received_header (std::shared_ptr<nano::transport::socket> socket, callback_type const && callback);
+		void received_header (callback_type const && callback);
 		void received_message (nano::message_header header, std::size_t payload_size, callback_type const && callback);
 
 		/*
@@ -90,6 +88,7 @@ namespace transport
 		nano::network_filter & publish_filter_m;
 		nano::block_uniquer & block_uniquer_m;
 		nano::vote_uniquer & vote_uniquer_m;
+		read_query read_op;
 
 	public:
 		static stat::detail to_stat_detail (parse_status);
