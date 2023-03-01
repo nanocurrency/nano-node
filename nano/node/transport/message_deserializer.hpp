@@ -42,8 +42,8 @@ namespace transport
 
 		parse_status status;
 
-		using channel_read_fn_type = std::function<void (std::shared_ptr<std::vector<uint8_t>> const &, size_t, std::function<void (boost::system::error_code const &, std::size_t)>)>;
-		message_deserializer (network_constants const &, network_filter &, block_uniquer &, vote_uniquer &, channel_read_fn_type);
+		using read_query = std::function<void (std::shared_ptr<std::vector<uint8_t>> const &, size_t, std::function<void (boost::system::error_code const &, std::size_t)>)>;
+		message_deserializer (network_constants const &, network_filter &, block_uniquer &, vote_uniquer &, read_query read_op);
 
 		/*
 		 * Asynchronously read next message from the channel_read_fn.
@@ -88,7 +88,7 @@ namespace transport
 		nano::network_filter & publish_filter_m;
 		nano::block_uniquer & block_uniquer_m;
 		nano::vote_uniquer & vote_uniquer_m;
-		channel_read_fn_type channel_read_fn;
+		read_query read_op;
 
 	public:
 		static stat::detail to_stat_detail (parse_status);
