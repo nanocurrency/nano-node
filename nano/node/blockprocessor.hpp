@@ -46,7 +46,6 @@ public:
 	std::size_t size ();
 	bool full ();
 	bool half_full ();
-	void add_local (nano::unchecked_info const & info_a);
 	void add (nano::unchecked_info const &);
 	void add (std::shared_ptr<nano::block> const &);
 	void force (std::shared_ptr<nano::block> const &);

@@ -614,7 +614,7 @@ void nano::node::process_local_async (std::shared_ptr<nano::block> const & block
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
 	// Set current time to trigger automatic rebroadcast and election
-	block_processor.add_local (block_a);
+	block_processor.add (block_a);
 }
 
 void nano::node::start ()
