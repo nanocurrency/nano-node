@@ -153,23 +153,21 @@ bool nano::bootstrap_ascending::account_sets::check_timestamp (const nano::accou
 
 void nano::bootstrap_ascending::account_sets::trim_overflow ()
 {
-	if (priorities.size () > config.priorities_max)
+	while (priorities.size () > config.priorities_max)
 	{
-		// Evict the lowest priority entry
-		priorities.get<tag_priority> ().erase (priorities.get<tag_priority> ().begin ());
-
+		// Erase the oldest entry
+		priorities.pop_front ();
 		stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::priority_erase_overflow);
 	}
-	if (blocking.size () > config.blocking_max)
+	while (blocking.size () > config.blocking_max)
 	{
-		// Evict the lowest priority entry
-		blocking.get<tag_priority> ().erase (blocking.get<tag_priority> ().begin ());
-
+		// Erase the oldest entry
+		blocking.pop_front ();
 		stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::blocking_erase_overflow);
 	}
 }
 
-nano::account nano::bootstrap_ascending::account_sets::next ()
+nano::account nano::bootstrap_ascending::account_sets::next_priority ()
 {
 	if (priorities.empty ())
 	{
@@ -208,6 +206,25 @@ nano::account nano::bootstrap_ascending::account_sets::next ()
 	auto selection = dist (rng);
 	debug_assert (!weights.empty () && selection < weights.size ());
 	auto result = candidates[selection];
+	return result;
+}
+
+nano::block_hash nano::bootstrap_ascending::account_sets::next_blocking ()
+{
+	if (blocking.empty ())
+	{
+		return { 0 };
+	}
+
+	// Use a dedicated, uniformly distributed field for sampling to avoid problematic corner case when accounts in the queue are very close together
+	auto search = nano::bootstrap_ascending::generate_id ();
+	auto iter = blocking.get<tag_id> ().lower_bound (search);
+	if (iter == blocking.get<tag_id> ().end ())
+	{
+		iter = blocking.get<tag_id> ().begin ();
+	}
+
+	auto result = iter->dependency;
 	return result;
 }
 
