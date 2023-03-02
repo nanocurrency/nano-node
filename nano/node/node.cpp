@@ -208,7 +208,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 {
 	unchecked.use_memory = [this] () { return ledger.bootstrap_weight_reached (); };
 	unchecked.satisfied = [this] (nano::unchecked_info const & info) {
-		this->block_processor.add (info);
+		this->block_processor.add (info.block);
 	};
 
 	inactive_vote_cache.rep_weight_query = [this] (nano::account const & rep) {

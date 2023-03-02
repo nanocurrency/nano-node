@@ -46,7 +46,6 @@ public:
 	std::size_t size ();
 	bool full ();
 	bool half_full ();
-	void add (nano::unchecked_info const &);
 	void add (std::shared_ptr<nano::block> const &);
 	void force (std::shared_ptr<nano::block> const &);
 	void wait_write ();
@@ -54,7 +53,7 @@ public:
 	bool have_blocks_ready ();
 	bool have_blocks ();
 	void process_blocks ();
-	nano::process_return process_one (nano::write_transaction const &, block_post_events &, nano::unchecked_info, bool const = false, nano::block_origin const = nano::block_origin::remote);
+	nano::process_return process_one (nano::write_transaction const &, block_post_events &, std::shared_ptr<nano::block> block, bool const = false, nano::block_origin const = nano::block_origin::remote);
 
 	std::atomic<bool> flushing{ false };
 	// Delay required for average network propagartion before requesting confirmation
@@ -70,7 +69,7 @@ private:
 	bool active{ false };
 	bool awaiting_write{ false };
 	std::chrono::steady_clock::time_point next_log;
-	std::deque<nano::unchecked_info> blocks;
+	std::deque<std::shared_ptr<nano::block>> blocks;
 	std::deque<std::shared_ptr<nano::block>> forced;
 	nano::condition_variable condition;
 	nano::node & node;

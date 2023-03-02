@@ -1793,7 +1793,7 @@ int main (int argc, char * const * argv)
 			auto begin (std::chrono::high_resolution_clock::now ());
 			uint64_t block_count (0);
 			size_t count (0);
-			std::deque<nano::unchecked_info> epoch_open_blocks;
+			std::deque<std::shared_ptr<nano::block>> epoch_open_blocks;
 			{
 				auto node_flags = nano::inactive_node_flag_defaults ();
 				nano::update_flags (node_flags, vm);
@@ -1819,12 +1819,11 @@ int main (int argc, char * const * argv)
 							{
 								std::cout << boost::str (boost::format ("%1% blocks retrieved") % count) << std::endl;
 							}
-							nano::unchecked_info unchecked_info (block);
-							node.node->block_processor.add (unchecked_info);
+							node.node->block_processor.add (block);
 							if (block->type () == nano::block_type::state && block->previous ().is_zero () && source_node->ledger.is_epoch_link (block->link ()))
 							{
 								// Epoch open blocks can be rejected without processed pending blocks to account, push it later again
-								epoch_open_blocks.push_back (unchecked_info);
+								epoch_open_blocks.push_back (block);
 							}
 							// Retrieving previous block hash
 							hash = block->previous ();
@@ -1839,9 +1838,9 @@ int main (int argc, char * const * argv)
 				// Add epoch open blocks again if required
 				if (node.node->block_processor.size () == 0)
 				{
-					for (auto & unchecked_info : epoch_open_blocks)
+					for (auto & block : epoch_open_blocks)
 					{
-						node.node->block_processor.add (unchecked_info);
+						node.node->block_processor.add (block);
 					}
 				}
 				// Message each 60 seconds

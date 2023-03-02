@@ -89,27 +89,18 @@ bool nano::block_processor::half_full ()
 	return size () >= node.flags.block_processor_full_size / 2;
 }
 
-void nano::block_processor::add (std::shared_ptr<nano::block> const & block_a)
-{
-	nano::unchecked_info info (block_a);
-	add (info);
-}
-
-void nano::block_processor::add (nano::unchecked_info const & info_a)
+void nano::block_processor::add (std::shared_ptr<nano::block> const & block)
 {
 	if (full ())
 	{
 		node.stats.inc (nano::stat::type::blockprocessor, nano::stat::detail::overfill);
 		return;
 	}
-	if (node.network_params.work.validate_entry (*info_a.block)) // true => error
+	if (node.network_params.work.validate_entry (*block)) // true => error
 	{
 		node.stats.inc (nano::stat::type::blockprocessor, nano::stat::detail::insufficient_work);
 		return;
 	}
-
-	auto const & block = info_a.block;
-
 	if (block->type () == nano::block_type::state || block->type () == nano::block_type::open)
 	{
 		state_block_signature_verification.add ({ block });
@@ -118,7 +109,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 	{
 		{
 			nano::lock_guard<nano::mutex> guard{ mutex };
-			blocks.emplace_back (info_a);
+			blocks.emplace_back (block);
 		}
 		condition.notify_all ();
 	}
@@ -236,27 +227,27 @@ void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 		{
 			node.logger.always_log (boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_block_signature_verification.size () % forced.size ()));
 		}
-		nano::unchecked_info info;
+		std::shared_ptr<nano::block> block;
 		nano::block_hash hash (0);
 		bool force (false);
 		if (forced.empty ())
 		{
-			info = blocks.front ();
+			block = blocks.front ();
 			blocks.pop_front ();
-			hash = info.block->hash ();
+			hash = block->hash ();
 		}
 		else
 		{
-			info = nano::unchecked_info (forced.front ());
+			block = forced.front ();
 			forced.pop_front ();
-			hash = info.block->hash ();
+			hash = block->hash ();
 			force = true;
 			number_of_forced_processed++;
 		}
 		lock_a.unlock ();
 		if (force)
 		{
-			auto successor (node.ledger.successor (transaction, info.block->qualified_root ()));
+			auto successor = node.ledger.successor (transaction, block->qualified_root ());
 			if (successor != nullptr && successor->hash () != hash)
 			{
 				// Replace our block with the winner and roll back any dependent blocks
@@ -287,7 +278,7 @@ void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 			}
 		}
 		number_of_blocks_processed++;
-		process_one (transaction, post_events, info, force);
+		process_one (transaction, post_events, block, force);
 		lock_a.lock ();
 	}
 	awaiting_write = false;
@@ -327,13 +318,12 @@ void nano::block_processor::process_live (nano::transaction const & transaction_
 	}
 }
 
-nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, nano::unchecked_info info_a, bool const forced_a, nano::block_origin const origin_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, std::shared_ptr<nano::block> block, bool const forced_a, nano::block_origin const origin_a)
 {
 	nano::process_return result;
-	auto block (info_a.block);
 	auto hash (block->hash ());
 	result = node.ledger.process (transaction_a, *block);
-	events_a.events.emplace_back ([this, result, block = info_a.block] (nano::transaction const & tx) {
+	events_a.events.emplace_back ([this, result, block] (nano::transaction const & tx) {
 		processed.notify (tx, result, *block);
 	});
 	switch (result.code)
@@ -346,7 +336,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				block->serialize_json (block_string, node.config.logging.single_line_record ());
 				node.logger.try_log (boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block_string));
 			}
-			events_a.events.emplace_back ([this, hash, block = info_a.block, result, origin_a] (nano::transaction const & post_event_transaction_a) {
+			events_a.events.emplace_back ([this, hash, block, result, origin_a] (nano::transaction const & post_event_transaction_a) {
 				process_live (post_event_transaction_a, hash, block, result, origin_a);
 			});
 			queue_unchecked (transaction_a, hash);
@@ -367,10 +357,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				node.logger.try_log (boost::str (boost::format ("Gap previous for: %1%") % hash.to_string ()));
 			}
-
-			debug_assert (info_a.modified () != 0);
-			node.unchecked.put (block->previous (), info_a);
-
+			node.unchecked.put (block->previous (), block);
 			events_a.events.emplace_back ([this, hash] (nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_previous);
 			break;
@@ -381,10 +368,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				node.logger.try_log (boost::str (boost::format ("Gap source for: %1%") % hash.to_string ()));
 			}
-
-			debug_assert (info_a.modified () != 0);
-			node.unchecked.put (node.ledger.block_source (transaction_a, *(block)), info_a);
-
+			node.unchecked.put (node.ledger.block_source (transaction_a, *block), block);
 			events_a.events.emplace_back ([this, hash] (nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
@@ -395,10 +379,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				node.logger.try_log (boost::str (boost::format ("Gap pending entries for epoch open: %1%") % hash.to_string ()));
 			}
-
-			debug_assert (info_a.modified () != 0);
-			node.unchecked.put (block->account (), info_a); // Specific unchecked key starting with epoch open block account public key
-
+			node.unchecked.put (block->account (), block); // Specific unchecked key starting with epoch open block account public key
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
 		}
