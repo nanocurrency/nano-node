@@ -159,14 +159,9 @@ TEST (message_deserializer, exact_confirm_req_hash)
 	message_deserializer_success_checker<decltype (message)> (message);
 }
 
-TEST (message_parser, exact_publish_size)
+TEST (message_deserializer, exact_publish)
 {
-	nano::test::system system (1);
-	dev_visitor visitor;
-	nano::network_filter filter (1);
-	nano::block_uniquer block_uniquer;
-	nano::vote_uniquer vote_uniquer (block_uniquer);
-	nano::message_parser parser (filter, block_uniquer, vote_uniquer, visitor, system.work, nano::dev::network_params.network);
+	nano::test::system system{ 1 };
 	nano::block_builder builder;
 	auto block = builder
 				 .send ()
@@ -177,27 +172,8 @@ TEST (message_parser, exact_publish_size)
 				 .work (*system.work.generate (nano::root (1)))
 				 .build_shared ();
 	nano::publish message{ nano::dev::network_params.network, block };
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream (bytes);
-		message.serialize (stream);
-	}
-	ASSERT_EQ (0, visitor.publish_count);
-	ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
-	auto error (false);
-	nano::bufferstream stream1 (bytes.data (), bytes.size ());
-	nano::message_header header1 (error, stream1);
-	ASSERT_FALSE (error);
-	parser.deserialize_publish (stream1, header1);
-	ASSERT_EQ (1, visitor.publish_count);
-	ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
-	bytes.push_back (0);
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	nano::message_header header2 (error, stream2);
-	ASSERT_FALSE (error);
-	parser.deserialize_publish (stream2, header2);
-	ASSERT_EQ (1, visitor.publish_count);
-	ASSERT_NE (parser.status, nano::message_parser::parse_status::success);
+
+	message_deserializer_success_checker<decltype (message)> (message);
 }
 
 TEST (message_parser, exact_keepalive_size)
