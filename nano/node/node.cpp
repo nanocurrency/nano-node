@@ -208,7 +208,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 {
 	unchecked.use_memory = [this] () { return ledger.bootstrap_weight_reached (); };
 	unchecked.satisfied = [this] (nano::unchecked_info const & info) {
-		this->block_processor.add (info);
+		this->block_processor.add (info.block);
 	};
 
 	inactive_vote_cache.rep_weight_query = [this] (nano::account const & rep) {
@@ -614,7 +614,7 @@ void nano::node::process_local_async (std::shared_ptr<nano::block> const & block
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
 	// Set current time to trigger automatic rebroadcast and election
-	block_processor.add_local (block_a);
+	block_processor.add (block_a);
 }
 
 void nano::node::start ()
