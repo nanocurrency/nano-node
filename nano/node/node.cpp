@@ -599,7 +599,7 @@ nano::process_return nano::node::process (nano::block & block)
 	return process (transaction, block);
 }
 
-nano::process_return nano::node::process_local (std::shared_ptr<nano::block> const & block_a)
+std::optional<nano::process_return> nano::node::process_local (std::shared_ptr<nano::block> const & block_a)
 {
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());

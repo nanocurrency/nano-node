@@ -198,7 +198,7 @@ TEST (vote_processor, no_broadcast_local)
 										.work (*system.work.generate (nano::dev::genesis->hash ()))
 										.build (ec);
 	ASSERT_FALSE (ec);
-	ASSERT_EQ (nano::process_result::progress, node.process_local (send).code);
+	ASSERT_EQ (nano::process_result::progress, node.process_local (send).value ().code);
 	ASSERT_TIMELY (10s, !node.active.empty ());
 	ASSERT_EQ (2 * node.config.vote_minimum.number (), node.weight (nano::dev::genesis_key.pub));
 	// Insert account in wallet. Votes on node are not enabled.
@@ -251,7 +251,7 @@ TEST (vote_processor, local_broadcast_without_a_representative)
 										.work (*system.work.generate (nano::dev::genesis->hash ()))
 										.build (ec);
 	ASSERT_FALSE (ec);
-	ASSERT_EQ (nano::process_result::progress, node.process_local (send).code);
+	ASSERT_EQ (nano::process_result::progress, node.process_local (send).value ().code);
 	ASSERT_TIMELY (10s, !node.active.empty ());
 	ASSERT_EQ (node.config.vote_minimum, node.weight (nano::dev::genesis_key.pub));
 	node.block_confirm (send);
@@ -299,7 +299,7 @@ TEST (vote_processor, no_broadcast_local_with_a_principal_representative)
 										.work (*system.work.generate (nano::dev::genesis->hash ()))
 										.build (ec);
 	ASSERT_FALSE (ec);
-	ASSERT_EQ (nano::process_result::progress, node.process_local (send).code);
+	ASSERT_EQ (nano::process_result::progress, node.process_local (send).value ().code);
 	ASSERT_TIMELY (10s, !node.active.empty ());
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 2 * node.config.vote_minimum.number (), node.weight (nano::dev::genesis_key.pub));
 	// Insert account in wallet. Votes on node are not enabled.

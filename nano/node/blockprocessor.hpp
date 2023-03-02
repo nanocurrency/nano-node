@@ -41,6 +41,7 @@ public:
 	bool full ();
 	bool half_full ();
 	void add (std::shared_ptr<nano::block> const &);
+	std::optional<nano::process_return> add_blocking (std::shared_ptr<nano::block> const & block);
 	void force (std::shared_ptr<nano::block> const &);
 	void wait_write ();
 	bool should_log ();
