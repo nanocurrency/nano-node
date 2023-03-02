@@ -7,63 +7,6 @@
 #include <memory>
 #include <vector>
 
-namespace
-{
-class dev_visitor : public nano::message_visitor
-{
-public:
-	void keepalive (nano::keepalive const &) override
-	{
-		++keepalive_count;
-	}
-	void publish (nano::publish const &) override
-	{
-		++publish_count;
-	}
-	void confirm_req (nano::confirm_req const &) override
-	{
-		++confirm_req_count;
-	}
-	void confirm_ack (nano::confirm_ack const &) override
-	{
-		++confirm_ack_count;
-	}
-	void bulk_pull (nano::bulk_pull const &) override
-	{
-		ASSERT_FALSE (true);
-	}
-	void bulk_pull_account (nano::bulk_pull_account const &) override
-	{
-		ASSERT_FALSE (true);
-	}
-	void bulk_push (nano::bulk_push const &) override
-	{
-		ASSERT_FALSE (true);
-	}
-	void frontier_req (nano::frontier_req const &) override
-	{
-		ASSERT_FALSE (true);
-	}
-	void node_id_handshake (nano::node_id_handshake const &) override
-	{
-		ASSERT_FALSE (true);
-	}
-	void telemetry_req (nano::telemetry_req const &) override
-	{
-		ASSERT_FALSE (true);
-	}
-	void telemetry_ack (nano::telemetry_ack const &) override
-	{
-		ASSERT_FALSE (true);
-	}
-
-	uint64_t keepalive_count{ 0 };
-	uint64_t publish_count{ 0 };
-	uint64_t confirm_req_count{ 0 };
-	uint64_t confirm_ack_count{ 0 };
-};
-}
-
 template <class message_type>
 auto message_deserializer_success_checker (message_type & message_original) -> void
 {
