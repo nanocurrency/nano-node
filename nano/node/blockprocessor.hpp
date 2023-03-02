@@ -45,7 +45,6 @@ public:
 	void add (std::shared_ptr<nano::block> const &);
 	std::optional<nano::process_return> add_blocking (std::shared_ptr<nano::block> const & block);
 	void force (std::shared_ptr<nano::block> const &);
-	void wait_write ();
 	bool should_log ();
 	bool have_blocks_ready ();
 	bool have_blocks ();
@@ -72,7 +71,6 @@ private:
 	void add_impl (std::shared_ptr<nano::block> block);
 	bool stopped{ false };
 	bool active{ false };
-	bool awaiting_write{ false };
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::shared_ptr<nano::block>> blocks;
 	std::deque<std::shared_ptr<nano::block>> forced;

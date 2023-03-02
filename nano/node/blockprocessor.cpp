@@ -132,12 +132,6 @@ void nano::block_processor::force (std::shared_ptr<nano::block> const & block_a)
 	condition.notify_all ();
 }
 
-void nano::block_processor::wait_write ()
-{
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	awaiting_write = true;
-}
-
 void nano::block_processor::process_blocks ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
@@ -247,7 +241,7 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 	auto deadline_reached = [&timer_l, deadline = node.config.block_processor_batch_max_time] { return timer_l.after_deadline (deadline); };
 	auto processor_batch_reached = [&number_of_blocks_processed, max = node.flags.block_processor_batch_size] { return number_of_blocks_processed >= max; };
 	auto store_batch_reached = [&number_of_blocks_processed, max = node.store.max_block_write_batch_num ()] { return number_of_blocks_processed >= max; };
-	while (have_blocks_ready () && (!deadline_reached () || !processor_batch_reached ()) && !awaiting_write && !store_batch_reached ())
+	while (have_blocks_ready () && (!deadline_reached () || !processor_batch_reached ()) && !store_batch_reached ())
 	{
 		if ((blocks.size () + state_block_signature_verification.size () + forced.size () > 64) && should_log ())
 		{
@@ -308,7 +302,6 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 		processed.emplace_back (result, block);
 		lock_a.lock ();
 	}
-	awaiting_write = false;
 	lock_a.unlock ();
 
 	if (node.config.logging.timing_logging () && number_of_blocks_processed != 0 && timer_l.stop () > std::chrono::milliseconds (100))
