@@ -603,12 +603,8 @@ std::optional<nano::process_return> nano::node::process_local (std::shared_ptr<n
 {
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
-	// Notify block processor to release write lock
-	block_processor.wait_write ();
-	// Process block
-	block_post_events post_events ([&store = store] { return store.tx_begin_read (); });
-	auto const transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
-	return block_processor.process_one (transaction, post_events, block_a, false);
+	block_broadcast.set_local (block_a);
+	return block_processor.add_blocking (block_a);
 }
 
 void nano::node::process_local_async (std::shared_ptr<nano::block> const & block_a)

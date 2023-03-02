@@ -31,6 +31,7 @@ nano::block_processor::block_processor (nano::node & node_a, nano::write_databas
 	write_database_queue (write_database_queue_a),
 	state_block_signature_verification (node.checker, node.ledger.constants.epochs, node.config, node.logger, node.flags.block_processor_verification_size)
 {
+	blocking.connect (*this);
 	state_block_signature_verification.blocks_verified_callback = [this] (std::deque<nano::state_block_signature_verification::value_type> & items, std::vector<int> const & verifications, std::vector<nano::block_hash> const & hashes, std::vector<nano::signature> const & blocks_signatures) {
 		this->process_verified_state_blocks (items, verifications, hashes, blocks_signatures);
 	};
@@ -57,6 +58,7 @@ void nano::block_processor::stop ()
 		stopped = true;
 	}
 	condition.notify_all ();
+	blocking.stop ();
 	state_block_signature_verification.stop ();
 	nano::join_or_pass (processing_thread);
 }
@@ -101,18 +103,24 @@ void nano::block_processor::add (std::shared_ptr<nano::block> const & block)
 		node.stats.inc (nano::stat::type::blockprocessor, nano::stat::detail::insufficient_work);
 		return;
 	}
-	if (block->type () == nano::block_type::state || block->type () == nano::block_type::open)
+	add_impl (block);
+	return;
+}
+
+std::optional<nano::process_return> nano::block_processor::add_blocking (std::shared_ptr<nano::block> const & block)
+{
+	auto future = blocking.insert (block);
+	add_impl (block);
+	condition.notify_all ();
+	std::optional<nano::process_return> result;
+	try
 	{
-		state_block_signature_verification.add ({ block });
+		result = future.get ();
 	}
-	else
+	catch (std::future_error const & e)
 	{
-		{
-			nano::lock_guard<nano::mutex> guard{ mutex };
-			blocks.emplace_back (block);
-		}
-		condition.notify_all ();
 	}
+	return result;
 }
 
 void nano::block_processor::force (std::shared_ptr<nano::block> const & block_a)
@@ -207,6 +215,22 @@ void nano::block_processor::process_verified_state_blocks (std::deque<nano::stat
 		}
 	}
 	condition.notify_all ();
+}
+
+void nano::block_processor::add_impl (std::shared_ptr<nano::block> block)
+{
+	if (block->type () == nano::block_type::state || block->type () == nano::block_type::open)
+	{
+		state_block_signature_verification.add ({ block });
+	}
+	else
+	{
+		{
+			nano::lock_guard<nano::mutex> guard{ mutex };
+			blocks.emplace_back (block);
+		}
+		condition.notify_all ();
+	}
 }
 
 auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock_a) -> std::deque<processed_t>
