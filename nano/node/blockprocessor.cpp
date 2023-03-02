@@ -140,8 +140,8 @@ void nano::block_processor::process_blocks ()
 			active = true;
 			lock.unlock ();
 			auto processed = process_batch (lock);
- 			batch_processed.notify (processed);
- 			lock.lock ();
+			batch_processed.notify (processed);
+			lock.lock ();
 			active = false;
 		}
 		else
@@ -294,7 +294,7 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 	return processed;
 }
 
-void nano::block_processor::process_live (nano::transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a, nano::process_return const & process_return_a, nano::block_origin const origin_a)
+void nano::block_processor::process_live (nano::transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a, nano::process_return const & process_return_a)
 {
 	// Start collecting quorum on block
 	if (node.ledger.dependents_confirmed (transaction_a, *block_a))
@@ -306,23 +306,13 @@ void nano::block_processor::process_live (nano::transaction const & transaction_
 	// Notify inactive vote cache about a new live block
 	node.inactive_vote_cache.trigger (block_a->hash ());
 
-	// Announce block contents to the network
-	if (origin_a == nano::block_origin::local)
-	{
-		node.network.flood_block_initial (block_a);
-	}
-	else if (!node.flags.disable_block_processor_republishing && node.block_arrival.recent (hash_a))
-	{
-		node.network.flood_block (block_a, nano::transport::buffer_drop_policy::limiter);
-	}
-
 	if (node.websocket.server && node.websocket.server->any_subscriber (nano::websocket::topic::new_unconfirmed_block))
 	{
 		node.websocket.server->broadcast (nano::websocket::message_builder ().new_block_arrived (*block_a));
 	}
 }
 
-nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, std::shared_ptr<nano::block> block, bool const forced_a, nano::block_origin const origin_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, std::shared_ptr<nano::block> block, bool const forced_a)
 {
 	nano::process_return result;
 	auto hash (block->hash ());
@@ -340,8 +330,8 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				block->serialize_json (block_string, node.config.logging.single_line_record ());
 				node.logger.try_log (boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block_string));
 			}
-			events_a.events.emplace_back ([this, hash, block, result, origin_a] (nano::transaction const & post_event_transaction_a) {
-				process_live (post_event_transaction_a, hash, block, result, origin_a);
+			events_a.events.emplace_back ([this, hash, block, result] (nano::transaction const & post_event_transaction_a) {
+				process_live (post_event_transaction_a, hash, block, result);
 			});
 			queue_unchecked (transaction_a, hash);
 			/* For send blocks check epoch open unchecked (gap pending).

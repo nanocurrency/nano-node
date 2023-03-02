@@ -16,12 +16,6 @@ class transaction;
 class write_transaction;
 class write_database_queue;
 
-enum class block_origin
-{
-	local,
-	remote
-};
-
 class block_post_events final
 {
 public:
@@ -53,21 +47,21 @@ public:
 	bool have_blocks_ready ();
 	bool have_blocks ();
 	void process_blocks ();
-	nano::process_return process_one (nano::write_transaction const &, block_post_events &, std::shared_ptr<nano::block> block, bool const = false, nano::block_origin const = nano::block_origin::remote);
+	nano::process_return process_one (nano::write_transaction const &, block_post_events &, std::shared_ptr<nano::block> block, bool const = false);
 
 	std::atomic<bool> flushing{ false };
 	// Delay required for average network propagartion before requesting confirmation
 	static std::chrono::milliseconds constexpr confirmation_request_delay{ 1500 };
 
- public: // Events
- 	using processed_t = std::pair<nano::process_return, std::shared_ptr<nano::block>>;
+public: // Events
+	using processed_t = std::pair<nano::process_return, std::shared_ptr<nano::block>>;
 	nano::observer_set<nano::transaction const &, nano::process_return const &, nano::block const &> processed;
 	nano::observer_set<std::deque<processed_t> const &> batch_processed;
 
 private:
 	void queue_unchecked (nano::write_transaction const &, nano::hash_or_account const &);
 	std::deque<processed_t> process_batch (nano::unique_lock<nano::mutex> &);
-	void process_live (nano::transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &, nano::process_return const &, nano::block_origin const = nano::block_origin::remote);
+	void process_live (nano::transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &, nano::process_return const &);
 	void process_verified_state_blocks (std::deque<nano::state_block_signature_verification::value_type> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);
 	bool stopped{ false };
 	bool active{ false };
