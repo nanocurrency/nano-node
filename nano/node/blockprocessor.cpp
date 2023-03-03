@@ -33,11 +33,10 @@ nano::block_processor::block_processor (nano::node & node_a, nano::write_databas
 {
 	batch_processed.add ([this] (auto const & items) {
 		// For every batch item: notify the 'processed' observer.
-		auto tx = node.store.tx_begin_read ();
 		for (auto const & item : items)
 		{
 			auto const & [result, block] = item;
-			processed.notify (tx, result, *block);
+			processed.notify (result, block);
 		}
 	});
 	blocking.connect (*this);

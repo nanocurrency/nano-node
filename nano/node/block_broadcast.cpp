@@ -15,19 +15,16 @@ void nano::block_broadcast::connect (nano::block_processor & block_processor, bo
 	{
 		return;
 	}
-	block_processor.batch_processed.add ([this] (auto const & items) {
-		for (auto const & [result, block] : items)
+	block_processor.processed.add ([this] (auto const & result, auto const & block) {
+		switch (result.code)
 		{
-			switch (result.code)
-			{
-				case nano::process_result::progress:
-					observe (block);
-					break;
-				default:
-					break;
-			}
-			erase (block);
+			case nano::process_result::progress:
+				observe (block);
+				break;
+			default:
+				break;
 		}
+		erase (block);
 	});
 }
 

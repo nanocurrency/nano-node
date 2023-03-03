@@ -3,11 +3,8 @@
 
 void nano::blocking_observer::connect (nano::block_processor & block_processor)
 {
-	block_processor.batch_processed.add ([this] (auto const & items) {
-		for (auto const & [result, block] : items)
-		{
-			observe (result, block);
-		}
+	block_processor.processed.add ([this] (auto const & result, auto const & block) {
+		observe (result, block);
 	});
 }
 
