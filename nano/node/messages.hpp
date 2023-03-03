@@ -1,18 +1,23 @@
 #pragma once
 
-#include <nano/boost/asio/ip/tcp.hpp>
-#include <nano/boost/asio/ip/udp.hpp>
-#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/asio.hpp>
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/memory.hpp>
-#include <nano/lib/stats.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/stats_enums.hpp>
+#include <nano/lib/stream.hpp>
 #include <nano/node/common.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/network_filter.hpp>
 
 #include <bitset>
+#include <cstdint>
+#include <memory>
+#include <string>
 #include <variant>
+#include <vector>
 
 namespace nano
 {
@@ -112,9 +117,6 @@ public:
 public:
 	nano::message_header header;
 };
-
-class work_pool;
-class network_constants;
 
 class keepalive final : public message
 {

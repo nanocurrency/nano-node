@@ -1,19 +1,30 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/memory.hpp>
+#include <nano/lib/stats_enums.hpp>
+#include <nano/lib/stream.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/messages.hpp>
 #include <nano/node/network.hpp>
-#include <nano/node/wallet.hpp>
 #include <nano/secure/buffer.hpp>
 
+#include <boost/asio/ip/address_v6.hpp>
 #include <boost/endian/conversion.hpp>
 #include <boost/format.hpp>
 #include <boost/pool/pool_alloc.hpp>
 
+#include <bitset>
+#include <chrono>
+#include <cstdint>
+#include <memory>
 #include <sstream>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
 
 /*
  * message_header
