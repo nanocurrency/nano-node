@@ -319,7 +319,7 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 	return processed;
 }
 
-void nano::block_processor::process_live (nano::transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a, nano::process_return const & process_return_a)
+void nano::block_processor::process_live (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
 {
 	// Start collecting quorum on block
 	if (node.ledger.dependents_confirmed (transaction_a, *block_a))
@@ -352,8 +352,8 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				block->serialize_json (block_string, node.config.logging.single_line_record ());
 				node.logger.try_log (boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block_string));
 			}
-			events_a.events.emplace_back ([this, hash, block, result] (nano::transaction const & post_event_transaction_a) {
-				process_live (post_event_transaction_a, hash, block, result);
+			events_a.events.emplace_back ([this, block] (nano::transaction const & post_event_transaction_a) {
+				process_live (post_event_transaction_a, block);
 			});
 			queue_unchecked (transaction_a, hash);
 			/* For send blocks check epoch open unchecked (gap pending).
