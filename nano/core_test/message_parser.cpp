@@ -9,6 +9,8 @@
 #include <memory>
 #include <vector>
 
+// Test the successful cases for message_deserializer, checking the supported message types and
+// the integrity of the deserialized outcome.
 template <class message_type>
 auto message_deserializer_success_checker (message_type & message_original) -> void
 {
@@ -43,11 +45,14 @@ auto message_deserializer_success_checker (message_type & message_original) -> v
 	message_deserializer->read (
 	[&message_original] (boost::system::error_code ec_a, std::unique_ptr<nano::message> message_a) {
 		auto deserialized_message = dynamic_cast<message_type *> (message_a.get ());
+		// Ensure the message type is supported.
 		ASSERT_NE (deserialized_message, nullptr);
 		auto deserialized_bytes = deserialized_message->to_bytes ();
 		auto original_bytes = message_original.to_bytes ();
+		// Ensure the integrity of the deserialized message.
 		ASSERT_EQ (*deserialized_bytes, *original_bytes);
 	});
+	// This is a sanity test, to ensure the successful deserialization case passes.
 	ASSERT_EQ (message_deserializer->status, nano::transport::message_deserializer::parse_status::success);
 }
 
