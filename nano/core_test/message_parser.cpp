@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/none.hpp>
+
 #include <memory>
 #include <vector>
 
@@ -122,6 +124,95 @@ TEST (message_deserializer, exact_publish)
 TEST (message_deserializer, exact_keepalive)
 {
 	nano::keepalive message{ nano::dev::network_params.network };
+
+	message_deserializer_success_checker<decltype (message)> (message);
+}
+
+TEST (message_deserializer, exact_frontier_req)
+{
+	nano::frontier_req message{ nano::dev::network_params.network };
+	message_deserializer_success_checker<decltype (message)> (message);
+}
+
+TEST (message_deserializer, exact_telemetry_req)
+{
+	nano::telemetry_req message{ nano::dev::network_params.network };
+	message_deserializer_success_checker<decltype (message)> (message);
+}
+
+TEST (message_deserializer, exact_telemetry_ack)
+{
+	nano::telemetry_data data;
+	data.unknown_data.push_back (0xFF);
+
+	nano::telemetry_ack message{ nano::dev::network_params.network, data };
+	message_deserializer_success_checker<decltype (message)> (message);
+}
+
+TEST (message_deserializer, exact_bulk_pull)
+{
+	nano::bulk_pull message{ nano::dev::network_params.network };
+	message.header.flag_set (nano::message_header::bulk_pull_ascending_flag);
+
+	message_deserializer_success_checker<decltype (message)> (message);
+}
+
+TEST (message_deserializer, exact_bulk_pull_account)
+{
+	nano::bulk_pull_account message{ nano::dev::network_params.network };
+	message.flags = nano::bulk_pull_account_flags::pending_address_only;
+
+	message_deserializer_success_checker<decltype (message)> (message);
+}
+
+TEST (message_deserializer, exact_bulk_push)
+{
+	nano::bulk_push message{ nano::dev::network_params.network };
+	message_deserializer_success_checker<decltype (message)> (message);
+}
+
+TEST (message_deserializer, exact_node_id_handshake)
+{
+	nano::node_id_handshake message{ nano::dev::network_params.network, boost::none, boost::none };
+	message_deserializer_success_checker<decltype (message)> (message);
+}
+
+TEST (message_deserializer, exact_asc_pull_req)
+{
+	nano::asc_pull_req message{ nano::dev::network_params.network };
+
+	// The asc_pull_req checks for the message fields and the payload to be filled.
+	message.id = 7;
+	message.type = nano::asc_pull_type::account_info;
+
+	nano::asc_pull_req::account_info_payload message_payload;
+	message_payload.target = nano::test::random_account ();
+	message_payload.target_type = nano::asc_pull_req::hash_type::account;
+
+	message.payload = message_payload;
+	message.update_header ();
+
+	message_deserializer_success_checker<decltype (message)> (message);
+}
+
+TEST (message_deserializer, exact_asc_pull_ack)
+{
+	nano::asc_pull_ack message{ nano::dev::network_params.network };
+
+	// The asc_pull_ack checks for the message fields and the payload to be filled.
+	message.id = 11;
+	message.type = nano::asc_pull_type::account_info;
+
+	nano::asc_pull_ack::account_info_payload message_payload;
+	message_payload.account = nano::test::random_account ();
+	message_payload.account_open = nano::test::random_hash ();
+	message_payload.account_head = nano::test::random_hash ();
+	message_payload.account_block_count = 932932132;
+	message_payload.account_conf_frontier = nano::test::random_hash ();
+	message_payload.account_conf_height = 847312;
+
+	message.payload = message_payload;
+	message.update_header ();
 
 	message_deserializer_success_checker<decltype (message)> (message);
 }
