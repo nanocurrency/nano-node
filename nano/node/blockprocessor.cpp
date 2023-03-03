@@ -31,6 +31,15 @@ nano::block_processor::block_processor (nano::node & node_a, nano::write_databas
 	write_database_queue (write_database_queue_a),
 	state_block_signature_verification (node.checker, node.ledger.constants.epochs, node.config, node.logger, node.flags.block_processor_verification_size)
 {
+	batch_processed.add ([this] (auto const & items) {
+		// For every batch item: notify the 'processed' observer.
+		auto tx = node.store.tx_begin_read ();
+		for (auto const & item : items)
+		{
+			auto const & [result, block] = item;
+			processed.notify (tx, result, *block);
+		}
+	});
 	blocking.connect (*this);
 	state_block_signature_verification.blocks_verified_callback = [this] (std::deque<nano::state_block_signature_verification::value_type> & items, std::vector<int> const & verifications, std::vector<nano::block_hash> const & hashes, std::vector<nano::signature> const & blocks_signatures) {
 		this->process_verified_state_blocks (items, verifications, hashes, blocks_signatures);
@@ -334,9 +343,6 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 	nano::process_return result;
 	auto hash (block->hash ());
 	result = node.ledger.process (transaction_a, *block);
-	events_a.events.emplace_back ([this, result, block] (nano::transaction const & tx) {
-		processed.notify (tx, result, *block);
-	});
 	switch (result.code)
 	{
 		case nano::process_result::progress:

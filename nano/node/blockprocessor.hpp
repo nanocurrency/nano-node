@@ -57,6 +57,8 @@ public:
 public: // Events
 	using processed_t = std::pair<nano::process_return, std::shared_ptr<nano::block>>;
 	nano::observer_set<nano::transaction const &, nano::process_return const &, nano::block const &> processed;
+
+	// The batch observer feeds the processed obsever
 	nano::observer_set<std::deque<processed_t> const &> batch_processed;
 
 private:
