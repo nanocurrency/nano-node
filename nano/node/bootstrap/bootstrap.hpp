@@ -27,7 +27,8 @@ enum class bootstrap_mode
 {
 	legacy,
 	lazy,
-	wallet_lazy
+	wallet_lazy,
+	ascending
 };
 enum class sync_result
 {

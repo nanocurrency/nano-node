@@ -49,6 +49,9 @@ namespace thread_role
 		bootstrap_server,
 		telemetry,
 		optimistic_scheduler,
+		ascending_bootstrap,
+		bootstrap_server_requests,
+		bootstrap_server_responses,
 	};
 
 	/*
