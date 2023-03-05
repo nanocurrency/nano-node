@@ -172,8 +172,8 @@ void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & end
 					case boost::system::errc::connection_refused:
 					case boost::system::errc::operation_canceled:
 					case boost::system::errc::timed_out:
-					case 995: //Windows The I/O operation has been aborted because of either a thread exit or an application request
-					case 10061: //Windows No connection could be made because the target machine actively refused it
+					case 995: // Windows The I/O operation has been aborted because of either a thread exit or an application request
+					case 10061: // Windows No connection could be made because the target machine actively refused it
 						break;
 				}
 			}
@@ -286,7 +286,7 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 		// Not many peers respond, need to try to make more connections than we need.
 		for (auto i = 0u; i < delta; i++)
 		{
-			auto endpoint (node.network.bootstrap_peer ());
+			auto endpoint (node.network.bootstrap_peer ()); // Legacy bootstrap is compatible with older version of protocol
 			if (endpoint != nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0) && (node.flags.allow_bootstrap_peers_duplicates || endpoints.find (endpoint) == endpoints.end ()) && !node.network.excluded_peers.check (endpoint))
 			{
 				connect_client (endpoint);

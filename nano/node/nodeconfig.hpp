@@ -140,7 +140,7 @@ public:
 	bool disable_bootstrap_bulk_pull_server{ false };
 	bool disable_bootstrap_bulk_push_client{ false };
 	bool disable_ongoing_bootstrap{ false }; // For testing only
-	bool disable_ascending_bootstrap{ true };
+	bool disable_ascending_bootstrap{ false };
 	bool disable_rep_crawler{ false };
 	bool disable_request_loop{ false }; // For testing only
 	bool disable_tcp_realtime{ false };
