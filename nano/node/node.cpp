@@ -204,8 +204,10 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	websocket{ config.websocket_config, observers, wallets, ledger, io_ctx, logger },
 	epoch_upgrader{ *this, ledger, store, network_params, logger },
 	startup_time (std::chrono::steady_clock::now ()),
-	node_seq (seq)
+	node_seq (seq),
+	block_broadcast{ network, block_arrival }
 {
+	block_broadcast.connect (block_processor, !flags.disable_block_processor_republishing);
 	unchecked.use_memory = [this] () { return ledger.bootstrap_weight_reached (); };
 	unchecked.satisfied = [this] (nano::unchecked_info const & info) {
 		this->block_processor.add (info.block);
@@ -597,16 +599,12 @@ nano::process_return nano::node::process (nano::block & block)
 	return process (transaction, block);
 }
 
-nano::process_return nano::node::process_local (std::shared_ptr<nano::block> const & block_a)
+std::optional<nano::process_return> nano::node::process_local (std::shared_ptr<nano::block> const & block_a)
 {
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
-	// Notify block processor to release write lock
-	block_processor.wait_write ();
-	// Process block
-	block_post_events post_events ([&store = store] { return store.tx_begin_read (); });
-	auto const transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
-	return block_processor.process_one (transaction, post_events, block_a, false, nano::block_origin::local);
+	block_broadcast.set_local (block_a);
+	return block_processor.add_blocking (block_a);
 }
 
 void nano::node::process_local_async (std::shared_ptr<nano::block> const & block_a)

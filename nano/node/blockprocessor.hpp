@@ -1,10 +1,12 @@
 #pragma once
 
 #include <nano/lib/blocks.hpp>
+#include <nano/node/blocking_observer.hpp>
 #include <nano/node/state_block_signature_verification.hpp>
 #include <nano/secure/common.hpp>
 
 #include <chrono>
+#include <future>
 #include <memory>
 #include <thread>
 
@@ -15,12 +17,6 @@ class read_transaction;
 class transaction;
 class write_transaction;
 class write_database_queue;
-
-enum class block_origin
-{
-	local,
-	remote
-};
 
 class block_post_events final
 {
@@ -47,27 +43,36 @@ public:
 	bool full ();
 	bool half_full ();
 	void add (std::shared_ptr<nano::block> const &);
+	std::optional<nano::process_return> add_blocking (std::shared_ptr<nano::block> const & block);
 	void force (std::shared_ptr<nano::block> const &);
-	void wait_write ();
 	bool should_log ();
 	bool have_blocks_ready ();
 	bool have_blocks ();
 	void process_blocks ();
-	nano::process_return process_one (nano::write_transaction const &, block_post_events &, std::shared_ptr<nano::block> block, bool const = false, nano::block_origin const = nano::block_origin::remote);
 
 	std::atomic<bool> flushing{ false };
 	// Delay required for average network propagartion before requesting confirmation
 	static std::chrono::milliseconds constexpr confirmation_request_delay{ 1500 };
-	nano::observer_set<nano::transaction const &, nano::process_return const &, nano::block const &> processed;
+
+public: // Events
+	using processed_t = std::pair<nano::process_return, std::shared_ptr<nano::block>>;
+	nano::observer_set<nano::process_return const &, std::shared_ptr<nano::block>> processed;
+
+	// The batch observer feeds the processed obsever
+	nano::observer_set<std::deque<processed_t> const &> batch_processed;
 
 private:
+	blocking_observer blocking;
+
+private:
+	nano::process_return process_one (nano::write_transaction const &, block_post_events &, std::shared_ptr<nano::block> block, bool const = false);
 	void queue_unchecked (nano::write_transaction const &, nano::hash_or_account const &);
-	void process_batch (nano::unique_lock<nano::mutex> &);
-	void process_live (nano::transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &, nano::process_return const &, nano::block_origin const = nano::block_origin::remote);
+	std::deque<processed_t> process_batch (nano::unique_lock<nano::mutex> &);
+	void process_live (nano::transaction const &, std::shared_ptr<nano::block> const &);
 	void process_verified_state_blocks (std::deque<nano::state_block_signature_verification::value_type> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);
+	void add_impl (std::shared_ptr<nano::block> block);
 	bool stopped{ false };
 	bool active{ false };
-	bool awaiting_write{ false };
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::shared_ptr<nano::block>> blocks;
 	std::deque<std::shared_ptr<nano::block>> forced;

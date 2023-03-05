@@ -7,6 +7,7 @@
 #include <nano/node/backlog_population.hpp>
 #include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/block_arrival.hpp>
+#include <nano/node/block_broadcast.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
@@ -84,7 +85,7 @@ public:
 	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block> const &, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, bool &, nano::account &);
 	void process_confirmed (nano::election_status const &, uint64_t = 0);
 	void process_active (std::shared_ptr<nano::block> const &);
-	nano::process_return process_local (std::shared_ptr<nano::block> const &);
+	std::optional<nano::process_return> process_local (std::shared_ptr<nano::block> const &);
 	void process_local_async (std::shared_ptr<nano::block> const &);
 	void keepalive_preconfigured (std::vector<std::string> const &);
 	std::shared_ptr<nano::block> block (nano::block_hash const &);
@@ -190,6 +191,7 @@ public:
 	nano::backlog_population backlog;
 	nano::websocket_server websocket;
 	nano::epoch_upgrader epoch_upgrader;
+	nano::block_broadcast block_broadcast;
 
 	std::chrono::steady_clock::time_point const startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week

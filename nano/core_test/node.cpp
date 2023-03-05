@@ -656,7 +656,7 @@ TEST (node, fork_publish_inactive)
 	std::shared_ptr<nano::election> election;
 	ASSERT_TIMELY (5s, election = node.active.election (send1->qualified_root ()));
 
-	ASSERT_EQ (nano::process_result::fork, node.process_local (send2).code);
+	ASSERT_EQ (nano::process_result::fork, node.process_local (send2).value ().code);
 
 	auto blocks = election->blocks ();
 	ASSERT_TIMELY_EQ (5s, blocks.size (), 2);
@@ -3436,7 +3436,6 @@ TEST (node, aggressive_flooding)
 	nano::test::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
-	node_flags.disable_block_processor_republishing = true;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_bootstrap_bulk_pull_server = true;
 	node_flags.disable_bootstrap_listener = true;
@@ -3521,7 +3520,7 @@ TEST (node, aggressive_flooding)
 				.build ();
 	}
 	// Processing locally goes through the aggressive block flooding path
-	ASSERT_EQ (nano::process_result::progress, node1.process_local (block).code);
+	ASSERT_EQ (nano::process_result::progress, node1.process_local (block).value ().code);
 
 	auto all_have_block = [&nodes_wallets] (nano::block_hash const & hash_a) {
 		return std::all_of (nodes_wallets.begin (), nodes_wallets.end (), [hash = hash_a] (auto const & node_wallet) {

@@ -1064,14 +1064,14 @@ TEST (active_transactions, conflicting_block_vote_existing_election)
 				.build_shared ();
 	auto vote_fork (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ fork->hash () }));
 
-	ASSERT_EQ (nano::process_result::progress, node.process_local (send).code);
+	ASSERT_EQ (nano::process_result::progress, node.process_local (send).value ().code);
 	ASSERT_TIMELY_EQ (5s, 1, node.active.size ());
 
 	// Vote for conflicting block, but the block does not yet exist in the ledger
 	node.active.vote (vote_fork);
 
 	// Block now gets processed
-	ASSERT_EQ (nano::process_result::fork, node.process_local (fork).code);
+	ASSERT_EQ (nano::process_result::fork, node.process_local (fork).value ().code);
 
 	// Election must be confirmed
 	auto election (node.active.election (fork->qualified_root ()));
