@@ -450,9 +450,8 @@ TEST (block_store, empty_bootstrap)
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	nano::unchecked_map unchecked{ *store, system.stats, false };
 	ASSERT_TRUE (!store->init_error ());
-	auto transaction (store->tx_begin_read ());
 	size_t count = 0;
-	unchecked.for_each (transaction, [&count] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+	unchecked.for_each ([&count] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 		++count;
 	});
 	ASSERT_EQ (count, 0);

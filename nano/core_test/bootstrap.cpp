@@ -127,12 +127,12 @@ TEST (bulk_pull, ascending_one_hash)
 	auto connection = std::make_shared<nano::transport::tcp_server> (socket, system.nodes[0]);
 	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
 	req->start = nano::dev::genesis->hash ();
-	req->end = nano::dev::genesis->hash ();
+	req->end.clear ();
 	req->header.flag_set (nano::message_header::bulk_pull_ascending_flag);
 	auto request = std::make_shared<nano::bulk_pull_server> (connection, std::move (req));
 	auto block_out1 = request->get_next ();
 	ASSERT_NE (nullptr, block_out1);
-	ASSERT_EQ (block_out1->hash (), nano::dev::genesis->hash ());
+	ASSERT_EQ (block_out1->hash (), block1->hash ());
 	ASSERT_EQ (nullptr, request->get_next ());
 }
 
@@ -158,7 +158,7 @@ TEST (bulk_pull, ascending_two_account)
 	auto socket = std::make_shared<nano::transport::socket> (node, nano::transport::socket::endpoint_type_t::server);
 	auto connection = std::make_shared<nano::transport::tcp_server> (socket, system.nodes[0]);
 	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
-	req->start = nano::dev::genesis->hash ();
+	req->start = nano::dev::genesis->account ();
 	req->end.clear ();
 	req->header.flag_set (nano::message_header::bulk_pull_ascending_flag);
 	auto request = std::make_shared<nano::bulk_pull_server> (connection, std::move (req));
@@ -172,7 +172,7 @@ TEST (bulk_pull, ascending_two_account)
 }
 
 /**
-	Tests that the `end' value is respected in the bulk_pull message
+	Tests that the `end' value is respected in the bulk_pull message when the ascending flag is used.
  */
 TEST (bulk_pull, ascending_end)
 {
@@ -1351,7 +1351,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	ASSERT_FALSE (node2->ledger.block_or_pruned_exists (state_open->hash ()));
 	{
 		auto transaction (node2->store.tx_begin_read ());
-		ASSERT_TRUE (node2->unchecked.exists (transaction, nano::unchecked_key (send2->root ().as_block_hash (), send2->hash ())));
+		ASSERT_TRUE (node2->unchecked.exists (nano::unchecked_key (send2->root ().as_block_hash (), send2->hash ())));
 	}
 	// Insert missing block
 	node2->process_active (send1);
@@ -2045,7 +2045,7 @@ TEST (bulk, DISABLED_genesis_pruning)
 	ASSERT_EQ (1, node2->ledger.cache.block_count);
 	{
 		auto transaction (node2->store.tx_begin_write ());
-		node2->unchecked.clear (transaction);
+		node2->unchecked.clear ();
 	}
 	// Insert pruned blocks
 	node2->process_active (send1);

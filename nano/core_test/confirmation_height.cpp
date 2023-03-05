@@ -391,14 +391,14 @@ TEST (confirmation_height, gap_bootstrap)
 		node1.process_active (receive2);
 		// Waits for the unchecked_map to process the 4 blocks added to the block_processor, saving them in the unchecked table
 		auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
-			return !node1.unchecked.get (transaction_a, block_hash_a).empty ();
+			return !node1.unchecked.get (block_hash_a).empty ();
 		};
 		ASSERT_TIMELY (5s, check_block_is_listed (node1.store.tx_begin_read (), receive2->previous ()));
 
 		// Confirmation heights should not be updated
 		{
 			auto transaction (node1.store.tx_begin_read ());
-			auto unchecked_count (node1.unchecked.count (transaction));
+			auto unchecked_count (node1.unchecked.count ());
 			ASSERT_EQ (unchecked_count, 2);
 
 			nano::confirmation_height_info confirmation_height_info;
@@ -410,7 +410,7 @@ TEST (confirmation_height, gap_bootstrap)
 		// Now complete the chain where the block comes in on the bootstrap network.
 		node1.block_processor.add (open1);
 
-		ASSERT_TIMELY (5s, node1.unchecked.count (node1.store.tx_begin_read ()) == 0);
+		ASSERT_TIMELY (5s, node1.unchecked.count () == 0);
 		// Confirmation height should be unchanged and unchecked should now be 0
 		{
 			auto transaction = node1.store.tx_begin_read ();
@@ -544,7 +544,7 @@ TEST (confirmation_height, gap_live)
 
 		// This should confirm the open block and the source of the receive blocks
 		auto transaction = node->store.tx_begin_read ();
-		auto unchecked_count = node->unchecked.count (transaction);
+		auto unchecked_count = node->unchecked.count ();
 		ASSERT_EQ (unchecked_count, 0);
 
 		nano::confirmation_height_info confirmation_height_info{};
