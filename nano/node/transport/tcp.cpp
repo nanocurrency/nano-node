@@ -430,7 +430,6 @@ std::unique_ptr<nano::container_info_component> nano::transport::tcp_channels::c
 {
 	std::size_t channels_count;
 	std::size_t attemps_count;
-	std::size_t node_id_handshake_sockets_count;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		channels_count = channels.size ();
