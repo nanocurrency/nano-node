@@ -215,7 +215,7 @@ find_package(Threads)
 if(WIN32)
   find_library(PSAPI Psapi)
   add_definitions(-D_WIN32_WINNT=0x0600 -DWINVER=0x0600 -DMINIUPNP_STATICLIB
-                  -D_CRT_SECURE_NO_WARNINGS /EHsc)
+                  -D_CRT_SECURE_NO_WARNINGS -DNOGDI /EHsc)
 
   if(${USING_TSAN}
      OR ${USING_ASAN}
