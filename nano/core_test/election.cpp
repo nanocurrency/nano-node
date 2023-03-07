@@ -12,8 +12,7 @@ TEST (election, construction)
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
 	node.block_confirm (nano::dev::genesis);
-	ASSERT_TIMELY (5s, node.active.election (nano::dev::genesis->qualified_root ()));
-	auto election = node.active.election (nano::dev::genesis->qualified_root ());
+	auto election = nano::test::start_election (system, node, nano::dev::genesis->hash ());
 	election->transition_active ();
 }
 
