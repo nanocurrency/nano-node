@@ -32,6 +32,11 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 	last_blocks.emplace (block_a->hash (), block_a);
 }
 
+nano::election::~election ()
+{
+	destructor_observers.notify (qualified_root);
+}
+
 void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano::election_status_type type_a)
 {
 	debug_assert (lock_a.owns_lock ());
