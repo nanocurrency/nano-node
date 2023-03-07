@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -6,13 +6,16 @@ RUN apt-get update -qq && apt-get install -yqq \
 build-essential \
 g++ \
 wget \
-python \
+python3 \
 zlib1g-dev \
 cmake \
 git
 
 RUN apt-get update -qq && apt-get install -yqq \
-qt5-default \
+qtbase5-dev \
+qtchooser \
+qt5-qmake \
+qtbase5-dev-tools \
 valgrind \
 xorg xvfb xauth xfonts-100dpi xfonts-75dpi xfonts-scalable xfonts-cyrillic
 
