@@ -1,3 +1,4 @@
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/network.hpp>
 #include <nano/secure/buffer.hpp>
@@ -5,8 +6,7 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/algorithm/string.hpp>
-#include <boost/variant/get.hpp>
+#include <boost/asio/ip/address_v6.hpp>
 
 namespace
 {

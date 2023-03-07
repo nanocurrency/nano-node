@@ -1,18 +1,23 @@
 #pragma once
 
-#include <nano/boost/asio/ip/tcp.hpp>
-#include <nano/boost/asio/ip/udp.hpp>
-#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/asio.hpp>
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/memory.hpp>
-#include <nano/lib/stats.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/stats_enums.hpp>
+#include <nano/lib/stream.hpp>
 #include <nano/node/common.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/network_filter.hpp>
 
 #include <bitset>
+#include <cstdint>
+#include <memory>
+#include <string>
 #include <variant>
+#include <vector>
 
 namespace nano
 {
@@ -107,49 +112,6 @@ public:
 
 public:
 	nano::message_header header;
-};
-
-class work_pool;
-class network_constants;
-
-class message_parser final
-{
-public:
-	enum class parse_status
-	{
-		success,
-		insufficient_work,
-		invalid_header,
-		invalid_message_type,
-		invalid_keepalive_message,
-		invalid_publish_message,
-		invalid_confirm_req_message,
-		invalid_confirm_ack_message,
-		invalid_node_id_handshake_message,
-		invalid_telemetry_req_message,
-		invalid_telemetry_ack_message,
-		outdated_version,
-		duplicate_publish_message
-	};
-	message_parser (nano::network_filter &, nano::block_uniquer &, nano::vote_uniquer &, nano::message_visitor &, nano::work_pool &, nano::network_constants const & protocol);
-	void deserialize_buffer (uint8_t const *, std::size_t);
-	void deserialize_keepalive (nano::stream &, nano::message_header const &);
-	void deserialize_publish (nano::stream &, nano::message_header const &, nano::uint128_t const & = 0);
-	void deserialize_confirm_req (nano::stream &, nano::message_header const &);
-	void deserialize_confirm_ack (nano::stream &, nano::message_header const &);
-	void deserialize_node_id_handshake (nano::stream &, nano::message_header const &);
-	void deserialize_telemetry_req (nano::stream &, nano::message_header const &);
-	void deserialize_telemetry_ack (nano::stream &, nano::message_header const &);
-	bool at_end (nano::stream &);
-	nano::network_filter & publish_filter;
-	nano::block_uniquer & block_uniquer;
-	nano::vote_uniquer & vote_uniquer;
-	nano::message_visitor & visitor;
-	nano::work_pool & pool;
-	parse_status status;
-	nano::network_constants const & network;
-	std::string status_string ();
-	static std::size_t const max_safe_udp_message_size;
 };
 
 class keepalive final : public message
