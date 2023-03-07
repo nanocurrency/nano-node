@@ -340,10 +340,10 @@ void nano::transport::tcp_server::handshake_message_visitor::node_id_handshake (
 	{
 		server->send_handshake_response (*message.query);
 	}
-	else if (message.response)
+	if (message.response)
 	{
-		nano::account const & node_id (message.response->first);
-		if (!server->node->network.syn_cookies.validate (nano::transport::map_tcp_to_endpoint (server->remote_endpoint), node_id, message.response->second) && node_id != server->node->node_id.pub)
+		nano::account const & node_id = message.response->node_id;
+		if (!server->node->network.syn_cookies.validate (nano::transport::map_tcp_to_endpoint (server->remote_endpoint), node_id, message.response->signature) && node_id != server->node->node_id.pub)
 		{
 			server->to_realtime_connection (node_id);
 		}
@@ -357,15 +357,22 @@ void nano::transport::tcp_server::handshake_message_visitor::node_id_handshake (
 	process = true;
 }
 
-void nano::transport::tcp_server::send_handshake_response (nano::uint256_union query)
+void nano::transport::tcp_server::send_handshake_response (nano::node_id_handshake::query_payload const & query)
 {
-	boost::optional<std::pair<nano::account, nano::signature>> response (std::make_pair (node->node_id.pub, nano::sign_message (node->node_id.prv, node->node_id.pub, query)));
-	debug_assert (!nano::validate_message (response->first, query, response->second));
+	nano::node_id_handshake::response_payload response{ node->node_id.pub, nano::sign_message (node->node_id.prv, node->node_id.pub, query.cookie) };
+	debug_assert (!nano::validate_message (response.node_id, query.cookie, response.signature));
 
-	auto cookie (node->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (remote_endpoint)));
-	nano::node_id_handshake response_message (node->network_params.network, cookie, response);
+	std::optional<nano::node_id_handshake::query_payload> own_query;
+	if (auto own_cookie = node->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (remote_endpoint)); own_cookie)
+	{
+		nano::node_id_handshake::query_payload pld{ *own_cookie };
+		own_query = pld;
+	}
 
-	auto shared_const_buffer = response_message.to_shared_const_buffer ();
+	nano::node_id_handshake handshake_response{ node->network_params.network, own_query, response };
+
+	// TODO: Use channel
+	auto shared_const_buffer = handshake_response.to_shared_const_buffer ();
 	socket->async_write (shared_const_buffer, [this_l = shared_from_this ()] (boost::system::error_code const & ec, std::size_t size_a) {
 		if (ec)
 		{

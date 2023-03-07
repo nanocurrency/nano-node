@@ -52,8 +52,6 @@ public:
 
 	void timeout ();
 
-	void send_handshake_response (nano::uint256_union query);
-
 	std::shared_ptr<nano::transport::socket> const socket;
 	std::shared_ptr<nano::node> const node;
 	nano::mutex mutex;
@@ -65,6 +63,8 @@ public:
 	std::chrono::steady_clock::time_point last_telemetry_req{};
 
 private:
+	void send_handshake_response (nano::node_id_handshake::query_payload const & query);
+
 	void receive_message ();
 	void received_message (std::unique_ptr<nano::message> message);
 	bool process_message (std::unique_ptr<nano::message> message);

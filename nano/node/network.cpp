@@ -113,19 +113,30 @@ void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channe
 	channel_a->send (message);
 }
 
-void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::channel> const & channel_a, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to)
+void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::channel> const & channel_a, std::optional<nano::uint256_union> const & cookie, std::optional<nano::uint256_union> const & respond_to)
 {
-	boost::optional<std::pair<nano::account, nano::signature>> response (boost::none);
+	std::optional<nano::node_id_handshake::response_payload> response;
 	if (respond_to)
 	{
-		response = std::make_pair (node.node_id.pub, nano::sign_message (node.node_id.prv, node.node_id.pub, *respond_to));
-		debug_assert (!nano::validate_message (response->first, *respond_to, response->second));
+		nano::node_id_handshake::response_payload pld{ node.node_id.pub, nano::sign_message (node.node_id.prv, node.node_id.pub, *respond_to) };
+		debug_assert (!nano::validate_message (pld.node_id, *respond_to, pld.signature));
+		response = pld;
 	}
+
+	std::optional<nano::node_id_handshake::query_payload> query;
+	if (cookie)
+	{
+		nano::node_id_handshake::query_payload pld{ *cookie };
+		query = pld;
+	}
+
 	nano::node_id_handshake message{ node.network_params.network, query, response };
+
 	if (node.config.logging.network_node_id_handshake_logging ())
 	{
-		node.logger.try_log (boost::str (boost::format ("Node ID handshake sent with node ID %1% to %2%: query %3%, respond_to %4% (signature %5%)") % node.node_id.pub.to_node_id () % channel_a->get_endpoint () % (query ? query->to_string () : std::string ("[none]")) % (respond_to ? respond_to->to_string () : std::string ("[none]")) % (response ? response->second.to_string () : std::string ("[none]"))));
+		node.logger.try_log (boost::str (boost::format ("Node ID handshake sent with node ID %1% to %2%: query %3%, respond_to %4% (signature %5%)") % node.node_id.pub.to_node_id () % channel_a->get_endpoint () % (query ? query->cookie.to_string () : std::string ("[none]")) % (respond_to ? respond_to->to_string () : std::string ("[none]")) % (response ? response->signature.to_string () : std::string ("[none]"))));
 	}
+
 	channel_a->send (message);
 }
 
