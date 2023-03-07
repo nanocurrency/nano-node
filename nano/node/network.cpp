@@ -810,6 +810,10 @@ void nano::tcp_message_manager::stop ()
 	producer_condition.notify_all ();
 }
 
+/*
+ * syn_cookies
+ */
+
 nano::syn_cookies::syn_cookies (std::size_t max_cookies_per_ip_a) :
 	max_cookies_per_ip (max_cookies_per_ip_a)
 {
@@ -886,6 +890,30 @@ void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cut
 			++it;
 		}
 	}
+}
+
+std::optional<nano::uint256_union> nano::syn_cookies::cookie (const nano::endpoint & endpoint_a)
+{
+	auto ip_addr (endpoint_a.address ());
+	debug_assert (ip_addr.is_v6 ());
+	nano::lock_guard<nano::mutex> lock{ syn_cookie_mutex };
+	auto cookie_it (cookies.find (endpoint_a));
+	if (cookie_it != cookies.end ())
+	{
+		auto cookie = cookie_it->second.cookie;
+		cookies.erase (cookie_it);
+		unsigned & ip_cookies = cookies_per_ip[ip_addr];
+		if (ip_cookies > 0)
+		{
+			--ip_cookies;
+		}
+		else
+		{
+			debug_assert (false && "More SYN cookies deleted than created for IP");
+		}
+		return cookie;
+	}
+	return std::nullopt;
 }
 
 std::size_t nano::syn_cookies::cookies_size ()
