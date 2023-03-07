@@ -3,13 +3,14 @@
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/network.hpp>
 
-nano::block_broadcast::block_broadcast (nano::network & network, nano::block_arrival & block_arrival) :
+nano::block_broadcast::block_broadcast (nano::network & network, nano::block_arrival & block_arrival, bool enabled) :
 	network{ network },
-	block_arrival{ block_arrival }
+	block_arrival{ block_arrival },
+	enabled{ enabled }
 {
 }
 
-void nano::block_broadcast::connect (nano::block_processor & block_processor, bool enabled)
+void nano::block_broadcast::connect (nano::block_processor & block_processor)
 {
 	if (!enabled)
 	{
@@ -57,12 +58,20 @@ void nano::block_broadcast::observe (std::shared_ptr<nano::block> block)
 
 void nano::block_broadcast::set_local (std::shared_ptr<nano::block> block)
 {
+	if (!enabled)
+	{
+		return;
+	}
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	local.insert (block);
 }
 
 void nano::block_broadcast::erase (std::shared_ptr<nano::block> block)
 {
+	if (!enabled)
+	{
+		return;
+	}
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	local.erase (block);
 }
