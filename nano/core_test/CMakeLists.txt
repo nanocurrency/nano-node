@@ -28,7 +28,7 @@ add_executable(
   locks.cpp
   logger.cpp
   message.cpp
-  message_parser.cpp
+  message_deserializer.cpp
   memory_pool.cpp
   network.cpp
   network_filter.cpp
