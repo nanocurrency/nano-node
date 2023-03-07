@@ -509,7 +509,8 @@ TEST (telemetry, ongoing_broadcasts)
 	ASSERT_TIMELY (5s, node2.stats.count (nano::stat::type::telemetry, nano::stat::detail::process) >= 3)
 }
 
-TEST (telemetry, mismatched_genesis)
+// TODO: With handshake V2, nodes with mismatched genesis will refuse to connect while setting up the system
+TEST (telemetry, DISABLED_mismatched_genesis)
 {
 	// Only second node will broadcast telemetry
 	nano::test::system system;

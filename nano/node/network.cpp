@@ -759,6 +759,68 @@ void nano::network::exclude (std::shared_ptr<nano::transport::channel> const & c
 	erase (*channel);
 }
 
+bool nano::network::verify_handshake_response (const nano::node_id_handshake::response_payload & response, const nano::endpoint & remote_endpoint)
+{
+	// Prevent connection with ourselves
+	if (response.node_id == node.node_id.pub)
+	{
+		node.stats.inc (nano::stat::type::handshake, nano::stat::detail::invalid_node_id);
+		return false; // Fail
+	}
+
+	// Prevent mismatched genesis
+	if (response.v2 && response.v2->genesis != node.network_params.ledger.genesis->hash ())
+	{
+		node.stats.inc (nano::stat::type::handshake, nano::stat::detail::invalid_genesis);
+		return false; // Fail
+	}
+
+	auto cookie = syn_cookies.cookie (remote_endpoint);
+	if (!cookie)
+	{
+		node.stats.inc (nano::stat::type::handshake, nano::stat::detail::missing_cookie);
+		return false; // Fail
+	}
+
+	if (!response.validate (*cookie))
+	{
+		node.stats.inc (nano::stat::type::handshake, nano::stat::detail::invalid_signature);
+		return false; // Fail
+	}
+
+	node.stats.inc (nano::stat::type::handshake, nano::stat::detail::ok);
+	return true; // OK
+}
+
+std::optional<nano::node_id_handshake::query_payload> nano::network::prepare_handshake_query (const nano::endpoint & remote_endpoint)
+{
+	if (auto cookie = syn_cookies.assign (remote_endpoint); cookie)
+	{
+		nano::node_id_handshake::query_payload query{ *cookie };
+		return query;
+	}
+	return std::nullopt;
+}
+
+nano::node_id_handshake::response_payload nano::network::prepare_handshake_response (const nano::node_id_handshake::query_payload & query, bool v2) const
+{
+	nano::node_id_handshake::response_payload response{};
+	response.node_id = node.node_id.pub;
+	if (v2)
+	{
+		nano::node_id_handshake::response_payload::v2_payload response_v2{};
+		response_v2.salt = nano::random_pool::generate<uint256_union> ();
+		response_v2.genesis = node.network_params.ledger.genesis->hash ();
+		response.v2 = response_v2;
+	}
+	response.sign (query.cookie, node.node_id);
+	return response;
+}
+
+/*
+ * tcp_message_manager
+ */
+
 nano::tcp_message_manager::tcp_message_manager (unsigned incoming_connections_max_a) :
 	max_entries (incoming_connections_max_a * nano::tcp_message_manager::max_entries_per_connection + 1)
 {
