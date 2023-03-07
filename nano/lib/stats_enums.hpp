@@ -43,6 +43,7 @@ enum class type : uint8_t
 	unchecked,
 	election_scheduler,
 	optimistic_scheduler,
+	handshake,
 
 	_last // Must be the last enum
 };
@@ -53,6 +54,7 @@ enum class detail : uint8_t
 	all = 0,
 
 	// common
+	ok,
 	loop,
 	total,
 	process,
@@ -272,6 +274,11 @@ enum class detail : uint8_t
 	insert_priority,
 	insert_priority_success,
 	erase_oldest,
+
+	// handshake
+	invalid_node_id,
+	missing_cookie,
+	invalid_genesis,
 
 	_last // Must be the last enum
 };
