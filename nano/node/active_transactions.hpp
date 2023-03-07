@@ -2,6 +2,7 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/election_insertion_result.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/secure/common.hpp>
 
@@ -95,13 +96,6 @@ private:
 
 public: // Container info
 	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
-};
-
-class election_insertion_result final
-{
-public:
-	std::shared_ptr<nano::election> election;
-	bool inserted{ false };
 };
 
 /**

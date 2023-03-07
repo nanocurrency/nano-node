@@ -68,6 +68,7 @@ add_library(
   distributed_work_factory.cpp
   election.hpp
   election.cpp
+  election_insertion_result.hpp
   election_scheduler.hpp
   election_scheduler.cpp
   epoch_upgrader.hpp
