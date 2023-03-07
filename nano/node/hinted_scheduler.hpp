@@ -9,10 +9,11 @@
 
 namespace nano
 {
-class node;
 class active_transactions;
-class vote_cache;
+class election_occupancy;
+class node;
 class online_reps;
+class vote_cache;
 
 /*
  * Monitors inactive vote cache and schedules elections with the highest observed vote tally.
@@ -37,18 +38,20 @@ public:
 	 * Notify about changes in AEC vacancy
 	 */
 	void notify ();
+	size_t limit () const;
 
 private:
 	bool predicate (nano::uint128_t const & minimum_tally) const;
 	void run ();
 	bool run_one (nano::uint128_t const & minimum_tally);
+	nano::election_insertion_result insert_action (std::shared_ptr<nano::block> block);
 
 	nano::uint128_t tally_threshold () const;
 
 private: // Dependencies
 	nano::node & node;
 	nano::vote_cache & inactive_vote_cache;
-	nano::active_transactions & active;
+	std::shared_ptr<nano::election_occupancy> elections;
 	nano::online_reps & online_reps;
 	nano::stats & stats;
 
