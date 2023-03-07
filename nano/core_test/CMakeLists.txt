@@ -18,6 +18,7 @@ add_executable(
   difficulty.cpp
   distributed_work.cpp
   election.cpp
+  election_occupancy.cpp
   election_scheduler.cpp
   enums.cpp
   epochs.cpp

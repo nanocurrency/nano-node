@@ -86,6 +86,8 @@ add_library(
   election.hpp
   election.cpp
   election_insertion_result.hpp
+  election_occupancy.hpp
+  election_occupancy.cpp
   election_scheduler.hpp
   election_scheduler.cpp
   epoch_upgrader.hpp
