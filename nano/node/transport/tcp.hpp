@@ -108,7 +108,7 @@ namespace transport
 		bool store_all (bool = true);
 		std::shared_ptr<nano::transport::channel_tcp> find_node_id (nano::account const &);
 		// Get the next peer for attempting a tcp connection
-		nano::tcp_endpoint bootstrap_peer (uint8_t connection_protocol_version_min);
+		nano::tcp_endpoint bootstrap_peer ();
 		void receive ();
 		void start ();
 		void stop ();

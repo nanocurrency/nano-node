@@ -662,7 +662,7 @@ void nano::network::fill_keepalive_self (std::array<nano::endpoint, 8> & target_
 
 nano::tcp_endpoint nano::network::bootstrap_peer ()
 {
-	return tcp_channels.bootstrap_peer (node.network_params.network.protocol_version_min);
+	return tcp_channels.bootstrap_peer ();
 }
 
 std::shared_ptr<nano::transport::channel> nano::network::find_channel (nano::endpoint const & endpoint_a)

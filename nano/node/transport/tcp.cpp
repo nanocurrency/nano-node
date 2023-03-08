@@ -1,3 +1,4 @@
+#include <nano/lib/config.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/message_deserializer.hpp>
@@ -254,13 +255,13 @@ std::shared_ptr<nano::transport::channel_tcp> nano::transport::tcp_channels::fin
 	return result;
 }
 
-nano::tcp_endpoint nano::transport::tcp_channels::bootstrap_peer (uint8_t connection_protocol_version_min)
+nano::tcp_endpoint nano::transport::tcp_channels::bootstrap_peer ()
 {
 	nano::tcp_endpoint result (boost::asio::ip::address_v6::any (), 0);
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	for (auto i (channels.get<last_bootstrap_attempt_tag> ().begin ()), n (channels.get<last_bootstrap_attempt_tag> ().end ()); i != n;)
 	{
-		if (i->channel->get_network_version () >= connection_protocol_version_min)
+		if (i->channel->get_network_version () >= node.network_params.network.protocol_version_min)
 		{
 			result = nano::transport::map_endpoint_to_tcp (i->channel->get_peering_endpoint ());
 			channels.get<last_bootstrap_attempt_tag> ().modify (i, [] (channel_tcp_wrapper & wrapper_a) {
