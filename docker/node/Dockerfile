@@ -21,7 +21,7 @@ make nano_rpc -j $(nproc) && \
 cd .. && \
 echo ${NETWORK} >/etc/nano-network
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 RUN groupadd --gid 1000 nanocurrency && \
 useradd --uid 1000 --gid nanocurrency --shell /bin/bash --create-home nanocurrency
