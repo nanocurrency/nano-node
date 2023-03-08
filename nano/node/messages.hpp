@@ -79,7 +79,7 @@ public:
 	std::bitset<16> extensions;
 	static std::size_t constexpr size = sizeof (nano::networks) + sizeof (version_max) + sizeof (version_using) + sizeof (version_min) + sizeof (type) + sizeof (/* extensions */ uint16_t);
 
-	void flag_set (uint8_t);
+	void flag_set (uint8_t, bool enable = true);
 	static uint8_t constexpr bulk_pull_count_present_flag = 0;
 	static uint8_t constexpr bulk_pull_ascending_flag = 1;
 	bool bulk_pull_is_count_present () const;
@@ -326,13 +326,30 @@ public: // Payload definitions
 	{
 	public:
 		void serialize (nano::stream &) const;
-		void deserialize (nano::stream &);
+		void deserialize (nano::stream &, nano::message_header const &);
 
-		static std::size_t constexpr size = sizeof (nano::account) + sizeof (nano::signature);
+		void sign (nano::uint256_union const & cookie, nano::keypair const &);
+		bool validate (nano::uint256_union const & cookie) const;
+
+	private:
+		std::vector<uint8_t> data_to_sign (nano::uint256_union const & cookie) const;
+
+	public:
+		struct v2_payload
+		{
+			nano::uint256_union salt;
+			nano::block_hash genesis;
+		};
 
 	public:
 		nano::account node_id;
 		nano::signature signature;
+		std::optional<v2_payload> v2;
+
+	public:
+		static std::size_t constexpr size_v1 = sizeof (nano::account) + sizeof (nano::signature);
+		static std::size_t constexpr size_v2 = sizeof (nano::account) + sizeof (nano::signature) + sizeof (v2_payload);
+		static std::size_t size (nano::message_header const &);
 	};
 
 public:
@@ -350,9 +367,12 @@ public:
 public: // Header
 	static uint8_t constexpr query_flag = 0;
 	static uint8_t constexpr response_flag = 1;
+	static uint8_t constexpr v2_flag = 2;
 
 	static bool is_query (nano::message_header const &);
 	static bool is_response (nano::message_header const &);
+	static bool is_v2 (nano::message_header const &);
+	bool is_v2 () const;
 
 public: // Payload
 	std::optional<query_payload> query;

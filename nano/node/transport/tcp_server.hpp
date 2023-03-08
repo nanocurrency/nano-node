@@ -63,7 +63,7 @@ public:
 	std::chrono::steady_clock::time_point last_telemetry_req{};
 
 private:
-	void send_handshake_response (nano::node_id_handshake::query_payload const & query);
+	void send_handshake_response (nano::node_id_handshake::query_payload const & query, bool v2);
 
 	void receive_message ();
 	void received_message (std::unique_ptr<nano::message> message);

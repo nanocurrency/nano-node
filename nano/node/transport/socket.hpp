@@ -40,6 +40,7 @@ class socket : public std::enable_shared_from_this<nano::transport::socket>
 {
 	friend class server_socket;
 	friend class tcp_server;
+	friend class tcp_channels;
 
 public:
 	enum class type_t

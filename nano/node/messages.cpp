@@ -203,11 +203,11 @@ void nano::message_header::count_set (uint8_t count_a)
 	extensions |= std::bitset<16> (static_cast<unsigned long long> (count_a) << 12);
 }
 
-void nano::message_header::flag_set (uint8_t flag_a)
+void nano::message_header::flag_set (uint8_t flag_a, bool enable)
 {
 	// Flags from 8 are block_type & count
 	debug_assert (flag_a < 8);
-	extensions.set (flag_a, true);
+	extensions.set (flag_a, enable);
 }
 
 bool nano::message_header::bulk_pull_is_count_present () const
@@ -1327,10 +1327,12 @@ nano::node_id_handshake::node_id_handshake (nano::network_constants const & cons
 	if (query)
 	{
 		header.flag_set (query_flag);
+		header.flag_set (v2_flag); // Always indicate support for V2 handshake when querying, old peers will just ignore it
 	}
 	if (response)
 	{
 		header.flag_set (response_flag);
+		header.flag_set (v2_flag, response->v2.has_value ()); // We only use V2 handshake when replying to peers that indicated support for it
 	}
 }
 
@@ -1363,7 +1365,7 @@ bool nano::node_id_handshake::deserialize (nano::stream & stream)
 		if (is_response (header))
 		{
 			response_payload pld{};
-			pld.deserialize (stream);
+			pld.deserialize (stream, header);
 			response = pld;
 		}
 	}
@@ -1388,6 +1390,18 @@ bool nano::node_id_handshake::is_response (nano::message_header const & header)
 	return result;
 }
 
+bool nano::node_id_handshake::is_v2 (nano::message_header const & header)
+{
+	debug_assert (header.type == nano::message_type::node_id_handshake);
+	bool result = header.extensions.test (v2_flag);
+	return result;
+}
+
+bool nano::node_id_handshake::is_v2 () const
+{
+	return is_v2 (header);
+}
+
 void nano::node_id_handshake::visit (nano::message_visitor & visitor_a) const
 {
 	visitor_a.node_id_handshake (*this);
@@ -1407,7 +1421,7 @@ std::size_t nano::node_id_handshake::size (nano::message_header const & header)
 	}
 	if (is_response (header))
 	{
-		result += response_payload::size;
+		result += response_payload::size (header);
 	}
 	return result;
 }
@@ -1447,14 +1461,81 @@ void nano::node_id_handshake::query_payload::deserialize (nano::stream & stream)
 
 void nano::node_id_handshake::response_payload::serialize (nano::stream & stream) const
 {
-	nano::write (stream, node_id);
-	nano::write (stream, signature);
+	if (v2)
+	{
+		nano::write (stream, node_id);
+		nano::write (stream, v2->salt);
+		nano::write (stream, v2->genesis);
+		nano::write (stream, signature);
+	}
+	// TODO: Remove legacy handshake
+	else
+	{
+		nano::write (stream, node_id);
+		nano::write (stream, signature);
+	}
 }
 
-void nano::node_id_handshake::response_payload::deserialize (nano::stream & stream)
+void nano::node_id_handshake::response_payload::deserialize (nano::stream & stream, nano::message_header const & header)
 {
-	nano::read (stream, node_id);
-	nano::read (stream, signature);
+	if (is_v2 (header))
+	{
+		nano::read (stream, node_id);
+		v2_payload pld{};
+		nano::read (stream, pld.salt);
+		nano::read (stream, pld.genesis);
+		v2 = pld;
+		nano::read (stream, signature);
+	}
+	else
+	{
+		nano::read (stream, node_id);
+		nano::read (stream, signature);
+	}
+}
+
+std::size_t nano::node_id_handshake::response_payload::size (const nano::message_header & header)
+{
+	return is_v2 (header) ? size_v2 : size_v1;
+}
+
+std::vector<uint8_t> nano::node_id_handshake::response_payload::data_to_sign (const nano::uint256_union & cookie) const
+{
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream{ bytes };
+
+		if (v2)
+		{
+			nano::write (stream, cookie);
+			nano::write (stream, v2->salt);
+			nano::write (stream, v2->genesis);
+		}
+		// TODO: Remove legacy handshake
+		else
+		{
+			nano::write (stream, cookie);
+		}
+	}
+	return bytes;
+}
+
+void nano::node_id_handshake::response_payload::sign (const nano::uint256_union & cookie, nano::keypair const & key)
+{
+	debug_assert (key.pub == node_id);
+	auto data = data_to_sign (cookie);
+	signature = nano::sign_message (key.prv, key.pub, data.data (), data.size ());
+	debug_assert (validate (cookie));
+}
+
+bool nano::node_id_handshake::response_payload::validate (const nano::uint256_union & cookie) const
+{
+	auto data = data_to_sign (cookie);
+	if (nano::validate_message (node_id, data.data (), data.size (), signature)) // true => error
+	{
+		return false; // Fail
+	}
+	return true; // OK
 }
 
 /*
