@@ -8,6 +8,7 @@
 #include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/block_arrival.hpp>
 #include <nano/node/block_broadcast.hpp>
+#include <nano/node/block_publisher.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
@@ -192,6 +193,7 @@ public:
 	nano::websocket_server websocket;
 	nano::epoch_upgrader epoch_upgrader;
 	nano::block_broadcast block_broadcast;
+	nano::block_publisher block_publisher;
 
 	std::chrono::steady_clock::time_point const startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
