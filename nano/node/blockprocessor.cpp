@@ -1,7 +1,6 @@
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/blockprocessor.hpp>
-#include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/store.hpp>
