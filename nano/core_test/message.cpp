@@ -465,3 +465,172 @@ TEST (message, asc_pull_ack_serialization_account_info)
 
 	ASSERT_TRUE (nano::at_end (stream));
 }
+
+TEST (message, node_id_handshake_query_serialization)
+{
+	nano::node_id_handshake::query_payload query{};
+	query.cookie = 7;
+	nano::node_id_handshake original{ nano::dev::network_params.network, query };
+
+	// Serialize
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream{ bytes };
+		original.serialize (stream);
+	}
+	nano::bufferstream stream{ bytes.data (), bytes.size () };
+
+	// Header
+	bool error = false;
+	nano::message_header header (error, stream);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (nano::message_type::node_id_handshake, header.type);
+
+	// Message
+	nano::node_id_handshake message{ error, stream, header };
+	ASSERT_FALSE (error);
+	ASSERT_TRUE (message.query);
+	ASSERT_FALSE (message.response);
+
+	ASSERT_EQ (original.query->cookie, message.query->cookie);
+
+	ASSERT_TRUE (nano::at_end (stream));
+}
+
+TEST (message, node_id_handshake_response_serialization)
+{
+	nano::node_id_handshake::response_payload response{};
+	response.node_id = nano::account{ 7 };
+	response.signature = nano::signature{ 11 };
+	nano::node_id_handshake original{ nano::dev::network_params.network, std::nullopt, response };
+
+	// Serialize
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream{ bytes };
+		original.serialize (stream);
+	}
+	nano::bufferstream stream{ bytes.data (), bytes.size () };
+
+	// Header
+	bool error = false;
+	nano::message_header header (error, stream);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (nano::message_type::node_id_handshake, header.type);
+
+	// Message
+	nano::node_id_handshake message{ error, stream, header };
+	ASSERT_FALSE (error);
+	ASSERT_FALSE (message.query);
+	ASSERT_TRUE (message.response);
+	ASSERT_FALSE (message.response->v2);
+
+	ASSERT_EQ (original.response->node_id, message.response->node_id);
+	ASSERT_EQ (original.response->signature, message.response->signature);
+
+	ASSERT_TRUE (nano::at_end (stream));
+}
+
+TEST (message, node_id_handshake_response_v2_serialization)
+{
+	nano::node_id_handshake::response_payload response{};
+	response.node_id = nano::account{ 7 };
+	response.signature = nano::signature{ 11 };
+	nano::node_id_handshake::response_payload::v2_payload v2_pld{};
+	v2_pld.salt = 17;
+	v2_pld.genesis = nano::block_hash{ 13 };
+	response.v2 = v2_pld;
+
+	nano::node_id_handshake original{ nano::dev::network_params.network, std::nullopt, response };
+
+	// Serialize
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream{ bytes };
+		original.serialize (stream);
+	}
+	nano::bufferstream stream{ bytes.data (), bytes.size () };
+
+	// Header
+	bool error = false;
+	nano::message_header header (error, stream);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (nano::message_type::node_id_handshake, header.type);
+
+	// Message
+	nano::node_id_handshake message{ error, stream, header };
+	ASSERT_FALSE (error);
+	ASSERT_FALSE (message.query);
+	ASSERT_TRUE (message.response);
+	ASSERT_TRUE (message.response->v2);
+
+	ASSERT_EQ (original.response->node_id, message.response->node_id);
+	ASSERT_EQ (original.response->signature, message.response->signature);
+	ASSERT_EQ (original.response->v2->salt, message.response->v2->salt);
+	ASSERT_EQ (original.response->v2->genesis, message.response->v2->genesis);
+
+	ASSERT_TRUE (nano::at_end (stream));
+}
+
+TEST (handshake, signature)
+{
+	nano::keypair node_id{};
+	nano::keypair node_id_2{};
+	auto cookie = nano::random_pool::generate<nano::uint256_union> ();
+	auto cookie_2 = nano::random_pool::generate<nano::uint256_union> ();
+
+	nano::node_id_handshake::response_payload response{};
+	response.node_id = node_id.pub;
+	response.sign (cookie, node_id);
+	ASSERT_TRUE (response.validate (cookie));
+
+	// Invalid cookie
+	ASSERT_FALSE (response.validate (cookie_2));
+
+	// Invalid node id
+	response.node_id = node_id_2.pub;
+	ASSERT_FALSE (response.validate (cookie));
+}
+
+TEST (handshake, signature_v2)
+{
+	nano::keypair node_id{};
+	nano::keypair node_id_2{};
+	auto cookie = nano::random_pool::generate<nano::uint256_union> ();
+	auto cookie_2 = nano::random_pool::generate<nano::uint256_union> ();
+
+	nano::node_id_handshake::response_payload original{};
+	original.node_id = node_id.pub;
+	original.v2 = nano::node_id_handshake::response_payload::v2_payload{};
+	original.v2->genesis = nano::test::random_hash ();
+	original.v2->salt = nano::random_pool::generate<nano::uint256_union> ();
+	original.sign (cookie, node_id);
+	ASSERT_TRUE (original.validate (cookie));
+
+	// Invalid cookie
+	ASSERT_FALSE (original.validate (cookie_2));
+
+	// Invalid node id
+	{
+		auto message = original;
+		ASSERT_TRUE (message.validate (cookie));
+		message.node_id = node_id_2.pub;
+		ASSERT_FALSE (message.validate (cookie));
+	}
+
+	// Invalid genesis
+	{
+		auto message = original;
+		ASSERT_TRUE (message.validate (cookie));
+		message.v2->genesis = nano::test::random_hash ();
+		ASSERT_FALSE (message.validate (cookie));
+	}
+
+	// Invalid salt
+	{
+		auto message = original;
+		ASSERT_TRUE (message.validate (cookie));
+		message.v2->salt = nano::random_pool::generate<nano::uint256_union> ();
+		ASSERT_FALSE (message.validate (cookie));
+	}
+}

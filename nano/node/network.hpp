@@ -14,6 +14,7 @@
 namespace nano
 {
 class node;
+
 class tcp_message_manager final
 {
 public:
@@ -34,13 +35,15 @@ private:
 
 	friend class network_tcp_message_manager_Test;
 };
+
 /**
  * Node ID cookies for node ID handshakes
  */
 class syn_cookies final
 {
 public:
-	syn_cookies (std::size_t);
+	explicit syn_cookies (std::size_t);
+
 	void purge (std::chrono::steady_clock::time_point const &);
 	// Returns boost::none if the IP is rate capped on syn cookie requests,
 	// or if the endpoint already has a syn cookie query
@@ -48,6 +51,9 @@ public:
 	// Returns false if valid, true if invalid (true on error convention)
 	// Also removes the syn cookie from the store if valid
 	bool validate (nano::endpoint const &, nano::account const &, nano::signature const &);
+	/** Get cookie associated with endpoint and erases that cookie from this container */
+	std::optional<nano::uint256_union> cookie (nano::endpoint const &);
+
 	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 	std::size_t cookies_size ();
 
@@ -121,6 +127,11 @@ public:
 	void erase (nano::transport::channel const &);
 	/** Disconnects and adds peer to exclusion list */
 	void exclude (std::shared_ptr<nano::transport::channel> const & channel);
+
+	/** Verifies that handshake response matches our query. @returns true if OK */
+	bool verify_handshake_response (nano::node_id_handshake::response_payload const & response, nano::endpoint const & remote_endpoint);
+	std::optional<nano::node_id_handshake::query_payload> prepare_handshake_query (nano::endpoint const & remote_endpoint);
+	nano::node_id_handshake::response_payload prepare_handshake_response (nano::node_id_handshake::query_payload const & query, bool v2) const;
 
 	static std::string to_string (nano::networks);
 
