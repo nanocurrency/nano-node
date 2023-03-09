@@ -1,7 +1,6 @@
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/blockprocessor.hpp>
-#include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/store.hpp>
@@ -435,7 +434,6 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		case nano::process_result::fork:
 		{
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork);
-			events_a.events.emplace_back ([this, block] (nano::transaction const &) { this->node.active.publish (block); });
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Fork for: %1% root: %2%") % hash.to_string () % block->root ().to_string ()));
