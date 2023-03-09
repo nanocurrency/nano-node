@@ -206,10 +206,12 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq),
 	block_broadcast{ network, block_arrival, !flags.disable_block_processor_republishing },
-	block_publisher{ active }
+	block_publisher{ active },
+	gap_tracker{ gap_cache }
 {
 	block_broadcast.connect (block_processor);
 	block_publisher.connect (block_processor);
+	gap_tracker.connect (block_processor);
 	unchecked.use_memory = [this] () { return ledger.bootstrap_weight_reached (); };
 	unchecked.satisfied = [this] (nano::unchecked_info const & info) {
 		this->block_processor.add (info.block);

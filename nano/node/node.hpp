@@ -19,6 +19,7 @@
 #include <nano/node/election_scheduler.hpp>
 #include <nano/node/epoch_upgrader.hpp>
 #include <nano/node/gap_cache.hpp>
+#include <nano/node/gap_tracker.hpp>
 #include <nano/node/hinted_scheduler.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
@@ -194,6 +195,7 @@ public:
 	nano::epoch_upgrader epoch_upgrader;
 	nano::block_broadcast block_broadcast;
 	nano::block_publisher block_publisher;
+	nano::gap_tracker gap_tracker;
 
 	std::chrono::steady_clock::time_point const startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
