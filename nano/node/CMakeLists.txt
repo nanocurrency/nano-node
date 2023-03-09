@@ -160,6 +160,8 @@ add_library(
   portmapping.cpp
   prioritization.cpp
   prioritization.hpp
+  process_live_dispatcher.cpp
+  process_live_dispatcher.hpp
   repcrawler.hpp
   repcrawler.cpp
   request_aggregator.hpp
