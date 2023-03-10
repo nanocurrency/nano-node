@@ -27,6 +27,7 @@
 #include <nano/node/online_reps.hpp>
 #include <nano/node/optimistic_scheduler.hpp>
 #include <nano/node/portmapping.hpp>
+#include <nano/node/process_live_dispatcher.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/signatures.hpp>
@@ -196,6 +197,7 @@ public:
 	nano::block_broadcast block_broadcast;
 	nano::block_publisher block_publisher;
 	nano::gap_tracker gap_tracker;
+	nano::process_live_dispatcher process_live_dispatcher;
 
 	std::chrono::steady_clock::time_point const startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
