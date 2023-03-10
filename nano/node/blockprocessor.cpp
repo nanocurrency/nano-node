@@ -8,21 +8,6 @@
 
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
-nano::block_post_events::block_post_events (std::function<nano::read_transaction ()> && get_transaction_a) :
-	get_transaction (std::move (get_transaction_a))
-{
-}
-
-nano::block_post_events::~block_post_events ()
-{
-	debug_assert (get_transaction != nullptr);
-	auto transaction (get_transaction ());
-	for (auto const & i : events)
-	{
-		i (transaction);
-	}
-}
-
 nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
 	next_log (std::chrono::steady_clock::now ()),
 	node (node_a),
@@ -237,7 +222,6 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 {
 	std::deque<processed_t> processed;
 	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
-	block_post_events post_events ([&store = node.store] { return store.tx_begin_read (); });
 	auto transaction (node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending, tables::unchecked }));
 	nano::timer<std::chrono::milliseconds> timer_l;
 	lock_a.lock ();
@@ -304,7 +288,7 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 			}
 		}
 		number_of_blocks_processed++;
-		auto result = process_one (transaction, post_events, block, force);
+		auto result = process_one (transaction, block, force);
 		processed.emplace_back (result, block);
 		lock_a.lock ();
 	}
@@ -317,7 +301,7 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 	return processed;
 }
 
-nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, std::shared_ptr<nano::block> block, bool const forced_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, std::shared_ptr<nano::block> block, bool const forced_a)
 {
 	nano::process_return result;
 	auto hash (block->hash ());
