@@ -201,6 +201,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
 	backlog{ nano::backlog_population_config (config), store, stats },
+	ascendboot{ *this, store, block_processor, ledger, network, stats },
 	websocket{ config.websocket_config, observers, wallets, ledger, io_ctx, logger },
 	epoch_upgrader{ *this, ledger, store, network_params, logger },
 	startup_time (std::chrono::steady_clock::now ()),
@@ -584,6 +585,8 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (node.inactive_vote_cache.collect_container_info ("inactive_vote_cache"));
 	composite->add_component (collect_container_info (node.generator, "vote_generator"));
 	composite->add_component (collect_container_info (node.final_generator, "vote_generator_final"));
+	composite->add_component (node.ascendboot.collect_container_info ("bootstrap_ascending"));
+	composite->add_component (node.unchecked.collect_container_info ("unchecked"));
 	return composite;
 }
 
@@ -695,6 +698,10 @@ void nano::node::start ()
 	backlog.start ();
 	hinting.start ();
 	bootstrap_server.start ();
+	if (!flags.disable_ascending_bootstrap)
+	{
+		ascendboot.start ();
+	}
 	websocket.start ();
 	telemetry.start ();
 }
@@ -713,6 +720,10 @@ void nano::node::stop ()
 	// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
 	distributed_work.stop ();
 	backlog.stop ();
+	if (!flags.disable_ascending_bootstrap)
+	{
+		ascendboot.stop ();
+	}
 	unchecked.stop ();
 	block_processor.stop ();
 	aggregator.stop ();
