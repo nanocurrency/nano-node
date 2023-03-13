@@ -199,7 +199,7 @@
 #   find_package(Boost 1.56 REQUIRED COMPONENTS
 #                date_time filesystem iostreams)
 #   add_executable(foo foo.cc)
-#   target_link_libraries(foo Boost::date_time Boost::filesystem
+#   target_link_libraries(foo Boost::date_time std::filesystem
 #                             Boost::iostreams)
 #
 # Example to find Boost Python 3.6 libraries and use imported targets::

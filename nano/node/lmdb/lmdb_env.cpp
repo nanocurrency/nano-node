@@ -2,17 +2,17 @@
 
 #include <boost/filesystem/operations.hpp>
 
-nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, nano::mdb_env::options options_a)
+nano::mdb_env::mdb_env (bool & error_a, std::filesystem::path const & path_a, nano::mdb_env::options options_a)
 {
 	init (error_a, path_a, options_a);
 }
 
-void nano::mdb_env::init (bool & error_a, boost::filesystem::path const & path_a, nano::mdb_env::options options_a)
+void nano::mdb_env::init (bool & error_a, std::filesystem::path const & path_a, nano::mdb_env::options options_a)
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	if (path_a.has_parent_path ())
 	{
-		boost::filesystem::create_directories (path_a.parent_path (), error_mkdir);
+		std::filesystem::create_directories (path_a.parent_path (), error_mkdir);
 		nano::set_secure_perm_directory (path_a.parent_path (), error_chmod);
 		if (!error_mkdir)
 		{

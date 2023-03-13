@@ -41,7 +41,7 @@ void show_help (std::string const & message_a)
 	message.exec ();
 }
 
-nano::error write_wallet_config (nano::wallet_config & config_a, boost::filesystem::path const & data_path_a)
+nano::error write_wallet_config (nano::wallet_config & config_a, std::filesystem::path const & data_path_a)
 {
 	nano::tomlconfig wallet_config_toml;
 	auto wallet_path (nano::get_qtwallet_toml_config_path (data_path_a));
@@ -52,11 +52,11 @@ nano::error write_wallet_config (nano::wallet_config & config_a, boost::filesyst
 	return wallet_config_toml.get_error ();
 }
 
-nano::error read_wallet_config (nano::wallet_config & config_a, boost::filesystem::path const & data_path_a)
+nano::error read_wallet_config (nano::wallet_config & config_a, std::filesystem::path const & data_path_a)
 {
 	nano::tomlconfig wallet_config_toml;
 	auto wallet_path (nano::get_qtwallet_toml_config_path (data_path_a));
-	if (!boost::filesystem::exists (wallet_path))
+	if (!std::filesystem::exists (wallet_path))
 	{
 		write_wallet_config (config_a, data_path_a);
 	}
@@ -66,12 +66,12 @@ nano::error read_wallet_config (nano::wallet_config & config_a, boost::filesyste
 }
 }
 
-int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path, nano::node_flags const & flags)
+int run_wallet (QApplication & application, int argc, char * const * argv, std::filesystem::path const & data_path, nano::node_flags const & flags)
 {
 	int result (0);
 	nano_qt::eventloop_processor processor;
 	boost::system::error_code error_chmod;
-	boost::filesystem::create_directories (data_path);
+	std::filesystem::create_directories (data_path);
 	nano::set_secure_perm_directory (data_path, error_chmod);
 	QPixmap pixmap (":/logo.png");
 	auto * splash = new QSplashScreen (pixmap);
@@ -186,7 +186,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				else
 				{
 					// Spawn a child rpc process
-					if (!boost::filesystem::exists (config.rpc.child_process.rpc_path))
+					if (!std::filesystem::exists (config.rpc.child_process.rpc_path))
 					{
 						throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.child_process.rpc_path);
 					}
@@ -297,11 +297,11 @@ int main (int argc, char * const * argv)
 			{
 				try
 				{
-					boost::filesystem::path data_path;
+					std::filesystem::path data_path;
 					if (vm.count ("data_path"))
 					{
 						auto name (vm["data_path"].as<std::string> ());
-						data_path = boost::filesystem::path (name);
+						data_path = std::filesystem::path (name);
 					}
 					else
 					{

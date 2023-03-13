@@ -113,26 +113,26 @@ std::string nano::generate_stacktrace ()
 	return ss.str ();
 }
 
-void nano::remove_all_files_in_dir (boost::filesystem::path const & dir)
+void nano::remove_all_files_in_dir (std::filesystem::path const & dir)
 {
-	for (auto & p : boost::filesystem::directory_iterator (dir))
+	for (auto & p : std::filesystem::directory_iterator (dir))
 	{
 		auto path = p.path ();
-		if (boost::filesystem::is_regular_file (path))
+		if (std::filesystem::is_regular_file (path))
 		{
-			boost::filesystem::remove (path);
+			std::filesystem::remove (path);
 		}
 	}
 }
 
-void nano::move_all_files_to_dir (boost::filesystem::path const & from, boost::filesystem::path const & to)
+void nano::move_all_files_to_dir (std::filesystem::path const & from, std::filesystem::path const & to)
 {
-	for (auto & p : boost::filesystem::directory_iterator (from))
+	for (auto & p : std::filesystem::directory_iterator (from))
 	{
 		auto path = p.path ();
-		if (boost::filesystem::is_regular_file (path))
+		if (std::filesystem::is_regular_file (path))
 		{
-			boost::filesystem::rename (path, to / path.filename ());
+			std::filesystem::rename (path, to / path.filename ());
 		}
 	}
 }

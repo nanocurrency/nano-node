@@ -56,7 +56,7 @@ volatile sig_atomic_t sig_int_or_term = 0;
 constexpr std::size_t OPEN_FILE_DESCRIPTORS_LIMIT = 16384;
 }
 
-static void load_and_set_bandwidth_params (std::shared_ptr<nano::node> const & node, boost::filesystem::path const & data_path, nano::node_flags const & flags)
+static void load_and_set_bandwidth_params (std::shared_ptr<nano::node> const & node, std::filesystem::path const & data_path, nano::node_flags const & flags)
 {
 	nano::daemon_config config{ data_path, node->network_params };
 
@@ -71,11 +71,11 @@ static void load_and_set_bandwidth_params (std::shared_ptr<nano::node> const & n
 	}
 }
 
-void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
+void nano_daemon::daemon::run (std::filesystem::path const & data_path, nano::node_flags const & flags)
 {
 	install_abort_signal_handler ();
 
-	boost::filesystem::create_directories (data_path);
+	std::filesystem::create_directories (data_path);
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path, error_chmod);
 	std::unique_ptr<nano::thread_runner> runner;
@@ -187,7 +187,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					else
 					{
 						// Spawn a child rpc process
-						if (!boost::filesystem::exists (config.rpc.child_process.rpc_path))
+						if (!std::filesystem::exists (config.rpc.child_process.rpc_path))
 						{
 							throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.child_process.rpc_path);
 						}

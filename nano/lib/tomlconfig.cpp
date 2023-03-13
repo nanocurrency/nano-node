@@ -23,14 +23,14 @@ void nano::tomlconfig::doc (std::string const & key, std::string const & doc)
 	tree->document (key, doc);
 }
 
-nano::error & nano::tomlconfig::read (boost::filesystem::path const & path_a)
+nano::error & nano::tomlconfig::read (std::filesystem::path const & path_a)
 {
 	std::stringstream stream_override_empty;
 	stream_override_empty << std::endl;
 	return read (stream_override_empty, path_a);
 }
 
-nano::error & nano::tomlconfig::read (std::istream & stream_overrides, boost::filesystem::path const & path_a)
+nano::error & nano::tomlconfig::read (std::istream & stream_overrides, std::filesystem::path const & path_a)
 {
 	std::fstream stream;
 	open_or_create (stream, path_a.string ());
@@ -62,7 +62,7 @@ nano::error & nano::tomlconfig::read (std::istream & stream_first_a, std::istrea
 	return *error;
 }
 
-void nano::tomlconfig::write (boost::filesystem::path const & path_a)
+void nano::tomlconfig::write (std::filesystem::path const & path_a)
 {
 	std::fstream stream;
 	open_or_create (stream, path_a.string ());
@@ -78,7 +78,7 @@ void nano::tomlconfig::write (std::ostream & stream_a) const
 /** Open configuration file, create if necessary */
 void nano::tomlconfig::open_or_create (std::fstream & stream_a, std::string const & path_a)
 {
-	if (!boost::filesystem::exists (path_a))
+	if (!std::filesystem::exists (path_a))
 	{
 		// Create temp stream to first create the file
 		std::ofstream stream (path_a);

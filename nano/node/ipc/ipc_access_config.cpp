@@ -279,13 +279,13 @@ namespace nano
 {
 namespace ipc
 {
-	nano::error read_access_config_toml (boost::filesystem::path const & data_path_a, nano::ipc::access & config_a)
+	nano::error read_access_config_toml (std::filesystem::path const & data_path_a, nano::ipc::access & config_a)
 	{
 		nano::error error;
 		auto toml_config_path = nano::get_access_toml_config_path (data_path_a);
 
 		nano::tomlconfig toml;
-		if (boost::filesystem::exists (toml_config_path))
+		if (std::filesystem::exists (toml_config_path))
 		{
 			error = toml.read (toml_config_path);
 		}

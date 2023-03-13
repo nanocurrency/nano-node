@@ -89,7 +89,7 @@ public:
 	nano::store_iterator<nano::account, nano::wallet_value> end ();
 	void derive_key (nano::raw_key &, nano::transaction const &, std::string const &);
 	void serialize_json (nano::transaction const &, std::string &);
-	void write_backup (nano::transaction const &, boost::filesystem::path const &);
+	void write_backup (nano::transaction const &, std::filesystem::path const &);
 	bool move (nano::transaction const &, nano::wallet_store &, std::vector<nano::public_key> const &);
 	bool import (nano::transaction const &, nano::wallet_store &);
 	bool work_get (nano::transaction const &, nano::public_key const &, uint64_t &);
@@ -255,7 +255,7 @@ public:
 class mdb_wallets_store final : public wallets_store
 {
 public:
-	mdb_wallets_store (boost::filesystem::path const &, nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{});
+	mdb_wallets_store (std::filesystem::path const &, nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{});
 	nano::mdb_env environment;
 	bool init_error () const override;
 	bool error{ false };

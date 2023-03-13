@@ -29,12 +29,12 @@ class jsonconfig : public nano::configbase
 public:
 	jsonconfig ();
 	jsonconfig (boost::property_tree::ptree & tree_a, std::shared_ptr<nano::error> const & error_a = nullptr);
-	nano::error & read (boost::filesystem::path const & path_a);
-	void write (boost::filesystem::path const & path_a);
+	nano::error & read (std::filesystem::path const & path_a);
+	void write (std::filesystem::path const & path_a);
 	void write (std::ostream & stream_a) const;
 	void read (std::istream & stream_a);
 	void open_or_create (std::fstream & stream_a, std::string const & path_a);
-	void create_backup_file (boost::filesystem::path const & filepath_a);
+	void create_backup_file (std::filesystem::path const & filepath_a);
 	boost::property_tree::ptree const & get_tree ();
 	bool empty () const;
 	boost::optional<jsonconfig> get_optional_child (std::string const & key_a);

@@ -131,7 +131,7 @@ int main (int argc, char * const * argv)
 
 	nano::network_params network_params{ nano::network_constants::active_network };
 	auto data_path_it = vm.find ("data_path");
-	boost::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
+	std::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
 	auto ec = nano::handle_node_options (vm);
 	if (ec == nano::error_cli::unknown_command)
 	{
@@ -650,7 +650,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_output_last_backtrace_dump"))
 		{
-			if (boost::filesystem::exists ("nano_node_backtrace.dump"))
+			if (std::filesystem::exists ("nano_node_backtrace.dump"))
 			{
 				// There is a backtrace, so output the contents
 				std::ifstream ifs ("nano_node_backtrace.dump");
@@ -662,7 +662,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_generate_crash_report"))
 		{
-			if (boost::filesystem::exists ("nano_node_backtrace.dump"))
+			if (std::filesystem::exists ("nano_node_backtrace.dump"))
 			{
 				// There is a backtrace, so output the contents
 				std::ifstream ifs ("nano_node_backtrace.dump");
@@ -688,7 +688,7 @@ int main (int argc, char * const * argv)
 					// The first one only has the load address
 					uint64_from_hex base_address;
 					std::string line;
-					if (boost::filesystem::exists (boost::str (format % num)))
+					if (std::filesystem::exists (boost::str (format % num)))
 					{
 						std::getline (std::ifstream (boost::str (format % num)), line);
 						if (boost::conversion::try_lexical_convert (line, base_address))
@@ -699,7 +699,7 @@ int main (int argc, char * const * argv)
 					++num;
 
 					// Now do the rest of the files
-					while (boost::filesystem::exists (boost::str (format % num)))
+					while (std::filesystem::exists (boost::str (format % num)))
 					{
 						std::ifstream ifs_dump_filename (boost::str (format % num));
 
@@ -774,7 +774,7 @@ int main (int argc, char * const * argv)
 					}
 
 					// Recreate the crash report with an empty file
-					boost::filesystem::remove (crash_report_filename);
+					std::filesystem::remove (crash_report_filename);
 					{
 						std::ofstream ofs (crash_report_filename);
 						nano::set_secure_perm_file (crash_report_filename);

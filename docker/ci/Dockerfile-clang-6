@@ -1,0 +1,28 @@
+FROM nanocurrency/nano-env:base
+
+RUN apt-get update && apt-get install -yqq software-properties-common && \
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-6.0 main" && \
+    apt-get update -qq && apt-get install -yqq \
+    clang-6.0 lldb-6.0 libfuzzer-6.0-dev git
+
+ADD util/build_prep/fetch_rocksdb.sh fetch_rocksdb.sh
+RUN ./fetch_rocksdb.sh
+
+ENV CXX=/usr/bin/clang++
+ENV CC=/usr/bin/clang
+RUN ln -s /usr/bin/clang-6.0 /usr/bin/clang
+RUN ln -s /usr/bin/clang++-6.0 /usr/bin/clang++
+RUN update-alternatives --install /usr/bin/cc cc /usr/bin/clang 100
+RUN update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 100
+ENV BOOST_ROOT=/tmp/boost
+
+ADD util/build_prep/fetch_boost.sh fetch_boost.sh
+
+RUN COMPILER=clang-6 ./fetch_boost.sh
+
+# workaround to get a path that can be easily passed into cmake for
+# BOOST_STACKTRACE_BACKTRACE_INCLUDE_FILE 
+# see https://www.boost.org/doc/libs/1_70_0/doc/html/stacktrace/configuration_and_build.html#stacktrace.configuration_and_build.f3
+
+RUN ln -s /usr/lib/gcc/x86_64-linux-gnu/5/include/backtrace.h /tmp/backtrace.h

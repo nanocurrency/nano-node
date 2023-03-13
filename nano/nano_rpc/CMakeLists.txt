@@ -4,7 +4,7 @@ target_link_libraries(
   nano_rpc
   rpc
   secure
-  Boost::filesystem
+  std::filesystem
   Boost::log_setup
   Boost::log
   Boost::program_options
