@@ -510,7 +510,7 @@ TEST (store, unchecked_load)
 		node.unchecked.put (i, block);
 	}
 	// Waits for all the blocks to get saved in the database
-	ASSERT_TIMELY (8000s, num_unchecked == node.unchecked.count (node.store.tx_begin_read ()));
+	ASSERT_TIMELY (8000s, num_unchecked == node.unchecked.count ());
 }
 
 TEST (store, vote_load)

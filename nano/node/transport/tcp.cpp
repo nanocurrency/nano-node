@@ -189,6 +189,11 @@ std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::t
 			auto index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
 
 			auto channel = channels.get<random_access_tag> ()[index].channel;
+			if (!channel->alive ())
+			{
+				continue;
+			}
+
 			if (channel->get_network_version () >= min_version && (include_temporary_channels_a || !channel->temporary))
 			{
 				result.insert (channel);

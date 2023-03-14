@@ -1,6 +1,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/json_error_response.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/node/bootstrap/bootstrap_ascending.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
@@ -1422,7 +1423,7 @@ void nano::json_handler::block_account ()
 void nano::json_handler::block_count ()
 {
 	response_l.put ("count", std::to_string (node.ledger.cache.block_count));
-	response_l.put ("unchecked", std::to_string (node.unchecked.count (node.store.tx_begin_read ())));
+	response_l.put ("unchecked", std::to_string (node.unchecked.count ()));
 	response_l.put ("cemented", std::to_string (node.ledger.cache.cemented_count));
 	if (node.flags.enable_pruning)
 	{
@@ -4115,7 +4116,7 @@ void nano::json_handler::unchecked ()
 		boost::property_tree::ptree unchecked;
 		auto transaction (node.store.tx_begin_read ());
 		node.unchecked.for_each (
-		transaction, [&unchecked, &json_block_l] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+		[&unchecked, &json_block_l] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 			if (json_block_l)
 			{
 				boost::property_tree::ptree block_node_l;
@@ -4137,7 +4138,7 @@ void nano::json_handler::unchecked_clear ()
 {
 	node.workers.push_task (create_worker_task ([] (std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto transaction (rpc_l->node.store.tx_begin_write ({ tables::unchecked }));
-		rpc_l->node.unchecked.clear (transaction);
+		rpc_l->node.unchecked.clear ();
 		rpc_l->response_l.put ("success", "");
 		rpc_l->response_errors ();
 	}));
@@ -4151,7 +4152,7 @@ void nano::json_handler::unchecked_get ()
 	{
 		bool done = false;
 		node.unchecked.for_each (
-		node.store.tx_begin_read (), [&] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+		[&] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 			if (key.hash == hash)
 			{
 				response_l.put ("modified_timestamp", std::to_string (info.modified ()));
@@ -4196,7 +4197,8 @@ void nano::json_handler::unchecked_keys ()
 		boost::property_tree::ptree unchecked;
 		auto transaction (node.store.tx_begin_read ());
 		node.unchecked.for_each (
-		transaction, key, [&unchecked, json_block_l] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+		key,
+		[&unchecked, json_block_l] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 			boost::property_tree::ptree entry;
 			entry.put ("key", key.key ().to_string ());
 			entry.put ("hash", info.block->hash ().to_string ());
@@ -5219,6 +5221,40 @@ void nano::json_handler::populate_backlog ()
 	response_errors ();
 }
 
+void nano::json_handler::debug_bootstrap_priority_info ()
+{
+	if (!ec)
+	{
+		auto [blocking, priorities] = node.ascendboot.info ();
+
+		// priorities
+		{
+			boost::property_tree::ptree response_priorities;
+			for (auto const & entry : priorities)
+			{
+				const auto account = entry.account;
+				const auto priority = entry.priority;
+
+				response_priorities.put (account.to_account (), priority);
+			}
+			response_l.add_child ("priorities", response_priorities);
+		}
+		// blocking
+		{
+			boost::property_tree::ptree response_blocking;
+			for (auto const & entry : blocking)
+			{
+				const auto account = entry.account;
+				const auto dependency = entry.dependency;
+
+				response_blocking.put (account.to_account (), dependency.to_string ());
+			}
+			response_l.add_child ("blocking", response_blocking);
+		}
+	}
+	response_errors ();
+}
+
 void nano::inprocess_rpc_handler::process_request (std::string const &, std::string const & body_a, std::function<void (std::string const &)> response_a)
 {
 	// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
@@ -5384,6 +5420,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("work_peers", &nano::json_handler::work_peers);
 	no_arg_funcs.emplace ("work_peers_clear", &nano::json_handler::work_peers_clear);
 	no_arg_funcs.emplace ("populate_backlog", &nano::json_handler::populate_backlog);
+	no_arg_funcs.emplace ("debug_bootstrap_priority_info", &nano::json_handler::debug_bootstrap_priority_info);
 	return no_arg_funcs;
 }
 

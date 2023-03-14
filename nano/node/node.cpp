@@ -201,6 +201,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
 	backlog{ nano::backlog_population_config (config), store, stats },
+	ascendboot{ *this, store, block_processor, ledger, network, stats },
 	websocket{ config.websocket_config, observers, wallets, ledger, io_ctx, logger },
 	epoch_upgrader{ *this, ledger, store, network_params, logger },
 	startup_time (std::chrono::steady_clock::now ()),
@@ -214,10 +215,9 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	block_publisher.connect (block_processor);
 	gap_tracker.connect (block_processor);
 	process_live_dispatcher.connect (block_processor);
-	unchecked.use_memory = [this] () { return ledger.bootstrap_weight_reached (); };
-	unchecked.satisfied = [this] (nano::unchecked_info const & info) {
+	unchecked.satisfied.add ([this] (nano::unchecked_info const & info) {
 		this->block_processor.add (info.block);
-	};
+	});
 
 	inactive_vote_cache.rep_weight_query = [this] (nano::account const & rep) {
 		return ledger.weight (rep);
@@ -442,7 +442,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			if (!flags.disable_unchecked_drop && !use_bootstrap_weight && !flags.read_only)
 			{
 				auto const transaction (store.tx_begin_write ({ tables::unchecked }));
-				unchecked.clear (transaction);
+				unchecked.clear ();
 				logger.always_log ("Dropping unchecked blocks");
 			}
 		}
@@ -585,6 +585,8 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (node.inactive_vote_cache.collect_container_info ("inactive_vote_cache"));
 	composite->add_component (collect_container_info (node.generator, "vote_generator"));
 	composite->add_component (collect_container_info (node.final_generator, "vote_generator_final"));
+	composite->add_component (node.ascendboot.collect_container_info ("bootstrap_ascending"));
+	composite->add_component (node.unchecked.collect_container_info ("unchecked"));
 	return composite;
 }
 
@@ -696,6 +698,10 @@ void nano::node::start ()
 	backlog.start ();
 	hinting.start ();
 	bootstrap_server.start ();
+	if (!flags.disable_ascending_bootstrap)
+	{
+		ascendboot.start ();
+	}
 	websocket.start ();
 	telemetry.start ();
 }
@@ -714,6 +720,10 @@ void nano::node::stop ()
 	// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
 	distributed_work.stop ();
 	backlog.stop ();
+	if (!flags.disable_ascending_bootstrap)
+	{
+		ascendboot.stop ();
+	}
 	unchecked.stop ();
 	block_processor.stop ();
 	aggregator.stop ();
@@ -971,7 +981,7 @@ void nano::node::unchecked_cleanup ()
 		auto const transaction (store.tx_begin_read ());
 		// Max 1M records to clean, max 2 minutes reading to prevent slow i/o systems issues
 		unchecked.for_each (
-		transaction, [this, &digests, &cleaning_list, &now] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+		[this, &digests, &cleaning_list, &now] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 			if ((now - info.modified ()) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
 			{
 				digests.push_back (network.publish_filter.hash (info.block));
@@ -991,9 +1001,9 @@ void nano::node::unchecked_cleanup ()
 		{
 			auto key (cleaning_list.front ());
 			cleaning_list.pop_front ();
-			if (unchecked.exists (transaction, key))
+			if (unchecked.exists (key))
 			{
-				unchecked.del (transaction, key);
+				unchecked.del (key);
 			}
 		}
 	}
@@ -1497,7 +1507,7 @@ nano::telemetry_data nano::node::local_telemetry () const
 	telemetry_data.bandwidth_cap = config.bandwidth_limit;
 	telemetry_data.protocol_version = network_params.network.protocol_version;
 	telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - startup_time).count ();
-	telemetry_data.unchecked_count = unchecked.count (ledger.store.tx_begin_read ());
+	telemetry_data.unchecked_count = unchecked.count ();
 	telemetry_data.genesis_block = network_params.ledger.genesis->hash ();
 	telemetry_data.peer_count = nano::narrow_cast<decltype (telemetry_data.peer_count)> (network.size ());
 	telemetry_data.account_count = ledger.cache.account_count;

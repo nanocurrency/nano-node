@@ -73,18 +73,18 @@ TEST (block_store, one_bootstrap)
 				  .build_shared ();
 	unchecked.put (block1->hash (), nano::unchecked_info{ block1 });
 	auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
-		return unchecked.get (transaction_a, block_hash_a).size () > 0;
+		return unchecked.get (block_hash_a).size () > 0;
 	};
 	// Waits for the block1 to get saved in the database
 	ASSERT_TIMELY (10s, check_block_is_listed (store->tx_begin_read (), block1->hash ()));
 	auto transaction = store->tx_begin_read ();
 	std::vector<nano::block_hash> dependencies;
-	unchecked.for_each (transaction, [&dependencies] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+	unchecked.for_each ([&dependencies] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 		dependencies.push_back (key.key ());
 	});
 	auto hash1 = dependencies[0];
 	ASSERT_EQ (block1->hash (), hash1);
-	auto blocks = unchecked.get (transaction, hash1);
+	auto blocks = unchecked.get (hash1);
 	ASSERT_EQ (1, blocks.size ());
 	auto block2 = blocks[0].block;
 	ASSERT_EQ (*block1, *block2);
@@ -109,25 +109,24 @@ TEST (unchecked, simple)
 				 .work (5)
 				 .build_shared ();
 	// Asserts the block wasn't added yet to the unchecked table
-	auto block_listing1 = unchecked.get (store->tx_begin_read (), block->previous ());
+	auto block_listing1 = unchecked.get (block->previous ());
 	ASSERT_TRUE (block_listing1.empty ());
 	// Enqueues a block to be saved on the unchecked table
 	unchecked.put (block->previous (), nano::unchecked_info (block));
 	// Waits for the block to get written in the database
-	auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
-		return unchecked.get (transaction_a, block_hash_a).size () > 0;
+	auto check_block_is_listed = [&] (nano::block_hash const & block_hash_a) {
+		return unchecked.get (block_hash_a).size () > 0;
 	};
-	ASSERT_TIMELY (5s, check_block_is_listed (store->tx_begin_read (), block->previous ()));
-	auto transaction = store->tx_begin_write ();
+	ASSERT_TIMELY (5s, check_block_is_listed (block->previous ()));
 	// Retrieves the block from the database
-	auto block_listing2 = unchecked.get (transaction, block->previous ());
+	auto block_listing2 = unchecked.get (block->previous ());
 	ASSERT_FALSE (block_listing2.empty ());
 	// Asserts the added block is equal to the retrieved one
 	ASSERT_EQ (*block, *(block_listing2[0].block));
 	// Deletes the block from the database
-	unchecked.del (transaction, nano::unchecked_key (block->previous (), block->hash ()));
+	unchecked.del (nano::unchecked_key (block->previous (), block->hash ()));
 	// Asserts the block is deleted
-	auto block_listing3 = unchecked.get (transaction, block->previous ());
+	auto block_listing3 = unchecked.get (block->previous ());
 	ASSERT_TRUE (block_listing3.empty ());
 }
 
@@ -154,19 +153,19 @@ TEST (unchecked, multiple)
 				 .work (5)
 				 .build_shared ();
 	// Asserts the block wasn't added yet to the unchecked table
-	auto block_listing1 = unchecked.get (store->tx_begin_read (), block->previous ());
+	auto block_listing1 = unchecked.get (block->previous ());
 	ASSERT_TRUE (block_listing1.empty ());
 	// Enqueues the first block
 	unchecked.put (block->previous (), nano::unchecked_info (block));
 	// Enqueues a second block
 	unchecked.put (block->source (), nano::unchecked_info (block));
-	auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
-		return unchecked.get (transaction_a, block_hash_a).size () > 0;
+	auto check_block_is_listed = [&] (nano::block_hash const & block_hash_a) {
+		return unchecked.get (block_hash_a).size () > 0;
 	};
 	// Waits for and asserts the first block gets saved in the database
-	ASSERT_TIMELY (5s, check_block_is_listed (store->tx_begin_read (), block->previous ()));
+	ASSERT_TIMELY (5s, check_block_is_listed (block->previous ()));
 	// Waits for and asserts the second block gets saved in the database
-	ASSERT_TIMELY (5s, check_block_is_listed (store->tx_begin_read (), block->source ()));
+	ASSERT_TIMELY (5s, check_block_is_listed (block->source ()));
 }
 
 // This test ensures that a block can't occur twice in the unchecked table.
@@ -187,19 +186,19 @@ TEST (unchecked, double_put)
 				 .work (5)
 				 .build_shared ();
 	// Asserts the block wasn't added yet to the unchecked table
-	auto block_listing1 = unchecked.get (store->tx_begin_read (), block->previous ());
+	auto block_listing1 = unchecked.get (block->previous ());
 	ASSERT_TRUE (block_listing1.empty ());
 	// Enqueues the block to be saved in the unchecked table
 	unchecked.put (block->previous (), nano::unchecked_info (block));
 	// Enqueues the block again in an attempt to have it there twice
 	unchecked.put (block->previous (), nano::unchecked_info (block));
-	auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
-		return unchecked.get (transaction_a, block_hash_a).size () > 0;
+	auto check_block_is_listed = [&] (nano::block_hash const & block_hash_a) {
+		return unchecked.get (block_hash_a).size () > 0;
 	};
 	// Waits for and asserts the block was added at least once
-	ASSERT_TIMELY (5s, check_block_is_listed (store->tx_begin_read (), block->previous ()));
+	ASSERT_TIMELY (5s, check_block_is_listed (block->previous ()));
 	// Asserts the block was added at most once -- this is objective of this test.
-	auto block_listing2 = unchecked.get (store->tx_begin_read (), block->previous ());
+	auto block_listing2 = unchecked.get (block->previous ());
 	ASSERT_EQ (block_listing2.size (), 1);
 }
 
@@ -251,8 +250,7 @@ TEST (unchecked, multiple_get)
 	// we cannot trust the count() method if the backend is rocksdb
 	auto count_unchecked_blocks_one_by_one = [&store, &unchecked] () {
 		size_t count = 0;
-		auto transaction = store->tx_begin_read ();
-		unchecked.for_each (transaction, [&count] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+		unchecked.for_each ([&count] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 			++count;
 		});
 		return count;
@@ -263,8 +261,7 @@ TEST (unchecked, multiple_get)
 
 	std::vector<nano::block_hash> unchecked1;
 	// Asserts the entries will be found for the provided key
-	auto transaction = store->tx_begin_read ();
-	auto unchecked1_blocks = unchecked.get (transaction, block1->previous ());
+	auto unchecked1_blocks = unchecked.get (block1->previous ());
 	ASSERT_EQ (unchecked1_blocks.size (), 3);
 	for (auto & i : unchecked1_blocks)
 	{
@@ -276,7 +273,7 @@ TEST (unchecked, multiple_get)
 	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block3->hash ()) != unchecked1.end ());
 	std::vector<nano::block_hash> unchecked2;
 	// Asserts the entries will be found for the provided key
-	auto unchecked2_blocks = unchecked.get (transaction, block1->hash ());
+	auto unchecked2_blocks = unchecked.get (block1->hash ());
 	ASSERT_EQ (unchecked2_blocks.size (), 2);
 	for (auto & i : unchecked2_blocks)
 	{
@@ -286,14 +283,14 @@ TEST (unchecked, multiple_get)
 	ASSERT_TRUE (std::find (unchecked2.begin (), unchecked2.end (), block1->hash ()) != unchecked2.end ());
 	ASSERT_TRUE (std::find (unchecked2.begin (), unchecked2.end (), block2->hash ()) != unchecked2.end ());
 	// Asserts the entry is found by the key and the payload is saved
-	auto unchecked3 = unchecked.get (transaction, block2->previous ());
+	auto unchecked3 = unchecked.get (block2->previous ());
 	ASSERT_EQ (unchecked3.size (), 1);
 	ASSERT_EQ (unchecked3[0].block->hash (), block2->hash ());
 	// Asserts the entry is found by the key and the payload is saved
-	auto unchecked4 = unchecked.get (transaction, block3->hash ());
+	auto unchecked4 = unchecked.get (block3->hash ());
 	ASSERT_EQ (unchecked4.size (), 1);
 	ASSERT_EQ (unchecked4[0].block->hash (), block3->hash ());
 	// Asserts no entry is found for a block that wasn't added
-	auto unchecked5 = unchecked.get (transaction, block2->hash ());
+	auto unchecked5 = unchecked.get (block2->hash ());
 	ASSERT_EQ (unchecked5.size (), 0);
 }
