@@ -18,17 +18,6 @@ class transaction;
 class write_transaction;
 class write_database_queue;
 
-class block_post_events final
-{
-public:
-	explicit block_post_events (std::function<nano::read_transaction ()> &&);
-	~block_post_events ();
-	std::deque<std::function<void (nano::read_transaction const &)>> events;
-
-private:
-	std::function<nano::read_transaction ()> get_transaction;
-};
-
 /**
  * Processing blocks is a potentially long IO operation.
  * This class isolates block insertion from other operations like servicing network operations
@@ -65,10 +54,9 @@ private:
 	blocking_observer blocking;
 
 private:
-	nano::process_return process_one (nano::write_transaction const &, block_post_events &, std::shared_ptr<nano::block> block, bool const = false);
+	nano::process_return process_one (nano::write_transaction const &, std::shared_ptr<nano::block> block, bool const = false);
 	void queue_unchecked (nano::write_transaction const &, nano::hash_or_account const &);
 	std::deque<processed_t> process_batch (nano::unique_lock<nano::mutex> &);
-	void process_live (nano::transaction const &, std::shared_ptr<nano::block> const &);
 	void process_verified_state_blocks (std::deque<nano::state_block_signature_verification::value_type> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);
 	void add_impl (std::shared_ptr<nano::block> block);
 	bool stopped{ false };

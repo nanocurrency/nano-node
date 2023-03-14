@@ -2,27 +2,11 @@
 #include <nano/lib/timer.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/websocket.hpp>
 #include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
 
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
-
-nano::block_post_events::block_post_events (std::function<nano::read_transaction ()> && get_transaction_a) :
-	get_transaction (std::move (get_transaction_a))
-{
-}
-
-nano::block_post_events::~block_post_events ()
-{
-	debug_assert (get_transaction != nullptr);
-	auto transaction (get_transaction ());
-	for (auto const & i : events)
-	{
-		i (transaction);
-	}
-}
 
 nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
 	next_log (std::chrono::steady_clock::now ()),
@@ -238,7 +222,6 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 {
 	std::deque<processed_t> processed;
 	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
-	block_post_events post_events ([&store = node.store] { return store.tx_begin_read (); });
 	auto transaction (node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending, tables::unchecked }));
 	nano::timer<std::chrono::milliseconds> timer_l;
 	lock_a.lock ();
@@ -305,7 +288,7 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 			}
 		}
 		number_of_blocks_processed++;
-		auto result = process_one (transaction, post_events, block, force);
+		auto result = process_one (transaction, block, force);
 		processed.emplace_back (result, block);
 		lock_a.lock ();
 	}
@@ -318,25 +301,7 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 	return processed;
 }
 
-void nano::block_processor::process_live (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
-{
-	// Start collecting quorum on block
-	if (node.ledger.dependents_confirmed (transaction_a, *block_a))
-	{
-		auto account = block_a->account ().is_zero () ? block_a->sideband ().account : block_a->account ();
-		node.scheduler.activate (account, transaction_a);
-	}
-
-	// Notify inactive vote cache about a new live block
-	node.inactive_vote_cache.trigger (block_a->hash ());
-
-	if (node.websocket.server && node.websocket.server->any_subscriber (nano::websocket::topic::new_unconfirmed_block))
-	{
-		node.websocket.server->broadcast (nano::websocket::message_builder ().new_block_arrived (*block_a));
-	}
-}
-
-nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, std::shared_ptr<nano::block> block, bool const forced_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, std::shared_ptr<nano::block> block, bool const forced_a)
 {
 	nano::process_return result;
 	auto hash (block->hash ());
@@ -351,9 +316,6 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				block->serialize_json (block_string, node.config.logging.single_line_record ());
 				node.logger.try_log (boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block_string));
 			}
-			events_a.events.emplace_back ([this, block] (nano::transaction const & post_event_transaction_a) {
-				process_live (post_event_transaction_a, block);
-			});
 			queue_unchecked (transaction_a, hash);
 			/* For send blocks check epoch open unchecked (gap pending).
 			For state blocks check only send subtype and only if block epoch is not last epoch.
