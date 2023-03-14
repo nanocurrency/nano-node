@@ -373,8 +373,8 @@ nano::bootstrap_ascending::bootstrap_ascending (nano::node & node_a, nano::store
 	stats{ stat_a },
 	accounts{ stats },
 	iterator{ store },
-	limiter{ requests_limit, 1.0 },
-	database_limiter{ database_requests_limit, 1.0 }
+	limiter{ node.config.bootstrap_ascending.requests_limit, 1.0 },
+	database_limiter{ node.config.bootstrap_ascending.database_requests_limit, 1.0 }
 {
 	// TODO: This is called from a very congested blockprocessor thread. Offload this work to a dedicated processing thread
 	block_processor.batch_processed.add ([this] (auto const & batch) {
@@ -444,8 +444,9 @@ void nano::bootstrap_ascending::send (std::shared_ptr<nano::transport::channel> 
 
 	nano::asc_pull_req::blocks_payload request_payload;
 	request_payload.start = tag.start;
-	request_payload.count = pull_count;
+	request_payload.count = node.config.bootstrap_ascending.pull_count;
 	request_payload.start_type = (tag.type == async_tag::query_type::blocks_by_hash) ? nano::asc_pull_req::hash_type::block : nano::asc_pull_req::hash_type::account;
+
 	request.payload = request_payload;
 	request.update_header ();
 
@@ -691,7 +692,7 @@ void nano::bootstrap_ascending::run_timeouts ()
 	while (!stopped)
 	{
 		auto & tags_by_order = tags.get<tag_sequenced> ();
-		while (!tags_by_order.empty () && nano::time_difference (tags_by_order.front ().time, nano::milliseconds_since_epoch ()) > timeout)
+		while (!tags_by_order.empty () && nano::time_difference (tags_by_order.front ().time, nano::milliseconds_since_epoch ()) > node.config.bootstrap_ascending.timeout)
 		{
 			auto tag = tags_by_order.front ();
 			tags_by_order.pop_front ();

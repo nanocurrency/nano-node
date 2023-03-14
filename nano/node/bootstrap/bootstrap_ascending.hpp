@@ -319,11 +319,5 @@ private:
 	mutable nano::condition_variable condition;
 	std::thread thread;
 	std::thread timeout_thread;
-
-private: // TODO: Move into config
-	static std::size_t constexpr requests_limit{ 128 };
-	static std::size_t constexpr database_requests_limit{ 1024 };
-	static std::size_t constexpr pull_count{ nano::bootstrap_server::max_blocks };
-	static nano::millis_t constexpr timeout{ 1000 * 3 };
 };
 }
