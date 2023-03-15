@@ -762,7 +762,7 @@ public:
 	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 	virtual std::mutex & get_cache_mutex () = 0;
 
-	virtual bool copy_db (boost::filesystem::path const & destination) = 0;
+	virtual bool copy_db (std::filesystem::path const & destination) = 0;
 	virtual void rebuild_db (nano::write_transaction const & transaction_a) = 0;
 
 	/** Not applicable to all sub-classes */
@@ -779,7 +779,7 @@ public:
 	virtual std::string vendor_get () const = 0;
 };
 
-std::unique_ptr<nano::block_store> make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool open_read_only = false, bool add_db_postfix = false, nano::rocksdb_config const & rocksdb_config = nano::rocksdb_config{}, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, size_t batch_size = 512, bool backup_before_upgrade = false, bool rocksdb_backend = false);
+std::unique_ptr<nano::block_store> make_store (nano::logger_mt & logger, std::filesystem::path const & path, bool open_read_only = false, bool add_db_postfix = false, nano::rocksdb_config const & rocksdb_config = nano::rocksdb_config{}, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, size_t batch_size = 512, bool backup_before_upgrade = false, bool rocksdb_backend = false);
 }
 
 namespace std

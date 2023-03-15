@@ -60,7 +60,7 @@ void rocksdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::rocksdb::store::store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
+nano::rocksdb::store::store (nano::logger_mt & logger_a, std::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
 	// clang-format off
 	nano::store{
 		block_store,
@@ -94,7 +94,7 @@ nano::rocksdb::store::store (nano::logger_mt & logger_a, boost::filesystem::path
 	cf_name_table_map{ create_cf_name_table_map () }
 {
 	boost::system::error_code error_mkdir, error_chmod;
-	boost::filesystem::create_directories (path_a, error_mkdir);
+	std::filesystem::create_directories (path_a, error_mkdir);
 	nano::set_secure_perm_directory (path_a, error_chmod);
 	error = static_cast<bool> (error_mkdir);
 
@@ -130,7 +130,7 @@ std::unordered_map<char const *, nano::tables> nano::rocksdb::store::create_cf_n
 	return map;
 }
 
-void nano::rocksdb::store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a)
+void nano::rocksdb::store::open (bool & error_a, std::filesystem::path const & path_a, bool open_read_only_a)
 {
 	auto column_families = create_column_families ();
 	auto options = get_db_options ();
@@ -731,7 +731,7 @@ std::vector<nano::tables> nano::rocksdb::store::all_tables () const
 	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::final_votes, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::unchecked, tables::vote };
 }
 
-bool nano::rocksdb::store::copy_db (boost::filesystem::path const & destination_path)
+bool nano::rocksdb::store::copy_db (std::filesystem::path const & destination_path)
 {
 	std::unique_ptr<::rocksdb::BackupEngine> backup_engine;
 	{
@@ -780,11 +780,11 @@ bool nano::rocksdb::store::copy_db (boost::filesystem::path const & destination_
 		}
 
 		// First remove all files (not directories) in the destination
-		for (auto const & path : boost::make_iterator_range (boost::filesystem::directory_iterator (destination_path)))
+		for (auto const & path : boost::make_iterator_range (std::filesystem::directory_iterator (destination_path)))
 		{
-			if (boost::filesystem::is_regular_file (path))
+			if (std::filesystem::is_regular_file (path))
 			{
-				boost::filesystem::remove (path);
+				std::filesystem::remove (path);
 			}
 		}
 

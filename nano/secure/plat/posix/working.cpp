@@ -6,11 +6,11 @@
 
 namespace nano
 {
-boost::filesystem::path app_path ()
+std::filesystem::path app_path ()
 {
 	auto entry (getpwuid (getuid ()));
 	debug_assert (entry != nullptr);
-	boost::filesystem::path result (entry->pw_dir);
+	std::filesystem::path result (entry->pw_dir);
 	return result;
 }
 }

@@ -38,7 +38,7 @@ void mdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::lmdb::store::store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a) :
+nano::lmdb::store::store (nano::logger_mt & logger_a, std::filesystem::path const & path_a, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a) :
 	// clang-format off
 	nano::store{
 		block_store,
@@ -123,7 +123,7 @@ nano::lmdb::store::store (nano::logger_mt & logger_a, boost::filesystem::path co
 	}
 }
 
-bool nano::lmdb::store::vacuum_after_upgrade (boost::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a)
+bool nano::lmdb::store::vacuum_after_upgrade (std::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a)
 {
 	// Vacuum the database. This is not a required step and may actually fail if there isn't enough storage space.
 	auto vacuum_path = path_a.parent_path () / "vacuumed.ldb";
@@ -137,7 +137,7 @@ bool nano::lmdb::store::vacuum_after_upgrade (boost::filesystem::path const & pa
 		env.environment = nullptr;
 
 		// Replace the ledger file with the vacuumed one
-		boost::filesystem::rename (vacuum_path, path_a);
+		std::filesystem::rename (vacuum_path, path_a);
 
 		// Set up the environment again
 		auto options = nano::mdb_env::options::make ()
@@ -153,7 +153,7 @@ bool nano::lmdb::store::vacuum_after_upgrade (boost::filesystem::path const & pa
 	else
 	{
 		// The vacuum file can be in an inconsistent state if there wasn't enough space to create it
-		boost::filesystem::remove (vacuum_path);
+		std::filesystem::remove (vacuum_path);
 	}
 	return vacuum_success;
 }
@@ -778,7 +778,7 @@ void nano::lmdb::store::upgrade_v20_to_v21 (nano::write_transaction const & tran
 }
 
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
-void nano::lmdb::store::create_backup_file (nano::mdb_env & env_a, boost::filesystem::path const & filepath_a, nano::logger_mt & logger_a)
+void nano::lmdb::store::create_backup_file (nano::mdb_env & env_a, std::filesystem::path const & filepath_a, nano::logger_mt & logger_a)
 {
 	auto extension = filepath_a.extension ();
 	auto filename_without_extension = filepath_a.filename ().replace_extension ("");
@@ -906,7 +906,7 @@ std::string nano::lmdb::store::error_string (int status) const
 	return mdb_strerror (status);
 }
 
-bool nano::lmdb::store::copy_db (boost::filesystem::path const & destination_file)
+bool nano::lmdb::store::copy_db (std::filesystem::path const & destination_file)
 {
 	return !mdb_env_copy2 (env.environment, destination_file.string ().c_str (), MDB_CP_COMPACT);
 }

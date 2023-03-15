@@ -54,8 +54,8 @@ public:
 		nano::lmdb_config config;
 	};
 
-	mdb_env (bool &, boost::filesystem::path const &, nano::mdb_env::options options_a = nano::mdb_env::options::make ());
-	void init (bool &, boost::filesystem::path const &, nano::mdb_env::options options_a = nano::mdb_env::options::make ());
+	mdb_env (bool &, std::filesystem::path const &, nano::mdb_env::options options_a = nano::mdb_env::options::make ());
+	void init (bool &, std::filesystem::path const &, nano::mdb_env::options options_a = nano::mdb_env::options::make ());
 	~mdb_env ();
 	operator MDB_env * () const;
 	nano::read_transaction tx_begin_read (mdb_txn_callbacks txn_callbacks = mdb_txn_callbacks{}) const;

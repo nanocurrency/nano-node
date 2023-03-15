@@ -62,7 +62,7 @@ target_link_libraries(
   lmdb
   Boost::iostreams
   Boost::system
-  Boost::filesystem)
+  std::filesystem)
 
 target_compile_definitions(secure PUBLIC -DQT_NO_KEYWORDS
                                          -DBOOST_ASIO_HAS_STD_ARRAY=1)
