@@ -4,6 +4,7 @@
 #include <nano/lib/timer.hpp>
 #include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
+#include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
@@ -131,7 +132,7 @@ public: // account_sets
 	class account_sets
 	{
 	public:
-		explicit account_sets (nano::stats &);
+		explicit account_sets (nano::stats &, nano::account_sets_config config = {});
 
 		/**
 		 * If an account is not blocked, increase its priority.
@@ -229,11 +230,8 @@ public: // account_sets
 
 		std::default_random_engine rng;
 
-	private: // TODO: Move into config
-		static std::size_t constexpr consideration_count = 4;
-		static std::size_t constexpr priorities_max = 256 * 1024;
-		static std::size_t constexpr blocking_max = 256 * 1024;
-		static nano::millis_t constexpr cooldown = 3 * 1000;
+	private:
+		nano::account_sets_config config;
 
 	public: // Consts
 		static float constexpr priority_initial = 8.0f;
