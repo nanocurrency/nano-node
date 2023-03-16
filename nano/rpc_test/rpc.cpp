@@ -188,14 +188,7 @@ void check_block_response_count (nano::test::system & system, rpc_context const 
 {
 	auto response (wait_response (system, rpc_ctx, request));
 	auto & blocks = response.get_child ("blocks");
-	if (size_count > 0)
-	{
-		ASSERT_EQ (size_count, blocks.front ().second.size ());
-	}
-	else
-	{
-		ASSERT_TRUE (blocks.empty ());
-	}
+	ASSERT_EQ (size_count, blocks.size ());
 }
 
 rpc_context add_rpc (nano::test::system & system, std::shared_ptr<nano::node> const & node_a)
@@ -2008,19 +2001,14 @@ TEST (rpc, pending)
 	request.put ("source", "false");
 	request.put ("min_version", "false");
 
-	auto check_block_response_count_l = [&system, &request, &rpc_ctx] (size_t size) {
-		auto response (wait_response (system, rpc_ctx, request));
-		ASSERT_EQ (size, response.get_child ("blocks").size ());
-	};
-
-	check_block_response_count_l (1);
+	check_block_response_count (system, rpc_ctx, request, 1);
 	rpc_ctx.io_scope->reset ();
 	reset_confirmation_height (system.nodes.front ()->store, block1->account ());
 	rpc_ctx.io_scope->renew ();
-	check_block_response_count_l (0);
+	check_block_response_count (system, rpc_ctx, request, 0);
 	request.put ("include_only_confirmed", "false");
 	rpc_ctx.io_scope->renew ();
-	check_block_response_count_l (1);
+	check_block_response_count (system, rpc_ctx, request, 1);
 	request.put ("include_only_confirmed", "true");
 
 	// Sorting with a smaller count than total should give absolute sorted amounts
@@ -3681,9 +3669,7 @@ TEST (rpc, accounts_receivable)
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 100));
-	node->scheduler.flush ();
-	ASSERT_TIMELY (5s, !node->active.active (*block1));
-	ASSERT_TIMELY (5s, node->ledger.cache.cemented_count == 2 && node->confirmation_height_processor.current ().is_zero () && node->confirmation_height_processor.awaiting_processing_size () == 0);
+	ASSERT_TIMELY (5s, node->block_confirmed (block1->hash ()));
 
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
@@ -3890,9 +3876,7 @@ TEST (rpc, pending_exists)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto hash0 (node->latest (nano::dev::genesis->account ()));
 	auto block1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 100));
-	node->scheduler.flush ();
-	ASSERT_TIMELY (5s, !node->active.active (*block1));
-	ASSERT_TIMELY (5s, node->ledger.cache.cemented_count == 2 && node->confirmation_height_processor.current ().is_zero () && node->confirmation_height_processor.awaiting_processing_size () == 0);
+	ASSERT_TIMELY (5s, node->block_confirmed (block1->hash ()));
 
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
