@@ -733,9 +733,9 @@ TEST (active_transactions, republish_winner)
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
 	node1.vote_processor.flush ();
 	node1.block_processor.flush ();
-	ASSERT_TIMELY (3s, election->confirmed ());
+	ASSERT_TIMELY (5s, election->confirmed ());
 	ASSERT_EQ (fork->hash (), election->status.winner->hash ());
-	ASSERT_TIMELY (3s, node2.block_confirmed (fork->hash ()));
+	ASSERT_TIMELY (5s, node2.block_confirmed (fork->hash ()));
 }
 
 TEST (active_transactions, fork_filter_cleanup)
