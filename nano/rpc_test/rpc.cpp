@@ -1925,9 +1925,7 @@ TEST (rpc, pending)
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 100));
-	node->scheduler.flush ();
-	ASSERT_TIMELY (5s, !node->active.active (*block1));
-	ASSERT_TIMELY (5s, node->ledger.cache.cemented_count == 2 && node->confirmation_height_processor.current ().is_zero () && node->confirmation_height_processor.awaiting_processing_size () == 0);
+	ASSERT_TIMELY (5s, node->block_confirmed (block1->hash ()));
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "pending");
@@ -2199,9 +2197,7 @@ TEST (rpc, pending_burn)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::constants.burn_account, 100));
 	auto const rpc_ctx = add_rpc (system, node);
-	node->scheduler.flush ();
-	ASSERT_TIMELY (5s, !node->active.active (*block1));
-	ASSERT_TIMELY (5s, node->ledger.cache.cemented_count == 2 && node->confirmation_height_processor.current ().is_zero () && node->confirmation_height_processor.awaiting_processing_size () == 0);
+	ASSERT_TIMELY (5s, node->block_confirmed (block1->hash ()));
 	boost::property_tree::ptree request;
 	request.put ("action", "pending");
 	request.put ("account", nano::dev::constants.burn_account.to_account ());
@@ -2748,9 +2744,8 @@ TEST (rpc, block_count_pruning)
 					.work (*node1->work_generate_blocking (send1->hash ()))
 					.build_shared ();
 	node1->process_active (receive1);
-	node1->block_processor.flush ();
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	ASSERT_TIMELY (5s, node1->ledger.cache.cemented_count == 3 && node1->confirmation_height_processor.current ().is_zero () && node1->confirmation_height_processor.awaiting_processing_size () == 0);
+	ASSERT_TIMELY (5s, node1->block_confirmed (receive1->hash ()));
 	// Pruning action
 	{
 		auto transaction (node1->store.tx_begin_write ());
@@ -3787,20 +3782,16 @@ TEST (rpc, wallet_info)
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (key.prv);
 
-	// at first, 1 block and 1 confirmed -- the genesis
-	ASSERT_EQ (1, node->ledger.cache.block_count);
-	ASSERT_EQ (1, node->ledger.cache.cemented_count);
-
 	auto send (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	// after the send, expect 2 blocks immediately, then 2 confirmed in a timely manner,
 	// and finally 3 blocks and 3 confirmed after the wallet generates the receive block for this send
-	ASSERT_EQ (2, node->ledger.cache.block_count);
-	ASSERT_TIMELY (5s, 2 == node->ledger.cache.cemented_count);
-	ASSERT_TIMELY (5s, 3 == node->ledger.cache.block_count && 3 == node->ledger.cache.cemented_count);
+	ASSERT_TIMELY (5s, node->block_confirmed (send->hash ())); // Send gets confirmed
+	ASSERT_TIMELY (5s, !node->latest (key.pub).is_zero ()); // Receive gets generated
+	ASSERT_TIMELY (5s, node->block_confirmed (node->latest (key.pub))); // Receive gets confirmed
 
 	// do another send to be able to expect some "pending" down below
 	auto send2 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, 1));
-	ASSERT_TIMELY (5s, 4 == node->ledger.cache.block_count && 4 == node->ledger.cache.cemented_count);
+	ASSERT_TIMELY (5s, node->block_confirmed (send2->hash ()));
 
 	nano::account account (system.wallet (0)->deterministic_insert ());
 	{
@@ -3929,27 +3920,20 @@ TEST (rpc, wallet_pending)
 
 TEST (rpc, wallet_receivable)
 {
-	nano::test::system system0;
-	auto node = add_ipc_enabled_node (system0);
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
 	nano::keypair key1;
-	system0.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	system0.wallet (0)->insert_adhoc (key1.prv);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key1.prv);
 	auto iterations (0);
-	auto block1 (system0.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 100));
-	node->scheduler.flush ();
-	while (node->active.active (*block1) || node->ledger.cache.cemented_count < 2 || !node->confirmation_height_processor.current ().is_zero () || node->confirmation_height_processor.awaiting_processing_size () != 0)
-	{
-		system0.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
-	}
-
-	auto const rpc_ctx = add_rpc (system0, node);
+	auto block1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 100));
+	ASSERT_TIMELY (5s, node->block_confirmed (block1->hash ()));
+	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_receivable");
 	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
 	request.put ("count", "100");
-	auto response (wait_response (system0, rpc_ctx, request));
+	auto response (wait_response (system, rpc_ctx, request));
 	ASSERT_EQ (1, response.get_child ("blocks").size ());
 	for (auto & pending : response.get_child ("blocks"))
 	{
@@ -3959,7 +3943,7 @@ TEST (rpc, wallet_receivable)
 		ASSERT_EQ (block1->hash (), hash1);
 	}
 	request.put ("threshold", "100"); // Threshold test
-	auto response0 (wait_response (system0, rpc_ctx, request));
+	auto response0 (wait_response (system, rpc_ctx, request));
 	std::unordered_map<nano::block_hash, nano::uint128_union> blocks;
 	ASSERT_EQ (1, response0.get_child ("blocks").size ());
 	for (auto & pending : response0.get_child ("blocks"))
@@ -3981,13 +3965,13 @@ TEST (rpc, wallet_receivable)
 	}
 	ASSERT_EQ (blocks[block1->hash ()], 100);
 	request.put ("threshold", "101");
-	auto response1 (wait_response (system0, rpc_ctx, request));
+	auto response1 (wait_response (system, rpc_ctx, request));
 	auto & pending1 (response1.get_child ("blocks"));
 	ASSERT_EQ (0, pending1.size ());
 	request.put ("threshold", "0");
 	request.put ("source", "true");
 	request.put ("min_version", "true");
-	auto response2 (wait_response (system0, rpc_ctx, request));
+	auto response2 (wait_response (system, rpc_ctx, request));
 	std::unordered_map<nano::block_hash, nano::uint128_union> amounts;
 	std::unordered_map<nano::block_hash, nano::account> sources;
 	ASSERT_EQ (1, response2.get_child ("blocks").size ());
@@ -4007,14 +3991,14 @@ TEST (rpc, wallet_receivable)
 	ASSERT_EQ (amounts[block1->hash ()], 100);
 	ASSERT_EQ (sources[block1->hash ()], nano::dev::genesis_key.pub);
 
-	check_block_response_count (system0, rpc_ctx, request, 1);
+	check_block_response_count (system, rpc_ctx, request, 1);
 	rpc_ctx.io_scope->reset ();
-	reset_confirmation_height (system0.nodes.front ()->store, block1->account ());
+	reset_confirmation_height (system.nodes.front ()->store, block1->account ());
 	rpc_ctx.io_scope->renew ();
-	check_block_response_count (system0, rpc_ctx, request, 0);
+	check_block_response_count (system, rpc_ctx, request, 0);
 	request.put ("include_only_confirmed", "false");
 	rpc_ctx.io_scope->renew ();
-	check_block_response_count (system0, rpc_ctx, request, 1);
+	check_block_response_count (system, rpc_ctx, request, 1);
 }
 
 TEST (rpc, receive_minimum)
@@ -4882,9 +4866,8 @@ TEST (rpc, block_info_pruning)
 					.work (*node1->work_generate_blocking (send1->hash ()))
 					.build_shared ();
 	node1->process_active (receive1);
-	node1->block_processor.flush ();
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	ASSERT_TIMELY (5s, node1->ledger.cache.cemented_count == 3 && node1->confirmation_height_processor.current ().is_zero () && node1->confirmation_height_processor.awaiting_processing_size () == 0);
+	ASSERT_TIMELY (5s, node1->block_confirmed (receive1->hash ()));
 	// Pruning action
 	{
 		auto transaction (node1->store.tx_begin_write ());
@@ -4949,9 +4932,8 @@ TEST (rpc, pruned_exists)
 					.work (*node1->work_generate_blocking (send1->hash ()))
 					.build_shared ();
 	node1->process_active (receive1);
-	node1->block_processor.flush ();
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	ASSERT_TIMELY (5s, node1->ledger.cache.cemented_count == 3 && node1->confirmation_height_processor.current ().is_zero () && node1->confirmation_height_processor.awaiting_processing_size () == 0);
+	ASSERT_TIMELY (5s, node1->block_confirmed (receive1->hash ()));
 	// Pruning action
 	{
 		auto transaction (node1->store.tx_begin_write ());
@@ -7284,7 +7266,7 @@ TEST (rpc, receive_pruned)
 	// Extra send frontier
 	auto send3 (wallet1->send_action (nano::dev::genesis_key.pub, key1.pub, node2->config.receive_minimum.number (), *node2->work_generate_blocking (send1->hash ())));
 	// Pruning
-	ASSERT_TIMELY (5s, node2->ledger.cache.cemented_count == 6 && node2->confirmation_height_processor.current ().is_zero () && node2->confirmation_height_processor.awaiting_processing_size () == 0);
+	ASSERT_TIMELY (5s, node2->block_confirmed (send3->hash ()));
 	{
 		auto transaction (node2->store.tx_begin_write ());
 		ASSERT_EQ (2, node2->ledger.pruning_action (transaction, send2->hash (), 1));
