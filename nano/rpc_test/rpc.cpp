@@ -3875,25 +3875,25 @@ TEST (rpc, pending_exists)
 	auto pending_exists = [&system, &rpc_ctx, &request] (char const * exists_a) {
 		auto response0 (wait_response (system, rpc_ctx, request));
 		std::string exists_text (response0.get<std::string> ("exists"));
-		ASSERT_EQ (exists_a, exists_text);
+		return exists_a == exists_text;
 	};
 
 	request.put ("action", "pending_exists");
 	request.put ("hash", hash0.to_string ());
-	pending_exists ("0");
+	ASSERT_TRUE (pending_exists ("0"));
 
 	node->store.pending.exists (node->store.tx_begin_read (), nano::pending_key (nano::dev::genesis_key.pub, block1->hash ()));
 	request.put ("hash", block1->hash ().to_string ());
-	pending_exists ("1");
+	ASSERT_TRUE (pending_exists ("1"));
 
-	pending_exists ("1");
+	ASSERT_TRUE (pending_exists ("1"));
 	rpc_ctx.io_scope->reset ();
 	reset_confirmation_height (node->store, block1->account ());
 	rpc_ctx.io_scope->renew ();
-	pending_exists ("0");
+	ASSERT_TRUE (pending_exists ("0"));
 	request.put ("include_only_confirmed", "false");
 	rpc_ctx.io_scope->renew ();
-	pending_exists ("1");
+	ASSERT_TRUE (pending_exists ("1"));
 }
 
 TEST (rpc, wallet_pending)
