@@ -184,11 +184,11 @@ boost::property_tree::ptree wait_response (nano::test::system & system, rpc_cont
 	return response_json;
 }
 
-void check_block_response_count (nano::test::system & system, rpc_context const & rpc_ctx, boost::property_tree::ptree & request, uint64_t size_count)
+bool check_block_response_count (nano::test::system & system, rpc_context const & rpc_ctx, boost::property_tree::ptree & request, uint64_t size_count)
 {
 	auto response (wait_response (system, rpc_ctx, request));
 	auto & blocks = response.get_child ("blocks");
-	ASSERT_EQ (size_count, blocks.size ());
+	return size_count == blocks.size ();
 }
 
 rpc_context add_rpc (nano::test::system & system, std::shared_ptr<nano::node> const & node_a)
@@ -1999,14 +1999,14 @@ TEST (rpc, pending)
 	request.put ("source", "false");
 	request.put ("min_version", "false");
 
-	check_block_response_count (system, rpc_ctx, request, 1);
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 	rpc_ctx.io_scope->reset ();
 	reset_confirmation_height (system.nodes.front ()->store, block1->account ());
 	rpc_ctx.io_scope->renew ();
-	check_block_response_count (system, rpc_ctx, request, 0);
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 0));
 	request.put ("include_only_confirmed", "false");
 	rpc_ctx.io_scope->renew ();
-	check_block_response_count (system, rpc_ctx, request, 1);
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 	request.put ("include_only_confirmed", "true");
 
 	// Sorting with a smaller count than total should give absolute sorted amounts
@@ -3740,14 +3740,14 @@ TEST (rpc, accounts_receivable)
 		ASSERT_EQ (sources[block1->hash ()], nano::dev::genesis_key.pub);
 	}
 
-	check_block_response_count (system, rpc_ctx, request, 1);
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 	rpc_ctx.io_scope->reset ();
 	reset_confirmation_height (system.nodes.front ()->store, block1->account ());
 	rpc_ctx.io_scope->renew ();
-	check_block_response_count (system, rpc_ctx, request, 0);
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 0));
 	request.put ("include_only_confirmed", "false");
 	rpc_ctx.io_scope->renew ();
-	check_block_response_count (system, rpc_ctx, request, 1);
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 }
 
 TEST (rpc, blocks)
@@ -3991,14 +3991,14 @@ TEST (rpc, wallet_receivable)
 	ASSERT_EQ (amounts[block1->hash ()], 100);
 	ASSERT_EQ (sources[block1->hash ()], nano::dev::genesis_key.pub);
 
-	check_block_response_count (system, rpc_ctx, request, 1);
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 	rpc_ctx.io_scope->reset ();
 	reset_confirmation_height (system.nodes.front ()->store, block1->account ());
 	rpc_ctx.io_scope->renew ();
-	check_block_response_count (system, rpc_ctx, request, 0);
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 0));
 	request.put ("include_only_confirmed", "false");
 	rpc_ctx.io_scope->renew ();
-	check_block_response_count (system, rpc_ctx, request, 1);
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 }
 
 TEST (rpc, receive_minimum)
