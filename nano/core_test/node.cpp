@@ -1695,91 +1695,27 @@ TEST (node, rep_list)
 TEST (node, rep_weight)
 {
 	nano::test::system system;
-	auto add_node = [&system] {
-		auto node = std::make_shared<nano::node> (system.io_ctx, nano::test::get_available_port (), nano::unique_path (), system.logging, system.work);
-		node->start ();
-		system.nodes.push_back (node);
-		return node;
-	};
-	auto & node = *add_node ();
-	auto & node1 = *add_node ();
-	auto & node2 = *add_node ();
-	auto & node3 = *add_node ();
 	nano::keypair keypair1;
 	nano::keypair keypair2;
-	nano::block_builder builder;
-	auto amount_pr (node.minimum_principal_weight () + 100);
-	auto amount_not_pr (node.minimum_principal_weight () - 100);
-	std::shared_ptr<nano::block> block1 = builder
-										  .state ()
-										  .account (nano::dev::genesis_key.pub)
-										  .previous (nano::dev::genesis->hash ())
-										  .representative (nano::dev::genesis_key.pub)
-										  .balance (nano::dev::constants.genesis_amount - amount_not_pr)
-										  .link (keypair1.pub)
-										  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-										  .work (*system.work.generate (nano::dev::genesis->hash ()))
-										  .build ();
-	std::shared_ptr<nano::block> block2 = builder
-										  .state ()
-										  .account (keypair1.pub)
-										  .previous (0)
-										  .representative (keypair1.pub)
-										  .balance (amount_not_pr)
-										  .link (block1->hash ())
-										  .sign (keypair1.prv, keypair1.pub)
-										  .work (*system.work.generate (keypair1.pub))
-										  .build ();
-	std::shared_ptr<nano::block> block3 = builder
-										  .state ()
-										  .account (nano::dev::genesis_key.pub)
-										  .previous (block1->hash ())
-										  .representative (nano::dev::genesis_key.pub)
-										  .balance (nano::dev::constants.genesis_amount - amount_not_pr - amount_pr)
-										  .link (keypair2.pub)
-										  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-										  .work (*system.work.generate (block1->hash ()))
-										  .build ();
-	std::shared_ptr<nano::block> block4 = builder
-										  .state ()
-										  .account (keypair2.pub)
-										  .previous (0)
-										  .representative (keypair2.pub)
-										  .balance (amount_pr)
-										  .link (block3->hash ())
-										  .sign (keypair2.prv, keypair2.pub)
-										  .work (*system.work.generate (keypair2.pub))
-										  .build ();
-	{
-		auto transaction = node.store.tx_begin_write ();
-		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *block1).code);
-		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *block2).code);
-		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *block3).code);
-		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *block4).code);
-	}
-	ASSERT_TRUE (node.rep_crawler.representatives (1).empty ());
-	std::shared_ptr<nano::transport::channel> channel1 = nano::test::establish_tcp (system, node, node1.network.endpoint ());
-	ASSERT_NE (nullptr, channel1);
-	std::shared_ptr<nano::transport::channel> channel2 = nano::test::establish_tcp (system, node, node2.network.endpoint ());
-	ASSERT_NE (nullptr, channel2);
-	std::shared_ptr<nano::transport::channel> channel3 = nano::test::establish_tcp (system, node, node3.network.endpoint ());
-	ASSERT_NE (nullptr, channel3);
-	auto vote0 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
-	auto vote1 = std::make_shared<nano::vote> (keypair1.pub, keypair1.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
-	auto vote2 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
-	node.rep_crawler.response (channel1, vote0);
-	node.rep_crawler.response (channel2, vote1);
-	node.rep_crawler.response (channel3, vote2);
-	ASSERT_TIMELY (5s, node.rep_crawler.representative_count () == 2);
-	// Make sure we get the rep with the most weight first
-	auto reps = node.rep_crawler.representatives (1);
-	ASSERT_EQ (1, reps.size ());
-	ASSERT_EQ (node.balance (nano::dev::genesis_key.pub), node.ledger.weight (reps[0].account));
-	ASSERT_EQ (nano::dev::genesis_key.pub, reps[0].account);
-	ASSERT_EQ (*channel1, reps[0].channel_ref ());
-	ASSERT_TRUE (node.rep_crawler.is_pr (*channel1));
-	ASSERT_FALSE (node.rep_crawler.is_pr (*channel2));
-	ASSERT_TRUE (node.rep_crawler.is_pr (*channel3));
+	system.ledger_initialization_set ({ keypair1, keypair2 }, nano::Gxrb_ratio); // Initialize ledger with 2 equal weight reps leaving 1 Gxrb in the genesis account
+	nano::node_config config;
+	config.enable_voting = true;
+	auto & node = *system.add_node (config, nano::node_flags{}, nano::transport::transport_type::tcp, nano::dev::genesis_key);
+	auto & node1 = *system.add_node (config, nano::node_flags{}, nano::transport::transport_type::tcp, keypair1);
+	auto & node2 = *system.add_node (config, nano::node_flags{}, nano::transport::transport_type::tcp, keypair2);
+	auto & node3 = *system.add_node (config);
+	ASSERT_TIMELY (5s, node.rep_crawler.is_pr (*node.network.find_node_id (node1.node_id.pub)));
+	ASSERT_TIMELY (5s, node.rep_crawler.is_pr (*node.network.find_node_id (node2.node_id.pub)));
+	ASSERT_TIMELY (5s, node1.rep_crawler.is_pr (*node1.network.find_node_id (node2.node_id.pub)));
+	ASSERT_TIMELY (5s, node2.rep_crawler.is_pr (*node2.network.find_node_id (node1.node_id.pub)));
+	ASSERT_TIMELY (5s, node3.rep_crawler.is_pr (*node3.network.find_node_id (node1.node_id.pub)));
+	ASSERT_TIMELY (5s, node3.rep_crawler.is_pr (*node3.network.find_node_id (node2.node_id.pub)));
+	ASSERT_FALSE (node1.rep_crawler.is_pr (*node1.network.find_node_id (node.node_id.pub))); // 1 gxrb in 'node' is not enough to be a PR
+	ASSERT_FALSE (node2.rep_crawler.is_pr (*node2.network.find_node_id (node.node_id.pub)));
+	ASSERT_FALSE (node3.rep_crawler.is_pr (*node3.network.find_node_id (node.node_id.pub)));
+	ASSERT_FALSE (node.rep_crawler.is_pr (*node.network.find_node_id (node3.node_id.pub))); // node3 has no rep key
+	ASSERT_FALSE (node1.rep_crawler.is_pr (*node1.network.find_node_id (node3.node_id.pub)));
+	ASSERT_FALSE (node2.rep_crawler.is_pr (*node2.network.find_node_id (node3.node_id.pub)));
 }
 
 // Test that rep_crawler removes unreachable reps from its search results.
