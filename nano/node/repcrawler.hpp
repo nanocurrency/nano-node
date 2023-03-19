@@ -27,8 +27,8 @@ class representative
 {
 public:
 	representative () = default;
-	representative (nano::account account_a, nano::amount weight_a, std::shared_ptr<nano::transport::channel> const & channel_a) :
-		account (account_a), weight (weight_a), channel (channel_a)
+	representative (nano::account account_a, std::shared_ptr<nano::transport::channel> const & channel_a) :
+		account (account_a), channel (channel_a)
 	{
 		debug_assert (channel != nullptr);
 	}
@@ -41,7 +41,6 @@ public:
 		return account == other_a.account;
 	}
 	nano::account account{};
-	nano::amount weight{ 0 };
 	std::shared_ptr<nano::transport::channel> channel;
 	std::chrono::steady_clock::time_point last_request{ std::chrono::steady_clock::time_point () };
 	std::chrono::steady_clock::time_point last_response{ std::chrono::steady_clock::time_point () };
@@ -59,16 +58,14 @@ class rep_crawler final
 	class tag_account {};
 	class tag_channel_ref {};
 	class tag_last_request {};
-	class tag_weight {};
+	class tag_sequenced {};
 
 	using probably_rep_t = boost::multi_index_container<representative,
 	mi::indexed_by<
-		mi::hashed_unique<mi::member<representative, nano::account, &representative::account>>,
-		mi::random_access<>,
+		mi::hashed_unique<mi::tag<tag_account>, mi::member<representative, nano::account, &representative::account>>,
+		mi::sequenced<mi::tag<tag_sequenced>>,
 		mi::ordered_non_unique<mi::tag<tag_last_request>,
 			mi::member<representative, std::chrono::steady_clock::time_point, &representative::last_request>>,
-		mi::ordered_non_unique<mi::tag<tag_weight>,
-			mi::member<representative, nano::amount, &representative::weight>, std::greater<nano::amount>>,
 		mi::hashed_non_unique<mi::tag<tag_channel_ref>,
 			mi::const_mem_fun<representative, std::reference_wrapper<nano::transport::channel const>, &representative::channel_ref>>>>;
 	// clang-format on
@@ -140,9 +137,6 @@ private:
 
 	/** Clean representatives with inactive channels */
 	void cleanup_reps ();
-
-	/** Update representatives weights from ledger */
-	void update_weights ();
 
 	/** Protects the probable_reps container */
 	mutable nano::mutex probable_reps_mutex;
