@@ -1699,11 +1699,13 @@ TEST (node, rep_weight)
 	nano::keypair keypair2;
 	system.ledger_initialization_set ({ keypair1, keypair2 }, nano::Gxrb_ratio); // Initialize ledger with 2 equal weight reps leaving 1 Gxrb in the genesis account
 	nano::node_config config;
-	config.enable_voting = true;
-	auto & node = *system.add_node (config, nano::node_flags{}, nano::transport::transport_type::tcp, nano::dev::genesis_key);
-	auto & node1 = *system.add_node (config, nano::node_flags{}, nano::transport::transport_type::tcp, keypair1);
-	auto & node2 = *system.add_node (config, nano::node_flags{}, nano::transport::transport_type::tcp, keypair2);
-	auto & node3 = *system.add_node (config);
+	config.enable_voting = true; // Voting is necessary for the rep_crawler to function
+	nano::node_flags flags;
+	flags.disable_request_loop = true; // Disable active_transaction vote requests as this interferes with the rep_crawler
+	auto & node = *system.add_node (config, flags, nano::transport::transport_type::tcp, nano::dev::genesis_key);
+	auto & node1 = *system.add_node (config, flags, nano::transport::transport_type::tcp, keypair1);
+	auto & node2 = *system.add_node (config, flags, nano::transport::transport_type::tcp, keypair2);
+	auto & node3 = *system.add_node (config, flags);
 	ASSERT_TIMELY (5s, node.rep_crawler.is_pr (*node.network.find_node_id (node1.node_id.pub)));
 	ASSERT_TIMELY (5s, node.rep_crawler.is_pr (*node.network.find_node_id (node2.node_id.pub)));
 	ASSERT_TIMELY (5s, node1.rep_crawler.is_pr (*node1.network.find_node_id (node2.node_id.pub)));
