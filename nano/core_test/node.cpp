@@ -1679,10 +1679,10 @@ TEST (node, rep_list)
 	auto done (false);
 	while (!done)
 	{
-		auto reps (node1.rep_crawler.representatives (1));
+		auto reps = node1.rep_crawler.representatives (1);
 		if (!reps.empty ())
 		{
-			if (!reps[0].weight.is_zero ())
+			if (!node1.ledger.weight (reps[0].account).is_zero ())
 			{
 				done = true;
 			}
@@ -1771,9 +1771,9 @@ TEST (node, rep_weight)
 	node.rep_crawler.response (channel3, vote2);
 	ASSERT_TIMELY (5s, node.rep_crawler.representative_count () == 2);
 	// Make sure we get the rep with the most weight first
-	auto reps (node.rep_crawler.representatives (1));
+	auto reps = node.rep_crawler.representatives (1);
 	ASSERT_EQ (1, reps.size ());
-	ASSERT_EQ (node.balance (nano::dev::genesis_key.pub), reps[0].weight.number ());
+	ASSERT_EQ (node.balance (nano::dev::genesis_key.pub), node.ledger.weight (reps[0].account));
 	ASSERT_EQ (nano::dev::genesis_key.pub, reps[0].account);
 	ASSERT_EQ (*channel1, reps[0].channel_ref ());
 	ASSERT_TRUE (node.rep_crawler.is_pr (*channel1));
@@ -1856,7 +1856,7 @@ TEST (node, rep_remove)
 	ASSERT_TIMELY (5s, searching_node.rep_crawler.representative_count () == 1);
 	auto reps (searching_node.rep_crawler.representatives (1));
 	ASSERT_EQ (1, reps.size ());
-	ASSERT_EQ (searching_node.minimum_principal_weight () * 2, reps[0].weight.number ());
+	ASSERT_EQ (searching_node.minimum_principal_weight () * 2, searching_node.ledger.weight (reps[0].account));
 	ASSERT_EQ (keys_rep1.pub, reps[0].account);
 	ASSERT_EQ (*channel_rep1, reps[0].channel_ref ());
 
