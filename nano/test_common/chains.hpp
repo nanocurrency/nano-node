@@ -14,10 +14,10 @@
 namespace nano::test
 {
 /**
- * Creates `count` random 1 raw send blocks in a `target` account chain
+ * Creates `count` random 1 raw send blocks in a `source` account chain
  * @returns created blocks
  */
-nano::block_list_t setup_chain (nano::test::system & system, nano::node & node, int count, nano::keypair target = nano::dev::genesis_key, bool confirm = true);
+nano::block_list_t setup_chain (nano::test::system & system, nano::node & node, int count, nano::keypair source = nano::dev::genesis_key, bool confirm = true);
 
 /**
  * Creates `chain_count` account chains, each with `block_count` 1 raw random send blocks, all accounts are seeded from `source` account
