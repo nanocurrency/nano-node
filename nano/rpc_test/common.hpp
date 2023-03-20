@@ -29,14 +29,6 @@ namespace ipc
 namespace test
 {
 	class system;
-	class scoped_io_thread_name_change
-	{
-	public:
-		scoped_io_thread_name_change ();
-		~scoped_io_thread_name_change ();
-		void reset ();
-		void renew ();
-	};
 	class test_response
 	{
 	public:
@@ -54,13 +46,12 @@ namespace test
 	class rpc_context
 	{
 	public:
-		rpc_context (std::shared_ptr<nano::rpc> & rpc_a, std::unique_ptr<nano::ipc::ipc_server> & ipc_server_a, std::unique_ptr<nano::ipc_rpc_processor> & ipc_rpc_processor_a, std::unique_ptr<nano::node_rpc_config> & node_rpc_config_a, std::unique_ptr<scoped_io_thread_name_change> & io_scope_a);
+		rpc_context (std::shared_ptr<nano::rpc> & rpc_a, std::unique_ptr<nano::ipc::ipc_server> & ipc_server_a, std::unique_ptr<nano::ipc_rpc_processor> & ipc_rpc_processor_a, std::unique_ptr<nano::node_rpc_config> & node_rpc_config_a);
 
 		std::shared_ptr<nano::rpc> rpc;
 		std::unique_ptr<nano::ipc::ipc_server> ipc_server;
 		std::unique_ptr<nano::ipc_rpc_processor> ipc_rpc_processor;
 		std::unique_ptr<nano::node_rpc_config> node_rpc_config;
-		std::unique_ptr<scoped_io_thread_name_change> io_scope;
 	};
 
 	std::shared_ptr<nano::node> add_ipc_enabled_node (nano::test::system & system, nano::node_config & node_config, nano::node_flags const & node_flags);

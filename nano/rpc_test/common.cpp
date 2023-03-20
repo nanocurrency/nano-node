@@ -76,33 +76,12 @@ void nano::test::test_response::run (uint16_t port_a)
 	});
 }
 
-nano::test::scoped_io_thread_name_change::scoped_io_thread_name_change ()
-{
-	renew ();
-}
-
-nano::test::scoped_io_thread_name_change::~scoped_io_thread_name_change ()
-{
-	reset ();
-}
-
-void nano::test::scoped_io_thread_name_change::reset ()
-{
-	nano::thread_role::set (nano::thread_role::name::unknown);
-}
-
-void nano::test::scoped_io_thread_name_change::renew ()
-{
-	nano::thread_role::set (nano::thread_role::name::io);
-}
-
-nano::test::rpc_context::rpc_context (std::shared_ptr<nano::rpc> & rpc_a, std::unique_ptr<nano::ipc::ipc_server> & ipc_server_a, std::unique_ptr<nano::ipc_rpc_processor> & ipc_rpc_processor_a, std::unique_ptr<nano::node_rpc_config> & node_rpc_config_a, std::unique_ptr<scoped_io_thread_name_change> & io_scope_a)
+nano::test::rpc_context::rpc_context (std::shared_ptr<nano::rpc> & rpc_a, std::unique_ptr<nano::ipc::ipc_server> & ipc_server_a, std::unique_ptr<nano::ipc_rpc_processor> & ipc_rpc_processor_a, std::unique_ptr<nano::node_rpc_config> & node_rpc_config_a)
 {
 	rpc = std::move (rpc_a);
 	ipc_server = std::move (ipc_server_a);
 	ipc_rpc_processor = std::move (ipc_rpc_processor_a);
 	node_rpc_config = std::move (node_rpc_config_a);
-	io_scope = std::move (io_scope_a);
 }
 
 std::shared_ptr<nano::node> nano::test::add_ipc_enabled_node (nano::test::system & system, nano::node_config & node_config, nano::node_flags const & node_flags)
@@ -157,7 +136,6 @@ bool nano::test::check_block_response_count (nano::test::system & system, rpc_co
 
 nano::test::rpc_context nano::test::add_rpc (nano::test::system & system, std::shared_ptr<nano::node> const & node_a)
 {
-	auto scoped_thread_name_io (std::make_unique<scoped_io_thread_name_change> ());
 	auto node_rpc_config (std::make_unique<nano::node_rpc_config> ());
 	auto ipc_server (std::make_unique<nano::ipc::ipc_server> (*node_a, *node_rpc_config));
 	nano::rpc_config rpc_config (node_a->network_params.network, nano::test::get_available_port (), true);
@@ -167,6 +145,6 @@ nano::test::rpc_context nano::test::add_rpc (nano::test::system & system, std::s
 	auto rpc (std::make_shared<nano::rpc> (system.io_ctx, rpc_config, *ipc_rpc_processor));
 	rpc->start ();
 
-	return rpc_context{ rpc, ipc_server, ipc_rpc_processor, node_rpc_config, scoped_thread_name_io };
+	return rpc_context{ rpc, ipc_server, ipc_rpc_processor, node_rpc_config };
 }
 }
