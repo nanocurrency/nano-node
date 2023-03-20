@@ -15,10 +15,12 @@ nano::block_list_t nano::test::setup_chain (nano::test::system & system, nano::n
 
 		balance -= 1;
 		auto send = builder
-					.send ()
+					.state ()
+					.account (target.pub)
 					.previous (latest)
-					.destination (throwaway.pub)
+					.representative (throwaway.pub)
 					.balance (balance)
+					.link (throwaway.pub)
 					.sign (target.prv, target.pub)
 					.work (*system.work.generate (latest))
 					.build_shared ();
@@ -53,19 +55,23 @@ std::vector<std::pair<nano::account, nano::block_list_t>> nano::test::setup_chai
 
 		balance -= block_count * 2; // Send enough to later create `block_count` blocks
 		auto send = builder
-					.send ()
+					.state ()
+					.account (source.pub)
 					.previous (latest)
-					.destination (key.pub)
+					.representative (source.pub)
 					.balance (balance)
-					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.link (key.pub)
+					.sign (source.prv, source.pub)
 					.work (*system.work.generate (latest))
 					.build_shared ();
 
 		auto open = builder
-					.open ()
-					.source (send->hash ())
-					.representative (key.pub)
+					.state ()
 					.account (key.pub)
+					.previous (0)
+					.representative (key.pub)
+					.balance (block_count * 2)
+					.link (send->hash ())
 					.sign (key.prv, key.pub)
 					.work (*system.work.generate (key.pub))
 					.build_shared ();
@@ -107,12 +113,12 @@ nano::block_list_t nano::test::setup_independent_blocks (nano::test::system & sy
 		balance -= 1;
 		auto send = builder
 					.state ()
-					.account (nano::dev::genesis_key.pub)
+					.account (source.pub)
 					.previous (latest)
-					.representative (nano::dev::genesis_key.pub)
+					.representative (source.pub)
 					.balance (balance)
 					.link (key.pub)
-					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.sign (source.prv, source.pub)
 					.work (*system.work.generate (latest))
 					.build_shared ();
 
@@ -151,19 +157,23 @@ nano::keypair nano::test::setup_rep (nano::test::system & system, nano::node & n
 	nano::block_builder builder;
 
 	auto send = builder
-				.send ()
+				.state ()
+				.account (source.pub)
 				.previous (latest)
-				.destination (key.pub)
+				.representative (source.pub)
 				.balance (balance - amount)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.link (key.pub)
+				.sign (source.prv, source.pub)
 				.work (*system.work.generate (latest))
 				.build_shared ();
 
 	auto open = builder
-				.open ()
-				.source (send->hash ())
-				.representative (key.pub)
+				.state ()
 				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (amount)
+				.link (send->hash ())
 				.sign (key.prv, key.pub)
 				.work (*system.work.generate (key.pub))
 				.build_shared ();
