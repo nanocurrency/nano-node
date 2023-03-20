@@ -548,6 +548,7 @@ add_definitions(-DCRYPTOPP_DISABLE_CLMUL)
 set(CRYPTOPP_LIBRARY cryptopp)
 add_library(
   cryptopp
+  submodules/cryptopp/aes.h
   submodules/cryptopp/algparam.cpp
   submodules/cryptopp/allocate.cpp
   submodules/cryptopp/asn.cpp
@@ -570,11 +571,14 @@ add_library(
   submodules/cryptopp/hrtimer.cpp
   submodules/cryptopp/integer.cpp
   submodules/cryptopp/iterhash.cpp
+  submodules/cryptopp/misc.h
   submodules/cryptopp/misc.cpp
+  submodules/cryptopp/modes.h
   submodules/cryptopp/modes.cpp
   submodules/cryptopp/mqueue.cpp
   submodules/cryptopp/nbtheory.cpp
   submodules/cryptopp/oaep.cpp
+  submodules/cryptopp/osrng.h
   submodules/cryptopp/osrng.cpp
   submodules/cryptopp/pubkey.cpp
   submodules/cryptopp/queue.cpp
@@ -587,7 +591,12 @@ add_library(
   submodules/cryptopp/sha_simd.cpp
   submodules/cryptopp/simple.cpp
   submodules/cryptopp/sse_simd.cpp
+  submodules/cryptopp/seckey.h
+  submodules/cryptopp/siphash.h
+  submodules/cryptopp/words.h
   ${CRYPTOPP_EXTRA})
+
+target_include_directories(cryptopp PUBLIC submodules)
 
 if(WIN32 OR CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
   set(ARGON_CORE submodules/phc-winner-argon2/src/opt.c)

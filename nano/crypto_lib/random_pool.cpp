@@ -1,7 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
 
-#include <submodules/cryptopp/misc.h>
-#include <submodules/cryptopp/osrng.h>
+#include <cryptopp/misc.h>
+#include <cryptopp/osrng.h>
 
 void nano::random_pool::generate_block (unsigned char * output, size_t size)
 {
