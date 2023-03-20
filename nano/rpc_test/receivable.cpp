@@ -8,7 +8,7 @@
 
 using namespace nano::test;
 
-TEST (rpc, pending)
+TEST (rpc, receivable)
 {
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
@@ -18,7 +18,7 @@ TEST (rpc, pending)
 	ASSERT_TIMELY (5s, node->block_confirmed (block1->hash ()));
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	request.put ("action", "pending");
+	request.put ("action", "receivable");
 	request.put ("account", key1.pub.to_account ());
 	request.put ("count", "100");
 	{
@@ -280,7 +280,7 @@ TEST (rpc, receivable_offset_and_sorting)
 	}
 }
 
-TEST (rpc, pending_burn)
+TEST (rpc, receivable_burn)
 {
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
@@ -289,7 +289,7 @@ TEST (rpc, pending_burn)
 	auto const rpc_ctx = add_rpc (system, node);
 	ASSERT_TIMELY (5s, node->block_confirmed (block1->hash ()));
 	boost::property_tree::ptree request;
-	request.put ("action", "pending");
+	request.put ("action", "receivable");
 	request.put ("account", nano::dev::constants.burn_account.to_account ());
 	request.put ("count", "100");
 	{
