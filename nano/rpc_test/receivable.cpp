@@ -376,3 +376,109 @@ TEST (rpc, search_receivable)
 	auto response (wait_response (system, rpc_ctx, request));
 	ASSERT_TIMELY (10s, node->balance (nano::dev::genesis_key.pub) == nano::dev::constants.genesis_amount);
 }
+
+TEST (rpc, accounts_pending)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	boost::property_tree::ptree child;
+	boost::property_tree::ptree accounts;
+	child.put ("", nano::dev::genesis_key.pub.to_account ());
+	accounts.push_back (std::make_pair ("", child));
+	request.add_child ("accounts", accounts);
+	request.put ("action", "accounts_pending");
+	auto response (wait_response (system, rpc_ctx, request));
+	ASSERT_EQ ("1", response.get<std::string> ("deprecated"));
+}
+
+TEST (rpc, accounts_receivable)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	nano::keypair key1;
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	auto block1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 100));
+	ASSERT_TIMELY (5s, node->block_confirmed (block1->hash ()));
+
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "accounts_receivable");
+	boost::property_tree::ptree entry;
+	boost::property_tree::ptree peers_l;
+	entry.put ("", key1.pub.to_account ());
+	peers_l.push_back (std::make_pair ("", entry));
+	request.add_child ("accounts", peers_l);
+	request.put ("count", "100");
+	{
+		auto response (wait_response (system, rpc_ctx, request));
+		for (auto & blocks : response.get_child ("blocks"))
+		{
+			std::string account_text (blocks.first);
+			ASSERT_EQ (key1.pub.to_account (), account_text);
+			nano::block_hash hash1 (blocks.second.begin ()->second.get<std::string> (""));
+			ASSERT_EQ (block1->hash (), hash1);
+		}
+	}
+	request.put ("sorting", "true"); // Sorting test
+	{
+		auto response (wait_response (system, rpc_ctx, request));
+		for (auto & blocks : response.get_child ("blocks"))
+		{
+			std::string account_text (blocks.first);
+			ASSERT_EQ (key1.pub.to_account (), account_text);
+			nano::block_hash hash1 (blocks.second.begin ()->first);
+			ASSERT_EQ (block1->hash (), hash1);
+			std::string amount (blocks.second.begin ()->second.get<std::string> (""));
+			ASSERT_EQ ("100", amount);
+		}
+	}
+	request.put ("threshold", "100"); // Threshold test
+	{
+		auto response (wait_response (system, rpc_ctx, request));
+		std::unordered_map<nano::block_hash, nano::uint128_union> blocks;
+		for (auto & pending : response.get_child ("blocks"))
+		{
+			std::string account_text (pending.first);
+			ASSERT_EQ (key1.pub.to_account (), account_text);
+			for (auto i (pending.second.begin ()), j (pending.second.end ()); i != j; ++i)
+			{
+				nano::block_hash hash;
+				hash.decode_hex (i->first);
+				nano::uint128_union amount;
+				amount.decode_dec (i->second.get<std::string> (""));
+				blocks[hash] = amount;
+				boost::optional<std::string> source (i->second.get_optional<std::string> ("source"));
+				ASSERT_FALSE (source.is_initialized ());
+			}
+		}
+		ASSERT_EQ (blocks[block1->hash ()], 100);
+	}
+	request.put ("source", "true");
+	{
+		auto response (wait_response (system, rpc_ctx, request));
+		std::unordered_map<nano::block_hash, nano::uint128_union> amounts;
+		std::unordered_map<nano::block_hash, nano::account> sources;
+		for (auto & pending : response.get_child ("blocks"))
+		{
+			std::string account_text (pending.first);
+			ASSERT_EQ (key1.pub.to_account (), account_text);
+			for (auto i (pending.second.begin ()), j (pending.second.end ()); i != j; ++i)
+			{
+				nano::block_hash hash;
+				hash.decode_hex (i->first);
+				amounts[hash].decode_dec (i->second.get<std::string> ("amount"));
+				sources[hash].decode_account (i->second.get<std::string> ("source"));
+			}
+		}
+		ASSERT_EQ (amounts[block1->hash ()], 100);
+		ASSERT_EQ (sources[block1->hash ()], nano::dev::genesis_key.pub);
+	}
+
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
+	reset_confirmation_height (system.nodes.front ()->store, block1->account ());
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 0));
+	request.put ("include_only_confirmed", "false");
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
+}
