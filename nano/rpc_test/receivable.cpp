@@ -130,7 +130,6 @@ TEST (rpc, receivable_unconfirmed)
 {
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
-	nano::thread_role::set (nano::thread_role::name::unknown); // thread_role::name::io is disallowed for performance reasons by write transactions. Set our thread to ::unknown.
 	auto chain = nano::test::setup_chain (system, *node, 1, nano::dev::genesis_key, false);
 	auto block1 = chain[0];
 	auto const rpc_ctx = add_rpc (system, node);
