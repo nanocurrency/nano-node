@@ -197,7 +197,7 @@ TEST (peer_container, list_fanout)
 	ASSERT_EQ (2, node->network.list (node->network.fanout ()).size ());
 
 	unsigned number_of_peers = 10;
-	for (auto i = 2; i < number_of_peers; ++i)
+	for (unsigned i = 2; i < number_of_peers; ++i)
 	{
 		add_peer ();
 	}
