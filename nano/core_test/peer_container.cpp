@@ -155,8 +155,8 @@ TEST (channels, fill_random_part)
 {
 	nano::test::system system{ 1 };
 	std::array<nano::endpoint, 8> target;
-	unsigned half{ target.size () / 2 };
-	for (unsigned i = 0; i < half; ++i)
+	std::size_t half = target.size () / 2;
+	for (std::size_t i = 0; i < half; ++i)
 	{
 		auto outer_node = nano::test::add_outer_node (system);
 		ASSERT_NE (nullptr, nano::test::establish_tcp (system, *system.nodes[0], outer_node->network.endpoint ()));
