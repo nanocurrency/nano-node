@@ -881,7 +881,7 @@ void nano::node::ongoing_bootstrap ()
 			{
 				last_sample_time = last_record->first;
 			}
-			uint64_t time_since_last_sample = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count () - last_sample_time / std::pow (10, 9); // Nanoseconds to seconds
+			uint64_t time_since_last_sample = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count () - static_cast<uint64_t> (last_sample_time / std::pow (10, 9)); // Nanoseconds to seconds
 			if (time_since_last_sample + 60 * 60 < std::numeric_limits<uint32_t>::max ())
 			{
 				frontiers_age = std::max<uint32_t> (time_since_last_sample + 60 * 60, network_params.bootstrap.default_frontiers_age_seconds);
