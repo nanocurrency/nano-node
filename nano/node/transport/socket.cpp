@@ -354,7 +354,7 @@ void nano::transport::server_socket::close ()
 
 boost::asio::ip::network_v6 nano::transport::socket_functions::get_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, std::size_t network_prefix)
 {
-	return boost::asio::ip::make_network_v6 (ip_address, network_prefix);
+	return boost::asio::ip::make_network_v6 (ip_address, static_cast<unsigned short> (network_prefix));
 }
 
 boost::asio::ip::address nano::transport::socket_functions::first_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, std::size_t network_prefix)
