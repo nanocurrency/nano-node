@@ -1,3 +1,4 @@
+#include <nano/lib/config.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/node/transport/inproc.hpp>
@@ -172,7 +173,7 @@ TEST (node, send_single_observing_peer)
 
 TEST (node, send_single_many_peers)
 {
-	nano::test::system system (10);
+	nano::test::system system (nano::memory_intensive_instrumentation () ? 4 : 10);
 	nano::keypair key2;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	system.wallet (1)->insert_adhoc (key2.prv);
