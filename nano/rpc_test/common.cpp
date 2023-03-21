@@ -1,14 +1,14 @@
-#include <nano/rpc_test/common.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/rpc_test/common.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
-#include <boost/property_tree/json_parser.hpp>
-
 #include <gtest/gtest.h>
+
+#include <boost/property_tree/json_parser.hpp>
 
 namespace nano
 {
