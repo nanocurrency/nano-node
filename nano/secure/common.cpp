@@ -740,51 +740,37 @@ void nano::generate_cache::enable_all ()
 
 nano::stat::detail nano::to_stat_detail (nano::process_result process_result)
 {
-	nano::stat::detail result;
 	switch (process_result)
 	{
 		case process_result::progress:
 			return nano::stat::detail::progress;
-			break;
 		case process_result::bad_signature:
 			return nano::stat::detail::bad_signature;
-			break;
 		case process_result::old:
 			return nano::stat::detail::old;
-			break;
 		case process_result::negative_spend:
 			return nano::stat::detail::negative_spend;
-			break;
 		case process_result::fork:
 			return nano::stat::detail::fork;
-			break;
 		case process_result::unreceivable:
 			return nano::stat::detail::unreceivable;
-			break;
 		case process_result::gap_previous:
 			return nano::stat::detail::gap_previous;
-			break;
 		case process_result::gap_source:
 			return nano::stat::detail::gap_source;
-			break;
 		case process_result::gap_epoch_open_pending:
 			return nano::stat::detail::gap_epoch_open_pending;
-			break;
 		case process_result::opened_burn_account:
 			return nano::stat::detail::opened_burn_account;
-			break;
 		case process_result::balance_mismatch:
 			return nano::stat::detail::balance_mismatch;
-			break;
 		case process_result::representative_mismatch:
 			return nano::stat::detail::representative_mismatch;
-			break;
 		case process_result::block_position:
 			return nano::stat::detail::block_position;
-			break;
 		case process_result::insufficient_work:
 			return nano::stat::detail::insufficient_work;
-			break;
 	}
-	return result;
+	debug_assert (false && "There should be always a defined nano::stat::detail that is not _last");
+	return nano::stat::detail::_last;
 }
