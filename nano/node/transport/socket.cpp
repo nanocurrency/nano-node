@@ -8,6 +8,7 @@
 #include <boost/format.hpp>
 
 #include <cstdint>
+#include <cstdlib>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -412,7 +413,7 @@ bool nano::transport::server_socket::limit_reached_for_incoming_ip_connections (
 		return false;
 	}
 	auto const address_connections_range = connections_per_address.equal_range (new_connection->remote.address ());
-	auto const counted_connections = std::distance (address_connections_range.first, address_connections_range.second);
+	auto const counted_connections = static_cast<std::size_t> (std::abs (std::distance (address_connections_range.first, address_connections_range.second)));
 	return counted_connections >= node.network_params.network.max_peers_per_ip;
 }
 
