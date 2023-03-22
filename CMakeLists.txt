@@ -346,302 +346,31 @@ endif()
 include_directories(${CMAKE_SOURCE_DIR})
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-set(Boost_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/submodules/boost/libs/config/include)
-set(BOOST_MODULE_LIBS
-    algorithm
-    align
-    any
-    array
-    asio
-    assert
-    atomic
-    beast
-    bind
-    chrono
-    circular_buffer
-    concept_check
-    config
-    container
-    container_hash
-    context
-    conversion
-    core
-    coroutine
-    date_time
-    describe
-    detail
-    dll
-    dynamic_bitset
-    endian
-    exception
-    filesystem
-    foreach
-    format
-    function
-    function_types
-    functional
-    fusion
-    integer
-    interprocess
-    intrusive
-    io
-    iostreams
-    iterator
-    lexical_cast
-    property_tree
-    log
-    logic
-    math
-    move
-    mp11
-    mpl
-    multi_index
-    multiprecision
-    numeric/conversion
-    optional
-    parameter
-    phoenix
-    pool
-    predef
-    preprocessor
-    process
-    program_options
-    proto
-    random
-    range
-    ratio
-    rational
-    regex
-    serialization
-    smart_ptr
-    spirit
-    stacktrace
-    static_assert
-    static_string
-    system
-    thread
-    throw_exception
-    tokenizer
-    tuple
-    type_index
-    type_traits
-    typeof
-    unordered
-    utility
-    variant
-    variant2
-    winapi)
-
-add_definitions(-DBOOST_ALL_NO_LIB) # Disable automatic boost linking
-foreach(lib IN LISTS BOOST_MODULE_LIBS)
-  add_subdirectory(submodules/boost/libs/${lib} EXCLUDE_FROM_ALL)
-endforeach()
-include_directories(${BOOST_LIBRARY_INCLUDES})
-add_library(Boost::stacktrace ALIAS boost_stacktrace_basic)
-add_definitions(-DBOOST_STACKTRACE_GNU_SOURCE_NOT_REQUIRED)
-
-# Workaround for GitHub builders which do not appear to have the Windows Message
-# Compiler mc.exe
-add_definitions(-DBOOST_LOG_WITHOUT_EVENT_LOG)
-
-# Workaround for missing reference errata in the boost property_tree module
-target_link_libraries(boost_property_tree INTERFACE Boost::any)
-target_link_libraries(boost_property_tree INTERFACE Boost::format)
-target_link_libraries(boost_property_tree INTERFACE Boost::multi_index)
-
-# diskhash
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  add_library(diskhash STATIC
-              ${CMAKE_SOURCE_DIR}/submodules/diskhash/src/diskhash.c)
-  include_directories(submodules/diskhash/src)
-endif()
-
-# RocksDB
-include_directories(submodules/rocksdb/include)
-set(USE_RTTI
-    ON
-    CACHE BOOL "")
-set(WITH_GFLAGS
-    OFF
-    CACHE BOOL "")
-set(WITH_TESTS
-    OFF
-    CACHE BOOL "")
-set(WITH_BENCHMARK_TOOLS
-    OFF
-    CACHE BOOL "")
-set(ROCKSDB_BUILD_SHARED
-    OFF
-    CACHE BOOL "")
-set(WITH_CORE_TOOLS
-    ${NANO_ROCKSDB_TOOLS}
-    CACHE BOOL "" FORCE)
-set(WITH_TOOLS
-    ${NANO_ROCKSDB_TOOLS}
-    CACHE BOOL "" FORCE)
-if(ENABLE_AVX2)
-  set(PORTABLE
-      OFF
-      CACHE BOOL "" FORCE)
-else()
-  set(PORTABLE
-      ON
-      CACHE BOOL "" FORCE)
-endif()
-set(FAIL_ON_WARNINGS
-    OFF
-    CACHE BOOL "") # Ignore unreachable code warning in merging_iterator.cc
-                   # RocksDB v7.8.3 on Windows
-                   # https://github.com/facebook/rocksdb/issues/11072
-add_subdirectory(submodules/rocksdb EXCLUDE_FROM_ALL)
-
-include_directories(cpptoml/include)
-
-# magic_enum
+# project wide includes from the submodules directory
+add_subdirectory(submodules)
 include_directories(submodules/magic_enum/include)
+include_directories(${BOOST_LIBRARY_INCLUDES})
+include_directories(submodules/diskhash/src)
+include_directories(submodules/rocksdb/include)
+if(NANO_GUI OR RAIBLOCKS_GUI)
+  include_directories(${CMAKE_SOURCE_DIR}/submodules)
+  include_directories(${CMAKE_SOURCE_DIR}/submodules/cpptoml/include)
+endif()
+if(NANO_TEST OR RAIBLOCKS_TEST)
+  # FIXME: This fixes gtest include directories without modifying gtest's
+  # CMakeLists.txt. Ideally we should use GTest::GTest and GTest::Main as
+  # dependencies but it requires building gtest differently
+  set_target_properties(
+    gtest PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                     "${CMAKE_SOURCE_DIR}/submodules/gtest/googletest/include")
+
+endif()
+# end of submodules directory setup
 
 add_subdirectory(crypto/ed25519-donna)
 
 add_subdirectory(nano/ipc_flatbuffers_lib)
 add_subdirectory(nano/ipc_flatbuffers_test)
-
-set(UPNPC_BUILD_SHARED
-    OFF
-    CACHE BOOL "")
-add_subdirectory(submodules/miniupnp/miniupnpc EXCLUDE_FROM_ALL)
-
-set(BUILD_SHARED
-    OFF
-    CACHE BOOL "")
-set(BUILD_TESTING
-    OFF
-    CACHE BOOL "")
-set(USE_INTERMEDIATE_OBJECTS_TARGET
-    OFF
-    CACHE BOOL "")
-set(CRYPTOPP_EXTRA "")
-if(WIN32)
-  add_definitions(-DCRYPTOPP_DISABLE_ASM -DCRYPTOPP_DISABLE_SSSE3
-                  -DCRYPTOPP_DISABLE_AESNI)
-elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64"
-       AND (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS))
-  set(CRYPTOPP_EXTRA
-      submodules/cryptopp/crc_simd.cpp submodules/cryptopp/gcm_simd.cpp
-      submodules/cryptopp/gf2n_simd.cpp submodules/cryptopp/neon_simd.cpp)
-  add_definitions(-DCRYPTOPP_NO_CPU_FEATURE_PROBES)
-endif()
-# Some Clang cannot handle mixed asm with positional arguments, where the body
-# is Intel style with no prefix and the templates are AT&T style. See:
-# submodules/cryptopp/config.h Also see
-# https://bugs.llvm.org/show_bug.cgi?id=39895
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_definitions(-DCRYPTOPP_DISABLE_MIXED_ASM -DCRYPTOPP_DISABLE_ASM)
-  message(
-    "CryptoPP with disabled ASM for ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
-  )
-endif()
-add_definitions(-DCRYPTOPP_DISABLE_SHANI)
-# Fix failing builds after commit
-# https://github.com/weidai11/cryptopp/commit/df9fa62205f2d341e2b1b26595a3a1b6377c60c5
-add_definitions(-DCRYPTOPP_DISABLE_CLMUL)
-
-set(CRYPTOPP_LIBRARY cryptopp)
-add_library(
-  cryptopp
-  submodules/cryptopp/aes.h
-  submodules/cryptopp/algparam.cpp
-  submodules/cryptopp/allocate.cpp
-  submodules/cryptopp/asn.cpp
-  submodules/cryptopp/basecode.cpp
-  submodules/cryptopp/cpu.cpp
-  submodules/cryptopp/cryptlib.cpp
-  submodules/cryptopp/default.cpp
-  submodules/cryptopp/des.cpp
-  submodules/cryptopp/dessp.cpp
-  submodules/cryptopp/dll.cpp
-  submodules/cryptopp/ec2n.cpp
-  submodules/cryptopp/ecp.cpp
-  submodules/cryptopp/filters.cpp
-  submodules/cryptopp/fips140.cpp
-  submodules/cryptopp/gcm.cpp
-  submodules/cryptopp/gf2n.cpp
-  submodules/cryptopp/gfpcrypt.cpp
-  submodules/cryptopp/hex.cpp
-  submodules/cryptopp/hmac.cpp
-  submodules/cryptopp/hrtimer.cpp
-  submodules/cryptopp/integer.cpp
-  submodules/cryptopp/iterhash.cpp
-  submodules/cryptopp/misc.h
-  submodules/cryptopp/misc.cpp
-  submodules/cryptopp/modes.h
-  submodules/cryptopp/modes.cpp
-  submodules/cryptopp/mqueue.cpp
-  submodules/cryptopp/nbtheory.cpp
-  submodules/cryptopp/oaep.cpp
-  submodules/cryptopp/osrng.h
-  submodules/cryptopp/osrng.cpp
-  submodules/cryptopp/pubkey.cpp
-  submodules/cryptopp/queue.cpp
-  submodules/cryptopp/randpool.cpp
-  submodules/cryptopp/rdtables.cpp
-  submodules/cryptopp/rijndael.cpp
-  submodules/cryptopp/rijndael_simd.cpp
-  submodules/cryptopp/rng.cpp
-  submodules/cryptopp/sha.cpp
-  submodules/cryptopp/sha_simd.cpp
-  submodules/cryptopp/simple.cpp
-  submodules/cryptopp/sse_simd.cpp
-  submodules/cryptopp/seckey.h
-  submodules/cryptopp/siphash.h
-  submodules/cryptopp/words.h
-  ${CRYPTOPP_EXTRA})
-
-target_include_directories(cryptopp PUBLIC submodules)
-
-if(WIN32 OR CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
-  set(ARGON_CORE submodules/phc-winner-argon2/src/opt.c)
-else()
-  set(ARGON_CORE submodules/phc-winner-argon2/src/ref.c)
-endif()
-
-add_library(
-  argon2
-  submodules/phc-winner-argon2/src/argon2.c
-  submodules/phc-winner-argon2/include/argon2.h
-  submodules/phc-winner-argon2/src/core.c
-  submodules/phc-winner-argon2/src/thread.c
-  submodules/phc-winner-argon2/src/encoding.c
-  ${ARGON_CORE})
-
-target_include_directories(argon2 PUBLIC submodules/phc-winner-argon2/include)
-target_include_directories(argon2 PUBLIC submodules/phc-winner-argon2/src)
-target_include_directories(argon2 PUBLIC crypto/blake2)
-
-add_library(
-  lmdb
-  submodules/lmdb/libraries/liblmdb/lmdb.h
-  submodules/lmdb/libraries/liblmdb/mdb.c
-  submodules/lmdb/libraries/liblmdb/midl.c)
-
-if(WIN32)
-  target_link_libraries(lmdb ntdll)
-endif()
-
-if(WIN32)
-  set(BLAKE2_IMPLEMENTATION "crypto/blake2/blake2b.c")
-else()
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
-    set(BLAKE2_IMPLEMENTATION "crypto/blake2/blake2b.c")
-  else()
-    set(BLAKE2_IMPLEMENTATION "crypto/blake2/blake2b-ref.c")
-  endif()
-endif()
-
-add_library(blake2 crypto/blake2/blake2-config.h crypto/blake2/blake2-impl.h
-                   crypto/blake2/blake2.h ${BLAKE2_IMPLEMENTATION})
-
-target_compile_definitions(blake2 PRIVATE -D__SSE2__)
-
 add_subdirectory(nano/crypto_lib)
 add_subdirectory(nano/secure)
 add_subdirectory(nano/lib)
@@ -659,34 +388,12 @@ if(NANO_FUZZER_TEST)
 endif()
 
 if(NANO_TEST OR RAIBLOCKS_TEST)
-  if(WIN32)
-    if(MSVC_VERSION)
-      if(MSVC_VERSION GREATER_EQUAL 1910)
-        add_definitions(-DGTEST_LANG_CXX11=1)
-        add_definitions(-DGTEST_HAS_TR1_TUPLE=0)
-      endif()
-    endif()
-    set(gtest_force_shared_crt ON)
-  else()
-    set(gtest_force_shared_crt OFF)
-  endif()
-
   add_subdirectory(nano/load_test)
-
-  # FIXME: This fixes googletest GOOGLETEST_VERSION requirement
-  set(GOOGLETEST_VERSION 1.11.0)
-  add_subdirectory(submodules/gtest/googletest)
-  # FIXME: This fixes gtest include directories without modifying gtest's
-  # CMakeLists.txt. Ideally we should use GTest::GTest and GTest::Main as
-  # dependencies but it requires building gtest differently
-  set_target_properties(
-    gtest PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                     "${CMAKE_SOURCE_DIR}/submodules/gtest/googletest/include")
-
   add_subdirectory(nano/test_common)
   add_subdirectory(nano/core_test)
   add_subdirectory(nano/rpc_test)
   add_subdirectory(nano/slow_test)
+
   add_custom_target(
     build_tests
     COMMAND echo "BATCH BUILDING TESTS"
@@ -697,9 +404,7 @@ if(NANO_TEST OR RAIBLOCKS_TEST)
     COMMAND ${PROJECT_SOURCE_DIR}/ci/test.sh ${CMAKE_BINARY_DIR}
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     DEPENDS build_tests)
-endif()
 
-if(NANO_TEST OR RAIBLOCKS_TEST)
   if(NANO_GUI OR RAIBLOCKS_GUI)
     add_custom_target(
       quick_tests
@@ -727,8 +432,6 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
   find_package(Qt5 COMPONENTS Core Gui Widgets Test ${PLATFORM_QT_PACKAGES})
 
   add_library(qt nano/qt/qt.cpp nano/qt/qt.hpp)
-  include_directories(${CMAKE_SOURCE_DIR}/submodules)
-  include_directories(${CMAKE_SOURCE_DIR}/submodules/cpptoml/include)
 
   target_link_libraries(
     qt

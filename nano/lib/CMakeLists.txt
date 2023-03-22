@@ -95,6 +95,7 @@ target_link_libraries(
   nano_lib
   ed25519
   crypto_lib
+  cryptopp
   blake2
   secure
   ipc_flatbuffers_lib
