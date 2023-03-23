@@ -85,17 +85,11 @@ set(BOOST_MODULE_LIBS
         variant2
         winapi)
 
-add_definitions(-DBOOST_ALL_NO_LIB) # Disable automatic boost linking
 foreach(lib IN LISTS BOOST_MODULE_LIBS)
     add_subdirectory(boost/libs/${lib} EXCLUDE_FROM_ALL)
 endforeach()
 include_directories(${BOOST_LIBRARY_INCLUDES})
 add_library(Boost::stacktrace ALIAS boost_stacktrace_basic)
-add_definitions(-DBOOST_STACKTRACE_GNU_SOURCE_NOT_REQUIRED)
-
-# Workaround for GitHub builders which do not appear to have the Windows Message
-# Compiler mc.exe
-add_definitions(-DBOOST_LOG_WITHOUT_EVENT_LOG)
 
 # Workaround for missing reference errata in the boost property_tree module
 target_link_libraries(boost_property_tree INTERFACE Boost::any)

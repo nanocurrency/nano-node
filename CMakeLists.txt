@@ -346,8 +346,16 @@ endif()
 include_directories(${CMAKE_SOURCE_DIR})
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-# project wide includes from the submodules directory
+# project wide definitions
+add_definitions(-DBOOST_ALL_NO_LIB) # Disable automatic boost linking
+add_definitions(-DBOOST_STACKTRACE_GNU_SOURCE_NOT_REQUIRED)
+# Workaround for GitHub builders which do not appear to have the Windows Message
+# Compiler mc.exe
+add_definitions(-DBOOST_LOG_WITHOUT_EVENT_LOG)
+
 add_subdirectory(submodules)
+
+# project wide includes from the submodules directory
 include_directories(submodules/magic_enum/include)
 include_directories(${BOOST_LIBRARY_INCLUDES})
 include_directories(submodules/diskhash/src)

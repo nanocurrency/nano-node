@@ -5,6 +5,7 @@ target_link_libraries(
   rpc
   node
   secure
+  Boost::core
   Boost::filesystem
   Boost::log_setup
   Boost::log

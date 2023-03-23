@@ -2,7 +2,15 @@ add_executable(nano_node daemon.cpp daemon.hpp entry.cpp)
 
 target_link_libraries(
   nano_node
+  Boost::core
   Boost::process
+  Boost::format
+  Boost::filesystem
+  Boost::lexical_cast
+  Boost::dll
+  Boost::program_options
+  Boost::range
+  Boost::unordered
   node
   rpc
   secure
