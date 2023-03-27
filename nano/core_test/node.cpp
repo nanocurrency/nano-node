@@ -3670,15 +3670,17 @@ TEST (node, rollback_gap_source)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
-	auto fork = builder.make_block ()
-				.account (key.pub)
-				.previous (0)
-				.representative (key.pub)
-				.link (send1->hash ())
-				.balance (1)
-				.sign (key.prv, key.pub)
-				.work (*system.work.generate (key.pub))
-				.build_shared ();
+	// Side a of a forked open block receiving from send1
+	// This is a losing block
+	auto fork1a = builder.make_block ()
+				  .account (key.pub)
+				  .previous (0)
+				  .representative (key.pub)
+				  .link (send1->hash ())
+				  .balance (1)
+				  .sign (key.prv, key.pub)
+				  .work (*system.work.generate (key.pub))
+				  .build_shared ();
 	auto send2 = builder.make_block ()
 				 .from (*send1)
 				 .previous (send1->hash ())
@@ -3687,63 +3689,35 @@ TEST (node, rollback_gap_source)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send1->hash ()))
 				 .build_shared ();
-	auto open = builder.make_block ()
-				.from (*fork)
-				.link (send2->hash ())
-				.sign (key.prv, key.pub)
-				.build_shared ();
+	// Side b of a forked open block receiving from send2.
+	// This is the winning block
+	auto fork1b = builder.make_block ()
+				  .from (*fork1a)
+				  .link (send2->hash ())
+				  .sign (key.prv, key.pub)
+				  .build_shared ();
+	// Set 'node' up with losing block 'fork1a'
 	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
-	ASSERT_EQ (nano::process_result::progress, node.process (*fork).code);
-	// Node has fork & doesn't have source for correct block open (send2)
+	ASSERT_EQ (nano::process_result::progress, node.process (*fork1a).code);
+	// Node has 'fork1a' & doesn't have source 'send2' for winning 'fork1b' block
 	ASSERT_EQ (nullptr, node.block (send2->hash ()));
-	// Start election for fork
-	nano::test::start_elections (system, node, { fork });
-	{
-		auto election = node.active.election (fork->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		// Process conflicting block for election
-		node.process_active (open);
-		node.block_processor.flush ();
-		ASSERT_EQ (2, election->blocks ().size ());
-		ASSERT_EQ (1, election->votes ().size ());
-		// Confirm open
-		auto vote1 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash> (1, open->hash ())));
-		node.vote_processor.vote (vote1, std::make_shared<nano::transport::fake::channel> (node));
-		ASSERT_TIMELY (5s, election->votes ().size () == 2);
-		ASSERT_TIMELY (3s, election->confirmed ());
-	}
+	node.block_processor.force (fork1b);
+	ASSERT_TIMELY (5s, node.block (fork1a->hash ()) == nullptr);
 	// Wait for the rollback (attempt to replace fork with open)
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::rollback, nano::stat::detail::open) == 1);
-	ASSERT_TIMELY (5s, node.active.empty ());
 	// But replacing is not possible (missing source block - send2)
-	node.block_processor.flush ();
-	ASSERT_EQ (nullptr, node.block (open->hash ()));
-	ASSERT_EQ (nullptr, node.block (fork->hash ()));
-	// Fork can be returned by some other forked node or attacker
-	node.process_active (fork);
-	node.block_processor.flush ();
-	ASSERT_NE (nullptr, node.block (fork->hash ()));
+	ASSERT_EQ (nullptr, node.block (fork1b->hash ()));
+	// Fork can be returned by some other forked node
+	node.process_active (fork1a);
+	ASSERT_TIMELY (5s, node.block (fork1a->hash ()) != nullptr);
 	// With send2 block in ledger election can start again to remove fork block
 	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
-	nano::test::start_elections (system, node, { fork });
-	{
-		auto election = node.active.election (fork->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		// Process conflicting block for election
-		node.process_active (open);
-		node.block_processor.flush ();
-		ASSERT_EQ (2, election->blocks ().size ());
-		// Confirm open (again)
-		auto vote1 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash> (1, open->hash ())));
-		node.vote_processor.vote (vote1, std::make_shared<nano::transport::fake::channel> (node));
-		ASSERT_TIMELY (5s, election->votes ().size () == 2);
-	}
+	node.block_processor.force (fork1b);
 	// Wait for new rollback
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::rollback, nano::stat::detail::open) == 2);
 	// Now fork block should be replaced with open
-	node.block_processor.flush ();
-	ASSERT_NE (nullptr, node.block (open->hash ()));
-	ASSERT_EQ (nullptr, node.block (fork->hash ()));
+	ASSERT_TIMELY (5s, node.block (fork1b->hash ()) != nullptr);
+	ASSERT_EQ (nullptr, node.block (fork1a->hash ()));
 }
 
 // Confirm a complex dependency graph starting from the first block

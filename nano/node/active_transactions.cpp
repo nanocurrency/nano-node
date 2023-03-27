@@ -249,7 +249,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 		bool const confirmed_l (election_l->confirmed ());
 		unconfirmed_count_l += !confirmed_l;
 
-		if (election_l->transition_time (solicitor))
+		if (confirmed_l || election_l->transition_time (solicitor))
 		{
 			erase (election_l->qualified_root);
 		}
@@ -620,7 +620,8 @@ boost::optional<nano::election_status_type> nano::active_transactions::confirm_b
 		nano::unique_lock<nano::mutex> election_lock{ existing->second->mutex };
 		if (existing->second->status.winner && existing->second->status.winner->hash () == hash)
 		{
-			if (!existing->second->confirmed ())
+			// Determine if the block was confirmed explicitly via election confirmation or implicitly via confirmation height
+			if (!existing->second->status_confirmed ())
 			{
 				existing->second->confirm_once (election_lock, nano::election_status_type::active_confirmation_height);
 				status_type = nano::election_status_type::active_confirmation_height;

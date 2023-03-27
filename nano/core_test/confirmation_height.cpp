@@ -1092,98 +1092,53 @@ TEST (confirmation_height, all_block_types)
 	test_mode (nano::confirmation_height_mode::unbounded);
 }
 
-// this test cements a block on one node and another block on another node
-// it therefore tests that once a block is confirmed it cannot be rolled back
-// and if both nodes have different branches of the fork cemented then it is a permanent fork
+// This test ensures a block that's cemented cannot be rolled back by the node
+// A block is inserted and confirmed then later a different block is force inserted with a rollback attempt
 TEST (confirmation_height, conflict_rollback_cemented)
 {
 	// functor to perform the conflict_rollback_cemented test using a certain mode
 	auto test_mode = [] (nano::confirmation_height_mode mode_a) {
-		nano::state_block_builder builder{};
+		nano::state_block_builder builder;
 		auto const genesis_hash = nano::dev::genesis->hash ();
 
-		nano::test::system system{};
-		nano::node_flags node_flags{};
+		nano::test::system system;
+		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-
-		// create node 1 and account key1 (no voting key yet)
 		auto node1 = system.add_node (node_flags);
-		nano::keypair key1{};
 
+		nano::keypair key1;
 		// create one side of a forked transaction on node1
-		auto send1 = builder.make_block ()
-					 .previous (genesis_hash)
-					 .account (nano::dev::genesis_key.pub)
-					 .representative (nano::dev::genesis_key.pub)
-					 .link (key1.pub)
-					 .balance (nano::dev::constants.genesis_amount - 100)
-					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					 .work (*system.work.generate (genesis_hash))
-					 .build_shared ();
-		node1->process_active (send1);
-		ASSERT_TIMELY (5s, node1->active.election (send1->qualified_root ()) != nullptr);
+		auto fork1a = builder.make_block ()
+					  .previous (genesis_hash)
+					  .account (nano::dev::genesis_key.pub)
+					  .representative (nano::dev::genesis_key.pub)
+					  .link (key1.pub)
+					  .balance (nano::dev::constants.genesis_amount - 100)
+					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					  .work (*system.work.generate (genesis_hash))
+					  .build_shared ();
+		ASSERT_EQ (nano::process_result::progress, node1->process (*fork1a).code);
+		ASSERT_TRUE (nano::test::confirm (*node1, { fork1a }));
+		ASSERT_TIMELY (5s, nano::test::confirmed (*node1, { fork1a }));
 
 		// create the other side of the fork on node2
 		nano::keypair key2;
-		auto send2 = builder.make_block ()
-					 .previous (genesis_hash)
-					 .account (nano::dev::genesis_key.pub)
-					 .representative (nano::dev::genesis_key.pub)
-					 .link (key2.pub)
-					 .balance (nano::dev::constants.genesis_amount - 100)
-					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					 .work (*system.work.generate (genesis_hash))
-					 .build_shared ();
+		auto fork1b = builder.make_block ()
+					  .previous (genesis_hash)
+					  .account (nano::dev::genesis_key.pub)
+					  .representative (nano::dev::genesis_key.pub)
+					  .link (key2.pub) // Different destination same 'previous'
+					  .balance (nano::dev::constants.genesis_amount - 100)
+					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					  .work (*system.work.generate (genesis_hash))
+					  .build_shared ();
 
-		// create node2, with send2 pre-initialised in the ledger so that block send1 cannot possibly get in the ledger first
-		system.initialization_blocks.push_back (send2);
-		auto node2 = system.add_node (node_flags);
-		system.initialization_blocks.clear ();
-		auto wallet1 = system.wallet (0);
-		node2->process_active (send2);
-		ASSERT_TIMELY (5s, node2->active.election (send2->qualified_root ()) != nullptr);
-
-		// force confirm send2 on node2
-		ASSERT_TIMELY (5s, node2->ledger.store.block.get (node2->ledger.store.tx_begin_read (), send2->hash ()));
-		node2->process_confirmed (nano::election_status{ send2 });
-		ASSERT_TIMELY (5s, node2->block_confirmed (send2->hash ()));
-
-		// make node1 a voting node (it has all the voting weight)
-		// from now on, node1 can vote for send1 at any time
-		wallet1->insert_adhoc (nano::dev::genesis_key.prv);
-
-		// we expect node1 to vote for one side of the fork only, whichever side
-		std::shared_ptr<nano::election> election_send1_node1{};
-		ASSERT_EQ (send1->qualified_root (), send2->qualified_root ());
-		ASSERT_TIMELY (5s, (election_send1_node1 = node1->active.election (send1->qualified_root ())) != nullptr);
-		ASSERT_TIMELY (5s, 2 == election_send1_node1->votes ().size ());
-
-		// check that the send1 on node1 won the election and got confirmed
-		// this happens because send1 is seen first by node1, and therefore it already winning and it cannot replaced by send2
-		ASSERT_TIMELY (5s, election_send1_node1->confirmed ());
-		auto const winner = election_send1_node1->winner ();
-		ASSERT_NE (nullptr, winner);
-		ASSERT_EQ (*winner, *send1);
-
+		node1->block_processor.force (fork1b);
 		// node2 already has send2 forced confirmed whilst node1 should have confirmed send1 and therefore we have a cemented fork on node2
 		// and node2 should print an error message on the log that it cannot rollback send2 because it is already cemented
-		ASSERT_TIMELY (5s, 1 == node2->stats.count (nano::stat::type::ledger, nano::stat::detail::rollback_failed));
-
-		// get the tally for election the election on node1
-		// we expect the winner to be send1 and we expect send1 to have "genesis balance" vote weight
-		auto const tally = election_send1_node1->tally ();
-		ASSERT_FALSE (tally.empty ());
-		auto const & [amount, winner_alias] = *tally.begin ();
-		ASSERT_EQ (*winner_alias, *send1);
-		ASSERT_EQ (amount, nano::dev::constants.genesis_amount - 100);
-
-		// we expect send1 to exist on node1, is that because send2 is rolled back?
-		ASSERT_TRUE (node1->ledger.block_or_pruned_exists (send1->hash ()));
-		ASSERT_FALSE (node1->ledger.block_or_pruned_exists (send2->hash ()));
-
-		// we expect only send2  to be existing on node2
-		ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send2->hash ()));
-		ASSERT_FALSE (node2->ledger.block_or_pruned_exists (send1->hash ()));
+		[[maybe_unused]] size_t count = 0;
+		ASSERT_TIMELY (5s, 1 == (count = node1->stats.count (nano::stat::type::ledger, nano::stat::detail::rollback_failed)));
+		ASSERT_TRUE (nano::test::confirmed (*node1, { fork1a->hash () })); // fork1a should still remain after the rollback failed event
 	};
 
 	test_mode (nano::confirmation_height_mode::bounded);
