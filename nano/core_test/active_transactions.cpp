@@ -513,15 +513,11 @@ TEST (active_transactions, inactive_votes_cache_election_start)
 	ASSERT_TRUE (send4_cache);
 	ASSERT_EQ (3, send4_cache->voters.size ());
 	node.process_active (send3);
-	node.block_processor.flush ();
-	// An election is started for send6 but does not confirm
-	ASSERT_TIMELY (5s, 1 == node.active.size ());
-	node.vote_processor.flush ();
+	// An election is started for send6 but does not
 	ASSERT_FALSE (node.block_confirmed_or_being_confirmed (send3->hash ()));
 	// send7 cannot be voted on but an election should be started from inactive votes
 	ASSERT_FALSE (node.ledger.dependents_confirmed (node.store.tx_begin_read (), *send4));
 	node.process_active (send4);
-	node.block_processor.flush ();
 	ASSERT_TIMELY (5s, 7 == node.ledger.cache.cemented_count);
 }
 
@@ -622,26 +618,28 @@ TEST (active_transactions, dropped_cleanup)
 	nano::node_flags flags;
 	flags.disable_request_loop = true;
 	auto & node (*system.add_node (flags));
+	auto chain = nano::test::setup_chain (system, node, 1, nano::dev::genesis_key, false);
+	auto hash = chain[0]->hash ();
 
 	// Add to network filter to ensure proper cleanup after the election is dropped
 	std::vector<uint8_t> block_bytes;
 	{
 		nano::vectorstream stream (block_bytes);
-		nano::dev::genesis->serialize (stream);
+		chain[0]->serialize (stream);
 	}
 	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
-	auto election = nano::test::start_election (system, node, nano::dev::genesis->hash ());
+	auto election = nano::test::start_election (system, node, hash);
 	ASSERT_NE (nullptr, election);
 
 	// Not yet removed
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
-	ASSERT_TRUE (node.active.active (nano::dev::genesis->hash ()));
+	ASSERT_TRUE (node.active.active (hash));
 
 	// Now simulate dropping the election
 	ASSERT_FALSE (election->confirmed ());
-	node.active.erase (*nano::dev::genesis);
+	node.active.erase (*chain[0]);
 
 	// The filter must have been cleared
 	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
@@ -650,16 +648,16 @@ TEST (active_transactions, dropped_cleanup)
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_dropped, nano::stat::detail::normal));
 
 	// Block cleared from active
-	ASSERT_FALSE (node.active.active (nano::dev::genesis->hash ()));
+	ASSERT_FALSE (node.active.active (hash));
 
 	// Repeat test for a confirmed election
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
-	election = nano::test::start_election (system, node, nano::dev::genesis->hash ());
+	election = nano::test::start_election (system, node, hash);
 	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
-	ASSERT_TRUE (election->confirmed ());
-	node.active.erase (*nano::dev::genesis);
+	ASSERT_TIMELY (5s, election->confirmed ());
+	node.active.erase (*chain[0]);
 
 	// The filter should not have been cleared
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
@@ -668,7 +666,7 @@ TEST (active_transactions, dropped_cleanup)
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_dropped, nano::stat::detail::normal));
 
 	// Block cleared from active
-	ASSERT_FALSE (node.active.active (nano::dev::genesis->hash ()));
+	ASSERT_FALSE (node.active.active (hash));
 }
 
 TEST (active_transactions, republish_winner)

@@ -1,4 +1,5 @@
 #include <nano/node/election.hpp>
+#include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -19,7 +20,8 @@ TEST (election, construction)
 TEST (election, behavior)
 {
 	nano::test::system system (1);
-	auto election = nano::test::start_election (system, *system.nodes[0], nano::dev::genesis->hash ());
+	auto chain = nano::test::setup_chain (system, *system.nodes[0], 1, nano::dev::genesis_key, false);
+	auto election = nano::test::start_election (system, *system.nodes[0], chain[0]->hash ());
 	ASSERT_NE (nullptr, election);
 	ASSERT_EQ (nano::election_behavior::normal, election->behavior ());
 }
@@ -125,10 +127,11 @@ TEST (election, quorum_minimum_flip_fail)
 	ASSERT_FALSE (node.block_confirmed (send2->hash ()));
 }
 
+// This test ensures blocks can be confirmed precisely at the quorum minimum
 TEST (election, quorum_minimum_confirm_success)
 {
 	nano::test::system system;
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::test::get_available_port (), system.logging };
 	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
@@ -138,14 +141,13 @@ TEST (election, quorum_minimum_confirm_success)
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (nano::dev::genesis->hash ())
 				 .representative (nano::dev::genesis_key.pub)
-				 .balance (node1.online_reps.delta ())
+				 .balance (node1.online_reps.delta ()) // Only minimum quorum remains
 				 .link (key1.pub)
 				 .work (0)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .build_shared ();
 	node1.work_generate_blocking (*send1);
 	node1.process_active (send1);
-	node1.block_processor.flush ();
 	node1.scheduler.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
 	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
 	auto election = node1.active.election (send1->qualified_root ());
@@ -153,9 +155,8 @@ TEST (election, quorum_minimum_confirm_success)
 	ASSERT_EQ (1, election->blocks ().size ());
 	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { send1->hash () });
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote));
-	node1.block_processor.flush ();
 	ASSERT_NE (nullptr, node1.block (send1->hash ()));
-	ASSERT_TRUE (election->confirmed ());
+	ASSERT_TIMELY (5s, election->confirmed ());
 }
 
 // checks that block cannot be confirmed if there is no enough votes to reach quorum
@@ -199,7 +200,7 @@ namespace nano
 // FIXME: this test fails on rare occasions. It needs a review.
 TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 {
-	nano::test::system system{};
+	nano::test::system system;
 
 	nano::node_config node_config{ nano::test::get_available_port (), system.logging };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
@@ -207,8 +208,8 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	auto & node1 = *system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
-	nano::keypair key1{};
-	nano::send_block_builder builder{};
+	nano::keypair key1;
+	nano::send_block_builder builder;
 	auto const amount = ((nano::uint256_t (node_config.online_weight_minimum.number ()) * nano::online_reps::online_weight_quorum) / 100).convert_to<nano::uint128_t> () - 1;
 
 	auto const latest = node1.latest (nano::dev::genesis_key.pub);
@@ -225,7 +226,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	auto const open1 = nano::open_block_builder{}.make_block ().account (key1.pub).source (send1->hash ()).representative (key1.pub).sign (key1.prv, key1.pub).work (*system.work.generate (key1.pub)).build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1.process (*open1).code);
 
-	nano::keypair key2{};
+	nano::keypair key2;
 	auto const send2 = builder.make_block ()
 					   .previous (open1->hash ())
 					   .destination (key2.pub)
@@ -242,7 +243,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	system.wallet (1)->insert_adhoc (key1.prv);
 	ASSERT_TIMELY (10s, node2.ledger.cache.block_count == 4);
 
-	std::shared_ptr<nano::election> election{};
+	std::shared_ptr<nano::election> election;
 	ASSERT_TIMELY (5s, (election = node1.active.election (send1->qualified_root ())) != nullptr);
 	ASSERT_EQ (1, election->blocks ().size ());
 
@@ -262,7 +263,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 		node1.online_reps.online_m = node_config.online_weight_minimum.number () + 20;
 	}
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote2));
-	ASSERT_TRUE (election->confirmed ());
+	ASSERT_TIMELY (5s, election->confirmed ());
 	ASSERT_NE (nullptr, node1.block (send1->hash ()));
 }
 }

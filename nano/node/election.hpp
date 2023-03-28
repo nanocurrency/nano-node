@@ -116,6 +116,12 @@ public: // State transitions
 	void transition_active ();
 
 public: // Status
+	// Returns true when the election is confirmed in memory
+	// Elections will first confirm in memory once sufficient votes have been received
+	bool status_confirmed () const;
+	// Returns true when the winning block is durably confirmed in the ledger.
+	// Later once the confirmation height processor has updated the confirmation height it will be confirmed on disk
+	// It is possible for an election to be confirmed on disk but not in memory, for instance if implicitly confirmed via confirmation height
 	bool confirmed () const;
 	bool failed () const;
 	nano::election_extended_status current_status () const;
