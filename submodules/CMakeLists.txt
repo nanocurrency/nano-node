@@ -1,3 +1,12 @@
+# Suppress all warnings for building the submodules (3rd party code)
+if(MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /w")
+elseif(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-everything")
+elseif (${CMAKE_CXX_COMPILER_ID} MATCHES "GNU")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-everything")
+endif()
+
 # Boost
 set(Boost_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/submodules/boost/libs/config/include)
 set(BOOST_MODULE_LIBS
