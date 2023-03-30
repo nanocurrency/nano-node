@@ -445,8 +445,7 @@ void nano::bootstrap_ascending::send (std::shared_ptr<nano::transport::channel> 
 	nano::asc_pull_req::blocks_payload request_payload;
 	request_payload.start = tag.start;
 	request_payload.count = pull_count;
-	request_payload.start_type = tag.type == async_tag::query_type::blocks_by_hash ? nano::asc_pull_req::hash_type::block : nano::asc_pull_req::hash_type::account;
-
+	request_payload.start_type = (tag.type == async_tag::query_type::blocks_by_hash) ? nano::asc_pull_req::hash_type::block : nano::asc_pull_req::hash_type::account;
 	request.payload = request_payload;
 	request.update_header ();
 
