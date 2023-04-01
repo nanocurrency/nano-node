@@ -198,6 +198,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	optimistic_scheduler.serialize (optimistic_l);
 	toml.put_child ("optimistic_scheduler", optimistic_l);
 
+	nano::tomlconfig bootstrap_ascending_l;
+	bootstrap_ascending.serialize (bootstrap_ascending_l);
+	toml.put_child ("bootstrap_ascending", bootstrap_ascending_l);
+
 	return toml.get_error ();
 }
 
@@ -253,6 +257,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto config_l = toml.get_required_child ("optimistic_scheduler");
 			optimistic_scheduler.deserialize (config_l);
+		}
+
+		if (toml.has_key ("bootstrap_ascending"))
+		{
+			auto config_l = toml.get_required_child ("bootstrap_ascending");
+			bootstrap_ascending.deserialize (config_l);
 		}
 
 		if (toml.has_key ("work_peers"))
