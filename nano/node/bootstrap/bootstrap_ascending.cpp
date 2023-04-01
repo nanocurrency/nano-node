@@ -455,7 +455,7 @@ void nano::bootstrap_ascending::send (std::shared_ptr<nano::transport::channel> 
 	// TODO: There is no feedback mechanism if bandwidth limiter starts dropping our requests
 	channel->send (
 	request, nullptr,
-	nano::transport::buffer_drop_policy::limiter, nano::bandwidth_limit_type::bootstrap);
+	nano::transport::buffer_drop_policy::limiter, nano::transport::traffic_type::bootstrap);
 }
 
 size_t nano::bootstrap_ascending::priority_size () const
@@ -561,7 +561,7 @@ std::shared_ptr<nano::transport::channel> nano::bootstrap_ascending::available_c
 	auto channels = network.random_set (32, node.network_params.network.bootstrap_protocol_version_min, /* include temporary channels */ true);
 	for (auto & channel : channels)
 	{
-		if (!channel->max ())
+		if (!channel->max (nano::transport::traffic_type::bootstrap))
 		{
 			return channel;
 		}

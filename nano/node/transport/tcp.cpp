@@ -46,11 +46,11 @@ bool nano::transport::channel_tcp::operator== (nano::transport::channel const & 
 	return result;
 }
 
-void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a, nano::transport::buffer_drop_policy policy_a)
+void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a, nano::transport::buffer_drop_policy policy_a, nano::transport::traffic_type traffic_type)
 {
 	if (auto socket_l = socket.lock ())
 	{
-		if (!socket_l->max () || (policy_a == nano::transport::buffer_drop_policy::no_socket_drop && !socket_l->full ()))
+		if (!socket_l->max (traffic_type) || (policy_a == nano::transport::buffer_drop_policy::no_socket_drop && !socket_l->full (traffic_type)))
 		{
 			socket_l->async_write (
 			buffer_a, [endpoint_a = socket_l->remote_endpoint (), node = std::weak_ptr<nano::node> (node.shared ()), callback_a] (boost::system::error_code const & ec, std::size_t size_a) {
@@ -69,7 +69,8 @@ void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const 
 						callback_a (ec, size_a);
 					}
 				}
-			});
+			},
+			traffic_type);
 		}
 		else
 		{

@@ -32,6 +32,10 @@ bool is_temporary_error (boost::system::error_code const & ec_a)
 }
 }
 
+/*
+ * socket
+ */
+
 nano::transport::socket::socket (nano::node & node_a, endpoint_type_t endpoint_type_a) :
 	strand{ node_a.io_ctx.get_executor () },
 	tcp_socket{ node_a.io_ctx },
@@ -115,7 +119,7 @@ void nano::transport::socket::async_read (std::shared_ptr<std::vector<uint8_t>> 
 	}
 }
 
-void nano::transport::socket::async_write (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
+void nano::transport::socket::async_write (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a, nano::transport::traffic_type traffic_type)
 {
 	if (closed)
 	{
@@ -125,7 +129,18 @@ void nano::transport::socket::async_write (nano::shared_const_buffer const & buf
 				callback (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
 			});
 		}
+		return;
+	}
 
+	bool queued = insert_send_queue (buffer_a, callback_a, traffic_type);
+	if (!queued)
+	{
+		if (callback_a)
+		{
+			node.background ([callback = std::move (callback_a)] () {
+				callback (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
+			});
+		}
 		return;
 	}
 
@@ -138,34 +153,106 @@ void nano::transport::socket::async_write (nano::shared_const_buffer const & buf
 			{
 				callback (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
 			}
-
 			return;
 		}
-
-		this_l->set_default_timeout ();
-
-		nano::async_write (this_l->tcp_socket, buffer_a,
-		boost::asio::bind_executor (this_l->strand,
-		[buffer_a, cbk = std::move (callback), this_l] (boost::system::error_code ec, std::size_t size_a) {
-			--this_l->queue_size;
-
-			if (ec)
-			{
-				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in);
-				this_l->close ();
-			}
-			else
-			{
-				this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
-				this_l->set_last_completion ();
-			}
-
-			if (cbk)
-			{
-				cbk (ec, size_a);
-			}
-		}));
+		else
+		{
+			this_l->do_write ();
+		}
 	}));
+}
+
+void nano::transport::socket::do_write ()
+{
+	auto item = pop_send_queue ();
+	if (!item)
+	{
+		return;
+	}
+
+	set_default_timeout ();
+
+	nano::async_write (tcp_socket, item->buffer,
+	boost::asio::bind_executor (strand, [cbk = std::move (item->callback), this_l = shared_from_this ()] (boost::system::error_code ec, std::size_t size_a) {
+		--this_l->queue_size;
+
+		if (ec)
+		{
+			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in);
+			this_l->close ();
+		}
+		else
+		{
+			this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
+			this_l->set_last_completion ();
+		}
+
+		if (cbk)
+		{
+			cbk (ec, size_a);
+		}
+	}));
+}
+
+bool nano::transport::socket::insert_send_queue (const nano::shared_const_buffer & buffer, std::function<void (const boost::system::error_code &, std::size_t)> callback, nano::transport::traffic_type traffic_type)
+{
+	nano::lock_guard<nano::mutex> guard{ send_queue_mutex };
+	if (send_queue[traffic_type].size () < 2 * max_send_queue_size (traffic_type))
+	{
+		send_queue[traffic_type].push (queue_item{ buffer, callback });
+		return true; // Queued
+	}
+	return false; // Not queued
+}
+
+std::optional<nano::transport::socket::queue_item> nano::transport::socket::pop_send_queue ()
+{
+	nano::lock_guard<nano::mutex> guard{ send_queue_mutex };
+	// TODO: This is a very basic prioritization, implement something more advanced and configurable
+
+	if (!send_queue[nano::transport::traffic_type::generic].empty ())
+	{
+		auto item = send_queue[nano::transport::traffic_type::generic].front ();
+		send_queue[nano::transport::traffic_type::generic].pop ();
+		return item;
+	}
+
+	if (!send_queue[nano::transport::traffic_type::bootstrap].empty ())
+	{
+		auto item = send_queue[nano::transport::traffic_type::bootstrap].front ();
+		send_queue[nano::transport::traffic_type::bootstrap].pop ();
+		return item;
+	}
+
+	// Send queue can be empty if socket is closed between enqueuing the message and doing the actual write
+	return std::nullopt;
+}
+
+void nano::transport::socket::clear_send_queue ()
+{
+	nano::lock_guard<nano::mutex> guard{ send_queue_mutex };
+	send_queue.clear ();
+}
+
+std::size_t nano::transport::socket::send_queue_size (nano::transport::traffic_type traffic_type)
+{
+	nano::lock_guard<nano::mutex> guard{ send_queue_mutex };
+	return send_queue[traffic_type].size ();
+}
+
+std::size_t nano::transport::socket::max_send_queue_size (nano::transport::traffic_type) const
+{
+	return queue_size_max;
+}
+
+bool nano::transport::socket::max (nano::transport::traffic_type traffic_type)
+{
+	return send_queue_size (traffic_type) >= max_send_queue_size (traffic_type);
+}
+
+bool nano::transport::socket::full (nano::transport::traffic_type traffic_type)
+{
+	return send_queue_size (traffic_type) >= 2 * max_send_queue_size (traffic_type);
 }
 
 /** Call set_timeout with default_timeout as parameter */
@@ -279,6 +366,7 @@ void nano::transport::socket::set_silent_connection_tolerance_time (std::chrono:
 
 void nano::transport::socket::close ()
 {
+	clear_send_queue ();
 	auto this_l (shared_from_this ());
 	boost::asio::dispatch (strand, boost::asio::bind_executor (strand, [this_l] {
 		this_l->close_internal ();
@@ -313,6 +401,10 @@ nano::tcp_endpoint nano::transport::socket::local_endpoint () const
 {
 	return tcp_socket.local_endpoint ();
 }
+
+/*
+ * server_socket
+ */
 
 nano::transport::server_socket::server_socket (nano::node & node_a, boost::asio::ip::tcp::endpoint local_a, std::size_t max_connections_a) :
 	socket{ node_a, endpoint_type_t::server },

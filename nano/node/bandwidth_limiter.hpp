@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/rate_limiting.hpp>
+#include <nano/node/transport/traffic_type.hpp>
 
 namespace nano
 {
@@ -14,6 +15,8 @@ enum class bandwidth_limit_type
 	/** For bootstrap (asc_pull_ack, asc_pull_req) traffic */
 	bootstrap
 };
+
+nano::bandwidth_limit_type to_bandwidth_limit_type (nano::transport::traffic_type const &);
 
 /**
  * Class that tracks and manages bandwidth limits for IO operations

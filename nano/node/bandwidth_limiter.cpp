@@ -57,3 +57,18 @@ void nano::outbound_bandwidth_limiter::reset (std::size_t limit, double burst_ra
 	auto & limiter = select_limiter (type);
 	limiter.reset (limit, burst_ratio);
 }
+
+nano::bandwidth_limit_type nano::to_bandwidth_limit_type (const nano::transport::traffic_type & traffic_type)
+{
+	switch (traffic_type)
+	{
+		case nano::transport::traffic_type::generic:
+			return nano::bandwidth_limit_type::standard;
+			break;
+		case nano::transport::traffic_type::bootstrap:
+			return nano::bandwidth_limit_type::bootstrap;
+			break;
+	}
+	debug_assert (false);
+	return {};
+}
