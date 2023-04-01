@@ -69,6 +69,8 @@ public:
 	explicit socket (nano::node & node, endpoint_type_t endpoint_type_a);
 	virtual ~socket ();
 
+	void start ();
+
 	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void (boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>> const &, std::size_t, std::function<void (boost::system::error_code const &, std::size_t)>);
 	void async_write (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> callback = {}, nano::transport::traffic_type = nano::transport::traffic_type::generic);
@@ -134,10 +136,11 @@ protected:
 	bool insert_send_queue (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> callback, nano::transport::traffic_type);
 	std::optional<queue_item> pop_send_queue ();
 	void clear_send_queue ();
-	void do_write ();
 
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 	boost::asio::ip::tcp::socket tcp_socket;
+	// We use `steady_timer` as an asynchronous condition variable
+	boost::asio::steady_timer write_timer;
 	nano::node & node;
 
 	/** The other end of the connection */
@@ -169,14 +172,6 @@ protected:
 	/** used in real time server sockets, number of seconds of no receive traffic that will cause the socket to timeout */
 	std::chrono::seconds silent_connection_tolerance_time;
 
-	/** Tracks number of blocks queued for delivery to the local socket send buffers.
-	 *  Under normal circumstances, this should be zero.
-	 *  Note that this is not the number of buffers queued to the peer, it is the number of buffers
-	 *  queued up to enter the local TCP send buffer
-	 *  socket buffer queue -> TCP send queue -> (network) -> TCP receive queue of peer
-	 */
-	std::atomic<std::size_t> queue_size{ 0 };
-
 	/** Set by close() - completion handlers must check this. This is more reliable than checking
 	 error codes as the OS may have already completed the async operation. */
 	std::atomic<bool> closed{ false };
@@ -185,7 +180,8 @@ protected:
 	void set_default_timeout ();
 	void set_last_completion ();
 	void set_last_receive_time ();
-	void checkup ();
+	void ongoing_checkup ();
+	void ongoing_write ();
 	void read_impl (std::shared_ptr<std::vector<uint8_t>> const & data_a, size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a);
 
 private:

@@ -39,6 +39,7 @@ bool is_temporary_error (boost::system::error_code const & ec_a)
 nano::transport::socket::socket (nano::node & node_a, endpoint_type_t endpoint_type_a) :
 	strand{ node_a.io_ctx.get_executor () },
 	tcp_socket{ node_a.io_ctx },
+	write_timer{ node_a.io_ctx },
 	node{ node_a },
 	endpoint_type_m{ endpoint_type_a },
 	timeout{ std::numeric_limits<uint64_t>::max () },
@@ -54,12 +55,18 @@ nano::transport::socket::~socket ()
 	close_internal ();
 }
 
+void nano::transport::socket::start ()
+{
+	ongoing_checkup ();
+	ongoing_write ();
+}
+
 void nano::transport::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::function<void (boost::system::error_code const &)> callback_a)
 {
 	debug_assert (callback_a);
 	debug_assert (endpoint_type () == endpoint_type_t::client);
 
-	checkup ();
+	start ();
 	auto this_l (shared_from_this ());
 	set_default_timeout ();
 
@@ -144,52 +151,50 @@ void nano::transport::socket::async_write (nano::shared_const_buffer const & buf
 		return;
 	}
 
-	++queue_size;
-
 	boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback = std::move (callback_a), this_l = shared_from_this ()] () mutable {
-		if (this_l->closed)
-		{
-			if (callback)
-			{
-				callback (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
-			}
-			return;
-		}
-		else
-		{
-			this_l->do_write ();
-		}
+		this_l->write_timer.cancel (); // Signal that new data is present to be sent
 	}));
 }
 
-void nano::transport::socket::do_write ()
+void nano::transport::socket::ongoing_write ()
 {
-	auto item = pop_send_queue ();
-	if (!item)
+	if (closed)
 	{
 		return;
 	}
 
-	set_default_timeout ();
-
-	nano::async_write (tcp_socket, item->buffer,
-	boost::asio::bind_executor (strand, [cbk = std::move (item->callback), this_l = shared_from_this ()] (boost::system::error_code ec, std::size_t size_a) {
-		--this_l->queue_size;
-
-		if (ec)
+	boost::asio::post (strand, boost::asio::bind_executor (strand, [this_s = shared_from_this ()] () mutable {
+		auto item = this_s->pop_send_queue ();
+		if (item)
 		{
-			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in);
-			this_l->close ();
+			this_s->set_default_timeout ();
+
+			boost::asio::async_write (this_s->tcp_socket, item->buffer, [this_s, callback = std::move (item->callback)] (boost::system::error_code ec, std::size_t size) {
+				if (ec)
+				{
+					this_s->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in);
+					this_s->close ();
+				}
+				else
+				{
+					this_s->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size);
+					this_s->set_last_completion ();
+				}
+
+				if (callback)
+				{
+					callback (ec, size);
+				}
+
+				this_s->ongoing_write ();
+			});
 		}
 		else
 		{
-			this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
-			this_l->set_last_completion ();
-		}
-
-		if (cbk)
-		{
-			cbk (ec, size_a);
+			this_s->write_timer.expires_after (std::chrono::seconds{ 5 });
+			this_s->write_timer.async_wait ([this_s] (boost::system::error_code const & ec) {
+				this_s->ongoing_write ();
+			});
 		}
 	}));
 }
@@ -208,8 +213,8 @@ bool nano::transport::socket::insert_send_queue (const nano::shared_const_buffer
 std::optional<nano::transport::socket::queue_item> nano::transport::socket::pop_send_queue ()
 {
 	nano::lock_guard<nano::mutex> guard{ send_queue_mutex };
-	// TODO: This is a very basic prioritization, implement something more advanced and configurable
 
+	// TODO: This is a very basic prioritization, implement something more advanced and configurable
 	if (!send_queue[nano::transport::traffic_type::generic].empty ())
 	{
 		auto item = send_queue[nano::transport::traffic_type::generic].front ();
@@ -224,7 +229,6 @@ std::optional<nano::transport::socket::queue_item> nano::transport::socket::pop_
 		return item;
 	}
 
-	// Send queue can be empty if socket is closed between enqueuing the message and doing the actual write
 	return std::nullopt;
 }
 
@@ -282,7 +286,7 @@ void nano::transport::socket::set_last_receive_time ()
 	last_receive_time_or_init = nano::seconds_since_epoch ();
 }
 
-void nano::transport::socket::checkup ()
+void nano::transport::socket::ongoing_checkup ()
 {
 	std::weak_ptr<nano::transport::socket> this_w (shared_from_this ());
 	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (node.network_params.network.is_dev_network () ? 1 : 5), [this_w] () {
@@ -324,7 +328,7 @@ void nano::transport::socket::checkup ()
 			}
 			else if (!this_l->closed)
 			{
-				this_l->checkup ();
+				this_l->ongoing_checkup ();
 			}
 		}
 	});
@@ -366,7 +370,6 @@ void nano::transport::socket::set_silent_connection_tolerance_time (std::chrono:
 
 void nano::transport::socket::close ()
 {
-	clear_send_queue ();
 	auto this_l (shared_from_this ());
 	boost::asio::dispatch (strand, boost::asio::bind_executor (strand, [this_l] {
 		this_l->close_internal ();
@@ -378,12 +381,16 @@ void nano::transport::socket::close_internal ()
 {
 	if (!closed.exchange (true))
 	{
+		clear_send_queue ();
+
 		default_timeout = std::chrono::seconds (0);
 		boost::system::error_code ec;
 
 		// Ignore error code for shutdown as it is best-effort
 		tcp_socket.shutdown (boost::asio::ip::tcp::socket::shutdown_both, ec);
 		tcp_socket.close (ec);
+		write_timer.cancel ();
+
 		if (ec)
 		{
 			node.logger.try_log ("Failed to close socket gracefully: ", ec.message ());
@@ -565,7 +572,7 @@ void nano::transport::server_socket::on_connection (std::function<bool (std::sha
 			{
 				// Make sure the new connection doesn't idle. Note that in most cases, the callback is going to start
 				// an IO operation immediately, which will start a timer.
-				new_connection->checkup ();
+				new_connection->start ();
 				new_connection->set_timeout (this_l->node.network_params.network.idle_timeout);
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
 				this_l->connections_per_address.emplace (new_connection->remote.address (), new_connection);
