@@ -36,7 +36,7 @@ bool is_temporary_error (boost::system::error_code const & ec_a)
  * socket
  */
 
-nano::transport::socket::socket (nano::node & node_a, endpoint_type_t endpoint_type_a) :
+nano::transport::socket::socket (nano::node & node_a, endpoint_type_t endpoint_type_a, std::size_t queue_size_max_a) :
 	strand{ node_a.io_ctx.get_executor () },
 	tcp_socket{ node_a.io_ctx },
 	write_timer{ node_a.io_ctx },
@@ -46,7 +46,8 @@ nano::transport::socket::socket (nano::node & node_a, endpoint_type_t endpoint_t
 	last_completion_time_or_init{ nano::seconds_since_epoch () },
 	last_receive_time_or_init{ nano::seconds_since_epoch () },
 	default_timeout{ node_a.config.tcp_io_timeout },
-	silent_connection_tolerance_time{ node_a.network_params.network.silent_connection_tolerance_time }
+	silent_connection_tolerance_time{ node_a.network_params.network.silent_connection_tolerance_time },
+	queue_size_max{ queue_size_max_a }
 {
 }
 

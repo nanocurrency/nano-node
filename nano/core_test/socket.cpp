@@ -65,9 +65,9 @@ TEST (socket, max_connections)
 		return node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
 	};
 
-	ASSERT_TIMELY (5s, get_tcp_accept_failures () == 1);
-	ASSERT_TIMELY (5s, get_tcp_accept_successes () == 2);
-	ASSERT_TIMELY (5s, connection_attempts == 3);
+	ASSERT_TIMELY_EQ (5s, get_tcp_accept_failures (), 1);
+	ASSERT_TIMELY_EQ (5s, get_tcp_accept_successes (), 2);
+	ASSERT_TIMELY_EQ (5s, connection_attempts, 3);
 
 	// create space for one socket and fill the connections table again
 
@@ -79,9 +79,9 @@ TEST (socket, max_connections)
 	auto client5 = std::make_shared<nano::transport::client_socket> (*node);
 	client5->async_connect (dst_endpoint, connect_handler);
 
-	ASSERT_TIMELY (5s, get_tcp_accept_failures () == 2);
-	ASSERT_TIMELY (5s, get_tcp_accept_successes () == 3);
-	ASSERT_TIMELY (5s, connection_attempts == 5);
+	ASSERT_TIMELY_EQ (5s, get_tcp_accept_failures (), 2);
+	ASSERT_TIMELY_EQ (5s, get_tcp_accept_successes (), 3);
+	ASSERT_TIMELY_EQ (5s, connection_attempts, 5);
 
 	// close all existing sockets and fill the connections table again
 	// start counting form 1 because 0 is the already closed socket
@@ -99,10 +99,10 @@ TEST (socket, max_connections)
 	auto client8 = std::make_shared<nano::transport::client_socket> (*node);
 	client8->async_connect (dst_endpoint, connect_handler);
 
-	ASSERT_TIMELY (5s, get_tcp_accept_failures () == 3);
-	ASSERT_TIMELY (5s, get_tcp_accept_successes () == 5);
-	ASSERT_TIMELY (5s, connection_attempts == 8); // connections initiated by the client
-	ASSERT_TIMELY (5s, server_sockets.size () == 5); // connections accepted by the server
+	ASSERT_TIMELY_EQ (5s, get_tcp_accept_failures (), 3);
+	ASSERT_TIMELY_EQ (5s, get_tcp_accept_successes (), 5);
+	ASSERT_TIMELY_EQ (5s, connection_attempts, 8); // connections initiated by the client
+	ASSERT_TIMELY_EQ (5s, server_sockets.size (), 5); // connections accepted by the server
 
 	node->stop ();
 }
@@ -459,11 +459,11 @@ TEST (socket, drop_policy)
 
 	// We're going to write twice the queue size + 1, and the server isn't reading
 	// The total number of drops should thus be 1 (the socket allows doubling the queue size for no_socket_drop)
-	func (nano::transport::socket::queue_size_max * 2 + 1, nano::transport::buffer_drop_policy::no_socket_drop);
+	func (nano::transport::socket::default_queue_size_max * 2 + 1, nano::transport::buffer_drop_policy::no_socket_drop);
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_no_socket_drop, nano::stat::dir::out));
 	ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out));
 
-	func (nano::transport::socket::queue_size_max + 1, nano::transport::buffer_drop_policy::limiter);
+	func (nano::transport::socket::default_queue_size_max + 1, nano::transport::buffer_drop_policy::limiter);
 	// The stats are accumulated from before
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_no_socket_drop, nano::stat::dir::out));
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out));
@@ -716,7 +716,7 @@ TEST (socket_timeout, write)
 	// create a client socket and send lots of data to fill the socket queue on the local and remote side
 	// eventually, the all tcp queues should fill up and async_write will not be able to progress
 	// and the timeout should kick in and close the socket, which will cause the async_write to return an error
-	auto socket = std::make_shared<nano::transport::client_socket> (*node);
+	auto socket = std::make_shared<nano::transport::client_socket> (*node, 1024 * 64); // socket with a max queue size much larger than OS buffers
 	std::atomic<bool> done = false;
 	boost::system::error_code ec;
 	socket->async_connect (endpoint, [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
@@ -826,7 +826,7 @@ TEST (socket_timeout, write_overlapped)
 	// create a client socket and send lots of data to fill the socket queue on the local and remote side
 	// eventually, the all tcp queues should fill up and async_write will not be able to progress
 	// and the timeout should kick in and close the socket, which will cause the async_write to return an error
-	auto socket = std::make_shared<nano::transport::client_socket> (*node);
+	auto socket = std::make_shared<nano::transport::client_socket> (*node, 1024 * 64); // socket with a max queue size much larger than OS buffers
 	std::atomic<bool> done = false;
 	boost::system::error_code ec;
 	socket->async_connect (endpoint, [&socket, &ec, &done] (boost::system::error_code const & ec_a) {

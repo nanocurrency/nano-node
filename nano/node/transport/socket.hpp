@@ -47,6 +47,8 @@ class socket : public std::enable_shared_from_this<nano::transport::socket>
 	friend class tcp_channels;
 
 public:
+	static std::size_t constexpr default_queue_size_max = 128;
+
 	enum class type_t
 	{
 		undefined,
@@ -66,7 +68,7 @@ public:
 	 * @param node Owning node
 	 * @param endpoint_type_a The endpoint's type: either server or client
 	 */
-	explicit socket (nano::node & node, endpoint_type_t endpoint_type_a);
+	explicit socket (nano::node & node, endpoint_type_t endpoint_type_a, std::size_t queue_size_max = default_queue_size_max);
 	virtual ~socket ();
 
 	void start ();
@@ -189,8 +191,7 @@ private:
 	endpoint_type_t endpoint_type_m;
 
 public:
-	static std::size_t constexpr queue_size_max = 128;
-	static std::size_t constexpr singe_queue_size_max = 128;
+	std::size_t const queue_size_max;
 };
 
 std::string socket_type_to_string (socket::type_t type);
@@ -247,8 +248,8 @@ public:
 	 * Constructor
 	 * @param node_a Owning node
 	 */
-	explicit client_socket (nano::node & node_a) :
-		socket{ node_a, endpoint_type_t::client }
+	explicit client_socket (nano::node & node_a, std::size_t queue_size_max = default_queue_size_max) :
+		socket{ node_a, endpoint_type_t::client, queue_size_max }
 	{
 	}
 };
