@@ -141,6 +141,7 @@ private:
 		std::optional<entry> pop ();
 		void clear ();
 		std::size_t size (nano::transport::traffic_type) const;
+		bool empty () const;
 
 		std::size_t const max_size;
 
@@ -154,8 +155,6 @@ private:
 protected:
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 	boost::asio::ip::tcp::socket tcp_socket;
-	// We use `steady_timer` as an asynchronous condition variable
-	boost::asio::steady_timer write_timer;
 	nano::node & node;
 
 	/** The other end of the connection */
@@ -191,12 +190,15 @@ protected:
 	 error codes as the OS may have already completed the async operation. */
 	std::atomic<bool> closed{ false };
 
+	/** Updated only from strand, but stored as atomic so it can be read from outside */
+	std::atomic<bool> write_in_progress{ false };
+
 	void close_internal ();
+	void write_queued_messages ();
 	void set_default_timeout ();
 	void set_last_completion ();
 	void set_last_receive_time ();
 	void ongoing_checkup ();
-	void ongoing_write ();
 	void read_impl (std::shared_ptr<std::vector<uint8_t>> const & data_a, size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a);
 
 private:

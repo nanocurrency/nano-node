@@ -40,7 +40,6 @@ nano::transport::socket::socket (nano::node & node_a, endpoint_type_t endpoint_t
 	send_queue{ max_queue_size_a },
 	strand{ node_a.io_ctx.get_executor () },
 	tcp_socket{ node_a.io_ctx },
-	write_timer{ node_a.io_ctx },
 	node{ node_a },
 	endpoint_type_m{ endpoint_type_a },
 	timeout{ std::numeric_limits<uint64_t>::max () },
@@ -60,7 +59,6 @@ nano::transport::socket::~socket ()
 void nano::transport::socket::start ()
 {
 	ongoing_checkup ();
-	ongoing_write ();
 }
 
 void nano::transport::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::function<void (boost::system::error_code const &)> callback_a)
@@ -153,49 +151,54 @@ void nano::transport::socket::async_write (nano::shared_const_buffer const & buf
 		return;
 	}
 
-	boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback = std::move (callback_a), this_l = shared_from_this ()] () mutable {
-		this_l->write_timer.cancel (); // Signal that new data is present to be sent
+	boost::asio::post (strand, boost::asio::bind_executor (strand, [this_s = shared_from_this (), buffer_a, callback_a, traffic_type] () {
+		if (!this_s->write_in_progress)
+		{
+			this_s->write_queued_messages ();
+		}
 	}));
 }
 
-void nano::transport::socket::ongoing_write ()
+// Must be called from strand
+void nano::transport::socket::write_queued_messages ()
 {
 	if (closed)
 	{
 		return;
 	}
 
-	boost::asio::post (strand, boost::asio::bind_executor (strand, [this_s = shared_from_this ()] () mutable {
-		auto next = this_s->send_queue.pop ();
-		if (next)
+	auto next = send_queue.pop ();
+	if (!next)
+	{
+		return;
+	}
+
+	set_default_timeout ();
+
+	write_in_progress = true;
+	nano::async_write (tcp_socket, next->buffer,
+	boost::asio::bind_executor (strand, [this_s = shared_from_this (), next /* `next` object keeps buffer in scope */] (boost::system::error_code ec, std::size_t size) {
+		this_s->write_in_progress = false;
+
+		if (ec)
 		{
-			this_s->set_default_timeout ();
-			nano::async_write (this_s->tcp_socket, next->buffer, [this_s, callback = std::move (next->callback)] (boost::system::error_code ec, std::size_t size) {
-				if (ec)
-				{
-					this_s->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in);
-					this_s->close ();
-				}
-				else
-				{
-					this_s->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size);
-					this_s->set_last_completion ();
-				}
-
-				if (callback)
-				{
-					callback (ec, size);
-				}
-
-				this_s->ongoing_write ();
-			});
+			this_s->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in);
+			this_s->close ();
 		}
 		else
 		{
-			this_s->write_timer.expires_after (std::chrono::seconds{ 5 });
-			this_s->write_timer.async_wait ([this_s] (boost::system::error_code const & ec) {
-				this_s->ongoing_write ();
-			});
+			this_s->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size);
+			this_s->set_last_completion ();
+		}
+
+		if (next->callback)
+		{
+			next->callback (ec, size);
+		}
+
+		if (!ec)
+		{
+			this_s->write_queued_messages ();
 		}
 	}));
 }
@@ -343,7 +346,6 @@ void nano::transport::socket::close_internal ()
 	// Ignore error code for shutdown as it is best-effort
 	tcp_socket.shutdown (boost::asio::ip::tcp::socket::shutdown_both, ec);
 	tcp_socket.close (ec);
-	write_timer.cancel ();
 
 	if (ec)
 	{
@@ -424,6 +426,14 @@ std::size_t nano::transport::socket::write_queue::size (nano::transport::traffic
 		return it->second.size ();
 	}
 	return 0;
+}
+
+bool nano::transport::socket::write_queue::empty () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return std::all_of (queues.begin (), queues.end (), [] (auto const & que) {
+		return que.second.empty ();
+	});
 }
 
 /*
