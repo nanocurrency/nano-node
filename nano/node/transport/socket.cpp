@@ -8,6 +8,7 @@
 #include <boost/format.hpp>
 
 #include <cstdint>
+#include <cstdlib>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -288,7 +289,7 @@ void nano::transport::socket::ongoing_checkup ()
 	});
 }
 
-void nano::transport::socket::read_impl (std::shared_ptr<std::vector<uint8_t>> const & data_a, size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
+void nano::transport::socket::read_impl (std::shared_ptr<std::vector<uint8_t>> const & data_a, std::size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
 {
 	// Increase timeout to receive TCP header (idle server socket)
 	auto const prev_timeout = get_default_timeout_value ();
@@ -478,29 +479,29 @@ void nano::transport::server_socket::close ()
 	}));
 }
 
-boost::asio::ip::network_v6 nano::transport::socket_functions::get_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, size_t network_prefix)
+boost::asio::ip::network_v6 nano::transport::socket_functions::get_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, std::size_t network_prefix)
 {
-	return boost::asio::ip::make_network_v6 (ip_address, network_prefix);
+	return boost::asio::ip::make_network_v6 (ip_address, static_cast<unsigned short> (network_prefix));
 }
 
-boost::asio::ip::address nano::transport::socket_functions::first_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, size_t network_prefix)
+boost::asio::ip::address nano::transport::socket_functions::first_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, std::size_t network_prefix)
 {
 	auto range = get_ipv6_subnet_address (ip_address, network_prefix).hosts ();
 	debug_assert (!range.empty ());
 	return *(range.begin ());
 }
 
-boost::asio::ip::address nano::transport::socket_functions::last_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, size_t network_prefix)
+boost::asio::ip::address nano::transport::socket_functions::last_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, std::size_t network_prefix)
 {
 	auto range = get_ipv6_subnet_address (ip_address, network_prefix).hosts ();
 	debug_assert (!range.empty ());
 	return *(--range.end ());
 }
 
-size_t nano::transport::socket_functions::count_subnetwork_connections (
+std::size_t nano::transport::socket_functions::count_subnetwork_connections (
 nano::transport::address_socket_mmap const & per_address_connections,
 boost::asio::ip::address_v6 const & remote_address,
-size_t network_prefix)
+std::size_t network_prefix)
 {
 	auto range = get_ipv6_subnet_address (remote_address, network_prefix).hosts ();
 	if (range.empty ())
@@ -538,7 +539,7 @@ bool nano::transport::server_socket::limit_reached_for_incoming_ip_connections (
 		return false;
 	}
 	auto const address_connections_range = connections_per_address.equal_range (new_connection->remote.address ());
-	auto const counted_connections = std::distance (address_connections_range.first, address_connections_range.second);
+	auto const counted_connections = static_cast<std::size_t> (std::abs (std::distance (address_connections_range.first, address_connections_range.second)));
 	return counted_connections >= node.network_params.network.max_peers_per_ip;
 }
 

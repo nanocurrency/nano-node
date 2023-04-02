@@ -1,6 +1,7 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/vote_processor.hpp>
+#include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -61,13 +62,14 @@ TEST (vote_processor, invalid_signature)
 {
 	nano::test::system system{ 1 };
 	auto & node = *system.nodes[0];
+	auto chain = nano::test::setup_chain (system, node, 1, nano::dev::genesis_key, false);
 	nano::keypair key;
-	auto vote = std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
+	auto vote = std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ chain[0]->hash () });
 	auto vote_invalid = std::make_shared<nano::vote> (*vote);
 	vote_invalid->signature.bytes[0] ^= 1;
 	auto channel = std::make_shared<nano::transport::inproc::channel> (node, node);
 
-	auto election = nano::test::start_election (system, node, nano::dev::genesis->hash ());
+	auto election = nano::test::start_election (system, node, chain[0]->hash ());
 	ASSERT_NE (election, nullptr);
 	ASSERT_EQ (1, election->votes ().size ());
 
