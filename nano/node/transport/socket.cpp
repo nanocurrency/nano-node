@@ -36,8 +36,8 @@ bool is_temporary_error (boost::system::error_code const & ec_a)
  * socket
  */
 
-nano::transport::socket::socket (nano::node & node_a, endpoint_type_t endpoint_type_a, std::size_t queue_size_max_a) :
-	send_queue{ queue_size_max_a },
+nano::transport::socket::socket (nano::node & node_a, endpoint_type_t endpoint_type_a, std::size_t max_queue_size_a) :
+	send_queue{ max_queue_size_a },
 	strand{ node_a.io_ctx.get_executor () },
 	tcp_socket{ node_a.io_ctx },
 	write_timer{ node_a.io_ctx },
@@ -48,7 +48,7 @@ nano::transport::socket::socket (nano::node & node_a, endpoint_type_t endpoint_t
 	last_receive_time_or_init{ nano::seconds_since_epoch () },
 	default_timeout{ node_a.config.tcp_io_timeout },
 	silent_connection_tolerance_time{ node_a.network_params.network.silent_connection_tolerance_time },
-	queue_size_max{ queue_size_max_a }
+	max_queue_size{ max_queue_size_a }
 {
 }
 
@@ -202,12 +202,12 @@ void nano::transport::socket::ongoing_write ()
 
 bool nano::transport::socket::max (nano::transport::traffic_type traffic_type) const
 {
-	return send_queue.size (traffic_type) >= queue_size_max;
+	return send_queue.size (traffic_type) >= max_queue_size;
 }
 
 bool nano::transport::socket::full (nano::transport::traffic_type traffic_type) const
 {
-	return send_queue.size (traffic_type) >= 2 * queue_size_max;
+	return send_queue.size (traffic_type) >= 2 * max_queue_size;
 }
 
 /** Call set_timeout with default_timeout as parameter */
