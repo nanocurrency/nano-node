@@ -10,6 +10,7 @@
 #include <chrono>
 #include <map>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <unordered_map>
 #include <vector>
@@ -77,9 +78,6 @@ public:
 	void async_read (std::shared_ptr<std::vector<uint8_t>> const &, std::size_t, std::function<void (boost::system::error_code const &, std::size_t)>);
 	void async_write (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> callback = {}, nano::transport::traffic_type = nano::transport::traffic_type::generic);
 
-	std::size_t send_queue_size (nano::transport::traffic_type);
-	std::size_t max_send_queue_size (nano::transport::traffic_type) const;
-
 	virtual void close ();
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;
 	boost::asio::ip::tcp::endpoint local_endpoint () const;
@@ -91,8 +89,8 @@ public:
 	void set_timeout (std::chrono::seconds);
 	void set_silent_connection_tolerance_time (std::chrono::seconds tolerance_time_a);
 
-	bool max (nano::transport::traffic_type = nano::transport::traffic_type::generic);
-	bool full (nano::transport::traffic_type = nano::transport::traffic_type::generic);
+	bool max (nano::transport::traffic_type = nano::transport::traffic_type::generic) const;
+	bool full (nano::transport::traffic_type = nano::transport::traffic_type::generic) const;
 
 	type_t type () const
 	{
@@ -123,22 +121,37 @@ public:
 		return !closed && tcp_socket.is_open ();
 	}
 
-protected:
-	/** Holds the buffer and callback for queued writes */
-	class queue_item
+private:
+	class write_queue
 	{
 	public:
-		nano::shared_const_buffer buffer;
-		std::function<void (boost::system::error_code const &, std::size_t)> callback;
+		using buffer_t = nano::shared_const_buffer;
+		using callback_t = std::function<void (boost::system::error_code const &, std::size_t)>;
+
+		struct entry
+		{
+			buffer_t buffer;
+			callback_t callback;
+		};
+
+	public:
+		explicit write_queue (std::size_t max_size);
+
+		bool insert (buffer_t const &, callback_t, nano::transport::traffic_type);
+		std::optional<entry> pop ();
+		void clear ();
+		std::size_t size (nano::transport::traffic_type) const;
+
+		std::size_t const max_size;
+
+	private:
+		mutable nano::mutex mutex;
+		std::unordered_map<nano::transport::traffic_type, std::queue<entry>> queues;
 	};
 
-	mutable nano::mutex send_queue_mutex;
-	std::unordered_map<nano::transport::traffic_type, std::queue<queue_item>> send_queue;
+	write_queue send_queue;
 
-	bool insert_send_queue (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> callback, nano::transport::traffic_type);
-	std::optional<queue_item> pop_send_queue ();
-	void clear_send_queue ();
-
+protected:
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 	boost::asio::ip::tcp::socket tcp_socket;
 	// We use `steady_timer` as an asynchronous condition variable

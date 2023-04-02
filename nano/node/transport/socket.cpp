@@ -37,6 +37,7 @@ bool is_temporary_error (boost::system::error_code const & ec_a)
  */
 
 nano::transport::socket::socket (nano::node & node_a, endpoint_type_t endpoint_type_a, std::size_t queue_size_max_a) :
+	send_queue{ queue_size_max_a },
 	strand{ node_a.io_ctx.get_executor () },
 	tcp_socket{ node_a.io_ctx },
 	write_timer{ node_a.io_ctx },
@@ -140,7 +141,7 @@ void nano::transport::socket::async_write (nano::shared_const_buffer const & buf
 		return;
 	}
 
-	bool queued = insert_send_queue (buffer_a, callback_a, traffic_type);
+	bool queued = send_queue.insert (buffer_a, callback_a, traffic_type);
 	if (!queued)
 	{
 		if (callback_a)
@@ -165,12 +166,11 @@ void nano::transport::socket::ongoing_write ()
 	}
 
 	boost::asio::post (strand, boost::asio::bind_executor (strand, [this_s = shared_from_this ()] () mutable {
-		auto item = this_s->pop_send_queue ();
-		if (item)
+		auto next = this_s->send_queue.pop ();
+		if (next)
 		{
 			this_s->set_default_timeout ();
-
-			boost::asio::async_write (this_s->tcp_socket, item->buffer, [this_s, callback = std::move (item->callback)] (boost::system::error_code ec, std::size_t size) {
+			nano::async_write (this_s->tcp_socket, next->buffer, [this_s, callback = std::move (next->callback)] (boost::system::error_code ec, std::size_t size) {
 				if (ec)
 				{
 					this_s->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in);
@@ -200,64 +200,14 @@ void nano::transport::socket::ongoing_write ()
 	}));
 }
 
-bool nano::transport::socket::insert_send_queue (const nano::shared_const_buffer & buffer, std::function<void (const boost::system::error_code &, std::size_t)> callback, nano::transport::traffic_type traffic_type)
+bool nano::transport::socket::max (nano::transport::traffic_type traffic_type) const
 {
-	nano::lock_guard<nano::mutex> guard{ send_queue_mutex };
-	if (send_queue[traffic_type].size () < 2 * max_send_queue_size (traffic_type))
-	{
-		send_queue[traffic_type].push (queue_item{ buffer, callback });
-		return true; // Queued
-	}
-	return false; // Not queued
+	return send_queue.size (traffic_type) >= queue_size_max;
 }
 
-std::optional<nano::transport::socket::queue_item> nano::transport::socket::pop_send_queue ()
+bool nano::transport::socket::full (nano::transport::traffic_type traffic_type) const
 {
-	nano::lock_guard<nano::mutex> guard{ send_queue_mutex };
-
-	// TODO: This is a very basic prioritization, implement something more advanced and configurable
-	if (!send_queue[nano::transport::traffic_type::generic].empty ())
-	{
-		auto item = send_queue[nano::transport::traffic_type::generic].front ();
-		send_queue[nano::transport::traffic_type::generic].pop ();
-		return item;
-	}
-
-	if (!send_queue[nano::transport::traffic_type::bootstrap].empty ())
-	{
-		auto item = send_queue[nano::transport::traffic_type::bootstrap].front ();
-		send_queue[nano::transport::traffic_type::bootstrap].pop ();
-		return item;
-	}
-
-	return std::nullopt;
-}
-
-void nano::transport::socket::clear_send_queue ()
-{
-	nano::lock_guard<nano::mutex> guard{ send_queue_mutex };
-	send_queue.clear ();
-}
-
-std::size_t nano::transport::socket::send_queue_size (nano::transport::traffic_type traffic_type)
-{
-	nano::lock_guard<nano::mutex> guard{ send_queue_mutex };
-	return send_queue[traffic_type].size ();
-}
-
-std::size_t nano::transport::socket::max_send_queue_size (nano::transport::traffic_type) const
-{
-	return queue_size_max;
-}
-
-bool nano::transport::socket::max (nano::transport::traffic_type traffic_type)
-{
-	return send_queue_size (traffic_type) >= max_send_queue_size (traffic_type);
-}
-
-bool nano::transport::socket::full (nano::transport::traffic_type traffic_type)
-{
-	return send_queue_size (traffic_type) >= 2 * max_send_queue_size (traffic_type);
+	return send_queue.size (traffic_type) >= 2 * queue_size_max;
 }
 
 /** Call set_timeout with default_timeout as parameter */
@@ -380,23 +330,25 @@ void nano::transport::socket::close ()
 // This must be called from a strand or the destructor
 void nano::transport::socket::close_internal ()
 {
-	if (!closed.exchange (true))
+	if (closed.exchange (true))
 	{
-		clear_send_queue ();
+		return;
+	}
 
-		default_timeout = std::chrono::seconds (0);
-		boost::system::error_code ec;
+	send_queue.clear ();
 
-		// Ignore error code for shutdown as it is best-effort
-		tcp_socket.shutdown (boost::asio::ip::tcp::socket::shutdown_both, ec);
-		tcp_socket.close (ec);
-		write_timer.cancel ();
+	default_timeout = std::chrono::seconds (0);
+	boost::system::error_code ec;
 
-		if (ec)
-		{
-			node.logger.try_log ("Failed to close socket gracefully: ", ec.message ());
-			node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::error_socket_close);
-		}
+	// Ignore error code for shutdown as it is best-effort
+	tcp_socket.shutdown (boost::asio::ip::tcp::socket::shutdown_both, ec);
+	tcp_socket.close (ec);
+	write_timer.cancel ();
+
+	if (ec)
+	{
+		node.logger.try_log ("Failed to close socket gracefully: ", ec.message ());
+		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::error_socket_close);
 	}
 }
 
@@ -408,6 +360,70 @@ nano::tcp_endpoint nano::transport::socket::remote_endpoint () const
 nano::tcp_endpoint nano::transport::socket::local_endpoint () const
 {
 	return tcp_socket.local_endpoint ();
+}
+
+/*
+ * write_queue
+ */
+
+nano::transport::socket::write_queue::write_queue (std::size_t max_size_a) :
+	max_size{ max_size_a }
+{
+}
+
+bool nano::transport::socket::write_queue::insert (const buffer_t & buffer, callback_t callback, nano::transport::traffic_type traffic_type)
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	if (queues[traffic_type].size () < 2 * max_size)
+	{
+		queues[traffic_type].push (entry{ buffer, callback });
+		return true; // Queued
+	}
+	return false; // Not queued
+}
+
+std::optional<nano::transport::socket::write_queue::entry> nano::transport::socket::write_queue::pop ()
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
+	auto try_pop = [this] (nano::transport::traffic_type type) -> std::optional<entry> {
+		auto & que = queues[type];
+		if (!que.empty ())
+		{
+			auto item = que.front ();
+			que.pop ();
+			return item;
+		}
+		return std::nullopt;
+	};
+
+	// TODO: This is a very basic prioritization, implement something more advanced and configurable
+	if (auto item = try_pop (nano::transport::traffic_type::generic))
+	{
+		return item;
+	}
+	if (auto item = try_pop (nano::transport::traffic_type::bootstrap))
+	{
+		return item;
+	}
+
+	return std::nullopt;
+}
+
+void nano::transport::socket::write_queue::clear ()
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	queues.clear ();
+}
+
+std::size_t nano::transport::socket::write_queue::size (nano::transport::traffic_type traffic_type) const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	if (auto it = queues.find (traffic_type); it != queues.end ())
+	{
+		return it->second.size ();
+	}
+	return 0;
 }
 
 /*
