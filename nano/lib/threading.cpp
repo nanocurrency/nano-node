@@ -226,11 +226,16 @@ void nano::thread_runner::stop_event_processing ()
 	io_guard.get_executor ().context ().stop ();
 }
 
+/*
+ * thread_pool
+ */
+
 nano::thread_pool::thread_pool (unsigned num_threads, nano::thread_role::name thread_name) :
 	num_threads (num_threads),
-	thread_pool_m (std::make_unique<boost::asio::thread_pool> (num_threads))
+	thread_pool_m (std::make_unique<boost::asio::thread_pool> (num_threads)),
+	thread_names_latch{ num_threads }
 {
-	set_thread_names (num_threads, thread_name);
+	set_thread_names (thread_name);
 }
 
 nano::thread_pool::~thread_pool ()
@@ -294,29 +299,16 @@ uint64_t nano::thread_pool::num_queued_tasks () const
 	return num_tasks;
 }
 
-// Set the names of all the threads in the thread pool for easier identification
-void nano::thread_pool::set_thread_names (unsigned num_threads, nano::thread_role::name thread_name)
+void nano::thread_pool::set_thread_names (nano::thread_role::name thread_name)
 {
-	std::vector<std::promise<void>> promises (num_threads);
-	std::vector<std::future<void>> futures;
-	futures.reserve (num_threads);
-	std::transform (promises.begin (), promises.end (), std::back_inserter (futures), [] (auto & promise) {
-		return promise.get_future ();
-	});
-
 	for (auto i = 0u; i < num_threads; ++i)
 	{
-		boost::asio::post (*thread_pool_m, [&promise = promises[i], thread_name] () {
+		boost::asio::post (*thread_pool_m, [this, thread_name] () {
 			nano::thread_role::set (thread_name);
-			promise.set_value ();
+			thread_names_latch.arrive_and_wait ();
 		});
 	}
-
-	// Wait until all threads have finished
-	for (auto & future : futures)
-	{
-		future.wait ();
-	}
+	thread_names_latch.wait ();
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (thread_pool & thread_pool, std::string const & name)
