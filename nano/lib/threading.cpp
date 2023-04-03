@@ -8,20 +8,27 @@
 #include <iostream>
 #include <thread>
 
-void nano::thread_attributes::set (boost::thread::attributes & attrs)
+/*
+ * thread_attributes
+ */
+
+boost::thread::attributes nano::thread_attributes::get_default ()
 {
-	auto attrs_l (&attrs);
-	attrs_l->set_stack_size (8000000); // 8MB
+	boost::thread::attributes attrs;
+	attrs.set_stack_size (8000000); // 8MB
+	return attrs;
 }
+
+/*
+ * thread_runner
+ */
 
 nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned num_threads) :
 	io_guard (boost::asio::make_work_guard (io_ctx_a))
 {
-	boost::thread::attributes attrs;
-	nano::thread_attributes::set (attrs);
 	for (auto i (0u); i < num_threads; ++i)
 	{
-		threads.emplace_back (attrs, [this, &io_ctx_a] () {
+		threads.emplace_back (nano::thread_attributes::get_default (), [this, &io_ctx_a] () {
 			nano::thread_role::set (nano::thread_role::name::io);
 
 			// In a release build, catch and swallow any exceptions,
@@ -91,6 +98,10 @@ void nano::thread_runner::stop_event_processing ()
 {
 	io_guard.get_executor ().context ().stop ();
 }
+
+/*
+ * thread_pool
+ */
 
 nano::thread_pool::thread_pool (unsigned num_threads, nano::thread_role::name thread_name) :
 	num_threads (num_threads),
