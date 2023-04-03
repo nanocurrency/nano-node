@@ -3,11 +3,16 @@
 #include <nano/boost/asio/ip/tcp.hpp>
 #include <nano/boost/asio/strand.hpp>
 #include <nano/lib/asio.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/node/transport/traffic_type.hpp>
 
 #include <chrono>
 #include <map>
 #include <memory>
+#include <optional>
+#include <queue>
+#include <unordered_map>
 #include <vector>
 
 namespace boost::asio::ip
@@ -43,6 +48,8 @@ class socket : public std::enable_shared_from_this<nano::transport::socket>
 	friend class tcp_channels;
 
 public:
+	static std::size_t constexpr default_max_queue_size = 128;
+
 	enum class type_t
 	{
 		undefined,
@@ -62,12 +69,14 @@ public:
 	 * @param node Owning node
 	 * @param endpoint_type_a The endpoint's type: either server or client
 	 */
-	explicit socket (nano::node & node, endpoint_type_t endpoint_type_a);
+	explicit socket (nano::node & node, endpoint_type_t endpoint_type_a, std::size_t max_queue_size = default_max_queue_size);
 	virtual ~socket ();
+
+	void start ();
 
 	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void (boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>> const &, std::size_t, std::function<void (boost::system::error_code const &, std::size_t)>);
-	void async_write (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> = {});
+	void async_write (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> callback = {}, nano::transport::traffic_type = nano::transport::traffic_type::generic);
 
 	virtual void close ();
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;
@@ -79,14 +88,10 @@ public:
 	std::chrono::seconds get_default_timeout_value () const;
 	void set_timeout (std::chrono::seconds);
 	void set_silent_connection_tolerance_time (std::chrono::seconds tolerance_time_a);
-	bool max () const
-	{
-		return queue_size >= queue_size_max;
-	}
-	bool full () const
-	{
-		return queue_size >= queue_size_max * 2;
-	}
+
+	bool max (nano::transport::traffic_type = nano::transport::traffic_type::generic) const;
+	bool full (nano::transport::traffic_type = nano::transport::traffic_type::generic) const;
+
 	type_t type () const
 	{
 		return type_m;
@@ -116,15 +121,38 @@ public:
 		return !closed && tcp_socket.is_open ();
 	}
 
-protected:
-	/** Holds the buffer and callback for queued writes */
-	class queue_item
+private:
+	class write_queue
 	{
 	public:
-		nano::shared_const_buffer buffer;
-		std::function<void (boost::system::error_code const &, std::size_t)> callback;
+		using buffer_t = nano::shared_const_buffer;
+		using callback_t = std::function<void (boost::system::error_code const &, std::size_t)>;
+
+		struct entry
+		{
+			buffer_t buffer;
+			callback_t callback;
+		};
+
+	public:
+		explicit write_queue (std::size_t max_size);
+
+		bool insert (buffer_t const &, callback_t, nano::transport::traffic_type);
+		std::optional<entry> pop ();
+		void clear ();
+		std::size_t size (nano::transport::traffic_type) const;
+		bool empty () const;
+
+		std::size_t const max_size;
+
+	private:
+		mutable nano::mutex mutex;
+		std::unordered_map<nano::transport::traffic_type, std::queue<entry>> queues;
 	};
 
+	write_queue send_queue;
+
+protected:
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 	boost::asio::ip::tcp::socket tcp_socket;
 	nano::node & node;
@@ -158,22 +186,19 @@ protected:
 	/** used in real time server sockets, number of seconds of no receive traffic that will cause the socket to timeout */
 	std::chrono::seconds silent_connection_tolerance_time;
 
-	/** Tracks number of blocks queued for delivery to the local socket send buffers.
-	 *  Under normal circumstances, this should be zero.
-	 *  Note that this is not the number of buffers queued to the peer, it is the number of buffers
-	 *  queued up to enter the local TCP send buffer
-	 *  socket buffer queue -> TCP send queue -> (network) -> TCP receive queue of peer
-	 */
-	std::atomic<std::size_t> queue_size{ 0 };
-
 	/** Set by close() - completion handlers must check this. This is more reliable than checking
 	 error codes as the OS may have already completed the async operation. */
 	std::atomic<bool> closed{ false };
+
+	/** Updated only from strand, but stored as atomic so it can be read from outside */
+	std::atomic<bool> write_in_progress{ false };
+
 	void close_internal ();
+	void write_queued_messages ();
 	void set_default_timeout ();
 	void set_last_completion ();
 	void set_last_receive_time ();
-	void checkup ();
+	void ongoing_checkup ();
 	void read_impl (std::shared_ptr<std::vector<uint8_t>> const & data_a, std::size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a);
 
 private:
@@ -181,7 +206,7 @@ private:
 	endpoint_type_t endpoint_type_m;
 
 public:
-	static std::size_t constexpr queue_size_max = 128;
+	std::size_t const max_queue_size;
 };
 
 std::string socket_type_to_string (socket::type_t type);
@@ -238,8 +263,8 @@ public:
 	 * Constructor
 	 * @param node_a Owning node
 	 */
-	explicit client_socket (nano::node & node_a) :
-		socket{ node_a, endpoint_type_t::client }
+	explicit client_socket (nano::node & node_a, std::size_t max_queue_size = default_max_queue_size) :
+		socket{ node_a, endpoint_type_t::client, max_queue_size }
 	{
 	}
 };
