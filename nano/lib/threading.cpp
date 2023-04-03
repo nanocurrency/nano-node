@@ -23,13 +23,14 @@ boost::thread::attributes nano::thread_attributes::get_default ()
  * thread_runner
  */
 
-nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned num_threads) :
-	io_guard (boost::asio::make_work_guard (io_ctx_a))
+nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned num_threads, const nano::thread_role::name thread_role_a) :
+	io_guard{ boost::asio::make_work_guard (io_ctx_a) },
+	role{ thread_role_a }
 {
 	for (auto i (0u); i < num_threads; ++i)
 	{
 		threads.emplace_back (nano::thread_attributes::get_default (), [this, &io_ctx_a] () {
-			nano::thread_role::set (nano::thread_role::name::io);
+			nano::thread_role::set (role);
 
 			// In a release build, catch and swallow any exceptions,
 			// In debug mode let if fall through
