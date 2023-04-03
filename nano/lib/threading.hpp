@@ -9,6 +9,7 @@
 
 #include <boost/thread/thread.hpp>
 
+#include <latch>
 #include <thread>
 
 namespace nano
@@ -208,7 +209,9 @@ private:
 	std::unique_ptr<boost::asio::thread_pool> thread_pool_m;
 	relaxed_atomic_integral<uint64_t> num_tasks{ 0 };
 
-	void set_thread_names (unsigned num_threads, nano::thread_role::name thread_name);
+	/** Set the names of all the threads in the thread pool for easier identification */
+	std::latch thread_names_latch;
+	void set_thread_names (nano::thread_role::name thread_name);
 };
 
 std::unique_ptr<nano::container_info_component> collect_container_info (thread_pool & thread_pool, std::string const & name);
