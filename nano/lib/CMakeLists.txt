@@ -57,6 +57,7 @@ add_library(
   processing_queue.hpp
   rate_limiting.hpp
   rate_limiting.cpp
+  relaxed_atomic.hpp
   rep_weights.hpp
   rep_weights.cpp
   rocksdbconfig.hpp

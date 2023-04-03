@@ -5,6 +5,7 @@
 #include <nano/boost/asio/io_context.hpp>
 #include <nano/boost/asio/steady_timer.hpp>
 #include <nano/boost/asio/thread_pool.hpp>
+#include <nano/lib/relaxed_atomic.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/utility.hpp>
 
@@ -36,88 +37,6 @@ private:
 	void run (boost::asio::io_context &);
 };
 
-/* Default memory order of normal std::atomic operations is std::memory_order_seq_cst which provides
-   a total global ordering of atomic operations as well as synchronization between threads. Weaker memory
-   ordering can provide benefits in some circumstances, like dumb counters where no other data is
-   dependent on the ordering of these operations. This assumes T is a type of integer, not bool or char. */
-template <typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-class relaxed_atomic_integral
-{
-public:
-	relaxed_atomic_integral () noexcept = default;
-	constexpr relaxed_atomic_integral (T desired) noexcept :
-		atomic (desired)
-	{
-	}
-
-	T operator= (T desired) noexcept
-	{
-		store (desired);
-		return atomic;
-	}
-
-	relaxed_atomic_integral (relaxed_atomic_integral const &) = delete;
-	relaxed_atomic_integral & operator= (relaxed_atomic_integral const &) = delete;
-
-	void store (T desired, std::memory_order order = std::memory_order_relaxed) noexcept
-	{
-		atomic.store (desired, order);
-	}
-
-	T load (std::memory_order order = std::memory_order_relaxed) const noexcept
-	{
-		return atomic.load (std::memory_order_relaxed);
-	}
-
-	operator T () const noexcept
-	{
-		return load ();
-	}
-
-	bool compare_exchange_weak (T & expected, T desired, std::memory_order order = std::memory_order_relaxed) noexcept
-	{
-		return atomic.compare_exchange_weak (expected, desired, order);
-	}
-
-	bool compare_exchange_strong (T & expected, T desired, std::memory_order order = std::memory_order_relaxed) noexcept
-	{
-		return atomic.compare_exchange_strong (expected, desired, order);
-	}
-
-	T fetch_add (T arg, std::memory_order order = std::memory_order_relaxed) noexcept
-	{
-		return atomic.fetch_add (arg, order);
-	}
-
-	T fetch_sub (T arg, std::memory_order order = std::memory_order_relaxed) noexcept
-	{
-		return atomic.fetch_sub (arg, order);
-	}
-
-	T operator++ () noexcept
-	{
-		return fetch_add (1) + 1;
-	}
-
-	T operator++ (int) noexcept
-	{
-		return fetch_add (1);
-	}
-
-	T operator-- () noexcept
-	{
-		return fetch_sub (1) - 1;
-	}
-
-	T operator-- (int) noexcept
-	{
-		return fetch_sub (1);
-	}
-
-private:
-	std::atomic<T> atomic;
-};
-
 class thread_pool final
 {
 public:
@@ -144,7 +63,7 @@ private:
 	std::atomic<bool> stopped{ false };
 	unsigned num_threads;
 	std::unique_ptr<boost::asio::thread_pool> thread_pool_m;
-	relaxed_atomic_integral<uint64_t> num_tasks{ 0 };
+	nano::relaxed_atomic_integral<uint64_t> num_tasks{ 0 };
 
 	void set_thread_names (unsigned num_threads, nano::thread_role::name thread_name);
 };
