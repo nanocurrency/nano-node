@@ -35,6 +35,24 @@ class bootstrap_ascending
 {
 	using id_t = uint64_t;
 
+	// Class used to throttle the ascending bootstrapper once it reaches a steady state
+	// Tracks verify_result samples and signals throttling if no tracked samples have gotten results
+	class throttle
+	{
+	public:
+		// Initialized with all true samples
+		throttle (size_t size);
+		bool throttled () const;
+		void add (bool success);
+		size_t success_count () const;
+
+	private:
+		// Rolling count of true samples in the sample buffer
+		size_t successes;
+		// Circular buffer that tracks sample results. True when something was retrieved, false otherwise
+		boost::circular_buffer<bool> samples;
+	};
+
 public:
 	bootstrap_ascending (nano::node &, nano::store &, nano::block_processor &, nano::ledger &, nano::network &, nano::stats &);
 	~bootstrap_ascending ();
@@ -87,6 +105,7 @@ private:
 	/* Inspects a block that has been processed by the block processor */
 	void inspect (nano::transaction const &, nano::process_return const & result, nano::block const & block);
 
+	void throttle_if_needed ();
 	void run ();
 	bool run_one ();
 	void run_timeouts ();
@@ -273,6 +292,8 @@ private: // Database iterators
 		explicit buffered_iterator (nano::store & store);
 		nano::account operator* () const;
 		nano::account next ();
+		// Indicates if a full ledger iteration has taken place e.g. warmed up
+		bool warmup () const;
 
 	private:
 		void fill ();
@@ -280,6 +301,7 @@ private: // Database iterators
 	private:
 		nano::store & store;
 		std::deque<nano::account> buffer;
+		bool warmup_m{ true };
 
 		database_iterator accounts_iterator;
 		database_iterator pending_iterator;
@@ -290,6 +312,7 @@ private: // Database iterators
 private:
 	account_sets accounts;
 	buffered_iterator iterator;
+	throttle throttle;
 
 	// clang-format off
 	class tag_sequenced {};

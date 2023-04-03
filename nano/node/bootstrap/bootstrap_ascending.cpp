@@ -9,6 +9,35 @@
 
 using namespace std::chrono_literals;
 
+nano::bootstrap_ascending::throttle::throttle (size_t count) :
+	successes{ count },
+	samples{ count, true }
+{
+}
+
+bool nano::bootstrap_ascending::throttle::throttled () const
+{
+	return successes == 0;
+}
+
+void nano::bootstrap_ascending::throttle::add (bool sample)
+{
+	if (samples.front ())
+	{
+		--successes;
+	}
+	samples.push_back (sample);
+	if (sample)
+	{
+		++successes;
+	}
+}
+
+size_t nano::bootstrap_ascending::throttle::success_count () const
+{
+	return successes;
+}
+
 /*
  * database_iterator
  */
@@ -89,6 +118,11 @@ nano::account nano::bootstrap_ascending::buffered_iterator::next ()
 	return *(*this);
 }
 
+bool nano::bootstrap_ascending::buffered_iterator::warmup () const
+{
+	return warmup_m;
+}
+
 void nano::bootstrap_ascending::buffered_iterator::fill ()
 {
 	debug_assert (buffer.empty ());
@@ -111,6 +145,10 @@ void nano::bootstrap_ascending::buffered_iterator::fill ()
 		if (!(*pending_iterator).is_zero ())
 		{
 			buffer.push_back (*pending_iterator);
+		}
+		else
+		{
+			warmup_m = false;
 		}
 	}
 }
@@ -374,6 +412,7 @@ nano::bootstrap_ascending::bootstrap_ascending (nano::node & node_a, nano::store
 	stats{ stat_a },
 	accounts{ stats },
 	iterator{ store },
+	throttle{ node.config.bootstrap_ascending.throttle_count },
 	limiter{ node.config.bootstrap_ascending.requests_limit, 1.0 },
 	database_limiter{ node.config.bootstrap_ascending.database_requests_limit, 1.0 }
 {
@@ -678,12 +717,23 @@ bool nano::bootstrap_ascending::run_one ()
 	return success;
 }
 
+void nano::bootstrap_ascending::throttle_if_needed ()
+{
+	if (!iterator.warmup () && throttle.throttled ())
+	{
+		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::throttled);
+		nano::unique_lock<nano::mutex> lock{ mutex };
+		condition.wait_for (lock, std::chrono::milliseconds{ node.config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; });
+	}
+}
+
 void nano::bootstrap_ascending::run ()
 {
 	while (!stopped)
 	{
 		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::loop);
 		run_one ();
+		throttle_if_needed ();
 	}
 }
 
@@ -743,16 +793,17 @@ void nano::bootstrap_ascending::process (const nano::asc_pull_ack::blocks_payloa
 			{
 				block_processor.add (block);
 			}
+			nano::lock_guard<nano::mutex> lock{ mutex };
+			throttle.add (true);
 		}
 		break;
 		case verify_result::nothing_new:
 		{
 			stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::nothing_new);
 
-			{
-				nano::lock_guard<nano::mutex> lock{ mutex };
-				accounts.priority_down (tag.account);
-			}
+			nano::lock_guard<nano::mutex> lock{ mutex };
+			accounts.priority_down (tag.account);
+			throttle.add (false);
 		}
 		break;
 		case verify_result::invalid:

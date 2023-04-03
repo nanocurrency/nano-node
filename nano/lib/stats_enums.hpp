@@ -290,6 +290,7 @@ enum class detail : uint8_t
 	// bootstrap ascending
 	missing_tag,
 	reply,
+	throttled,
 	track,
 	timeout,
 	nothing_new,
