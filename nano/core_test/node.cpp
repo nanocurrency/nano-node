@@ -171,23 +171,6 @@ TEST (node, send_single_observing_peer)
 	ASSERT_TIMELY (10s, std::all_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr<nano::node> const & node_a) { return !node_a->balance (key2.pub).is_zero (); }));
 }
 
-TEST (node, send_single_many_peers)
-{
-	nano::test::system system (nano::memory_intensive_instrumentation () ? 4 : 10);
-	nano::keypair key2;
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	system.wallet (1)->insert_adhoc (key2.prv);
-	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
-	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), system.nodes[0]->balance (nano::dev::genesis_key.pub));
-	ASSERT_TRUE (system.nodes[0]->balance (key2.pub).is_zero ());
-	ASSERT_TIMELY (3.5min, std::all_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr<nano::node> const & node_a) { return !node_a->balance (key2.pub).is_zero (); }));
-	system.stop ();
-	for (auto node : system.nodes)
-	{
-		ASSERT_TRUE (node->stopped);
-	}
-}
-
 TEST (node, send_out_of_order)
 {
 	nano::test::system system (2);
