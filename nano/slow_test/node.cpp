@@ -2064,6 +2064,7 @@ TEST (node, aggressive_flooding)
 	node_flags.disable_lazy_bootstrap = true;
 	node_flags.disable_legacy_bootstrap = true;
 	node_flags.disable_wallet_bootstrap = true;
+	node_flags.disable_ascending_bootstrap = true;
 	auto & node1 (*system.add_node (node_flags));
 	auto & wallet1 (*system.wallet (0));
 	wallet1.insert_adhoc (nano::dev::genesis_key.prv);
