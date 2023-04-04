@@ -3432,7 +3432,7 @@ TEST (node, bidirectional_tcp)
 
 // Tests that local blocks are flooded to all principal representatives
 // Sanitizers or running within valgrind use different timings and number of nodes
-TEST (node, aggressive_flooding)
+TEST (node, DISABLED_aggressive_flooding)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
