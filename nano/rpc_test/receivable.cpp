@@ -552,32 +552,27 @@ TEST (rpc, receivable_exists)
 {
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
-	nano::keypair key1;
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto hash0 (node->latest (nano::dev::genesis->account ()));
-	auto block1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 100));
-	ASSERT_TIMELY (5s, node->block_confirmed (block1->hash ()));
+	auto chain = nano::test::setup_chain (system, *node, 1, nano::dev::genesis_key, false);
+	auto block1 = chain[0];
 
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-
-	auto pending_exists = [&system, &rpc_ctx, &request] (char const * exists_a) {
+	auto receivable_exists = [&system, &rpc_ctx, &request] (char const * exists_a) {
 		auto response0 (wait_response (system, rpc_ctx, request));
 		std::string exists_text (response0.get<std::string> ("exists"));
 		return exists_a == exists_text;
 	};
 
-	request.put ("action", "pending_exists");
-	request.put ("hash", hash0.to_string ());
-	ASSERT_TRUE (pending_exists ("0"));
-
-	node->store.pending.exists (node->store.tx_begin_read (), nano::pending_key (nano::dev::genesis_key.pub, block1->hash ()));
+	request.put ("action", "receivable_exists");
 	request.put ("hash", block1->hash ().to_string ());
-	ASSERT_TRUE (pending_exists ("1"));
-
-	ASSERT_TRUE (pending_exists ("1"));
-	reset_confirmation_height (node->store, block1->account ());
-	ASSERT_TRUE (pending_exists ("0"));
+	ASSERT_TIMELY (5s, node->store.pending.exists (node->store.tx_begin_read (), nano::pending_key (block1->link ().as_account (), block1->hash ())));
+	ASSERT_TRUE (receivable_exists ("0"));
+	request.put ("include_only_confirmed", "true");
+	ASSERT_TRUE (receivable_exists ("0"));
 	request.put ("include_only_confirmed", "false");
-	ASSERT_TRUE (pending_exists ("1"));
+	ASSERT_TRUE (receivable_exists ("1"));
+	{
+		node->store.confirmation_height.put (node->store.tx_begin_write (), nano::dev::genesis_key.pub, { 2, block1->hash () });
+	}
+	ASSERT_TRUE (receivable_exists ("1"));
 }
