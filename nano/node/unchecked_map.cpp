@@ -109,7 +109,6 @@ void nano::unchecked_map::trigger (nano::hash_or_account const & dependency)
 	lock.unlock ();
 	stats.inc (nano::stat::type::unchecked, nano::stat::detail::trigger);
 	condition.notify_all (); // Notify run ()
-	stats.inc (nano::stat::type::unchecked, nano::stat::detail::trigger);
 }
 
 void nano::unchecked_map::process_queries (decltype (buffer) const & back_buffer)
