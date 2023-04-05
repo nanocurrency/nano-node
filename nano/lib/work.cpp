@@ -30,8 +30,7 @@ nano::work_pool::work_pool (nano::network_constants & network_constants, unsigne
 	opencl (opencl_a)
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
-	boost::thread::attributes attrs;
-	nano::thread_attributes::set (attrs);
+
 	auto count (network_constants.is_dev_network () ? std::min (max_threads_a, 1u) : std::min (max_threads_a, std::max (1u, nano::hardware_concurrency ())));
 	if (opencl)
 	{
@@ -40,7 +39,7 @@ nano::work_pool::work_pool (nano::network_constants & network_constants, unsigne
 	}
 	for (auto i (0u); i < count; ++i)
 	{
-		threads.emplace_back (attrs, [this, i] () {
+		threads.emplace_back (nano::thread_attributes::get_default (), [this, i] () {
 			nano::thread_role::set (nano::thread_role::name::work);
 			nano::work_thread_reprioritize ();
 			loop (i);

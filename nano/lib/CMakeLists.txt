@@ -57,6 +57,7 @@ add_library(
   processing_queue.hpp
   rate_limiting.hpp
   rate_limiting.cpp
+  relaxed_atomic.hpp
   rep_weights.hpp
   rep_weights.cpp
   rocksdbconfig.hpp
@@ -71,6 +72,8 @@ add_library(
   stats_enums.hpp
   stats_enums.cpp
   stream.hpp
+  thread_roles.hpp
+  thread_roles.cpp
   threading.hpp
   threading.cpp
   timer.hpp

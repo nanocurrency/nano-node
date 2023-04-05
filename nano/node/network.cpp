@@ -27,12 +27,10 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 	port (port_a),
 	disconnect_observer ([] () {})
 {
-	boost::thread::attributes attrs;
-	nano::thread_attributes::set (attrs);
 	// TCP
 	for (std::size_t i = 0; i < node.config.network_threads && !node.flags.disable_tcp_realtime; ++i)
 	{
-		packet_processing_threads.emplace_back (attrs, [this] () {
+		packet_processing_threads.emplace_back (nano::thread_attributes::get_default (), [this] () {
 			nano::thread_role::set (nano::thread_role::name::packet_processing);
 			try
 			{
