@@ -577,9 +577,10 @@ void nano::bootstrap_ascending::inspect (nano::transaction const & tx, nano::pro
 
 void nano::bootstrap_ascending::wait_blockprocessor ()
 {
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped && block_processor.half_full ())
 	{
-		std::this_thread::sleep_for (500ms); // Blockprocessor is relatively slow, sleeping here instead of using conditions
+		condition.wait_for (lock, 500ms, [this] () { return stopped; }); // Blockprocessor is relatively slow, sleeping here instead of using conditions
 	}
 }
 
@@ -714,9 +715,8 @@ bool nano::bootstrap_ascending::run_one ()
 	return success;
 }
 
-void nano::bootstrap_ascending::throttle_if_needed ()
+void nano::bootstrap_ascending::throttle_if_needed (nano::unique_lock<nano::mutex> & lock)
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
 	if (!iterator.warmup () && throttle.throttled ())
 	{
 		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::throttled);
@@ -726,11 +726,14 @@ void nano::bootstrap_ascending::throttle_if_needed ()
 
 void nano::bootstrap_ascending::run ()
 {
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
+		lock.unlock ();
 		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::loop);
 		run_one ();
-		throttle_if_needed ();
+		lock.lock ();
+		throttle_if_needed (lock);
 	}
 }
 
