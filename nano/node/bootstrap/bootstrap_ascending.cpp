@@ -1,9 +1,13 @@
 #include <nano/lib/stats_enums.hpp>
+#include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/block_deserializer.hpp>
 #include <nano/node/bootstrap/bootstrap_ascending.hpp>
-#include <nano/node/node.hpp>
+#include <nano/node/network.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
 
@@ -398,25 +402,25 @@ nano::bootstrap_ascending::account_sets::priority_entry::priority_entry (nano::a
  * bootstrap_ascending
  */
 
-nano::bootstrap_ascending::bootstrap_ascending (nano::node & node_a, nano::store & store_a, nano::block_processor & block_processor_a, nano::ledger & ledger_a, nano::network & network_a, nano::stats & stat_a) :
-	node{ node_a },
-	store{ store_a },
+nano::bootstrap_ascending::bootstrap_ascending (nano::node_config & config_a, nano::block_processor & block_processor_a, nano::ledger & ledger_a, nano::network & network_a, nano::stats & stat_a) :
+	config{ config_a },
+	network_consts{ config.network_params.network },
 	block_processor{ block_processor_a },
 	ledger{ ledger_a },
 	network{ network_a },
 	stats{ stat_a },
 	accounts{ stats },
-	iterator{ store },
-	throttle{ node.config.bootstrap_ascending.throttle_count },
-	limiter{ node.config.bootstrap_ascending.requests_limit, 1.0 },
-	database_limiter{ node.config.bootstrap_ascending.database_requests_limit, 1.0 }
+	iterator{ ledger.store },
+	throttle{ config.bootstrap_ascending.throttle_count },
+	limiter{ config.bootstrap_ascending.requests_limit, 1.0 },
+	database_limiter{ config.bootstrap_ascending.database_requests_limit, 1.0 }
 {
 	// TODO: This is called from a very congested blockprocessor thread. Offload this work to a dedicated processing thread
 	block_processor.batch_processed.add ([this] (auto const & batch) {
 		{
 			nano::lock_guard<nano::mutex> lock{ mutex };
 
-			auto transaction = store.tx_begin_read ();
+			auto transaction = ledger.store.tx_begin_read ();
 			for (auto const & [result, block] : batch)
 			{
 				debug_assert (block != nullptr);
@@ -473,13 +477,13 @@ void nano::bootstrap_ascending::send (std::shared_ptr<nano::transport::channel> 
 {
 	debug_assert (tag.type == async_tag::query_type::blocks_by_hash || tag.type == async_tag::query_type::blocks_by_account);
 
-	nano::asc_pull_req request{ node.network_params.network };
+	nano::asc_pull_req request{ network_consts };
 	request.id = tag.id;
 	request.type = nano::asc_pull_type::blocks;
 
 	nano::asc_pull_req::blocks_payload request_payload;
 	request_payload.start = tag.start;
-	request_payload.count = node.config.bootstrap_ascending.pull_count;
+	request_payload.count = config.bootstrap_ascending.pull_count;
 	request_payload.start_type = (tag.type == async_tag::query_type::blocks_by_hash) ? nano::asc_pull_req::hash_type::block : nano::asc_pull_req::hash_type::account;
 
 	request.payload = request_payload;
@@ -594,7 +598,7 @@ void nano::bootstrap_ascending::wait_available_request ()
 
 std::shared_ptr<nano::transport::channel> nano::bootstrap_ascending::available_channel ()
 {
-	auto channels = network.random_set (32, node.network_params.network.bootstrap_protocol_version_min, /* include temporary channels */ true);
+	auto channels = network.random_set (32, network_consts.bootstrap_protocol_version_min, /* include temporary channels */ true);
 	for (auto & channel : channels)
 	{
 		if (!channel->max (nano::transport::traffic_type::bootstrap))
@@ -668,7 +672,7 @@ bool nano::bootstrap_ascending::request (nano::account & account, std::shared_pt
 	tag.time = nano::milliseconds_since_epoch ();
 
 	// Check if the account picked has blocks, if it does, start the pull from the highest block
-	auto info = store.account.get (store.tx_begin_read (), account);
+	auto info = ledger.store.account.get (ledger.store.tx_begin_read (), account);
 	if (info)
 	{
 		tag.type = async_tag::query_type::blocks_by_hash;
@@ -720,7 +724,7 @@ void nano::bootstrap_ascending::throttle_if_needed ()
 	if (!iterator.warmup () && throttle.throttled ())
 	{
 		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::throttled);
-		condition.wait_for (lock, std::chrono::milliseconds{ node.config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; });
+		condition.wait_for (lock, std::chrono::milliseconds{ config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; });
 	}
 }
 
@@ -740,7 +744,7 @@ void nano::bootstrap_ascending::run_timeouts ()
 	while (!stopped)
 	{
 		auto & tags_by_order = tags.get<tag_sequenced> ();
-		while (!tags_by_order.empty () && nano::time_difference (tags_by_order.front ().time, nano::milliseconds_since_epoch ()) > node.config.bootstrap_ascending.timeout)
+		while (!tags_by_order.empty () && nano::time_difference (tags_by_order.front ().time, nano::milliseconds_since_epoch ()) > config.bootstrap_ascending.timeout)
 		{
 			auto tag = tags_by_order.front ();
 			tags_by_order.pop_front ();
