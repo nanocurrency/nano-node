@@ -33,11 +33,6 @@ void nano::bootstrap_ascending::throttle::add (bool sample)
 	}
 }
 
-size_t nano::bootstrap_ascending::throttle::success_count () const
-{
-	return successes;
-}
-
 /*
  * database_iterator
  */
