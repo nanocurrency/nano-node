@@ -585,9 +585,10 @@ void nano::bootstrap_ascending::wait_blockprocessor ()
 
 void nano::bootstrap_ascending::wait_available_request ()
 {
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped && !limiter.should_pass (1))
 	{
-		std::this_thread::sleep_for (50ms); // Give it at least some time to cooldown to avoid hitting the limit too frequently
+		condition.wait_for (lock, 50ms, [this] () { return stopped; }); // Give it at least some time to cooldown to avoid hitting the limit too frequently
 	}
 }
 
@@ -607,9 +608,10 @@ std::shared_ptr<nano::transport::channel> nano::bootstrap_ascending::available_c
 std::shared_ptr<nano::transport::channel> nano::bootstrap_ascending::wait_available_channel ()
 {
 	std::shared_ptr<nano::transport::channel> channel;
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped && !(channel = available_channel ()))
 	{
-		std::this_thread::sleep_for (100ms);
+		condition.wait_for (lock, 100ms, [this] () { return stopped; });
 	}
 	return channel;
 }
@@ -714,10 +716,10 @@ bool nano::bootstrap_ascending::run_one ()
 
 void nano::bootstrap_ascending::throttle_if_needed ()
 {
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	if (!iterator.warmup () && throttle.throttled ())
 	{
 		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::throttled);
-		nano::unique_lock<nano::mutex> lock{ mutex };
 		condition.wait_for (lock, std::chrono::milliseconds{ node.config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; });
 	}
 }
