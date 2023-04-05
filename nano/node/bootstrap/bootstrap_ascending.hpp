@@ -41,10 +41,9 @@ class bootstrap_ascending
 	{
 	public:
 		// Initialized with all true samples
-		throttle (size_t size);
+		explicit throttle (size_t size);
 		bool throttled () const;
 		void add (bool success);
-		size_t success_count () const;
 
 	private:
 		// Rolling count of true samples in the sample buffer
