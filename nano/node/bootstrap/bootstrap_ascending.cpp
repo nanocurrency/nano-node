@@ -717,6 +717,7 @@ bool nano::bootstrap_ascending::run_one ()
 
 void nano::bootstrap_ascending::throttle_if_needed (nano::unique_lock<nano::mutex> & lock)
 {
+	debug_assert (lock.owns_lock ());
 	if (!iterator.warmup () && throttle.throttled ())
 	{
 		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::throttled);
