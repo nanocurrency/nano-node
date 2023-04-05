@@ -25,6 +25,7 @@ namespace nano
 class block_processor;
 class ledger;
 class network;
+class node_config;
 
 namespace transport
 {
@@ -53,7 +54,7 @@ class bootstrap_ascending
 	};
 
 public:
-	bootstrap_ascending (nano::node &, nano::store &, nano::block_processor &, nano::ledger &, nano::network &, nano::stats &);
+	bootstrap_ascending (nano::node_config &, nano::block_processor &, nano::ledger &, nano::network &, nano::stats &);
 	~bootstrap_ascending ();
 
 	void start ();
@@ -70,8 +71,8 @@ public: // Container info
 	size_t priority_size () const;
 
 private: // Dependencies
-	nano::node & node;
-	nano::store & store;
+	nano::node_config & config;
+	nano::network_constants & network_consts;
 	nano::block_processor & block_processor;
 	nano::ledger & ledger;
 	nano::network & network;
