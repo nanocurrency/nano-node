@@ -1,6 +1,6 @@
 #include <nano/crypto_lib/random_pool_shuffle.hpp>
 #include <nano/lib/threading.hpp>
-#include <nano/node/bootstrap/bootstrap_ascending.hpp>
+#include <nano/node/bootstrap_ascending/bootstrap_ascending.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/telemetry.hpp>

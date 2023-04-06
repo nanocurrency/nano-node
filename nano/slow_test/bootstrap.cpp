@@ -1,6 +1,6 @@
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/node/bootstrap/bootstrap_ascending.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <nano/node/bootstrap_ascending/bootstrap_ascending.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/transport/transport.hpp>
