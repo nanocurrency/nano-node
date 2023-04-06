@@ -6,6 +6,7 @@
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <nano/node/bootstrap_ascending/common.hpp>
 #include <nano/node/bootstrap_ascending/throttle.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
@@ -35,8 +36,6 @@ namespace transport
 
 class bootstrap_ascending_service
 {
-	using id_t = uint64_t;
-
 public:
 	bootstrap_ascending_service (nano::node_config &, nano::block_processor &, nano::ledger &, nano::network &, nano::stats &);
 	~bootstrap_ascending_service ();
@@ -74,7 +73,7 @@ public: // async_tag
 		};
 
 		query_type type{ query_type::invalid };
-		id_t id{ 0 };
+		nano::bootstrap_ascending::id_t id{ 0 };
 		nano::hash_or_account start{ 0 };
 		nano::millis_t time{ 0 };
 		nano::account account{ 0 };
@@ -128,8 +127,6 @@ private:
 	 */
 	verify_result verify (nano::asc_pull_ack::blocks_payload const & response, async_tag const & tag) const;
 
-	static id_t generate_id ();
-
 public: // account_sets
 	/** This class tracks accounts various account sets which are shared among the multiple bootstrap threads */
 	class account_sets
@@ -180,7 +177,7 @@ public: // account_sets
 			nano::account account{ 0 };
 			float priority{ 0 };
 			nano::millis_t timestamp{ 0 };
-			id_t id{ 0 }; // Uniformly distributed, used for random querying
+			nano::bootstrap_ascending::id_t id{ 0 }; // Uniformly distributed, used for random querying
 
 			priority_entry (nano::account account, float priority);
 		};
@@ -213,7 +210,7 @@ public: // account_sets
 			mi::ordered_non_unique<mi::tag<tag_priority>,
 				mi::member<priority_entry, float, &priority_entry::priority>>,
 			mi::ordered_unique<mi::tag<tag_id>,
-				mi::member<priority_entry, bootstrap_ascending_service::id_t, &priority_entry::id>>
+				mi::member<priority_entry, nano::bootstrap_ascending::id_t, &priority_entry::id>>
 		>>;
 
 		// A blocked account is an account that has failed to insert a new block because the source block is not currently present in the ledger
@@ -307,7 +304,7 @@ private:
 	mi::indexed_by<
 		mi::sequenced<mi::tag<tag_sequenced>>,
 		mi::hashed_unique<mi::tag<tag_id>,
-			mi::member<async_tag, id_t, &async_tag::id>>,
+			mi::member<async_tag, nano::bootstrap_ascending::id_t, &async_tag::id>>,
 		mi::hashed_non_unique<mi::tag<tag_account>,
 			mi::member<async_tag, nano::account , &async_tag::account>>
 	>>;

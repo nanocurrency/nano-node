@@ -295,7 +295,7 @@ nano::account nano::bootstrap_ascending_service::account_sets::next ()
 		debug_assert (candidates.size () == weights.size ());
 
 		// Use a dedicated, uniformly distributed field for sampling to avoid problematic corner case when accounts in the queue are very close together
-		auto search = bootstrap_ascending_service::generate_id ();
+		auto search = nano::bootstrap_ascending::generate_id ();
 		auto iter = priorities.get<tag_id> ().lower_bound (search);
 		if (iter == priorities.get<tag_id> ().end ())
 		{
@@ -371,7 +371,7 @@ nano::bootstrap_ascending_service::account_sets::priority_entry::priority_entry 
 	account{ account_a },
 	priority{ priority_a }
 {
-	id = nano::bootstrap_ascending_service::generate_id ();
+	id = nano::bootstrap_ascending::generate_id ();
 }
 
 /*
@@ -440,13 +440,6 @@ void nano::bootstrap_ascending_service::stop ()
 	condition.notify_all ();
 	nano::join_or_pass (thread);
 	nano::join_or_pass (timeout_thread);
-}
-
-nano::bootstrap_ascending_service::id_t nano::bootstrap_ascending_service::generate_id ()
-{
-	id_t id;
-	nano::random_pool::generate_block (reinterpret_cast<uint8_t *> (&id), sizeof (id));
-	return id;
 }
 
 void nano::bootstrap_ascending_service::send (std::shared_ptr<nano::transport::channel> channel, async_tag tag)
@@ -644,7 +637,7 @@ nano::account nano::bootstrap_ascending_service::wait_available_account ()
 bool nano::bootstrap_ascending_service::request (nano::account & account, std::shared_ptr<nano::transport::channel> & channel)
 {
 	async_tag tag{};
-	tag.id = generate_id ();
+	tag.id = nano::bootstrap_ascending::generate_id ();
 	tag.account = account;
 	tag.time = nano::milliseconds_since_epoch ();
 
