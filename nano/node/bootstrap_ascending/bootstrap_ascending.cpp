@@ -13,30 +13,6 @@
 
 using namespace std::chrono_literals;
 
-nano::bootstrap_ascending_service::throttle::throttle (size_t count) :
-	successes{ count },
-	samples{ count, true }
-{
-}
-
-bool nano::bootstrap_ascending_service::throttle::throttled () const
-{
-	return successes == 0;
-}
-
-void nano::bootstrap_ascending_service::throttle::add (bool sample)
-{
-	if (samples.front ())
-	{
-		--successes;
-	}
-	samples.push_back (sample);
-	if (sample)
-	{
-		++successes;
-	}
-}
-
 /*
  * database_iterator
  */

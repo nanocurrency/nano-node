@@ -56,6 +56,8 @@ add_library(
   bootstrap/bootstrap_server.cpp
   bootstrap_ascending/bootstrap_ascending.hpp
   bootstrap_ascending/bootstrap_ascending.cpp
+  bootstrap_ascending/throttle.hpp
+  bootstrap_ascending/throttle.cpp
   cli.hpp
   cli.cpp
   common.hpp
