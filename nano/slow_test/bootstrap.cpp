@@ -110,7 +110,7 @@ TEST (bootstrap_ascending, profile)
 
 	struct entry
 	{
-		nano::bootstrap_ascending::async_tag tag;
+		nano::bootstrap_ascending_service::async_tag tag;
 		std::shared_ptr<nano::transport::channel> request_channel;
 		std::shared_ptr<nano::transport::channel> reply_channel;
 

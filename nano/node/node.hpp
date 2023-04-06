@@ -193,7 +193,7 @@ public:
 	nano::request_aggregator aggregator;
 	nano::wallets wallets;
 	nano::backlog_population backlog;
-	nano::bootstrap_ascending ascendboot;
+	nano::bootstrap_ascending_service ascendboot;
 	nano::websocket_server websocket;
 	nano::epoch_upgrader epoch_upgrader;
 	nano::block_broadcast block_broadcast;

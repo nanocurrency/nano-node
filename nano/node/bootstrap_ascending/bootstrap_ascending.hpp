@@ -32,7 +32,7 @@ namespace transport
 	class channel;
 }
 
-class bootstrap_ascending
+class bootstrap_ascending_service
 {
 	using id_t = uint64_t;
 
@@ -54,8 +54,8 @@ class bootstrap_ascending
 	};
 
 public:
-	bootstrap_ascending (nano::node_config &, nano::block_processor &, nano::ledger &, nano::network &, nano::stats &);
-	~bootstrap_ascending ();
+	bootstrap_ascending_service (nano::node_config &, nano::block_processor &, nano::ledger &, nano::network &, nano::stats &);
+	~bootstrap_ascending_service ();
 
 	void start ();
 	void stop ();
@@ -229,7 +229,7 @@ public: // account_sets
 			mi::ordered_non_unique<mi::tag<tag_priority>,
 				mi::member<priority_entry, float, &priority_entry::priority>>,
 			mi::ordered_unique<mi::tag<tag_id>,
-				mi::member<priority_entry, bootstrap_ascending::id_t, &priority_entry::id>>
+				mi::member<priority_entry, bootstrap_ascending_service::id_t, &priority_entry::id>>
 		>>;
 
 		// A blocked account is an account that has failed to insert a new block because the source block is not currently present in the ledger
