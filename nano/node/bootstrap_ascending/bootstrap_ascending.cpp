@@ -1,6 +1,5 @@
 #include <nano/lib/stats_enums.hpp>
 #include <nano/node/blockprocessor.hpp>
-#include <nano/node/bootstrap/block_deserializer.hpp>
 #include <nano/node/bootstrap_ascending/bootstrap_ascending.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -8,8 +7,6 @@
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/store.hpp>
-
-#include <boost/format.hpp>
 
 using namespace std::chrono_literals;
 

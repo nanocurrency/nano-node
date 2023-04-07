@@ -1,11 +1,11 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/observer_set.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/bandwidth_limiter.hpp>
-#include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
-#include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/bootstrap_ascending/account_sets.hpp>
 #include <nano/node/bootstrap_ascending/common.hpp>
 #include <nano/node/bootstrap_ascending/iterators.hpp>
@@ -29,6 +29,7 @@ class block_processor;
 class ledger;
 class network;
 class node_config;
+class transaction;
 
 namespace transport
 {
