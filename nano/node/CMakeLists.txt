@@ -59,6 +59,8 @@ add_library(
   bootstrap_ascending/throttle.cpp
   bootstrap_ascending/account_sets.hpp
   bootstrap_ascending/account_sets.cpp
+  bootstrap_ascending/iterators.hpp
+  bootstrap_ascending/iterators.cpp
   bootstrap_ascending/bootstrap_ascending.hpp
   bootstrap_ascending/bootstrap_ascending.cpp
   cli.hpp

@@ -8,6 +8,7 @@
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/bootstrap_ascending/account_sets.hpp>
 #include <nano/node/bootstrap_ascending/common.hpp>
+#include <nano/node/bootstrap_ascending/iterators.hpp>
 #include <nano/node/bootstrap_ascending/throttle.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
@@ -130,52 +131,9 @@ private:
 public: // account_sets
 	nano::bootstrap_ascending::account_sets::info_t info () const;
 
-private: // Database iterators
-	class database_iterator
-	{
-	public:
-		enum class table_type
-		{
-			account,
-			pending
-		};
-
-		explicit database_iterator (nano::store & store, table_type);
-		nano::account operator* () const;
-		void next (nano::transaction & tx);
-
-	private:
-		nano::store & store;
-		nano::account current{ 0 };
-		const table_type table;
-	};
-
-	class buffered_iterator
-	{
-	public:
-		explicit buffered_iterator (nano::store & store);
-		nano::account operator* () const;
-		nano::account next ();
-		// Indicates if a full ledger iteration has taken place e.g. warmed up
-		bool warmup () const;
-
-	private:
-		void fill ();
-
-	private:
-		nano::store & store;
-		std::deque<nano::account> buffer;
-		bool warmup_m{ true };
-
-		database_iterator accounts_iterator;
-		database_iterator pending_iterator;
-
-		static std::size_t constexpr size = 1024;
-	};
-
 private:
 	nano::bootstrap_ascending::account_sets accounts;
-	buffered_iterator iterator;
+	nano::bootstrap_ascending::buffered_iterator iterator;
 	nano::bootstrap_ascending::throttle throttle;
 
 	// clang-format off
