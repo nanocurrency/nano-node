@@ -1,0 +1,14 @@
+name: "restore-git-mtimes"
+description: "Restore file modification timestamps from git commit timestamps"
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v3
+      with:
+        repository: "MestreLion/git-tools"
+        ref: a42a069bc755f0fa81316965335cb33dbf22a968 # pin latest commit
+        path: "git-tools"
+    - run: $GITHUB_WORKSPACE/git-tools/git-restore-mtime
+      shell: bash
+    - run: git submodule foreach --recursive '$GITHUB_WORKSPACE/git-tools/git-restore-mtime'
+      shell: bash
