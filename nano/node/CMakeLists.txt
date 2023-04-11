@@ -61,8 +61,8 @@ add_library(
   bootstrap_ascending/account_sets.cpp
   bootstrap_ascending/iterators.hpp
   bootstrap_ascending/iterators.cpp
-  bootstrap_ascending/bootstrap_ascending.hpp
-  bootstrap_ascending/bootstrap_ascending.cpp
+  bootstrap_ascending/service.hpp
+  bootstrap_ascending/service.cpp
   cli.hpp
   cli.cpp
   common.hpp

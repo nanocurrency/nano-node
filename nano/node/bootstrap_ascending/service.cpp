@@ -1,6 +1,6 @@
 #include <nano/lib/stats_enums.hpp>
 #include <nano/node/blockprocessor.hpp>
-#include <nano/node/bootstrap_ascending/bootstrap_ascending.hpp>
+#include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/transport.hpp>
