@@ -34,8 +34,6 @@ add_library(
   blockprocessor.cpp
   bootstrap/block_deserializer.hpp
   bootstrap/block_deserializer.cpp
-  bootstrap/bootstrap_ascending.hpp
-  bootstrap/bootstrap_ascending.cpp
   bootstrap/bootstrap_attempt.hpp
   bootstrap/bootstrap_attempt.cpp
   bootstrap/bootstrap_bulk_pull.hpp
@@ -56,6 +54,15 @@ add_library(
   bootstrap/bootstrap.cpp
   bootstrap/bootstrap_server.hpp
   bootstrap/bootstrap_server.cpp
+  bootstrap_ascending/common.hpp
+  bootstrap_ascending/throttle.hpp
+  bootstrap_ascending/throttle.cpp
+  bootstrap_ascending/account_sets.hpp
+  bootstrap_ascending/account_sets.cpp
+  bootstrap_ascending/iterators.hpp
+  bootstrap_ascending/iterators.cpp
+  bootstrap_ascending/service.hpp
+  bootstrap_ascending/service.cpp
   cli.hpp
   cli.cpp
   common.hpp

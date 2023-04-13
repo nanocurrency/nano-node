@@ -11,9 +11,9 @@
 #include <nano/node/block_publisher.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
-#include <nano/node/bootstrap/bootstrap_ascending.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/election.hpp>
@@ -193,7 +193,7 @@ public:
 	nano::request_aggregator aggregator;
 	nano::wallets wallets;
 	nano::backlog_population backlog;
-	nano::bootstrap_ascending ascendboot;
+	nano::bootstrap_ascending::service ascendboot;
 	nano::websocket_server websocket;
 	nano::epoch_upgrader epoch_upgrader;
 	nano::block_broadcast block_broadcast;

@@ -1,8 +1,8 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/json_error_response.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/node/bootstrap/bootstrap_ascending.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
+#include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/json_handler.hpp>

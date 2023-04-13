@@ -1,6 +1,6 @@
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/node/bootstrap/bootstrap_ascending.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/transport/transport.hpp>
@@ -110,7 +110,7 @@ TEST (bootstrap_ascending, profile)
 
 	struct entry
 	{
-		nano::bootstrap_ascending::async_tag tag;
+		nano::bootstrap_ascending::service::async_tag tag;
 		std::shared_ptr<nano::transport::channel> request_channel;
 		std::shared_ptr<nano::transport::channel> reply_channel;
 
