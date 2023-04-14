@@ -24,7 +24,7 @@ nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano:
 	accounts{ stats },
 	iterator{ ledger.store },
 	throttle{ config.bootstrap_ascending.throttle_count },
-	limiter{ config.bootstrap_ascending.requests_limit, 1.0 },
+	scoring{ config.bootstrap_ascending, config.network_params.network },
 	database_limiter{ config.bootstrap_ascending.database_requests_limit, 1.0 }
 {
 	// TODO: This is called from a very congested blockprocessor thread. Offload this work to a dedicated processing thread
@@ -114,6 +114,12 @@ size_t nano::bootstrap_ascending::service::blocked_size () const
 	return accounts.blocked_size ();
 }
 
+std::size_t nano::bootstrap_ascending::service::score_size () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return scoring.size ();
+}
+
 /** Inspects a block that has been processed by the block processor
 - Marks an account as blocked if the result code is gap source as there is no reason request additional blocks for this account until the dependency is resolved
 - Marks an account as forwarded if it has been recently referenced by a block that has been inserted.
@@ -193,33 +199,11 @@ void nano::bootstrap_ascending::service::wait_blockprocessor ()
 	}
 }
 
-void nano::bootstrap_ascending::service::wait_available_request ()
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped && !limiter.should_pass (1))
-	{
-		condition.wait_for (lock, 50ms, [this] () { return stopped; }); // Give it at least some time to cooldown to avoid hitting the limit too frequently
-	}
-}
-
-std::shared_ptr<nano::transport::channel> nano::bootstrap_ascending::service::available_channel ()
-{
-	auto channels = network.random_set (32, network_consts.bootstrap_protocol_version_min, /* include temporary channels */ true);
-	for (auto & channel : channels)
-	{
-		if (!channel->max (nano::transport::traffic_type::bootstrap))
-		{
-			return channel;
-		}
-	}
-	return nullptr;
-}
-
 std::shared_ptr<nano::transport::channel> nano::bootstrap_ascending::service::wait_available_channel ()
 {
 	std::shared_ptr<nano::transport::channel> channel;
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped && !(channel = available_channel ()))
+	while (!stopped && !(channel = scoring.channel ()))
 	{
 		condition.wait_for (lock, 100ms, [this] () { return stopped; });
 	}
@@ -303,19 +287,16 @@ bool nano::bootstrap_ascending::service::run_one ()
 	// Ensure there is enough space in blockprocessor for queuing new blocks
 	wait_blockprocessor ();
 
-	// Do not do too many requests in parallel, impose throttling
-	wait_available_request ();
-
-	// Waits for channel that is not full
-	auto channel = wait_available_channel ();
-	if (!channel)
+	// Waits for account either from priority queue or database
+	auto account = wait_available_account ();
+	if (account.is_zero ())
 	{
 		return false;
 	}
 
-	// Waits for account either from priority queue or database
-	auto account = wait_available_account ();
-	if (account.is_zero ())
+	// Waits for channel that is not full
+	auto channel = wait_available_channel ();
+	if (!channel)
 	{
 		return false;
 	}
@@ -352,6 +333,8 @@ void nano::bootstrap_ascending::service::run_timeouts ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
+		scoring.sync (network.list ());
+		scoring.timeout ();
 		auto & tags_by_order = tags.get<tag_sequenced> ();
 		while (!tags_by_order.empty () && nano::time_difference (tags_by_order.front ().time, nano::milliseconds_since_epoch ()) > config.bootstrap_ascending.timeout)
 		{
@@ -364,7 +347,7 @@ void nano::bootstrap_ascending::service::run_timeouts ()
 	}
 }
 
-void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack & message)
+void nano::bootstrap_ascending::service::process (nano::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> channel)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
@@ -375,6 +358,7 @@ void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack & mes
 		auto iterator = tags_by_id.find (message.id);
 		auto tag = *iterator;
 		tags_by_id.erase (iterator);
+		scoring.received_message (channel);
 
 		lock.unlock ();
 
