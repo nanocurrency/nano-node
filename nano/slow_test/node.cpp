@@ -17,22 +17,6 @@
 
 using namespace std::chrono_literals;
 
-/**
- * function to count the block in the pruned store one by one
- * we manually count the blocks one by one because the rocksdb count feature is not accurate
- */
-size_t manually_count_pruned_blocks (nano::store & store)
-{
-	size_t count = 0;
-	auto transaction = store.tx_begin_read ();
-	auto i = store.pruned.begin (transaction);
-	for (; i != store.pruned.end (); ++i)
-	{
-		++count;
-	}
-	return count;
-}
-
 TEST (system, generate_mass_activity)
 {
 	nano::test::system system;
@@ -566,14 +550,14 @@ TEST (store, pruned_load)
 				}
 			}
 		}
-		ASSERT_EQ (expected_result, manually_count_pruned_blocks (*store));
+		ASSERT_EQ (expected_result, store->pruned.count_accurate (store->tx_begin_read ()));
 	}
 
 	// Reinitialize store
 	{
 		auto store = nano::make_store (logger, path, nano::dev::constants);
 		ASSERT_FALSE (store->init_error ());
-		ASSERT_EQ (expected_result, manually_count_pruned_blocks (*store));
+		ASSERT_EQ (expected_result, store->pruned.count_accurate (store->tx_begin_read ()));
 	}
 }
 
