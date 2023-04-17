@@ -9,6 +9,7 @@
 #include <nano/node/bootstrap_ascending/account_sets.hpp>
 #include <nano/node/bootstrap_ascending/common.hpp>
 #include <nano/node/bootstrap_ascending/iterators.hpp>
+#include <nano/node/bootstrap_ascending/peer_scoring.hpp>
 #include <nano/node/bootstrap_ascending/throttle.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
@@ -50,12 +51,13 @@ namespace bootstrap_ascending
 		/**
 		 * Process `asc_pull_ack` message coming from network
 		 */
-		void process (nano::asc_pull_ack const & message);
+		void process (nano::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> channel);
 
 	public: // Container info
 		std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name);
 		size_t blocked_size () const;
 		size_t priority_size () const;
+		size_t score_size () const;
 
 	private: // Dependencies
 		nano::node_config & config;
@@ -97,13 +99,10 @@ namespace bootstrap_ascending
 		bool run_one ();
 		void run_timeouts ();
 
-		/* Limits the number of requests per second we make */
-		void wait_available_request ();
 		/* Throttles requesting new blocks, not to overwhelm blockprocessor */
 		void wait_blockprocessor ();
 		/* Waits for channel with free capacity for bootstrap messages */
 		std::shared_ptr<nano::transport::channel> wait_available_channel ();
-		std::shared_ptr<nano::transport::channel> available_channel ();
 		/* Waits until a suitable account outside of cool down period is available */
 		nano::account available_account ();
 		nano::account wait_available_account ();
@@ -155,7 +154,7 @@ namespace bootstrap_ascending
 		// clang-format on
 		ordered_tags tags;
 
-		nano::bandwidth_limiter limiter;
+		nano::bootstrap_ascending::peer_scoring scoring;
 		// Requests for accounts from database have much lower hitrate and could introduce strain on the network
 		// A separate (lower) limiter ensures that we always reserve resources for querying accounts from priority queue
 		nano::bandwidth_limiter database_limiter;

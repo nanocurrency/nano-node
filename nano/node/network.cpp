@@ -510,7 +510,7 @@ public:
 
 	void asc_pull_ack (nano::asc_pull_ack const & message) override
 	{
-		node.ascendboot.process (message);
+		node.ascendboot.process (message, channel);
 	}
 
 private:
