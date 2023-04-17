@@ -137,6 +137,8 @@ namespace bootstrap_ascending
 		nano::bootstrap_ascending::account_sets accounts;
 		nano::bootstrap_ascending::buffered_iterator iterator;
 		nano::bootstrap_ascending::throttle throttle;
+		// Calculates a lookback size based on the size of the ledger where larger ledgers have a larger sample count
+		size_t compute_throttle_size (nano::ledger_cache const & ledger);
 
 		// clang-format off
 		class tag_sequenced {};

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <boost/circular_buffer.hpp>
+#include <deque>
 
 namespace nano::bootstrap_ascending
 {
@@ -13,11 +13,17 @@ public:
 	explicit throttle (std::size_t size);
 	bool throttled () const;
 	void add (bool success);
+	// Resizes the number of samples tracked
+	// Drops the oldest samples if the size decreases
+	// Adds fals samples if the size increases
+	void resize (size_t size);
+	size_t size () const;
+	size_t successes () const;
 
 private:
-	// Rolling count of true samples in the sample buffer
-	std::size_t successes;
-	// Circular buffer that tracks sample results. True when something was retrieved, false otherwise
-	boost::circular_buffer<bool> samples;
+	void pop ();
+	// Bit set that tracks sample results. True when something was retrieved, false otherwise
+	std::deque<bool> samples;
+	size_t successes_m;
 };
 } // nano::boostrap_ascending
