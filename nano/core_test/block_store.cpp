@@ -2436,14 +2436,13 @@ namespace nano
 {
 // This thest ensures the tombstone_count is increased when there is a delete. The tombstone_count is part of a flush
 // logic bound to the way RocksDB is used by the node.
-/* The unchecked table was deprecated and it is being removed, rewrite this test using another table
 TEST (rocksdb_block_store, tombstone_count)
 {
 	if (!nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		GTEST_SKIP ();
 	}
-	nano::test::system system{};
+	nano::test::system system;
 	nano::logger_mt logger;
 	auto store = std::make_unique<nano::rocksdb::store> (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
@@ -2457,20 +2456,18 @@ TEST (rocksdb_block_store, tombstone_count)
 				 .work (5)
 				 .build_shared ();
 	// Enqueues a block to be saved in the database
-	auto previous = block->previous ();
-	store->unchecked.put (store->tx_begin_write (), previous, nano::unchecked_info (block));
-	nano::unchecked_key key{ previous, block->hash () };
+	nano::account account{ 1 };
+	store->account.put (store->tx_begin_write (), account, nano::account_info{});
 	auto check_block_is_listed = [&] (nano::transaction const & transaction_a) {
-		return store->unchecked.exists (transaction_a, key);
+		return store->account.exists (transaction_a, account);
 	};
 	// Waits for the block to get saved
 	ASSERT_TIMELY (5s, check_block_is_listed (store->tx_begin_read ()));
-	ASSERT_EQ (store->tombstone_map.at (nano::tables::unchecked).num_since_last_flush.load (), 0);
-	// Perorms a delete and checks for the tombstone counter
-	store->unchecked.del (store->tx_begin_write (), nano::unchecked_key (previous, block->hash ()));
-	ASSERT_TIMELY (5s, store->tombstone_map.at (nano::tables::unchecked).num_since_last_flush.load () == 1);
+	ASSERT_EQ (store->tombstone_map.at (nano::tables::accounts).num_since_last_flush.load (), 0);
+	// Performs a delete operation and checks for the tombstone counter
+	store->account.del (store->tx_begin_write (), account);
+	ASSERT_TIMELY (5s, store->tombstone_map.at (nano::tables::accounts).num_since_last_flush.load () == 1);
 }
- */
 }
 
 namespace nano
