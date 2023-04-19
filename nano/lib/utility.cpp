@@ -1,3 +1,4 @@
+#include <nano/lib/stacktrace.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/dll/runtime_symbol_info.hpp>
@@ -9,7 +10,6 @@
 #define NOMINMAX
 #endif
 #endif
-#include <boost/stacktrace.hpp>
 
 #include <cstddef>
 #include <fstream>
@@ -98,19 +98,6 @@ bool nano::container_info_leaf::is_composite () const
 nano::container_info const & nano::container_info_leaf::get_info () const
 {
 	return info;
-}
-
-void nano::dump_crash_stacktrace ()
-{
-	boost::stacktrace::safe_dump_to ("nano_node_backtrace.dump");
-}
-
-std::string nano::generate_stacktrace ()
-{
-	auto stacktrace = boost::stacktrace::stacktrace ();
-	std::stringstream ss;
-	ss << stacktrace;
-	return ss.str ();
 }
 
 void nano::remove_all_files_in_dir (boost::filesystem::path const & dir)

@@ -275,6 +275,10 @@ target_link_libraries(
   ${CMAKE_DL_LIBS}
   ${psapi_lib})
 
+if(NANO_STACKTRACE_BACKTRACE)
+  target_link_libraries(node backtrace)
+endif()
+
 target_compile_definitions(
   node PRIVATE -DTAG_VERSION_STRING=${TAG_VERSION_STRING}
                -DGIT_COMMIT_HASH=${GIT_COMMIT_HASH})

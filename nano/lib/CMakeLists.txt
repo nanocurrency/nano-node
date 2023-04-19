@@ -67,6 +67,8 @@ add_library(
   rpcconfig.cpp
   signal_manager.hpp
   signal_manager.cpp
+  stacktrace.hpp
+  stacktrace.cpp
   stats.hpp
   stats.cpp
   stats_enums.hpp
