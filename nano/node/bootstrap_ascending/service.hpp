@@ -13,10 +13,7 @@
 #include <nano/node/bootstrap_ascending/throttle.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
-#include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
 
@@ -55,9 +52,9 @@ namespace bootstrap_ascending
 
 	public: // Container info
 		std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name);
-		size_t blocked_size () const;
-		size_t priority_size () const;
-		size_t score_size () const;
+		std::size_t blocked_size () const;
+		std::size_t priority_size () const;
+		std::size_t score_size () const;
 
 	private: // Dependencies
 		nano::node_config & config;
@@ -138,7 +135,7 @@ namespace bootstrap_ascending
 		nano::bootstrap_ascending::buffered_iterator iterator;
 		nano::bootstrap_ascending::throttle throttle;
 		// Calculates a lookback size based on the size of the ledger where larger ledgers have a larger sample count
-		size_t compute_throttle_size (nano::ledger_cache const & ledger);
+		std::size_t compute_throttle_size () const;
 
 		// clang-format off
 		class tag_sequenced {};
