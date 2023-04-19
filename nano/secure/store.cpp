@@ -112,7 +112,6 @@ nano::store::store (
 	nano::frontier_store & frontier_store_a,
 	nano::account_store & account_store_a,
 	nano::pending_store & pending_store_a,
-	nano::unchecked_store & unchecked_store_a,
 	nano::online_weight_store & online_weight_store_a,
 	nano::pruned_store & pruned_store_a,
 	nano::peer_store & peer_store_a,
@@ -124,7 +123,6 @@ nano::store::store (
 	frontier (frontier_store_a),
 	account (account_store_a),
 	pending (pending_store_a),
-	unchecked (unchecked_store_a),
 	online_weight (online_weight_store_a),
 	pruned (pruned_store_a),
 	peer (peer_store_a),
@@ -153,20 +151,6 @@ void nano::store::initialize (nano::write_transaction const & transaction_a, nan
 	++ledger_cache_a.account_count;
 	ledger_cache_a.rep_weights.representation_put (constants.genesis->account (), std::numeric_limits<nano::uint128_t>::max ());
 	frontier.put (transaction_a, hash_l, constants.genesis->account ());
-}
-
-auto nano::unchecked_store::equal_range (nano::transaction const & transaction, nano::block_hash const & dependency) -> std::pair<iterator, iterator>
-{
-	nano::unchecked_key begin_l{ dependency, 0 };
-	nano::unchecked_key end_l{ nano::block_hash{ dependency.number () + 1 }, 0 };
-	// Adjust for edge case where number () + 1 wraps around.
-	auto end_iter = begin_l.previous < end_l.previous ? lower_bound (transaction, end_l) : end ();
-	return std::make_pair (lower_bound (transaction, begin_l), std::move (end_iter));
-}
-
-auto nano::unchecked_store::full_range (nano::transaction const & transaction) -> std::pair<iterator, iterator>
-{
-	return std::make_pair (begin (transaction), end ());
 }
 
 std::optional<nano::account_info> nano::account_store::get (const nano::transaction & transaction, const nano::account & account)

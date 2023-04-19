@@ -13,7 +13,6 @@
 #include <nano/node/rocksdb/pending_store.hpp>
 #include <nano/node/rocksdb/pruned_store.hpp>
 #include <nano/node/rocksdb/rocksdb_iterator.hpp>
-#include <nano/node/rocksdb/unchecked_store.hpp>
 #include <nano/node/rocksdb/version_store.hpp>
 #include <nano/secure/common.hpp>
 
@@ -33,8 +32,8 @@ class rocksdb_block_store_tombstone_count_Test;
 namespace rocksdb
 {
 	/**
- * rocksdb implementation of the block store
- */
+ 	 * rocksdb implementation of the block store
+ 	 */
 	class store : public nano::store
 	{
 	private:
@@ -47,7 +46,6 @@ namespace rocksdb
 		nano::rocksdb::peer_store peer_store;
 		nano::rocksdb::pending_store pending_store;
 		nano::rocksdb::pruned_store pruned_store;
-		nano::rocksdb::unchecked_store unchecked_store;
 		nano::rocksdb::version_store version_store;
 
 	public:
@@ -60,7 +58,6 @@ namespace rocksdb
 		friend class nano::rocksdb::peer_store;
 		friend class nano::rocksdb::pending_store;
 		friend class nano::rocksdb::pruned_store;
-		friend class nano::rocksdb::unchecked_store;
 		friend class nano::rocksdb::version_store;
 
 		explicit store (nano::logger_mt &, boost::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);

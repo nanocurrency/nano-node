@@ -137,7 +137,6 @@ add_library(
   lmdb/version_store.hpp
   lmdb/version_store.cpp
   lmdb/unchecked_store.hpp
-  lmdb/unchecked_store.cpp
   lmdb/lmdb.hpp
   lmdb/lmdb.cpp
   lmdb/lmdb_env.hpp
@@ -197,8 +196,6 @@ add_library(
   rocksdb/pending_store.cpp
   rocksdb/pruned_store.hpp
   rocksdb/pruned_store.cpp
-  rocksdb/unchecked_store.hpp
-  rocksdb/unchecked_store.cpp
   rocksdb/version_store.hpp
   rocksdb/version_store.cpp
   rocksdb/rocksdb.hpp

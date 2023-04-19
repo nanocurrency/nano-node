@@ -2436,6 +2436,7 @@ namespace nano
 {
 // This thest ensures the tombstone_count is increased when there is a delete. The tombstone_count is part of a flush
 // logic bound to the way RocksDB is used by the node.
+/* The unchecked table was deprecated and it is being removed, rewrite this test using another table
 TEST (rocksdb_block_store, tombstone_count)
 {
 	if (!nano::rocksdb_config::using_rocksdb_in_tests ())
@@ -2469,6 +2470,7 @@ TEST (rocksdb_block_store, tombstone_count)
 	store->unchecked.del (store->tx_begin_write (), nano::unchecked_key (previous, block->hash ()));
 	ASSERT_TIMELY (5s, store->tombstone_map.at (nano::tables::unchecked).num_since_last_flush.load () == 1);
 }
+ */
 }
 
 namespace nano
