@@ -447,9 +447,7 @@ TEST (block_store, empty_bootstrap)
 {
 	nano::test::system system{};
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	nano::unchecked_map unchecked{ *store, system.stats, false };
-	ASSERT_TRUE (!store->init_error ());
+	nano::unchecked_map unchecked{ system.stats, false };
 	size_t count = 0;
 	unchecked.for_each ([&count] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 		++count;
@@ -961,6 +959,7 @@ TEST (block_store, pruned_random)
 	ASSERT_EQ (hash1, random_hash);
 }
 
+/* This test has no code to test.
 namespace nano
 {
 namespace lmdb
@@ -1008,6 +1007,7 @@ namespace lmdb
 	}
 }
 }
+ */
 
 TEST (block_store, state_block)
 {
