@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 qt_dir=${1}
 build_target=${2:-all}
