@@ -23,7 +23,7 @@ nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano:
 	stats{ stat_a },
 	accounts{ stats },
 	iterator{ ledger.store },
-	throttle{ config.bootstrap_ascending.throttle_count },
+	throttle{ compute_throttle_size () },
 	scoring{ config.bootstrap_ascending, config.network_params.network },
 	database_limiter{ config.bootstrap_ascending.database_requests_limit, 1.0 }
 {
@@ -102,13 +102,13 @@ void nano::bootstrap_ascending::service::send (std::shared_ptr<nano::transport::
 	nano::transport::buffer_drop_policy::limiter, nano::transport::traffic_type::bootstrap);
 }
 
-size_t nano::bootstrap_ascending::service::priority_size () const
+std::size_t nano::bootstrap_ascending::service::priority_size () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	return accounts.priority_size ();
 }
 
-size_t nano::bootstrap_ascending::service::blocked_size () const
+std::size_t nano::bootstrap_ascending::service::blocked_size () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	return accounts.blocked_size ();
@@ -335,6 +335,7 @@ void nano::bootstrap_ascending::service::run_timeouts ()
 	{
 		scoring.sync (network.list ());
 		scoring.timeout ();
+		throttle.resize (compute_throttle_size ());
 		auto & tags_by_order = tags.get<tag_sequenced> ();
 		while (!tags_by_order.empty () && nano::time_difference (tags_by_order.front ().time, nano::milliseconds_since_epoch ()) > config.bootstrap_ascending.timeout)
 		{
@@ -488,6 +489,14 @@ auto nano::bootstrap_ascending::service::info () const -> nano::bootstrap_ascend
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	return accounts.info ();
+}
+
+std::size_t nano::bootstrap_ascending::service::compute_throttle_size () const
+{
+	// Scales logarithmically with ledger block
+	// Returns: config.throttle_coefficient * sqrt(block_count)
+	std::size_t size_new = config.bootstrap_ascending.throttle_coefficient * std::sqrt (ledger.cache.block_count.load ());
+	return size_new == 0 ? 16 : size_new;
 }
 
 std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::service::collect_container_info (std::string const & name)
