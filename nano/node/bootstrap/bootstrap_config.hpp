@@ -27,7 +27,7 @@ public:
 	nano::error serialize (nano::tomlconfig & toml) const;
 
 	// Maximum number of un-responded requests per channel
-	std::size_t requests_limit{ 1024 };
+	std::size_t requests_limit{ 64 };
 	std::size_t database_requests_limit{ 1024 };
 	std::size_t pull_count{ nano::bootstrap_server::max_blocks };
 	nano::millis_t timeout{ 1000 * 3 };
