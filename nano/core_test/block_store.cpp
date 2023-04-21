@@ -447,9 +447,7 @@ TEST (block_store, empty_bootstrap)
 {
 	nano::test::system system{};
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	nano::unchecked_map unchecked{ *store, system.stats, false };
-	ASSERT_TRUE (!store->init_error ());
+	nano::unchecked_map unchecked{ system.stats, false };
 	size_t count = 0;
 	unchecked.for_each ([&count] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 		++count;
@@ -959,54 +957,6 @@ TEST (block_store, pruned_random)
 	auto transaction (store->tx_begin_read ());
 	auto random_hash (store->pruned.random (transaction));
 	ASSERT_EQ (hash1, random_hash);
-}
-
-namespace nano
-{
-namespace lmdb
-{
-	// Databases need to be dropped in order to convert to dupsort compatible
-	TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort table
-	{
-		nano::test::system system{};
-		auto path (nano::unique_path ());
-		nano::logger_mt logger{};
-		nano::lmdb::store store{ logger, path, nano::dev::constants };
-		nano::unchecked_map unchecked{ store, system.stats, false };
-		auto transaction (store.tx_begin_write ());
-		ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_store.unchecked_handle, 1));
-		ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE, &store.unchecked_store.unchecked_handle));
-		nano::block_builder builder;
-		auto send1 = builder
-					 .send ()
-					 .previous (0)
-					 .destination (0)
-					 .balance (0)
-					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					 .work (0)
-					 .build_shared ();
-		auto send2 = builder
-					 .send ()
-					 .previous (1)
-					 .destination (0)
-					 .balance (0)
-					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					 .work (0)
-					 .build_shared ();
-		ASSERT_NE (send1->hash (), send2->hash ());
-		unchecked.put (send1->hash (), nano::unchecked_info (send1));
-		unchecked.put (send1->hash (), nano::unchecked_info (send2));
-		ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_store.unchecked_handle, 0));
-		mdb_dbi_close (store.env, store.unchecked_store.unchecked_handle);
-		ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked_store.unchecked_handle));
-		unchecked.put (send1->hash (), nano::unchecked_info (send1));
-		unchecked.put (send1->hash (), nano::unchecked_info (send2));
-		ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_store.unchecked_handle, 1));
-		ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked_store.unchecked_handle));
-		unchecked.put (send1->hash (), nano::unchecked_info (send1));
-		unchecked.put (send1->hash (), nano::unchecked_info (send2));
-	}
-}
 }
 
 TEST (block_store, state_block)
@@ -2442,7 +2392,7 @@ TEST (rocksdb_block_store, tombstone_count)
 	{
 		GTEST_SKIP ();
 	}
-	nano::test::system system{};
+	nano::test::system system;
 	nano::logger_mt logger;
 	auto store = std::make_unique<nano::rocksdb::store> (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
@@ -2456,18 +2406,17 @@ TEST (rocksdb_block_store, tombstone_count)
 				 .work (5)
 				 .build_shared ();
 	// Enqueues a block to be saved in the database
-	auto previous = block->previous ();
-	store->unchecked.put (store->tx_begin_write (), previous, nano::unchecked_info (block));
-	nano::unchecked_key key{ previous, block->hash () };
+	nano::account account{ 1 };
+	store->account.put (store->tx_begin_write (), account, nano::account_info{});
 	auto check_block_is_listed = [&] (nano::transaction const & transaction_a) {
-		return store->unchecked.exists (transaction_a, key);
+		return store->account.exists (transaction_a, account);
 	};
 	// Waits for the block to get saved
 	ASSERT_TIMELY (5s, check_block_is_listed (store->tx_begin_read ()));
-	ASSERT_EQ (store->tombstone_map.at (nano::tables::unchecked).num_since_last_flush.load (), 0);
-	// Perorms a delete and checks for the tombstone counter
-	store->unchecked.del (store->tx_begin_write (), nano::unchecked_key (previous, block->hash ()));
-	ASSERT_TIMELY (5s, store->tombstone_map.at (nano::tables::unchecked).num_since_last_flush.load () == 1);
+	ASSERT_EQ (store->tombstone_map.at (nano::tables::accounts).num_since_last_flush.load (), 0);
+	// Performs a delete operation and checks for the tombstone counter
+	store->account.del (store->tx_begin_write (), account);
+	ASSERT_TIMELY (5s, store->tombstone_map.at (nano::tables::accounts).num_since_last_flush.load () == 1);
 }
 }
 

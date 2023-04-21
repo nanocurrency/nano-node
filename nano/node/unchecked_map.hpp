@@ -3,7 +3,7 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/observer_set.hpp>
-#include <nano/secure/store.hpp>
+#include <nano/secure/common.hpp>
 
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
@@ -18,16 +18,11 @@ namespace mi = boost::multi_index;
 namespace nano
 {
 class stats;
-class store;
-class transaction;
-class unchecked_info;
-class unchecked_key;
-class write_transaction;
 
 class unchecked_map
 {
 public:
-	unchecked_map (nano::store &, nano::stats &, bool const & do_delete);
+	unchecked_map (nano::stats &, bool const & do_delete);
 	~unchecked_map ();
 
 	void put (nano::hash_or_account const & dependency, nano::unchecked_info const & info);
@@ -56,7 +51,6 @@ private:
 	void query_impl (nano::block_hash const & hash);
 
 private: // Dependencies
-	nano::store & store;
 	nano::stats & stats;
 
 private:
