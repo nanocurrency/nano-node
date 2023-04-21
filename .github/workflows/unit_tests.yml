@@ -41,7 +41,7 @@ jobs:
 
       - name: Build Tests
         id: build
-        run: ci/build.sh
+        run: ci/build-tests.sh
 
       - name: Save Build Cache
         # Only save build cache from develop to avoid polluting it by other branches / PRs
@@ -105,7 +105,7 @@ jobs:
 
       - name: Build Tests
         id: build
-        run: ci/build.sh
+        run: ci/build-tests.sh
 
       - name: Save Build Cache
         # Only save build cache from develop to avoid polluting it by other branches / PRs
@@ -170,7 +170,7 @@ jobs:
 
       - name: Build Tests
         id: build
-        run: ci/build.sh
+        run: ci/build-tests.sh
         shell: bash
 
       - name: Save Build Cache

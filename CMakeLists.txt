@@ -656,6 +656,12 @@ add_subdirectory(nano/nano_node)
 add_subdirectory(nano/rpc)
 add_subdirectory(nano/nano_rpc)
 
+add_custom_target(
+    executables
+    COMMAND echo "BATCH BUILDING node + rpc"
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    DEPENDS nano_node nano_rpc)
+
 if(NANO_FUZZER_TEST)
   if(NOT WIN32)
     add_subdirectory(nano/fuzzer_test)
@@ -694,15 +700,10 @@ if(NANO_TEST OR RAIBLOCKS_TEST)
   add_subdirectory(nano/rpc_test)
   add_subdirectory(nano/slow_test)
   add_custom_target(
-    build_tests
+    all_tests
     COMMAND echo "BATCH BUILDING TESTS"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    DEPENDS core_test load_test rpc_test nano_node nano_rpc)
-  add_custom_target(
-    run_tests
-    COMMAND ${PROJECT_SOURCE_DIR}/ci/test.sh ${CMAKE_BINARY_DIR}
-    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    DEPENDS build_tests)
+    DEPENDS core_test load_test rpc_test slow_test nano_node nano_rpc)
 endif()
 
 if(NANO_TEST OR RAIBLOCKS_TEST)
@@ -807,7 +808,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     set_target_properties(
       qt_test PROPERTIES COMPILE_FLAGS
                          "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
-    add_dependencies(build_tests qt_test)
+    add_dependencies(all_tests qt_test)
   endif()
 
   if(APPLE)

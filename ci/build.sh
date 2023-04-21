@@ -1,52 +1,62 @@
 #!/bin/bash
 set -euox pipefail
 
-NODE_SRC=${1:-${PWD}}
+BUILD_TARGET=""
+if [[ ${1:-} ]]; then
+    BUILD_TARGET="--target $1"
+fi
 
+NODE_SRC=${NODE_SRC:-${PWD}}
 OS=$(uname)
-BUILD_TYPE=${NANO_BUILD_TYPE:-Debug}
-BUILD_TARGET=build_tests
 
-if [[ "${RELEASE:-false}" == "true" ]]; then
-    BUILD_TYPE="RelWithDebInfo"
-fi
-
-if [[ ${NANO_ASAN_INT:-0} -eq 1 ]]; then
-    SANITIZERS="-DNANO_ASAN_INT=ON"
-fi
-if [[ ${NANO_ASAN:-0} -eq 1 ]]; then
-    SANITIZERS="-DNANO_ASAN=ON"
-fi
-if [[ ${NANO_TSAN:-0} -eq 1 ]]; then
-    SANITIZERS="-DNANO_TSAN=ON"
-fi
-if [[ ${NANO_COVERAGE:-0} -eq 1 ]]; then
-    SANITIZERS="-DCOVERAGE=ON"
-fi
-
+CMAKE_BACKTRACE=""
 if [[ "$OS" == 'Linux' ]]; then
-    BACKTRACE="-DNANO_STACKTRACE_BACKTRACE=ON"
+    CMAKE_BACKTRACE="-DNANO_STACKTRACE_BACKTRACE=ON"
 
     if [[ "$COMPILER" == 'clang' ]]; then
-        BACKTRACE="${BACKTRACE} -DNANO_BACKTRACE_INCLUDE=</tmp/backtrace.h>"
+        CMAKE_BACKTRACE="${CMAKE_BACKTRACE} -DNANO_BACKTRACE_INCLUDE=</tmp/backtrace.h>"
     fi
-else
-    BACKTRACE=""
 fi
 
-mkdir -p build
-pushd build
+CMAKE_QT_DIR=""
+if [[ ${NANO_QT_DIR:-} ]]; then
+    CMAKE_QT_DIR="-DQt5_DIR=${NANO_QT_DIR}"
+fi
+
+CMAKE_SANITIZER=""
+if [[ ${NANO_SANITIZER:-} ]]; then
+    case "${NANO_SANITIZER}" in
+        ASAN)     
+            CMAKE_SANITIZER="-DNANO_ASAN=ON"
+            ;;
+        ASAN_INT)    
+            CMAKE_SANITIZER="-DNANO_ASAN_INT=ON"
+            ;;
+        TSAN)
+            CMAKE_SANITIZER="-DNANO_TSAN=ON"
+            ;;
+        *)
+            echo "Unknown sanitizer: '${NANO_SANITIZER}'"
+            exit 1
+            ;;
+    esac
+fi
+
+BUILD_DIR="build"
+
+mkdir -p $BUILD_DIR
+pushd $BUILD_DIR
 
 cmake \
--DACTIVE_NETWORK=nano_dev_network \
--DNANO_TEST=ON \
--DNANO_GUI=ON \
+-DCMAKE_BUILD_TYPE=${BUILD_TYPE:-"Debug"} \
 -DPORTABLE=ON \
--DNANO_WARN_TO_ERR=ON \
--DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
--DQt5_DIR=${NANO_QT_DIR:-} \
-${BACKTRACE:-} \
-${SANITIZERS:-} \
+-DACTIVE_NETWORK=nano_${NANO_NETWORK:-"live"}_network \
+-DNANO_TEST=${NANO_TEST:-OFF} \
+-DNANO_GUI=${NANO_GUI:-OFF} \
+-DCOVERAGE=${NANO_COVERAGE:-OFF} \
+${CMAKE_SANITIZER:-} \
+${CMAKE_QT_DIR:-} \
+${CMAKE_BACKTRACE:-} \
 ${NODE_SRC}
 
 number_of_processors() {
@@ -78,6 +88,6 @@ parallel_build_flag() {
     esac
 }
 
-cmake --build ${PWD} --target ${BUILD_TARGET} $(parallel_build_flag)
+cmake --build ${PWD} ${BUILD_TARGET} $(parallel_build_flag)
 
 popd
