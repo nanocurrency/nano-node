@@ -135,16 +135,6 @@ bool event_log_reg_entry_exists ();
  */
 void create_load_memory_address_files ();
 
-/*
- * Dumps a stacktrace file which can be read using the --debug_output_last_backtrace_dump CLI command
- */
-void dump_crash_stacktrace ();
-
-/*
- * Generates the current stacktrace
- */
-std::string generate_stacktrace ();
-
 /**
  * Some systems, especially in virtualized environments, may have very low file descriptor limits,
  * causing the node to fail. This function attempts to query the limit and returns the value. If the

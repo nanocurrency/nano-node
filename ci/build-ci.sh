@@ -30,7 +30,7 @@ ulimit -S -n 8192
 if [[ "$OS" == 'Linux' ]]; then
     if clang --version && [ ${LCOV:-0} == 0 ]; then
         BACKTRACE="-DNANO_STACKTRACE_BACKTRACE=ON \
-        -DBACKTRACE_INCLUDE=</tmp/backtrace.h>"
+        -DNANO_BACKTRACE_INCLUDE=</tmp/backtrace.h>"
     else
         BACKTRACE="-DNANO_STACKTRACE_BACKTRACE=ON"
     fi
