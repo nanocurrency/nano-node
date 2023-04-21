@@ -5,12 +5,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#endif
-
 #include <cstddef>
 #include <fstream>
 #include <iostream>
