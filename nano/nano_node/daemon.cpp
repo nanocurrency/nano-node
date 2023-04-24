@@ -57,21 +57,6 @@ volatile sig_atomic_t sig_int_or_term = 0;
 constexpr std::size_t OPEN_FILE_DESCRIPTORS_LIMIT = 16384;
 }
 
-static void load_and_set_bandwidth_params (std::shared_ptr<nano::node> const & node, boost::filesystem::path const & data_path, nano::node_flags const & flags)
-{
-	nano::daemon_config config{ data_path, node->network_params };
-
-	auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
-	if (!error)
-	{
-		error = nano::flags_config_conflicts (flags, config.node);
-		if (!error)
-		{
-			node->set_bandwidth_params (config.node.bandwidth_limit, config.node.bandwidth_limit_burst_ratio);
-		}
-	}
-}
-
 void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
 	install_abort_signal_handler ();
@@ -211,15 +196,6 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 
 				// sigterm is less likely to come in bunches so only trap it once
 				sigman.register_signal_handler (SIGTERM, &nano::signal_handler, false);
-
-#ifndef _WIN32
-				// on sighup we should reload the bandwidth parameters
-				std::function<void (int)> sighup_signal_handler ([&node, &data_path, &flags] (int signum) {
-					debug_assert (signum == SIGHUP);
-					load_and_set_bandwidth_params (node, data_path, flags);
-				});
-				sigman.register_signal_handler (SIGHUP, sighup_signal_handler, true);
-#endif
 
 				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
 				runner->join ();

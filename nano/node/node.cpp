@@ -1438,14 +1438,6 @@ bool nano::node::init_error () const
 	return store.init_error () || wallets_store.init_error ();
 }
 
-void nano::node::set_bandwidth_params (std::size_t limit, double ratio)
-{
-	config.bandwidth_limit_burst_ratio = ratio;
-	config.bandwidth_limit = limit;
-	outbound_limiter.reset (limit, ratio);
-	logger.always_log (boost::str (boost::format ("set_bandwidth_params(%1%, %2%)") % limit % ratio));
-}
-
 std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> nano::node::get_bootstrap_weights () const
 {
 	std::unordered_map<nano::account, nano::uint128_t> weights;
