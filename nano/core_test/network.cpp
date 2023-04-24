@@ -897,7 +897,7 @@ TEST (network, duplicate_revert_publish)
 }
 
 // The test must be completed in less than 1 second
-TEST (network, bandwidth_limiter)
+TEST (network, bandwidth_limiter_4_messages)
 {
 	nano::test::system system;
 	nano::publish message{ nano::dev::network_params.network, nano::dev::genesis };
@@ -925,24 +925,46 @@ TEST (network, bandwidth_limiter)
 	// Send non-droppable message, i.e. drop stats should not increase
 	channel2.send (message, nullptr, nano::transport::buffer_drop_policy::no_limiter_drop);
 	ASSERT_TIMELY (1s, 1 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+}
 
+TEST (network, bandwidth_limiter_2_messages)
+{
+	nano::test::system system;
+	nano::publish message{ nano::dev::network_params.network, nano::dev::genesis };
+	auto message_size = message.to_bytes ()->size ();
+	auto message_limit = 2; // must be multiple of the number of channels
+	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	node_config.bandwidth_limit = message_limit * message_size;
+	node_config.bandwidth_limit_burst_ratio = 1.0;
+	auto & node = *system.add_node (node_config);
+	nano::transport::inproc::channel channel1{ node, node };
+	nano::transport::inproc::channel channel2{ node, node };
 	// change the bandwidth settings, 2 packets will be dropped
-	node.set_bandwidth_params (message_size * 2, 1.1);
 	channel1.send (message);
 	channel2.send (message);
 	channel1.send (message);
 	channel2.send (message);
-	ASSERT_TIMELY (1s, 3 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+	ASSERT_TIMELY (1s, 2 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+}
 
+TEST (network, bandwidth_limiter_with_burst)
+{
+	nano::test::system system;
+	nano::publish message{ nano::dev::network_params.network, nano::dev::genesis };
+	auto message_size = message.to_bytes ()->size ();
+	auto message_limit = 2; // must be multiple of the number of channels
+	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	node_config.bandwidth_limit = message_limit * message_size;
+	node_config.bandwidth_limit_burst_ratio = 4.0; // High burst
+	auto & node = *system.add_node (node_config);
+	nano::transport::inproc::channel channel1{ node, node };
+	nano::transport::inproc::channel channel2{ node, node };
 	// change the bandwidth settings, no packet will be dropped
-	node.set_bandwidth_params (message_size, 4);
 	channel1.send (message);
 	channel2.send (message);
 	channel1.send (message);
 	channel2.send (message);
-	ASSERT_TIMELY (1s, 3 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
-
-	node.stop ();
+	ASSERT_TIMELY (1s, 0 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
 }
 
 namespace nano
