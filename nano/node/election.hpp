@@ -110,6 +110,7 @@ private: // State management
 
 	bool valid_change (nano::election::state_t, nano::election::state_t) const;
 	bool state_change (nano::election::state_t, nano::election::state_t);
+	bool confirmed (nano::unique_lock<nano::mutex> & lock) const;
 
 public: // State transitions
 	bool transition_time (nano::confirmation_solicitor &);
@@ -174,7 +175,7 @@ private:
 	 * Broadcast vote for current election winner. Generates final vote if reached quorum or already confirmed
 	 * Requires mutex lock
 	 */
-	void broadcast_vote_impl ();
+	void broadcast_vote_impl (nano::unique_lock<nano::mutex> & lock);
 	void remove_votes (nano::block_hash const &);
 	void remove_block (nano::block_hash const &);
 	bool replace_by_weight (nano::unique_lock<nano::mutex> & lock_a, nano::block_hash const &);
