@@ -40,6 +40,7 @@ jobs:
         run: ci/prepare/macos/prepare.sh
 
       - name: Build Tests
+        id: build
         run: ci/build.sh
 
       - name: Save Build Cache
@@ -52,12 +53,15 @@ jobs:
           key: ${{ runner.os }}-build-cache
 
       - name: Core Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
         run: cd build && ../ci/tests/run-core-tests.sh
 
       - name: RPC Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
         run: cd build && ../ci/tests/run-rpc-tests.sh
 
       - name: System Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
         run: cd build && ../ci/tests/run-system-tests.sh
 
   linux_test:
@@ -100,6 +104,7 @@ jobs:
         run: sudo -E ci/prepare/linux/prepare.sh
 
       - name: Build Tests
+        id: build
         run: ci/build.sh
 
       - name: Save Build Cache
@@ -112,15 +117,19 @@ jobs:
           key: ${{ runner.os }}-${{ env.COMPILER }}-build-cache
 
       - name: Core Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
         run: cd build && ../ci/tests/run-core-tests.sh
 
       - name: RPC Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
         run: cd build && ../ci/tests/run-rpc-tests.sh
 
       - name: System Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
         run: cd build && ../ci/tests/run-system-tests.sh
 
       - name: QT Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
         run: cd build && ../ci/tests/run-qt-tests.sh
 
   windows_test:
