@@ -610,7 +610,7 @@ add_library(
 
 target_include_directories(cryptopp PUBLIC submodules)
 
-if(WIN32 OR CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
   set(ARGON_CORE submodules/phc-winner-argon2/src/opt.c)
 else()
   set(ARGON_CORE submodules/phc-winner-argon2/src/ref.c)
@@ -639,14 +639,10 @@ if(WIN32)
   target_link_libraries(lmdb ntdll)
 endif()
 
-if(WIN32)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
   set(BLAKE2_IMPLEMENTATION "crypto/blake2/blake2b.c")
 else()
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
-    set(BLAKE2_IMPLEMENTATION "crypto/blake2/blake2b.c")
-  else()
-    set(BLAKE2_IMPLEMENTATION "crypto/blake2/blake2b-ref.c")
-  endif()
+  set(BLAKE2_IMPLEMENTATION "crypto/blake2/blake2b-ref.c")
 endif()
 
 add_library(blake2 crypto/blake2/blake2-config.h crypto/blake2/blake2-impl.h
