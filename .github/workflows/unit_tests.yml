@@ -112,16 +112,16 @@ jobs:
           key: ${{ runner.os }}-${{ env.COMPILER }}-build-cache
 
       - name: Core Tests
-        run: docker run -e RELEASE -e TEST_USE_ROCKSDB -e DEADLINE_SCALE_FACTOR -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace/build && ../ci/tests/run-core-tests.sh"
+        run: cd build && ../ci/tests/run-core-tests.sh
 
       - name: RPC Tests
-        run: docker run -e RELEASE -e TEST_USE_ROCKSDB -e DEADLINE_SCALE_FACTOR -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace/build && ../ci/tests/run-rpc-tests.sh"
+        run: cd build && ../ci/tests/run-rpc-tests.sh
 
       - name: System Tests
-        run: docker run -e RELEASE -e TEST_USE_ROCKSDB -e DEADLINE_SCALE_FACTOR -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace/build && ../ci/tests/run-system-tests.sh"
+        run: cd build && ../ci/tests/run-system-tests.sh
 
       - name: QT Tests
-        run: docker run -e RELEASE -e TEST_USE_ROCKSDB -e DEADLINE_SCALE_FACTOR -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace/build && ../ci/tests/run-qt-tests.sh"
+        run: cd build && ../ci/tests/run-qt-tests.sh
 
   windows_test:
     name: Windows [${{ matrix.BACKEND }}]
