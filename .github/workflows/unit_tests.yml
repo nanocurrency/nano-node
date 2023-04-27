@@ -40,7 +40,7 @@ jobs:
         run: ci/prepare/macos/prepare.sh
 
       - name: Build Tests
-        run: ci/build-ci.sh "/tmp/qt/lib/cmake/Qt5";
+        run: ci/build.sh
 
       - name: Save Build Cache
         # Only save build cache from develop to avoid polluting it by other branches / PRs
@@ -100,7 +100,7 @@ jobs:
         run: sudo -E ci/prepare/linux/prepare.sh
 
       - name: Build Tests
-        run: docker run -e TEST_USE_ROCKSDB  -e RELEASE -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace && ./ci/build-ci.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5"
+        run: ci/build.sh
 
       - name: Save Build Cache
         # Only save build cache from develop to avoid polluting it by other branches / PRs
@@ -160,7 +160,9 @@ jobs:
         run: ci/prepare/windows/prepare.ps1
 
       - name: Build Tests
-        run: ci/actions/windows/build.ps1
+        id: build
+        run: ci/build.sh
+        shell: bash
 
       - name: Save Build Cache
         # only save build cache from develop to avoid polluting it by other branches / PRs
