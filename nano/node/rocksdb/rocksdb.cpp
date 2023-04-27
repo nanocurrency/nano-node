@@ -96,15 +96,86 @@ nano::rocksdb::store::store (nano::logger_mt & logger_a, boost::filesystem::path
 	nano::set_secure_perm_directory (path_a, error_chmod);
 	error = static_cast<bool> (error_mkdir);
 
+	if (error)
+	{
+		return;
+	}
+
+	generate_tombstone_map ();
+	small_table_factory.reset (::rocksdb::NewBlockBasedTableFactory (get_small_table_options ()));
+
+	// TODO: get_db_options () registers a listener for resetting tombstones, needs to check if it is a problem calling it more than once.
+	auto options = get_db_options ();
+
+	// The only certain column family is "meta" which contains the DB version info.
+	// RocksDB requires this operation to be in read-only mode.
+	auto is_fresh_db = false;
+	open (is_fresh_db, path_a, true, options, get_single_column_family ("meta"));
+
+	auto is_fully_upgraded = false;
+	if (!is_fresh_db)
+	{
+		auto transaction = tx_begin_read ();
+		auto version_l = version.get (transaction);
+		if (version_l > version_current)
+		{
+			error = true;
+			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
+			return;
+		}
+		else if (version_l < version_minimum)
+		{
+			error = true;
+			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is lower than the minimum (%2%) which is supported for upgrades. Either upgrade to a v19, v20 or v21 node first or delete the ledger.") % version_l % version_minimum));
+			return;
+		}
+		is_fully_upgraded = (version_l == version_current);
+	}
+
+	if (db)
+	{
+		// Needs to clear the store references before reopening the DB.
+		handles.clear ();
+		db.reset (nullptr);
+	}
+
+	if (!open_read_only_a)
+	{
+		construct_column_family_mutexes ();
+	}
+
+	if (is_fully_upgraded)
+	{
+		open (error, path_a, open_read_only_a, options, create_column_families ());
+		return;
+	}
+
+	if (open_read_only_a)
+	{
+		// Either following cases cannot run in read-only mode:
+		// a) there is no database yet, the access needs to be in write mode for it to be created;
+		// b) it will upgrade, and it is not possible to do it in read-only mode.
+		error = true;
+		return;
+	}
+
+	if (is_fresh_db)
+	{
+		open (error, path_a, open_read_only_a, options, create_column_families ());
+		if (!error)
+		{
+			version.put (tx_begin_write (), version_current); // It is fresh, someone needs to tell it its version.
+		}
+		return;
+	}
+
+	// The database is not upgraded, and it may not be compatible with the current column family set.
+	open (error, path_a, open_read_only_a, options, get_current_column_families (path_a.string (), options));
 	if (!error)
 	{
-		generate_tombstone_map ();
-		small_table_factory.reset (::rocksdb::NewBlockBasedTableFactory (get_small_table_options ()));
-		if (!open_read_only_a)
-		{
-			construct_column_family_mutexes ();
-		}
-		open (error, path_a, open_read_only_a);
+		logger.always_log ("Upgrade in progress...");
+		auto transaction = tx_begin_write ();
+		error |= do_upgrades (transaction);
 	}
 }
 
@@ -115,7 +186,6 @@ std::unordered_map<char const *, nano::tables> nano::rocksdb::store::create_cf_n
 		{ "accounts", tables::accounts },
 		{ "blocks", tables::blocks },
 		{ "pending", tables::pending },
-		{ "unchecked", tables::unchecked },
 		{ "vote", tables::vote },
 		{ "online_weight", tables::online_weight },
 		{ "meta", tables::meta },
@@ -128,22 +198,21 @@ std::unordered_map<char const *, nano::tables> nano::rocksdb::store::create_cf_n
 	return map;
 }
 
-void nano::rocksdb::store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a)
+void nano::rocksdb::store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a, ::rocksdb::Options const & options_a, std::vector<::rocksdb::ColumnFamilyDescriptor> column_families)
 {
-	auto column_families = create_column_families ();
-	auto options = get_db_options ();
+	//	auto options = get_db_options ();
 	::rocksdb::Status s;
 
 	std::vector<::rocksdb::ColumnFamilyHandle *> handles_l;
 	if (open_read_only_a)
 	{
 		::rocksdb::DB * db_l;
-		s = ::rocksdb::DB::OpenForReadOnly (options, path_a.string (), column_families, &handles_l, &db_l);
+		s = ::rocksdb::DB::OpenForReadOnly (options_a, path_a.string (), column_families, &handles_l, &db_l);
 		db.reset (db_l);
 	}
 	else
 	{
-		s = ::rocksdb::OptimisticTransactionDB::Open (options, path_a.string (), column_families, &handles_l, &optimistic_db);
+		s = ::rocksdb::OptimisticTransactionDB::Open (options_a, path_a.string (), column_families, &handles_l, &optimistic_db);
 		if (optimistic_db)
 		{
 			db.reset (optimistic_db);
@@ -158,22 +227,74 @@ void nano::rocksdb::store::open (bool & error_a, boost::filesystem::path const &
 
 	// Assign handles to supplied
 	error_a |= !s.ok ();
+}
 
-	if (!error_a)
+bool nano::rocksdb::store::do_upgrades (nano::write_transaction const & transaction_a)
+{
+	bool error_l{ false };
+	auto version_l = version.get (transaction_a);
+	switch (version_l)
 	{
-		auto transaction = tx_begin_read ();
-		auto version_l = version.get (transaction);
-		if (version_l > version_current)
-		{
-			error_a = true;
+		case 1:
+		case 2:
+		case 3:
+		case 4:
+		case 5:
+		case 6:
+		case 7:
+		case 8:
+		case 9:
+		case 10:
+		case 11:
+		case 12:
+		case 13:
+			release_assert (false && "do_upgrades () for RocksDB requires the version_minimum already checked.");
+			error_l = true;
+			break;
+		case 14:
+		case 15:
+		case 16:
+		case 17:
+		case 18:
+		case 19:
+		case 20:
+		case 21:
+			upgrade_v21_to_v22 (transaction_a);
+			[[fallthrough]];
+		case 22:
+			break;
+		default:
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
-		}
+			error_l = true;
+			break;
 	}
+	return error_l;
+}
+
+void nano::rocksdb::store::upgrade_v21_to_v22 (nano::write_transaction const & transaction_a)
+{
+	logger.always_log ("Preparing v21 to v22 database upgrade...");
+	if (column_family_exists ("unchecked"))
+	{
+		auto const unchecked_handle = get_column_family ("unchecked");
+		db->DropColumnFamily (unchecked_handle);
+		db->DestroyColumnFamilyHandle (unchecked_handle);
+		std::erase_if (handles, [unchecked_handle] (auto & handle) {
+			if (handle.get () == unchecked_handle)
+			{
+				// The handle resource is deleted by RocksDB.
+				[[maybe_unused]] auto ptr = handle.release ();
+				return true;
+			}
+			return false;
+		});
+	}
+	version.put (transaction_a, 22);
+	logger.always_log ("Finished removing unchecked table");
 }
 
 void nano::rocksdb::store::generate_tombstone_map ()
 {
-	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::unchecked), std::forward_as_tuple (0, 50000));
 	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::blocks), std::forward_as_tuple (0, 25000));
 	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::accounts), std::forward_as_tuple (0, 25000));
 	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::pending), std::forward_as_tuple (0, 25000));
@@ -216,21 +337,7 @@ rocksdb::ColumnFamilyOptions nano::rocksdb::store::get_cf_options (std::string c
 	::rocksdb::ColumnFamilyOptions cf_options;
 	auto const memtable_size_bytes = base_memtable_size_bytes ();
 	auto const block_cache_size_bytes = 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_block_cache_size;
-	if (cf_name_a == "unchecked")
-	{
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 4)));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
-
-		// Create prefix bloom for memtable with the size of write_buffer_size * memtable_prefix_bloom_size_ratio
-		cf_options.memtable_prefix_bloom_size_ratio = 0.25;
-
-		// Number of files in level 0 which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
-		cf_options.level0_file_num_compaction_trigger = 2;
-
-		// L1 size, compaction is triggered for L0 at this size (2 SST files in L1)
-		cf_options.max_bytes_for_level_base = memtable_size_bytes * 2;
-	}
-	else if (cf_name_a == "blocks")
+	if (cf_name_a == "blocks")
 	{
 		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 4)));
 		cf_options = get_active_cf_options (table_factory, blocks_memtable_size_bytes ());
@@ -346,46 +453,81 @@ std::string nano::rocksdb::store::vendor_get () const
 	return boost::str (boost::format ("RocksDB %1%.%2%.%3%") % ROCKSDB_MAJOR % ROCKSDB_MINOR % ROCKSDB_PATCH);
 }
 
-rocksdb::ColumnFamilyHandle * nano::rocksdb::store::table_to_column_family (tables table_a) const
+std::vector<::rocksdb::ColumnFamilyDescriptor> nano::rocksdb::store::get_single_column_family (std::string cf_name) const
+{
+	std::vector<::rocksdb::ColumnFamilyDescriptor> minimum_cf_set{
+		{ ::rocksdb::kDefaultColumnFamilyName, ::rocksdb::ColumnFamilyOptions{} },
+		{ cf_name, get_cf_options (cf_name) }
+	};
+	return minimum_cf_set;
+}
+
+std::vector<::rocksdb::ColumnFamilyDescriptor> nano::rocksdb::store::get_current_column_families (std::string const & path_a, ::rocksdb::Options const & options_a) const
+{
+	std::vector<::rocksdb::ColumnFamilyDescriptor> column_families;
+
+	// Retrieve the column families available in the database.
+	std::vector<std::string> current_cf_names;
+	auto s = ::rocksdb::DB::ListColumnFamilies (options_a, path_a, &current_cf_names);
+	debug_assert (s.ok ());
+
+	column_families.reserve (current_cf_names.size ());
+	for (const auto & cf : current_cf_names)
+	{
+		column_families.emplace_back (cf, ::rocksdb::ColumnFamilyOptions ());
+	}
+
+	return column_families;
+}
+
+rocksdb::ColumnFamilyHandle * nano::rocksdb::store::get_column_family (char const * name) const
 {
 	auto & handles_l = handles;
-	auto get_handle = [&handles_l] (char const * name) {
-		auto iter = std::find_if (handles_l.begin (), handles_l.end (), [name] (auto & handle) {
-			return (handle->GetName () == name);
-		});
-		debug_assert (iter != handles_l.end ());
-		return (*iter).get ();
-	};
+	auto iter = std::find_if (handles_l.begin (), handles_l.end (), [name] (auto & handle) {
+		return (handle->GetName () == name);
+	});
+	debug_assert (iter != handles_l.end ());
+	return (*iter).get ();
+}
 
+bool nano::rocksdb::store::column_family_exists (char const * name) const
+{
+	auto & handles_l = handles;
+	auto iter = std::find_if (handles_l.begin (), handles_l.end (), [name] (auto & handle) {
+		return (handle->GetName () == name);
+	});
+	return (iter != handles_l.end ());
+}
+
+rocksdb::ColumnFamilyHandle * nano::rocksdb::store::table_to_column_family (tables table_a) const
+{
 	switch (table_a)
 	{
 		case tables::frontiers:
-			return get_handle ("frontiers");
+			return get_column_family ("frontiers");
 		case tables::accounts:
-			return get_handle ("accounts");
+			return get_column_family ("accounts");
 		case tables::blocks:
-			return get_handle ("blocks");
+			return get_column_family ("blocks");
 		case tables::pending:
-			return get_handle ("pending");
-		case tables::unchecked:
-			return get_handle ("unchecked");
+			return get_column_family ("pending");
 		case tables::vote:
-			return get_handle ("vote");
+			return get_column_family ("vote");
 		case tables::online_weight:
-			return get_handle ("online_weight");
+			return get_column_family ("online_weight");
 		case tables::meta:
-			return get_handle ("meta");
+			return get_column_family ("meta");
 		case tables::peers:
-			return get_handle ("peers");
+			return get_column_family ("peers");
 		case tables::pruned:
-			return get_handle ("pruned");
+			return get_column_family ("pruned");
 		case tables::confirmation_height:
-			return get_handle ("confirmation_height");
+			return get_column_family ("confirmation_height");
 		case tables::final_votes:
-			return get_handle ("final_votes");
+			return get_column_family ("final_votes");
 		default:
 			release_assert (false);
-			return get_handle ("");
+			return get_column_family ("");
 	}
 }
 
@@ -506,11 +648,6 @@ uint64_t nano::rocksdb::store::count (nano::transaction const & transaction_a, t
 			++sum;
 		}
 	}
-	// This is only an estimation
-	else if (table_a == tables::unchecked)
-	{
-		db->GetIntProperty (table_to_column_family (table_a), "rocksdb.estimate-num-keys", &sum);
-	}
 	// This should be correct at node start, later only cache should be used
 	else if (table_a == tables::pruned)
 	{
@@ -613,6 +750,7 @@ rocksdb::Options nano::rocksdb::store::get_db_options ()
 	db_options.create_if_missing = true;
 	db_options.create_missing_column_families = true;
 
+	// TODO: review if this should be changed due to the unchecked table removal.
 	// Enable whole key bloom filter in memtables for ones with memtable_prefix_bloom_size_ratio set (unchecked table currently).
 	// It can potentially reduce CPU usage for point-look-ups.
 	db_options.memtable_whole_key_filtering = true;
@@ -640,7 +778,9 @@ rocksdb::Options nano::rocksdb::store::get_db_options ()
 	// Not compressing any SST files for compatibility reasons.
 	db_options.compression = ::rocksdb::kNoCompression;
 
-	auto event_listener_l = new event_listener ([this] (::rocksdb::FlushJobInfo const & flush_job_info_a) { this->on_flush (flush_job_info_a); });
+	auto event_listener_l = new event_listener ([this] (::rocksdb::FlushJobInfo const & flush_job_info_a) {
+		this->on_flush (flush_job_info_a);
+	});
 	db_options.listeners.emplace_back (event_listener_l);
 
 	return db_options;
@@ -726,7 +866,7 @@ void nano::rocksdb::store::on_flush (::rocksdb::FlushJobInfo const & flush_job_i
 
 std::vector<nano::tables> nano::rocksdb::store::all_tables () const
 {
-	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::final_votes, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::unchecked, tables::vote };
+	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::final_votes, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::vote };
 }
 
 bool nano::rocksdb::store::copy_db (boost::filesystem::path const & destination_path)

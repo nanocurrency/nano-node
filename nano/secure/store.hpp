@@ -515,7 +515,6 @@ enum class tables
 	peers,
 	pending,
 	pruned,
-	unchecked,
 	vote
 };
 
