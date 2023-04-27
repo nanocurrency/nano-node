@@ -182,7 +182,17 @@ jobs:
           path: build
           key: ${{ runner.os }}-build-cache
 
-      - name: Run Tests [TEST_USE_ROCKSDB=${{ env.TEST_USE_ROCKSDB }}]
-        run: ci/actions/windows/run.ps1
-        env:
-          DEADLINE_SCALE_FACTOR: ${{ env.TEST_USE_ROCKSDB == 1 && '2' || '1' }}
+      - name: Core Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
+        run: cd build && ../ci/tests/run-core-tests.sh
+        shell: bash
+
+      - name: RPC Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
+        run: cd build && ../ci/tests/run-rpc-tests.sh
+        shell: bash
+
+      - name: System Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
+        run: cd build && ../ci/tests/run-system-tests.sh
+        shell: bash
