@@ -18,19 +18,29 @@ nano::bulk_push_client::~bulk_push_client ()
 
 void nano::bulk_push_client::start ()
 {
-	nano::bulk_push message{ connection->node->network_params.network };
+	auto node = connection->node.lock ();
+	if (!node)
+	{
+		return;
+	}
+	nano::bulk_push message{ node->network_params.network };
 	auto this_l (shared_from_this ());
 	connection->channel->send (
 	message, [this_l] (boost::system::error_code const & ec, std::size_t size_a) {
+		auto node = this_l->connection->node.lock ();
+		if (!node)
+		{
+			return;
+		}
 		if (!ec)
 		{
 			this_l->push ();
 		}
 		else
 		{
-			if (this_l->connection->node->config.logging.bulk_pull_logging ())
+			if (node->config.logging.bulk_pull_logging ())
 			{
-				this_l->connection->node->logger.try_log (boost::str (boost::format ("Unable to send bulk_push request: %1%") % ec.message ()));
+				node->logger.try_log (boost::str (boost::format ("Unable to send bulk_push request: %1%") % ec.message ()));
 			}
 		}
 	},
@@ -39,6 +49,11 @@ void nano::bulk_push_client::start ()
 
 void nano::bulk_push_client::push ()
 {
+	auto node = connection->node.lock ();
+	if (!node)
+	{
+		return;
+	}
 	std::shared_ptr<nano::block> block;
 	bool finished (false);
 	while (block == nullptr && !finished)
@@ -49,16 +64,16 @@ void nano::bulk_push_client::push ()
 		}
 		if (!finished)
 		{
-			block = connection->node->block (current_target.first);
+			block = node->block (current_target.first);
 			if (block == nullptr)
 			{
 				current_target.first = nano::block_hash (0);
 			}
 			else
 			{
-				if (connection->node->config.logging.bulk_pull_logging ())
+				if (node->config.logging.bulk_pull_logging ())
 				{
-					connection->node->logger.try_log ("Bulk pushing range ", current_target.first.to_string (), " down to ", current_target.second.to_string ());
+					node->logger.try_log ("Bulk pushing range ", current_target.first.to_string (), " down to ", current_target.second.to_string ());
 				}
 			}
 		}
@@ -98,15 +113,20 @@ void nano::bulk_push_client::push_block (nano::block const & block_a)
 	}
 	auto this_l (shared_from_this ());
 	connection->channel->send_buffer (nano::shared_const_buffer (std::move (buffer)), [this_l] (boost::system::error_code const & ec, std::size_t size_a) {
+		auto node = this_l->connection->node.lock ();
+		if (!node)
+		{
+			return;
+		}
 		if (!ec)
 		{
 			this_l->push ();
 		}
 		else
 		{
-			if (this_l->connection->node->config.logging.bulk_pull_logging ())
+			if (node->config.logging.bulk_pull_logging ())
 			{
-				this_l->connection->node->logger.try_log (boost::str (boost::format ("Error sending block during bulk push: %1%") % ec.message ()));
+				node->logger.try_log (boost::str (boost::format ("Error sending block during bulk push: %1%") % ec.message ()));
 			}
 		}
 	});
