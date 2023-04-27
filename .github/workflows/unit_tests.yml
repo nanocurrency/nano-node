@@ -36,8 +36,8 @@ jobs:
           path: build
           key: ${{ runner.os }}-build-cache
 
-      - name: Fetch Deps
-        run: TEST=1 ci/actions/osx/install_deps.sh
+      - name: Prepare
+        run: ci/prepare/macos/prepare.sh
 
       - name: Build Tests
         run: ci/build-ci.sh "/tmp/qt/lib/cmake/Qt5";
