@@ -33,7 +33,7 @@ public:
 	nano::mutex next_log_mutex;
 	std::chrono::steady_clock::time_point next_log{ std::chrono::steady_clock::now () };
 	std::atomic<unsigned> pulling{ 0 };
-	std::shared_ptr<nano::node> node;
+	std::weak_ptr<nano::node> node;
 	std::atomic<uint64_t> total_blocks{ 0 };
 	std::atomic<unsigned> requeued_pulls{ 0 };
 	std::atomic<bool> started{ false };

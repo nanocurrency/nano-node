@@ -10,7 +10,7 @@ nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::
 	frontiers_age (frontiers_age_a),
 	start_account (start_account_a)
 {
-	node->bootstrap_initiator.notify_listeners (true);
+	node_a->bootstrap_initiator.notify_listeners (true);
 }
 
 bool nano::bootstrap_attempt_legacy::consume_future (std::future<bool> & future_a)
@@ -29,6 +29,11 @@ bool nano::bootstrap_attempt_legacy::consume_future (std::future<bool> & future_
 
 void nano::bootstrap_attempt_legacy::stop ()
 {
+	auto node = this->node.lock ();
+	if (!node)
+	{
+		return;
+	}
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	stopped = true;
 	lock.unlock ();
@@ -60,6 +65,11 @@ void nano::bootstrap_attempt_legacy::stop ()
 
 void nano::bootstrap_attempt_legacy::request_push (nano::unique_lock<nano::mutex> & lock_a)
 {
+	auto node = this->node.lock ();
+	if (!node)
+	{
+		return;
+	}
 	bool error (false);
 	lock_a.unlock ();
 	auto connection_l (node->bootstrap_initiator.connections->find_connection (endpoint_frontier_request));
@@ -125,6 +135,11 @@ void nano::bootstrap_attempt_legacy::set_start_account (nano::account const & st
 
 bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<nano::mutex> & lock_a, bool first_attempt)
 {
+	auto node = this->node.lock ();
+	if (!node)
+	{
+		return true;
+	}
 	auto result (true);
 	lock_a.unlock ();
 	auto connection_l (node->bootstrap_initiator.connections->connection (shared_from_this (), first_attempt));
@@ -201,6 +216,11 @@ void nano::bootstrap_attempt_legacy::run_start (nano::unique_lock<nano::mutex> &
 
 void nano::bootstrap_attempt_legacy::run ()
 {
+	auto node = this->node.lock ();
+	if (!node)
+	{
+		return;
+	}
 	debug_assert (started);
 	debug_assert (!node->flags.disable_legacy_bootstrap);
 	node->bootstrap_initiator.connections->populate_connections (false);
