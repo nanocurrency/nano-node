@@ -48,7 +48,6 @@ cmake \
 -DNANO_WARN_TO_ERR=ON \
 -DCMAKE_BUILD_TYPE=${BUILD_TYPE:-Debug} \
 -DQt5_DIR=${qt_dir} \
--DCI_TEST="1" \
 ${BACKTRACE:-} \
 ${SANITIZERS:-} \
 ..

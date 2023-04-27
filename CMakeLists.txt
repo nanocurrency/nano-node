@@ -34,10 +34,6 @@ if(COVERAGE)
   include(CoverageTest)
 endif()
 
-set(CI_TEST
-    0
-    CACHE STRING "")
-
 if(MSVC)
   add_definitions(/MP)
 endif()

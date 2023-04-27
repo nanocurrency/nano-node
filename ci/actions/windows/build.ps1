@@ -31,7 +31,6 @@ else {
     }
     $env:NETWORK_CFG = "dev"
     $env:NANO_TEST = "-DNANO_TEST=ON"
-    $env:CI = '-DCI_TEST="1"'
     $env:RUN = "test"
 }
 

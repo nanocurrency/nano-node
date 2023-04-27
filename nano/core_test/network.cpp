@@ -1014,7 +1014,7 @@ TEST (network, tcp_message_manager)
 
 	// This should give sufficient time to execute put_message
 	// and prove that it waits on condition variable
-	std::this_thread::sleep_for (CI ? 200ms : 100ms);
+	std::this_thread::sleep_for (200ms);
 
 	ASSERT_EQ (manager.entries.size (), manager.max_entries);
 	ASSERT_EQ (manager.get_message ().node_id, item.node_id);
