@@ -53,7 +53,7 @@ public:
 	void timeout ();
 
 	std::shared_ptr<nano::transport::socket> const socket;
-	std::shared_ptr<nano::node> const node;
+	std::weak_ptr<nano::node> const node;
 	nano::mutex mutex;
 	std::atomic<bool> stopped{ false };
 	std::atomic<bool> handshake_query_received{ false };

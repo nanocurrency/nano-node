@@ -25,14 +25,13 @@ class pull_info;
 class bootstrap_client final : public std::enable_shared_from_this<bootstrap_client>
 {
 public:
-	bootstrap_client (std::shared_ptr<nano::node> const & node_a, nano::bootstrap_connections & connections_a, std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::transport::socket> const & socket_a);
+	bootstrap_client (std::shared_ptr<nano::node> const & node_a, std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::transport::socket> const & socket_a);
 	~bootstrap_client ();
 	void stop (bool force);
 	double sample_block_rate ();
 	double elapsed_seconds () const;
 	void set_start_time (std::chrono::steady_clock::time_point start_time_a);
-	std::shared_ptr<nano::node> node;
-	nano::bootstrap_connections & connections;
+	std::weak_ptr<nano::node> node;
 	std::shared_ptr<nano::transport::channel_tcp> channel;
 	std::shared_ptr<nano::transport::socket> socket;
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;

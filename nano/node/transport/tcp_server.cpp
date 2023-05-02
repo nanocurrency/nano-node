@@ -136,7 +136,7 @@ nano::transport::tcp_server::tcp_server (std::shared_ptr<nano::transport::socket
 	node{ std::move (node_a) },
 	allow_bootstrap{ allow_bootstrap_a },
 	message_deserializer{
-		std::make_shared<nano::transport::message_deserializer> (node->network_params.network, node->network.publish_filter, node->block_uniquer, node->vote_uniquer,
+		std::make_shared<nano::transport::message_deserializer> (node_a->network_params.network, node_a->network.publish_filter, node_a->block_uniquer, node_a->vote_uniquer,
 		[socket_l = socket] (std::shared_ptr<std::vector<uint8_t>> const & data_a, size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a) {
 			debug_assert (socket_l != nullptr);
 			socket_l->read_impl (data_a, size_a, callback_a);
@@ -148,6 +148,11 @@ nano::transport::tcp_server::tcp_server (std::shared_ptr<nano::transport::socket
 
 nano::transport::tcp_server::~tcp_server ()
 {
+	auto node = this->node.lock ();
+	if (!node)
+	{
+		return;
+	}
 	if (node->config.logging.bulk_pull_logging ())
 	{
 		node->logger.try_log ("Exiting incoming TCP/bootstrap server");
@@ -203,10 +208,15 @@ void nano::transport::tcp_server::receive_message ()
 	}
 
 	message_deserializer->read ([this_l = shared_from_this ()] (boost::system::error_code ec, std::unique_ptr<nano::message> message) {
+		auto node = this_l->node.lock ();
+		if (!node)
+		{
+			return;
+		}
 		if (ec)
 		{
 			// IO error or critical error when deserializing message
-			this_l->node->stats.inc (nano::stat::type::error, nano::transport::message_deserializer::to_stat_detail (this_l->message_deserializer->status));
+			node->stats.inc (nano::stat::type::error, nano::transport::message_deserializer::to_stat_detail (this_l->message_deserializer->status));
 			this_l->stop ();
 		}
 		else
@@ -218,6 +228,11 @@ void nano::transport::tcp_server::receive_message ()
 
 void nano::transport::tcp_server::received_message (std::unique_ptr<nano::message> message)
 {
+	auto node = this->node.lock ();
+	if (!node)
+	{
+		return;
+	}
 	bool should_continue = true;
 	if (message)
 	{
@@ -242,6 +257,11 @@ void nano::transport::tcp_server::received_message (std::unique_ptr<nano::messag
 
 bool nano::transport::tcp_server::process_message (std::unique_ptr<nano::message> message)
 {
+	auto node = this->node.lock ();
+	if (!node)
+	{
+		return false;
+	}
 	node->stats.inc (nano::stat::type::tcp_server, nano::to_stat_detail (message->header.type), nano::stat::dir::in);
 
 	debug_assert (is_undefined_connection () || is_realtime_connection () || is_bootstrap_connection ());
@@ -303,6 +323,11 @@ bool nano::transport::tcp_server::process_message (std::unique_ptr<nano::message
 
 void nano::transport::tcp_server::queue_realtime (std::unique_ptr<nano::message> message)
 {
+	auto node = this->node.lock ();
+	if (!node)
+	{
+		return;
+	}
 	node->network.tcp_message_manager.put_message (nano::tcp_message_item{ std::move (message), remote_endpoint, remote_node_id, socket });
 }
 
@@ -317,11 +342,16 @@ nano::transport::tcp_server::handshake_message_visitor::handshake_message_visito
 
 void nano::transport::tcp_server::handshake_message_visitor::node_id_handshake (nano::node_id_handshake const & message)
 {
-	if (server->node->flags.disable_tcp_realtime)
+	auto node = server->node.lock ();
+	if (!node)
 	{
-		if (server->node->config.logging.network_node_id_handshake_logging ())
+		return;
+	}
+	if (node->flags.disable_tcp_realtime)
+	{
+		if (node->config.logging.network_node_id_handshake_logging ())
 		{
-			server->node->logger.try_log (boost::str (boost::format ("Disabled realtime TCP for handshake %1%") % server->remote_endpoint));
+			node->logger.try_log (boost::str (boost::format ("Disabled realtime TCP for handshake %1%") % server->remote_endpoint));
 		}
 		// Stop invalid handshake
 		server->stop ();
@@ -330,9 +360,9 @@ void nano::transport::tcp_server::handshake_message_visitor::node_id_handshake (
 
 	if (message.query && server->handshake_query_received)
 	{
-		if (server->node->config.logging.network_node_id_handshake_logging ())
+		if (node->config.logging.network_node_id_handshake_logging ())
 		{
-			server->node->logger.try_log (boost::str (boost::format ("Detected multiple node_id_handshake query from %1%") % server->remote_endpoint));
+			node->logger.try_log (boost::str (boost::format ("Detected multiple node_id_handshake query from %1%") % server->remote_endpoint));
 		}
 		// Stop invalid handshake
 		server->stop ();
@@ -341,9 +371,9 @@ void nano::transport::tcp_server::handshake_message_visitor::node_id_handshake (
 
 	server->handshake_query_received = true;
 
-	if (server->node->config.logging.network_node_id_handshake_logging ())
+	if (node->config.logging.network_node_id_handshake_logging ())
 	{
-		server->node->logger.try_log (boost::str (boost::format ("Received node_id_handshake message from %1%") % server->remote_endpoint));
+		node->logger.try_log (boost::str (boost::format ("Received node_id_handshake message from %1%") % server->remote_endpoint));
 	}
 
 	if (message.query)
@@ -352,7 +382,7 @@ void nano::transport::tcp_server::handshake_message_visitor::node_id_handshake (
 	}
 	if (message.response)
 	{
-		if (server->node->network.verify_handshake_response (*message.response, nano::transport::map_tcp_to_endpoint (server->remote_endpoint)))
+		if (node->network.verify_handshake_response (*message.response, nano::transport::map_tcp_to_endpoint (server->remote_endpoint)))
 		{
 			server->to_realtime_connection (message.response->node_id);
 		}
@@ -369,6 +399,11 @@ void nano::transport::tcp_server::handshake_message_visitor::node_id_handshake (
 
 void nano::transport::tcp_server::send_handshake_response (nano::node_id_handshake::query_payload const & query, bool v2)
 {
+	auto node = this->node.lock ();
+	if (!node)
+	{
+		return;
+	}
 	auto response = node->network.prepare_handshake_response (query, v2);
 	auto own_query = node->network.prepare_handshake_query (nano::transport::map_tcp_to_endpoint (remote_endpoint));
 	nano::node_id_handshake handshake_response{ node->network_params.network, own_query, response };
@@ -376,18 +411,23 @@ void nano::transport::tcp_server::send_handshake_response (nano::node_id_handsha
 	// TODO: Use channel
 	auto shared_const_buffer = handshake_response.to_shared_const_buffer ();
 	socket->async_write (shared_const_buffer, [this_l = shared_from_this ()] (boost::system::error_code const & ec, std::size_t size_a) {
+		auto node = this_l->node.lock ();
+		if (!node)
+		{
+			return;
+		}
 		if (ec)
 		{
-			if (this_l->node->config.logging.network_node_id_handshake_logging ())
+			if (node->config.logging.network_node_id_handshake_logging ())
 			{
-				this_l->node->logger.try_log (boost::str (boost::format ("Error sending node_id_handshake to %1%: %2%") % this_l->remote_endpoint % ec.message ()));
+				node->logger.try_log (boost::str (boost::format ("Error sending node_id_handshake to %1%: %2%") % this_l->remote_endpoint % ec.message ()));
 			}
 			// Stop invalid handshake
 			this_l->stop ();
 		}
 		else
 		{
-			this_l->node->stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out);
+			node->stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out);
 		}
 	});
 }
@@ -448,15 +488,20 @@ void nano::transport::tcp_server::realtime_message_visitor::frontier_req (const 
 
 void nano::transport::tcp_server::realtime_message_visitor::telemetry_req (const nano::telemetry_req & message)
 {
+	auto node = server.node.lock ();
+	if (!node)
+	{
+		return;
+	}
 	// Only handle telemetry requests if they are outside the cooldown period
-	if (server.last_telemetry_req + server.node->network_params.network.telemetry_request_cooldown < std::chrono::steady_clock::now ())
+	if (server.last_telemetry_req + node->network_params.network.telemetry_request_cooldown < std::chrono::steady_clock::now ())
 	{
 		server.last_telemetry_req = std::chrono::steady_clock::now ();
 		process = true;
 	}
 	else
 	{
-		server.node->stats.inc (nano::stat::type::telemetry, nano::stat::detail::request_within_protection_cache_zone);
+		node->stats.inc (nano::stat::type::telemetry, nano::stat::detail::request_within_protection_cache_zone);
 	}
 }
 
@@ -486,17 +531,22 @@ nano::transport::tcp_server::bootstrap_message_visitor::bootstrap_message_visito
 
 void nano::transport::tcp_server::bootstrap_message_visitor::bulk_pull (const nano::bulk_pull & message)
 {
-	if (server->node->flags.disable_bootstrap_bulk_pull_server)
+	auto node = server->node.lock ();
+	if (!node)
+	{
+		return;
+	}
+	if (node->flags.disable_bootstrap_bulk_pull_server)
 	{
 		return;
 	}
 
-	if (server->node->config.logging.bulk_pull_logging ())
+	if (node->config.logging.bulk_pull_logging ())
 	{
-		server->node->logger.try_log (boost::str (boost::format ("Received bulk pull for %1% down to %2%, maximum of %3% from %4%") % message.start.to_string () % message.end.to_string () % message.count % server->remote_endpoint));
+		node->logger.try_log (boost::str (boost::format ("Received bulk pull for %1% down to %2%, maximum of %3% from %4%") % message.start.to_string () % message.end.to_string () % message.count % server->remote_endpoint));
 	}
 
-	server->node->bootstrap_workers.push_task ([server = server, message = message] () {
+	node->bootstrap_workers.push_task ([server = server, message = message] () {
 		// TODO: Add completion callback to bulk pull server
 		// TODO: There should be no need to re-copy message as unique pointer, refactor those bulk/frontier pull/push servers
 		auto bulk_pull_server = std::make_shared<nano::bulk_pull_server> (server, std::make_unique<nano::bulk_pull> (message));
@@ -508,17 +558,22 @@ void nano::transport::tcp_server::bootstrap_message_visitor::bulk_pull (const na
 
 void nano::transport::tcp_server::bootstrap_message_visitor::bulk_pull_account (const nano::bulk_pull_account & message)
 {
-	if (server->node->flags.disable_bootstrap_bulk_pull_server)
+	auto node = server->node.lock ();
+	if (!node)
+	{
+		return;
+	}
+	if (node->flags.disable_bootstrap_bulk_pull_server)
 	{
 		return;
 	}
 
-	if (server->node->config.logging.bulk_pull_logging ())
+	if (node->config.logging.bulk_pull_logging ())
 	{
-		server->node->logger.try_log (boost::str (boost::format ("Received bulk pull account for %1% with a minimum amount of %2%") % message.account.to_account () % nano::amount (message.minimum_amount).format_balance (nano::Mxrb_ratio, 10, true)));
+		node->logger.try_log (boost::str (boost::format ("Received bulk pull account for %1% with a minimum amount of %2%") % message.account.to_account () % nano::amount (message.minimum_amount).format_balance (nano::Mxrb_ratio, 10, true)));
 	}
 
-	server->node->bootstrap_workers.push_task ([server = server, message = message] () {
+	node->bootstrap_workers.push_task ([server = server, message = message] () {
 		// TODO: Add completion callback to bulk pull server
 		// TODO: There should be no need to re-copy message as unique pointer, refactor those bulk/frontier pull/push servers
 		auto bulk_pull_account_server = std::make_shared<nano::bulk_pull_account_server> (server, std::make_unique<nano::bulk_pull_account> (message));
@@ -530,7 +585,12 @@ void nano::transport::tcp_server::bootstrap_message_visitor::bulk_pull_account (
 
 void nano::transport::tcp_server::bootstrap_message_visitor::bulk_push (const nano::bulk_push &)
 {
-	server->node->bootstrap_workers.push_task ([server = server] () {
+	auto node = server->node.lock ();
+	if (!node)
+	{
+		return;
+	}
+	node->bootstrap_workers.push_task ([server = server] () {
 		// TODO: Add completion callback to bulk pull server
 		auto bulk_push_server = std::make_shared<nano::bulk_push_server> (server);
 		bulk_push_server->throttled_receive ();
@@ -541,12 +601,17 @@ void nano::transport::tcp_server::bootstrap_message_visitor::bulk_push (const na
 
 void nano::transport::tcp_server::bootstrap_message_visitor::frontier_req (const nano::frontier_req & message)
 {
-	if (server->node->config.logging.bulk_pull_logging ())
+	auto node = server->node.lock ();
+	if (!node)
 	{
-		server->node->logger.try_log (boost::str (boost::format ("Received frontier request for %1% with age %2%") % message.start.to_string () % message.age));
+		return;
+	}
+	if (node->config.logging.bulk_pull_logging ())
+	{
+		node->logger.try_log (boost::str (boost::format ("Received frontier request for %1% with age %2%") % message.start.to_string () % message.age));
 	}
 
-	server->node->bootstrap_workers.push_task ([server = server, message = message] () {
+	node->bootstrap_workers.push_task ([server = server, message = message] () {
 		// TODO: There should be no need to re-copy message as unique pointer, refactor those bulk/frontier pull/push servers
 		auto response = std::make_shared<nano::frontier_req_server> (server, std::make_unique<nano::frontier_req> (message));
 		response->send_next ();
@@ -559,6 +624,11 @@ void nano::transport::tcp_server::bootstrap_message_visitor::frontier_req (const
 //  and since we only ever store tcp_server as weak_ptr, socket timeout will automatically trigger tcp_server cleanup
 void nano::transport::tcp_server::timeout ()
 {
+	auto node = this->node.lock ();
+	if (!node)
+	{
+		return;
+	}
 	if (socket->has_timed_out ())
 	{
 		if (node->config.logging.bulk_pull_logging ())
@@ -575,6 +645,11 @@ void nano::transport::tcp_server::timeout ()
 
 bool nano::transport::tcp_server::to_bootstrap_connection ()
 {
+	auto node = this->node.lock ();
+	if (!node)
+	{
+		return false;
+	}
 	if (!allow_bootstrap)
 	{
 		return false;
@@ -599,6 +674,11 @@ bool nano::transport::tcp_server::to_bootstrap_connection ()
 
 bool nano::transport::tcp_server::to_realtime_connection (nano::account const & node_id)
 {
+	auto node = this->node.lock ();
+	if (!node)
+	{
+		return false;
+	}
 	if (socket->type () == nano::transport::socket::type_t::undefined && !node->flags.disable_tcp_realtime)
 	{
 		remote_node_id = node_id;
