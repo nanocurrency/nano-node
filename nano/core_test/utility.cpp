@@ -172,10 +172,10 @@ TEST (thread, thread_pool)
 
 TEST (thread_pool_alarm, one)
 {
-	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
 	std::atomic<bool> done (false);
 	nano::mutex mutex;
 	nano::condition_variable condition;
+	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
 	workers.add_timed_task (std::chrono::steady_clock::now (), [&] () {
 		{
 			nano::lock_guard<nano::mutex> lock{ mutex };
@@ -189,10 +189,10 @@ TEST (thread_pool_alarm, one)
 
 TEST (thread_pool_alarm, many)
 {
-	nano::thread_pool workers (50u, nano::thread_role::name::unknown);
 	std::atomic<int> count (0);
 	nano::mutex mutex;
 	nano::condition_variable condition;
+	nano::thread_pool workers (50u, nano::thread_role::name::unknown);
 	for (auto i (0); i < 50; ++i)
 	{
 		workers.add_timed_task (std::chrono::steady_clock::now (), [&] () {
@@ -209,11 +209,11 @@ TEST (thread_pool_alarm, many)
 
 TEST (thread_pool_alarm, top_execution)
 {
-	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
 	int value1 (0);
 	int value2 (0);
 	nano::mutex mutex;
 	std::promise<bool> promise;
+	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
 	workers.add_timed_task (std::chrono::steady_clock::now (), [&] () {
 		nano::lock_guard<nano::mutex> lock{ mutex };
 		value1 = 1;
