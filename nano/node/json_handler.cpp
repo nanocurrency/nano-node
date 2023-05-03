@@ -924,6 +924,7 @@ void nano::json_handler::accounts_balances ()
 void nano::json_handler::accounts_representatives ()
 {
 	boost::property_tree::ptree representatives;
+	boost::property_tree::ptree errors;
 	auto transaction = node.store.tx_begin_read ();
 	for (auto & account_from_request : request.get_child ("accounts"))
 	{
@@ -937,10 +938,15 @@ void nano::json_handler::accounts_representatives ()
 				continue;
 			}
 		}
-		representatives.put (account_from_request.second.data (), boost::format ("error: %1%") % ec.message ());
+		debug_assert (ec);
+		errors.put (account_from_request.second.data (), ec.message ());
 		ec = {};
 	}
 	response_l.add_child ("representatives", representatives);
+	if (!errors.empty ())
+	{
+		response_l.add_child ("errors", errors);
+	}
 	response_errors ();
 }
 
