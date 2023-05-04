@@ -67,6 +67,7 @@ TEST (rpc, account_balance)
 				 .build ();
 
 	ASSERT_EQ (nano::process_result::progress, node->process (*send1).code);
+	ASSERT_TIMELY (5s, !node->active.active (*send1));
 
 	auto const rpc_ctx = add_rpc (system, node);
 
@@ -2967,6 +2968,7 @@ TEST (rpc, accounts_balances_unopened_account_with_receivables)
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
 	}
 	ASSERT_TIMELY (5s, node->block (send->hash ()));
+	ASSERT_TIMELY (5s, !node->active.active (*send));
 
 	// create and send the rpc request for the unopened account and wait for the response
 	auto const rpc_ctx = add_rpc (system, node);
@@ -3240,6 +3242,7 @@ TEST (rpc, pending_exists)
 	auto hash0 (node->latest (nano::dev::genesis->account ()));
 	auto block1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 100));
 	ASSERT_TIMELY (5s, node->block_confirmed (block1->hash ()));
+	ASSERT_TIMELY (5s, !node->active.active (*block1));
 
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
@@ -3297,6 +3300,7 @@ TEST (rpc, wallet_receivable)
 	auto iterations (0);
 	auto block1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 100));
 	ASSERT_TIMELY (5s, node->block_confirmed (block1->hash ()));
+	ASSERT_TIMELY (5s, !node->active.active (*block1));
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_receivable");
@@ -3844,6 +3848,8 @@ TEST (rpc, account_info)
 					.work (*node1->work_generate_blocking (key1.pub))
 					.build ();
 		ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
+		ASSERT_TIMELY (5s, !node1->active.active (*state_change));
+		ASSERT_TIMELY (5s, !node1->active.active (*open));
 	}
 
 	{
