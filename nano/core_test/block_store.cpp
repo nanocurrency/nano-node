@@ -17,10 +17,10 @@
 
 #include <boost/filesystem.hpp>
 
+#include <cstdlib>
 #include <fstream>
 #include <unordered_set>
-
-#include <stdlib.h>
+#include <vector>
 
 using namespace std::chrono_literals;
 
@@ -2207,6 +2207,53 @@ namespace lmdb
 			store.version.put (transaction, 21);
 			MDB_dbi unchecked_handle{ 0 };
 			ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE, &unchecked_handle));
+			ASSERT_EQ (store.version.get (transaction), 21);
+		}
+
+		// Testing the upgrade code worked
+		check_correct_state ();
+	}
+}
+
+namespace rocksdb
+{
+	TEST (rocksdb_block_store, upgrade_v21_v22)
+	{
+		if (!nano::rocksdb_config::using_rocksdb_in_tests ())
+		{
+			// Don't test this in LMDB mode
+			GTEST_SKIP ();
+		}
+
+		auto const path = nano::unique_path ();
+		nano::logger_mt logger;
+		nano::stats stats;
+		auto const check_correct_state = [&] () {
+			nano::rocksdb::store store (logger, path, nano::dev::constants);
+			auto transaction (store.tx_begin_write ());
+			ASSERT_EQ (store.version.get (transaction), store.version_current);
+			ASSERT_FALSE (store.column_family_exists ("unchecked"));
+		};
+
+		// Testing current version doesn't contain the unchecked table
+		check_correct_state ();
+
+		// Setting the database to its 21st version state
+		{
+			nano::rocksdb::store store (logger, path, nano::dev::constants);
+
+			// Create a column family for "unchecked"
+			::rocksdb::ColumnFamilyOptions new_cf_options;
+			::rocksdb::ColumnFamilyHandle * new_cf_handle;
+			::rocksdb::Status status = store.db->CreateColumnFamily (new_cf_options, "unchecked", &new_cf_handle);
+			store.handles.emplace_back (new_cf_handle);
+
+			// The new column family was created successfully, and 'new_cf_handle' now points to it.
+			ASSERT_TRUE (status.ok ());
+
+			// Rollback the database version number.
+			auto transaction (store.tx_begin_write ());
+			store.version.put (transaction, 21);
 			ASSERT_EQ (store.version.get (transaction), 21);
 		}
 

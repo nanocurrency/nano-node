@@ -31,6 +31,8 @@ class rocksdb_block_store_tombstone_count_Test;
 
 namespace rocksdb
 {
+	class rocksdb_block_store_upgrade_v21_v22_Test;
+
 	/**
  	 * rocksdb implementation of the block store
  	 */
@@ -171,6 +173,7 @@ namespace rocksdb
 		constexpr static int base_block_cache_size = 8;
 
 		friend class nano::rocksdb_block_store_tombstone_count_Test;
+		friend class nano::rocksdb::rocksdb_block_store_upgrade_v21_v22_Test;
 	};
 } // namespace rocksdb
 } // namespace nano
