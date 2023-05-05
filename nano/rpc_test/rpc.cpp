@@ -2950,7 +2950,9 @@ TEST (rpc, accounts_balances)
 TEST (rpc, accounts_balances_unopened_account_with_receivables)
 {
 	nano::test::system system;
-	auto node = add_ipc_enabled_node (system);
+	nano::node_config config;
+	config.backlog_scan_batch_size = 0;
+	auto node = add_ipc_enabled_node (system, config);
 
 	// send a 1 raw to the unopened account which will have receivables
 	nano::keypair unopened_account;
@@ -3236,7 +3238,9 @@ TEST (rpc, wallet_balances)
 TEST (rpc, pending_exists)
 {
 	nano::test::system system;
-	auto node = add_ipc_enabled_node (system);
+	nano::node_config config;
+	config.backlog_scan_batch_size = 0;
+	auto node = add_ipc_enabled_node (system, config);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto hash0 (node->latest (nano::dev::genesis->account ()));
@@ -3293,7 +3297,9 @@ TEST (rpc, wallet_pending)
 TEST (rpc, wallet_receivable)
 {
 	nano::test::system system;
-	auto node = add_ipc_enabled_node (system);
+	nano::node_config config;
+	config.backlog_scan_batch_size = 0;
+	auto node = add_ipc_enabled_node (system, config);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key1.prv);

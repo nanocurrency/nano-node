@@ -129,7 +129,9 @@ TEST (rpc, receivable_source_min_version)
 TEST (rpc, receivable_unconfirmed)
 {
 	nano::test::system system;
-	auto node = add_ipc_enabled_node (system);
+	nano::node_config config;
+	config.backlog_scan_batch_size = 0;
+	auto node = add_ipc_enabled_node (system, config);
 	auto chain = nano::test::setup_chain (system, *node, 1, nano::dev::genesis_key, false);
 	auto block1 = chain[0];
 
@@ -525,7 +527,9 @@ TEST (rpc, accounts_receivable_source)
 TEST (rpc, accounts_receivable_confirmed)
 {
 	nano::test::system system;
-	auto node = add_ipc_enabled_node (system);
+	nano::node_config config;
+	config.backlog_scan_batch_size = 0;
+	auto node = add_ipc_enabled_node (system, config);
 	auto chain = nano::test::setup_chain (system, *node, 1, nano::dev::genesis_key, false);
 	auto block1 = chain[0];
 	ASSERT_TIMELY (5s, !node->active.active (*block1));
