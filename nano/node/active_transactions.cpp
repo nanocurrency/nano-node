@@ -610,20 +610,27 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> const & bl
 // Returns the type of election status requiring callbacks calling later
 boost::optional<nano::election_status_type> nano::active_transactions::confirm_block (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
 {
-	auto hash (block_a->hash ());
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	auto existing (blocks.find (hash));
-	boost::optional<nano::election_status_type> status_type;
-	if (existing != blocks.end ())
+	auto const hash = block_a->hash ();
+	std::shared_ptr<nano::election> election = nullptr;
 	{
-		lock.unlock ();
-		nano::unique_lock<nano::mutex> election_lock{ existing->second->mutex };
-		if (existing->second->status.winner && existing->second->status.winner->hash () == hash)
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		auto existing = blocks.find (hash);
+		if (existing != blocks.end ())
+		{
+			election = existing->second;
+		}
+	}
+
+	boost::optional<nano::election_status_type> status_type;
+	if (election)
+	{
+		nano::unique_lock<nano::mutex> election_lock{ election->mutex };
+		if (election->status.winner && election->status.winner->hash () == hash)
 		{
 			// Determine if the block was confirmed explicitly via election confirmation or implicitly via confirmation height
-			if (!existing->second->status_confirmed ())
+			if (!election->status_confirmed ())
 			{
-				existing->second->confirm_once (election_lock, nano::election_status_type::active_confirmation_height);
+				election->confirm_once (election_lock, nano::election_status_type::active_confirmation_height);
 				status_type = nano::election_status_type::active_confirmation_height;
 			}
 			else
