@@ -942,7 +942,10 @@ void nano::json_handler::accounts_representatives ()
 		errors.put (account_from_request.second.data (), ec.message ());
 		ec = {};
 	}
-	response_l.add_child ("representatives", representatives);
+	if (!representatives.empty ())
+	{
+		response_l.add_child ("representatives", representatives);
+	}
 	if (!errors.empty ())
 	{
 		response_l.add_child ("errors", errors);
@@ -1000,7 +1003,10 @@ void nano::json_handler::accounts_frontiers ()
 		errors.put (account_from_request.second.data (), ec.message ());
 		ec = {};
 	}
-	response_l.add_child ("frontiers", frontiers);
+	if (!frontiers.empty())
+	{
+		response_l.add_child ("frontiers", frontiers);
+	}
 	if (!errors.empty ())
 	{
 		response_l.add_child ("errors", errors);
