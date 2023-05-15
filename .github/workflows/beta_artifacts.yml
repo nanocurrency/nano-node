@@ -52,7 +52,7 @@ jobs:
   osx_job:
     if: ${{ github.event.inputs.ref == '' && needs.build_auto_setup_job.result == 'success' && always() || github.event.inputs.ref != '' && always() }}
     needs: build_auto_setup_job
-    runs-on: macOS-11
+    runs-on: macOS-12
     timeout-minutes: 90
     steps:
       - name: Set the tag and the pre-release version
