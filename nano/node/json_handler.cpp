@@ -1011,7 +1011,7 @@ void nano::json_handler::accounts_frontiers ()
 		errors.put (account_from_request.second.data (), ec.message ());
 		ec = {};
 	}
-	if (!frontiers.empty())
+	if (!frontiers.empty ())
 	{
 		response_l.add_child ("frontiers", frontiers);
 	}
