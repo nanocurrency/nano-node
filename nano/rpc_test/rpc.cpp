@@ -3021,12 +3021,14 @@ TEST (rpc, accounts_representatives)
 	// Ensures the response is correct.
 	auto response_representative (response.get_child ("representatives").get<std::string> (nano::dev::genesis->account ().to_account ()));
 	ASSERT_EQ (response_representative, nano::dev::genesis->account ().to_account ());
+
+	ASSERT_EQ (response.count ("errors"), 0);
 }
 
 /**
  * Test the RPC accounts_frontiers with 3 accounts, one good one, one with an invalid account ID and one with an account that does not exist.
  */
-TEST (rpc, accounts_representatives_per_account_result_with_errors)
+TEST (rpc, accounts_representatives_with_errors)
 {
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
@@ -3042,38 +3044,31 @@ TEST (rpc, accounts_representatives_per_account_result_with_errors)
 
 	// Adds an invalid account, malformed number with a wrong checksum.
 	// Got with this formula: key1.substr(0, 40) + key2.substr(40, key2.size()).
-	auto const invalid_key = "nano_36uccgpjzhjsdbj44wm1y5hyz8gefx3wjpp1jircxt84nopxkxti5bzq1rnz";
-	entry2.put ("", invalid_key);
+	auto const bad_account_number = "nano_36uccgpjzhjsdbj44wm1y5hyz8gefx3wjpp1jircxt84nopxkxti5bzq1rnz";
+	entry2.put ("", bad_account_number);
 	accounts_l.push_back (std::make_pair ("", entry2));
 
-	// Adds a valid key but that isn't on the ledger. It wont'be found.
-	auto const valid_key = "nano_1hrts7hcoozxccnffoq9hqhngnn9jz783usapejm57ejtqcyz9dpso1bibuy";
-	entry3.put ("", valid_key);
+	// Adds a valid key but that isn't on the ledger. It won't be found.
+	auto const account_not_found = "nano_1hrts7hcoozxccnffoq9hqhngnn9jz783usapejm57ejtqcyz9dpso1bibuy";
+	entry3.put ("", account_not_found);
 	accounts_l.push_back (std::make_pair ("", entry3));
 
 	// Packs all the account entries.
 	request.add_child ("accounts", accounts_l);
 	auto response (wait_response (system, rpc_ctx, request));
 
-	auto get_error_message = [] (nano::error_common error_common) -> std::string {
-		std::error_code ec = error_common;
-		return boost::str (boost::format ("error: %1%") % ec.message ());
-	};
+	ASSERT_EQ (response.count ("representatives"), 1);
+	ASSERT_EQ (response.get_child ("representatives").size (), 1);
+	ASSERT_EQ (response.get_child ("representatives").count (nano::dev::genesis_key.pub.to_account ()), 1);
+	auto rep_text = response.get_child ("representatives").get<std::string> (nano::dev::genesis_key.pub.to_account ());
+	ASSERT_EQ (rep_text, nano::dev::genesis->account ().to_account ());
 
-	std::map<std::string, std::string> reply_map{
-		{ nano::dev::genesis_key.pub.to_account (), nano::dev::genesis->account ().to_account () },
-		{ invalid_key, get_error_message (nano::error_common::bad_account_number) },
-		{ valid_key, get_error_message (nano::error_common::account_not_found) }
-	};
-
-	for (auto & representative : response.get_child ("representatives"))
-	{
-		std::string account_text = representative.first;
-		std::string frontier_text = representative.second.get<std::string> ("");
-		ASSERT_EQ (frontier_text, reply_map[account_text]);
-		reply_map.erase (account_text);
-	}
-	ASSERT_EQ (reply_map.size (), 0);
+	ASSERT_EQ (response.count ("errors"), 1);
+	ASSERT_EQ (response.get_child ("errors").size (), 2);
+	ASSERT_EQ (response.get_child ("errors").count (bad_account_number), 1);
+	ASSERT_EQ (response.get_child ("errors").count (account_not_found), 1);
+	ASSERT_EQ (response.get_child ("errors").get<std::string> (bad_account_number), make_error_code (nano::error_common::bad_account_number).message ());
+	ASSERT_EQ (response.get_child ("errors").get<std::string> (account_not_found), make_error_code (nano::error_common::account_not_found).message ());
 }
 
 TEST (rpc, accounts_frontiers)
@@ -3086,46 +3081,67 @@ TEST (rpc, accounts_frontiers)
 	boost::property_tree::ptree request;
 	request.put ("action", "accounts_frontiers");
 	boost::property_tree::ptree accounts_l;
+
 	// Adds a valid account that will be found in the ledger.
 	boost::property_tree::ptree entry1;
 	entry1.put ("", nano::dev::genesis_key.pub.to_account ());
 	accounts_l.push_back (std::make_pair ("", entry1));
+
+	request.add_child ("accounts", accounts_l);
+	auto response (wait_response (system, rpc_ctx, request));
+
+	ASSERT_EQ (response.count ("frontiers"), 1);
+	ASSERT_EQ (response.get_child ("frontiers").size (), 1);
+	ASSERT_EQ (response.get_child ("frontiers").count (nano::dev::genesis_key.pub.to_account ()), 1);
+	auto frontier_text = response.get_child ("frontiers").get<std::string> (nano::dev::genesis_key.pub.to_account ());
+	ASSERT_EQ (nano::block_hash{ frontier_text }, node->latest (nano::dev::genesis->account ()));
+
+	ASSERT_EQ (response.count ("errors"), 0);
+}
+
+TEST (rpc, accounts_frontiers_with_errors)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	auto const rpc_ctx = add_rpc (system, node);
+
+	boost::property_tree::ptree request;
+	request.put ("action", "accounts_frontiers");
+	boost::property_tree::ptree accounts_l;
+
+	// Adds a valid account that will be found in the ledger.
+	boost::property_tree::ptree entry1;
+	entry1.put ("", nano::dev::genesis_key.pub.to_account ());
+	accounts_l.push_back (std::make_pair ("", entry1));
+
 	// Adds a bad account number for getting an error response.
 	boost::property_tree::ptree entry2;
 	auto const bad_account_number = "nano_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtd1";
 	entry2.put ("", bad_account_number);
 	accounts_l.push_back (std::make_pair ("", entry2));
+
 	// Adds a valid account that isn't on the ledger for getting an error response.
 	boost::property_tree::ptree entry3;
 	auto const account_not_found = "nano_1os6txqxyuesnxrtshnfb5or1hesc1647wpk9rsr84pmki6eairwha79hk3j";
 	entry3.put ("", account_not_found);
 	accounts_l.push_back (std::make_pair ("", entry3));
+
 	request.add_child ("accounts", accounts_l);
 	auto response (wait_response (system, rpc_ctx, request));
 
-	auto get_error_message = [] (nano::error_common error_common) -> std::string {
-		std::error_code ec = error_common;
-		return boost::str (boost::format ("error: %1%") % ec.message ());
-	};
+	ASSERT_EQ (response.count ("frontiers"), 1);
+	ASSERT_EQ (response.get_child ("frontiers").size (), 1);
+	ASSERT_EQ (response.get_child ("frontiers").count (nano::dev::genesis_key.pub.to_account ()), 1);
+	auto frontier_text = response.get_child ("frontiers").get<std::string> (nano::dev::genesis_key.pub.to_account ());
+	ASSERT_EQ (nano::block_hash{ frontier_text }, node->latest (nano::dev::genesis->account ()));
 
-	// create a map of expected replies, everytime we receive and echeck a reply, we remove it from this map
-	// in the end, this container should be empty, which would signify that all 3 replies were received correctly
-	std::map<std::string, std::string> reply_map{
-		{ nano::dev::genesis_key.pub.to_account (), nano::dev::genesis->hash ().to_string () },
-		{ bad_account_number, get_error_message (nano::error_common::bad_account_number) },
-		{ account_not_found, get_error_message (nano::error_common::account_not_found) },
-	};
-
-	for (auto & frontier : response.get_child ("frontiers"))
-	{
-		std::string account_text = frontier.first;
-		std::string frontier_text = frontier.second.get<std::string> ("");
-		ASSERT_EQ (frontier_text, reply_map[account_text]);
-		reply_map.erase (account_text);
-	}
-
-	// we expect all replies to have been received and this container to be empty
-	ASSERT_EQ (reply_map.size (), 0);
+	ASSERT_EQ (response.count ("errors"), 1);
+	ASSERT_EQ (response.get_child ("errors").size (), 2);
+	ASSERT_EQ (response.get_child ("errors").count (bad_account_number), 1);
+	ASSERT_EQ (response.get_child ("errors").count (account_not_found), 1);
+	ASSERT_EQ (response.get_child ("errors").get<std::string> (bad_account_number), make_error_code (nano::error_common::bad_account_number).message ());
+	ASSERT_EQ (response.get_child ("errors").get<std::string> (account_not_found), make_error_code (nano::error_common::account_not_found).message ());
 }
 
 TEST (rpc, blocks)
