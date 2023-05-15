@@ -136,7 +136,6 @@ add_library(
   lmdb/pruned_store.cpp
   lmdb/version_store.hpp
   lmdb/version_store.cpp
-  lmdb/unchecked_store.hpp
   lmdb/lmdb.hpp
   lmdb/lmdb.cpp
   lmdb/lmdb_env.hpp

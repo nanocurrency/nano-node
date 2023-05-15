@@ -441,7 +441,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			// Drop unchecked blocks if initial bootstrap is completed
 			if (!flags.disable_unchecked_drop && !use_bootstrap_weight && !flags.read_only)
 			{
-				auto const transaction (store.tx_begin_write ({ tables::unchecked }));
 				unchecked.clear ();
 				logger.always_log ("Dropping unchecked blocks");
 			}
@@ -996,7 +995,6 @@ void nano::node::unchecked_cleanup ()
 	while (!cleaning_list.empty ())
 	{
 		std::size_t deleted_count (0);
-		auto const transaction (store.tx_begin_write ({ tables::unchecked }));
 		while (deleted_count++ < 2 * 1024 && !cleaning_list.empty ())
 		{
 			auto key (cleaning_list.front ());
