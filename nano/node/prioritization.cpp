@@ -28,7 +28,7 @@ void nano::prioritization::next ()
 void nano::prioritization::seek ()
 {
 	next ();
-	for (std::size_t i = 0, n = schedule.size (); buckets[*current].empty () && i < n; ++i)
+	for (std::size_t i = 0, n = schedule.size (); buckets[*current].queue.empty () && i < n; ++i)
 	{
 		next ();
 	}
@@ -86,10 +86,10 @@ void nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> blo
 {
 	auto was_empty = empty ();
 	auto & bucket = buckets[index (priority.number ())];
-	bucket.emplace (value_type{ time, block });
-	if (bucket.size () > std::max (decltype (maximum){ 1 }, maximum / buckets.size ()))
+	bucket.queue.emplace (value_type{ time, block });
+	if (bucket.queue.size () > std::max (decltype (maximum){ 1 }, maximum / buckets.size ()))
 	{
-		bucket.erase (--bucket.end ());
+		bucket.queue.erase (--bucket.queue.end ());
 	}
 	if (was_empty)
 	{
@@ -101,8 +101,8 @@ void nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> blo
 std::shared_ptr<nano::block> nano::prioritization::top () const
 {
 	debug_assert (!empty ());
-	debug_assert (!buckets[*current].empty ());
-	auto result = buckets[*current].begin ()->block;
+	debug_assert (!buckets[*current].queue.empty ());
+	auto result = buckets[*current].queue.begin ()->block;
 	return result;
 }
 
@@ -110,9 +110,9 @@ std::shared_ptr<nano::block> nano::prioritization::top () const
 void nano::prioritization::pop ()
 {
 	debug_assert (!empty ());
-	debug_assert (!buckets[*current].empty ());
+	debug_assert (!buckets[*current].queue.empty ());
 	auto & bucket = buckets[*current];
-	bucket.erase (bucket.begin ());
+	bucket.queue.erase (bucket.queue.begin ());
 	seek ();
 }
 
@@ -120,9 +120,9 @@ void nano::prioritization::pop ()
 std::size_t nano::prioritization::size () const
 {
 	std::size_t result{ 0 };
-	for (auto const & queue : buckets)
+	for (auto const & bucket : buckets)
 	{
-		result += queue.size ();
+		result += bucket.queue.size ();
 	}
 	return result;
 }
@@ -136,13 +136,13 @@ std::size_t nano::prioritization::bucket_count () const
 /** Returns number of items in bucket with index 'index' */
 std::size_t nano::prioritization::bucket_size (std::size_t index) const
 {
-	return buckets[index].size ();
+	return buckets[index].queue.size ();
 }
 
 /** Returns true if all buckets are empty */
 bool nano::prioritization::empty () const
 {
-	return std::all_of (buckets.begin (), buckets.end (), [] (priority const & bucket_a) { return bucket_a.empty (); });
+	return std::all_of (buckets.begin (), buckets.end (), [] (auto const & bucket_a) { return bucket_a.queue.empty (); });
 }
 
 /** Print the state of the class in stderr */
@@ -150,7 +150,7 @@ void nano::prioritization::dump () const
 {
 	for (auto const & i : buckets)
 	{
-		for (auto const & j : i)
+		for (auto const & j : i.queue)
 		{
 			std::cerr << j.time << ' ' << j.block->hash ().to_string () << '\n';
 		}
@@ -164,7 +164,7 @@ std::unique_ptr<nano::container_info_component> nano::prioritization::collect_co
 	for (auto i = 0; i < buckets.size (); ++i)
 	{
 		auto const & bucket = buckets[i];
-		composite->add_component (std::make_unique<container_info_leaf> (container_info{ std::to_string (i), bucket.size (), 0 }));
+		composite->add_component (std::make_unique<container_info_leaf> (container_info{ std::to_string (i), bucket.queue.size (), 0 }));
 	}
 	return composite;
 }

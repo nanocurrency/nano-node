@@ -31,10 +31,14 @@ class prioritization final
 		bool operator== (value_type const & other_a) const;
 	};
 
-	using priority = std::set<value_type>;
+	class bucket
+	{
+	public:
+		std::set<value_type> queue;
+	};
 
 	/** container for the buckets to be read in round robin fashion */
-	std::vector<priority> buckets;
+	std::vector<bucket> buckets;
 
 	/** thresholds that define the bands for each bucket, the minimum balance an account must have to enter a bucket,
 	 *  the container writes a block to the lowest indexed bucket that has balance larger than the bucket's minimum value */
