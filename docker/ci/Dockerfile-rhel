@@ -4,5 +4,5 @@ WORKDIR /workspace
 
 ADD util /build
 RUN bash /build/build_prep/update-common
-RUN bash /build/build_prep/centos/prep.sh
+RUN bash /build/build_prep/rhel/prep.sh
 RUN rm -rf /build

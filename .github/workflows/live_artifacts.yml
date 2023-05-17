@@ -78,14 +78,14 @@ jobs:
           ref: ${{ github.ref }}
           repository: ${{ github.repository }}
       - name: CentOS Base
-        run: ci/build-docker-image.sh docker/ci/Dockerfile-centos nanocurrency/nano-env:centos
+        run: ci/build-docker-image.sh docker/ci/Dockerfile-rhel nanocurrency/nano-env:rhel
       - name: Build Artifact
         run: |
           mkdir -p ${GITHUB_WORKSPACE}/artifacts
           docker run -e LIVE=1 -e TAG=$TAG -e REPO_TO_BUILD=$REPO_TO_BUILD -e RPM_RELEASE=1 \
           -v ${GITHUB_WORKSPACE}:/workspace \
           -v ${GITHUB_WORKSPACE}/artifacts:/root/rpmbuild \
-          nanocurrency/nano-env:centos /bin/bash -c "ci/build-centos.sh"
+          nanocurrency/nano-env:rhel /bin/bash -c "ci/build-rhel.sh"
       - name: Deploy Artifacts
         run: ci/actions/deploy.sh
         env:
