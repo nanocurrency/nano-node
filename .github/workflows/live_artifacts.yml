@@ -65,7 +65,7 @@ jobs:
           AWS_DEFAULT_REGION: us-east-2
 
   linux_rpm_job:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 90
     steps:
       - name: Sets the tag and repo variables (to build)
@@ -77,7 +77,7 @@ jobs:
           submodules: "recursive"
           ref: ${{ github.ref }}
           repository: ${{ github.repository }}
-      - name: CentOS Base
+      - name: RockyLinux 8 Base
         run: ci/build-docker-image.sh docker/ci/Dockerfile-rhel nanocurrency/nano-env:rhel
       - name: Build Artifact
         run: |

@@ -1,8 +1,10 @@
-FROM centos:7
+FROM rockylinux:8
 
 WORKDIR /workspace
 
-ADD util /build
-RUN bash /build/build_prep/update-common
-RUN bash /build/build_prep/rhel/prep.sh
-RUN rm -rf /build
+RUN yum update -y
+RUN yum install -y git wget openssl bzip2
+RUN yum install -y rpm-build
+RUN yum install -y glibc-devel glibc-headers make which
+RUN yum install -y cmake gcc-toolset-12
+RUN yum install -y python38
