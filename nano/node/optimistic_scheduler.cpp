@@ -1,5 +1,6 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/tomlconfig.hpp>
+#include <nano/node/election_occupancy.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/optimistic_scheduler.hpp>
 
@@ -7,7 +8,7 @@ nano::optimistic_scheduler::optimistic_scheduler (optimistic_scheduler_config co
 	config{ config_a },
 	node{ node_a },
 	ledger{ ledger_a },
-	active{ active_a },
+	elections{ std::make_shared <nano::election_occupancy> (active_a, node.config.active_elections_optimistic_limit_percentage * node.config.active_elections_size / 100, nano::election_behavior::optimistic) },
 	network_constants{ network_constants_a },
 	stats{ stats_a }
 {
@@ -100,7 +101,7 @@ bool nano::optimistic_scheduler::predicate () const
 {
 	debug_assert (!mutex.try_lock ());
 
-	if (active.vacancy (nano::election_behavior::optimistic) <= 0)
+	if (!elections->available ())
 	{
 		return false;
 	}
@@ -154,7 +155,7 @@ void nano::optimistic_scheduler::run_one (nano::transaction const & transaction,
 		{
 			// Try to insert it into AEC
 			// We check for AEC vacancy inside our predicate
-			auto result = node.active.insert (block, nano::election_behavior::optimistic);
+			auto result = elections->activate (block);
 
 			stats.inc (nano::stat::type::optimistic_scheduler, result.inserted ? nano::stat::detail::insert : nano::stat::detail::insert_failed);
 		}

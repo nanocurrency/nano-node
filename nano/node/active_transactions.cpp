@@ -198,8 +198,8 @@ int64_t nano::active_transactions::limit (nano::election_behavior behavior) cons
 		}
 		case nano::election_behavior::optimistic:
 		{
-			const uint64_t limit = node.config.active_elections_optimistic_limit_percentage * node.config.active_elections_size / 100;
-			return static_cast<int64_t> (limit);
+			debug_assert (false);
+			return 0;
 		}
 	}
 

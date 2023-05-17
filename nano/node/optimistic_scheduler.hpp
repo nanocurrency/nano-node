@@ -22,9 +22,10 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
-class node;
-class ledger;
 class active_transactions;
+class election_occupancy;
+class ledger;
+class node;
 
 class optimistic_scheduler_config final
 {
@@ -74,7 +75,7 @@ private: // Dependencies
 	optimistic_scheduler_config const & config;
 	nano::node & node;
 	nano::ledger & ledger;
-	nano::active_transactions & active;
+	std::shared_ptr<nano::election_occupancy> elections;
 	nano::network_constants const & network_constants;
 	nano::stats & stats;
 
