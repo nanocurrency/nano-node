@@ -182,6 +182,8 @@ public:
 	void remove_election_winner_details (nano::block_hash const &);
 
 private:
+	// Erase elections if we're over capacity
+	void trim ();
 	// Call action with confirmed block, may be different than what we started with
 	nano::election_insertion_result insert_impl (nano::unique_lock<nano::mutex> &, std::shared_ptr<nano::block> const &, nano::election_behavior = nano::election_behavior::normal, std::function<void (std::shared_ptr<nano::block> const &)> const & = nullptr);
 	void request_loop ();

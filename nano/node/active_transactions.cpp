@@ -372,6 +372,20 @@ nano::election_insertion_result nano::active_transactions::insert (const std::sh
 	return result;
 }
 
+void nano::active_transactions::trim ()
+{
+	/*
+	 * Both normal and hinted election schedulers are well-behaved, meaning they first check for AEC vacancy before inserting new elections.
+	 * However, it is possible that AEC will be temporarily overfilled in case it's running at full capacity and election hinting or manual queue kicks in.
+	 * That case will lead to unwanted churning of elections, so this allows for AEC to be overfilled to 125% until erasing of elections happens.
+	 */
+	while (vacancy () < -(limit () / 4))
+	{
+		node.stats.inc (nano::stat::type::active, nano::stat::detail::erase_oldest);
+		erase_oldest ();
+	}
+}
+
 nano::election_insertion_result nano::active_transactions::insert_impl (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::block> const & block_a, nano::election_behavior election_behavior_a, std::function<void (std::shared_ptr<nano::block> const &)> const & confirmation_action_a)
 {
 	debug_assert (!mutex.try_lock ());
@@ -425,6 +439,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 		{
 			result.election->broadcast_vote ();
 		}
+		trim ();
 	}
 	return result;
 }
