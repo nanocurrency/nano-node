@@ -27,11 +27,15 @@ class active_transactions;
 class block;
 class block_sideband;
 class election;
-class election_scheduler;
 class vote;
 class transaction;
 class confirmation_height_processor;
 class stats;
+
+namespace scheduler
+{
+	class buckets;
+}
 
 class recently_confirmed_cache final
 {
@@ -201,7 +205,6 @@ private:
 	void add_inactive_vote_cache (nano::block_hash const & hash, std::shared_ptr<nano::vote> vote);
 
 private: // Dependencies
-	nano::election_scheduler & scheduler;
 	nano::confirmation_height_processor & confirmation_height_processor;
 	nano::node & node;
 

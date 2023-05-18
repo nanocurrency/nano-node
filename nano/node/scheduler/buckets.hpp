@@ -15,12 +15,15 @@ namespace nano
 {
 class block;
 class node;
+}
 
-class election_scheduler final
+namespace nano::scheduler
+{
+class buckets final
 {
 public:
-	election_scheduler (nano::node &, nano::stats &);
-	~election_scheduler ();
+	buckets (nano::node &, nano::stats &);
+	~buckets ();
 
 	void start ();
 	void stop ();
