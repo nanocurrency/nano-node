@@ -114,36 +114,20 @@ bool nano::election_scheduler::manual_queue_predicate () const
 	return !manual_queue.empty ();
 }
 
-bool nano::election_scheduler::overfill_predicate () const
-{
-	/*
-	 * Both normal and hinted election schedulers are well-behaved, meaning they first check for AEC vacancy before inserting new elections.
-	 * However, it is possible that AEC will be temporarily overfilled in case it's running at full capacity and election hinting or manual queue kicks in.
-	 * That case will lead to unwanted churning of elections, so this allows for AEC to be overfilled to 125% until erasing of elections happens.
-	 */
-	return node.active.vacancy () < -(node.active.limit () / 4);
-}
-
 void nano::election_scheduler::run ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		condition.wait (lock, [this] () {
-			return stopped || priority_queue_predicate () || manual_queue_predicate () || overfill_predicate ();
+			return stopped || priority_queue_predicate () || manual_queue_predicate ();
 		});
 		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
 		if (!stopped)
 		{
 			stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::loop);
 
-			if (overfill_predicate ())
-			{
-				lock.unlock ();
-				stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::erase_oldest);
-				node.active.erase_oldest ();
-			}
-			else if (manual_queue_predicate ())
+			if (manual_queue_predicate ())
 			{
 				auto const [block, previous_balance, election_behavior] = manual_queue.front ();
 				manual_queue.pop_front ();

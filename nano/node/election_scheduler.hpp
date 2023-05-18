@@ -50,7 +50,6 @@ private:
 	bool empty_locked () const;
 	bool priority_queue_predicate () const;
 	bool manual_queue_predicate () const;
-	bool overfill_predicate () const;
 
 	nano::prioritization priority;
 
