@@ -10,7 +10,7 @@
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
 #include <nano/node/logging.hpp>
-#include <nano/node/optimistic_scheduler.hpp>
+#include <nano/node/scheduler/optimistic.hpp>
 #include <nano/node/websocketconfig.hpp>
 #include <nano/secure/common.hpp>
 
@@ -46,7 +46,7 @@ public:
 	nano::account random_representative () const;
 	nano::network_params network_params;
 	std::optional<uint16_t> peering_port{};
-	nano::optimistic_scheduler_config optimistic_scheduler;
+	nano::scheduler::optimistic_config optimistic_scheduler;
 	nano::logging logging;
 	std::vector<std::pair<std::string, uint16_t>> work_peers;
 	std::vector<std::pair<std::string, uint16_t>> secondary_work_peers{ { "127.0.0.1", 8076 } }; /* Default of nano-pow-server */

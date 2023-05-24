@@ -1,8 +1,13 @@
 #include <nano/lib/stats.hpp>
-#include <nano/node/hinted_scheduler.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/scheduler/hinted.hpp>
 
-nano::hinted_scheduler::hinted_scheduler (config const & config_a, nano::node & node_a, nano::vote_cache & inactive_vote_cache_a, nano::active_transactions & active_a, nano::online_reps & online_reps_a, nano::stats & stats_a) :
+nano::scheduler::hinted::config::config (nano::node_config const & config) :
+	vote_cache_check_interval_ms{ config.network_params.network.is_dev_network () ? 100u : 1000u }
+{
+}
+
+nano::scheduler::hinted::hinted (config const & config_a, nano::node & node_a, nano::vote_cache & inactive_vote_cache_a, nano::active_transactions & active_a, nano::online_reps & online_reps_a, nano::stats & stats_a) :
 	config_m{ config_a },
 	node{ node_a },
 	inactive_vote_cache{ inactive_vote_cache_a },
@@ -12,13 +17,13 @@ nano::hinted_scheduler::hinted_scheduler (config const & config_a, nano::node & 
 {
 }
 
-nano::hinted_scheduler::~hinted_scheduler ()
+nano::scheduler::hinted::~hinted ()
 {
 	// Thread must be stopped before destruction
 	debug_assert (!thread.joinable ());
 }
 
-void nano::hinted_scheduler::start ()
+void nano::scheduler::hinted::start ()
 {
 	debug_assert (!thread.joinable ());
 
@@ -28,7 +33,7 @@ void nano::hinted_scheduler::start ()
 	} };
 }
 
-void nano::hinted_scheduler::stop ()
+void nano::scheduler::hinted::stop ()
 {
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
@@ -38,12 +43,12 @@ void nano::hinted_scheduler::stop ()
 	nano::join_or_pass (thread);
 }
 
-void nano::hinted_scheduler::notify ()
+void nano::scheduler::hinted::notify ()
 {
 	condition.notify_all ();
 }
 
-bool nano::hinted_scheduler::predicate (nano::uint128_t const & minimum_tally) const
+bool nano::scheduler::hinted::predicate (nano::uint128_t const & minimum_tally) const
 {
 	// Check if there is space inside AEC for a new hinted election
 	if (active.vacancy (nano::election_behavior::hinted) > 0)
@@ -57,7 +62,7 @@ bool nano::hinted_scheduler::predicate (nano::uint128_t const & minimum_tally) c
 	return false;
 }
 
-bool nano::hinted_scheduler::run_one (nano::uint128_t const & minimum_tally)
+bool nano::scheduler::hinted::run_one (nano::uint128_t const & minimum_tally)
 {
 	if (auto top = inactive_vote_cache.pop (minimum_tally); top)
 	{
@@ -90,7 +95,7 @@ bool nano::hinted_scheduler::run_one (nano::uint128_t const & minimum_tally)
 	return false;
 }
 
-void nano::hinted_scheduler::run ()
+void nano::scheduler::hinted::run ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
@@ -122,7 +127,7 @@ void nano::hinted_scheduler::run ()
 	}
 }
 
-nano::uint128_t nano::hinted_scheduler::tally_threshold () const
+nano::uint128_t nano::scheduler::hinted::tally_threshold () const
 {
 	auto min_tally = (online_reps.trended () / 100) * node.config.election_hint_weight_percent;
 	return min_tally;
