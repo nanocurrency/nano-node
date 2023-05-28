@@ -42,4 +42,4 @@ foreach ($entry in $toDownload) {
 }
 
 # Save install location for subsequent steps
-"NANO_QT_DIR=C:\Qt\5.15.2\msvc2019_64\lib\cmake\Qt5" >> $env:GITHUB_ENV
+"QT_DIR=C:\Qt\5.15.2\msvc2019_64\lib\cmake\Qt5" >> $env:GITHUB_ENV

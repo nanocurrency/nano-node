@@ -6,7 +6,7 @@ if [[ ${1:-} ]]; then
     BUILD_TARGET="--target $1"
 fi
 
-NODE_SRC=${NODE_SRC:-${PWD}}
+SRC=${SRC:-${PWD}}
 OS=$(uname)
 
 CMAKE_BACKTRACE=""
@@ -19,13 +19,13 @@ if [[ "$OS" == 'Linux' ]]; then
 fi
 
 CMAKE_QT_DIR=""
-if [[ ${NANO_QT_DIR:-} ]]; then
-    CMAKE_QT_DIR="-DQt5_DIR=${NANO_QT_DIR}"
+if [[ ${QT_DIR:-} ]]; then
+    CMAKE_QT_DIR="-DQt5_DIR=${QT_DIR}"
 fi
 
 CMAKE_SANITIZER=""
-if [[ ${NANO_SANITIZER:-} ]]; then
-    case "${NANO_SANITIZER}" in
+if [[ ${SANITIZER:-} ]]; then
+    case "${SANITIZER}" in
         ASAN)     
             CMAKE_SANITIZER="-DNANO_ASAN=ON"
             ;;
@@ -36,7 +36,7 @@ if [[ ${NANO_SANITIZER:-} ]]; then
             CMAKE_SANITIZER="-DNANO_TSAN=ON"
             ;;
         *)
-            echo "Unknown sanitizer: '${NANO_SANITIZER}'"
+            echo "Unknown sanitizer: '${SANITIZER}'"
             exit 1
             ;;
     esac
@@ -53,11 +53,11 @@ cmake \
 -DACTIVE_NETWORK=nano_${NANO_NETWORK:-"live"}_network \
 -DNANO_TEST=${NANO_TEST:-OFF} \
 -DNANO_GUI=${NANO_GUI:-OFF} \
--DCOVERAGE=${NANO_COVERAGE:-OFF} \
+-DCOVERAGE=${COVERAGE:-OFF} \
 ${CMAKE_SANITIZER:-} \
 ${CMAKE_QT_DIR:-} \
 ${CMAKE_BACKTRACE:-} \
-${NODE_SRC}
+${SRC}
 
 number_of_processors() {
     case "$(uname -s)" in
