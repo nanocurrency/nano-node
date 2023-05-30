@@ -170,6 +170,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.io_threads, defaults.node.io_threads);
 	ASSERT_EQ (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
 	ASSERT_EQ (conf.node.network_threads, defaults.node.network_threads);
+	ASSERT_EQ (conf.node.background_threads, defaults.node.background_threads);
 	ASSERT_EQ (conf.node.secondary_work_peers, defaults.node.secondary_work_peers);
 	ASSERT_EQ (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
 	ASSERT_EQ (conf.node.rep_crawler_weight_minimum, defaults.node.rep_crawler_weight_minimum);
@@ -419,6 +420,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	io_threads = 999
 	lmdb_max_dbs = 999
 	network_threads = 999
+	background_threads = 999
 	online_weight_minimum = "999"
 	rep_crawler_weight_minimum = "999"
 	election_hint_weight_percent = 19
@@ -596,6 +598,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
 	ASSERT_NE (conf.node.frontiers_confirmation, defaults.node.frontiers_confirmation);
 	ASSERT_NE (conf.node.network_threads, defaults.node.network_threads);
+	ASSERT_NE (conf.node.background_threads, defaults.node.background_threads);
 	ASSERT_NE (conf.node.secondary_work_peers, defaults.node.secondary_work_peers);
 	ASSERT_NE (conf.node.max_pruning_age, defaults.node.max_pruning_age);
 	ASSERT_NE (conf.node.max_pruning_depth, defaults.node.max_pruning_depth);
