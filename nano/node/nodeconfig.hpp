@@ -84,7 +84,7 @@ public:
 	std::string external_address;
 	uint16_t external_port{ 0 };
 	std::chrono::milliseconds block_processor_batch_max_time{ std::chrono::milliseconds (500) };
-	/** Time to wait for block processing result when doing a blocking block processing */
+	/** Time to wait for block processing result */
 	std::chrono::seconds block_process_timeout{ 15 };
 	std::chrono::seconds unchecked_cutoff_time{ std::chrono::seconds (4 * 60 * 60) }; // 4 hours
 	/** Timeout for initiated async operations */
