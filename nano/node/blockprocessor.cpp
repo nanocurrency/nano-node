@@ -106,7 +106,12 @@ std::optional<nano::process_return> nano::block_processor::add_blocking (std::sh
 	std::optional<nano::process_return> result;
 	try
 	{
-		result = future.get ();
+		auto status = future.wait_for (node.config.block_process_timeout);
+		debug_assert (status != std::future_status::deferred);
+		if (status == std::future_status::ready)
+		{
+			result = future.get ();
+		}
 	}
 	catch (std::future_error const &)
 	{
