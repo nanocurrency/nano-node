@@ -39,6 +39,7 @@ mkdir -p %{buildroot}/etc/systemd/system/
 cp nano_node %{buildroot}/usr/bin/nano_node-beta
 cp nano_rpc %{buildroot}/usr/bin/nano_rpc-beta
 cp etc/systemd/nanocurrency-beta.service %{buildroot}/etc/systemd/system/nanocurrency-beta.service
+sed -i "s/nano_node/nano_node-beta/g" %{buildroot}/etc/systemd/system/nanocurrency-beta.service
 
 %clean
 if [ ! %{buildroot} = "/" ]; then %{__rm} -rf %{buildroot}; fi
