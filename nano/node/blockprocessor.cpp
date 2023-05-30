@@ -112,6 +112,10 @@ std::optional<nano::process_return> nano::block_processor::add_blocking (std::sh
 		{
 			result = future.get ();
 		}
+		else
+		{
+			blocking.erase (block);
+		}
 	}
 	catch (std::future_error const &)
 	{
