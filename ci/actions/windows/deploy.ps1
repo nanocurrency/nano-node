@@ -20,10 +20,16 @@ else {
 $exe = Resolve-Path -Path $env:GITHUB_WORKSPACE\build\nano-node-*-win64.exe
 $zip = Resolve-Path -Path $env:GITHUB_WORKSPACE\build\nano-node-*-win64.zip
 
-((Get-FileHash $exe).hash)+" "+(split-path -Path $exe -Resolve -leaf) | Out-file -FilePath "$exe.sha256"
-((Get-FileHash $zip).hash)+" "+(split-path -Path $zip -Resolve -leaf) | Out-file -FilePath "$zip.sha256"
+$exe_hash = ((Get-FileHash $exe).hash)+" "+(split-path -Path $exe -Resolve -leaf)
+$zip_hash = ((Get-FileHash $zip).hash)+" "+(split-path -Path $zip -Resolve -leaf)
 
-aws s3 cp $exe s3://repo.nano.org/$directory/binaries/nano-node-$env:TAG-win64.exe --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
+$exe_hash | Out-file -FilePath "$exe.sha256"
+$zip_hash | Out-file -FilePath "$zip.sha256"
+
+Write-Output "Exe hash: $exe_hash"
+Write-Output "Zip hash: $zip_hash"
+
+aws s3 cp "$exe" s3://repo.nano.org/$directory/binaries/nano-node-$env:TAG-win64.exe --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
 aws s3 cp "$exe.sha256" s3://repo.nano.org/$directory/binaries/nano-node-$env:TAG-win64.exe.sha256 --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
 aws s3 cp "$zip" s3://repo.nano.org/$directory/binaries/nano-node-$env:TAG-win64.zip --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
 aws s3 cp "$zip.sha256" s3://repo.nano.org/$directory/binaries/nano-node-$env:TAG-win64.zip.sha256 --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
