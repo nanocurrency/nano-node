@@ -13,7 +13,7 @@ if [[ "${COMPILER:-}" != "" ]]; then
 else
     ci/build-docker-image.sh docker/ci/Dockerfile-gcc nanocurrency/nano-env:gcc
     ci/build-docker-image.sh docker/ci/Dockerfile-clang nanocurrency/nano-env:clang
-    ci/build-docker-image.sh docker/ci/Dockerfile-centos nanocurrency/nano-env:centos
+    ci/build-docker-image.sh docker/ci/Dockerfile-rhel nanocurrency/nano-env:rhel
 fi
 
 echo "Script ci/actions/linux/install_deps.sh finished"
