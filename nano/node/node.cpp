@@ -151,7 +151,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	config (config_a),
 	network_params{ config.network_params },
 	stats (config.stats_config),
-	workers (std::max (3u, config.io_threads / 4), nano::thread_role::name::worker),
+	workers{ config.background_threads, nano::thread_role::name::worker },
 	bootstrap_workers{ config.bootstrap_serving_threads, nano::thread_role::name::bootstrap_worker },
 	flags (flags_a),
 	work (work_a),
