@@ -48,12 +48,13 @@ if (${env:RUN} -eq "artifact") {
     Invoke-WebRequest -Uri https://aka.ms/vs/16/release/vc_redist.x64.exe -OutFile "$p\vc_redist.x64.exe"
 }
 
+$env:cmake_path = Split-Path -Path(get-command cmake.exe).Path
+
 & ..\ci\actions\windows\build.bat
 if (${LastExitCode} -ne 0) {
     throw "Failed to build ${env:RUN}"
 }
 
-$env:cmake_path = Split-Path -Path(get-command cmake.exe).Path
 . "$PSScriptRoot\signing.ps1"
 
 Pop-Location
