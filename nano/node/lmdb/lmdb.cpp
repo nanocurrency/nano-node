@@ -70,6 +70,8 @@ nano::lmdb::store::store (nano::logger_mt & logger_a, boost::filesystem::path co
 {
 	if (!error)
 	{
+		debug_assert (path_a.filename () == "data.ldb");
+
 		auto is_fully_upgraded (false);
 		auto is_fresh_db (false);
 		{
