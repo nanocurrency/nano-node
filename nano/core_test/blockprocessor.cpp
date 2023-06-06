@@ -13,10 +13,10 @@ using namespace std::chrono_literals;
 TEST (block_processor, broadcast_block_on_arrival)
 {
 	nano::test::system system;
-	nano::node_config config1{ nano::test::get_available_port (), system.logging };
+	nano::node_config config1 = system.default_config ();
 	// Deactivates elections on both nodes.
 	config1.active_elections_size = 0;
-	nano::node_config config2{ nano::test::get_available_port (), system.logging };
+	nano::node_config config2 = system.default_config ();
 	config2.active_elections_size = 0;
 	nano::node_flags flags;
 	// Disables bootstrap listener to make sure the block won't be shared by this channel.

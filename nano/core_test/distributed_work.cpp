@@ -40,7 +40,7 @@ TEST (distributed_work, no_peers)
 TEST (distributed_work, no_peers_disabled)
 {
 	nano::test::system system;
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.work_threads = 0;
 	auto & node = *system.add_node (node_config);
 	ASSERT_TRUE (node.distributed_work.make (nano::work_version::work_1, nano::block_hash (), node.config.work_peers, nano::dev::network_params.work.base, {}));
@@ -49,7 +49,7 @@ TEST (distributed_work, no_peers_disabled)
 TEST (distributed_work, no_peers_cancel)
 {
 	nano::test::system system;
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.max_work_generate_multiplier = 1e6;
 	auto & node = *system.add_node (node_config);
 	nano::block_hash hash{ 1 };
@@ -119,7 +119,7 @@ TEST (distributed_work, peer)
 {
 	nano::test::system system;
 	nano::node_config node_config;
-	node_config.peering_port = nano::test::get_available_port ();
+	node_config.peering_port = system.get_available_port ();
 	// Disable local work generation
 	node_config.work_threads = 0;
 	auto node (system.add_node (node_config));
@@ -132,7 +132,7 @@ TEST (distributed_work, peer)
 		work = work_a;
 		done = true;
 	};
-	auto work_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, nano::test::get_available_port (), work_peer_type::good));
+	auto work_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, system.get_available_port (), work_peer_type::good));
 	work_peer->start ();
 	decltype (node->config.work_peers) peers;
 	peers.emplace_back ("::ffff:127.0.0.1", work_peer->port ());
@@ -158,7 +158,7 @@ TEST (distributed_work, peer_malicious)
 		work = work_a;
 		done = true;
 	};
-	auto malicious_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, nano::test::get_available_port (), work_peer_type::malicious));
+	auto malicious_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, system.get_available_port (), work_peer_type::malicious));
 	malicious_peer->start ();
 	decltype (node->config.work_peers) peers;
 	peers.emplace_back ("::ffff:127.0.0.1", malicious_peer->port ());
@@ -176,7 +176,7 @@ TEST (distributed_work, peer_malicious)
 	// Test again with no local work generation enabled to make sure the malicious peer is sent more than one request
 	node->config.work_threads = 0;
 	ASSERT_FALSE (node->local_work_generation_enabled ());
-	auto malicious_peer2 (std::make_shared<fake_work_peer> (node->work, node->io_ctx, nano::test::get_available_port (), work_peer_type::malicious));
+	auto malicious_peer2 (std::make_shared<fake_work_peer> (node->work, node->io_ctx, system.get_available_port (), work_peer_type::malicious));
 	malicious_peer2->start ();
 	peers[0].second = malicious_peer2->port ();
 	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->network_params.work.base, {}, nano::account ()));
@@ -201,9 +201,9 @@ TEST (distributed_work, DISABLED_peer_multi)
 		work = work_a;
 		done = true;
 	};
-	auto good_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, nano::test::get_available_port (), work_peer_type::good));
-	auto malicious_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, nano::test::get_available_port (), work_peer_type::malicious));
-	auto slow_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, nano::test::get_available_port (), work_peer_type::slow));
+	auto good_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, system.get_available_port (), work_peer_type::good));
+	auto malicious_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, system.get_available_port (), work_peer_type::malicious));
+	auto slow_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, system.get_available_port (), work_peer_type::slow));
 	good_peer->start ();
 	malicious_peer->start ();
 	slow_peer->start ();

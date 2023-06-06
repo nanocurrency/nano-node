@@ -61,6 +61,7 @@ namespace test
 		 * Returns default config for node running in test environment
 		 */
 		nano::node_config default_config ();
+		uint16_t get_available_port ();
 
 	public:
 		boost::asio::io_context io_ctx;
@@ -75,7 +76,6 @@ namespace test
 	};
 
 	std::unique_ptr<nano::state_block> upgrade_epoch (nano::work_pool &, nano::ledger &, nano::epoch);
-	uint16_t get_available_port ();
 	void cleanup_dev_directories_on_exit ();
 }
 }

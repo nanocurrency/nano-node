@@ -69,7 +69,7 @@ TEST (election_scheduler, no_vacancy)
 {
 	nano::test::system system{};
 
-	nano::node_config config{ nano::test::get_available_port (), system.logging };
+	nano::node_config config = system.default_config ();
 	config.active_elections_size = 1;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 
@@ -145,7 +145,7 @@ TEST (election_scheduler, no_vacancy)
 TEST (election_scheduler, flush_vacancy)
 {
 	nano::test::system system;
-	nano::node_config config{ nano::test::get_available_port (), system.logging };
+	nano::node_config config = system.default_config ();
 	// No elections can be activated
 	config.active_elections_size = 0;
 	auto & node = *system.add_node (config);

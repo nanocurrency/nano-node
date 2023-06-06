@@ -3,6 +3,7 @@
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
+#include <boost/asio.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <cstdlib>
@@ -562,11 +563,11 @@ void nano::test::system::stop ()
 
 nano::node_config nano::test::system::default_config ()
 {
-	nano::node_config config{ nano::test::get_available_port (), logging };
+	nano::node_config config{ get_available_port (), logging };
 	return config;
 }
 
-uint16_t nano::test::get_available_port ()
+uint16_t nano::test::system::get_available_port ()
 {
 	// Maximum possible sockets which may feasibly be used in 1 test
 	constexpr auto max = 200;
