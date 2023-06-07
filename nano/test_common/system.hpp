@@ -61,7 +61,7 @@ namespace test
 		 * Returns default config for node running in test environment
 		 */
 		nano::node_config default_config ();
-		uint16_t get_available_port ();
+		uint16_t get_available_port (bool can_be_zero = true);
 
 	public:
 		boost::asio::io_context io_ctx;

@@ -567,7 +567,7 @@ nano::node_config nano::test::system::default_config ()
 	return config;
 }
 
-uint16_t nano::test::system::get_available_port ()
+uint16_t nano::test::system::get_available_port (bool can_be_zero)
 {
 	auto base_port_str = std::getenv ("NANO_TEST_BASE_PORT");
 	if (base_port_str)
@@ -590,25 +590,32 @@ uint16_t nano::test::system::get_available_port ()
 	}
 	else
 	{
-		/*
-		 * This works because the kernel doesn't seem to reuse port numbers until it absolutely has to.
-		 * Subsequent binds to port 0 will allocate a different port number.
-		 */
-		boost::asio::ip::tcp::acceptor acceptor{ io_ctx };
-		boost::asio::ip::tcp::tcp::endpoint endpoint{ boost::asio::ip::tcp::v4 (), 0 };
-		acceptor.open (endpoint.protocol ());
+		if (!can_be_zero)
+		{
+			/*
+			 * This works because the kernel doesn't seem to reuse port numbers until it absolutely has to.
+			 * Subsequent binds to port 0 will allocate a different port number.
+			 */
+			boost::asio::ip::tcp::acceptor acceptor{ io_ctx };
+			boost::asio::ip::tcp::tcp::endpoint endpoint{ boost::asio::ip::tcp::v4 (), 0 };
+			acceptor.open (endpoint.protocol ());
 
-		boost::asio::socket_base::reuse_address option{ true };
-		acceptor.set_option (option); // set SO_REUSEADDR option
+			boost::asio::socket_base::reuse_address option{ true };
+			acceptor.set_option (option); // set SO_REUSEADDR option
 
-		acceptor.bind (endpoint);
+			acceptor.bind (endpoint);
 
-		auto actual_endpoint = acceptor.local_endpoint ();
-		auto port = actual_endpoint.port ();
+			auto actual_endpoint = acceptor.local_endpoint ();
+			auto port = actual_endpoint.port ();
 
-		acceptor.close ();
+			acceptor.close ();
 
-		return port;
+			return port;
+		}
+		else
+		{
+			return 0;
+		}
 	}
 }
 
