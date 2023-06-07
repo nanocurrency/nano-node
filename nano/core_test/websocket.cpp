@@ -466,7 +466,7 @@ TEST (websocket, confirmation_options_sideband)
 
 	std::atomic<bool> ack_ready{ false };
 	auto task1 = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (config.websocket_config.port);
+		fake_websocket_client client (node1->websocket.server->listening_port ());
 		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "include_block": "false", "include_sideband_info": "true"}})json");
 		client.await_ack ();
 		ack_ready = true;
