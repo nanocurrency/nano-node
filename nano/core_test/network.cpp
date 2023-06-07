@@ -582,21 +582,18 @@ TEST (network, ipv6_from_ipv4)
 TEST (network, ipv6_bind_send_ipv4)
 {
 	nano::test::system system;
-	boost::asio::io_context io_ctx;
-	auto port1 = system.get_available_port ();
-	auto port2 = system.get_available_port ();
-	nano::endpoint endpoint1 (boost::asio::ip::address_v6::any (), port1);
-	nano::endpoint endpoint2 (boost::asio::ip::address_v4::any (), port2);
+	nano::endpoint endpoint1 (boost::asio::ip::address_v6::any (), 0);
+	nano::endpoint endpoint2 (boost::asio::ip::address_v4::any (), 0);
 	std::array<uint8_t, 16> bytes1{};
-	auto finish1 (false);
+	std::atomic<bool> finish1{ false };
 	nano::endpoint endpoint3;
-	boost::asio::ip::udp::socket socket1 (io_ctx, endpoint1);
+	boost::asio::ip::udp::socket socket1 (system.io_ctx, endpoint1);
 	socket1.async_receive_from (boost::asio::buffer (bytes1.data (), bytes1.size ()), endpoint3, [&finish1] (boost::system::error_code const & error, size_t size_a) {
 		ASSERT_FALSE (error);
 		ASSERT_EQ (16, size_a);
 		finish1 = true;
 	});
-	boost::asio::ip::udp::socket socket2 (io_ctx, endpoint2);
+	boost::asio::ip::udp::socket socket2 (system.io_ctx, endpoint2);
 	nano::endpoint endpoint5 (boost::asio::ip::address_v4::loopback (), socket1.local_endpoint ().port ());
 	nano::endpoint endpoint6 (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ()), socket2.local_endpoint ().port ());
 	socket2.async_send_to (boost::asio::buffer (std::array<uint8_t, 16>{}, 16), endpoint5, [] (boost::system::error_code const & error, size_t size_a) {
@@ -604,12 +601,7 @@ TEST (network, ipv6_bind_send_ipv4)
 		ASSERT_EQ (16, size_a);
 	});
 	auto iterations (0);
-	while (!finish1)
-	{
-		io_ctx.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
-	}
+	ASSERT_TIMELY (5s, finish1);
 	ASSERT_EQ (endpoint6, endpoint3);
 	std::array<uint8_t, 16> bytes2;
 	nano::endpoint endpoint4;
