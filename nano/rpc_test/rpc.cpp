@@ -291,7 +291,7 @@ TEST (rpc, send_work)
 TEST (rpc, send_work_disabled)
 {
 	nano::test::system system;
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.work_threads = 0;
 	auto node = add_ipc_enabled_node (system, node_config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -1163,7 +1163,7 @@ TEST (rpc, history_count)
 TEST (rpc, history_pruning)
 {
 	nano::test::system system;
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
@@ -1676,7 +1676,7 @@ TEST (rpc, keepalive)
 {
 	nano::test::system system;
 	auto node0 = add_ipc_enabled_node (system);
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::test::get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto const rpc_ctx = add_rpc (system, node0);
@@ -1702,7 +1702,7 @@ TEST (rpc, peers)
 {
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
-	auto const node2 = system.add_node (nano::node_config (nano::test::get_available_port (), system.logging));
+	auto const node2 = system.add_node ();
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "peers");
@@ -1717,7 +1717,7 @@ TEST (rpc, peers_node_id)
 {
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
-	auto const node2 = system.add_node (nano::node_config (nano::test::get_available_port (), system.logging));
+	auto const node2 = system.add_node ();
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "peers");
@@ -1800,7 +1800,7 @@ TEST (rpc, work_generate)
 TEST (rpc, work_generate_difficulty)
 {
 	nano::test::system system;
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.max_work_generate_multiplier = 1000;
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
@@ -1847,7 +1847,7 @@ TEST (rpc, work_generate_difficulty)
 TEST (rpc, work_generate_multiplier)
 {
 	nano::test::system system;
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.max_work_generate_multiplier = 100;
 	auto node = add_ipc_enabled_node (system, node_config);
 	auto const rpc_ctx = add_rpc (system, node);
@@ -2212,7 +2212,7 @@ TEST (rpc, block_count_pruning)
 {
 	nano::test::system system;
 	auto & node0 = *system.add_node ();
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
@@ -2420,7 +2420,7 @@ TEST (rpc, account_representative_set)
 TEST (rpc, account_representative_set_work_disabled)
 {
 	nano::test::system system;
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.work_threads = 0;
 	auto node = add_ipc_enabled_node (system, node_config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -3199,7 +3199,7 @@ TEST (rpc, blocks)
 TEST (rpc, wallet_info)
 {
 	nano::test::system system;
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.enable_voting = true;
 	auto node = add_ipc_enabled_node (system, node_config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -4258,10 +4258,10 @@ TEST (rpc, block_info_successor)
 TEST (rpc, block_info_pruning)
 {
 	nano::test::system system;
-	nano::node_config node_config0 (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config0 = system.default_config ();
 	node_config0.receive_minimum = nano::dev::constants.genesis_amount; // Prevent auto-receive & receive1 block conflicts
 	auto & node0 = *system.add_node (node_config0);
-	nano::node_config node_config1 (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config1 = system.default_config ();
 	node_config1.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
@@ -4324,10 +4324,10 @@ TEST (rpc, block_info_pruning)
 TEST (rpc, pruned_exists)
 {
 	nano::test::system system;
-	nano::node_config node_config0 (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config0 = system.default_config ();
 	node_config0.receive_minimum = nano::dev::constants.genesis_amount; // Prevent auto-receive & receive1 block conflicts
 	auto & node0 = *system.add_node (node_config0);
-	nano::node_config node_config1 (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config1 = system.default_config ();
 	node_config1.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
@@ -4410,7 +4410,7 @@ TEST (rpc, work_peers_all)
 TEST (rpc, populate_backlog)
 {
 	nano::test::system system;
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	// Disable automatic backlog population
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node = add_ipc_enabled_node (system, node_config);
@@ -5202,7 +5202,7 @@ TEST (rpc, confirmation_height_currently_processing)
 	nano::test::system system;
 	nano::node_flags node_flags;
 	node_flags.force_use_write_database_queue = true;
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 
 	auto node = add_ipc_enabled_node (system, node_config, node_flags);
@@ -5371,9 +5371,9 @@ TEST (rpc, block_confirm_confirmed)
 	nano::test::system system (1);
 	auto path (nano::unique_path ());
 	nano::node_config config;
-	config.peering_port = nano::test::get_available_port ();
+	config.peering_port = system.get_available_port ();
 	config.callback_address = "localhost";
-	config.callback_port = nano::test::get_available_port ();
+	config.callback_port = system.get_available_port ();
 	config.callback_target = "/";
 	config.logging.init (path);
 	auto node = add_ipc_enabled_node (system, config);
@@ -5659,7 +5659,7 @@ TEST (rpc, uptime)
 TEST (rpc, DISABLED_wallet_history)
 {
 	nano::test::system system;
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.enable_voting = false;
 	auto node = add_ipc_enabled_node (system, node_config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -5916,7 +5916,7 @@ TEST (rpc, database_txn_tracker)
 
 	// Now try enabling it but with invalid amounts
 	nano::test::system system;
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.diagnostics_config.txn_tracking.enable = true;
 	auto node = add_ipc_enabled_node (system, node_config);
 	auto const rpc_ctx = add_rpc (system, node);
@@ -6042,7 +6042,7 @@ TEST (rpc, simultaneous_calls)
 	nano::thread_runner runner (system.io_ctx, node->config.io_threads);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
-	nano::rpc_config rpc_config{ nano::dev::network_params.network, nano::test::get_available_port (), true };
+	nano::rpc_config rpc_config{ nano::dev::network_params.network, system.get_available_port (), true };
 	const auto ipc_tcp_port = ipc_server.listening_tcp_port ();
 	ASSERT_TRUE (ipc_tcp_port.has_value ());
 	rpc_config.rpc_process.num_ipc_connections = 8;
@@ -6292,7 +6292,7 @@ TEST (rpc, epoch_upgrade)
 TEST (rpc, epoch_upgrade_multithreaded)
 {
 	nano::test::system system;
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.work_threads = 4;
 	auto node = add_ipc_enabled_node (system, node_config);
 	nano::keypair key1, key2, key3;
@@ -6484,9 +6484,9 @@ TEST (rpc, account_lazy_start)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
 
 	// Start lazy bootstrap with account
-	nano::node_config node_config{ nano::test::get_available_port (), system.logging };
+	nano::node_config node_config = system.default_config ();
 	node_config.ipc_config.transport_tcp.enabled = true;
-	node_config.ipc_config.transport_tcp.port = nano::test::get_available_port ();
+	node_config.ipc_config.transport_tcp.port = system.get_available_port ();
 	auto node2 = system.add_node (node_config, node_flags);
 	nano::test::establish_tcp (system, *node2, node1->network.endpoint ());
 	auto const rpc_ctx = add_rpc (system, node2);
@@ -6604,9 +6604,9 @@ TEST (rpc, receive_unopened)
 TEST (rpc, receive_work_disabled)
 {
 	nano::test::system system;
-	nano::node_config config (nano::test::get_available_port (), system.logging);
+	nano::node_config config = system.default_config ();
 	auto & worker_node = *system.add_node (config);
-	config.peering_port = nano::test::get_available_port ();
+	config.peering_port = system.get_available_port ();
 	config.work_threads = 0;
 	auto node = add_ipc_enabled_node (system, config);
 	auto wallet = system.wallet (1);
@@ -6637,7 +6637,7 @@ TEST (rpc, receive_pruned)
 {
 	nano::test::system system;
 	auto & node1 = *system.add_node ();
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
@@ -6857,7 +6857,7 @@ TEST (rpc, confirmation_active)
 	nano::test::system system;
 	nano::node_config node_config;
 	node_config.ipc_config.transport_tcp.enabled = true;
-	node_config.ipc_config.transport_tcp.port = nano::test::get_available_port ();
+	node_config.ipc_config.transport_tcp.port = system.get_available_port ();
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
 	auto node1 (system.add_node (node_config, node_flags));
