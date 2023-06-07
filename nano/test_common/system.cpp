@@ -597,6 +597,10 @@ uint16_t nano::test::system::get_available_port ()
 		boost::asio::ip::tcp::acceptor acceptor{ io_ctx };
 		boost::asio::ip::tcp::tcp::endpoint endpoint{ boost::asio::ip::tcp::v4 (), 0 };
 		acceptor.open (endpoint.protocol ());
+
+		boost::asio::socket_base::reuse_address option{ true };
+		acceptor.set_option (option); // set SO_REUSEADDR option
+
 		acceptor.bind (endpoint);
 
 		auto actual_endpoint = acceptor.local_endpoint ();
