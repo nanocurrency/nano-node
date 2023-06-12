@@ -32,3 +32,6 @@
 [submodule "magic_enum"]
 	path = submodules/magic_enum
 	url = https://github.com/Neargye/magic_enum.git
+[submodule "submodules/gtest-parallel"]
+	path = submodules/gtest-parallel
+	url = https://github.com/google/gtest-parallel.git
