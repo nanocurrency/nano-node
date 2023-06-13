@@ -639,7 +639,7 @@ namespace lmdb
 			GTEST_SKIP ();
 		}
 		// Check that upgrading from an unsupported version is not supported
-		auto path (nano::unique_path ());
+		auto path (nano::unique_path () / "data.ldb");
 		nano::logger_mt logger;
 		{
 			nano::lmdb::store store (logger, path, nano::dev::constants);
@@ -657,7 +657,7 @@ namespace lmdb
 			ASSERT_TRUE (store.init_error ());
 		}
 
-		auto path1 (nano::unique_path ());
+		auto path1 (nano::unique_path () / "data.ldb");
 		// Now try with the minimum version
 		{
 			nano::lmdb::store store (logger, path1, nano::dev::constants);
@@ -1012,7 +1012,7 @@ TEST (mdb_block_store, sideband_height)
 	nano::keypair key1;
 	nano::keypair key2;
 	nano::keypair key3;
-	nano::lmdb::store store (logger, nano::unique_path (), nano::dev::constants);
+	nano::lmdb::store store (logger, nano::unique_path () / "data.ldb", nano::dev::constants);
 	ASSERT_FALSE (store.init_error ());
 	nano::stats stats;
 	nano::ledger ledger (store, stats, nano::dev::constants);
@@ -1382,7 +1382,7 @@ namespace lmdb
 			GTEST_SKIP ();
 		}
 		// Extract confirmation height to a separate database
-		auto path (nano::unique_path ());
+		auto path (nano::unique_path () / "data.ldb");
 		nano::block_builder builder;
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 		auto send = builder
@@ -1544,7 +1544,7 @@ namespace lmdb
 			// Don't test this in rocksdb mode
 			GTEST_SKIP ();
 		}
-		auto path (nano::unique_path ());
+		auto path (nano::unique_path () / "data.ldb");
 		nano::mdb_val value;
 		{
 			nano::logger_mt logger;
@@ -1625,7 +1625,7 @@ namespace lmdb
 					  .build ();
 
 		auto code = [&block1, &block2, &block3] (auto confirmation_height, nano::block_hash const & expected_cemented_frontier) {
-			auto path (nano::unique_path ());
+			auto path (nano::unique_path () / "data.ldb");
 			nano::mdb_val value;
 			{
 				nano::logger_mt logger;
@@ -1681,7 +1681,7 @@ namespace lmdb
 			// Don't test this in rocksdb mode
 			GTEST_SKIP ();
 		}
-		auto path (nano::unique_path ());
+		auto path (nano::unique_path () / "data.ldb");
 		nano::block_builder builder;
 		nano::keypair key1;
 		nano::keypair key2;
@@ -1990,7 +1990,7 @@ namespace lmdb
 			// Don't test this in rocksdb mode
 			GTEST_SKIP ();
 		}
-		auto path (nano::unique_path ());
+		auto path (nano::unique_path () / "data.ldb");
 		nano::keypair key1;
 		nano::block_builder builder;
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -2127,7 +2127,7 @@ namespace lmdb
 			// Don't test this in rocksdb mode
 			GTEST_SKIP ();
 		}
-		auto path (nano::unique_path ());
+		auto path (nano::unique_path () / "data.ldb");
 		nano::logger_mt logger;
 		nano::stats stats;
 		{
@@ -2156,7 +2156,7 @@ namespace lmdb
 			// Don't test this in rocksdb mode
 			GTEST_SKIP ();
 		}
-		auto path (nano::unique_path ());
+		auto path (nano::unique_path () / "data.ldb");
 		nano::logger_mt logger;
 		nano::stats stats;
 		{
@@ -2186,7 +2186,7 @@ namespace lmdb
 			GTEST_SKIP ();
 		}
 
-		auto path (nano::unique_path ());
+		auto path (nano::unique_path () / "data.ldb");
 		nano::logger_mt logger;
 		nano::stats stats;
 		auto const check_correct_state = [&] () {
@@ -2225,7 +2225,7 @@ namespace rocksdb
 			GTEST_SKIP ();
 		}
 
-		auto const path = nano::unique_path ();
+		auto const path = nano::unique_path () / "rocksdb";
 		nano::logger_mt logger;
 		nano::stats stats;
 		auto const check_correct_state = [&] () {
@@ -2477,7 +2477,7 @@ TEST (rocksdb_block_store, tombstone_count)
 	}
 	nano::test::system system;
 	nano::logger_mt logger;
-	auto store = std::make_unique<nano::rocksdb::store> (logger, nano::unique_path (), nano::dev::constants);
+	auto store = std::make_unique<nano::rocksdb::store> (logger, nano::unique_path () / "rocksdb", nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::block_builder builder;
 	auto block = builder

@@ -101,6 +101,8 @@ nano::rocksdb::store::store (nano::logger_mt & logger_a, boost::filesystem::path
 		return;
 	}
 
+	debug_assert (path_a.filename () == "rocksdb");
+
 	generate_tombstone_map ();
 	small_table_factory.reset (::rocksdb::NewBlockBasedTableFactory (get_small_table_options ()));
 

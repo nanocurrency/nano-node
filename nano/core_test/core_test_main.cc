@@ -6,6 +6,8 @@
 
 #include <boost/filesystem/path.hpp>
 
+constexpr std::size_t OPEN_FILE_DESCRIPTORS_LIMIT = 16384;
+
 namespace nano
 {
 namespace test
@@ -18,6 +20,7 @@ void force_nano_dev_network ();
 GTEST_API_ int main (int argc, char ** argv)
 {
 	printf ("Running main() from core_test_main.cc\n");
+	nano::set_file_descriptor_limit (OPEN_FILE_DESCRIPTORS_LIMIT);
 	nano::force_nano_dev_network ();
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 	// Setting up logging so that there aren't any piped to standard output.

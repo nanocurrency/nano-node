@@ -59,7 +59,7 @@ TEST (peer_container, reserved_ip_is_not_a_peer)
 TEST (peer_container, tcp_channel_cleanup_works)
 {
 	nano::test::system system;
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	// Set the keepalive period to avoid background messages affecting the last_packet_set time
 	node_config.network_params.network.keepalive_period = std::chrono::minutes (10);
 	nano::node_flags node_flags;
@@ -68,9 +68,9 @@ TEST (peer_container, tcp_channel_cleanup_works)
 	// Disable the confirm_req messages avoiding them to affect the last_packet_set time
 	node_flags.disable_rep_crawler = true;
 	auto & node1 = *system.add_node (node_config, node_flags);
-	auto outer_node1 = nano::test::add_outer_node (system, nano::test::get_available_port (), node_flags);
+	auto outer_node1 = nano::test::add_outer_node (system, node_flags);
 	outer_node1->config.network_params.network.keepalive_period = std::chrono::minutes (10);
-	auto outer_node2 = nano::test::add_outer_node (system, nano::test::get_available_port (), node_flags);
+	auto outer_node2 = nano::test::add_outer_node (system, node_flags);
 	outer_node2->config.network_params.network.keepalive_period = std::chrono::minutes (10);
 	auto now = std::chrono::steady_clock::now ();
 	auto channel1 = nano::test::establish_tcp (system, node1, outer_node1->network.endpoint ());
