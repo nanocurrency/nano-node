@@ -6,9 +6,9 @@ set -o xtrace
 OS=$(uname)
 IS_RPM_DEPLOY="${LINUX_RPM:-0}"
 
-if [[ "${BETA:-0}" -eq 1 ]]; then
+if [[ "${NETWORK}" == "BETA" ]]; then
     BUILD="beta"
-elif [[ "${TEST:-0}" -eq 1 ]]; then
+elif [[ "${NETWORK}" == "TEST" ]]; then
     BUILD="test"
 else
     BUILD="live"

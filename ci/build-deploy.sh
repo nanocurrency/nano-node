@@ -15,10 +15,10 @@ mkdir build
 pushd build
 CONFIGURATION="Release"
 
-if [[ "${BETA:-0}" -eq 1 ]]; then
+if [[ "${NETWORK}" == "BETA" ]]; then
     NETWORK_CFG="beta"
     CONFIGURATION="RelWithDebInfo"
-elif [[ "${TEST:-0}" -eq 1 ]]; then
+elif [[ "${NETWORK}" == "TEST" ]]; then
     NETWORK_CFG="test"
 else
     NETWORK_CFG="live"
