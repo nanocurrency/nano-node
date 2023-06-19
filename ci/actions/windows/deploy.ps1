@@ -1,9 +1,9 @@
 $ErrorActionPreference = "Continue"
 
-if ( ${env:BETA} -eq 1 ) {
+if ( "${env:NETWORK}" -eq "BETA" ) {
     $network_cfg = "beta"
 }
-elseif ( ${env:TEST} -eq 1 ) {
+elseif ( "${env:NETWORK}" -eq "TEST" ) {
     $network_cfg = "test"
 }
 else {

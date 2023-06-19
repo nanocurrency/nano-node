@@ -52,7 +52,10 @@ if [[ ${FLAVOR-_} == "_" ]]; then
     FLAVOR=""
 fi
 
-if [[ "${BETA}" -eq 1 ]]; then
+if [[ "${NETWORK}" == "TEST" ]]; then
+    NETWORK_CFG="-DACTIVE_NETWORK=nano_test_network"
+    CONFIGURATION="RelWithDebInfo"
+elif [[ "${NETWORK}" == "BETA" ]]; then
     NETWORK_CFG="-DACTIVE_NETWORK=nano_beta_network"
     CONFIGURATION="RelWithDebInfo"
 else

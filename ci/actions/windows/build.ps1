@@ -2,11 +2,11 @@ $ErrorActionPreference = "Continue"
 
 if (${env:artifact} -eq 1) {
     $env:BUILD_TYPE = "Release"
-    if ( ${env:BETA} -eq 1 ) {
+    if ( ${env:NETWORK} -eq "BETA" ) {
         $env:NETWORK_CFG = "beta"
         $env:BUILD_TYPE = "RelWithDebInfo"
     }
-    elseif (${env:TEST} -eq 1) {
+    elseif (${env:NETWORK} -eq "TEST") {
         $env:NETWORK_CFG = "test"
     }
     else {
