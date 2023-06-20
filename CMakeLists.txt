@@ -657,10 +657,10 @@ add_subdirectory(nano/rpc)
 add_subdirectory(nano/nano_rpc)
 
 add_custom_target(
-    executables
-    COMMAND echo "BATCH BUILDING node + rpc"
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    DEPENDS nano_node nano_rpc)
+  executables
+  COMMAND echo "BATCH BUILDING node + rpc"
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+  DEPENDS nano_node nano_rpc)
 
 if(NANO_FUZZER_TEST)
   if(NOT WIN32)
