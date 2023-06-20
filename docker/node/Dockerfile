@@ -15,7 +15,7 @@ WORKDIR /tmp/src
 
 # Build node
 RUN ci/build-node.sh
-RUN echo ${NETWORK} >/etc/nano-network
+RUN echo ${NANO_NETWORK} >/etc/nano-network
 
 FROM ubuntu:22.04
 
