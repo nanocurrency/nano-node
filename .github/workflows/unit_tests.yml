@@ -2,10 +2,6 @@ name: Unit Tests
 
 on: [push, pull_request]
 
-env:
-  RELEASE: 0
-  artifact: 0
-
 jobs:
   macos_test:
     name: macOS [${{ matrix.BACKEND }}]
@@ -17,8 +13,9 @@ jobs:
           - ${{ startsWith(github.ref, 'refs/tags/') }}
     env:
       BACKEND: ${{ matrix.BACKEND }}
-      TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
       RELEASE: ${{ matrix.RELEASE }}
+      TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
+      DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
     runs-on: macos-12
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
@@ -26,7 +23,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: "recursive"
-          fetch-depth: 0 # full history needed for restoring file timestamps
+          fetch-depth: 0 # Full history needed for restoring file timestamps
 
       - name: Restore Timestamps
         uses: ./.github/actions/restore-git-mtimes
@@ -39,14 +36,15 @@ jobs:
           path: build
           key: ${{ runner.os }}-build-cache
 
-      - name: Fetch Deps
-        run: TEST=1 ci/actions/osx/install_deps.sh
+      - name: Prepare
+        run: ci/prepare/macos/prepare.sh
 
       - name: Build Tests
-        run: ci/build-ci.sh "/tmp/qt/lib/cmake/Qt5";
+        id: build
+        run: ci/build-tests.sh
 
       - name: Save Build Cache
-        # only save build cache from develop to avoid polluting it by other branches / PRs
+        # Only save build cache from develop to avoid polluting it by other branches / PRs
         if: github.ref == 'refs/heads/develop' && success()
         uses: actions/cache/save@v3
         continue-on-error: true
@@ -54,10 +52,17 @@ jobs:
           path: build
           key: ${{ runner.os }}-build-cache
 
-      - name: Run Tests
-        run: cd build && sudo TEST_USE_ROCKSDB=$TEST_USE_ROCKSDB ../ci/test.sh .
-        env:
-          DEADLINE_SCALE_FACTOR: ${{ env.TEST_USE_ROCKSDB == 1 && '2' || '1' }}
+      - name: Core Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
+        run: cd build && ../ci/tests/run-core-tests.sh
+
+      - name: RPC Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
+        run: cd build && ../ci/tests/run-rpc-tests.sh
+
+      - name: System Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
+        run: cd build && ../ci/tests/run-system-tests.sh
 
   linux_test:
     name: Linux [${{ matrix.BACKEND }} | ${{ matrix.COMPILER }}]
@@ -73,15 +78,16 @@ jobs:
     env:
       COMPILER: ${{ matrix.COMPILER }}
       BACKEND: ${{ matrix.BACKEND }}
-      TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
       RELEASE: ${{ matrix.RELEASE }}
+      TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
+      DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
           submodules: "recursive"
-          fetch-depth: 0 # full history needed for restoring file timestamps
+          fetch-depth: 0 # Full history needed for restoring file timestamps
 
       - name: Restore Timestamps
         uses: ./.github/actions/restore-git-mtimes
@@ -94,14 +100,15 @@ jobs:
           path: build
           key: ${{ runner.os }}-${{ env.COMPILER }}-build-cache
 
-      - name: Fetch Deps
-        run: ci/actions/linux/install_deps.sh
+      - name: Prepare
+        run: sudo -E ci/prepare/linux/prepare.sh
 
       - name: Build Tests
-        run: docker run -e TEST_USE_ROCKSDB  -e RELEASE -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace && ./ci/build-ci.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5"
+        id: build
+        run: ci/build-tests.sh
 
       - name: Save Build Cache
-        # only save build cache from develop to avoid polluting it by other branches / PRs
+        # Only save build cache from develop to avoid polluting it by other branches / PRs
         if: github.ref == 'refs/heads/develop' && success()
         uses: actions/cache/save@v3
         continue-on-error: true
@@ -109,10 +116,21 @@ jobs:
           path: build
           key: ${{ runner.os }}-${{ env.COMPILER }}-build-cache
 
-      - name: Run Tests
-        run: docker run -e RELEASE -e TEST_USE_ROCKSDB -e DEADLINE_SCALE_FACTOR -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cd /workspace/build && ../ci/test.sh ."
-        env:
-          DEADLINE_SCALE_FACTOR: ${{ env.TEST_USE_ROCKSDB == 1 && '2' || '1' }}
+      - name: Core Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
+        run: cd build && ../ci/tests/run-core-tests.sh
+
+      - name: RPC Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
+        run: cd build && ../ci/tests/run-rpc-tests.sh
+
+      - name: System Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
+        run: cd build && ../ci/tests/run-system-tests.sh
+
+      - name: QT Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
+        run: cd build && ../ci/tests/run-qt-tests.sh
 
   windows_test:
     name: Windows [${{ matrix.BACKEND }}]
@@ -126,8 +144,8 @@ jobs:
     runs-on: windows-latest
     env:
       BACKEND: ${{ matrix.BACKEND }}
-      TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
       RELEASE: ${{ matrix.RELEASE }}
+      TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout
@@ -147,14 +165,13 @@ jobs:
           path: build
           key: ${{ runner.os }}-build-cache
 
-      - name: Windows Defender
-        run: ci/actions/windows/disable_windows_defender.ps1
-
-      - name: Fetch Deps
-        run: ci/actions/windows/install_deps.ps1
+      - name: Prepare
+        run: ci/prepare/windows/prepare.ps1
 
       - name: Build Tests
-        run: ci/actions/windows/build.ps1
+        id: build
+        run: ci/build-tests.sh
+        shell: bash
 
       - name: Save Build Cache
         # only save build cache from develop to avoid polluting it by other branches / PRs
@@ -165,7 +182,17 @@ jobs:
           path: build
           key: ${{ runner.os }}-build-cache
 
-      - name: Run Tests [TEST_USE_ROCKSDB=${{ env.TEST_USE_ROCKSDB }}]
-        run: ci/actions/windows/run.ps1
-        env:
-          DEADLINE_SCALE_FACTOR: ${{ env.TEST_USE_ROCKSDB == 1 && '2' || '1' }}
+      - name: Core Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
+        run: cd build && ../ci/tests/run-core-tests.sh
+        shell: bash
+
+      - name: RPC Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
+        run: cd build && ../ci/tests/run-rpc-tests.sh
+        shell: bash
+
+      - name: System Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
+        run: cd build && ../ci/tests/run-system-tests.sh
+        shell: bash

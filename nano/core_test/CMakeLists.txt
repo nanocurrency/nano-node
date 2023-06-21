@@ -61,7 +61,7 @@ add_executable(
 
 target_compile_definitions(
   core_test PRIVATE -DTAG_VERSION_STRING=${TAG_VERSION_STRING}
-                    -DGIT_COMMIT_HASH=${GIT_COMMIT_HASH} -DCI=${CI_TEST})
+                    -DGIT_COMMIT_HASH=${GIT_COMMIT_HASH})
 
 target_link_libraries(
   core_test
