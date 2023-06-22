@@ -16,7 +16,7 @@ jobs:
         TEST_USE_ROCKSDB: [0, 1]
         COMPILER: [clang]
         SANITIZER: [ASAN, ASAN_INT, TSAN]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     outputs:
       issue_reported: ${{ steps.show_report.outputs.issue_reported }}
     env:
@@ -41,17 +41,17 @@ jobs:
         run: ci/actions/linux/install_deps.sh
       - name: Build Tests
         id: build_tests
-        run: docker run -e TEST_USE_ROCKSDB -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c \
-          "cd /workspace && ${{ matrix.SANITIZER }}=1 ./ci/build-ci.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 'core_test rpc_test'"
+        run: docker run -e TEST_USE_ROCKSDB -v ${PWD}:/workspace ghcr.io/${{ github.repository }}/nano-env:${{ matrix.COMPILER }} /bin/bash -c \
+          "cd /workspace && ${{ matrix.SANITIZER }}=1 ci/build-ci.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 'core_test rpc_test'"
       - name: Run core_test
         id: core_test
         continue-on-error: true
-        run: docker run -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c \
+        run: docker run -v ${PWD}:/workspace ghcr.io/${{ github.repository }}/nano-env:${{ matrix.COMPILER }} /bin/bash -c \
           "cd /workspace/build && ${XSAN}_OPTIONS=${XSAN_SUPPRESSIONS}log_exe_name=1:log_path=sanitizer_report ./core_test"
       - name: Run rpc_test
         id: rpc_test
         continue-on-error: true
-        run: docker run -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c \
+        run: docker run -v ${PWD}:/workspace ghcr.io/${{ github.repository }}/nano-env:${{ matrix.COMPILER }} /bin/bash -c \
           "cd /workspace/build && ${XSAN}_OPTIONS=${XSAN_SUPPRESSIONS}log_exe_name=1:log_path=sanitizer_report ./rpc_test"
       - name: Test Reports
         id: show_report
@@ -63,7 +63,7 @@ jobs:
               echo "Report Output:"
               for report in ${reports}; do
                 echo "File: $report"
-                docker run -v ${PWD}:/workspace nanocurrency/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cat /workspace/${report}"
+                docker run -v ${PWD}:/workspace ghcr.io/${{ github.repository }}/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cat /workspace/${report}"
                 echo
               done
               issue_reported=true
