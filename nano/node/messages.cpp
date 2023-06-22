@@ -1656,6 +1656,31 @@ bool nano::asc_pull_req::verify_consistency () const
 	return true; // Just for convenience of calling from asserts
 }
 
+std::string nano::asc_pull_req::to_string () const 
+{
+	std::string s = header.to_string() + "\n";
+
+	if (payload.index() == 0)
+	{
+		s += "empty payload";
+	}
+
+	if (payload.index() == 1) 
+	{
+		s += "acc:" + payload.start.to_string();
+		s += " max block count:" + nano::to_string_hex(static_cast<uint16_t> (payload.count));
+		s += " hash type:" + nano::to_string_hex(static_cast<uint16_t> (payload.start_type));
+	}
+
+	if (payload.index() == 2)
+	{
+		s += "target:" + payload.target.to_string ();
+		s += " hash type:" + nano::to_string_hex(static_cast<uint16_t> (payload.target_type));
+	}
+
+	return s;
+
+}
 /*
  * asc_pull_req::blocks_payload
  */
@@ -1809,6 +1834,13 @@ bool nano::asc_pull_ack::verify_consistency () const
 	return true; // Just for convenience of calling from asserts
 }
 
+std::string nano::asc_pull_ack::to_string () const
+{
+	std::string s = header.to_string();
+
+	if 
+}
+
 /*
  * asc_pull_ack::blocks_payload
  */
@@ -1827,7 +1859,9 @@ void nano::asc_pull_ack::blocks_payload::serialize (nano::stream & stream) const
 
 void nano::asc_pull_ack::blocks_payload::deserialize (nano::stream & stream)
 {
-	auto current = nano::deserialize_block (stream);
+	auto current = nano::deserialize_b0
+	
+	lock (stream);
 	while (current && blocks.size () < max_blocks)
 	{
 		blocks.push_back (current);
