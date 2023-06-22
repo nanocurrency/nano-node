@@ -6,9 +6,7 @@ on:
     inputs:
       repo:
         description: "repo"
-
-
-      ci_tag:
+      ref:
         description: "tag to build"
         default: "develop" #use AUTO to run the CI build flow
         required: true
@@ -24,20 +22,20 @@ jobs:
     steps:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
         with:
-          ref: ${{ (github.event.inputs.ci_tag == 'AUTO' || github.event.inputs.ci_tag == '') && 'develop' || github.event.inputs.ci_tag }}
+          ref: ${{ (github.event.inputs.ref == 'AUTO' || github.event.inputs.ref == '') && 'develop' || github.event.inputs.ref }}
           repository: ${{ github.event.inputs.repo || github.repository }}
       - name: Fetch the repository tags
         run: git fetch --tags
       - name: Set the tag and version
         id: tag_set
         run: |
-          if [[ "${{ github.event.inputs.ci_tag }}" == "AUTO" ]] || [[ "${{ github.event.inputs.ci_tag }}" == "" ]]; then
+          if [[ "${{ github.event.inputs.ref }}" == "AUTO" ]] || [[ "${{ github.event.inputs.ref }}" == "" ]]; then
             output_var_file="variable_list.txt"
             ci/actions/dev-build-tag-gen.sh -o "${output_var_file}"
             CI_TAG=$(grep 'build_tag' ${output_var_file} | cut -d= -f2)
             CI_VERSION_PRE_RELEASE=$(grep 'version_pre_release' ${output_var_file} | cut -d= -f2)            
           else
-            CI_TAG=${{ github.event.inputs.ci_tag }}
+            CI_TAG=${{ github.event.inputs.ref }}
             CI_VERSION_PRE_RELEASE='OFF'
           fi
           echo "CI_TAG=${CI_TAG}" >> $GITHUB_ENV
@@ -46,7 +44,7 @@ jobs:
           echo "CI_VERSION_PRE_RELEASE=${CI_VERSION_PRE_RELEASE}" >> $GITHUB_OUTPUT
       - name: Push the new tag
         run: |
-          if [[ "${{ github.event.inputs.ci_tag }}" == "AUTO" ]] || [[ "${{ github.event.inputs.ci_tag }}" == "" ]]; then
+          if [[ "${{ github.event.inputs.ref }}" == "AUTO" ]] || [[ "${{ github.event.inputs.ref }}" == "" ]]; then
             # Set git configuration
             git config user.name "${GITHUB_ACTOR}"
             git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
@@ -78,7 +76,7 @@ jobs:
         run: ci/actions/deploy.sh
         env:
           NETWORK: ${{ matrix.network }}
-          TAG: ${{ github.event.inputs.ci_tag }}
+          TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
           S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
           S3_BUILD_DIRECTORY: ${{ secrets.S3_BUILD_DIRECTORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -109,7 +107,7 @@ jobs:
         run: ci/actions/deploy.sh
         env:
           NETWORK: ${{ matrix.network }}
-          TAG: ${{ github.event.inputs.ci_tag }}
+          TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
           S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
           S3_BUILD_DIRECTORY: ${{ secrets.S3_BUILD_DIRECTORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -143,7 +141,7 @@ jobs:
         env:
           LINUX_RPM: 1
           NETWORK: ${{ matrix.network }}
-          # TAG: ${{ github.event.inputs.ci_tag }} # (not used in the deploy script if LINUX_RPM==1 )
+          # TAG: ${{ needs.prepare_build.outputs.CI_TAG }} # (not used in the deploy script if LINUX_RPM==1 )
           S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
           S3_BUILD_DIRECTORY: ${{ secrets.S3_BUILD_DIRECTORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -211,7 +209,7 @@ jobs:
         run: ci/actions/windows/deploy.ps1
         env:
           NETWORK: ${{ matrix.network }}
-          TAG: ${{ github.event.inputs.ci_tag }}
+          TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
           S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
           S3_BUILD_DIRECTORY: ${{ secrets.S3_BUILD_DIRECTORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
