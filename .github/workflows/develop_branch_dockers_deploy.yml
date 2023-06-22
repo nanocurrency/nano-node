@@ -7,7 +7,7 @@ on:
 
 jobs:
   linux_job:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
         with:
@@ -21,8 +21,13 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Deploy Docker (ghcr.io)
-        run: ci/actions/linux/ghcr_push.sh
+        run: ci/actions/linux/ghcr-deploy-env.sh
+      - name: Check if secrets.DOCKER_PASSWORD exists
+        run: echo "DOCKER_PASSWORD_EXISTS=${{ secrets.DOCKER_PASSWORD != '' }}" >> $GITHUB_ENV  
       - name: Deploy Docker (nanocurrency/nano-env)
-        run: ci/actions/linux/docker-deploy.sh
+        if: env.DOCKER_PASSWORD_EXISTS == 'true'
+        run: ci/actions/linux/docker-deploy-env.sh
         env:
+          DOCKER_HUB: ${{ secrets.DOCKER_HUB }}
+          DOCKER_USER: ${{ secrets.DOCKER_USER }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
