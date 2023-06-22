@@ -2,9 +2,6 @@ FROM ubuntu:22.04 as builder
 
 ARG COMPILER=gcc
 ARG NANO_NETWORK=live
-ARG CI_TAG=DEV_BUILD
-ARG CI_BUILD=OFF
-ARG CI_VERSION_PRE_RELEASE=OFF
 
 # Install build dependencies
 COPY ./ci/prepare/linux /tmp/prepare
@@ -12,6 +9,14 @@ RUN /tmp/prepare/prepare.sh
 
 COPY ./ /tmp/src
 WORKDIR /tmp/src
+
+#Define ARGs for ci/build-node.sh
+ARG BUILD_TYPE=RelWidthDebInfo
+ARG NANO_TEST=OFF
+ARG COVERAGE=OFF
+ARG CMAKE_SANITIZER=""
+ARG CI_TAG=DEV_BUILD
+ARG CI_VERSION_PRE_RELEASE=OFF
 
 # Build node
 RUN ci/build-node.sh
