@@ -4,6 +4,8 @@ set -a
 
 scripts="$PWD/ci"
 CI_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+DOCKER_HUB="${DOCKER_HUB:-nanocurrency}"
+DOCKER_USER="${DOCKER_USER:-nanoreleaseteam}"
 tags=()
 
 if [ -n "$CI_TAG" ]; then
@@ -28,7 +30,7 @@ elif [[ "$NETWORK" = "TEST" ]]; then
     network="test"
 fi
 
-docker_image_name="nanocurrency/nano${network_tag_suffix}"
+docker_image_name="${DOCKER_HUB}/nano${network_tag_suffix}"
 ghcr_image_name="ghcr.io/${GITHUB_REPOSITORY}/nano${network_tag_suffix}"
 
 docker_build()
@@ -74,11 +76,11 @@ tag_docker_image() {
 
 docker_deploy()
 {
-    docker_login "nanoreleaseteam" "$DOCKER_PASSWORD"
+    docker_login "$DOCKER_USER" "$DOCKER_PASSWORD" 
     if [[ "$NETWORK" = "LIVE" ]]; then
-        deploy_tags "nanocurrency" "env|ghcr.io|none|latest"
+        deploy_tags "$DOCKER_HUB" "env|ghcr.io|none|latest"
     else
-        deploy_tags "nanocurrency" "env|ghcr.io|none"
+        deploy_tags "$DOCKER_HUB" "env|ghcr.io|none"
     fi
 }
 
@@ -100,11 +102,11 @@ ghcr_deploy_env()
 
 docker_deploy_env()
 {
-    docker_login "nanoreleaseteam" "$DOCKER_PASSWORD" 
+    docker_login "$DOCKER_USER" "$DOCKER_PASSWORD" 
     local images=(
-        "nanocurrency/nano-env:base"
-        "nanocurrency/nano-env:gcc"
-        "nanocurrency/nano-env:clang"
+        "$DOCKER_HUB/nano-env:base"
+        "$DOCKER_HUB/nano-env:gcc"
+        "$DOCKER_HUB/nano-env:clang"
     )
     deploy_env_images "${images[@]}"
 }
