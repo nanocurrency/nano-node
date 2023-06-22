@@ -171,19 +171,21 @@ jobs:
         run: echo "DOCKER_PASSWORD_EXISTS=${{ secrets.DOCKER_PASSWORD != '' }}" >> $GITHUB_ENV  
       - name: Deploy Docker Hub
         if: env.DOCKER_PASSWORD_EXISTS == 'true'
-        run: CI_TAG=${{ needs.prepare_build.outputs.CI_TAG }} ci/actions/linux/docker-deploy.sh
+        run: ci/actions/linux/docker-deploy.sh
         env:
-          DOCKER_HUB: ${{ secrets.DOCKER_HUB }}
+          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
+          NETWORK: ${{ matrix.network }}
+          DOCKER_REGISTRY: ${{ secrets.DOCKER_HUB }}
           DOCKER_USER: ${{ secrets.DOCKER_USER }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      - name: Login to ghcr.io
-        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a #v2.1.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Deploy Docker (ghcr.io)
         run: ci/actions/linux/ghcr-deploy.sh
+        env:
+          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
+          NETWORK: ${{ matrix.network }}
+          DOCKER_REGISTRY: ghcr.io
+          DOCKER_USER: ${{ github.repository_owner }}
+          DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
 
   windows_job:
     needs: prepare_build
