@@ -14,14 +14,12 @@ jobs:
           submodules: "recursive"
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
-      - name: Login to ghcr.io
-        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a #v2.1.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Deploy Docker (ghcr.io)
         run: ci/actions/linux/ghcr-deploy-env.sh
+        env:
+          DOCKER_REGISTRY: ghcr.io
+          DOCKER_USER: ${{ github.repository_owner }}
+          DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
       - name: Check if secrets.DOCKER_PASSWORD exists
         run: echo "DOCKER_PASSWORD_EXISTS=${{ secrets.DOCKER_PASSWORD != '' }}" >> $GITHUB_ENV  
       - name: Deploy Docker (nanocurrency/nano-env)

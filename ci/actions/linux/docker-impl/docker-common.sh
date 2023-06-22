@@ -4,7 +4,7 @@ set -a
 
 scripts="$PWD/ci"
 CI_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-DOCKER_HUB="${DOCKER_HUB:-nanocurrency}"
+DOCKER_REGISTRY="${DOCKER_REGISTRY:-nanocurrency}"
 DOCKER_USER="${DOCKER_USER:-nanoreleaseteam}"
 tags=()
 
@@ -30,8 +30,8 @@ elif [[ "$NETWORK" = "TEST" ]]; then
     network="test"
 fi
 
-docker_image_name="${DOCKER_HUB}/nano${network_tag_suffix}"
-ghcr_image_name="ghcr.io/${GITHUB_REPOSITORY}/nano${network_tag_suffix}"
+docker_image_name="${DOCKER_REGISTRY}/nano${network_tag_suffix}"
+ghcr_image_name="${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/nano${network_tag_suffix}"
 
 docker_build()
 {
@@ -78,35 +78,37 @@ docker_deploy()
 {
     docker_login "$DOCKER_USER" "$DOCKER_PASSWORD" 
     if [[ "$NETWORK" = "LIVE" ]]; then
-        deploy_tags "$DOCKER_HUB" "env|ghcr.io|none|latest"
+        deploy_tags "${DOCKER_REGISTRY}" "env|ghcr.io|none|latest"
     else
-        deploy_tags "$DOCKER_HUB" "env|ghcr.io|none"
+        deploy_tags "${DOCKER_REGISTRY}" "env|ghcr.io|none"
     fi
 }
 
 ghcr_deploy()
-{    
-    deploy_tags "ghcr.io/${GITHUB_REPOSITORY}" "env|none"
-}
-
-ghcr_deploy_env()
-{        
-    local images=(
-        "ghcr.io/${GITHUB_REPOSITORY}/nano-env:base"
-        "ghcr.io/${GITHUB_REPOSITORY}/nano-env:gcc"
-        "ghcr.io/${GITHUB_REPOSITORY}/nano-env:clang"
-        "ghcr.io/${GITHUB_REPOSITORY}/nano-env:rhel"
-    )
-    deploy_env_images "${images[@]}"   
+{   
+    docker_login "$DOCKER_USER" "$DOCKER_PASSWORD" 
+    deploy_tags "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}" "env|none"
 }
 
 docker_deploy_env()
 {
     docker_login "$DOCKER_USER" "$DOCKER_PASSWORD" 
     local images=(
-        "$DOCKER_HUB/nano-env:base"
-        "$DOCKER_HUB/nano-env:gcc"
-        "$DOCKER_HUB/nano-env:clang"
+        "${DOCKER_REGISTRY}/nano-env:base"
+        "${DOCKER_REGISTRY}/nano-env:gcc"
+        "${DOCKER_REGISTRY}/nano-env:clang"
+    )
+    deploy_env_images "${images[@]}"
+}
+
+ghcr_deploy_env()
+{
+    docker_login "$DOCKER_USER" "$DOCKER_PASSWORD"
+    local images=(
+        "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/nano-env:base"
+        "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/nano-env:gcc"
+        "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/nano-env:clang"
+        "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/nano-env:rhel"
     )
     deploy_env_images "${images[@]}"
 }
@@ -146,6 +148,9 @@ deploy_tags()
     local repo=$1
     local exclude_pattern=$2
     local tags=$(docker images --format '{{.Repository}}:{{.Tag }}' | grep "$repo" | grep -vE "$exclude_pattern")
+
+    #Debug list all tags
+    docker images --format '{{.Repository}}:{{.Tag }}'
 
     for tag in $tags; do
         push_docker_image "$tag"
