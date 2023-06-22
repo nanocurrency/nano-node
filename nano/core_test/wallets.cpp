@@ -185,7 +185,7 @@ TEST (wallets, search_receivable)
 	for (auto search_all : { false, true })
 	{
 		nano::test::system system;
-		nano::node_config config (nano::test::get_available_port (), system.logging);
+		nano::node_config config = system.default_config ();
 		config.enable_voting = false;
 		config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		nano::node_flags flags;

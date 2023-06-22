@@ -898,6 +898,7 @@ void nano::json_handler::account_weight ()
 void nano::json_handler::accounts_balances ()
 {
 	boost::property_tree::ptree balances;
+	boost::property_tree::ptree errors;
 	auto transaction = node.store.tx_begin_read ();
 	for (auto & account_from_request : request.get_child ("accounts"))
 	{
@@ -913,17 +914,25 @@ void nano::json_handler::accounts_balances ()
 			balances.put_child (account_from_request.second.data (), entry);
 			continue;
 		}
-		entry.put ("error", ec.message ());
-		balances.put_child (account_from_request.second.data (), entry);
+		debug_assert (ec);
+		errors.put (account_from_request.second.data (), ec.message ());
 		ec = {};
 	}
-	response_l.add_child ("balances", balances);
+	if (!balances.empty ())
+	{
+		response_l.add_child ("balances", balances);
+	}
+	if (!errors.empty ())
+	{
+		response_l.add_child ("errors", errors);
+	}
 	response_errors ();
 }
 
 void nano::json_handler::accounts_representatives ()
 {
 	boost::property_tree::ptree representatives;
+	boost::property_tree::ptree errors;
 	auto transaction = node.store.tx_begin_read ();
 	for (auto & account_from_request : request.get_child ("accounts"))
 	{
@@ -937,10 +946,18 @@ void nano::json_handler::accounts_representatives ()
 				continue;
 			}
 		}
-		representatives.put (account_from_request.second.data (), boost::format ("error: %1%") % ec.message ());
+		debug_assert (ec);
+		errors.put (account_from_request.second.data (), ec.message ());
 		ec = {};
 	}
-	response_l.add_child ("representatives", representatives);
+	if (!representatives.empty ())
+	{
+		response_l.add_child ("representatives", representatives);
+	}
+	if (!errors.empty ())
+	{
+		response_l.add_child ("errors", errors);
+	}
 	response_errors ();
 }
 
@@ -972,6 +989,7 @@ void nano::json_handler::accounts_create ()
 void nano::json_handler::accounts_frontiers ()
 {
 	boost::property_tree::ptree frontiers;
+	boost::property_tree::ptree errors;
 	auto transaction = node.store.tx_begin_read ();
 	for (auto & account_from_request : request.get_child ("accounts"))
 	{
@@ -989,10 +1007,18 @@ void nano::json_handler::accounts_frontiers ()
 				ec = nano::error_common::account_not_found;
 			}
 		}
-		frontiers.put (account_from_request.second.data (), boost::str (boost::format ("error: %1%") % ec.message ()));
+		debug_assert (ec);
+		errors.put (account_from_request.second.data (), ec.message ());
 		ec = {};
 	}
-	response_l.add_child ("frontiers", frontiers);
+	if (!frontiers.empty ())
+	{
+		response_l.add_child ("frontiers", frontiers);
+	}
+	if (!errors.empty ())
+	{
+		response_l.add_child ("errors", errors);
+	}
 	response_errors ();
 }
 

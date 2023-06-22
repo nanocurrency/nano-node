@@ -22,15 +22,16 @@ TEST (socket, max_connections)
 
 	auto node = system.add_node ();
 
-	auto server_port = nano::test::get_available_port ();
+	auto server_port = system.get_available_port ();
 	boost::asio::ip::tcp::endpoint listen_endpoint{ boost::asio::ip::address_v6::any (), server_port };
-	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), server_port };
 
 	// start a server socket that allows max 2 live connections
 	auto server_socket = std::make_shared<nano::transport::server_socket> (*node, listen_endpoint, 2);
 	boost::system::error_code ec;
 	server_socket->start (ec);
 	ASSERT_FALSE (ec);
+
+	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), server_socket->listening_port () };
 
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
@@ -114,9 +115,8 @@ TEST (socket, max_connections_per_ip)
 	auto node = system.add_node ();
 	ASSERT_FALSE (node->flags.disable_max_peers_per_ip);
 
-	auto server_port = nano::test::get_available_port ();
+	auto server_port = system.get_available_port ();
 	boost::asio::ip::tcp::endpoint listen_endpoint{ boost::asio::ip::address_v6::any (), server_port };
-	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), server_port };
 
 	const auto max_ip_connections = node->network_params.network.max_peers_per_ip;
 	ASSERT_TRUE (max_ip_connections >= 1);
@@ -127,6 +127,8 @@ TEST (socket, max_connections_per_ip)
 	boost::system::error_code ec;
 	server_socket->start (ec);
 	ASSERT_FALSE (ec);
+
+	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), server_socket->listening_port () };
 
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
@@ -236,9 +238,8 @@ TEST (socket, max_connections_per_subnetwork)
 	ASSERT_TRUE (node->flags.disable_max_peers_per_ip);
 	ASSERT_FALSE (node->flags.disable_max_peers_per_subnetwork);
 
-	auto server_port = nano::test::get_available_port ();
+	auto server_port = system.get_available_port ();
 	boost::asio::ip::tcp::endpoint listen_endpoint{ boost::asio::ip::address_v6::any (), server_port };
-	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), server_port };
 
 	const auto max_subnetwork_connections = node->network_params.network.max_peers_per_subnetwork;
 	ASSERT_TRUE (max_subnetwork_connections >= 1);
@@ -249,6 +250,8 @@ TEST (socket, max_connections_per_subnetwork)
 	boost::system::error_code ec;
 	server_socket->start (ec);
 	ASSERT_FALSE (ec);
+
+	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), server_socket->listening_port () };
 
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
@@ -299,9 +302,8 @@ TEST (socket, disabled_max_peers_per_ip)
 	auto node = system.add_node (node_flags);
 	ASSERT_TRUE (node->flags.disable_max_peers_per_ip);
 
-	auto server_port = nano::test::get_available_port ();
+	auto server_port = system.get_available_port ();
 	boost::asio::ip::tcp::endpoint listen_endpoint{ boost::asio::ip::address_v6::any (), server_port };
-	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), server_port };
 
 	const auto max_ip_connections = node->network_params.network.max_peers_per_ip;
 	ASSERT_TRUE (max_ip_connections >= 1);
@@ -312,6 +314,8 @@ TEST (socket, disabled_max_peers_per_ip)
 	boost::system::error_code ec;
 	server_socket->start (ec);
 	ASSERT_FALSE (ec);
+
+	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), server_socket->listening_port () };
 
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
@@ -366,15 +370,16 @@ TEST (socket, disconnection_of_silent_connections)
 
 	auto node = system.add_node (config);
 
-	auto server_port = nano::test::get_available_port ();
+	auto server_port = system.get_available_port ();
 	boost::asio::ip::tcp::endpoint listen_endpoint{ boost::asio::ip::address_v6::any (), server_port };
-	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), server_port };
 
 	// start a server listening socket
 	auto server_socket = std::make_shared<nano::transport::server_socket> (*node, listen_endpoint, 1);
 	boost::system::error_code ec;
 	server_socket->start (ec);
 	ASSERT_FALSE (ec);
+
+	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), server_socket->listening_port () };
 
 	// on a connection, a server data socket is created. The shared pointer guarantees the object's lifecycle until the end of this test.
 	std::shared_ptr<nano::transport::socket> server_data_socket;
@@ -412,6 +417,8 @@ TEST (socket, disconnection_of_silent_connections)
 
 TEST (socket, drop_policy)
 {
+	nano::test::system system;
+
 	auto node_flags = nano::inactive_node_flag_defaults ();
 	node_flags.read_only = false;
 	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
@@ -422,7 +429,7 @@ TEST (socket, drop_policy)
 	std::vector<std::shared_ptr<nano::transport::socket>> connections;
 
 	auto func = [&] (size_t total_message_count, nano::transport::buffer_drop_policy drop_policy) {
-		auto server_port (nano::test::get_available_port ());
+		auto server_port (system.get_available_port ());
 		boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::any (), server_port);
 
 		auto server_socket = std::make_shared<nano::transport::server_socket> (*node, endpoint, 1);
@@ -475,6 +482,8 @@ TEST (socket, drop_policy)
 
 TEST (socket, concurrent_writes)
 {
+	nano::test::system system;
+
 	auto node_flags = nano::inactive_node_flag_defaults ();
 	node_flags.read_only = false;
 	node_flags.disable_max_peers_per_ip = true;
@@ -496,15 +505,6 @@ TEST (socket, concurrent_writes)
 	std::function<void (std::shared_ptr<nano::transport::socket> const &)> reader = [&read_count_completion, &total_message_count, &reader] (std::shared_ptr<nano::transport::socket> const & socket_a) {
 		auto buff (std::make_shared<std::vector<uint8_t>> ());
 		buff->resize (1);
-#ifndef _WIN32
-#pragma GCC diagnostic push
-#if defined(__has_warning)
-#if __has_warning("-Wunused-lambda-capture")
-/** total_message_count is constexpr and a capture isn't needed. However, removing it fails to compile on VS2017 due to a known compiler bug. */
-#pragma GCC diagnostic ignored "-Wunused-lambda-capture"
-#endif
-#endif
-#endif
 		socket_a->async_read (buff, 1, [&read_count_completion, &reader, &total_message_count, socket_a, buff] (boost::system::error_code const & ec, size_t size_a) {
 			if (!ec)
 			{
@@ -518,12 +518,10 @@ TEST (socket, concurrent_writes)
 				std::cerr << "async_read: " << ec.message () << std::endl;
 			}
 		});
-#ifndef _WIN32
-#pragma GCC diagnostic pop
-#endif
 	};
 
-	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v4::any (), 25000);
+	auto server_port (system.get_available_port ());
+	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::any (), server_port);
 
 	auto server_socket = std::make_shared<nano::transport::server_socket> (*node, endpoint, max_connections);
 	boost::system::error_code ec;
@@ -552,7 +550,7 @@ TEST (socket, concurrent_writes)
 	{
 		auto client = std::make_shared<nano::transport::client_socket> (*node);
 		clients.push_back (client);
-		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 25000),
+		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), server_socket->listening_port ()),
 		[&connection_count_completion] (boost::system::error_code const & ec_a) {
 			if (ec_a)
 			{
@@ -571,15 +569,6 @@ TEST (socket, concurrent_writes)
 	std::vector<std::thread> client_threads;
 	for (int i = 0; i < client_count; i++)
 	{
-#ifndef _WIN32
-#pragma GCC diagnostic push
-#if defined(__has_warning)
-#if __has_warning("-Wunused-lambda-capture")
-/** total_message_count is constexpr and a capture isn't needed. However, removing it fails to compile on VS2017 due to a known compiler bug. */
-#pragma GCC diagnostic ignored "-Wunused-lambda-capture"
-#endif
-#endif
-#endif
 		client_threads.emplace_back ([&client, &message_count] () {
 			for (int i = 0; i < message_count; i++)
 			{
@@ -588,9 +577,6 @@ TEST (socket, concurrent_writes)
 				client->async_write (nano::shared_const_buffer (std::move (buff)));
 			}
 		});
-#ifndef _WIN32
-#pragma GCC diagnostic pop
-#endif
 	}
 
 	ASSERT_FALSE (read_count_completion.await_count_for (10s));
@@ -625,7 +611,7 @@ TEST (socket_timeout, connect)
 	// try to connect to an IP address that most likely does not exist and will not reply
 	// we want the tcp stack to not receive a negative reply, we want it to see silence and to keep trying
 	// I use the un-routable IP address 10.255.254.253, which is likely to not exist
-	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::make_address_v6 ("::ffff:10.255.254.253"), nano::test::get_available_port ());
+	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::make_address_v6 ("::ffff:10.255.254.253"), 1234);
 
 	// create a client socket and try to connect to the IP address that wil not respond
 	auto socket = std::make_shared<nano::transport::client_socket> (*node);
@@ -656,7 +642,7 @@ TEST (socket_timeout, read)
 	node->config.tcp_io_timeout = std::chrono::seconds (2);
 
 	// create a server socket
-	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), nano::test::get_available_port ());
+	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), system.get_available_port ());
 	boost::asio::ip::tcp::acceptor acceptor (system.io_ctx);
 	acceptor.open (endpoint.protocol ());
 	acceptor.bind (endpoint);
@@ -665,15 +651,16 @@ TEST (socket_timeout, read)
 	// asynchronously accept an incoming connection and create a newsock and do not send any data
 	boost::asio::ip::tcp::socket newsock (system.io_ctx);
 	acceptor.async_accept (newsock, [] (boost::system::error_code const & ec_a) {
-		debug_assert (!ec_a);
+		EXPECT_FALSE (ec_a);
 	});
 
 	// create a client socket to connect and call async_read, which should time out
 	auto socket = std::make_shared<nano::transport::client_socket> (*node);
 	std::atomic<bool> done = false;
 	boost::system::error_code ec;
-	socket->async_connect (endpoint, [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
-		debug_assert (!ec_a);
+	socket->async_connect (acceptor.local_endpoint (), [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
+		EXPECT_FALSE (ec_a);
+
 		auto buffer = std::make_shared<std::vector<uint8_t>> (1);
 		socket->async_read (buffer, 1, [&ec, &done] (boost::system::error_code const & ec_a, size_t size_a) {
 			if (ec_a)
@@ -701,7 +688,7 @@ TEST (socket_timeout, write)
 	node->config.tcp_io_timeout = std::chrono::seconds (2);
 
 	// create a server socket
-	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), nano::test::get_available_port ());
+	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), system.get_available_port ());
 	boost::asio::ip::tcp::acceptor acceptor (system.io_ctx);
 	acceptor.open (endpoint.protocol ());
 	acceptor.bind (endpoint);
@@ -710,7 +697,7 @@ TEST (socket_timeout, write)
 	// asynchronously accept an incoming connection and create a newsock and do not receive any data
 	boost::asio::ip::tcp::socket newsock (system.io_ctx);
 	acceptor.async_accept (newsock, [] (boost::system::error_code const & ec_a) {
-		debug_assert (!ec_a);
+		EXPECT_FALSE (ec_a);
 	});
 
 	// create a client socket and send lots of data to fill the socket queue on the local and remote side
@@ -719,8 +706,9 @@ TEST (socket_timeout, write)
 	auto socket = std::make_shared<nano::transport::client_socket> (*node, 1024 * 64); // socket with a max queue size much larger than OS buffers
 	std::atomic<bool> done = false;
 	boost::system::error_code ec;
-	socket->async_connect (endpoint, [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
-		debug_assert (!ec_a);
+	socket->async_connect (acceptor.local_endpoint (), [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
+		EXPECT_FALSE (ec_a);
+
 		auto buffer = std::make_shared<std::vector<uint8_t>> (128 * 1024);
 		for (auto i = 0; i < 1024; ++i)
 		{
@@ -751,7 +739,7 @@ TEST (socket_timeout, read_overlapped)
 	node->config.tcp_io_timeout = std::chrono::seconds (2);
 
 	// create a server socket
-	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), nano::test::get_available_port ());
+	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), system.get_available_port ());
 	boost::asio::ip::tcp::acceptor acceptor (system.io_ctx);
 	acceptor.open (endpoint.protocol ());
 	acceptor.bind (endpoint);
@@ -760,7 +748,8 @@ TEST (socket_timeout, read_overlapped)
 	// asynchronously accept an incoming connection and send one byte only
 	boost::asio::ip::tcp::socket newsock (system.io_ctx);
 	acceptor.async_accept (newsock, [&newsock] (boost::system::error_code const & ec_a) {
-		debug_assert (!ec_a);
+		EXPECT_FALSE (ec_a);
+
 		auto buffer = std::make_shared<std::vector<uint8_t>> (1);
 		nano::async_write (newsock, nano::shared_const_buffer (buffer), [] (boost::system::error_code const & ec_a, size_t size_a) {
 			debug_assert (!ec_a);
@@ -772,8 +761,9 @@ TEST (socket_timeout, read_overlapped)
 	auto socket = std::make_shared<nano::transport::client_socket> (*node);
 	std::atomic<bool> done = false;
 	boost::system::error_code ec;
-	socket->async_connect (endpoint, [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
-		debug_assert (!ec_a);
+	socket->async_connect (acceptor.local_endpoint (), [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
+		EXPECT_FALSE (ec_a);
+
 		auto buffer = std::make_shared<std::vector<uint8_t>> (1);
 
 		socket->async_read (buffer, 1, [] (boost::system::error_code const & ec_a, size_t size_a) {
@@ -807,7 +797,7 @@ TEST (socket_timeout, write_overlapped)
 	node->config.tcp_io_timeout = std::chrono::seconds (2);
 
 	// create a server socket
-	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), nano::test::get_available_port ());
+	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), system.get_available_port ());
 	boost::asio::ip::tcp::acceptor acceptor (system.io_ctx);
 	acceptor.open (endpoint.protocol ());
 	acceptor.bind (endpoint);
@@ -817,7 +807,8 @@ TEST (socket_timeout, write_overlapped)
 	boost::asio::ip::tcp::socket newsock (system.io_ctx);
 	auto buffer = std::make_shared<std::vector<uint8_t>> (1);
 	acceptor.async_accept (newsock, [&newsock, &buffer] (boost::system::error_code const & ec_a) {
-		debug_assert (!ec_a);
+		EXPECT_FALSE (ec_a);
+
 		boost::asio::async_read (newsock, boost::asio::buffer (buffer->data (), buffer->size ()), [] (boost::system::error_code const & ec_a, size_t size_a) {
 			debug_assert (size_a == 1);
 		});
@@ -829,8 +820,9 @@ TEST (socket_timeout, write_overlapped)
 	auto socket = std::make_shared<nano::transport::client_socket> (*node, 1024 * 64); // socket with a max queue size much larger than OS buffers
 	std::atomic<bool> done = false;
 	boost::system::error_code ec;
-	socket->async_connect (endpoint, [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
-		debug_assert (!ec_a);
+	socket->async_connect (acceptor.local_endpoint (), [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
+		EXPECT_FALSE (ec_a);
+
 		auto buffer1 = std::make_shared<std::vector<uint8_t>> (1);
 		auto buffer2 = std::make_shared<std::vector<uint8_t>> (128 * 1024);
 		socket->async_write (nano::shared_const_buffer{ buffer1 }, [] (boost::system::error_code const & ec_a, size_t size_a) {

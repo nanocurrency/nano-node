@@ -1,14 +1,14 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/node/blockprocessor.hpp>
-#include <nano/node/election_scheduler.hpp>
 #include <nano/node/process_live_dispatcher.hpp>
+#include <nano/node/scheduler/buckets.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/store.hpp>
 
-nano::process_live_dispatcher::process_live_dispatcher (nano::ledger & ledger, nano::election_scheduler & scheduler, nano::vote_cache & inactive_vote_cache, nano::websocket_server & websocket) :
+nano::process_live_dispatcher::process_live_dispatcher (nano::ledger & ledger, nano::scheduler::buckets & scheduler, nano::vote_cache & inactive_vote_cache, nano::websocket_server & websocket) :
 	ledger{ ledger },
 	scheduler{ scheduler },
 	inactive_vote_cache{ inactive_vote_cache },

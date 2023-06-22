@@ -5,6 +5,10 @@
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
+#include <nano/node/scheduler/buckets.hpp>
+#include <nano/node/scheduler/component.hpp>
+#include <nano/node/scheduler/hinted.hpp>
+#include <nano/node/scheduler/optimistic.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/buffer.hpp>
@@ -46,13 +50,6 @@ nano::vote_cache::config nano::nodeconfig_to_vote_cache_config (node_config cons
 {
 	vote_cache::config cfg{};
 	cfg.max_size = flags.inactive_votes_cache_size;
-	return cfg;
-}
-
-nano::hinted_scheduler::config nano::nodeconfig_to_hinted_scheduler_config (const nano::node_config & config)
-{
-	hinted_scheduler::config cfg{};
-	cfg.vote_cache_check_interval_ms = config.network_params.network.is_dev_network () ? 100u : 1000u;
 	return cfg;
 }
 
@@ -151,7 +148,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	config (config_a),
 	network_params{ config.network_params },
 	stats (config.stats_config),
-	workers (std::max (3u, config.io_threads / 4), nano::thread_role::name::worker),
+	workers{ config.background_threads, nano::thread_role::name::worker },
 	bootstrap_workers{ config.bootstrap_serving_threads, nano::thread_role::name::bootstrap_worker },
 	flags (flags_a),
 	work (work_a),
@@ -195,9 +192,8 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	generator{ config, ledger, wallets, vote_processor, history, network, stats, /* non-final */ false },
 	final_generator{ config, ledger, wallets, vote_processor, history, network, stats, /* final */ true },
 	active (*this, confirmation_height_processor),
-	optimistic{ config.optimistic_scheduler, *this, ledger, active, network_params.network, stats },
-	scheduler{ *this, stats },
-	hinting{ nano::nodeconfig_to_hinted_scheduler_config (config), *this, inactive_vote_cache, active, online_reps, stats },
+	scheduler_impl{ std::make_unique<nano::scheduler::component> (*this) },
+	scheduler{ *scheduler_impl },
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
 	backlog{ nano::backlog_population_config (config), store, stats },
@@ -209,7 +205,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	block_broadcast{ network, block_arrival, !flags.disable_block_processor_republishing },
 	block_publisher{ active },
 	gap_tracker{ gap_cache },
-	process_live_dispatcher{ ledger, scheduler, inactive_vote_cache, websocket }
+	process_live_dispatcher{ ledger, scheduler.buckets, inactive_vote_cache, websocket }
 {
 	block_broadcast.connect (block_processor);
 	block_publisher.connect (block_processor);
@@ -224,17 +220,17 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	};
 
 	backlog.activate_callback.add ([this] (nano::transaction const & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info) {
-		scheduler.activate (account, transaction);
-		optimistic.activate (account, account_info, conf_info);
+		scheduler.buckets.activate (account, transaction);
+		scheduler.optimistic.activate (account, account_info, conf_info);
 	});
 
 	if (!init_error ())
 	{
 		// Notify election schedulers when AEC frees election slot
 		active.vacancy_update = [this] () {
-			scheduler.notify ();
-			hinting.notify ();
-			optimistic.notify ();
+			scheduler.buckets.notify ();
+			scheduler.hinted.notify ();
+			scheduler.optimistic.notify ();
 		};
 
 		wallets.observer = [this] (bool active) {
@@ -441,7 +437,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			// Drop unchecked blocks if initial bootstrap is completed
 			if (!flags.disable_unchecked_drop && !use_bootstrap_weight && !flags.read_only)
 			{
-				auto const transaction (store.tx_begin_write ({ tables::unchecked }));
 				unchecked.clear ();
 				logger.always_log ("Dropping unchecked blocks");
 			}
@@ -581,7 +576,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.confirmation_height_processor, "confirmation_height_processor"));
 	composite->add_component (collect_container_info (node.distributed_work, "distributed_work"));
 	composite->add_component (collect_container_info (node.aggregator, "request_aggregator"));
-	composite->add_component (node.scheduler.collect_container_info ("election_scheduler"));
+	composite->add_component (node.scheduler.buckets.collect_container_info ("election_scheduler"));
 	composite->add_component (node.inactive_vote_cache.collect_container_info ("inactive_vote_cache"));
 	composite->add_component (collect_container_info (node.generator, "vote_generator"));
 	composite->add_component (collect_container_info (node.final_generator, "vote_generator_final"));
@@ -693,10 +688,10 @@ void nano::node::start ()
 	active.start ();
 	generator.start ();
 	final_generator.start ();
-	optimistic.start ();
-	scheduler.start ();
+	scheduler.optimistic.start ();
+	scheduler.buckets.start ();
 	backlog.start ();
-	hinting.start ();
+	scheduler.hinted.start ();
 	bootstrap_server.start ();
 	if (!flags.disable_ascending_bootstrap)
 	{
@@ -728,9 +723,9 @@ void nano::node::stop ()
 	block_processor.stop ();
 	aggregator.stop ();
 	vote_processor.stop ();
-	scheduler.stop ();
-	optimistic.stop ();
-	hinting.stop ();
+	scheduler.buckets.stop ();
+	scheduler.optimistic.stop ();
+	scheduler.hinted.stop ();
 	active.stop ();
 	generator.stop ();
 	final_generator.stop ();
@@ -996,7 +991,6 @@ void nano::node::unchecked_cleanup ()
 	while (!cleaning_list.empty ())
 	{
 		std::size_t deleted_count (0);
-		auto const transaction (store.tx_begin_write ({ tables::unchecked }));
 		while (deleted_count++ < 2 * 1024 && !cleaning_list.empty ())
 		{
 			auto key (cleaning_list.front ());
@@ -1271,8 +1265,8 @@ void nano::node::add_initial_peers ()
 
 std::shared_ptr<nano::election> nano::node::block_confirm (std::shared_ptr<nano::block> const & block_a)
 {
-	scheduler.manual (block_a);
-	scheduler.flush ();
+	scheduler.buckets.manual (block_a);
+	scheduler.buckets.flush ();
 	auto election = active.election (block_a->qualified_root ());
 	if (election != nullptr)
 	{
