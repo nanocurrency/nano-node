@@ -20,7 +20,7 @@ echo "Pulling $githubTag"
 "$scripts"/custom-timeout.sh 20 docker pull "${githubTag}" || true
 
 echo "Building $githubTag"
-"$scripts"/custom-timeout.sh 30 docker build "$@" --build-arg REPOSITORY=${GITHUB_REPOSITORY} -f "${dockerFile}" -t "${githubTag}" --cache-from "${githubTag}" .
+"$scripts"/custom-timeout.sh 60 docker build "$@" --build-arg REPOSITORY=${GITHUB_REPOSITORY} -f "${dockerFile}" -t "${githubTag}" --cache-from "${githubTag}" .
 
 echo "Tagging ${dockerTag} from ${githubTag}"
 docker tag $githubTag $dockerTag

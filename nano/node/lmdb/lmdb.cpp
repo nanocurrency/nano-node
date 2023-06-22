@@ -62,7 +62,6 @@ nano::lmdb::store::store (nano::logger_mt & logger_a, boost::filesystem::path co
 	peer_store{ *this },
 	confirmation_height_store{ *this },
 	final_vote_store{ *this },
-	unchecked_store{},
 	version_store{ *this },
 	logger (logger_a),
 	env (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
@@ -71,6 +70,8 @@ nano::lmdb::store::store (nano::logger_mt & logger_a, boost::filesystem::path co
 {
 	if (!error)
 	{
+		debug_assert (path_a.filename () == "data.ldb");
+
 		auto is_fully_upgraded (false);
 		auto is_fresh_db (false);
 		{
@@ -208,7 +209,6 @@ nano::mdb_txn_callbacks nano::lmdb::store::create_txn_callbacks () const
 void nano::lmdb::store::open_databases (bool & error_a, nano::transaction const & transaction_a, unsigned flags)
 {
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "frontiers", flags, &frontier_store.frontiers_handle) != 0;
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "unchecked", flags, &unchecked_store.unchecked_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight_store.online_weight_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &block_store.meta_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peer_store.peers_handle) != 0;
@@ -303,6 +303,9 @@ bool nano::lmdb::store::do_upgrades (nano::write_transaction & transaction_a, na
 			upgrade_v20_to_v21 (transaction_a);
 			[[fallthrough]];
 		case 21:
+			upgrade_v21_to_v22 (transaction_a);
+			[[fallthrough]];
+		case 22:
 			break;
 		default:
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
@@ -776,6 +779,16 @@ void nano::lmdb::store::upgrade_v20_to_v21 (nano::write_transaction const & tran
 	logger.always_log ("Finished creating new final_vote table");
 }
 
+void nano::lmdb::store::upgrade_v21_to_v22 (nano::write_transaction const & transaction_a)
+{
+	logger.always_log ("Preparing v21 to v22 database upgrade...");
+	MDB_dbi unchecked_handle{ 0 };
+	release_assert (!mdb_dbi_open (env.tx (transaction_a), "unchecked", MDB_CREATE, &unchecked_handle));
+	release_assert (!mdb_drop (env.tx (transaction_a), unchecked_handle, 1)); // del = 1, to delete it from the environment and close the DB handle.
+	version.put (transaction_a, 22);
+	logger.always_log ("Finished removing unchecked table");
+}
+
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
 void nano::lmdb::store::create_backup_file (nano::mdb_env & env_a, boost::filesystem::path const & filepath_a, nano::logger_mt & logger_a)
 {
@@ -865,8 +878,6 @@ MDB_dbi nano::lmdb::store::table_to_dbi (tables table_a) const
 			return block_store.blocks_handle;
 		case tables::pending:
 			return pending_store.pending_handle;
-		case tables::unchecked:
-			return unchecked_store.unchecked_handle;
 		case tables::online_weight:
 			return online_weight_store.online_weight_handle;
 		case tables::meta:

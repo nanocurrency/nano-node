@@ -42,7 +42,7 @@ namespace nano
 TEST (ledger_walker, genesis_account_longer)
 {
 	nano::test::system system{};
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.enable_voting = true;
 	node_config.receive_minimum = 1;
 
@@ -91,7 +91,7 @@ TEST (ledger_walker, genesis_account_longer)
 TEST (ledger_walker, cross_account)
 {
 	nano::test::system system{};
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.enable_voting = true;
 	node_config.receive_minimum = 1;
 
@@ -142,7 +142,7 @@ TEST (ledger_walker, DISABLED_ladder_geometry)
 {
 	nano::test::system system{};
 
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.enable_voting = true;
 	node_config.receive_minimum = 1;
 

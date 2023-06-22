@@ -5,6 +5,8 @@
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/repcrawler.hpp>
+#include <nano/node/scheduler/buckets.hpp>
+#include <nano/node/scheduler/component.hpp>
 #include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
@@ -12,7 +14,6 @@
 using namespace std::chrono;
 
 nano::active_transactions::active_transactions (nano::node & node_a, nano::confirmation_height_processor & confirmation_height_processor_a) :
-	scheduler{ node_a.scheduler }, // Move dependencies requiring this circular reference
 	confirmation_height_processor{ confirmation_height_processor_a },
 	node{ node_a },
 	recently_confirmed{ 65536 },
@@ -150,13 +151,13 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 		if (cemented_bootstrap_count_reached && was_active)
 		{
 			// Start or vote for the next unconfirmed block
-			scheduler.activate (account, transaction);
+			node.scheduler.buckets.activate (account, transaction);
 
 			// Start or vote for the next unconfirmed block in the destination account
 			auto const & destination (node.ledger.block_destination (transaction, *block_a));
 			if (!destination.is_zero () && destination != account)
 			{
-				scheduler.activate (destination, transaction);
+				node.scheduler.buckets.activate (destination, transaction);
 			}
 		}
 	}
@@ -372,6 +373,20 @@ nano::election_insertion_result nano::active_transactions::insert (const std::sh
 	return result;
 }
 
+void nano::active_transactions::trim ()
+{
+	/*
+	 * Both normal and hinted election schedulers are well-behaved, meaning they first check for AEC vacancy before inserting new elections.
+	 * However, it is possible that AEC will be temporarily overfilled in case it's running at full capacity and election hinting or manual queue kicks in.
+	 * That case will lead to unwanted churning of elections, so this allows for AEC to be overfilled to 125% until erasing of elections happens.
+	 */
+	while (vacancy () < -(limit () / 4))
+	{
+		node.stats.inc (nano::stat::type::active, nano::stat::detail::erase_oldest);
+		erase_oldest ();
+	}
+}
+
 nano::election_insertion_result nano::active_transactions::insert_impl (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::block> const & block_a, nano::election_behavior election_behavior_a, std::function<void (std::shared_ptr<nano::block> const &)> const & confirmation_action_a)
 {
 	debug_assert (!mutex.try_lock ());
@@ -425,6 +440,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 		{
 			result.election->broadcast_vote ();
 		}
+		trim ();
 	}
 	return result;
 }

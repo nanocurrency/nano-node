@@ -16,7 +16,7 @@ env:
 
 jobs:
   osx_job:
-    runs-on: macOS-11
+    runs-on: macOS-12
     timeout-minutes: 90
     steps:
       - name: tag

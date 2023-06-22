@@ -87,7 +87,7 @@ nano::test::rpc_context::rpc_context (std::shared_ptr<nano::rpc> & rpc_a, std::u
 std::shared_ptr<nano::node> nano::test::add_ipc_enabled_node (nano::test::system & system, nano::node_config & node_config, nano::node_flags const & node_flags)
 {
 	node_config.ipc_config.transport_tcp.enabled = true;
-	node_config.ipc_config.transport_tcp.port = nano::test::get_available_port ();
+	node_config.ipc_config.transport_tcp.port = system.get_available_port ();
 	return system.add_node (node_config, node_flags);
 }
 
@@ -98,7 +98,7 @@ std::shared_ptr<nano::node> nano::test::add_ipc_enabled_node (nano::test::system
 
 std::shared_ptr<nano::node> nano::test::add_ipc_enabled_node (nano::test::system & system)
 {
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	return add_ipc_enabled_node (system, node_config);
 }
 
@@ -138,7 +138,7 @@ nano::test::rpc_context nano::test::add_rpc (nano::test::system & system, std::s
 {
 	auto node_rpc_config (std::make_unique<nano::node_rpc_config> ());
 	auto ipc_server (std::make_unique<nano::ipc::ipc_server> (*node_a, *node_rpc_config));
-	nano::rpc_config rpc_config (node_a->network_params.network, nano::test::get_available_port (), true);
+	nano::rpc_config rpc_config (node_a->network_params.network, system.get_available_port (), true);
 	const auto ipc_tcp_port = ipc_server->listening_tcp_port ();
 	debug_assert (ipc_tcp_port.has_value ());
 	auto ipc_rpc_processor (std::make_unique<nano::ipc_rpc_processor> (system.io_ctx, rpc_config, ipc_tcp_port.value ()));

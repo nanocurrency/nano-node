@@ -43,7 +43,7 @@ jobs:
 
   osx_job:
     needs: build_auto_setup_job
-    runs-on: macOS-11
+    runs-on: macOS-12
     timeout-minutes: 90
     steps:
       - name: Set the tag and the pre-release version
@@ -90,6 +90,39 @@ jobs:
       - name: Deploy Artifact
         run: ci/actions/deploy.sh
         env:
+          S3_BUILD_DIRECTORY: ${{ secrets.S3_BUILD_DIRECTORY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-2
+
+  linux_rpm_job:
+    needs: build_auto_setup_job
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - name: Sets the tag and repo variables (to build)
+        run: |
+          echo "TAG=${{ github.event.inputs.ref == '' && needs.build_auto_setup_job.outputs.build_tag || github.event.inputs.ref }}" >> $GITHUB_ENV
+          echo "VERSION_PRE_RELEASE=${{ github.event.inputs.ref == '' && needs.build_auto_setup_job.outputs.build_number || 'OFF' }}" >> $GITHUB_ENV
+          echo "REPO_TO_BUILD=${{ github.event.inputs.repo }}" >> $GITHUB_ENV
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+        with:
+          submodules: "recursive"
+          ref: ${{ github.ref }}
+          repository: ${{ github.repository }}
+      - name: RockyLinux 8 Base
+        run: ci/build-docker-image.sh docker/ci/Dockerfile-rhel nanocurrency/nano-env:rhel
+      - name: Build Artifact
+        run: |
+          mkdir -p ${GITHUB_WORKSPACE}/artifacts
+          docker run -e BETA=1 -e TAG=$TAG -e REPO_TO_BUILD=$REPO_TO_BUILD -e RPM_RELEASE=1 \
+          -v ${GITHUB_WORKSPACE}:/workspace \
+          -v ${GITHUB_WORKSPACE}/artifacts:/root/rpmbuild \
+          nanocurrency/nano-env:rhel /bin/bash -c "ci/build-rhel.sh"
+      - name: Deploy Artifacts
+        run: ci/actions/deploy.sh
+        env:
+          LINUX_RPM: 1
           S3_BUILD_DIRECTORY: ${{ secrets.S3_BUILD_DIRECTORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

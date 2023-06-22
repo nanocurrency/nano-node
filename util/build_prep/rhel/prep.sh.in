@@ -1,0 +1,13 @@
+#! /usr/bin/env bash
+
+# -----BEGIN COMMON.SH-----
+# -----END COMMON.SH-----
+
+yes | yum update -y
+yes | yum install -y git wget openssl bzip2
+yes | yum install -y rpm-build || exit 1
+yes | yum install -y glibc-devel glibc-headers make which || exit 1
+yes | yum install -y cmake gcc-toolset-12 || exit 1
+yes | yum install -y python38 || exit 1
+
+exit 0

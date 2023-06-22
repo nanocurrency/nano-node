@@ -49,8 +49,8 @@ function Get-RedirectedUri {
     }
 }
 $qt5_root = "c:\qt"
-$qt5base_url = Get-RedirectedUri "https://repo.nano.org/artifacts/5.13.1-0-201909031231qtbase-Windows-Windows_10-MSVC2017-Windows-Windows_10-X86_64.7z"
-$qt5winextra_url = Get-RedirectedUri "https://repo.nano.org/artifacts/5.13.1-0-201909031231qtwinextras-Windows-Windows_10-MSVC2017-Windows-Windows_10-X86_64.7z"
+$qt5base_url = Get-RedirectedUri "https://repo.nano.org/artifacts/5.15.2-0-202011130602qtbase-Windows-Windows_10-MSVC2019-Windows-Windows_10-X86_64.7z"
+$qt5winextra_url = Get-RedirectedUri "https://repo.nano.org/artifacts/5.15.2-0-202011130602qtwinextras-Windows-Windows_10-MSVC2019-Windows-Windows_10-X86_64.7z"
 $qt5base_artifact = "${env:TMP}\qt5base.7z"
 $qt5winextra_artifact = "${env:TMP}\qt5winextra.7z"
 

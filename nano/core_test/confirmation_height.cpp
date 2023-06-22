@@ -94,7 +94,7 @@ TEST (confirmation_height, multiple_accounts)
 		nano::test::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::test::get_available_port (), system.logging);
+		nano::node_config node_config = system.default_config ();
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 		nano::keypair key1;
@@ -440,10 +440,10 @@ TEST (confirmation_height, gap_live)
 		nano::test::system system{};
 		nano::node_flags node_flags{};
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config{ nano::test::get_available_port (), system.logging };
+		nano::node_config node_config = system.default_config ();
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
-		node_config.peering_port = nano::test::get_available_port ();
+		node_config.peering_port = system.get_available_port ();
 		node_config.receive_minimum = nano::dev::constants.genesis_amount; // Prevent auto-receive & open1/receive1/receive2 blocks conflicts
 		system.add_node (node_config, node_flags);
 		nano::keypair destination;
@@ -574,7 +574,7 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		nano::test::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::test::get_available_port (), system.logging);
+		nano::node_config node_config = system.default_config ();
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 		nano::keypair key1;
@@ -729,7 +729,7 @@ TEST (confirmation_height, send_receive_self)
 		nano::test::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::test::get_available_port (), system.logging);
+		nano::node_config node_config = system.default_config ();
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 		nano::block_hash latest (node->latest (nano::dev::genesis_key.pub));
@@ -837,7 +837,7 @@ TEST (confirmation_height, all_block_types)
 		nano::test::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::test::get_available_port (), system.logging);
+		nano::node_config node_config = system.default_config ();
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 		nano::block_hash latest (node->latest (nano::dev::genesis_key.pub));
@@ -1410,7 +1410,7 @@ TEST (confirmation_height, pending_observer_callbacks)
 		nano::test::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::test::get_available_port (), system.logging);
+		nano::node_config node_config = system.default_config ();
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 
@@ -1468,7 +1468,7 @@ TEST (confirmation_height, callback_confirmed_history)
 		nano::node_flags node_flags;
 		node_flags.force_use_write_database_queue = true;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::test::get_available_port (), system.logging);
+		nano::node_config node_config = system.default_config ();
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 
@@ -1560,7 +1560,7 @@ TEST (confirmation_height, dependent_election)
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
 		node_flags.force_use_write_database_queue = true;
-		nano::node_config node_config (nano::test::get_available_port (), system.logging);
+		nano::node_config node_config = system.default_config ();
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 
@@ -1631,7 +1631,7 @@ TEST (confirmation_height, cemented_gap_below_receive)
 		nano::test::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::test::get_available_port (), system.logging);
+		nano::node_config node_config = system.default_config ();
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 
@@ -1791,7 +1791,7 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 		nano::test::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::test::get_available_port (), system.logging);
+		nano::node_config node_config = system.default_config ();
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 
@@ -1951,7 +1951,7 @@ TEST (confirmation_height, election_winner_details_clearing)
 		nano::node_flags node_flags{};
 		node_flags.confirmation_height_processor_mode = mode_a;
 
-		nano::node_config node_config{ nano::test::get_available_port (), system.logging };
+		nano::node_config node_config = system.default_config ();
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 
 		auto node = system.add_node (node_config, node_flags);
