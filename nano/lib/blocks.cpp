@@ -1415,18 +1415,12 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 			result = ::deserialize_block<nano::state_block> (stream_a);
 			break;
 		}
-		case nano::block_type::not_a_block:
+		default:
 		{
-			// Skip null block terminators
 			return {};
 		}
-		default:
-#ifndef NANO_FUZZER_TEST
-			debug_assert (false);
-#endif
-			break;
 	}
-	if (uniquer_a != nullptr)
+	if (result && uniquer_a != nullptr)
 	{
 		result = uniquer_a->unique (result);
 	}

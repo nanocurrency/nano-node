@@ -1,9 +1,9 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/optimistic_scheduler.hpp>
+#include <nano/node/scheduler/optimistic.hpp>
 
-nano::optimistic_scheduler::optimistic_scheduler (optimistic_scheduler_config const & config_a, nano::node & node_a, nano::ledger & ledger_a, nano::active_transactions & active_a, nano::network_constants const & network_constants_a, nano::stats & stats_a) :
+nano::scheduler::optimistic::optimistic (optimistic_config const & config_a, nano::node & node_a, nano::ledger & ledger_a, nano::active_transactions & active_a, nano::network_constants const & network_constants_a, nano::stats & stats_a) :
 	config{ config_a },
 	node{ node_a },
 	ledger{ ledger_a },
@@ -13,13 +13,13 @@ nano::optimistic_scheduler::optimistic_scheduler (optimistic_scheduler_config co
 {
 }
 
-nano::optimistic_scheduler::~optimistic_scheduler ()
+nano::scheduler::optimistic::~optimistic ()
 {
 	// Thread must be stopped before destruction
 	debug_assert (!thread.joinable ());
 }
 
-void nano::optimistic_scheduler::start ()
+void nano::scheduler::optimistic::start ()
 {
 	if (!config.enabled)
 	{
@@ -34,7 +34,7 @@ void nano::optimistic_scheduler::start ()
 	} };
 }
 
-void nano::optimistic_scheduler::stop ()
+void nano::scheduler::optimistic::stop ()
 {
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
@@ -44,12 +44,12 @@ void nano::optimistic_scheduler::stop ()
 	nano::join_or_pass (thread);
 }
 
-void nano::optimistic_scheduler::notify ()
+void nano::scheduler::optimistic::notify ()
 {
 	condition.notify_all ();
 }
 
-bool nano::optimistic_scheduler::activate_predicate (const nano::account_info & account_info, const nano::confirmation_height_info & conf_info) const
+bool nano::scheduler::optimistic::activate_predicate (const nano::account_info & account_info, const nano::confirmation_height_info & conf_info) const
 {
 	// Chain with a big enough gap between account frontier and confirmation frontier
 	if (account_info.block_count - conf_info.height > config.gap_threshold)
@@ -64,7 +64,7 @@ bool nano::optimistic_scheduler::activate_predicate (const nano::account_info & 
 	return false;
 }
 
-bool nano::optimistic_scheduler::activate (const nano::account & account, const nano::account_info & account_info, const nano::confirmation_height_info & conf_info)
+bool nano::scheduler::optimistic::activate (const nano::account & account, const nano::account_info & account_info, const nano::confirmation_height_info & conf_info)
 {
 	if (!config.enabled)
 	{
@@ -96,7 +96,7 @@ bool nano::optimistic_scheduler::activate (const nano::account & account, const 
 	return false; // Not activated
 }
 
-bool nano::optimistic_scheduler::predicate () const
+bool nano::scheduler::optimistic::predicate () const
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -114,7 +114,7 @@ bool nano::optimistic_scheduler::predicate () const
 	return result;
 }
 
-void nano::optimistic_scheduler::run ()
+void nano::scheduler::optimistic::run ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
@@ -144,7 +144,7 @@ void nano::optimistic_scheduler::run ()
 	}
 }
 
-void nano::optimistic_scheduler::run_one (nano::transaction const & transaction, entry const & candidate)
+void nano::scheduler::optimistic::run_one (nano::transaction const & transaction, entry const & candidate)
 {
 	auto block = ledger.head_block (transaction, candidate.account);
 	if (block)
@@ -165,7 +165,7 @@ void nano::optimistic_scheduler::run_one (nano::transaction const & transaction,
  * optimistic_scheduler_config
  */
 
-nano::error nano::optimistic_scheduler_config::deserialize (nano::tomlconfig & toml)
+nano::error nano::scheduler::optimistic_config::deserialize (nano::tomlconfig & toml)
 {
 	toml.get ("enabled", enabled);
 	toml.get ("gap_threshold", gap_threshold);
@@ -174,7 +174,7 @@ nano::error nano::optimistic_scheduler_config::deserialize (nano::tomlconfig & t
 	return toml.get_error ();
 }
 
-nano::error nano::optimistic_scheduler_config::serialize (nano::tomlconfig & toml) const
+nano::error nano::scheduler::optimistic_config::serialize (nano::tomlconfig & toml) const
 {
 	toml.put ("enable", enabled, "Enable or disable optimistic elections\ntype:bool");
 	toml.put ("gap_threshold", gap_threshold, "Minimum difference between confirmation frontier and account frontier to become a candidate for optimistic confirmation\ntype:uint64");

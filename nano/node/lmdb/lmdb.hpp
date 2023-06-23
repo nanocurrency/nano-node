@@ -16,7 +16,6 @@
 #include <nano/node/lmdb/peer_store.hpp>
 #include <nano/node/lmdb/pending_store.hpp>
 #include <nano/node/lmdb/pruned_store.hpp>
-#include <nano/node/lmdb/unchecked_store.hpp>
 #include <nano/node/lmdb/version_store.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/versioning.hpp>
@@ -57,7 +56,6 @@ namespace lmdb
 		nano::lmdb::peer_store peer_store;
 		nano::lmdb::pending_store pending_store;
 		nano::lmdb::pruned_store pruned_store;
-		nano::lmdb::unchecked_store unchecked_store;
 		nano::lmdb::version_store version_store;
 
 		friend class nano::lmdb::account_store;
@@ -69,7 +67,6 @@ namespace lmdb
 		friend class nano::lmdb::peer_store;
 		friend class nano::lmdb::pending_store;
 		friend class nano::lmdb::pruned_store;
-		friend class nano::lmdb::unchecked_store;
 		friend class nano::lmdb::version_store;
 
 	public:
@@ -136,6 +133,7 @@ namespace lmdb
 		void upgrade_v18_to_v19 (nano::write_transaction const &);
 		void upgrade_v19_to_v20 (nano::write_transaction const &);
 		void upgrade_v20_to_v21 (nano::write_transaction const &);
+		void upgrade_v21_to_v22 (nano::write_transaction const &);
 
 		std::shared_ptr<nano::block> block_get_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 		nano::mdb_val block_raw_get_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a) const;
@@ -188,6 +186,7 @@ namespace lmdb
 		friend class mdb_block_store_upgrade_v18_v19_Test;
 		friend class mdb_block_store_upgrade_v19_v20_Test;
 		friend class mdb_block_store_upgrade_v20_v21_Test;
+		friend class mdb_block_store_upgrade_v21_v22_Test;
 		friend class block_store_DISABLED_change_dupsort_Test;
 		friend void write_sideband_v14 (nano::lmdb::store &, nano::transaction &, nano::block const &, MDB_dbi);
 		friend void write_sideband_v15 (nano::lmdb::store &, nano::transaction &, nano::block const &);

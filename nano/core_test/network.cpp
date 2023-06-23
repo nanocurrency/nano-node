@@ -1,5 +1,7 @@
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/scheduler/buckets.hpp>
+#include <nano/node/scheduler/component.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/transport/socket.hpp>
 #include <nano/test_common/network.hpp>
@@ -16,98 +18,46 @@ using namespace std::chrono_literals;
 
 TEST (network, tcp_connection)
 {
-	// Organizes the code used for a connection into distinguished classes (base class/client/server)
-	struct simple_socket : public boost::enable_shared_from_this<simple_socket>
-	{
-		std::atomic<bool> connected;
-		uint16_t port;
-		boost::asio::ip::tcp::endpoint endpoint;
-		boost::asio::ip::tcp::socket socket;
-		std::string error_message;
-
-		explicit simple_socket (boost::asio::io_context & io_ctx_a, boost::asio::ip::address ip_address_a, uint16_t port_a) :
-			connected{ false },
-			port{ port_a },
-			endpoint{ ip_address_a, port_a },
-			socket{ io_ctx_a }
-		{
-		}
-
-		virtual void async_write (std::string message)
-		{
-		}
-		virtual void async_read ()
-		{
-		}
-	};
-
-	struct simple_server_socket final : public simple_socket
-	{
-		boost::asio::ip::tcp::acceptor acceptor;
-
-		explicit simple_server_socket (boost::asio::io_context & io_ctx_a, boost::asio::ip::address ip_address_a, uint16_t port_a) :
-			simple_socket{ io_ctx_a, ip_address_a, port_a },
-			acceptor{ io_ctx_a }
-		{
-			accept ();
-		}
-
-		void accept ()
-		{
-			acceptor.open (endpoint.protocol ());
-			acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
-			acceptor.bind (endpoint);
-			acceptor.listen ();
-			acceptor.async_accept (socket,
-			[this] (boost::system::error_code const & ec_a) {
-				if (ec_a)
-				{
-					this->error_message = ec_a.message ();
-					std::cerr << this->error_message;
-				}
-				else
-				{
-					this->connected = true;
-					this->async_read ();
-				}
-			});
-		}
-	};
-
-	struct simple_client_socket final : public simple_socket
-	{
-		explicit simple_client_socket (boost::asio::io_context & io_ctx_a, boost::asio::ip::address ip_address_a, uint16_t port_a) :
-			simple_socket{ io_ctx_a, ip_address_a, port_a }
-		{
-			socket.async_connect (boost::asio::ip::tcp::endpoint (ip_address_a, port_a),
-			[this] (boost::system::error_code const & ec_a) {
-				if (ec_a)
-				{
-					this->error_message = ec_a.message ();
-					std::cerr << error_message;
-				}
-				else
-				{
-					this->connected = true;
-				}
-			});
-		}
-	};
-
 	nano::test::system system;
-	auto port = nano::test::get_available_port ();
-	simple_server_socket server (system.io_ctx, boost::asio::ip::address_v4::any (), port);
-	simple_client_socket client (system.io_ctx, boost::asio::ip::address_v4::loopback (), port);
-
-	ASSERT_TIMELY (5s, server.connected && client.connected);
-	ASSERT_EQ (0, client.error_message.size ());
-	ASSERT_EQ (0, server.error_message.size ());
+	boost::asio::ip::tcp::acceptor acceptor (system.io_ctx);
+	auto port = system.get_available_port ();
+	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v4::any (), port);
+	acceptor.open (endpoint.protocol ());
+	acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
+	acceptor.bind (endpoint);
+	acceptor.listen ();
+	boost::asio::ip::tcp::socket incoming (system.io_ctx);
+	std::atomic<bool> done1 (false);
+	std::string message1;
+	acceptor.async_accept (incoming, [&done1, &message1] (boost::system::error_code const & ec_a) {
+		if (ec_a)
+		{
+			message1 = ec_a.message ();
+			std::cerr << message1;
+		}
+		done1 = true;
+	});
+	boost::asio::ip::tcp::socket connector (system.io_ctx);
+	std::atomic<bool> done2 (false);
+	std::string message2;
+	connector.async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), acceptor.local_endpoint ().port ()),
+	[&done2, &message2] (boost::system::error_code const & ec_a) {
+		if (ec_a)
+		{
+			message2 = ec_a.message ();
+			std::cerr << message2;
+		}
+		done2 = true;
+	});
+	ASSERT_TIMELY (5s, done1 && done2);
+	ASSERT_EQ (0, message1.size ());
+	ASSERT_EQ (0, message2.size ());
 }
 
 TEST (network, construction_with_specified_port)
 {
 	nano::test::system system{};
-	auto const port = nano::test::get_available_port ();
+	auto const port = system.get_available_port (/* do not allow 0 port */ false);
 	auto const node = system.add_node (nano::node_config{ port, system.logging });
 	EXPECT_EQ (port, node->network.port);
 	EXPECT_EQ (port, node->network.endpoint ().port ());
@@ -129,7 +79,7 @@ TEST (network, send_node_id_handshake_tcp)
 	nano::test::system system (1);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::test::get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto initial (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
@@ -161,7 +111,7 @@ TEST (network, last_contacted)
 	auto node0 = system.nodes[0];
 	ASSERT_EQ (0, node0->network.size ());
 
-	nano::node_config node1_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node1_config = system.default_config ();
 	node1_config.tcp_incoming_connections_max = 0; // Prevent ephemeral node1->node0 channel repacement with incoming connection
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), node1_config, system.work));
 	node1->start ();
@@ -207,7 +157,7 @@ TEST (network, multi_keepalive)
 	nano::test::system system (1);
 	auto node0 = system.nodes[0];
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::test::get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
 	ASSERT_FALSE (node1->init_error ());
 	node1->start ();
 	system.nodes.push_back (node1);
@@ -215,7 +165,7 @@ TEST (network, multi_keepalive)
 	ASSERT_EQ (0, node0->network.size ());
 	node1->network.tcp_channels.start_tcp (node0->network.endpoint ());
 	ASSERT_TIMELY (10s, node0->network.size () == 1 && node0->stats.count (nano::stat::type::message, nano::stat::detail::keepalive) >= 1);
-	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::test::get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto node2 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
 	ASSERT_FALSE (node2->init_error ());
 	node2->start ();
 	system.nodes.push_back (node2);
@@ -416,7 +366,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
 				  .build_shared ();
 	node1.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*block1).code);
-	node1.scheduler.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
+	node1.scheduler.buckets.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
 	nano::keypair key1;
 	auto vote (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, 0, std::vector<nano::block_hash>{ block1->hash () }));
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
@@ -439,7 +389,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 				  .build_shared ();
 	node1.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*block1).code);
-	node1.scheduler.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
+	node1.scheduler.buckets.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
 	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ block1->hash () }));
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
 	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
@@ -579,21 +529,19 @@ TEST (network, ipv6_from_ipv4)
 
 TEST (network, ipv6_bind_send_ipv4)
 {
-	boost::asio::io_context io_ctx;
-	auto port1 = nano::test::get_available_port ();
-	auto port2 = nano::test::get_available_port ();
-	nano::endpoint endpoint1 (boost::asio::ip::address_v6::any (), port1);
-	nano::endpoint endpoint2 (boost::asio::ip::address_v4::any (), port2);
+	nano::test::system system;
+	nano::endpoint endpoint1 (boost::asio::ip::address_v6::any (), 0);
+	nano::endpoint endpoint2 (boost::asio::ip::address_v4::any (), 0);
 	std::array<uint8_t, 16> bytes1{};
-	auto finish1 (false);
+	std::atomic<bool> finish1{ false };
 	nano::endpoint endpoint3;
-	boost::asio::ip::udp::socket socket1 (io_ctx, endpoint1);
+	boost::asio::ip::udp::socket socket1 (system.io_ctx, endpoint1);
 	socket1.async_receive_from (boost::asio::buffer (bytes1.data (), bytes1.size ()), endpoint3, [&finish1] (boost::system::error_code const & error, size_t size_a) {
 		ASSERT_FALSE (error);
 		ASSERT_EQ (16, size_a);
 		finish1 = true;
 	});
-	boost::asio::ip::udp::socket socket2 (io_ctx, endpoint2);
+	boost::asio::ip::udp::socket socket2 (system.io_ctx, endpoint2);
 	nano::endpoint endpoint5 (boost::asio::ip::address_v4::loopback (), socket1.local_endpoint ().port ());
 	nano::endpoint endpoint6 (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ()), socket2.local_endpoint ().port ());
 	socket2.async_send_to (boost::asio::buffer (std::array<uint8_t, 16>{}, 16), endpoint5, [] (boost::system::error_code const & error, size_t size_a) {
@@ -601,12 +549,7 @@ TEST (network, ipv6_bind_send_ipv4)
 		ASSERT_EQ (16, size_a);
 	});
 	auto iterations (0);
-	while (!finish1)
-	{
-		io_ctx.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
-	}
+	ASSERT_TIMELY (5s, finish1);
 	ASSERT_EQ (endpoint6, endpoint3);
 	std::array<uint8_t, 16> bytes2;
 	nano::endpoint endpoint4;
@@ -806,14 +749,14 @@ TEST (network, peer_max_tcp_attempts)
 	auto node = system.add_node (node_flags);
 	for (auto i (0); i < node->network_params.network.max_peers_per_ip; ++i)
 	{
-		auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::test::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
+		auto node2 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
 		node2->start ();
 		system.nodes.push_back (node2);
 		// Start TCP attempt
 		node->network.merge_peer (node2->network.endpoint ());
 	}
 	ASSERT_EQ (0, node->network.size ());
-	ASSERT_TRUE (node->network.tcp_channels.reachout (nano::endpoint (node->network.endpoint ().address (), nano::test::get_available_port ())));
+	ASSERT_TRUE (node->network.tcp_channels.reachout (nano::endpoint (node->network.endpoint ().address (), system.get_available_port ())));
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::out));
 }
 #endif
@@ -832,12 +775,12 @@ namespace transport
 		for (auto i (0); i < node->network_params.network.max_peers_per_subnetwork; ++i)
 		{
 			auto address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x7f000001 + i))); // 127.0.0.1 hex
-			nano::endpoint endpoint (address, nano::test::get_available_port ());
+			nano::endpoint endpoint (address, system.get_available_port ());
 			ASSERT_FALSE (node->network.tcp_channels.reachout (endpoint));
 		}
 		ASSERT_EQ (0, node->network.size ());
 		ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_subnetwork, nano::stat::dir::out));
-		ASSERT_TRUE (node->network.tcp_channels.reachout (nano::endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"), nano::test::get_available_port ())));
+		ASSERT_TRUE (node->network.tcp_channels.reachout (nano::endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"), system.get_available_port ())));
 		ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_subnetwork, nano::stat::dir::out));
 	}
 }
@@ -883,7 +826,7 @@ TEST (network, duplicate_revert_publish)
 	nano::uint128_t digest;
 	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size (), &digest));
 	ASSERT_TRUE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
-	auto other_node (std::make_shared<nano::node> (system.io_ctx, nano::test::get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto other_node (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
 	other_node->start ();
 	system.nodes.push_back (other_node);
 	auto channel = nano::test::establish_tcp (system, *other_node, node.network.endpoint ());
@@ -903,7 +846,7 @@ TEST (network, bandwidth_limiter_4_messages)
 	nano::publish message{ nano::dev::network_params.network, nano::dev::genesis };
 	auto message_size = message.to_bytes ()->size ();
 	auto message_limit = 4; // must be multiple of the number of channels
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.bandwidth_limit = message_limit * message_size;
 	node_config.bandwidth_limit_burst_ratio = 1.0;
 	auto & node = *system.add_node (node_config);
@@ -933,7 +876,7 @@ TEST (network, bandwidth_limiter_2_messages)
 	nano::publish message{ nano::dev::network_params.network, nano::dev::genesis };
 	auto message_size = message.to_bytes ()->size ();
 	auto message_limit = 2; // must be multiple of the number of channels
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.bandwidth_limit = message_limit * message_size;
 	node_config.bandwidth_limit_burst_ratio = 1.0;
 	auto & node = *system.add_node (node_config);
@@ -953,7 +896,7 @@ TEST (network, bandwidth_limiter_with_burst)
 	nano::publish message{ nano::dev::network_params.network, nano::dev::genesis };
 	auto message_size = message.to_bytes ()->size ();
 	auto message_limit = 2; // must be multiple of the number of channels
-	nano::node_config node_config (nano::test::get_available_port (), system.logging);
+	nano::node_config node_config = system.default_config ();
 	node_config.bandwidth_limit = message_limit * message_size;
 	node_config.bandwidth_limit_burst_ratio = 4.0; // High burst
 	auto & node = *system.add_node (node_config);
@@ -1014,7 +957,7 @@ TEST (network, tcp_no_connect_excluded_peers)
 	nano::test::system system (1);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::test::get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto endpoint1_tcp (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ()));
@@ -1071,7 +1014,7 @@ TEST (network, tcp_message_manager)
 
 	// This should give sufficient time to execute put_message
 	// and prove that it waits on condition variable
-	std::this_thread::sleep_for (CI ? 200ms : 100ms);
+	std::this_thread::sleep_for (200ms);
 
 	ASSERT_EQ (manager.entries.size (), manager.max_entries);
 	ASSERT_EQ (manager.get_message ().node_id, item.node_id);
@@ -1115,7 +1058,7 @@ TEST (network, cleanup_purge)
 	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 
-	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::test::get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto node2 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
 	node2->start ();
 	system.nodes.push_back (node2);
 

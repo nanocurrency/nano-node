@@ -184,7 +184,7 @@ TEST (vote_processor, no_broadcast_local)
 	config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node (*system.add_node (config1, flags));
 	config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	config2.peering_port = nano::test::get_available_port ();
+	config2.peering_port = system.get_available_port ();
 	system.add_node (config2, flags);
 	nano::block_builder builder;
 	std::error_code ec;
@@ -237,7 +237,7 @@ TEST (vote_processor, local_broadcast_without_a_representative)
 	config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node (*system.add_node (config1, flags));
 	config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	config2.peering_port = nano::test::get_available_port ();
+	config2.peering_port = system.get_available_port ();
 	system.add_node (config2, flags);
 	nano::block_builder builder;
 	std::error_code ec;
@@ -285,7 +285,7 @@ TEST (vote_processor, no_broadcast_local_with_a_principal_representative)
 	config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node (*system.add_node (config1, flags));
 	config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	config2.peering_port = nano::test::get_available_port ();
+	config2.peering_port = system.get_available_port ();
 	system.add_node (config2, flags);
 	nano::block_builder builder;
 	std::error_code ec;

@@ -17,16 +17,13 @@
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/election.hpp>
-#include <nano/node/election_scheduler.hpp>
 #include <nano/node/epoch_upgrader.hpp>
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/gap_tracker.hpp>
-#include <nano/node/hinted_scheduler.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
-#include <nano/node/optimistic_scheduler.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/process_live_dispatcher.hpp>
 #include <nano/node/repcrawler.hpp>
@@ -58,12 +55,16 @@ namespace rocksdb
 class node;
 class work_pool;
 
+namespace scheduler
+{
+	class component;
+}
+
 std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 
 // Configs
 backlog_population::config backlog_population_config (node_config const &);
 vote_cache::config nodeconfig_to_vote_cache_config (node_config const &, node_flags const &);
-hinted_scheduler::config nodeconfig_to_hinted_scheduler_config (node_config const &);
 outbound_bandwidth_limiter::config outbound_bandwidth_limiter_config (node_config const &);
 
 class node final : public std::enable_shared_from_this<nano::node>
@@ -186,9 +187,12 @@ public:
 	nano::vote_generator generator;
 	nano::vote_generator final_generator;
 	nano::active_transactions active;
-	nano::optimistic_scheduler optimistic;
-	nano::election_scheduler scheduler;
-	nano::hinted_scheduler hinting;
+
+private: // Placed here to maintain initialization order
+	std::unique_ptr<nano::scheduler::component> scheduler_impl;
+
+public:
+	nano::scheduler::component & scheduler;
 	nano::request_aggregator aggregator;
 	nano::wallets wallets;
 	nano::backlog_population backlog;

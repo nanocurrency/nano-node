@@ -1667,16 +1667,16 @@ std::string nano::asc_pull_req::to_string () const
 
 	if (payload.index () == 1) 
 	{
-		std::visit([&s] (auto && arg) {
-			s += "acc:" + arg.start.to_string ();
-			s += " max block count:" + nano_to_string_hex (static_cast<uint16_t> (arg.count));
-			s += " hash type:" + nano::to_string_hex (static_cast<uint16_t> (arg.start_type));
+		std::visit([&s](auto && arg) {
+			s += "acc:" + arg.start.to_string();
+			s += " max block count:" + nano_to_string_hex(static_cast<uint16_t> (arg.count));
+			s += " hash type:" + nano::to_string_hex(static_cast<uint16_t> (arg.start_type));
 		}, payload);
 	}
 
 	if (payload.index () == 2)
 	{
-		std::visit([&s] (auto && arg) {
+		std::visit([&s](auto && arg) {
 			s += "target" + arg.target.to_string ();
 			s += " hash type:" + nano::to_string_hex (static_cast<uint16_t> (arg.target_type));
 		}, payload)

@@ -50,3 +50,13 @@ bool nano::blocking_observer::exists (std::shared_ptr<nano::block> block)
 	auto existing = blocking.find (block);
 	return existing != blocking.end ();
 }
+
+void nano::blocking_observer::erase (std::shared_ptr<nano::block> block)
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	auto existing = blocking.find (block);
+	if (existing != blocking.end ())
+	{
+		blocking.erase (existing);
+	}
+}

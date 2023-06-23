@@ -12,9 +12,12 @@ run_build() {
 	mkdir -p ~/rpmbuild/SOURCES/
 	mv -f ~/nano-${VERSION}.tar.gz ~/rpmbuild/SOURCES/.
 	if [ "${LIVE:-}" == "1" ]; then
-		scl enable devtoolset-7 'rpmbuild -ba nanocurrency.spec'
-	else
-		scl enable devtoolset-7 'rpmbuild -ba nanocurrency-beta.spec'
+		scl enable gcc-toolset-12 'rpmbuild --nodebuginfo -ba nanocurrency.spec'
+	elif [ "${BETA:-}" == "1" ]; then
+		scl enable gcc-toolset-12 'rpmbuild -ba nanocurrency-beta.spec'
+  else
+    echo "Error: the node network was not defined."
+    exit 1
 	fi
 }
 
