@@ -1894,7 +1894,7 @@ void nano::asc_pull_ack::blocks_payload::serialize (nano::stream & stream) const
 
 void nano::asc_pull_ack::blocks_payload::deserialize (nano::stream & stream)
 {
-	auto current = nano::deserialize_b0
+	auto current = nano::deserialize_block (stream);
 	
 	lock (stream);
 	while (current && blocks.size () < max_blocks)
