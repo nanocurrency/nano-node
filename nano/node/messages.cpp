@@ -1856,7 +1856,6 @@ std::string nano::asc_pull_ack::to_string () const
 			{
 				s += (*block)->to_json ();
 			}
-
 		}, payload);
 	}
 
