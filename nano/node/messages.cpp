@@ -1658,7 +1658,7 @@ bool nano::asc_pull_req::verify_consistency () const
 
 std::string nano::asc_pull_req::to_string () const 
 {
-	std::string s = header.to_string () + "\n";
+	std::string s;
 
 	if (payload.index () == 0)
 	{
