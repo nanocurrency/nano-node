@@ -18,6 +18,7 @@
 #include <string>
 #include <variant>
 #include <vector>
+#include <iterator>
 
 namespace nano
 {

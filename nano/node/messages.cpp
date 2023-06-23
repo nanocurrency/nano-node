@@ -1658,16 +1658,15 @@ bool nano::asc_pull_req::verify_consistency () const
 
 std::string nano::asc_pull_req::to_string () const 
 {
-	std::string s = header.to_string() + "\n";
+	std::string s = header.to_string () + "\n";
 
-	if (payload.index() == 0)
+	if (payload.index () == 0)
 	{
 		s += "empty payload";
 	}
 
-	if (payload.index() == 1) 
+	if (payload.index () == 1) 
 	{
-
 		std::visit([&s](auto && arg) {
 			s += "acc:" + arg.start.to_string();
 			s += " max block count:" + nano_to_string_hex(static_cast<uint16_t> (arg.count));
@@ -1675,12 +1674,11 @@ std::string nano::asc_pull_req::to_string () const
 		}, payload);
 	}
 
-	if (payload.index() == 2)
+	if (payload.index () == 2)
 	{
-
 		std::visit([&s](auto && arg) {
 			s += "target" + arg.target.to_string ();
-			s += " hash type:" + nano::to_string_hex(static_cast<uint16_t> (payload.target_type));
+			s += " hash type:" + nano::to_string_hex (static_cast<uint16_t> (arg.target_type));
 		}, payload)
 	}
 
@@ -1842,9 +1840,40 @@ bool nano::asc_pull_ack::verify_consistency () const
 
 std::string nano::asc_pull_ack::to_string () const
 {
-	std::string s = header.to_string();
+	std::string s = header.to_string () + "\n";
 
-	if 
+	if (payload.index() == 0)
+	{
+		s += "empty payload";
+	}
+
+	if (payload.index() == 1) 
+	{
+		std::visit([&s] (auto && arg) {
+			std::vector<std::shared_ptr<nano::block>>::iterator block;
+
+			for (block = arg.blocks.begin (); block < arg.blocks.end (); ++block)
+			{
+				s += (*block)->to_json ();
+			}
+
+		}, payload);
+	}
+
+	if (payload.index() == 2)
+	{
+		std::visit([&s] (auto && arg) {
+			s += "account public key:" + arg.account.to_account ();
+			s += " account open" + arg.account_open.to_string ()
+			s += " account head" + arg.account_head.to_string ();
+			s += " block count" + to_string_hex (arg.block_count);
+			s += " confirmation frontier:" + arg.account_conf_frontier.to_string ();
+			s += " confirmation height" + to_string_hex (arg.account_conf_height);
+		}, payload)
+	}
+
+	return s;
+
 }
 
 /*
