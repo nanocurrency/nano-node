@@ -123,6 +123,40 @@ std::optional<nano::process_return> nano::block_processor::add_blocking (std::sh
 	return result;
 }
 
+void nano::block_processor::rollback_competitor (nano::write_transaction const & transaction, nano::block const & block)
+{
+	auto hash = block.hash ();
+	auto successor = node.ledger.successor (transaction, block.qualified_root ());
+	if (successor != nullptr && successor->hash () != hash)
+	{
+		// Replace our block with the winner and roll back any dependent blocks
+		if (node.config.logging.ledger_rollback_logging ())
+		{
+			node.logger.always_log (boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ()));
+		}
+		std::vector<std::shared_ptr<nano::block>> rollback_list;
+		if (node.ledger.rollback (transaction, successor->hash (), rollback_list))
+		{
+			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::rollback_failed);
+			node.logger.always_log (nano::severity_level::error, boost::str (boost::format ("Failed to roll back %1% because it or a successor was confirmed") % successor->hash ().to_string ()));
+		}
+		else if (node.config.logging.ledger_rollback_logging ())
+		{
+			node.logger.always_log (boost::str (boost::format ("%1% blocks rolled back") % rollback_list.size ()));
+		}
+		// Deleting from votes cache, stop active transaction
+		for (auto & i : rollback_list)
+		{
+			node.history.erase (i->root ());
+			// Stop all rolled back active transactions except initial
+			if (i->hash () != successor->hash ())
+			{
+				node.active.erase (*i);
+			}
+		}
+	}
+}
+
 void nano::block_processor::force (std::shared_ptr<nano::block> const & block_a)
 {
 	{
@@ -266,35 +300,7 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 		lock_a.unlock ();
 		if (force)
 		{
-			auto successor = node.ledger.successor (transaction, block->qualified_root ());
-			if (successor != nullptr && successor->hash () != hash)
-			{
-				// Replace our block with the winner and roll back any dependent blocks
-				if (node.config.logging.ledger_rollback_logging ())
-				{
-					node.logger.always_log (boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ()));
-				}
-				std::vector<std::shared_ptr<nano::block>> rollback_list;
-				if (node.ledger.rollback (transaction, successor->hash (), rollback_list))
-				{
-					node.stats.inc (nano::stat::type::ledger, nano::stat::detail::rollback_failed);
-					node.logger.always_log (nano::severity_level::error, boost::str (boost::format ("Failed to roll back %1% because it or a successor was confirmed") % successor->hash ().to_string ()));
-				}
-				else if (node.config.logging.ledger_rollback_logging ())
-				{
-					node.logger.always_log (boost::str (boost::format ("%1% blocks rolled back") % rollback_list.size ()));
-				}
-				// Deleting from votes cache, stop active transaction
-				for (auto & i : rollback_list)
-				{
-					node.history.erase (i->root ());
-					// Stop all rolled back active transactions except initial
-					if (i->hash () != successor->hash ())
-					{
-						node.active.erase (*i);
-					}
-				}
-			}
+			rollback_competitor (transaction, *block);
 		}
 		number_of_blocks_processed++;
 		auto result = process_one (transaction, block, force);
