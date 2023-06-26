@@ -1660,27 +1660,29 @@ std::string nano::asc_pull_req::to_string () const
 {
 	std::string s = header.to_string () + "\n";
 
-	if (payload.index () == 0)
-	{
-		s += "empty payload";
-	}
+  std::visit ([&s](auto && arg)
+  {
+    using T = std::decay_t<decltype(arg)>;
 
-	if (payload.index () == 1) 
-	{
-		std::visit([&s](auto && arg) {
-			s += "acc:" + arg.start.to_string();
-			s += " max block count:" + nano_to_string_hex(static_cast<uint16_t> (arg.count));
-			s += " hash type:" + nano::to_string_hex(static_cast<uint16_t> (arg.start_type));
-		}, payload);
-	}
+    if constexpr (std::is_same_v<T, nano::empty_payload>)
+    {
+      s += "missing payload";
+    }
 
-	if (payload.index () == 2)
-	{
-		std::visit([&s](auto && arg) {
-			s += "target" + arg.target.to_string ();
-			s += " hash type:" + nano::to_string_hex (static_cast<uint16_t> (arg.target_type));
-		}, payload)
-	}
+    else if constexpr (std::is_same_v<T, nano::asc_pull_req::blocks_payload>)
+    {
+      s += "acc:" + arg.start.to_string();
+			s += " max block count:" + to_string_hex(static_cast<uint16_t> (arg.count));
+			s += " hash type:" + to_string_hex(static_cast<uint16_t> (arg.start_type));
+    }
+
+    else if constexpr (std::is_same_v<T, nano::asc_pull_req::account_info_payload>)
+    {
+      s += "target:" + arg.target.to_string ();
+			s += " hash type:" + to_string_hex (static_cast<uint16_t> (arg.target_type));
+    }
+  
+  }, payload);
 
 	return s;
 
@@ -1842,38 +1844,39 @@ std::string nano::asc_pull_ack::to_string () const
 {
 	std::string s = header.to_string () + "\n";
 
-	if (payload.index() == 0)
-	{
-		s += "empty payload";
-	}
+  std::visit ( [&s](auto && arg)
+  {
+    using T = std::decay_t<decltype(arg)>;
 
-	if (payload.index() == 1) 
-	{
-		std::visit([&s] (auto && arg) {
-			std::vector<std::shared_ptr<nano::block>>::iterator block;
+    if constexpr (std::is_same_v<T, nano::empty_payload>)
+    {
+      s += "missing payload";
+    }
+
+    else if constexpr (std::is_same_v<T, nano::asc_pull_req::blocks_payload>)
+    {
+      std::vector<std::shared_ptr<nano::block>>::iterator block;
 
 			for (block = arg.blocks.begin (); block < arg.blocks.end (); ++block)
 			{
 				s += (*block)->to_json ();
 			}
+    }
 
-		}, payload);
-	}
-
-	if (payload.index() == 2)
-	{
-		std::visit([&s] (auto && arg) {
-			s += "account public key:" + arg.account.to_account ();
-			s += " account open" + arg.account_open.to_string ()
-			s += " account head" + arg.account_head.to_string ();
-			s += " block count" + to_string_hex (arg.block_count);
+    else if constexpr (std::is_same_v<T, nano::asc_pull_req::account_info_payload>)
+    {
+      s += "account public key:" + arg.account.to_account ();
+			s += " account open:" + arg.account_open.to_string ()
+			s += " account head:" + arg.account_head.to_string ();
+			s += " block count:" + to_string_hex (arg.block_count);
 			s += " confirmation frontier:" + arg.account_conf_frontier.to_string ();
-			s += " confirmation height" + to_string_hex (arg.account_conf_height);
-		}, payload)
-	}
+			s += " confirmation height:" + to_string_hex (arg.account_conf_height);
+    }
+  
+  }, payload);
+
 
 	return s;
-
 }
 
 /*
