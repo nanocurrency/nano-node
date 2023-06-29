@@ -31,7 +31,7 @@ elif [[ "$NETWORK" = "TEST" ]]; then
 fi
 
 docker_image_name="${DOCKER_REGISTRY}/nano${network_tag_suffix}"
-ghcr_image_name="${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/nano${network_tag_suffix}"
+ghcr_image_name="ghcr.io/${GITHUB_REPOSITORY}/nano${network_tag_suffix}"
 
 docker_build()
 {
@@ -86,7 +86,7 @@ docker_deploy()
 
 ghcr_deploy()
 {   
-    docker_login "$DOCKER_USER" "$DOCKER_PASSWORD" 
+    docker_login "$DOCKER_USER" "$DOCKER_PASSWORD" "ghcr.io"
     deploy_tags "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}" "env|none"
 }
 
@@ -103,7 +103,7 @@ docker_deploy_env()
 
 ghcr_deploy_env()
 {
-    docker_login "$DOCKER_USER" "$DOCKER_PASSWORD"
+    docker_login "$DOCKER_USER" "$DOCKER_PASSWORD" "ghcr.io"
     local images=(
         "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/nano-env:base"
         "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/nano-env:gcc"
@@ -117,13 +117,14 @@ docker_login()
 {
     local username=$1
     local password=$2
+    local registry=$3 #optional
 
     if [ -z "$password" ]; then
         echo "\$DOCKER_PASSWORD or \$GHCR_TOKEN environment variable required"
         exit 1
     fi
 
-    echo "$password" | docker login -u "$username" --password-stdin
+    echo "$password" | docker login $registry -u "$username" --password-stdin
 }
 
 push_docker_image()
