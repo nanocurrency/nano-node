@@ -1,6 +1,8 @@
 FROM ubuntu:22.04 as builder
 
 ARG COMPILER=gcc
+ARG BUILD_TYPE=RelWithDebInfo
+ARG SANITIZER
 ARG NANO_NETWORK=live
 
 # Install build dependencies
@@ -25,7 +27,7 @@ RUN echo ${NANO_NETWORK} >/etc/nano-network
 FROM ubuntu:22.04
 
 RUN groupadd --gid 1000 nanocurrency && \
-useradd --uid 1000 --gid nanocurrency --shell /bin/bash --create-home nanocurrency
+    useradd --uid 1000 --gid nanocurrency --shell /bin/bash --create-home nanocurrency
 
 COPY --from=builder /tmp/src/build/nano_node /usr/bin
 COPY --from=builder /tmp/src/build/nano_rpc /usr/bin
