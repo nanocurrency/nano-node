@@ -11,8 +11,7 @@ jobs:
   prepare_build:
     runs-on: ubuntu-20.04
     outputs:
-      CI_TAG: ${{ steps.tag_set.outputs.CI_TAG }}
-      CI_VERSION_PRE_RELEASE: ${{ steps.tag_set.outputs.CI_VERSION_PRE_RELEASE }}
+      CI_TAG: ${{ steps.tag_set.outputs.CI_TAG }}      
       TAG_CREATED: ${{ steps.tag_set.outputs.tag_created }}
     steps:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
@@ -24,9 +23,7 @@ jobs:
           output_var_file="variable_list.txt"
           ci/actions/generate_next_git_tag.sh -c -o "${output_var_file}"
           CI_TAG=$(grep 'build_tag' ${output_var_file} | cut -d= -f2)
-          echo "CI_TAG=${CI_TAG}" >> $GITHUB_OUTPUT
-          CI_VERSION_PRE_RELEASE=$(grep 'version_pre_release' ${output_var_file} | cut -d= -f2)
-          echo "CI_VERSION_PRE_RELEASE=${CI_VERSION_PRE_RELEASE}" >> $GITHUB_OUTPUT
+          echo "CI_TAG=${CI_TAG}" >> $GITHUB_OUTPUT          
           TAG_CREATED=$(grep 'tag_created' ${output_var_file} | cut -d= -f2)            
           echo "TAG_CREATED=${TAG_CREATED}" >> $GITHUB_OUTPUT
         env:
@@ -54,8 +51,7 @@ jobs:
         run: ci/build-deploy.sh "/tmp/qt/lib/cmake/Qt5";
         env:
           NETWORK: ${{ matrix.network }} 
-          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
-          CI_VERSION_PRE_RELEASE: ${{ needs.prepare_build.outputs.CI_VERSION_PRE_RELEASE }}
+          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}         
       - name: Deploy Artifact
         run: ci/actions/deploy.sh
         env:
@@ -87,7 +83,12 @@ jobs:
           COMPILER: gcc
         run: ci/actions/linux/install_deps.sh
       - name: Build Artifact
-        run: docker run -v ${GITHUB_WORKSPACE}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && NETWORK=${{ matrix.network }} CI_TAG=${{ needs.prepare_build.outputs.CI_TAG }} CI_VERSION_PRE_RELEASE=${{ needs.prepare_build.outputs.CI_VERSION_PRE_RELEASE }} ci/build-deploy.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5"
+        run: |
+          docker run -v ${GITHUB_WORKSPACE}:/workspace \
+          nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && \
+          NETWORK=${{ matrix.network }} \
+          CI_TAG=${{ needs.prepare_build.outputs.CI_TAG }} \          
+          ci/build-deploy.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5"
       - name: Deploy Artifact
         run: ci/actions/deploy.sh
         env:
@@ -119,10 +120,14 @@ jobs:
       - name: Build Artifact
         run: |
           mkdir -p ${GITHUB_WORKSPACE}/artifacts
-          docker run -e NETWORK=${{ matrix.network }} -e TAG=${{ needs.prepare_build.outputs.CI_TAG }} -e REPO_TO_BUILD=${{ github.event.inputs.repo }} -e RPM_RELEASE=1 \
-          -v ${GITHUB_WORKSPACE}:/workspace \
-          -v ${GITHUB_WORKSPACE}/artifacts:/root/rpmbuild \
-          nanocurrency/nano-env:rhel /bin/bash -c "ci/build-rhel.sh"
+          docker run -v ${GITHUB_WORKSPACE}:/workspace -v ${GITHUB_WORKSPACE}/artifacts:/root/rpmbuild \
+          nanocurrency/nano-env:rhel /bin/bash -c " \
+          NETWORK=${{ matrix.network }} \
+          TAG=${{ needs.prepare_build.outputs.CI_TAG }} \
+          REPO_TO_BUILD=${{ github.repository }} \
+          RPM_RELEASE=1 \
+          ci/build-rhel.sh"
+          
       - name: Deploy Artifacts
         run: ci/actions/deploy.sh
         env:
@@ -158,8 +163,7 @@ jobs:
         run: ci/actions/linux/docker-build.sh
         env:
           NETWORK: ${{ matrix.network }}
-          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
-          CI_VERSION_PRE_RELEASE: ${{ needs.prepare_build.outputs.CI_VERSION_PRE_RELEASE }}
+          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}          
           DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
       - name: Check if secrets.DOCKER_PASSWORD exists
         run: echo "DOCKER_PASSWORD_EXISTS=${{ secrets.DOCKER_PASSWORD != '' }}" >> $GITHUB_ENV  
