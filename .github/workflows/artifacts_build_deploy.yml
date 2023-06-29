@@ -77,8 +77,8 @@ jobs:
         env:
           NETWORK: ${{ matrix.network }}
           TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
-          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
-          S3_BUILD_DIRECTORY: ${{ secrets.S3_BUILD_DIRECTORY }}
+          S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
+          S3_BUILD_DIRECTORY: ${{ vars.S3_BUILD_DIRECTORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2
@@ -108,8 +108,8 @@ jobs:
         env:
           NETWORK: ${{ matrix.network }}
           TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
-          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
-          S3_BUILD_DIRECTORY: ${{ secrets.S3_BUILD_DIRECTORY }}
+          S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
+          S3_BUILD_DIRECTORY: ${{ vars.S3_BUILD_DIRECTORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2
@@ -142,8 +142,8 @@ jobs:
           LINUX_RPM: 1
           NETWORK: ${{ matrix.network }}
           # TAG: ${{ needs.prepare_build.outputs.CI_TAG }} # (not used in the deploy script if LINUX_RPM==1 )
-          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
-          S3_BUILD_DIRECTORY: ${{ secrets.S3_BUILD_DIRECTORY }}
+          S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
+          S3_BUILD_DIRECTORY: ${{ vars.S3_BUILD_DIRECTORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2
@@ -175,8 +175,8 @@ jobs:
         env:
           CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
           NETWORK: ${{ matrix.network }}
-          DOCKER_REGISTRY: ${{ secrets.DOCKER_HUB }}
-          DOCKER_USER: ${{ secrets.DOCKER_USER }}
+          DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
+          DOCKER_USER: ${{ vars.DOCKER_USER }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       - name: Deploy Docker (ghcr.io)
         run: ci/actions/linux/ghcr-deploy.sh
@@ -212,8 +212,8 @@ jobs:
         env:
           NETWORK: ${{ matrix.network }}
           TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
-          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
-          S3_BUILD_DIRECTORY: ${{ secrets.S3_BUILD_DIRECTORY }}
+          S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
+          S3_BUILD_DIRECTORY: ${{ vars.S3_BUILD_DIRECTORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2
