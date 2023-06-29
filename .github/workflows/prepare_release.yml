@@ -1,0 +1,71 @@
+name:  Prepare Release
+on:
+  workflow_dispatch:
+
+jobs:
+  promote_reference:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3.1.0
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+      - name: Confifigure git user and email
+        run: |
+          git config --global user.name "${GITHUB_ACTOR}"
+          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+
+      - name: Fetch Major and Minor versions
+        id: fetch-versions
+        run: |
+          current_version_major=$(grep "CPACK_PACKAGE_VERSION_MAJOR" CMakeLists.txt | grep -o "[0-9]\+")
+          current_version_minor=$(grep "CPACK_PACKAGE_VERSION_MINOR" CMakeLists.txt | grep -o "[0-9]\+")
+          echo "Current major version: $current_version_major"
+          echo "Current minor version: $current_version_minor"
+          echo "major=${current_version_major}" >> $GITHUB_OUTPUT
+          echo "minor=${current_version_minor}" >> $GITHUB_OUTPUT
+
+      - name: Check for existence of release branch
+        id: check-release-branch
+        run: |
+          release_branch_name="releases/v${{ steps.fetch-versions.outputs.major }}"
+          if git show-ref --verify --quiet refs/remotes/origin/$release_branch_name; then
+            echo "Release branch $release_branch_name already exists. Aborting..."
+            exit 1
+          else
+            echo "Release branch does not exist. Continuing with preparation..."
+            echo "release-branch-name=${release_branch_name}" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Get default branch
+        id: get-default-branch
+        run: |
+          DEFAULT_BRANCH=$(curl --silent --show-error --header "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/${{ github.repository }}" | jq .default_branch --raw-output)
+          echo "Default branch is $DEFAULT_BRANCH"          
+          echo "default-branch=${DEFAULT_BRANCH}" >> $GITHUB_OUTPUT      
+
+      - name: Increment Major version on default branch
+        run: |
+          git checkout ${{ steps.get-default-branch.outputs.default-branch }}
+          new_version_major=$((${{ steps.fetch-versions.outputs.major }} + 1))
+          sed -i.bak "s/set(CPACK_PACKAGE_VERSION_MAJOR \"[0-9]*\")/set(CPACK_PACKAGE_VERSION_MAJOR \"$new_version_major\")/g" CMakeLists.txt
+          rm CMakeLists.txt.bak
+          git add CMakeLists.txt
+          git commit -m "Update CPACK_PACKAGE_VERSION_MAJOR to $new_version_major"
+          git push origin ${{ steps.get-default-branch.outputs.default-branch }}
+          # Reset CPACK_PACKAGE_VERSION_MAJOR to its original value for the release branch
+          git reset --hard HEAD~1 
+
+      - name: Prepare release branch and set pre-release to 0
+        run: |
+          git checkout -b ${{ steps.check-release-branch.outputs.release-branch-name }}
+          sed -i.bak "s/set(CPACK_PACKAGE_VERSION_PRE_RELEASE \"[0-9]*\")/set(CPACK_PACKAGE_VERSION_PRE_RELEASE \"0\")/g" CMakeLists.txt
+          rm CMakeLists.txt.bak
+          git add CMakeLists.txt
+          git commit -m "Update CPACK_PACKAGE_VERSION_PRE_RELEASE to 0"
+          git push origin ${{ steps.check-release-branch.outputs.release-branch-name }}
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
