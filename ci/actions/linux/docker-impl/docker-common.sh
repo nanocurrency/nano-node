@@ -51,7 +51,7 @@ docker_build()
 build_docker_image() {
     local ci_version_pre_release="$1"
     "$scripts"/build-docker-image.sh docker/node/Dockerfile "$docker_image_name" \
-        --build-arg NETWORK="$network" \
+        --build-arg NANO_NETWORK="$network" \
         --build-arg CI_VERSION_PRE_RELEASE="$ci_version_pre_release" \
         --build-arg CI_TAG="$CI_TAG"
 }
