@@ -1853,7 +1853,7 @@ std::string nano::asc_pull_ack::to_string () const
       s += "missing payload";
     }
 
-    else if constexpr (std::is_same_v<T, nano::asc_pull_req::blocks_payload>)
+    else if constexpr (std::is_same_v<T, nano::asc_pull_ack::blocks_payload>)
     {
       std::vector<std::shared_ptr<nano::block>>::iterator block;
 
@@ -1863,12 +1863,12 @@ std::string nano::asc_pull_ack::to_string () const
 			}
     }
 
-    else if constexpr (std::is_same_v<T, nano::asc_pull_req::account_info_payload>)
+    else if constexpr (std::is_same_v<T, nano::asc_pull_ack::account_info_payload>)
     {
       s += "account public key:" + arg.account.to_account ();
-			s += " account open:" + arg.account_open.to_string ()
+			s += " account open:" + arg.account_open.to_string ();
 			s += " account head:" + arg.account_head.to_string ();
-			s += " block count:" + to_string_hex (arg.block_count);
+			s += " block count:" + to_string_hex (arg.account_block_count);
 			s += " confirmation frontier:" + arg.account_conf_frontier.to_string ();
 			s += " confirmation height:" + to_string_hex (arg.account_conf_height);
     }
@@ -1897,9 +1897,7 @@ void nano::asc_pull_ack::blocks_payload::serialize (nano::stream & stream) const
 
 void nano::asc_pull_ack::blocks_payload::deserialize (nano::stream & stream)
 {
-	auto current = nano::deserialize_b0
-	
-	lock (stream);
+	auto current = nano::deserialize_block (stream);
 	while (current && blocks.size () < max_blocks)
 	{
 		blocks.push_back (current);
