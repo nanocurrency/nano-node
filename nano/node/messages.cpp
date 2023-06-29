@@ -1855,12 +1855,24 @@ std::string nano::asc_pull_ack::to_string () const
 
     else if constexpr (std::is_same_v<T, nano::asc_pull_ack::blocks_payload>)
     {
+      
       std::vector<std::shared_ptr<nano::block>>::iterator block;
 
-			for (block = arg.blocks.begin (); block < arg.blocks.end (); ++block)
+			for (block = arg.blocks.begin (); block != arg.blocks.end (); ++block)
 			{
 				s += (*block)->to_json ();
 			}
+      
+
+     auto block = std::begin(arg.blocks);
+     auto end_block = std::end(arg.blocks);
+
+     while (block != end_block)
+     {
+      s += (*block)->to_json ();
+      ++block;
+     }
+
     }
 
     else if constexpr (std::is_same_v<T, nano::asc_pull_ack::account_info_payload>)
