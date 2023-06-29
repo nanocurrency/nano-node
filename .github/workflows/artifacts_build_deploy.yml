@@ -166,7 +166,12 @@ jobs:
           COMPILER: gcc
         run: ci/actions/linux/install_deps.sh
       - name: Build Docker
-        run: NETWORK=${{ matrix.network }} CI_TAG=${{ needs.prepare_build.outputs.CI_TAG }} CI_VERSION_PRE_RELEASE=${{ needs.prepare_build.outputs.CI_VERSION_PRE_RELEASE }} ci/actions/linux/docker-build.sh
+        run: ci/actions/linux/docker-build.sh
+        env:
+          NETWORK: ${{ matrix.network }}
+          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
+          CI_VERSION_PRE_RELEASE: ${{ needs.prepare_build.outputs.CI_VERSION_PRE_RELEASE }}
+          DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
       - name: Check if secrets.DOCKER_PASSWORD exists
         run: echo "DOCKER_PASSWORD_EXISTS=${{ secrets.DOCKER_PASSWORD != '' }}" >> $GITHUB_ENV  
       - name: Deploy Docker Hub
