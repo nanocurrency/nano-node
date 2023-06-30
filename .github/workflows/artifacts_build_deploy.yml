@@ -45,8 +45,8 @@ jobs:
           submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.CI_TAG }}
           repository: ${{ github.repository }}
-      - name: Fetch Deps
-        run: ci/actions/osx/install_deps.sh
+      - name: Prepare
+        run: ci/prepare/macos/prepare.sh
       - name: Build Artifact
         run: ci/build-deploy.sh "/tmp/qt/lib/cmake/Qt5";
         env:
@@ -78,17 +78,14 @@ jobs:
           submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.CI_TAG }}
           repository: ${{ github.repository }}
-      - name: Fetch Deps
-        env:
-          COMPILER: gcc
-        run: ci/actions/linux/install_deps.sh
+      - name: Prepare
+        run: sudo -E ci/prepare/linux/prepare.sh
       - name: Build Artifact
-        run: |
-          docker run -v ${GITHUB_WORKSPACE}:/workspace \
-          nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && \
-          NETWORK=${{ matrix.network }} \
-          CI_TAG=${{ needs.prepare_build.outputs.CI_TAG }} \          
-          ci/build-deploy.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5"
+        run: ci/build-deploy.sh "/usr/lib/x86_64-linux-gnu/cmake/Qt5"
+        env:
+          NETWORK: ${{ matrix.network }} \
+          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }} \    
+
       - name: Deploy Artifact
         run: ci/actions/deploy.sh
         env:
@@ -155,10 +152,6 @@ jobs:
           submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.CI_TAG }}
           repository: ${{ github.repository }}
-      - name: Fetch Deps
-        env:
-          COMPILER: gcc
-        run: ci/actions/linux/install_deps.sh
       - name: Build Docker
         run: ci/actions/linux/docker-build.sh
         env:
@@ -200,8 +193,8 @@ jobs:
           submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.CI_TAG }}
           repository: ${{ github.repository }}
-      - name: Fetch Deps
-        run: ci/actions/windows/install_deps.ps1
+      - name: Prepare
+        run: ci/prepare/windows/prepare.ps1
       - name: Build Artifact
         run: ci/actions/windows/build.ps1
         env:
