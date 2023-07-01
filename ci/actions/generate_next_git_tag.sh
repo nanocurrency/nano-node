@@ -33,7 +33,7 @@ done
 shift $((OPTIND -1))
 
 # Fetch all existing tags
-git fetch --tags
+git fetch --tags -f
 
 # Fetch the last commit hash of the current branch
 current_commit_hash=$(git rev-parse HEAD)
@@ -57,7 +57,7 @@ current_version_minor=$(grep "CPACK_PACKAGE_VERSION_MINOR" CMakeLists.txt | grep
 base_version="V${current_version_major}.${current_version_minor}${branch_name}"
 
 # Fetch the existing tags
-existing_tags=$(git tag --list "${base_version}*")
+existing_tags=$(git tag --list "${base_version}*" | grep -E "${base_version}[0-9]+$")
 
 # If no tag exists, then just append 1 to the base version
 if [[ -z "$existing_tags" ]]; then
