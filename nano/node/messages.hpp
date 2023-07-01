@@ -14,12 +14,11 @@
 
 #include <bitset>
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <string>
-#include <variant>
 #include <type_traits>
-#include <vector>
-#include <iterator>
+#include <variant>
 
 namespace nano
 {

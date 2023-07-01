@@ -1656,36 +1656,34 @@ bool nano::asc_pull_req::verify_consistency () const
 	return true; // Just for convenience of calling from asserts
 }
 
-std::string nano::asc_pull_req::to_string () const 
+std::string nano::asc_pull_req::to_string () const
 {
 	std::string s = header.to_string () + "\n";
 
-  std::visit ([&s](auto && arg)
-  {
-    using T = std::decay_t<decltype(arg)>;
+	std::visit ([&s] (auto && arg) {
+		using T = std::decay_t<decltype (arg)>;
 
-    if constexpr (std::is_same_v<T, nano::empty_payload>)
-    {
-      s += "missing payload";
-    }
+		if constexpr (std::is_same_v<T, nano::empty_payload>)
+		{
+			s += "missing payload";
+		}
 
-    else if constexpr (std::is_same_v<T, nano::asc_pull_req::blocks_payload>)
-    {
-      s += "acc:" + arg.start.to_string();
-			s += " max block count:" + to_string_hex(static_cast<uint16_t> (arg.count));
-			s += " hash type:" + to_string_hex(static_cast<uint16_t> (arg.start_type));
-    }
+		else if constexpr (std::is_same_v<T, nano::asc_pull_req::blocks_payload>)
+		{
+			s += "acc:" + arg.start.to_string ();
+			s += " max block count:" + to_string_hex (static_cast<uint16_t> (arg.count));
+			s += " hash type:" + to_string_hex (static_cast<uint16_t> (arg.start_type));
+		}
 
-    else if constexpr (std::is_same_v<T, nano::asc_pull_req::account_info_payload>)
-    {
-      s += "target:" + arg.target.to_string ();
+		else if constexpr (std::is_same_v<T, nano::asc_pull_req::account_info_payload>)
+		{
+			s += "target:" + arg.target.to_string ();
 			s += " hash type:" + to_string_hex (static_cast<uint16_t> (arg.target_type));
-    }
-  
-  }, payload);
+		}
+	},
+	payload);
 
 	return s;
-
 }
 /*
  * asc_pull_req::blocks_payload
@@ -1844,49 +1842,37 @@ std::string nano::asc_pull_ack::to_string () const
 {
 	std::string s = header.to_string () + "\n";
 
-  std::visit ( [&s](auto && arg)
-  {
-    using T = std::decay_t<decltype(arg)>;
+	std::visit ([&s] (auto && arg) {
+		using T = std::decay_t<decltype (arg)>;
 
-    if constexpr (std::is_same_v<T, nano::empty_payload>)
-    {
-      s += "missing payload";
-    }
+		if constexpr (std::is_same_v<T, nano::empty_payload>)
+		{
+			s += "missing payload";
+		}
 
-    else if constexpr (std::is_same_v<T, nano::asc_pull_ack::blocks_payload>)
-    {
-      
-      std::vector<std::shared_ptr<nano::block>>::iterator block;
+		else if constexpr (std::is_same_v<T, nano::asc_pull_ack::blocks_payload>)
+		{
+			auto block = std::begin (arg.blocks);
+			auto end_block = std::end (arg.blocks);
 
-			for (block = arg.blocks.begin (); block != arg.blocks.end (); ++block)
+			while (block != end_block)
 			{
 				s += (*block)->to_json ();
+				++block;
 			}
-      
+		}
 
-     auto block = std::begin(arg.blocks);
-     auto end_block = std::end(arg.blocks);
-
-     while (block != end_block)
-     {
-      s += (*block)->to_json ();
-      ++block;
-     }
-
-    }
-
-    else if constexpr (std::is_same_v<T, nano::asc_pull_ack::account_info_payload>)
-    {
-      s += "account public key:" + arg.account.to_account ();
+		else if constexpr (std::is_same_v<T, nano::asc_pull_ack::account_info_payload>)
+		{
+			s += "account public key:" + arg.account.to_account ();
 			s += " account open:" + arg.account_open.to_string ();
 			s += " account head:" + arg.account_head.to_string ();
 			s += " block count:" + to_string_hex (arg.account_block_count);
 			s += " confirmation frontier:" + arg.account_conf_frontier.to_string ();
 			s += " confirmation height:" + to_string_hex (arg.account_conf_height);
-    }
-  
-  }, payload);
-
+		}
+	},
+	payload);
 
 	return s;
 }
