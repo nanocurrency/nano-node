@@ -95,8 +95,8 @@ fi
 
 if [[ $create == true ]]; then
     # Stash current changes
-    git config --global user.name "${GITHUB_ACTOR}"
-    git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"    
+    git config user.name "${GITHUB_ACTOR}"
+    git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"    
 
     # Update CPACK_PACKAGE_VERSION_PRE_RELEASE in CMakeLists.txt (macOs compatible sed -i.bak)
     sed -i.bak "s/set(CPACK_PACKAGE_VERSION_PRE_RELEASE \"[0-9]*\")/set(CPACK_PACKAGE_VERSION_PRE_RELEASE \"${next_tag_number}\")/g" CMakeLists.txt
