@@ -112,13 +112,18 @@ jobs:
           submodules: "recursive"
           ref: "develop" #build-rhel.sh needs develop branch and then sets the tag 
           repository: ${{ github.repository }}
+      - name: Build local/nano-env:rhel
+        run: ci/actions/linux/install_deps.sh
+        env:
+          COMPILER: rhel
+          DOCKER_REGISTRY: local
       - name: RockyLinux 8 Base
-        run: ci/build-docker-image.sh docker/ci/Dockerfile-rhel nanocurrency/nano-env:rhel
+        run: ci/build-docker-image.sh docker/ci/Dockerfile-rhel local/nano-env:rhel
       - name: Build Artifact
         run: |
           mkdir -p ${GITHUB_WORKSPACE}/artifacts
           docker run -v ${GITHUB_WORKSPACE}:/workspace -v ${GITHUB_WORKSPACE}/artifacts:/root/rpmbuild \
-          nanocurrency/nano-env:rhel /bin/bash -c " \
+          local/nano-env:rhel /bin/bash -c " \
           NETWORK=${{ matrix.network }} \
           TAG=${{ needs.prepare_build.outputs.CI_TAG }} \
           REPO_TO_BUILD=${{ github.repository }} \
