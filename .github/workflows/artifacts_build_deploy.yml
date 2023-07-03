@@ -3,7 +3,11 @@ on:
   schedule:
     - cron: "0 0 * * 3,6"
   workflow_dispatch:
-
+    inputs:
+      increment:
+        description: "increment version_minor (releases/v{} branch) or version_pre_release (all other branches)"
+        default: "1"
+        required: true
 env:
   artifact: 1
 
@@ -21,7 +25,7 @@ jobs:
         id: tag_set
         run: |
           output_var_file="variable_list.txt"
-          ci/actions/generate_next_git_tag.sh -c -o "${output_var_file}"
+          ci/actions/generate_next_git_tag.sh -c -o "${output_var_file}" -i ${{ github.event.inputs.increment }}
           CI_TAG=$(grep 'build_tag' ${output_var_file} | cut -d= -f2)
           echo "CI_TAG=${CI_TAG}" >> $GITHUB_OUTPUT          
           TAG_CREATED=$(grep 'tag_created' ${output_var_file} | cut -d= -f2)            
