@@ -125,25 +125,28 @@ current_version_minor=$(grep "CPACK_PACKAGE_VERSION_MINOR" CMakeLists.txt | grep
 # Initialize tag suffix and next number
 tag_suffix=""
 next_number=0
-tag_created="true"
 
-if [[ "$branch_name" == "releases/v$current_version_major" ]]; then    
+if [[ "$branch_name" == "releases/v$current_version_major" ]]; then   
+
+    tag_type="version_minor"    
     # Find existing tags for the release branch
     existing_release_tags=$(git tag --list "V${current_version_major}.*" | grep -E "V${current_version_major}\.[0-9]+$")
 
     # Check if any tag exists for the release branch
     if [[ -z "$existing_release_tags" ]]; then
         # No tag exists yet, use current minor version without incrementing
+        tag_created="true"
         new_tag=$(get_new_release_tag $current_version_major $current_version_minor)
     else
         # Some tags already exist, increment the minor version with the defined $increment
+        tag_created="true"
         next_number=$(get_next_minor_version $current_version_minor $increment)
         new_tag=$(get_new_release_tag $current_version_major $next_number)
-    fi
-    
-    tag_type="version_minor"
+    fi    
 else
     # Non-release branches handling
+    tag_type="version_pre_release"
+    
     tag_suffix=$(get_tag_suffix $branch_name $current_version_major)
     base_version="V${current_version_major}.${current_version_minor}${tag_suffix}"
     existing_tags=$(git tag --list "${base_version}*" | grep -E "${base_version}[0-9]+$")
@@ -158,14 +161,14 @@ else
             echo "No new commits since the last tag. No new tag will be created."
             tag_created="false"
         else
+            tag_created="true"
             next_number=$(get_next_tag_number $last_tag_number $increment)
-            new_tag=$(get_new_other_tag $base_version $next_number)
-            tag_type="version_pre_release"
+            new_tag=$(get_new_other_tag $base_version $next_number)            
         fi
     else
+        tag_created="true"
         next_number=1
-        new_tag=$(get_new_other_tag $base_version $next_number)
-        tag_type="version_pre_release"
+        new_tag=$(get_new_other_tag $base_version $next_number)        
     fi
 fi
 
