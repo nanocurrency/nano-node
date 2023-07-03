@@ -103,12 +103,25 @@ update_cmake_lists() {
     fi
 
     if [[ -n "$variable_to_update" ]]; then
+        echo "Update ${variable_to_update} to $next_number"
         sed -i.bak "s/set(${variable_to_update} \"[0-9]*\")/set(${variable_to_update} \"${next_number}\")/g" CMakeLists.txt
-        rm CMakeLists.txt.bak
-        git add CMakeLists.txt
-        git commit -m "Update ${variable_to_update} to $next_number"
+        rm CMakeLists.txt.bak        
+    fi
+    git add CMakeLists.txt
+}
+
+function create_commit() {
+    git diff --cached --quiet
+    local has_changes=$? # store exit status of the last command
+    if [[ $has_changes -eq 0 ]]; then # no changes
+        echo "No changes to commit"
+        echo "false"
+    else # changes detected
+        git commit -m "Update CMakeLists.txt"
+        echo "true"
     fi
 }
+
 
 # Fetch all existing tags
 git fetch --tags -f
@@ -190,13 +203,18 @@ if [[ $create == true ]]; then
     git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
 
     # Update variable in CMakeLists.txt
-    update_cmake_lists $tag_type $next_number
+    update_cmake_lists "$tag_type" "$next_number"
 
-    # Create & Push the new tag
+    # Create commit in case of changes. Return "false" if no changes are detected.
+    commit_made=$(create_commit)
+
     git tag -a "$new_tag" -m "This tag was created with generate_next_git_tag.sh"
     git push origin "$new_tag" -f
+    echo "The tag $new_tag has been created and pushed."
 
-    # Undo the last commit
-    git reset --hard HEAD~1
-    echo "The tag $new_tag has been created and pushed, but the commit used for the tag does not exist on any branch."
+    #Only reset local branch if a commit was made
+    if [[ "$commit_made" == "true" ]]; then
+        git reset --hard HEAD~1
+        echo "The commit used for the tag does not exist on any branch."
+    fi
 fi
