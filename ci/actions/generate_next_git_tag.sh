@@ -188,7 +188,7 @@ if [[ $create == true ]]; then
 
     # Create & Push the new tag
     git tag -a "$new_tag" -m "This tag was created with generate_next_git_tag.sh"
-    git push origin "$new_tag"
+    git push origin "$new_tag" -f
 
     # Undo the last commit
     git reset --hard HEAD~1
