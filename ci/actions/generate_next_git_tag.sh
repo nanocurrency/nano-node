@@ -129,9 +129,19 @@ next_number=0
 tag_created="true"
 
 if [[ "$branch_name" == "releases/v$current_version_major" ]]; then    
-    # Releases branch handling
-    next_number=$(get_next_minor_version $current_version_minor $increment)
-    new_tag=$(get_new_release_tag $current_version_major $next_number)
+    # Find existing tags for the release branch
+    existing_release_tags=$(git tag --list "V${current_version_major}.*" | grep -E "V${current_version_major}\.[0-9]+$")
+
+    # Check if any tag exists for the release branch
+    if [[ -z "$existing_release_tags" ]]; then
+        # No tag exists yet, use current minor version without incrementing
+        new_tag=$(get_new_release_tag $current_version_major $current_version_minor)
+    else
+        # Some tags already exist, increment the minor version with the defined $increment
+        next_number=$(get_next_minor_version $current_version_minor $increment)
+        new_tag=$(get_new_release_tag $current_version_major $next_number)
+    fi
+    
     tag_type="version_minor"
 else
     # Non-release branches handling
