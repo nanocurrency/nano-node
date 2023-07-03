@@ -77,12 +77,11 @@ get_new_other_tag() {
     echo "${base_version}${next_tag_number}"
 }
 
-update_output_file() {
-    local output=$1
-    local new_tag=$2
-    local next_number=$3
-    local tag_created=$4
-    local tag_type=$5
+update_output_file() {   
+    local new_tag=$1
+    local next_number=$2
+    local tag_created=$3
+    local tag_type=$4
 
     if [[ -n "$output" ]]; then
         echo "build_tag =$new_tag" > $output
@@ -170,7 +169,7 @@ else
     fi
 fi
 
-update_output_file $output $new_tag $next_number $tag_created $tag_type
+update_output_file $new_tag $next_number $tag_created $tag_type
 
 # Skip tag creation if no new commits
 if [[ "$tag_created" == "true" ]]; then
