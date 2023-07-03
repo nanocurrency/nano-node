@@ -12,6 +12,7 @@
 #!/bin/bash
 
 set -e
+set -x 
 output=""
 create=false
 tag_created="false"
@@ -130,7 +131,7 @@ if [[ "$branch_name" == "releases/v$current_version_major" ]]; then
 
     tag_type="version_minor"    
     # Find existing tags for the release branch
-    existing_release_tags=$(git tag --list "V${current_version_major}.*" | grep -E "V${current_version_major}\.[0-9]+$")
+    existing_release_tags=$(git tag --list "V${current_version_major}.*" | grep -E "V${current_version_major}\.[0-9]+$" || true)
 
     # Check if any tag exists for the release branch
     if [[ -z "$existing_release_tags" ]]; then
@@ -149,7 +150,7 @@ else
     
     tag_suffix=$(get_tag_suffix $branch_name $current_version_major)
     base_version="V${current_version_major}.${current_version_minor}${tag_suffix}"
-    existing_tags=$(git tag --list "${base_version}*" | grep -E "${base_version}[0-9]+$")
+    existing_tags=$(git tag --list "${base_version}*" | grep -E "${base_version}[0-9]+$" || true)
     last_tag_number=0
 
     if [[ -n "$existing_tags" ]]; then
@@ -171,6 +172,8 @@ else
         new_tag=$(get_new_other_tag $base_version $next_number)        
     fi
 fi
+
+
 
 update_output_file $new_tag $next_number $tag_created $tag_type
 
