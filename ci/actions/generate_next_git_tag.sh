@@ -6,8 +6,9 @@
 # ${branch_name} is converted to "DB" if the script operates on develop branch. (e.g first tag for V26: V26.0DB1)
 # if -c flag is provided, version_pre_release in CMakeLists.txt is incremented and a new tag is created and pushed to origin
 # if -o is provided, "build_tag" , "version_pre_release" and "tag_created" are written to file
-# -i flag defines the incrementing. If the script runs on a "releases/v{Major}" branch, it increments minor_version.
-#  for all other non release branches it increments pre_release_vesrion.
+# If it executes on a release-branch :
+#    --> if there  is no new commit, the same tag is generated again
+#    --> If there is a new commit compared to the previous tag, we would increment the minor version by 1 and build the new binaries & docker images
 
 #!/bin/bash
 
@@ -16,18 +17,14 @@ set -x
 output=""
 create=false
 tag_created="false"
-increment=1
 
-while getopts ":o:ci:" opt; do
+while getopts ":o:c" opt; do
   case ${opt} in
     o )
       output=$OPTARG
       ;;
     c )
       create=true
-      ;;
-    i )
-      increment=$OPTARG
       ;;
     \? )
       echo "Invalid Option: -$OPTARG" 1>&2
@@ -132,15 +129,20 @@ current_commit_hash=$(git rev-parse HEAD)
 # Fetch branch name
 branch_name=$(git rev-parse --abbrev-ref HEAD)
 
+# Determine if it's a release branch or not
+is_release_branch=$(echo "$branch_name" | grep -q "releases/v$current_version_major" && echo true || echo false)
+
+
 # Fetch major and minor version numbers from CMakeLists.txt
 current_version_major=$(grep "CPACK_PACKAGE_VERSION_MAJOR" CMakeLists.txt | grep -o "[0-9]\+")
 current_version_minor=$(grep "CPACK_PACKAGE_VERSION_MINOR" CMakeLists.txt | grep -o "[0-9]\+")
 
-# Initialize tag suffix and next number
+# Initialize tag suffix and next number and increment
 tag_suffix=""
 next_number=0
+increment=1
 
-if [[ "$branch_name" == "releases/v$current_version_major" ]]; then   
+if [[ $is_release_branch == true ]]; then     
 
     tag_type="version_minor"    
     # Find existing tags for the release branch
@@ -150,13 +152,26 @@ if [[ "$branch_name" == "releases/v$current_version_major" ]]; then
     if [[ -z "$existing_release_tags" ]]; then
         # No tag exists yet, use current minor version without incrementing
         tag_created="true"
-        new_tag=$(get_new_release_tag $current_version_major $current_version_minor)
+        increment=0
     else
-        # Some tags already exist, increment the minor version with the defined $increment
-        tag_created="true"
-        next_number=$(get_next_minor_version $current_version_minor $increment)
-        new_tag=$(get_new_release_tag $current_version_major $next_number)
+        # Some tags already exist
+        # Get the commit hash of the latest tag
+        last_tag=$(echo "$existing_release_tags" | sort -V | tail -n1)
+        last_tag_commit_hash=$(git rev-list -n 1 $last_tag)
+
+        if [[ "$current_commit_hash" == "$last_tag_commit_hash" ]]; then
+            # The commit hash of the HEAD is the same as the last tag, hence no new commits. No need to increment
+            tag_created="true"
+            increment=0
+        else
+            # There is a new commit, hence increment the minor version by 1
+            tag_created="true"
+            increment=1
+        fi        
     fi    
+    next_number=$(get_next_minor_version $current_version_minor $increment)
+    new_tag=$(get_new_release_tag $current_version_major $next_number)
+
 else
     # Non-release branches handling
     tag_type="version_pre_release"
@@ -164,12 +179,11 @@ else
     tag_suffix=$(get_tag_suffix $branch_name $current_version_major)
     base_version="V${current_version_major}.${current_version_minor}${tag_suffix}"
     existing_tags=$(git tag --list "${base_version}*" | grep -E "${base_version}[0-9]+$" || true)
-    last_tag_number=0
 
     if [[ -n "$existing_tags" ]]; then
         last_tag=$(echo "$existing_tags" | sort -V | tail -n1)
         last_tag_number=$(echo "$last_tag" | awk -F"${tag_suffix}" '{print $2}')
-        last_tag_commit_hash=$(git rev-list -n 2 $last_tag | tail -n 1)
+        last_tag_commit_hash=$(git rev-list -n 2 $last_tag | tail -n 1) #ignore the commit that updates the version_pre_release
         
         if [[ "$current_commit_hash" == "$last_tag_commit_hash" ]]; then
             echo "No new commits since the last tag. No new tag will be created."
@@ -177,16 +191,13 @@ else
         else
             tag_created="true"
             next_number=$(get_next_tag_number $last_tag_number $increment)
-            new_tag=$(get_new_other_tag $base_version $next_number)            
         fi
     else
         tag_created="true"
-        next_number=1
-        new_tag=$(get_new_other_tag $base_version $next_number)        
+        next_number=1 #replace the default 99       
     fi
+    new_tag=$(get_new_other_tag $base_version $next_number)        
 fi
-
-
 
 update_output_file $new_tag $next_number $tag_created $tag_type
 
@@ -205,15 +216,20 @@ if [[ $create == true ]]; then
     # Update variable in CMakeLists.txt
     update_cmake_lists "$tag_type" "$next_number"
 
-    # Create commit in case of changes. Return "false" if no changes are detected.
     commit_made=$(create_commit)
 
-    git tag -a "$new_tag" -m "This tag was created with generate_next_git_tag.sh"
+    git tag -fa "$new_tag" -m "This tag was created with generate_next_git_tag.sh"
     git push origin "$new_tag" -f
     echo "The tag $new_tag has been created and pushed."
 
-    #Only reset local branch if a commit was made
-    if [[ "$commit_made" == "true" ]]; then
+    # If it's a release branch, also push the commit to the branch
+    if [[ $is_release_branch == true ]]; then
+        git push origin "$branch_name" -f
+        echo "The commit has been pushed to the $branch_name branch."
+    fi
+
+    # Only reset local branch if a commit was made and it's not a "releases" branch.
+    if [[ "$commit_made" == "true" && $is_release_branch == false ]]; then
         git reset --hard HEAD~1
         echo "The commit used for the tag does not exist on any branch."
     fi
