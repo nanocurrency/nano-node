@@ -1,4 +1,4 @@
-name: All (Live Beta Test)
+name: Build & Deploy (Live Beta Test)
 on:
   schedule:
     - cron: "0 0 * * 3,6"
