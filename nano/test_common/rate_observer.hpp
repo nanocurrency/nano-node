@@ -58,7 +58,7 @@ public:
 	/*
 	 * Starts observing a particular node stat from stat container
 	 */
-	void observe (nano::node &, nano::stat::type type, nano::stat::detail detail, nano::stat::dir dir);
+	void observe (nano::node &, nano::stat::type type, nano::stat::detail detail, nano::stat::dir dir = nano::stat::dir::in);
 
 private:
 	void background_print_impl (std::chrono::seconds interval);
