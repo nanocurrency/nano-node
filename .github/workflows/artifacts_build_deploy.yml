@@ -1,4 +1,4 @@
-name: Build & Deploy (Live Beta Test)
+name: Build & Deploy
 on:
   schedule:
     - cron: "0 0 * * 3,6"
@@ -9,7 +9,7 @@ env:
 
 jobs:
   prepare_build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     outputs:
       CI_TAG: ${{ steps.tag_set.outputs.CI_TAG }}      
       TAG_CREATED: ${{ steps.tag_set.outputs.tag_created }}
