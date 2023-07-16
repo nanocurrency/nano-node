@@ -7,13 +7,17 @@ OS=$(uname)
 IS_RPM_DEPLOY="${LINUX_RPM:-0}"
 S3_BUCKET_NAME="${S3_BUCKET_NAME:-repo.nano.org}"
 
-if [[ "${NETWORK}" == "BETA" ]]; then
-    BUILD="beta"
-elif [[ "${NETWORK}" == "TEST" ]]; then
-    BUILD="test"
-else
-    BUILD="live"
-fi
+case "${NETWORK}" in
+  "BETA")
+      BUILD="beta"
+      ;;
+  "TEST")
+      BUILD="test"
+      ;;
+  *)
+      BUILD="live"
+      ;;
+esac
 
 if [[ -n "${S3_BUILD_DIRECTORY}" ]]; then
 
