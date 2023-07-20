@@ -7,22 +7,25 @@ on:
 
 jobs:
   linux_job:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
         with:
           submodules: "recursive"
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
-      - name: Login to ghcr.io
-        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a #v2.1.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Deploy Docker (ghcr.io)
-        run: ci/actions/linux/ghcr_push.sh
-      - name: Deploy Docker (nanocurrency/nano-env)
-        run: ci/actions/linux/docker-deploy.sh
+        run: ci/actions/linux/ghcr-deploy-env.sh
         env:
+          DOCKER_REGISTRY: ghcr.io
+          DOCKER_USER: ${{ github.repository_owner }}
+          DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check if secrets.DOCKER_PASSWORD exists
+        run: echo "DOCKER_PASSWORD_EXISTS=${{ secrets.DOCKER_PASSWORD != '' }}" >> $GITHUB_ENV  
+      - name: Deploy Docker (nanocurrency/nano-env)
+        if: env.DOCKER_PASSWORD_EXISTS == 'true'
+        run: ci/actions/linux/docker-deploy-env.sh
+        env:
+          DOCKER_HUB: ${{ secrets.DOCKER_HUB }}
+          DOCKER_USER: ${{ secrets.DOCKER_USER }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}

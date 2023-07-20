@@ -15,14 +15,18 @@ mkdir build
 pushd build
 CONFIGURATION="Release"
 
-if [[ "${BETA:-0}" -eq 1 ]]; then
-    NETWORK_CFG="beta"
-    CONFIGURATION="RelWithDebInfo"
-elif [[ "${TEST:-0}" -eq 1 ]]; then
-    NETWORK_CFG="test"
-else
-    NETWORK_CFG="live"
-fi
+case "${NETWORK}" in
+  "BETA")
+      NETWORK_CFG="beta"
+      CONFIGURATION="RelWithDebInfo"
+      ;;
+  "TEST")
+      NETWORK_CFG="test"
+      ;;
+  *)
+      NETWORK_CFG="live"
+      ;;
+esac
 
 cmake \
 -G'Unix Makefiles' \

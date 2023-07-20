@@ -2,24 +2,23 @@ $ErrorActionPreference = "Continue"
 
 if (${env:artifact} -eq 1) {
     $env:BUILD_TYPE = "Release"
-    if ( ${env:BETA} -eq 1 ) {
+    if ( ${env:NETWORK} -eq "BETA" ) {
         $env:NETWORK_CFG = "beta"
         $env:BUILD_TYPE = "RelWithDebInfo"
     }
-    elseif (${env:TEST} -eq 1) {
+    elseif (${env:NETWORK} -eq "TEST") {
         $env:NETWORK_CFG = "test"
     }
     else {
         $env:NETWORK_CFG = "live"
     }
     $env:NANO_TEST = "-DNANO_TEST=OFF"
-    $env:CI_TAG = ${env:TAG}
     if ([string]::IsNullOrEmpty(${env:VERSION_PRE_RELEASE})) {
         $env:CI_VERSION_PRE_RELEASE = "OFF"
     } else {
         $env:CI_VERSION_PRE_RELEASE = ${env:VERSION_PRE_RELEASE}
     }
-    $env:CI = "-DCI_BUILD=ON -DCI_VERSION_PRE_RELEASE=${env:CI_VERSION_PRE_RELEASE}"
+    $env:CI = "-DCI_TAG=${env:TAG} -DCI_VERSION_PRE_RELEASE=${env:CI_VERSION_PRE_RELEASE}"
     $env:RUN = "artifact"
 }
 else {

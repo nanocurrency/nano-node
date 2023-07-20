@@ -52,13 +52,20 @@ if [[ ${FLAVOR-_} == "_" ]]; then
     FLAVOR=""
 fi
 
-if [[ "${BETA}" -eq 1 ]]; then
-    NETWORK_CFG="-DACTIVE_NETWORK=nano_beta_network"
-    CONFIGURATION="RelWithDebInfo"
-else
-    NETWORK_CFG="-DACTIVE_NETWORK=nano_live_network"
-    CONFIGURATION="Release"
-fi
+case "${NETWORK}" in
+  "TEST")
+      NETWORK_CFG="-DACTIVE_NETWORK=nano_test_network"
+      CONFIGURATION="RelWithDebInfo"
+      ;;
+  "BETA")
+      NETWORK_CFG="-DACTIVE_NETWORK=nano_beta_network"
+      CONFIGURATION="RelWithDebInfo"
+      ;;
+  *)
+      NETWORK_CFG="-DACTIVE_NETWORK=nano_live_network"
+      CONFIGURATION="Release"
+      ;;
+esac
 
 set -o nounset
 

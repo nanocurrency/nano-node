@@ -1,0 +1,217 @@
+name: Build & Deploy
+on:
+  schedule:
+    - cron: "0 0 * * 3,6"
+  workflow_dispatch:
+
+env:
+  artifact: 1
+
+jobs:
+  prepare_build:
+    runs-on: ubuntu-22.04
+    outputs:
+      CI_TAG: ${{ steps.tag_set.outputs.CI_TAG }}      
+      TAG_CREATED: ${{ steps.tag_set.outputs.tag_created }}
+    steps:
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+        with:
+          ref: ${{ github.ref }}
+      - name: Set the tag and version
+        id: tag_set
+        run: |
+          output_var_file="variable_list.txt"
+          ci/actions/generate_next_git_tag.sh -c -o "${output_var_file}"
+          CI_TAG=$(grep 'build_tag' ${output_var_file} | cut -d= -f2)
+          echo "CI_TAG=${CI_TAG}" >> $GITHUB_OUTPUT          
+          TAG_CREATED=$(grep 'tag_created' ${output_var_file} | cut -d= -f2)            
+          echo "TAG_CREATED=${TAG_CREATED}" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+
+
+  osx_job:    
+    needs: prepare_build
+    if: ${{ needs.prepare_build.outputs.TAG_CREATED == 'true' }}
+    runs-on: macOS-12
+    timeout-minutes: 90
+    strategy:
+      matrix:
+        network: ["TEST", "BETA", "LIVE"]
+    steps:
+
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+        with:
+          submodules: "recursive"
+          ref: ${{ needs.prepare_build.outputs.CI_TAG }}
+          repository: ${{ github.repository }}
+      - name: Prepare
+        run: ci/prepare/macos/prepare.sh
+      - name: Build Artifact
+        run: ci/build-deploy.sh "/tmp/qt/lib/cmake/Qt5";
+        env:
+          NETWORK: ${{ matrix.network }} 
+          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}         
+      - name: Deploy Artifact
+        run: ci/actions/deploy.sh
+        env:
+          NETWORK: ${{ matrix.network }}
+          TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
+          S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
+          S3_BUILD_DIRECTORY: ${{ vars.S3_BUILD_DIRECTORY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-2
+  
+
+  linux_job:
+    needs: prepare_build
+    if: ${{ needs.prepare_build.outputs.TAG_CREATED == 'true' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    strategy:
+      matrix:
+        network: ["TEST", "BETA", "LIVE"]
+    steps:
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+        with:
+          submodules: "recursive"
+          ref: ${{ needs.prepare_build.outputs.CI_TAG }}
+          repository: ${{ github.repository }}
+      - name: Prepare
+        run: sudo -E ci/prepare/linux/prepare.sh
+      - name: Build Artifact
+        run: ci/build-deploy.sh "/usr/lib/x86_64-linux-gnu/cmake/Qt5"
+        env:
+          NETWORK: ${{ matrix.network }} \
+          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }} \    
+
+      - name: Deploy Artifact
+        run: ci/actions/deploy.sh
+        env:
+          NETWORK: ${{ matrix.network }}
+          TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
+          S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
+          S3_BUILD_DIRECTORY: ${{ vars.S3_BUILD_DIRECTORY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-2
+
+
+  linux_rpm_job:
+    needs: prepare_build
+    if: ${{ needs.prepare_build.outputs.TAG_CREATED == 'true' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    strategy:
+      matrix:
+        network: ["BETA", "LIVE"] #No path to build TEST exists ci/build-rhel.sh
+    steps:
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+        with:
+          submodules: "recursive"
+          ref: "develop" #build-rhel.sh needs develop branch and then sets the tag 
+          repository: ${{ github.repository }}
+      - name: Build local/nano-env:rhel
+        run: ci/actions/linux/install_deps.sh
+        env:
+          COMPILER: rhel
+          DOCKER_REGISTRY: local
+      - name: RockyLinux 8 Base
+        run: ci/build-docker-image.sh docker/ci/Dockerfile-rhel local/nano-env:rhel
+      - name: Build Artifact
+        run: |
+          mkdir -p ${GITHUB_WORKSPACE}/artifacts
+          docker run -v ${GITHUB_WORKSPACE}:/workspace -v ${GITHUB_WORKSPACE}/artifacts:/root/rpmbuild \
+          local/nano-env:rhel /bin/bash -c " \
+          NETWORK=${{ matrix.network }} \
+          TAG=${{ needs.prepare_build.outputs.CI_TAG }} \
+          REPO_TO_BUILD=${{ github.repository }} \
+          RPM_RELEASE=1 \
+          ci/build-rhel.sh"
+          
+      - name: Deploy Artifacts
+        run: ci/actions/deploy.sh
+        env:
+          LINUX_RPM: 1
+          NETWORK: ${{ matrix.network }}
+          # TAG: ${{ needs.prepare_build.outputs.CI_TAG }} # (not used in the deploy script if LINUX_RPM==1 )
+          S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
+          S3_BUILD_DIRECTORY: ${{ vars.S3_BUILD_DIRECTORY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-2
+
+
+  linux_docker_job:
+    needs: prepare_build
+    if: ${{ needs.prepare_build.outputs.TAG_CREATED == 'true' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    strategy:
+      matrix:
+        network: ["TEST", "BETA", "LIVE"]
+    steps:
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+        with:
+          submodules: "recursive"
+          ref: ${{ needs.prepare_build.outputs.CI_TAG }}
+          repository: ${{ github.repository }}
+      - name: Build Docker
+        run: ci/actions/linux/docker-build.sh
+        env:
+          NETWORK: ${{ matrix.network }}
+          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}          
+          DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
+      - name: Check if secrets.DOCKER_PASSWORD exists
+        run: echo "DOCKER_PASSWORD_EXISTS=${{ secrets.DOCKER_PASSWORD != '' }}" >> $GITHUB_ENV  
+      - name: Deploy Docker Hub
+        if: env.DOCKER_PASSWORD_EXISTS == 'true'
+        run: ci/actions/linux/docker-deploy.sh
+        env:
+          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
+          NETWORK: ${{ matrix.network }}
+          DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
+          DOCKER_USER: ${{ vars.DOCKER_USER }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Deploy Docker (ghcr.io)
+        run: ci/actions/linux/ghcr-deploy.sh
+        env:
+          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
+          NETWORK: ${{ matrix.network }}
+          DOCKER_REGISTRY: ghcr.io
+          DOCKER_USER: ${{ github.repository_owner }}
+          DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+
+
+  windows_job:
+    needs: prepare_build
+    if: ${{ needs.prepare_build.outputs.TAG_CREATED == 'true' }}
+    runs-on: windows-latest
+    timeout-minutes: 90
+    strategy:
+      matrix:
+        network: ["TEST", "BETA", "LIVE"]
+    steps:
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+        with:
+          submodules: "recursive"
+          ref: ${{ needs.prepare_build.outputs.CI_TAG }}
+          repository: ${{ github.repository }}
+      - name: Prepare
+        run: ci/prepare/windows/prepare.ps1
+      - name: Build Artifact
+        run: ci/actions/windows/build.ps1
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      - name: Deploy Artifact
+        run: ci/actions/windows/deploy.ps1
+        env:
+          NETWORK: ${{ matrix.network }}
+          TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
+          S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
+          S3_BUILD_DIRECTORY: ${{ vars.S3_BUILD_DIRECTORY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-2
