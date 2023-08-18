@@ -9,7 +9,7 @@ env:
 jobs:  
   google_sanitizers_linux:
     name: ${{ matrix.SANITIZER }} / ROCKSDB=${{ matrix.TEST_USE_ROCKSDB }} / ${{ matrix.COMPILER }}
-    timeout-minutes: 90
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
