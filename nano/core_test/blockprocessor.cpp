@@ -39,32 +39,3 @@ TEST (block_processor, broadcast_block_on_arrival)
 	// Checks whether the block was broadcast.
 	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (send1->hash ()));
 }
-
-TEST (block_processor, add_blocking_invalid_block)
-{
-	nano::test::system system;
-
-	nano::node_config config = system.default_config ();
-	config.block_process_timeout = std::chrono::seconds{ 1 };
-	auto & node = *system.add_node (config);
-
-	nano::state_block_builder builder;
-	auto send1 = builder.make_block ()
-				 .account (nano::dev::genesis_key.pub)
-				 .previous (nano::dev::genesis->hash ())
-				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
-				 .link (nano::dev::genesis_key.pub)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
-
-	send1->signature.clear ();
-
-	auto background = std::async (std::launch::async, [&] () {
-		return node.process_local (send1);
-	});
-
-	ASSERT_TIMELY (5s, background.wait_for (std::chrono::seconds (0)) == std::future_status::ready);
-	ASSERT_FALSE (background.get ().has_value ());
-}

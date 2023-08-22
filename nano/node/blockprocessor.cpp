@@ -245,18 +245,11 @@ void nano::block_processor::process_verified_state_blocks (std::deque<nano::stat
 
 void nano::block_processor::add_impl (std::shared_ptr<nano::block> block)
 {
-	if (block->type () == nano::block_type::state || block->type () == nano::block_type::open)
 	{
-		state_block_signature_verification.add ({ block });
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		blocks.emplace_back (block);
 	}
-	else
-	{
-		{
-			nano::lock_guard<nano::mutex> guard{ mutex };
-			blocks.emplace_back (block);
-		}
-		condition.notify_all ();
-	}
+	condition.notify_all ();
 }
 
 auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock_a) -> std::deque<processed_t>
