@@ -54,15 +54,18 @@ jobs:
 
       - name: Core Tests
         if: steps.build.outcome == 'success' && (success() || failure())
-        run: cd build && ../ci/tests/run-core-tests.sh
+        run: ../ci/tests/run-core-tests.sh
+        working-directory: build
 
       - name: RPC Tests
         if: steps.build.outcome == 'success' && (success() || failure())
-        run: cd build && ../ci/tests/run-rpc-tests.sh
+        run: ../ci/tests/run-rpc-tests.sh
+        working-directory: build
 
       - name: System Tests
         if: steps.build.outcome == 'success' && (success() || failure())
-        run: cd build && ../ci/tests/run-system-tests.sh
+        run: ../ci/tests/run-system-tests.sh
+        working-directory: build
 
   linux_test:
     name: Linux [${{ matrix.BACKEND }} | ${{ matrix.COMPILER }}]
@@ -118,19 +121,23 @@ jobs:
 
       - name: Core Tests
         if: steps.build.outcome == 'success' && (success() || failure())
-        run: cd build && ../ci/tests/run-core-tests.sh
+        run: ../ci/tests/run-core-tests.sh
+        working-directory: build
 
       - name: RPC Tests
         if: steps.build.outcome == 'success' && (success() || failure())
-        run: cd build && ../ci/tests/run-rpc-tests.sh
+        run: ../ci/tests/run-rpc-tests.sh
+        working-directory: build
 
       - name: System Tests
         if: steps.build.outcome == 'success' && (success() || failure())
-        run: cd build && ../ci/tests/run-system-tests.sh
+        run: ../ci/tests/run-system-tests.sh
+        working-directory: build
 
       - name: QT Tests
         if: steps.build.outcome == 'success' && (success() || failure())
-        run: cd build && ../ci/tests/run-qt-tests.sh
+        run: ../ci/tests/run-qt-tests.sh
+        working-directory: build
 
   windows_test:
     name: Windows [${{ matrix.BACKEND }}]
@@ -185,15 +192,18 @@ jobs:
 
       - name: Core Tests
         if: steps.build.outcome == 'success' && (success() || failure())
-        run: cd build && ../ci/tests/run-core-tests.sh
+        run: ../ci/tests/run-core-tests.sh
+        working-directory: build
         shell: bash
 
       - name: RPC Tests
         if: steps.build.outcome == 'success' && (success() || failure())
-        run: cd build && ../ci/tests/run-rpc-tests.sh
+        run: ../ci/tests/run-rpc-tests.sh
+        working-directory: build
         shell: bash
 
       - name: System Tests
         if: steps.build.outcome == 'success' && (success() || failure())
-        run: cd build && ../ci/tests/run-system-tests.sh
+        run: ../ci/tests/run-system-tests.sh
+        working-directory: build
         shell: bash

@@ -2,28 +2,25 @@ name: Code Sanitizers
 
 on: [push, pull_request, workflow_dispatch]
 
-env:
-  RELEASE: 0
-  artifact: 0
-
-jobs:  
-  google_sanitizers_linux:
-    name: ${{ matrix.SANITIZER }} / ROCKSDB=${{ matrix.TEST_USE_ROCKSDB }} / ${{ matrix.COMPILER }}
+jobs:
+  linux_sanitizers:
+    name: Linux [${{ matrix.SANITIZER }}] [${{ matrix.BACKEND }} | ${{ matrix.COMPILER }}]
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        TEST_USE_ROCKSDB: [0, 1]
+        BACKEND: [lmdb, rocksdb]
         COMPILER: [clang]
         SANITIZER: [ASAN, ASAN_INT, TSAN]
     runs-on: ubuntu-22.04
-    outputs:
-      issue_reported: ${{ steps.show_report.outputs.issue_reported }}
     env:
       COMPILER: ${{ matrix.COMPILER }}
-      TEST_USE_ROCKSDB: ${{ matrix.TEST_USE_ROCKSDB }}
-      XSAN: ${{ endsWith(matrix.sanitizer, 'ASAN_INT') && 'ASAN' || matrix.SANITIZER }}
-      XSAN_SUPPRESSIONS: ${{ endsWith(matrix.SANITIZER, 'TSAN') && 'suppressions=../tsan_suppressions' || '' }}
+      BACKEND: ${{ matrix.BACKEND }}
+      SANITIZER: ${{ matrix.SANITIZER }}
+      TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
+      DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
+      ASAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report
+      TSAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:suppressions=../tsan_suppressions
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout
@@ -34,35 +31,24 @@ jobs:
       - name: Prepare
         run: sudo -E ci/prepare/linux/prepare.sh
 
-      - name: XSan variable values
-        run: |
-          (
-            echo "XSAN: '${XSAN}'"
-            echo "XSAN_SUPPRESSIONS: '${XSAN_SUPPRESSIONS}'"
-          )
-
       - name: Build Tests
-        id: build_tests
-        run: ${{ matrix.SANITIZER }}=1 ci/build-ci.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 'core_test rpc_test'
+        id: build
+        run: ci/build-tests.sh
 
-      - name: Run core_test
-        id: core_test
+      - name: Core Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
         continue-on-error: true
-        run: |
-          export ${XSAN}_OPTIONS="${XSAN_SUPPRESSIONS} log_exe_name=1 log_path=sanitizer_report"
-          timeout -sHUP 45m ./core_test
-        working-directory: build      
-      
-      - name: Run rpc_test
+        run: timeout -sKILL 45m ../ci/tests/run-core-tests.sh
+        working-directory: build
+
+      - name: RPC Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
         id: rpc_test
         continue-on-error: true
-        run: |
-          export ${XSAN}_OPTIONS="${XSAN_SUPPRESSIONS} log_exe_name=1 log_path=sanitizer_report"
-          timeout -sHUP 20m ./rpc_test
-        working-directory: build       
+        run: timeout -sKILL 20m ../ci/tests/run-rpc-tests.sh
+        working-directory: build
 
       - name: Test Reports
-        id: show_report
         run: |
           (
             issue_reported=false
