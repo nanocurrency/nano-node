@@ -47,6 +47,7 @@ jobs:
         run: timeout -sKILL 20m ../ci/tests/run-rpc-tests.sh
         working-directory: build
 
-      - name: Test Reports
+      - name: Reports
+        if: steps.build.outcome == 'success' && (success() || failure())
         run: ../ci/tests/show-sanitizer-reports.sh
-        working-directory: build     
+        working-directory: build
