@@ -43,26 +43,10 @@ jobs:
 
       - name: RPC Tests
         if: steps.build.outcome == 'success' && (success() || failure())
-        id: rpc_test
         continue-on-error: true
         run: timeout -sKILL 20m ../ci/tests/run-rpc-tests.sh
         working-directory: build
 
       - name: Test Reports
-        run: |
-          (
-            issue_reported=false
-            reports=$(ls build/sanitizer_report* 2>/dev/null)
-            if [[ -n "${reports}" ]]; then
-              echo "Report Output:"
-              for report in ${reports}; do
-                echo "File: $report"
-                cat ${report}
-                echo
-              done
-              issue_reported=true
-            else
-              echo "No report has been generated."
-            fi
-            echo "issue_reported=${issue_reported}" >> $GITHUB_OUTPUT
-          ) || exit 0
+        run: ../ci/tests/show-sanitizer-reports.sh
+        working-directory: build     
