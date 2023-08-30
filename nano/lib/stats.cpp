@@ -395,18 +395,17 @@ void nano::stats::update (uint32_t key_a, uint64_t value)
 	if (!stopped)
 	{
 		auto entry (get_entry_impl (key_a, config.interval, config.capacity));
-
-		// Counters
-		auto old (entry->counter.get_value ());
-		entry->counter.add (value);
-		entry->count_observers.notify (old, entry->counter.get_value ());
-
 		auto has_interval_counter = [&] () {
 			return config.log_interval_counters > 0;
 		};
 		auto has_sampling = [&] () {
 			return config.sampling_enabled && entry->sample_interval > 0;
 		};
+
+		// Counters
+		auto old (entry->counter.get_value ());
+		entry->counter.add (value, has_sampling ()); // Only update timestamp when sampling is enabled as this has a performance impact
+		entry->count_observers.notify (old, entry->counter.get_value ());
 		if (has_interval_counter () || has_sampling ())
 		{
 			auto now = std::chrono::steady_clock::now (); // Only sample clock if necessary as this impacts node performance due to frequent usage
