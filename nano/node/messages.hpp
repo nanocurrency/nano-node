@@ -429,6 +429,7 @@ public:
 
 	void serialize_payload (nano::stream &) const;
 	void deserialize_payload (nano::stream &);
+	std::string to_string () const;
 
 private: // Debug
 	/**
@@ -504,6 +505,7 @@ public:
 
 	void serialize_payload (nano::stream &) const;
 	void deserialize_payload (nano::stream &);
+	std::string to_string () const;
 
 private: // Debug
 	/**
