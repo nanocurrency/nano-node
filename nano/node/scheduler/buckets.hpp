@@ -1,65 +1,79 @@
 #pragma once
-
 #include <nano/lib/numbers.hpp>
-#include <nano/node/active_transactions.hpp>
-#include <nano/node/prioritization.hpp>
+#include <nano/lib/utility.hpp>
 
-#include <boost/optional.hpp>
-
-#include <condition_variable>
-#include <deque>
-#include <memory>
-#include <thread>
+#include <cstddef>
+#include <set>
+#include <vector>
 
 namespace nano
 {
 class block;
-class node;
 }
-
 namespace nano::scheduler
 {
+class limiter;
+
+/** A container for holding blocks and their arrival/creation time.
+ *
+ *  The container consists of a number of buckets. Each bucket holds an ordered set of 'value_type' items.
+ *  The buckets are accessed in a round robin fashion. The index 'current' holds the index of the bucket to access next.
+ *  When a block is inserted, the bucket to go into is determined by the account balance and the priority inside that
+ *  bucket is determined by its creation/arrival time.
+ *
+ *  The arrival/creation time is only an approximation and it could even be wildly wrong,
+ *  for example, in the event of bootstrapped blocks.
+ */
 class buckets final
 {
+	class value_type
+	{
+	public:
+		uint64_t time;
+		std::shared_ptr<nano::block> block;
+		bool operator< (value_type const & other_a) const;
+		bool operator== (value_type const & other_a) const;
+	};
+
+	class bucket
+	{
+	public:
+		std::set<value_type> queue;
+		std::shared_ptr<nano::scheduler::limiter> limiter;
+	};
+
+	/** container for the buckets to be read in round robin fashion */
+	std::vector<bucket> buckets_m;
+
+	/** thresholds that define the bands for each bucket, the minimum balance an account must have to enter a bucket,
+	 *  the container writes a block to the lowest indexed bucket that has balance larger than the bucket's minimum value */
+	std::vector<nano::uint128_t> minimums;
+
+	/** Contains bucket indicies to iterate over when making the next scheduling decision */
+	std::vector<uint8_t> schedule;
+
+	/** index of bucket to read next */
+	decltype (schedule)::const_iterator current;
+
+	/** maximum number of blocks in whole container, each bucket's maximum is maximum / bucket_number */
+	uint64_t const maximum;
+
+	void next ();
+	void seek ();
+	void populate_schedule ();
+
 public:
-	buckets (nano::node &, nano::stats &);
-	~buckets ();
-
-	void start ();
-	void stop ();
-
-	// Manualy start an election for a block
-	// Call action with confirmed block, may be different than what we started with
-	void manual (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, nano::election_behavior = nano::election_behavior::normal);
-	/**
-	 * Activates the first unconfirmed block of \p account_a
-	 * @return true if account was activated
-	 */
-	bool activate (nano::account const &, nano::transaction const &);
-	// Blocks until no more elections can be activated or there are no more elections to activate
-	void flush ();
-	void notify ();
+	buckets (uint64_t maximum = 250000u);
+	void push (uint64_t time, std::shared_ptr<nano::block> block, nano::amount const & priority);
+	std::shared_ptr<nano::block> top () const;
+	void pop ();
 	std::size_t size () const;
+	std::size_t bucket_count () const;
+	std::size_t bucket_size (std::size_t index) const;
 	bool empty () const;
-	std::size_t priority_queue_size () const;
-	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
+	void dump () const;
+	std::size_t index (nano::uint128_t const & balance) const;
 
-private: // Dependencies
-	nano::node & node;
-	nano::stats & stats;
-
-private:
-	void run ();
-	bool empty_locked () const;
-	bool priority_queue_predicate () const;
-	bool manual_queue_predicate () const;
-
-	nano::prioritization priority;
-
-	std::deque<std::tuple<std::shared_ptr<nano::block>, boost::optional<nano::uint128_t>, nano::election_behavior>> manual_queue;
-	bool stopped{ false };
-	nano::condition_variable condition;
-	mutable nano::mutex mutex;
-	std::thread thread;
+	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const &);
 };
-}
+} // namespace nano::scheduler
