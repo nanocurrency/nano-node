@@ -9,10 +9,10 @@
 
 #include <chrono>
 #include <initializer_list>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 
 namespace nano
 {
@@ -440,7 +440,7 @@ private:
 	nano::stats_config config;
 
 	/** Stat entries are sorted by key to simplify processing of log output */
-	std::map<uint32_t, std::shared_ptr<nano::stat_entry>> entries;
+	std::unordered_map<uint32_t, std::shared_ptr<nano::stat_entry>> entries;
 	std::chrono::steady_clock::time_point log_last_count_writeout{ std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point log_last_sample_writeout{ std::chrono::steady_clock::now () };
 
