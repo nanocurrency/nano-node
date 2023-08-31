@@ -11,6 +11,7 @@ add_executable(
   bootstrap.cpp
   bootstrap_ascending.cpp
   bootstrap_server.cpp
+  buckets.cpp
   cli.cpp
   confirmation_height.cpp
   confirmation_solicitor.cpp
@@ -38,7 +39,6 @@ add_executable(
   processing_queue.cpp
   processor_service.cpp
   peer_container.cpp
-  prioritization.cpp
   request_aggregator.cpp
   signal_manager.cpp
   signing.cpp

@@ -2,6 +2,7 @@
 
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/node/election_insertion_result.hpp>
 #include <nano/secure/common.hpp>
 
 #include <condition_variable>
