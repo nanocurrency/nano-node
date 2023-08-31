@@ -1,7 +1,7 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/scheduler/buckets.hpp>
 #include <nano/node/scheduler/component.hpp>
-#include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
@@ -418,7 +418,7 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	ASSERT_TIMELY (5s, node.inactive_vote_cache.find (send1->hash ()));
 	ASSERT_TIMELY (5s, node.inactive_vote_cache.find (send1->hash ())->voters.size () == 2);
 	ASSERT_EQ (1, node.inactive_vote_cache.cache_size ());
-	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
+	node.scheduler.buckets.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
 	std::shared_ptr<nano::election> election;
 	ASSERT_TIMELY (5s, election = node.active.election (send1->qualified_root ()));
 	ASSERT_EQ (3, election->votes ().size ()); // 2 votes and 1 default not_an_acount
@@ -996,7 +996,7 @@ TEST (active_transactions, confirmation_consistency)
 		system.deadline_set (5s);
 		while (!node.ledger.block_confirmed (node.store.tx_begin_read (), block->hash ()))
 		{
-			node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
+			node.scheduler.buckets.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
 			ASSERT_NO_ERROR (system.poll (5ms));
 		}
 		ASSERT_NO_ERROR (system.poll_until_true (1s, [&node, &block, i] {
@@ -1140,19 +1140,19 @@ TEST (active_transactions, activate_account_chain)
 	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
 	ASSERT_EQ (nano::process_result::progress, node.process (*receive).code);
 
-	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
+	node.scheduler.buckets.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
 	ASSERT_TIMELY (5s, node.active.election (send->qualified_root ()));
 	auto election1 = node.active.election (send->qualified_root ());
 	ASSERT_EQ (1, node.active.size ());
 	ASSERT_EQ (1, election1->blocks ().count (send->hash ()));
-	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
+	node.scheduler.buckets.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
 	auto election2 = node.active.election (send->qualified_root ());
 	ASSERT_EQ (election2, election1);
 	election1->force_confirm ();
 	ASSERT_TIMELY (3s, node.block_confirmed (send->hash ()));
 	// On cementing, the next election is started
 	ASSERT_TIMELY (3s, node.active.active (send2->qualified_root ()));
-	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
+	node.scheduler.buckets.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
 	auto election3 = node.active.election (send2->qualified_root ());
 	ASSERT_NE (nullptr, election3);
 	ASSERT_EQ (1, election3->blocks ().count (send2->hash ()));
@@ -1161,11 +1161,11 @@ TEST (active_transactions, activate_account_chain)
 	// On cementing, the next election is started
 	ASSERT_TIMELY (3s, node.active.active (open->qualified_root ()));
 	ASSERT_TIMELY (3s, node.active.active (send3->qualified_root ()));
-	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
+	node.scheduler.buckets.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
 	auto election4 = node.active.election (send3->qualified_root ());
 	ASSERT_NE (nullptr, election4);
 	ASSERT_EQ (1, election4->blocks ().count (send3->hash ()));
-	node.scheduler.priority.activate (key.pub, node.store.tx_begin_read ());
+	node.scheduler.buckets.activate (key.pub, node.store.tx_begin_read ());
 	auto election5 = node.active.election (open->qualified_root ());
 	ASSERT_NE (nullptr, election5);
 	ASSERT_EQ (1, election5->blocks ().count (open->hash ()));
@@ -1173,7 +1173,7 @@ TEST (active_transactions, activate_account_chain)
 	ASSERT_TIMELY (3s, node.block_confirmed (open->hash ()));
 	// Until send3 is also confirmed, the receive block should not activate
 	std::this_thread::sleep_for (200ms);
-	node.scheduler.priority.activate (key.pub, node.store.tx_begin_read ());
+	node.scheduler.buckets.activate (key.pub, node.store.tx_begin_read ());
 	election4->force_confirm ();
 	ASSERT_TIMELY (3s, node.block_confirmed (send3->hash ()));
 	ASSERT_TIMELY (3s, node.active.active (receive->qualified_root ()));
@@ -1314,7 +1314,7 @@ TEST (active_transactions, vacancy)
 		ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
 		ASSERT_EQ (1, node.active.vacancy ());
 		ASSERT_EQ (0, node.active.size ());
-		node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
+		node.scheduler.buckets.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
 		ASSERT_TIMELY (1s, updated);
 		updated = false;
 		ASSERT_EQ (0, node.active.vacancy ());
@@ -1393,11 +1393,11 @@ TEST (active_transactions, fifo)
 	ASSERT_EQ (nano::process_result::progress, node.process (*receive2).code);
 
 	// Ensure first transaction becomes active
-	node.scheduler.priority.manual (receive1);
+	node.scheduler.buckets.manual (receive1);
 	ASSERT_TIMELY (5s, node.active.election (receive1->qualified_root ()) != nullptr);
 
 	// Ensure second transaction becomes active
-	node.scheduler.priority.manual (receive2);
+	node.scheduler.buckets.manual (receive2);
 	ASSERT_TIMELY (5s, node.active.election (receive2->qualified_root ()) != nullptr);
 
 	// Ensure excess transactions get trimmed
@@ -1503,7 +1503,7 @@ TEST (active_transactions, allow_limited_overflow)
 	// Insert the first part of the blocks into normal election scheduler
 	for (auto const & block : blocks1)
 	{
-		node.scheduler.priority.activate (block->account (), node.store.tx_begin_read ());
+		node.scheduler.buckets.activate (block->account (), node.store.tx_begin_read ());
 	}
 
 	// Ensure number of active elections reaches AEC limit and there is no overfill
@@ -1565,7 +1565,7 @@ TEST (active_transactions, allow_limited_overflow_adapt)
 	// Insert the first part of the blocks into normal election scheduler
 	for (auto const & block : blocks1)
 	{
-		node.scheduler.priority.activate (block->account (), node.store.tx_begin_read ());
+		node.scheduler.buckets.activate (block->account (), node.store.tx_begin_read ());
 	}
 
 	// Ensure number of active elections reaches AEC limit and there is no overfill

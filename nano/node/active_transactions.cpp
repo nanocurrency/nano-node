@@ -5,8 +5,8 @@
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/repcrawler.hpp>
+#include <nano/node/scheduler/buckets.hpp>
 #include <nano/node/scheduler/component.hpp>
-#include <nano/node/scheduler/priority.hpp>
 #include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
@@ -151,13 +151,13 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 		if (cemented_bootstrap_count_reached && was_active)
 		{
 			// Start or vote for the next unconfirmed block
-			node.scheduler.priority.activate (account, transaction);
+			node.scheduler.buckets.activate (account, transaction);
 
 			// Start or vote for the next unconfirmed block in the destination account
 			auto const & destination (node.ledger.block_destination (transaction, *block_a));
 			if (!destination.is_zero () && destination != account)
 			{
-				node.scheduler.priority.activate (destination, transaction);
+				node.scheduler.buckets.activate (destination, transaction);
 			}
 		}
 	}

@@ -1,6 +1,6 @@
 #include <nano/node/election.hpp>
+#include <nano/node/scheduler/buckets.hpp>
 #include <nano/node/scheduler/component.hpp>
-#include <nano/node/scheduler/priority.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -27,7 +27,7 @@ TEST (conflicts, start_stop)
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 	ASSERT_EQ (0, node1.active.size ());
-	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
+	node1.scheduler.buckets.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
 	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
 	auto election1 = node1.active.election (send1->qualified_root ());
 	ASSERT_EQ (1, node1.active.size ());
@@ -60,7 +60,7 @@ TEST (conflicts, add_existing)
 	ASSERT_TIMELY (5s, node1.block (send1->hash ()));
 
 	// instruct the election scheduler to trigger an election for send1
-	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
+	node1.scheduler.buckets.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
 
 	// wait for election to be started before processing send2
 	ASSERT_TIMELY (5s, node1.active.active (*send1));
@@ -167,7 +167,7 @@ TEST (conflicts, add_two)
 
 	// activate elections for the previous two send blocks (to account3) that we did not forcefully confirm
 	//
-	node->scheduler.priority.activate (account3.pub, node->store.tx_begin_read ());
+	node->scheduler.buckets.activate (account3.pub, node->store.tx_begin_read ());
 	ASSERT_TIMELY (5s, node->active.election ((*send3)->qualified_root ()) != nullptr);
 	ASSERT_TIMELY (5s, node->active.election ((*send4)->qualified_root ()) != nullptr);
 

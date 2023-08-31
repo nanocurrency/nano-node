@@ -5,8 +5,8 @@
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node_rpc_config.hpp>
+#include <nano/node/scheduler/buckets.hpp>
 #include <nano/node/scheduler/component.hpp>
-#include <nano/node/scheduler/priority.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
 #include <nano/rpc_test/common.hpp>
@@ -1559,7 +1559,7 @@ TEST (rpc, process_subtype_open)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send).code);
 	ASSERT_EQ (nano::process_result::progress, node2.process (*send).code);
 	auto const rpc_ctx = add_rpc (system, node1);
-	node1->scheduler.priority.manual (send);
+	node1->scheduler.buckets.manual (send);
 	auto open = builder
 				.state ()
 				.account (key.pub)
@@ -1608,7 +1608,7 @@ TEST (rpc, process_subtype_receive)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send).code);
 	ASSERT_EQ (nano::process_result::progress, node2.process (*send).code);
 	auto const rpc_ctx = add_rpc (system, node1);
-	node1->scheduler.priority.manual (send);
+	node1->scheduler.buckets.manual (send);
 	auto receive = builder
 				   .state ()
 				   .account (nano::dev::genesis_key.pub)
@@ -2448,7 +2448,7 @@ TEST (rpc, account_representative_set_epoch_2_insufficient_work)
 	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_2));
 
 	// speed up the cementing process, otherwise the node waits for frontiers confirmation to notice the unconfirmed epoch blocks, which takes time
-	node->scheduler.priority.activate (nano::dev::genesis_key.pub, node->store.tx_begin_read ());
+	node->scheduler.buckets.activate (nano::dev::genesis_key.pub, node->store.tx_begin_read ());
 
 	// wait for the epoch blocks to be cemented
 	ASSERT_TIMELY (5s, node->get_confirmation_height (node->store.tx_begin_read (), nano::dev::genesis_key.pub) == 3);
@@ -6964,7 +6964,7 @@ TEST (node, election_scheduler_container_info)
 
 	// process the block and wait for it to show up in the election scheduler
 	node->process_active (send1);
-	ASSERT_TIMELY (10s, node->scheduler.priority.size () == 1);
+	ASSERT_TIMELY (10s, node->scheduler.buckets.size () == 1);
 
 	// now check the RPC call
 	boost::property_tree::ptree request;

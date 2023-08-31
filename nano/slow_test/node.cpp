@@ -1,8 +1,8 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/scheduler/buckets.hpp>
 #include <nano/node/scheduler/component.hpp>
-#include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/test_common/network.hpp>
@@ -677,7 +677,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	{
 		auto block = node->block (last_open_hash);
 		ASSERT_NE (nullptr, block);
-		node->scheduler.priority.manual (block);
+		node->scheduler.buckets.manual (block);
 		std::shared_ptr<nano::election> election;
 		ASSERT_TIMELY (10s, (election = node->active.election (block->qualified_root ())) != nullptr);
 		election->force_confirm ();
@@ -760,7 +760,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	// Confirm all of the accounts
 	for (auto & open_block : open_blocks)
 	{
-		node->scheduler.priority.manual (open_block);
+		node->scheduler.buckets.manual (open_block);
 		std::shared_ptr<nano::election> election;
 		ASSERT_TIMELY (10s, (election = node->active.election (open_block->qualified_root ())) != nullptr);
 		election->force_confirm ();
@@ -900,7 +900,7 @@ TEST (confirmation_height, long_chains)
 
 	// Call block confirm on the existing receive block on the genesis account which will confirm everything underneath on both accounts
 	{
-		node->scheduler.priority.manual (receive1);
+		node->scheduler.buckets.manual (receive1);
 		std::shared_ptr<nano::election> election;
 		ASSERT_TIMELY (10s, (election = node->active.election (receive1->qualified_root ())) != nullptr);
 		election->force_confirm ();
@@ -2225,7 +2225,7 @@ TEST (node, wallet_create_block_confirm_conflicts)
 		// Call block confirm on the top level send block which will confirm everything underneath on both accounts.
 		{
 			auto block = node->store.block.get (node->store.tx_begin_read (), latest);
-			node->scheduler.priority.manual (block);
+			node->scheduler.buckets.manual (block);
 			std::shared_ptr<nano::election> election;
 			ASSERT_TIMELY (10s, (election = node->active.election (block->qualified_root ())) != nullptr);
 			election->force_confirm ();
@@ -2319,7 +2319,7 @@ TEST (system, block_sequence)
 			std::string message;
 			for (auto i : system.nodes)
 			{
-				message += boost::str (boost::format ("N:%1% b:%2% c:%3% a:%4% s:%5% p:%6%\n") % std::to_string (i->network.port) % std::to_string (i->ledger.cache.block_count) % std::to_string (i->ledger.cache.cemented_count) % std::to_string (i->active.size ()) % std::to_string (i->scheduler.priority.size ()) % std::to_string (i->network.size ()));
+				message += boost::str (boost::format ("N:%1% b:%2% c:%3% a:%4% s:%5% p:%6%\n") % std::to_string (i->network.port) % std::to_string (i->ledger.cache.block_count) % std::to_string (i->ledger.cache.cemented_count) % std::to_string (i->active.size ()) % std::to_string (i->scheduler.buckets.size ()) % std::to_string (i->network.size ()));
 				nano::lock_guard<nano::mutex> lock{ i->active.mutex };
 				for (auto const & j : i->active.roots)
 				{

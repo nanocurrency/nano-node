@@ -2,26 +2,23 @@
 
 #include <memory>
 
-namespace nano
-{
-class node;
-}
 namespace nano::scheduler
 {
-class priority;
+class buckets;
 class hinted;
+class node;
 class optimistic;
 
 class component
 {
 	std::unique_ptr<nano::scheduler::optimistic> optimistic_impl;
-	std::unique_ptr<nano::scheduler::priority> priority_impl;
+	std::unique_ptr<nano::scheduler::buckets> buckets_impl;
 	std::unique_ptr<nano::scheduler::hinted> hinted_impl;
 
 public:
 	explicit component (nano::node & node);
 
-	nano::scheduler::priority & priority;
+	nano::scheduler::buckets & buckets;
 	nano::scheduler::hinted & hinted;
 	nano::scheduler::optimistic & optimistic;
 };

@@ -1,5 +1,5 @@
+#include <nano/node/scheduler/buckets.hpp>
 #include <nano/node/scheduler/component.hpp>
-#include <nano/node/scheduler/priority.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -28,7 +28,7 @@ TEST (election_scheduler, activate_one_timely)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	system.nodes[0]->ledger.process (system.nodes[0]->store.tx_begin_write (), *send1);
-	system.nodes[0]->scheduler.priority.activate (nano::dev::genesis_key.pub, system.nodes[0]->store.tx_begin_read ());
+	system.nodes[0]->scheduler.buckets.activate (nano::dev::genesis_key.pub, system.nodes[0]->store.tx_begin_read ());
 	ASSERT_TIMELY (5s, system.nodes[0]->active.election (send1->qualified_root ()));
 }
 
@@ -46,7 +46,7 @@ TEST (election_scheduler, activate_one_flush)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	system.nodes[0]->ledger.process (system.nodes[0]->store.tx_begin_write (), *send1);
-	system.nodes[0]->scheduler.priority.activate (nano::dev::genesis_key.pub, system.nodes[0]->store.tx_begin_read ());
+	system.nodes[0]->scheduler.buckets.activate (nano::dev::genesis_key.pub, system.nodes[0]->store.tx_begin_read ());
 	ASSERT_TIMELY (5s, system.nodes[0]->active.election (send1->qualified_root ()));
 }
 
@@ -115,7 +115,7 @@ TEST (election_scheduler, no_vacancy)
 	ASSERT_EQ (nano::process_result::progress, node.process (*block1).code);
 
 	// There is vacancy so it should be inserted
-	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
+	node.scheduler.buckets.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
 	std::shared_ptr<nano::election> election{};
 	ASSERT_TIMELY (5s, (election = node.active.election (block1->qualified_root ())) != nullptr);
 
@@ -131,14 +131,14 @@ TEST (election_scheduler, no_vacancy)
 	ASSERT_EQ (nano::process_result::progress, node.process (*block2).code);
 
 	// There is no vacancy so it should stay queued
-	node.scheduler.priority.activate (key.pub, node.store.tx_begin_read ());
-	ASSERT_TIMELY (5s, node.scheduler.priority.size () == 1);
+	node.scheduler.buckets.activate (key.pub, node.store.tx_begin_read ());
+	ASSERT_TIMELY (5s, node.scheduler.buckets.size () == 1);
 	ASSERT_TRUE (node.active.election (block2->qualified_root ()) == nullptr);
 
 	// Election confirmed, next in queue should begin
 	election->force_confirm ();
 	ASSERT_TIMELY (5s, node.active.election (block2->qualified_root ()) != nullptr);
-	ASSERT_TRUE (node.scheduler.priority.empty ());
+	ASSERT_TRUE (node.scheduler.buckets.empty ());
 }
 
 // Ensure that election_scheduler::flush terminates even if no elections can currently be queued e.g. shutdown or no active_transactions vacancy
@@ -162,9 +162,9 @@ TEST (election_scheduler, flush_vacancy)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
-	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
+	node.scheduler.buckets.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
 	// Ensure this call does not block, even though no elections can be activated.
-	node.scheduler.priority.flush ();
+	node.scheduler.buckets.flush ();
 	ASSERT_EQ (0, node.active.size ());
-	ASSERT_EQ (1, node.scheduler.priority.size ());
+	ASSERT_EQ (1, node.scheduler.buckets.size ());
 }
