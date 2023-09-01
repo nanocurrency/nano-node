@@ -1,19 +1,19 @@
 #include <nano/node/node.hpp>
-#include <nano/node/scheduler/buckets.hpp>
+#include <nano/node/scheduler/priority.hpp>
 
-nano::scheduler::buckets::buckets (nano::node & node_a, nano::stats & stats_a) :
+nano::scheduler::priority::priority (nano::node & node_a, nano::stats & stats_a) :
 	node{ node_a },
 	stats{ stats_a }
 {
 }
 
-nano::scheduler::buckets::~buckets ()
+nano::scheduler::priority::~priority ()
 {
 	// Thread must be stopped before destruction
 	debug_assert (!thread.joinable ());
 }
 
-void nano::scheduler::buckets::start ()
+void nano::scheduler::priority::start ()
 {
 	debug_assert (!thread.joinable ());
 
@@ -23,7 +23,7 @@ void nano::scheduler::buckets::start ()
 	} };
 }
 
-void nano::scheduler::buckets::stop ()
+void nano::scheduler::priority::stop ()
 {
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
@@ -33,14 +33,14 @@ void nano::scheduler::buckets::stop ()
 	nano::join_or_pass (thread);
 }
 
-void nano::scheduler::buckets::manual (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a)
+void nano::scheduler::priority::manual (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	manual_queue.push_back (std::make_tuple (block_a, previous_balance_a, election_behavior_a));
 	notify ();
 }
 
-bool nano::scheduler::buckets::activate (nano::account const & account_a, nano::transaction const & transaction)
+bool nano::scheduler::priority::activate (nano::account const & account_a, nano::transaction const & transaction)
 {
 	debug_assert (!account_a.is_zero ());
 	auto info = node.ledger.account_info (transaction, account_a);
@@ -60,7 +60,7 @@ bool nano::scheduler::buckets::activate (nano::account const & account_a, nano::
 				auto balance = node.ledger.balance (transaction, hash);
 				auto previous_balance = node.ledger.balance (transaction, conf_info.frontier);
 				nano::lock_guard<nano::mutex> lock{ mutex };
-				priority.push (info->modified, block, std::max (balance, previous_balance));
+				buckets.push (info->modified, block, std::max (balance, previous_balance));
 				notify ();
 				return true; // Activated
 			}
@@ -69,7 +69,7 @@ bool nano::scheduler::buckets::activate (nano::account const & account_a, nano::
 	return false; // Not activated
 }
 
-void nano::scheduler::buckets::flush ()
+void nano::scheduler::priority::flush ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	condition.wait (lock, [this] () {
@@ -77,44 +77,44 @@ void nano::scheduler::buckets::flush ()
 	});
 }
 
-void nano::scheduler::buckets::notify ()
+void nano::scheduler::priority::notify ()
 {
 	condition.notify_all ();
 }
 
-std::size_t nano::scheduler::buckets::size () const
+std::size_t nano::scheduler::priority::size () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	return priority.size () + manual_queue.size ();
+	return buckets.size () + manual_queue.size ();
 }
 
-bool nano::scheduler::buckets::empty_locked () const
+bool nano::scheduler::priority::empty_locked () const
 {
-	return priority.empty () && manual_queue.empty ();
+	return buckets.empty () && manual_queue.empty ();
 }
 
-bool nano::scheduler::buckets::empty () const
+bool nano::scheduler::priority::empty () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	return empty_locked ();
 }
 
-std::size_t nano::scheduler::buckets::priority_queue_size () const
+std::size_t nano::scheduler::priority::priority_queue_size () const
 {
-	return priority.size ();
+	return buckets.size ();
 }
 
-bool nano::scheduler::buckets::priority_queue_predicate () const
+bool nano::scheduler::priority::priority_queue_predicate () const
 {
-	return node.active.vacancy () > 0 && !priority.empty ();
+	return node.active.vacancy () > 0 && !buckets.empty ();
 }
 
-bool nano::scheduler::buckets::manual_queue_predicate () const
+bool nano::scheduler::priority::manual_queue_predicate () const
 {
 	return !manual_queue.empty ();
 }
 
-void nano::scheduler::buckets::run ()
+void nano::scheduler::priority::run ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
@@ -137,8 +137,8 @@ void nano::scheduler::buckets::run ()
 			}
 			else if (priority_queue_predicate ())
 			{
-				auto block = priority.top ();
-				priority.pop ();
+				auto block = buckets.top ();
+				buckets.pop ();
 				lock.unlock ();
 				stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_priority);
 				auto result = node.active.insert (block);
@@ -161,12 +161,12 @@ void nano::scheduler::buckets::run ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::scheduler::buckets::collect_container_info (std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::scheduler::priority::collect_container_info (std::string const & name)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "manual_queue", manual_queue.size (), sizeof (decltype (manual_queue)::value_type) }));
-	composite->add_component (priority.collect_container_info ("priority"));
+	composite->add_component (buckets.collect_container_info ("buckets"));
 	return composite;
 }
