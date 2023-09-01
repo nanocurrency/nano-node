@@ -32,11 +32,6 @@ class transaction;
 class confirmation_height_processor;
 class stats;
 
-namespace scheduler
-{
-	class buckets;
-}
-
 class recently_confirmed_cache final
 {
 public:
