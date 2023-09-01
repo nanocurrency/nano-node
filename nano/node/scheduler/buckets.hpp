@@ -9,7 +9,9 @@
 namespace nano
 {
 class block;
-
+}
+namespace nano::scheduler
+{
 /** A container for holding blocks and their arrival/creation time.
  *
  *  The container consists of a number of buckets. Each bucket holds an ordered set of 'value_type' items.
@@ -20,7 +22,7 @@ class block;
  *  The arrival/creation time is only an approximation and it could even be wildly wrong,
  *  for example, in the event of bootstrapped blocks.
  */
-class prioritization final
+class buckets final
 {
 	class value_type
 	{
@@ -34,7 +36,7 @@ class prioritization final
 	using priority = std::set<value_type>;
 
 	/** container for the buckets to be read in round robin fashion */
-	std::vector<priority> buckets;
+	std::vector<priority> buckets_m;
 
 	/** thresholds that define the bands for each bucket, the minimum balance an account must have to enter a bucket,
 	 *  the container writes a block to the lowest indexed bucket that has balance larger than the bucket's minimum value */
@@ -54,7 +56,7 @@ class prioritization final
 	void populate_schedule ();
 
 public:
-	prioritization (uint64_t maximum = 250000u);
+	buckets (uint64_t maximum = 250000u);
 	void push (uint64_t time, std::shared_ptr<nano::block> block, nano::amount const & priority);
 	std::shared_ptr<nano::block> top () const;
 	void pop ();
@@ -67,4 +69,4 @@ public:
 
 	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const &);
 };
-}
+} // namespace nano::scheduler
