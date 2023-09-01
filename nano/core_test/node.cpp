@@ -1,7 +1,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/node/election.hpp>
-#include <nano/node/scheduler/buckets.hpp>
 #include <nano/node/scheduler/component.hpp>
+#include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/test_common/network.hpp>
@@ -987,7 +987,7 @@ TEST (node, fork_open_flip)
 	// give block open1 to node1, manually trigger an election for open1 and ensure it is in the ledger
 	node1.process_active (open1);
 	ASSERT_TIMELY (5s, node1.block (open1->hash ()) != nullptr);
-	node1.scheduler.buckets.manual (open1);
+	node1.scheduler.priority.manual (open1);
 	ASSERT_TIMELY (5s, (election = node1.active.election (open1->qualified_root ())) != nullptr);
 	election->transition_active ();
 
@@ -1000,7 +1000,7 @@ TEST (node, fork_open_flip)
 
 	// ensure open2 is in node2 ledger (and therefore has sideband) and manually trigger an election for open2
 	ASSERT_TIMELY (5s, node2.block (open2->hash ()) != nullptr);
-	node2.scheduler.buckets.manual (open2);
+	node2.scheduler.priority.manual (open2);
 	ASSERT_TIMELY (5s, (election = node2.active.election (open2->qualified_root ())) != nullptr);
 	election->transition_active ();
 
@@ -1415,7 +1415,7 @@ TEST (node, rep_self_vote)
 	ASSERT_EQ (nano::process_result::progress, node0->process (*block0).code);
 	auto & active = node0->active;
 	auto & scheduler = node0->scheduler;
-	scheduler.buckets.activate (nano::dev::genesis_key.pub, node0->store.tx_begin_read ());
+	scheduler.priority.activate (nano::dev::genesis_key.pub, node0->store.tx_begin_read ());
 	ASSERT_TIMELY (5s, active.election (block0->qualified_root ()));
 	auto election1 = active.election (block0->qualified_root ());
 	ASSERT_NE (nullptr, election1);

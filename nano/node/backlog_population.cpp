@@ -1,7 +1,7 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/backlog_population.hpp>
 #include <nano/node/nodeconfig.hpp>
-#include <nano/node/scheduler/buckets.hpp>
+#include <nano/node/scheduler/priority.hpp>
 #include <nano/secure/store.hpp>
 
 nano::backlog_population::backlog_population (const config & config_a, nano::store & store_a, nano::stats & stats_a) :
