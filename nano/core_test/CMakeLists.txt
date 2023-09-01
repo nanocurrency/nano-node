@@ -38,7 +38,7 @@ add_executable(
   processing_queue.cpp
   processor_service.cpp
   peer_container.cpp
-  prioritization.cpp
+  scheduler_buckets.cpp
   request_aggregator.cpp
   signal_manager.cpp
   signing.cpp
