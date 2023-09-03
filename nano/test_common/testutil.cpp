@@ -80,38 +80,6 @@ bool nano::test::process_live (nano::node & node, std::vector<std::shared_ptr<na
 	return true;
 }
 
-bool nano::test::confirm (nano::node & node, std::vector<nano::block_hash> hashes)
-{
-	// Finish processing all blocks - FIXME: block processor flush is broken and should be removed
-	node.block_processor.flush ();
-	for (auto & hash : hashes)
-	{
-		if (node.block_confirmed (hash))
-		{
-			continue;
-		}
-
-		auto disk_block = node.block (hash);
-		// A sideband is required to start an election
-		release_assert (disk_block != nullptr);
-		release_assert (disk_block->has_sideband ());
-		// This only starts election
-		auto election = node.block_confirm (disk_block);
-		if (election == nullptr)
-		{
-			return false;
-		}
-		// Here we actually confirm the block
-		election->force_confirm ();
-	}
-	return true;
-}
-
-bool nano::test::confirm (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
-{
-	return confirm (node, blocks_to_hashes (blocks));
-}
-
 bool nano::test::confirmed (nano::node & node, std::vector<nano::block_hash> hashes)
 {
 	for (auto & hash : hashes)

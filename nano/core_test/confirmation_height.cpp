@@ -1118,7 +1118,7 @@ TEST (confirmation_height, conflict_rollback_cemented)
 					  .work (*system.work.generate (genesis_hash))
 					  .build_shared ();
 		ASSERT_EQ (nano::process_result::progress, node1->process (*fork1a).code);
-		ASSERT_TRUE (nano::test::confirm (*node1, { fork1a }));
+		nano::test::start_elections (system, *node1, { fork1a }, true);
 		ASSERT_TIMELY (5s, nano::test::confirmed (*node1, { fork1a }));
 
 		// create the other side of the fork on node2
