@@ -13,10 +13,8 @@ TEST (election, construction)
 {
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
-	node.start_election (nano::dev::genesis);
-	ASSERT_TIMELY (5s, node.active.election (nano::dev::genesis->qualified_root ()));
-	auto election = node.active.election (nano::dev::genesis->qualified_root ());
-	election->transition_active ();
+	auto election = std::make_shared<nano::election> (
+	node, nano::dev::genesis, [] (auto const &) {}, [] (auto const &) {}, nano::election_behavior::normal);
 }
 
 TEST (election, behavior)

@@ -69,14 +69,6 @@ bool nano::scheduler::priority::activate (nano::account const & account_a, nano:
 	return false; // Not activated
 }
 
-void nano::scheduler::priority::flush ()
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	condition.wait (lock, [this] () {
-		return stopped || empty_locked () || node.active.vacancy () <= 0;
-	});
-}
-
 void nano::scheduler::priority::notify ()
 {
 	condition.notify_all ();

@@ -36,8 +36,6 @@ public:
 	 * @return true if account was activated
 	 */
 	bool activate (nano::account const &, nano::transaction const &);
-	// Blocks until no more elections can be activated or there are no more elections to activate
-	void flush ();
 	void notify ();
 	std::size_t size () const;
 	bool empty () const;

@@ -1266,7 +1266,6 @@ void nano::node::add_initial_peers ()
 void nano::node::start_election (std::shared_ptr<nano::block> const & block)
 {
 	scheduler.priority.manual (block);
-	scheduler.priority.flush ();
 }
 
 bool nano::node::block_confirmed (nano::block_hash const & hash_a)
