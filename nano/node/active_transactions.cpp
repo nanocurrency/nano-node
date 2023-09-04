@@ -310,7 +310,7 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 
 nano::stat::type nano::active_transactions::completion_type (nano::election const & election) const
 {
-	if (election.confirmed ())
+	if (election.status_confirmed ())
 	{
 		return nano::stat::type::active_confirmed;
 	}
