@@ -133,7 +133,11 @@ void nano::scheduler::priority::run ()
 				manual_queue.pop_front ();
 				lock.unlock ();
 				stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_manual);
-				node.active.insert (block, election_behavior);
+				auto result = node.active.insert (block, election_behavior);
+				if (result.election != nullptr)
+				{
+					result.election->transition_active ();
+				}
 			}
 			else if (priority_queue_predicate ())
 			{

@@ -13,7 +13,7 @@ TEST (election, construction)
 {
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
-	node.block_confirm (nano::dev::genesis);
+	node.start_election (nano::dev::genesis);
 	ASSERT_TIMELY (5s, node.active.election (nano::dev::genesis->qualified_root ()));
 	auto election = node.active.election (nano::dev::genesis->qualified_root ());
 	election->transition_active ();
