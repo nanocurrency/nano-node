@@ -49,5 +49,6 @@ jobs:
 
       - name: Reports
         if: steps.build.outcome == 'success' && (success() || failure())
+        continue-on-error: true
         run: ../ci/tests/show-sanitizer-reports.sh
         working-directory: build
