@@ -286,7 +286,7 @@ TEST (election, continuous_voting)
 				 .build_shared ();
 
 	ASSERT_TRUE (nano::test::process (node1, { send1 }));
-	nano::test::start_elections (system, node1, { send1 }, true);
+	ASSERT_TRUE (nano::test::start_elections (system, node1, { send1 }, true));
 	ASSERT_TIMELY (5s, nano::test::confirmed (node1, { send1 }));
 
 	node1.stats.clear ();

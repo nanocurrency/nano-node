@@ -35,7 +35,7 @@ nano::block_list_t nano::test::setup_chain (nano::test::system & system, nano::n
 	if (confirm)
 	{
 		// Confirm whole chain at once
-		nano::test::start_elections (system, node, { blocks.back () }, true);
+		EXPECT_TRUE (nano::test::start_elections (system, node, { blocks.back () }, true));
 		EXPECT_TIMELY (5s, nano::test::confirmed (node, blocks));
 	}
 
@@ -83,7 +83,7 @@ std::vector<std::pair<nano::account, nano::block_list_t>> nano::test::setup_chai
 		if (confirm)
 		{
 			// Ensure blocks are in the ledger and confirmed
-			nano::test::start_elections (system, node, { send, open }, true);
+			EXPECT_TRUE (nano::test::start_elections (system, node, { send, open }, true));
 			EXPECT_TIMELY (5s, nano::test::confirmed (node, { send, open }));
 		}
 
@@ -142,7 +142,7 @@ nano::block_list_t nano::test::setup_independent_blocks (nano::test::system & sy
 	}
 
 	// Confirm whole genesis chain at once
-	nano::test::start_elections (system, node, { latest }, true);
+	EXPECT_TRUE (nano::test::start_elections (system, node, { latest }, true));
 	EXPECT_TIMELY (5s, nano::test::confirmed (node, { latest }));
 
 	return blocks;
@@ -179,7 +179,7 @@ nano::keypair nano::test::setup_rep (nano::test::system & system, nano::node & n
 				.build_shared ();
 
 	EXPECT_TRUE (nano::test::process (node, { send, open }));
-	nano::test::start_elections (system, node, { send, open }, true);
+	EXPECT_TRUE (nano::test::start_elections (system, node, { send, open }, true));
 	EXPECT_TIMELY (5s, nano::test::confirmed (node, { send, open }));
 
 	return key;

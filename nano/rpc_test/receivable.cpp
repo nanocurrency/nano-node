@@ -144,7 +144,7 @@ TEST (rpc, receivable_unconfirmed)
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 0));
 	request.put ("include_only_confirmed", "false");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
-	nano::test::start_elections (system, *node, { block1->hash () }, true);
+	ASSERT_TRUE (nano::test::start_elections (system, *node, { block1->hash () }, true));
 	ASSERT_TIMELY (5s, !node->active.active (*block1));
 	request.put ("include_only_confirmed", "true");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
@@ -548,7 +548,7 @@ TEST (rpc, accounts_receivable_confirmed)
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 0));
 	request.put ("include_only_confirmed", "false");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
-	nano::test::start_elections (system, *node, { block1->hash () }, true);
+	ASSERT_TRUE (nano::test::start_elections (system, *node, { block1->hash () }, true));
 	ASSERT_TIMELY (5s, !node->active.active (*block1));
 	request.put ("include_only_confirmed", "true");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
