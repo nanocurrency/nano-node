@@ -407,14 +407,16 @@ namespace test
 	/*
 	 * Call start_election for every block identified in the hash vector.
 	 * Optionally, force confirm the election if forced_a is set.
-	 * NOTE: Each election is given 5 seconds to complete, if it does not complete in 5 seconds, it will assert.
+	 * @return true if all elections were successfully started
+	 * NOTE: Each election is given 5 seconds to complete, if it does not complete in 5 seconds, it will return an error
 	 */
-	void start_elections (nano::test::system &, nano::node &, std::vector<nano::block_hash> const &, bool const forced_a = false);
+	[[nodiscard]] bool start_elections (nano::test::system &, nano::node &, std::vector<nano::block_hash> const &, bool const forced_a = false);
 	/*
 	 * Call start_election for every block in the vector.
 	 * Optionally, force confirm the election if forced_a is set.
-	 * NOTE: Each election is given 5 seconds to complete, if it does not complete in 5 seconds, it will assert.
+	 * @return true if all elections were successfully started
+	 * NOTE: Each election is given 5 seconds to complete, if it does not complete in 5 seconds, it will return an error.
 	 */
-	void start_elections (nano::test::system &, nano::node &, std::vector<std::shared_ptr<nano::block>> const &, bool const forced_a = false);
+	[[nodiscard]] bool start_elections (nano::test::system &, nano::node &, std::vector<std::shared_ptr<nano::block>> const &, bool const forced_a = false);
 }
 }

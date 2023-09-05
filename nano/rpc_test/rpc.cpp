@@ -1246,7 +1246,7 @@ TEST (rpc, history_pruning)
 	ASSERT_TIMELY (5s, nano::test::exists (*node0, blocks));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
-	nano::test::start_elections (system, *node0, blocks, true);
+	ASSERT_TRUE (nano::test::start_elections (system, *node0, blocks, true));
 	ASSERT_TIMELY (5s, node0->block_confirmed (uchange->hash ()));
 	nano::confirmation_height_info confirmation_height_info;
 	node0->store.confirmation_height.get (node0->store.tx_begin_read (), nano::dev::genesis_key.pub, confirmation_height_info);
@@ -5877,7 +5877,7 @@ TEST (rpc, block_confirmed)
 				.work (*system.work.generate (latest))
 				.build_shared ();
 	node->process_active (send);
-	nano::test::start_elections (system, *node, { send }, true);
+	ASSERT_TRUE (nano::test::start_elections (system, *node, { send }, true));
 
 	// Wait until the confirmation height has been set
 	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->store.tx_begin_read (), send->hash ()) && !node->confirmation_height_processor.is_processing_block (send->hash ()));
@@ -6879,7 +6879,7 @@ TEST (rpc, confirmation_active)
 				 .build_shared ();
 	node1->process_active (send1);
 	node1->process_active (send2);
-	nano::test::start_elections (system, *node1, { send1, send2 });
+	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send1, send2 }));
 	ASSERT_EQ (2, node1->active.size ());
 	auto election (node1->active.election (send1->qualified_root ()));
 	ASSERT_NE (nullptr, election);

@@ -939,7 +939,7 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	node1->process_active (change2);
 	ASSERT_TIMELY (5s, node1->block (change2->hash ()) != nullptr);
 	// Confirm last block to prune previous
-	nano::test::start_elections (system, *node1, { send1, receive1, change1, change2 }, true);
+	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send1, receive1, change1, change2 }, true));
 	ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (receive1->hash ()) && node1->block_confirmed (change1->hash ()) && node1->block_confirmed (change2->hash ()) && node1->active.empty ());
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	ASSERT_EQ (5, node1->ledger.cache.cemented_count);
@@ -1321,7 +1321,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	node1->process_active (state_open);
 	ASSERT_TIMELY (5s, node1->block (state_open->hash ()) != nullptr);
 	// Confirm last block to prune previous
-	nano::test::start_elections (system, *node1, { send1, send2, open, state_open }, true);
+	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send1, send2, open, state_open }, true));
 	ASSERT_TIMELY (5s, node1->block_confirmed (send2->hash ()) && node1->block_confirmed (open->hash ()) && node1->block_confirmed (state_open->hash ()));
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	ASSERT_EQ (5, node1->ledger.cache.cemented_count);
@@ -1878,7 +1878,7 @@ TEST (frontier_req, confirmed_frontier)
 	ASSERT_EQ (receive2->hash (), request5->frontier);
 
 	// Confirm account before genesis (confirmed only)
-	nano::test::start_elections (system, *node1, { send1, receive1 }, true);
+	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send1, receive1 }, true));
 	ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (receive1->hash ()));
 	auto connection6 (std::make_shared<nano::transport::tcp_server> (std::make_shared<nano::transport::socket> (*node1, nano::transport::socket::endpoint_type_t::server), node1));
 	auto req6 = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);
@@ -1893,7 +1893,7 @@ TEST (frontier_req, confirmed_frontier)
 	ASSERT_EQ (receive1->hash (), request6->frontier);
 
 	// Confirm account after genesis (confirmed only)
-	nano::test::start_elections (system, *node1, { send2, receive2 }, true);
+	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send2, receive2 }, true));
 	ASSERT_TIMELY (5s, node1->block_confirmed (send2->hash ()) && node1->block_confirmed (receive2->hash ()));
 	auto connection7 (std::make_shared<nano::transport::tcp_server> (std::make_shared<nano::transport::socket> (*node1, nano::transport::socket::endpoint_type_t::server), node1));
 	auto req7 = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);

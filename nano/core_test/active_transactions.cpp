@@ -556,7 +556,7 @@ TEST (active_transactions, vote_replays)
 	ASSERT_NE (nullptr, open1);
 	node.process_active (send1);
 	node.process_active (open1);
-	nano::test::start_elections (system, node, { send1, open1 });
+	ASSERT_TRUE (nano::test::start_elections (system, node, { send1, open1 }));
 	ASSERT_EQ (2, node.active.size ());
 	// First vote is not a replay and confirms the election, second vote should be a replay since the election has confirmed but not yet removed
 	auto vote_send1 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ send1->hash () }));
@@ -585,7 +585,7 @@ TEST (active_transactions, vote_replays)
 				 .build_shared ();
 	ASSERT_NE (nullptr, send2);
 	node.process_active (send2);
-	nano::test::start_elections (system, node, { send2 });
+	ASSERT_TRUE (nano::test::start_elections (system, node, { send2 }));
 	ASSERT_EQ (1, node.active.size ());
 	auto vote1_send2 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ send2->hash () }));
 	auto vote2_send2 (std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, std::vector<nano::block_hash>{ send2->hash () }));
@@ -1280,7 +1280,7 @@ TEST (active_transactions, list_active)
 
 	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
 
-	nano::test::start_elections (system, node, { send, send2, open });
+	ASSERT_TRUE (nano::test::start_elections (system, node, { send, send2, open }));
 	ASSERT_EQ (3, node.active.size ());
 	ASSERT_EQ (1, node.active.list_active (1).size ());
 	ASSERT_EQ (2, node.active.list_active (2).size ());
