@@ -1195,7 +1195,7 @@ bool nano::wallet::search_receivable (nano::transaction const & wallet_transacti
 							if (block)
 							{
 								// Request confirmation for block which is not being processed yet
-								wallets.node.block_confirm (block);
+								wallets.node.start_election (block);
 							}
 						}
 					}

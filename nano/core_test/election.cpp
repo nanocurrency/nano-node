@@ -13,10 +13,8 @@ TEST (election, construction)
 {
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
-	node.block_confirm (nano::dev::genesis);
-	ASSERT_TIMELY (5s, node.active.election (nano::dev::genesis->qualified_root ()));
-	auto election = node.active.election (nano::dev::genesis->qualified_root ());
-	election->transition_active ();
+	auto election = std::make_shared<nano::election> (
+	node, nano::dev::genesis, [] (auto const &) {}, [] (auto const &) {}, nano::election_behavior::normal);
 }
 
 TEST (election, behavior)
@@ -288,7 +286,7 @@ TEST (election, continuous_voting)
 				 .build_shared ();
 
 	ASSERT_TRUE (nano::test::process (node1, { send1 }));
-	ASSERT_TIMELY (5s, nano::test::confirm (node1, { send1 }));
+	nano::test::start_elections (system, node1, { send1 }, true);
 	ASSERT_TIMELY (5s, nano::test::confirmed (node1, { send1 }));
 
 	node1.stats.clear ();

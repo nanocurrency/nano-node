@@ -1205,7 +1205,7 @@ void nano::json_handler::block_confirm ()
 				// Start new confirmation for unconfirmed (or not being confirmed) block
 				if (!node.confirmation_height_processor.is_processing_block (hash))
 				{
-					node.block_confirm (std::move (block_l));
+					node.start_election (std::move (block_l));
 				}
 			}
 			else

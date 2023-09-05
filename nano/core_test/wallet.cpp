@@ -1182,8 +1182,8 @@ TEST (wallet, search_receivable)
 	// Pending search should start an election
 	ASSERT_TRUE (node.active.empty ());
 	ASSERT_FALSE (wallet.search_receivable (wallet.wallets.tx_begin_read ()));
-	auto election = node.active.election (send->qualified_root ());
-	ASSERT_NE (nullptr, election);
+	std::shared_ptr<nano::election> election;
+	ASSERT_TIMELY (5s, election = node.active.election (send->qualified_root ()));
 
 	// Erase the key so the confirmation does not trigger an automatic receive
 	wallet.store.erase (node.wallets.tx_begin_write (), nano::dev::genesis->account ());

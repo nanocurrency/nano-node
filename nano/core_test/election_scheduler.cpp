@@ -140,31 +140,3 @@ TEST (election_scheduler, no_vacancy)
 	ASSERT_TIMELY (5s, node.active.election (block2->qualified_root ()) != nullptr);
 	ASSERT_TRUE (node.scheduler.priority.empty ());
 }
-
-// Ensure that election_scheduler::flush terminates even if no elections can currently be queued e.g. shutdown or no active_transactions vacancy
-TEST (election_scheduler, flush_vacancy)
-{
-	nano::test::system system;
-	nano::node_config config = system.default_config ();
-	// No elections can be activated
-	config.active_elections_size = 0;
-	auto & node = *system.add_node (config);
-	nano::state_block_builder builder;
-	nano::keypair key;
-
-	auto send = builder.make_block ()
-				.account (nano::dev::genesis_key.pub)
-				.previous (nano::dev::genesis->hash ())
-				.representative (nano::dev::genesis_key.pub)
-				.link (key.pub)
-				.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*system.work.generate (nano::dev::genesis->hash ()))
-				.build_shared ();
-	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
-	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
-	// Ensure this call does not block, even though no elections can be activated.
-	node.scheduler.priority.flush ();
-	ASSERT_EQ (0, node.active.size ());
-	ASSERT_EQ (1, node.scheduler.priority.size ());
-}

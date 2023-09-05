@@ -1132,7 +1132,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 	// Confirm all of the accounts
 	for (auto & open_block : open_blocks)
 	{
-		node->block_confirm (open_block);
+		node->start_election (open_block);
 		std::shared_ptr<nano::election> election;
 		ASSERT_TIMELY (10s, (election = node->active.election (open_block->qualified_root ())) != nullptr);
 		election->force_confirm ();

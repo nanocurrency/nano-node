@@ -1263,17 +1263,9 @@ void nano::node::add_initial_peers ()
 	}
 }
 
-std::shared_ptr<nano::election> nano::node::block_confirm (std::shared_ptr<nano::block> const & block_a)
+void nano::node::start_election (std::shared_ptr<nano::block> const & block)
 {
-	scheduler.priority.manual (block_a);
-	scheduler.priority.flush ();
-	auto election = active.election (block_a->qualified_root ());
-	if (election != nullptr)
-	{
-		election->transition_active ();
-		return election;
-	}
-	return {};
+	scheduler.priority.manual (block);
 }
 
 bool nano::node::block_confirmed (nano::block_hash const & hash_a)

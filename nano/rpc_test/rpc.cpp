@@ -1246,10 +1246,7 @@ TEST (rpc, history_pruning)
 	ASSERT_TIMELY (5s, nano::test::exists (*node0, blocks));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
-	// WORKAROUND: this is called repeatedly inside an assert timely because nano::test::confirm()
-	// uses block_processor.flush internally which can fail to flush
-	ASSERT_TIMELY (5s, nano::test::confirm (*node0, blocks));
-
+	nano::test::start_elections (system, *node0, blocks, true);
 	ASSERT_TIMELY (5s, node0->block_confirmed (uchange->hash ()));
 	nano::confirmation_height_info confirmation_height_info;
 	node0->store.confirmation_height.get (node0->store.tx_begin_read (), nano::dev::genesis_key.pub, confirmation_height_info);
@@ -5880,7 +5877,7 @@ TEST (rpc, block_confirmed)
 				.work (*system.work.generate (latest))
 				.build_shared ();
 	node->process_active (send);
-	ASSERT_TIMELY (5s, nano::test::confirm (*node, { send }));
+	nano::test::start_elections (system, *node, { send }, true);
 
 	// Wait until the confirmation height has been set
 	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->store.tx_begin_read (), send->hash ()) && !node->confirmation_height_processor.is_processing_block (send->hash ()));

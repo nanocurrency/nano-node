@@ -13,8 +13,8 @@ TEST (vote_processor, codes)
 {
 	nano::test::system system (1);
 	auto & node (*system.nodes[0]);
-	nano::keypair key;
-	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () }));
+	auto blocks = nano::test::setup_chain (system, node, 1, nano::dev::genesis_key, false);
+	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ blocks[0]->hash () }));
 	auto vote_invalid = std::make_shared<nano::vote> (*vote);
 	vote_invalid->signature.bytes[0] ^= 1;
 	auto channel (std::make_shared<nano::transport::inproc::channel> (node, node));
@@ -29,8 +29,9 @@ TEST (vote_processor, codes)
 	ASSERT_EQ (nano::vote_code::indeterminate, node.vote_processor.vote_blocking (vote, channel));
 
 	// First vote from an account for an ongoing election
-	node.block_confirm (nano::dev::genesis);
-	ASSERT_NE (nullptr, node.active.election (nano::dev::genesis->qualified_root ()));
+	node.start_election (blocks[0]);
+	std::shared_ptr<nano::election> election;
+	ASSERT_TIMELY (5s, election = node.active.election (blocks[0]->qualified_root ()));
 	ASSERT_EQ (nano::vote_code::vote, node.vote_processor.vote_blocking (vote, channel));
 
 	// Processing the same vote is a replay
@@ -40,7 +41,7 @@ TEST (vote_processor, codes)
 	ASSERT_EQ (nano::vote_code::invalid, node.vote_processor.vote_blocking (vote_invalid, channel));
 
 	// Once the election is removed (confirmed / dropped) the vote is again indeterminate
-	node.active.erase (*nano::dev::genesis);
+	node.active.erase (*blocks[0]);
 	ASSERT_EQ (nano::vote_code::indeterminate, node.vote_processor.vote_blocking (vote, channel));
 }
 
@@ -256,13 +257,13 @@ TEST (vote_processor, local_broadcast_without_a_representative)
 	ASSERT_EQ (nano::process_result::progress, node.process_local (send).value ().code);
 	ASSERT_TIMELY (10s, !node.active.empty ());
 	ASSERT_EQ (node.config.vote_minimum, node.weight (nano::dev::genesis_key.pub));
-	node.block_confirm (send);
+	node.start_election (send);
 	// Process a vote without a representative
 	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch (), nano::vote::duration_max, std::vector<nano::block_hash>{ send->hash () });
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote));
 	// Make sure the vote was processed.
-	auto election (node.active.election (send->qualified_root ()));
-	ASSERT_NE (nullptr, election);
+	std::shared_ptr<nano::election> election;
+	ASSERT_TIMELY (5s, election = node.active.election (send->qualified_root ()));
 	auto votes (election->votes ());
 	auto existing (votes.find (nano::dev::genesis_key.pub));
 	ASSERT_NE (votes.end (), existing);
