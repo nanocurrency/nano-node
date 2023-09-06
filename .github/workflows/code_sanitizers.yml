@@ -2,73 +2,53 @@ name: Code Sanitizers
 
 on: [push, pull_request, workflow_dispatch]
 
-env:
-  RELEASE: 0
-  artifact: 0
-
-jobs:  
-  google_sanitizers_linux:
-    name: ${{ matrix.SANITIZER }} / ROCKSDB=${{ matrix.TEST_USE_ROCKSDB }} / ${{ matrix.COMPILER }}
-    timeout-minutes: 90
+jobs:
+  linux_sanitizers:
+    name: Linux [${{ matrix.SANITIZER }}] [${{ matrix.BACKEND }} | ${{ matrix.COMPILER }}]
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        TEST_USE_ROCKSDB: [0, 1]
+        BACKEND: [lmdb, rocksdb]
         COMPILER: [clang]
         SANITIZER: [ASAN, ASAN_INT, TSAN]
     runs-on: ubuntu-22.04
-    outputs:
-      issue_reported: ${{ steps.show_report.outputs.issue_reported }}
     env:
       COMPILER: ${{ matrix.COMPILER }}
-      TEST_USE_ROCKSDB: ${{ matrix.TEST_USE_ROCKSDB }}
-      XSAN: ${{ endsWith(matrix.sanitizer, 'ASAN_INT') && 'ASAN' || matrix.SANITIZER }}
-      XSAN_SUPPRESSIONS: ${{ endsWith(matrix.SANITIZER, 'TSAN') && 'suppressions=../tsan_suppressions:' || '' }}
+      BACKEND: ${{ matrix.BACKEND }}
+      SANITIZER: ${{ matrix.SANITIZER }}
+      TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
+      DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
+      ASAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report
+      TSAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:suppressions=../tsan_suppressions
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
-          submodules: "true"
-      - name: Git Submodule Update
-        run: git submodule update --init --recursive
-      - name: XSan variable values
-        run: |
-          (
-            echo "XSAN: '${XSAN}'"
-            echo "XSAN_SUPPRESSIONS: '${XSAN_SUPPRESSIONS}'"
-          )
-      - name: Install Dependencies
-        run: ci/actions/linux/install_deps.sh
+          submodules: "recursive"
+
+      - name: Prepare
+        run: sudo -E ci/prepare/linux/prepare.sh
+
       - name: Build Tests
-        id: build_tests
-        run: docker run -e TEST_USE_ROCKSDB -v ${PWD}:/workspace ghcr.io/${{ github.repository }}/nano-env:${{ matrix.COMPILER }} /bin/bash -c \
-          "cd /workspace && ${{ matrix.SANITIZER }}=1 ci/build-ci.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 'core_test rpc_test'"
-      - name: Run core_test
-        id: core_test
+        id: build
+        run: ci/build-tests.sh
+
+      - name: Core Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
         continue-on-error: true
-        run: docker run -v ${PWD}:/workspace ghcr.io/${{ github.repository }}/nano-env:${{ matrix.COMPILER }} /bin/bash -c \
-          "cd /workspace/build && ${XSAN}_OPTIONS=${XSAN_SUPPRESSIONS}log_exe_name=1:log_path=sanitizer_report ./core_test"
-      - name: Run rpc_test
-        id: rpc_test
+        run: timeout -sKILL 45m ../ci/tests/run-core-tests.sh
+        working-directory: build
+
+      - name: RPC Tests
+        if: steps.build.outcome == 'success' && (success() || failure())
         continue-on-error: true
-        run: docker run -v ${PWD}:/workspace ghcr.io/${{ github.repository }}/nano-env:${{ matrix.COMPILER }} /bin/bash -c \
-          "cd /workspace/build && ${XSAN}_OPTIONS=${XSAN_SUPPRESSIONS}log_exe_name=1:log_path=sanitizer_report ./rpc_test"
-      - name: Test Reports
-        id: show_report
-        run: |
-          (
-            issue_reported=false
-            reports=$(ls build/sanitizer_report*)
-            if [[ -n "${reports}" ]]; then
-              echo "Report Output:"
-              for report in ${reports}; do
-                echo "File: $report"
-                docker run -v ${PWD}:/workspace ghcr.io/${{ github.repository }}/nano-env:${{ matrix.COMPILER }} /bin/bash -c "cat /workspace/${report}"
-                echo
-              done
-              issue_reported=true
-            else
-              echo "No report has been generated."
-            fi
-            echo "issue_reported=${issue_reported}" >> $GITHUB_OUTPUT
-          ) || exit 0
+        run: timeout -sKILL 20m ../ci/tests/run-rpc-tests.sh
+        working-directory: build
+
+      - name: Reports
+        if: steps.build.outcome == 'success' && (success() || failure())
+        continue-on-error: true
+        run: ../ci/tests/show-sanitizer-reports.sh
+        working-directory: build
