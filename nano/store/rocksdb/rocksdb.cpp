@@ -698,19 +698,19 @@ int nano::store::rocksdb::component::drop (store::write_transaction const & tran
 int nano::store::rocksdb::component::clear (::rocksdb::ColumnFamilyHandle * column_family)
 {
 	::rocksdb::ReadOptions read_options;
-  ::rocksdb::WriteOptions write_options;
-  ::rocksdb::WriteBatch write_batch;
-  std::unique_ptr<::rocksdb::Iterator> it(db->NewIterator(read_options, column_family));
+	::rocksdb::WriteOptions write_options;
+	::rocksdb::WriteBatch write_batch;
+	std::unique_ptr<::rocksdb::Iterator> it (db->NewIterator (read_options, column_family));
 
-  for (it->SeekToFirst (); it->Valid (); it->Next ())
-  {
-    write_batch.Delete (column_family, it->key());
-  }
+	for (it->SeekToFirst (); it->Valid (); it->Next ())
+	{
+		write_batch.Delete (column_family, it->key ());
+	}
 
-  ::rocksdb::Status status = db->Write(write_options, &write_batch);
-  release_assert(status.ok());
+	::rocksdb::Status status = db->Write (write_options, &write_batch);
+	release_assert (status.ok ());
 
-  return status.code();
+	return status.code ();
 }
 
 void nano::store::rocksdb::component::construct_column_family_mutexes ()
