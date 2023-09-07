@@ -1,13 +1,14 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/scheduler/limiter.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
 
 nano::scheduler::optimistic::optimistic (optimistic_config const & config_a, nano::node & node_a, nano::ledger & ledger_a, nano::active_transactions & active_a, nano::network_constants const & network_constants_a, nano::stats & stats_a) :
 	config{ config_a },
 	node{ node_a },
 	ledger{ ledger_a },
-	active{ active_a },
+	limiter{ std::make_shared<nano::scheduler::limiter> (node.active.insert_fn (), std::max<size_t> (node.config.active_elections_optimistic_limit_percentage * node.config.active_elections_size / 100, 1u), nano::election_behavior::optimistic) },
 	network_constants{ network_constants_a },
 	stats{ stats_a }
 {
@@ -100,7 +101,7 @@ bool nano::scheduler::optimistic::predicate () const
 {
 	debug_assert (!mutex.try_lock ());
 
-	if (active.vacancy (nano::election_behavior::optimistic) <= 0)
+	if (!limiter->available ())
 	{
 		return false;
 	}
@@ -154,7 +155,7 @@ void nano::scheduler::optimistic::run_one (nano::transaction const & transaction
 		{
 			// Try to insert it into AEC
 			// We check for AEC vacancy inside our predicate
-			auto result = node.active.insert (block, nano::election_behavior::optimistic);
+			auto result = limiter->activate (block);
 
 			stats.inc (nano::stat::type::optimistic_scheduler, result.inserted ? nano::stat::detail::insert : nano::stat::detail::insert_failed);
 		}
