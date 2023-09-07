@@ -138,7 +138,10 @@ public: // Status
 
 public: // Interface
 	election (nano::node &, std::shared_ptr<nano::block> const & block, std::function<void (std::shared_ptr<nano::block> const &)> const & confirmation_action, std::function<void (nano::account const &)> const & vote_action, nano::election_behavior behavior);
+	~election ();
+	nano::observer_set<nano::qualified_root const &> destructor_observers;
 
+public:
 	std::shared_ptr<nano::block> find (nano::block_hash const &) const;
 	/*
 	 * Process vote. Internally uses cooldown to throttle non-final votes

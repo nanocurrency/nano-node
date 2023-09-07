@@ -17,6 +17,23 @@ TEST (election, construction)
 	node, nano::dev::genesis, [] (auto const &) {}, [] (auto const &) {}, nano::election_behavior::normal);
 }
 
+// This tests the election destruction event notification
+// Since the notification is signalled in the destructor, it needs to be freed
+TEST (election, destructor_observer)
+{
+	std::atomic<bool> destroyed{ false };
+	{
+		nano::test::system system (1);
+		auto & node = *system.nodes[0];
+		auto election = std::make_shared<nano::election> (
+		node, nano::dev::genesis, [] (auto const &) {}, [] (auto const &) {}, nano::election_behavior::normal);
+		election->destructor_observers.add ([&destroyed] (auto const & qualified_root) {
+			destroyed = true;
+		});
+	}
+	ASSERT_TRUE (destroyed);
+}
+
 TEST (election, behavior)
 {
 	nano::test::system system (1);
