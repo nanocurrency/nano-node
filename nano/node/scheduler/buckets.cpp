@@ -1,7 +1,9 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/scheduler/bucket.hpp>
 #include <nano/node/scheduler/buckets.hpp>
+#include <nano/node/scheduler/limiter.hpp>
 
 #include <string>
 
@@ -29,7 +31,7 @@ void nano::scheduler::buckets::seek ()
  * Prioritization constructor, construct a container containing approximately 'maximum' number of blocks.
  * @param maximum number of blocks that this container can hold, this is a soft and approximate limit.
  */
-nano::scheduler::buckets::buckets (uint64_t maximum) :
+nano::scheduler::buckets::buckets (insert_t const & insert, uint64_t maximum) :
 	maximum{ maximum }
 {
 	auto build_region = [this] (uint128_t const & begin, uint128_t const & end, size_t count) {
@@ -52,7 +54,8 @@ nano::scheduler::buckets::buckets (uint64_t maximum) :
 	auto bucket_max = std::max<size_t> (1u, maximum / minimums.size ());
 	for (size_t i = 0u, n = minimums.size (); i < n; ++i)
 	{
-		buckets_m.push_back (std::make_unique<scheduler::bucket> (bucket_max));
+		auto limiter = std::make_shared<scheduler::limiter> (insert, bucket_max, nano::election_behavior::normal);
+		buckets_m.push_back (std::make_unique<scheduler::bucket> (limiter, bucket_max));
 	}
 	current = buckets_m.begin ();
 }
@@ -83,7 +86,7 @@ void nano::scheduler::buckets::push (uint64_t time, std::shared_ptr<nano::block>
 }
 
 /** Return the highest priority block of the current bucket */
-std::shared_ptr<nano::block> nano::scheduler::buckets::top () const
+std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::scheduler::limiter>> nano::scheduler::buckets::top () const
 {
 	debug_assert (available ());
 	auto result = (*current)->top ();

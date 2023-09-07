@@ -5,7 +5,7 @@
 nano::scheduler::priority::priority (nano::node & node_a, nano::stats & stats_a) :
 	node{ node_a },
 	stats{ stats_a },
-	buckets{ std::make_unique<scheduler::buckets> () }
+	buckets{ std::make_unique<scheduler::buckets> (node_a.active.insert_fn ()) }
 {
 }
 
@@ -110,7 +110,7 @@ void nano::scheduler::priority::run ()
 				buckets->pop ();
 				lock.unlock ();
 				stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_priority);
-				auto result = node.active.insert (block);
+				auto result = node.active.insert (block.first);
 				if (result.inserted)
 				{
 					stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_priority_success);

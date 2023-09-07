@@ -373,6 +373,14 @@ nano::election_insertion_result nano::active_transactions::insert (const std::sh
 	return result;
 }
 
+std::function<nano::election_insertion_result (std::shared_ptr<nano::block> const & block, nano::election_behavior behavior)> nano::active_transactions::insert_fn ()
+{
+	return [this] (std::shared_ptr<nano::block> const & block, nano::election_behavior behavior) {
+		auto result = insert (block, behavior);
+		return result;
+	};
+}
+
 void nano::active_transactions::trim ()
 {
 	/*
