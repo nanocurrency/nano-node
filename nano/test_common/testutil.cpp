@@ -244,3 +244,5 @@ bool nano::test::start_elections (nano::test::system & system_a, nano::node & no
 {
 	return nano::test::start_elections (system_a, node_a, blocks_to_hashes (blocks_a), forced_a);
 }
+
+std::function<nano::election_insertion_result (std::shared_ptr<nano::block> const & block, nano::election_behavior behavior)> nano::test::active_transactions_insert_null = [] (std::shared_ptr<nano::block> const & block, nano::election_behavior behavior) { return nano::election_insertion_result{}; };

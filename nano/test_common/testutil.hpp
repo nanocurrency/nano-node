@@ -3,6 +3,7 @@
 #include <nano/lib/errors.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/node/election_insertion_result.hpp>
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/transport.hpp>
 
@@ -131,6 +132,7 @@ class network_params;
 class vote;
 class block;
 class election;
+enum class election_behavior;
 
 extern nano::uint128_t const & genesis_amount;
 
@@ -418,5 +420,6 @@ namespace test
 	 * NOTE: Each election is given 5 seconds to complete, if it does not complete in 5 seconds, it will return an error.
 	 */
 	[[nodiscard]] bool start_elections (nano::test::system &, nano::node &, std::vector<std::shared_ptr<nano::block>> const &, bool const forced_a = false);
+	extern std::function<nano::election_insertion_result (std::shared_ptr<nano::block> const & block, nano::election_behavior behavior)> active_transactions_insert_null;
 }
 }

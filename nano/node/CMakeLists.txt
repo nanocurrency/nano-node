@@ -202,6 +202,8 @@ add_library(
   scheduler/component.cpp
   scheduler/hinted.hpp
   scheduler/hinted.cpp
+  scheduler/limiter.hpp
+  scheduler/limiter.cpp
   scheduler/manual.hpp
   scheduler/manual.cpp
   scheduler/optimistic.hpp
