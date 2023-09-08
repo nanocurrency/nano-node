@@ -33,18 +33,14 @@ class buckets final
 	 *  the container writes a block to the lowest indexed bucket that has balance larger than the bucket's minimum value */
 	std::deque<nano::uint128_t> minimums;
 
-	/** Contains bucket indicies to iterate over when making the next scheduling decision */
-	std::deque<uint8_t> schedule;
-
 	/** index of bucket to read next */
-	decltype (schedule)::const_iterator current;
+	decltype (buckets_m)::const_iterator current;
 
 	/** maximum number of blocks in whole container, each bucket's maximum is maximum / bucket_number */
 	uint64_t const maximum;
 
 	void next ();
 	void seek ();
-	void populate_schedule ();
 
 public:
 	buckets (uint64_t maximum = 250000u);

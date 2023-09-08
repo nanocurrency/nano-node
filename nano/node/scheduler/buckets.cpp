@@ -9,9 +9,9 @@
 void nano::scheduler::buckets::next ()
 {
 	++current;
-	if (current == schedule.end ())
+	if (current == buckets_m.end ())
 	{
-		current = schedule.begin ();
+		current = buckets_m.begin ();
 	}
 }
 
@@ -19,18 +19,9 @@ void nano::scheduler::buckets::next ()
 void nano::scheduler::buckets::seek ()
 {
 	next ();
-	for (std::size_t i = 0, n = schedule.size (); buckets_m[*current]->empty () && i < n; ++i)
+	for (std::size_t i = 0, n = buckets_m.size (); (*current)->empty () && i < n; ++i)
 	{
 		next ();
-	}
-}
-
-/** Initialise the schedule vector */
-void nano::scheduler::buckets::populate_schedule ()
-{
-	for (auto i = 0; i < buckets_m.size (); ++i)
-	{
-		schedule.push_back (i);
 	}
 }
 
@@ -63,8 +54,7 @@ nano::scheduler::buckets::buckets (uint64_t maximum) :
 	{
 		buckets_m.push_back (std::make_unique<scheduler::bucket> (bucket_max));
 	}
-	populate_schedule ();
-	current = schedule.begin ();
+	current = buckets_m.begin ();
 }
 
 nano::scheduler::buckets::~buckets ()
@@ -96,7 +86,7 @@ void nano::scheduler::buckets::push (uint64_t time, std::shared_ptr<nano::block>
 std::shared_ptr<nano::block> nano::scheduler::buckets::top () const
 {
 	debug_assert (!empty ());
-	auto result = buckets_m[*current]->top ();
+	auto result = (*current)->top ();
 	return result;
 }
 
@@ -104,7 +94,7 @@ std::shared_ptr<nano::block> nano::scheduler::buckets::top () const
 void nano::scheduler::buckets::pop ()
 {
 	debug_assert (!empty ());
-	auto & bucket = buckets_m[*current];
+	auto & bucket = *current;
 	bucket->pop ();
 	seek ();
 }
@@ -145,7 +135,7 @@ void nano::scheduler::buckets::dump () const
 	{
 		bucket->dump ();
 	}
-	std::cerr << "current: " << std::to_string (*current) << '\n';
+	std::cerr << "current: " << current - buckets_m.begin () << '\n';
 }
 
 std::unique_ptr<nano::container_info_component> nano::scheduler::buckets::collect_container_info (std::string const & name)
