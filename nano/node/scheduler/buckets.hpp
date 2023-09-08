@@ -4,7 +4,7 @@
 
 #include <cstddef>
 #include <set>
-#include <vector>
+#include <deque>
 
 namespace nano
 {
@@ -36,14 +36,14 @@ class buckets final
 	using priority = std::set<value_type>;
 
 	/** container for the buckets to be read in round robin fashion */
-	std::vector<priority> buckets_m;
+	std::deque<priority> buckets_m;
 
 	/** thresholds that define the bands for each bucket, the minimum balance an account must have to enter a bucket,
 	 *  the container writes a block to the lowest indexed bucket that has balance larger than the bucket's minimum value */
-	std::vector<nano::uint128_t> minimums;
+	std::deque<nano::uint128_t> minimums;
 
 	/** Contains bucket indicies to iterate over when making the next scheduling decision */
-	std::vector<uint8_t> schedule;
+	std::deque<uint8_t> schedule;
 
 	/** index of bucket to read next */
 	decltype (schedule)::const_iterator current;
