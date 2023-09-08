@@ -1,9 +1,11 @@
 #include <nano/node/node.hpp>
+#include <nano/node/scheduler/buckets.hpp>
 #include <nano/node/scheduler/priority.hpp>
 
 nano::scheduler::priority::priority (nano::node & node_a, nano::stats & stats_a) :
 	node{ node_a },
-	stats{ stats_a }
+	stats{ stats_a },
+	buckets{ std::make_unique<scheduler::buckets> () }
 {
 }
 
@@ -60,7 +62,7 @@ bool nano::scheduler::priority::activate (nano::account const & account_a, nano:
 				auto balance = node.ledger.balance (transaction, hash);
 				auto previous_balance = node.ledger.balance (transaction, conf_info.frontier);
 				nano::lock_guard<nano::mutex> lock{ mutex };
-				buckets.push (info->modified, block, std::max (balance, previous_balance));
+				buckets->push (info->modified, block, std::max (balance, previous_balance));
 				notify ();
 				return true; // Activated
 			}
@@ -77,12 +79,12 @@ void nano::scheduler::priority::notify ()
 std::size_t nano::scheduler::priority::size () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	return buckets.size () + manual_queue.size ();
+	return buckets->size () + manual_queue.size ();
 }
 
 bool nano::scheduler::priority::empty_locked () const
 {
-	return buckets.empty () && manual_queue.empty ();
+	return buckets->empty () && manual_queue.empty ();
 }
 
 bool nano::scheduler::priority::empty () const
@@ -93,12 +95,12 @@ bool nano::scheduler::priority::empty () const
 
 std::size_t nano::scheduler::priority::priority_queue_size () const
 {
-	return buckets.size ();
+	return buckets->size ();
 }
 
 bool nano::scheduler::priority::priority_queue_predicate () const
 {
-	return node.active.vacancy () > 0 && !buckets.empty ();
+	return node.active.vacancy () > 0 && !buckets->empty ();
 }
 
 bool nano::scheduler::priority::manual_queue_predicate () const
@@ -133,8 +135,8 @@ void nano::scheduler::priority::run ()
 			}
 			else if (priority_queue_predicate ())
 			{
-				auto block = buckets.top ();
-				buckets.pop ();
+				auto block = buckets->top ();
+				buckets->pop ();
 				lock.unlock ();
 				stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_priority);
 				auto result = node.active.insert (block);
@@ -163,6 +165,6 @@ std::unique_ptr<nano::container_info_component> nano::scheduler::priority::colle
 
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "manual_queue", manual_queue.size (), sizeof (decltype (manual_queue)::value_type) }));
-	composite->add_component (buckets.collect_container_info ("buckets"));
+	composite->add_component (buckets->collect_container_info ("buckets"));
 	return composite;
 }
