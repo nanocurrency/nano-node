@@ -3,8 +3,9 @@
 #include <nano/lib/utility.hpp>
 
 #include <cstddef>
-#include <set>
-#include <vector>
+#include <cstdint>
+#include <deque>
+#include <memory>
 
 namespace nano
 {
@@ -12,6 +13,7 @@ class block;
 }
 namespace nano::scheduler
 {
+class bucket;
 /** A container for holding blocks and their arrival/creation time.
  *
  *  The container consists of a number of buckets. Each bucket holds an ordered set of 'value_type' items.
@@ -24,39 +26,25 @@ namespace nano::scheduler
  */
 class buckets final
 {
-	class value_type
-	{
-	public:
-		uint64_t time;
-		std::shared_ptr<nano::block> block;
-		bool operator< (value_type const & other_a) const;
-		bool operator== (value_type const & other_a) const;
-	};
-
-	using priority = std::set<value_type>;
-
 	/** container for the buckets to be read in round robin fashion */
-	std::vector<priority> buckets_m;
+	std::deque<std::unique_ptr<bucket>> buckets_m;
 
 	/** thresholds that define the bands for each bucket, the minimum balance an account must have to enter a bucket,
 	 *  the container writes a block to the lowest indexed bucket that has balance larger than the bucket's minimum value */
-	std::vector<nano::uint128_t> minimums;
-
-	/** Contains bucket indicies to iterate over when making the next scheduling decision */
-	std::vector<uint8_t> schedule;
+	std::deque<nano::uint128_t> minimums;
 
 	/** index of bucket to read next */
-	decltype (schedule)::const_iterator current;
+	decltype (buckets_m)::const_iterator current;
 
 	/** maximum number of blocks in whole container, each bucket's maximum is maximum / bucket_number */
 	uint64_t const maximum;
 
 	void next ();
 	void seek ();
-	void populate_schedule ();
 
 public:
 	buckets (uint64_t maximum = 250000u);
+	~buckets ();
 	void push (uint64_t time, std::shared_ptr<nano::block> block, nano::amount const & priority);
 	std::shared_ptr<nano::block> top () const;
 	void pop ();

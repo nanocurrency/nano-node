@@ -194,6 +194,8 @@ add_library(
   rocksdb/rocksdb_iterator.hpp
   rocksdb/rocksdb_txn.hpp
   rocksdb/rocksdb_txn.cpp
+  scheduler/bucket.cpp
+  scheduler/bucket.hpp
   scheduler/buckets.cpp
   scheduler/buckets.hpp
   scheduler/component.hpp

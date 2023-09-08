@@ -2,7 +2,6 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/node/active_transactions.hpp>
-#include <nano/node/scheduler/buckets.hpp>
 
 #include <boost/optional.hpp>
 
@@ -19,6 +18,7 @@ class node;
 
 namespace nano::scheduler
 {
+class buckets;
 class priority final
 {
 public:
@@ -52,7 +52,7 @@ private:
 	bool priority_queue_predicate () const;
 	bool manual_queue_predicate () const;
 
-	nano::scheduler::buckets buckets;
+	std::unique_ptr<nano::scheduler::buckets> buckets;
 
 	std::deque<std::tuple<std::shared_ptr<nano::block>, boost::optional<nano::uint128_t>, nano::election_behavior>> manual_queue;
 	bool stopped{ false };
