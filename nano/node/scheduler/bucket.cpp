@@ -53,6 +53,11 @@ bool nano::scheduler::bucket::empty () const
 	return queue.empty ();
 }
 
+bool nano::scheduler::bucket::available () const
+{
+	return !queue.empty ();
+}
+
 void nano::scheduler::bucket::dump () const
 {
 	for (auto const & item : queue)

@@ -88,7 +88,7 @@ bool nano::scheduler::priority::empty () const
 
 bool nano::scheduler::priority::predicate () const
 {
-	return node.active.vacancy () > 0 && !buckets->empty ();
+	return node.active.vacancy () > 0 && buckets->available ();
 }
 
 void nano::scheduler::priority::run ()

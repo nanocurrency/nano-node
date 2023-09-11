@@ -110,7 +110,7 @@ TEST (buckets, construction)
 {
 	nano::scheduler::buckets buckets;
 	ASSERT_EQ (0, buckets.size ());
-	ASSERT_TRUE (buckets.empty ());
+	ASSERT_TRUE (buckets.empty () && !buckets.available ()); // Initial state
 	ASSERT_EQ (62, buckets.bucket_count ());
 }
 

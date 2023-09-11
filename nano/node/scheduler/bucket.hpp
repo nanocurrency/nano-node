@@ -34,6 +34,7 @@ public:
 	void push (uint64_t time, std::shared_ptr<nano::block> block);
 	size_t size () const;
 	bool empty () const;
+	bool available () const;
 	void dump () const;
 };
 } // namespace nano::scheduler

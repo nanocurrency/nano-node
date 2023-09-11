@@ -52,6 +52,7 @@ public:
 	std::size_t bucket_count () const;
 	std::size_t bucket_size (std::size_t index) const;
 	bool empty () const;
+	bool available () const;
 	void dump () const;
 	std::size_t index (nano::uint128_t const & balance) const;
 
