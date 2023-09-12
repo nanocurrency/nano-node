@@ -1,6 +1,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/hinted.hpp>
+#include <nano/node/scheduler/limiter.hpp>
 
 nano::scheduler::hinted::config::config (nano::node_config const & config) :
 	vote_cache_check_interval_ms{ config.network_params.network.is_dev_network () ? 100u : 1000u }
@@ -11,9 +12,8 @@ nano::scheduler::hinted::hinted (config const & config_a, nano::node & node_a, n
 	config_m{ config_a },
 	node{ node_a },
 	inactive_vote_cache{ inactive_vote_cache_a },
-	active{ active_a },
-	online_reps{ online_reps_a },
-	stats{ stats_a }
+	limiter{ std::make_shared<nano::scheduler::limiter> (node.active.insert_fn (), std::max<size_t> (node.config.active_elections_hinted_limit_percentage * node.config.active_elections_size / 100, 1u), nano::election_behavior::hinted) },
+	online_reps{ online_reps_a }, stats{ stats_a }
 {
 }
 
@@ -51,13 +51,17 @@ void nano::scheduler::hinted::notify ()
 bool nano::scheduler::hinted::predicate (nano::uint128_t const & minimum_tally) const
 {
 	// Check if there is space inside AEC for a new hinted election
-	if (active.vacancy (nano::election_behavior::hinted) > 0)
+	if (limiter->available ())
 	{
 		// Check if there is any vote cache entry surpassing our minimum vote tally threshold
 		if (inactive_vote_cache.peek (minimum_tally))
 		{
 			return true;
 		}
+	}
+	else
+	{
+		std::cerr << '\0';
 	}
 	return false;
 }
@@ -77,9 +81,9 @@ bool nano::scheduler::hinted::run_one (nano::uint128_t const & minimum_tally)
 			{
 				// Try to insert it into AEC as hinted election
 				// We check for AEC vacancy inside our predicate
-				auto result = node.active.insert (block, nano::election_behavior::hinted);
+				auto result = limiter->activate (block);
 
-				stats.inc (nano::stat::type::hinting, result.inserted ? nano::stat::detail::insert : nano::stat::detail::insert_failed);
+				stats.inc (nano::stat::type::hinting, result.inserted ? nano::stat::detail::hinted : nano::stat::detail::insert_failed);
 
 				return result.inserted; // Return whether block was inserted
 			}
