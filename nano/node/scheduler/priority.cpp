@@ -1,5 +1,6 @@
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/buckets.hpp>
+#include <nano/node/scheduler/limiter.hpp>
 #include <nano/node/scheduler/priority.hpp>
 
 nano::scheduler::priority::priority (nano::node & node_a, nano::stats & stats_a) :
@@ -106,11 +107,12 @@ void nano::scheduler::priority::run ()
 
 			if (predicate ())
 			{
-				auto block = buckets->top ();
+				auto [block, limiter] = buckets->top ();
+				debug_assert (limiter->available ());
 				buckets->pop ();
 				lock.unlock ();
 				stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_priority);
-				auto result = node.active.insert (block.first);
+				auto result = limiter->activate (block);
 				if (result.inserted)
 				{
 					stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_priority_success);
