@@ -17,7 +17,7 @@ void nano::scheduler::manual::start ()
 	debug_assert (!thread.joinable ());
 
 	thread = std::thread{ [this] () {
-		nano::thread_role::set (nano::thread_role::name::election_scheduler);
+		nano::thread_role::set (nano::thread_role::name::scheduler_manual);
 		run ();
 	} };
 }
