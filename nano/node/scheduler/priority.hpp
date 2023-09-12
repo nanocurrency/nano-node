@@ -8,11 +8,13 @@
 #include <condition_variable>
 #include <deque>
 #include <memory>
+#include <string>
 #include <thread>
 
 namespace nano
 {
 class block;
+class container_info_component;
 class node;
 }
 
@@ -21,12 +23,14 @@ namespace nano::scheduler
 class buckets;
 class priority final
 {
+	friend class component;
+	void start ();
+	void stop ();
+	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
+
 public:
 	priority (nano::node &, nano::stats &);
 	~priority ();
-
-	void start ();
-	void stop ();
 
 	// Manualy start an election for a block
 	// Call action with confirmed block, may be different than what we started with
@@ -39,8 +43,6 @@ public:
 	void notify ();
 	std::size_t size () const;
 	bool empty () const;
-	std::size_t priority_queue_size () const;
-	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 
 private: // Dependencies
 	nano::node & node;

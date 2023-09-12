@@ -6968,5 +6968,5 @@ TEST (node, election_scheduler_container_info)
 	request.put ("action", "stats");
 	request.put ("type", "objects");
 	auto response = wait_response (system, rpc_ctx, request);
-	auto es = response.get_child ("node").get_child ("priority_scheduler");
+	auto es = response.get_child ("node").get_child ("scheduler");
 }

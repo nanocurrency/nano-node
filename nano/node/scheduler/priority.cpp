@@ -93,11 +93,6 @@ bool nano::scheduler::priority::empty () const
 	return empty_locked ();
 }
 
-std::size_t nano::scheduler::priority::priority_queue_size () const
-{
-	return buckets->size ();
-}
-
 bool nano::scheduler::priority::priority_queue_predicate () const
 {
 	return node.active.vacancy () > 0 && !buckets->empty ();
