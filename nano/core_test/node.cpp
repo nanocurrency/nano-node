@@ -1,6 +1,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/scheduler/component.hpp>
+#include <nano/node/scheduler/manual.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/node/transport/inproc.hpp>
@@ -987,7 +988,7 @@ TEST (node, fork_open_flip)
 	// give block open1 to node1, manually trigger an election for open1 and ensure it is in the ledger
 	node1.process_active (open1);
 	ASSERT_TIMELY (5s, node1.block (open1->hash ()) != nullptr);
-	node1.scheduler.priority.manual (open1);
+	node1.scheduler.manual.push (open1);
 	ASSERT_TIMELY (5s, (election = node1.active.election (open1->qualified_root ())) != nullptr);
 	election->transition_active ();
 
@@ -1000,7 +1001,7 @@ TEST (node, fork_open_flip)
 
 	// ensure open2 is in node2 ledger (and therefore has sideband) and manually trigger an election for open2
 	ASSERT_TIMELY (5s, node2.block (open2->hash ()) != nullptr);
-	node2.scheduler.priority.manual (open2);
+	node2.scheduler.manual.push (open2);
 	ASSERT_TIMELY (5s, (election = node2.active.election (open2->qualified_root ())) != nullptr);
 	election->transition_active ();
 

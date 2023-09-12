@@ -35,13 +35,6 @@ void nano::scheduler::priority::stop ()
 	nano::join_or_pass (thread);
 }
 
-void nano::scheduler::priority::manual (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a)
-{
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	manual_queue.push_back (std::make_tuple (block_a, previous_balance_a, election_behavior_a));
-	notify ();
-}
-
 bool nano::scheduler::priority::activate (nano::account const & account_a, nano::transaction const & transaction)
 {
 	debug_assert (!account_a.is_zero ());
@@ -79,12 +72,12 @@ void nano::scheduler::priority::notify ()
 std::size_t nano::scheduler::priority::size () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	return buckets->size () + manual_queue.size ();
+	return buckets->size ();
 }
 
 bool nano::scheduler::priority::empty_locked () const
 {
-	return buckets->empty () && manual_queue.empty ();
+	return buckets->empty ();
 }
 
 bool nano::scheduler::priority::empty () const
@@ -93,14 +86,9 @@ bool nano::scheduler::priority::empty () const
 	return empty_locked ();
 }
 
-bool nano::scheduler::priority::priority_queue_predicate () const
+bool nano::scheduler::priority::predicate () const
 {
 	return node.active.vacancy () > 0 && !buckets->empty ();
-}
-
-bool nano::scheduler::priority::manual_queue_predicate () const
-{
-	return !manual_queue.empty ();
 }
 
 void nano::scheduler::priority::run ()
@@ -109,26 +97,14 @@ void nano::scheduler::priority::run ()
 	while (!stopped)
 	{
 		condition.wait (lock, [this] () {
-			return stopped || priority_queue_predicate () || manual_queue_predicate ();
+			return stopped || predicate ();
 		});
 		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
 		if (!stopped)
 		{
 			stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::loop);
 
-			if (manual_queue_predicate ())
-			{
-				auto const [block, previous_balance, election_behavior] = manual_queue.front ();
-				manual_queue.pop_front ();
-				lock.unlock ();
-				stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_manual);
-				auto result = node.active.insert (block, election_behavior);
-				if (result.election != nullptr)
-				{
-					result.election->transition_active ();
-				}
-			}
-			else if (priority_queue_predicate ())
+			if (predicate ())
 			{
 				auto block = buckets->top ();
 				buckets->pop ();
@@ -159,7 +135,6 @@ std::unique_ptr<nano::container_info_component> nano::scheduler::priority::colle
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "manual_queue", manual_queue.size (), sizeof (decltype (manual_queue)::value_type) }));
 	composite->add_component (buckets->collect_container_info ("buckets"));
 	return composite;
 }

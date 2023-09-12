@@ -1,5 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/scheduler/component.hpp>
+#include <nano/node/scheduler/manual.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/test_common/system.hpp>
@@ -124,7 +125,7 @@ bool nano::test::activate (nano::node & node, std::vector<nano::block_hash> hash
 			// Block does not exist in the ledger yet
 			return false;
 		}
-		node.scheduler.priority.manual (disk_block);
+		node.scheduler.manual.push (disk_block);
 	}
 	return true;
 }
@@ -205,7 +206,7 @@ std::shared_ptr<nano::election> nano::test::start_election (nano::test::system &
 		block_l = node_a.block (hash_a);
 	}
 
-	node_a.scheduler.priority.manual (block_l);
+	node_a.scheduler.manual.push (block_l);
 
 	// wait for the election to appear
 	std::shared_ptr<nano::election> election = node_a.active.election (block_l->qualified_root ());

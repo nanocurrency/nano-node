@@ -1,6 +1,7 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/scheduler/component.hpp>
+#include <nano/node/scheduler/manual.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/test_common/chains.hpp>
@@ -1393,11 +1394,11 @@ TEST (active_transactions, fifo)
 	ASSERT_EQ (nano::process_result::progress, node.process (*receive2).code);
 
 	// Ensure first transaction becomes active
-	node.scheduler.priority.manual (receive1);
+	node.scheduler.manual.push (receive1);
 	ASSERT_TIMELY (5s, node.active.election (receive1->qualified_root ()) != nullptr);
 
 	// Ensure second transaction becomes active
-	node.scheduler.priority.manual (receive2);
+	node.scheduler.manual.push (receive2);
 	ASSERT_TIMELY (5s, node.active.election (receive2->qualified_root ()) != nullptr);
 
 	// Ensure excess transactions get trimmed

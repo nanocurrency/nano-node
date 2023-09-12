@@ -13,12 +13,14 @@ class node;
 namespace nano::scheduler
 {
 class hinted;
+class manual;
 class optimistic;
 class priority;
 
-class component
+class component final
 {
 	std::unique_ptr<nano::scheduler::hinted> hinted_impl;
+	std::unique_ptr<nano::scheduler::manual> manual_impl;
 	std::unique_ptr<nano::scheduler::optimistic> optimistic_impl;
 	std::unique_ptr<nano::scheduler::priority> priority_impl;
 	nano::mutex mutex;
@@ -35,6 +37,7 @@ public:
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
 
 	nano::scheduler::hinted & hinted;
+	nano::scheduler::manual & manual;
 	nano::scheduler::optimistic & optimistic;
 	nano::scheduler::priority & priority;
 };
