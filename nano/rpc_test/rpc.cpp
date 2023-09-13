@@ -6,6 +6,7 @@
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node_rpc_config.hpp>
 #include <nano/node/scheduler/component.hpp>
+#include <nano/node/scheduler/manual.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
@@ -1556,7 +1557,7 @@ TEST (rpc, process_subtype_open)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send).code);
 	ASSERT_EQ (nano::process_result::progress, node2.process (*send).code);
 	auto const rpc_ctx = add_rpc (system, node1);
-	node1->scheduler.priority.manual (send);
+	node1->scheduler.manual.push (send);
 	auto open = builder
 				.state ()
 				.account (key.pub)
@@ -1605,7 +1606,7 @@ TEST (rpc, process_subtype_receive)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send).code);
 	ASSERT_EQ (nano::process_result::progress, node2.process (*send).code);
 	auto const rpc_ctx = add_rpc (system, node1);
-	node1->scheduler.priority.manual (send);
+	node1->scheduler.manual.push (send);
 	auto receive = builder
 				   .state ()
 				   .account (nano::dev::genesis_key.pub)
@@ -6968,5 +6969,5 @@ TEST (node, election_scheduler_container_info)
 	request.put ("action", "stats");
 	request.put ("type", "objects");
 	auto response = wait_response (system, rpc_ctx, request);
-	auto es = response.get_child ("node").get_child ("priority_scheduler");
+	auto es = response.get_child ("node").get_child ("scheduler");
 }

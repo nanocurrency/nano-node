@@ -70,17 +70,11 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::db_parallel_traversal:
 			thread_role_name_string = "DB par traversl";
 			break;
-		case nano::thread_role::name::election_scheduler:
-			thread_role_name_string = "Election Sched";
-			break;
 		case nano::thread_role::name::unchecked:
 			thread_role_name_string = "Unchecked";
 			break;
 		case nano::thread_role::name::backlog_population:
 			thread_role_name_string = "Backlog";
-			break;
-		case nano::thread_role::name::election_hinting:
-			thread_role_name_string = "Hinting";
 			break;
 		case nano::thread_role::name::vote_generator_queue:
 			thread_role_name_string = "Voting que";
@@ -94,8 +88,17 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::telemetry:
 			thread_role_name_string = "Telemetry";
 			break;
-		case nano::thread_role::name::optimistic_scheduler:
-			thread_role_name_string = "Optimistic";
+		case nano::thread_role::name::scheduler_hinted:
+			thread_role_name_string = "Sched Hinted";
+			break;
+		case nano::thread_role::name::scheduler_manual:
+			thread_role_name_string = "Sched Manual";
+			break;
+		case nano::thread_role::name::scheduler_optimistic:
+			thread_role_name_string = "Sched Opt";
+			break;
+		case nano::thread_role::name::scheduler_priority:
+			thread_role_name_string = "Sched Priority";
 			break;
 		default:
 			debug_assert (false && "nano::thread_role::get_string unhandled thread role");

@@ -28,7 +28,7 @@ void nano::scheduler::hinted::start ()
 	debug_assert (!thread.joinable ());
 
 	thread = std::thread{ [this] () {
-		nano::thread_role::set (nano::thread_role::name::election_hinting);
+		nano::thread_role::set (nano::thread_role::name::scheduler_hinted);
 		run ();
 	} };
 }
