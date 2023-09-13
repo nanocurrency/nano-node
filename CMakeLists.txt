@@ -489,15 +489,6 @@ set(WITH_CORE_TOOLS
 set(WITH_TOOLS
     ${NANO_ROCKSDB_TOOLS}
     CACHE BOOL "" FORCE)
-if(ENABLE_AVX2)
-  set(PORTABLE
-      OFF
-      CACHE BOOL "" FORCE)
-else()
-  set(PORTABLE
-      ON
-      CACHE BOOL "" FORCE)
-endif()
 set(FAIL_ON_WARNINGS
     OFF
     CACHE BOOL "") # Ignore unreachable code warning in merging_iterator.cc
