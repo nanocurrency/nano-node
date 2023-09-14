@@ -146,25 +146,6 @@ uint64_t nano::lmdb::block_store::count (nano::transaction const & transaction_a
 	return store.count (transaction_a, tables::blocks);
 }
 
-nano::account nano::lmdb::block_store::account (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
-{
-	auto block (get (transaction_a, hash_a));
-	debug_assert (block != nullptr);
-	return account_calculated (*block);
-}
-
-nano::account nano::lmdb::block_store::account_calculated (nano::block const & block_a) const
-{
-	debug_assert (block_a.has_sideband ());
-	nano::account result (block_a.account ());
-	if (result.is_zero ())
-	{
-		result = block_a.sideband ().account;
-	}
-	debug_assert (!result.is_zero ());
-	return result;
-}
-
 nano::store_iterator<nano::block_hash, nano::block_w_sideband> nano::lmdb::block_store::begin (nano::transaction const & transaction) const
 {
 	return store.make_iterator<nano::block_hash, nano::block_w_sideband> (transaction, tables::blocks);

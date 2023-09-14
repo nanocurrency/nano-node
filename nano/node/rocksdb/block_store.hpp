@@ -28,8 +28,6 @@ namespace rocksdb
 		void del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override;
 		bool exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
 		uint64_t count (nano::transaction const & transaction_a) override;
-		nano::account account (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override;
-		nano::account account_calculated (nano::block const & block_a) const override;
 		nano::store_iterator<nano::block_hash, nano::block_w_sideband> begin (nano::transaction const & transaction_a) const override;
 		nano::store_iterator<nano::block_hash, nano::block_w_sideband> begin (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override;
 		nano::store_iterator<nano::block_hash, nano::block_w_sideband> end () const override;

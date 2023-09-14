@@ -1047,7 +1047,7 @@ nano::account nano::ledger::account_safe (nano::transaction const & transaction_
 		auto block (store.block.get (transaction_a, hash_a));
 		if (block != nullptr)
 		{
-			return store.block.account_calculated (*block);
+			return store.block.account (*block);
 		}
 		else
 		{
@@ -1057,12 +1057,12 @@ nano::account nano::ledger::account_safe (nano::transaction const & transaction_
 	}
 }
 
-nano::account nano::ledger::account_safe (const nano::transaction & transaction, const nano::block_hash & hash) const
+nano::account nano::ledger::account_safe (nano::transaction const & transaction, nano::block_hash const & hash) const
 {
 	auto block = store.block.get (transaction, hash);
 	if (block)
 	{
-		return store.block.account_calculated (*block);
+		return store.block.account (*block);
 	}
 	else
 	{
