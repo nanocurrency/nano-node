@@ -111,11 +111,11 @@ TEST (ledger_walker, cross_account)
 	ASSERT_TRUE (account_info);
 
 	//    TODO: check issue with account head
-	//    auto const first = node->ledger.store.block.get_no_sideband(transaction, account_info.head);
-	//    auto const second = node->ledger.store.block.get_no_sideband(transaction, first->previous());
-	//    auto const third = node->ledger.store.block.get_no_sideband(transaction, second->previous());
-	//    auto const fourth = node->ledger.store.block.get_no_sideband(transaction, third->previous());
-	//    auto const fifth = node->ledger.store.block.get_no_sideband(transaction, fourth->previous());
+	//    auto const first = node->ledger.store.block.get(transaction, account_info.head);
+	//    auto const second = node->ledger.store.block.get(transaction, first->previous());
+	//    auto const third = node->ledger.store.block.get(transaction, second->previous());
+	//    auto const fourth = node->ledger.store.block.get(transaction, third->previous());
+	//    auto const fifth = node->ledger.store.block.get(transaction, fourth->previous());
 	//
 	//    auto const expected_blocks_to_walk = { first, second, third, fourth, fifth };
 	//    auto expected_blocks_to_walk_itr = expected_blocks_to_walk.begin();
@@ -193,7 +193,7 @@ TEST (ledger_walker, DISABLED_ladder_geometry)
 			nano::amount previous_balance{};
 			if (!block->previous ().is_zero ())
 			{
-				auto const previous_block = node->ledger.store.block.get_no_sideband (node->ledger.store.tx_begin_read (), block->previous ());
+				auto const previous_block = node->ledger.store.block.get (node->ledger.store.tx_begin_read (), block->previous ());
 				previous_balance = previous_block->balance ();
 			}
 
@@ -212,7 +212,7 @@ TEST (ledger_walker, DISABLED_ladder_geometry)
 			nano::amount previous_balance{};
 			if (!block->previous ().is_zero ())
 			{
-				auto const previous_block = node->ledger.store.block.get_no_sideband (node->ledger.store.tx_begin_read (), block->previous ());
+				auto const previous_block = node->ledger.store.block.get (node->ledger.store.tx_begin_read (), block->previous ());
 				previous_balance = previous_block->balance ();
 			}
 

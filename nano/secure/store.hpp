@@ -748,7 +748,6 @@ public:
 	virtual nano::block_hash successor (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual void successor_clear (nano::write_transaction const &, nano::block_hash const &) = 0;
 	virtual std::shared_ptr<nano::block> get (nano::transaction const &, nano::block_hash const &) const = 0;
-	virtual std::shared_ptr<nano::block> get_no_sideband (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual std::shared_ptr<nano::block> random (nano::transaction const &) = 0;
 	virtual void del (nano::write_transaction const &, nano::block_hash const &) = 0;
 	virtual bool exists (nano::transaction const &, nano::block_hash const &) = 0;

@@ -101,20 +101,6 @@ std::shared_ptr<nano::block> nano::lmdb::block_store::get (nano::transaction con
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::lmdb::block_store::get_no_sideband (nano::transaction const & transaction, nano::block_hash const & hash) const
-{
-	nano::mdb_val value;
-	block_raw_get (transaction, hash, value);
-	std::shared_ptr<nano::block> result;
-	if (value.size () != 0)
-	{
-		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-		result = nano::deserialize_block (stream);
-		debug_assert (result != nullptr);
-	}
-	return result;
-}
-
 std::shared_ptr<nano::block> nano::lmdb::block_store::random (nano::transaction const & transaction)
 {
 	nano::block_hash hash;
