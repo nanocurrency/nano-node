@@ -47,6 +47,7 @@ public:
 	nano::uint128_t amount (nano::transaction const &, nano::block_hash const &);
 	/** Safe for previous block, but block hash_a must exist */
 	nano::uint128_t amount_safe (nano::transaction const &, nano::block_hash const & hash_a, bool &) const;
+	static nano::uint128_t balance (nano::block const & block);
 	nano::uint128_t balance (nano::transaction const &, nano::block_hash const &) const;
 	nano::uint128_t balance_safe (nano::transaction const &, nano::block_hash const &, bool &) const;
 	nano::uint128_t account_balance (nano::transaction const &, nano::account const &, bool = false);

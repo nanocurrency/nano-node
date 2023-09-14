@@ -4,6 +4,7 @@
 #include <nano/node/lmdb/lmdb_iterator.hpp>
 #include <nano/node/lmdb/wallet_value.hpp>
 #include <nano/secure/buffer.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/secure/versioning.hpp>
 
 #include <boost/filesystem.hpp>
@@ -545,7 +546,8 @@ void nano::lmdb::store::upgrade_v17_to_v18 (nano::write_transaction const & tran
 		nano::amount prev_balance (0);
 		if (!block->hashables.previous.is_zero ())
 		{
-			prev_balance = block_balance_v18 (transaction_a, block->hashables.previous);
+			auto prev = block_get_v18 (transaction_a, block->hashables.previous);
+			prev_balance = nano::ledger::balance (*prev);
 		}
 		if (block->hashables.balance == prev_balance && constants.epochs.is_epoch_link (block->hashables.link))
 		{
@@ -1058,14 +1060,6 @@ boost::optional<nano::mdb_val> nano::lmdb::store::block_raw_get_by_type_v18 (nan
 	{
 		result = value;
 	}
-	return result;
-}
-
-nano::uint128_t nano::lmdb::store::block_balance_v18 (nano::transaction const & transaction, nano::block_hash const & hash) const
-{
-	auto block_l = block_get_v18 (transaction, hash);
-	release_assert (block_l);
-	nano::uint128_t result = block.balance (*block_l);
 	return result;
 }
 

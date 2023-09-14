@@ -138,7 +138,6 @@ namespace lmdb
 		std::shared_ptr<nano::block> block_get_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 		nano::mdb_val block_raw_get_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a) const;
 		boost::optional<nano::mdb_val> block_raw_get_by_type_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a) const;
-		nano::uint128_t block_balance_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 
 		void open_databases (bool &, nano::transaction const &, unsigned);
 

@@ -736,10 +736,38 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 	}
 }
 
-// Balance for account containing hash
-nano::uint128_t nano::ledger::balance (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
+nano::uint128_t nano::ledger::balance (nano::block const & block)
 {
-	return hash_a.is_zero () ? 0 : store.block.balance (transaction_a, hash_a);
+	nano::uint128_t result;
+	switch (block.type ())
+	{
+		case nano::block_type::open:
+		case nano::block_type::receive:
+		case nano::block_type::change:
+			result = block.sideband ().balance.number ();
+			break;
+		case nano::block_type::send:
+		case nano::block_type::state:
+			result = block.balance ().number ();
+			break;
+		case nano::block_type::invalid:
+		case nano::block_type::not_a_block:
+			release_assert (false);
+			break;
+	}
+	return result;
+}
+
+// Balance for account containing hash
+nano::uint128_t nano::ledger::balance (nano::transaction const & transaction, nano::block_hash const & hash) const
+{
+	if (hash.is_zero ())
+	{
+		return 0;
+	}
+	auto block = store.block.get (transaction, hash);
+	debug_assert (block != nullptr);
+	return balance (*block);
 }
 
 nano::uint128_t nano::ledger::balance_safe (nano::transaction const & transaction_a, nano::block_hash const & hash_a, bool & error_a) const
