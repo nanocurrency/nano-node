@@ -152,7 +152,7 @@ public:
 		}
 
 		debug_assert (!error);
-		auto previous_version (ledger.store.block.version (transaction, block_a.hashables.previous));
+		auto previous_version (ledger.version (transaction, block_a.hashables.previous));
 		nano::account_info new_info (block_a.hashables.previous, representative, info->open_block, balance, nano::seconds_since_epoch (), info->block_count - 1, previous_version);
 		ledger.update_account (transaction, block_a.hashables.account, *info, new_info);
 
@@ -1611,6 +1611,26 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 bool nano::ledger::bootstrap_weight_reached () const
 {
 	return cache.block_count >= bootstrap_weight_max_blocks;
+}
+
+nano::epoch nano::ledger::version (nano::block const & block)
+{
+	if (block.type () == nano::block_type::state)
+	{
+		return block.sideband ().details.epoch;
+	}
+
+	return nano::epoch::epoch_0;
+}
+
+nano::epoch nano::ledger::version (nano::transaction const & transaction, nano::block_hash const & hash) const
+{
+	auto block = store.block.get (transaction, hash);
+	if (block == nullptr)
+	{
+		return nano::epoch::epoch_0;
+	}
+	return version (*block);
 }
 
 nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account) :

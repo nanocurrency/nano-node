@@ -1570,7 +1570,7 @@ int main (int argc, char * const * argv)
 					// Check link epoch version
 					if (sideband.details.is_receive && (!node->ledger.pruning || !node->store.pruned.exists (transaction, block->link ().as_block_hash ())))
 					{
-						if (sideband.source_epoch != node->store.block.version (transaction, block->link ().as_block_hash ()))
+						if (sideband.source_epoch != node->ledger.version (*block))
 						{
 							print_error_message (boost::str (boost::format ("Incorrect source epoch for block %1%\n") % hash.to_string ()));
 						}

@@ -1072,7 +1072,7 @@ TEST (wallet, epoch_2_receive_propagation)
 		if (nano::dev::network_params.work.difficulty (*receive2) < node.network_params.work.base)
 		{
 			ASSERT_GE (nano::dev::network_params.work.difficulty (*receive2), node.network_params.work.epoch_2_receive);
-			ASSERT_EQ (nano::epoch::epoch_2, node.store.block.version (node.store.tx_begin_read (), receive2->hash ()));
+			ASSERT_EQ (nano::epoch::epoch_2, node.ledger.version (*receive2));
 			ASSERT_EQ (nano::epoch::epoch_2, receive2->sideband ().source_epoch);
 			break;
 		}
@@ -1125,7 +1125,7 @@ TEST (wallet, epoch_2_receive_unopened)
 		if (nano::dev::network_params.work.difficulty (*receive1) < node.network_params.work.base)
 		{
 			ASSERT_GE (nano::dev::network_params.work.difficulty (*receive1), node.network_params.work.epoch_2_receive);
-			ASSERT_EQ (nano::epoch::epoch_2, node.store.block.version (node.store.tx_begin_read (), receive1->hash ()));
+			ASSERT_EQ (nano::epoch::epoch_2, node.ledger.version (*receive1));
 			ASSERT_EQ (nano::epoch::epoch_1, receive1->sideband ().source_epoch);
 			break;
 		}

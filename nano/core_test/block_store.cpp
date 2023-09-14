@@ -1100,7 +1100,7 @@ TEST (mdb_block_store, sideband_height)
 				 .work (*pool.generate (state_open->hash ()))
 				 .build ();
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *epoch).code);
-	ASSERT_EQ (nano::epoch::epoch_1, store.block.version (transaction, epoch->hash ()));
+	ASSERT_EQ (nano::epoch::epoch_1, ledger.version (*epoch));
 	auto epoch_open = builder
 					  .state ()
 					  .account (key2.pub)
@@ -1112,7 +1112,7 @@ TEST (mdb_block_store, sideband_height)
 					  .work (*pool.generate (key2.pub))
 					  .build ();
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *epoch_open).code);
-	ASSERT_EQ (nano::epoch::epoch_1, store.block.version (transaction, epoch_open->hash ()));
+	ASSERT_EQ (nano::epoch::epoch_1, ledger.version (*epoch_open));
 	auto state_receive = builder
 						 .state ()
 						 .account (key2.pub)

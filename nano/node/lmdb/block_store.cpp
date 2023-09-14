@@ -147,17 +147,6 @@ nano::store_iterator<nano::block_hash, nano::block_w_sideband> nano::lmdb::block
 	return nano::store_iterator<nano::block_hash, nano::block_w_sideband> (nullptr);
 }
 
-nano::epoch nano::lmdb::block_store::version (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
-{
-	auto block = get (transaction_a, hash_a);
-	if (block && block->type () == nano::block_type::state)
-	{
-		return block->sideband ().details.epoch;
-	}
-
-	return nano::epoch::epoch_0;
-}
-
 void nano::lmdb::block_store::for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, block_w_sideband>, nano::store_iterator<nano::block_hash, block_w_sideband>)> const & action_a) const
 {
 	parallel_traversal<nano::uint256_t> (
