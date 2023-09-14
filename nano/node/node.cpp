@@ -1344,7 +1344,7 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 	auto previous (block_a->previous ());
 	bool error (false);
 	auto previous_balance (ledger.balance_safe (transaction_a, previous, error));
-	auto block_balance (store.block.balance_calculated (block_a));
+	auto block_balance = store.block.balance (*block_a);
 	if (hash_a != ledger.constants.genesis->account ())
 	{
 		if (!error)

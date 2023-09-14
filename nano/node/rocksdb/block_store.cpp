@@ -161,38 +161,6 @@ nano::store_iterator<nano::block_hash, nano::block_w_sideband> nano::rocksdb::bl
 	return nano::store_iterator<nano::block_hash, nano::block_w_sideband> (nullptr);
 }
 
-nano::uint128_t nano::rocksdb::block_store::balance (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
-{
-	auto block (get (transaction_a, hash_a));
-	release_assert (block);
-	nano::uint128_t result (balance_calculated (block));
-	return result;
-}
-
-nano::uint128_t nano::rocksdb::block_store::balance_calculated (std::shared_ptr<nano::block> const & block_a) const
-{
-	nano::uint128_t result;
-	switch (block_a->type ())
-	{
-		case nano::block_type::open:
-		case nano::block_type::receive:
-		case nano::block_type::change:
-			result = block_a->sideband ().balance.number ();
-			break;
-		case nano::block_type::send:
-			result = boost::polymorphic_downcast<nano::send_block *> (block_a.get ())->hashables.balance.number ();
-			break;
-		case nano::block_type::state:
-			result = boost::polymorphic_downcast<nano::state_block *> (block_a.get ())->hashables.balance.number ();
-			break;
-		case nano::block_type::invalid:
-		case nano::block_type::not_a_block:
-			release_assert (false);
-			break;
-	}
-	return result;
-}
-
 nano::epoch nano::rocksdb::block_store::version (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto block = get (transaction_a, hash_a);

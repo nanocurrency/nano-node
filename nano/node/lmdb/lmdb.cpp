@@ -1061,11 +1061,11 @@ boost::optional<nano::mdb_val> nano::lmdb::store::block_raw_get_by_type_v18 (nan
 	return result;
 }
 
-nano::uint128_t nano::lmdb::store::block_balance_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
+nano::uint128_t nano::lmdb::store::block_balance_v18 (nano::transaction const & transaction, nano::block_hash const & hash) const
 {
-	auto block (block_get_v18 (transaction_a, hash_a));
-	release_assert (block);
-	nano::uint128_t result (this->block.balance_calculated (block));
+	auto block_l = block_get_v18 (transaction, hash);
+	release_assert (block_l);
+	nano::uint128_t result = block.balance (*block_l);
 	return result;
 }
 

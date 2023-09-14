@@ -31,8 +31,6 @@ namespace lmdb
 		nano::store_iterator<nano::block_hash, nano::block_w_sideband> begin (nano::transaction const & transaction_a) const override;
 		nano::store_iterator<nano::block_hash, nano::block_w_sideband> begin (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override;
 		nano::store_iterator<nano::block_hash, nano::block_w_sideband> end () const override;
-		nano::uint128_t balance (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
-		nano::uint128_t balance_calculated (std::shared_ptr<nano::block> const & block_a) const override;
 		nano::epoch version (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
 		void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, block_w_sideband>, nano::store_iterator<nano::block_hash, block_w_sideband>)> const & action_a) const override;
 		// Converts a block hash to a block height

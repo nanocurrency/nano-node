@@ -125,6 +125,35 @@ nano::account nano::block_store::account (nano::transaction const & transaction,
 	return account (*block);
 }
 
+nano::uint128_t nano::block_store::balance (nano::block const & block) const
+{
+	nano::uint128_t result;
+	switch (block.type ())
+	{
+		case nano::block_type::open:
+		case nano::block_type::receive:
+		case nano::block_type::change:
+			result = block.sideband ().balance.number ();
+			break;
+		case nano::block_type::send:
+		case nano::block_type::state:
+			result = block.balance ().number ();
+			break;
+		case nano::block_type::invalid:
+		case nano::block_type::not_a_block:
+			release_assert (false);
+			break;
+	}
+	return result;
+}
+
+nano::uint128_t nano::block_store::balance (nano::transaction const & transaction, nano::block_hash const & hash) const
+{
+	auto block = get (transaction, hash);
+	debug_assert (block != nullptr);
+	return balance (*block);
+}
+
 // clang-format off
 nano::store::store (
 	nano::block_store & block_store_a,
