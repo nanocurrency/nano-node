@@ -112,7 +112,7 @@ TEST (ledger, process_send)
 	ASSERT_TRUE (store.frontier.get (transaction, info1->head).is_zero ());
 	ASSERT_EQ (nano::dev::genesis_key.pub, store.frontier.get (transaction, hash1));
 	ASSERT_EQ (nano::process_result::progress, return1.code);
-	ASSERT_EQ (nano::dev::genesis_key.pub, store.block.account (*send));
+	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.account (*send));
 	ASSERT_EQ (50, ledger.account_balance (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, ledger.account_receivable (transaction, key2.pub));
 	auto info2 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
@@ -141,7 +141,7 @@ TEST (ledger, process_send)
 	ASSERT_EQ (1, open->sideband ().height);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, ledger.amount (transaction, hash2));
 	ASSERT_EQ (nano::process_result::progress, return2.code);
-	ASSERT_EQ (key2.pub, store.block.account (*open));
+	ASSERT_EQ (key2.pub, ledger.account (*open));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, ledger.amount (transaction, hash2));
 	ASSERT_EQ (key2.pub, store.frontier.get (transaction, hash2));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, ledger.account_balance (transaction, key2.pub));
@@ -225,7 +225,7 @@ TEST (ledger, process_receive)
 	nano::block_hash hash2 (open->hash ());
 	auto return1 = ledger.process (transaction, *open);
 	ASSERT_EQ (nano::process_result::progress, return1.code);
-	ASSERT_EQ (key2.pub, store.block.account (*open));
+	ASSERT_EQ (key2.pub, ledger.account (*open));
 	ASSERT_EQ (key2.pub, open->sideband ().account);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, open->sideband ().balance.number ());
 	ASSERT_EQ (1, open->sideband ().height);
@@ -258,7 +258,7 @@ TEST (ledger, process_receive)
 	ASSERT_TRUE (store.frontier.get (transaction, hash2).is_zero ());
 	ASSERT_EQ (key2.pub, store.frontier.get (transaction, hash4));
 	ASSERT_EQ (nano::process_result::progress, return2.code);
-	ASSERT_EQ (key2.pub, store.block.account (*receive));
+	ASSERT_EQ (key2.pub, ledger.account (*receive));
 	ASSERT_EQ (hash4, ledger.latest (transaction, key2.pub));
 	ASSERT_EQ (25, ledger.account_balance (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (0, ledger.account_receivable (transaction, key2.pub));
@@ -525,7 +525,7 @@ TEST (ledger, representative_change)
 	ASSERT_TRUE (store.frontier.get (transaction, info1->head).is_zero ());
 	ASSERT_EQ (nano::dev::genesis_key.pub, store.frontier.get (transaction, block->hash ()));
 	ASSERT_EQ (nano::process_result::progress, return1.code);
-	ASSERT_EQ (nano::dev::genesis_key.pub, store.block.account (*block));
+	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.account (*block));
 	ASSERT_EQ (0, ledger.weight (nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (key2.pub));
 	auto info2 = ledger.account_info (transaction, nano::dev::genesis_key.pub);

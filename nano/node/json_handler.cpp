@@ -5095,7 +5095,7 @@ void nano::json_handler::work_generate ()
 					auto transaction_l (node.store.tx_begin_read ());
 					if (node.store.block.exists (transaction_l, hash))
 					{
-						account = node.store.block.account (transaction_l, hash);
+						account = node.ledger.account (transaction_l, hash);
 					}
 				}
 				auto secondary_work_peers_l (request.get<bool> ("secondary_work_peers", false));

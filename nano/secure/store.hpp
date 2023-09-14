@@ -752,8 +752,6 @@ public:
 	virtual void del (nano::write_transaction const &, nano::block_hash const &) = 0;
 	virtual bool exists (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual uint64_t count (nano::transaction const &) = 0;
-	nano::account account (nano::block const & block) const;
-	nano::account account (nano::transaction const & transaction, nano::block_hash const & hash) const;
 	virtual nano::store_iterator<nano::block_hash, block_w_sideband> begin (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual nano::store_iterator<nano::block_hash, block_w_sideband> begin (nano::transaction const &) const = 0;
 	virtual nano::store_iterator<nano::block_hash, block_w_sideband> end () const = 0;

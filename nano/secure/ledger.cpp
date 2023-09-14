@@ -1031,23 +1031,37 @@ bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano
 	return rollback (transaction_a, block_a, rollback_list);
 }
 
-nano::account nano::ledger::account (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
+nano::account nano::ledger::account (nano::block const & block) const
 {
-	return store.block.account (transaction_a, hash_a);
+	debug_assert (block.has_sideband ());
+	nano::account result (block.account ());
+	if (result.is_zero ())
+	{
+		result = block.sideband ().account;
+	}
+	debug_assert (!result.is_zero ());
+	return result;
+}
+
+nano::account nano::ledger::account (nano::transaction const & transaction, nano::block_hash const & hash) const
+{
+	auto block = store.block.get (transaction, hash);
+	debug_assert (block != nullptr);
+	return account (*block);
 }
 
 nano::account nano::ledger::account_safe (nano::transaction const & transaction_a, nano::block_hash const & hash_a, bool & error_a) const
 {
 	if (!pruning)
 	{
-		return store.block.account (transaction_a, hash_a);
+		return account (transaction_a, hash_a);
 	}
 	else
 	{
 		auto block (store.block.get (transaction_a, hash_a));
 		if (block != nullptr)
 		{
-			return store.block.account (*block);
+			return account (*block);
 		}
 		else
 		{
@@ -1062,7 +1076,7 @@ nano::account nano::ledger::account_safe (nano::transaction const & transaction,
 	auto block = store.block.get (transaction, hash);
 	if (block)
 	{
-		return store.block.account (*block);
+		return account (*block);
 	}
 	else
 	{

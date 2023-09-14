@@ -106,24 +106,6 @@ bool nano::write_transaction::contains (nano::tables table_a) const
 	return impl->contains (table_a);
 }
 
-nano::account nano::block_store::account (nano::block const & block) const
-{
-	debug_assert (block.has_sideband ());
-	nano::account result (block.account ());
-	if (result.is_zero ())
-	{
-		result = block.sideband ().account;
-	}
-	debug_assert (!result.is_zero ());
-	return result;
-}
-
-nano::account nano::block_store::account (nano::transaction const & transaction, nano::block_hash const & hash) const
-{
-	auto block = get (transaction, hash);
-	debug_assert (block != nullptr);
-	return account (*block);
-}
 
 nano::uint128_t nano::block_store::balance (nano::block const & block) const
 {
