@@ -307,7 +307,7 @@ void nano::confirmation_height_bounded::prepare_iterated_blocks_for_cementing (p
 	if (!preparation_data_a.already_cemented)
 	{
 		// Add the non-receive blocks iterated for this account
-		auto block_height = (ledger.store.block.account_height (preparation_data_a.transaction, preparation_data_a.top_most_non_receive_block_hash));
+		auto block_height = (ledger.height (preparation_data_a.transaction, preparation_data_a.top_most_non_receive_block_hash));
 		if (block_height > preparation_data_a.confirmation_height_info.height)
 		{
 			confirmed_info confirmed_info_l{ block_height, preparation_data_a.top_most_non_receive_block_hash };

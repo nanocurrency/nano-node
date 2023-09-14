@@ -89,6 +89,7 @@ public:
 	bool bootstrap_weight_reached () const;
 	static nano::epoch version (nano::block const & block);
 	nano::epoch version (nano::transaction const & transaction, nano::block_hash const & hash) const;
+	uint64_t height (nano::transaction const & transaction, nano::block_hash const & hash) const;
 	static nano::uint128_t const unit;
 	nano::ledger_constants & constants;
 	nano::store & store;

@@ -756,7 +756,6 @@ public:
 	virtual nano::store_iterator<nano::block_hash, block_w_sideband> begin (nano::transaction const &) const = 0;
 	virtual nano::store_iterator<nano::block_hash, block_w_sideband> end () const = 0;
 	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, block_w_sideband>, nano::store_iterator<nano::block_hash, block_w_sideband>)> const & action_a) const = 0;
-	virtual uint64_t account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 };
 
 /**
