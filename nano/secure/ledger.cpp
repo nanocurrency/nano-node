@@ -152,7 +152,7 @@ public:
 		}
 
 		debug_assert (!error);
-		auto previous_version (ledger.store.block.version (transaction, block_a.hashables.previous));
+		auto previous_version (ledger.version (transaction, block_a.hashables.previous));
 		nano::account_info new_info (block_a.hashables.previous, representative, info->open_block, balance, nano::seconds_since_epoch (), info->block_count - 1, previous_version);
 		ledger.update_account (transaction, block_a.hashables.account, *info, new_info);
 
@@ -736,10 +736,38 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 	}
 }
 
-// Balance for account containing hash
-nano::uint128_t nano::ledger::balance (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
+nano::uint128_t nano::ledger::balance (nano::block const & block)
 {
-	return hash_a.is_zero () ? 0 : store.block.balance (transaction_a, hash_a);
+	nano::uint128_t result;
+	switch (block.type ())
+	{
+		case nano::block_type::open:
+		case nano::block_type::receive:
+		case nano::block_type::change:
+			result = block.sideband ().balance.number ();
+			break;
+		case nano::block_type::send:
+		case nano::block_type::state:
+			result = block.balance ().number ();
+			break;
+		case nano::block_type::invalid:
+		case nano::block_type::not_a_block:
+			release_assert (false);
+			break;
+	}
+	return result;
+}
+
+// Balance for account containing hash
+nano::uint128_t nano::ledger::balance (nano::transaction const & transaction, nano::block_hash const & hash) const
+{
+	if (hash.is_zero ())
+	{
+		return 0;
+	}
+	auto block = store.block.get (transaction, hash);
+	debug_assert (block != nullptr);
+	return balance (*block);
 }
 
 nano::uint128_t nano::ledger::balance_safe (nano::transaction const & transaction_a, nano::block_hash const & hash_a, bool & error_a) const
@@ -997,7 +1025,7 @@ bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano
 {
 	debug_assert (store.block.exists (transaction_a, block_a));
 	auto account_l (account (transaction_a, block_a));
-	auto block_account_height (store.block.account_height (transaction_a, block_a));
+	auto block_account_height (height (transaction_a, block_a));
 	rollback_visitor rollback (transaction_a, *this, list_a);
 	auto error (false);
 	while (!error && store.block.exists (transaction_a, block_a))
@@ -1031,23 +1059,37 @@ bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano
 	return rollback (transaction_a, block_a, rollback_list);
 }
 
-nano::account nano::ledger::account (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
+nano::account nano::ledger::account (nano::block const & block) const
 {
-	return store.block.account (transaction_a, hash_a);
+	debug_assert (block.has_sideband ());
+	nano::account result (block.account ());
+	if (result.is_zero ())
+	{
+		result = block.sideband ().account;
+	}
+	debug_assert (!result.is_zero ());
+	return result;
+}
+
+nano::account nano::ledger::account (nano::transaction const & transaction, nano::block_hash const & hash) const
+{
+	auto block = store.block.get (transaction, hash);
+	debug_assert (block != nullptr);
+	return account (*block);
 }
 
 nano::account nano::ledger::account_safe (nano::transaction const & transaction_a, nano::block_hash const & hash_a, bool & error_a) const
 {
 	if (!pruning)
 	{
-		return store.block.account (transaction_a, hash_a);
+		return account (transaction_a, hash_a);
 	}
 	else
 	{
 		auto block (store.block.get (transaction_a, hash_a));
 		if (block != nullptr)
 		{
-			return store.block.account_calculated (*block);
+			return account (*block);
 		}
 		else
 		{
@@ -1057,12 +1099,12 @@ nano::account nano::ledger::account_safe (nano::transaction const & transaction_
 	}
 }
 
-nano::account nano::ledger::account_safe (const nano::transaction & transaction, const nano::block_hash & hash) const
+nano::account nano::ledger::account_safe (nano::transaction const & transaction, nano::block_hash const & hash) const
 {
 	auto block = store.block.get (transaction, hash);
 	if (block)
 	{
-		return store.block.account_calculated (*block);
+		return account (*block);
 	}
 	else
 	{
@@ -1569,6 +1611,32 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 bool nano::ledger::bootstrap_weight_reached () const
 {
 	return cache.block_count >= bootstrap_weight_max_blocks;
+}
+
+nano::epoch nano::ledger::version (nano::block const & block)
+{
+	if (block.type () == nano::block_type::state)
+	{
+		return block.sideband ().details.epoch;
+	}
+
+	return nano::epoch::epoch_0;
+}
+
+nano::epoch nano::ledger::version (nano::transaction const & transaction, nano::block_hash const & hash) const
+{
+	auto block = store.block.get (transaction, hash);
+	if (block == nullptr)
+	{
+		return nano::epoch::epoch_0;
+	}
+	return version (*block);
+}
+
+uint64_t nano::ledger::height (nano::transaction const & transaction, nano::block_hash const & hash) const
+{
+	auto block = store.block.get (transaction, hash);
+	return block->sideband ().height;
 }
 
 nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account) :

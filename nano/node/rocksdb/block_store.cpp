@@ -101,20 +101,6 @@ std::shared_ptr<nano::block> nano::rocksdb::block_store::get (nano::transaction 
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::rocksdb::block_store::get_no_sideband (nano::transaction const & transaction, nano::block_hash const & hash) const
-{
-	nano::rocksdb_val value;
-	block_raw_get (transaction, hash, value);
-	std::shared_ptr<nano::block> result;
-	if (value.size () != 0)
-	{
-		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-		result = nano::deserialize_block (stream);
-		debug_assert (result != nullptr);
-	}
-	return result;
-}
-
 std::shared_ptr<nano::block> nano::rocksdb::block_store::random (nano::transaction const & transaction)
 {
 	nano::block_hash hash;
@@ -146,25 +132,6 @@ uint64_t nano::rocksdb::block_store::count (nano::transaction const & transactio
 	return store.count (transaction_a, tables::blocks);
 }
 
-nano::account nano::rocksdb::block_store::account (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
-{
-	auto block (get (transaction_a, hash_a));
-	debug_assert (block != nullptr);
-	return account_calculated (*block);
-}
-
-nano::account nano::rocksdb::block_store::account_calculated (nano::block const & block_a) const
-{
-	debug_assert (block_a.has_sideband ());
-	nano::account result (block_a.account ());
-	if (result.is_zero ())
-	{
-		result = block_a.sideband ().account;
-	}
-	debug_assert (!result.is_zero ());
-	return result;
-}
-
 nano::store_iterator<nano::block_hash, nano::block_w_sideband> nano::rocksdb::block_store::begin (nano::transaction const & transaction) const
 {
 	return store.make_iterator<nano::block_hash, nano::block_w_sideband> (transaction, tables::blocks);
@@ -180,49 +147,6 @@ nano::store_iterator<nano::block_hash, nano::block_w_sideband> nano::rocksdb::bl
 	return nano::store_iterator<nano::block_hash, nano::block_w_sideband> (nullptr);
 }
 
-nano::uint128_t nano::rocksdb::block_store::balance (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
-{
-	auto block (get (transaction_a, hash_a));
-	release_assert (block);
-	nano::uint128_t result (balance_calculated (block));
-	return result;
-}
-
-nano::uint128_t nano::rocksdb::block_store::balance_calculated (std::shared_ptr<nano::block> const & block_a) const
-{
-	nano::uint128_t result;
-	switch (block_a->type ())
-	{
-		case nano::block_type::open:
-		case nano::block_type::receive:
-		case nano::block_type::change:
-			result = block_a->sideband ().balance.number ();
-			break;
-		case nano::block_type::send:
-			result = boost::polymorphic_downcast<nano::send_block *> (block_a.get ())->hashables.balance.number ();
-			break;
-		case nano::block_type::state:
-			result = boost::polymorphic_downcast<nano::state_block *> (block_a.get ())->hashables.balance.number ();
-			break;
-		case nano::block_type::invalid:
-		case nano::block_type::not_a_block:
-			release_assert (false);
-			break;
-	}
-	return result;
-}
-
-nano::epoch nano::rocksdb::block_store::version (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
-{
-	auto block = get (transaction_a, hash_a);
-	if (block && block->type () == nano::block_type::state)
-	{
-		return block->sideband ().details.epoch;
-	}
-
-	return nano::epoch::epoch_0;
-}
-
 void nano::rocksdb::block_store::for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, block_w_sideband>, nano::store_iterator<nano::block_hash, block_w_sideband>)> const & action_a) const
 {
 	parallel_traversal<nano::uint256_t> (
@@ -230,13 +154,6 @@ void nano::rocksdb::block_store::for_each_par (std::function<void (nano::read_tr
 		auto transaction (this->store.tx_begin_read ());
 		action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end ());
 	});
-}
-
-// Converts a block hash to a block height
-uint64_t nano::rocksdb::block_store::account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
-{
-	auto block = get (transaction_a, hash_a);
-	return block->sideband ().height;
 }
 
 void nano::rocksdb::block_store::block_raw_get (nano::transaction const & transaction, nano::block_hash const & hash, nano::rocksdb_val & value) const

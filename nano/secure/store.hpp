@@ -748,21 +748,14 @@ public:
 	virtual nano::block_hash successor (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual void successor_clear (nano::write_transaction const &, nano::block_hash const &) = 0;
 	virtual std::shared_ptr<nano::block> get (nano::transaction const &, nano::block_hash const &) const = 0;
-	virtual std::shared_ptr<nano::block> get_no_sideband (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual std::shared_ptr<nano::block> random (nano::transaction const &) = 0;
 	virtual void del (nano::write_transaction const &, nano::block_hash const &) = 0;
 	virtual bool exists (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual uint64_t count (nano::transaction const &) = 0;
-	virtual nano::account account (nano::transaction const &, nano::block_hash const &) const = 0;
-	virtual nano::account account_calculated (nano::block const &) const = 0;
 	virtual nano::store_iterator<nano::block_hash, block_w_sideband> begin (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual nano::store_iterator<nano::block_hash, block_w_sideband> begin (nano::transaction const &) const = 0;
 	virtual nano::store_iterator<nano::block_hash, block_w_sideband> end () const = 0;
-	virtual nano::uint128_t balance (nano::transaction const &, nano::block_hash const &) = 0;
-	virtual nano::uint128_t balance_calculated (std::shared_ptr<nano::block> const &) const = 0;
-	virtual nano::epoch version (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, block_w_sideband>, nano::store_iterator<nano::block_hash, block_w_sideband>)> const & action_a) const = 0;
-	virtual uint64_t account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 };
 
 /**

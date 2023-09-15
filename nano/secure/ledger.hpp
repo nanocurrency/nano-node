@@ -31,6 +31,7 @@ public:
 	/**
 	 * Return account containing hash, expects that block hash exists in ledger
 	 */
+	nano::account account (nano::block const & block) const;
 	nano::account account (nano::transaction const &, nano::block_hash const &) const;
 	std::optional<nano::account_info> account_info (nano::transaction const & transaction, nano::account const & account) const;
 	/**
@@ -46,6 +47,7 @@ public:
 	nano::uint128_t amount (nano::transaction const &, nano::block_hash const &);
 	/** Safe for previous block, but block hash_a must exist */
 	nano::uint128_t amount_safe (nano::transaction const &, nano::block_hash const & hash_a, bool &) const;
+	static nano::uint128_t balance (nano::block const & block);
 	nano::uint128_t balance (nano::transaction const &, nano::block_hash const &) const;
 	nano::uint128_t balance_safe (nano::transaction const &, nano::block_hash const &, bool &) const;
 	nano::uint128_t account_balance (nano::transaction const &, nano::account const &, bool = false);
@@ -85,6 +87,9 @@ public:
 	std::multimap<uint64_t, uncemented_info, std::greater<>> unconfirmed_frontiers () const;
 	bool migrate_lmdb_to_rocksdb (boost::filesystem::path const &) const;
 	bool bootstrap_weight_reached () const;
+	static nano::epoch version (nano::block const & block);
+	nano::epoch version (nano::transaction const & transaction, nano::block_hash const & hash) const;
+	uint64_t height (nano::transaction const & transaction, nano::block_hash const & hash) const;
 	static nano::uint128_t const unit;
 	nano::ledger_constants & constants;
 	nano::store & store;

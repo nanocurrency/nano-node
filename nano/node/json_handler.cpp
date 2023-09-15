@@ -402,7 +402,7 @@ uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a)
 	// Send check
 	if (block_previous != nullptr)
 	{
-		details.is_send = node.store.block.balance (transaction, previous) > block_a.balance ().number ();
+		details.is_send = node.ledger.balance (transaction, previous) > block_a.balance ().number ();
 		details_found = true;
 	}
 	// Epoch check
@@ -1653,7 +1653,7 @@ void nano::json_handler::block_create ()
 			else if (previous_text.is_initialized () && balance_text.is_initialized () && type == "send")
 			{
 				auto transaction (node.store.tx_begin_read ());
-				if (node.store.block.exists (transaction, previous) && node.store.block.balance (transaction, previous) != balance.number ())
+				if (node.store.block.exists (transaction, previous) && node.ledger.balance (transaction, previous) != balance.number ())
 				{
 					ec = nano::error_rpc::block_create_balance_mismatch;
 				}
@@ -5095,7 +5095,7 @@ void nano::json_handler::work_generate ()
 					auto transaction_l (node.store.tx_begin_read ());
 					if (node.store.block.exists (transaction_l, hash))
 					{
-						account = node.store.block.account (transaction_l, hash);
+						account = node.ledger.account (transaction_l, hash);
 					}
 				}
 				auto secondary_work_peers_l (request.get<bool> ("secondary_work_peers", false));
