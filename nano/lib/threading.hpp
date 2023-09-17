@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/lib/relaxed_atomic.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/thread/thread.hpp>

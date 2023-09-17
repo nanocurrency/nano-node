@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/relaxed_atomic.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/secure/store.hpp>
