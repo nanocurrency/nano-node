@@ -39,7 +39,6 @@ add_library(
   ${PLATFORM_SECURE_SOURCE}
   ${CMAKE_BINARY_DIR}/bootstrap_weights_live.cpp
   ${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp
-  store.cpp
   buffer.hpp
   common.hpp
   common.cpp
@@ -58,7 +57,6 @@ target_link_libraries(
   nano_lib
   ed25519
   crypto_lib
-  lmdb
   Boost::iostreams
   Boost::system
   Boost::filesystem)
