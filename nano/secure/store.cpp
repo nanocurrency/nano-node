@@ -1,6 +1,6 @@
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/secure/store.hpp>
+#include <nano/store/component.hpp>
 
 nano::read_transaction::read_transaction (std::unique_ptr<nano::read_transaction_impl> read_transaction_impl) :
 	impl (std::move (read_transaction_impl))

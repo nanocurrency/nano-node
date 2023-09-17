@@ -2,7 +2,7 @@
 
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/node/lmdb/lmdb_txn.hpp>
-#include <nano/secure/store.hpp>
+#include <nano/store/component.hpp>
 
 namespace nano
 {

@@ -4,7 +4,7 @@
 #include <nano/lib/relaxed_atomic.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/secure/store.hpp>
+#include <nano/store/component.hpp>
 
 #include <boost/circular_buffer.hpp>
 

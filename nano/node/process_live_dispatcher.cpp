@@ -6,7 +6,7 @@
 #include <nano/node/websocket.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
-#include <nano/secure/store.hpp>
+#include <nano/store/component.hpp>
 
 nano::process_live_dispatcher::process_live_dispatcher (nano::ledger & ledger, nano::scheduler::priority & scheduler, nano::vote_cache & inactive_vote_cache, nano::websocket_server & websocket) :
 	ledger{ ledger },

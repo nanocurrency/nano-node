@@ -8,7 +8,7 @@
 #include <nano/node/voting.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
-#include <nano/secure/store.hpp>
+#include <nano/store/component.hpp>
 
 #include <chrono>
 

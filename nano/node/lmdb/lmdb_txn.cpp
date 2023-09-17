@@ -4,7 +4,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/lmdb/lmdb_env.hpp>
 #include <nano/node/lmdb/lmdb_txn.hpp>
-#include <nano/secure/store.hpp>
+#include <nano/store/component.hpp>
 
 #include <boost/format.hpp>
 

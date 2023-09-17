@@ -7,7 +7,7 @@
 #include <nano/node/lmdb/wallet_value.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/store.hpp>
+#include <nano/store/component.hpp>
 
 #include <atomic>
 #include <mutex>

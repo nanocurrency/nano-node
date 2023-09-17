@@ -1,7 +1,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/bootstrap_ascending/iterators.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/store.hpp>
+#include <nano/store/component.hpp>
 
 /*
  * database_iterator

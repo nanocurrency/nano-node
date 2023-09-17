@@ -5,7 +5,7 @@
 #include <nano/node/make_store.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
-#include <nano/secure/store.hpp>
+#include <nano/store/component.hpp>
 
 #include <boost/filesystem.hpp>
 
