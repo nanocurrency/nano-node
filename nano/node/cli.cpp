@@ -6,6 +6,7 @@
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/node.hpp>
 
+#include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 
 namespace

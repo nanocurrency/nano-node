@@ -6,6 +6,8 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/store.hpp>
 
+#include <boost/filesystem.hpp>
+
 #include <cryptopp/words.h>
 
 namespace
