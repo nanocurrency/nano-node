@@ -571,7 +571,7 @@ bool nano::election::replace_by_weight (nano::unique_lock<nano::mutex> & lock_a,
 	std::sort (sorted.begin (), sorted.end (), [] (auto const & left, auto const & right) { return left.second < right.second; });
 	// Replace if lowest tally is below inactive cache new block weight
 	auto inactive_existing = node.inactive_vote_cache.find (hash_a);
-	auto inactive_tally = inactive_existing ? inactive_existing->tally : 0;
+	auto inactive_tally = inactive_existing ? inactive_existing->tally () : 0;
 	if (inactive_tally > 0 && sorted.size () < max_blocks)
 	{
 		// If count of tally items is less than 10, remove any block without tally

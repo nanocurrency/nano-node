@@ -77,11 +77,11 @@ TEST (vote_cache, insert_one_hash)
 	ASSERT_TRUE (vote_cache.find (hash1));
 	auto peek1 = vote_cache.peek ();
 	ASSERT_TRUE (peek1);
-	ASSERT_EQ (peek1->hash, hash1);
-	ASSERT_EQ (peek1->voters.size (), 1);
-	ASSERT_EQ (peek1->voters.front ().first, rep1.pub); // account
-	ASSERT_EQ (peek1->voters.front ().second, 1024 * 1024); // timestamp
-	ASSERT_EQ (peek1->tally, 7);
+	ASSERT_EQ (peek1->hash (), hash1);
+	ASSERT_EQ (peek1->voters ().size (), 1);
+	ASSERT_EQ (peek1->voters ().front ().representative, rep1.pub); // account
+	ASSERT_EQ (peek1->voters ().front ().timestamp, 1024 * 1024); // timestamp
+	ASSERT_EQ (peek1->tally (), 7);
 }
 
 /*
@@ -106,9 +106,9 @@ TEST (vote_cache, insert_one_hash_many_votes)
 	ASSERT_EQ (1, vote_cache.cache_size ());
 	auto peek1 = vote_cache.peek ();
 	ASSERT_TRUE (peek1);
-	ASSERT_EQ (peek1->voters.size (), 3);
+	ASSERT_EQ (peek1->voters ().size (), 3);
 	// Tally must be the sum of rep weights
-	ASSERT_EQ (peek1->tally, 7 + 9 + 11);
+	ASSERT_EQ (peek1->tally (), 7 + 9 + 11);
 }
 
 /*
@@ -146,9 +146,9 @@ TEST (vote_cache, insert_many_hashes_many_votes)
 	// Ensure that first entry in queue is the one for hash3 (rep3 has the highest weight of the first 3 reps)
 	auto peek1 = vote_cache.peek ();
 	ASSERT_TRUE (peek1);
-	ASSERT_EQ (peek1->voters.size (), 1);
-	ASSERT_EQ (peek1->tally, 11);
-	ASSERT_EQ (peek1->hash, hash3);
+	ASSERT_EQ (peek1->voters ().size (), 1);
+	ASSERT_EQ (peek1->tally (), 11);
+	ASSERT_EQ (peek1->hash (), hash3);
 
 	// Now add a vote from rep4 with the highest voting weight
 	vote_cache.vote (vote4->hashes.front (), vote4);
@@ -156,23 +156,23 @@ TEST (vote_cache, insert_many_hashes_many_votes)
 	// Ensure that the first entry in queue is now the one for hash1 (rep1 + rep4 tally weight)
 	auto pop1 = vote_cache.pop ();
 	ASSERT_TRUE (pop1);
-	ASSERT_EQ ((*pop1).voters.size (), 2);
-	ASSERT_EQ ((*pop1).tally, 7 + 13);
-	ASSERT_EQ ((*pop1).hash, hash1);
+	ASSERT_EQ ((*pop1).voters ().size (), 2);
+	ASSERT_EQ ((*pop1).tally (), 7 + 13);
+	ASSERT_EQ ((*pop1).hash (), hash1);
 	ASSERT_TRUE (vote_cache.find (hash1)); // Only pop from queue, votes should still be stored in cache
 
 	// After popping the previous entry, the next entry in queue should be hash3 (rep3 tally weight)
 	auto pop2 = vote_cache.pop ();
-	ASSERT_EQ ((*pop2).voters.size (), 1);
-	ASSERT_EQ ((*pop2).tally, 11);
-	ASSERT_EQ ((*pop2).hash, hash3);
+	ASSERT_EQ ((*pop2).voters ().size (), 1);
+	ASSERT_EQ ((*pop2).tally (), 11);
+	ASSERT_EQ ((*pop2).hash (), hash3);
 	ASSERT_TRUE (vote_cache.find (hash3));
 
 	// And last one should be hash2 with rep2 tally weight
 	auto pop3 = vote_cache.pop ();
-	ASSERT_EQ ((*pop3).voters.size (), 1);
-	ASSERT_EQ ((*pop3).tally, 9);
-	ASSERT_EQ ((*pop3).hash, hash2);
+	ASSERT_EQ ((*pop3).voters ().size (), 1);
+	ASSERT_EQ ((*pop3).tally (), 9);
+	ASSERT_EQ ((*pop3).hash (), hash2);
 	ASSERT_TRUE (vote_cache.find (hash2));
 
 	ASSERT_TRUE (vote_cache.queue_empty ());
@@ -212,10 +212,10 @@ TEST (vote_cache, insert_newer)
 	auto peek2 = vote_cache.peek ();
 	ASSERT_TRUE (peek2);
 	ASSERT_EQ (1, vote_cache.cache_size ());
-	ASSERT_EQ (1, peek2->voters.size ());
+	ASSERT_EQ (1, peek2->voters ().size ());
 	// Second entry should have timestamp greater than the first one
-	ASSERT_GT (peek2->voters.front ().second, peek1->voters.front ().second);
-	ASSERT_EQ (peek2->voters.front ().second, std::numeric_limits<uint64_t>::max ()); // final timestamp
+	ASSERT_GT (peek2->voters ().front ().timestamp, peek1->voters ().front ().timestamp);
+	ASSERT_EQ (peek2->voters ().front ().timestamp, std::numeric_limits<uint64_t>::max ()); // final timestamp
 }
 
 /*
@@ -236,8 +236,8 @@ TEST (vote_cache, insert_older)
 	auto peek2 = vote_cache.peek ();
 	ASSERT_TRUE (peek2);
 	ASSERT_EQ (1, vote_cache.cache_size ());
-	ASSERT_EQ (1, peek2->voters.size ());
-	ASSERT_EQ (peek2->voters.front ().second, peek1->voters.front ().second); // timestamp2 == timestamp1
+	ASSERT_EQ (1, peek2->voters ().size ());
+	ASSERT_EQ (peek2->voters ().front ().timestamp, peek1->voters ().front ().timestamp); // timestamp2 == timestamp1
 }
 
 /*
@@ -298,7 +298,7 @@ TEST (vote_cache, overfill)
 	auto peek1 = vote_cache.peek ();
 	ASSERT_TRUE (peek1);
 	// Check that oldest votes are dropped first
-	ASSERT_EQ (peek1->tally, 1024);
+	ASSERT_EQ (peek1->tally (), 1024);
 }
 
 /*

@@ -359,7 +359,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	node.inactive_vote_cache.vote (send->hash (), vote1);
 	auto cache = node.inactive_vote_cache.find (send->hash ());
 	ASSERT_TRUE (cache);
-	ASSERT_EQ (1, cache->voters.size ());
+	ASSERT_EQ (1, cache->voters ().size ());
 	cache->fill (election);
 	// Check that election data is not changed
 	ASSERT_EQ (2, election->votes ().size ());
@@ -417,7 +417,7 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	node.vote_processor.vote (vote2, std::make_shared<nano::transport::inproc::channel> (node, node));
 
 	ASSERT_TIMELY (5s, node.inactive_vote_cache.find (send1->hash ()));
-	ASSERT_TIMELY (5s, node.inactive_vote_cache.find (send1->hash ())->voters.size () == 2);
+	ASSERT_TIMELY (5s, node.inactive_vote_cache.find (send1->hash ())->voters ().size () == 2);
 	ASSERT_EQ (1, node.inactive_vote_cache.cache_size ());
 	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
 	std::shared_ptr<nano::election> election;
@@ -514,7 +514,7 @@ TEST (active_transactions, inactive_votes_cache_election_start)
 	ASSERT_TRUE (node.active.empty ());
 	auto send4_cache (node.inactive_vote_cache.find (send4->hash ()));
 	ASSERT_TRUE (send4_cache);
-	ASSERT_EQ (3, send4_cache->voters.size ());
+	ASSERT_EQ (3, send4_cache->voters ().size ());
 	node.process_active (send3);
 	// An election is started for send6 but does not
 	ASSERT_FALSE (node.block_confirmed_or_being_confirmed (send3->hash ()));

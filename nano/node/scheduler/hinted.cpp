@@ -66,7 +66,7 @@ bool nano::scheduler::hinted::run_one (nano::uint128_t const & minimum_tally)
 {
 	if (auto top = inactive_vote_cache.pop (minimum_tally); top)
 	{
-		const auto hash = top->hash; // Hash of block we want to hint
+		const auto hash = top->hash (); // Hash of block we want to hint
 
 		// Check if block exists
 		auto block = node.block (hash);

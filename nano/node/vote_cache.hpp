@@ -6,6 +6,7 @@
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
@@ -51,13 +52,16 @@ public:
 	class entry final
 	{
 	public:
-		constexpr static int max_voters = 40;
+		struct voter_entry
+		{
+			nano::account representative;
+			uint64_t timestamp;
+		};
+
+	public:
+		constexpr static int max_voters = 80;
 
 		explicit entry (nano::block_hash const & hash);
-
-		nano::block_hash hash;
-		std::vector<std::pair<nano::account, uint64_t>> voters; // <rep, timestamp> pair
-		nano::uint128_t tally{ 0 };
 
 		/**
 		 * Adds a vote into a list, checks for duplicates and updates timestamp if new one is greater
@@ -67,11 +71,23 @@ public:
 		/**
 		 * Inserts votes stored in this entry into an election
 		 */
-		std::size_t fill (std::shared_ptr<nano::election> election) const;
+		std::size_t fill (std::shared_ptr<nano::election> const & election) const;
 		/*
 		 * Size of this entry
 		 */
 		std::size_t size () const;
+
+		nano::block_hash hash () const;
+		nano::uint128_t tally () const;
+		nano::uint128_t final_tally () const;
+		std::vector<voter_entry> voters () const;
+
+	private:
+		nano::block_hash const hash_m;
+		std::vector<voter_entry> voters_m;
+
+		nano::uint128_t tally_m{ 0 };
+		nano::uint128_t final_tally_m{ 0 };
 	};
 
 private:
@@ -147,7 +163,8 @@ private:
 	mi::indexed_by<
 		mi::sequenced<mi::tag<tag_sequenced>>,
 		mi::hashed_unique<mi::tag<tag_hash>,
-			mi::member<entry, nano::block_hash, &entry::hash>>>>;
+			mi::const_mem_fun<entry, nano::block_hash, &entry::hash>>
+	>>;
 	// clang-format on
 	ordered_cache cache;
 
@@ -158,7 +175,8 @@ private:
 		mi::ordered_non_unique<mi::tag<tag_tally>,
 			mi::member<queue_entry, nano::uint128_t, &queue_entry::tally>>,
 		mi::hashed_unique<mi::tag<tag_hash>,
-			mi::member<queue_entry, nano::block_hash, &queue_entry::hash>>>>;
+			mi::member<queue_entry, nano::block_hash, &queue_entry::hash>>
+	>>;
 	// clang-format on
 	ordered_queue queue;
 

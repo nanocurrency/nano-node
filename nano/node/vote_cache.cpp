@@ -1,32 +1,48 @@
 #include <nano/node/node.hpp>
 #include <nano/node/vote_cache.hpp>
 
+/*
+ * entry
+ */
+
 nano::vote_cache::entry::entry (const nano::block_hash & hash) :
-	hash{ hash }
+	hash_m{ hash }
 {
 }
 
 bool nano::vote_cache::entry::vote (const nano::account & representative, const uint64_t & timestamp, const nano::uint128_t & rep_weight)
 {
-	auto existing = std::find_if (voters.begin (), voters.end (), [&representative] (auto const & item) { return item.first == representative; });
-	if (existing != voters.end ())
+	auto existing = std::find_if (voters_m.begin (), voters_m.end (), [&representative] (auto const & item) { return item.representative == representative; });
+	if (existing != voters_m.end ())
 	{
 		// We already have a vote from this rep
 		// Update timestamp if newer but tally remains unchanged as we already counted this rep weight
 		// It is not essential to keep tally up to date if rep voting weight changes, elections do tally calculations independently, so in the worst case scenario only our queue ordering will be a bit off
-		if (timestamp > existing->second)
+		if (timestamp > existing->timestamp)
 		{
-			existing->second = timestamp;
+			existing->timestamp = timestamp;
+			if (nano::vote::is_final_timestamp (timestamp))
+			{
+				final_tally_m += rep_weight;
+			}
+			return true;
 		}
-		return false;
+		else
+		{
+			return false;
+		}
 	}
 	else
 	{
 		// Vote from an unseen representative, add to list and update tally
-		if (voters.size () < max_voters)
+		if (voters_m.size () < max_voters)
 		{
-			voters.emplace_back (representative, timestamp);
-			tally += rep_weight;
+			voters_m.push_back ({ representative, timestamp });
+			tally_m += rep_weight;
+			if (nano::vote::is_final_timestamp (timestamp))
+			{
+				final_tally_m += rep_weight;
+			}
 			return true;
 		}
 		else
@@ -36,12 +52,12 @@ bool nano::vote_cache::entry::vote (const nano::account & representative, const 
 	}
 }
 
-std::size_t nano::vote_cache::entry::fill (std::shared_ptr<nano::election> election) const
+std::size_t nano::vote_cache::entry::fill (std::shared_ptr<nano::election> const & election) const
 {
 	std::size_t inserted = 0;
-	for (const auto & [rep, timestamp] : voters)
+	for (const auto & entry : voters_m)
 	{
-		auto [is_replay, processed] = election->vote (rep, timestamp, hash, nano::election::vote_source::cache);
+		auto [is_replay, processed] = election->vote (entry.representative, entry.timestamp, hash_m, nano::election::vote_source::cache);
 		if (processed)
 		{
 			inserted++;
@@ -52,8 +68,32 @@ std::size_t nano::vote_cache::entry::fill (std::shared_ptr<nano::election> elect
 
 std::size_t nano::vote_cache::entry::size () const
 {
-	return voters.size ();
+	return voters_m.size ();
 }
+
+nano::block_hash nano::vote_cache::entry::hash () const
+{
+	return hash_m;
+}
+
+nano::uint128_t nano::vote_cache::entry::tally () const
+{
+	return tally_m;
+}
+
+nano::uint128_t nano::vote_cache::entry::final_tally () const
+{
+	return final_tally_m;
+}
+
+std::vector<nano::vote_cache::entry::voter_entry> nano::vote_cache::entry::voters () const
+{
+	return voters_m;
+}
+
+/*
+ * vote_cache
+ */
 
 nano::vote_cache::vote_cache (const config config_a) :
 	max_size{ config_a.max_size }
@@ -86,7 +126,7 @@ void nano::vote_cache::vote_impl (const nano::block_hash & hash, const nano::acc
 		if (auto queue_existing = queue_by_hash.find (hash); queue_existing != queue_by_hash.end ())
 		{
 			queue_by_hash.modify (queue_existing, [&existing] (queue_entry & ent) {
-				ent.tally = existing->tally;
+				ent.tally = existing->tally ();
 			});
 		}
 	}
@@ -103,7 +143,7 @@ void nano::vote_cache::vote_impl (const nano::block_hash & hash, const nano::acc
 		{
 			queue_by_hash.erase (queue_existing);
 		}
-		queue_by_hash.insert ({ hash, cache_entry.tally });
+		queue_by_hash.insert ({ hash, cache_entry.tally () });
 
 		trim_overflow_locked ();
 	}
@@ -142,6 +182,7 @@ std::optional<nano::vote_cache::entry> nano::vote_cache::find (const nano::block
 bool nano::vote_cache::erase (const nano::block_hash & hash)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
+
 	bool result = false;
 	auto & cache_by_hash = cache.get<tag_hash> ();
 	if (auto existing = cache_by_hash.find (hash); existing != cache_by_hash.end ())
@@ -160,6 +201,7 @@ bool nano::vote_cache::erase (const nano::block_hash & hash)
 std::optional<nano::vote_cache::entry> nano::vote_cache::pop (nano::uint128_t const & min_tally)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
+
 	if (!queue.empty ())
 	{
 		auto & queue_by_tally = queue.get<tag_tally> ();
@@ -168,7 +210,7 @@ std::optional<nano::vote_cache::entry> nano::vote_cache::pop (nano::uint128_t co
 		{
 			// Here we check whether our best candidate passes the minimum vote tally threshold
 			// If yes, erase it from the queue (but still keep the votes in cache)
-			if (maybe_cache_entry->tally >= min_tally)
+			if (maybe_cache_entry->tally () >= min_tally)
 			{
 				queue_by_tally.erase (top);
 				return maybe_cache_entry.value ();
@@ -181,13 +223,14 @@ std::optional<nano::vote_cache::entry> nano::vote_cache::pop (nano::uint128_t co
 std::optional<nano::vote_cache::entry> nano::vote_cache::peek (nano::uint128_t const & min_tally) const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
+
 	if (!queue.empty ())
 	{
 		auto & queue_by_tally = queue.get<tag_tally> ();
 		auto top = std::prev (queue_by_tally.end ()); // Iterator to element with the highest tally
 		if (auto maybe_cache_entry = find_locked (top->hash); maybe_cache_entry)
 		{
-			if (maybe_cache_entry->tally >= min_tally)
+			if (maybe_cache_entry->tally () >= min_tally)
 			{
 				return maybe_cache_entry.value ();
 			}
@@ -199,13 +242,14 @@ std::optional<nano::vote_cache::entry> nano::vote_cache::peek (nano::uint128_t c
 void nano::vote_cache::trigger (const nano::block_hash & hash)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
+
 	auto & queue_by_hash = queue.get<tag_hash> ();
 	// Only reinsert to queue if it is not already in queue and there are votes in passive cache
 	if (auto existing_queue = queue_by_hash.find (hash); existing_queue == queue_by_hash.end ())
 	{
 		if (auto maybe_cache_entry = find_locked (hash); maybe_cache_entry)
 		{
-			queue_by_hash.insert ({ hash, maybe_cache_entry->tally });
+			queue_by_hash.insert ({ hash, maybe_cache_entry->tally () });
 
 			trim_overflow_locked ();
 		}
