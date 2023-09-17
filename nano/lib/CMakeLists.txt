@@ -74,6 +74,8 @@ add_library(
   stats_enums.hpp
   stats_enums.cpp
   stream.hpp
+  thread_pool.hpp
+  thread_pool.cpp
   thread_roles.hpp
   thread_roles.cpp
   thread_runner.hpp
