@@ -1,6 +1,6 @@
 #include <nano/lib/asio.hpp>
 #include <nano/lib/json_error_response.hpp>
-#include <nano/lib/threading.hpp>
+#include <nano/lib/thread_roles.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
 
 #include <boost/endian/conversion.hpp>

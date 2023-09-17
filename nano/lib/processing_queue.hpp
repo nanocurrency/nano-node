@@ -3,6 +3,7 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/thread_roles.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 

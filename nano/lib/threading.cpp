@@ -1,13 +1,7 @@
 #include <nano/lib/config.hpp>
+#include <nano/lib/thread_roles.hpp>
 #include <nano/lib/threading.hpp>
 
-#include <boost/asio/post.hpp>
-#include <boost/asio/steady_timer.hpp>
-#include <boost/asio/thread_pool.hpp>
-#include <boost/format.hpp>
-
-#include <future>
-#include <iostream>
 #include <thread>
 
 /*
