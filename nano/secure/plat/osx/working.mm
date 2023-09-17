@@ -1,5 +1,7 @@
 #include <nano/secure/working.hpp>
 
+#include <boost/filesystem.hpp>
+
 #include <Foundation/Foundation.h>
 
 namespace nano

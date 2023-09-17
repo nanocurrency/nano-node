@@ -3,6 +3,8 @@
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
 
+#include <boost/filesystem.hpp>
+
 #include <sstream>
 #include <vector>
 
