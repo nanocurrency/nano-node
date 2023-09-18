@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/store/component.hpp>
+#include <nano/store/db_val.hpp>
 
 #include <rocksdb/db.h>
 #include <rocksdb/filter_policy.h>

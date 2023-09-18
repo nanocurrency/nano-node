@@ -1,12 +1,10 @@
 #pragma once
 
-#include <nano/store/component.hpp>
-
-#include <rocksdb/slice.h>
+#include <nano/store/block.hpp>
+#include <nano/store/rocksdb/db_val.hpp>
 
 namespace nano
 {
-using rocksdb_val = db_val<::rocksdb::Slice>;
 class block_predecessor_rocksdb_set;
 namespace rocksdb
 {

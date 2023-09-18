@@ -2,6 +2,7 @@
 #include <nano/node/online_reps.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
+#include <nano/store/online_weight.hpp>
 
 nano::online_reps::online_reps (nano::ledger & ledger_a, nano::node_config const & config_a) :
 	ledger{ ledger_a },

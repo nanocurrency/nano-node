@@ -1,9 +1,18 @@
 add_library(
   nano_store
+  account.hpp
+  block.hpp
   component.hpp
+  confirmation_height.hpp
+  db_val.hpp
+  iterator.hpp
+  iterator_impl.hpp
+  final.hpp
+  frontier.hpp
   lmdb/account.hpp
   lmdb/block.hpp
   lmdb/confirmation_height.hpp
+  lmdb/db_val.hpp
   lmdb/final_vote.hpp
   lmdb/frontier.hpp
   lmdb/lmdb.hpp
@@ -17,9 +26,14 @@ add_library(
   lmdb/transaction_impl.hpp
   lmdb/version.hpp
   lmdb/wallet_value.hpp
+  online_weight.hpp
+  peer.hpp
+  pending.hpp
+  pruned.hpp
   rocksdb/account.hpp
   rocksdb/block.hpp
   rocksdb/confirmation_height.hpp
+  rocksdb/db_val.hpp
   rocksdb/final_vote.hpp
   rocksdb/frontier.hpp
   rocksdb/iterator.hpp
@@ -30,11 +44,23 @@ add_library(
   rocksdb/rocksdb.hpp
   rocksdb/transaction_impl.hpp
   rocksdb/version.hpp
+  tables.hpp
+  transaction.hpp
+  version.hpp
   versioning.hpp
+  account.cpp
+  block.cpp
   component.cpp
+  confirmation_height.cpp
+  db_val.cpp
+  iterator.cpp
+  iterator_impl.cpp
+  final.cpp
+  frontier.cpp
   lmdb/account.cpp
   lmdb/block.cpp
   lmdb/confirmation_height.cpp
+  lmdb/db_val.cpp
   lmdb/final_vote.cpp
   lmdb/frontier.cpp
   lmdb/lmdb.cpp
@@ -46,9 +72,14 @@ add_library(
   lmdb/pruned.cpp
   lmdb/version.cpp
   lmdb/wallet_value.cpp
+  online_weight.cpp
+  peer.cpp
+  pending.cpp
+  pruned.cpp
   rocksdb/account.cpp
   rocksdb/block.cpp
   rocksdb/confirmation_height.cpp
+  rocksdb/db_val.cpp
   rocksdb/final_vote.cpp
   rocksdb/frontier.cpp
   rocksdb/online_weight.cpp
@@ -58,6 +89,8 @@ add_library(
   rocksdb/rocksdb.cpp
   rocksdb/transaction.cpp
   rocksdb/version.cpp
+  transaction.cpp
+  version.cpp
   versioning.cpp)
 
 target_link_libraries(

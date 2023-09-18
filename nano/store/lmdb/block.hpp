@@ -1,12 +1,12 @@
 #pragma once
 
-#include <nano/store/component.hpp>
+#include <nano/store/block.hpp>
+#include <nano/store/lmdb/db_val.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
 namespace nano
 {
-using mdb_val = db_val<MDB_val>;
 class block_predecessor_mdb_set;
 namespace lmdb
 {

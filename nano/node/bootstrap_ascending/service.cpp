@@ -6,6 +6,7 @@
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/store/account.hpp>
 #include <nano/store/component.hpp>
 
 using namespace std::chrono_literals;

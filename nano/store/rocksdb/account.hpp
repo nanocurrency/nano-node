@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/store/component.hpp>
+#include <nano/store/account.hpp>
 
 namespace nano
 {

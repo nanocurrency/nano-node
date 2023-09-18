@@ -4,6 +4,9 @@
 #include <nano/node/logging.hpp>
 #include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/store/block.hpp>
+#include <nano/store/confirmation_height.hpp>
+#include <nano/store/pruned.hpp>
 
 #include <boost/format.hpp>
 

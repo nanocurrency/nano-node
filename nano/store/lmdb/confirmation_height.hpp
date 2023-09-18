@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/store/component.hpp>
+#include <nano/store/confirmation_height.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 

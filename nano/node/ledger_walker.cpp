@@ -6,6 +6,7 @@
 #include <nano/node/ledger_walker.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
+#include <nano/store/block.hpp>
 #include <nano/store/component.hpp>
 
 #include <algorithm>

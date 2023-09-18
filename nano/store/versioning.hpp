@@ -71,4 +71,12 @@ public:
 	uint64_t timestamp{ 0 };
 	nano::block_details details;
 };
+// Move to versioning with a specific version if required for a future upgrade
+template <typename T>
+class block_w_sideband_v18
+{
+public:
+	std::shared_ptr<T> block;
+	nano::block_sideband_v18 sideband;
+};
 }

@@ -1,7 +1,8 @@
 #include <nano/lib/rocksdbconfig.hpp>
-#include <nano/store/rocksdb/rocksdb.hpp>
 #include <nano/store/rocksdb/iterator.hpp>
+#include <nano/store/rocksdb/rocksdb.hpp>
 #include <nano/store/rocksdb/transaction_impl.hpp>
+#include <nano/store/version.hpp>
 
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
@@ -32,33 +33,6 @@ public:
 private:
 	std::function<void (rocksdb::FlushJobInfo const &)> flush_completed_cb;
 };
-}
-
-namespace nano
-{
-template <>
-void * rocksdb_val::data () const
-{
-	return (void *)value.data ();
-}
-
-template <>
-std::size_t rocksdb_val::size () const
-{
-	return value.size ();
-}
-
-template <>
-rocksdb_val::db_val (std::size_t size_a, void * data_a) :
-	value (static_cast<char const *> (data_a), size_a)
-{
-}
-
-template <>
-void rocksdb_val::convert_buffer_to_value ()
-{
-	value = ::rocksdb::Slice (reinterpret_cast<char const *> (buffer->data ()), buffer->size ());
-}
 }
 
 nano::rocksdb::store::store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :

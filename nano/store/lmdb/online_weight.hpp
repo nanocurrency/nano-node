@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/store/component.hpp>
+#include <nano/store/online_weight.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 

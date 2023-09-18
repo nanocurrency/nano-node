@@ -5,7 +5,17 @@
 #include <nano/node/make_store.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/store/account.hpp>
+#include <nano/store/block.hpp>
 #include <nano/store/component.hpp>
+#include <nano/store/confirmation_height.hpp>
+#include <nano/store/final.hpp>
+#include <nano/store/frontier.hpp>
+#include <nano/store/online_weight.hpp>
+#include <nano/store/peer.hpp>
+#include <nano/store/pending.hpp>
+#include <nano/store/pruned.hpp>
+#include <nano/store/version.hpp>
 
 #include <boost/filesystem.hpp>
 

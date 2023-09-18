@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/store/component.hpp>
+#include <nano/store/pending.hpp>
 
 namespace nano
 {

@@ -1,6 +1,7 @@
 #pragma once
 
-#include <nano/store/component.hpp>
+#include <nano/store/frontier.hpp>
+#include <nano/store/iterator.hpp>
 
 namespace nano
 {

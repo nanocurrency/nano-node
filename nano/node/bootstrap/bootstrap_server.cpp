@@ -2,7 +2,9 @@
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/store/block.hpp>
 #include <nano/store/component.hpp>
+#include <nano/store/confirmation_height.hpp>
 
 // TODO: Make threads configurable
 nano::bootstrap_server::bootstrap_server (nano::store::component & store_a, nano::ledger & ledger_a, nano::network_constants const & network_constants_a, nano::stats & stats_a) :

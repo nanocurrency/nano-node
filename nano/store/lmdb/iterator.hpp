@@ -1,6 +1,8 @@
 #pragma once
 
 #include <nano/store/component.hpp>
+#include <nano/store/db_val.hpp>
+#include <nano/store/iterator.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
