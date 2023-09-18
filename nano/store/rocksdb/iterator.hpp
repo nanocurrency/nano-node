@@ -1,7 +1,9 @@
 #pragma once
 
 #include <nano/store/component.hpp>
-#include <nano/store/db_val.hpp>
+#include <nano/store/iterator.hpp>
+#include <nano/store/rocksdb/db_val.hpp>
+#include <nano/store/transaction.hpp>
 
 #include <rocksdb/db.h>
 #include <rocksdb/filter_policy.h>
@@ -11,29 +13,27 @@
 
 namespace
 {
-inline bool is_read (nano::transaction const & transaction_a)
+inline bool is_read (nano::store::transaction const & transaction_a)
 {
-	return (dynamic_cast<nano::read_transaction const *> (&transaction_a) != nullptr);
+	return (dynamic_cast<nano::store::read_transaction const *> (&transaction_a) != nullptr);
 }
 
-inline rocksdb::ReadOptions & snapshot_options (nano::transaction const & transaction_a)
+inline rocksdb::ReadOptions & snapshot_options (nano::store::transaction const & transaction_a)
 {
 	debug_assert (is_read (transaction_a));
 	return *static_cast<rocksdb::ReadOptions *> (transaction_a.get_handle ());
 }
 }
 
-namespace nano
+namespace nano::store::rocksdb
 {
-using rocksdb_val = db_val<::rocksdb::Slice>;
-
 template <typename T, typename U>
-class rocksdb_iterator : public store_iterator_impl<T, U>
+class iterator : public iterator_impl<T, U>
 {
 public:
-	rocksdb_iterator () = default;
+	iterator () = default;
 
-	rocksdb_iterator (::rocksdb::DB * db, nano::transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * handle_a, rocksdb_val const * val_a, bool const direction_asc)
+	iterator (::rocksdb::DB * db, store::transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * handle_a, db_val const * val_a, bool const direction_asc)
 	{
 		// Don't fill the block cache for any blocks read as a result of an iterator
 		if (is_read (transaction_a))
@@ -73,21 +73,21 @@ public:
 		}
 	}
 
-	rocksdb_iterator (::rocksdb::DB * db, nano::transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * handle_a) :
-		rocksdb_iterator (db, transaction_a, handle_a, nullptr)
+	iterator (::rocksdb::DB * db, store::transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * handle_a) :
+		iterator (db, transaction_a, handle_a, nullptr)
 	{
 	}
 
-	rocksdb_iterator (nano::rocksdb_iterator<T, U> && other_a)
+	iterator (nano::store::rocksdb::iterator<T, U> && other_a)
 	{
 		cursor = other_a.cursor;
 		other_a.cursor = nullptr;
 		current = other_a.current;
 	}
 
-	rocksdb_iterator (nano::rocksdb_iterator<T, U> const &) = delete;
+	iterator (nano::store::rocksdb::iterator<T, U> const &) = delete;
 
-	nano::store_iterator_impl<T, U> & operator++ () override
+	store::iterator_impl<T, U> & operator++ () override
 	{
 		cursor->Next ();
 		if (cursor->Valid ())
@@ -108,7 +108,7 @@ public:
 		return *this;
 	}
 
-	nano::store_iterator_impl<T, U> & operator-- () override
+	store::iterator_impl<T, U> & operator-- () override
 	{
 		cursor->Prev ();
 		if (cursor->Valid ())
@@ -129,14 +129,14 @@ public:
 		return *this;
 	}
 
-	std::pair<nano::rocksdb_val, nano::rocksdb_val> * operator-> ()
+	std::pair<nano::store::rocksdb::db_val, nano::store::rocksdb::db_val> * operator-> ()
 	{
 		return &current;
 	}
 
-	bool operator== (nano::store_iterator_impl<T, U> const & base_a) const override
+	bool operator== (store::iterator_impl<T, U> const & base_a) const override
 	{
-		auto const other_a (boost::polymorphic_downcast<nano::rocksdb_iterator<T, U> const *> (&base_a));
+		auto const other_a (boost::polymorphic_downcast<nano::store::rocksdb::iterator<T, U> const *> (&base_a));
 
 		if (!current.first.data () && !other_a->current.first.data ())
 		{
@@ -182,23 +182,23 @@ public:
 	}
 	void clear ()
 	{
-		current.first = nano::rocksdb_val{};
-		current.second = nano::rocksdb_val{};
+		current.first = nano::store::rocksdb::db_val{};
+		current.second = nano::store::rocksdb::db_val{};
 		debug_assert (is_end_sentinal ());
 	}
-	nano::rocksdb_iterator<T, U> & operator= (nano::rocksdb_iterator<T, U> && other_a)
+	nano::store::rocksdb::iterator<T, U> & operator= (nano::store::rocksdb::iterator<T, U> && other_a)
 	{
 		cursor = std::move (other_a.cursor);
 		current = other_a.current;
 		return *this;
 	}
-	nano::store_iterator_impl<T, U> & operator= (nano::store_iterator_impl<T, U> const &) = delete;
+	store::iterator_impl<T, U> & operator= (store::iterator_impl<T, U> const &) = delete;
 
 	std::unique_ptr<::rocksdb::Iterator> cursor;
-	std::pair<nano::rocksdb_val, nano::rocksdb_val> current;
+	std::pair<nano::store::rocksdb::db_val, nano::store::rocksdb::db_val> current;
 
 private:
-	::rocksdb::Transaction * tx (nano::transaction const & transaction_a) const
+	::rocksdb::Transaction * tx (store::transaction const & transaction_a) const
 	{
 		return static_cast<::rocksdb::Transaction *> (transaction_a.get_handle ());
 	}

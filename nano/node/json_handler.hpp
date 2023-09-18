@@ -155,10 +155,10 @@ public:
 	std::string action;
 	boost::property_tree::ptree response_l;
 	std::shared_ptr<nano::wallet> wallet_impl ();
-	bool wallet_locked_impl (nano::transaction const &, std::shared_ptr<nano::wallet> const &);
-	bool wallet_account_impl (nano::transaction const &, std::shared_ptr<nano::wallet> const &, nano::account const &);
+	bool wallet_locked_impl (store::transaction const &, std::shared_ptr<nano::wallet> const &);
+	bool wallet_account_impl (store::transaction const &, std::shared_ptr<nano::wallet> const &, nano::account const &);
 	nano::account account_impl (std::string = "", std::error_code = nano::error_common::bad_account_number);
-	nano::account_info account_info_impl (nano::transaction const &, nano::account const &);
+	nano::account_info account_info_impl (store::transaction const &, nano::account const &);
 	nano::amount amount_impl ();
 	std::shared_ptr<nano::block> block_impl (bool = true);
 	nano::block_hash hash_impl (std::string = "hash");

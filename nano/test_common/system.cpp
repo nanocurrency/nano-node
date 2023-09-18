@@ -203,7 +203,7 @@ std::shared_ptr<nano::wallet> nano::test::system::wallet (size_t index_a)
 	return nodes[index_a]->wallets.items.begin ()->second;
 }
 
-nano::account nano::test::system::account (nano::transaction const & transaction_a, size_t index_a)
+nano::account nano::test::system::account (store::transaction const & transaction_a, size_t index_a)
 {
 	auto wallet_l (wallet (index_a));
 	auto keys (wallet_l->store.begin (transaction_a));
@@ -451,7 +451,7 @@ nano::account nano::test::system::get_random_account (std::vector<nano::account>
 	return result;
 }
 
-nano::uint128_t nano::test::system::get_random_amount (nano::transaction const & transaction_a, nano::node & node_a, nano::account const & account_a)
+nano::uint128_t nano::test::system::get_random_amount (store::transaction const & transaction_a, nano::node & node_a, nano::account const & account_a)
 {
 	nano::uint128_t balance (node_a.ledger.account_balance (transaction_a, account_a));
 	nano::uint128_union random_amount;
@@ -468,7 +468,7 @@ void nano::test::system::generate_send_existing (nano::node & node_a, std::vecto
 		nano::account account;
 		random_pool::generate_block (account.bytes.data (), sizeof (account.bytes));
 		auto transaction (node_a.store.tx_begin_read ());
-		nano::store_iterator<nano::account, nano::account_info> entry (node_a.store.account.begin (transaction, account));
+		store::iterator<nano::account, nano::account_info> entry (node_a.store.account.begin (transaction, account));
 		if (entry == node_a.store.account.end ())
 		{
 			entry = node_a.store.account.begin (transaction);

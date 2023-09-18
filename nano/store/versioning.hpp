@@ -5,7 +5,7 @@
 
 struct MDB_val;
 
-namespace nano
+namespace nano::store
 {
 class pending_info_v14 final
 {
@@ -14,7 +14,7 @@ public:
 	pending_info_v14 (nano::account const &, nano::amount const &, nano::epoch);
 	size_t db_size () const;
 	bool deserialize (nano::stream &);
-	bool operator== (nano::pending_info_v14 const &) const;
+	bool operator== (pending_info_v14 const &) const;
 	nano::account source{};
 	nano::amount amount{ 0 };
 	nano::epoch epoch{ nano::epoch::epoch_0 };
@@ -53,7 +53,7 @@ class state_block_w_sideband_v14
 {
 public:
 	std::shared_ptr<nano::state_block> state_block;
-	nano::block_sideband_v14 sideband;
+	block_sideband_v14 sideband;
 };
 class block_sideband_v18 final
 {
@@ -77,6 +77,6 @@ class block_w_sideband_v18
 {
 public:
 	std::shared_ptr<T> block;
-	nano::block_sideband_v18 sideband;
+	block_sideband_v18 sideband;
 };
-}
+} // namespace nano::store

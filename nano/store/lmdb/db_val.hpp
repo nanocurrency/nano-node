@@ -4,7 +4,7 @@
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
-namespace nano
+namespace nano::store::lmdb
 {
-using mdb_val = db_val<MDB_val>;
+using db_val = store::db_val<MDB_val>;
 }

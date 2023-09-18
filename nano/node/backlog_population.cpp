@@ -111,7 +111,7 @@ void nano::backlog_population::populate_backlog (nano::unique_lock<nano::mutex> 
 	}
 }
 
-void nano::backlog_population::activate (nano::transaction const & transaction, nano::account const & account)
+void nano::backlog_population::activate (store::transaction const & transaction, nano::account const & account)
 {
 	debug_assert (!activate_callback.empty ());
 

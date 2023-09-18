@@ -2,20 +2,16 @@
 
 #include <nano/store/version.hpp>
 
-namespace nano
+namespace nano::store::lmdb
 {
-namespace lmdb
+class version : public nano::store::version
 {
-	class store;
-	class version_store : public nano::version_store
-	{
-	protected:
-		nano::lmdb::store & store;
+protected:
+	nano::store::lmdb::component & store;
 
-	public:
-		explicit version_store (nano::lmdb::store & store_a);
-		void put (nano::write_transaction const & transaction_a, int version_a) override;
-		int get (nano::transaction const & transaction_a) const override;
-	};
-}
-}
+public:
+	explicit version (nano::store::lmdb::component & store_a);
+	void put (store::write_transaction const & transaction_a, int version_a) override;
+	int get (store::transaction const & transaction_a) const override;
+};
+} // namespace nano::store::lmdb

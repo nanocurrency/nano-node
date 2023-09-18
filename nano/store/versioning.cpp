@@ -4,14 +4,14 @@
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
-nano::pending_info_v14::pending_info_v14 (nano::account const & source_a, nano::amount const & amount_a, nano::epoch epoch_a) :
+nano::store::pending_info_v14::pending_info_v14 (nano::account const & source_a, nano::amount const & amount_a, nano::epoch epoch_a) :
 	source (source_a),
 	amount (amount_a),
 	epoch (epoch_a)
 {
 }
 
-bool nano::pending_info_v14::deserialize (nano::stream & stream_a)
+bool nano::store::pending_info_v14::deserialize (nano::stream & stream_a)
 {
 	auto error (false);
 	try
@@ -27,17 +27,17 @@ bool nano::pending_info_v14::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-size_t nano::pending_info_v14::db_size () const
+size_t nano::store::pending_info_v14::db_size () const
 {
 	return sizeof (source) + sizeof (amount);
 }
 
-bool nano::pending_info_v14::operator== (nano::pending_info_v14 const & other_a) const
+bool nano::store::pending_info_v14::operator== (nano::store::pending_info_v14 const & other_a) const
 {
 	return source == other_a.source && amount == other_a.amount && epoch == other_a.epoch;
 }
 
-nano::account_info_v14::account_info_v14 (nano::block_hash const & head_a, nano::block_hash const & rep_block_a, nano::block_hash const & open_block_a, nano::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, uint64_t confirmation_height_a, nano::epoch epoch_a) :
+nano::store::account_info_v14::account_info_v14 (nano::block_hash const & head_a, nano::block_hash const & rep_block_a, nano::block_hash const & open_block_a, nano::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, uint64_t confirmation_height_a, nano::epoch epoch_a) :
 	head (head_a),
 	rep_block (rep_block_a),
 	open_block (open_block_a),
@@ -49,7 +49,7 @@ nano::account_info_v14::account_info_v14 (nano::block_hash const & head_a, nano:
 {
 }
 
-size_t nano::account_info_v14::db_size () const
+size_t nano::store::account_info_v14::db_size () const
 {
 	debug_assert (reinterpret_cast<uint8_t const *> (this) == reinterpret_cast<uint8_t const *> (&head));
 	debug_assert (reinterpret_cast<uint8_t const *> (&head) + sizeof (head) == reinterpret_cast<uint8_t const *> (&rep_block));
@@ -61,7 +61,7 @@ size_t nano::account_info_v14::db_size () const
 	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count) + sizeof (confirmation_height);
 }
 
-nano::block_sideband_v14::block_sideband_v14 (nano::block_type type_a, nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a) :
+nano::store::block_sideband_v14::block_sideband_v14 (nano::block_type type_a, nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a) :
 	type (type_a),
 	successor (successor_a),
 	account (account_a),
@@ -71,7 +71,7 @@ nano::block_sideband_v14::block_sideband_v14 (nano::block_type type_a, nano::acc
 {
 }
 
-size_t nano::block_sideband_v14::size (nano::block_type type_a)
+size_t nano::store::block_sideband_v14::size (nano::block_type type_a)
 {
 	size_t result (0);
 	result += sizeof (successor);
@@ -91,7 +91,7 @@ size_t nano::block_sideband_v14::size (nano::block_type type_a)
 	return result;
 }
 
-void nano::block_sideband_v14::serialize (nano::stream & stream_a) const
+void nano::store::block_sideband_v14::serialize (nano::stream & stream_a) const
 {
 	nano::write (stream_a, successor.bytes);
 	if (type != nano::block_type::state && type != nano::block_type::open)
@@ -109,7 +109,7 @@ void nano::block_sideband_v14::serialize (nano::stream & stream_a) const
 	nano::write (stream_a, boost::endian::native_to_big (timestamp));
 }
 
-bool nano::block_sideband_v14::deserialize (nano::stream & stream_a)
+bool nano::store::block_sideband_v14::deserialize (nano::stream & stream_a)
 {
 	bool result (false);
 	try
@@ -143,7 +143,7 @@ bool nano::block_sideband_v14::deserialize (nano::stream & stream_a)
 	return result;
 }
 
-nano::block_sideband_v18::block_sideband_v18 (nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a, nano::block_details const & details_a) :
+nano::store::block_sideband_v18::block_sideband_v18 (nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a, nano::block_details const & details_a) :
 	successor (successor_a),
 	account (account_a),
 	balance (balance_a),
@@ -153,7 +153,7 @@ nano::block_sideband_v18::block_sideband_v18 (nano::account const & account_a, n
 {
 }
 
-nano::block_sideband_v18::block_sideband_v18 (nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a, nano::epoch epoch_a, bool is_send, bool is_receive, bool is_epoch) :
+nano::store::block_sideband_v18::block_sideband_v18 (nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a, nano::epoch epoch_a, bool is_send, bool is_receive, bool is_epoch) :
 	successor (successor_a),
 	account (account_a),
 	balance (balance_a),
@@ -163,7 +163,7 @@ nano::block_sideband_v18::block_sideband_v18 (nano::account const & account_a, n
 {
 }
 
-size_t nano::block_sideband_v18::size (nano::block_type type_a)
+size_t nano::store::block_sideband_v18::size (nano::block_type type_a)
 {
 	size_t result (0);
 	result += sizeof (successor);
@@ -188,7 +188,7 @@ size_t nano::block_sideband_v18::size (nano::block_type type_a)
 	return result;
 }
 
-void nano::block_sideband_v18::serialize (nano::stream & stream_a, nano::block_type type_a) const
+void nano::store::block_sideband_v18::serialize (nano::stream & stream_a, nano::block_type type_a) const
 {
 	nano::write (stream_a, successor.bytes);
 	if (type_a != nano::block_type::state && type_a != nano::block_type::open)
@@ -210,7 +210,7 @@ void nano::block_sideband_v18::serialize (nano::stream & stream_a, nano::block_t
 	}
 }
 
-bool nano::block_sideband_v18::deserialize (nano::stream & stream_a, nano::block_type type_a)
+bool nano::store::block_sideband_v18::deserialize (nano::stream & stream_a, nano::block_type type_a)
 {
 	bool result (false);
 	try

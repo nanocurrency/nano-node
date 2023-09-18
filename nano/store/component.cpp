@@ -5,19 +5,7 @@
 #include <nano/store/confirmation_height.hpp>
 #include <nano/store/frontier.hpp>
 
-// clang-format off
-nano::store::component::component (
-	nano::block_store & block_store_a,
-	nano::frontier_store & frontier_store_a,
-	nano::account_store & account_store_a,
-	nano::pending_store & pending_store_a,
-	nano::online_weight_store & online_weight_store_a,
-	nano::pruned_store & pruned_store_a,
-	nano::peer_store & peer_store_a,
-	nano::confirmation_height_store & confirmation_height_store_a,
-	nano::final_vote_store & final_vote_store_a,
-	nano::version_store & version_store_a
-) :
+nano::store::component::component (nano::store::block & block_store_a, nano::store::frontier & frontier_store_a, nano::store::account & account_store_a, nano::store::pending & pending_store_a, nano::store::online_weight & online_weight_store_a, nano::store::pruned & pruned_store_a, nano::store::peer & peer_store_a, nano::store::confirmation_height & confirmation_height_store_a, nano::store::final_vote & final_vote_store_a, nano::store::version & version_store_a) :
 	block (block_store_a),
 	frontier (frontier_store_a),
 	account (account_store_a),
@@ -30,13 +18,12 @@ nano::store::component::component (
 	version (version_store_a)
 {
 }
-// clang-format on
 
 /**
  * If using a different store version than the latest then you may need
  * to modify some of the objects in the store to be appropriate for the version before an upgrade.
  */
-void nano::store::component::initialize (nano::write_transaction const & transaction_a, nano::ledger_cache & ledger_cache_a, nano::ledger_constants & constants)
+void nano::store::component::initialize (store::write_transaction const & transaction_a, nano::ledger_cache & ledger_cache_a, nano::ledger_constants & constants)
 {
 	debug_assert (constants.genesis->has_sideband ());
 	debug_assert (account.begin (transaction_a) == account.end ());

@@ -65,7 +65,7 @@ nano::uint128_t nano::online_reps::calculate_online () const
 	return current;
 }
 
-nano::uint128_t nano::online_reps::calculate_trend (nano::transaction & transaction_a) const
+nano::uint128_t nano::online_reps::calculate_trend (store::transaction & transaction_a) const
 {
 	std::vector<nano::uint128_t> items;
 	items.reserve (config.network_params.node.max_weight_samples + 1);

@@ -2,20 +2,20 @@
 #include <nano/store/rocksdb/confirmation_height.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
 
-nano::rocksdb::confirmation_height_store::confirmation_height_store (nano::rocksdb::store & store) :
+nano::store::rocksdb::confirmation_height::confirmation_height (nano::store::rocksdb::component & store) :
 	store{ store }
 {
 }
 
-void nano::rocksdb::confirmation_height_store::put (nano::write_transaction const & transaction, nano::account const & account, nano::confirmation_height_info const & confirmation_height_info)
+void nano::store::rocksdb::confirmation_height::put (store::write_transaction const & transaction, nano::account const & account, nano::confirmation_height_info const & confirmation_height_info)
 {
 	auto status = store.put (transaction, tables::confirmation_height, account, confirmation_height_info);
 	store.release_assert_success (status);
 }
 
-bool nano::rocksdb::confirmation_height_store::get (nano::transaction const & transaction, nano::account const & account, nano::confirmation_height_info & confirmation_height_info)
+bool nano::store::rocksdb::confirmation_height::get (store::transaction const & transaction, nano::account const & account, nano::confirmation_height_info & confirmation_height_info)
 {
-	nano::rocksdb_val value;
+	nano::store::rocksdb::db_val value;
 	auto status = store.get (transaction, tables::confirmation_height, account, value);
 	release_assert (store.success (status) || store.not_found (status));
 	bool result (true);
@@ -33,48 +33,48 @@ bool nano::rocksdb::confirmation_height_store::get (nano::transaction const & tr
 	return result;
 }
 
-bool nano::rocksdb::confirmation_height_store::exists (nano::transaction const & transaction, nano::account const & account) const
+bool nano::store::rocksdb::confirmation_height::exists (store::transaction const & transaction, nano::account const & account) const
 {
 	return store.exists (transaction, tables::confirmation_height, account);
 }
 
-void nano::rocksdb::confirmation_height_store::del (nano::write_transaction const & transaction, nano::account const & account)
+void nano::store::rocksdb::confirmation_height::del (store::write_transaction const & transaction, nano::account const & account)
 {
 	auto status = store.del (transaction, tables::confirmation_height, account);
 	store.release_assert_success (status);
 }
 
-uint64_t nano::rocksdb::confirmation_height_store::count (nano::transaction const & transaction)
+uint64_t nano::store::rocksdb::confirmation_height::count (store::transaction const & transaction)
 {
 	return store.count (transaction, tables::confirmation_height);
 }
 
-void nano::rocksdb::confirmation_height_store::clear (nano::write_transaction const & transaction, nano::account const & account)
+void nano::store::rocksdb::confirmation_height::clear (store::write_transaction const & transaction, nano::account const & account)
 {
 	del (transaction, account);
 }
 
-void nano::rocksdb::confirmation_height_store::clear (nano::write_transaction const & transaction)
+void nano::store::rocksdb::confirmation_height::clear (store::write_transaction const & transaction)
 {
 	store.drop (transaction, nano::tables::confirmation_height);
 }
 
-nano::store_iterator<nano::account, nano::confirmation_height_info> nano::rocksdb::confirmation_height_store::begin (nano::transaction const & transaction, nano::account const & account) const
+nano::store::iterator<nano::account, nano::confirmation_height_info> nano::store::rocksdb::confirmation_height::begin (store::transaction const & transaction, nano::account const & account) const
 {
 	return store.make_iterator<nano::account, nano::confirmation_height_info> (transaction, tables::confirmation_height, account);
 }
 
-nano::store_iterator<nano::account, nano::confirmation_height_info> nano::rocksdb::confirmation_height_store::begin (nano::transaction const & transaction) const
+nano::store::iterator<nano::account, nano::confirmation_height_info> nano::store::rocksdb::confirmation_height::begin (store::transaction const & transaction) const
 {
 	return store.make_iterator<nano::account, nano::confirmation_height_info> (transaction, tables::confirmation_height);
 }
 
-nano::store_iterator<nano::account, nano::confirmation_height_info> nano::rocksdb::confirmation_height_store::end () const
+nano::store::iterator<nano::account, nano::confirmation_height_info> nano::store::rocksdb::confirmation_height::end () const
 {
-	return nano::store_iterator<nano::account, nano::confirmation_height_info> (nullptr);
+	return store::iterator<nano::account, nano::confirmation_height_info> (nullptr);
 }
 
-void nano::rocksdb::confirmation_height_store::for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::account, nano::confirmation_height_info>, nano::store_iterator<nano::account, nano::confirmation_height_info>)> const & action_a) const
+void nano::store::rocksdb::confirmation_height::for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::account, nano::confirmation_height_info>, store::iterator<nano::account, nano::confirmation_height_info>)> const & action_a) const
 {
 	parallel_traversal<nano::uint256_t> (
 	[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {

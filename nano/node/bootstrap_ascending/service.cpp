@@ -125,7 +125,7 @@ std::size_t nano::bootstrap_ascending::service::score_size () const
 - Marks an account as blocked if the result code is gap source as there is no reason request additional blocks for this account until the dependency is resolved
 - Marks an account as forwarded if it has been recently referenced by a block that has been inserted.
  */
-void nano::bootstrap_ascending::service::inspect (nano::transaction const & tx, nano::process_return const & result, nano::block const & block)
+void nano::bootstrap_ascending::service::inspect (store::transaction const & tx, nano::process_return const & result, nano::block const & block)
 {
 	auto const hash = block.hash ();
 

@@ -7,13 +7,13 @@
 #include <rocksdb/utilities/optimistic_transaction_db.h>
 #include <rocksdb/utilities/transaction.h>
 
-namespace nano
+namespace nano::store::rocksdb
 {
-class read_rocksdb_txn final : public read_transaction_impl
+class read_transaction_impl final : public store::read_transaction_impl
 {
 public:
-	read_rocksdb_txn (::rocksdb::DB * db);
-	~read_rocksdb_txn ();
+	read_transaction_impl (::rocksdb::DB * db);
+	~read_transaction_impl ();
 	void reset () override;
 	void renew () override;
 	void * get_handle () const override;
@@ -23,11 +23,11 @@ private:
 	::rocksdb::ReadOptions options;
 };
 
-class write_rocksdb_txn final : public write_transaction_impl
+class write_transaction_impl final : public store::write_transaction_impl
 {
 public:
-	write_rocksdb_txn (::rocksdb::OptimisticTransactionDB * db_a, std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a, std::unordered_map<nano::tables, nano::mutex> & mutexes_a);
-	~write_rocksdb_txn ();
+	write_transaction_impl (::rocksdb::OptimisticTransactionDB * db_a, std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a, std::unordered_map<nano::tables, nano::mutex> & mutexes_a);
+	~write_transaction_impl ();
 	void commit () override;
 	void renew () override;
 	void * get_handle () const override;

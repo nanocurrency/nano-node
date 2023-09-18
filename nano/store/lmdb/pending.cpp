@@ -2,24 +2,24 @@
 #include <nano/store/lmdb/lmdb.hpp>
 #include <nano/store/lmdb/pending.hpp>
 
-nano::lmdb::pending_store::pending_store (nano::lmdb::store & store) :
+nano::store::lmdb::pending::pending (nano::store::lmdb::component & store) :
 	store{ store } {};
 
-void nano::lmdb::pending_store::put (nano::write_transaction const & transaction, nano::pending_key const & key, nano::pending_info const & pending)
+void nano::store::lmdb::pending::put (store::write_transaction const & transaction, nano::pending_key const & key, nano::pending_info const & pending)
 {
 	auto status = store.put (transaction, tables::pending, key, pending);
 	store.release_assert_success (status);
 }
 
-void nano::lmdb::pending_store::del (nano::write_transaction const & transaction, nano::pending_key const & key)
+void nano::store::lmdb::pending::del (store::write_transaction const & transaction, nano::pending_key const & key)
 {
 	auto status = store.del (transaction, tables::pending, key);
 	store.release_assert_success (status);
 }
 
-bool nano::lmdb::pending_store::get (nano::transaction const & transaction, nano::pending_key const & key, nano::pending_info & pending_a)
+bool nano::store::lmdb::pending::get (store::transaction const & transaction, nano::pending_key const & key, nano::pending_info & pending_a)
 {
-	nano::mdb_val value;
+	nano::store::lmdb::db_val value;
 	auto status1 = store.get (transaction, tables::pending, key, value);
 	release_assert (store.success (status1) || store.not_found (status1));
 	bool result (true);
@@ -31,34 +31,34 @@ bool nano::lmdb::pending_store::get (nano::transaction const & transaction, nano
 	return result;
 }
 
-bool nano::lmdb::pending_store::exists (nano::transaction const & transaction_a, nano::pending_key const & key_a)
+bool nano::store::lmdb::pending::exists (store::transaction const & transaction_a, nano::pending_key const & key_a)
 {
 	auto iterator (begin (transaction_a, key_a));
 	return iterator != end () && nano::pending_key (iterator->first) == key_a;
 }
 
-bool nano::lmdb::pending_store::any (nano::transaction const & transaction_a, nano::account const & account_a)
+bool nano::store::lmdb::pending::any (store::transaction const & transaction_a, nano::account const & account_a)
 {
 	auto iterator (begin (transaction_a, nano::pending_key (account_a, 0)));
 	return iterator != end () && nano::pending_key (iterator->first).account == account_a;
 }
 
-nano::store_iterator<nano::pending_key, nano::pending_info> nano::lmdb::pending_store::begin (nano::transaction const & transaction_a, nano::pending_key const & key_a) const
+nano::store::iterator<nano::pending_key, nano::pending_info> nano::store::lmdb::pending::begin (store::transaction const & transaction_a, nano::pending_key const & key_a) const
 {
 	return store.make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending, key_a);
 }
 
-nano::store_iterator<nano::pending_key, nano::pending_info> nano::lmdb::pending_store::begin (nano::transaction const & transaction_a) const
+nano::store::iterator<nano::pending_key, nano::pending_info> nano::store::lmdb::pending::begin (store::transaction const & transaction_a) const
 {
 	return store.make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending);
 }
 
-nano::store_iterator<nano::pending_key, nano::pending_info> nano::lmdb::pending_store::end () const
+nano::store::iterator<nano::pending_key, nano::pending_info> nano::store::lmdb::pending::end () const
 {
-	return nano::store_iterator<nano::pending_key, nano::pending_info> (nullptr);
+	return store::iterator<nano::pending_key, nano::pending_info> (nullptr);
 }
 
-void nano::lmdb::pending_store::for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::pending_key, nano::pending_info>, nano::store_iterator<nano::pending_key, nano::pending_info>)> const & action_a) const
+void nano::store::lmdb::pending::for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::pending_key, nano::pending_info>, store::iterator<nano::pending_key, nano::pending_info>)> const & action_a) const
 {
 	parallel_traversal<nano::uint512_t> (
 	[&action_a, this] (nano::uint512_t const & start, nano::uint512_t const & end, bool const is_last) {

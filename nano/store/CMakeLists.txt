@@ -15,6 +15,7 @@ add_library(
   lmdb/db_val.hpp
   lmdb/final_vote.hpp
   lmdb/frontier.hpp
+  lmdb/iterator.hpp
   lmdb/lmdb.hpp
   lmdb/lmdb_env.hpp
   lmdb/iterator.hpp
@@ -42,6 +43,7 @@ add_library(
   rocksdb/pending.hpp
   rocksdb/pruned.hpp
   rocksdb/rocksdb.hpp
+  rocksdb/iterator.hpp
   rocksdb/transaction_impl.hpp
   rocksdb/version.hpp
   tables.hpp

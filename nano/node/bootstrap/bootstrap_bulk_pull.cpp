@@ -796,7 +796,7 @@ std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info
 		auto stream_transaction (node->store.tx_begin_read ());
 		auto stream (node->store.pending.begin (stream_transaction, current_key));
 
-		if (stream == nano::store_iterator<nano::pending_key, nano::pending_info> (nullptr))
+		if (stream == store::iterator<nano::pending_key, nano::pending_info> (nullptr))
 		{
 			break;
 		}

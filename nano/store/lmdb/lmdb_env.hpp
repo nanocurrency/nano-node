@@ -4,18 +4,18 @@
 #include <nano/store/component.hpp>
 #include <nano/store/lmdb/transaction_impl.hpp>
 
-namespace nano
+namespace nano::store::lmdb
 {
 /**
  * RAII wrapper for MDB_env
  */
-class mdb_env final
+class env final
 {
 public:
 	/** Environment options, most of which originates from the config file. */
 	class options final
 	{
-		friend class mdb_env;
+		friend class env;
 
 	public:
 		static options make ()
@@ -54,13 +54,13 @@ public:
 		nano::lmdb_config config;
 	};
 
-	mdb_env (bool &, boost::filesystem::path const &, nano::mdb_env::options options_a = nano::mdb_env::options::make ());
-	void init (bool &, boost::filesystem::path const &, nano::mdb_env::options options_a = nano::mdb_env::options::make ());
-	~mdb_env ();
+	env (bool &, boost::filesystem::path const &, env::options options_a = env::options::make ());
+	void init (bool &, boost::filesystem::path const &, env::options options_a = env::options::make ());
+	~env ();
 	operator MDB_env * () const;
-	nano::read_transaction tx_begin_read (mdb_txn_callbacks txn_callbacks = mdb_txn_callbacks{}) const;
-	nano::write_transaction tx_begin_write (mdb_txn_callbacks txn_callbacks = mdb_txn_callbacks{}) const;
-	MDB_txn * tx (nano::transaction const & transaction_a) const;
+	store::read_transaction tx_begin_read (txn_callbacks callbacks = txn_callbacks{}) const;
+	store::write_transaction tx_begin_write (txn_callbacks callbacks = txn_callbacks{}) const;
+	MDB_txn * tx (store::transaction const & transaction_a) const;
 	MDB_env * environment;
 };
-}
+} // namespace nano::store::lmdb

@@ -4,34 +4,34 @@
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
-namespace nano
+namespace nano::store::lmdb
 {
-namespace lmdb
+class component;
+}
+namespace nano::store::lmdb
 {
-	class store;
-	class final_vote_store : public nano::final_vote_store
-	{
-	private:
-		nano::lmdb::store & store;
+class final_vote : public nano::store::final_vote
+{
+private:
+	nano::store::lmdb::component & store;
 
-	public:
-		explicit final_vote_store (nano::lmdb::store & store);
-		bool put (nano::write_transaction const & transaction_a, nano::qualified_root const & root_a, nano::block_hash const & hash_a) override;
-		std::vector<nano::block_hash> get (nano::transaction const & transaction_a, nano::root const & root_a) override;
-		void del (nano::write_transaction const & transaction_a, nano::root const & root_a) override;
-		size_t count (nano::transaction const & transaction_a) const override;
-		void clear (nano::write_transaction const & transaction_a, nano::root const & root_a) override;
-		void clear (nano::write_transaction const & transaction_a) override;
-		nano::store_iterator<nano::qualified_root, nano::block_hash> begin (nano::transaction const & transaction_a, nano::qualified_root const & root_a) const override;
-		nano::store_iterator<nano::qualified_root, nano::block_hash> begin (nano::transaction const & transaction_a) const override;
-		nano::store_iterator<nano::qualified_root, nano::block_hash> end () const override;
-		void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::qualified_root, nano::block_hash>, nano::store_iterator<nano::qualified_root, nano::block_hash>)> const & action_a) const override;
+public:
+	explicit final_vote (nano::store::lmdb::component & store);
+	bool put (store::write_transaction const & transaction_a, nano::qualified_root const & root_a, nano::block_hash const & hash_a) override;
+	std::vector<nano::block_hash> get (store::transaction const & transaction_a, nano::root const & root_a) override;
+	void del (store::write_transaction const & transaction_a, nano::root const & root_a) override;
+	size_t count (store::transaction const & transaction_a) const override;
+	void clear (store::write_transaction const & transaction_a, nano::root const & root_a) override;
+	void clear (store::write_transaction const & transaction_a) override;
+	store::iterator<nano::qualified_root, nano::block_hash> begin (store::transaction const & transaction_a, nano::qualified_root const & root_a) const override;
+	store::iterator<nano::qualified_root, nano::block_hash> begin (store::transaction const & transaction_a) const override;
+	store::iterator<nano::qualified_root, nano::block_hash> end () const override;
+	void for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::qualified_root, nano::block_hash>, store::iterator<nano::qualified_root, nano::block_hash>)> const & action_a) const override;
 
-		/**
+	/**
 		 * Maps root to block hash for generated final votes.
 		 * nano::qualified_root -> nano::block_hash
 		 */
-		MDB_dbi final_votes_handle{ 0 };
-	};
-}
-}
+	MDB_dbi final_votes_handle{ 0 };
+};
+} // namespace nano::store::lmdb

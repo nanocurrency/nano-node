@@ -624,7 +624,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> const & bl
 }
 
 // Returns the type of election status requiring callbacks calling later
-boost::optional<nano::election_status_type> nano::active_transactions::confirm_block (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
+boost::optional<nano::election_status_type> nano::active_transactions::confirm_block (store::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
 {
 	auto const hash = block_a->hash ();
 	std::shared_ptr<nano::election> election = nullptr;

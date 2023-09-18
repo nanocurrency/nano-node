@@ -28,7 +28,7 @@ void nano::process_live_dispatcher::connect (nano::block_processor & block_proce
 	});
 }
 
-void nano::process_live_dispatcher::inspect (nano::process_return const & result, nano::block const & block, nano::transaction const & transaction)
+void nano::process_live_dispatcher::inspect (nano::process_return const & result, nano::block const & block, store::transaction const & transaction)
 {
 	switch (result.code)
 	{
@@ -40,7 +40,7 @@ void nano::process_live_dispatcher::inspect (nano::process_return const & result
 	}
 }
 
-void nano::process_live_dispatcher::process_live (nano::block const & block, nano::transaction const & transaction)
+void nano::process_live_dispatcher::process_live (nano::block const & block, store::transaction const & transaction)
 {
 	// Start collecting quorum on block
 	if (ledger.dependents_confirmed (transaction, block))

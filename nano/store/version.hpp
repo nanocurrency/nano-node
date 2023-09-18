@@ -12,16 +12,15 @@ class read_transaction;
 class transaction;
 class write_transaction;
 }
-namespace nano
+namespace nano::store
 {
 /**
  * Manages version storage
  */
-class version_store
+class version
 {
 public:
-	virtual void put (nano::write_transaction const &, int) = 0;
-	virtual int get (nano::transaction const &) const = 0;
+	virtual void put (store::write_transaction const &, int) = 0;
+	virtual int get (store::transaction const &) const = 0;
 };
-
 } // namespace nano::store

@@ -15,7 +15,7 @@ unsigned constexpr nano::wallet_store::version_current;
 TEST (wallet, no_special_keys_accounts)
 {
 	bool init;
-	nano::mdb_env env (init, nano::unique_path ());
+	nano::store::lmdb::env env (init, nano::unique_path ());
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
@@ -36,7 +36,7 @@ TEST (wallet, no_special_keys_accounts)
 TEST (wallet, no_key)
 {
 	bool init;
-	nano::mdb_env env (init, nano::unique_path ());
+	nano::store::lmdb::env env (init, nano::unique_path ());
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
@@ -51,7 +51,7 @@ TEST (wallet, no_key)
 TEST (wallet, fetch_locked)
 {
 	bool init;
-	nano::mdb_env env (init, nano::unique_path ());
+	nano::store::lmdb::env env (init, nano::unique_path ());
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
@@ -73,7 +73,7 @@ TEST (wallet, fetch_locked)
 TEST (wallet, retrieval)
 {
 	bool init;
-	nano::mdb_env env (init, nano::unique_path ());
+	nano::store::lmdb::env env (init, nano::unique_path ());
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
@@ -95,7 +95,7 @@ TEST (wallet, retrieval)
 TEST (wallet, empty_iteration)
 {
 	bool init;
-	nano::mdb_env env (init, nano::unique_path ());
+	nano::store::lmdb::env env (init, nano::unique_path ());
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
@@ -109,7 +109,7 @@ TEST (wallet, empty_iteration)
 TEST (wallet, one_item_iteration)
 {
 	bool init;
-	nano::mdb_env env (init, nano::unique_path ());
+	nano::store::lmdb::env env (init, nano::unique_path ());
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
@@ -131,7 +131,7 @@ TEST (wallet, one_item_iteration)
 TEST (wallet, two_item_iteration)
 {
 	bool init;
-	nano::mdb_env env (init, nano::unique_path ());
+	nano::store::lmdb::env env (init, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::keypair key1;
 	nano::keypair key2;
@@ -270,7 +270,7 @@ TEST (wallet, spend_no_previous)
 TEST (wallet, find_none)
 {
 	bool init;
-	nano::mdb_env env (init, nano::unique_path ());
+	nano::store::lmdb::env env (init, nano::unique_path ());
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
@@ -283,7 +283,7 @@ TEST (wallet, find_none)
 TEST (wallet, find_existing)
 {
 	bool init;
-	nano::mdb_env env (init, nano::unique_path ());
+	nano::store::lmdb::env env (init, nano::unique_path ());
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
@@ -302,7 +302,7 @@ TEST (wallet, find_existing)
 TEST (wallet, rekey)
 {
 	bool init;
-	nano::mdb_env env (init, nano::unique_path ());
+	nano::store::lmdb::env env (init, nano::unique_path ());
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
@@ -374,7 +374,7 @@ TEST (account, encode_fail)
 TEST (wallet, hash_password)
 {
 	bool init;
-	nano::mdb_env env (init, nano::unique_path ());
+	nano::store::lmdb::env env (init, nano::unique_path ());
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
@@ -423,7 +423,7 @@ TEST (fan, change)
 TEST (wallet, reopen_default_password)
 {
 	bool init;
-	nano::mdb_env env (init, nano::unique_path ());
+	nano::store::lmdb::env env (init, nano::unique_path ());
 	auto transaction (env.tx_begin_write ());
 	ASSERT_FALSE (init);
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
@@ -459,7 +459,7 @@ TEST (wallet, reopen_default_password)
 TEST (wallet, representative)
 {
 	auto error (false);
-	nano::mdb_env env (error, nano::unique_path ());
+	nano::store::lmdb::env env (error, nano::unique_path ());
 	ASSERT_FALSE (error);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
@@ -480,7 +480,7 @@ TEST (wallet, representative)
 TEST (wallet, serialize_json_empty)
 {
 	auto error (false);
-	nano::mdb_env env (error, nano::unique_path ());
+	nano::store::lmdb::env env (error, nano::unique_path ());
 	ASSERT_FALSE (error);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
@@ -505,7 +505,7 @@ TEST (wallet, serialize_json_empty)
 TEST (wallet, serialize_json_one)
 {
 	auto error (false);
-	nano::mdb_env env (error, nano::unique_path ());
+	nano::store::lmdb::env env (error, nano::unique_path ());
 	ASSERT_FALSE (error);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
@@ -534,7 +534,7 @@ TEST (wallet, serialize_json_one)
 TEST (wallet, serialize_json_password)
 {
 	auto error (false);
-	nano::mdb_env env (error, nano::unique_path ());
+	nano::store::lmdb::env env (error, nano::unique_path ());
 	ASSERT_FALSE (error);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
@@ -567,7 +567,7 @@ TEST (wallet, serialize_json_password)
 TEST (wallet_store, move)
 {
 	auto error (false);
-	nano::mdb_env env (error, nano::unique_path ());
+	nano::store::lmdb::env env (error, nano::unique_path ());
 	ASSERT_FALSE (error);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
@@ -725,7 +725,7 @@ TEST (wallet, insert_locked)
 TEST (wallet, deterministic_keys)
 {
 	bool init;
-	nano::mdb_env env (init, nano::unique_path ());
+	nano::store::lmdb::env env (init, nano::unique_path ());
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
@@ -768,7 +768,7 @@ TEST (wallet, deterministic_keys)
 TEST (wallet, reseed)
 {
 	bool init;
-	nano::mdb_env env (init, nano::unique_path ());
+	nano::store::lmdb::env env (init, nano::unique_path ());
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };

@@ -121,7 +121,7 @@ std::optional<nano::process_return> nano::block_processor::add_blocking (std::sh
 	return result;
 }
 
-void nano::block_processor::rollback_competitor (nano::write_transaction const & transaction, nano::block const & block)
+void nano::block_processor::rollback_competitor (store::write_transaction const & transaction, nano::block const & block)
 {
 	auto hash = block.hash ();
 	auto successor = node.ledger.successor (transaction, block.qualified_root ());
@@ -314,7 +314,7 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 	return processed;
 }
 
-nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, std::shared_ptr<nano::block> block, bool const forced_a)
+nano::process_return nano::block_processor::process_one (store::write_transaction const & transaction_a, std::shared_ptr<nano::block> block, bool const forced_a)
 {
 	nano::process_return result;
 	auto hash (block->hash ());
@@ -460,7 +460,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 	return result;
 }
 
-void nano::block_processor::queue_unchecked (nano::write_transaction const & transaction_a, nano::hash_or_account const & hash_or_account_a)
+void nano::block_processor::queue_unchecked (store::write_transaction const & transaction_a, nano::hash_or_account const & hash_or_account_a)
 {
 	node.unchecked.trigger (hash_or_account_a);
 	node.gap_cache.erase (hash_or_account_a.hash);

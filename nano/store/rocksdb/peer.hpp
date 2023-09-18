@@ -2,25 +2,25 @@
 
 #include <nano/store/peer.hpp>
 
-namespace nano
+namespace nano::store::rocksdb
 {
-namespace rocksdb
+class component;
+}
+namespace nano::store::rocksdb
 {
-	class store;
-	class peer_store : public nano::peer_store
-	{
-	private:
-		nano::rocksdb::store & store;
+class peer : public nano::store::peer
+{
+private:
+	nano::store::rocksdb::component & store;
 
-	public:
-		explicit peer_store (nano::rocksdb::store & store_a);
-		void put (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override;
-		void del (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override;
-		bool exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const override;
-		size_t count (nano::transaction const & transaction_a) const override;
-		void clear (nano::write_transaction const & transaction_a) override;
-		nano::store_iterator<nano::endpoint_key, nano::no_value> begin (nano::transaction const & transaction_a) const override;
-		nano::store_iterator<nano::endpoint_key, nano::no_value> end () const override;
-	};
-}
-}
+public:
+	explicit peer (nano::store::rocksdb::component & store_a);
+	void put (store::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override;
+	void del (store::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override;
+	bool exists (store::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const override;
+	size_t count (store::transaction const & transaction_a) const override;
+	void clear (store::write_transaction const & transaction_a) override;
+	store::iterator<nano::endpoint_key, nano::no_value> begin (store::transaction const & transaction_a) const override;
+	store::iterator<nano::endpoint_key, nano::no_value> end () const override;
+};
+} // namespace nano::store::rocksdb

@@ -4,7 +4,7 @@
 
 #include <rocksdb/slice.h>
 
-namespace nano
+namespace nano::store::rocksdb
 {
-using rocksdb_val = db_val<::rocksdb::Slice>;
+using db_val = store::db_val<::rocksdb::Slice>;
 }

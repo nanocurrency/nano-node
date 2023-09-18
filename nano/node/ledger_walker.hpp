@@ -14,11 +14,15 @@
 
 #include <diskhash.hpp>
 
+namespace nano::store
+{
+class transaction;
+}
+
 namespace nano
 {
 class block;
 class ledger;
-class transaction;
 
 /** Walks the ledger starting from a start block and applying a depth-first search algorithm */
 class ledger_walker final
@@ -55,7 +59,7 @@ private:
 	bool add_to_walked_blocks (nano::block_hash const & block_hash_a);
 	bool add_to_walked_blocks_disk (nano::block_hash const & block_hash_a);
 	void clear_queue ();
-	std::shared_ptr<nano::block> dequeue_block (nano::transaction const & transaction_a);
+	std::shared_ptr<nano::block> dequeue_block (store::transaction const & transaction_a);
 
 	friend class ledger_walker_genesis_account_longer_Test;
 };

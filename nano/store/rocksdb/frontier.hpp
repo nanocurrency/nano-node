@@ -3,25 +3,25 @@
 #include <nano/store/frontier.hpp>
 #include <nano/store/iterator.hpp>
 
-namespace nano
+namespace nano::store::rocksdb
 {
-namespace rocksdb
+class component;
+}
+namespace nano::store::rocksdb
 {
-	class store;
-	class frontier_store : public nano::frontier_store
-	{
-	public:
-		frontier_store (nano::rocksdb::store & store);
-		void put (nano::write_transaction const &, nano::block_hash const &, nano::account const &) override;
-		nano::account get (nano::transaction const &, nano::block_hash const &) const override;
-		void del (nano::write_transaction const &, nano::block_hash const &) override;
-		nano::store_iterator<nano::block_hash, nano::account> begin (nano::transaction const &) const override;
-		nano::store_iterator<nano::block_hash, nano::account> begin (nano::transaction const &, nano::block_hash const &) const override;
-		nano::store_iterator<nano::block_hash, nano::account> end () const override;
-		void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, nano::account>, nano::store_iterator<nano::block_hash, nano::account>)> const & action_a) const override;
+class frontier : public nano::store::frontier
+{
+public:
+	frontier (nano::store::rocksdb::component & store);
+	void put (store::write_transaction const &, nano::block_hash const &, nano::account const &) override;
+	nano::account get (store::transaction const &, nano::block_hash const &) const override;
+	void del (store::write_transaction const &, nano::block_hash const &) override;
+	store::iterator<nano::block_hash, nano::account> begin (store::transaction const &) const override;
+	store::iterator<nano::block_hash, nano::account> begin (store::transaction const &, nano::block_hash const &) const override;
+	store::iterator<nano::block_hash, nano::account> end () const override;
+	void for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::block_hash, nano::account>, store::iterator<nano::block_hash, nano::account>)> const & action_a) const override;
 
-	private:
-		nano::rocksdb::store & store;
-	};
-}
-}
+private:
+	nano::store::rocksdb::component & store;
+};
+} // namespace nano::store::rocksdb

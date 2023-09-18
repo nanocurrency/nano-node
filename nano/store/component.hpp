@@ -15,17 +15,20 @@
 
 namespace nano
 {
-class account_store;
-class block_store;
-class confirmation_height_store;
-class final_vote_store;
-class frontier_store;
+namespace store
+{
+	class account;
+	class block;
+	class confirmation_height;
+	class final_vote;
+	class frontier;
+	class online_weight;
+	class peer;
+	class pending;
+	class pruned;
+	class version;
+}
 class ledger_cache;
-class online_weight_store;
-class peer_store;
-class pending_store;
-class pruned_store;
-class version_store;
 
 namespace store
 {
@@ -40,46 +43,46 @@ namespace store
 	public:
 		// clang-format off
 	explicit component (
-		nano::block_store &,
-		nano::frontier_store &,
-		nano::account_store &,
-		nano::pending_store &,
-		nano::online_weight_store &,
-		nano::pruned_store &,
-		nano::peer_store &,
-		nano::confirmation_height_store &,
-		nano::final_vote_store &,
-		nano::version_store &
+		nano::store::block &,
+		nano::store::frontier &,
+		nano::store::account &,
+		nano::store::pending &,
+		nano::store::online_weight&,
+		nano::store::pruned &,
+		nano::store::peer &,
+		nano::store::confirmation_height &,
+		nano::store::final_vote &,
+		nano::store::version &
 	);
 		// clang-format on
 		virtual ~component () = default;
-		void initialize (nano::write_transaction const & transaction_a, nano::ledger_cache & ledger_cache_a, nano::ledger_constants & constants);
-		virtual uint64_t count (nano::transaction const & transaction_a, tables table_a) const = 0;
-		virtual int drop (nano::write_transaction const & transaction_a, tables table_a) = 0;
+		void initialize (write_transaction const & transaction_a, nano::ledger_cache & ledger_cache_a, nano::ledger_constants & constants);
+		virtual uint64_t count (store::transaction const & transaction_a, tables table_a) const = 0;
+		virtual int drop (write_transaction const & transaction_a, tables table_a) = 0;
 		virtual bool not_found (int status) const = 0;
 		virtual bool success (int status) const = 0;
 		virtual int status_code_not_found () const = 0;
 		virtual std::string error_string (int status) const = 0;
 
-		block_store & block;
-		frontier_store & frontier;
-		account_store & account;
-		pending_store & pending;
+		store::block & block;
+		store::frontier & frontier;
+		store::account & account;
+		store::pending & pending;
 		static int constexpr version_minimum{ 14 };
 		static int constexpr version_current{ 22 };
 
 	public:
-		online_weight_store & online_weight;
-		pruned_store & pruned;
-		peer_store & peer;
-		confirmation_height_store & confirmation_height;
-		final_vote_store & final_vote;
-		version_store & version;
+		store::online_weight & online_weight;
+		store::pruned & pruned;
+		store::peer & peer;
+		store::confirmation_height & confirmation_height;
+		store::final_vote & final_vote;
+		store::version & version;
 
 		virtual unsigned max_block_write_batch_num () const = 0;
 
 		virtual bool copy_db (boost::filesystem::path const & destination) = 0;
-		virtual void rebuild_db (nano::write_transaction const & transaction_a) = 0;
+		virtual void rebuild_db (write_transaction const & transaction_a) = 0;
 
 		/** Not applicable to all sub-classes */
 		virtual void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds){};
@@ -88,10 +91,10 @@ namespace store
 		virtual bool init_error () const = 0;
 
 		/** Start read-write transaction */
-		virtual nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_to_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) = 0;
+		virtual write_transaction tx_begin_write (std::vector<nano::tables> const & tables_to_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) = 0;
 
 		/** Start read-only transaction */
-		virtual nano::read_transaction tx_begin_read () const = 0;
+		virtual read_transaction tx_begin_read () const = 0;
 
 		virtual std::string vendor_get () const = 0;
 	};

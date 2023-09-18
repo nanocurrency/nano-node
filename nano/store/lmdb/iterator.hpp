@@ -3,16 +3,17 @@
 #include <nano/store/component.hpp>
 #include <nano/store/db_val.hpp>
 #include <nano/store/iterator.hpp>
+#include <nano/store/transaction.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
-namespace nano
+namespace nano::store::lmdb
 {
 template <typename T, typename U>
-class mdb_iterator : public store_iterator_impl<T, U>
+class iterator : public iterator_impl<T, U>
 {
 public:
-	mdb_iterator (nano::transaction const & transaction_a, MDB_dbi db_a, MDB_val const & val_a = MDB_val{}, bool const direction_asc = true)
+	iterator (store::transaction const & transaction_a, MDB_dbi db_a, MDB_val const & val_a = MDB_val{}, bool const direction_asc = true)
 	{
 		auto status (mdb_cursor_open (tx (transaction_a), db_a, &cursor));
 		release_assert (status == 0);
@@ -42,18 +43,18 @@ public:
 		}
 	}
 
-	mdb_iterator () = default;
+	iterator () = default;
 
-	mdb_iterator (nano::mdb_iterator<T, U> && other_a)
+	iterator (nano::store::lmdb::iterator<T, U> && other_a)
 	{
 		cursor = other_a.cursor;
 		other_a.cursor = nullptr;
 		current = other_a.current;
 	}
 
-	mdb_iterator (nano::mdb_iterator<T, U> const &) = delete;
+	iterator (nano::store::lmdb::iterator<T, U> const &) = delete;
 
-	~mdb_iterator ()
+	~iterator ()
 	{
 		if (cursor != nullptr)
 		{
@@ -61,7 +62,7 @@ public:
 		}
 	}
 
-	nano::store_iterator_impl<T, U> & operator++ () override
+	store::iterator_impl<T, U> & operator++ () override
 	{
 		debug_assert (cursor != nullptr);
 		auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT));
@@ -77,7 +78,7 @@ public:
 		return *this;
 	}
 
-	nano::store_iterator_impl<T, U> & operator-- () override
+	store::iterator_impl<T, U> & operator-- () override
 	{
 		debug_assert (cursor != nullptr);
 		auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_PREV));
@@ -93,14 +94,14 @@ public:
 		return *this;
 	}
 
-	std::pair<nano::db_val<MDB_val>, nano::db_val<MDB_val>> * operator-> ()
+	std::pair<store::db_val<MDB_val>, store::db_val<MDB_val>> * operator-> ()
 	{
 		return &current;
 	}
 
-	bool operator== (nano::mdb_iterator<T, U> const & base_a) const
+	bool operator== (nano::store::lmdb::iterator<T, U> const & base_a) const
 	{
-		auto const other_a (boost::polymorphic_downcast<nano::mdb_iterator<T, U> const *> (&base_a));
+		auto const other_a (boost::polymorphic_downcast<nano::store::lmdb::iterator<T, U> const *> (&base_a));
 		auto result (current.first.data () == other_a->current.first.data ());
 		debug_assert (!result || (current.first.size () == other_a->current.first.size ()));
 		debug_assert (!result || (current.second.data () == other_a->current.second.data ()));
@@ -108,9 +109,9 @@ public:
 		return result;
 	}
 
-	bool operator== (nano::store_iterator_impl<T, U> const & base_a) const override
+	bool operator== (store::iterator_impl<T, U> const & base_a) const override
 	{
-		auto const other_a (boost::polymorphic_downcast<nano::mdb_iterator<T, U> const *> (&base_a));
+		auto const other_a (boost::polymorphic_downcast<nano::store::lmdb::iterator<T, U> const *> (&base_a));
 		auto result (current.first.data () == other_a->current.first.data ());
 		debug_assert (!result || (current.first.size () == other_a->current.first.size ()));
 		debug_assert (!result || (current.second.data () == other_a->current.second.data ()));
@@ -143,12 +144,12 @@ public:
 	}
 	void clear ()
 	{
-		current.first = nano::db_val<MDB_val> ();
-		current.second = nano::db_val<MDB_val> ();
+		current.first = store::db_val<MDB_val> ();
+		current.second = store::db_val<MDB_val> ();
 		debug_assert (is_end_sentinal ());
 	}
 
-	nano::mdb_iterator<T, U> & operator= (nano::mdb_iterator<T, U> && other_a)
+	nano::store::lmdb::iterator<T, U> & operator= (nano::store::lmdb::iterator<T, U> && other_a)
 	{
 		if (cursor != nullptr)
 		{
@@ -161,12 +162,12 @@ public:
 		return *this;
 	}
 
-	nano::store_iterator_impl<T, U> & operator= (nano::store_iterator_impl<T, U> const &) = delete;
+	store::iterator_impl<T, U> & operator= (store::iterator_impl<T, U> const &) = delete;
 	MDB_cursor * cursor{ nullptr };
-	std::pair<nano::db_val<MDB_val>, nano::db_val<MDB_val>> current;
+	std::pair<store::db_val<MDB_val>, store::db_val<MDB_val>> current;
 
 private:
-	MDB_txn * tx (nano::transaction const & transaction_a) const
+	MDB_txn * tx (store::transaction const & transaction_a) const
 	{
 		return static_cast<MDB_txn *> (transaction_a.get_handle ());
 	}
@@ -176,66 +177,66 @@ private:
  * Iterates the key/value pairs of two stores merged together
  */
 template <typename T, typename U>
-class mdb_merge_iterator : public store_iterator_impl<T, U>
+class merge_iterator : public iterator_impl<T, U>
 {
 public:
-	mdb_merge_iterator (nano::transaction const & transaction_a, MDB_dbi db1_a, MDB_dbi db2_a) :
-		impl1 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db1_a)),
-		impl2 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db2_a))
+	merge_iterator (store::transaction const & transaction_a, MDB_dbi db1_a, MDB_dbi db2_a) :
+		impl1 (std::make_unique<nano::store::lmdb::iterator<T, U>> (transaction_a, db1_a)),
+		impl2 (std::make_unique<nano::store::lmdb::iterator<T, U>> (transaction_a, db2_a))
 	{
 	}
 
-	mdb_merge_iterator () :
-		impl1 (std::make_unique<nano::mdb_iterator<T, U>> ()),
-		impl2 (std::make_unique<nano::mdb_iterator<T, U>> ())
+	merge_iterator () :
+		impl1 (std::make_unique<nano::store::lmdb::iterator<T, U>> ()),
+		impl2 (std::make_unique<nano::store::lmdb::iterator<T, U>> ())
 	{
 	}
 
-	mdb_merge_iterator (nano::transaction const & transaction_a, MDB_dbi db1_a, MDB_dbi db2_a, MDB_val const & val_a) :
-		impl1 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db1_a, val_a)),
-		impl2 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db2_a, val_a))
+	merge_iterator (store::transaction const & transaction_a, MDB_dbi db1_a, MDB_dbi db2_a, MDB_val const & val_a) :
+		impl1 (std::make_unique<nano::store::lmdb::iterator<T, U>> (transaction_a, db1_a, val_a)),
+		impl2 (std::make_unique<nano::store::lmdb::iterator<T, U>> (transaction_a, db2_a, val_a))
 	{
 	}
 
-	mdb_merge_iterator (nano::mdb_merge_iterator<T, U> && other_a)
+	merge_iterator (merge_iterator<T, U> && other_a)
 	{
 		impl1 = std::move (other_a.impl1);
 		impl2 = std::move (other_a.impl2);
 	}
 
-	mdb_merge_iterator (nano::mdb_merge_iterator<T, U> const &) = delete;
+	merge_iterator (merge_iterator<T, U> const &) = delete;
 
-	nano::store_iterator_impl<T, U> & operator++ () override
+	store::iterator_impl<T, U> & operator++ () override
 	{
 		++least_iterator ();
 		return *this;
 	}
 
-	nano::store_iterator_impl<T, U> & operator-- () override
+	store::iterator_impl<T, U> & operator-- () override
 	{
 		--least_iterator ();
 		return *this;
 	}
 
-	std::pair<nano::db_val<MDB_val>, nano::db_val<MDB_val>> * operator-> ()
+	std::pair<store::db_val<MDB_val>, store::db_val<MDB_val>> * operator-> ()
 	{
 		return least_iterator ().operator-> ();
 	}
 
-	bool operator== (nano::mdb_merge_iterator<T, U> const & other) const
+	bool operator== (merge_iterator<T, U> const & other) const
 	{
 		return *impl1 == *other.impl1 && *impl2 == *other.impl2;
 	}
 
-	bool operator!= (nano::mdb_merge_iterator<T, U> const & base_a) const
+	bool operator!= (merge_iterator<T, U> const & base_a) const
 	{
 		return !(*this == base_a);
 	}
 
-	bool operator== (nano::store_iterator_impl<T, U> const & base_a) const override
+	bool operator== (store::iterator_impl<T, U> const & base_a) const override
 	{
-		debug_assert ((dynamic_cast<nano::mdb_merge_iterator<T, U> const *> (&base_a) != nullptr) && "Incompatible iterator comparison");
-		auto & other (static_cast<nano::mdb_merge_iterator<T, U> const &> (base_a));
+		debug_assert ((dynamic_cast<merge_iterator<T, U> const *> (&base_a) != nullptr) && "Incompatible iterator comparison");
+		auto & other (static_cast<merge_iterator<T, U> const &> (base_a));
 		return *this == other;
 	}
 
@@ -264,15 +265,15 @@ public:
 			value_a.second = U ();
 		}
 	}
-	nano::mdb_merge_iterator<T, U> & operator= (nano::mdb_merge_iterator<T, U> &&) = default;
-	nano::mdb_merge_iterator<T, U> & operator= (nano::mdb_merge_iterator<T, U> const &) = delete;
+	merge_iterator<T, U> & operator= (merge_iterator<T, U> &&) = default;
+	merge_iterator<T, U> & operator= (merge_iterator<T, U> const &) = delete;
 
 	mutable bool from_first_database{ false };
 
 private:
-	nano::mdb_iterator<T, U> & least_iterator () const
+	nano::store::lmdb::iterator<T, U> & least_iterator () const
 	{
-		nano::mdb_iterator<T, U> * result;
+		nano::store::lmdb::iterator<T, U> * result;
 		if (impl1->is_end_sentinal ())
 		{
 			result = impl2.get ();
@@ -307,7 +308,7 @@ private:
 		return *result;
 	}
 
-	std::unique_ptr<nano::mdb_iterator<T, U>> impl1;
-	std::unique_ptr<nano::mdb_iterator<T, U>> impl2;
+	std::unique_ptr<nano::store::lmdb::iterator<T, U>> impl1;
+	std::unique_ptr<nano::store::lmdb::iterator<T, U>> impl2;
 };
 }

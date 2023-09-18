@@ -1017,7 +1017,7 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 		std::vector<std::shared_ptr<nano::state_block>> state_blocks;
 		auto const num_blocks = nano::confirmation_height::unbounded_cutoff - 2;
 
-		auto add_block_to_genesis_chain = [&] (nano::write_transaction & transaction) {
+		auto add_block_to_genesis_chain = [&] (store::write_transaction & transaction) {
 			static int num = 0;
 			nano::block_builder builder;
 			auto send = builder

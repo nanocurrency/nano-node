@@ -144,7 +144,7 @@ void nano::scheduler::optimistic::run ()
 	}
 }
 
-void nano::scheduler::optimistic::run_one (nano::transaction const & transaction, entry const & candidate)
+void nano::scheduler::optimistic::run_one (store::transaction const & transaction, entry const & candidate)
 {
 	auto block = ledger.head_block (transaction, candidate.account);
 	if (block)

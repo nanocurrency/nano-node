@@ -152,12 +152,12 @@ void nano::bootstrap_server::process_batch (std::deque<request_t> & batch)
 	}
 }
 
-nano::asc_pull_ack nano::bootstrap_server::process (nano::transaction const & transaction, const nano::asc_pull_req & message)
+nano::asc_pull_ack nano::bootstrap_server::process (store::transaction const & transaction, const nano::asc_pull_req & message)
 {
 	return std::visit ([this, &transaction, &message] (auto && request) { return process (transaction, message.id, request); }, message.payload);
 }
 
-nano::asc_pull_ack nano::bootstrap_server::process (const nano::transaction &, nano::asc_pull_req::id_t id, const nano::empty_payload & request)
+nano::asc_pull_ack nano::bootstrap_server::process (const store::transaction &, nano::asc_pull_req::id_t id, const nano::empty_payload & request)
 {
 	// Empty payload should never be possible, but return empty response anyway
 	debug_assert (false, "missing payload");
@@ -171,7 +171,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (const nano::transaction &, n
  * Blocks response
  */
 
-nano::asc_pull_ack nano::bootstrap_server::process (nano::transaction const & transaction, nano::asc_pull_req::id_t id, nano::asc_pull_req::blocks_payload const & request)
+nano::asc_pull_ack nano::bootstrap_server::process (store::transaction const & transaction, nano::asc_pull_req::id_t id, nano::asc_pull_req::blocks_payload const & request)
 {
 	const std::size_t count = std::min (static_cast<std::size_t> (request.count), max_blocks);
 
@@ -201,7 +201,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (nano::transaction const & tr
 	return prepare_empty_blocks_response (id);
 }
 
-nano::asc_pull_ack nano::bootstrap_server::prepare_response (nano::transaction const & transaction, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count)
+nano::asc_pull_ack nano::bootstrap_server::prepare_response (store::transaction const & transaction, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count)
 {
 	debug_assert (count <= max_blocks);
 
@@ -233,7 +233,7 @@ nano::asc_pull_ack nano::bootstrap_server::prepare_empty_blocks_response (nano::
 	return response;
 }
 
-std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks (nano::transaction const & transaction, nano::block_hash start_block, std::size_t count) const
+std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks (store::transaction const & transaction, nano::block_hash start_block, std::size_t count) const
 {
 	debug_assert (count <= max_blocks);
 
@@ -256,7 +256,7 @@ std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks
  * Account info response
  */
 
-nano::asc_pull_ack nano::bootstrap_server::process (const nano::transaction & transaction, nano::asc_pull_req::id_t id, const nano::asc_pull_req::account_info_payload & request)
+nano::asc_pull_ack nano::bootstrap_server::process (const store::transaction & transaction, nano::asc_pull_req::id_t id, const nano::asc_pull_req::account_info_payload & request)
 {
 	nano::asc_pull_ack response{ network_constants };
 	response.id = id;

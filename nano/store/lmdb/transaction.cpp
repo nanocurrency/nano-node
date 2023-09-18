@@ -20,7 +20,7 @@ namespace
 class matches_txn final
 {
 public:
-	explicit matches_txn (nano::transaction_impl const * transaction_impl_a) :
+	explicit matches_txn (nano::store::transaction_impl const * transaction_impl_a) :
 		transaction_impl (transaction_impl_a)
 	{
 	}
@@ -31,11 +31,11 @@ public:
 	}
 
 private:
-	nano::transaction_impl const * transaction_impl;
+	nano::store::transaction_impl const * transaction_impl;
 };
 }
 
-nano::read_mdb_txn::read_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a) :
+nano::store::lmdb::read_transaction_impl::read_transaction_impl (nano::store::lmdb::env const & environment_a, nano::store::lmdb::txn_callbacks txn_callbacks_a) :
 	txn_callbacks (txn_callbacks_a)
 {
 	auto status (mdb_txn_begin (environment_a, nullptr, MDB_RDONLY, &handle));
@@ -43,7 +43,7 @@ nano::read_mdb_txn::read_mdb_txn (nano::mdb_env const & environment_a, nano::mdb
 	txn_callbacks.txn_start (this);
 }
 
-nano::read_mdb_txn::~read_mdb_txn ()
+nano::store::lmdb::read_transaction_impl::~read_transaction_impl ()
 {
 	// This uses commit rather than abort, as it is needed when opening databases with a read only transaction
 	auto status (mdb_txn_commit (handle));
@@ -51,37 +51,37 @@ nano::read_mdb_txn::~read_mdb_txn ()
 	txn_callbacks.txn_end (this);
 }
 
-void nano::read_mdb_txn::reset ()
+void nano::store::lmdb::read_transaction_impl::reset ()
 {
 	mdb_txn_reset (handle);
 	txn_callbacks.txn_end (this);
 }
 
-void nano::read_mdb_txn::renew ()
+void nano::store::lmdb::read_transaction_impl::renew ()
 {
 	auto status (mdb_txn_renew (handle));
 	release_assert (status == 0);
 	txn_callbacks.txn_start (this);
 }
 
-void * nano::read_mdb_txn::get_handle () const
+void * nano::store::lmdb::read_transaction_impl::get_handle () const
 {
 	return handle;
 }
 
-nano::write_mdb_txn::write_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a) :
+nano::store::lmdb::write_transaction_impl::write_transaction_impl (nano::store::lmdb::env const & environment_a, nano::store::lmdb::txn_callbacks txn_callbacks_a) :
 	env (environment_a),
 	txn_callbacks (txn_callbacks_a)
 {
 	renew ();
 }
 
-nano::write_mdb_txn::~write_mdb_txn ()
+nano::store::lmdb::write_transaction_impl::~write_transaction_impl ()
 {
 	commit ();
 }
 
-void nano::write_mdb_txn::commit ()
+void nano::store::lmdb::write_transaction_impl::commit ()
 {
 	if (active)
 	{
@@ -95,7 +95,7 @@ void nano::write_mdb_txn::commit ()
 	}
 }
 
-void nano::write_mdb_txn::renew ()
+void nano::store::lmdb::write_transaction_impl::renew ()
 {
 	auto status (mdb_txn_begin (env, nullptr, 0, &handle));
 	release_assert (status == MDB_SUCCESS, mdb_strerror (status));
@@ -103,12 +103,12 @@ void nano::write_mdb_txn::renew ()
 	active = true;
 }
 
-void * nano::write_mdb_txn::get_handle () const
+void * nano::store::lmdb::write_transaction_impl::get_handle () const
 {
 	return handle;
 }
 
-bool nano::write_mdb_txn::contains (nano::tables table_a) const
+bool nano::store::lmdb::write_transaction_impl::contains (nano::tables table_a) const
 {
 	// LMDB locks on every write
 	return true;
@@ -196,7 +196,7 @@ void nano::mdb_txn_tracker::log_if_held_long_enough (nano::mdb_txn_stats const &
 	}
 }
 
-void nano::mdb_txn_tracker::add (nano::transaction_impl const * transaction_impl)
+void nano::mdb_txn_tracker::add (store::transaction_impl const * transaction_impl)
 {
 	nano::lock_guard<nano::mutex> guard (mutex);
 	debug_assert (std::find_if (stats.cbegin (), stats.cend (), matches_txn (transaction_impl)) == stats.cend ());
@@ -204,7 +204,7 @@ void nano::mdb_txn_tracker::add (nano::transaction_impl const * transaction_impl
 }
 
 /** Can be called without error if transaction does not exist */
-void nano::mdb_txn_tracker::erase (nano::transaction_impl const * transaction_impl)
+void nano::mdb_txn_tracker::erase (store::transaction_impl const * transaction_impl)
 {
 	nano::unique_lock<nano::mutex> lk (mutex);
 	auto it = std::find_if (stats.begin (), stats.end (), matches_txn (transaction_impl));
@@ -217,7 +217,7 @@ void nano::mdb_txn_tracker::erase (nano::transaction_impl const * transaction_im
 	}
 }
 
-nano::mdb_txn_stats::mdb_txn_stats (nano::transaction_impl const * transaction_impl) :
+nano::mdb_txn_stats::mdb_txn_stats (store::transaction_impl const * transaction_impl) :
 	transaction_impl (transaction_impl),
 	thread_name (nano::thread_role::get_string ()),
 	stacktrace (std::make_shared<boost::stacktrace::stacktrace> ())
@@ -227,5 +227,5 @@ nano::mdb_txn_stats::mdb_txn_stats (nano::transaction_impl const * transaction_i
 
 bool nano::mdb_txn_stats::is_write () const
 {
-	return (dynamic_cast<nano::write_transaction_impl const *> (transaction_impl) != nullptr);
+	return (dynamic_cast<store::write_transaction_impl const *> (transaction_impl) != nullptr);
 }

@@ -2,12 +2,12 @@
 
 #include <boost/filesystem/operations.hpp>
 
-nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, nano::mdb_env::options options_a)
+nano::store::lmdb::env::env (bool & error_a, boost::filesystem::path const & path_a, nano::store::lmdb::env::options options_a)
 {
 	init (error_a, path_a, options_a);
 }
 
-void nano::mdb_env::init (bool & error_a, boost::filesystem::path const & path_a, nano::mdb_env::options options_a)
+void nano::store::lmdb::env::init (bool & error_a, boost::filesystem::path const & path_a, nano::store::lmdb::env::options options_a)
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	if (path_a.has_parent_path ())
@@ -78,7 +78,7 @@ void nano::mdb_env::init (bool & error_a, boost::filesystem::path const & path_a
 	}
 }
 
-nano::mdb_env::~mdb_env ()
+nano::store::lmdb::env::~env ()
 {
 	if (environment != nullptr)
 	{
@@ -88,22 +88,22 @@ nano::mdb_env::~mdb_env ()
 	}
 }
 
-nano::mdb_env::operator MDB_env * () const
+nano::store::lmdb::env::operator MDB_env * () const
 {
 	return environment;
 }
 
-nano::read_transaction nano::mdb_env::tx_begin_read (mdb_txn_callbacks mdb_txn_callbacks) const
+nano::store::read_transaction nano::store::lmdb::env::tx_begin_read (store::lmdb::txn_callbacks mdb_txn_callbacks) const
 {
-	return nano::read_transaction{ std::make_unique<nano::read_mdb_txn> (*this, mdb_txn_callbacks) };
+	return store::read_transaction{ std::make_unique<nano::store::lmdb::read_transaction_impl> (*this, mdb_txn_callbacks) };
 }
 
-nano::write_transaction nano::mdb_env::tx_begin_write (mdb_txn_callbacks mdb_txn_callbacks) const
+nano::store::write_transaction nano::store::lmdb::env::tx_begin_write (store::lmdb::txn_callbacks mdb_txn_callbacks) const
 {
-	return nano::write_transaction{ std::make_unique<nano::write_mdb_txn> (*this, mdb_txn_callbacks) };
+	return store::write_transaction{ std::make_unique<nano::store::lmdb::write_transaction_impl> (*this, mdb_txn_callbacks) };
 }
 
-MDB_txn * nano::mdb_env::tx (nano::transaction const & transaction_a) const
+MDB_txn * nano::store::lmdb::env::tx (store::transaction const & transaction_a) const
 {
 	return static_cast<MDB_txn *> (transaction_a.get_handle ());
 }

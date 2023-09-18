@@ -20,7 +20,7 @@ nano::account nano::bootstrap_ascending::database_iterator::operator* () const
 	return current;
 }
 
-void nano::bootstrap_ascending::database_iterator::next (nano::transaction & tx)
+void nano::bootstrap_ascending::database_iterator::next (store::transaction & tx)
 {
 	switch (table)
 	{

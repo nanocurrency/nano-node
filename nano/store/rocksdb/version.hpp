@@ -2,20 +2,16 @@
 
 #include <nano/store/version.hpp>
 
-namespace nano
+namespace nano::store::rocksdb
 {
-namespace rocksdb
+class version : public nano::store::version
 {
-	class store;
-	class version_store : public nano::version_store
-	{
-	protected:
-		nano::rocksdb::store & store;
+protected:
+	nano::store::rocksdb::component & store;
 
-	public:
-		explicit version_store (nano::rocksdb::store & store_a);
-		void put (nano::write_transaction const & transaction_a, int version_a) override;
-		int get (nano::transaction const & transaction_a) const override;
-	};
-}
-}
+public:
+	explicit version (nano::store::rocksdb::component & store_a);
+	void put (store::write_transaction const & transaction_a, int version_a) override;
+	int get (store::transaction const & transaction_a) const override;
+};
+} // namespace nano::store::rocksdb

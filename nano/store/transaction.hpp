@@ -4,7 +4,7 @@
 
 #include <memory>
 
-namespace nano
+namespace nano::store
 {
 class transaction_impl
 {
@@ -42,14 +42,14 @@ public:
 class read_transaction final : public transaction
 {
 public:
-	explicit read_transaction (std::unique_ptr<nano::read_transaction_impl> read_transaction_impl);
+	explicit read_transaction (std::unique_ptr<read_transaction_impl> read_transaction_impl);
 	void * get_handle () const override;
 	void reset () const;
 	void renew () const;
 	void refresh () const;
 
 private:
-	std::unique_ptr<nano::read_transaction_impl> impl;
+	std::unique_ptr<read_transaction_impl> impl;
 };
 
 /**
@@ -59,7 +59,7 @@ private:
 class write_transaction final : public transaction
 {
 public:
-	explicit write_transaction (std::unique_ptr<nano::write_transaction_impl> write_transaction_impl);
+	explicit write_transaction (std::unique_ptr<write_transaction_impl> write_transaction_impl);
 	void * get_handle () const override;
 	void commit ();
 	void renew ();
@@ -67,6 +67,6 @@ public:
 	bool contains (nano::tables table_a) const;
 
 private:
-	std::unique_ptr<nano::write_transaction_impl> impl;
+	std::unique_ptr<write_transaction_impl> impl;
 };
-} // namespace nano
+} // namespace nano::store

@@ -8,8 +8,8 @@ std::unique_ptr<nano::store::component> nano::make_store (nano::logger_mt & logg
 {
 	if (rocksdb_config.enable)
 	{
-		return std::make_unique<nano::rocksdb::store> (logger, add_db_postfix ? path / "rocksdb" : path, constants, rocksdb_config, read_only);
+		return std::make_unique<nano::store::rocksdb::component> (logger, add_db_postfix ? path / "rocksdb" : path, constants, rocksdb_config, read_only);
 	}
 
-	return std::make_unique<nano::lmdb::store> (logger, add_db_postfix ? path / "data.ldb" : path, constants, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_config_a, backup_before_upgrade);
+	return std::make_unique<nano::store::lmdb::component> (logger, add_db_postfix ? path / "data.ldb" : path, constants, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_config_a, backup_before_upgrade);
 }

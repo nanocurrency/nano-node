@@ -13,20 +13,20 @@ class read_transaction;
 class transaction;
 class write_transaction;
 }
-namespace nano
+namespace nano::store
 {
 /**
  * Manages frontier storage and iteration
  */
-class frontier_store
+class frontier
 {
 public:
-	virtual void put (nano::write_transaction const &, nano::block_hash const &, nano::account const &) = 0;
-	virtual nano::account get (nano::transaction const &, nano::block_hash const &) const = 0;
-	virtual void del (nano::write_transaction const &, nano::block_hash const &) = 0;
-	virtual nano::store_iterator<nano::block_hash, nano::account> begin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<nano::block_hash, nano::account> begin (nano::transaction const &, nano::block_hash const &) const = 0;
-	virtual nano::store_iterator<nano::block_hash, nano::account> end () const = 0;
-	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, nano::account>, nano::store_iterator<nano::block_hash, nano::account>)> const & action_a) const = 0;
+	virtual void put (store::write_transaction const &, nano::block_hash const &, nano::account const &) = 0;
+	virtual nano::account get (store::transaction const &, nano::block_hash const &) const = 0;
+	virtual void del (store::write_transaction const &, nano::block_hash const &) = 0;
+	virtual iterator<nano::block_hash, nano::account> begin (store::transaction const &) const = 0;
+	virtual iterator<nano::block_hash, nano::account> begin (store::transaction const &, nano::block_hash const &) const = 0;
+	virtual iterator<nano::block_hash, nano::account> end () const = 0;
+	virtual void for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::block_hash, nano::account>, store::iterator<nano::block_hash, nano::account>)> const & action_a) const = 0;
 };
 } // namespace nano::store

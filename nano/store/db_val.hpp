@@ -8,7 +8,7 @@
 
 #include <cstddef>
 
-namespace nano
+namespace nano::store
 {
 /**
  * Encapsulates database specific container
@@ -57,8 +57,8 @@ public:
 	{
 	}
 
-	db_val (nano::account_info_v14 const & val_a) :
-		db_val (val_a.db_size (), const_cast<nano::account_info_v14 *> (&val_a))
+	db_val (account_info_v14 const & val_a) :
+		db_val (val_a.db_size (), const_cast<account_info_v14 *> (&val_a))
 	{
 	}
 
@@ -68,10 +68,10 @@ public:
 		static_assert (std::is_standard_layout<nano::pending_info>::value, "Standard layout is required");
 	}
 
-	db_val (nano::pending_info_v14 const & val_a) :
-		db_val (val_a.db_size (), const_cast<nano::pending_info_v14 *> (&val_a))
+	db_val (pending_info_v14 const & val_a) :
+		db_val (val_a.db_size (), const_cast<pending_info_v14 *> (&val_a))
 	{
-		static_assert (std::is_standard_layout<nano::pending_info_v14>::value, "Standard layout is required");
+		static_assert (std::is_standard_layout<pending_info_v14>::value, "Standard layout is required");
 	}
 
 	db_val (nano::pending_key const & val_a) :
@@ -131,15 +131,15 @@ public:
 		return result;
 	}
 
-	explicit operator nano::account_info_v14 () const
+	explicit operator account_info_v14 () const
 	{
-		nano::account_info_v14 result;
+		account_info_v14 result;
 		debug_assert (size () == result.db_size ());
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
 		return result;
 	}
 
-	explicit operator nano::block_info () const
+	explicit operator block_info () const
 	{
 		nano::block_info result;
 		debug_assert (size () == sizeof (result));
@@ -148,9 +148,9 @@ public:
 		return result;
 	}
 
-	explicit operator nano::pending_info_v14 () const
+	explicit operator pending_info_v14 () const
 	{
-		nano::pending_info_v14 result;
+		pending_info_v14 result;
 		debug_assert (size () == result.db_size ());
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
 		return result;
@@ -253,7 +253,7 @@ public:
 	explicit operator block_w_sideband () const
 	{
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
-		nano::block_w_sideband block_w_sideband;
+		nano::store::block_w_sideband block_w_sideband;
 		block_w_sideband.block = (nano::deserialize_block (stream));
 		auto error = block_w_sideband.sideband.deserialize (stream, block_w_sideband.block->type ());
 		release_assert (!error);
@@ -265,7 +265,7 @@ public:
 	{
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
 		auto error (false);
-		nano::state_block_w_sideband_v14 block_w_sideband;
+		state_block_w_sideband_v14 block_w_sideband;
 		block_w_sideband.state_block = std::make_shared<nano::state_block> (error, stream);
 		debug_assert (!error);
 
@@ -378,4 +378,4 @@ private:
 		return result;
 	}
 };
-} // namespace nano
+} // namespace nano::store

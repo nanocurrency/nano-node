@@ -391,7 +391,7 @@ TEST (confirmation_height, gap_bootstrap)
 		// Receive 2 comes in on the live network, however the chain has not been finished so it gets added to unchecked
 		node1.process_active (receive2);
 		// Waits for the unchecked_map to process the 4 blocks added to the block_processor, saving them in the unchecked table
-		auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
+		auto check_block_is_listed = [&] (nano::store::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
 			return !node1.unchecked.get (block_hash_a).empty ();
 		};
 		ASSERT_TIMELY (5s, check_block_is_listed (node1.store.tx_begin_read (), receive2->previous ()));

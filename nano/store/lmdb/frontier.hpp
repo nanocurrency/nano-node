@@ -4,31 +4,31 @@
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
-namespace nano
+namespace nano::store::lmdb
 {
-namespace lmdb
+class component;
+}
+namespace nano::store::lmdb
 {
-	class store;
-	class frontier_store : public nano::frontier_store
-	{
-	private:
-		nano::lmdb::store & store;
+class frontier : public nano::store::frontier
+{
+private:
+	nano::store::lmdb::component & store;
 
-	public:
-		frontier_store (nano::lmdb::store & store);
-		void put (nano::write_transaction const &, nano::block_hash const &, nano::account const &) override;
-		nano::account get (nano::transaction const &, nano::block_hash const &) const override;
-		void del (nano::write_transaction const &, nano::block_hash const &) override;
-		nano::store_iterator<nano::block_hash, nano::account> begin (nano::transaction const &) const override;
-		nano::store_iterator<nano::block_hash, nano::account> begin (nano::transaction const &, nano::block_hash const &) const override;
-		nano::store_iterator<nano::block_hash, nano::account> end () const override;
-		void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, nano::account>, nano::store_iterator<nano::block_hash, nano::account>)> const & action_a) const override;
+public:
+	frontier (nano::store::lmdb::component & store);
+	void put (store::write_transaction const &, nano::block_hash const &, nano::account const &) override;
+	nano::account get (store::transaction const &, nano::block_hash const &) const override;
+	void del (store::write_transaction const &, nano::block_hash const &) override;
+	store::iterator<nano::block_hash, nano::account> begin (store::transaction const &) const override;
+	store::iterator<nano::block_hash, nano::account> begin (store::transaction const &, nano::block_hash const &) const override;
+	store::iterator<nano::block_hash, nano::account> end () const override;
+	void for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::block_hash, nano::account>, store::iterator<nano::block_hash, nano::account>)> const & action_a) const override;
 
-		/**
+	/**
 		 * Maps head block to owning account
 		 * nano::block_hash -> nano::account
 		 */
-		MDB_dbi frontiers_handle{ 0 };
-	};
-}
-}
+	MDB_dbi frontiers_handle{ 0 };
+};
+} // namespace nano::store::lmdb

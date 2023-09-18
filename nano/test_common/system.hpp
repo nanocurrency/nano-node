@@ -30,7 +30,7 @@ namespace test
 		void generate_usage_traffic (uint32_t, uint32_t, size_t);
 		void generate_usage_traffic (uint32_t, uint32_t);
 		nano::account get_random_account (std::vector<nano::account> &);
-		nano::uint128_t get_random_amount (nano::transaction const &, nano::node &, nano::account const &);
+		nano::uint128_t get_random_amount (store::transaction const &, nano::node &, nano::account const &);
 		void generate_rollback (nano::node &, std::vector<nano::account> &);
 		void generate_change_known (nano::node &, std::vector<nano::account> &);
 		void generate_change_unknown (nano::node &, std::vector<nano::account> &);
@@ -39,7 +39,7 @@ namespace test
 		void generate_send_existing (nano::node &, std::vector<nano::account> &);
 		std::unique_ptr<nano::state_block> upgrade_genesis_epoch (nano::node &, nano::epoch const);
 		std::shared_ptr<nano::wallet> wallet (size_t);
-		nano::account account (nano::transaction const &, size_t);
+		nano::account account (store::transaction const &, size_t);
 		/** Generate work with difficulty between \p min_difficulty_a (inclusive) and \p max_difficulty_a (exclusive) */
 		uint64_t work_generate_limited (nano::block_hash const & root_a, uint64_t min_difficulty_a, uint64_t max_difficulty_a);
 		/**
