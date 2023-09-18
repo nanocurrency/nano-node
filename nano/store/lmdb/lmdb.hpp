@@ -4,20 +4,20 @@
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/secure/common.hpp>
 #include <nano/store/lmdb/account.hpp>
 #include <nano/store/lmdb/block.hpp>
 #include <nano/store/lmdb/confirmation_height.hpp>
 #include <nano/store/lmdb/final_vote.hpp>
 #include <nano/store/lmdb/frontier.hpp>
-#include <nano/store/lmdb/lmdb_env.hpp>
 #include <nano/store/lmdb/iterator.hpp>
-#include <nano/store/lmdb/transaction_impl.hpp>
+#include <nano/store/lmdb/lmdb_env.hpp>
 #include <nano/store/lmdb/online_weight.hpp>
 #include <nano/store/lmdb/peer.hpp>
 #include <nano/store/lmdb/pending.hpp>
 #include <nano/store/lmdb/pruned.hpp>
+#include <nano/store/lmdb/transaction_impl.hpp>
 #include <nano/store/lmdb/version.hpp>
-#include <nano/secure/common.hpp>
 #include <nano/store/versioning.hpp>
 
 #include <boost/optional.hpp>

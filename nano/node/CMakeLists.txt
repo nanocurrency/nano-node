@@ -112,20 +112,6 @@ add_library(
   json_handler.cpp
   ledger_walker.hpp
   ledger_walker.cpp
-  lmdb/account_store.cpp
-  lmdb/block_store.cpp
-  lmdb/confirmation_height_store.cpp
-  lmdb/final_vote_store.cpp
-  lmdb/frontier_store.cpp
-  lmdb/online_weight_store.cpp
-  lmdb/peer_store.cpp
-  lmdb/pending_store.cpp
-  lmdb/pruned_store.cpp
-  lmdb/version_store.cpp
-  lmdb/lmdb.cpp
-  lmdb/lmdb_env.cpp
-  lmdb/lmdb_txn.cpp
-  lmdb/wallet_value.cpp
   logging.hpp
   logging.cpp
   make_store.hpp
@@ -156,18 +142,6 @@ add_library(
   repcrawler.cpp
   request_aggregator.hpp
   request_aggregator.cpp
-  rocksdb/account_store.cpp
-  rocksdb/block_store.cpp
-  rocksdb/confirmation_height_store.cpp
-  rocksdb/final_vote_store.cpp
-  rocksdb/frontier_store.cpp
-  rocksdb/online_weight_store.cpp
-  rocksdb/peer_store.cpp
-  rocksdb/pending_store.cpp
-  rocksdb/pruned_store.cpp
-  rocksdb/version_store.cpp
-  rocksdb/rocksdb.cpp
-  rocksdb/rocksdb_txn.cpp
   scheduler/bucket.cpp
   scheduler/bucket.hpp
   scheduler/buckets.cpp
@@ -232,10 +206,10 @@ endif()
 
 target_link_libraries(
   node
+  nano_store
   rpc
   secure
   nano_lib
-  nano_store
   libminiupnpc-static
   argon2
   lmdb
@@ -262,6 +236,5 @@ add_dependencies(node ipc_flatbuffers_lib)
 
 include_directories(${CMAKE_SOURCE_DIR}/submodules)
 include_directories(${CMAKE_SOURCE_DIR}/submodules/cpptoml/include)
-include_directories(${CMAKE_SOURCE_DIR}/submodules/lmdb)
 include_directories(
   ${CMAKE_SOURCE_DIR}/submodules/nano-pow-server/deps/cpptoml/include)

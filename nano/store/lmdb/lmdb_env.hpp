@@ -1,8 +1,8 @@
 #pragma once
 
 #include <nano/lib/lmdbconfig.hpp>
-#include <nano/store/lmdb/transaction_impl.hpp>
 #include <nano/store/component.hpp>
+#include <nano/store/lmdb/transaction_impl.hpp>
 
 namespace nano
 {

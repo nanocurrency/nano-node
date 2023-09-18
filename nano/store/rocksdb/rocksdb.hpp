@@ -4,18 +4,18 @@
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
+#include <nano/secure/common.hpp>
 #include <nano/store/rocksdb/account.hpp>
 #include <nano/store/rocksdb/block.hpp>
 #include <nano/store/rocksdb/confirmation_height.hpp>
 #include <nano/store/rocksdb/final_vote.hpp>
 #include <nano/store/rocksdb/frontier.hpp>
+#include <nano/store/rocksdb/iterator.hpp>
 #include <nano/store/rocksdb/online_weight.hpp>
 #include <nano/store/rocksdb/peer.hpp>
 #include <nano/store/rocksdb/pending.hpp>
 #include <nano/store/rocksdb/pruned.hpp>
-#include <nano/store/rocksdb/iterator.hpp>
 #include <nano/store/rocksdb/version.hpp>
-#include <nano/secure/common.hpp>
 
 #include <rocksdb/db.h>
 #include <rocksdb/filter_policy.h>
