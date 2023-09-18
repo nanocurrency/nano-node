@@ -4,7 +4,7 @@
 #include <nano/lib/memory.hpp>
 #include <nano/secure/buffer.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/versioning.hpp>
+#include <nano/store/versioning.hpp>
 
 #include <boost/endian/conversion.hpp>
 #include <boost/polymorphic_cast.hpp>

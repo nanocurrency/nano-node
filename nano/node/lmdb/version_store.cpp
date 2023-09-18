@@ -1,5 +1,5 @@
-#include <nano/node/lmdb/lmdb.hpp>
-#include <nano/node/lmdb/version_store.hpp>
+#include <nano/store/lmdb/lmdb.hpp>
+#include <nano/store/lmdb/version.hpp>
 
 nano::lmdb::version_store::version_store (nano::lmdb::store & store_a) :
 	store{ store_a } {};

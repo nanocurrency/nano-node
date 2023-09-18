@@ -1,4 +1,4 @@
-#include <nano/secure/versioning.hpp>
+#include <nano/store/versioning.hpp>
 
 #include <boost/endian/conversion.hpp>
 

@@ -1,5 +1,5 @@
-#include <nano/node/rocksdb/online_weight_store.hpp>
-#include <nano/node/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/online_weight.hpp>
+#include <nano/store/rocksdb/rocksdb.hpp>
 
 nano::rocksdb::online_weight_store::online_weight_store (nano::rocksdb::store & store_a) :
 	store{ store_a }

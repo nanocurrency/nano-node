@@ -1,11 +1,11 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/lmdb/lmdb.hpp>
-#include <nano/node/lmdb/lmdb_iterator.hpp>
-#include <nano/node/lmdb/wallet_value.hpp>
 #include <nano/secure/buffer.hpp>
 #include <nano/secure/ledger.hpp>
-#include <nano/secure/versioning.hpp>
+#include <nano/store/lmdb/lmdb.hpp>
+#include <nano/store/lmdb/iterator.hpp>
+#include <nano/store/lmdb/wallet_value.hpp>
+#include <nano/store/versioning.hpp>
 
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>

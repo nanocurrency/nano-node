@@ -1,6 +1,6 @@
-#include <nano/node/lmdb/lmdb.hpp>
-#include <nano/node/lmdb/pruned_store.hpp>
 #include <nano/secure/parallel_traversal.hpp>
+#include <nano/store/lmdb/lmdb.hpp>
+#include <nano/store/lmdb/pruned.hpp>
 
 nano::lmdb::pruned_store::pruned_store (nano::lmdb::store & store_a) :
 	store{ store_a } {};

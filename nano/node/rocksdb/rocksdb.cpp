@@ -1,7 +1,7 @@
 #include <nano/lib/rocksdbconfig.hpp>
-#include <nano/node/rocksdb/rocksdb.hpp>
-#include <nano/node/rocksdb/rocksdb_iterator.hpp>
-#include <nano/node/rocksdb/rocksdb_txn.hpp>
+#include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/iterator.hpp>
+#include <nano/store/rocksdb/transaction_impl.hpp>
 
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>

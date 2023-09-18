@@ -1,6 +1,6 @@
-#include <nano/node/lmdb/account_store.hpp>
-#include <nano/node/lmdb/lmdb.hpp>
 #include <nano/secure/parallel_traversal.hpp>
+#include <nano/store/lmdb/account.hpp>
+#include <nano/store/lmdb/lmdb.hpp>
 
 nano::lmdb::account_store::account_store (nano::lmdb::store & store_a) :
 	store (store_a){};

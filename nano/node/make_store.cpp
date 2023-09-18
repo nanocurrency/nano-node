@@ -1,6 +1,6 @@
-#include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/make_store.hpp>
-#include <nano/node/rocksdb/rocksdb.hpp>
+#include <nano/store/lmdb/lmdb.hpp>
+#include <nano/store/rocksdb/rocksdb.hpp>
 
 #include <boost/filesystem/path.hpp>
 

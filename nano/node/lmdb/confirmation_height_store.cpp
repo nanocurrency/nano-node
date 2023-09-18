@@ -1,6 +1,6 @@
-#include <nano/node/lmdb/confirmation_height_store.hpp>
-#include <nano/node/lmdb/lmdb.hpp>
 #include <nano/secure/parallel_traversal.hpp>
+#include <nano/store/lmdb/confirmation_height.hpp>
+#include <nano/store/lmdb/lmdb.hpp>
 
 nano::lmdb::confirmation_height_store::confirmation_height_store (nano::lmdb::store & store) :
 	store{ store }

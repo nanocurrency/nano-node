@@ -1,5 +1,5 @@
-#include <nano/node/rocksdb/rocksdb.hpp>
-#include <nano/node/rocksdb/version_store.hpp>
+#include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/version.hpp>
 
 nano::rocksdb::version_store::version_store (nano::rocksdb::store & store_a) :
 	store{ store_a } {};

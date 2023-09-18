@@ -1,4 +1,4 @@
-#include <nano/node/lmdb/wallet_value.hpp>
+#include <nano/store/lmdb/wallet_value.hpp>
 
 nano::wallet_value::wallet_value (nano::db_val<MDB_val> const & val_a)
 {

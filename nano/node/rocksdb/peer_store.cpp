@@ -1,5 +1,5 @@
-#include <nano/node/rocksdb/peer_store.hpp>
-#include <nano/node/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/peer.hpp>
+#include <nano/store/rocksdb/rocksdb.hpp>
 
 nano::rocksdb::peer_store::peer_store (nano::rocksdb::store & store) :
 	store{ store } {};

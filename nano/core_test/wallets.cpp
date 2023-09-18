@@ -1,4 +1,4 @@
-#include <nano/secure/versioning.hpp>
+#include <nano/store/versioning.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 

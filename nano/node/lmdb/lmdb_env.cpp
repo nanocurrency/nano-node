@@ -1,4 +1,4 @@
-#include <nano/node/lmdb/lmdb_env.hpp>
+#include <nano/store/lmdb/lmdb_env.hpp>
 
 #include <boost/filesystem/operations.hpp>
 

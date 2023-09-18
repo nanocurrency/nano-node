@@ -1,5 +1,5 @@
-#include <nano/node/lmdb/lmdb.hpp>
-#include <nano/node/lmdb/peer_store.hpp>
+#include <nano/store/lmdb/lmdb.hpp>
+#include <nano/store/lmdb/peer.hpp>
 
 nano::lmdb::peer_store::peer_store (nano::lmdb::store & store) :
 	store{ store } {};

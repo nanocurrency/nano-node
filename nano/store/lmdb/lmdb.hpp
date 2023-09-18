@@ -4,21 +4,21 @@
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/node/lmdb/account_store.hpp>
-#include <nano/node/lmdb/block_store.hpp>
-#include <nano/node/lmdb/confirmation_height_store.hpp>
-#include <nano/node/lmdb/final_vote_store.hpp>
-#include <nano/node/lmdb/frontier_store.hpp>
-#include <nano/node/lmdb/lmdb_env.hpp>
-#include <nano/node/lmdb/lmdb_iterator.hpp>
-#include <nano/node/lmdb/lmdb_txn.hpp>
-#include <nano/node/lmdb/online_weight_store.hpp>
-#include <nano/node/lmdb/peer_store.hpp>
-#include <nano/node/lmdb/pending_store.hpp>
-#include <nano/node/lmdb/pruned_store.hpp>
-#include <nano/node/lmdb/version_store.hpp>
+#include <nano/store/lmdb/account.hpp>
+#include <nano/store/lmdb/block.hpp>
+#include <nano/store/lmdb/confirmation_height.hpp>
+#include <nano/store/lmdb/final_vote.hpp>
+#include <nano/store/lmdb/frontier.hpp>
+#include <nano/store/lmdb/lmdb_env.hpp>
+#include <nano/store/lmdb/iterator.hpp>
+#include <nano/store/lmdb/transaction_impl.hpp>
+#include <nano/store/lmdb/online_weight.hpp>
+#include <nano/store/lmdb/peer.hpp>
+#include <nano/store/lmdb/pending.hpp>
+#include <nano/store/lmdb/pruned.hpp>
+#include <nano/store/lmdb/version.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/versioning.hpp>
+#include <nano/store/versioning.hpp>
 
 #include <boost/optional.hpp>
 

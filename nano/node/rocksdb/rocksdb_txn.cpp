@@ -1,4 +1,4 @@
-#include <nano/node/rocksdb/rocksdb_txn.hpp>
+#include <nano/store/rocksdb/transaction_impl.hpp>
 
 nano::read_rocksdb_txn::read_rocksdb_txn (rocksdb::DB * db_a) :
 	db (db_a)

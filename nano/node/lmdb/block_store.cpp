@@ -1,6 +1,6 @@
-#include <nano/node/lmdb/block_store.hpp>
-#include <nano/node/lmdb/lmdb.hpp>
 #include <nano/secure/parallel_traversal.hpp>
+#include <nano/store/lmdb/block.hpp>
+#include <nano/store/lmdb/lmdb.hpp>
 
 namespace nano
 {

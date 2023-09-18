@@ -1,4 +1,32 @@
-add_library(nano_store component.cpp component.hpp)
+add_library(
+  nano_store
+  component.hpp
+  lmdb/account.hpp
+  lmdb/block.hpp
+  lmdb/confirmation_height.hpp
+  lmdb/final_vote.hpp
+  lmdb/frontier.hpp
+  lmdb/iterator.hpp
+  lmdb/online_weight.hpp
+  lmdb/peer.hpp
+  lmdb/pending.hpp
+  lmdb/pruned.hpp
+  lmdb/transaction_impl.hpp
+  lmdb/version.hpp
+  rocksdb/account.hpp
+  rocksdb/block.hpp
+  rocksdb/confirmation_height.hpp
+  rocksdb/final_vote.hpp
+  rocksdb/frontier.hpp
+  rocksdb/iterator.hpp
+  rocksdb/online_weight.hpp
+  rocksdb/peer.hpp
+  rocksdb/pending.hpp
+  rocksdb/pruned.hpp
+  rocksdb/transaction_impl.hpp
+  rocksdb/version.hpp
+  versioning.hpp
+  component.cpp)
 
 target_link_libraries(
   nano_store
