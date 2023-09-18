@@ -338,7 +338,6 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 		auto erased (blocks.erase (hash));
 		(void)erased;
 		debug_assert (erased == 1);
-		node.vote_cache.erase (hash);
 	}
 	roots.get<tag_root> ().erase (roots.get<tag_root> ().find (election->qualified_root));
 

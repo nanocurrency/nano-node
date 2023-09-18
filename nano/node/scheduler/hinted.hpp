@@ -4,8 +4,14 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/secure/common.hpp>
 
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index_container.hpp>
+
+#include <chrono>
 #include <condition_variable>
 #include <thread>
+#include <unordered_map>
 
 namespace nano
 {
@@ -43,11 +49,13 @@ public:
 	void notify ();
 
 private:
-	bool predicate (nano::uint128_t const & minimum_tally) const;
+	bool predicate () const;
 	void run ();
-	bool run_one (nano::uint128_t const & minimum_tally);
+	void run_iterative ();
+	void activate (nano::store::transaction const &, nano::block_hash const & hash, bool check_dependents);
 
 	nano::uint128_t tally_threshold () const;
+	nano::uint128_t final_tally_threshold () const;
 
 private: // Dependencies
 	nano::node & node;
@@ -63,5 +71,31 @@ private:
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
 	std::thread thread;
+
+private:
+	bool cooldown (nano::block_hash const & hash);
+
+	struct cooldown_entry
+	{
+		nano::block_hash hash;
+		std::chrono::steady_clock::time_point timeout;
+	};
+
+	// clang-format off
+	class tag_hash {};
+	class tag_timeout {};
+	// clang-format on
+
+	// clang-format off
+	using ordered_cooldowns = boost::multi_index_container<cooldown_entry,
+	mi::indexed_by<
+		mi::hashed_unique<mi::tag<tag_hash>,
+			mi::member<cooldown_entry, nano::block_hash, &cooldown_entry::hash>>,
+		mi::ordered_non_unique<mi::tag<tag_timeout>,
+			mi::member<cooldown_entry, std::chrono::steady_clock::time_point, &cooldown_entry::timeout>>
+	>>;
+	// clang-format on
+
+	ordered_cooldowns cooldowns_m;
 };
 }
