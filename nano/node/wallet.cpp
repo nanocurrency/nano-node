@@ -1696,7 +1696,7 @@ void nano::wallets::ongoing_compute_reps ()
 	});
 }
 
-void nano::wallets::split_if_needed (nano::transaction & transaction_destination, nano::store & store_a)
+void nano::wallets::split_if_needed (nano::transaction & transaction_destination, nano::store::component & store_a)
 {
 	auto store_l = dynamic_cast<nano::lmdb::store *> (&store_a);
 	if (store_l != nullptr)

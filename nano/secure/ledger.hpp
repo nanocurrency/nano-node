@@ -8,7 +8,10 @@
 
 namespace nano
 {
-class store;
+namespace store
+{
+	class component;
+}
 class stats;
 class write_transaction;
 
@@ -27,7 +30,7 @@ public:
 class ledger final
 {
 public:
-	ledger (nano::store &, nano::stats &, nano::ledger_constants & constants, nano::generate_cache const & = nano::generate_cache ());
+	ledger (nano::store::component &, nano::stats &, nano::ledger_constants & constants, nano::generate_cache const & = nano::generate_cache ());
 	/**
 	 * Return account containing hash, expects that block hash exists in ledger
 	 */
@@ -92,7 +95,7 @@ public:
 	uint64_t height (nano::transaction const & transaction, nano::block_hash const & hash) const;
 	static nano::uint128_t const unit;
 	nano::ledger_constants & constants;
-	nano::store & store;
+	nano::store::component & store;
 	nano::ledger_cache cache;
 	nano::stats & stats;
 	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;

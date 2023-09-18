@@ -19,7 +19,10 @@ class node_flags;
 class node_rpc_config;
 class public_key;
 class rpc;
-class store;
+namespace store
+{
+	class component;
+}
 
 using account = public_key;
 namespace ipc
@@ -57,7 +60,7 @@ namespace test
 	std::shared_ptr<nano::node> add_ipc_enabled_node (nano::test::system & system, nano::node_config & node_config, nano::node_flags const & node_flags);
 	std::shared_ptr<nano::node> add_ipc_enabled_node (nano::test::system & system, nano::node_config & node_config);
 	std::shared_ptr<nano::node> add_ipc_enabled_node (nano::test::system & system);
-	void reset_confirmation_height (nano::store & store, nano::account const & account);
+	void reset_confirmation_height (nano::store::component & store, nano::account const & account);
 	void wait_response_impl (nano::test::system & system, rpc_context const & rpc_ctx, boost::property_tree::ptree & request, std::chrono::duration<double, std::nano> const & time, boost::property_tree::ptree & response_json);
 	boost::property_tree::ptree wait_response (nano::test::system & system, rpc_context const & rpc_ctx, boost::property_tree::ptree & request, std::chrono::duration<double, std::nano> const & time = 5s);
 	bool check_block_response_count (nano::test::system & system, rpc_context const & rpc_ctx, boost::property_tree::ptree & request, uint64_t size_count);

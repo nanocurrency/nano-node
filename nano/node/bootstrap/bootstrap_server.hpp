@@ -29,7 +29,7 @@ public:
 	using request_t = std::pair<nano::asc_pull_req, std::shared_ptr<nano::transport::channel>>; // <request, response channel>
 
 public:
-	bootstrap_server (nano::store &, nano::ledger &, nano::network_constants const &, nano::stats &);
+	bootstrap_server (nano::store::component &, nano::ledger &, nano::network_constants const &, nano::stats &);
 	~bootstrap_server ();
 
 	void start ();
@@ -71,7 +71,7 @@ private:
 	bool verify_request_type (nano::asc_pull_type) const;
 
 private: // Dependencies
-	nano::store & store;
+	nano::store::component & store;
 	nano::ledger & ledger;
 	nano::network_constants const & network_constants;
 	nano::stats & stats;

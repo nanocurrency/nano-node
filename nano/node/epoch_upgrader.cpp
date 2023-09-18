@@ -2,7 +2,7 @@
 #include <nano/node/epoch_upgrader.hpp>
 #include <nano/node/node.hpp>
 
-nano::epoch_upgrader::epoch_upgrader (nano::node & node_a, nano::ledger & ledger_a, nano::store & store_a, nano::network_params & network_params_a, nano::logger_mt & logger_a) :
+nano::epoch_upgrader::epoch_upgrader (nano::node & node_a, nano::ledger & ledger_a, nano::store::component & store_a, nano::network_params & network_params_a, nano::logger_mt & logger_a) :
 	node{ node_a },
 	ledger{ ledger_a },
 	store{ store_a },

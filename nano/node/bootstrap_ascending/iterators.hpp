@@ -6,7 +6,10 @@
 
 namespace nano
 {
-class store;
+namespace store
+{
+	class component;
+}
 class transaction;
 
 namespace bootstrap_ascending
@@ -20,12 +23,12 @@ namespace bootstrap_ascending
 			pending
 		};
 
-		explicit database_iterator (nano::store & store, table_type);
+		explicit database_iterator (nano::store::component & store, table_type);
 		nano::account operator* () const;
 		void next (nano::transaction & tx);
 
 	private:
-		nano::store & store;
+		nano::store::component & store;
 		nano::account current{ 0 };
 		const table_type table;
 	};
@@ -33,7 +36,7 @@ namespace bootstrap_ascending
 	class buffered_iterator
 	{
 	public:
-		explicit buffered_iterator (nano::store & store);
+		explicit buffered_iterator (nano::store::component & store);
 		nano::account operator* () const;
 		nano::account next ();
 		// Indicates if a full ledger iteration has taken place e.g. warmed up
@@ -43,7 +46,7 @@ namespace bootstrap_ascending
 		void fill ();
 
 	private:
-		nano::store & store;
+		nano::store::component & store;
 		std::deque<nano::account> buffer;
 		bool warmup_m{ true };
 

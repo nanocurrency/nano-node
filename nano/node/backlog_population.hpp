@@ -12,7 +12,10 @@
 namespace nano
 {
 class stats;
-class store;
+namespace store
+{
+	class component;
+}
 class election_scheduler;
 
 class backlog_population final
@@ -30,7 +33,7 @@ public:
 		unsigned frequency;
 	};
 
-	backlog_population (const config &, nano::store &, nano::stats &);
+	backlog_population (const config &, nano::store::component &, nano::stats &);
 	~backlog_population ();
 
 	void start ();
@@ -50,7 +53,7 @@ public:
 	callback_t activate_callback;
 
 private: // Dependencies
-	nano::store & store;
+	nano::store::component & store;
 	nano::stats & stats;
 
 	config config_m;

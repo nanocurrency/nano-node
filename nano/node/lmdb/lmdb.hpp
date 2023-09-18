@@ -44,7 +44,7 @@ namespace lmdb
 	/**
  * mdb implementation of the block store
  */
-	class store : public nano::store
+	class store : public nano::store::component
 	{
 	private:
 		nano::lmdb::account_store account_store;

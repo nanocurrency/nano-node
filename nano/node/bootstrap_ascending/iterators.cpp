@@ -7,7 +7,7 @@
  * database_iterator
  */
 
-nano::bootstrap_ascending::database_iterator::database_iterator (nano::store & store_a, table_type table_a) :
+nano::bootstrap_ascending::database_iterator::database_iterator (nano::store::component & store_a, table_type table_a) :
 	store{ store_a },
 	table{ table_a }
 {
@@ -57,7 +57,7 @@ void nano::bootstrap_ascending::database_iterator::next (nano::transaction & tx)
  * buffered_iterator
  */
 
-nano::bootstrap_ascending::buffered_iterator::buffered_iterator (nano::store & store_a) :
+nano::bootstrap_ascending::buffered_iterator::buffered_iterator (nano::store::component & store_a) :
 	store{ store_a },
 	accounts_iterator{ store, database_iterator::table_type::account },
 	pending_iterator{ store, database_iterator::table_type::pending }

@@ -64,7 +64,7 @@ bool nano::write_transaction::contains (nano::tables table_a) const
 }
 
 // clang-format off
-nano::store::store (
+nano::store::component::component (
 	nano::block_store & block_store_a,
 	nano::frontier_store & frontier_store_a,
 	nano::account_store & account_store_a,
@@ -94,7 +94,7 @@ nano::store::store (
  * If using a different store version than the latest then you may need
  * to modify some of the objects in the store to be appropriate for the version before an upgrade.
  */
-void nano::store::initialize (nano::write_transaction const & transaction_a, nano::ledger_cache & ledger_cache_a, nano::ledger_constants & constants)
+void nano::store::component::initialize (nano::write_transaction const & transaction_a, nano::ledger_cache & ledger_cache_a, nano::ledger_constants & constants)
 {
 	debug_assert (constants.genesis->has_sideband ());
 	debug_assert (account.begin (transaction_a) == account.end ());

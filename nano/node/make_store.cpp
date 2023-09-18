@@ -4,7 +4,7 @@
 
 #include <boost/filesystem/path.hpp>
 
-std::unique_ptr<nano::store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, nano::ledger_constants & constants, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade)
+std::unique_ptr<nano::store::component> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, nano::ledger_constants & constants, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade)
 {
 	if (rocksdb_config.enable)
 	{

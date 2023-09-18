@@ -63,7 +63,7 @@ void rocksdb_val::convert_buffer_to_value ()
 
 nano::rocksdb::store::store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
 	// clang-format off
-	nano::store{
+	nano::store::component{
 		block_store,
 		frontier_store,
 		account_store,

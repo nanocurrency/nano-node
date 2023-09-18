@@ -5558,7 +5558,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 										.build_shared ();
 
 	nano::endpoint_key endpoint_key (address.to_bytes (), port);
-	auto version = nano::store::version_current;
+	auto version = nano::store::component::version_current;
 
 	{
 		auto transaction = store.tx_begin_write ();

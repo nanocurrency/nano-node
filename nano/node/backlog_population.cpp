@@ -4,7 +4,7 @@
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/store/component.hpp>
 
-nano::backlog_population::backlog_population (const config & config_a, nano::store & store_a, nano::stats & stats_a) :
+nano::backlog_population::backlog_population (const config & config_a, nano::store::component & store_a, nano::stats & stats_a) :
 	config_m{ config_a },
 	store{ store_a },
 	stats{ stats_a }

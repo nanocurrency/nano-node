@@ -14,6 +14,7 @@
 #include <nano/node/telemetry.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/buffer.hpp>
+#include <nano/store/component.hpp>
 
 #include <boost/filesystem.hpp>
 #include <boost/property_tree/json_parser.hpp>
