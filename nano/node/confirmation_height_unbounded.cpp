@@ -1,3 +1,4 @@
+#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/confirmation_height_unbounded.hpp>
 #include <nano/node/logging.hpp>

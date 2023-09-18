@@ -6,6 +6,7 @@
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
+#include <nano/node/make_store.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
