@@ -52,7 +52,7 @@ private:
 
 private: // Dependencies
 	nano::node & node;
-	nano::vote_cache & inactive_vote_cache;
+	nano::vote_cache & vote_cache;
 	nano::active_transactions & active;
 	nano::online_reps & online_reps;
 	nano::stats & stats;

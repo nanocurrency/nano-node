@@ -8,10 +8,10 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
 
-nano::process_live_dispatcher::process_live_dispatcher (nano::ledger & ledger, nano::scheduler::priority & scheduler, nano::vote_cache & inactive_vote_cache, nano::websocket_server & websocket) :
+nano::process_live_dispatcher::process_live_dispatcher (nano::ledger & ledger, nano::scheduler::priority & scheduler, nano::vote_cache & vote_cache, nano::websocket_server & websocket) :
 	ledger{ ledger },
 	scheduler{ scheduler },
-	inactive_vote_cache{ inactive_vote_cache },
+	vote_cache{ vote_cache },
 	websocket{ websocket }
 {
 }
@@ -50,7 +50,7 @@ void nano::process_live_dispatcher::process_live (nano::block const & block, sto
 	}
 
 	// Notify inactive vote cache about a new live block
-	inactive_vote_cache.trigger (block.hash ());
+	vote_cache.trigger (block.hash ());
 
 	if (websocket.server && websocket.server->any_subscriber (nano::websocket::topic::new_unconfirmed_block))
 	{

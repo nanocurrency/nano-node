@@ -180,7 +180,7 @@ public:
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
 	nano::confirmation_height_processor confirmation_height_processor;
-	nano::vote_cache inactive_vote_cache;
+	nano::vote_cache vote_cache;
 	nano::vote_generator generator;
 	nano::vote_generator final_generator;
 	nano::active_transactions active;

@@ -338,7 +338,7 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 		auto erased (blocks.erase (hash));
 		(void)erased;
 		debug_assert (erased == 1);
-		node.inactive_vote_cache.erase (hash);
+		node.vote_cache.erase (hash);
 	}
 	roots.get<tag_root> ().erase (roots.get<tag_root> ().find (election->qualified_root));
 
@@ -473,7 +473,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				count_by_behavior[result.election->behavior ()]++;
 
 				lock_a.unlock ();
-				if (auto const cache = node.inactive_vote_cache.find (hash); cache)
+				if (auto const cache = node.vote_cache.find (hash); cache)
 				{
 					cache->fill (result.election);
 				}
@@ -535,7 +535,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 	// Process inactive votes outside of the critical section
 	for (auto & hash : inactive)
 	{
-		add_inactive_vote_cache (hash, vote_a);
+		add_vote_cache (hash, vote_a);
 	}
 
 	if (!process.empty ())
@@ -670,7 +670,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> const & bl
 			lock.lock ();
 			blocks.emplace (block_a->hash (), election);
 			lock.unlock ();
-			if (auto const cache = node.inactive_vote_cache.find (block_a->hash ()); cache)
+			if (auto const cache = node.vote_cache.find (block_a->hash ()); cache)
 			{
 				cache->fill (election);
 			}
@@ -727,11 +727,11 @@ boost::optional<nano::election_status_type> nano::active_transactions::confirm_b
 	return status_type;
 }
 
-void nano::active_transactions::add_inactive_vote_cache (nano::block_hash const & hash, std::shared_ptr<nano::vote> const vote)
+void nano::active_transactions::add_vote_cache (nano::block_hash const & hash, std::shared_ptr<nano::vote> const vote)
 {
 	if (node.ledger.weight (vote->account) > node.minimum_principal_weight ())
 	{
-		node.inactive_vote_cache.vote (hash, vote);
+		node.vote_cache.vote (hash, vote);
 	}
 }
 

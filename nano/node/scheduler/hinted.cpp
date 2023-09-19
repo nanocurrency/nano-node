@@ -7,10 +7,10 @@ nano::scheduler::hinted::config::config (nano::node_config const & config) :
 {
 }
 
-nano::scheduler::hinted::hinted (config const & config_a, nano::node & node_a, nano::vote_cache & inactive_vote_cache_a, nano::active_transactions & active_a, nano::online_reps & online_reps_a, nano::stats & stats_a) :
+nano::scheduler::hinted::hinted (config const & config_a, nano::node & node_a, nano::vote_cache & vote_cache_a, nano::active_transactions & active_a, nano::online_reps & online_reps_a, nano::stats & stats_a) :
 	config_m{ config_a },
 	node{ node_a },
-	inactive_vote_cache{ inactive_vote_cache_a },
+	vote_cache{ vote_cache_a },
 	active{ active_a },
 	online_reps{ online_reps_a },
 	stats{ stats_a }
@@ -54,7 +54,7 @@ bool nano::scheduler::hinted::predicate (nano::uint128_t const & minimum_tally) 
 	if (active.vacancy (nano::election_behavior::hinted) > 0)
 	{
 		// Check if there is any vote cache entry surpassing our minimum vote tally threshold
-		if (inactive_vote_cache.peek (minimum_tally))
+		if (vote_cache.peek (minimum_tally))
 		{
 			return true;
 		}
@@ -64,7 +64,7 @@ bool nano::scheduler::hinted::predicate (nano::uint128_t const & minimum_tally) 
 
 bool nano::scheduler::hinted::run_one (nano::uint128_t const & minimum_tally)
 {
-	if (auto top = inactive_vote_cache.pop (minimum_tally); top)
+	if (auto top = vote_cache.pop (minimum_tally); top)
 	{
 		const auto hash = top->hash (); // Hash of block we want to hint
 

@@ -6,7 +6,7 @@
 #include <nano/node/scheduler/priority.hpp>
 
 nano::scheduler::component::component (nano::node & node) :
-	hinted_impl{ std::make_unique<nano::scheduler::hinted> (nano::scheduler::hinted::config{ node.config }, node, node.inactive_vote_cache, node.active, node.online_reps, node.stats) },
+	hinted_impl{ std::make_unique<nano::scheduler::hinted> (nano::scheduler::hinted::config{ node.config }, node, node.vote_cache, node.active, node.online_reps, node.stats) },
 	manual_impl{ std::make_unique<nano::scheduler::manual> (node) },
 	optimistic_impl{ std::make_unique<nano::scheduler::optimistic> (node.config.optimistic_scheduler, node, node.ledger, node.active, node.network_params.network, node.stats) },
 	priority_impl{ std::make_unique<nano::scheduler::priority> (node, node.stats) },
