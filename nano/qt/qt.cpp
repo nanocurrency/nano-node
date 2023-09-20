@@ -512,7 +512,7 @@ namespace
 class short_text_visitor : public nano::block_visitor
 {
 public:
-	short_text_visitor (nano::transaction const & transaction_a, nano::ledger & ledger_a) :
+	short_text_visitor (nano::store::transaction const & transaction_a, nano::ledger & ledger_a) :
 		transaction (transaction_a),
 		ledger (ledger_a)
 	{
@@ -605,7 +605,7 @@ public:
 			amount = balance - previous_balance;
 		}
 	}
-	nano::transaction const & transaction;
+	nano::store::transaction const & transaction;
 	nano::ledger & ledger;
 	std::string type;
 	nano::uint128_t amount;

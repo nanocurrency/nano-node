@@ -102,7 +102,7 @@ std::shared_ptr<nano::node> nano::test::add_ipc_enabled_node (nano::test::system
 	return add_ipc_enabled_node (system, node_config);
 }
 
-void nano::test::reset_confirmation_height (nano::store & store, nano::account const & account)
+void nano::test::reset_confirmation_height (nano::store::component & store, nano::account const & account)
 {
 	auto transaction = store.tx_begin_write ();
 	nano::confirmation_height_info confirmation_height_info;

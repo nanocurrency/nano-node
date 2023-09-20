@@ -2,10 +2,10 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/make_store.hpp>
-#include <nano/node/rocksdb/rocksdb.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/inproc.hpp>
+#include <nano/store/rocksdb/rocksdb.hpp>
 #include <nano/test_common/ledger.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -4495,7 +4495,7 @@ TEST (ledger, unchecked_receive)
 	node1.work_generate_blocking (*receive1);
 	node1.block_processor.add (send1);
 	node1.block_processor.add (receive1);
-	auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
+	auto check_block_is_listed = [&] (nano::store::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
 		return !node1.unchecked.get (block_hash_a).empty ();
 	};
 	// Previous block for receive1 is unknown, signature cannot be validated
@@ -5543,7 +5543,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	nano::logger_mt logger{};
 	boost::asio::ip::address_v6 address (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"));
 	uint16_t port = 100;
-	nano::lmdb::store store{ logger, path / "data.ldb", nano::dev::constants };
+	nano::store::lmdb::component store{ logger, path / "data.ldb", nano::dev::constants };
 	nano::ledger ledger{ store, system.stats, nano::dev::constants };
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 
@@ -5558,7 +5558,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 										.build_shared ();
 
 	nano::endpoint_key endpoint_key (address.to_bytes (), port);
-	auto version = nano::store::version_current;
+	auto version = nano::store::component::version_current;
 
 	{
 		auto transaction = store.tx_begin_write ();
@@ -5583,7 +5583,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	auto error = ledger.migrate_lmdb_to_rocksdb (path);
 	ASSERT_FALSE (error);
 
-	nano::rocksdb::store rocksdb_store{ logger, path / "rocksdb", nano::dev::constants };
+	nano::store::rocksdb::component rocksdb_store{ logger, path / "rocksdb", nano::dev::constants };
 	auto rocksdb_transaction (rocksdb_store.tx_begin_read ());
 
 	nano::pending_info pending_info{};

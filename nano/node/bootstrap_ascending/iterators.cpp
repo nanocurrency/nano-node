@@ -1,13 +1,15 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/bootstrap_ascending/iterators.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/store.hpp>
+#include <nano/store/account.hpp>
+#include <nano/store/component.hpp>
+#include <nano/store/pending.hpp>
 
 /*
  * database_iterator
  */
 
-nano::bootstrap_ascending::database_iterator::database_iterator (nano::store & store_a, table_type table_a) :
+nano::bootstrap_ascending::database_iterator::database_iterator (nano::store::component & store_a, table_type table_a) :
 	store{ store_a },
 	table{ table_a }
 {
@@ -18,7 +20,7 @@ nano::account nano::bootstrap_ascending::database_iterator::operator* () const
 	return current;
 }
 
-void nano::bootstrap_ascending::database_iterator::next (nano::transaction & tx)
+void nano::bootstrap_ascending::database_iterator::next (store::transaction & tx)
 {
 	switch (table)
 	{
@@ -57,7 +59,7 @@ void nano::bootstrap_ascending::database_iterator::next (nano::transaction & tx)
  * buffered_iterator
  */
 
-nano::bootstrap_ascending::buffered_iterator::buffered_iterator (nano::store & store_a) :
+nano::bootstrap_ascending::buffered_iterator::buffered_iterator (nano::store::component & store_a) :
 	store{ store_a },
 	accounts_iterator{ store, database_iterator::table_type::account },
 	pending_iterator{ store, database_iterator::table_type::pending }

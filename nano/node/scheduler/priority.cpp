@@ -35,7 +35,7 @@ void nano::scheduler::priority::stop ()
 	nano::join_or_pass (thread);
 }
 
-bool nano::scheduler::priority::activate (nano::account const & account_a, nano::transaction const & transaction)
+bool nano::scheduler::priority::activate (nano::account const & account_a, store::transaction const & transaction)
 {
 	debug_assert (!account_a.is_zero ());
 	auto info = node.ledger.account_info (transaction, account_a);

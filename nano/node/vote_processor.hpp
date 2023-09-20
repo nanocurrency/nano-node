@@ -13,7 +13,10 @@ namespace nano
 {
 class signature_checker;
 class active_transactions;
-class store;
+namespace store
+{
+	class component;
+}
 class node_observers;
 class stats;
 class node_config;

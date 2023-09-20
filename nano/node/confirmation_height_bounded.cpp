@@ -4,6 +4,9 @@
 #include <nano/node/logging.hpp>
 #include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/store/block.hpp>
+#include <nano/store/confirmation_height.hpp>
+#include <nano/store/pruned.hpp>
 
 #include <boost/format.hpp>
 
@@ -221,7 +224,7 @@ void nano::confirmation_height_bounded::process (std::shared_ptr<nano::block> or
 	debug_assert (checkpoints.empty ());
 }
 
-nano::block_hash nano::confirmation_height_bounded::get_least_unconfirmed_hash_from_top_level (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::account const & account_a, nano::confirmation_height_info const & confirmation_height_info_a, uint64_t & block_height_a)
+nano::block_hash nano::confirmation_height_bounded::get_least_unconfirmed_hash_from_top_level (store::transaction const & transaction_a, nano::block_hash const & hash_a, nano::account const & account_a, nano::confirmation_height_info const & confirmation_height_info_a, uint64_t & block_height_a)
 {
 	nano::block_hash least_unconfirmed_hash = hash_a;
 	if (confirmation_height_info_a.height != 0)
@@ -245,7 +248,7 @@ nano::block_hash nano::confirmation_height_bounded::get_least_unconfirmed_hash_f
 	return least_unconfirmed_hash;
 }
 
-bool nano::confirmation_height_bounded::iterate (nano::read_transaction const & transaction_a, uint64_t bottom_height_a, nano::block_hash const & bottom_hash_a, boost::circular_buffer_space_optimized<nano::block_hash> & checkpoints_a, nano::block_hash & top_most_non_receive_block_hash_a, nano::block_hash const & top_level_hash_a, boost::circular_buffer_space_optimized<receive_source_pair> & receive_source_pairs_a, nano::account const & account_a)
+bool nano::confirmation_height_bounded::iterate (store::read_transaction const & transaction_a, uint64_t bottom_height_a, nano::block_hash const & bottom_hash_a, boost::circular_buffer_space_optimized<nano::block_hash> & checkpoints_a, nano::block_hash & top_most_non_receive_block_hash_a, nano::block_hash const & top_level_hash_a, boost::circular_buffer_space_optimized<receive_source_pair> & receive_source_pairs_a, nano::account const & account_a)
 {
 	bool reached_target = false;
 	bool hit_receive = false;

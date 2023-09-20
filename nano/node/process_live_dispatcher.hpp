@@ -1,5 +1,10 @@
 #pragma once
 
+namespace nano::store
+{
+class transaction;
+}
+
 namespace nano
 {
 class ledger;
@@ -8,7 +13,6 @@ class websocket_server;
 class block_processor;
 class process_return;
 class block;
-class transaction;
 
 namespace scheduler
 {
@@ -24,8 +28,8 @@ public:
 
 private:
 	// Block_processor observer
-	void inspect (nano::process_return const & result, nano::block const & block, nano::transaction const & transaction);
-	void process_live (nano::block const & block, nano::transaction const & transaction);
+	void inspect (nano::process_return const & result, nano::block const & block, store::transaction const & transaction);
+	void process_live (nano::block const & block, store::transaction const & transaction);
 
 	nano::ledger & ledger;
 	nano::scheduler::priority & scheduler;

@@ -51,7 +51,7 @@ private:
 	class tag_account
 	{
 	};
-	nano::uint128_t calculate_trend (nano::transaction &) const;
+	nano::uint128_t calculate_trend (store::transaction &) const;
 	nano::uint128_t calculate_online () const;
 	mutable nano::mutex mutex;
 	nano::ledger & ledger;

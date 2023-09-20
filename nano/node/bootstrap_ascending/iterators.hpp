@@ -4,53 +4,53 @@
 
 #include <deque>
 
-namespace nano
+namespace nano::store
 {
-class store;
+class component;
 class transaction;
+}
 
-namespace bootstrap_ascending
+namespace nano::bootstrap_ascending
 {
-	class database_iterator
+class database_iterator
+{
+public:
+	enum class table_type
 	{
-	public:
-		enum class table_type
-		{
-			account,
-			pending
-		};
-
-		explicit database_iterator (nano::store & store, table_type);
-		nano::account operator* () const;
-		void next (nano::transaction & tx);
-
-	private:
-		nano::store & store;
-		nano::account current{ 0 };
-		const table_type table;
+		account,
+		pending
 	};
 
-	class buffered_iterator
-	{
-	public:
-		explicit buffered_iterator (nano::store & store);
-		nano::account operator* () const;
-		nano::account next ();
-		// Indicates if a full ledger iteration has taken place e.g. warmed up
-		bool warmup () const;
+	explicit database_iterator (nano::store::component & store, table_type);
+	nano::account operator* () const;
+	void next (nano::store::transaction & tx);
 
-	private:
-		void fill ();
+private:
+	nano::store::component & store;
+	nano::account current{ 0 };
+	const table_type table;
+};
 
-	private:
-		nano::store & store;
-		std::deque<nano::account> buffer;
-		bool warmup_m{ true };
+class buffered_iterator
+{
+public:
+	explicit buffered_iterator (nano::store::component & store);
+	nano::account operator* () const;
+	nano::account next ();
+	// Indicates if a full ledger iteration has taken place e.g. warmed up
+	bool warmup () const;
 
-		database_iterator accounts_iterator;
-		database_iterator pending_iterator;
+private:
+	void fill ();
 
-		static std::size_t constexpr size = 1024;
-	};
-} // nano
-} // bootstrap_ascending
+private:
+	nano::store::component & store;
+	std::deque<nano::account> buffer;
+	bool warmup_m{ true };
+
+	database_iterator accounts_iterator;
+	database_iterator pending_iterator;
+
+	static std::size_t constexpr size = 1024;
+};
+} // nano::bootstrap_ascending

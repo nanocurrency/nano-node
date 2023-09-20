@@ -6,7 +6,7 @@
 #include <nano/node/websocket.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
-#include <nano/secure/store.hpp>
+#include <nano/store/component.hpp>
 
 nano::process_live_dispatcher::process_live_dispatcher (nano::ledger & ledger, nano::scheduler::priority & scheduler, nano::vote_cache & inactive_vote_cache, nano::websocket_server & websocket) :
 	ledger{ ledger },
@@ -28,7 +28,7 @@ void nano::process_live_dispatcher::connect (nano::block_processor & block_proce
 	});
 }
 
-void nano::process_live_dispatcher::inspect (nano::process_return const & result, nano::block const & block, nano::transaction const & transaction)
+void nano::process_live_dispatcher::inspect (nano::process_return const & result, nano::block const & block, store::transaction const & transaction)
 {
 	switch (result.code)
 	{
@@ -40,7 +40,7 @@ void nano::process_live_dispatcher::inspect (nano::process_return const & result
 	}
 }
 
-void nano::process_live_dispatcher::process_live (nano::block const & block, nano::transaction const & transaction)
+void nano::process_live_dispatcher::process_live (nano::block const & block, store::transaction const & transaction)
 {
 	// Start collecting quorum on block
 	if (ledger.dependents_confirmed (transaction, block))

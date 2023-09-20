@@ -8,7 +8,7 @@
 #include <nano/node/voting.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
-#include <nano/secure/store.hpp>
+#include <nano/store/component.hpp>
 
 #include <chrono>
 
@@ -184,7 +184,7 @@ nano::vote_generator::~vote_generator ()
 	stop ();
 }
 
-void nano::vote_generator::process (nano::write_transaction const & transaction, nano::root const & root_a, nano::block_hash const & hash_a)
+void nano::vote_generator::process (store::write_transaction const & transaction, nano::root const & root_a, nano::block_hash const & hash_a)
 {
 	bool should_vote = false;
 	if (is_final)

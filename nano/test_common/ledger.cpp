@@ -22,7 +22,7 @@ nano::ledger & nano::test::context::ledger_context::ledger ()
 	return ledger_m;
 }
 
-nano::store & nano::test::context::ledger_context::store ()
+nano::store::component & nano::test::context::ledger_context::store ()
 {
 	return *store_m;
 }

@@ -2,9 +2,9 @@
 #include <nano/node/backlog_population.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/scheduler/priority.hpp>
-#include <nano/secure/store.hpp>
+#include <nano/store/component.hpp>
 
-nano::backlog_population::backlog_population (const config & config_a, nano::store & store_a, nano::stats & stats_a) :
+nano::backlog_population::backlog_population (const config & config_a, nano::store::component & store_a, nano::stats & stats_a) :
 	config_m{ config_a },
 	store{ store_a },
 	stats{ stats_a }
@@ -111,7 +111,7 @@ void nano::backlog_population::populate_backlog (nano::unique_lock<nano::mutex> 
 	}
 }
 
-void nano::backlog_population::activate (nano::transaction const & transaction, nano::account const & account)
+void nano::backlog_population::activate (store::transaction const & transaction, nano::account const & account)
 {
 	debug_assert (!activate_callback.empty ());
 
