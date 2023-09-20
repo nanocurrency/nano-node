@@ -46,7 +46,8 @@ file(GLOB files
 foreach(file ${files})
   get_filename_component(flatbuffers_filename ${file} NAME_WE)
   message(
-    "Generating flatbuffers code for: ${flatbuffers_filename} into ${CMAKE_CURRENT_SOURCE_DIR}/generated/flatbuffers"
+    STATUS
+      "Generating flatbuffers code for: ${flatbuffers_filename} into ${CMAKE_CURRENT_SOURCE_DIR}/generated/flatbuffers"
   )
 
   configure_file(
