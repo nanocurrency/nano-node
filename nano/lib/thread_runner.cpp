@@ -14,13 +14,6 @@ nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned
 	{
 		threads.emplace_back (nano::thread_attributes::get_default (), [this, &io_ctx_a] () {
 			nano::thread_role::set (role);
-
-			// In a release build, catch and swallow any exceptions,
-			// In debug mode let if fall through
-
-#ifndef NDEBUG
-			run (io_ctx_a);
-#else
 			try
 			{
 				run (io_ctx_a);
@@ -28,11 +21,16 @@ nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned
 			catch (std::exception const & ex)
 			{
 				std::cerr << ex.what () << std::endl;
+#ifndef NDEBUG
+				throw; // Re-throw to debugger in debug mode
+#endif
 			}
 			catch (...)
 			{
-			}
+#ifndef NDEBUG
+				throw; // Re-throw to debugger in debug mode
 #endif
+			}
 		});
 	}
 }
