@@ -678,6 +678,69 @@ ledger_processor::ledger_processor (nano::ledger & ledger_a, nano::write_transac
 	transaction (transaction_a)
 {
 }
+
+/**
+ * Determine the representative for this block
+ */
+class representative_visitor final : public nano::block_visitor
+{
+public:
+	representative_visitor (nano::transaction const & transaction_a, nano::store & store_a);
+	~representative_visitor () = default;
+	void compute (nano::block_hash const & hash_a);
+	void send_block (nano::send_block const & block_a) override;
+	void receive_block (nano::receive_block const & block_a) override;
+	void open_block (nano::open_block const & block_a) override;
+	void change_block (nano::change_block const & block_a) override;
+	void state_block (nano::state_block const & block_a) override;
+	nano::transaction const & transaction;
+	nano::store & store;
+	nano::block_hash current;
+	nano::block_hash result;
+};
+
+representative_visitor::representative_visitor (nano::transaction const & transaction_a, nano::store & store_a) :
+	transaction (transaction_a),
+	store (store_a),
+	result (0)
+{
+}
+
+void representative_visitor::compute (nano::block_hash const & hash_a)
+{
+	current = hash_a;
+	while (result.is_zero ())
+	{
+		auto block (store.block.get (transaction, current));
+		debug_assert (block != nullptr);
+		block->visit (*this);
+	}
+}
+
+void representative_visitor::send_block (nano::send_block const & block_a)
+{
+	current = block_a.previous ();
+}
+
+void representative_visitor::receive_block (nano::receive_block const & block_a)
+{
+	current = block_a.previous ();
+}
+
+void representative_visitor::open_block (nano::open_block const & block_a)
+{
+	result = block_a.hash ();
+}
+
+void representative_visitor::change_block (nano::change_block const & block_a)
+{
+	result = block_a.hash ();
+}
+
+void representative_visitor::state_block (nano::state_block const & block_a)
+{
+	result = block_a.hash ();
+}
 } // namespace
 
 nano::ledger::ledger (nano::store & store_a, nano::stats & stat_a, nano::ledger_constants & constants, nano::generate_cache const & generate_cache_a) :

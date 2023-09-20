@@ -401,29 +401,6 @@ private:
 		return result;
 	}
 };
-
-class transaction;
-class store;
-
-/**
- * Determine the representative for this block
- */
-class representative_visitor final : public nano::block_visitor
-{
-public:
-	representative_visitor (nano::transaction const & transaction_a, nano::store & store_a);
-	~representative_visitor () = default;
-	void compute (nano::block_hash const & hash_a);
-	void send_block (nano::send_block const & block_a) override;
-	void receive_block (nano::receive_block const & block_a) override;
-	void open_block (nano::open_block const & block_a) override;
-	void change_block (nano::change_block const & block_a) override;
-	void state_block (nano::state_block const & block_a) override;
-	nano::transaction const & transaction;
-	nano::store & store;
-	nano::block_hash current;
-	nano::block_hash result;
-};
 template <typename T, typename U>
 class store_iterator_impl
 {
