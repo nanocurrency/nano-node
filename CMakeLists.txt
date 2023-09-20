@@ -775,7 +775,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     nano_wallet ${PLATFORM_GUI_TARGET_PROPERTIES} ${PLATFORM_WALLET_SOURCE}
                 nano/nano_wallet/entry.cpp nano/nano_wallet/icon.hpp ${RES})
 
-  target_link_libraries(nano_wallet rpc node qt)
+  target_link_libraries(nano_wallet Boost::process rpc node qt)
 
   if(WIN32)
     target_link_libraries(nano_wallet Qt5::WinExtras)
