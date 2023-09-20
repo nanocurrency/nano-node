@@ -2,6 +2,7 @@
 
 #include <nano/lib/config.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/thread_pool.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/backlog_population.hpp>

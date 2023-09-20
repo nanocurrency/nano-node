@@ -1,49 +1,6 @@
-#include <nano/lib/threading.hpp>
+#include <nano/lib/thread_roles.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/secure/store.hpp>
-
-nano::representative_visitor::representative_visitor (nano::transaction const & transaction_a, nano::store & store_a) :
-	transaction (transaction_a),
-	store (store_a),
-	result (0)
-{
-}
-
-void nano::representative_visitor::compute (nano::block_hash const & hash_a)
-{
-	current = hash_a;
-	while (result.is_zero ())
-	{
-		auto block (store.block.get (transaction, current));
-		debug_assert (block != nullptr);
-		block->visit (*this);
-	}
-}
-
-void nano::representative_visitor::send_block (nano::send_block const & block_a)
-{
-	current = block_a.previous ();
-}
-
-void nano::representative_visitor::receive_block (nano::receive_block const & block_a)
-{
-	current = block_a.previous ();
-}
-
-void nano::representative_visitor::open_block (nano::open_block const & block_a)
-{
-	result = block_a.hash ();
-}
-
-void nano::representative_visitor::change_block (nano::change_block const & block_a)
-{
-	result = block_a.hash ();
-}
-
-void nano::representative_visitor::state_block (nano::state_block const & block_a)
-{
-	result = block_a.hash ();
-}
 
 nano::read_transaction::read_transaction (std::unique_ptr<nano::read_transaction_impl> read_transaction_impl) :
 	impl (std::move (read_transaction_impl))

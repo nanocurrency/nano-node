@@ -1,6 +1,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/make_store.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>

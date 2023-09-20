@@ -1,4 +1,4 @@
-#include <nano/lib/threading.hpp>
+#include <nano/lib/thread_roles.hpp>
 
 #include <processthreadsapi.h>
 

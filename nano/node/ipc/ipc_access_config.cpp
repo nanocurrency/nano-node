@@ -2,6 +2,7 @@
 #include <nano/node/ipc/ipc_access_config.hpp>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 
 namespace
 {

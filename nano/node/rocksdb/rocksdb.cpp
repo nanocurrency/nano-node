@@ -3,6 +3,7 @@
 #include <nano/node/rocksdb/rocksdb_iterator.hpp>
 #include <nano/node/rocksdb/rocksdb_txn.hpp>
 
+#include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/ptree.hpp>

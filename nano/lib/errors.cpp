@@ -282,47 +282,10 @@ std::string nano::error_config_messages::message (int ev) const
 	return "Invalid error code";
 }
 
-#if defined(NANO_USE_BOOST_TO_STD_ERROR_BRIDGE)
-char const * nano::error_conversion::detail::generic_category::name () const noexcept
-{
-	return boost::system::generic_category ().name ();
-}
-
-std::string nano::error_conversion::detail::generic_category::message (int value) const
-{
-	return boost::system::generic_category ().message (value);
-}
-
-std::error_category const & nano::error_conversion::generic_category ()
-{
-	static detail::generic_category instance;
-	return instance;
-}
-
-std::error_code nano::error_conversion::convert (boost::system::error_code const & error)
-{
-	if (error.category () == boost::system::generic_category ())
-	{
-		return std::error_code (error.value (),
-		nano::error_conversion::generic_category ());
-	}
-
-	debug_assert (false);
-	return nano::error_common::invalid_type_conversion;
-}
-#endif
-
 nano::error::error (std::error_code code_a)
 {
 	code = code_a;
 }
-
-#if defined(NANO_USE_BOOST_TO_STD_ERROR_BRIDGE)
-nano::error::error (boost::system::error_code const & code_a)
-{
-	code = std::make_error_code (static_cast<std::errc> (code_a.value ()));
-}
-#endif
 
 nano::error::error (std::string message_a)
 {
@@ -358,24 +321,6 @@ nano::error & nano::error::operator= (std::error_code const code_a)
 	return *this;
 }
 
-#if defined(NANO_USE_BOOST_TO_STD_ERROR_BRIDGE)
-/** Assign boost error code (as converted to std::error_code) */
-nano::error & nano::error::operator= (boost::system::error_code const & code_a)
-{
-	code = nano::error_conversion::convert (code_a);
-	message.clear ();
-	return *this;
-}
-
-/** Assign boost error code (as converted to std::error_code) */
-nano::error & nano::error::operator= (boost::system::errc::errc_t const & code_a)
-{
-	code = nano::error_conversion::convert (boost::system::errc::make_error_code (code_a));
-	message.clear ();
-	return *this;
-}
-#endif
-
 /** Set the error to nano::error_common::generic and the error message to \p message_a */
 nano::error & nano::error::operator= (std::string message_a)
 {
@@ -397,14 +342,6 @@ bool nano::error::operator== (std::error_code const code_a) const
 {
 	return code == code_a;
 }
-
-#if defined(NANO_USE_BOOST_TO_STD_ERROR_BRIDGE)
-/** Return true if this#error_code equals the parameter */
-bool nano::error::operator== (boost::system::error_code const code_a) const
-{
-	return code.value () == code_a.value ();
-}
-#endif
 
 /** Call the function iff the current error is zero */
 nano::error & nano::error::then (std::function<nano::error &()> next)
@@ -495,14 +432,3 @@ nano::error & nano::error::clear ()
 	message.clear ();
 	return *this;
 }
-
-#if defined(NANO_USE_BOOST_TO_STD_ERROR_BRIDGE)
-// TODO: theoretically, nothing besides template (partial) specializations should ever be added inside std...
-namespace std
-{
-std::error_code make_error_code (boost::system::errc::errc_t const & e)
-{
-	return std::error_code (static_cast<int> (e), ::nano::error_conversion::generic_category ());
-}
-}
-#endif

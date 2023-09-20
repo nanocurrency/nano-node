@@ -1,11 +1,7 @@
 #pragma once
 
 #include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/diagnosticsconfig.hpp>
-#include <nano/lib/lmdbconfig.hpp>
-#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/memory.hpp>
-#include <nano/lib/rocksdbconfig.hpp>
 #include <nano/secure/buffer.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/versioning.hpp>
@@ -400,29 +396,6 @@ private:
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), result.bytes.data ());
 		return result;
 	}
-};
-
-class transaction;
-class store;
-
-/**
- * Determine the representative for this block
- */
-class representative_visitor final : public nano::block_visitor
-{
-public:
-	representative_visitor (nano::transaction const & transaction_a, nano::store & store_a);
-	~representative_visitor () = default;
-	void compute (nano::block_hash const & hash_a);
-	void send_block (nano::send_block const & block_a) override;
-	void receive_block (nano::receive_block const & block_a) override;
-	void open_block (nano::open_block const & block_a) override;
-	void change_block (nano::change_block const & block_a) override;
-	void state_block (nano::state_block const & block_a) override;
-	nano::transaction const & transaction;
-	nano::store & store;
-	nano::block_hash current;
-	nano::block_hash result;
 };
 template <typename T, typename U>
 class store_iterator_impl
@@ -824,8 +797,6 @@ public:
 
 	virtual std::string vendor_get () const = 0;
 };
-
-std::unique_ptr<nano::store> make_store (nano::logger_mt & logger, boost::filesystem::path const & path, nano::ledger_constants & constants, bool open_read_only = false, bool add_db_postfix = true, nano::rocksdb_config const & rocksdb_config = nano::rocksdb_config{}, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
 }
 
 namespace std

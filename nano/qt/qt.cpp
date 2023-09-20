@@ -1,7 +1,6 @@
 #include <nano/lib/config.hpp>
 #include <nano/qt/qt.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
@@ -845,7 +844,7 @@ void nano_qt::stats_viewer::refresh_stats ()
 	if (json)
 	{
 		// Format the stat data to make totals and values easier to read
-		BOOST_FOREACH (boost::property_tree::ptree::value_type const & child, json->get_child ("entries"))
+		for (boost::property_tree::ptree::value_type const & child : json->get_child ("entries"))
 		{
 			auto time = child.second.get<std::string> ("time");
 			auto type = child.second.get<std::string> ("type");

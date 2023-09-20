@@ -1,7 +1,7 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/stats_enums.hpp>
-#include <nano/lib/threading.hpp>
+#include <nano/lib/thread_roles.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/unchecked_map.hpp>
 
