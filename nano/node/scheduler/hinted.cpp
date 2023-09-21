@@ -1,14 +1,14 @@
 #include <nano/lib/stats.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 
-nano::scheduler::hinted::config::config (nano::node_config const & config) :
-	vote_cache_check_interval_ms{ config.network_params.network.is_dev_network () ? 100u : 5000u }
-{
-}
+/*
+ * hinted
+ */
 
-nano::scheduler::hinted::hinted (config const & config_a, nano::node & node_a, nano::vote_cache & vote_cache_a, nano::active_transactions & active_a, nano::online_reps & online_reps_a, nano::stats & stats_a) :
-	config_m{ config_a },
+nano::scheduler::hinted::hinted (hinted_config const & config_a, nano::node & node_a, nano::vote_cache & vote_cache_a, nano::active_transactions & active_a, nano::online_reps & online_reps_a, nano::stats & stats_a) :
+	config{ config_a },
 	node{ node_a },
 	vote_cache{ vote_cache_a },
 	active{ active_a },
@@ -162,10 +162,8 @@ void nano::scheduler::hinted::run ()
 
 nano::uint128_t nano::scheduler::hinted::tally_threshold () const
 {
-	//	auto min_tally = (online_reps.trended () / 100) * node.config.election_hint_weight_percent;
-	//	return min_tally;
-
-	return 0;
+	auto min_tally = (online_reps.trended () / 100) * config.hinting_threshold_percent;
+	return min_tally;
 }
 
 nano::uint128_t nano::scheduler::hinted::final_tally_threshold () const
@@ -177,7 +175,6 @@ nano::uint128_t nano::scheduler::hinted::final_tally_threshold () const
 bool nano::scheduler::hinted::cooldown (const nano::block_hash & hash)
 {
 	auto const now = std::chrono::steady_clock::now ();
-	auto const cooldown = std::chrono::seconds{ 15 };
 
 	// Check if the hash is still in the cooldown period using the hashed index
 	auto const & hashed_index = cooldowns_m.get<tag_hash> ();
@@ -191,7 +188,7 @@ bool nano::scheduler::hinted::cooldown (const nano::block_hash & hash)
 	}
 
 	// Insert the new entry
-	cooldowns_m.insert ({ hash, now + cooldown });
+	cooldowns_m.insert ({ hash, now + config.block_cooldown });
 
 	// Trim old entries
 	auto & seq_index = cooldowns_m.get<tag_timeout> ();
@@ -201,4 +198,45 @@ bool nano::scheduler::hinted::cooldown (const nano::block_hash & hash)
 	}
 
 	return false; // No need to cooldown
+}
+
+/*
+ * hinted_config
+ */
+
+nano::scheduler::hinted_config::hinted_config (nano::network_constants const & network)
+{
+	if (network.is_dev_network ())
+	{
+		check_interval = std::chrono::milliseconds{ 100 };
+	}
+}
+
+nano::error nano::scheduler::hinted_config::serialize (nano::tomlconfig & toml) const
+{
+	toml.put ("hinting_threshold", hinting_threshold_percent, "Percentage of online weight needed to start a hinted election. \ntype:uint32,[0,100]");
+	toml.put ("check_interval", check_interval.count (), "Interval between scans of the vote cache for possible hinted elections. \ntype:milliseconds");
+	toml.put ("block_cooldown", block_cooldown.count (), "Cooldown period for blocks that failed to start an election. \ntype:milliseconds");
+
+	return toml.get_error ();
+}
+
+nano::error nano::scheduler::hinted_config::deserialize (nano::tomlconfig & toml)
+{
+	toml.get<unsigned> ("hinting_threshold", hinting_threshold_percent);
+
+	auto check_interval_l = check_interval.count ();
+	toml.get ("check_interval", check_interval_l);
+	check_interval = std::chrono::milliseconds{ check_interval_l };
+
+	auto block_cooldown_l = block_cooldown.count ();
+	toml.get ("block_cooldown", block_cooldown_l);
+	block_cooldown = std::chrono::milliseconds{ block_cooldown_l };
+
+	if (hinting_threshold_percent > 100)
+	{
+		toml.get_error ().set ("hinting_threshold must be a number between 0 and 100");
+	}
+
+	return toml.get_error ();
 }

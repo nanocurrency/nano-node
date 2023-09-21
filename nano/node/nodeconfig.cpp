@@ -28,6 +28,7 @@ nano::node_config::node_config (nano::network_params & network_params) :
 nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, nano::logging const & logging_a, nano::network_params & network_params) :
 	network_params{ network_params },
 	peering_port{ peering_port_a },
+	hinted_scheduler{ network_params.network },
 	logging{ logging_a },
 	websocket_config{ network_params.network },
 	ipc_config{ network_params.network },
@@ -89,7 +90,6 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("bootstrap_fraction_numerator", bootstrap_fraction_numerator, "Change bootstrap threshold (online stake / 256 * bootstrap_fraction_numerator).\ntype:uint32");
 	toml.put ("receive_minimum", receive_minimum.to_string_dec (), "Minimum receive amount. Only affects node wallets. A large amount is recommended to avoid automatic work generation for tiny transactions.\ntype:string,amount,raw");
 	toml.put ("online_weight_minimum", online_weight_minimum.to_string_dec (), "When calculating online weight, the node is forced to assume at least this much voting weight is online, thus setting a floor for voting weight to confirm transactions at online_weight_minimum * \"quorum delta\".\ntype:string,amount,raw");
-	toml.put ("election_hint_weight_percent", election_hint_weight_percent, "Percentage of online weight to hint at starting an election. Defaults to 10.\ntype:uint32,[5,50]");
 	toml.put ("password_fanout", password_fanout, "Password fanout factor.\ntype:uint64");
 	toml.put ("io_threads", io_threads, "Number of threads dedicated to I/O operations. Defaults to the number of CPU threads, and at least 4.\ntype:uint64");
 	toml.put ("network_threads", network_threads, "Number of threads dedicated to processing network messages. Defaults to the number of CPU threads, and at least 4.\ntype:uint64");
@@ -261,6 +261,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			optimistic_scheduler.deserialize (config_l);
 		}
 
+		if (toml.has_key ("hinted_scheduler"))
+		{
+			auto config_l = toml.get_required_child ("hinted_scheduler");
+			hinted_scheduler.deserialize (config_l);
+		}
+
 		if (toml.has_key ("bootstrap_ascending"))
 		{
 			auto config_l = toml.get_required_child ("bootstrap_ascending");
@@ -361,7 +367,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		}
 
 		toml.get<unsigned> ("bootstrap_fraction_numerator", bootstrap_fraction_numerator);
-		toml.get<unsigned> ("election_hint_weight_percent", election_hint_weight_percent);
 		toml.get<unsigned> ("password_fanout", password_fanout);
 		toml.get<unsigned> ("io_threads", io_threads);
 		toml.get<unsigned> ("work_threads", work_threads);
@@ -446,11 +451,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			experimental_config_l.get<uint64_t> ("max_pruning_depth", max_pruning_depth);
 		}
 
-		// Validate ranges
-		if (election_hint_weight_percent < 5 || election_hint_weight_percent > 50)
-		{
-			toml.get_error ().set ("election_hint_weight_percent must be a number between 5 and 50");
-		}
 		if (password_fanout < 16 || password_fanout > 1024 * 1024)
 		{
 			toml.get_error ().set ("password_fanout must be a number between 16 and 1048576");
