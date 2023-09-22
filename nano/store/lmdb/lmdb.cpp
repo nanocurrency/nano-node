@@ -51,12 +51,12 @@ nano::store::lmdb::component::component (nano::logger_mt & logger_a, boost::file
 		auto is_fresh_db (false);
 		{
 			auto transaction (tx_begin_read ());
-			auto err = mdb_dbi_open (env.tx (transaction), "meta", 0, &block_store.meta_handle);
+			auto err = mdb_dbi_open (env.tx (transaction), "meta", 0, &version_store.meta_handle);
 			is_fresh_db = err != MDB_SUCCESS;
 			if (err == MDB_SUCCESS)
 			{
 				is_fully_upgraded = (version.get (transaction) == version_current);
-				mdb_dbi_close (env, block_store.meta_handle);
+				mdb_dbi_close (env, version_store.meta_handle);
 			}
 		}
 
@@ -185,7 +185,7 @@ void nano::store::lmdb::component::open_databases (bool & error_a, store::transa
 {
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "frontiers", flags, &frontier_store.frontiers_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight_store.online_weight_handle) != 0;
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &block_store.meta_handle) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &version_store.meta_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peer_store.peers_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "pruned", flags, &pruned_store.pruned_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "confirmation_height", flags, &confirmation_height_store.confirmation_height_handle) != 0;
@@ -857,7 +857,7 @@ MDB_dbi nano::store::lmdb::component::table_to_dbi (tables table_a) const
 		case tables::online_weight:
 			return online_weight_store.online_weight_handle;
 		case tables::meta:
-			return block_store.meta_handle;
+			return version_store.meta_handle;
 		case tables::peers:
 			return peer_store.peers_handle;
 		case tables::pruned:

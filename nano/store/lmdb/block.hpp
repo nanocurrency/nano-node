@@ -79,12 +79,6 @@ public:
 	MDB_dbi state_blocks_handle{ 0 };
 
 	/**
-		 * Meta information about block store, such as versions.
-		 * nano::uint256_union (arbitrary key) -> blob
-		 */
-	MDB_dbi meta_handle{ 0 };
-
-	/**
 		 * Contains block_sideband and block for all block types (legacy send/change/open/receive & state blocks)
 		 * nano::block_hash -> nano::block_sideband, nano::block
 		 */
