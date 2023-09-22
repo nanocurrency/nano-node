@@ -119,28 +119,9 @@ public:
 	uint64_t count (store::transaction const &, MDB_dbi) const;
 	std::string error_string (int status) const override;
 
-	// These are only use in the upgrade process.
-	std::shared_ptr<nano::block> block_get_v14 (store::transaction const & transaction_a, nano::block_hash const & hash_a, nano::store::block_sideband_v14 * sideband_a = nullptr, bool * is_state_v1 = nullptr) const;
-	std::size_t block_successor_offset_v14 (store::transaction const & transaction_a, std::size_t entry_size_a, nano::block_type type_a) const;
-	nano::block_hash block_successor_v14 (store::transaction const & transaction_a, nano::block_hash const & hash_a) const;
-	nano::store::lmdb::db_val block_raw_get_v14 (store::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a, bool * is_state_v1 = nullptr) const;
-	boost::optional<nano::store::lmdb::db_val> block_raw_get_by_type_v14 (store::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a, bool * is_state_v1) const;
-
 private:
 	bool do_upgrades (store::write_transaction &, nano::ledger_constants & constants, bool &);
-	void upgrade_v14_to_v15 (store::write_transaction &);
-	void upgrade_v15_to_v16 (store::write_transaction const &);
-	void upgrade_v16_to_v17 (store::write_transaction const &);
-	void upgrade_v17_to_v18 (store::write_transaction const &, nano::ledger_constants & constants);
-	void upgrade_v18_to_v19 (store::write_transaction const &);
-	void upgrade_v19_to_v20 (store::write_transaction const &);
-	void upgrade_v20_to_v21 (store::write_transaction const &);
 	void upgrade_v21_to_v22 (store::write_transaction const &);
-
-	std::shared_ptr<nano::block> block_get_v18 (store::transaction const & transaction_a, nano::block_hash const & hash_a) const;
-	nano::store::lmdb::db_val block_raw_get_v18 (store::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a) const;
-	boost::optional<nano::store::lmdb::db_val> block_raw_get_by_type_v18 (store::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a) const;
-	nano::uint128_t block_balance_v18 (store::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 
 	void open_databases (bool &, store::transaction const &, unsigned);
 
@@ -181,18 +162,7 @@ private:
 	};
 
 	friend class mdb_block_store_supported_version_upgrades_Test;
-	friend class mdb_block_store_upgrade_v14_v15_Test;
-	friend class mdb_block_store_upgrade_v15_v16_Test;
-	friend class mdb_block_store_upgrade_v16_v17_Test;
-	friend class mdb_block_store_upgrade_v17_v18_Test;
-	friend class mdb_block_store_upgrade_v18_v19_Test;
-	friend class mdb_block_store_upgrade_v19_v20_Test;
-	friend class mdb_block_store_upgrade_v20_v21_Test;
 	friend class mdb_block_store_upgrade_v21_v22_Test;
 	friend class block_store_DISABLED_change_dupsort_Test;
-	friend void write_sideband_v14 (nano::store::lmdb::component &, store::transaction &, nano::block const &, MDB_dbi);
-	friend void write_sideband_v15 (nano::store::lmdb::component &, store::transaction &, nano::block const &);
-	friend void modify_account_info_to_v14 (nano::store::lmdb::component &, store::transaction const &, nano::account const &, uint64_t, nano::block_hash const &);
-	friend void modify_confirmation_height_to_v15 (nano::store::lmdb::component &, store::transaction const &, nano::account const &, uint64_t);
 };
 } // namespace nano::store::lmdb

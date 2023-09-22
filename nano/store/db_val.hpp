@@ -57,21 +57,10 @@ public:
 	{
 	}
 
-	db_val (account_info_v14 const & val_a) :
-		db_val (val_a.db_size (), const_cast<account_info_v14 *> (&val_a))
-	{
-	}
-
 	db_val (nano::pending_info const & val_a) :
 		db_val (val_a.db_size (), const_cast<nano::pending_info *> (&val_a))
 	{
 		static_assert (std::is_standard_layout<nano::pending_info>::value, "Standard layout is required");
-	}
-
-	db_val (pending_info_v14 const & val_a) :
-		db_val (val_a.db_size (), const_cast<pending_info_v14 *> (&val_a))
-	{
-		static_assert (std::is_standard_layout<pending_info_v14>::value, "Standard layout is required");
 	}
 
 	db_val (nano::pending_key const & val_a) :
@@ -131,28 +120,12 @@ public:
 		return result;
 	}
 
-	explicit operator account_info_v14 () const
-	{
-		account_info_v14 result;
-		debug_assert (size () == result.db_size ());
-		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
-		return result;
-	}
-
 	explicit operator block_info () const
 	{
 		nano::block_info result;
 		debug_assert (size () == sizeof (result));
 		static_assert (sizeof (nano::block_info::account) + sizeof (nano::block_info::balance) == sizeof (result), "Packed class");
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), reinterpret_cast<uint8_t *> (&result));
-		return result;
-	}
-
-	explicit operator pending_info_v14 () const
-	{
-		pending_info_v14 result;
-		debug_assert (size () == result.db_size ());
-		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
 		return result;
 	}
 
@@ -235,21 +208,6 @@ public:
 		return result;
 	}
 
-	template <class Block>
-	explicit operator block_w_sideband_v18<Block> () const
-	{
-		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
-		auto error (false);
-		block_w_sideband_v18<Block> block_w_sideband;
-		block_w_sideband.block = std::make_shared<Block> (error, stream);
-		release_assert (!error);
-
-		error = block_w_sideband.sideband.deserialize (stream, block_w_sideband.block->type ());
-		release_assert (!error);
-
-		return block_w_sideband;
-	}
-
 	explicit operator block_w_sideband () const
 	{
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
@@ -258,21 +216,6 @@ public:
 		auto error = block_w_sideband.sideband.deserialize (stream, block_w_sideband.block->type ());
 		release_assert (!error);
 		block_w_sideband.block->sideband_set (block_w_sideband.sideband);
-		return block_w_sideband;
-	}
-
-	explicit operator state_block_w_sideband_v14 () const
-	{
-		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
-		auto error (false);
-		state_block_w_sideband_v14 block_w_sideband;
-		block_w_sideband.state_block = std::make_shared<nano::state_block> (error, stream);
-		debug_assert (!error);
-
-		block_w_sideband.sideband.type = nano::block_type::state;
-		error = block_w_sideband.sideband.deserialize (stream);
-		debug_assert (!error);
-
 		return block_w_sideband;
 	}
 
