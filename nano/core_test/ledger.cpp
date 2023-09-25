@@ -266,7 +266,7 @@ TEST (ledger, process_receive)
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 25, ledger.account_balance (transaction, key2.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 25, ledger.weight (key3.pub));
 	ASSERT_FALSE (ledger.rollback (transaction, hash4));
-	ASSERT_TRUE (store.block.successor (transaction, hash2).is_zero ());
+	ASSERT_TRUE (store.successor.get (transaction, hash2).is_zero ());
 	ASSERT_EQ (key2.pub, store.frontier.get (transaction, hash2));
 	ASSERT_TRUE (store.frontier.get (transaction, hash4).is_zero ());
 	ASSERT_EQ (25, ledger.account_balance (transaction, nano::dev::genesis_key.pub));
@@ -3109,7 +3109,7 @@ TEST (ledger, state_rollback_send)
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.account_balance (transaction, nano::dev::genesis->account ()));
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (nano::dev::genesis->account ()));
 	ASSERT_FALSE (store.pending.exists (transaction, nano::pending_key (nano::dev::genesis->account (), send1->hash ())));
-	ASSERT_TRUE (store.block.successor (transaction, nano::dev::genesis->hash ()).is_zero ());
+	ASSERT_TRUE (store.successor.get (transaction, nano::dev::genesis->hash ()).is_zero ());
 	ASSERT_EQ (store.account.count (transaction), ledger.cache.account_count);
 }
 

@@ -85,7 +85,6 @@ TEST (block_store, sideband_serialization)
 	sideband1.account = 1;
 	sideband1.balance = 2;
 	sideband1.height = 3;
-	sideband1.successor = 4;
 	sideband1.timestamp = 5;
 	std::vector<uint8_t> vector;
 	{
@@ -98,7 +97,6 @@ TEST (block_store, sideband_serialization)
 	ASSERT_EQ (sideband1.account, sideband2.account);
 	ASSERT_EQ (sideband1.balance, sideband2.balance);
 	ASSERT_EQ (sideband1.height, sideband2.height);
-	ASSERT_EQ (sideband1.successor, sideband2.successor);
 	ASSERT_EQ (sideband1.timestamp, sideband2.timestamp);
 }
 
@@ -137,47 +135,14 @@ TEST (block_store, clear_successor)
 {
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	ASSERT_TRUE (!store->init_error ());
-	nano::block_builder builder;
-	auto block1 = builder
-				  .open ()
-				  .source (0)
-				  .representative (1)
-				  .account (0)
-				  .sign (nano::keypair ().prv, 0)
-				  .work (0)
-				  .build ();
-	block1->sideband_set ({});
-	auto transaction (store->tx_begin_write ());
-	store->block.put (transaction, block1->hash (), *block1);
-	auto block2 = builder
-				  .open ()
-				  .source (0)
-				  .representative (2)
-				  .account (0)
-				  .sign (nano::keypair ().prv, 0)
-				  .work (0)
-				  .build ();
-	block2->sideband_set ({});
-	store->block.put (transaction, block2->hash (), *block2);
-	auto block2_store (store->block.get (transaction, block1->hash ()));
-	ASSERT_NE (nullptr, block2_store);
-	ASSERT_EQ (0, block2_store->sideband ().successor.number ());
-	auto modified_sideband = block2_store->sideband ();
-	modified_sideband.successor = block2->hash ();
-	block1->sideband_set (modified_sideband);
-	store->block.put (transaction, block1->hash (), *block1);
-	{
-		auto block1_store (store->block.get (transaction, block1->hash ()));
-		ASSERT_NE (nullptr, block1_store);
-		ASSERT_EQ (block2->hash (), block1_store->sideband ().successor);
-	}
-	store->block.successor_clear (transaction, block1->hash ());
-	{
-		auto block1_store (store->block.get (transaction, block1->hash ()));
-		ASSERT_NE (nullptr, block1_store);
-		ASSERT_EQ (0, block1_store->sideband ().successor.number ());
-	}
+	nano::block_hash one{ 1 };
+	nano::block_hash two{ 2 };
+	auto tx = store->tx_begin_write ();
+	ASSERT_EQ (0, store->successor.get (tx, one));
+	store->successor.put (tx, one, two);
+	ASSERT_EQ (two, store->successor.get (tx, one));
+	store->successor.del (tx, one);
+	ASSERT_EQ (0, store->successor.get (tx, one));
 }
 
 TEST (block_store, add_nonempty_block)

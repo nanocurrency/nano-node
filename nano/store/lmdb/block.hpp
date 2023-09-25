@@ -24,8 +24,6 @@ public:
 	explicit block (nano::store::lmdb::component & store_a);
 	void put (store::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a) override;
 	void raw_put (store::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_hash const & hash_a) override;
-	nano::block_hash successor (store::transaction const & transaction_a, nano::block_hash const & hash_a) const override;
-	void successor_clear (store::write_transaction const & transaction_a, nano::block_hash const & hash_a) override;
 	std::shared_ptr<nano::block> get (store::transaction const & transaction_a, nano::block_hash const & hash_a) const override;
 	std::shared_ptr<nano::block> random (store::transaction const & transaction_a) override;
 	void del (store::write_transaction const & transaction_a, nano::block_hash const & hash_a) override;
@@ -44,7 +42,6 @@ public:
 
 protected:
 	void block_raw_get (store::transaction const & transaction_a, nano::block_hash const & hash_a, db_val & value) const;
-	size_t block_successor_offset (store::transaction const & transaction_a, size_t entry_size_a, nano::block_type type_a) const;
 	static nano::block_type block_type_from_raw (void * data_a);
 };
 } // namespace nano::store::lmdb

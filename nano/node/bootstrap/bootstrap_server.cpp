@@ -5,6 +5,7 @@
 #include <nano/store/block.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/confirmation_height.hpp>
+#include <nano/store/successor.hpp>
 
 // TODO: Make threads configurable
 nano::bootstrap_server::bootstrap_server (nano::store::component & store_a, nano::ledger & ledger_a, nano::network_constants const & network_constants_a, nano::stats & stats_a) :
@@ -244,9 +245,7 @@ std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks
 		while (current && result.size () < count)
 		{
 			result.push_back (current);
-
-			auto successor = current->sideband ().successor;
-			current = store.block.get (transaction, successor);
+			current = store.block.get (transaction, store.successor.get (transaction, current->hash ()));
 		}
 	}
 	return result;

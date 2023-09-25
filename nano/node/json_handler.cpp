@@ -1160,7 +1160,7 @@ void nano::json_handler::block_info ()
 			response_l.put ("balance", balance.convert_to<std::string> ());
 			response_l.put ("height", std::to_string (block->sideband ().height));
 			response_l.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
-			response_l.put ("successor", block->sideband ().successor.to_string ());
+			response_l.put ("successor", node.store.successor.get (transaction, hash).to_string ());
 			auto confirmed (node.ledger.block_confirmed (transaction, hash));
 			response_l.put ("confirmed", confirmed);
 
@@ -1320,7 +1320,7 @@ void nano::json_handler::blocks_info ()
 					entry.put ("balance", balance.convert_to<std::string> ());
 					entry.put ("height", std::to_string (block->sideband ().height));
 					entry.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
-					entry.put ("successor", block->sideband ().successor.to_string ());
+					entry.put ("successor", node.store.successor.get (transaction, hash).to_string ());
 					auto confirmed (node.ledger.block_confirmed (transaction, hash));
 					entry.put ("confirmed", confirmed);
 
@@ -1959,7 +1959,7 @@ void nano::json_handler::chain (bool successors)
 					entry.put ("", hash.to_string ());
 					blocks.push_back (std::make_pair ("", entry));
 				}
-				hash = successors ? node.store.block.successor (transaction, hash) : block_l->previous ();
+				hash = successors ? node.store.successor.get (transaction, hash) : block_l->previous ();
 			}
 			else
 			{
@@ -2671,7 +2671,7 @@ void nano::json_handler::account_history ()
 					--count;
 				}
 			}
-			hash = reverse ? node.store.block.successor (transaction, hash) : block->previous ();
+			hash = reverse ? node.store.successor.get (transaction, hash) : block->previous ();
 			block = node.store.block.get (transaction, hash);
 		}
 		response_l.add_child ("history", history);
@@ -3706,7 +3706,7 @@ void nano::json_handler::republish ()
 						}
 					}
 				}
-				hash = node.store.block.successor (transaction, hash);
+				hash = node.store.successor.get (transaction, hash);
 			}
 			node.network.flood_block_many (std::move (republish_bundle), nullptr, 25);
 			response_l.put ("success", ""); // obsolete

@@ -237,7 +237,7 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 			if (block == nullptr && !root.is_zero ())
 			{
 				// Search for block root
-				auto successor (ledger.store.block.successor (transaction, root.as_block_hash ()));
+				auto successor (ledger.store.successor.get (transaction, root.as_block_hash ()));
 
 				// Search for account root
 				if (successor.is_zero ())
