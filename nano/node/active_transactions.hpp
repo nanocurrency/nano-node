@@ -28,7 +28,6 @@ class block;
 class block_sideband;
 class election;
 class vote;
-class transaction;
 class confirmation_height_processor;
 class stats;
 

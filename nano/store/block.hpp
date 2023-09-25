@@ -10,9 +10,6 @@
 namespace nano
 {
 class block_hash;
-class read_transaction;
-class transaction;
-class write_transaction;
 }
 namespace nano::store
 {

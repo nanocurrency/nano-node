@@ -37,7 +37,6 @@ namespace filesystem
 namespace nano
 {
 class logging_mt;
-class transaction;
 
 }
 
