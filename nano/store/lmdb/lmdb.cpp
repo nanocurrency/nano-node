@@ -196,7 +196,8 @@ void nano::store::lmdb::component::open_databases (bool & error_a, store::transa
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "pending", flags, &pending_store.pending_v0_handle) != 0;
 	pending_store.pending_handle = pending_store.pending_v0_handle;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "final_votes", flags, &final_vote_store.final_votes_handle) != 0;
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "blocks", MDB_CREATE, &block_store.blocks_handle) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "block_index_v23", MDB_CREATE, &block_store.block_index_v23_handle) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "block_data_v23", MDB_CREATE, &block_store.block_data_v23_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "successor_v23", MDB_CREATE, &successor_store.successor_v23_handle) != 0;
 }
 
@@ -319,8 +320,6 @@ MDB_dbi nano::store::lmdb::component::table_to_dbi (tables table_a) const
 			return frontier_store.frontiers_handle;
 		case tables::accounts:
 			return account_store.accounts_handle;
-		case tables::blocks:
-			return block_store.blocks_handle;
 		case tables::pending:
 			return pending_store.pending_handle;
 		case tables::online_weight:
@@ -337,6 +336,11 @@ MDB_dbi nano::store::lmdb::component::table_to_dbi (tables table_a) const
 			return final_vote_store.final_votes_handle;
 		case tables::successor:
 			return successor_store.successor_v23_handle;
+		case tables::block_data:
+			return block_store.block_data_v23_handle;
+		case tables::block_index:
+			return block_store.block_index_v23_handle;
+		case tables::blocks:
 		default:
 			release_assert (false);
 			return peer_store.peers_handle;
@@ -370,8 +374,9 @@ bool nano::store::lmdb::component::copy_db (boost::filesystem::path const & dest
 
 void nano::store::lmdb::component::rebuild_db (store::write_transaction const & transaction_a)
 {
+	release_assert (false);
 	// Tables with uint256_union key
-	std::vector<MDB_dbi> tables = { account_store.accounts_handle, block_store.blocks_handle, pruned_store.pruned_handle, confirmation_height_store.confirmation_height_handle };
+	/*std::vector<MDB_dbi> tables = { account_store.accounts_handle, block_store.blocks_handle, pruned_store.pruned_handle, confirmation_height_store.confirmation_height_handle };
 	for (auto const & table : tables)
 	{
 		MDB_dbi temp;
@@ -415,7 +420,7 @@ void nano::store::lmdb::component::rebuild_db (store::write_transaction const & 
 		}
 		release_assert (count (transaction_a, pending_store.pending_handle) == count (transaction_a, temp));
 		mdb_drop (env.tx (transaction_a), temp, 1);
-	}
+	}*/
 }
 
 bool nano::store::lmdb::component::init_error () const

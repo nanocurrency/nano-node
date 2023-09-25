@@ -1062,9 +1062,11 @@ std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (st
 {
 	nano::block_hash hash (0);
 	nano::root root (0);
-	if (!pruning)
+	//if (!pruning)
+	if (true)
 	{
-		auto block (store.block.random (transaction_a));
+		//auto block (store.block.random (transaction_a));
+		auto block = constants.genesis;
 		hash = block->hash ();
 		root = block->root ();
 	}

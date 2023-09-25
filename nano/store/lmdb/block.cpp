@@ -19,8 +19,17 @@ void nano::store::lmdb::block::put (store::write_transaction const & transaction
 void nano::store::lmdb::block::raw_put (store::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_hash const & hash_a)
 {
 	nano::store::lmdb::db_val value{ data.size (), (void *)data.data () };
-	auto status = store.put (transaction_a, tables::blocks, hash_a, value);
-	store.release_assert_success (status);
+	uint64_t index = index_next++;
+	{
+		auto status = store.put (transaction_a, tables::block_index, hash_a, index);
+		store.release_assert_success (status);
+	}
+	{
+		auto status = store.put (transaction_a, tables::block_data, index, value);
+		store.release_assert_success (status);
+	}
+	/*auto status = store.put (transaction_a, tables::blocks, hash_a, value);
+	store.release_assert_success (status);*/
 }
 
 std::shared_ptr<nano::block> nano::store::lmdb::block::get (store::transaction const & transaction, nano::block_hash const & hash) const
@@ -46,7 +55,8 @@ std::shared_ptr<nano::block> nano::store::lmdb::block::get (store::transaction c
 
 std::shared_ptr<nano::block> nano::store::lmdb::block::random (store::transaction const & transaction)
 {
-	nano::block_hash hash;
+	release_assert (false);
+	/*nano::block_hash hash;
 	nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 	auto existing = begin (transaction, hash);
 	if (existing == end ())
@@ -54,12 +64,12 @@ std::shared_ptr<nano::block> nano::store::lmdb::block::random (store::transactio
 		existing = begin (transaction);
 	}
 	debug_assert (existing != end ());
-	return existing->second.block;
+	return existing->second.block;*/
 }
 
 void nano::store::lmdb::block::del (store::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	auto status = store.del (transaction_a, tables::blocks, hash_a);
+	auto status = store.del (transaction_a, tables::block_index, hash_a);
 	store.release_assert_success (status);
 }
 
@@ -72,7 +82,7 @@ bool nano::store::lmdb::block::exists (store::transaction const & transaction, n
 
 uint64_t nano::store::lmdb::block::count (store::transaction const & transaction_a)
 {
-	return store.count (transaction_a, tables::blocks);
+	return store.count (transaction_a, tables::block_index);
 }
 nano::store::iterator<nano::block_hash, nano::store::block_w_sideband> nano::store::lmdb::block::begin (store::transaction const & transaction) const
 {
@@ -100,8 +110,18 @@ void nano::store::lmdb::block::for_each_par (std::function<void (store::read_tra
 
 void nano::store::lmdb::block::block_raw_get (store::transaction const & transaction, nano::block_hash const & hash, nano::store::lmdb::db_val & value) const
 {
-	auto status = store.get (transaction, tables::blocks, hash, value);
-	release_assert (store.success (status) || store.not_found (status));
+	nano::store::lmdb::db_val index;
+	{
+		auto status = store.get (transaction, tables::block_index, hash, index);
+		release_assert (store.success (status) || store.not_found (status));
+		if (store.success (status))
+		{
+			auto status = store.get (transaction, tables::block_data, static_cast<uint64_t> (index), value);
+			release_assert (store.success (status));
+		}
+	}
+	/*auto status = store.get (transaction, tables::blocks, hash, value);
+	release_assert (store.success (status) || store.not_found (status));*/
 }
 
 nano::block_type nano::store::lmdb::block::block_type_from_raw (void * data_a)

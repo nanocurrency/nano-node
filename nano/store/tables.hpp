@@ -19,7 +19,9 @@ enum class tables
 	pending,
 	pruned,
 	successor,
-	vote
+	vote,
+	block_data,
+	block_index
 };
 } // namespace nano
 

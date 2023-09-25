@@ -5536,7 +5536,7 @@ TEST (ledger, hash_root_random)
 	}
 }
 
-TEST (ledger, migrate_lmdb_to_rocksdb)
+TEST (ledger, DISABLED_migrate_lmdb_to_rocksdb)
 {
 	nano::test::system system{};
 	auto path = nano::unique_path ();

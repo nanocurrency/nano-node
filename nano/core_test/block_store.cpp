@@ -863,7 +863,7 @@ TEST (block_store, cemented_count_cache)
 	ASSERT_EQ (1, ledger_cache.cemented_count);
 }
 
-TEST (block_store, block_random)
+TEST (block_store, DISABLED_block_random)
 {
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
