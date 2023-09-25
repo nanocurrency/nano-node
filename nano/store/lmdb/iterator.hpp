@@ -3,6 +3,7 @@
 #include <nano/store/component.hpp>
 #include <nano/store/db_val.hpp>
 #include <nano/store/iterator.hpp>
+#include <nano/store/lmdb/lmdb_env.hpp>
 #include <nano/store/transaction.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
@@ -13,9 +14,9 @@ template <typename T, typename U>
 class iterator : public iterator_impl<T, U>
 {
 public:
-	iterator (store::transaction const & transaction_a, MDB_dbi db_a, MDB_val const & val_a = MDB_val{}, bool const direction_asc = true)
+	iterator (store::transaction const & transaction_a, env const & env_a, MDB_dbi db_a, MDB_val const & val_a = MDB_val{}, bool const direction_asc = true)
 	{
-		auto status (mdb_cursor_open (tx (transaction_a), db_a, &cursor));
+		auto status (mdb_cursor_open (env_a.tx (transaction_a), db_a, &cursor));
 		release_assert (status == 0);
 		auto operation (MDB_SET_RANGE);
 		if (val_a.mv_size != 0)
@@ -165,12 +166,6 @@ public:
 	store::iterator_impl<T, U> & operator= (store::iterator_impl<T, U> const &) = delete;
 	MDB_cursor * cursor{ nullptr };
 	std::pair<store::db_val<MDB_val>, store::db_val<MDB_val>> current;
-
-private:
-	MDB_txn * tx (store::transaction const & transaction_a) const
-	{
-		return static_cast<MDB_txn *> (transaction_a.get_handle ());
-	}
 };
 
 /**

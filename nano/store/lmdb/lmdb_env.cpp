@@ -1,3 +1,4 @@
+#include <nano/lib/utility.hpp>
 #include <nano/store/lmdb/lmdb_env.hpp>
 
 #include <boost/filesystem/operations.hpp>
@@ -105,5 +106,6 @@ nano::store::write_transaction nano::store::lmdb::env::tx_begin_write (store::lm
 
 MDB_txn * nano::store::lmdb::env::tx (store::transaction const & transaction_a) const
 {
+	debug_assert (transaction_a.store_id () == store_id);
 	return static_cast<MDB_txn *> (transaction_a.get_handle ());
 }

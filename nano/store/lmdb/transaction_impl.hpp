@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/diagnosticsconfig.hpp>
+#include <nano/lib/id_dispenser.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/transaction.hpp>
@@ -27,6 +28,7 @@ public:
 	std::function<void (store::transaction_impl const *)> txn_start{ [] (store::transaction_impl const *) {} };
 	std::function<void (store::transaction_impl const *)> txn_end{ [] (store::transaction_impl const *) {} };
 };
+
 class read_transaction_impl final : public store::read_transaction_impl
 {
 public:
@@ -53,7 +55,7 @@ public:
 	lmdb::txn_callbacks txn_callbacks;
 	bool active{ true };
 };
-} // namespace nano
+} // namespace nano::store::lmdb
 
 namespace nano
 {
