@@ -1345,7 +1345,6 @@ nano::wallets::wallets (bool error_a, nano::node & node_a) :
 	{
 		auto transaction (tx_begin_write ());
 		auto status (mdb_dbi_open (env.tx (transaction), nullptr, MDB_CREATE, &handle));
-		split_if_needed (transaction, node.store);
 		status |= mdb_dbi_open (env.tx (transaction), "send_action_ids", MDB_CREATE, &send_action_ids);
 		release_assert (status == 0);
 		std::string beginning (nano::uint256_union (0).to_string ());
@@ -1696,80 +1695,6 @@ void nano::wallets::ongoing_compute_reps ()
 	node.workers.add_timed_task (std::chrono::steady_clock::now () + compute_delay, [&node_l] () {
 		node_l.wallets.ongoing_compute_reps ();
 	});
-}
-
-void nano::wallets::split_if_needed (store::transaction & transaction_destination, nano::store::component & store_a)
-{
-	auto store_l = dynamic_cast<nano::store::lmdb::component *> (&store_a);
-	if (store_l != nullptr)
-	{
-		if (items.empty ())
-		{
-			std::string beginning (nano::uint256_union (0).to_string ());
-			std::string end ((nano::uint256_union (nano::uint256_t (0) - nano::uint256_t (1))).to_string ());
-
-			auto get_store_it = [&handle = handle, &env = env] (store::transaction const & transaction_source, std::string const & hash) {
-				return store::iterator<std::array<char, 64>, nano::no_value> (std::make_unique<nano::store::lmdb::iterator<std::array<char, 64>, nano::no_value>> (transaction_source, env, handle, nano::store::lmdb::db_val (hash.size (), const_cast<char *> (hash.c_str ()))));
-			};
-
-			// First do a read pass to check if there are any wallets that need extracting (to save holding a write lock and potentially being blocked)
-			auto wallets_need_splitting (false);
-			{
-				auto transaction_source (store_l->tx_begin_read ());
-				auto i = get_store_it (transaction_source, beginning);
-				auto n = get_store_it (transaction_source, end);
-				wallets_need_splitting = (i != n);
-			}
-
-			if (wallets_need_splitting)
-			{
-				auto transaction_source (store_l->tx_begin_write ());
-				auto i = get_store_it (transaction_source, beginning);
-				auto n = get_store_it (transaction_source, end);
-				auto tx_source = static_cast<MDB_txn *> (transaction_source.get_handle ());
-				auto tx_destination = static_cast<MDB_txn *> (transaction_destination.get_handle ());
-				for (; i != n; ++i)
-				{
-					nano::uint256_union id;
-					std::string text (i->first.data (), i->first.size ());
-					auto error1 (id.decode_hex (text));
-					(void)error1;
-					debug_assert (!error1);
-					debug_assert (strlen (text.c_str ()) == text.size ());
-					move_table (text, tx_source, tx_destination);
-				}
-			}
-		}
-	}
-}
-
-void nano::wallets::move_table (std::string const & name_a, MDB_txn * tx_source, MDB_txn * tx_destination)
-{
-	MDB_dbi handle_source;
-	auto error2 (mdb_dbi_open (tx_source, name_a.c_str (), MDB_CREATE, &handle_source));
-	(void)error2;
-	debug_assert (!error2);
-	MDB_dbi handle_destination;
-	auto error3 (mdb_dbi_open (tx_destination, name_a.c_str (), MDB_CREATE, &handle_destination));
-	(void)error3;
-	debug_assert (!error3);
-	MDB_cursor * cursor;
-	auto error4 (mdb_cursor_open (tx_source, handle_source, &cursor));
-	(void)error4;
-	debug_assert (!error4);
-	MDB_val val_key;
-	MDB_val val_value;
-	auto cursor_status (mdb_cursor_get (cursor, &val_key, &val_value, MDB_FIRST));
-	while (cursor_status == MDB_SUCCESS)
-	{
-		auto error5 (mdb_put (tx_destination, handle_destination, &val_key, &val_value, 0));
-		(void)error5;
-		debug_assert (!error5);
-		cursor_status = mdb_cursor_get (cursor, &val_key, &val_value, MDB_NEXT);
-	}
-	auto error6 (mdb_drop (tx_source, handle_source, 1));
-	(void)error6;
-	debug_assert (!error6);
 }
 
 std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> nano::wallets::get_wallets ()
