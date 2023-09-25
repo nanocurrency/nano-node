@@ -36,6 +36,7 @@ add_library(
   epoch.cpp
   errors.hpp
   errors.cpp
+  id_dispenser.hpp
   ipc.hpp
   ipc.cpp
   ipc_client.hpp
