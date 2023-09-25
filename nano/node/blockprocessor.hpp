@@ -18,9 +18,6 @@ class write_transaction;
 namespace nano
 {
 class node;
-class read_transaction;
-class transaction;
-class write_transaction;
 class write_database_queue;
 
 /**

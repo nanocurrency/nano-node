@@ -27,7 +27,6 @@ class block_processor;
 class ledger;
 class network;
 class node_config;
-class transaction;
 
 namespace transport
 {

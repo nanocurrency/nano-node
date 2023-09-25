@@ -28,7 +28,6 @@ class network_params;
 class node_flags;
 class stats;
 
-class transaction;
 namespace transport
 {
 	class channel;
