@@ -24,7 +24,8 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 		peer_store,
 		confirmation_height_store,
 		final_vote_store,
-		version_store
+		version_store,
+		successor_store
 	},
 	// clang-format on
 	block_store{ *this },
@@ -37,6 +38,7 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 	confirmation_height_store{ *this },
 	final_vote_store{ *this },
 	version_store{ *this },
+	successor_store{ *this },
 	logger{ logger_a },
 	env (error, path_a, nano::store::lmdb::env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
 	mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
@@ -204,6 +206,7 @@ void nano::store::lmdb::component::open_databases (bool & error_a, store::transa
 	pending_store.pending_handle = pending_store.pending_v0_handle;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "final_votes", flags, &final_vote_store.final_votes_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "blocks", MDB_CREATE, &block_store.blocks_handle) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "successor_v23", MDB_CREATE, &successor_store.successor_v23_handle) != 0;
 }
 
 bool nano::store::lmdb::component::do_upgrades (store::write_transaction & transaction_a, nano::ledger_constants & constants, bool & needs_vacuuming)
@@ -339,6 +342,8 @@ MDB_dbi nano::store::lmdb::component::table_to_dbi (tables table_a) const
 			return confirmation_height_store.confirmation_height_handle;
 		case tables::final_votes:
 			return final_vote_store.final_votes_handle;
+		case tables::successor:
+			return successor_store.successor_v23_handle;
 		default:
 			release_assert (false);
 			return peer_store.peers_handle;

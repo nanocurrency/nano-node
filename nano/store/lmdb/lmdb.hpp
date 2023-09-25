@@ -18,6 +18,7 @@
 #include <nano/store/lmdb/peer.hpp>
 #include <nano/store/lmdb/pending.hpp>
 #include <nano/store/lmdb/pruned.hpp>
+#include <nano/store/lmdb/successor.hpp>
 #include <nano/store/lmdb/transaction_impl.hpp>
 #include <nano/store/lmdb/version.hpp>
 #include <nano/store/versioning.hpp>
@@ -49,6 +50,7 @@ private:
 	nano::store::lmdb::peer peer_store;
 	nano::store::lmdb::pending pending_store;
 	nano::store::lmdb::pruned pruned_store;
+	nano::store::lmdb::successor successor_store;
 	nano::store::lmdb::version version_store;
 
 	friend class nano::store::lmdb::account;
@@ -60,6 +62,7 @@ private:
 	friend class nano::store::lmdb::peer;
 	friend class nano::store::lmdb::pending;
 	friend class nano::store::lmdb::pruned;
+	friend class nano::store::lmdb::successor;
 	friend class nano::store::lmdb::version;
 
 public:

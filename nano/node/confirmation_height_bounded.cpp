@@ -5,6 +5,7 @@
 #include <nano/store/block.hpp>
 #include <nano/store/confirmation_height.hpp>
 #include <nano/store/pruned.hpp>
+#include <nano/store/successor.hpp>
 
 #include <boost/format.hpp>
 
@@ -229,7 +230,7 @@ nano::block_hash nano::confirmation_height_bounded::get_least_unconfirmed_hash_f
 		{
 			auto block (ledger.store.block.get (transaction_a, confirmation_height_info_a.frontier));
 			release_assert (block != nullptr);
-			least_unconfirmed_hash = block->sideband ().successor;
+			least_unconfirmed_hash = ledger.store.successor.get (transaction_a, confirmation_height_info_a.frontier);
 			block_height_a = block->sideband ().height + 1;
 		}
 	}
@@ -256,6 +257,7 @@ bool nano::confirmation_height_bounded::iterate (store::read_transaction const &
 		// Once a receive is cemented, we can cement all blocks above it until the next receive, so store those details for later.
 		++num_blocks;
 		auto block = ledger.store.block.get (transaction_a, hash);
+		auto successor = ledger.store.successor.get (transaction_a, hash);
 		auto source (block->source ());
 		if (source.is_zero ())
 		{
@@ -266,9 +268,8 @@ bool nano::confirmation_height_bounded::iterate (store::read_transaction const &
 		{
 			hit_receive = true;
 			reached_target = true;
-			auto const & sideband (block->sideband ());
-			auto next = !sideband.successor.is_zero () && sideband.successor != top_level_hash_a ? boost::optional<nano::block_hash> (sideband.successor) : boost::none;
-			receive_source_pairs_a.push_back ({ receive_chain_details{ account_a, sideband.height, hash, top_level_hash_a, next, bottom_height_a, bottom_hash_a }, source });
+			auto next = !successor.is_zero () && successor != top_level_hash_a ? boost::optional<nano::block_hash> (successor) : boost::none;
+			receive_source_pairs_a.push_back ({ receive_chain_details{ account_a, block->sideband ().height, hash, top_level_hash_a, next, bottom_height_a, bottom_hash_a }, source });
 			// Store a checkpoint every max_items so that we can always traverse a long number of accounts to genesis
 			if (receive_source_pairs_a.size () % max_items == 0)
 			{
@@ -285,7 +286,7 @@ bool nano::confirmation_height_bounded::iterate (store::read_transaction const &
 			}
 			else
 			{
-				hash = block->sideband ().successor;
+				hash = successor;
 			}
 		}
 
@@ -415,7 +416,7 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 				else
 				{
 					auto block = ledger.store.block.get (transaction, confirmation_height_info.frontier);
-					new_cemented_frontier = block->sideband ().successor;
+					new_cemented_frontier = ledger.store.successor.get (transaction, confirmation_height_info.frontier);
 					num_blocks_confirmed = pending.top_height - confirmation_height_info.height;
 					start_height = confirmation_height_info.height + 1;
 				}
@@ -479,7 +480,7 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 					// Get the next block in the chain until we have reached the final desired one
 					if (!last_iteration)
 					{
-						new_cemented_frontier = block->sideband ().successor;
+						new_cemented_frontier = ledger.store.successor.get (transaction, new_cemented_frontier);
 						block = ledger.store.block.get (transaction, new_cemented_frontier);
 					}
 					else

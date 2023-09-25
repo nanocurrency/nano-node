@@ -27,8 +27,6 @@ class block
 public:
 	virtual void put (store::write_transaction const &, nano::block_hash const &, nano::block const &) = 0;
 	virtual void raw_put (store::write_transaction const &, std::vector<uint8_t> const &, nano::block_hash const &) = 0;
-	virtual nano::block_hash successor (store::transaction const &, nano::block_hash const &) const = 0;
-	virtual void successor_clear (store::write_transaction const &, nano::block_hash const &) = 0;
 	virtual std::shared_ptr<nano::block> get (store::transaction const &, nano::block_hash const &) const = 0;
 	virtual std::shared_ptr<nano::block> random (store::transaction const &) = 0;
 	virtual void del (store::write_transaction const &, nano::block_hash const &) = 0;

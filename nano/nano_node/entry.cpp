@@ -1583,7 +1583,7 @@ int main (int argc, char * const * argv)
 						calculated_representative = block->representative ();
 					}
 					// Retrieving successor block hash
-					hash = node->store.block.successor (transaction, hash);
+					hash = node->store.successor.get (transaction, hash);
 					// Retrieving block data
 					if (!hash.is_zero ())
 					{
