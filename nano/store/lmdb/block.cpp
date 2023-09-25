@@ -56,6 +56,7 @@ std::shared_ptr<nano::block> nano::store::lmdb::block::get (store::transaction c
 std::shared_ptr<nano::block> nano::store::lmdb::block::random (store::transaction const & transaction)
 {
 	release_assert (false);
+	return nullptr;
 	/*nano::block_hash hash;
 	nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 	auto existing = begin (transaction, hash);
