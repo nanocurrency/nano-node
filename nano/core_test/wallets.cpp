@@ -73,7 +73,9 @@ TEST (wallets, remove)
 	}
 }
 
-TEST (wallets, reload)
+// Opening multiple environments using the same file within the same process is not supported.
+// http://www.lmdb.tech/doc/starting.html
+TEST (wallets, DISABLED_reload)
 {
 	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
