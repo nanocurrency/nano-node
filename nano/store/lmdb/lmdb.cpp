@@ -194,41 +194,7 @@ void nano::store::lmdb::component::open_databases (bool & error_a, store::transa
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "pending", flags, &pending_store.pending_v0_handle) != 0;
 	pending_store.pending_handle = pending_store.pending_v0_handle;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "final_votes", flags, &final_vote_store.final_votes_handle) != 0;
-
-	auto version_l = version.get (transaction_a);
-	if (version_l < 19)
-	{
-		// These legacy (and state) block databases are no longer used, but need opening so they can be deleted during an upgrade
-		error_a |= mdb_dbi_open (env.tx (transaction_a), "send", flags, &block_store.send_blocks_handle) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction_a), "receive", flags, &block_store.receive_blocks_handle) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction_a), "open", flags, &block_store.open_blocks_handle) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction_a), "change", flags, &block_store.change_blocks_handle) != 0;
-		if (version_l >= 15)
-		{
-			error_a |= mdb_dbi_open (env.tx (transaction_a), "state_blocks", flags, &block_store.state_blocks_handle) != 0;
-			block_store.state_blocks_v0_handle = block_store.state_blocks_handle;
-		}
-	}
-	else
-	{
-		error_a |= mdb_dbi_open (env.tx (transaction_a), "blocks", MDB_CREATE, &block_store.blocks_handle) != 0;
-	}
-
-	if (version_l < 16)
-	{
-		// The representation database is no longer used, but needs opening so that it can be deleted during an upgrade
-		error_a |= mdb_dbi_open (env.tx (transaction_a), "representation", flags, &account_store.representation_handle) != 0;
-	}
-
-	if (version_l < 15)
-	{
-		// These databases are no longer used, but need opening so they can be deleted during an upgrade
-		error_a |= mdb_dbi_open (env.tx (transaction_a), "state", flags, &block_store.state_blocks_v0_handle) != 0;
-		block_store.state_blocks_handle = block_store.state_blocks_v0_handle;
-		error_a |= mdb_dbi_open (env.tx (transaction_a), "accounts_v1", flags, &account_store.accounts_v1_handle) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction_a), "pending_v1", flags, &pending_store.pending_v1_handle) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction_a), "state_v1", flags, &block_store.state_blocks_v1_handle) != 0;
-	}
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "blocks", MDB_CREATE, &block_store.blocks_handle) != 0;
 }
 
 bool nano::store::lmdb::component::do_upgrades (store::write_transaction & transaction_a, nano::ledger_constants & constants, bool & needs_vacuuming)
