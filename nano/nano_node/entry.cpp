@@ -1,5 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/cli.hpp>
+#include <nano/lib/thread_runner.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/cli.hpp>
@@ -8,6 +9,7 @@
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/inproc.hpp>
+#include <nano/store/pending.hpp>
 
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/filesystem/operations.hpp>
@@ -306,7 +308,7 @@ int main (int argc, char * const * argv)
 			for (; i != end; ++i)
 			{
 				nano::block_hash hash = i->first;
-				nano::block_w_sideband sideband = i->second;
+				nano::store::block_w_sideband sideband = i->second;
 				std::shared_ptr<nano::block> b = sideband.block;
 				std::cout << hash.to_string () << std::endl
 						  << b->to_json ();
@@ -1406,7 +1408,7 @@ int main (int argc, char * const * argv)
 				}
 			};
 
-			auto check_account = [&print_error_message, &silent, &count, &block_count] (std::shared_ptr<nano::node> const & node, nano::read_transaction const & transaction, nano::account const & account, nano::account_info const & info) {
+			auto check_account = [&print_error_message, &silent, &count, &block_count] (std::shared_ptr<nano::node> const & node, nano::store::read_transaction const & transaction, nano::account const & account, nano::account_info const & info) {
 				++count;
 				if (!silent && (count % 20000) == 0)
 				{
@@ -1570,7 +1572,7 @@ int main (int argc, char * const * argv)
 					// Check link epoch version
 					if (sideband.details.is_receive && (!node->ledger.pruning || !node->store.pruned.exists (transaction, block->link ().as_block_hash ())))
 					{
-						if (sideband.source_epoch != node->store.block.version (transaction, block->link ().as_block_hash ()))
+						if (sideband.source_epoch != node->ledger.version (*block))
 						{
 							print_error_message (boost::str (boost::format ("Incorrect source epoch for block %1%\n") % hash.to_string ()));
 						}
@@ -1680,14 +1682,14 @@ int main (int argc, char * const * argv)
 			finished = false;
 			std::deque<std::pair<nano::pending_key, nano::pending_info>> pending;
 
-			auto check_pending = [&print_error_message, &silent, &count] (std::shared_ptr<nano::node> const & node, nano::read_transaction const & transaction, nano::pending_key const & key, nano::pending_info const & info) {
+			auto check_pending = [&print_error_message, &silent, &count] (std::shared_ptr<nano::node> const & node, nano::store::read_transaction const & transaction, nano::pending_key const & key, nano::pending_info const & info) {
 				++count;
 				if (!silent && (count % 500000) == 0)
 				{
 					std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
 				}
 				// Check block existance
-				auto block (node->store.block.get_no_sideband (transaction, key.hash));
+				auto block (node->store.block.get (transaction, key.hash));
 				bool pruned (false);
 				if (block == nullptr)
 				{
@@ -1811,7 +1813,7 @@ int main (int argc, char * const * argv)
 					while (!hash.is_zero ())
 					{
 						// Retrieving block data
-						auto block (source_node->store.block.get_no_sideband (transaction, hash));
+						auto block (source_node->store.block.get (transaction, hash));
 						if (block != nullptr)
 						{
 							++count;
@@ -1914,7 +1916,7 @@ int main (int argc, char * const * argv)
 			nano::locked<std::vector<boost::unordered_set<nano::account>>> opened_account_versions_shared (epoch_count);
 			using opened_account_versions_t = decltype (opened_account_versions_shared)::value_type;
 			node->store.account.for_each_par (
-			[&opened_account_versions_shared, epoch_count] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
+			[&opened_account_versions_shared, epoch_count] (nano::store::read_transaction const & /*unused*/, nano::store::iterator<nano::account, nano::account_info> i, nano::store::iterator<nano::account, nano::account_info> n) {
 				// First cache locally
 				opened_account_versions_t opened_account_versions_l (epoch_count);
 				for (; i != n; ++i)
@@ -1951,7 +1953,7 @@ int main (int argc, char * const * argv)
 			nano::locked<boost::unordered_map<nano::account, std::underlying_type_t<nano::epoch>>> unopened_highest_pending_shared;
 			using unopened_highest_pending_t = decltype (unopened_highest_pending_shared)::value_type;
 			node->store.pending.for_each_par (
-			[&unopened_highest_pending_shared, &opened_accounts] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::pending_key, nano::pending_info> i, nano::store_iterator<nano::pending_key, nano::pending_info> n) {
+			[&unopened_highest_pending_shared, &opened_accounts] (nano::store::read_transaction const & /*unused*/, nano::store::iterator<nano::pending_key, nano::pending_info> i, nano::store::iterator<nano::pending_key, nano::pending_info> n) {
 				// First cache locally
 				unopened_highest_pending_t unopened_highest_pending_l;
 				for (; i != n; ++i)

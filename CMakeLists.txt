@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.14)
 
 if(CMAKE_VERSION VERSION_GREATER 3.12 OR CMAKE_VERSION VERSION_EQUAL 3.12)
   # find_package uses <PACKAGENAME>_ROOT variables
@@ -547,7 +547,8 @@ endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_definitions(-DCRYPTOPP_DISABLE_MIXED_ASM -DCRYPTOPP_DISABLE_ASM)
   message(
-    "CryptoPP with disabled ASM for ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
+    STATUS
+      "CryptoPP with disabled ASM for ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
   )
 endif()
 add_definitions(-DCRYPTOPP_DISABLE_SHANI)
@@ -650,6 +651,9 @@ target_compile_definitions(blake2 PRIVATE -D__SSE2__)
 
 add_subdirectory(nano/crypto_lib)
 add_subdirectory(nano/secure)
+add_subdirectory(nano/store)
+target_include_directories(nano_store PUBLIC ${BOOST_LIBRARY_INCLUDES})
+target_include_directories(nano_store PUBLIC submodules)
 add_subdirectory(nano/lib)
 add_subdirectory(nano/node)
 add_subdirectory(nano/nano_node)
@@ -774,7 +778,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     nano_wallet ${PLATFORM_GUI_TARGET_PROPERTIES} ${PLATFORM_WALLET_SOURCE}
                 nano/nano_wallet/entry.cpp nano/nano_wallet/icon.hpp ${RES})
 
-  target_link_libraries(nano_wallet rpc node qt)
+  target_link_libraries(nano_wallet Boost::process rpc node qt)
 
   if(WIN32)
     target_link_libraries(nano_wallet Qt5::WinExtras)

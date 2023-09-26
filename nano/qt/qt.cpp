@@ -1,7 +1,6 @@
 #include <nano/lib/config.hpp>
 #include <nano/qt/qt.hpp>
 
-#include <boost/foreach.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
@@ -513,7 +512,7 @@ namespace
 class short_text_visitor : public nano::block_visitor
 {
 public:
-	short_text_visitor (nano::transaction const & transaction_a, nano::ledger & ledger_a) :
+	short_text_visitor (nano::store::transaction const & transaction_a, nano::ledger & ledger_a) :
 		transaction (transaction_a),
 		ledger (ledger_a)
 	{
@@ -606,7 +605,7 @@ public:
 			amount = balance - previous_balance;
 		}
 	}
-	nano::transaction const & transaction;
+	nano::store::transaction const & transaction;
 	nano::ledger & ledger;
 	std::string type;
 	nano::uint128_t amount;
@@ -845,7 +844,7 @@ void nano_qt::stats_viewer::refresh_stats ()
 	if (json)
 	{
 		// Format the stat data to make totals and values easier to read
-		BOOST_FOREACH (boost::property_tree::ptree::value_type const & child, json->get_child ("entries"))
+		for (boost::property_tree::ptree::value_type const & child : json->get_child ("entries"))
 		{
 			auto time = child.second.get<std::string> ("time");
 			auto type = child.second.get<std::string> ("type");

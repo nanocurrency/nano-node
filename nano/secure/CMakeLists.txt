@@ -39,8 +39,6 @@ add_library(
   ${PLATFORM_SECURE_SOURCE}
   ${CMAKE_BINARY_DIR}/bootstrap_weights_live.cpp
   ${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp
-  store.hpp
-  store.cpp
   common.hpp
   common.cpp
   ledger.hpp
@@ -49,8 +47,6 @@ add_library(
   network_filter.cpp
   utility.hpp
   utility.cpp
-  versioning.hpp
-  versioning.cpp
   working.hpp)
 
 target_link_libraries(
@@ -58,7 +54,6 @@ target_link_libraries(
   nano_lib
   ed25519
   crypto_lib
-  lmdb
   Boost::iostreams
   Boost::system
   Boost::filesystem)

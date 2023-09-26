@@ -7,7 +7,10 @@
 
 namespace nano
 {
-class store;
+namespace store
+{
+	class component;
+}
 namespace test
 {
 	namespace context
@@ -19,13 +22,13 @@ namespace test
 				Blocks must all return process_result::progress when processed */
 			ledger_context (std::deque<std::shared_ptr<nano::block>> && blocks = std::deque<std::shared_ptr<nano::block>>{});
 			nano::ledger & ledger ();
-			nano::store & store ();
+			nano::store::component & store ();
 			nano::stats & stats ();
 			std::deque<std::shared_ptr<nano::block>> const & blocks () const;
 
 		private:
 			nano::logger_mt logger;
-			std::unique_ptr<nano::store> store_m;
+			std::unique_ptr<nano::store::component> store_m;
 			nano::stats stats_m;
 			nano::ledger ledger_m;
 			std::deque<std::shared_ptr<nano::block>> blocks_m;

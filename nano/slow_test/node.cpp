@@ -1,6 +1,8 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/thread_runner.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/make_store.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/manual.hpp>
 #include <nano/node/scheduler/priority.hpp>
@@ -24,7 +26,7 @@ using namespace std::chrono_literals;
  * function to count the block in the pruned store one by one
  * we manually count the blocks one by one because the rocksdb count feature is not accurate
  */
-size_t manually_count_pruned_blocks (nano::store & store)
+size_t manually_count_pruned_blocks (nano::store::component & store)
 {
 	size_t count = 0;
 	auto transaction = store.tx_begin_read ();
@@ -1015,7 +1017,7 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 		std::vector<std::shared_ptr<nano::state_block>> state_blocks;
 		auto const num_blocks = nano::confirmation_height::unbounded_cutoff - 2;
 
-		auto add_block_to_genesis_chain = [&] (nano::write_transaction & transaction) {
+		auto add_block_to_genesis_chain = [&] (store::write_transaction & transaction) {
 			static int num = 0;
 			nano::block_builder builder;
 			auto send = builder

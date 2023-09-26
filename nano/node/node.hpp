@@ -2,6 +2,7 @@
 
 #include <nano/lib/config.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/thread_pool.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/backlog_population.hpp>
@@ -86,8 +87,8 @@ public:
 	void stop ();
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
-	void receive_confirmed (nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a);
-	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block> const &, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, bool &, nano::account &);
+	void receive_confirmed (store::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a);
+	void process_confirmed_data (store::transaction const &, std::shared_ptr<nano::block> const &, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, bool &, nano::account &);
 	void process_confirmed (nano::election_status const &, uint64_t = 0);
 	void process_active (std::shared_ptr<nano::block> const &);
 	std::optional<nano::process_return> process_local (std::shared_ptr<nano::block> const &);
@@ -130,7 +131,7 @@ public:
 	bool online () const;
 	bool init_error () const;
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
-	uint64_t get_confirmation_height (nano::transaction const &, nano::account &);
+	uint64_t get_confirmation_height (store::transaction const &, nano::account &);
 	/*
 	 * Attempts to bootstrap block. This is the best effort, there is no guarantee that the block will be bootstrapped.
 	 */
@@ -151,8 +152,8 @@ public:
 	nano::work_pool & work;
 	nano::distributed_work_factory distributed_work;
 	nano::logger_mt logger;
-	std::unique_ptr<nano::store> store_impl;
-	nano::store & store;
+	std::unique_ptr<nano::store::component> store_impl;
+	nano::store::component & store;
 	nano::unchecked_map unchecked;
 	std::unique_ptr<nano::wallets_store> wallets_store_impl;
 	nano::wallets_store & wallets_store;
@@ -221,7 +222,7 @@ public: // Testing convenience functions
 		Transaction is comitted before function return
 	 */
 	[[nodiscard]] nano::process_return process (nano::block & block);
-	[[nodiscard]] nano::process_return process (nano::write_transaction const &, nano::block & block);
+	[[nodiscard]] nano::process_return process (store::write_transaction const &, nano::block & block);
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
 

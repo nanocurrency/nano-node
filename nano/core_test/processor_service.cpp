@@ -1,8 +1,9 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/work.hpp>
+#include <nano/node/make_store.hpp>
 #include <nano/secure/ledger.hpp>
-#include <nano/secure/store.hpp>
 #include <nano/secure/utility.hpp>
+#include <nano/store/component.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>

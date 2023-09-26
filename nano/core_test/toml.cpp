@@ -8,6 +8,8 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/filesystem.hpp>
+
 #include <numeric>
 #include <sstream>
 #include <string>

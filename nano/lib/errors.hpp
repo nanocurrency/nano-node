@@ -1,8 +1,5 @@
 #pragma once
 
-#include <boost/filesystem/operations.hpp>
-#include <boost/system/error_code.hpp>
-
 #include <algorithm>
 #include <functional>
 #include <memory>
@@ -197,51 +194,6 @@ REGISTER_ERROR_CODES (nano, error_rpc);
 REGISTER_ERROR_CODES (nano, error_process);
 REGISTER_ERROR_CODES (nano, error_config);
 
-#if BOOST_VERSION >= 107800
-/* no need for error_code bridge */
-#else
-#define NANO_USE_BOOST_TO_STD_ERROR_BRIDGE
-#endif
-
-#if defined(NANO_USE_BOOST_TO_STD_ERROR_BRIDGE)
-/* boost->std error_code bridge */
-namespace nano
-{
-namespace error_conversion
-{
-	std::error_category const & generic_category ();
-}
-}
-
-namespace std
-{
-template <>
-struct is_error_code_enum<boost::system::errc::errc_t>
-	: public std::true_type
-{
-};
-
-std::error_code make_error_code (boost::system::errc::errc_t const & e);
-}
-namespace nano
-{
-namespace error_conversion
-{
-	namespace detail
-	{
-		class generic_category : public std::error_category
-		{
-		public:
-			char const * name () const noexcept override;
-			std::string message (int value) const override;
-		};
-	}
-	std::error_category const & generic_category ();
-	std::error_code convert (boost::system::error_code const & error);
-}
-}
-#endif
-
 namespace nano
 {
 /** Adapter for std/boost::error_code, std::exception and bool flags to facilitate unified error handling */
@@ -253,24 +205,14 @@ public:
 	error (nano::error && error_a) = default;
 
 	error (std::error_code code_a);
-#if defined(NANO_USE_BOOST_TO_STD_ERROR_BRIDGE)
-	error (boost::system::error_code const & code_a);
-#endif
 	error (std::string message_a);
 	error (std::exception const & exception_a);
 	error & operator= (nano::error const & err_a);
 	error & operator= (nano::error && err_a);
 	error & operator= (std::error_code code_a);
-#if defined(NANO_USE_BOOST_TO_STD_ERROR_BRIDGE)
-	error & operator= (boost::system::error_code const & code_a);
-	error & operator= (boost::system::errc::errc_t const & code_a);
-#endif
 	error & operator= (std::string message_a);
 	error & operator= (std::exception const & exception_a);
 	bool operator== (std::error_code code_a) const;
-#if defined(NANO_USE_BOOST_TO_STD_ERROR_BRIDGE)
-	bool operator== (boost::system::error_code code_a) const;
-#endif
 	error & then (std::function<nano::error &()> next);
 	template <typename... ErrorCode>
 	error & accept (ErrorCode... err)

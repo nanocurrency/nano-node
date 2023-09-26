@@ -9,8 +9,10 @@
 
 namespace nano
 {
-class store;
-class transaction;
+namespace store
+{
+	class component;
+}
 
 class rep_weights
 {

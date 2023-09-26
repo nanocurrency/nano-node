@@ -1,4 +1,5 @@
 #include <nano/lib/rpcconfig.hpp>
+#include <nano/lib/thread_runner.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/ipc/ipc_server.hpp>

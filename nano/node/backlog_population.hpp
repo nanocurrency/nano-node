@@ -9,10 +9,14 @@
 #include <condition_variable>
 #include <thread>
 
+namespace nano::store
+{
+class component;
+class transaction;
+}
 namespace nano
 {
 class stats;
-class store;
 class election_scheduler;
 
 class backlog_population final
@@ -30,7 +34,7 @@ public:
 		unsigned frequency;
 	};
 
-	backlog_population (const config &, nano::store &, nano::stats &);
+	backlog_population (const config &, store::component &, nano::stats &);
 	~backlog_population ();
 
 	void start ();
@@ -46,11 +50,11 @@ public:
 	/**
 	 * Callback called for each backlogged account
 	 */
-	using callback_t = nano::observer_set<nano::transaction const &, nano::account const &, nano::account_info const &, nano::confirmation_height_info const &>;
+	using callback_t = nano::observer_set<store::transaction const &, nano::account const &, nano::account_info const &, nano::confirmation_height_info const &>;
 	callback_t activate_callback;
 
 private: // Dependencies
-	nano::store & store;
+	nano::store::component & store;
 	nano::stats & stats;
 
 	config config_m;
@@ -60,7 +64,7 @@ private:
 	bool predicate () const;
 
 	void populate_backlog (nano::unique_lock<nano::mutex> & lock);
-	void activate (nano::transaction const &, nano::account const &);
+	void activate (store::transaction const &, nano::account const &);
 
 	/** This is a manual trigger, the ongoing backlog population does not use this.
 	 *  It can be triggered even when backlog population (frontiers confirmation) is disabled. */

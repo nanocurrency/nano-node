@@ -10,12 +10,14 @@
 #include <memory>
 #include <thread>
 
+namespace nano::store
+{
+class write_transaction;
+}
+
 namespace nano
 {
 class node;
-class read_transaction;
-class transaction;
-class write_transaction;
 class write_database_queue;
 
 /**
@@ -53,9 +55,9 @@ private:
 
 private:
 	// Roll back block in the ledger that conflicts with 'block'
-	void rollback_competitor (nano::write_transaction const & transaction, nano::block const & block);
-	nano::process_return process_one (nano::write_transaction const &, std::shared_ptr<nano::block> block, bool const = false);
-	void queue_unchecked (nano::write_transaction const &, nano::hash_or_account const &);
+	void rollback_competitor (store::write_transaction const & transaction, nano::block const & block);
+	nano::process_return process_one (store::write_transaction const &, std::shared_ptr<nano::block> block, bool const = false);
+	void queue_unchecked (store::write_transaction const &, nano::hash_or_account const &);
 	std::deque<processed_t> process_batch (nano::unique_lock<nano::mutex> &);
 	void process_verified_state_blocks (std::deque<nano::state_block_signature_verification::value_type> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);
 	void add_impl (std::shared_ptr<nano::block> block);

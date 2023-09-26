@@ -16,7 +16,6 @@ namespace nano
 {
 class ledger;
 class node_config;
-class transaction;
 
 /** Track online representatives and trend online weight */
 class online_reps final
@@ -51,7 +50,7 @@ private:
 	class tag_account
 	{
 	};
-	nano::uint128_t calculate_trend (nano::transaction &) const;
+	nano::uint128_t calculate_trend (store::transaction &) const;
 	nano::uint128_t calculate_online () const;
 	mutable nano::mutex mutex;
 	nano::ledger & ledger;

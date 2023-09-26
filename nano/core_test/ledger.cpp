@@ -1,10 +1,11 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/election.hpp>
-#include <nano/node/rocksdb/rocksdb.hpp>
+#include <nano/node/make_store.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/inproc.hpp>
+#include <nano/store/rocksdb/rocksdb.hpp>
 #include <nano/test_common/ledger.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -112,7 +113,7 @@ TEST (ledger, process_send)
 	ASSERT_TRUE (store.frontier.get (transaction, info1->head).is_zero ());
 	ASSERT_EQ (nano::dev::genesis_key.pub, store.frontier.get (transaction, hash1));
 	ASSERT_EQ (nano::process_result::progress, return1.code);
-	ASSERT_EQ (nano::dev::genesis_key.pub, store.block.account_calculated (*send));
+	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.account (*send));
 	ASSERT_EQ (50, ledger.account_balance (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, ledger.account_receivable (transaction, key2.pub));
 	auto info2 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
@@ -141,7 +142,7 @@ TEST (ledger, process_send)
 	ASSERT_EQ (1, open->sideband ().height);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, ledger.amount (transaction, hash2));
 	ASSERT_EQ (nano::process_result::progress, return2.code);
-	ASSERT_EQ (key2.pub, store.block.account_calculated (*open));
+	ASSERT_EQ (key2.pub, ledger.account (*open));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, ledger.amount (transaction, hash2));
 	ASSERT_EQ (key2.pub, store.frontier.get (transaction, hash2));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, ledger.account_balance (transaction, key2.pub));
@@ -225,7 +226,7 @@ TEST (ledger, process_receive)
 	nano::block_hash hash2 (open->hash ());
 	auto return1 = ledger.process (transaction, *open);
 	ASSERT_EQ (nano::process_result::progress, return1.code);
-	ASSERT_EQ (key2.pub, store.block.account_calculated (*open));
+	ASSERT_EQ (key2.pub, ledger.account (*open));
 	ASSERT_EQ (key2.pub, open->sideband ().account);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, open->sideband ().balance.number ());
 	ASSERT_EQ (1, open->sideband ().height);
@@ -258,7 +259,7 @@ TEST (ledger, process_receive)
 	ASSERT_TRUE (store.frontier.get (transaction, hash2).is_zero ());
 	ASSERT_EQ (key2.pub, store.frontier.get (transaction, hash4));
 	ASSERT_EQ (nano::process_result::progress, return2.code);
-	ASSERT_EQ (key2.pub, store.block.account_calculated (*receive));
+	ASSERT_EQ (key2.pub, ledger.account (*receive));
 	ASSERT_EQ (hash4, ledger.latest (transaction, key2.pub));
 	ASSERT_EQ (25, ledger.account_balance (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (0, ledger.account_receivable (transaction, key2.pub));
@@ -525,7 +526,7 @@ TEST (ledger, representative_change)
 	ASSERT_TRUE (store.frontier.get (transaction, info1->head).is_zero ());
 	ASSERT_EQ (nano::dev::genesis_key.pub, store.frontier.get (transaction, block->hash ()));
 	ASSERT_EQ (nano::process_result::progress, return1.code);
-	ASSERT_EQ (nano::dev::genesis_key.pub, store.block.account_calculated (*block));
+	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.account (*block));
 	ASSERT_EQ (0, ledger.weight (nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (key2.pub));
 	auto info2 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
@@ -4494,7 +4495,7 @@ TEST (ledger, unchecked_receive)
 	node1.work_generate_blocking (*receive1);
 	node1.block_processor.add (send1);
 	node1.block_processor.add (receive1);
-	auto check_block_is_listed = [&] (nano::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
+	auto check_block_is_listed = [&] (nano::store::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
 		return !node1.unchecked.get (block_hash_a).empty ();
 	};
 	// Previous block for receive1 is unknown, signature cannot be validated
@@ -5542,7 +5543,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	nano::logger_mt logger{};
 	boost::asio::ip::address_v6 address (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"));
 	uint16_t port = 100;
-	nano::lmdb::store store{ logger, path / "data.ldb", nano::dev::constants };
+	nano::store::lmdb::component store{ logger, path / "data.ldb", nano::dev::constants };
 	nano::ledger ledger{ store, system.stats, nano::dev::constants };
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 
@@ -5557,7 +5558,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 										.build_shared ();
 
 	nano::endpoint_key endpoint_key (address.to_bytes (), port);
-	auto version = nano::store::version_current;
+	auto version = nano::store::component::version_current;
 
 	{
 		auto transaction = store.tx_begin_write ();
@@ -5582,7 +5583,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	auto error = ledger.migrate_lmdb_to_rocksdb (path);
 	ASSERT_FALSE (error);
 
-	nano::rocksdb::store rocksdb_store{ logger, path / "rocksdb", nano::dev::constants };
+	nano::store::rocksdb::component rocksdb_store{ logger, path / "rocksdb", nano::dev::constants };
 	auto rocksdb_transaction (rocksdb_store.tx_begin_read ());
 
 	nano::pending_info pending_info{};

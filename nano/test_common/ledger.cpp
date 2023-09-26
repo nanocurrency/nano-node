@@ -1,3 +1,4 @@
+#include <nano/node/make_store.hpp>
 #include <nano/node/node.hpp>
 #include <nano/test_common/ledger.hpp>
 
@@ -21,7 +22,7 @@ nano::ledger & nano::test::context::ledger_context::ledger ()
 	return ledger_m;
 }
 
-nano::store & nano::test::context::ledger_context::store ()
+nano::store::component & nano::test::context::ledger_context::store ()
 {
 	return *store_m;
 }

@@ -1,6 +1,8 @@
 #include <nano/lib/utility.hpp>
 #include <nano/secure/working.hpp>
 
+#include <boost/filesystem.hpp>
+
 #include <pwd.h>
 #include <sys/types.h>
 

@@ -5,8 +5,9 @@
 #include <nano/lib/errors.hpp>
 #include <nano/node/ledger_walker.hpp>
 #include <nano/secure/ledger.hpp>
-#include <nano/secure/store.hpp>
 #include <nano/secure/utility.hpp>
+#include <nano/store/block.hpp>
+#include <nano/store/component.hpp>
 
 #include <algorithm>
 #include <limits>
@@ -169,7 +170,7 @@ void nano::ledger_walker::clear_queue ()
 	decltype (blocks_to_walk){}.swap (blocks_to_walk);
 }
 
-std::shared_ptr<nano::block> nano::ledger_walker::dequeue_block (nano::transaction const & transaction_a)
+std::shared_ptr<nano::block> nano::ledger_walker::dequeue_block (store::transaction const & transaction_a)
 {
 	auto block = ledger.store.block.get (transaction_a, blocks_to_walk.top ());
 	blocks_to_walk.pop ();

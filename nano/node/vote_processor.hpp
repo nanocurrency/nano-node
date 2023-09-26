@@ -13,7 +13,10 @@ namespace nano
 {
 class signature_checker;
 class active_transactions;
-class store;
+namespace store
+{
+	class component;
+}
 class node_observers;
 class stats;
 class node_config;
@@ -25,7 +28,6 @@ class network_params;
 class node_flags;
 class stats;
 
-class transaction;
 namespace transport
 {
 	class channel;

@@ -1,5 +1,5 @@
 #include <nano/lib/rep_weights.hpp>
-#include <nano/secure/store.hpp>
+#include <nano/store/component.hpp>
 
 void nano::rep_weights::representation_add (nano::account const & source_rep_a, nano::uint128_t const & amount_a)
 {

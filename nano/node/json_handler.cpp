@@ -23,7 +23,7 @@ void construct_json (nano::container_info_component * component, boost::property
 using ipc_json_handler_no_arg_func_map = std::unordered_map<std::string, std::function<void (nano::json_handler *)>>;
 ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ();
 auto ipc_json_handler_no_arg_funcs = create_ipc_json_handler_no_arg_func_map ();
-bool block_confirmed (nano::node & node, nano::transaction & transaction, nano::block_hash const & hash, bool include_active, bool include_only_confirmed);
+bool block_confirmed (nano::node & node, nano::store::transaction & transaction, nano::block_hash const & hash, bool include_active, bool include_only_confirmed);
 char const * epoch_as_string (nano::epoch);
 }
 
@@ -204,7 +204,7 @@ std::shared_ptr<nano::wallet> nano::json_handler::wallet_impl ()
 	return nullptr;
 }
 
-bool nano::json_handler::wallet_locked_impl (nano::transaction const & transaction_a, std::shared_ptr<nano::wallet> const & wallet_a)
+bool nano::json_handler::wallet_locked_impl (store::transaction const & transaction_a, std::shared_ptr<nano::wallet> const & wallet_a)
 {
 	bool result (false);
 	if (!ec)
@@ -218,7 +218,7 @@ bool nano::json_handler::wallet_locked_impl (nano::transaction const & transacti
 	return result;
 }
 
-bool nano::json_handler::wallet_account_impl (nano::transaction const & transaction_a, std::shared_ptr<nano::wallet> const & wallet_a, nano::account const & account_a)
+bool nano::json_handler::wallet_account_impl (store::transaction const & transaction_a, std::shared_ptr<nano::wallet> const & wallet_a, nano::account const & account_a)
 {
 	bool result (false);
 	if (!ec)
@@ -257,7 +257,7 @@ nano::account nano::json_handler::account_impl (std::string account_text, std::e
 	return result;
 }
 
-nano::account_info nano::json_handler::account_info_impl (nano::transaction const & transaction_a, nano::account const & account_a)
+nano::account_info nano::json_handler::account_info_impl (store::transaction const & transaction_a, nano::account const & account_a)
 {
 	nano::account_info result;
 	if (!ec)
@@ -402,7 +402,7 @@ uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a)
 	// Send check
 	if (block_previous != nullptr)
 	{
-		details.is_send = node.store.block.balance (transaction, previous) > block_a.balance ().number ();
+		details.is_send = node.ledger.balance (transaction, previous) > block_a.balance ().number ();
 		details_found = true;
 	}
 	// Epoch check
@@ -1653,7 +1653,7 @@ void nano::json_handler::block_create ()
 			else if (previous_text.is_initialized () && balance_text.is_initialized () && type == "send")
 			{
 				auto transaction (node.store.tx_begin_read ());
-				if (node.store.block.exists (transaction, previous) && node.store.block.balance (transaction, previous) != balance.number ())
+				if (node.store.block.exists (transaction, previous) && node.ledger.balance (transaction, previous) != balance.number ())
 				{
 					ec = nano::error_rpc::block_create_balance_mismatch;
 				}
@@ -2377,7 +2377,7 @@ namespace
 class history_visitor : public nano::block_visitor
 {
 public:
-	history_visitor (nano::json_handler & handler_a, bool raw_a, nano::transaction & transaction_a, boost::property_tree::ptree & tree_a, nano::block_hash const & hash_a, std::vector<nano::public_key> const & accounts_filter_a) :
+	history_visitor (nano::json_handler & handler_a, bool raw_a, nano::store::transaction & transaction_a, boost::property_tree::ptree & tree_a, nano::block_hash const & hash_a, std::vector<nano::public_key> const & accounts_filter_a) :
 		handler (handler_a),
 		raw (raw_a),
 		transaction (transaction_a),
@@ -2569,7 +2569,7 @@ public:
 	}
 	nano::json_handler & handler;
 	bool raw;
-	nano::transaction & transaction;
+	nano::store::transaction & transaction;
 	boost::property_tree::ptree & tree;
 	nano::block_hash const & hash;
 	std::vector<nano::public_key> const & accounts_filter;
@@ -5095,7 +5095,7 @@ void nano::json_handler::work_generate ()
 					auto transaction_l (node.store.tx_begin_read ());
 					if (node.store.block.exists (transaction_l, hash))
 					{
-						account = node.store.block.account (transaction_l, hash);
+						account = node.ledger.account (transaction_l, hash);
 					}
 				}
 				auto secondary_work_peers_l (request.get<bool> ("secondary_work_peers", false));
@@ -5448,7 +5448,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 }
 
 /** Due to the asynchronous nature of updating confirmation heights, it can also be necessary to check active roots */
-bool block_confirmed (nano::node & node, nano::transaction & transaction, nano::block_hash const & hash, bool include_active, bool include_only_confirmed)
+bool block_confirmed (nano::node & node, nano::store::transaction & transaction, nano::block_hash const & hash, bool include_active, bool include_only_confirmed)
 {
 	bool is_confirmed = false;
 	if (include_active && !include_only_confirmed)

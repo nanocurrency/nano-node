@@ -3,8 +3,7 @@
 	url = https://github.com/miniupnp/miniupnp.git
 [submodule "lmdb"]
 	path = submodules/lmdb
-	url = https://github.com/nanocurrency/lmdb.git
-	branch = lmdb_0_9_23
+	url = https://github.com/LMDB/lmdb.git
 [submodule "cryptopp"]
 	path = submodules/cryptopp
 	url = https://github.com/weidai11/cryptopp.git

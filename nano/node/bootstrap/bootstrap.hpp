@@ -14,6 +14,11 @@
 
 namespace mi = boost::multi_index;
 
+namespace nano::store
+{
+class transaction;
+}
+
 namespace nano
 {
 class node;
@@ -101,7 +106,7 @@ public:
 	void notify_listeners (bool);
 	void add_observer (std::function<void (bool)> const &);
 	bool in_progress ();
-	void block_processed (nano::transaction const & tx, nano::process_return const & result, nano::block const & block);
+	void block_processed (store::transaction const & tx, nano::process_return const & result, nano::block const & block);
 	std::shared_ptr<nano::bootstrap_connections> connections;
 	std::shared_ptr<nano::bootstrap_attempt> new_attempt ();
 	bool has_new_attempts ();

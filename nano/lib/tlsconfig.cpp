@@ -3,6 +3,7 @@
 #include <nano/lib/tlsconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 
+#include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 
 #include <iostream>
