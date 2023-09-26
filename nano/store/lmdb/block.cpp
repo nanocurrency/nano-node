@@ -18,14 +18,18 @@ void nano::store::lmdb::block::put (store::write_transaction const & transaction
 
 void nano::store::lmdb::block::raw_put (store::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_hash const & hash_a)
 {
+	nano::store::lmdb::db_val hash_val{ hash_a };
 	nano::store::lmdb::db_val value{ data.size (), (void *)data.data () };
 	uint64_t index = index_next++;
+	nano::store::lmdb::db_val index_val{ index };
 	{
-		auto status = store.put (transaction_a, tables::block_index, hash_a, index);
+		//auto status = store.put (transaction_a, tables::block_index, hash_a, index);
+		auto status = mdb_put (reinterpret_cast<MDB_txn *> (transaction_a.get_handle ()), block_index_v23_handle, hash_val, index_val, 0);
 		store.release_assert_success (status);
 	}
 	{
-		auto status = store.put (transaction_a, tables::block_data, index, value);
+		//auto status = store.put (transaction_a, tables::block_data, index, value);
+		auto status = mdb_put (reinterpret_cast<MDB_txn *> (transaction_a.get_handle ()), block_data_v23_handle, index_val, value, MDB_APPEND);
 		store.release_assert_success (status);
 	}
 	/*auto status = store.put (transaction_a, tables::blocks, hash_a, value);
