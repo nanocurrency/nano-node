@@ -25,6 +25,7 @@ add_library(
   blockbuilders.cpp
   blocks.hpp
   blocks.cpp
+  char_traits.hpp
   cli.hpp
   cli.cpp
   config.hpp
