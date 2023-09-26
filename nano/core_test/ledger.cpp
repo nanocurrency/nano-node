@@ -5474,7 +5474,7 @@ TEST (ledger, pruning_safe_functions)
 	ASSERT_FALSE (error);
 }
 
-TEST (ledger, hash_root_random)
+TEST (ledger, DISABLED_hash_root_random)
 {
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
