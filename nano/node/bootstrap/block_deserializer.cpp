@@ -1,7 +1,7 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/stream.hpp>
 #include <nano/node/bootstrap/block_deserializer.hpp>
 #include <nano/node/transport/socket.hpp>
-#include <nano/secure/buffer.hpp>
 
 nano::bootstrap::block_deserializer::block_deserializer () :
 	read_buffer{ std::make_shared<std::vector<uint8_t>> () }

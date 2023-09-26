@@ -6,7 +6,7 @@
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
-#include <nano/secure/buffer.hpp>
+#include <nano/lib/stream.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/versioning.hpp>
 

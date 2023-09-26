@@ -1,9 +1,9 @@
+#include <nano/lib/stream.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/lmdb_iterator.hpp>
 #include <nano/node/lmdb/wallet_value.hpp>
-#include <nano/secure/buffer.hpp>
 #include <nano/secure/versioning.hpp>
 
 #include <boost/filesystem.hpp>
