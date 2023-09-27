@@ -104,7 +104,6 @@ target_link_libraries(
   nano_lib
   ipc_flatbuffers_lib
   crypto_lib
-  ed25519
   blake2
   ${CRYPTOPP_LIBRARY}
   ${CMAKE_DL_LIBS}
