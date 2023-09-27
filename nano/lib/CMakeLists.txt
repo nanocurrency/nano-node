@@ -102,13 +102,12 @@ include_directories(
 
 target_link_libraries(
   nano_lib
-  ed25519
+  ipc_flatbuffers_lib
   crypto_lib
   blake2
-  secure
-  ipc_flatbuffers_lib
   ${CRYPTOPP_LIBRARY}
   ${CMAKE_DL_LIBS}
+  Boost::iostreams
   Boost::asio
   Boost::circular_buffer
   Boost::dll

@@ -1,13 +1,7 @@
 add_executable(nano_node daemon.cpp daemon.hpp entry.cpp)
 
-target_link_libraries(
-  nano_node
-  Boost::process
-  node
-  rpc
-  secure
-  argon2
-  ${PLATFORM_LIBS})
+target_link_libraries(nano_node node Boost::process ${PLATFORM_LIBS})
+
 include_directories(${CMAKE_SOURCE_DIR}/submodules)
 
 target_compile_definitions(

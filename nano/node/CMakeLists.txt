@@ -206,10 +206,10 @@ endif()
 
 target_link_libraries(
   node
-  nano_store
-  rpc
-  secure
   nano_lib
+  nano_store
+  secure
+  rpc
   libminiupnpc-static
   argon2
   lmdb

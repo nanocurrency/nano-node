@@ -50,14 +50,8 @@ add_library(
   utility.cpp
   working.hpp)
 
-target_link_libraries(
-  secure
-  nano_lib
-  ed25519
-  crypto_lib
-  Boost::iostreams
-  Boost::system
-  Boost::filesystem)
+target_link_libraries(secure nano_lib ed25519 crypto_lib Boost::system
+                      Boost::filesystem)
 
 target_compile_definitions(secure PUBLIC -DQT_NO_KEYWORDS
                                          -DBOOST_ASIO_HAS_STD_ARRAY=1)
