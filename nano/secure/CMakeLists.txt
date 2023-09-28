@@ -39,7 +39,6 @@ add_library(
   ${PLATFORM_SECURE_SOURCE}
   ${CMAKE_BINARY_DIR}/bootstrap_weights_live.cpp
   ${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp
-  buffer.hpp
   common.hpp
   common.cpp
   ledger.hpp

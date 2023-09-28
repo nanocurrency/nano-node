@@ -1,6 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/locks.hpp>
-#include <nano/secure/buffer.hpp>
+#include <nano/lib/stream.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/network_filter.hpp>
 

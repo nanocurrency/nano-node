@@ -1,15 +1,23 @@
 #pragma once
 
+#include <nano/lib/char_traits.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/endian/conversion.hpp>
+#include <boost/iostreams/device/array.hpp>
+#include <boost/iostreams/device/back_inserter.hpp>
+#include <boost/iostreams/stream_buffer.hpp>
 
 #include <streambuf>
+#include <string>
+#include <vector>
 
 namespace nano
 {
 // We operate on streams of uint8_t by convention
-using stream = std::basic_streambuf<uint8_t>;
+using stream = std::basic_streambuf<uint8_t, uint8_char_traits>;
+using bufferstream = boost::iostreams::stream_buffer<boost::iostreams::basic_array_source<uint8_t>, uint8_char_traits>;
+using vectorstream = boost::iostreams::stream_buffer<boost::iostreams::back_insert_device<std::vector<uint8_t>>, uint8_char_traits>;
 
 // Read a raw byte stream the size of `T' and fill value. Returns true if there was an error, false otherwise
 template <typename T>

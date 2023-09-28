@@ -1,5 +1,5 @@
+#include <nano/lib/stream.hpp>
 #include <nano/node/common.hpp>
-#include <nano/secure/buffer.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/network_filter.hpp>
 #include <nano/test_common/testutil.hpp>

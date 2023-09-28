@@ -9,7 +9,6 @@
 #include <nano/node/election.hpp>
 #include <nano/node/messages.hpp>
 #include <nano/node/network.hpp>
-#include <nano/secure/buffer.hpp>
 
 #include <boost/asio/ip/address_v6.hpp>
 #include <boost/endian/conversion.hpp>

@@ -1,6 +1,7 @@
 #pragma once
+
 #include <nano/lib/numbers.hpp>
-#include <nano/secure/buffer.hpp>
+#include <nano/lib/stream.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/store/block.hpp>
 #include <nano/store/component.hpp>
