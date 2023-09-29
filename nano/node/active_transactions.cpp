@@ -448,66 +448,81 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 // Validate a vote and apply it to the current election if one exists
 nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> const & vote_a)
 {
-	nano::vote_code result{ nano::vote_code::indeterminate };
-	// If all hashes were recently confirmed then it is a replay
-	unsigned recently_confirmed_counter (0);
-
 	std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> process;
-	std::vector<nano::block_hash> inactive; // Hashes that should be added to inactive vote cache
+	std::vector<nano::block_hash> inactive;
 
-	{
-		nano::unique_lock<nano::mutex> lock{ mutex };
-		for (auto const & hash : vote_a->hashes)
-		{
-			auto existing (blocks.find (hash));
-			if (existing != blocks.end ())
-			{
-				process.emplace_back (existing->second, hash);
-			}
-			else if (!recently_confirmed.exists (hash))
-			{
-				inactive.emplace_back (hash);
-			}
-			else
-			{
-				++recently_confirmed_counter;
-			}
-		}
-	}
-
-	// Process inactive votes outside of the critical section
-	for (auto & hash : inactive)
-	{
-		add_inactive_vote_cache (hash, vote_a);
-	}
-
-	if (!process.empty ())
-	{
-		bool replay (false);
-		bool processed (false);
-		for (auto const & [election, block_hash] : process)
-		{
-			auto const result_l = election->vote (vote_a->account, vote_a->timestamp (), block_hash);
-			processed = processed || result_l.processed;
-			replay = replay || result_l.replay;
-		}
-
-		// Republish vote if it is new and the node does not host a principal representative (or close to)
-		if (processed)
-		{
-			auto const reps (node.wallets.reps ());
-			if (!reps.have_half_rep () && !reps.exists (vote_a->account))
-			{
-				node.network.flood_vote (vote_a, 0.5f);
-			}
-		}
-		result = replay ? nano::vote_code::replay : nano::vote_code::vote;
-	}
-	else if (recently_confirmed_counter == vote_a->hashes.size ())
+	unsigned recently_confirmed_counter = categorize_hashes (vote_a, process, inactive);
+	handle_inactive_votes (inactive, vote_a);
+	auto result = process_votes (process, vote_a);
+	if (result == nano::vote_code::indeterminate && is_replay (vote_a, recently_confirmed_counter))
 	{
 		result = nano::vote_code::replay;
 	}
 	return result;
+}
+
+unsigned nano::active_transactions::categorize_hashes (std::shared_ptr<nano::vote> const & vote_a, std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> & process, std::vector<nano::block_hash> & inactive)
+{
+	unsigned recently_confirmed_counter = 0;
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	for (auto const & hash : vote_a->hashes)
+	{
+		auto existing = blocks.find (hash);
+		if (existing != blocks.end ())
+		{
+			process.emplace_back (existing->second, hash);
+		}
+		else if (!recently_confirmed.exists (hash))
+		{
+			inactive.emplace_back (hash);
+		}
+		else
+		{
+			++recently_confirmed_counter;
+		}
+	}
+	return recently_confirmed_counter;
+}
+
+void nano::active_transactions::handle_inactive_votes (std::vector<nano::block_hash> & inactive, std::shared_ptr<nano::vote> const & vote_a)
+{
+	for (auto & hash : inactive)
+	{
+		add_inactive_vote_cache (hash, vote_a);
+	}
+}
+
+nano::vote_code nano::active_transactions::process_votes (std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> & process, std::shared_ptr<nano::vote> const & vote_a)
+{
+	if (process.empty ())
+		return nano::vote_code::indeterminate;
+
+	bool replay = false;
+	bool processed = false;
+	for (auto const & [election, block_hash] : process)
+	{
+		auto const result = election->vote (vote_a->account, vote_a->timestamp (), block_hash);
+		processed = processed || result.processed;
+		replay = replay || result.replay;
+	}
+
+	if (processed)
+		republish_vote_if_needed (vote_a);
+	return replay ? nano::vote_code::replay : nano::vote_code::vote;
+}
+
+void nano::active_transactions::republish_vote_if_needed (std::shared_ptr<nano::vote> const & vote_a)
+{
+	auto const reps = node.wallets.reps ();
+	if (!reps.have_half_rep () && !reps.exists (vote_a->account))
+	{
+		node.network.flood_vote (vote_a, 0.5f);
+	}
+}
+
+bool nano::active_transactions::is_replay (std::shared_ptr<nano::vote> const & vote_a, unsigned recently_confirmed_counter)
+{
+	return recently_confirmed_counter == vote_a->hashes.size ();
 }
 
 bool nano::active_transactions::active (nano::qualified_root const & root_a) const
