@@ -96,10 +96,10 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 		{
 			auto hash (block_a->hash ());
 			nano::unique_lock<nano::mutex> election_winners_lk{ election_winner_details_mutex };
-			auto existing (election_winner_details.find (hash));
-			if (existing != election_winner_details.end ())
+			auto existing_election = get_value (election_winner_details, hash);
+			if (existing_election)
 			{
-				auto election = existing->second;
+				auto election = *existing_election;
 				election_winner_details.erase (hash);
 				election_winners_lk.unlock ();
 				if (election->confirmed () && election->winner ()->hash () == hash)
@@ -544,12 +544,11 @@ std::shared_ptr<nano::block> nano::active_transactions::winner (nano::block_hash
 {
 	std::shared_ptr<nano::block> result;
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	auto existing = blocks.find (hash_a);
-	if (existing != blocks.end ())
+	auto existing_election = get_value (blocks, hash_a);
+	if (existing_election)
 	{
-		auto election = existing->second;
 		lock.unlock ();
-		result = election->winner ();
+		result = (*existing_election)->winner ();
 	}
 	return result;
 }
@@ -630,10 +629,10 @@ boost::optional<nano::election_status_type> nano::active_transactions::confirm_b
 	std::shared_ptr<nano::election> election = nullptr;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
-		auto existing = blocks.find (hash);
-		if (existing != blocks.end ())
+		auto existing_election = get_value (blocks, hash);
+		if (existing_election)
 		{
-			election = existing->second;
+			election = *existing_election;
 		}
 	}
 

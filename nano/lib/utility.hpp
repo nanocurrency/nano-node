@@ -162,6 +162,17 @@ void transform_if (InputIt first, InputIt last, OutputIt dest, Pred pred, Func t
 	}
 }
 
+template <typename MapType, typename KeyType>
+auto get_value (const MapType & map, const KeyType & key) -> std::optional<typename MapType::mapped_type>
+{
+	auto it = map.find (key);
+	if (it != map.end ())
+	{
+		return it->second;
+	}
+	return std::nullopt;
+}
+
 /**
  * Erase elements from container when predicate returns true
  * TODO: Use `std::erase_if` in c++20
