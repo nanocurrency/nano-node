@@ -697,19 +697,19 @@ int nano::store::rocksdb::component::drop (store::write_transaction const & tran
 
 int nano::store::rocksdb::component::clear (::rocksdb::ColumnFamilyHandle * column_family)
 {
-	// Dropping completely removes the column
-	auto name = column_family->GetName ();
-	auto status = db->DropColumnFamily (column_family);
+	::rocksdb::ReadOptions read_options;
+	::rocksdb::WriteOptions write_options;
+	::rocksdb::WriteBatch write_batch;
+	std::unique_ptr<::rocksdb::Iterator> it (db->NewIterator (read_options, column_family));
+
+	for (it->SeekToFirst (); it->Valid (); it->Next ())
+	{
+		write_batch.Delete (column_family, it->key ());
+	}
+
+	::rocksdb::Status status = db->Write (write_options, &write_batch);
 	release_assert (status.ok ());
 
-	// Need to add it back as we just want to clear the contents
-	auto handle_it = std::find_if (handles.begin (), handles.end (), [column_family] (auto & handle) {
-		return handle.get () == column_family;
-	});
-	debug_assert (handle_it != handles.cend ());
-	status = db->CreateColumnFamily (get_cf_options (name), name, &column_family);
-	release_assert (status.ok ());
-	handle_it->reset (column_family);
 	return status.code ();
 }
 
