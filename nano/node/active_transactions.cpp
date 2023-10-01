@@ -396,8 +396,8 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 	if (!stopped)
 	{
 		auto root (block_a->qualified_root ());
-		auto existing (roots.get<tag_root> ().find (root));
-		if (existing == roots.get<tag_root> ().end ())
+		auto existing_entry = get_value_multi_index (roots.get<tag_root> (), root);
+		if (!existing_entry)
 		{
 			if (!recently_confirmed.exists (root))
 			{
@@ -427,7 +427,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 		}
 		else
 		{
-			result.election = existing->election;
+			result.election = existing_entry->election;
 		}
 
 		if (lock_a.owns_lock ())
@@ -532,10 +532,10 @@ std::shared_ptr<nano::election> nano::active_transactions::election (nano::quali
 {
 	std::shared_ptr<nano::election> result;
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto existing = roots.get<tag_root> ().find (root_a);
-	if (existing != roots.get<tag_root> ().end ())
+	auto existing_entry = get_value_multi_index (roots.get<tag_root> (), root_a);
+	if (existing_entry)
 	{
-		result = existing->election;
+		result = existing_entry->election;
 	}
 	return result;
 }
@@ -561,10 +561,10 @@ void nano::active_transactions::erase (nano::block const & block_a)
 void nano::active_transactions::erase (nano::qualified_root const & root_a)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	auto root_it (roots.get<tag_root> ().find (root_a));
-	if (root_it != roots.get<tag_root> ().end ())
+	auto existing_entry = get_value_multi_index (roots.get<tag_root> (), root_a);
+	if (existing_entry)
 	{
-		cleanup_election (lock, root_it->election);
+		cleanup_election (lock, existing_entry->election);
 	}
 }
 
@@ -600,11 +600,11 @@ std::size_t nano::active_transactions::size () const
 bool nano::active_transactions::publish (std::shared_ptr<nano::block> const & block_a)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	auto existing (roots.get<tag_root> ().find (block_a->qualified_root ()));
 	auto result (true);
-	if (existing != roots.get<tag_root> ().end ())
+	auto existing_entry = get_value_multi_index (roots.get<tag_root> (), block_a->qualified_root ());
+	if (existing_entry)
 	{
-		auto election (existing->election);
+		auto election = existing_entry->election;
 		lock.unlock ();
 		result = election->publish (block_a);
 		if (!result)

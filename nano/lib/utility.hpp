@@ -173,6 +173,17 @@ auto get_value (const MapType & map, const KeyType & key) -> std::optional<typen
 	return std::nullopt;
 }
 
+template <typename MultiIndex, typename KeyType>
+auto get_value_multi_index (const MultiIndex & mi, const KeyType & key) -> std::optional<typename MultiIndex::value_type>
+{
+	auto it = mi.find (key);
+	if (it != mi.end ())
+	{
+		return *it;
+	}
+	return std::nullopt;
+}
+
 /**
  * Erase elements from container when predicate returns true
  * TODO: Use `std::erase_if` in c++20
