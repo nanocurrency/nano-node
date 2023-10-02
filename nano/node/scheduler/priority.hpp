@@ -23,14 +23,12 @@ namespace nano::scheduler
 class buckets;
 class priority final
 {
-	friend class component;
-	void start ();
-	void stop ();
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
-
 public:
 	priority (nano::node &, nano::stats &);
 	~priority ();
+
+	void start ();
+	void stop ();
 
 	/**
 	 * Activates the first unconfirmed block of \p account_a
@@ -40,6 +38,8 @@ public:
 	void notify ();
 	std::size_t size () const;
 	bool empty () const;
+
+	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
 
 private: // Dependencies
 	nano::node & node;

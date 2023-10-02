@@ -22,10 +22,6 @@ namespace nano::scheduler
  */
 class hinted final
 {
-	friend class component;
-	void start ();
-	void stop ();
-
 public: // Config
 	struct config final
 	{
@@ -37,6 +33,9 @@ public: // Config
 public:
 	hinted (config const &, nano::node &, nano::vote_cache &, nano::active_transactions &, nano::online_reps &, nano::stats &);
 	~hinted ();
+
+	void start ();
+	void stop ();
 
 	/*
 	 * Notify about changes in AEC vacancy
