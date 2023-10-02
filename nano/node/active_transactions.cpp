@@ -453,12 +453,12 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 
 	categorize_hashes (vote_a, active_elections_hashes, inactive_hashes);
 	handle_inactive_votes (inactive_hashes, vote_a);
-	auto result = handle_active_votes(active_elections_hashes, vote_a);
+	auto result = handle_active_votes (active_elections_hashes, vote_a);
 
 	return result;
 }
 
-void nano::active_transactions::categorize_hashes (std::shared_ptr<nano::vote> const & vote_a, std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> & process, std::vector<nano::block_hash> & inactive)
+void nano::active_transactions::categorize_hashes (std::shared_ptr<nano::vote> const & vote_a, std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> & active_elections_hashes, std::vector<nano::block_hash> & inactive_hashes)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	for (auto const & hash : vote_a->hashes)
@@ -466,32 +466,32 @@ void nano::active_transactions::categorize_hashes (std::shared_ptr<nano::vote> c
 		auto existing = blocks.find (hash);
 		if (existing != blocks.end ())
 		{
-			process.emplace_back (existing->second, hash);
+			active_elections_hashes.emplace_back (existing->second, hash);
 		}
 		else if (!recently_confirmed.exists (hash))
 		{
-			inactive.emplace_back (hash);
+			inactive_hashes.emplace_back (hash);
 		}
 	}
 }
 
-void nano::active_transactions::handle_inactive_votes (std::vector<nano::block_hash> & inactive, std::shared_ptr<nano::vote> const & vote_a)
+void nano::active_transactions::handle_inactive_votes (std::vector<nano::block_hash> & inactive_hashes, std::shared_ptr<nano::vote> const & vote_a)
 {
-	for (auto & hash : inactive)
+	for (auto & hash : inactive_hashes)
 	{
 		add_inactive_vote_cache (hash, vote_a);
 	}
 }
 
-nano::vote_code nano::active_transactions::handle_active_votes (std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> & process, std::shared_ptr<nano::vote> const & vote_a)
+nano::vote_code nano::active_transactions::handle_active_votes (std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> & active_elections_hashes, std::shared_ptr<nano::vote> const & vote_a)
 {
 	auto result = nano::vote_code::indeterminate;
 
-	if (!process.empty ())
+	if (!active_elections_hashes.empty ())
 	{
 		bool replay = false;
 		bool processed = false;
-		for (auto const & [election, block_hash] : process)
+		for (auto const & [election, block_hash] : active_elections_hashes)
 		{
 			auto const result = election->vote (vote_a->account, vote_a->timestamp (), block_hash);
 			processed = processed || result.processed;
@@ -508,7 +508,7 @@ nano::vote_code nano::active_transactions::handle_active_votes (std::vector<std:
 	{
 		result = nano::vote_code::replay;
 	}
-	return result ;
+	return result;
 }
 
 void nano::active_transactions::republish_vote_if_needed (std::shared_ptr<nano::vote> const & vote_a)
@@ -523,13 +523,13 @@ void nano::active_transactions::republish_vote_if_needed (std::shared_ptr<nano::
 bool nano::active_transactions::no_new_votes_present (std::shared_ptr<nano::vote> const & vote_a)
 {
 	for (const auto & hash : vote_a->hashes)
-    {
-        if (!recently_confirmed.exists(hash))
-        {
-            return false; // At least one hash is not recently confirmed, so it's not a replay.
-        }
-    }
-    return true; // All hashes have been recently confirmed, it's a replay.
+	{
+		if (!recently_confirmed.exists (hash))
+		{
+			return false; // At least one hash is not recently confirmed, so it's not a replay.
+		}
+	}
+	return true; // All hashes have been recently confirmed, it's a replay.
 }
 
 bool nano::active_transactions::active (nano::qualified_root const & root_a) const

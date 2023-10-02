@@ -199,10 +199,9 @@ private:
 	void add_inactive_vote_cache (nano::block_hash const & hash, std::shared_ptr<nano::vote> vote);
 	void categorize_hashes (std::shared_ptr<nano::vote> const &, std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> &, std::vector<nano::block_hash> &);
 	void handle_inactive_votes (std::vector<nano::block_hash> &, std::shared_ptr<nano::vote> const &);
+	nano::vote_code handle_active_votes (std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> & process, std::shared_ptr<nano::vote> const & vote_a);
 	void republish_vote_if_needed (std::shared_ptr<nano::vote> const &);
 	bool no_new_votes_present (std::shared_ptr<nano::vote> const &);
-	nano::vote_code handle_active_votes(std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> & process, std::shared_ptr<nano::vote> const & vote_a);
-
 
 private: // Dependencies
 	nano::confirmation_height_processor & confirmation_height_processor;
