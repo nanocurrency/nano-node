@@ -453,11 +453,8 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 
 	categorize_hashes (vote_a, active_elections_hashes, inactive_hashes);
 	handle_inactive_votes (inactive_hashes, vote_a);
-	auto result = process_votes (active_elections_hashes, vote_a);
-	if (result == nano::vote_code::indeterminate && no_new_votes_present (vote_a))
-	{
-		result = nano::vote_code::replay;
-	}
+	auto result = handle_active_votes(active_elections_hashes, vote_a);
+
 	return result;
 }
 
@@ -486,23 +483,32 @@ void nano::active_transactions::handle_inactive_votes (std::vector<nano::block_h
 	}
 }
 
-nano::vote_code nano::active_transactions::process_votes (std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> & process, std::shared_ptr<nano::vote> const & vote_a)
+nano::vote_code nano::active_transactions::handle_active_votes (std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> & process, std::shared_ptr<nano::vote> const & vote_a)
 {
-	if (process.empty ())
-		return nano::vote_code::indeterminate;
+	auto result = nano::vote_code::indeterminate;
 
-	bool replay = false;
-	bool processed = false;
-	for (auto const & [election, block_hash] : process)
+	if (!process.empty ())
 	{
-		auto const result = election->vote (vote_a->account, vote_a->timestamp (), block_hash);
-		processed = processed || result.processed;
-		replay = replay || result.replay;
+		bool replay = false;
+		bool processed = false;
+		for (auto const & [election, block_hash] : process)
+		{
+			auto const result = election->vote (vote_a->account, vote_a->timestamp (), block_hash);
+			processed = processed || result.processed;
+			replay = replay || result.replay;
+		}
+
+		if (processed)
+			republish_vote_if_needed (vote_a);
+
+		result = replay ? nano::vote_code::replay : nano::vote_code::vote;
 	}
 
-	if (processed)
-		republish_vote_if_needed (vote_a);
-	return replay ? nano::vote_code::replay : nano::vote_code::vote;
+	if (result == nano::vote_code::indeterminate && no_new_votes_present (vote_a))
+	{
+		result = nano::vote_code::replay;
+	}
+	return result ;
 }
 
 void nano::active_transactions::republish_vote_if_needed (std::shared_ptr<nano::vote> const & vote_a)
