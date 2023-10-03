@@ -29,6 +29,7 @@ enum class type : uint8_t
 	filter,
 	telemetry,
 	vote_generator,
+	vote_cache,
 	hinting,
 	blockprocessor,
 	bootstrap_server,
@@ -140,6 +141,7 @@ enum class detail : uint8_t
 
 	// election specific
 	vote_new,
+	vote_processed,
 	vote_cached,
 	election_block_conflict,
 	generate_vote,
@@ -211,6 +213,9 @@ enum class detail : uint8_t
 	node_id_mismatch,
 	genesis_mismatch,
 	request_within_protection_cache_zone,
+	no_response_received,
+	unsolicited_telemetry_ack,
+	failed_send_telemetry_req,
 	empty_payload,
 	cleanup_outdated,
 
