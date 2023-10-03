@@ -19,7 +19,6 @@ enum class type : uint8_t
 	vote,
 	election,
 	http_callback,
-	peering,
 	ipc,
 	tcp,
 	confirmation_height,
@@ -45,11 +44,7 @@ enum class type : uint8_t
 	optimistic_scheduler,
 	handshake,
 
-	bootstrap_server_requests,
-	bootstrap_server_responses,
 	bootstrap_ascending,
-	bootstrap_ascending_connections,
-	bootstrap_ascending_thread,
 	bootstrap_ascending_accounts,
 
 	_last // Must be the last enum
@@ -75,7 +70,6 @@ enum class detail : uint8_t
 	batch,
 
 	// error specific
-	bad_sender,
 	insufficient_work,
 	http_callback,
 	unreachable_host,
@@ -113,7 +107,6 @@ enum class detail : uint8_t
 	invalid,
 	keepalive,
 	publish,
-	republish_vote,
 	confirm_req,
 	confirm_ack,
 	node_id_handshake,
@@ -131,17 +124,13 @@ enum class detail : uint8_t
 	// bootstrap specific
 	bulk_pull,
 	bulk_pull_account,
-	bulk_pull_deserialize_receive_block,
 	bulk_pull_error_starting_request,
 	bulk_pull_failed_account,
-	bulk_pull_receive_block_failure,
 	bulk_pull_request_failure,
 	bulk_push,
 	frontier_req,
 	frontier_confirmation_failed,
-	frontier_confirmation_successful,
 	error_socket_close,
-	request_underflow,
 
 	// vote specific
 	vote_valid,
@@ -154,14 +143,7 @@ enum class detail : uint8_t
 	vote_new,
 	vote_processed,
 	vote_cached,
-	late_block,
-	late_block_seconds,
 	election_block_conflict,
-	election_restart,
-	election_not_confirmed,
-	election_hinted_overflow,
-	election_hinted_confirmed,
-	election_hinted_drop,
 	generate_vote,
 	generate_vote_normal,
 	generate_vote_final,
@@ -206,9 +188,6 @@ enum class detail : uint8_t
 	// ipc
 	invocations,
 
-	// peering
-	handshake,
-
 	// confirmation height
 	blocks_confirmed,
 	blocks_confirmed_unbounded,
@@ -223,8 +202,6 @@ enum class detail : uint8_t
 	requests_generated_hashes,
 	requests_cached_votes,
 	requests_generated_votes,
-	requests_cached_late_hashes,
-	requests_cached_late_votes,
 	requests_cannot_vote,
 	requests_unknown,
 
@@ -233,7 +210,6 @@ enum class detail : uint8_t
 
 	// telemetry
 	invalid_signature,
-	different_genesis_hash,
 	node_id_mismatch,
 	genesis_mismatch,
 	request_within_protection_cache_zone,
@@ -242,7 +218,6 @@ enum class detail : uint8_t
 	failed_send_telemetry_req,
 	empty_payload,
 	cleanup_outdated,
-	cleanup_dead,
 
 	// vote generator
 	generator_broadcasts,
@@ -255,11 +230,8 @@ enum class detail : uint8_t
 
 	// bootstrap server
 	response,
-	write_drop,
 	write_error,
 	blocks,
-	drop,
-	bad_count,
 	response_blocks,
 	response_account_info,
 	channel_full,
@@ -295,19 +267,6 @@ enum class detail : uint8_t
 	timeout,
 	nothing_new,
 
-	// bootstrap ascending connections
-	connect,
-	connect_missing,
-	connect_failed,
-	connect_success,
-	reuse,
-
-	// bootstrap ascending thread
-	read_block,
-	read_block_done,
-	read_block_end,
-	read_block_error,
-
 	// bootstrap ascending accounts
 	prioritize,
 	prioritize_failed,
@@ -327,14 +286,6 @@ enum class detail : uint8_t
 	priority_erase_overflow,
 	deprioritize,
 	deprioritize_failed,
-
-	// active
-	started_hinted,
-	started_optimistic,
-
-	// optimistic
-	pop_gap,
-	pop_leaf,
 
 	_last // Must be the last enum
 };
