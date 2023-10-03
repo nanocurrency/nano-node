@@ -2,8 +2,22 @@
 #include <nano/store/lmdb/block.hpp>
 #include <nano/store/lmdb/lmdb.hpp>
 
-nano::store::lmdb::block::block (nano::store::lmdb::component & store_a) :
-	store{ store_a } {};
+nano::store::lmdb::block::block (bool const & error, nano::store::lmdb::component & store_a) :
+	store{ store_a }
+{
+	if (!error)
+	{
+		auto transaction = store.tx_begin_read ();
+		if (count (transaction) > 0)
+		{
+			nano::store::lmdb::db_val key;
+			auto status = store.last_key (transaction, tables::block_data, key);
+			store.release_assert_success (status);
+			auto index = static_cast<uint64_t> (key);
+			index_next = index + 1;
+		}
+	}
+}
 
 void nano::store::lmdb::block::put (store::write_transaction const & transaction, nano::block_hash const & hash, nano::block const & block)
 {
@@ -32,6 +46,13 @@ void nano::store::lmdb::block::raw_put (store::write_transaction const & transac
 		auto status = mdb_put (reinterpret_cast<MDB_txn *> (transaction_a.get_handle ()), block_data_v23_handle, index_val, value, MDB_APPEND);
 		store.release_assert_success (status);
 	}
+
+	nano::store::lmdb::db_val key{ uint64_t{ 42 } };
+	store.last_key (transaction_a, tables::block_data, key);
+	auto size = key.size ();
+	auto data_ = key.data ();
+	auto last_key = static_cast<uint64_t> (key);
+
 	/*auto status = store.put (transaction_a, tables::blocks, hash_a, value);
 	store.release_assert_success (status);*/
 }

@@ -29,7 +29,11 @@ nano::store::lmdb::component::component (nano::logger_mt & logger_a, boost::file
 		successor_store
 	},
 	// clang-format on
-	block_store{ *this },
+	logger (logger_a),
+	env (error, path_a, nano::store::lmdb::env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
+	mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
+	txn_tracking_enabled (txn_tracking_config_a.enable),
+	block_store{ error, *this },
 	frontier_store{ *this },
 	account_store{ *this },
 	pending_store{ *this },
@@ -39,11 +43,7 @@ nano::store::lmdb::component::component (nano::logger_mt & logger_a, boost::file
 	confirmation_height_store{ *this },
 	final_vote_store{ *this },
 	version_store{ *this },
-	successor_store{ *this },
-	logger (logger_a),
-	env (error, path_a, nano::store::lmdb::env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
-	mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
-	txn_tracking_enabled (txn_tracking_config_a.enable)
+	successor_store{ *this }
 {
 	if (!error)
 	{
@@ -287,6 +287,17 @@ int nano::store::lmdb::component::put (store::write_transaction const & transact
 int nano::store::lmdb::component::del (store::write_transaction const & transaction_a, tables table_a, nano::store::lmdb::db_val const & key_a) const
 {
 	return (mdb_del (env.tx (transaction_a), table_to_dbi (table_a), key_a, nullptr));
+}
+
+int nano::store::lmdb::component::last_key (store::transaction const & transaction_a, tables table_a, nano::store::lmdb::db_val const & key_a) const
+{
+	MDB_cursor * cursor = nullptr;
+	auto status = mdb_cursor_open (env.tx (transaction_a), table_to_dbi (table_a), &cursor);
+	release_assert_success (status);
+	nano::store::lmdb::db_val ignored;
+	status = mdb_cursor_get (cursor, key_a, ignored, MDB_LAST);
+	release_assert_success (status);
+	return status;
 }
 
 int nano::store::lmdb::component::drop (store::write_transaction const & transaction_a, tables table_a)

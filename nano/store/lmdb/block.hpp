@@ -23,7 +23,7 @@ class block : public nano::store::block
 	uint64_t index_next{ 0 };
 
 public:
-	explicit block (nano::store::lmdb::component & store_a);
+	explicit block (bool const & error, nano::store::lmdb::component & store_a);
 	void put (store::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a) override;
 	void raw_put (store::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_hash const & hash_a) override;
 	std::shared_ptr<nano::block> get (store::transaction const & transaction_a, nano::block_hash const & hash_a) const override;
