@@ -1,7 +1,5 @@
 #include <nano/lib/utility.hpp>
 
-#include <boost/filesystem.hpp>
-
 // clang-format off
 // Keep windows.h header at the top
 #include <windows.h>
@@ -18,24 +16,24 @@ void nano::set_umask ()
 	debug_assert (result == 0);
 }
 
-void nano::set_secure_perm_directory (boost::filesystem::path const & path)
+void nano::set_secure_perm_directory (std::filesystem::path const & path)
 {
-	boost::filesystem::permissions (path, boost::filesystem::owner_all);
+	std::filesystem::permissions (path, std::filesystem::perms::owner_all);
 }
 
-void nano::set_secure_perm_directory (boost::filesystem::path const & path, boost::system::error_code & ec)
+void nano::set_secure_perm_directory (std::filesystem::path const & path, std::error_code & ec)
 {
-	boost::filesystem::permissions (path, boost::filesystem::owner_all, ec);
+	std::filesystem::permissions (path, std::filesystem::perms::owner_all, ec);
 }
 
-void nano::set_secure_perm_file (boost::filesystem::path const & path)
+void nano::set_secure_perm_file (std::filesystem::path const & path)
 {
-	boost::filesystem::permissions (path, boost::filesystem::owner_read | boost::filesystem::owner_write);
+	std::filesystem::permissions (path, std::filesystem::perms::owner_read | std::filesystem::perms::owner_write);
 }
 
-void nano::set_secure_perm_file (boost::filesystem::path const & path, boost::system::error_code & ec)
+void nano::set_secure_perm_file (std::filesystem::path const & path, std::error_code & ec)
 {
-	boost::filesystem::permissions (path, boost::filesystem::owner_read | boost::filesystem::owner_write, ec);
+	std::filesystem::permissions (path, std::filesystem::perms::owner_read | std::filesystem::perms::owner_write, ec);
 }
 
 bool nano::is_windows_elevated ()

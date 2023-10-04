@@ -15,6 +15,6 @@ namespace nano_daemon
 class daemon
 {
 public:
-	void run (boost::filesystem::path const &, nano::node_flags const & flags);
+	void run (std::filesystem::path const &, nano::node_flags const & flags);
 };
 }

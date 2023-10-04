@@ -11,14 +11,13 @@
 #include <nano/rpc/rpc_request_processor.hpp>
 #include <nano/secure/utility.hpp>
 
-#include <boost/filesystem.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/program_options.hpp>
 
 namespace
 {
-void logging_init (boost::filesystem::path const & application_path_a)
+void logging_init (std::filesystem::path const & application_path_a)
 {
 	static std::atomic_flag logging_already_added = ATOMIC_FLAG_INIT;
 	if (!logging_already_added.test_and_set ())
@@ -35,9 +34,9 @@ void logging_init (boost::filesystem::path const & application_path_a)
 
 volatile sig_atomic_t sig_int_or_term = 0;
 
-void run (boost::filesystem::path const & data_path, std::vector<std::string> const & config_overrides)
+void run (std::filesystem::path const & data_path, std::vector<std::string> const & config_overrides)
 {
-	boost::filesystem::create_directories (data_path);
+	std::filesystem::create_directories (data_path);
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path, error_chmod);
 	std::unique_ptr<nano::thread_runner> runner;
@@ -139,7 +138,7 @@ int main (int argc, char * const * argv)
 	}
 
 	auto data_path_it = vm.find ("data_path");
-	boost::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
+	std::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
 	if (vm.count ("daemon") > 0)
 	{
 		std::vector<std::string> config_overrides;

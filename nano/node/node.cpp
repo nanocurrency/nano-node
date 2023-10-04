@@ -16,7 +16,6 @@
 #include <nano/store/component.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
 
-#include <boost/filesystem.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <algorithm>
@@ -112,7 +111,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (re
 	return composite;
 }
 
-nano::keypair nano::load_or_create_node_id (boost::filesystem::path const & application_path, nano::logger_mt & logger)
+nano::keypair nano::load_or_create_node_id (std::filesystem::path const & application_path, nano::logger_mt & logger)
 {
 	auto node_private_key_path = application_path / "node_id_private.key";
 	std::ifstream ifs (node_private_key_path.c_str ());
@@ -139,12 +138,12 @@ nano::keypair nano::load_or_create_node_id (boost::filesystem::path const & appl
 	}
 }
 
-nano::node::node (boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, nano::logging const & logging_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
+nano::node::node (boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, std::filesystem::path const & application_path_a, nano::logging const & logging_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
 	node (io_ctx_a, application_path_a, nano::node_config (peering_port_a, logging_a), work_a, flags_a, seq)
 {
 }
 
-nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
+nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path const & application_path_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
 	write_database_queue (!flags_a.force_use_write_database_queue && (config_a.rocksdb_config.enable)),
 	io_ctx (io_ctx_a),
 	node_initialized_latch (1),
@@ -549,7 +548,7 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 	}
 }
 
-bool nano::node::copy_with_compaction (boost::filesystem::path const & destination)
+bool nano::node::copy_with_compaction (std::filesystem::path const & destination)
 {
 	return store.copy_db (destination);
 }
@@ -917,7 +916,7 @@ void nano::node::backup_wallet ()
 		boost::system::error_code error_chmod;
 		auto backup_path (application_path / "backup");
 
-		boost::filesystem::create_directories (backup_path);
+		std::filesystem::create_directories (backup_path);
 		nano::set_secure_perm_directory (backup_path, error_chmod);
 		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
 	}
@@ -1504,7 +1503,7 @@ nano::telemetry_data nano::node::local_telemetry () const
  * node_wrapper
  */
 
-nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
+nano::node_wrapper::node_wrapper (std::filesystem::path const & path_a, std::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
 	network_params{ nano::network_constants::active_network },
 	io_context (std::make_shared<boost::asio::io_context> ()),
 	work{ network_params.network, 1 }
@@ -1514,7 +1513,7 @@ nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost:
 	/*
 	 * @warning May throw a filesystem exception
 	 */
-	boost::filesystem::create_directories (path_a);
+	std::filesystem::create_directories (path_a);
 	nano::set_secure_perm_directory (path_a, error_chmod);
 	nano::daemon_config daemon_config{ path_a, network_params };
 	auto error = nano::read_node_config_toml (config_path_a, daemon_config, node_flags_a.config_overrides);
@@ -1547,14 +1546,14 @@ nano::node_wrapper::~node_wrapper ()
  * inactive_node
  */
 
-nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
+nano::inactive_node::inactive_node (std::filesystem::path const & path_a, std::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
 	node_wrapper (path_a, config_path_a, node_flags_a),
 	node (node_wrapper.node)
 {
 	node_wrapper.node->active.stop ();
 }
 
-nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a) :
+nano::inactive_node::inactive_node (std::filesystem::path const & path_a, nano::node_flags const & node_flags_a) :
 	inactive_node (path_a, path_a, node_flags_a)
 {
 }
