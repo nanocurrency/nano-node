@@ -197,12 +197,12 @@ private:
 	 * TODO: Should be moved to `vote_cache` class
 	 */
 	void add_inactive_vote_cache (nano::block_hash const & hash, std::shared_ptr<nano::vote> vote);
-	boost::optional<nano::election_status_type> determine_election_status (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block);
+	boost::optional<nano::election_status_type> election_status (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block);
 	void process_inactive_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block);
 	void process_active_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, nano::election_status_type status);
 	void handle_final_votes_confirmation (std::shared_ptr<nano::block> const & block, nano::store::read_transaction const & transaction, nano::election_status_type status);
-	void execute_confirmed (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, std::shared_ptr<nano::election> election, nano::election_status_type status);
-	void activate_scheduler_for_account_and_destination (const nano::account & account, std::shared_ptr<nano::block> const & block, nano::store::read_transaction const & transaction);
+	void handle_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, std::shared_ptr<nano::election> election, nano::election_status_type status);
+	void activate_successors (const nano::account & account, std::shared_ptr<nano::block> const & block, nano::store::read_transaction const & transaction);
 	void update_recently_cemented (std::shared_ptr<nano::election> const & election);
 	void handle_block_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, nano::block_hash const & hash, nano::account & account, nano::uint128_t & amount, bool & is_state_send, bool & is_state_epoch, nano::account & pending_account);
 	void update_election_status (std::shared_ptr<nano::election> election, nano::election_status_type status);

@@ -67,25 +67,27 @@ void nano::active_transactions::stop ()
 
 void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::block> const & block_a)
 {
-	nano::store::read_transaction transaction = node.store.tx_begin_read ();
-	auto status_type = determine_election_status (transaction, block_a);
+	auto transaction = node.store.tx_begin_read ();
+	auto status_type = election_status (transaction, block_a);
 
 	if (!status_type)
 		return;
 
-	if (*status_type == nano::election_status_type::inactive_confirmation_height)
+	switch (*status_type)
 	{
-		process_inactive_confirmation (transaction, block_a);
-	}
-	else
-	{
-		process_active_confirmation (transaction, block_a, *status_type);
+		case nano::election_status_type::inactive_confirmation_height:
+			process_inactive_confirmation (transaction, block_a);
+			break;
+
+		default:
+			process_active_confirmation (transaction, block_a, *status_type);
+			break;
 	}
 
 	handle_final_votes_confirmation (block_a, transaction, *status_type);
 }
 
-boost::optional<nano::election_status_type> nano::active_transactions::determine_election_status (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block)
+boost::optional<nano::election_status_type> nano::active_transactions::election_status (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block)
 {
 	boost::optional<nano::election_status_type> status_type;
 
@@ -103,8 +105,8 @@ boost::optional<nano::election_status_type> nano::active_transactions::determine
 
 void nano::active_transactions::process_inactive_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block)
 {
-	nano::account account{};
-	nano::uint128_t amount (0);
+	nano::account account;
+	nano::uint128_t amount{ 0 };
 	bool is_state_send = false;
 	bool is_state_epoch = false;
 	nano::account pending_account{};
@@ -124,12 +126,12 @@ void nano::active_transactions::process_active_confirmation (nano::store::read_t
 		election_winners_lk.unlock ();
 		if (election->confirmed () && election->winner ()->hash () == hash)
 		{
-			execute_confirmed (transaction, block, election, status_type);
+			handle_confirmation (transaction, block, election, status_type);
 		}
 	}
 }
 
-void nano::active_transactions::execute_confirmed (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, std::shared_ptr<nano::election> election, nano::election_status_type status_type)
+void nano::active_transactions::handle_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, std::shared_ptr<nano::election> election, nano::election_status_type status_type)
 {
 	nano::block_hash hash = block->hash ();
 	update_recently_cemented (election);
@@ -199,17 +201,19 @@ void nano::active_transactions::handle_final_votes_confirmation (std::shared_ptr
 	bool cemented_bootstrap_count_reached = node.ledger.cache.cemented_count >= node.ledger.bootstrap_weight_max_blocks;
 	bool was_active = status == nano::election_status_type::active_confirmed_quorum || status == nano::election_status_type::active_confirmation_height;
 
+	// Next-block activations are only done for blocks with previously active elections
 	if (cemented_bootstrap_count_reached && was_active)
 	{
-		activate_scheduler_for_account_and_destination (account, block, transaction);
+		activate_successors (account, block, transaction);
 	}
 }
 
-void nano::active_transactions::activate_scheduler_for_account_and_destination (const nano::account & account, std::shared_ptr<nano::block> const & block, nano::store::read_transaction const & transaction)
+void nano::active_transactions::activate_successors (const nano::account & account, std::shared_ptr<nano::block> const & block, nano::store::read_transaction const & transaction)
 {
 	node.scheduler.priority.activate (account, transaction);
 	auto const & destination = node.ledger.block_destination (transaction, *block);
 
+	// Start or vote for the next unconfirmed block in the destination account
 	if (!destination.is_zero () && destination != account)
 	{
 		node.scheduler.priority.activate (destination, transaction);
