@@ -4,7 +4,6 @@
 #include <nano/store/rocksdb/transaction_impl.hpp>
 #include <nano/store/version.hpp>
 
-#include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -35,7 +34,7 @@ private:
 };
 }
 
-nano::store::rocksdb::component::component (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
+nano::store::rocksdb::component::component (nano::logger_mt & logger_a, std::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
 	// clang-format off
 	nano::store::component{
 		block_store,
@@ -67,7 +66,7 @@ nano::store::rocksdb::component::component (nano::logger_mt & logger_a, boost::f
 	cf_name_table_map{ create_cf_name_table_map () }
 {
 	boost::system::error_code error_mkdir, error_chmod;
-	boost::filesystem::create_directories (path_a, error_mkdir);
+	std::filesystem::create_directories (path_a, error_mkdir);
 	nano::set_secure_perm_directory (path_a, error_chmod);
 	error = static_cast<bool> (error_mkdir);
 
@@ -175,7 +174,7 @@ std::unordered_map<char const *, nano::tables> nano::store::rocksdb::component::
 	return map;
 }
 
-void nano::store::rocksdb::component::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a, ::rocksdb::Options const & options_a, std::vector<::rocksdb::ColumnFamilyDescriptor> column_families)
+void nano::store::rocksdb::component::open (bool & error_a, std::filesystem::path const & path_a, bool open_read_only_a, ::rocksdb::Options const & options_a, std::vector<::rocksdb::ColumnFamilyDescriptor> column_families)
 {
 	//	auto options = get_db_options ();
 	::rocksdb::Status s;
@@ -846,7 +845,7 @@ std::vector<nano::tables> nano::store::rocksdb::component::all_tables () const
 	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::final_votes, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::vote };
 }
 
-bool nano::store::rocksdb::component::copy_db (boost::filesystem::path const & destination_path)
+bool nano::store::rocksdb::component::copy_db (std::filesystem::path const & destination_path)
 {
 	std::unique_ptr<::rocksdb::BackupEngine> backup_engine;
 	{
@@ -895,11 +894,11 @@ bool nano::store::rocksdb::component::copy_db (boost::filesystem::path const & d
 		}
 
 		// First remove all files (not directories) in the destination
-		for (auto const & path : boost::make_iterator_range (boost::filesystem::directory_iterator (destination_path)))
+		for (auto const & path : std::filesystem::directory_iterator (destination_path))
 		{
-			if (boost::filesystem::is_regular_file (path))
+			if (std::filesystem::is_regular_file (path))
 			{
-				boost::filesystem::remove (path);
+				std::filesystem::remove (path);
 			}
 		}
 
