@@ -214,7 +214,6 @@ target_link_libraries(
   argon2
   lmdb
   Boost::beast
-  Boost::filesystem
   Boost::log_setup
   Boost::log
   Boost::program_options

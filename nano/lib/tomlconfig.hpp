@@ -3,7 +3,6 @@
 #include <nano/lib/configbase.hpp>
 #include <nano/lib/utility.hpp>
 
-#include <boost/filesystem/path.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/optional.hpp>
 
@@ -31,11 +30,11 @@ public:
 	tomlconfig ();
 	tomlconfig (std::shared_ptr<cpptoml::table> const & tree_a, std::shared_ptr<nano::error> const & error_a = nullptr);
 	void doc (std::string const & key, std::string const & doc);
-	nano::error & read (boost::filesystem::path const & path_a);
-	nano::error & read (std::istream & stream_overrides, boost::filesystem::path const & path_a);
+	nano::error & read (std::filesystem::path const & path_a);
+	nano::error & read (std::istream & stream_overrides, std::filesystem::path const & path_a);
 	nano::error & read (std::istream & stream_a);
 	nano::error & read (std::istream & stream_first_a, std::istream & stream_second_a);
-	void write (boost::filesystem::path const & path_a);
+	void write (std::filesystem::path const & path_a);
 	void write (std::ostream & stream_a) const;
 	void open_or_create (std::fstream & stream_a, std::string const & path_a);
 	std::shared_ptr<cpptoml::table> get_tree ();

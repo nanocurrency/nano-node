@@ -1,7 +1,6 @@
 #include <nano/boost/asio/ip/address_v6.hpp>
 #include <nano/lib/jsonconfig.hpp>
 
-#include <boost/filesystem/convenience.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <cstddef>
@@ -25,7 +24,7 @@ nano::jsonconfig::jsonconfig (boost::property_tree::ptree & tree_a, std::shared_
  * Reads a json object from the stream 
  * @return nano::error&, including a descriptive error message if the config file is malformed.
  */
-nano::error & nano::jsonconfig::read (boost::filesystem::path const & path_a)
+nano::error & nano::jsonconfig::read (std::filesystem::path const & path_a)
 {
 	std::fstream stream;
 	open_or_create (stream, path_a.string ());
@@ -48,7 +47,7 @@ nano::error & nano::jsonconfig::read (boost::filesystem::path const & path_a)
 	return *error;
 }
 
-void nano::jsonconfig::write (boost::filesystem::path const & path_a)
+void nano::jsonconfig::write (std::filesystem::path const & path_a)
 {
 	std::fstream stream;
 	open_or_create (stream, path_a.string ());
@@ -68,7 +67,7 @@ void nano::jsonconfig::read (std::istream & stream_a)
 /** Open configuration file, create if necessary */
 void nano::jsonconfig::open_or_create (std::fstream & stream_a, std::string const & path_a)
 {
-	if (!boost::filesystem::exists (path_a))
+	if (!std::filesystem::exists (path_a))
 	{
 		// Create temp stream to first create the file
 		std::ofstream stream (path_a);
@@ -81,7 +80,7 @@ void nano::jsonconfig::open_or_create (std::fstream & stream_a, std::string cons
 }
 
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
-void nano::jsonconfig::create_backup_file (boost::filesystem::path const & filepath_a)
+void nano::jsonconfig::create_backup_file (std::filesystem::path const & filepath_a)
 {
 	auto extension = filepath_a.extension ();
 	auto filename_without_extension = filepath_a.filename ().replace_extension ("");
@@ -93,7 +92,7 @@ void nano::jsonconfig::create_backup_file (boost::filesystem::path const & filep
 	backup_filename += extension;
 	auto backup_filepath = backup_path / backup_filename;
 
-	boost::filesystem::copy_file (filepath_a, backup_filepath);
+	std::filesystem::copy_file (filepath_a, backup_filepath);
 }
 
 /** Returns the boost property node managed by this instance */

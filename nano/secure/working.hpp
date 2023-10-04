@@ -4,5 +4,5 @@
 
 namespace nano
 {
-boost::filesystem::path app_path ();
+std::filesystem::path app_path ();
 }

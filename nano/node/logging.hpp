@@ -66,7 +66,7 @@ public:
 	bool election_result_logging () const;
 	bool log_to_cerr () const;
 	bool single_line_record () const;
-	void init (boost::filesystem::path const &);
+	void init (std::filesystem::path const &);
 
 	bool ledger_logging_value{ false };
 	bool ledger_duplicate_logging_value{ false };
