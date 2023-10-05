@@ -10,12 +10,12 @@ void nano::set_umask ()
 
 void nano::set_secure_perm_directory (std::filesystem::path const & path)
 {
-	std::filesystem::permissions (path, std::filesystem::owner_all);
+	std::filesystem::permissions (path, std::filesystem::perms::owner_all);
 }
 
 void nano::set_secure_perm_directory (std::filesystem::path const & path, std::error_code & ec)
 {
-	std::filesystem::permissions (path, std::filesystem::owner_all, ec);
+	std::filesystem::permissions (path, std::filesystem::perms::owner_all, ec);
 }
 
 void nano::set_secure_perm_file (std::filesystem::path const & path)
