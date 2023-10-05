@@ -1,7 +1,5 @@
 #include <nano/secure/working.hpp>
 
-#include <filesystem>
-
 #include <shlobj.h>
 
 namespace nano

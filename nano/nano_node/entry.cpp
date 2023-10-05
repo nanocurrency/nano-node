@@ -132,7 +132,7 @@ int main (int argc, char * const * argv)
 
 	nano::network_params network_params{ nano::network_constants::active_network };
 	auto data_path_it = vm.find ("data_path");
-	std::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
+	std::filesystem::path data_path ((data_path_it != vm.end ()) ? std::filesystem::path (data_path_it->second.as<std::string> ()) : nano::working_path ());
 	auto ec = nano::handle_node_options (vm);
 	if (ec == nano::error_cli::unknown_command)
 	{

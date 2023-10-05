@@ -11,11 +11,6 @@
 #include <boost/asio/ssl/context.hpp>
 #endif
 
-namespace std::filesystem
-{
-class path;
-}
-
 namespace nano
 {
 class logger_mt;
