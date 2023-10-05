@@ -71,7 +71,7 @@ TEST (toml, diff_equal)
 TEST (toml, daemon_config_update_array)
 {
 	nano::tomlconfig t;
-	boost::filesystem::path data_path (".");
+	std::filesystem::path data_path (".");
 	nano::daemon_config c{ data_path, nano::dev::network_params };
 	c.node.preconfigured_peers.push_back ("dev-peer.org");
 	c.serialize_toml (t);
@@ -884,7 +884,7 @@ TEST (toml, daemon_config_deserialize_errors)
 TEST (toml, daemon_read_config)
 {
 	auto path (nano::unique_path ());
-	boost::filesystem::create_directories (path);
+	std::filesystem::create_directories (path);
 	nano::daemon_config config;
 	std::vector<std::string> invalid_overrides1{ "node.max_work_generate_multiplier=0" };
 	std::string expected_message1{ "max_work_generate_multiplier must be greater than or equal to 1" };
@@ -893,7 +893,7 @@ TEST (toml, daemon_read_config)
 	std::string expected_message2{ "Value must follow after a '=' at line 2" };
 
 	// Reading when there is no config file
-	ASSERT_FALSE (boost::filesystem::exists (nano::get_node_toml_config_path (path)));
+	ASSERT_FALSE (std::filesystem::exists (nano::get_node_toml_config_path (path)));
 	ASSERT_FALSE (nano::read_node_config_toml (path, config));
 	{
 		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);
@@ -911,7 +911,7 @@ TEST (toml, daemon_read_config)
 	toml.write (nano::get_node_toml_config_path (path));
 
 	// Reading when there is a config file
-	ASSERT_TRUE (boost::filesystem::exists (nano::get_node_toml_config_path (path)));
+	ASSERT_TRUE (std::filesystem::exists (nano::get_node_toml_config_path (path)));
 	ASSERT_FALSE (nano::read_node_config_toml (path, config));
 	{
 		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);

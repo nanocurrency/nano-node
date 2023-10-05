@@ -674,14 +674,14 @@ TEST (mdb_block_store, bad_path)
 		GTEST_SKIP ();
 	}
 	nano::logger_mt logger;
-	nano::store::lmdb::component store (logger, boost::filesystem::path ("///"), nano::dev::constants);
+	nano::store::lmdb::component store (logger, std::filesystem::path ("///"), nano::dev::constants);
 	ASSERT_TRUE (store.init_error ());
 }
 
 TEST (block_store, DISABLED_already_open) // File can be shared
 {
 	auto path (nano::unique_path ());
-	boost::filesystem::create_directories (path.parent_path ());
+	std::filesystem::create_directories (path.parent_path ());
 	nano::set_secure_perm_directory (path.parent_path ());
 	std::ofstream file;
 	file.open (path.string ().c_str ());
@@ -1445,7 +1445,7 @@ TEST (mdb_block_store, upgrade_backup)
 		GTEST_SKIP ();
 	}
 	auto dir (nano::unique_path ());
-	namespace fs = boost::filesystem;
+	namespace fs = std::filesystem;
 	fs::create_directory (dir);
 	auto path = dir / "data.ldb";
 	/** Returns 'dir' if backup file cannot be found */

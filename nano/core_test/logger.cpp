@@ -94,14 +94,14 @@ TEST (logger, stable_filename)
 	auto log_file = path / "log" / "node.log";
 
 #if BOOST_VERSION >= 107000
-	EXPECT_TRUE (boost::filesystem::exists (log_file));
+	EXPECT_TRUE (std::filesystem::exists (log_file));
 	// Try opening it again
 	logging.release_file_sink ();
 	logging.init (path);
 	logger.always_log ("stable2");
 #else
 	// When using Boost < 1.70 , behavior is reverted to not using the stable filename
-	EXPECT_FALSE (boost::filesystem::exists (log_file));
+	EXPECT_FALSE (std::filesystem::exists (log_file));
 #endif
 
 	// Reset the logger
