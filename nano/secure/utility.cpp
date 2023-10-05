@@ -2,6 +2,8 @@
 #include <nano/secure/utility.hpp>
 #include <nano/secure/working.hpp>
 
+#include <random>
+
 static std::vector<std::filesystem::path> all_unique_paths;
 
 std::filesystem::path nano::working_path (nano::networks network)
@@ -30,12 +32,20 @@ std::filesystem::path nano::working_path (nano::networks network)
 
 std::filesystem::path nano::unique_path (nano::networks network)
 {
-	//auto result (working_path (network) / std::filesystem::unique_path ());
-	//all_unique_paths.push_back (result);
-	//return result;
+	std::random_device rd;
+	std::mt19937 gen (rd ());
+	std::uniform_int_distribution<> dis (0, 15);
 
-	// TODO: Find a replacement for boost::filesystem::unique_path
-	return "temp";
+	const char * hex_chars = "0123456789ABCDEF";
+	std::string random_string;
+	random_string.reserve (32);
+
+	for (int i = 0; i < 32; ++i)
+	{
+		random_string += hex_chars[dis (gen)];
+	}
+
+	return (working_path (network) / random_string);
 }
 
 void nano::remove_temporary_directories ()
