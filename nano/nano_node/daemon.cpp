@@ -15,6 +15,7 @@
 #include <nano/rpc/rpc.hpp>
 
 #include <boost/format.hpp>
+#include <boost/process.hpp>
 
 #include <csignal>
 #include <iostream>
@@ -180,7 +181,9 @@ void nano_daemon::daemon::run (std::filesystem::path const & data_path, nano::no
 						}
 
 						auto network = node->network_params.network.get_current_network_as_string ();
-						rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
+
+						// TODO: Find replacement for std::make_unique<boost::process::child>
+						//rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
 					}
 				}
 
