@@ -42,7 +42,7 @@ constexpr auto rpc_port_start = 60000;
 constexpr auto peering_port_start = 61000;
 constexpr auto ipc_port_start = 62000;
 
-void write_config_files (boost::filesystem::path const & data_path, int index)
+void write_config_files (std::filesystem::path const & data_path, int index)
 {
 	nano::network_params network_params{ nano::network_constants::active_network };
 	nano::daemon_config daemon_config{ data_path, network_params };
@@ -540,7 +540,7 @@ int main (int argc, char * const * argv)
 		}
 		node_path = node_filepath.string ();
 	}
-	if (!boost::filesystem::exists (node_path))
+	if (!std::filesystem::exists (node_path))
 	{
 		std::cerr << "nano_node executable could not be found in " << node_path << std::endl;
 		return 1;
@@ -561,17 +561,17 @@ int main (int argc, char * const * argv)
 		}
 		rpc_path = rpc_filepath.string ();
 	}
-	if (!boost::filesystem::exists (rpc_path))
+	if (!std::filesystem::exists (rpc_path))
 	{
 		std::cerr << "nano_rpc executable could not be found in " << rpc_path << std::endl;
 		return 1;
 	}
 
-	std::vector<boost::filesystem::path> data_paths;
+	std::vector<std::filesystem::path> data_paths;
 	for (auto i = 0; i < node_count; ++i)
 	{
 		auto data_path = nano::unique_path ();
-		boost::filesystem::create_directory (data_path);
+		std::filesystem::create_directory (data_path);
 		write_config_files (data_path, i);
 		data_paths.push_back (std::move (data_path));
 	}
