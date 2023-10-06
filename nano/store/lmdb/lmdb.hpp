@@ -26,14 +26,6 @@
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
-namespace boost
-{
-namespace filesystem
-{
-	class path;
-}
-}
-
 namespace nano
 {
 class logging_mt;

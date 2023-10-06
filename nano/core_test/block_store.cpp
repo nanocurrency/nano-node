@@ -686,7 +686,6 @@ TEST (mdb_block_store, bad_path)
 		return;
 	}
 	ASSERT_TRUE (false);
-
 }
 
 TEST (block_store, DISABLED_already_open) // File can be shared

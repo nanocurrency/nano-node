@@ -8,13 +8,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace boost
-{
-namespace filesystem
-{
-	class path;
-}
-}
 namespace cpptoml
 {
 class table;

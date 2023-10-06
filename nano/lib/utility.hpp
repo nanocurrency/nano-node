@@ -16,11 +16,6 @@
 
 namespace boost
 {
-namespace filesystem
-{
-	class path;
-}
-
 namespace system
 {
 	class error_code;

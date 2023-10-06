@@ -10,14 +10,6 @@
 #include <thread>
 #include <vector>
 
-namespace boost
-{
-namespace filesystem
-{
-	class path;
-}
-}
-
 namespace nano
 {
 class tomlconfig;
