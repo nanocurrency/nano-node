@@ -1,11 +1,3 @@
-namespace boost
-{
-namespace filesystem
-{
-	class path;
-}
-}
-
 namespace nano
 {
 class node_flags;

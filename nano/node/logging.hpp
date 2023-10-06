@@ -24,10 +24,6 @@ namespace sinks
 
 BOOST_LOG_CLOSE_NAMESPACE
 
-namespace filesystem
-{
-	class path;
-}
 }
 
 namespace nano

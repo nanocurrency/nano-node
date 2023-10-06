@@ -6,14 +6,6 @@
 
 #include <string>
 
-namespace boost
-{
-namespace filesystem
-{
-	class path;
-}
-}
-
 namespace nano
 {
 class tomlconfig;

@@ -12,14 +12,6 @@
 
 using namespace std::chrono_literals;
 
-namespace boost
-{
-namespace filesystem
-{
-	class path;
-}
-}
-
 #define xstr(a) ver_str (a)
 #define ver_str(a) #a
 
