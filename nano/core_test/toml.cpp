@@ -275,6 +275,9 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.hinted_scheduler.hinting_threshold_percent, defaults.node.hinted_scheduler.hinting_threshold_percent);
 	ASSERT_EQ (conf.node.hinted_scheduler.check_interval.count (), defaults.node.hinted_scheduler.check_interval.count ());
 	ASSERT_EQ (conf.node.hinted_scheduler.block_cooldown.count (), defaults.node.hinted_scheduler.block_cooldown.count ());
+
+	ASSERT_EQ (conf.node.vote_cache.max_size, defaults.node.vote_cache.max_size);
+	ASSERT_EQ (conf.node.vote_cache.max_voters, defaults.node.vote_cache.max_voters);
 }
 
 TEST (toml, optional_child)
@@ -551,6 +554,10 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	max_pruning_age = 999
 	max_pruning_depth = 999
 
+	[node.vote_cache]
+	max_size = 999
+	max_voters = 999
+
 	[opencl]
 	device = 999
 	enable = true
@@ -713,6 +720,9 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.hinted_scheduler.hinting_threshold_percent, defaults.node.hinted_scheduler.hinting_threshold_percent);
 	ASSERT_NE (conf.node.hinted_scheduler.check_interval.count (), defaults.node.hinted_scheduler.check_interval.count ());
 	ASSERT_NE (conf.node.hinted_scheduler.block_cooldown.count (), defaults.node.hinted_scheduler.block_cooldown.count ());
+
+	ASSERT_NE (conf.node.vote_cache.max_size, defaults.node.vote_cache.max_size);
+	ASSERT_NE (conf.node.vote_cache.max_voters, defaults.node.vote_cache.max_voters);
 }
 
 /** There should be no required values **/

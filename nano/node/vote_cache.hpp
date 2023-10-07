@@ -25,16 +25,23 @@ class node;
 class active_transactions;
 class election;
 class vote;
+}
+
+namespace nano
+{
+class vote_cache_config final
+{
+public:
+	nano::error deserialize (nano::tomlconfig & toml);
+	nano::error serialize (nano::tomlconfig & toml) const;
+
+public:
+	std::size_t max_size{ 1024 * 128 };
+	std::size_t max_voters{ 128 };
+};
 
 class vote_cache final
 {
-public:
-	class config final
-	{
-	public:
-		std::size_t max_size;
-	};
-
 public:
 	/**
 	 * Stores votes associated with a single block hash
@@ -49,15 +56,13 @@ public:
 		};
 
 	public:
-		constexpr static int max_voters = 80;
-
 		explicit entry (nano::block_hash const & hash);
 
 		/**
 		 * Adds a vote into a list, checks for duplicates and updates timestamp if new one is greater
 		 * @return true if current tally changed, false otherwise
 		 */
-		bool vote (nano::account const & representative, uint64_t const & timestamp, nano::uint128_t const & rep_weight);
+		bool vote (nano::account const & representative, uint64_t const & timestamp, nano::uint128_t const & rep_weight, std::size_t max_voters);
 		/**
 		 * Inserts votes stored in this entry into an election
 		 */
@@ -78,7 +83,7 @@ public:
 	};
 
 public:
-	explicit vote_cache (const config);
+	explicit vote_cache (vote_cache_config const &);
 
 	/**
 	 * Adds a new vote to cache
@@ -119,10 +124,10 @@ public:
 	/**
 	 * Function used to query rep weight for tally calculation
 	 */
-	std::function<nano::uint128_t (nano::account const &)> rep_weight_query{ [] (nano::account const & rep) { return 0; } };
+	std::function<nano::uint128_t (nano::account const &)> rep_weight_query{ [] (nano::account const & rep) { debug_assert (false); return 0; } };
 
 private:
-	const std::size_t max_size;
+	vote_cache_config const & config;
 
 	// clang-format off
 	class tag_sequenced {};

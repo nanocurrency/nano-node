@@ -1,3 +1,4 @@
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/vote_cache.hpp>
 
@@ -10,7 +11,7 @@ nano::vote_cache::entry::entry (const nano::block_hash & hash) :
 {
 }
 
-bool nano::vote_cache::entry::vote (const nano::account & representative, const uint64_t & timestamp, const nano::uint128_t & rep_weight)
+bool nano::vote_cache::entry::vote (const nano::account & representative, const uint64_t & timestamp, const nano::uint128_t & rep_weight, std::size_t max_voters)
 {
 	auto existing = std::find_if (voters_m.begin (), voters_m.end (), [&representative] (auto const & item) { return item.representative == representative; });
 	if (existing != voters_m.end ())
@@ -95,8 +96,8 @@ std::vector<nano::vote_cache::entry::voter_entry> nano::vote_cache::entry::voter
  * vote_cache
  */
 
-nano::vote_cache::vote_cache (const config config_a) :
-	max_size{ config_a.max_size }
+nano::vote_cache::vote_cache (vote_cache_config const & config_a) :
+	config{ config_a }
 {
 }
 
@@ -111,19 +112,19 @@ void nano::vote_cache::vote (const nano::block_hash & hash, const std::shared_pt
 	auto & cache_by_hash = cache.get<tag_hash> ();
 	if (auto existing = cache_by_hash.find (hash); existing != cache_by_hash.end ())
 	{
-		cache_by_hash.modify (existing, [&representative, &timestamp, &rep_weight] (entry & ent) {
-			ent.vote (representative, timestamp, rep_weight);
+		cache_by_hash.modify (existing, [this, &representative, &timestamp, &rep_weight] (entry & ent) {
+			ent.vote (representative, timestamp, rep_weight, config.max_voters);
 		});
 	}
 	else
 	{
 		entry cache_entry{ hash };
-		cache_entry.vote (representative, timestamp, rep_weight);
+		cache_entry.vote (representative, timestamp, rep_weight, config.max_voters);
 
 		cache.get<tag_hash> ().insert (cache_entry);
 
 		// When cache overflown remove the oldest entry
-		if (cache.size () > max_size)
+		if (cache.size () > config.max_size)
 		{
 			cache.get<tag_sequenced> ().pop_front ();
 		}
@@ -204,4 +205,24 @@ std::unique_ptr<nano::container_info_component> nano::vote_cache::collect_contai
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cache", size (), sizeof (ordered_cache::value_type) }));
 	return composite;
+}
+
+/*
+ * vote_cache_config
+ */
+
+nano::error nano::vote_cache_config::serialize (nano::tomlconfig & toml) const
+{
+	toml.put ("max_size", max_size, "Maximum number of blocks to cache votes for. \ntype:uint64");
+	toml.put ("max_voters", max_voters, "Maximum number of voters to cache per block. \ntype:uint64");
+
+	return toml.get_error ();
+}
+
+nano::error nano::vote_cache_config::deserialize (nano::tomlconfig & toml)
+{
+	toml.get ("max_size", max_size);
+	toml.get ("max_voters", max_voters);
+
+	return toml.get_error ();
 }

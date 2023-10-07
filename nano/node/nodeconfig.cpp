@@ -204,6 +204,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	bootstrap_ascending.serialize (bootstrap_ascending_l);
 	toml.put_child ("bootstrap_ascending", bootstrap_ascending_l);
 
+	nano::tomlconfig vote_cache_l;
+	vote_cache.serialize (vote_cache_l);
+	toml.put_child ("vote_cache", vote_cache_l);
+
 	return toml.get_error ();
 }
 
@@ -271,6 +275,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto config_l = toml.get_required_child ("bootstrap_ascending");
 			bootstrap_ascending.deserialize (config_l);
+		}
+
+		if (toml.has_key ("vote_cache"))
+		{
+			auto config_l = toml.get_required_child ("vote_cache");
+			vote_cache.deserialize (config_l);
 		}
 
 		if (toml.has_key ("work_peers"))

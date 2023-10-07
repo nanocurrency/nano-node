@@ -49,13 +49,6 @@ nano::backlog_population::config nano::backlog_population_config (const nano::no
 	return cfg;
 }
 
-nano::vote_cache::config nano::nodeconfig_to_vote_cache_config (node_config const & config, node_flags const & flags)
-{
-	vote_cache::config cfg{};
-	cfg.max_size = flags.inactive_votes_cache_size;
-	return cfg;
-}
-
 nano::outbound_bandwidth_limiter::config nano::outbound_bandwidth_limiter_config (const nano::node_config & config)
 {
 	outbound_bandwidth_limiter::config cfg{};
@@ -191,7 +184,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	history{ config.network_params.voting },
 	vote_uniquer (block_uniquer),
 	confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
-	vote_cache{ nano::nodeconfig_to_vote_cache_config (config, flags) },
+	vote_cache{ config.vote_cache },
 	generator{ config, ledger, wallets, vote_processor, history, network, stats, /* non-final */ false },
 	final_generator{ config, ledger, wallets, vote_processor, history, network, stats, /* final */ true },
 	active (*this, confirmation_height_processor),
