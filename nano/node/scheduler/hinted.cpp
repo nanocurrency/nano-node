@@ -209,6 +209,7 @@ nano::scheduler::hinted_config::hinted_config (nano::network_constants const & n
 	if (network.is_dev_network ())
 	{
 		check_interval = std::chrono::milliseconds{ 100 };
+		block_cooldown = std::chrono::milliseconds{ 100 };
 	}
 }
 

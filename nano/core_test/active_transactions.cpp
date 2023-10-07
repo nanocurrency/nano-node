@@ -493,23 +493,28 @@ TEST (active_transactions, inactive_votes_cache_election_start)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send3->hash ()))
 				 .build_shared ();
+
 	// Inactive votes
-	std::vector<nano::block_hash> hashes{ open1->hash (), open2->hash (), send4->hash () };
-	auto vote1 (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, 0, hashes));
+	auto vote1 = nano::test::make_vote (key1, { open1, open2, send4 });
 	node.vote_processor.vote (vote1, std::make_shared<nano::transport::inproc::channel> (node, node));
 	ASSERT_TIMELY (5s, node.vote_cache.size () == 3);
 	ASSERT_TRUE (node.active.empty ());
 	ASSERT_EQ (1, node.ledger.cache.cemented_count);
+
 	// 2 votes are required to start election (dev network)
-	auto vote2 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, 0, hashes));
+	auto vote2 = nano::test::make_vote (key2, { open1, open2, send4 });
 	node.vote_processor.vote (vote2, std::make_shared<nano::transport::inproc::channel> (node, node));
-	// Only open1 & open2 blocks elections should start (send4 is missing previous block in ledger)
-	ASSERT_TIMELY (5s, 2 == node.active.size ());
+	// Only election for send1 should start, other blocks are missing dependencies and don't have enough final weight
+	ASSERT_TIMELY_EQ (5s, 1, node.active.size ());
+	ASSERT_TRUE (node.active.active (send1->hash ()));
+
 	// Confirm elections with weight quorum
-	auto vote0 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, hashes)); // Final vote for confirmation
+	auto vote0 = nano::test::make_final_vote (nano::dev::genesis_key, { open1, open2, send4 });
 	node.vote_processor.vote (vote0, std::make_shared<nano::transport::inproc::channel> (node, node));
-	ASSERT_TIMELY (5s, node.active.empty ());
+	ASSERT_TIMELY_EQ (5s, 0, node.active.size ());
 	ASSERT_TIMELY (5s, 5 == node.ledger.cache.cemented_count);
+	ASSERT_TRUE (nano::test::confirmed (node, { send1, send2, open1, open2 }));
+
 	// A late block arrival also checks the inactive votes cache
 	ASSERT_TRUE (node.active.empty ());
 	auto send4_cache (node.vote_cache.find (send4->hash ()));
