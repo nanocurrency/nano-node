@@ -49,9 +49,6 @@ void nano::process_live_dispatcher::process_live (nano::block const & block, sto
 		scheduler.activate (account, transaction);
 	}
 
-	// Notify inactive vote cache about a new live block
-	vote_cache.trigger (block.hash ());
-
 	if (websocket.server && websocket.server->any_subscriber (nano::websocket::topic::new_unconfirmed_block))
 	{
 		websocket.server->broadcast (nano::websocket::message_builder ().new_block_arrived (block));

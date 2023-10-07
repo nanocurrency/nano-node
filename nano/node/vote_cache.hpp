@@ -77,15 +77,6 @@ public:
 		nano::uint128_t final_tally_m{ 0 };
 	};
 
-private:
-	class queue_entry final
-	{
-	public:
-		nano::block_hash hash{ 0 };
-		nano::uint128_t tally{ 0 };
-		nano::uint128_t final_tally{ 0 };
-	};
-
 public:
 	explicit vote_cache (const config);
 
@@ -102,27 +93,9 @@ public:
 	 * @return true if hash existed and was erased, false otherwise
 	 */
 	bool erase (nano::block_hash const & hash);
-	/**
-	 * Returns an entry with the highest tally.
-	 * @param min_tally minimum tally threshold, entries below with their voting weight below this will be ignored
-	 */
-	std::optional<entry> peek (nano::uint128_t const & min_tally = 0) const;
-	/**
-	 * Returns an entry with the highest tally and removes it from container.
-	 * @param min_tally minimum tally threshold, entries below with their voting weight below this will be ignored
-	 */
-	std::optional<entry> pop (nano::uint128_t const & min_tally = 0);
-	/**
-	 * Reinserts a block into the queue.
-	 * It is possible that we dequeue a hash that doesn't have a received block yet (for eg. if publish message was lost).
-	 * We need a way to reinsert that hash into the queue when we finally receive the block
-	 */
-	void trigger (const nano::block_hash & hash);
 
-	std::size_t cache_size () const;
-	std::size_t queue_size () const;
-	bool cache_empty () const;
-	bool queue_empty () const;
+	std::size_t size () const;
+	bool empty () const;
 
 public:
 	struct top_entry
@@ -133,7 +106,9 @@ public:
 	};
 
 	/**
-	 * Returns blocks with highest observed tally, greater than `min_tally`
+	 * Returns blocks with highest observed tally
+	 * The blocks are sorted in descending order by final tally, then by tally
+	 * @param min_tally minimum tally threshold, entries below with their voting weight below this will be ignored
 	 */
 	std::vector<top_entry> top (nano::uint128_t const & min_tally) const;
 
@@ -147,17 +122,12 @@ public:
 	std::function<nano::uint128_t (nano::account const &)> rep_weight_query{ [] (nano::account const & rep) { return 0; } };
 
 private:
-	void vote_impl (nano::block_hash const & hash, nano::account const & representative, uint64_t const & timestamp, nano::uint128_t const & rep_weight);
-	std::optional<entry> find_locked (nano::block_hash const & hash) const;
-	void trim_overflow_locked ();
-
 	const std::size_t max_size;
 
 	// clang-format off
 	class tag_sequenced {};
 	class tag_hash {};
 	class tag_tally {};
-	class tag_final_tally {};
 	// clang-format on
 
 	// clang-format off
@@ -167,26 +137,10 @@ private:
 		mi::hashed_unique<mi::tag<tag_hash>,
 			mi::const_mem_fun<entry, nano::block_hash, &entry::hash>>,
 		mi::ordered_non_unique<mi::tag<tag_tally>,
-			mi::const_mem_fun<entry, nano::uint128_t, &entry::tally>, std::greater<>>, // DESC
-		mi::ordered_non_unique<mi::tag<tag_final_tally>,
-			mi::const_mem_fun<entry, nano::uint128_t, &entry::final_tally>, std::greater<>> // DESC
+			mi::const_mem_fun<entry, nano::uint128_t, &entry::tally>, std::greater<>> // DESC
 	>>;
 	// clang-format on
 	ordered_cache cache;
-
-	// clang-format off
-	using ordered_queue = boost::multi_index_container<queue_entry,
-	mi::indexed_by<
-		mi::sequenced<mi::tag<tag_sequenced>>,
-		mi::ordered_non_unique<mi::tag<tag_tally>,
-			mi::member<queue_entry, nano::uint128_t, &queue_entry::tally>>,
-		mi::ordered_non_unique<mi::tag<tag_final_tally>,
-			mi::member<queue_entry, nano::uint128_t, &queue_entry::final_tally>>,
-		mi::hashed_unique<mi::tag<tag_hash>,
-			mi::member<queue_entry, nano::block_hash, &queue_entry::hash>>
-	>>;
-	// clang-format on
-	ordered_queue queue;
 
 	mutable nano::mutex mutex;
 };
