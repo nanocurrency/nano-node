@@ -71,6 +71,7 @@ void nano::scheduler::hinted::activate (const nano::store::transaction & transac
 			if (node.block_confirmed_or_being_confirmed (transaction, current_hash))
 			{
 				stats.inc (nano::stat::type::hinting, nano::stat::detail::already_confirmed);
+				vote_cache.erase (current_hash); // Remove from vote cache
 				continue; // Move on to the next item in the stack
 			}
 
