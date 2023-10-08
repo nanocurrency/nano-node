@@ -45,7 +45,9 @@ std::filesystem::path nano::unique_path (nano::networks network)
 		random_string += hex_chars[dis (gen)];
 	}
 
-	return (working_path (network) / random_string);
+	auto result = working_path (network) / random_string;
+	all_unique_paths.push_back (result);
+	return result;
 }
 
 void nano::remove_temporary_directories ()
