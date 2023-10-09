@@ -35,6 +35,7 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano::election_status_type type_a)
 {
 	debug_assert (lock_a.owns_lock ());
+
 	// This must be kept above the setting of election state, as dependent confirmed elections require up to date changes to election_winner_details
 	nano::unique_lock<nano::mutex> election_winners_lk{ node.active.election_winner_details_mutex };
 	if (state_m.exchange (nano::election::state_t::confirmed) != nano::election::state_t::confirmed && (node.active.election_winner_details.count (status.winner->hash ()) == 0))
@@ -48,6 +49,9 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano
 		status.voter_count = nano::narrow_cast<decltype (status.voter_count)> (last_votes.size ());
 		status.type = type_a;
 		auto const status_l = status;
+
+		node.active.recently_confirmed.put (qualified_root, status_l.winner->hash ());
+
 		lock_a.unlock ();
 
 		node.background ([node_l = node.shared (), status_l, confirmation_action_l = confirmation_action] () {
