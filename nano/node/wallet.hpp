@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/id_dispenser.hpp>
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/work.hpp>
@@ -13,11 +14,13 @@
 #include <mutex>
 #include <thread>
 #include <unordered_set>
+
 namespace nano
 {
 class node;
 class node_config;
 class wallets;
+
 // The fan spreads a key out over the heap to decrease the likelihood of it being recovered by memory inspection
 class fan final
 {
@@ -31,6 +34,7 @@ private:
 	nano::mutex mutex;
 	void value_get (nano::raw_key &);
 };
+
 class kdf final
 {
 public:
@@ -42,6 +46,7 @@ public:
 	nano::mutex mutex;
 	unsigned & kdf_work;
 };
+
 enum class key_type
 {
 	not_a_type,
@@ -49,11 +54,12 @@ enum class key_type
 	adhoc,
 	deterministic
 };
+
 class wallet_store final
 {
 public:
-	wallet_store (bool &, nano::kdf &, store::transaction &, nano::account, unsigned, std::string const &);
-	wallet_store (bool &, nano::kdf &, store::transaction &, nano::account, unsigned, std::string const &, std::string const &);
+	wallet_store (bool &, nano::kdf &, store::transaction &, store::lmdb::env &, nano::account, unsigned, std::string const &);
+	wallet_store (bool &, nano::kdf &, store::transaction &, store::lmdb::env &, nano::account, unsigned, std::string const &, std::string const &);
 	std::vector<nano::account> accounts (store::transaction const &);
 	void initialize (store::transaction const &, bool &, std::string const &);
 	nano::uint256_union check (store::transaction const &);
@@ -118,8 +124,9 @@ public:
 	std::recursive_mutex mutex;
 
 private:
-	MDB_txn * tx (store::transaction const &) const;
+	nano::store::lmdb::env & env;
 };
+
 // A wallet is a set of account keys encrypted by a common encryption key
 class wallet final : public std::enable_shared_from_this<nano::wallet>
 {
@@ -213,8 +220,6 @@ public:
 	bool check_rep (nano::account const &, nano::uint128_t const &, bool const = true);
 	void compute_reps ();
 	void ongoing_compute_reps ();
-	void split_if_needed (store::transaction &, nano::store::component &);
-	void move_table (std::string const &, MDB_txn *, MDB_txn *);
 	std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> get_wallets ();
 	nano::network_params & network_params;
 	std::function<void (bool)> observer;
@@ -233,9 +238,9 @@ public:
 	std::thread thread;
 	static nano::uint128_t const generate_priority;
 	static nano::uint128_t const high_priority;
+
 	/** Start read-write transaction */
 	store::write_transaction tx_begin_write ();
-
 	/** Start read-only transaction */
 	store::read_transaction tx_begin_read ();
 
@@ -252,6 +257,7 @@ public:
 	virtual ~wallets_store () = default;
 	virtual bool init_error () const = 0;
 };
+
 class mdb_wallets_store final : public wallets_store
 {
 public:

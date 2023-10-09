@@ -1,8 +1,14 @@
 #pragma once
 
+#include <nano/lib/id_dispenser.hpp>
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/lmdb/transaction_impl.hpp>
+
+namespace
+{
+nano::id_dispenser id_gen;
+}
 
 namespace nano::store::lmdb
 {
@@ -62,5 +68,6 @@ public:
 	store::write_transaction tx_begin_write (txn_callbacks callbacks = txn_callbacks{}) const;
 	MDB_txn * tx (store::transaction const & transaction_a) const;
 	MDB_env * environment;
+	nano::id_dispenser::id_t const store_id{ id_gen.next_id () };
 };
 } // namespace nano::store::lmdb
