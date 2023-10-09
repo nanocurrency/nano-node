@@ -110,19 +110,12 @@ private: // State management
 
 	bool valid_change (nano::election::state_t, nano::election::state_t) const;
 	bool state_change (nano::election::state_t, nano::election::state_t);
-	bool confirmed (nano::unique_lock<nano::mutex> & lock) const;
 
 public: // State transitions
 	bool transition_time (nano::confirmation_solicitor &);
 	void transition_active ();
 
 public: // Status
-	// Returns true when the election is confirmed in memory
-	// Elections will first confirm in memory once sufficient votes have been received
-	bool status_confirmed () const;
-	// Returns true when the winning block is durably confirmed in the ledger.
-	// Later once the confirmation height processor has updated the confirmation height it will be confirmed on disk
-	// It is possible for an election to be confirmed on disk but not in memory, for instance if implicitly confirmed via confirmation height
 	bool confirmed () const;
 	bool failed () const;
 	nano::election_extended_status current_status () const;
@@ -175,7 +168,7 @@ private:
 	 * Broadcast vote for current election winner. Generates final vote if reached quorum or already confirmed
 	 * Requires mutex lock
 	 */
-	void broadcast_vote_impl (nano::unique_lock<nano::mutex> & lock);
+	void broadcast_vote_impl ();
 	void remove_votes (nano::block_hash const &);
 	void remove_block (nano::block_hash const &);
 	bool replace_by_weight (nano::unique_lock<nano::mutex> & lock_a, nano::block_hash const &);
