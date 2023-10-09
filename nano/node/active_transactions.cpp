@@ -134,7 +134,7 @@ void nano::active_transactions::process_active_confirmation (nano::store::read_t
 void nano::active_transactions::handle_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, std::shared_ptr<nano::election> election, nano::election_status_type status_type)
 {
 	nano::block_hash hash = block->hash ();
-	update_recently_cemented (election);
+	recently_cemented.put (election->get_status ());
 
 	nano::account account;
 	nano::uint128_t amount (0);
@@ -144,14 +144,8 @@ void nano::active_transactions::handle_confirmation (nano::store::read_transacti
 
 	handle_block_confirmation (transaction, block, hash, account, amount, is_state_send, is_state_epoch, pending_account);
 
-	update_election_status (election, status_type);
+	election->set_status_type (status_type);
 	notify_observers (election, account, amount, is_state_send, is_state_epoch, pending_account);
-}
-
-void nano::active_transactions::update_recently_cemented (std::shared_ptr<nano::election> const & election)
-{
-	nano::unique_lock<nano::mutex> election_lk{ election->mutex };
-	recently_cemented.put (election->status);
 }
 
 void nano::active_transactions::handle_block_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, nano::block_hash const & hash, nano::account & account, nano::uint128_t & amount, bool & is_state_send, bool & is_state_epoch, nano::account & pending_account)
@@ -161,16 +155,9 @@ void nano::active_transactions::handle_block_confirmation (nano::store::read_tra
 	node.process_confirmed_data (transaction, block, hash, account, amount, is_state_send, is_state_epoch, pending_account);
 }
 
-void nano::active_transactions::update_election_status (std::shared_ptr<nano::election> election, nano::election_status_type status_type)
-{
-	nano::unique_lock<nano::mutex> election_lk{ election->mutex };
-	election->status.type = status_type;
-	election->status.confirmation_request_count = election->confirmation_request_count;
-}
-
 void nano::active_transactions::notify_observers (std::shared_ptr<nano::election> const & election, nano::account const & account, nano::uint128_t amount, bool is_state_send, bool is_state_epoch, nano::account const & pending_account)
 {
-	auto status = election->status;
+	auto status = election->get_status ();
 	auto votes = election->votes_with_weight ();
 
 	node.observers.blocks.notify (status, votes, account, amount, is_state_send, is_state_epoch);
@@ -696,27 +683,7 @@ boost::optional<nano::election_status_type> nano::active_transactions::confirm_b
 	boost::optional<nano::election_status_type> status_type;
 	if (election)
 	{
-		nano::unique_lock<nano::mutex> election_lock{ election->mutex };
-		if (election->status.winner && election->status.winner->hash () == hash)
-		{
-			if (!election->confirmed ())
-			{
-				election->confirm_once (election_lock, nano::election_status_type::active_confirmation_height);
-				status_type = nano::election_status_type::active_confirmation_height;
-			}
-			else
-			{
-#ifndef NDEBUG
-				nano::unique_lock<nano::mutex> election_winners_lk{ election_winner_details_mutex };
-				debug_assert (election_winner_details.find (hash) != election_winner_details.cend ());
-#endif
-				status_type = nano::election_status_type::active_confirmed_quorum;
-			}
-		}
-		else
-		{
-			status_type = boost::optional<nano::election_status_type>{};
-		}
+		status_type = election->try_confirm (hash);
 	}
 	else
 	{

@@ -141,12 +141,17 @@ public: // Interface
 	bool publish (std::shared_ptr<nano::block> const & block_a);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (nano::unique_lock<nano::mutex> &);
+	boost::optional<nano::election_status_type> try_confirm (nano::block_hash const & hash);
+	nano::election_status set_status_type (nano::election_status_type status_type);
 
 	/**
 	 * Broadcasts vote for the current winner of this election
 	 * Checks if sufficient amount of time (`vote_generation_interval`) passed since the last vote generation
 	 */
 	void broadcast_vote ();
+	nano::vote_info get_last_vote (nano::account const & account);
+	void set_last_vote (nano::account const & account, nano::vote_info vote_info);
+	nano::election_status get_status () const;
 
 private: // Dependencies
 	nano::node & node;
