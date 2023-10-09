@@ -45,7 +45,12 @@ void nano::scheduler::hinted::stop ()
 
 void nano::scheduler::hinted::notify ()
 {
-	condition.notify_all ();
+	// Avoid notifying when there is very little space inside AEC
+	auto const limit = active.limit (nano::election_behavior::hinted);
+	if (active.vacancy (nano::election_behavior::hinted) >= (limit / 5))
+	{
+		condition.notify_all ();
+	}
 }
 
 bool nano::scheduler::hinted::predicate () const
