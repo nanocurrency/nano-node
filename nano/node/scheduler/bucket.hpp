@@ -11,6 +11,7 @@ class block;
 }
 namespace nano::scheduler
 {
+class limiter;
 /** A class which holds an ordered set of blocks to be scheduled, ordered by their block arrival time
  */
 class bucket final
@@ -25,15 +26,17 @@ class bucket final
 	};
 	std::set<value_type> queue;
 	size_t const maximum;
+	std::shared_ptr<nano::scheduler::limiter> limiter;
 
 public:
-	bucket (size_t maximum);
+	bucket (std::shared_ptr<nano::scheduler::limiter> limiter, size_t maximum);
 	~bucket ();
-	std::shared_ptr<nano::block> top () const;
+	std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::scheduler::limiter>> top () const;
 	void pop ();
 	void push (uint64_t time, std::shared_ptr<nano::block> block);
 	size_t size () const;
 	bool empty () const;
+	bool available () const;
 	void dump () const;
 };
 } // namespace nano::scheduler

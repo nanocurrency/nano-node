@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/node/scheduler/bucket.hpp>
+#include <nano/node/scheduler/limiter.hpp>
 
 bool nano::scheduler::bucket::value_type::operator< (value_type const & other_a) const
 {
@@ -11,20 +12,23 @@ bool nano::scheduler::bucket::value_type::operator== (value_type const & other_a
 	return time == other_a.time && block->hash () == other_a.block->hash ();
 }
 
-nano::scheduler::bucket::bucket (size_t maximum) :
-	maximum{ maximum }
+nano::scheduler::bucket::bucket (std::shared_ptr<nano::scheduler::limiter> limiter, size_t maximum) :
+	maximum{ maximum },
+	limiter{ limiter }
 {
 	debug_assert (maximum > 0);
+	debug_assert (limiter != nullptr);
 }
 
 nano::scheduler::bucket::~bucket ()
 {
 }
 
-std::shared_ptr<nano::block> nano::scheduler::bucket::top () const
+std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::scheduler::limiter>> nano::scheduler::bucket::top () const
 {
 	debug_assert (!queue.empty ());
-	return queue.begin ()->block;
+	auto & first = *queue.begin ();
+	return { first.block, limiter };
 }
 
 void nano::scheduler::bucket::pop ()
@@ -51,6 +55,11 @@ size_t nano::scheduler::bucket::size () const
 bool nano::scheduler::bucket::empty () const
 {
 	return queue.empty ();
+}
+
+bool nano::scheduler::bucket::available () const
+{
+	return !queue.empty () && limiter->available ();
 }
 
 void nano::scheduler::bucket::dump () const

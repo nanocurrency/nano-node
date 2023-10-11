@@ -2,6 +2,7 @@
 
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/node/election_insertion_result.hpp>
 #include <nano/secure/common.hpp>
 
 #include <condition_variable>
@@ -17,6 +18,7 @@ class online_reps;
 }
 namespace nano::scheduler
 {
+class limiter;
 /*
  * Monitors inactive vote cache and schedules elections with the highest observed vote tally.
  */
@@ -53,7 +55,7 @@ private:
 private: // Dependencies
 	nano::node & node;
 	nano::vote_cache & inactive_vote_cache;
-	nano::active_transactions & active;
+	std::shared_ptr<nano::scheduler::limiter> limiter;
 	nano::online_reps & online_reps;
 	nano::stats & stats;
 

@@ -1,7 +1,9 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/scheduler/bucket.hpp>
 #include <nano/node/scheduler/buckets.hpp>
+#include <nano/node/scheduler/limiter.hpp>
 
 #include <string>
 
@@ -19,7 +21,7 @@ void nano::scheduler::buckets::next ()
 void nano::scheduler::buckets::seek ()
 {
 	next ();
-	for (std::size_t i = 0, n = buckets_m.size (); (*current)->empty () && i < n; ++i)
+	for (std::size_t i = 0, n = buckets_m.size (); !(*current)->available () && i < n; ++i)
 	{
 		next ();
 	}
@@ -29,7 +31,7 @@ void nano::scheduler::buckets::seek ()
  * Prioritization constructor, construct a container containing approximately 'maximum' number of blocks.
  * @param maximum number of blocks that this container can hold, this is a soft and approximate limit.
  */
-nano::scheduler::buckets::buckets (uint64_t maximum) :
+nano::scheduler::buckets::buckets (insert_t const & insert, uint64_t maximum) :
 	maximum{ maximum }
 {
 	auto build_region = [this] (uint128_t const & begin, uint128_t const & end, size_t count) {
@@ -52,7 +54,8 @@ nano::scheduler::buckets::buckets (uint64_t maximum) :
 	auto bucket_max = std::max<size_t> (1u, maximum / minimums.size ());
 	for (size_t i = 0u, n = minimums.size (); i < n; ++i)
 	{
-		buckets_m.push_back (std::make_unique<scheduler::bucket> (bucket_max));
+		auto limiter = std::make_shared<scheduler::limiter> (insert, bucket_max, nano::election_behavior::normal);
+		buckets_m.push_back (std::make_unique<scheduler::bucket> (limiter, bucket_max));
 	}
 	current = buckets_m.begin ();
 }
@@ -73,19 +76,19 @@ std::size_t nano::scheduler::buckets::index (nano::uint128_t const & balance) co
  */
 void nano::scheduler::buckets::push (uint64_t time, std::shared_ptr<nano::block> block, nano::amount const & priority)
 {
-	auto was_empty = empty ();
+	auto was_available = available ();
 	auto & bucket = buckets_m[index (priority.number ())];
 	bucket->push (time, block);
-	if (was_empty)
+	if (!was_available)
 	{
 		seek ();
 	}
 }
 
 /** Return the highest priority block of the current bucket */
-std::shared_ptr<nano::block> nano::scheduler::buckets::top () const
+std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::scheduler::limiter>> nano::scheduler::buckets::top () const
 {
-	debug_assert (!empty ());
+	debug_assert (available ());
 	auto result = (*current)->top ();
 	return result;
 }
@@ -93,7 +96,7 @@ std::shared_ptr<nano::block> nano::scheduler::buckets::top () const
 /** Pop the current block from the container and seek to the next block, if it exists */
 void nano::scheduler::buckets::pop ()
 {
-	debug_assert (!empty ());
+	debug_assert (available ());
 	auto & bucket = *current;
 	bucket->pop ();
 	seek ();
@@ -126,6 +129,11 @@ std::size_t nano::scheduler::buckets::bucket_size (std::size_t index) const
 bool nano::scheduler::buckets::empty () const
 {
 	return std::all_of (buckets_m.begin (), buckets_m.end (), [] (auto const & bucket) { return bucket->empty (); });
+}
+
+bool nano::scheduler::buckets::available () const
+{
+	return std::any_of (buckets_m.begin (), buckets_m.end (), [] (auto const & bucket) { return bucket->available (); });
 }
 
 /** Print the state of the class in stderr */

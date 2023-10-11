@@ -40,6 +40,7 @@ add_executable(
   peer_container.cpp
   scheduler_buckets.cpp
   request_aggregator.cpp
+  scheduler_limiter.cpp
   signal_manager.cpp
   signing.cpp
   socket.cpp

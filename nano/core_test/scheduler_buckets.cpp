@@ -1,5 +1,6 @@
 #include <nano/node/scheduler/buckets.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -108,27 +109,27 @@ std::shared_ptr<nano::state_block> & block3 ()
 
 TEST (buckets, construction)
 {
-	nano::scheduler::buckets buckets;
+	nano::scheduler::buckets buckets{ nano::test::active_transactions_insert_null };
 	ASSERT_EQ (0, buckets.size ());
-	ASSERT_TRUE (buckets.empty ());
+	ASSERT_TRUE (buckets.empty () && !buckets.available ()); // Initial state
 	ASSERT_EQ (62, buckets.bucket_count ());
 }
 
 TEST (buckets, index_min)
 {
-	nano::scheduler::buckets buckets;
+	nano::scheduler::buckets buckets{ nano::test::active_transactions_insert_null };
 	ASSERT_EQ (0, buckets.index (std::numeric_limits<nano::uint128_t>::min ()));
 }
 
 TEST (buckets, index_max)
 {
-	nano::scheduler::buckets buckets;
+	nano::scheduler::buckets buckets{ nano::test::active_transactions_insert_null };
 	ASSERT_EQ (buckets.bucket_count () - 1, buckets.index (std::numeric_limits<nano::uint128_t>::max ()));
 }
 
 TEST (buckets, insert_Gxrb)
 {
-	nano::scheduler::buckets buckets;
+	nano::scheduler::buckets buckets{ nano::test::active_transactions_insert_null };
 	buckets.push (1000, block0 (), nano::Gxrb_ratio);
 	ASSERT_EQ (1, buckets.size ());
 	ASSERT_EQ (1, buckets.bucket_size (48));
@@ -136,7 +137,7 @@ TEST (buckets, insert_Gxrb)
 
 TEST (buckets, insert_Mxrb)
 {
-	nano::scheduler::buckets buckets;
+	nano::scheduler::buckets buckets{ nano::test::active_transactions_insert_null };
 	buckets.push (1000, block1 (), nano::Mxrb_ratio);
 	ASSERT_EQ (1, buckets.size ());
 	ASSERT_EQ (1, buckets.bucket_size (13));
@@ -145,7 +146,7 @@ TEST (buckets, insert_Mxrb)
 // Test two blocks with the same priority
 TEST (buckets, insert_same_priority)
 {
-	nano::scheduler::buckets buckets;
+	nano::scheduler::buckets buckets{ nano::test::active_transactions_insert_null };
 	buckets.push (1000, block0 (), nano::Gxrb_ratio);
 	buckets.push (1000, block2 (), nano::Gxrb_ratio);
 	ASSERT_EQ (2, buckets.size ());
@@ -155,7 +156,7 @@ TEST (buckets, insert_same_priority)
 // Test the same block inserted multiple times
 TEST (buckets, insert_duplicate)
 {
-	nano::scheduler::buckets buckets;
+	nano::scheduler::buckets buckets{ nano::test::active_transactions_insert_null };
 	buckets.push (1000, block0 (), nano::Gxrb_ratio);
 	buckets.push (1000, block0 (), nano::Gxrb_ratio);
 	ASSERT_EQ (1, buckets.size ());
@@ -164,18 +165,18 @@ TEST (buckets, insert_duplicate)
 
 TEST (buckets, insert_older)
 {
-	nano::scheduler::buckets buckets;
+	nano::scheduler::buckets buckets{ nano::test::active_transactions_insert_null };
 	buckets.push (1000, block0 (), nano::Gxrb_ratio);
 	buckets.push (1100, block2 (), nano::Gxrb_ratio);
-	ASSERT_EQ (block0 (), buckets.top ());
+	ASSERT_EQ (block0 (), buckets.top ().first);
 	buckets.pop ();
-	ASSERT_EQ (block2 (), buckets.top ());
+	ASSERT_EQ (block2 (), buckets.top ().first);
 	buckets.pop ();
 }
 
 TEST (buckets, pop)
 {
-	nano::scheduler::buckets buckets;
+	nano::scheduler::buckets buckets{ nano::test::active_transactions_insert_null };
 	ASSERT_TRUE (buckets.empty ());
 	buckets.push (1000, block0 (), nano::Gxrb_ratio);
 	ASSERT_FALSE (buckets.empty ());
@@ -185,69 +186,69 @@ TEST (buckets, pop)
 
 TEST (buckets, top_one)
 {
-	nano::scheduler::buckets buckets;
+	nano::scheduler::buckets buckets{ nano::test::active_transactions_insert_null };
 	buckets.push (1000, block0 (), nano::Gxrb_ratio);
-	ASSERT_EQ (block0 (), buckets.top ());
+	ASSERT_EQ (block0 (), buckets.top ().first);
 }
 
 TEST (buckets, top_two)
 {
-	nano::scheduler::buckets buckets;
+	nano::scheduler::buckets buckets{ nano::test::active_transactions_insert_null };
 	buckets.push (1000, block0 (), nano::Gxrb_ratio);
 	buckets.push (1, block1 (), nano::Mxrb_ratio);
-	ASSERT_EQ (block0 (), buckets.top ());
+	ASSERT_EQ (block0 (), buckets.top ().first);
 	buckets.pop ();
-	ASSERT_EQ (block1 (), buckets.top ());
+	ASSERT_EQ (block1 (), buckets.top ().first);
 	buckets.pop ();
 	ASSERT_TRUE (buckets.empty ());
 }
 
 TEST (buckets, top_round_robin)
 {
-	nano::scheduler::buckets buckets;
+	nano::scheduler::buckets buckets{ nano::test::active_transactions_insert_null };
 	buckets.push (1000, blockzero (), 0);
-	ASSERT_EQ (blockzero (), buckets.top ());
+	ASSERT_EQ (blockzero (), buckets.top ().first);
 	buckets.push (1000, block0 (), nano::Gxrb_ratio);
 	buckets.push (1000, block1 (), nano::Mxrb_ratio);
 	buckets.push (1100, block3 (), nano::Mxrb_ratio);
 	buckets.pop (); // blockzero
-	EXPECT_EQ (block1 (), buckets.top ());
+	EXPECT_EQ (block1 (), buckets.top ().first);
 	buckets.pop ();
-	EXPECT_EQ (block0 (), buckets.top ());
+	EXPECT_EQ (block0 (), buckets.top ().first);
 	buckets.pop ();
-	EXPECT_EQ (block3 (), buckets.top ());
+	EXPECT_EQ (block3 (), buckets.top ().first);
 	buckets.pop ();
 	EXPECT_TRUE (buckets.empty ());
 }
 
 TEST (buckets, trim_normal)
 {
-	nano::scheduler::buckets buckets{ 1 };
+	nano::scheduler::buckets buckets{ nano::test::active_transactions_insert_null, 1 };
 	buckets.push (1000, block0 (), nano::Gxrb_ratio);
 	buckets.push (1100, block2 (), nano::Gxrb_ratio);
 	ASSERT_EQ (1, buckets.size ());
-	ASSERT_EQ (block0 (), buckets.top ());
+	ASSERT_EQ (block0 (), buckets.top ().first);
 }
 
 TEST (buckets, trim_reverse)
 {
-	nano::scheduler::buckets buckets{ 1 };
+	nano::scheduler::buckets buckets{ nano::test::active_transactions_insert_null, 1 };
 	buckets.push (1100, block2 (), nano::Gxrb_ratio);
 	buckets.push (1000, block0 (), nano::Gxrb_ratio);
 	ASSERT_EQ (1, buckets.size ());
-	ASSERT_EQ (block0 (), buckets.top ());
+	ASSERT_EQ (block0 (), buckets.top ().first);
 }
 
 TEST (buckets, trim_even)
 {
-	nano::scheduler::buckets buckets{ 2 };
+	nano::scheduler::buckets buckets{ nano::test::active_transactions_insert_null, 2 };
 	buckets.push (1000, block0 (), nano::Gxrb_ratio);
 	buckets.push (1100, block2 (), nano::Gxrb_ratio);
 	ASSERT_EQ (1, buckets.size ());
-	ASSERT_EQ (block0 (), buckets.top ());
+	ASSERT_EQ (block0 (), buckets.top ().first);
 	buckets.push (1000, block1 (), nano::Mxrb_ratio);
 	ASSERT_EQ (2, buckets.size ());
-	ASSERT_EQ (block0 (), buckets.top ());
+	ASSERT_EQ (block0 (), buckets.top ().first);
 	buckets.pop ();
-	ASSERT_EQ (block1 (), buckets.top ());
+	ASSERT_EQ (block1 (), buckets.top ().first);
 }

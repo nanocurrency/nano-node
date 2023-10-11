@@ -1,11 +1,12 @@
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/buckets.hpp>
+#include <nano/node/scheduler/limiter.hpp>
 #include <nano/node/scheduler/priority.hpp>
 
 nano::scheduler::priority::priority (nano::node & node_a, nano::stats & stats_a) :
 	node{ node_a },
 	stats{ stats_a },
-	buckets{ std::make_unique<scheduler::buckets> () }
+	buckets{ std::make_unique<scheduler::buckets> (node_a.active.insert_fn ()) }
 {
 }
 
@@ -88,7 +89,7 @@ bool nano::scheduler::priority::empty () const
 
 bool nano::scheduler::priority::predicate () const
 {
-	return node.active.vacancy () > 0 && !buckets->empty ();
+	return node.active.vacancy () > 0 && buckets->available ();
 }
 
 void nano::scheduler::priority::run ()
@@ -106,11 +107,12 @@ void nano::scheduler::priority::run ()
 
 			if (predicate ())
 			{
-				auto block = buckets->top ();
+				auto [block, limiter] = buckets->top ();
+				debug_assert (limiter->available ());
 				buckets->pop ();
 				lock.unlock ();
 				stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_priority);
-				auto result = node.active.insert (block);
+				auto result = limiter->activate (block);
 				if (result.inserted)
 				{
 					stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_priority_success);

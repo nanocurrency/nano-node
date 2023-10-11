@@ -1,6 +1,8 @@
 #pragma once
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/node/election.hpp>
+#include <nano/node/election_insertion_result.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -9,11 +11,13 @@
 
 namespace nano
 {
+class active_transactions;
 class block;
 }
 namespace nano::scheduler
 {
 class bucket;
+class limiter;
 /** A container for holding blocks and their arrival/creation time.
  *
  *  The container consists of a number of buckets. Each bucket holds an ordered set of 'value_type' items.
@@ -40,18 +44,21 @@ class buckets final
 	uint64_t const maximum;
 
 	void next ();
-	void seek ();
 
 public:
-	buckets (uint64_t maximum = 250000u);
+	using insert_t = std::function<nano::election_insertion_result (std::shared_ptr<nano::block> const & block, nano::election_behavior behavior)>;
+
+	buckets (insert_t const & insert, uint64_t maximum = 250000u);
 	~buckets ();
 	void push (uint64_t time, std::shared_ptr<nano::block> block, nano::amount const & priority);
-	std::shared_ptr<nano::block> top () const;
+	std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::scheduler::limiter>> top () const;
 	void pop ();
+	void seek ();
 	std::size_t size () const;
 	std::size_t bucket_count () const;
 	std::size_t bucket_size (std::size_t index) const;
 	bool empty () const;
+	bool available () const;
 	void dump () const;
 	std::size_t index (nano::uint128_t const & balance) const;
 

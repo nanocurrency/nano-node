@@ -141,6 +141,8 @@ public:
 	 * Starts new election with a specified behavior type
 	 */
 	nano::election_insertion_result insert (std::shared_ptr<nano::block> const & block, nano::election_behavior behavior = nano::election_behavior::normal);
+	// Function wrapper around call to ::insert
+	std::function<nano::election_insertion_result (std::shared_ptr<nano::block> const & block, nano::election_behavior behavior)> insert_fn ();
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
 	nano::vote_code vote (std::shared_ptr<nano::vote> const &);
 	// Is the root of this block in the roots container
