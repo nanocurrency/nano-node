@@ -2,7 +2,6 @@
 #include <nano/boost/beast/http.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/thread_runner.hpp>
-#include <nano/lib/threading.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node_rpc_config.hpp>
