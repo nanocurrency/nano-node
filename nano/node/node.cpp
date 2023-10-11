@@ -1,5 +1,4 @@
 #include <nano/lib/stream.hpp>
-#include <nano/lib/threading.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>

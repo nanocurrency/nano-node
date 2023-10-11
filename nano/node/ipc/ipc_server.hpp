@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/ipc_flatbuffers_lib/generated/flatbuffers/nanoapi_generated.h>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/ipc.hpp>
 #include <nano/node/ipc/ipc_access_config.hpp>

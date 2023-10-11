@@ -5,8 +5,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/filesystem.hpp>
-
 #include <chrono>
 #include <regex>
 #include <thread>

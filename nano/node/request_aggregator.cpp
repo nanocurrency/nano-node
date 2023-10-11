@@ -1,5 +1,4 @@
 #include <nano/lib/stats.hpp>
-#include <nano/lib/threading.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/network.hpp>

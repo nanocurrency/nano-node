@@ -4,8 +4,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/none.hpp>
-
 #include <memory>
 #include <vector>
 
