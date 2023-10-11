@@ -8,6 +8,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
+#include <boost/interprocess/sync/named_mutex.hpp>
 
 namespace
 {
@@ -558,63 +559,73 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("confirmation_height_clear"))
 	{
-		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
-		auto node_flags = nano::inactive_node_flag_defaults ();
-		node_flags.read_only = false;
-		nano::update_flags (node_flags, vm);
-		nano::inactive_node node (data_path, node_flags);
-		if (!node.node->init_error ())
+		boost::interprocess::named_mutex process_mutex (boost::interprocess::open_or_create, "nano_node_process");
+		bool no_other_node_process = process_mutex.try_lock ();
+		if (no_other_node_process)
 		{
-			if (vm.count ("account") == 1)
+			process_mutex.unlock ();
+			boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+			auto node_flags = nano::inactive_node_flag_defaults ();
+			node_flags.read_only = false;
+			nano::update_flags (node_flags, vm);
+			nano::inactive_node node (data_path, node_flags);
+			if (!node.node->init_error ())
 			{
-				auto account_str = vm["account"].as<std::string> ();
-				nano::account account;
-				if (!account.decode_account (account_str))
+				if (vm.count ("account") == 1)
 				{
-					nano::confirmation_height_info confirmation_height_info;
-					if (!node.node->store.confirmation_height.get (node.node->store.tx_begin_read (), account, confirmation_height_info))
+					auto account_str = vm["account"].as<std::string> ();
+					nano::account account;
+					if (!account.decode_account (account_str))
 					{
-						auto transaction (node.node->store.tx_begin_write ());
-						auto conf_height_reset_num = 0;
-						if (account == node.node->network_params.ledger.genesis->account ())
+						nano::confirmation_height_info confirmation_height_info;
+						if (!node.node->store.confirmation_height.get (node.node->store.tx_begin_read (), account, confirmation_height_info))
 						{
-							conf_height_reset_num = 1;
-							node.node->store.confirmation_height.put (transaction, account, { confirmation_height_info.height, node.node->network_params.ledger.genesis->hash () });
+							auto transaction (node.node->store.tx_begin_write ());
+							auto conf_height_reset_num = 0;
+							if (account == node.node->network_params.ledger.genesis->account ())
+							{
+								conf_height_reset_num = 1;
+								node.node->store.confirmation_height.put (transaction, account, { confirmation_height_info.height, node.node->network_params.ledger.genesis->hash () });
+							}
+							else
+							{
+								node.node->store.confirmation_height.clear (transaction, account);
+							}
+
+							std::cout << "Confirmation height of account " << account_str << " is set to " << conf_height_reset_num << std::endl;
 						}
 						else
 						{
-							node.node->store.confirmation_height.clear (transaction, account);
+							std::cerr << "Could not find account" << std::endl;
+							ec = nano::error_cli::generic;
 						}
-
-						std::cout << "Confirmation height of account " << account_str << " is set to " << conf_height_reset_num << std::endl;
+					}
+					else if (account_str == "all")
+					{
+						auto transaction (node.node->store.tx_begin_write ());
+						reset_confirmation_heights (transaction, node.node->network_params.ledger, node.node->store);
+						std::cout << "Confirmation heights of all accounts (except genesis which is set to 1) are set to 0" << std::endl;
 					}
 					else
 					{
-						std::cerr << "Could not find account" << std::endl;
-						ec = nano::error_cli::generic;
+						std::cerr << "Specify either valid account id or 'all'\n";
+						ec = nano::error_cli::invalid_arguments;
 					}
-				}
-				else if (account_str == "all")
-				{
-					auto transaction (node.node->store.tx_begin_write ());
-					reset_confirmation_heights (transaction, node.node->network_params.ledger, node.node->store);
-					std::cout << "Confirmation heights of all accounts (except genesis which is set to 1) are set to 0" << std::endl;
 				}
 				else
 				{
-					std::cerr << "Specify either valid account id or 'all'\n";
+					std::cerr << "confirmation_height_clear command requires one <account> option that may contain an account or the value 'all'\n";
 					ec = nano::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
-				std::cerr << "confirmation_height_clear command requires one <account> option that may contain an account or the value 'all'\n";
-				ec = nano::error_cli::invalid_arguments;
+				database_write_lock_error (ec);
 			}
 		}
 		else
 		{
-			database_write_lock_error (ec);
+			std::cerr << "Node process is currently running locally. Confirmation_height_clear command may cause misbehavior on node side. Close the node process before retrying the command." << std::endl;
 		}
 	}
 	else if (vm.count ("final_vote_clear"))
