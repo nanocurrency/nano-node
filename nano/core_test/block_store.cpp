@@ -674,8 +674,20 @@ TEST (mdb_block_store, bad_path)
 		GTEST_SKIP ();
 	}
 	nano::logger_mt logger;
-	nano::store::lmdb::component store (logger, boost::filesystem::path ("///"), nano::dev::constants);
-	ASSERT_TRUE (store.init_error ());
+	try
+	{
+		auto path = nano::unique_path ();
+		{
+			std::ofstream stream (path.c_str ());
+		}
+		boost::filesystem::permissions (path, boost::filesystem::perms::no_perms);
+		nano::store::lmdb::component store (logger, path, nano::dev::constants);
+	}
+	catch (std::runtime_error &)
+	{
+		return;
+	}
+	ASSERT_TRUE (false);
 }
 
 TEST (block_store, DISABLED_already_open) // File can be shared
