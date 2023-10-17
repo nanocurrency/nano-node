@@ -307,7 +307,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 		bool const confirmed_l (election_l->confirmed ());
 		unconfirmed_count_l += !confirmed_l;
 
-		if (confirmed_l || election_l->transition_time (solicitor))
+		if (election_l->transition_time (solicitor))
 		{
 			erase (election_l->qualified_root);
 		}
@@ -338,7 +338,6 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 		auto erased (blocks.erase (hash));
 		(void)erased;
 		debug_assert (erased == 1);
-		node.inactive_vote_cache.erase (hash);
 	}
 	roots.get<tag_root> ().erase (roots.get<tag_root> ().find (election->qualified_root));
 
@@ -367,7 +366,7 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 
 nano::stat::type nano::active_transactions::completion_type (nano::election const & election) const
 {
-	if (election.status_confirmed ())
+	if (election.confirmed ())
 	{
 		return nano::stat::type::active_confirmed;
 	}
@@ -473,7 +472,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				count_by_behavior[result.election->behavior ()]++;
 
 				lock_a.unlock ();
-				if (auto const cache = node.inactive_vote_cache.find (hash); cache)
+				if (auto const cache = node.vote_cache.find (hash); cache)
 				{
 					cache->fill (result.election);
 				}
@@ -535,7 +534,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 	// Process inactive votes outside of the critical section
 	for (auto & hash : inactive)
 	{
-		add_inactive_vote_cache (hash, vote_a);
+		add_vote_cache (hash, vote_a);
 	}
 
 	if (!process.empty ())
@@ -670,7 +669,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> const & bl
 			lock.lock ();
 			blocks.emplace (block_a->hash (), election);
 			lock.unlock ();
-			if (auto const cache = node.inactive_vote_cache.find (block_a->hash ()); cache)
+			if (auto const cache = node.vote_cache.find (block_a->hash ()); cache)
 			{
 				cache->fill (election);
 			}
@@ -700,8 +699,7 @@ boost::optional<nano::election_status_type> nano::active_transactions::confirm_b
 		nano::unique_lock<nano::mutex> election_lock{ election->mutex };
 		if (election->status.winner && election->status.winner->hash () == hash)
 		{
-			// Determine if the block was confirmed explicitly via election confirmation or implicitly via confirmation height
-			if (!election->status_confirmed ())
+			if (!election->confirmed ())
 			{
 				election->confirm_once (election_lock, nano::election_status_type::active_confirmation_height);
 				status_type = nano::election_status_type::active_confirmation_height;
@@ -728,11 +726,11 @@ boost::optional<nano::election_status_type> nano::active_transactions::confirm_b
 	return status_type;
 }
 
-void nano::active_transactions::add_inactive_vote_cache (nano::block_hash const & hash, std::shared_ptr<nano::vote> const vote)
+void nano::active_transactions::add_vote_cache (nano::block_hash const & hash, std::shared_ptr<nano::vote> const vote)
 {
 	if (node.ledger.weight (vote->account) > node.minimum_principal_weight ())
 	{
-		node.inactive_vote_cache.vote (hash, vote);
+		node.vote_cache.vote (hash, vote);
 	}
 }
 

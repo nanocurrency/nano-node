@@ -23,7 +23,7 @@ namespace scheduler
 class process_live_dispatcher
 {
 public:
-	process_live_dispatcher (nano::ledger & ledger, nano::scheduler::priority & scheduler, nano::vote_cache & inactive_vote_cache, nano::websocket_server & websocket);
+	process_live_dispatcher (nano::ledger &, nano::scheduler::priority &, nano::vote_cache &, nano::websocket_server &);
 	void connect (nano::block_processor & block_processor);
 
 private:
@@ -33,7 +33,7 @@ private:
 
 	nano::ledger & ledger;
 	nano::scheduler::priority & scheduler;
-	nano::vote_cache & inactive_vote_cache;
+	nano::vote_cache & vote_cache;
 	nano::websocket_server & websocket;
 };
 }

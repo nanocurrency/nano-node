@@ -605,6 +605,11 @@ uint64_t nano::vote::packed_timestamp (uint64_t timestamp, uint8_t duration) con
 	return (timestamp & timestamp_mask) | duration;
 }
 
+bool nano::vote::is_final_timestamp (uint64_t timestamp)
+{
+	return timestamp == std::numeric_limits<uint64_t>::max ();
+}
+
 nano::block_hash nano::iterate_vote_blocks_as_hash::operator() (nano::block_hash const & item) const
 {
 	return item;

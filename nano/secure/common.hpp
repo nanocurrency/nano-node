@@ -276,10 +276,14 @@ public:
 	uint64_t timestamp () const;
 	uint8_t duration_bits () const;
 	std::chrono::milliseconds duration () const;
+
 	static uint64_t constexpr timestamp_mask = { 0xffff'ffff'ffff'fff0ULL };
 	static nano::seconds_t constexpr timestamp_max = { 0xffff'ffff'ffff'fff0ULL };
 	static uint64_t constexpr timestamp_min = { 0x0000'0000'0000'0010ULL };
 	static uint8_t constexpr duration_max = { 0x0fu };
+
+	/* Check if timestamp represents a final vote */
+	static bool is_final_timestamp (uint64_t timestamp);
 
 private:
 	// Vote timestamp

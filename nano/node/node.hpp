@@ -65,7 +65,6 @@ std::unique_ptr<container_info_component> collect_container_info (rep_crawler & 
 
 // Configs
 backlog_population::config backlog_population_config (node_config const &);
-vote_cache::config nodeconfig_to_vote_cache_config (node_config const &, node_flags const &);
 outbound_bandwidth_limiter::config outbound_bandwidth_limiter_config (node_config const &);
 
 class node final : public std::enable_shared_from_this<nano::node>
@@ -124,6 +123,7 @@ public:
 	void add_initial_peers ();
 	void start_election (std::shared_ptr<nano::block> const & block);
 	bool block_confirmed (nano::block_hash const &);
+	bool block_confirmed_or_being_confirmed (nano::store::transaction const &, nano::block_hash const &);
 	bool block_confirmed_or_being_confirmed (nano::block_hash const &);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string> const &, std::shared_ptr<std::string> const &, std::shared_ptr<boost::asio::ip::tcp::resolver> const &);
 	void ongoing_online_weight_calculation ();
@@ -180,7 +180,7 @@ public:
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
 	nano::confirmation_height_processor confirmation_height_processor;
-	nano::vote_cache inactive_vote_cache;
+	nano::vote_cache vote_cache;
 	nano::vote_generator generator;
 	nano::vote_generator final_generator;
 	nano::active_transactions active;

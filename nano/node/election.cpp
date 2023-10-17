@@ -124,11 +124,6 @@ bool nano::election::state_change (nano::election::state_t expected_a, nano::ele
 	return result;
 }
 
-bool nano::election::confirmed (nano::unique_lock<nano::mutex> & lock) const
-{
-	return node.block_confirmed (status.winner->hash ());
-}
-
 std::chrono::milliseconds nano::election::confirm_req_time () const
 {
 	switch (behavior ())
@@ -163,12 +158,6 @@ void nano::election::transition_active ()
 
 bool nano::election::confirmed () const
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	return confirmed (lock);
-}
-
-bool nano::election::status_confirmed () const
-{
 	return state_m == nano::election::state_t::confirmed || state_m == nano::election::state_t::expired_confirmed;
 }
 
@@ -194,7 +183,7 @@ void nano::election::broadcast_vote ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	if (last_vote + std::chrono::milliseconds (node.config.network_params.network.vote_broadcast_interval) < std::chrono::steady_clock::now ())
 	{
-		broadcast_vote_impl (lock);
+		broadcast_vote_impl ();
 		last_vote = std::chrono::steady_clock::now ();
 	}
 }
@@ -442,7 +431,7 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 
 	node.stats.inc (nano::stat::type::election, vote_source_a == vote_source::live ? nano::stat::detail::vote_new : nano::stat::detail::vote_cached);
 
-	if (!confirmed (lock))
+	if (!confirmed ())
 	{
 		confirm_if_quorum (lock);
 	}
@@ -454,7 +443,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	// Do not insert new blocks if already confirmed
-	auto result = confirmed (lock);
+	auto result (confirmed ());
 	if (!result && last_blocks.size () >= max_blocks && last_blocks.find (block_a->hash ()) == last_blocks.end ())
 	{
 		if (!replace_by_weight (lock, block_a->hash ()))
@@ -507,7 +496,7 @@ std::shared_ptr<nano::block> nano::election::winner () const
 	return status.winner;
 }
 
-void nano::election::broadcast_vote_impl (nano::unique_lock<nano::mutex> & lock)
+void nano::election::broadcast_vote_impl ()
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -515,7 +504,7 @@ void nano::election::broadcast_vote_impl (nano::unique_lock<nano::mutex> & lock)
 	{
 		node.stats.inc (nano::stat::type::election, nano::stat::detail::generate_vote);
 
-		if (confirmed (lock) || have_quorum (tally_impl ()))
+		if (confirmed () || have_quorum (tally_impl ()))
 		{
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::generate_vote_final);
 			node.final_generator.add (root, status.winner->hash ()); // Broadcasts vote to the network
@@ -581,8 +570,8 @@ bool nano::election::replace_by_weight (nano::unique_lock<nano::mutex> & lock_a,
 	// Sort in ascending order
 	std::sort (sorted.begin (), sorted.end (), [] (auto const & left, auto const & right) { return left.second < right.second; });
 	// Replace if lowest tally is below inactive cache new block weight
-	auto inactive_existing = node.inactive_vote_cache.find (hash_a);
-	auto inactive_tally = inactive_existing ? inactive_existing->tally : 0;
+	auto inactive_existing = node.vote_cache.find (hash_a);
+	auto inactive_tally = inactive_existing ? inactive_existing->tally () : 0;
 	if (inactive_tally > 0 && sorted.size () < max_blocks)
 	{
 		// If count of tally items is less than 10, remove any block without tally
