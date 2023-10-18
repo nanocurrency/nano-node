@@ -18,8 +18,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/filesystem.hpp>
-
 #include <cstdlib>
 #include <fstream>
 #include <unordered_set>
