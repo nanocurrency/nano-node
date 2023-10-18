@@ -81,7 +81,7 @@ namespace store
 
 		virtual unsigned max_block_write_batch_num () const = 0;
 
-		virtual bool copy_db (boost::filesystem::path const & destination) = 0;
+		virtual bool copy_db (std::filesystem::path const & destination) = 0;
 		virtual void rebuild_db (write_transaction const & transaction_a) = 0;
 
 		/** Not applicable to all sub-classes */

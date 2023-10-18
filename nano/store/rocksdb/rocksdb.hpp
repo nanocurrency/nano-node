@@ -64,7 +64,7 @@ public:
 	friend class nano::store::rocksdb::pruned;
 	friend class nano::store::rocksdb::version;
 
-	explicit component (nano::logger_mt &, boost::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
+	explicit component (nano::logger_mt &, std::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
 
 	store::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	store::read_transaction tx_begin_read () const override;
@@ -80,7 +80,7 @@ public:
 
 	void serialize_memory_stats (boost::property_tree::ptree &) override;
 
-	bool copy_db (boost::filesystem::path const & destination) override;
+	bool copy_db (std::filesystem::path const & destination) override;
 	void rebuild_db (store::write_transaction const & transaction_a) override;
 
 	unsigned max_block_write_batch_num () const override;
@@ -147,7 +147,7 @@ private:
 	::rocksdb::ColumnFamilyHandle * table_to_column_family (tables table_a) const;
 	int clear (::rocksdb::ColumnFamilyHandle * column_family);
 
-	void open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a, ::rocksdb::Options const & options_a, std::vector<::rocksdb::ColumnFamilyDescriptor> column_families);
+	void open (bool & error_a, std::filesystem::path const & path_a, bool open_read_only_a, ::rocksdb::Options const & options_a, std::vector<::rocksdb::ColumnFamilyDescriptor> column_families);
 
 	bool do_upgrades (store::write_transaction const &);
 	void upgrade_v21_to_v22 (store::write_transaction const &);

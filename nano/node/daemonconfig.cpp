@@ -3,12 +3,10 @@
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
 
-#include <boost/filesystem.hpp>
-
 #include <sstream>
 #include <vector>
 
-nano::daemon_config::daemon_config (boost::filesystem::path const & data_path_a, nano::network_params & network_params) :
+nano::daemon_config::daemon_config (std::filesystem::path const & data_path_a, nano::network_params & network_params) :
 	node{ network_params },
 	data_path{ data_path_a }
 {
@@ -61,7 +59,7 @@ nano::error nano::daemon_config::deserialize_toml (nano::tomlconfig & toml)
 	return toml.get_error ();
 }
 
-nano::error nano::read_node_config_toml (boost::filesystem::path const & data_path_a, nano::daemon_config & config_a, std::vector<std::string> const & config_overrides)
+nano::error nano::read_node_config_toml (std::filesystem::path const & data_path_a, nano::daemon_config & config_a, std::vector<std::string> const & config_overrides)
 {
 	nano::error error;
 	auto toml_config_path = nano::get_node_toml_config_path (data_path_a);
@@ -80,7 +78,7 @@ nano::error nano::read_node_config_toml (boost::filesystem::path const & data_pa
 	// Make sure we don't create an empty toml file if it doesn't exist. Running without a toml file is the default.
 	if (!error)
 	{
-		if (boost::filesystem::exists (toml_config_path))
+		if (std::filesystem::exists (toml_config_path))
 		{
 			error = toml.read (config_overrides_stream, toml_config_path);
 		}

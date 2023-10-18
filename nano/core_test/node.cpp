@@ -4312,12 +4312,12 @@ TEST (node_config, node_id_private_key_persistence)
 
 	// create the directory and the file
 	auto path = nano::unique_path ();
-	ASSERT_TRUE (boost::filesystem::create_directories (path));
+	ASSERT_TRUE (std::filesystem::create_directories (path));
 	auto priv_key_filename = path / "node_id_private.key";
 
 	// check that the key generated is random when the key does not exist
 	nano::keypair kp1 = nano::load_or_create_node_id (path, logger);
-	boost::filesystem::remove (priv_key_filename);
+	std::filesystem::remove (priv_key_filename);
 	nano::keypair kp2 = nano::load_or_create_node_id (path, logger);
 	ASSERT_NE (kp1.prv, kp2.prv);
 

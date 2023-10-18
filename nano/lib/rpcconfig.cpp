@@ -111,7 +111,7 @@ nano::rpc_process_config::rpc_process_config (nano::network_constants & network_
 
 namespace nano
 {
-nano::error read_rpc_config_toml (boost::filesystem::path const & data_path_a, nano::rpc_config & config_a, std::vector<std::string> const & config_overrides)
+nano::error read_rpc_config_toml (std::filesystem::path const & data_path_a, nano::rpc_config & config_a, std::vector<std::string> const & config_overrides)
 {
 	nano::error error;
 	auto toml_config_path = nano::get_rpc_toml_config_path (data_path_a);
@@ -129,7 +129,7 @@ nano::error read_rpc_config_toml (boost::filesystem::path const & data_path_a, n
 	// Make sure we don't create an empty toml file if it doesn't exist. Running without a toml file is the default.
 	if (!error)
 	{
-		if (boost::filesystem::exists (toml_config_path))
+		if (std::filesystem::exists (toml_config_path))
 		{
 			error = toml.read (config_overrides_stream, toml_config_path);
 		}

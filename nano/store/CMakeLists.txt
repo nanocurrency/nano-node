@@ -99,7 +99,6 @@ target_link_libraries(
   nano_store
   Boost::circular_buffer
   Boost::endian
-  Boost::filesystem
   Boost::iostreams
   Boost::log_setup
   Boost::log

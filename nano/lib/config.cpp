@@ -1,7 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 
-#include <boost/filesystem/path.hpp>
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 
@@ -290,27 +289,27 @@ bool is_sanitizer_build ()
 	return is_asan_build () || is_tsan_build ();
 }
 
-std::string get_node_toml_config_path (boost::filesystem::path const & data_path)
+std::string get_node_toml_config_path (std::filesystem::path const & data_path)
 {
 	return (data_path / "config-node.toml").string ();
 }
 
-std::string get_rpc_toml_config_path (boost::filesystem::path const & data_path)
+std::string get_rpc_toml_config_path (std::filesystem::path const & data_path)
 {
 	return (data_path / "config-rpc.toml").string ();
 }
 
-std::string get_qtwallet_toml_config_path (boost::filesystem::path const & data_path)
+std::string get_qtwallet_toml_config_path (std::filesystem::path const & data_path)
 {
 	return (data_path / "config-qtwallet.toml").string ();
 }
 
-std::string get_access_toml_config_path (boost::filesystem::path const & data_path)
+std::string get_access_toml_config_path (std::filesystem::path const & data_path)
 {
 	return (data_path / "config-access.toml").string ();
 }
 
-std::string get_tls_toml_config_path (boost::filesystem::path const & data_path)
+std::string get_tls_toml_config_path (std::filesystem::path const & data_path)
 {
 	return (data_path / "config-tls.toml").string ();
 }

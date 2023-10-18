@@ -7,13 +7,12 @@
 #include <nano/store/version.hpp>
 #include <nano/store/versioning.hpp>
 
-#include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <queue>
 
-nano::store::lmdb::component::component (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a) :
+nano::store::lmdb::component::component (nano::logger_mt & logger_a, std::filesystem::path const & path_a, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a) :
 	// clang-format off
 	nano::store::component{
 		block_store,
@@ -98,7 +97,7 @@ nano::store::lmdb::component::component (nano::logger_mt & logger_a, boost::file
 	}
 }
 
-bool nano::store::lmdb::component::vacuum_after_upgrade (boost::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a)
+bool nano::store::lmdb::component::vacuum_after_upgrade (std::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a)
 {
 	// Vacuum the database. This is not a required step and may actually fail if there isn't enough storage space.
 	auto vacuum_path = path_a.parent_path () / "vacuumed.ldb";
@@ -112,7 +111,7 @@ bool nano::store::lmdb::component::vacuum_after_upgrade (boost::filesystem::path
 		env.environment = nullptr;
 
 		// Replace the ledger file with the vacuumed one
-		boost::filesystem::rename (vacuum_path, path_a);
+		std::filesystem::rename (vacuum_path, path_a);
 
 		// Set up the environment again
 		auto options = nano::store::lmdb::env::options::make ()
@@ -128,7 +127,7 @@ bool nano::store::lmdb::component::vacuum_after_upgrade (boost::filesystem::path
 	else
 	{
 		// The vacuum file can be in an inconsistent state if there wasn't enough space to create it
-		boost::filesystem::remove (vacuum_path);
+		std::filesystem::remove (vacuum_path);
 	}
 	return vacuum_success;
 }
@@ -232,7 +231,7 @@ void nano::store::lmdb::component::upgrade_v21_to_v22 (store::write_transaction 
 }
 
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
-void nano::store::lmdb::component::create_backup_file (nano::store::lmdb::env & env_a, boost::filesystem::path const & filepath_a, nano::logger_mt & logger_a)
+void nano::store::lmdb::component::create_backup_file (nano::store::lmdb::env & env_a, std::filesystem::path const & filepath_a, nano::logger_mt & logger_a)
 {
 	auto extension = filepath_a.extension ();
 	auto filename_without_extension = filepath_a.filename ().replace_extension ("");
@@ -358,7 +357,7 @@ std::string nano::store::lmdb::component::error_string (int status) const
 	return mdb_strerror (status);
 }
 
-bool nano::store::lmdb::component::copy_db (boost::filesystem::path const & destination_file)
+bool nano::store::lmdb::component::copy_db (std::filesystem::path const & destination_file)
 {
 	return !mdb_env_copy2 (env.environment, destination_file.string ().c_str (), MDB_CP_COMPACT);
 }

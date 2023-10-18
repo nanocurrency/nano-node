@@ -18,8 +18,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/filesystem.hpp>
-
 #include <cstdlib>
 #include <fstream>
 #include <unordered_set>
@@ -680,7 +678,7 @@ TEST (mdb_block_store, bad_path)
 		{
 			std::ofstream stream (path.c_str ());
 		}
-		boost::filesystem::permissions (path, boost::filesystem::perms::no_perms);
+		std::filesystem::permissions (path, std::filesystem::perms::none);
 		nano::store::lmdb::component store (logger, path, nano::dev::constants);
 	}
 	catch (std::runtime_error &)
@@ -693,7 +691,7 @@ TEST (mdb_block_store, bad_path)
 TEST (block_store, DISABLED_already_open) // File can be shared
 {
 	auto path (nano::unique_path ());
-	boost::filesystem::create_directories (path.parent_path ());
+	std::filesystem::create_directories (path.parent_path ());
 	nano::set_secure_perm_directory (path.parent_path ());
 	std::ofstream file;
 	file.open (path.string ().c_str ());
@@ -1457,7 +1455,7 @@ TEST (mdb_block_store, upgrade_backup)
 		GTEST_SKIP ();
 	}
 	auto dir (nano::unique_path ());
-	namespace fs = boost::filesystem;
+	namespace fs = std::filesystem;
 	fs::create_directory (dir);
 	auto path = dir / "data.ldb";
 	/** Returns 'dir' if backup file cannot be found */
