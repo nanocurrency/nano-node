@@ -35,7 +35,10 @@ void nano::scheduler::bucket::pop ()
 
 void nano::scheduler::bucket::push (uint64_t time, std::shared_ptr<nano::block> block)
 {
-	queue.insert ({ time, block });
+	const uint64_t bitmask = ~0b11111;
+	uint64_t rounded_time = time & bitmask;
+
+	queue.insert ({ rounded_time, block });
 	if (queue.size () > maximum)
 	{
 		debug_assert (!queue.empty ());
