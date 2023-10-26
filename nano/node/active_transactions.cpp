@@ -464,6 +464,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				node.stats.inc (nano::stat::type::active_started, nano::to_stat_detail (election_behavior_a));
 				node.observers.active_started.notify (hash);
 				vacancy_update ();
+				lock_a.lock ();
 			}
 		}
 		else
@@ -471,17 +472,14 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 			result.election = existing->election;
 		}
 
-		if (lock_a.owns_lock ())
-		{
-			lock_a.unlock ();
-		}
-
+		lock_a.unlock ();
 		// Votes are generated for inserted or ongoing elections
 		if (result.election)
 		{
 			result.election->broadcast_vote ();
 		}
 		trim ();
+		lock_a.lock ();
 	}
 	return result;
 }
