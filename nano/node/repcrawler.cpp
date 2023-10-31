@@ -155,34 +155,41 @@ std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::get_cr
 void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::channel>> const & channels_a)
 {
 	auto transaction (node.store.tx_begin_read ());
-	auto hash_root (node.ledger.hash_root_random (transaction));
+	std::optional<std::pair<nano::block_hash, nano::block_hash>> hash_root;
+	for (auto i = 0; i < 4 && !hash_root; ++i)
+	{
+		hash_root = node.ledger.hash_root_random (transaction);
+		if (node.active.recently_confirmed.exists (hash_root->first))
+		{
+			hash_root = std::nullopt;
+		}
+	}
+	if (!hash_root)
+	{
+		return;
+	}
 	{
 		nano::lock_guard<nano::mutex> lock{ active_mutex };
 		// Don't send same block multiple times in tests
 		if (node.network_params.network.is_dev_network ())
 		{
-			for (auto i (0); active.count (hash_root.first) != 0 && i < 4; ++i)
+			for (auto i (0); active.count (hash_root->first) != 0 && i < 4; ++i)
 			{
 				hash_root = node.ledger.hash_root_random (transaction);
 			}
 		}
-		active.insert (hash_root.first);
-	}
-	if (!channels_a.empty ())
-	{
-		// In case our random block is a recently confirmed one, we remove an entry otherwise votes will be marked as replay and not forwarded to repcrawler
-		node.active.recently_confirmed.erase (hash_root.first);
+		active.insert (hash_root->first);
 	}
 	for (auto i (channels_a.begin ()), n (channels_a.end ()); i != n; ++i)
 	{
 		debug_assert (*i != nullptr);
 		on_rep_request (*i);
-		node.network.send_confirm_req (*i, hash_root);
+		node.network.send_confirm_req (*i, *hash_root);
 	}
 
 	// A representative must respond with a vote within the deadline
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash = hash_root.first] () {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash = hash_root->first] () {
 		if (auto node_l = node_w.lock ())
 		{
 			auto target_finished_processed (node_l->vote_processor.total_processed + node_l->vote_processor.size ());

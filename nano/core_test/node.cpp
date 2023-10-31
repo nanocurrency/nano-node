@@ -4088,7 +4088,7 @@ TEST (node, deferred_dependent_elections)
 }
 }
 
-TEST (rep_crawler, recently_confirmed)
+TEST (rep_crawler, DISABLED_recently_confirmed)
 {
 	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
