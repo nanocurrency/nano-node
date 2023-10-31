@@ -491,18 +491,13 @@ set(WITH_TOOLS
     CACHE BOOL "" FORCE)
 if(ENABLE_AVX2)
   set(PORTABLE
-      OFF
+      0
       CACHE BOOL "" FORCE)
 else()
   set(PORTABLE
-      ON
+      1
       CACHE BOOL "" FORCE)
 endif()
-set(FAIL_ON_WARNINGS
-    OFF
-    CACHE BOOL "") # Ignore unreachable code warning in merging_iterator.cc
-                   # RocksDB v7.8.3 on Windows
-                   # https://github.com/facebook/rocksdb/issues/11072
 add_subdirectory(submodules/rocksdb EXCLUDE_FROM_ALL)
 
 include_directories(cpptoml/include)
