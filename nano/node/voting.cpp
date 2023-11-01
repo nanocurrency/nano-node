@@ -184,19 +184,21 @@ nano::vote_generator::~vote_generator ()
 	stop ();
 }
 
-void nano::vote_generator::process (store::write_transaction const & transaction, nano::root const & root_a, nano::block_hash const & hash_a)
+void nano::vote_generator::process (std::optional<store::write_transaction> & final_write, std::optional<store::read_transaction> & non_final_read, nano::root const & root_a, nano::block_hash const & hash_a)
 {
 	bool should_vote = false;
 	if (is_final)
 	{
-		auto block (ledger.store.block.get (transaction, hash_a));
-		should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block) && ledger.store.final_vote.put (transaction, block->qualified_root (), hash_a);
+		debug_assert (final_write);
+		auto block (ledger.store.block.get (*final_write, hash_a));
+		should_vote = block != nullptr && ledger.dependents_confirmed (*final_write, *block) && ledger.store.final_vote.put (*final_write, block->qualified_root (), hash_a);
 		debug_assert (block == nullptr || root_a == block->root ());
 	}
 	else
 	{
-		auto block (ledger.store.block.get (transaction, hash_a));
-		should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block);
+		debug_assert (non_final_read);
+		auto block (ledger.store.block.get (*non_final_read, hash_a));
+		should_vote = block != nullptr && ledger.dependents_confirmed (*non_final_read, *block);
 	}
 	if (should_vote)
 	{
@@ -241,11 +243,20 @@ void nano::vote_generator::add (const root & root, const block_hash & hash)
 
 void nano::vote_generator::process_batch (std::deque<queue_entry_t> & batch)
 {
-	auto transaction = ledger.store.tx_begin_write ({ tables::final_votes });
+	std::optional<store::write_transaction> final_write;
+	std::optional<store::read_transaction> non_final_read;
+	if (is_final)
+	{
+		final_write = ledger.store.tx_begin_write ({ tables::final_votes });
+	}
+	else
+	{
+		non_final_read = ledger.store.tx_begin_read ();
+	}
 
 	for (auto & [root, hash] : batch)
 	{
-		process (transaction, root, hash);
+		process (final_write, non_final_read, root, hash);
 	}
 }
 
