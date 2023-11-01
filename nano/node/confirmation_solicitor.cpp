@@ -46,7 +46,7 @@ bool nano::confirmation_solicitor::broadcast (nano::election const & election_a)
 			}
 		}
 		// Random flood for block propagation
-		network.flood_message (winner, nano::transport::buffer_drop_policy::limiter, 0.5f);
+		// network.flood_message (winner, nano::transport::buffer_drop_policy::limiter, 0.5f);
 		error = false;
 	}
 	return error;

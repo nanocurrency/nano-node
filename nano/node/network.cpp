@@ -164,7 +164,10 @@ void nano::network::flood_keepalive_self (float const scale_a)
 void nano::network::flood_block (std::shared_ptr<nano::block> const & block_a, nano::transport::buffer_drop_policy const drop_policy_a)
 {
 	nano::publish message (node.network_params.network, block_a);
-	flood_message (message, drop_policy_a);
+	// broadcast to `ceil(0.2 * √peer_count )`
+	// for beta: ~1 random peer instead 4
+	// for live: ~3 random peers instead 15
+	flood_message (message, drop_policy_a, 0.2);
 }
 
 void nano::network::flood_block_initial (std::shared_ptr<nano::block> const & block_a)
