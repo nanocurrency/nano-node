@@ -1,10 +1,10 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/election.hpp>
-#include <nano/node/make_store.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/inproc.hpp>
+#include <nano/store/make_store.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
 #include <nano/test_common/ledger.hpp>
 #include <nano/test_common/system.hpp>

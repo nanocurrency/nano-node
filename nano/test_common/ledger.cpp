@@ -1,5 +1,5 @@
-#include <nano/node/make_store.hpp>
 #include <nano/node/node.hpp>
+#include <nano/store/make_store.hpp>
 #include <nano/test_common/ledger.hpp>
 
 nano::test::context::ledger_context::ledger_context (std::deque<std::shared_ptr<nano::block>> && blocks) :

@@ -114,8 +114,6 @@ add_library(
   ledger_walker.cpp
   logging.hpp
   logging.cpp
-  make_store.hpp
-  make_store.cpp
   network.hpp
   network.cpp
   nodeconfig.hpp
