@@ -76,7 +76,7 @@ private: // Dependencies
 	nano::wallets & wallets;
 	nano::voting::processor & vote_processor;
 	nano::voting::history & history;
-	nano::vote_spacing spacing;
+	nano::voting::spacing spacing;
 	nano::network & network;
 	nano::stats & stats;
 

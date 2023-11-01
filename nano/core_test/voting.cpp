@@ -105,7 +105,7 @@ TEST (vote_generator, multiple_representatives)
 
 TEST (vote_spacing, basic)
 {
-	nano::vote_spacing spacing{ std::chrono::milliseconds{ 100 } };
+	nano::voting::spacing spacing{ std::chrono::milliseconds{ 100 } };
 	nano::root root1{ 1 };
 	nano::root root2{ 2 };
 	nano::block_hash hash3{ 3 };
@@ -124,7 +124,7 @@ TEST (vote_spacing, basic)
 TEST (vote_spacing, prune)
 {
 	auto length = std::chrono::milliseconds{ 100 };
-	nano::vote_spacing spacing{ length };
+	nano::voting::spacing spacing{ length };
 	nano::root root1{ 1 };
 	nano::root root2{ 2 };
 	nano::block_hash hash3{ 3 };

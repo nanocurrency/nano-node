@@ -12,9 +12,9 @@
 
 namespace mi = boost::multi_index;
 
-namespace nano
+namespace nano::voting
 {
-class vote_spacing final
+class spacing final
 {
 	class entry
 	{
@@ -35,7 +35,7 @@ class vote_spacing final
 	void trim ();
 
 public:
-	vote_spacing (std::chrono::milliseconds const & delay) :
+	spacing (std::chrono::milliseconds const & delay) :
 		delay{ delay }
 	{
 	}
