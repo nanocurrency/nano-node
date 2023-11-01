@@ -92,7 +92,7 @@ public:
 	bool is_valid_message_type () const;
 
 	static std::bitset<16> constexpr block_type_mask{ 0x0f00 };
-	static std::bitset<16> constexpr count_mask{ 0xf000 };
+	static std::bitset<16> constexpr count_mask{ 0x00ff };
 	static std::bitset<16> constexpr telemetry_size_mask{ 0x3ff };
 };
 

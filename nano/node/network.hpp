@@ -155,7 +155,7 @@ public:
 	static unsigned const broadcast_interval_ms = 10;
 	static std::size_t const buffer_size = 512;
 	static std::size_t const confirm_req_hashes_max = 7;
-	static std::size_t const confirm_ack_hashes_max = 12;
+	static std::size_t const confirm_ack_hashes_max = 255;
 };
 std::unique_ptr<container_info_component> collect_container_info (network & network, std::string const & name);
 }

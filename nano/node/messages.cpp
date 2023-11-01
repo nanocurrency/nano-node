@@ -192,17 +192,18 @@ void nano::message_header::block_type_set (nano::block_type type_a)
 	extensions |= std::bitset<16> (static_cast<unsigned long long> (type_a) << 8);
 }
 
-uint8_t nano::message_header::count_get () const
+uint8_t nano::message_header::count_get() const
 {
-	return static_cast<uint8_t> (((extensions & count_mask) >> 12).to_ullong ());
+    return static_cast<uint8_t>((extensions & count_mask).to_ullong());
 }
 
-void nano::message_header::count_set (uint8_t count_a)
+void nano::message_header::count_set(uint8_t count_a)
 {
-	debug_assert (count_a < 16);
-	extensions &= ~count_mask;
-	extensions |= std::bitset<16> (static_cast<unsigned long long> (count_a) << 12);
+    debug_assert(count_a < 256); // Because we're using 8 bits now
+    extensions &= ~count_mask;
+    extensions |= std::bitset<16>(static_cast<unsigned long long>(count_a));
 }
+
 
 void nano::message_header::flag_set (uint8_t flag_a, bool enable)
 {
