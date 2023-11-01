@@ -32,11 +32,11 @@
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/tcp_server.hpp>
 #include <nano/node/unchecked_map.hpp>
+#include <nano/node/voting/aggregator.hpp>
 #include <nano/node/voting/cache.hpp>
 #include <nano/node/voting/generator.hpp>
 #include <nano/node/voting/history.hpp>
 #include <nano/node/voting/processor.hpp>
-#include <nano/node/voting/request_aggregator.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
@@ -192,7 +192,7 @@ private: // Placed here to maintain initialization order
 
 public:
 	nano::scheduler::component & scheduler;
-	nano::request_aggregator aggregator;
+	nano::voting::aggregator aggregator;
 	nano::wallets wallets;
 	nano::backlog_population backlog;
 	nano::bootstrap_ascending::service ascendboot;

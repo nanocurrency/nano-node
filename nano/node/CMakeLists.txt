@@ -176,6 +176,8 @@ add_library(
   transport/transport.cpp
   unchecked_map.cpp
   unchecked_map.hpp
+  voting/aggregator.hpp
+  voting/aggregator.cpp
   voting/cache.hpp
   voting/cache.cpp
   voting/history.hpp
@@ -184,8 +186,6 @@ add_library(
   voting/generator.cpp
   voting/processor.hpp
   voting/processor.cpp
-  voting/request_aggregator.hpp
-  voting/request_aggregator.cpp
   voting/spacing.hpp
   voting/spacing.cpp
   wallet.hpp
