@@ -3,13 +3,13 @@
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
-#include <nano/node/write_database_queue.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/store/write_database_queue.hpp>
 
 #include <boost/thread/latch.hpp>
 
-nano::confirmation_height_processor::confirmation_height_processor (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, boost::latch & latch, confirmation_height_mode mode_a) :
+nano::confirmation_height_processor::confirmation_height_processor (nano::ledger & ledger_a, nano::store::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, boost::latch & latch, confirmation_height_mode mode_a) :
 	ledger (ledger_a),
 	write_database_queue (write_database_queue_a),
 	unbounded_processor (
@@ -105,7 +105,7 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 				{
 					debug_assert (unbounded_processor.pending_empty ());
 					{
-						auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
+						auto scoped_write_guard = write_database_queue.wait (nano::store::writer::confirmation_height);
 						bounded_processor.cement_blocks (scoped_write_guard);
 					}
 					lock_and_cleanup ();
@@ -114,7 +114,7 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 				{
 					debug_assert (bounded_processor.pending_empty ());
 					{
-						auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
+						auto scoped_write_guard = write_database_queue.wait (nano::store::writer::confirmation_height);
 						unbounded_processor.cement_blocks (scoped_write_guard);
 					}
 					lock_and_cleanup ();

@@ -1043,7 +1043,7 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 		}
 
 		{
-			auto write_guard = node->write_database_queue.wait (nano::writer::testing);
+			auto write_guard = node->write_database_queue.wait (nano::store::writer::testing);
 			// To limit any data races we are not calling node.block_confirm
 			node->confirmation_height_processor.add (state_blocks.back ());
 
@@ -1231,7 +1231,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	ASSERT_TRUE (!store->init_error ());
 	nano::stats stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
-	nano::write_database_queue write_database_queue (false);
+	nano::store::write_database_queue write_database_queue (false);
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	std::atomic<bool> stopped{ false };
 	boost::latch initialized_latch{ 0 };

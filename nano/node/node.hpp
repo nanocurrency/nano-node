@@ -37,9 +37,9 @@
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
-#include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
+#include <nano/store/write_database_queue.hpp>
 
 #include <boost/program_options.hpp>
 #include <boost/thread/latch.hpp>
@@ -140,7 +140,7 @@ public:
 	nano::telemetry_data local_telemetry () const;
 
 public:
-	nano::write_database_queue write_database_queue;
+	nano::store::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
 	nano::node_config config;
