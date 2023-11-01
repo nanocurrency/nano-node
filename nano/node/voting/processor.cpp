@@ -8,7 +8,7 @@
 #include <nano/node/online_reps.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/signatures.hpp>
-#include <nano/node/vote_processor.hpp>
+#include <nano/node/voting/processor.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 

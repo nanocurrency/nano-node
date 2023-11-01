@@ -12,7 +12,7 @@
 #include <nano/node/logging.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
-#include <nano/node/vote_cache.hpp>
+#include <nano/node/voting/cache.hpp>
 #include <nano/node/websocketconfig.hpp>
 #include <nano/secure/common.hpp>
 

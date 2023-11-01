@@ -28,13 +28,13 @@
 #include <nano/node/portmapping.hpp>
 #include <nano/node/process_live_dispatcher.hpp>
 #include <nano/node/repcrawler.hpp>
-#include <nano/node/request_aggregator.hpp>
 #include <nano/node/signatures.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/tcp_server.hpp>
 #include <nano/node/unchecked_map.hpp>
-#include <nano/node/vote_cache.hpp>
-#include <nano/node/vote_processor.hpp>
+#include <nano/node/voting/cache.hpp>
+#include <nano/node/voting/processor.hpp>
+#include <nano/node/voting/request_aggregator.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>

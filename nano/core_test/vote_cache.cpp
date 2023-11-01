@@ -1,5 +1,5 @@
 #include <nano/node/election.hpp>
-#include <nano/node/vote_cache.hpp>
+#include <nano/node/voting/cache.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 

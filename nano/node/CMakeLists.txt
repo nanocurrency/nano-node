@@ -138,8 +138,6 @@ add_library(
   process_live_dispatcher.hpp
   repcrawler.hpp
   repcrawler.cpp
-  request_aggregator.hpp
-  request_aggregator.cpp
   scheduler/bucket.cpp
   scheduler/bucket.hpp
   scheduler/buckets.cpp
@@ -178,12 +176,14 @@ add_library(
   transport/transport.cpp
   unchecked_map.cpp
   unchecked_map.hpp
-  vote_cache.hpp
-  vote_cache.cpp
-  vote_processor.hpp
-  vote_processor.cpp
-  voting.hpp
-  voting.cpp
+  voting/cache.hpp
+  voting/cache.cpp
+  voting/processor.hpp
+  voting/processor.cpp
+  voting/request_aggregator.hpp
+  voting/request_aggregator.cpp
+  voting/voting.hpp
+  voting/voting.cpp
   wallet.hpp
   wallet.cpp
   websocket.hpp

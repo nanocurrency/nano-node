@@ -2,7 +2,7 @@
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/process_live_dispatcher.hpp>
 #include <nano/node/scheduler/priority.hpp>
-#include <nano/node/vote_cache.hpp>
+#include <nano/node/voting/cache.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
