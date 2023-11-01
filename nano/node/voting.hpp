@@ -141,10 +141,11 @@ private:
 	void broadcast_action (std::shared_ptr<nano::vote> const &) const;
 	void process_batch (std::deque<queue_entry_t> & batch);
 	/**
-	 * Check if block is eligible for vote generation, then generates a vote or broadcasts votes already in cache
+	 * Check if block is eligible for vote generation
 	 * @param transaction : needs `tables::final_votes` lock
+	 * @return: Should vote
 	 */
-	void process (store::write_transaction const &, nano::root const &, nano::block_hash const &);
+	bool should_vote (store::write_transaction const &, nano::root const &, nano::block_hash const &);
 
 private:
 	std::function<void (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> &)> reply_action; // must be set only during initialization by using set_reply_action
