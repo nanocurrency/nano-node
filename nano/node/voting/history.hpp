@@ -14,9 +14,13 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
+class local_vote_history_basic_Test;
 class vote;
 class voting_constants;
-class local_vote_history final
+}
+namespace nano::voting
+{
+class history final
 {
 	class local_vote final
 	{
@@ -33,7 +37,7 @@ class local_vote_history final
 	};
 
 public:
-	local_vote_history (nano::voting_constants const & constants) :
+	history (nano::voting_constants const & constants) :
 		constants{ constants }
 	{
 	}
@@ -51,7 +55,7 @@ private:
 		mi::hashed_non_unique<mi::tag<class tag_root>,
 			mi::member<local_vote, nano::root, &local_vote::root>>,
 		mi::sequenced<mi::tag<class tag_sequence>>>>
-	history;
+	history_m;
 	// clang-format on
 
 	nano::voting_constants const & constants;
@@ -61,9 +65,9 @@ private:
 	bool consistency_check (nano::root const &) const;
 	mutable nano::mutex mutex;
 
-	friend std::unique_ptr<container_info_component> collect_container_info (local_vote_history & history, std::string const & name);
-	friend class local_vote_history_basic_Test;
+	friend std::unique_ptr<container_info_component> collect_container_info (history & history, std::string const & name);
+	friend class nano::local_vote_history_basic_Test;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (local_vote_history & history, std::string const & name);
-} // namespace nano
+std::unique_ptr<container_info_component> collect_container_info (history & history, std::string const & name);
+} // namespace nano::voting

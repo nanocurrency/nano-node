@@ -176,7 +176,7 @@ public:
 	unsigned warmed_up;
 	nano::block_processor block_processor;
 	nano::block_arrival block_arrival;
-	nano::local_vote_history history;
+	nano::voting::history history;
 	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;

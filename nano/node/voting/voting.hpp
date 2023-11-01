@@ -14,10 +14,13 @@
 
 namespace mi = boost::multi_index;
 
+namespace nano::voting
+{
+class history;
+}
 namespace nano
 {
 class ledger;
-class local_vote_history;
 class network;
 class node_config;
 class stats;
@@ -36,7 +39,7 @@ private:
 	using queue_entry_t = std::pair<nano::root, nano::block_hash>;
 
 public:
-	vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stats & stats_a, bool is_final_a);
+	vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::voting::history & history_a, nano::network & network_a, nano::stats & stats_a, bool is_final_a);
 	~vote_generator ();
 
 	/** Queue items for vote generation, or broadcast votes already in cache */
@@ -69,7 +72,7 @@ private: // Dependencies
 	nano::ledger & ledger;
 	nano::wallets & wallets;
 	nano::vote_processor & vote_processor;
-	nano::local_vote_history & history;
+	nano::voting::history & history;
 	nano::vote_spacing spacing;
 	nano::network & network;
 	nano::stats & stats;

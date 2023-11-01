@@ -11,7 +11,7 @@ namespace nano
 {
 TEST (local_vote_history, basic)
 {
-	nano::local_vote_history history{ nano::dev::network_params.voting };
+	nano::voting::history history{ nano::dev::network_params.voting };
 	ASSERT_FALSE (history.exists (1));
 	ASSERT_FALSE (history.exists (2));
 	ASSERT_TRUE (history.votes (1).empty ());
