@@ -17,7 +17,7 @@
 #include <chrono>
 using namespace std::chrono_literals;
 
-nano::vote_processor::vote_processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
+nano::voting::processor::processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
 	checker (checker_a),
 	active (active_a),
 	observers (observers_a),
@@ -43,7 +43,7 @@ nano::vote_processor::vote_processor (nano::signature_checker & checker_a, nano:
 	condition.wait (lock, [&started = started] { return started; });
 }
 
-void nano::vote_processor::process_loop ()
+void nano::voting::processor::process_loop ()
 {
 	nano::timer<std::chrono::milliseconds> elapsed;
 	bool log_this_iteration;
@@ -90,7 +90,7 @@ void nano::vote_processor::process_loop ()
 	}
 }
 
-bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a)
+bool nano::voting::processor::vote (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	debug_assert (channel_a != nullptr);
 	bool process (false);
@@ -132,7 +132,7 @@ bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std
 	return !process;
 }
 
-void nano::vote_processor::verify_votes (decltype (votes) const & votes_a)
+void nano::voting::processor::verify_votes (decltype (votes) const & votes_a)
 {
 	auto size (votes_a.size ());
 	std::vector<unsigned char const *> messages;
@@ -167,7 +167,7 @@ void nano::vote_processor::verify_votes (decltype (votes) const & votes_a)
 	}
 }
 
-nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, bool validated)
+nano::vote_code nano::voting::processor::vote_blocking (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, bool validated)
 {
 	auto result (nano::vote_code::invalid);
 	if (validated || !vote_a->validate ())
@@ -202,7 +202,7 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 	return result;
 }
 
-void nano::vote_processor::stop ()
+void nano::voting::processor::stop ()
 {
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
@@ -215,7 +215,7 @@ void nano::vote_processor::stop ()
 	}
 }
 
-void nano::vote_processor::flush ()
+void nano::voting::processor::flush ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	auto const cutoff = total_processed.load (std::memory_order_relaxed) + votes.size ();
@@ -229,24 +229,24 @@ void nano::vote_processor::flush ()
 	}
 }
 
-std::size_t nano::vote_processor::size ()
+std::size_t nano::voting::processor::size ()
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return votes.size ();
 }
 
-bool nano::vote_processor::empty ()
+bool nano::voting::processor::empty ()
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return votes.empty ();
 }
 
-bool nano::vote_processor::half_full ()
+bool nano::voting::processor::half_full ()
 {
 	return size () >= max_votes / 2;
 }
 
-void nano::vote_processor::calculate_weights ()
+void nano::voting::processor::calculate_weights ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	if (!stopped)
@@ -276,7 +276,7 @@ void nano::vote_processor::calculate_weights ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_processor & vote_processor, std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::voting::collect_container_info (processor & vote_processor, std::string const & name)
 {
 	std::size_t votes_count;
 	std::size_t representatives_1_count;

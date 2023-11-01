@@ -13,7 +13,7 @@
 
 #include <chrono>
 
-nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::voting::history & history_a, nano::network & network_a, nano::stats & stats_a, bool is_final_a) :
+nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::voting::processor & vote_processor_a, nano::voting::history & history_a, nano::network & network_a, nano::stats & stats_a, bool is_final_a) :
 	config (config_a),
 	ledger (ledger_a),
 	wallets (wallets_a),

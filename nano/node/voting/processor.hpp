@@ -13,6 +13,7 @@ namespace nano
 {
 class signature_checker;
 class active_transactions;
+class vote_processor_weights_Test;
 namespace store
 {
 	class component;
@@ -32,11 +33,14 @@ namespace transport
 {
 	class channel;
 }
+} // namespace nano
 
-class vote_processor final
+namespace nano::voting
+{
+class processor final
 {
 public:
-	vote_processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a);
+	processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a);
 
 	/** Returns false if the vote was processed */
 	bool vote (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &);
@@ -78,9 +82,9 @@ private:
 	bool stopped;
 	std::thread thread;
 
-	friend std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, std::string const & name);
-	friend class vote_processor_weights_Test;
+	friend std::unique_ptr<container_info_component> collect_container_info (processor & vote_processor, std::string const & name);
+	friend class nano::vote_processor_weights_Test;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, std::string const & name);
-}
+std::unique_ptr<container_info_component> collect_container_info (processor & vote_processor, std::string const & name);
+} // nano::voting

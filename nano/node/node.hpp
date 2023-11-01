@@ -172,7 +172,7 @@ public:
 	nano::port_mapping port_mapping;
 	nano::online_reps online_reps;
 	nano::rep_crawler rep_crawler;
-	nano::vote_processor vote_processor;
+	nano::voting::processor vote_processor;
 	unsigned warmed_up;
 	nano::block_processor block_processor;
 	nano::block_arrival block_arrival;
