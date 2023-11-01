@@ -33,6 +33,7 @@
 #include <nano/node/transport/tcp_server.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/voting/cache.hpp>
+#include <nano/node/voting/history.hpp>
 #include <nano/node/voting/processor.hpp>
 #include <nano/node/voting/request_aggregator.hpp>
 #include <nano/node/wallet.hpp>

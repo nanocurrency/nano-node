@@ -4,6 +4,7 @@
 #include <nano/node/common.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/voting/history.hpp>
 #include <nano/node/voting/request_aggregator.hpp>
 #include <nano/node/voting/voting.hpp>
 #include <nano/node/wallet.hpp>

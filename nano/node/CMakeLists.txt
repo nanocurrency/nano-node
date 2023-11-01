@@ -178,6 +178,8 @@ add_library(
   unchecked_map.hpp
   voting/cache.hpp
   voting/cache.cpp
+  voting/history.hpp
+  voting/history.cpp
   voting/processor.hpp
   voting/processor.cpp
   voting/request_aggregator.hpp
