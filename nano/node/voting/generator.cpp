@@ -4,16 +4,16 @@
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/inproc.hpp>
+#include <nano/node/voting/generator.hpp>
 #include <nano/node/voting/history.hpp>
 #include <nano/node/voting/processor.hpp>
-#include <nano/node/voting/generator.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
 
 #include <chrono>
 
-nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::voting::processor & vote_processor_a, nano::voting::history & history_a, nano::network & network_a, nano::stats & stats_a, bool is_final_a) :
+nano::voting::generator::generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::voting::processor & vote_processor_a, nano::voting::history & history_a, nano::network & network_a, nano::stats & stats_a, bool is_final_a) :
 	config (config_a),
 	ledger (ledger_a),
 	wallets (wallets_a),
@@ -30,12 +30,12 @@ nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::
 	};
 }
 
-nano::vote_generator::~vote_generator ()
+nano::voting::generator::~generator ()
 {
 	stop ();
 }
 
-void nano::vote_generator::process (store::write_transaction const & transaction, nano::root const & root_a, nano::block_hash const & hash_a)
+void nano::voting::generator::process (store::write_transaction const & transaction, nano::root const & root_a, nano::block_hash const & hash_a)
 {
 	bool should_vote = false;
 	if (is_final)
@@ -61,7 +61,7 @@ void nano::vote_generator::process (store::write_transaction const & transaction
 	}
 }
 
-void nano::vote_generator::start ()
+void nano::voting::generator::start ()
 {
 	debug_assert (!thread.joinable ());
 	thread = std::thread ([this] () { run (); });
@@ -69,7 +69,7 @@ void nano::vote_generator::start ()
 	vote_generation_queue.start ();
 }
 
-void nano::vote_generator::stop ()
+void nano::voting::generator::stop ()
 {
 	vote_generation_queue.stop ();
 
@@ -85,12 +85,12 @@ void nano::vote_generator::stop ()
 	}
 }
 
-void nano::vote_generator::add (const root & root, const block_hash & hash)
+void nano::voting::generator::add (const root & root, const block_hash & hash)
 {
 	vote_generation_queue.add (std::make_pair (root, hash));
 }
 
-void nano::vote_generator::process_batch (std::deque<queue_entry_t> & batch)
+void nano::voting::generator::process_batch (std::deque<queue_entry_t> & batch)
 {
 	auto transaction = ledger.store.tx_begin_write ({ tables::final_votes });
 
@@ -100,7 +100,7 @@ void nano::vote_generator::process_batch (std::deque<queue_entry_t> & batch)
 	}
 }
 
-std::size_t nano::vote_generator::generate (std::vector<std::shared_ptr<nano::block>> const & blocks_a, std::shared_ptr<nano::transport::channel> const & channel_a)
+std::size_t nano::voting::generator::generate (std::vector<std::shared_ptr<nano::block>> const & blocks_a, std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	request_t::first_type req_candidates;
 	{
@@ -125,13 +125,13 @@ std::size_t nano::vote_generator::generate (std::vector<std::shared_ptr<nano::bl
 	return result;
 }
 
-void nano::vote_generator::set_reply_action (std::function<void (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &)> action_a)
+void nano::voting::generator::set_reply_action (std::function<void (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &)> action_a)
 {
 	release_assert (!reply_action);
 	reply_action = action_a;
 }
 
-void nano::vote_generator::broadcast (nano::unique_lock<nano::mutex> & lock_a)
+void nano::voting::generator::broadcast (nano::unique_lock<nano::mutex> & lock_a)
 {
 	debug_assert (lock_a.owns_lock ());
 
@@ -167,7 +167,7 @@ void nano::vote_generator::broadcast (nano::unique_lock<nano::mutex> & lock_a)
 	}
 }
 
-void nano::vote_generator::reply (nano::unique_lock<nano::mutex> & lock_a, request_t && request_a)
+void nano::voting::generator::reply (nano::unique_lock<nano::mutex> & lock_a, request_t && request_a)
 {
 	lock_a.unlock ();
 	auto i (request_a.first.cbegin ());
@@ -207,7 +207,7 @@ void nano::vote_generator::reply (nano::unique_lock<nano::mutex> & lock_a, reque
 	lock_a.lock ();
 }
 
-void nano::vote_generator::vote (std::vector<nano::block_hash> const & hashes_a, std::vector<nano::root> const & roots_a, std::function<void (std::shared_ptr<nano::vote> const &)> const & action_a)
+void nano::voting::generator::vote (std::vector<nano::block_hash> const & hashes_a, std::vector<nano::root> const & roots_a, std::function<void (std::shared_ptr<nano::vote> const &)> const & action_a)
 {
 	debug_assert (hashes_a.size () == roots_a.size ());
 	std::vector<std::shared_ptr<nano::vote>> votes_l;
@@ -227,14 +227,14 @@ void nano::vote_generator::vote (std::vector<nano::block_hash> const & hashes_a,
 	}
 }
 
-void nano::vote_generator::broadcast_action (std::shared_ptr<nano::vote> const & vote_a) const
+void nano::voting::generator::broadcast_action (std::shared_ptr<nano::vote> const & vote_a) const
 {
 	network.flood_vote_pr (vote_a);
 	network.flood_vote (vote_a, 2.0f);
 	vote_processor.vote (vote_a, std::make_shared<nano::transport::inproc::channel> (network.node, network.node));
 }
 
-void nano::vote_generator::run ()
+void nano::voting::generator::run ()
 {
 	nano::thread_role::set (nano::thread_role::name::voting);
 	nano::unique_lock<nano::mutex> lock{ mutex };
@@ -265,7 +265,7 @@ void nano::vote_generator::run ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::vote_generator & vote_generator, std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::voting::collect_container_info (nano::voting::generator & vote_generator, std::string const & name)
 {
 	std::size_t candidates_count = 0;
 	std::size_t requests_count = 0;

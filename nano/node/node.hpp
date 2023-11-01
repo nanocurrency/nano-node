@@ -33,6 +33,7 @@
 #include <nano/node/transport/tcp_server.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/voting/cache.hpp>
+#include <nano/node/voting/generator.hpp>
 #include <nano/node/voting/history.hpp>
 #include <nano/node/voting/processor.hpp>
 #include <nano/node/voting/request_aggregator.hpp>
@@ -182,8 +183,8 @@ public:
 	nano::vote_uniquer vote_uniquer;
 	nano::confirmation_height_processor confirmation_height_processor;
 	nano::voting::cache vote_cache;
-	nano::vote_generator generator;
-	nano::vote_generator final_generator;
+	nano::voting::generator generator;
+	nano::voting::generator final_generator;
 	nano::active_transactions active;
 
 private: // Placed here to maintain initialization order

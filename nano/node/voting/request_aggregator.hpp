@@ -18,6 +18,7 @@ namespace mi = boost::multi_index;
 
 namespace nano::voting
 {
+class generator;
 class history;
 }
 namespace nano
@@ -26,7 +27,6 @@ class active_transactions;
 class ledger;
 class node_config;
 class stats;
-class vote_generator;
 class wallets;
 
 /**
@@ -64,7 +64,7 @@ class request_aggregator final
 	// clang-format on
 
 public:
-	request_aggregator (nano::node_config const & config, nano::stats & stats_a, nano::vote_generator &, nano::vote_generator &, nano::voting::history &, nano::ledger &, nano::wallets &, nano::active_transactions &);
+	request_aggregator (nano::node_config const & config, nano::stats & stats_a, nano::voting::generator &, nano::voting::generator &, nano::voting::history &, nano::ledger &, nano::wallets &, nano::active_transactions &);
 
 	/** Add a new request by \p channel_a for hashes \p hashes_roots_a */
 	void add (std::shared_ptr<nano::transport::channel> const & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a);
@@ -91,8 +91,8 @@ private:
 	nano::ledger & ledger;
 	nano::wallets & wallets;
 	nano::active_transactions & active;
-	nano::vote_generator & generator;
-	nano::vote_generator & final_generator;
+	nano::voting::generator & generator;
+	nano::voting::generator & final_generator;
 
 	// clang-format off
 	boost::multi_index_container<channel_pool,

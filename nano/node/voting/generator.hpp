@@ -30,8 +30,11 @@ namespace transport
 {
 	class channel;
 }
+} // namespace nano
 
-class vote_generator final
+namespace nano::voting
+{
+class generator final
 {
 private:
 	using candidate_t = std::pair<nano::root, nano::block_hash>;
@@ -39,8 +42,8 @@ private:
 	using queue_entry_t = std::pair<nano::root, nano::block_hash>;
 
 public:
-	vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::voting::processor & vote_processor_a, nano::voting::history & history_a, nano::network & network_a, nano::stats & stats_a, bool is_final_a);
-	~vote_generator ();
+	generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::voting::processor & vote_processor_a, nano::voting::history & history_a, nano::network & network_a, nano::stats & stats_a, bool is_final_a);
+	~generator ();
 
 	/** Queue items for vote generation, or broadcast votes already in cache */
 	void add (nano::root const &, nano::block_hash const &);
@@ -90,8 +93,8 @@ private:
 	std::atomic<bool> stopped{ false };
 	std::thread thread;
 
-	friend std::unique_ptr<container_info_component> collect_container_info (vote_generator & vote_generator, std::string const & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (generator & vote_generator, std::string const & name);
 };
 
-std::unique_ptr<container_info_component> collect_container_info (vote_generator & generator, std::string const & name);
-}
+std::unique_ptr<container_info_component> collect_container_info (generator & generator, std::string const & name);
+} // namespace nano::voting

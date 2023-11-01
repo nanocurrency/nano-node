@@ -4,14 +4,14 @@
 #include <nano/node/common.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/voting/generator.hpp>
 #include <nano/node/voting/history.hpp>
 #include <nano/node/voting/request_aggregator.hpp>
-#include <nano/node/voting/generator.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
 
-nano::request_aggregator::request_aggregator (nano::node_config const & config_a, nano::stats & stats_a, nano::vote_generator & generator_a, nano::vote_generator & final_generator_a, nano::voting::history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
+nano::request_aggregator::request_aggregator (nano::node_config const & config_a, nano::stats & stats_a, nano::voting::generator & generator_a, nano::voting::generator & final_generator_a, nano::voting::history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
 	config{ config_a },
 	max_delay (config_a.network_params.network.is_dev_network () ? 50 : 300),
 	small_delay (config_a.network_params.network.is_dev_network () ? 10 : 50),
