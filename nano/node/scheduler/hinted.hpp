@@ -20,8 +20,11 @@ namespace nano
 class node;
 class node_config;
 class active_transactions;
-class vote_cache;
 class online_reps;
+}
+namespace nano::voting
+{
+class cache;
 }
 
 namespace nano::scheduler
@@ -46,7 +49,7 @@ public:
 class hinted final
 {
 public:
-	hinted (hinted_config const &, nano::node &, nano::vote_cache &, nano::active_transactions &, nano::online_reps &, nano::stats &);
+	hinted (hinted_config const &, nano::node &, nano::voting::cache &, nano::active_transactions &, nano::online_reps &, nano::stats &);
 	~hinted ();
 
 	void start ();
@@ -68,7 +71,7 @@ private:
 
 private: // Dependencies
 	nano::node & node;
-	nano::vote_cache & vote_cache;
+	nano::voting::cache & vote_cache;
 	nano::active_transactions & active;
 	nano::online_reps & online_reps;
 	nano::stats & stats;

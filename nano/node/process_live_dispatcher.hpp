@@ -4,11 +4,14 @@ namespace nano::store
 {
 class transaction;
 }
+namespace nano::voting
+{
+class cache;
+}
 
 namespace nano
 {
 class ledger;
-class vote_cache;
 class websocket_server;
 class block_processor;
 class process_return;
@@ -23,7 +26,7 @@ namespace scheduler
 class process_live_dispatcher
 {
 public:
-	process_live_dispatcher (nano::ledger &, nano::scheduler::priority &, nano::vote_cache &, nano::websocket_server &);
+	process_live_dispatcher (nano::ledger &, nano::scheduler::priority &, nano::voting::cache &, nano::websocket_server &);
 	void connect (nano::block_processor & block_processor);
 
 private:
@@ -33,7 +36,7 @@ private:
 
 	nano::ledger & ledger;
 	nano::scheduler::priority & scheduler;
-	nano::vote_cache & vote_cache;
+	nano::voting::cache & vote_cache;
 	nano::websocket_server & websocket;
 };
 }

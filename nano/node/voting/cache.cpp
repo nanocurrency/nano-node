@@ -6,12 +6,12 @@
  * entry
  */
 
-nano::vote_cache::entry::entry (const nano::block_hash & hash) :
+nano::voting::cache::entry::entry (const nano::block_hash & hash) :
 	hash_m{ hash }
 {
 }
 
-bool nano::vote_cache::entry::vote (const nano::account & representative, const uint64_t & timestamp, const nano::uint128_t & rep_weight, std::size_t max_voters)
+bool nano::voting::cache::entry::vote (const nano::account & representative, const uint64_t & timestamp, const nano::uint128_t & rep_weight, std::size_t max_voters)
 {
 	auto existing = std::find_if (voters_m.begin (), voters_m.end (), [&representative] (auto const & item) { return item.representative == representative; });
 	if (existing != voters_m.end ())
@@ -53,7 +53,7 @@ bool nano::vote_cache::entry::vote (const nano::account & representative, const 
 	}
 }
 
-std::size_t nano::vote_cache::entry::fill (std::shared_ptr<nano::election> const & election) const
+std::size_t nano::voting::cache::entry::fill (std::shared_ptr<nano::election> const & election) const
 {
 	std::size_t inserted = 0;
 	for (const auto & entry : voters_m)
@@ -67,27 +67,27 @@ std::size_t nano::vote_cache::entry::fill (std::shared_ptr<nano::election> const
 	return inserted;
 }
 
-std::size_t nano::vote_cache::entry::size () const
+std::size_t nano::voting::cache::entry::size () const
 {
 	return voters_m.size ();
 }
 
-nano::block_hash nano::vote_cache::entry::hash () const
+nano::block_hash nano::voting::cache::entry::hash () const
 {
 	return hash_m;
 }
 
-nano::uint128_t nano::vote_cache::entry::tally () const
+nano::uint128_t nano::voting::cache::entry::tally () const
 {
 	return tally_m;
 }
 
-nano::uint128_t nano::vote_cache::entry::final_tally () const
+nano::uint128_t nano::voting::cache::entry::final_tally () const
 {
 	return final_tally_m;
 }
 
-std::vector<nano::vote_cache::entry::voter_entry> nano::vote_cache::entry::voters () const
+std::vector<nano::voting::cache::entry::voter_entry> nano::voting::cache::entry::voters () const
 {
 	return voters_m;
 }
@@ -96,12 +96,12 @@ std::vector<nano::vote_cache::entry::voter_entry> nano::vote_cache::entry::voter
  * vote_cache
  */
 
-nano::vote_cache::vote_cache (vote_cache_config const & config_a) :
+nano::voting::cache::cache (cache_config const & config_a) :
 	config{ config_a }
 {
 }
 
-void nano::vote_cache::vote (const nano::block_hash & hash, const std::shared_ptr<nano::vote> vote)
+void nano::voting::cache::vote (const nano::block_hash & hash, const std::shared_ptr<nano::vote> vote)
 {
 	auto const representative = vote->account;
 	auto const timestamp = vote->timestamp ();
@@ -109,7 +109,7 @@ void nano::vote_cache::vote (const nano::block_hash & hash, const std::shared_pt
 
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
-	auto & cache_by_hash = cache.get<tag_hash> ();
+	auto & cache_by_hash = cache_m.get<tag_hash> ();
 	if (auto existing = cache_by_hash.find (hash); existing != cache_by_hash.end ())
 	{
 		cache_by_hash.modify (existing, [this, &representative, &timestamp, &rep_weight] (entry & ent) {
@@ -121,33 +121,33 @@ void nano::vote_cache::vote (const nano::block_hash & hash, const std::shared_pt
 		entry cache_entry{ hash };
 		cache_entry.vote (representative, timestamp, rep_weight, config.max_voters);
 
-		cache.get<tag_hash> ().insert (cache_entry);
+		cache_m.get<tag_hash> ().insert (cache_entry);
 
 		// When cache overflown remove the oldest entry
-		if (cache.size () > config.max_size)
+		if (cache_m.size () > config.max_size)
 		{
-			cache.get<tag_sequenced> ().pop_front ();
+			cache_m.get<tag_sequenced> ().pop_front ();
 		}
 	}
 }
 
-bool nano::vote_cache::empty () const
+bool nano::voting::cache::empty () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	return cache.empty ();
+	return cache_m.empty ();
 }
 
-std::size_t nano::vote_cache::size () const
+std::size_t nano::voting::cache::size () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	return cache.size ();
+	return cache_m.size ();
 }
 
-std::optional<nano::vote_cache::entry> nano::vote_cache::find (const nano::block_hash & hash) const
+std::optional<nano::voting::cache::entry> nano::voting::cache::find (const nano::block_hash & hash) const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
-	auto & cache_by_hash = cache.get<tag_hash> ();
+	auto & cache_by_hash = cache_m.get<tag_hash> ();
 	if (auto existing = cache_by_hash.find (hash); existing != cache_by_hash.end ())
 	{
 		return *existing;
@@ -155,12 +155,12 @@ std::optional<nano::vote_cache::entry> nano::vote_cache::find (const nano::block
 	return {};
 }
 
-bool nano::vote_cache::erase (const nano::block_hash & hash)
+bool nano::voting::cache::erase (const nano::block_hash & hash)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
 	bool result = false;
-	auto & cache_by_hash = cache.get<tag_hash> ();
+	auto & cache_by_hash = cache_m.get<tag_hash> ();
 	if (auto existing = cache_by_hash.find (hash); existing != cache_by_hash.end ())
 	{
 		cache_by_hash.erase (existing);
@@ -169,13 +169,13 @@ bool nano::vote_cache::erase (const nano::block_hash & hash)
 	return result;
 }
 
-std::vector<nano::vote_cache::top_entry> nano::vote_cache::top (const nano::uint128_t & min_tally) const
+std::vector<nano::voting::cache::top_entry> nano::voting::cache::top (const nano::uint128_t & min_tally) const
 {
 	std::vector<top_entry> results;
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
 
-		for (auto & entry : cache.get<tag_tally> ())
+		for (auto & entry : cache_m.get<tag_tally> ())
 		{
 			if (entry.tally () < min_tally)
 			{
@@ -200,7 +200,7 @@ std::vector<nano::vote_cache::top_entry> nano::vote_cache::top (const nano::uint
 	return results;
 }
 
-std::unique_ptr<nano::container_info_component> nano::vote_cache::collect_container_info (const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::voting::cache::collect_container_info (const std::string & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cache", size (), sizeof (ordered_cache::value_type) }));
@@ -211,7 +211,7 @@ std::unique_ptr<nano::container_info_component> nano::vote_cache::collect_contai
  * vote_cache_config
  */
 
-nano::error nano::vote_cache_config::serialize (nano::tomlconfig & toml) const
+nano::error nano::voting::cache_config::serialize (nano::tomlconfig & toml) const
 {
 	toml.put ("max_size", max_size, "Maximum number of blocks to cache votes for. \ntype:uint64");
 	toml.put ("max_voters", max_voters, "Maximum number of voters to cache per block. \ntype:uint64");
@@ -219,7 +219,7 @@ nano::error nano::vote_cache_config::serialize (nano::tomlconfig & toml) const
 	return toml.get_error ();
 }
 
-nano::error nano::vote_cache_config::deserialize (nano::tomlconfig & toml)
+nano::error nano::voting::cache_config::deserialize (nano::tomlconfig & toml)
 {
 	toml.get ("max_size", max_size);
 	toml.get ("max_voters", max_voters);

@@ -8,7 +8,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
 
-nano::process_live_dispatcher::process_live_dispatcher (nano::ledger & ledger, nano::scheduler::priority & scheduler, nano::vote_cache & vote_cache, nano::websocket_server & websocket) :
+nano::process_live_dispatcher::process_live_dispatcher (nano::ledger & ledger, nano::scheduler::priority & scheduler, nano::voting::cache & vote_cache, nano::websocket_server & websocket) :
 	ledger{ ledger },
 	scheduler{ scheduler },
 	vote_cache{ vote_cache },

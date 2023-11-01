@@ -27,9 +27,9 @@ class election;
 class vote;
 }
 
-namespace nano
+namespace nano::voting
 {
-class vote_cache_config final
+class cache_config final
 {
 public:
 	nano::error deserialize (nano::tomlconfig & toml);
@@ -40,7 +40,7 @@ public:
 	std::size_t max_voters{ 128 };
 };
 
-class vote_cache final
+class cache final
 {
 public:
 	/**
@@ -83,7 +83,7 @@ public:
 	};
 
 public:
-	explicit vote_cache (vote_cache_config const &);
+	explicit cache (cache_config const &);
 
 	/**
 	 * Adds a new vote to cache
@@ -127,7 +127,7 @@ public:
 	std::function<nano::uint128_t (nano::account const &)> rep_weight_query{ [] (nano::account const & rep) { debug_assert (false); return 0; } };
 
 private:
-	vote_cache_config const & config;
+	cache_config const & config;
 
 	// clang-format off
 	class tag_sequenced {};
@@ -145,8 +145,8 @@ private:
 			mi::const_mem_fun<entry, nano::uint128_t, &entry::tally>, std::greater<>> // DESC
 	>>;
 	// clang-format on
-	ordered_cache cache;
+	ordered_cache cache_m;
 
 	mutable nano::mutex mutex;
 };
-}
+} // namespace nano::voting
