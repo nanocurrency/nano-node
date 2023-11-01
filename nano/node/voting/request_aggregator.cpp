@@ -6,7 +6,7 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/voting/history.hpp>
 #include <nano/node/voting/request_aggregator.hpp>
-#include <nano/node/voting/voting.hpp>
+#include <nano/node/voting/generator.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>

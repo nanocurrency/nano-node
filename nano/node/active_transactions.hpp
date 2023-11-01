@@ -3,7 +3,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/election_insertion_result.hpp>
-#include <nano/node/voting/voting.hpp>
+#include <nano/node/voting/generator.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>

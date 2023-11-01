@@ -180,14 +180,14 @@ add_library(
   voting/cache.cpp
   voting/history.hpp
   voting/history.cpp
+  voting/generator.hpp
+  voting/generator.cpp
   voting/processor.hpp
   voting/processor.cpp
   voting/request_aggregator.hpp
   voting/request_aggregator.cpp
   voting/spacing.hpp
   voting/spacing.cpp
-  voting/voting.hpp
-  voting/voting.cpp
   wallet.hpp
   wallet.cpp
   websocket.hpp
