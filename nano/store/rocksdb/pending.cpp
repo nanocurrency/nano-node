@@ -1,6 +1,6 @@
 #include <nano/secure/parallel_traversal.hpp>
 #include <nano/store/lmdb/pending.hpp>
-#include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/component.hpp>
 
 nano::store::rocksdb::pending::pending (nano::store::rocksdb::component & store) :
 	store{ store } {};

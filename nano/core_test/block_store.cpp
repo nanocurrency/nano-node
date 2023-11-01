@@ -9,9 +9,9 @@
 #include <nano/secure/utility.hpp>
 #include <nano/store/account.hpp>
 #include <nano/store/block.hpp>
-#include <nano/store/lmdb/lmdb.hpp>
+#include <nano/store/lmdb/component.hpp>
 #include <nano/store/make_store.hpp>
-#include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/component.hpp>
 #include <nano/store/versioning.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>

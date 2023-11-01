@@ -1,5 +1,5 @@
 #include <nano/secure/parallel_traversal.hpp>
-#include <nano/store/lmdb/lmdb.hpp>
+#include <nano/store/lmdb/component.hpp>
 #include <nano/store/lmdb/pending.hpp>
 
 nano::store::lmdb::pending::pending (nano::store::lmdb::component & store) :

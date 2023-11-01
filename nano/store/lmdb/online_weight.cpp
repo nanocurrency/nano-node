@@ -1,4 +1,4 @@
-#include <nano/store/lmdb/lmdb.hpp>
+#include <nano/store/lmdb/component.hpp>
 #include <nano/store/lmdb/online_weight.hpp>
 
 nano::store::lmdb::online_weight::online_weight (nano::store::lmdb::component & store_a) :

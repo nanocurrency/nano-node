@@ -14,7 +14,7 @@
 #include <nano/node/websocket.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/make_store.hpp>
-#include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/component.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 

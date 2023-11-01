@@ -5,7 +5,7 @@
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/store/make_store.hpp>
-#include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/component.hpp>
 #include <nano/test_common/ledger.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>

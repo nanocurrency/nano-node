@@ -1,6 +1,6 @@
 #include <nano/secure/parallel_traversal.hpp>
+#include <nano/store/lmdb/component.hpp>
 #include <nano/store/lmdb/final_vote.hpp>
-#include <nano/store/lmdb/lmdb.hpp>
 
 nano::store::lmdb::final_vote::final_vote (nano::store::lmdb::component & store) :
 	store{ store } {};

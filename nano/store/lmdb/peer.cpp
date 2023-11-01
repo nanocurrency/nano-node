@@ -1,4 +1,4 @@
-#include <nano/store/lmdb/lmdb.hpp>
+#include <nano/store/lmdb/component.hpp>
 #include <nano/store/lmdb/peer.hpp>
 
 nano::store::lmdb::peer::peer (nano::store::lmdb::component & store) :

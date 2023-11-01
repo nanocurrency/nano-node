@@ -1,4 +1,4 @@
-#include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/component.hpp>
 #include <nano/store/rocksdb/version.hpp>
 
 nano::store::rocksdb::version::version (nano::store::rocksdb::component & store_a) :

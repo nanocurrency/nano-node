@@ -1,6 +1,6 @@
 #include <nano/secure/parallel_traversal.hpp>
+#include <nano/store/rocksdb/component.hpp>
 #include <nano/store/rocksdb/confirmation_height.hpp>
-#include <nano/store/rocksdb/rocksdb.hpp>
 
 nano::store::rocksdb::confirmation_height::confirmation_height (nano::store::rocksdb::component & store) :
 	store{ store }

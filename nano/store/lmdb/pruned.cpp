@@ -1,5 +1,5 @@
 #include <nano/secure/parallel_traversal.hpp>
-#include <nano/store/lmdb/lmdb.hpp>
+#include <nano/store/lmdb/component.hpp>
 #include <nano/store/lmdb/pruned.hpp>
 
 nano::store::lmdb::pruned::pruned (nano::store::lmdb::component & store_a) :

@@ -1,7 +1,7 @@
 #include <nano/secure/parallel_traversal.hpp>
 #include <nano/store/lmdb/account.hpp>
+#include <nano/store/lmdb/component.hpp>
 #include <nano/store/lmdb/db_val.hpp>
-#include <nano/store/lmdb/lmdb.hpp>
 
 nano::store::lmdb::account::account (nano::store::lmdb::component & store_a) :
 	store (store_a){};
