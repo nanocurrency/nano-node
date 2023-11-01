@@ -163,6 +163,8 @@ void nano::network::flood_keepalive_self (float const scale_a)
 
 void nano::network::flood_block (std::shared_ptr<nano::block> const & block_a, nano::transport::buffer_drop_policy const drop_policy_a)
 {
+	return ; // disable block gossip
+
 	nano::publish message (node.network_params.network, block_a);
 	// broadcast to `ceil(0.2 * √peer_count )`
 	// for beta: ~1 random peer instead 4
@@ -177,7 +179,7 @@ void nano::network::flood_block_initial (std::shared_ptr<nano::block> const & bl
 	{
 		i.channel->send (message, nullptr, nano::transport::buffer_drop_policy::no_limiter_drop);
 	}
-	for (auto & i : list_non_pr (fanout (1.0)))
+	for (auto & i : list_non_pr (size())) //send to all non prs
 	{
 		i->send (message, nullptr, nano::transport::buffer_drop_policy::no_limiter_drop);
 	}
