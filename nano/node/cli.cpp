@@ -123,7 +123,7 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	flags_a.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
 	flags_a.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 	flags_a.disable_ongoing_bootstrap = (vm.count ("disable_ongoing_bootstrap") > 0);
-	flags_a.disable_ascending_bootstrap = (vm.count ("disable_ascending_bootstrap") > 0);
+	flags_a.disable_ascending_bootstrap = (vm.count ("disable_ascending_bootstrap") <= 0);
 	flags_a.disable_rep_crawler = (vm.count ("disable_rep_crawler") > 0);
 	flags_a.disable_request_loop = (vm.count ("disable_request_loop") > 0);
 	if (!flags_a.inactive_node)
