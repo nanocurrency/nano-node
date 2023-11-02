@@ -56,9 +56,11 @@ public:
 	void reset () const;
 	void renew () const;
 	void refresh () const;
+	void refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 }) const;
 
 private:
 	std::unique_ptr<read_transaction_impl> impl;
+	mutable std::chrono::steady_clock::time_point start;
 };
 
 /**
@@ -75,9 +77,11 @@ public:
 	void commit ();
 	void renew ();
 	void refresh ();
+	void refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 });
 	bool contains (nano::tables table_a) const;
 
 private:
 	std::unique_ptr<write_transaction_impl> impl;
+	std::chrono::steady_clock::time_point start;
 };
 } // namespace nano::store

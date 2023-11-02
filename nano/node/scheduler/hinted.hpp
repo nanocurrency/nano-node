@@ -3,6 +3,7 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/store/transaction.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/ordered_index.hpp>
@@ -61,7 +62,7 @@ private:
 	bool predicate () const;
 	void run ();
 	void run_iterative ();
-	void activate (nano::store::transaction const &, nano::block_hash const & hash, bool check_dependents);
+	void activate (nano::store::read_transaction const &, nano::block_hash const & hash, bool check_dependents);
 
 	nano::uint128_t tally_threshold () const;
 	nano::uint128_t final_tally_threshold () const;

@@ -59,13 +59,15 @@ bool nano::scheduler::hinted::predicate () const
 	return active.vacancy (nano::election_behavior::hinted) > 0;
 }
 
-void nano::scheduler::hinted::activate (const nano::store::transaction & transaction, const nano::block_hash & hash, bool check_dependents)
+void nano::scheduler::hinted::activate (const nano::store::read_transaction & transaction, const nano::block_hash & hash, bool check_dependents)
 {
 	std::stack<nano::block_hash> stack;
 	stack.push (hash);
 
 	while (!stack.empty ())
 	{
+		transaction.refresh_if_needed ();
+
 		const nano::block_hash current_hash = stack.top ();
 		stack.pop ();
 
@@ -115,9 +117,12 @@ void nano::scheduler::hinted::run_iterative ()
 	const auto minimum_tally = tally_threshold ();
 	const auto minimum_final_tally = final_tally_threshold ();
 
+	// Get the list before db transaction starts to avoid unnecessary slowdowns
+	auto tops = vote_cache.top (minimum_tally);
+
 	auto transaction = node.store.tx_begin_read ();
 
-	for (auto const & entry : vote_cache.top (minimum_tally))
+	for (auto const & entry : tops)
 	{
 		if (!predicate ())
 		{
