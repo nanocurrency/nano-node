@@ -1,4 +1,4 @@
-#include <nano/store/lmdb/lmdb.hpp>
+#include <nano/store/lmdb/component.hpp>
 #include <nano/store/lmdb/version.hpp>
 
 nano::store::lmdb::version::version (nano::store::lmdb::component & store_a) :

@@ -2,17 +2,17 @@
 #include <nano/lib/stats.hpp>
 #include <nano/node/confirmation_height_unbounded.hpp>
 #include <nano/node/logging.hpp>
-#include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/block.hpp>
 #include <nano/store/confirmation_height.hpp>
 #include <nano/store/pruned.hpp>
+#include <nano/store/write_database_queue.hpp>
 
 #include <boost/format.hpp>
 
 #include <numeric>
 
-nano::confirmation_height_unbounded::confirmation_height_unbounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, uint64_t & batch_write_size_a, std::function<void (std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void (nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
+nano::confirmation_height_unbounded::confirmation_height_unbounded (nano::ledger & ledger_a, nano::store::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, uint64_t & batch_write_size_a, std::function<void (std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void (nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
 	ledger (ledger_a),
 	write_database_queue (write_database_queue_a),
 	batch_separate_pending_min_time (batch_separate_pending_min_time_a),
@@ -175,7 +175,7 @@ void nano::confirmation_height_unbounded::process (std::shared_ptr<nano::block> 
 
 		if ((max_write_size_reached || should_output || force_write) && !pending_writes.empty ())
 		{
-			if (write_database_queue.process (nano::writer::confirmation_height))
+			if (write_database_queue.process (nano::store::writer::confirmation_height))
 			{
 				auto scoped_write_guard = write_database_queue.pop ();
 				cement_blocks (scoped_write_guard);
@@ -183,7 +183,7 @@ void nano::confirmation_height_unbounded::process (std::shared_ptr<nano::block> 
 			else if (force_write)
 			{
 				// Unbounded processor has grown too large, force a write
-				auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
+				auto scoped_write_guard = write_database_queue.wait (nano::store::writer::confirmation_height);
 				cement_blocks (scoped_write_guard);
 			}
 		}
@@ -365,7 +365,7 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 	}
 }
 
-void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & scoped_write_guard_a)
+void nano::confirmation_height_unbounded::cement_blocks (nano::store::write_guard & scoped_write_guard_a)
 {
 	nano::timer<std::chrono::milliseconds> cemented_batch_timer;
 	std::vector<std::shared_ptr<nano::block>> cemented_blocks;

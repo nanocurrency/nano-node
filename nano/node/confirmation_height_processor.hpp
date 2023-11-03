@@ -30,7 +30,7 @@ class write_database_queue;
 class confirmation_height_processor final
 {
 public:
-	confirmation_height_processor (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logging const &, nano::logger_mt &, boost::latch & initialized_latch, confirmation_height_mode = confirmation_height_mode::automatic);
+	confirmation_height_processor (nano::ledger &, nano::store::write_database_queue &, std::chrono::milliseconds, nano::logging const &, nano::logger_mt &, boost::latch & initialized_latch, confirmation_height_mode = confirmation_height_mode::automatic);
 	~confirmation_height_processor ();
 	void pause ();
 	void unpause ();
@@ -95,7 +95,7 @@ private:
 	std::vector<std::function<void (nano::block_hash const &)>> block_already_cemented_observers;
 
 	nano::ledger & ledger;
-	nano::write_database_queue & write_database_queue;
+	nano::store::write_database_queue & write_database_queue;
 	/** The maximum amount of blocks to write at once. This is dynamically modified by the bounded processor based on previous write performance **/
 	uint64_t batch_write_size{ 16384 };
 

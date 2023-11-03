@@ -4,13 +4,14 @@
 #include <nano/node/common.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
-#include <nano/node/request_aggregator.hpp>
-#include <nano/node/voting.hpp>
+#include <nano/node/voting/aggregator.hpp>
+#include <nano/node/voting/generator.hpp>
+#include <nano/node/voting/history.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
 
-nano::request_aggregator::request_aggregator (nano::node_config const & config_a, nano::stats & stats_a, nano::vote_generator & generator_a, nano::vote_generator & final_generator_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
+nano::voting::aggregator::aggregator (nano::node_config const & config_a, nano::stats & stats_a, nano::voting::generator & generator_a, nano::voting::generator & final_generator_a, nano::voting::history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
 	config{ config_a },
 	max_delay (config_a.network_params.network.is_dev_network () ? 50 : 300),
 	small_delay (config_a.network_params.network.is_dev_network () ? 10 : 50),
@@ -34,7 +35,7 @@ nano::request_aggregator::request_aggregator (nano::node_config const & config_a
 	condition.wait (lock, [&started = started] { return started; });
 }
 
-void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> const & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a)
+void nano::voting::aggregator::add (std::shared_ptr<nano::transport::channel> const & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a)
 {
 	debug_assert (wallets.reps ().voting > 0);
 	bool error = true;
@@ -70,7 +71,7 @@ void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> co
 	stats.inc (nano::stat::type::aggregator, !error ? nano::stat::detail::aggregator_accepted : nano::stat::detail::aggregator_dropped);
 }
 
-void nano::request_aggregator::run ()
+void nano::voting::aggregator::run ()
 {
 	nano::thread_role::set (nano::thread_role::name::request_aggregator);
 	nano::unique_lock<nano::mutex> lock{ mutex };
@@ -124,7 +125,7 @@ void nano::request_aggregator::run ()
 	}
 }
 
-void nano::request_aggregator::stop ()
+void nano::voting::aggregator::stop ()
 {
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
@@ -137,24 +138,24 @@ void nano::request_aggregator::stop ()
 	}
 }
 
-std::size_t nano::request_aggregator::size ()
+std::size_t nano::voting::aggregator::size ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	return requests.size ();
 }
 
-bool nano::request_aggregator::empty ()
+bool nano::voting::aggregator::empty ()
 {
 	return size () == 0;
 }
 
-void nano::request_aggregator::reply_action (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) const
+void nano::voting::aggregator::reply_action (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) const
 {
 	nano::confirm_ack confirm{ config.network_params.network, vote_a };
 	channel_a->send (confirm);
 }
 
-void nano::request_aggregator::erase_duplicates (std::vector<std::pair<nano::block_hash, nano::root>> & requests_a) const
+void nano::voting::aggregator::erase_duplicates (std::vector<std::pair<nano::block_hash, nano::root>> & requests_a) const
 {
 	std::sort (requests_a.begin (), requests_a.end (), [] (auto const & pair1, auto const & pair2) {
 		return pair1.first < pair2.first;
@@ -165,7 +166,7 @@ void nano::request_aggregator::erase_duplicates (std::vector<std::pair<nano::blo
 	requests_a.end ());
 }
 
-std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr<nano::block>>> nano::request_aggregator::aggregate (std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const
+std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr<nano::block>>> nano::voting::aggregator::aggregate (std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const
 {
 	auto transaction (ledger.store.tx_begin_read ());
 	std::vector<std::shared_ptr<nano::block>> to_generate;
@@ -310,7 +311,7 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 	return std::make_pair (to_generate, to_generate_final);
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::request_aggregator & aggregator, std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::voting::collect_container_info (nano::voting::aggregator & aggregator, std::string const & name)
 {
 	auto pools_count = aggregator.size ();
 	auto sizeof_element = sizeof (decltype (aggregator.requests)::value_type);

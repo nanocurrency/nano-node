@@ -4,7 +4,6 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/daemonconfig.hpp>
-#include <nano/node/make_store.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/hinted.hpp>
@@ -14,7 +13,8 @@
 #include <nano/node/telemetry.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/store/component.hpp>
-#include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/make_store.hpp>
+#include <nano/store/rocksdb/component.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
@@ -1077,7 +1077,7 @@ void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_wei
 		transaction_write_count = 0;
 		if (!pruning_targets.empty () && !stopped)
 		{
-			auto scoped_write_guard = write_database_queue.wait (nano::writer::pruning);
+			auto scoped_write_guard = write_database_queue.wait (nano::store::writer::pruning);
 			auto write_transaction (store.tx_begin_write ({ tables::blocks, tables::pruned }));
 			while (!pruning_targets.empty () && transaction_write_count < batch_size_a && !stopped)
 			{

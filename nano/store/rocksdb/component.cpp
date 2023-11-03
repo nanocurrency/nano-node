@@ -1,6 +1,6 @@
 #include <nano/lib/rocksdbconfig.hpp>
+#include <nano/store/rocksdb/component.hpp>
 #include <nano/store/rocksdb/iterator.hpp>
-#include <nano/store/rocksdb/rocksdb.hpp>
 #include <nano/store/rocksdb/transaction_impl.hpp>
 #include <nano/store/version.hpp>
 

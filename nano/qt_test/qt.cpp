@@ -1,5 +1,5 @@
-#include <nano/node/make_store.hpp>
 #include <nano/qt/qt.hpp>
+#include <nano/store/make_store.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>

@@ -12,13 +12,13 @@
 
 namespace nano::store
 {
+class write_database_queue;
 class write_transaction;
 }
 
 namespace nano
 {
 class node;
-class write_database_queue;
 
 /**
  * Processing blocks is a potentially long IO operation.
@@ -27,7 +27,7 @@ class write_database_queue;
 class block_processor final
 {
 public:
-	explicit block_processor (nano::node &, nano::write_database_queue &);
+	explicit block_processor (nano::node &, nano::store::write_database_queue &);
 	void stop ();
 	void flush ();
 	std::size_t size ();
@@ -68,7 +68,7 @@ private:
 	std::deque<std::shared_ptr<nano::block>> forced;
 	nano::condition_variable condition;
 	nano::node & node;
-	nano::write_database_queue & write_database_queue;
+	nano::store::write_database_queue & write_database_queue;
 	nano::mutex mutex{ mutex_identifier (mutexes::block_processor) };
 	nano::state_block_signature_verification state_block_signature_verification;
 	std::thread processing_thread;

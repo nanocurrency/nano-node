@@ -9,22 +9,26 @@
 #include <chrono>
 #include <unordered_map>
 
+namespace nano::store
+{
+class write_database_queue;
+class write_guard;
+}
+
 namespace nano
 {
 class ledger;
 class logging;
 class logger_mt;
-class write_database_queue;
-class write_guard;
 
 class confirmation_height_unbounded final
 {
 public:
-	confirmation_height_unbounded (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds batch_separate_pending_min_time, nano::logging const &, nano::logger_mt &, std::atomic<bool> & stopped, uint64_t & batch_write_size, std::function<void (std::vector<std::shared_ptr<nano::block>> const &)> const & cemented_callback, std::function<void (nano::block_hash const &)> const & already_cemented_callback, std::function<uint64_t ()> const & awaiting_processing_size_query);
+	confirmation_height_unbounded (nano::ledger &, nano::store::write_database_queue &, std::chrono::milliseconds batch_separate_pending_min_time, nano::logging const &, nano::logger_mt &, std::atomic<bool> & stopped, uint64_t & batch_write_size, std::function<void (std::vector<std::shared_ptr<nano::block>> const &)> const & cemented_callback, std::function<void (nano::block_hash const &)> const & already_cemented_callback, std::function<uint64_t ()> const & awaiting_processing_size_query);
 	bool pending_empty () const;
 	void clear_process_vars ();
 	void process (std::shared_ptr<nano::block> original_block);
-	void cement_blocks (nano::write_guard &);
+	void cement_blocks (nano::store::write_guard &);
 	bool has_iterated_over_block (nano::block_hash const &) const;
 
 private:
@@ -96,7 +100,7 @@ private:
 	void prepare_iterated_blocks_for_cementing (preparation_data &);
 
 	nano::ledger & ledger;
-	nano::write_database_queue & write_database_queue;
+	nano::store::write_database_queue & write_database_queue;
 	std::chrono::milliseconds batch_separate_pending_min_time;
 	nano::logger_mt & logger;
 	std::atomic<bool> & stopped;

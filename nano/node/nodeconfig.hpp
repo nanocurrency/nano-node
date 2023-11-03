@@ -12,7 +12,7 @@
 #include <nano/node/logging.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
-#include <nano/node/vote_cache.hpp>
+#include <nano/node/voting/cache.hpp>
 #include <nano/node/websocketconfig.hpp>
 #include <nano/secure/common.hpp>
 
@@ -125,7 +125,7 @@ public:
 	unsigned backlog_scan_batch_size{ 10 * 1000 };
 	/** Number of times per second to run backlog population batches. Number of accounts per single batch is `backlog_scan_batch_size / backlog_scan_frequency` */
 	unsigned backlog_scan_frequency{ 10 };
-	nano::vote_cache_config vote_cache;
+	nano::voting::cache_config vote_cache;
 
 public:
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;

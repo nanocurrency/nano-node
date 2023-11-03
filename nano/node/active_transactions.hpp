@@ -3,7 +3,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/election_insertion_result.hpp>
-#include <nano/node/voting.hpp>
+#include <nano/node/voting/generator.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
@@ -53,6 +53,7 @@ private:
 	// clang-format off
 	class tag_root {};
 	class tag_hash {};
+	class tag_sequence {};
 
 	using ordered_recent_confirmations = boost::multi_index_container<entry_t,
 	mi::indexed_by<

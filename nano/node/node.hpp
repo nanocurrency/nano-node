@@ -28,18 +28,20 @@
 #include <nano/node/portmapping.hpp>
 #include <nano/node/process_live_dispatcher.hpp>
 #include <nano/node/repcrawler.hpp>
-#include <nano/node/request_aggregator.hpp>
 #include <nano/node/signatures.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/tcp_server.hpp>
 #include <nano/node/unchecked_map.hpp>
-#include <nano/node/vote_cache.hpp>
-#include <nano/node/vote_processor.hpp>
+#include <nano/node/voting/aggregator.hpp>
+#include <nano/node/voting/cache.hpp>
+#include <nano/node/voting/generator.hpp>
+#include <nano/node/voting/history.hpp>
+#include <nano/node/voting/processor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
-#include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
+#include <nano/store/write_database_queue.hpp>
 
 #include <boost/program_options.hpp>
 #include <boost/thread/latch.hpp>
@@ -140,7 +142,7 @@ public:
 	nano::telemetry_data local_telemetry () const;
 
 public:
-	nano::write_database_queue write_database_queue;
+	nano::store::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
 	nano::node_config config;
@@ -171,18 +173,18 @@ public:
 	nano::port_mapping port_mapping;
 	nano::online_reps online_reps;
 	nano::rep_crawler rep_crawler;
-	nano::vote_processor vote_processor;
+	nano::voting::processor vote_processor;
 	unsigned warmed_up;
 	nano::block_processor block_processor;
 	nano::block_arrival block_arrival;
-	nano::local_vote_history history;
+	nano::voting::history history;
 	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
 	nano::confirmation_height_processor confirmation_height_processor;
-	nano::vote_cache vote_cache;
-	nano::vote_generator generator;
-	nano::vote_generator final_generator;
+	nano::voting::cache vote_cache;
+	nano::voting::generator generator;
+	nano::voting::generator final_generator;
 	nano::active_transactions active;
 
 private: // Placed here to maintain initialization order
@@ -190,7 +192,7 @@ private: // Placed here to maintain initialization order
 
 public:
 	nano::scheduler::component & scheduler;
-	nano::request_aggregator aggregator;
+	nano::voting::aggregator aggregator;
 	nano::wallets wallets;
 	nano::backlog_population backlog;
 	nano::bootstrap_ascending::service ascendboot;

@@ -6,7 +6,7 @@
 #include <deque>
 #include <functional>
 
-namespace nano
+namespace nano::store
 {
 /** Distinct areas write locking is done, order is irrelevant */
 enum class writer
@@ -39,22 +39,22 @@ class write_database_queue final
 public:
 	write_database_queue (bool use_noops_a);
 	/** Blocks until we are at the head of the queue */
-	write_guard wait (nano::writer writer);
+	write_guard wait (nano::store::writer writer);
 
 	/** Returns true if this writer is now at the front of the queue */
-	bool process (nano::writer writer);
+	bool process (nano::store::writer writer);
 
 	/** Returns true if this writer is anywhere in the queue. Currently only used in tests */
-	bool contains (nano::writer writer);
+	bool contains (nano::store::writer writer);
 
 	/** Doesn't actually pop anything until the returned write_guard is out of scope */
 	write_guard pop ();
 
 private:
-	std::deque<nano::writer> queue;
+	std::deque<nano::store::writer> queue;
 	nano::mutex mutex;
 	nano::condition_variable cv;
 	std::function<void ()> guard_finish_callback;
 	bool use_noops;
 };
-}
+} // namespace nano::store

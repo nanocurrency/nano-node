@@ -1,6 +1,6 @@
 #include <nano/secure/parallel_traversal.hpp>
 #include <nano/store/rocksdb/account.hpp>
-#include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/component.hpp>
 
 nano::store::rocksdb::account::account (nano::store::rocksdb::component & store_a) :
 	store (store_a){};

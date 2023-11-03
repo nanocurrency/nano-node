@@ -1,5 +1,5 @@
 #include <nano/node/election.hpp>
-#include <nano/node/vote_cache.hpp>
+#include <nano/node/voting/cache.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -36,8 +36,8 @@ nano::keypair create_rep (nano::uint128_t weight)
 
 TEST (vote_cache, construction)
 {
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg };
+	nano::voting::cache_config cfg;
+	nano::voting::cache vote_cache{ cfg };
 	ASSERT_EQ (0, vote_cache.size ());
 	ASSERT_TRUE (vote_cache.empty ());
 	auto hash1 = nano::test::random_hash ();
@@ -49,8 +49,8 @@ TEST (vote_cache, construction)
  */
 TEST (vote_cache, insert_one_hash)
 {
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg };
+	nano::voting::cache_config cfg;
+	nano::voting::cache vote_cache{ cfg };
 	vote_cache.rep_weight_query = rep_weight_query ();
 	auto rep1 = create_rep (7);
 	auto hash1 = nano::test::random_hash ();
@@ -79,8 +79,8 @@ TEST (vote_cache, insert_one_hash)
  */
 TEST (vote_cache, insert_one_hash_many_votes)
 {
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg };
+	nano::voting::cache_config cfg;
+	nano::voting::cache vote_cache{ cfg };
 	vote_cache.rep_weight_query = rep_weight_query ();
 	auto hash1 = nano::test::random_hash ();
 	auto rep1 = create_rep (7);
@@ -114,8 +114,8 @@ TEST (vote_cache, insert_one_hash_many_votes)
  */
 TEST (vote_cache, insert_many_hashes_many_votes)
 {
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg };
+	nano::voting::cache_config cfg;
+	nano::voting::cache vote_cache{ cfg };
 	vote_cache.rep_weight_query = rep_weight_query ();
 	// There will be 3 random hashes to vote for
 	auto hash1 = nano::test::random_hash ();
@@ -194,8 +194,8 @@ TEST (vote_cache, insert_many_hashes_many_votes)
  */
 TEST (vote_cache, insert_duplicate)
 {
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg };
+	nano::voting::cache_config cfg;
+	nano::voting::cache vote_cache{ cfg };
 	vote_cache.rep_weight_query = rep_weight_query ();
 	auto hash1 = nano::test::random_hash ();
 	auto rep1 = create_rep (9);
@@ -211,8 +211,8 @@ TEST (vote_cache, insert_duplicate)
  */
 TEST (vote_cache, insert_newer)
 {
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg };
+	nano::voting::cache_config cfg;
+	nano::voting::cache vote_cache{ cfg };
 	vote_cache.rep_weight_query = rep_weight_query ();
 	auto hash1 = nano::test::random_hash ();
 	auto rep1 = create_rep (9);
@@ -236,8 +236,8 @@ TEST (vote_cache, insert_newer)
  */
 TEST (vote_cache, insert_older)
 {
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg };
+	nano::voting::cache_config cfg;
+	nano::voting::cache vote_cache{ cfg };
 	vote_cache.rep_weight_query = rep_weight_query ();
 	auto hash1 = nano::test::random_hash ();
 	auto rep1 = create_rep (9);
@@ -259,8 +259,8 @@ TEST (vote_cache, insert_older)
  */
 TEST (vote_cache, erase)
 {
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg };
+	nano::voting::cache_config cfg;
+	nano::voting::cache vote_cache{ cfg };
 	vote_cache.rep_weight_query = rep_weight_query ();
 	auto hash1 = nano::test::random_hash ();
 	auto hash2 = nano::test::random_hash ();
@@ -299,9 +299,9 @@ TEST (vote_cache, erase)
 TEST (vote_cache, overfill)
 {
 	// Create a vote cache with max size set to 1024
-	nano::vote_cache_config cfg;
+	nano::voting::cache_config cfg;
 	cfg.max_size = 1024;
-	nano::vote_cache vote_cache{ cfg };
+	nano::voting::cache vote_cache{ cfg };
 	vote_cache.rep_weight_query = rep_weight_query ();
 	const int count = 16 * 1024;
 	for (int n = 0; n < count; ++n)
@@ -324,8 +324,8 @@ TEST (vote_cache, overfill)
  */
 TEST (vote_cache, overfill_entry)
 {
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg };
+	nano::voting::cache_config cfg;
+	nano::voting::cache vote_cache{ cfg };
 	vote_cache.rep_weight_query = rep_weight_query ();
 	const int count = 1024;
 	auto hash1 = nano::test::random_hash ();

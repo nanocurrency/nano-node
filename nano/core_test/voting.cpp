@@ -1,5 +1,5 @@
 #include <nano/node/common.hpp>
-#include <nano/node/voting.hpp>
+#include <nano/node/voting/generator.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -11,7 +11,7 @@ namespace nano
 {
 TEST (local_vote_history, basic)
 {
-	nano::local_vote_history history{ nano::dev::network_params.voting };
+	nano::voting::history history{ nano::dev::network_params.voting };
 	ASSERT_FALSE (history.exists (1));
 	ASSERT_FALSE (history.exists (2));
 	ASSERT_TRUE (history.votes (1).empty ());
@@ -105,7 +105,7 @@ TEST (vote_generator, multiple_representatives)
 
 TEST (vote_spacing, basic)
 {
-	nano::vote_spacing spacing{ std::chrono::milliseconds{ 100 } };
+	nano::voting::spacing spacing{ std::chrono::milliseconds{ 100 } };
 	nano::root root1{ 1 };
 	nano::root root2{ 2 };
 	nano::block_hash hash3{ 3 };
@@ -124,7 +124,7 @@ TEST (vote_spacing, basic)
 TEST (vote_spacing, prune)
 {
 	auto length = std::chrono::milliseconds{ 100 };
-	nano::vote_spacing spacing{ length };
+	nano::voting::spacing spacing{ length };
 	nano::root root1{ 1 };
 	nano::root root2{ 2 };
 	nano::block_hash hash3{ 3 };

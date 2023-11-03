@@ -114,8 +114,6 @@ add_library(
   ledger_walker.cpp
   logging.hpp
   logging.cpp
-  make_store.hpp
-  make_store.cpp
   network.hpp
   network.cpp
   nodeconfig.hpp
@@ -140,8 +138,6 @@ add_library(
   process_live_dispatcher.hpp
   repcrawler.hpp
   repcrawler.cpp
-  request_aggregator.hpp
-  request_aggregator.cpp
   scheduler/bucket.cpp
   scheduler/bucket.hpp
   scheduler/buckets.cpp
@@ -180,12 +176,18 @@ add_library(
   transport/transport.cpp
   unchecked_map.cpp
   unchecked_map.hpp
-  vote_cache.hpp
-  vote_cache.cpp
-  vote_processor.hpp
-  vote_processor.cpp
-  voting.hpp
-  voting.cpp
+  voting/aggregator.hpp
+  voting/aggregator.cpp
+  voting/cache.hpp
+  voting/cache.cpp
+  voting/history.hpp
+  voting/history.cpp
+  voting/generator.hpp
+  voting/generator.cpp
+  voting/processor.hpp
+  voting/processor.cpp
+  voting/spacing.hpp
+  voting/spacing.cpp
   wallet.hpp
   wallet.cpp
   websocket.hpp
@@ -194,8 +196,6 @@ add_library(
   websocketconfig.cpp
   websocket_stream.hpp
   websocket_stream.cpp
-  write_database_queue.hpp
-  write_database_queue.cpp
   messages.hpp
   messages.cpp
   xorshift.hpp)

@@ -1,6 +1,6 @@
-#include <nano/node/make_store.hpp>
-#include <nano/store/lmdb/lmdb.hpp>
-#include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/lmdb/component.hpp>
+#include <nano/store/make_store.hpp>
+#include <nano/store/rocksdb/component.hpp>
 
 std::unique_ptr<nano::store::component> nano::make_store (nano::logger_mt & logger, std::filesystem::path const & path, nano::ledger_constants & constants, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade)
 {

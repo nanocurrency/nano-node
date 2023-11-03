@@ -1,6 +1,6 @@
 #include <nano/lib/stats.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
-#include <nano/node/make_store.hpp>
+#include <nano/store/make_store.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 

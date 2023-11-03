@@ -6,7 +6,7 @@
 
 #include <boost/format.hpp>
 
-nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
+nano::block_processor::block_processor (nano::node & node_a, nano::store::write_database_queue & write_database_queue_a) :
 	next_log (std::chrono::steady_clock::now ()),
 	node (node_a),
 	write_database_queue (write_database_queue_a),
@@ -262,7 +262,7 @@ void nano::block_processor::add_impl (std::shared_ptr<nano::block> block)
 auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock_a) -> std::deque<processed_t>
 {
 	std::deque<processed_t> processed;
-	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
+	auto scoped_write_guard = write_database_queue.wait (nano::store::writer::process_batch);
 	auto transaction (node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
 	nano::timer<std::chrono::milliseconds> timer_l;
 	lock_a.lock ();

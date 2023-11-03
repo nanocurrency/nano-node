@@ -2,7 +2,6 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/node/make_store.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/account.hpp>
@@ -11,6 +10,7 @@
 #include <nano/store/confirmation_height.hpp>
 #include <nano/store/final.hpp>
 #include <nano/store/frontier.hpp>
+#include <nano/store/make_store.hpp>
 #include <nano/store/online_weight.hpp>
 #include <nano/store/peer.hpp>
 #include <nano/store/pending.hpp>
