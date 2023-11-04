@@ -413,7 +413,10 @@ public:
 private:
 	nano::mutex mutex{ mutex_identifier (mutexes::block_uniquer) };
 	std::unordered_map<std::remove_const_t<value_type::first_type>, value_type::second_type> blocks;
-	static unsigned constexpr cleanup_count = 2;
+	std::chrono::steady_clock::time_point cleanup_last{ std::chrono::steady_clock::now () };
+
+public:
+	static std::chrono::milliseconds constexpr cleanup_cutoff{ 500 };
 };
 
 std::unique_ptr<container_info_component> collect_container_info (block_uniquer & block_uniquer, std::string const & name);
