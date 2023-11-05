@@ -1881,24 +1881,19 @@ std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::
 		{
 			existing = block_a;
 		}
-		release_assert (std::numeric_limits<CryptoPP::word32>::max () > blocks.size ());
-		for (auto i (0); i < cleanup_count && !blocks.empty (); ++i)
+		auto now = std::chrono::steady_clock::now ();
+		if (cleanup_cutoff < now - cleanup_last)
 		{
-			auto random_offset (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (blocks.size () - 1)));
-			auto existing (std::next (blocks.begin (), random_offset));
-			if (existing == blocks.end ())
+			cleanup_last = now;
+			for (auto i = blocks.begin (), n = blocks.end (); i != n;)
 			{
-				existing = blocks.begin ();
-			}
-			if (existing != blocks.end ())
-			{
-				if (auto block_l = existing->second.lock ())
+				if (auto block_l = i->second.lock ())
 				{
-					// Still live
+					++i;
 				}
 				else
 				{
-					blocks.erase (existing);
+					i = blocks.erase (i);
 				}
 			}
 		}
