@@ -144,7 +144,7 @@ private:
 	 * Check if block is eligible for vote generation, then generates a vote or broadcasts votes already in cache
 	 * @param transaction : needs `tables::final_votes` lock
 	 */
-	void process (store::write_transaction const &, nano::root const &, nano::block_hash const &);
+	void process (std::optional<store::write_transaction> & final_write, std::optional<store::read_transaction> & non_final_read, nano::root const &, nano::block_hash const &);
 
 private:
 	std::function<void (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> &)> reply_action; // must be set only during initialization by using set_reply_action
