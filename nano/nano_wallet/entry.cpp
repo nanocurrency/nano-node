@@ -192,7 +192,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, std::
 					}
 
 					auto network = node->network_params.network.get_current_network_as_string ();
-					rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
+					rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path.string (), "--network", network);
 				}
 			}
 			QObject::connect (&application, &QApplication::aboutToQuit, [&] () {
