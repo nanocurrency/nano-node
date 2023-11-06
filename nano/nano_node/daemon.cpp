@@ -11,6 +11,7 @@
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/make_store.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/rpc/rpc.hpp>
 
@@ -128,9 +129,7 @@ void nano_daemon::daemon::run (std::filesystem::path const & data_path, nano::no
 			}
 
 			{
-				bool error{ false };
-				nano::store::lmdb::env env{ error, data_path / "data.ldb", nano::store::lmdb::env::options::make ().set_config (config.node.lmdb_config).set_use_no_mem_init (true) };
-				release_assert (!error);
+				auto store = nano::make_store (logger, data_path, config.node.network_params.ledger);
 			}
 			auto node (std::make_shared<nano::node> (io_ctx, data_path, config.node, opencl_work, flags));
 			if (!node->init_error ())
