@@ -127,6 +127,11 @@ void nano_daemon::daemon::run (std::filesystem::path const & data_path, nano::no
 				config.node.peering_port = network_params.network.default_node_port;
 			}
 
+			{
+				bool error{ false };
+				nano::store::lmdb::env env{ error, data_path / "data.ldb", nano::store::lmdb::env::options::make ().set_config (config.node.lmdb_config).set_use_no_mem_init (true) };
+				release_assert (!error);
+			}
 			auto node (std::make_shared<nano::node> (io_ctx, data_path, config.node, opencl_work, flags));
 			if (!node->init_error ())
 			{
