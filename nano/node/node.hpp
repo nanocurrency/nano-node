@@ -29,7 +29,6 @@
 #include <nano/node/process_live_dispatcher.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/request_aggregator.hpp>
-#include <nano/node/signatures.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/tcp_server.hpp>
 #include <nano/node/unchecked_map.hpp>
@@ -159,7 +158,6 @@ public:
 	nano::wallets_store & wallets_store;
 	nano::gap_cache gap_cache;
 	nano::ledger ledger;
-	nano::signature_checker checker;
 	nano::outbound_bandwidth_limiter outbound_limiter;
 	nano::network network;
 	nano::telemetry telemetry;

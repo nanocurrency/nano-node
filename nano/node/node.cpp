@@ -156,7 +156,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	wallets_store (*wallets_store_impl),
 	gap_cache (*this),
 	ledger (store, stats, network_params.ledger, flags_a.generate_cache),
-	checker (config.signature_checker_threads),
 	outbound_limiter{ outbound_bandwidth_limiter_config (config) },
 	// empty `config.peering_port` means the user made no port choice at all;
 	// otherwise, any value is considered, with `0` having the special meaning of 'let the OS pick a port instead'
@@ -728,7 +727,6 @@ void nano::node::stop ()
 	bootstrap_initiator.stop ();
 	tcp_listener.stop ();
 	port_mapping.stop ();
-	checker.stop ();
 	wallets.stop ();
 	stats.stop ();
 	epoch_upgrader.stop ();
