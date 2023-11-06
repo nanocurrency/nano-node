@@ -150,6 +150,8 @@ void nano::bootstrap_server::process_batch (std::deque<request_t> & batch)
 
 	for (auto & [request, channel] : batch)
 	{
+		transaction.refresh_if_needed ();
+
 		if (!channel->max (nano::transport::traffic_type::bootstrap))
 		{
 			auto response = process (transaction, request);
