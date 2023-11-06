@@ -1974,6 +1974,8 @@ void nano::asc_pull_ack::account_info_payload::deserialize (nano::stream & strea
 
 void nano::asc_pull_ack::frontiers_payload::serialize (nano::stream & stream) const
 {
+	debug_assert (frontiers.size () <= max_frontiers);
+
 	for (auto const & [account, frontier] : frontiers)
 	{
 		nano::write (stream, account);
@@ -1987,7 +1989,7 @@ void nano::asc_pull_ack::frontiers_payload::deserialize (nano::stream & stream)
 {
 	nano::account account;
 	nano::block_hash frontier;
-	while (frontiers.size () < max_frontiers)
+	while (true)
 	{
 		nano::read (stream, account);
 		nano::read (stream, frontier);
@@ -1995,6 +1997,14 @@ void nano::asc_pull_ack::frontiers_payload::deserialize (nano::stream & stream)
 		{
 			break;
 		}
-		frontiers.emplace_back (account, frontier);
+		debug_assert (frontiers.size () < max_frontiers);
+		if (frontiers.size () < max_frontiers)
+		{
+			frontiers.emplace_back (account, frontier);
+		}
+		else
+		{
+			break;
+		}
 	}
 }
