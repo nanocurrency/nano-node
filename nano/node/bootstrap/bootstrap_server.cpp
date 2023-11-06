@@ -3,6 +3,7 @@
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/store/account.hpp>
 #include <nano/store/block.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/confirmation_height.hpp>
@@ -71,7 +72,7 @@ bool nano::bootstrap_server::verify (const nano::asc_pull_req & message) const
 		}
 		bool operator() (nano::asc_pull_req::frontiers_payload const & pld) const
 		{
-			return pld.count > 0 && pld.count <= max_frontiers && !pld.start.is_zero ();
+			return pld.count > 0 && pld.count <= max_frontiers;
 		}
 	};
 
@@ -215,7 +216,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (store::transaction const & t
 
 nano::asc_pull_ack nano::bootstrap_server::prepare_response (store::transaction const & transaction, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count)
 {
-	debug_assert (count <= max_blocks);
+	debug_assert (count <= max_blocks); // Should be filtered out earlier
 
 	auto blocks = prepare_blocks (transaction, start_block, count);
 	debug_assert (blocks.size () <= count);
@@ -224,7 +225,7 @@ nano::asc_pull_ack nano::bootstrap_server::prepare_response (store::transaction 
 	response.id = id;
 	response.type = nano::asc_pull_type::blocks;
 
-	nano::asc_pull_ack::blocks_payload response_payload;
+	nano::asc_pull_ack::blocks_payload response_payload{};
 	response_payload.blocks = blocks;
 	response.payload = response_payload;
 
@@ -247,7 +248,7 @@ nano::asc_pull_ack nano::bootstrap_server::prepare_empty_blocks_response (nano::
 
 std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks (store::transaction const & transaction, nano::block_hash start_block, std::size_t count) const
 {
-	debug_assert (count <= max_blocks);
+	debug_assert (count <= max_blocks); // Should be filtered out earlier
 
 	std::vector<std::shared_ptr<nano::block>> result;
 	if (!start_block.is_zero ())
@@ -320,7 +321,20 @@ nano::asc_pull_ack nano::bootstrap_server::process (const store::transaction & t
 
 nano::asc_pull_ack nano::bootstrap_server::process (const store::transaction & transaction, nano::asc_pull_req::id_t id, const nano::asc_pull_req::frontiers_payload & request)
 {
-	debug_assert (false, "not implemented");
-	nano::asc_pull_ack ack{ network_constants };
-	return ack;
+	debug_assert (request.count <= max_frontiers); // Should be filtered out earlier
+
+	nano::asc_pull_ack response{ network_constants };
+	response.id = id;
+	response.type = nano::asc_pull_type::frontiers;
+
+	nano::asc_pull_ack::frontiers_payload response_payload{};
+
+	for (auto it = store.account.begin (transaction, request.start), end = store.account.end (); it != end && response_payload.frontiers.size () < request.count; ++it)
+	{
+		response_payload.frontiers.emplace_back (it->first, it->second.head);
+	}
+
+	response.payload = response_payload;
+	response.update_header ();
+	return response;
 }
