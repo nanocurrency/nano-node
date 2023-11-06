@@ -130,6 +130,8 @@ void nano_daemon::daemon::run (std::filesystem::path const & data_path, nano::no
 
 			{
 				auto store = nano::make_store (logger, data_path, config.node.network_params.ledger);
+				nano::stats stats;
+				nano::ledger ledger{ *store, stats, config.node.network_params.ledger };
 			}
 			auto node (std::make_shared<nano::node> (io_ctx, data_path, config.node, opencl_work, flags));
 			if (!node->init_error ())
