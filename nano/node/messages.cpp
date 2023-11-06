@@ -1599,21 +1599,21 @@ void nano::asc_pull_req::deserialize_payload (nano::stream & stream)
 	{
 		case asc_pull_type::blocks:
 		{
-			blocks_payload pld;
+			blocks_payload pld{};
 			pld.deserialize (stream);
 			payload = pld;
 			break;
 		}
 		case asc_pull_type::account_info:
 		{
-			account_info_payload pld;
+			account_info_payload pld{};
 			pld.deserialize (stream);
 			payload = pld;
 			break;
 		}
 		case asc_pull_type::frontiers:
 		{
-			frontiers_payload pld;
+			frontiers_payload pld{};
 			pld.deserialize (stream);
 			payload = pld;
 			break;
@@ -1809,21 +1809,21 @@ void nano::asc_pull_ack::deserialize_payload (nano::stream & stream)
 	{
 		case asc_pull_type::blocks:
 		{
-			blocks_payload pld;
+			blocks_payload pld{};
 			pld.deserialize (stream);
 			payload = pld;
 			break;
 		}
 		case asc_pull_type::account_info:
 		{
-			account_info_payload pld;
+			account_info_payload pld{};
 			pld.deserialize (stream);
 			payload = pld;
 			break;
 		}
 		case asc_pull_type::frontiers:
 		{
-			frontiers_payload pld;
+			frontiers_payload pld{};
 			pld.deserialize (stream);
 			payload = pld;
 			break;
@@ -1925,6 +1925,7 @@ std::string nano::asc_pull_ack::to_string () const
 void nano::asc_pull_ack::blocks_payload::serialize (nano::stream & stream) const
 {
 	debug_assert (blocks.size () <= max_blocks);
+
 	for (auto & block : blocks)
 	{
 		debug_assert (block != nullptr);
@@ -1972,39 +1973,39 @@ void nano::asc_pull_ack::account_info_payload::deserialize (nano::stream & strea
  * asc_pull_ack::frontiers_payload
  */
 
+void nano::asc_pull_ack::frontiers_payload::serialize_frontier (nano::stream & stream, nano::asc_pull_ack::frontiers_payload::frontier const & frontier)
+{
+	auto const & [account, hash] = frontier;
+	nano::write (stream, account);
+	nano::write (stream, hash);
+}
+
+nano::asc_pull_ack::frontiers_payload::frontier nano::asc_pull_ack::frontiers_payload::deserialize_frontier (nano::stream & stream)
+{
+	nano::account account;
+	nano::block_hash hash;
+	nano::read (stream, account);
+	nano::read (stream, hash);
+	return { account, hash };
+}
+
 void nano::asc_pull_ack::frontiers_payload::serialize (nano::stream & stream) const
 {
 	debug_assert (frontiers.size () <= max_frontiers);
 
-	for (auto const & [account, frontier] : frontiers)
+	for (auto const & frontier : frontiers)
 	{
-		nano::write (stream, account);
-		nano::write (stream, frontier);
+		serialize_frontier (stream, frontier);
 	}
-	nano::write (stream, nano::account::zero);
-	nano::write (stream, nano::block_hash::zero);
+	serialize_frontier (stream, { nano::account{ 0 }, nano::block_hash{ 0 } });
 }
 
 void nano::asc_pull_ack::frontiers_payload::deserialize (nano::stream & stream)
 {
-	nano::account account;
-	nano::block_hash frontier;
-	while (true)
+	auto current = deserialize_frontier (stream);
+	while ((!current.first.is_zero () && !current.second.is_zero ()) && frontiers.size () < max_frontiers)
 	{
-		nano::read (stream, account);
-		nano::read (stream, frontier);
-		if (account.is_zero () || frontier.is_zero ())
-		{
-			break;
-		}
-		debug_assert (frontiers.size () < max_frontiers);
-		if (frontiers.size () < max_frontiers)
-		{
-			frontiers.emplace_back (account, frontier);
-		}
-		else
-		{
-			break;
-		}
+		frontiers.push_back (current);
+		current = deserialize_frontier (stream);
 	}
 }

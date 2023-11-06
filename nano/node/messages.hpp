@@ -449,9 +449,10 @@ public: // Payload definitions
 		void serialize (nano::stream &) const;
 		void deserialize (nano::stream &);
 
+		// Payload
 		nano::hash_or_account start{ 0 };
 		uint8_t count{ 0 };
-		hash_type start_type{ 0 };
+		hash_type start_type{};
 	};
 
 	struct account_info_payload
@@ -459,8 +460,9 @@ public: // Payload definitions
 		void serialize (nano::stream &) const;
 		void deserialize (nano::stream &);
 
+		// Payload
 		nano::hash_or_account target{ 0 };
-		hash_type target_type{ 0 };
+		hash_type target_type{};
 	};
 
 	struct frontiers_payload
@@ -468,6 +470,7 @@ public: // Payload definitions
 		void serialize (nano::stream &) const;
 		void deserialize (nano::stream &);
 
+		// Payload
 		nano::account start{ 0 };
 		uint16_t count{ 0 };
 	};
@@ -520,13 +523,14 @@ private: // Debug
 public: // Payload definitions
 	struct blocks_payload
 	{
+		/* Header allows for 16 bit extensions; 65536 bytes / 500 bytes (block size with some future margin) ~ 131 */
+		constexpr static std::size_t max_blocks = 128;
+
 		void serialize (nano::stream &) const;
 		void deserialize (nano::stream &);
 
+		// Payload
 		std::vector<std::shared_ptr<nano::block>> blocks;
-
-		/* Header allows for 16 bit extensions; 65536 bytes / 500 bytes (block size with some future margin) ~ 131 */
-		constexpr static std::size_t max_blocks = 128;
 	};
 
 	struct account_info_payload
@@ -534,6 +538,7 @@ public: // Payload definitions
 		void serialize (nano::stream &) const;
 		void deserialize (nano::stream &);
 
+		// Payload
 		nano::account account{ 0 };
 		nano::block_hash account_open{ 0 };
 		nano::block_hash account_head{ 0 };
@@ -544,13 +549,19 @@ public: // Payload definitions
 
 	struct frontiers_payload
 	{
+		/* Header allows for 16 bit extensions; 65536 bytes / 64 bytes (account + frontier) ~ 1024, but we need some space for null frontier terminator */
+		constexpr static std::size_t max_frontiers = 1000;
+
+		using frontier = std::pair<nano::account, nano::block_hash>;
+
 		void serialize (nano::stream &) const;
 		void deserialize (nano::stream &);
 
-		std::vector<std::pair<nano::account, nano::block_hash>> frontiers;
+		static void serialize_frontier (nano::stream &, frontier const &);
+		static frontier deserialize_frontier (nano::stream &);
 
-		/* Header allows for 16 bit extensions; 65536 bytes / 64 bytes (account + frontier) ~ 1024, but we need some space for null frontier terminator*/
-		constexpr static std::size_t max_frontiers = 1000;
+		// Payload
+		std::vector<frontier> frontiers;
 	};
 
 public: // Payload

@@ -143,8 +143,6 @@ bool nano::public_key::decode_account (std::string const & source_a)
 	return error;
 }
 
-nano::uint256_union const nano::uint256_union::zero{ 0 };
-
 nano::uint256_union::uint256_union (nano::uint256_t const & number_a)
 {
 	bytes.fill (0);

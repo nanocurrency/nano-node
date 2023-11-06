@@ -293,7 +293,7 @@ TEST (message, asc_pull_req_serialization_blocks)
 	original.id = 7;
 	original.type = nano::asc_pull_type::blocks;
 
-	nano::asc_pull_req::blocks_payload original_payload;
+	nano::asc_pull_req::blocks_payload original_payload{};
 	original_payload.start = nano::test::random_hash ();
 	original_payload.count = 111;
 
@@ -334,7 +334,7 @@ TEST (message, asc_pull_req_serialization_account_info)
 	original.id = 7;
 	original.type = nano::asc_pull_type::account_info;
 
-	nano::asc_pull_req::account_info_payload original_payload;
+	nano::asc_pull_req::account_info_payload original_payload{};
 	original_payload.target = nano::test::random_hash ();
 
 	original.payload = original_payload;
@@ -373,7 +373,7 @@ TEST (message, asc_pull_req_serialization_frontiers)
 	original.id = 7;
 	original.type = nano::asc_pull_type::frontiers;
 
-	nano::asc_pull_req::frontiers_payload original_payload;
+	nano::asc_pull_req::frontiers_payload original_payload{};
 	original_payload.start = nano::test::random_account ();
 	original_payload.count = 123;
 
@@ -414,10 +414,8 @@ TEST (message, asc_pull_ack_serialization_blocks)
 	original.id = 11;
 	original.type = nano::asc_pull_type::blocks;
 
-	nano::asc_pull_ack::blocks_payload original_payload;
-	// Generate blocks
-	const int num_blocks = 128; // Maximum allowed
-	for (int n = 0; n < num_blocks; ++n)
+	nano::asc_pull_ack::blocks_payload original_payload{};
+	for (int n = 0; n < nano::asc_pull_ack::blocks_payload::max_blocks; ++n)
 	{
 		original_payload.blocks.push_back (random_block ());
 	}
@@ -463,7 +461,7 @@ TEST (message, asc_pull_ack_serialization_account_info)
 	original.id = 11;
 	original.type = nano::asc_pull_type::account_info;
 
-	nano::asc_pull_ack::account_info_payload original_payload;
+	nano::asc_pull_ack::account_info_payload original_payload{};
 	original_payload.account = nano::test::random_account ();
 	original_payload.account_open = nano::test::random_hash ();
 	original_payload.account_head = nano::test::random_hash ();
@@ -513,7 +511,7 @@ TEST (message, asc_pull_ack_serialization_frontiers)
 	original.id = 11;
 	original.type = nano::asc_pull_type::frontiers;
 
-	nano::asc_pull_ack::frontiers_payload original_payload;
+	nano::asc_pull_ack::frontiers_payload original_payload{};
 	for (int n = 0; n < nano::asc_pull_ack::frontiers_payload::max_frontiers; ++n)
 	{
 		original_payload.frontiers.push_back ({ nano::test::random_account (), nano::test::random_hash () });
