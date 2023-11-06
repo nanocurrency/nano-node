@@ -854,23 +854,6 @@ int main (int argc, char * const * argv)
 			auto end (std::chrono::high_resolution_clock::now ());
 			std::cerr << "Signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
 		}
-		else if (vm.count ("debug_verify_profile_batch"))
-		{
-			nano::keypair key;
-			size_t batch_count (1000);
-			nano::uint256_union message;
-			nano::uint512_union signature (nano::sign_message (key.prv, key.pub, message));
-			std::vector<unsigned char const *> messages (batch_count, message.bytes.data ());
-			std::vector<size_t> lengths (batch_count, sizeof (message));
-			std::vector<unsigned char const *> pub_keys (batch_count, key.pub.bytes.data ());
-			std::vector<unsigned char const *> signatures (batch_count, signature.bytes.data ());
-			std::vector<int> verifications;
-			verifications.resize (batch_count);
-			auto begin (std::chrono::high_resolution_clock::now ());
-			nano::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), batch_count, verifications.data ());
-			auto end (std::chrono::high_resolution_clock::now ());
-			std::cerr << "Batch signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
-		}
 		else if (vm.count ("debug_profile_sign"))
 		{
 			std::cerr << "Starting blocks signing profiling\n";

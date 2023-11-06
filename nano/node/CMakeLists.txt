@@ -156,10 +156,6 @@ add_library(
   scheduler/optimistic.cpp
   scheduler/priority.hpp
   scheduler/priority.cpp
-  signatures.hpp
-  signatures.cpp
-  state_block_signature_verification.hpp
-  state_block_signature_verification.cpp
   telemetry.hpp
   telemetry.cpp
   transport/channel.hpp

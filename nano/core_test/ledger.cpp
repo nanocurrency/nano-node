@@ -1239,6 +1239,54 @@ TEST (ledger, fail_change_gap_previous)
 	ASSERT_EQ (nano::process_result::gap_previous, result1.code);
 }
 
+TEST (ledger, fail_state_bad_signature)
+{
+	auto ctx = nano::test::context::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & store = ctx.store ();
+	auto transaction = store.tx_begin_write ();
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::block_builder builder;
+	auto block = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (0)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (nano::keypair ().prv, 0)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto result1 = ledger.process (transaction, *block);
+	ASSERT_EQ (nano::process_result::bad_signature, result1.code);
+}
+
+TEST (ledger, fail_epoch_bad_signature)
+{
+	auto ctx = nano::test::context::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & store = ctx.store ();
+	auto transaction = store.tx_begin_write ();
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::block_builder builder;
+	auto block = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount)
+				 .link (ledger.epoch_link (nano::epoch::epoch_1))
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build_shared ();
+	block->signature.bytes[0] ^= 1;
+	auto result1 = ledger.process (transaction, *block);
+	ASSERT_EQ (nano::process_result::bad_signature, result1.code); // Fails epoch signature
+	block->signature.bytes[0] ^= 1;
+	auto result2 = ledger.process (transaction, *block);
+	ASSERT_EQ (nano::process_result::progress, result2.code); // Succeeds with epoch signature
+}
+
 TEST (ledger, fail_change_bad_signature)
 {
 	auto ctx = nano::test::context::ledger_empty ();

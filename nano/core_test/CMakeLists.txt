@@ -41,7 +41,6 @@ add_executable(
   scheduler_buckets.cpp
   request_aggregator.cpp
   signal_manager.cpp
-  signing.cpp
   socket.cpp
   system.cpp
   telemetry.cpp
