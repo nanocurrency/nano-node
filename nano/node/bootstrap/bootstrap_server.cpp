@@ -1,3 +1,4 @@
+#include <nano/lib/utility.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/transport.hpp>
@@ -21,7 +22,6 @@ nano::bootstrap_server::bootstrap_server (nano::store::component & store_a, nano
 
 nano::bootstrap_server::~bootstrap_server ()
 {
-	stop ();
 }
 
 void nano::bootstrap_server::start ()
@@ -42,6 +42,7 @@ bool nano::bootstrap_server::verify_request_type (nano::asc_pull_type type) cons
 			return false;
 		case asc_pull_type::blocks:
 		case asc_pull_type::account_info:
+		case asc_pull_type::frontiers:
 			return true;
 	}
 	return false;
@@ -67,6 +68,10 @@ bool nano::bootstrap_server::verify (const nano::asc_pull_req & message) const
 		bool operator() (nano::asc_pull_req::account_info_payload const & pld) const
 		{
 			return !pld.target.is_zero ();
+		}
+		bool operator() (nano::asc_pull_req::frontiers_payload const & pld) const
+		{
+			return pld.count > 0 && pld.count <= max_frontiers && !pld.start.is_zero ();
 		}
 	};
 
@@ -114,6 +119,11 @@ void nano::bootstrap_server::respond (nano::asc_pull_ack & response, std::shared
 		void operator() (nano::asc_pull_ack::account_info_payload const & pld)
 		{
 			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::response_account_info, nano::stat::dir::out);
+		}
+		void operator() (nano::asc_pull_ack::frontiers_payload const & pld)
+		{
+			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::response_frontiers, nano::stat::dir::out);
+			stats.add (nano::stat::type::bootstrap_server, nano::stat::detail::frontiers, nano::stat::dir::out, pld.frontiers.size ());
 		}
 	};
 	std::visit (stat_visitor{ stats }, response.payload);
@@ -168,7 +178,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (const store::transaction &, 
 }
 
 /*
- * Blocks response
+ * Blocks request
  */
 
 nano::asc_pull_ack nano::bootstrap_server::process (store::transaction const & transaction, nano::asc_pull_req::id_t id, nano::asc_pull_req::blocks_payload const & request)
@@ -253,7 +263,7 @@ std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks
 }
 
 /*
- * Account info response
+ * Account info request
  */
 
 nano::asc_pull_ack nano::bootstrap_server::process (const store::transaction & transaction, nano::asc_pull_req::id_t id, const nano::asc_pull_req::account_info_payload & request)
@@ -300,4 +310,15 @@ nano::asc_pull_ack nano::bootstrap_server::process (const store::transaction & t
 	response.payload = response_payload;
 	response.update_header ();
 	return response;
+}
+
+/*
+ * Frontiers request
+ */
+
+nano::asc_pull_ack nano::bootstrap_server::process (const store::transaction & transaction, nano::asc_pull_req::id_t id, const nano::asc_pull_req::frontiers_payload & request)
+{
+	debug_assert (false, "not implemented");
+	nano::asc_pull_ack ack{ network_constants };
+	return ack;
 }

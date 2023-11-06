@@ -1611,6 +1611,13 @@ void nano::asc_pull_req::deserialize_payload (nano::stream & stream)
 			payload = pld;
 			break;
 		}
+		case asc_pull_type::frontiers:
+		{
+			frontiers_payload pld;
+			pld.deserialize (stream);
+			payload = pld;
+			break;
+		}
 		default:
 			throw std::runtime_error ("Unknown asc_pull_type");
 	}
@@ -1618,12 +1625,13 @@ void nano::asc_pull_req::deserialize_payload (nano::stream & stream)
 
 void nano::asc_pull_req::update_header ()
 {
+	// TODO: Avoid serializing the payload twice
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream payload_stream (bytes);
 		serialize_payload (payload_stream);
 	}
-	debug_assert (bytes.size () <= 65535u); // Max int16 for storing size
+	debug_assert (bytes.size () <= std::numeric_limits<uint16_t>::max ()); // Max uint16 for storing size
 	debug_assert (bytes.size () >= 1);
 	header.extensions = std::bitset<16> (bytes.size ());
 }
@@ -1651,6 +1659,10 @@ bool nano::asc_pull_req::verify_consistency () const
 		void operator() (account_info_payload) const
 		{
 			debug_assert (type == asc_pull_type::account_info);
+		}
+		void operator() (frontiers_payload) const
+		{
+			debug_assert (type == asc_pull_type::frontiers);
 		}
 	};
 	std::visit (consistency_visitor{ type }, payload);
@@ -1721,6 +1733,22 @@ void nano::asc_pull_req::account_info_payload::deserialize (stream & stream)
 }
 
 /*
+ * asc_pull_req::frontiers_payload
+ */
+
+void nano::asc_pull_req::frontiers_payload::serialize (nano::stream & stream) const
+{
+	nano::write (stream, start);
+	nano::write_big_endian (stream, count);
+}
+
+void nano::asc_pull_req::frontiers_payload::deserialize (nano::stream & stream)
+{
+	nano::read (stream, start);
+	nano::read_big_endian (stream, count);
+}
+
+/*
  * asc_pull_ack
  */
 
@@ -1742,7 +1770,7 @@ void nano::asc_pull_ack::visit (nano::message_visitor & visitor) const
 
 void nano::asc_pull_ack::serialize (nano::stream & stream) const
 {
-	debug_assert (header.extensions.to_ulong () > 0); // Block payload must have least `not_a_block` terminator
+	debug_assert (header.extensions.to_ulong () > 0); // Block payload must have at least `not_a_block` terminator
 	header.serialize (stream);
 	nano::write (stream, type);
 	nano::write_big_endian (stream, id);
@@ -1793,6 +1821,13 @@ void nano::asc_pull_ack::deserialize_payload (nano::stream & stream)
 			payload = pld;
 			break;
 		}
+		case asc_pull_type::frontiers:
+		{
+			frontiers_payload pld;
+			pld.deserialize (stream);
+			payload = pld;
+			break;
+		}
 		default:
 			throw std::runtime_error ("Unknown asc_pull_type");
 	}
@@ -1800,12 +1835,13 @@ void nano::asc_pull_ack::deserialize_payload (nano::stream & stream)
 
 void nano::asc_pull_ack::update_header ()
 {
+	// TODO: Avoid serializing the payload twice
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream payload_stream (bytes);
 		serialize_payload (payload_stream);
 	}
-	debug_assert (bytes.size () <= 65535u); // Max int16 for storing size
+	debug_assert (bytes.size () <= std::numeric_limits<uint16_t>::max ()); // Max uint16 for storing size
 	debug_assert (bytes.size () >= 1);
 	header.extensions = std::bitset<16> (bytes.size ());
 }
@@ -1833,6 +1869,10 @@ bool nano::asc_pull_ack::verify_consistency () const
 		void operator() (account_info_payload) const
 		{
 			debug_assert (type == asc_pull_type::account_info);
+		}
+		void operator() (frontiers_payload) const
+		{
+			debug_assert (type == asc_pull_type::frontiers);
 		}
 	};
 	std::visit (consistency_visitor{ type }, payload);
@@ -1926,4 +1966,35 @@ void nano::asc_pull_ack::account_info_payload::deserialize (nano::stream & strea
 	nano::read_big_endian (stream, account_block_count);
 	nano::read (stream, account_conf_frontier);
 	nano::read_big_endian (stream, account_conf_height);
+}
+
+/*
+ * asc_pull_ack::frontiers_payload
+ */
+
+void nano::asc_pull_ack::frontiers_payload::serialize (nano::stream & stream) const
+{
+	for (auto const & [account, frontier] : frontiers)
+	{
+		nano::write (stream, account);
+		nano::write (stream, frontier);
+	}
+	nano::write (stream, nano::account::zero);
+	nano::write (stream, nano::block_hash::zero);
+}
+
+void nano::asc_pull_ack::frontiers_payload::deserialize (nano::stream & stream)
+{
+	nano::account account;
+	nano::block_hash frontier;
+	while (frontiers.size () < max_frontiers)
+	{
+		nano::read (stream, account);
+		nano::read (stream, frontier);
+		if (account.is_zero () || frontier.is_zero ())
+		{
+			break;
+		}
+		frontiers.emplace_back (account, frontier);
+	}
 }

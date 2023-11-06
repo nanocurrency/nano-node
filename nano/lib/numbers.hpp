@@ -93,6 +93,8 @@ public:
 		std::array<uint64_t, 4> qwords;
 		std::array<uint128_union, 2> owords;
 	};
+
+	static const uint256_union zero;
 };
 inline bool operator== (nano::uint256_union const & lhs, nano::uint256_union const & rhs)
 {

@@ -366,6 +366,7 @@ void nano::bootstrap_ascending::service::process (nano::asc_pull_ack const & mes
 
 		on_reply.notify (tag);
 		condition.notify_all ();
+
 		std::visit ([this, &tag] (auto && request) { return process (request, tag); }, message.payload);
 	}
 	else
@@ -414,6 +415,11 @@ void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::bloc
 void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::account_info_payload & response, const nano::bootstrap_ascending::service::async_tag & tag)
 {
 	// TODO: Make use of account info
+}
+
+void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::frontiers_payload & response, const nano::bootstrap_ascending::service::async_tag & tag)
+{
+	// TODO: Make use of frontiers info
 }
 
 void nano::bootstrap_ascending::service::process (const nano::empty_payload & response, const nano::bootstrap_ascending::service::async_tag & tag)
