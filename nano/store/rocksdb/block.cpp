@@ -121,9 +121,7 @@ void nano::store::rocksdb::block::del (store::write_transaction const & transact
 
 bool nano::store::rocksdb::block::exists (store::transaction const & transaction, nano::block_hash const & hash)
 {
-	nano::store::rocksdb::db_val junk;
-	block_raw_get (transaction, hash, junk);
-	return junk.size () != 0;
+	return store.exists (transaction, tables::blocks, hash);
 }
 
 uint64_t nano::store::rocksdb::block::count (store::transaction const & transaction_a)
