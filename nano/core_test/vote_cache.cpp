@@ -348,4 +348,38 @@ TEST (vote_cache, overfill_entry)
 	ASSERT_EQ (1, vote_cache.size ());
 }
 
-TEST (vote_cache, 
+TEST (vote_cache, age_cutoff)
+{
+	nano::test::system system;
+	nano::vote_cache_config cfg;
+	cfg.age_cutoff = std::chrono::seconds{ 3 };
+	nano::vote_cache vote_cache{ cfg, system.stats };
+	vote_cache.rep_weight_query = rep_weight_query ();
+
+	auto hash1 = nano::test::random_hash ();
+	auto rep1 = create_rep (9);
+	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 3);
+	vote_cache.vote (vote1->hashes.front (), vote1);
+	ASSERT_EQ (1, vote_cache.size ());
+	ASSERT_TRUE (vote_cache.find (hash1));
+
+	auto tops1 = vote_cache.top (0);
+	ASSERT_EQ (tops1.size (), 1);
+	ASSERT_EQ (tops1[0].hash, hash1);
+	ASSERT_EQ (system.stats.count (nano::stat::type::vote_cache, nano::stat::detail::cleanup), 0);
+
+	// Wait for first cleanup
+	auto check = [&] () {
+		// Cleanup is performed periodically when calling `top ()`
+		vote_cache.top (0);
+		return system.stats.count (nano::stat::type::vote_cache, nano::stat::detail::cleanup);
+	};
+	ASSERT_TIMELY_EQ (5s, 1, check ());
+
+	// After first cleanup the entry should still be there
+	auto tops2 = vote_cache.top (0);
+	ASSERT_EQ (tops2.size (), 1);
+
+	// After 3 seconds the entry should be removed
+	ASSERT_TIMELY (5s, vote_cache.top (0).empty ());
+}
