@@ -268,6 +268,7 @@ nano::error nano::vote_cache_config::serialize (nano::tomlconfig & toml) const
 {
 	toml.put ("max_size", max_size, "Maximum number of blocks to cache votes for. \ntype:uint64");
 	toml.put ("max_voters", max_voters, "Maximum number of voters to cache per block. \ntype:uint64");
+	toml.put ("age_cutoff", age_cutoff.count (), "Maximum age of votes to keep in cache. \ntype:seconds");
 
 	return toml.get_error ();
 }
@@ -276,6 +277,10 @@ nano::error nano::vote_cache_config::deserialize (nano::tomlconfig & toml)
 {
 	toml.get ("max_size", max_size);
 	toml.get ("max_voters", max_voters);
+
+	auto age_cutoff_l = age_cutoff.count ();
+	toml.get ("age_cutoff", age_cutoff_l);
+	age_cutoff = std::chrono::seconds{ age_cutoff_l };
 
 	return toml.get_error ();
 }
