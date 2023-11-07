@@ -84,7 +84,7 @@ void nano::scheduler::manual::run ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::scheduler::manual::collect_container_info (std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::scheduler::manual::collect_container_info (std::string const & name) const
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
