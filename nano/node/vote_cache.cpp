@@ -113,6 +113,7 @@ std::chrono::steady_clock::time_point nano::vote_cache::entry::last_vote () cons
 
 nano::vote_cache::vote_cache (vote_cache_config const & config_a, nano::stats & stats_a) :
 	config{ config_a },
+	stats{ stats_a },
 	cleanup_interval{ config_a.age_cutoff / 2 }
 {
 }
@@ -128,12 +129,16 @@ void nano::vote_cache::vote (const nano::block_hash & hash, const std::shared_pt
 	auto & cache_by_hash = cache.get<tag_hash> ();
 	if (auto existing = cache_by_hash.find (hash); existing != cache_by_hash.end ())
 	{
+		stats.inc (nano::stat::type::vote_cache, nano::stat::detail::update);
+
 		cache_by_hash.modify (existing, [this, &representative, &timestamp, &rep_weight] (entry & ent) {
 			ent.vote (representative, timestamp, rep_weight, config.max_voters);
 		});
 	}
 	else
 	{
+		stats.inc (nano::stat::type::vote_cache, nano::stat::detail::insert);
+
 		entry cache_entry{ hash };
 		cache_entry.vote (representative, timestamp, rep_weight, config.max_voters);
 
@@ -187,6 +192,8 @@ bool nano::vote_cache::erase (const nano::block_hash & hash)
 
 std::vector<nano::vote_cache::top_entry> nano::vote_cache::top (const nano::uint128_t & min_tally)
 {
+	stats.inc (nano::stat::type::vote_cache, nano::stat::detail::top);
+
 	std::vector<top_entry> results;
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
@@ -225,6 +232,8 @@ void nano::vote_cache::cleanup ()
 {
 	debug_assert (!mutex.try_lock ());
 
+	stats.inc (nano::stat::type::vote_cache, nano::stat::detail::cleanup);
+
 	auto const cutoff = std::chrono::steady_clock::now () - config.age_cutoff;
 
 	auto it = cache.begin ();
@@ -241,7 +250,7 @@ void nano::vote_cache::cleanup ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::vote_cache::collect_container_info (const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::vote_cache::collect_container_info (const std::string & name) const
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cache", size (), sizeof (ordered_cache::value_type) }));
