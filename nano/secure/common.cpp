@@ -430,69 +430,6 @@ nano::block_info::block_info (nano::account const & account_a, nano::amount cons
 {
 }
 
-nano::vote_uniquer::vote_uniquer (nano::block_uniquer & uniquer_a) :
-	uniquer (uniquer_a)
-{
-}
-
-std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vote> const & vote_a)
-{
-	auto result = vote_a;
-	if (result != nullptr)
-	{
-		nano::block_hash key = vote_a->full_hash ();
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		auto & existing = votes[key];
-		if (auto block_l = existing.lock ())
-		{
-			result = block_l;
-		}
-		else
-		{
-			existing = vote_a;
-		}
-
-		release_assert (std::numeric_limits<CryptoPP::word32>::max () > votes.size ());
-		for (auto i (0); i < cleanup_count && !votes.empty (); ++i)
-		{
-			auto random_offset = nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (votes.size () - 1));
-
-			auto existing (std::next (votes.begin (), random_offset));
-			if (existing == votes.end ())
-			{
-				existing = votes.begin ();
-			}
-			if (existing != votes.end ())
-			{
-				if (auto block_l = existing->second.lock ())
-				{
-					// Still live
-				}
-				else
-				{
-					votes.erase (existing);
-				}
-			}
-		}
-	}
-	return result;
-}
-
-size_t nano::vote_uniquer::size ()
-{
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	return votes.size ();
-}
-
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_uniquer & vote_uniquer, std::string const & name)
-{
-	auto count = vote_uniquer.size ();
-	auto sizeof_element = sizeof (vote_uniquer::value_type);
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "votes", count, sizeof_element }));
-	return composite;
-}
-
 nano::wallet_id nano::random_wallet_id ()
 {
 	nano::wallet_id wallet_id;

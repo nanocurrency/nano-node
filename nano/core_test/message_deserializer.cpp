@@ -17,7 +17,7 @@ auto message_deserializer_success_checker (message_type & message_original) -> v
 	// Dependencies for the message deserializer.
 	nano::network_filter filter (1);
 	nano::block_uniquer block_uniquer;
-	nano::vote_uniquer vote_uniquer (block_uniquer);
+	nano::vote_uniquer vote_uniquer;
 
 	// Data used to simulate the incoming buffer to be deserialized, the offset tracks how much has been read from the input_source
 	// as the read function is called first to read the header, then called again to read the payload.

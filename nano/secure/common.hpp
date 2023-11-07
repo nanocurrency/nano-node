@@ -244,27 +244,6 @@ namespace confirmation_height
 	uint64_t const unbounded_cutoff{ 16384 };
 }
 
-/**
- * This class serves to find and return unique variants of a vote in order to minimize memory usage
- */
-class vote_uniquer final
-{
-public:
-	using value_type = std::pair<nano::block_hash const, std::weak_ptr<nano::vote>>;
-
-	vote_uniquer (nano::block_uniquer &);
-	std::shared_ptr<nano::vote> unique (std::shared_ptr<nano::vote> const &);
-	size_t size ();
-
-private:
-	nano::block_uniquer & uniquer;
-	nano::mutex mutex{ mutex_identifier (mutexes::vote_uniquer) };
-	std::unordered_map<std::remove_const_t<value_type::first_type>, value_type::second_type> votes;
-	static unsigned constexpr cleanup_count = 2;
-};
-
-std::unique_ptr<container_info_component> collect_container_info (vote_uniquer & vote_uniquer, std::string const & name);
-
 enum class vote_code
 {
 	invalid, // Vote is not signed correctly
