@@ -13,6 +13,16 @@ nano::vote_cache::entry::entry (const nano::block_hash & hash) :
 
 bool nano::vote_cache::entry::vote (const nano::account & representative, const uint64_t & timestamp, const nano::uint128_t & rep_weight, std::size_t max_voters)
 {
+	bool updated = vote_impl (representative, timestamp, rep_weight, max_voters);
+	if (updated)
+	{
+		last_vote_m = std::chrono::steady_clock::now ();
+	}
+	return updated;
+}
+
+bool nano::vote_cache::entry::vote_impl (const nano::account & representative, const uint64_t & timestamp, const nano::uint128_t & rep_weight, std::size_t max_voters)
+{
 	auto existing = std::find_if (voters_m.begin (), voters_m.end (), [&representative] (auto const & item) { return item.representative == representative; });
 	if (existing != voters_m.end ())
 	{
@@ -92,12 +102,18 @@ std::vector<nano::vote_cache::entry::voter_entry> nano::vote_cache::entry::voter
 	return voters_m;
 }
 
+std::chrono::steady_clock::time_point nano::vote_cache::entry::last_vote () const
+{
+	return last_vote_m;
+}
+
 /*
  * vote_cache
  */
 
-nano::vote_cache::vote_cache (vote_cache_config const & config_a) :
-	config{ config_a }
+nano::vote_cache::vote_cache (vote_cache_config const & config_a, nano::stats & stats_a) :
+	config{ config_a },
+	cleanup_interval{ config_a.age_cutoff / 2 }
 {
 }
 
@@ -169,11 +185,16 @@ bool nano::vote_cache::erase (const nano::block_hash & hash)
 	return result;
 }
 
-std::vector<nano::vote_cache::top_entry> nano::vote_cache::top (const nano::uint128_t & min_tally) const
+std::vector<nano::vote_cache::top_entry> nano::vote_cache::top (const nano::uint128_t & min_tally)
 {
 	std::vector<top_entry> results;
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
+
+		if (cleanup_interval.elapsed ())
+		{
+			cleanup ();
+		}
 
 		for (auto & entry : cache.get<tag_tally> ())
 		{
@@ -198,6 +219,26 @@ std::vector<nano::vote_cache::top_entry> nano::vote_cache::top (const nano::uint
 	});
 
 	return results;
+}
+
+void nano::vote_cache::cleanup ()
+{
+	debug_assert (!mutex.try_lock ());
+
+	auto const cutoff = std::chrono::steady_clock::now () - config.age_cutoff;
+
+	auto it = cache.begin ();
+	while (it != cache.end ())
+	{
+		if (it->last_vote () < cutoff)
+		{
+			it = cache.erase (it);
+		}
+		else
+		{
+			++it;
+		}
+	}
 }
 
 std::unique_ptr<nano::container_info_component> nano::vote_cache::collect_container_info (const std::string & name)
