@@ -107,7 +107,8 @@ void nano::scheduler::hinted::activate (const nano::store::read_transaction & tr
 		else
 		{
 			stats.inc (nano::stat::type::hinting, nano::stat::detail::missing_block);
-			node.bootstrap_block (current_hash);
+
+			// TODO: Block is missing, bootstrap it
 		}
 	}
 }
