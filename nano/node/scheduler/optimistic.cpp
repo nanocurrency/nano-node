@@ -130,6 +130,7 @@ void nano::scheduler::optimistic::run ()
 				debug_assert (!candidates.empty ());
 				auto candidate = candidates.front ();
 				candidates.pop_front ();
+
 				lock.unlock ();
 
 				run_one (transaction, candidate);
@@ -159,6 +160,15 @@ void nano::scheduler::optimistic::run_one (store::transaction const & transactio
 			stats.inc (nano::stat::type::optimistic_scheduler, result.inserted ? nano::stat::detail::insert : nano::stat::detail::insert_failed);
 		}
 	}
+}
+
+std::unique_ptr<nano::container_info_component> nano::scheduler::optimistic::collect_container_info (const std::string & name) const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "candidates", candidates.size (), sizeof (decltype (candidates)::value_type) }));
+	return composite;
 }
 
 /*
