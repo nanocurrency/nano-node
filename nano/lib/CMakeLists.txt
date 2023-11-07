@@ -91,6 +91,7 @@ add_library(
   tlsconfig.cpp
   tomlconfig.hpp
   tomlconfig.cpp
+  uniquer.hpp
   utility.hpp
   utility.cpp
   walletconfig.hpp
