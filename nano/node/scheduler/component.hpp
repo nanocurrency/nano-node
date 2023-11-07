@@ -23,7 +23,6 @@ class component final
 	std::unique_ptr<nano::scheduler::manual> manual_impl;
 	std::unique_ptr<nano::scheduler::optimistic> optimistic_impl;
 	std::unique_ptr<nano::scheduler::priority> priority_impl;
-	nano::mutex mutex;
 
 public:
 	explicit component (nano::node & node);
