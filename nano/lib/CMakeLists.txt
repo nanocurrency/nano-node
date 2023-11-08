@@ -38,6 +38,7 @@ add_library(
   errors.hpp
   errors.cpp
   id_dispenser.hpp
+  interval.hpp
   ipc.hpp
   ipc.cpp
   ipc_client.hpp
