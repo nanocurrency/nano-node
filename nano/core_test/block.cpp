@@ -568,38 +568,40 @@ TEST (block_uniquer, cleanup)
 {
 	nano::keypair key;
 	nano::state_block_builder builder;
-	auto block1 = builder
-				  .account (0)
-				  .previous (0)
-				  .representative (0)
-				  .balance (0)
-				  .link (0)
-				  .sign (key.prv, key.pub)
-				  .work (0)
-				  .build_shared ();
-	auto block2 = builder
-				  .make_block ()
-				  .account (0)
-				  .previous (0)
-				  .representative (0)
-				  .balance (0)
-				  .link (0)
-				  .sign (key.prv, key.pub)
-				  .work (1)
-				  .build_shared ();
-
 	nano::block_uniquer uniquer;
-	auto block3 (uniquer.unique (block1));
-	auto block4 (uniquer.unique (block2));
-	block2.reset ();
-	block4.reset ();
-	ASSERT_EQ (2, uniquer.size ());
-	auto iterations (0);
-	while (uniquer.size () == 2)
+	std::vector<std::shared_ptr<nano::block>> blocks;
+	for (auto i = 0; i < 200; ++i)
 	{
-		auto block5 (uniquer.unique (block1));
-		ASSERT_LT (iterations++, 200);
+		auto block = builder
+					 .make_block ()
+					 .account (0)
+					 .previous (0)
+					 .representative (0)
+					 .balance (0)
+					 .link (0)
+					 .sign (key.prv, key.pub)
+					 .work (i)
+					 .build_shared ();
+		blocks.push_back (block);
+		uniquer.unique (block); // Insert 1 and cleanup
 	}
+	ASSERT_EQ (200, uniquer.size ());
+	blocks.clear ();
+	for (auto i = 0; i < 200; ++i)
+	{
+		auto block = builder
+					 .make_block ()
+					 .account (1) // Different account so hashes don't collide with above
+					 .previous (0)
+					 .representative (0)
+					 .balance (0)
+					 .link (0)
+					 .sign (key.prv, key.pub)
+					 .work (i)
+					 .build_shared ();
+		uniquer.unique (block); // Insert 1 and cleanup
+	}
+	ASSERT_EQ (1, uniquer.size ());
 }
 
 TEST (block_builder, from)

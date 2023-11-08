@@ -1867,39 +1867,41 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_typ
 
 std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::block> const & block_a)
 {
-	auto result (block_a);
+	auto result = block_a;
 	if (result != nullptr)
 	{
 		nano::uint256_union key (block_a->full_hash ());
 		nano::lock_guard<nano::mutex> lock{ mutex };
-		auto & existing (blocks[key]);
-		if (auto block_l = existing.lock ())
+		auto insertion = blocks.emplace (key, block_a);
+		if (!insertion.second) // Not inserted
 		{
-			result = block_l;
-		}
-		else
-		{
-			existing = block_a;
-		}
-		release_assert (std::numeric_limits<CryptoPP::word32>::max () > blocks.size ());
-		for (auto i (0); i < cleanup_count && !blocks.empty (); ++i)
-		{
-			auto random_offset (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (blocks.size () - 1)));
-			auto existing (std::next (blocks.begin (), random_offset));
-			if (existing == blocks.end ())
+			if (auto block_l = insertion.first->second.lock ()) // Block is still live
 			{
-				existing = blocks.begin ();
+				result = block_l;
 			}
-			if (existing != blocks.end ())
+			else
 			{
-				if (auto block_l = existing->second.lock ())
-				{
-					// Still live
-				}
-				else
-				{
-					blocks.erase (existing);
-				}
+				insertion.first->second = block_a;
+			}
+		}
+		auto j = insertion.first;
+		auto m = blocks.end ();
+		debug_assert (j != m);
+		++j;
+		for (auto i = 0u; i < cleanup_count; ++i) // Try cleanup of items following the one just inserted
+		{
+			if (j == m)
+			{
+				j = blocks.begin ();
+			}
+			debug_assert (j != m);
+			if (auto block_l = j->second.lock ())
+			{
+				++j; // Still live
+			}
+			else
+			{
+				j = blocks.erase (j);
 			}
 		}
 	}
