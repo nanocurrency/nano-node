@@ -1,3 +1,4 @@
+#include <nano/lib/utility.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/vote.hpp>
 
@@ -13,11 +14,15 @@ nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, 
 	timestamp_m{ packed_timestamp (timestamp_a, duration) },
 	account{ account_a }
 {
+	debug_assert (hashes.size () <= max_hashes);
+
 	signature = nano::sign_message (prv_a, account_a, hash ());
 }
 
 void nano::vote::serialize (nano::stream & stream_a) const
 {
+	debug_assert (hashes.size () <= max_hashes);
+
 	write (stream_a, account);
 	write (stream_a, signature);
 	write (stream_a, boost::endian::native_to_little (timestamp_m));
@@ -36,7 +41,7 @@ bool nano::vote::deserialize (nano::stream & stream_a)
 		nano::read (stream_a, signature.bytes);
 		nano::read (stream_a, timestamp_m);
 
-		while (stream_a.in_avail () > 0)
+		while (stream_a.in_avail () > 0 && hashes.size () < max_hashes)
 		{
 			nano::block_hash block_hash;
 			nano::read (stream_a, block_hash);
@@ -48,6 +53,12 @@ bool nano::vote::deserialize (nano::stream & stream_a)
 		error = true;
 	}
 	return error;
+}
+
+std::size_t nano::vote::size (uint8_t count)
+{
+	debug_assert (count <= max_hashes);
+	return partial_size + count * sizeof (nano::block_hash);
 }
 
 std::string const nano::vote::hash_prefix = "vote ";

@@ -90,6 +90,59 @@ TEST (message, publish_serialization)
 	ASSERT_EQ (nano::message_type::publish, header.type);
 }
 
+TEST (message, confirm_header_flags)
+{
+	nano::message_header header_v2{ nano::dev::network_params.network, nano::message_type::confirm_req };
+	header_v2.confirm_set_v2 (true);
+
+	const uint8_t value = 0b0110'1001;
+
+	header_v2.count_v2_set (value); // Max count value
+
+	ASSERT_TRUE (header_v2.confirm_is_v2 ());
+	ASSERT_EQ (header_v2.count_v2_get (), value);
+
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		header_v2.serialize (stream);
+	}
+	nano::bufferstream stream (bytes.data (), bytes.size ());
+
+	bool error = false;
+	nano::message_header header (error, stream);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (nano::message_type::confirm_req, header.type);
+
+	ASSERT_TRUE (header.confirm_is_v2 ());
+	ASSERT_EQ (header.count_v2_get (), value);
+}
+
+TEST (message, confirm_header_flags_max)
+{
+	nano::message_header header_v2{ nano::dev::network_params.network, nano::message_type::confirm_req };
+	header_v2.confirm_set_v2 (true);
+	header_v2.count_v2_set (255); // Max count value
+
+	ASSERT_TRUE (header_v2.confirm_is_v2 ());
+	ASSERT_EQ (header_v2.count_v2_get (), 255);
+
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		header_v2.serialize (stream);
+	}
+	nano::bufferstream stream (bytes.data (), bytes.size ());
+
+	bool error = false;
+	nano::message_header header (error, stream);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (nano::message_type::confirm_req, header.type);
+
+	ASSERT_TRUE (header.confirm_is_v2 ());
+	ASSERT_EQ (header.count_v2_get (), 255);
+}
+
 TEST (message, confirm_ack_hash_serialization)
 {
 	std::vector<nano::block_hash> hashes;
