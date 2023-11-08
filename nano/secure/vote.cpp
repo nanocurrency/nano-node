@@ -3,14 +3,6 @@
 
 #include <boost/property_tree/json_parser.hpp>
 
-nano::vote::vote (nano::vote const & other_a) :
-	timestamp_m{ other_a.timestamp_m },
-	hashes{ other_a.hashes },
-	account (other_a.account),
-	signature (other_a.signature)
-{
-}
-
 nano::vote::vote (bool & error_a, nano::stream & stream_a)
 {
 	error_a = deserialize (stream_a);
@@ -19,7 +11,7 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a)
 nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, uint8_t duration, std::vector<nano::block_hash> const & hashes) :
 	hashes{ hashes },
 	timestamp_m{ packed_timestamp (timestamp_a, duration) },
-	account (account_a)
+	account{ account_a }
 {
 	signature = nano::sign_message (prv_a, account_a, hash ());
 }
@@ -171,7 +163,7 @@ std::string nano::vote::hashes_string () const
 	return result;
 }
 
-uint64_t nano::vote::packed_timestamp (uint64_t timestamp, uint8_t duration) const
+uint64_t nano::vote::packed_timestamp (uint64_t timestamp, uint8_t duration)
 {
 	debug_assert (duration <= duration_max && "Invalid duration");
 	debug_assert ((!(timestamp == timestamp_max) || (duration == duration_max)) && "Invalid final vote");
@@ -182,6 +174,10 @@ bool nano::vote::is_final_timestamp (uint64_t timestamp)
 {
 	return timestamp == std::numeric_limits<uint64_t>::max ();
 }
+
+/*
+ * iterate_vote_blocks_as_hash
+ */
 
 nano::block_hash nano::iterate_vote_blocks_as_hash::operator() (nano::block_hash const & item) const
 {

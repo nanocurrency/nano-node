@@ -23,7 +23,7 @@ class vote final
 {
 public:
 	vote () = default;
-	vote (nano::vote const &);
+	vote (nano::vote const &) = default;
 	vote (bool & error, nano::stream &);
 	vote (nano::account const &, nano::raw_key const &, nano::millis_t timestamp, uint8_t duration, std::vector<nano::block_hash> const & hashes);
 
@@ -60,21 +60,21 @@ public:
 	/* Check if timestamp represents a final vote */
 	static bool is_final_timestamp (uint64_t timestamp);
 
-public:
-	// The hashes for which this vote directly covers
-	std::vector<nano::block_hash> hashes;
-	// Account that's voting
-	nano::account account;
-	// Signature of timestamp + block hashes
-	nano::signature signature;
-
-private:
-	// Vote timestamp
-	uint64_t timestamp_m;
-
 private:
 	static std::string const hash_prefix;
 
-	uint64_t packed_timestamp (uint64_t timestamp, uint8_t duration) const;
+	static uint64_t packed_timestamp (uint64_t timestamp, uint8_t duration);
+
+public: // Payload
+	// The hashes for which this vote directly covers
+	std::vector<nano::block_hash> hashes;
+	// Account that's voting
+	nano::account account{ 0 };
+	// Signature of timestamp + block hashes
+	nano::signature signature{ 0 };
+
+private: // Payload
+	// Vote timestamp
+	uint64_t timestamp_m{ 0 };
 };
 }
