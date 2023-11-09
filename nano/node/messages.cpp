@@ -183,11 +183,15 @@ std::string nano::message_header::to_string () const
 
 nano::block_type nano::message_header::block_type () const
 {
+	debug_assert (type == nano::message_type::publish);
+
 	return static_cast<nano::block_type> (((extensions & block_type_mask) >> 8).to_ullong ());
 }
 
 void nano::message_header::block_type_set (nano::block_type type_a)
 {
+	debug_assert (type == nano::message_type::publish);
+
 	extensions &= ~block_type_mask;
 	extensions |= std::bitset<16> (static_cast<unsigned long long> (type_a) << 8);
 }
@@ -286,7 +290,7 @@ std::size_t nano::message_header::payload_length_bytes () const
 		}
 		case nano::message_type::confirm_req:
 		{
-			return nano::confirm_req::size (block_type (), count_get ());
+			return nano::confirm_req::size (*this);
 		}
 		case nano::message_type::node_id_handshake:
 		{
@@ -515,32 +519,19 @@ nano::confirm_req::confirm_req (bool & error_a, nano::stream & stream_a, nano::m
 	}
 }
 
-nano::confirm_req::confirm_req (nano::network_constants const & constants, std::shared_ptr<nano::block> const & block_a) :
-	message (constants, nano::message_type::confirm_req),
-	block (block_a)
-{
-	header.block_type_set (block->type ());
-}
-
 nano::confirm_req::confirm_req (nano::network_constants const & constants, std::vector<std::pair<nano::block_hash, nano::root>> const & roots_hashes_a) :
 	message (constants, nano::message_type::confirm_req),
 	roots_hashes (roots_hashes_a)
 {
-	// not_a_block (1) block type for hashes + roots request
-	header.block_type_set (nano::block_type::not_a_block);
+	debug_assert (!roots_hashes.empty ());
 	debug_assert (roots_hashes.size () < 16);
+
 	header.count_set (static_cast<uint8_t> (roots_hashes.size ()));
 }
 
 nano::confirm_req::confirm_req (nano::network_constants const & constants, nano::block_hash const & hash_a, nano::root const & root_a) :
-	message (constants, nano::message_type::confirm_req),
-	roots_hashes (std::vector<std::pair<nano::block_hash, nano::root>> (1, std::make_pair (hash_a, root_a)))
+	confirm_req (constants, std::vector<std::pair<nano::block_hash, nano::root>>{ { hash_a, root_a } })
 {
-	debug_assert (!roots_hashes.empty ());
-	// not_a_block (1) block type for hashes + roots request
-	header.block_type_set (nano::block_type::not_a_block);
-	debug_assert (roots_hashes.size () < 16);
-	header.count_set (static_cast<uint8_t> (roots_hashes.size ()));
 }
 
 void nano::confirm_req::visit (nano::message_visitor & visitor_a) const
@@ -550,52 +541,39 @@ void nano::confirm_req::visit (nano::message_visitor & visitor_a) const
 
 void nano::confirm_req::serialize (nano::stream & stream_a) const
 {
+	debug_assert (!roots_hashes.empty ());
+
 	header.serialize (stream_a);
-	if (header.block_type () == nano::block_type::not_a_block)
+
+	// Write hashes & roots
+	for (auto & root_hash : roots_hashes)
 	{
-		debug_assert (!roots_hashes.empty ());
-		// Write hashes & roots
-		for (auto & root_hash : roots_hashes)
-		{
-			write (stream_a, root_hash.first);
-			write (stream_a, root_hash.second);
-		}
-	}
-	else
-	{
-		debug_assert (block != nullptr);
-		block->serialize (stream_a);
+		nano::write (stream_a, root_hash.first);
+		nano::write (stream_a, root_hash.second);
 	}
 }
 
 bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
 {
-	bool result (false);
 	debug_assert (header.type == nano::message_type::confirm_req);
+
+	bool result = false;
 	try
 	{
-		if (header.block_type () == nano::block_type::not_a_block)
+		uint8_t const count = header.count_get ();
+		for (auto i (0); i != count && !result; ++i)
 		{
-			uint8_t count (header.count_get ());
-			for (auto i (0); i != count && !result; ++i)
+			nano::block_hash block_hash (0);
+			nano::block_hash root (0);
+			nano::read (stream_a, block_hash);
+			nano::read (stream_a, root);
+			if (!block_hash.is_zero () || !root.is_zero ())
 			{
-				nano::block_hash block_hash (0);
-				nano::block_hash root (0);
-				read (stream_a, block_hash);
-				read (stream_a, root);
-				if (!block_hash.is_zero () || !root.is_zero ())
-				{
-					roots_hashes.emplace_back (block_hash, root);
-				}
+				roots_hashes.emplace_back (block_hash, root);
 			}
+		}
 
-			result = roots_hashes.empty () || (roots_hashes.size () != count);
-		}
-		else
-		{
-			block = nano::deserialize_block (stream_a, header.block_type (), uniquer_a);
-			result = block == nullptr;
-		}
+		result = roots_hashes.empty () || (roots_hashes.size () != count);
 	}
 	catch (std::runtime_error const &)
 	{
@@ -608,11 +586,7 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_unique
 bool nano::confirm_req::operator== (nano::confirm_req const & other_a) const
 {
 	bool equal (false);
-	if (block != nullptr && other_a.block != nullptr)
-	{
-		equal = *block == *other_a.block;
-	}
-	else if (!roots_hashes.empty () && !other_a.roots_hashes.empty ())
+	if (!roots_hashes.empty () && !other_a.roots_hashes.empty ())
 	{
 		equal = roots_hashes == other_a.roots_hashes;
 	}
@@ -632,34 +606,19 @@ std::string nano::confirm_req::roots_string () const
 	return result;
 }
 
-std::size_t nano::confirm_req::size (nano::block_type type_a, std::size_t count)
+std::size_t nano::confirm_req::size (nano::message_header const & header)
 {
-	std::size_t result (0);
-	if (type_a != nano::block_type::invalid && type_a != nano::block_type::not_a_block)
-	{
-		result = nano::block::size (type_a);
-	}
-	else if (type_a == nano::block_type::not_a_block)
-	{
-		result = count * (sizeof (nano::uint256_union) + sizeof (nano::block_hash));
-	}
-	return result;
+	auto const count = header.count_get ();
+	return count * (sizeof (decltype (roots_hashes)::value_type::first) + sizeof (decltype (roots_hashes)::value_type::second));
 }
 
 std::string nano::confirm_req::to_string () const
 {
 	std::string s = header.to_string ();
 
-	if (header.block_type () == nano::block_type::not_a_block)
+	for (auto && roots_hash : roots_hashes)
 	{
-		for (auto && roots_hash : roots_hashes)
-		{
-			s += "\n" + roots_hash.first.to_string () + ":" + roots_hash.second.to_string ();
-		}
-	}
-	else
-	{
-		s += "\n" + block->to_json ();
+		s += "\n" + roots_hash.first.to_string () + ":" + roots_hash.second.to_string ();
 	}
 
 	return s;
@@ -683,14 +642,13 @@ nano::confirm_ack::confirm_ack (nano::network_constants const & constants, std::
 	message (constants, nano::message_type::confirm_ack),
 	vote (vote_a)
 {
-	header.block_type_set (nano::block_type::not_a_block);
 	debug_assert (vote_a->hashes.size () < 16);
+
 	header.count_set (static_cast<uint8_t> (vote_a->hashes.size ()));
 }
 
 void nano::confirm_ack::serialize (nano::stream & stream_a) const
 {
-	debug_assert (header.block_type () == nano::block_type::not_a_block || header.block_type () == nano::block_type::send || header.block_type () == nano::block_type::receive || header.block_type () == nano::block_type::open || header.block_type () == nano::block_type::change || header.block_type () == nano::block_type::state);
 	header.serialize (stream_a);
 	vote->serialize (stream_a);
 }

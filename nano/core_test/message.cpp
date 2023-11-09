@@ -128,35 +128,6 @@ TEST (message, confirm_ack_hash_serialization)
 	ASSERT_EQ (hashes, con2.vote->hashes);
 	// Check overflow with max hashes
 	ASSERT_EQ (header.count_get (), hashes.size ());
-	ASSERT_EQ (header.block_type (), nano::block_type::not_a_block);
-}
-
-TEST (message, confirm_req_serialization)
-{
-	nano::keypair key1;
-	nano::keypair key2;
-	nano::block_builder builder;
-	auto block = builder
-				 .send ()
-				 .previous (0)
-				 .destination (key2.pub)
-				 .balance (200)
-				 .sign (nano::keypair ().prv, 2)
-				 .work (3)
-				 .build_shared ();
-	nano::confirm_req req{ nano::dev::network_params.network, block };
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream (bytes);
-		req.serialize (stream);
-	}
-	auto error (false);
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	nano::message_header header (error, stream2);
-	nano::confirm_req req2 (error, stream2, header);
-	ASSERT_FALSE (error);
-	ASSERT_EQ (req, req2);
-	ASSERT_EQ (*req.block, *req2.block);
 }
 
 TEST (message, confirm_req_hash_serialization)
@@ -185,7 +156,6 @@ TEST (message, confirm_req_hash_serialization)
 	ASSERT_FALSE (error);
 	ASSERT_EQ (req, req2);
 	ASSERT_EQ (req.roots_hashes, req2.roots_hashes);
-	ASSERT_EQ (header.block_type (), nano::block_type::not_a_block);
 	ASSERT_EQ (header.count_get (), req.roots_hashes.size ());
 }
 
@@ -239,7 +209,6 @@ TEST (message, confirm_req_hash_batch_serialization)
 	ASSERT_EQ (req.roots_hashes, req2.roots_hashes);
 	ASSERT_EQ (req.roots_hashes, roots_hashes);
 	ASSERT_EQ (req2.roots_hashes, roots_hashes);
-	ASSERT_EQ (header.block_type (), nano::block_type::not_a_block);
 	ASSERT_EQ (header.count_get (), req.roots_hashes.size ());
 }
 
