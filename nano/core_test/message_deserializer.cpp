@@ -74,23 +74,6 @@ TEST (message_deserializer, exact_confirm_ack)
 	message_deserializer_success_checker<decltype (message)> (message);
 }
 
-TEST (message_deserializer, exact_confirm_req)
-{
-	nano::test::system system{ 1 };
-	nano::block_builder builder;
-	auto block = builder
-				 .send ()
-				 .previous (1)
-				 .destination (1)
-				 .balance (2)
-				 .sign (nano::keypair ().prv, 4)
-				 .work (*system.work.generate (nano::root (1)))
-				 .build_shared ();
-	nano::confirm_req message{ nano::dev::network_params.network, block };
-
-	message_deserializer_success_checker<decltype (message)> (message);
-}
-
 TEST (message_deserializer, exact_confirm_req_hash)
 {
 	nano::test::system system{ 1 };
