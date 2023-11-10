@@ -47,6 +47,8 @@ add_library(
   network_filter.cpp
   utility.hpp
   utility.cpp
+  vote.hpp
+  vote.cpp
   working.hpp)
 
 target_link_libraries(secure nano_lib ed25519 crypto_lib Boost::system)
