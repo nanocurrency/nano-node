@@ -5810,7 +5810,7 @@ TEST (rpc, memory_stats)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 
-		ASSERT_EQ (response.get_child ("node").get_child ("vote_uniquer").get_child ("votes").get<std::string> ("count"), "1");
+		ASSERT_EQ (response.get_child ("node").get_child ("vote_uniquer").get_child ("cache").get<std::string> ("count"), "1");
 	}
 
 	request.put ("type", "database");

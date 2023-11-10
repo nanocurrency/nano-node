@@ -55,7 +55,7 @@ public:
 		std::lock_guard guard{ mutex };
 
 		auto composite = std::make_unique<container_info_composite> (name);
-		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "values", values.size (), sizeof (Value) }));
+		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cache", values.size (), sizeof (Value) }));
 		return composite;
 	}
 
