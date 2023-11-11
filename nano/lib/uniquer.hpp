@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/interval.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <memory>
@@ -24,7 +25,7 @@ public:
 		// Types used as value need to provide full_hash()
 		Key hash = value->full_hash ();
 
-		std::lock_guard guard{ mutex };
+		nano::lock_guard<nano::mutex> guard{ mutex };
 
 		if (cleanup_interval.elapsed ())
 		{
@@ -46,13 +47,13 @@ public:
 
 	std::size_t size () const
 	{
-		std::lock_guard guard{ mutex };
+		nano::lock_guard<nano::mutex> guard{ mutex };
 		return values.size ();
 	}
 
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const
 	{
-		std::lock_guard guard{ mutex };
+		nano::lock_guard<nano::mutex> guard{ mutex };
 
 		auto composite = std::make_unique<container_info_composite> (name);
 		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cache", values.size (), sizeof (Value) }));
@@ -72,8 +73,8 @@ private:
 	}
 
 private:
-	mutable std::mutex mutex{};
-	std::unordered_map<Key, std::weak_ptr<Value>> values{};
+	mutable nano::mutex mutex;
+	std::unordered_map<Key, std::weak_ptr<Value>> values;
 	nano::interval cleanup_interval{ cleanup_cutoff };
 };
 }
