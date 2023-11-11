@@ -179,15 +179,13 @@ TEST (conflicts, add_two)
 
 TEST (vote_uniquer, null)
 {
-	nano::block_uniquer block_uniquer;
-	nano::vote_uniquer uniquer (block_uniquer);
+	nano::vote_uniquer uniquer;
 	ASSERT_EQ (nullptr, uniquer.unique (nullptr));
 }
 
 TEST (vote_uniquer, vbh_one)
 {
-	nano::block_uniquer block_uniquer;
-	nano::vote_uniquer uniquer (block_uniquer);
+	nano::vote_uniquer uniquer;
 	nano::keypair key;
 	nano::block_builder builder;
 	auto block = builder
@@ -210,8 +208,7 @@ TEST (vote_uniquer, vbh_one)
 
 TEST (vote_uniquer, vbh_two)
 {
-	nano::block_uniquer block_uniquer;
-	nano::vote_uniquer uniquer (block_uniquer);
+	nano::vote_uniquer uniquer;
 	nano::keypair key;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -246,8 +243,7 @@ TEST (vote_uniquer, vbh_two)
 
 TEST (vote_uniquer, cleanup)
 {
-	nano::block_uniquer block_uniquer;
-	nano::vote_uniquer uniquer (block_uniquer);
+	nano::vote_uniquer uniquer;
 	nano::keypair key;
 	auto vote1 = std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, std::vector<nano::block_hash>{ nano::block_hash{ 0 } });
 	auto vote2 = std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ nano::block_hash{ 0 } });
@@ -256,10 +252,7 @@ TEST (vote_uniquer, cleanup)
 	vote2.reset ();
 	vote4.reset ();
 	ASSERT_EQ (2, uniquer.size ());
-	auto iterations (0);
-	while (uniquer.size () == 2)
-	{
-		auto vote5 (uniquer.unique (vote1));
-		ASSERT_LT (iterations++, 200);
-	}
+	std::this_thread::sleep_for (nano::block_uniquer::cleanup_cutoff);
+	auto vote5 = uniquer.unique (vote1);
+	ASSERT_EQ (1, uniquer.size ());
 }

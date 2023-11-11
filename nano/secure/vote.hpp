@@ -3,6 +3,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/lib/uniquer.hpp>
 
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
@@ -77,4 +78,6 @@ private: // Payload
 	// Vote timestamp
 	uint64_t timestamp_m{ 0 };
 };
+
+using vote_uniquer = nano::uniquer<nano::block_hash, nano::vote>;
 }

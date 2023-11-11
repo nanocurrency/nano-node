@@ -7,6 +7,7 @@
 #include <nano/lib/optional_ptr.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/lib/uniquer.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
 
@@ -399,27 +400,8 @@ public:
 	virtual void state_block (nano::state_block &) = 0;
 	virtual ~mutable_block_visitor () = default;
 };
-/**
- * This class serves to find and return unique variants of a block in order to minimize memory usage
- */
-class block_uniquer
-{
-public:
-	using value_type = std::pair<nano::uint256_union const, std::weak_ptr<nano::block>>;
 
-	std::shared_ptr<nano::block> unique (std::shared_ptr<nano::block> const &);
-	size_t size ();
-
-private:
-	nano::mutex mutex{ mutex_identifier (mutexes::block_uniquer) };
-	std::unordered_map<std::remove_const_t<value_type::first_type>, value_type::second_type> blocks;
-	std::chrono::steady_clock::time_point cleanup_last{ std::chrono::steady_clock::now () };
-
-public:
-	static std::chrono::milliseconds constexpr cleanup_cutoff{ 500 };
-};
-
-std::unique_ptr<container_info_component> collect_container_info (block_uniquer & block_uniquer, std::string const & name);
+using block_uniquer = nano::uniquer<nano::uint256_union, nano::block>;
 
 std::shared_ptr<nano::block> deserialize_block (nano::stream &);
 std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);

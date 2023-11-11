@@ -180,7 +180,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	block_processor (*this, write_database_queue),
 	online_reps (ledger, config),
 	history{ config.network_params.voting },
-	vote_uniquer (block_uniquer),
+	vote_uniquer{},
 	confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 	vote_cache{ config.vote_cache, stats },
 	generator{ config, ledger, wallets, vote_processor, history, network, stats, /* non-final */ false },
@@ -565,8 +565,8 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.block_arrival, "block_arrival"));
 	composite->add_component (collect_container_info (node.online_reps, "online_reps"));
 	composite->add_component (collect_container_info (node.history, "history"));
-	composite->add_component (collect_container_info (node.block_uniquer, "block_uniquer"));
-	composite->add_component (collect_container_info (node.vote_uniquer, "vote_uniquer"));
+	composite->add_component (node.block_uniquer.collect_container_info ("block_uniquer"));
+	composite->add_component (node.vote_uniquer.collect_container_info ("vote_uniquer"));
 	composite->add_component (collect_container_info (node.confirmation_height_processor, "confirmation_height_processor"));
 	composite->add_component (collect_container_info (node.distributed_work, "distributed_work"));
 	composite->add_component (collect_container_info (node.aggregator, "request_aggregator"));
