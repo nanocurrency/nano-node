@@ -24,8 +24,6 @@ add_library(
   block_arrival.cpp
   block_broadcast.cpp
   block_broadcast.hpp
-  block_publisher.cpp
-  block_publisher.hpp
   gap_tracker.cpp
   gap_tracker.hpp
   blocking_observer.cpp

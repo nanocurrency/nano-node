@@ -187,7 +187,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	vote_cache{ config.vote_cache, stats },
 	generator{ config, ledger, wallets, vote_processor, history, network, stats, /* non-final */ false },
 	final_generator{ config, ledger, wallets, vote_processor, history, network, stats, /* final */ true },
-	active (*this, confirmation_height_processor),
+	active{ *this, confirmation_height_processor, block_processor },
 	scheduler_impl{ std::make_unique<nano::scheduler::component> (*this) },
 	scheduler{ *scheduler_impl },
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
@@ -199,16 +199,15 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq),
 	block_broadcast{ network, block_arrival, !flags.disable_block_processor_republishing },
-	block_publisher{ active },
 	gap_tracker{ gap_cache },
 	process_live_dispatcher{ ledger, scheduler.priority, vote_cache, websocket }
 {
 	logger.debug (nano::log::type::node, "Constructing node...");
 
 	block_broadcast.connect (block_processor);
-	block_publisher.connect (block_processor);
 	gap_tracker.connect (block_processor);
 	process_live_dispatcher.connect (block_processor);
+
 	unchecked.satisfied.add ([this] (nano::unchecked_info const & info) {
 		this->block_processor.add (info.block);
 	});

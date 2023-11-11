@@ -25,6 +25,7 @@ class node;
 class active_transactions;
 class block;
 class block_sideband;
+class block_processor;
 class election;
 class vote;
 class confirmation_height_processor;
@@ -130,7 +131,7 @@ private: // Elections
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 
 public:
-	active_transactions (nano::node &, nano::confirmation_height_processor &);
+	active_transactions (nano::node &, nano::confirmation_height_processor &, nano::block_processor &);
 	~active_transactions ();
 
 	void start ();
@@ -204,8 +205,9 @@ private:
 	void notify_observers (nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes, nano::account const & account, nano::uint128_t amount, bool is_state_send, bool is_state_epoch, nano::account const & pending_account);
 
 private: // Dependencies
-	nano::confirmation_height_processor & confirmation_height_processor;
 	nano::node & node;
+	nano::confirmation_height_processor & confirmation_height_processor;
+	nano::block_processor & block_processor;
 
 public:
 	recently_confirmed_cache recently_confirmed;

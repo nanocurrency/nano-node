@@ -13,9 +13,10 @@
 
 using namespace std::chrono;
 
-nano::active_transactions::active_transactions (nano::node & node_a, nano::confirmation_height_processor & confirmation_height_processor_a) :
-	confirmation_height_processor{ confirmation_height_processor_a },
+nano::active_transactions::active_transactions (nano::node & node_a, nano::confirmation_height_processor & confirmation_height_processor_a, nano::block_processor & block_processor_a) :
 	node{ node_a },
+	confirmation_height_processor{ confirmation_height_processor_a },
+	block_processor{ block_processor_a },
 	recently_confirmed{ 65536 },
 	recently_cemented{ node.config.confirmation_history_size },
 	election_time_to_live{ node_a.network_params.network.is_dev_network () ? 0s : 2s }
@@ -30,6 +31,18 @@ nano::active_transactions::active_transactions (nano::node & node_a, nano::confi
 	// Register a callback which will get called if a block is already cemented
 	confirmation_height_processor.add_block_already_cemented_observer ([this] (nano::block_hash const & hash_a) {
 		this->block_already_cemented_callback (hash_a);
+	});
+
+	// Notify elections about alternative (forked) blocks
+	block_processor.processed.add ([this] (auto const & result, auto const & block) {
+		switch (result.code)
+		{
+			case nano::process_result::fork:
+				publish (block);
+				break;
+			default:
+				break;
+		}
 	});
 }
 
