@@ -506,12 +506,12 @@ std::string nano::publish::to_string () const
  * confirm_req
  */
 
-nano::confirm_req::confirm_req (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::block_uniquer * uniquer_a) :
+nano::confirm_req::confirm_req (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
 	message (header_a)
 {
 	if (!error_a)
 	{
-		error_a = deserialize (stream_a, uniquer_a);
+		error_a = deserialize (stream_a);
 	}
 }
 
@@ -552,7 +552,7 @@ void nano::confirm_req::serialize (nano::stream & stream_a) const
 	}
 }
 
-bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
+bool nano::confirm_req::deserialize (nano::stream & stream_a)
 {
 	debug_assert (header.type == nano::message_type::confirm_req);
 

@@ -145,11 +145,11 @@ public:
 class confirm_req final : public message
 {
 public:
-	confirm_req (bool & error, nano::stream &, nano::message_header const &, nano::block_uniquer * = nullptr);
+	confirm_req (bool & error, nano::stream &, nano::message_header const &);
 	confirm_req (nano::network_constants const & constants, std::vector<std::pair<nano::block_hash, nano::root>> const &);
 	confirm_req (nano::network_constants const & constants, nano::block_hash const &, nano::root const &);
 	void serialize (nano::stream &) const override;
-	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
+	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_req const &) const;
 	std::string roots_string () const;

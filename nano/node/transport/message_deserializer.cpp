@@ -233,7 +233,7 @@ std::unique_ptr<nano::publish> nano::transport::message_deserializer::deserializ
 std::unique_ptr<nano::confirm_req> nano::transport::message_deserializer::deserialize_confirm_req (nano::stream & stream, nano::message_header const & header)
 {
 	auto error = false;
-	auto incoming = std::make_unique<nano::confirm_req> (error, stream, header, &block_uniquer_m);
+	auto incoming = std::make_unique<nano::confirm_req> (error, stream, header);
 	if (!error && nano::at_end (stream))
 	{
 		return incoming;
