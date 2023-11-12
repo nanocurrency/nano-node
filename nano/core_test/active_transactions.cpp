@@ -190,6 +190,12 @@ TEST (active_transactions, keep_local)
 	auto const send4 = wallet.send_action (nano::dev::genesis_key.pub, key4.pub, node.config.receive_minimum.number ());
 	auto const send5 = wallet.send_action (nano::dev::genesis_key.pub, key5.pub, node.config.receive_minimum.number ());
 	auto const send6 = wallet.send_action (nano::dev::genesis_key.pub, key6.pub, node.config.receive_minimum.number ());
+	ASSERT_NE (nullptr, send1);
+	ASSERT_NE (nullptr, send2);
+	ASSERT_NE (nullptr, send3);
+	ASSERT_NE (nullptr, send4);
+	ASSERT_NE (nullptr, send5);
+	ASSERT_NE (nullptr, send6);
 
 	// force-confirm blocks
 	for (auto const & block : { send1, send2, send3, send4, send5, send6 })

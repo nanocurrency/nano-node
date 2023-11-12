@@ -270,6 +270,10 @@ enum class process_result
 	block_position, // This block cannot follow the previous block
 	insufficient_work // Insufficient work for this block, even though it passed the minimal validation
 };
+
+std::string_view to_string (process_result);
+nano::stat::detail to_stat_detail (process_result);
+
 class process_return final
 {
 public:
@@ -281,8 +285,6 @@ enum class tally_result
 	changed,
 	confirm
 };
-
-nano::stat::detail to_stat_detail (process_result);
 
 class network_params;
 

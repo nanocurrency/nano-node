@@ -22,8 +22,6 @@ add_library(
   bandwidth_limiter.cpp
   block_broadcast.cpp
   block_broadcast.hpp
-  blocking_observer.cpp
-  blocking_observer.hpp
   blockprocessor.hpp
   blockprocessor.cpp
   bootstrap/block_deserializer.hpp
