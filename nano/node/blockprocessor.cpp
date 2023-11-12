@@ -339,7 +339,6 @@ nano::process_return nano::block_processor::process_one (store::write_transactio
 void nano::block_processor::queue_unchecked (store::write_transaction const & transaction_a, nano::hash_or_account const & hash_or_account_a)
 {
 	node.unchecked.trigger (hash_or_account_a);
-	node.gap_cache.erase (hash_or_account_a.hash);
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_processor & block_processor, std::string const & name)

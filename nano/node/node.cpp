@@ -156,7 +156,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	unchecked{ config.max_unchecked_blocks, stats, flags.disable_block_processor_unchecked_deletion },
 	wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
 	wallets_store (*wallets_store_impl),
-	gap_cache (*this),
 	ledger (store, stats, network_params.ledger, flags_a.generate_cache),
 	outbound_limiter{ outbound_bandwidth_limiter_config (config) },
 	// empty `config.peering_port` means the user made no port choice at all;
@@ -200,14 +199,12 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	node_seq (seq),
 	block_broadcast{ network, block_arrival, !flags.disable_block_processor_republishing },
 	block_publisher{ active },
-	gap_tracker{ gap_cache },
 	process_live_dispatcher{ ledger, scheduler.priority, vote_cache, websocket }
 {
 	logger.debug (nano::log::type::node, "Constructing node...");
 
 	block_broadcast.connect (block_processor);
 	block_publisher.connect (block_processor);
-	gap_tracker.connect (block_processor);
 	process_live_dispatcher.connect (block_processor);
 	unchecked.satisfied.add ([this] (nano::unchecked_info const & info) {
 		this->block_processor.add (info.block);
@@ -331,7 +328,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 				// Representative is defined as online if replying to live votes or rep_crawler queries
 				this->online_reps.observe (vote_a->account);
 			}
-			this->gap_cache.vote (vote_a);
 		});
 
 		// Cancelling local work generation
@@ -531,7 +527,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (collect_container_info (node.work, "work"));
-	composite->add_component (collect_container_info (node.gap_cache, "gap_cache"));
 	composite->add_component (collect_container_info (node.ledger, "ledger"));
 	composite->add_component (collect_container_info (node.active, "active"));
 	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
@@ -1369,7 +1364,7 @@ void nano::node::bootstrap_block (const nano::block_hash & hash)
 	if (!ledger.pruning || !store.pruned.exists (store.tx_begin_read (), hash))
 	{
 		// We don't have the block, try to bootstrap it
-		gap_cache.bootstrap_start (hash);
+		// TODO: Use ascending bootstraper to bootstrap block hash
 	}
 }
 

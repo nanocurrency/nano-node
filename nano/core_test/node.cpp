@@ -338,26 +338,6 @@ TEST (node, auto_bootstrap_age)
 	node1->stop ();
 }
 
-// Test ensures the block processor adds the published block to the gap cache.
-TEST (node, receive_gap)
-{
-	nano::test::system system (1);
-	auto & node1 (*system.nodes[0]);
-	ASSERT_EQ (0, node1.gap_cache.size ());
-	auto block = nano::send_block_builder ()
-				 .previous (5)
-				 .destination (1)
-				 .balance (2)
-				 .sign (nano::keypair ().prv, 4)
-				 .work (0)
-				 .build_shared ();
-	node1.work_generate_blocking (*block);
-	nano::publish message{ nano::dev::network_params.network, block };
-	auto channel1 = std::make_shared<nano::transport::fake::channel> (node1);
-	node1.network.inbound (message, channel1);
-	ASSERT_TIMELY_EQ (5s, 1, node1.gap_cache.size ());
-}
-
 TEST (node, merge_peers)
 {
 	nano::test::system system (1);

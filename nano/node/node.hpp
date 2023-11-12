@@ -20,7 +20,6 @@
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/epoch_upgrader.hpp>
-#include <nano/node/gap_cache.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -155,7 +154,6 @@ public:
 	nano::unchecked_map unchecked;
 	std::unique_ptr<nano::wallets_store> wallets_store_impl;
 	nano::wallets_store & wallets_store;
-	nano::gap_cache gap_cache;
 	nano::ledger ledger;
 	nano::outbound_bandwidth_limiter outbound_limiter;
 	nano::network network;
@@ -194,7 +192,6 @@ public:
 	nano::epoch_upgrader epoch_upgrader;
 	nano::block_broadcast block_broadcast;
 	nano::block_publisher block_publisher;
-	nano::gap_tracker gap_tracker;
 	nano::process_live_dispatcher process_live_dispatcher;
 
 	std::chrono::steady_clock::time_point const startup_time;
