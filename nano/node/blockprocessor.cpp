@@ -6,6 +6,8 @@
 
 #include <boost/format.hpp>
 
+#include <magic_enum.hpp>
+
 /*
  * block_processor::context
  */
@@ -299,13 +301,15 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 
 nano::process_return nano::block_processor::process_one (store::write_transaction const & transaction_a, std::shared_ptr<nano::block> block, context const & context, bool const forced_a)
 {
-	nano::process_return result;
-	auto hash (block->hash ());
-	result = node.ledger.process (transaction_a, *block);
+	auto const hash = block->hash ();
+	nano::process_return result = node.ledger.process (transaction_a, *block);
 
 	node.stats.inc (nano::stat::type::blockprocessor, to_stat_detail (result.code));
+	node.stats.inc (nano::stat::type::blockprocessor_sources, to_stat_detail (context.source));
 	node.logger.trace (nano::log::type::blockprocessor, nano::log::detail::block_processed,
 	nano::log::arg{ "result", result.code },
+	nano::log::arg{ "source", context.source },
+	nano::log::arg{ "arrival", nano::log::microseconds (context.arrival) },
 	nano::log::arg{ "forced", forced_a },
 	nano::log::arg{ "block", block });
 
@@ -409,4 +413,11 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bl
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (block_processor.blocks)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "forced", forced_count, sizeof (decltype (block_processor.forced)::value_type) }));
 	return composite;
+}
+
+nano::stat::detail nano::to_stat_detail (block_processor::block_source type)
+{
+	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (type));
+	debug_assert (value);
+	return value.value_or (nano::stat::detail{});
 }

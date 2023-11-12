@@ -115,4 +115,6 @@ private:
 
 	friend std::unique_ptr<container_info_component> collect_container_info (block_processor & block_processor, std::string const & name);
 };
+
+nano::stat::detail to_stat_detail (block_processor::block_source);
 }
