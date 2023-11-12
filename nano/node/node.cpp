@@ -206,7 +206,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	process_live_dispatcher.connect (block_processor);
 
 	unchecked.satisfied.add ([this] (nano::unchecked_info const & info) {
-		this->block_processor.add (info.block);
+		block_processor.add (info.block, nano::block_processor::block_source::unchecked);
 	});
 
 	vote_cache.rep_weight_query = [this] (nano::account const & rep) {
@@ -577,7 +577,7 @@ std::optional<nano::process_return> nano::node::process_local (std::shared_ptr<n
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
 	block_broadcast.set_local (block_a);
-	return block_processor.add_blocking (block_a);
+	return block_processor.add_blocking (block_a, nano::block_processor::block_source::local);
 }
 
 void nano::node::process_local_async (std::shared_ptr<nano::block> const & block_a)
@@ -585,7 +585,7 @@ void nano::node::process_local_async (std::shared_ptr<nano::block> const & block
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
 	// Set current time to trigger automatic rebroadcast and election
-	block_processor.add (block_a);
+	block_processor.add (block_a, nano::block_processor::block_source::local);
 }
 
 void nano::node::start ()

@@ -34,10 +34,9 @@ nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano:
 			nano::lock_guard<nano::mutex> lock{ mutex };
 
 			auto transaction = ledger.store.tx_begin_read ();
-			for (auto const & [result, block] : batch)
+			for (auto const & [result, block, context] : batch)
 			{
 				debug_assert (block != nullptr);
-
 				inspect (transaction, result, *block);
 			}
 		}
