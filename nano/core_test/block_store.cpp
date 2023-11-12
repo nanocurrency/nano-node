@@ -436,7 +436,8 @@ TEST (block_store, empty_bootstrap)
 {
 	nano::test::system system{};
 	nano::logger logger;
-	nano::unchecked_map unchecked{ system.stats, false };
+	unsigned max_unchecked_blocks = 65536;
+	nano::unchecked_map unchecked{ max_unchecked_blocks, system.stats, false };
 	size_t count = 0;
 	unchecked.for_each ([&count] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
 		++count;

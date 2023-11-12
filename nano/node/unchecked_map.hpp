@@ -22,7 +22,7 @@ class stats;
 class unchecked_map
 {
 public:
-	unchecked_map (nano::stats &, bool const & do_delete);
+	unchecked_map (unsigned & max_unchecked_blocks, nano::stats &, bool const & do_delete);
 	~unchecked_map ();
 
 	void put (nano::hash_or_account const & dependency, nano::unchecked_info const & info);
@@ -62,10 +62,9 @@ private:
 	nano::condition_variable condition;
 	nano::mutex mutex;
 	std::thread thread;
+	unsigned max_unchecked_blocks;
 
 	void process_queries (decltype (buffer) const & back_buffer);
-
-	static std::size_t constexpr mem_block_count_max = 64 * 1024;
 
 private:
 	struct entry

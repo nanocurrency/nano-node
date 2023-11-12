@@ -128,6 +128,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("max_work_generate_multiplier", max_work_generate_multiplier, "Maximum allowed difficulty multiplier for work generation.\ntype:double,[1..]");
 	toml.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation), "Mode controlling frontier confirmation rate.\ntype:string,{auto,always,disabled}");
 	toml.put ("max_queued_requests", max_queued_requests, "Limit for number of queued confirmation requests for one channel, after which new requests are dropped until the queue drops below this value.\ntype:uint32");
+	toml.put ("max_unchecked_blocks", max_unchecked_blocks, "Maximum number of unchecked blocks to store in memory. Defaults to 65536. \ntype:uint64,[1..11]");
 	toml.put ("rep_crawler_weight_minimum", rep_crawler_weight_minimum.to_string_dec (), "Rep crawler minimum weight, if this is less than minimum principal weight then this is taken as the minimum weight a rep must have to be tracked. If you want to track all reps set this to 0. If you do not want this to influence anything then set it to max value. This is only useful for debugging or for people who really know what they are doing.\ntype:string,amount,raw");
 	toml.put ("backlog_scan_batch_size", backlog_scan_batch_size, "Number of accounts per second to process when doing backlog population scan. Increasing this value will help unconfirmed frontiers get into election prioritization queue faster, however it will also increase resource usage. \ntype:uint");
 	toml.put ("backlog_scan_frequency", backlog_scan_frequency, "Backlog scan divides the scan into smaller batches, number of which is controlled by this value. Higher frequency helps to utilize resources more uniformly, however it also introduces more overhead. The resulting number of accounts per single batch is `backlog_scan_batch_size / backlog_scan_frequency` \ntype:uint");
@@ -415,6 +416,8 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 
 		toml.get<uint32_t> ("max_queued_requests", max_queued_requests);
 
+		toml.get<unsigned> ("max_unchecked_blocks", max_unchecked_blocks);
+
 		auto rep_crawler_weight_minimum_l (rep_crawler_weight_minimum.to_string_dec ());
 		if (toml.has_key ("rep_crawler_weight_minimum"))
 		{
@@ -461,6 +464,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (active_elections_size <= 250 && !network_params.network.is_dev_network ())
 		{
 			toml.get_error ().set ("active_elections_size must be greater than 250");
+		}
+		if (max_unchecked_blocks < 1)
+		{
+			toml.get_error ().set ("max_unchecked_blocks must be greater than 0");
 		}
 		if (bandwidth_limit > std::numeric_limits<std::size_t>::max ())
 		{
