@@ -155,6 +155,8 @@ enum class detail : uint8_t
 	generate_vote,
 	generate_vote_normal,
 	generate_vote_final,
+	broadcast_block_initial,
+	broadcast_block_repeat,
 
 	// election types
 	normal,

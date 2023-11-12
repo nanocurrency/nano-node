@@ -105,10 +105,11 @@ private: // State management
 	std::chrono::steady_clock::duration state_start{ std::chrono::steady_clock::now ().time_since_epoch () };
 
 	// These are modified while not holding the mutex from transition_time only
-	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::now () };
-	std::chrono::steady_clock::time_point last_req = {};
+	std::chrono::steady_clock::time_point last_block{};
+	nano::block_hash last_block_hash{ 0 };
+	std::chrono::steady_clock::time_point last_req{};
 	/** The last time vote for this election was generated */
-	std::chrono::steady_clock::time_point last_vote = {};
+	std::chrono::steady_clock::time_point last_vote{};
 
 	bool valid_change (nano::election::state_t, nano::election::state_t) const;
 	bool state_change (nano::election::state_t, nano::election::state_t);
@@ -169,6 +170,7 @@ private:
 	bool confirmed_locked (nano::unique_lock<nano::mutex> & lock) const;
 	// lock_a does not own the mutex on return
 	void confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
+	bool broadcast_block_predicate () const;
 	void broadcast_block (nano::confirmation_solicitor &);
 	void send_confirm_req (nano::confirmation_solicitor &);
 	/**
