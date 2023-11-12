@@ -31,7 +31,8 @@ public:
 class gap_cache final
 {
 public:
-	explicit gap_cache (nano::node &);
+	gap_cache (nano::node &, nano::block_processor &);
+
 	void add (nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now ());
 	void erase (nano::block_hash const & hash_a);
 	void vote (std::shared_ptr<nano::vote> const &);
@@ -39,6 +40,12 @@ public:
 	void bootstrap_start (nano::block_hash const & hash_a);
 	nano::uint128_t bootstrap_threshold ();
 	std::size_t size ();
+
+private: // Dependencies
+	nano::node & node;
+	nano::block_processor & block_processor;
+
+private:
 	// clang-format off
 	class tag_arrival {};
 	class tag_hash {};
@@ -50,9 +57,9 @@ public:
 			boost::multi_index::member<gap_information, nano::block_hash, &gap_information::hash>>>>;
 	ordered_gaps blocks;
 	// clang-format on
+
 	std::size_t const max = 256;
 	nano::mutex mutex{ mutex_identifier (mutexes::gap_cache) };
-	nano::node & node;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (gap_cache & gap_cache, std::string const & name);

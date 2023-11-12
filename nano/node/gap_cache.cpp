@@ -3,9 +3,21 @@
 
 #include <boost/format.hpp>
 
-nano::gap_cache::gap_cache (nano::node & node_a) :
-	node (node_a)
+nano::gap_cache::gap_cache (nano::node & node_a, nano::block_processor & block_processor_a) :
+	node (node_a),
+	block_processor (block_processor_a)
 {
+	block_processor.processed.add ([this] (auto const & result, auto const & block) {
+		switch (result.code)
+		{
+			case nano::process_result::gap_previous:
+			case nano::process_result::gap_source:
+				add (block->hash ());
+				break;
+			default:
+				break;
+		}
+	});
 }
 
 void nano::gap_cache::add (nano::block_hash const & hash_a, std::chrono::steady_clock::time_point time_point_a)
