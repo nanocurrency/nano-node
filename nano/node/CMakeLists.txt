@@ -20,8 +20,6 @@ add_library(
   backlog_population.cpp
   bandwidth_limiter.hpp
   bandwidth_limiter.cpp
-  block_arrival.hpp
-  block_arrival.cpp
   block_broadcast.cpp
   block_broadcast.hpp
   blocking_observer.cpp

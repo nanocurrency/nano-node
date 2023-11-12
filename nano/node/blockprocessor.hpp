@@ -39,8 +39,8 @@ public: // Context
 
 	struct context
 	{
-		block_source source;
-		std::chrono::steady_clock::time_point arrival;
+		block_source const source{};
+		std::chrono::steady_clock::time_point const arrival{ std::chrono::steady_clock::now () };
 	};
 
 	using entry_t = std::pair<std::shared_ptr<nano::block>, context>;

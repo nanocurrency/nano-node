@@ -1,11 +1,9 @@
-#include <nano/node/block_arrival.hpp>
 #include <nano/node/block_broadcast.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/network.hpp>
 
-nano::block_broadcast::block_broadcast (nano::network & network, nano::block_arrival & block_arrival, bool enabled) :
+nano::block_broadcast::block_broadcast (nano::network & network, bool enabled) :
 	network{ network },
-	block_arrival{ block_arrival },
 	enabled{ enabled }
 {
 }
@@ -20,7 +18,7 @@ void nano::block_broadcast::connect (nano::block_processor & block_processor)
 		switch (result.code)
 		{
 			case nano::process_result::progress:
-				observe (block);
+				observe (block, context);
 				break;
 			default:
 				break;
@@ -29,7 +27,7 @@ void nano::block_broadcast::connect (nano::block_processor & block_processor)
 	});
 }
 
-void nano::block_broadcast::observe (std::shared_ptr<nano::block> block)
+void nano::block_broadcast::observe (std::shared_ptr<nano::block> block, nano::block_processor::context const & context)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	auto existing = local.find (block);
@@ -43,7 +41,7 @@ void nano::block_broadcast::observe (std::shared_ptr<nano::block> block)
 	}
 	else
 	{
-		if (block_arrival.recent (block->hash ()))
+		if (context.source != nano::block_processor::block_source::bootstrap)
 		{
 			// Block arrived from realtime traffic, do normal gossip.
 			network.flood_block (block, nano::transport::buffer_drop_policy::limiter);

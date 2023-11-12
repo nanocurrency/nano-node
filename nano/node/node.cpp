@@ -197,7 +197,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	epoch_upgrader{ *this, ledger, store, network_params, logger },
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq),
-	block_broadcast{ network, block_arrival, !flags.disable_block_processor_republishing },
+	block_broadcast{ network, !flags.disable_block_processor_republishing },
 	process_live_dispatcher{ ledger, scheduler.priority, vote_cache, websocket }
 {
 	logger.debug (nano::log::type::node, "Constructing node...");
@@ -241,7 +241,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 		{
 			observers.blocks.add ([this] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
 				auto block_a (status_a.winner);
-				if ((status_a.type == nano::election_status_type::active_confirmed_quorum || status_a.type == nano::election_status_type::active_confirmation_height) && this->block_arrival.recent (block_a->hash ()))
+				if ((status_a.type == nano::election_status_type::active_confirmed_quorum || status_a.type == nano::election_status_type::active_confirmation_height))
 				{
 					auto node_l (shared_from_this ());
 					background ([node_l, block_a, account_a, amount_a, is_state_send_a, is_state_epoch_a] () {
@@ -538,7 +538,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.vote_processor, "vote_processor"));
 	composite->add_component (collect_container_info (node.rep_crawler, "rep_crawler"));
 	composite->add_component (collect_container_info (node.block_processor, "block_processor"));
-	composite->add_component (collect_container_info (node.block_arrival, "block_arrival"));
 	composite->add_component (collect_container_info (node.online_reps, "online_reps"));
 	composite->add_component (collect_container_info (node.history, "history"));
 	composite->add_component (node.block_uniquer.collect_container_info ("block_uniquer"));
@@ -557,7 +556,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 
 void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 {
-	block_arrival.add (incoming->hash ());
 	block_processor.add (incoming);
 }
 
@@ -574,17 +572,12 @@ nano::process_return nano::node::process (nano::block & block)
 
 std::optional<nano::process_return> nano::node::process_local (std::shared_ptr<nano::block> const & block_a)
 {
-	// Add block hash as recently arrived to trigger automatic rebroadcast and election
-	block_arrival.add (block_a->hash ());
 	block_broadcast.set_local (block_a);
 	return block_processor.add_blocking (block_a, nano::block_processor::block_source::local);
 }
 
 void nano::node::process_local_async (std::shared_ptr<nano::block> const & block_a)
 {
-	// Add block hash as recently arrived to trigger automatic rebroadcast and election
-	block_arrival.add (block_a->hash ());
-	// Set current time to trigger automatic rebroadcast and election
 	block_processor.add (block_a, nano::block_processor::block_source::local);
 }
 
