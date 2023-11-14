@@ -41,6 +41,8 @@ add_library(
   ${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp
   account_info.hpp
   account_info.cpp
+  block_check_context.cpp
+  block_check_context.hpp
   block_delta.hpp
   common.hpp
   common.cpp
