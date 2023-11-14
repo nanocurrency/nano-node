@@ -93,40 +93,41 @@ bool nano::scheduler::priority::predicate () const
 
 void nano::scheduler::priority::run ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped)
+	while (true)
 	{
-		condition.wait (lock, [this] () {
-			return stopped || predicate ();
-		});
-		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
-		if (!stopped)
+		std::shared_ptr<nano::block> block;
 		{
-			stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::loop);
+			nano::unique_lock<nano::mutex> lock{ mutex };
+			condition.wait (lock, [this] () {
+				return stopped || predicate ();
+			});
 
-			if (predicate ())
+			if (stopped)
 			{
-				auto block = buckets->top ();
-				buckets->pop ();
-				lock.unlock ();
-				stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_priority);
-				auto result = node.active.insert (block);
-				if (result.inserted)
-				{
-					stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_priority_success);
-				}
-				if (result.election != nullptr)
-				{
-					result.election->transition_active ();
-				}
+				break;
 			}
-			else
-			{
-				lock.unlock ();
-			}
-			notify ();
-			lock.lock ();
+
+			debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
+
+			block = buckets->top ();
+			buckets->pop ();
 		}
+
+		// Process block outside of mutex lock
+		stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::loop);
+		stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_priority);
+
+		auto result = node.active.insert (block);
+		if (result.inserted)
+		{
+			stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_priority_success);
+		}
+		if (result.election != nullptr)
+		{
+			result.election->transition_active ();
+		}
+
+		notify ();
 	}
 }
 
