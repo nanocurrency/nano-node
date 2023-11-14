@@ -44,6 +44,9 @@ add_library(
   account_iterator.cpp
   account_iterator.hpp
   account_iterator_impl.hpp
+  block_check_context.cpp
+  block_check_context.hpp
+  block_delta.hpp
   common.hpp
   common.cpp
   generate_cache_flags.hpp
