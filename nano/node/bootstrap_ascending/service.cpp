@@ -506,6 +506,8 @@ std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::servi
 
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "tags", tags.size (), sizeof (decltype (tags)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "throttle", throttle.size (), 0 }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "throttle_successes", throttle.successes (), 0 }));
 	composite->add_component (accounts.collect_container_info ("accounts"));
 	return composite;
 }
