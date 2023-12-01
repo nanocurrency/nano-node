@@ -145,19 +145,20 @@ public:
 class confirm_req final : public message
 {
 public:
-	confirm_req (bool &, nano::stream &, nano::message_header const &, nano::block_uniquer * = nullptr);
-	confirm_req (nano::network_constants const & constants, std::shared_ptr<nano::block> const &);
+	confirm_req (bool & error, nano::stream &, nano::message_header const &);
 	confirm_req (nano::network_constants const & constants, std::vector<std::pair<nano::block_hash, nano::root>> const &);
 	confirm_req (nano::network_constants const & constants, nano::block_hash const &, nano::root const &);
 	void serialize (nano::stream &) const override;
-	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
+	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_req const &) const;
-	std::shared_ptr<nano::block> block;
-	std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes;
 	std::string roots_string () const;
-	static std::size_t size (nano::block_type, std::size_t = 0);
 	std::string to_string () const;
+
+	static std::size_t size (nano::message_header const &);
+
+public: // Payload
+	std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes;
 };
 
 class confirm_ack final : public message
