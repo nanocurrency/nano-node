@@ -194,7 +194,7 @@ void nano::bootstrap_ascending::service::inspect (store::transaction const & tx,
 void nano::bootstrap_ascending::service::wait_blockprocessor ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped && block_processor.size () > 1000)
+	while (!stopped && block_processor.size () > config.bootstrap_ascending.block_wait_count)
 	{
 		condition.wait_for (lock, std::chrono::milliseconds{ config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; }); // Blockprocessor is relatively slow, sleeping here instead of using conditions
 	}
