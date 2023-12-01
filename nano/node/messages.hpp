@@ -390,11 +390,11 @@ enum class asc_pull_type : uint8_t
 	invalid = 0x0,
 	blocks = 0x1,
 	account_info = 0x2,
+	frontiers = 0x3,
 };
 
-class empty_payload
+struct empty_payload
 {
-public:
 	void serialize (nano::stream &) const
 	{
 		debug_assert (false);
@@ -445,36 +445,43 @@ public: // Payload definitions
 		block = 1,
 	};
 
-	class blocks_payload
+	struct blocks_payload
 	{
-	public:
 		void serialize (nano::stream &) const;
 		void deserialize (nano::stream &);
 
-	public:
+		// Payload
 		nano::hash_or_account start{ 0 };
 		uint8_t count{ 0 };
-		asc_pull_req::hash_type start_type{ 0 };
+		hash_type start_type{};
 	};
 
-	class account_info_payload
+	struct account_info_payload
 	{
-	public:
 		void serialize (nano::stream &) const;
 		void deserialize (nano::stream &);
 
-	public:
+		// Payload
 		nano::hash_or_account target{ 0 };
-		asc_pull_req::hash_type target_type{ 0 };
+		hash_type target_type{};
+	};
+
+	struct frontiers_payload
+	{
+		void serialize (nano::stream &) const;
+		void deserialize (nano::stream &);
+
+		// Payload
+		nano::account start{ 0 };
+		uint16_t count{ 0 };
 	};
 
 public: // Payload
-	/** Currently unused, allows extensions in the future */
 	asc_pull_type type{ asc_pull_type::invalid };
 	id_t id{ 0 };
 
 	/** Payload depends on `asc_pull_type` */
-	std::variant<empty_payload, blocks_payload, account_info_payload> payload;
+	std::variant<empty_payload, blocks_payload, account_info_payload, frontiers_payload> payload;
 
 public:
 	/** Size of message without payload */
@@ -515,27 +522,24 @@ private: // Debug
 	bool verify_consistency () const;
 
 public: // Payload definitions
-	class blocks_payload
+	struct blocks_payload
 	{
-	public:
+		/* Header allows for 16 bit extensions; 65536 bytes / 500 bytes (block size with some future margin) ~ 131 */
+		constexpr static std::size_t max_blocks = 128;
+
 		void serialize (nano::stream &) const;
 		void deserialize (nano::stream &);
 
-	public:
-		std::vector<std::shared_ptr<nano::block>> blocks{};
-
-	public:
-		/* Header allows for 16 bit extensions; 65535 bytes / 500 bytes (block size with some future margin) ~ 131 */
-		constexpr static std::size_t max_blocks = 128;
+		// Payload
+		std::vector<std::shared_ptr<nano::block>> blocks;
 	};
 
-	class account_info_payload
+	struct account_info_payload
 	{
-	public:
 		void serialize (nano::stream &) const;
 		void deserialize (nano::stream &);
 
-	public:
+		// Payload
 		nano::account account{ 0 };
 		nano::block_hash account_open{ 0 };
 		nano::block_hash account_head{ 0 };
@@ -544,13 +548,29 @@ public: // Payload definitions
 		uint64_t account_conf_height{ 0 };
 	};
 
+	struct frontiers_payload
+	{
+		/* Header allows for 16 bit extensions; 65536 bytes / 64 bytes (account + frontier) ~ 1024, but we need some space for null frontier terminator */
+		constexpr static std::size_t max_frontiers = 1000;
+
+		using frontier = std::pair<nano::account, nano::block_hash>;
+
+		void serialize (nano::stream &) const;
+		void deserialize (nano::stream &);
+
+		static void serialize_frontier (nano::stream &, frontier const &);
+		static frontier deserialize_frontier (nano::stream &);
+
+		// Payload
+		std::vector<frontier> frontiers;
+	};
+
 public: // Payload
-	/** Currently unused, allows extensions in the future */
 	asc_pull_type type{ asc_pull_type::invalid };
 	id_t id{ 0 };
 
 	/** Payload depends on `asc_pull_type` */
-	std::variant<empty_payload, blocks_payload, account_info_payload> payload;
+	std::variant<empty_payload, blocks_payload, account_info_payload, frontiers_payload> payload;
 
 public:
 	/** Size of message without payload */

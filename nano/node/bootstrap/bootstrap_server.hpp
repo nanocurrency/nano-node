@@ -57,7 +57,7 @@ private:
 	nano::asc_pull_ack process (store::transaction const &, nano::asc_pull_req::id_t id, nano::empty_payload const & request);
 
 	/*
-	 * Blocks response
+	 * Blocks request
 	 */
 	nano::asc_pull_ack process (store::transaction const &, nano::asc_pull_req::id_t id, nano::asc_pull_req::blocks_payload const & request);
 	nano::asc_pull_ack prepare_response (store::transaction const &, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count);
@@ -65,9 +65,14 @@ private:
 	std::vector<std::shared_ptr<nano::block>> prepare_blocks (store::transaction const &, nano::block_hash start_block, std::size_t count) const;
 
 	/*
-	 * Account info response
+	 * Account info request
 	 */
 	nano::asc_pull_ack process (store::transaction const &, nano::asc_pull_req::id_t id, nano::asc_pull_req::account_info_payload const & request);
+
+	/*
+	 * Frontiers request
+	 */
+	nano::asc_pull_ack process (store::transaction const &, nano::asc_pull_req::id_t id, nano::asc_pull_req::frontiers_payload const & request);
 
 	/*
 	 * Checks if the request should be dropped early on
@@ -82,10 +87,11 @@ private: // Dependencies
 	nano::stats & stats;
 
 private:
-	processing_queue<request_t> request_queue;
+	nano::processing_queue<request_t> request_queue;
 
 public: // Config
 	/** Maximum number of blocks to send in a single response, cannot be higher than capacity of a single `asc_pull_ack` message */
 	constexpr static std::size_t max_blocks = nano::asc_pull_ack::blocks_payload::max_blocks;
+	constexpr static std::size_t max_frontiers = nano::asc_pull_ack::frontiers_payload::max_frontiers;
 };
 }
