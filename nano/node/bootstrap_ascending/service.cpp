@@ -194,9 +194,9 @@ void nano::bootstrap_ascending::service::inspect (store::transaction const & tx,
 void nano::bootstrap_ascending::service::wait_blockprocessor ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped && block_processor.half_full ())
+	while (!stopped && block_processor.size () > 1000)
 	{
-		condition.wait_for (lock, 500ms, [this] () { return stopped; }); // Blockprocessor is relatively slow, sleeping here instead of using conditions
+		condition.wait_for (lock, std::chrono::milliseconds{ config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; }); // Blockprocessor is relatively slow, sleeping here instead of using conditions
 	}
 }
 
@@ -206,7 +206,7 @@ std::shared_ptr<nano::transport::channel> nano::bootstrap_ascending::service::wa
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped && !(channel = scoring.channel ()))
 	{
-		condition.wait_for (lock, 100ms, [this] () { return stopped; });
+		condition.wait_for (lock, std::chrono::milliseconds{ config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; });
 	}
 	return channel;
 }
