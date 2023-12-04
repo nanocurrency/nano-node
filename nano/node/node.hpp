@@ -77,7 +77,7 @@ public:
 	template <typename T>
 	void background (T action_a)
 	{
-		io_ctx.post (action_a);
+		workers.push_task (action_a);
 	}
 	bool copy_with_compaction (std::filesystem::path const &);
 	void keepalive (std::string const &, uint16_t);
