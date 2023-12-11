@@ -327,6 +327,28 @@ TEST (vote_processor, no_broadcast_local_with_a_principal_representative)
 }
 
 /**
+ * Ensure that node behaves well with votes larger than 12 hashes, which was maximum before V26
+ */
+TEST (vote_processor, large_votes)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	const int count = 32;
+	auto blocks = nano::test::setup_chain (system, node, count, nano::dev::genesis_key, /* do not confirm */ false);
+
+	ASSERT_TRUE (nano::test::start_elections (system, node, blocks));
+	ASSERT_TIMELY (5s, nano::test::active (node, blocks));
+
+	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, blocks);
+	ASSERT_TRUE (vote->hashes.size () == count);
+
+	node.vote_processor.vote (vote, nano::test::fake_channel (node));
+
+	ASSERT_TIMELY (5s, nano::test::confirmed (node, blocks));
+}
+
+/**
  * basic test to check that the timestamp mask is applied correctly on vote timestamp and duration fields
  */
 TEST (vote, timestamp_and_duration_masking)

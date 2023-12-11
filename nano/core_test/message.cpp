@@ -179,8 +179,49 @@ TEST (message, confirm_ack_hash_serialization)
 	ASSERT_FALSE (error);
 	ASSERT_EQ (con1, con2);
 	ASSERT_EQ (hashes, con2.vote->hashes);
-	// Check overflow with max hashes
+	ASSERT_FALSE (header.confirm_is_v2 ());
 	ASSERT_EQ (header.count_get (), hashes.size ());
+}
+
+TEST (message, confirm_ack_hash_serialization_v2)
+{
+	std::vector<nano::block_hash> hashes;
+	for (auto i (hashes.size ()); i < 255; i++)
+	{
+		nano::keypair key1;
+		nano::block_hash previous;
+		nano::random_pool::generate_block (previous.bytes.data (), previous.bytes.size ());
+		nano::block_builder builder;
+		auto block = builder
+					 .state ()
+					 .account (key1.pub)
+					 .previous (previous)
+					 .representative (key1.pub)
+					 .balance (2)
+					 .link (4)
+					 .sign (key1.prv, key1.pub)
+					 .work (5)
+					 .build ();
+		hashes.push_back (block->hash ());
+	}
+
+	nano::keypair representative1;
+	auto vote (std::make_shared<nano::vote> (representative1.pub, representative1.prv, 0, 0, hashes));
+	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream1 (bytes);
+		con1.serialize (stream1);
+	}
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	bool error (false);
+	nano::message_header header (error, stream2);
+	nano::confirm_ack con2 (error, stream2, header);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (con1, con2);
+	ASSERT_EQ (hashes, con2.vote->hashes);
+	ASSERT_TRUE (header.confirm_is_v2 ());
+	ASSERT_EQ (header.count_v2_get (), hashes.size ());
 }
 
 TEST (message, confirm_req_hash_serialization)
@@ -263,6 +304,62 @@ TEST (message, confirm_req_hash_batch_serialization)
 	ASSERT_EQ (req.roots_hashes, roots_hashes);
 	ASSERT_EQ (req2.roots_hashes, roots_hashes);
 	ASSERT_EQ (header.count_get (), req.roots_hashes.size ());
+	ASSERT_FALSE (header.confirm_is_v2 ());
+}
+
+TEST (message, confirm_req_hash_batch_serialization_v2)
+{
+	nano::keypair key;
+	nano::keypair representative;
+	nano::block_builder builder;
+	auto open = builder
+				.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (representative.pub)
+				.balance (2)
+				.link (4)
+				.sign (key.prv, key.pub)
+				.work (5)
+				.build ();
+
+	std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes;
+	roots_hashes.push_back (std::make_pair (open->hash (), open->root ()));
+	for (auto i (roots_hashes.size ()); i < 255; i++)
+	{
+		nano::keypair key1;
+		nano::block_hash previous;
+		nano::random_pool::generate_block (previous.bytes.data (), previous.bytes.size ());
+		auto block = builder
+					 .state ()
+					 .account (key1.pub)
+					 .previous (previous)
+					 .representative (representative.pub)
+					 .balance (2)
+					 .link (4)
+					 .sign (key1.prv, key1.pub)
+					 .work (5)
+					 .build ();
+		roots_hashes.push_back (std::make_pair (block->hash (), block->root ()));
+	}
+
+	nano::confirm_req req{ nano::dev::network_params.network, roots_hashes };
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		req.serialize (stream);
+	}
+	auto error (false);
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	nano::message_header header (error, stream2);
+	nano::confirm_req req2 (error, stream2, header);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (req, req2);
+	ASSERT_EQ (req.roots_hashes, req2.roots_hashes);
+	ASSERT_EQ (req.roots_hashes, roots_hashes);
+	ASSERT_EQ (req2.roots_hashes, roots_hashes);
+	ASSERT_EQ (header.count_v2_get (), req.roots_hashes.size ());
+	ASSERT_TRUE (header.confirm_is_v2 ());
 }
 
 // this unit test checks that conversion of message_header to string works as expected

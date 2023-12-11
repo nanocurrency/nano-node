@@ -18,7 +18,7 @@ nano::block_list_t nano::test::setup_chain (nano::test::system & system, nano::n
 					.state ()
 					.account (target.pub)
 					.previous (latest)
-					.representative (throwaway.pub)
+					.representative (target.pub)
 					.balance (balance)
 					.link (throwaway.pub)
 					.sign (target.prv, target.pub)
