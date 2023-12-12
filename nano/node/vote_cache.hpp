@@ -97,15 +97,18 @@ public:
 	 * Adds a new vote to cache
 	 */
 	void vote (nano::block_hash const & hash, std::shared_ptr<nano::vote> vote);
+
 	/**
 	 * Tries to find an entry associated with block hash
 	 */
 	std::optional<entry> find (nano::block_hash const & hash) const;
+
 	/**
 	 * Removes an entry associated with block hash, does nothing if entry does not exist
 	 * @return true if hash existed and was erased, false otherwise
 	 */
 	bool erase (nano::block_hash const & hash);
+	void clear ();
 
 	std::size_t size () const;
 	bool empty () const;

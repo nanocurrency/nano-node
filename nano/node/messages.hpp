@@ -60,40 +60,59 @@ class message_visitor;
 class message_header final
 {
 public:
+	using extensions_bitset_t = std::bitset<16>;
+
 	message_header (nano::network_constants const &, nano::message_type);
 	message_header (bool &, nano::stream &);
+
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
-	nano::block_type block_type () const;
-	void block_type_set (nano::block_type);
-	uint8_t count_get () const;
-	void count_set (uint8_t);
+
+	std::string to_string () const;
+
+public: // Payload
 	nano::networks network;
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;
-	std::string to_string () const;
+	nano::message_type type;
+	extensions_bitset_t extensions;
 
 public:
-	nano::message_type type;
-	std::bitset<16> extensions;
 	static std::size_t constexpr size = sizeof (nano::networks) + sizeof (version_max) + sizeof (version_using) + sizeof (version_min) + sizeof (type) + sizeof (/* extensions */ uint16_t);
 
-	void flag_set (uint8_t, bool enable = true);
+	bool flag_test (uint8_t flag) const;
+	void flag_set (uint8_t flag, bool enable = true);
+
+	nano::block_type block_type () const;
+	void block_type_set (nano::block_type);
+
+	uint8_t count_get () const;
+	void count_set (uint8_t);
+	uint8_t count_v2_get () const;
+	void count_v2_set (uint8_t);
+
 	static uint8_t constexpr bulk_pull_count_present_flag = 0;
 	static uint8_t constexpr bulk_pull_ascending_flag = 1;
 	bool bulk_pull_is_count_present () const;
 	bool bulk_pull_ascending () const;
+
 	static uint8_t constexpr frontier_req_only_confirmed = 1;
 	bool frontier_req_is_only_confirmed_present () const;
+
+	static uint8_t constexpr confirm_v2_flag = 0;
+	bool confirm_is_v2 () const;
+	void confirm_set_v2 (bool);
 
 	/** Size of the payload in bytes. For some messages, the payload size is based on header flags. */
 	std::size_t payload_length_bytes () const;
 	bool is_valid_message_type () const;
 
-	static std::bitset<16> constexpr block_type_mask{ 0x0f00 };
-	static std::bitset<16> constexpr count_mask{ 0xf000 };
-	static std::bitset<16> constexpr telemetry_size_mask{ 0x3ff };
+	static extensions_bitset_t constexpr block_type_mask{ 0x0f00 };
+	static extensions_bitset_t constexpr count_mask{ 0xf000 };
+	static extensions_bitset_t constexpr count_v2_mask_left{ 0xf000 };
+	static extensions_bitset_t constexpr count_v2_mask_right{ 0x00f0 };
+	static extensions_bitset_t constexpr telemetry_size_mask{ 0x3ff };
 };
 
 class message
@@ -148,6 +167,7 @@ public:
 	confirm_req (bool & error, nano::stream &, nano::message_header const &);
 	confirm_req (nano::network_constants const & constants, std::vector<std::pair<nano::block_hash, nano::root>> const &);
 	confirm_req (nano::network_constants const & constants, nano::block_hash const &, nano::root const &);
+
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
@@ -157,6 +177,9 @@ public:
 
 	static std::size_t size (nano::message_header const &);
 
+private:
+	static uint8_t hash_count (nano::message_header const &);
+
 public: // Payload
 	std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes;
 };
@@ -164,13 +187,20 @@ public: // Payload
 class confirm_ack final : public message
 {
 public:
-	confirm_ack (bool &, nano::stream &, nano::message_header const &, nano::vote_uniquer * = nullptr);
+	confirm_ack (bool & error, nano::stream &, nano::message_header const &, nano::vote_uniquer * = nullptr);
 	confirm_ack (nano::network_constants const & constants, std::shared_ptr<nano::vote> const &);
+
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
-	static std::size_t size (std::size_t count);
 	std::string to_string () const;
+
+	static std::size_t size (nano::message_header const &);
+
+private:
+	static uint8_t hash_count (nano::message_header const &);
+
+public: // Payload
 	std::shared_ptr<nano::vote> vote;
 };
 

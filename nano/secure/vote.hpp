@@ -34,6 +34,7 @@ public:
 	 * @returns true if there was an error
 	 */
 	bool deserialize (nano::stream &);
+	static std::size_t size (uint8_t count);
 
 	nano::block_hash hash () const;
 	nano::block_hash full_hash () const;
@@ -58,13 +59,10 @@ public:
 	static uint64_t constexpr timestamp_min = { 0x0000'0000'0000'0010ULL };
 	static uint8_t constexpr duration_max = { 0x0fu };
 
+	static std::size_t constexpr max_hashes = 255;
+
 	/* Check if timestamp represents a final vote */
 	static bool is_final_timestamp (uint64_t timestamp);
-
-private:
-	static std::string const hash_prefix;
-
-	static uint64_t packed_timestamp (uint64_t timestamp, uint8_t duration);
 
 public: // Payload
 	// The hashes for which this vote directly covers
@@ -77,6 +75,13 @@ public: // Payload
 private: // Payload
 	// Vote timestamp
 	uint64_t timestamp_m{ 0 };
+
+private:
+	// Size of vote payload without hashes
+	static std::size_t constexpr partial_size = sizeof (account) + sizeof (signature) + sizeof (timestamp_m);
+	static std::string const hash_prefix;
+
+	static uint64_t packed_timestamp (uint64_t timestamp, uint8_t duration);
 };
 
 using vote_uniquer = nano::uniquer<nano::block_hash, nano::vote>;

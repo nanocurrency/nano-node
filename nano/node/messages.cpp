@@ -189,26 +189,71 @@ nano::block_type nano::message_header::block_type () const
 void nano::message_header::block_type_set (nano::block_type type_a)
 {
 	extensions &= ~block_type_mask;
-	extensions |= std::bitset<16> (static_cast<unsigned long long> (type_a) << 8);
+	extensions |= (extensions_bitset_t{ static_cast<unsigned long long> (type_a) } << 8);
 }
 
 uint8_t nano::message_header::count_get () const
 {
+	debug_assert (type == nano::message_type::confirm_ack || type == nano::message_type::confirm_req);
+	debug_assert (!flag_test (confirm_v2_flag)); // Only valid for v1
+
 	return static_cast<uint8_t> (((extensions & count_mask) >> 12).to_ullong ());
 }
 
 void nano::message_header::count_set (uint8_t count_a)
 {
-	debug_assert (count_a < 16);
+	debug_assert (type == nano::message_type::confirm_ack || type == nano::message_type::confirm_req);
+	debug_assert (!flag_test (confirm_v2_flag)); // Only valid for v1
+	debug_assert (count_a < 16); // Max 4 bits
+
 	extensions &= ~count_mask;
-	extensions |= std::bitset<16> (static_cast<unsigned long long> (count_a) << 12);
+	extensions |= ((extensions_bitset_t{ count_a } << 12) & count_mask);
 }
 
-void nano::message_header::flag_set (uint8_t flag_a, bool enable)
+/*
+ * We need those shenanigans because we need to keep compatibility with previous protocol versions (<= V25.1)
+ */
+
+uint8_t nano::message_header::count_v2_get () const
 {
-	// Flags from 8 are block_type & count
-	debug_assert (flag_a < 8);
-	extensions.set (flag_a, enable);
+	debug_assert (type == nano::message_type::confirm_ack || type == nano::message_type::confirm_req);
+	debug_assert (flag_test (confirm_v2_flag)); // Only valid for v2
+
+	// Extract 2 parts of 4 bits
+	auto left = (extensions & count_v2_mask_left) >> 12;
+	auto right = (extensions & count_v2_mask_right) >> 4;
+
+	return static_cast<uint8_t> (((left << 4) | right).to_ullong ());
+}
+
+void nano::message_header::count_v2_set (uint8_t count)
+{
+	debug_assert (type == nano::message_type::confirm_ack || type == nano::message_type::confirm_req);
+	debug_assert (flag_test (confirm_v2_flag)); // Only valid for v2
+	debug_assert (count < 256); // Max 8 bits
+
+	extensions &= ~(count_v2_mask_left | count_v2_mask_right);
+
+	// Split count into 2 parts of 4 bits
+	extensions_bitset_t trim_mask{ 0xf };
+	auto left = (extensions_bitset_t{ count } >> 4) & trim_mask;
+	auto right = (extensions_bitset_t{ count }) & trim_mask;
+
+	extensions |= (left << 12) | (right << 4);
+}
+
+bool nano::message_header::flag_test (uint8_t flag) const
+{
+	// Extension bits at index >= 8 are block type & count
+	debug_assert (flag < 8);
+	return extensions.test (flag);
+}
+
+void nano::message_header::flag_set (uint8_t flag, bool enable)
+{
+	// Extension bits at index >= 8 are block type & count
+	debug_assert (flag < 8);
+	extensions.set (flag, enable);
 }
 
 bool nano::message_header::bulk_pull_is_count_present () const
@@ -250,6 +295,18 @@ bool nano::message_header::frontier_req_is_only_confirmed_present () const
 	return result;
 }
 
+bool nano::message_header::confirm_is_v2 () const
+{
+	debug_assert (type == nano::message_type::confirm_ack || type == nano::message_type::confirm_req);
+	return flag_test (confirm_v2_flag);
+}
+
+void nano::message_header::confirm_set_v2 (bool value)
+{
+	debug_assert (type == nano::message_type::confirm_ack || type == nano::message_type::confirm_req);
+	flag_set (confirm_v2_flag, value);
+}
+
 std::size_t nano::message_header::payload_length_bytes () const
 {
 	switch (type)
@@ -282,7 +339,7 @@ std::size_t nano::message_header::payload_length_bytes () const
 		}
 		case nano::message_type::confirm_ack:
 		{
-			return nano::confirm_ack::size (count_get ());
+			return nano::confirm_ack::size (*this);
 		}
 		case nano::message_type::confirm_req:
 		{
@@ -520,12 +577,22 @@ nano::confirm_req::confirm_req (nano::network_constants const & constants, std::
 	roots_hashes (roots_hashes_a)
 {
 	debug_assert (!roots_hashes.empty ());
-	debug_assert (roots_hashes.size () < 16);
+	debug_assert (roots_hashes.size () < 256);
 
 	// Set `not_a_block` (1) block type for hashes + roots request
 	// This is needed to keep compatibility with previous protocol versions (<= V25.1)
 	header.block_type_set (nano::block_type::not_a_block);
-	header.count_set (static_cast<uint8_t> (roots_hashes.size ()));
+
+	if (roots_hashes.size () >= 16)
+	{
+		// Set v2 flag and use extended count if there are more than 15 hash + root pairs
+		header.confirm_set_v2 (true);
+		header.count_v2_set (static_cast<uint8_t> (roots_hashes.size ()));
+	}
+	else
+	{
+		header.count_set (static_cast<uint8_t> (roots_hashes.size ()));
+	}
 }
 
 nano::confirm_req::confirm_req (nano::network_constants const & constants, nano::block_hash const & hash_a, nano::root const & root_a) :
@@ -559,7 +626,7 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a)
 	bool result = false;
 	try
 	{
-		uint8_t const count = header.count_get ();
+		uint8_t const count = hash_count (header);
 		for (auto i (0); i != count && !result; ++i)
 		{
 			nano::block_hash block_hash (0);
@@ -605,9 +672,21 @@ std::string nano::confirm_req::roots_string () const
 	return result;
 }
 
+uint8_t nano::confirm_req::hash_count (const nano::message_header & header)
+{
+	if (header.confirm_is_v2 ())
+	{
+		return header.count_v2_get ();
+	}
+	else
+	{
+		return header.count_get ();
+	}
+}
+
 std::size_t nano::confirm_req::size (nano::message_header const & header)
 {
-	auto const count = header.count_get ();
+	auto const count = hash_count (header);
 	return count * (sizeof (decltype (roots_hashes)::value_type::first) + sizeof (decltype (roots_hashes)::value_type::second));
 }
 
@@ -641,9 +720,20 @@ nano::confirm_ack::confirm_ack (nano::network_constants const & constants, std::
 	message (constants, nano::message_type::confirm_ack),
 	vote (vote_a)
 {
-	debug_assert (vote_a->hashes.size () < 16);
+	debug_assert (vote->hashes.size () < 256);
 
-	header.count_set (static_cast<uint8_t> (vote_a->hashes.size ()));
+	header.block_type_set (nano::block_type::not_a_block);
+
+	if (vote->hashes.size () >= 16)
+	{
+		// Set v2 flag and use extended count if there are more than 15 hashes
+		header.confirm_set_v2 (true);
+		header.count_v2_set (static_cast<uint8_t> (vote->hashes.size ()));
+	}
+	else
+	{
+		header.count_set (static_cast<uint8_t> (vote->hashes.size ()));
+	}
 }
 
 void nano::confirm_ack::serialize (nano::stream & stream_a) const
@@ -663,10 +753,22 @@ void nano::confirm_ack::visit (nano::message_visitor & visitor_a) const
 	visitor_a.confirm_ack (*this);
 }
 
-std::size_t nano::confirm_ack::size (std::size_t count)
+uint8_t nano::confirm_ack::hash_count (const nano::message_header & header)
 {
-	std::size_t result = sizeof (nano::account) + sizeof (nano::signature) + sizeof (uint64_t) + count * sizeof (nano::block_hash);
-	return result;
+	if (header.confirm_is_v2 ())
+	{
+		return header.count_v2_get ();
+	}
+	else
+	{
+		return header.count_get ();
+	}
+}
+
+std::size_t nano::confirm_ack::size (const nano::message_header & header)
+{
+	auto const count = hash_count (header);
+	return nano::vote::size (count);
 }
 
 std::string nano::confirm_ack::to_string () const
