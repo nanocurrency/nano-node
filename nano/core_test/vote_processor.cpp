@@ -25,8 +25,11 @@ TEST (vote_processor, codes)
 	// Hint of pre-validation
 	ASSERT_NE (nano::vote_code::invalid, node.vote_processor.vote_blocking (vote_invalid, channel, true));
 
-	// No ongoing election
+	// No ongoing election (vote goes to vote cache)
 	ASSERT_EQ (nano::vote_code::indeterminate, node.vote_processor.vote_blocking (vote, channel));
+
+	// Clear vote cache before starting election
+	node.vote_cache.clear ();
 
 	// First vote from an account for an ongoing election
 	node.start_election (blocks[0]);

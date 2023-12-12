@@ -193,6 +193,12 @@ bool nano::vote_cache::erase (const nano::block_hash & hash)
 	return result;
 }
 
+void nano::vote_cache::clear ()
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	cache.clear ();
+}
+
 std::vector<nano::vote_cache::top_entry> nano::vote_cache::top (const nano::uint128_t & min_tally)
 {
 	stats.inc (nano::stat::type::vote_cache, nano::stat::detail::top);
