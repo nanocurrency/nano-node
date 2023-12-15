@@ -11,7 +11,7 @@ jobs:
   prepare_build:
     runs-on: ubuntu-22.04
     outputs:
-      CI_TAG: ${{ steps.tag_set.outputs.CI_TAG }}      
+      CI_TAG: ${{ steps.tag_set.outputs.CI_TAG }}
       TAG_CREATED: ${{ steps.tag_set.outputs.tag_created }}
     steps:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
@@ -23,14 +23,14 @@ jobs:
           output_var_file="variable_list.txt"
           ci/actions/generate_next_git_tag.sh -c -o "${output_var_file}"
           CI_TAG=$(grep 'build_tag' ${output_var_file} | cut -d= -f2)
-          echo "CI_TAG=${CI_TAG}" >> $GITHUB_OUTPUT          
-          TAG_CREATED=$(grep 'tag_created' ${output_var_file} | cut -d= -f2)            
+          echo "CI_TAG=${CI_TAG}" >> $GITHUB_OUTPUT
+          TAG_CREATED=$(grep 'tag_created' ${output_var_file} | cut -d= -f2)
           echo "TAG_CREATED=${TAG_CREATED}" >> $GITHUB_OUTPUT
         env:
           GITHUB_ACTOR: ${{ github.actor }}
 
 
-  osx_job:    
+  osx_job:
     needs: prepare_build
     if: ${{ needs.prepare_build.outputs.TAG_CREATED == 'true' }}
     runs-on: macOS-12
@@ -50,8 +50,8 @@ jobs:
       - name: Build Artifact
         run: ci/build-deploy.sh "/tmp/qt/lib/cmake/Qt5";
         env:
-          NETWORK: ${{ matrix.network }} 
-          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}         
+          NETWORK: ${{ matrix.network }}
+          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
       - name: Deploy Artifact
         run: ci/actions/deploy.sh
         env:
@@ -110,7 +110,7 @@ jobs:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
         with:
           submodules: "recursive"
-          ref: "develop" #build-rhel.sh needs develop branch and then sets the tag 
+          ref: "develop" #build-rhel.sh needs develop branch and then sets the tag
           repository: ${{ github.repository }}
       - name: Build local/nano-env:rhel
         run: ci/actions/linux/install_deps.sh
@@ -129,7 +129,7 @@ jobs:
           REPO_TO_BUILD=${{ github.repository }} \
           RPM_RELEASE=1 \
           ci/build-rhel.sh"
-          
+
       - name: Deploy Artifacts
         run: ci/actions/deploy.sh
         env:
@@ -161,10 +161,10 @@ jobs:
         run: ci/actions/linux/docker-build.sh
         env:
           NETWORK: ${{ matrix.network }}
-          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}          
+          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
           DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
       - name: Check if secrets.DOCKER_PASSWORD exists
-        run: echo "DOCKER_PASSWORD_EXISTS=${{ secrets.DOCKER_PASSWORD != '' }}" >> $GITHUB_ENV  
+        run: echo "DOCKER_PASSWORD_EXISTS=${{ secrets.DOCKER_PASSWORD != '' }}" >> $GITHUB_ENV
       - name: Deploy Docker Hub
         if: env.DOCKER_PASSWORD_EXISTS == 'true'
         run: ci/actions/linux/docker-deploy.sh
