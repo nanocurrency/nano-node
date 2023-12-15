@@ -83,8 +83,8 @@ jobs:
       - name: Build Artifact
         run: ci/build-deploy.sh "/usr/lib/x86_64-linux-gnu/cmake/Qt5"
         env:
-          NETWORK: ${{ matrix.network }} \
-          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }} \    
+          NETWORK: ${{ matrix.network }}
+          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
 
       - name: Deploy Artifact
         run: ci/actions/deploy.sh
