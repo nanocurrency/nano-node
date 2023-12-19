@@ -19,7 +19,7 @@ jobs:
       SANITIZER: ${{ matrix.SANITIZER }}
       TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
       DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
-      ASAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report
+      ASAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:suppressions=../asan_suppressions
       TSAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:suppressions=../tsan_suppressions
       UBSAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:print_stacktrace=1
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
