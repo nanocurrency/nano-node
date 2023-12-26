@@ -25,7 +25,6 @@ add_executable(
   gap_cache.cpp
   ipc.cpp
   ledger.cpp
-  ledger_walker.cpp
   locks.cpp
   logger.cpp
   message.cpp
