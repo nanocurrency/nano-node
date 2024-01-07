@@ -70,6 +70,7 @@ TEST (socket, max_connections)
 	ASSERT_TIMELY_EQ (5s, get_tcp_accept_failures (), 1);
 	ASSERT_TIMELY_EQ (5s, get_tcp_accept_successes (), 2);
 	ASSERT_TIMELY_EQ (5s, connection_attempts, 3);
+	ASSERT_TIMELY_EQ (5s, server_sockets.size (), 2);
 
 	// create space for one socket and fill the connections table again
 
@@ -84,13 +85,13 @@ TEST (socket, max_connections)
 	ASSERT_TIMELY_EQ (5s, get_tcp_accept_failures (), 2);
 	ASSERT_TIMELY_EQ (5s, get_tcp_accept_successes (), 3);
 	ASSERT_TIMELY_EQ (5s, connection_attempts, 5);
+	ASSERT_TIMELY_EQ (5s, server_sockets.size (), 3);
 
 	// close all existing sockets and fill the connections table again
 	// start counting form 1 because 0 is the already closed socket
 
 	server_sockets[1].reset ();
 	server_sockets[2].reset ();
-	ASSERT_EQ (server_sockets.size (), 3);
 
 	auto client6 = std::make_shared<nano::transport::client_socket> (*node);
 	client6->async_connect (dst_endpoint, connect_handler);
