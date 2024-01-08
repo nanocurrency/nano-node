@@ -6,11 +6,12 @@ COMPILER=${COMPILER:-gcc}
 echo "Compiler: '${COMPILER}'"
 
 # Common dependencies needed for building & testing
-apt-get update -qq
+DEBIAN_FRONTEND=noninteractive apt-get update -qq
 
 DEBIAN_FRONTEND=noninteractive apt-get install -yqq \
 build-essential \
 g++ \
+curl \
 wget \
 python3 \
 zlib1g-dev \

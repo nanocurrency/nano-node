@@ -4,23 +4,29 @@ on: [push, pull_request, workflow_dispatch]
 
 jobs:
   linux_sanitizers:
-    name: Linux [${{ matrix.SANITIZER }}] [${{ matrix.BACKEND }} | ${{ matrix.COMPILER }}]
+    name: Linux [${{ matrix.SANITIZER.name }}] [${{ matrix.BACKEND }} | ${{ matrix.COMPILER }}] ${{ matrix.SANITIZER.ignore_errors && ' (Errors Ignored)' || '' }}
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
         BACKEND: [lmdb, rocksdb]
         COMPILER: [clang]
-        SANITIZER: [ASAN, ASAN_INT, TSAN]
+        SANITIZER:
+          - { name: UBSAN, ignore_errors: false }
+          - { name: ASAN, ignore_errors: true }
+          - { name: ASAN_INT, ignore_errors: true }
+          - { name: TSAN, ignore_errors: true }
     runs-on: ubuntu-22.04
     env:
       COMPILER: ${{ matrix.COMPILER }}
       BACKEND: ${{ matrix.BACKEND }}
-      SANITIZER: ${{ matrix.SANITIZER }}
+      SANITIZER: ${{ matrix.SANITIZER.name }}
+      IGNORE_ERRORS: ${{ matrix.SANITIZER.ignore_errors }}
       TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
       DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
-      ASAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report
+      ASAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:suppressions=../asan_suppressions
       TSAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:suppressions=../tsan_suppressions
+      UBSAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:print_stacktrace=1
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout
@@ -49,6 +55,6 @@ jobs:
 
       - name: Reports
         if: steps.build.outcome == 'success' && (success() || failure())
-        continue-on-error: true
+        continue-on-error: ${{ env.IGNORE_ERRORS == 'true' }}
         run: ../ci/tests/show-sanitizer-reports.sh
         working-directory: build

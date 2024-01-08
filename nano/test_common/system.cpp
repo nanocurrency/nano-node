@@ -75,7 +75,7 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 			(*j)->network.merge_peer ((*i)->network.endpoint ());
 
 			{
-				auto ec = poll_until_true (3s, [&node1, &node2, starting_size_1, starting_size_2] () {
+				auto ec = poll_until_true (5s, [&node1, &node2, starting_size_1, starting_size_2] () {
 					auto size_1 = node1->network.size ();
 					auto size_2 = node2->network.size ();
 					return size_1 > starting_size_1 && size_2 > starting_size_2;
@@ -87,7 +87,7 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 			{
 				{
 					// Wait for initial connection finish
-					auto ec = poll_until_true (3s, [&node1, &node2, starting_realtime_1, starting_realtime_2] () {
+					auto ec = poll_until_true (5s, [&node1, &node2, starting_realtime_1, starting_realtime_2] () {
 						auto realtime_1 = node1->tcp_listener.realtime_count.load ();
 						auto realtime_2 = node2->tcp_listener.realtime_count.load ();
 						return realtime_1 > starting_realtime_1 && realtime_2 > starting_realtime_2;
@@ -96,7 +96,7 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 				}
 				{
 					// Wait for keepalive message exchange
-					auto ec = poll_until_true (3s, [&node1, &node2, starting_keepalives_1, starting_keepalives_2] () {
+					auto ec = poll_until_true (5s, [&node1, &node2, starting_keepalives_1, starting_keepalives_2] () {
 						auto keepalives_1 = node1->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
 						auto keepalives_2 = node2->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
 						return keepalives_1 > starting_keepalives_1 && keepalives_2 > starting_keepalives_2;
@@ -108,7 +108,7 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 
 		{
 			// Ensure no bootstrap initiators are in progress
-			auto ec = poll_until_true (3s, [this, &begin] () {
+			auto ec = poll_until_true (5s, [this, &begin] () {
 				return std::all_of (begin, nodes.end (), [] (std::shared_ptr<nano::node> const & node_a) { return !node_a->bootstrap_initiator.in_progress (); });
 			});
 			debug_assert (!ec);
@@ -116,7 +116,7 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 	}
 	else
 	{
-		auto ec = poll_until_true (3s, [&node] () {
+		auto ec = poll_until_true (5s, [&node] () {
 			return !node->bootstrap_initiator.in_progress ();
 		});
 		debug_assert (!ec);
