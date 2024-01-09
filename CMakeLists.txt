@@ -536,6 +536,16 @@ add_subdirectory(crypto/ed25519-donna)
 add_subdirectory(nano/ipc_flatbuffers_lib)
 add_subdirectory(nano/ipc_flatbuffers_test)
 
+# fmt
+add_subdirectory(submodules/fmt EXCLUDE_FROM_ALL)
+include_directories(submodules/fmt/include)
+
+# spdlog
+add_definitions(-DSPDLOG_FMT_EXTERNAL)
+add_subdirectory(submodules/spdlog EXCLUDE_FROM_ALL)
+include_directories(submodules/spdlog/include)
+
+# miniupnp
 set(UPNPC_BUILD_SHARED
     OFF
     CACHE BOOL "")
