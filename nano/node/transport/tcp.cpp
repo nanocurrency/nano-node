@@ -541,7 +541,7 @@ void nano::transport::tcp_channels::update (nano::tcp_endpoint const & endpoint_
 
 void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a)
 {
-	auto socket = std::make_shared<nano::transport::client_socket> (node);
+	auto socket = std::make_shared<nano::transport::socket> (node);
 	std::weak_ptr<nano::transport::socket> socket_w (socket);
 	auto channel (std::make_shared<nano::transport::channel_tcp> (node, socket_w));
 	std::weak_ptr<nano::node> node_w (node.shared ());

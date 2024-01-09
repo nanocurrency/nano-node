@@ -646,7 +646,7 @@ TEST (node, port_mapping)
 TEST (tcp_listener, tcp_node_id_handshake)
 {
 	nano::test::system system (1);
-	auto socket (std::make_shared<nano::transport::client_socket> (*system.nodes[0]));
+	auto socket (std::make_shared<nano::transport::socket> (*system.nodes[0]));
 	auto bootstrap_endpoint (system.nodes[0]->tcp_listener->endpoint ());
 	auto cookie (system.nodes[0]->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (bootstrap_endpoint)));
 	ASSERT_TRUE (cookie);
@@ -684,7 +684,7 @@ TEST (tcp_listener, DISABLED_tcp_listener_timeout_empty)
 {
 	nano::test::system system (1);
 	auto node0 (system.nodes[0]);
-	auto socket (std::make_shared<nano::transport::client_socket> (*node0));
+	auto socket (std::make_shared<nano::transport::socket> (*node0));
 	std::atomic<bool> connected (false);
 	socket->async_connect (node0->tcp_listener->endpoint (), [&connected] (boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
@@ -707,7 +707,7 @@ TEST (tcp_listener, tcp_listener_timeout_node_id_handshake)
 {
 	nano::test::system system (1);
 	auto node0 (system.nodes[0]);
-	auto socket (std::make_shared<nano::transport::client_socket> (*node0));
+	auto socket (std::make_shared<nano::transport::socket> (*node0));
 	auto cookie (node0->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (node0->tcp_listener->endpoint ())));
 	ASSERT_TRUE (cookie);
 	nano::node_id_handshake::query_payload query{ *cookie };

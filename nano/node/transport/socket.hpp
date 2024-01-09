@@ -39,7 +39,7 @@ enum class buffer_drop_policy
 };
 
 /** Socket class for tcp clients and newly accepted connections */
-class socket : public std::enable_shared_from_this<nano::transport::socket>
+class socket final : public std::enable_shared_from_this<nano::transport::socket>
 {
 	friend class tcp_server;
 	friend class tcp_channels;
@@ -67,8 +67,8 @@ public:
 	 * @param node Owning node
 	 * @param endpoint_type_a The endpoint's type: either server or client
 	 */
-	explicit socket (nano::node & node, endpoint_type_t endpoint_type_a, std::size_t max_queue_size = default_max_queue_size);
-	virtual ~socket ();
+	explicit socket (nano::node & node, endpoint_type_t endpoint_type_a = endpoint_type_t::client, std::size_t max_queue_size = default_max_queue_size);
+	~socket ();
 
 	void start ();
 
@@ -76,7 +76,7 @@ public:
 	void async_read (std::shared_ptr<std::vector<uint8_t>> const &, std::size_t, std::function<void (boost::system::error_code const &, std::size_t)>);
 	void async_write (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> callback = {}, nano::transport::traffic_type = nano::transport::traffic_type::generic);
 
-	virtual void close ();
+	void close ();
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;
 	boost::asio::ip::tcp::endpoint local_endpoint () const;
 	/** Returns true if the socket has timed out */
@@ -218,18 +218,4 @@ namespace socket_functions
 	boost::asio::ip::address last_ipv6_subnet_address (boost::asio::ip::address_v6 const &, std::size_t);
 	std::size_t count_subnetwork_connections (nano::transport::address_socket_mmap const &, boost::asio::ip::address_v6 const &, std::size_t);
 }
-
-/** Socket class for TCP clients */
-class client_socket final : public socket
-{
-public:
-	/**
-	 * Constructor
-	 * @param node_a Owning node
-	 */
-	explicit client_socket (nano::node & node_a, std::size_t max_queue_size = default_max_queue_size) :
-		socket{ node_a, endpoint_type_t::client, max_queue_size }
-	{
-	}
-};
 }
