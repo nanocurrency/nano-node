@@ -15,7 +15,6 @@
 nano::rpc::rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config config_a, nano::rpc_handler_interface & rpc_handler_interface_a) :
 	config (std::move (config_a)),
 	acceptor (io_ctx_a),
-	logger (std::chrono::milliseconds (0)),
 	io_ctx (io_ctx_a),
 	rpc_handler_interface (rpc_handler_interface_a)
 {
@@ -33,13 +32,13 @@ nano::rpc::~rpc ()
 void nano::rpc::start ()
 {
 	auto endpoint (boost::asio::ip::tcp::endpoint (boost::asio::ip::make_address_v6 (config.address), config.port));
+
 	bool const is_loopback = (endpoint.address ().is_loopback () || (endpoint.address ().to_v6 ().is_v4_mapped () && boost::asio::ip::make_address_v4 (boost::asio::ip::v4_mapped, endpoint.address ().to_v6 ()).is_loopback ()));
 	if (!is_loopback && config.enable_control)
 	{
-		auto warning = boost::str (boost::format ("WARNING: control-level RPCs are enabled on non-local address %1%, potentially allowing wallet access outside local computer") % endpoint.address ().to_string ());
-		std::cout << warning << std::endl;
-		logger.always_log (warning);
+		nlogger.warn (nano::log::type::rpc, "WARNING: Control-level RPCs are enabled on non-local address {}, potentially allowing wallet access outside local computer", endpoint.address ().to_string ());
 	}
+
 	acceptor.open (endpoint.protocol ());
 	acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
 
@@ -47,7 +46,7 @@ void nano::rpc::start ()
 	acceptor.bind (endpoint, ec);
 	if (ec)
 	{
-		logger.always_log (boost::str (boost::format ("Error while binding for RPC on port %1%: %2%") % endpoint.port () % ec.message ()));
+		nlogger.critical (nano::log::type::rpc, "Error while binding for RPC on port: {} ({})", endpoint.port (), ec.message ());
 		throw std::runtime_error (ec.message ());
 	}
 	acceptor.listen ();
@@ -56,7 +55,7 @@ void nano::rpc::start ()
 
 void nano::rpc::accept ()
 {
-	auto connection (std::make_shared<nano::rpc_connection> (config, io_ctx, logger, rpc_handler_interface));
+	auto connection (std::make_shared<nano::rpc_connection> (config, io_ctx, nlogger, rpc_handler_interface));
 	acceptor.async_accept (connection->socket, boost::asio::bind_executor (connection->strand, [this, connection] (boost::system::error_code const & ec) {
 		if (ec != boost::asio::error::operation_aborted && acceptor.is_open ())
 		{
@@ -68,7 +67,7 @@ void nano::rpc::accept ()
 		}
 		else
 		{
-			logger.always_log (boost::str (boost::format ("Error accepting RPC connections: %1% (%2%)") % ec.message () % ec.value ()));
+			nlogger.error (nano::log::type::rpc, "Error accepting RPC connection: {}", ec.message ());
 		}
 	}));
 }

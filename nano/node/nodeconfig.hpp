@@ -4,6 +4,7 @@
 #include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/lmdbconfig.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/stats.hpp>
@@ -46,6 +47,7 @@ public:
 
 	bool upgrade_json (unsigned, nano::jsonconfig &);
 	nano::account random_representative () const;
+
 	nano::network_params network_params;
 	std::optional<uint16_t> peering_port{};
 	nano::scheduler::optimistic_config optimistic_scheduler;

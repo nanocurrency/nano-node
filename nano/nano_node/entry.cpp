@@ -53,8 +53,11 @@ public:
 
 int main (int argc, char * const * argv)
 {
-	nano::set_umask ();
+	nano::set_umask (); // Make sure the process umask is set before any files are created
+	nano::nlogger::initialize (nano::log_config::cli_default ());
+
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
+
 	boost::program_options::options_description description ("Command line options");
 	// clang-format off
 	description.add_options ()
@@ -138,7 +141,7 @@ int main (int argc, char * const * argv)
 	{
 		if (vm.count ("daemon") > 0)
 		{
-			nano_daemon::daemon daemon;
+			nano::daemon daemon;
 			nano::node_flags flags;
 			auto flags_ec = nano::update_flags (flags, vm);
 			if (flags_ec)
@@ -281,14 +284,14 @@ int main (int argc, char * const * argv)
 				{
 					if (sample.diff > log_threshold)
 					{
-						node->logger.always_log (sample.get_entry ());
+						std::cout << '\t' << sample.get_entry () << '\n';
 					}
 				}
 				for (auto const & newcomer : newcomers)
 				{
 					if (newcomer.second > log_threshold)
 					{
-						node->logger.always_log (newcomer_entry (newcomer));
+						std::cout << '\t' << newcomer_entry (newcomer) << '\n';
 					}
 				}
 			}
@@ -610,9 +613,9 @@ int main (int argc, char * const * argv)
 						error |= device >= environment.platforms[platform].devices.size ();
 						if (!error)
 						{
-							nano::logger_mt logger;
+							nano::nlogger nlogger;
 							nano::opencl_config config (platform, device, threads);
-							auto opencl (nano::opencl_work::create (true, config, logger, network_params.work));
+							auto opencl (nano::opencl_work::create (true, config, nlogger, network_params.work));
 							nano::work_pool work_pool{ network_params.network, 0, std::chrono::nanoseconds (0), opencl ? [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
 														  return opencl->generate_work (version_a, root_a, difficulty_a);
 													  }
@@ -1871,7 +1874,7 @@ int main (int argc, char * const * argv)
 			nano::update_flags (node_flags, vm);
 			nano::inactive_node inactive_node (data_path, node_flags);
 			auto node = inactive_node.node;
-			node->ledger_pruning (node_flags.block_processor_batch_size != 0 ? node_flags.block_processor_batch_size : 16 * 1024, true, true);
+			node->ledger_pruning (node_flags.block_processor_batch_size != 0 ? node_flags.block_processor_batch_size : 16 * 1024, true);
 		}
 		else if (vm.count ("debug_stacktrace"))
 		{
@@ -1887,7 +1890,11 @@ int main (int argc, char * const * argv)
 			}
 #endif
 			auto inactive_node = nano::default_inactive_node (data_path, vm);
-			inactive_node->node->logger.always_log (nano::severity_level::error, "Testing system logger");
+			inactive_node->node->nlogger.critical ({}, "Testing system logger (CRITICAL)");
+			inactive_node->node->nlogger.error ({}, "Testing system logger (ERROR)");
+			inactive_node->node->nlogger.warn ({}, "Testing system logger (WARN)");
+			inactive_node->node->nlogger.info ({}, "Testing system logger (INFO)");
+			inactive_node->node->nlogger.debug ({}, "Testing system logger (DEBUG)");
 		}
 		else if (vm.count ("debug_account_versions"))
 		{

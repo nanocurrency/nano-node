@@ -89,11 +89,9 @@ namespace transport
 		nano::block_uniquer & block_uniquer_m;
 		nano::vote_uniquer & vote_uniquer_m;
 		read_query read_op;
-
-	public:
-		static stat::detail to_stat_detail (parse_status);
-		static std::string to_string (parse_status);
 	};
-
 }
+
+nano::stat::detail to_stat_detail (nano::transport::message_deserializer::parse_status);
+std::string_view to_string (nano::transport::message_deserializer::parse_status);
 }

@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/logging.hpp>
 
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
@@ -356,6 +357,26 @@ uint32_t nano::test_scan_wallet_reps_delay ()
 	return boost::lexical_cast<uint32_t> (test_env);
 }
 
+std::string_view nano::to_string (nano::networks network)
+{
+	switch (network)
+	{
+		case nano::networks::invalid:
+			return "invalid";
+		case nano::networks::nano_beta_network:
+			return "beta";
+		case nano::networks::nano_dev_network:
+			return "dev";
+		case nano::networks::nano_live_network:
+			return "live";
+		case nano::networks::nano_test_network:
+			return "test";
+			// default case intentionally omitted to cause warnings for unhandled enums
+	}
+
+	return "n/a";
+}
+
 nano::tomlconfig nano::load_toml_file (const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides)
 {
 	std::stringstream config_overrides_stream;
@@ -383,10 +404,12 @@ nano::tomlconfig nano::load_toml_file (const std::filesystem::path & config_file
 	// First try to load config from the current working directory, then from the node data directory
 	if (auto toml = try_load_toml (config_filename); toml)
 	{
+		nano::default_logger ().info (nano::log::type::config, "Config for `{}` loaded from current working directory", config_filename.string ());
 		return *toml;
 	}
 	if (auto toml = try_load_toml (data_path / config_filename); toml)
 	{
+		nano::default_logger ().info (nano::log::type::config, "Config for `{}` loaded from node data directory ({})", config_filename.string (), data_path.string ());
 		return *toml;
 	}
 
@@ -397,5 +420,6 @@ nano::tomlconfig nano::load_toml_file (const std::filesystem::path & config_file
 	{
 		throw std::runtime_error (error.get_message ());
 	}
+	nano::default_logger ().info (nano::log::type::config, "Config for `{}` not found, using default configuration", config_filename.string ());
 	return toml;
 }

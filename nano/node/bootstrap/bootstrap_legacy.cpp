@@ -88,14 +88,6 @@ void nano::bootstrap_attempt_legacy::request_push (nano::unique_lock<nano::mutex
 		error = consume_future (future); // This is out of scope of `client' so when the last reference via boost::asio::io_context is lost and the client is destroyed, the future throws an exception.
 		lock_a.lock ();
 	}
-	if (node->config.logging.network_logging ())
-	{
-		node->logger.try_log ("Exiting bulk push client");
-		if (error)
-		{
-			node->logger.try_log ("Bulk push client failed");
-		}
-	}
 }
 
 void nano::bootstrap_attempt_legacy::add_frontier (nano::pull_info const & pull_a)
@@ -186,16 +178,13 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<nano::m
 				frontier_pulls.pop_front ();
 			}
 		}
-		if (node->config.logging.network_logging ())
+		if (!result)
 		{
-			if (!result)
-			{
-				node->logger.try_log (boost::str (boost::format ("Completed frontier request, %1% out of sync accounts according to %2%") % account_count % connection_l->channel->to_string ()));
-			}
-			else
-			{
-				node->stats.inc (nano::stat::type::error, nano::stat::detail::frontier_req, nano::stat::dir::out);
-			}
+			node->nlogger.debug (nano::log::type::bootstrap_legacy, "Completed frontier request, {} out of sync accounts according to {}", account_count.load (), connection_l->channel->to_string ());
+		}
+		else
+		{
+			node->stats.inc (nano::stat::type::error, nano::stat::detail::frontier_req, nano::stat::dir::out);
 		}
 	}
 	return result;
@@ -233,25 +222,24 @@ void nano::bootstrap_attempt_legacy::run ()
 			// clang-format off
 			condition.wait (lock, [&stopped = stopped, &pulling = pulling] { return stopped || pulling == 0; });
 		}
+
 		// Flushing may resolve forks which can add more pulls
-		node->logger.try_log ("Flushing unchecked blocks");
 		lock.unlock ();
 		node->block_processor.flush ();
 		lock.lock ();
+
 		if (start_account.number () != std::numeric_limits<nano::uint256_t>::max ())
 		{
-			node->logger.try_log (boost::str (boost::format ("Finished flushing unchecked blocks, requesting new frontiers after %1%") % start_account.to_account ()));
+			node->nlogger.debug(nano::log::type::bootstrap_legacy, "Requesting new frontiers after: {}", start_account.to_account ());
+
 			// Requesting new frontiers
 			run_start (lock);
-		}
-		else
-		{
-			node->logger.try_log ("Finished flushing unchecked blocks");
 		}
 	}
 	if (!stopped)
 	{
-		node->logger.try_log ("Completed legacy pulls");
+		node->nlogger.debug(nano::log::type::bootstrap_legacy, "Completed legacy pulls");
+
 		if (!node->flags.disable_bootstrap_bulk_push_client)
 		{
 			request_push (lock);

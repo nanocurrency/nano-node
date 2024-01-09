@@ -522,7 +522,8 @@ TEST (history, short_text)
 		account = system.account (transaction, 0);
 	}
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
-	auto store = nano::make_store (system.nodes[0]->logger, nano::unique_path (), nano::dev::constants);
+	nano::nlogger nlogger;
+	auto store = nano::make_store (nlogger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::ledger ledger (*store, system.nodes[0]->stats, nano::dev::constants);
 	{
@@ -559,7 +560,8 @@ TEST (history, pruned_source)
 		account = system.account (transaction, 0);
 	}
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
-	auto store = nano::make_store (system.nodes[0]->logger, nano::unique_path (), nano::dev::constants);
+	nano::nlogger nlogger;
+	auto store = nano::make_store (nlogger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::ledger ledger (*store, system.nodes[0]->stats, nano::dev::constants);
 	ledger.pruning = true;

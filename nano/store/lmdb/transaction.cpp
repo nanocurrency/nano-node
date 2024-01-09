@@ -1,5 +1,5 @@
 #include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/store/component.hpp>
@@ -116,8 +116,8 @@ bool nano::store::lmdb::write_transaction_impl::contains (nano::tables table_a) 
 	return true;
 }
 
-nano::mdb_txn_tracker::mdb_txn_tracker (nano::logger_mt & logger_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a) :
-	logger (logger_a),
+nano::mdb_txn_tracker::mdb_txn_tracker (nano::nlogger & nlogger_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a) :
+	nlogger (nlogger_a),
 	txn_tracking_config (txn_tracking_config_a),
 	block_processor_batch_max_time (block_processor_batch_max_time_a)
 {
@@ -194,7 +194,12 @@ void nano::mdb_txn_tracker::log_if_held_long_enough (nano::mdb_txn_stats const &
 	if (!should_ignore && ((is_write && time_open >= txn_tracking_config.min_write_txn_time) || (!is_write && time_open >= txn_tracking_config.min_read_txn_time)))
 	{
 		debug_assert (mdb_txn_stats.stacktrace);
-		logger.always_log (boost::str (boost::format ("%1%ms %2% held on thread %3%\n%4%") % mdb_txn_stats.timer.since_start ().count () % (is_write ? "write lock" : "read") % mdb_txn_stats.thread_name % *mdb_txn_stats.stacktrace));
+
+		nlogger.warn (nano::log::type::txn_tracker, "{}ms {} held on thread {}\n{}",
+		time_open.count (),
+		is_write ? "write lock" : "read",
+		mdb_txn_stats.thread_name,
+		nano::util::to_str (*mdb_txn_stats.stacktrace));
 	}
 }
 

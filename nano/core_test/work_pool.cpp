@@ -1,6 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
-#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/logging.hpp>
@@ -92,7 +92,7 @@ TEST (work, opencl)
 {
 	nano::logging logging;
 	logging.init (nano::unique_path ());
-	nano::logger_mt logger;
+	nano::nlogger logger;
 	bool error (false);
 	nano::opencl_environment environment (error);
 	ASSERT_TRUE (!error || !nano::opencl_loaded);

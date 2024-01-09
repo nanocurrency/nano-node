@@ -129,6 +129,8 @@ enum class networks : uint16_t
 	nano_test_network = 0x5258, // 'R', 'X'
 };
 
+std::string_view to_string (nano::networks);
+
 enum class work_version
 {
 	unspecified,

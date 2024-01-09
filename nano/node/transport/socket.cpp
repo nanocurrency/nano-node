@@ -54,6 +54,7 @@ void nano::transport::socket::async_connect (nano::tcp_endpoint const & endpoint
 	this_l->tcp_socket.async_connect (endpoint_a,
 	boost::asio::bind_executor (this_l->strand,
 	[this_l, callback = std::move (callback_a), endpoint_a] (boost::system::error_code const & ec) {
+		this_l->remote = endpoint_a;
 		if (ec)
 		{
 			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_connect_error, nano::stat::dir::in);
@@ -62,9 +63,13 @@ void nano::transport::socket::async_connect (nano::tcp_endpoint const & endpoint
 		else
 		{
 			this_l->set_last_completion ();
+			{
+				// Best effort attempt to get endpoint address
+				boost::system::error_code ec;
+				this_l->local = this_l->tcp_socket.local_endpoint (ec);
+			}
+			this_l->node.observers.socket_connected.notify (*this_l);
 		}
-		this_l->remote = endpoint_a;
-		this_l->node.observers.socket_connected.notify (*this_l);
 		callback (ec);
 	}));
 }
@@ -241,23 +246,22 @@ void nano::transport::socket::ongoing_checkup ()
 			if (this_l->endpoint_type () == endpoint_type_t::server && (now - this_l->last_receive_time_or_init) > static_cast<uint64_t> (this_l->silent_connection_tolerance_time.count ()))
 			{
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_silent_connection_drop, nano::stat::dir::in);
+
 				condition_to_disconnect = true;
 			}
 
 			// if there is no activity for timeout seconds then disconnect
 			if ((now - this_l->last_completion_time_or_init) > this_l->timeout)
 			{
-				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop,
-				this_l->endpoint_type () == endpoint_type_t::server ? nano::stat::dir::in : nano::stat::dir::out);
+				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, this_l->endpoint_type () == endpoint_type_t::server ? nano::stat::dir::in : nano::stat::dir::out);
+
 				condition_to_disconnect = true;
 			}
 
 			if (condition_to_disconnect)
 			{
-				if (this_l->node.config.logging.network_timeout_logging ())
-				{
-					this_l->node.logger.try_log (boost::str (boost::format ("Disconnecting from %1% due to timeout") % this_l->remote));
-				}
+				this_l->node.nlogger.debug (nano::log::type::tcp_server, "Closing socket due to timeout ({})", nano::util::to_str (this_l->remote));
+
 				this_l->timed_out = true;
 				this_l->close ();
 			}
@@ -330,19 +334,21 @@ void nano::transport::socket::close_internal ()
 
 	if (ec)
 	{
-		node.logger.try_log ("Failed to close socket gracefully: ", ec.message ());
-		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::error_socket_close);
+		node.stats.inc (nano::stat::type::socket, nano::stat::detail::error_socket_close);
+		node.nlogger.error (nano::log::type::socket, "Failed to close socket gracefully: {} ({})", ec.message (), nano::util::to_str (remote));
 	}
 }
 
 nano::tcp_endpoint nano::transport::socket::remote_endpoint () const
 {
+	// Using cached value to avoid calling tcp_socket.remote_endpoint() which may be invalid (throw) after closing the socket
 	return remote;
 }
 
 nano::tcp_endpoint nano::transport::socket::local_endpoint () const
 {
-	return tcp_socket.local_endpoint ();
+	// Using cached value to avoid calling tcp_socket.local_endpoint() which may be invalid (throw) after closing the socket
+	return local;
 }
 
 /*

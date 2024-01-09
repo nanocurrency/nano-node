@@ -38,10 +38,7 @@ void nano::bulk_push_client::start ()
 		}
 		else
 		{
-			if (node->config.logging.bulk_pull_logging ())
-			{
-				node->logger.try_log (boost::str (boost::format ("Unable to send bulk_push request: %1%") % ec.message ()));
-			}
+			node->nlogger.debug (nano::log::type::bulk_push_client, "Unable to send bulk push request: {}", ec.message ());
 		}
 	},
 	nano::transport::buffer_drop_policy::no_limiter_drop);
@@ -71,10 +68,7 @@ void nano::bulk_push_client::push ()
 			}
 			else
 			{
-				if (node->config.logging.bulk_pull_logging ())
-				{
-					node->logger.try_log ("Bulk pushing range ", current_target.first.to_string (), " down to ", current_target.second.to_string ());
-				}
+				node->nlogger.debug (nano::log::type::bulk_push_client, "Bulk pushing range: [{}:{}]", current_target.first.to_string (), current_target.second.to_string ());
 			}
 		}
 	}
@@ -124,10 +118,7 @@ void nano::bulk_push_client::push_block (nano::block const & block_a)
 		}
 		else
 		{
-			if (node->config.logging.bulk_pull_logging ())
-			{
-				node->logger.try_log (boost::str (boost::format ("Error sending block during bulk push: %1%") % ec.message ()));
-			}
+			node->nlogger.debug (nano::log::type::bulk_push_client, "Error sending block during bulk push: {}", ec.message ());
 		}
 	});
 }
@@ -171,10 +162,7 @@ void nano::bulk_push_server::receive ()
 	}
 	if (node->bootstrap_initiator.in_progress ())
 	{
-		if (node->config.logging.bulk_pull_logging ())
-		{
-			node->logger.try_log ("Aborting bulk_push because a bootstrap attempt is in progress");
-		}
+		node->nlogger.debug (nano::log::type::bulk_push_server, "Aborting bulk push because a bootstrap attempt is in progress");
 	}
 	else
 	{
@@ -191,10 +179,7 @@ void nano::bulk_push_server::receive ()
 			}
 			else
 			{
-				if (node->config.logging.bulk_pull_logging ())
-				{
-					node->logger.try_log (boost::str (boost::format ("Error receiving block type: %1%") % ec.message ()));
-				}
+				node->nlogger.debug (nano::log::type::bulk_push_server, "Error receiving block type: {}", ec.message ());
 			}
 		});
 	}
@@ -258,10 +243,7 @@ void nano::bulk_push_server::received_type ()
 		}
 		default:
 		{
-			if (node->config.logging.network_packet_logging ())
-			{
-				node->logger.try_log ("Unknown type received as block type");
-			}
+			node->nlogger.debug (nano::log::type::bulk_push_server, "Unknown type received as block type");
 			break;
 		}
 	}
@@ -282,11 +264,8 @@ void nano::bulk_push_server::received_block (boost::system::error_code const & e
 		{
 			if (node->network_params.work.validate_entry (*block))
 			{
-				if (node->config.logging.bulk_pull_logging ())
-				{
-					node->logger.try_log (boost::str (boost::format ("Insufficient work for bulk push block: %1%") % block->hash ().to_string ()));
-				}
-				node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
+				node->nlogger.debug (nano::log::type::bulk_push_server, "Insufficient work for bulk push block: {}", block->hash ().to_string ());
+				node->stats.inc (nano::stat::type::error, nano::stat::detail::insufficient_work);
 				return;
 			}
 			node->process_active (std::move (block));
@@ -294,10 +273,7 @@ void nano::bulk_push_server::received_block (boost::system::error_code const & e
 		}
 		else
 		{
-			if (node->config.logging.bulk_pull_logging ())
-			{
-				node->logger.try_log ("Error deserializing block received from pull request");
-			}
+			node->nlogger.debug (nano::log::type::bulk_push_server, "Error deserializing block received from pull request");
 		}
 	}
 }

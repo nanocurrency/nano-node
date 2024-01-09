@@ -12,12 +12,11 @@
 
 #include <numeric>
 
-nano::confirmation_height_bounded::confirmation_height_bounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, uint64_t & batch_write_size_a, std::function<void (std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void (nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
+nano::confirmation_height_bounded::confirmation_height_bounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::nlogger & nlogger_a, std::atomic<bool> & stopped_a, uint64_t & batch_write_size_a, std::function<void (std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void (nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
 	ledger (ledger_a),
 	write_database_queue (write_database_queue_a),
 	batch_separate_pending_min_time (batch_separate_pending_min_time_a),
-	logging (logging_a),
-	logger (logger_a),
+	nlogger (nlogger_a),
 	stopped (stopped_a),
 	batch_write_size (batch_write_size_a),
 	notify_observers_callback (notify_observers_callback_a),
@@ -101,9 +100,8 @@ void nano::confirmation_height_bounded::process (std::shared_ptr<nano::block> or
 			}
 			else
 			{
-				auto error_str = (boost::format ("Ledger mismatch trying to set confirmation height for block %1% (bounded processor)") % current.to_string ()).str ();
-				logger.always_log (error_str);
-				std::cerr << error_str << std::endl;
+				nlogger.critical (nano::log::type::conf_processor_bounded, "Ledger mismatch trying to set confirmation height for block {} (bounded processor)", current.to_string ());
+
 				release_assert (block);
 			}
 		}
@@ -433,9 +431,8 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 				{
 					if (!block)
 					{
-						auto error_str = (boost::format ("Failed to write confirmation height for block %1% (bounded processor)") % new_cemented_frontier.to_string ()).str ();
-						logger.always_log (error_str);
-						std::cerr << error_str << std::endl;
+						nlogger.critical (nano::log::type::conf_processor_bounded, "Failed to write confirmation height for block {} (bounded processor)", new_cemented_frontier.to_string ());
+
 						// Undo any blocks about to be cemented from this account for this pending write.
 						cemented_blocks.erase (cemented_blocks.end () - num_blocks_iterated, cemented_blocks.end ());
 						error = true;
@@ -455,10 +452,6 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 						total_blocks_cemented += num_blocks_cemented;
 						write_confirmation_height (num_blocks_cemented, start_height + total_blocks_cemented - 1, new_cemented_frontier);
 						transaction.commit ();
-						if (logging.timing_logging ())
-						{
-							logger.always_log (boost::str (boost::format ("Cemented %1% blocks in %2% %3% (bounded processor)") % cemented_blocks.size () % time_spent_cementing % cemented_batch_timer.unit ()));
-						}
 
 						// Update the maximum amount of blocks to write next time based on the time it took to cement this batch.
 						if (time_spent_cementing > maximum_batch_write_time)
@@ -521,11 +514,8 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 			--pending_writes_size;
 		}
 	}
-	auto time_spent_cementing = cemented_batch_timer.since_start ().count ();
-	if (logging.timing_logging () && time_spent_cementing > 50)
-	{
-		logger.always_log (boost::str (boost::format ("Cemented %1% blocks in %2% %3% (bounded processor)") % cemented_blocks.size () % time_spent_cementing % cemented_batch_timer.unit ()));
-	}
+
+	auto time_spent_cementing = cemented_batch_timer.since_start ();
 
 	// Scope guard could have been released earlier (0 cemented_blocks would indicate that)
 	if (scoped_write_guard_a.is_owned () && !cemented_blocks.empty ())
@@ -537,7 +527,8 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 	// Bail if there was an error. This indicates that there was a fatal issue with the ledger
 	// (the blocks probably got rolled back when they shouldn't have).
 	release_assert (!error);
-	if (time_spent_cementing > maximum_batch_write_time)
+
+	if (time_spent_cementing.count () > maximum_batch_write_time)
 	{
 		// Reduce (unless we have hit a floor)
 		batch_write_size = std::max<uint64_t> (minimum_batch_write_size, batch_write_size - amount_to_change);

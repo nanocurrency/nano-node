@@ -14,11 +14,11 @@
 #endif
 #include <boost/format.hpp>
 
-nano::rpc_connection::rpc_connection (nano::rpc_config const & rpc_config, boost::asio::io_context & io_ctx, nano::logger_mt & logger, nano::rpc_handler_interface & rpc_handler_interface) :
+nano::rpc_connection::rpc_connection (nano::rpc_config const & rpc_config, boost::asio::io_context & io_ctx, nano::nlogger & nlogger, nano::rpc_handler_interface & rpc_handler_interface) :
 	socket (io_ctx),
 	strand (io_ctx.get_executor ()),
 	io_ctx (io_ctx),
-	logger (logger),
+	nlogger (nlogger),
 	rpc_config (rpc_config),
 	rpc_handler_interface (rpc_handler_interface)
 {
@@ -84,7 +84,7 @@ void nano::rpc_connection::read (STREAM_TYPE & stream)
 		}
 		else
 		{
-			this_l->logger.always_log ("RPC header error: ", ec.message ());
+			this_l->nlogger.error (nano::log::type::rpc_connection, "RPC header error: ", ec.message ());
 
 			// Respond with the reason for the invalid header
 			auto response_handler ([this_l, &stream] (std::string const & tree_a) {
@@ -123,12 +123,9 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 						this_l->write_completion_handler (this_l);
 					}));
 
-					std::stringstream ss;
-					if (this_l->rpc_config.rpc_logging.log_rpc)
-					{
-						ss << "RPC request " << request_id << " completed in: " << std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () << " microseconds";
-						this_l->logger.always_log (ss.str ().c_str ());
-					}
+					// Bump logging level if RPC request logging is enabled
+					this_l->nlogger.log (this_l->rpc_config.rpc_logging.log_rpc ? nano::log::level::info : nano::log::level::debug,
+					nano::log::type::rpc_request, "RPC request {} completed in {} microseconds", request_id, std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count ());
 				});
 
 				std::string api_path_l = "/api/v2";
@@ -139,7 +136,7 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 				{
 					case boost::beast::http::verb::post:
 					{
-						auto handler (std::make_shared<nano::rpc_handler> (this_l->rpc_config, req.body (), request_id, response_handler, this_l->rpc_handler_interface, this_l->logger));
+						auto handler (std::make_shared<nano::rpc_handler> (this_l->rpc_config, req.body (), request_id, response_handler, this_l->rpc_handler_interface, this_l->nlogger));
 						nano::rpc_handler_request_params request_params;
 						request_params.rpc_version = rpc_version_l;
 						request_params.credentials = header_field_credentials_l;
@@ -168,7 +165,7 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 		}
 		else
 		{
-			this_l->logger.always_log ("RPC read error: ", ec.message ());
+			this_l->nlogger.error (nano::log::type::rpc_connection, "RPC read error: ", ec.message ());
 		}
 	}));
 }

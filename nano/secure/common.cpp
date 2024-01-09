@@ -2,6 +2,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/store/component.hpp>
 

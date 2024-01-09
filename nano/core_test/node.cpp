@@ -1,4 +1,5 @@
 #include <nano/lib/config.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/scheduler/component.hpp>
@@ -3300,7 +3301,7 @@ TEST (node, dont_write_lock_node)
 	std::promise<void> write_lock_held_promise;
 	std::promise<void> finished_promise;
 	std::thread ([&path, &write_lock_held_promise, &finished_promise] () {
-		nano::logger_mt logger;
+		nano::nlogger logger;
 		auto store = nano::make_store (logger, path, nano::dev::constants, false, true);
 		{
 			nano::ledger_cache ledger_cache;
@@ -4230,13 +4231,13 @@ TEST (node, pruning_age)
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
 
 	// Pruning with default age 1 day
-	node1.ledger_pruning (1, true, false);
+	node1.ledger_pruning (1, true);
 	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
 
 	// Pruning with max age 0
 	node1.config.max_pruning_age = std::chrono::seconds{ 0 };
-	node1.ledger_pruning (1, true, false);
+	node1.ledger_pruning (1, true);
 	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
 
@@ -4293,13 +4294,13 @@ TEST (node, pruning_depth)
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
 
 	// Pruning with default depth (unlimited)
-	node1.ledger_pruning (1, true, false);
+	node1.ledger_pruning (1, true);
 	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
 
 	// Pruning with max depth 1
 	node1.config.max_pruning_depth = 1;
-	node1.ledger_pruning (1, true, false);
+	node1.ledger_pruning (1, true);
 	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
 
@@ -4310,7 +4311,7 @@ TEST (node, pruning_depth)
 
 TEST (node_config, node_id_private_key_persistence)
 {
-	nano::logger_mt logger;
+	nano::test::system system;
 
 	// create the directory and the file
 	auto path = nano::unique_path ();
@@ -4318,19 +4319,19 @@ TEST (node_config, node_id_private_key_persistence)
 	auto priv_key_filename = path / "node_id_private.key";
 
 	// check that the key generated is random when the key does not exist
-	nano::keypair kp1 = nano::load_or_create_node_id (path, logger);
+	nano::keypair kp1 = nano::load_or_create_node_id (path, system.nlogger);
 	std::filesystem::remove (priv_key_filename);
-	nano::keypair kp2 = nano::load_or_create_node_id (path, logger);
+	nano::keypair kp2 = nano::load_or_create_node_id (path, system.nlogger);
 	ASSERT_NE (kp1.prv, kp2.prv);
 
 	// check that the key persists
-	nano::keypair kp3 = nano::load_or_create_node_id (path, logger);
+	nano::keypair kp3 = nano::load_or_create_node_id (path, system.nlogger);
 	ASSERT_EQ (kp2.prv, kp3.prv);
 
 	// write the key file manually and check that right key is loaded
 	std::ofstream ofs (priv_key_filename.string (), std::ofstream::out | std::ofstream::trunc);
 	ofs << "3F28D035B8AA75EA53DF753BFD065CF6138E742971B2C99B84FD8FE328FED2D9" << std::flush;
 	ofs.close ();
-	nano::keypair kp4 = nano::load_or_create_node_id (path, logger);
+	nano::keypair kp4 = nano::load_or_create_node_id (path, system.nlogger);
 	ASSERT_EQ (kp4.prv, nano::keypair ("3F28D035B8AA75EA53DF753BFD065CF6138E742971B2C99B84FD8FE328FED2D9").prv);
 }

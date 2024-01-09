@@ -48,6 +48,7 @@ enum class type
 	socket_server,
 	tcp,
 	tcp_server,
+	tcp_listener,
 	prunning,
 	conf_processor_bounded,
 	conf_processor_unbounded,

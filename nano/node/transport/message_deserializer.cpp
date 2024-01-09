@@ -1,6 +1,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/message_deserializer.hpp>
 
+#include <magic_enum.hpp>
+
 nano::transport::message_deserializer::message_deserializer (nano::network_constants const & network_constants_a, nano::network_filter & publish_filter_a, nano::block_uniquer & block_uniquer_a, nano::vote_uniquer & vote_uniquer_a,
 read_query read_op) :
 	read_buffer{ std::make_shared<std::vector<uint8_t>> () },
@@ -380,8 +382,10 @@ std::unique_ptr<nano::asc_pull_ack> nano::transport::message_deserializer::deser
 	return {};
 }
 
-nano::stat::detail nano::transport::message_deserializer::to_stat_detail (parse_status status)
+nano::stat::detail nano::to_stat_detail (nano::transport::message_deserializer::parse_status status)
 {
+	using parse_status = nano::transport::message_deserializer::parse_status;
+
 	// Keep additional `break` for readability
 	switch (status)
 	{
@@ -449,74 +453,7 @@ nano::stat::detail nano::transport::message_deserializer::to_stat_detail (parse_
 	return {};
 }
 
-std::string nano::transport::message_deserializer::to_string (parse_status status)
+std::string_view nano::to_string (nano::transport::message_deserializer::parse_status status)
 {
-	// Keep additional `break` for readability
-	switch (status)
-	{
-		case parse_status::none:
-			return "none";
-			break;
-		case parse_status::success:
-			return "success";
-			break;
-		case parse_status::insufficient_work:
-			return "insufficient_work";
-			break;
-		case parse_status::invalid_header:
-			return "invalid_header";
-			break;
-		case parse_status::invalid_message_type:
-			return "invalid_message_type";
-			break;
-		case parse_status::invalid_keepalive_message:
-			return "invalid_keepalive_message";
-			break;
-		case parse_status::invalid_publish_message:
-			return "invalid_publish_message";
-			break;
-		case parse_status::invalid_confirm_req_message:
-			return "invalid_confirm_req_message";
-			break;
-		case parse_status::invalid_confirm_ack_message:
-			return "invalid_confirm_ack_message";
-			break;
-		case parse_status::invalid_node_id_handshake_message:
-			return "invalid_node_id_handshake_message";
-			break;
-		case parse_status::invalid_telemetry_req_message:
-			return "invalid_telemetry_req_message";
-			break;
-		case parse_status::invalid_telemetry_ack_message:
-			return "invalid_telemetry_ack_message";
-			break;
-		case parse_status::invalid_bulk_pull_message:
-			return "invalid_bulk_pull_message";
-			break;
-		case parse_status::invalid_bulk_pull_account_message:
-			return "invalid_bulk_pull_account_message";
-			break;
-		case parse_status::invalid_frontier_req_message:
-			return "invalid_frontier_req_message";
-			break;
-		case parse_status::invalid_asc_pull_req_message:
-			return "invalid_asc_pull_req_message";
-			break;
-		case parse_status::invalid_asc_pull_ack_message:
-			return "invalid_asc_pull_ack_message";
-			break;
-		case parse_status::invalid_network:
-			return "invalid_network";
-			break;
-		case parse_status::outdated_version:
-			return "outdated_version";
-			break;
-		case parse_status::duplicate_publish_message:
-			return "duplicate_publish_message";
-			break;
-		case parse_status::message_size_too_big:
-			return "message_size_too_big";
-			break;
-	}
-	return "n/a";
+	return magic_enum::enum_name (status);
 }
