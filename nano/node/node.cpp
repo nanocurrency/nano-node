@@ -171,7 +171,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	//         Thus, be very careful if you change the order: if `bootstrap` gets constructed before `network`,
 	//         the latter would inherit the port from the former (if TCP is active, otherwise `network` picks first)
 	//
-	tcp_listener (network.port, *this),
+	tcp_listener{ std::make_shared<nano::transport::tcp_listener> (network.port, *this, config.tcp_incoming_connections_max) },
 	application_path (application_path_a),
 	port_mapping (*this),
 	rep_crawler (*this),
@@ -553,7 +553,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.ledger, "ledger"));
 	composite->add_component (collect_container_info (node.active, "active"));
 	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
-	composite->add_component (collect_container_info (node.tcp_listener, "tcp_listener"));
+	composite->add_component (collect_container_info (*node.tcp_listener, "tcp_listener"));
 	composite->add_component (collect_container_info (node.network, "network"));
 	composite->add_component (node.telemetry.collect_container_info ("telemetry"));
 	composite->add_component (collect_container_info (node.workers, "workers"));
@@ -646,12 +646,18 @@ void nano::node::start ()
 	bool tcp_enabled = false;
 	if (config.tcp_incoming_connections_max > 0 && !(flags.disable_bootstrap_listener && flags.disable_tcp_realtime))
 	{
-		tcp_listener.start ();
+		tcp_listener->start ([this] (std::shared_ptr<nano::transport::socket> const & new_connection, boost::system::error_code const & ec_a) {
+			if (!ec_a)
+			{
+				tcp_listener->accept_action (ec_a, new_connection);
+			}
+			return true;
+		});
 		tcp_enabled = true;
 
-		if (network.port != tcp_listener.port)
+		if (network.port != tcp_listener->endpoint ().port ())
 		{
-			network.port = tcp_listener.port;
+			network.port = tcp_listener->endpoint ().port ();
 		}
 
 		logger.always_log (boost::str (boost::format ("Node started with peering port `%1%`.") % network.port));
@@ -725,7 +731,7 @@ void nano::node::stop ()
 	websocket.stop ();
 	bootstrap_server.stop ();
 	bootstrap_initiator.stop ();
-	tcp_listener.stop ();
+	tcp_listener->stop ();
 	port_mapping.stop ();
 	wallets.stop ();
 	stats.stop ();
