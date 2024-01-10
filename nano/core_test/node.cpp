@@ -67,7 +67,7 @@ TEST (node, work_generate)
 TEST (node, block_store_path_failure)
 {
 	nano::test::system system;
-	auto service (boost::make_shared<boost::asio::io_context> ());
+	auto service (std::make_shared<boost::asio::io_context> ());
 	auto path (nano::unique_path ());
 	nano::logging logging;
 	logging.init (path);
