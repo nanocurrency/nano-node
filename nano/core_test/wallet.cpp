@@ -1,13 +1,10 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/thread_runner.hpp>
-#include <nano/lib/threading.hpp>
 #include <nano/store/lmdb/wallet_value.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
-
-#include <boost/filesystem.hpp>
 
 using namespace std::chrono_literals;
 unsigned constexpr nano::wallet_store::version_current;

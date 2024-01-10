@@ -2,8 +2,6 @@
 
 #include <nano/crypto_lib/random_pool.hpp>
 
-#include <cstdlib>
-
 namespace nano::bootstrap_ascending
 {
 using id_t = uint64_t;

@@ -7,7 +7,6 @@
 #include <atomic>
 #include <chrono>
 #include <memory>
-#include <unordered_set>
 
 namespace nano
 {
