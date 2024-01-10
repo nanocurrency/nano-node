@@ -9,10 +9,6 @@
 #include <atomic>
 #include <memory>
 
-namespace flatbuffers
-{
-class Parser;
-}
 namespace nano
 {
 class node;
