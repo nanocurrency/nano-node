@@ -4088,7 +4088,11 @@ TEST (node, deferred_dependent_elections)
 }
 }
 
-TEST (rep_crawler, DISABLED_recently_confirmed)
+// This test checks that if a block is in the recently_confirmed list then the repcrawler will not send a request for it.
+// The behaviour of this test previously was the opposite, that the repcrawler eventually send out such a block and deleted the block
+// from the recently confirmed list to try to make ammends for sending it, which is bad behaviour.
+// In the long term, we should have a better way to check for reps and this test should become redundant
+TEST (rep_crawler, recently_confirmed)
 {
 	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
@@ -4099,8 +4103,8 @@ TEST (rep_crawler, DISABLED_recently_confirmed)
 	system.wallet (1)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto channel = node1.network.find_node_id (node2.get_node_id ());
 	ASSERT_NE (nullptr, channel);
-	node1.rep_crawler.query (channel);
-	ASSERT_TIMELY (3s, node1.rep_crawler.representative_count () == 1);
+	node1.rep_crawler.query (channel); // this query should be dropped due to the recently_confirmed entry
+	ASSERT_ALWAYS_EQ (0.5s, node1.rep_crawler.representative_count (), 0);
 }
 
 namespace nano
