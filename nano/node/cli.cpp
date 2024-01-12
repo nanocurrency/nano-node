@@ -58,7 +58,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("rebuild_database", "Rebuild LMDB database with vacuum for best compaction")
 	("migrate_database_lmdb_to_rocksdb", "Migrates LMDB database to RocksDB")
 	("diagnostics", "Run internal diagnostics")
-	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node, rpc or tls. See also use_defaults.")
+	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node, rpc or log. See also use_defaults.")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
 	("key_expand", "Derive public key and account number from <key>")
 	("wallet_add_adhoc", "Insert <key> in to <wallet>")
@@ -669,6 +669,12 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		{
 			valid_type = true;
 			nano::rpc_config config{ nano::dev::network_params.network };
+			config.serialize_toml (toml);
+		}
+		else if (type == "log")
+		{
+			valid_type = true;
+			nano::log_config config{ nano::log_config::daemon_default () };
 			config.serialize_toml (toml);
 		}
 		else if (type == "tls")
