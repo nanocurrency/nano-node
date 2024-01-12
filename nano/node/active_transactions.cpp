@@ -429,14 +429,14 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 	if (stopped)
 		return result;
 
-	auto root (block_a->qualified_root ());
-	auto existing (roots.get<tag_root> ().find (root));
+	auto const root = block_a->qualified_root ();
+	auto const hash = block_a->hash ();
+	auto const existing = roots.get<tag_root> ().find (root);
 	if (existing == roots.get<tag_root> ().end ())
 	{
 		if (!recently_confirmed.exists (root))
 		{
 			result.inserted = true;
-			auto hash (block_a->hash ());
 			auto observe_rep_cb = [&node = node] (auto const & rep_a) {
 				// Representative is defined as online if replying to live votes or rep_crawler queries
 				node.online_reps.observe (rep_a);
@@ -444,19 +444,14 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 			result.election = nano::make_shared<nano::election> (node, block_a, nullptr, observe_rep_cb, election_behavior_a);
 			roots.get<tag_root> ().emplace (nano::active_transactions::conflict_info{ root, result.election });
 			blocks.emplace (hash, result.election);
+
 			// Keep track of election count by election type
 			debug_assert (count_by_behavior[result.election->behavior ()] >= 0);
 			count_by_behavior[result.election->behavior ()]++;
-
-			lock.unlock ();
-			if (auto const cache = node.vote_cache.find (hash); cache)
-			{
-				cache->fill (result.election);
-			}
-			node.stats.inc (nano::stat::type::active_started, nano::to_stat_detail (election_behavior_a));
-			node.observers.active_started.notify (hash);
-			vacancy_update ();
-			lock.lock ();
+		}
+		else
+		{
+			// result is not set
 		}
 	}
 	else
@@ -464,14 +459,25 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 		result.election = existing->election;
 	}
 
-	lock.unlock ();
+	lock.unlock (); // end of critical section
+
+	if (result.inserted)
+	{
+		if (auto const cache = node.vote_cache.find (hash); cache)
+		{
+			cache->fill (result.election);
+		}
+		node.stats.inc (nano::stat::type::active_started, nano::to_stat_detail (election_behavior_a));
+		node.observers.active_started.notify (hash);
+		vacancy_update ();
+	}
+
 	// Votes are generated for inserted or ongoing elections
 	if (result.election)
 	{
 		result.election->broadcast_vote ();
 	}
 	trim ();
-	lock.lock ();
 	return result;
 }
 
