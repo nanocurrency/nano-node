@@ -61,10 +61,14 @@ bool nano::scheduler::hinted::predicate () const
 
 void nano::scheduler::hinted::activate (const nano::store::read_transaction & transaction, const nano::block_hash & hash, bool check_dependents)
 {
+	const int max_iterations = 64;
+
+	std::set<nano::block_hash> visited;
 	std::stack<nano::block_hash> stack;
 	stack.push (hash);
 
-	while (!stack.empty ())
+	int iterations = 0;
+	while (!stack.empty () && iterations++ < max_iterations)
 	{
 		transaction.refresh_if_needed ();
 
@@ -91,7 +95,7 @@ void nano::scheduler::hinted::activate (const nano::store::read_transaction & tr
 					auto dependents = node.ledger.dependent_blocks (transaction, *block);
 					for (const auto & dependent_hash : dependents)
 					{
-						if (!dependent_hash.is_zero ())
+						if (!dependent_hash.is_zero () && visited.insert (dependent_hash).second) // Avoid visiting the same block twice
 						{
 							stack.push (dependent_hash); // Add dependent block to the stack
 						}
