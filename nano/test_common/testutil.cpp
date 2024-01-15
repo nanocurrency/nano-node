@@ -244,3 +244,24 @@ bool nano::test::start_elections (nano::test::system & system_a, nano::node & no
 {
 	return nano::test::start_elections (system_a, node_a, blocks_to_hashes (blocks_a), forced_a);
 }
+
+void nano::test::print_all_account_info (nano::node & node)
+{
+	auto const tx = node.ledger.store.tx_begin_read ();
+	auto const end = node.ledger.store.account.end ();
+	for (auto i = node.ledger.store.account.begin (tx); i != end; ++i)
+	{
+		nano::account acc = i->first;
+		nano::account_info acc_info = i->second;
+		nano::confirmation_height_info height_info;
+		std::cout << "Account: " << acc.to_account () << std::endl;
+		std::cout << "  Unconfirmed Balance: " << acc_info.balance.to_string_dec () << std::endl;
+		std::cout << "  Confirmed Balance:   " << node.ledger.account_balance (tx, acc, true) << std::endl;
+		std::cout << "  Block Count:         " << acc_info.block_count << std::endl;
+		if (!node.ledger.store.confirmation_height.get (tx, acc, height_info))
+		{
+			std::cout << "  Conf. Height:        " << height_info.height << std::endl;
+			std::cout << "  Conf. Frontier:      " << height_info.frontier.to_string () << std::endl;
+		}
+	}
+}

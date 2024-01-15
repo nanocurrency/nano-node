@@ -416,5 +416,12 @@ namespace test
 	 * NOTE: Each election is given 5 seconds to complete, if it does not complete in 5 seconds, it will return an error.
 	 */
 	[[nodiscard]] bool start_elections (nano::test::system &, nano::node &, std::vector<std::shared_ptr<nano::block>> const &, bool const forced_a = false);
+
+	/**
+	 * \brief Debugging function to print all accounts in a ledger. Intented to be used to debug unit tests.
+	 * \param ledger
+	 */
+	void print_all_account_info (nano::node & node);
+
 }
 }
