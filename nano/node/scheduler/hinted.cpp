@@ -129,6 +129,11 @@ void nano::scheduler::hinted::run_iterative ()
 
 	for (auto const & entry : tops)
 	{
+		if (stopped)
+		{
+			return;
+		}
+
 		if (!predicate ())
 		{
 			return;
