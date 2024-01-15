@@ -9,6 +9,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index_container.hpp>
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <thread>
@@ -80,7 +81,7 @@ private: // Dependencies
 private:
 	hinted_config const & config;
 
-	bool stopped{ false };
+	std::atomic<bool> stopped{ false };
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
 	std::thread thread;
