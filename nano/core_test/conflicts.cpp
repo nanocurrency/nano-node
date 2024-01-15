@@ -174,7 +174,7 @@ TEST (conflicts, add_two)
 	// wait 3s before asserting just to make sure there would be enough time
 	// for the Active Elections Container to evict both elections in case they would wrongfully get confirmed
 	//
-	ASSERT_TIMELY (5s, node->active.size () == 2);
+	ASSERT_TIMELY_EQ (5s, node->active.size (), 2);
 }
 
 TEST (vote_uniquer, null)
