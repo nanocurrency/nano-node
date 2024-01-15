@@ -148,39 +148,42 @@ nano::block_list_t nano::test::setup_independent_blocks (nano::test::system & sy
 	return blocks;
 }
 
-nano::keypair nano::test::setup_rep (nano::test::system & system, nano::node & node, nano::uint128_t const amount, nano::keypair source)
+std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::block>> nano::test::setup_new_account (nano::test::system & system, nano::node & node, nano::uint128_t const amount, nano::keypair source, nano::keypair dest, nano::account dest_rep, bool force_confirm)
 {
 	auto latest = node.latest (source.pub);
 	auto balance = node.balance (source.pub);
 
-	nano::keypair key;
-	nano::block_builder builder;
-
-	auto send = builder
+	auto send = nano::block_builder ()
 				.state ()
 				.account (source.pub)
 				.previous (latest)
 				.representative (source.pub)
 				.balance (balance - amount)
-				.link (key.pub)
+				.link (dest.pub)
 				.sign (source.prv, source.pub)
 				.work (*system.work.generate (latest))
 				.build_shared ();
 
-	auto open = builder
+	auto open = nano::block_builder ()
 				.state ()
-				.account (key.pub)
+				.account (dest.pub)
 				.previous (0)
-				.representative (key.pub)
+				.representative (dest_rep)
 				.balance (amount)
 				.link (send->hash ())
-				.sign (key.prv, key.pub)
-				.work (*system.work.generate (key.pub))
+				.sign (dest.prv, dest.pub)
+				.work (*system.work.generate (dest.pub))
 				.build_shared ();
 
 	EXPECT_TRUE (nano::test::process (node, { send, open }));
-	EXPECT_TRUE (nano::test::start_elections (system, node, { send, open }, true));
+	EXPECT_TRUE (nano::test::start_elections (system, node, { send, open }, force_confirm));
 	EXPECT_TIMELY (5s, nano::test::confirmed (node, { send, open }));
+	return std::make_pair (send, open);
+}
 
-	return key;
+nano::keypair nano::test::setup_rep (nano::test::system & system, nano::node & node, nano::uint128_t const amount, nano::keypair source)
+{
+	nano::keypair destkey;
+	nano::test::setup_new_account (system, node, amount, source, destkey, destkey.pub, true);
+	return destkey;
 }
