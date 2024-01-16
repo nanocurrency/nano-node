@@ -323,17 +323,13 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 		});
 		observers.vote.add ([this] (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, nano::vote_code code_a) {
 			debug_assert (code_a != nano::vote_code::invalid);
-			// The vote_code::vote is handled inside the election
-			if (code_a == nano::vote_code::indeterminate)
+			auto active_in_rep_crawler (!this->rep_crawler.response (channel_a, vote_a));
+			if (active_in_rep_crawler)
 			{
-				auto active_in_rep_crawler (!this->rep_crawler.response (channel_a, vote_a));
-				if (active_in_rep_crawler)
-				{
-					// Representative is defined as online if replying to live votes or rep_crawler queries
-					this->online_reps.observe (vote_a->account);
-				}
-				this->gap_cache.vote (vote_a);
+				// Representative is defined as online if replying to live votes or rep_crawler queries
+				this->online_reps.observe (vote_a->account);
 			}
+			this->gap_cache.vote (vote_a);
 		});
 
 		// Cancelling local work generation
@@ -1386,7 +1382,6 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 	decltype (iteration_a) const num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
 	if (auto block_l = ledger.store.block.get (ledger.store.tx_begin_read (), hash))
 	{
-		active.recently_confirmed.put (block_l->qualified_root (), hash);
 		confirmation_height_processor.add (block_l);
 	}
 	else if (iteration_a < num_iters)
