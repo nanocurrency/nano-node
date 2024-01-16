@@ -1,5 +1,7 @@
 #pragma once
 
+#include <nano/lib/tomlconfig.hpp>
+
 #include <boost/config.hpp>
 #include <boost/version.hpp>
 
@@ -404,4 +406,24 @@ bool is_sanitizer_build ();
 
 /** Set the active network to the dev network */
 void force_nano_dev_network ();
+
+/**
+ * Attempt to read a configuration file from current working directory, or if not found, the nano root directory.
+ * Returns empty tomlconfig if nothing is found.
+ */
+nano::tomlconfig load_toml_file (const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides);
+
+template <typename T>
+T load_config_file (T fallback, const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides)
+{
+	auto toml = load_toml_file (config_filename, data_path, config_overrides);
+
+	T config = fallback;
+	auto error = config.deserialize_toml (toml);
+	if (error)
+	{
+		throw std::runtime_error (error.get_message ());
+	}
+	return config;
+}
 }

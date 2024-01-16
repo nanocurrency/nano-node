@@ -355,3 +355,47 @@ uint32_t nano::test_scan_wallet_reps_delay ()
 	auto test_env = nano::get_env_or_default ("NANO_TEST_WALLET_SCAN_REPS_DELAY", "900000"); // 15 minutes by default
 	return boost::lexical_cast<uint32_t> (test_env);
 }
+
+nano::tomlconfig nano::load_toml_file (const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides)
+{
+	std::stringstream config_overrides_stream;
+	for (auto const & entry : config_overrides)
+	{
+		config_overrides_stream << entry << std::endl;
+	}
+	config_overrides_stream << std::endl;
+
+	auto try_load_toml = [&config_overrides_stream] (auto toml_config_path) -> std::optional<nano::tomlconfig> {
+		// Make sure we don't create an empty toml file if it doesn't exist. Running without a toml file is the default.
+		if (std::filesystem::exists (toml_config_path))
+		{
+			nano::tomlconfig toml;
+			auto error = toml.read (config_overrides_stream, toml_config_path);
+			if (error)
+			{
+				throw std::runtime_error (error.get_message ());
+			}
+			return toml;
+		}
+		return std::nullopt;
+	};
+
+	// First try to load config from the current working directory, then from the node data directory
+	if (auto toml = try_load_toml (config_filename); toml)
+	{
+		return *toml;
+	}
+	if (auto toml = try_load_toml (data_path / config_filename); toml)
+	{
+		return *toml;
+	}
+
+	// If no config was found, return an empty config with overrides applied
+	nano::tomlconfig toml;
+	auto error = toml.read (config_overrides_stream);
+	if (error)
+	{
+		throw std::runtime_error (error.get_message ());
+	}
+	return toml;
+}
