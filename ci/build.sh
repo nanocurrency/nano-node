@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euox pipefail
+shopt -s nocasematch  # Enable case-insensitive matching
 
 BUILD_TARGET=""
 if [[ ${1:-} ]]; then
@@ -34,6 +35,9 @@ if [[ ${SANITIZER:-} ]]; then
             ;;
         TSAN)
             CMAKE_SANITIZER="-DNANO_TSAN=ON"
+            ;;
+        UBSAN)
+            CMAKE_SANITIZER="-DNANO_UBSAN=ON"
             ;;
         *)
             echo "Unknown sanitizer: '${SANITIZER}'"

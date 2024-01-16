@@ -12,10 +12,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/filesystem.hpp>
-#include <boost/make_shared.hpp>
-#include <boost/optional.hpp>
-
 #include <fstream>
 #include <numeric>
 
@@ -69,7 +65,7 @@ TEST (node, work_generate)
 TEST (node, block_store_path_failure)
 {
 	nano::test::system system;
-	auto service (boost::make_shared<boost::asio::io_context> ());
+	auto service (std::make_shared<boost::asio::io_context> ());
 	auto path (nano::unique_path ());
 	nano::logging logging;
 	logging.init (path);
@@ -2143,6 +2139,8 @@ TEST (node, block_confirm)
 	auto send1_copy = builder.make_block ()
 					  .from (*send1)
 					  .build_shared ();
+	auto hash1 = send1->hash ();
+	auto hash2 = send1_copy->hash ();
 	node1.block_processor.add (send1);
 	node2.block_processor.add (send1_copy);
 	ASSERT_TIMELY (5s, node1.ledger.block_or_pruned_exists (send1->hash ()) && node2.ledger.block_or_pruned_exists (send1_copy->hash ()));
@@ -2275,8 +2273,8 @@ TEST (node, local_votes_cache)
 	election->force_confirm ();
 	ASSERT_TIMELY (3s, node.ledger.cache.cemented_count == 3);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::confirm_req message1{ nano::dev::network_params.network, send1 };
-	nano::confirm_req message2{ nano::dev::network_params.network, send2 };
+	nano::confirm_req message1{ nano::dev::network_params.network, send1->hash (), send1->root () };
+	nano::confirm_req message2{ nano::dev::network_params.network, send2->hash (), send2->root () };
 	auto channel = std::make_shared<nano::transport::fake::channel> (node);
 	node.network.inbound (message1, channel);
 	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 1);
@@ -2298,7 +2296,7 @@ TEST (node, local_votes_cache)
 		auto transaction (node.store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *send3).code);
 	}
-	nano::confirm_req message3{ nano::dev::network_params.network, send3 };
+	nano::confirm_req message3{ nano::dev::network_params.network, send3->hash (), send3->root () };
 	for (auto i (0); i < 100; ++i)
 	{
 		node.network.inbound (message3, channel);
@@ -2398,7 +2396,7 @@ TEST (node, local_votes_cache_generate_new_vote)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
 	// Send a confirm req for genesis block to node
-	nano::confirm_req message1{ nano::dev::network_params.network, nano::dev::genesis };
+	nano::confirm_req message1{ nano::dev::network_params.network, nano::dev::genesis->hash (), nano::dev::genesis->root () };
 	auto channel = std::make_shared<nano::transport::fake::channel> (node);
 	node.network.inbound (message1, channel);
 
@@ -3182,7 +3180,7 @@ TEST (node, peers)
 	node2->start ();
 	ASSERT_TIMELY (10s, !node2->network.empty () && !node1->network.empty ())
 	// Wait to finish TCP node ID handshakes
-	ASSERT_TIMELY (10s, node1->tcp_listener.realtime_count != 0 && node2->tcp_listener.realtime_count != 0);
+	ASSERT_TIMELY (10s, node1->tcp_listener->realtime_count != 0 && node2->tcp_listener->realtime_count != 0);
 	// Confirm that the peers match with the endpoints we are expecting
 	ASSERT_EQ (1, node1->network.size ());
 	auto list1 (node1->network.list (2));
@@ -4312,12 +4310,12 @@ TEST (node_config, node_id_private_key_persistence)
 
 	// create the directory and the file
 	auto path = nano::unique_path ();
-	ASSERT_TRUE (boost::filesystem::create_directories (path));
+	ASSERT_TRUE (std::filesystem::create_directories (path));
 	auto priv_key_filename = path / "node_id_private.key";
 
 	// check that the key generated is random when the key does not exist
 	nano::keypair kp1 = nano::load_or_create_node_id (path, logger);
-	boost::filesystem::remove (priv_key_filename);
+	std::filesystem::remove (priv_key_filename);
 	nano::keypair kp2 = nano::load_or_create_node_id (path, logger);
 	ASSERT_NE (kp1.prv, kp2.prv);
 

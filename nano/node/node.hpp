@@ -29,7 +29,6 @@
 #include <nano/node/process_live_dispatcher.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/request_aggregator.hpp>
-#include <nano/node/signatures.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/tcp_server.hpp>
 #include <nano/node/unchecked_map.hpp>
@@ -70,8 +69,8 @@ outbound_bandwidth_limiter::config outbound_bandwidth_limiter_config (node_confi
 class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
-	node (boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
-	node (boost::asio::io_context &, boost::filesystem::path const &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
+	node (boost::asio::io_context &, uint16_t, std::filesystem::path const &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
+	node (boost::asio::io_context &, std::filesystem::path const &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
 	~node ();
 
 public:
@@ -80,7 +79,7 @@ public:
 	{
 		io_ctx.post (action_a);
 	}
-	bool copy_with_compaction (boost::filesystem::path const &);
+	bool copy_with_compaction (std::filesystem::path const &);
 	void keepalive (std::string const &, uint16_t);
 	void start ();
 	void stop ();
@@ -159,14 +158,13 @@ public:
 	nano::wallets_store & wallets_store;
 	nano::gap_cache gap_cache;
 	nano::ledger ledger;
-	nano::signature_checker checker;
 	nano::outbound_bandwidth_limiter outbound_limiter;
 	nano::network network;
 	nano::telemetry telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;
 	nano::bootstrap_server bootstrap_server;
-	nano::transport::tcp_listener tcp_listener;
-	boost::filesystem::path application_path;
+	std::shared_ptr<nano::transport::tcp_listener> tcp_listener;
+	std::filesystem::path application_path;
 	nano::node_observers observers;
 	nano::port_mapping port_mapping;
 	nano::online_reps online_reps;
@@ -230,7 +228,7 @@ private:
 	void long_inactivity_cleanup ();
 };
 
-nano::keypair load_or_create_node_id (boost::filesystem::path const & application_path, nano::logger_mt & logger);
+nano::keypair load_or_create_node_id (std::filesystem::path const & application_path, nano::logger_mt & logger);
 std::unique_ptr<container_info_component> collect_container_info (node & node, std::string const & name);
 
 nano::node_flags const & inactive_node_flag_defaults ();
@@ -238,7 +236,7 @@ nano::node_flags const & inactive_node_flag_defaults ();
 class node_wrapper final
 {
 public:
-	node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a);
+	node_wrapper (std::filesystem::path const & path_a, std::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a);
 	~node_wrapper ();
 
 	nano::network_params network_params;
@@ -250,11 +248,11 @@ public:
 class inactive_node final
 {
 public:
-	inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a);
-	inactive_node (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a);
+	inactive_node (std::filesystem::path const & path_a, nano::node_flags const & node_flags_a);
+	inactive_node (std::filesystem::path const & path_a, std::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a);
 
 	nano::node_wrapper node_wrapper;
 	std::shared_ptr<nano::node> node;
 };
-std::unique_ptr<nano::inactive_node> default_inactive_node (boost::filesystem::path const &, boost::program_options::variables_map const &);
+std::unique_ptr<nano::inactive_node> default_inactive_node (std::filesystem::path const &, boost::program_options::variables_map const &);
 }

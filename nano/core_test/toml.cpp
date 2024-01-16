@@ -71,7 +71,7 @@ TEST (toml, diff_equal)
 TEST (toml, daemon_config_update_array)
 {
 	nano::tomlconfig t;
-	boost::filesystem::path data_path (".");
+	std::filesystem::path data_path (".");
 	nano::daemon_config c{ data_path, nano::dev::network_params };
 	c.node.preconfigured_peers.push_back ("dev-peer.org");
 	c.serialize_toml (t);
@@ -275,6 +275,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.hinted_scheduler.hinting_threshold_percent, defaults.node.hinted_scheduler.hinting_threshold_percent);
 	ASSERT_EQ (conf.node.hinted_scheduler.check_interval.count (), defaults.node.hinted_scheduler.check_interval.count ());
 	ASSERT_EQ (conf.node.hinted_scheduler.block_cooldown.count (), defaults.node.hinted_scheduler.block_cooldown.count ());
+	ASSERT_EQ (conf.node.hinted_scheduler.vacancy_threshold_percent, defaults.node.hinted_scheduler.vacancy_threshold_percent);
 
 	ASSERT_EQ (conf.node.vote_cache.max_size, defaults.node.vote_cache.max_size);
 	ASSERT_EQ (conf.node.vote_cache.max_voters, defaults.node.vote_cache.max_voters);
@@ -543,6 +544,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	hinting_threshold = 99
 	check_interval = 999
 	block_cooldown = 999
+	vacancy_threshold = 99
 
 	[node.rocksdb]
 	enable = true
@@ -720,6 +722,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.hinted_scheduler.hinting_threshold_percent, defaults.node.hinted_scheduler.hinting_threshold_percent);
 	ASSERT_NE (conf.node.hinted_scheduler.check_interval.count (), defaults.node.hinted_scheduler.check_interval.count ());
 	ASSERT_NE (conf.node.hinted_scheduler.block_cooldown.count (), defaults.node.hinted_scheduler.block_cooldown.count ());
+	ASSERT_NE (conf.node.hinted_scheduler.vacancy_threshold_percent, defaults.node.hinted_scheduler.vacancy_threshold_percent);
 
 	ASSERT_NE (conf.node.vote_cache.max_size, defaults.node.vote_cache.max_size);
 	ASSERT_NE (conf.node.vote_cache.max_voters, defaults.node.vote_cache.max_voters);
@@ -874,7 +877,7 @@ TEST (toml, daemon_config_deserialize_errors)
 TEST (toml, daemon_read_config)
 {
 	auto path (nano::unique_path ());
-	boost::filesystem::create_directories (path);
+	std::filesystem::create_directories (path);
 	nano::daemon_config config;
 	std::vector<std::string> invalid_overrides1{ "node.max_work_generate_multiplier=0" };
 	std::string expected_message1{ "max_work_generate_multiplier must be greater than or equal to 1" };
@@ -883,7 +886,7 @@ TEST (toml, daemon_read_config)
 	std::string expected_message2{ "Value must follow after a '=' at line 2" };
 
 	// Reading when there is no config file
-	ASSERT_FALSE (boost::filesystem::exists (nano::get_node_toml_config_path (path)));
+	ASSERT_FALSE (std::filesystem::exists (nano::get_node_toml_config_path (path)));
 	ASSERT_FALSE (nano::read_node_config_toml (path, config));
 	{
 		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);
@@ -901,7 +904,7 @@ TEST (toml, daemon_read_config)
 	toml.write (nano::get_node_toml_config_path (path));
 
 	// Reading when there is a config file
-	ASSERT_TRUE (boost::filesystem::exists (nano::get_node_toml_config_path (path)));
+	ASSERT_TRUE (std::filesystem::exists (nano::get_node_toml_config_path (path)));
 	ASSERT_FALSE (nano::read_node_config_toml (path, config));
 	{
 		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);

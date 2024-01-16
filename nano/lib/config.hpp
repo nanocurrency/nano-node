@@ -6,18 +6,11 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <filesystem>
 #include <optional>
 #include <string>
 
 using namespace std::chrono_literals;
-
-namespace boost
-{
-namespace filesystem
-{
-	class path;
-}
-}
 
 #define xstr(a) ver_str (a)
 #define ver_str(a) #a
@@ -379,19 +372,21 @@ public:
 
 	/** Initial value is ACTIVE_NETWORK compile flag, but can be overridden by a CLI flag */
 	static nano::networks active_network;
+
 	/** Current protocol version */
-	uint8_t const protocol_version = 0x13;
+	uint8_t const protocol_version = 0x14;
 	/** Minimum accepted protocol version */
 	uint8_t const protocol_version_min = 0x12;
+
 	/** Minimum accepted protocol version used when bootstrapping */
 	uint8_t const bootstrap_protocol_version_min = 0x13;
 };
 
-std::string get_node_toml_config_path (boost::filesystem::path const & data_path);
-std::string get_rpc_toml_config_path (boost::filesystem::path const & data_path);
-std::string get_access_toml_config_path (boost::filesystem::path const & data_path);
-std::string get_qtwallet_toml_config_path (boost::filesystem::path const & data_path);
-std::string get_tls_toml_config_path (boost::filesystem::path const & data_path);
+std::string get_node_toml_config_path (std::filesystem::path const & data_path);
+std::string get_rpc_toml_config_path (std::filesystem::path const & data_path);
+std::string get_access_toml_config_path (std::filesystem::path const & data_path);
+std::string get_qtwallet_toml_config_path (std::filesystem::path const & data_path);
+std::string get_tls_toml_config_path (std::filesystem::path const & data_path);
 
 /** Checks if we are running inside a valgrind instance */
 bool running_within_valgrind ();

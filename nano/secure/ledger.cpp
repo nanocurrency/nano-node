@@ -17,8 +17,6 @@
 #include <nano/store/pruned.hpp>
 #include <nano/store/version.hpp>
 
-#include <boost/filesystem.hpp>
-
 #include <cryptopp/words.h>
 
 namespace
@@ -1553,12 +1551,12 @@ std::multimap<uint64_t, nano::uncemented_info, std::greater<>> nano::ledger::unc
 }
 
 // A precondition is that the store is an LMDB store
-bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data_path_a) const
+bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_path_a) const
 {
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path_a, error_chmod);
 	auto rockdb_data_path = data_path_a / "rocksdb";
-	boost::filesystem::remove_all (rockdb_data_path);
+	std::filesystem::remove_all (rockdb_data_path);
 
 	nano::logger_mt logger;
 	auto error (false);

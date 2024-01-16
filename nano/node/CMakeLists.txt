@@ -110,8 +110,6 @@ add_library(
   ipc/ipc_server.cpp
   json_handler.hpp
   json_handler.cpp
-  ledger_walker.hpp
-  ledger_walker.cpp
   logging.hpp
   logging.cpp
   make_store.hpp
@@ -156,10 +154,6 @@ add_library(
   scheduler/optimistic.cpp
   scheduler/priority.hpp
   scheduler/priority.cpp
-  signatures.hpp
-  signatures.cpp
-  state_block_signature_verification.hpp
-  state_block_signature_verification.cpp
   telemetry.hpp
   telemetry.cpp
   transport/channel.hpp
@@ -200,10 +194,6 @@ add_library(
   messages.cpp
   xorshift.hpp)
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  set(DISKHASH diskhash)
-endif()
-
 target_link_libraries(
   node
   nano_lib
@@ -214,7 +204,6 @@ target_link_libraries(
   argon2
   lmdb
   Boost::beast
-  Boost::filesystem
   Boost::log_setup
   Boost::log
   Boost::program_options
@@ -222,7 +211,6 @@ target_link_libraries(
   Boost::system
   Boost::thread
   rocksdb
-  ${DISKHASH}
   ${CMAKE_DL_LIBS}
   ${psapi_lib})
 

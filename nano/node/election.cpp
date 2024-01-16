@@ -188,6 +188,24 @@ void nano::election::broadcast_vote ()
 	}
 }
 
+nano::vote_info nano::election::get_last_vote (nano::account const & account)
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return last_votes[account];
+}
+
+void nano::election::set_last_vote (nano::account const & account, nano::vote_info vote_info)
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	last_votes[account] = vote_info;
+}
+
+nano::election_status nano::election::get_status () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return status;
+}
+
 bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a)
 {
 	bool result = false;
@@ -354,6 +372,41 @@ void nano::election::confirm_if_quorum (nano::unique_lock<nano::mutex> & lock_a)
 			confirm_once (lock_a, nano::election_status_type::active_confirmed_quorum);
 		}
 	}
+}
+
+boost::optional<nano::election_status_type> nano::election::try_confirm (nano::block_hash const & hash)
+{
+	boost::optional<nano::election_status_type> status_type;
+	nano::unique_lock<nano::mutex> election_lock{ mutex };
+	auto winner = status.winner;
+	if (winner && winner->hash () == hash)
+	{
+		// Determine if the block was confirmed explicitly via election confirmation or implicitly via confirmation height
+		if (!confirmed ())
+		{
+			confirm_once (election_lock, nano::election_status_type::active_confirmation_height);
+			status_type = nano::election_status_type::active_confirmation_height;
+		}
+		else
+		{
+			status_type = nano::election_status_type::active_confirmed_quorum;
+		}
+	}
+	else
+	{
+		status_type = boost::optional<nano::election_status_type>{};
+	}
+	return status_type;
+}
+
+nano::election_status nano::election::set_status_type (nano::election_status_type status_type)
+{
+	nano::unique_lock<nano::mutex> election_lk{ mutex };
+	status.type = status_type;
+	status.confirmation_request_count = confirmation_request_count;
+	nano::election_status status_l{ status };
+	election_lk.unlock ();
+	return status_l;
 }
 
 void nano::election::log_votes (nano::tally_t const & tally_a, std::string const & prefix_a) const

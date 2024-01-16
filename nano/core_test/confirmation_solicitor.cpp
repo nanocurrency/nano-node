@@ -137,8 +137,7 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 	// Add a vote for something else, not the winner
 	for (auto const & rep : representatives)
 	{
-		nano::lock_guard<nano::mutex> guard (election->mutex);
-		election->last_votes[rep.account] = { std::chrono::steady_clock::now (), 1, 1 };
+		election->set_last_vote (rep.account, { std::chrono::steady_clock::now (), 1, 1 });
 	}
 	ASSERT_FALSE (solicitor.add (*election));
 	ASSERT_FALSE (solicitor.broadcast (*election));

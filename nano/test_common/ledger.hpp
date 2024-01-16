@@ -2,7 +2,6 @@
 
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/node/common.hpp>
 #include <nano/secure/ledger.hpp>
 
 namespace nano

@@ -38,6 +38,7 @@ add_library(
   errors.hpp
   errors.cpp
   id_dispenser.hpp
+  interval.hpp
   ipc.hpp
   ipc.cpp
   ipc_client.hpp
@@ -90,6 +91,7 @@ add_library(
   tlsconfig.cpp
   tomlconfig.hpp
   tomlconfig.cpp
+  uniquer.hpp
   utility.hpp
   utility.cpp
   walletconfig.hpp

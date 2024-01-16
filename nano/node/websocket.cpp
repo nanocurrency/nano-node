@@ -5,7 +5,6 @@
 #include <nano/lib/work.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/transport/channel.hpp>
-#include <nano/node/transport/transport.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
 

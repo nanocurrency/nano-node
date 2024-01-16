@@ -22,9 +22,6 @@
 [submodule "rocksdb"]
 	path = submodules/rocksdb
 	url = https://github.com/facebook/rocksdb.git
-[submodule "diskhash"]
-	path = submodules/diskhash
-	url = https://github.com/nanocurrency/diskhash.git
 [submodule "boost"]
 	path = submodules/boost
 	url = https://github.com/boostorg/boost.git

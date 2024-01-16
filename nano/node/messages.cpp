@@ -189,26 +189,71 @@ nano::block_type nano::message_header::block_type () const
 void nano::message_header::block_type_set (nano::block_type type_a)
 {
 	extensions &= ~block_type_mask;
-	extensions |= std::bitset<16> (static_cast<unsigned long long> (type_a) << 8);
+	extensions |= (extensions_bitset_t{ static_cast<unsigned long long> (type_a) } << 8);
 }
 
 uint8_t nano::message_header::count_get () const
 {
+	debug_assert (type == nano::message_type::confirm_ack || type == nano::message_type::confirm_req);
+	debug_assert (!flag_test (confirm_v2_flag)); // Only valid for v1
+
 	return static_cast<uint8_t> (((extensions & count_mask) >> 12).to_ullong ());
 }
 
 void nano::message_header::count_set (uint8_t count_a)
 {
-	debug_assert (count_a < 16);
+	debug_assert (type == nano::message_type::confirm_ack || type == nano::message_type::confirm_req);
+	debug_assert (!flag_test (confirm_v2_flag)); // Only valid for v1
+	debug_assert (count_a < 16); // Max 4 bits
+
 	extensions &= ~count_mask;
-	extensions |= std::bitset<16> (static_cast<unsigned long long> (count_a) << 12);
+	extensions |= ((extensions_bitset_t{ count_a } << 12) & count_mask);
 }
 
-void nano::message_header::flag_set (uint8_t flag_a, bool enable)
+/*
+ * We need those shenanigans because we need to keep compatibility with previous protocol versions (<= V25.1)
+ */
+
+uint8_t nano::message_header::count_v2_get () const
 {
-	// Flags from 8 are block_type & count
-	debug_assert (flag_a < 8);
-	extensions.set (flag_a, enable);
+	debug_assert (type == nano::message_type::confirm_ack || type == nano::message_type::confirm_req);
+	debug_assert (flag_test (confirm_v2_flag)); // Only valid for v2
+
+	// Extract 2 parts of 4 bits
+	auto left = (extensions & count_v2_mask_left) >> 12;
+	auto right = (extensions & count_v2_mask_right) >> 4;
+
+	return static_cast<uint8_t> (((left << 4) | right).to_ullong ());
+}
+
+void nano::message_header::count_v2_set (uint8_t count)
+{
+	debug_assert (type == nano::message_type::confirm_ack || type == nano::message_type::confirm_req);
+	debug_assert (flag_test (confirm_v2_flag)); // Only valid for v2
+	debug_assert (count < 256); // Max 8 bits
+
+	extensions &= ~(count_v2_mask_left | count_v2_mask_right);
+
+	// Split count into 2 parts of 4 bits
+	extensions_bitset_t trim_mask{ 0xf };
+	auto left = (extensions_bitset_t{ count } >> 4) & trim_mask;
+	auto right = (extensions_bitset_t{ count }) & trim_mask;
+
+	extensions |= (left << 12) | (right << 4);
+}
+
+bool nano::message_header::flag_test (uint8_t flag) const
+{
+	// Extension bits at index >= 8 are block type & count
+	debug_assert (flag < 8);
+	return extensions.test (flag);
+}
+
+void nano::message_header::flag_set (uint8_t flag, bool enable)
+{
+	// Extension bits at index >= 8 are block type & count
+	debug_assert (flag < 8);
+	extensions.set (flag, enable);
 }
 
 bool nano::message_header::bulk_pull_is_count_present () const
@@ -250,6 +295,18 @@ bool nano::message_header::frontier_req_is_only_confirmed_present () const
 	return result;
 }
 
+bool nano::message_header::confirm_is_v2 () const
+{
+	debug_assert (type == nano::message_type::confirm_ack || type == nano::message_type::confirm_req);
+	return flag_test (confirm_v2_flag);
+}
+
+void nano::message_header::confirm_set_v2 (bool value)
+{
+	debug_assert (type == nano::message_type::confirm_ack || type == nano::message_type::confirm_req);
+	flag_set (confirm_v2_flag, value);
+}
+
 std::size_t nano::message_header::payload_length_bytes () const
 {
 	switch (type)
@@ -282,11 +339,11 @@ std::size_t nano::message_header::payload_length_bytes () const
 		}
 		case nano::message_type::confirm_ack:
 		{
-			return nano::confirm_ack::size (count_get ());
+			return nano::confirm_ack::size (*this);
 		}
 		case nano::message_type::confirm_req:
 		{
-			return nano::confirm_req::size (block_type (), count_get ());
+			return nano::confirm_req::size (*this);
 		}
 		case nano::message_type::node_id_handshake:
 		{
@@ -506,41 +563,41 @@ std::string nano::publish::to_string () const
  * confirm_req
  */
 
-nano::confirm_req::confirm_req (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::block_uniquer * uniquer_a) :
+nano::confirm_req::confirm_req (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
 	message (header_a)
 {
 	if (!error_a)
 	{
-		error_a = deserialize (stream_a, uniquer_a);
+		error_a = deserialize (stream_a);
 	}
-}
-
-nano::confirm_req::confirm_req (nano::network_constants const & constants, std::shared_ptr<nano::block> const & block_a) :
-	message (constants, nano::message_type::confirm_req),
-	block (block_a)
-{
-	header.block_type_set (block->type ());
 }
 
 nano::confirm_req::confirm_req (nano::network_constants const & constants, std::vector<std::pair<nano::block_hash, nano::root>> const & roots_hashes_a) :
 	message (constants, nano::message_type::confirm_req),
 	roots_hashes (roots_hashes_a)
 {
-	// not_a_block (1) block type for hashes + roots request
+	debug_assert (!roots_hashes.empty ());
+	debug_assert (roots_hashes.size () < 256);
+
+	// Set `not_a_block` (1) block type for hashes + roots request
+	// This is needed to keep compatibility with previous protocol versions (<= V25.1)
 	header.block_type_set (nano::block_type::not_a_block);
-	debug_assert (roots_hashes.size () < 16);
-	header.count_set (static_cast<uint8_t> (roots_hashes.size ()));
+
+	if (roots_hashes.size () >= 16)
+	{
+		// Set v2 flag and use extended count if there are more than 15 hash + root pairs
+		header.confirm_set_v2 (true);
+		header.count_v2_set (static_cast<uint8_t> (roots_hashes.size ()));
+	}
+	else
+	{
+		header.count_set (static_cast<uint8_t> (roots_hashes.size ()));
+	}
 }
 
 nano::confirm_req::confirm_req (nano::network_constants const & constants, nano::block_hash const & hash_a, nano::root const & root_a) :
-	message (constants, nano::message_type::confirm_req),
-	roots_hashes (std::vector<std::pair<nano::block_hash, nano::root>> (1, std::make_pair (hash_a, root_a)))
+	confirm_req (constants, std::vector<std::pair<nano::block_hash, nano::root>>{ { hash_a, root_a } })
 {
-	debug_assert (!roots_hashes.empty ());
-	// not_a_block (1) block type for hashes + roots request
-	header.block_type_set (nano::block_type::not_a_block);
-	debug_assert (roots_hashes.size () < 16);
-	header.count_set (static_cast<uint8_t> (roots_hashes.size ()));
 }
 
 void nano::confirm_req::visit (nano::message_visitor & visitor_a) const
@@ -550,52 +607,39 @@ void nano::confirm_req::visit (nano::message_visitor & visitor_a) const
 
 void nano::confirm_req::serialize (nano::stream & stream_a) const
 {
+	debug_assert (!roots_hashes.empty ());
+
 	header.serialize (stream_a);
-	if (header.block_type () == nano::block_type::not_a_block)
+
+	// Write hashes & roots
+	for (auto & root_hash : roots_hashes)
 	{
-		debug_assert (!roots_hashes.empty ());
-		// Write hashes & roots
-		for (auto & root_hash : roots_hashes)
-		{
-			write (stream_a, root_hash.first);
-			write (stream_a, root_hash.second);
-		}
-	}
-	else
-	{
-		debug_assert (block != nullptr);
-		block->serialize (stream_a);
+		nano::write (stream_a, root_hash.first);
+		nano::write (stream_a, root_hash.second);
 	}
 }
 
-bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
+bool nano::confirm_req::deserialize (nano::stream & stream_a)
 {
-	bool result (false);
 	debug_assert (header.type == nano::message_type::confirm_req);
+
+	bool result = false;
 	try
 	{
-		if (header.block_type () == nano::block_type::not_a_block)
+		uint8_t const count = hash_count (header);
+		for (auto i (0); i != count && !result; ++i)
 		{
-			uint8_t count (header.count_get ());
-			for (auto i (0); i != count && !result; ++i)
+			nano::block_hash block_hash (0);
+			nano::block_hash root (0);
+			nano::read (stream_a, block_hash);
+			nano::read (stream_a, root);
+			if (!block_hash.is_zero () || !root.is_zero ())
 			{
-				nano::block_hash block_hash (0);
-				nano::block_hash root (0);
-				read (stream_a, block_hash);
-				read (stream_a, root);
-				if (!block_hash.is_zero () || !root.is_zero ())
-				{
-					roots_hashes.emplace_back (block_hash, root);
-				}
+				roots_hashes.emplace_back (block_hash, root);
 			}
+		}
 
-			result = roots_hashes.empty () || (roots_hashes.size () != count);
-		}
-		else
-		{
-			block = nano::deserialize_block (stream_a, header.block_type (), uniquer_a);
-			result = block == nullptr;
-		}
+		result = roots_hashes.empty () || (roots_hashes.size () != count);
 	}
 	catch (std::runtime_error const &)
 	{
@@ -608,11 +652,7 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_unique
 bool nano::confirm_req::operator== (nano::confirm_req const & other_a) const
 {
 	bool equal (false);
-	if (block != nullptr && other_a.block != nullptr)
-	{
-		equal = *block == *other_a.block;
-	}
-	else if (!roots_hashes.empty () && !other_a.roots_hashes.empty ())
+	if (!roots_hashes.empty () && !other_a.roots_hashes.empty ())
 	{
 		equal = roots_hashes == other_a.roots_hashes;
 	}
@@ -632,34 +672,31 @@ std::string nano::confirm_req::roots_string () const
 	return result;
 }
 
-std::size_t nano::confirm_req::size (nano::block_type type_a, std::size_t count)
+uint8_t nano::confirm_req::hash_count (const nano::message_header & header)
 {
-	std::size_t result (0);
-	if (type_a != nano::block_type::invalid && type_a != nano::block_type::not_a_block)
+	if (header.confirm_is_v2 ())
 	{
-		result = nano::block::size (type_a);
+		return header.count_v2_get ();
 	}
-	else if (type_a == nano::block_type::not_a_block)
+	else
 	{
-		result = count * (sizeof (nano::uint256_union) + sizeof (nano::block_hash));
+		return header.count_get ();
 	}
-	return result;
+}
+
+std::size_t nano::confirm_req::size (nano::message_header const & header)
+{
+	auto const count = hash_count (header);
+	return count * (sizeof (decltype (roots_hashes)::value_type::first) + sizeof (decltype (roots_hashes)::value_type::second));
 }
 
 std::string nano::confirm_req::to_string () const
 {
 	std::string s = header.to_string ();
 
-	if (header.block_type () == nano::block_type::not_a_block)
+	for (auto && roots_hash : roots_hashes)
 	{
-		for (auto && roots_hash : roots_hashes)
-		{
-			s += "\n" + roots_hash.first.to_string () + ":" + roots_hash.second.to_string ();
-		}
-	}
-	else
-	{
-		s += "\n" + block->to_json ();
+		s += "\n" + roots_hash.first.to_string () + ":" + roots_hash.second.to_string ();
 	}
 
 	return s;
@@ -683,14 +720,24 @@ nano::confirm_ack::confirm_ack (nano::network_constants const & constants, std::
 	message (constants, nano::message_type::confirm_ack),
 	vote (vote_a)
 {
+	debug_assert (vote->hashes.size () < 256);
+
 	header.block_type_set (nano::block_type::not_a_block);
-	debug_assert (vote_a->hashes.size () < 16);
-	header.count_set (static_cast<uint8_t> (vote_a->hashes.size ()));
+
+	if (vote->hashes.size () >= 16)
+	{
+		// Set v2 flag and use extended count if there are more than 15 hashes
+		header.confirm_set_v2 (true);
+		header.count_v2_set (static_cast<uint8_t> (vote->hashes.size ()));
+	}
+	else
+	{
+		header.count_set (static_cast<uint8_t> (vote->hashes.size ()));
+	}
 }
 
 void nano::confirm_ack::serialize (nano::stream & stream_a) const
 {
-	debug_assert (header.block_type () == nano::block_type::not_a_block || header.block_type () == nano::block_type::send || header.block_type () == nano::block_type::receive || header.block_type () == nano::block_type::open || header.block_type () == nano::block_type::change || header.block_type () == nano::block_type::state);
 	header.serialize (stream_a);
 	vote->serialize (stream_a);
 }
@@ -706,10 +753,22 @@ void nano::confirm_ack::visit (nano::message_visitor & visitor_a) const
 	visitor_a.confirm_ack (*this);
 }
 
-std::size_t nano::confirm_ack::size (std::size_t count)
+uint8_t nano::confirm_ack::hash_count (const nano::message_header & header)
 {
-	std::size_t result = sizeof (nano::account) + sizeof (nano::signature) + sizeof (uint64_t) + count * sizeof (nano::block_hash);
-	return result;
+	if (header.confirm_is_v2 ())
+	{
+		return header.count_v2_get ();
+	}
+	else
+	{
+		return header.count_get ();
+	}
+}
+
+std::size_t nano::confirm_ack::size (const nano::message_header & header)
+{
+	auto const count = hash_count (header);
+	return nano::vote::size (count);
 }
 
 std::string nano::confirm_ack::to_string () const
@@ -1599,14 +1658,21 @@ void nano::asc_pull_req::deserialize_payload (nano::stream & stream)
 	{
 		case asc_pull_type::blocks:
 		{
-			blocks_payload pld;
+			blocks_payload pld{};
 			pld.deserialize (stream);
 			payload = pld;
 			break;
 		}
 		case asc_pull_type::account_info:
 		{
-			account_info_payload pld;
+			account_info_payload pld{};
+			pld.deserialize (stream);
+			payload = pld;
+			break;
+		}
+		case asc_pull_type::frontiers:
+		{
+			frontiers_payload pld{};
 			pld.deserialize (stream);
 			payload = pld;
 			break;
@@ -1618,12 +1684,13 @@ void nano::asc_pull_req::deserialize_payload (nano::stream & stream)
 
 void nano::asc_pull_req::update_header ()
 {
+	// TODO: Avoid serializing the payload twice
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream payload_stream (bytes);
 		serialize_payload (payload_stream);
 	}
-	debug_assert (bytes.size () <= 65535u); // Max int16 for storing size
+	debug_assert (bytes.size () <= std::numeric_limits<uint16_t>::max ()); // Max uint16 for storing size
 	debug_assert (bytes.size () >= 1);
 	header.extensions = std::bitset<16> (bytes.size ());
 }
@@ -1651,6 +1718,10 @@ bool nano::asc_pull_req::verify_consistency () const
 		void operator() (account_info_payload) const
 		{
 			debug_assert (type == asc_pull_type::account_info);
+		}
+		void operator() (frontiers_payload) const
+		{
+			debug_assert (type == asc_pull_type::frontiers);
 		}
 	};
 	std::visit (consistency_visitor{ type }, payload);
@@ -1721,6 +1792,22 @@ void nano::asc_pull_req::account_info_payload::deserialize (stream & stream)
 }
 
 /*
+ * asc_pull_req::frontiers_payload
+ */
+
+void nano::asc_pull_req::frontiers_payload::serialize (nano::stream & stream) const
+{
+	nano::write (stream, start);
+	nano::write_big_endian (stream, count);
+}
+
+void nano::asc_pull_req::frontiers_payload::deserialize (nano::stream & stream)
+{
+	nano::read (stream, start);
+	nano::read_big_endian (stream, count);
+}
+
+/*
  * asc_pull_ack
  */
 
@@ -1742,7 +1829,7 @@ void nano::asc_pull_ack::visit (nano::message_visitor & visitor) const
 
 void nano::asc_pull_ack::serialize (nano::stream & stream) const
 {
-	debug_assert (header.extensions.to_ulong () > 0); // Block payload must have least `not_a_block` terminator
+	debug_assert (header.extensions.to_ulong () > 0); // Block payload must have at least `not_a_block` terminator
 	header.serialize (stream);
 	nano::write (stream, type);
 	nano::write_big_endian (stream, id);
@@ -1781,14 +1868,21 @@ void nano::asc_pull_ack::deserialize_payload (nano::stream & stream)
 	{
 		case asc_pull_type::blocks:
 		{
-			blocks_payload pld;
+			blocks_payload pld{};
 			pld.deserialize (stream);
 			payload = pld;
 			break;
 		}
 		case asc_pull_type::account_info:
 		{
-			account_info_payload pld;
+			account_info_payload pld{};
+			pld.deserialize (stream);
+			payload = pld;
+			break;
+		}
+		case asc_pull_type::frontiers:
+		{
+			frontiers_payload pld{};
 			pld.deserialize (stream);
 			payload = pld;
 			break;
@@ -1800,12 +1894,13 @@ void nano::asc_pull_ack::deserialize_payload (nano::stream & stream)
 
 void nano::asc_pull_ack::update_header ()
 {
+	// TODO: Avoid serializing the payload twice
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream payload_stream (bytes);
 		serialize_payload (payload_stream);
 	}
-	debug_assert (bytes.size () <= 65535u); // Max int16 for storing size
+	debug_assert (bytes.size () <= std::numeric_limits<uint16_t>::max ()); // Max uint16 for storing size
 	debug_assert (bytes.size () >= 1);
 	header.extensions = std::bitset<16> (bytes.size ());
 }
@@ -1833,6 +1928,10 @@ bool nano::asc_pull_ack::verify_consistency () const
 		void operator() (account_info_payload) const
 		{
 			debug_assert (type == asc_pull_type::account_info);
+		}
+		void operator() (frontiers_payload) const
+		{
+			debug_assert (type == asc_pull_type::frontiers);
 		}
 	};
 	std::visit (consistency_visitor{ type }, payload);
@@ -1885,6 +1984,7 @@ std::string nano::asc_pull_ack::to_string () const
 void nano::asc_pull_ack::blocks_payload::serialize (nano::stream & stream) const
 {
 	debug_assert (blocks.size () <= max_blocks);
+
 	for (auto & block : blocks)
 	{
 		debug_assert (block != nullptr);
@@ -1926,4 +2026,45 @@ void nano::asc_pull_ack::account_info_payload::deserialize (nano::stream & strea
 	nano::read_big_endian (stream, account_block_count);
 	nano::read (stream, account_conf_frontier);
 	nano::read_big_endian (stream, account_conf_height);
+}
+
+/*
+ * asc_pull_ack::frontiers_payload
+ */
+
+void nano::asc_pull_ack::frontiers_payload::serialize_frontier (nano::stream & stream, nano::asc_pull_ack::frontiers_payload::frontier const & frontier)
+{
+	auto const & [account, hash] = frontier;
+	nano::write (stream, account);
+	nano::write (stream, hash);
+}
+
+nano::asc_pull_ack::frontiers_payload::frontier nano::asc_pull_ack::frontiers_payload::deserialize_frontier (nano::stream & stream)
+{
+	nano::account account;
+	nano::block_hash hash;
+	nano::read (stream, account);
+	nano::read (stream, hash);
+	return { account, hash };
+}
+
+void nano::asc_pull_ack::frontiers_payload::serialize (nano::stream & stream) const
+{
+	debug_assert (frontiers.size () <= max_frontiers);
+
+	for (auto const & frontier : frontiers)
+	{
+		serialize_frontier (stream, frontier);
+	}
+	serialize_frontier (stream, { nano::account{ 0 }, nano::block_hash{ 0 } });
+}
+
+void nano::asc_pull_ack::frontiers_payload::deserialize (nano::stream & stream)
+{
+	auto current = deserialize_frontier (stream);
+	while ((!current.first.is_zero () && !current.second.is_zero ()) && frontiers.size () < max_frontiers)
+	{
+		frontiers.push_back (current);
+		current = deserialize_frontier (stream);
+	}
 }

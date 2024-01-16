@@ -63,6 +63,8 @@ enum class detail : uint8_t
 	update,
 	request,
 	broadcast,
+	cleanup,
+	top,
 
 	// processing queue
 	queue,
@@ -240,6 +242,8 @@ enum class detail : uint8_t
 	response_blocks,
 	response_account_info,
 	channel_full,
+	response_frontiers,
+	frontiers,
 
 	// backlog
 	activated,

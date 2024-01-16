@@ -1008,15 +1008,15 @@ TEST (votes, add_existing)
 	ASSERT_TIMELY (5s, node1.active.active (*send2));
 	auto vote2 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * 2, 0, std::vector<nano::block_hash>{ send2->hash () }));
 	// Pretend we've waited the timeout
-	nano::unique_lock<nano::mutex> lock{ election1->mutex };
-	election1->last_votes[nano::dev::genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
-	lock.unlock ();
+	auto vote_info1 = election1->get_last_vote (nano::dev::genesis_key.pub);
+	vote_info1.time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
+	election1->set_last_vote (nano::dev::genesis_key.pub, vote_info1);
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote2));
 	ASSERT_EQ (nano::vote::timestamp_min * 2, election1->last_votes[nano::dev::genesis_key.pub].timestamp);
 	// Also resend the old vote, and see if we respect the timestamp
-	lock.lock ();
-	election1->last_votes[nano::dev::genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
-	lock.unlock ();
+	auto vote_info2 = election1->get_last_vote (nano::dev::genesis_key.pub);
+	vote_info2.time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
+	election1->set_last_vote (nano::dev::genesis_key.pub, vote_info2);
 	ASSERT_EQ (nano::vote_code::replay, node1.active.vote (vote1));
 	ASSERT_EQ (nano::vote::timestamp_min * 2, election1->votes ()[nano::dev::genesis_key.pub].timestamp);
 	auto votes (election1->votes ());
@@ -1061,10 +1061,9 @@ TEST (votes, add_old)
 				 .build_shared ();
 	node1.work_generate_blocking (*send2);
 	auto vote2 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ send2->hash () });
-	{
-		nano::lock_guard<nano::mutex> lock{ election1->mutex };
-		election1->last_votes[nano::dev::genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
-	}
+	auto vote_info = election1->get_last_vote (nano::dev::genesis_key.pub);
+	vote_info.time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
+	election1->set_last_vote (nano::dev::genesis_key.pub, vote_info);
 	node1.vote_processor.vote_blocking (vote2, channel);
 	ASSERT_EQ (2, election1->votes ().size ());
 	auto votes (election1->votes ());
@@ -1238,6 +1237,54 @@ TEST (ledger, fail_change_gap_previous)
 				 .build ();
 	auto result1 = ledger.process (transaction, *block);
 	ASSERT_EQ (nano::process_result::gap_previous, result1.code);
+}
+
+TEST (ledger, fail_state_bad_signature)
+{
+	auto ctx = nano::test::context::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & store = ctx.store ();
+	auto transaction = store.tx_begin_write ();
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::block_builder builder;
+	auto block = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (0)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (nano::keypair ().prv, 0)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto result1 = ledger.process (transaction, *block);
+	ASSERT_EQ (nano::process_result::bad_signature, result1.code);
+}
+
+TEST (ledger, fail_epoch_bad_signature)
+{
+	auto ctx = nano::test::context::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & store = ctx.store ();
+	auto transaction = store.tx_begin_write ();
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::block_builder builder;
+	auto block = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount)
+				 .link (ledger.epoch_link (nano::epoch::epoch_1))
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build_shared ();
+	block->signature.bytes[0] ^= 1;
+	auto result1 = ledger.process (transaction, *block);
+	ASSERT_EQ (nano::process_result::bad_signature, result1.code); // Fails epoch signature
+	block->signature.bytes[0] ^= 1;
+	auto result2 = ledger.process (transaction, *block);
+	ASSERT_EQ (nano::process_result::progress, result2.code); // Succeeds with epoch signature
 }
 
 TEST (ledger, fail_change_bad_signature)

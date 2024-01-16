@@ -3,15 +3,16 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/store/transaction.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index_container.hpp>
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <thread>
-#include <unordered_map>
 
 namespace mi = boost::multi_index;
 
@@ -36,8 +37,9 @@ public:
 
 public:
 	std::chrono::milliseconds check_interval{ 1000 };
-	std::chrono::milliseconds block_cooldown{ 5000 };
+	std::chrono::milliseconds block_cooldown{ 10000 };
 	unsigned hinting_threshold_percent{ 10 };
+	unsigned vacancy_threshold_percent{ 20 };
 };
 
 /*
@@ -57,11 +59,13 @@ public:
 	 */
 	void notify ();
 
+	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
+
 private:
 	bool predicate () const;
 	void run ();
 	void run_iterative ();
-	void activate (nano::store::transaction const &, nano::block_hash const & hash, bool check_dependents);
+	void activate (nano::store::read_transaction const &, nano::block_hash const & hash, bool check_dependents);
 
 	nano::uint128_t tally_threshold () const;
 	nano::uint128_t final_tally_threshold () const;
@@ -76,7 +80,7 @@ private: // Dependencies
 private:
 	hinted_config const & config;
 
-	bool stopped{ false };
+	std::atomic<bool> stopped{ false };
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
 	std::thread thread;

@@ -122,9 +122,7 @@ void nano::store::lmdb::block::del (store::write_transaction const & transaction
 
 bool nano::store::lmdb::block::exists (store::transaction const & transaction, nano::block_hash const & hash)
 {
-	nano::store::lmdb::db_val junk;
-	block_raw_get (transaction, hash, junk);
-	return junk.size () != 0;
+	return store.exists (transaction, tables::blocks, hash);
 }
 
 uint64_t nano::store::lmdb::block::count (store::transaction const & transaction_a)

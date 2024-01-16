@@ -25,7 +25,6 @@ add_executable(
   gap_cache.cpp
   ipc.cpp
   ledger.cpp
-  ledger_walker.cpp
   locks.cpp
   logger.cpp
   message.cpp
@@ -41,7 +40,6 @@ add_executable(
   scheduler_buckets.cpp
   request_aggregator.cpp
   signal_manager.cpp
-  signing.cpp
   socket.cpp
   system.cpp
   telemetry.cpp

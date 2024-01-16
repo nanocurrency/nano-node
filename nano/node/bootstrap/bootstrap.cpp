@@ -1,4 +1,3 @@
-#include <nano/lib/threading.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/bootstrap/bootstrap_legacy.hpp>

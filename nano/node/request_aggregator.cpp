@@ -1,5 +1,4 @@
 #include <nano/lib/stats.hpp>
-#include <nano/lib/threading.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/network.hpp>
@@ -34,6 +33,7 @@ nano::request_aggregator::request_aggregator (nano::node_config const & config_a
 	condition.wait (lock, [&started = started] { return started; });
 }
 
+// TODO: This is badly implemented, will prematurely drop large vote requests
 void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> const & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a)
 {
 	debug_assert (wallets.reps ().voting > 0);

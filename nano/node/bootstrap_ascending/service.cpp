@@ -194,9 +194,9 @@ void nano::bootstrap_ascending::service::inspect (store::transaction const & tx,
 void nano::bootstrap_ascending::service::wait_blockprocessor ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped && block_processor.half_full ())
+	while (!stopped && block_processor.size () > config.bootstrap_ascending.block_wait_count)
 	{
-		condition.wait_for (lock, 500ms, [this] () { return stopped; }); // Blockprocessor is relatively slow, sleeping here instead of using conditions
+		condition.wait_for (lock, std::chrono::milliseconds{ config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; }); // Blockprocessor is relatively slow, sleeping here instead of using conditions
 	}
 }
 
@@ -206,7 +206,7 @@ std::shared_ptr<nano::transport::channel> nano::bootstrap_ascending::service::wa
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped && !(channel = scoring.channel ()))
 	{
-		condition.wait_for (lock, 100ms, [this] () { return stopped; });
+		condition.wait_for (lock, std::chrono::milliseconds{ config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; });
 	}
 	return channel;
 }
@@ -366,6 +366,7 @@ void nano::bootstrap_ascending::service::process (nano::asc_pull_ack const & mes
 
 		on_reply.notify (tag);
 		condition.notify_all ();
+
 		std::visit ([this, &tag] (auto && request) { return process (request, tag); }, message.payload);
 	}
 	else
@@ -414,6 +415,11 @@ void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::bloc
 void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::account_info_payload & response, const nano::bootstrap_ascending::service::async_tag & tag)
 {
 	// TODO: Make use of account info
+}
+
+void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::frontiers_payload & response, const nano::bootstrap_ascending::service::async_tag & tag)
+{
+	// TODO: Make use of frontiers info
 }
 
 void nano::bootstrap_ascending::service::process (const nano::empty_payload & response, const nano::bootstrap_ascending::service::async_tag & tag)
@@ -506,6 +512,8 @@ std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::servi
 
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "tags", tags.size (), sizeof (decltype (tags)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "throttle", throttle.size (), 0 }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "throttle_successes", throttle.successes (), 0 }));
 	composite->add_component (accounts.collect_container_info ("accounts"));
 	return composite;
 }

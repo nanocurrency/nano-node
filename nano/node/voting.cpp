@@ -1,5 +1,4 @@
 #include <nano/lib/stats.hpp>
-#include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -184,7 +183,7 @@ nano::vote_generator::~vote_generator ()
 	stop ();
 }
 
-void nano::vote_generator::process (store::write_transaction const & transaction, nano::root const & root_a, nano::block_hash const & hash_a)
+bool nano::vote_generator::should_vote (store::write_transaction const & transaction, nano::root const & root_a, nano::block_hash const & hash_a)
 {
 	bool should_vote = false;
 	if (is_final)
@@ -198,16 +197,7 @@ void nano::vote_generator::process (store::write_transaction const & transaction
 		auto block (ledger.store.block.get (transaction, hash_a));
 		should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block);
 	}
-	if (should_vote)
-	{
-		nano::unique_lock<nano::mutex> lock{ mutex };
-		candidates.emplace_back (root_a, hash_a);
-		if (candidates.size () >= nano::network::confirm_ack_hashes_max)
-		{
-			lock.unlock ();
-			condition.notify_all ();
-		}
-	}
+	return should_vote;
 }
 
 void nano::vote_generator::start ()
@@ -241,11 +231,28 @@ void nano::vote_generator::add (const root & root, const block_hash & hash)
 
 void nano::vote_generator::process_batch (std::deque<queue_entry_t> & batch)
 {
-	auto transaction = ledger.store.tx_begin_write ({ tables::final_votes });
-
-	for (auto & [root, hash] : batch)
+	std::deque<candidate_t> candidates_new;
 	{
-		process (transaction, root, hash);
+		auto transaction = ledger.store.tx_begin_write ({ tables::final_votes });
+
+		for (auto & [root, hash] : batch)
+		{
+			if (should_vote (transaction, root, hash))
+			{
+				candidates_new.emplace_back (root, hash);
+			}
+		}
+		// Commit write transaction
+	}
+	if (!candidates_new.empty ())
+	{
+		nano::unique_lock<nano::mutex> lock{ mutex };
+		candidates.insert (candidates.end (), candidates_new.begin (), candidates_new.end ());
+		if (candidates.size () >= nano::network::confirm_ack_hashes_max)
+		{
+			lock.unlock ();
+			condition.notify_all ();
+		}
 	}
 }
 

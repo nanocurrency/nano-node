@@ -1,6 +1,5 @@
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/node.hpp>
-#include <nano/store/component.hpp>
 
 #include <boost/format.hpp>
 

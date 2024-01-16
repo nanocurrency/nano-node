@@ -33,6 +33,7 @@ public:
 	nano::millis_t timeout{ 1000 * 3 };
 	std::size_t throttle_coefficient{ 16 };
 	nano::millis_t throttle_wait{ 100 };
+	std::size_t block_wait_count{ 1000 };
 
 	nano::account_sets_config account_sets;
 };

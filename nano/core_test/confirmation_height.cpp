@@ -5,8 +5,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/format.hpp>
-
 using namespace std::chrono_literals;
 
 namespace

@@ -1,5 +1,4 @@
 #include <nano/lib/stream.hpp>
-#include <nano/lib/threading.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
@@ -16,7 +15,6 @@
 #include <nano/store/component.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
 
-#include <boost/filesystem.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <algorithm>
@@ -105,7 +103,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (re
 	return composite;
 }
 
-nano::keypair nano::load_or_create_node_id (boost::filesystem::path const & application_path, nano::logger_mt & logger)
+nano::keypair nano::load_or_create_node_id (std::filesystem::path const & application_path, nano::logger_mt & logger)
 {
 	auto node_private_key_path = application_path / "node_id_private.key";
 	std::ifstream ifs (node_private_key_path.c_str ());
@@ -132,12 +130,12 @@ nano::keypair nano::load_or_create_node_id (boost::filesystem::path const & appl
 	}
 }
 
-nano::node::node (boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, nano::logging const & logging_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
+nano::node::node (boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, std::filesystem::path const & application_path_a, nano::logging const & logging_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
 	node (io_ctx_a, application_path_a, nano::node_config (peering_port_a, logging_a), work_a, flags_a, seq)
 {
 }
 
-nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
+nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path const & application_path_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
 	write_database_queue (!flags_a.force_use_write_database_queue && (config_a.rocksdb_config.enable)),
 	io_ctx (io_ctx_a),
 	node_initialized_latch (1),
@@ -157,7 +155,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	wallets_store (*wallets_store_impl),
 	gap_cache (*this),
 	ledger (store, stats, network_params.ledger, flags_a.generate_cache),
-	checker (config.signature_checker_threads),
 	outbound_limiter{ outbound_bandwidth_limiter_config (config) },
 	// empty `config.peering_port` means the user made no port choice at all;
 	// otherwise, any value is considered, with `0` having the special meaning of 'let the OS pick a port instead'
@@ -173,18 +170,18 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	//         Thus, be very careful if you change the order: if `bootstrap` gets constructed before `network`,
 	//         the latter would inherit the port from the former (if TCP is active, otherwise `network` picks first)
 	//
-	tcp_listener (network.port, *this),
+	tcp_listener{ std::make_shared<nano::transport::tcp_listener> (network.port, *this, config.tcp_incoming_connections_max) },
 	application_path (application_path_a),
 	port_mapping (*this),
 	rep_crawler (*this),
-	vote_processor (checker, active, observers, stats, config, flags, logger, online_reps, rep_crawler, ledger, network_params),
+	vote_processor (active, observers, stats, config, flags, logger, online_reps, rep_crawler, ledger, network_params),
 	warmed_up (0),
 	block_processor (*this, write_database_queue),
 	online_reps (ledger, config),
 	history{ config.network_params.voting },
-	vote_uniquer (block_uniquer),
+	vote_uniquer{},
 	confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
-	vote_cache{ config.vote_cache },
+	vote_cache{ config.vote_cache, stats },
 	generator{ config, ledger, wallets, vote_processor, history, network, stats, /* non-final */ false },
 	final_generator{ config, ledger, wallets, vote_processor, history, network, stats, /* final */ true },
 	active (*this, confirmation_height_processor),
@@ -542,7 +539,7 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 	}
 }
 
-bool nano::node::copy_with_compaction (boost::filesystem::path const & destination)
+bool nano::node::copy_with_compaction (std::filesystem::path const & destination)
 {
 	return store.copy_db (destination);
 }
@@ -555,7 +552,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.ledger, "ledger"));
 	composite->add_component (collect_container_info (node.active, "active"));
 	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
-	composite->add_component (collect_container_info (node.tcp_listener, "tcp_listener"));
+	composite->add_component (collect_container_info (*node.tcp_listener, "tcp_listener"));
 	composite->add_component (collect_container_info (node.network, "network"));
 	composite->add_component (node.telemetry.collect_container_info ("telemetry"));
 	composite->add_component (collect_container_info (node.workers, "workers"));
@@ -567,8 +564,8 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.block_arrival, "block_arrival"));
 	composite->add_component (collect_container_info (node.online_reps, "online_reps"));
 	composite->add_component (collect_container_info (node.history, "history"));
-	composite->add_component (collect_container_info (node.block_uniquer, "block_uniquer"));
-	composite->add_component (collect_container_info (node.vote_uniquer, "vote_uniquer"));
+	composite->add_component (node.block_uniquer.collect_container_info ("block_uniquer"));
+	composite->add_component (node.vote_uniquer.collect_container_info ("vote_uniquer"));
 	composite->add_component (collect_container_info (node.confirmation_height_processor, "confirmation_height_processor"));
 	composite->add_component (collect_container_info (node.distributed_work, "distributed_work"));
 	composite->add_component (collect_container_info (node.aggregator, "request_aggregator"));
@@ -648,12 +645,18 @@ void nano::node::start ()
 	bool tcp_enabled = false;
 	if (config.tcp_incoming_connections_max > 0 && !(flags.disable_bootstrap_listener && flags.disable_tcp_realtime))
 	{
-		tcp_listener.start ();
+		tcp_listener->start ([this] (std::shared_ptr<nano::transport::socket> const & new_connection, boost::system::error_code const & ec_a) {
+			if (!ec_a)
+			{
+				tcp_listener->accept_action (ec_a, new_connection);
+			}
+			return true;
+		});
 		tcp_enabled = true;
 
-		if (network.port != tcp_listener.port)
+		if (network.port != tcp_listener->endpoint ().port ())
 		{
-			network.port = tcp_listener.port;
+			network.port = tcp_listener->endpoint ().port ();
 		}
 
 		logger.always_log (boost::str (boost::format ("Node started with peering port `%1%`.") % network.port));
@@ -727,9 +730,8 @@ void nano::node::stop ()
 	websocket.stop ();
 	bootstrap_server.stop ();
 	bootstrap_initiator.stop ();
-	tcp_listener.stop ();
+	tcp_listener->stop ();
 	port_mapping.stop ();
-	checker.stop ();
 	wallets.stop ();
 	stats.stop ();
 	epoch_upgrader.stop ();
@@ -910,7 +912,7 @@ void nano::node::backup_wallet ()
 		boost::system::error_code error_chmod;
 		auto backup_path (application_path / "backup");
 
-		boost::filesystem::create_directories (backup_path);
+		std::filesystem::create_directories (backup_path);
 		nano::set_secure_perm_directory (backup_path, error_chmod);
 		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
 	}
@@ -1502,7 +1504,7 @@ nano::telemetry_data nano::node::local_telemetry () const
  * node_wrapper
  */
 
-nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
+nano::node_wrapper::node_wrapper (std::filesystem::path const & path_a, std::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
 	network_params{ nano::network_constants::active_network },
 	io_context (std::make_shared<boost::asio::io_context> ()),
 	work{ network_params.network, 1 }
@@ -1512,7 +1514,7 @@ nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost:
 	/*
 	 * @warning May throw a filesystem exception
 	 */
-	boost::filesystem::create_directories (path_a);
+	std::filesystem::create_directories (path_a);
 	nano::set_secure_perm_directory (path_a, error_chmod);
 	nano::daemon_config daemon_config{ path_a, network_params };
 	auto error = nano::read_node_config_toml (config_path_a, daemon_config, node_flags_a.config_overrides);
@@ -1545,14 +1547,14 @@ nano::node_wrapper::~node_wrapper ()
  * inactive_node
  */
 
-nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
+nano::inactive_node::inactive_node (std::filesystem::path const & path_a, std::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
 	node_wrapper (path_a, config_path_a, node_flags_a),
 	node (node_wrapper.node)
 {
 	node_wrapper.node->active.stop ();
 }
 
-nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a) :
+nano::inactive_node::inactive_node (std::filesystem::path const & path_a, nano::node_flags const & node_flags_a) :
 	inactive_node (path_a, path_a, node_flags_a)
 {
 }

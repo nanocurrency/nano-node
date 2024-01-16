@@ -12,7 +12,6 @@
 #include <nano/store/pending.hpp>
 
 #include <boost/dll/runtime_symbol_info.hpp>
-#include <boost/filesystem/operations.hpp>
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
@@ -133,7 +132,7 @@ int main (int argc, char * const * argv)
 
 	nano::network_params network_params{ nano::network_constants::active_network };
 	auto data_path_it = vm.find ("data_path");
-	boost::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
+	std::filesystem::path data_path ((data_path_it != vm.end ()) ? std::filesystem::path (data_path_it->second.as<std::string> ()) : nano::working_path ());
 	auto ec = nano::handle_node_options (vm);
 	if (ec == nano::error_cli::unknown_command)
 	{
@@ -652,7 +651,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_output_last_backtrace_dump"))
 		{
-			if (boost::filesystem::exists ("nano_node_backtrace.dump"))
+			if (std::filesystem::exists ("nano_node_backtrace.dump"))
 			{
 				// There is a backtrace, so output the contents
 				std::ifstream ifs ("nano_node_backtrace.dump");
@@ -664,7 +663,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_generate_crash_report"))
 		{
-			if (boost::filesystem::exists ("nano_node_backtrace.dump"))
+			if (std::filesystem::exists ("nano_node_backtrace.dump"))
 			{
 				// There is a backtrace, so output the contents
 				std::ifstream ifs ("nano_node_backtrace.dump");
@@ -690,7 +689,7 @@ int main (int argc, char * const * argv)
 					// The first one only has the load address
 					uint64_from_hex base_address;
 					std::string line;
-					if (boost::filesystem::exists (boost::str (format % num)))
+					if (std::filesystem::exists (boost::str (format % num)))
 					{
 						std::getline (std::ifstream (boost::str (format % num)), line);
 						if (boost::conversion::try_lexical_convert (line, base_address))
@@ -701,7 +700,7 @@ int main (int argc, char * const * argv)
 					++num;
 
 					// Now do the rest of the files
-					while (boost::filesystem::exists (boost::str (format % num)))
+					while (std::filesystem::exists (boost::str (format % num)))
 					{
 						std::ifstream ifs_dump_filename (boost::str (format % num));
 
@@ -776,7 +775,7 @@ int main (int argc, char * const * argv)
 					}
 
 					// Recreate the crash report with an empty file
-					boost::filesystem::remove (crash_report_filename);
+					std::filesystem::remove (crash_report_filename);
 					{
 						std::ofstream ofs (crash_report_filename);
 						nano::set_secure_perm_file (crash_report_filename);
@@ -854,23 +853,6 @@ int main (int argc, char * const * argv)
 			}
 			auto end (std::chrono::high_resolution_clock::now ());
 			std::cerr << "Signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
-		}
-		else if (vm.count ("debug_verify_profile_batch"))
-		{
-			nano::keypair key;
-			size_t batch_count (1000);
-			nano::uint256_union message;
-			nano::uint512_union signature (nano::sign_message (key.prv, key.pub, message));
-			std::vector<unsigned char const *> messages (batch_count, message.bytes.data ());
-			std::vector<size_t> lengths (batch_count, sizeof (message));
-			std::vector<unsigned char const *> pub_keys (batch_count, key.pub.bytes.data ());
-			std::vector<unsigned char const *> signatures (batch_count, signature.bytes.data ());
-			std::vector<int> verifications;
-			verifications.resize (batch_count);
-			auto begin (std::chrono::high_resolution_clock::now ());
-			nano::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), batch_count, verifications.data ());
-			auto end (std::chrono::high_resolution_clock::now ());
-			std::cerr << "Batch signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
 		}
 		else if (vm.count ("debug_profile_sign"))
 		{

@@ -7,6 +7,7 @@
 #include <boost/preprocessor/facilities/overload.hpp>
 
 #include <cassert>
+#include <filesystem>
 #include <functional>
 #include <mutex>
 #include <vector>
@@ -15,11 +16,6 @@
 
 namespace boost
 {
-namespace filesystem
-{
-	class path;
-}
-
 namespace system
 {
 	class error_code;
@@ -115,10 +111,10 @@ void work_thread_reprioritize ();
  * Functions for managing filesystem permissions, platform specific
  */
 void set_umask ();
-void set_secure_perm_directory (boost::filesystem::path const & path);
-void set_secure_perm_directory (boost::filesystem::path const & path, boost::system::error_code & ec);
-void set_secure_perm_file (boost::filesystem::path const & path);
-void set_secure_perm_file (boost::filesystem::path const & path, boost::system::error_code & ec);
+void set_secure_perm_directory (std::filesystem::path const & path);
+void set_secure_perm_directory (std::filesystem::path const & path, std::error_code & ec);
+void set_secure_perm_file (std::filesystem::path const & path);
+void set_secure_perm_file (std::filesystem::path const & path, std::error_code & ec);
 
 /*
  * Function to check if running Windows as an administrator
@@ -145,8 +141,8 @@ void create_load_memory_address_files ();
 std::size_t get_file_descriptor_limit ();
 void set_file_descriptor_limit (std::size_t limit);
 
-void remove_all_files_in_dir (boost::filesystem::path const & dir);
-void move_all_files_to_dir (boost::filesystem::path const & from, boost::filesystem::path const & to);
+void remove_all_files_in_dir (std::filesystem::path const & dir);
+void move_all_files_to_dir (std::filesystem::path const & from, std::filesystem::path const & to);
 
 template <class InputIt, class OutputIt, class Pred, class Func>
 void transform_if (InputIt first, InputIt last, OutputIt dest, Pred pred, Func transform)

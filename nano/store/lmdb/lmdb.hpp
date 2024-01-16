@@ -26,14 +26,6 @@
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
-namespace boost
-{
-namespace filesystem
-{
-	class path;
-}
-}
-
 namespace nano
 {
 class logging_mt;
@@ -71,7 +63,7 @@ private:
 	friend class nano::store::lmdb::version;
 
 public:
-	component (nano::logger_mt &, boost::filesystem::path const &, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
+	component (nano::logger_mt &, std::filesystem::path const &, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
 	store::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	store::read_transaction tx_begin_read () const override;
 
@@ -79,7 +71,7 @@ public:
 
 	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) override;
 
-	static void create_backup_file (nano::store::lmdb::env &, boost::filesystem::path const &, nano::logger_mt &);
+	static void create_backup_file (nano::store::lmdb::env &, std::filesystem::path const &, nano::logger_mt &);
 
 	void serialize_memory_stats (boost::property_tree::ptree &) override;
 
@@ -98,7 +90,7 @@ public:
 	int put (store::write_transaction const & transaction_a, tables table_a, nano::store::lmdb::db_val const & key_a, nano::store::lmdb::db_val const & value_a) const;
 	int del (store::write_transaction const & transaction_a, tables table_a, nano::store::lmdb::db_val const & key_a) const;
 
-	bool copy_db (boost::filesystem::path const & destination_file) override;
+	bool copy_db (std::filesystem::path const & destination_file) override;
 	void rebuild_db (store::write_transaction const & transaction_a) override;
 
 	template <typename Key, typename Value>
@@ -146,7 +138,7 @@ private:
 
 	uint64_t count (store::transaction const & transaction_a, tables table_a) const override;
 
-	bool vacuum_after_upgrade (boost::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a);
+	bool vacuum_after_upgrade (std::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a);
 
 	class upgrade_counters
 	{

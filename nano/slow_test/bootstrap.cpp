@@ -14,9 +14,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/format.hpp>
-
-#include <map>
 #include <thread>
 
 using namespace std::chrono_literals;

@@ -2,7 +2,6 @@
 
 #include <nano/lib/blocks.hpp>
 #include <nano/node/blocking_observer.hpp>
-#include <nano/node/state_block_signature_verification.hpp>
 #include <nano/secure/common.hpp>
 
 #include <chrono>
@@ -59,7 +58,6 @@ private:
 	nano::process_return process_one (store::write_transaction const &, std::shared_ptr<nano::block> block, bool const = false);
 	void queue_unchecked (store::write_transaction const &, nano::hash_or_account const &);
 	std::deque<processed_t> process_batch (nano::unique_lock<nano::mutex> &);
-	void process_verified_state_blocks (std::deque<nano::state_block_signature_verification::value_type> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);
 	void add_impl (std::shared_ptr<nano::block> block);
 	bool stopped{ false };
 	bool active{ false };
@@ -70,7 +68,6 @@ private:
 	nano::node & node;
 	nano::write_database_queue & write_database_queue;
 	nano::mutex mutex{ mutex_identifier (mutexes::block_processor) };
-	nano::state_block_signature_verification state_block_signature_verification;
 	std::thread processing_thread;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (block_processor & block_processor, std::string const & name);

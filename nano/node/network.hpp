@@ -154,6 +154,7 @@ public:
 	std::atomic<bool> stopped{ false };
 	static unsigned const broadcast_interval_ms = 10;
 	static std::size_t const buffer_size = 512;
+
 	static std::size_t const confirm_req_hashes_max = 7;
 	static std::size_t const confirm_ack_hashes_max = 12;
 };

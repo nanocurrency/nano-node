@@ -1,0 +1,4 @@
+src:*crypto/ed25519*
+src:*crypto/blake2*
+
+src:*submodules/lmdb*

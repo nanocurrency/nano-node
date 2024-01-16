@@ -109,6 +109,7 @@ namespace bootstrap_ascending
 
 		void process (nano::asc_pull_ack::blocks_payload const & response, async_tag const & tag);
 		void process (nano::asc_pull_ack::account_info_payload const & response, async_tag const & tag);
+		void process (nano::asc_pull_ack::frontiers_payload const & response, async_tag const & tag);
 		void process (nano::empty_payload const & response, async_tag const & tag);
 
 		enum class verify_result

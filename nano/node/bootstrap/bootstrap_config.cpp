@@ -35,6 +35,7 @@ nano::error nano::bootstrap_ascending_config::deserialize (nano::tomlconfig & to
 	toml.get ("timeout", timeout);
 	toml.get ("throttle_coefficient", throttle_coefficient);
 	toml.get ("throttle_wait", throttle_wait);
+	toml.get ("block_wait_count", block_wait_count);
 
 	if (toml.has_key ("account_sets"))
 	{
@@ -53,6 +54,7 @@ nano::error nano::bootstrap_ascending_config::serialize (nano::tomlconfig & toml
 	toml.put ("timeout", timeout, "Timeout in milliseconds for incoming ascending bootstrap messages to be processed.\ntype:milliseconds");
 	toml.put ("throttle_coefficient", throttle_coefficient, "Scales the number of samples to track for bootstrap throttling.\ntype:uint64");
 	toml.put ("throttle_wait", throttle_wait, "Length of time to wait between requests when throttled.\ntype:milliseconds");
+	toml.put ("block_wait_count", block_wait_count, "Asending bootstrap will wait while block processor has more than this many blocks queued.\ntype:uint64");
 
 	nano::tomlconfig account_sets_l;
 	account_sets.serialize (account_sets_l);

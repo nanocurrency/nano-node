@@ -9,8 +9,7 @@
 nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
 	next_log (std::chrono::steady_clock::now ()),
 	node (node_a),
-	write_database_queue (write_database_queue_a),
-	state_block_signature_verification (node.checker, node.ledger.constants.epochs, node.config, node.logger, node.flags.block_processor_verification_size)
+	write_database_queue (write_database_queue_a)
 {
 	batch_processed.add ([this] (auto const & items) {
 		// For every batch item: notify the 'processed' observer.
@@ -21,19 +20,6 @@ nano::block_processor::block_processor (nano::node & node_a, nano::write_databas
 		}
 	});
 	blocking.connect (*this);
-	state_block_signature_verification.blocks_verified_callback = [this] (std::deque<nano::state_block_signature_verification::value_type> & items, std::vector<int> const & verifications, std::vector<nano::block_hash> const & hashes, std::vector<nano::signature> const & blocks_signatures) {
-		this->process_verified_state_blocks (items, verifications, hashes, blocks_signatures);
-	};
-	state_block_signature_verification.transition_inactive_callback = [this] () {
-		if (this->flushing)
-		{
-			{
-				// Prevent a race with condition.wait in block_processor::flush
-				nano::lock_guard<nano::mutex> guard{ this->mutex };
-			}
-			this->condition.notify_all ();
-		}
-	};
 	processing_thread = std::thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::block_processing);
 		this->process_blocks ();
@@ -48,16 +34,14 @@ void nano::block_processor::stop ()
 	}
 	condition.notify_all ();
 	blocking.stop ();
-	state_block_signature_verification.stop ();
 	nano::join_or_pass (processing_thread);
 }
 
 void nano::block_processor::flush ()
 {
-	node.checker.flush ();
 	flushing = true;
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped && (have_blocks () || active || state_block_signature_verification.is_active ()))
+	while (!stopped && (have_blocks () || active))
 	{
 		condition.wait (lock);
 	}
@@ -67,7 +51,7 @@ void nano::block_processor::flush ()
 std::size_t nano::block_processor::size ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	return (blocks.size () + state_block_signature_verification.size () + forced.size ());
+	return blocks.size () + forced.size ();
 }
 
 bool nano::block_processor::full ()
@@ -207,56 +191,16 @@ bool nano::block_processor::have_blocks_ready ()
 bool nano::block_processor::have_blocks ()
 {
 	debug_assert (!mutex.try_lock ());
-	return have_blocks_ready () || state_block_signature_verification.size () != 0;
-}
-
-void nano::block_processor::process_verified_state_blocks (std::deque<nano::state_block_signature_verification::value_type> & items, std::vector<int> const & verifications, std::vector<nano::block_hash> const & hashes, std::vector<nano::signature> const & blocks_signatures)
-{
-	{
-		nano::unique_lock<nano::mutex> lk{ mutex };
-		for (auto i (0); i < verifications.size (); ++i)
-		{
-			debug_assert (verifications[i] == 1 || verifications[i] == 0);
-			auto & item = items.front ();
-			auto & [block] = item;
-			if (!block->link ().is_zero () && node.ledger.is_epoch_link (block->link ()))
-			{
-				// Epoch blocks
-				if (verifications[i] == 1)
-				{
-					blocks.emplace_back (block);
-				}
-				else
-				{
-					// Possible regular state blocks with epoch link (send subtype)
-					blocks.emplace_back (block);
-				}
-			}
-			else if (verifications[i] == 1)
-			{
-				// Non epoch blocks
-				blocks.emplace_back (block);
-			}
-			items.pop_front ();
-		}
-	}
-	condition.notify_all ();
+	return have_blocks_ready ();
 }
 
 void nano::block_processor::add_impl (std::shared_ptr<nano::block> block)
 {
-	if (block->type () == nano::block_type::state || block->type () == nano::block_type::open)
 	{
-		state_block_signature_verification.add ({ block });
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		blocks.emplace_back (block);
 	}
-	else
-	{
-		{
-			nano::lock_guard<nano::mutex> guard{ mutex };
-			blocks.emplace_back (block);
-		}
-		condition.notify_all ();
-	}
+	condition.notify_all ();
 }
 
 auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock_a) -> std::deque<processed_t>
@@ -274,9 +218,9 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 	auto store_batch_reached = [&number_of_blocks_processed, max = node.store.max_block_write_batch_num ()] { return number_of_blocks_processed >= max; };
 	while (have_blocks_ready () && (!deadline_reached () || !processor_batch_reached ()) && !store_batch_reached ())
 	{
-		if ((blocks.size () + state_block_signature_verification.size () + forced.size () > 64) && should_log ())
+		if ((blocks.size () + forced.size () > 64) && should_log ())
 		{
-			node.logger.always_log (boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_block_signature_verification.size () % forced.size ()));
+			node.logger.always_log (boost::str (boost::format ("%1% blocks (+ %2% forced) in processing queue") % blocks.size () % forced.size ()));
 		}
 		std::shared_ptr<nano::block> block;
 		nano::block_hash hash (0);
@@ -478,7 +422,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bl
 	}
 
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (collect_container_info (block_processor.state_block_signature_verification, "state_block_signature_verification"));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (block_processor.blocks)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "forced", forced_count, sizeof (decltype (block_processor.forced)::value_type) }));
 	return composite;

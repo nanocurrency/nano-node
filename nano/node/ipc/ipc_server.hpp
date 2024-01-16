@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/ipc_flatbuffers_lib/generated/flatbuffers/nanoapi_generated.h>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/ipc.hpp>
 #include <nano/node/ipc/ipc_access_config.hpp>
@@ -10,10 +9,6 @@
 #include <atomic>
 #include <memory>
 
-namespace flatbuffers
-{
-class Parser;
-}
 namespace nano
 {
 class node;

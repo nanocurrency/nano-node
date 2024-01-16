@@ -47,7 +47,7 @@ void nano::scheduler::hinted::notify ()
 {
 	// Avoid notifying when there is very little space inside AEC
 	auto const limit = active.limit (nano::election_behavior::hinted);
-	if (active.vacancy (nano::election_behavior::hinted) >= (limit / 5))
+	if (active.vacancy (nano::election_behavior::hinted) >= (limit * config.vacancy_threshold_percent / 100))
 	{
 		condition.notify_all ();
 	}
@@ -59,13 +59,19 @@ bool nano::scheduler::hinted::predicate () const
 	return active.vacancy (nano::election_behavior::hinted) > 0;
 }
 
-void nano::scheduler::hinted::activate (const nano::store::transaction & transaction, const nano::block_hash & hash, bool check_dependents)
+void nano::scheduler::hinted::activate (const nano::store::read_transaction & transaction, const nano::block_hash & hash, bool check_dependents)
 {
+	const int max_iterations = 64;
+
+	std::set<nano::block_hash> visited;
 	std::stack<nano::block_hash> stack;
 	stack.push (hash);
 
-	while (!stack.empty ())
+	int iterations = 0;
+	while (!stack.empty () && iterations++ < max_iterations)
 	{
+		transaction.refresh_if_needed ();
+
 		const nano::block_hash current_hash = stack.top ();
 		stack.pop ();
 
@@ -89,7 +95,7 @@ void nano::scheduler::hinted::activate (const nano::store::transaction & transac
 					auto dependents = node.ledger.dependent_blocks (transaction, *block);
 					for (const auto & dependent_hash : dependents)
 					{
-						if (!dependent_hash.is_zero ())
+						if (!dependent_hash.is_zero () && visited.insert (dependent_hash).second) // Avoid visiting the same block twice
 						{
 							stack.push (dependent_hash); // Add dependent block to the stack
 						}
@@ -105,7 +111,8 @@ void nano::scheduler::hinted::activate (const nano::store::transaction & transac
 		else
 		{
 			stats.inc (nano::stat::type::hinting, nano::stat::detail::missing_block);
-			node.bootstrap_block (current_hash);
+
+			// TODO: Block is missing, bootstrap it
 		}
 	}
 }
@@ -115,10 +122,18 @@ void nano::scheduler::hinted::run_iterative ()
 	const auto minimum_tally = tally_threshold ();
 	const auto minimum_final_tally = final_tally_threshold ();
 
+	// Get the list before db transaction starts to avoid unnecessary slowdowns
+	auto tops = vote_cache.top (minimum_tally);
+
 	auto transaction = node.store.tx_begin_read ();
 
-	for (auto const & entry : vote_cache.top (minimum_tally))
+	for (auto const & entry : tops)
 	{
+		if (stopped)
+		{
+			return;
+		}
+
 		if (!predicate ())
 		{
 			return;
@@ -158,10 +173,14 @@ void nano::scheduler::hinted::run ()
 
 		if (!stopped)
 		{
+			lock.unlock ();
+
 			if (predicate ())
 			{
 				run_iterative ();
 			}
+
+			lock.lock ();
 		}
 	}
 }
@@ -180,6 +199,8 @@ nano::uint128_t nano::scheduler::hinted::final_tally_threshold () const
 
 bool nano::scheduler::hinted::cooldown (const nano::block_hash & hash)
 {
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
 	auto const now = std::chrono::steady_clock::now ();
 
 	// Check if the hash is still in the cooldown period using the hashed index
@@ -206,6 +227,15 @@ bool nano::scheduler::hinted::cooldown (const nano::block_hash & hash)
 	return false; // No need to cooldown
 }
 
+std::unique_ptr<nano::container_info_component> nano::scheduler::hinted::collect_container_info (const std::string & name) const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cooldowns", cooldowns_m.size (), sizeof (decltype (cooldowns_m)::value_type) }));
+	return composite;
+}
+
 /*
  * hinted_config
  */
@@ -224,6 +254,7 @@ nano::error nano::scheduler::hinted_config::serialize (nano::tomlconfig & toml) 
 	toml.put ("hinting_threshold", hinting_threshold_percent, "Percentage of online weight needed to start a hinted election. \ntype:uint32,[0,100]");
 	toml.put ("check_interval", check_interval.count (), "Interval between scans of the vote cache for possible hinted elections. \ntype:milliseconds");
 	toml.put ("block_cooldown", block_cooldown.count (), "Cooldown period for blocks that failed to start an election. \ntype:milliseconds");
+	toml.put ("vacancy_threshold", vacancy_threshold_percent, "Percentage of available space in the active elections container needed to trigger a scan for hinted elections (before the check interval elapses). \ntype:uint32,[0,100]");
 
 	return toml.get_error ();
 }
@@ -240,9 +271,15 @@ nano::error nano::scheduler::hinted_config::deserialize (nano::tomlconfig & toml
 	toml.get ("block_cooldown", block_cooldown_l);
 	block_cooldown = std::chrono::milliseconds{ block_cooldown_l };
 
+	toml.get ("vacancy_threshold", vacancy_threshold_percent);
+
 	if (hinting_threshold_percent > 100)
 	{
 		toml.get_error ().set ("hinting_threshold must be a number between 0 and 100");
+	}
+	if (vacancy_threshold_percent > 100)
+	{
+		toml.get_error ().set ("vacancy_threshold must be a number between 0 and 100");
 	}
 
 	return toml.get_error ();
