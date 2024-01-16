@@ -54,15 +54,15 @@ public:
 		return true;
 	}
 
-  bool is_closed () const
-  {
-    return dead_channel;
-  }
+	bool is_closed () const
+	{
+		return dead_channel;
+	}
 
-  void close_channel (bool value) const 
-  {
-    dead_channel = value;
-  }
+	void close_channel (bool value) const
+	{
+		dead_channel = value;
+	}
 
 	std::chrono::steady_clock::time_point get_last_bootstrap_attempt () const
 	{
@@ -141,7 +141,7 @@ public:
 	mutable nano::mutex channel_mutex;
 
 private:
-  mutable bool dead_channel{ false };
+	mutable bool dead_channel{ false };
 	std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
 	std::chrono::steady_clock::time_point last_packet_received{ std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point last_packet_sent{ std::chrono::steady_clock::now () };

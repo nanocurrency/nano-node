@@ -173,10 +173,10 @@ namespace transport
 			{
 			}
 
-      void close_channel () const
-      {
-        channel->close_channel (true);
-      }
+			void close_channel () const
+			{
+				channel->close_channel (true);
+			}
 
 			nano::tcp_endpoint endpoint () const
 			{

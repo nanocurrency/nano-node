@@ -289,7 +289,7 @@ void nano::rep_crawler::cleanup_reps ()
 			{
 				// Remove reps with closed channels
 				iterator = probable_reps.get<tag_last_request> ().erase (iterator);
-      }
+			}
 		}
 	}
 }
