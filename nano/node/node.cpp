@@ -103,13 +103,13 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (re
 	return composite;
 }
 
-nano::keypair nano::load_or_create_node_id (std::filesystem::path const & application_path, nano::nlogger & nlogger)
+nano::keypair nano::load_or_create_node_id (std::filesystem::path const & application_path)
 {
 	auto node_private_key_path = application_path / "node_id_private.key";
 	std::ifstream ifs (node_private_key_path.c_str ());
 	if (ifs.good ())
 	{
-		nlogger.debug (nano::log::type::node, "Reading node id from: '{}'", node_private_key_path.string ());
+		nano::default_logger ().info (nano::log::type::init, "Reading node id from: '{}'", node_private_key_path.string ());
 
 		std::string node_private_key;
 		ifs >> node_private_key;
@@ -120,7 +120,7 @@ nano::keypair nano::load_or_create_node_id (std::filesystem::path const & applic
 	else
 	{
 		// no node_id found, generate new one
-		nlogger.debug (nano::log::type::node, "Generating a new node id, saving to: '{}'", node_private_key_path.string ());
+		nano::default_logger ().info (nano::log::type::init, "Generating a new node id, saving to: '{}'", node_private_key_path.string ());
 
 		nano::keypair kp;
 		std::ofstream ofs (node_private_key_path.c_str (), std::ofstream::out | std::ofstream::trunc);
@@ -138,12 +138,13 @@ nano::node::node (boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, s
 }
 
 nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path const & application_path_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
+	node_id{ load_or_create_node_id (application_path_a) },
 	write_database_queue (!flags_a.force_use_write_database_queue && (config_a.rocksdb_config.enable)),
 	io_ctx (io_ctx_a),
 	node_initialized_latch (1),
 	config (config_a),
 	network_params{ config.network_params },
-	nlogger{ "node" },
+	nlogger{ make_logger_identifier (node_id) },
 	stats (config.stats_config),
 	workers{ config.background_threads, nano::thread_role::name::worker },
 	bootstrap_workers{ config.bootstrap_serving_threads, nano::thread_role::name::bootstrap_worker },
@@ -348,6 +349,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 		nlogger.info (nano::log::type::node, "Data path: {}", application_path.string ());
 		nlogger.info (nano::log::type::node, "Work pool threads: {} ({})", work.threads.size (), (work.opencl ? "OpenCL" : "CPU"));
 		nlogger.info (nano::log::type::node, "Work peers: {}", config.work_peers.size ());
+		nlogger.info (nano::log::type::node, "Node ID: {}", node_id.pub.to_node_id ());
 
 		if (!work_generation_enabled ())
 		{
@@ -397,9 +399,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 				nlogger.warn (nano::log::type::node, "Voting with more than one representative can limit performance");
 			}
 		}
-
-		node_id = nano::load_or_create_node_id (application_path, nlogger);
-		nlogger.info (nano::log::type::node, "Node ID: {}", node_id.pub.to_node_id ());
 
 		if ((network_params.network.is_live_network () || network_params.network.is_beta_network ()) && !flags.inactive_node)
 		{
@@ -1474,6 +1473,12 @@ nano::telemetry_data nano::node::local_telemetry () const
 	// Make sure this is the final operation!
 	telemetry_data.sign (node_id);
 	return telemetry_data;
+}
+
+std::string nano::node::make_logger_identifier (const nano::keypair & node_id)
+{
+	// Node identifier consists of first 10 characters of node id
+	return node_id.pub.to_node_id ().substr (0, 10);
 }
 
 /*

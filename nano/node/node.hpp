@@ -140,6 +140,7 @@ public:
 	nano::telemetry_data local_telemetry () const;
 
 public:
+	const nano::keypair node_id;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
@@ -175,7 +176,6 @@ public:
 	nano::block_processor block_processor;
 	nano::block_arrival block_arrival;
 	nano::local_vote_history history;
-	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
 	nano::confirmation_height_processor confirmation_height_processor;
@@ -227,9 +227,11 @@ public: // Testing convenience functions
 
 private:
 	void long_inactivity_cleanup ();
+
+	static std::string make_logger_identifier (nano::keypair const & node_id);
 };
 
-nano::keypair load_or_create_node_id (std::filesystem::path const & application_path, nano::nlogger &);
+nano::keypair load_or_create_node_id (std::filesystem::path const & application_path);
 
 std::unique_ptr<container_info_component> collect_container_info (node & node, std::string const & name);
 
