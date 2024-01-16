@@ -1,7 +1,5 @@
-#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/confirmation_height_unbounded.hpp>
-#include <nano/node/logging.hpp>
 #include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/block.hpp>

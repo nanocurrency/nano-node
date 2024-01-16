@@ -12,27 +12,11 @@
 #include <nano/rpc/rpc_request_processor.hpp>
 #include <nano/secure/utility.hpp>
 
-#include <boost/log/utility/setup/common_attributes.hpp>
-#include <boost/log/utility/setup/file.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
 namespace
 {
-void logging_init (std::filesystem::path const & application_path_a)
-{
-	static std::atomic_flag logging_already_added = ATOMIC_FLAG_INIT;
-	if (!logging_already_added.test_and_set ())
-	{
-		boost::log::add_common_attributes ();
-		auto path = application_path_a / "log";
-
-		uintmax_t max_size{ 128 * 1024 * 1024 };
-		uintmax_t rotation_size{ 4 * 1024 * 1024 };
-		bool flush{ true };
-		boost::log::add_file_log (boost::log::keywords::target = path, boost::log::keywords::file_name = path / "rpc_log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = rotation_size, boost::log::keywords::auto_flush = flush, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = max_size, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
-	}
-}
-
 volatile sig_atomic_t sig_int_or_term = 0;
 
 nano::nlogger nlogger{ "rpc_daemon" };
@@ -53,8 +37,6 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 	auto error = nano::read_rpc_config_toml (data_path, rpc_config, config_overrides);
 	if (!error)
 	{
-		logging_init (data_path);
-
 		auto tls_config (std::make_shared<nano::tls_config> ());
 		error = nano::read_tls_config_toml (data_path, *tls_config, nlogger);
 		if (error)

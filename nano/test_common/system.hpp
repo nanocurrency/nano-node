@@ -66,7 +66,6 @@ namespace test
 	public:
 		boost::asio::io_context io_ctx;
 		std::vector<std::shared_ptr<nano::node>> nodes;
-		nano::logging logging;
 		nano::stats stats;
 		nano::nlogger nlogger;
 		nano::work_pool work{ nano::dev::network_params.network, std::max (nano::hardware_concurrency (), 1u) };

@@ -2101,7 +2101,6 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 TEST (confirmation_height, pruned_source)
 {
 	nano::nlogger logger;
-	nano::logging logging;
 	auto path (nano::unique_path ());
 	auto store = nano::make_store (logger, path, nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());

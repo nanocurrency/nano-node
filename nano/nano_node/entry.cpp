@@ -1124,10 +1124,8 @@ int main (int argc, char * const * argv)
 			boost::asio::io_context io_ctx1;
 			boost::asio::io_context io_ctx2;
 			nano::work_pool work{ network_params.network, std::numeric_limits<unsigned>::max () };
-			nano::logging logging;
 			auto path1 (nano::unique_path ());
 			auto path2 (nano::unique_path ());
-			logging.init (path1);
 			std::vector<std::string> config_overrides;
 			auto config (vm.find ("config"));
 			if (config != vm.end ())
@@ -1882,13 +1880,6 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_sys_logging"))
 		{
-#ifdef BOOST_WINDOWS
-			if (!nano::event_log_reg_entry_exists () && !nano::is_windows_elevated ())
-			{
-				std::cerr << "The event log requires the HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\EventLog\\Nano\\Nano registry entry, run again as administator to create it.\n";
-				return 1;
-			}
-#endif
 			auto inactive_node = nano::default_inactive_node (data_path, vm);
 			inactive_node->node->nlogger.critical ({}, "Testing system logger (CRITICAL)");
 			inactive_node->node->nlogger.error ({}, "Testing system logger (ERROR)");

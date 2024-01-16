@@ -89,7 +89,7 @@ TEST (system, receive_while_synchronizing)
 		uint32_t count (1000);
 		system.generate_mass_activity (count, *system.nodes[0]);
 		nano::keypair key;
-		auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
+		auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work));
 		ASSERT_FALSE (node1->init_error ());
 		auto wallet (node1->wallets.create (1));
 		wallet->insert_adhoc (nano::dev::genesis_key.prv); // For voting
@@ -2123,7 +2123,7 @@ TEST (node, wallet_create_block_confirm_conflicts)
 	{
 		nano::test::system system;
 		nano::block_builder builder;
-		nano::node_config node_config (system.get_available_port (), system.logging);
+		nano::node_config node_config (system.get_available_port ());
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config);
 		auto const num_blocks = 10000;

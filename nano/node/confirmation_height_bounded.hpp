@@ -12,8 +12,6 @@
 namespace nano
 {
 class ledger;
-class logging;
-class logger_mt;
 class write_database_queue;
 class write_guard;
 

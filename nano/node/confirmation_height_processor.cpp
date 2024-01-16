@@ -1,4 +1,3 @@
-#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/utility.hpp>

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
-#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_pool.hpp>
@@ -71,7 +70,7 @@ outbound_bandwidth_limiter::config outbound_bandwidth_limiter_config (node_confi
 class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
-	node (boost::asio::io_context &, uint16_t, std::filesystem::path const &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
+	node (boost::asio::io_context &, uint16_t, std::filesystem::path const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
 	node (boost::asio::io_context &, std::filesystem::path const &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
 	~node ();
 
@@ -153,7 +152,6 @@ public:
 	nano::node_flags flags;
 	nano::work_pool & work;
 	nano::distributed_work_factory distributed_work;
-	nano::logger_mt logger;
 	std::unique_ptr<nano::store::component> store_impl;
 	nano::store::component & store;
 	nano::unchecked_map unchecked;

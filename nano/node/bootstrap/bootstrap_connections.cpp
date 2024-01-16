@@ -165,20 +165,17 @@ void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & end
 		}
 		else
 		{
-			if (this_l->node.config.logging.network_logging ())
+			switch (ec.value ())
 			{
-				switch (ec.value ())
-				{
-					default:
-						this_l->node.nlogger.debug (nano::log::type::bootstrap, "Error initiating bootstrap connection to: {} ({})", nano::util::to_str (endpoint_a), ec.message ());
-						break;
-					case boost::system::errc::connection_refused:
-					case boost::system::errc::operation_canceled:
-					case boost::system::errc::timed_out:
-					case 995: // Windows The I/O operation has been aborted because of either a thread exit or an application request
-					case 10061: // Windows No connection could be made because the target machine actively refused it
-						break;
-				}
+				default:
+					this_l->node.nlogger.debug (nano::log::type::bootstrap, "Error initiating bootstrap connection to: {} ({})", nano::util::to_str (endpoint_a), ec.message ());
+					break;
+				case boost::system::errc::connection_refused:
+				case boost::system::errc::operation_canceled:
+				case boost::system::errc::timed_out:
+				case 995: // Windows The I/O operation has been aborted because of either a thread exit or an application request
+				case 10061: // Windows No connection could be made because the target machine actively refused it
+					break;
 			}
 		}
 		--this_l->connections_count;

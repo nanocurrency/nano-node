@@ -3,7 +3,6 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/node/logging.hpp>
 #include <nano/node/openclconfig.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/secure/common.hpp>
@@ -90,8 +89,6 @@ TEST (work, cancel_many)
 
 TEST (work, opencl)
 {
-	nano::logging logging;
-	logging.init (nano::unique_path ());
 	nano::nlogger logger;
 	bool error (false);
 	nano::opencl_environment environment (error);

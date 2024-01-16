@@ -109,8 +109,6 @@ int run_wallet (QApplication & application, int argc, char * const * argv, std::
 	{
 		nano::set_use_memory_pools (config.node.use_memory_pools);
 
-		config.node.logging.init (data_path);
-
 		auto tls_config (std::make_shared<nano::tls_config> ());
 		error = nano::read_tls_config_toml (data_path, *tls_config, nlogger);
 		if (error)

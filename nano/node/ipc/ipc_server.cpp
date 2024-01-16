@@ -23,8 +23,6 @@
 
 #include <flatbuffers/flatbuffers.h>
 
-using namespace boost::log;
-
 namespace
 {
 /**

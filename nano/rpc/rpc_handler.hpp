@@ -11,7 +11,6 @@ namespace nano
 {
 class rpc_config;
 class rpc_handler_interface;
-class logger_mt;
 class rpc_handler_request_params;
 
 class rpc_handler : public std::enable_shared_from_this<nano::rpc_handler>

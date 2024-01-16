@@ -1,6 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/lmdbconfig.hpp>
-#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>

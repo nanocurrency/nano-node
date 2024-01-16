@@ -132,8 +132,8 @@ nano::keypair nano::load_or_create_node_id (std::filesystem::path const & applic
 	}
 }
 
-nano::node::node (boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, std::filesystem::path const & application_path_a, nano::logging const & logging_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
-	node (io_ctx_a, application_path_a, nano::node_config (peering_port_a, logging_a), work_a, flags_a, seq)
+nano::node::node (boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, std::filesystem::path const & application_path_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
+	node (io_ctx_a, application_path_a, nano::node_config (peering_port_a), work_a, flags_a, seq)
 {
 }
 
@@ -150,7 +150,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	flags (flags_a),
 	work (work_a),
 	distributed_work (*this),
-	logger (config_a.logging.min_time_between_log_output),
 	store_impl (nano::make_store (nlogger, application_path_a, network_params.ledger, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade)),
 	store (*store_impl),
 	unchecked{ stats, flags.disable_block_processor_unchecked_deletion },
@@ -1510,8 +1509,6 @@ nano::node_wrapper::node_wrapper (std::filesystem::path const & path_a, std::fil
 
 	auto & node_config = daemon_config.node;
 	node_config.peering_port = 24000;
-	node_config.logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
-	node_config.logging.init (path_a);
 
 	node = std::make_shared<nano::node> (*io_context, path_a, node_config, work, node_flags_a);
 }

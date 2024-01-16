@@ -1,7 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/json_error_response.hpp>
-#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>

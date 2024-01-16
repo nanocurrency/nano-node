@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/secure/ledger.hpp>
 

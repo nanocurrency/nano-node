@@ -1,4 +1,4 @@
-#include <nano/lib/logger_mt.hpp>
+
 #include <nano/lib/stats.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/active_transactions.hpp>
@@ -62,7 +62,8 @@ void nano::vote_processor::process_loop ()
 			condition.notify_all ();
 
 			log_this_iteration = false;
-			if (config.logging.network_logging () && votes_l.size () > 50)
+			// TODO: This is a temporary measure to prevent spamming the logs until we can implement a better solution
+			if (votes_l.size () > 1024 * 4)
 			{
 				/*
 				 * Only log the timing information for this iteration if

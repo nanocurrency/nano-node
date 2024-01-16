@@ -19,7 +19,6 @@ using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost
 
 namespace nano
 {
-class logger_mt;
 class rpc_config;
 class rpc_handler_interface;
 
