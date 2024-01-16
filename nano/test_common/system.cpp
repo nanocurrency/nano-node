@@ -563,7 +563,7 @@ void nano::test::system::stop ()
 
 nano::node_config nano::test::system::default_config ()
 {
-	nano::node_config config{ get_available_port (), logging };
+	nano::node_config config{ std::nullopt, logging };
 	return config;
 }
 
