@@ -1864,9 +1864,7 @@ TEST (node, rep_remove)
 	ASSERT_TIMELY (10s, searching_node.rep_crawler.representative_count () == 1);
 
 	// Start a node for Rep2 and wait until it is connected
-	auto node_rep2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), nano::node_config (system.get_available_port (), system.logging), system.work));
-	node_rep2->start ();
-	searching_node.network.tcp_channels.start_tcp (node_rep2->network.endpoint ());
+	auto node_rep2 = system.add_node ();
 	std::shared_ptr<nano::transport::channel> channel_rep2;
 	ASSERT_TIMELY (10s, (channel_rep2 = searching_node.network.tcp_channels.find_node_id (node_rep2->get_node_id ())) != nullptr);
 
