@@ -171,6 +171,19 @@ public:
 		return *this;
 	}
 
+	template <typename T>
+	std::vector<std::pair<std::string, T>> get_values ()
+	{
+		std::vector<std::pair<std::string, T>> result;
+		for (auto & entry : *tree)
+		{
+			T target{};
+			get_config (true, entry.first, target, target);
+			result.push_back ({ entry.first, target });
+		}
+		return result;
+	}
+
 protected:
 	template <typename T, typename = std::enable_if_t<nano::is_lexical_castable<T>::value>>
 	tomlconfig & get_config (bool optional, std::string const & key, T & target, T default_value = T ())
