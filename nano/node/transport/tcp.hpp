@@ -172,6 +172,12 @@ namespace transport
 				channel (std::move (channel_a)), socket (std::move (socket_a)), response_server (std::move (server_a))
 			{
 			}
+
+      void close_channel () const
+      {
+        channel->close_channel (true);
+      }
+
 			nano::tcp_endpoint endpoint () const
 			{
 				return channel->get_tcp_endpoint ();

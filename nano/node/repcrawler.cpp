@@ -285,38 +285,11 @@ void nano::rep_crawler::cleanup_reps ()
 		auto iterator (probable_reps.get<tag_last_request> ().begin ());
 		while (iterator != probable_reps.get<tag_last_request> ().end ())
 		{
-			if (iterator->channel->alive ())
-			{
-				channels.push_back (iterator->channel);
-				++iterator;
-			}
-			else
+			if (iterator->channel->is_closed ())
 			{
 				// Remove reps with closed channels
 				iterator = probable_reps.get<tag_last_request> ().erase (iterator);
-			}
-		}
-	}
-	// Remove reps with inactive channels
-	for (auto const & i : channels)
-	{
-		bool equal (false);
-		if (i->get_type () == nano::transport::transport_type::tcp)
-		{
-			auto find_channel (node.network.tcp_channels.find_channel (i->get_tcp_endpoint ()));
-			if (find_channel != nullptr && *find_channel == *static_cast<nano::transport::channel_tcp *> (i.get ()))
-			{
-				equal = true;
-			}
-		}
-		else if (i->get_type () == nano::transport::transport_type::fake)
-		{
-			equal = true;
-		}
-		if (!equal)
-		{
-			nano::lock_guard<nano::mutex> lock{ probable_reps_mutex };
-			probable_reps.get<tag_channel_ref> ().erase (*i);
+      }
 		}
 	}
 }

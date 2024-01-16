@@ -460,6 +460,7 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 	{
 		if (!it->socket->alive ())
 		{
+      it->close_channel();
 			it = channels.erase (it);
 		}
 	}
