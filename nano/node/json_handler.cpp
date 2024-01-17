@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <ranges>
 #include <vector>
 
 namespace
@@ -3053,101 +3054,95 @@ void nano::json_handler::receivable ()
 	bool const include_active = request.get<bool> ("include_active", false);
 	bool const include_only_confirmed = request.get<bool> ("include_only_confirmed", true);
 	bool const sorting = request.get<bool> ("sorting", false);
-	auto simple (threshold.is_zero () && !source && !min_version && !sorting); // if simple, response is a list of hashes
-	bool const should_sort = sorting && !simple;
-	if (!ec)
+
+	if (ec)
 	{
-		auto offset_counter = offset;
-		boost::property_tree::ptree peers_l;
-		auto transaction (node.store.tx_begin_read ());
-		// The ptree container is used if there are any children nodes (e.g source/min_version) otherwise the amount container is used.
-		std::vector<std::pair<std::string, boost::property_tree::ptree>> hash_ptree_pairs;
-		std::vector<std::pair<std::string, nano::uint128_t>> hash_amount_pairs;
-		for (auto i (node.store.pending.begin (transaction, nano::pending_key (account, 0))), n (node.store.pending.end ()); i != n && nano::pending_key (i->first).account == account && (should_sort || peers_l.size () < count); ++i)
-		{
-			nano::pending_key const & key (i->first);
-			if (block_confirmed (node, transaction, key.hash, include_active, include_only_confirmed))
-			{
-				if (!should_sort && offset_counter > 0)
-				{
-					--offset_counter;
-					continue;
-				}
-
-				if (simple)
-				{
-					boost::property_tree::ptree entry;
-					entry.put ("", key.hash.to_string ());
-					peers_l.push_back (std::make_pair ("", entry));
-				}
-				else
-				{
-					nano::pending_info const & info (i->second);
-					if (info.amount.number () >= threshold.number ())
-					{
-						if (source || min_version)
-						{
-							boost::property_tree::ptree pending_tree;
-							pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-							if (source)
-							{
-								pending_tree.put ("source", info.source.to_account ());
-							}
-							if (min_version)
-							{
-								pending_tree.put ("min_version", epoch_as_string (info.epoch));
-							}
-
-							if (should_sort)
-							{
-								hash_ptree_pairs.emplace_back (key.hash.to_string (), pending_tree);
-							}
-							else
-							{
-								peers_l.add_child (key.hash.to_string (), pending_tree);
-							}
-						}
-						else
-						{
-							if (should_sort)
-							{
-								hash_amount_pairs.emplace_back (key.hash.to_string (), info.amount.number ());
-							}
-							else
-							{
-								peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
-							}
-						}
-					}
-				}
-			}
-		}
-		if (should_sort)
-		{
-			if (source || min_version)
-			{
-				std::stable_sort (hash_ptree_pairs.begin (), hash_ptree_pairs.end (), [] (auto const & lhs, auto const & rhs) {
-					return lhs.second.template get<nano::uint128_t> ("amount") > rhs.second.template get<nano::uint128_t> ("amount");
-				});
-				for (auto i = offset, j = offset + count; i < hash_ptree_pairs.size () && i < j; ++i)
-				{
-					peers_l.add_child (hash_ptree_pairs[i].first, hash_ptree_pairs[i].second);
-				}
-			}
-			else
-			{
-				std::stable_sort (hash_amount_pairs.begin (), hash_amount_pairs.end (), [] (auto const & lhs, auto const & rhs) {
-					return lhs.second > rhs.second;
-				});
-
-				for (auto i = offset, j = offset + count; i < hash_amount_pairs.size () && i < j; ++i)
-				{
-					peers_l.put (hash_amount_pairs[i].first, hash_amount_pairs[i].second.convert_to<std::string> ());
-				}
-			}
-		}
-		response_l.add_child ("blocks", peers_l);
+		response_errors ();
+		return;
 	}
+
+	boost::property_tree::ptree peers_l;
+	auto transaction (node.store.tx_begin_read ());
+
+	// We can't create vector from iterator because store_iterator is not a specialization of iterator_traits.
+	// Maybe we could limit this loop iterations to count (if not sorting) instead of ranges::take_view?
+	std::vector<std::pair<nano::pending_key, nano::pending_info>> pending;
+	for (auto i (node.store.pending.begin (transaction, nano::pending_key (account, 0))), n (node.store.pending.end ()); i != n && nano::pending_key (i->first).account == account; ++i)
+	{
+		pending.push_back (std::make_pair (i->first, i->second));
+	}
+
+	auto block_confirmed_lambda = [this, &transaction, include_active, include_only_confirmed] (auto & i) {
+		return block_confirmed (node, transaction, i.first.hash, include_active, include_only_confirmed);
+	};
+	auto confirmed = pending | std::views::filter (block_confirmed_lambda);
+	auto common_view = std::views::common (confirmed.base ());
+
+	std::shared_ptr<std::vector<std::pair<nano::pending_key, nano::pending_info>>> filtered_vector;
+	if (sorting)
+	{
+		filtered_vector = std::make_shared<std::vector<std::pair<nano::pending_key, nano::pending_info>>> (confirmed.begin (), confirmed.end ());
+		std::ranges::sort (*filtered_vector, std::greater<>{}, [] (std::pair<nano::pending_key, nano::pending_info> & i) { return i.second.amount; });
+		common_view = std::views::common (*filtered_vector);
+	}
+
+	auto thresholod_lambda = [&threshold] (auto & i) { return i.second.amount.number () >= threshold.number (); };
+	auto final_view = common_view | std::views::filter (thresholod_lambda) | std::views::drop (offset) | std::views::take (std::min (count, pending.size ()));
+
+	//Strategy-like approach to avoid ifs on every loop. Let me know if it's worth.
+	std::function<void (const nano::pending_key & key, const nano::pending_info & info)> output_func;
+	std::function<void (boost::property_tree::ptree & pending_tree, const nano::pending_info & info)> put_fields_func;
+	if (source || min_version)
+	{
+		if (source && min_version)
+		{
+			put_fields_func = [] (boost::property_tree::ptree & pending_tree, const nano::pending_info & info) {
+				pending_tree.put ("source", info.source.to_account ());
+				pending_tree.put ("min_version", epoch_as_string (info.epoch));
+			};
+		}
+		else if (source)
+		{
+			put_fields_func = [] (boost::property_tree::ptree & pending_tree, const nano::pending_info & info) {
+				pending_tree.put ("source", info.source.to_account ());
+			};
+		}
+		else if (min_version)
+		{
+			put_fields_func = [] (boost::property_tree::ptree & pending_tree, const nano::pending_info & info) {
+				pending_tree.put ("min_version", epoch_as_string (info.epoch));
+			};
+		}
+		output_func = [&peers_l, &put_fields_func] (const nano::pending_key & key, const nano::pending_info & info) {
+			boost::property_tree::ptree pending_tree;
+			pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
+			put_fields_func (pending_tree, info);
+			peers_l.add_child (key.hash.to_string (), pending_tree);
+		};
+	}
+	else
+	{
+		if (threshold.number () > 0 || sorting)
+		{
+			output_func = [&peers_l] (const nano::pending_key & key, const nano::pending_info & info) {
+				peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
+			};
+		}
+		else
+		{
+			output_func = [&peers_l] (const nano::pending_key & key, const nano::pending_info & info) {
+				boost::property_tree::ptree pending_tree;
+				pending_tree.put ("", key.hash.to_string ());
+				peers_l.push_back (std::make_pair ("", pending_tree));
+			};
+		}
+	}
+	for (const auto & entry : final_view)
+	{
+		output_func (entry.first, entry.second);
+	}
+
+	response_l.add_child ("blocks", peers_l);
 	response_errors ();
 }
 
