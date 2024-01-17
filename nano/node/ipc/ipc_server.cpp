@@ -14,7 +14,6 @@
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
 
-#include <boost/asio/signal_set.hpp>
 #include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
@@ -614,7 +613,7 @@ nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config co
 		}
 #ifndef _WIN32
 		// Hook up config reloading through the HUP signal
-		auto signals (std::make_shared<boost::asio::signal_set> (node.io_ctx, SIGHUP));
+		signals = std::make_shared<boost::asio::signal_set> (node.io_ctx, SIGHUP);
 		await_hup_signal (signals, *this);
 #endif
 		if (node_a.config.ipc_config.transport_domain.enabled)
@@ -658,6 +657,10 @@ void nano::ipc::ipc_server::stop ()
 	for (auto & transport : transports)
 	{
 		transport->stop ();
+	}
+	if (signals)
+	{
+		signals->cancel ();
 	}
 }
 
