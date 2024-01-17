@@ -1,6 +1,6 @@
 add_executable(
   core_test
-  core_test_main.cc
+  entry.cpp
   fakes/websocket_client.hpp
   fakes/work_peer.hpp
   active_transactions.cpp
