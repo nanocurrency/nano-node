@@ -245,6 +245,18 @@ std::string join (Container const & container, std::string_view delimiter, Func 
 	return join (container.begin (), container.end (), delimiter, transform);
 }
 
+inline std::vector<std::string> split (const std::string & str, char delimiter)
+{
+	std::stringstream ss{ str };
+	std::vector<std::string> result;
+	std::string item;
+	while (std::getline (ss, item, delimiter))
+	{
+		result.push_back (item);
+	}
+	return result;
+}
+
 template <class T>
 std::string to_str (T const & val)
 {

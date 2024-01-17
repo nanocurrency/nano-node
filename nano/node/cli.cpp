@@ -674,7 +674,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		else if (type == "log")
 		{
 			valid_type = true;
-			nano::log_config config{ nano::log_config::daemon_default () };
+			nano::log_config config = nano::log_config::sample_config ();
 			config.serialize_toml (toml);
 		}
 		else if (type == "tls")

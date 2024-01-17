@@ -129,13 +129,13 @@ std::string_view to_string (nano::log::detail);
 std::string_view to_string (nano::log::level);
 
 /// @throw std::invalid_argument if the input string does not match a log::level
-nano::log::level to_level (std::string_view);
+nano::log::level parse_level (std::string_view);
 
 /// @throw std::invalid_argument if the input string does not match a log::type
-nano::log::type to_type (std::string_view);
+nano::log::type parse_type (std::string_view);
 
 /// @throw std::invalid_argument if the input string does not match a log::detail
-nano::log::detail to_detail (std::string_view);
+nano::log::detail parse_detail (std::string_view);
 
 std::vector<nano::log::level> const & all_levels ();
 std::vector<nano::log::type> const & all_types ();

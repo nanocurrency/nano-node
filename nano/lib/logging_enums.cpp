@@ -47,7 +47,7 @@ const std::vector<nano::log::type> & nano::log::all_types ()
 	return all;
 }
 
-nano::log::level nano::log::to_level (std::string_view name)
+nano::log::level nano::log::parse_level (std::string_view name)
 {
 	auto value = magic_enum::enum_cast<nano::log::level> (name);
 	if (value.has_value ())
@@ -64,7 +64,7 @@ nano::log::level nano::log::to_level (std::string_view name)
 	}
 }
 
-nano::log::type nano::log::to_type (std::string_view name)
+nano::log::type nano::log::parse_type (std::string_view name)
 {
 	auto value = magic_enum::enum_cast<nano::log::type> (name);
 	if (value.has_value ())
@@ -77,7 +77,7 @@ nano::log::type nano::log::to_type (std::string_view name)
 	}
 }
 
-nano::log::detail nano::log::to_detail (std::string_view name)
+nano::log::detail nano::log::parse_detail (std::string_view name)
 {
 	auto value = magic_enum::enum_cast<nano::log::detail> (name);
 	if (value.has_value ())

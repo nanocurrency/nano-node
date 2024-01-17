@@ -269,22 +269,32 @@ spdlog::level::level_enum nano::to_spdlog_level (nano::log::level level)
 
 nano::log_config nano::log_config::cli_default ()
 {
-	log_config config;
+	log_config config{};
 	config.default_level = nano::log::level::critical;
+	config.console.to_cerr = true; // Use cerr to avoid interference with CLI output that goes to stdout
+	config.file.enable = false;
 	return config;
 }
 
 nano::log_config nano::log_config::daemon_default ()
 {
-	log_config config;
+	log_config config{};
 	config.default_level = nano::log::level::info;
 	return config;
 }
 
 nano::log_config nano::log_config::tests_default ()
 {
-	log_config config;
-	config.default_level = nano::log::level::critical;
+	log_config config{};
+	config.default_level = nano::log::level::off;
+	return config;
+}
+
+nano::log_config nano::log_config::sample_config ()
+{
+	log_config config{};
+	config.default_level = nano::log::level::info;
+	config.levels = default_levels (nano::log::level::info); // Populate with default levels
 	return config;
 }
 
@@ -349,7 +359,7 @@ void nano::log_config::deserialize (nano::tomlconfig & toml)
 	if (toml.has_key ("default_level"))
 	{
 		auto default_level_l = toml.get<std::string> ("default_level");
-		default_level = nano::log::to_level (default_level_l);
+		default_level = nano::log::parse_level (default_level_l);
 	}
 
 	if (toml.has_key ("console"))
@@ -376,7 +386,7 @@ void nano::log_config::deserialize (nano::tomlconfig & toml)
 			try
 			{
 				auto & [name_str, level_str] = level;
-				auto logger_level = nano::log::to_level (level_str);
+				auto logger_level = nano::log::parse_level (level_str);
 				auto logger_id = parse_logger_id (name_str);
 
 				levels[logger_id] = logger_level;
@@ -399,14 +409,14 @@ nano::log_config::logger_id_t nano::log_config::parse_logger_id (const std::stri
 	auto pos = logger_name.find ("::");
 	if (pos == std::string::npos)
 	{
-		return { nano::log::to_type (logger_name), nano::log::detail::all };
+		return { nano::log::parse_type (logger_name), nano::log::detail::all };
 	}
 	else
 	{
 		auto logger_type = logger_name.substr (0, pos);
 		auto logger_detail = logger_name.substr (pos + 1);
 
-		return { nano::log::to_type (logger_type), nano::log::to_detail (logger_detail) };
+		return { nano::log::parse_type (logger_type), nano::log::parse_detail (logger_detail) };
 	}
 }
 
@@ -430,6 +440,62 @@ nano::log_config nano::load_log_config (nano::log_config fallback, const std::fi
 	try
 	{
 		auto config = nano::load_config_file<nano::log_config> (fallback, config_filename, data_path, config_overrides);
+
+		// Parse default log level from environment variable, e.g. "NANO_LOG=debug"
+		auto env_level = nano::get_env ("NANO_LOG");
+		if (env_level)
+		{
+			try
+			{
+				config.default_level = nano::log::parse_level (*env_level);
+
+				std::cerr << "Using default log level from NANO_LOG environment variable: " << *env_level << std::endl;
+			}
+			catch (std::invalid_argument const & ex)
+			{
+				std::cerr << "Invalid log level from NANO_LOG environment variable: " << ex.what () << std::endl;
+			}
+		}
+
+		// Parse per logger levels from environment variable, e.g. "NANO_LOG_LEVELS=ledger=debug,node=trace"
+		auto env_levels = nano::get_env ("NANO_LOG_LEVELS");
+		if (env_levels)
+		{
+			std::map<nano::log_config::logger_id_t, nano::log::level> levels;
+			for (auto const & env_level_str : nano::util::split (*env_levels, ','))
+			{
+				try
+				{
+					// Split 'logger_name=level' into a pair of 'logger_name' and 'level'
+					auto arr = nano::util::split (env_level_str, '=');
+					if (arr.size () != 2)
+					{
+						throw std::invalid_argument ("Invalid entry: " + env_level_str);
+					}
+
+					auto name_str = arr[0];
+					auto level_str = arr[1];
+
+					auto logger_id = nano::log_config::parse_logger_id (name_str);
+					auto logger_level = nano::log::parse_level (level_str);
+
+					levels[logger_id] = logger_level;
+
+					std::cerr << "Using logger log level from NANO_LOG_LEVELS environment variable: " << name_str << "=" << level_str << std::endl;
+				}
+				catch (std::invalid_argument const & ex)
+				{
+					std::cerr << "Invalid log level from NANO_LOG_LEVELS environment variable: " << ex.what () << std::endl;
+				}
+			}
+
+			// Merge with existing levels
+			for (auto const & [logger_id, level] : levels)
+			{
+				config.levels[logger_id] = level;
+			}
+		}
+
 		return config;
 	}
 	catch (std::runtime_error const & ex)

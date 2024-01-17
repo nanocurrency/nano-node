@@ -27,7 +27,7 @@ public:
 	nano::log::level flush_level{ nano::log::level::error };
 
 	using logger_id_t = std::pair<nano::log::type, nano::log::detail>;
-	std::map<logger_id_t, nano::log::level> levels{ default_levels (default_level) };
+	std::map<logger_id_t, nano::log::level> levels;
 
 	struct console_config
 	{
@@ -50,10 +50,11 @@ public: // Predefined defaults
 	static log_config cli_default ();
 	static log_config daemon_default ();
 	static log_config tests_default ();
+	static log_config sample_config (); // For auto-generated sample config files
+
+	static logger_id_t parse_logger_id (std::string const &);
 
 private:
-	logger_id_t parse_logger_id (std::string const &);
-
 	/// Returns placeholder log levels for all loggers
 	static std::map<logger_id_t, nano::log::level> default_levels (nano::log::level);
 };
