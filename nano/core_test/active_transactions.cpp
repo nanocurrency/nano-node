@@ -870,7 +870,7 @@ TEST (active_transactions, fork_replacement_tally)
 		auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ send->hash (), open->hash () }));
 		node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
 	}
-	ASSERT_TIMELY (5s, node1.ledger.cache.cemented_count == 1 + 2 * reps_count);
+	ASSERT_TIMELY_EQ (5s, node1.ledger.cache.cemented_count, 1 + 2 * reps_count);
 
 	nano::keypair key;
 	auto send_last = builder.make_block ()
@@ -902,7 +902,7 @@ TEST (active_transactions, fork_replacement_tally)
 	// Check overflow of blocks
 	auto election = node1.active.election (send_last->qualified_root ());
 	ASSERT_NE (nullptr, election);
-	ASSERT_TIMELY (5s, max_blocks == election->blocks ().size ());
+	ASSERT_TIMELY_EQ (5s, max_blocks, election->blocks ().size ());
 
 	// Generate forks with votes to prevent new block insertion to election
 	for (auto i (0); i < reps_count; i++)
@@ -943,7 +943,7 @@ TEST (active_transactions, fork_replacement_tally)
 	};
 
 	// Check overflow of blocks
-	ASSERT_TIMELY (10s, count_rep_votes_in_election () == 9);
+	ASSERT_TIMELY_EQ (10s, count_rep_votes_in_election (), 9);
 	ASSERT_EQ (max_blocks, election->blocks ().size ());
 
 	// Process correct block
@@ -966,7 +966,7 @@ TEST (active_transactions, fork_replacement_tally)
 	node1.vote_processor.flush ();
 	// ensure vote arrives before the block
 	ASSERT_TIMELY (5s, node1.vote_cache.find (send_last->hash ()));
-	ASSERT_TIMELY (5s, 1 == node1.vote_cache.find (send_last->hash ())->size ());
+	ASSERT_TIMELY_EQ (5s, 1, node1.vote_cache.find (send_last->hash ())->size ());
 	node1.network.publish_filter.clear ();
 	node2.network.flood_block (send_last);
 	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) > 1);
@@ -979,7 +979,7 @@ TEST (active_transactions, fork_replacement_tally)
 	ASSERT_TIMELY (5s, find_send_last_block ())
 	ASSERT_EQ (max_blocks, election->blocks ().size ());
 
-	ASSERT_TIMELY (5s, count_rep_votes_in_election () == 8);
+	ASSERT_TIMELY_EQ (5s, count_rep_votes_in_election (), 8);
 
 	auto votes2 (election->votes ());
 	ASSERT_TRUE (votes2.find (nano::dev::genesis_key.pub) != votes2.end ());
