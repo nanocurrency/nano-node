@@ -699,8 +699,9 @@ bool nano::wallet::enter_password (store::transaction const & transaction_a, std
 	auto result (store.attempt_password (transaction_a, password_a));
 	if (!result)
 	{
-		auto this_l (shared_from_this ());
-		wallets.node.background ([this_l] () {
+		auto this_l = shared_from_this ();
+		wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, this_l, [this_l] (nano::wallet & wallet) {
+			// Wallets must survive node lifetime
 			this_l->search_receivable (this_l->wallets.tx_begin_read ());
 		});
 		wallets.node.logger.try_log ("Wallet unlocked");
