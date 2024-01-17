@@ -1,6 +1,8 @@
+
 #include <nano/node/election.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
+#include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -89,91 +91,41 @@ TEST (conflicts, add_two)
 {
 	nano::test::system system{};
 	auto const & node = system.add_node ();
+	nano::keypair key1, key2, key3;
+	auto gk = nano::dev::genesis_key;
 
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-
-	// define a functor that sends from given account to given destination,
-	// optionally force-confirming the send blocks *and* receiving on the destination account;
-	// the functor returns a pair of the send and receive blocks created or nullptrs if something failed
-	//
-	auto const do_send = [&node, &system] (auto const & previous, auto const & from, auto const & to, bool forceConfirm = true)
-	-> std::pair<std::optional<std::shared_ptr<nano::block>>, std::optional<std::shared_ptr<nano::block>>> {
-		auto const send = nano::send_block_builder{}.make_block ().previous (previous).destination (to.pub).balance (0).sign (from.prv, from.pub).work (*system.work.generate (previous)).build_shared ();
-
-		if (nano::process_result::progress != node->process (*send).code)
-		{
-			return std::make_pair (std::nullopt, std::nullopt);
-		}
-
-		if (!forceConfirm)
-		{
-			return std::make_pair (std::move (send), std::nullopt);
-		}
-
-		auto const is_confirmed = [&node] (auto const & hash) {
-			return node->block_confirmed (hash);
-		};
-
-		node->process_confirmed (nano::election_status{ send });
-		auto const is_send_not_confirmed = system.poll_until_true (5s, std::bind (is_confirmed, send->hash ()));
-		if (is_send_not_confirmed)
-		{
-			return std::make_pair (std::nullopt, std::nullopt);
-		}
-
-		auto const receive = nano::open_block_builder{}.make_block ().account (to.pub).source (send->hash ()).representative (to.pub).sign (to.prv, to.pub).work (*system.work.generate (to.pub)).build_shared ();
-
-		if (nano::process_result::progress != node->process (*receive).code)
-		{
-			return std::make_pair (std::nullopt, std::nullopt);
-		}
-
-		node->process_confirmed (nano::election_status{ receive });
-		auto const is_receive_not_confirmed = system.poll_until_true (5s, std::bind (is_confirmed, receive->hash ()));
-		if (is_receive_not_confirmed)
-		{
-			return std::make_pair (std::move (send), std::nullopt);
-		}
-
-		return std::make_pair (std::move (send), std::move (receive));
-	};
-
-	// send from genesis to account1 and receive it on account1
-	//
-	nano::keypair account1{};
-	auto const [send1, receive1] = do_send (nano::dev::genesis->hash (), nano::dev::genesis_key, account1);
-	ASSERT_TRUE (send1.has_value () && receive1.has_value ());
-	// both blocks having been fully confirmed, we expect 1 (genesis) + 2 (send/receive) = 3 cemented blocks
-	//
-	ASSERT_EQ (3, node->ledger.cache.cemented_count);
-
-	nano::keypair account2{};
-	auto const [send2, receive2] = do_send ((*send1)->hash (), nano::dev::genesis_key, account2);
-	ASSERT_TRUE (send2.has_value () && receive2.has_value ());
+	// create 2 new accounts, that receive 1 raw each, all blocks are force confirmed
+	auto [send1, open1] = nano::test::setup_new_account (system, *node, 1, gk, key1, gk.pub, true);
+	auto [send2, open2] = nano::test::setup_new_account (system, *node, 1, gk, key2, gk.pub, true);
 	ASSERT_EQ (5, node->ledger.cache.cemented_count);
 
-	// send from account1 to account3 but do not receive it on account3 and do not force-confirm the send block
-	//
-	nano::keypair account3{};
-	auto const [send3, dummy1] = do_send ((*receive1)->hash (), account1, account3, false);
-	ASSERT_TRUE (send3.has_value ());
-	// expect the number of cemented blocks not to have changed since the last operation
-	//
-	ASSERT_EQ (5, node->ledger.cache.cemented_count);
+	// send 1 raw to account key3 from key1
+	auto send_a = nano::state_block_builder ()
+				  .account (key1.pub)
+				  .previous (open1->hash ())
+				  .representative (nano::dev::genesis_key.pub)
+				  .balance (0)
+				  .link (key3.pub)
+				  .sign (key1.prv, key1.pub)
+				  .work (*system.work.generate (open1->hash ()))
+				  .build_shared ();
 
-	auto const [send4, dummy2] = do_send ((*receive2)->hash (), account2, account3, false);
-	ASSERT_TRUE (send4.has_value ());
-	ASSERT_EQ (5, node->ledger.cache.cemented_count);
+	// send 1 raw to account key3 from key2
+	auto send_b = nano::state_block_builder ()
+				  .account (key2.pub)
+				  .previous (open2->hash ())
+				  .representative (nano::dev::genesis_key.pub)
+				  .balance (0)
+				  .link (key3.pub)
+				  .sign (key2.prv, key2.pub)
+				  .work (*system.work.generate (open2->hash ()))
+				  .build_shared ();
 
 	// activate elections for the previous two send blocks (to account3) that we did not forcefully confirm
-	//
-	node->scheduler.priority.activate (account3.pub, node->store.tx_begin_read ());
-	ASSERT_TIMELY (5s, node->active.election ((*send3)->qualified_root ()) != nullptr);
-	ASSERT_TIMELY (5s, node->active.election ((*send4)->qualified_root ()) != nullptr);
-
-	// wait 3s before asserting just to make sure there would be enough time
-	// for the Active Elections Container to evict both elections in case they would wrongfully get confirmed
-	//
+	ASSERT_TRUE (nano::test::process (*node, { send_a, send_b }));
+	ASSERT_TRUE (nano::test::start_elections (system, *node, { send_a, send_b }));
+	ASSERT_TRUE (node->active.election (send_a->qualified_root ()));
+	ASSERT_TRUE (node->active.election (send_b->qualified_root ()));
 	ASSERT_TIMELY_EQ (5s, node->active.size (), 2);
 }
 

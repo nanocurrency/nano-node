@@ -33,6 +33,18 @@ std::vector<std::pair<nano::account, nano::block_list_t>> setup_chains (nano::te
 nano::block_list_t setup_independent_blocks (nano::test::system & system, nano::node & node, int count, nano::keypair source = nano::dev::genesis_key);
 
 /**
+ * \brief Create a pair of send/receive blocks to implement the transfer of "amount" raw from "source" to the unopened account "dest".
+ * \param system
+ * \param node
+ * \param amount the amount of raw to transfer
+ * \param source the source account
+ * \param dest the destination account
+ * \param dest_rep the rep that the dest account should have
+ * \param force_confirm force confirm the blocks
+ */
+std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::block>> setup_new_account (nano::test::system & system, nano::node & node, nano::uint128_t const amount, nano::keypair source, nano::keypair dest, nano::account dest_rep, bool force_confirm);
+
+/**
  * Sends `amount` raw from `source` account chain into a newly created account and sets that account as its own representative
  * @return created representative
  */
