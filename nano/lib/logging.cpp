@@ -4,6 +4,7 @@
 
 #include <fmt/chrono.h>
 #include <spdlog/cfg/env.h>
+#include <spdlog/pattern_formatter.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -24,12 +25,102 @@ nano::nlogger & nano::default_logger ()
  * nlogger
  */
 
-bool nano::nlogger::global_initialized;
-nano::log_config nano::nlogger::global_config;
-std::vector<spdlog::sink_ptr> nano::nlogger::global_sinks;
+bool nano::nlogger::global_initialized{ false };
+nano::log_config nano::nlogger::global_config{};
+std::vector<spdlog::sink_ptr> nano::nlogger::global_sinks{};
+
+// By default, use only the tag as the logger name, since only one node is running in the process
+std::function<std::string (nano::log::type tag, std::string identifier)> nano::nlogger::global_name_formatter{ [] (auto tag, auto identifier) {
+	return std::string{ to_string (tag) };
+} };
 
 void nano::nlogger::initialize (nano::log_config config)
 {
+	initialize_common (config);
+
+	global_initialized = true;
+}
+
+// Custom log formatter flags
+namespace
+{
+/// Takes a qualified identifier in the form `node_identifier::tag` and splits it into a pair of `identifier` and `tag`
+/// It is a limitation of spldlog that we cannot attach additional data to the logger, so we have to encode the node identifier in the logger name
+/// @returns <node identifier, tag>
+std::pair<std::string_view, std::string_view> split_qualified_identifier (std::string_view qualified_identifier)
+{
+	auto pos = qualified_identifier.find ("::");
+	debug_assert (pos != std::string_view::npos); // This should never happen, since the default logger name formatter always adds the tag
+	if (pos == std::string_view::npos)
+	{
+		return { std::string_view{}, qualified_identifier };
+	}
+	else
+	{
+		return { qualified_identifier.substr (0, pos), qualified_identifier.substr (pos + 2) };
+	}
+}
+
+class identifier_formatter_flag : public spdlog::custom_flag_formatter
+{
+public:
+	void format (const spdlog::details::log_msg & msg, const std::tm & tm, spdlog::memory_buf_t & dest) override
+	{
+		// Extract identifier and tag from logger name
+		auto [identifier, tag] = split_qualified_identifier (std::string_view (msg.logger_name.data (), msg.logger_name.size ()));
+		dest.append (identifier.data (), identifier.data () + identifier.size ());
+	}
+
+	std::unique_ptr<custom_flag_formatter> clone () const override
+	{
+		return spdlog::details::make_unique<identifier_formatter_flag> ();
+	}
+};
+
+class tag_formatter_flag : public spdlog::custom_flag_formatter
+{
+public:
+	void format (const spdlog::details::log_msg & msg, const std::tm & tm, spdlog::memory_buf_t & dest) override
+	{
+		// Extract identifier and tag from logger name
+		auto [identifier, tag] = split_qualified_identifier (std::string_view (msg.logger_name.data (), msg.logger_name.size ()));
+		dest.append (tag.data (), tag.data () + tag.size ());
+	}
+
+	std::unique_ptr<custom_flag_formatter> clone () const override
+	{
+		return spdlog::details::make_unique<tag_formatter_flag> ();
+	}
+};
+}
+
+void nano::nlogger::initialize_for_tests (nano::log_config config)
+{
+	initialize_common (config);
+
+	// Use tag and identifier as the logger name, since multiple nodes may be running in the same process
+	global_name_formatter = [] (nano::log::type tag, std::string identifier) {
+		return fmt::format ("{}::{}", identifier, to_string (tag));
+	};
+
+	auto formatter = std::make_unique<spdlog::pattern_formatter> ();
+	formatter->add_flag<identifier_formatter_flag> ('i');
+	formatter->add_flag<tag_formatter_flag> ('n');
+	formatter->set_pattern ("[%Y-%m-%d %H:%M:%S.%e] [%i] [%n] [%l] %v");
+
+	for (auto & sink : global_sinks)
+	{
+		// Make deep copy of formatter for each sink
+		sink->set_formatter (formatter->clone ());
+	}
+
+	global_initialized = true;
+}
+
+void nano::nlogger::initialize_common (nano::log_config const & config)
+{
+	global_config = config;
+
 	spdlog::set_automatic_registration (false);
 	spdlog::set_level (to_spdlog_level (config.default_level));
 	spdlog::cfg::load_env_levels ();
@@ -72,7 +163,7 @@ void nano::nlogger::initialize (nano::log_config config)
 		std::filesystem::path log_path{ "log" };
 		log_path /= filename + ".log";
 
-		nano::default_logger ().info (nano::log::type::logging, "Logging to file: {}", log_path.string ());
+		std::cerr << "Logging to file: " << log_path.string () << std::endl;
 
 		// If either max_size or rotation_count is 0, then disable file rotation
 		if (config.file.max_size == 0 || config.file.rotation_count == 0)
@@ -88,11 +179,6 @@ void nano::nlogger::initialize (nano::log_config config)
 			global_sinks.push_back (file_sink);
 		}
 	}
-
-	auto logger = std::make_shared<spdlog::logger> ("default", global_sinks.begin (), global_sinks.end ());
-	spdlog::set_default_logger (logger);
-
-	global_initialized = true;
 }
 
 void nano::nlogger::flush ()
@@ -134,18 +220,22 @@ spdlog::logger & nano::nlogger::get_logger (nano::log::type tag)
 
 std::shared_ptr<spdlog::logger> nano::nlogger::make_logger (nano::log::type tag)
 {
-	auto spd_logger = std::make_shared<spdlog::logger> (std::string{ to_string (tag) }, global_sinks.begin (), global_sinks.end ());
+	auto const & config = global_config;
+	auto const & sinks = global_sinks;
 
-	spdlog::initialize_logger (spd_logger);
+	auto name = global_name_formatter (tag, identifier);
+	auto spd_logger = std::make_shared<spdlog::logger> (name, sinks.begin (), sinks.end ());
 
-	if (auto it = global_config.levels.find ({ tag, nano::log::detail::all }); it != global_config.levels.end ())
+	if (auto it = config.levels.find ({ tag, nano::log::detail::all }); it != config.levels.end ())
 	{
 		spd_logger->set_level (to_spdlog_level (it->second));
 	}
 	else
 	{
-		spd_logger->set_level (to_spdlog_level (global_config.default_level));
+		spd_logger->set_level (to_spdlog_level (config.default_level));
 	}
+
+	spd_logger->flush_on (to_spdlog_level (config.flush_level));
 
 	return spd_logger;
 }

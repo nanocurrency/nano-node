@@ -24,6 +24,7 @@ private:
 
 public:
 	nano::log::level default_level{ nano::log::level::info };
+	nano::log::level flush_level{ nano::log::level::error };
 
 	using logger_id_t = std::pair<nano::log::type, nano::log::detail>;
 	std::map<logger_id_t, nano::log::level> levels{ default_levels (default_level) };
@@ -75,12 +76,16 @@ public:
 
 public:
 	static void initialize (nano::log_config);
+	static void initialize_for_tests (nano::log_config);
 	static void flush ();
 
 private:
 	static bool global_initialized;
 	static nano::log_config global_config;
 	static std::vector<spdlog::sink_ptr> global_sinks;
+	static std::function<std::string (nano::log::type tag, std::string identifier)> global_name_formatter;
+
+	static void initialize_common (nano::log_config const &);
 
 public:
 	template <class... Args>

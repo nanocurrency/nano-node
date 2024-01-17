@@ -491,7 +491,7 @@ account_info account_info_rpc (boost::asio::io_context & ioc, tcp::resolver::res
 /** This launches a node and fires a lot of send/recieve RPC requests at it (configurable), then other nodes are tested to make sure they observe these blocks as well. */
 int main (int argc, char * const * argv)
 {
-	nano::nlogger::initialize (nano::load_log_config (nano::log_config::tests_default ()));
+	nano::nlogger::initialize_for_tests (nano::load_log_config (nano::log_config::tests_default ()));
 	nano::force_nano_dev_network ();
 
 	boost::program_options::options_description description ("Command line options");
