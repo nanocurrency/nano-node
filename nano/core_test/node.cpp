@@ -4310,7 +4310,7 @@ TEST (node_config, node_id_private_key_persistence)
 
 	// create the directory and the file
 	auto path = nano::unique_path ();
-	ASSERT_TRUE (std::filesystem::create_directories (path));
+	ASSERT_TRUE (std::filesystem::exists (path));
 	auto priv_key_filename = path / "node_id_private.key";
 
 	// check that the key generated is random when the key does not exist

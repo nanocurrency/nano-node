@@ -675,6 +675,7 @@ TEST (mdb_block_store, bad_path)
 	try
 	{
 		auto path = nano::unique_path ();
+		path /= "data.ldb";
 		{
 			std::ofstream stream (path.c_str ());
 		}
