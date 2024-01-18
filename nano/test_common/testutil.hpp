@@ -388,10 +388,19 @@ namespace test
 	[[nodiscard]] bool start_elections (nano::test::system &, nano::node &, std::vector<std::shared_ptr<nano::block>> const &, bool const forced_a = false);
 
 	/**
+	 *  Return account_info for account "acc", if account is not found, a default initialised object is returned
+	 */
+	nano::account_info account_info (nano::node const & node, nano::account const & acc);
+
+	/**
+	 * Return the account height, returns 0 on error
+	 */
+	uint64_t account_height (nano::node const & node, nano::account const & acc);
+
+	/**
 	 * \brief Debugging function to print all accounts in a ledger. Intented to be used to debug unit tests.
 	 * \param ledger
 	 */
 	void print_all_account_info (nano::node & node);
-
 }
 }
