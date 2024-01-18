@@ -624,5 +624,5 @@ TEST (random_pool, generate_word64_big_number)
 	uint64_t min = static_cast<uint64_t> (std::numeric_limits<uint32_t>::max ()) + 1;
 	uint64_t max = std::numeric_limits<uint64_t>::max ();
 	auto big_random = nano::random_pool::generate_word64 (min, max);
-	ASSERT_TRUE (big_random >= min);
+	ASSERT_GE (big_random, min);
 }
