@@ -301,18 +301,17 @@ TEST (bootstrap_processor, process_one)
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	auto node0 = system.add_node (node_config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto send (system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, 100));
+	auto send = system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, 100);
 	ASSERT_NE (nullptr, send);
+	ASSERT_TIMELY (5s, node0->latest (nano::dev::genesis_key.pub) != nano::dev::genesis->hash ());
 
-	node_config.peering_port = system.get_available_port ();
 	node_flags.disable_rep_crawler = true;
-	auto node1 = system.add_node (node_config, node_flags);
-	nano::block_hash hash1 (node0->latest (nano::dev::genesis_key.pub));
-	nano::block_hash hash2 (node1->latest (nano::dev::genesis_key.pub));
-	ASSERT_NE (hash1, hash2);
+	// create a node manually so that it is not connected to the other node automatically
+	auto node1 = std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), node_config, system.work, node_flags);
+	ASSERT_NE (node0->latest (nano::dev::genesis_key.pub), node1->latest (nano::dev::genesis_key.pub));
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_NE (node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub));
-	ASSERT_TIMELY (10s, node1->latest (nano::dev::genesis_key.pub) == node0->latest (nano::dev::genesis_key.pub));
+	ASSERT_TIMELY (5s, node1->latest (nano::dev::genesis_key.pub) == node0->latest (nano::dev::genesis_key.pub));
+	node1->stop ();
 }
 
 TEST (bootstrap_processor, process_two)
