@@ -578,7 +578,7 @@ void test_union_operator_greater_than ()
 template <typename Num>
 void check_operator_greater_than (Num lhs, Num rhs)
 {
-	ASSERT_TRUE (lhs > rhs);
+	ASSERT_GT (lhs, rhs);
 	ASSERT_FALSE (rhs > lhs);
 	ASSERT_FALSE (lhs > lhs);
 	ASSERT_FALSE (rhs > rhs);
@@ -614,7 +614,7 @@ TEST (random_pool, generate_word64)
 
 	for (auto i = 1; i < 10; ++i)
 	{
-		ASSERT_TRUE (occurrences[i] > 0);
+		ASSERT_GT (occurrences[i], 0);
 	}
 }
 
