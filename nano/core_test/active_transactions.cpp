@@ -142,7 +142,8 @@ TEST (active_transactions, confirm_frontier)
 	// Save election to check request count afterwards
 	auto election2 = node2.active.election (send->qualified_root ());
 	ASSERT_NE (nullptr, election2);
-	ASSERT_TIMELY (5s, node2.ledger.cache.cemented_count == 2 && node2.active.empty ());
+	ASSERT_TIMELY_EQ (5s, node2.ledger.cache.cemented_count, 2);
+	ASSERT_TIMELY (5s, node2.active.empty ());
 	ASSERT_GT (election2->confirmation_request_count, 0u);
 }
 }

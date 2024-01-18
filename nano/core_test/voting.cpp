@@ -86,7 +86,9 @@ TEST (vote_generator, multiple_representatives)
 	wallet.change_sync (key1.pub, key1.pub);
 	wallet.change_sync (key2.pub, key2.pub);
 	wallet.change_sync (key3.pub, key3.pub);
-	ASSERT_TRUE (node.weight (key1.pub) == amount && node.weight (key2.pub) == amount && node.weight (key3.pub) == amount);
+	ASSERT_EQ (node.weight (key1.pub), amount);
+	ASSERT_EQ (node.weight (key2.pub), amount);
+	ASSERT_EQ (node.weight (key3.pub), amount);
 	node.wallets.compute_reps ();
 	ASSERT_EQ (4, node.wallets.reps ().voting);
 	auto hash = wallet.send_sync (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, 1);
