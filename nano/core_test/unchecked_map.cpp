@@ -249,9 +249,9 @@ TEST (unchecked, multiple_get)
 		unchecked1.push_back (i.block->hash ());
 	}
 	// Asserts the payloads where correclty saved
-	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block1->hash ()) != unchecked1.end ());
-	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block2->hash ()) != unchecked1.end ());
-	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block3->hash ()) != unchecked1.end ());
+	ASSERT_NE (std::find (unchecked1.begin (), unchecked1.end (), block1->hash ()), unchecked1.end ());
+	ASSERT_NE (std::find (unchecked1.begin (), unchecked1.end (), block2->hash ()), unchecked1.end ());
+	ASSERT_NE (std::find (unchecked1.begin (), unchecked1.end (), block3->hash ()), unchecked1.end ());
 	std::vector<nano::block_hash> unchecked2;
 	// Asserts the entries will be found for the provided key
 	auto unchecked2_blocks = unchecked.get (block1->hash ());
@@ -261,8 +261,8 @@ TEST (unchecked, multiple_get)
 		unchecked2.push_back (i.block->hash ());
 	}
 	// Asserts the payloads where correctly saved
-	ASSERT_TRUE (std::find (unchecked2.begin (), unchecked2.end (), block1->hash ()) != unchecked2.end ());
-	ASSERT_TRUE (std::find (unchecked2.begin (), unchecked2.end (), block2->hash ()) != unchecked2.end ());
+	ASSERT_NE (std::find (unchecked2.begin (), unchecked2.end (), block1->hash ()), unchecked2.end ());
+	ASSERT_NE (std::find (unchecked2.begin (), unchecked2.end (), block2->hash ()), unchecked2.end ());
 	// Asserts the entry is found by the key and the payload is saved
 	auto unchecked3 = unchecked.get (block2->previous ());
 	ASSERT_EQ (unchecked3.size (), 1);

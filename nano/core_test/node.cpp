@@ -25,7 +25,7 @@ TEST (node, null_account)
 
 	nano::account default_account{};
 	ASSERT_FALSE (default_account == nullptr);
-	ASSERT_TRUE (default_account != nullptr);
+	ASSERT_NE (default_account, nullptr);
 }
 
 TEST (node, stop)
