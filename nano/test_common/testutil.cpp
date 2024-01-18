@@ -245,6 +245,28 @@ bool nano::test::start_elections (nano::test::system & system_a, nano::node & no
 	return nano::test::start_elections (system_a, node_a, blocks_to_hashes (blocks_a), forced_a);
 }
 
+nano::account_info nano::test::account_info (nano::node const & node, nano::account const & acc)
+{
+	auto const tx = node.ledger.store.tx_begin_read ();
+	auto opt = node.ledger.account_info (tx, acc);
+	if (opt.has_value ())
+	{
+		return opt.value ();
+	}
+	return {};
+}
+
+uint64_t nano::test::account_height (nano::node const & node, nano::account const & acc)
+{
+	auto const tx = node.ledger.store.tx_begin_read ();
+	nano::confirmation_height_info height_info;
+	if (!node.ledger.store.confirmation_height.get (tx, acc, height_info))
+	{
+		return 0;
+	}
+	return height_info.height;
+}
+
 void nano::test::print_all_account_info (nano::node & node)
 {
 	auto const tx = node.ledger.store.tx_begin_read ();
