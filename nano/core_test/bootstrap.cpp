@@ -280,16 +280,14 @@ TEST (bulk_pull, count_limit)
 	ASSERT_EQ (nullptr, block);
 }
 
-TEST (bootstrap_processor, DISABLED_process_none)
+TEST (bootstrap_processor, process_none)
 {
 	nano::test::system system (1);
+	auto node0 = system.nodes[0];
 	auto node1 = system.add_node ();
-	auto done (false);
 	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint (), false);
-	while (!done)
-	{
-		system.io_ctx.run_one ();
-	}
+	ASSERT_TIMELY (5s, !node1->network.empty ());
+	ASSERT_TIMELY (5s, !node0->network.empty ());
 }
 
 // Bootstrap can pull one basic block
