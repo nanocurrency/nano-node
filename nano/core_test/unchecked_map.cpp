@@ -238,7 +238,7 @@ TEST (unchecked, multiple_get)
 	};
 
 	// Waits for the blocks to get saved in the database
-	ASSERT_TIMELY (5s, 8 == count_unchecked_blocks_one_by_one ());
+	ASSERT_TIMELY_EQ (5s, 8, count_unchecked_blocks_one_by_one ());
 
 	std::vector<nano::block_hash> unchecked1;
 	// Asserts the entries will be found for the provided key

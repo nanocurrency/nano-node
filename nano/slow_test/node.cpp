@@ -207,7 +207,7 @@ TEST (wallet, multithreaded_send_async)
 				}
 			}));
 		}
-		ASSERT_TIMELY (1000s, system.nodes[0]->balance (nano::dev::genesis_key.pub) == (nano::dev::constants.genesis_amount - num_of_threads * num_of_sends * 1000));
+		ASSERT_TIMELY_EQ (1000s, system.nodes[0]->balance (nano::dev::genesis_key.pub), (nano::dev::constants.genesis_amount - num_of_threads * num_of_sends * 1000));
 	}
 	for (auto i (threads.begin ()), n (threads.end ()); i != n; ++i)
 	{
@@ -513,7 +513,7 @@ TEST (store, unchecked_load)
 		node.unchecked.put (i, block);
 	}
 	// Waits for all the blocks to get saved in the database
-	ASSERT_TIMELY (8000s, num_unchecked == node.unchecked.count ());
+	ASSERT_TIMELY_EQ (8000s, num_unchecked, node.unchecked.count ());
 }
 
 TEST (store, vote_load)
@@ -710,8 +710,8 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), num_accounts * 2 - 2);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), 0);
 
-	ASSERT_TIMELY (40s, (node->ledger.cache.cemented_count - 1) == node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
-	ASSERT_TIMELY (10s, node->active.election_winner_details_size () == 0);
+	ASSERT_TIMELY_EQ (40s, (node->ledger.cache.cemented_count - 1), node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (10s, node->active.election_winner_details_size (), 0);
 }
 
 TEST (confirmation_height, many_accounts_many_confirmations)
@@ -768,13 +768,13 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	}
 
 	auto const num_blocks_to_confirm = (num_accounts - 1) * 2;
-	ASSERT_TIMELY (1500s, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in) == num_blocks_to_confirm);
+	ASSERT_TIMELY_EQ (1500s, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_blocks_to_confirm);
 
 	auto num_confirmed_bounded = node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in);
 	ASSERT_GE (num_confirmed_bounded, nano::confirmation_height::unbounded_cutoff);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), num_blocks_to_confirm - num_confirmed_bounded);
 
-	ASSERT_TIMELY (60s, (node->ledger.cache.cemented_count - 1) == node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (60s, (node->ledger.cache.cemented_count - 1), node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
 
 	auto transaction = node->store.tx_begin_read ();
 	size_t cemented_count = 0;
@@ -786,9 +786,9 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	ASSERT_EQ (num_blocks_to_confirm + 1, cemented_count);
 	ASSERT_EQ (cemented_count, node->ledger.cache.cemented_count);
 
-	ASSERT_TIMELY (20s, (node->ledger.cache.cemented_count - 1) == node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (20s, (node->ledger.cache.cemented_count - 1), node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
 
-	ASSERT_TIMELY (10s, node->active.election_winner_details_size () == 0);
+	ASSERT_TIMELY_EQ (10s, node->active.election_winner_details_size (), 0);
 }
 
 TEST (confirmation_height, long_chains)
@@ -934,8 +934,8 @@ TEST (confirmation_height, long_chains)
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), num_blocks * 2 + 2);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), 0);
 
-	ASSERT_TIMELY (40s, (node->ledger.cache.cemented_count - 1) == node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
-	ASSERT_TIMELY (10s, node->active.election_winner_details_size () == 0);
+	ASSERT_TIMELY_EQ (40s, (node->ledger.cache.cemented_count - 1), node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (10s, node->active.election_winner_details_size (), 0);
 }
 
 TEST (confirmation_height, dynamic_algorithm)
@@ -974,16 +974,16 @@ TEST (confirmation_height, dynamic_algorithm)
 	}
 
 	node->confirmation_height_processor.add (state_blocks.front ());
-	ASSERT_TIMELY (20s, node->ledger.cache.cemented_count == 2);
+	ASSERT_TIMELY_EQ (20s, node->ledger.cache.cemented_count, 2);
 
 	node->confirmation_height_processor.add (latest_genesis);
 
-	ASSERT_TIMELY (20s, node->ledger.cache.cemented_count == num_blocks + 1);
+	ASSERT_TIMELY_EQ (20s, node->ledger.cache.cemented_count, num_blocks + 1);
 
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_blocks);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), 1);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), num_blocks - 1);
-	ASSERT_TIMELY (10s, node->active.election_winner_details_size () == 0);
+	ASSERT_TIMELY_EQ (10s, node->active.election_winner_details_size (), 0);
 }
 
 /*
@@ -1069,12 +1069,12 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 			node->confirmation_height_processor.unpause ();
 		}
 
-		ASSERT_TIMELY (10s, node->ledger.cache.cemented_count == num_blocks + 1);
+		ASSERT_TIMELY_EQ (10s, node->ledger.cache.cemented_count, num_blocks + 1);
 
 		ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_blocks);
 		ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), 0);
 		ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), num_blocks);
-		ASSERT_TIMELY (10s, node->active.election_winner_details_size () == 0);
+		ASSERT_TIMELY_EQ (10s, node->active.election_winner_details_size (), 0);
 	}
 }
 
@@ -1562,7 +1562,7 @@ TEST (telemetry, under_load)
 	std::thread thread1 (thread_func, nano::dev::genesis_key, latest_genesis, nano::dev::constants.genesis_amount - num_blocks);
 	std::thread thread2 (thread_func, key, latest_key, num_blocks);
 
-	ASSERT_TIMELY (200s, node1->ledger.cache.block_count == num_blocks * 2 + 3);
+	ASSERT_TIMELY_EQ (200s, node1->ledger.cache.block_count, num_blocks * 2 + 3);
 
 	thread1.join ();
 	thread2.join ();
@@ -1713,7 +1713,7 @@ TEST (telemetry, many_nodes)
 		ASSERT_EQ (data.cemented_count, 1);
 		ASSERT_LE (data.peer_count, 9U);
 		ASSERT_EQ (data.account_count, 1);
-		ASSERT_TRUE (data.block_count == 2);
+		ASSERT_EQ (data.block_count, 2);
 		ASSERT_EQ (data.protocol_version, nano::dev::network_params.network.protocol_version);
 		ASSERT_GE (data.bandwidth_cap, 100000);
 		ASSERT_LT (data.bandwidth_cap, 100000 + system.nodes.size ());
@@ -1885,7 +1885,7 @@ TEST (node, mass_block_new)
 		{
 			node.process_active (block);
 		}
-		ASSERT_TIMELY (200s, node.ledger.cache.block_count == next_block_count);
+		ASSERT_TIMELY_EQ (200s, node.ledger.cache.block_count, next_block_count);
 		next_block_count += num_blocks;
 		node.block_processor.flush ();
 		// Clear all active
@@ -2015,7 +2015,7 @@ TEST (node, aggressive_flooding)
 	});
 
 	// This test is only valid if a non-aggressive flood would not reach every peer
-	ASSERT_TIMELY (5s, node1.network.size () == nodes_wallets.size ());
+	ASSERT_TIMELY_EQ (5s, node1.network.size (), nodes_wallets.size ());
 	ASSERT_LT (node1.network.fanout (), nodes_wallets.size ());
 
 	// Each new node should see genesis representative
@@ -2059,10 +2059,10 @@ TEST (node, aggressive_flooding)
 
 	ASSERT_TIMELY (!nano::slow_instrumentation () ? 10s : 40s, all_received ());
 
-	ASSERT_TIMELY (!nano::slow_instrumentation () ? 10s : 40s, node1.ledger.cache.block_count == 1 + 2 * nodes_wallets.size ());
+	ASSERT_TIMELY_EQ (!nano::slow_instrumentation () ? 10s : 40s, node1.ledger.cache.block_count, 1 + 2 * nodes_wallets.size ());
 
 	// Wait until the main node sees all representatives
-	ASSERT_TIMELY (!nano::slow_instrumentation () ? 10s : 40s, node1.rep_crawler.principal_representatives ().size () == nodes_wallets.size ());
+	ASSERT_TIMELY_EQ (!nano::slow_instrumentation () ? 10s : 40s, node1.rep_crawler.principal_representatives ().size (), nodes_wallets.size ());
 
 	// Generate blocks and ensure they are sent to all representatives
 	nano::state_block_builder builder;

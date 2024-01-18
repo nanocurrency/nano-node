@@ -31,7 +31,7 @@ TEST (frontiers_confirmation, mode)
 			auto transaction = node->store.tx_begin_write ();
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
 		}
-		ASSERT_TIMELY (5s, node->active.size () == 1);
+		ASSERT_TIMELY_EQ (5s, node->active.size (), 1);
 	}
 	// Auto mode
 	{
@@ -53,7 +53,7 @@ TEST (frontiers_confirmation, mode)
 			auto transaction = node->store.tx_begin_write ();
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
 		}
-		ASSERT_TIMELY (5s, node->active.size () == 1);
+		ASSERT_TIMELY_EQ (5s, node->active.size (), 1);
 	}
 	// Disabled mode
 	{

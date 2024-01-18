@@ -316,7 +316,7 @@ TEST (bootstrap_processor, process_one)
 	ASSERT_NE (hash1, hash2);
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_NE (node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub));
-	ASSERT_TIMELY (10s, node1->latest (nano::dev::genesis_key.pub) == node0->latest (nano::dev::genesis_key.pub));
+	ASSERT_TIMELY_EQ (10s, node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub));
 	node1->stop ();
 }
 
@@ -342,7 +342,7 @@ TEST (bootstrap_processor, process_two)
 	ASSERT_FALSE (node1->init_error ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_NE (node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub));
-	ASSERT_TIMELY (10s, node1->latest (nano::dev::genesis_key.pub) == node0->latest (nano::dev::genesis_key.pub));
+	ASSERT_TIMELY_EQ (10s, node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub));
 	node1->stop ();
 }
 
@@ -389,7 +389,7 @@ TEST (bootstrap_processor, process_state)
 	ASSERT_NE (node1->latest (nano::dev::genesis_key.pub), block2->hash ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_NE (node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub));
-	ASSERT_TIMELY (10s, node1->latest (nano::dev::genesis_key.pub) == node0->latest (nano::dev::genesis_key.pub));
+	ASSERT_TIMELY_EQ (10s, node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub));
 	node1->stop ();
 }
 
@@ -418,7 +418,7 @@ TEST (bootstrap_processor, process_new)
 	auto node3 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
 	ASSERT_FALSE (node3->init_error ());
 	node3->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
-	ASSERT_TIMELY (10s, node3->balance (key2.pub) == balance2);
+	ASSERT_TIMELY_EQ (10s, node3->balance (key2.pub), balance2);
 	ASSERT_EQ (balance1, node3->balance (nano::dev::genesis_key.pub));
 	node3->stop ();
 }
@@ -471,7 +471,7 @@ TEST (bootstrap_processor, pull_diamond)
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
 	ASSERT_FALSE (node1->init_error ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_TIMELY (10s, node1->balance (nano::dev::genesis_key.pub) == 100);
+	ASSERT_TIMELY_EQ (10s, node1->balance (nano::dev::genesis_key.pub), 100);
 	ASSERT_EQ (100, node1->balance (nano::dev::genesis_key.pub));
 	node1->stop ();
 }
@@ -571,7 +571,7 @@ TEST (bootstrap_processor, DISABLED_push_diamond)
 				   .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*receive).code);
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_TIMELY (10s, node0->balance (nano::dev::genesis_key.pub) == 100);
+	ASSERT_TIMELY_EQ (10s, node0->balance (nano::dev::genesis_key.pub), 100);
 	ASSERT_EQ (100, node0->balance (nano::dev::genesis_key.pub));
 	node1->stop ();
 }
@@ -615,7 +615,7 @@ TEST (bootstrap_processor, DISABLED_push_diamond_pruning)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
 	// 1st bootstrap
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_TIMELY (10s, node0->balance (key.pub) == nano::dev::constants.genesis_amount);
+	ASSERT_TIMELY_EQ (10s, node0->balance (key.pub), nano::dev::constants.genesis_amount);
 	// Process more blocks & prune old
 	auto send2 = builder
 				 .send ()
@@ -650,7 +650,7 @@ TEST (bootstrap_processor, DISABLED_push_diamond_pruning)
 	}
 	// 2nd bootstrap
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_TIMELY (10s, node0->balance (nano::dev::genesis_key.pub) == 100);
+	ASSERT_TIMELY_EQ (10s, node0->balance (nano::dev::genesis_key.pub), 100);
 	ASSERT_EQ (100, node0->balance (nano::dev::genesis_key.pub));
 	node1->stop ();
 }
@@ -953,7 +953,7 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	nano::test::establish_tcp (system, *node1, node0->network.endpoint ());
 	node1->bootstrap_initiator.bootstrap_lazy (receive3->hash (), true);
 	// Check processed blocks
-	ASSERT_TIMELY (5s, node1->ledger.cache.block_count == 9);
+	ASSERT_TIMELY_EQ (5s, node1->ledger.cache.block_count, 9);
 	ASSERT_TIMELY (5s, node1->balance (key2.pub) != 0);
 	ASSERT_TIMELY (5s, !node1->bootstrap_initiator.in_progress ());
 	node1->stop ();
@@ -1619,7 +1619,7 @@ TEST (bootstrap_processor, multiple_attempts)
 	// Check processed blocks
 	ASSERT_TIMELY (10s, node2->balance (key2.pub) != 0);
 	// Check attempts finish
-	ASSERT_TIMELY (5s, node2->bootstrap_initiator.attempts.size () == 0);
+	ASSERT_TIMELY_EQ (5s, node2->bootstrap_initiator.attempts.size (), 0);
 	node2->stop ();
 }
 
@@ -1930,7 +1930,7 @@ TEST (bulk, genesis)
 	ASSERT_NE (latest1, latest3);
 
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
-	ASSERT_TIMELY (10s, node2->latest (nano::dev::genesis_key.pub) == node1->latest (nano::dev::genesis_key.pub));
+	ASSERT_TIMELY_EQ (10s, node2->latest (nano::dev::genesis_key.pub), node1->latest (nano::dev::genesis_key.pub));
 	ASSERT_EQ (node2->latest (nano::dev::genesis_key.pub), node1->latest (nano::dev::genesis_key.pub));
 	node2->stop ();
 }
@@ -1970,7 +1970,7 @@ TEST (bulk, offline_send)
 	// Send block arrival via bootstrap
 	ASSERT_TIMELY (10s, node2->balance (nano::dev::genesis_key.pub) != std::numeric_limits<nano::uint256_t>::max ());
 	// Receiving send block
-	ASSERT_TIMELY (20s, node2->balance (key2.pub) == node1->config.receive_minimum.number ());
+	ASSERT_TIMELY_EQ (20s, node2->balance (key2.pub), node1->config.receive_minimum.number ());
 	node2->stop ();
 }
 
@@ -2053,9 +2053,9 @@ TEST (bulk, DISABLED_genesis_pruning)
 	node2->block_processor.flush ();
 	ASSERT_EQ (3, node2->ledger.cache.block_count);
 	// New bootstrap
-	ASSERT_TIMELY (5s, node2->bootstrap_initiator.connections->connections_count == 0);
+	ASSERT_TIMELY_EQ (5s, node2->bootstrap_initiator.connections->connections_count, 0);
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
-	ASSERT_TIMELY (10s, node2->latest (nano::dev::genesis_key.pub) == node1->latest (nano::dev::genesis_key.pub));
+	ASSERT_TIMELY_EQ (10s, node2->latest (nano::dev::genesis_key.pub), node1->latest (nano::dev::genesis_key.pub));
 	ASSERT_EQ (node2->latest (nano::dev::genesis_key.pub), node1->latest (nano::dev::genesis_key.pub));
 	node2->stop ();
 }
@@ -2070,7 +2070,7 @@ TEST (bulk_pull_account, basics)
 	auto send1 (system.wallet (0)->send_action (nano::dev::genesis->account (), key1.pub, 25));
 	auto send2 (system.wallet (0)->send_action (nano::dev::genesis->account (), key1.pub, 10));
 	auto send3 (system.wallet (0)->send_action (nano::dev::genesis->account (), key1.pub, 2));
-	ASSERT_TIMELY (5s, system.nodes[0]->balance (key1.pub) == 25);
+	ASSERT_TIMELY_EQ (5s, system.nodes[0]->balance (key1.pub), 25);
 	auto connection (std::make_shared<nano::transport::tcp_server> (std::make_shared<nano::transport::socket> (*system.nodes[0], nano::transport::socket::endpoint_type_t::server), system.nodes[0]));
 
 	{

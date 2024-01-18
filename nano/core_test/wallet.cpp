@@ -911,19 +911,19 @@ TEST (wallet, password_race_corrupt_seed)
 		{
 			nano::raw_key seed_now;
 			wallet->store.seed (seed_now, transaction);
-			ASSERT_TRUE (seed_now == seed);
+			ASSERT_EQ (seed_now, seed);
 		}
 		else if (!wallet->store.attempt_password (transaction, "0000"))
 		{
 			nano::raw_key seed_now;
 			wallet->store.seed (seed_now, transaction);
-			ASSERT_TRUE (seed_now == seed);
+			ASSERT_EQ (seed_now, seed);
 		}
 		else if (!wallet->store.attempt_password (transaction, "4567"))
 		{
 			nano::raw_key seed_now;
 			wallet->store.seed (seed_now, transaction);
-			ASSERT_TRUE (seed_now == seed);
+			ASSERT_EQ (seed_now, seed);
 		}
 		else
 		{
@@ -1145,7 +1145,7 @@ TEST (wallet, foreach_representative_deadlock)
 	bool set = false;
 	node.wallets.foreach_representative ([&node, &set, &system] (nano::public_key const & pub, nano::raw_key const & prv) {
 		node.wallets.foreach_representative ([&node, &set, &system] (nano::public_key const & pub, nano::raw_key const & prv) {
-			ASSERT_TIMELY (5s, node.wallets.mutex.try_lock () == 1);
+			ASSERT_TIMELY_EQ (5s, node.wallets.mutex.try_lock (), 1);
 			node.wallets.mutex.unlock ();
 			set = true;
 		});
@@ -1197,7 +1197,7 @@ TEST (wallet, search_receivable)
 	// Pending search should create the receive block
 	ASSERT_EQ (2, node.ledger.cache.block_count);
 	ASSERT_FALSE (wallet.search_receivable (wallet.wallets.tx_begin_read ()));
-	ASSERT_TIMELY (3s, node.balance (nano::dev::genesis->account ()) == nano::dev::constants.genesis_amount);
+	ASSERT_TIMELY_EQ (3s, node.balance (nano::dev::genesis->account ()), nano::dev::constants.genesis_amount);
 	auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::dev::genesis->account ());
 	auto receive = node.block (receive_hash);
 	ASSERT_NE (nullptr, receive);
@@ -1229,7 +1229,7 @@ TEST (wallet, receive_pruned)
 	auto send2 = wallet1.send_action (nano::dev::genesis_key.pub, key.pub, 1, 1);
 
 	// Pruning
-	ASSERT_TIMELY (5s, node2.ledger.cache.cemented_count == 3);
+	ASSERT_TIMELY_EQ (5s, node2.ledger.cache.cemented_count, 3);
 	{
 		auto transaction = node2.store.tx_begin_write ();
 		ASSERT_EQ (1, node2.ledger.pruning_action (transaction, send1->hash (), 2));
@@ -1243,5 +1243,5 @@ TEST (wallet, receive_pruned)
 	auto open1 = wallet2.receive_action (send1->hash (), key.pub, amount, send1->link ().as_account (), 1);
 	ASSERT_NE (nullptr, open1);
 	ASSERT_EQ (amount, node2.ledger.balance (node2.store.tx_begin_read (), open1->hash ()));
-	ASSERT_TIMELY (5s, node2.ledger.cache.cemented_count == 4);
+	ASSERT_TIMELY_EQ (5s, node2.ledger.cache.cemented_count, 4);
 }

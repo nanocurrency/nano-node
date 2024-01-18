@@ -368,7 +368,7 @@ TEST (telemetry, dos_tcp)
 		ASSERT_FALSE (ec);
 	});
 
-	ASSERT_TIMELY (5s, 1 == node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
+	ASSERT_TIMELY_EQ (5s, 1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
 
 	auto orig = std::chrono::steady_clock::now ();
 	for (int i = 0; i < 10; ++i)
@@ -440,7 +440,7 @@ TEST (telemetry, max_possible_size)
 		ASSERT_FALSE (ec);
 	});
 
-	ASSERT_TIMELY (5s, 1 == node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in));
+	ASSERT_TIMELY_EQ (5s, 1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in));
 }
 
 TEST (telemetry, maker_pruning)
