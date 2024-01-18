@@ -549,7 +549,7 @@ void test_union_operator_less_than ()
 template <typename Num>
 void check_operator_less_than (Num lhs, Num rhs)
 {
-	ASSERT_TRUE (lhs < rhs);
+	ASSERT_LT (lhs, rhs);
 	ASSERT_FALSE (rhs < lhs);
 	ASSERT_FALSE (lhs < lhs);
 	ASSERT_FALSE (rhs < rhs);
