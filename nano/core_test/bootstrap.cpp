@@ -688,7 +688,6 @@ TEST (bootstrap_processor, lazy_hash)
 	auto node0 = system.add_node (config, node_flags);
 	nano::keypair key1;
 	nano::keypair key2;
-	// Generating test chain
 
 	nano::state_block_builder builder;
 
@@ -732,14 +731,15 @@ TEST (bootstrap_processor, lazy_hash)
 					.work (*node0->work_generate_blocking (key2.pub))
 					.build_shared ();
 
-	// Processing test chain
 	node0->block_processor.add (send1);
 	node0->block_processor.add (receive1);
 	node0->block_processor.add (send2);
 	node0->block_processor.add (receive2);
-	node0->block_processor.flush ();
+	ASSERT_TIMELY(5s, nano::test::exists (*node0, {send1, receive1, send2, receive2}));
+
 	// Start lazy bootstrap with last block in chain known
-	auto node1 = system.add_node ();
+	// create a node manually to avoid making automatic network connections
+	auto node1 = std::make_shared<nano::node> (system.io_ctx, 0, nano::unique_path (), system.logging, system.work);
 	nano::test::establish_tcp (system, *node1, node0->network.endpoint ());
 	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true);
 	{
@@ -748,7 +748,8 @@ TEST (bootstrap_processor, lazy_hash)
 		ASSERT_EQ (receive2->hash ().to_string (), lazy_attempt->id);
 	}
 	// Check processed blocks
-	ASSERT_TIMELY (10s, node1->balance (key2.pub) != 0);
+	ASSERT_TIMELY (5s, node1->balance (key2.pub) != 0);
+	node1->stop ();
 }
 
 TEST (bootstrap_processor, lazy_hash_bootstrap_id)
