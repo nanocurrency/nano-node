@@ -386,40 +386,29 @@ nano::tomlconfig nano::load_toml_file (const std::filesystem::path & config_file
 	}
 	config_overrides_stream << std::endl;
 
-	auto try_load_toml = [&config_overrides_stream] (auto toml_config_path) -> std::optional<nano::tomlconfig> {
-		// Make sure we don't create an empty toml file if it doesn't exist. Running without a toml file is the default.
-		if (std::filesystem::exists (toml_config_path))
+	// Make sure we don't create an empty toml file if it doesn't exist. Running without a toml file is the default.
+	auto toml_config_path = data_path / config_filename;
+	if (std::filesystem::exists (toml_config_path))
+	{
+		nano::tomlconfig toml;
+		auto error = toml.read (config_overrides_stream, toml_config_path);
+		if (error)
 		{
-			nano::tomlconfig toml;
-			auto error = toml.read (config_overrides_stream, toml_config_path);
-			if (error)
-			{
-				throw std::runtime_error (error.get_message ());
-			}
-			return toml;
+			throw std::runtime_error (error.get_message ());
 		}
-		return std::nullopt;
-	};
-
-	// First try to load config from the current working directory, then from the node data directory
-	if (auto toml = try_load_toml (config_filename); toml)
-	{
-		nano::default_logger ().info (nano::log::type::config, "Config for `{}` loaded from current working directory", config_filename.string ());
-		return *toml;
+		nano::default_logger ().info (nano::log::type::config, "Config for `{}` loaded from node data directory: ", config_filename.string (), toml_config_path.string ());
+		return toml;
 	}
-	if (auto toml = try_load_toml (data_path / config_filename); toml)
+	else
 	{
-		nano::default_logger ().info (nano::log::type::config, "Config for `{}` loaded from node data directory ({})", config_filename.string (), data_path.string ());
-		return *toml;
+		// If no config was found, return an empty config with overrides applied
+		nano::tomlconfig toml;
+		auto error = toml.read (config_overrides_stream);
+		if (error)
+		{
+			throw std::runtime_error (error.get_message ());
+		}
+		nano::default_logger ().info (nano::log::type::config, "Config for `{}` not found, using default configuration", config_filename.string ());
+		return toml;
 	}
-
-	// If no config was found, return an empty config with overrides applied
-	nano::tomlconfig toml;
-	auto error = toml.read (config_overrides_stream);
-	if (error)
-	{
-		throw std::runtime_error (error.get_message ());
-	}
-	nano::default_logger ().info (nano::log::type::config, "Config for `{}` not found, using default configuration", config_filename.string ());
-	return toml;
 }

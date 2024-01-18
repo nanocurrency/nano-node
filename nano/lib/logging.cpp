@@ -34,10 +34,10 @@ std::function<std::string (nano::log::type tag, std::string identifier)> nano::n
 	return std::string{ to_string (tag) };
 } };
 
-void nano::nlogger::initialize (nano::log_config config)
+void nano::nlogger::initialize (nano::log_config fallback, std::filesystem::path data_path, std::vector<std::string> const & config_overrides)
 {
-	initialize_common (config);
-
+	auto config = nano::load_log_config (std::move (fallback), data_path, config_overrides);
+	initialize_common (config, data_path);
 	global_initialized = true;
 }
 
@@ -47,6 +47,7 @@ namespace
 /// Takes a qualified identifier in the form `node_identifier::tag` and splits it into a pair of `identifier` and `tag`
 /// It is a limitation of spldlog that we cannot attach additional data to the logger, so we have to encode the node identifier in the logger name
 /// @returns <node identifier, tag>
+
 std::pair<std::string_view, std::string_view> split_qualified_identifier (std::string_view qualified_identifier)
 {
 	auto pos = qualified_identifier.find ("::");
@@ -94,15 +95,17 @@ public:
 };
 }
 
-void nano::nlogger::initialize_for_tests (nano::log_config config)
+void nano::nlogger::initialize_for_tests (nano::log_config fallback)
 {
-	initialize_common (config);
+	auto config = nano::load_log_config (std::move (fallback), /* load log config from current workdir */ {});
+	initialize_common (config, /* store log file in current workdir */ {});
 
 	// Use tag and identifier as the logger name, since multiple nodes may be running in the same process
 	global_name_formatter = [] (nano::log::type tag, std::string identifier) {
 		return fmt::format ("{}::{}", identifier, to_string (tag));
 	};
 
+	// Setup formatter to include information about node identifier `[%i]` and tag `[%n]`
 	auto formatter = std::make_unique<spdlog::pattern_formatter> ();
 	formatter->add_flag<identifier_formatter_flag> ('i');
 	formatter->add_flag<tag_formatter_flag> ('n');
@@ -110,14 +113,13 @@ void nano::nlogger::initialize_for_tests (nano::log_config config)
 
 	for (auto & sink : global_sinks)
 	{
-		// Make deep copy of formatter for each sink
 		sink->set_formatter (formatter->clone ());
 	}
 
 	global_initialized = true;
 }
 
-void nano::nlogger::initialize_common (nano::log_config const & config)
+void nano::nlogger::initialize_common (nano::log_config const & config, std::filesystem::path data_path)
 {
 	global_config = config;
 
@@ -160,8 +162,8 @@ void nano::nlogger::initialize_common (nano::log_config const & config)
 		auto filename = fmt::format ("log_{:%Y-%m-%d_%H-%M}-{:%S}", fmt::localtime (time), now.time_since_epoch ());
 		std::replace (filename.begin (), filename.end (), '.', '_'); // Replace millisecond dot separator with underscore
 
-		std::filesystem::path log_path{ "log" };
-		log_path /= filename + ".log";
+		std::filesystem::path log_path{ data_path / "log" / (filename + ".log") };
+		log_path = std::filesystem::absolute (log_path);
 
 		std::cerr << "Logging to file: " << log_path.string () << std::endl;
 
@@ -170,12 +172,12 @@ void nano::nlogger::initialize_common (nano::log_config const & config)
 		{
 			// TODO: Maybe show a warning to the user about possibly unlimited log file size
 
-			auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt> (log_path, true);
+			auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt> (log_path.string (), true);
 			global_sinks.push_back (file_sink);
 		}
 		else
 		{
-			auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt> (log_path, config.file.max_size, config.file.rotation_count);
+			auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt> (log_path.string (), config.file.max_size, config.file.rotation_count);
 			global_sinks.push_back (file_sink);
 		}
 	}
@@ -287,6 +289,7 @@ nano::log_config nano::log_config::tests_default ()
 {
 	log_config config{};
 	config.default_level = nano::log::level::off;
+	config.file.enable = false;
 	return config;
 }
 

@@ -76,8 +76,8 @@ public:
 	nlogger (nlogger const &) = delete;
 
 public:
-	static void initialize (nano::log_config);
-	static void initialize_for_tests (nano::log_config);
+	static void initialize (nano::log_config fallback, std::filesystem::path data_path = {}, std::vector<std::string> const & config_overrides = std::vector<std::string> ());
+	static void initialize_for_tests (nano::log_config fallback);
 	static void flush ();
 
 private:
@@ -86,7 +86,7 @@ private:
 	static std::vector<spdlog::sink_ptr> global_sinks;
 	static std::function<std::string (nano::log::type tag, std::string identifier)> global_name_formatter;
 
-	static void initialize_common (nano::log_config const &);
+	static void initialize_common (nano::log_config const &, std::filesystem::path data_path);
 
 public:
 	template <class... Args>

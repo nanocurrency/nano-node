@@ -74,7 +74,7 @@ nano::error read_wallet_config (nano::wallet_config & config_a, std::filesystem:
 
 int run_wallet (QApplication & application, int argc, char * const * argv, std::filesystem::path const & data_path, nano::node_flags const & flags)
 {
-	nano::nlogger::initialize (nano::load_log_config (nano::log_config::daemon_default (), data_path, flags.config_overrides));
+	nano::nlogger::initialize (nano::log_config::daemon_default (), data_path, flags.config_overrides);
 
 	nlogger.info (nano::log::type::daemon_wallet, "Daemon started (wallet)");
 
