@@ -1145,7 +1145,7 @@ TEST (wallet, foreach_representative_deadlock)
 	bool set = false;
 	node.wallets.foreach_representative ([&node, &set, &system] (nano::public_key const & pub, nano::raw_key const & prv) {
 		node.wallets.foreach_representative ([&node, &set, &system] (nano::public_key const & pub, nano::raw_key const & prv) {
-			ASSERT_TIMELY_EQ (5s, node.wallets.mutex.try_lock (), 1);
+			ASSERT_TIMELY_EQ (5s, node.wallets.mutex.try_lock (), true);
 			node.wallets.mutex.unlock ();
 			set = true;
 		});
