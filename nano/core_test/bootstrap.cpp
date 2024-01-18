@@ -527,7 +527,7 @@ TEST (bootstrap_processor, DISABLED_push_diamond)
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node0 = system.add_node (config);
 	nano::keypair key;
-	auto node1 = system.add_node ();
+	auto node1 = std::make_shared<nano::node> (system.io_ctx, 0, nano::unique_path (), system.logging, system.work);
 	ASSERT_FALSE (node1->init_error ());
 	auto wallet1 (node1->wallets.create (100));
 	wallet1->insert_adhoc (nano::dev::genesis_key.prv);
@@ -569,8 +569,9 @@ TEST (bootstrap_processor, DISABLED_push_diamond)
 				   .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*receive).code);
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_TIMELY (10s, node0->balance (nano::dev::genesis_key.pub) == 100);
-	ASSERT_EQ (100, node0->balance (nano::dev::genesis_key.pub));
+	// create a node manually to avoid making automatic network connections
+	ASSERT_TIMELY_EQ (5s, node0->balance (nano::dev::genesis_key.pub), 100);
+	node1->stop ();
 }
 
 // Check that an outgoing bootstrap request can push blocks
