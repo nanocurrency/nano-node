@@ -24,6 +24,7 @@ add_library(
   lmdb/peer.hpp
   lmdb/pending.hpp
   lmdb/pruned.hpp
+  lmdb/successor.hpp
   lmdb/transaction_impl.hpp
   lmdb/version.hpp
   lmdb/wallet_value.hpp
@@ -44,8 +45,10 @@ add_library(
   rocksdb/pruned.hpp
   rocksdb/rocksdb.hpp
   rocksdb/iterator.hpp
+  rocksdb/successor.hpp
   rocksdb/transaction_impl.hpp
   rocksdb/version.hpp
+  successor.hpp
   tables.hpp
   transaction.hpp
   version.hpp
@@ -72,6 +75,7 @@ add_library(
   lmdb/peer.cpp
   lmdb/pending.cpp
   lmdb/pruned.cpp
+  lmdb/successor.cpp
   lmdb/version.cpp
   lmdb/wallet_value.cpp
   online_weight.cpp
@@ -89,8 +93,10 @@ add_library(
   rocksdb/pending.cpp
   rocksdb/pruned.cpp
   rocksdb/rocksdb.cpp
+  rocksdb/successor.cpp
   rocksdb/transaction.cpp
   rocksdb/version.cpp
+  successor.cpp
   transaction.cpp
   version.cpp
   versioning.cpp)

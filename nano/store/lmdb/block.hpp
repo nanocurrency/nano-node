@@ -20,12 +20,12 @@ class block : public nano::store::block
 	friend class block_predecessor_mdb_set;
 	nano::store::lmdb::component & store;
 
+	uint64_t index_next{ 0 };
+
 public:
-	explicit block (nano::store::lmdb::component & store_a);
+	explicit block (bool const & error, nano::store::lmdb::component & store_a);
 	void put (store::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a) override;
 	void raw_put (store::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_hash const & hash_a) override;
-	nano::block_hash successor (store::transaction const & transaction_a, nano::block_hash const & hash_a) const override;
-	void successor_clear (store::write_transaction const & transaction_a, nano::block_hash const & hash_a) override;
 	std::shared_ptr<nano::block> get (store::transaction const & transaction_a, nano::block_hash const & hash_a) const override;
 	std::shared_ptr<nano::block> random (store::transaction const & transaction_a) override;
 	void del (store::write_transaction const & transaction_a, nano::block_hash const & hash_a) override;
@@ -37,14 +37,18 @@ public:
 	void for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::block_hash, block_w_sideband>, store::iterator<nano::block_hash, block_w_sideband>)> const & action_a) const override;
 
 	/**
-		 * Contains block_sideband and block for all block types (legacy send/change/open/receive & state blocks)
-		 * nano::block_hash -> nano::block_sideband, nano::block
-		 */
-	MDB_dbi blocks_handle{ 0 };
+	 * Maps block hashes to the index where the block and sideband data is stored
+	 * nano::block_hash -> uint64_t
+	 */
+	MDB_dbi block_index_v23_handle{ 0 };
+	/**
+	 * Maps block index to block + sideband data
+	 * uint64_t -> nano::block_sideband, nano::block
+	 */
+	MDB_dbi block_data_v23_handle{ 0 };
 
 protected:
 	void block_raw_get (store::transaction const & transaction_a, nano::block_hash const & hash_a, db_val & value) const;
-	size_t block_successor_offset (store::transaction const & transaction_a, size_t entry_size_a, nano::block_type type_a) const;
 	static nano::block_type block_type_from_raw (void * data_a);
 };
 } // namespace nano::store::lmdb

@@ -46,7 +46,8 @@ nano::store::rocksdb::component::component (nano::logger_mt & logger_a, std::fil
 		peer_store,
 		confirmation_height_store,
 		final_vote_store,
-		version_store
+		version_store,
+		successor_store
 	},
 	// clang-format on
 	block_store{ *this },
@@ -58,6 +59,7 @@ nano::store::rocksdb::component::component (nano::logger_mt & logger_a, std::fil
 	peer_store{ *this },
 	confirmation_height_store{ *this },
 	final_vote_store{ *this },
+	successor_store{ *this },
 	version_store{ *this },
 	logger{ logger_a },
 	constants{ constants },
