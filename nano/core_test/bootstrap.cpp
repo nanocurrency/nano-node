@@ -735,7 +735,7 @@ TEST (bootstrap_processor, lazy_hash)
 	node0->block_processor.add (receive1);
 	node0->block_processor.add (send2);
 	node0->block_processor.add (receive2);
-	ASSERT_TIMELY(5s, nano::test::exists (*node0, {send1, receive1, send2, receive2}));
+	ASSERT_TIMELY (5s, nano::test::exists (*node0, { send1, receive1, send2, receive2 }));
 
 	// Start lazy bootstrap with last block in chain known
 	// create a node manually to avoid making automatic network connections
