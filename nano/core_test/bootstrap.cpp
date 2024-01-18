@@ -465,11 +465,13 @@ TEST (bootstrap_processor, pull_diamond)
 				   .work (*system.work.generate (send1->hash ()))
 				   .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node0->process (*receive).code);
-	auto node1 = system.add_node ();
+
+	// create a node manually to avoid making automatic network connections
+	auto node1 = std::make_shared<nano::node> (system.io_ctx, 0, nano::unique_path (), system.logging, system.work);
 	ASSERT_FALSE (node1->init_error ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_TIMELY (10s, node1->balance (nano::dev::genesis_key.pub) == 100);
-	ASSERT_EQ (100, node1->balance (nano::dev::genesis_key.pub));
+	ASSERT_TIMELY_EQ (5s, node1->balance (nano::dev::genesis_key.pub), 100);
+	node1->stop ();
 }
 
 TEST (bootstrap_processor, DISABLED_pull_requeue_network_error)
