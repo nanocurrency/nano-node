@@ -820,12 +820,10 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.enable_pruning = true;
 	auto node0 = system.add_node (config, node_flags);
-	nano::keypair key1;
-	nano::keypair key2;
-	// Generating test chain
 
 	nano::state_block_builder builder;
 
+	// send Gxrb_ratio raw from genesis to genesis
 	auto send1 = builder
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (nano::dev::genesis->hash ())
@@ -835,6 +833,8 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*node0->work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build_shared ();
+
+	// receive send1
 	auto receive1 = builder
 					.make_block ()
 					.account (nano::dev::genesis_key.pub)
@@ -845,6 +845,9 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*node0->work_generate_blocking (send1->hash ()))
 					.build_shared ();
+
+	// change rep of genesis account to be key1
+	nano::keypair key1;
 	auto change1 = builder
 				   .make_block ()
 				   .account (nano::dev::genesis_key.pub)
@@ -855,6 +858,9 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				   .work (*node0->work_generate_blocking (receive1->hash ()))
 				   .build_shared ();
+
+	// change rep of genesis account to be rep2
+	nano::keypair key2;
 	auto change2 = builder
 				   .make_block ()
 				   .account (nano::dev::genesis_key.pub)
@@ -865,6 +871,8 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				   .work (*node0->work_generate_blocking (change1->hash ()))
 				   .build_shared ();
+
+	// send Gxrb_ratio from genesis to key1 and genesis rep back to genesis account
 	auto send2 = builder
 				 .make_block ()
 				 .account (nano::dev::genesis_key.pub)
@@ -875,6 +883,8 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*node0->work_generate_blocking (change2->hash ()))
 				 .build_shared ();
+
+	// receive send2 and rep of key1 to be itself
 	auto receive2 = builder
 					.make_block ()
 					.account (key1.pub)
@@ -885,6 +895,8 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 					.sign (key1.prv, key1.pub)
 					.work (*node0->work_generate_blocking (key1.pub))
 					.build_shared ();
+
+	// send Gxrb_ratio raw, all available balance, from key1 to key2
 	auto send3 = builder
 				 .make_block ()
 				 .account (key1.pub)
@@ -895,6 +907,8 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 				 .sign (key1.prv, key1.pub)
 				 .work (*node0->work_generate_blocking (receive2->hash ()))
 				 .build_shared ();
+
+	// receive send3 on key2, set rep of key2 to be itself
 	auto receive3 = builder
 					.make_block ()
 					.account (key2.pub)
@@ -906,41 +920,48 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 					.work (*node0->work_generate_blocking (key2.pub))
 					.build_shared ();
 
-	// Processing test chain
-	node0->block_processor.add (send1);
-	node0->block_processor.add (receive1);
-	node0->block_processor.add (change1);
-	node0->block_processor.add (change2);
-	node0->block_processor.add (send2);
-	node0->block_processor.add (receive2);
-	node0->block_processor.add (send3);
-	node0->block_processor.add (receive3);
-	ASSERT_TIMELY_EQ (5s, 9, node0->ledger.cache.block_count);
+	std::vector<std::shared_ptr<nano::block>> blocks = { send1, receive1, change1, change2, send2, receive2, send3, receive3 };
+	ASSERT_TRUE (nano::test::process (*node0, blocks));
+	ASSERT_TRUE (nano::test::start_elections (system, *node0, blocks, true));
+	ASSERT_TIMELY (5s, nano::test::confirmed (*node0, blocks));
+
+	// manually create node1 so that it does not create connections to other nodes
+	auto node1 = std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), config, system.work, node_flags, 1);
+	node1->start ();
+
 	// Processing chain to prune for node1
-	auto node1 = system.add_node (config, node_flags);
 	node1->process_active (send1);
 	node1->process_active (receive1);
 	node1->process_active (change1);
 	node1->process_active (change2);
-	ASSERT_TIMELY (5s, node1->block (change2->hash ()) != nullptr);
+	ASSERT_TIMELY (5s, nano::test::exists (*node1, { send1, receive1, change1, change2 }));
+
 	// Confirm last block to prune previous
 	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send1, receive1, change1, change2 }, true));
-	ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (receive1->hash ()) && node1->block_confirmed (change1->hash ()) && node1->block_confirmed (change2->hash ()) && node1->active.empty ());
+	ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()));
+	ASSERT_TIMELY (5s, node1->block_confirmed (receive1->hash ()));
+	ASSERT_TIMELY (5s, node1->block_confirmed (change1->hash ()));
+	ASSERT_TIMELY (5s, node1->block_confirmed (change2->hash ()));
+	ASSERT_TIMELY (5s, node1->active.empty ());
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	ASSERT_EQ (5, node1->ledger.cache.cemented_count);
+
 	// Pruning action
 	node1->ledger_pruning (2, false, false);
 	ASSERT_EQ (9, node0->ledger.cache.block_count);
 	ASSERT_EQ (0, node0->ledger.cache.pruned_count);
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	ASSERT_EQ (3, node1->ledger.cache.pruned_count);
+
 	// Start lazy bootstrap with last block in chain known
 	nano::test::establish_tcp (system, *node1, node0->network.endpoint ());
 	node1->bootstrap_initiator.bootstrap_lazy (receive3->hash (), true);
+
 	// Check processed blocks
 	ASSERT_TIMELY (5s, node1->ledger.cache.block_count == 9);
 	ASSERT_TIMELY (5s, node1->balance (key2.pub) != 0);
 	ASSERT_TIMELY (5s, !node1->bootstrap_initiator.in_progress ());
+	node1->stop ();
 }
 
 TEST (bootstrap_processor, lazy_max_pull_count)
