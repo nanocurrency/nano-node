@@ -132,8 +132,8 @@ TEST (election_scheduler, no_vacancy)
 
 	// There is no vacancy so it should stay queued
 	node.scheduler.priority.activate (key.pub, node.store.tx_begin_read ());
-	ASSERT_TIMELY (5s, node.scheduler.priority.size () == 1);
-	ASSERT_TRUE (node.active.election (block2->qualified_root ()) == nullptr);
+	ASSERT_TIMELY_EQ (5s, node.scheduler.priority.size (), 1);
+	ASSERT_EQ (node.active.election (block2->qualified_root ()), nullptr);
 
 	// Election confirmed, next in queue should begin
 	election->force_confirm ();

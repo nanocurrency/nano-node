@@ -2332,13 +2332,13 @@ TEST (ledger, block_destination_source)
 	ASSERT_TRUE (ledger.block_source (transaction, *block1).is_zero ());
 	ASSERT_EQ (nano::dev::genesis->account (), ledger.block_destination (transaction, *block2));
 	ASSERT_TRUE (ledger.block_source (transaction, *block2).is_zero ());
-	ASSERT_TRUE (ledger.block_destination (transaction, *block3) == nullptr);
+	ASSERT_EQ (ledger.block_destination (transaction, *block3), nullptr);
 	ASSERT_EQ (block2->hash (), ledger.block_source (transaction, *block3));
 	ASSERT_EQ (dest.pub, ledger.block_destination (transaction, *block4));
 	ASSERT_TRUE (ledger.block_source (transaction, *block4).is_zero ());
 	ASSERT_EQ (nano::dev::genesis->account (), ledger.block_destination (transaction, *block5));
 	ASSERT_TRUE (ledger.block_source (transaction, *block5).is_zero ());
-	ASSERT_TRUE (ledger.block_destination (transaction, *block6) == nullptr);
+	ASSERT_EQ (ledger.block_destination (transaction, *block6), nullptr);
 	ASSERT_EQ (block5->hash (), ledger.block_source (transaction, *block6));
 }
 
@@ -4049,7 +4049,7 @@ TEST (ledger, epoch_open_pending)
 	ASSERT_EQ (nano::process_result::gap_epoch_open_pending, process_result.code);
 	node1.block_processor.add (epoch_open);
 	// Waits for the block to get saved in the database
-	ASSERT_TIMELY (10s, 1 == node1.unchecked.count ());
+	ASSERT_TIMELY_EQ (10s, 1, node1.unchecked.count ());
 	ASSERT_FALSE (node1.ledger.block_or_pruned_exists (epoch_open->hash ()));
 	// Open block should be inserted into unchecked
 	auto blocks = node1.unchecked.get (nano::hash_or_account (epoch_open->account ()).hash);
@@ -4343,7 +4343,7 @@ TEST (ledger, unchecked_epoch)
 	node1.block_processor.add (epoch1);
 	{
 		// Waits for the epoch1 block to pass through block_processor and unchecked.put queues
-		ASSERT_TIMELY (10s, 1 == node1.unchecked.count ());
+		ASSERT_TIMELY_EQ (10s, 1, node1.unchecked.count ());
 		auto blocks = node1.unchecked.get (epoch1->previous ());
 		ASSERT_EQ (blocks.size (), 1);
 	}
@@ -4352,7 +4352,7 @@ TEST (ledger, unchecked_epoch)
 	ASSERT_TIMELY (5s, node1.store.block.exists (node1.store.tx_begin_read (), epoch1->hash ()));
 	{
 		// Waits for the last blocks to pass through block_processor and unchecked.put queues
-		ASSERT_TIMELY (10s, 0 == node1.unchecked.count ());
+		ASSERT_TIMELY_EQ (10s, 0, node1.unchecked.count ());
 		auto info = node1.ledger.account_info (node1.store.tx_begin_read (), destination.pub);
 		ASSERT_TRUE (info);
 		ASSERT_EQ (info->epoch (), nano::epoch::epoch_1);
@@ -4417,7 +4417,7 @@ TEST (ledger, unchecked_epoch_invalid)
 	node1.block_processor.add (epoch2);
 	{
 		// Waits for the last blocks to pass through block_processor and unchecked.put queues
-		ASSERT_TIMELY (10s, 2 == node1.unchecked.count ());
+		ASSERT_TIMELY_EQ (10s, 2, node1.unchecked.count ());
 		auto blocks = node1.unchecked.get (epoch1->previous ());
 		ASSERT_EQ (blocks.size (), 2);
 	}
@@ -4484,7 +4484,7 @@ TEST (ledger, unchecked_open)
 	node1.block_processor.add (open1);
 	{
 		// Waits for the last blocks to pass through block_processor and unchecked.put queues
-		ASSERT_TIMELY (10s, 1 == node1.unchecked.count ());
+		ASSERT_TIMELY_EQ (10s, 1, node1.unchecked.count ());
 		// Get the next peer for attempting a tcp bootstrap connection
 		auto blocks = node1.unchecked.get (open1->source ());
 		ASSERT_EQ (blocks.size (), 1);
@@ -5654,7 +5654,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	ASSERT_FALSE (rocksdb_store.confirmation_height.get (rocksdb_transaction, nano::dev::genesis->account (), confirmation_height_info));
 	ASSERT_EQ (confirmation_height_info.height, 2);
 	ASSERT_EQ (confirmation_height_info.frontier, send->hash ());
-	ASSERT_TRUE (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ())).size () == 1);
+	ASSERT_EQ (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ())).size (), 1);
 	ASSERT_EQ (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ()))[0], nano::block_hash (2));
 }
 

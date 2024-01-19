@@ -638,7 +638,7 @@ TEST (block_builder, zeroed_state_block)
 							 .work (0)
 							 .build_shared ();
 	auto zero_block_build = builder.state ().zero ().sign (key.prv, key.pub).build ();
-	ASSERT_TRUE (zero_block_manual->hash () == zero_block_build->hash ());
+	ASSERT_EQ (zero_block_manual->hash (), zero_block_build->hash ());
 	ASSERT_FALSE (nano::validate_message (key.pub, zero_block_build->hash (), zero_block_build->signature));
 }
 

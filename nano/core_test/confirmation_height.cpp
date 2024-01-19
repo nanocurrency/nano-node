@@ -62,7 +62,7 @@ TEST (confirmation_height, single)
 		node->process_active (send1);
 		node->block_processor.flush ();
 
-		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 1);
+		ASSERT_TIMELY_EQ (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out), 1);
 
 		{
 			auto transaction = node->store.tx_begin_write ();
@@ -244,7 +244,7 @@ TEST (confirmation_height, multiple_accounts)
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
 
-		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 10);
+		ASSERT_TIMELY_EQ (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out), 10);
 
 		nano::confirmation_height_info confirmation_height_info;
 		auto & store = node->store;
@@ -409,7 +409,7 @@ TEST (confirmation_height, gap_bootstrap)
 		// Now complete the chain where the block comes in on the bootstrap network.
 		node1.block_processor.add (open1);
 
-		ASSERT_TIMELY (5s, node1.unchecked.count () == 0);
+		ASSERT_TIMELY_EQ (5s, node1.unchecked.count (), 0);
 		// Confirmation height should be unchanged and unchecked should now be 0
 		{
 			auto transaction = node1.store.tx_begin_read ();
@@ -533,13 +533,13 @@ TEST (confirmation_height, gap_live)
 
 		// Vote and confirm all existing blocks
 		nano::test::start_election (system, *node, send1->hash ());
-		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 3);
+		ASSERT_TIMELY_EQ (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out), 3);
 
 		// Now complete the chain where the block comes in on the live network
 		node->process_active (open1);
 		node->block_processor.flush ();
 
-		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 6);
+		ASSERT_TIMELY_EQ (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out), 6);
 
 		// This should confirm the open block and the source of the receive blocks
 		auto transaction = node->store.tx_begin_read ();
@@ -691,7 +691,7 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
 
-		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 10);
+		ASSERT_TIMELY_EQ (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out), 10);
 
 		auto transaction (node->store.tx_begin_read ());
 		ASSERT_TRUE (node->ledger.block_confirmed (transaction, receive4->hash ()));
@@ -808,7 +808,7 @@ TEST (confirmation_height, send_receive_self)
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
 
-		ASSERT_TIMELY (5s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 6);
+		ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out), 6);
 
 		auto transaction (node->store.tx_begin_read ());
 		ASSERT_TRUE (node->ledger.block_confirmed (transaction, receive3->hash ()));
@@ -1053,7 +1053,7 @@ TEST (confirmation_height, all_block_types)
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
 
-		ASSERT_TIMELY (5s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 15);
+		ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out), 15);
 
 		auto transaction (node->store.tx_begin_read ());
 		ASSERT_TRUE (node->ledger.block_confirmed (transaction, state_send2->hash ()));
@@ -1136,7 +1136,7 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		// node2 already has send2 forced confirmed whilst node1 should have confirmed send1 and therefore we have a cemented fork on node2
 		// and node2 should print an error message on the log that it cannot rollback send2 because it is already cemented
 		[[maybe_unused]] size_t count = 0;
-		ASSERT_TIMELY (5s, 1 == (count = node1->stats.count (nano::stat::type::ledger, nano::stat::detail::rollback_failed)));
+		ASSERT_TIMELY_EQ (5s, 1, (count = node1->stats.count (nano::stat::type::ledger, nano::stat::detail::rollback_failed)));
 		ASSERT_TRUE (nano::test::confirmed (*node1, { fork1a->hash () })); // fork1a should still remain after the rollback failed event
 	};
 
@@ -1221,7 +1221,7 @@ TEST (confirmation_height, observers)
 
 		node1->process_active (send1);
 		node1->block_processor.flush ();
-		ASSERT_TIMELY (10s, node1->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 1);
+		ASSERT_TIMELY_EQ (10s, node1->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out), 1);
 		auto transaction = node1->store.tx_begin_read ();
 		ASSERT_TRUE (node1->ledger.block_confirmed (transaction, send1->hash ()));
 		ASSERT_EQ (1, node1->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
@@ -1512,7 +1512,7 @@ TEST (confirmation_height, callback_confirmed_history)
 			auto election = node->active.election (send1->qualified_root ());
 			ASSERT_NE (nullptr, election);
 			election->force_confirm ();
-			ASSERT_TIMELY (10s, node->active.size () == 0);
+			ASSERT_TIMELY_EQ (10s, node->active.size (), 0);
 			ASSERT_EQ (0, node->active.recently_cemented.list ().size ());
 			ASSERT_TRUE (node->active.empty ());
 
@@ -1530,8 +1530,8 @@ TEST (confirmation_height, callback_confirmed_history)
 		auto transaction = node->store.tx_begin_read ();
 		ASSERT_TRUE (node->ledger.block_confirmed (transaction, send->hash ()));
 
-		ASSERT_TIMELY (10s, node->active.size () == 0);
-		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out) == 1);
+		ASSERT_TIMELY_EQ (10s, node->active.size (), 0);
+		ASSERT_TIMELY_EQ (10s, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out), 1);
 
 		ASSERT_EQ (1, node->active.recently_cemented.list ().size ());
 		ASSERT_TRUE (node->active.empty ());
@@ -1607,7 +1607,7 @@ TEST (confirmation_height, dependent_election)
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
 
-		ASSERT_TIMELY (5s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 3);
+		ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out), 3);
 
 		ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out));
 		ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_conf_height, nano::stat::dir::out));
@@ -1760,7 +1760,7 @@ TEST (confirmation_height, cemented_gap_below_receive)
 		auto election = nano::test::start_election (system, *node, open1->hash ());
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
-		ASSERT_TIMELY (5s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 10);
+		ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out), 10);
 
 		auto transaction = node->store.tx_begin_read ();
 		ASSERT_TRUE (node->ledger.block_confirmed (transaction, open1->hash ()));
@@ -1925,7 +1925,7 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 		auto election = nano::test::start_election (system, *node, open1->hash ());
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
-		ASSERT_TIMELY (5s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 6);
+		ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out), 6);
 
 		auto transaction = node->store.tx_begin_read ();
 		ASSERT_TRUE (node->ledger.block_confirmed (transaction, open1->hash ()));
@@ -1988,7 +1988,7 @@ TEST (confirmation_height, election_winner_details_clearing)
 
 		node->process_confirmed (nano::election_status{ send2 });
 		ASSERT_TIMELY (5s, node->block_confirmed (send2->hash ()));
-		ASSERT_TIMELY (5s, 1 == node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
+		ASSERT_TIMELY_EQ (5s, 1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
 
 		node->process_confirmed (nano::election_status{ send3 });
 		ASSERT_TIMELY (5s, node->block_confirmed (send3->hash ()));
@@ -1996,7 +1996,7 @@ TEST (confirmation_height, election_winner_details_clearing)
 		// Add an already cemented block with fake election details. It should get removed
 		node->active.add_election_winner_details (send3->hash (), nullptr);
 		node->confirmation_height_processor.add (send3);
-		ASSERT_TIMELY (10s, node->active.election_winner_details_size () == 0);
+		ASSERT_TIMELY_EQ (10s, node->active.election_winner_details_size (), 0);
 		ASSERT_EQ (4, node->ledger.cache.cemented_count);
 
 		EXPECT_EQ (1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));

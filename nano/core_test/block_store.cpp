@@ -1683,6 +1683,6 @@ TEST (rocksdb_block_store, tombstone_count)
 	ASSERT_EQ (store->tombstone_map.at (nano::tables::accounts).num_since_last_flush.load (), 0);
 	// Performs a delete operation and checks for the tombstone counter
 	store->account.del (store->tx_begin_write (), account);
-	ASSERT_TIMELY (5s, store->tombstone_map.at (nano::tables::accounts).num_since_last_flush.load () == 1);
+	ASSERT_TIMELY_EQ (5s, store->tombstone_map.at (nano::tables::accounts).num_since_last_flush.load (), 1);
 }
 }

@@ -362,13 +362,13 @@ TEST (toml, base_override)
 	t.get_required<uint16_t> ("node.peering_port_not_existent", port);
 	ASSERT_EQ (port, 65535);
 	ASSERT_TRUE (t.get_error ());
-	ASSERT_TRUE (t.get_error () == nano::error_config::missing_value);
+	ASSERT_EQ (t.get_error (), nano::error_config::missing_value);
 	t.get_error ().clear ();
 
 	// Query uint16 that's too big, make sure we have an error
 	t.get_required<uint16_t> ("node.too_big", port);
 	ASSERT_TRUE (t.get_error ());
-	ASSERT_TRUE (t.get_error () == nano::error_config::invalid_value);
+	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
 }
 
 TEST (toml, put)
@@ -394,7 +394,7 @@ TEST (toml, array)
 	config_node.push<std::string> ("items", "item 2");
 	int i = 1;
 	config_node.array_entries_required<std::string> ("items", [&i] (std::string item) {
-		ASSERT_TRUE (item == std::string ("item ") + std::to_string (i));
+		ASSERT_EQ (item, std::string ("item ") + std::to_string (i));
 		i++;
 	});
 }

@@ -248,7 +248,7 @@ TEST (wallets, search_receivable)
 		{
 			node.wallets.search_receivable (wallet_id);
 		}
-		ASSERT_TIMELY (3s, node.balance (nano::dev::genesis->account ()) == nano::dev::constants.genesis_amount);
+		ASSERT_TIMELY_EQ (3s, node.balance (nano::dev::genesis->account ()), nano::dev::constants.genesis_amount);
 		auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::dev::genesis->account ());
 		auto receive = node.block (receive_hash);
 		ASSERT_NE (nullptr, receive);
