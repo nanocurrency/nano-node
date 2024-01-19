@@ -1395,11 +1395,8 @@ TEST (bootstrap_processor, lazy_cancel)
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	auto node0 (system.add_node (config, node_flags));
 	nano::keypair key1;
-	// Generating test chain
 
-	nano::state_block_builder builder;
-
-	auto send1 = builder
+	auto send1 = nano::state_block_builder ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (nano::dev::genesis->hash ())
 				 .representative (nano::dev::genesis_key.pub)
@@ -1410,7 +1407,8 @@ TEST (bootstrap_processor, lazy_cancel)
 				 .build_shared ();
 
 	// Start lazy bootstrap with last block in chain known
-	auto node1 = system.add_node ();
+	// create a node manually so that it is not connected to the other node automatically
+	auto node1 = std::make_shared<nano::node> (system.io_ctx, 0, nano::unique_path (), system.logging, system.work);
 	nano::test::establish_tcp (system, *node1, node0->network.endpoint ());
 	node1->bootstrap_initiator.bootstrap_lazy (send1->hash (), true); // Start "confirmed" block bootstrap
 	{
@@ -1419,7 +1417,8 @@ TEST (bootstrap_processor, lazy_cancel)
 		ASSERT_EQ (send1->hash ().to_string (), lazy_attempt->id);
 	}
 	// Cancel failing lazy bootstrap
-	ASSERT_TIMELY (10s, !node1->bootstrap_initiator.in_progress ());
+	ASSERT_TIMELY (5s, !node1->bootstrap_initiator.in_progress ());
+	node1->stop ();
 }
 
 TEST (bootstrap_processor, wallet_lazy_frontier)
