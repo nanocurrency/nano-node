@@ -685,7 +685,7 @@ TEST (wallet, import)
 		system.wallet (0)->store.serialize_json (transaction, json);
 	}
 	system.wallet (1)->insert_adhoc (key2.prv);
-	auto path (nano::unique_path ());
+	auto path{ nano::unique_path () / "wallet.json" };
 	{
 		std::ofstream stream;
 		stream.open (path.string ().c_str ());
