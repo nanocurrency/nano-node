@@ -171,6 +171,12 @@ void nano::transport::tcp_listener::on_connection (std::function<bool (std::shar
 
 			if (!ec_a)
 			{
+				{
+					// Best effort attempt to get endpoint addresses
+					boost::system::error_code ec;
+					new_connection->local = new_connection->tcp_socket.local_endpoint (ec);
+				}
+
 				// Make sure the new connection doesn't idle. Note that in most cases, the callback is going to start
 				// an IO operation immediately, which will start a timer.
 				new_connection->start ();
