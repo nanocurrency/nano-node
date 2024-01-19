@@ -284,10 +284,19 @@ TEST (bootstrap_processor, process_none)
 {
 	nano::test::system system (1);
 	auto node0 = system.nodes[0];
-	auto node1 = system.add_node ();
+	// create a node manually so that it is not connected to the other node automatically
+	auto node1 = std::make_shared<nano::node> (system.io_ctx, 0, nano::unique_path (), system.logging, system.work);
+	ASSERT_FALSE (node1->init_error ());
+	node1->start ();
+
+	bool done = false;
+	node0->observers.socket_accepted.add ([&] (nano::transport::socket & socket) {
+		done = true;
+	});
 	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint (), false);
-	ASSERT_TIMELY (5s, !node1->network.empty ());
-	ASSERT_TIMELY (5s, !node0->network.empty ());
+	ASSERT_TIMELY (5s, done);
+
+	node1->stop ();
 }
 
 // Bootstrap can pull one basic block
