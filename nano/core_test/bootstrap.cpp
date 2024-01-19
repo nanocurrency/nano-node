@@ -328,20 +328,15 @@ TEST (bootstrap_processor, process_two)
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	auto node0 (system.add_node (config, node_flags));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::block_hash hash1 (node0->latest (nano::dev::genesis_key.pub));
-	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, 50));
-	nano::block_hash hash2 (node0->latest (nano::dev::genesis_key.pub));
-	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, 50));
-	nano::block_hash hash3 (node0->latest (nano::dev::genesis_key.pub));
-	ASSERT_NE (hash1, hash2);
-	ASSERT_NE (hash1, hash3);
-	ASSERT_NE (hash2, hash3);
+	ASSERT_TRUE (system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, 50));
+	ASSERT_TRUE (system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, 50));
+	ASSERT_TIMELY_EQ (5s, nano::test::account_info (*node0, nano::dev::genesis_key.pub).block_count, 3);
 
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work));
-	ASSERT_FALSE (node1->init_error ());
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_NE (node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub));
-	ASSERT_TIMELY_EQ (10s, node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub));
+	// create a node manually to avoid making automatic network connections
+	auto node1 = system.make_disconnected_node ();
+	ASSERT_NE (node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub)); // nodes should be out of sync here
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false); // bootstrap triggered
+	ASSERT_TIMELY_EQ (5s, node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub)); // nodes should sync up
 	node1->stop ();
 }
 
