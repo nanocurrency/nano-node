@@ -309,15 +309,12 @@ TEST (bootstrap_processor, process_one)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto send (system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, 100));
 	ASSERT_NE (nullptr, send);
+	ASSERT_TIMELY (5s, node0->latest (nano::dev::genesis_key.pub) != nano::dev::genesis->hash ());
 
-	node_config.peering_port = system.get_available_port ();
 	node_flags.disable_rep_crawler = true;
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), node_config, system.work, node_flags));
-	nano::block_hash hash1 (node0->latest (nano::dev::genesis_key.pub));
-	nano::block_hash hash2 (node1->latest (nano::dev::genesis_key.pub));
-	ASSERT_NE (hash1, hash2);
+	auto node1 = system.make_disconnected_node (node_config, node_flags);
+	ASSERT_NE (node0->latest (nano::dev::genesis_key.pub), node1->latest (nano::dev::genesis_key.pub));
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_NE (node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub));
 	ASSERT_TIMELY_EQ (10s, node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub));
 	node1->stop ();
 }
