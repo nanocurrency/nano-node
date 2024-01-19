@@ -280,17 +280,19 @@ TEST (bulk_pull, count_limit)
 	ASSERT_EQ (nullptr, block);
 }
 
-TEST (bootstrap_processor, DISABLED_process_none)
+TEST (bootstrap_processor, process_none)
 {
 	nano::test::system system (1);
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work));
-	ASSERT_FALSE (node1->init_error ());
-	auto done (false);
+	auto node0 = system.nodes[0];
+	auto node1 = system.make_disconnected_node ();
+
+	bool done = false;
+	node0->observers.socket_accepted.add ([&] (nano::transport::socket & socket) {
+		done = true;
+	});
+
 	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint (), false);
-	while (!done)
-	{
-		system.io_ctx.run_one ();
-	}
+	ASSERT_TIMELY (5s, done);
 	node1->stop ();
 }
 
