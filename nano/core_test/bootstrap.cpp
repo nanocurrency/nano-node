@@ -1571,7 +1571,6 @@ TEST (bootstrap_processor, multiple_attempts)
 	auto node1 = system.add_node (config, node_flags);
 	nano::keypair key1;
 	nano::keypair key2;
-	// Generating test chain
 
 	nano::state_block_builder builder;
 
@@ -1620,11 +1619,14 @@ TEST (bootstrap_processor, multiple_attempts)
 	node1->block_processor.add (receive1);
 	node1->block_processor.add (send2);
 	node1->block_processor.add (receive2);
-	node1->block_processor.flush ();
+	nano::test::exists (*node1, { send1, receive1, send2, receive2 });
+
 	// Start 2 concurrent bootstrap attempts
 	nano::node_config node_config = system.default_config ();
 	node_config.bootstrap_initiator_threads = 3;
-	auto node2 = system.add_node (node_config);
+
+	// create a node manually so that it is not connected to the other node automatically
+	auto node2 = std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), node_config, system.work);
 	nano::test::establish_tcp (system, *node2, node1->network.endpoint ());
 	node2->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true);
 	node2->bootstrap_initiator.bootstrap ();
@@ -1639,6 +1641,7 @@ TEST (bootstrap_processor, multiple_attempts)
 	ASSERT_TIMELY (10s, node2->balance (key2.pub) != 0);
 	// Check attempts finish
 	ASSERT_TIMELY (5s, node2->bootstrap_initiator.attempts.size () == 0);
+	node2->stop ();
 }
 
 TEST (frontier_req_response, DISABLED_destruction)
