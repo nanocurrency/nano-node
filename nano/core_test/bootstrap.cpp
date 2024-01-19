@@ -2014,7 +2014,10 @@ TEST (bulk, DISABLED_genesis_pruning)
 	auto node1 = system.add_node (config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	node_flags.enable_pruning = false;
-	auto node2 = system.add_node (system.default_config (), node_flags);
+
+	// create a node manually so that it is not connected to the other node automatically
+	auto node2 = std::make_shared<nano::node> (system.io_ctx, 0, nano::unique_path (), system.logging, system.work, node_flags);
+	ASSERT_FALSE (node2->init_error ());
 	nano::block_hash latest1 (node1->latest (nano::dev::genesis_key.pub));
 	nano::block_hash latest2 (node2->latest (nano::dev::genesis_key.pub));
 	ASSERT_EQ (latest1, latest2);
@@ -2079,6 +2082,7 @@ TEST (bulk, DISABLED_genesis_pruning)
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
 	ASSERT_TIMELY (10s, node2->latest (nano::dev::genesis_key.pub) == node1->latest (nano::dev::genesis_key.pub));
 	ASSERT_EQ (node2->latest (nano::dev::genesis_key.pub), node1->latest (nano::dev::genesis_key.pub));
+	node2->stop ();
 }
 
 TEST (bulk_pull_account, basics)
