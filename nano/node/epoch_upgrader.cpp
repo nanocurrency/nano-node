@@ -2,12 +2,12 @@
 #include <nano/node/epoch_upgrader.hpp>
 #include <nano/node/node.hpp>
 
-nano::epoch_upgrader::epoch_upgrader (nano::node & node_a, nano::ledger & ledger_a, nano::store::component & store_a, nano::network_params & network_params_a, nano::nlogger & nlogger_a) :
+nano::epoch_upgrader::epoch_upgrader (nano::node & node_a, nano::ledger & ledger_a, nano::store::component & store_a, nano::network_params & network_params_a, nano::logger & logger_a) :
 	node{ node_a },
 	ledger{ ledger_a },
 	store{ store_a },
 	network_params{ network_params_a },
-	nlogger{ nlogger_a }
+	logger{ logger_a }
 {
 }
 
@@ -60,7 +60,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 		{
 			bool fork (result == nano::process_result::fork);
 
-			nlogger.error (nano::log::type::epoch_upgrader, "Failed to upgrade account {} (valid signature: {}, valid work: {}, fork: {})",
+			logger.error (nano::log::type::epoch_upgrader, "Failed to upgrade account {} (valid signature: {}, valid work: {}, fork: {})",
 			account_a.to_account (),
 			valid_signature,
 			valid_work,
@@ -186,7 +186,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 
 			if (!accounts_list.empty ())
 			{
-				nlogger.info (nano::log::type::epoch_upgrader, "{} accounts were upgraded to new epoch, {} remain...",
+				logger.info (nano::log::type::epoch_upgrader, "{} accounts were upgraded to new epoch, {} remain...",
 				total_upgraded_accounts,
 				accounts_list.size () - upgraded_accounts);
 
@@ -194,7 +194,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 			}
 			else
 			{
-				nlogger.info (nano::log::type::epoch_upgrader, "{} total accounts were upgraded to new epoch", total_upgraded_accounts);
+				logger.info (nano::log::type::epoch_upgrader, "{} total accounts were upgraded to new epoch", total_upgraded_accounts);
 
 				finished_accounts = true;
 			}
@@ -293,11 +293,11 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 			// Repeat if some pending accounts were upgraded
 			if (upgraded_pending != 0)
 			{
-				nlogger.info (nano::log::type::epoch_upgrader, "{} unopened accounts with pending blocks were upgraded to new epoch...", total_upgraded_pending);
+				logger.info (nano::log::type::epoch_upgrader, "{} unopened accounts with pending blocks were upgraded to new epoch...", total_upgraded_pending);
 			}
 			else
 			{
-				nlogger.info (nano::log::type::epoch_upgrader, "{} total unopened accounts with pending blocks were upgraded to new epoch", total_upgraded_pending);
+				logger.info (nano::log::type::epoch_upgrader, "{} total unopened accounts with pending blocks were upgraded to new epoch", total_upgraded_pending);
 
 				finished_pending = true;
 			}
@@ -306,5 +306,5 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 		finished_upgrade = (total_upgraded_accounts == 0) && (total_upgraded_pending == 0);
 	}
 
-	nlogger.info (nano::log::type::epoch_upgrader, "Epoch upgrade is completed");
+	logger.info (nano::log::type::epoch_upgrader, "Epoch upgrade is completed");
 }

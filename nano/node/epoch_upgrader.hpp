@@ -20,7 +20,7 @@ class network_params;
 class epoch_upgrader final
 {
 public:
-	epoch_upgrader (nano::node &, nano::ledger &, nano::store::component &, nano::network_params &, nano::nlogger &);
+	epoch_upgrader (nano::node &, nano::ledger &, nano::store::component &, nano::network_params &, nano::logger &);
 
 	bool start (nano::raw_key const & prv, nano::epoch epoch, uint64_t count_limit, uint64_t threads);
 	void stop ();
@@ -30,7 +30,7 @@ private: // Dependencies
 	nano::ledger & ledger;
 	nano::store::component & store;
 	nano::network_params & network_params;
-	nano::nlogger & nlogger;
+	nano::logger & logger;
 
 private:
 	void upgrade_impl (nano::raw_key const & prv, nano::epoch epoch, uint64_t count_limit, uint64_t threads);

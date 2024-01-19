@@ -64,7 +64,7 @@ public:
 	friend class nano::store::rocksdb::pruned;
 	friend class nano::store::rocksdb::version;
 
-	explicit component (nano::nlogger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
+	explicit component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
 
 	store::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	store::read_transaction tx_begin_read () const override;
@@ -103,7 +103,7 @@ public:
 
 private:
 	bool error{ false };
-	nano::nlogger & nlogger;
+	nano::logger & logger;
 	nano::ledger_constants & constants;
 	// Optimistic transactions are used in write mode
 	::rocksdb::OptimisticTransactionDB * optimistic_db = nullptr;

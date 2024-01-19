@@ -36,7 +36,7 @@ void nano::rpc::start ()
 	bool const is_loopback = (endpoint.address ().is_loopback () || (endpoint.address ().to_v6 ().is_v4_mapped () && boost::asio::ip::make_address_v4 (boost::asio::ip::v4_mapped, endpoint.address ().to_v6 ()).is_loopback ()));
 	if (!is_loopback && config.enable_control)
 	{
-		nlogger.warn (nano::log::type::rpc, "WARNING: Control-level RPCs are enabled on non-local address {}, potentially allowing wallet access outside local computer", endpoint.address ().to_string ());
+		logger.warn (nano::log::type::rpc, "WARNING: Control-level RPCs are enabled on non-local address {}, potentially allowing wallet access outside local computer", endpoint.address ().to_string ());
 	}
 
 	acceptor.open (endpoint.protocol ());
@@ -46,7 +46,7 @@ void nano::rpc::start ()
 	acceptor.bind (endpoint, ec);
 	if (ec)
 	{
-		nlogger.critical (nano::log::type::rpc, "Error while binding for RPC on port: {} ({})", endpoint.port (), ec.message ());
+		logger.critical (nano::log::type::rpc, "Error while binding for RPC on port: {} ({})", endpoint.port (), ec.message ());
 		throw std::runtime_error (ec.message ());
 	}
 	acceptor.listen ();
@@ -55,7 +55,7 @@ void nano::rpc::start ()
 
 void nano::rpc::accept ()
 {
-	auto connection (std::make_shared<nano::rpc_connection> (config, io_ctx, nlogger, rpc_handler_interface));
+	auto connection (std::make_shared<nano::rpc_connection> (config, io_ctx, logger, rpc_handler_interface));
 	acceptor.async_accept (connection->socket, boost::asio::bind_executor (connection->strand, [this, connection] (boost::system::error_code const & ec) {
 		if (ec != boost::asio::error::operation_aborted && acceptor.is_open ())
 		{
@@ -67,7 +67,7 @@ void nano::rpc::accept ()
 		}
 		else
 		{
-			nlogger.error (nano::log::type::rpc, "Error accepting RPC connection: {}", ec.message ());
+			logger.error (nano::log::type::rpc, "Error accepting RPC connection: {}", ec.message ());
 		}
 	}));
 }

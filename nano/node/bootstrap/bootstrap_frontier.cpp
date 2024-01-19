@@ -42,7 +42,7 @@ void nano::frontier_req_client::run (nano::account const & start_account_a, uint
 		}
 		else
 		{
-			node->nlogger.debug (nano::log::type::frontier_req_client, "Error while sending bootstrap request: {}", ec.message ());
+			node->logger.debug (nano::log::type::frontier_req_client, "Error while sending bootstrap request: {}", ec.message ());
 		}
 	},
 	nano::transport::buffer_drop_policy::no_limiter_drop);
@@ -73,7 +73,7 @@ void nano::frontier_req_client::receive_frontier ()
 		}
 		else
 		{
-			node->nlogger.debug (nano::log::type::frontier_req_client, "Invalid size: expected {}, got {}", nano::frontier_req_client::size_frontier, size_a);
+			node->logger.debug (nano::log::type::frontier_req_client, "Invalid size: expected {}, got {}", nano::frontier_req_client::size_frontier, size_a);
 		}
 	});
 }
@@ -131,7 +131,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		double age_factor = (frontiers_age == std::numeric_limits<decltype (frontiers_age)>::max ()) ? 1.0 : 1.5; // Allow slower frontiers receive for requests with age
 		if (elapsed_sec > nano::bootstrap_limits::bootstrap_connection_warmup_time_sec && blocks_per_sec * age_factor < nano::bootstrap_limits::bootstrap_minimum_frontier_blocks_per_sec)
 		{
-			node->nlogger.debug (nano::log::type::frontier_req_client, "Aborting frontier req because it was too slow: {} frontiers per second, last {}", blocks_per_sec, account.to_account ());
+			node->logger.debug (nano::log::type::frontier_req_client, "Aborting frontier req because it was too slow: {} frontiers per second, last {}", blocks_per_sec, account.to_account ());
 
 			promise.set_value (true);
 			return;
@@ -139,7 +139,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 
 		if (attempt->should_log ())
 		{
-			node->nlogger.debug (nano::log::type::frontier_req_client, "Received {} frontiers from {}", count, connection->channel->to_string ());
+			node->logger.debug (nano::log::type::frontier_req_client, "Received {} frontiers from {}", count, connection->channel->to_string ());
 		}
 
 		if (!account.is_zero () && count <= count_limit)
@@ -201,7 +201,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 				// Prevent new frontier_req requests
 				attempt->set_start_account (std::numeric_limits<nano::uint256_t>::max ());
 
-				node->nlogger.debug (nano::log::type::frontier_req_client, "Bulk push cost: {}", bulk_push_cost);
+				node->logger.debug (nano::log::type::frontier_req_client, "Bulk push cost: {}", bulk_push_cost);
 			}
 			else
 			{
@@ -220,7 +220,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 	}
 	else
 	{
-		node->nlogger.debug (nano::log::type::frontier_req_client, "Error while receiving frontier: {}", ec.message ());
+		node->logger.debug (nano::log::type::frontier_req_client, "Error while receiving frontier: {}", ec.message ());
 	}
 }
 
@@ -311,7 +311,7 @@ void nano::frontier_req_server::send_finished ()
 		write (stream, zero.bytes);
 	}
 
-	node->nlogger.debug (nano::log::type::frontier_req_server, "Frontier sending finished");
+	node->logger.debug (nano::log::type::frontier_req_server, "Frontier sending finished");
 
 	auto this_l (shared_from_this ());
 	connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l] (boost::system::error_code const & ec, std::size_t size_a) {
@@ -332,7 +332,7 @@ void nano::frontier_req_server::no_block_sent (boost::system::error_code const &
 	}
 	else
 	{
-		node->nlogger.debug (nano::log::type::frontier_req_server, "Error sending frontier finish: {}", ec.message ());
+		node->logger.debug (nano::log::type::frontier_req_server, "Error sending frontier finish: {}", ec.message ());
 	}
 }
 
@@ -353,7 +353,7 @@ void nano::frontier_req_server::sent_action (boost::system::error_code const & e
 	}
 	else
 	{
-		node->nlogger.debug (nano::log::type::frontier_req_server, "Error sending frontier pair: {}", ec.message ());
+		node->logger.debug (nano::log::type::frontier_req_server, "Error sending frontier pair: {}", ec.message ());
 	}
 }
 

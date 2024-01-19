@@ -65,17 +65,17 @@ void nano::ipc::broker::start ()
 		}
 		catch (nano::error const & err)
 		{
-			this_l->node.nlogger.error (nano::log::type::ipc, "Could not broadcast message: {}", err.get_message ());
+			this_l->node.logger.error (nano::log::type::ipc, "Could not broadcast message: {}", err.get_message ());
 		}
 	});
 }
 
 template <typename COLL, typename TOPIC_TYPE>
-void subscribe_or_unsubscribe (nano::nlogger & nlogger, COLL & subscriber_collection, std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, TOPIC_TYPE topic_a)
+void subscribe_or_unsubscribe (nano::logger & logger, COLL & subscriber_collection, std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, TOPIC_TYPE topic_a)
 {
 	// Evict subscribers from dead sessions. Also remove current subscriber if unsubscribing.
 	subscriber_collection.erase (std::remove_if (subscriber_collection.begin (), subscriber_collection.end (),
-								 [&nlogger = nlogger, topic_a, subscriber_a] (auto & sub) {
+								 [&logger = logger, topic_a, subscriber_a] (auto & sub) {
 									 bool remove = false;
 									 auto subscriber_l = sub.subscriber.lock ();
 									 if (subscriber_l)
@@ -85,7 +85,7 @@ void subscribe_or_unsubscribe (nano::nlogger & nlogger, COLL & subscriber_collec
 											 remove = topic_a->unsubscribe && subscriber_l->get_id () == calling_subscriber_l->get_id ();
 											 if (remove)
 											 {
-												 nlogger.info (nano::log::type::ipc, "Subscriber ubsubscribed #{}", calling_subscriber_l->get_id ());
+												 logger.info (nano::log::type::ipc, "Subscriber ubsubscribed #{}", calling_subscriber_l->get_id ());
 											 }
 										 }
 									 }
@@ -106,7 +106,7 @@ void subscribe_or_unsubscribe (nano::nlogger & nlogger, COLL & subscriber_collec
 void nano::ipc::broker::subscribe (std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, std::shared_ptr<nanoapi::TopicConfirmationT> const & confirmation_a)
 {
 	auto subscribers = confirmation_subscribers.lock ();
-	subscribe_or_unsubscribe (node.nlogger, subscribers.get (), subscriber_a, confirmation_a);
+	subscribe_or_unsubscribe (node.logger, subscribers.get (), subscriber_a, confirmation_a);
 }
 
 void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> const & confirmation_a)
@@ -257,5 +257,5 @@ void nano::ipc::broker::service_stop (std::string const & service_name_a)
 void nano::ipc::broker::subscribe (std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, std::shared_ptr<nanoapi::TopicServiceStopT> const & service_stop_a)
 {
 	auto subscribers = service_stop_subscribers.lock ();
-	subscribe_or_unsubscribe (node.nlogger, subscribers.get (), subscriber_a, service_stop_a);
+	subscribe_or_unsubscribe (node.logger, subscribers.get (), subscriber_a, service_stop_a);
 }

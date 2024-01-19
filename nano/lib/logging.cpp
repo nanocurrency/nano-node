@@ -15,26 +15,26 @@ namespace
 std::atomic<bool> logging_initialized{ false };
 }
 
-nano::nlogger & nano::default_logger ()
+nano::logger & nano::default_logger ()
 {
-	static nano::nlogger logger{ "default" };
+	static nano::logger logger{ "default" };
 	return logger;
 }
 
 /*
- * nlogger
+ * logger
  */
 
-bool nano::nlogger::global_initialized{ false };
-nano::log_config nano::nlogger::global_config{};
-std::vector<spdlog::sink_ptr> nano::nlogger::global_sinks{};
+bool nano::logger::global_initialized{ false };
+nano::log_config nano::logger::global_config{};
+std::vector<spdlog::sink_ptr> nano::logger::global_sinks{};
 
 // By default, use only the tag as the logger name, since only one node is running in the process
-std::function<std::string (nano::log::type tag, std::string identifier)> nano::nlogger::global_name_formatter{ [] (auto tag, auto identifier) {
+std::function<std::string (nano::log::type tag, std::string identifier)> nano::logger::global_name_formatter{ [] (auto tag, auto identifier) {
 	return std::string{ to_string (tag) };
 } };
 
-void nano::nlogger::initialize (nano::log_config fallback, std::filesystem::path data_path, std::vector<std::string> const & config_overrides)
+void nano::logger::initialize (nano::log_config fallback, std::filesystem::path data_path, std::vector<std::string> const & config_overrides)
 {
 	auto config = nano::load_log_config (std::move (fallback), data_path, config_overrides);
 	initialize_common (config, data_path);
@@ -95,7 +95,7 @@ public:
 };
 }
 
-void nano::nlogger::initialize_for_tests (nano::log_config fallback)
+void nano::logger::initialize_for_tests (nano::log_config fallback)
 {
 	auto config = nano::load_log_config (std::move (fallback), /* load log config from current workdir */ {});
 	initialize_common (config, /* store log file in current workdir */ {});
@@ -119,7 +119,7 @@ void nano::nlogger::initialize_for_tests (nano::log_config fallback)
 	global_initialized = true;
 }
 
-void nano::nlogger::initialize_common (nano::log_config const & config, std::filesystem::path data_path)
+void nano::logger::initialize_common (nano::log_config const & config, std::filesystem::path data_path)
 {
 	global_config = config;
 
@@ -183,7 +183,7 @@ void nano::nlogger::initialize_common (nano::log_config const & config, std::fil
 	}
 }
 
-void nano::nlogger::flush ()
+void nano::logger::flush ()
 {
 	for (auto & sink : global_sinks)
 	{
@@ -192,15 +192,15 @@ void nano::nlogger::flush ()
 }
 
 /*
- * nlogger
+ * logger
  */
 
-nano::nlogger::nlogger (std::string identifier) :
+nano::logger::logger (std::string identifier) :
 	identifier{ std::move (identifier) }
 {
 }
 
-spdlog::logger & nano::nlogger::get_logger (nano::log::type tag)
+spdlog::logger & nano::logger::get_logger (nano::log::type tag)
 {
 	// This is a two-step process to avoid exclusively locking the mutex in the common case
 	{
@@ -220,7 +220,7 @@ spdlog::logger & nano::nlogger::get_logger (nano::log::type tag)
 	}
 }
 
-std::shared_ptr<spdlog::logger> nano::nlogger::make_logger (nano::log::type tag)
+std::shared_ptr<spdlog::logger> nano::logger::make_logger (nano::log::type tag)
 {
 	auto const & config = global_config;
 	auto const & sinks = global_sinks;

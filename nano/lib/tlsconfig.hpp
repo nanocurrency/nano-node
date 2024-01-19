@@ -13,7 +13,7 @@
 
 namespace nano
 {
-class nlogger;
+class logger;
 class jsonconfig;
 class tomlconfig;
 
@@ -54,5 +54,5 @@ public:
 #endif
 };
 
-nano::error read_tls_config_toml (std::filesystem::path const & data_path_a, nano::tls_config & config_a, nano::nlogger &, std::vector<std::string> const & config_overrides = std::vector<std::string> ());
+nano::error read_tls_config_toml (std::filesystem::path const & data_path_a, nano::tls_config & config_a, nano::logger &, std::vector<std::string> const & config_overrides = std::vector<std::string> ());
 }

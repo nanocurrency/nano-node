@@ -56,7 +56,7 @@ void nano::transport::tcp_listener::start (std::function<bool (std::shared_ptr<n
 	}
 	if (ec)
 	{
-		node.nlogger.critical (nano::log::type::tcp_listener, "Error while binding for incoming TCP: {} (port: {})", ec.message (), acceptor.local_endpoint ().port ());
+		node.logger.critical (nano::log::type::tcp_listener, "Error while binding for incoming TCP: {} (port: {})", ec.message (), acceptor.local_endpoint ().port ());
 		throw std::runtime_error (ec.message ());
 	}
 
@@ -125,7 +125,7 @@ void nano::transport::tcp_listener::on_connection (std::function<bool (std::shar
 	boost::asio::post (strand, boost::asio::bind_executor (strand, [this_l = shared_from_this (), callback = std::move (callback_a)] () mutable {
 		if (!this_l->acceptor.is_open ())
 		{
-			this_l->node.nlogger.error (nano::log::type::tcp_listener, "Acceptor is not open");
+			this_l->node.logger.error (nano::log::type::tcp_listener, "Acceptor is not open");
 			return;
 		}
 
@@ -139,7 +139,7 @@ void nano::transport::tcp_listener::on_connection (std::function<bool (std::shar
 			if (this_l->connections_per_address.size () >= this_l->max_inbound_connections)
 			{
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
-				this_l->node.nlogger.debug (nano::log::type::tcp_listener, "Max connections reached ({}), unable to open new connection", this_l->connections_per_address.size ());
+				this_l->node.logger.debug (nano::log::type::tcp_listener, "Max connections reached ({}), unable to open new connection", this_l->connections_per_address.size ());
 
 				this_l->on_connection_requeue_delayed (std::move (cbk));
 				return;
@@ -148,7 +148,7 @@ void nano::transport::tcp_listener::on_connection (std::function<bool (std::shar
 			if (this_l->limit_reached_for_incoming_ip_connections (new_connection))
 			{
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::in);
-				this_l->node.nlogger.debug (nano::log::type::tcp_listener, "Max connections per IP reached ({}), unable to open new connection", new_connection->remote_endpoint ().address ().to_string ());
+				this_l->node.logger.debug (nano::log::type::tcp_listener, "Max connections per IP reached ({}), unable to open new connection", new_connection->remote_endpoint ().address ().to_string ());
 
 				this_l->on_connection_requeue_delayed (std::move (cbk));
 				return;
@@ -161,7 +161,7 @@ void nano::transport::tcp_listener::on_connection (std::function<bool (std::shar
 				auto const remote_subnet = socket_functions::get_ipv6_subnet_address (remote_ip_address.to_v6 (), this_l->node.network_params.network.max_peers_per_subnetwork);
 
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_subnetwork, nano::stat::dir::in);
-				this_l->node.nlogger.debug (nano::log::type::tcp_listener, "Max connections per subnetwork reached (subnetwork: {}, ip: {}), unable to open new connection",
+				this_l->node.logger.debug (nano::log::type::tcp_listener, "Max connections per subnetwork reached (subnetwork: {}, ip: {}), unable to open new connection",
 				remote_subnet.canonical ().to_string (),
 				remote_ip_address.to_string ());
 
@@ -189,13 +189,13 @@ void nano::transport::tcp_listener::on_connection (std::function<bool (std::shar
 					this_l->on_connection (std::move (cbk));
 					return;
 				}
-				this_l->node.nlogger.warn (nano::log::type::tcp_listener, "Stopping to accept new connections");
+				this_l->node.logger.warn (nano::log::type::tcp_listener, "Stopping to accept new connections");
 				return;
 			}
 
 			// accept error
 			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
-			this_l->node.nlogger.error (nano::log::type::tcp_listener, "Unable to accept connection: {} ({})", ec_a.message (), new_connection->remote_endpoint ().address ().to_string ());
+			this_l->node.logger.error (nano::log::type::tcp_listener, "Unable to accept connection: {} ({})", ec_a.message (), new_connection->remote_endpoint ().address ().to_string ());
 
 			if (is_temporary_error (ec_a))
 			{
@@ -212,7 +212,7 @@ void nano::transport::tcp_listener::on_connection (std::function<bool (std::shar
 			}
 
 			// No requeue if we reach here, no incoming socket connections will be handled
-			this_l->node.nlogger.warn (nano::log::type::tcp_listener, "Stopping to accept new connections");
+			this_l->node.logger.warn (nano::log::type::tcp_listener, "Stopping to accept new connections");
 		}));
 	}));
 }
@@ -254,7 +254,7 @@ void nano::transport::tcp_listener::accept_action (boost::system::error_code con
 	else
 	{
 		node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_excluded);
-		node.nlogger.debug (nano::log::type::tcp_server, "Rejected connection from excluded peer: {}", nano::util::to_str (socket_a->remote_endpoint ()));
+		node.logger.debug (nano::log::type::tcp_server, "Rejected connection from excluded peer: {}", nano::util::to_str (socket_a->remote_endpoint ()));
 	}
 }
 
@@ -306,7 +306,7 @@ nano::transport::tcp_server::~tcp_server ()
 		return;
 	}
 
-	node->nlogger.debug (nano::log::type::tcp_server, "Exiting TCP server ({})", nano::util::to_str (remote_endpoint));
+	node->logger.debug (nano::log::type::tcp_server, "Exiting TCP server ({})", nano::util::to_str (remote_endpoint));
 
 	if (socket->type () == nano::transport::socket::type_t::bootstrap)
 	{
@@ -342,7 +342,7 @@ void nano::transport::tcp_server::start ()
 
 	if (auto node_l = node.lock (); node_l)
 	{
-		node_l->nlogger.debug (nano::log::type::tcp_server, "Starting TCP server ({})", nano::util::to_str (remote_endpoint));
+		node_l->logger.debug (nano::log::type::tcp_server, "Starting TCP server ({})", nano::util::to_str (remote_endpoint));
 	}
 
 	receive_message ();
@@ -373,7 +373,7 @@ void nano::transport::tcp_server::receive_message ()
 		{
 			// IO error or critical error when deserializing message
 			node->stats.inc (nano::stat::type::error, nano::to_stat_detail (this_l->message_deserializer->status));
-			node->nlogger.debug (nano::log::type::tcp_server, "Error reading message: {}, status: {} ({})",
+			node->logger.debug (nano::log::type::tcp_server, "Error reading message: {}, status: {} ({})",
 			ec.message (),
 			nano::to_string (this_l->message_deserializer->status),
 			nano::util::to_str (this_l->remote_endpoint));
@@ -412,7 +412,7 @@ void nano::transport::tcp_server::received_message (std::unique_ptr<nano::messag
 		else
 		{
 			// Avoid too much noise about `duplicate_publish_message` errors
-			node->nlogger.debug (nano::log::type::tcp_server, "Error deserializing message: {} ({})",
+			node->logger.debug (nano::log::type::tcp_server, "Error deserializing message: {} ({})",
 			nano::to_string (message_deserializer->status),
 			nano::util::to_str (remote_endpoint));
 		}
@@ -466,7 +466,7 @@ bool nano::transport::tcp_server::process_message (std::unique_ptr<nano::message
 		else
 		{
 			// Neither handshake nor bootstrap received when in handshake mode
-			node->nlogger.debug (nano::log::type::tcp_server, "Neither handshake nor bootstrap received when in handshake mode: {} ({})",
+			node->logger.debug (nano::log::type::tcp_server, "Neither handshake nor bootstrap received when in handshake mode: {} ({})",
 			nano::to_string (message->header.type),
 			nano::util::to_str (remote_endpoint));
 
@@ -522,7 +522,7 @@ void nano::transport::tcp_server::handshake_message_visitor::node_id_handshake (
 	}
 	if (node->flags.disable_tcp_realtime)
 	{
-		node->nlogger.debug (nano::log::type::tcp_server, "Handshake attempted with disabled realtime TCP ({})", nano::util::to_str (server->remote_endpoint));
+		node->logger.debug (nano::log::type::tcp_server, "Handshake attempted with disabled realtime TCP ({})", nano::util::to_str (server->remote_endpoint));
 
 		// Stop invalid handshake
 		server->stop ();
@@ -531,7 +531,7 @@ void nano::transport::tcp_server::handshake_message_visitor::node_id_handshake (
 
 	if (message.query && server->handshake_query_received)
 	{
-		node->nlogger.debug (nano::log::type::tcp_server, "Detected multiple handshake queries ({})", nano::util::to_str (server->remote_endpoint));
+		node->logger.debug (nano::log::type::tcp_server, "Detected multiple handshake queries ({})", nano::util::to_str (server->remote_endpoint));
 
 		// Stop invalid handshake
 		server->stop ();
@@ -540,7 +540,7 @@ void nano::transport::tcp_server::handshake_message_visitor::node_id_handshake (
 
 	server->handshake_query_received = true;
 
-	node->nlogger.debug (nano::log::type::tcp_server, "Handshake query received ({})", nano::util::to_str (server->remote_endpoint));
+	node->logger.debug (nano::log::type::tcp_server, "Handshake query received ({})", nano::util::to_str (server->remote_endpoint));
 
 	if (message.query)
 	{
@@ -584,7 +584,7 @@ void nano::transport::tcp_server::send_handshake_response (nano::node_id_handsha
 		}
 		if (ec)
 		{
-			node->nlogger.debug (nano::log::type::tcp_server, "Error sending handshake response: {} ({})", ec.message (), nano::util::to_str (this_l->remote_endpoint));
+			node->logger.debug (nano::log::type::tcp_server, "Error sending handshake response: {} ({})", ec.message (), nano::util::to_str (this_l->remote_endpoint));
 
 			// Stop invalid handshake
 			this_l->stop ();
@@ -781,7 +781,7 @@ void nano::transport::tcp_server::timeout ()
 	}
 	if (socket->has_timed_out ())
 	{
-		node->nlogger.debug (nano::log::type::tcp_server, "Closing TCP server due to timeout ({})", nano::util::to_str (remote_endpoint));
+		node->logger.debug (nano::log::type::tcp_server, "Closing TCP server due to timeout ({})", nano::util::to_str (remote_endpoint));
 
 		{
 			nano::lock_guard<nano::mutex> lock{ node->tcp_listener->mutex };
@@ -818,7 +818,7 @@ bool nano::transport::tcp_server::to_bootstrap_connection ()
 	++node->tcp_listener->bootstrap_count;
 	socket->type_set (nano::transport::socket::type_t::bootstrap);
 
-	node->nlogger.debug (nano::log::type::tcp_server, "Switched to bootstrap mode ({})", nano::util::to_str (remote_endpoint));
+	node->logger.debug (nano::log::type::tcp_server, "Switched to bootstrap mode ({})", nano::util::to_str (remote_endpoint));
 
 	return true;
 }
@@ -836,7 +836,7 @@ bool nano::transport::tcp_server::to_realtime_connection (nano::account const & 
 		++node->tcp_listener->realtime_count;
 		socket->type_set (nano::transport::socket::type_t::realtime);
 
-		node->nlogger.debug (nano::log::type::tcp_server, "Switched to realtime mode ({})", nano::util::to_str (remote_endpoint));
+		node->logger.debug (nano::log::type::tcp_server, "Switched to realtime mode ({})", nano::util::to_str (remote_endpoint));
 
 		return true;
 	}

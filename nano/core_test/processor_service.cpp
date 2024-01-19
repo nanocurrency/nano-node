@@ -11,7 +11,7 @@
 
 TEST (processor_service, bad_send_signature)
 {
-	nano::nlogger logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stats stats;
@@ -37,7 +37,7 @@ TEST (processor_service, bad_send_signature)
 
 TEST (processor_service, bad_receive_signature)
 {
-	nano::nlogger logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stats stats;

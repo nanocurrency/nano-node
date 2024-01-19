@@ -2955,7 +2955,7 @@ void nano::json_handler::password_change ()
 				rpc_l->response_l.put ("changed", error ? "0" : "1");
 				if (!error)
 				{
-					rpc_l->node.nlogger.warn (nano::log::type::rpc, "Wallet password changed");
+					rpc_l->node.logger.warn (nano::log::type::rpc, "Wallet password changed");
 				}
 			}
 		}
@@ -4774,7 +4774,7 @@ void nano::json_handler::wallet_lock ()
 		wallet->store.password.value_set (empty);
 		response_l.put ("locked", "1");
 
-		node.nlogger.warn (nano::log::type::rpc, "Wallet locked");
+		node.logger.warn (nano::log::type::rpc, "Wallet locked");
 	}
 	response_errors ();
 }

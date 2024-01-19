@@ -117,7 +117,7 @@ TEST (system, receive_while_synchronizing)
 
 TEST (ledger, deep_account_compute)
 {
-	nano::nlogger logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stats stats;
@@ -537,7 +537,7 @@ TEST (store, vote_load)
  */
 TEST (store, pruned_load)
 {
-	nano::nlogger logger;
+	nano::logger logger;
 	auto path (nano::unique_path ());
 	constexpr auto num_pruned = 2000000;
 	auto const expected_result = num_pruned / 2;
@@ -1223,7 +1223,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 		// Don't test this in rocksdb mode
 		return;
 	}
-	nano::nlogger logger;
+	nano::logger logger;
 	auto path (nano::unique_path ());
 	auto store = nano::make_store (logger, path, nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());

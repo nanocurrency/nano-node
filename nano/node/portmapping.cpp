@@ -62,7 +62,7 @@ void nano::port_mapping::refresh_devices ()
 		auto igd_error_l (UPNP_GetValidIGD (upnp_l.devices, &upnp_l.urls, &upnp_l.data, local_address_l.data (), sizeof (local_address_l)));
 
 		// Bump logging level periodically
-		node.nlogger.log ((check_count % 15 == 0) ? nano::log::level::info : nano::log::level::debug,
+		node.logger.log ((check_count % 15 == 0) ? nano::log::level::info : nano::log::level::debug,
 		nano::log::type::upnp, "UPnP local address {}, discovery: {}, IGD search: {}",
 		local_address_l.data (),
 		discover_error_l,
@@ -70,7 +70,7 @@ void nano::port_mapping::refresh_devices ()
 
 		for (auto i (upnp_l.devices); i != nullptr; i = i->pNext)
 		{
-			node.nlogger.debug (nano::log::type::upnp, "UPnP device url: {}, st: {}, usn: {}", i->descURL, i->st, i->usn);
+			node.logger.debug (nano::log::type::upnp, "UPnP device url: {}, st: {}, usn: {}", i->descURL, i->st, i->usn);
 		}
 
 		// Update port mapping
@@ -117,7 +117,7 @@ void nano::port_mapping::refresh_mapping ()
 			{
 				protocol.external_port = static_cast<uint16_t> (std::atoi (config_port_l.data ()));
 
-				node.nlogger.info (nano::log::type::upnp, "UPnP {} {}:{} mapped to: {}",
+				node.logger.info (nano::log::type::upnp, "UPnP {} {}:{} mapped to: {}",
 				protocol.name,
 				protocol.external_address.to_string (),
 				config_port_l,
@@ -127,7 +127,7 @@ void nano::port_mapping::refresh_mapping ()
 			{
 				protocol.external_port = 0;
 
-				node.nlogger.warn (nano::log::type::upnp, "UPnP {} {}:{} failed: {} ({})",
+				node.logger.warn (nano::log::type::upnp, "UPnP {} {}:{} failed: {} ({})",
 				protocol.name,
 				protocol.external_address.to_string (),
 				config_port_l,
@@ -161,7 +161,7 @@ bool nano::port_mapping::check_lost_or_old_mapping ()
 		{
 			result_l = true;
 
-			node.nlogger.warn (nano::log::type::upnp, "UPnP get specific port mapping failed: {} ({})",
+			node.logger.warn (nano::log::type::upnp, "UPnP get specific port mapping failed: {} ({})",
 			verify_port_mapping_error_l,
 			strupnperror (verify_port_mapping_error_l));
 		}
@@ -169,7 +169,7 @@ bool nano::port_mapping::check_lost_or_old_mapping ()
 		{
 			result_l = true;
 
-			node.nlogger.info (nano::log::type::upnp, "UPnP lease time getting old, remaining time: {}, lease time: {}, below the threshold: {}",
+			node.logger.info (nano::log::type::upnp, "UPnP lease time getting old, remaining time: {}, lease time: {}, below the threshold: {}",
 			remaining_from_port_mapping,
 			lease_duration,
 			lease_duration_divided_by_two);
@@ -187,12 +187,12 @@ bool nano::port_mapping::check_lost_or_old_mapping ()
 		{
 			protocol.external_address = boost::asio::ip::address_v4::any ();
 
-			node.nlogger.warn (nano::log::type::upnp, "UPnP get external ip address failed: {} ({})",
+			node.logger.warn (nano::log::type::upnp, "UPnP get external ip address failed: {} ({})",
 			external_ip_error_l,
 			strupnperror (external_ip_error_l));
 		}
 
-		node.nlogger.debug (nano::log::type::upnp, "UPnP {} mapping verification response: {}, external ip response: {}, external ip: {}, internal ip: {}, remaining lease: {}",
+		node.logger.debug (nano::log::type::upnp, "UPnP {} mapping verification response: {}, external ip response: {}, external ip: {}, internal ip: {}, remaining lease: {}",
 		protocol.name,
 		verify_port_mapping_error_l,
 		external_ip_error_l,
@@ -219,13 +219,13 @@ void nano::port_mapping::check_mapping_loop ()
 		}
 		else
 		{
-			node.nlogger.info (nano::log::type::upnp, "UPnP No need to refresh the mapping");
+			node.logger.info (nano::log::type::upnp, "UPnP No need to refresh the mapping");
 		}
 	}
 	else
 	{
 		// Bump logging level periodically
-		node.nlogger.log ((check_count % 15 == 0) ? nano::log::level::info : nano::log::level::debug,
+		node.logger.log ((check_count % 15 == 0) ? nano::log::level::info : nano::log::level::debug,
 		nano::log::type::upnp, "UPnP No IGD devices found");
 	}
 
@@ -249,14 +249,14 @@ void nano::port_mapping::stop ()
 			auto delete_error_l (UPNP_DeletePortMapping (upnp.urls.controlURL, upnp.data.first.servicetype, std::to_string (protocol.external_port).c_str (), protocol.name, address.to_string ().c_str ()));
 			if (delete_error_l)
 			{
-				node.nlogger.warn (nano::log::type::upnp, "UPnP shutdown {} port mapping failed: {} ({})",
+				node.logger.warn (nano::log::type::upnp, "UPnP shutdown {} port mapping failed: {} ({})",
 				protocol.name,
 				delete_error_l,
 				strupnperror (delete_error_l));
 			}
 			else
 			{
-				node.nlogger.info (nano::log::type::upnp, "UPnP shutdown {} port mapping successful: {}:{}",
+				node.logger.info (nano::log::type::upnp, "UPnP shutdown {} port mapping successful: {}:{}",
 				protocol.name,
 				protocol.external_address.to_string (),
 				protocol.external_port);

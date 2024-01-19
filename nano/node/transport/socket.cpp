@@ -260,7 +260,7 @@ void nano::transport::socket::ongoing_checkup ()
 
 			if (condition_to_disconnect)
 			{
-				this_l->node.nlogger.debug (nano::log::type::tcp_server, "Closing socket due to timeout ({})", nano::util::to_str (this_l->remote));
+				this_l->node.logger.debug (nano::log::type::tcp_server, "Closing socket due to timeout ({})", nano::util::to_str (this_l->remote));
 
 				this_l->timed_out = true;
 				this_l->close ();
@@ -335,7 +335,7 @@ void nano::transport::socket::close_internal ()
 	if (ec)
 	{
 		node.stats.inc (nano::stat::type::socket, nano::stat::detail::error_socket_close);
-		node.nlogger.error (nano::log::type::socket, "Failed to close socket gracefully: {} ({})", ec.message (), nano::util::to_str (remote));
+		node.logger.error (nano::log::type::socket, "Failed to close socket gracefully: {} ({})", ec.message (), nano::util::to_str (remote));
 	}
 }
 

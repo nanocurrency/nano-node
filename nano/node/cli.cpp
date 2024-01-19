@@ -255,7 +255,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	if (vm.count ("initialize"))
 	{
 		// TODO: --config flag overrides are not taken into account here
-		nano::nlogger::initialize (nano::log_config::daemon_default (), data_path);
+		nano::logger::initialize (nano::log_config::daemon_default (), data_path);
 
 		auto node_flags = nano::inactive_node_flag_defaults ();
 		node_flags.read_only = false;

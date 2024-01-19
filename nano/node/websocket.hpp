@@ -21,7 +21,7 @@
 namespace nano
 {
 class wallets;
-class nlogger;
+class logger;
 class vote;
 class election_status;
 class telemetry_data;
@@ -142,8 +142,8 @@ namespace websocket
 	class confirmation_options final : public options
 	{
 	public:
-		confirmation_options (nano::wallets & wallets_a, nano::nlogger &);
-		confirmation_options (boost::property_tree::ptree const & options_a, nano::wallets & wallets_a, nano::nlogger &);
+		confirmation_options (nano::wallets & wallets_a, nano::logger &);
+		confirmation_options (boost::property_tree::ptree const & options_a, nano::wallets & wallets_a, nano::logger &);
 
 		/**
 		 * Checks if a message should be filtered for given block confirmation options.
@@ -195,7 +195,7 @@ namespace websocket
 		void check_filter_empty () const;
 
 		nano::wallets & wallets;
-		nano::nlogger & nlogger;
+		nano::logger & logger;
 
 		bool include_election_info{ false };
 		bool include_election_info_with_votes{ false };
@@ -215,7 +215,7 @@ namespace websocket
 	class vote_options final : public options
 	{
 	public:
-		vote_options (boost::property_tree::ptree const & options_a, nano::nlogger &);
+		vote_options (boost::property_tree::ptree const & options_a, nano::logger &);
 
 		/**
 		 * Checks if a message should be filtered for given vote received options.
@@ -241,7 +241,7 @@ namespace websocket
 		explicit session (nano::websocket::listener & listener_a, socket_type socket_a, boost::asio::ssl::context & ctx_a);
 #endif
 		/** Constructor that takes ownership over \p socket_a */
-		explicit session (nano::websocket::listener & listener_a, socket_type socket_a, nano::nlogger &);
+		explicit session (nano::websocket::listener & listener_a, socket_type socket_a, nano::logger &);
 
 		~session ();
 
@@ -262,7 +262,7 @@ namespace websocket
 		nano::websocket::listener & ws_listener;
 		/** Websocket stream, supporting both plain and tls connections */
 		nano::websocket::stream ws;
-		nano::nlogger & nlogger;
+		nano::logger & logger;
 
 		/** Buffer for received messages */
 		boost::beast::multi_buffer read_buffer;
@@ -298,7 +298,7 @@ namespace websocket
 	class listener final : public std::enable_shared_from_this<listener>
 	{
 	public:
-		listener (std::shared_ptr<nano::tls_config> const & tls_config_a, nano::nlogger &, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a);
+		listener (std::shared_ptr<nano::tls_config> const & tls_config_a, nano::logger &, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a);
 
 		/** Start accepting connections */
 		void run ();
@@ -348,7 +348,7 @@ namespace websocket
 		void decrease_subscriber_count (nano::websocket::topic const & topic_a);
 
 		std::shared_ptr<nano::tls_config> tls_config;
-		nano::nlogger & nlogger;
+		nano::logger & logger;
 		nano::wallets & wallets;
 		boost::asio::ip::tcp::acceptor acceptor;
 		socket_type socket;
@@ -365,7 +365,7 @@ namespace websocket
 class websocket_server
 {
 public:
-	websocket_server (nano::websocket::config &, nano::node_observers &, nano::wallets &, nano::ledger &, boost::asio::io_context &, nano::nlogger &);
+	websocket_server (nano::websocket::config &, nano::node_observers &, nano::wallets &, nano::ledger &, boost::asio::io_context &, nano::logger &);
 
 	void start ();
 	void stop ();
@@ -376,7 +376,7 @@ private: // Dependencies
 	nano::wallets & wallets;
 	nano::ledger & ledger;
 	boost::asio::io_context & io_ctx;
-	nano::nlogger & nlogger;
+	nano::logger & logger;
 
 public:
 	// TODO: Encapsulate, this is public just because existing code needs it

@@ -63,7 +63,7 @@ private:
 	friend class nano::store::lmdb::version;
 
 public:
-	component (nano::nlogger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
+	component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
 	store::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	store::read_transaction tx_begin_read () const override;
 
@@ -71,14 +71,14 @@ public:
 
 	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) override;
 
-	static void create_backup_file (nano::store::lmdb::env &, std::filesystem::path const &, nano::nlogger &);
+	static void create_backup_file (nano::store::lmdb::env &, std::filesystem::path const &, nano::logger &);
 
 	void serialize_memory_stats (boost::property_tree::ptree &) override;
 
 	unsigned max_block_write_batch_num () const override;
 
 private:
-	nano::nlogger & nlogger;
+	nano::logger & logger;
 	bool error{ false };
 
 public:

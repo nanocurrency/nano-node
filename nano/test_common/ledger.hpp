@@ -25,7 +25,7 @@ namespace test
 			std::deque<std::shared_ptr<nano::block>> const & blocks () const;
 
 		private:
-			nano::nlogger nlogger;
+			nano::logger logger;
 			std::unique_ptr<nano::store::component> store_m;
 			nano::stats stats_m;
 			nano::ledger ledger_m;

@@ -26,11 +26,11 @@
 
 namespace
 {
-nano::nlogger nlogger{ "wallet_daemon" };
+nano::logger logger{ "wallet_daemon" };
 
 void show_error (std::string const & message_a)
 {
-	nlogger.critical (nano::log::type::daemon, "{}", message_a);
+	logger.critical (nano::log::type::daemon, "{}", message_a);
 
 	QMessageBox message (QMessageBox::Critical, "Error starting Nano", message_a.c_str ());
 	message.setModal (true);
@@ -74,9 +74,9 @@ nano::error read_wallet_config (nano::wallet_config & config_a, std::filesystem:
 
 int run_wallet (QApplication & application, int argc, char * const * argv, std::filesystem::path const & data_path, nano::node_flags const & flags)
 {
-	nano::nlogger::initialize (nano::log_config::daemon_default (), data_path, flags.config_overrides);
+	nano::logger::initialize (nano::log_config::daemon_default (), data_path, flags.config_overrides);
 
-	nlogger.info (nano::log::type::daemon_wallet, "Daemon started (wallet)");
+	logger.info (nano::log::type::daemon_wallet, "Daemon started (wallet)");
 
 	int result (0);
 	nano_qt::eventloop_processor processor;
@@ -110,7 +110,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, std::
 		nano::set_use_memory_pools (config.node.use_memory_pools);
 
 		auto tls_config (std::make_shared<nano::tls_config> ());
-		error = nano::read_tls_config_toml (data_path, *tls_config, nlogger);
+		error = nano::read_tls_config_toml (data_path, *tls_config, logger);
 		if (error)
 		{
 			splash->hide ();
@@ -128,7 +128,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, std::
 		std::shared_ptr<nano::node> node;
 		std::shared_ptr<nano_qt::wallet> gui;
 		nano::set_application_icon (application);
-		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, nlogger, config.node.network_params.work));
+		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger, config.node.network_params.work));
 		nano::work_pool work{ config.node.network_params.network, config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
 								 return opencl->generate_work (version_a, root_a, difficulty_a);
 							 }
@@ -239,7 +239,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, std::
 		show_error ("Error deserializing config: " + error.get_message ());
 	}
 
-	nlogger.info (nano::log::type::daemon_wallet, "Daemon exiting (wallet)");
+	logger.info (nano::log::type::daemon_wallet, "Daemon exiting (wallet)");
 
 	return result;
 }
@@ -247,7 +247,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, std::
 int main (int argc, char * const * argv)
 {
 	nano::set_umask (); // Make sure the process umask is set before any files are created
-	nano::nlogger::initialize (nano::log_config::cli_default ());
+	nano::logger::initialize (nano::log_config::cli_default ());
 
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 

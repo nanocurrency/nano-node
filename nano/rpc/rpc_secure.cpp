@@ -15,7 +15,7 @@ nano::rpc_secure::rpc_secure (boost::asio::io_context & context_a, nano::rpc_con
 
 void nano::rpc_secure::accept ()
 {
-	auto connection (std::make_shared<nano::rpc_connection_secure> (config, io_ctx, nlogger, rpc_handler_interface, config.tls_config->ssl_context));
+	auto connection (std::make_shared<nano::rpc_connection_secure> (config, io_ctx, logger, rpc_handler_interface, config.tls_config->ssl_context));
 	acceptor.async_accept (connection->socket, boost::asio::bind_executor (connection->strand, [this, connection] (boost::system::error_code const & ec) {
 		if (ec != boost::asio::error::operation_aborted && acceptor.is_open ())
 		{
@@ -27,7 +27,7 @@ void nano::rpc_secure::accept ()
 		}
 		else
 		{
-			nlogger.error (nano::log::type::rpc, "Error accepting RPC connection: {}", ec.message ());
+			logger.error (nano::log::type::rpc, "Error accepting RPC connection: {}", ec.message ());
 		}
 	}));
 }

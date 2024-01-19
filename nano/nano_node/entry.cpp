@@ -54,7 +54,7 @@ public:
 int main (int argc, char * const * argv)
 {
 	nano::set_umask (); // Make sure the process umask is set before any files are created
-	nano::nlogger::initialize (nano::log_config::cli_default ());
+	nano::logger::initialize (nano::log_config::cli_default ());
 
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 
@@ -613,9 +613,9 @@ int main (int argc, char * const * argv)
 						error |= device >= environment.platforms[platform].devices.size ();
 						if (!error)
 						{
-							nano::nlogger nlogger;
+							nano::logger logger;
 							nano::opencl_config config (platform, device, threads);
-							auto opencl (nano::opencl_work::create (true, config, nlogger, network_params.work));
+							auto opencl (nano::opencl_work::create (true, config, logger, network_params.work));
 							nano::work_pool work_pool{ network_params.network, 0, std::chrono::nanoseconds (0), opencl ? [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
 														  return opencl->generate_work (version_a, root_a, difficulty_a);
 													  }
@@ -1881,11 +1881,11 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_sys_logging"))
 		{
 			auto inactive_node = nano::default_inactive_node (data_path, vm);
-			inactive_node->node->nlogger.critical ({}, "Testing system logger (CRITICAL)");
-			inactive_node->node->nlogger.error ({}, "Testing system logger (ERROR)");
-			inactive_node->node->nlogger.warn ({}, "Testing system logger (WARN)");
-			inactive_node->node->nlogger.info ({}, "Testing system logger (INFO)");
-			inactive_node->node->nlogger.debug ({}, "Testing system logger (DEBUG)");
+			inactive_node->node->logger.critical ({}, "Testing system logger (CRITICAL)");
+			inactive_node->node->logger.error ({}, "Testing system logger (ERROR)");
+			inactive_node->node->logger.warn ({}, "Testing system logger (WARN)");
+			inactive_node->node->logger.info ({}, "Testing system logger (INFO)");
+			inactive_node->node->logger.debug ({}, "Testing system logger (DEBUG)");
 		}
 		else if (vm.count ("debug_account_versions"))
 		{

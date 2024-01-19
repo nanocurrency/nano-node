@@ -25,7 +25,7 @@ nano::block_hash random_hash ()
 TEST (account_sets, construction)
 {
 	nano::stats stats;
-	nano::nlogger logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::bootstrap_ascending::account_sets sets{ stats };
@@ -35,7 +35,7 @@ TEST (account_sets, empty_blocked)
 {
 	nano::account account{ 1 };
 	nano::stats stats;
-	nano::nlogger logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::bootstrap_ascending::account_sets sets{ stats };
@@ -46,7 +46,7 @@ TEST (account_sets, block)
 {
 	nano::account account{ 1 };
 	nano::stats stats;
-	nano::nlogger logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::bootstrap_ascending::account_sets sets{ stats };
@@ -58,7 +58,7 @@ TEST (account_sets, unblock)
 {
 	nano::account account{ 1 };
 	nano::stats stats;
-	nano::nlogger logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::bootstrap_ascending::account_sets sets{ stats };
@@ -72,7 +72,7 @@ TEST (account_sets, priority_base)
 {
 	nano::account account{ 1 };
 	nano::stats stats;
-	nano::nlogger logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::bootstrap_ascending::account_sets sets{ stats };
@@ -83,7 +83,7 @@ TEST (account_sets, priority_blocked)
 {
 	nano::account account{ 1 };
 	nano::stats stats;
-	nano::nlogger logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::bootstrap_ascending::account_sets sets{ stats };
@@ -96,7 +96,7 @@ TEST (account_sets, priority_unblock_keep)
 {
 	nano::account account{ 1 };
 	nano::stats stats;
-	nano::nlogger logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::bootstrap_ascending::account_sets sets{ stats };
@@ -114,7 +114,7 @@ TEST (account_sets, priority_up_down)
 {
 	nano::account account{ 1 };
 	nano::stats stats;
-	nano::nlogger logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::bootstrap_ascending::account_sets sets{ stats };
@@ -129,7 +129,7 @@ TEST (account_sets, priority_down_sat)
 {
 	nano::account account{ 1 };
 	nano::stats stats;
-	nano::nlogger logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::bootstrap_ascending::account_sets sets{ stats };
@@ -142,7 +142,7 @@ TEST (account_sets, saturate_priority)
 {
 	nano::account account{ 1 };
 	nano::stats stats;
-	nano::nlogger logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::bootstrap_ascending::account_sets sets{ stats };

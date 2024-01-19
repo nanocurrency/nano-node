@@ -63,9 +63,9 @@ constexpr std::size_t OPEN_FILE_DESCRIPTORS_LIMIT = 16384;
 
 void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flags const & flags)
 {
-	nano::nlogger::initialize (nano::log_config::daemon_default (), data_path, flags.config_overrides);
+	nano::logger::initialize (nano::log_config::daemon_default (), data_path, flags.config_overrides);
 
-	nlogger.info (nano::log::type::daemon, "Daemon started");
+	logger.info (nano::log::type::daemon, "Daemon started");
 
 	install_abort_signal_handler ();
 
@@ -87,7 +87,7 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 	if (!error)
 	{
 		auto tls_config (std::make_shared<nano::tls_config> ());
-		error = nano::read_tls_config_toml (data_path, *tls_config, nlogger);
+		error = nano::read_tls_config_toml (data_path, *tls_config, logger);
 		if (error)
 		{
 			std::cerr << error.get_message () << std::endl;
@@ -99,7 +99,7 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 		}
 
 		boost::asio::io_context io_ctx;
-		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, nlogger, config.node.network_params.work));
+		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger, config.node.network_params.work));
 		nano::work_pool opencl_work (config.node.network_params.network, config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
 			return opencl->generate_work (version_a, root_a, difficulty_a, ticket_a);
 		}
@@ -107,17 +107,17 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 		try
 		{
 			// This avoids a blank prompt during any node initialization delays
-			nlogger.info (nano::log::type::daemon, "Starting up Nano node...");
+			logger.info (nano::log::type::daemon, "Starting up Nano node...");
 
 			// Print info about number of logical cores detected, those are used to decide how many IO, worker and signature checker threads to spawn
-			nlogger.info (nano::log::type::daemon, "Hardware concurrency: {} ( configured: {} )", std::thread::hardware_concurrency (), nano::hardware_concurrency ());
+			logger.info (nano::log::type::daemon, "Hardware concurrency: {} ( configured: {} )", std::thread::hardware_concurrency (), nano::hardware_concurrency ());
 
 			nano::set_file_descriptor_limit (OPEN_FILE_DESCRIPTORS_LIMIT);
 			auto const file_descriptor_limit = nano::get_file_descriptor_limit ();
-			nlogger.info (nano::log::type::daemon, "File descriptors limit: {}", file_descriptor_limit);
+			logger.info (nano::log::type::daemon, "File descriptors limit: {}", file_descriptor_limit);
 			if (file_descriptor_limit < OPEN_FILE_DESCRIPTORS_LIMIT)
 			{
-				nlogger.warn (nano::log::type::daemon, "File descriptors limit is lower than the {} recommended. Node was unable to change it.", OPEN_FILE_DESCRIPTORS_LIMIT);
+				logger.warn (nano::log::type::daemon, "File descriptors limit is lower than the {} recommended. Node was unable to change it.", OPEN_FILE_DESCRIPTORS_LIMIT);
 			}
 
 			// for the daemon start up, if the user hasn't specified a port in
@@ -134,12 +134,12 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 				auto network_label = node->network_params.network.get_current_network_as_string ();
 				std::time_t dateTime = std::time (nullptr);
 
-				nlogger.info (nano::log::type::daemon, "Network: {}", network_label);
-				nlogger.info (nano::log::type::daemon, "Version: {}", NANO_VERSION_STRING);
-				nlogger.info (nano::log::type::daemon, "Data path: '{}'", node->application_path.string ());
-				nlogger.info (nano::log::type::daemon, "Build info: {}", BUILD_INFO);
-				nlogger.info (nano::log::type::daemon, "Database backend: {}", node->store.vendor_get ());
-				nlogger.info (nano::log::type::daemon, "Start time: {:%c} UTC", fmt::gmtime (dateTime));
+				logger.info (nano::log::type::daemon, "Network: {}", network_label);
+				logger.info (nano::log::type::daemon, "Version: {}", NANO_VERSION_STRING);
+				logger.info (nano::log::type::daemon, "Data path: '{}'", node->application_path.string ());
+				logger.info (nano::log::type::daemon, "Build info: {}", BUILD_INFO);
+				logger.info (nano::log::type::daemon, "Database backend: {}", node->store.vendor_get ());
+				logger.info (nano::log::type::daemon, "Start time: {:%c} UTC", fmt::gmtime (dateTime));
 
 				node->start ();
 
@@ -186,7 +186,7 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 
 				debug_assert (!nano::signal_handler_impl);
 				nano::signal_handler_impl = [this, &io_ctx] () {
-					nlogger.warn (nano::log::type::daemon, "Interrupt signal received, stopping...");
+					logger.warn (nano::log::type::daemon, "Interrupt signal received, stopping...");
 
 					io_ctx.stop ();
 					sig_int_or_term = 1;
@@ -219,18 +219,18 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 			}
 			else
 			{
-				nlogger.critical (nano::log::type::daemon, "Error initializing node");
+				logger.critical (nano::log::type::daemon, "Error initializing node");
 			}
 		}
 		catch (std::runtime_error const & e)
 		{
-			nlogger.critical (nano::log::type::daemon, "Error while running node: {}", e.what ());
+			logger.critical (nano::log::type::daemon, "Error while running node: {}", e.what ());
 		}
 	}
 	else
 	{
-		nlogger.critical (nano::log::type::daemon, "Error deserializing config: {}", error.get_message ());
+		logger.critical (nano::log::type::daemon, "Error deserializing config: {}", error.get_message ());
 	}
 
-	nlogger.info (nano::log::type::daemon, "Daemon exiting");
+	logger.info (nano::log::type::daemon, "Daemon exiting");
 }

@@ -180,7 +180,7 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<nano::m
 		}
 		if (!result)
 		{
-			node->nlogger.debug (nano::log::type::bootstrap_legacy, "Completed frontier request, {} out of sync accounts according to {}", account_count.load (), connection_l->channel->to_string ());
+			node->logger.debug (nano::log::type::bootstrap_legacy, "Completed frontier request, {} out of sync accounts according to {}", account_count.load (), connection_l->channel->to_string ());
 		}
 		else
 		{
@@ -230,7 +230,7 @@ void nano::bootstrap_attempt_legacy::run ()
 
 		if (start_account.number () != std::numeric_limits<nano::uint256_t>::max ())
 		{
-			node->nlogger.debug(nano::log::type::bootstrap_legacy, "Requesting new frontiers after: {}", start_account.to_account ());
+			node->logger.debug(nano::log::type::bootstrap_legacy, "Requesting new frontiers after: {}", start_account.to_account ());
 
 			// Requesting new frontiers
 			run_start (lock);
@@ -238,7 +238,7 @@ void nano::bootstrap_attempt_legacy::run ()
 	}
 	if (!stopped)
 	{
-		node->nlogger.debug(nano::log::type::bootstrap_legacy, "Completed legacy pulls");
+		node->logger.debug(nano::log::type::bootstrap_legacy, "Completed legacy pulls");
 
 		if (!node->flags.disable_bootstrap_bulk_push_client)
 		{

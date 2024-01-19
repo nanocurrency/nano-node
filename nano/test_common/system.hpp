@@ -67,7 +67,7 @@ namespace test
 		boost::asio::io_context io_ctx;
 		std::vector<std::shared_ptr<nano::node>> nodes;
 		nano::stats stats;
-		nano::nlogger nlogger;
+		nano::logger logger;
 		nano::work_pool work{ nano::dev::network_params.network, std::max (nano::hardware_concurrency (), 1u) };
 		std::chrono::time_point<std::chrono::steady_clock, std::chrono::duration<double>> deadline{ std::chrono::steady_clock::time_point::max () };
 		double deadline_scaling_factor{ 1.0 };

@@ -18,7 +18,7 @@ class write_guard;
 class confirmation_height_bounded final
 {
 public:
-	confirmation_height_bounded (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds batch_separate_pending_min_time, nano::nlogger &, std::atomic<bool> & stopped, uint64_t & batch_write_size, std::function<void (std::vector<std::shared_ptr<nano::block>> const &)> const & cemented_callback, std::function<void (nano::block_hash const &)> const & already_cemented_callback, std::function<uint64_t ()> const & awaiting_processing_size_query);
+	confirmation_height_bounded (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds batch_separate_pending_min_time, nano::logger &, std::atomic<bool> & stopped, uint64_t & batch_write_size, std::function<void (std::vector<std::shared_ptr<nano::block>> const &)> const & cemented_callback, std::function<void (nano::block_hash const &)> const & already_cemented_callback, std::function<uint64_t ()> const & awaiting_processing_size_query);
 
 	bool pending_empty () const;
 	void clear_process_vars ();
@@ -121,7 +121,7 @@ private:
 	nano::ledger & ledger;
 	nano::write_database_queue & write_database_queue;
 	std::chrono::milliseconds batch_separate_pending_min_time;
-	nano::nlogger & nlogger;
+	nano::logger & logger;
 	std::atomic<bool> & stopped;
 	uint64_t & batch_write_size;
 	std::function<void (std::vector<std::shared_ptr<nano::block>> const &)> notify_observers_callback;

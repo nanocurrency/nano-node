@@ -37,7 +37,7 @@ public:
 		server (server_a), node (server_a.node), session_id (server_a.id_dispenser.fetch_add (1)),
 		io_ctx (io_ctx_a), strand (io_ctx_a.get_executor ()), socket (io_ctx_a), config_transport (config_transport_a)
 	{
-		node.nlogger.debug (nano::log::type::ipc, "Creating session with id: ", session_id.load ());
+		node.logger.debug (nano::log::type::ipc, "Creating session with id: ", session_id.load ());
 	}
 
 	~session ()
@@ -229,7 +229,7 @@ public:
 			this_l->timer_cancel ();
 			if (ec == boost::asio::error::broken_pipe || ec == boost::asio::error::connection_aborted || ec == boost::asio::error::connection_reset || ec == boost::asio::error::connection_refused)
 			{
-				this_l->node.nlogger.error (nano::log::type::ipc, "Error reading: ", ec.message ());
+				this_l->node.logger.error (nano::log::type::ipc, "Error reading: ", ec.message ());
 			}
 			else if (bytes_transferred_a > 0)
 			{
@@ -253,7 +253,7 @@ public:
 			buffer->insert (buffer->end (), reinterpret_cast<std::uint8_t *> (&big), reinterpret_cast<std::uint8_t *> (&big) + sizeof (std::uint32_t));
 			buffer->insert (buffer->end (), body.begin (), body.end ());
 
-			this_l->node.nlogger.debug (nano::log::type::ipc, "IPC/RPC request {} completed in: {} {}",
+			this_l->node.logger.debug (nano::log::type::ipc, "IPC/RPC request {} completed in: {} {}",
 			request_id_l,
 			this_l->session_timer.stop ().count (),
 			this_l->session_timer.unit ());
@@ -267,7 +267,7 @@ public:
 				}
 				else
 				{
-					this_l->node.nlogger.error (nano::log::type::ipc, "Write failed: ", error_a.message ());
+					this_l->node.logger.error (nano::log::type::ipc, "Write failed: ", error_a.message ());
 				}
 			});
 
@@ -300,7 +300,7 @@ public:
 			this_l->active_encoding = static_cast<nano::ipc::payload_encoding> (encoding);
 			if (this_l->buffer[nano::ipc::preamble_offset::lead] != 'N' || this_l->buffer[nano::ipc::preamble_offset::reserved_1] != 0 || this_l->buffer[nano::ipc::preamble_offset::reserved_2] != 0)
 			{
-				this_l->node.nlogger.error (nano::log::type::ipc, "Invalid preamble");
+				this_l->node.logger.error (nano::log::type::ipc, "Invalid preamble");
 			}
 			else if (encoding == static_cast<uint8_t> (nano::ipc::payload_encoding::json_v1) || encoding == static_cast<uint8_t> (nano::ipc::payload_encoding::json_v1_unsafe))
 			{
@@ -334,7 +334,7 @@ public:
 						if (encoding == static_cast<uint8_t> (nano::ipc::payload_encoding::flatbuffers_json))
 						{
 							this_l->flatbuffers_handler->process_json (this_l->buffer.data (), this_l->buffer_size, [this_l] (std::shared_ptr<std::string> const & body) {
-								this_l->node.nlogger.debug (nano::log::type::ipc, "IPC/Flatbuffer request completed in: {} {}",
+								this_l->node.logger.debug (nano::log::type::ipc, "IPC/Flatbuffer request completed in: {} {}",
 								this_l->session_timer.stop ().count (),
 								this_l->session_timer.unit ());
 
@@ -351,7 +351,7 @@ public:
 									}
 									else
 									{
-										this_l->node.nlogger.error (nano::log::type::ipc, "Write failed: {}", error_a.message ());
+										this_l->node.logger.error (nano::log::type::ipc, "Write failed: {}", error_a.message ());
 									}
 								});
 							});
@@ -359,7 +359,7 @@ public:
 						else
 						{
 							this_l->flatbuffers_handler->process (this_l->buffer.data (), this_l->buffer_size, [this_l] (std::shared_ptr<flatbuffers::FlatBufferBuilder> const & fbb) {
-								this_l->node.nlogger.debug (nano::log::type::ipc, "IPC/Flatbuffer request completed in: {} {}",
+								this_l->node.logger.debug (nano::log::type::ipc, "IPC/Flatbuffer request completed in: {} {}",
 								this_l->session_timer.stop ().count (),
 								this_l->session_timer.unit ());
 
@@ -376,7 +376,7 @@ public:
 									}
 									else
 									{
-										this_l->node.nlogger.error (nano::log::type::ipc, "Write failed: {}", error_a.message ());
+										this_l->node.logger.error (nano::log::type::ipc, "Write failed: {}", error_a.message ());
 									}
 								});
 							});
@@ -386,7 +386,7 @@ public:
 			}
 			else
 			{
-				this_l->node.nlogger.error (nano::log::type::ipc, "Unsupported payload encoding");
+				this_l->node.logger.error (nano::log::type::ipc, "Unsupported payload encoding");
 			}
 		});
 	}
@@ -511,7 +511,7 @@ public:
 			}
 			else
 			{
-				node->nlogger.error (nano::log::type::ipc, "Acceptor error: ", ec.message ());
+				node->logger.error (nano::log::type::ipc, "Acceptor error: ", ec.message ());
 			}
 
 			if (ec != boost::asio::error::operation_aborted && acceptor->is_open ())
@@ -520,7 +520,7 @@ public:
 			}
 			else
 			{
-				node->nlogger.info (nano::log::type::ipc, "Shutting down");
+				node->logger.info (nano::log::type::ipc, "Shutting down");
 			}
 		});
 	}
@@ -613,7 +613,7 @@ nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config co
 			boost::asio::local::stream_protocol::endpoint ep{ node_a.config.ipc_config.transport_domain.path };
 			transports.push_back (std::make_shared<domain_socket_transport> (*this, ep, node_a.config.ipc_config.transport_domain, threads));
 #else
-			node.nlogger.error (nano::log::type::ipc_server, "Domain sockets are not supported on this platform");
+			node.logger.error (nano::log::type::ipc_server, "Domain sockets are not supported on this platform");
 #endif
 		}
 
@@ -623,7 +623,7 @@ nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config co
 			transports.push_back (std::make_shared<tcp_socket_transport> (*this, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v6 (), node_a.config.ipc_config.transport_tcp.port), node_a.config.ipc_config.transport_tcp, threads));
 		}
 
-		node.nlogger.debug (nano::log::type::ipc_server, "Server started");
+		node.logger.debug (nano::log::type::ipc_server, "Server started");
 
 		if (!transports.empty ())
 		{
@@ -632,13 +632,13 @@ nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config co
 	}
 	catch (std::runtime_error const & ex)
 	{
-		node.nlogger.error (nano::log::type::ipc_server, "Error: {}", ex.what ());
+		node.logger.error (nano::log::type::ipc_server, "Error: {}", ex.what ());
 	}
 }
 
 nano::ipc::ipc_server::~ipc_server ()
 {
-	node.nlogger.debug (nano::log::type::ipc_server, "Server stopped");
+	node.logger.debug (nano::log::type::ipc_server, "Server stopped");
 }
 
 void nano::ipc::ipc_server::stop ()
@@ -678,7 +678,7 @@ nano::error nano::ipc::ipc_server::reload_access_config ()
 	nano::error access_config_error (nano::ipc::read_access_config_toml (node.application_path, access));
 	if (access_config_error)
 	{
-		node.nlogger.error (nano::log::type::ipc_server, "Invalid access configuration file: {}", access_config_error.get_message ());
+		node.logger.error (nano::log::type::ipc_server, "Invalid access configuration file: {}", access_config_error.get_message ());
 	}
 	return access_config_error;
 }

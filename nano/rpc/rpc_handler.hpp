@@ -16,7 +16,7 @@ class rpc_handler_request_params;
 class rpc_handler : public std::enable_shared_from_this<nano::rpc_handler>
 {
 public:
-	rpc_handler (nano::rpc_config const & rpc_config, std::string const & body_a, std::string const & request_id_a, std::function<void (std::string const &)> const & response_a, nano::rpc_handler_interface & rpc_handler_interface_a, nano::nlogger &);
+	rpc_handler (nano::rpc_config const & rpc_config, std::string const & body_a, std::string const & request_id_a, std::function<void (std::string const &)> const & response_a, nano::rpc_handler_interface & rpc_handler_interface_a, nano::logger &);
 	void process_request (nano::rpc_handler_request_params const & request_params);
 
 private:
@@ -26,6 +26,6 @@ private:
 	std::function<void (std::string const &)> response;
 	nano::rpc_config const & rpc_config;
 	nano::rpc_handler_interface & rpc_handler_interface;
-	nano::nlogger & nlogger;
+	nano::logger & logger;
 };
 }

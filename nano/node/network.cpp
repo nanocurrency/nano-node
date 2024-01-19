@@ -38,22 +38,22 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 			}
 			catch (boost::system::error_code & ec)
 			{
-				node.nlogger.critical (nano::log::type::network, "Error: {}", ec.message ());
+				node.logger.critical (nano::log::type::network, "Error: {}", ec.message ());
 				release_assert (false);
 			}
 			catch (std::error_code & ec)
 			{
-				node.nlogger.critical (nano::log::type::network, "Error: {}", ec.message ());
+				node.logger.critical (nano::log::type::network, "Error: {}", ec.message ());
 				release_assert (false);
 			}
 			catch (std::runtime_error & err)
 			{
-				node.nlogger.critical (nano::log::type::network, "Error: {}", err.what ());
+				node.logger.critical (nano::log::type::network, "Error: {}", err.what ());
 				release_assert (false);
 			}
 			catch (...)
 			{
-				node.nlogger.critical (nano::log::type::network, "Unknown error");
+				node.logger.critical (nano::log::type::network, "Unknown error");
 				release_assert (false);
 			}
 		});
@@ -127,7 +127,7 @@ void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::cha
 
 	nano::node_id_handshake message{ node.network_params.network, query, response };
 
-	node.nlogger.debug (nano::log::type::network, "Node ID handshake sent to: {} (query: {}, respond to: {}, signature: {})",
+	node.logger.debug (nano::log::type::network, "Node ID handshake sent to: {} (query: {}, respond to: {}, signature: {})",
 	nano::util::to_str (channel_a->get_endpoint ()),
 	(query ? query->cookie.to_string () : "<none>"),
 	(respond_to ? respond_to->to_string () : "<none>"),

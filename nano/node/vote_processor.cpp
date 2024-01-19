@@ -15,12 +15,12 @@
 #include <chrono>
 using namespace std::chrono_literals;
 
-nano::vote_processor::vote_processor (nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::nlogger & nlogger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
+nano::vote_processor::vote_processor (nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
 	active (active_a),
 	observers (observers_a),
 	stats (stats_a),
 	config (config_a),
-	nlogger (nlogger_a),
+	logger (logger_a),
 	online_reps (online_reps_a),
 	rep_crawler (rep_crawler_a),
 	ledger (ledger_a),
@@ -77,7 +77,7 @@ void nano::vote_processor::process_loop ()
 
 			if (log_this_iteration && elapsed.stop () > std::chrono::milliseconds (100))
 			{
-				nlogger.debug (nano::log::type::vote_processor, "Processed {} votes in {} milliseconds (rate of {} votes per second)",
+				logger.debug (nano::log::type::vote_processor, "Processed {} votes in {} milliseconds (rate of {} votes per second)",
 				votes_l.size (),
 				elapsed.value ().count (),
 				((votes_l.size () * 1000ULL) / elapsed.value ().count ()));
@@ -199,7 +199,7 @@ void nano::vote_processor::flush ()
 	});
 	if (!success)
 	{
-		nlogger.error (nano::log::type::vote_processor, "Flush timeout");
+		logger.error (nano::log::type::vote_processor, "Flush timeout");
 		debug_assert (false && "vote_processor::flush timeout while waiting for flush");
 	}
 }

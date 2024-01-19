@@ -94,7 +94,7 @@ void nano::distributed_work::start ()
 				}
 				else
 				{
-					this_l->node.nlogger.error (nano::log::type::distributed_work, "Error resolving work peer: {}:{} ({})", peer.first, peer.second, ec.message ());
+					this_l->node.logger.error (nano::log::type::distributed_work, "Error resolving work peer: {}:{} ({})", peer.first, peer.second, ec.message ());
 
 					this_l->failure ();
 				}
@@ -167,7 +167,7 @@ void nano::distributed_work::do_request (nano::tcp_endpoint const & endpoint_a)
 							}
 							else if (ec)
 							{
-								this_l->node.nlogger.error (nano::log::type::distributed_work, "Work peer responded with an error {}:{} ({})",
+								this_l->node.logger.error (nano::log::type::distributed_work, "Work peer responded with an error {}:{} ({})",
 								nano::util::to_str (connection->endpoint.address ()),
 								connection->endpoint.port (),
 								ec.message ());
@@ -185,7 +185,7 @@ void nano::distributed_work::do_request (nano::tcp_endpoint const & endpoint_a)
 				}
 				else if (ec && ec != boost::system::errc::operation_canceled)
 				{
-					this_l->node.nlogger.error (nano::log::type::distributed_work, "Unable to write to work peer {}:{} ({})",
+					this_l->node.logger.error (nano::log::type::distributed_work, "Unable to write to work peer {}:{} ({})",
 					nano::util::to_str (connection->endpoint.address ()),
 					connection->endpoint.port (),
 					ec.message ());
@@ -197,7 +197,7 @@ void nano::distributed_work::do_request (nano::tcp_endpoint const & endpoint_a)
 		}
 		else if (ec && ec != boost::system::errc::operation_canceled)
 		{
-			this_l->node.nlogger.error (nano::log::type::distributed_work, "Unable to connect to work peer {}:{} ({})",
+			this_l->node.logger.error (nano::log::type::distributed_work, "Unable to connect to work peer {}:{} ({})",
 			nano::util::to_str (connection->endpoint.address ()),
 			connection->endpoint.port (),
 			ec.message ());
@@ -232,7 +232,7 @@ void nano::distributed_work::do_cancel (nano::tcp_endpoint const & endpoint_a)
 			[this_l, peer_cancel, cancelling_l] (boost::system::error_code const & ec, std::size_t bytes_transferred) {
 				if (ec && ec != boost::system::errc::operation_canceled)
 				{
-					this_l->node.nlogger.error (nano::log::type::distributed_work, "Unable to send work cancel to work peer {}:{} ({})",
+					this_l->node.logger.error (nano::log::type::distributed_work, "Unable to send work cancel to work peer {}:{} ({})",
 					nano::util::to_str (cancelling_l->endpoint.address ()),
 					cancelling_l->endpoint.port (),
 					ec.message ());
@@ -263,7 +263,7 @@ void nano::distributed_work::success (std::string const & body_a, nano::tcp_endp
 			}
 			else
 			{
-				node.nlogger.error (nano::log::type::distributed_work, "Incorrect work response from {}:{} for root {} with diffuculty {}: {}",
+				node.logger.error (nano::log::type::distributed_work, "Incorrect work response from {}:{} for root {} with diffuculty {}: {}",
 				nano::util::to_str (endpoint_a.address ()),
 				endpoint_a.port (),
 				request.root.to_string (),
@@ -273,7 +273,7 @@ void nano::distributed_work::success (std::string const & body_a, nano::tcp_endp
 		}
 		else
 		{
-			node.nlogger.error (nano::log::type::distributed_work, "Work response from {}:{} wasn't a number: {}",
+			node.logger.error (nano::log::type::distributed_work, "Work response from {}:{} wasn't a number: {}",
 			nano::util::to_str (endpoint_a.address ()),
 			endpoint_a.port (),
 			work_text);
@@ -281,7 +281,7 @@ void nano::distributed_work::success (std::string const & body_a, nano::tcp_endp
 	}
 	catch (...)
 	{
-		node.nlogger.error (nano::log::type::distributed_work, "Work response from {}:{} wasn't parsable: {}",
+		node.logger.error (nano::log::type::distributed_work, "Work response from {}:{} wasn't parsable: {}",
 		nano::util::to_str (endpoint_a.address ()),
 		endpoint_a.port (),
 		body_a);
@@ -317,7 +317,7 @@ void nano::distributed_work::stop_once (bool const local_stop_a)
 							connection_l->socket.close (ec);
 							if (ec)
 							{
-								this_l->node.nlogger.error (nano::log::type::distributed_work, "Error closing socket with work peer: {}:{} ({})",
+								this_l->node.logger.error (nano::log::type::distributed_work, "Error closing socket with work peer: {}:{} ({})",
 								nano::util::to_str (connection_l->endpoint.address ()),
 								connection_l->endpoint.port (),
 								ec.message ());
@@ -325,7 +325,7 @@ void nano::distributed_work::stop_once (bool const local_stop_a)
 						}
 						else
 						{
-							this_l->node.nlogger.error (nano::log::type::distributed_work, "Error cancelling operation with work peer: {}:{} ({})",
+							this_l->node.logger.error (nano::log::type::distributed_work, "Error cancelling operation with work peer: {}:{} ({})",
 							nano::util::to_str (connection_l->endpoint.address ()),
 							connection_l->endpoint.port (),
 							ec.message ());
@@ -344,7 +344,7 @@ void nano::distributed_work::set_once (uint64_t const work_a, std::string const 
 	{
 		elapsed.stop ();
 
-		node.nlogger.info (nano::log::type::distributed_work, "Work generation for {}, with a threshold difficulty of {} (multiplier {}x) complete: {} ms",
+		node.logger.info (nano::log::type::distributed_work, "Work generation for {}, with a threshold difficulty of {} (multiplier {}x) complete: {} ms",
 		request.root.to_string (),
 		nano::to_string_hex (request.difficulty),
 		nano::to_string (nano::difficulty::to_multiplier (request.difficulty, node.default_difficulty (request.version)), 2),
@@ -366,7 +366,7 @@ void nano::distributed_work::cancel ()
 	{
 		elapsed.stop ();
 
-		node.nlogger.info (nano::log::type::distributed_work, "Work generation for {} was cancelled after {} ms",
+		node.logger.info (nano::log::type::distributed_work, "Work generation for {} was cancelled after {} ms",
 		request.root.to_string (),
 		elapsed.value ().count ());
 
@@ -394,7 +394,7 @@ void nano::distributed_work::handle_failure ()
 		node.unresponsive_work_peers = true;
 		if (!local_generation_started && !finished.exchange (true))
 		{
-			node.nlogger.info (nano::log::type::distributed_work, "Work peer(s) failed to generate work for root {}, retrying... (backoff: {}s)",
+			node.logger.info (nano::log::type::distributed_work, "Work peer(s) failed to generate work for root {}, retrying... (backoff: {}s)",
 			request.root.to_string (),
 			backoff.count ());
 
