@@ -1939,7 +1939,10 @@ TEST (bulk, genesis)
 	node_flags.disable_lazy_bootstrap = true;
 	auto node1 = system.add_node (config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto node2 = system.add_node ();
+
+	// create a node manually so that it is not connected to the other node automatically
+	auto node2 = std::make_shared<nano::node> (system.io_ctx, 0, nano::unique_path (), system.logging, system.work);
+	ASSERT_FALSE (node2->init_error ());
 	nano::block_hash latest1 (node1->latest (nano::dev::genesis_key.pub));
 	nano::block_hash latest2 (node2->latest (nano::dev::genesis_key.pub));
 	ASSERT_EQ (latest1, latest2);
@@ -1950,8 +1953,9 @@ TEST (bulk, genesis)
 	ASSERT_NE (latest1, latest3);
 
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
-	ASSERT_TIMELY (10s, node2->latest (nano::dev::genesis_key.pub) == node1->latest (nano::dev::genesis_key.pub));
+	ASSERT_TIMELY (5s, node2->latest (nano::dev::genesis_key.pub) == node1->latest (nano::dev::genesis_key.pub));
 	ASSERT_EQ (node2->latest (nano::dev::genesis_key.pub), node1->latest (nano::dev::genesis_key.pub));
+	node2->stop ();
 }
 
 TEST (bulk, offline_send)
@@ -1964,29 +1968,33 @@ TEST (bulk, offline_send)
 	node_flags.disable_lazy_bootstrap = true;
 	auto node1 = system.add_node (config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto node2 = system.add_node ();
+
+	// create a node manually so that it is not connected to the other node automatically
+	auto node2 = std::make_shared<nano::node> (system.io_ctx, 0, nano::unique_path (), system.logging, system.work);
+	ASSERT_FALSE (node2->init_error ());
+	node2->start ();
 	nano::keypair key2;
 	auto wallet (node2->wallets.create (nano::random_wallet_id ()));
 	wallet->insert_adhoc (key2.prv);
 	auto send1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, node1->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send1);
 	ASSERT_NE (std::numeric_limits<nano::uint256_t>::max (), node1->balance (nano::dev::genesis_key.pub));
-	node1->block_processor.flush ();
 	// Wait to finish election background tasks
-	ASSERT_TIMELY (10s, node1->active.empty ());
-	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()));
+	ASSERT_TIMELY (5s, node1->active.empty ());
+	ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()));
 	// Initiate bootstrap
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
 	// Nodes should find each other
-	system.deadline_set (10s);
+	system.deadline_set (5s);
 	do
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	} while (node1->network.empty () || node2->network.empty ());
 	// Send block arrival via bootstrap
-	ASSERT_TIMELY (10s, node2->balance (nano::dev::genesis_key.pub) != std::numeric_limits<nano::uint256_t>::max ());
+	ASSERT_TIMELY (5s, node2->balance (nano::dev::genesis_key.pub) != std::numeric_limits<nano::uint256_t>::max ());
 	// Receiving send block
-	ASSERT_TIMELY (20s, node2->balance (key2.pub) == node1->config.receive_minimum.number ());
+	ASSERT_TIMELY (5s, node2->balance (key2.pub) == node1->config.receive_minimum.number ());
+	node2->stop ();
 }
 
 // Test disabled because it's failing intermittently.
