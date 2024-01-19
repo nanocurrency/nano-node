@@ -1432,7 +1432,6 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 	auto node0 = system.add_node (config, node_flags);
 	nano::keypair key1;
 	nano::keypair key2;
-	// Generating test chain
 
 	nano::state_block_builder builder;
 
@@ -1481,8 +1480,12 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 	node0->block_processor.add (receive1);
 	node0->block_processor.add (send2);
 	node0->block_processor.add (receive2);
-	node0->block_processor.flush ();
-	auto node1 = system.add_node ();
+	ASSERT_TIMELY (5s, nano::test::exists (*node0, { send1, receive1, send2, receive2 }));
+
+	// Start wallet lazy bootstrap
+	// create a node manually so that it is not connected to the other node automatically
+	auto node1 = std::make_shared<nano::node> (system.io_ctx, 0, nano::unique_path (), system.logging, system.work);
+	nano::test::establish_tcp (system, *node1, node0->network.endpoint ());
 	auto wallet (node1->wallets.create (nano::random_wallet_id ()));
 	ASSERT_NE (nullptr, wallet);
 	wallet->insert_adhoc (key2.prv);
@@ -1493,7 +1496,8 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 		ASSERT_EQ (key2.pub.to_account (), wallet_attempt->id);
 	}
 	// Check processed blocks
-	ASSERT_TIMELY (10s, node1->ledger.block_or_pruned_exists (receive2->hash ()));
+	ASSERT_TIMELY (5s, node1->ledger.block_or_pruned_exists (receive2->hash ()));
+	node1->stop ();
 }
 
 TEST (bootstrap_processor, wallet_lazy_pending)
