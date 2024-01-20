@@ -700,7 +700,7 @@ bool nano::wallet::enter_password (store::transaction const & transaction_a, std
 	if (!result)
 	{
 		auto this_l = shared_from_this ();
-		wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, this_l, [this_l] (nano::wallet & wallet) {
+		wallets.queue_wallet_action (nano::wallets::high_priority, this_l, [this_l] (nano::wallet & wallet) {
 			// Wallets must survive node lifetime
 			this_l->search_receivable (this_l->wallets.tx_begin_read ());
 		});
