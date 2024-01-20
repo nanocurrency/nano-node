@@ -1937,39 +1937,40 @@ TEST (bulk, genesis)
 TEST (bulk, offline_send)
 {
 	nano::test::system system;
-	nano::node_config config (system.get_available_port ());
+	nano::node_config config = system.default_config ();
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_lazy_bootstrap = true;
+
 	auto node1 = system.add_node (config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto node2 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work));
-	ASSERT_FALSE (node2->init_error ());
-	node2->start ();
-	system.nodes.push_back (node2);
+	const auto amount = node1->config.receive_minimum.number ();
+	auto node2 = system.make_disconnected_node ();
 	nano::keypair key2;
 	auto wallet (node2->wallets.create (nano::random_wallet_id ()));
 	wallet->insert_adhoc (key2.prv);
-	auto send1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, node1->config.receive_minimum.number ()));
+
+	// send amount from genesis to key2, it will be autoreceived
+	auto send1 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, amount);
 	ASSERT_NE (nullptr, send1);
-	ASSERT_NE (std::numeric_limits<nano::uint256_t>::max (), node1->balance (nano::dev::genesis_key.pub));
-	node1->block_processor.flush ();
+
 	// Wait to finish election background tasks
-	ASSERT_TIMELY (10s, node1->active.empty ());
-	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()));
+	ASSERT_TIMELY (5s, node1->active.empty ());
+	ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()));
+	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max () - amount, node1->balance (nano::dev::genesis_key.pub));
+
 	// Initiate bootstrap
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
-	// Nodes should find each other
-	system.deadline_set (10s);
-	do
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	} while (node1->network.empty () || node2->network.empty ());
+
+	// Nodes should find each other after bootstrap initiation
+	ASSERT_TIMELY (5s, !node1->network.empty ());
+	ASSERT_TIMELY (5s, !node2->network.empty ());
+
 	// Send block arrival via bootstrap
-	ASSERT_TIMELY (10s, node2->balance (nano::dev::genesis_key.pub) != std::numeric_limits<nano::uint256_t>::max ());
+	ASSERT_TIMELY_EQ (5s, node2->balance (nano::dev::genesis_key.pub), std::numeric_limits<nano::uint128_t>::max () - amount);
 	// Receiving send block
-	ASSERT_TIMELY_EQ (20s, node2->balance (key2.pub), node1->config.receive_minimum.number ());
+	ASSERT_TIMELY_EQ (5s, node2->balance (key2.pub), amount);
 	node2->stop ();
 }
 
