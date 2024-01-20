@@ -483,7 +483,6 @@ TEST (bootstrap_processor, DISABLED_pull_requeue_network_error)
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	auto node1 (system.add_node (config, node_flags));
-	config.peering_port = system.get_available_port ();
 	auto node2 (system.add_node (config, node_flags));
 	nano::keypair key1;
 
