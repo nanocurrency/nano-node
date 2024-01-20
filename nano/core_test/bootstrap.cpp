@@ -1976,7 +1976,7 @@ TEST (bulk, offline_send)
 TEST (bulk, DISABLED_genesis_pruning)
 {
 	nano::test::system system;
-	nano::node_config config (system.get_available_port ());
+	nano::node_config config = system.default_config ();
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
@@ -1987,8 +1987,8 @@ TEST (bulk, DISABLED_genesis_pruning)
 	auto node1 = system.add_node (config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	node_flags.enable_pruning = false;
-	auto node2 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work, node_flags));
-	ASSERT_FALSE (node2->init_error ());
+
+	auto node2 = system.make_disconnected_node (std::nullopt, node_flags);
 	nano::block_hash latest1 (node1->latest (nano::dev::genesis_key.pub));
 	nano::block_hash latest2 (node2->latest (nano::dev::genesis_key.pub));
 	ASSERT_EQ (latest1, latest2);
