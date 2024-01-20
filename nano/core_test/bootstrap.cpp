@@ -393,26 +393,32 @@ TEST (bootstrap_processor, process_new)
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
-	auto node1 (system.add_node (config, node_flags));
-	config.peering_port = system.get_available_port ();
-	auto node2 (system.add_node (config, node_flags));
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key2;
-	system.wallet (1)->insert_adhoc (key2.prv);
-	auto send (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, node1->config.receive_minimum.number ()));
-	ASSERT_NE (nullptr, send);
-	ASSERT_TIMELY (10s, !node1->balance (key2.pub).is_zero ());
-	auto receive (node2->block (node2->latest (key2.pub)));
-	ASSERT_NE (nullptr, receive);
-	nano::uint128_t balance1 (node1->balance (nano::dev::genesis_key.pub));
-	nano::uint128_t balance2 (node1->balance (key2.pub));
-	ASSERT_TIMELY (10s, node1->block_confirmed (send->hash ()) && node1->block_confirmed (receive->hash ()) && node1->active.empty () && node2->active.empty ()); // All blocks should be propagated & confirmed
 
-	auto node3 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work));
-	ASSERT_FALSE (node3->init_error ());
+	auto node1 = system.add_node (config, node_flags);
+	auto node2 = system.add_node (config, node_flags);
+
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	system.wallet (1)->insert_adhoc (key2.prv);
+
+	// send amount raw from genesis to key2, the wallet will autoreceive
+	auto amount = node1->config.receive_minimum.number ();
+	auto send = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, amount);
+	ASSERT_NE (nullptr, send);
+	ASSERT_TIMELY (5s, !node1->balance (key2.pub).is_zero ());
+	auto receive = node2->block (node2->latest (key2.pub));
+	ASSERT_NE (nullptr, receive);
+
+	// All blocks should be propagated & confirmed
+	ASSERT_TIMELY (5s, nano::test::confirmed (*node1, { send, receive }));
+	ASSERT_TIMELY (5s, nano::test::confirmed (*node2, { send, receive }));
+	ASSERT_TIMELY (5s, node1->active.empty ());
+	ASSERT_TIMELY (5s, node2->active.empty ());
+
+	// create a node manually to avoid making automatic network connections
+	auto node3 = system.make_disconnected_node ();
 	node3->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
-	ASSERT_TIMELY_EQ (10s, node3->balance (key2.pub), balance2);
-	ASSERT_EQ (balance1, node3->balance (nano::dev::genesis_key.pub));
+	ASSERT_TIMELY_EQ (5s, node3->balance (key2.pub), amount);
 	node3->stop ();
 }
 
