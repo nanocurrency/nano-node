@@ -1337,8 +1337,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	ASSERT_EQ (1, node1->ledger.cache.pruned_count);
 	ASSERT_TRUE (nano::test::block_or_pruned_all_exists (*node1, { send1, send2, open, state_open }));
 	// Start lazy bootstrap with last block in sender chain
-	config.peering_port = system.get_available_port ();
-	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), config, system.work, node_flags, 1));
+	auto node2 = system.make_disconnected_node (config, node_flags);
 	nano::test::establish_tcp (system, *node2, node1->network.endpoint ());
 	node2->bootstrap_initiator.bootstrap_lazy (send2->hash ());
 	// Check processed blocks
