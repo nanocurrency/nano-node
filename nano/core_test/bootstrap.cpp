@@ -526,8 +526,7 @@ TEST (bootstrap_processor, DISABLED_push_diamond)
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node0 (system.add_node (config));
 	nano::keypair key;
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work));
-	ASSERT_FALSE (node1->init_error ());
+	auto node1 = system.make_disconnected_node ();
 	auto wallet1 (node1->wallets.create (100));
 	wallet1->insert_adhoc (nano::dev::genesis_key.prv);
 	wallet1->insert_adhoc (key.prv);
@@ -568,8 +567,7 @@ TEST (bootstrap_processor, DISABLED_push_diamond)
 				   .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*receive).code);
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_TIMELY_EQ (10s, node0->balance (nano::dev::genesis_key.pub), 100);
-	ASSERT_EQ (100, node0->balance (nano::dev::genesis_key.pub));
+	ASSERT_TIMELY_EQ (5s, node0->balance (nano::dev::genesis_key.pub), 100);
 	node1->stop ();
 }
 
