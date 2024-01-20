@@ -5,6 +5,7 @@
 #include <nano/node/node.hpp>
 
 #include <chrono>
+#include <optional>
 
 namespace nano
 {
@@ -57,6 +58,10 @@ namespace test
 		nano::node & node (std::size_t index) const;
 		std::shared_ptr<nano::node> add_node (nano::node_flags = nano::node_flags (), nano::transport::transport_type = nano::transport::transport_type::tcp);
 		std::shared_ptr<nano::node> add_node (nano::node_config const &, nano::node_flags = nano::node_flags (), nano::transport::transport_type = nano::transport::transport_type::tcp, std::optional<nano::keypair> const & rep = std::nullopt);
+
+		// Make an independent node that uses system resources but is not part of the system node list and does not automatically connect to other nodes
+		std::shared_ptr<nano::node> make_disconnected_node (std::optional<nano::node_config> opt_node_config = std::nullopt, nano::node_flags = nano::node_flags ());
+
 		/*
 		 * Returns default config for node running in test environment
 		 */
