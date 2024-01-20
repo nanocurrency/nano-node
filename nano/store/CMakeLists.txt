@@ -97,6 +97,7 @@ add_library(
 
 target_link_libraries(
   nano_store
+  nano_lib
   Boost::circular_buffer
   Boost::endian
   Boost::iostreams
