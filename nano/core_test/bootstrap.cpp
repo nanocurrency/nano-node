@@ -1374,9 +1374,7 @@ TEST (bootstrap_processor, lazy_cancel)
 	nano::keypair key1;
 	// Generating test chain
 
-	nano::state_block_builder builder;
-
-	auto send1 = builder
+	auto send1 = nano::state_block_builder ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (nano::dev::genesis->hash ())
 				 .representative (nano::dev::genesis_key.pub)
@@ -1387,7 +1385,7 @@ TEST (bootstrap_processor, lazy_cancel)
 				 .build_shared ();
 
 	// Start lazy bootstrap with last block in chain known
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work));
+	auto node1 = system.make_disconnected_node ();
 	nano::test::establish_tcp (system, *node1, node0->network.endpoint ());
 	node1->bootstrap_initiator.bootstrap_lazy (send1->hash (), true); // Start "confirmed" block bootstrap
 	{
