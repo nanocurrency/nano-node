@@ -1910,15 +1910,15 @@ TEST (frontier_req, confirmed_frontier)
 TEST (bulk, genesis)
 {
 	nano::test::system system;
-	nano::node_config config (system.get_available_port ());
+	nano::node_config config = system.default_config ();
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_lazy_bootstrap = true;
 	auto node1 = system.add_node (config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto node2 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work));
-	ASSERT_FALSE (node2->init_error ());
+
+	auto node2 = system.make_disconnected_node ();
 	nano::block_hash latest1 (node1->latest (nano::dev::genesis_key.pub));
 	nano::block_hash latest2 (node2->latest (nano::dev::genesis_key.pub));
 	ASSERT_EQ (latest1, latest2);
