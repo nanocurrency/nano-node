@@ -1135,13 +1135,14 @@ TEST (bootstrap_processor, DISABLED_lazy_unclear_state_link)
 				   .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*receive).code);
 	// Start lazy bootstrap with last block in chain known
-	auto node2 = system.add_node (system.default_config (), node_flags);
+	auto node2 = system.make_disconnected_node (std::nullopt, node_flags);
 	nano::test::establish_tcp (system, *node2, node1->network.endpoint ());
 	node2->bootstrap_initiator.bootstrap_lazy (receive->hash ());
 	// Check processed blocks
 	ASSERT_TIMELY (10s, !node2->bootstrap_initiator.in_progress ());
 	ASSERT_TIMELY (5s, nano::test::block_or_pruned_all_exists (*node2, { send1, send2, open, receive }));
 	ASSERT_EQ (0, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in));
+	node2->stop ();
 }
 
 TEST (bootstrap_processor, lazy_unclear_state_link_not_existing)
