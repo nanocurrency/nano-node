@@ -376,14 +376,13 @@ TEST (bootstrap_processor, process_state)
 	node0->work_generate_blocking (*block2);
 	ASSERT_EQ (nano::process_result::progress, node0->process (*block1).code);
 	ASSERT_EQ (nano::process_result::progress, node0->process (*block2).code);
+	ASSERT_TIMELY_EQ (5s, nano::test::account_info (*node0, nano::dev::genesis_key.pub).block_count, 3);
 
-	config.peering_port = system.get_available_port ();
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work, node_flags));
+	auto node1 = system.make_disconnected_node (std::nullopt, node_flags);
 	ASSERT_EQ (node0->latest (nano::dev::genesis_key.pub), block2->hash ());
 	ASSERT_NE (node1->latest (nano::dev::genesis_key.pub), block2->hash ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_NE (node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub));
-	ASSERT_TIMELY_EQ (10s, node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub));
+	ASSERT_TIMELY_EQ (5s, node1->latest (nano::dev::genesis_key.pub), block2->hash ());
 	node1->stop ();
 }
 
