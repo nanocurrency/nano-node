@@ -1598,11 +1598,13 @@ TEST (bootstrap_processor, multiple_attempts)
 	node1->block_processor.add (receive1);
 	node1->block_processor.add (send2);
 	node1->block_processor.add (receive2);
-	node1->block_processor.flush ();
+	nano::test::exists (*node1, { send1, receive1, send2, receive2 });
+
 	// Start 2 concurrent bootstrap attempts
 	nano::node_config node_config = system.default_config ();
 	node_config.bootstrap_initiator_threads = 3;
-	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), node_config, system.work));
+
+	auto node2 = system.make_disconnected_node (node_config);
 	nano::test::establish_tcp (system, *node2, node1->network.endpoint ());
 	node2->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true);
 	node2->bootstrap_initiator.bootstrap ();
