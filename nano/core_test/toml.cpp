@@ -13,6 +13,7 @@
 #include <numeric>
 #include <sstream>
 #include <string>
+#include <vector>
 
 using namespace std::chrono_literals;
 
@@ -73,10 +74,11 @@ TEST (toml, daemon_config_update_array)
 	nano::tomlconfig t;
 	std::filesystem::path data_path (".");
 	nano::daemon_config c{ data_path, nano::dev::network_params };
-	c.node.preconfigured_peers.push_back ("dev-peer.org");
+	c.node.preconfigured_peers.push_back (std::pair ("dev-peer.org", 999));
 	c.serialize_toml (t);
 	c.deserialize_toml (t);
-	ASSERT_EQ (c.node.preconfigured_peers[0], "dev-peer.org");
+	ASSERT_EQ (c.node.preconfigured_peers[0].first, "dev-peer.org");
+	ASSERT_EQ (c.node.preconfigured_peers[0].second, 999);
 }
 
 /** Empty rpc config file should match a default config object */
@@ -435,7 +437,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	password_fanout = 999
 	peering_port = 999
 	pow_sleep_interval= 999
-	preconfigured_peers = ["dev.org"]
+	preconfigured_peers = ["dev.org:999"]
 	preconfigured_representatives = ["nano_3arg3asgtigae3xckabaaewkx3bzsh7nwz7jkmjos79ihyaxwphhm6qgjps4"]
 	receive_minimum = "999"
 	signature_checker_threads = 999
@@ -974,4 +976,32 @@ TEST (toml, tls_config_defaults)
 	ASSERT_EQ (conf.server_key_path, defaults.server_key_path);
 	ASSERT_EQ (conf.server_key_passphrase, defaults.server_key_passphrase);
 	ASSERT_EQ (conf.server_dh_path, defaults.server_dh_path);
+}
+
+TEST (toml, deserialize_address)
+{
+	nano::node_config node_config;
+	std::vector<std::pair<std::string, uint16_t>> container, no_port_container;
+
+	//Port required
+	node_config.deserialize_address ("dev-peer.org:999", true, container);
+	node_config.deserialize_address ("1.2.3.4:999", true, container);
+	node_config.deserialize_address ("[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]:999", true, container);
+	ASSERT_EQ (container.size (), 3);
+	ASSERT_EQ (container.at (2).first, "FEDC:BA98:7654:3210:FEDC:BA98:7654:3210");
+
+	node_config.deserialize_address ("dev-peer.org", true, no_port_container);
+	node_config.deserialize_address ("1.2.3.4", true, no_port_container);
+	node_config.deserialize_address ("[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]", true, no_port_container);
+	node_config.deserialize_address ("FEDC:BA98:7654:3210:FEDC:BA98:7654:3210", true, no_port_container);
+	ASSERT_TRUE (no_port_container.empty ());
+
+	//Port not required
+	node_config.deserialize_address ("dev-peer.org", false, no_port_container);
+	node_config.deserialize_address ("1.2.3.4", false, no_port_container);
+	node_config.deserialize_address ("[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]", false, no_port_container);
+	node_config.deserialize_address ("FEDC:BA98:7654:3210:FEDC:BA98:7654:3210", false, no_port_container);
+	ASSERT_EQ (no_port_container.size (), 4);
+	ASSERT_EQ (no_port_container.at (2).first, "FEDC:BA98:7654:3210:FEDC:BA98:7654:3210");
+	ASSERT_EQ (no_port_container.at (3).first, "FEDC:BA98:7654:3210:FEDC:BA98:7654:3210");
 }
