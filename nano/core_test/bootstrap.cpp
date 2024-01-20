@@ -655,16 +655,19 @@ TEST (bootstrap_processor, push_one)
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node0 (system.add_node (config));
 	nano::keypair key1;
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work));
-	auto wallet (node1->wallets.create (nano::random_wallet_id ()));
+	auto node1 = system.make_disconnected_node ();
+	auto wallet = node1->wallets.create (nano::random_wallet_id ());
 	ASSERT_NE (nullptr, wallet);
 	wallet->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::uint128_t balance1 (node1->balance (nano::dev::genesis_key.pub));
-	auto send (wallet->send_action (nano::dev::genesis_key.pub, key1.pub, 100));
+
+	// send 100 raw from genesis to key1
+	nano::uint128_t genesis_balance = node1->balance (nano::dev::genesis_key.pub);
+	auto send = wallet->send_action (nano::dev::genesis_key.pub, key1.pub, 100);
 	ASSERT_NE (nullptr, send);
-	ASSERT_NE (balance1, node1->balance (nano::dev::genesis_key.pub));
+	ASSERT_TIMELY_EQ (5s, genesis_balance - 100, node1->balance (nano::dev::genesis_key.pub));
+
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_TIMELY (10s, node0->balance (nano::dev::genesis_key.pub) != balance1);
+	ASSERT_TIMELY_EQ (5s, node0->balance (nano::dev::genesis_key.pub), genesis_balance - 100);
 	node1->stop ();
 }
 
