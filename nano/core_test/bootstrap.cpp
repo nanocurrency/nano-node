@@ -1526,7 +1526,8 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 	node0->block_processor.add (send1);
 	node0->block_processor.add (receive1);
 	node0->block_processor.add (send2);
-	node0->block_processor.flush ();
+	nano::test::exists (*node0, { send1, receive1, send2 });
+
 	// Start wallet lazy bootstrap
 	auto node1 = system.add_node ();
 	nano::test::establish_tcp (system, *node1, node0->network.endpoint ());
