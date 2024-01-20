@@ -100,8 +100,6 @@ target_link_libraries(
   Boost::circular_buffer
   Boost::endian
   Boost::iostreams
-  Boost::log_setup
-  Boost::log
   Boost::multiprecision
   Boost::pool
   Boost::stacktrace
