@@ -582,11 +582,10 @@ TEST (bootstrap_processor, DISABLED_push_diamond_pruning)
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node0 (system.add_node (config));
 	nano::keypair key;
-	config.peering_port = system.get_available_port ();
 	config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), config, system.work, node_flags, 1));
+	auto node1 = system.make_disconnected_node (config, node_flags);
 	ASSERT_FALSE (node1->init_error ());
 	auto latest (node0->latest (nano::dev::genesis_key.pub));
 	nano::block_builder builder;
@@ -646,7 +645,6 @@ TEST (bootstrap_processor, DISABLED_push_diamond_pruning)
 	// 2nd bootstrap
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TIMELY_EQ (10s, node0->balance (nano::dev::genesis_key.pub), 100);
-	ASSERT_EQ (100, node0->balance (nano::dev::genesis_key.pub));
 	node1->stop ();
 }
 
