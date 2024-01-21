@@ -315,7 +315,7 @@ TEST (bootstrap_server, serve_multiple)
 		{
 			// Find matching response
 			auto response_it = std::find_if (all_responses.begin (), all_responses.end (), [&] (auto ack) { return ack.id == next_id; });
-			ASSERT_NE (response_it, all_responses.end ());
+			ASSERT_TRUE (response_it != all_responses.end ());
 			auto response = *response_it;
 
 			// Ensure we got response exactly for what we asked for

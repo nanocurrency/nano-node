@@ -983,7 +983,7 @@ TEST (active_transactions, fork_replacement_tally)
 	ASSERT_TIMELY_EQ (5s, count_rep_votes_in_election (), 8);
 
 	auto votes2 (election->votes ());
-	ASSERT_NE (votes2.find (nano::dev::genesis_key.pub), votes2.end ());
+	ASSERT_TRUE (votes2.find (nano::dev::genesis_key.pub) != votes2.end ());
 }
 
 namespace nano
