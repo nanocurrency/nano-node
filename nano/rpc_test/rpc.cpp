@@ -6617,7 +6617,7 @@ TEST (rpc, receive_work_disabled)
 	nano::keypair key1;
 	ASSERT_TRUE (worker_node.work_generation_enabled ());
 	auto send1 (wallet->send_action (nano::dev::genesis_key.pub, key1.pub, node->config.receive_minimum.number () - 1, *worker_node.work_generate_blocking (nano::dev::genesis->hash ()), false));
-	ASSERT_TRUE (send1 != nullptr);
+	ASSERT_NE (send1, nullptr);
 	ASSERT_TIMELY (5s, node->balance (nano::dev::genesis_key.pub) != nano::dev::constants.genesis_amount);
 	ASSERT_FALSE (node->store.account.exists (node->store.tx_begin_read (), key1.pub));
 	ASSERT_TRUE (node->store.block.exists (node->store.tx_begin_read (), send1->hash ()));

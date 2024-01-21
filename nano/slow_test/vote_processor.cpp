@@ -75,5 +75,5 @@ TEST (vote_processor, producer_consumer)
 	consumer_thread.join ();
 	monitor_thread.join ();
 
-	ASSERT_TRUE (producer_wins > consumer_wins);
+	ASSERT_GT (producer_wins, consumer_wins);
 }
