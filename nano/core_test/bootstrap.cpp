@@ -1075,10 +1075,7 @@ TEST (bootstrap_processor, lazy_max_pull_count)
 	node1->stop ();
 }
 
-// Test disabled because it's failing intermittently.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3640
-TEST (bootstrap_processor, DISABLED_lazy_unclear_state_link)
+TEST (bootstrap_processor, lazy_unclear_state_link)
 {
 	nano::test::system system;
 	nano::node_config config = system.default_config ();
@@ -1086,9 +1083,9 @@ TEST (bootstrap_processor, DISABLED_lazy_unclear_state_link)
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_legacy_bootstrap = true;
+	node_flags.disable_ascending_bootstrap = true;
 	auto node1 = system.add_node (config, node_flags);
 	nano::keypair key;
-	// Generating test chain
 
 	nano::block_builder builder;
 
@@ -1134,13 +1131,14 @@ TEST (bootstrap_processor, DISABLED_lazy_unclear_state_link)
 				   .work (*system.work.generate (open->hash ()))
 				   .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*receive).code);
+
+	ASSERT_TIMELY (5s, nano::test::exists (*node1, { send1, send2, open, receive }));
+
 	// Start lazy bootstrap with last block in chain known
 	auto node2 = system.make_disconnected_node (std::nullopt, node_flags);
 	nano::test::establish_tcp (system, *node2, node1->network.endpoint ());
 	node2->bootstrap_initiator.bootstrap_lazy (receive->hash ());
-	// Check processed blocks
-	ASSERT_TIMELY (10s, !node2->bootstrap_initiator.in_progress ());
-	ASSERT_TIMELY (5s, nano::test::block_or_pruned_all_exists (*node2, { send1, send2, open, receive }));
+	ASSERT_TIMELY (5s, nano::test::exists (*node2, { send1, send2, open, receive }));
 	ASSERT_EQ (0, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in));
 	node2->stop ();
 }
