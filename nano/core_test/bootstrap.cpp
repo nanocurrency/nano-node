@@ -515,31 +515,30 @@ TEST (bootstrap_processor, DISABLED_pull_requeue_network_error)
 	ASSERT_EQ (0, node1->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in)); // Requeue is not increasing failed attempts
 }
 
-// Test disabled because it's failing intermittently.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3558
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3559
-// CI run in which it failed: https://github.com/nanocurrency/nano-node/runs/4280675502?check_suite_focus=true#step:6:398
-TEST (bootstrap_processor, DISABLED_push_diamond)
+TEST (bootstrap_processor, push_diamond)
 {
 	nano::test::system system;
-	nano::node_config config = system.default_config ();
-	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto node0 (system.add_node (config));
 	nano::keypair key;
+
 	auto node1 = system.make_disconnected_node ();
 	auto wallet1 (node1->wallets.create (100));
 	wallet1->insert_adhoc (nano::dev::genesis_key.prv);
 	wallet1->insert_adhoc (key.prv);
+
 	nano::block_builder builder;
+
+	// send all balance from genesis to key
 	auto send1 = builder
 				 .send ()
-				 .previous (node0->latest (nano::dev::genesis_key.pub))
+				 .previous (nano::dev::genesis->hash ())
 				 .destination (key.pub)
 				 .balance (0)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (node0->latest (nano::dev::genesis_key.pub)))
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
+
+	// open key account receiving all balance of genesis
 	auto open = builder
 				.open ()
 				.source (send1->hash ())
@@ -549,6 +548,8 @@ TEST (bootstrap_processor, DISABLED_push_diamond)
 				.work (*system.work.generate (key.pub))
 				.build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
+
+	// send from key to genesis 100 raw
 	auto send2 = builder
 				 .send ()
 				 .previous (open->hash ())
@@ -558,6 +559,8 @@ TEST (bootstrap_processor, DISABLED_push_diamond)
 				 .work (*system.work.generate (open->hash ()))
 				 .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send2).code);
+
+	// receive the 100 raw on genesis
 	auto receive = builder
 				   .receive ()
 				   .previous (send1->hash ())
@@ -566,8 +569,15 @@ TEST (bootstrap_processor, DISABLED_push_diamond)
 				   .work (*system.work.generate (send1->hash ()))
 				   .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*receive).code);
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_TIMELY_EQ (5s, node0->balance (nano::dev::genesis_key.pub), 100);
+
+	nano::node_config config = system.default_config ();
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags flags;
+	flags.disable_ongoing_bootstrap = true;
+	flags.disable_ascending_bootstrap = true;
+	auto node2 = system.add_node (config, flags);
+	node1->bootstrap_initiator.bootstrap (node2->network.endpoint (), false);
+	ASSERT_TIMELY_EQ (5s, node2->balance (nano::dev::genesis_key.pub), 100);
 	node1->stop ();
 }
 
