@@ -65,7 +65,3 @@ jobs:
           git add CMakeLists.txt
           git commit -m "Update CPACK_PACKAGE_VERSION_PRE_RELEASE to 0"
           git push origin ${{ steps.check-release-branch.outputs.release-branch-name }}
-        shell: bash
-        env:
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
