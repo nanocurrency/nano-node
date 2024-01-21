@@ -645,8 +645,14 @@ TEST (node, fork_publish_inactive)
 	ASSERT_EQ (nano::process_result::fork, node.process_local (send2).value ().code);
 
 	ASSERT_TIMELY_EQ (5s, election->blocks ().size (), 2);
-	ASSERT_TRUE (election->blocks ().end () != election->blocks ().find (send1->hash ()));
-	ASSERT_TRUE (election->blocks ().end () != election->blocks ().find (send2->hash ()));
+
+	auto find_block = [&election] (nano::block_hash hash_a) -> bool {
+		auto blocks = election->blocks ();
+		return blocks.end () != blocks.find (hash_a);
+	};
+	ASSERT_TRUE (find_block (send1->hash ()));
+	ASSERT_TRUE (find_block (send2->hash ()));
+
 	ASSERT_EQ (election->winner ()->hash (), send1->hash ());
 	ASSERT_NE (election->winner ()->hash (), send2->hash ());
 }
