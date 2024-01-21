@@ -1279,13 +1279,14 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_legacy_bootstrap = true;
+	node_flags.disable_ascending_bootstrap = true;
 	node_flags.enable_pruning = true;
 	auto node1 = system.add_node (config, node_flags);
 	nano::keypair key1, key2;
-	// Generating test chain
 
 	nano::block_builder builder;
 
+	// send from genesis to key1
 	auto send1 = builder
 				 .state ()
 				 .account (nano::dev::genesis_key.pub)
@@ -1297,6 +1298,8 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	node1->process_active (send1);
+
+	// send from genesis to key2
 	auto send2 = builder
 				 .state ()
 				 .account (nano::dev::genesis_key.pub)
@@ -1308,6 +1311,8 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 				 .work (*system.work.generate (send1->hash ()))
 				 .build_shared ();
 	node1->process_active (send2);
+
+	// open account key1
 	auto open = builder
 				.open ()
 				.source (send1->hash ())
@@ -1317,6 +1322,8 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 				.work (*system.work.generate (key1.pub))
 				.build_shared ();
 	node1->process_active (open);
+
+	//  open account key2
 	auto state_open = builder
 					  .state ()
 					  .account (key2.pub)
@@ -1332,37 +1339,40 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	ASSERT_TIMELY (5s, node1->block (state_open->hash ()) != nullptr);
 	// Confirm last block to prune previous
 	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send1, send2, open, state_open }, true));
-	ASSERT_TIMELY (5s, node1->block_confirmed (send2->hash ()) && node1->block_confirmed (open->hash ()) && node1->block_confirmed (state_open->hash ()));
+	ASSERT_TIMELY (5s, nano::test::confirmed (*node1, { send2, open, state_open }));
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	ASSERT_EQ (5, node1->ledger.cache.cemented_count);
-	// Pruning action
+
+	// Pruning action, send1 should get pruned
+	ASSERT_EQ (0, node1->ledger.cache.pruned_count);
 	node1->ledger_pruning (2, false);
-	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	ASSERT_EQ (1, node1->ledger.cache.pruned_count);
-	ASSERT_TRUE (nano::test::block_or_pruned_all_exists (*node1, { send1, send2, open, state_open }));
+	ASSERT_EQ (5, node1->ledger.cache.block_count);
+	ASSERT_TRUE (node1->ledger.store.pruned.exists (node1->ledger.store.tx_begin_read (), send1->hash ()));
+	ASSERT_TRUE (nano::test::exists (*node1, { send2, open, state_open }));
+
 	// Start lazy bootstrap with last block in sender chain
 	auto node2 = system.make_disconnected_node (config, node_flags);
 	nano::test::establish_tcp (system, *node2, node1->network.endpoint ());
 	node2->bootstrap_initiator.bootstrap_lazy (send2->hash ());
+
 	// Check processed blocks
 	auto lazy_attempt (node2->bootstrap_initiator.current_lazy_attempt ());
 	ASSERT_NE (nullptr, lazy_attempt);
-	ASSERT_TIMELY (5s, lazy_attempt == nullptr || lazy_attempt->stopped || lazy_attempt->requeued_pulls >= 4);
+	ASSERT_TIMELY (5s, lazy_attempt->stopped || lazy_attempt->requeued_pulls >= 4);
+
 	// Some blocks cannot be retrieved from pruned node
-	node2->block_processor.flush ();
 	ASSERT_EQ (1, node2->ledger.cache.block_count);
 	ASSERT_TRUE (nano::test::block_or_pruned_none_exists (*node2, { send1, send2, open, state_open }));
 	{
 		auto transaction (node2->store.tx_begin_read ());
 		ASSERT_TRUE (node2->unchecked.exists (nano::unchecked_key (send2->root ().as_block_hash (), send2->hash ())));
 	}
+
 	// Insert missing block
 	node2->process_active (send1);
-	node2->block_processor.flush ();
-	ASSERT_TIMELY (5s, !node2->bootstrap_initiator.in_progress ());
-	node2->block_processor.flush ();
-	ASSERT_EQ (3, node2->ledger.cache.block_count);
-	ASSERT_TRUE (nano::test::block_or_pruned_all_exists (*node2, { send1, send2 }));
+	ASSERT_TIMELY_EQ (5s, 3, node2->ledger.cache.block_count);
+	ASSERT_TIMELY (5s, nano::test::exists (*node2, { send1, send2 }));
 	ASSERT_TRUE (nano::test::block_or_pruned_none_exists (*node2, { open, state_open }));
 	node2->stop ();
 }
