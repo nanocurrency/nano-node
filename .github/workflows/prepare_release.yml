@@ -1,4 +1,4 @@
-name:  Prepare Release
+name: Prepare Release
 on:
   workflow_dispatch:
 
@@ -37,25 +37,28 @@ jobs:
             echo "Release branch does not exist. Continuing with preparation..."
             echo "release-branch-name=${release_branch_name}" >> $GITHUB_OUTPUT
           fi
-          
+
       - name: Get default branch
         id: get-default-branch
         run: |
           DEFAULT_BRANCH=$(curl --silent --show-error --header "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/${{ github.repository }}" | jq .default_branch --raw-output)
           echo "Default branch is $DEFAULT_BRANCH"          
-          echo "default-branch=${DEFAULT_BRANCH}" >> $GITHUB_OUTPUT      
+          echo "default-branch=${DEFAULT_BRANCH}" >> $GITHUB_OUTPUT
 
       - name: Increment Major version on default branch
         run: |
           git checkout ${{ steps.get-default-branch.outputs.default-branch }}
+          NEW_BRANCH="prs/temp-increment-major-$(date +%Y%m%d%H%M%S)"          
+          git checkout -b $NEW_BRANCH
           new_version_major=$((${{ steps.fetch-versions.outputs.major }} + 1))
           sed -i.bak "s/set(CPACK_PACKAGE_VERSION_MAJOR \"[0-9]*\")/set(CPACK_PACKAGE_VERSION_MAJOR \"$new_version_major\")/g" CMakeLists.txt
           rm CMakeLists.txt.bak
           git add CMakeLists.txt
           git commit -m "Update CPACK_PACKAGE_VERSION_MAJOR to $new_version_major"
-          git push origin ${{ steps.get-default-branch.outputs.default-branch }}
-          # Reset CPACK_PACKAGE_VERSION_MAJOR to its original value for the release branch
-          git reset --hard HEAD~1 
+          git push origin $NEW_BRANCH
+          # Create pull request
+          export GH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          gh pr create --base ${{ steps.get-default-branch.outputs.default-branch }} --head $NEW_BRANCH --title "Update CPACK_PACKAGE_VERSION_MAJOR to $new_version_major" --body "Auto-generated PR to update CPACK_PACKAGE_VERSION_MAJOR"
 
       - name: Prepare release branch and set pre-release to 0
         run: |
