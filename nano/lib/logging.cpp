@@ -368,17 +368,17 @@ void nano::log_config::deserialize (nano::tomlconfig & toml)
 	if (toml.has_key ("console"))
 	{
 		auto console_config = toml.get_required_child ("console");
-		console.enable = console_config.get<bool> ("enable");
-		console.to_cerr = console_config.get<bool> ("to_cerr");
-		console.colors = console_config.get<bool> ("colors");
+		console_config.get ("enable", console.enable);
+		console_config.get ("to_cerr", console.to_cerr);
+		console_config.get ("colors", console.colors);
 	}
 
 	if (toml.has_key ("file"))
 	{
 		auto file_config = toml.get_required_child ("file");
-		file.enable = file_config.get<bool> ("enable");
-		file.max_size = file_config.get<std::size_t> ("max_size");
-		file.rotation_count = file_config.get<std::size_t> ("rotation_count");
+		file_config.get ("enable", file.enable);
+		file_config.get ("max_size", file.max_size);
+		file_config.get ("rotation_count", file.rotation_count);
 	}
 
 	if (toml.has_key ("levels"))

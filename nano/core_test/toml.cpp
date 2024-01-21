@@ -917,3 +917,92 @@ TEST (toml, tls_config_defaults)
 	ASSERT_EQ (conf.server_key_passphrase, defaults.server_key_passphrase);
 	ASSERT_EQ (conf.server_dh_path, defaults.server_dh_path);
 }
+
+TEST (toml, log_config_defaults)
+{
+	std::stringstream ss;
+
+	// A config with no values
+	ss << R"toml()toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::log_config confg{};
+	nano::log_config defaults{};
+	confg.deserialize_toml (toml);
+
+	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
+
+	ASSERT_EQ (confg.default_level, defaults.default_level);
+	ASSERT_EQ (confg.flush_level, defaults.flush_level);
+	ASSERT_EQ (confg.levels, defaults.levels);
+	ASSERT_EQ (confg.console.enable, defaults.console.enable);
+	ASSERT_EQ (confg.console.colors, defaults.console.colors);
+	ASSERT_EQ (confg.console.to_cerr, defaults.console.to_cerr);
+	ASSERT_EQ (confg.file.enable, defaults.file.enable);
+	ASSERT_EQ (confg.file.max_size, defaults.file.max_size);
+	ASSERT_EQ (confg.file.rotation_count, defaults.file.rotation_count);
+}
+
+TEST (toml, log_config_no_defaults)
+{
+	std::stringstream ss;
+
+	// A config file with values that differs from defaults
+	ss << R"toml(
+	[log]
+	default_level = "trace"
+
+	[log.console]
+	colors = false
+	enable = false
+	to_cerr = true
+
+	[log.file]
+	enable = false
+	max_size = 999
+	rotation_count = 999
+
+	[log.levels]
+	active_transactions = "trace"
+	blockprocessor = "trace"
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::log_config confg{};
+	nano::log_config defaults{};
+	confg.deserialize_toml (toml);
+
+	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
+
+	ASSERT_NE (confg.default_level, defaults.default_level);
+	ASSERT_NE (confg.levels, defaults.levels);
+	ASSERT_NE (confg.console.enable, defaults.console.enable);
+	ASSERT_NE (confg.console.colors, defaults.console.colors);
+	ASSERT_NE (confg.console.to_cerr, defaults.console.to_cerr);
+	ASSERT_NE (confg.file.enable, defaults.file.enable);
+	ASSERT_NE (confg.file.max_size, defaults.file.max_size);
+	ASSERT_NE (confg.file.rotation_count, defaults.file.rotation_count);
+}
+
+TEST (toml, log_config_no_required)
+{
+	std::stringstream ss;
+
+	// A config with no values, only categories
+	ss << R"toml(
+	[log]
+	[log.console]
+	[log.file]
+	[log.levels]
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::log_config confg{};
+	nano::log_config defaults{};
+	confg.deserialize_toml (toml);
+
+	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
+}
