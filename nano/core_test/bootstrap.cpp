@@ -1107,6 +1107,7 @@ TEST (bootstrap_processor, lazy_unclear_state_link)
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_legacy_bootstrap = true;
 	node_flags.disable_ascending_bootstrap = true;
+	node_flags.disable_ongoing_bootstrap = true;
 	auto node1 = system.add_node (config, node_flags);
 	nano::keypair key;
 
@@ -1174,6 +1175,8 @@ TEST (bootstrap_processor, lazy_unclear_state_link_not_existing)
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_legacy_bootstrap = true;
+	node_flags.disable_ascending_bootstrap = true;
+	node_flags.disable_ongoing_bootstrap = true;
 	auto node1 = system.add_node (config, node_flags);
 	nano::keypair key, key2;
 	// Generating test chain
@@ -1231,12 +1234,14 @@ TEST (bootstrap_processor, lazy_destinations)
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_legacy_bootstrap = true;
+	node_flags.disable_ascending_bootstrap = true;
+	node_flags.disable_ongoing_bootstrap = true;
 	auto node1 = system.add_node (config, node_flags);
 	nano::keypair key1, key2;
-	// Generating test chain
 
 	nano::block_builder builder;
 
+	// send Gxrb_ratio raw from genesis to key1
 	auto send1 = builder
 				 .state ()
 				 .account (nano::dev::genesis_key.pub)
@@ -1248,6 +1253,8 @@ TEST (bootstrap_processor, lazy_destinations)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
+
+	// send Gxrb_ratio raw from genesis to key2
 	auto send2 = builder
 				 .state ()
 				 .account (nano::dev::genesis_key.pub)
@@ -1259,6 +1266,8 @@ TEST (bootstrap_processor, lazy_destinations)
 				 .work (*system.work.generate (send1->hash ()))
 				 .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send2).code);
+
+	// receive send1 on key1
 	auto open = builder
 				.open ()
 				.source (send1->hash ())
@@ -1268,6 +1277,8 @@ TEST (bootstrap_processor, lazy_destinations)
 				.work (*system.work.generate (key1.pub))
 				.build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
+
+	// receive send2 on key2
 	auto state_open = builder
 					  .state ()
 					  .account (key2.pub)
@@ -1287,7 +1298,10 @@ TEST (bootstrap_processor, lazy_destinations)
 
 	// Check processed blocks
 	ASSERT_TIMELY (5s, !node2->bootstrap_initiator.in_progress ());
-	ASSERT_TRUE (nano::test::block_or_pruned_all_exists (*node2, { send1, send2, open, state_open }));
+	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (send2->hash ()));
+	ASSERT_FALSE (node2->ledger.block_or_pruned_exists (open->hash ()));
+	ASSERT_FALSE (node2->ledger.block_or_pruned_exists (state_open->hash ()));
 	node2->stop ();
 }
 
@@ -1301,6 +1315,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_legacy_bootstrap = true;
 	node_flags.disable_ascending_bootstrap = true;
+	node_flags.disable_ongoing_bootstrap = true;
 	node_flags.enable_pruning = true;
 	auto node1 = system.add_node (config, node_flags);
 	nano::keypair key1, key2;
@@ -1441,6 +1456,8 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_legacy_bootstrap = true;
+	node_flags.disable_ascending_bootstrap = true;
+	node_flags.disable_ongoing_bootstrap = true;
 	auto node0 = system.add_node (config, node_flags);
 	nano::keypair key1;
 	nano::keypair key2;
@@ -1520,6 +1537,8 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_legacy_bootstrap = true;
+	node_flags.disable_ascending_bootstrap = true;
+	node_flags.disable_ongoing_bootstrap = true;
 	auto node0 = system.add_node (config, node_flags);
 	nano::keypair key1;
 	nano::keypair key2;
