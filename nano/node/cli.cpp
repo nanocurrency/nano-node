@@ -131,8 +131,6 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 		flags_a.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
 	}
 	flags_a.disable_providing_telemetry_metrics = (vm.count ("disable_providing_telemetry_metrics") > 0);
-	flags_a.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
-	flags_a.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
 	flags_a.disable_block_processor_unchecked_deletion = (vm.count ("disable_block_processor_unchecked_deletion") > 0);
 	flags_a.enable_pruning = (vm.count ("enable_pruning") > 0);
 	flags_a.allow_bootstrap_peers_duplicates = (vm.count ("allow_bootstrap_peers_duplicates") > 0);

@@ -244,10 +244,6 @@ void nano::bootstrap_attempt_legacy::run ()
 		{
 			request_push (lock);
 		}
-		if (!stopped)
-		{
-			node->unchecked_cleanup ();
-		}
 	}
 	lock.unlock ();
 	stop ();

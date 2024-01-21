@@ -433,13 +433,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 
 				logger.info (nano::log::type::node, "************************************ ================= ************************************");
 			}
-
-			// Drop unchecked blocks if initial bootstrap is completed
-			if (!flags.disable_unchecked_drop && !use_bootstrap_weight && !flags.read_only)
-			{
-				logger.info (nano::log::type::node, "Dropping unchecked blocks...");
-				unchecked.clear ();
-			}
 		}
 
 		ledger.pruning = flags.enable_pruning || store.pruned.count (store.tx_begin_read ()) > 0;
@@ -609,13 +602,6 @@ void nano::node::start ()
 	if (!flags.disable_legacy_bootstrap && !flags.disable_ongoing_bootstrap)
 	{
 		ongoing_bootstrap ();
-	}
-	if (!flags.disable_unchecked_cleanup)
-	{
-		auto this_l (shared ());
-		workers.push_task ([this_l] () {
-			this_l->ongoing_unchecked_cleanup ();
-		});
 	}
 	if (flags.enable_pruning)
 	{
@@ -945,56 +931,6 @@ void nano::node::bootstrap_wallet ()
 	{
 		bootstrap_initiator.bootstrap_wallet (accounts);
 	}
-}
-
-void nano::node::unchecked_cleanup ()
-{
-	std::vector<nano::uint128_t> digests;
-	std::deque<nano::unchecked_key> cleaning_list;
-	auto const attempt (bootstrap_initiator.current_attempt ());
-	const bool long_attempt (attempt != nullptr && std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count () > config.unchecked_cutoff_time.count ());
-	// Collect old unchecked keys
-	if (ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks && !long_attempt)
-	{
-		auto const now (nano::seconds_since_epoch ());
-		auto const transaction (store.tx_begin_read ());
-		// Max 1M records to clean, max 2 minutes reading to prevent slow i/o systems issues
-		unchecked.for_each (
-		[this, &digests, &cleaning_list, &now] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
-			if ((now - info.modified ()) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
-			{
-				digests.push_back (network.publish_filter.hash (info.block));
-				cleaning_list.push_back (key);
-			} }, [iterations = 0, count = 1024 * 1024] () mutable { return iterations++ < count; });
-	}
-	if (!cleaning_list.empty ())
-	{
-		logger.info (nano::log::type::node, "Deleting {} old unchecked blocks", cleaning_list.size ());
-	}
-	// Delete old unchecked keys in batches
-	while (!cleaning_list.empty ())
-	{
-		std::size_t deleted_count (0);
-		while (deleted_count++ < 2 * 1024 && !cleaning_list.empty ())
-		{
-			auto key (cleaning_list.front ());
-			cleaning_list.pop_front ();
-			if (unchecked.exists (key))
-			{
-				unchecked.del (key);
-			}
-		}
-	}
-	// Delete from the duplicate filter
-	network.publish_filter.clear (digests);
-}
-
-void nano::node::ongoing_unchecked_cleanup ()
-{
-	unchecked_cleanup ();
-	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.unchecked_cleaning_interval, [this_l = shared ()] () {
-		this_l->ongoing_unchecked_cleanup ();
-	});
 }
 
 bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & pruning_targets_a, nano::account & last_account_a, uint64_t const batch_read_size_a, uint64_t const max_depth_a, uint64_t const cutoff_time_a)

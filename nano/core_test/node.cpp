@@ -3254,45 +3254,6 @@ TEST (node, peer_cache_restart)
 	}
 }
 
-TEST (node, unchecked_cleanup)
-{
-	nano::test::system system{};
-	nano::node_flags node_flags{};
-	node_flags.disable_unchecked_cleanup = true;
-	nano::keypair key{};
-	auto & node = *system.add_node (node_flags);
-	auto open = nano::state_block_builder ()
-				.account (key.pub)
-				.previous (0)
-				.representative (key.pub)
-				.balance (1)
-				.link (key.pub)
-				.sign (key.prv, key.pub)
-				.work (*system.work.generate (key.pub))
-				.build_shared ();
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream (bytes);
-		open->serialize (stream);
-	}
-	// Add to the blocks filter
-	// Should be cleared after unchecked cleanup
-	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
-	node.process_active (open);
-	// Waits for the open block to get saved in the database
-	ASSERT_TIMELY_EQ (15s, 1, node.unchecked.count ());
-	node.config.unchecked_cutoff_time = std::chrono::seconds (2);
-	ASSERT_EQ (1, node.unchecked.count ());
-	std::this_thread::sleep_for (std::chrono::seconds (1));
-	node.unchecked_cleanup ();
-	ASSERT_TRUE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
-	ASSERT_EQ (1, node.unchecked.count ());
-	std::this_thread::sleep_for (std::chrono::seconds (2));
-	node.unchecked_cleanup ();
-	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
-	ASSERT_EQ (0, node.unchecked.count ());
-}
-
 /** This checks that a node can be opened (without being blocked) when a write lock is held elsewhere */
 TEST (node, dont_write_lock_node)
 {

@@ -101,11 +101,9 @@ public:
 	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
 	void ongoing_peer_store ();
-	void ongoing_unchecked_cleanup ();
 	void backup_wallet ();
 	void search_receivable_all ();
 	void bootstrap_wallet ();
-	void unchecked_cleanup ();
 	bool collect_ledger_pruning_targets (std::deque<nano::block_hash> &, nano::account &, uint64_t const, uint64_t const, uint64_t const);
 	void ledger_pruning (uint64_t const, bool);
 	void ongoing_ledger_pruning ();
