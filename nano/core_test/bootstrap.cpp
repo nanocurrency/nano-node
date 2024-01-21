@@ -581,33 +581,36 @@ TEST (bootstrap_processor, push_diamond)
 	node1->stop ();
 }
 
-// Check that an outgoing bootstrap request can push blocks
-// Test disabled because it's failing intermittently.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3512
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3517
-TEST (bootstrap_processor, DISABLED_push_diamond_pruning)
+TEST (bootstrap_processor, push_diamond_pruning)
 {
 	nano::test::system system;
 	nano::node_config config = system.default_config ();
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto node0 (system.add_node (config));
+	nano::node_flags node_flags0;
+	node_flags0.disable_ascending_bootstrap = true;
+	node_flags0.disable_ongoing_bootstrap = true;
+	auto node0 (system.add_node (config, node_flags0));
 	nano::keypair key;
+
 	config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
 	auto node1 = system.make_disconnected_node (config, node_flags);
-	ASSERT_FALSE (node1->init_error ());
-	auto latest (node0->latest (nano::dev::genesis_key.pub));
+
 	nano::block_builder builder;
+
+	// send all balance from genesis to key
 	auto send1 = builder
 				 .send ()
-				 .previous (latest)
+				 .previous (nano::dev::genesis->hash ())
 				 .destination (key.pub)
 				 .balance (0)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (latest))
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
+
+	// receive all balance on key
 	auto open = builder
 				.open ()
 				.source (send1->hash ())
@@ -617,10 +620,15 @@ TEST (bootstrap_processor, DISABLED_push_diamond_pruning)
 				.work (*system.work.generate (key.pub))
 				.build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
+
 	// 1st bootstrap
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_TIMELY_EQ (10s, node0->balance (key.pub), nano::dev::constants.genesis_amount);
+	ASSERT_TIMELY_EQ (5s, node0->balance (key.pub), nano::dev::constants.genesis_amount);
+	ASSERT_TIMELY_EQ (5s, node1->balance (key.pub), nano::dev::constants.genesis_amount);
+
 	// Process more blocks & prune old
+
+	// send 100 raw from key to genesis
 	auto send2 = builder
 				 .send ()
 				 .previous (open->hash ())
@@ -630,6 +638,8 @@ TEST (bootstrap_processor, DISABLED_push_diamond_pruning)
 				 .work (*system.work.generate (open->hash ()))
 				 .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send2).code);
+
+	// receive the 100 raw from key on genesis
 	auto receive = builder
 				   .receive ()
 				   .previous (send1->hash ())
@@ -638,11 +648,12 @@ TEST (bootstrap_processor, DISABLED_push_diamond_pruning)
 				   .work (*system.work.generate (send1->hash ()))
 				   .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1->process (*receive).code);
+
 	{
 		auto transaction (node1->store.tx_begin_write ());
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, send1->hash (), 2));
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, open->hash (), 1));
-		ASSERT_TRUE (node1->store.block.exists (transaction, latest));
+		ASSERT_TRUE (node1->store.block.exists (transaction, nano::dev::genesis->hash ()));
 		ASSERT_FALSE (node1->store.block.exists (transaction, send1->hash ()));
 		ASSERT_TRUE (node1->store.pruned.exists (transaction, send1->hash ()));
 		ASSERT_FALSE (node1->store.block.exists (transaction, open->hash ()));
@@ -652,9 +663,11 @@ TEST (bootstrap_processor, DISABLED_push_diamond_pruning)
 		ASSERT_EQ (2, node1->ledger.cache.pruned_count);
 		ASSERT_EQ (5, node1->ledger.cache.block_count);
 	}
+
 	// 2nd bootstrap
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_TIMELY_EQ (10s, node0->balance (nano::dev::genesis_key.pub), 100);
+	ASSERT_TIMELY_EQ (5s, node0->balance (nano::dev::genesis_key.pub), 100);
+	ASSERT_TIMELY_EQ (5s, node1->balance (nano::dev::genesis_key.pub), 100);
 	node1->stop ();
 }
 
