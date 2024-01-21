@@ -399,8 +399,12 @@ namespace test
 
 	/**
 	 * \brief Debugging function to print all accounts in a ledger. Intented to be used to debug unit tests.
-	 * \param ledger
 	 */
 	void print_all_account_info (nano::node & node);
+
+	/**
+	 * \brief Debugging function to print all blocks in a node. Intented to be used to debug unit tests.
+	 */
+	void print_all_blocks (nano::node & node);
 }
 }
