@@ -75,6 +75,8 @@ struct election_extended_status final
 
 class election final : public std::enable_shared_from_this<nano::election>
 {
+	nano::id_t const id{ nano::next_id () }; // Track individual objects when tracing
+
 public:
 	enum class vote_source
 	{
