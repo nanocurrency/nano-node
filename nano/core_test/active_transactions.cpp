@@ -138,7 +138,7 @@ TEST (active_transactions, confirm_frontier)
 	node_flags2.disable_ongoing_bootstrap = true;
 	node_flags2.disable_ascending_bootstrap = true;
 	node_flags2.disable_rep_crawler = true;
-	// start node2 later so that we do get the gossip traffic
+	// start node2 later so that we do not get the gossip traffic
 	auto & node2 = *system.add_node (node_flags2);
 
 	// Add representative to disabled rep crawler
