@@ -146,7 +146,7 @@ TEST (rpc, receivable_unconfirmed)
 	request.put ("include_only_confirmed", "false");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 	ASSERT_TRUE (nano::test::start_elections (system, *node, { block1->hash () }, true));
-	ASSERT_TIMELY (5s, !node->active.active (*block1));
+	ASSERT_TIMELY (5s, nano::test::confirmed (*node, { block1 }));
 	request.put ("include_only_confirmed", "true");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 }
