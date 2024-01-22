@@ -161,7 +161,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (na
 	return composite;
 }
 
-nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stats & stats_a, bool is_final_a) :
+nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stats & stats_a, nano::logger & logger_a, bool is_final_a) :
 	config (config_a),
 	ledger (ledger_a),
 	wallets (wallets_a),
@@ -170,6 +170,7 @@ nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::
 	spacing{ config_a.network_params.voting.delay },
 	network (network_a),
 	stats (stats_a),
+	logger (logger_a),
 	is_final (is_final_a),
 	vote_generation_queue{ stats, nano::stat::type::vote_generator, nano::thread_role::name::vote_generator_queue, /* single threaded */ 1, /* max queue size */ 1024 * 32, /* max batch size */ 1024 * 4 }
 {
@@ -185,18 +186,23 @@ nano::vote_generator::~vote_generator ()
 
 bool nano::vote_generator::should_vote (store::write_transaction const & transaction, nano::root const & root_a, nano::block_hash const & hash_a)
 {
+	auto block = ledger.store.block.get (transaction, hash_a);
 	bool should_vote = false;
 	if (is_final)
 	{
-		auto block (ledger.store.block.get (transaction, hash_a));
 		should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block) && ledger.store.final_vote.put (transaction, block->qualified_root (), hash_a);
 		debug_assert (block == nullptr || root_a == block->root ());
 	}
 	else
 	{
-		auto block (ledger.store.block.get (transaction, hash_a));
 		should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block);
 	}
+
+	logger.trace (nano::log::type::vote_generator, nano::log::detail::should_vote,
+	nano::log::arg{ "should_vote", should_vote },
+	nano::log::arg{ "block", block },
+	nano::log::arg{ "is_final", is_final });
+
 	return should_vote;
 }
 

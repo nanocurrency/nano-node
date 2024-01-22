@@ -13,6 +13,8 @@
 #include <memory>
 #include <utility>
 
+#include <magic_enum.hpp>
+
 /*
  * socket
  */
@@ -351,6 +353,14 @@ nano::tcp_endpoint nano::transport::socket::local_endpoint () const
 	return local;
 }
 
+void nano::transport::socket::operator() (nano::object_stream & obs) const
+{
+	obs.write ("remote_endpoint", remote_endpoint ());
+	obs.write ("local_endpoint", local_endpoint ());
+	obs.write ("type", type_m);
+	obs.write ("endpoint_type", endpoint_type_m);
+}
+
 /*
  * write_queue
  */
@@ -458,18 +468,7 @@ std::size_t network_prefix)
 	return counted_connections;
 }
 
-std::string nano::transport::socket_type_to_string (nano::transport::socket::type_t type)
+std::string_view nano::transport::to_string (nano::transport::socket::type_t type)
 {
-	switch (type)
-	{
-		case nano::transport::socket::type_t::undefined:
-			return "undefined";
-		case nano::transport::socket::type_t::bootstrap:
-			return "bootstrap";
-		case nano::transport::socket::type_t::realtime:
-			return "realtime";
-		case nano::transport::socket::type_t::realtime_response_server:
-			return "realtime_response_server";
-	}
-	return "n/a";
+	return magic_enum::enum_name (type);
 }

@@ -255,6 +255,10 @@ nano::process_return nano::block_processor::process_one (store::write_transactio
 	result = node.ledger.process (transaction_a, *block);
 
 	node.stats.inc (nano::stat::type::blockprocessor, to_stat_detail (result.code));
+	node.logger.trace (nano::log::type::blockprocessor, nano::log::detail::block_processed,
+	nano::log::arg{ "result", result.code },
+	nano::log::arg{ "forced", forced_a },
+	nano::log::arg{ "block", block });
 
 	switch (result.code)
 	{

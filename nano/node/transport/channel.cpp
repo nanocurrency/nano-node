@@ -23,12 +23,20 @@ void nano::transport::channel::send (nano::message & message_a, std::function<vo
 	if (!is_droppable_by_limiter || should_pass)
 	{
 		node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
+		node.logger.trace (nano::log::type::channel_sent, nano::to_log_detail (message_a.type ()),
+		nano::log::arg{ "message", message_a },
+		nano::log::arg{ "channel", *this },
+		nano::log::arg{ "dropped", false });
 
 		send_buffer (buffer, callback_a, drop_policy_a, traffic_type);
 	}
 	else
 	{
 		node.stats.inc (nano::stat::type::drop, detail, nano::stat::dir::out);
+		node.logger.trace (nano::log::type::channel_sent, nano::to_log_detail (message_a.type ()),
+		nano::log::arg{ "message", message_a },
+		nano::log::arg{ "channel", *this },
+		nano::log::arg{ "dropped", true });
 
 		if (callback_a)
 		{
@@ -57,4 +65,11 @@ nano::endpoint nano::transport::channel::get_peering_endpoint () const
 		lock.unlock ();
 		return get_endpoint ();
 	}
+}
+
+void nano::transport::channel::operator() (nano::object_stream & obs) const
+{
+	obs.write ("endpoint", get_endpoint ());
+	obs.write ("peering_endpoint", get_peering_endpoint ());
+	obs.write ("node_id", get_node_id ());
 }

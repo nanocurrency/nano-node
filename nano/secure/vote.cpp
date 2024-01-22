@@ -181,3 +181,11 @@ bool nano::vote::is_final_timestamp (uint64_t timestamp)
 {
 	return timestamp == std::numeric_limits<uint64_t>::max ();
 }
+
+void nano::vote::operator() (nano::object_stream & obs) const
+{
+	obs.write ("account", account);
+	obs.write ("final", is_final_timestamp (timestamp_m));
+	obs.write ("timestamp", timestamp_m);
+	obs.write_range ("hashes", hashes);
+}

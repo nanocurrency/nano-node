@@ -1,6 +1,8 @@
 #pragma once
 
 #include <nano/lib/logging_enums.hpp>
+#include <nano/lib/object_stream.hpp>
+#include <nano/lib/object_stream_adapters.hpp>
 #include <nano/lib/tomlconfig.hpp>
 
 #include <initializer_list>
@@ -8,10 +10,24 @@
 #include <shared_mutex>
 #include <sstream>
 
+#include <fmt/ostream.h>
 #include <spdlog/spdlog.h>
 
 namespace nano::log
 {
+template <class T>
+struct arg
+{
+	std::string_view name;
+	T const & value;
+
+	arg (std::string_view name_a, T const & value_a) :
+		name{ name_a },
+		value{ value_a }
+	{
+	}
+};
+
 using logger_id = std::pair<nano::log::type, nano::log::detail>;
 
 std::string to_string (logger_id);
@@ -20,6 +36,15 @@ logger_id parse_logger_id (std::string const &);
 
 namespace nano
 {
+consteval bool is_tracing_enabled ()
+{
+#ifdef NANO_TRACING
+	return true;
+#else
+	return false;
+#endif
+}
+
 class log_config final
 {
 public:
@@ -53,6 +78,8 @@ public:
 	console_config console;
 	file_config file;
 
+	nano::log::tracing_format tracing_format{ nano::log::tracing_format::standard };
+
 public: // Predefined defaults
 	static log_config cli_default ();
 	static log_config daemon_default ();
@@ -76,7 +103,7 @@ public:
 	logger (logger const &) = delete;
 
 public:
-	static void initialize (nano::log_config fallback, std::optional<std::filesystem::path> data_path = std::nullopt, std::vector<std::string> const & config_overrides = std::vector<std::string> ());
+	static void initialize (nano::log_config fallback, std::optional<std::filesystem::path> data_path = std::nullopt, std::vector<std::string> const & config_overrides = {});
 	static void initialize_for_tests (nano::log_config fallback);
 	static void flush ();
 
@@ -85,6 +112,7 @@ private:
 	static nano::log_config global_config;
 	static std::vector<spdlog::sink_ptr> global_sinks;
 	static std::function<std::string (nano::log::logger_id, std::string identifier)> global_name_formatter;
+	static nano::object_stream_config global_tracing_config;
 
 	static void initialize_common (nano::log_config const &, std::optional<std::filesystem::path> data_path);
 
@@ -123,6 +151,28 @@ public:
 	void critical (nano::log::type type, spdlog::format_string_t<Args...> fmt, Args &&... args)
 	{
 		get_logger (type).critical (fmt, std::forward<Args> (args)...);
+	}
+
+public:
+	template <typename... Args>
+	void trace (nano::log::type type, nano::log::detail detail, Args &&... args)
+	{
+		if constexpr (is_tracing_enabled ())
+		{
+			debug_assert (detail != nano::log::detail::all);
+
+			// Include info about precise time of the event
+			auto now = std::chrono::high_resolution_clock::now ();
+			auto now_micros = std::chrono::duration_cast<std::chrono::microseconds> (now.time_since_epoch ()).count ();
+
+			// TODO: Improve code indentation config
+			auto logger = get_logger (type, detail);
+			logger.trace ("{}",
+			nano::streamed_args (global_tracing_config,
+			nano::log::arg{ "event", to_string (std::make_pair (type, detail)) },
+			nano::log::arg{ "time", now_micros },
+			std::forward<Args> (args)...));
+		}
 	}
 
 private:

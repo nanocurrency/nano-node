@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/id_dispenser.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
@@ -70,7 +71,10 @@ struct election_extended_status final
 {
 	nano::election_status status;
 	std::unordered_map<nano::account, nano::vote_info> votes;
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
 	nano::tally_t tally;
+
+	void operator() (nano::object_stream &) const;
 };
 
 class election final : public std::enable_shared_from_this<nano::election>
@@ -169,6 +173,7 @@ public: // Information
 private:
 	nano::tally_t tally_impl () const;
 	bool confirmed_locked () const;
+	nano::election_extended_status current_status_locked () const;
 	// lock_a does not own the mutex on return
 	void confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	void broadcast_block (nano::confirmation_solicitor &);
@@ -202,6 +207,9 @@ private:
 	std::chrono::steady_clock::time_point const election_start = { std::chrono::steady_clock::now () };
 
 	mutable nano::mutex mutex;
+
+public: // Logging
+	void operator() (nano::object_stream &) const;
 
 private: // Constants
 	static std::size_t constexpr max_blocks{ 10 };

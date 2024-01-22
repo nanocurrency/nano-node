@@ -24,6 +24,7 @@ enum class type
 	all = 0, // reserved
 
 	generic,
+	test,
 	init,
 	config,
 	logging,
@@ -46,7 +47,9 @@ enum class type
 	election,
 	blockprocessor,
 	network,
+	network_processed,
 	channel,
+	channel_sent,
 	socket,
 	socket_server,
 	tcp,
@@ -65,6 +68,10 @@ enum class type
 	txn_tracker,
 	gap_cache,
 	vote_processor,
+	election_scheduler,
+	vote_generator,
+
+	// bootstrap
 	bulk_pull_client,
 	bulk_pull_server,
 	bulk_pull_account_client,
@@ -84,6 +91,8 @@ enum class detail
 {
 	all = 0, // reserved
 
+	test,
+
 	// node
 	process_confirmed,
 
@@ -94,6 +103,7 @@ enum class detail
 	// election
 	election_confirmed,
 	election_expired,
+	broadcast_vote,
 
 	// blockprocessor
 	block_processed,
@@ -102,9 +112,16 @@ enum class detail
 	vote_processed,
 
 	// network
-	message_received,
+	message_processed,
 	message_sent,
 	message_dropped,
+
+	// election_scheduler
+	block_activated,
+
+	// vote_generator
+	candidate_processed,
+	should_vote,
 
 	// bulk pull/push
 	pulled_block,
@@ -113,6 +130,24 @@ enum class detail
 	sending_frontier,
 	requesting_account_or_head,
 	requesting_pending,
+
+	// message types
+	not_a_type,
+	invalid,
+	keepalive,
+	publish,
+	republish_vote,
+	confirm_req,
+	confirm_ack,
+	node_id_handshake,
+	telemetry_req,
+	telemetry_ack,
+	asc_pull_req,
+	asc_pull_ack,
+	bulk_pull,
+	bulk_push,
+	frontier_req,
+	bulk_pull_account,
 
 	_last // Must be the last enum
 };
@@ -126,6 +161,12 @@ enum class category
 	// ...
 
 	_last // Must be the last enum
+};
+
+enum class tracing_format
+{
+	standard,
+	json,
 };
 }
 
@@ -146,6 +187,10 @@ nano::log::detail parse_detail (std::string_view);
 
 std::vector<nano::log::level> const & all_levels ();
 std::vector<nano::log::type> const & all_types ();
+
+std::string_view to_string (nano::log::tracing_format);
+nano::log::tracing_format parse_tracing_format (std::string_view);
+std::vector<nano::log::tracing_format> const & all_tracing_formats ();
 }
 
 // Ensure that the enum_range is large enough to hold all values (including future ones)

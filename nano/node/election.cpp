@@ -20,6 +20,10 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 	processed = processed_a;
 }
 
+/*
+ * election
+ */
+
 nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> const & block_a, std::function<void (std::shared_ptr<nano::block> const &)> const & confirmation_action_a, std::function<void (nano::account const &)> const & live_vote_action_a, nano::election_behavior election_behavior_a) :
 	confirmation_action (confirmation_action_a),
 	live_vote_action (live_vote_action_a),
@@ -55,6 +59,11 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano
 		auto const status_l = status;
 
 		node.active.recently_confirmed.put (qualified_root, status_l.winner->hash ());
+
+		node.logger.trace (nano::log::type::election, nano::log::detail::election_confirmed,
+		nano::log::arg{ "id", id },
+		nano::log::arg{ "qualified_root", qualified_root },
+		nano::log::arg{ "status", current_status_locked () });
 
 		lock_a.unlock ();
 
@@ -251,6 +260,11 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 		// state_change returning true would indicate it
 		if (!state_change (state_m, nano::election::state_t::expired_unconfirmed))
 		{
+			node.logger.trace (nano::log::type::election, nano::log::detail::election_expired,
+			nano::log::arg{ "id", id },
+			nano::log::arg{ "qualified_root", qualified_root },
+			nano::log::arg{ "status", current_status_locked () });
+
 			result = true; // Return true to indicate this election should be cleaned up
 			status.type = nano::election_status_type::stopped;
 		}
@@ -458,6 +472,7 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 			return nano::election_vote_result (false, false);
 		}
 	}
+
 	last_votes[rep] = { std::chrono::steady_clock::now (), timestamp_a, block_hash_a };
 	if (vote_source_a == vote_source::live)
 	{
@@ -465,6 +480,15 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 	}
 
 	node.stats.inc (nano::stat::type::election, vote_source_a == vote_source::live ? nano::stat::detail::vote_new : nano::stat::detail::vote_cached);
+	node.logger.trace (nano::log::type::election, nano::log::detail::vote_processed,
+	nano::log::arg{ "id", id },
+	nano::log::arg{ "qualified_root", qualified_root },
+	nano::log::arg{ "account", rep },
+	nano::log::arg{ "hash", block_hash_a },
+	nano::log::arg{ "final", nano::vote::is_final_timestamp (timestamp_a) },
+	nano::log::arg{ "timestamp", timestamp_a },
+	nano::log::arg{ "vote_source", vote_source_a },
+	nano::log::arg{ "weight", weight });
 
 	if (!confirmed_locked ())
 	{
@@ -518,11 +542,18 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 nano::election_extended_status nano::election::current_status () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
+	return current_status_locked ();
+}
+
+nano::election_extended_status nano::election::current_status_locked () const
+{
+	debug_assert (!mutex.try_lock ());
+
 	nano::election_status status_l = status;
 	status_l.confirmation_request_count = confirmation_request_count;
 	status_l.block_count = nano::narrow_cast<decltype (status_l.block_count)> (last_blocks.size ());
 	status_l.voter_count = nano::narrow_cast<decltype (status_l.voter_count)> (last_votes.size ());
-	return nano::election_extended_status{ status_l, last_votes, tally_impl () };
+	return nano::election_extended_status{ status_l, last_votes, last_blocks, tally_impl () };
 }
 
 std::shared_ptr<nano::block> nano::election::winner () const
@@ -540,18 +571,31 @@ void nano::election::broadcast_vote_locked (nano::unique_lock<nano::mutex> & loc
 		return;
 	}
 	last_vote = std::chrono::steady_clock::now ();
+
 	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 	{
-		node.stats.inc (nano::stat::type::election, nano::stat::detail::generate_vote);
+		node.stats.inc (nano::stat::type::election, nano::stat::detail::broadcast_vote);
 
 		if (confirmed_locked () || have_quorum (tally_impl ()))
 		{
-			node.stats.inc (nano::stat::type::election, nano::stat::detail::generate_vote_final);
+			node.stats.inc (nano::stat::type::election, nano::stat::detail::broadcast_vote_final);
+			node.logger.trace (nano::log::type::election, nano::log::detail::broadcast_vote,
+			nano::log::arg{ "id", id },
+			nano::log::arg{ "qualified_root", qualified_root },
+			nano::log::arg{ "winner", status.winner },
+			nano::log::arg{ "type", "final" });
+
 			node.final_generator.add (root, status.winner->hash ()); // Broadcasts vote to the network
 		}
 		else
 		{
-			node.stats.inc (nano::stat::type::election, nano::stat::detail::generate_vote_normal);
+			node.stats.inc (nano::stat::type::election, nano::stat::detail::broadcast_vote_normal);
+			node.logger.trace (nano::log::type::election, nano::log::detail::broadcast_vote,
+			nano::log::arg{ "id", id },
+			nano::log::arg{ "qualified_root", qualified_root },
+			nano::log::arg{ "winner", status.winner },
+			nano::log::arg{ "type", "normal" });
+
 			node.generator.add (root, status.winner->hash ()); // Broadcasts vote to the network
 		}
 	}
@@ -700,4 +744,45 @@ nano::stat::detail nano::to_stat_detail (nano::election_behavior behavior)
 nano::election_behavior nano::election::behavior () const
 {
 	return behavior_m;
+}
+
+// TODO: Remove the need for .to_string () calls
+void nano::election::operator() (nano::object_stream & obs) const
+{
+	obs.write ("id", id);
+	obs.write ("qualified_root", qualified_root.to_string ());
+	obs.write ("behaviour", behavior_m);
+	obs.write ("height", height);
+	obs.write ("status", current_status ());
+}
+
+void nano::election_extended_status::operator() (nano::object_stream & obs) const
+{
+	obs.write ("winner", status.winner->hash ().to_string ());
+	obs.write ("tally_amount", status.tally.to_string_dec ());
+	obs.write ("final_tally_amount", status.final_tally.to_string_dec ());
+	obs.write ("confirmation_request_count", status.confirmation_request_count);
+	obs.write ("block_count", status.block_count);
+	obs.write ("voter_count", status.voter_count);
+	obs.write ("type", status.type);
+
+	obs.write_range ("votes", votes, [] (auto const & entry, nano::object_stream & obs) {
+		auto & [account, info] = entry;
+		obs.write ("account", account.to_account ());
+		obs.write ("hash", info.hash.to_string ());
+		obs.write ("final", nano::vote::is_final_timestamp (info.timestamp));
+		obs.write ("timestamp", info.timestamp);
+		obs.write ("time", info.time.time_since_epoch ().count ());
+	});
+
+	obs.write_range ("blocks", blocks, [] (auto const & entry) {
+		auto [hash, block] = entry;
+		return block;
+	});
+
+	obs.write_range ("tally", tally, [] (auto const & entry, nano::object_stream & obs) {
+		auto & [amount, block] = entry;
+		obs.write ("hash", block->hash ().to_string ());
+		obs.write ("amount", amount);
+	});
 }

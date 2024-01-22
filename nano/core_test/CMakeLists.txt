@@ -26,13 +26,14 @@ add_executable(
   ipc.cpp
   ledger.cpp
   locks.cpp
-  logger.cpp
+  logging.cpp
   message.cpp
   message_deserializer.cpp
   memory_pool.cpp
   network.cpp
   network_filter.cpp
   node.cpp
+  object_stream.cpp
   optimistic_scheduler.cpp
   processing_queue.cpp
   processor_service.cpp

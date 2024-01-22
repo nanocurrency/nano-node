@@ -133,6 +133,12 @@ if(NANO_STACKTRACE_BACKTRACE)
   endif()
 endif()
 
+option(NANO_TRACING "Enable trace logging" OFF)
+if(NANO_TRACING)
+  message(STATUS "Using trace logging")
+  add_compile_definitions(NANO_TRACING)
+endif()
+
 if(${NANO_TIMED_LOCKS} GREATER 0)
   add_definitions(-DNANO_TIMED_LOCKS=${NANO_TIMED_LOCKS})
   add_definitions(-DNANO_TIMED_LOCKS_FILTER=${NANO_TIMED_LOCKS_FILTER})
