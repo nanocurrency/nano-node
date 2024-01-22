@@ -898,11 +898,10 @@ TEST (active_transactions, fork_replacement_tally)
 					.build_shared ();
 		node1.process_active (fork);
 	}
-	ASSERT_TIMELY (5s, !node1.active.empty ());
 
 	// Check overflow of blocks
-	auto election = node1.active.election (send_last->qualified_root ());
-	ASSERT_NE (nullptr, election);
+	std::shared_ptr<nano::election> election;
+	ASSERT_TIMELY (5s, election = node1.active.election (send_last->qualified_root ()));
 	ASSERT_TIMELY_EQ (5s, max_blocks, election->blocks ().size ());
 
 	// Generate forks with votes to prevent new block insertion to election
