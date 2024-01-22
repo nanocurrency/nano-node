@@ -105,14 +105,6 @@ TEST (active_transactions, confirm_frontier)
 {
 	nano::test::system system;
 
-	// Voting node
-	nano::node_flags node_flags;
-	node_flags.disable_request_loop = true;
-	node_flags.disable_ongoing_bootstrap = true;
-	node_flags.disable_ascending_bootstrap = true;
-	auto & node1 = *system.add_node (node_flags);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-
 	// send 100 raw from genesis to a random account
 	nano::state_block_builder builder;
 	auto send = builder
@@ -126,6 +118,14 @@ TEST (active_transactions, confirm_frontier)
 				.build_shared ();
 
 	{
+		// Voting node
+		nano::node_flags node_flags;
+		node_flags.disable_request_loop = true;
+		node_flags.disable_ongoing_bootstrap = true;
+		node_flags.disable_ascending_bootstrap = true;
+		auto & node1 = *system.add_node (node_flags);
+		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
 		// we cannot use the same block instance on 2 different nodes, so make a copy
 		auto send_copy = builder.make_block ().from (*send).build_shared ();
 		ASSERT_TRUE (nano::test::process (node1, { send_copy }));
