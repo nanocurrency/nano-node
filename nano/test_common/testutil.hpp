@@ -351,6 +351,16 @@ namespace test
 	 */
 	bool exists (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
 	/*
+	 * Convenience function to check whether a list of hashes exists in node ledger or in the pruned table.
+	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
+	 */
+	bool block_or_pruned_exists (nano::node & node, std::vector<nano::block_hash> hashes);
+	/*
+	 * Convenience function to check whether a list of blocks exists in node ledger or their hash exists in the pruned table.
+	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
+	 */
+	bool block_or_pruned_exists (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
 	 * Convenience function to start elections for a list of hashes. Blocks are loaded from ledger.
 	 * @return true if all blocks exist and were queued to election scheduler
 	 */
