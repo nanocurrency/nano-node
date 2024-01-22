@@ -168,7 +168,7 @@ public: // Information
 
 private:
 	nano::tally_t tally_impl () const;
-	bool confirmed_locked (nano::unique_lock<nano::mutex> & lock) const;
+	bool confirmed_locked () const;
 	// lock_a does not own the mutex on return
 	void confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	void broadcast_block (nano::confirmation_solicitor &);
