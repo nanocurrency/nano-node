@@ -410,11 +410,15 @@ bool is_sanitizer_build ();
 void force_nano_dev_network ();
 
 /**
- * Attempt to read a configuration file from current working directory, or if not found, the nano root directory.
- * Returns empty tomlconfig if nothing is found.
+ * Attempt to read a configuration file from specified directory. Returns empty tomlconfig if nothing is found.
+ * @throws std::runtime_error with error code if the file or overrides are not valid toml
  */
 nano::tomlconfig load_toml_file (const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides);
 
+/**
+ * Attempt to read a configuration file from specified directory. Returns fallback config if nothing is found.
+ * @throws std::runtime_error with error code if the file or overrides are not valid toml or deserialization fails
+ */
 template <typename T>
 T load_config_file (T fallback, const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides)
 {

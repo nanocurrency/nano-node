@@ -59,24 +59,19 @@ private:
 	static std::map<logger_id_t, nano::log::level> default_levels (nano::log::level);
 };
 
-/// @throws std::runtime_error if the log config file is malformed
-nano::log_config load_log_config (nano::log_config fallback, std::filesystem::path const & data_path = {}, std::vector<std::string> const & config_overrides = std::vector<std::string> ());
-}
-
-namespace nano
-{
-spdlog::level::level_enum to_spdlog_level (nano::log::level);
+nano::log_config load_log_config (nano::log_config fallback, std::filesystem::path const & data_path, std::vector<std::string> const & config_overrides = {});
 
 class logger final
 {
 public:
-	logger (std::string identifier = "");
+	explicit logger (std::string identifier = "");
+	~logger ();
 
 	// Disallow copies
 	logger (logger const &) = delete;
 
 public:
-	static void initialize (nano::log_config fallback, std::filesystem::path data_path = {}, std::vector<std::string> const & config_overrides = std::vector<std::string> ());
+	static void initialize (nano::log_config fallback, std::optional<std::filesystem::path> data_path = std::nullopt, std::vector<std::string> const & config_overrides = std::vector<std::string> ());
 	static void initialize_for_tests (nano::log_config fallback);
 	static void flush ();
 
@@ -86,7 +81,7 @@ private:
 	static std::vector<spdlog::sink_ptr> global_sinks;
 	static std::function<std::string (nano::log::type tag, std::string identifier)> global_name_formatter;
 
-	static void initialize_common (nano::log_config const &, std::filesystem::path data_path);
+	static void initialize_common (nano::log_config const &, std::optional<std::filesystem::path> data_path);
 
 public:
 	template <class... Args>
@@ -134,7 +129,13 @@ private:
 private:
 	spdlog::logger & get_logger (nano::log::type tag);
 	std::shared_ptr<spdlog::logger> make_logger (nano::log::type tag);
+
+	static spdlog::level::level_enum to_spdlog_level (nano::log::level);
 };
 
+/**
+ * Returns a logger instance that can be used before node specific logging is available.
+ * Should only be used for logging that happens during startup and initialization, since it won't contain node specific identifier.
+ */
 nano::logger & default_logger ();
 }

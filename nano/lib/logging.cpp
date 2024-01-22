@@ -3,17 +3,11 @@
 #include <nano/lib/utility.hpp>
 
 #include <fmt/chrono.h>
-#include <spdlog/cfg/env.h>
 #include <spdlog/pattern_formatter.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/stdout_sinks.h>
-
-namespace
-{
-std::atomic<bool> logging_initialized{ false };
-}
 
 nano::logger & nano::default_logger ()
 {
@@ -34,9 +28,10 @@ std::function<std::string (nano::log::type tag, std::string identifier)> nano::l
 	return std::string{ to_string (tag) };
 } };
 
-void nano::logger::initialize (nano::log_config fallback, std::filesystem::path data_path, std::vector<std::string> const & config_overrides)
+void nano::logger::initialize (nano::log_config fallback, std::optional<std::filesystem::path> data_path, std::vector<std::string> const & config_overrides)
 {
-	auto config = nano::load_log_config (std::move (fallback), data_path, config_overrides);
+	// Only load log config from file if data_path is available (i.e. not running in cli mode)
+	nano::log_config config = data_path ? nano::load_log_config (fallback, *data_path, config_overrides) : fallback;
 	initialize_common (config, data_path);
 	global_initialized = true;
 }
@@ -97,8 +92,8 @@ public:
 
 void nano::logger::initialize_for_tests (nano::log_config fallback)
 {
-	auto config = nano::load_log_config (std::move (fallback), /* load log config from current workdir */ {});
-	initialize_common (config, /* store log file in current workdir */ {});
+	auto config = nano::load_log_config (std::move (fallback), /* load log config from current workdir */ std::filesystem::current_path ());
+	initialize_common (config, /* store log file in current workdir */ std::filesystem::current_path ());
 
 	// Use tag and identifier as the logger name, since multiple nodes may be running in the same process
 	global_name_formatter = [] (nano::log::type tag, std::string identifier) {
@@ -119,13 +114,13 @@ void nano::logger::initialize_for_tests (nano::log_config fallback)
 	global_initialized = true;
 }
 
-void nano::logger::initialize_common (nano::log_config const & config, std::filesystem::path data_path)
+// Using std::cerr here, since logging may not be initialized yet
+void nano::logger::initialize_common (nano::log_config const & config, std::optional<std::filesystem::path> data_path)
 {
 	global_config = config;
 
 	spdlog::set_automatic_registration (false);
 	spdlog::set_level (to_spdlog_level (config.default_level));
-	spdlog::cfg::load_env_levels ();
 
 	global_sinks.clear ();
 
@@ -156,13 +151,16 @@ void nano::logger::initialize_common (nano::log_config const & config, std::file
 	// File setup
 	if (config.file.enable)
 	{
+		// In cases where data_path is not available, file logging should always be disabled
+		release_assert (data_path);
+
 		auto now = std::chrono::system_clock::now ();
 		auto time = std::chrono::system_clock::to_time_t (now);
 
 		auto filename = fmt::format ("log_{:%Y-%m-%d_%H-%M}-{:%S}", fmt::localtime (time), now.time_since_epoch ());
 		std::replace (filename.begin (), filename.end (), '.', '_'); // Replace millisecond dot separator with underscore
 
-		std::filesystem::path log_path{ data_path / "log" / (filename + ".log") };
+		std::filesystem::path log_path{ data_path.value () / "log" / (filename + ".log") };
 		log_path = std::filesystem::absolute (log_path);
 
 		std::cerr << "Logging to file: " << log_path.string () << std::endl;
@@ -170,7 +168,7 @@ void nano::logger::initialize_common (nano::log_config const & config, std::file
 		// If either max_size or rotation_count is 0, then disable file rotation
 		if (config.file.max_size == 0 || config.file.rotation_count == 0)
 		{
-			// TODO: Maybe show a warning to the user about possibly unlimited log file size
+			std::cerr << "WARNING: Log file rotation is disabled, log file size may grow without bound" << std::endl;
 
 			auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt> (log_path.string (), true);
 			global_sinks.push_back (file_sink);
@@ -198,13 +196,19 @@ void nano::logger::flush ()
 nano::logger::logger (std::string identifier) :
 	identifier{ std::move (identifier) }
 {
+	release_assert (global_initialized, "logging should be initialized before creating a logger");
+}
+
+nano::logger::~logger ()
+{
+	flush ();
 }
 
 spdlog::logger & nano::logger::get_logger (nano::log::type tag)
 {
 	// This is a two-step process to avoid exclusively locking the mutex in the common case
 	{
-		std::shared_lock slock{ mutex };
+		std::shared_lock lock{ mutex };
 
 		if (auto it = spd_loggers.find (tag); it != spd_loggers.end ())
 		{
@@ -215,8 +219,8 @@ spdlog::logger & nano::logger::get_logger (nano::log::type tag)
 	{
 		std::unique_lock lock{ mutex };
 
-		auto [it2, inserted] = spd_loggers.emplace (tag, make_logger (tag));
-		return *it2->second;
+		auto [it, inserted] = spd_loggers.emplace (tag, make_logger (tag));
+		return *it->second;
 	}
 }
 
@@ -242,7 +246,7 @@ std::shared_ptr<spdlog::logger> nano::logger::make_logger (nano::log::type tag)
 	return spd_logger;
 }
 
-spdlog::level::level_enum nano::to_spdlog_level (nano::log::level level)
+spdlog::level::level_enum nano::logger::to_spdlog_level (nano::log::level level)
 {
 	switch (level)
 	{
@@ -437,6 +441,7 @@ std::map<nano::log_config::logger_id_t, nano::log::level> nano::log_config::defa
  * config loading
  */
 
+// Using std::cerr here, since logging may not be initialized yet
 nano::log_config nano::load_log_config (nano::log_config fallback, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides)
 {
 	const std::string config_filename = "config-log.toml";
