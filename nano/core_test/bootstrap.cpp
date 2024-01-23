@@ -2075,7 +2075,7 @@ TEST (bulk, genesis_pruning)
 	ASSERT_EQ (0, node1->ledger.cache.pruned_count);
 
 	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send3 }, true));
-	ASSERT_TIMELY (5s, node1->active.empty ());
+	ASSERT_TIMELY (5s, nano::test::confirmed (*node1, { send3 }));
 
 	node1->ledger_pruning (2, false);
 	ASSERT_EQ (2, node1->ledger.cache.pruned_count);
