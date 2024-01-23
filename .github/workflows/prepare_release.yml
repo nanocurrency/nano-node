@@ -59,6 +59,7 @@ jobs:
           # Create pull request
           export GH_TOKEN=${{ secrets.GITHUB_TOKEN }}
           gh pr create --base ${{ steps.get-default-branch.outputs.default-branch }} --head $NEW_BRANCH --title "Update CPACK_PACKAGE_VERSION_MAJOR to $new_version_major" --body "Auto-generated PR to update CPACK_PACKAGE_VERSION_MAJOR"
+          git reset --hard HEAD~1 
 
       - name: Prepare release branch and set pre-release to 0
         run: |
