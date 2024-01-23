@@ -820,16 +820,14 @@ TEST (node, fork_multi_flip)
 	ASSERT_NE (nullptr, election1);
 	ASSERT_EQ (1, election1->votes ().size ());
 	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (publish1.block->hash ()));
-	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (publish2.block->hash ()));
-	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (publish3.block->hash ()));
+	ASSERT_TRUE (nano::test::block_or_pruned_exists (node2, { publish2.block, publish3.block }));
 	ASSERT_TIMELY (10s, node2.ledger.block_or_pruned_exists (publish1.block->hash ()));
 	auto winner (*election1->tally ().begin ());
 	ASSERT_EQ (*publish1.block, *winner.second);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, winner.first);
 	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (publish1.block->hash ()));
 	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (publish1.block->hash ()));
-	ASSERT_FALSE (node2.ledger.block_or_pruned_exists (publish2.block->hash ()));
-	ASSERT_FALSE (node2.ledger.block_or_pruned_exists (publish3.block->hash ()));
+	ASSERT_FALSE (nano::test::block_or_pruned_exists (node2, { publish2.block, publish3.block }));
 }
 
 // Blocks that are no longer actively being voted on should be able to be evicted through bootstrapping.
@@ -4184,9 +4182,7 @@ TEST (node, pruning_automatic)
 	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
 
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (nano::dev::genesis->hash ()));
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send2->hash ()));
+	ASSERT_TRUE (nano::test::block_or_pruned_exists (node1, { nano::dev::genesis, send1, send2 }));
 }
 
 TEST (node, pruning_age)
@@ -4245,9 +4241,7 @@ TEST (node, pruning_age)
 	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
 
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (nano::dev::genesis->hash ()));
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send2->hash ()));
+	ASSERT_TRUE (nano::test::block_or_pruned_exists (node1, { nano::dev::genesis, send1, send2 }));
 }
 
 // Test that a node configured with `enable_pruning` will
@@ -4308,9 +4302,7 @@ TEST (node, pruning_depth)
 	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
 
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (nano::dev::genesis->hash ()));
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send2->hash ()));
+	ASSERT_TRUE (nano::test::block_or_pruned_exists (node1, { nano::dev::genesis, send1, send2 }));
 }
 
 TEST (node_config, node_id_private_key_persistence)
