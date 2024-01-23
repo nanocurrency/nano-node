@@ -143,6 +143,11 @@ void nano::logger::initialize_common (nano::log_config const & config, std::opti
 		}
 		else
 		{
+			if (config.console.colors)
+			{
+				std::cerr << "WARNING: Logging to cerr is enabled, console colors will be disabled" << std::endl;
+			}
+
 			auto cerr_sink = std::make_shared<spdlog::sinks::stderr_sink_mt> ();
 			global_sinks.push_back (cerr_sink);
 		}
