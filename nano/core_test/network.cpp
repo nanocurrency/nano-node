@@ -57,7 +57,8 @@ TEST (network, tcp_connection)
 TEST (network, construction_with_specified_port)
 {
 	nano::test::system system{};
-	auto const port = system.get_available_port (/* do not allow 0 port */ false);
+	auto const port = nano::test::speculatively_choose_a_free_tcp_bind_port ();
+	ASSERT_NE (port, 0);
 	auto const node = system.add_node (nano::node_config{ port });
 	EXPECT_EQ (port, node->network.port);
 	EXPECT_EQ (port, node->network.endpoint ().port ());
