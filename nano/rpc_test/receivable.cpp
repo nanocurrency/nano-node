@@ -146,7 +146,7 @@ TEST (rpc, receivable_unconfirmed)
 	request.put ("include_only_confirmed", "false");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 	ASSERT_TRUE (nano::test::start_elections (system, *node, { block1->hash () }, true));
-	ASSERT_TIMELY (5s, !node->active.active (*block1));
+	ASSERT_TIMELY (5s, nano::test::confirmed (*node, { block1 }));
 	request.put ("include_only_confirmed", "true");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 }
@@ -533,7 +533,6 @@ TEST (rpc, accounts_receivable_confirmed)
 	auto node = add_ipc_enabled_node (system, config);
 	auto chain = nano::test::setup_chain (system, *node, 1, nano::dev::genesis_key, false);
 	auto block1 = chain[0];
-	ASSERT_TIMELY (5s, !node->active.active (*block1));
 
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
@@ -550,7 +549,7 @@ TEST (rpc, accounts_receivable_confirmed)
 	request.put ("include_only_confirmed", "false");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 	ASSERT_TRUE (nano::test::start_elections (system, *node, { block1->hash () }, true));
-	ASSERT_TIMELY (5s, !node->active.active (*block1));
+	ASSERT_TIMELY (5s, nano::test::confirmed (*node, { block1 }));
 	request.put ("include_only_confirmed", "true");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 }
