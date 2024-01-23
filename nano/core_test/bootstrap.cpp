@@ -312,6 +312,7 @@ TEST (bootstrap_processor, process_one)
 	ASSERT_TIMELY (5s, node0->latest (nano::dev::genesis_key.pub) != nano::dev::genesis->hash ());
 
 	node_flags.disable_rep_crawler = true;
+	node_config.peering_port = system.get_available_port ();
 	auto node1 = system.make_disconnected_node (node_config, node_flags);
 	ASSERT_NE (node0->latest (nano::dev::genesis_key.pub), node1->latest (nano::dev::genesis_key.pub));
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
@@ -396,6 +397,7 @@ TEST (bootstrap_processor, process_new)
 	nano::keypair key2;
 
 	auto node1 = system.add_node (config, node_flags);
+	config.peering_port = system.get_available_port ();
 	auto node2 = system.add_node (config, node_flags);
 
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -483,6 +485,7 @@ TEST (bootstrap_processor, DISABLED_pull_requeue_network_error)
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	auto node1 (system.add_node (config, node_flags));
+	config.peering_port = system.get_available_port ();
 	auto node2 (system.add_node (config, node_flags));
 	nano::keypair key1;
 
@@ -595,6 +598,7 @@ TEST (bootstrap_processor, push_diamond_pruning)
 	config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
+	config.peering_port = system.get_available_port ();
 	auto node1 = system.make_disconnected_node (config, node_flags);
 
 	nano::block_builder builder;
@@ -959,6 +963,7 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	ASSERT_TRUE (nano::test::start_elections (system, *node0, blocks, true));
 	ASSERT_TIMELY (5s, nano::test::confirmed (*node0, blocks));
 
+	config.peering_port = system.get_available_port ();
 	auto node1 = system.make_disconnected_node (config, node_flags);
 
 	// Processing chain to prune for node1
@@ -1388,6 +1393,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	ASSERT_TRUE (nano::test::exists (*node1, { send2, open, state_open }));
 
 	// Start lazy bootstrap with last block in sender chain
+	config.peering_port = system.get_available_port ();
 	auto node2 = system.make_disconnected_node (config, node_flags);
 	nano::test::establish_tcp (system, *node2, node1->network.endpoint ());
 	node2->bootstrap_initiator.bootstrap_lazy (send2->hash ());
