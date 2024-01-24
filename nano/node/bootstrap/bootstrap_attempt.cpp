@@ -20,7 +20,8 @@ nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> const & 
 		id = nano::hardened_constants::get ().random_128.to_string ();
 	}
 
-	node_a->logger.always_log (boost::str (boost::format ("Starting %1% bootstrap attempt with ID %2%") % mode_text () % id));
+	node_a->logger.debug (nano::log::type::bootstrap, "Starting bootstrap attempt with ID: {} (mode: {})", mode_text (), id);
+
 	node_a->bootstrap_initiator.notify_listeners (true);
 	if (node_a->websocket.server)
 	{
@@ -36,7 +37,9 @@ nano::bootstrap_attempt::~bootstrap_attempt ()
 	{
 		return;
 	}
-	node->logger.always_log (boost::str (boost::format ("Exiting %1% bootstrap attempt with ID %2%") % mode_text () % id));
+
+	node->logger.debug (nano::log::type::bootstrap, "Exiting bootstrap attempt with ID: {} (mode: {})", mode_text (), id);
+
 	node->bootstrap_initiator.notify_listeners (false);
 	if (node->websocket.server)
 	{

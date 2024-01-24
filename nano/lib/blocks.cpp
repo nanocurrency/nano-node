@@ -11,6 +11,7 @@
 #include <bitset>
 
 #include <cryptopp/words.h>
+#include <magic_enum.hpp>
 
 /** Compare blocks, first by type, then content. This is an optimization over dynamic_cast, which is very slow on some platforms. */
 namespace
@@ -1863,4 +1864,9 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_typ
 	}
 
 	return result;
+}
+
+std::string_view nano::to_string (nano::block_type type)
+{
+	return magic_enum::enum_name (type);
 }

@@ -17,9 +17,6 @@ namespace nano
 {
 class stats;
 
-// map of vote weight per block, ordered greater first
-using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::greater<nano::uint128_t>>;
-
 class uncemented_info
 {
 public:

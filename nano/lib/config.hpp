@@ -1,5 +1,7 @@
 #pragma once
 
+#include <nano/lib/tomlconfig.hpp>
+
 #include <boost/config.hpp>
 #include <boost/version.hpp>
 
@@ -126,6 +128,8 @@ enum class networks : uint16_t
 	// Normal work parameters, secret test genesis key, test IP ports
 	nano_test_network = 0x5258, // 'R', 'X'
 };
+
+std::string_view to_string (nano::networks);
 
 enum class work_version
 {
@@ -404,4 +408,28 @@ bool is_sanitizer_build ();
 
 /** Set the active network to the dev network */
 void force_nano_dev_network ();
+
+/**
+ * Attempt to read a configuration file from specified directory. Returns empty tomlconfig if nothing is found.
+ * @throws std::runtime_error with error code if the file or overrides are not valid toml
+ */
+nano::tomlconfig load_toml_file (const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides);
+
+/**
+ * Attempt to read a configuration file from specified directory. Returns fallback config if nothing is found.
+ * @throws std::runtime_error with error code if the file or overrides are not valid toml or deserialization fails
+ */
+template <typename T>
+T load_config_file (T fallback, const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides)
+{
+	auto toml = load_toml_file (config_filename, data_path, config_overrides);
+
+	T config = fallback;
+	auto error = config.deserialize_toml (toml);
+	if (error)
+	{
+		throw std::runtime_error (error.get_message ());
+	}
+	return config;
+}
 }

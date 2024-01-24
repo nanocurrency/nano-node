@@ -67,6 +67,11 @@ public:
 		return strand;
 	}
 
+	socket_type & get_socket () override
+	{
+		return ws.next_layer ();
+	}
+
 	void close (boost::beast::websocket::close_reason const & reason_a, boost::system::error_code & ec_a) override
 	{
 		ws.close (reason_a, ec_a);
@@ -103,6 +108,11 @@ nano::websocket::stream::stream (socket_type socket_a)
 [[nodiscard]] boost::asio::strand<boost::asio::io_context::executor_type> & nano::websocket::stream::get_strand ()
 {
 	return impl->get_strand ();
+}
+
+[[nodiscard]] socket_type & nano::websocket::stream::get_socket ()
+{
+	return impl->get_socket ();
 }
 
 void nano::websocket::stream::handshake (std::function<void (boost::system::error_code const & ec)> callback_a)

@@ -132,7 +132,6 @@ nano::test::system::system ()
 	{
 		deadline_scaling_factor = std::stod (scale_str);
 	}
-	logging.init (nano::unique_path ());
 }
 
 nano::test::system::system (uint16_t count_a, nano::transport::transport_type type_a, nano::node_flags flags_a) :
@@ -563,7 +562,7 @@ void nano::test::system::stop ()
 
 nano::node_config nano::test::system::default_config ()
 {
-	nano::node_config config{ get_available_port (), logging };
+	nano::node_config config{ get_available_port () };
 	return config;
 }
 
@@ -619,10 +618,9 @@ uint16_t nano::test::system::get_available_port (bool can_be_zero)
 	}
 }
 
+// Makes sure everything is cleaned up
 void nano::test::cleanup_dev_directories_on_exit ()
 {
-	// Makes sure everything is cleaned up
-	nano::logging::release_file_sink ();
 	// Clean up tmp directories created by the tests. Since it's sometimes useful to
 	// see log files after test failures, an environment variable is supported to
 	// retain the files.

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/node/blocking_observer.hpp>
 #include <nano/secure/common.hpp>
 

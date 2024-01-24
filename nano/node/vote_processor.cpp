@@ -1,4 +1,4 @@
-#include <nano/lib/logger_mt.hpp>
+
 #include <nano/lib/stats.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/active_transactions.hpp>
@@ -15,7 +15,7 @@
 #include <chrono>
 using namespace std::chrono_literals;
 
-nano::vote_processor::vote_processor (nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
+nano::vote_processor::vote_processor (nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
 	active (active_a),
 	observers (observers_a),
 	stats (stats_a),
@@ -62,7 +62,8 @@ void nano::vote_processor::process_loop ()
 			condition.notify_all ();
 
 			log_this_iteration = false;
-			if (config.logging.network_logging () && votes_l.size () > 50)
+			// TODO: This is a temporary measure to prevent spamming the logs until we can implement a better solution
+			if (votes_l.size () > 1024 * 4)
 			{
 				/*
 				 * Only log the timing information for this iteration if
@@ -76,8 +77,12 @@ void nano::vote_processor::process_loop ()
 
 			if (log_this_iteration && elapsed.stop () > std::chrono::milliseconds (100))
 			{
-				logger.try_log (boost::str (boost::format ("Processed %1% votes in %2% milliseconds (rate of %3% votes per second)") % votes_l.size () % elapsed.value ().count () % ((votes_l.size () * 1000ULL) / elapsed.value ().count ())));
+				logger.debug (nano::log::type::vote_processor, "Processed {} votes in {} milliseconds (rate of {} votes per second)",
+				votes_l.size (),
+				elapsed.value ().count (),
+				((votes_l.size () * 1000ULL) / elapsed.value ().count ()));
 			}
+
 			lock.lock ();
 		}
 		else
@@ -168,10 +173,7 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_indeterminate);
 			break;
 	}
-	if (config.logging.vote_logging ())
-	{
-		logger.try_log (boost::str (boost::format ("Vote from: %1% timestamp: %2% duration %3%ms block(s): %4% status: %5%") % vote_a->account.to_account () % std::to_string (vote_a->timestamp ()) % std::to_string (vote_a->duration ().count ()) % vote_a->hashes_string () % status));
-	}
+
 	return result;
 }
 
@@ -197,7 +199,7 @@ void nano::vote_processor::flush ()
 	});
 	if (!success)
 	{
-		logger.always_log ("WARNING: vote_processor::flush timeout while waiting for flush");
+		logger.error (nano::log::type::vote_processor, "Flush timeout");
 		debug_assert (false && "vote_processor::flush timeout while waiting for flush");
 	}
 }

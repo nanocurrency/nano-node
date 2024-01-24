@@ -21,15 +21,14 @@ std::string const default_test_peer_network = nano::get_env_or_default ("NANO_DE
 }
 
 nano::node_config::node_config (nano::network_params & network_params) :
-	node_config (std::nullopt, nano::logging (), network_params)
+	node_config (std::nullopt, network_params)
 {
 }
 
-nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, nano::logging const & logging_a, nano::network_params & network_params) :
+nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, nano::network_params & network_params) :
 	network_params{ network_params },
 	peering_port{ peering_port_a },
 	hinted_scheduler{ network_params.network },
-	logging{ logging_a },
 	websocket_config{ network_params.network },
 	ipc_config{ network_params.network },
 	external_address{ boost::asio::ip::address_v6{}.to_string () }
@@ -168,10 +167,6 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	callback_l.put ("target", callback_target, "Callback target path.\ntype:string,uri");
 	toml.put_child ("httpcallback", callback_l);
 
-	nano::tomlconfig logging_l;
-	logging.serialize_toml (logging_l);
-	toml.put_child ("logging", logging_l);
-
 	nano::tomlconfig websocket_l;
 	websocket_config.serialize_toml (websocket_l);
 	toml.put_child ("websocket", websocket_l);
@@ -221,12 +216,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			callback_l.get<std::string> ("address", callback_address);
 			callback_l.get<uint16_t> ("port", callback_port);
 			callback_l.get<std::string> ("target", callback_target);
-		}
-
-		if (toml.has_key ("logging"))
-		{
-			auto logging_l (toml.get_required_child ("logging"));
-			logging.deserialize_toml (logging_l);
 		}
 
 		if (toml.has_key ("websocket"))

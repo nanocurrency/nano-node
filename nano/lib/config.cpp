@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/logging.hpp>
 
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
@@ -354,4 +355,61 @@ uint32_t nano::test_scan_wallet_reps_delay ()
 {
 	auto test_env = nano::get_env_or_default ("NANO_TEST_WALLET_SCAN_REPS_DELAY", "900000"); // 15 minutes by default
 	return boost::lexical_cast<uint32_t> (test_env);
+}
+
+std::string_view nano::to_string (nano::networks network)
+{
+	switch (network)
+	{
+		case nano::networks::invalid:
+			return "invalid";
+		case nano::networks::nano_beta_network:
+			return "beta";
+		case nano::networks::nano_dev_network:
+			return "dev";
+		case nano::networks::nano_live_network:
+			return "live";
+		case nano::networks::nano_test_network:
+			return "test";
+			// default case intentionally omitted to cause warnings for unhandled enums
+	}
+
+	return "n/a";
+}
+
+// Using std::cerr here, since logging may not be initialized yet
+nano::tomlconfig nano::load_toml_file (const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides)
+{
+	std::stringstream config_overrides_stream;
+	for (auto const & entry : config_overrides)
+	{
+		config_overrides_stream << entry << std::endl;
+	}
+	config_overrides_stream << std::endl;
+
+	// Make sure we don't create an empty toml file if it doesn't exist. Running without a toml file is the default.
+	auto toml_config_path = data_path / config_filename;
+	if (std::filesystem::exists (toml_config_path))
+	{
+		nano::tomlconfig toml;
+		auto error = toml.read (config_overrides_stream, toml_config_path);
+		if (error)
+		{
+			throw std::runtime_error (error.get_message ());
+		}
+		std::cerr << "Config file `" << config_filename.string () << "` loaded from node data directory: " << toml_config_path.string () << std::endl;
+		return toml;
+	}
+	else
+	{
+		// If no config was found, return an empty config with overrides applied
+		nano::tomlconfig toml;
+		auto error = toml.read (config_overrides_stream);
+		if (error)
+		{
+			throw std::runtime_error (error.get_message ());
+		}
+		std::cerr << "Config file `" << config_filename.string () << "` not found, using default configuration" << std::endl;
+		return toml;
+	}
 }

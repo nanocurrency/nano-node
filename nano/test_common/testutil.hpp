@@ -7,8 +7,6 @@
 #include <gtest/gtest.h>
 
 #include <boost/iostreams/concepts.hpp>
-#include <boost/log/sinks/text_ostream_backend.hpp>
-#include <boost/log/utility/setup/console.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include <atomic>
@@ -135,54 +133,6 @@ extern nano::uint128_t const & genesis_amount;
 namespace test
 {
 	class system;
-
-	class stringstream_mt_sink : public boost::iostreams::sink
-	{
-	public:
-		stringstream_mt_sink () = default;
-		stringstream_mt_sink (stringstream_mt_sink const & sink)
-		{
-			nano::lock_guard<nano::mutex> guard{ mutex };
-			ss << sink.ss.str ();
-		}
-
-		std::streamsize write (char const * string_to_write, std::streamsize size)
-		{
-			nano::lock_guard<nano::mutex> guard{ mutex };
-			ss << std::string (string_to_write, size);
-			return size;
-		}
-
-		std::string str ()
-		{
-			nano::lock_guard<nano::mutex> guard{ mutex };
-			return ss.str ();
-		}
-
-	private:
-		mutable nano::mutex mutex;
-		std::stringstream ss;
-	};
-
-	class boost_log_cerr_redirect
-	{
-	public:
-		boost_log_cerr_redirect (std::streambuf * new_buffer) :
-			old (std::cerr.rdbuf (new_buffer))
-		{
-			console_sink = (boost::log::add_console_log (std::cerr, boost::log::keywords::format = "%Message%"));
-		}
-
-		~boost_log_cerr_redirect ()
-		{
-			std::cerr.rdbuf (old);
-			boost::log::core::get ()->remove_sink (console_sink);
-		}
-
-	private:
-		std::streambuf * old;
-		boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_ostream_backend>> console_sink;
-	};
 
 	class cout_redirect
 	{
