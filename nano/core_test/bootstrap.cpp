@@ -1126,7 +1126,7 @@ TEST (bootstrap_processor, DISABLED_lazy_unclear_state_link)
 	node2->bootstrap_initiator.bootstrap_lazy (receive->hash ());
 	// Check processed blocks
 	ASSERT_TIMELY (10s, !node2->bootstrap_initiator.in_progress ());
-	ASSERT_TIMELY (5s, nano::test::block_or_pruned_exists (*node2, { send1, send2, open, receive }));
+	ASSERT_TIMELY (5s, nano::test::block_or_pruned_all_exists (*node2, { send1, send2, open, receive }));
 	ASSERT_EQ (0, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in));
 }
 
@@ -1182,7 +1182,7 @@ TEST (bootstrap_processor, lazy_unclear_state_link_not_existing)
 	node2->bootstrap_initiator.bootstrap_lazy (send2->hash ());
 	// Check processed blocks
 	ASSERT_TIMELY (15s, !node2->bootstrap_initiator.in_progress ());
-	ASSERT_TIMELY (15s, nano::test::block_or_pruned_exists (*node2, { send1, open, send2 }));
+	ASSERT_TIMELY (15s, nano::test::block_or_pruned_all_exists (*node2, { send1, open, send2 }));
 	ASSERT_EQ (1, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in));
 }
 
@@ -1249,7 +1249,7 @@ TEST (bootstrap_processor, DISABLED_lazy_destinations)
 	node2->bootstrap_initiator.bootstrap_lazy (send2->hash ());
 	// Check processed blocks
 	ASSERT_TIMELY (10s, !node2->bootstrap_initiator.in_progress ());
-	ASSERT_TRUE (nano::test::block_or_pruned_exists (*node2, { send1, send2, open, state_open }));
+	ASSERT_TRUE (nano::test::block_or_pruned_all_exists (*node2, { send1, send2, open, state_open }));
 }
 
 TEST (bootstrap_processor, lazy_pruning_missing_block)
@@ -1321,7 +1321,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	node1->ledger_pruning (2, false, false);
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	ASSERT_EQ (1, node1->ledger.cache.pruned_count);
-	ASSERT_TRUE (nano::test::block_or_pruned_exists (*node1, { send1, send2, open, state_open }));
+	ASSERT_TRUE (nano::test::block_or_pruned_all_exists (*node1, { send1, send2, open, state_open }));
 	// Start lazy bootstrap with last block in sender chain
 	config.peering_port = system.get_available_port ();
 	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), config, system.work, node_flags, 1));
@@ -1334,7 +1334,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	// Some blocks cannot be retrieved from pruned node
 	node2->block_processor.flush ();
 	ASSERT_EQ (1, node2->ledger.cache.block_count);
-	ASSERT_FALSE (nano::test::block_or_pruned_exists (*node2, { send1, send2, open, state_open }));
+	ASSERT_TRUE (nano::test::block_or_pruned_none_exists (*node2, { send1, send2, open, state_open }));
 	{
 		auto transaction (node2->store.tx_begin_read ());
 		ASSERT_TRUE (node2->unchecked.exists (nano::unchecked_key (send2->root ().as_block_hash (), send2->hash ())));
@@ -1345,8 +1345,8 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	ASSERT_TIMELY (5s, !node2->bootstrap_initiator.in_progress ());
 	node2->block_processor.flush ();
 	ASSERT_EQ (3, node2->ledger.cache.block_count);
-	ASSERT_TRUE (nano::test::block_or_pruned_exists (*node2, { send1, send2 }));
-	ASSERT_FALSE (nano::test::block_or_pruned_exists (*node2, { open, state_open }));
+	ASSERT_TRUE (nano::test::block_or_pruned_all_exists (*node2, { send1, send2 }));
+	ASSERT_TRUE (nano::test::block_or_pruned_none_exists (*node2, { open, state_open }));
 	node2->stop ();
 }
 
@@ -2018,7 +2018,7 @@ TEST (bulk, DISABLED_genesis_pruning)
 	node1->ledger_pruning (2, false, false);
 	ASSERT_EQ (2, node1->ledger.cache.pruned_count);
 	ASSERT_EQ (4, node1->ledger.cache.block_count);
-	ASSERT_TRUE (nano::test::block_or_pruned_exists (*node2, { send1, send2, send3 }));
+	ASSERT_TRUE (nano::test::block_or_pruned_all_exists (*node2, { send1, send2, send3 }));
 	// Bootstrap with missing blocks for node2
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
 	node2->network.merge_peer (node1->network.endpoint ());
