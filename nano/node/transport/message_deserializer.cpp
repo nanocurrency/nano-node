@@ -444,10 +444,10 @@ nano::stat::detail nano::to_stat_detail (nano::transport::message_deserializer::
 			return stat::detail::outdated_version;
 			break;
 		case parse_status::duplicate_publish_message:
-			return stat::detail::duplicate_publish;
+			return stat::detail::duplicate_publish_message;
 			break;
 		case parse_status::message_size_too_big:
-			return stat::detail::message_too_big;
+			return stat::detail::message_size_too_big;
 			break;
 	}
 	return {};

@@ -407,7 +407,7 @@ void nano::transport::tcp_server::received_message (std::unique_ptr<nano::messag
 		node->stats.inc (nano::stat::type::error, nano::to_stat_detail (message_deserializer->status));
 		if (message_deserializer->status == transport::message_deserializer::parse_status::duplicate_publish_message)
 		{
-			node->stats.inc (nano::stat::type::filter, nano::stat::detail::duplicate_publish);
+			node->stats.inc (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message);
 		}
 		else
 		{
