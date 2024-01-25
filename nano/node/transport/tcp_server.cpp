@@ -431,7 +431,7 @@ bool nano::transport::tcp_server::process_message (std::unique_ptr<nano::message
 	{
 		return false;
 	}
-	node->stats.inc (nano::stat::type::tcp_server, nano::to_stat_detail (message->header.type), nano::stat::dir::in);
+	node->stats.inc (nano::stat::type::tcp_server, to_stat_detail (message->header.type), nano::stat::dir::in);
 
 	debug_assert (is_undefined_connection () || is_realtime_connection () || is_bootstrap_connection ());
 

@@ -468,7 +468,7 @@ private:
 
 void nano::network::process_message (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel)
 {
-	node.stats.inc (nano::stat::type::message, nano::to_stat_detail (message.header.type), nano::stat::dir::in);
+	node.stats.inc (nano::stat::type::message, to_stat_detail (message.header.type), nano::stat::dir::in);
 
 	network_message_visitor visitor{ node, channel };
 	message.visit (visitor);
