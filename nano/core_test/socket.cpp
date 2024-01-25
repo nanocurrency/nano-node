@@ -572,6 +572,11 @@ TEST (socket, concurrent_writes)
  *   set timeout to one second
  *   do a tcp connect that will block for at least a few seconds at the tcp level
  *   check that the connect returns error and that the correct counters have been incremented
+ *
+ *   NOTE: it is possible that the O/S has tried to access the IP address 10.255.254.253 before
+ *   and has it marked in the routing table as unroutable. In that case this test case will fail.
+ *   If this test is run repeadetly the tests fails for this reason because the connection fails
+ *   with "No route to host" error instead of a timeout.
  */
 TEST (socket_timeout, connect)
 {
@@ -603,6 +608,8 @@ TEST (socket_timeout, connect)
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_connect_error, nano::stat::dir::in));
 
 	// check that the socket was closed due to tcp_io_timeout timeout
+	// NOTE: this assert is not guaranteed to be always true, it is only likely that it will be true, we can also get "No route to host"
+	// if this test is run repeatedly or in parallel then it is guaranteed to fail due to "No route to host" instead of timeout
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, nano::stat::dir::out));
 }
 
