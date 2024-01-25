@@ -76,6 +76,8 @@ enum class type
 	bootstrap,
 	bootstrap_lazy,
 	bootstrap_legacy,
+
+	_last // Must be the last enum
 };
 
 enum class detail
@@ -112,6 +114,7 @@ enum class detail
 	requesting_account_or_head,
 	requesting_pending,
 
+	_last // Must be the last enum
 };
 
 // TODO: Additionally categorize logs by categories which can be enabled/disabled independently
@@ -121,6 +124,8 @@ enum class category
 
 	work_generation,
 	// ...
+
+	_last // Must be the last enum
 };
 }
 

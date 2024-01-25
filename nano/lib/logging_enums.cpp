@@ -21,12 +21,7 @@ std::string_view nano::log::to_string (nano::log::level level)
 const std::vector<nano::log::level> & nano::log::all_levels ()
 {
 	static std::vector<nano::log::level> all = [] () {
-		std::vector<nano::log::level> result;
-		for (auto const & lvl : magic_enum::enum_values<nano::log::level> ())
-		{
-			result.push_back (lvl);
-		}
-		return result;
+		return nano::util::enum_values<nano::log::level> ();
 	}();
 	return all;
 }
@@ -34,19 +29,14 @@ const std::vector<nano::log::level> & nano::log::all_levels ()
 const std::vector<nano::log::type> & nano::log::all_types ()
 {
 	static std::vector<nano::log::type> all = [] () {
-		std::vector<nano::log::type> result;
-		for (auto const & lvl : magic_enum::enum_values<nano::log::type> ())
-		{
-			result.push_back (lvl);
-		}
-		return result;
+		return nano::util::enum_values<nano::log::type> ();
 	}();
 	return all;
 }
 
 nano::log::level nano::log::parse_level (std::string_view name)
 {
-	auto value = magic_enum::enum_cast<nano::log::level> (name);
+	auto value = nano::util::parse_enum<nano::log::level> (name);
 	if (value.has_value ())
 	{
 		return value.value ();
@@ -63,7 +53,7 @@ nano::log::level nano::log::parse_level (std::string_view name)
 
 nano::log::type nano::log::parse_type (std::string_view name)
 {
-	auto value = magic_enum::enum_cast<nano::log::type> (name);
+	auto value = nano::util::parse_enum<nano::log::type> (name);
 	if (value.has_value ())
 	{
 		return value.value ();
@@ -76,7 +66,7 @@ nano::log::type nano::log::parse_type (std::string_view name)
 
 nano::log::detail nano::log::parse_detail (std::string_view name)
 {
-	auto value = magic_enum::enum_cast<nano::log::detail> (name);
+	auto value = nano::util::parse_enum<nano::log::detail> (name);
 	if (value.has_value ())
 	{
 		return value.value ();
