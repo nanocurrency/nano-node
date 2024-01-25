@@ -566,56 +566,27 @@ nano::node_config nano::test::system::default_config ()
 	return config;
 }
 
-uint16_t nano::test::system::get_available_port (bool can_be_zero)
+uint16_t nano::test::system::get_available_port ()
 {
 	auto base_port_str = std::getenv ("NANO_TEST_BASE_PORT");
-	if (base_port_str)
-	{
-		// Maximum possible sockets which may feasibly be used in 1 test
-		constexpr auto max = 200;
-		static uint16_t current = 0;
-		// Read the TEST_BASE_PORT environment and override the default base port if it exists
-		uint16_t base_port = boost::lexical_cast<uint16_t> (base_port_str);
+	if (!base_port_str)
+		return 0; // let the O/S decide
 
-		uint16_t const available_port = base_port + current;
-		++current;
-		// Reset port number once we have reached the maximum
-		if (current == max)
-		{
-			current = 0;
-		}
+	// Maximum possible sockets which may feasibly be used in 1 test
+	constexpr auto max = 200;
+	static uint16_t current = 0;
 
-		return available_port;
-	}
-	else
-	{
-		if (!can_be_zero)
-		{
-			/*
-			 * This works because the kernel doesn't seem to reuse port numbers until it absolutely has to.
-			 * Subsequent binds to port 0 will allocate a different port number.
-			 */
-			boost::asio::ip::tcp::acceptor acceptor{ io_ctx };
-			boost::asio::ip::tcp::tcp::endpoint endpoint{ boost::asio::ip::tcp::v4 (), 0 };
-			acceptor.open (endpoint.protocol ());
+	// Read the TEST_BASE_PORT environment and override the default base port if it exists
+	uint16_t base_port = boost::lexical_cast<uint16_t> (base_port_str);
 
-			boost::asio::socket_base::reuse_address option{ true };
-			acceptor.set_option (option); // set SO_REUSEADDR option
+	uint16_t const available_port = base_port + current;
+	++current;
 
-			acceptor.bind (endpoint);
+	// Reset port number once we have reached the maximum
+	if (current >= max)
+		current = 0;
 
-			auto actual_endpoint = acceptor.local_endpoint ();
-			auto port = actual_endpoint.port ();
-
-			acceptor.close ();
-
-			return port;
-		}
-		else
-		{
-			return 0;
-		}
-	}
+	return available_port;
 }
 
 // Makes sure everything is cleaned up
