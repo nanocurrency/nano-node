@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <string_view>
 
+#include <magic_enum.hpp>
+
 namespace nano::stat
 {
 /** Primary statistics type */
@@ -319,3 +321,19 @@ std::string_view to_string (stat::type);
 std::string_view to_string (stat::detail);
 std::string_view to_string (stat::dir);
 }
+
+// Ensure that the enum_range is large enough to hold all values (including future ones)
+template <>
+struct magic_enum::customize::enum_range<nano::stat::type>
+{
+	static constexpr int min = 0;
+	static constexpr int max = 128;
+};
+
+// Ensure that the enum_range is large enough to hold all values (including future ones)
+template <>
+struct magic_enum::customize::enum_range<nano::stat::detail>
+{
+	static constexpr int min = 0;
+	static constexpr int max = 512;
+};
