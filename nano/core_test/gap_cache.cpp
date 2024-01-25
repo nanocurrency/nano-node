@@ -163,7 +163,6 @@ TEST (gap_cache, two_dependencies)
 	node1.block_processor.flush ();
 	ASSERT_EQ (2, node1.gap_cache.size ());
 	node1.block_processor.add (send1);
-	node1.block_processor.flush ();
 	ASSERT_TIMELY_EQ (5s, node1.gap_cache.size (), 0);
 	ASSERT_TIMELY (5s, node1.store.block.exists (node1.store.tx_begin_read (), send1->hash ()));
 	ASSERT_TIMELY (5s, node1.store.block.exists (node1.store.tx_begin_read (), send2->hash ()));

@@ -61,8 +61,7 @@ TEST (confirmation_height, single)
 		ASSERT_EQ (nano::dev::genesis->hash (), confirmation_height_info.frontier);
 
 		node->process_active (send1);
-		node->block_processor.flush ();
-
+		ASSERT_TIMELY (5s, nano::test::exists (*node, { send1 }));
 		ASSERT_TIMELY_EQ (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out), 1);
 
 		{
@@ -538,7 +537,6 @@ TEST (confirmation_height, gap_live)
 
 		// Now complete the chain where the block comes in on the live network
 		node->process_active (open1);
-		node->block_processor.flush ();
 
 		ASSERT_TIMELY_EQ (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out), 6);
 
@@ -1220,7 +1218,6 @@ TEST (confirmation_height, observers)
 		add_callback_stats (*node1);
 
 		node1->process_active (send1);
-		node1->block_processor.flush ();
 		ASSERT_TIMELY_EQ (10s, node1->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out), 1);
 		auto transaction = node1->store.tx_begin_read ();
 		ASSERT_TRUE (node1->ledger.block_confirmed (transaction, send1->hash ()));
