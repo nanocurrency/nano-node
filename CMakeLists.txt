@@ -526,7 +526,7 @@ add_subdirectory(submodules/rocksdb EXCLUDE_FROM_ALL)
 include_directories(submodules/cpptoml/include)
 
 # magic_enum
-include_directories(submodules/magic_enum/include)
+include_directories(submodules/magic_enum/include/magic_enum)
 
 add_subdirectory(crypto/ed25519-donna)
 
