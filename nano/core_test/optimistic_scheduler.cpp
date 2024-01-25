@@ -30,7 +30,7 @@ TEST (optimistic_scheduler, activate_one)
 	// Ensure unconfirmed account head block gets activated
 	auto const & block = blocks.back ();
 	ASSERT_TIMELY (5s, node.active.active (block->hash ()));
-	ASSERT_TRUE (node.active.election (block->qualified_root ())->behavior () == nano::election_behavior::optimistic);
+	ASSERT_EQ (node.active.election (block->qualified_root ())->behavior (), nano::election_behavior::optimistic);
 }
 
 /*
@@ -51,7 +51,7 @@ TEST (optimistic_scheduler, activate_one_zero_conf)
 	// Ensure unconfirmed account head block gets activated
 	auto const & block = blocks.back ();
 	ASSERT_TIMELY (5s, node.active.active (block->hash ()));
-	ASSERT_TRUE (node.active.election (block->qualified_root ())->behavior () == nano::election_behavior::optimistic);
+	ASSERT_EQ (node.active.election (block->qualified_root ())->behavior (), nano::election_behavior::optimistic);
 }
 
 /*

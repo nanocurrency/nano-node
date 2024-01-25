@@ -1,3 +1,4 @@
+#include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/election.hpp>
@@ -817,7 +818,7 @@ TEST (ledger, representation)
 
 TEST (ledger, double_open)
 {
-	nano::logger_mt logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stats stats;
@@ -2332,13 +2333,13 @@ TEST (ledger, block_destination_source)
 	ASSERT_TRUE (ledger.block_source (transaction, *block1).is_zero ());
 	ASSERT_EQ (nano::dev::genesis->account (), ledger.block_destination (transaction, *block2));
 	ASSERT_TRUE (ledger.block_source (transaction, *block2).is_zero ());
-	ASSERT_TRUE (ledger.block_destination (transaction, *block3) == nullptr);
+	ASSERT_EQ (ledger.block_destination (transaction, *block3), nullptr);
 	ASSERT_EQ (block2->hash (), ledger.block_source (transaction, *block3));
 	ASSERT_EQ (dest.pub, ledger.block_destination (transaction, *block4));
 	ASSERT_TRUE (ledger.block_source (transaction, *block4).is_zero ());
 	ASSERT_EQ (nano::dev::genesis->account (), ledger.block_destination (transaction, *block5));
 	ASSERT_TRUE (ledger.block_source (transaction, *block5).is_zero ());
-	ASSERT_TRUE (ledger.block_destination (transaction, *block6) == nullptr);
+	ASSERT_EQ (ledger.block_destination (transaction, *block6), nullptr);
 	ASSERT_EQ (block5->hash (), ledger.block_source (transaction, *block6));
 }
 
@@ -4049,7 +4050,7 @@ TEST (ledger, epoch_open_pending)
 	ASSERT_EQ (nano::process_result::gap_epoch_open_pending, process_result.code);
 	node1.block_processor.add (epoch_open);
 	// Waits for the block to get saved in the database
-	ASSERT_TIMELY (10s, 1 == node1.unchecked.count ());
+	ASSERT_TIMELY_EQ (10s, 1, node1.unchecked.count ());
 	ASSERT_FALSE (node1.ledger.block_or_pruned_exists (epoch_open->hash ()));
 	// Open block should be inserted into unchecked
 	auto blocks = node1.unchecked.get (nano::hash_or_account (epoch_open->account ()).hash);
@@ -4161,7 +4162,7 @@ TEST (ledger, block_hash_account_conflict)
 
 TEST (ledger, could_fit)
 {
-	nano::logger_mt logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stats stats;
@@ -4343,7 +4344,7 @@ TEST (ledger, unchecked_epoch)
 	node1.block_processor.add (epoch1);
 	{
 		// Waits for the epoch1 block to pass through block_processor and unchecked.put queues
-		ASSERT_TIMELY (10s, 1 == node1.unchecked.count ());
+		ASSERT_TIMELY_EQ (10s, 1, node1.unchecked.count ());
 		auto blocks = node1.unchecked.get (epoch1->previous ());
 		ASSERT_EQ (blocks.size (), 1);
 	}
@@ -4352,7 +4353,7 @@ TEST (ledger, unchecked_epoch)
 	ASSERT_TIMELY (5s, node1.store.block.exists (node1.store.tx_begin_read (), epoch1->hash ()));
 	{
 		// Waits for the last blocks to pass through block_processor and unchecked.put queues
-		ASSERT_TIMELY (10s, 0 == node1.unchecked.count ());
+		ASSERT_TIMELY_EQ (10s, 0, node1.unchecked.count ());
 		auto info = node1.ledger.account_info (node1.store.tx_begin_read (), destination.pub);
 		ASSERT_TRUE (info);
 		ASSERT_EQ (info->epoch (), nano::epoch::epoch_1);
@@ -4417,7 +4418,7 @@ TEST (ledger, unchecked_epoch_invalid)
 	node1.block_processor.add (epoch2);
 	{
 		// Waits for the last blocks to pass through block_processor and unchecked.put queues
-		ASSERT_TIMELY (10s, 2 == node1.unchecked.count ());
+		ASSERT_TIMELY_EQ (10s, 2, node1.unchecked.count ());
 		auto blocks = node1.unchecked.get (epoch1->previous ());
 		ASSERT_EQ (blocks.size (), 2);
 	}
@@ -4484,7 +4485,7 @@ TEST (ledger, unchecked_open)
 	node1.block_processor.add (open1);
 	{
 		// Waits for the last blocks to pass through block_processor and unchecked.put queues
-		ASSERT_TIMELY (10s, 1 == node1.unchecked.count ());
+		ASSERT_TIMELY_EQ (10s, 1, node1.unchecked.count ());
 		// Get the next peer for attempting a tcp bootstrap connection
 		auto blocks = node1.unchecked.get (open1->source ());
 		ASSERT_EQ (blocks.size (), 1);
@@ -4799,7 +4800,7 @@ TEST (ledger, dependents_confirmed)
 
 TEST (ledger, dependents_confirmed_pruning)
 {
-	nano::logger_mt logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stats stats;
@@ -4989,7 +4990,7 @@ TEST (ledger, cache)
 
 TEST (ledger, pruning_action)
 {
-	nano::logger_mt logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stats stats;
@@ -5073,7 +5074,7 @@ TEST (ledger, pruning_action)
 
 TEST (ledger, pruning_large_chain)
 {
-	nano::logger_mt logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stats stats;
@@ -5128,7 +5129,7 @@ TEST (ledger, pruning_large_chain)
 
 TEST (ledger, pruning_source_rollback)
 {
-	nano::logger_mt logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stats stats;
@@ -5216,7 +5217,7 @@ TEST (ledger, pruning_source_rollback)
 
 TEST (ledger, pruning_source_rollback_legacy)
 {
-	nano::logger_mt logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stats stats;
@@ -5329,7 +5330,7 @@ TEST (ledger, pruning_source_rollback_legacy)
 
 TEST (ledger, pruning_process_error)
 {
-	nano::logger_mt logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stats stats;
@@ -5376,7 +5377,7 @@ TEST (ledger, pruning_process_error)
 
 TEST (ledger, pruning_legacy_blocks)
 {
-	nano::logger_mt logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stats stats;
@@ -5462,7 +5463,7 @@ TEST (ledger, pruning_legacy_blocks)
 
 TEST (ledger, pruning_safe_functions)
 {
-	nano::logger_mt logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stats stats;
@@ -5523,7 +5524,7 @@ TEST (ledger, pruning_safe_functions)
 
 TEST (ledger, hash_root_random)
 {
-	nano::logger_mt logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stats stats;
@@ -5587,7 +5588,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 {
 	nano::test::system system{};
 	auto path = nano::unique_path ();
-	nano::logger_mt logger{};
+	nano::logger logger;
 	boost::asio::ip::address_v6 address (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"));
 	uint16_t port = 100;
 	nano::store::lmdb::component store{ logger, path / "data.ldb", nano::dev::constants };
@@ -5654,7 +5655,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	ASSERT_FALSE (rocksdb_store.confirmation_height.get (rocksdb_transaction, nano::dev::genesis->account (), confirmation_height_info));
 	ASSERT_EQ (confirmation_height_info.height, 2);
 	ASSERT_EQ (confirmation_height_info.frontier, send->hash ());
-	ASSERT_TRUE (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ())).size () == 1);
+	ASSERT_EQ (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ())).size (), 1);
 	ASSERT_EQ (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ()))[0], nano::block_hash (2));
 }
 

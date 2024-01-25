@@ -92,7 +92,7 @@ TEST (distributed_work, no_peers_multi)
 	{
 		ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, node->config.work_peers, nano::difficulty::from_multiplier (10, node->network_params.work.base), callback));
 	}
-	ASSERT_TIMELY (5s, count == total);
+	ASSERT_TIMELY_EQ (5s, count, total);
 	system.deadline_set (5s);
 	while (node->distributed_work.size () > 0)
 	{
@@ -106,7 +106,7 @@ TEST (distributed_work, no_peers_multi)
 		nano::block_hash hash_i (i + 1);
 		ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash_i, node->config.work_peers, node->network_params.work.base, callback));
 	}
-	ASSERT_TIMELY (5s, count == total);
+	ASSERT_TIMELY_EQ (5s, count, total);
 	system.deadline_set (5s);
 	while (node->distributed_work.size () > 0)
 	{
@@ -214,7 +214,7 @@ TEST (distributed_work, DISABLED_peer_multi)
 	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->network_params.work.base, callback, nano::account ()));
 	ASSERT_TIMELY (5s, done);
 	ASSERT_GE (nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash, *work), node->network_params.work.base);
-	ASSERT_TIMELY (5s, slow_peer->cancels == 1);
+	ASSERT_TIMELY_EQ (5s, slow_peer->cancels, 1);
 	ASSERT_EQ (0, malicious_peer->generations_good);
 	ASSERT_EQ (1, malicious_peer->generations_bad);
 	ASSERT_EQ (0, malicious_peer->cancels);

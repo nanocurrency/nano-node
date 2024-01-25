@@ -22,9 +22,6 @@
 [submodule "rocksdb"]
 	path = submodules/rocksdb
 	url = https://github.com/facebook/rocksdb.git
-[submodule "diskhash"]
-	path = submodules/diskhash
-	url = https://github.com/nanocurrency/diskhash.git
 [submodule "boost"]
 	path = submodules/boost
 	url = https://github.com/boostorg/boost.git
@@ -34,3 +31,9 @@
 [submodule "submodules/gtest-parallel"]
 	path = submodules/gtest-parallel
 	url = https://github.com/google/gtest-parallel.git
+[submodule "submodules/spdlog"]
+	path = submodules/spdlog
+	url = https://github.com/gabime/spdlog.git
+[submodule "submodules/fmt"]
+	path = submodules/fmt
+	url = https://github.com/fmtlib/fmt.git

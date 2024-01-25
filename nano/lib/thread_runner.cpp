@@ -1,6 +1,10 @@
 #include <nano/lib/thread_runner.hpp>
+#include <nano/lib/timer.hpp>
+
+#include <boost/format.hpp>
 
 #include <iostream>
+#include <thread>
 
 /*
  * thread_runner

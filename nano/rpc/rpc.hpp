@@ -1,7 +1,7 @@
 #pragma once
 
 #include <nano/boost/asio/ip/tcp.hpp>
-#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
 
@@ -31,9 +31,9 @@ public:
 		return acceptor.local_endpoint ().port ();
 	}
 
+	nano::logger logger{ "rpc" };
 	nano::rpc_config config;
 	boost::asio::ip::tcp::acceptor acceptor;
-	nano::logger_mt logger;
 	boost::asio::io_context & io_ctx;
 	nano::rpc_handler_interface & rpc_handler_interface;
 	bool stopped{ false };

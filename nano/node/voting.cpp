@@ -1,5 +1,4 @@
 #include <nano/lib/stats.hpp>
-#include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>

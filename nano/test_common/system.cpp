@@ -64,8 +64,8 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 			auto starting_size_1 = node1->network.size ();
 			auto starting_size_2 = node2->network.size ();
 
-			auto starting_realtime_1 = node1->tcp_listener.realtime_count.load ();
-			auto starting_realtime_2 = node2->tcp_listener.realtime_count.load ();
+			auto starting_realtime_1 = node1->tcp_listener->realtime_count.load ();
+			auto starting_realtime_2 = node2->tcp_listener->realtime_count.load ();
 
 			auto starting_keepalives_1 = node1->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
 			auto starting_keepalives_2 = node2->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
@@ -75,7 +75,7 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 			(*j)->network.merge_peer ((*i)->network.endpoint ());
 
 			{
-				auto ec = poll_until_true (3s, [&node1, &node2, starting_size_1, starting_size_2] () {
+				auto ec = poll_until_true (5s, [&node1, &node2, starting_size_1, starting_size_2] () {
 					auto size_1 = node1->network.size ();
 					auto size_2 = node2->network.size ();
 					return size_1 > starting_size_1 && size_2 > starting_size_2;
@@ -87,16 +87,16 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 			{
 				{
 					// Wait for initial connection finish
-					auto ec = poll_until_true (3s, [&node1, &node2, starting_realtime_1, starting_realtime_2] () {
-						auto realtime_1 = node1->tcp_listener.realtime_count.load ();
-						auto realtime_2 = node2->tcp_listener.realtime_count.load ();
+					auto ec = poll_until_true (5s, [&node1, &node2, starting_realtime_1, starting_realtime_2] () {
+						auto realtime_1 = node1->tcp_listener->realtime_count.load ();
+						auto realtime_2 = node2->tcp_listener->realtime_count.load ();
 						return realtime_1 > starting_realtime_1 && realtime_2 > starting_realtime_2;
 					});
 					debug_assert (!ec);
 				}
 				{
 					// Wait for keepalive message exchange
-					auto ec = poll_until_true (3s, [&node1, &node2, starting_keepalives_1, starting_keepalives_2] () {
+					auto ec = poll_until_true (5s, [&node1, &node2, starting_keepalives_1, starting_keepalives_2] () {
 						auto keepalives_1 = node1->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
 						auto keepalives_2 = node2->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
 						return keepalives_1 > starting_keepalives_1 && keepalives_2 > starting_keepalives_2;
@@ -108,7 +108,7 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 
 		{
 			// Ensure no bootstrap initiators are in progress
-			auto ec = poll_until_true (3s, [this, &begin] () {
+			auto ec = poll_until_true (5s, [this, &begin] () {
 				return std::all_of (begin, nodes.end (), [] (std::shared_ptr<nano::node> const & node_a) { return !node_a->bootstrap_initiator.in_progress (); });
 			});
 			debug_assert (!ec);
@@ -116,7 +116,7 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 	}
 	else
 	{
-		auto ec = poll_until_true (3s, [&node] () {
+		auto ec = poll_until_true (5s, [&node] () {
 			return !node->bootstrap_initiator.in_progress ();
 		});
 		debug_assert (!ec);
@@ -132,7 +132,6 @@ nano::test::system::system ()
 	{
 		deadline_scaling_factor = std::stod (scale_str);
 	}
-	logging.init (nano::unique_path ());
 }
 
 nano::test::system::system (uint16_t count_a, nano::transport::transport_type type_a, nano::node_flags flags_a) :
@@ -563,66 +562,36 @@ void nano::test::system::stop ()
 
 nano::node_config nano::test::system::default_config ()
 {
-	nano::node_config config{ get_available_port (), logging };
+	nano::node_config config{ get_available_port () };
 	return config;
 }
 
-uint16_t nano::test::system::get_available_port (bool can_be_zero)
+uint16_t nano::test::system::get_available_port ()
 {
 	auto base_port_str = std::getenv ("NANO_TEST_BASE_PORT");
-	if (base_port_str)
-	{
-		// Maximum possible sockets which may feasibly be used in 1 test
-		constexpr auto max = 200;
-		static uint16_t current = 0;
-		// Read the TEST_BASE_PORT environment and override the default base port if it exists
-		uint16_t base_port = boost::lexical_cast<uint16_t> (base_port_str);
+	if (!base_port_str)
+		return 0; // let the O/S decide
 
-		uint16_t const available_port = base_port + current;
-		++current;
-		// Reset port number once we have reached the maximum
-		if (current == max)
-		{
-			current = 0;
-		}
+	// Maximum possible sockets which may feasibly be used in 1 test
+	constexpr auto max = 200;
+	static uint16_t current = 0;
 
-		return available_port;
-	}
-	else
-	{
-		if (!can_be_zero)
-		{
-			/*
-			 * This works because the kernel doesn't seem to reuse port numbers until it absolutely has to.
-			 * Subsequent binds to port 0 will allocate a different port number.
-			 */
-			boost::asio::ip::tcp::acceptor acceptor{ io_ctx };
-			boost::asio::ip::tcp::tcp::endpoint endpoint{ boost::asio::ip::tcp::v4 (), 0 };
-			acceptor.open (endpoint.protocol ());
+	// Read the TEST_BASE_PORT environment and override the default base port if it exists
+	uint16_t base_port = boost::lexical_cast<uint16_t> (base_port_str);
 
-			boost::asio::socket_base::reuse_address option{ true };
-			acceptor.set_option (option); // set SO_REUSEADDR option
+	uint16_t const available_port = base_port + current;
+	++current;
 
-			acceptor.bind (endpoint);
+	// Reset port number once we have reached the maximum
+	if (current >= max)
+		current = 0;
 
-			auto actual_endpoint = acceptor.local_endpoint ();
-			auto port = actual_endpoint.port ();
-
-			acceptor.close ();
-
-			return port;
-		}
-		else
-		{
-			return 0;
-		}
-	}
+	return available_port;
 }
 
+// Makes sure everything is cleaned up
 void nano::test::cleanup_dev_directories_on_exit ()
 {
-	// Makes sure everything is cleaned up
-	nano::logging::release_file_sink ();
 	// Clean up tmp directories created by the tests. Since it's sometimes useful to
 	// see log files after test failures, an environment variable is supported to
 	// retain the files.

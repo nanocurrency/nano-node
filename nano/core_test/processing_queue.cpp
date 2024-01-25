@@ -27,7 +27,7 @@ TEST (processing_queue, process_one)
 
 	queue.add (1);
 
-	ASSERT_TIMELY (5s, processed == 1);
+	ASSERT_TIMELY_EQ (5s, processed, 1);
 	ASSERT_ALWAYS (1s, processed == 1);
 	ASSERT_EQ (queue.size (), 0);
 }
@@ -49,7 +49,7 @@ TEST (processing_queue, process_many)
 		queue.add (1);
 	}
 
-	ASSERT_TIMELY (5s, processed == count);
+	ASSERT_TIMELY_EQ (5s, processed, count);
 	ASSERT_ALWAYS (1s, processed == count);
 	ASSERT_EQ (queue.size (), 0);
 }
@@ -89,7 +89,7 @@ TEST (processing_queue, max_batch_size)
 	};
 	nano::test::start_stop_guard queue_guard{ queue };
 
-	ASSERT_TIMELY (5s, max_batch == 128);
+	ASSERT_TIMELY_EQ (5s, max_batch, 128);
 	ASSERT_ALWAYS (1s, max_batch == 128);
 	ASSERT_EQ (queue.size (), 0);
 }
@@ -114,6 +114,6 @@ TEST (processing_queue, parallel)
 
 	// There are 16 threads and 16 items, each thread is waiting 1 second inside processing callback
 	// If processing is done in parallel it should take ~2 seconds to process every item, but keep some margin for slow machines
-	ASSERT_TIMELY (3s, processed == count);
+	ASSERT_TIMELY_EQ (3s, processed, count);
 	ASSERT_EQ (queue.size (), 0);
 }

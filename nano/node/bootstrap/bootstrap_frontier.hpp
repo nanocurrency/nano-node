@@ -1,7 +1,5 @@
 #pragma once
 
-#include <nano/node/common.hpp>
-
 #include <deque>
 #include <future>
 

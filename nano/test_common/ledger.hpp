@@ -1,8 +1,6 @@
 #pragma once
 
-#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/node/common.hpp>
 #include <nano/secure/ledger.hpp>
 
 namespace nano
@@ -27,7 +25,7 @@ namespace test
 			std::deque<std::shared_ptr<nano::block>> const & blocks () const;
 
 		private:
-			nano::logger_mt logger;
+			nano::logger logger;
 			std::unique_ptr<nano::store::component> store_m;
 			nano::stats stats_m;
 			nano::ledger ledger_m;

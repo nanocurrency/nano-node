@@ -4,6 +4,7 @@
 #include <nano/boost/asio/strand.hpp>
 #include <nano/lib/asio.hpp>
 #include <nano/lib/locks.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/transport/traffic_type.hpp>
 
@@ -38,14 +39,12 @@ enum class buffer_drop_policy
 	no_socket_drop
 };
 
-class server_socket;
-
 /** Socket class for tcp clients and newly accepted connections */
-class socket : public std::enable_shared_from_this<nano::transport::socket>
+class socket final : public std::enable_shared_from_this<nano::transport::socket>
 {
-	friend class server_socket;
 	friend class tcp_server;
 	friend class tcp_channels;
+	friend class tcp_listener;
 
 public:
 	static std::size_t constexpr default_max_queue_size = 128;
@@ -69,8 +68,8 @@ public:
 	 * @param node Owning node
 	 * @param endpoint_type_a The endpoint's type: either server or client
 	 */
-	explicit socket (nano::node & node, endpoint_type_t endpoint_type_a, std::size_t max_queue_size = default_max_queue_size);
-	virtual ~socket ();
+	explicit socket (nano::node & node, endpoint_type_t endpoint_type_a = endpoint_type_t::client, std::size_t max_queue_size = default_max_queue_size);
+	~socket ();
 
 	void start ();
 
@@ -78,7 +77,7 @@ public:
 	void async_read (std::shared_ptr<std::vector<uint8_t>> const &, std::size_t, std::function<void (boost::system::error_code const &, std::size_t)>);
 	void async_write (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> callback = {}, nano::transport::traffic_type = nano::transport::traffic_type::generic);
 
-	virtual void close ();
+	void close ();
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;
 	boost::asio::ip::tcp::endpoint local_endpoint () const;
 	/** Returns true if the socket has timed out */
@@ -159,6 +158,7 @@ protected:
 
 	/** The other end of the connection */
 	boost::asio::ip::tcp::endpoint remote;
+	boost::asio::ip::tcp::endpoint local;
 
 	/** number of seconds of inactivity that causes a socket timeout
 	 *  activity is any successful connect, send or receive event
@@ -220,52 +220,4 @@ namespace socket_functions
 	boost::asio::ip::address last_ipv6_subnet_address (boost::asio::ip::address_v6 const &, std::size_t);
 	std::size_t count_subnetwork_connections (nano::transport::address_socket_mmap const &, boost::asio::ip::address_v6 const &, std::size_t);
 }
-
-/** Socket class for TCP servers */
-class server_socket final : public socket
-{
-public:
-	/**
-	 * Constructor
-	 * @param node_a Owning node
-	 * @param local_a Address and port to listen on
-	 * @param max_connections_a Maximum number of concurrent connections
-	 */
-	explicit server_socket (nano::node & node_a, boost::asio::ip::tcp::endpoint local_a, std::size_t max_connections_a);
-	/**Start accepting new connections */
-	void start (boost::system::error_code &);
-	/** Stop accepting new connections */
-	void close () override;
-	/** Register callback for new connections. The callback must return true to keep accepting new connections. */
-	void on_connection (std::function<bool (std::shared_ptr<nano::transport::socket> const & new_connection, boost::system::error_code const &)>);
-	uint16_t listening_port ()
-	{
-		return acceptor.local_endpoint ().port ();
-	}
-
-private:
-	nano::transport::address_socket_mmap connections_per_address;
-	boost::asio::ip::tcp::acceptor acceptor;
-	boost::asio::ip::tcp::endpoint local;
-	std::size_t max_inbound_connections;
-	void evict_dead_connections ();
-	void on_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::transport::socket> const & new_connection, boost::system::error_code const &)>);
-	/** Checks whether the maximum number of connections per IP was reached. If so, it returns true. */
-	bool limit_reached_for_incoming_ip_connections (std::shared_ptr<nano::transport::socket> const & new_connection);
-	bool limit_reached_for_incoming_subnetwork_connections (std::shared_ptr<nano::transport::socket> const & new_connection);
-};
-
-/** Socket class for TCP clients */
-class client_socket final : public socket
-{
-public:
-	/**
-	 * Constructor
-	 * @param node_a Owning node
-	 */
-	explicit client_socket (nano::node & node_a, std::size_t max_queue_size = default_max_queue_size) :
-		socket{ node_a, endpoint_type_t::client, max_queue_size }
-	{
-	}
-};
 }

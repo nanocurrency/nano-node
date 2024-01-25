@@ -64,7 +64,8 @@ std::shared_ptr<flatbuffers::Parser> nano::ipc::flatbuffers_handler::make_flatbu
 		throw nano::error ("Internal IPC error: unable to find api path");
 	}
 
-	char const * include_directories[] = { api_path->string ().c_str (), nullptr };
+	const std::string api_path_str = api_path->string ();
+	char const * include_directories[] = { api_path_str.c_str (), nullptr };
 	std::string schemafile;
 	if (!flatbuffers::LoadFile ((*api_path / "nanoapi.fbs").string ().c_str (), false, &schemafile))
 	{

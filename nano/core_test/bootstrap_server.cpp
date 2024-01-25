@@ -93,7 +93,7 @@ TEST (bootstrap_server, serve_account_blocks)
 
 	node.network.inbound (request, nano::test::fake_channel (node));
 
-	ASSERT_TIMELY (5s, responses.size () == 1);
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
 
 	auto response = responses.get ().front ();
 	// Ensure we got response exactly for what we asked for
@@ -138,7 +138,7 @@ TEST (bootstrap_server, serve_hash)
 
 	node.network.inbound (request, nano::test::fake_channel (node));
 
-	ASSERT_TIMELY (5s, responses.size () == 1);
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
 
 	auto response = responses.get ().front ();
 	// Ensure we got response exactly for what we asked for
@@ -183,7 +183,7 @@ TEST (bootstrap_server, serve_hash_one)
 
 	node.network.inbound (request, nano::test::fake_channel (node));
 
-	ASSERT_TIMELY (5s, responses.size () == 1);
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
 
 	auto response = responses.get ().front ();
 	// Ensure we got response exactly for what we asked for
@@ -193,7 +193,7 @@ TEST (bootstrap_server, serve_hash_one)
 	nano::asc_pull_ack::blocks_payload response_payload;
 	ASSERT_NO_THROW (response_payload = std::get<nano::asc_pull_ack::blocks_payload> (response.payload));
 	ASSERT_EQ (response_payload.blocks.size (), 1);
-	ASSERT_TRUE (response_payload.blocks.front ()->hash () == request_payload.start.as_block_hash ());
+	ASSERT_EQ (response_payload.blocks.front ()->hash (), request_payload.start.as_block_hash ());
 }
 
 TEST (bootstrap_server, serve_end_of_chain)
@@ -222,7 +222,7 @@ TEST (bootstrap_server, serve_end_of_chain)
 
 	node.network.inbound (request, nano::test::fake_channel (node));
 
-	ASSERT_TIMELY (5s, responses.size () == 1);
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
 
 	auto response = responses.get ().front ();
 	// Ensure we got response exactly for what we asked for
@@ -261,7 +261,7 @@ TEST (bootstrap_server, serve_missing)
 
 	node.network.inbound (request, nano::test::fake_channel (node));
 
-	ASSERT_TIMELY (5s, responses.size () == 1);
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
 
 	auto response = responses.get ().front ();
 	// Ensure we got response exactly for what we asked for
@@ -306,7 +306,7 @@ TEST (bootstrap_server, serve_multiple)
 		}
 	}
 
-	ASSERT_TIMELY (15s, responses.size () == chains.size ());
+	ASSERT_TIMELY_EQ (15s, responses.size (), chains.size ());
 
 	auto all_responses = responses.get ();
 	{
@@ -360,7 +360,7 @@ TEST (bootstrap_server, serve_account_info)
 
 	node.network.inbound (request, nano::test::fake_channel (node));
 
-	ASSERT_TIMELY (5s, responses.size () == 1);
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
 
 	auto response = responses.get ().front ();
 	// Ensure we got response exactly for what we asked for
@@ -406,7 +406,7 @@ TEST (bootstrap_server, serve_account_info_missing)
 
 	node.network.inbound (request, nano::test::fake_channel (node));
 
-	ASSERT_TIMELY (5s, responses.size () == 1);
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
 
 	auto response = responses.get ().front ();
 	// Ensure we got response exactly for what we asked for
@@ -451,7 +451,7 @@ TEST (bootstrap_server, serve_frontiers)
 
 	node.network.inbound (request, nano::test::fake_channel (node));
 
-	ASSERT_TIMELY (5s, responses.size () == 1);
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
 
 	auto response = responses.get ().front ();
 	// Ensure we got response exactly for what we asked for

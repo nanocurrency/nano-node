@@ -5,7 +5,6 @@
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/ip/address_v4.hpp>
 #include <boost/asio/ip/address_v6.hpp>
-#include <boost/format.hpp>
 
 nano::endpoint nano::transport::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
 {

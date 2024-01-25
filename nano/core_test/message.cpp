@@ -362,22 +362,6 @@ TEST (message, confirm_req_hash_batch_serialization_v2)
 	ASSERT_TRUE (header.confirm_is_v2 ());
 }
 
-// this unit test checks that conversion of message_header to string works as expected
-TEST (message, message_header_to_string)
-{
-	// calculate expected string
-	int maxver = nano::dev::network_params.network.protocol_version;
-	int minver = nano::dev::network_params.network.protocol_version_min;
-	std::stringstream ss;
-	ss << "NetID: 5241(dev), VerMaxUsingMin: " << maxver << "/" << maxver << "/" << minver << ", MsgType: 2(keepalive), Extensions: 0000";
-	auto expected_str = ss.str ();
-
-	// check expected vs real
-	nano::keepalive keepalive_msg{ nano::dev::network_params.network };
-	std::string header_string = keepalive_msg.header.to_string ();
-	ASSERT_EQ (expected_str, header_string);
-}
-
 /**
  * Test that a confirm_ack can encode an empty hash set
  */

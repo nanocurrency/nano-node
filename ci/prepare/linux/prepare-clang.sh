@@ -1,5 +1,8 @@
 #!/bin/bash
-set -euo pipefail
+set -euox pipefail
+
+# Clang installer dependencies
+DEBIAN_FRONTEND=noninteractive apt-get install -yqq lsb-release software-properties-common gnupg
 
 CLANG_VERSION=16
 

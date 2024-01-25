@@ -1,7 +1,7 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
-#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/secure/common.hpp>
@@ -36,8 +36,8 @@ namespace nano::store::rocksdb
 class rocksdb_block_store_upgrade_v21_v22_Test;
 
 /**
- 	 * rocksdb implementation of the block store
- 	 */
+ * rocksdb implementation of the block store
+ */
 class component : public nano::store::component
 {
 private:
@@ -64,7 +64,7 @@ public:
 	friend class nano::store::rocksdb::pruned;
 	friend class nano::store::rocksdb::version;
 
-	explicit component (nano::logger_mt &, std::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
+	explicit component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
 
 	store::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	store::read_transaction tx_begin_read () const override;
@@ -103,7 +103,7 @@ public:
 
 private:
 	bool error{ false };
-	nano::logger_mt & logger;
+	nano::logger & logger;
 	nano::ledger_constants & constants;
 	// Optimistic transactions are used in write mode
 	::rocksdb::OptimisticTransactionDB * optimistic_db = nullptr;

@@ -3,6 +3,7 @@
 #include <nano/lib/locks.hpp>
 
 #include <boost/current_function.hpp>
+#include <boost/lexical_cast.hpp>
 #include <boost/preprocessor/facilities/empty.hpp>
 #include <boost/preprocessor/facilities/overload.hpp>
 
@@ -10,6 +11,7 @@
 #include <filesystem>
 #include <functional>
 #include <mutex>
+#include <sstream>
 #include <vector>
 
 #include <magic_enum_containers.hpp>
@@ -27,7 +29,7 @@ namespace program_options
 }
 }
 
-void assert_internal (char const * check_expr, char const * func, char const * file, unsigned int line, bool is_release_assert, std::string_view error = "");
+[[noreturn]] void assert_internal (char const * check_expr, char const * func, char const * file, unsigned int line, bool is_release_assert, std::string_view error = "");
 
 #define release_assert_1(check) check ? (void)0 : assert_internal (#check, BOOST_CURRENT_FUNCTION, __FILE__, __LINE__, true)
 #define release_assert_2(check, error_msg) check ? (void)0 : assert_internal (#check, BOOST_CURRENT_FUNCTION, __FILE__, __LINE__, true, error_msg)
@@ -208,5 +210,56 @@ template <typename Duration>
 bool elapsed (nano::clock::time_point const & last, Duration duration)
 {
 	return elapsed (last, duration, nano::clock::now ());
+}
+}
+
+namespace nano::util
+{
+/**
+ * Joins elements with specified delimiter while transforming those elements via specified transform function
+ */
+template <class InputIt, class Func>
+std::string join (InputIt first, InputIt last, std::string_view delimiter, Func transform)
+{
+	bool start = true;
+	std::stringstream ss;
+	while (first != last)
+	{
+		if (start)
+		{
+			start = false;
+		}
+		else
+		{
+			ss << delimiter << " ";
+		}
+		ss << transform (*first);
+		++first;
+	}
+	return ss.str ();
+}
+
+template <class Container, class Func>
+std::string join (Container const & container, std::string_view delimiter, Func transform)
+{
+	return join (container.begin (), container.end (), delimiter, transform);
+}
+
+inline std::vector<std::string> split (const std::string & str, char delimiter)
+{
+	std::stringstream ss{ str };
+	std::vector<std::string> result;
+	std::string item;
+	while (std::getline (ss, item, delimiter))
+	{
+		result.push_back (item);
+	}
+	return result;
+}
+
+template <class T>
+std::string to_str (T const & val)
+{
+	return boost::lexical_cast<std::string> (val);
 }
 }

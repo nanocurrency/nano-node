@@ -15,8 +15,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/format.hpp>
-
 #include <csignal>
 #include <iostream>
 #include <thread>

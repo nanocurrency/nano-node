@@ -10,7 +10,6 @@
 #include <boost/thread/thread.hpp>
 
 #include <atomic>
-#include <queue>
 
 namespace mi = boost::multi_index;
 

@@ -285,8 +285,11 @@ TEST (wallet, enter_password)
 	wallet->settings.new_password->setText ("");
 	QTest::keyClicks (wallet->settings.password, "abc");
 	QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
-	test_application->processEvents ();
-	ASSERT_NE (wallet->status->text ().toStdString ().rfind ("Status: Running", 0), std::string::npos);
+	auto is_running_status = [&wallet] () -> bool {
+		test_application->processEvents ();
+		return wallet->status->text ().toStdString ().rfind ("Status: Running", 0) != std::string::npos;
+	};
+	ASSERT_TIMELY (5s, is_running_status ());
 	ASSERT_EQ ("", wallet->settings.password->text ());
 }
 
@@ -519,7 +522,8 @@ TEST (history, short_text)
 		account = system.account (transaction, 0);
 	}
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
-	auto store = nano::make_store (system.nodes[0]->logger, nano::unique_path (), nano::dev::constants);
+	nano::logger logger;
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::ledger ledger (*store, system.nodes[0]->stats, nano::dev::constants);
 	{
@@ -556,7 +560,8 @@ TEST (history, pruned_source)
 		account = system.account (transaction, 0);
 	}
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
-	auto store = nano::make_store (system.nodes[0]->logger, nano::unique_path (), nano::dev::constants);
+	nano::logger logger;
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::ledger ledger (*store, system.nodes[0]->stats, nano::dev::constants);
 	ledger.pruning = true;
@@ -680,7 +685,7 @@ TEST (wallet, import)
 		system.wallet (0)->store.serialize_json (transaction, json);
 	}
 	system.wallet (1)->insert_adhoc (key2.prv);
-	auto path (nano::unique_path ());
+	auto path{ nano::unique_path () / "wallet.json" };
 	{
 		std::ofstream stream;
 		stream.open (path.string ().c_str ());

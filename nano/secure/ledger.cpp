@@ -1,3 +1,4 @@
+#include <nano/lib/logging.hpp>
 #include <nano/lib/rep_weights.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/utility.hpp>
@@ -1558,7 +1559,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 	auto rockdb_data_path = data_path_a / "rocksdb";
 	std::filesystem::remove_all (rockdb_data_path);
 
-	nano::logger_mt logger;
+	nano::logger logger;
 	auto error (false);
 
 	// Open rocksdb database

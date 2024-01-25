@@ -1,16 +1,12 @@
 #pragma once
 
-#include <nano/lib/errors.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/transport/channel.hpp>
-#include <nano/node/transport/transport.hpp>
 
 #include <gtest/gtest.h>
 
 #include <boost/iostreams/concepts.hpp>
-#include <boost/log/sinks/text_ostream_backend.hpp>
-#include <boost/log/utility/setup/console.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include <atomic>
@@ -137,54 +133,6 @@ extern nano::uint128_t const & genesis_amount;
 namespace test
 {
 	class system;
-
-	class stringstream_mt_sink : public boost::iostreams::sink
-	{
-	public:
-		stringstream_mt_sink () = default;
-		stringstream_mt_sink (stringstream_mt_sink const & sink)
-		{
-			nano::lock_guard<nano::mutex> guard{ mutex };
-			ss << sink.ss.str ();
-		}
-
-		std::streamsize write (char const * string_to_write, std::streamsize size)
-		{
-			nano::lock_guard<nano::mutex> guard{ mutex };
-			ss << std::string (string_to_write, size);
-			return size;
-		}
-
-		std::string str ()
-		{
-			nano::lock_guard<nano::mutex> guard{ mutex };
-			return ss.str ();
-		}
-
-	private:
-		mutable nano::mutex mutex;
-		std::stringstream ss;
-	};
-
-	class boost_log_cerr_redirect
-	{
-	public:
-		boost_log_cerr_redirect (std::streambuf * new_buffer) :
-			old (std::cerr.rdbuf (new_buffer))
-		{
-			console_sink = (boost::log::add_console_log (std::cerr, boost::log::keywords::format = "%Message%"));
-		}
-
-		~boost_log_cerr_redirect ()
-		{
-			std::cerr.rdbuf (old);
-			boost::log::core::get ()->remove_sink (console_sink);
-		}
-
-	private:
-		std::streambuf * old;
-		boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_ostream_backend>> console_sink;
-	};
 
 	class cout_redirect
 	{
@@ -353,6 +301,26 @@ namespace test
 	 */
 	bool exists (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
 	/*
+	 * Convenience function to check whether *all* of the hashes exists in node ledger or in the pruned table.
+	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
+	 */
+	bool block_or_pruned_all_exists (nano::node & node, std::vector<nano::block_hash> hashes);
+	/*
+	 * Convenience function to check whether *all* of the blocks exists in node ledger or their hash exists in the pruned table.
+	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
+	 */
+	bool block_or_pruned_all_exists (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
+	 * Convenience function to check whether *none* of the hashes exists in node ledger or in the pruned table.
+	 * @return true if none of the blocks are processed and inserted in the ledger, false otherwise
+	 */
+	bool block_or_pruned_none_exists (nano::node & node, std::vector<nano::block_hash> hashes);
+	/*
+	 * Convenience function to check whether *none* of the blocks exists in node ledger or their hash exists in the pruned table.
+	 * @return true if none of the blocks are processed and inserted in the ledger, false otherwise
+	 */
+	bool block_or_pruned_none_exists (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
 	 * Convenience function to start elections for a list of hashes. Blocks are loaded from ledger.
 	 * @return true if all blocks exist and were queued to election scheduler
 	 */
@@ -418,5 +386,12 @@ namespace test
 	 * NOTE: Each election is given 5 seconds to complete, if it does not complete in 5 seconds, it will return an error.
 	 */
 	[[nodiscard]] bool start_elections (nano::test::system &, nano::node &, std::vector<std::shared_ptr<nano::block>> const &, bool const forced_a = false);
+
+	/**
+	 * \brief Debugging function to print all accounts in a ledger. Intented to be used to debug unit tests.
+	 * \param ledger
+	 */
+	void print_all_account_info (nano::node & node);
+
 }
 }

@@ -61,13 +61,18 @@ namespace test
 		 * Returns default config for node running in test environment
 		 */
 		nano::node_config default_config ();
-		uint16_t get_available_port (bool can_be_zero = true);
+
+		/*
+		 * Returns port 0 by default, to let the O/S choose a port number.
+		 * If NANO_TEST_BASE_PORT is set then it allocates numbers by itself from that range.
+		 */
+		uint16_t get_available_port ();
 
 	public:
 		boost::asio::io_context io_ctx;
 		std::vector<std::shared_ptr<nano::node>> nodes;
-		nano::logging logging;
 		nano::stats stats;
+		nano::logger logger{ "tests" };
 		nano::work_pool work{ nano::dev::network_params.network, std::max (nano::hardware_concurrency (), 1u) };
 		std::chrono::time_point<std::chrono::steady_clock, std::chrono::duration<double>> deadline{ std::chrono::steady_clock::time_point::max () };
 		double deadline_scaling_factor{ 1.0 };

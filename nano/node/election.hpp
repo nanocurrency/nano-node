@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/logging.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
@@ -7,7 +8,6 @@
 #include <atomic>
 #include <chrono>
 #include <memory>
-#include <unordered_set>
 
 namespace nano
 {
@@ -63,6 +63,9 @@ enum class election_behavior
 
 nano::stat::detail to_stat_detail (nano::election_behavior);
 
+// map of vote weight per block, ordered greater first
+using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::greater<nano::uint128_t>>;
+
 struct election_extended_status final
 {
 	nano::election_status status;
@@ -97,10 +100,9 @@ private: // State management
 
 	static unsigned constexpr passive_duration_factor = 5;
 	static unsigned constexpr active_request_count_min = 2;
-	std::atomic<nano::election::state_t> state_m = { state_t::passive };
+	nano::election::state_t state_m = { state_t::passive };
 
-	static_assert (std::is_trivial<std::chrono::steady_clock::duration> ());
-	std::atomic<std::chrono::steady_clock::duration> state_start{ std::chrono::steady_clock::now ().time_since_epoch () };
+	std::chrono::steady_clock::duration state_start{ std::chrono::steady_clock::now ().time_since_epoch () };
 
 	// These are modified while not holding the mutex from transition_time only
 	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::now () };
@@ -122,7 +124,6 @@ public: // Status
 	std::shared_ptr<nano::block> winner () const;
 	std::atomic<unsigned> confirmation_request_count{ 0 };
 
-	void log_votes (nano::tally_t const &, std::string const & = "") const;
 	nano::tally_t tally () const;
 	bool have_quorum (nano::tally_t const &) const;
 
@@ -165,6 +166,7 @@ public: // Information
 
 private:
 	nano::tally_t tally_impl () const;
+	bool confirmed_locked (nano::unique_lock<nano::mutex> & lock) const;
 	// lock_a does not own the mutex on return
 	void confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	void broadcast_block (nano::confirmation_solicitor &);
@@ -173,7 +175,7 @@ private:
 	 * Broadcast vote for current election winner. Generates final vote if reached quorum or already confirmed
 	 * Requires mutex lock
 	 */
-	void broadcast_vote_impl ();
+	void broadcast_vote_locked (nano::unique_lock<nano::mutex> & lock);
 	void remove_votes (nano::block_hash const &);
 	void remove_block (nano::block_hash const &);
 	bool replace_by_weight (nano::unique_lock<nano::mutex> & lock_a, nano::block_hash const &);

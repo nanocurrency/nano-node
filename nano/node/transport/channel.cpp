@@ -22,22 +22,19 @@ void nano::transport::channel::send (nano::message & message_a, std::function<vo
 	auto should_pass (node.outbound_limiter.should_pass (buffer.size (), to_bandwidth_limit_type (traffic_type)));
 	if (!is_droppable_by_limiter || should_pass)
 	{
-		send_buffer (buffer, callback_a, drop_policy_a, traffic_type);
 		node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
+
+		send_buffer (buffer, callback_a, drop_policy_a, traffic_type);
 	}
 	else
 	{
+		node.stats.inc (nano::stat::type::drop, detail, nano::stat::dir::out);
+
 		if (callback_a)
 		{
 			node.background ([callback_a] () {
 				callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
 			});
-		}
-
-		node.stats.inc (nano::stat::type::drop, detail, nano::stat::dir::out);
-		if (node.config.logging.network_packet_logging ())
-		{
-			node.logger.always_log (boost::str (boost::format ("%1% of size %2% dropped") % nano::to_string (detail) % buffer.size ()));
 		}
 	}
 }

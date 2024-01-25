@@ -110,10 +110,6 @@ add_library(
   ipc/ipc_server.cpp
   json_handler.hpp
   json_handler.cpp
-  ledger_walker.hpp
-  ledger_walker.cpp
-  logging.hpp
-  logging.cpp
   make_store.hpp
   make_store.cpp
   network.hpp
@@ -196,10 +192,6 @@ add_library(
   messages.cpp
   xorshift.hpp)
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  set(DISKHASH diskhash)
-endif()
-
 target_link_libraries(
   node
   nano_lib
@@ -210,14 +202,11 @@ target_link_libraries(
   argon2
   lmdb
   Boost::beast
-  Boost::log_setup
-  Boost::log
   Boost::program_options
   Boost::stacktrace
   Boost::system
   Boost::thread
   rocksdb
-  ${DISKHASH}
   ${CMAKE_DL_LIBS}
   ${psapi_lib})
 
@@ -230,6 +219,5 @@ target_compile_definitions(
 add_dependencies(node ipc_flatbuffers_lib)
 
 include_directories(${CMAKE_SOURCE_DIR}/submodules)
-include_directories(${CMAKE_SOURCE_DIR}/submodules/cpptoml/include)
 include_directories(
   ${CMAKE_SOURCE_DIR}/submodules/nano-pow-server/deps/cpptoml/include)

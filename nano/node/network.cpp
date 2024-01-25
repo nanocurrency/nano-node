@@ -1,5 +1,6 @@
 #include <nano/crypto_lib/random_pool_shuffle.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
@@ -27,10 +28,9 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 	port (port_a),
 	disconnect_observer ([] () {})
 {
-	// TCP
 	for (std::size_t i = 0; i < node.config.network_threads && !node.flags.disable_tcp_realtime; ++i)
 	{
-		packet_processing_threads.emplace_back (nano::thread_attributes::get_default (), [this] () {
+		packet_processing_threads.emplace_back (nano::thread_attributes::get_default (), [this, i] () {
 			nano::thread_role::set (nano::thread_role::name::packet_processing);
 			try
 			{
@@ -38,27 +38,23 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 			}
 			catch (boost::system::error_code & ec)
 			{
-				this->node.logger.always_log (FATAL_LOG_PREFIX, ec.message ());
+				node.logger.critical (nano::log::type::network, "Error: {}", ec.message ());
 				release_assert (false);
 			}
 			catch (std::error_code & ec)
 			{
-				this->node.logger.always_log (FATAL_LOG_PREFIX, ec.message ());
+				node.logger.critical (nano::log::type::network, "Error: {}", ec.message ());
 				release_assert (false);
 			}
 			catch (std::runtime_error & err)
 			{
-				this->node.logger.always_log (FATAL_LOG_PREFIX, err.what ());
+				node.logger.critical (nano::log::type::network, "Error: {}", err.what ());
 				release_assert (false);
 			}
 			catch (...)
 			{
-				this->node.logger.always_log (FATAL_LOG_PREFIX, "Unknown exception");
+				node.logger.critical (nano::log::type::network, "Unknown error");
 				release_assert (false);
-			}
-			if (this->node.config.logging.network_packet_logging ())
-			{
-				this->node.logger.try_log ("Exiting TCP packet processing thread");
 			}
 		});
 	}
@@ -131,10 +127,11 @@ void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::cha
 
 	nano::node_id_handshake message{ node.network_params.network, query, response };
 
-	if (node.config.logging.network_node_id_handshake_logging ())
-	{
-		node.logger.try_log (boost::str (boost::format ("Node ID handshake sent with node ID %1% to %2%: query %3%, respond_to %4% (signature %5%)") % node.node_id.pub.to_node_id () % channel_a->get_endpoint () % (query ? query->cookie.to_string () : std::string ("[none]")) % (respond_to ? respond_to->to_string () : std::string ("[none]")) % (response ? response->signature.to_string () : std::string ("[none]"))));
-	}
+	node.logger.debug (nano::log::type::network, "Node ID handshake sent to: {} (query: {}, respond to: {}, signature: {})",
+	nano::util::to_str (channel_a->get_endpoint ()),
+	(query ? query->cookie.to_string () : "<none>"),
+	(respond_to ? respond_to->to_string () : "<none>"),
+	(response ? response->signature.to_string () : "<none>"));
 
 	channel_a->send (message);
 }
@@ -260,10 +257,6 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> const & 
 void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> const & block_a, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>> const & endpoints_a, unsigned delay_a, bool resumption)
 {
 	std::size_t const max_reps = 10;
-	if (!resumption && node.config.logging.network_logging ())
-	{
-		node.logger.try_log (boost::str (boost::format ("Broadcasting confirm req for block %1% to %2% representatives") % block_a->hash ().to_string () % endpoints_a->size ()));
-	}
 	auto count (0);
 	while (!endpoints_a->empty () && count < max_reps)
 	{
@@ -288,11 +281,6 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> con
 
 void nano::network::broadcast_confirm_req_batched_many (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> request_bundle_a, std::function<void ()> callback_a, unsigned delay_a, bool resumption_a)
 {
-	if (!resumption_a && node.config.logging.network_logging ())
-	{
-		node.logger.try_log (boost::str (boost::format ("Broadcasting batch confirm req to %1% representatives") % request_bundle_a.size ()));
-	}
-
 	for (auto i (request_bundle_a.begin ()), n (request_bundle_a.end ()); i != n;)
 	{
 		std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes_l;
@@ -365,18 +353,13 @@ class network_message_visitor : public nano::message_visitor
 {
 public:
 	network_message_visitor (nano::node & node_a, std::shared_ptr<nano::transport::channel> const & channel_a) :
-		node (node_a),
-		channel (channel_a)
+		node{ node_a },
+		channel{ channel_a }
 	{
 	}
 
 	void keepalive (nano::keepalive const & message_a) override
 	{
-		if (node.config.logging.network_keepalive_logging ())
-		{
-			node.logger.try_log (boost::str (boost::format ("Received keepalive message from %1%") % channel->to_string ()));
-		}
-
 		node.network.merge_peers (message_a.peers);
 
 		// Check for special node port data
@@ -393,11 +376,6 @@ public:
 
 	void publish (nano::publish const & message_a) override
 	{
-		if (node.config.logging.network_message_logging ())
-		{
-			node.logger.try_log (boost::str (boost::format ("Publish message from %1% for %2%") % channel->to_string () % message_a.block->hash ().to_string ()));
-		}
-
 		if (!node.block_processor.full ())
 		{
 			node.process_active (message_a.block);
@@ -411,14 +389,6 @@ public:
 
 	void confirm_req (nano::confirm_req const & message_a) override
 	{
-		if (node.config.logging.network_message_logging ())
-		{
-			if (!message_a.roots_hashes.empty ())
-			{
-				node.logger.try_log (boost::str (boost::format ("Confirm_req message from %1% for hashes:roots %2%") % channel->to_string () % message_a.roots_string ()));
-			}
-		}
-
 		// Don't load nodes with disabled voting
 		if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 		{
@@ -431,11 +401,6 @@ public:
 
 	void confirm_ack (nano::confirm_ack const & message_a) override
 	{
-		if (node.config.logging.network_message_logging ())
-		{
-			node.logger.try_log (boost::str (boost::format ("Received confirm_ack message from %1% for %2% timestamp %3%") % channel->to_string () % message_a.vote->hashes_string () % std::to_string (message_a.vote->timestamp ())));
-		}
-
 		if (!message_a.vote->account.is_zero ())
 		{
 			node.vote_processor.vote (message_a.vote, channel);
@@ -469,11 +434,6 @@ public:
 
 	void telemetry_req (nano::telemetry_req const & message_a) override
 	{
-		if (node.config.logging.network_telemetry_logging ())
-		{
-			node.logger.try_log (boost::str (boost::format ("Telemetry_req message from %1%") % channel->to_string ()));
-		}
-
 		// Send an empty telemetry_ack if we do not want, just to acknowledge that we have received the message to
 		// remove any timeouts on the server side waiting for a message.
 		nano::telemetry_ack telemetry_ack{ node.network_params.network };
@@ -487,11 +447,6 @@ public:
 
 	void telemetry_ack (nano::telemetry_ack const & message_a) override
 	{
-		if (node.config.logging.network_telemetry_logging ())
-		{
-			node.logger.try_log (boost::str (boost::format ("Received telemetry_ack message from %1%") % channel->to_string ()));
-		}
-
 		node.telemetry.process (message_a, channel);
 	}
 
@@ -515,7 +470,7 @@ void nano::network::process_message (nano::message const & message, std::shared_
 {
 	node.stats.inc (nano::stat::type::message, nano::to_stat_detail (message.header.type), nano::stat::dir::in);
 
-	network_message_visitor visitor (node, channel);
+	network_message_visitor visitor{ node, channel };
 	message.visit (visitor);
 }
 
@@ -997,24 +952,4 @@ std::unique_ptr<nano::container_info_component> nano::syn_cookies::collect_conta
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "syn_cookies", syn_cookies_count, sizeof (decltype (cookies)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (cookies_per_ip)::value_type) }));
 	return composite;
-}
-
-std::string nano::network::to_string (nano::networks network)
-{
-	switch (network)
-	{
-		case nano::networks::invalid:
-			return "invalid";
-		case nano::networks::nano_beta_network:
-			return "beta";
-		case nano::networks::nano_dev_network:
-			return "dev";
-		case nano::networks::nano_live_network:
-			return "live";
-		case nano::networks::nano_test_network:
-			return "test";
-			// default case intentionally omitted to cause warnings for unhandled enums
-	}
-
-	return "n/a";
 }

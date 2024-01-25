@@ -21,6 +21,8 @@ enum class type : uint8_t
 	http_callback,
 	ipc,
 	tcp,
+	channel,
+	socket,
 	confirmation_height,
 	confirmation_observer,
 	drop,
@@ -311,7 +313,7 @@ enum class dir : uint8_t
 
 namespace nano
 {
-std::string_view to_string (stat::type type);
-std::string_view to_string (stat::detail detail);
-std::string_view to_string (stat::dir dir);
+std::string_view to_string (stat::type);
+std::string_view to_string (stat::detail);
+std::string_view to_string (stat::dir);
 }
