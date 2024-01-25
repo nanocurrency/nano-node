@@ -382,14 +382,14 @@ std::unique_ptr<nano::asc_pull_ack> nano::transport::message_deserializer::deser
 	return {};
 }
 
-nano::stat::detail nano::to_stat_detail (nano::transport::message_deserializer::parse_status status)
+nano::stat::detail nano::transport::to_stat_detail (nano::transport::parse_status status)
 {
 	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (status));
 	debug_assert (value);
 	return value.value_or (nano::stat::detail{});
 }
 
-std::string_view nano::to_string (nano::transport::message_deserializer::parse_status status)
+std::string_view nano::transport::to_string (nano::transport::parse_status status)
 {
 	return magic_enum::enum_name (status);
 }
