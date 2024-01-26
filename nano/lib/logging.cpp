@@ -282,6 +282,7 @@ nano::log_config nano::log_config::cli_default ()
 {
 	log_config config{};
 	config.default_level = nano::log::level::critical;
+	config.console.colors = false; // to avoid printing warning about cerr and colors
 	config.console.to_cerr = true; // Use cerr to avoid interference with CLI output that goes to stdout
 	config.file.enable = false;
 	return config;
