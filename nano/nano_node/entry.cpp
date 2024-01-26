@@ -990,7 +990,6 @@ int main (int argc, char * const * argv)
 				}
 			}
 
-			node->block_processor.flush ();
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
 			node->stop ();
@@ -1083,7 +1082,10 @@ int main (int argc, char * const * argv)
 				node->process_active (block);
 				blocks.pop_front ();
 			}
-			node->block_processor.flush ();
+			while (node->block_processor.size () > 0)
+			{
+				std::this_thread::sleep_for (std::chrono::milliseconds (100));
+			}
 			// Processing votes
 			std::cerr << boost::str (boost::format ("Starting processing %1% votes\n") % max_votes);
 			auto begin (std::chrono::high_resolution_clock::now ());
@@ -1191,7 +1193,6 @@ int main (int argc, char * const * argv)
 			{
 				node1->block_processor.add (block);
 			}
-			node1->block_processor.flush ();
 			auto iteration (0);
 			while (node1->ledger.cache.block_count != count * 2 + 1)
 			{
@@ -1241,7 +1242,6 @@ int main (int argc, char * const * argv)
 				node2->block_processor.add (block);
 				blocks.pop_front ();
 			}
-			node2->block_processor.flush ();
 			while (node2->ledger.cache.block_count != count * 2 + 1)
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (500));
@@ -1835,8 +1835,6 @@ int main (int argc, char * const * argv)
 					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked)") % node.node->ledger.cache.block_count % node.node->unchecked.count ()) << std::endl;
 				}
 			}
-
-			node.node->block_processor.flush ();
 
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
