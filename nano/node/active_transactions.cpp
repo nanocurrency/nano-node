@@ -67,6 +67,8 @@ void nano::active_transactions::stop ()
 
 void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::block> const & block_a)
 {
+	//There is a race between execution of block_cemented_callback and void nano::scheduler::priority::run ()
+	std::this_thread::sleep_for (10ms); 
 	auto transaction = node.store.tx_begin_read ();
 	auto status_type = election_status (transaction, block_a);
 
