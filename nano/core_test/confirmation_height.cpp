@@ -1497,17 +1497,13 @@ TEST (confirmation_height, callback_confirmed_history)
 		add_callback_stats (*node);
 
 		node->process_active (send1);
-		ASSERT_NE (nano::test::start_election (system, *node, send1->hash ()), nullptr);
+		std::shared_ptr<nano::election> election;
+		ASSERT_TIMELY (5s, election = nano::test::start_election (system, *node, send1->hash ()));
 		{
-			node->process_active (send);
-			node->block_processor.flush ();
-
 			// The write guard prevents the confirmation height processor doing any writes
 			auto write_guard = node->write_database_queue.wait (nano::writer::testing);
 
 			// Confirm send1
-			auto election = node->active.election (send1->qualified_root ());
-			ASSERT_NE (nullptr, election);
 			election->force_confirm ();
 			ASSERT_TIMELY_EQ (10s, node->active.size (), 0);
 			ASSERT_EQ (0, node->active.recently_cemented.list ().size ());
