@@ -481,12 +481,12 @@ nano::log_config nano::load_log_config (nano::log_config fallback, const std::fi
 		if (env_levels)
 		{
 			std::map<nano::log::logger_id, nano::log::level> levels;
-			for (auto const & env_level_str : nano::util::split (*env_levels, ','))
+			for (auto const & env_level_str : nano::util::split (*env_levels, ","))
 			{
 				try
 				{
 					// Split 'logger_name=level' into a pair of 'logger_name' and 'level'
-					auto arr = nano::util::split (env_level_str, '=');
+					auto arr = nano::util::split (env_level_str, "=");
 					if (arr.size () != 2)
 					{
 						throw std::invalid_argument ("Invalid entry: " + env_level_str);
@@ -579,16 +579,14 @@ std::string nano::log::to_string (nano::log::logger_id logger_id)
  */
 nano::log::logger_id nano::log::parse_logger_id (const std::string & logger_name)
 {
-	auto pos = logger_name.find ("::");
-	if (pos == std::string::npos)
+	auto parts = nano::util::split (logger_name, "::");
+	if (parts.size () == 1)
 	{
-		return { nano::log::parse_type (logger_name), nano::log::detail::all };
+		return { nano::log::parse_type (parts[0]), nano::log::detail::all };
 	}
-	else
+	if (parts.size () == 2)
 	{
-		auto logger_type = logger_name.substr (0, pos);
-		auto logger_detail = logger_name.substr (pos + 1);
-
-		return { nano::log::parse_type (logger_type), nano::log::parse_detail (logger_detail) };
+		return { nano::log::parse_type (parts[0]), nano::log::parse_detail (parts[1]) };
 	}
+	throw std::invalid_argument ("Invalid logger name: " + logger_name);
 }

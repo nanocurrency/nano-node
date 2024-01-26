@@ -246,15 +246,19 @@ std::string join (Container const & container, std::string_view delimiter, Func 
 	return join (container.begin (), container.end (), delimiter, transform);
 }
 
-inline std::vector<std::string> split (const std::string & str, char delimiter)
+inline std::vector<std::string> split (std::string const & input, std::string_view delimiter)
 {
-	std::stringstream ss{ str };
 	std::vector<std::string> result;
-	std::string item;
-	while (std::getline (ss, item, delimiter))
+	std::size_t startPos = 0;
+	std::size_t delimiterPos = input.find (delimiter, startPos);
+	while (delimiterPos != std::string::npos)
 	{
-		result.push_back (item);
+		std::string token = input.substr (startPos, delimiterPos - startPos);
+		result.push_back (token);
+		startPos = delimiterPos + delimiter.length ();
+		delimiterPos = input.find (delimiter, startPos);
 	}
+	result.push_back (input.substr (startPos));
 	return result;
 }
 
