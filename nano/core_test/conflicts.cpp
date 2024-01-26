@@ -152,7 +152,7 @@ TEST (vote_uniquer, vbh_one)
 				 .build_shared ();
 	std::vector<nano::block_hash> hashes;
 	hashes.push_back (block->hash ());
-	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, hashes));
+	auto vote1 = nano::test::make_vote (key, { hashes }, 0, 0);
 	auto vote2 (std::make_shared<nano::vote> (*vote1));
 	ASSERT_EQ (vote1, uniquer.unique (vote1));
 	ASSERT_EQ (vote1, uniquer.unique (vote2));
@@ -187,8 +187,8 @@ TEST (vote_uniquer, vbh_two)
 				  .build_shared ();
 	std::vector<nano::block_hash> hashes2;
 	hashes2.push_back (block2->hash ());
-	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, hashes1));
-	auto vote2 (std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, hashes2));
+	auto vote1 = nano::test::make_vote (key, { hashes1 }, 0, 0);
+	auto vote2 = nano::test::make_vote (key, { hashes2 }, 0, 0);
 	ASSERT_EQ (vote1, uniquer.unique (vote1));
 	ASSERT_EQ (vote2, uniquer.unique (vote2));
 }

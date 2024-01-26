@@ -14,7 +14,7 @@ TEST (vote_processor, codes)
 	nano::test::system system (1);
 	auto & node (*system.nodes[0]);
 	auto blocks = nano::test::setup_chain (system, node, 1, nano::dev::genesis_key, false);
-	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ blocks[0]->hash () }));
+	auto vote = nano::test::make_vote (nano::dev::genesis_key, { blocks[0] }, nano::vote::timestamp_min * 1, 0);
 	auto vote_invalid = std::make_shared<nano::vote> (*vote);
 	vote_invalid->signature.bytes[0] ^= 1;
 	auto channel (std::make_shared<nano::transport::inproc::channel> (node, node));
@@ -90,7 +90,7 @@ TEST (vote_processor, no_capacity)
 	node_flags.vote_processor_capacity = 0;
 	auto & node (*system.add_node (node_flags));
 	nano::keypair key;
-	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () }));
+	auto vote = nano::test::make_vote (key, { nano::dev::genesis }, nano::vote::timestamp_min * 1, 0);
 	auto channel (std::make_shared<nano::transport::inproc::channel> (node, node));
 	ASSERT_TRUE (node.vote_processor.vote (vote, channel));
 }
@@ -102,7 +102,7 @@ TEST (vote_processor, overflow)
 	node_flags.vote_processor_capacity = 1;
 	auto & node (*system.add_node (node_flags));
 	nano::keypair key;
-	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () }));
+	auto vote = nano::test::make_vote (key, { nano::dev::genesis }, nano::vote::timestamp_min * 1, 0);
 	auto channel (std::make_shared<nano::transport::inproc::channel> (node, node));
 	auto start_time = std::chrono::system_clock::now ();
 

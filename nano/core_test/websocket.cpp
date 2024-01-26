@@ -673,7 +673,7 @@ TEST (websocket, vote_options_type)
 	ASSERT_TIMELY (5s, ack_ready);
 
 	// Custom made votes for simplicity
-	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () }));
+	auto vote = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis }, 0, 0);
 	nano::websocket::message_builder builder;
 	auto msg (builder.vote_received (vote, nano::vote_code::replay));
 	node1->websocket.server->broadcast (msg);

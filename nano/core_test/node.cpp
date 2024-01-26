@@ -2461,7 +2461,7 @@ TEST (node, local_votes_cache_fork)
 					  .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 	// Cache vote
-	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash> (1, send1->hash ())));
+	auto vote = nano::test::make_vote (nano::dev::genesis_key, { send1 }, 0, 0);
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::fake::channel> (node1));
 	node1.history.add (send1->root (), send1->hash (), vote);
 	auto votes2 (node1.history.votes (send1->root (), send1->hash ()));
@@ -2675,7 +2675,7 @@ TEST (node, DISABLED_vote_by_hash_epoch_block_republish)
 	node1.active.publish (epoch1);
 	std::vector<nano::block_hash> vote_blocks;
 	vote_blocks.push_back (epoch1->hash ());
-	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, vote_blocks));
+	auto vote = nano::test::make_vote (nano::dev::genesis_key, { vote_blocks }, 0, 0);
 	ASSERT_TRUE (node1.active.active (*send1));
 	ASSERT_TRUE (node2.active.active (*send1));
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::fake::channel> (node1));
@@ -2810,8 +2810,8 @@ TEST (node, DISABLED_fork_invalid_block_signature)
 				 .build_shared ();
 	auto send2_corrupt (std::make_shared<nano::send_block> (*send2));
 	send2_corrupt->signature = nano::signature (123);
-	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ send2->hash () }));
-	auto vote_corrupt (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ send2_corrupt->hash () }));
+	auto vote = nano::test::make_vote (nano::dev::genesis_key, { send2 }, 0, 0);
+	auto vote_corrupt = nano::test::make_vote (nano::dev::genesis_key, { send2_corrupt }, 0, 0);
 
 	node1.process_active (send1);
 	ASSERT_TIMELY (5s, node1.block (send1->hash ()));
