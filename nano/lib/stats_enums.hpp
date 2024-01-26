@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <string_view>
 
+#include <magic_enum.hpp>
+
 namespace nano::stat
 {
 /** Primary statistics type */
@@ -67,6 +69,8 @@ enum class detail : uint8_t
 	broadcast,
 	cleanup,
 	top,
+	none,
+	success,
 
 	// processing queue
 	queue,
@@ -172,7 +176,7 @@ enum class detail : uint8_t
 	invalid_frontier_req_message,
 	invalid_asc_pull_req_message,
 	invalid_asc_pull_ack_message,
-	message_too_big,
+	message_size_too_big,
 	outdated_version,
 
 	// tcp
@@ -210,7 +214,7 @@ enum class detail : uint8_t
 	requests_unknown,
 
 	// duplicate
-	duplicate_publish,
+	duplicate_publish_message,
 
 	// telemetry
 	invalid_signature,
@@ -317,3 +321,19 @@ std::string_view to_string (stat::type);
 std::string_view to_string (stat::detail);
 std::string_view to_string (stat::dir);
 }
+
+// Ensure that the enum_range is large enough to hold all values (including future ones)
+template <>
+struct magic_enum::customize::enum_range<nano::stat::type>
+{
+	static constexpr int min = 0;
+	static constexpr int max = 128;
+};
+
+// Ensure that the enum_range is large enough to hold all values (including future ones)
+template <>
+struct magic_enum::customize::enum_range<nano::stat::detail>
+{
+	static constexpr int min = 0;
+	static constexpr int max = 512;
+};

@@ -5,6 +5,8 @@
 
 #include <boost/format.hpp>
 
+#include <magic_enum.hpp>
+
 using namespace std::chrono;
 
 std::chrono::milliseconds nano::election::base_latency () const
@@ -693,24 +695,9 @@ std::vector<nano::vote_with_weight_info> nano::election::votes_with_weight () co
 
 nano::stat::detail nano::to_stat_detail (nano::election_behavior behavior)
 {
-	switch (behavior)
-	{
-		case nano::election_behavior::normal:
-		{
-			return nano::stat::detail::normal;
-		}
-		case nano::election_behavior::hinted:
-		{
-			return nano::stat::detail::hinted;
-		}
-		case nano::election_behavior::optimistic:
-		{
-			return nano::stat::detail::optimistic;
-		}
-	}
-
-	debug_assert (false, "unknown election behavior");
-	return {};
+	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (behavior));
+	debug_assert (value);
+	return value.value_or (nano::stat::detail{});
 }
 
 nano::election_behavior nano::election::behavior () const

@@ -324,7 +324,7 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 
 	lock_a.unlock ();
 
-	node.stats.inc (completion_type (*election), nano::to_stat_detail (election->behavior ()));
+	node.stats.inc (completion_type (*election), to_stat_detail (election->behavior ()));
 
 	vacancy_update ();
 
@@ -461,7 +461,7 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 		{
 			cache->fill (result.election);
 		}
-		node.stats.inc (nano::stat::type::active_started, nano::to_stat_detail (election_behavior_a));
+		node.stats.inc (nano::stat::type::active_started, to_stat_detail (election_behavior_a));
 		node.observers.active_started.notify (hash);
 		vacancy_update ();
 	}

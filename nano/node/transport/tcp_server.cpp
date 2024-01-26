@@ -372,10 +372,10 @@ void nano::transport::tcp_server::receive_message ()
 		if (ec)
 		{
 			// IO error or critical error when deserializing message
-			node->stats.inc (nano::stat::type::error, nano::to_stat_detail (this_l->message_deserializer->status));
+			node->stats.inc (nano::stat::type::error, to_stat_detail (this_l->message_deserializer->status));
 			node->logger.debug (nano::log::type::tcp_server, "Error reading message: {}, status: {} ({})",
 			ec.message (),
-			nano::to_string (this_l->message_deserializer->status),
+			to_string (this_l->message_deserializer->status),
 			nano::util::to_str (this_l->remote_endpoint));
 
 			this_l->stop ();
@@ -402,18 +402,18 @@ void nano::transport::tcp_server::received_message (std::unique_ptr<nano::messag
 	else
 	{
 		// Error while deserializing message
-		debug_assert (message_deserializer->status != transport::message_deserializer::parse_status::success);
+		debug_assert (message_deserializer->status != transport::parse_status::success);
 
-		node->stats.inc (nano::stat::type::error, nano::to_stat_detail (message_deserializer->status));
-		if (message_deserializer->status == transport::message_deserializer::parse_status::duplicate_publish_message)
+		node->stats.inc (nano::stat::type::error, to_stat_detail (message_deserializer->status));
+		if (message_deserializer->status == transport::parse_status::duplicate_publish_message)
 		{
-			node->stats.inc (nano::stat::type::filter, nano::stat::detail::duplicate_publish);
+			node->stats.inc (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message);
 		}
 		else
 		{
 			// Avoid too much noise about `duplicate_publish_message` errors
 			node->logger.debug (nano::log::type::tcp_server, "Error deserializing message: {} ({})",
-			nano::to_string (message_deserializer->status),
+			to_string (message_deserializer->status),
 			nano::util::to_str (remote_endpoint));
 		}
 	}
@@ -431,7 +431,7 @@ bool nano::transport::tcp_server::process_message (std::unique_ptr<nano::message
 	{
 		return false;
 	}
-	node->stats.inc (nano::stat::type::tcp_server, nano::to_stat_detail (message->header.type), nano::stat::dir::in);
+	node->stats.inc (nano::stat::type::tcp_server, to_stat_detail (message->header.type), nano::stat::dir::in);
 
 	debug_assert (is_undefined_connection () || is_realtime_connection () || is_bootstrap_connection ());
 

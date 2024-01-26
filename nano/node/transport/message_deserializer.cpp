@@ -382,78 +382,14 @@ std::unique_ptr<nano::asc_pull_ack> nano::transport::message_deserializer::deser
 	return {};
 }
 
-nano::stat::detail nano::to_stat_detail (nano::transport::message_deserializer::parse_status status)
+nano::stat::detail nano::transport::to_stat_detail (nano::transport::parse_status status)
 {
-	using parse_status = nano::transport::message_deserializer::parse_status;
-
-	// Keep additional `break` for readability
-	switch (status)
-	{
-		case parse_status::none:
-		case parse_status::success:
-			break;
-		case parse_status::insufficient_work:
-			return stat::detail::insufficient_work;
-			break;
-		case parse_status::invalid_header:
-			return stat::detail::invalid_header;
-			break;
-		case parse_status::invalid_message_type:
-			return stat::detail::invalid_message_type;
-			break;
-		case parse_status::invalid_keepalive_message:
-			return stat::detail::invalid_keepalive_message;
-			break;
-		case parse_status::invalid_publish_message:
-			return stat::detail::invalid_publish_message;
-			break;
-		case parse_status::invalid_confirm_req_message:
-			return stat::detail::invalid_confirm_req_message;
-			break;
-		case parse_status::invalid_confirm_ack_message:
-			return stat::detail::invalid_confirm_ack_message;
-			break;
-		case parse_status::invalid_node_id_handshake_message:
-			return stat::detail::invalid_node_id_handshake_message;
-			break;
-		case parse_status::invalid_telemetry_req_message:
-			return stat::detail::invalid_telemetry_req_message;
-			break;
-		case parse_status::invalid_telemetry_ack_message:
-			return stat::detail::invalid_telemetry_ack_message;
-			break;
-		case parse_status::invalid_bulk_pull_message:
-			return stat::detail::invalid_bulk_pull_message;
-			break;
-		case parse_status::invalid_bulk_pull_account_message:
-			return stat::detail::invalid_bulk_pull_account_message;
-			break;
-		case parse_status::invalid_frontier_req_message:
-			return stat::detail::invalid_frontier_req_message;
-			break;
-		case parse_status::invalid_asc_pull_req_message:
-			return stat::detail::invalid_asc_pull_req_message;
-			break;
-		case parse_status::invalid_asc_pull_ack_message:
-			return stat::detail::invalid_asc_pull_ack_message;
-			break;
-		case parse_status::invalid_network:
-			return stat::detail::invalid_network;
-			break;
-		case parse_status::outdated_version:
-			return stat::detail::outdated_version;
-			break;
-		case parse_status::duplicate_publish_message:
-			return stat::detail::duplicate_publish;
-			break;
-		case parse_status::message_size_too_big:
-			return stat::detail::message_too_big;
-			break;
-	}
-	return {};
+	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (status));
+	debug_assert (value);
+	return value.value_or (nano::stat::detail{});
 }
 
-std::string_view nano::to_string (nano::transport::message_deserializer::parse_status status)
+std::string_view nano::transport::to_string (nano::transport::parse_status status)
 {
 	return magic_enum::enum_name (status);
 }
