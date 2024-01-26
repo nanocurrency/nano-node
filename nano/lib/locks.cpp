@@ -1,5 +1,6 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/locks.hpp>
+#include <nano/lib/stacktrace.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/format.hpp>
