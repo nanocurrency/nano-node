@@ -513,14 +513,16 @@ TEST (confirmation_height, gap_live)
 		node->block_processor.add (send1);
 		node->block_processor.add (send2);
 		node->block_processor.add (send3);
+		// node->block_processor.add (open1); Witheld for test
 		node->block_processor.add (receive1);
-		node->block_processor.flush ();
+		ASSERT_TIMELY (5s, nano::test::exists (*node, { send1, send2, send3 }));
+		ASSERT_TIMELY (5s, node->unchecked.exists ({ open1->hash (), receive1->hash () }));
 
 		add_callback_stats (*node);
 
 		// Receive 2 comes in on the live network, however the chain has not been finished so it gets added to unchecked
 		node->process_active (receive2);
-		node->block_processor.flush ();
+		ASSERT_TIMELY (5s, node->unchecked.exists ({ receive1->hash (), receive2->hash () }));
 
 		// Confirmation heights should not be updated
 		{

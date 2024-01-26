@@ -756,7 +756,7 @@ TEST (active_transactions, republish_winner)
 				.build_shared ();
 
 	node1.process_active (fork);
-	node1.block_processor.flush ();
+	ASSERT_TIMELY (5s, node1.active.active (fork->hash ()));
 	auto election = node1.active.election (fork->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { fork });
@@ -974,12 +974,10 @@ TEST (active_transactions, fork_replacement_tally)
 	node1.network.publish_filter.clear ();
 	node2.network.flood_block (send_last);
 	ASSERT_TIMELY (3s, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) > 0);
-	node1.block_processor.flush ();
-	system.delay_ms (50ms);
 
 	// Correct block without votes is ignored
-	auto blocks1 (election->blocks ());
-	ASSERT_EQ (max_blocks, blocks1.size ());
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks1;
+	ASSERT_TIMELY_EQ (5s, max_blocks, (blocks1 = election->blocks (), blocks1.size ()));
 	ASSERT_FALSE (blocks1.find (send_last->hash ()) != blocks1.end ());
 
 	// Process vote for correct block & replace existing lowest tally block

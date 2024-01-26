@@ -355,8 +355,7 @@ TEST (node, receive_gap)
 	nano::publish message{ nano::dev::network_params.network, block };
 	auto channel1 = std::make_shared<nano::transport::fake::channel> (node1);
 	node1.network.inbound (message, channel1);
-	node1.block_processor.flush ();
-	ASSERT_EQ (1, node1.gap_cache.size ());
+	ASSERT_TIMELY_EQ (5s, 1, node1.gap_cache.size ());
 }
 
 TEST (node, merge_peers)
@@ -581,7 +580,7 @@ TEST (node, fork_publish)
 		// Wait until the genesis rep activated & makes vote
 		ASSERT_TIMELY_EQ (1s, election->votes ().size (), 2);
 		node1.process_active (send2);
-		node1.block_processor.flush ();
+		ASSERT_TIMELY (5s, node1.active.active (*send2));
 		auto votes1 (election->votes ());
 		auto existing1 (votes1.find (nano::dev::genesis_key.pub));
 		ASSERT_NE (votes1.end (), existing1);
@@ -676,10 +675,11 @@ TEST (node, fork_keep)
 	ASSERT_TIMELY_EQ (5s, 1, node1.active.size ());
 	ASSERT_TIMELY_EQ (5s, 1, node2.active.size ());
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	// Fill node with forked blocks
 	node1.process_active (send2);
-	node1.block_processor.flush ();
+	ASSERT_TIMELY (5s, node1.active.active (*send2));
 	node2.process_active (send2);
-	node2.block_processor.flush ();
+	ASSERT_TIMELY (5s, node2.active.active (*send2));
 	auto election1 (node2.active.election (nano::qualified_root (nano::dev::genesis->hash (), nano::dev::genesis->hash ())));
 	ASSERT_NE (nullptr, election1);
 	ASSERT_EQ (1, election1->votes ().size ());
@@ -729,10 +729,11 @@ TEST (node, fork_flip)
 	ASSERT_TIMELY_EQ (5s, 1, node1.active.size ());
 	ASSERT_TIMELY_EQ (5s, 1, node2.active.size ());
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	// Fill nodes with forked blocks
 	node1.network.inbound (publish2, ignored_channel);
-	node1.block_processor.flush ();
+	ASSERT_TIMELY (5s, node1.active.active (*send2));
 	node2.network.inbound (publish1, ignored_channel);
-	node2.block_processor.flush ();
+	ASSERT_TIMELY (5s, node2.active.active (*send1));
 	auto election1 (node2.active.election (nano::qualified_root (nano::dev::genesis->hash (), nano::dev::genesis->hash ())));
 	ASSERT_NE (nullptr, election1);
 	ASSERT_EQ (1, election1->votes ().size ());
