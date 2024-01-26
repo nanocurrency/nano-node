@@ -1864,3 +1864,8 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_typ
 
 	return result;
 }
+
+std::string nano::block_sideband::to_json () const
+{
+	return ("{\"successor\":\"" + successor.to_string () + "\", \"account\":" + account.to_account () + ", \"balance\":" + balance.to_string () + ", \"height\":" + nano::to_string_hex (height) + ", \"timestamp\": " + nano::to_string_hex (timestamp) + ", \"details\":" + std::to_string (static_cast<int> (details.epoch)) + ", \"" + (details.is_send) ? "true" : "false" + "\", \"" + (details.is_receive) ? "true" : "false" + "\", \"" + (details.is_epoch) ? "true" : "false" + "\", \"source_epoch\":" + std::to_string (static_cast<int> (source_epoch)) + "}");
+}

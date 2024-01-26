@@ -72,6 +72,7 @@ public:
 	uint64_t timestamp{ 0 };
 	nano::block_details details;
 	nano::epoch source_epoch{ nano::epoch::epoch_0 };
+	string to_json () const;
 };
 class block
 {
