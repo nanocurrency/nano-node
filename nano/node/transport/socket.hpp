@@ -4,6 +4,7 @@
 #include <nano/boost/asio/strand.hpp>
 #include <nano/lib/asio.hpp>
 #include <nano/lib/locks.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/transport/traffic_type.hpp>
 
@@ -157,6 +158,7 @@ protected:
 
 	/** The other end of the connection */
 	boost::asio::ip::tcp::endpoint remote;
+	boost::asio::ip::tcp::endpoint local;
 
 	/** number of seconds of inactivity that causes a socket timeout
 	 *  activity is any successful connect, send or receive event

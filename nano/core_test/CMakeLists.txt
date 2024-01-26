@@ -64,5 +64,4 @@ target_compile_definitions(
 target_link_libraries(core_test test_common)
 
 include_directories(${CMAKE_SOURCE_DIR}/submodules)
-include_directories(${CMAKE_SOURCE_DIR}/submodules/cpptoml/include)
 include_directories(${CMAKE_SOURCE_DIR}/submodules/gtest/googletest/include)

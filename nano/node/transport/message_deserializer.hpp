@@ -10,34 +10,34 @@ namespace nano
 {
 namespace transport
 {
+	enum class parse_status
+	{
+		none,
+		success,
+		insufficient_work,
+		invalid_header,
+		invalid_message_type,
+		invalid_keepalive_message,
+		invalid_publish_message,
+		invalid_confirm_req_message,
+		invalid_confirm_ack_message,
+		invalid_node_id_handshake_message,
+		invalid_telemetry_req_message,
+		invalid_telemetry_ack_message,
+		invalid_bulk_pull_message,
+		invalid_bulk_pull_account_message,
+		invalid_frontier_req_message,
+		invalid_asc_pull_req_message,
+		invalid_asc_pull_ack_message,
+		invalid_network,
+		outdated_version,
+		duplicate_publish_message,
+		message_size_too_big,
+	};
+
 	class message_deserializer : public std::enable_shared_from_this<nano::transport::message_deserializer>
 	{
 	public:
-		enum class parse_status
-		{
-			none,
-			success,
-			insufficient_work,
-			invalid_header,
-			invalid_message_type,
-			invalid_keepalive_message,
-			invalid_publish_message,
-			invalid_confirm_req_message,
-			invalid_confirm_ack_message,
-			invalid_node_id_handshake_message,
-			invalid_telemetry_req_message,
-			invalid_telemetry_ack_message,
-			invalid_bulk_pull_message,
-			invalid_bulk_pull_account_message,
-			invalid_frontier_req_message,
-			invalid_asc_pull_req_message,
-			invalid_asc_pull_ack_message,
-			invalid_network,
-			outdated_version,
-			duplicate_publish_message,
-			message_size_too_big,
-		};
-
 		using callback_type = std::function<void (boost::system::error_code, std::unique_ptr<nano::message>)>;
 
 		parse_status status;
@@ -89,11 +89,9 @@ namespace transport
 		nano::block_uniquer & block_uniquer_m;
 		nano::vote_uniquer & vote_uniquer_m;
 		read_query read_op;
-
-	public:
-		static stat::detail to_stat_detail (parse_status);
-		static std::string to_string (parse_status);
 	};
 
+	nano::stat::detail to_stat_detail (parse_status);
+	std::string_view to_string (parse_status);
 }
 }

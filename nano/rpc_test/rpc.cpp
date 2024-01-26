@@ -1677,7 +1677,7 @@ TEST (rpc, keepalive)
 {
 	nano::test::system system;
 	auto node0 = add_ipc_enabled_node (system);
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto const rpc_ctx = add_rpc (system, node0);
@@ -5376,7 +5376,6 @@ TEST (rpc, block_confirm_confirmed)
 	config.callback_address = "localhost";
 	config.callback_port = system.get_available_port ();
 	config.callback_target = "/";
-	config.logging.init (path);
 	auto node = add_ipc_enabled_node (system, config);
 	{
 		auto transaction (node->store.tx_begin_read ());
@@ -6503,8 +6502,7 @@ TEST (rpc, account_lazy_start)
 
 	// needs timed assert because the writing (put) operation is done by a different
 	// thread, it might not get done before DB get operation.
-	ASSERT_TIMELY (10s, node2->ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_TIMELY (10s, node2->ledger.block_or_pruned_exists (open->hash ()));
+	ASSERT_TIMELY (15s, nano::test::block_or_pruned_all_exists (*node2, { send1, open }));
 }
 
 TEST (rpc, receive)

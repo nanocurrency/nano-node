@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/make_store.hpp>
@@ -88,7 +89,7 @@ TEST (system, receive_while_synchronizing)
 		uint32_t count (1000);
 		system.generate_mass_activity (count, *system.nodes[0]);
 		nano::keypair key;
-		auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
+		auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work));
 		ASSERT_FALSE (node1->init_error ());
 		auto wallet (node1->wallets.create (1));
 		wallet->insert_adhoc (nano::dev::genesis_key.prv); // For voting
@@ -116,7 +117,7 @@ TEST (system, receive_while_synchronizing)
 
 TEST (ledger, deep_account_compute)
 {
-	nano::logger_mt logger;
+	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stats stats;
@@ -536,7 +537,7 @@ TEST (store, vote_load)
  */
 TEST (store, pruned_load)
 {
-	nano::logger_mt logger;
+	nano::logger logger;
 	auto path (nano::unique_path ());
 	constexpr auto num_pruned = 2000000;
 	auto const expected_result = num_pruned / 2;
@@ -1222,8 +1223,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 		// Don't test this in rocksdb mode
 		return;
 	}
-	nano::logger_mt logger;
-	nano::logging logging;
+	nano::logger logger;
 	auto path (nano::unique_path ());
 	auto store = nano::make_store (logger, path, nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
@@ -1235,7 +1235,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	boost::latch initialized_latch{ 0 };
 
 	nano::block_hash block_hash_being_processed{ 0 };
-	nano::confirmation_height_processor confirmation_height_processor{ ledger, write_database_queue, 10ms, logging, logger, initialized_latch, confirmation_height_mode::automatic };
+	nano::confirmation_height_processor confirmation_height_processor{ ledger, write_database_queue, 10ms, logger, initialized_latch, confirmation_height_mode::automatic };
 
 	auto const num_accounts = 100000;
 
@@ -2123,7 +2123,7 @@ TEST (node, wallet_create_block_confirm_conflicts)
 	{
 		nano::test::system system;
 		nano::block_builder builder;
-		nano::node_config node_config (system.get_available_port (), system.logging);
+		nano::node_config node_config (system.get_available_port ());
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config);
 		auto const num_blocks = 10000;

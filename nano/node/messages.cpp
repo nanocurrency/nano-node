@@ -82,86 +82,6 @@ bool nano::message_header::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-std::string nano::to_string (nano::message_type type)
-{
-	switch (type)
-	{
-		case nano::message_type::invalid:
-			return "invalid";
-		case nano::message_type::not_a_type:
-			return "not_a_type";
-		case nano::message_type::keepalive:
-			return "keepalive";
-		case nano::message_type::publish:
-			return "publish";
-		case nano::message_type::confirm_req:
-			return "confirm_req";
-		case nano::message_type::confirm_ack:
-			return "confirm_ack";
-		case nano::message_type::bulk_pull:
-			return "bulk_pull";
-		case nano::message_type::bulk_push:
-			return "bulk_push";
-		case nano::message_type::frontier_req:
-			return "frontier_req";
-		case nano::message_type::node_id_handshake:
-			return "node_id_handshake";
-		case nano::message_type::bulk_pull_account:
-			return "bulk_pull_account";
-		case nano::message_type::telemetry_req:
-			return "telemetry_req";
-		case nano::message_type::telemetry_ack:
-			return "telemetry_ack";
-		case nano::message_type::asc_pull_req:
-			return "asc_pull_req";
-		case nano::message_type::asc_pull_ack:
-			return "asc_pull_ack";
-			// default case intentionally omitted to cause warnings for unhandled enums
-	}
-
-	return "n/a";
-}
-
-nano::stat::detail nano::to_stat_detail (nano::message_type type)
-{
-	switch (type)
-	{
-		case nano::message_type::invalid:
-			return nano::stat::detail::invalid;
-		case nano::message_type::not_a_type:
-			return nano::stat::detail::not_a_type;
-		case nano::message_type::keepalive:
-			return nano::stat::detail::keepalive;
-		case nano::message_type::publish:
-			return nano::stat::detail::publish;
-		case nano::message_type::confirm_req:
-			return nano::stat::detail::confirm_req;
-		case nano::message_type::confirm_ack:
-			return nano::stat::detail::confirm_ack;
-		case nano::message_type::bulk_pull:
-			return nano::stat::detail::bulk_pull;
-		case nano::message_type::bulk_push:
-			return nano::stat::detail::bulk_push;
-		case nano::message_type::frontier_req:
-			return nano::stat::detail::frontier_req;
-		case nano::message_type::node_id_handshake:
-			return nano::stat::detail::node_id_handshake;
-		case nano::message_type::bulk_pull_account:
-			return nano::stat::detail::bulk_pull_account;
-		case nano::message_type::telemetry_req:
-			return nano::stat::detail::telemetry_req;
-		case nano::message_type::telemetry_ack:
-			return nano::stat::detail::telemetry_ack;
-		case nano::message_type::asc_pull_req:
-			return nano::stat::detail::asc_pull_req;
-		case nano::message_type::asc_pull_ack:
-			return nano::stat::detail::asc_pull_ack;
-			// default case intentionally omitted to cause warnings for unhandled enums
-	}
-	debug_assert (false);
-	return {};
-}
-
 std::string nano::message_header::to_string () const
 {
 	// Cast to uint16_t to get integer value since uint8_t is treated as an unsigned char in string formatting.
@@ -169,11 +89,11 @@ std::string nano::message_header::to_string () const
 	uint16_t version_max_l = static_cast<uint16_t> (version_max);
 	uint16_t version_using_l = static_cast<uint16_t> (version_using);
 	uint16_t version_min_l = static_cast<uint16_t> (version_min);
-	std::string type_text = nano::to_string (type);
+	auto type_text = nano::to_string (type);
 
 	std::stringstream stream;
 
-	stream << boost::format ("NetID: %1%(%2%), ") % nano::to_string_hex (static_cast<uint16_t> (network)) % nano::network::to_string (network);
+	stream << boost::format ("NetID: %1%(%2%), ") % nano::to_string_hex (static_cast<uint16_t> (network)) % nano::to_string (network);
 	stream << boost::format ("VerMaxUsingMin: %1%/%2%/%3%, ") % version_max_l % version_using_l % version_min_l;
 	stream << boost::format ("MsgType: %1%(%2%), ") % type_l % type_text;
 	stream << boost::format ("Extensions: %1%") % nano::to_string_hex (static_cast<uint16_t> (extensions.to_ulong ()));
@@ -2067,4 +1987,20 @@ void nano::asc_pull_ack::frontiers_payload::deserialize (nano::stream & stream)
 		frontiers.push_back (current);
 		current = deserialize_frontier (stream);
 	}
+}
+
+/*
+ *
+ */
+
+std::string_view nano::to_string (nano::message_type type)
+{
+	return magic_enum::enum_name (type);
+}
+
+nano::stat::detail nano::to_stat_detail (nano::message_type type)
+{
+	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (type));
+	debug_assert (value);
+	return value.value_or (nano::stat::detail{});
 }

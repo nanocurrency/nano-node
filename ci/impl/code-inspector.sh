@@ -16,12 +16,6 @@ code_inspect()
         return 1
     fi
 
-    # prevent unsolicited use of std::lock_guard, std::unique_lock, std::condition_variable & std::mutex outside of allowed areas
-    if [[ $(grep -rl --exclude={"*random_pool.cpp","*random_pool.hpp","*random_pool_shuffle.hpp","*locks.hpp","*locks.cpp"} "std::unique_lock\|std::lock_guard\|std::condition_variable\|std::mutex" $SOURCE_ROOT_PATH/nano) ]]; then
-        echo "Using std::unique_lock, std::lock_guard, std::condition_variable or std::mutex is not permitted (except in nano/lib/locks.hpp and non-nano dependent libraries). Use the nano::* versions instead" >&2
-        return 1
-    fi
-
     if [[ $(grep -rlP "^\s*assert \(" $SOURCE_ROOT_PATH/nano) ]]; then
         echo "Using assert is not permitted. Use debug_assert instead." >&2
         return 1

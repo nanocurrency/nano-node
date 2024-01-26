@@ -110,8 +110,6 @@ add_library(
   ipc/ipc_server.cpp
   json_handler.hpp
   json_handler.cpp
-  logging.hpp
-  logging.cpp
   make_store.hpp
   make_store.cpp
   network.hpp
@@ -204,8 +202,6 @@ target_link_libraries(
   argon2
   lmdb
   Boost::beast
-  Boost::log_setup
-  Boost::log
   Boost::program_options
   Boost::stacktrace
   Boost::system
@@ -223,6 +219,5 @@ target_compile_definitions(
 add_dependencies(node ipc_flatbuffers_lib)
 
 include_directories(${CMAKE_SOURCE_DIR}/submodules)
-include_directories(${CMAKE_SOURCE_DIR}/submodules/cpptoml/include)
 include_directories(
   ${CMAKE_SOURCE_DIR}/submodules/nano-pow-server/deps/cpptoml/include)

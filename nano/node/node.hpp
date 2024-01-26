@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_pool.hpp>
 #include <nano/lib/work.hpp>
@@ -69,7 +70,7 @@ outbound_bandwidth_limiter::config outbound_bandwidth_limiter_config (node_confi
 class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
-	node (boost::asio::io_context &, uint16_t, std::filesystem::path const &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
+	node (boost::asio::io_context &, uint16_t, std::filesystem::path const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
 	node (boost::asio::io_context &, std::filesystem::path const &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
 	~node ();
 
@@ -100,13 +101,11 @@ public:
 	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
 	void ongoing_peer_store ();
-	void ongoing_unchecked_cleanup ();
 	void backup_wallet ();
 	void search_receivable_all ();
 	void bootstrap_wallet ();
-	void unchecked_cleanup ();
 	bool collect_ledger_pruning_targets (std::deque<nano::block_hash> &, nano::account &, uint64_t const, uint64_t const, uint64_t const);
-	void ledger_pruning (uint64_t const, bool, bool);
+	void ledger_pruning (uint64_t const, bool);
 	void ongoing_ledger_pruning ();
 	int price (nano::uint128_t const &, int);
 	// The default difficulty updates to base only when the first epoch_2 block is processed
@@ -139,18 +138,19 @@ public:
 	nano::telemetry_data local_telemetry () const;
 
 public:
+	const nano::keypair node_id;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
 	nano::node_config config;
 	nano::network_params & network_params;
+	nano::logger logger;
 	nano::stats stats;
 	nano::thread_pool workers;
 	nano::thread_pool bootstrap_workers;
 	nano::node_flags flags;
 	nano::work_pool & work;
 	nano::distributed_work_factory distributed_work;
-	nano::logger_mt logger;
 	std::unique_ptr<nano::store::component> store_impl;
 	nano::store::component & store;
 	nano::unchecked_map unchecked;
@@ -174,7 +174,6 @@ public:
 	nano::block_processor block_processor;
 	nano::block_arrival block_arrival;
 	nano::local_vote_history history;
-	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
 	nano::confirmation_height_processor confirmation_height_processor;
@@ -226,9 +225,12 @@ public: // Testing convenience functions
 
 private:
 	void long_inactivity_cleanup ();
+
+	static std::string make_logger_identifier (nano::keypair const & node_id);
 };
 
-nano::keypair load_or_create_node_id (std::filesystem::path const & application_path, nano::logger_mt & logger);
+nano::keypair load_or_create_node_id (std::filesystem::path const & application_path);
+
 std::unique_ptr<container_info_component> collect_container_info (node & node, std::string const & name);
 
 nano::node_flags const & inactive_node_flag_defaults ();

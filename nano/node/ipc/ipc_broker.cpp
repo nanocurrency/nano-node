@@ -65,13 +65,13 @@ void nano::ipc::broker::start ()
 		}
 		catch (nano::error const & err)
 		{
-			this_l->node.logger.always_log ("IPC: could not broadcast message: ", err.get_message ());
+			this_l->node.logger.error (nano::log::type::ipc, "Could not broadcast message: {}", err.get_message ());
 		}
 	});
 }
 
 template <typename COLL, typename TOPIC_TYPE>
-void subscribe_or_unsubscribe (nano::logger_mt & logger, COLL & subscriber_collection, std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, TOPIC_TYPE topic_a)
+void subscribe_or_unsubscribe (nano::logger & logger, COLL & subscriber_collection, std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, TOPIC_TYPE topic_a)
 {
 	// Evict subscribers from dead sessions. Also remove current subscriber if unsubscribing.
 	subscriber_collection.erase (std::remove_if (subscriber_collection.begin (), subscriber_collection.end (),
@@ -85,7 +85,7 @@ void subscribe_or_unsubscribe (nano::logger_mt & logger, COLL & subscriber_colle
 											 remove = topic_a->unsubscribe && subscriber_l->get_id () == calling_subscriber_l->get_id ();
 											 if (remove)
 											 {
-												 logger.always_log ("IPC: unsubscription from subscriber #", calling_subscriber_l->get_id ());
+												 logger.info (nano::log::type::ipc, "Subscriber ubsubscribed #{}", calling_subscriber_l->get_id ());
 											 }
 										 }
 									 }

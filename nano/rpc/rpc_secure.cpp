@@ -27,7 +27,7 @@ void nano::rpc_secure::accept ()
 		}
 		else
 		{
-			logger.always_log (boost::str (boost::format ("Error accepting RPC connections: %1%") % ec));
+			logger.error (nano::log::type::rpc, "Error accepting RPC connection: {}", ec.message ());
 		}
 	}));
 }

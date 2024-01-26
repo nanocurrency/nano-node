@@ -2,6 +2,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/store/component.hpp>
 
@@ -497,37 +498,7 @@ void nano::generate_cache::enable_all ()
 
 nano::stat::detail nano::to_stat_detail (nano::process_result process_result)
 {
-	switch (process_result)
-	{
-		case process_result::progress:
-			return nano::stat::detail::progress;
-		case process_result::bad_signature:
-			return nano::stat::detail::bad_signature;
-		case process_result::old:
-			return nano::stat::detail::old;
-		case process_result::negative_spend:
-			return nano::stat::detail::negative_spend;
-		case process_result::fork:
-			return nano::stat::detail::fork;
-		case process_result::unreceivable:
-			return nano::stat::detail::unreceivable;
-		case process_result::gap_previous:
-			return nano::stat::detail::gap_previous;
-		case process_result::gap_source:
-			return nano::stat::detail::gap_source;
-		case process_result::gap_epoch_open_pending:
-			return nano::stat::detail::gap_epoch_open_pending;
-		case process_result::opened_burn_account:
-			return nano::stat::detail::opened_burn_account;
-		case process_result::balance_mismatch:
-			return nano::stat::detail::balance_mismatch;
-		case process_result::representative_mismatch:
-			return nano::stat::detail::representative_mismatch;
-		case process_result::block_position:
-			return nano::stat::detail::block_position;
-		case process_result::insufficient_work:
-			return nano::stat::detail::insufficient_work;
-	}
-	debug_assert (false && "There should be always a defined nano::stat::detail that is not _last");
-	return nano::stat::detail::_last;
+	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (process_result));
+	debug_assert (value);
+	return value.value_or (nano::stat::detail{});
 }

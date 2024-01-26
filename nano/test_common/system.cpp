@@ -125,6 +125,19 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 	return node;
 }
 
+std::shared_ptr<nano::node> nano::test::system::make_disconnected_node (std::optional<nano::node_config> opt_node_config, nano::node_flags flags)
+{
+	nano::node_config node_config = opt_node_config.has_value () ? *opt_node_config : default_config ();
+	auto node = std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config, work, flags);
+	if (node->init_error ())
+	{
+		std::cerr << "node init error\n";
+		return nullptr;
+	}
+	node->start ();
+	return node;
+}
+
 nano::test::system::system ()
 {
 	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
@@ -132,7 +145,6 @@ nano::test::system::system ()
 	{
 		deadline_scaling_factor = std::stod (scale_str);
 	}
-	logging.init (nano::unique_path ());
 }
 
 nano::test::system::system (uint16_t count_a, nano::transport::transport_type type_a, nano::node_flags flags_a) :
@@ -563,66 +575,36 @@ void nano::test::system::stop ()
 
 nano::node_config nano::test::system::default_config ()
 {
-	nano::node_config config{ get_available_port (), logging };
+	nano::node_config config{ get_available_port () };
 	return config;
 }
 
-uint16_t nano::test::system::get_available_port (bool can_be_zero)
+uint16_t nano::test::system::get_available_port ()
 {
 	auto base_port_str = std::getenv ("NANO_TEST_BASE_PORT");
-	if (base_port_str)
-	{
-		// Maximum possible sockets which may feasibly be used in 1 test
-		constexpr auto max = 200;
-		static uint16_t current = 0;
-		// Read the TEST_BASE_PORT environment and override the default base port if it exists
-		uint16_t base_port = boost::lexical_cast<uint16_t> (base_port_str);
+	if (!base_port_str)
+		return 0; // let the O/S decide
 
-		uint16_t const available_port = base_port + current;
-		++current;
-		// Reset port number once we have reached the maximum
-		if (current == max)
-		{
-			current = 0;
-		}
+	// Maximum possible sockets which may feasibly be used in 1 test
+	constexpr auto max = 200;
+	static uint16_t current = 0;
 
-		return available_port;
-	}
-	else
-	{
-		if (!can_be_zero)
-		{
-			/*
-			 * This works because the kernel doesn't seem to reuse port numbers until it absolutely has to.
-			 * Subsequent binds to port 0 will allocate a different port number.
-			 */
-			boost::asio::ip::tcp::acceptor acceptor{ io_ctx };
-			boost::asio::ip::tcp::tcp::endpoint endpoint{ boost::asio::ip::tcp::v4 (), 0 };
-			acceptor.open (endpoint.protocol ());
+	// Read the TEST_BASE_PORT environment and override the default base port if it exists
+	uint16_t base_port = boost::lexical_cast<uint16_t> (base_port_str);
 
-			boost::asio::socket_base::reuse_address option{ true };
-			acceptor.set_option (option); // set SO_REUSEADDR option
+	uint16_t const available_port = base_port + current;
+	++current;
 
-			acceptor.bind (endpoint);
+	// Reset port number once we have reached the maximum
+	if (current >= max)
+		current = 0;
 
-			auto actual_endpoint = acceptor.local_endpoint ();
-			auto port = actual_endpoint.port ();
-
-			acceptor.close ();
-
-			return port;
-		}
-		else
-		{
-			return 0;
-		}
-	}
+	return available_port;
 }
 
+// Makes sure everything is cleaned up
 void nano::test::cleanup_dev_directories_on_exit ()
 {
-	// Makes sure everything is cleaned up
-	nano::logging::release_file_sink ();
 	// Clean up tmp directories created by the tests. Since it's sometimes useful to
 	// see log files after test failures, an environment variable is supported to
 	// retain the files.

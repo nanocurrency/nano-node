@@ -4,6 +4,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include <array>
+#include <ostream>
 
 namespace nano
 {
@@ -61,6 +62,7 @@ public:
 	using uint128_union::uint128_union;
 };
 class raw_key;
+
 class uint256_union
 {
 public:
@@ -264,6 +266,11 @@ nano::public_key pub_key (nano::raw_key const &);
 std::string to_string_hex (uint64_t const);
 std::string to_string_hex (uint16_t const);
 bool from_string_hex (std::string const &, uint64_t &);
+
+/* Printing adapters */
+std::ostream & operator<< (std::ostream & os, const uint128_union & val);
+std::ostream & operator<< (std::ostream & os, const uint256_union & val);
+std::ostream & operator<< (std::ostream & os, const uint512_union & val);
 
 /**
  * Convert a double to string in fixed format

@@ -29,6 +29,9 @@ enum class block_type : uint8_t
 	change = 5,
 	state = 6
 };
+
+std::string_view to_string (block_type);
+
 class block_details
 {
 	static_assert (std::is_same<std::underlying_type<nano::epoch>::type, uint8_t> (), "Epoch enum is not the proper type");

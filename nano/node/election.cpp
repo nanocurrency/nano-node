@@ -5,6 +5,8 @@
 
 #include <boost/format.hpp>
 
+#include <magic_enum.hpp>
+
 using namespace std::chrono;
 
 std::chrono::milliseconds nano::election::base_latency () const
@@ -250,10 +252,6 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 		if (!state_change (state_m, nano::election::state_t::expired_unconfirmed))
 		{
 			result = true; // Return true to indicate this election should be cleaned up
-			if (node.config.logging.election_expiration_tally_logging ())
-			{
-				log_votes (tally_impl (), "Election expired: ");
-			}
 			status.type = nano::election_status_type::stopped;
 		}
 	}
@@ -375,10 +373,6 @@ void nano::election::confirm_if_quorum (nano::unique_lock<nano::mutex> & lock_a)
 		}
 		if (!node.ledger.cache.final_votes_confirmation_canary.load () || final_weight >= node.online_reps.delta ())
 		{
-			if (node.config.logging.vote_logging () || (node.config.logging.election_fork_tally_logging () && last_blocks.size () > 1))
-			{
-				log_votes (tally_l);
-			}
 			confirm_once (lock_a, nano::election_status_type::active_confirmed_quorum);
 		}
 	}
@@ -417,25 +411,6 @@ nano::election_status nano::election::set_status_type (nano::election_status_typ
 	nano::election_status status_l{ status };
 	election_lk.unlock ();
 	return status_l;
-}
-
-void nano::election::log_votes (nano::tally_t const & tally_a, std::string const & prefix_a) const
-{
-	std::stringstream tally;
-	std::string line_end (node.config.logging.single_line_record () ? "\t" : "\n");
-	tally << boost::str (boost::format ("%1%%2%Vote tally for root %3%, final weight:%4%") % prefix_a % line_end % root.to_string () % final_weight);
-	for (auto i (tally_a.begin ()), n (tally_a.end ()); i != n; ++i)
-	{
-		tally << boost::str (boost::format ("%1%Block %2% weight %3%") % line_end % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
-	}
-	for (auto i (last_votes.begin ()), n (last_votes.end ()); i != n; ++i)
-	{
-		if (i->first != nullptr)
-		{
-			tally << boost::str (boost::format ("%1%%2% %3% %4%") % line_end % i->first.to_account () % std::to_string (i->second.timestamp) % i->second.hash.to_string ());
-		}
-	}
-	node.logger.try_log (tally.str ());
 }
 
 std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash_a) const
@@ -720,24 +695,9 @@ std::vector<nano::vote_with_weight_info> nano::election::votes_with_weight () co
 
 nano::stat::detail nano::to_stat_detail (nano::election_behavior behavior)
 {
-	switch (behavior)
-	{
-		case nano::election_behavior::normal:
-		{
-			return nano::stat::detail::normal;
-		}
-		case nano::election_behavior::hinted:
-		{
-			return nano::stat::detail::hinted;
-		}
-		case nano::election_behavior::optimistic:
-		{
-			return nano::stat::detail::optimistic;
-		}
-	}
-
-	debug_assert (false, "unknown election behavior");
-	return {};
+	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (behavior));
+	debug_assert (value);
+	return value.value_or (nano::stat::detail{});
 }
 
 nano::election_behavior nano::election::behavior () const
