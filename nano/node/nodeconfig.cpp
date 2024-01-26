@@ -465,9 +465,9 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			toml.get_error ().set ("active_elections_size must be greater than 250");
 		}
-		if (max_unchecked_blocks < 1)
+		if (max_unchecked_blocks < 0)
 		{
-			toml.get_error ().set ("max_unchecked_blocks must be greater than 0");
+			toml.get_error ().set ("max_unchecked_blocks must be 0 or higher");
 		}
 		if (bandwidth_limit > std::numeric_limits<std::size_t>::max ())
 		{
