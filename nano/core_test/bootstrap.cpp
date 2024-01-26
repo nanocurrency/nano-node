@@ -408,8 +408,10 @@ TEST (bootstrap_processor, process_new)
 	auto send = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, amount);
 	ASSERT_NE (nullptr, send);
 	ASSERT_TIMELY (5s, !node1->balance (key2.pub).is_zero ());
-	auto receive = node2->block (node2->latest (key2.pub));
-	ASSERT_NE (nullptr, receive);
+
+	// wait for the receive block on node2
+	std::shared_ptr<nano::block> receive;
+	ASSERT_TIMELY (5s, receive = node2->block (node2->latest (key2.pub)));
 
 	// All blocks should be propagated & confirmed
 	ASSERT_TIMELY (5s, nano::test::confirmed (*node1, { send, receive }));
