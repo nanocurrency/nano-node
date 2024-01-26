@@ -1355,6 +1355,7 @@ TEST (active_transactions, fifo)
 
 	nano::node_config config = system.default_config ();
 	config.active_elections_size = 1;
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 
 	auto & node = *system.add_node (config);
 	auto latest_hash = nano::dev::genesis->hash ();
