@@ -3,6 +3,7 @@
 #include <nano/node/scheduler/manual.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/fake.hpp>
+#include <nano/store/block.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -273,6 +274,28 @@ bool nano::test::start_elections (nano::test::system & system_a, nano::node & no
 	return nano::test::start_elections (system_a, node_a, blocks_to_hashes (blocks_a), forced_a);
 }
 
+nano::account_info nano::test::account_info (nano::node const & node, nano::account const & acc)
+{
+	auto const tx = node.ledger.store.tx_begin_read ();
+	auto opt = node.ledger.account_info (tx, acc);
+	if (opt.has_value ())
+	{
+		return opt.value ();
+	}
+	return {};
+}
+
+uint64_t nano::test::account_height (nano::node const & node, nano::account const & acc)
+{
+	auto const tx = node.ledger.store.tx_begin_read ();
+	nano::confirmation_height_info height_info;
+	if (!node.ledger.store.confirmation_height.get (tx, acc, height_info))
+	{
+		return 0;
+	}
+	return height_info.height;
+}
+
 void nano::test::print_all_account_info (nano::node & node)
 {
 	auto const tx = node.ledger.store.tx_begin_read ();
@@ -291,5 +314,24 @@ void nano::test::print_all_account_info (nano::node & node)
 			std::cout << "  Conf. Height:        " << height_info.height << std::endl;
 			std::cout << "  Conf. Frontier:      " << height_info.frontier.to_string () << std::endl;
 		}
+	}
+}
+
+void nano::test::print_all_blocks (nano::node & node)
+{
+	auto tx = node.store.tx_begin_read ();
+	auto i = node.store.block.begin (tx);
+	auto end = node.store.block.end ();
+	std::cout << "Listing all blocks" << std::endl;
+	for (; i != end; ++i)
+	{
+		nano::block_hash hash = i->first;
+		nano::store::block_w_sideband sideband = i->second;
+		std::shared_ptr<nano::block> b = sideband.block;
+		std::cout << "Hash: " << hash.to_string () << std::endl;
+		const auto acc = sideband.sideband.account;
+		std::cout << "Acc: " << acc.to_string () << "(" << acc.to_account () << ")" << std::endl;
+		std::cout << "Height: " << sideband.sideband.height << std::endl;
+		std::cout << b->to_json ();
 	}
 }

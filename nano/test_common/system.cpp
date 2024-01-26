@@ -125,6 +125,19 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 	return node;
 }
 
+std::shared_ptr<nano::node> nano::test::system::make_disconnected_node (std::optional<nano::node_config> opt_node_config, nano::node_flags flags)
+{
+	nano::node_config node_config = opt_node_config.has_value () ? *opt_node_config : default_config ();
+	auto node = std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config, work, flags);
+	if (node->init_error ())
+	{
+		std::cerr << "node init error\n";
+		return nullptr;
+	}
+	node->start ();
+	return node;
+}
+
 nano::test::system::system ()
 {
 	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
