@@ -419,30 +419,25 @@ TEST (node, search_receivable_confirmed)
 	auto node = system.add_node (node_config);
 	nano::keypair key2;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
 	auto send1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, node->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send1);
+	ASSERT_TIMELY (5s, nano::test::confirmed (*node, { send1 }));
+
 	auto send2 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, node->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send2);
-	ASSERT_TIMELY (10s, node->active.empty ());
-	bool confirmed (false);
-	system.deadline_set (5s);
-	while (!confirmed)
-	{
-		auto transaction (node->store.tx_begin_read ());
-		confirmed = node->ledger.block_confirmed (transaction, send2->hash ());
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, nano::test::confirmed (*node, { send2 }));
+
 	{
 		auto transaction (node->wallets.tx_begin_write ());
 		system.wallet (0)->store.erase (transaction, nano::dev::genesis_key.pub);
 	}
+
 	system.wallet (0)->insert_adhoc (key2.prv);
 	ASSERT_FALSE (system.wallet (0)->search_receivable (system.wallet (0)->wallets.tx_begin_read ()));
-	{
-		ASSERT_FALSE (node->active.active (send1->hash ()));
-		ASSERT_FALSE (node->active.active (send2->hash ()));
-	}
-	ASSERT_TIMELY_EQ (10s, node->balance (key2.pub), 2 * node->config.receive_minimum.number ());
+	ASSERT_TIMELY (5s, !node->active.active (send1->hash ()));
+	ASSERT_TIMELY (5s, !node->active.active (send2->hash ()));
+	ASSERT_TIMELY_EQ (5s, node->balance (key2.pub), 2 * node->config.receive_minimum.number ());
 }
 
 TEST (node, search_receivable_pruned)
