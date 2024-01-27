@@ -882,7 +882,7 @@ TEST (active_transactions, fork_replacement_tally)
 					.build_shared ();
 		node1.process_active (open);
 		// Confirmation
-		auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { open });
+		auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { send, open });
 		node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
 	}
 	ASSERT_TIMELY_EQ (5s, node1.ledger.cache.cemented_count, 1 + 2 * reps_count);
