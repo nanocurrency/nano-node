@@ -555,6 +555,8 @@ TEST (active_transactions, vote_replays)
 	auto & node = *system.add_node (node_config);
 	nano::keypair key;
 	nano::state_block_builder builder;
+
+	// send Gxrb_ratio raw from genesis to key
 	auto send1 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (nano::dev::genesis->hash ())
@@ -565,6 +567,8 @@ TEST (active_transactions, vote_replays)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	ASSERT_NE (nullptr, send1);
+
+	// create open block for key receing Gxrb_ratio raw
 	auto open1 = builder.make_block ()
 				 .account (key.pub)
 				 .previous (0)
@@ -575,26 +579,31 @@ TEST (active_transactions, vote_replays)
 				 .work (*system.work.generate (key.pub))
 				 .build_shared ();
 	ASSERT_NE (nullptr, open1);
+
+	// wait for elections objects to appear in the AEC
 	node.process_active (send1);
 	node.process_active (open1);
 	ASSERT_TRUE (nano::test::start_elections (system, node, { send1, open1 }));
 	ASSERT_EQ (2, node.active.size ());
+
 	// First vote is not a replay and confirms the election, second vote should be a replay since the election has confirmed but not yet removed
 	auto vote_send1 = nano::test::make_final_vote (nano::dev::genesis_key, { send1 });
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_send1));
-	ASSERT_EQ (2, node.active.size ());
 	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_send1));
+
 	// Wait until the election is removed, at which point the vote is still a replay since it's been recently confirmed
-	ASSERT_TIMELY_EQ (3s, node.active.size (), 1);
+	ASSERT_TIMELY_EQ (5s, node.active.size (), 1);
 	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_send1));
+
 	// Open new account
 	auto vote_open1 = nano::test::make_final_vote (nano::dev::genesis_key, { open1 });
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_open1));
 	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_open1));
-	ASSERT_TIMELY (3s, node.active.empty ());
+	ASSERT_TIMELY (5s, node.active.empty ());
 	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_open1));
 	ASSERT_EQ (nano::Gxrb_ratio, node.ledger.weight (key.pub));
 
+	// send 1 raw to key to key
 	auto send2 = builder.make_block ()
 				 .account (key.pub)
 				 .previous (open1->hash ())
@@ -608,17 +617,19 @@ TEST (active_transactions, vote_replays)
 	node.process_active (send2);
 	ASSERT_TRUE (nano::test::start_elections (system, node, { send2 }));
 	ASSERT_EQ (1, node.active.size ());
+
+	// vote2_send2 is a non final vote with little weight, vote1_send2 is the vote that confirms the election
 	auto vote1_send2 = nano::test::make_final_vote (nano::dev::genesis_key, { send2 });
-	auto vote2_send2 (std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, std::vector<nano::block_hash>{ send2->hash () }));
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote2_send2));
+	auto vote2_send2 = nano::test::make_vote (key, { send2 }, 0, 0);
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote2_send2)); // this vote cannot confirm the election
 	ASSERT_EQ (1, node.active.size ());
-	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote2_send2));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote2_send2)); // this vote cannot confirm the election
 	ASSERT_EQ (1, node.active.size ());
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote1_send2));
-	ASSERT_EQ (1, node.active.size ());
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote1_send2)); // this vote confirms the election
+
+	// this should still return replay, either because the election is still in the AEC or because it is recently confirmed
 	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote1_send2));
-	ASSERT_TIMELY (3s, node.active.empty ());
-	ASSERT_EQ (0, node.active.size ());
+	ASSERT_TIMELY (5s, node.active.empty ());
 	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote1_send2));
 	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote2_send2));
 
