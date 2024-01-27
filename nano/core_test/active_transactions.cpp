@@ -528,10 +528,10 @@ TEST (active_transactions, inactive_votes_cache_election_start)
 	node.vote_processor.vote (vote0, std::make_shared<nano::transport::inproc::channel> (node, node));
 	ASSERT_TIMELY_EQ (5s, 0, node.active.size ());
 	ASSERT_TIMELY_EQ (5s, 5, node.ledger.cache.cemented_count);
-	ASSERT_TRUE (nano::test::confirmed (node, { send1, send2, open1, open2 }));
+	ASSERT_TIMELY (1s, nano::test::confirmed (node, { send1, send2, open1, open2 }));
 
 	// A late block arrival also checks the inactive votes cache
-	ASSERT_TRUE (node.active.empty ());
+	ASSERT_TIMELY (1s, node.active.empty ());
 	auto send4_cache (node.vote_cache.find (send4->hash ()));
 	ASSERT_TRUE (send4_cache);
 	ASSERT_EQ (3, send4_cache->voters ().size ());
