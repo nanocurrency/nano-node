@@ -5,7 +5,7 @@
 #include <nano/lib/timer.hpp>
 #include <nano/node/unchecked_map.hpp>
 
-nano::unchecked_map::unchecked_map (unsigned & max_unchecked_blocks, nano::stats & stats, bool const & disable_delete) :
+nano::unchecked_map::unchecked_map (unsigned const max_unchecked_blocks, nano::stats & stats, bool const & disable_delete) :
 	max_unchecked_blocks{ max_unchecked_blocks },
 	stats{ stats },
 	disable_delete{ disable_delete },
