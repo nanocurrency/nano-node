@@ -165,7 +165,7 @@ std::string nano::vote::to_json () const
 
 std::string nano::vote::hashes_string () const
 {
-	return nano::util::join (hashes, ",", [] (auto const & hash) {
+	return nano::util::join (hashes, ", ", [] (auto const & hash) {
 		return hash.to_string ();
 	});
 }

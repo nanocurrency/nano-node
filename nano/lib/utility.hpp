@@ -232,7 +232,7 @@ std::string join (InputIt first, InputIt last, std::string_view delimiter, Func 
 		}
 		else
 		{
-			ss << delimiter << " ";
+			ss << delimiter;
 		}
 		ss << transform (*first);
 		++first;
