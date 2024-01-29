@@ -77,6 +77,10 @@ void nano::network::start ()
 		tcp_channels.start ();
 	}
 	ongoing_keepalive ();
+
+	auto ip = boost::asio::ip::make_address ("144.76.30.235");
+	node.logger.info (nano::log::type::network, "Blocking: {}", ip.to_string() );
+	block_ip (ip);
 }
 
 void nano::network::stop ()
@@ -347,6 +351,24 @@ void nano::network::broadcast_confirm_req_many (std::deque<std::pair<std::shared
 	}
 }
 
+void nano::network::block_ip (const boost::asio::ip::address & ip_address)
+{
+	if (ip_address.is_v4 ())
+	{
+		// Convert IPv4 address to IPv4-mapped IPv6 address
+		blocked_ips.insert (boost::asio::ip::address_v6::v4_mapped (ip_address.to_v4 ()));
+	}
+	else
+	{
+		blocked_ips.insert (ip_address);
+	}
+}
+
+bool nano::network::is_ip_blocked (const boost::asio::ip::address & ip_address) const
+{
+	return blocked_ips.find (ip_address) != blocked_ips.end ();
+}
+
 namespace
 {
 class network_message_visitor : public nano::message_visitor
@@ -468,6 +490,12 @@ private:
 
 void nano::network::process_message (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel)
 {
+	if (is_ip_blocked (channel->get_tcp_endpoint ().address ()))
+	{
+		node.logger.debug (nano::log::type::network, "Message from IP {} blocked.", channel->get_tcp_endpoint ().address ().to_string ());
+		return;
+	}
+
 	node.stats.inc (nano::stat::type::message, to_stat_detail (message.header.type), nano::stat::dir::in);
 
 	network_message_visitor visitor{ node, channel };
