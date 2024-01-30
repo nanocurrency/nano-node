@@ -5803,7 +5803,7 @@ TEST (rpc, memory_stats)
 				 .build_shared ();
 	std::vector<nano::block_hash> hashes;
 	hashes.push_back (block->hash ());
-	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, hashes));
+	auto vote = nano::test::make_vote (key, { hashes }, 0, 0);
 	node->vote_uniquer.unique (vote);
 	boost::property_tree::ptree request;
 	request.put ("action", "stats");

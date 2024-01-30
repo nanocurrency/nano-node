@@ -165,7 +165,7 @@ TEST (message, confirm_ack_hash_serialization)
 		hashes.push_back (block->hash ());
 	}
 	nano::keypair representative1;
-	auto vote (std::make_shared<nano::vote> (representative1.pub, representative1.prv, 0, 0, hashes));
+	auto vote = nano::test::make_vote (representative1, { hashes }, 0, 0);
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
 	std::vector<uint8_t> bytes;
 	{
@@ -206,7 +206,7 @@ TEST (message, confirm_ack_hash_serialization_v2)
 	}
 
 	nano::keypair representative1;
-	auto vote (std::make_shared<nano::vote> (representative1.pub, representative1.prv, 0, 0, hashes));
+	auto vote = nano::test::make_vote (representative1, { hashes }, 0, 0);
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
 	std::vector<uint8_t> bytes;
 	{

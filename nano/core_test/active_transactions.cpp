@@ -362,7 +362,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	ASSERT_NE (nullptr, election);
 	ASSERT_GT (node.weight (key.pub), node.minimum_principal_weight ());
 	// Insert vote
-	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash> (1, send->hash ())));
+	auto vote1 = nano::test::make_vote (key, { send }, nano::vote::timestamp_min * 1, 0);
 	node.vote_processor.vote (vote1, std::make_shared<nano::transport::inproc::channel> (node, node));
 	ASSERT_TIMELY_EQ (5s, election->votes ().size (), 2);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_new));
@@ -425,10 +425,10 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	ASSERT_TIMELY (5s, nano::test::exists (node, { send1, send2, open }));
 
 	// Process votes
-	auto vote1 (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, 0, std::vector<nano::block_hash> (1, send1->hash ())));
+	auto vote1 = nano::test::make_vote (key1, { send1 }, 0, 0);
 	node.vote_processor.vote (vote1, std::make_shared<nano::transport::inproc::channel> (node, node));
 
-	auto vote2 (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash> (1, send1->hash ())));
+	auto vote2 = nano::test::make_vote (nano::dev::genesis_key, { send1 }, 0, 0);
 	node.vote_processor.vote (vote2, std::make_shared<nano::transport::inproc::channel> (node, node));
 
 	ASSERT_TIMELY (5s, node.vote_cache.find (send1->hash ()));
@@ -941,7 +941,7 @@ TEST (active_transactions, fork_replacement_tally)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*system.work.generate (latest))
 					.build_shared ();
-		auto vote (std::make_shared<nano::vote> (keys[i].pub, keys[i].prv, 0, 0, std::vector<nano::block_hash>{ fork->hash () }));
+		auto vote = nano::test::make_vote (keys[i], { fork }, 0, 0);
 		node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
 		node1.vote_processor.flush ();
 		node1.process_active (fork);
@@ -986,7 +986,7 @@ TEST (active_transactions, fork_replacement_tally)
 	ASSERT_FALSE (blocks1.find (send_last->hash ()) != blocks1.end ());
 
 	// Process vote for correct block & replace existing lowest tally block
-	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ send_last->hash () }));
+	auto vote = nano::test::make_vote (nano::dev::genesis_key, { send_last }, 0, 0);
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
 	node1.vote_processor.flush ();
 	// ensure vote arrives before the block
