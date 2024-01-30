@@ -288,6 +288,14 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			});
 		}
 
+		if (toml.has_key ("blocked_peers"))
+		{
+			blocked_peers.clear ();
+			toml.array_entries_required<std::string> ("blocked_peers", [this, &toml] (std::string entry) {
+				blocked_peers.push_back (entry);
+			});
+		}
+
 		if (toml.has_key ("preconfigured_representatives"))
 		{
 			preconfigured_representatives.clear ();

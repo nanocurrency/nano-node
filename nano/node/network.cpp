@@ -78,9 +78,14 @@ void nano::network::start ()
 	}
 	ongoing_keepalive ();
 
-	auto ip = boost::asio::ip::make_address ("144.76.30.235");
-	node.logger.info (nano::log::type::network, "Blocking: {}", ip.to_string() );
-	block_ip (ip);
+	auto blocked_peers = node.config.blocked_peers;
+
+	for (const std::string & ip_string : blocked_peers)
+	{
+		auto ip = boost::asio::ip::make_address (ip_string);
+		block_ip (ip);
+		node.logger.info (nano::log::type::network, "Added blocking rule for ip {}", ip.to_string ());
+	}
 }
 
 void nano::network::stop ()
