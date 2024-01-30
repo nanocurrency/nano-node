@@ -78,14 +78,7 @@ void nano::network::start ()
 	}
 	ongoing_keepalive ();
 
-	auto blocked_peers = node.config.blocked_peers;
-
-	for (const std::string & ip_string : blocked_peers)
-	{
-		auto ip = boost::asio::ip::make_address (ip_string);
-		block_ip (ip);
-		node.logger.info (nano::log::type::network, "Added blocking rule for ip {}", ip.to_string ());
-	}
+	Configure_blocked_peers ();
 }
 
 void nano::network::stop ()
@@ -356,16 +349,31 @@ void nano::network::broadcast_confirm_req_many (std::deque<std::pair<std::shared
 	}
 }
 
-void nano::network::block_ip (const boost::asio::ip::address & ip_address)
+void nano::network::Configure_blocked_peers ()
 {
-	if (ip_address.is_v4 ())
+	for (const std::string & ip_string : node.config.blocked_peers)
 	{
-		// Convert IPv4 address to IPv4-mapped IPv6 address
-		blocked_ips.insert (boost::asio::ip::address_v6::v4_mapped (ip_address.to_v4 ()));
-	}
-	else
-	{
-		blocked_ips.insert (ip_address);
+		boost::system::error_code ec;
+		auto ip_address = boost::asio::ip::address::from_string (ip_string, ec);
+
+		if (!ec)
+		{
+			if (ip_address.is_v4 ())
+			{
+				// Convert IPv4 address to IPv4-mapped IPv6 address
+				blocked_ips.insert (boost::asio::ip::address_v6::v4_mapped (ip_address.to_v4 ()));
+			}
+			else
+			{
+				blocked_ips.insert (ip_address);
+			}
+
+			node.logger.info (nano::log::type::network, "Added blocking rule for ip {}", ip_address.to_string ());
+		}
+		else
+		{
+			node.logger.error (nano::log::type::network, "Invalid IP address: {}", ip_string);
+		}
 	}
 }
 
