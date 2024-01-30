@@ -37,7 +37,7 @@ struct object_stream_config
 	std::string false_value{ "false" };
 	std::string null_value{ "null" };
 
-	std::string indent{ "\t" };
+	std::string indent{ "   " };
 	std::string newline{ "\n" };
 
 	/** Number of decimal places to show for `float` and `double` */
