@@ -67,6 +67,8 @@ nano::network::~network ()
 
 void nano::network::start ()
 {
+	Configure_blocked_peers ();
+
 	if (!node.flags.disable_connection_cleanup)
 	{
 		ongoing_cleanup ();
@@ -77,8 +79,6 @@ void nano::network::start ()
 		tcp_channels.start ();
 	}
 	ongoing_keepalive ();
-
-	Configure_blocked_peers ();
 }
 
 void nano::network::stop ()
@@ -505,7 +505,7 @@ void nano::network::process_message (nano::message const & message, std::shared_
 {
 	if (is_ip_blocked (channel->get_tcp_endpoint ().address ()))
 	{
-		node.logger.debug (nano::log::type::network, "Message from IP {} blocked.", channel->get_tcp_endpoint ().address ().to_string ());
+		node.logger.debug (nano::log::type::network, "Ignoring message from IP {}", channel->get_tcp_endpoint ().address ().to_string ());
 		return;
 	}
 
