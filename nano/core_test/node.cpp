@@ -752,6 +752,7 @@ TEST (node, fork_flip)
 	ASSERT_FALSE (node2.ledger.block_or_pruned_exists (publish2.block->hash ()));
 }
 
+// Test that more than one block can be rolled back
 TEST (node, fork_multi_flip)
 {
 	auto type = nano::transport::transport_type::tcp;
@@ -772,7 +773,6 @@ TEST (node, fork_multi_flip)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
-	nano::publish publish1{ nano::dev::network_params.network, send1 };
 	nano::keypair key2;
 	auto send2 = builder.make_block ()
 				 .previous (nano::dev::genesis->hash ())
@@ -781,44 +781,26 @@ TEST (node, fork_multi_flip)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
-	nano::publish publish2{ nano::dev::network_params.network, send2 };
 	auto send3 = builder.make_block ()
-				 .previous (publish2.block->hash ())
+				 .previous (send2->hash ())
 				 .destination (key2.pub)
 				 .balance (nano::dev::constants.genesis_amount - 100)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (publish2.block->hash ()))
+				 .work (*system.work.generate (send2->hash ()))
 				 .build_shared ();
-	nano::publish publish3{ nano::dev::network_params.network, send3 };
-	auto channel1 = std::make_shared<nano::transport::fake::channel> (node1);
-	auto channel2 = std::make_shared<nano::transport::fake::channel> (node2);
-	node1.network.inbound (publish1, channel1);
-	node2.network.inbound (publish2, channel2);
-	node2.network.inbound (publish3, channel2);
-	node1.block_processor.flush ();
-	node2.block_processor.flush ();
-	ASSERT_TIMELY_EQ (5s, 1, node1.active.size ());
-	ASSERT_TIMELY_EQ (5s, 1, node2.active.size ());
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (node1.store.tx_begin_write (), *send1).code);
+	// Node2 has two blocks that will be rolled back by node1's vote
+	ASSERT_EQ (nano::process_result::progress, node2.ledger.process (node2.store.tx_begin_write (), *send2).code);
+	ASSERT_EQ (nano::process_result::progress, node2.ledger.process (node2.store.tx_begin_write (), *send3).code);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv); // Insert voting key in to node1
 
-	node1.network.inbound (publish2, channel1);
-	node1.network.inbound (publish3, channel1);
-	node1.block_processor.flush ();
-	node2.network.inbound (publish1, channel2);
-	node2.block_processor.flush ();
-	ASSERT_TIMELY (5s, node2.active.election (nano::qualified_root (nano::dev::genesis->hash (), nano::dev::genesis->hash ())));
-	auto election1 (node2.active.election (nano::qualified_root (nano::dev::genesis->hash (), nano::dev::genesis->hash ())));
-	ASSERT_NE (nullptr, election1);
-	ASSERT_EQ (1, election1->votes ().size ());
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (publish1.block->hash ()));
-	ASSERT_TRUE (nano::test::block_or_pruned_all_exists (node2, { publish2.block, publish3.block }));
-	ASSERT_TIMELY (10s, node2.ledger.block_or_pruned_exists (publish1.block->hash ()));
-	auto winner (*election1->tally ().begin ());
-	ASSERT_EQ (*publish1.block, *winner.second);
+	auto election = nano::test::start_election (system, node2, send2->hash ());
+	ASSERT_NE (nullptr, election);
+	ASSERT_TIMELY (5s, node2.ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TRUE (nano::test::block_or_pruned_none_exists (node2, { send2, send3 }));
+	auto winner = *election->tally ().begin ();
+	ASSERT_EQ (*send1, *winner.second);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, winner.first);
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (publish1.block->hash ()));
-	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (publish1.block->hash ()));
-	ASSERT_TRUE (nano::test::block_or_pruned_none_exists (node2, { publish2.block, publish3.block }));
 }
 
 // Blocks that are no longer actively being voted on should be able to be evicted through bootstrapping.
