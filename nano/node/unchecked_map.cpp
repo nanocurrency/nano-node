@@ -5,7 +5,8 @@
 #include <nano/lib/timer.hpp>
 #include <nano/node/unchecked_map.hpp>
 
-nano::unchecked_map::unchecked_map (nano::stats & stats, bool const & disable_delete) :
+nano::unchecked_map::unchecked_map (unsigned const max_unchecked_blocks, nano::stats & stats, bool const & disable_delete) :
+	max_unchecked_blocks{ max_unchecked_blocks },
 	stats{ stats },
 	disable_delete{ disable_delete },
 	thread{ [this] () { run (); } }
@@ -23,7 +24,8 @@ void nano::unchecked_map::put (nano::hash_or_account const & dependency, nano::u
 	nano::lock_guard<std::recursive_mutex> lock{ entries_mutex };
 	nano::unchecked_key key{ dependency, info.block->hash () };
 	entries.get<tag_root> ().insert ({ key, info });
-	if (entries.size () > mem_block_count_max)
+
+	if (entries.size () > max_unchecked_blocks)
 	{
 		entries.get<tag_sequenced> ().pop_front ();
 	}
