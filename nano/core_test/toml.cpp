@@ -180,6 +180,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.peering_port, defaults.node.peering_port);
 	ASSERT_EQ (conf.node.pow_sleep_interval, defaults.node.pow_sleep_interval);
 	ASSERT_EQ (conf.node.preconfigured_peers, defaults.node.preconfigured_peers);
+	ASSERT_EQ (conf.node.blocked_peers, defaults.node.blocked_peers);
 	ASSERT_EQ (conf.node.preconfigured_representatives, defaults.node.preconfigured_representatives);
 	ASSERT_EQ (conf.node.receive_minimum, defaults.node.receive_minimum);
 	ASSERT_EQ (conf.node.signature_checker_threads, defaults.node.signature_checker_threads);
@@ -407,6 +408,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	peering_port = 999
 	pow_sleep_interval= 999
 	preconfigured_peers = ["dev.org"]
+	blocked_peers = ["192.168.0.1"]
 	preconfigured_representatives = ["nano_3arg3asgtigae3xckabaaewkx3bzsh7nwz7jkmjos79ihyaxwphhm6qgjps4"]
 	receive_minimum = "999"
 	signature_checker_threads = 999
@@ -597,6 +599,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.peering_port, defaults.node.peering_port);
 	ASSERT_NE (conf.node.pow_sleep_interval, defaults.node.pow_sleep_interval);
 	ASSERT_NE (conf.node.preconfigured_peers, defaults.node.preconfigured_peers);
+	ASSERT_NE (conf.node.blocked_peers, defaults.node.blocked_peers);
 	ASSERT_NE (conf.node.preconfigured_representatives, defaults.node.preconfigured_representatives);
 	ASSERT_NE (conf.node.receive_minimum, defaults.node.receive_minimum);
 	ASSERT_NE (conf.node.signature_checker_threads, defaults.node.signature_checker_threads);
