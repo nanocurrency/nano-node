@@ -166,8 +166,8 @@ std::shared_ptr<cpptoml::array> nano::tomlconfig::create_array (std::string cons
 }
 
 /**
-	 * Erase keys whose values are equal to the one in \p defaults
-	 */
+ * Erase keys whose values are equal to the one in \p defaults
+ */
 void nano::tomlconfig::erase_default_values (tomlconfig & defaults_a)
 {
 	std::shared_ptr<cpptoml::table> clone = std::dynamic_pointer_cast<cpptoml::table> (tree->clone ());

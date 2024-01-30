@@ -29,9 +29,9 @@ public:
 	void for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::account, nano::confirmation_height_info>, store::iterator<nano::account, nano::confirmation_height_info>)> const & action_a) const override;
 
 	/*
-		 * Confirmation height of an account, and the hash for the block at that height
-		 * nano::account -> uint64_t, nano::block_hash
-		 */
+	 * Confirmation height of an account, and the hash for the block at that height
+	 * nano::account -> uint64_t, nano::block_hash
+	 */
 	MDB_dbi confirmation_height_handle{ 0 };
 };
 } // namespace nano::store::lmdb

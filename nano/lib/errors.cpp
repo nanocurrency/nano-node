@@ -373,9 +373,9 @@ nano::error::operator std::string () const
 }
 
 /**
-	 * Get error message, or an empty string if there's no error. If a custom error message is set,
-	 * that will be returned, otherwise the error_code#message() is returned.
-	 */
+ * Get error message, or an empty string if there's no error. If a custom error message is set,
+ * that will be returned, otherwise the error_code#message() is returned.
+ */
 std::string nano::error::get_message () const
 {
 	std::string res = message;
