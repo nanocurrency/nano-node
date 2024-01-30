@@ -134,6 +134,12 @@ if(NANO_STACKTRACE_BACKTRACE)
 endif()
 
 option(NANO_TRACING "Enable trace logging" OFF)
+# Check if the build type is Debug, and if so, enable NANO_TRACING by default
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  set(NANO_TRACING
+      ON
+      CACHE BOOL "Enable trace logging" FORCE)
+endif()
 if(NANO_TRACING)
   message(STATUS "Using trace logging")
   add_compile_definitions(NANO_TRACING)
