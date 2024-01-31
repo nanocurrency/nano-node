@@ -9,6 +9,13 @@ static std::vector<std::filesystem::path> all_unique_paths;
 std::filesystem::path nano::working_path (nano::networks network)
 {
 	auto result (nano::app_path ());
+
+	if (auto path_override = nano::get_env ("NANO_APP_PATH"))
+	{
+		result = *path_override;
+		std::cerr << "Application path overridden by NANO_APP_PATH environment variable: " << result << std::endl;
+	}
+
 	switch (network)
 	{
 		case nano::networks::invalid:
