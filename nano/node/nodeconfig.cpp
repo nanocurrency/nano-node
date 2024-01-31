@@ -144,7 +144,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 		preconfigured_peers_l->push_back (*i);
 	}
 
-	auto blocked_peers_l (toml.create_array ("blocked_peers", "A list of \"address\" (ipv4 or ipv6 notation ip address) that you want to ignore all requests from. \nExample: [\"192.168.0.1\",\"::ffff:10.0.0.1]\""));
+	auto blocked_peers_l (toml.create_array ("blocked_peers", "A list of \"address\" (ipv4 or ipv6 notation ip address) that you want to ignore all requests from. \nExample: [\"192.168.0.1\",\"::ffff:10.0.0.1\"]"));
 
 	auto preconfigured_representatives_l (toml.create_array ("preconfigured_representatives", "A list of representative account addresses used when creating new accounts in internal wallets."));
 	for (auto i (preconfigured_representatives.begin ()), n (preconfigured_representatives.end ()); i != n; ++i)
