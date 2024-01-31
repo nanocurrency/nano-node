@@ -37,17 +37,6 @@ void nano::block_processor::stop ()
 	nano::join_or_pass (processing_thread);
 }
 
-void nano::block_processor::flush ()
-{
-	flushing = true;
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped && (have_blocks () || active))
-	{
-		condition.wait (lock);
-	}
-	flushing = false;
-}
-
 std::size_t nano::block_processor::size ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };

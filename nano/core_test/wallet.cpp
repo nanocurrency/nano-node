@@ -946,7 +946,7 @@ TEST (wallet, change_seed)
 	wallet->insert_adhoc (nano::dev::genesis_key.prv, false);
 	auto block (wallet->send_action (nano::dev::genesis_key.pub, pub, 100));
 	ASSERT_NE (nullptr, block);
-	system.nodes[0]->block_processor.flush ();
+	ASSERT_TIMELY (5s, nano::test::exists (*system.nodes[0], { block }));
 	{
 		auto transaction (wallet->wallets.tx_begin_write ());
 		wallet->change_seed (transaction, seed1);
@@ -980,7 +980,7 @@ TEST (wallet, deterministic_restore)
 	wallet->insert_adhoc (nano::dev::genesis_key.prv, false);
 	auto block (wallet->send_action (nano::dev::genesis_key.pub, pub, 100));
 	ASSERT_NE (nullptr, block);
-	system.nodes[0]->block_processor.flush ();
+	ASSERT_TIMELY (5s, nano::test::exists (*system.nodes[0], { block }));
 	{
 		auto transaction (wallet->wallets.tx_begin_write ());
 		wallet->deterministic_restore (transaction);

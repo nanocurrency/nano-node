@@ -255,7 +255,6 @@ TEST (active_transactions, inactive_votes_cache)
 	node.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node, node));
 	ASSERT_TIMELY_EQ (5s, node.vote_cache.size (), 1);
 	node.process_active (send);
-	node.block_processor.flush ();
 	ASSERT_TIMELY (5s, node.ledger.block_confirmed (node.store.tx_begin_read (), send->hash ()));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
@@ -356,7 +355,6 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 				.build_shared ();
 	node.process_active (send);
 	node.block_processor.add (open);
-	node.block_processor.flush ();
 	ASSERT_TIMELY_EQ (5s, node.active.size (), 1);
 	auto election (node.active.election (send->qualified_root ()));
 	ASSERT_NE (nullptr, election);
@@ -725,7 +723,7 @@ TEST (active_transactions, republish_winner)
 				 .build_shared ();
 
 	node1.process_active (send1);
-	node1.block_processor.flush ();
+	ASSERT_TIMELY (5s, nano::test::exists (node1, { send1 }));
 	ASSERT_TIMELY_EQ (3s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in), 1);
 
 	// Several forks
@@ -741,8 +739,8 @@ TEST (active_transactions, republish_winner)
 					.work (*system.work.generate (nano::dev::genesis->hash ()))
 					.build_shared ();
 		node1.process_active (fork);
+		ASSERT_TIMELY (5s, node1.active.active (*fork));
 	}
-	node1.block_processor.flush ();
 	ASSERT_TIMELY (3s, !node1.active.empty ());
 	ASSERT_EQ (1, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in));
 
@@ -758,13 +756,12 @@ TEST (active_transactions, republish_winner)
 				.build_shared ();
 
 	node1.process_active (fork);
-	node1.block_processor.flush ();
+	ASSERT_TIMELY (5s, node1.active.active (fork->hash ()));
 	auto election = node1.active.election (fork->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { fork });
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
 	node1.vote_processor.flush ();
-	node1.block_processor.flush ();
 	ASSERT_TIMELY (5s, election->confirmed ());
 	ASSERT_EQ (fork->hash (), election->status.winner->hash ());
 	ASSERT_TIMELY (5s, node2.block_confirmed (fork->hash ()));
@@ -977,12 +974,10 @@ TEST (active_transactions, fork_replacement_tally)
 	node1.network.publish_filter.clear ();
 	node2.network.flood_block (send_last);
 	ASSERT_TIMELY (3s, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) > 0);
-	node1.block_processor.flush ();
-	system.delay_ms (50ms);
 
 	// Correct block without votes is ignored
-	auto blocks1 (election->blocks ());
-	ASSERT_EQ (max_blocks, blocks1.size ());
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks1;
+	ASSERT_TIMELY_EQ (5s, max_blocks, (blocks1 = election->blocks (), blocks1.size ()));
 	ASSERT_FALSE (blocks1.find (send_last->hash ()) != blocks1.end ());
 
 	// Process vote for correct block & replace existing lowest tally block
@@ -1055,7 +1050,6 @@ TEST (active_transactions, DISABLED_confirm_new)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build_shared ();
 	node1.process_active (send);
-	node1.block_processor.flush ();
 	ASSERT_TIMELY_EQ (5s, 1, node1.active.size ());
 	auto & node2 = *system.add_node ();
 	// Add key to node2

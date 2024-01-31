@@ -61,8 +61,7 @@ TEST (confirmation_height, single)
 		ASSERT_EQ (nano::dev::genesis->hash (), confirmation_height_info.frontier);
 
 		node->process_active (send1);
-		node->block_processor.flush ();
-
+		ASSERT_TIMELY (5s, nano::test::exists (*node, { send1 }));
 		ASSERT_TIMELY_EQ (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out), 1);
 
 		{
@@ -514,14 +513,16 @@ TEST (confirmation_height, gap_live)
 		node->block_processor.add (send1);
 		node->block_processor.add (send2);
 		node->block_processor.add (send3);
+		// node->block_processor.add (open1); Witheld for test
 		node->block_processor.add (receive1);
-		node->block_processor.flush ();
+		ASSERT_TIMELY (5s, nano::test::exists (*node, { send1, send2, send3 }));
+		ASSERT_TIMELY (5s, node->unchecked.exists ({ open1->hash (), receive1->hash () }));
 
 		add_callback_stats (*node);
 
 		// Receive 2 comes in on the live network, however the chain has not been finished so it gets added to unchecked
 		node->process_active (receive2);
-		node->block_processor.flush ();
+		ASSERT_TIMELY (5s, node->unchecked.exists ({ receive1->hash (), receive2->hash () }));
 
 		// Confirmation heights should not be updated
 		{
@@ -538,7 +539,6 @@ TEST (confirmation_height, gap_live)
 
 		// Now complete the chain where the block comes in on the live network
 		node->process_active (open1);
-		node->block_processor.flush ();
 
 		ASSERT_TIMELY_EQ (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out), 6);
 
@@ -1220,7 +1220,6 @@ TEST (confirmation_height, observers)
 		add_callback_stats (*node1);
 
 		node1->process_active (send1);
-		node1->block_processor.flush ();
 		ASSERT_TIMELY_EQ (10s, node1->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out), 1);
 		auto transaction = node1->store.tx_begin_read ();
 		ASSERT_TRUE (node1->ledger.block_confirmed (transaction, send1->hash ()));
@@ -1498,17 +1497,13 @@ TEST (confirmation_height, callback_confirmed_history)
 		add_callback_stats (*node);
 
 		node->process_active (send1);
-		ASSERT_NE (nano::test::start_election (system, *node, send1->hash ()), nullptr);
+		std::shared_ptr<nano::election> election;
+		ASSERT_TIMELY (5s, election = nano::test::start_election (system, *node, send1->hash ()));
 		{
-			node->process_active (send);
-			node->block_processor.flush ();
-
 			// The write guard prevents the confirmation height processor doing any writes
 			auto write_guard = node->write_database_queue.wait (nano::writer::testing);
 
 			// Confirm send1
-			auto election = node->active.election (send1->qualified_root ());
-			ASSERT_NE (nullptr, election);
 			election->force_confirm ();
 			ASSERT_TIMELY_EQ (10s, node->active.size (), 0);
 			ASSERT_EQ (0, node->active.recently_cemented.list ().size ());

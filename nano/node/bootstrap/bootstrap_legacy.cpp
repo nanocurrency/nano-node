@@ -223,10 +223,12 @@ void nano::bootstrap_attempt_legacy::run ()
 			condition.wait (lock, [&stopped = stopped, &pulling = pulling] { return stopped || pulling == 0; });
 		}
 
-		// Flushing may resolve forks which can add more pulls
-		lock.unlock ();
-		node->block_processor.flush ();
-		lock.lock ();
+		// TODO: This check / wait is a heuristic and should be improved.
+		auto wait_start = std::chrono::steady_clock::now ();
+		while (!stopped && node->block_processor.size () != 0 && ((std::chrono::steady_clock::now () - wait_start) < std::chrono::seconds{ 10 }))
+		{
+			condition.wait_for (lock, std::chrono::milliseconds{ 100 }, [this, node] { return stopped || node->block_processor.size () == 0; });
+		}
 
 		if (start_account.number () != std::numeric_limits<nano::uint256_t>::max ())
 		{
