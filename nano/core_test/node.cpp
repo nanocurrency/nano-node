@@ -546,7 +546,7 @@ TEST (node_config, random_rep)
 	ASSERT_NE (config1.preconfigured_representatives.end (), std::find (config1.preconfigured_representatives.begin (), config1.preconfigured_representatives.end (), rep));
 }
 
-TEST (node, fork_publish)
+TEST (node, expire)
 {
 	std::weak_ptr<nano::node> node0;
 	{
@@ -554,42 +554,49 @@ TEST (node, fork_publish)
 		node0 = system.nodes[0];
 		auto & node1 (*system.nodes[0]);
 		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-		nano::keypair key1;
-		nano::send_block_builder builder;
-		auto send1 = builder.make_block ()
-					 .previous (nano::dev::genesis->hash ())
-					 .destination (key1.pub)
-					 .balance (nano::dev::constants.genesis_amount - 100)
-					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					 .work (0)
-					 .build_shared ();
-		node1.work_generate_blocking (*send1);
-		nano::keypair key2;
-		auto send2 = builder.make_block ()
-					 .previous (nano::dev::genesis->hash ())
-					 .destination (key2.pub)
-					 .balance (nano::dev::constants.genesis_amount - 100)
-					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					 .work (0)
-					 .build_shared ();
-		node1.work_generate_blocking (*send2);
-		node1.process_active (send1);
-		ASSERT_TIMELY_EQ (5s, 1, node1.active.size ());
-		auto election (node1.active.election (send1->qualified_root ()));
-		ASSERT_NE (nullptr, election);
-		// Wait until the genesis rep activated & makes vote
-		ASSERT_TIMELY_EQ (1s, election->votes ().size (), 2);
-		node1.process_active (send2);
-		ASSERT_TIMELY (5s, node1.active.active (*send2));
-		auto votes1 (election->votes ());
-		auto existing1 (votes1.find (nano::dev::genesis_key.pub));
-		ASSERT_NE (votes1.end (), existing1);
-		ASSERT_EQ (send1->hash (), existing1->second.hash);
-		auto winner (*election->tally ().begin ());
-		ASSERT_EQ (*send1, *winner.second);
-		ASSERT_EQ (nano::dev::constants.genesis_amount - 100, winner.first);
 	}
 	ASSERT_TRUE (node0.expired ());
+}
+
+TEST (node, fork_publish)
+{
+	nano::test::system system (1);
+	auto & node1 (*system.nodes[0]);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	nano::keypair key1;
+	nano::send_block_builder builder;
+	auto send1 = builder.make_block ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key1.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (0)
+				 .build_shared ();
+	node1.work_generate_blocking (*send1);
+	nano::keypair key2;
+	auto send2 = builder.make_block ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key2.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (0)
+				 .build_shared ();
+	node1.work_generate_blocking (*send2);
+	node1.process_active (send1);
+	ASSERT_TIMELY_EQ (5s, 1, node1.active.size ());
+	auto election (node1.active.election (send1->qualified_root ()));
+	ASSERT_NE (nullptr, election);
+	// Wait until the genesis rep activated & makes vote
+	ASSERT_TIMELY_EQ (1s, election->votes ().size (), 2);
+	node1.process_active (send2);
+	ASSERT_TIMELY (5s, node1.active.active (*send2));
+	auto votes1 (election->votes ());
+	auto existing1 (votes1.find (nano::dev::genesis_key.pub));
+	ASSERT_NE (votes1.end (), existing1);
+	ASSERT_EQ (send1->hash (), existing1->second.hash);
+	auto winner (*election->tally ().begin ());
+	ASSERT_EQ (*send1, *winner.second);
+	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, winner.first);
 }
 
 // In test case there used to be a race condition, it was worked around in:.
