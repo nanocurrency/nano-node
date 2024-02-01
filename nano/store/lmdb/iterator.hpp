@@ -95,7 +95,7 @@ public:
 		return *this;
 	}
 
-	std::pair<store::db_val<MDB_val>, store::db_val<MDB_val>> * operator-> ()
+	std::pair<store::db_val<MDB_val>, store::db_val<MDB_val>> * operator->()
 	{
 		return &current;
 	}
@@ -213,9 +213,9 @@ public:
 		return *this;
 	}
 
-	std::pair<store::db_val<MDB_val>, store::db_val<MDB_val>> * operator-> ()
+	std::pair<store::db_val<MDB_val>, store::db_val<MDB_val>> * operator->()
 	{
-		return least_iterator ().operator-> ();
+		return least_iterator ().operator->();
 	}
 
 	bool operator== (merge_iterator<T, U> const & other) const

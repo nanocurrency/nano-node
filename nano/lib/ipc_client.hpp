@@ -84,7 +84,7 @@ namespace ipc
 	}
 
 	/**
-  	 * Returns a buffer with an IPC preamble for the given \p encoding_a followed by the payload. Depending on encoding,
+	 * Returns a buffer with an IPC preamble for the given \p encoding_a followed by the payload. Depending on encoding,
 	 * the buffer may contain a payload length or end sentinel.
 	 */
 	nano::shared_const_buffer prepare_request (nano::ipc::payload_encoding encoding_a, std::string const & payload_a);

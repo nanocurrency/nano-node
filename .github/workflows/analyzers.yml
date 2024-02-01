@@ -1,35 +1,50 @@
 name: Static Analyzers
 
-on: [push, pull_request]
+on: [ push, pull_request ]
 
 jobs:
   clang_format:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
-      - name: Installing clang-format 12
+      - name: Checkout
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+
+      - name: Installing clang-format
         env:
           DEBIAN_FRONTEND: noninteractive
-        run: sudo apt-get install clang-format-12
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 17
+          sudo apt install clang-format-17
+
       - name: Check clang-format
         run: ci/clang-format-check.sh
-  
+
+
   cmake_format:
     runs-on: ubuntu-20.04
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
-      - uses: actions/setup-python@13ae5bb136fac2878aff31522b9efb785519f984 #v4.3.0
-        with: 
+      - name: Checkout
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+
+      - name: Setup Python
+        uses: actions/setup-python@13ae5bb136fac2878aff31522b9efb785519f984 #v4.3.0
+        with:
           python-version: '3.x'
           architecture: 'x64'
-      - uses: BSFishy/pip-action@8f2d471d809dc20b6ada98c91910b6ae6243f318
-        with: 
+
+      - name: Install cmake-format
+        uses: BSFishy/pip-action@8f2d471d809dc20b6ada98c91910b6ae6243f318
+        with:
           packages: |
             cmake-format
+
       - name: Check cmake-format
         run: ci/cmake-format-check.sh
+
 
   code_inspector:
     runs-on: ubuntu-20.04

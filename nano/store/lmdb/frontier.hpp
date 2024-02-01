@@ -26,9 +26,9 @@ public:
 	void for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::block_hash, nano::account>, store::iterator<nano::block_hash, nano::account>)> const & action_a) const override;
 
 	/**
-		 * Maps head block to owning account
-		 * nano::block_hash -> nano::account
-		 */
+	 * Maps head block to owning account
+	 * nano::block_hash -> nano::account
+	 */
 	MDB_dbi frontiers_handle{ 0 };
 };
 } // namespace nano::store::lmdb

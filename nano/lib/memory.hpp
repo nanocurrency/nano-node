@@ -16,8 +16,8 @@ bool get_use_memory_pools ();
 void set_use_memory_pools (bool use_memory_pools);
 
 /** This makes some heuristic assumptions about the implementation defined shared_ptr internals.
-    Should only be used in the memory pool purge functions at exit, which doesn't matter much if
-    it is incorrect (other than reports from heap memory analysers) */
+	Should only be used in the memory pool purge functions at exit, which doesn't matter much if
+	it is incorrect (other than reports from heap memory analysers) */
 template <typename T>
 constexpr size_t determine_shared_ptr_pool_size ()
 {

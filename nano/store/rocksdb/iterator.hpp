@@ -129,7 +129,7 @@ public:
 		return *this;
 	}
 
-	std::pair<nano::store::rocksdb::db_val, nano::store::rocksdb::db_val> * operator-> ()
+	std::pair<nano::store::rocksdb::db_val, nano::store::rocksdb::db_val> * operator->()
 	{
 		return &current;
 	}

@@ -22,9 +22,9 @@ public:
 	void clear (store::write_transaction const & transaction_a) override;
 
 	/**
-		 * Samples of online vote weight
-		 * uint64_t -> nano::amount
-		 */
+	 * Samples of online vote weight
+	 * uint64_t -> nano::amount
+	 */
 	MDB_dbi online_weight_handle{ 0 };
 };
 } // namespace nano::store::lmdb

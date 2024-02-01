@@ -25,9 +25,9 @@ public:
 	void for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::block_hash, std::nullptr_t>, store::iterator<nano::block_hash, std::nullptr_t>)> const & action_a) const override;
 
 	/**
-		 * Pruned blocks hashes
-		 * nano::block_hash -> none
-		 */
+	 * Pruned blocks hashes
+	 * nano::block_hash -> none
+	 */
 	MDB_dbi pruned_handle{ 0 };
 };
 } // namespace nano::store::lmdb
