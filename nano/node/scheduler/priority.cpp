@@ -49,7 +49,7 @@ bool nano::scheduler::priority::activate (nano::account const & account_a, store
 			auto hash = conf_info.height == 0 ? info->open_block : node.store.block.successor (transaction, conf_info.frontier);
 			auto block = node.store.block.get (transaction, hash);
 			debug_assert (block != nullptr);
-			if (node.ledger.dependents_confirmed (transaction, *block))
+			if (node.ledger.dependents_confirmed (transaction, *block) && !node.confirmation_height_processor.is_processing_block (hash))
 			{
 				stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activated);
 				auto balance = node.ledger.balance (transaction, hash);
