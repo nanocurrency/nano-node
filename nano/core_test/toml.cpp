@@ -408,7 +408,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	peering_port = 999
 	pow_sleep_interval= 999
 	preconfigured_peers = ["dev.org"]
-	blocked_peers = ["192.168.0.1"]
+	blocked_peers = ["192.168.0.1", "2001:0db8:85a3:0000:0000:8a2e:0370:7334"]
 	preconfigured_representatives = ["nano_3arg3asgtigae3xckabaaewkx3bzsh7nwz7jkmjos79ihyaxwphhm6qgjps4"]
 	receive_minimum = "999"
 	signature_checker_threads = 999

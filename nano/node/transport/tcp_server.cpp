@@ -44,6 +44,7 @@ nano::transport::tcp_listener::tcp_listener (uint16_t port_a, nano::node & node_
 
 void nano::transport::tcp_listener::start (std::function<bool (std::shared_ptr<nano::transport::socket> const &, boost::system::error_code const &)> callback_a)
 {
+	configure_blocked_peers ();
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	on = true;
 	acceptor.open (local.protocol ());
@@ -136,6 +137,13 @@ void nano::transport::tcp_listener::on_connection (std::function<bool (std::shar
 		[this_l, new_connection, cbk = std::move (callback)] (boost::system::error_code const & ec_a) mutable {
 			this_l->evict_dead_connections ();
 
+			if (this_l->is_ip_blocked (new_connection->remote.address ()))
+			{
+				this_l->node.logger.info (nano::log::type::tcp_listener, "Connection refused from blocked IP: {}", new_connection->remote_endpoint ().address ().to_string ());
+				this_l->on_connection (std::move (cbk));
+				return;
+			}
+
 			if (this_l->connections_per_address.size () >= this_l->max_inbound_connections)
 			{
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
@@ -215,6 +223,44 @@ void nano::transport::tcp_listener::on_connection (std::function<bool (std::shar
 			this_l->node.logger.warn (nano::log::type::tcp_listener, "Stopping to accept new connections");
 		}));
 	}));
+}
+
+void nano::transport::tcp_listener::configure_blocked_peers ()
+{
+	blocked_ips.clear ();
+	if (!node.config.blocked_peers.empty ())
+	{
+		node.logger.info (nano::log::type::tcp_listener, "Setting up network blocking rules");
+		for (const std::string & ip_string : node.config.blocked_peers)
+		{
+			boost::system::error_code ec;
+			auto ip_address = boost::asio::ip::address::from_string (ip_string, ec);
+
+			if (!ec)
+			{
+				if (ip_address.is_v4 ())
+				{
+					// Convert IPv4 address to IPv4-mapped IPv6 address
+					blocked_ips.insert (boost::asio::ip::address_v6::v4_mapped (ip_address.to_v4 ()));
+				}
+				else
+				{
+					blocked_ips.insert (ip_address);
+				}
+
+				node.logger.info (nano::log::type::tcp_listener, "Added blocking rule for ip {}", ip_address.to_string ());
+			}
+			else
+			{
+				node.logger.error (nano::log::type::tcp_listener, "Invalid IP address: {}", ip_string);
+			}
+		}
+	}
+}
+
+bool nano::transport::tcp_listener::is_ip_blocked (const boost::asio::ip::address & ip_address) const
+{
+	return blocked_ips.find (ip_address) != blocked_ips.end ();
 }
 
 // If we are unable to accept a socket, for any reason, we wait just a little (1ms) before rescheduling the next connection accept.

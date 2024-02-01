@@ -67,8 +67,6 @@ nano::network::~network ()
 
 void nano::network::start ()
 {
-	Configure_blocked_peers ();
-
 	if (!node.flags.disable_connection_cleanup)
 	{
 		ongoing_cleanup ();
@@ -349,39 +347,6 @@ void nano::network::broadcast_confirm_req_many (std::deque<std::pair<std::shared
 	}
 }
 
-void nano::network::Configure_blocked_peers ()
-{
-	for (const std::string & ip_string : node.config.blocked_peers)
-	{
-		boost::system::error_code ec;
-		auto ip_address = boost::asio::ip::address::from_string (ip_string, ec);
-
-		if (!ec)
-		{
-			if (ip_address.is_v4 ())
-			{
-				// Convert IPv4 address to IPv4-mapped IPv6 address
-				blocked_ips.insert (boost::asio::ip::address_v6::v4_mapped (ip_address.to_v4 ()));
-			}
-			else
-			{
-				blocked_ips.insert (ip_address);
-			}
-
-			node.logger.info (nano::log::type::network, "Added blocking rule for ip {}", ip_address.to_string ());
-		}
-		else
-		{
-			node.logger.error (nano::log::type::network, "Invalid IP address: {}", ip_string);
-		}
-	}
-}
-
-bool nano::network::is_ip_blocked (const boost::asio::ip::address & ip_address) const
-{
-	return blocked_ips.find (ip_address) != blocked_ips.end ();
-}
-
 namespace
 {
 class network_message_visitor : public nano::message_visitor
@@ -503,12 +468,6 @@ private:
 
 void nano::network::process_message (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel)
 {
-	if (is_ip_blocked (channel->get_tcp_endpoint ().address ()))
-	{
-		node.logger.debug (nano::log::type::network, "Ignoring message from IP {}", channel->get_tcp_endpoint ().address ().to_string ());
-		return;
-	}
-
 	node.stats.inc (nano::stat::type::message, to_stat_detail (message.header.type), nano::stat::dir::in);
 
 	network_message_visitor visitor{ node, channel };
