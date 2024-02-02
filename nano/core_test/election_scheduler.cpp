@@ -89,6 +89,8 @@ TEST (election_scheduler, no_vacancy)
 				.build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
 	node.process_confirmed (nano::election_status{ send });
+	// Receive block should not be activated by `activate_successors` as this will start an undesired election
+	std::this_thread::sleep_for (100ms);
 
 	auto receive = builder.make_block ()
 				   .account (key.pub)
