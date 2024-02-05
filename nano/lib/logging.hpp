@@ -32,6 +32,12 @@ using logger_id = std::pair<nano::log::type, nano::log::detail>;
 
 std::string to_string (logger_id);
 logger_id parse_logger_id (std::string const &);
+
+template <class Clock>
+auto microseconds (std::chrono::time_point<Clock> time)
+{
+	return std::chrono::duration_cast<std::chrono::microseconds> (time.time_since_epoch ()).count ();
+}
 }
 
 namespace nano
@@ -163,14 +169,13 @@ public:
 
 			// Include info about precise time of the event
 			auto now = std::chrono::high_resolution_clock::now ();
-			auto now_micros = std::chrono::duration_cast<std::chrono::microseconds> (now.time_since_epoch ()).count ();
 
 			// TODO: Improve code indentation config
 			auto logger = get_logger (type, detail);
 			logger.trace ("{}",
 			nano::streamed_args (global_tracing_config,
 			nano::log::arg{ "event", to_string (std::make_pair (type, detail)) },
-			nano::log::arg{ "time", now_micros },
+			nano::log::arg{ "time", nano::log::microseconds (now) },
 			std::forward<Args> (args)...));
 		}
 	}
