@@ -26,7 +26,6 @@ public:
 	void process (std::shared_ptr<nano::block> original_block);
 	void cement_blocks (nano::write_guard &);
 	bool has_iterated_over_block (nano::block_hash const &) const;
-	bool is_recently_confirmed (nano::block_hash const &) const;
 	bool has_iterated_or_confirmed (nano::block_hash const &) const;
 
 private:

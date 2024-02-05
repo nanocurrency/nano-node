@@ -464,7 +464,7 @@ void nano::confirmation_height_unbounded::clear_process_vars ()
 		{
 			const auto & block_hash = pair.first;
 			recently_confirmed.push_back (block_hash);
-		}		
+		}
 		block_cache.clear ();
 
 		// Ensure recently_confirmed doesn't exceed max_recently_confirmed
@@ -479,13 +479,6 @@ bool nano::confirmation_height_unbounded::has_iterated_over_block (nano::block_h
 {
 	nano::lock_guard<nano::mutex> guard (block_cache_mutex);
 	return block_cache.count (hash_a) == 1;
-}
-
-bool nano::confirmation_height_unbounded::is_recently_confirmed (nano::block_hash const & hash_a) const
-{
-	nano::lock_guard<nano::mutex> guard (block_cache_mutex);
-	auto result = std::find (recently_confirmed.begin (), recently_confirmed.end (), hash_a) != recently_confirmed.end ();
-	return result;
 }
 
 bool nano::confirmation_height_unbounded::has_iterated_or_confirmed (nano::block_hash const & hash_a) const
