@@ -234,6 +234,11 @@ bool nano::confirmation_height_processor::is_processing_block (nano::block_hash 
 	return is_processing_added_block (hash_a) || unbounded_processor.has_iterated_over_block (hash_a);
 }
 
+bool nano::confirmation_height_processor::is_processing_or_confirmed (nano::block_hash const & hash_a) const
+{
+	return is_processing_added_block (hash_a) || unbounded_processor.has_iterated_or_confirmed (hash_a);
+}
+
 nano::block_hash nano::confirmation_height_processor::current () const
 {
 	nano::lock_guard<nano::mutex> lk (mutex);

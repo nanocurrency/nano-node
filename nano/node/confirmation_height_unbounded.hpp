@@ -26,6 +26,8 @@ public:
 	void process (std::shared_ptr<nano::block> original_block);
 	void cement_blocks (nano::write_guard &);
 	bool has_iterated_over_block (nano::block_hash const &) const;
+	bool is_recently_confirmed (nano::block_hash const &) const;
+	bool has_iterated_or_confirmed (nano::block_hash const &) const;
 
 private:
 	class confirmed_iterated_pair
@@ -74,6 +76,8 @@ private:
 	mutable nano::mutex block_cache_mutex;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> block_cache;
 	uint64_t block_cache_size () const;
+	static constexpr size_t max_recently_confirmed = 65536;
+	std::deque<nano::block_hash> recently_confirmed;
 
 	nano::timer<std::chrono::milliseconds> timer;
 
