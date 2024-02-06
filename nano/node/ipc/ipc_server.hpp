@@ -6,6 +6,8 @@
 #include <nano/node/ipc/ipc_broker.hpp>
 #include <nano/node/node_rpc_config.hpp>
 
+#include <boost/asio/signal_set.hpp>
+
 #include <atomic>
 #include <memory>
 
@@ -41,6 +43,7 @@ namespace ipc
 		nano::ipc::access access;
 		std::unique_ptr<dsock_file_remover> file_remover;
 		std::vector<std::shared_ptr<nano::ipc::transport>> transports;
+		std::shared_ptr<boost::asio::signal_set> signals;
 	};
 }
 }
