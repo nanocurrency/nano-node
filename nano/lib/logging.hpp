@@ -171,14 +171,26 @@ public:
 			auto now = std::chrono::high_resolution_clock::now ();
 
 			// TODO: Improve code indentation config
-			auto logger = get_logger (type, detail);
+			auto & logger = get_logger (type, detail);
 			logger.trace ("{}",
 			nano::streamed_args (global_tracing_config,
-			nano::log::arg{ "event", to_string (std::make_pair (type, detail)) },
+			nano::log::arg{ "event", event_formatter{ type, detail } },
 			nano::log::arg{ "time", nano::log::microseconds (now) },
 			std::forward<Args> (args)...));
 		}
 	}
+
+private:
+	struct event_formatter final
+	{
+		nano::log::type type;
+		nano::log::detail detail;
+
+		friend std::ostream & operator<< (std::ostream & os, event_formatter const & self)
+		{
+			return os << to_string (self.type) << "::" << to_string (self.detail);
+		}
+	};
 
 private:
 	const std::string identifier;
