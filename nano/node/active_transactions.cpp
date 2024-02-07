@@ -428,7 +428,7 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 	auto const existing = roots.get<tag_root> ().find (root);
 	if (existing == roots.get<tag_root> ().end ())
 	{
-		if (!recently_confirmed.exists (root) && !node.confirmation_height_processor.is_processing_or_confirmed (hash))
+		if (!recently_confirmed.exists (root) && !confirmation_height_processor.is_processing_or_confirmed (hash))
 		{
 			result.inserted = true;
 			auto observe_rep_cb = [&node = node] (auto const & rep_a) {
