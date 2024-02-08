@@ -14,7 +14,7 @@ void nano::block_broadcast::connect (nano::block_processor & block_processor)
 	{
 		return;
 	}
-	block_processor.processed.add ([this] (auto const & result, auto const & block, auto const & context) {
+	block_processor.block_processed.add ([this] (auto const & result, auto const & block, auto const & context) {
 		switch (result.code)
 		{
 			case nano::process_result::progress:

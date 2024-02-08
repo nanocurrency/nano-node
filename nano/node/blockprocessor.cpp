@@ -41,7 +41,7 @@ nano::block_processor::block_processor (nano::node & node_a, nano::write_databas
 		// For every batch item: notify the 'processed' observer.
 		for (auto const & [result, block, context] : items)
 		{
-			processed.notify (result, block, context);
+			block_processed.notify (result, block, context);
 		}
 	});
 	processing_thread = std::thread ([this] () {
