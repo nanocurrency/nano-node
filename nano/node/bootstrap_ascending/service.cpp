@@ -387,7 +387,7 @@ void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::bloc
 
 			for (auto & block : response.blocks)
 			{
-				block_processor.add (block);
+				block_processor.add (block, nano::block_source::bootstrap);
 			}
 			nano::lock_guard<nano::mutex> lock{ mutex };
 			throttle.add (true);

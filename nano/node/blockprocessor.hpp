@@ -25,6 +25,7 @@ enum class block_source
 	unknown = 0,
 	live,
 	bootstrap,
+	bootstrap_legacy,
 	unchecked,
 	local,
 	forced,

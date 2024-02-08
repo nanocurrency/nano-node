@@ -133,7 +133,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> const 
 	}
 	else
 	{
-		node_l->block_processor.add (block_a);
+		node_l->block_processor.add (block_a, nano::block_source::bootstrap_legacy);
 	}
 	return stop_pull;
 }
