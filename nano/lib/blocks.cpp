@@ -45,6 +45,10 @@ void nano::block_memory_pool_purge ()
 	nano::purge_shared_ptr_singleton_pool_memory<nano::change_block> ();
 }
 
+/*
+ * block
+ */
+
 std::string nano::block::to_json () const
 {
 	std::string result;
@@ -183,7 +187,7 @@ nano::account const & nano::block::account () const
 
 nano::qualified_root nano::block::qualified_root () const
 {
-	return nano::qualified_root (root (), previous ());
+	return { root (), previous () };
 }
 
 nano::amount const & nano::block::balance () const
@@ -191,6 +195,21 @@ nano::amount const & nano::block::balance () const
 	static nano::amount amount{ 0 };
 	return amount;
 }
+
+void nano::block::operator() (nano::object_stream & obs) const
+{
+	obs.write ("type", type ());
+	obs.write ("hash", hash ());
+
+	if (has_sideband ())
+	{
+		obs.write ("sideband", sideband ());
+	}
+}
+
+/*
+ * send_block
+ */
 
 void nano::send_block::visit (nano::block_visitor & visitor_a) const
 {
@@ -472,6 +491,21 @@ void nano::send_block::signature_set (nano::signature const & signature_a)
 	signature = signature_a;
 }
 
+void nano::send_block::operator() (nano::object_stream & obs) const
+{
+	nano::block::operator() (obs); // Write common data
+
+	obs.write ("previous", hashables.previous);
+	obs.write ("destination", hashables.destination);
+	obs.write ("balance", hashables.balance);
+	obs.write ("signature", signature);
+	obs.write ("work", work);
+}
+
+/*
+ * open_block
+ */
+
 nano::open_hashables::open_hashables (nano::block_hash const & source_a, nano::account const & representative_a, nano::account const & account_a) :
 	source (source_a),
 	representative (representative_a),
@@ -748,6 +782,21 @@ void nano::open_block::signature_set (nano::signature const & signature_a)
 	signature = signature_a;
 }
 
+void nano::open_block::operator() (nano::object_stream & obs) const
+{
+	nano::block::operator() (obs); // Write common data
+
+	obs.write ("source", hashables.source);
+	obs.write ("representative", hashables.representative);
+	obs.write ("account", hashables.account);
+	obs.write ("signature", signature);
+	obs.write ("work", work);
+}
+
+/*
+ * change_block
+ */
+
 nano::change_hashables::change_hashables (nano::block_hash const & previous_a, nano::account const & representative_a) :
 	previous (previous_a),
 	representative (representative_a)
@@ -998,6 +1047,20 @@ void nano::change_block::signature_set (nano::signature const & signature_a)
 {
 	signature = signature_a;
 }
+
+void nano::change_block::operator() (nano::object_stream & obs) const
+{
+	nano::block::operator() (obs); // Write common data
+
+	obs.write ("previous", hashables.previous);
+	obs.write ("representative", hashables.representative);
+	obs.write ("signature", signature);
+	obs.write ("work", work);
+}
+
+/*
+ * state_block
+ */
 
 nano::state_hashables::state_hashables (nano::account const & account_a, nano::block_hash const & previous_a, nano::account const & representative_a, nano::amount const & balance_a, nano::link const & link_a) :
 	account (account_a),
@@ -1319,6 +1382,23 @@ void nano::state_block::signature_set (nano::signature const & signature_a)
 	signature = signature_a;
 }
 
+void nano::state_block::operator() (nano::object_stream & obs) const
+{
+	nano::block::operator() (obs); // Write common data
+
+	obs.write ("account", hashables.account);
+	obs.write ("previous", hashables.previous);
+	obs.write ("representative", hashables.representative);
+	obs.write ("balance", hashables.balance);
+	obs.write ("link", hashables.link);
+	obs.write ("signature", signature);
+	obs.write ("work", work);
+}
+
+/*
+ *
+ */
+
 std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree::ptree const & tree_a, nano::block_uniquer * uniquer_a)
 {
 	std::shared_ptr<nano::block> result;
@@ -1427,6 +1507,10 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 	}
 	return result;
 }
+
+/*
+ * receive_block
+ */
 
 void nano::receive_block::visit (nano::block_visitor & visitor_a) const
 {
@@ -1683,6 +1767,20 @@ void nano::receive_hashables::hash (blake2b_state & hash_a) const
 	blake2b_update (&hash_a, source.bytes.data (), sizeof (source.bytes));
 }
 
+void nano::receive_block::operator() (nano::object_stream & obs) const
+{
+	nano::block::operator() (obs); // Write common data
+
+	obs.write ("previous", hashables.previous);
+	obs.write ("source", hashables.source);
+	obs.write ("signature", signature);
+	obs.write ("work", work);
+}
+
+/*
+ * block_details
+ */
+
 nano::block_details::block_details (nano::epoch const epoch_a, bool const is_send_a, bool const is_receive_a, bool const is_epoch_a) :
 	epoch (epoch_a), is_send (is_send_a), is_receive (is_receive_a), is_epoch (is_epoch_a)
 {
@@ -1734,6 +1832,14 @@ bool nano::block_details::deserialize (nano::stream & stream_a)
 	return result;
 }
 
+void nano::block_details::operator() (nano::object_stream & obs) const
+{
+	obs.write ("epoch", epoch);
+	obs.write ("is_send", is_send);
+	obs.write ("is_receive", is_receive);
+	obs.write ("is_epoch", is_epoch);
+}
+
 std::string nano::state_subtype (nano::block_details const details_a)
 {
 	debug_assert (details_a.is_epoch + details_a.is_receive + details_a.is_send <= 1);
@@ -1754,6 +1860,10 @@ std::string nano::state_subtype (nano::block_details const details_a)
 		return "change";
 	}
 }
+
+/*
+ * block_sideband
+ */
 
 nano::block_sideband::block_sideband (nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t const height_a, nano::seconds_t const timestamp_a, nano::block_details const & details_a, nano::epoch const source_epoch_a) :
 	successor (successor_a),
@@ -1864,6 +1974,17 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_typ
 	}
 
 	return result;
+}
+
+void nano::block_sideband::operator() (nano::object_stream & obs) const
+{
+	obs.write ("successor", successor);
+	obs.write ("account", account);
+	obs.write ("balance", balance);
+	obs.write ("height", height);
+	obs.write ("timestamp", timestamp);
+	obs.write ("source_epoch", source_epoch);
+	obs.write ("details", details);
 }
 
 std::string_view nano::to_string (nano::block_type type)

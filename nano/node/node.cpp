@@ -185,8 +185,8 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	vote_uniquer{},
 	confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 	vote_cache{ config.vote_cache, stats },
-	generator{ config, ledger, wallets, vote_processor, history, network, stats, /* non-final */ false },
-	final_generator{ config, ledger, wallets, vote_processor, history, network, stats, /* final */ true },
+	generator{ config, ledger, wallets, vote_processor, history, network, stats, logger, /* non-final */ false },
+	final_generator{ config, ledger, wallets, vote_processor, history, network, stats, logger, /* final */ true },
 	active (*this, confirmation_height_processor),
 	scheduler_impl{ std::make_unique<nano::scheduler::component> (*this) },
 	scheduler{ *scheduler_impl },
@@ -1298,6 +1298,8 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 	decltype (iteration_a) const num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
 	if (auto block_l = ledger.store.block.get (ledger.store.tx_begin_read (), hash))
 	{
+		logger.trace (nano::log::type::node, nano::log::detail::process_confirmed, nano::log::arg{ "block", block_l });
+
 		confirmation_height_processor.add (block_l);
 	}
 	else if (iteration_a < num_iters)

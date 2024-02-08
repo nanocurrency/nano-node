@@ -275,6 +275,11 @@ void nano::frontier_req_server::send_next ()
 	}
 	if (!current.is_zero () && count < request->count)
 	{
+		node->logger.trace (nano::log::type::frontier_req_server, nano::log::detail::sending_frontier,
+		nano::log::arg{ "account", current.to_account () }, // TODO: Convert to lazy eval
+		nano::log::arg{ "frontier", frontier },
+		nano::log::arg{ "socket", connection->socket });
+
 		std::vector<uint8_t> send_buffer;
 		{
 			nano::vectorstream stream (send_buffer);

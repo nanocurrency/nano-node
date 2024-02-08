@@ -6,6 +6,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/epoch.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/object_stream.hpp>
 #include <nano/lib/rep_weights.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/timer.hpp>

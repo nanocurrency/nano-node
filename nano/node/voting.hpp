@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/locks.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/processing_queue.hpp>
 #include <nano/lib/utility.hpp>
@@ -121,7 +122,7 @@ private:
 	using queue_entry_t = std::pair<nano::root, nano::block_hash>;
 
 public:
-	vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stats & stats_a, bool is_final_a);
+	vote_generator (nano::node_config const &, nano::ledger &, nano::wallets &, nano::vote_processor &, nano::local_vote_history &, nano::network &, nano::stats &, nano::logger &, bool is_final);
 	~vote_generator ();
 
 	/** Queue items for vote generation, or broadcast votes already in cache */
@@ -159,6 +160,7 @@ private: // Dependencies
 	nano::vote_spacing spacing;
 	nano::network & network;
 	nano::stats & stats;
+	nano::logger & logger;
 
 private:
 	processing_queue<queue_entry_t> vote_generation_queue;

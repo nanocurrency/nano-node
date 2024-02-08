@@ -80,6 +80,10 @@ void nano::bulk_pull_client::request ()
 	req.count = pull.count;
 	req.set_count_present (pull.count != 0);
 
+	node->logger.trace (nano::log::type::bulk_pull_client, nano::log::detail::requesting_account_or_head,
+	nano::log::arg{ "account_or_head", pull.account_or_head },
+	nano::log::arg{ "channel", connection->channel });
+
 	if (attempt->should_log ())
 	{
 		node->logger.debug (nano::log::type::bulk_pull_client, "Accounts in pull queue: {}", attempt->pulling.load ());
@@ -166,6 +170,8 @@ void nano::bulk_pull_client::received_block (boost::system::error_code ec, std::
 	}
 	auto hash = block->hash ();
 
+	node->logger.trace (nano::log::type::bulk_pull_client, nano::log::detail::pulled_block, nano::log::arg{ "block", block });
+
 	// Is block expected?
 	bool block_expected (false);
 	// Unconfirmed head is used only for lazy destinations if legacy bootstrap is not available, see nano::bootstrap_attempt::lazy_destinations_increment (...)
@@ -231,6 +237,10 @@ void nano::bulk_pull_account_client::request ()
 	req.account = account;
 	req.minimum_amount = node->config.receive_minimum;
 	req.flags = nano::bulk_pull_account_flags::pending_hash_and_amount;
+
+	node->logger.trace (nano::log::type::bulk_pull_account_client, nano::log::detail::requesting_pending,
+	nano::log::arg{ "account", req.account.to_account () }, // TODO: Convert to lazy eval
+	nano::log::arg{ "connection", connection->channel });
 
 	if (attempt->should_log ())
 	{
@@ -413,6 +423,10 @@ void nano::bulk_pull_server::send_next ()
 	auto block = get_next ();
 	if (block != nullptr)
 	{
+		node->logger.trace (nano::log::type::bulk_pull_server, nano::log::detail::sending_block,
+		nano::log::arg{ "block", block },
+		nano::log::arg{ "socket", connection->socket });
+
 		std::vector<uint8_t> send_buffer;
 		{
 			nano::vectorstream stream (send_buffer);
@@ -681,11 +695,17 @@ void nano::bulk_pull_account_server::send_next_block ()
 		std::vector<uint8_t> send_buffer;
 		if (pending_address_only)
 		{
+			node->logger.trace (nano::log::type::bulk_pull_account_server, nano::log::detail::sending_pending,
+			nano::log::arg{ "pending", block_info->source });
+
 			nano::vectorstream output_stream (send_buffer);
 			write (output_stream, block_info->source.bytes);
 		}
 		else
 		{
+			node->logger.trace (nano::log::type::bulk_pull_account_server, nano::log::detail::sending_block,
+			nano::log::arg{ "block", block_info_key->hash });
+
 			nano::vectorstream output_stream (send_buffer);
 			write (output_stream, block_info_key->hash.bytes);
 			write (output_stream, block_info->amount.bytes);

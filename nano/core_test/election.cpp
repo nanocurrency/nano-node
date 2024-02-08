@@ -303,6 +303,6 @@ TEST (election, continuous_voting)
 	ASSERT_TRUE (nano::test::process (node1, { send2 }));
 	ASSERT_TIMELY (5s, node1.active.active (*send2));
 
-	// Ensure votes are generated in continuous manner
-	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::election, nano::stat::detail::generate_vote) >= 5);
+	// Ensure votes are broadcasted in continuous manner
+	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_vote) >= 5);
 }

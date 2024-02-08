@@ -93,7 +93,11 @@ namespace transport
 
 	private:
 		nano::tcp_endpoint endpoint{ boost::asio::ip::address_v6::any (), 0 };
+
+	public: // Logging
+		void operator() (nano::object_stream &) const override;
 	};
+
 	class tcp_channels final
 	{
 		friend class nano::transport::channel_tcp;
