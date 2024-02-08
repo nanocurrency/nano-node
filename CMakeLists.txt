@@ -133,6 +133,17 @@ if(NANO_STACKTRACE_BACKTRACE)
   endif()
 endif()
 
+# Enable NANO_TRACING by default in Debug builds
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  option(NANO_TRACING "Enable trace logging" ON)
+else()
+  option(NANO_TRACING "Enable trace logging" OFF)
+endif()
+if(NANO_TRACING)
+  message(STATUS "Using trace logging")
+  add_compile_definitions(NANO_TRACING)
+endif()
+
 if(${NANO_TIMED_LOCKS} GREATER 0)
   add_definitions(-DNANO_TIMED_LOCKS=${NANO_TIMED_LOCKS})
   add_definitions(-DNANO_TIMED_LOCKS_FILTER=${NANO_TIMED_LOCKS_FILTER})

@@ -16,20 +16,24 @@ nano::transport::channel::channel (nano::node & node_a) :
 
 void nano::transport::channel::send (nano::message & message_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a, nano::transport::buffer_drop_policy drop_policy_a, nano::transport::traffic_type traffic_type)
 {
-	auto buffer (message_a.to_shared_const_buffer ());
-	auto detail = to_stat_detail (message_a.header.type);
-	auto is_droppable_by_limiter = (drop_policy_a == nano::transport::buffer_drop_policy::limiter);
-	auto should_pass (node.outbound_limiter.should_pass (buffer.size (), to_bandwidth_limit_type (traffic_type)));
-	if (!is_droppable_by_limiter || should_pass)
-	{
-		node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
+	auto buffer = message_a.to_shared_const_buffer ();
 
+	bool is_droppable_by_limiter = (drop_policy_a == nano::transport::buffer_drop_policy::limiter);
+	bool should_pass = node.outbound_limiter.should_pass (buffer.size (), to_bandwidth_limit_type (traffic_type));
+	bool pass = !is_droppable_by_limiter || should_pass;
+
+	node.stats.inc (pass ? nano::stat::type::message : nano::stat::type::drop, to_stat_detail (message_a.type ()), nano::stat::dir::out);
+	node.logger.trace (nano::log::type::channel_sent, to_log_detail (message_a.type ()),
+	nano::log::arg{ "message", message_a },
+	nano::log::arg{ "channel", *this },
+	nano::log::arg{ "dropped", !pass });
+
+	if (pass)
+	{
 		send_buffer (buffer, callback_a, drop_policy_a, traffic_type);
 	}
 	else
 	{
-		node.stats.inc (nano::stat::type::drop, detail, nano::stat::dir::out);
-
 		if (callback_a)
 		{
 			node.background ([callback_a] () {
@@ -57,4 +61,11 @@ nano::endpoint nano::transport::channel::get_peering_endpoint () const
 		lock.unlock ();
 		return get_endpoint ();
 	}
+}
+
+void nano::transport::channel::operator() (nano::object_stream & obs) const
+{
+	obs.write ("endpoint", get_endpoint ());
+	obs.write ("peering_endpoint", get_peering_endpoint ());
+	obs.write ("node_id", get_node_id ());
 }

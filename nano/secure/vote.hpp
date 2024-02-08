@@ -71,6 +71,9 @@ private:
 	static std::string const hash_prefix;
 
 	static uint64_t packed_timestamp (uint64_t timestamp, uint8_t duration);
+
+public: // Logging
+	void operator() (nano::object_stream &) const;
 };
 
 using vote_uniquer = nano::uniquer<nano::block_hash, nano::vote>;

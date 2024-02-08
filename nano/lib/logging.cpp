@@ -1,8 +1,10 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/logging.hpp>
+#include <nano/lib/logging_enums.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <fmt/chrono.h>
+#include <magic_enum.hpp>
 #include <spdlog/pattern_formatter.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/rotating_file_sink.h>
@@ -22,10 +24,11 @@ nano::logger & nano::default_logger ()
 bool nano::logger::global_initialized{ false };
 nano::log_config nano::logger::global_config{};
 std::vector<spdlog::sink_ptr> nano::logger::global_sinks{};
+nano::object_stream_config nano::logger::global_tracing_config{};
 
 // By default, use only the tag as the logger name, since only one node is running in the process
-std::function<std::string (nano::log::type tag, std::string identifier)> nano::logger::global_name_formatter{ [] (auto tag, auto identifier) {
-	return std::string{ to_string (tag) };
+std::function<std::string (nano::log::logger_id, std::string identifier)> nano::logger::global_name_formatter{ [] (nano::log::logger_id logger_id, std::string identifier) {
+	return to_string (logger_id);
 } };
 
 void nano::logger::initialize (nano::log_config fallback, std::optional<std::filesystem::path> data_path, std::vector<std::string> const & config_overrides)
@@ -42,7 +45,6 @@ namespace
 /// Takes a qualified identifier in the form `node_identifier::tag` and splits it into a pair of `identifier` and `tag`
 /// It is a limitation of spldlog that we cannot attach additional data to the logger, so we have to encode the node identifier in the logger name
 /// @returns <node identifier, tag>
-
 std::pair<std::string_view, std::string_view> split_qualified_identifier (std::string_view qualified_identifier)
 {
 	auto pos = qualified_identifier.find ("::");
@@ -96,8 +98,8 @@ void nano::logger::initialize_for_tests (nano::log_config fallback)
 	initialize_common (config, /* store log file in current workdir */ std::filesystem::current_path ());
 
 	// Use tag and identifier as the logger name, since multiple nodes may be running in the same process
-	global_name_formatter = [] (nano::log::type tag, std::string identifier) {
-		return fmt::format ("{}::{}", identifier, to_string (tag));
+	global_name_formatter = [] (nano::log::logger_id logger_id, std::string identifier) {
+		return fmt::format ("{}::{}", identifier, to_string (logger_id));
 	};
 
 	// Setup formatter to include information about node identifier `[%i]` and tag `[%n]`
@@ -184,6 +186,17 @@ void nano::logger::initialize_common (nano::log_config const & config, std::opti
 			global_sinks.push_back (file_sink);
 		}
 	}
+
+	// Tracing setup
+	switch (config.tracing_format)
+	{
+		case nano::log::tracing_format::standard:
+			global_tracing_config = nano::object_stream_config::default_config ();
+			break;
+		case nano::log::tracing_format::json:
+			global_tracing_config = nano::object_stream_config::json_config ();
+			break;
+	}
 }
 
 void nano::logger::flush ()
@@ -209,13 +222,13 @@ nano::logger::~logger ()
 	flush ();
 }
 
-spdlog::logger & nano::logger::get_logger (nano::log::type tag)
+spdlog::logger & nano::logger::get_logger (nano::log::type type, nano::log::detail detail)
 {
 	// This is a two-step process to avoid exclusively locking the mutex in the common case
 	{
 		std::shared_lock lock{ mutex };
 
-		if (auto it = spd_loggers.find (tag); it != spd_loggers.end ())
+		if (auto it = spd_loggers.find ({ type, detail }); it != spd_loggers.end ())
 		{
 			return *it->second;
 		}
@@ -224,31 +237,42 @@ spdlog::logger & nano::logger::get_logger (nano::log::type tag)
 	{
 		std::unique_lock lock{ mutex };
 
-		auto [it, inserted] = spd_loggers.emplace (tag, make_logger (tag));
+		auto [it, inserted] = spd_loggers.emplace (std::make_pair (type, detail), make_logger ({ type, detail }));
 		return *it->second;
 	}
 }
 
-std::shared_ptr<spdlog::logger> nano::logger::make_logger (nano::log::type tag)
+std::shared_ptr<spdlog::logger> nano::logger::make_logger (nano::log::logger_id logger_id)
 {
 	auto const & config = global_config;
 	auto const & sinks = global_sinks;
 
-	auto name = global_name_formatter (tag, identifier);
+	auto name = global_name_formatter (logger_id, identifier);
 	auto spd_logger = std::make_shared<spdlog::logger> (name, sinks.begin (), sinks.end ());
 
-	if (auto it = config.levels.find ({ tag, nano::log::detail::all }); it != config.levels.end ())
-	{
-		spd_logger->set_level (to_spdlog_level (it->second));
-	}
-	else
-	{
-		spd_logger->set_level (to_spdlog_level (config.default_level));
-	}
-
+	spd_logger->set_level (to_spdlog_level (find_level (logger_id)));
 	spd_logger->flush_on (to_spdlog_level (config.flush_level));
 
 	return spd_logger;
+}
+
+nano::log::level nano::logger::find_level (nano::log::logger_id logger_id) const
+{
+	auto const & config = global_config;
+	auto const & [type, detail] = logger_id;
+
+	// Check for a specific level for this logger
+	if (auto it = config.levels.find (logger_id); it != config.levels.end ())
+	{
+		return it->second;
+	}
+	// Check for a default level for this logger type
+	if (auto it = config.levels.find ({ type, nano::log::detail::all }); it != config.levels.end ())
+	{
+		return it->second;
+	}
+	// Use the default level
+	return config.default_level;
 }
 
 spdlog::level::level_enum nano::logger::to_spdlog_level (nano::log::level level)
@@ -400,7 +424,7 @@ void nano::log_config::deserialize (nano::tomlconfig & toml)
 			{
 				auto & [name_str, level_str] = level;
 				auto logger_level = nano::log::parse_level (level_str);
-				auto logger_id = parse_logger_id (name_str);
+				auto logger_id = nano::log::parse_logger_id (name_str);
 
 				levels[logger_id] = logger_level;
 			}
@@ -413,29 +437,9 @@ void nano::log_config::deserialize (nano::tomlconfig & toml)
 	}
 }
 
-/**
- * Parse `logger_name[:logger_detail]` into a pair of `log::type` and `log::detail`
- * @throw std::invalid_argument if `logger_name` or `logger_detail` are invalid
- */
-nano::log_config::logger_id_t nano::log_config::parse_logger_id (const std::string & logger_name)
+std::map<nano::log::logger_id, nano::log::level> nano::log_config::default_levels (nano::log::level default_level)
 {
-	auto pos = logger_name.find ("::");
-	if (pos == std::string::npos)
-	{
-		return { nano::log::parse_type (logger_name), nano::log::detail::all };
-	}
-	else
-	{
-		auto logger_type = logger_name.substr (0, pos);
-		auto logger_detail = logger_name.substr (pos + 1);
-
-		return { nano::log::parse_type (logger_type), nano::log::parse_detail (logger_detail) };
-	}
-}
-
-std::map<nano::log_config::logger_id_t, nano::log::level> nano::log_config::default_levels (nano::log::level default_level)
-{
-	std::map<nano::log_config::logger_id_t, nano::log::level> result;
+	std::map<nano::log::logger_id, nano::log::level> result;
 	for (auto const & type : nano::log::all_types ())
 	{
 		result.emplace (std::make_pair (type, nano::log::detail::all), default_level);
@@ -461,9 +465,10 @@ nano::log_config nano::load_log_config (nano::log_config fallback, const std::fi
 		{
 			try
 			{
-				config.default_level = nano::log::parse_level (*env_level);
+				auto level = nano::log::parse_level (*env_level);
+				config.default_level = level;
 
-				std::cerr << "Using default log level from NANO_LOG environment variable: " << *env_level << std::endl;
+				std::cerr << "Using default log level from NANO_LOG environment variable: " << to_string (level) << std::endl;
 			}
 			catch (std::invalid_argument const & ex)
 			{
@@ -475,13 +480,13 @@ nano::log_config nano::load_log_config (nano::log_config fallback, const std::fi
 		auto env_levels = nano::get_env ("NANO_LOG_LEVELS");
 		if (env_levels)
 		{
-			std::map<nano::log_config::logger_id_t, nano::log::level> levels;
-			for (auto const & env_level_str : nano::util::split (*env_levels, ','))
+			std::map<nano::log::logger_id, nano::log::level> levels;
+			for (auto const & env_level_str : nano::util::split (*env_levels, ","))
 			{
 				try
 				{
 					// Split 'logger_name=level' into a pair of 'logger_name' and 'level'
-					auto arr = nano::util::split (env_level_str, '=');
+					auto arr = nano::util::split (env_level_str, "=");
 					if (arr.size () != 2)
 					{
 						throw std::invalid_argument ("Invalid entry: " + env_level_str);
@@ -490,12 +495,12 @@ nano::log_config nano::load_log_config (nano::log_config fallback, const std::fi
 					auto name_str = arr[0];
 					auto level_str = arr[1];
 
-					auto logger_id = nano::log_config::parse_logger_id (name_str);
+					auto logger_id = nano::log::parse_logger_id (name_str);
 					auto logger_level = nano::log::parse_level (level_str);
 
 					levels[logger_id] = logger_level;
 
-					std::cerr << "Using logger log level from NANO_LOG_LEVELS environment variable: " << name_str << "=" << level_str << std::endl;
+					std::cerr << "Using logger log level from NANO_LOG_LEVELS environment variable: " << to_string (logger_id) << "=" << to_string (logger_level) << std::endl;
 				}
 				catch (std::invalid_argument const & ex)
 				{
@@ -510,6 +515,42 @@ nano::log_config nano::load_log_config (nano::log_config fallback, const std::fi
 			}
 		}
 
+		auto env_tracing_format = nano::get_env ("NANO_TRACE_FORMAT");
+		if (env_tracing_format)
+		{
+			try
+			{
+				auto tracing_format = nano::log::parse_tracing_format (*env_tracing_format);
+				config.tracing_format = tracing_format;
+
+				std::cerr << "Using trace format from NANO_TRACE_FORMAT environment variable: " << to_string (tracing_format) << std::endl;
+			}
+			catch (std::invalid_argument const & ex)
+			{
+				std::cerr << "Invalid trace format from NANO_TRACE_FORMAT environment variable: " << ex.what () << std::endl;
+			}
+		}
+
+		auto tracing_configured = [&] () {
+			if (config.default_level == nano::log::level::trace)
+			{
+				return true;
+			}
+			for (auto const & [logger_id, level] : config.levels)
+			{
+				if (level == nano::log::level::trace)
+				{
+					return true;
+				}
+			}
+			return false;
+		};
+
+		if (tracing_configured () && !is_tracing_enabled ())
+		{
+			std::cerr << "WARNING: Tracing is not enabled in this build, but log level is set to trace" << std::endl;
+		}
+
 		return config;
 	}
 	catch (std::runtime_error const & ex)
@@ -517,4 +558,35 @@ nano::log_config nano::load_log_config (nano::log_config fallback, const std::fi
 		std::cerr << "Unable to load log config. Using defaults. Error: " << ex.what () << std::endl;
 	}
 	return fallback;
+}
+
+std::string nano::log::to_string (nano::log::logger_id logger_id)
+{
+	auto const & [type, detail] = logger_id;
+	if (detail == nano::log::detail::all)
+	{
+		return fmt::format ("{}", to_string (type));
+	}
+	else
+	{
+		return fmt::format ("{}::{}", to_string (type), to_string (detail));
+	}
+}
+
+/**
+ * Parse `logger_name[:logger_detail]` into a pair of `log::type` and `log::detail`
+ * @throw std::invalid_argument if `logger_name` or `logger_detail` are invalid
+ */
+nano::log::logger_id nano::log::parse_logger_id (const std::string & logger_name)
+{
+	auto parts = nano::util::split (logger_name, "::");
+	if (parts.size () == 1)
+	{
+		return { nano::log::parse_type (parts[0]), nano::log::detail::all };
+	}
+	if (parts.size () == 2)
+	{
+		return { nano::log::parse_type (parts[0]), nano::log::parse_detail (parts[1]) };
+	}
+	throw std::invalid_argument ("Invalid logger name: " + logger_name);
 }

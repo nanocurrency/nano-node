@@ -207,9 +207,12 @@ private:
 
 public:
 	std::size_t const max_queue_size;
+
+public: // Logging
+	virtual void operator() (nano::object_stream &) const;
 };
 
-std::string socket_type_to_string (socket::type_t type);
+std::string_view to_string (socket::type_t type);
 
 using address_socket_mmap = std::multimap<boost::asio::ip::address, std::weak_ptr<socket>>;
 

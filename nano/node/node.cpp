@@ -156,7 +156,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	unchecked{ config.max_unchecked_blocks, stats, flags.disable_block_processor_unchecked_deletion },
 	wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
 	wallets_store (*wallets_store_impl),
-	gap_cache (*this),
 	ledger (store, stats, network_params.ledger, flags_a.generate_cache),
 	outbound_limiter{ outbound_bandwidth_limiter_config (config) },
 	// empty `config.peering_port` means the user made no port choice at all;
@@ -185,8 +184,8 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	vote_uniquer{},
 	confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 	vote_cache{ config.vote_cache, stats },
-	generator{ config, ledger, wallets, vote_processor, history, network, stats, /* non-final */ false },
-	final_generator{ config, ledger, wallets, vote_processor, history, network, stats, /* final */ true },
+	generator{ config, ledger, wallets, vote_processor, history, network, stats, logger, /* non-final */ false },
+	final_generator{ config, ledger, wallets, vote_processor, history, network, stats, logger, /* final */ true },
 	active{ *this, confirmation_height_processor, block_processor },
 	scheduler_impl{ std::make_unique<nano::scheduler::component> (*this) },
 	scheduler{ *scheduler_impl },
@@ -199,13 +198,11 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq),
 	block_broadcast{ network, block_arrival, !flags.disable_block_processor_republishing },
-	gap_tracker{ gap_cache },
 	process_live_dispatcher{ ledger, scheduler.priority, vote_cache, websocket }
 {
 	logger.debug (nano::log::type::node, "Constructing node...");
 
 	block_broadcast.connect (block_processor);
-	gap_tracker.connect (block_processor);
 	process_live_dispatcher.connect (block_processor);
 
 	unchecked.satisfied.add ([this] (nano::unchecked_info const & info) {
@@ -330,7 +327,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 				// Representative is defined as online if replying to live votes or rep_crawler queries
 				this->online_reps.observe (vote_a->account);
 			}
-			this->gap_cache.vote (vote_a);
 		});
 
 		// Cancelling local work generation
@@ -530,7 +526,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (collect_container_info (node.work, "work"));
-	composite->add_component (collect_container_info (node.gap_cache, "gap_cache"));
 	composite->add_component (collect_container_info (node.ledger, "ledger"));
 	composite->add_component (collect_container_info (node.active, "active"));
 	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
@@ -1297,6 +1292,8 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 	decltype (iteration_a) const num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
 	if (auto block_l = ledger.store.block.get (ledger.store.tx_begin_read (), hash))
 	{
+		logger.trace (nano::log::type::node, nano::log::detail::process_confirmed, nano::log::arg{ "block", block_l });
+
 		confirmation_height_processor.add (block_l);
 	}
 	else if (iteration_a < num_iters)
@@ -1368,7 +1365,7 @@ void nano::node::bootstrap_block (const nano::block_hash & hash)
 	if (!ledger.pruning || !store.pruned.exists (store.tx_begin_read (), hash))
 	{
 		// We don't have the block, try to bootstrap it
-		gap_cache.bootstrap_start (hash);
+		// TODO: Use ascending bootstraper to bootstrap block hash
 	}
 }
 

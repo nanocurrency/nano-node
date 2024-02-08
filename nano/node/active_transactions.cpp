@@ -335,9 +335,10 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 
 	roots.get<tag_root> ().erase (roots.get<tag_root> ().find (election->qualified_root));
 
-	lock_a.unlock ();
-
 	node.stats.inc (completion_type (*election), to_stat_detail (election->behavior ()));
+	node.logger.trace (nano::log::type::active_transactions, nano::log::detail::active_stopped, nano::log::arg{ "election", election });
+
+	lock_a.unlock ();
 
 	vacancy_update ();
 
@@ -434,7 +435,9 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 	nano::election_insertion_result result;
 
 	if (stopped)
+	{
 		return result;
+	}
 
 	auto const root = block_a->qualified_root ();
 	auto const hash = block_a->hash ();
@@ -455,6 +458,11 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 			// Keep track of election count by election type
 			debug_assert (count_by_behavior[result.election->behavior ()] >= 0);
 			count_by_behavior[result.election->behavior ()]++;
+
+			node.stats.inc (nano::stat::type::active_started, to_stat_detail (election_behavior_a));
+			node.logger.trace (nano::log::type::active_transactions, nano::log::detail::active_started,
+			nano::log::arg{ "behavior", election_behavior_a },
+			nano::log::arg{ "election", result.election });
 		}
 		else
 		{
@@ -470,11 +478,13 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 
 	if (result.inserted)
 	{
+		release_assert (result.election);
+
 		if (auto const cache = node.vote_cache.find (hash); cache)
 		{
 			cache->fill (result.election);
 		}
-		node.stats.inc (nano::stat::type::active_started, to_stat_detail (election_behavior_a));
+
 		node.observers.active_started.notify (hash);
 		vacancy_update ();
 	}

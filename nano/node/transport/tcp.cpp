@@ -112,6 +112,13 @@ void nano::transport::channel_tcp::set_endpoint ()
 	}
 }
 
+void nano::transport::channel_tcp::operator() (nano::object_stream & obs) const
+{
+	nano::transport::channel::operator() (obs); // Write common data
+
+	obs.write ("socket", socket);
+}
+
 /*
  * tcp_channels
  */
