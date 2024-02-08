@@ -206,7 +206,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	process_live_dispatcher.connect (block_processor);
 
 	unchecked.satisfied.add ([this] (nano::unchecked_info const & info) {
-		block_processor.add (info.block, nano::block_processor::block_source::unchecked);
+		block_processor.add (info.block, nano::block_source::unchecked);
 	});
 
 	vote_cache.rep_weight_query = [this] (nano::account const & rep) {
@@ -572,12 +572,12 @@ nano::process_return nano::node::process (nano::block & block)
 
 std::optional<nano::process_return> nano::node::process_local (std::shared_ptr<nano::block> const & block_a)
 {
-	return block_processor.add_blocking (block_a, nano::block_processor::block_source::local);
+	return block_processor.add_blocking (block_a, nano::block_source::local);
 }
 
 void nano::node::process_local_async (std::shared_ptr<nano::block> const & block_a)
 {
-	block_processor.add (block_a, nano::block_processor::block_source::local);
+	block_processor.add (block_a, nano::block_source::local);
 }
 
 void nano::node::start ()

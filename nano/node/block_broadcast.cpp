@@ -28,7 +28,7 @@ void nano::block_broadcast::connect (nano::block_processor & block_processor)
 
 void nano::block_broadcast::observe (std::shared_ptr<nano::block> const & block, nano::block_processor::context const & context)
 {
-	if (context.source == nano::block_processor::block_source::local)
+	if (context.source == nano::block_source::local)
 	{
 		// Block created on this node
 		// Perform more agressive initial flooding
@@ -36,7 +36,7 @@ void nano::block_broadcast::observe (std::shared_ptr<nano::block> const & block,
 	}
 	else
 	{
-		if (context.source != nano::block_processor::block_source::bootstrap)
+		if (context.source != nano::block_source::bootstrap)
 		{
 			// Block arrived from realtime traffic, do normal gossip.
 			network.flood_block (block, nano::transport::buffer_drop_policy::limiter);

@@ -12,10 +12,10 @@
  * block_processor::context
  */
 
-nano::block_processor::context::context (nano::block_processor::block_source source_a) :
+nano::block_processor::context::context (nano::block_source source_a) :
 	source{ source_a }
 {
-	debug_assert (source != nano::block_processor::block_source::unknown);
+	debug_assert (source != nano::block_source::unknown);
 }
 
 auto nano::block_processor::context::get_future () -> std::future<result_t>
@@ -210,7 +210,7 @@ bool nano::block_processor::have_blocks ()
 
 void nano::block_processor::add_impl (std::shared_ptr<nano::block> block, context ctx)
 {
-	release_assert (ctx.source != nano::block_processor::block_source::forced);
+	release_assert (ctx.source != nano::block_source::forced);
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		blocks.emplace_back (entry{ block, std::move (ctx) });
@@ -226,7 +226,7 @@ auto nano::block_processor::next () -> entry
 	if (!blocks.empty ())
 	{
 		entry entry = std::move (blocks.front ());
-		release_assert (entry.ctx.source != nano::block_processor::block_source::forced);
+		release_assert (entry.ctx.source != nano::block_source::forced);
 		blocks.pop_front ();
 		return entry;
 	}
@@ -234,7 +234,7 @@ auto nano::block_processor::next () -> entry
 	if (!forced.empty ())
 	{
 		entry entry = std::move (forced.front ());
-		release_assert (entry.ctx.source == nano::block_processor::block_source::forced);
+		release_assert (entry.ctx.source == nano::block_source::forced);
 		forced.pop_front ();
 		return entry;
 	}
@@ -271,7 +271,7 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 		context ctx = std::move (entry.ctx);
 		auto const block = entry.block;
 		auto const hash = block->hash ();
-		bool const force = ctx.source == nano::block_processor::block_source::forced;
+		bool const force = ctx.source == nano::block_source::forced;
 
 		lock_a.unlock ();
 
@@ -415,7 +415,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bl
 	return composite;
 }
 
-nano::stat::detail nano::to_stat_detail (block_processor::block_source type)
+nano::stat::detail nano::to_stat_detail (nano::block_source type)
 {
 	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (type));
 	debug_assert (value);

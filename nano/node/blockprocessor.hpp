@@ -20,6 +20,18 @@ namespace nano
 class node;
 class write_database_queue;
 
+enum class block_source
+{
+	unknown = 0,
+	live,
+	bootstrap,
+	unchecked,
+	local,
+	forced,
+};
+
+nano::stat::detail to_stat_detail (block_source);
+
 /**
  * Processing blocks is a potentially long IO operation.
  * This class isolates block insertion from other operations like servicing network operations
@@ -27,16 +39,6 @@ class write_database_queue;
 class block_processor final
 {
 public: // Context
-	enum class block_source
-	{
-		unknown = 0,
-		live,
-		bootstrap,
-		unchecked,
-		local,
-		forced,
-	};
-
 	class context
 	{
 	public:
@@ -115,6 +117,4 @@ private:
 
 	friend std::unique_ptr<container_info_component> collect_container_info (block_processor & block_processor, std::string const & name);
 };
-
-nano::stat::detail to_stat_detail (block_processor::block_source);
 }
