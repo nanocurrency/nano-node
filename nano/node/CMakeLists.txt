@@ -26,8 +26,6 @@ add_library(
   block_broadcast.hpp
   block_publisher.cpp
   block_publisher.hpp
-  gap_tracker.cpp
-  gap_tracker.hpp
   blocking_observer.cpp
   blocking_observer.hpp
   blockprocessor.hpp
@@ -88,8 +86,6 @@ add_library(
   election_insertion_result.hpp
   epoch_upgrader.hpp
   epoch_upgrader.cpp
-  gap_cache.hpp
-  gap_cache.cpp
   inactive_cache_information.hpp
   inactive_cache_information.cpp
   inactive_cache_status.hpp
