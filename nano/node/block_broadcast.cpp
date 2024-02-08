@@ -23,17 +23,12 @@ void nano::block_broadcast::connect (nano::block_processor & block_processor)
 			default:
 				break;
 		}
-		erase (block);
 	});
 }
 
-void nano::block_broadcast::observe (std::shared_ptr<nano::block> block, nano::block_processor::context const & context)
+void nano::block_broadcast::observe (std::shared_ptr<nano::block> const & block, nano::block_processor::context const & context)
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	auto existing = local.find (block);
-	auto local_l = existing != local.end ();
-	lock.unlock ();
-	if (local_l)
+	if (context.source == nano::block_processor::block_source::local)
 	{
 		// Block created on this node
 		// Perform more agressive initial flooding
@@ -52,24 +47,4 @@ void nano::block_broadcast::observe (std::shared_ptr<nano::block> block, nano::b
 			// Don't broadcast blocks we're bootstrapping
 		}
 	}
-}
-
-void nano::block_broadcast::set_local (std::shared_ptr<nano::block> block)
-{
-	if (!enabled)
-	{
-		return;
-	}
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	local.insert (block);
-}
-
-void nano::block_broadcast::erase (std::shared_ptr<nano::block> block)
-{
-	if (!enabled)
-	{
-		return;
-	}
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	local.erase (block);
 }

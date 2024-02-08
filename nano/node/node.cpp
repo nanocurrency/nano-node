@@ -572,7 +572,6 @@ nano::process_return nano::node::process (nano::block & block)
 
 std::optional<nano::process_return> nano::node::process_local (std::shared_ptr<nano::block> const & block_a)
 {
-	block_broadcast.set_local (block_a);
 	return block_processor.add_blocking (block_a, nano::block_processor::block_source::local);
 }
 

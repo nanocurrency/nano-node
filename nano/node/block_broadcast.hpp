@@ -17,17 +17,12 @@ public:
 	block_broadcast (nano::network & network, bool enabled = false);
 	// Add batch_processed observer to block_processor if enabled
 	void connect (nano::block_processor & block_processor);
-	// Mark a block as originating locally
-	void set_local (std::shared_ptr<nano::block> block);
-	void erase (std::shared_ptr<nano::block> block);
 
 private:
 	// Block_processor observer
-	void observe (std::shared_ptr<nano::block> block, nano::block_processor::context const &);
+	void observe (std::shared_ptr<nano::block> const & block, nano::block_processor::context const &);
 
 	nano::network & network;
-	std::unordered_set<std::shared_ptr<nano::block>> local; // Blocks originated on this node
-	nano::mutex mutex;
 	bool enabled;
 };
 }
