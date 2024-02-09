@@ -31,6 +31,7 @@ enum class block_source
 	forced,
 };
 
+std::string_view to_string (nano::block_source);
 nano::stat::detail to_stat_detail (block_source);
 
 /**
