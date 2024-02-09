@@ -86,6 +86,7 @@ public: // Events
 	// The batch observer feeds the processed observer
 	nano::observer_set<nano::block_status const &, context const &> block_processed;
 	nano::observer_set<processed_batch_t const &> batch_processed;
+	nano::observer_set<std::shared_ptr<nano::block> const &> rolled_back;
 
 private:
 	// Roll back block in the ledger that conflicts with 'block'
