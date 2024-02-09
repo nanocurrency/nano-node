@@ -36,7 +36,7 @@ void nano::block_broadcast::observe (std::shared_ptr<nano::block> const & block,
 	}
 	else
 	{
-		if (context.source != nano::block_source::bootstrap)
+		if (context.source != nano::block_source::bootstrap && context.source != nano::block_source::bootstrap_legacy)
 		{
 			// Block arrived from realtime traffic, do normal gossip.
 			network.flood_block (block, nano::transport::buffer_drop_policy::limiter);

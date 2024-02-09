@@ -31,7 +31,7 @@ enum class block_source
 	forced,
 };
 
-std::string_view to_string (nano::block_source);
+std::string_view to_string (block_source);
 nano::stat::detail to_stat_detail (block_source);
 
 /**
@@ -99,7 +99,7 @@ private:
 	void queue_unchecked (store::write_transaction const &, nano::hash_or_account const &);
 	processed_batch_t process_batch (nano::unique_lock<nano::mutex> &);
 	entry next ();
-	void add_impl (std::shared_ptr<nano::block> block, context);
+	void add_impl (std::shared_ptr<nano::block> const & block, context);
 
 private: // Dependencies
 	nano::node & node;

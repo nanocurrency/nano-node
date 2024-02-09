@@ -222,7 +222,7 @@ bool nano::block_processor::have_blocks ()
 	return have_blocks_ready ();
 }
 
-void nano::block_processor::add_impl (std::shared_ptr<nano::block> block, context ctx)
+void nano::block_processor::add_impl (std::shared_ptr<nano::block> const & block, context ctx)
 {
 	release_assert (ctx.source != nano::block_source::forced);
 	{
@@ -237,19 +237,19 @@ auto nano::block_processor::next () -> entry
 	debug_assert (!mutex.try_lock ());
 	debug_assert (!blocks.empty () || !forced.empty ()); // This should be checked before calling next
 
-	if (!blocks.empty ())
-	{
-		entry entry = std::move (blocks.front ());
-		release_assert (entry.ctx.source != nano::block_source::forced);
-		blocks.pop_front ();
-		return entry;
-	}
-
 	if (!forced.empty ())
 	{
 		entry entry = std::move (forced.front ());
 		release_assert (entry.ctx.source == nano::block_source::forced);
 		forced.pop_front ();
+		return entry;
+	}
+
+	if (!blocks.empty ())
+	{
+		entry entry = std::move (blocks.front ());
+		release_assert (entry.ctx.source != nano::block_source::forced);
+		blocks.pop_front ();
 		return entry;
 	}
 
