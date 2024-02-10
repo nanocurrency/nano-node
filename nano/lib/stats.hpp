@@ -143,12 +143,6 @@ public:
 
 	/** Optional histogram for this entry */
 	std::unique_ptr<stat_histogram> histogram;
-
-	/** Zero or more observers for samples. Called at the end of the sample interval. */
-	nano::observer_set<boost::circular_buffer<stat_datapoint> &> sample_observers;
-
-	/** Observers for count. Called on each update. */
-	nano::observer_set<uint64_t, uint64_t> count_observers;
 };
 
 /** Log sink interface */
@@ -315,32 +309,6 @@ public:
 	 * @param value The amount to add
 	 */
 	void add (stat::type type, stat::detail detail, stat::dir dir, uint64_t value);
-
-	/**
-	 * Add a sampling observer for a given counter.
-	 * The observer receives a snapshot of the current sampling. Accessing the sample buffer is thus thread safe.
-	 * To avoid recursion, the observer callback must only use the received data point snapshop, not query the stat object.
-	 * @param observer The observer receives a snapshot of the current samples.
-	 */
-	void observe_sample (stat::type type, stat::detail detail, stat::dir dir, std::function<void (boost::circular_buffer<stat_datapoint> &)> observer)
-	{
-		get_entry (key{ type, detail, dir })->sample_observers.add (observer);
-	}
-
-	void observe_sample (stat::type type, stat::dir dir, std::function<void (boost::circular_buffer<stat_datapoint> &)> observer)
-	{
-		observe_sample (type, stat::detail::all, dir, observer);
-	}
-
-	/**
-	 * Add count observer for a given type, detail and direction combination. The observer receives old and new value.
-	 * To avoid recursion, the observer callback must only use the received counts, not query the stat object.
-	 * @param observer The observer receives the old and the new count.
-	 */
-	void observe_count (stat::type type, stat::detail detail, stat::dir dir, std::function<void (uint64_t, uint64_t)> observer)
-	{
-		get_entry (key{ type, detail, dir })->count_observers.add (observer);
-	}
 
 	/** Returns a potentially empty list of the last N samples, where N is determined by the 'capacity' configuration */
 	boost::circular_buffer<stat_datapoint> * samples (stat::type type, stat::detail detail, stat::dir dir)

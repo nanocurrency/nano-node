@@ -432,7 +432,7 @@ void nano::stats::update (key key_a, uint64_t value)
 		// Counters
 		auto old (entry->counter.get_value ());
 		entry->counter.add (value, has_sampling ()); // Only update timestamp when sampling is enabled as this has a performance impact
-		entry->count_observers.notify (old, entry->counter.get_value ());
+
 		if (has_interval_counter () || has_sampling ())
 		{
 			auto now = std::chrono::steady_clock::now (); // Only sample clock if necessary as this impacts node performance due to frequent usage
@@ -460,12 +460,6 @@ void nano::stats::update (key key_a, uint64_t value)
 					entry->sample_current.set_timestamp (std::chrono::system_clock::now ());
 					entry->samples.push_back (entry->sample_current);
 					entry->sample_current.set_value (0);
-
-					if (!entry->sample_observers.empty ())
-					{
-						auto snapshot (entry->samples);
-						entry->sample_observers.notify (snapshot);
-					}
 
 					// Log sink
 					duration = now - log_last_sample_writeout;
