@@ -11,59 +11,6 @@
 #include <sstream>
 
 /*
- * stats_config
- */
-
-nano::error nano::stats_config::deserialize_toml (nano::tomlconfig & toml)
-{
-	auto sampling_l (toml.get_optional_child ("sampling"));
-	if (sampling_l)
-	{
-		sampling_l->get<bool> ("enable", sampling_enabled);
-		sampling_l->get<size_t> ("capacity", capacity);
-		sampling_l->get<size_t> ("interval", interval);
-	}
-
-	auto log_l (toml.get_optional_child ("log"));
-	if (log_l)
-	{
-		log_l->get<bool> ("headers", log_headers);
-		log_l->get<size_t> ("interval_counters", log_interval_counters);
-		log_l->get<size_t> ("interval_samples", log_interval_samples);
-		log_l->get<size_t> ("rotation_count", log_rotation_count);
-		log_l->get<std::string> ("filename_counters", log_counters_filename);
-		log_l->get<std::string> ("filename_samples", log_samples_filename);
-
-		// Don't allow specifying the same file name for counter and samples logs
-		if (log_counters_filename == log_samples_filename)
-		{
-			toml.get_error ().set ("The statistics counter and samples config values must be different");
-		}
-	}
-
-	return toml.get_error ();
-}
-
-nano::error nano::stats_config::serialize_toml (nano::tomlconfig & toml) const
-{
-	nano::tomlconfig sampling_l;
-	sampling_l.put ("enable", sampling_enabled, "Enable or disable sampling.\ntype:bool");
-	sampling_l.put ("capacity", capacity, "How many sample intervals to keep in the ring buffer.\ntype:uint64");
-	sampling_l.put ("interval", interval, "Sample interval.\ntype:milliseconds");
-	toml.put_child ("sampling", sampling_l);
-
-	nano::tomlconfig log_l;
-	log_l.put ("headers", log_headers, "If true, write headers on each counter or samples writeout.\nThe header contains log type and the current wall time.\ntype:bool");
-	log_l.put ("interval_counters", log_interval_counters, "How often to log counters. 0 disables logging.\ntype:milliseconds");
-	log_l.put ("interval_samples", log_interval_samples, "How often to log samples. 0 disables logging.\ntype:milliseconds");
-	log_l.put ("rotation_count", log_rotation_count, "Maximum number of log outputs before rotating the file.\ntype:uint64");
-	log_l.put ("filename_counters", log_counters_filename, "Log file name for counters.\ntype:string");
-	log_l.put ("filename_samples", log_samples_filename, "Log file name for samples.\ntype:string");
-	toml.put_child ("log", log_l);
-	return toml.get_error ();
-}
-
-/*
  * stat_log_sink
  */
 
@@ -179,7 +126,7 @@ public:
  */
 
 nano::stats::stats (nano::stats_config config) :
-	config (config)
+	config{ std::move (config) }
 {
 }
 
@@ -283,7 +230,7 @@ void nano::stats::sample (stat::type type, stat::sample sample, nano::stats::sam
 	};
 
 	update_sampler (sampler_key{ type, sample }, [this, value] (sampler_entry & sampler) {
-		sampler.add (value, config.capacity);
+		sampler.add (value, config.max_samples);
 	});
 }
 
@@ -386,41 +333,29 @@ void nano::stats::update ()
 	std::lock_guard guard{ mutex };
 	if (!stopped)
 	{
-		auto has_interval_counter = [&] () {
-			return config.log_interval_counters > 0;
-		};
-		auto has_sampling = [&] () {
-			return config.sampling_enabled && config.interval > 0;
-		};
+		auto now = std::chrono::steady_clock::now (); // Only sample clock if necessary as this impacts node performance due to frequent usage
 
-		if (has_interval_counter () || has_sampling ())
+		// TODO: Replace with a proper std::chrono time
+		std::time_t time = std::chrono::system_clock::to_time_t (std::chrono::system_clock::now ());
+		tm local_tm = *localtime (&time);
+
+		// Counters
+		if (config.log_counters_interval.count () > 0)
 		{
-			auto now = std::chrono::steady_clock::now (); // Only sample clock if necessary as this impacts node performance due to frequent usage
-
-			// TODO: Replace with a proper std::chrono time
-			std::time_t time = std::chrono::system_clock::to_time_t (std::chrono::system_clock::now ());
-			tm local_tm = *localtime (&time);
-
-			// Counters
-			if (has_interval_counter ())
+			if (nano::elapsed (log_last_count_writeout, config.log_counters_interval))
 			{
-				std::chrono::duration<double, std::milli> duration = now - log_last_count_writeout;
-				if (duration.count () > config.log_interval_counters)
-				{
-					log_counters_impl (log_count, local_tm);
-					log_last_count_writeout = now;
-				}
+				log_counters_impl (log_count, local_tm);
+				log_last_count_writeout = now;
 			}
+		}
 
-			// Samples
-			if (has_sampling ())
+		// Samples
+		if (config.log_samples_interval.count () > 0)
+		{
+			if (nano::elapsed (log_last_sample_writeout, config.log_samples_interval))
 			{
-				std::chrono::duration<double, std::milli> duration = now - log_last_sample_writeout;
-				if (duration.count () > config.log_interval_samples)
-				{
-					log_samples_impl (log_sample, local_tm);
-					log_last_sample_writeout = now;
-				}
+				log_samples_impl (log_sample, local_tm);
+				log_last_sample_writeout = now;
 			}
 		}
 	}
@@ -471,4 +406,56 @@ auto nano::stats::sampler_entry::collect () -> std::vector<sampler_value_t>
 	std::vector<sampler_value_t> result{ samples.begin (), samples.end () };
 	samples.clear ();
 	return result;
+}
+
+/*
+ * stats_config
+ */
+
+nano::error nano::stats_config::serialize_toml (nano::tomlconfig & toml) const
+{
+	toml.put ("max_samples", max_samples, "Maximum number of samples to keep in the ring buffer.\ntype:uint64");
+
+	nano::tomlconfig log_l;
+	log_l.put ("headers", log_headers, "If true, write headers on each counter or samples writeout.\nThe header contains log type and the current wall time.\ntype:bool");
+	log_l.put ("interval_counters", log_counters_interval.count (), "How often to log counters. 0 disables logging.\ntype:milliseconds");
+	log_l.put ("interval_samples", log_samples_interval.count (), "How often to log samples. 0 disables logging.\ntype:milliseconds");
+	log_l.put ("rotation_count", log_rotation_count, "Maximum number of log outputs before rotating the file.\ntype:uint64");
+	log_l.put ("filename_counters", log_counters_filename, "Log file name for counters.\ntype:string");
+	log_l.put ("filename_samples", log_samples_filename, "Log file name for samples.\ntype:string");
+	toml.put_child ("log", log_l);
+
+	return toml.get_error ();
+}
+
+nano::error nano::stats_config::deserialize_toml (nano::tomlconfig & toml)
+{
+	toml.get ("max_samples", max_samples);
+
+	if (auto maybe_log_l = toml.get_optional_child ("log"))
+	{
+		auto log_l = *maybe_log_l;
+
+		log_l.get ("headers", log_headers);
+
+		auto counters_interval_l = log_counters_interval.count ();
+		log_l.get ("interval_counters", counters_interval_l);
+		log_counters_interval = std::chrono::milliseconds{ counters_interval_l };
+
+		auto samples_interval_l = log_samples_interval.count ();
+		log_l.get ("interval_samples", samples_interval_l);
+		log_samples_interval = std::chrono::milliseconds{ samples_interval_l };
+
+		log_l.get ("rotation_count", log_rotation_count);
+		log_l.get ("filename_counters", log_counters_filename);
+		log_l.get ("filename_samples", log_samples_filename);
+
+		// Don't allow specifying the same file name for counter and samples logs
+		if (log_counters_filename == log_samples_filename)
+		{
+			toml.get_error ().set ("The statistics counter and samples config values must be different");
+		}
+	}
+
+	return toml.get_error ();
 }

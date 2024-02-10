@@ -29,6 +29,7 @@ class tomlconfig : public nano::configbase
 public:
 	tomlconfig ();
 	tomlconfig (std::shared_ptr<cpptoml::table> const & tree_a, std::shared_ptr<nano::error> const & error_a = nullptr);
+
 	void doc (std::string const & key, std::string const & doc);
 	nano::error & read (std::filesystem::path const & path_a);
 	nano::error & read (std::istream & stream_overrides, std::filesystem::path const & path_a);

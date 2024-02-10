@@ -226,12 +226,10 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.diagnostics_config.txn_tracking.min_read_txn_time, defaults.node.diagnostics_config.txn_tracking.min_read_txn_time);
 	ASSERT_EQ (conf.node.diagnostics_config.txn_tracking.min_write_txn_time, defaults.node.diagnostics_config.txn_tracking.min_write_txn_time);
 
-	ASSERT_EQ (conf.node.stats_config.sampling_enabled, defaults.node.stats_config.sampling_enabled);
-	ASSERT_EQ (conf.node.stats_config.interval, defaults.node.stats_config.interval);
-	ASSERT_EQ (conf.node.stats_config.capacity, defaults.node.stats_config.capacity);
+	ASSERT_EQ (conf.node.stats_config.max_samples, defaults.node.stats_config.max_samples);
 	ASSERT_EQ (conf.node.stats_config.log_rotation_count, defaults.node.stats_config.log_rotation_count);
-	ASSERT_EQ (conf.node.stats_config.log_interval_samples, defaults.node.stats_config.log_interval_samples);
-	ASSERT_EQ (conf.node.stats_config.log_interval_counters, defaults.node.stats_config.log_interval_counters);
+	ASSERT_EQ (conf.node.stats_config.log_samples_interval, defaults.node.stats_config.log_samples_interval);
+	ASSERT_EQ (conf.node.stats_config.log_counters_interval, defaults.node.stats_config.log_counters_interval);
 	ASSERT_EQ (conf.node.stats_config.log_headers, defaults.node.stats_config.log_headers);
 	ASSERT_EQ (conf.node.stats_config.log_counters_filename, defaults.node.stats_config.log_counters_filename);
 	ASSERT_EQ (conf.node.stats_config.log_samples_filename, defaults.node.stats_config.log_samples_filename);
@@ -673,12 +671,10 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.diagnostics_config.txn_tracking.min_read_txn_time, defaults.node.diagnostics_config.txn_tracking.min_read_txn_time);
 	ASSERT_NE (conf.node.diagnostics_config.txn_tracking.min_write_txn_time, defaults.node.diagnostics_config.txn_tracking.min_write_txn_time);
 
-	ASSERT_NE (conf.node.stats_config.sampling_enabled, defaults.node.stats_config.sampling_enabled);
-	ASSERT_NE (conf.node.stats_config.interval, defaults.node.stats_config.interval);
-	ASSERT_NE (conf.node.stats_config.capacity, defaults.node.stats_config.capacity);
+	ASSERT_NE (conf.node.stats_config.max_samples, defaults.node.stats_config.max_samples);
 	ASSERT_NE (conf.node.stats_config.log_rotation_count, defaults.node.stats_config.log_rotation_count);
-	ASSERT_NE (conf.node.stats_config.log_interval_samples, defaults.node.stats_config.log_interval_samples);
-	ASSERT_NE (conf.node.stats_config.log_interval_counters, defaults.node.stats_config.log_interval_counters);
+	ASSERT_NE (conf.node.stats_config.log_samples_interval, defaults.node.stats_config.log_samples_interval);
+	ASSERT_NE (conf.node.stats_config.log_counters_interval, defaults.node.stats_config.log_counters_interval);
 	ASSERT_NE (conf.node.stats_config.log_headers, defaults.node.stats_config.log_headers);
 	ASSERT_NE (conf.node.stats_config.log_counters_filename, defaults.node.stats_config.log_counters_filename);
 	ASSERT_NE (conf.node.stats_config.log_samples_filename, defaults.node.stats_config.log_samples_filename);

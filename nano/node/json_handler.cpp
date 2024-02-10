@@ -3988,6 +3988,7 @@ void nano::json_handler::stats ()
 	}
 	if (!ec && use_sink)
 	{
+		// TODO: Clearly someone gave up on designing this properly here
 		auto stat_tree_l (*static_cast<boost::property_tree::ptree *> (sink->to_object ()));
 		stat_tree_l.put ("stat_duration_seconds", node.stats.last_reset ().count ());
 		std::stringstream ostream;

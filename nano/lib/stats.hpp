@@ -33,20 +33,15 @@ public:
 	nano::error deserialize_toml (nano::tomlconfig & toml);
 	nano::error serialize_toml (nano::tomlconfig & toml) const;
 
-	/** If true, sampling of counters is enabled */
-	bool sampling_enabled{ false };
-
-	/** How many sample intervals to keep in the ring buffer */
-	size_t capacity{ 0 };
-
-	/** Sample interval in milliseconds */
-	size_t interval{ 0 };
+public:
+	/** Maximum number samples to keep in the ring buffer */
+	size_t max_samples{ 1024 * 16 };
 
 	/** How often to log sample array, in milliseconds. Default is 0 (no logging) */
-	size_t log_interval_samples{ 0 };
+	std::chrono::milliseconds log_samples_interval{ 0 };
 
 	/** How often to log counters, in milliseconds. Default is 0 (no logging) */
-	size_t log_interval_counters{ 0 };
+	std::chrono::milliseconds log_counters_interval{ 0 };
 
 	/** Maximum number of log outputs before rotating the file */
 	size_t log_rotation_count{ 100 };
@@ -218,11 +213,11 @@ private:
 	/** Unlocked implementation of log_samples() to avoid using recursive locking */
 	void log_samples_impl (stat_log_sink & sink, tm & tm);
 
+private:
+	nano::stats_config const config;
+
 	/** Time of last clear() call */
 	std::chrono::steady_clock::time_point timestamp{ std::chrono::steady_clock::now () };
-
-	/** Configuration deserialized from config.json */
-	nano::stats_config config;
 
 	std::chrono::steady_clock::time_point log_last_count_writeout{ std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point log_last_sample_writeout{ std::chrono::steady_clock::now () };

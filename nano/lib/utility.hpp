@@ -206,18 +206,20 @@ using clock = std::chrono::steady_clock;
 
 /**
  * Check whether time elapsed between `last` and `now` is greater than `duration`
+ * Force usage of steady clock
  */
 template <typename Duration>
-bool elapsed (nano::clock::time_point const & last, Duration duration, nano::clock::time_point const & now)
+bool elapsed (nano::clock::time_point const & last, Duration const & duration, nano::clock::time_point const & now)
 {
 	return last + duration < now;
 }
 
 /**
  * Check whether time elapsed since `last` is greater than `duration`
+ * Force usage of steady clock
  */
 template <typename Duration>
-bool elapsed (nano::clock::time_point const & last, Duration duration)
+bool elapsed (nano::clock::time_point const & last, Duration const & duration)
 {
 	return elapsed (last, duration, nano::clock::now ());
 }
