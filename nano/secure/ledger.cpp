@@ -463,12 +463,12 @@ void ledger_processor::change_block (nano::change_block & block_a)
 			result = block_a.valid_predecessor (*previous) ? nano::block_status::progress : nano::block_status::block_position;
 			if (result == nano::block_status::progress)
 			{
-				auto account (ledger.store.frontier.get (transaction, block_a.hashables.previous));
-				result = account.is_zero () ? nano::block_status::fork : nano::block_status::progress;
+				auto account = previous->account ();
+				auto info = ledger.account_info (transaction, account);
+				debug_assert (info);
+				result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress;
 				if (result == nano::block_status::progress)
 				{
-					auto info = ledger.account_info (transaction, account);
-					debug_assert (info);
 					debug_assert (info->head == block_a.hashables.previous);
 					result = validate_message (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Malformed)
 					if (result == nano::block_status::progress)
@@ -509,8 +509,10 @@ void ledger_processor::send_block (nano::send_block & block_a)
 			result = block_a.valid_predecessor (*previous) ? nano::block_status::progress : nano::block_status::block_position;
 			if (result == nano::block_status::progress)
 			{
-				auto account (ledger.store.frontier.get (transaction, block_a.hashables.previous));
-				result = account.is_zero () ? nano::block_status::fork : nano::block_status::progress;
+				auto account = previous->account ();
+				auto info = ledger.account_info (transaction, account);
+				debug_assert (info);
+				result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress;
 				if (result == nano::block_status::progress)
 				{
 					result = validate_message (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Malformed)
@@ -521,8 +523,6 @@ void ledger_processor::send_block (nano::send_block & block_a)
 						if (result == nano::block_status::progress)
 						{
 							debug_assert (!validate_message (account, hash, block_a.signature));
-							auto info = ledger.account_info (transaction, account);
-							debug_assert (info);
 							debug_assert (info->head == block_a.hashables.previous);
 							result = info->balance.number () >= block_a.hashables.balance.number () ? nano::block_status::progress : nano::block_status::negative_spend; // Is this trying to spend a negative amount (Malicious)
 							if (result == nano::block_status::progress)
@@ -560,8 +560,10 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 			result = block_a.valid_predecessor (*previous) ? nano::block_status::progress : nano::block_status::block_position;
 			if (result == nano::block_status::progress)
 			{
-				auto account (ledger.store.frontier.get (transaction, block_a.hashables.previous));
-				result = account.is_zero () ? nano::block_status::gap_previous : nano::block_status::progress; // Have we seen the previous block? No entries for account at all (Harmless)
+				auto account = previous->account ();
+				auto info = ledger.account_info (transaction, account);
+				debug_assert (info);
+				result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress; // If we have the block but it's not the latest we have a signed fork (Malicious)
 				if (result == nano::block_status::progress)
 				{
 					result = validate_message (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is the signature valid (Malformed)
@@ -571,8 +573,6 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 						result = ledger.block_or_pruned_exists (transaction, block_a.hashables.source) ? nano::block_status::progress : nano::block_status::gap_source; // Have we seen the source block already? (Harmless)
 						if (result == nano::block_status::progress)
 						{
-							auto info = ledger.account_info (transaction, account);
-							debug_assert (info);
 							result = info->head == block_a.hashables.previous ? nano::block_status::progress : nano::block_status::gap_previous; // Block doesn't immediately follow latest block (Harmless)
 							if (result == nano::block_status::progress)
 							{
@@ -611,10 +611,6 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 							}
 						}
 					}
-				}
-				else
-				{
-					result = ledger.store.block.exists (transaction, block_a.hashables.previous) ? nano::block_status::fork : nano::block_status::gap_previous; // If we have the block but it's not the latest we have a signed fork (Malicious)
 				}
 			}
 		}
