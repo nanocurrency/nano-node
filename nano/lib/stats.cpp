@@ -273,6 +273,25 @@ nano::stats::stats (nano::stats_config config) :
 {
 }
 
+void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, uint64_t value, bool detail_only)
+{
+	if (value == 0)
+	{
+		return;
+	}
+
+	constexpr uint32_t no_detail_mask = 0xffff00ff;
+	uint32_t key = key_of (type, detail, dir);
+
+	update (key, value);
+
+	// Optionally update at type-level as well
+	if (!detail_only && (key & no_detail_mask) != key)
+	{
+		update (key & no_detail_mask, value);
+	}
+}
+
 std::shared_ptr<nano::stat_entry> nano::stats::get_entry (uint32_t key)
 {
 	return get_entry (key, config.interval, config.capacity);

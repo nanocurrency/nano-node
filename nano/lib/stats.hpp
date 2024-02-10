@@ -245,15 +245,6 @@ public:
 		get_entry (key_of (type, detail, dir), interval, capacity);
 	}
 
-	/**
-	 * Disables sampling for a given type/detail/dir combination
-	 */
-	void disable_sampling (stat::type type, stat::detail detail, stat::dir dir)
-	{
-		auto entry = get_entry (key_of (type, detail, dir));
-		entry->sample_interval = 0;
-	}
-
 	/** Increments the given counter */
 	void inc (stat::type type, stat::dir dir = stat::dir::in)
 	{
@@ -324,24 +315,7 @@ public:
 	 * @param value The amount to add
 	 * @param detail_only If true, only update the detail-level counter
 	 */
-	void add (stat::type type, stat::detail detail, stat::dir dir, uint64_t value, bool detail_only = false)
-	{
-		if (value == 0)
-		{
-			return;
-		}
-
-		constexpr uint32_t no_detail_mask = 0xffff00ff;
-		uint32_t key = key_of (type, detail, dir);
-
-		update (key, value);
-
-		// Optionally update at type-level as well
-		if (!detail_only && (key & no_detail_mask) != key)
-		{
-			update (key & no_detail_mask, value);
-		}
-	}
+	void add (stat::type type, stat::detail detail, stat::dir dir, uint64_t value, bool detail_only = false);
 
 	/**
 	 * Add a sampling observer for a given counter.
