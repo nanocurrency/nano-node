@@ -46,6 +46,7 @@ add_executable(
   peer_container.cpp
   rep_weight_store.cpp
   scheduler_buckets.cpp
+  stats.cpp
   request_aggregator.cpp
   signal_manager.cpp
   socket.cpp
