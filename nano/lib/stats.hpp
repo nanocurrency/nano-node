@@ -12,6 +12,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <string>
 
 namespace nano
@@ -60,89 +61,176 @@ public:
 	std::string log_samples_filename{ "samples.stat" };
 };
 
-/** Value and wall time of measurement */
-class stat_datapoint final
-{
-public:
-	stat_datapoint () = default;
-	stat_datapoint (stat_datapoint const & other_a);
-	stat_datapoint & operator= (stat_datapoint const & other_a);
-	uint64_t get_value () const;
-	void set_value (uint64_t value_a);
-	std::chrono::system_clock::time_point get_timestamp () const;
-	void set_timestamp (std::chrono::system_clock::time_point timestamp_a);
-	void add (uint64_t addend, bool update_timestamp = true);
-
-private:
-	mutable nano::mutex datapoint_mutex;
-	/** Value of the sample interval */
-	uint64_t value{ 0 };
-	/** When the sample was added. This is wall time (system_clock), suitable for display purposes. */
-	std::chrono::system_clock::time_point timestamp{ std::chrono::system_clock::now () };
-};
-
-/** Histogram values */
-class stat_histogram final
-{
-public:
-	/**
-	 * Create histogram given a set of intervals and an optional bin count
-	 * @param intervals_a Inclusive-exclusive intervals, e.g. {1,5,8,15} produces bins [1,4] [5,7] [8, 14]
-	 * @param bin_count_a If zero (default), \p intervals_a defines all the bins. If non-zero, \p intervals_a contains the total range, which is uniformly distributed into \p bin_count_a bins.
-	 */
-	stat_histogram (std::initializer_list<uint64_t> intervals_a, size_t bin_count_a = 0);
-
-	/** Add \p addend_a to the histogram bin into which \p index_a falls */
-	void add (uint64_t index_a, uint64_t addend_a);
-
-	/** Histogram bin with interval, current value and timestamp of last update */
-	class bin final
-	{
-	public:
-		bin (uint64_t start_inclusive_a, uint64_t end_exclusive_a) :
-			start_inclusive (start_inclusive_a), end_exclusive (end_exclusive_a)
-		{
-		}
-		uint64_t start_inclusive;
-		uint64_t end_exclusive;
-		uint64_t value{ 0 };
-		std::chrono::system_clock::time_point timestamp{ std::chrono::system_clock::now () };
-	};
-	std::vector<bin> get_bins () const;
-
-private:
-	mutable nano::mutex histogram_mutex;
-	std::vector<bin> bins;
-};
+class stat_log_sink;
 
 /**
- * Bookkeeping of statistics for a specific type/detail/direction combination
+ * Collects counts and samples for inbound and outbound traffic, blocks, errors, and so on.
+ * Stats can be queried and observed on a type level (such as message and ledger) as well as a more
+ * specific detail level (such as send blocks)
  */
-class stat_entry final
+class stats final
 {
 public:
-	stat_entry (size_t capacity, size_t interval) :
-		samples (capacity), sample_interval (interval)
+	using counter_value_t = uint64_t;
+	using sampler_value_t = int64_t;
+
+public:
+	/** Constructor using the default config values */
+	stats () = default;
+
+	/**
+	 * Initialize stats with a config.
+	 */
+	explicit stats (nano::stats_config);
+
+	/** Stop stats being output */
+	void stop ();
+
+	/** Clear all stats */
+	void clear ();
+
+	/** Increments the given counter */
+	void inc (stat::type type, stat::dir dir = stat::dir::in)
 	{
+		add (type, dir, 1);
 	}
 
-	/** Optional samples. Note that this doesn't allocate any memory unless sampling is configured, which sets the capacity. */
-	boost::circular_buffer<stat_datapoint> samples;
+	/** Increments the given counter */
+	void inc (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
+	{
+		add (type, detail, dir, 1);
+	}
 
-	/** Start time of current sample interval. This is a steady clock for measuring interval; the datapoint contains the wall time. */
-	std::chrono::steady_clock::time_point sample_start_time{ std::chrono::steady_clock::now () };
+	/** Adds \p value to the given counter */
+	void add (stat::type type, stat::detail detail, counter_value_t value)
+	{
+		add (type, detail, stat::dir::in, value);
+	}
 
-	/** Sample interval in milliseconds. If 0, sampling is disabled. */
-	size_t sample_interval;
+	/** Adds \p value to the given counter */
+	void add (stat::type type, stat::dir dir, counter_value_t value)
+	{
+		add (type, stat::detail::all, dir, value);
+	}
 
-	/** Value within the current sample interval */
-	stat_datapoint sample_current;
+	/** Adds \p value to the given counter */
+	void add (stat::type type, stat::detail detail, stat::dir dir, counter_value_t value);
 
-	/** Counting value for this entry, including the time of last update. This is never reset and only increases. */
-	stat_datapoint counter;
+	/** Returns current value for the given counter at the type level */
+	counter_value_t count (stat::type type, stat::dir dir = stat::dir::in) const
+	{
+		return count (type, stat::detail::all, dir);
+	}
 
-	/** Optional histogram for this entry */
-	std::unique_ptr<stat_histogram> histogram;
+	/** Returns current value for the given counter at the detail level */
+	counter_value_t count (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in) const;
+
+	/** Adds a sample to the given sampler */
+	void sample (stat::type type, stat::sample sample, sampler_value_t value);
+
+	/** Returns a potentially empty list of the last N samples, where N is determined by the 'max_samples' configuration. Samples are reset after each lookup. */
+	std::vector<sampler_value_t> samples (stat::type type, stat::sample sample);
+
+	/** Returns the number of seconds since clear() was last called, or node startup if it's never called. */
+	std::chrono::seconds last_reset ();
+
+	/** Log counters to the given log link */
+	void log_counters (stat_log_sink & sink);
+
+	/** Log samples to the given log sink */
+	void log_samples (stat_log_sink & sink);
+
+	/** Returns a new JSON log sink */
+	std::unique_ptr<stat_log_sink> log_sink_json () const;
+
+public:
+	enum class category
+	{
+		counters,
+		samples
+	};
+
+	/** Return string showing stats counters (convenience function for debugging) */
+	std::string dump (category category = category::counters);
+
+private:
+	struct counter_key
+	{
+		stat::type type;
+		stat::detail detail;
+		stat::dir dir;
+
+		auto operator<=> (const counter_key &) const = default;
+	};
+
+	struct sampler_key
+	{
+		stat::type type;
+		stat::sample sample;
+
+		auto operator<=> (const sampler_key &) const = default;
+	};
+
+private:
+	class counter_entry
+	{
+	public:
+		// Prevent copying
+		counter_entry () = default;
+		counter_entry (counter_entry const &) = delete;
+		counter_entry & operator= (counter_entry const &) = delete;
+
+	public:
+		std::atomic<counter_value_t> value{ 0 };
+	};
+
+	class sampler_entry
+	{
+	public:
+		// Prevent copying
+		sampler_entry () = default;
+		sampler_entry (sampler_entry const &) = delete;
+		sampler_entry & operator= (sampler_entry const &) = delete;
+
+	public:
+		void add (sampler_value_t value, size_t max_samples);
+		std::vector<sampler_value_t> collect ();
+
+	private:
+		boost::circular_buffer<sampler_value_t> samples;
+		mutable nano::mutex mutex;
+	};
+
+	// Wrap in unique_ptrs because mutex members are not movable
+	std::map<counter_key, std::unique_ptr<counter_entry>> counters;
+	std::map<sampler_key, std::unique_ptr<sampler_entry>> samplers;
+
+private:
+	/**
+	 * Update count and sample and call any observers on the key
+	 * @value Amount to add to the counter
+	 */
+	void update ();
+
+	/** Unlocked implementation of log_counters() to avoid using recursive locking */
+	void log_counters_impl (stat_log_sink & sink, tm & tm);
+
+	/** Unlocked implementation of log_samples() to avoid using recursive locking */
+	void log_samples_impl (stat_log_sink & sink, tm & tm);
+
+	/** Time of last clear() call */
+	std::chrono::steady_clock::time_point timestamp{ std::chrono::steady_clock::now () };
+
+	/** Configuration deserialized from config.json */
+	nano::stats_config config;
+
+	std::chrono::steady_clock::time_point log_last_count_writeout{ std::chrono::steady_clock::now () };
+	std::chrono::steady_clock::time_point log_last_sample_writeout{ std::chrono::steady_clock::now () };
+
+	/** Whether stats should be output */
+	bool stopped{ false };
+
+	mutable std::shared_mutex mutex;
 };
 
 /** Log sink interface */
@@ -170,7 +258,11 @@ public:
 	}
 
 	/** Write a counter or sampling entry to the log. Some log sinks may support writing histograms as well. */
-	virtual void write_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value, nano::stat_histogram * histogram)
+	virtual void write_counter_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, stats::counter_value_t value)
+	{
+	}
+
+	virtual void write_sampler_entry (tm & tm, std::string const & type, std::string const & sample, stats::sampler_value_t value)
 	{
 	}
 
@@ -180,7 +272,7 @@ public:
 	}
 
 	/** Returns a reference to the log entry counter */
-	size_t & entries ()
+	std::size_t & entries ()
 	{
 		return log_entries;
 	}
@@ -203,197 +295,5 @@ public:
 protected:
 	std::string tm_to_string (tm & tm);
 	size_t log_entries{ 0 };
-};
-
-enum class stat_category
-{
-	counters,
-	samples
-};
-
-/**
- * Collects counts and samples for inbound and outbound traffic, blocks, errors, and so on.
- * Stats can be queried and observed on a type level (such as message and ledger) as well as a more
- * specific detail level (such as send blocks)
- */
-class stats final
-{
-public:
-	/** Constructor using the default config values */
-	stats () = default;
-
-	/**
-	 * Initialize stats with a config.
-	 */
-	explicit stats (nano::stats_config);
-
-	/** Stop stats being output */
-	void stop ();
-
-	/**
-	 * Call this to override the default sample interval and capacity, for a specific stat entry.
-	 * This must be called before any stat entries are added, as part of the node initialiation.
-	 */
-	void configure (stat::type type, stat::detail detail, stat::dir dir, size_t interval, size_t capacity)
-	{
-		get_entry (key{ type, detail, dir }, interval, capacity);
-	}
-
-	/** Increments the given counter */
-	void inc (stat::type type, stat::dir dir = stat::dir::in)
-	{
-		add (type, dir, 1);
-	}
-
-	/** Increments the given counter */
-	void inc (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
-	{
-		add (type, detail, dir, 1);
-	}
-
-	/** Adds \p value to the given counter */
-	void add (stat::type type, stat::detail detail, uint64_t value)
-	{
-		add (type, detail, stat::dir::in, value);
-	}
-
-	/** Adds \p value to the given counter */
-	void add (stat::type type, stat::dir dir, uint64_t value)
-	{
-		add (type, stat::detail::all, dir, value);
-	}
-
-	/**
-	 * Define histogram bins. Values are clamped into the first and last bins, but a catch-all bin on one or both
-	 * ends can be defined.
-	 *
-	 * Examples:
-	 *
-	 *  // Uniform histogram, total range 12, and 12 bins (each bin has width 1)
-	 *  define_histogram (type::vote, detail::confirm_ack, dir::in, {1,13}, 12);
-	 *
-	 *  // Specific bins matching closed intervals [1,4] [5,19] [20,99]
-	 *  define_histogram (type::vote, detail::something, dir::out, {1,5,20,100});
-	 *
-	 *  // Logarithmic bins matching half-open intervals [1..10) [10..100) [100 1000)
-	 *  define_histogram(type::vote, detail::log, dir::out, {1,10,100,1000});
-	 */
-	void define_histogram (stat::type type, stat::detail detail, stat::dir dir, std::initializer_list<uint64_t> intervals_a, size_t bin_count_a = 0);
-
-	/**
-	 * Update histogram
-	 *
-	 * Examples:
-	 *
-	 *  // Add 1 to the bin representing a 4-item vbh
-	 *  stats.update_histogram(type::vote, detail::confirm_ack, dir::in, 4, 1)
-	 *
-	 *  // Add 5 to the second bin where 17 falls
-	 *  stats.update_histogram(type::vote, detail::something, dir::in, 17, 5)
-	 *
-	 *  // Add 3 to the last bin as the histogram clamps. You can also add a final bin with maximum end value to effectively prevent this.
-	 *  stats.update_histogram(type::vote, detail::log, dir::out, 1001, 3)
-	 */
-	void update_histogram (stat::type type, stat::detail detail, stat::dir dir, uint64_t index, uint64_t addend = 1);
-
-	/** Returns a non-owning histogram pointer, or nullptr if a histogram is not defined */
-	nano::stat_histogram * get_histogram (stat::type type, stat::detail detail, stat::dir dir);
-
-	/**
-	 * Add \p value to stat. If sampling is configured, this will update the current sample and
-	 * call any sample observers if the interval is over.
-	 *
-	 * @param type Main statistics type
-	 * @param detail Detail type, or detail::none to register on type-level only
-	 * @param dir Direction
-	 * @param value The amount to add
-	 */
-	void add (stat::type type, stat::detail detail, stat::dir dir, uint64_t value);
-
-	/** Returns a potentially empty list of the last N samples, where N is determined by the 'capacity' configuration */
-	boost::circular_buffer<stat_datapoint> * samples (stat::type type, stat::detail detail, stat::dir dir)
-	{
-		return &get_entry (key{ type, detail, dir })->samples;
-	}
-
-	/** Returns current value for the given counter at the type level */
-	uint64_t count (stat::type type, stat::dir dir = stat::dir::in)
-	{
-		return count (type, stat::detail::all, dir);
-	}
-
-	/** Returns current value for the given counter at the detail level */
-	uint64_t count (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
-	{
-		return get_entry (key{ type, detail, dir })->counter.get_value ();
-	}
-
-	/** Returns the number of seconds since clear() was last called, or node startup if it's never called. */
-	std::chrono::seconds last_reset ();
-
-	/** Clear all stats */
-	void clear ();
-
-	/** Log counters to the given log link */
-	void log_counters (stat_log_sink & sink);
-
-	/** Log samples to the given log sink */
-	void log_samples (stat_log_sink & sink);
-
-	/** Returns a new JSON log sink */
-	std::unique_ptr<stat_log_sink> log_sink_json () const;
-
-public:
-	/** Return string showing stats counters (convenience function for debugging) */
-	std::string dump (stat_category category = stat_category::counters);
-
-private:
-	struct key
-	{
-		stat::type type;
-		stat::detail detail;
-		stat::dir dir;
-
-		auto operator<=> (const key &) const = default;
-	};
-
-private:
-	/** Get entry for key, creating a new entry if necessary, using interval and sample count from config */
-	std::shared_ptr<nano::stat_entry> get_entry (key key);
-
-	/** Get entry for key, creating a new entry if necessary */
-	std::shared_ptr<nano::stat_entry> get_entry (key key, size_t sample_interval, size_t max_samples);
-
-	/** Unlocked implementation of get_entry() */
-	std::shared_ptr<nano::stat_entry> get_entry_impl (key key, size_t sample_interval, size_t max_samples);
-
-	/**
-	 * Update count and sample and call any observers on the key
-	 * @value Amount to add to the counter
-	 */
-	void update (key key, uint64_t value);
-
-	/** Unlocked implementation of log_counters() to avoid using recursive locking */
-	void log_counters_impl (stat_log_sink & sink);
-
-	/** Unlocked implementation of log_samples() to avoid using recursive locking */
-	void log_samples_impl (stat_log_sink & sink);
-
-	/** Time of last clear() call */
-	std::chrono::steady_clock::time_point timestamp{ std::chrono::steady_clock::now () };
-
-	/** Configuration deserialized from config.json */
-	nano::stats_config config;
-
-	/** Stat entries are sorted by key to simplify processing of log output */
-	std::map<key, std::shared_ptr<nano::stat_entry>> entries;
-	std::chrono::steady_clock::time_point log_last_count_writeout{ std::chrono::steady_clock::now () };
-	std::chrono::steady_clock::time_point log_last_sample_writeout{ std::chrono::steady_clock::now () };
-
-	/** Whether stats should be output */
-	bool stopped{ false };
-
-	/** All access to stat is thread safe, including calls from observers on the same thread */
-	nano::mutex stat_mutex;
 };
 }

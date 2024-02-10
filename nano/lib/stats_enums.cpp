@@ -16,3 +16,8 @@ std::string_view nano::to_string (nano::stat::dir dir)
 {
 	return magic_enum::enum_name (dir);
 }
+
+std::string_view nano::to_string (nano::stat::sample sample)
+{
+	return magic_enum::enum_name (sample);
+}

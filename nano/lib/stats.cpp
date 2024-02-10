@@ -72,6 +72,8 @@ std::string nano::stat_log_sink::tm_to_string (tm & tm)
 	return (boost::format ("%04d.%02d.%02d %02d:%02d:%02d") % (1900 + tm.tm_year) % (tm.tm_mon + 1) % tm.tm_mday % tm.tm_hour % tm.tm_min % tm.tm_sec).str ();
 }
 
+namespace
+{
 /** JSON sink. The resulting JSON object is provided as both a property_tree::ptree (to_object) and a string (to_string) */
 class json_writer : public nano::stat_log_sink
 {
@@ -97,7 +99,7 @@ public:
 		tree.put ("created", tm_to_string (tm));
 	}
 
-	void write_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value, nano::stat_histogram * histogram) override
+	void write_counter_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value) override
 	{
 		boost::property_tree::ptree entry;
 		entry.put ("time", boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec);
@@ -105,23 +107,6 @@ public:
 		entry.put ("detail", detail);
 		entry.put ("dir", dir);
 		entry.put ("value", value);
-		if (histogram != nullptr)
-		{
-			boost::property_tree::ptree histogram_node;
-			for (auto const & bin : histogram->get_bins ())
-			{
-				boost::property_tree::ptree bin_node;
-				bin_node.put ("start_inclusive", bin.start_inclusive);
-				bin_node.put ("end_exclusive", bin.end_exclusive);
-				bin_node.put ("value", bin.value);
-
-				std::time_t time = std::chrono::system_clock::to_time_t (bin.timestamp);
-				struct tm local_tm = *localtime (&time);
-				bin_node.put ("time", boost::format ("%02d:%02d:%02d") % local_tm.tm_hour % local_tm.tm_min % local_tm.tm_sec);
-				histogram_node.push_back (std::make_pair ("", bin_node));
-			}
-			entry.put_child ("histogram", histogram_node);
-		}
 		entries.push_back (std::make_pair ("", entry));
 	}
 
@@ -157,10 +142,12 @@ public:
 	{
 		log.open (filename.c_str (), std::ofstream::out);
 	}
+
 	virtual ~file_writer ()
 	{
 		log.close ();
 	}
+
 	std::ostream & out () override
 	{
 		return log;
@@ -173,7 +160,7 @@ public:
 		log << header << "," << boost::format ("%04d.%02d.%02d %02d:%02d:%02d") % (1900 + tm.tm_year) % (tm.tm_mon + 1) % tm.tm_mday % tm.tm_hour % tm.tm_min % tm.tm_sec << std::endl;
 	}
 
-	void write_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value, nano::stat_histogram *) override
+	void write_counter_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value) override
 	{
 		log << boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec << "," << type << "," << detail << "," << dir << "," << value << std::endl;
 	}
@@ -185,83 +172,6 @@ public:
 		log_entries = 0;
 	}
 };
-
-/*
- * stat_histogram
- */
-
-nano::stat_histogram::stat_histogram (std::initializer_list<uint64_t> intervals_a, size_t bin_count_a)
-{
-	if (bin_count_a == 0)
-	{
-		debug_assert (intervals_a.size () > 1);
-		uint64_t start_inclusive_l = *intervals_a.begin ();
-		for (auto it = std::next (intervals_a.begin ()); it != intervals_a.end (); ++it)
-		{
-			uint64_t end_exclusive_l = *it;
-			bins.emplace_back (start_inclusive_l, end_exclusive_l);
-			start_inclusive_l = end_exclusive_l;
-		}
-	}
-	else
-	{
-		debug_assert (intervals_a.size () == 2);
-		uint64_t min_inclusive_l = *intervals_a.begin ();
-		uint64_t max_exclusive_l = *std::next (intervals_a.begin ());
-
-		auto domain_l = (max_exclusive_l - min_inclusive_l);
-		auto bin_size_l = (domain_l + bin_count_a - 1) / bin_count_a;
-		auto last_bin_size_l = (domain_l % bin_size_l);
-		auto next_start_l = min_inclusive_l;
-
-		for (size_t i = 0; i < bin_count_a; i++, next_start_l += bin_size_l)
-		{
-			bins.emplace_back (next_start_l, next_start_l + bin_size_l);
-		}
-		if (last_bin_size_l > 0)
-		{
-			bins.emplace_back (next_start_l, next_start_l + last_bin_size_l);
-		}
-	}
-}
-
-void nano::stat_histogram::add (uint64_t index_a, uint64_t addend_a)
-{
-	nano::lock_guard<nano::mutex> lk{ histogram_mutex };
-	debug_assert (!bins.empty ());
-
-	// The search for a bin is linear, but we're searching just a few
-	// contiguous items which are likely to be in cache.
-	bool found_l = false;
-	for (auto & bin : bins)
-	{
-		if (index_a >= bin.start_inclusive && index_a < bin.end_exclusive)
-		{
-			bin.value += addend_a;
-			bin.timestamp = std::chrono::system_clock::now ();
-			found_l = true;
-			break;
-		}
-	}
-
-	// Clamp into first or last bin if no suitable bin was found
-	if (!found_l)
-	{
-		if (index_a < bins.front ().start_inclusive)
-		{
-			bins.front ().value += addend_a;
-		}
-		else
-		{
-			bins.back ().value += addend_a;
-		}
-	}
-}
-
-std::vector<nano::stat_histogram::bin> nano::stat_histogram::get_bins () const
-{
-	nano::lock_guard<nano::mutex> lk{ histogram_mutex };
-	return bins;
 }
 
 /*
@@ -273,46 +183,118 @@ nano::stats::stats (nano::stats_config config) :
 {
 }
 
-void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, uint64_t value)
+void nano::stats::stop ()
+{
+	std::lock_guard guard{ mutex };
+	stopped = true;
+}
+
+void nano::stats::clear ()
+{
+	std::lock_guard guard{ mutex };
+	counters.clear ();
+	samplers.clear ();
+	timestamp = std::chrono::steady_clock::now ();
+}
+
+void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, counter_value_t value)
 {
 	if (value == 0)
 	{
 		return;
 	}
 
-	update (key{ type, detail, dir }, value);
+	// Updates need to happen while holding the mutex
+	auto update_counter = [this] (nano::stats::counter_key key, auto && updater) {
+		counter_key all_key{ key.type, stat::detail::all, key.dir };
 
-	if (detail != stat::detail::all)
-	{
-		update (key{ type, stat::detail::all, dir }, value);
-	}
+		// This is a two-step process to avoid exclusively locking the mutex in the common case
+		{
+			std::shared_lock lock{ mutex };
+
+			if (auto it = counters.find (key); it != counters.end ())
+			{
+				updater (*it->second);
+
+				if (key != all_key)
+				{
+					auto it_all = counters.find (all_key);
+					release_assert (it_all != counters.end ()); // The `all` counter should always be created together
+					updater (*it_all->second); // Also update the `all` counter
+				}
+
+				return;
+			}
+		}
+		// Not found, create a new entry
+		{
+			std::unique_lock lock{ mutex };
+
+			// Insertions will be ignored if the key already exists
+			auto [it, inserted] = counters.emplace (key, std::make_unique<counter_entry> ());
+			auto [it_all, inserted_all] = counters.emplace (all_key, std::make_unique<counter_entry> ());
+
+			updater (*it->second);
+
+			if (key != all_key)
+			{
+				updater (*it_all->second); // Also update the `all` counter
+			}
+		}
+	};
+
+	update_counter (counter_key{ type, detail, dir }, [value] (counter_entry & counter) {
+		counter.value += value;
+	});
 }
 
-std::shared_ptr<nano::stat_entry> nano::stats::get_entry (key key)
+auto nano::stats::count (stat::type type, stat::detail detail, stat::dir dir) const -> counter_value_t
 {
-	return get_entry (key, config.interval, config.capacity);
+	std::shared_lock lock{ mutex };
+	if (auto it = counters.find (counter_key{ type, detail, dir }); it != counters.end ())
+	{
+		return it->second->value;
+	}
+	return 0;
 }
 
-std::shared_ptr<nano::stat_entry> nano::stats::get_entry (key key, size_t interval, size_t capacity)
+void nano::stats::sample (stat::type type, stat::sample sample, nano::stats::sampler_value_t value)
 {
-	nano::unique_lock<nano::mutex> lock{ stat_mutex };
-	return get_entry_impl (key, interval, capacity);
+	// Updates need to happen while holding the mutex
+	auto update_sampler = [this] (nano::stats::sampler_key key, auto && updater) {
+		// This is a two-step process to avoid exclusively locking the mutex in the common case
+		{
+			std::shared_lock lock{ mutex };
+
+			if (auto it = samplers.find (key); it != samplers.end ())
+			{
+				updater (*it->second);
+				return;
+			}
+		}
+		// Not found, create a new entry
+		{
+			std::unique_lock lock{ mutex };
+
+			// Insertions will be ignored if the key already exists
+			auto [it, inserted] = samplers.emplace (key, std::make_unique<sampler_entry> ());
+			updater (*it->second);
+		}
+	};
+
+	update_sampler (sampler_key{ type, sample }, [this, value] (sampler_entry & sampler) {
+		sampler.add (value, config.capacity);
+	});
 }
 
-std::shared_ptr<nano::stat_entry> nano::stats::get_entry_impl (key key, size_t interval, size_t capacity)
+auto nano::stats::samples (stat::type type, stat::sample sample) -> std::vector<sampler_value_t>
 {
-	std::shared_ptr<nano::stat_entry> res;
-	auto entry = entries.find (key);
-	if (entry == entries.end ())
+	std::shared_lock lock{ mutex };
+	if (auto it = samplers.find (sampler_key{ type, sample }); it != samplers.end ())
 	{
-		res = entries.emplace (key, std::make_shared<nano::stat_entry> (capacity, interval)).first->second;
+		return it->second->collect ();
 	}
-	else
-	{
-		res = entry->second;
-	}
-
-	return res;
+	return {};
 }
 
 std::unique_ptr<nano::stat_log_sink> nano::stats::log_sink_json () const
@@ -322,11 +304,15 @@ std::unique_ptr<nano::stat_log_sink> nano::stats::log_sink_json () const
 
 void nano::stats::log_counters (stat_log_sink & sink)
 {
-	nano::unique_lock<nano::mutex> lock{ stat_mutex };
-	log_counters_impl (sink);
+	// TODO: Replace with a proper std::chrono time
+	std::time_t time = std::chrono::system_clock::to_time_t (std::chrono::system_clock::now ());
+	tm local_tm = *localtime (&time);
+
+	std::lock_guard guard{ mutex };
+	log_counters_impl (sink, local_tm);
 }
 
-void nano::stats::log_counters_impl (stat_log_sink & sink)
+void nano::stats::log_counters_impl (stat_log_sink & sink, tm & tm)
 {
 	sink.begin ();
 	if (sink.entries () >= config.log_rotation_count)
@@ -340,16 +326,13 @@ void nano::stats::log_counters_impl (stat_log_sink & sink)
 		sink.write_header ("counters", walltime);
 	}
 
-	for (auto const & [key, value] : entries)
+	for (auto const & [key, value] : counters)
 	{
-		std::time_t time = std::chrono::system_clock::to_time_t (value->counter.get_timestamp ());
-		tm local_tm = *localtime (&time);
-
 		std::string type{ to_string (key.type) };
 		std::string detail{ to_string (key.detail) };
 		std::string dir{ to_string (key.dir) };
 
-		sink.write_entry (local_tm, type, detail, dir, value->counter.get_value (), value->histogram.get ());
+		sink.write_counter_entry (tm, type, detail, dir, value->value);
 	}
 	sink.entries ()++;
 	sink.finalize ();
@@ -357,11 +340,15 @@ void nano::stats::log_counters_impl (stat_log_sink & sink)
 
 void nano::stats::log_samples (stat_log_sink & sink)
 {
-	nano::unique_lock<nano::mutex> lock{ stat_mutex };
-	log_samples_impl (sink);
+	// TODO: Replace with a proper std::chrono time
+	std::time_t time = std::chrono::system_clock::to_time_t (std::chrono::system_clock::now ());
+	tm local_tm = *localtime (&time);
+
+	std::lock_guard guard{ mutex };
+	log_samples_impl (sink, local_tm);
 }
 
-void nano::stats::log_samples_impl (stat_log_sink & sink)
+void nano::stats::log_samples_impl (stat_log_sink & sink, tm & tm)
 {
 	sink.begin ();
 	if (sink.entries () >= config.log_rotation_count)
@@ -375,17 +362,14 @@ void nano::stats::log_samples_impl (stat_log_sink & sink)
 		sink.write_header ("samples", walltime);
 	}
 
-	for (auto const & [key, value] : entries)
+	for (auto const & [key, value] : samplers)
 	{
 		std::string type{ to_string (key.type) };
-		std::string detail{ to_string (key.detail) };
-		std::string dir{ to_string (key.dir) };
+		std::string sample{ to_string (key.sample) };
 
-		for (auto & datapoint : value->samples)
+		for (auto & datapoint : value->collect ())
 		{
-			std::time_t time = std::chrono::system_clock::to_time_t (datapoint.get_timestamp ());
-			tm local_tm = *localtime (&time);
-			sink.write_entry (local_tm, type, detail, dir, datapoint.get_value (), nullptr);
+			sink.write_sampler_entry (tm, type, sample, datapoint);
 		}
 	}
 
@@ -393,55 +377,37 @@ void nano::stats::log_samples_impl (stat_log_sink & sink)
 	sink.finalize ();
 }
 
-void nano::stats::define_histogram (stat::type type, stat::detail detail, stat::dir dir, std::initializer_list<uint64_t> intervals_a, size_t bin_count_a /*=0*/)
-{
-	auto entry (get_entry (key{ type, detail, dir }));
-	entry->histogram = std::make_unique<nano::stat_histogram> (intervals_a, bin_count_a);
-}
-
-void nano::stats::update_histogram (stat::type type, stat::detail detail, stat::dir dir, uint64_t index_a, uint64_t addend_a)
-{
-	auto entry (get_entry (key{ type, detail, dir }));
-	debug_assert (entry->histogram != nullptr);
-	entry->histogram->add (index_a, addend_a);
-}
-
-nano::stat_histogram * nano::stats::get_histogram (stat::type type, stat::detail detail, stat::dir dir)
-{
-	auto entry (get_entry (key{ type, detail, dir }));
-	debug_assert (entry->histogram != nullptr);
-	return entry->histogram.get ();
-}
-
-void nano::stats::update (key key_a, uint64_t value)
+// TODO: Run periodically in a separate thread
+void nano::stats::update ()
 {
 	static file_writer log_count (config.log_counters_filename);
 	static file_writer log_sample (config.log_samples_filename);
 
-	nano::unique_lock<nano::mutex> lock{ stat_mutex };
+	std::lock_guard guard{ mutex };
 	if (!stopped)
 	{
-		auto entry (get_entry_impl (key_a, config.interval, config.capacity));
 		auto has_interval_counter = [&] () {
 			return config.log_interval_counters > 0;
 		};
 		auto has_sampling = [&] () {
-			return config.sampling_enabled && entry->sample_interval > 0;
+			return config.sampling_enabled && config.interval > 0;
 		};
-
-		// Counters
-		auto old (entry->counter.get_value ());
-		entry->counter.add (value, has_sampling ()); // Only update timestamp when sampling is enabled as this has a performance impact
 
 		if (has_interval_counter () || has_sampling ())
 		{
 			auto now = std::chrono::steady_clock::now (); // Only sample clock if necessary as this impacts node performance due to frequent usage
+
+			// TODO: Replace with a proper std::chrono time
+			std::time_t time = std::chrono::system_clock::to_time_t (std::chrono::system_clock::now ());
+			tm local_tm = *localtime (&time);
+
+			// Counters
 			if (has_interval_counter ())
 			{
 				std::chrono::duration<double, std::milli> duration = now - log_last_count_writeout;
 				if (duration.count () > config.log_interval_counters)
 				{
-					log_counters_impl (log_count);
+					log_counters_impl (log_count, local_tm);
 					log_last_count_writeout = now;
 				}
 			}
@@ -449,25 +415,11 @@ void nano::stats::update (key key_a, uint64_t value)
 			// Samples
 			if (has_sampling ())
 			{
-				entry->sample_current.add (value, false);
-
-				std::chrono::duration<double, std::milli> duration = now - entry->sample_start_time;
-				if (duration.count () > entry->sample_interval)
+				std::chrono::duration<double, std::milli> duration = now - log_last_sample_writeout;
+				if (duration.count () > config.log_interval_samples)
 				{
-					entry->sample_start_time = now;
-
-					// Make a snapshot of samples for thread safety and to get a stable container
-					entry->sample_current.set_timestamp (std::chrono::system_clock::now ());
-					entry->samples.push_back (entry->sample_current);
-					entry->sample_current.set_value (0);
-
-					// Log sink
-					duration = now - log_last_sample_writeout;
-					if (config.log_interval_samples > 0 && duration.count () > config.log_interval_samples)
-					{
-						log_samples_impl (log_sample);
-						log_last_sample_writeout = now;
-					}
+					log_samples_impl (log_sample, local_tm);
+					log_last_sample_writeout = now;
 				}
 			}
 		}
@@ -476,26 +428,20 @@ void nano::stats::update (key key_a, uint64_t value)
 
 std::chrono::seconds nano::stats::last_reset ()
 {
-	nano::unique_lock<nano::mutex> lock{ stat_mutex };
+	std::lock_guard guard{ mutex };
 	auto now (std::chrono::steady_clock::now ());
 	return std::chrono::duration_cast<std::chrono::seconds> (now - timestamp);
 }
 
-void nano::stats::stop ()
-{
-	nano::lock_guard<nano::mutex> guard{ stat_mutex };
-	stopped = true;
-}
-
-std::string nano::stats::dump (nano::stat_category category)
+std::string nano::stats::dump (category category)
 {
 	auto sink = log_sink_json ();
 	switch (category)
 	{
-		case nano::stat_category::counters:
+		case category::counters:
 			log_counters (*sink);
 			break;
-		case nano::stat_category::samples:
+		case category::samples:
 			log_samples (*sink);
 			break;
 		default:
@@ -505,63 +451,24 @@ std::string nano::stats::dump (nano::stat_category category)
 	return sink->to_string ();
 }
 
-void nano::stats::clear ()
-{
-	nano::unique_lock<nano::mutex> lock{ stat_mutex };
-	entries.clear ();
-	timestamp = std::chrono::steady_clock::now ();
-}
-
 /*
- * stat_datapoint
+ * stats::sampler_entry
  */
 
-nano::stat_datapoint::stat_datapoint (stat_datapoint const & other_a)
+void nano::stats::sampler_entry::add (nano::stats::sampler_value_t value, size_t max_samples)
 {
-	nano::lock_guard<nano::mutex> lock{ other_a.datapoint_mutex };
-	value = other_a.value;
-	timestamp = other_a.timestamp;
-}
-
-nano::stat_datapoint & nano::stat_datapoint::operator= (stat_datapoint const & other_a)
-{
-	nano::lock_guard<nano::mutex> lock{ other_a.datapoint_mutex };
-	value = other_a.value;
-	timestamp = other_a.timestamp;
-	return *this;
-}
-
-uint64_t nano::stat_datapoint::get_value () const
-{
-	nano::lock_guard<nano::mutex> lock{ datapoint_mutex };
-	return value;
-}
-
-void nano::stat_datapoint::set_value (uint64_t value_a)
-{
-	nano::lock_guard<nano::mutex> lock{ datapoint_mutex };
-	value = value_a;
-}
-
-std::chrono::system_clock::time_point nano::stat_datapoint::get_timestamp () const
-{
-	nano::lock_guard<nano::mutex> lock{ datapoint_mutex };
-	return timestamp;
-}
-
-void nano::stat_datapoint::set_timestamp (std::chrono::system_clock::time_point timestamp_a)
-{
-	nano::lock_guard<nano::mutex> lock{ datapoint_mutex };
-	timestamp = timestamp_a;
-}
-
-/** Add \addend to the current value and optionally update the timestamp */
-void nano::stat_datapoint::add (uint64_t addend, bool update_timestamp)
-{
-	nano::lock_guard<nano::mutex> lock{ datapoint_mutex };
-	value += addend;
-	if (update_timestamp)
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	samples.push_back (value);
+	while (samples.size () > max_samples)
 	{
-		timestamp = std::chrono::system_clock::now ();
+		samples.pop_front ();
 	}
+}
+
+auto nano::stats::sampler_entry::collect () -> std::vector<sampler_value_t>
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	std::vector<sampler_value_t> result{ samples.begin (), samples.end () };
+	samples.clear ();
+	return result;
 }
