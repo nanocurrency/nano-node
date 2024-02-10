@@ -14,6 +14,7 @@
 #include <mutex>
 #include <shared_mutex>
 #include <string>
+#include <thread>
 
 namespace nano
 {
@@ -70,15 +71,10 @@ public:
 	using sampler_value_t = int64_t;
 
 public:
-	/** Constructor using the default config values */
-	stats () = default;
+	explicit stats (nano::stats_config = {});
+	~stats ();
 
-	/**
-	 * Initialize stats with a config.
-	 */
-	explicit stats (nano::stats_config);
-
-	/** Stop stats being output */
+	void start ();
 	void stop ();
 
 	/** Clear all stats */
@@ -201,11 +197,9 @@ private:
 	std::map<sampler_key, std::unique_ptr<sampler_entry>> samplers;
 
 private:
-	/**
-	 * Update count and sample and call any observers on the key
-	 * @value Amount to add to the counter
-	 */
-	void update ();
+	void run ();
+	void run_one (std::unique_lock<std::shared_mutex> & lock);
+	std::chrono::milliseconds calculate_run_interval () const;
 
 	/** Unlocked implementation of log_counters() to avoid using recursive locking */
 	void log_counters_impl (stat_log_sink & sink, tm & tm);
@@ -224,6 +218,8 @@ private:
 
 	/** Whether stats should be output */
 	bool stopped{ false };
+	std::thread thread;
+	nano::condition_variable condition;
 
 	mutable std::shared_mutex mutex;
 };

@@ -1,6 +1,7 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/thread_roles.hpp>
 #include <nano/lib/tomlconfig.hpp>
 
 #include <boost/format.hpp>
@@ -130,10 +131,31 @@ nano::stats::stats (nano::stats_config config) :
 {
 }
 
+nano::stats::~stats ()
+{
+	// Thread must be stopped before destruction
+	debug_assert (!thread.joinable ());
+}
+
+void nano::stats::start ()
+{
+	thread = std::thread ([this] {
+		nano::thread_role::set (nano::thread_role::name::stats);
+		run ();
+	});
+}
+
 void nano::stats::stop ()
 {
-	std::lock_guard guard{ mutex };
-	stopped = true;
+	{
+		std::lock_guard guard{ mutex };
+		stopped = true;
+	}
+	condition.notify_all ();
+	if (thread.joinable ())
+	{
+		thread.join ();
+	}
 }
 
 void nano::stats::clear ()
@@ -324,39 +346,69 @@ void nano::stats::log_samples_impl (stat_log_sink & sink, tm & tm)
 	sink.finalize ();
 }
 
-// TODO: Run periodically in a separate thread
-void nano::stats::update ()
+std::chrono::milliseconds nano::stats::calculate_run_interval () const
 {
-	static file_writer log_count (config.log_counters_filename);
-	static file_writer log_sample (config.log_samples_filename);
-
-	std::lock_guard guard{ mutex };
-	if (!stopped)
+	std::chrono::milliseconds interval = std::chrono::milliseconds::max ();
+	if (config.log_counters_interval.count () > 0)
 	{
-		auto now = std::chrono::steady_clock::now (); // Only sample clock if necessary as this impacts node performance due to frequent usage
+		interval = std::min (interval, config.log_counters_interval);
+	}
+	if (config.log_samples_interval.count () > 0)
+	{
+		interval = std::min (interval, config.log_samples_interval);
+	}
+	return interval;
+}
 
-		// TODO: Replace with a proper std::chrono time
-		std::time_t time = std::chrono::system_clock::to_time_t (std::chrono::system_clock::now ());
-		tm local_tm = *localtime (&time);
+void nano::stats::run ()
+{
+	auto const interval = calculate_run_interval ();
 
-		// Counters
-		if (config.log_counters_interval.count () > 0)
+	if (interval == std::chrono::milliseconds::max ())
+	{
+		return;
+	}
+
+	std::unique_lock lock{ mutex };
+	while (!stopped)
+	{
+		condition.wait_for (lock, interval);
+
+		if (!stopped)
 		{
-			if (nano::elapsed (log_last_count_writeout, config.log_counters_interval))
-			{
-				log_counters_impl (log_count, local_tm);
-				log_last_count_writeout = now;
-			}
+			run_one (lock);
+			debug_assert (lock.owns_lock ());
 		}
+	}
+}
 
-		// Samples
-		if (config.log_samples_interval.count () > 0)
+void nano::stats::run_one (std::unique_lock<std::shared_mutex> & lock)
+{
+	static file_writer log_count{ config.log_counters_filename };
+	static file_writer log_sample{ config.log_samples_filename };
+
+	debug_assert (!mutex.try_lock ());
+	debug_assert (lock.owns_lock ());
+
+	// TODO: Replace with a proper std::chrono time
+	std::time_t time = std::chrono::system_clock::to_time_t (std::chrono::system_clock::now ());
+	tm local_tm = *localtime (&time);
+
+	// Counters
+	if (config.log_counters_interval.count () > 0)
+	{
+		if (nano::elapse (log_last_count_writeout, config.log_counters_interval))
 		{
-			if (nano::elapsed (log_last_sample_writeout, config.log_samples_interval))
-			{
-				log_samples_impl (log_sample, local_tm);
-				log_last_sample_writeout = now;
-			}
+			log_counters_impl (log_count, local_tm);
+		}
+	}
+
+	// Samples
+	if (config.log_samples_interval.count () > 0)
+	{
+		if (nano::elapse (log_last_sample_writeout, config.log_samples_interval))
+		{
+			log_samples_impl (log_sample, local_tm);
 		}
 	}
 }
@@ -370,20 +422,20 @@ std::chrono::seconds nano::stats::last_reset ()
 
 std::string nano::stats::dump (category category)
 {
-	auto sink = log_sink_json ();
+	json_writer sink;
 	switch (category)
 	{
 		case category::counters:
-			log_counters (*sink);
+			log_counters (sink);
 			break;
 		case category::samples:
-			log_samples (*sink);
+			log_samples (sink);
 			break;
 		default:
 			debug_assert (false, "missing stat_category case");
 			break;
 	}
-	return sink->to_string ();
+	return sink.to_string ();
 }
 
 /*
