@@ -8,7 +8,7 @@
 namespace nano::stat
 {
 /** Primary statistics type */
-enum class type : uint8_t
+enum class type
 {
 	traffic_tcp,
 	error,
@@ -69,7 +69,7 @@ enum class type : uint8_t
 };
 
 /** Optional detail type */
-enum class detail : uint8_t
+enum class detail
 {
 	all = 0,
 
@@ -402,7 +402,7 @@ enum class detail : uint8_t
 };
 
 /** Direction of the stat. If the direction is irrelevant, use in */
-enum class dir : uint8_t
+enum class dir
 {
 	in,
 	out,

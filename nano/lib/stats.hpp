@@ -9,10 +9,10 @@
 
 #include <chrono>
 #include <initializer_list>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
-#include <unordered_map>
 
 namespace nano
 {
@@ -242,7 +242,7 @@ public:
 	 */
 	void configure (stat::type type, stat::detail detail, stat::dir dir, size_t interval, size_t capacity)
 	{
-		get_entry (key_of (type, detail, dir), interval, capacity);
+		get_entry (key{ type, detail, dir }, interval, capacity);
 	}
 
 	/** Increments the given counter */
@@ -313,9 +313,8 @@ public:
 	 * @param detail Detail type, or detail::none to register on type-level only
 	 * @param dir Direction
 	 * @param value The amount to add
-	 * @param detail_only If true, only update the detail-level counter
 	 */
-	void add (stat::type type, stat::detail detail, stat::dir dir, uint64_t value, bool detail_only = false);
+	void add (stat::type type, stat::detail detail, stat::dir dir, uint64_t value);
 
 	/**
 	 * Add a sampling observer for a given counter.
@@ -325,7 +324,7 @@ public:
 	 */
 	void observe_sample (stat::type type, stat::detail detail, stat::dir dir, std::function<void (boost::circular_buffer<stat_datapoint> &)> observer)
 	{
-		get_entry (key_of (type, detail, dir))->sample_observers.add (observer);
+		get_entry (key{ type, detail, dir })->sample_observers.add (observer);
 	}
 
 	void observe_sample (stat::type type, stat::dir dir, std::function<void (boost::circular_buffer<stat_datapoint> &)> observer)
@@ -340,13 +339,13 @@ public:
 	 */
 	void observe_count (stat::type type, stat::detail detail, stat::dir dir, std::function<void (uint64_t, uint64_t)> observer)
 	{
-		get_entry (key_of (type, detail, dir))->count_observers.add (observer);
+		get_entry (key{ type, detail, dir })->count_observers.add (observer);
 	}
 
 	/** Returns a potentially empty list of the last N samples, where N is determined by the 'capacity' configuration */
 	boost::circular_buffer<stat_datapoint> * samples (stat::type type, stat::detail detail, stat::dir dir)
 	{
-		return &get_entry (key_of (type, detail, dir))->samples;
+		return &get_entry (key{ type, detail, dir })->samples;
 	}
 
 	/** Returns current value for the given counter at the type level */
@@ -358,7 +357,7 @@ public:
 	/** Returns current value for the given counter at the detail level */
 	uint64_t count (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
 	{
-		return get_entry (key_of (type, detail, dir))->counter.get_value ();
+		return get_entry (key{ type, detail, dir })->counter.get_value ();
 	}
 
 	/** Returns the number of seconds since clear() was last called, or node startup if it's never called. */
@@ -381,31 +380,30 @@ public:
 	std::string dump (stat_category category = stat_category::counters);
 
 private:
-	static std::string type_to_string (uint32_t key);
-	static std::string dir_to_string (uint32_t key);
-	static std::string detail_to_string (uint32_t key);
-
-	/** Constructs a key given type, detail and direction. This is used as input to update(...) and get_entry(...) */
-	uint32_t key_of (stat::type type, stat::detail detail, stat::dir dir) const
+	struct key
 	{
-		return static_cast<uint8_t> (type) << 16 | static_cast<uint8_t> (detail) << 8 | static_cast<uint8_t> (dir);
-	}
+		stat::type type;
+		stat::detail detail;
+		stat::dir dir;
 
+		auto operator<=> (const key &) const = default;
+	};
+
+private:
 	/** Get entry for key, creating a new entry if necessary, using interval and sample count from config */
-	std::shared_ptr<nano::stat_entry> get_entry (uint32_t key);
+	std::shared_ptr<nano::stat_entry> get_entry (key key);
 
 	/** Get entry for key, creating a new entry if necessary */
-	std::shared_ptr<nano::stat_entry> get_entry (uint32_t key, size_t sample_interval, size_t max_samples);
+	std::shared_ptr<nano::stat_entry> get_entry (key key, size_t sample_interval, size_t max_samples);
 
 	/** Unlocked implementation of get_entry() */
-	std::shared_ptr<nano::stat_entry> get_entry_impl (uint32_t key, size_t sample_interval, size_t max_samples);
+	std::shared_ptr<nano::stat_entry> get_entry_impl (key key, size_t sample_interval, size_t max_samples);
 
 	/**
 	 * Update count and sample and call any observers on the key
-	 * @param key a key constructor from stat::type, stat::detail and stat::direction
 	 * @value Amount to add to the counter
 	 */
-	void update (uint32_t key, uint64_t value);
+	void update (key key, uint64_t value);
 
 	/** Unlocked implementation of log_counters() to avoid using recursive locking */
 	void log_counters_impl (stat_log_sink & sink);
@@ -420,7 +418,7 @@ private:
 	nano::stats_config config;
 
 	/** Stat entries are sorted by key to simplify processing of log output */
-	std::unordered_map<uint32_t, std::shared_ptr<nano::stat_entry>> entries;
+	std::map<key, std::shared_ptr<nano::stat_entry>> entries;
 	std::chrono::steady_clock::time_point log_last_count_writeout{ std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point log_last_sample_writeout{ std::chrono::steady_clock::now () };
 

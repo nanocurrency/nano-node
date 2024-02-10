@@ -273,37 +273,33 @@ nano::stats::stats (nano::stats_config config) :
 {
 }
 
-void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, uint64_t value, bool detail_only)
+void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, uint64_t value)
 {
 	if (value == 0)
 	{
 		return;
 	}
 
-	constexpr uint32_t no_detail_mask = 0xffff00ff;
-	uint32_t key = key_of (type, detail, dir);
+	update (key{ type, detail, dir }, value);
 
-	update (key, value);
-
-	// Optionally update at type-level as well
-	if (!detail_only && (key & no_detail_mask) != key)
+	if (detail != stat::detail::all)
 	{
-		update (key & no_detail_mask, value);
+		update (key{ type, stat::detail::all, dir }, value);
 	}
 }
 
-std::shared_ptr<nano::stat_entry> nano::stats::get_entry (uint32_t key)
+std::shared_ptr<nano::stat_entry> nano::stats::get_entry (key key)
 {
 	return get_entry (key, config.interval, config.capacity);
 }
 
-std::shared_ptr<nano::stat_entry> nano::stats::get_entry (uint32_t key, size_t interval, size_t capacity)
+std::shared_ptr<nano::stat_entry> nano::stats::get_entry (key key, size_t interval, size_t capacity)
 {
 	nano::unique_lock<nano::mutex> lock{ stat_mutex };
 	return get_entry_impl (key, interval, capacity);
 }
 
-std::shared_ptr<nano::stat_entry> nano::stats::get_entry_impl (uint32_t key, size_t interval, size_t capacity)
+std::shared_ptr<nano::stat_entry> nano::stats::get_entry_impl (key key, size_t interval, size_t capacity)
 {
 	std::shared_ptr<nano::stat_entry> res;
 	auto entry = entries.find (key);
@@ -344,16 +340,16 @@ void nano::stats::log_counters_impl (stat_log_sink & sink)
 		sink.write_header ("counters", walltime);
 	}
 
-	for (auto & it : entries)
+	for (auto const & [key, value] : entries)
 	{
-		std::time_t time = std::chrono::system_clock::to_time_t (it.second->counter.get_timestamp ());
+		std::time_t time = std::chrono::system_clock::to_time_t (value->counter.get_timestamp ());
 		tm local_tm = *localtime (&time);
 
-		auto key = it.first;
-		std::string type = type_to_string (key);
-		std::string detail = detail_to_string (key);
-		std::string dir = dir_to_string (key);
-		sink.write_entry (local_tm, type, detail, dir, it.second->counter.get_value (), it.second->histogram.get ());
+		std::string type{ to_string (key.type) };
+		std::string detail{ to_string (key.detail) };
+		std::string dir{ to_string (key.dir) };
+
+		sink.write_entry (local_tm, type, detail, dir, value->counter.get_value (), value->histogram.get ());
 	}
 	sink.entries ()++;
 	sink.finalize ();
@@ -379,45 +375,45 @@ void nano::stats::log_samples_impl (stat_log_sink & sink)
 		sink.write_header ("samples", walltime);
 	}
 
-	for (auto & it : entries)
+	for (auto const & [key, value] : entries)
 	{
-		auto key = it.first;
-		std::string type = type_to_string (key);
-		std::string detail = detail_to_string (key);
-		std::string dir = dir_to_string (key);
+		std::string type{ to_string (key.type) };
+		std::string detail{ to_string (key.detail) };
+		std::string dir{ to_string (key.dir) };
 
-		for (auto & datapoint : it.second->samples)
+		for (auto & datapoint : value->samples)
 		{
 			std::time_t time = std::chrono::system_clock::to_time_t (datapoint.get_timestamp ());
 			tm local_tm = *localtime (&time);
 			sink.write_entry (local_tm, type, detail, dir, datapoint.get_value (), nullptr);
 		}
 	}
+
 	sink.entries ()++;
 	sink.finalize ();
 }
 
 void nano::stats::define_histogram (stat::type type, stat::detail detail, stat::dir dir, std::initializer_list<uint64_t> intervals_a, size_t bin_count_a /*=0*/)
 {
-	auto entry (get_entry (key_of (type, detail, dir)));
+	auto entry (get_entry (key{ type, detail, dir }));
 	entry->histogram = std::make_unique<nano::stat_histogram> (intervals_a, bin_count_a);
 }
 
 void nano::stats::update_histogram (stat::type type, stat::detail detail, stat::dir dir, uint64_t index_a, uint64_t addend_a)
 {
-	auto entry (get_entry (key_of (type, detail, dir)));
+	auto entry (get_entry (key{ type, detail, dir }));
 	debug_assert (entry->histogram != nullptr);
 	entry->histogram->add (index_a, addend_a);
 }
 
 nano::stat_histogram * nano::stats::get_histogram (stat::type type, stat::detail detail, stat::dir dir)
 {
-	auto entry (get_entry (key_of (type, detail, dir)));
+	auto entry (get_entry (key{ type, detail, dir }));
 	debug_assert (entry->histogram != nullptr);
 	return entry->histogram.get ();
 }
 
-void nano::stats::update (uint32_t key_a, uint64_t value)
+void nano::stats::update (key key_a, uint64_t value)
 {
 	static file_writer log_count (config.log_counters_filename);
 	static file_writer log_sample (config.log_samples_filename);
@@ -520,24 +516,6 @@ void nano::stats::clear ()
 	nano::unique_lock<nano::mutex> lock{ stat_mutex };
 	entries.clear ();
 	timestamp = std::chrono::steady_clock::now ();
-}
-
-std::string nano::stats::type_to_string (uint32_t key)
-{
-	auto type = static_cast<stat::type> (key >> 16 & 0x000000ff);
-	return std::string{ nano::to_string (type) };
-}
-
-std::string nano::stats::detail_to_string (uint32_t key)
-{
-	auto detail = static_cast<stat::detail> (key >> 8 & 0x000000ff);
-	return std::string{ nano::to_string (detail) };
-}
-
-std::string nano::stats::dir_to_string (uint32_t key)
-{
-	auto dir = static_cast<stat::dir> (key & 0x000000ff);
-	return std::string{ nano::to_string (dir) };
 }
 
 /*
