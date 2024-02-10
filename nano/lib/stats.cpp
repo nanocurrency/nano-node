@@ -478,23 +478,22 @@ void nano::stats::stop ()
 	stopped = true;
 }
 
-std::string nano::stats::to_string (std::string type)
+std::string nano::stats::dump (nano::stat_category category)
 {
 	auto sink = log_sink_json ();
-	if (type == "counters")
+	switch (category)
 	{
-		log_counters (*sink);
-		return sink->to_string ();
+		case nano::stat_category::counters:
+			log_counters (*sink);
+			break;
+		case nano::stat_category::samples:
+			log_samples (*sink);
+			break;
+		default:
+			debug_assert (false, "missing stat_category case");
+			break;
 	}
-	else if (type == "samples")
-	{
-		log_samples (*sink);
-		return sink->to_string ();
-	}
-	else
-	{
-		return "type not supported: " + type;
-	}
+	return sink->to_string ();
 }
 
 void nano::stats::clear ()

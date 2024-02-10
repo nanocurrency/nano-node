@@ -211,6 +211,12 @@ protected:
 	size_t log_entries{ 0 };
 };
 
+enum class stat_category
+{
+	counters,
+	samples
+};
+
 /**
  * Collects counts and samples for inbound and outbound traffic, blocks, errors, and so on.
  * Stats can be queried and observed on a type level (such as message and ledger) as well as a more
@@ -396,8 +402,9 @@ public:
 	/** Returns a new JSON log sink */
 	std::unique_ptr<stat_log_sink> log_sink_json () const;
 
+public:
 	/** Return string showing stats counters (convenience function for debugging) */
-	std::string to_string (std::string type = "counters");
+	std::string dump (stat_category category = stat_category::counters);
 
 private:
 	static std::string type_to_string (uint32_t key);
