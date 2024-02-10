@@ -224,9 +224,11 @@ public:
 
 	/**
 	 * Initialize stats with a config.
-	 * @param config Configuration object; deserialized from config.json
 	 */
-	stats (nano::stats_config config);
+	explicit stats (nano::stats_config);
+
+	/** Stop stats being output */
+	void stop ();
 
 	/**
 	 * Call this to override the default sample interval and capacity, for a specific stat entry.
@@ -252,16 +254,16 @@ public:
 		add (type, dir, 1);
 	}
 
-	/** Increments the counter for \detail, but doesn't update at the type level */
-	void inc_detail_only (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
-	{
-		add (type, detail, dir, 1, true);
-	}
-
 	/** Increments the given counter */
 	void inc (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
 	{
 		add (type, detail, dir, 1);
+	}
+
+	/** Adds \p value to the given counter */
+	void add (stat::type type, stat::detail detail, uint64_t value)
+	{
+		add (type, detail, stat::dir::in, value);
 	}
 
 	/** Adds \p value to the given counter */
@@ -393,9 +395,6 @@ public:
 
 	/** Returns a new JSON log sink */
 	std::unique_ptr<stat_log_sink> log_sink_json () const;
-
-	/** Stop stats being output */
-	void stop ();
 
 	/** Return string showing stats counters (convenience function for debugging) */
 	std::string to_string (std::string type = "counters");

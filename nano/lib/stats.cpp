@@ -10,6 +10,10 @@
 #include <fstream>
 #include <sstream>
 
+/*
+ * stats_config
+ */
+
 nano::error nano::stats_config::deserialize_toml (nano::tomlconfig & toml)
 {
 	auto sampling_l (toml.get_optional_child ("sampling"));
@@ -58,6 +62,10 @@ nano::error nano::stats_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put_child ("log", log_l);
 	return toml.get_error ();
 }
+
+/*
+ * stat_log_sink
+ */
 
 std::string nano::stat_log_sink::tm_to_string (tm & tm)
 {
@@ -177,6 +185,10 @@ public:
 		log_entries = 0;
 	}
 };
+
+/*
+ * stat_histogram
+ */
 
 nano::stat_histogram::stat_histogram (std::initializer_list<uint64_t> intervals_a, size_t bin_count_a)
 {
@@ -509,6 +521,10 @@ std::string nano::stats::dir_to_string (uint32_t key)
 	auto dir = static_cast<stat::dir> (key & 0x000000ff);
 	return std::string{ nano::to_string (dir) };
 }
+
+/*
+ * stat_datapoint
+ */
 
 nano::stat_datapoint::stat_datapoint (stat_datapoint const & other_a)
 {
