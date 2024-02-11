@@ -245,14 +245,9 @@ public:
 	{
 	}
 
-	/** Write a counter or sampling entry to the log. Some log sinks may support writing histograms as well. */
-	virtual void write_counter_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, stats::counter_value_t value)
-	{
-	}
-
-	virtual void write_sampler_entry (tm & tm, std::string const & type, std::string const & sample, stats::sampler_value_t value)
-	{
-	}
+	/** Write a counter or sampling entry to the log. */
+	virtual void write_counter_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, stats::counter_value_t value) = 0;
+	virtual void write_sampler_entry (tm & tm, std::string const & type, std::string const & sample, std::vector<stats::sampler_value_t> const & values) = 0;
 
 	/** Rotates the log (e.g. empty file). This is a no-op for sinks where rotation is not supported. */
 	virtual void rotate ()

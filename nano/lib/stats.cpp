@@ -189,13 +189,13 @@ void nano::stats::log_counters_impl (stat_log_sink & sink, tm & tm)
 		sink.write_header ("counters", walltime);
 	}
 
-	for (auto const & [key, value] : counters)
+	for (auto const & [key, entry] : counters)
 	{
 		std::string type{ to_string (key.type) };
 		std::string detail{ to_string (key.detail) };
 		std::string dir{ to_string (key.dir) };
 
-		sink.write_counter_entry (tm, type, detail, dir, value->value);
+		sink.write_counter_entry (tm, type, detail, dir, entry->value);
 	}
 	sink.entries ()++;
 	sink.finalize ();
@@ -225,15 +225,12 @@ void nano::stats::log_samples_impl (stat_log_sink & sink, tm & tm)
 		sink.write_header ("samples", walltime);
 	}
 
-	for (auto const & [key, value] : samplers)
+	for (auto const & [key, entry] : samplers)
 	{
 		std::string type{ to_string (key.type) };
 		std::string sample{ to_string (key.sample) };
 
-		for (auto & datapoint : value->collect ())
-		{
-			sink.write_sampler_entry (tm, type, sample, datapoint);
-		}
+		sink.write_sampler_entry (tm, type, sample, entry->collect ());
 	}
 
 	sink.entries ()++;
