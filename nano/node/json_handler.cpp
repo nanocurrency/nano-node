@@ -1,6 +1,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/json_error_response.hpp>
+#include <nano/lib/stats_sinks.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
@@ -3961,22 +3962,29 @@ void nano::json_handler::sign ()
 
 void nano::json_handler::stats ()
 {
-	auto sink = node.stats.log_sink_json ();
 	std::string type (request.get<std::string> ("type", ""));
-	bool use_sink = false;
+
+	auto respond_with_sink = [this] (auto & sink) {
+		auto stat_ptree = sink.to_ptree ();
+		stat_ptree.put ("stat_duration_seconds", node.stats.last_reset ().count ());
+		response_l = stat_ptree;
+	};
+
 	if (type == "counters")
 	{
-		node.stats.log_counters (*sink);
-		use_sink = true;
+		nano::stat_json_writer sink;
+		node.stats.log_counters (sink);
+		respond_with_sink (sink);
+	}
+	else if (type == "samples")
+	{
+		nano::stat_json_writer sink;
+		node.stats.log_samples (sink);
+		respond_with_sink (sink);
 	}
 	else if (type == "objects")
 	{
 		construct_json (collect_container_info (node, "node").get (), response_l);
-	}
-	else if (type == "samples")
-	{
-		node.stats.log_samples (*sink);
-		use_sink = true;
 	}
 	else if (type == "database")
 	{
@@ -3986,19 +3994,8 @@ void nano::json_handler::stats ()
 	{
 		ec = nano::error_rpc::invalid_missing_type;
 	}
-	if (!ec && use_sink)
-	{
-		// TODO: Clearly someone gave up on designing this properly here
-		auto stat_tree_l (*static_cast<boost::property_tree::ptree *> (sink->to_object ()));
-		stat_tree_l.put ("stat_duration_seconds", node.stats.last_reset ().count ());
-		std::stringstream ostream;
-		boost::property_tree::write_json (ostream, stat_tree_l);
-		response (ostream.str ());
-	}
-	else
-	{
-		response_errors ();
-	}
+
+	response_errors ();
 }
 
 void nano::json_handler::stats_clear ()

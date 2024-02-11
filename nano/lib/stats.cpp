@@ -1,6 +1,7 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/stats_sinks.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/tomlconfig.hpp>
 
@@ -18,108 +19,6 @@
 std::string nano::stat_log_sink::tm_to_string (tm & tm)
 {
 	return (boost::format ("%04d.%02d.%02d %02d:%02d:%02d") % (1900 + tm.tm_year) % (tm.tm_mon + 1) % tm.tm_mday % tm.tm_hour % tm.tm_min % tm.tm_sec).str ();
-}
-
-namespace
-{
-/** JSON sink. The resulting JSON object is provided as both a property_tree::ptree (to_object) and a string (to_string) */
-class json_writer : public nano::stat_log_sink
-{
-	boost::property_tree::ptree tree;
-	boost::property_tree::ptree entries;
-
-public:
-	std::ostream & out () override
-	{
-		return sstr;
-	}
-
-	void begin () override
-	{
-		tree.clear ();
-	}
-
-	void write_header (std::string const & header, std::chrono::system_clock::time_point & walltime) override
-	{
-		std::time_t now = std::chrono::system_clock::to_time_t (walltime);
-		tm tm = *localtime (&now);
-		tree.put ("type", header);
-		tree.put ("created", tm_to_string (tm));
-	}
-
-	void write_counter_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value) override
-	{
-		boost::property_tree::ptree entry;
-		entry.put ("time", boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec);
-		entry.put ("type", type);
-		entry.put ("detail", detail);
-		entry.put ("dir", dir);
-		entry.put ("value", value);
-		entries.push_back (std::make_pair ("", entry));
-	}
-
-	void finalize () override
-	{
-		tree.add_child ("entries", entries);
-	}
-
-	void * to_object () override
-	{
-		return &tree;
-	}
-
-	std::string to_string () override
-	{
-		boost::property_tree::write_json (sstr, tree);
-		return sstr.str ();
-	}
-
-private:
-	std::ostringstream sstr;
-};
-
-/** File sink with rotation support. This writes one counter per line and does not include histogram values. */
-class file_writer : public nano::stat_log_sink
-{
-public:
-	std::ofstream log;
-	std::string filename;
-
-	explicit file_writer (std::string const & filename) :
-		filename (filename)
-	{
-		log.open (filename.c_str (), std::ofstream::out);
-	}
-
-	virtual ~file_writer ()
-	{
-		log.close ();
-	}
-
-	std::ostream & out () override
-	{
-		return log;
-	}
-
-	void write_header (std::string const & header, std::chrono::system_clock::time_point & walltime) override
-	{
-		std::time_t now = std::chrono::system_clock::to_time_t (walltime);
-		tm tm = *localtime (&now);
-		log << header << "," << boost::format ("%04d.%02d.%02d %02d:%02d:%02d") % (1900 + tm.tm_year) % (tm.tm_mon + 1) % tm.tm_mday % tm.tm_hour % tm.tm_min % tm.tm_sec << std::endl;
-	}
-
-	void write_counter_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value) override
-	{
-		log << boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec << "," << type << "," << detail << "," << dir << "," << value << std::endl;
-	}
-
-	void rotate () override
-	{
-		log.close ();
-		log.open (filename.c_str (), std::ofstream::out);
-		log_entries = 0;
-	}
-};
 }
 
 /*
@@ -266,11 +165,6 @@ auto nano::stats::samples (stat::type type, stat::sample sample) -> std::vector<
 	return {};
 }
 
-std::unique_ptr<nano::stat_log_sink> nano::stats::log_sink_json () const
-{
-	return std::make_unique<json_writer> ();
-}
-
 void nano::stats::log_counters (stat_log_sink & sink)
 {
 	// TODO: Replace with a proper std::chrono time
@@ -384,8 +278,8 @@ void nano::stats::run ()
 
 void nano::stats::run_one (std::unique_lock<std::shared_mutex> & lock)
 {
-	static file_writer log_count{ config.log_counters_filename };
-	static file_writer log_sample{ config.log_samples_filename };
+	static stat_file_writer log_count{ config.log_counters_filename };
+	static stat_file_writer log_sample{ config.log_samples_filename };
 
 	debug_assert (!mutex.try_lock ());
 	debug_assert (lock.owns_lock ());
@@ -422,7 +316,7 @@ std::chrono::seconds nano::stats::last_reset ()
 
 std::string nano::stats::dump (category category)
 {
-	json_writer sink;
+	stat_json_writer sink;
 	switch (category)
 	{
 		case category::counters:
@@ -433,7 +327,6 @@ std::string nano::stats::dump (category category)
 			break;
 		default:
 			debug_assert (false, "missing stat_category case");
-			break;
 	}
 	return sink.to_string ();
 }

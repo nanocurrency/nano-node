@@ -131,9 +131,6 @@ public:
 	/** Log samples to the given log sink */
 	void log_samples (stat_log_sink & sink);
 
-	/** Returns a new JSON log sink */
-	std::unique_ptr<stat_log_sink> log_sink_json () const;
-
 public:
 	enum class category
 	{
@@ -272,15 +269,6 @@ public:
 	virtual std::string to_string ()
 	{
 		return "";
-	}
-
-	/**
-	 * Returns the object representation of the log result. The type depends on the sink used.
-	 * @returns Object, or nullptr if no object result is available.
-	 */
-	virtual void * to_object ()
-	{
-		return nullptr;
 	}
 
 protected:
