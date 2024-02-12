@@ -192,7 +192,16 @@ constexpr TARGET_TYPE narrow_cast (SOURCE_TYPE const & val)
 
 // Issue #3748
 void sort_options_description (const boost::program_options::options_description & source, boost::program_options::options_description & target);
+}
 
+/*
+ * Clock utilities
+ */
+namespace nano
+{
+/**
+ * Steady clock should always be used for measuring time intervals
+ */
 using clock = std::chrono::steady_clock;
 
 /**
@@ -211,6 +220,22 @@ template <typename Duration>
 bool elapsed (nano::clock::time_point const & last, Duration duration)
 {
 	return elapsed (last, duration, nano::clock::now ());
+}
+
+/**
+ * Check whether time elapsed since `last` is greater than `duration` and update `last` if true
+ * Force usage of steady clock
+ */
+template <typename Duration>
+bool elapse (nano::clock::time_point & last, Duration const & duration)
+{
+	auto now = nano::clock::now ();
+	if (last + duration < now)
+	{
+		last = now;
+		return true;
+	}
+	return false;
 }
 }
 
