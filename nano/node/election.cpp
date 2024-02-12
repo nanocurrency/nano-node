@@ -647,17 +647,10 @@ void nano::election::remove_block (nano::block_hash const & hash_a)
 	{
 		if (auto existing = last_blocks.find (hash_a); existing != last_blocks.end ())
 		{
-			for (auto i (last_votes.begin ()); i != last_votes.end ();)
-			{
-				if (i->second.hash == hash_a)
-				{
-					i = last_votes.erase (i);
-				}
-				else
-				{
-					++i;
-				}
-			}
+			erase_if (last_votes, [hash_a] (auto const & entry) {
+				return entry.second.hash == hash_a;
+			});
+
 			node.network.publish_filter.clear (existing->second);
 			last_blocks.erase (hash_a);
 		}

@@ -242,7 +242,7 @@ void nano::telemetry::cleanup ()
 {
 	debug_assert (!mutex.try_lock ());
 
-	nano::erase_if (telemetries, [this] (entry const & entry) {
+	erase_if (telemetries, [this] (entry const & entry) {
 		// Remove if telemetry data is stale
 		if (!check_timeout (entry))
 		{
