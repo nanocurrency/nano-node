@@ -88,6 +88,7 @@ public: // Status
 	bool failed () const;
 	nano::election_extended_status current_status () const;
 	std::shared_ptr<nano::block> winner () const;
+	std::chrono::milliseconds duration () const;
 	std::atomic<unsigned> confirmation_request_count{ 0 };
 
 	nano::tally_t tally () const;
@@ -170,7 +171,7 @@ private:
 	mutable std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 
 	nano::election_behavior const behavior_m{ nano::election_behavior::normal };
-	std::chrono::steady_clock::time_point const election_start = { std::chrono::steady_clock::now () };
+	std::chrono::steady_clock::time_point const election_start{ std::chrono::steady_clock::now () };
 
 	mutable nano::mutex mutex;
 

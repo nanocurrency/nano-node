@@ -286,6 +286,8 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 
 	lock_a.unlock ();
 
+	node.stats.sample (nano::stat::sample::active_election_duration, { 0, 1000 * 60 * 10 /* 0-10 minutes range */ }, election->duration ().count ());
+
 	vacancy_update ();
 
 	for (auto const & [hash, block] : blocks_l)

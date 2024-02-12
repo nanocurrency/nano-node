@@ -47,6 +47,7 @@ enum class type
 	blockprocessor_overfill,
 	bootstrap_server,
 	active,
+	active_transactions,
 	active_started,
 	active_confirmed,
 	active_dropped,
@@ -412,7 +413,8 @@ enum class dir
 
 enum class sample
 {
-	active_duration,
+	active_election_duration,
+	bootstrap_tag_duration,
 
 	_last // Must be the last enum
 };
