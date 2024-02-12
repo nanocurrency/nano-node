@@ -145,13 +145,13 @@ void nano::stats::sample (stat::type type, stat::sample sample, nano::stats::sam
 			std::unique_lock lock{ mutex };
 
 			// Insertions will be ignored if the key already exists
-			auto [it, inserted] = samplers.emplace (key, std::make_unique<sampler_entry> ());
+			auto [it, inserted] = samplers.emplace (key, std::make_unique<sampler_entry> (config.max_samples));
 			updater (*it->second);
 		}
 	};
 
-	update_sampler (sampler_key{ type, sample }, [this, value] (sampler_entry & sampler) {
-		sampler.add (value, config.max_samples);
+	update_sampler (sampler_key{ type, sample }, [value] (sampler_entry & sampler) {
+		sampler.add (value);
 	});
 }
 
@@ -332,14 +332,10 @@ std::string nano::stats::dump (category category)
  * stats::sampler_entry
  */
 
-void nano::stats::sampler_entry::add (nano::stats::sampler_value_t value, size_t max_samples)
+void nano::stats::sampler_entry::add (nano::stats::sampler_value_t value)
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	samples.push_back (value);
-	while (samples.size () > max_samples)
-	{
-		samples.pop_front ();
-	}
 }
 
 auto nano::stats::sampler_entry::collect () -> std::vector<sampler_value_t>

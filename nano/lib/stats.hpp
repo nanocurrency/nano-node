@@ -175,13 +175,15 @@ private:
 	class sampler_entry
 	{
 	public:
+		sampler_entry (size_t max_samples) :
+			samples{ max_samples } {};
+
 		// Prevent copying
-		sampler_entry () = default;
 		sampler_entry (sampler_entry const &) = delete;
 		sampler_entry & operator= (sampler_entry const &) = delete;
 
 	public:
-		void add (sampler_value_t value, size_t max_samples);
+		void add (sampler_value_t value);
 		std::vector<sampler_value_t> collect ();
 
 	private:
