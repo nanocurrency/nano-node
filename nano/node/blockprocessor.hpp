@@ -44,8 +44,9 @@ public: // Context
 	class context
 	{
 	public:
-		explicit context (block_source);
+		context (std::shared_ptr<block> block, block_source source);
 
+		std::shared_ptr<block> block;
 		block_source const source;
 		std::chrono::steady_clock::time_point const arrival{ std::chrono::steady_clock::now () };
 
@@ -58,13 +59,6 @@ public: // Context
 		std::promise<result_t> promise;
 
 		friend class block_processor;
-	};
-
-private:
-	struct entry
-	{
-		std::shared_ptr<nano::block> block;
-		block_processor::context ctx;
 	};
 
 public:
@@ -85,21 +79,21 @@ public:
 	std::atomic<bool> flushing{ false };
 
 public: // Events
-	using processed_t = std::tuple<nano::process_return, std::shared_ptr<nano::block>, context>;
+	using processed_t = std::tuple<nano::process_return, context>;
 	using processed_batch_t = std::deque<processed_t>;
 
 	// The batch observer feeds the processed observer
-	nano::observer_set<nano::process_return const &, std::shared_ptr<nano::block> const &, context const &> block_processed;
+	nano::observer_set<nano::process_return const &, context const &> block_processed;
 	nano::observer_set<processed_batch_t const &> batch_processed;
 
 private:
 	// Roll back block in the ledger that conflicts with 'block'
 	void rollback_competitor (store::write_transaction const &, nano::block const & block);
-	nano::process_return process_one (store::write_transaction const &, std::shared_ptr<nano::block> block, context const &, bool forced = false);
+	nano::process_return process_one (store::write_transaction const &, context const &, bool forced = false);
 	void queue_unchecked (store::write_transaction const &, nano::hash_or_account const &);
 	processed_batch_t process_batch (nano::unique_lock<nano::mutex> &);
-	entry next ();
-	void add_impl (std::shared_ptr<nano::block> const & block, context);
+	context next ();
+	void add_impl (context);
 
 private: // Dependencies
 	nano::node & node;
@@ -109,8 +103,8 @@ private:
 	bool stopped{ false };
 	bool active{ false };
 
-	std::deque<entry> blocks;
-	std::deque<entry> forced;
+	std::deque<context> blocks;
+	std::deque<context> forced;
 
 	std::chrono::steady_clock::time_point next_log;
 	nano::condition_variable condition;

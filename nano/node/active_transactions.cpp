@@ -34,11 +34,11 @@ nano::active_transactions::active_transactions (nano::node & node_a, nano::confi
 	});
 
 	// Notify elections about alternative (forked) blocks
-	block_processor.block_processed.add ([this] (auto const & result, auto const & block, auto const & context) {
+	block_processor.block_processed.add ([this] (auto const & result, auto const & context) {
 		switch (result.code)
 		{
 			case nano::process_result::fork:
-				publish (block);
+				publish (context.block);
 				break;
 			default:
 				break;

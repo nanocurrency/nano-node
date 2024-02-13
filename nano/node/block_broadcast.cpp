@@ -14,11 +14,11 @@ void nano::block_broadcast::connect (nano::block_processor & block_processor)
 	{
 		return;
 	}
-	block_processor.block_processed.add ([this] (auto const & result, auto const & block, auto const & context) {
+	block_processor.block_processed.add ([this] (auto const & result, auto const & context) {
 		switch (result.code)
 		{
 			case nano::process_result::progress:
-				observe (block, context);
+				observe (context);
 				break;
 			default:
 				break;
@@ -26,8 +26,9 @@ void nano::block_broadcast::connect (nano::block_processor & block_processor)
 	});
 }
 
-void nano::block_broadcast::observe (std::shared_ptr<nano::block> const & block, nano::block_processor::context const & context)
+void nano::block_broadcast::observe (nano::block_processor::context const & context)
 {
+	auto const & block = context.block;
 	if (context.source == nano::block_source::local)
 	{
 		// Block created on this node

@@ -20,7 +20,7 @@ public:
 
 private:
 	// Block_processor observer
-	void observe (std::shared_ptr<nano::block> const & block, nano::block_processor::context const &);
+	void observe (nano::block_processor::context const &);
 
 	nano::network & network;
 	bool enabled;
