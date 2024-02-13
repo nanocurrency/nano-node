@@ -25,7 +25,7 @@ void nano::rep_crawler::start ()
 	ongoing_crawl ();
 }
 
-void nano::rep_crawler::validate ()
+void nano::rep_crawler::validate_and_process ()
 {
 	decltype (responses) responses_l;
 	{
@@ -107,7 +107,7 @@ void nano::rep_crawler::ongoing_crawl ()
 	auto now (std::chrono::steady_clock::now ());
 	auto total_weight_l (total_weight ());
 	cleanup_reps ();
-	validate ();
+	validate_and_process ();
 	query (get_crawl_targets (total_weight_l));
 	auto sufficient_weight (total_weight_l > node.online_reps.delta ());
 	// If online weight drops below minimum, reach out to preconfigured peers
@@ -127,7 +127,7 @@ void nano::rep_crawler::ongoing_crawl ()
 	});
 }
 
-std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::get_crawl_targets (nano::uint128_t total_weight_a)
+std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::get_crawl_targets (nano::uint128_t total_weight_a) const
 {
 	constexpr std::size_t conservative_count = 10;
 	constexpr std::size_t aggressive_count = 40;
@@ -175,15 +175,16 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 				hash_root = node.ledger.hash_root_random (transaction);
 			}
 		}
-		active.insert (hash_root->first);
+		active.insert (hash_root->first); // TODO: Is this really necessary?
 	}
-	for (auto i (channels_a.begin ()), n (channels_a.end ()); i != n; ++i)
+	for (const auto & channel : channels_a)
 	{
-		debug_assert (*i != nullptr);
-		on_rep_request (*i);
-		node.network.send_confirm_req (*i, *hash_root);
+		debug_assert (channel != nullptr);
+		on_rep_request (channel);
+		node.network.send_confirm_req (channel, *hash_root);
 	}
 
+	// TODO: Use a thread+timeout instead of a timer
 	// A representative must respond with a vote within the deadline
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash = hash_root->first] () {
@@ -197,11 +198,10 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 
 void nano::rep_crawler::query (std::shared_ptr<nano::transport::channel> const & channel_a)
 {
-	std::vector<std::shared_ptr<nano::transport::channel>> peers;
-	peers.emplace_back (channel_a);
-	query (peers);
+	query (std::vector{ channel_a });
 }
 
+// TODO: Use a thread+timeout instead of a timer
 void nano::rep_crawler::throttled_remove (nano::block_hash const & hash_a, uint64_t const target_finished_processed)
 {
 	if (node.vote_processor.total_processed >= target_finished_processed)
@@ -224,23 +224,23 @@ bool nano::rep_crawler::is_pr (nano::transport::channel const & channel_a) const
 {
 	nano::lock_guard<nano::mutex> lock{ probable_reps_mutex };
 	auto existing = probable_reps.get<tag_channel_ref> ().find (channel_a);
-	bool result = false;
 	if (existing != probable_reps.get<tag_channel_ref> ().end ())
 	{
-		result = node.ledger.weight (existing->account) > node.minimum_principal_weight ();
+		return node.ledger.weight (existing->account) > node.minimum_principal_weight ();
 	}
-	return result;
+	return false;
 }
 
-bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> const & channel_a, std::shared_ptr<nano::vote> const & vote_a, bool force)
+// TODO: Remove force parameter
+bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> const & channel, std::shared_ptr<nano::vote> const & vote, bool force)
 {
 	bool error = true;
 	nano::lock_guard<nano::mutex> lock{ active_mutex };
-	for (auto i = vote_a->hashes.begin (), n = vote_a->hashes.end (); i != n; ++i)
+	for (auto const & hash : vote->hashes)
 	{
-		if (force || active.count (*i) != 0)
+		if (force || active.count (hash) != 0)
 		{
-			responses.emplace_back (channel_a, vote_a);
+			responses.emplace_back (channel, vote);
 			error = false;
 			break;
 		}
@@ -252,11 +252,11 @@ nano::uint128_t nano::rep_crawler::total_weight () const
 {
 	nano::lock_guard<nano::mutex> lock{ probable_reps_mutex };
 	nano::uint128_t result (0);
-	for (auto i (probable_reps.get<tag_account> ().begin ()), n (probable_reps.get<tag_account> ().end ()); i != n; ++i)
+	for (const auto & i : probable_reps.get<tag_account> ())
 	{
-		if (i->channel->alive ())
+		if (i.channel->alive ())
 		{
-			result += node.ledger.weight (i->account);
+			result += node.ledger.weight (i.account);
 		}
 	}
 	return result;
@@ -267,7 +267,7 @@ void nano::rep_crawler::on_rep_request (std::shared_ptr<nano::transport::channel
 	nano::lock_guard<nano::mutex> lock{ probable_reps_mutex };
 	if (channel_a->get_tcp_endpoint ().address () != boost::asio::ip::address_v6::any ())
 	{
-		probably_rep_t::index<tag_channel_ref>::type & channel_ref_index = probable_reps.get<tag_channel_ref> ();
+		auto & channel_ref_index = probable_reps.get<tag_channel_ref> ();
 
 		// Find and update the timestamp on all reps available on the endpoint (a single host may have multiple reps)
 		auto itr_pair = channel_ref_index.equal_range (*channel_a);
@@ -308,7 +308,7 @@ void nano::rep_crawler::cleanup_reps ()
 		if (i->get_type () == nano::transport::transport_type::tcp)
 		{
 			auto find_channel (node.network.tcp_channels.find_channel (i->get_tcp_endpoint ()));
-			if (find_channel != nullptr && *find_channel == *static_cast<nano::transport::channel_tcp *> (i.get ()))
+			if (find_channel != nullptr && *find_channel == *static_cast<nano::transport::channel_tcp *> (i.get ())) // TODO: WTF
 			{
 				equal = true;
 			}
@@ -327,15 +327,15 @@ void nano::rep_crawler::cleanup_reps ()
 
 std::vector<nano::representative> nano::rep_crawler::representatives (std::size_t count_a, nano::uint128_t const weight_a, boost::optional<decltype (nano::network_constants::protocol_version)> const & opt_version_min_a)
 {
-	auto version_min (opt_version_min_a.value_or (node.network_params.network.protocol_version_min));
+	auto version_min = opt_version_min_a.value_or (node.network_params.network.protocol_version_min);
 	std::multimap<nano::amount, representative, std::greater<nano::amount>> ordered;
 	nano::lock_guard<nano::mutex> lock{ probable_reps_mutex };
-	for (auto i (probable_reps.get<tag_account> ().begin ()), n (probable_reps.get<tag_account> ().end ()); i != n; ++i)
+	for (const auto & i : probable_reps.get<tag_account> ())
 	{
-		auto weight = node.ledger.weight (i->account);
-		if (weight > weight_a && i->channel->get_network_version () >= version_min)
+		auto weight = node.ledger.weight (i.account);
+		if (weight > weight_a && i.channel->get_network_version () >= version_min)
 		{
-			ordered.insert ({ nano::amount{ weight }, *i });
+			ordered.insert ({ nano::amount{ weight }, i });
 		}
 	}
 	std::vector<nano::representative> result;
@@ -354,7 +354,7 @@ std::vector<nano::representative> nano::rep_crawler::principal_representatives (
 std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::representative_endpoints (std::size_t count_a)
 {
 	std::vector<std::shared_ptr<nano::transport::channel>> result;
-	auto reps (representatives (count_a));
+	auto reps = representatives (count_a);
 	for (auto const & rep : reps)
 	{
 		result.push_back (rep.channel);
