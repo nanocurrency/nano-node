@@ -229,9 +229,6 @@ find_package(Threads)
 # Sanitizers
 option(NANO_ASAN "Enable ASan" OFF)
 # if(NANO_ASAN)
-  if(MSVC)
-    message(FATAL_ERROR "ASan is not supported on MSVC")
-  endif()
 
   message(STATUS "Using Asan")
   add_compile_options(-fsanitize=address)
