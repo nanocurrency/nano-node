@@ -75,6 +75,7 @@ public:
 	bool have_blocks_ready ();
 	bool have_blocks ();
 	void process_blocks ();
+	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
 
 	std::atomic<bool> flushing{ false };
 
@@ -110,7 +111,5 @@ private:
 	nano::condition_variable condition;
 	nano::mutex mutex{ mutex_identifier (mutexes::block_processor) };
 	std::thread processing_thread;
-
-	friend std::unique_ptr<container_info_component> collect_container_info (block_processor & block_processor, std::string const & name);
 };
 }

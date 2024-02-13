@@ -412,20 +412,20 @@ void nano::block_processor::queue_unchecked (store::write_transaction const & tr
 	node.unchecked.trigger (hash_or_account_a);
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_processor & block_processor, std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::block_processor::collect_container_info (std::string const & name)
 {
 	std::size_t blocks_count;
 	std::size_t forced_count;
 
 	{
-		nano::lock_guard<nano::mutex> guard{ block_processor.mutex };
-		blocks_count = block_processor.blocks.size ();
-		forced_count = block_processor.forced.size ();
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		blocks_count = blocks.size ();
+		forced_count = forced.size ();
 	}
 
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (block_processor.blocks)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "forced", forced_count, sizeof (decltype (block_processor.forced)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (blocks)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "forced", forced_count, sizeof (decltype (forced)::value_type) }));
 	return composite;
 }
 
