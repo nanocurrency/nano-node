@@ -44,9 +44,9 @@ public: // Context
 	class context
 	{
 	public:
-		context (std::shared_ptr<block> block, block_source source);
+		context (std::shared_ptr<nano::block> block, block_source source);
 
-		std::shared_ptr<block> block;
+		std::shared_ptr<nano::block> const block;
 		block_source const source;
 		std::chrono::steady_clock::time_point const arrival{ std::chrono::steady_clock::now () };
 
