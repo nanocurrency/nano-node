@@ -231,15 +231,10 @@ void nano::transport::tcp_listener::on_connection_requeue_delayed (std::function
 void nano::transport::tcp_listener::evict_dead_connections ()
 {
 	debug_assert (strand.running_in_this_thread ());
-	for (auto it = connections_per_address.begin (); it != connections_per_address.end ();)
-	{
-		if (it->second.expired ())
-		{
-			it = connections_per_address.erase (it);
-			continue;
-		}
-		++it;
-	}
+
+	erase_if (connections_per_address, [] (auto const & entry) {
+		return entry.second.expired ();
+	});
 }
 
 void nano::transport::tcp_listener::accept_action (boost::system::error_code const & ec, std::shared_ptr<nano::transport::socket> const & socket_a)
