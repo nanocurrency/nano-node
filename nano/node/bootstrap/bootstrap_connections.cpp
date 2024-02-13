@@ -445,18 +445,10 @@ void nano::bootstrap_connections::clear_pulls (uint64_t bootstrap_id_a)
 {
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
-		auto i (pulls.begin ());
-		while (i != pulls.end ())
-		{
-			if (i->bootstrap_id == bootstrap_id_a)
-			{
-				i = pulls.erase (i);
-			}
-			else
-			{
-				++i;
-			}
-		}
+
+		erase_if (pulls, [bootstrap_id_a] (auto const & pull) {
+			return pull.bootstrap_id == bootstrap_id_a;
+		});
 	}
 	condition.notify_all ();
 }

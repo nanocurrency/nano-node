@@ -1,5 +1,6 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/message_deserializer.hpp>
 #include <nano/node/transport/tcp.hpp>
@@ -456,13 +457,9 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
 	// Remove channels with dead underlying sockets
-	for (auto it = channels.begin (); it != channels.end (); ++it)
-	{
-		if (!it->socket->alive ())
-		{
-			it = channels.erase (it);
-		}
-	}
+	erase_if (channels, [] (auto const & entry) {
+		return !entry.channel->alive ();
+	});
 
 	auto disconnect_cutoff (channels.get<last_packet_sent_tag> ().lower_bound (cutoff_a));
 	channels.get<last_packet_sent_tag> ().erase (channels.get<last_packet_sent_tag> ().begin (), disconnect_cutoff);

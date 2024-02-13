@@ -653,15 +653,9 @@ void nano::transport::server_socket::on_connection_requeue_delayed (std::functio
 void nano::transport::server_socket::evict_dead_connections ()
 {
 	debug_assert (strand.running_in_this_thread ());
-	for (auto it = connections_per_address.begin (); it != connections_per_address.end ();)
-	{
-		if (it->second.expired ())
-		{
-			it = connections_per_address.erase (it);
-			continue;
-		}
-		++it;
-	}
+	erase_if (connections_per_address, [] (auto const & entry) {
+		return entry.second.expired ();
+	});
 }
 
 std::string nano::transport::socket_type_to_string (nano::transport::socket::type_t type)

@@ -82,18 +82,18 @@ std::size_t nano::bootstrap_ascending::peer_scoring::size () const
 void nano::bootstrap_ascending::peer_scoring::timeout ()
 {
 	auto & index = scoring.get<tag_channel> ();
-	for (auto score = index.begin (), n = index.end (); score != n;)
-	{
-		if (auto channel = score->shared ())
+
+	erase_if (index, [] (auto const & score) {
+		if (auto channel = score.shared ())
 		{
 			if (channel->alive ())
 			{
-				++score;
-				continue;
+				return false; // Keep
 			}
 		}
-		score = index.erase (score);
-	}
+		return true;
+	});
+
 	for (auto score = scoring.begin (), n = scoring.end (); score != n; ++score)
 	{
 		scoring.modify (score, [] (auto & score_a) {

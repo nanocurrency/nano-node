@@ -245,18 +245,9 @@ void nano::vote_cache::cleanup ()
 
 	auto const cutoff = std::chrono::steady_clock::now () - config.age_cutoff;
 
-	auto it = cache.begin ();
-	while (it != cache.end ())
-	{
-		if (it->last_vote () < cutoff)
-		{
-			it = cache.erase (it);
-		}
-		else
-		{
-			++it;
-		}
-	}
+	erase_if (cache, [cutoff] (auto const & entry) {
+		return entry.last_vote () < cutoff;
+	});
 }
 
 std::unique_ptr<nano::container_info_component> nano::vote_cache::collect_container_info (const std::string & name) const
