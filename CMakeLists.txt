@@ -228,7 +228,7 @@ find_package(Threads)
 
 # Sanitizers
 option(NANO_ASAN "Enable ASan" OFF)
-if(NANO_ASAN)
+# if(NANO_ASAN)
   if(MSVC)
     message(FATAL_ERROR "ASan is not supported on MSVC")
   endif()
@@ -245,7 +245,7 @@ if(NANO_ASAN)
   endif()
 
   add_definitions(-DED25519_NO_INLINE_ASM)
-endif()
+# endif()
 
 option(NANO_ASAN_INT "Enable ASan+Integer overflow" OFF)
 if(NANO_ASAN_INT)
