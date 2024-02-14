@@ -13,7 +13,7 @@ jobs:
         COMPILER: [ clang ]
         SANITIZER:
           - { name: UBSAN, ignore_errors: false }
-          - { name: ASAN, ignore_errors: true }
+          - { name: ASAN, ignore_errors: false }
           - { name: ASAN_INT, ignore_errors: true }
           - { name: TSAN, ignore_errors: true }
     runs-on: ubuntu-22.04
@@ -70,7 +70,7 @@ jobs:
         COMPILER: [ clang ]
         SANITIZER:
           - { name: UBSAN, ignore_errors: false }
-          - { name: ASAN, ignore_errors: true }
+          - { name: ASAN, ignore_errors: false }
           - { name: TSAN, ignore_errors: true }
     runs-on: macos-14
     env:
