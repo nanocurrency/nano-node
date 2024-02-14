@@ -1192,13 +1192,6 @@ std::optional<nano::account_info> nano::ledger::account_info (store::transaction
 	return store.account.get (transaction, account);
 }
 
-// Return amount decrease or increase for block
-nano::uint128_t nano::ledger::amount (store::transaction const & transaction_a, nano::account const & account_a)
-{
-	release_assert (account_a == constants.genesis->account ());
-	return nano::dev::constants.genesis_amount;
-}
-
 nano::uint128_t nano::ledger::amount (store::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto block (store.block.get (transaction_a, hash_a));
