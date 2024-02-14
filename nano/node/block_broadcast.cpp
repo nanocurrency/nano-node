@@ -1,11 +1,9 @@
-#include <nano/node/block_arrival.hpp>
 #include <nano/node/block_broadcast.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/network.hpp>
 
-nano::block_broadcast::block_broadcast (nano::network & network, nano::block_arrival & block_arrival, bool enabled) :
+nano::block_broadcast::block_broadcast (nano::network & network, bool enabled) :
 	network{ network },
-	block_arrival{ block_arrival },
 	enabled{ enabled }
 {
 }
@@ -16,26 +14,22 @@ void nano::block_broadcast::connect (nano::block_processor & block_processor)
 	{
 		return;
 	}
-	block_processor.processed.add ([this] (auto const & result, auto const & block) {
+	block_processor.block_processed.add ([this] (auto const & result, auto const & context) {
 		switch (result.code)
 		{
 			case nano::process_result::progress:
-				observe (block);
+				observe (context);
 				break;
 			default:
 				break;
 		}
-		erase (block);
 	});
 }
 
-void nano::block_broadcast::observe (std::shared_ptr<nano::block> block)
+void nano::block_broadcast::observe (nano::block_processor::context const & context)
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	auto existing = local.find (block);
-	auto local_l = existing != local.end ();
-	lock.unlock ();
-	if (local_l)
+	auto const & block = context.block;
+	if (context.source == nano::block_source::local)
 	{
 		// Block created on this node
 		// Perform more agressive initial flooding
@@ -43,7 +37,7 @@ void nano::block_broadcast::observe (std::shared_ptr<nano::block> block)
 	}
 	else
 	{
-		if (block_arrival.recent (block->hash ()))
+		if (context.source != nano::block_source::bootstrap && context.source != nano::block_source::bootstrap_legacy)
 		{
 			// Block arrived from realtime traffic, do normal gossip.
 			network.flood_block (block, nano::transport::buffer_drop_policy::limiter);
@@ -54,24 +48,4 @@ void nano::block_broadcast::observe (std::shared_ptr<nano::block> block)
 			// Don't broadcast blocks we're bootstrapping
 		}
 	}
-}
-
-void nano::block_broadcast::set_local (std::shared_ptr<nano::block> block)
-{
-	if (!enabled)
-	{
-		return;
-	}
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	local.insert (block);
-}
-
-void nano::block_broadcast::erase (std::shared_ptr<nano::block> block)
-{
-	if (!enabled)
-	{
-		return;
-	}
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	local.erase (block);
 }

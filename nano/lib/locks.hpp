@@ -20,7 +20,6 @@ bool any_filters_registered ();
 enum class mutexes
 {
 	active,
-	block_arrival,
 	block_processor,
 	block_uniquer,
 	blockstore_cache,

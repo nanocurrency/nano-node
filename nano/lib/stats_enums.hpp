@@ -36,6 +36,8 @@ enum class type : uint8_t
 	vote_cache,
 	hinting,
 	blockprocessor,
+	blockprocessor_source,
+	blockprocessor_result,
 	bootstrap_server,
 	active,
 	active_started,
@@ -71,6 +73,7 @@ enum class detail : uint8_t
 	top,
 	none,
 	success,
+	unknown,
 
 	// processing queue
 	queue,
@@ -109,6 +112,19 @@ enum class detail : uint8_t
 	balance_mismatch,
 	representative_mismatch,
 	block_position,
+
+	// blockprocessor
+	process_blocking,
+	process_blocking_timeout,
+	force,
+
+	// block source
+	live,
+	bootstrap,
+	bootstrap_legacy,
+	unchecked,
+	local,
+	forced,
 
 	// message specific
 	not_a_type,

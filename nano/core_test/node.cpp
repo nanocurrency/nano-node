@@ -2111,53 +2111,6 @@ TEST (node, block_confirm)
 	ASSERT_TIMELY_EQ (10s, node1.active.recently_cemented.list ().size (), 1);
 }
 
-TEST (node, block_arrival)
-{
-	nano::test::system system (1);
-	auto & node (*system.nodes[0]);
-	ASSERT_EQ (0, node.block_arrival.arrival.size ());
-	nano::block_hash hash1 (1);
-	node.block_arrival.add (hash1);
-	ASSERT_EQ (1, node.block_arrival.arrival.size ());
-	node.block_arrival.add (hash1);
-	ASSERT_EQ (1, node.block_arrival.arrival.size ());
-	nano::block_hash hash2 (2);
-	node.block_arrival.add (hash2);
-	ASSERT_EQ (2, node.block_arrival.arrival.size ());
-}
-
-TEST (node, block_arrival_size)
-{
-	nano::test::system system (1);
-	auto & node (*system.nodes[0]);
-	auto time (std::chrono::steady_clock::now () - nano::block_arrival::arrival_time_min - std::chrono::seconds (5));
-	nano::block_hash hash (0);
-	for (auto i (0); i < nano::block_arrival::arrival_size_min * 2; ++i)
-	{
-		node.block_arrival.arrival.push_back (nano::block_arrival_info{ time, hash });
-		++hash.qwords[0];
-	}
-	ASSERT_EQ (nano::block_arrival::arrival_size_min * 2, node.block_arrival.arrival.size ());
-	node.block_arrival.recent (0);
-	ASSERT_EQ (nano::block_arrival::arrival_size_min, node.block_arrival.arrival.size ());
-}
-
-TEST (node, block_arrival_time)
-{
-	nano::test::system system (1);
-	auto & node (*system.nodes[0]);
-	auto time (std::chrono::steady_clock::now ());
-	nano::block_hash hash (0);
-	for (auto i (0); i < nano::block_arrival::arrival_size_min * 2; ++i)
-	{
-		node.block_arrival.arrival.push_back (nano::block_arrival_info{ time, hash });
-		++hash.qwords[0];
-	}
-	ASSERT_EQ (nano::block_arrival::arrival_size_min * 2, node.block_arrival.arrival.size ());
-	node.block_arrival.recent (0);
-	ASSERT_EQ (nano::block_arrival::arrival_size_min * 2, node.block_arrival.arrival.size ());
-}
-
 TEST (node, confirm_quorum)
 {
 	nano::test::system system (1);
@@ -2958,7 +2911,7 @@ TEST (node, block_processor_reject_state)
 	send1->signature.bytes[0] ^= 1;
 	ASSERT_FALSE (node.ledger.block_or_pruned_exists (send1->hash ()));
 	node.process_active (send1);
-	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::blockprocessor, nano::stat::detail::bad_signature));
+	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::blockprocessor_result, nano::stat::detail::bad_signature));
 	ASSERT_FALSE (node.ledger.block_or_pruned_exists (send1->hash ()));
 	auto send2 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)

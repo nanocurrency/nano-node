@@ -8,7 +8,6 @@
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/backlog_population.hpp>
 #include <nano/node/bandwidth_limiter.hpp>
-#include <nano/node/block_arrival.hpp>
 #include <nano/node/block_broadcast.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
@@ -168,7 +167,6 @@ public:
 	nano::vote_processor vote_processor;
 	unsigned warmed_up;
 	nano::block_processor block_processor;
-	nano::block_arrival block_arrival;
 	nano::local_vote_history history;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;

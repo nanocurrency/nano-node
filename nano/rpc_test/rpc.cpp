@@ -4431,7 +4431,6 @@ TEST (rpc, populate_backlog)
 				.work (*node->work_generate_blocking (latest))
 				.build ();
 	ASSERT_EQ (nano::process_result::progress, node->process (*send).code);
-	ASSERT_FALSE (node->block_arrival.recent (send->hash ()));
 
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;

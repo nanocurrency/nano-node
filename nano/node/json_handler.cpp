@@ -1214,7 +1214,6 @@ void nano::json_handler::block_confirm ()
 				nano::election_status status{ block_l, 0, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::active_confirmation_height };
 				node.active.recently_cemented.put (status);
 				// Trigger callback for confirmed block
-				node.block_arrival.add (hash);
 				auto account (node.ledger.account (transaction, hash));
 				bool error_or_pruned (false);
 				auto amount (node.ledger.amount_safe (transaction, hash, error_or_pruned));

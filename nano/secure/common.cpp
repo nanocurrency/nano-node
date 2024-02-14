@@ -15,6 +15,7 @@
 
 #include <crypto/ed25519-donna/ed25519.h>
 #include <cryptopp/words.h>
+#include <magic_enum.hpp>
 
 size_t constexpr nano::send_block::size;
 size_t constexpr nano::receive_block::size;
@@ -494,6 +495,11 @@ void nano::generate_cache::enable_all ()
 	cemented_count = true;
 	unchecked_count = true;
 	account_count = true;
+}
+
+std::string_view nano::to_string (nano::process_result process_result)
+{
+	return magic_enum::enum_name (process_result);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::process_result process_result)
