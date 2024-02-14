@@ -117,10 +117,10 @@ public:
 	counter_value_t count (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in) const;
 
 	/** Adds a sample to the given sampler */
-	void sample (stat::type type, stat::sample sample, sampler_value_t value);
+	void sample (stat::sample sample, sampler_value_t value);
 
 	/** Returns a potentially empty list of the last N samples, where N is determined by the 'max_samples' configuration. Samples are reset after each lookup. */
-	std::vector<sampler_value_t> samples (stat::type type, stat::sample sample);
+	std::vector<sampler_value_t> samples (stat::sample sample);
 
 	/** Returns the number of seconds since clear() was last called, or node startup if it's never called. */
 	std::chrono::seconds last_reset ();
@@ -153,7 +153,6 @@ private:
 
 	struct sampler_key
 	{
-		stat::type type;
 		stat::sample sample;
 
 		auto operator<=> (const sampler_key &) const = default;
@@ -175,7 +174,7 @@ private:
 	class sampler_entry
 	{
 	public:
-		sampler_entry (size_t max_samples) :
+		explicit sampler_entry (size_t max_samples) :
 			samples{ max_samples } {};
 
 		// Prevent copying
@@ -249,7 +248,7 @@ public:
 
 	/** Write a counter or sampling entry to the log. */
 	virtual void write_counter_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, stats::counter_value_t value) = 0;
-	virtual void write_sampler_entry (tm & tm, std::string const & type, std::string const & sample, std::vector<stats::sampler_value_t> const & values) = 0;
+	virtual void write_sampler_entry (tm & tm, std::string const & sample, std::vector<stats::sampler_value_t> const & values) = 0;
 
 	/** Rotates the log (e.g. empty file). This is a no-op for sinks where rotation is not supported. */
 	virtual void rotate ()

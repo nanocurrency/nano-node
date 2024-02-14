@@ -126,7 +126,7 @@ auto nano::stats::count (stat::type type, stat::detail detail, stat::dir dir) co
 	return 0;
 }
 
-void nano::stats::sample (stat::type type, stat::sample sample, nano::stats::sampler_value_t value)
+void nano::stats::sample (stat::sample sample, nano::stats::sampler_value_t value)
 {
 	// Updates need to happen while holding the mutex
 	auto update_sampler = [this] (nano::stats::sampler_key key, auto && updater) {
@@ -150,15 +150,15 @@ void nano::stats::sample (stat::type type, stat::sample sample, nano::stats::sam
 		}
 	};
 
-	update_sampler (sampler_key{ type, sample }, [value] (sampler_entry & sampler) {
+	update_sampler (sampler_key{ sample }, [value] (sampler_entry & sampler) {
 		sampler.add (value);
 	});
 }
 
-auto nano::stats::samples (stat::type type, stat::sample sample) -> std::vector<sampler_value_t>
+auto nano::stats::samples (stat::sample sample) -> std::vector<sampler_value_t>
 {
 	std::shared_lock lock{ mutex };
-	if (auto it = samplers.find (sampler_key{ type, sample }); it != samplers.end ())
+	if (auto it = samplers.find (sampler_key{ sample }); it != samplers.end ())
 	{
 		return it->second->collect ();
 	}
@@ -227,10 +227,9 @@ void nano::stats::log_samples_impl (stat_log_sink & sink, tm & tm)
 
 	for (auto const & [key, entry] : samplers)
 	{
-		std::string type{ to_string (key.type) };
 		std::string sample{ to_string (key.sample) };
 
-		sink.write_sampler_entry (tm, type, sample, entry->collect ());
+		sink.write_sampler_entry (tm, sample, entry->collect ());
 	}
 
 	sink.entries ()++;

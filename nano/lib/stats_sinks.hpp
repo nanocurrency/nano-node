@@ -44,11 +44,10 @@ public:
 		entries.push_back (std::make_pair ("", entry));
 	}
 
-	void write_sampler_entry (tm & tm, const std::string & type, const std::string & sample, const std::vector<stats::sampler_value_t> & values) override
+	void write_sampler_entry (tm & tm, const std::string & sample, const std::vector<stats::sampler_value_t> & values) override
 	{
 		boost::property_tree::ptree entry;
 		entry.put ("time", boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec);
-		entry.put ("type", type);
 		entry.put ("sample", sample);
 		boost::property_tree::ptree values_tree;
 		for (const auto & value : values)
@@ -117,9 +116,9 @@ public:
 		log << boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec << "," << type << "," << detail << "," << dir << "," << value << std::endl;
 	}
 
-	void write_sampler_entry (tm & tm, const std::string & type, const std::string & sample, const std::vector<stats::sampler_value_t> & values) override
+	void write_sampler_entry (tm & tm, const std::string & sample, const std::vector<stats::sampler_value_t> & values) override
 	{
-		log << boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec << "," << type << "," << sample;
+		log << boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec << "," << sample;
 		for (const auto & value : values)
 		{
 			log << "," << value;
