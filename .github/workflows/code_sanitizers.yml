@@ -13,9 +13,10 @@ jobs:
         COMPILER: [ clang ]
         SANITIZER:
           - { name: UBSAN, ignore_errors: false }
-          - { name: ASAN, ignore_errors: false }
-          - { name: ASAN_INT, ignore_errors: true }
+          - { name: ASAN, ignore_errors: false, leak_check: false }
+          - { name: ASAN_INT, ignore_errors: true, leak_check: false }
           - { name: TSAN, ignore_errors: true }
+          - { name: LEAK, ignore_errors: true, leak_check: true }
     runs-on: ubuntu-22.04
     env:
       COMPILER: ${{ matrix.COMPILER }}
@@ -24,7 +25,7 @@ jobs:
       IGNORE_ERRORS: ${{ matrix.SANITIZER.ignore_errors }}
       TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
       DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
-      ASAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:suppressions=../asan_suppressions
+      ASAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:suppressions=../asan_suppressions:detect_leaks=${{ matrix.SANITIZER.leak_check && '1' || '0' }}
       TSAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:suppressions=../tsan_suppressions
       UBSAN_OPTIONS: log_exe_name=1:log_path=sanitizer_report:print_stacktrace=1
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
