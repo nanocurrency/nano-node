@@ -39,6 +39,9 @@ if [[ ${SANITIZER:-} ]]; then
         UBSAN)
             CMAKE_SANITIZER="-DNANO_UBSAN=ON"
             ;;
+        LEAK)
+            CMAKE_SANITIZER="-DNANO_ASAN=ON"
+            ;;
         *)
             echo "Unknown sanitizer: '${SANITIZER}'"
             exit 1
