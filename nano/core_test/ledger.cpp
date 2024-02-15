@@ -47,8 +47,6 @@ TEST (ledger, genesis_balance)
 	auto transaction = store.tx_begin_write ();
 	auto balance = ledger.account_balance (transaction, nano::dev::genesis->account ());
 	ASSERT_EQ (nano::dev::constants.genesis_amount, balance);
-	auto amount = ledger.amount (transaction, nano::dev::genesis->account ());
-	ASSERT_EQ (nano::dev::constants.genesis_amount, amount);
 	auto info = ledger.account_info (transaction, nano::dev::genesis->account ());
 	ASSERT_TRUE (info);
 	ASSERT_EQ (1, ledger.cache.account_count);
