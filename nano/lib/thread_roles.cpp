@@ -100,6 +100,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::scheduler_priority:
 			thread_role_name_string = "Sched Priority";
 			break;
+		case nano::thread_role::name::rep_crawler:
+			thread_role_name_string = "Rep Crawler";
+			break;
 		default:
 			debug_assert (false && "nano::thread_role::get_string unhandled thread role");
 	}

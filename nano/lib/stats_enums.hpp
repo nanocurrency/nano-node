@@ -49,6 +49,7 @@ enum class type : uint8_t
 	election_scheduler,
 	optimistic_scheduler,
 	handshake,
+	rep_crawler,
 
 	bootstrap_ascending,
 	bootstrap_ascending_accounts,
@@ -327,6 +328,9 @@ enum class detail : uint8_t
 	priority_erase_overflow,
 	deprioritize,
 	deprioritize_failed,
+
+	// rep_crawler
+	channel_dead,
 
 	_last // Must be the last enum
 };

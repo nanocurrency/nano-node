@@ -664,6 +664,7 @@ void nano::node::stop ()
 	{
 		ascendboot.stop ();
 	}
+	rep_crawler.stop ();
 	unchecked.stop ();
 	block_processor.stop ();
 	aggregator.stop ();
