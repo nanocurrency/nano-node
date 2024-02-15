@@ -93,7 +93,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (re
 {
 	std::size_t count;
 	{
-		nano::lock_guard<nano::mutex> guard{ rep_crawler.active_mutex };
+		nano::lock_guard<nano::mutex> guard{ rep_crawler.mutex };
 		count = rep_crawler.active.size ();
 	}
 

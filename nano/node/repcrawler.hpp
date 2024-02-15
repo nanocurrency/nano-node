@@ -54,11 +54,6 @@ class rep_crawler final
 {
 	friend std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 
-	friend class active_transactions_confirm_election_by_request_Test;
-	friend class active_transactions_confirm_frontier_Test;
-	friend class rep_crawler_local_Test;
-	friend class node_online_reps_rep_crawler_Test;
-
 public:
 	explicit rep_crawler (nano::node & node_a);
 
@@ -148,9 +143,11 @@ private:
 	/** We have solicted votes for these random blocks */
 	std::unordered_set<nano::block_hash> active;
 
-	/** Protects the active-hash container */
-	mutable nano::mutex active_mutex;
-	/** Protects the probable_reps container */
-	mutable nano::mutex probable_reps_mutex;
+	mutable nano::mutex mutex;
+
+public: // Testing
+	void force_add_rep (nano::account const & account, std::shared_ptr<nano::transport::channel> const & channel);
+	void force_response (std::shared_ptr<nano::transport::channel> const & channel, std::shared_ptr<nano::vote> const & vote);
+	void force_active (nano::block_hash const & hash);
 };
 }
