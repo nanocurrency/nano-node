@@ -57,8 +57,6 @@ namespace scheduler
 	class component;
 }
 
-std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
-
 // Configs
 backlog_population::config backlog_population_config (node_config const &);
 outbound_bandwidth_limiter::config outbound_bandwidth_limiter_config (node_config const &);

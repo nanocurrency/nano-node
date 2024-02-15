@@ -89,20 +89,6 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 	});
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (rep_crawler & rep_crawler, std::string const & name)
-{
-	std::size_t count;
-	{
-		nano::lock_guard<nano::mutex> guard{ rep_crawler.mutex };
-		count = rep_crawler.active.size ();
-	}
-
-	auto const sizeof_element = sizeof (decltype (rep_crawler.active)::value_type);
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "active", count, sizeof_element }));
-	return composite;
-}
-
 nano::keypair nano::load_or_create_node_id (std::filesystem::path const & application_path)
 {
 	auto node_private_key_path = application_path / "node_id_private.key";

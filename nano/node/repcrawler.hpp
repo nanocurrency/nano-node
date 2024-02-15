@@ -150,4 +150,6 @@ public: // Testing
 	void force_response (std::shared_ptr<nano::transport::channel> const & channel, std::shared_ptr<nano::vote> const & vote);
 	void force_active (nano::block_hash const & hash);
 };
+
+std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 }
