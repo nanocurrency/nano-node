@@ -25,6 +25,7 @@ enum class type
 
 	generic,
 	test,
+	system,
 	init,
 	config,
 	logging,

@@ -16,50 +16,30 @@ using namespace std::chrono_literals;
 // Test that nodes can track nodes that have rep weight for priority broadcasting
 TEST (rep_crawler, rep_list)
 {
-	nano::test::system system (2);
-	auto & node1 (*system.nodes[1]);
-	auto wallet0 (system.wallet (0));
-	auto wallet1 (system.wallet (1));
-	// Node0 has a rep
-	wallet0->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::keypair key1;
-	// Broadcast a confirm so others should know this is a rep node
-	wallet0->send_action (nano::dev::genesis_key.pub, key1.pub, nano::Mxrb_ratio);
-	ASSERT_EQ (0, node1.rep_crawler.representatives (1).size ());
-	system.deadline_set (10s);
-	auto done (false);
-	while (!done)
-	{
-		auto reps = node1.rep_crawler.representatives (1);
-		if (!reps.empty ())
-		{
-			if (!node1.ledger.weight (reps[0].account).is_zero ())
-			{
-				done = true;
-			}
-		}
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	nano::test::system system;
+	auto & node1 = *system.add_node ();
+	auto & node2 = *system.add_node ();
+	ASSERT_EQ (0, node2.rep_crawler.representative_count ());
+	// Node #1 has a rep
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	ASSERT_TIMELY_EQ (5s, node2.rep_crawler.representative_count (), 1);
+	auto reps = node2.rep_crawler.representatives ();
+	ASSERT_EQ (1, reps.size ());
+	ASSERT_EQ (nano::dev::genesis_key.pub, reps[0].account);
 }
 
 TEST (rep_crawler, rep_weight)
 {
 	nano::test::system system;
-	auto add_node = [&system] {
-		auto node = std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work);
-		node->start ();
-		system.nodes.push_back (node);
-		return node;
-	};
-	auto & node = *add_node ();
-	auto & node1 = *add_node ();
-	auto & node2 = *add_node ();
-	auto & node3 = *add_node ();
+	auto & node = *system.add_node ();
+	auto & node1 = *system.add_node ();
+	auto & node2 = *system.add_node ();
+	auto & node3 = *system.add_node ();
 	nano::keypair keypair1;
 	nano::keypair keypair2;
 	nano::block_builder builder;
-	auto amount_pr (node.minimum_principal_weight () + 100);
-	auto amount_not_pr (node.minimum_principal_weight () - 100);
+	auto const amount_pr = node.minimum_principal_weight () + 100;
+	auto const amount_not_pr = node.minimum_principal_weight () - 100;
 	std::shared_ptr<nano::block> block1 = builder
 										  .state ()
 										  .account (nano::dev::genesis_key.pub)
@@ -100,13 +80,10 @@ TEST (rep_crawler, rep_weight)
 										  .sign (keypair2.prv, keypair2.pub)
 										  .work (*system.work.generate (keypair2.pub))
 										  .build ();
-	{
-		auto transaction = node.store.tx_begin_write ();
-		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, block1));
-		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, block2));
-		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, block3));
-		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, block4));
-	}
+	ASSERT_TRUE (nano::test::process (node, { block1, block2, block3, block4 }));
+	ASSERT_TRUE (nano::test::process (node1, { block1, block2, block3, block4 }));
+	ASSERT_TRUE (nano::test::process (node2, { block1, block2, block3, block4 }));
+	ASSERT_TRUE (nano::test::process (node3, { block1, block2, block3, block4 }));
 	ASSERT_TRUE (node.rep_crawler.representatives (1).empty ());
 	std::shared_ptr<nano::transport::channel> channel1 = nano::test::establish_tcp (system, node, node1.network.endpoint ());
 	ASSERT_NE (nullptr, channel1);
@@ -252,9 +229,9 @@ TEST (rep_crawler, rep_remove)
 
 TEST (rep_crawler, rep_connection_close)
 {
-	nano::test::system system (2);
-	auto & node1 (*system.nodes[0]);
-	auto & node2 (*system.nodes[1]);
+	nano::test::system system;
+	auto & node1 = *system.add_node ();
+	auto & node2 = *system.add_node ();
 	// Add working representative (node 2)
 	system.wallet (1)->insert_adhoc (nano::dev::genesis_key.prv);
 	ASSERT_TIMELY_EQ (10s, node1.rep_crawler.representative_count (), 1);
