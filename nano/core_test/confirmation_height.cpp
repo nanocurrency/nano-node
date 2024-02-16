@@ -1165,7 +1165,7 @@ TEST (confirmation_heightDeathTest, rollback_added_block)
 		nano::stats stats;
 		nano::ledger ledger (*store, stats, nano::dev::constants);
 		nano::write_database_queue write_database_queue (false);
-		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+		nano::test::start_stop_container<nano::work_pool> pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 		nano::keypair key1;
 		nano::block_builder builder;
 		auto send = builder
@@ -1174,7 +1174,7 @@ TEST (confirmation_heightDeathTest, rollback_added_block)
 					.destination (key1.pub)
 					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					.work (*pool.generate (nano::dev::genesis->hash ()))
+					.work (*pool.obj.generate (nano::dev::genesis->hash ()))
 					.build_shared ();
 		{
 			auto transaction (store->tx_begin_write ());
@@ -1255,7 +1255,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		nano::stats stats;
 		nano::ledger ledger (*store, stats, nano::dev::constants);
 		nano::write_database_queue write_database_queue (false);
-		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+		nano::test::start_stop_container<nano::work_pool> pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 		nano::keypair key1;
 		nano::block_builder builder;
 		auto send = builder
@@ -1264,7 +1264,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 					.destination (key1.pub)
 					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					.work (*pool.generate (nano::dev::genesis->hash ()))
+					.work (*pool.obj.generate (nano::dev::genesis->hash ()))
 					.build_shared ();
 		{
 			auto transaction (store->tx_begin_write ());
@@ -1332,7 +1332,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		nano::stats stats;
 		nano::ledger ledger (*store, stats, nano::dev::constants);
 		nano::write_database_queue write_database_queue (false);
-		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+		nano::test::start_stop_container<nano::work_pool> pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 		nano::keypair key1;
 		nano::block_builder builder;
 		auto send = builder
@@ -1341,7 +1341,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 					.destination (key1.pub)
 					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					.work (*pool.generate (nano::dev::genesis->hash ()))
+					.work (*pool.obj.generate (nano::dev::genesis->hash ()))
 					.build_shared ();
 		auto open = builder
 					.state ()
@@ -1351,7 +1351,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 					.balance (nano::Gxrb_ratio)
 					.link (send->hash ())
 					.sign (key1.prv, key1.pub)
-					.work (*pool.generate (key1.pub))
+					.work (*pool.obj.generate (key1.pub))
 					.build_shared ();
 		{
 			auto transaction (store->tx_begin_write ());
@@ -2040,7 +2040,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	nano::write_database_queue write_database_queue (false);
 	boost::latch initialized_latch{ 0 };
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_container<nano::work_pool> pool { nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto send = builder
@@ -2049,7 +2049,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 				.destination (key1.pub)
 				.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*pool.generate (nano::dev::genesis->hash ()))
+				.work (*pool.obj.generate (nano::dev::genesis->hash ()))
 				.build_shared ();
 	auto send1 = builder
 				 .send ()
@@ -2057,7 +2057,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 				 .destination (key1.pub)
 				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*pool.generate (send->hash ()))
+				 .work (*pool.obj.generate (send->hash ()))
 				 .build_shared ();
 	{
 		auto transaction (store->tx_begin_write ());
@@ -2103,7 +2103,7 @@ TEST (confirmation_height, pruned_source)
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	nano::write_database_queue write_database_queue (false);
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_container<nano::work_pool> pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair key1, key2;
 	nano::block_builder builder;
 	auto send1 = builder
@@ -2114,7 +2114,7 @@ TEST (confirmation_height, pruned_source)
 				 .balance (nano::dev::constants.genesis_amount - 100)
 				 .link (key1.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .work (*pool.obj.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	auto open1 = builder
 				 .state ()
@@ -2124,7 +2124,7 @@ TEST (confirmation_height, pruned_source)
 				 .balance (100)
 				 .link (send1->hash ())
 				 .sign (key1.prv, key1.pub)
-				 .work (*pool.generate (key1.pub))
+				 .work (*pool.obj.generate (key1.pub))
 				 .build_shared ();
 	auto send2 = builder
 				 .state ()
@@ -2134,7 +2134,7 @@ TEST (confirmation_height, pruned_source)
 				 .balance (50)
 				 .link (key2.pub)
 				 .sign (key1.prv, key1.pub)
-				 .work (*pool.generate (open1->hash ()))
+				 .work (*pool.obj.generate (open1->hash ()))
 				 .build_shared ();
 	auto send3 = builder
 				 .state ()
@@ -2144,7 +2144,7 @@ TEST (confirmation_height, pruned_source)
 				 .balance (25)
 				 .link (key2.pub)
 				 .sign (key1.prv, key1.pub)
-				 .work (*pool.generate (send2->hash ()))
+				 .work (*pool.obj.generate (send2->hash ()))
 				 .build_shared ();
 	auto open2 = builder
 				 .state ()
@@ -2154,7 +2154,7 @@ TEST (confirmation_height, pruned_source)
 				 .balance (50)
 				 .link (send2->hash ())
 				 .sign (key2.prv, key2.pub)
-				 .work (*pool.generate (key2.pub))
+				 .work (*pool.obj.generate (key2.pub))
 				 .build_shared ();
 	{
 		auto transaction (store->tx_begin_write ());
