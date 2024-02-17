@@ -233,17 +233,21 @@ namespace test
 	};
 
 	// Concept to check if a type has start and stop methods
-	template<typename T>
-	concept start_stoppable = requires(T t) {
-		{ t.start() } -> std::same_as<void>;
-		{ t.stop() } -> std::same_as<void>;
+	template <typename T>
+	concept start_stoppable = requires (T t) {
+		{
+			t.start ()
+		} -> std::same_as<void>;
+		{
+			t.stop ()
+		} -> std::same_as<void>;
 	};
 
 	/**lk
 	 * A helper that calls `start` from constructor and `stop` from destructor
 	 */
 	template <class T>
-	requires start_stoppable<T>
+		requires start_stoppable<T>
 	class start_stop_guard
 	{
 	public:
@@ -266,14 +270,14 @@ namespace test
 	 * A container that constructs and stores an object and calls `start` from constructor and `stop` from destructor (RAII)
 	 */
 	template <typename T>
-	requires start_stoppable<T>
+		requires start_stoppable<T>
 	struct start_stop_container
 	{
 		template <typename... Args>
-		explicit start_stop_container(Args&&... args) :
-			obj(std::forward<Args>(args)...)
+		explicit start_stop_container (Args &&... args) :
+			obj (std::forward<Args> (args)...)
 		{
-			obj.start();
+			obj.start ();
 		}
 
 		~start_stop_container ()

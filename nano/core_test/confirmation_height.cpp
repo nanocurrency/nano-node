@@ -2040,7 +2040,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	nano::write_database_queue write_database_queue (false);
 	boost::latch initialized_latch{ 0 };
-	nano::test::start_stop_container<nano::work_pool> pool { nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_container<nano::work_pool> pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto send = builder
