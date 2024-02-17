@@ -18,7 +18,8 @@ TEST (processor_service, bad_send_signature)
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache, ledger.constants);
-	nano::test::start_stop_container<nano::work_pool> pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_guard pool_guard{ pool };
 	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::keypair key2;
@@ -29,7 +30,7 @@ TEST (processor_service, bad_send_signature)
 				.destination (nano::dev::genesis_key.pub)
 				.balance (50)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*pool.obj.generate (info1->head))
+				.work (*pool.generate (info1->head))
 				.build ();
 	send->signature.bytes[32] ^= 0x1;
 	ASSERT_EQ (nano::process_result::bad_signature, ledger.process (transaction, *send).code);
@@ -44,7 +45,8 @@ TEST (processor_service, bad_receive_signature)
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache, ledger.constants);
-	nano::test::start_stop_container<nano::work_pool> pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_guard pool_guard{ pool };
 	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::block_builder builder;
@@ -54,7 +56,7 @@ TEST (processor_service, bad_receive_signature)
 				.destination (nano::dev::genesis_key.pub)
 				.balance (50)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*pool.obj.generate (info1->head))
+				.work (*pool.generate (info1->head))
 				.build ();
 	nano::block_hash hash1 (send->hash ());
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
@@ -65,7 +67,7 @@ TEST (processor_service, bad_receive_signature)
 				   .previous (hash1)
 				   .source (hash1)
 				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				   .work (*pool.obj.generate (hash1))
+				   .work (*pool.generate (hash1))
 				   .build ();
 	receive->signature.bytes[32] ^= 0x1;
 	ASSERT_EQ (nano::process_result::bad_signature, ledger.process (transaction, *receive).code);

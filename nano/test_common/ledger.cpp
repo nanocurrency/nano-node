@@ -47,7 +47,8 @@ auto nano::test::context::ledger_empty () -> ledger_context
 auto nano::test::context::ledger_send_receive () -> ledger_context
 {
 	std::deque<std::shared_ptr<nano::block>> blocks;
-	nano::test::start_stop_container<nano::work_pool> pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_guard pool_guard{ pool };
 	nano::block_builder builder;
 	auto send = builder.state ()
 				.make_block ()
@@ -57,7 +58,7 @@ auto nano::test::context::ledger_send_receive () -> ledger_context
 				.balance (nano::dev::constants.genesis_amount - 1)
 				.link (nano::dev::genesis_key.pub)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*pool.obj.generate (nano::dev::genesis->hash ()))
+				.work (*pool.generate (nano::dev::genesis->hash ()))
 				.build_shared ();
 	blocks.push_back (send);
 	auto receive = builder.state ()
@@ -68,7 +69,7 @@ auto nano::test::context::ledger_send_receive () -> ledger_context
 				   .balance (nano::dev::constants.genesis_amount)
 				   .link (send->hash ())
 				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				   .work (*pool.obj.generate (send->hash ()))
+				   .work (*pool.generate (send->hash ()))
 				   .build_shared ();
 	blocks.push_back (receive);
 	return ledger_context{ std::move (blocks) };
@@ -77,7 +78,8 @@ auto nano::test::context::ledger_send_receive () -> ledger_context
 auto nano::test::context::ledger_send_receive_legacy () -> ledger_context
 {
 	std::deque<std::shared_ptr<nano::block>> blocks;
-	nano::test::start_stop_container<nano::work_pool> pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_guard pool_guard{ pool };
 	nano::block_builder builder;
 	auto send = builder.send ()
 				.make_block ()
@@ -85,7 +87,7 @@ auto nano::test::context::ledger_send_receive_legacy () -> ledger_context
 				.destination (nano::dev::genesis_key.pub)
 				.balance (nano::dev::constants.genesis_amount - 1)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*pool.obj.generate (nano::dev::genesis->hash ()))
+				.work (*pool.generate (nano::dev::genesis->hash ()))
 				.build_shared ();
 	blocks.push_back (send);
 	auto receive = builder.receive ()
@@ -93,7 +95,7 @@ auto nano::test::context::ledger_send_receive_legacy () -> ledger_context
 				   .previous (send->hash ())
 				   .source (send->hash ())
 				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				   .work (*pool.obj.generate (send->hash ()))
+				   .work (*pool.generate (send->hash ()))
 				   .build_shared ();
 	blocks.push_back (receive);
 	return ledger_context{ std::move (blocks) };

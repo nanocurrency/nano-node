@@ -68,8 +68,9 @@ TEST (node, block_store_path_failure)
 	nano::test::system system;
 	auto service (std::make_shared<boost::asio::io_context> ());
 	auto path (nano::unique_path ());
-	nano::test::start_stop_container<nano::work_pool> pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
-	auto node (std::make_shared<nano::node> (*service, system.get_available_port (), path, pool.obj));
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_guard pool_guard{ pool };
+	auto node (std::make_shared<nano::node> (*service, system.get_available_port (), path, pool));
 	ASSERT_TRUE (node->wallets.items.empty ());
 	node->stop ();
 }
@@ -99,9 +100,10 @@ TEST (node, password_fanout)
 	auto path (nano::unique_path ());
 	nano::node_config config;
 	config.peering_port = system.get_available_port ();
-	nano::test::start_stop_container<nano::work_pool> pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_guard pool_guard{ pool };
 	config.password_fanout = 10;
-	nano::node node (io_ctx, path, config, pool.obj);
+	nano::node node (io_ctx, path, config, pool);
 	auto wallet (node.wallets.create (100));
 	ASSERT_EQ (10, wallet->store.password.values.size ());
 	node.stop ();
