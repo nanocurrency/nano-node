@@ -24,30 +24,10 @@ namespace nano
 class node;
 class active_transactions;
 
-/**
- * A representative picked up during repcrawl.
- */
-class representative
+struct representative
 {
-public:
-	representative () = default;
-	representative (nano::account account_a, std::shared_ptr<nano::transport::channel> const & channel_a) :
-		account (account_a), channel (channel_a)
-	{
-		debug_assert (channel != nullptr);
-	}
-	std::reference_wrapper<nano::transport::channel const> channel_ref () const
-	{
-		return *channel;
-	};
-	bool operator== (nano::representative const & other_a) const
-	{
-		return account == other_a.account;
-	}
-	nano::account account{};
+	nano::account account;
 	std::shared_ptr<nano::transport::channel> channel;
-	std::chrono::steady_clock::time_point last_request{ std::chrono::steady_clock::time_point () };
-	std::chrono::steady_clock::time_point last_response{ std::chrono::steady_clock::time_point () };
 };
 
 /**
@@ -59,7 +39,7 @@ class rep_crawler final
 	friend std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 
 public:
-	explicit rep_crawler (nano::node & node_a);
+	explicit rep_crawler (nano::node &);
 	~rep_crawler ();
 
 	void start ();
@@ -97,9 +77,6 @@ public:
 	/** Request a list of the top \p count_a known principal representatives in descending order of weight, optionally with a minimum version \p opt_version_min_a */
 	std::vector<representative> principal_representatives (std::size_t count_a = std::numeric_limits<std::size_t>::max (), boost::optional<decltype (nano::network_constants::protocol_version)> const & opt_version_min_a = boost::none);
 
-	/** Request a list of the top \p count_a known representative endpoints. */
-	std::vector<std::shared_ptr<nano::transport::channel>> representative_endpoints (std::size_t count_a);
-
 	/** Total number of representatives */
 	std::size_t representative_count ();
 
@@ -123,18 +100,48 @@ private:
 	std::optional<std::pair<nano::block_hash, nano::block_hash>> prepare_query_target ();
 
 private:
+	/**
+	 * A representative picked up during repcrawl.
+	 */
+	struct representative_entry
+	{
+		representative_entry (nano::account account_a, std::shared_ptr<nano::transport::channel> const & channel_a) :
+			account{ account_a },
+			channel{ channel_a }
+		{
+			debug_assert (channel != nullptr);
+		}
+
+		nano::account const account;
+		std::shared_ptr<nano::transport::channel> channel;
+
+		std::chrono::steady_clock::time_point last_request{};
+		std::chrono::steady_clock::time_point last_response{};
+
+		nano::account get_account () const
+		{
+			return account;
+		}
+
+		std::reference_wrapper<nano::transport::channel const> channel_ref () const
+		{
+			return *channel;
+		};
+	};
+
 	// clang-format off
 	class tag_account {};
 	class tag_channel_ref {};
 	class tag_sequenced {};
 
-	using ordered_reps = boost::multi_index_container<representative,
+	using ordered_reps = boost::multi_index_container<representative_entry,
 	mi::indexed_by<
 		mi::hashed_unique<mi::tag<tag_account>,
-			mi::member<representative, nano::account, &representative::account>>,
+			mi::const_mem_fun<representative_entry, nano::account, &representative_entry::get_account>>,
 		mi::sequenced<mi::tag<tag_sequenced>>,
 		mi::hashed_non_unique<mi::tag<tag_channel_ref>,
-			mi::const_mem_fun<representative, std::reference_wrapper<nano::transport::channel const>, &representative::channel_ref>>>>;
+			mi::const_mem_fun<representative_entry, std::reference_wrapper<nano::transport::channel const>, &representative_entry::channel_ref>>
+	>>;
 	// clang-format on
 
 	ordered_reps reps;
