@@ -377,8 +377,6 @@ public:
 			node.logger.try_log (boost::str (boost::format ("Received keepalive message from %1%") % channel->to_string ()));
 		}
 
-		node.network.merge_peers (message_a.peers);
-
 		// Check for special node port data
 		auto peer0 (message_a.peers[0]);
 		if (peer0.address () == boost::asio::ip::address_v6{} && peer0.port () != 0)

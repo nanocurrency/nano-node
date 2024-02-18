@@ -464,6 +464,7 @@ nano::transport::tcp_server::realtime_message_visitor::realtime_message_visitor 
 void nano::transport::tcp_server::realtime_message_visitor::keepalive (const nano::keepalive & message)
 {
 	process = true;
+	server.set_last_keepalive (message);
 }
 
 void nano::transport::tcp_server::realtime_message_visitor::publish (const nano::publish & message)
@@ -640,6 +641,15 @@ void nano::transport::tcp_server::timeout ()
 			node->tcp_listener.connections.erase (this);
 		}
 		socket->close ();
+	}
+}
+
+void nano::transport::tcp_server::set_last_keepalive (nano::keepalive const & message)
+{
+	std::lock_guard<nano::mutex> lock{ mutex };
+	if (!last_keepalive)
+	{
+		last_keepalive = message;
 	}
 }
 
