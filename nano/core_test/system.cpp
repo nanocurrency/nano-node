@@ -58,7 +58,7 @@ TEST (system, DISABLED_generate_send_existing)
 						  .account (stake_preserver.pub)
 						  .sign (stake_preserver.prv, stake_preserver.pub)
 						  .work (0)
-						  .build_shared ();
+						  .build ();
 		node1.work_generate_blocking (*open_block);
 		ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, *open_block));
 	}
@@ -109,7 +109,7 @@ TEST (system, DISABLED_generate_send_new)
 						  .account (stake_preserver.pub)
 						  .sign (stake_preserver.prv, stake_preserver.pub)
 						  .work (0)
-						  .build_shared ();
+						  .build ();
 		node1.work_generate_blocking (*open_block);
 		ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, *open_block));
 	}

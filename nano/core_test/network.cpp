@@ -187,7 +187,7 @@ TEST (network, send_discarded_publish)
 				 .balance (2)
 				 .sign (nano::keypair ().prv, 4)
 				 .work (*system.work.generate (nano::root (1)))
-				 .build_shared ();
+				 .build ();
 	{
 		auto transaction (node1.store.tx_begin_read ());
 		node1.network.flood_block (block);
@@ -213,7 +213,7 @@ TEST (network, send_invalid_publish)
 				 .balance (20)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::root (1)))
-				 .build_shared ();
+				 .build ();
 	{
 		auto transaction (node1.store.tx_begin_read ());
 		node1.network.flood_block (block);
@@ -299,7 +299,7 @@ TEST (network, send_insufficient_work)
 				  .balance (20)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (0)
-				  .build_shared ();
+				  .build ();
 	nano::publish publish1{ nano::dev::network_params.network, block1 };
 	auto tcp_channel (node1.network.tcp_channels.find_node_id (node2.get_node_id ()));
 	ASSERT_NE (nullptr, tcp_channel);
@@ -315,7 +315,7 @@ TEST (network, send_insufficient_work)
 				  .balance (20)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (system.work_generate_limited (block1->hash (), node1.network_params.work.epoch_2_receive, node1.network_params.work.epoch_1 - 1))
-				  .build_shared ();
+				  .build ();
 	nano::publish publish2{ nano::dev::network_params.network, block2 };
 	tcp_channel->send (publish2, [] (boost::system::error_code const & ec, size_t size) {});
 	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work) != 1);
@@ -328,7 +328,7 @@ TEST (network, send_insufficient_work)
 				  .balance (20)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (*system.work.generate (block2->hash (), node1.network_params.work.epoch_2))
-				  .build_shared ();
+				  .build ();
 	nano::publish publish3{ nano::dev::network_params.network, block3 };
 	tcp_channel->send (publish3, [] (boost::system::error_code const & ec, size_t size) {});
 	ASSERT_EQ (0, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in));
@@ -344,7 +344,7 @@ TEST (network, send_insufficient_work)
 				  .link (1)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (system.work_generate_limited (block1->hash (), node1.network_params.work.epoch_2_receive, node1.network_params.work.epoch_1 - 1))
-				  .build_shared ();
+				  .build ();
 	nano::publish publish4{ nano::dev::network_params.network, block4 };
 	tcp_channel->send (publish4, [] (boost::system::error_code const & ec, size_t size) {});
 	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) != 0);
@@ -364,7 +364,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
 				  .balance (0)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (0)
-				  .build_shared ();
+				  .build ();
 	node1.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::block_status::progress, node1.process (*block1));
 	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
@@ -387,7 +387,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 				  .balance (0)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (0)
-				  .build_shared ();
+				  .build ();
 	node1.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::block_status::progress, node1.process (*block1));
 	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
@@ -417,7 +417,7 @@ TEST (receivable_processor, send_with_receive)
 				  .balance (amount - node1.config.receive_minimum.number ())
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (*system.work.generate (latest1))
-				  .build_shared ();
+				  .build ();
 	ASSERT_EQ (amount, node1.balance (nano::dev::genesis_key.pub));
 	ASSERT_EQ (0, node1.balance (key2.pub));
 	ASSERT_EQ (amount, node2.balance (nano::dev::genesis_key.pub));

@@ -907,7 +907,7 @@ TEST (votes, check_signature)
 				 .balance (nano::dev::constants.genesis_amount - 100)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*send1);
 	{
 		auto transaction (node1.store.tx_begin_write ());
@@ -938,7 +938,7 @@ TEST (votes, add_one)
 				 .balance (nano::dev::constants.genesis_amount - 100)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*send1);
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, *send1));
@@ -1039,7 +1039,7 @@ TEST (votes, add_old)
 				 .balance (0)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*send1);
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, *send1));
@@ -1057,7 +1057,7 @@ TEST (votes, add_old)
 				 .balance (0)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*send2);
 	auto vote2 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * 1, 0, std::vector<nano::block_hash>{ send2->hash () });
 	auto vote_info = election1->get_last_vote (nano::dev::genesis_key.pub);
@@ -1089,7 +1089,7 @@ TEST (votes, DISABLED_add_old_different_account)
 				 .balance (0)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*send1);
 	auto send2 = builder
 				 .send ()
@@ -1098,7 +1098,7 @@ TEST (votes, DISABLED_add_old_different_account)
 				 .balance (0)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*send2);
 	ASSERT_EQ (nano::block_status::progress, node1.process (*send1));
 	ASSERT_EQ (nano::block_status::progress, node1.process (*send2));
@@ -1144,7 +1144,7 @@ TEST (votes, add_cooldown)
 				 .balance (0)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*send1);
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, *send1));
@@ -1162,7 +1162,7 @@ TEST (votes, add_cooldown)
 				 .balance (0)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*send2);
 	auto vote2 = nano::test::make_vote (nano::dev::genesis_key, { send2 }, nano::vote::timestamp_min * 2, 0);
 	node1.vote_processor.vote_blocking (vote2, channel);
@@ -1277,7 +1277,7 @@ TEST (ledger, fail_epoch_bad_signature)
 				 .link (ledger.epoch_link (nano::epoch::epoch_1))
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*pool.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
+				 .build ();
 	block->signature.bytes[0] ^= 1;
 	auto result1 = ledger.process (transaction, *block);
 	ASSERT_EQ (nano::block_status::bad_signature, result1); // Fails epoch signature
@@ -4043,7 +4043,7 @@ TEST (ledger, epoch_open_pending)
 					  .link (node1.ledger.epoch_link (nano::epoch::epoch_1))
 					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					  .work (*pool.generate (key1.pub))
-					  .build_shared ();
+					  .build ();
 	auto process_result = node1.ledger.process (node1.store.tx_begin_write (), *epoch_open);
 	ASSERT_EQ (nano::block_status::gap_epoch_open_pending, process_result);
 	node1.block_processor.add (epoch_open);
@@ -4063,7 +4063,7 @@ TEST (ledger, epoch_open_pending)
 				 .link (key1.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*pool.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
+				 .build ();
 	node1.block_processor.add (send1);
 	ASSERT_TIMELY (10s, node1.ledger.block_or_pruned_exists (epoch_open->hash ()));
 }
@@ -4089,7 +4089,7 @@ TEST (ledger, block_hash_account_conflict)
 				 .link (key1.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*pool.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
+				 .build ();
 
 	auto receive1 = builder.state ()
 					.account (key1.pub)
@@ -4099,7 +4099,7 @@ TEST (ledger, block_hash_account_conflict)
 					.link (send1->hash ())
 					.sign (key1.prv, key1.pub)
 					.work (*pool.generate (key1.pub))
-					.build_shared ();
+					.build ();
 
 	/*
 	 * Note that the below link is a block hash when this is intended
@@ -4115,7 +4115,7 @@ TEST (ledger, block_hash_account_conflict)
 				 .link (receive1->hash ())
 				 .sign (key1.prv, key1.pub)
 				 .work (*pool.generate (receive1->hash ()))
-				 .build_shared ();
+				 .build ();
 
 	/*
 	 * Generate an epoch open for the account with the same value as the block hash
@@ -4129,7 +4129,7 @@ TEST (ledger, block_hash_account_conflict)
 					   .link (node1.ledger.epoch_link (nano::epoch::epoch_1))
 					   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					   .work (*pool.generate (receive1->hash ()))
-					   .build_shared ();
+					   .build ();
 
 	node1.work_generate_blocking (*send1);
 	node1.work_generate_blocking (*receive1);
@@ -4315,7 +4315,7 @@ TEST (ledger, unchecked_epoch)
 				 .link (destination.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*send1);
 	auto open1 = builder
 				 .state ()
@@ -4326,7 +4326,7 @@ TEST (ledger, unchecked_epoch)
 				 .link (send1->hash ())
 				 .sign (destination.prv, destination.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*open1);
 	auto epoch1 = builder
 				  .state ()
@@ -4337,7 +4337,7 @@ TEST (ledger, unchecked_epoch)
 				  .link (node1.ledger.epoch_link (nano::epoch::epoch_1))
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (0)
-				  .build_shared ();
+				  .build ();
 	node1.work_generate_blocking (*epoch1);
 	node1.block_processor.add (epoch1);
 	{
@@ -4375,7 +4375,7 @@ TEST (ledger, unchecked_epoch_invalid)
 				 .link (destination.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*send1);
 	auto open1 = builder
 				 .state ()
@@ -4386,7 +4386,7 @@ TEST (ledger, unchecked_epoch_invalid)
 				 .link (send1->hash ())
 				 .sign (destination.prv, destination.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*open1);
 	// Epoch block with account own signature
 	auto epoch1 = builder
@@ -4398,7 +4398,7 @@ TEST (ledger, unchecked_epoch_invalid)
 				  .link (node1.ledger.epoch_link (nano::epoch::epoch_1))
 				  .sign (destination.prv, destination.pub)
 				  .work (0)
-				  .build_shared ();
+				  .build ();
 	node1.work_generate_blocking (*epoch1);
 	// Pseudo epoch block (send subtype, destination - epoch link)
 	auto epoch2 = builder
@@ -4410,7 +4410,7 @@ TEST (ledger, unchecked_epoch_invalid)
 				  .link (node1.ledger.epoch_link (nano::epoch::epoch_1))
 				  .sign (destination.prv, destination.pub)
 				  .work (0)
-				  .build_shared ();
+				  .build ();
 	node1.work_generate_blocking (*epoch2);
 	node1.block_processor.add (epoch1);
 	node1.block_processor.add (epoch2);
@@ -4457,7 +4457,7 @@ TEST (ledger, unchecked_open)
 				 .link (destination.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*send1);
 	auto open1 = builder
 				 .open ()
@@ -4466,7 +4466,7 @@ TEST (ledger, unchecked_open)
 				 .account (destination.pub)
 				 .sign (destination.prv, destination.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*open1);
 	// Invalid signature for open block
 	auto open2 = builder
@@ -4476,7 +4476,7 @@ TEST (ledger, unchecked_open)
 				 .account (destination.pub)
 				 .sign (destination.prv, destination.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*open2);
 	open2->signature.bytes[0] ^= 1;
 	node1.block_processor.add (open2); // Insert open2 in to the queue before open1
@@ -4509,7 +4509,7 @@ TEST (ledger, unchecked_receive)
 				 .link (destination.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*send1);
 	auto send2 = builder
 				 .state ()
@@ -4520,7 +4520,7 @@ TEST (ledger, unchecked_receive)
 				 .link (destination.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*send2);
 	auto open1 = builder
 				 .open ()
@@ -4529,7 +4529,7 @@ TEST (ledger, unchecked_receive)
 				 .account (destination.pub)
 				 .sign (destination.prv, destination.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*open1);
 	auto receive1 = builder
 					.receive ()
@@ -4537,7 +4537,7 @@ TEST (ledger, unchecked_receive)
 					.source (send2->hash ())
 					.sign (destination.prv, destination.pub)
 					.work (0)
-					.build_shared ();
+					.build ();
 	node1.work_generate_blocking (*receive1);
 	node1.block_processor.add (send1);
 	node1.block_processor.add (receive1);
@@ -4745,7 +4745,7 @@ TEST (ledger, dependents_confirmed)
 				 .link (key1.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*pool.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
+				 .build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *send1));
 	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *send1));
 	auto send2 = builder.state ()
@@ -4756,7 +4756,7 @@ TEST (ledger, dependents_confirmed)
 				 .link (key1.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*pool.generate (send1->hash ()))
-				 .build_shared ();
+				 .build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *send2));
 	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *send2));
 	auto receive1 = builder.state ()
@@ -4767,7 +4767,7 @@ TEST (ledger, dependents_confirmed)
 					.link (send1->hash ())
 					.sign (key1.prv, key1.pub)
 					.work (*pool.generate (key1.pub))
-					.build_shared ();
+					.build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *receive1));
 	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *receive1));
 	nano::confirmation_height_info height;
@@ -4783,7 +4783,7 @@ TEST (ledger, dependents_confirmed)
 					.link (send2->hash ())
 					.sign (key1.prv, key1.pub)
 					.work (*pool.generate (receive1->hash ()))
-					.build_shared ();
+					.build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *receive2));
 	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *receive2));
 	ASSERT_TRUE (ledger.store.confirmation_height.get (transaction, key1.pub, height));
@@ -4817,7 +4817,7 @@ TEST (ledger, dependents_confirmed_pruning)
 				 .link (key1.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*pool.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
+				 .build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *send1));
 	auto send2 = builder.state ()
 				 .account (nano::dev::genesis->account ())
@@ -4827,7 +4827,7 @@ TEST (ledger, dependents_confirmed_pruning)
 				 .link (key1.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*pool.generate (send1->hash ()))
-				 .build_shared ();
+				 .build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *send2));
 	nano::confirmation_height_info height;
 	ASSERT_FALSE (ledger.store.confirmation_height.get (transaction, nano::dev::genesis->account (), height));
@@ -4843,7 +4843,7 @@ TEST (ledger, dependents_confirmed_pruning)
 					.link (send1->hash ())
 					.sign (key1.prv, key1.pub)
 					.work (*pool.generate (key1.pub))
-					.build_shared ();
+					.build ();
 	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *receive1));
 }
 
@@ -5601,7 +5601,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 										.balance (nano::dev::constants.genesis_amount - 100)
 										.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 										.work (*pool.generate (nano::dev::genesis->hash ()))
-										.build_shared ();
+										.build ();
 
 	nano::endpoint_key endpoint_key (address.to_bytes (), port);
 	auto version = nano::store::component::version_current;

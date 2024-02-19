@@ -23,7 +23,7 @@ nano::block_list_t nano::test::setup_chain (nano::test::system & system, nano::n
 					.link (throwaway.pub)
 					.sign (target.prv, target.pub)
 					.work (*system.work.generate (latest))
-					.build_shared ();
+					.build ();
 
 		latest = send->hash ();
 
@@ -63,7 +63,7 @@ std::vector<std::pair<nano::account, nano::block_list_t>> nano::test::setup_chai
 					.link (key.pub)
 					.sign (source.prv, source.pub)
 					.work (*system.work.generate (latest))
-					.build_shared ();
+					.build ();
 
 		auto open = builder
 					.state ()
@@ -74,7 +74,7 @@ std::vector<std::pair<nano::account, nano::block_list_t>> nano::test::setup_chai
 					.link (send->hash ())
 					.sign (key.prv, key.pub)
 					.work (*system.work.generate (key.pub))
-					.build_shared ();
+					.build ();
 
 		latest = send->hash ();
 
@@ -120,7 +120,7 @@ nano::block_list_t nano::test::setup_independent_blocks (nano::test::system & sy
 					.link (key.pub)
 					.sign (source.prv, source.pub)
 					.work (*system.work.generate (latest))
-					.build_shared ();
+					.build ();
 
 		latest = send->hash ();
 
@@ -133,7 +133,7 @@ nano::block_list_t nano::test::setup_independent_blocks (nano::test::system & sy
 					.link (send->hash ())
 					.sign (key.prv, key.pub)
 					.work (*system.work.generate (key.pub))
-					.build_shared ();
+					.build ();
 
 		EXPECT_TRUE (nano::test::process (node, { send, open }));
 		EXPECT_TIMELY (5s, nano::test::exists (node, { send, open })); // Ensure blocks are in the ledger
@@ -162,7 +162,7 @@ std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::block>> nano::test
 				.link (dest.pub)
 				.sign (source.prv, source.pub)
 				.work (*system.work.generate (latest))
-				.build_shared ();
+				.build ();
 
 	auto open = nano::block_builder ()
 				.state ()
@@ -173,7 +173,7 @@ std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::block>> nano::test
 				.link (send->hash ())
 				.sign (dest.prv, dest.pub)
 				.work (*system.work.generate (dest.pub))
-				.build_shared ();
+				.build ();
 
 	EXPECT_TRUE (nano::test::process (node, { send, open }));
 	EXPECT_TRUE (nano::test::start_elections (system, node, { send, open }, force_confirm));

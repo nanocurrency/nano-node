@@ -20,7 +20,7 @@ std::shared_ptr<nano::block> random_block ()
 				 .balance (2)
 				 .sign (nano::keypair ().prv, 4)
 				 .work (5)
-				 .build_shared ();
+				 .build ();
 	return block;
 }
 }

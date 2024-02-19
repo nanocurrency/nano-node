@@ -1673,7 +1673,7 @@ TEST (rocksdb_block_store, tombstone_count)
 				 .balance (2)
 				 .sign (nano::keypair ().prv, 4)
 				 .work (5)
-				 .build_shared ();
+				 .build ();
 	// Enqueues a block to be saved in the database
 	nano::account account{ 1 };
 	store->account.put (store->tx_begin_write (), account, nano::account_info{});

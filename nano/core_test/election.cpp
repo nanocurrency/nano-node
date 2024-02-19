@@ -47,7 +47,7 @@ TEST (election, quorum_minimum_flip_success)
 				 .link (key1.pub)
 				 .work (*system.work.generate (latest_hash))
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .build_shared ();
+				 .build ();
 
 	nano::keypair key2{};
 	auto send2 = builder.make_block ()
@@ -58,7 +58,7 @@ TEST (election, quorum_minimum_flip_success)
 				 .link (key2.pub)
 				 .work (*system.work.generate (latest_hash))
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .build_shared ();
+				 .build ();
 
 	node1.process_active (send1);
 	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()) != nullptr)
@@ -94,7 +94,7 @@ TEST (election, quorum_minimum_flip_fail)
 				 .link (nano::keypair{}.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .build_shared ();
+				 .build ();
 
 	auto send2 = builder.make_block ()
 				 .previous (nano::dev::genesis->hash ())
@@ -104,7 +104,7 @@ TEST (election, quorum_minimum_flip_fail)
 				 .link (nano::keypair{}.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .build_shared ();
+				 .build ();
 
 	// process send1 and wait until its election appears
 	node.process_active (send1);
@@ -145,7 +145,7 @@ TEST (election, quorum_minimum_confirm_success)
 				 .link (key1.pub)
 				 .work (0)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*send1);
 	node1.process_active (send1);
 	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
@@ -177,7 +177,7 @@ TEST (election, quorum_minimum_confirm_fail)
 				 .link (nano::keypair{}.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .build_shared ();
+				 .build ();
 
 	node1.process_active (send1);
 	auto election = nano::test::start_election (system, node1, send1->hash ());
@@ -219,11 +219,11 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 					   .balance (amount)
 					   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					   .work (*system.work.generate (latest))
-					   .build_shared ();
+					   .build ();
 	node1.process_active (send1);
 	ASSERT_TIMELY (5s, node1.block (send1->hash ()) != nullptr);
 
-	auto const open1 = nano::open_block_builder{}.make_block ().account (key1.pub).source (send1->hash ()).representative (key1.pub).sign (key1.prv, key1.pub).work (*system.work.generate (key1.pub)).build_shared ();
+	auto const open1 = nano::open_block_builder{}.make_block ().account (key1.pub).source (send1->hash ()).representative (key1.pub).sign (key1.prv, key1.pub).work (*system.work.generate (key1.pub)).build ();
 	ASSERT_EQ (nano::block_status::progress, node1.process (*open1));
 
 	nano::keypair key2;
@@ -233,7 +233,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 					   .balance (3)
 					   .sign (key1.prv, key1.pub)
 					   .work (*system.work.generate (open1->hash ()))
-					   .build_shared ();
+					   .build ();
 	ASSERT_EQ (nano::block_status::progress, node1.process (*send2));
 	ASSERT_TIMELY_EQ (5s, node1.ledger.cache.block_count, 4);
 
@@ -283,7 +283,7 @@ TEST (election, continuous_voting)
 				 .balance (node1.balance (nano::dev::genesis_key.pub) / 10 * 1)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
+				 .build ();
 
 	ASSERT_TRUE (nano::test::process (node1, { send1 }));
 	ASSERT_TRUE (nano::test::start_elections (system, node1, { send1 }, true));
@@ -298,7 +298,7 @@ TEST (election, continuous_voting)
 				 .balance (node1.balance (nano::dev::genesis_key.pub) - 1)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send1->hash ()))
-				 .build_shared ();
+				 .build ();
 
 	ASSERT_TRUE (nano::test::process (node1, { send2 }));
 	ASSERT_TIMELY (5s, node1.active.active (*send2));

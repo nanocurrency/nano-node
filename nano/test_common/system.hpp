@@ -38,7 +38,7 @@ namespace test
 		void generate_receive (nano::node &);
 		void generate_send_new (nano::node &, std::vector<nano::account> &);
 		void generate_send_existing (nano::node &, std::vector<nano::account> &);
-		std::unique_ptr<nano::state_block> upgrade_genesis_epoch (nano::node &, nano::epoch const);
+		std::shared_ptr<nano::state_block> upgrade_genesis_epoch (nano::node &, nano::epoch const);
 		std::shared_ptr<nano::wallet> wallet (size_t);
 		nano::account account (store::transaction const &, size_t);
 		/** Generate work with difficulty between \p min_difficulty_a (inclusive) and \p max_difficulty_a (exclusive) */
@@ -85,7 +85,7 @@ namespace test
 		std::vector<std::shared_ptr<nano::block>> initialization_blocks;
 	};
 
-	std::unique_ptr<nano::state_block> upgrade_epoch (nano::work_pool &, nano::ledger &, nano::epoch);
+	std::shared_ptr<nano::state_block> upgrade_epoch (nano::work_pool &, nano::ledger &, nano::epoch);
 	void cleanup_dev_directories_on_exit ();
 }
 }

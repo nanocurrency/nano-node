@@ -170,7 +170,7 @@ TEST (bootstrap_ascending, account_base)
 				 .balance (nano::dev::constants.genesis_amount - 1)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
+				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node0.process (*send1));
 	auto & node1 = *system.add_node (flags);
 	ASSERT_TIMELY (5s, node1.block (send1->hash ()) != nullptr);
@@ -193,7 +193,7 @@ TEST (bootstrap_ascending, account_inductive)
 				 .balance (nano::dev::constants.genesis_amount - 1)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
+				 .build ();
 	auto send2 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (send1->hash ())
@@ -202,7 +202,7 @@ TEST (bootstrap_ascending, account_inductive)
 				 .balance (nano::dev::constants.genesis_amount - 2)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send1->hash ()))
-				 .build_shared ();
+				 .build ();
 	//	std::cerr << "Genesis: " << nano::dev::genesis->hash ().to_string () << std::endl;
 	//	std::cerr << "Send1: " << send1->hash ().to_string () << std::endl;
 	//	std::cerr << "Send2: " << send2->hash ().to_string () << std::endl;
@@ -231,7 +231,7 @@ TEST (bootstrap_ascending, trace_base)
 				 .balance (nano::dev::constants.genesis_amount - 1)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
+				 .build ();
 	auto receive1 = builder.make_block ()
 					.account (key.pub)
 					.previous (0)
@@ -240,7 +240,7 @@ TEST (bootstrap_ascending, trace_base)
 					.balance (1)
 					.sign (key.prv, key.pub)
 					.work (*system.work.generate (key.pub))
-					.build_shared ();
+					.build ();
 	//	std::cerr << "Genesis key: " << nano::dev::genesis_key.pub.to_account () << std::endl;
 	//	std::cerr << "Key: " << key.pub.to_account () << std::endl;
 	//	std::cerr << "Genesis: " << nano::dev::genesis->hash ().to_string () << std::endl;

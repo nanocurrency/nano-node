@@ -50,7 +50,7 @@ TEST (confirmation_height, single)
 					 .link (key1.pub)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (*system.work.generate (latest1))
-					 .build_shared ();
+					 .build ();
 
 		// Check confirmation heights before, should be uninitialized (1 for genesis).
 		nano::confirmation_height_info confirmation_height_info;
@@ -238,7 +238,7 @@ TEST (confirmation_height, multiple_accounts)
 						.source (send6->hash ())
 						.sign (key3.prv, key3.pub)
 						.work (*system.work.generate (open3->hash ()))
-						.build_shared ();
+						.build ();
 		node->process_active (receive3);
 		auto election = nano::test::start_election (system, *node, receive3->hash ());
 		ASSERT_NE (nullptr, election);
@@ -326,7 +326,7 @@ TEST (confirmation_height, gap_bootstrap)
 					 .link (destination.pub)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (0)
-					 .build_shared ();
+					 .build ();
 		node1.work_generate_blocking (*send1);
 		auto send2 = builder
 					 .state ()
@@ -337,7 +337,7 @@ TEST (confirmation_height, gap_bootstrap)
 					 .link (destination.pub)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (0)
-					 .build_shared ();
+					 .build ();
 		node1.work_generate_blocking (*send2);
 		auto send3 = builder
 					 .state ()
@@ -348,7 +348,7 @@ TEST (confirmation_height, gap_bootstrap)
 					 .link (destination.pub)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (0)
-					 .build_shared ();
+					 .build ();
 		node1.work_generate_blocking (*send3);
 		auto open1 = builder
 					 .open ()
@@ -357,7 +357,7 @@ TEST (confirmation_height, gap_bootstrap)
 					 .account (destination.pub)
 					 .sign (destination.prv, destination.pub)
 					 .work (0)
-					 .build_shared ();
+					 .build ();
 		node1.work_generate_blocking (*open1);
 
 		// Receive
@@ -367,7 +367,7 @@ TEST (confirmation_height, gap_bootstrap)
 						.source (send2->hash ())
 						.sign (destination.prv, destination.pub)
 						.work (0)
-						.build_shared ();
+						.build ();
 		node1.work_generate_blocking (*receive1);
 		auto receive2 = builder
 						.receive ()
@@ -375,7 +375,7 @@ TEST (confirmation_height, gap_bootstrap)
 						.source (send3->hash ())
 						.sign (destination.prv, destination.pub)
 						.work (0)
-						.build_shared ();
+						.build ();
 		node1.work_generate_blocking (*receive2);
 
 		node1.block_processor.add (send1);
@@ -459,7 +459,7 @@ TEST (confirmation_height, gap_live)
 					 .link (destination.pub)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (0)
-					 .build_shared ();
+					 .build ();
 		node->work_generate_blocking (*send1);
 		auto send2 = builder
 					 .state ()
@@ -470,7 +470,7 @@ TEST (confirmation_height, gap_live)
 					 .link (destination.pub)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (0)
-					 .build_shared ();
+					 .build ();
 		node->work_generate_blocking (*send2);
 		auto send3 = builder
 					 .state ()
@@ -481,7 +481,7 @@ TEST (confirmation_height, gap_live)
 					 .link (destination.pub)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (0)
-					 .build_shared ();
+					 .build ();
 		node->work_generate_blocking (*send3);
 
 		auto open1 = builder
@@ -491,7 +491,7 @@ TEST (confirmation_height, gap_live)
 					 .account (destination.pub)
 					 .sign (destination.prv, destination.pub)
 					 .work (0)
-					 .build_shared ();
+					 .build ();
 		node->work_generate_blocking (*open1);
 		auto receive1 = builder
 						.receive ()
@@ -499,7 +499,7 @@ TEST (confirmation_height, gap_live)
 						.source (send2->hash ())
 						.sign (destination.prv, destination.pub)
 						.work (0)
-						.build_shared ();
+						.build ();
 		node->work_generate_blocking (*receive1);
 		auto receive2 = builder
 						.receive ()
@@ -507,7 +507,7 @@ TEST (confirmation_height, gap_live)
 						.source (send3->hash ())
 						.sign (destination.prv, destination.pub)
 						.work (0)
-						.build_shared ();
+						.build ();
 		node->work_generate_blocking (*receive2);
 
 		node->block_processor.add (send1);
@@ -656,7 +656,7 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 						.source (send5->hash ())
 						.sign (key1.prv, key1.pub)
 						.work (*system.work.generate (send4->hash ()))
-						.build_shared ();
+						.build ();
 		nano::keypair key2;
 		auto send6 = builder
 					 .send ()
@@ -749,7 +749,7 @@ TEST (confirmation_height, send_receive_self)
 						.source (send1->hash ())
 						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 						.work (*system.work.generate (send1->hash ()))
-						.build_shared ();
+						.build ();
 		auto send2 = builder
 					 .send ()
 					 .previous (receive1->hash ())
@@ -779,7 +779,7 @@ TEST (confirmation_height, send_receive_self)
 						.source (send3->hash ())
 						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 						.work (*system.work.generate (receive2->hash ()))
-						.build_shared ();
+						.build ();
 
 		// Send to another account to prevent automatic receiving on the genesis account
 		nano::keypair key1;
@@ -988,7 +988,7 @@ TEST (confirmation_height, all_block_types)
 						   .link (key1.pub)
 						   .sign (key2.prv, key2.pub)
 						   .work (*system.work.generate (state_receive2->hash ()))
-						   .build_shared ();
+						   .build ();
 		auto state_send3 = builder
 						   .state ()
 						   .account (key2.pub)
@@ -1116,7 +1116,7 @@ TEST (confirmation_height, conflict_rollback_cemented)
 					  .balance (nano::dev::constants.genesis_amount - 100)
 					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					  .work (*system.work.generate (genesis_hash))
-					  .build_shared ();
+					  .build ();
 		ASSERT_EQ (nano::block_status::progress, node1->process (*fork1a));
 		ASSERT_TRUE (nano::test::start_elections (system, *node1, { fork1a }, true));
 		ASSERT_TIMELY (5s, nano::test::confirmed (*node1, { fork1a }));
@@ -1131,7 +1131,7 @@ TEST (confirmation_height, conflict_rollback_cemented)
 					  .balance (nano::dev::constants.genesis_amount - 100)
 					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					  .work (*system.work.generate (genesis_hash))
-					  .build_shared ();
+					  .build ();
 
 		node1->block_processor.force (fork1b);
 		// node2 already has send2 forced confirmed whilst node1 should have confirmed send1 and therefore we have a cemented fork on node2
@@ -1175,7 +1175,7 @@ TEST (confirmation_heightDeathTest, rollback_added_block)
 					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*pool.generate (nano::dev::genesis->hash ()))
-					.build_shared ();
+					.build ();
 		{
 			auto transaction (store->tx_begin_write ());
 			store->initialize (transaction, ledger.cache, ledger.constants);
@@ -1215,7 +1215,7 @@ TEST (confirmation_height, observers)
 					 .balance (amount - node1->config.receive_minimum.number ())
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (*system.work.generate (latest1))
-					 .build_shared ();
+					 .build ();
 
 		add_callback_stats (*node1);
 
@@ -1265,7 +1265,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*pool.generate (nano::dev::genesis->hash ()))
-					.build_shared ();
+					.build ();
 		{
 			auto transaction (store->tx_begin_write ());
 			store->initialize (transaction, ledger.cache, ledger.constants);
@@ -1342,7 +1342,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*pool.generate (nano::dev::genesis->hash ()))
-					.build_shared ();
+					.build ();
 		auto open = builder
 					.state ()
 					.account (key1.pub)
@@ -1352,7 +1352,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 					.link (send->hash ())
 					.sign (key1.prv, key1.pub)
 					.work (*pool.generate (key1.pub))
-					.build_shared ();
+					.build ();
 		{
 			auto transaction (store->tx_begin_write ());
 			store->initialize (transaction, ledger.cache, ledger.constants);
@@ -1430,7 +1430,7 @@ TEST (confirmation_height, pending_observer_callbacks)
 					 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (*system.work.generate (send->hash ()))
-					 .build_shared ();
+					 .build ();
 
 		{
 			auto transaction = node->store.tx_begin_write ();
@@ -1479,7 +1479,7 @@ TEST (confirmation_height, callback_confirmed_history)
 					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*system.work.generate (latest))
-					.build_shared ();
+					.build ();
 		{
 			auto transaction = node->store.tx_begin_write ();
 			ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, *send));
@@ -1492,7 +1492,7 @@ TEST (confirmation_height, callback_confirmed_history)
 					 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (*system.work.generate (send->hash ()))
-					 .build_shared ();
+					 .build ();
 
 		add_callback_stats (*node);
 
@@ -1567,7 +1567,7 @@ TEST (confirmation_height, dependent_election)
 					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*system.work.generate (latest))
-					.build_shared ();
+					.build ();
 		auto send1 = builder
 					 .send ()
 					 .previous (send->hash ())
@@ -1575,7 +1575,7 @@ TEST (confirmation_height, dependent_election)
 					 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (*system.work.generate (send->hash ()))
-					 .build_shared ();
+					 .build ();
 		auto send2 = builder
 					 .send ()
 					 .previous (send1->hash ())
@@ -1583,7 +1583,7 @@ TEST (confirmation_height, dependent_election)
 					 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 3)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (*system.work.generate (send1->hash ()))
-					 .build_shared ();
+					 .build ();
 		{
 			auto transaction = node->store.tx_begin_write ();
 			ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, *send));
@@ -1725,7 +1725,7 @@ TEST (confirmation_height, cemented_gap_below_receive)
 					 .account (key2.pub)
 					 .sign (key2.prv, key2.pub)
 					 .work (*system.work.generate (key2.pub))
-					 .build_shared ();
+					 .build ();
 
 		{
 			auto transaction = node->store.tx_begin_write ();
@@ -1885,7 +1885,7 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 					 .account (key2.pub)
 					 .sign (key2.prv, key2.pub)
 					 .work (*system.work.generate (key2.pub))
-					 .build_shared ();
+					 .build ();
 
 		{
 			auto transaction = node->store.tx_begin_write ();
@@ -1958,7 +1958,7 @@ TEST (confirmation_height, election_winner_details_clearing)
 						   .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 						   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 						   .work (*system.work.generate (latest))
-						   .build_shared ();
+						   .build ();
 		ASSERT_EQ (nano::block_status::progress, node->process (*send1));
 
 		auto const send2 = builder.make_block ()
@@ -1967,7 +1967,7 @@ TEST (confirmation_height, election_winner_details_clearing)
 						   .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2)
 						   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 						   .work (*system.work.generate (send1->hash ()))
-						   .build_shared ();
+						   .build ();
 		ASSERT_EQ (nano::block_status::progress, node->process (*send2));
 
 		auto const send3 = builder.make_block ()
@@ -1976,7 +1976,7 @@ TEST (confirmation_height, election_winner_details_clearing)
 						   .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 3)
 						   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 						   .work (*system.work.generate (send2->hash ()))
-						   .build_shared ();
+						   .build ();
 		ASSERT_EQ (nano::block_status::progress, node->process (*send3));
 
 		node->process_confirmed (nano::election_status{ send2 });
@@ -2016,7 +2016,7 @@ TEST (confirmation_height, election_winner_details_clearing_node_process_confirm
 				.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
-				.build_shared ();
+				.build ();
 	// Add to election_winner_details. Use an unrealistic iteration so that it should fall into the else case and do a cleanup
 	node->active.add_election_winner_details (send->hash (), nullptr);
 	nano::election_status election;
@@ -2050,7 +2050,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 				.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*pool.generate (nano::dev::genesis->hash ()))
-				.build_shared ();
+				.build ();
 	auto send1 = builder
 				 .send ()
 				 .previous (send->hash ())
@@ -2058,7 +2058,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*pool.generate (send->hash ()))
-				 .build_shared ();
+				 .build ();
 	{
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger.cache, nano::dev::constants);
@@ -2115,7 +2115,7 @@ TEST (confirmation_height, pruned_source)
 				 .link (key1.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*pool.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
+				 .build ();
 	auto open1 = builder
 				 .state ()
 				 .account (key1.pub)
@@ -2125,7 +2125,7 @@ TEST (confirmation_height, pruned_source)
 				 .link (send1->hash ())
 				 .sign (key1.prv, key1.pub)
 				 .work (*pool.generate (key1.pub))
-				 .build_shared ();
+				 .build ();
 	auto send2 = builder
 				 .state ()
 				 .account (key1.pub)
@@ -2135,7 +2135,7 @@ TEST (confirmation_height, pruned_source)
 				 .link (key2.pub)
 				 .sign (key1.prv, key1.pub)
 				 .work (*pool.generate (open1->hash ()))
-				 .build_shared ();
+				 .build ();
 	auto send3 = builder
 				 .state ()
 				 .account (key1.pub)
@@ -2145,7 +2145,7 @@ TEST (confirmation_height, pruned_source)
 				 .link (key2.pub)
 				 .sign (key1.prv, key1.pub)
 				 .work (*pool.generate (send2->hash ()))
-				 .build_shared ();
+				 .build ();
 	auto open2 = builder
 				 .state ()
 				 .account (key2.pub)
@@ -2155,7 +2155,7 @@ TEST (confirmation_height, pruned_source)
 				 .link (send2->hash ())
 				 .sign (key2.prv, key2.pub)
 				 .work (*pool.generate (key2.pub))
-				 .build_shared ();
+				 .build ();
 	{
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger.cache, nano::dev::constants);
