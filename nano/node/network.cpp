@@ -419,7 +419,7 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list_non_pr
 	tcp_channels.list (result);
 	nano::random_pool_shuffle (result.begin (), result.end ());
 	result.erase (std::remove_if (result.begin (), result.end (), [this] (std::shared_ptr<nano::transport::channel> const & channel) {
-		return this->node.rep_crawler.is_pr (*channel);
+		return node.rep_crawler.is_pr (channel);
 	}),
 	result.end ());
 	if (result.size () > count_a)

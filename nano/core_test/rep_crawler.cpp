@@ -104,9 +104,9 @@ TEST (rep_crawler, rep_weight)
 	ASSERT_EQ (node.balance (nano::dev::genesis_key.pub), node.ledger.weight (reps[0].account));
 	ASSERT_EQ (nano::dev::genesis_key.pub, reps[0].account);
 	ASSERT_EQ (*channel1, *reps[0].channel);
-	ASSERT_TRUE (node.rep_crawler.is_pr (*channel1));
-	ASSERT_FALSE (node.rep_crawler.is_pr (*channel2));
-	ASSERT_TRUE (node.rep_crawler.is_pr (*channel3));
+	ASSERT_TRUE (node.rep_crawler.is_pr (channel1));
+	ASSERT_FALSE (node.rep_crawler.is_pr (channel2));
+	ASSERT_TRUE (node.rep_crawler.is_pr (channel3));
 }
 
 // Test that rep_crawler removes unreachable reps from its search results.

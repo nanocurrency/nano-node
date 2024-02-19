@@ -58,7 +58,7 @@ public:
 	void query (std::shared_ptr<nano::transport::channel> const & target_channel);
 
 	/** Query if a peer manages a principle representative */
-	bool is_pr (nano::transport::channel const &) const;
+	bool is_pr (std::shared_ptr<nano::transport::channel> const &) const;
 
 	/**
 	 * Called when a non-replay vote on a block previously sent by query() is received. This indicates
@@ -122,16 +122,11 @@ private:
 		{
 			return account;
 		}
-
-		std::reference_wrapper<nano::transport::channel const> channel_ref () const
-		{
-			return *channel;
-		};
 	};
 
 	// clang-format off
 	class tag_account {};
-	class tag_channel_ref {};
+	class tag_channel {};
 	class tag_sequenced {};
 
 	using ordered_reps = boost::multi_index_container<representative_entry,
@@ -139,8 +134,8 @@ private:
 		mi::hashed_unique<mi::tag<tag_account>,
 			mi::const_mem_fun<representative_entry, nano::account, &representative_entry::get_account>>,
 		mi::sequenced<mi::tag<tag_sequenced>>,
-		mi::hashed_non_unique<mi::tag<tag_channel_ref>,
-			mi::const_mem_fun<representative_entry, std::reference_wrapper<nano::transport::channel const>, &representative_entry::channel_ref>>
+		mi::hashed_non_unique<mi::tag<tag_channel>,
+			mi::member<representative_entry, std::shared_ptr<nano::transport::channel>, &representative_entry::channel>>
 	>>;
 	// clang-format on
 
