@@ -115,18 +115,6 @@ TEST (node, balance)
 	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max (), system.nodes[0]->ledger.account_balance (transaction, nano::dev::genesis_key.pub));
 }
 
-TEST (node, representative)
-{
-	nano::test::system system (1);
-	auto block1 (system.nodes[0]->rep_block (nano::dev::genesis_key.pub));
-	{
-		auto transaction (system.nodes[0]->store.tx_begin_read ());
-		ASSERT_TRUE (system.nodes[0]->ledger.store.block.exists (transaction, block1));
-	}
-	nano::keypair key;
-	ASSERT_TRUE (system.nodes[0]->rep_block (key.pub).is_zero ());
-}
-
 TEST (node, send_unkeyed)
 {
 	nano::test::system system (1);

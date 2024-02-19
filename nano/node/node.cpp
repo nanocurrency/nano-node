@@ -744,18 +744,6 @@ nano::uint128_t nano::node::weight (nano::account const & account_a)
 	return ledger.weight (account_a);
 }
 
-nano::block_hash nano::node::rep_block (nano::account const & account_a)
-{
-	auto const transaction (store.tx_begin_read ());
-	nano::block_hash result (0);
-	auto info = ledger.account_info (transaction, account_a);
-	if (info)
-	{
-		result = ledger.representative (transaction, info->head);
-	}
-	return result;
-}
-
 nano::uint128_t nano::node::minimum_principal_weight ()
 {
 	return online_reps.trended () / network_params.network.principal_weight_factor;
