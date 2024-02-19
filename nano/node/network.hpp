@@ -96,10 +96,6 @@ public:
 	void send_keepalive_self (std::shared_ptr<nano::transport::channel> const &);
 	void send_node_id_handshake (std::shared_ptr<nano::transport::channel> const &, std::optional<nano::uint256_union> const & cookie, std::optional<nano::uint256_union> const & respond_to);
 	void send_confirm_req (std::shared_ptr<nano::transport::channel> const & channel_a, std::pair<nano::block_hash, nano::block_hash> const & hash_root_a);
-	void broadcast_confirm_req (std::shared_ptr<nano::block> const &);
-	void broadcast_confirm_req_base (std::shared_ptr<nano::block> const &, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>> const &, unsigned, bool = false);
-	void broadcast_confirm_req_batched_many (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>>, std::function<void ()> = nullptr, unsigned = broadcast_interval_ms, bool = false);
-	void broadcast_confirm_req_many (std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>>, std::function<void ()> = nullptr, unsigned = broadcast_interval_ms);
 	std::shared_ptr<nano::transport::channel> find_node_id (nano::account const &);
 	std::shared_ptr<nano::transport::channel> find_channel (nano::endpoint const &);
 	bool not_a_peer (nano::endpoint const &, bool);
