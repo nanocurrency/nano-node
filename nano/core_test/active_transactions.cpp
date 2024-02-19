@@ -1041,10 +1041,7 @@ TEST (active_transactions, confirmation_consistency)
 }
 }
 
-// Test disabled because it's failing intermittently.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3634
-TEST (active_transactions, DISABLED_confirm_new)
+TEST (active_transactions, confirm_new)
 {
 	nano::test::system system (1);
 	auto & node1 = *system.nodes[0];
@@ -1063,7 +1060,8 @@ TEST (active_transactions, DISABLED_confirm_new)
 	// Let node2 know about the block
 	ASSERT_TIMELY (5s, node2.block (send->hash ()));
 	// Wait confirmation
-	ASSERT_TIMELY (5s, node1.ledger.cache.cemented_count == 2 && node2.ledger.cache.cemented_count == 2);
+	ASSERT_TIMELY (5s, node1.ledger.cache.cemented_count == 2);
+	ASSERT_TIMELY (5s, node2.ledger.cache.cemented_count == 2);
 }
 
 // Ensures votes are tallied on election::publish even if no vote is inserted through inactive_votes_cache
