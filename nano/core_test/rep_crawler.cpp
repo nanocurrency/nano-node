@@ -94,9 +94,9 @@ TEST (rep_crawler, rep_weight)
 	auto vote0 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
 	auto vote1 = std::make_shared<nano::vote> (keypair1.pub, keypair1.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
 	auto vote2 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
-	node.rep_crawler.response (channel1, vote0);
-	node.rep_crawler.response (channel2, vote1);
-	node.rep_crawler.response (channel3, vote2);
+	ASSERT_TRUE (node.rep_crawler.process (vote0, channel1));
+	ASSERT_TRUE (node.rep_crawler.process (vote1, channel2));
+	ASSERT_TRUE (node.rep_crawler.process (vote2, channel3));
 	ASSERT_TIMELY_EQ (5s, node.rep_crawler.representative_count (), 2);
 	// Make sure we get the rep with the most weight first
 	auto reps = node.rep_crawler.representatives (1);
@@ -180,7 +180,7 @@ TEST (rep_crawler, rep_remove)
 
 	// Ensure Rep1 is found by the rep_crawler after receiving a vote from it
 	auto vote_rep1 = std::make_shared<nano::vote> (keys_rep1.pub, keys_rep1.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
-	ASSERT_FALSE (searching_node.rep_crawler.response (channel_rep1, vote_rep1, true));
+	searching_node.rep_crawler.force_process (vote_rep1, channel_rep1);
 	ASSERT_TIMELY_EQ (5s, searching_node.rep_crawler.representative_count (), 1);
 	auto reps (searching_node.rep_crawler.representatives (1));
 	ASSERT_EQ (1, reps.size ());
@@ -200,7 +200,7 @@ TEST (rep_crawler, rep_remove)
 
 	// genesis_rep should be found as principal representative after receiving a vote from it
 	auto vote_genesis_rep = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
-	searching_node.rep_crawler.response (channel_genesis_rep, vote_genesis_rep, true);
+	searching_node.rep_crawler.force_process (vote_genesis_rep, channel_genesis_rep);
 	ASSERT_TIMELY_EQ (10s, searching_node.rep_crawler.representative_count (), 1);
 
 	// Start a node for Rep2 and wait until it is connected
@@ -212,7 +212,7 @@ TEST (rep_crawler, rep_remove)
 
 	// Rep2 should be found as a principal representative after receiving a vote from it
 	auto vote_rep2 = std::make_shared<nano::vote> (keys_rep2.pub, keys_rep2.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
-	ASSERT_FALSE (searching_node.rep_crawler.response (channel_rep2, vote_rep2, true));
+	searching_node.rep_crawler.force_process (vote_rep2, channel_rep2);
 	ASSERT_TIMELY_EQ (10s, searching_node.rep_crawler.representative_count (), 2);
 
 	// When Rep2 is stopped, it should not be found as principal representative anymore

@@ -314,21 +314,18 @@ bool nano::rep_crawler::is_pr (std::shared_ptr<nano::transport::channel> const &
 	return false;
 }
 
-// TODO: Remove force parameter
-bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> const & channel, std::shared_ptr<nano::vote> const & vote, bool force)
+bool nano::rep_crawler::process (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel)
 {
-	bool error = true;
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	for (auto const & hash : vote->hashes)
+	for (auto const & hash : vote->hashes) // TODO: This most likely should be a single hash vote
 	{
-		if (force || queries.count (hash) != 0)
+		if (queries.count (hash) != 0)
 		{
 			responses.emplace_back (channel, vote);
-			error = false;
-			break;
+			return true; // Processed
 		}
 	}
-	return error;
+	return false;
 }
 
 nano::uint128_t nano::rep_crawler::total_weight () const
@@ -407,7 +404,7 @@ void nano::rep_crawler::force_add_rep (const nano::account & account, const std:
 }
 
 // Only for tests
-void nano::rep_crawler::force_response (const std::shared_ptr<nano::transport::channel> & channel, const std::shared_ptr<nano::vote> & vote)
+void nano::rep_crawler::force_process (const std::shared_ptr<nano::vote> & vote, const std::shared_ptr<nano::transport::channel> & channel)
 {
 	release_assert (node.network_params.network.is_dev_network ());
 	nano::lock_guard<nano::mutex> lock{ mutex };

@@ -305,13 +305,14 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 		observers.endpoint.add ([this] (std::shared_ptr<nano::transport::channel> const & channel_a) {
 			this->network.send_keepalive_self (channel_a);
 		});
-		observers.vote.add ([this] (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, nano::vote_code code_a) {
-			debug_assert (code_a != nano::vote_code::invalid);
-			auto active_in_rep_crawler (!this->rep_crawler.response (channel_a, vote_a));
+		
+		observers.vote.add ([this] (std::shared_ptr<nano::vote> vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_code code) {
+			debug_assert (code != nano::vote_code::invalid);
+			bool active_in_rep_crawler = rep_crawler.process (vote, channel);
 			if (active_in_rep_crawler)
 			{
 				// Representative is defined as online if replying to live votes or rep_crawler queries
-				this->online_reps.observe (vote_a->account);
+				online_reps.observe (vote->account);
 			}
 		});
 

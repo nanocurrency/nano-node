@@ -45,6 +45,14 @@ public:
 	void start ();
 	void stop ();
 
+	/**
+	 * Called when a non-replay vote on a block previously sent by query() is received. This indicates
+	 * with high probability that the endpoint is a representative node.
+	 * The force flag can be set to skip the active check in unit testing when we want to force a vote in the rep crawler.
+	 * @return false if any vote passed the checks and was added to the response queue of the rep crawler
+	 */
+	bool process (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &);
+
 	/** Remove block hash from list of active rep queries */
 	void remove (nano::block_hash const &);
 
@@ -59,14 +67,6 @@ public:
 
 	/** Query if a peer manages a principle representative */
 	bool is_pr (std::shared_ptr<nano::transport::channel> const &) const;
-
-	/**
-	 * Called when a non-replay vote on a block previously sent by query() is received. This indicates
-	 * with high probability that the endpoint is a representative node.
-	 * The force flag can be set to skip the active check in unit testing when we want to force a vote in the rep crawler.
-	 * @return false if any vote passed the checks and was added to the response queue of the rep crawler
-	 */
-	bool response (std::shared_ptr<nano::transport::channel> const &, std::shared_ptr<nano::vote> const &, bool force = false);
 
 	/** Get total available weight from representatives */
 	nano::uint128_t total_weight () const;
@@ -154,7 +154,7 @@ private:
 
 public: // Testing
 	void force_add_rep (nano::account const & account, std::shared_ptr<nano::transport::channel> const & channel);
-	void force_response (std::shared_ptr<nano::transport::channel> const & channel, std::shared_ptr<nano::vote> const & vote);
+	void force_process (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel);
 	void force_active_query (nano::block_hash const & hash);
 };
 

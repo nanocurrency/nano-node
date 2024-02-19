@@ -1126,7 +1126,7 @@ TEST (node, DISABLED_fork_stale)
 
 	auto channel = nano::test::establish_tcp (system1, node2, node1.network.endpoint ());
 	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash> ());
-	node2.rep_crawler.response (channel, vote);
+	ASSERT_TRUE (node2.rep_crawler.process (vote, channel));
 	nano::keypair key1;
 	nano::keypair key2;
 	nano::state_block_builder builder;
@@ -3714,7 +3714,7 @@ TEST (rep_crawler, ignore_local)
 	auto & node = *system.add_node (flags);
 	auto loopback = std::make_shared<nano::transport::inproc::channel> (node, node);
 	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector{ nano::dev::genesis->hash () });
-	node.rep_crawler.force_response (loopback, vote);
+	node.rep_crawler.force_process (vote, loopback);
 	ASSERT_ALWAYS_EQ (0.5s, node.rep_crawler.representative_count (), 0);
 }
 
