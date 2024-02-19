@@ -110,7 +110,7 @@ TEST (wallets, vote_minimum)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1.process (*send1));
+	ASSERT_EQ (nano::block_status::progress, node1.process (send1));
 	auto open1 = builder
 				 .state ()
 				 .account (key1.pub)
@@ -121,7 +121,7 @@ TEST (wallets, vote_minimum)
 				 .sign (key1.prv, key1.pub)
 				 .work (*system.work.generate (key1.pub))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1.process (*open1));
+	ASSERT_EQ (nano::block_status::progress, node1.process (open1));
 	// send2 with amount vote_minimum - 1 (not voting representative)
 	auto send2 = builder
 				 .state ()
@@ -133,7 +133,7 @@ TEST (wallets, vote_minimum)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send1->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1.process (*send2));
+	ASSERT_EQ (nano::block_status::progress, node1.process (send2));
 	auto open2 = builder
 				 .state ()
 				 .account (key2.pub)
@@ -144,7 +144,7 @@ TEST (wallets, vote_minimum)
 				 .sign (key2.prv, key2.pub)
 				 .work (*system.work.generate (key2.pub))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1.process (*open2));
+	ASSERT_EQ (nano::block_status::progress, node1.process (open2));
 	auto wallet (node1.wallets.items.begin ()->second);
 	nano::unique_lock<nano::mutex> representatives_lk (wallet->representatives_mutex);
 	ASSERT_EQ (0, wallet->representatives.size ());
@@ -212,7 +212,7 @@ TEST (wallets, search_receivable)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*system.work.generate (nano::dev::genesis->hash ()))
 					.build ();
-		ASSERT_EQ (nano::block_status::progress, node.process (*send));
+		ASSERT_EQ (nano::block_status::progress, node.process (send));
 
 		// Pending search should start an election
 		ASSERT_TRUE (node.active.empty ());

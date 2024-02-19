@@ -27,7 +27,7 @@ TEST (election_scheduler, activate_one_timely)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	system.nodes[0]->ledger.process (system.nodes[0]->store.tx_begin_write (), *send1);
+	system.nodes[0]->ledger.process (system.nodes[0]->store.tx_begin_write (), send1);
 	system.nodes[0]->scheduler.priority.activate (nano::dev::genesis_key.pub, system.nodes[0]->store.tx_begin_read ());
 	ASSERT_TIMELY (5s, system.nodes[0]->active.election (send1->qualified_root ()));
 }
@@ -45,7 +45,7 @@ TEST (election_scheduler, activate_one_flush)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	system.nodes[0]->ledger.process (system.nodes[0]->store.tx_begin_write (), *send1);
+	system.nodes[0]->ledger.process (system.nodes[0]->store.tx_begin_write (), send1);
 	system.nodes[0]->scheduler.priority.activate (nano::dev::genesis_key.pub, system.nodes[0]->store.tx_begin_read ());
 	ASSERT_TIMELY (5s, system.nodes[0]->active.election (send1->qualified_root ()));
 }
@@ -87,7 +87,7 @@ TEST (election_scheduler, no_vacancy)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build ();
-	ASSERT_EQ (nano::block_status::progress, node.process (*send));
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
 	node.process_confirmed (nano::election_status{ send });
 
 	auto receive = builder.make_block ()
@@ -99,7 +99,7 @@ TEST (election_scheduler, no_vacancy)
 				   .sign (key.prv, key.pub)
 				   .work (*system.work.generate (key.pub))
 				   .build ();
-	ASSERT_EQ (nano::block_status::progress, node.process (*receive));
+	ASSERT_EQ (nano::block_status::progress, node.process (receive));
 	node.process_confirmed (nano::election_status{ receive });
 
 	// Second, process two eligible transactions
@@ -112,7 +112,7 @@ TEST (election_scheduler, no_vacancy)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (*system.work.generate (send->hash ()))
 				  .build ();
-	ASSERT_EQ (nano::block_status::progress, node.process (*block1));
+	ASSERT_EQ (nano::block_status::progress, node.process (block1));
 
 	// There is vacancy so it should be inserted
 	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
@@ -128,7 +128,7 @@ TEST (election_scheduler, no_vacancy)
 				  .sign (key.prv, key.pub)
 				  .work (*system.work.generate (receive->hash ()))
 				  .build ();
-	ASSERT_EQ (nano::block_status::progress, node.process (*block2));
+	ASSERT_EQ (nano::block_status::progress, node.process (block2));
 
 	// There is no vacancy so it should stay queued
 	node.scheduler.priority.activate (key.pub, node.store.tx_begin_read ());

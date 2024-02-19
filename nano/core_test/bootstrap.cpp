@@ -69,7 +69,7 @@ TEST (bulk_pull, end_not_owned)
 	open->refresh ();
 	open->signature = nano::sign_message (key2.prv, key2.pub, open->hash ());
 	system.nodes[0]->work_generate_blocking (*open);
-	ASSERT_EQ (nano::block_status::progress, system.nodes[0]->process (*open));
+	ASSERT_EQ (nano::block_status::progress, system.nodes[0]->process (open));
 	auto connection (std::make_shared<nano::transport::tcp_server> (std::make_shared<nano::transport::socket> (*system.nodes[0], nano::transport::socket::endpoint_type_t::server), system.nodes[0]));
 	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
 	req->start = key2.pub;
@@ -122,7 +122,7 @@ TEST (bulk_pull, ascending_one_hash)
 				  .work (0)
 				  .build ();
 	node.work_generate_blocking (*block1);
-	ASSERT_EQ (nano::block_status::progress, node.process (*block1));
+	ASSERT_EQ (nano::block_status::progress, node.process (block1));
 	auto socket = std::make_shared<nano::transport::socket> (node, nano::transport::socket::endpoint_type_t::server);
 	auto connection = std::make_shared<nano::transport::tcp_server> (socket, system.nodes[0]);
 	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
@@ -154,7 +154,7 @@ TEST (bulk_pull, ascending_two_account)
 				  .work (0)
 				  .build ();
 	node.work_generate_blocking (*block1);
-	ASSERT_EQ (nano::block_status::progress, node.process (*block1));
+	ASSERT_EQ (nano::block_status::progress, node.process (block1));
 	auto socket = std::make_shared<nano::transport::socket> (node, nano::transport::socket::endpoint_type_t::server);
 	auto connection = std::make_shared<nano::transport::tcp_server> (socket, system.nodes[0]);
 	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
@@ -189,7 +189,7 @@ TEST (bulk_pull, ascending_end)
 				  .work (0)
 				  .build ();
 	node.work_generate_blocking (*block1);
-	ASSERT_EQ (nano::block_status::progress, node.process (*block1));
+	ASSERT_EQ (nano::block_status::progress, node.process (block1));
 	auto socket = std::make_shared<nano::transport::socket> (node, nano::transport::socket::endpoint_type_t::server);
 	auto connection = std::make_shared<nano::transport::tcp_server> (socket, system.nodes[0]);
 	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
@@ -249,7 +249,7 @@ TEST (bulk_pull, count_limit)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (node0->latest (nano::dev::genesis_key.pub)))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node0->process (*send1));
+	ASSERT_EQ (nano::block_status::progress, node0->process (send1));
 	auto receive1 = builder
 					.receive ()
 					.previous (send1->hash ())
@@ -257,7 +257,7 @@ TEST (bulk_pull, count_limit)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*system.work.generate (send1->hash ()))
 					.build ();
-	ASSERT_EQ (nano::block_status::progress, node0->process (*receive1));
+	ASSERT_EQ (nano::block_status::progress, node0->process (receive1));
 
 	auto connection (std::make_shared<nano::transport::tcp_server> (std::make_shared<nano::transport::socket> (*node0, nano::transport::socket::endpoint_type_t::server), node0));
 	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
@@ -375,8 +375,8 @@ TEST (bootstrap_processor, process_state)
 
 	node0->work_generate_blocking (*block1);
 	node0->work_generate_blocking (*block2);
-	ASSERT_EQ (nano::block_status::progress, node0->process (*block1));
-	ASSERT_EQ (nano::block_status::progress, node0->process (*block2));
+	ASSERT_EQ (nano::block_status::progress, node0->process (block1));
+	ASSERT_EQ (nano::block_status::progress, node0->process (block2));
 	ASSERT_TIMELY_EQ (5s, nano::test::account_info (*node0, nano::dev::genesis_key.pub).block_count, 3);
 
 	auto node1 = system.make_disconnected_node (std::nullopt, node_flags);
@@ -444,7 +444,7 @@ TEST (bootstrap_processor, pull_diamond)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (node0->latest (nano::dev::genesis_key.pub)))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node0->process (*send1));
+	ASSERT_EQ (nano::block_status::progress, node0->process (send1));
 	auto open = builder
 				.open ()
 				.source (send1->hash ())
@@ -453,7 +453,7 @@ TEST (bootstrap_processor, pull_diamond)
 				.sign (key.prv, key.pub)
 				.work (*system.work.generate (key.pub))
 				.build ();
-	ASSERT_EQ (nano::block_status::progress, node0->process (*open));
+	ASSERT_EQ (nano::block_status::progress, node0->process (open));
 	auto send2 = builder
 				 .send ()
 				 .previous (open->hash ())
@@ -462,7 +462,7 @@ TEST (bootstrap_processor, pull_diamond)
 				 .sign (key.prv, key.pub)
 				 .work (*system.work.generate (open->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node0->process (*send2));
+	ASSERT_EQ (nano::block_status::progress, node0->process (send2));
 	auto receive = builder
 				   .receive ()
 				   .previous (send1->hash ())
@@ -470,7 +470,7 @@ TEST (bootstrap_processor, pull_diamond)
 				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				   .work (*system.work.generate (send1->hash ()))
 				   .build ();
-	ASSERT_EQ (nano::block_status::progress, node0->process (*receive));
+	ASSERT_EQ (nano::block_status::progress, node0->process (receive));
 
 	auto node1 = system.make_disconnected_node ();
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
@@ -541,7 +541,7 @@ TEST (bootstrap_processor, push_diamond)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*send1));
+	ASSERT_EQ (nano::block_status::progress, node1->process (send1));
 
 	// open key account receiving all balance of genesis
 	auto open = builder
@@ -552,7 +552,7 @@ TEST (bootstrap_processor, push_diamond)
 				.sign (key.prv, key.pub)
 				.work (*system.work.generate (key.pub))
 				.build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*open));
+	ASSERT_EQ (nano::block_status::progress, node1->process (open));
 
 	// send from key to genesis 100 raw
 	auto send2 = builder
@@ -563,7 +563,7 @@ TEST (bootstrap_processor, push_diamond)
 				 .sign (key.prv, key.pub)
 				 .work (*system.work.generate (open->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*send2));
+	ASSERT_EQ (nano::block_status::progress, node1->process (send2));
 
 	// receive the 100 raw on genesis
 	auto receive = builder
@@ -573,7 +573,7 @@ TEST (bootstrap_processor, push_diamond)
 				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				   .work (*system.work.generate (send1->hash ()))
 				   .build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*receive));
+	ASSERT_EQ (nano::block_status::progress, node1->process (receive));
 
 	nano::node_config config = system.default_config ();
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
@@ -614,7 +614,7 @@ TEST (bootstrap_processor, push_diamond_pruning)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*send1));
+	ASSERT_EQ (nano::block_status::progress, node1->process (send1));
 
 	// receive all balance on key
 	auto open = builder
@@ -625,7 +625,7 @@ TEST (bootstrap_processor, push_diamond_pruning)
 				.sign (key.prv, key.pub)
 				.work (*system.work.generate (key.pub))
 				.build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*open));
+	ASSERT_EQ (nano::block_status::progress, node1->process (open));
 
 	// 1st bootstrap
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
@@ -643,7 +643,7 @@ TEST (bootstrap_processor, push_diamond_pruning)
 				 .sign (key.prv, key.pub)
 				 .work (*system.work.generate (open->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*send2));
+	ASSERT_EQ (nano::block_status::progress, node1->process (send2));
 
 	// receive the 100 raw from key on genesis
 	auto receive = builder
@@ -653,7 +653,7 @@ TEST (bootstrap_processor, push_diamond_pruning)
 				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				   .work (*system.work.generate (send1->hash ()))
 				   .build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*receive));
+	ASSERT_EQ (nano::block_status::progress, node1->process (receive));
 
 	{
 		auto transaction (node1->store.tx_begin_write ());
@@ -1130,7 +1130,7 @@ TEST (bootstrap_processor, lazy_unclear_state_link)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*send1));
+	ASSERT_EQ (nano::block_status::progress, node1->process (send1));
 	auto send2 = builder
 				 .state ()
 				 .account (nano::dev::genesis_key.pub)
@@ -1141,7 +1141,7 @@ TEST (bootstrap_processor, lazy_unclear_state_link)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send1->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*send2));
+	ASSERT_EQ (nano::block_status::progress, node1->process (send2));
 	auto open = builder
 				.open ()
 				.source (send1->hash ())
@@ -1150,7 +1150,7 @@ TEST (bootstrap_processor, lazy_unclear_state_link)
 				.sign (key.prv, key.pub)
 				.work (*system.work.generate (key.pub))
 				.build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*open));
+	ASSERT_EQ (nano::block_status::progress, node1->process (open));
 	auto receive = builder
 				   .state ()
 				   .account (key.pub)
@@ -1161,7 +1161,7 @@ TEST (bootstrap_processor, lazy_unclear_state_link)
 				   .sign (key.prv, key.pub)
 				   .work (*system.work.generate (open->hash ()))
 				   .build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*receive));
+	ASSERT_EQ (nano::block_status::progress, node1->process (receive));
 
 	ASSERT_TIMELY (5s, nano::test::exists (*node1, { send1, send2, open, receive }));
 
@@ -1200,7 +1200,7 @@ TEST (bootstrap_processor, lazy_unclear_state_link_not_existing)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*send1));
+	ASSERT_EQ (nano::block_status::progress, node1->process (send1));
 	auto open = builder
 				.open ()
 				.source (send1->hash ())
@@ -1209,7 +1209,7 @@ TEST (bootstrap_processor, lazy_unclear_state_link_not_existing)
 				.sign (key.prv, key.pub)
 				.work (*system.work.generate (key.pub))
 				.build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*open));
+	ASSERT_EQ (nano::block_status::progress, node1->process (open));
 	auto send2 = builder
 				 .state ()
 				 .account (key.pub)
@@ -1220,7 +1220,7 @@ TEST (bootstrap_processor, lazy_unclear_state_link_not_existing)
 				 .sign (key.prv, key.pub)
 				 .work (*system.work.generate (open->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*send2));
+	ASSERT_EQ (nano::block_status::progress, node1->process (send2));
 
 	// Start lazy bootstrap with last block in chain known
 	auto node2 = system.make_disconnected_node (std::nullopt, node_flags);
@@ -1259,7 +1259,7 @@ TEST (bootstrap_processor, lazy_destinations)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*send1));
+	ASSERT_EQ (nano::block_status::progress, node1->process (send1));
 
 	// send Gxrb_ratio raw from genesis to key2
 	auto send2 = builder
@@ -1272,7 +1272,7 @@ TEST (bootstrap_processor, lazy_destinations)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send1->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*send2));
+	ASSERT_EQ (nano::block_status::progress, node1->process (send2));
 
 	// receive send1 on key1
 	auto open = builder
@@ -1283,7 +1283,7 @@ TEST (bootstrap_processor, lazy_destinations)
 				.sign (key1.prv, key1.pub)
 				.work (*system.work.generate (key1.pub))
 				.build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*open));
+	ASSERT_EQ (nano::block_status::progress, node1->process (open));
 
 	// receive send2 on key2
 	auto state_open = builder
@@ -1296,7 +1296,7 @@ TEST (bootstrap_processor, lazy_destinations)
 					  .sign (key2.prv, key2.pub)
 					  .work (*system.work.generate (key2.pub))
 					  .build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (*state_open));
+	ASSERT_EQ (nano::block_status::progress, node1->process (state_open));
 
 	// Start lazy bootstrap with last block in sender chain
 	auto node2 = system.make_disconnected_node (std::nullopt, node_flags);
@@ -1744,7 +1744,7 @@ TEST (frontier_req, count)
 				 .work (0)
 				 .build ();
 	node1->work_generate_blocking (*send1);
-	ASSERT_EQ (nano::block_status::progress, node1->process (*send1));
+	ASSERT_EQ (nano::block_status::progress, node1->process (send1));
 	auto receive1 = builder
 					.make_block ()
 					.account (key1.pub)
@@ -1756,7 +1756,7 @@ TEST (frontier_req, count)
 					.work (0)
 					.build ();
 	node1->work_generate_blocking (*receive1);
-	ASSERT_EQ (nano::block_status::progress, node1->process (*receive1));
+	ASSERT_EQ (nano::block_status::progress, node1->process (receive1));
 
 	auto connection (std::make_shared<nano::transport::tcp_server> (std::make_shared<nano::transport::socket> (*node1, nano::transport::socket::endpoint_type_t::server), node1));
 	auto req = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);
@@ -1839,7 +1839,7 @@ TEST (frontier_req, confirmed_frontier)
 				 .work (0)
 				 .build ();
 	node1->work_generate_blocking (*send1);
-	ASSERT_EQ (nano::block_status::progress, node1->process (*send1));
+	ASSERT_EQ (nano::block_status::progress, node1->process (send1));
 	auto send2 = builder
 				 .make_block ()
 				 .account (nano::dev::genesis_key.pub)
@@ -1851,7 +1851,7 @@ TEST (frontier_req, confirmed_frontier)
 				 .work (0)
 				 .build ();
 	node1->work_generate_blocking (*send2);
-	ASSERT_EQ (nano::block_status::progress, node1->process (*send2));
+	ASSERT_EQ (nano::block_status::progress, node1->process (send2));
 	auto receive1 = builder
 					.make_block ()
 					.account (key_before_genesis.pub)
@@ -1863,7 +1863,7 @@ TEST (frontier_req, confirmed_frontier)
 					.work (0)
 					.build ();
 	node1->work_generate_blocking (*receive1);
-	ASSERT_EQ (nano::block_status::progress, node1->process (*receive1));
+	ASSERT_EQ (nano::block_status::progress, node1->process (receive1));
 	auto receive2 = builder
 					.make_block ()
 					.account (key_after_genesis.pub)
@@ -1875,7 +1875,7 @@ TEST (frontier_req, confirmed_frontier)
 					.work (0)
 					.build ();
 	node1->work_generate_blocking (*receive2);
-	ASSERT_EQ (nano::block_status::progress, node1->process (*receive2));
+	ASSERT_EQ (nano::block_status::progress, node1->process (receive2));
 
 	// Request for all accounts (confirmed only)
 	auto connection (std::make_shared<nano::transport::tcp_server> (std::make_shared<nano::transport::socket> (*node1, nano::transport::socket::endpoint_type_t::server), node1));

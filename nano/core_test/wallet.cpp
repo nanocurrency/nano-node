@@ -1114,7 +1114,7 @@ TEST (wallet, epoch_2_receive_unopened)
 							   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 							   .work (*system.work.generate (key.pub, node.network_params.work.epoch_2))
 							   .build ();
-		ASSERT_EQ (nano::block_status::progress, node.process (*epoch2_unopened));
+		ASSERT_EQ (nano::block_status::progress, node.process (epoch2_unopened));
 
 		wallet.insert_adhoc (key.prv, false);
 
@@ -1175,7 +1175,7 @@ TEST (wallet, search_receivable)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build ();
-	ASSERT_EQ (nano::block_status::progress, node.process (*send));
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
 
 	// Pending search should start an election
 	ASSERT_TRUE (node.active.empty ());

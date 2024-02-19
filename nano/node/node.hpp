@@ -210,8 +210,8 @@ public: // Testing convenience functions
 		Creates a new write transaction and inserts `block' and returns result
 		Transaction is comitted before function return
 	 */
-	[[nodiscard]] nano::block_status process (nano::block & block);
-	[[nodiscard]] nano::block_status process (store::write_transaction const &, nano::block & block);
+	[[nodiscard]] nano::block_status process (std::shared_ptr<nano::block> block);
+	[[nodiscard]] nano::block_status process (store::write_transaction const &, std::shared_ptr<nano::block> block);
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
 

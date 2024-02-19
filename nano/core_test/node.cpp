@@ -771,10 +771,10 @@ TEST (node, fork_multi_flip)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send2->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (node1.store.tx_begin_write (), *send1));
+	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (node1.store.tx_begin_write (), send1));
 	// Node2 has two blocks that will be rolled back by node1's vote
-	ASSERT_EQ (nano::block_status::progress, node2.ledger.process (node2.store.tx_begin_write (), *send2));
-	ASSERT_EQ (nano::block_status::progress, node2.ledger.process (node2.store.tx_begin_write (), *send3));
+	ASSERT_EQ (nano::block_status::progress, node2.ledger.process (node2.store.tx_begin_write (), send2));
+	ASSERT_EQ (nano::block_status::progress, node2.ledger.process (node2.store.tx_begin_write (), send3));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv); // Insert voting key in to node1
 
 	auto election = nano::test::start_election (system, node2, send2->hash ());
@@ -821,8 +821,8 @@ TEST (node, fork_bootstrap_flip)
 				 .work (*system0.work.generate (latest))
 				 .build ();
 	// Insert but don't rebroadcast, simulating settled blocks
-	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (node1.store.tx_begin_write (), *send1));
-	ASSERT_EQ (nano::block_status::progress, node2.ledger.process (node2.store.tx_begin_write (), *send2));
+	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (node1.store.tx_begin_write (), send1));
+	ASSERT_EQ (nano::block_status::progress, node2.ledger.process (node2.store.tx_begin_write (), send2));
 	ASSERT_TRUE (node2.store.block.exists (node2.store.tx_begin_read (), send2->hash ()));
 	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ()); // Additionally add new peer to confirm & replace bootstrap block
 	auto again (true);
@@ -1033,9 +1033,9 @@ TEST (node, fork_no_vote_quorum)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (block->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1.process (*send1));
-	ASSERT_EQ (nano::block_status::progress, node2.process (*send1));
-	ASSERT_EQ (nano::block_status::progress, node3.process (*send1));
+	ASSERT_EQ (nano::block_status::progress, node1.process (send1));
+	ASSERT_EQ (nano::block_status::progress, node2.process (send1));
+	ASSERT_EQ (nano::block_status::progress, node3.process (send1));
 	auto key2 (system.wallet (2)->deterministic_insert ());
 	auto send2 = nano::send_block_builder ()
 				 .previous (block->hash ())
@@ -1181,9 +1181,9 @@ TEST (node, DISABLED_fork_stale)
 	node1.work_generate_blocking (*send2);
 	{
 		auto transaction1 (node1.store.tx_begin_write ());
-		ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction1, *send1));
+		ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction1, send1));
 		auto transaction2 (node2.store.tx_begin_write ());
-		ASSERT_EQ (nano::block_status::progress, node2.ledger.process (transaction2, *send2));
+		ASSERT_EQ (nano::block_status::progress, node2.ledger.process (transaction2, send2));
 	}
 	node1.process_active (send1);
 	node1.process_active (send2);
@@ -1220,48 +1220,48 @@ TEST (node, DISABLED_broadcast_elected)
 		auto transaction0 (node0->store.tx_begin_write ());
 		auto transaction1 (node1->store.tx_begin_write ());
 		auto transaction2 (node2->store.tx_begin_write ());
-		auto fund_big = *builder.send ()
-						 .previous (nano::dev::genesis->hash ())
-						 .destination (rep_big.pub)
-						 .balance (nano::Gxrb_ratio * 5)
-						 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-						 .work (*system.work.generate (nano::dev::genesis->hash ()))
-						 .build ();
-		auto open_big = *builder.open ()
-						 .source (fund_big.hash ())
-						 .representative (rep_big.pub)
-						 .account (rep_big.pub)
-						 .sign (rep_big.prv, rep_big.pub)
-						 .work (*system.work.generate (rep_big.pub))
-						 .build ();
-		auto fund_small = *builder.send ()
-						   .previous (fund_big.hash ())
-						   .destination (rep_small.pub)
-						   .balance (nano::Gxrb_ratio * 2)
-						   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-						   .work (*system.work.generate (fund_big.hash ()))
-						   .build ();
-		auto open_small = *builder.open ()
-						   .source (fund_small.hash ())
-						   .representative (rep_small.pub)
-						   .account (rep_small.pub)
-						   .sign (rep_small.prv, rep_small.pub)
-						   .work (*system.work.generate (rep_small.pub))
-						   .build ();
-		auto fund_other = *builder.send ()
-						   .previous (fund_small.hash ())
-						   .destination (rep_other.pub)
-						   .balance (nano::Gxrb_ratio)
-						   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-						   .work (*system.work.generate (fund_small.hash ()))
-						   .build ();
-		auto open_other = *builder.open ()
-						   .source (fund_other.hash ())
-						   .representative (rep_other.pub)
-						   .account (rep_other.pub)
-						   .sign (rep_other.prv, rep_other.pub)
-						   .work (*system.work.generate (rep_other.pub))
-						   .build ();
+		auto fund_big = builder.send ()
+						.previous (nano::dev::genesis->hash ())
+						.destination (rep_big.pub)
+						.balance (nano::Gxrb_ratio * 5)
+						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						.work (*system.work.generate (nano::dev::genesis->hash ()))
+						.build ();
+		auto open_big = builder.open ()
+						.source (fund_big->hash ())
+						.representative (rep_big.pub)
+						.account (rep_big.pub)
+						.sign (rep_big.prv, rep_big.pub)
+						.work (*system.work.generate (rep_big.pub))
+						.build ();
+		auto fund_small = builder.send ()
+						  .previous (fund_big->hash ())
+						  .destination (rep_small.pub)
+						  .balance (nano::Gxrb_ratio * 2)
+						  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						  .work (*system.work.generate (fund_big->hash ()))
+						  .build ();
+		auto open_small = builder.open ()
+						  .source (fund_small->hash ())
+						  .representative (rep_small.pub)
+						  .account (rep_small.pub)
+						  .sign (rep_small.prv, rep_small.pub)
+						  .work (*system.work.generate (rep_small.pub))
+						  .build ();
+		auto fund_other = builder.send ()
+						  .previous (fund_small->hash ())
+						  .destination (rep_other.pub)
+						  .balance (nano::Gxrb_ratio)
+						  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						  .work (*system.work.generate (fund_small->hash ()))
+						  .build ();
+		auto open_other = builder.open ()
+						  .source (fund_other->hash ())
+						  .representative (rep_other.pub)
+						  .account (rep_other.pub)
+						  .sign (rep_other.prv, rep_other.pub)
+						  .work (*system.work.generate (rep_other.pub))
+						  .build ();
 		ASSERT_EQ (nano::block_status::progress, node0->ledger.process (transaction0, fund_big));
 		ASSERT_EQ (nano::block_status::progress, node1->ledger.process (transaction1, fund_big));
 		ASSERT_EQ (nano::block_status::progress, node2->ledger.process (transaction2, fund_big));
@@ -1337,39 +1337,39 @@ TEST (node, rep_self_vote)
 	auto node0 = system.add_node (node_config);
 	nano::keypair rep_big;
 	nano::block_builder builder;
-	auto fund_big = *builder.send ()
-					 .previous (nano::dev::genesis->hash ())
-					 .destination (rep_big.pub)
-					 .balance (nano::uint128_t{ "0xb0000000000000000000000000000000" })
-					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					 .work (*system.work.generate (nano::dev::genesis->hash ()))
-					 .build ();
-	auto open_big = *builder.open ()
-					 .source (fund_big.hash ())
-					 .representative (rep_big.pub)
-					 .account (rep_big.pub)
-					 .sign (rep_big.prv, rep_big.pub)
-					 .work (*system.work.generate (rep_big.pub))
-					 .build ();
+	auto fund_big = builder.send ()
+					.previous (nano::dev::genesis->hash ())
+					.destination (rep_big.pub)
+					.balance (nano::uint128_t{ "0xb0000000000000000000000000000000" })
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (nano::dev::genesis->hash ()))
+					.build ();
+	auto open_big = builder.open ()
+					.source (fund_big->hash ())
+					.representative (rep_big.pub)
+					.account (rep_big.pub)
+					.sign (rep_big.prv, rep_big.pub)
+					.work (*system.work.generate (rep_big.pub))
+					.build ();
 	ASSERT_EQ (nano::block_status::progress, node0->process (fund_big));
 	ASSERT_EQ (nano::block_status::progress, node0->process (open_big));
 	// Confirm both blocks, allowing voting on the upcoming block
-	node0->start_election (node0->block (open_big.hash ()));
+	node0->start_election (node0->block (open_big->hash ()));
 	std::shared_ptr<nano::election> election;
-	ASSERT_TIMELY (5s, election = node0->active.election (open_big.qualified_root ()));
+	ASSERT_TIMELY (5s, election = node0->active.election (open_big->qualified_root ()));
 	election->force_confirm ();
 
 	system.wallet (0)->insert_adhoc (rep_big.prv);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	ASSERT_EQ (system.wallet (0)->wallets.reps ().voting, 2);
 	auto block0 = builder.send ()
-				  .previous (fund_big.hash ())
+				  .previous (fund_big->hash ())
 				  .destination (rep_big.pub)
 				  .balance (nano::uint128_t ("0x60000000000000000000000000000000"))
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				  .work (*system.work.generate (fund_big.hash ()))
+				  .work (*system.work.generate (fund_big->hash ()))
 				  .build ();
-	ASSERT_EQ (nano::block_status::progress, node0->process (*block0));
+	ASSERT_EQ (nano::block_status::progress, node0->process (block0));
 	auto & active = node0->active;
 	auto & scheduler = node0->scheduler;
 	scheduler.priority.activate (nano::dev::genesis_key.pub, node0->store.tx_begin_read ());
@@ -1403,7 +1403,7 @@ TEST (node, DISABLED_bootstrap_no_publish)
 				 .build ();
 	{
 		auto transaction (node0->store.tx_begin_write ());
-		ASSERT_EQ (nano::block_status::progress, node0->ledger.process (transaction, *send0));
+		ASSERT_EQ (nano::block_status::progress, node0->ledger.process (transaction, send0));
 	}
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
@@ -1444,7 +1444,7 @@ TEST (node, DISABLED_bootstrap_bulk_push)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*node0->work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node0->process (*send0));
+	ASSERT_EQ (nano::block_status::progress, node0->process (send0));
 
 	ASSERT_FALSE (node0->bootstrap_initiator.in_progress ());
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
@@ -1475,27 +1475,27 @@ TEST (node, bootstrap_fork_open)
 	auto node1 = system.add_node (node_config);
 	nano::keypair key0;
 	nano::block_builder builder;
-	auto send0 = *builder.send ()
-				  .previous (nano::dev::genesis->hash ())
-				  .destination (key0.pub)
-				  .balance (nano::dev::constants.genesis_amount - 500)
-				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				  .work (*system.work.generate (nano::dev::genesis->hash ()))
-				  .build ();
-	auto open0 = *builder.open ()
-				  .source (send0.hash ())
-				  .representative (1)
-				  .account (key0.pub)
-				  .sign (key0.prv, key0.pub)
-				  .work (*system.work.generate (key0.pub))
-				  .build ();
-	auto open1 = *builder.open ()
-				  .source (send0.hash ())
-				  .representative (2)
-				  .account (key0.pub)
-				  .sign (key0.prv, key0.pub)
-				  .work (*system.work.generate (key0.pub))
-				  .build ();
+	auto send0 = builder.send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key0.pub)
+				 .balance (nano::dev::constants.genesis_amount - 500)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto open0 = builder.open ()
+				 .source (send0->hash ())
+				 .representative (1)
+				 .account (key0.pub)
+				 .sign (key0.prv, key0.pub)
+				 .work (*system.work.generate (key0.pub))
+				 .build ();
+	auto open1 = builder.open ()
+				 .source (send0->hash ())
+				 .representative (2)
+				 .account (key0.pub)
+				 .sign (key0.prv, key0.pub)
+				 .work (*system.work.generate (key0.pub))
+				 .build ();
 	// Both know about send0
 	ASSERT_EQ (nano::block_status::progress, node0->process (send0));
 	ASSERT_EQ (nano::block_status::progress, node1->process (send0));
@@ -1503,22 +1503,22 @@ TEST (node, bootstrap_fork_open)
 	for (auto node : system.nodes)
 	{
 		node->start_election (node->block (node->latest (nano::dev::genesis_key.pub)));
-		ASSERT_TIMELY (1s, node->active.election (send0.qualified_root ()));
-		auto election = node->active.election (send0.qualified_root ());
+		ASSERT_TIMELY (1s, node->active.election (send0->qualified_root ()));
+		auto election = node->active.election (send0->qualified_root ());
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
 		ASSERT_TIMELY (2s, node->active.empty ());
 	}
-	ASSERT_TIMELY (3s, node0->block_confirmed (send0.hash ()));
+	ASSERT_TIMELY (3s, node0->block_confirmed (send0->hash ()));
 	// They disagree about open0/open1
 	ASSERT_EQ (nano::block_status::progress, node0->process (open0));
 	ASSERT_EQ (nano::block_status::progress, node1->process (open1));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	ASSERT_FALSE (node1->ledger.block_or_pruned_exists (open0.hash ()));
+	ASSERT_FALSE (node1->ledger.block_or_pruned_exists (open0->hash ()));
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TIMELY (1s, node1->active.empty ());
-	ASSERT_TIMELY (10s, !node1->ledger.block_or_pruned_exists (open1.hash ()) && node1->ledger.block_or_pruned_exists (open0.hash ()));
+	ASSERT_TIMELY (10s, !node1->ledger.block_or_pruned_exists (open1->hash ()) && node1->ledger.block_or_pruned_exists (open0->hash ()));
 }
 
 // Unconfirmed blocks from bootstrap should be confirmed
@@ -1540,7 +1540,7 @@ TEST (node, bootstrap_confirm_frontiers)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*node0->work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node0->process (*send0));
+	ASSERT_EQ (nano::block_status::progress, node0->process (send0));
 
 	// each system only has one node, so there should be no bootstrapping going on
 	ASSERT_FALSE (node0->bootstrap_initiator.in_progress ());
@@ -1598,7 +1598,7 @@ TEST (node, unconfirmed_send)
 				 .sign (key2.prv, key2.pub)
 				 .work (*system.work.generate (recv1->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node2.process (*send2));
+	ASSERT_EQ (nano::block_status::progress, node2.process (send2));
 
 	auto send3 = wallet2->send_action (key2.pub, nano::dev::genesis->account (), nano::Mxrb_ratio);
 	ASSERT_TIMELY (5s, node2.block_confirmed (send2->hash ()));
@@ -1698,10 +1698,10 @@ TEST (node, rep_weight)
 										  .build ();
 	{
 		auto transaction = node.store.tx_begin_write ();
-		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, *block1));
-		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, *block2));
-		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, *block3));
-		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, *block4));
+		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, block1));
+		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, block2));
+		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, block3));
+		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, block4));
 	}
 	ASSERT_TRUE (node.rep_crawler.representatives (1).empty ());
 	std::shared_ptr<nano::transport::channel> channel1 = nano::test::establish_tcp (system, node, node1.network.endpoint ());
@@ -1788,10 +1788,10 @@ TEST (node, rep_remove)
 												.build ();
 	{
 		auto transaction = searching_node.store.tx_begin_write ();
-		ASSERT_EQ (nano::block_status::progress, searching_node.ledger.process (transaction, *send_to_rep1));
-		ASSERT_EQ (nano::block_status::progress, searching_node.ledger.process (transaction, *receive_rep1));
-		ASSERT_EQ (nano::block_status::progress, searching_node.ledger.process (transaction, *send_to_rep2));
-		ASSERT_EQ (nano::block_status::progress, searching_node.ledger.process (transaction, *receive_rep2));
+		ASSERT_EQ (nano::block_status::progress, searching_node.ledger.process (transaction, send_to_rep1));
+		ASSERT_EQ (nano::block_status::progress, searching_node.ledger.process (transaction, receive_rep1));
+		ASSERT_EQ (nano::block_status::progress, searching_node.ledger.process (transaction, send_to_rep2));
+		ASSERT_EQ (nano::block_status::progress, searching_node.ledger.process (transaction, receive_rep2));
 	}
 
 	// Create channel for Rep1
@@ -2127,7 +2127,7 @@ TEST (node, confirm_quorum)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*node1.work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1.process (*send1));
+	ASSERT_EQ (nano::block_status::progress, node1.process (send1));
 	system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, new_balance.number ());
 	ASSERT_TIMELY (2s, node1.active.election (send1->qualified_root ()));
 	auto election = node1.active.election (send1->qualified_root ());
@@ -2174,8 +2174,8 @@ TEST (node, local_votes_cache)
 				 .build ();
 	{
 		auto transaction (node.store.tx_begin_write ());
-		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, *send1));
-		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, *send2));
+		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, send1));
+		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, send2));
 	}
 	// Confirm blocks to allow voting
 	node.start_election (send2);
@@ -2205,7 +2205,7 @@ TEST (node, local_votes_cache)
 	// Max cache
 	{
 		auto transaction (node.store.tx_begin_write ());
-		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, *send3));
+		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, send3));
 	}
 	nano::confirm_req message3{ nano::dev::network_params.network, send3->hash (), send3->root () };
 	for (auto i (0); i < 100; ++i)
@@ -2243,7 +2243,7 @@ TEST (node, DISABLED_local_votes_cache_batch)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*node.work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), *send1));
+	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), send1));
 	node.confirmation_height_processor.add (send1);
 	ASSERT_TIMELY (5s, node.ledger.block_confirmed (node.store.tx_begin_read (), send1->hash ()));
 	auto send2 = nano::state_block_builder ()
@@ -2255,7 +2255,7 @@ TEST (node, DISABLED_local_votes_cache_batch)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*node.work_generate_blocking (send1->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), *send2));
+	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), send2));
 	auto receive1 = nano::state_block_builder ()
 					.account (key1.pub)
 					.previous (0)
@@ -2265,7 +2265,7 @@ TEST (node, DISABLED_local_votes_cache_batch)
 					.sign (key1.prv, key1.pub)
 					.work (*node.work_generate_blocking (key1.pub))
 					.build ();
-	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), *receive1));
+	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), receive1));
 	std::vector<std::pair<nano::block_hash, nano::root>> batch{ { send2->hash (), send2->root () }, { receive1->hash (), receive1->root () } };
 	nano::confirm_req message{ nano::dev::network_params.network, batch };
 	auto channel = std::make_shared<nano::transport::fake::channel> (node);
@@ -2328,7 +2328,7 @@ TEST (node, local_votes_cache_generate_new_vote)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*node.work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node.process (*send1));
+	ASSERT_EQ (nano::block_status::progress, node.process (send1));
 	// One of the hashes is cached
 	std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes{ std::make_pair (nano::dev::genesis->hash (), nano::dev::genesis->root ()), std::make_pair (send1->hash (), send1->root ()) };
 	nano::confirm_req message2{ nano::dev::network_params.network, roots_hashes };
@@ -2376,7 +2376,7 @@ TEST (node, local_votes_cache_fork)
 					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					  .work (*node1.work_generate_blocking (nano::dev::genesis->hash ()))
 					  .build ();
-	ASSERT_EQ (nano::block_status::progress, node1.process (*send1));
+	ASSERT_EQ (nano::block_status::progress, node1.process (send1));
 	// Cache vote
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, { send1 }, 0, 0);
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::fake::channel> (node1));
@@ -2468,7 +2468,7 @@ TEST (node, vote_by_hash_bundle)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
 	blocks.push_back (block);
-	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), *blocks.back ()));
+	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), blocks.back ()));
 	for (auto i = 2; i < 200; ++i)
 	{
 		auto block = builder.make_block ()
@@ -2479,7 +2479,7 @@ TEST (node, vote_by_hash_bundle)
 					 .work (*system.work.generate (blocks.back ()->hash ()))
 					 .build ();
 		blocks.push_back (block);
-		ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), *blocks.back ()));
+		ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), blocks.back ()));
 	}
 
 	// Confirming last block will confirm whole chain and allow us to generate votes for those blocks later
@@ -3443,8 +3443,8 @@ TEST (node, rollback_gap_source)
 				  .sign (key.prv, key.pub)
 				  .build ();
 	// Set 'node' up with losing block 'fork1a'
-	ASSERT_EQ (nano::block_status::progress, node.process (*send1));
-	ASSERT_EQ (nano::block_status::progress, node.process (*fork1a));
+	ASSERT_EQ (nano::block_status::progress, node.process (send1));
+	ASSERT_EQ (nano::block_status::progress, node.process (fork1a));
 	// Node has 'fork1a' & doesn't have source 'send2' for winning 'fork1b' block
 	ASSERT_EQ (nullptr, node.block (send2->hash ()));
 	node.block_processor.force (fork1b);
@@ -3457,7 +3457,7 @@ TEST (node, rollback_gap_source)
 	node.process_active (fork1a);
 	ASSERT_TIMELY (5s, node.block (fork1a->hash ()) != nullptr);
 	// With send2 block in ledger election can start again to remove fork block
-	ASSERT_EQ (nano::block_status::progress, node.process (*send2));
+	ASSERT_EQ (nano::block_status::progress, node.process (send2));
 	node.block_processor.force (fork1b);
 	// Wait for new rollback
 	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::rollback, nano::stat::detail::open), 2);
@@ -3601,19 +3601,19 @@ TEST (node, dependency_graph)
 					  .work (*system.work.generate (key3_receive->hash ()))
 					  .build ();
 
-	ASSERT_EQ (nano::block_status::progress, node.process (*gen_send1));
-	ASSERT_EQ (nano::block_status::progress, node.process (*key1_open));
-	ASSERT_EQ (nano::block_status::progress, node.process (*key1_send1));
-	ASSERT_EQ (nano::block_status::progress, node.process (*gen_receive));
-	ASSERT_EQ (nano::block_status::progress, node.process (*gen_send2));
-	ASSERT_EQ (nano::block_status::progress, node.process (*key2_open));
-	ASSERT_EQ (nano::block_status::progress, node.process (*key2_send1));
-	ASSERT_EQ (nano::block_status::progress, node.process (*key3_open));
-	ASSERT_EQ (nano::block_status::progress, node.process (*key2_send2));
-	ASSERT_EQ (nano::block_status::progress, node.process (*key1_receive));
-	ASSERT_EQ (nano::block_status::progress, node.process (*key1_send2));
-	ASSERT_EQ (nano::block_status::progress, node.process (*key3_receive));
-	ASSERT_EQ (nano::block_status::progress, node.process (*key3_epoch));
+	ASSERT_EQ (nano::block_status::progress, node.process (gen_send1));
+	ASSERT_EQ (nano::block_status::progress, node.process (key1_open));
+	ASSERT_EQ (nano::block_status::progress, node.process (key1_send1));
+	ASSERT_EQ (nano::block_status::progress, node.process (gen_receive));
+	ASSERT_EQ (nano::block_status::progress, node.process (gen_send2));
+	ASSERT_EQ (nano::block_status::progress, node.process (key2_open));
+	ASSERT_EQ (nano::block_status::progress, node.process (key2_send1));
+	ASSERT_EQ (nano::block_status::progress, node.process (key3_open));
+	ASSERT_EQ (nano::block_status::progress, node.process (key2_send2));
+	ASSERT_EQ (nano::block_status::progress, node.process (key1_receive));
+	ASSERT_EQ (nano::block_status::progress, node.process (key1_send2));
+	ASSERT_EQ (nano::block_status::progress, node.process (key3_receive));
+	ASSERT_EQ (nano::block_status::progress, node.process (key3_epoch));
 	ASSERT_TRUE (node.active.empty ());
 
 	// Hash -> Ancestors
@@ -3805,19 +3805,19 @@ TEST (node, dependency_graph_frontier)
 	for (auto const & node : system.nodes)
 	{
 		auto transaction (node->store.tx_begin_write ());
-		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, *gen_send1));
-		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, *key1_open));
-		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, *key1_send1));
-		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, *gen_receive));
-		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, *gen_send2));
-		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, *key2_open));
-		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, *key2_send1));
-		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, *key3_open));
-		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, *key2_send2));
-		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, *key1_receive));
-		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, *key1_send2));
-		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, *key3_receive));
-		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, *key3_epoch));
+		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, gen_send1));
+		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, key1_open));
+		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, key1_send1));
+		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, gen_receive));
+		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, gen_send2));
+		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, key2_open));
+		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, key2_send1));
+		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, key3_open));
+		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, key2_send2));
+		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, key1_receive));
+		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, key1_send2));
+		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, key3_receive));
+		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, key3_epoch));
 	}
 
 	// node1 can vote, but only on the first block
@@ -3931,7 +3931,7 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_NE (nullptr, election_open);
 
 	// Confirm one of the dependents of the receive but not the other, to ensure both have to be confirmed to start an election on processing
-	ASSERT_EQ (nano::block_status::progress, node.process (*receive));
+	ASSERT_EQ (nano::block_status::progress, node.process (receive));
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 	election_open->force_confirm ();
 	ASSERT_TIMELY (5s, node.block_confirmed (open->hash ()));
@@ -3944,7 +3944,7 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_NEVER (0.5s, node.active.active (receive->qualified_root ()));
 
 	// Processing a fork will also not start an election
-	ASSERT_EQ (nano::block_status::fork, node.process (*fork));
+	ASSERT_EQ (nano::block_status::fork, node.process (fork));
 	node.process_local (fork);
 	ASSERT_NEVER (0.5s, node.active.active (receive->qualified_root ()));
 

@@ -27,7 +27,7 @@ TEST (conflicts, start_stop)
 				 .work (0)
 				 .build ();
 	node1.work_generate_blocking (*send1);
-	ASSERT_EQ (nano::block_status::progress, node1.process (*send1));
+	ASSERT_EQ (nano::block_status::progress, node1.process (send1));
 	ASSERT_EQ (0, node1.active.size ());
 	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
 	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
@@ -56,7 +56,7 @@ TEST (conflicts, add_existing)
 	node1.work_generate_blocking (*send1);
 
 	// add the block to ledger as an unconfirmed block
-	ASSERT_EQ (nano::block_status::progress, node1.process (*send1));
+	ASSERT_EQ (nano::block_status::progress, node1.process (send1));
 
 	// wait for send1 to be inserted in the ledger
 	ASSERT_TIMELY (5s, node1.block (send1->hash ()));

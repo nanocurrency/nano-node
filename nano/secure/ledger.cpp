@@ -915,11 +915,11 @@ std::optional<nano::pending_info> nano::ledger::pending_info (store::transaction
 	return std::nullopt;
 }
 
-nano::block_status nano::ledger::process (store::write_transaction const & transaction_a, nano::block & block_a)
+nano::block_status nano::ledger::process (store::write_transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
 {
-	debug_assert (!constants.work.validate_entry (block_a) || constants.genesis == nano::dev::genesis);
+	debug_assert (!constants.work.validate_entry (*block_a) || constants.genesis == nano::dev::genesis);
 	ledger_processor processor (*this, transaction_a);
-	block_a.visit (processor);
+	block_a->visit (processor);
 	if (processor.result == nano::block_status::progress)
 	{
 		++cache.block_count;

@@ -40,7 +40,7 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config_a, work, node_flags_a, node_sequence++));
 	for (auto i : initialization_blocks)
 	{
-		auto result = node->ledger.process (node->store.tx_begin_write (), *i);
+		auto result = node->ledger.process (node->store.tx_begin_write (), i);
 		debug_assert (result == nano::block_status::progress);
 	}
 	debug_assert (!node->init_error ());
@@ -262,7 +262,7 @@ std::shared_ptr<nano::state_block> nano::test::upgrade_epoch (nano::work_pool & 
 	bool error{ true };
 	if (!ec && epoch)
 	{
-		error = ledger_a.process (transaction, *epoch) != nano::block_status::progress;
+		error = ledger_a.process (transaction, epoch) != nano::block_status::progress;
 	}
 
 	return !error ? std::move (epoch) : nullptr;

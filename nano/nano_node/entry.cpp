@@ -1029,7 +1029,7 @@ int main (int argc, char * const * argv)
 							.build ();
 
 				genesis_latest = send->hash ();
-				node->ledger.process (transaction, *send);
+				node->ledger.process (transaction, send);
 
 				auto open = builder.state ()
 							.account (keys[i].pub)
@@ -1041,7 +1041,7 @@ int main (int argc, char * const * argv)
 							.work (*node->work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.work.epoch_1))
 							.build ();
 
-				node->ledger.process (transaction, *open);
+				node->ledger.process (transaction, open);
 			}
 			// Generating blocks
 			std::deque<std::shared_ptr<nano::block>> blocks;
