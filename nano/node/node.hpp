@@ -86,7 +86,7 @@ public:
 	void process_confirmed_data (store::transaction const &, std::shared_ptr<nano::block> const &, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, bool &, nano::account &);
 	void process_confirmed (nano::election_status const &, uint64_t = 0);
 	void process_active (std::shared_ptr<nano::block> const &);
-	std::optional<nano::process_return> process_local (std::shared_ptr<nano::block> const &);
+	std::optional<nano::block_status> process_local (std::shared_ptr<nano::block> const &);
 	void process_local_async (std::shared_ptr<nano::block> const &);
 	void keepalive_preconfigured (std::vector<std::string> const &);
 	std::shared_ptr<nano::block> block (nano::block_hash const &);
@@ -210,8 +210,8 @@ public: // Testing convenience functions
 		Creates a new write transaction and inserts `block' and returns result
 		Transaction is comitted before function return
 	 */
-	[[nodiscard]] nano::process_return process (nano::block & block);
-	[[nodiscard]] nano::process_return process (store::write_transaction const &, nano::block & block);
+	[[nodiscard]] nano::block_status process (nano::block & block);
+	[[nodiscard]] nano::block_status process (store::write_transaction const &, nano::block & block);
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
 

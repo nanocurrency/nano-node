@@ -28,11 +28,11 @@ void nano::process_live_dispatcher::connect (nano::block_processor & block_proce
 	});
 }
 
-void nano::process_live_dispatcher::inspect (nano::process_return const & result, nano::block const & block, store::transaction const & transaction)
+void nano::process_live_dispatcher::inspect (nano::block_status const & result, nano::block const & block, store::transaction const & transaction)
 {
-	switch (result.code)
+	switch (result)
 	{
-		case nano::process_result::progress:
+		case nano::block_status::progress:
 			process_live (block, transaction);
 			break;
 		default:

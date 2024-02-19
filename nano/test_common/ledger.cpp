@@ -13,7 +13,7 @@ nano::test::context::ledger_context::ledger_context (std::deque<std::shared_ptr<
 	for (auto const & i : blocks_m)
 	{
 		auto process_result = ledger_m.process (tx, *i);
-		debug_assert (process_result.code == nano::process_result::progress);
+		debug_assert (process_result == nano::block_status::progress);
 	}
 }
 

@@ -253,7 +253,7 @@ enum class vote_code
 	indeterminate // Unknown if replay or vote
 };
 
-enum class process_result
+enum class block_status
 {
 	progress, // Hasn't been seen before, signed correctly
 	bad_signature, // Signature was bad, forged or transmission error
@@ -271,14 +271,9 @@ enum class process_result
 	insufficient_work // Insufficient work for this block, even though it passed the minimal validation
 };
 
-std::string_view to_string (process_result);
-nano::stat::detail to_stat_detail (process_result);
+std::string_view to_string (block_status);
+nano::stat::detail to_stat_detail (block_status);
 
-class process_return final
-{
-public:
-	nano::process_result code;
-};
 enum class tally_result
 {
 	vote,

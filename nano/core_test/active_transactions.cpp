@@ -149,7 +149,7 @@ TEST (active_transactions, confirm_frontier)
 		node2.rep_crawler.probable_reps.emplace (nano::dev::genesis_key.pub, *peers.begin ());
 	}
 
-	ASSERT_EQ (nano::process_result::progress, node2.process (*send).code);
+	ASSERT_EQ (nano::block_status::progress, node2.process (*send));
 	ASSERT_TIMELY (5s, !node2.active.empty ());
 
 	// Save election to check request count afterwards
@@ -490,10 +490,10 @@ TEST (active_transactions, inactive_votes_cache_election_start)
 				 .sign (key2.prv, key2.pub)
 				 .work (*system.work.generate (key2.pub))
 				 .build_shared ();
-	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
-	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
-	ASSERT_EQ (nano::process_result::progress, node.process (*open1).code);
-	ASSERT_EQ (nano::process_result::progress, node.process (*open2).code);
+	ASSERT_EQ (nano::block_status::progress, node.process (*send1));
+	ASSERT_EQ (nano::block_status::progress, node.process (*send2));
+	ASSERT_EQ (nano::block_status::progress, node.process (*open1));
+	ASSERT_EQ (nano::block_status::progress, node.process (*open2));
 	ASSERT_TIMELY_EQ (5s, 5, node.ledger.cache.block_count);
 	ASSERT_TRUE (node.active.empty ());
 	ASSERT_EQ (1, node.ledger.cache.cemented_count);
@@ -1095,14 +1095,14 @@ TEST (active_transactions, conflicting_block_vote_existing_election)
 				.build_shared ();
 	auto vote_fork = nano::test::make_final_vote (nano::dev::genesis_key, { fork });
 
-	ASSERT_EQ (nano::process_result::progress, node.process_local (send).value ().code);
+	ASSERT_EQ (nano::block_status::progress, node.process_local (send).value ());
 	ASSERT_TIMELY_EQ (5s, 1, node.active.size ());
 
 	// Vote for conflicting block, but the block does not yet exist in the ledger
 	node.active.vote (vote_fork);
 
 	// Block now gets processed
-	ASSERT_EQ (nano::process_result::fork, node.process_local (fork).value ().code);
+	ASSERT_EQ (nano::block_status::fork, node.process_local (fork).value ());
 
 	// Election must be confirmed
 	auto election (node.active.election (fork->qualified_root ()));
@@ -1165,11 +1165,11 @@ TEST (active_transactions, activate_account_chain)
 				   .sign (key.prv, key.pub)
 				   .work (*system.work.generate (open->hash ()))
 				   .build ();
-	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
-	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
-	ASSERT_EQ (nano::process_result::progress, node.process (*send3).code);
-	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
-	ASSERT_EQ (nano::process_result::progress, node.process (*receive).code);
+	ASSERT_EQ (nano::block_status::progress, node.process (*send));
+	ASSERT_EQ (nano::block_status::progress, node.process (*send2));
+	ASSERT_EQ (nano::block_status::progress, node.process (*send3));
+	ASSERT_EQ (nano::block_status::progress, node.process (*open));
+	ASSERT_EQ (nano::block_status::progress, node.process (*receive));
 
 	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
 	ASSERT_TIMELY (5s, node.active.election (send->qualified_root ()));
@@ -1248,9 +1248,9 @@ TEST (active_transactions, activate_inactive)
 				.work (*system.work.generate (key.pub))
 				.build_shared ();
 
-	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
-	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
-	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
+	ASSERT_EQ (nano::block_status::progress, node.process (*send));
+	ASSERT_EQ (nano::block_status::progress, node.process (*send2));
+	ASSERT_EQ (nano::block_status::progress, node.process (*open));
 
 	auto election = nano::test::start_election (system, node, send2->hash ());
 	ASSERT_NE (nullptr, election);
@@ -1285,7 +1285,7 @@ TEST (active_transactions, list_active)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build_shared ();
 
-	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
+	ASSERT_EQ (nano::block_status::progress, node.process (*send));
 
 	auto send2 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)
@@ -1297,7 +1297,7 @@ TEST (active_transactions, list_active)
 				 .work (*system.work.generate (send->hash ()))
 				 .build_shared ();
 
-	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
+	ASSERT_EQ (nano::block_status::progress, node.process (*send2));
 
 	auto open = builder.make_block ()
 				.account (key.pub)
@@ -1309,7 +1309,7 @@ TEST (active_transactions, list_active)
 				.work (*system.work.generate (key.pub))
 				.build_shared ();
 
-	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
+	ASSERT_EQ (nano::block_status::progress, node.process (*open));
 
 	ASSERT_TRUE (nano::test::start_elections (system, node, { send, send2, open }));
 	ASSERT_EQ (3, node.active.size ());
@@ -1342,7 +1342,7 @@ TEST (active_transactions, vacancy)
 					.work (*system.work.generate (nano::dev::genesis->hash ()))
 					.build_shared ();
 		node.active.vacancy_update = [&updated] () { updated = true; };
-		ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
+		ASSERT_EQ (nano::block_status::progress, node.process (*send));
 		ASSERT_EQ (1, node.active.vacancy ());
 		ASSERT_EQ (0, node.active.size ());
 		node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
@@ -1383,7 +1383,7 @@ TEST (active_transactions, fifo)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (latest_hash))
 				 .build_shared ();
-	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
+	ASSERT_EQ (nano::block_status::progress, node.process (*send1));
 	node.process_confirmed (nano::election_status{ send1 });
 	ASSERT_TIMELY (5s, node.block_confirmed (send1->hash ()));
 
@@ -1398,7 +1398,7 @@ TEST (active_transactions, fifo)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (latest_hash))
 				 .build_shared ();
-	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
+	ASSERT_EQ (nano::block_status::progress, node.process (*send2));
 	node.process_confirmed (nano::election_status{ send2 });
 	ASSERT_TIMELY (5s, node.block_confirmed (send2->hash ()));
 
@@ -1411,7 +1411,7 @@ TEST (active_transactions, fifo)
 					.sign (key0.prv, key0.pub)
 					.work (*system.work.generate (key0.pub))
 					.build_shared ();
-	ASSERT_EQ (nano::process_result::progress, node.process (*receive1).code);
+	ASSERT_EQ (nano::block_status::progress, node.process (*receive1));
 
 	auto receive2 = builder.make_block ()
 					.previous (0)
@@ -1422,7 +1422,7 @@ TEST (active_transactions, fifo)
 					.sign (key1.prv, key1.pub)
 					.work (*system.work.generate (key1.pub))
 					.build_shared ();
-	ASSERT_EQ (nano::process_result::progress, node.process (*receive2).code);
+	ASSERT_EQ (nano::block_status::progress, node.process (*receive2));
 
 	// Ensure first transaction becomes active
 	node.scheduler.manual.push (receive1);

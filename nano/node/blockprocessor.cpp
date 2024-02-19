@@ -96,7 +96,7 @@ void nano::block_processor::add (std::shared_ptr<nano::block> const & block, blo
 	add_impl (context{ block, source });
 }
 
-std::optional<nano::process_return> nano::block_processor::add_blocking (std::shared_ptr<nano::block> const & block, block_source const source)
+std::optional<nano::block_status> nano::block_processor::add_blocking (std::shared_ptr<nano::block> const & block, block_source const source)
 {
 	node.stats.inc (nano::stat::type::blockprocessor, nano::stat::detail::process_blocking);
 	node.logger.debug (nano::log::type::blockprocessor, "Processing block (blocking): {} (source: {})", block->hash ().to_string (), to_string (source));
@@ -312,24 +312,24 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 	return processed;
 }
 
-nano::process_return nano::block_processor::process_one (store::write_transaction const & transaction_a, context const & context, bool const forced_a)
+nano::block_status nano::block_processor::process_one (store::write_transaction const & transaction_a, context const & context, bool const forced_a)
 {
 	auto const & block = context.block;
 	auto const hash = block->hash ();
-	nano::process_return result = node.ledger.process (transaction_a, *block);
+	nano::block_status result = node.ledger.process (transaction_a, *block);
 
-	node.stats.inc (nano::stat::type::blockprocessor_result, to_stat_detail (result.code));
+	node.stats.inc (nano::stat::type::blockprocessor_result, to_stat_detail (result));
 	node.stats.inc (nano::stat::type::blockprocessor_source, to_stat_detail (context.source));
 	node.logger.trace (nano::log::type::blockprocessor, nano::log::detail::block_processed,
-	nano::log::arg{ "result", result.code },
+	nano::log::arg{ "result", result },
 	nano::log::arg{ "source", context.source },
 	nano::log::arg{ "arrival", nano::log::microseconds (context.arrival) },
 	nano::log::arg{ "forced", forced_a },
 	nano::log::arg{ "block", block });
 
-	switch (result.code)
+	switch (result)
 	{
-		case nano::process_result::progress:
+		case nano::block_status::progress:
 		{
 			queue_unchecked (transaction_a, hash);
 			/* For send blocks check epoch open unchecked (gap pending).
@@ -343,63 +343,63 @@ nano::process_return nano::block_processor::process_one (store::write_transactio
 			}
 			break;
 		}
-		case nano::process_result::gap_previous:
+		case nano::block_status::gap_previous:
 		{
 			node.unchecked.put (block->previous (), block);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_previous);
 			break;
 		}
-		case nano::process_result::gap_source:
+		case nano::block_status::gap_source:
 		{
 			node.unchecked.put (node.ledger.block_source (transaction_a, *block), block);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
 		}
-		case nano::process_result::gap_epoch_open_pending:
+		case nano::block_status::gap_epoch_open_pending:
 		{
 			node.unchecked.put (block->account (), block); // Specific unchecked key starting with epoch open block account public key
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
 		}
-		case nano::process_result::old:
+		case nano::block_status::old:
 		{
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::old);
 			break;
 		}
-		case nano::process_result::bad_signature:
+		case nano::block_status::bad_signature:
 		{
 			break;
 		}
-		case nano::process_result::negative_spend:
+		case nano::block_status::negative_spend:
 		{
 			break;
 		}
-		case nano::process_result::unreceivable:
+		case nano::block_status::unreceivable:
 		{
 			break;
 		}
-		case nano::process_result::fork:
+		case nano::block_status::fork:
 		{
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork);
 			break;
 		}
-		case nano::process_result::opened_burn_account:
+		case nano::block_status::opened_burn_account:
 		{
 			break;
 		}
-		case nano::process_result::balance_mismatch:
+		case nano::block_status::balance_mismatch:
 		{
 			break;
 		}
-		case nano::process_result::representative_mismatch:
+		case nano::block_status::representative_mismatch:
 		{
 			break;
 		}
-		case nano::process_result::block_position:
+		case nano::block_status::block_position:
 		{
 			break;
 		}
-		case nano::process_result::insufficient_work:
+		case nano::block_status::insufficient_work:
 		{
 			break;
 		}

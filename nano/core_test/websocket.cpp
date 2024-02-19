@@ -1061,7 +1061,7 @@ TEST (websocket, new_unconfirmed_block)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
 
-	ASSERT_EQ (nano::process_result::progress, node1->process_local (send1).value ().code);
+	ASSERT_EQ (nano::block_status::progress, node1->process_local (send1).value ());
 
 	ASSERT_TIMELY_EQ (5s, future.wait_for (0s), std::future_status::ready);
 
