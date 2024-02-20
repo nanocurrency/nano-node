@@ -64,7 +64,6 @@ public:
 	nano::block_status process (store::write_transaction const & transaction, std::shared_ptr<nano::block> block);
 	bool rollback (store::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
 	bool rollback (store::write_transaction const &, nano::block_hash const &);
-	void update_account (store::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
 	uint64_t pruning_action (store::write_transaction &, nano::block_hash const &, uint64_t const);
 	void dump_account_chain (nano::account const &, std::ostream & = std::cout);
 	bool dependents_confirmed (store::transaction const &, nano::block const &) const;
@@ -77,6 +76,7 @@ public:
 	bool bootstrap_weight_reached () const;
 	static nano::epoch version (nano::block const & block);
 	nano::epoch version (store::transaction const & transaction, nano::block_hash const & hash) const;
+	nano::account_info account_info (nano::store::transaction const & transaction, nano::block const & block, nano::account const & representative);
 	static nano::uint128_t const unit;
 	nano::ledger_constants & constants;
 	nano::store::component & store;
