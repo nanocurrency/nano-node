@@ -3687,37 +3687,6 @@ TEST (node, deferred_dependent_elections)
 }
 }
 
-// This test checks that if a block is in the recently_confirmed list then the repcrawler will not send a request for it.
-// The behaviour of this test previously was the opposite, that the repcrawler eventually send out such a block and deleted the block
-// from the recently confirmed list to try to make ammends for sending it, which is bad behaviour.
-// In the long term, we should have a better way to check for reps and this test should become redundant
-TEST (rep_crawler, recently_confirmed)
-{
-	nano::test::system system (1);
-	auto & node1 (*system.nodes[0]);
-	ASSERT_EQ (1, node1.ledger.cache.block_count);
-	auto const block = nano::dev::genesis;
-	node1.active.recently_confirmed.put (block->qualified_root (), block->hash ());
-	auto & node2 (*system.add_node ());
-	system.wallet (1)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto channel = node1.network.find_node_id (node2.get_node_id ());
-	ASSERT_NE (nullptr, channel);
-	node1.rep_crawler.query (channel); // this query should be dropped due to the recently_confirmed entry
-	ASSERT_ALWAYS_EQ (0.5s, node1.rep_crawler.representative_count (), 0);
-}
-
-// Votes from local channels should be ignored
-TEST (rep_crawler, ignore_local)
-{
-	nano::test::system system;
-	nano::node_flags flags;
-	auto & node = *system.add_node (flags);
-	auto loopback = std::make_shared<nano::transport::inproc::channel> (node, node);
-	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector{ nano::dev::genesis->hash () });
-	node.rep_crawler.force_process (vote, loopback);
-	ASSERT_ALWAYS_EQ (0.5s, node.rep_crawler.representative_count (), 0);
-}
-
 // Test that a node configured with `enable_pruning` and `max_pruning_age = 1s` will automatically
 // prune old confirmed blocks without explicitly saying `node.ledger_pruning` in the unit test
 TEST (node, pruning_automatic)
