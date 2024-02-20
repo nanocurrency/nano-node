@@ -22,12 +22,14 @@ namespace nano
 {
 extern bool opencl_loaded;
 class logger;
+
 class opencl_platform
 {
 public:
 	cl_platform_id platform;
 	std::vector<cl_device_id> devices;
 };
+
 class opencl_environment
 {
 public:
@@ -35,8 +37,13 @@ public:
 	void dump (std::ostream & stream);
 	std::vector<nano::opencl_platform> platforms;
 };
+
 class root;
 class work_pool;
+
+// type of function that does the work generation with an optional return value
+using opencl_work_func_t = std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)>;
+
 class opencl_work
 {
 public:
