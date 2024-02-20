@@ -224,7 +224,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	ASSERT_TIMELY (5s, node1.block (send1->hash ()) != nullptr);
 
 	auto const open1 = nano::open_block_builder{}.make_block ().account (key1.pub).source (send1->hash ()).representative (key1.pub).sign (key1.prv, key1.pub).work (*system.work.generate (key1.pub)).build_shared ();
-	ASSERT_EQ (nano::process_result::progress, node1.process (*open1).code);
+	ASSERT_EQ (nano::block_status::progress, node1.process (*open1));
 
 	nano::keypair key2;
 	auto const send2 = builder.make_block ()
@@ -234,7 +234,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 					   .sign (key1.prv, key1.pub)
 					   .work (*system.work.generate (open1->hash ()))
 					   .build_shared ();
-	ASSERT_EQ (nano::process_result::progress, node1.process (*send2).code);
+	ASSERT_EQ (nano::block_status::progress, node1.process (*send2));
 	ASSERT_TIMELY_EQ (5s, node1.ledger.cache.block_count, 4);
 
 	node_config.peering_port = system.get_available_port ();

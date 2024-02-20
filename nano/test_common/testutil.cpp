@@ -65,7 +65,7 @@ bool nano::test::process (nano::node & node, std::vector<std::shared_ptr<nano::b
 	for (auto & block : blocks)
 	{
 		auto result = node.process (transaction, *block);
-		if (result.code != nano::process_result::progress)
+		if (result != nano::block_status::progress)
 		{
 			return false;
 		}

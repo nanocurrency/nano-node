@@ -35,9 +35,9 @@ nano::active_transactions::active_transactions (nano::node & node_a, nano::confi
 
 	// Notify elections about alternative (forked) blocks
 	block_processor.block_processed.add ([this] (auto const & result, auto const & context) {
-		switch (result.code)
+		switch (result)
 		{
-			case nano::process_result::fork:
+			case nano::block_status::fork:
 				publish (context.block);
 				break;
 			default:

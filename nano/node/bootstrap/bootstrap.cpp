@@ -165,7 +165,7 @@ bool nano::bootstrap_initiator::in_progress ()
 	return !attempts_list.empty ();
 }
 
-void nano::bootstrap_initiator::block_processed (store::transaction const & tx, nano::process_return const & result, nano::block const & block)
+void nano::bootstrap_initiator::block_processed (store::transaction const & tx, nano::block_status const & result, nano::block const & block)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	for (auto & i : attempts_list)

@@ -41,7 +41,7 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 	for (auto i : initialization_blocks)
 	{
 		auto result = node->ledger.process (node->store.tx_begin_write (), *i);
-		debug_assert (result.code == nano::process_result::progress);
+		debug_assert (result == nano::block_status::progress);
 	}
 	debug_assert (!node->init_error ());
 	auto wallet = node->wallets.create (nano::random_wallet_id ());
@@ -262,7 +262,7 @@ std::unique_ptr<nano::state_block> nano::test::upgrade_epoch (nano::work_pool & 
 	bool error{ true };
 	if (!ec && epoch)
 	{
-		error = ledger_a.process (transaction, *epoch).code != nano::process_result::progress;
+		error = ledger_a.process (transaction, *epoch) != nano::block_status::progress;
 	}
 
 	return !error ? std::move (epoch) : nullptr;

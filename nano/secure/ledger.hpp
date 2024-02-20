@@ -72,7 +72,7 @@ public:
 	nano::block_hash block_source (store::transaction const &, nano::block const &);
 	std::pair<nano::block_hash, nano::block_hash> hash_root_random (store::transaction const &) const;
 	std::optional<nano::pending_info> pending_info (store::transaction const & transaction, nano::pending_key const & key) const;
-	nano::process_return process (store::write_transaction const &, nano::block &);
+	nano::block_status process (store::write_transaction const &, nano::block &);
 	bool rollback (store::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
 	bool rollback (store::write_transaction const &, nano::block_hash const &);
 	void update_account (store::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);

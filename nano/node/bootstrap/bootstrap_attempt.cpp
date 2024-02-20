@@ -138,6 +138,6 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> const 
 	return stop_pull;
 }
 
-void nano::bootstrap_attempt::block_processed (store::transaction const & tx, nano::process_return const & result, nano::block const & block)
+void nano::bootstrap_attempt::block_processed (store::transaction const & tx, nano::block_status const & result, nano::block const & block)
 {
 }

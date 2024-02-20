@@ -32,7 +32,7 @@ TEST (processor_service, bad_send_signature)
 				.work (*pool.generate (info1->head))
 				.build ();
 	send->signature.bytes[32] ^= 0x1;
-	ASSERT_EQ (nano::process_result::bad_signature, ledger.process (transaction, *send).code);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, *send));
 }
 
 TEST (processor_service, bad_receive_signature)
@@ -57,7 +57,7 @@ TEST (processor_service, bad_receive_signature)
 				.work (*pool.generate (info1->head))
 				.build ();
 	nano::block_hash hash1 (send->hash ());
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *send));
 	auto info2 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info2);
 	auto receive = builder
@@ -68,5 +68,5 @@ TEST (processor_service, bad_receive_signature)
 				   .work (*pool.generate (hash1))
 				   .build ();
 	receive->signature.bytes[32] ^= 0x1;
-	ASSERT_EQ (nano::process_result::bad_signature, ledger.process (transaction, *receive).code);
+	ASSERT_EQ (nano::block_status::bad_signature, ledger.process (transaction, *receive));
 }

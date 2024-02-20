@@ -47,18 +47,18 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 		epoch->block_work_set (node.work_generate_blocking (nano::work_version::work_1, root_a, difficulty).value_or (0));
 		bool valid_signature (!nano::validate_message (signer_a, epoch->hash (), epoch->block_signature ()));
 		bool valid_work (node.network_params.work.difficulty (*epoch) >= difficulty);
-		nano::process_result result (nano::process_result::old);
+		nano::block_status result (nano::block_status::old);
 		if (valid_signature && valid_work)
 		{
-			result = node.process_local (epoch).value ().code;
+			result = node.process_local (epoch).value ();
 		}
-		if (result == nano::process_result::progress)
+		if (result == nano::block_status::progress)
 		{
 			++counter;
 		}
 		else
 		{
-			bool fork (result == nano::process_result::fork);
+			bool fork (result == nano::block_status::fork);
 
 			logger.error (nano::log::type::epoch_upgrader, "Failed to upgrade account {} (valid signature: {}, valid work: {}, fork: {})",
 			account_a.to_account (),
