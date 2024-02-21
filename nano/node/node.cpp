@@ -161,7 +161,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	tcp_listener{ std::make_shared<nano::transport::tcp_listener> (network.port, *this, config.tcp_incoming_connections_max) },
 	application_path (application_path_a),
 	port_mapping (*this),
-	rep_crawler (*this),
+	rep_crawler (config.rep_crawler, *this),
 	vote_processor (active, observers, stats, config, flags, logger, online_reps, rep_crawler, ledger, network_params),
 	warmed_up (0),
 	block_processor (*this, write_database_queue),
@@ -305,7 +305,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 		observers.endpoint.add ([this] (std::shared_ptr<nano::transport::channel> const & channel_a) {
 			this->network.send_keepalive_self (channel_a);
 		});
-		
+
 		observers.vote.add ([this] (std::shared_ptr<nano::vote> vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_code code) {
 			debug_assert (code != nano::vote_code::invalid);
 			bool active_in_rep_crawler = rep_crawler.process (vote, channel);

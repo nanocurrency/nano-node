@@ -331,6 +331,13 @@ enum class detail : uint8_t
 
 	// rep_crawler
 	channel_dead,
+	query_target_failed,
+	query_channel_busy,
+	query_sent,
+	rep_timeout,
+	query_timeout,
+	crawl_aggressive,
+	crawl_normal,
 
 	_last // Must be the last enum
 };
