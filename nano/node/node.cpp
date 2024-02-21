@@ -566,7 +566,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 
 nano::process_return nano::node::process (nano::block & block)
 {
-	auto const transaction = store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::successor, tables::pending });
+	auto const transaction = store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending, tables::successor });
 	return process (transaction, block);
 }
 
