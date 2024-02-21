@@ -15,9 +15,9 @@ class successor : public nano::store::successor
 	friend class nano::store::lmdb::component;
 	nano::store::lmdb::component & store;
 	/**
-		 * Maps head block to owning account
-		 * nano::block_hash -> nano::block_hash
-		 */
+	 * Maps head block to owning account
+	 * nano::block_hash -> nano::block_hash
+	 */
 	MDB_dbi successor_v23_handle{ 0 };
 
 public:
