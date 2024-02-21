@@ -258,7 +258,8 @@ std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks
 		while (current && result.size () < count)
 		{
 			result.push_back (current);
-			current = store.block.get (transaction, store.successor.get (transaction, current->hash ()));
+			auto successor = store.successor.get (transaction, current->hash ());
+			current = store.block.get (transaction, successor);
 		}
 	}
 	return result;

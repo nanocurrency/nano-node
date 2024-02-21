@@ -492,7 +492,7 @@ std::shared_ptr<nano::block> nano::bulk_pull_server::get_next ()
 		result = node->block (current);
 		if (result != nullptr && set_current_to_end == false)
 		{
-			auto next = ascending () ? node->successor (current) : result->previous ();
+			auto next = ascending () ? node->successor (result->hash ()) : result->previous ();
 			if (!next.is_zero ())
 			{
 				current = next;

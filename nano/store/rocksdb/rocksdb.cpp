@@ -859,7 +859,7 @@ void nano::store::rocksdb::component::on_flush (::rocksdb::FlushJobInfo const & 
 
 std::vector<nano::tables> nano::store::rocksdb::component::all_tables () const
 {
-	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::final_votes, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::vote, tables::successor };
+	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::final_votes, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::successor, tables::vote };
 }
 
 bool nano::store::rocksdb::component::copy_db (std::filesystem::path const & destination_path)
