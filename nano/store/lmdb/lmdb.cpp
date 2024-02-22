@@ -224,6 +224,9 @@ bool nano::store::lmdb::component::do_upgrades (store::write_transaction & trans
 			upgrade_v21_to_v22 (transaction_a);
 			[[fallthrough]];
 		case 22:
+			upgrade_v22_to_v23 (transaction_a);
+			[[fallthrough]];
+		case 23:
 			break;
 		default:
 			logger.critical (nano::log::type::lmdb, "The version of the ledger ({}) is too high for this node", version_l);
@@ -231,6 +234,69 @@ bool nano::store::lmdb::component::do_upgrades (store::write_transaction & trans
 			break;
 	}
 	return error;
+}
+
+void nano::store::lmdb::component::upgrade_v22_to_v23 (store::write_transaction const & transaction_a)
+{
+	logger.info (nano::log::type::lmdb, "Upgrading database from v22 to v23...");
+	auto count = 0u;
+	nano::block_hash next{ 0 };
+	while (true)
+	{
+		MDB_cursor * cursor{ nullptr };
+		{
+			auto status = mdb_cursor_open (env.tx (transaction_a), block_store.blocks_handle, &cursor);
+			release_assert (status == MDB_SUCCESS);
+		}
+		std::shared_ptr<nano::block> block;
+		nano::block_hash successor;
+		{
+			nano::store::db_val<MDB_val> key = next;
+			nano::store::db_val<MDB_val> value;
+			auto seek_status = mdb_cursor_get (cursor, &key.value, &value.value, MDB_SET_RANGE);
+			release_assert (seek_status == MDB_SUCCESS || seek_status == MDB_NOTFOUND);
+			if (seek_status == MDB_NOTFOUND)
+			{
+				break;
+			}
+			auto get_status = mdb_cursor_get (cursor, &key.value, &value.value, MDB_GET_CURRENT);
+			release_assert (get_status == MDB_SUCCESS);
+			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
+			block = nano::deserialize_block (stream);
+			release_assert (block != nullptr);
+			auto retrieved = static_cast<nano::block_hash> (key);
+			release_assert (retrieved == block->hash ());
+			next = retrieved.number () + 1;
+			nano::read (stream, successor);
+			nano::block_sideband sideband;
+			auto sideband_error = sideband.deserialize (stream, block->type ());
+			release_assert (!sideband_error);
+			block->sideband_set (sideband);
+		}
+		if (!successor.is_zero ())
+		{
+			this->successor.put (transaction_a, block->hash (), successor);
+		}
+		{
+			std::vector<uint8_t> vector;
+			{
+				nano::vectorstream stream (vector);
+				nano::serialize_block (stream, *block);
+				block->sideband ().serialize (stream, block->type ());
+			}
+			nano::store::db_val<MDB_val> key = block->hash ();
+			nano::store::db_val<MDB_val> value{ vector.size (), (void *)vector.data () };
+			auto put_status = mdb_cursor_put (cursor, key, &value.value, MDB_CURRENT);
+			release_assert (put_status == MDB_SUCCESS);
+		}
+		if (++count % 10000 == 0)
+		{
+			logger.info (nano::log::type::lmdb, "Upgraded {} successors", count);
+		}
+		mdb_cursor_close (cursor);
+	}
+	logger.info (nano::log::type::lmdb, "Upgraded {} successors in total", std::to_string (count));
+	version.put (transaction_a, 23);
 }
 
 void nano::store::lmdb::component::upgrade_v21_to_v22 (store::write_transaction const & transaction_a)

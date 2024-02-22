@@ -1905,6 +1905,11 @@ size_t nano::block_sideband::size (nano::block_type type_a)
 	return result;
 }
 
+bool nano::block_sideband::operator== (nano::block_sideband const & other_a) const
+{
+	return account == other_a.account && balance == other_a.balance && height == other_a.height && timestamp == other_a.timestamp && details == other_a.details && source_epoch == other_a.source_epoch;
+}
+
 void nano::block_sideband::serialize (nano::stream & stream_a, nano::block_type type_a) const
 {
 	if (type_a != nano::block_type::state && type_a != nano::block_type::open)

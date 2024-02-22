@@ -73,6 +73,7 @@ public:
 	void serialize (nano::stream &, nano::block_type) const;
 	bool deserialize (nano::stream &, nano::block_type);
 	static size_t size (nano::block_type);
+	bool operator== (nano::block_sideband const & other_a) const;
 	nano::account account{};
 	nano::amount balance{ 0 };
 	uint64_t height{ 0 };

@@ -71,7 +71,7 @@ namespace store
 		store::account & account;
 		store::pending & pending;
 		static int constexpr version_minimum{ 21 };
-		static int constexpr version_current{ 22 };
+		static int constexpr version_current{ 23 };
 
 	public:
 		store::online_weight & online_weight;
