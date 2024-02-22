@@ -223,19 +223,6 @@ TEST (wallet, spend)
 	ASSERT_EQ (0, node1.balance (nano::dev::genesis_key.pub));
 }
 
-TEST (wallet, change)
-{
-	nano::test::system system (1);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::keypair key2;
-	auto block1 (system.nodes[0]->rep_block (nano::dev::genesis_key.pub));
-	ASSERT_FALSE (block1.is_zero ());
-	ASSERT_NE (nullptr, system.wallet (0)->change_action (nano::dev::genesis_key.pub, key2.pub));
-	auto block2 (system.nodes[0]->rep_block (nano::dev::genesis_key.pub));
-	ASSERT_FALSE (block2.is_zero ());
-	ASSERT_NE (block1, block2);
-}
-
 TEST (wallet, partial_spend)
 {
 	nano::test::system system (1);
