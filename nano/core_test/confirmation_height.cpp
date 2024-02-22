@@ -1166,6 +1166,7 @@ TEST (confirmation_heightDeathTest, rollback_added_block)
 		nano::ledger ledger (*store, stats, nano::dev::constants);
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+		nano::test::start_stop_guard pool_guard{ pool };
 		nano::keypair key1;
 		nano::block_builder builder;
 		auto send = builder
@@ -1256,6 +1257,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		nano::ledger ledger (*store, stats, nano::dev::constants);
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+		nano::test::start_stop_guard pool_guard{ pool };
 		nano::keypair key1;
 		nano::block_builder builder;
 		auto send = builder
@@ -1333,6 +1335,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		nano::ledger ledger (*store, stats, nano::dev::constants);
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+		nano::test::start_stop_guard pool_guard{ pool };
 		nano::keypair key1;
 		nano::block_builder builder;
 		auto send = builder
@@ -2041,6 +2044,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 	nano::write_database_queue write_database_queue (false);
 	boost::latch initialized_latch{ 0 };
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_guard pool_guard{ pool };
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto send = builder
@@ -2104,6 +2108,7 @@ TEST (confirmation_height, pruned_source)
 	ledger.pruning = true;
 	nano::write_database_queue write_database_queue (false);
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_guard pool_guard{ pool };
 	nano::keypair key1, key2;
 	nano::block_builder builder;
 	auto send1 = builder

@@ -7,6 +7,7 @@
 #include <nano/node/openclwork.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/utility.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -15,6 +16,7 @@
 TEST (work, one)
 {
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_guard pool_guard{ pool };
 	nano::block_builder builder;
 	auto block = builder
 				 .change ()
@@ -30,6 +32,7 @@ TEST (work, one)
 TEST (work, disabled)
 {
 	nano::work_pool pool{ nano::dev::network_params.network, 0 };
+	nano::test::start_stop_guard pool_guard{ pool };
 	auto result (pool.generate (nano::block_hash ()));
 	ASSERT_FALSE (result.is_initialized ());
 }
@@ -37,6 +40,7 @@ TEST (work, disabled)
 TEST (work, validate)
 {
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_guard pool_guard{ pool };
 	nano::block_builder builder;
 	auto send_block = builder
 					  .send ()
@@ -54,6 +58,7 @@ TEST (work, validate)
 TEST (work, cancel)
 {
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_guard pool_guard{ pool };
 	auto iterations (0);
 	auto done (false);
 	while (!done)
@@ -72,6 +77,7 @@ TEST (work, cancel)
 TEST (work, cancel_many)
 {
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_guard pool_guard{ pool };
 	nano::root key1 (1);
 	nano::root key2 (2);
 	nano::root key3 (1);
@@ -103,6 +109,7 @@ TEST (work, opencl)
 			nano::work_pool pool{ nano::dev::network_params.network, 0, std::chrono::nanoseconds (0), [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
 									 return opencl->generate_work (version_a, root_a, difficulty_a);
 								 } };
+			nano::test::start_stop_guard pool_guard{ pool };
 			ASSERT_NE (nullptr, pool.opencl);
 			nano::root root;
 			uint64_t difficulty (0xff00000000000000);
@@ -129,6 +136,7 @@ TEST (work, opencl)
 TEST (work, difficulty)
 {
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_guard pool_guard{ pool };
 	nano::root root (1);
 	uint64_t difficulty1 (0xff00000000000000);
 	uint64_t difficulty2 (0xfff0000000000000);
@@ -153,6 +161,7 @@ TEST (work, eco_pow)
 {
 	auto work_func = [] (std::promise<std::chrono::nanoseconds> & promise, std::chrono::nanoseconds interval) {
 		nano::work_pool pool{ nano::dev::network_params.network, 1, interval };
+		nano::test::start_stop_guard pool_guard{ pool };
 		constexpr auto num_iterations = 5;
 
 		nano::timer<std::chrono::nanoseconds> timer;

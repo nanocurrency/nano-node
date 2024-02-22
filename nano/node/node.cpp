@@ -582,6 +582,7 @@ void nano::node::process_local_async (std::shared_ptr<nano::block> const & block
 
 void nano::node::start ()
 {
+	work.start ();
 	long_inactivity_cleanup ();
 	network.start ();
 	add_initial_peers ();
@@ -698,7 +699,7 @@ void nano::node::stop ()
 	stats.stop ();
 	epoch_upgrader.stop ();
 	workers.stop ();
-	// work pool is not stopped on purpose due to testing setup
+	work.stop ();
 }
 
 void nano::node::keepalive_preconfigured (std::vector<std::string> const & peers_a)

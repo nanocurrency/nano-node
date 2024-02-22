@@ -140,6 +140,7 @@ std::shared_ptr<nano::node> nano::test::system::make_disconnected_node (std::opt
 
 nano::test::system::system ()
 {
+	work.start ();
 	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
 	if (scale_str)
 	{
@@ -150,6 +151,7 @@ nano::test::system::system ()
 nano::test::system::system (uint16_t count_a, nano::transport::transport_type type_a, nano::node_flags flags_a) :
 	system ()
 {
+	work.start ();
 	nodes.reserve (count_a);
 	for (uint16_t i (0); i < count_a; ++i)
 	{

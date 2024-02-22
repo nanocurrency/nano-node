@@ -1013,6 +1013,7 @@ TEST (mdb_block_store, sideband_height)
 	auto transaction (store.tx_begin_write ());
 	store.initialize (transaction, ledger.cache, nano::dev::constants);
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_guard pool_guard{ pool };
 	auto send = builder
 				.send ()
 				.previous (nano::dev::genesis->hash ())

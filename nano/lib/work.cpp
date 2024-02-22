@@ -28,33 +28,14 @@ nano::work_pool::work_pool (nano::network_constants & network_constants, unsigne
 	ticket (0),
 	done (false),
 	pow_rate_limiter (pow_rate_limiter_a),
-	opencl (opencl_a)
+	opencl (opencl_a),
+	max_threads (max_threads_a)
 {
-	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
-
-	auto count (network_constants.is_dev_network () ? std::min (max_threads_a, 1u) : std::min (max_threads_a, std::max (1u, nano::hardware_concurrency ())));
-	if (opencl)
-	{
-		// One thread to handle OpenCL
-		++count;
-	}
-	for (auto i (0u); i < count; ++i)
-	{
-		threads.emplace_back (nano::thread_attributes::get_default (), [this, i] () {
-			nano::thread_role::set (nano::thread_role::name::work);
-			nano::work_thread_reprioritize ();
-			loop (i);
-		});
-	}
 }
 
 nano::work_pool::~work_pool ()
 {
-	stop ();
-	for (auto & i : threads)
-	{
-		i.join ();
-	}
+	debug_assert (done);
 }
 
 void nano::work_pool::loop (uint64_t thread)
@@ -171,6 +152,26 @@ void nano::work_pool::cancel (nano::root const & root_a)
 	}
 }
 
+void nano::work_pool::start ()
+{
+	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
+
+	auto count (network_constants.is_dev_network () ? std::min (max_threads, 1u) : std::min (max_threads, std::max (1u, nano::hardware_concurrency ())));
+	if (opencl)
+	{
+		// One thread to handle OpenCL
+		++count;
+	}
+	for (auto i (0u); i < count; ++i)
+	{
+		threads.emplace_back (nano::thread_attributes::get_default (), [this, i] () {
+			nano::thread_role::set (nano::thread_role::name::work);
+			nano::work_thread_reprioritize ();
+			loop (i);
+		});
+	}
+}
+
 void nano::work_pool::stop ()
 {
 	{
@@ -178,7 +179,13 @@ void nano::work_pool::stop ()
 		done = true;
 		++ticket;
 	}
+
 	producer_condition.notify_all ();
+
+	for (auto & i : threads)
+	{
+		i.join ();
+	}
 }
 
 void nano::work_pool::generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::function<void (boost::optional<uint64_t> const &)> callback_a)

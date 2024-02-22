@@ -1,3 +1,5 @@
+#include "testutil.hpp"
+
 #include <nano/node/make_store.hpp>
 #include <nano/node/node.hpp>
 #include <nano/test_common/ledger.hpp>
@@ -46,6 +48,7 @@ auto nano::test::context::ledger_send_receive () -> ledger_context
 {
 	std::deque<std::shared_ptr<nano::block>> blocks;
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_guard pool_guard{ pool };
 	nano::block_builder builder;
 	auto send = builder.state ()
 				.make_block ()
@@ -76,6 +79,7 @@ auto nano::test::context::ledger_send_receive_legacy () -> ledger_context
 {
 	std::deque<std::shared_ptr<nano::block>> blocks;
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::start_stop_guard pool_guard{ pool };
 	nano::block_builder builder;
 	auto send = builder.send ()
 				.make_block ()
