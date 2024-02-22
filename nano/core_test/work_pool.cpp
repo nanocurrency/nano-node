@@ -12,6 +12,7 @@
 
 #include <future>
 
+// produce one proof of work for a block and check that its difficulty is higher than the base difficulty
 TEST (work, one)
 {
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -27,6 +28,7 @@ TEST (work, one)
 	ASSERT_LT (nano::dev::network_params.work.threshold_base (block->work_version ()), nano::dev::network_params.work.difficulty (*block));
 }
 
+// create a work_pool with zero threads and check that pool.generate returns no result
 TEST (work, disabled)
 {
 	nano::work_pool pool{ nano::dev::network_params.network, 0 };
@@ -34,6 +36,7 @@ TEST (work, disabled)
 	ASSERT_FALSE (result.is_initialized ());
 }
 
+// create a block with bad pow then fix it and check that it validates
 TEST (work, validate)
 {
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -48,19 +51,19 @@ TEST (work, validate)
 					  .build ();
 	ASSERT_LT (nano::dev::network_params.work.difficulty (*send_block), nano::dev::network_params.work.threshold_base (send_block->work_version ()));
 	send_block->block_work_set (*pool.generate (send_block->root ()));
-	ASSERT_LT (nano::dev::network_params.work.threshold_base (send_block->work_version ()), nano::dev::network_params.work.difficulty (*send_block));
+	ASSERT_GE (nano::dev::network_params.work.difficulty (*send_block), nano::dev::network_params.work.threshold_base (send_block->work_version ()));
 }
 
+// repeatedly start and cancel a work calculation and check that the callback is eventually called
 TEST (work, cancel)
 {
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
-	auto iterations (0);
-	auto done (false);
+	const nano::root key (1);
+	auto iterations = 0;
+	auto done = false;
 	while (!done)
 	{
-		nano::root key (1);
-		pool.generate (
-		nano::work_version::work_1, key, nano::dev::network_params.work.base, [&done] (boost::optional<uint64_t> work_a) {
+		pool.generate (nano::work_version::work_1, key, nano::dev::network_params.work.base, [&done] (boost::optional<uint64_t> work_a) {
 			done = !work_a;
 		});
 		pool.cancel (key);
@@ -69,7 +72,7 @@ TEST (work, cancel)
 	}
 }
 
-TEST (work, cancel_many)
+TEST (work, cancel_one_out_of_many)
 {
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::root key1 (1);
@@ -87,59 +90,66 @@ TEST (work, cancel_many)
 	pool.cancel (key1);
 }
 
+// check that opencl hardware offloading works
 TEST (work, opencl)
 {
 	nano::logger logger;
-	bool error (false);
+	bool error = false;
 	nano::opencl_environment environment (error);
 	ASSERT_TRUE (!error || !nano::opencl_loaded);
-	if (!environment.platforms.empty () && !environment.platforms.begin ()->devices.empty ())
+
+	if (environment.platforms.empty () || environment.platforms.begin ()->devices.empty ())
 	{
-		nano::opencl_config config (0, 0, 16 * 1024);
-		auto opencl (nano::opencl_work::create (true, config, logger, nano::dev::network_params.work));
-		if (opencl != nullptr)
-		{
-			// 0 threads, should add 1 for managing OpenCL
-			nano::work_pool pool{ nano::dev::network_params.network, 0, std::chrono::nanoseconds (0), [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
-									 return opencl->generate_work (version_a, root_a, difficulty_a);
-								 } };
-			ASSERT_NE (nullptr, pool.opencl);
-			nano::root root;
-			uint64_t difficulty (0xff00000000000000);
-			uint64_t difficulty_add (0x000f000000000000);
-			for (auto i (0); i < 16; ++i)
-			{
-				nano::random_pool::generate_block (root.bytes.data (), root.bytes.size ());
-				auto result (*pool.generate (nano::work_version::work_1, root, difficulty));
-				ASSERT_GE (nano::dev::network_params.work.difficulty (nano::work_version::work_1, root, result), difficulty);
-				difficulty += difficulty_add;
-			}
-		}
-		else
-		{
-			std::cerr << "Error starting OpenCL test" << std::endl;
-		}
+		GTEST_SKIP () << "Device with OpenCL support not found. Skipping OpenCL test" << std::endl;
 	}
-	else
+
+	nano::opencl_config config (0, 0, 16 * 1024);
+	auto opencl = nano::opencl_work::create (true, config, logger, nano::dev::network_params.work);
+	ASSERT_TRUE (opencl);
+
+	// 0 threads, should add 1 for managing OpenCL
+	bool opencl_function_called = false;
+	nano::work_pool pool{ nano::dev::network_params.network, 0, std::chrono::nanoseconds (0),
+		[&opencl, &opencl_function_called] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
+			opencl_function_called = true;
+			return opencl->generate_work (version_a, root_a, difficulty_a);
+		} };
+	ASSERT_NE (nullptr, pool.opencl);
+
+	nano::root root;
+	uint64_t difficulty (0xffff000000000000);
+	uint64_t difficulty_add (0x00000f0000000000);
+	for (auto i (0); i < 16; ++i)
 	{
-		std::cout << "Device with OpenCL support not found. Skipping OpenCL test" << std::endl;
+		nano::random_pool::generate_block (root.bytes.data (), root.bytes.size ());
+		auto nonce_opt = pool.generate (nano::work_version::work_1, root, difficulty);
+		ASSERT_TRUE (nonce_opt.has_value ());
+		auto nonce = nonce_opt.get ();
+		ASSERT_GE (nano::dev::network_params.work.difficulty (nano::work_version::work_1, root, nonce), difficulty);
+		difficulty += difficulty_add;
 	}
+	ASSERT_TRUE (opencl_function_called);
 }
 
+// repeat difficulty calculations until a difficulty in a certain range is found
 TEST (work, difficulty)
 {
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
-	nano::root root (1);
-	uint64_t difficulty1 (0xff00000000000000);
-	uint64_t difficulty2 (0xfff0000000000000);
-	uint64_t difficulty3 (0xffff000000000000);
-	uint64_t result_difficulty1 (0);
+	const nano::root root (1);
+	uint64_t difficulty1 = 0xff00000000000000;
+	uint64_t difficulty2 = 0xfff0000000000000;
+	uint64_t difficulty3 = 0xffff000000000000;
+
+	// find a difficulty between difficulty1 and difficulty2
+	uint64_t result_difficulty1 = 0;
 	do
 	{
 		auto work1 = *pool.generate (nano::work_version::work_1, root, difficulty1);
 		result_difficulty1 = nano::dev::network_params.work.difficulty (nano::work_version::work_1, root, work1);
 	} while (result_difficulty1 > difficulty2);
 	ASSERT_GT (result_difficulty1, difficulty1);
+
+	// find a difficulty between difficulty2 and difficulty3
 	uint64_t result_difficulty2 (0);
 	do
 	{
@@ -149,6 +159,7 @@ TEST (work, difficulty)
 	ASSERT_GT (result_difficulty2, difficulty2);
 }
 
+// check that the pow_rate_limiter of work_pool works, this test can fail occasionally
 TEST (work, eco_pow)
 {
 	auto work_func = [] (std::promise<std::chrono::nanoseconds> & promise, std::chrono::nanoseconds interval) {
