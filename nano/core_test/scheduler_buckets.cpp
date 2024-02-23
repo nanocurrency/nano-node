@@ -42,7 +42,7 @@ std::shared_ptr<nano::state_block> & blockzero ()
 						 .link (0)
 						 .sign (keyzero ().prv, keyzero ().pub)
 						 .work (0)
-						 .build_shared ();
+						 .build ();
 	return result;
 }
 std::shared_ptr<nano::state_block> & block0 ()
@@ -57,7 +57,7 @@ std::shared_ptr<nano::state_block> & block0 ()
 						 .link (0)
 						 .sign (key0 ().prv, key0 ().pub)
 						 .work (0)
-						 .build_shared ();
+						 .build ();
 	return result;
 }
 std::shared_ptr<nano::state_block> & block1 ()
@@ -72,7 +72,7 @@ std::shared_ptr<nano::state_block> & block1 ()
 						 .link (0)
 						 .sign (key1 ().prv, key1 ().pub)
 						 .work (0)
-						 .build_shared ();
+						 .build ();
 	return result;
 }
 std::shared_ptr<nano::state_block> & block2 ()
@@ -87,7 +87,7 @@ std::shared_ptr<nano::state_block> & block2 ()
 						 .link (0)
 						 .sign (key2 ().prv, key2 ().pub)
 						 .work (0)
-						 .build_shared ();
+						 .build ();
 	return result;
 }
 std::shared_ptr<nano::state_block> & block3 ()
@@ -102,7 +102,7 @@ std::shared_ptr<nano::state_block> & block3 ()
 						 .link (0)
 						 .sign (key3 ().prv, key3 ().pub)
 						 .work (0)
-						 .build_shared ();
+						 .build ();
 	return result;
 }
 

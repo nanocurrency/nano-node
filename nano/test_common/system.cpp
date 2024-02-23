@@ -40,7 +40,7 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config_a, work, node_flags_a, node_sequence++));
 	for (auto i : initialization_blocks)
 	{
-		auto result = node->ledger.process (node->store.tx_begin_write (), *i);
+		auto result = node->ledger.process (node->store.tx_begin_write (), i);
 		debug_assert (result == nano::block_status::progress);
 	}
 	debug_assert (!node->init_error ());
@@ -192,7 +192,7 @@ void nano::test::system::ledger_initialization_set (std::vector<nano::keypair> c
 		.balance (balance)
 		.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 		.work (*work.generate (previous));
-		initialization_blocks.emplace_back (builder.build_shared ());
+		initialization_blocks.emplace_back (builder.build ());
 		previous = initialization_blocks.back ()->hash ();
 		builder.make_block ();
 		builder.account (i.pub)
@@ -202,7 +202,7 @@ void nano::test::system::ledger_initialization_set (std::vector<nano::keypair> c
 		.balance (amount)
 		.sign (i.prv, i.pub)
 		.work (*work.generate (i.pub));
-		initialization_blocks.emplace_back (builder.build_shared ());
+		initialization_blocks.emplace_back (builder.build ());
 	}
 }
 
@@ -239,7 +239,7 @@ uint64_t nano::test::system::work_generate_limited (nano::block_hash const & roo
 /** Initiate an epoch upgrade. Writes the epoch block into the ledger and leaves it to
  *  node background processes (e.g. frontiers confirmation) to cement the block.
  */
-std::unique_ptr<nano::state_block> nano::test::upgrade_epoch (nano::work_pool & pool_a, nano::ledger & ledger_a, nano::epoch epoch_a)
+std::shared_ptr<nano::state_block> nano::test::upgrade_epoch (nano::work_pool & pool_a, nano::ledger & ledger_a, nano::epoch epoch_a)
 {
 	auto transaction (ledger_a.store.tx_begin_write ());
 	auto dev_genesis_key = nano::dev::genesis_key;
@@ -262,13 +262,13 @@ std::unique_ptr<nano::state_block> nano::test::upgrade_epoch (nano::work_pool & 
 	bool error{ true };
 	if (!ec && epoch)
 	{
-		error = ledger_a.process (transaction, *epoch) != nano::block_status::progress;
+		error = ledger_a.process (transaction, epoch) != nano::block_status::progress;
 	}
 
 	return !error ? std::move (epoch) : nullptr;
 }
 
-std::unique_ptr<nano::state_block> nano::test::system::upgrade_genesis_epoch (nano::node & node_a, nano::epoch const epoch_a)
+std::shared_ptr<nano::state_block> nano::test::system::upgrade_genesis_epoch (nano::node & node_a, nano::epoch const epoch_a)
 {
 	return upgrade_epoch (work, node_a.ledger, epoch_a);
 }

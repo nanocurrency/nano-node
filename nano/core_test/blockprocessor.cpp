@@ -32,7 +32,7 @@ TEST (block_processor, broadcast_block_on_arrival)
 				 .link (nano::dev::genesis_key.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
+				 .build ();
 	// Adds a block to the first node. process_active() -> (calls) block_processor.add() -> add() ->
 	// awakes process_block() -> process_batch() -> process_one() -> process_live()
 	node1->process_active (send1);

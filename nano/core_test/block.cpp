@@ -385,7 +385,7 @@ TEST (block, publish_req_serialization)
 				 .balance (200)
 				 .sign (nano::keypair ().prv, 2)
 				 .work (3)
-				 .build_shared ();
+				 .build ();
 	nano::publish req{ nano::dev::network_params.network, block };
 	std::vector<uint8_t> bytes;
 	{
@@ -429,7 +429,7 @@ TEST (state_block, serialization)
 				  .link (4)
 				  .sign (key1.prv, key1.pub)
 				  .work (5)
-				  .build_shared ();
+				  .build ();
 	ASSERT_EQ (key1.pub, block1->hashables.account);
 	ASSERT_EQ (nano::block_hash (1), block1->previous ());
 	ASSERT_EQ (key2.pub, block1->hashables.representative);
@@ -489,7 +489,7 @@ TEST (state_block, hashing)
 				 .link (0)
 				 .sign (key.prv, key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	auto hash (block->hash ());
 	ASSERT_EQ (hash, block->hash ()); // check cache works
 	block->hashables.account.bytes[0] ^= 0x1;
@@ -551,7 +551,7 @@ TEST (block_uniquer, single)
 				  .link (0)
 				  .sign (key.prv, key.pub)
 				  .work (0)
-				  .build_shared ();
+				  .build ();
 	auto block2 (std::make_shared<nano::state_block> (*block1));
 	ASSERT_NE (block1, block2);
 	ASSERT_EQ (*block1, *block2);
@@ -578,7 +578,7 @@ TEST (block_uniquer, cleanup)
 				  .link (0)
 				  .sign (key.prv, key.pub)
 				  .work (0)
-				  .build_shared ();
+				  .build ();
 	auto block2 = builder
 				  .make_block ()
 				  .account (0)
@@ -588,7 +588,7 @@ TEST (block_uniquer, cleanup)
 				  .link (0)
 				  .sign (key.prv, key.pub)
 				  .work (1)
-				  .build_shared ();
+				  .build ();
 
 	nano::block_uniquer uniquer;
 	auto block3 = uniquer.unique (block1);
@@ -636,7 +636,7 @@ TEST (block_builder, zeroed_state_block)
 							 .link (0)
 							 .sign (key.prv, key.pub)
 							 .work (0)
-							 .build_shared ();
+							 .build ();
 	auto zero_block_build = builder.state ().zero ().sign (key.prv, key.pub).build ();
 	ASSERT_EQ (zero_block_manual->hash (), zero_block_build->hash ());
 	ASSERT_FALSE (nano::validate_message (key.pub, zero_block_build->hash (), zero_block_build->signature));

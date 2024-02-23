@@ -64,7 +64,7 @@ bool nano::test::process (nano::node & node, std::vector<std::shared_ptr<nano::b
 	auto const transaction = node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending });
 	for (auto & block : blocks)
 	{
-		auto result = node.process (transaction, *block);
+		auto result = node.process (transaction, block);
 		if (result != nano::block_status::progress)
 		{
 			return false;

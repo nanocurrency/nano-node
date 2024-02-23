@@ -1021,7 +1021,7 @@ TEST (mdb_block_store, sideband_height)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*pool.generate (nano::dev::genesis->hash ()))
 				.build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *send));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
 	auto receive = builder
 				   .receive ()
 				   .previous (send->hash ())
@@ -1029,7 +1029,7 @@ TEST (mdb_block_store, sideband_height)
 				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				   .work (*pool.generate (send->hash ()))
 				   .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *receive));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive));
 	auto change = builder
 				  .change ()
 				  .previous (receive->hash ())
@@ -1037,7 +1037,7 @@ TEST (mdb_block_store, sideband_height)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (*pool.generate (receive->hash ()))
 				  .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *change));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, change));
 	auto state_send1 = builder
 					   .state ()
 					   .account (nano::dev::genesis_key.pub)
@@ -1048,7 +1048,7 @@ TEST (mdb_block_store, sideband_height)
 					   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					   .work (*pool.generate (change->hash ()))
 					   .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *state_send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, state_send1));
 	auto state_send2 = builder
 					   .state ()
 					   .account (nano::dev::genesis_key.pub)
@@ -1059,7 +1059,7 @@ TEST (mdb_block_store, sideband_height)
 					   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					   .work (*pool.generate (state_send1->hash ()))
 					   .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *state_send2));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, state_send2));
 	auto state_send3 = builder
 					   .state ()
 					   .account (nano::dev::genesis_key.pub)
@@ -1070,7 +1070,7 @@ TEST (mdb_block_store, sideband_height)
 					   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					   .work (*pool.generate (state_send2->hash ()))
 					   .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *state_send3));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, state_send3));
 	auto state_open = builder
 					  .state ()
 					  .account (key1.pub)
@@ -1081,7 +1081,7 @@ TEST (mdb_block_store, sideband_height)
 					  .sign (key1.prv, key1.pub)
 					  .work (*pool.generate (key1.pub))
 					  .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *state_open));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, state_open));
 	auto epoch = builder
 				 .state ()
 				 .account (key1.pub)
@@ -1092,7 +1092,7 @@ TEST (mdb_block_store, sideband_height)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*pool.generate (state_open->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *epoch));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, epoch));
 	ASSERT_EQ (nano::epoch::epoch_1, ledger.version (*epoch));
 	auto epoch_open = builder
 					  .state ()
@@ -1104,7 +1104,7 @@ TEST (mdb_block_store, sideband_height)
 					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					  .work (*pool.generate (key2.pub))
 					  .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *epoch_open));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, epoch_open));
 	ASSERT_EQ (nano::epoch::epoch_1, ledger.version (*epoch_open));
 	auto state_receive = builder
 						 .state ()
@@ -1116,7 +1116,7 @@ TEST (mdb_block_store, sideband_height)
 						 .sign (key2.prv, key2.pub)
 						 .work (*pool.generate (epoch_open->hash ()))
 						 .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *state_receive));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, state_receive));
 	auto open = builder
 				.open ()
 				.source (state_send3->hash ())
@@ -1125,7 +1125,7 @@ TEST (mdb_block_store, sideband_height)
 				.sign (key3.prv, key3.pub)
 				.work (*pool.generate (key3.pub))
 				.build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *open));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
 	auto block1 (store.block.get (transaction, nano::dev::genesis->hash ()));
 	ASSERT_EQ (block1->sideband ().height, 1);
 	auto block2 (store.block.get (transaction, send->hash ()));
@@ -1673,7 +1673,7 @@ TEST (rocksdb_block_store, tombstone_count)
 				 .balance (2)
 				 .sign (nano::keypair ().prv, 4)
 				 .work (5)
-				 .build_shared ();
+				 .build ();
 	// Enqueues a block to be saved in the database
 	nano::account account{ 1 };
 	store->account.put (store->tx_begin_write (), account, nano::account_info{});

@@ -37,7 +37,7 @@ std::shared_ptr<nano::block> block ()
 	.link (nano::dev::genesis_key.pub)
 	.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 	.work (0)
-	.build_shared ();
+	.build ();
 }
 }
 
@@ -65,7 +65,7 @@ TEST (block_store, one_bootstrap)
 				  .balance (2)
 				  .sign (nano::keypair ().prv, 4)
 				  .work (5)
-				  .build_shared ();
+				  .build ();
 	unchecked.put (block1->hash (), nano::unchecked_info{ block1 });
 	auto check_block_is_listed = [&] (nano::block_hash const & block_hash_a) {
 		return unchecked.get (block_hash_a).size () > 0;
@@ -98,7 +98,7 @@ TEST (unchecked, simple)
 				 .balance (2)
 				 .sign (nano::keypair ().prv, 4)
 				 .work (5)
-				 .build_shared ();
+				 .build ();
 	// Asserts the block wasn't added yet to the unchecked table
 	auto block_listing1 = unchecked.get (block->previous ());
 	ASSERT_TRUE (block_listing1.empty ());
@@ -139,7 +139,7 @@ TEST (unchecked, multiple)
 				 .balance (2)
 				 .sign (nano::keypair ().prv, 4)
 				 .work (5)
-				 .build_shared ();
+				 .build ();
 	// Asserts the block wasn't added yet to the unchecked table
 	auto block_listing1 = unchecked.get (block->previous ());
 	ASSERT_TRUE (block_listing1.empty ());
@@ -169,7 +169,7 @@ TEST (unchecked, double_put)
 				 .balance (2)
 				 .sign (nano::keypair ().prv, 4)
 				 .work (5)
-				 .build_shared ();
+				 .build ();
 	// Asserts the block wasn't added yet to the unchecked table
 	auto block_listing1 = unchecked.get (block->previous ());
 	ASSERT_TRUE (block_listing1.empty ());
@@ -201,7 +201,7 @@ TEST (unchecked, multiple_get)
 				  .balance (2)
 				  .sign (nano::keypair ().prv, 4)
 				  .work (5)
-				  .build_shared ();
+				  .build ();
 	auto block2 = builder
 				  .send ()
 				  .previous (3)
@@ -209,7 +209,7 @@ TEST (unchecked, multiple_get)
 				  .balance (2)
 				  .sign (nano::keypair ().prv, 4)
 				  .work (5)
-				  .build_shared ();
+				  .build ();
 	auto block3 = builder
 				  .send ()
 				  .previous (5)
@@ -217,7 +217,7 @@ TEST (unchecked, multiple_get)
 				  .balance (2)
 				  .sign (nano::keypair ().prv, 4)
 				  .work (5)
-				  .build_shared ();
+				  .build ();
 	// Add the blocks' info to the unchecked table
 	unchecked.put (block1->previous (), nano::unchecked_info (block1)); // unchecked1
 	unchecked.put (block1->hash (), nano::unchecked_info (block1)); // unchecked2

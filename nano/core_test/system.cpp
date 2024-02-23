@@ -58,9 +58,9 @@ TEST (system, DISABLED_generate_send_existing)
 						  .account (stake_preserver.pub)
 						  .sign (stake_preserver.prv, stake_preserver.pub)
 						  .work (0)
-						  .build_shared ();
+						  .build ();
 		node1.work_generate_blocking (*open_block);
-		ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, *open_block));
+		ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, open_block));
 	}
 	ASSERT_GT (node1.balance (stake_preserver.pub), node1.balance (nano::dev::genesis->account ()));
 	auto info2 = node1.ledger.account_info (node1.store.tx_begin_read (), nano::dev::genesis_key.pub);
@@ -109,9 +109,9 @@ TEST (system, DISABLED_generate_send_new)
 						  .account (stake_preserver.pub)
 						  .sign (stake_preserver.prv, stake_preserver.pub)
 						  .work (0)
-						  .build_shared ();
+						  .build ();
 		node1.work_generate_blocking (*open_block);
-		ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, *open_block));
+		ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, open_block));
 	}
 	ASSERT_GT (node1.balance (stake_preserver.pub), node1.balance (nano::dev::genesis->account ()));
 	std::vector<nano::account> accounts;

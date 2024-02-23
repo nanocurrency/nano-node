@@ -314,9 +314,9 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 
 nano::block_status nano::block_processor::process_one (store::write_transaction const & transaction_a, context const & context, bool const forced_a)
 {
-	auto const & block = context.block;
+	auto block = context.block;
 	auto const hash = block->hash ();
-	nano::block_status result = node.ledger.process (transaction_a, *block);
+	nano::block_status result = node.ledger.process (transaction_a, block);
 
 	node.stats.inc (nano::stat::type::blockprocessor_result, to_stat_detail (result));
 	node.stats.inc (nano::stat::type::blockprocessor_source, to_stat_detail (context.source));
