@@ -10,6 +10,7 @@
 #include <nano/store/component.hpp>
 
 #include <chrono>
+#include <latch>
 
 void nano::vote_spacing::trim ()
 {
@@ -209,7 +210,12 @@ bool nano::vote_generator::should_vote (store::write_transaction const & transac
 void nano::vote_generator::start ()
 {
 	debug_assert (!thread.joinable ());
-	thread = std::thread ([this] () { run (); });
+	std::latch latch{ 1 };
+	thread = std::thread ([this, &latch] () {
+		latch.count_down ();
+		run ();
+	});
+	latch.wait ();
 
 	vote_generation_queue.start ();
 }
