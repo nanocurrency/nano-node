@@ -23,7 +23,7 @@ std::string nano::to_string (nano::work_version const version_a)
 	return result;
 }
 
-nano::work_pool::work_pool (nano::network_constants & network_constants, unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> opencl_a) :
+nano::work_pool::work_pool (nano::network_constants & network_constants, unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, nano::opencl_work_func_t opencl_a) :
 	network_constants{ network_constants },
 	ticket (0),
 	done (false),
