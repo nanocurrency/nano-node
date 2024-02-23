@@ -449,6 +449,14 @@ void nano::rep_crawler::force_process (const std::shared_ptr<nano::vote> & vote,
 	responses.push_back ({ channel, vote });
 }
 
+// Only for tests
+void nano::rep_crawler::force_query (const nano::block_hash & hash, const std::shared_ptr<nano::transport::channel> & channel)
+{
+	release_assert (node.network_params.network.is_dev_network ());
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	queries.emplace (query_entry{ hash, channel });
+}
+
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (rep_crawler & rep_crawler, std::string const & name)
 {
 	std::size_t count;

@@ -185,6 +185,7 @@ private:
 public: // Testing
 	void force_add_rep (nano::account const & account, std::shared_ptr<nano::transport::channel> const & channel);
 	void force_process (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel);
+	void force_query (nano::block_hash const & hash, std::shared_ptr<nano::transport::channel> const & channel);
 };
 
 std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);

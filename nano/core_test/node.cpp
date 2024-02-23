@@ -1774,7 +1774,9 @@ TEST (node, online_reps_rep_crawler)
 	node1.vote_processor.vote_blocking (vote, std::make_shared<nano::transport::fake::channel> (node1));
 	ASSERT_EQ (0, node1.online_reps.online ());
 	// After inserting to rep crawler
-	node1.rep_crawler.force_process (vote, std::make_shared<nano::transport::fake::channel> (node1));
+	auto channel = std::make_shared<nano::transport::fake::channel> (node1);
+	node1.rep_crawler.force_query (nano::dev::genesis->hash (), channel);
+	node1.vote_processor.vote_blocking (vote, channel);
 	ASSERT_EQ (nano::dev::constants.genesis_amount, node1.online_reps.online ());
 }
 

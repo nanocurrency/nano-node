@@ -94,9 +94,9 @@ TEST (rep_crawler, rep_weight)
 	auto vote0 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
 	auto vote1 = std::make_shared<nano::vote> (keypair1.pub, keypair1.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
 	auto vote2 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
-	ASSERT_TRUE (node.rep_crawler.process (vote0, channel1));
-	ASSERT_TRUE (node.rep_crawler.process (vote1, channel2));
-	ASSERT_TRUE (node.rep_crawler.process (vote2, channel3));
+	node.rep_crawler.force_process (vote0, channel1);
+	node.rep_crawler.force_process (vote1, channel2);
+	node.rep_crawler.force_process (vote2, channel3);
 	ASSERT_TIMELY_EQ (5s, node.rep_crawler.representative_count (), 2);
 	// Make sure we get the rep with the most weight first
 	auto reps = node.rep_crawler.representatives (1);
