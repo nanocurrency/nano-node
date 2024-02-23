@@ -56,7 +56,7 @@ public:
 	nano::mutex mutex{ mutex_identifier (mutexes::work_pool) };
 	nano::condition_variable producer_condition;
 	std::chrono::nanoseconds pow_rate_limiter;
-	opencl_work_func_t opencl;
+	nano::opencl_work_func_t opencl;
 	nano::observer_set<bool> work_observers;
 };
 
