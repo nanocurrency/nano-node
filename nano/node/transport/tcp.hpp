@@ -254,6 +254,7 @@ namespace transport
 		attempts;
 		// clang-format on
 		std::atomic<bool> stopped{ false };
+		std::unordered_map<nano::transport::socket *, std::weak_ptr<nano::transport::socket>> connecting;
 
 		friend class network_peer_max_tcp_attempts_subnetwork_Test;
 	};

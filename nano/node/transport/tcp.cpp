@@ -149,6 +149,7 @@ bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::cha
 			}
 			channels.get<endpoint_tag> ().emplace (channel_a, socket_a, server_a);
 			attempts.get<endpoint_tag> ().erase (endpoint);
+			connecting.erase (socket_a.get ());
 			error = false;
 			lock.unlock ();
 			node.network.channel_observer (channel_a);
@@ -363,6 +364,13 @@ void nano::transport::tcp_channels::stop ()
 {
 	stopped = true;
 	nano::unique_lock<nano::mutex> lock{ mutex };
+	for (auto const & socket : connecting)
+	{
+		if (auto socket_l = socket.second.lock ())
+		{
+			socket_l->close ();
+		}
+	}
 	// Close all TCP sockets
 	for (auto const & channel : channels)
 	{
@@ -462,6 +470,10 @@ std::unique_ptr<nano::container_info_component> nano::transport::tcp_channels::c
 void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point const & cutoff_a)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
+
+	erase_if (connecting, [] (auto const & entry) {
+		return !entry.second.lock ();
+	});
 
 	// Remove channels with dead underlying sockets
 	erase_if (channels, [] (auto const & entry) {
