@@ -17,6 +17,9 @@ namespace nano
 {
 std::string to_string (nano::work_version const version_a);
 
+// type of function that does the work generation with an optional return value
+using opencl_work_func_t = std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)>;
+
 class block;
 class block_details;
 enum class block_type : uint8_t;

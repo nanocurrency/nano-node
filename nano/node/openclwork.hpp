@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/lib/work.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/node/openclconfig.hpp>
 #include <nano/node/xorshift.hpp>
 
@@ -40,9 +40,6 @@ public:
 
 class root;
 class work_pool;
-
-// type of function that does the work generation with an optional return value
-using opencl_work_func_t = std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)>;
 
 class opencl_work
 {
