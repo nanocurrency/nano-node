@@ -1,7 +1,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/repcrawler.hpp>
 
-#include <boost/format.hpp>
+#include <ranges>
 
 nano::rep_crawler::rep_crawler (nano::rep_crawler_config const & config_a, nano::node & node_a) :
 	config{ config_a },
@@ -48,6 +48,7 @@ void nano::rep_crawler::stop ()
 	}
 }
 
+// Exits with the lock unlocked
 void nano::rep_crawler::validate_and_process (nano::unique_lock<nano::mutex> & lock)
 {
 	debug_assert (!mutex.try_lock ());
@@ -397,33 +398,33 @@ nano::uint128_t nano::rep_crawler::total_weight () const
 	return result;
 }
 
-std::vector<nano::representative> nano::rep_crawler::representatives (std::size_t count_a, nano::uint128_t const weight_a, boost::optional<decltype (nano::network_constants::protocol_version)> const & opt_version_min_a)
+std::vector<nano::representative> nano::rep_crawler::representatives (std::size_t count, nano::uint128_t const minimum_weight, std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version)
 {
-	auto const version_min = opt_version_min_a.value_or (node.network_params.network.protocol_version_min);
+	auto const version_min = minimum_protocol_version.value_or (node.network_params.network.protocol_version_min);
 
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
 	std::multimap<nano::amount, rep_entry, std::greater<>> ordered;
-	for (const auto & i : reps.get<tag_account> ())
+	for (const auto & rep : reps.get<tag_account> ())
 	{
-		auto weight = node.ledger.weight (i.account);
-		if (weight > weight_a && i.channel->get_network_version () >= version_min)
+		auto weight = node.ledger.weight (rep.account);
+		if (weight >= minimum_weight && rep.channel->get_network_version () >= version_min)
 		{
-			ordered.insert ({ nano::amount{ weight }, i });
+			ordered.insert ({ nano::amount{ weight }, rep });
 		}
 	}
 
 	std::vector<nano::representative> result;
-	for (auto i = ordered.begin (), n = ordered.end (); i != n && result.size () < count_a; ++i)
+	for (auto const & [weight, rep] : ordered | std::views::take (count))
 	{
-		result.push_back ({ i->second.account, i->second.channel });
+		result.push_back ({ rep.account, rep.channel });
 	}
 	return result;
 }
 
-std::vector<nano::representative> nano::rep_crawler::principal_representatives (std::size_t count_a, boost::optional<decltype (nano::network_constants::protocol_version)> const & opt_version_min_a)
+std::vector<nano::representative> nano::rep_crawler::principal_representatives (std::size_t count, std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version)
 {
-	return representatives (count_a, node.minimum_principal_weight (), opt_version_min_a);
+	return representatives (count, node.minimum_principal_weight (), minimum_protocol_version);
 }
 
 /** Total number of representatives */
