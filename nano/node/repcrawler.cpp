@@ -376,8 +376,9 @@ bool nano::rep_crawler::process (std::shared_ptr<nano::vote> const & vote, std::
 			// TODO: Track query response time
 
 			responses.push_back ({ channel, vote });
-
 			queries.erase (info);
+
+			condition.notify_all ();
 			return true;
 		}
 	}
