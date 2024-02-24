@@ -63,7 +63,7 @@ enum class type
 	epoch_upgrader,
 	opencl_work,
 	upnp,
-	repcrawler,
+	rep_crawler,
 	lmdb,
 	rocksdb,
 	txn_tracker,

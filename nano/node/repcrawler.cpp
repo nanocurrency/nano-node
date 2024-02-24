@@ -74,14 +74,14 @@ void nano::rep_crawler::validate_and_process (nano::unique_lock<nano::mutex> & l
 
 		if (channel->get_type () == nano::transport::transport_type::loopback)
 		{
-			logger.debug (nano::log::type::repcrawler, "Ignoring vote from loopback channel: {}", channel->to_string ());
+			logger.debug (nano::log::type::rep_crawler, "Ignoring vote from loopback channel: {}", channel->to_string ());
 			continue;
 		}
 
 		nano::uint128_t const rep_weight = node.ledger.weight (vote->account);
 		if (rep_weight < minimum)
 		{
-			logger.debug (nano::log::type::repcrawler, "Ignoring vote from account {} with too little voting weight: {}",
+			logger.debug (nano::log::type::rep_crawler, "Ignoring vote from account {} with too little voting weight: {}",
 			vote->account.to_account (),
 			nano::util::to_str (rep_weight));
 			continue;
@@ -119,11 +119,11 @@ void nano::rep_crawler::validate_and_process (nano::unique_lock<nano::mutex> & l
 
 		if (inserted)
 		{
-			logger.info (nano::log::type::repcrawler, "Found representative {} at {}", vote->account.to_account (), channel->to_string ());
+			logger.info (nano::log::type::rep_crawler, "Found representative {} at {}", vote->account.to_account (), channel->to_string ());
 		}
 		if (updated)
 		{
-			logger.warn (nano::log::type::repcrawler, "Updated representative {} at {} (was at: {})", vote->account.to_account (), channel->to_string (), prev_channel->to_string ());
+			logger.warn (nano::log::type::rep_crawler, "Updated representative {} at {} (was at: {})", vote->account.to_account (), channel->to_string (), prev_channel->to_string ());
 		}
 	}
 }
@@ -201,7 +201,7 @@ void nano::rep_crawler::cleanup ()
 	erase_if (reps, [this] (rep_entry const & rep) {
 		if (!rep.channel->alive ())
 		{
-			logger.debug (nano::log::type::repcrawler, "Evicting representative {} with dead channel at {}", rep.account.to_account (), rep.channel->to_string ());
+			logger.debug (nano::log::type::rep_crawler, "Evicting representative {} with dead channel at {}", rep.account.to_account (), rep.channel->to_string ());
 			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::channel_dead);
 			return true; // Erase
 		}
@@ -212,7 +212,7 @@ void nano::rep_crawler::cleanup ()
 	erase_if (reps, [this] (rep_entry const & rep) {
 		if (nano::elapsed (rep.last_response, config.rep_timeout))
 		{
-			logger.debug (nano::log::type::repcrawler, "Evicting unresponsive representative {} at {}", rep.account.to_account (), rep.channel->to_string ());
+			logger.debug (nano::log::type::rep_crawler, "Evicting unresponsive representative {} at {}", rep.account.to_account (), rep.channel->to_string ());
 			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::rep_timeout);
 			return true; // Erase
 		}
@@ -223,7 +223,7 @@ void nano::rep_crawler::cleanup ()
 	erase_if (queries, [this] (query_entry const & query) {
 		if (nano::elapsed (query.time, config.query_timeout))
 		{
-			logger.debug (nano::log::type::repcrawler, "Evicting unresponsive query for block {} from {}", query.hash.to_string (), query.channel->to_string ());
+			logger.debug (nano::log::type::rep_crawler, "Evicting unresponsive query for block {} from {}", query.hash.to_string (), query.channel->to_string ());
 			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_timeout);
 			return true; // Erase
 		}
@@ -332,7 +332,7 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 			track_rep_request (hash_root, channel);
 			node.network.send_confirm_req (channel, hash_root);
 
-			logger.debug (nano::log::type::repcrawler, "Sending query for block {} to {}", hash_root.first.to_string (), channel->to_string ());
+			logger.debug (nano::log::type::rep_crawler, "Sending query for block {} to {}", hash_root.first.to_string (), channel->to_string ());
 			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_sent);
 		}
 		else
@@ -371,7 +371,7 @@ bool nano::rep_crawler::process (std::shared_ptr<nano::vote> const & vote, std::
 
 		if (found)
 		{
-			logger.debug (nano::log::type::repcrawler, "Processing response for block {} from {}", target_hash.to_string (), channel->to_string ());
+			logger.debug (nano::log::type::rep_crawler, "Processing response for block {} from {}", target_hash.to_string (), channel->to_string ());
 			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::response);
 			// TODO: Track query response time
 
