@@ -689,14 +689,14 @@ void nano::node::stop ()
 	// work pool is not stopped on purpose due to testing setup
 }
 
-void nano::node::keepalive_preconfigured (std::vector<std::string> const & peers_a)
+void nano::node::keepalive_preconfigured ()
 {
-	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
+	for (auto const & peer : config.preconfigured_peers)
 	{
 		// can't use `network.port` here because preconfigured peers are referenced
 		// just by their address, so we rely on them listening on the default port
 		//
-		keepalive (*i, network_params.network.default_node_port);
+		keepalive (peer, network_params.network.default_node_port);
 	}
 }
 

@@ -86,7 +86,7 @@ public:
 	void process_active (std::shared_ptr<nano::block> const &);
 	std::optional<nano::block_status> process_local (std::shared_ptr<nano::block> const &);
 	void process_local_async (std::shared_ptr<nano::block> const &);
-	void keepalive_preconfigured (std::vector<std::string> const &);
+	void keepalive_preconfigured ();
 	std::shared_ptr<nano::block> block (nano::block_hash const &);
 	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &, bool only_confirmed);
 	nano::uint128_t weight (nano::account const &);

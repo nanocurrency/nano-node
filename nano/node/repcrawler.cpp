@@ -152,7 +152,7 @@ void nano::rep_crawler::run ()
 		if (!sufficient_weight)
 		{
 			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::keepalive);
-			node.keepalive_preconfigured (node.config.preconfigured_peers);
+			node.keepalive_preconfigured ();
 		}
 
 		lock.lock ();
