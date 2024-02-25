@@ -111,7 +111,7 @@ private:
 	/** Returns a list of endpoints to crawl. The total weight is passed in to avoid computing it twice. */
 	std::vector<std::shared_ptr<nano::transport::channel>> prepare_crawl_targets (bool sufficient_weight) const;
 	std::optional<hash_root_t> prepare_query_target ();
-	void track_rep_request (hash_root_t hash_root, std::shared_ptr<nano::transport::channel> const & channel_a);
+	bool track_rep_request (hash_root_t hash_root, std::shared_ptr<nano::transport::channel> const & channel_a);
 
 private:
 	/**
@@ -162,7 +162,7 @@ private:
 
 	using ordered_queries = boost::multi_index_container<query_entry,
 	mi::indexed_by<
-		mi::hashed_unique<mi::tag<tag_channel>,
+		mi::hashed_non_unique<mi::tag<tag_channel>,
 			mi::member<query_entry, std::shared_ptr<nano::transport::channel>, &query_entry::channel>>,
 		mi::sequenced<mi::tag<tag_sequenced>>,
 		mi::hashed_non_unique<mi::tag<tag_hash>,

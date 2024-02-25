@@ -334,6 +334,7 @@ enum class detail : uint8_t
 	query_target_failed,
 	query_channel_busy,
 	query_sent,
+	query_duplicate,
 	rep_timeout,
 	query_timeout,
 	crawl_aggressive,

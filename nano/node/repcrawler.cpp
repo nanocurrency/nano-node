@@ -181,11 +181,10 @@ void nano::rep_crawler::run ()
 		{
 			last_query = std::chrono::steady_clock::now ();
 
-			lock.unlock ();
-
 			auto targets = prepare_crawl_targets (sufficient_weight);
-			query (targets);
 
+			lock.unlock ();
+			query (targets);
 			lock.lock ();
 		}
 
@@ -233,23 +232,27 @@ void nano::rep_crawler::cleanup ()
 
 std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::prepare_crawl_targets (bool sufficient_weight) const
 {
+	debug_assert (!mutex.try_lock ());
+
 	// TODO: Make these values configurable
 	constexpr std::size_t conservative_count = 10;
 	constexpr std::size_t aggressive_count = 40;
-
-	// Crawl more aggressively if we lack sufficient total peer weight.
-	auto required_peer_count = sufficient_weight ? conservative_count : aggressive_count;
+	constexpr std::size_t conservative_max_attempts = 1;
+	constexpr std::size_t aggressive_max_attempts = 8;
 
 	stats.inc (nano::stat::type::rep_crawler, sufficient_weight ? nano::stat::detail::crawl_normal : nano::stat::detail::crawl_aggressive);
 
-	// Add random peers. We do this even if we have enough weight, in order to pick up reps
-	// that didn't respond when first observed. If the current total weight isn't sufficient, this
-	// will be more aggressive. When the node first starts, the rep container is empty and all
-	// endpoints will originate from random peers.
-	required_peer_count += required_peer_count / 2;
+	// Crawl more aggressively if we lack sufficient total peer weight.
+	auto const required_peer_count = sufficient_weight ? conservative_count : aggressive_count;
 
-	// The rest of the endpoints are picked randomly
-	auto random_peers = node.network.random_set (required_peer_count, 0, true); // Include channels with ephemeral remote ports
+	auto random_peers = node.network.random_set (required_peer_count, 0, /* Include channels with ephemeral remote ports */ true);
+
+	// Avoid querying the same peer multiple times when rep crawler is warmed up
+	auto const max_attempts = sufficient_weight ? conservative_max_attempts : aggressive_max_attempts;
+	erase_if (random_peers, [this, max_attempts] (std::shared_ptr<nano::transport::channel> const & channel) {
+		return queries.get<tag_channel> ().count (channel) >= max_attempts;
+	});
+
 	return { random_peers.begin (), random_peers.end () };
 }
 
@@ -292,12 +295,15 @@ auto nano::rep_crawler::prepare_query_target () -> std::optional<hash_root_t>
 	return hash_root;
 }
 
-void nano::rep_crawler::track_rep_request (hash_root_t hash_root, std::shared_ptr<nano::transport::channel> const & channel)
+bool nano::rep_crawler::track_rep_request (hash_root_t hash_root, std::shared_ptr<nano::transport::channel> const & channel)
 {
 	debug_assert (!mutex.try_lock ());
 
-	debug_assert (queries.count (channel) == 0); // Only a single query should be active per channel
-	queries.emplace (query_entry{ hash_root.first, channel });
+	auto [_, inserted] = queries.emplace (query_entry{ hash_root.first, channel });
+	if (!inserted)
+	{
+		return false; // Duplicate, not tracked
+	}
 
 	// Find and update the timestamp on all reps available on the endpoint (a single host may have multiple reps)
 	auto & index = reps.get<tag_channel> ();
@@ -308,6 +314,8 @@ void nano::rep_crawler::track_rep_request (hash_root_t hash_root, std::shared_pt
 			info.last_request = std::chrono::steady_clock::now ();
 		});
 	}
+
+	return true;
 }
 
 void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::channel>> const & target_channels)
@@ -315,6 +323,7 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 	auto maybe_hash_root = prepare_query_target ();
 	if (!maybe_hash_root)
 	{
+		logger.debug (nano::log::type::rep_crawler, "No block to query");
 		stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_target_failed);
 		return;
 	}
@@ -326,10 +335,9 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 	{
 		debug_assert (channel != nullptr);
 
-		// Only a single query should be active per channel
-		if (queries.find (channel) == queries.end ())
+		bool tracked = track_rep_request (hash_root, channel);
+		if (tracked)
 		{
-			track_rep_request (hash_root, channel);
 			node.network.send_confirm_req (channel, hash_root);
 
 			logger.debug (nano::log::type::rep_crawler, "Sending query for block {} to {}", hash_root.first.to_string (), channel->to_string ());
@@ -337,7 +345,8 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 		}
 		else
 		{
-			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_channel_busy);
+			logger.debug (nano::log::type::rep_crawler, "Ignoring duplicate query for block {} to {}", hash_root.first.to_string (), channel->to_string ());
+			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_duplicate);
 		}
 	}
 }
@@ -361,10 +370,13 @@ bool nano::rep_crawler::is_pr (std::shared_ptr<nano::transport::channel> const &
 bool nano::rep_crawler::process (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	if (auto info = queries.find (channel); info != queries.end ())
+
+	auto & index = queries.get<tag_channel> ();
+	auto [begin, end] = index.equal_range (channel);
+	for (auto it = begin; it != end; ++it)
 	{
 		// TODO: This linear search could be slow, especially with large votes.
-		auto const target_hash = info->hash;
+		auto const target_hash = it->hash;
 		bool found = std::any_of (vote->hashes.begin (), vote->hashes.end (), [&target_hash] (nano::block_hash const & hash) {
 			return hash == target_hash;
 		});
@@ -376,10 +388,10 @@ bool nano::rep_crawler::process (std::shared_ptr<nano::vote> const & vote, std::
 			// TODO: Track query response time
 
 			responses.push_back ({ channel, vote });
-			queries.erase (info);
+			queries.erase (it);
 
 			condition.notify_all ();
-			return true;
+			return true; // Found and processed
 		}
 	}
 	return false;
