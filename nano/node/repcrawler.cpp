@@ -440,11 +440,21 @@ std::vector<nano::representative> nano::rep_crawler::principal_representatives (
 	return representatives (count, node.minimum_principal_weight (), minimum_protocol_version);
 }
 
-/** Total number of representatives */
 std::size_t nano::rep_crawler::representative_count ()
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	return reps.size ();
+}
+
+std::unique_ptr<nano::container_info_component> nano::rep_crawler::collect_container_info (const std::string & name)
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "reps", reps.size (), sizeof (decltype (reps)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "queries", queries.size (), sizeof (decltype (queries)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "responses", responses.size (), sizeof (decltype (responses)::value_type) }));
+	return composite;
 }
 
 // Only for tests
@@ -469,20 +479,6 @@ void nano::rep_crawler::force_query (const nano::block_hash & hash, const std::s
 	release_assert (node.network_params.network.is_dev_network ());
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	queries.emplace (query_entry{ hash, channel });
-}
-
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (rep_crawler & rep_crawler, std::string const & name)
-{
-	std::size_t count;
-	{
-		nano::lock_guard<nano::mutex> guard{ rep_crawler.mutex };
-		count = rep_crawler.queries.size ();
-	}
-
-	auto const sizeof_element = sizeof (decltype (rep_crawler.queries)::value_type);
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "queries", count, sizeof_element }));
-	return composite;
 }
 
 /*

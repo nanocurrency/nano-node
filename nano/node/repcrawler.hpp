@@ -50,8 +50,6 @@ public:
  */
 class rep_crawler final
 {
-	friend std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
-
 public:
 	rep_crawler (rep_crawler_config const &, nano::node &);
 	~rep_crawler ();
@@ -88,8 +86,9 @@ public:
 	std::vector<representative> principal_representatives (std::size_t count = std::numeric_limits<std::size_t>::max (), std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version = {});
 
 	/** Total number of representatives */
-
 	std::size_t representative_count ();
+
+	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
 
 private: // Dependencies
 	rep_crawler_config const & config;
@@ -111,7 +110,7 @@ private:
 	/** Returns a list of endpoints to crawl. The total weight is passed in to avoid computing it twice. */
 	std::vector<std::shared_ptr<nano::transport::channel>> prepare_crawl_targets (bool sufficient_weight) const;
 	std::optional<hash_root_t> prepare_query_target ();
-	bool track_rep_request (hash_root_t hash_root, std::shared_ptr<nano::transport::channel> const & channel_a);
+	bool track_rep_request (hash_root_t hash_root, std::shared_ptr<nano::transport::channel> const & channel);
 
 private:
 	/**
@@ -190,6 +189,4 @@ public: // Testing
 	void force_process (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel);
 	void force_query (nano::block_hash const & hash, std::shared_ptr<nano::transport::channel> const & channel);
 };
-
-std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 }
