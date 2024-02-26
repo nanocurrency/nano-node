@@ -338,10 +338,21 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 		bool tracked = track_rep_request (hash_root, channel);
 		if (tracked)
 		{
-			node.network.send_confirm_req (channel, hash_root);
-
 			logger.debug (nano::log::type::rep_crawler, "Sending query for block {} to {}", hash_root.first.to_string (), channel->to_string ());
 			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_sent);
+
+			auto const & [hash, root] = hash_root;
+			nano::confirm_req req{ network_constants, hash, root };
+
+			channel->send (
+			req,
+			[this] (auto & ec, auto size) {
+				if (ec)
+				{
+					stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::write_error, nano::stat::dir::out);
+				}
+			},
+			nano::transport::buffer_drop_policy::no_socket_drop);
 		}
 		else
 		{
