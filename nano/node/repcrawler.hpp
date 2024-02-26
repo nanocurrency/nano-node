@@ -40,8 +40,7 @@ public:
 	nano::error serialize (nano::tomlconfig & toml) const;
 
 public:
-	std::chrono::milliseconds query_timeout{ 1000 * 30 };
-	std::chrono::milliseconds rep_timeout{ 1000 * 60 * 5 };
+	std::chrono::milliseconds query_timeout{ 1000 * 60 };
 };
 
 /**

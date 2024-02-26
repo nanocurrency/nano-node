@@ -200,19 +200,8 @@ void nano::rep_crawler::cleanup ()
 	erase_if (reps, [this] (rep_entry const & rep) {
 		if (!rep.channel->alive ())
 		{
-			logger.debug (nano::log::type::rep_crawler, "Evicting representative {} with dead channel at {}", rep.account.to_account (), rep.channel->to_string ());
+			logger.info (nano::log::type::rep_crawler, "Evicting representative {} with dead channel at {}", rep.account.to_account (), rep.channel->to_string ());
 			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::channel_dead);
-			return true; // Erase
-		}
-		return false;
-	});
-
-	// Evict reps that haven't responded in a while
-	erase_if (reps, [this] (rep_entry const & rep) {
-		if (nano::elapsed (rep.last_response, config.rep_timeout))
-		{
-			logger.debug (nano::log::type::rep_crawler, "Evicting unresponsive representative {} at {}", rep.account.to_account (), rep.channel->to_string ());
-			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::rep_timeout);
 			return true; // Erase
 		}
 		return false;
@@ -222,7 +211,7 @@ void nano::rep_crawler::cleanup ()
 	erase_if (queries, [this] (query_entry const & query) {
 		if (nano::elapsed (query.time, config.query_timeout))
 		{
-			logger.debug (nano::log::type::rep_crawler, "Evicting unresponsive query for block {} from {}", query.hash.to_string (), query.channel->to_string ());
+			logger.debug (nano::log::type::rep_crawler, "Aborting unresponsive query for block {} from {}", query.hash.to_string (), query.channel->to_string ());
 			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_timeout);
 			return true; // Erase
 		}
@@ -235,9 +224,9 @@ std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::prepar
 	debug_assert (!mutex.try_lock ());
 
 	// TODO: Make these values configurable
-	constexpr std::size_t conservative_count = 10;
-	constexpr std::size_t aggressive_count = 40;
-	constexpr std::size_t conservative_max_attempts = 1;
+	constexpr std::size_t conservative_count = 160;
+	constexpr std::size_t aggressive_count = 160;
+	constexpr std::size_t conservative_max_attempts = 4;
 	constexpr std::size_t aggressive_max_attempts = 8;
 
 	stats.inc (nano::stat::type::rep_crawler, sufficient_weight ? nano::stat::detail::crawl_normal : nano::stat::detail::crawl_aggressive);
@@ -245,7 +234,7 @@ std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::prepar
 	// Crawl more aggressively if we lack sufficient total peer weight.
 	auto const required_peer_count = sufficient_weight ? conservative_count : aggressive_count;
 
-	auto random_peers = node.network.random_set (required_peer_count, 0, /* Include channels with ephemeral remote ports */ true);
+	auto random_peers = node.network.random_set (required_peer_count, 0, /* include channels with ephemeral remote ports */ true);
 
 	// Avoid querying the same peer multiple times when rep crawler is warmed up
 	auto const max_attempts = sufficient_weight ? conservative_max_attempts : aggressive_max_attempts;
@@ -500,7 +489,6 @@ nano::rep_crawler_config::rep_crawler_config (nano::network_constants const & ne
 {
 	if (network_constants.is_dev_network ())
 	{
-		rep_timeout = std::chrono::milliseconds{ 1000 * 3 };
 		query_timeout = std::chrono::milliseconds{ 1000 };
 	}
 }
@@ -508,7 +496,6 @@ nano::rep_crawler_config::rep_crawler_config (nano::network_constants const & ne
 nano::error nano::rep_crawler_config::serialize (nano::tomlconfig & toml) const
 {
 	// TODO: Descriptions
-	toml.put ("rep_timeout", rep_timeout.count ());
 	toml.put ("query_timeout", query_timeout.count ());
 
 	return toml.get_error ();
@@ -516,10 +503,6 @@ nano::error nano::rep_crawler_config::serialize (nano::tomlconfig & toml) const
 
 nano::error nano::rep_crawler_config::deserialize (nano::tomlconfig & toml)
 {
-	auto rep_timeout_l = rep_timeout.count ();
-	toml.get ("rep_timeout", rep_timeout_l);
-	rep_timeout = std::chrono::milliseconds{ rep_timeout_l };
-
 	auto query_timeout_l = query_timeout.count ();
 	toml.get ("query_timeout", query_timeout_l);
 	query_timeout = std::chrono::milliseconds{ query_timeout_l };
