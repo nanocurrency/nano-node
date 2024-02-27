@@ -521,26 +521,29 @@ public:
 	{
 		type = "Send";
 		account = block_a.hashables.destination;
-		bool error_or_pruned (false);
-		amount = ledger.amount_safe (transaction, block_a.hash (), error_or_pruned);
-		if (error_or_pruned)
+		auto amount_l = ledger.amount (transaction, block_a.hash ());
+		if (!amount_l)
 		{
 			type = "Send (pruned)";
+		}
+		else
+		{
+			amount = amount_l.value ();
 		}
 	}
 	void receive_block (nano::receive_block const & block_a)
 	{
 		type = "Receive";
 		auto account_l = ledger.account (transaction, block_a.hashables.source);
-		bool error_or_pruned = false;
-		amount = ledger.amount_safe (transaction, block_a.hash (), error_or_pruned);
-		if (!account_l || error_or_pruned)
+		auto amount_l = ledger.amount (transaction, block_a.hash ());
+		if (!account_l || !amount_l)
 		{
 			type = "Receive (pruned)";
 		}
 		else
 		{
 			account = account_l.value ();
+			amount = amount_l.value ();
 		}
 	}
 	void open_block (nano::open_block const & block_a)
@@ -548,16 +551,16 @@ public:
 		type = "Receive";
 		if (block_a.hashables.source != ledger.constants.genesis->account ())
 		{
-			bool error_or_pruned (false);
 			auto account_l = ledger.account (transaction, block_a.hashables.source);
-			amount = ledger.amount_safe (transaction, block_a.hash (), error_or_pruned);
-			if (!account_l || error_or_pruned)
+			auto amount_l = ledger.amount (transaction, block_a.hash ());
+			if (!account_l || !amount_l)
 			{
 				type = "Receive (pruned)";
 			}
 			else
 			{
 				account = account_l.value ();
+				amount = amount_l.value ();
 			}
 		}
 		else

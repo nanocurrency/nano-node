@@ -62,7 +62,7 @@ public:
 	void receive_block (nano::receive_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
-		auto amount (ledger.amount (transaction, hash));
+		auto amount = ledger.amount (transaction, hash).value ();
 		auto destination_account = ledger.account (block_a);
 		// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
 		auto source_account = ledger.account (transaction, block_a.hashables.source);
@@ -81,7 +81,7 @@ public:
 	void open_block (nano::open_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
-		auto amount (ledger.amount (transaction, hash));
+		auto amount = ledger.amount (transaction, hash).value ();
 		auto destination_account = ledger.account (block_a);
 		auto source_account = ledger.account (transaction, block_a.hashables.source);
 		ledger.cache.rep_weights.representation_add (block_a.representative (), 0 - amount);
@@ -1155,31 +1155,24 @@ std::optional<nano::account_info> nano::ledger::account_info (store::transaction
 	return store.account.get (transaction, account);
 }
 
-nano::uint128_t nano::ledger::amount (store::transaction const & transaction_a, nano::block_hash const & hash_a)
+std::optional<nano::uint128_t> nano::ledger::amount (store::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto block_l = block (transaction_a, hash_a);
+	if (!block_l)
+	{
+		return std::nullopt;
+	}
 	auto block_balance = balance (*block_l);
 	if (block_l->previous ().is_zero ())
 	{
 		return block_balance;
 	}
 	auto previous_balance = balance (transaction_a, block_l->previous ());
+	if (!previous_balance)
+	{
+		return std::nullopt;
+	}
 	return block_balance > previous_balance.value () ? block_balance - previous_balance.value () : previous_balance.value () - block_balance;
-}
-
-nano::uint128_t nano::ledger::amount_safe (store::transaction const & transaction_a, nano::block_hash const & hash_a, bool & error_a) const
-{
-	auto block_l = block (transaction_a, hash_a);
-	debug_assert (block_l);
-	auto block_balance = balance (*block_l);
-	if (block_l->previous ().is_zero ())
-	{
-		return block_balance;
-	}
-	auto previous_balance = balance (transaction_a, block_l->previous ());
-	error_a = !previous_balance;
-	return error_a ? 0 : block_balance > previous_balance.value () ? block_balance - previous_balance.value ()
-																   : previous_balance.value () - block_balance;
 }
 
 // Return latest block for account
