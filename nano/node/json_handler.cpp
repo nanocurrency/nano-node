@@ -641,7 +641,7 @@ void nano::json_handler::account_info ()
 			{
 				if (info.block_count != confirmation_height_info.height)
 				{
-					confirmed_balance_l = node.ledger.balance (transaction, confirmation_height_info.frontier);
+					confirmed_balance_l = node.ledger.balance (transaction, confirmation_height_info.frontier).value_or (0);
 				}
 				else
 				{
@@ -1156,7 +1156,7 @@ void nano::json_handler::block_info ()
 			{
 				response_l.put ("amount", amount.convert_to<std::string> ());
 			}
-			auto balance (node.ledger.balance (transaction, hash));
+			auto balance = node.ledger.balance (*block);
 			response_l.put ("balance", balance.convert_to<std::string> ());
 			response_l.put ("height", std::to_string (block->sideband ().height));
 			response_l.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
@@ -1315,7 +1315,7 @@ void nano::json_handler::blocks_info ()
 					{
 						entry.put ("amount", amount.convert_to<std::string> ());
 					}
-					auto balance (node.ledger.balance (transaction, hash));
+					auto balance = node.ledger.balance (*block);
 					entry.put ("balance", balance.convert_to<std::string> ());
 					entry.put ("height", std::to_string (block->sideband ().height));
 					entry.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
@@ -2482,9 +2482,8 @@ public:
 			tree.put ("previous", block_a.hashables.previous.to_string ());
 		}
 		auto balance (block_a.hashables.balance.number ());
-		bool error_or_pruned (false);
-		auto previous_balance (handler.node.ledger.balance_safe (transaction, block_a.hashables.previous, error_or_pruned));
-		if (error_or_pruned)
+		auto previous_balance = handler.node.ledger.balance (transaction, block_a.hashables.previous);
+		if (!previous_balance)
 		{
 			if (raw)
 			{
@@ -2495,7 +2494,7 @@ public:
 				tree.put ("type", "unknown");
 			}
 		}
-		else if (balance < previous_balance)
+		else if (balance < previous_balance.value ())
 		{
 			if (should_ignore_account (block_a.hashables.link.as_account ()))
 			{
@@ -2511,7 +2510,7 @@ public:
 				tree.put ("type", "send");
 			}
 			tree.put ("account", block_a.hashables.link.to_account ());
-			tree.put ("amount", (previous_balance - balance).convert_to<std::string> ());
+			tree.put ("amount", (previous_balance.value () - balance).convert_to<std::string> ());
 		}
 		else
 		{
@@ -2550,7 +2549,7 @@ public:
 				{
 					tree.put ("account", source_account.value ().to_account ());
 				}
-				tree.put ("amount", (balance - previous_balance).convert_to<std::string> ());
+				tree.put ("amount", (balance - previous_balance.value ()).convert_to<std::string> ());
 			}
 		}
 	}

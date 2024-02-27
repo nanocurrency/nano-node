@@ -1232,14 +1232,13 @@ void nano::node::process_confirmed_data (store::transaction const & transaction_
 	}
 	// Faster amount calculation
 	auto previous (block_a->previous ());
-	bool error (false);
-	auto previous_balance (ledger.balance_safe (transaction_a, previous, error));
+	auto previous_balance = ledger.balance (transaction_a, previous);
 	auto block_balance = ledger.balance (*block_a);
 	if (hash_a != ledger.constants.genesis->account ())
 	{
-		if (!error)
+		if (previous_balance)
 		{
-			amount_a = block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
+			amount_a = block_balance > previous_balance.value () ? block_balance - previous_balance.value () : previous_balance.value () - block_balance;
 		}
 		else
 		{

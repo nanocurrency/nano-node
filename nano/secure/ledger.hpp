@@ -44,8 +44,7 @@ public:
 	/** Safe for previous block, but block hash_a must exist */
 	nano::uint128_t amount_safe (store::transaction const &, nano::block_hash const & hash_a, bool &) const;
 	static nano::uint128_t balance (nano::block const & block);
-	nano::uint128_t balance (store::transaction const &, nano::block_hash const &) const;
-	nano::uint128_t balance_safe (store::transaction const &, nano::block_hash const &, bool &) const;
+	std::optional<nano::uint128_t> balance (store::transaction const &, nano::block_hash const &) const;
 	std::shared_ptr<nano::block> block (store::transaction const & transaction, nano::block_hash const & hash) const;
 	bool block_exists (store::transaction const & transaction, nano::block_hash const & hash) const;
 	nano::uint128_t account_balance (store::transaction const &, nano::account const &, bool = false);

@@ -5361,13 +5361,9 @@ TEST (ledger, pruning_safe_functions)
 	ASSERT_TRUE (store->block.exists (transaction, nano::dev::genesis->hash ()));
 	ASSERT_TRUE (store->block.exists (transaction, send2->hash ()));
 	// Safe ledger actions
+	ASSERT_FALSE (ledger.balance (transaction, send1->hash ()));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2, ledger.balance (transaction, send2->hash ()).value ());
 	bool error (false);
-	ASSERT_EQ (0, ledger.balance_safe (transaction, send1->hash (), error));
-	ASSERT_TRUE (error);
-	error = false;
-	ASSERT_EQ (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2, ledger.balance_safe (transaction, send2->hash (), error));
-	ASSERT_FALSE (error);
-	error = false;
 	ASSERT_EQ (0, ledger.amount_safe (transaction, send2->hash (), error));
 	ASSERT_TRUE (error);
 	error = false;
