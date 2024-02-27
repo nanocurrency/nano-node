@@ -63,7 +63,7 @@ public:
 	{
 		auto hash (block_a.hash ());
 		auto amount (ledger.amount (transaction, hash));
-		auto destination_account (ledger.account (transaction, hash));
+		auto destination_account = ledger.account (block_a);
 		// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
 		[[maybe_unused]] bool is_pruned (false);
 		auto source_account (ledger.account_safe (transaction, block_a.hashables.source, is_pruned));
@@ -83,7 +83,7 @@ public:
 	{
 		auto hash (block_a.hash ());
 		auto amount (ledger.amount (transaction, hash));
-		auto destination_account (ledger.account (transaction, hash));
+		auto destination_account = ledger.account (block_a);
 		// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
 		[[maybe_unused]] bool is_pruned (false);
 		auto source_account (ledger.account_safe (transaction, block_a.hashables.source, is_pruned));
@@ -99,7 +99,7 @@ public:
 	{
 		auto hash (block_a.hash ());
 		auto rep_block (ledger.representative (transaction, block_a.hashables.previous));
-		auto account (ledger.account (transaction, block_a.hashables.previous));
+		auto account = ledger.account (block_a);
 		auto info = ledger.account_info (transaction, account);
 		debug_assert (info);
 		auto balance (ledger.balance (transaction, block_a.hashables.previous));

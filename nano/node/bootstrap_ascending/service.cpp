@@ -132,7 +132,7 @@ void nano::bootstrap_ascending::service::inspect (store::transaction const & tx,
 	{
 		case nano::block_status::progress:
 		{
-			const auto account = ledger.account (tx, hash);
+			const auto account = ledger.account (block);
 			const auto is_send = ledger.is_send (tx, block);
 
 			// If we've inserted any block in to an account, unmark it as blocked
