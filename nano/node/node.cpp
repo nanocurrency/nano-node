@@ -197,12 +197,11 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	epoch_upgrader{ *this, ledger, store, network_params, logger },
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq),
-	block_broadcast{ network, !flags.disable_block_processor_republishing },
+	block_broadcaster{ *this, block_processor, network, stats, !flags.disable_block_processor_republishing },
 	process_live_dispatcher{ ledger, scheduler.priority, vote_cache, websocket }
 {
 	logger.debug (nano::log::type::node, "Constructing node...");
 
-	block_broadcast.connect (block_processor);
 	process_live_dispatcher.connect (block_processor);
 
 	unchecked.satisfied.add ([this] (nano::unchecked_info const & info) {
@@ -551,6 +550,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.final_generator, "vote_generator_final"));
 	composite->add_component (node.ascendboot.collect_container_info ("bootstrap_ascending"));
 	composite->add_component (node.unchecked.collect_container_info ("unchecked"));
+	composite->add_component (node.block_broadcaster.collect_container_info ("block_broadcaster"));
 	return composite;
 }
 
@@ -658,6 +658,7 @@ void nano::node::start ()
 	}
 	websocket.start ();
 	telemetry.start ();
+	block_broadcaster.start ();
 }
 
 void nano::node::stop ()
@@ -698,6 +699,7 @@ void nano::node::stop ()
 	stats.stop ();
 	epoch_upgrader.stop ();
 	workers.stop ();
+	block_broadcaster.stop ();
 	// work pool is not stopped on purpose due to testing setup
 }
 

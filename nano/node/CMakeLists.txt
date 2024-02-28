@@ -20,8 +20,8 @@ add_library(
   backlog_population.cpp
   bandwidth_limiter.hpp
   bandwidth_limiter.cpp
-  block_broadcast.cpp
-  block_broadcast.hpp
+  block_broadcaster.cpp
+  block_broadcaster.hpp
   blockprocessor.hpp
   blockprocessor.cpp
   bootstrap/block_deserializer.hpp
