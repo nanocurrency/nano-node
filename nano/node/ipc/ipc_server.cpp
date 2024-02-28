@@ -36,7 +36,7 @@ public:
 		server (server_a), node (server_a.node), session_id (server_a.id_dispenser.fetch_add (1)),
 		io_ctx (io_ctx_a), strand (io_ctx_a.get_executor ()), socket (io_ctx_a), config_transport (config_transport_a)
 	{
-		node.logger.debug (nano::log::type::ipc, "Creating session with id: ", session_id.load ());
+		node.logger.debug (nano::log::type::ipc, "Creating session with id: {}", session_id.load ());
 	}
 
 	~session ()
