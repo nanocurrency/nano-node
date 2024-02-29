@@ -374,7 +374,7 @@ void nano::bulk_pull_server::set_current_end ()
 	{
 		node->logger.debug (nano::log::type::bulk_pull_server, "Bulk pull request for block hash: {}", request->start.to_string ());
 
-		current = ascending () ? node->store.block.successor (transaction, request->start.as_block_hash ()) : request->start.as_block_hash ();
+		current = ascending () ? node->store.successor.get (transaction, request->start.as_block_hash ()) : request->start.as_block_hash ();
 		include_start = true;
 	}
 	else
@@ -492,7 +492,7 @@ std::shared_ptr<nano::block> nano::bulk_pull_server::get_next ()
 		result = node->block (current);
 		if (result != nullptr && set_current_to_end == false)
 		{
-			auto next = ascending () ? result->sideband ().successor : result->previous ();
+			auto next = ascending () ? node->successor (result->hash ()) : result->previous ();
 			if (!next.is_zero ())
 			{
 				current = next;

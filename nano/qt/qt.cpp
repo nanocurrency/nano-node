@@ -677,7 +677,7 @@ nano_qt::block_viewer::block_viewer (nano_qt::wallet & wallet_a) :
 				std::string contents;
 				block_l->serialize_json (contents);
 				block->setPlainText (contents.c_str ());
-				auto successor_l (this->wallet.node.store.block.successor (transaction, hash_l));
+				auto successor_l (this->wallet.node.store.successor.get (transaction, hash_l));
 				successor->setText (successor_l.to_string ().c_str ());
 			}
 			else
@@ -721,7 +721,7 @@ void nano_qt::block_viewer::rebroadcast_action (nano::block_hash const & hash_a)
 	if (block != nullptr)
 	{
 		wallet.node.network.flood_block (block);
-		auto successor (wallet.node.store.block.successor (transaction, hash_a));
+		auto successor (wallet.node.store.successor.get (transaction, hash_a));
 		if (!successor.is_zero ())
 		{
 			done = false;

@@ -15,6 +15,7 @@
 #include <nano/store/rocksdb/peer.hpp>
 #include <nano/store/rocksdb/pending.hpp>
 #include <nano/store/rocksdb/pruned.hpp>
+#include <nano/store/rocksdb/successor.hpp>
 #include <nano/store/rocksdb/version.hpp>
 
 #include <rocksdb/db.h>
@@ -50,6 +51,7 @@ private:
 	nano::store::rocksdb::peer peer_store;
 	nano::store::rocksdb::pending pending_store;
 	nano::store::rocksdb::pruned pruned_store;
+	nano::store::rocksdb::successor successor_store;
 	nano::store::rocksdb::version version_store;
 
 public:
@@ -62,6 +64,7 @@ public:
 	friend class nano::store::rocksdb::peer;
 	friend class nano::store::rocksdb::pending;
 	friend class nano::store::rocksdb::pruned;
+	friend class nano::store::rocksdb::successor;
 	friend class nano::store::rocksdb::version;
 
 	explicit component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);

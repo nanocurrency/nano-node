@@ -566,7 +566,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 
 nano::block_status nano::node::process (std::shared_ptr<nano::block> block)
 {
-	auto const transaction = store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending });
+	auto const transaction = store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending, tables::successor });
 	return process (transaction, block);
 }
 
@@ -728,6 +728,12 @@ std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)
 {
 	auto const transaction (store.tx_begin_read ());
 	return store.block.get (transaction, hash_a);
+}
+
+nano::block_hash nano::node::successor (nano::block_hash const & hash)
+{
+	auto tx = store.tx_begin_read ();
+	return store.successor.get (tx, hash);
 }
 
 std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::account const & account_a, bool only_confirmed_a)

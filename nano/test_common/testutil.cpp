@@ -61,7 +61,7 @@ nano::account nano::test::random_account ()
 
 bool nano::test::process (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
 {
-	auto const transaction = node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending });
+	auto const transaction = node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending, tables::successor });
 	for (auto & block : blocks)
 	{
 		auto result = node.process (transaction, block);

@@ -68,12 +68,12 @@ class block_sideband final
 {
 public:
 	block_sideband () = default;
-	block_sideband (nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t const, nano::seconds_t const local_timestamp, nano::block_details const &, nano::epoch const source_epoch_a);
-	block_sideband (nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t const, nano::seconds_t const local_timestamp, nano::epoch const epoch_a, bool const is_send, bool const is_receive, bool const is_epoch, nano::epoch const source_epoch_a);
+	block_sideband (nano::account const &, nano::amount const &, uint64_t const, nano::seconds_t const local_timestamp, nano::block_details const &, nano::epoch const source_epoch_a);
+	block_sideband (nano::account const &, nano::amount const &, uint64_t const, nano::seconds_t const local_timestamp, nano::epoch const epoch_a, bool const is_send, bool const is_receive, bool const is_epoch, nano::epoch const source_epoch_a);
 	void serialize (nano::stream &, nano::block_type) const;
 	bool deserialize (nano::stream &, nano::block_type);
 	static size_t size (nano::block_type);
-	nano::block_hash successor{ 0 };
+	bool operator== (nano::block_sideband const & other_a) const;
 	nano::account account{};
 	nano::amount balance{ 0 };
 	uint64_t height{ 0 };
