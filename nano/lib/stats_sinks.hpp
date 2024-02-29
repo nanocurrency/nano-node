@@ -44,11 +44,13 @@ public:
 		entries.push_back (std::make_pair ("", entry));
 	}
 
-	void write_sampler_entry (tm & tm, const std::string & sample, const std::vector<stats::sampler_value_t> & values) override
+	void write_sampler_entry (tm & tm, const std::string & sample, const std::vector<stats::sampler_value_t> & values, std::pair<stats::sampler_value_t, stats::sampler_value_t> expected_min_max) override
 	{
 		boost::property_tree::ptree entry;
 		entry.put ("time", boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec);
 		entry.put ("sample", sample);
+		entry.put ("min", expected_min_max.first);
+		entry.put ("max", expected_min_max.second);
 		boost::property_tree::ptree values_tree;
 		for (const auto & value : values)
 		{
@@ -116,7 +118,7 @@ public:
 		log << boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec << "," << type << "," << detail << "," << dir << "," << value << std::endl;
 	}
 
-	void write_sampler_entry (tm & tm, const std::string & sample, const std::vector<stats::sampler_value_t> & values) override
+	void write_sampler_entry (tm & tm, const std::string & sample, const std::vector<stats::sampler_value_t> & values, std::pair<stats::sampler_value_t, stats::sampler_value_t> expected_min_max) override
 	{
 		log << boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec << "," << sample;
 		for (const auto & value : values)

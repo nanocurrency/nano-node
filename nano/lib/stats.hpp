@@ -117,7 +117,7 @@ public:
 	counter_value_t count (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in) const;
 
 	/** Adds a sample to the given sampler */
-	void sample (stat::sample sample, sampler_value_t value);
+	void sample (stat::sample sample, std::pair<sampler_value_t, sampler_value_t> expected_min_max, sampler_value_t value);
 
 	/** Returns a potentially empty list of the last N samples, where N is determined by the 'max_samples' configuration. Samples are reset after each lookup. */
 	std::vector<sampler_value_t> samples (stat::sample sample);
@@ -174,8 +174,11 @@ private:
 	class sampler_entry
 	{
 	public:
-		explicit sampler_entry (size_t max_samples) :
-			samples{ max_samples } {};
+		std::pair<sampler_value_t, sampler_value_t> const expected_min_max;
+
+		sampler_entry (size_t max_samples, std::pair<sampler_value_t, sampler_value_t> expected_min_max) :
+			samples{ max_samples },
+			expected_min_max{ expected_min_max } {};
 
 		// Prevent copying
 		sampler_entry (sampler_entry const &) = delete;
@@ -248,7 +251,7 @@ public:
 
 	/** Write a counter or sampling entry to the log. */
 	virtual void write_counter_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, stats::counter_value_t value) = 0;
-	virtual void write_sampler_entry (tm & tm, std::string const & sample, std::vector<stats::sampler_value_t> const & values) = 0;
+	virtual void write_sampler_entry (tm & tm, std::string const & sample, std::vector<stats::sampler_value_t> const & values, std::pair<stats::sampler_value_t, stats::sampler_value_t> expected_min_max) = 0;
 
 	/** Rotates the log (e.g. empty file). This is a no-op for sinks where rotation is not supported. */
 	virtual void rotate ()

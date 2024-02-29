@@ -126,10 +126,10 @@ auto nano::stats::count (stat::type type, stat::detail detail, stat::dir dir) co
 	return 0;
 }
 
-void nano::stats::sample (stat::sample sample, nano::stats::sampler_value_t value)
+void nano::stats::sample (stat::sample sample, std::pair<sampler_value_t, sampler_value_t> expected_min_max, nano::stats::sampler_value_t value)
 {
 	// Updates need to happen while holding the mutex
-	auto update_sampler = [this] (nano::stats::sampler_key key, auto && updater) {
+	auto update_sampler = [this, expected_min_max] (nano::stats::sampler_key key, auto && updater) {
 		// This is a two-step process to avoid exclusively locking the mutex in the common case
 		{
 			std::shared_lock lock{ mutex };
@@ -145,7 +145,7 @@ void nano::stats::sample (stat::sample sample, nano::stats::sampler_value_t valu
 			std::unique_lock lock{ mutex };
 
 			// Insertions will be ignored if the key already exists
-			auto [it, inserted] = samplers.emplace (key, std::make_unique<sampler_entry> (config.max_samples));
+			auto [it, inserted] = samplers.emplace (key, std::make_unique<sampler_entry> (config.max_samples, expected_min_max));
 			updater (*it->second);
 		}
 	};
@@ -229,10 +229,10 @@ void nano::stats::log_samples_impl (stat_log_sink & sink, tm & tm)
 	{
 		std::string sample{ to_string (key.sample) };
 
-		sink.write_sampler_entry (tm, sample, entry->collect ());
+		sink.write_sampler_entry (tm, sample, entry->collect (), entry->expected_min_max);
 	}
 
-	sink.entries ()++;
+	sink.entries ()++; // TODO: This `++` looks like a hack, needs a redesign
 	sink.finalize ();
 }
 
