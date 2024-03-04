@@ -239,8 +239,6 @@ public:
 
 	void keepalive (nano::keepalive const & message_a) override
 	{
-		node.network.merge_peers (message_a.peers);
-
 		// Check for special node port data
 		auto peer0 (message_a.peers[0]);
 		if (peer0.address () == boost::asio::ip::address_v6{} && peer0.port () != 0)
