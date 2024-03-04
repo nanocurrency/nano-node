@@ -647,6 +647,7 @@ void nano::node::start ()
 	}
 	wallets.start ();
 	vote_processor.start ();
+	block_processor.start ();
 	active.start ();
 	generator.start ();
 	final_generator.start ();
