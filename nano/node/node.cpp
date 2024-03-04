@@ -195,10 +195,10 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	ascendboot{ config, block_processor, ledger, network, stats },
 	websocket{ config.websocket_config, observers, wallets, ledger, io_ctx, logger },
 	epoch_upgrader{ *this, ledger, store, network_params, logger },
-	startup_time (std::chrono::steady_clock::now ()),
-	node_seq (seq),
 	local_block_broadcaster{ *this, block_processor, network, stats, !flags.disable_block_processor_republishing },
-	process_live_dispatcher{ ledger, scheduler.priority, vote_cache, websocket }
+	process_live_dispatcher{ ledger, scheduler.priority, vote_cache, websocket },
+	startup_time (std::chrono::steady_clock::now ()),
+	node_seq (seq)
 {
 	logger.debug (nano::log::type::node, "Constructing node...");
 
