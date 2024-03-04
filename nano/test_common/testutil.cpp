@@ -212,7 +212,7 @@ std::vector<nano::block_hash> nano::test::blocks_to_hashes (std::vector<std::sha
 	return hashes;
 }
 
-std::shared_ptr<nano::transport::channel> nano::test::fake_channel (nano::node & node, nano::account node_id)
+std::shared_ptr<nano::transport::fake::channel> nano::test::fake_channel (nano::node & node, nano::account node_id)
 {
 	auto channel = std::make_shared<nano::transport::fake::channel> (node);
 	if (!node_id.is_zero ())
