@@ -113,7 +113,17 @@ void nano::block_broadcaster::run_broadcasts (nano::unique_lock<nano::mutex> & l
 
 	for (auto const & block : to_broadcast)
 	{
+		while (!limiter.should_pass (1))
+		{
+			std::this_thread::sleep_for (std::chrono::milliseconds{ 100 });
+			if (stopped)
+			{
+				return;
+			}
+		}
+
 		stats.inc (nano::stat::type::block_broadcaster, nano::stat::detail::broadcast, nano::stat::dir::out);
+
 		network.flood_block_initial (block);
 	}
 

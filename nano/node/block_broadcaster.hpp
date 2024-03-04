@@ -3,6 +3,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/processing_queue.hpp>
+#include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/secure/common.hpp>
 
@@ -88,13 +89,18 @@ private:
 private:
 	bool enabled{ false };
 
+	nano::bandwidth_limiter limiter{ broadcast_rate_limit, broadcast_rate_burst_ratio };
+
 	std::atomic<bool> stopped{ false };
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
 	std::thread thread;
 
-	static std::size_t constexpr max_size{ 1024 * 8 };
+	// TODO: Make these configurable
+	static std::size_t constexpr max_size{ 1024 };
 	static std::chrono::seconds constexpr check_interval{ 30 };
 	static std::chrono::seconds constexpr broadcast_interval{ 60 };
+	static std::size_t constexpr broadcast_rate_limit{ 32 };
+	static double constexpr broadcast_rate_burst_ratio{ 3 };
 };
 }
