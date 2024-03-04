@@ -31,7 +31,7 @@ namespace nano
  * Broadcasts blocks to the network
  * Tracks local blocks for more aggressive propagation
  */
-class block_broadcaster
+class local_block_broadcaster
 {
 	enum class broadcast_strategy
 	{
@@ -40,8 +40,8 @@ class block_broadcaster
 	};
 
 public:
-	block_broadcaster (nano::node &, nano::block_processor &, nano::network &, nano::stats &, bool enabled = false);
-	~block_broadcaster ();
+	local_block_broadcaster (nano::node &, nano::block_processor &, nano::network &, nano::stats &, bool enabled = false);
+	~local_block_broadcaster ();
 
 	void start ();
 	void stop ();

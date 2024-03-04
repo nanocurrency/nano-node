@@ -49,7 +49,7 @@ enum class type : uint8_t
 	election_scheduler,
 	optimistic_scheduler,
 	handshake,
-	block_broadcaster,
+	local_block_broadcaster,
 
 	bootstrap_ascending,
 	bootstrap_ascending_accounts,

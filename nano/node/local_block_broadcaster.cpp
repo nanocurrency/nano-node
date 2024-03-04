@@ -1,11 +1,11 @@
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/node/block_broadcaster.hpp>
 #include <nano/node/blockprocessor.hpp>
+#include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 
-nano::block_broadcaster::block_broadcaster (nano::node & node_a, nano::block_processor & block_processor_a, nano::network & network_a, nano::stats & stats_a, bool enabled_a) :
+nano::local_block_broadcaster::local_block_broadcaster (nano::node & node_a, nano::block_processor & block_processor_a, nano::network & network_a, nano::stats & stats_a, bool enabled_a) :
 	node{ node_a },
 	block_processor{ block_processor_a },
 	network{ network_a },
@@ -26,7 +26,7 @@ nano::block_broadcaster::block_broadcaster (nano::node & node_a, nano::block_pro
 			{
 				nano::lock_guard<nano::mutex> guard{ mutex };
 				local_blocks.emplace_back (local_entry{ context.block, std::chrono::steady_clock::now () });
-				stats.inc (nano::stat::type::block_broadcaster, nano::stat::detail::insert);
+				stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::insert);
 				should_notify = true;
 			}
 		}
@@ -39,17 +39,17 @@ nano::block_broadcaster::block_broadcaster (nano::node & node_a, nano::block_pro
 	block_processor.rolled_back.add ([this] (auto const & block) {
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		auto erased = local_blocks.get<tag_hash> ().erase (block->hash ());
-		stats.add (nano::stat::type::block_broadcaster, nano::stat::detail::rollback, nano::stat::dir::in, erased);
+		stats.add (nano::stat::type::local_block_broadcaster, nano::stat::detail::rollback, nano::stat::dir::in, erased);
 	});
 }
 
-nano::block_broadcaster::~block_broadcaster ()
+nano::local_block_broadcaster::~local_block_broadcaster ()
 {
 	// Thread must be stopped before destruction
 	debug_assert (!thread.joinable ());
 }
 
-void nano::block_broadcaster::start ()
+void nano::local_block_broadcaster::start ()
 {
 	if (!enabled)
 	{
@@ -64,7 +64,7 @@ void nano::block_broadcaster::start ()
 	} };
 }
 
-void nano::block_broadcaster::stop ()
+void nano::local_block_broadcaster::stop ()
 {
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
@@ -74,12 +74,12 @@ void nano::block_broadcaster::stop ()
 	nano::join_or_pass (thread);
 }
 
-void nano::block_broadcaster::run ()
+void nano::local_block_broadcaster::run ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		stats.inc (nano::stat::type::block_broadcaster, nano::stat::detail::loop);
+		stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::loop);
 
 		condition.wait_for (lock, check_interval);
 		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
@@ -93,7 +93,7 @@ void nano::block_broadcaster::run ()
 	}
 }
 
-void nano::block_broadcaster::run_broadcasts (nano::unique_lock<nano::mutex> & lock)
+void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mutex> & lock)
 {
 	debug_assert (lock.owns_lock ());
 
@@ -122,7 +122,7 @@ void nano::block_broadcaster::run_broadcasts (nano::unique_lock<nano::mutex> & l
 			}
 		}
 
-		stats.inc (nano::stat::type::block_broadcaster, nano::stat::detail::broadcast, nano::stat::dir::out);
+		stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::broadcast, nano::stat::dir::out);
 
 		network.flood_block_initial (block);
 	}
@@ -130,14 +130,14 @@ void nano::block_broadcaster::run_broadcasts (nano::unique_lock<nano::mutex> & l
 	lock.lock ();
 }
 
-void nano::block_broadcaster::cleanup ()
+void nano::local_block_broadcaster::cleanup ()
 {
 	debug_assert (!mutex.try_lock ());
 
 	// Erase oldest blocks if the queue gets too big
 	while (local_blocks.size () > max_size)
 	{
-		stats.inc (nano::stat::type::block_broadcaster, nano::stat::detail::erase_oldest);
+		stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::erase_oldest);
 		local_blocks.pop_front ();
 	}
 
@@ -153,14 +153,14 @@ void nano::block_broadcaster::cleanup ()
 		}
 		if (node.block_confirmed_or_being_confirmed (transaction, entry.block->hash ()))
 		{
-			stats.inc (nano::stat::type::block_broadcaster, nano::stat::detail::erase_confirmed);
+			stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::erase_confirmed);
 			return true;
 		}
 		return false;
 	});
 }
 
-std::unique_ptr<nano::container_info_component> nano::block_broadcaster::collect_container_info (const std::string & name) const
+std::unique_ptr<nano::container_info_component> nano::local_block_broadcaster::collect_container_info (const std::string & name) const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 

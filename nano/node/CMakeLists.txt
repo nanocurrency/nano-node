@@ -20,8 +20,6 @@ add_library(
   backlog_population.cpp
   bandwidth_limiter.hpp
   bandwidth_limiter.cpp
-  block_broadcaster.cpp
-  block_broadcaster.hpp
   blockprocessor.hpp
   blockprocessor.cpp
   bootstrap/block_deserializer.hpp
@@ -100,6 +98,8 @@ add_library(
   ipc/ipc_server.cpp
   json_handler.hpp
   json_handler.cpp
+  local_block_broadcaster.cpp
+  local_block_broadcaster.hpp
   make_store.hpp
   make_store.cpp
   network.hpp
