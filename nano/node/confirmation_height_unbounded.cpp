@@ -376,7 +376,7 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 			auto confirmation_height = confirmation_height_info.height;
 			if (pending.height > confirmation_height)
 			{
-				auto block = ledger.store.block.get (transaction, pending.hash);
+				auto block = ledger.block (transaction, pending.hash);
 				debug_assert (ledger.pruning || block != nullptr);
 				debug_assert (ledger.pruning || block->sideband ().height == pending.height);
 
@@ -438,7 +438,7 @@ std::shared_ptr<nano::block> nano::confirmation_height_unbounded::get_block_and_
 	}
 	else
 	{
-		auto block (ledger.store.block.get (transaction_a, hash_a));
+		auto block = ledger.block (transaction_a, hash_a);
 		block_cache.emplace (hash_a, block);
 		return block;
 	}

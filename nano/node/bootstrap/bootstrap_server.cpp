@@ -253,13 +253,13 @@ std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks
 	std::vector<std::shared_ptr<nano::block>> result;
 	if (!start_block.is_zero ())
 	{
-		std::shared_ptr<nano::block> current = store.block.get (transaction, start_block);
+		std::shared_ptr<nano::block> current = ledger.block (transaction, start_block);
 		while (current && result.size () < count)
 		{
 			result.push_back (current);
 
 			auto successor = current->sideband ().successor;
-			current = store.block.get (transaction, successor);
+			current = ledger.block (transaction, successor);
 		}
 	}
 	return result;

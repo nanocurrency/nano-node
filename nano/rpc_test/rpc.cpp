@@ -2395,7 +2395,7 @@ TEST (rpc, account_representative_set)
 	wallet.insert_adhoc (key2.prv);
 	auto key2_open_block_hash = wallet.send_sync (nano::dev::genesis_key.pub, key2.pub, node->config.receive_minimum.number ());
 	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->store.tx_begin_read (), key2_open_block_hash));
-	auto key2_open_block = node->store.block.get (node->store.tx_begin_read (), key2_open_block_hash);
+	auto key2_open_block = node->ledger.block (node->store.tx_begin_read (), key2_open_block_hash);
 	ASSERT_EQ (nano::dev::genesis_key.pub, key2_open_block->representative ());
 
 	// now change the representative of key2 to be genesis
@@ -2412,7 +2412,7 @@ TEST (rpc, account_representative_set)
 	nano::block_hash hash;
 	ASSERT_FALSE (hash.decode_hex (block_text1));
 	ASSERT_FALSE (hash.is_zero ());
-	auto block = node->store.block.get (node->store.tx_begin_read (), hash);
+	auto block = node->ledger.block (node->store.tx_begin_read (), hash);
 	ASSERT_NE (block, nullptr);
 	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->store.tx_begin_read (), hash));
 	ASSERT_EQ (key2.pub, block->representative ());
@@ -5228,7 +5228,7 @@ TEST (rpc, confirmation_height_currently_processing)
 	std::shared_ptr<nano::block> frontier;
 	{
 		auto transaction = node->store.tx_begin_read ();
-		frontier = node->store.block.get (transaction, previous_genesis_chain_hash);
+		frontier = node->ledger.block (transaction, previous_genesis_chain_hash);
 	}
 
 	boost::property_tree::ptree request;
