@@ -5406,7 +5406,6 @@ TEST (rpc, node_id)
 	boost::property_tree::ptree request;
 	request.put ("action", "node_id");
 	auto response (wait_response (system, rpc_ctx, request));
-	ASSERT_EQ (node->node_id.prv.to_string (), response.get<std::string> ("private"));
 	ASSERT_EQ (node->node_id.pub.to_account (), response.get<std::string> ("as_account"));
 	ASSERT_EQ (node->node_id.pub.to_node_id (), response.get<std::string> ("node_id"));
 }
