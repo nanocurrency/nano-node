@@ -1244,14 +1244,6 @@ void nano::ledger::dump_account_chain (nano::account const & account_a, std::ost
 	}
 }
 
-bool nano::ledger::could_fit (store::transaction const & transaction_a, nano::block const & block_a) const
-{
-	auto dependencies (dependent_blocks (transaction_a, block_a));
-	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction_a] (nano::block_hash const & hash_a) {
-		return hash_a.is_zero () || store.block.exists (transaction_a, hash_a);
-	});
-}
-
 bool nano::ledger::dependents_confirmed (store::transaction const & transaction_a, nano::block const & block_a) const
 {
 	auto dependencies (dependent_blocks (transaction_a, block_a));

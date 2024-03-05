@@ -78,7 +78,6 @@ public:
 	void update_account (store::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
 	uint64_t pruning_action (store::write_transaction &, nano::block_hash const &, uint64_t const);
 	void dump_account_chain (nano::account const &, std::ostream & = std::cout);
-	bool could_fit (store::transaction const &, nano::block const &) const;
 	bool dependents_confirmed (store::transaction const &, nano::block const &) const;
 	bool is_epoch_link (nano::link const &) const;
 	std::array<nano::block_hash, 2> dependent_blocks (store::transaction const &, nano::block const &) const;
