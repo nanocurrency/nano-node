@@ -228,6 +228,7 @@ std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::prepar
 	constexpr std::size_t aggressive_count = 160;
 	constexpr std::size_t conservative_max_attempts = 4;
 	constexpr std::size_t aggressive_max_attempts = 8;
+	constexpr std::chrono::seconds rep_query_interval = std::chrono::seconds{ 60 };
 
 	stats.inc (nano::stat::type::rep_crawler, sufficient_weight ? nano::stat::detail::crawl_normal : nano::stat::detail::crawl_aggressive);
 
@@ -236,10 +237,22 @@ std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::prepar
 
 	auto random_peers = node.network.random_set (required_peer_count, 0, /* include channels with ephemeral remote ports */ true);
 
-	// Avoid querying the same peer multiple times when rep crawler is warmed up
-	auto const max_attempts = sufficient_weight ? conservative_max_attempts : aggressive_max_attempts;
-	erase_if (random_peers, [this, max_attempts] (std::shared_ptr<nano::transport::channel> const & channel) {
-		return queries.get<tag_channel> ().count (channel) >= max_attempts;
+	auto should_query = [&, this] (std::shared_ptr<nano::transport::channel> const & channel) {
+		if (auto rep = reps.get<tag_channel> ().find (channel); rep != reps.get<tag_channel> ().end ())
+		{
+			// Throttle queries to active reps
+			return elapsed (rep->last_request, rep_query_interval);
+		}
+		else
+		{
+			// Avoid querying the same peer multiple times when rep crawler is warmed up
+			auto const max_attempts = sufficient_weight ? conservative_max_attempts : aggressive_max_attempts;
+			return queries.get<tag_channel> ().count (channel) < max_attempts;
+		}
+	};
+
+	erase_if (random_peers, [&, this] (std::shared_ptr<nano::transport::channel> const & channel) {
+		return !should_query (channel);
 	});
 
 	return { random_peers.begin (), random_peers.end () };
