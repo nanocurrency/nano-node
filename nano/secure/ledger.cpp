@@ -848,7 +848,7 @@ nano::uint128_t nano::ledger::balance (store::transaction const & transaction, n
 nano::uint128_t nano::ledger::balance_safe (store::transaction const & transaction_a, nano::block_hash const & hash_a, bool & error_a) const
 {
 	nano::uint128_t result (0);
-	if (pruning && !hash_a.is_zero () && !store.block.exists (transaction_a, hash_a))
+	if (pruning && !hash_a.is_zero () && !block_exists (transaction_a, hash_a))
 	{
 		error_a = true;
 		result = 0;
@@ -863,6 +863,11 @@ nano::uint128_t nano::ledger::balance_safe (store::transaction const & transacti
 std::shared_ptr<nano::block> nano::ledger::block (store::transaction const & transaction, nano::block_hash const & hash) const
 {
 	return store.block.get (transaction, hash);
+}
+
+bool nano::ledger::block_exists (store::transaction const & transaction, nano::block_hash const & hash) const
+{
+	return store.block.exists (transaction, hash);
 }
 
 // Balance for an account by account number
@@ -935,7 +940,7 @@ nano::block_status nano::ledger::process (store::write_transaction const & trans
 nano::block_hash nano::ledger::representative (store::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto result (representative_calculated (transaction_a, hash_a));
-	debug_assert (result.is_zero () || store.block.exists (transaction_a, result));
+	debug_assert (result.is_zero () || block_exists (transaction_a, result));
 	return result;
 }
 
@@ -957,12 +962,12 @@ bool nano::ledger::block_or_pruned_exists (store::transaction const & transactio
 	{
 		return true;
 	}
-	return store.block.exists (transaction_a, hash_a);
+	return block_exists (transaction_a, hash_a);
 }
 
 bool nano::ledger::root_exists (store::transaction const & transaction_a, nano::root const & root_a)
 {
-	return store.block.exists (transaction_a, root_a.as_block_hash ()) || store.account.exists (transaction_a, root_a.as_account ());
+	return block_exists (transaction_a, root_a.as_block_hash ()) || store.account.exists (transaction_a, root_a.as_account ());
 }
 
 std::string nano::ledger::block_text (char const * hash_a)
@@ -994,7 +999,7 @@ bool nano::ledger::is_send (store::transaction const & transaction_a, nano::bloc
 	 * requires that the previous block exists in the database.
 	 * This is because it must retrieve the balance of the previous block.
 	 */
-	debug_assert (block_a.has_sideband () || previous.is_zero () || store.block.exists (transaction_a, previous));
+	debug_assert (block_a.has_sideband () || previous.is_zero () || block_exists (transaction_a, previous));
 
 	bool result (false);
 	if (block_a.has_sideband ())
@@ -1037,7 +1042,7 @@ nano::block_hash nano::ledger::block_source (store::transaction const & transact
 	 * passed in exist in the database.  This is because it will try
 	 * to check account balances to determine if it is a send block.
 	 */
-	debug_assert (block_a.previous ().is_zero () || store.block.exists (transaction_a, block_a.previous ()));
+	debug_assert (block_a.previous ().is_zero () || block_exists (transaction_a, block_a.previous ()));
 
 	// If block_a.source () is nonzero, then we have our source.
 	// However, universal blocks will always return zero.
@@ -1103,12 +1108,12 @@ nano::uint128_t nano::ledger::weight (nano::account const & account_a)
 // Rollback blocks until `block_a' doesn't exist or it tries to penetrate the confirmation height
 bool nano::ledger::rollback (store::write_transaction const & transaction_a, nano::block_hash const & block_a, std::vector<std::shared_ptr<nano::block>> & list_a)
 {
-	debug_assert (store.block.exists (transaction_a, block_a));
+	debug_assert (block_exists (transaction_a, block_a));
 	auto account_l (account (transaction_a, block_a));
 	auto block_account_height (height (transaction_a, block_a));
 	rollback_visitor rollback (transaction_a, *this, list_a);
 	auto error (false);
-	while (!error && store.block.exists (transaction_a, block_a))
+	while (!error && block_exists (transaction_a, block_a))
 	{
 		nano::confirmation_height_info confirmation_height_info;
 		store.confirmation_height.get (transaction_a, account_l, confirmation_height_info);
@@ -1301,7 +1306,7 @@ public:
 		result[0] = block_a.hashables.previous;
 		result[1] = block_a.hashables.link.as_block_hash ();
 		// ledger.is_send will check the sideband first, if block_a has a loaded sideband the check that previous block exists can be skipped
-		if (ledger.is_epoch_link (block_a.hashables.link) || ((block_a.has_sideband () || ledger.store.block.exists (transaction, block_a.hashables.previous)) && ledger.is_send (transaction, block_a)))
+		if (ledger.is_epoch_link (block_a.hashables.link) || ((block_a.has_sideband () || ledger.block_exists (transaction, block_a.hashables.previous)) && ledger.is_send (transaction, block_a)))
 		{
 			result[1].clear ();
 		}
@@ -1436,9 +1441,9 @@ std::shared_ptr<nano::block> nano::ledger::successor (store::transaction const &
 
 std::shared_ptr<nano::block> nano::ledger::forked_block (store::transaction const & transaction_a, nano::block const & block_a)
 {
-	debug_assert (!store.block.exists (transaction_a, block_a.hash ()));
+	debug_assert (!block_exists (transaction_a, block_a.hash ()));
 	auto root (block_a.root ());
-	debug_assert (store.block.exists (transaction_a, root.as_block_hash ()) || store.account.exists (transaction_a, root.as_account ()));
+	debug_assert (block_exists (transaction_a, root.as_block_hash ()) || store.account.exists (transaction_a, root.as_account ()));
 	auto result = block (transaction_a, store.block.successor (transaction_a, root.as_block_hash ()));
 	if (result == nullptr)
 	{
