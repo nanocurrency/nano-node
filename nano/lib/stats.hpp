@@ -193,7 +193,7 @@ private:
 		mutable nano::mutex mutex;
 	};
 
-	// Wrap in unique_ptrs because mutex members are not movable
+	// Wrap in unique_ptrs because mutex/atomic members are not movable
 	std::map<counter_key, std::unique_ptr<counter_entry>> counters;
 	std::map<sampler_key, std::unique_ptr<sampler_entry>> samplers;
 
@@ -217,12 +217,10 @@ private:
 	std::chrono::steady_clock::time_point log_last_count_writeout{ std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point log_last_sample_writeout{ std::chrono::steady_clock::now () };
 
-	/** Whether stats should be output */
 	bool stopped{ false };
-	std::thread thread;
-	nano::condition_variable condition;
-
 	mutable std::shared_mutex mutex;
+	nano::condition_variable condition;
+	std::thread thread;
 };
 
 /** Log sink interface */
