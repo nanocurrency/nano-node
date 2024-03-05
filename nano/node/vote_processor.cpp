@@ -1,4 +1,3 @@
-
 #include <nano/lib/stats.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/active_transactions.hpp>
@@ -13,6 +12,7 @@
 #include <boost/format.hpp>
 
 #include <chrono>
+
 using namespace std::chrono_literals;
 
 nano::vote_processor::vote_processor (nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
@@ -25,33 +25,45 @@ nano::vote_processor::vote_processor (nano::active_transactions & active_a, nano
 	rep_crawler (rep_crawler_a),
 	ledger (ledger_a),
 	network_params (network_params_a),
-	max_votes (flags_a.vote_processor_capacity),
-	started (false),
-	stopped (false),
-	thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::vote_processing);
-		process_loop ();
-		nano::unique_lock<nano::mutex> lock{ mutex };
-		votes.clear ();
-		condition.notify_all ();
-	})
+	max_votes (flags_a.vote_processor_capacity)
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	condition.wait (lock, [&started = started] { return started; });
 }
 
-void nano::vote_processor::process_loop ()
+nano::vote_processor::~vote_processor ()
+{
+	// Thread must be stopped before destruction
+	debug_assert (!thread.joinable ());
+}
+
+void nano::vote_processor::start ()
+{
+	debug_assert (!thread.joinable ());
+
+	thread = std::thread{ [this] () {
+		nano::thread_role::set (nano::thread_role::name::vote_processing);
+		run ();
+	} };
+}
+
+void nano::vote_processor::stop ()
+{
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		stopped = true;
+	}
+	condition.notify_all ();
+	if (thread.joinable ())
+	{
+		thread.join ();
+	}
+}
+
+void nano::vote_processor::run ()
 {
 	nano::timer<std::chrono::milliseconds> elapsed;
 	bool log_this_iteration;
 
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	started = true;
-
-	lock.unlock ();
-	condition.notify_all ();
-	lock.lock ();
-
 	while (!stopped)
 	{
 		if (!votes.empty ())
@@ -181,19 +193,6 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 	return result;
 }
 
-void nano::vote_processor::stop ()
-{
-	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		stopped = true;
-	}
-	condition.notify_all ();
-	if (thread.joinable ())
-	{
-		thread.join ();
-	}
-}
-
 void nano::vote_processor::flush ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
@@ -208,19 +207,19 @@ void nano::vote_processor::flush ()
 	}
 }
 
-std::size_t nano::vote_processor::size ()
+std::size_t nano::vote_processor::size () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return votes.size ();
 }
 
-bool nano::vote_processor::empty ()
+bool nano::vote_processor::empty () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return votes.empty ();
 }
 
-bool nano::vote_processor::half_full ()
+bool nano::vote_processor::half_full () const
 {
 	return size () >= max_votes / 2;
 }
