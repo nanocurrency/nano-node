@@ -1388,7 +1388,7 @@ void nano::json_handler::blocks_info ()
 						auto block_a = node.ledger.block (transaction, source_hash);
 						if (block_a != nullptr)
 						{
-							auto source_account (node.ledger.account (transaction, source_hash));
+							auto source_account (node.ledger.account (*block_a));
 							entry.put ("source_account", source_account.to_account ());
 						}
 						else
@@ -1432,10 +1432,10 @@ void nano::json_handler::block_account ()
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
-		if (node.ledger.block_exists (transaction, hash))
+		auto block = node.ledger.block (transaction, hash);
+		if (block)
 		{
-			auto account (node.ledger.account (transaction, hash));
-			response_l.put ("account", account.to_account ());
+			response_l.put ("account", node.ledger.account (*block).to_account ());
 		}
 		else
 		{
@@ -2415,10 +2415,10 @@ public:
 		auto amount (handler.node.ledger.amount_safe (transaction, hash, error_or_pruned).convert_to<std::string> ());
 		if (!error_or_pruned)
 		{
-			auto source_account (handler.node.ledger.account_safe (transaction, block_a.hashables.source, error_or_pruned));
-			if (!error_or_pruned)
+			auto source_account = handler.node.ledger.account (transaction, block_a.hashables.source);
+			if (source_account)
 			{
-				tree.put ("account", source_account.to_account ());
+				tree.put ("account", source_account.value ().to_account ());
 			}
 			tree.put ("amount", amount);
 		}
@@ -2448,10 +2448,10 @@ public:
 			auto amount (handler.node.ledger.amount_safe (transaction, hash, error_or_pruned).convert_to<std::string> ());
 			if (!error_or_pruned)
 			{
-				auto source_account (handler.node.ledger.account_safe (transaction, block_a.hashables.source, error_or_pruned));
-				if (!error_or_pruned)
+				auto source_account = handler.node.ledger.account (transaction, block_a.hashables.source);
+				if (source_account)
 				{
-					tree.put ("account", source_account.to_account ());
+					tree.put ("account", source_account.value ().to_account ());
 				}
 				tree.put ("amount", amount);
 			}
@@ -2532,8 +2532,8 @@ public:
 			}
 			else
 			{
-				auto source_account (handler.node.ledger.account_safe (transaction, block_a.hashables.link.as_block_hash (), error_or_pruned));
-				if (!error_or_pruned && should_ignore_account (source_account))
+				auto source_account = handler.node.ledger.account (transaction, block_a.hashables.link.as_block_hash ());
+				if (source_account && should_ignore_account (source_account.value ()))
 				{
 					tree.clear ();
 					return;
@@ -2546,9 +2546,9 @@ public:
 				{
 					tree.put ("type", "receive");
 				}
-				if (!error_or_pruned)
+				if (source_account)
 				{
-					tree.put ("account", source_account.to_account ());
+					tree.put ("account", source_account.value ().to_account ());
 				}
 				tree.put ("amount", (balance - previous_balance).convert_to<std::string> ());
 			}
@@ -2607,7 +2607,7 @@ void nano::json_handler::account_history ()
 		{
 			if (node.ledger.block_exists (transaction, hash))
 			{
-				account = node.ledger.account (transaction, hash);
+				account = node.ledger.account (transaction, hash).value ();
 			}
 			else
 			{
@@ -5095,7 +5095,7 @@ void nano::json_handler::work_generate ()
 					auto transaction_l (node.store.tx_begin_read ());
 					if (node.ledger.block_exists (transaction_l, hash))
 					{
-						account = node.ledger.account (transaction_l, hash);
+						account = node.ledger.account (transaction_l, hash).value ();
 					}
 				}
 				auto secondary_work_peers_l (request.get<bool> ("secondary_work_peers", false));

@@ -5371,11 +5371,8 @@ TEST (ledger, pruning_safe_functions)
 	ASSERT_EQ (0, ledger.amount_safe (transaction, send2->hash (), error));
 	ASSERT_TRUE (error);
 	error = false;
-	ASSERT_TRUE (ledger.account_safe (transaction, send1->hash (), error).is_zero ());
-	ASSERT_TRUE (error);
-	error = false;
-	ASSERT_EQ (nano::dev::genesis->account (), ledger.account_safe (transaction, send2->hash (), error));
-	ASSERT_FALSE (error);
+	ASSERT_FALSE (ledger.account (transaction, send1->hash ()));
+	ASSERT_EQ (nano::dev::genesis->account (), ledger.account (transaction, send2->hash ()).value ());
 }
 
 TEST (ledger, hash_root_random)

@@ -166,7 +166,7 @@ void nano::bootstrap_ascending::service::inspect (store::transaction const & tx,
 		break;
 		case nano::block_status::gap_source:
 		{
-			const auto account = block.previous ().is_zero () ? block.account () : ledger.account (tx, block.previous ());
+			const auto account = block.previous ().is_zero () ? block.account () : ledger.account (tx, block.previous ()).value ();
 			const auto source = block.source ().is_zero () ? block.link ().as_block_hash () : block.source ();
 
 			// Mark account as blocked because it is missing the source block
