@@ -49,6 +49,7 @@ enum class type : uint8_t
 	election_scheduler,
 	optimistic_scheduler,
 	handshake,
+	local_block_broadcaster,
 
 	bootstrap_ascending,
 	bootstrap_ascending_accounts,
@@ -102,6 +103,7 @@ enum class detail : uint8_t
 	old,
 	gap_previous,
 	gap_source,
+	rollback,
 	rollback_failed,
 	progress,
 	bad_signature,
@@ -327,6 +329,12 @@ enum class detail : uint8_t
 	priority_erase_overflow,
 	deprioritize,
 	deprioritize_failed,
+
+	// block broadcaster
+	broadcast_normal,
+	broadcast_aggressive,
+	erase_old,
+	erase_confirmed,
 
 	_last // Must be the last enum
 };

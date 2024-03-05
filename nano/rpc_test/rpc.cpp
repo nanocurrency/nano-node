@@ -2228,7 +2228,7 @@ TEST (rpc, block_count_pruning)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*node1->work_generate_blocking (latest))
 				 .build ();
-	node1->process_active (send1);
+	node1->process_local (send1);
 	auto receive1 = builder
 					.receive ()
 					.previous (send1->hash ())
@@ -2236,7 +2236,7 @@ TEST (rpc, block_count_pruning)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*node1->work_generate_blocking (send1->hash ()))
 					.build ();
-	node1->process_active (receive1);
+	node1->process_local (receive1);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	ASSERT_TIMELY (5s, node1->block_confirmed (receive1->hash ()));
 	// Pruning action
