@@ -97,7 +97,7 @@ private:
 	std::thread thread;
 
 	// TODO: Make these configurable
-	static std::size_t constexpr max_size{ 1024 };
+	static std::size_t constexpr max_size{ 1024 * 8 };
 	static std::chrono::seconds constexpr check_interval{ 30 };
 	static std::chrono::seconds constexpr broadcast_interval{ 60 };
 	static std::size_t constexpr broadcast_rate_limit{ 32 };
