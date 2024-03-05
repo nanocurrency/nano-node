@@ -18,7 +18,6 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 	// clang-format off
 	nano::store::component{
 		block_store,
-		frontier_store,
 		account_store,
 		pending_store,
 		online_weight_store,
@@ -31,7 +30,6 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 	},
 	// clang-format on
 	block_store{ *this },
-	frontier_store{ *this },
 	account_store{ *this },
 	pending_store{ *this },
 	online_weight_store{ *this },
@@ -196,7 +194,6 @@ nano::store::lmdb::txn_callbacks nano::store::lmdb::component::create_txn_callba
 
 void nano::store::lmdb::component::open_databases (bool & error_a, store::transaction const & transaction_a, unsigned flags)
 {
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "frontiers", flags, &frontier_store.frontiers_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight_store.online_weight_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &version_store.meta_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peer_store.peers_handle) != 0;
@@ -229,6 +226,9 @@ bool nano::store::lmdb::component::do_upgrades (store::write_transaction & trans
 			upgrade_v22_to_v23 (transaction_a);
 			[[fallthrough]];
 		case 23:
+			upgrade_v23_to_v24 (transaction_a);
+			[[fallthrough]];
+		case 24:
 			break;
 		default:
 			logger.critical (nano::log::type::lmdb, "The version of the ledger ({}) is too high for this node", version_l);
@@ -281,6 +281,17 @@ void nano::store::lmdb::component::upgrade_v22_to_v23 (store::write_transaction 
 	logger.info (nano::log::type::lmdb, "processed {} accounts", processed_accounts);
 	version.put (transaction_a, 23);
 	logger.info (nano::log::type::lmdb, "Upgrading database from v22 to v23 completed");
+}
+
+void nano::store::lmdb::component::upgrade_v23_to_v24 (store::write_transaction const & transaction_a)
+{
+	logger.info (nano::log::type::lmdb, "Upgrading database from v23 to v24...");
+
+	MDB_dbi frontiers_handle{ 0 };
+	release_assert (!mdb_dbi_open (env.tx (transaction_a), "frontiers", MDB_CREATE, &frontiers_handle));
+	release_assert (!mdb_drop (env.tx (transaction_a), frontiers_handle, 1)); // del = 1, to delete it from the environment and close the DB handle.
+	version.put (transaction_a, 24);
+	logger.info (nano::log::type::lmdb, "Upgrading database from v23 to v24 completed");
 }
 
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
@@ -360,8 +371,6 @@ MDB_dbi nano::store::lmdb::component::table_to_dbi (tables table_a) const
 {
 	switch (table_a)
 	{
-		case tables::frontiers:
-			return frontier_store.frontiers_handle;
 		case tables::accounts:
 			return account_store.accounts_handle;
 		case tables::blocks:

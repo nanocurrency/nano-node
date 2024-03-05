@@ -12,7 +12,6 @@ enum class tables
 	confirmation_height,
 	default_unused, // RocksDB only
 	final_votes,
-	frontiers,
 	meta,
 	online_weight,
 	peers,

@@ -39,7 +39,6 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 	// clang-format off
 	nano::store::component{
 		block_store,
-		frontier_store,
 		account_store,
 		pending_store,
 		online_weight_store,
@@ -52,7 +51,6 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 	},
 	// clang-format on
 	block_store{ *this },
-	frontier_store{ *this },
 	account_store{ *this },
 	pending_store{ *this },
 	online_weight_store{ *this },
@@ -164,7 +162,6 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 std::unordered_map<char const *, nano::tables> nano::store::rocksdb::component::create_cf_name_table_map () const
 {
 	std::unordered_map<char const *, nano::tables> map{ { ::rocksdb::kDefaultColumnFamilyName.c_str (), tables::default_unused },
-		{ "frontiers", tables::frontiers },
 		{ "accounts", tables::accounts },
 		{ "blocks", tables::blocks },
 		{ "pending", tables::pending },
@@ -248,6 +245,9 @@ bool nano::store::rocksdb::component::do_upgrades (store::write_transaction cons
 			upgrade_v22_to_v23 (transaction_a);
 			[[fallthrough]];
 		case 23:
+			upgrade_v23_to_v24 (transaction_a);
+			[[fallthrough]];
+		case 24:
 			break;
 		default:
 			logger.critical (nano::log::type::rocksdb, "The version of the ledger ({}) is too high for this node", version_l);
@@ -314,6 +314,31 @@ void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transacti
 	logger.info (nano::log::type::lmdb, "processed {} accounts", processed_accounts);
 	version.put (transaction_a, 23);
 	logger.info (nano::log::type::rocksdb, "Upgrading database from v22 to v23 completed");
+}
+
+void nano::store::rocksdb::component::upgrade_v23_to_v24 (store::write_transaction const & transaction_a)
+{
+	logger.info (nano::log::type::rocksdb, "Upgrading database from v23 to v24...");
+
+	if (column_family_exists ("frontiers"))
+	{
+		auto const unchecked_handle = get_column_family ("frontiers");
+		db->DropColumnFamily (unchecked_handle);
+		db->DestroyColumnFamilyHandle (unchecked_handle);
+		std::erase_if (handles, [unchecked_handle] (auto & handle) {
+			if (handle.get () == unchecked_handle)
+			{
+				// The handle resource is deleted by RocksDB.
+				[[maybe_unused]] auto ptr = handle.release ();
+				return true;
+			}
+			return false;
+		});
+		logger.debug (nano::log::type::rocksdb, "Finished removing frontiers table");
+	}
+
+	version.put (transaction_a, 24);
+	logger.info (nano::log::type::rocksdb, "Upgrading database from v23 to v24 completed");
 }
 
 void nano::store::rocksdb::component::generate_tombstone_map ()
@@ -531,8 +556,6 @@ rocksdb::ColumnFamilyHandle * nano::store::rocksdb::component::table_to_column_f
 {
 	switch (table_a)
 	{
-		case tables::frontiers:
-			return get_column_family ("frontiers");
 		case tables::accounts:
 			return get_column_family ("accounts");
 		case tables::blocks:
@@ -904,7 +927,7 @@ void nano::store::rocksdb::component::on_flush (::rocksdb::FlushJobInfo const & 
 
 std::vector<nano::tables> nano::store::rocksdb::component::all_tables () const
 {
-	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::final_votes, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::vote, tables::rep_weights };
+	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::final_votes, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::vote, tables::rep_weights };
 }
 
 bool nano::store::rocksdb::component::copy_db (std::filesystem::path const & destination_path)
