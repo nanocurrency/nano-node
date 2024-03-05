@@ -221,7 +221,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 				source = block->link ().as_block_hash ();
 			}
 
-			if (!source.is_zero () && !ledger.is_epoch_link (source) && ledger.store.block.exists (transaction_a, source))
+			if (!source.is_zero () && !ledger.is_epoch_link (source) && ledger.block_exists (transaction_a, source))
 			{
 				if (!hit_receive && !block_callback_data_a.empty ())
 				{
@@ -376,7 +376,7 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 			auto confirmation_height = confirmation_height_info.height;
 			if (pending.height > confirmation_height)
 			{
-				auto block = ledger.store.block.get (transaction, pending.hash);
+				auto block = ledger.block (transaction, pending.hash);
 				debug_assert (ledger.pruning || block != nullptr);
 				debug_assert (ledger.pruning || block->sideband ().height == pending.height);
 
@@ -438,7 +438,7 @@ std::shared_ptr<nano::block> nano::confirmation_height_unbounded::get_block_and_
 	}
 	else
 	{
-		auto block (ledger.store.block.get (transaction_a, hash_a));
+		auto block = ledger.block (transaction_a, hash_a);
 		block_cache.emplace (hash_a, block);
 		return block;
 	}

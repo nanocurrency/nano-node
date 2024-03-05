@@ -659,13 +659,13 @@ TEST (bootstrap_processor, push_diamond_pruning)
 		auto transaction (node1->store.tx_begin_write ());
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, send1->hash (), 2));
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, open->hash (), 1));
-		ASSERT_TRUE (node1->store.block.exists (transaction, nano::dev::genesis->hash ()));
-		ASSERT_FALSE (node1->store.block.exists (transaction, send1->hash ()));
+		ASSERT_TRUE (node1->ledger.block_exists (transaction, nano::dev::genesis->hash ()));
+		ASSERT_FALSE (node1->ledger.block_exists (transaction, send1->hash ()));
 		ASSERT_TRUE (node1->store.pruned.exists (transaction, send1->hash ()));
-		ASSERT_FALSE (node1->store.block.exists (transaction, open->hash ()));
+		ASSERT_FALSE (node1->ledger.block_exists (transaction, open->hash ()));
 		ASSERT_TRUE (node1->store.pruned.exists (transaction, open->hash ()));
-		ASSERT_TRUE (node1->store.block.exists (transaction, send2->hash ()));
-		ASSERT_TRUE (node1->store.block.exists (transaction, receive->hash ()));
+		ASSERT_TRUE (node1->ledger.block_exists (transaction, send2->hash ()));
+		ASSERT_TRUE (node1->ledger.block_exists (transaction, receive->hash ()));
 		ASSERT_EQ (2, node1->ledger.cache.pruned_count);
 		ASSERT_EQ (5, node1->ledger.cache.block_count);
 	}
