@@ -507,6 +507,9 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	rep_crawler = true
 	work_generation_time = false
 
+	[node.statistics]
+	max_samples = 999
+
 	[node.statistics.log]
 	filename_counters = "devcounters.stat"
 	filename_samples = "devsamples.stat"
@@ -514,11 +517,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	interval_counters = 999
 	interval_samples = 999
 	rotation_count = 999
-
-	[node.statistics.sampling]
-	capacity = 999
-	enable = true
-	interval = 999
 
 	[node.websocket]
 	address = "0:0:0:0:0:ffff:7f01:101"
