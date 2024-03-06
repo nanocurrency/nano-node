@@ -75,6 +75,7 @@ public:
 	std::chrono::milliseconds const max_delay;
 	std::chrono::milliseconds const small_delay;
 	std::size_t const max_channel_requests;
+	std::size_t const request_aggregator_threads;
 
 private:
 	void run ();

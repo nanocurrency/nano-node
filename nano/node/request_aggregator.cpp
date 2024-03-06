@@ -15,6 +15,7 @@ nano::request_aggregator::request_aggregator (nano::node_config const & config_a
 	max_delay (config_a.network_params.network.is_dev_network () ? 50 : 300),
 	small_delay (config_a.network_params.network.is_dev_network () ? 10 : 50),
 	max_channel_requests (config_a.max_queued_requests),
+	request_aggregator_threads (config_a.request_aggregator_threads),
 	stats (stats_a),
 	local_votes (history_a),
 	ledger (ledger_a),
@@ -23,7 +24,7 @@ nano::request_aggregator::request_aggregator (nano::node_config const & config_a
 	generator (generator_a),
 	final_generator (final_generator_a)
 {
-	for (auto i = 0; i < 4; ++i)
+	for (auto i = 0; i < request_aggregator_threads; ++i)
 	{
 		threads.emplace_back ([this] () { run (); });
 	}
