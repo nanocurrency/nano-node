@@ -1171,6 +1171,10 @@ nano::uint128_t nano::ledger::amount (store::transaction const & transaction_a, 
 {
 	auto block_l = block (transaction_a, hash_a);
 	auto block_balance (balance (transaction_a, hash_a));
+	if (block_l->previous ().is_zero ())
+	{
+		return block_balance;
+	}
 	auto previous_balance (balance (transaction_a, block_l->previous ()));
 	return block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
 }
@@ -1180,6 +1184,10 @@ nano::uint128_t nano::ledger::amount_safe (store::transaction const & transactio
 	auto block_l = block (transaction_a, hash_a);
 	debug_assert (block_l);
 	auto block_balance (balance (transaction_a, hash_a));
+	if (block_l->previous ().is_zero ())
+	{
+		return block_balance;
+	}
 	auto previous_balance (balance_safe (transaction_a, block_l->previous (), error_a));
 	return error_a ? 0 : block_balance > previous_balance ? block_balance - previous_balance
 														  : previous_balance - block_balance;
