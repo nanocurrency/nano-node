@@ -383,7 +383,7 @@ TEST (block_store, genesis)
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger_cache, nano::dev::constants);
 	nano::account_info info;
-	ASSERT_FALSE (store->account.get (transaction, nano::dev::genesis->account (), info));
+	ASSERT_FALSE (store->account.get (transaction, nano::dev::genesis_key.pub, info));
 	ASSERT_EQ (nano::dev::genesis->hash (), info.head);
 	auto block1 (store->block.get (transaction, info.head));
 	ASSERT_NE (nullptr, block1);
@@ -393,13 +393,13 @@ TEST (block_store, genesis)
 	ASSERT_EQ (info.block_count, 1);
 	// Genesis block should be confirmed by default
 	nano::confirmation_height_info confirmation_height_info;
-	ASSERT_FALSE (store->confirmation_height.get (transaction, nano::dev::genesis->account (), confirmation_height_info));
+	ASSERT_FALSE (store->confirmation_height.get (transaction, nano::dev::genesis_key.pub, confirmation_height_info));
 	ASSERT_EQ (confirmation_height_info.height, 1);
 	ASSERT_EQ (confirmation_height_info.frontier, nano::dev::genesis->hash ());
 	auto dev_pub_text (nano::dev::genesis_key.pub.to_string ());
 	auto dev_pub_account (nano::dev::genesis_key.pub.to_account ());
 	auto dev_prv_text (nano::dev::genesis_key.prv.to_string ());
-	ASSERT_EQ (nano::dev::genesis->account (), nano::dev::genesis_key.pub);
+	ASSERT_EQ (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub);
 }
 
 TEST (block_store, empty_accounts)

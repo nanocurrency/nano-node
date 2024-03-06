@@ -159,7 +159,7 @@ TEST (bulk_pull, ascending_two_account)
 	auto socket = std::make_shared<nano::transport::socket> (node, nano::transport::socket::endpoint_type_t::server);
 	auto connection = std::make_shared<nano::transport::tcp_server> (socket, system.nodes[0]);
 	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
-	req->start = nano::dev::genesis->account ();
+	req->start = nano::dev::genesis_key.pub;
 	req->end.clear ();
 	req->header.flag_set (nano::message_header::bulk_pull_ascending_flag);
 	auto request = std::make_shared<nano::bulk_pull_server> (connection, std::move (req));
@@ -2123,9 +2123,9 @@ TEST (bulk_pull_account, basics)
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key1.prv);
-	auto send1 (system.wallet (0)->send_action (nano::dev::genesis->account (), key1.pub, 25));
-	auto send2 (system.wallet (0)->send_action (nano::dev::genesis->account (), key1.pub, 10));
-	auto send3 (system.wallet (0)->send_action (nano::dev::genesis->account (), key1.pub, 2));
+	auto send1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 25));
+	auto send2 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 10));
+	auto send3 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 2));
 	ASSERT_TIMELY_EQ (5s, system.nodes[0]->balance (key1.pub), 25);
 	auto connection (std::make_shared<nano::transport::tcp_server> (std::make_shared<nano::transport::socket> (*system.nodes[0], nano::transport::socket::endpoint_type_t::server), system.nodes[0]));
 
@@ -2143,7 +2143,7 @@ TEST (bulk_pull_account, basics)
 		auto block_data (request->get_next ());
 		ASSERT_EQ (send2->hash (), block_data.first.get ()->hash);
 		ASSERT_EQ (nano::uint128_union (10), block_data.second.get ()->amount);
-		ASSERT_EQ (nano::dev::genesis->account (), block_data.second.get ()->source);
+		ASSERT_EQ (nano::dev::genesis_key.pub, block_data.second.get ()->source);
 		ASSERT_EQ (nullptr, request->get_next ().first.get ());
 	}
 
@@ -2157,7 +2157,7 @@ TEST (bulk_pull_account, basics)
 		auto block_data (request->get_next ());
 		ASSERT_NE (nullptr, block_data.first.get ());
 		ASSERT_NE (nullptr, block_data.second.get ());
-		ASSERT_EQ (nano::dev::genesis->account (), block_data.second.get ()->source);
+		ASSERT_EQ (nano::dev::genesis_key.pub, block_data.second.get ()->source);
 		block_data = request->get_next ();
 		ASSERT_EQ (nullptr, block_data.first.get ());
 		ASSERT_EQ (nullptr, block_data.second.get ());

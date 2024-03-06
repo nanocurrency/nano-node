@@ -1567,7 +1567,7 @@ TEST (node, unconfirmed_send)
 
 	// firstly, send two units from node1 to node2 and expect that both nodes see the block as confirmed
 	// (node1 will start an election for it, vote on it and node2 gets synced up)
-	auto send1 = wallet1->send_action (nano::dev::genesis->account (), key2.pub, 2 * nano::Mxrb_ratio);
+	auto send1 = wallet1->send_action (nano::dev::genesis_key.pub, key2.pub, 2 * nano::Mxrb_ratio);
 	ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
 	ASSERT_TIMELY (5s, node2.block_confirmed (send1->hash ()));
 
@@ -1583,19 +1583,19 @@ TEST (node, unconfirmed_send)
 				 .previous (recv1->hash ())
 				 .representative (nano::dev::genesis_key.pub)
 				 .balance (nano::Mxrb_ratio)
-				 .link (nano::dev::genesis->account ())
+				 .link (nano::dev::genesis_key.pub)
 				 .sign (key2.prv, key2.pub)
 				 .work (*system.work.generate (recv1->hash ()))
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node2.process (send2));
 
-	auto send3 = wallet2->send_action (key2.pub, nano::dev::genesis->account (), nano::Mxrb_ratio);
+	auto send3 = wallet2->send_action (key2.pub, nano::dev::genesis_key.pub, nano::Mxrb_ratio);
 	ASSERT_TIMELY (5s, node2.block_confirmed (send2->hash ()));
 	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
 	ASSERT_TIMELY (5s, node2.block_confirmed (send3->hash ()));
 	ASSERT_TIMELY (5s, node1.block_confirmed (send3->hash ()));
 	ASSERT_TIMELY_EQ (5s, node2.ledger.cache.cemented_count, 7);
-	ASSERT_TIMELY_EQ (5s, node1.balance (nano::dev::genesis->account ()), nano::dev::constants.genesis_amount);
+	ASSERT_TIMELY_EQ (5s, node1.balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount);
 }
 
 // Test that nodes can track nodes that have rep weight for priority broadcasting
@@ -2567,9 +2567,9 @@ TEST (node, DISABLED_vote_by_hash_epoch_block_republish)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
 	auto epoch1 = nano::state_block_builder ()
-				  .account (nano::dev::genesis->account ())
+				  .account (nano::dev::genesis_key.pub)
 				  .previous (nano::dev::genesis->hash ())
-				  .representative (nano::dev::genesis->account ())
+				  .representative (nano::dev::genesis_key.pub)
 				  .balance (nano::dev::constants.genesis_amount)
 				  .link (node1.ledger.epoch_link (nano::epoch::epoch_1))
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)

@@ -197,7 +197,7 @@ TEST (rpc, receivable_offset_and_sorting)
 
 	// check confirmation height is as expected, there is no perfect clarity yet when confirmation height updates after a block get confirmed
 	nano::confirmation_height_info confirmation_height_info;
-	ASSERT_FALSE (node->store.confirmation_height.get (node->store.tx_begin_read (), nano::dev::genesis->account (), confirmation_height_info));
+	ASSERT_FALSE (node->store.confirmation_height.get (node->store.tx_begin_read (), nano::dev::genesis_key.pub, confirmation_height_info));
 	ASSERT_EQ (confirmation_height_info.height, 7);
 	ASSERT_EQ (confirmation_height_info.frontier, block6->hash ());
 

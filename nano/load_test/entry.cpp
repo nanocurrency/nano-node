@@ -653,7 +653,7 @@ int main (int argc, char * const * argv)
 			}
 
 			// Send from genesis account to different accounts and receive the funds
-			auto send_receive = std::make_shared<send_receive_impl> (ioc, wallet, nano::dev::genesis->account ().to_account (), destination_account->as_string, send_calls_remaining, primary_node_results);
+			auto send_receive = std::make_shared<send_receive_impl> (ioc, wallet, nano::dev::genesis_key.pub.to_account (), destination_account->as_string, send_calls_remaining, primary_node_results);
 			boost::asio::strand<boost::asio::io_context::executor_type> strand{ ioc.get_executor () };
 			boost::asio::post (strand,
 			[send_receive] () {

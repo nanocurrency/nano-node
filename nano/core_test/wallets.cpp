@@ -205,11 +205,11 @@ TEST (wallets, search_receivable)
 		wallet->insert_adhoc (nano::dev::genesis_key.prv);
 		nano::block_builder builder;
 		auto send = builder.state ()
-					.account (nano::dev::genesis->account ())
+					.account (nano::dev::genesis_key.pub)
 					.previous (nano::dev::genesis->hash ())
-					.representative (nano::dev::genesis->account ())
+					.representative (nano::dev::genesis_key.pub)
 					.balance (nano::dev::constants.genesis_amount - node.config.receive_minimum.number ())
-					.link (nano::dev::genesis->account ())
+					.link (nano::dev::genesis_key.pub)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*system.work.generate (nano::dev::genesis->hash ()))
 					.build ();
@@ -229,7 +229,7 @@ TEST (wallets, search_receivable)
 		ASSERT_TIMELY (5s, election = node.active.election (send->qualified_root ()));
 
 		// Erase the key so the confirmation does not trigger an automatic receive
-		wallet->store.erase (node.wallets.tx_begin_write (), nano::dev::genesis->account ());
+		wallet->store.erase (node.wallets.tx_begin_write (), nano::dev::genesis_key.pub);
 
 		// Now confirm the election
 		election->force_confirm ();
@@ -249,8 +249,8 @@ TEST (wallets, search_receivable)
 		{
 			node.wallets.search_receivable (wallet_id);
 		}
-		ASSERT_TIMELY_EQ (3s, node.balance (nano::dev::genesis->account ()), nano::dev::constants.genesis_amount);
-		auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::dev::genesis->account ());
+		ASSERT_TIMELY_EQ (3s, node.balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount);
+		auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::dev::genesis_key.pub);
 		auto receive = node.block (receive_hash);
 		ASSERT_NE (nullptr, receive);
 		ASSERT_EQ (receive->sideband ().height, 3);
