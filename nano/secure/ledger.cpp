@@ -1132,13 +1132,7 @@ bool nano::ledger::rollback (store::write_transaction const & transaction_a, nan
 nano::account nano::ledger::account (nano::block const & block)
 {
 	debug_assert (block.has_sideband ());
-	nano::account result (block.account ());
-	if (result.is_zero ())
-	{
-		result = block.sideband ().account;
-	}
-	debug_assert (!result.is_zero ());
-	return result;
+	return block.account ().value_or (block.sideband ().account);
 }
 
 std::optional<nano::account> nano::ledger::account (store::transaction const & transaction, nano::block_hash const & hash) const
@@ -1431,7 +1425,7 @@ bool nano::ledger::block_confirmed (store::transaction const & transaction_a, na
 	if (block_l)
 	{
 		nano::confirmation_height_info confirmation_height_info;
-		store.confirmation_height.get (transaction_a, block_l->account ().is_zero () ? block_l->sideband ().account : block_l->account (), confirmation_height_info);
+		store.confirmation_height.get (transaction_a, account (*block_l), confirmation_height_info);
 		auto confirmed (confirmation_height_info.height >= block_l->sideband ().height);
 		return confirmed;
 	}
@@ -1616,7 +1610,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		auto random_block (store.block.random (lmdb_transaction));
 		error |= rocksdb_store->block.get (rocksdb_transaction, random_block->hash ()) == nullptr;
 
-		auto account = random_block->account ().is_zero () ? random_block->sideband ().account : random_block->account ();
+		auto account = this->account (*random_block);
 		nano::account_info account_info;
 		error |= rocksdb_store->account.get (rocksdb_transaction, account, account_info);
 

@@ -188,7 +188,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code ec, std::
 	}
 	if (pull_blocks == 0 && block_expected)
 	{
-		known_account = block->account ();
+		known_account = block->account ().value_or (0);
 	}
 	if (connection->block_count++ == 0)
 	{

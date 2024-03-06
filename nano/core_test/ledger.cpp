@@ -4052,7 +4052,7 @@ TEST (ledger, epoch_open_pending)
 	ASSERT_TIMELY_EQ (10s, 1, node1.unchecked.count ());
 	ASSERT_FALSE (node1.ledger.block_or_pruned_exists (epoch_open->hash ()));
 	// Open block should be inserted into unchecked
-	auto blocks = node1.unchecked.get (nano::hash_or_account (epoch_open->account ()).hash);
+	auto blocks = node1.unchecked.get (nano::hash_or_account (epoch_open->account ().value ()).hash);
 	ASSERT_EQ (blocks.size (), 1);
 	ASSERT_EQ (blocks[0].block->full_hash (), epoch_open->full_hash ());
 	// New block to process epoch open

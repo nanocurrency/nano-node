@@ -127,15 +127,15 @@ nano::ledger_constants::ledger_constants (nano::work_thresholds & work, nano::ne
 	: network_a == nano::networks::nano_test_network                                                                                                               ? nano_test_final_votes_canary_height
 																																								   : nano_live_final_votes_canary_height)
 {
-	nano_beta_genesis->sideband_set (nano::block_sideband (nano_beta_genesis->account (), 0, std::numeric_limits<nano::uint128_t>::max (), 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
-	nano_dev_genesis->sideband_set (nano::block_sideband (nano_dev_genesis->account (), 0, std::numeric_limits<nano::uint128_t>::max (), 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
-	nano_live_genesis->sideband_set (nano::block_sideband (nano_live_genesis->account (), 0, std::numeric_limits<nano::uint128_t>::max (), 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
-	nano_test_genesis->sideband_set (nano::block_sideband (nano_test_genesis->account (), 0, std::numeric_limits<nano::uint128_t>::max (), 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
+	nano_beta_genesis->sideband_set (nano::block_sideband (nano_beta_genesis->account ().value (), 0, std::numeric_limits<nano::uint128_t>::max (), 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
+	nano_dev_genesis->sideband_set (nano::block_sideband (nano_dev_genesis->account ().value (), 0, std::numeric_limits<nano::uint128_t>::max (), 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
+	nano_live_genesis->sideband_set (nano::block_sideband (nano_live_genesis->account ().value (), 0, std::numeric_limits<nano::uint128_t>::max (), 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
+	nano_test_genesis->sideband_set (nano::block_sideband (nano_test_genesis->account ().value (), 0, std::numeric_limits<nano::uint128_t>::max (), 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 
 	nano::link epoch_link_v1;
 	char const * epoch_message_v1 ("epoch v1 block");
 	strncpy ((char *)epoch_link_v1.bytes.data (), epoch_message_v1, epoch_link_v1.bytes.size ());
-	epochs.add (nano::epoch::epoch_1, genesis->account (), epoch_link_v1);
+	epochs.add (nano::epoch::epoch_1, genesis->account ().value (), epoch_link_v1);
 
 	nano::link epoch_link_v2;
 	nano::account nano_live_epoch_v2_signer;

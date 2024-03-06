@@ -3314,7 +3314,7 @@ TEST (rpc, pending_exists)
 	ASSERT_TRUE (pending_exists ("1"));
 
 	ASSERT_TRUE (pending_exists ("1"));
-	reset_confirmation_height (node->store, block1->account ());
+	reset_confirmation_height (node->store, block1->account ().value ());
 	ASSERT_TRUE (pending_exists ("0"));
 	request.put ("include_only_confirmed", "false");
 	ASSERT_TRUE (pending_exists ("1"));
@@ -3419,7 +3419,7 @@ TEST (rpc, wallet_receivable)
 	ASSERT_EQ (sources[block1->hash ()], nano::dev::genesis_key.pub);
 
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
-	reset_confirmation_height (system.nodes.front ()->store, block1->account ());
+	reset_confirmation_height (system.nodes.front ()->store, block1->account ().value ());
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 0));
 	request.put ("include_only_confirmed", "false");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));

@@ -186,7 +186,7 @@ void nano::active_transactions::notify_observers (nano::election_status const & 
 
 void nano::active_transactions::handle_final_votes_confirmation (std::shared_ptr<nano::block> const & block, nano::store::read_transaction const & transaction, nano::election_status_type status)
 {
-	auto const & account = !block->account ().is_zero () ? block->account () : block->sideband ().account;
+	auto account = node.ledger.account (*block);
 
 	bool is_canary_not_set = !node.ledger.cache.final_votes_confirmation_canary.load ();
 	bool is_canary_account = account == node.network_params.ledger.final_votes_canary_account;

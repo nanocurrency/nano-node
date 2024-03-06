@@ -1226,11 +1226,7 @@ void nano::node::receive_confirmed (store::transaction const & block_transaction
 void nano::node::process_confirmed_data (store::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, bool & is_state_epoch_a, nano::account & pending_account_a)
 {
 	// Faster account calculation
-	account_a = block_a->account ();
-	if (account_a.is_zero ())
-	{
-		account_a = block_a->sideband ().account;
-	}
+	account_a = ledger.account (*block_a);
 	// Faster amount calculation
 	auto previous (block_a->previous ());
 	auto previous_balance = ledger.balance (transaction_a, previous);

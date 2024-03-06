@@ -6,7 +6,7 @@
 std::unique_ptr<nanoapi::BlockStateT> nano::ipc::flatbuffers_builder::from (nano::state_block const & block_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a)
 {
 	auto block (std::make_unique<nanoapi::BlockStateT> ());
-	block->account = block_a.account ().to_account ();
+	block->account = block_a.account ().value ().to_account ();
 	block->hash = block_a.hash ().to_string ();
 	block->previous = block_a.previous ().to_string ();
 	block->representative = block_a.representative ().to_account ();
@@ -63,7 +63,7 @@ std::unique_ptr<nanoapi::BlockOpenT> nano::ipc::flatbuffers_builder::from (nano:
 	auto block (std::make_unique<nanoapi::BlockOpenT> ());
 	block->hash = block_a.hash ().to_string ();
 	block->source = block_a.source ().to_string ();
-	block->account = block_a.account ().to_account ();
+	block->account = block_a.account ().value ().to_account ();
 	block->representative = block_a.representative ().to_account ();
 	block_a.signature.encode_hex (block->signature);
 	block->work = nano::to_string_hex (block_a.work);

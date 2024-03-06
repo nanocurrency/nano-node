@@ -185,10 +185,9 @@ nano::link const & nano::block::link () const
 	return link;
 }
 
-nano::account const & nano::block::account () const
+std::optional<nano::account> nano::block::account () const
 {
-	static nano::account account{};
-	return account;
+	return std::nullopt;
 }
 
 nano::qualified_root nano::block::qualified_root () const
@@ -643,7 +642,7 @@ nano::block_hash const & nano::open_block::previous () const
 	return result;
 }
 
-nano::account const & nano::open_block::account () const
+std::optional<nano::account> nano::open_block::account () const
 {
 	return hashables.account;
 }
@@ -1213,7 +1212,7 @@ nano::block_hash const & nano::state_block::previous () const
 	return hashables.previous;
 }
 
-nano::account const & nano::state_block::account () const
+std::optional<nano::account> nano::state_block::account () const
 {
 	return hashables.account;
 }

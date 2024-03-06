@@ -104,11 +104,7 @@ void nano::confirmation_height_bounded::process (std::shared_ptr<nano::block> or
 				release_assert (block);
 			}
 		}
-		nano::account account (block->account ());
-		if (account.is_zero ())
-		{
-			account = block->sideband ().account;
-		}
+		auto account = ledger.account (*block);
 
 		// Checks if we have encountered this account before but not commited changes yet, if so then update the cached confirmation height
 		nano::confirmation_height_info confirmation_height_info;

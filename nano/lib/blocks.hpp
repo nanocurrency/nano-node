@@ -33,7 +33,6 @@ public:
 	virtual void hash (blake2b_state &) const = 0;
 	virtual uint64_t block_work () const = 0;
 	virtual void block_work_set (uint64_t) = 0;
-	virtual nano::account const & account () const;
 	// Previous block in account's chain, zero for open block
 	virtual nano::block_hash const & previous () const = 0;
 	// Source block for open/receive blocks, zero otherwise.
@@ -63,6 +62,10 @@ public:
 	virtual nano::work_version work_version () const;
 	// If there are any changes to the hashables, call this to update the cached hash
 	void refresh ();
+
+public: // Direct access to the block fields or nullopt if the block type does not have the specified field
+	// Account field for open/state blocks
+	virtual std::optional<nano::account> account () const;
 
 protected:
 	mutable nano::block_hash cached_hash{ 0 };
@@ -210,7 +213,7 @@ public:
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::block_hash const & previous () const override;
-	nano::account const & account () const override;
+	std::optional<nano::account> account () const override;
 	nano::block_hash const & source () const override;
 	nano::root const & root () const override;
 	nano::account const & representative () const override;
@@ -325,7 +328,7 @@ public:
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::block_hash const & previous () const override;
-	nano::account const & account () const override;
+	std::optional<nano::account> account () const override;
 	nano::root const & root () const override;
 	nano::link const & link () const override;
 	nano::account const & representative () const override;
