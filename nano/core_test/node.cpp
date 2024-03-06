@@ -48,19 +48,19 @@ TEST (node, work_generate)
 	{
 		auto difficulty = nano::difficulty::from_multiplier (1.5, node.network_params.work.base);
 		auto work = node.work_generate_blocking (version, root, difficulty);
-		ASSERT_TRUE (work.is_initialized ());
-		ASSERT_GE (nano::dev::network_params.work.difficulty (version, root, *work), difficulty);
+		ASSERT_TRUE (work.has_value ());
+		ASSERT_GE (nano::dev::network_params.work.difficulty (version, root, work.value ()), difficulty);
 	}
 	{
 		auto difficulty = nano::difficulty::from_multiplier (0.5, node.network_params.work.base);
-		boost::optional<uint64_t> work;
+		std::optional<uint64_t> work;
 		do
 		{
 			work = node.work_generate_blocking (version, root, difficulty);
-		} while (nano::dev::network_params.work.difficulty (version, root, *work) >= node.network_params.work.base);
-		ASSERT_TRUE (work.is_initialized ());
-		ASSERT_GE (nano::dev::network_params.work.difficulty (version, root, *work), difficulty);
-		ASSERT_FALSE (nano::dev::network_params.work.difficulty (version, root, *work) >= node.network_params.work.base);
+		} while (nano::dev::network_params.work.difficulty (version, root, work.value ()) >= node.network_params.work.base);
+		ASSERT_TRUE (work.has_value ());
+		ASSERT_GE (nano::dev::network_params.work.difficulty (version, root, work.value ()), difficulty);
+		ASSERT_FALSE (nano::dev::network_params.work.difficulty (version, root, work.value ()) >= node.network_params.work.base);
 	}
 }
 

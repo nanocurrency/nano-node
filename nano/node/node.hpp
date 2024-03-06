@@ -43,6 +43,7 @@
 
 #include <atomic>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace nano
@@ -111,9 +112,9 @@ public:
 	bool local_work_generation_enabled () const;
 	bool work_generation_enabled () const;
 	bool work_generation_enabled (std::vector<std::pair<std::string, uint16_t>> const &) const;
-	boost::optional<uint64_t> work_generate_blocking (nano::block &, uint64_t);
-	boost::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::root const &, uint64_t, boost::optional<nano::account> const & = boost::none);
-	void work_generate (nano::work_version const, nano::root const &, uint64_t, std::function<void (boost::optional<uint64_t>)>, boost::optional<nano::account> const & = boost::none, bool const = false);
+	std::optional<uint64_t> work_generate_blocking (nano::block &, uint64_t);
+	std::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::root const &, uint64_t, std::optional<nano::account> const & = std::nullopt);
+	void work_generate (nano::work_version const, nano::root const &, uint64_t, std::function<void (std::optional<uint64_t>)>, std::optional<nano::account> const & = std::nullopt, bool const = false);
 	void add_initial_peers ();
 	void start_election (std::shared_ptr<nano::block> const & block);
 	bool block_confirmed (nano::block_hash const &);
@@ -199,11 +200,11 @@ public:
 	// For tests only
 	unsigned node_seq;
 	// For tests only
-	boost::optional<uint64_t> work_generate_blocking (nano::block &);
+	std::optional<uint64_t> work_generate_blocking (nano::block &);
 	// For tests only
-	boost::optional<uint64_t> work_generate_blocking (nano::root const &, uint64_t);
+	std::optional<uint64_t> work_generate_blocking (nano::root const &, uint64_t);
 	// For tests only
-	boost::optional<uint64_t> work_generate_blocking (nano::root const &);
+	std::optional<uint64_t> work_generate_blocking (nano::root const &);
 
 public: // Testing convenience functions
 	/**

@@ -796,7 +796,7 @@ TEST (websocket, work)
 	// Generate work
 	nano::block_hash hash{ 1 };
 	auto work (node1->work_generate_blocking (hash));
-	ASSERT_TRUE (work.is_initialized ());
+	ASSERT_TRUE (work.has_value ());
 
 	// Wait for the work notification
 	ASSERT_TIMELY_EQ (5s, future.wait_for (0s), std::future_status::ready);
@@ -827,7 +827,7 @@ TEST (websocket, work)
 	nano::from_string_hex (result.get<std::string> ("difficulty"), result_difficulty);
 	ASSERT_GE (result_difficulty, node1->default_difficulty (nano::work_version::work_1));
 	ASSERT_NEAR (result.get<double> ("multiplier"), nano::difficulty::to_multiplier (result_difficulty, node1->default_difficulty (nano::work_version::work_1)), 1e-6);
-	ASSERT_EQ (result.get<std::string> ("work"), nano::to_string_hex (work.get ()));
+	ASSERT_EQ (result.get<std::string> ("work"), nano::to_string_hex (work.value ()));
 
 	ASSERT_EQ (1, contents.count ("bad_peers"));
 	auto & bad_peers = contents.get_child ("bad_peers");

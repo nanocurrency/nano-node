@@ -1078,50 +1078,50 @@ bool nano::node::work_generation_enabled (std::vector<std::pair<std::string, uin
 	return !peers_a.empty () || local_work_generation_enabled ();
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
+std::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
 {
 	auto opt_work_l (work_generate_blocking (block_a.work_version (), block_a.root (), difficulty_a, block_a.account ()));
-	if (opt_work_l.is_initialized ())
+	if (opt_work_l.has_value ())
 	{
-		block_a.block_work_set (*opt_work_l);
+		block_a.block_work_set (opt_work_l.value ());
 	}
 	return opt_work_l;
 }
 
-void nano::node::work_generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::function<void (boost::optional<uint64_t>)> callback_a, boost::optional<nano::account> const & account_a, bool secondary_work_peers_a)
+void nano::node::work_generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::function<void (std::optional<uint64_t>)> callback_a, std::optional<nano::account> const & account_a, bool secondary_work_peers_a)
 {
 	auto const & peers_l (secondary_work_peers_a ? config.secondary_work_peers : config.work_peers);
 	if (distributed_work.make (version_a, root_a, peers_l, difficulty_a, callback_a, account_a))
 	{
 		// Error in creating the job (either stopped or work generation is not possible)
-		callback_a (boost::none);
+		callback_a (std::nullopt);
 	}
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
+std::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::optional<nano::account> const & account_a)
 {
-	std::promise<boost::optional<uint64_t>> promise;
+	std::promise<std::optional<uint64_t>> promise;
 	work_generate (
-	version_a, root_a, difficulty_a, [&promise] (boost::optional<uint64_t> opt_work_a) {
+	version_a, root_a, difficulty_a, [&promise] (std::optional<uint64_t> opt_work_a) {
 		promise.set_value (opt_work_a);
 	},
 	account_a);
 	return promise.get_future ().get ();
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
+std::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
 {
 	debug_assert (network_params.network.is_dev_network ());
 	return work_generate_blocking (block_a, default_difficulty (nano::work_version::work_1));
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a)
+std::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a)
 {
 	debug_assert (network_params.network.is_dev_network ());
 	return work_generate_blocking (root_a, default_difficulty (nano::work_version::work_1));
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a)
+std::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a)
 {
 	debug_assert (network_params.network.is_dev_network ());
 	return work_generate_blocking (nano::work_version::work_1, root_a, difficulty_a);

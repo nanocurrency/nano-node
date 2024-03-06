@@ -1050,7 +1050,7 @@ bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a
 			account_a.to_account ());
 
 			debug_assert (required_difficulty <= wallets.node.max_work_generate_difficulty (block_a->work_version ()));
-			error = !wallets.node.work_generate_blocking (*block_a, required_difficulty).is_initialized ();
+			error = !wallets.node.work_generate_blocking (*block_a, required_difficulty).has_value ();
 		}
 		if (!error)
 		{
@@ -1298,12 +1298,12 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::r
 	{
 		auto difficulty (wallets.node.default_difficulty (nano::work_version::work_1));
 		auto opt_work_l (wallets.node.work_generate_blocking (nano::work_version::work_1, root_a, difficulty, account_a));
-		if (opt_work_l.is_initialized ())
+		if (opt_work_l.has_value ())
 		{
 			auto transaction_l (wallets.tx_begin_write ());
 			if (live () && store.exists (transaction_l, account_a))
 			{
-				work_update (transaction_l, account_a, root_a, *opt_work_l);
+				work_update (transaction_l, account_a, root_a, opt_work_l.value ());
 			}
 		}
 		else if (!wallets.node.stopped)

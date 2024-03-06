@@ -1613,10 +1613,10 @@ void nano::json_handler::block_create ()
 		// Wrapper from argument to lambda capture, to extend the block's scope
 		auto get_callback_l = [rpc_l, block_response_put_l] (std::shared_ptr<nano::block> const & block_a) {
 			// Callback upon work generation success or failure
-			return [block_a, rpc_l, block_response_put_l] (boost::optional<uint64_t> const & work_a) {
+			return [block_a, rpc_l, block_response_put_l] (std::optional<uint64_t> const & work_a) {
 				if (block_a != nullptr)
 				{
-					if (work_a.is_initialized ())
+					if (work_a.has_value ())
 					{
 						block_a->block_work_set (*work_a);
 						block_response_put_l (*block_a);
@@ -4994,7 +4994,7 @@ void nano::json_handler::wallet_work_get ()
 
 void nano::json_handler::work_generate ()
 {
-	boost::optional<nano::account> account;
+	std::optional<nano::account> account;
 	auto account_opt (request.get_optional<std::string> ("account"));
 	// Default to work_1 if not specified
 	auto work_version (work_version_optional_impl (nano::work_version::work_1));
@@ -5046,7 +5046,7 @@ void nano::json_handler::work_generate ()
 		{
 			auto use_peers (request.get<bool> ("use_peers", false));
 			auto rpc_l (shared_from_this ());
-			auto callback = [rpc_l, hash, work_version, this] (boost::optional<uint64_t> const & work_a) {
+			auto callback = [rpc_l, hash, work_version, this] (std::optional<uint64_t> const & work_a) {
 				if (work_a)
 				{
 					boost::property_tree::ptree response_l;
