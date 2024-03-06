@@ -31,10 +31,6 @@ class ledger final
 public:
 	ledger (nano::store::component &, nano::stats &, nano::ledger_constants & constants, nano::generate_cache const & = nano::generate_cache ());
 	/**
-	 * Return account containing hash, expects that block hash exists in ledger
-	 */
-	static nano::account account (nano::block const & block);
-	/**
 	 * Returns the account for a given hash
 	 * Returns std::nullopt if the block doesn't exist or has been pruned
 	 */

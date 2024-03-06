@@ -64,8 +64,10 @@ public:
 	void refresh ();
 
 public: // Direct access to the block fields or nullopt if the block type does not have the specified field
+	// Returns account field or account from sideband
+	nano::account account () const noexcept;
 	// Account field for open/state blocks
-	virtual std::optional<nano::account> account () const;
+	virtual std::optional<nano::account> account_field () const;
 
 protected:
 	mutable nano::block_hash cached_hash{ 0 };
@@ -213,7 +215,6 @@ public:
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::block_hash const & previous () const override;
-	std::optional<nano::account> account () const override;
 	nano::block_hash const & source () const override;
 	nano::root const & root () const override;
 	nano::account const & representative () const override;
@@ -234,6 +235,9 @@ public:
 	nano::signature signature;
 	uint64_t work;
 	static std::size_t constexpr size = nano::open_hashables::size + sizeof (signature) + sizeof (work);
+
+public: // Open block fields
+	std::optional<nano::account> account_field () const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
@@ -328,7 +332,6 @@ public:
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::block_hash const & previous () const override;
-	std::optional<nano::account> account () const override;
 	nano::root const & root () const override;
 	nano::link const & link () const override;
 	nano::account const & representative () const override;
@@ -350,6 +353,9 @@ public:
 	nano::signature signature;
 	uint64_t work;
 	static std::size_t constexpr size = nano::state_hashables::size + sizeof (signature) + sizeof (work);
+
+public: // State block fields
+	std::optional<nano::account> account_field () const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;

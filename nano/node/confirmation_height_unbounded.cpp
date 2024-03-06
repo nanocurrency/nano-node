@@ -79,7 +79,7 @@ void nano::confirmation_height_unbounded::process (std::shared_ptr<nano::block> 
 		}
 		release_assert (block);
 
-		auto account = ledger.account (*block);
+		auto account = block->account ();
 
 		auto block_height = block->sideband ().height;
 		uint64_t confirmation_height = 0;

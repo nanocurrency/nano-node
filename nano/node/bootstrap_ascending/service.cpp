@@ -133,7 +133,7 @@ void nano::bootstrap_ascending::service::inspect (store::transaction const & tx,
 	{
 		case nano::block_status::progress:
 		{
-			const auto account = ledger.account (block);
+			const auto account = block.account ();
 			const auto is_send = ledger.is_send (tx, block);
 
 			// If we've inserted any block in to an account, unmark it as blocked
@@ -167,7 +167,7 @@ void nano::bootstrap_ascending::service::inspect (store::transaction const & tx,
 		break;
 		case nano::block_status::gap_source:
 		{
-			const auto account = block.previous ().is_zero () ? block.account ().value () : ledger.account (tx, block.previous ()).value ();
+			const auto account = block.previous ().is_zero () ? block.account_field ().value () : ledger.account (tx, block.previous ()).value ();
 			const auto source = block.source ().is_zero () ? block.link ().as_block_hash () : block.source ();
 
 			// Mark account as blocked because it is missing the source block
@@ -456,7 +456,7 @@ nano::bootstrap_ascending::service::verify_result nano::bootstrap_ascending::ser
 		case async_tag::query_type::blocks_by_account:
 		{
 			// Open & state blocks always contain account field
-			if (first->account () != tag.start.as_account ())
+			if (first->account_field () != tag.start.as_account ())
 			{
 				// TODO: Stat & log
 				return verify_result::invalid;

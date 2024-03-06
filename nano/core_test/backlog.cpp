@@ -33,7 +33,7 @@ TEST (backlog, population)
 	auto all_activated = [&] () {
 		nano::lock_guard<nano::mutex> lock{ mutex };
 		return std::all_of (blocks.begin (), blocks.end (), [&] (auto const & item) {
-			return activated.count (item->account ().value ()) != 0;
+			return activated.count (item->account ()) != 0;
 		});
 	};
 	ASSERT_TIMELY (5s, all_activated ());

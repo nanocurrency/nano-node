@@ -1080,7 +1080,7 @@ bool nano::node::work_generation_enabled (std::vector<std::pair<std::string, uin
 
 std::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
 {
-	auto opt_work_l (work_generate_blocking (block_a.work_version (), block_a.root (), difficulty_a, block_a.account ()));
+	auto opt_work_l (work_generate_blocking (block_a.work_version (), block_a.root (), difficulty_a, block_a.account_field ()));
 	if (opt_work_l.has_value ())
 	{
 		block_a.block_work_set (opt_work_l.value ());
@@ -1226,7 +1226,7 @@ void nano::node::receive_confirmed (store::transaction const & block_transaction
 void nano::node::process_confirmed_data (store::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, bool & is_state_epoch_a, nano::account & pending_account_a)
 {
 	// Faster account calculation
-	account_a = ledger.account (*block_a);
+	account_a = block_a->account ();
 	// Faster amount calculation
 	auto previous (block_a->previous ());
 	auto previous_balance = ledger.balance (transaction_a, previous);

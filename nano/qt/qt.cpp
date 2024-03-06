@@ -566,7 +566,7 @@ public:
 		}
 		else
 		{
-			account = ledger.constants.genesis->account ().value ();
+			account = ledger.constants.genesis->account ();
 			amount = nano::dev::constants.genesis_amount;
 		}
 	}

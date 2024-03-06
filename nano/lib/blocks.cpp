@@ -185,7 +185,24 @@ nano::link const & nano::block::link () const
 	return link;
 }
 
-std::optional<nano::account> nano::block::account () const
+nano::account nano::block::account () const noexcept
+{
+	release_assert (has_sideband ());
+	switch (type ())
+	{
+		case block_type::open:
+		case block_type::state:
+			return account_field ().value ();
+		case block_type::change:
+		case block_type::send:
+		case block_type::receive:
+			return sideband ().account;
+		default:
+			release_assert (false);
+	}
+}
+
+std::optional<nano::account> nano::block::account_field () const
 {
 	return std::nullopt;
 }
@@ -642,7 +659,7 @@ nano::block_hash const & nano::open_block::previous () const
 	return result;
 }
 
-std::optional<nano::account> nano::open_block::account () const
+std::optional<nano::account> nano::open_block::account_field () const
 {
 	return hashables.account;
 }
@@ -1212,7 +1229,7 @@ nano::block_hash const & nano::state_block::previous () const
 	return hashables.previous;
 }
 
-std::optional<nano::account> nano::state_block::account () const
+std::optional<nano::account> nano::state_block::account_field () const
 {
 	return hashables.account;
 }

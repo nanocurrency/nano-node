@@ -1534,7 +1534,7 @@ TEST (active_transactions, allow_limited_overflow)
 	// Insert the first part of the blocks into normal election scheduler
 	for (auto const & block : blocks1)
 	{
-		node.scheduler.priority.activate (block->account ().value (), node.store.tx_begin_read ());
+		node.scheduler.priority.activate (block->account (), node.store.tx_begin_read ());
 	}
 
 	// Ensure number of active elections reaches AEC limit and there is no overfill
@@ -1596,7 +1596,7 @@ TEST (active_transactions, allow_limited_overflow_adapt)
 	// Insert the first part of the blocks into normal election scheduler
 	for (auto const & block : blocks1)
 	{
-		node.scheduler.priority.activate (block->account ().value (), node.store.tx_begin_read ());
+		node.scheduler.priority.activate (block->account (), node.store.tx_begin_read ());
 	}
 
 	// Ensure number of active elections reaches AEC limit and there is no overfill
