@@ -46,7 +46,6 @@ public:
 	// Link field for state blocks, zero otherwise.
 	virtual nano::link const & link () const;
 	virtual nano::account const & representative () const;
-	virtual nano::amount const & balance () const;
 	virtual void serialize (nano::stream &) const = 0;
 	virtual void serialize_json (std::string &, bool = false) const = 0;
 	virtual void serialize_json (boost::property_tree::ptree &) const = 0;
@@ -68,6 +67,8 @@ public: // Direct access to the block fields or nullopt if the block type does n
 	nano::account account () const noexcept;
 	// Account field for open/state blocks
 	virtual std::optional<nano::account> account_field () const;
+	// Balance field for open/send/state blocks
+	virtual std::optional<nano::amount> balance () const;
 
 protected:
 	mutable nano::block_hash cached_hash{ 0 };
@@ -114,7 +115,6 @@ public:
 	nano::block_hash const & previous () const override;
 	nano::account const & destination () const override;
 	nano::root const & root () const override;
-	nano::amount const & balance () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void serialize_json (std::string &, bool = false) const override;
@@ -132,6 +132,9 @@ public:
 	nano::signature signature;
 	uint64_t work;
 	static std::size_t constexpr size = nano::send_hashables::size + sizeof (signature) + sizeof (work);
+
+public: // Send block fields
+	std::optional<nano::amount> balance () const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
@@ -335,7 +338,6 @@ public:
 	nano::root const & root () const override;
 	nano::link const & link () const override;
 	nano::account const & representative () const override;
-	nano::amount const & balance () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void serialize_json (std::string &, bool = false) const override;
@@ -356,6 +358,7 @@ public:
 
 public: // State block fields
 	std::optional<nano::account> account_field () const override;
+	std::optional<nano::amount> balance () const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;

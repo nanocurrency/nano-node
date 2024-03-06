@@ -820,7 +820,7 @@ nano::uint128_t nano::ledger::balance (nano::block const & block)
 			break;
 		case nano::block_type::send:
 		case nano::block_type::state:
-			result = block.balance ().number ();
+			result = block.balance ().value ().number ();
 			break;
 		case nano::block_type::invalid:
 		case nano::block_type::not_a_block:
@@ -995,7 +995,7 @@ bool nano::ledger::is_send (store::transaction const & transaction_a, nano::bloc
 	{
 		if (!previous.is_zero ())
 		{
-			if (block_a.balance () < balance (transaction_a, previous))
+			if (block_a.balance ().value () < balance (transaction_a, previous))
 			{
 				result = true;
 			}

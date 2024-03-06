@@ -303,7 +303,7 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 		// Adding lazy balances for first processed block in pull
 		if (pull_blocks_processed == 1 && (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send))
 		{
-			lazy_balances.emplace (hash, block_a->balance ().number ());
+			lazy_balances.emplace (hash, block_a->balance ().value ().number ());
 		}
 		// Clearing lazy balances for previous block
 		if (!block_a->previous ().is_zero () && lazy_balances.find (block_a->previous ()) != lazy_balances.end ())
@@ -394,7 +394,7 @@ void nano::bootstrap_attempt_lazy::lazy_block_state_backlog_check (std::shared_p
 		// Retrieve balance for previous state & send blocks
 		if (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send)
 		{
-			if (block_a->balance ().number () <= next_block.balance) // balance
+			if (block_a->balance ().value ().number () <= next_block.balance) // balance
 			{
 				lazy_add (next_block.link, next_block.retry_limit); // link
 			}

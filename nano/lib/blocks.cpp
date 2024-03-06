@@ -212,10 +212,9 @@ nano::qualified_root nano::block::qualified_root () const
 	return { root (), previous () };
 }
 
-nano::amount const & nano::block::balance () const
+std::optional<nano::amount> nano::block::balance () const
 {
-	static nano::amount amount{ 0 };
-	return amount;
+	return std::nullopt;
 }
 
 void nano::block::operator() (nano::object_stream & obs) const
@@ -498,7 +497,7 @@ nano::root const & nano::send_block::root () const
 	return hashables.previous;
 }
 
-nano::amount const & nano::send_block::balance () const
+std::optional<nano::amount> nano::send_block::balance () const
 {
 	return hashables.balance;
 }
@@ -1389,7 +1388,7 @@ nano::account const & nano::state_block::representative () const
 	return hashables.representative;
 }
 
-nano::amount const & nano::state_block::balance () const
+std::optional<nano::amount> nano::state_block::balance () const
 {
 	return hashables.balance;
 }

@@ -403,7 +403,7 @@ uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a)
 	// Send check
 	if (block_previous != nullptr)
 	{
-		details.is_send = node.ledger.balance (transaction, previous) > block_a.balance ().number ();
+		details.is_send = node.ledger.balance (transaction, previous) > block_a.balance ().value ().number ();
 		details_found = true;
 	}
 	// Epoch check
