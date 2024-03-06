@@ -403,7 +403,7 @@ uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a)
 	// Send check
 	if (block_previous != nullptr)
 	{
-		details.is_send = node.ledger.balance (transaction, previous) > block_a.balance ().value ().number ();
+		details.is_send = node.ledger.balance (transaction, previous) > block_a.balance_field ().value ().number ();
 		details_found = true;
 	}
 	// Epoch check
@@ -1157,8 +1157,8 @@ void nano::json_handler::block_info ()
 			{
 				response_l.put ("amount", amount.value ().convert_to<std::string> ());
 			}
-			auto balance = node.ledger.balance (*block);
-			response_l.put ("balance", balance.convert_to<std::string> ());
+			auto balance = block->balance ();
+			response_l.put ("balance", balance.number ().convert_to<std::string> ());
 			response_l.put ("height", std::to_string (block->sideband ().height));
 			response_l.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
 			response_l.put ("successor", block->sideband ().successor.to_string ());
@@ -1314,8 +1314,8 @@ void nano::json_handler::blocks_info ()
 					{
 						entry.put ("amount", amount.value ().convert_to<std::string> ());
 					}
-					auto balance = node.ledger.balance (*block);
-					entry.put ("balance", balance.convert_to<std::string> ());
+					auto balance = block->balance ();
+					entry.put ("balance", balance.number ().convert_to<std::string> ());
 					entry.put ("height", std::to_string (block->sideband ().height));
 					entry.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
 					entry.put ("successor", block->sideband ().successor.to_string ());

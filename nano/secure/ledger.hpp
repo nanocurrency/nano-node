@@ -37,7 +37,6 @@ public:
 	std::optional<nano::account> account (store::transaction const &, nano::block_hash const &) const;
 	std::optional<nano::account_info> account_info (store::transaction const & transaction, nano::account const & account) const;
 	std::optional<nano::uint128_t> amount (store::transaction const &, nano::block_hash const &);
-	static nano::uint128_t balance (nano::block const & block);
 	std::optional<nano::uint128_t> balance (store::transaction const &, nano::block_hash const &) const;
 	std::shared_ptr<nano::block> block (store::transaction const & transaction, nano::block_hash const & hash) const;
 	bool block_exists (store::transaction const & transaction, nano::block_hash const & hash) const;

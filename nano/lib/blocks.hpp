@@ -67,8 +67,10 @@ public: // Direct access to the block fields or nullopt if the block type does n
 	nano::account account () const noexcept;
 	// Account field for open/state blocks
 	virtual std::optional<nano::account> account_field () const;
+	// Returns the balance field or balance from sideband
+	nano::amount balance () const noexcept;
 	// Balance field for open/send/state blocks
-	virtual std::optional<nano::amount> balance () const;
+	virtual std::optional<nano::amount> balance_field () const;
 
 protected:
 	mutable nano::block_hash cached_hash{ 0 };
@@ -134,7 +136,7 @@ public:
 	static std::size_t constexpr size = nano::send_hashables::size + sizeof (signature) + sizeof (work);
 
 public: // Send block fields
-	std::optional<nano::amount> balance () const override;
+	std::optional<nano::amount> balance_field () const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
@@ -358,7 +360,7 @@ public:
 
 public: // State block fields
 	std::optional<nano::account> account_field () const override;
-	std::optional<nano::amount> balance () const override;
+	std::optional<nano::amount> balance_field () const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;

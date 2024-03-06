@@ -480,8 +480,8 @@ void ledger_processor::change_block (nano::change_block & block_a)
 							debug_assert (!validate_message (account, hash, block_a.signature));
 							block_a.sideband_set (nano::block_sideband (account, 0, info->balance, info->block_count + 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
 							ledger.store.block.put (transaction, hash, block_a);
-							auto balance = ledger.balance (*previous);
-							ledger.cache.rep_weights.representation_add_dual (block_a.representative (), balance, info->representative, 0 - balance);
+							auto balance = previous->balance ();
+							ledger.cache.rep_weights.representation_add_dual (block_a.representative (), balance.number (), info->representative, 0 - balance.number ());
 							nano::account_info new_info (hash, block_a.representative (), info->open_block, info->balance, nano::seconds_since_epoch (), info->block_count + 1, nano::epoch::epoch_0);
 							ledger.update_account (transaction, account, *info, new_info);
 							ledger.store.frontier.del (transaction, block_a.hashables.previous);
@@ -808,28 +808,6 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 	}
 }
 
-nano::uint128_t nano::ledger::balance (nano::block const & block)
-{
-	nano::uint128_t result;
-	switch (block.type ())
-	{
-		case nano::block_type::open:
-		case nano::block_type::receive:
-		case nano::block_type::change:
-			result = block.sideband ().balance.number ();
-			break;
-		case nano::block_type::send:
-		case nano::block_type::state:
-			result = block.balance ().value ().number ();
-			break;
-		case nano::block_type::invalid:
-		case nano::block_type::not_a_block:
-			release_assert (false);
-			break;
-	}
-	return result;
-}
-
 // Balance for account containing hash
 std::optional<nano::uint128_t> nano::ledger::balance (store::transaction const & transaction, nano::block_hash const & hash) const
 {
@@ -842,7 +820,7 @@ std::optional<nano::uint128_t> nano::ledger::balance (store::transaction const &
 	{
 		return std::nullopt;
 	}
-	return balance (*block);
+	return block->balance ().number ();
 }
 
 std::shared_ptr<nano::block> nano::ledger::block (store::transaction const & transaction, nano::block_hash const & hash) const
@@ -995,7 +973,7 @@ bool nano::ledger::is_send (store::transaction const & transaction_a, nano::bloc
 	{
 		if (!previous.is_zero ())
 		{
-			if (block_a.balance ().value () < balance (transaction_a, previous))
+			if (block_a.balance_field ().value () < balance (transaction_a, previous))
 			{
 				result = true;
 			}
@@ -1151,17 +1129,17 @@ std::optional<nano::uint128_t> nano::ledger::amount (store::transaction const & 
 	{
 		return std::nullopt;
 	}
-	auto block_balance = balance (*block_l);
+	auto block_balance = block_l->balance ();
 	if (block_l->previous ().is_zero ())
 	{
-		return block_balance;
+		return block_balance.number ();
 	}
 	auto previous_balance = balance (transaction_a, block_l->previous ());
 	if (!previous_balance)
 	{
 		return std::nullopt;
 	}
-	return block_balance > previous_balance.value () ? block_balance - previous_balance.value () : previous_balance.value () - block_balance;
+	return block_balance > previous_balance.value () ? block_balance.number () - previous_balance.value () : previous_balance.value () - block_balance.number ();
 }
 
 // Return latest block for account
