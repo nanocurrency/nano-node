@@ -21,9 +21,13 @@ nano::request_aggregator::request_aggregator (nano::node_config const & config_a
 	wallets (wallets_a),
 	active (active_a),
 	generator (generator_a),
-	final_generator (final_generator_a),
-	thread ([this] () { run (); })
+	final_generator (final_generator_a)
 {
+	for (auto i = 0; i < 4; ++i)
+	{
+		threads.emplace_back ([this] () { run (); });
+	}
+
 	generator.set_reply_action ([this] (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) {
 		this->reply_action (vote_a, channel_a);
 	});
@@ -132,9 +136,12 @@ void nano::request_aggregator::stop ()
 		stopped = true;
 	}
 	condition.notify_all ();
-	if (thread.joinable ())
+	for (auto & thread : threads)
 	{
-		thread.join ();
+		if (thread.joinable ())
+		{
+			thread.join ();
+		}
 	}
 }
 

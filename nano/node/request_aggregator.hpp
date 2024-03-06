@@ -13,6 +13,7 @@
 #include <condition_variable>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 namespace mi = boost::multi_index;
 
@@ -105,7 +106,7 @@ private:
 	bool started{ false };
 	nano::condition_variable condition;
 	nano::mutex mutex{ mutex_identifier (mutexes::request_aggregator) };
-	std::thread thread;
+	std::vector<std::thread> threads;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (request_aggregator &, std::string const &);
 };
