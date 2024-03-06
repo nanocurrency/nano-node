@@ -5361,21 +5361,11 @@ TEST (ledger, pruning_safe_functions)
 	ASSERT_TRUE (store->block.exists (transaction, nano::dev::genesis->hash ()));
 	ASSERT_TRUE (store->block.exists (transaction, send2->hash ()));
 	// Safe ledger actions
-	bool error (false);
-	ASSERT_EQ (0, ledger.balance_safe (transaction, send1->hash (), error));
-	ASSERT_TRUE (error);
-	error = false;
-	ASSERT_EQ (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2, ledger.balance_safe (transaction, send2->hash (), error));
-	ASSERT_FALSE (error);
-	error = false;
-	ASSERT_EQ (0, ledger.amount_safe (transaction, send2->hash (), error));
-	ASSERT_TRUE (error);
-	error = false;
-	ASSERT_TRUE (ledger.account_safe (transaction, send1->hash (), error).is_zero ());
-	ASSERT_TRUE (error);
-	error = false;
-	ASSERT_EQ (nano::dev::genesis->account (), ledger.account_safe (transaction, send2->hash (), error));
-	ASSERT_FALSE (error);
+	ASSERT_FALSE (ledger.balance (transaction, send1->hash ()));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2, ledger.balance (transaction, send2->hash ()).value ());
+	ASSERT_FALSE (ledger.amount (transaction, send2->hash ()));
+	ASSERT_FALSE (ledger.account (transaction, send1->hash ()));
+	ASSERT_EQ (nano::dev::genesis->account (), ledger.account (transaction, send2->hash ()).value ());
 }
 
 TEST (ledger, hash_root_random)

@@ -51,8 +51,8 @@ bool nano::scheduler::priority::activate (nano::account const & account_a, store
 			debug_assert (block != nullptr);
 			if (node.ledger.dependents_confirmed (transaction, *block))
 			{
-				auto const balance = node.ledger.balance (transaction, hash);
-				auto const previous_balance = node.ledger.balance (transaction, conf_info.frontier);
+				auto const balance = node.ledger.balance (transaction, hash).value ();
+				auto const previous_balance = node.ledger.balance (transaction, conf_info.frontier).value_or (0);
 				auto const balance_priority = std::max (balance, previous_balance);
 
 				node.stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activated);

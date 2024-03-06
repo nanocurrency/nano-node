@@ -33,24 +33,16 @@ public:
 	/**
 	 * Return account containing hash, expects that block hash exists in ledger
 	 */
-	nano::account account (nano::block const & block) const;
-	nano::account account (store::transaction const &, nano::block_hash const &) const;
+	static nano::account account (nano::block const & block);
+	/**
+	 * Returns the account for a given hash
+	 * Returns std::nullopt if the block doesn't exist or has been pruned
+	 */
+	std::optional<nano::account> account (store::transaction const &, nano::block_hash const &) const;
 	std::optional<nano::account_info> account_info (store::transaction const & transaction, nano::account const & account) const;
-	/**
-	 * For non-prunning nodes same as `ledger::account()`
-	 * For prunning nodes ensures that block hash exists, otherwise returns zero account
-	 */
-	nano::account account_safe (store::transaction const &, nano::block_hash const &, bool &) const;
-	/**
-	 * Return account containing hash, returns zero account if account can not be found
-	 */
-	nano::account account_safe (store::transaction const &, nano::block_hash const &) const;
-	nano::uint128_t amount (store::transaction const &, nano::block_hash const &);
-	/** Safe for previous block, but block hash_a must exist */
-	nano::uint128_t amount_safe (store::transaction const &, nano::block_hash const & hash_a, bool &) const;
+	std::optional<nano::uint128_t> amount (store::transaction const &, nano::block_hash const &);
 	static nano::uint128_t balance (nano::block const & block);
-	nano::uint128_t balance (store::transaction const &, nano::block_hash const &) const;
-	nano::uint128_t balance_safe (store::transaction const &, nano::block_hash const &, bool &) const;
+	std::optional<nano::uint128_t> balance (store::transaction const &, nano::block_hash const &) const;
 	std::shared_ptr<nano::block> block (store::transaction const & transaction, nano::block_hash const & hash) const;
 	bool block_exists (store::transaction const & transaction, nano::block_hash const & hash) const;
 	nano::uint128_t account_balance (store::transaction const &, nano::account const &, bool = false);

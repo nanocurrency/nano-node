@@ -1494,7 +1494,7 @@ int main (int argc, char * const * argv)
 							bool error_or_pruned (false);
 							if (!state_block.hashables.previous.is_zero ())
 							{
-								prev_balance = node->ledger.balance_safe (transaction, state_block.hashables.previous, error_or_pruned);
+								prev_balance = node->ledger.balance (transaction, state_block.hashables.previous).value_or (0);
 							}
 							if (node->ledger.is_epoch_link (state_block.hashables.link))
 							{
@@ -1518,11 +1518,10 @@ int main (int argc, char * const * argv)
 					}
 					else
 					{
-						bool error_or_pruned (false);
-						auto prev_balance (node->ledger.balance_safe (transaction, block->previous (), error_or_pruned));
-						if (!node->ledger.pruning || !error_or_pruned)
+						auto prev_balance = node->ledger.balance (transaction, block->previous ());
+						if (!node->ledger.pruning || prev_balance)
 						{
-							if (block->balance () < prev_balance)
+							if (block->balance () < prev_balance.value ())
 							{
 								// State send
 								block_details_error = !sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
@@ -1534,7 +1533,7 @@ int main (int argc, char * const * argv)
 									// State change
 									block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
 								}
-								else if (block->balance () == prev_balance && node->ledger.is_epoch_link (block->link ()))
+								else if (block->balance () == prev_balance.value () && node->ledger.is_epoch_link (block->link ()))
 								{
 									// State epoch
 									block_details_error = !sideband.details.is_epoch || sideband.details.is_send || sideband.details.is_receive;
