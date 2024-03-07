@@ -1,4 +1,5 @@
 #include <nano/core_test/fakes/websocket_client.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/test_common/network.hpp>

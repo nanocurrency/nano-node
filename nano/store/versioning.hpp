@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/lib/blocks.hpp>
 #include <nano/secure/common.hpp>
 
 struct MDB_val;

@@ -1,6 +1,8 @@
 #include <nano/lib/utility.hpp>
 #include <nano/store/lmdb/lmdb_env.hpp>
 
+#include <boost/system/error_code.hpp>
+
 nano::store::lmdb::env::env (bool & error_a, std::filesystem::path const & path_a, nano::store::lmdb::env::options options_a)
 {
 	init (error_a, path_a, options_a);

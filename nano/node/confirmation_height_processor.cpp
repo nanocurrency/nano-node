@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/utility.hpp>
@@ -238,4 +239,9 @@ nano::block_hash nano::confirmation_height_processor::current () const
 {
 	nano::lock_guard<nano::mutex> lk (mutex);
 	return original_block ? original_block->hash () : 0;
+}
+
+std::reference_wrapper<nano::block_hash const> nano::confirmation_height_processor::block_wrapper::hash () const
+{
+	return block->hash ();
 }

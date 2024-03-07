@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
@@ -16,12 +17,6 @@
 #include <crypto/ed25519-donna/ed25519.h>
 #include <cryptopp/words.h>
 #include <magic_enum.hpp>
-
-size_t constexpr nano::send_block::size;
-size_t constexpr nano::receive_block::size;
-size_t constexpr nano::open_block::size;
-size_t constexpr nano::change_block::size;
-size_t constexpr nano::state_block::size;
 
 nano::networks nano::network_constants::active_network = nano::networks::ACTIVE_NETWORK;
 

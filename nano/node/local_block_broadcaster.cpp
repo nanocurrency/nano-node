@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/blockprocessor.hpp>
@@ -167,4 +168,9 @@ std::unique_ptr<nano::container_info_component> nano::local_block_broadcaster::c
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "local", local_blocks.size (), sizeof (decltype (local_blocks)::value_type) }));
 	return composite;
+}
+
+nano::block_hash nano::local_block_broadcaster::local_entry::hash () const
+{
+	return block->hash ();
 }

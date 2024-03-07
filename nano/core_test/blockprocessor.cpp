@@ -1,4 +1,5 @@
 #include <nano/lib/blockbuilders.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/secure/common.hpp>

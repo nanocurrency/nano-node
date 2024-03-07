@@ -1,8 +1,17 @@
 #pragma once
 
-#include <nano/lib/blocks.hpp>
+#include <nano/lib/numbers.hpp>
 
 #include <memory>
+
+namespace nano
+{
+class change_block;
+class send_block;
+class state_block;
+class open_block;
+class receive_block;
+}
 
 namespace nano
 {

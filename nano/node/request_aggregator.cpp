@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>

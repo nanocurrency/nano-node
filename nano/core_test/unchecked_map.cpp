@@ -1,4 +1,5 @@
 #include <nano/lib/blockbuilders.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/secure/common.hpp>

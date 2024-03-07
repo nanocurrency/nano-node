@@ -1,89 +1,23 @@
 #pragma once
 
-#include <nano/crypto/blake2/blake2.h>
+#include <nano/lib/block_sideband.hpp>
+#include <nano/lib/block_uniquer.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/epoch.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/object_stream.hpp>
 #include <nano/lib/optional_ptr.hpp>
 #include <nano/lib/stream.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/lib/uniquer.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/lib/work.hpp>
 
 #include <boost/property_tree/ptree_fwd.hpp>
 
-#include <unordered_map>
+typedef struct blake2b_state__ blake2b_state;
 
 namespace nano
 {
 class block_visitor;
 class mutable_block_visitor;
-
-enum class block_type : uint8_t
-{
-	invalid = 0,
-	not_a_block = 1,
-	send = 2,
-	receive = 3,
-	open = 4,
-	change = 5,
-	state = 6
-};
-
-std::string_view to_string (block_type);
-
-class block_details
-{
-	static_assert (std::is_same<std::underlying_type<nano::epoch>::type, uint8_t> (), "Epoch enum is not the proper type");
-	static_assert (static_cast<uint8_t> (nano::epoch::max) < (1 << 5), "Epoch max is too large for the sideband");
-
-public:
-	block_details () = default;
-	block_details (nano::epoch const epoch_a, bool const is_send_a, bool const is_receive_a, bool const is_epoch_a);
-	static constexpr size_t size ()
-	{
-		return 1;
-	}
-	bool operator== (block_details const & other_a) const;
-	void serialize (nano::stream &) const;
-	bool deserialize (nano::stream &);
-	nano::epoch epoch{ nano::epoch::epoch_0 };
-	bool is_send{ false };
-	bool is_receive{ false };
-	bool is_epoch{ false };
-
-private:
-	uint8_t packed () const;
-	void unpack (uint8_t);
-
-public: // Logging
-	void operator() (nano::object_stream &) const;
-};
-
-std::string state_subtype (nano::block_details const);
-
-class block_sideband final
-{
-public:
-	block_sideband () = default;
-	block_sideband (nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t const, nano::seconds_t const local_timestamp, nano::block_details const &, nano::epoch const source_epoch_a);
-	block_sideband (nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t const, nano::seconds_t const local_timestamp, nano::epoch const epoch_a, bool const is_send, bool const is_receive, bool const is_epoch, nano::epoch const source_epoch_a);
-	void serialize (nano::stream &, nano::block_type) const;
-	bool deserialize (nano::stream &, nano::block_type);
-	static size_t size (nano::block_type);
-	nano::block_hash successor{ 0 };
-	nano::account account{};
-	nano::amount balance{ 0 };
-	uint64_t height{ 0 };
-	uint64_t timestamp{ 0 };
-	nano::block_details details;
-	nano::epoch source_epoch{ nano::epoch::epoch_0 };
-
-public: // Logging
-	void operator() (nano::object_stream &) const;
-};
+class object_stream;
 
 class block
 {
@@ -145,8 +79,6 @@ private:
 public: // Logging
 	virtual void operator() (nano::object_stream &) const;
 };
-
-using block_list_t = std::vector<std::shared_ptr<nano::block>>;
 
 class send_hashables
 {
@@ -441,15 +373,9 @@ public:
 	virtual ~mutable_block_visitor () = default;
 };
 
-using block_uniquer = nano::uniquer<nano::uint256_union, nano::block>;
-
 std::shared_ptr<nano::block> deserialize_block (nano::stream &);
 std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
 std::shared_ptr<nano::block> deserialize_block_json (boost::property_tree::ptree const &, nano::block_uniquer * = nullptr);
-/**
- * Serialize block type as an 8-bit value
- */
-void serialize_block_type (nano::stream &, nano::block_type const &);
 /**
  * Serialize a block prefixed with an 8-bit typecode
  */

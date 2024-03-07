@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
@@ -20,6 +19,7 @@
 
 namespace nano
 {
+class block;
 class wallets;
 class logger;
 class vote;

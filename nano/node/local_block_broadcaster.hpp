@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/lib/blocks.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/processing_queue.hpp>
 #include <nano/node/bandwidth_limiter.hpp>
@@ -66,10 +65,7 @@ private:
 		std::chrono::steady_clock::time_point const arrival;
 		mutable std::chrono::steady_clock::time_point last_broadcast{}; // Not part of any index
 
-		nano::block_hash hash () const
-		{
-			return block->hash ();
-		}
+		nano::block_hash hash () const;
 	};
 
 	// clang-format off

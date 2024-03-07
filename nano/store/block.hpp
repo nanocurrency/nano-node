@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/lib/blocks.hpp>
+#include <nano/lib/block_sideband.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/iterator.hpp>
@@ -9,6 +9,7 @@
 
 namespace nano
 {
+class block;
 class block_hash;
 }
 namespace nano::store

@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/test_common/network.hpp>

@@ -2,6 +2,8 @@
 #include <nano/secure/utility.hpp>
 #include <nano/secure/working.hpp>
 
+#include <boost/system/error_code.hpp>
+
 #include <random>
 
 static std::vector<std::filesystem::path> all_unique_paths;

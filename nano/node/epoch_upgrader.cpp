@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/epoch_upgrader.hpp>
 #include <nano/node/node.hpp>
