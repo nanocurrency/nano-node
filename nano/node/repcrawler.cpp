@@ -228,7 +228,7 @@ std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::prepar
 	constexpr std::size_t aggressive_count = 160;
 	constexpr std::size_t conservative_max_attempts = 4;
 	constexpr std::size_t aggressive_max_attempts = 8;
-	constexpr std::chrono::seconds rep_query_interval = std::chrono::seconds{ 60 };
+	std::chrono::milliseconds rep_query_interval = node.network_params.network.is_dev_network () ? std::chrono::milliseconds{ 500 } : std::chrono::milliseconds{ 60 * 1000 };
 
 	stats.inc (nano::stat::type::rep_crawler, sufficient_weight ? nano::stat::detail::crawl_normal : nano::stat::detail::crawl_aggressive);
 
