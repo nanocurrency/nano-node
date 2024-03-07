@@ -211,8 +211,16 @@ void nano::rep_crawler::cleanup ()
 	erase_if (queries, [this] (query_entry const & query) {
 		if (nano::elapsed (query.time, config.query_timeout))
 		{
-			logger.debug (nano::log::type::rep_crawler, "Aborting unresponsive query for block {} from {}", query.hash.to_string (), query.channel->to_string ());
-			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_timeout);
+			if (query.replies == 0)
+			{
+				logger.debug (nano::log::type::rep_crawler, "Aborting unresponsive query for block {} from {}", query.hash.to_string (), query.channel->to_string ());
+				stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_timeout);
+			}
+			else
+			{
+				logger.debug (nano::log::type::rep_crawler, "Completion of query with {} replies for block {} from {}", query.replies, query.hash.to_string (), query.channel->to_string ());
+				stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_completion);
+			}
 			return true; // Erase
 		}
 		return false;
@@ -401,7 +409,9 @@ bool nano::rep_crawler::process (std::shared_ptr<nano::vote> const & vote, std::
 			// TODO: Track query response time
 
 			responses.push_back ({ channel, vote });
-
+			queries.modify (it, [] (query_entry & e) {
+				e.replies++;
+			});
 			condition.notify_all ();
 			return true; // Found and processed
 		}

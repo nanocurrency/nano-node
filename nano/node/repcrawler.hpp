@@ -141,6 +141,7 @@ private:
 		nano::block_hash hash;
 		std::shared_ptr<nano::transport::channel> channel;
 		std::chrono::steady_clock::time_point time{ std::chrono::steady_clock::now () };
+		unsigned int replies{ 0 }; // number of replies to the query
 	};
 
 	// clang-format off
