@@ -167,7 +167,7 @@ nano::account const & nano::block::representative () const
 	return representative;
 }
 
-std::optional<nano::block_hash> nano::block::source () const
+std::optional<nano::block_hash> nano::block::source_field () const
 {
 	return std::nullopt;
 }
@@ -227,6 +227,22 @@ nano::account nano::block::destination () const noexcept
 		case nano::block_type::state:
 			release_assert (sideband ().details.is_send);
 			return link ().as_account ();
+		default:
+			release_assert (false);
+	}
+}
+
+nano::block_hash nano::block::source () const noexcept
+{
+	release_assert (has_sideband ());
+	switch (type ())
+	{
+		case nano::block_type::open:
+		case nano::block_type::receive:
+			return source_field ().value ();
+		case nano::block_type::state:
+			release_assert (sideband ().details.is_receive);
+			return link ().as_block_hash ();
 		default:
 			release_assert (false);
 	}
@@ -808,7 +824,7 @@ bool nano::open_block::valid_predecessor (nano::block const & block_a) const
 	return false;
 }
 
-std::optional<nano::block_hash> nano::open_block::source () const
+std::optional<nano::block_hash> nano::open_block::source_field () const
 {
 	return hashables.source;
 }
@@ -1745,7 +1761,7 @@ nano::block_hash const & nano::receive_block::previous () const
 	return hashables.previous;
 }
 
-std::optional<nano::block_hash> nano::receive_block::source () const
+std::optional<nano::block_hash> nano::receive_block::source_field () const
 {
 	return hashables.source;
 }

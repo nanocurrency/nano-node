@@ -51,7 +51,7 @@ std::unique_ptr<nanoapi::BlockReceiveT> nano::ipc::flatbuffers_builder::from (na
 {
 	auto block (std::make_unique<nanoapi::BlockReceiveT> ());
 	block->hash = block_a.hash ().to_string ();
-	block->source = block_a.source ().value ().to_string ();
+	block->source = block_a.source_field ().value ().to_string ();
 	block->previous = block_a.previous ().to_string ();
 	block_a.signature.encode_hex (block->signature);
 	block->work = nano::to_string_hex (block_a.work);
@@ -62,7 +62,7 @@ std::unique_ptr<nanoapi::BlockOpenT> nano::ipc::flatbuffers_builder::from (nano:
 {
 	auto block (std::make_unique<nanoapi::BlockOpenT> ());
 	block->hash = block_a.hash ().to_string ();
-	block->source = block_a.source ().value ().to_string ();
+	block->source = block_a.source_field ().value ().to_string ();
 	block->account = block_a.account ().to_account ();
 	block->representative = block_a.representative ().to_account ();
 	block_a.signature.encode_hex (block->signature);

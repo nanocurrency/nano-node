@@ -2329,17 +2329,17 @@ TEST (ledger, block_destination_source)
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block6));
 	ASSERT_EQ (balance, ledger.balance (transaction, block6->hash ()));
 	ASSERT_EQ (dest.pub, ledger.block_destination (transaction, *block1));
-	ASSERT_TRUE (ledger.block_source (transaction, *block1).is_zero ());
+	ASSERT_FALSE (block1->source_field ());
 	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.block_destination (transaction, *block2));
-	ASSERT_TRUE (ledger.block_source (transaction, *block2).is_zero ());
+	ASSERT_FALSE (block2->source_field ());
 	ASSERT_EQ (ledger.block_destination (transaction, *block3), nullptr);
-	ASSERT_EQ (block2->hash (), ledger.block_source (transaction, *block3));
+	ASSERT_EQ (block2->hash (), block3->source ());
 	ASSERT_EQ (dest.pub, ledger.block_destination (transaction, *block4));
-	ASSERT_TRUE (ledger.block_source (transaction, *block4).is_zero ());
+	ASSERT_FALSE (block4->source_field ());
 	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.block_destination (transaction, *block5));
-	ASSERT_TRUE (ledger.block_source (transaction, *block5).is_zero ());
+	ASSERT_FALSE (block5->source_field ());
 	ASSERT_EQ (ledger.block_destination (transaction, *block6), nullptr);
-	ASSERT_EQ (block5->hash (), ledger.block_source (transaction, *block6));
+	ASSERT_EQ (block5->hash (), block6->source ());
 }
 
 TEST (ledger, state_account)
@@ -4344,7 +4344,7 @@ TEST (ledger, unchecked_open)
 		// Waits for the last blocks to pass through block_processor and unchecked.put queues
 		ASSERT_TIMELY_EQ (10s, 1, node1.unchecked.count ());
 		// Get the next peer for attempting a tcp bootstrap connection
-		auto blocks = node1.unchecked.get (open1->source ().value ());
+		auto blocks = node1.unchecked.get (open1->source_field ().value ());
 		ASSERT_EQ (blocks.size (), 1);
 	}
 	node1.block_processor.add (send1);
@@ -4412,11 +4412,11 @@ TEST (ledger, unchecked_receive)
 	}
 	// Waits for the open1 block to pass through block_processor and unchecked.put queues
 	node1.block_processor.add (open1);
-	ASSERT_TIMELY (15s, check_block_is_listed (node1.store.tx_begin_read (), receive1->source ().value ()));
+	ASSERT_TIMELY (15s, check_block_is_listed (node1.store.tx_begin_read (), receive1->source_field ().value ()));
 	// Previous block for receive1 is known, signature was validated
 	{
 		auto transaction = node1.store.tx_begin_read ();
-		auto blocks (node1.unchecked.get (receive1->source ().value ()));
+		auto blocks (node1.unchecked.get (receive1->source_field ().value ()));
 		ASSERT_EQ (blocks.size (), 1);
 	}
 	node1.block_processor.add (send2);

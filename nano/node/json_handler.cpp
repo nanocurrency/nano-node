@@ -1383,15 +1383,15 @@ void nano::json_handler::blocks_info ()
 					}
 					if (source)
 					{
-						nano::block_hash source_hash (node.ledger.block_source (transaction, *block));
-						auto block_a = node.ledger.block (transaction, source_hash);
-						if (block_a != nullptr)
+						if (!block->sideband ().details.is_receive || !node.ledger.block_exists (transaction, block->source ()))
 						{
-							entry.put ("source_account", block_a->account ().to_account ());
+							entry.put ("source_account", "0");
 						}
 						else
 						{
-							entry.put ("source_account", "0");
+							auto block_a = node.ledger.block (transaction, block->source ());
+							release_assert (block_a);
+							entry.put ("source_account", block_a->account ().to_account ());
 						}
 					}
 					blocks.push_back (std::make_pair (hash_text, entry));
@@ -3641,7 +3641,7 @@ void nano::json_handler::republish ()
 				block = node.ledger.block (transaction, hash);
 				if (sources != 0) // Republish source chain
 				{
-					nano::block_hash source (node.ledger.block_source (transaction, *block));
+					nano::block_hash source = block->source_field ().value_or (block->link ().as_block_hash ());
 					auto block_a = node.ledger.block (transaction, source);
 					std::vector<nano::block_hash> hashes;
 					while (block_a != nullptr && hashes.size () < sources)
@@ -3679,7 +3679,7 @@ void nano::json_handler::republish ()
 							while (block_d != nullptr && hash != source)
 							{
 								hashes.push_back (previous);
-								source = node.ledger.block_source (transaction, *block_d);
+								source = block_d->source_field ().value_or (block_d->sideband ().details.is_send ? 0 : block_d->link ().as_block_hash ());
 								previous = block_d->previous ();
 								block_d = node.ledger.block (transaction, previous);
 							}

@@ -998,26 +998,6 @@ nano::account const & nano::ledger::block_destination (store::transaction const 
 	return nano::account::null ();
 }
 
-nano::block_hash nano::ledger::block_source (store::transaction const & transaction_a, nano::block const & block_a)
-{
-	/*
-	 * block_source() requires that the previous block of the block
-	 * passed in exist in the database.  This is because it will try
-	 * to check account balances to determine if it is a send block.
-	 */
-	debug_assert (block_a.previous ().is_zero () || block_exists (transaction_a, block_a.previous ()));
-
-	// If block_a.source () is nonzero, then we have our source.
-	// However, universal blocks will always return zero.
-	nano::block_hash result = block_a.source ().value_or (0);
-	nano::state_block const * state_block (dynamic_cast<nano::state_block const *> (&block_a));
-	if (state_block != nullptr && !is_send (transaction_a, *state_block))
-	{
-		result = state_block->hashables.link.as_block_hash ();
-	}
-	return result;
-}
-
 std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (store::transaction const & transaction_a) const
 {
 	nano::block_hash hash (0);
@@ -1210,13 +1190,13 @@ public:
 	void receive_block (nano::receive_block const & block_a) override
 	{
 		result[0] = block_a.previous ();
-		result[1] = block_a.source ().value ();
+		result[1] = block_a.source_field ().value ();
 	}
 	void open_block (nano::open_block const & block_a) override
 	{
-		if (block_a.source () != ledger.constants.genesis->account ())
+		if (block_a.source_field ().value () != ledger.constants.genesis->account ())
 		{
-			result[0] = block_a.source ().value ();
+			result[0] = block_a.source_field ().value ();
 		}
 	}
 	void change_block (nano::change_block const & block_a) override
@@ -1265,22 +1245,7 @@ std::shared_ptr<nano::block> nano::ledger::find_receive_block_by_send_hash (stor
 	// walk down the chain until the source field of a receive block matches the send block hash
 	while (possible_receive_block != nullptr)
 	{
-		// if source is non-zero then it is a legacy receive or open block
-		nano::block_hash source = possible_receive_block->source ().value_or (0);
-
-		// if source is zero then it could be a state block, which needs a different kind of access
-		auto state_block = dynamic_cast<nano::state_block const *> (possible_receive_block.get ());
-		if (state_block != nullptr)
-		{
-			// we read the block from the database, so we expect it to have sideband
-			debug_assert (state_block->has_sideband ());
-			if (state_block->sideband ().details.is_receive)
-			{
-				source = state_block->hashables.link.as_block_hash ();
-			}
-		}
-
-		if (send_block_hash == source)
+		if (possible_receive_block->sideband ().details.is_receive && send_block_hash == possible_receive_block->source ())
 		{
 			// we have a match
 			result = possible_receive_block;

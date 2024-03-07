@@ -71,8 +71,10 @@ public: // Direct access to the block fields or nullopt if the block type does n
 	nano::account destination () const noexcept;
 	// Destination account for send blocks
 	virtual std::optional<nano::account> destination_field () const;
+	// Returns the source block hash for open/receive/state blocks that are receives
+	nano::block_hash source () const noexcept;
 	// Source block for open/receive blocks
-	virtual std::optional<nano::block_hash> source () const;
+	virtual std::optional<nano::block_hash> source_field () const;
 
 protected:
 	mutable nano::block_hash cached_hash{ 0 };
@@ -190,7 +192,7 @@ public:
 	static std::size_t constexpr size = nano::receive_hashables::size + sizeof (signature) + sizeof (work);
 
 public: // Receive block fields
-	std::optional<nano::block_hash> source () const override;
+	std::optional<nano::block_hash> source_field () const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
@@ -246,7 +248,7 @@ public:
 
 public: // Open block fields
 	std::optional<nano::account> account_field () const override;
-	std::optional<nano::block_hash> source () const override;
+	std::optional<nano::block_hash> source_field () const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
