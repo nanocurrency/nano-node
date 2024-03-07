@@ -411,12 +411,12 @@ uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a)
 	{
 		details.epoch = block_previous->sideband ().details.epoch;
 	}
-	auto link (block_a.link ());
-	if (!link.is_zero () && !details.is_send)
+	auto link = block_a.link ();
+	if (link && !details.is_send)
 	{
-		auto block_link = node.ledger.block (transaction, link.as_block_hash ());
+		auto block_link = node.ledger.block (transaction, link.value ().as_block_hash ());
 		auto account = block_a.account_field ().value (); // Link is non-zero therefore it's a state block and has an account field;
-		if (block_link != nullptr && node.store.pending.exists (transaction, nano::pending_key (account, link.as_block_hash ())))
+		if (block_link != nullptr && node.store.pending.exists (transaction, nano::pending_key (account, link.value ().as_block_hash ())))
 		{
 			details.epoch = std::max (details.epoch, block_link->sideband ().details.epoch);
 			details.is_receive = true;
@@ -1224,7 +1224,7 @@ void nano::json_handler::block_confirm ()
 					if (auto state = dynamic_cast<nano::state_block *> (block_l.get ()))
 					{
 						is_state_send = node.ledger.is_send (transaction, *state);
-						is_state_epoch = amount.value () == 0 && node.ledger.is_epoch_link (state->link ());
+						is_state_epoch = amount.value () == 0 && node.ledger.is_epoch_link (state->link ().value ());
 					}
 				}
 				node.observers.blocks.notify (status, {}, account, amount ? amount.value () : 0, is_state_send, is_state_epoch);
@@ -2522,7 +2522,7 @@ public:
 				if (raw && accounts_filter.empty ())
 				{
 					tree.put ("subtype", "epoch");
-					tree.put ("account", handler.node.ledger.epoch_signer (block_a.link ()).to_account ());
+					tree.put ("account", handler.node.ledger.epoch_signer (block_a.link ().value ()).to_account ());
 				}
 			}
 			else
@@ -3641,7 +3641,7 @@ void nano::json_handler::republish ()
 				block = node.ledger.block (transaction, hash);
 				if (sources != 0) // Republish source chain
 				{
-					nano::block_hash source = block->source_field ().value_or (block->link ().as_block_hash ());
+					nano::block_hash source = block->source_field ().value_or (block->link ().value_or (0).as_block_hash ());
 					auto block_a = node.ledger.block (transaction, source);
 					std::vector<nano::block_hash> hashes;
 					while (block_a != nullptr && hashes.size () < sources)
@@ -3679,7 +3679,7 @@ void nano::json_handler::republish ()
 							while (block_d != nullptr && hash != source)
 							{
 								hashes.push_back (previous);
-								source = block_d->source_field ().value_or (block_d->sideband ().details.is_send ? 0 : block_d->link ().as_block_hash ());
+								source = block_d->source_field ().value_or (block_d->sideband ().details.is_send ? 0 : block_d->link ().value_or (0).as_block_hash ());
 								previous = block_d->previous ();
 								block_d = node.ledger.block (transaction, previous);
 							}

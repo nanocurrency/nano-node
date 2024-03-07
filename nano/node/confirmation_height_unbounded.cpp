@@ -212,7 +212,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 
 		if (block)
 		{
-			auto source = block->source_field ().value_or (block->link ().as_block_hash ());
+			auto source = block->source_field ().value_or (block->link ().value_or (0).as_block_hash ());
 			if (!source.is_zero () && !ledger.is_epoch_link (source) && ledger.block_exists (transaction_a, source))
 			{
 				if (!hit_receive && !block_callback_data_a.empty ())

@@ -1012,13 +1012,13 @@ nano::websocket_server::websocket_server (nano::websocket::config & config_a, na
 			}
 			else if (block_a->type () == nano::block_type::state)
 			{
-				if (block_a->link ().is_zero ())
+				if (block_a->link ().value ().is_zero ())
 				{
 					subtype = "change";
 				}
 				else if (is_state_epoch_a)
 				{
-					debug_assert (amount_a == 0 && ledger.is_epoch_link (block_a->link ()));
+					debug_assert (amount_a == 0 && ledger.is_epoch_link (block_a->link ().value ()));
 					subtype = "epoch";
 				}
 				else

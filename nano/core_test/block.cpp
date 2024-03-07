@@ -659,7 +659,7 @@ TEST (block_builder, state)
 	ASSERT_EQ (block->hash ().to_string (), "2D243F8F92CDD0AD94A1D456A6B15F3BE7A6FCBD98D4C5831D06D15C818CD81F");
 	ASSERT_FALSE (block->source_field ());
 	ASSERT_FALSE (block->destination_field ());
-	ASSERT_EQ (block->link ().to_string (), "E16DD58C1EFA8B521545B0A74375AA994D9FC43828A4266D75ECF57F07A7EE86");
+	ASSERT_EQ (block->link ().value ().to_string (), "E16DD58C1EFA8B521545B0A74375AA994D9FC43828A4266D75ECF57F07A7EE86");
 }
 
 TEST (block_builder, state_missing_rep)
@@ -732,7 +732,7 @@ TEST (block_builder, open)
 	ASSERT_EQ (block->hash ().to_string (), "991CF190094C00F0B68E2E5F75F6BEE95A2E0BD93CEAA4A6734DB9F19B728948");
 	ASSERT_EQ (block->source_field ().value ().to_string (), "E89208DD038FBB269987689621D52292AE9C35941A7484756ECCED92A65093BA");
 	ASSERT_FALSE (block->destination_field ());
-	ASSERT_TRUE (block->link ().is_zero ());
+	ASSERT_FALSE (block->link ());
 }
 
 TEST (block_builder, open_equality)
@@ -771,7 +771,7 @@ TEST (block_builder, change)
 	ASSERT_EQ (block->hash ().to_string (), "13552AC3928E93B5C6C215F61879358E248D4A5246B8B3D1EEC5A566EDCEE077");
 	ASSERT_FALSE (block->source_field ());
 	ASSERT_FALSE (block->destination_field ());
-	ASSERT_TRUE (block->link ().is_zero ());
+	ASSERT_FALSE (block->link ());
 }
 
 TEST (block_builder, change_equality)
@@ -810,7 +810,7 @@ TEST (block_builder, send)
 	ASSERT_EQ (block->hash ().to_string (), "4560E7B1F3735D082700CFC2852F5D1F378F7418FD24CEF1AD45AB69316F15CD");
 	ASSERT_FALSE (block->source_field ());
 	ASSERT_EQ (block->destination_field ().value ().to_account (), "nano_1gys8r4crpxhp94n4uho5cshaho81na6454qni5gu9n53gksoyy1wcd4udyb");
-	ASSERT_TRUE (block->link ().is_zero ());
+	ASSERT_FALSE (block->link ());
 }
 
 TEST (block_builder, send_equality)
@@ -872,5 +872,5 @@ TEST (block_builder, receive)
 	ASSERT_EQ (block->hash ().to_string (), "6C004BF911D9CF2ED75CF6EC45E795122AD5D093FF5A83EDFBA43EC4A3EDC722");
 	ASSERT_EQ (block->source_field ().value ().to_string (), "7B2B0A29C1B235FDF9B4DEF2984BB3573BD1A52D28246396FBB3E4C5FE662135");
 	ASSERT_FALSE (block->destination_field ());
-	ASSERT_TRUE (block->link ().is_zero ());
+	ASSERT_FALSE (block->link ());
 }
