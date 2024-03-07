@@ -143,25 +143,9 @@ void nano::bootstrap_ascending::service::inspect (store::transaction const & tx,
 
 			if (is_send)
 			{
-				// TODO: Encapsulate this as a helper somewhere
-				nano::account destination{ 0 };
-				switch (block.type ())
-				{
-					case nano::block_type::send:
-						destination = block.destination ().value ();
-						break;
-					case nano::block_type::state:
-						destination = block.link ().as_account ();
-						break;
-					default:
-						debug_assert (false, "unexpected block type");
-						break;
-				}
-				if (!destination.is_zero ())
-				{
-					accounts.unblock (destination, hash); // Unblocking automatically inserts account into priority set
-					accounts.priority_up (destination);
-				}
+				auto destination = block.destination ();
+				accounts.unblock (destination, hash); // Unblocking automatically inserts account into priority set
+				accounts.priority_up (destination);
 			}
 		}
 		break;
