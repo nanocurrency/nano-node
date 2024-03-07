@@ -4344,7 +4344,7 @@ TEST (ledger, unchecked_open)
 		// Waits for the last blocks to pass through block_processor and unchecked.put queues
 		ASSERT_TIMELY_EQ (10s, 1, node1.unchecked.count ());
 		// Get the next peer for attempting a tcp bootstrap connection
-		auto blocks = node1.unchecked.get (open1->source ());
+		auto blocks = node1.unchecked.get (open1->source ().value ());
 		ASSERT_EQ (blocks.size (), 1);
 	}
 	node1.block_processor.add (send1);
@@ -4412,11 +4412,11 @@ TEST (ledger, unchecked_receive)
 	}
 	// Waits for the open1 block to pass through block_processor and unchecked.put queues
 	node1.block_processor.add (open1);
-	ASSERT_TIMELY (15s, check_block_is_listed (node1.store.tx_begin_read (), receive1->source ()));
+	ASSERT_TIMELY (15s, check_block_is_listed (node1.store.tx_begin_read (), receive1->source ().value ()));
 	// Previous block for receive1 is known, signature was validated
 	{
 		auto transaction = node1.store.tx_begin_read ();
-		auto blocks (node1.unchecked.get (receive1->source ()));
+		auto blocks (node1.unchecked.get (receive1->source ().value ()));
 		ASSERT_EQ (blocks.size (), 1);
 	}
 	node1.block_processor.add (send2);

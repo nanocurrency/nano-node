@@ -1009,7 +1009,7 @@ nano::block_hash nano::ledger::block_source (store::transaction const & transact
 
 	// If block_a.source () is nonzero, then we have our source.
 	// However, universal blocks will always return zero.
-	nano::block_hash result (block_a.source ());
+	nano::block_hash result = block_a.source ().value_or (0);
 	nano::state_block const * state_block (dynamic_cast<nano::state_block const *> (&block_a));
 	if (state_block != nullptr && !is_send (transaction_a, *state_block))
 	{
@@ -1210,13 +1210,13 @@ public:
 	void receive_block (nano::receive_block const & block_a) override
 	{
 		result[0] = block_a.previous ();
-		result[1] = block_a.source ();
+		result[1] = block_a.source ().value ();
 	}
 	void open_block (nano::open_block const & block_a) override
 	{
 		if (block_a.source () != ledger.constants.genesis->account ())
 		{
-			result[0] = block_a.source ();
+			result[0] = block_a.source ().value ();
 		}
 	}
 	void change_block (nano::change_block const & block_a) override
@@ -1266,7 +1266,7 @@ std::shared_ptr<nano::block> nano::ledger::find_receive_block_by_send_hash (stor
 	while (possible_receive_block != nullptr)
 	{
 		// if source is non-zero then it is a legacy receive or open block
-		nano::block_hash source = possible_receive_block->source ();
+		nano::block_hash source = possible_receive_block->source ().value_or (0);
 
 		// if source is zero then it could be a state block, which needs a different kind of access
 		auto state_block = dynamic_cast<nano::state_block const *> (possible_receive_block.get ());

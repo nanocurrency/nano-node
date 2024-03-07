@@ -147,14 +147,14 @@ TEST (unchecked, multiple)
 	// Enqueues the first block
 	unchecked.put (block->previous (), nano::unchecked_info (block));
 	// Enqueues a second block
-	unchecked.put (block->source (), nano::unchecked_info (block));
+	unchecked.put (6, nano::unchecked_info (block));
 	auto check_block_is_listed = [&] (nano::block_hash const & block_hash_a) {
 		return unchecked.get (block_hash_a).size () > 0;
 	};
 	// Waits for and asserts the first block gets saved in the database
 	ASSERT_TIMELY (5s, check_block_is_listed (block->previous ()));
 	// Waits for and asserts the second block gets saved in the database
-	ASSERT_TIMELY (5s, check_block_is_listed (block->source ()));
+	ASSERT_TIMELY (5s, check_block_is_listed (6));
 }
 
 // This test ensures that a block can't occur twice in the unchecked table.

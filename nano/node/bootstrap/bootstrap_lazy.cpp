@@ -291,9 +291,9 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 	if (!lazy_blocks_processed (hash))
 	{
 		// Search for new dependencies
-		if (!block_a->source ().is_zero () && !node->ledger.block_or_pruned_exists (block_a->source ()) && block_a->source () != node->network_params.ledger.genesis->account ())
+		if (block_a->source () && !node->ledger.block_or_pruned_exists (block_a->source ().value ()) && block_a->source ().value () != node->network_params.ledger.genesis->account ())
 		{
-			lazy_add (block_a->source (), retry_limit);
+			lazy_add (block_a->source ().value (), retry_limit);
 		}
 		else if (block_a->type () == nano::block_type::state)
 		{

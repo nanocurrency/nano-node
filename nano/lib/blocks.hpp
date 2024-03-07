@@ -35,8 +35,6 @@ public:
 	virtual void block_work_set (uint64_t) = 0;
 	// Previous block in account's chain, zero for open block
 	virtual nano::block_hash const & previous () const = 0;
-	// Source block for open/receive blocks, zero otherwise.
-	virtual nano::block_hash const & source () const;
 	// Previous block or account number for open blocks
 	virtual nano::root const & root () const = 0;
 	// Qualified root value based on previous() and root()
@@ -73,6 +71,8 @@ public: // Direct access to the block fields or nullopt if the block type does n
 	nano::account destination () const noexcept;
 	// Destination account for send blocks
 	virtual std::optional<nano::account> destination_field () const;
+	// Source block for open/receive blocks
+	virtual std::optional<nano::block_hash> source () const;
 
 protected:
 	mutable nano::block_hash cached_hash{ 0 };
@@ -170,7 +170,6 @@ public:
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::block_hash const & previous () const override;
-	nano::block_hash const & source () const override;
 	nano::root const & root () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
@@ -189,6 +188,9 @@ public:
 	nano::signature signature;
 	uint64_t work;
 	static std::size_t constexpr size = nano::receive_hashables::size + sizeof (signature) + sizeof (work);
+
+public: // Receive block fields
+	std::optional<nano::block_hash> source () const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
@@ -222,7 +224,6 @@ public:
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::block_hash const & previous () const override;
-	nano::block_hash const & source () const override;
 	nano::root const & root () const override;
 	nano::account const & representative () const override;
 	void serialize (nano::stream &) const override;
@@ -245,6 +246,7 @@ public:
 
 public: // Open block fields
 	std::optional<nano::account> account_field () const override;
+	std::optional<nano::block_hash> source () const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;

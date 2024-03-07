@@ -253,12 +253,7 @@ bool nano::confirmation_height_bounded::iterate (store::read_transaction const &
 		// Once a receive is cemented, we can cement all blocks above it until the next receive, so store those details for later.
 		++num_blocks;
 		auto block = ledger.block (transaction_a, hash);
-		auto source (block->source ());
-		if (source.is_zero ())
-		{
-			source = block->link ().as_block_hash ();
-		}
-
+		auto source = block->source ().value_or (block->link ().as_block_hash ());
 		if (!source.is_zero () && !ledger.is_epoch_link (source) && ledger.block_exists (transaction_a, source))
 		{
 			hit_receive = true;
