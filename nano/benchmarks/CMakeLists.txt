@@ -1,4 +1,4 @@
-add_executable(benchmarks entry.cpp)
+add_executable(benchmarks entry.cpp stats.cpp)
 
 target_link_libraries(benchmarks test_common benchmark::benchmark)
 
