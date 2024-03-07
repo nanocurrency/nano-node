@@ -165,7 +165,7 @@ void nano::active_transactions::handle_confirmation (nano::store::read_transacti
 
 void nano::active_transactions::handle_block_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, nano::block_hash const & hash, nano::account & account, nano::uint128_t & amount, bool & is_state_send, bool & is_state_epoch, nano::account & pending_account)
 {
-	if (block->sideband ().details.is_send)
+	if (block->is_send ())
 	{
 		node.receive_confirmed (transaction, hash, block->destination ());
 	}

@@ -134,14 +134,13 @@ void nano::bootstrap_ascending::service::inspect (store::transaction const & tx,
 		case nano::block_status::progress:
 		{
 			const auto account = block.account ();
-			const auto is_send = ledger.is_send (tx, block);
 
 			// If we've inserted any block in to an account, unmark it as blocked
 			accounts.unblock (account);
 			accounts.priority_up (account);
 			accounts.timestamp (account, /* reset timestamp */ true);
 
-			if (is_send)
+			if (block.is_send ())
 			{
 				auto destination = block.destination ();
 				accounts.unblock (destination, hash); // Unblocking automatically inserts account into priority set

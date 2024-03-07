@@ -115,6 +115,20 @@ void nano::block::refresh ()
 	}
 }
 
+bool nano::block::is_send () const noexcept
+{
+	release_assert (has_sideband ());
+	switch (type ())
+	{
+		case nano::block_type::send:
+			return true;
+		case nano::block_type::state:
+			return sideband ().details.is_send;
+		default:
+			return false;
+	}
+}
+
 nano::block_hash const & nano::block::hash () const
 {
 	if (!cached_hash.is_zero ())

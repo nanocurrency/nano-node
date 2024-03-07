@@ -340,7 +340,7 @@ nano::block_status nano::block_processor::process_one (store::write_transaction 
 			/* For send blocks check epoch open unchecked (gap pending).
 			For state blocks check only send subtype and only if block epoch is not last epoch.
 			If epoch is last, then pending entry shouldn't trigger same epoch open block for destination account. */
-			if (block->type () == nano::block_type::send || (block->type () == nano::block_type::state && block->sideband ().details.is_send && std::underlying_type_t<nano::epoch> (block->sideband ().details.epoch) < std::underlying_type_t<nano::epoch> (nano::epoch::max)))
+			if (block->type () == nano::block_type::send || (block->type () == nano::block_type::state && block->is_send () && std::underlying_type_t<nano::epoch> (block->sideband ().details.epoch) < std::underlying_type_t<nano::epoch> (nano::epoch::max)))
 			{
 				/* block->destination () for legacy send blocks
 				block->link () for state blocks (send subtype) */

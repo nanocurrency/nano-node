@@ -2392,7 +2392,7 @@ TEST (ledger, state_send_receive)
 	ASSERT_EQ (nano::dev::constants.genesis_amount - nano::Gxrb_ratio, ledger.weight (nano::dev::genesis_key.pub));
 	ASSERT_TRUE (store.pending.exists (transaction, nano::pending_key (nano::dev::genesis_key.pub, send1->hash ())));
 	ASSERT_EQ (2, send2->sideband ().height);
-	ASSERT_TRUE (send2->sideband ().details.is_send);
+	ASSERT_TRUE (send2->is_send ());
 	ASSERT_FALSE (send2->sideband ().details.is_receive);
 	ASSERT_FALSE (send2->sideband ().details.is_epoch);
 	auto receive1 = builder
@@ -2416,7 +2416,7 @@ TEST (ledger, state_send_receive)
 	ASSERT_FALSE (store.pending.exists (transaction, nano::pending_key (nano::dev::genesis_key.pub, send1->hash ())));
 	ASSERT_EQ (store.account.count (transaction), ledger.cache.account_count);
 	ASSERT_EQ (3, receive2->sideband ().height);
-	ASSERT_FALSE (receive2->sideband ().details.is_send);
+	ASSERT_FALSE (receive2->is_send ());
 	ASSERT_TRUE (receive2->sideband ().details.is_receive);
 	ASSERT_FALSE (receive2->sideband ().details.is_epoch);
 }
@@ -2464,7 +2464,7 @@ TEST (ledger, state_receive)
 	ASSERT_EQ (nano::Gxrb_ratio, ledger.amount (transaction, receive1->hash ()));
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (nano::dev::genesis_key.pub));
 	ASSERT_EQ (3, receive2->sideband ().height);
-	ASSERT_FALSE (receive2->sideband ().details.is_send);
+	ASSERT_FALSE (receive2->is_send ());
 	ASSERT_TRUE (receive2->sideband ().details.is_receive);
 	ASSERT_FALSE (receive2->sideband ().details.is_epoch);
 }
@@ -2498,7 +2498,7 @@ TEST (ledger, state_rep_change)
 	ASSERT_EQ (0, ledger.weight (nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (rep.pub));
 	ASSERT_EQ (2, change2->sideband ().height);
-	ASSERT_FALSE (change2->sideband ().details.is_send);
+	ASSERT_FALSE (change2->is_send ());
 	ASSERT_FALSE (change2->sideband ().details.is_receive);
 	ASSERT_FALSE (change2->sideband ().details.is_epoch);
 }
@@ -2552,7 +2552,7 @@ TEST (ledger, state_open)
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (nano::dev::genesis_key.pub));
 	ASSERT_EQ (ledger.cache.account_count, store.account.count (transaction));
 	ASSERT_EQ (1, open2->sideband ().height);
-	ASSERT_FALSE (open2->sideband ().details.is_send);
+	ASSERT_FALSE (open2->is_send ());
 	ASSERT_TRUE (open2->sideband ().details.is_receive);
 	ASSERT_FALSE (open2->sideband ().details.is_epoch);
 }
@@ -2978,7 +2978,7 @@ TEST (ledger, state_send_change)
 	ASSERT_EQ (0, ledger.weight (nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - nano::Gxrb_ratio, ledger.weight (rep.pub));
 	ASSERT_EQ (2, send2->sideband ().height);
-	ASSERT_TRUE (send2->sideband ().details.is_send);
+	ASSERT_TRUE (send2->is_send ());
 	ASSERT_FALSE (send2->sideband ().details.is_receive);
 	ASSERT_FALSE (send2->sideband ().details.is_epoch);
 }
@@ -3030,7 +3030,7 @@ TEST (ledger, state_receive_change)
 	ASSERT_EQ (0, ledger.weight (nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (rep.pub));
 	ASSERT_EQ (3, receive2->sideband ().height);
-	ASSERT_FALSE (receive2->sideband ().details.is_send);
+	ASSERT_FALSE (receive2->is_send ());
 	ASSERT_TRUE (receive2->sideband ().details.is_receive);
 	ASSERT_FALSE (receive2->sideband ().details.is_epoch);
 }
@@ -3401,7 +3401,7 @@ TEST (ledger, epoch_blocks_v1_general)
 				  .work (*pool.generate (nano::dev::genesis->hash ()))
 				  .build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, epoch1));
-	ASSERT_FALSE (epoch1->sideband ().details.is_send);
+	ASSERT_FALSE (epoch1->is_send ());
 	ASSERT_FALSE (epoch1->sideband ().details.is_receive);
 	ASSERT_TRUE (epoch1->sideband ().details.is_epoch);
 	ASSERT_EQ (nano::epoch::epoch_1, epoch1->sideband ().details.epoch);
@@ -3428,7 +3428,7 @@ TEST (ledger, epoch_blocks_v1_general)
 	genesis_info = ledger.account_info (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (genesis_info);
 	ASSERT_EQ (genesis_info->epoch (), nano::epoch::epoch_1);
-	ASSERT_FALSE (epoch1->sideband ().details.is_send);
+	ASSERT_FALSE (epoch1->is_send ());
 	ASSERT_FALSE (epoch1->sideband ().details.is_receive);
 	ASSERT_TRUE (epoch1->sideband ().details.is_epoch);
 	ASSERT_EQ (nano::epoch::epoch_1, epoch1->sideband ().details.epoch);
@@ -3452,7 +3452,7 @@ TEST (ledger, epoch_blocks_v1_general)
 				 .work (*pool.generate (epoch1->hash ()))
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
-	ASSERT_TRUE (send1->sideband ().details.is_send);
+	ASSERT_TRUE (send1->is_send ());
 	ASSERT_FALSE (send1->sideband ().details.is_receive);
 	ASSERT_FALSE (send1->sideband ().details.is_epoch);
 	ASSERT_EQ (nano::epoch::epoch_1, send1->sideband ().details.epoch);
@@ -3488,7 +3488,7 @@ TEST (ledger, epoch_blocks_v1_general)
 				  .work (*pool.generate (destination.pub))
 				  .build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, epoch4));
-	ASSERT_FALSE (epoch4->sideband ().details.is_send);
+	ASSERT_FALSE (epoch4->is_send ());
 	ASSERT_FALSE (epoch4->sideband ().details.is_receive);
 	ASSERT_TRUE (epoch4->sideband ().details.is_epoch);
 	ASSERT_EQ (nano::epoch::epoch_1, epoch4->sideband ().details.epoch);
@@ -3519,7 +3519,7 @@ TEST (ledger, epoch_blocks_v1_general)
 	ASSERT_EQ (nano::Gxrb_ratio, ledger.amount (transaction, receive2->hash ()));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - nano::Gxrb_ratio, ledger.weight (nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::Gxrb_ratio, ledger.weight (destination.pub));
-	ASSERT_FALSE (receive2->sideband ().details.is_send);
+	ASSERT_FALSE (receive2->is_send ());
 	ASSERT_TRUE (receive2->sideband ().details.is_receive);
 	ASSERT_FALSE (receive2->sideband ().details.is_epoch);
 }
@@ -4295,7 +4295,7 @@ TEST (ledger, unchecked_epoch_invalid)
 		auto epoch2_store = node1.ledger.block (transaction, epoch2->hash ());
 		ASSERT_NE (nullptr, epoch2_store);
 		ASSERT_EQ (nano::epoch::epoch_0, epoch2_store->sideband ().details.epoch);
-		ASSERT_TRUE (epoch2_store->sideband ().details.is_send);
+		ASSERT_TRUE (epoch2_store->is_send ());
 		ASSERT_FALSE (epoch2_store->sideband ().details.is_epoch);
 		ASSERT_FALSE (epoch2_store->sideband ().details.is_receive);
 	}
@@ -4916,7 +4916,7 @@ TEST (ledger, pruning_action)
 	ASSERT_EQ (*receive1, *receive1_stored);
 	ASSERT_FALSE (store->pending.exists (transaction, nano::pending_key (nano::dev::genesis_key.pub, send1->hash ())));
 	ASSERT_EQ (4, receive1_stored->sideband ().height);
-	ASSERT_FALSE (receive1_stored->sideband ().details.is_send);
+	ASSERT_FALSE (receive1_stored->is_send ());
 	ASSERT_TRUE (receive1_stored->sideband ().details.is_receive);
 	ASSERT_FALSE (receive1_stored->sideband ().details.is_epoch);
 	// Middle block pruning
@@ -5547,7 +5547,7 @@ TEST (ledger, is_send_genesis)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto tx = store.tx_begin_read ();
-	ASSERT_FALSE (ledger.is_send (tx, *nano::dev::genesis));
+	ASSERT_FALSE (nano::dev::genesis->is_send ());
 }
 
 TEST (ledger, is_send_state)
@@ -5556,8 +5556,8 @@ TEST (ledger, is_send_state)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto tx = store.tx_begin_read ();
-	ASSERT_TRUE (ledger.is_send (tx, *ctx.blocks ()[0]));
-	ASSERT_FALSE (ledger.is_send (tx, *ctx.blocks ()[1]));
+	ASSERT_TRUE (ctx.blocks ()[0]->is_send ());
+	ASSERT_FALSE (ctx.blocks ()[1]->is_send ());
 }
 
 TEST (ledger, is_send_legacy)
@@ -5566,8 +5566,8 @@ TEST (ledger, is_send_legacy)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto tx = store.tx_begin_read ();
-	ASSERT_TRUE (ledger.is_send (tx, *ctx.blocks ()[0]));
-	ASSERT_FALSE (ledger.is_send (tx, *ctx.blocks ()[1]));
+	ASSERT_TRUE (ctx.blocks ()[0]->is_send ());
+	ASSERT_FALSE (ctx.blocks ()[1]->is_send ());
 }
 
 TEST (ledger, head_block)

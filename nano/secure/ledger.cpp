@@ -950,38 +950,6 @@ std::string nano::ledger::block_text (nano::block_hash const & hash_a)
 	return result;
 }
 
-bool nano::ledger::is_send (store::transaction const & transaction_a, nano::block const & block_a) const
-{
-	if (block_a.type () != nano::block_type::state)
-	{
-		return block_a.type () == nano::block_type::send;
-	}
-	nano::block_hash previous = block_a.previous ();
-	/*
-	 * if block_a does not have a sideband, then is_send()
-	 * requires that the previous block exists in the database.
-	 * This is because it must retrieve the balance of the previous block.
-	 */
-	debug_assert (block_a.has_sideband () || previous.is_zero () || block_exists (transaction_a, previous));
-
-	bool result (false);
-	if (block_a.has_sideband ())
-	{
-		result = block_a.sideband ().details.is_send;
-	}
-	else
-	{
-		if (!previous.is_zero ())
-		{
-			if (block_a.balance_field ().value () < balance (transaction_a, previous))
-			{
-				result = true;
-			}
-		}
-	}
-	return result;
-}
-
 nano::account const & nano::ledger::block_destination (store::transaction const & transaction_a, nano::block const & block_a)
 {
 	nano::send_block const * send_block (dynamic_cast<nano::send_block const *> (&block_a));
@@ -990,7 +958,7 @@ nano::account const & nano::ledger::block_destination (store::transaction const 
 	{
 		return send_block->hashables.destination;
 	}
-	else if (state_block != nullptr && is_send (transaction_a, *state_block))
+	else if (state_block != nullptr && block_a.is_send ())
 	{
 		return state_block->hashables.link.as_account ();
 	}
@@ -1208,10 +1176,24 @@ public:
 		result[0] = block_a.hashables.previous;
 		result[1] = block_a.hashables.link.as_block_hash ();
 		// ledger.is_send will check the sideband first, if block_a has a loaded sideband the check that previous block exists can be skipped
-		if (ledger.is_epoch_link (block_a.hashables.link) || ((block_a.has_sideband () || ledger.block_exists (transaction, block_a.hashables.previous)) && ledger.is_send (transaction, block_a)))
+		if (ledger.is_epoch_link (block_a.hashables.link) || is_send (transaction, block_a))
 		{
 			result[1].clear ();
 		}
+	}
+	// This function is used in place of block->is_send () as it is tolerant to the block not having the sideband information loaded
+	// This is needed for instance in vote generation on forks which have not yet had sideband information attached
+	bool is_send (nano::store::transaction const & transaction, nano::state_block const & block) const
+	{
+		if (block.previous ().is_zero ())
+		{
+			return false;
+		}
+		if (block.has_sideband ())
+		{
+			return block.sideband ().details.is_send;
+		}
+		return block.balance_field ().value () < ledger.balance (transaction, block.previous ());
 	}
 	nano::ledger const & ledger;
 	nano::store::transaction const & transaction;

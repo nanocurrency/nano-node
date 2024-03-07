@@ -1223,7 +1223,7 @@ void nano::json_handler::block_confirm ()
 				{
 					if (auto state = dynamic_cast<nano::state_block *> (block_l.get ()))
 					{
-						is_state_send = node.ledger.is_send (transaction, *state);
+						is_state_send = state->is_send ();
 						is_state_epoch = amount.value () == 0 && node.ledger.is_epoch_link (state->link ().value ());
 					}
 				}
@@ -3679,7 +3679,7 @@ void nano::json_handler::republish ()
 							while (block_d != nullptr && hash != source)
 							{
 								hashes.push_back (previous);
-								source = block_d->source_field ().value_or (block_d->sideband ().details.is_send ? 0 : block_d->link ().value_or (0).as_block_hash ());
+								source = block_d->source_field ().value_or (block_d->is_send () ? 0 : block_d->link ().value_or (0).as_block_hash ());
 								previous = block_d->previous ();
 								block_d = node.ledger.block (transaction, previous);
 							}

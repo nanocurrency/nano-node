@@ -4951,7 +4951,7 @@ TEST (rpc, block_create_send_epoch_v2)
 	auto process_result (node->process (state_block));
 	ASSERT_EQ (nano::block_status::progress, process_result);
 	ASSERT_EQ (state_block->sideband ().details.epoch, nano::epoch::epoch_2);
-	ASSERT_TRUE (state_block->sideband ().details.is_send);
+	ASSERT_TRUE (state_block->is_send ());
 	ASSERT_FALSE (node->latest (key.pub).is_zero ());
 }
 
