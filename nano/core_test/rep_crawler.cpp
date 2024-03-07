@@ -3,6 +3,7 @@
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/node/transport/inproc.hpp>
+#include <nano/test_common/chains.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -269,4 +270,28 @@ TEST (rep_crawler, ignore_local)
 	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector{ nano::dev::genesis->hash () });
 	node.rep_crawler.force_process (vote, loopback);
 	ASSERT_ALWAYS_EQ (0.5s, node.rep_crawler.representative_count (), 0);
+}
+
+// Test that nodes can track PRs when multiple PRs are inside one node
+TEST (rep_crawler, two_reps_one_node)
+{
+	nano::test::system system;
+	auto & node1 = *system.add_node ();
+	auto & node2 = *system.add_node ();
+
+	// create a second PR account
+	nano::keypair second_rep = nano::test::setup_rep (system, node1, node1.balance (nano::dev::genesis_key.pub) / 10);
+	ASSERT_EQ (0, node2.rep_crawler.representative_count ());
+
+	// enable the two PRs in node1
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	system.wallet (0)->insert_adhoc (second_rep.prv);
+
+	ASSERT_TIMELY_EQ (5s, node2.rep_crawler.representative_count (), 2);
+	auto reps = node2.rep_crawler.representatives ();
+	ASSERT_EQ (2, reps.size ());
+
+	// check that the reps are correct
+	ASSERT_TRUE (nano::dev::genesis_key.pub == reps[0].account || nano::dev::genesis_key.pub == reps[1].account);
+	ASSERT_TRUE (second_rep.pub == reps[0].account || second_rep.pub == reps[1].account);
 }
