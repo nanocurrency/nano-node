@@ -238,11 +238,6 @@ bool nano::vote_processor::empty () const
 	return votes.empty ();
 }
 
-bool nano::vote_processor::half_full () const
-{
-	return size () >= max_votes / 2;
-}
-
 void nano::vote_processor::calculate_weights ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };

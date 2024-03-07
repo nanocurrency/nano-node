@@ -45,13 +45,12 @@ public:
 	bool vote (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &);
 	/** Note: node.active.mutex lock is required */
 	nano::vote_code vote_blocking (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &, bool = false);
-	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> const &);
+
 	/** Function blocks until either the current queue size (a established flush boundary as it'll continue to increase)
 	 * is processed or the queue is empty (end condition or cutoff's guard, as it is positioned ahead) */
 	void flush ();
 	std::size_t size () const;
 	bool empty () const;
-	bool half_full () const;
 	void calculate_weights ();
 
 	std::atomic<uint64_t> total_processed{ 0 };
@@ -69,6 +68,7 @@ private: // Dependencies
 
 private:
 	void run ();
+	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> const &);
 
 private:
 	// Higher number means higher priority
