@@ -1,26 +1,23 @@
 #pragma once
 
-#include <nano/crypto/blake2/blake2.h>
 #include <nano/lib/block_sideband.hpp>
 #include <nano/lib/block_uniquer.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/epoch.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/object_stream.hpp>
 #include <nano/lib/optional_ptr.hpp>
 #include <nano/lib/stream.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/lib/work.hpp>
 
 #include <boost/property_tree/ptree_fwd.hpp>
 
-#include <unordered_map>
+typedef struct blake2b_state__ blake2b_state;
 
 namespace nano
 {
 class block_visitor;
 class mutable_block_visitor;
+class object_stream;
 
 class block
 {
