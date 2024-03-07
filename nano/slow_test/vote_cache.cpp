@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/test_common/rate_observer.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>

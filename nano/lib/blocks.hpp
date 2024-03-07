@@ -83,8 +83,6 @@ public: // Logging
 	virtual void operator() (nano::object_stream &) const;
 };
 
-using block_list_t = std::vector<std::shared_ptr<nano::block>>;
-
 class send_hashables
 {
 public:

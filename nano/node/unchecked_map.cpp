@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/stats_enums.hpp>

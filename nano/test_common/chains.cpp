@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/test_common/chains.hpp>
 
 using namespace std::chrono_literals;

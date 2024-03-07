@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/manual.hpp>
 #include <nano/node/scheduler/priority.hpp>

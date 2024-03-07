@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/qt/qt.hpp>
 

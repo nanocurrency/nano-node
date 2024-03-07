@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/scheduler/component.hpp>

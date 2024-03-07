@@ -7,6 +7,7 @@
 #include <nano/lib/timer.hpp>
 
 #include <cstdint>
+#include <memory>
 
 namespace nano
 {

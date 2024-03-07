@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/common.hpp>

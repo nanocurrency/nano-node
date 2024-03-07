@@ -2,7 +2,6 @@
 
 #include <nano/lib/asio.hpp>
 #include <nano/lib/block_uniquer.hpp>
-#include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>

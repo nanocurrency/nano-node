@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/node.hpp>
 #include <nano/test_common/ledger.hpp>

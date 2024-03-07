@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
 #include <nano/rpc_test/common.hpp>

@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/blockprocessor.hpp>

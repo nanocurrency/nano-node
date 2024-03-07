@@ -13,6 +13,12 @@
 #include <cryptopp/words.h>
 #include <magic_enum.hpp>
 
+size_t constexpr nano::send_block::size;
+size_t constexpr nano::receive_block::size;
+size_t constexpr nano::open_block::size;
+size_t constexpr nano::change_block::size;
+size_t constexpr nano::state_block::size;
+
 /** Compare blocks, first by type, then content. This is an optimization over dynamic_cast, which is very slow on some platforms. */
 namespace
 {

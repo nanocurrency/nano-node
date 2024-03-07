@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/make_store.hpp>

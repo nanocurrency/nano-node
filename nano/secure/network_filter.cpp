@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/secure/common.hpp>

@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/stats_enums.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>

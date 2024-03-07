@@ -65,10 +65,7 @@ private:
 		{
 		}
 
-		std::reference_wrapper<nano::block_hash const> hash () const
-		{
-			return block->hash ();
-		}
+		std::reference_wrapper<nano::block_hash const> hash () const;
 
 		std::shared_ptr<nano::block> block;
 	};
