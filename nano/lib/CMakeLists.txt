@@ -21,6 +21,10 @@ add_library(
   ${platform_sources}
   asio.hpp
   asio.cpp
+  block_sideband.hpp
+  block_sideband.cpp
+  block_type.hpp
+  block_type.cpp
   blockbuilders.hpp
   blockbuilders.cpp
   blocks.hpp

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/block_sideband.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/store/component.hpp>

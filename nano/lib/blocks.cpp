@@ -1443,11 +1443,6 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 	return result;
 }
 
-void nano::serialize_block_type (nano::stream & stream, const nano::block_type & type)
-{
-	nano::write (stream, type);
-}
-
 void nano::serialize_block (nano::stream & stream_a, nano::block const & block_a)
 {
 	nano::serialize_block_type (stream_a, block_a.type ());
@@ -1985,9 +1980,4 @@ void nano::block_sideband::operator() (nano::object_stream & obs) const
 	obs.write ("timestamp", timestamp);
 	obs.write ("source_epoch", source_epoch);
 	obs.write ("details", details);
-}
-
-std::string_view nano::to_string (nano::block_type type)
-{
-	return magic_enum::enum_name (type);
 }
