@@ -11,7 +11,6 @@
 
 namespace nano
 {
-class signature_checker;
 class active_transactions;
 namespace store
 {
@@ -71,10 +70,23 @@ private: // Dependencies
 private:
 	void run ();
 
+private:
+	// Higher number means higher priority
+	enum class rep_tier
+	{
+		tier_none, // Not a principal representative
+		tier_1, // (0.1-1%)
+		tier_2, // (1-5%)
+		tier_3, // (> 5%)
+	};
+
+	rep_tier representative_tier (nano::account const & representative) const;
+
+private:
 	std::size_t const max_votes;
 	std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> votes;
 
-	/** Representatives levels for random early detection */
+	/** Representatives levels for early prioritization */
 	std::unordered_set<nano::account> representatives_1;
 	std::unordered_set<nano::account> representatives_2;
 	std::unordered_set<nano::account> representatives_3;

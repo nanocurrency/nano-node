@@ -104,6 +104,23 @@ void nano::vote_processor::run ()
 	}
 }
 
+auto nano::vote_processor::representative_tier (const nano::account & representative) const -> rep_tier
+{
+	if (representatives_3.find (representative) != representatives_3.end ())
+	{
+		return rep_tier::tier_3;
+	}
+	if (representatives_2.find (representative) != representatives_2.end ())
+	{
+		return rep_tier::tier_2;
+	}
+	if (representatives_1.find (representative) != representatives_1.end ())
+	{
+		return rep_tier::tier_1;
+	}
+	return rep_tier::tier_none;
+}
+
 bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	debug_assert (channel_a != nullptr);
@@ -111,6 +128,8 @@ bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	if (!stopped)
 	{
+		auto tier = representative_tier (vote_a->account);
+
 		// Level 0 (< 0.1%)
 		if (votes.size () < 6.0 / 9.0 * max_votes)
 		{
@@ -119,17 +138,17 @@ bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std
 		// Level 1 (0.1-1%)
 		else if (votes.size () < 7.0 / 9.0 * max_votes)
 		{
-			process = (representatives_1.find (vote_a->account) != representatives_1.end ());
+			process = (tier == rep_tier::tier_1);
 		}
 		// Level 2 (1-5%)
 		else if (votes.size () < 8.0 / 9.0 * max_votes)
 		{
-			process = (representatives_2.find (vote_a->account) != representatives_2.end ());
+			process = (tier == rep_tier::tier_2);
 		}
 		// Level 3 (> 5%)
 		else if (votes.size () < max_votes)
 		{
-			process = (representatives_3.find (vote_a->account) != representatives_3.end ());
+			process = (tier == rep_tier::tier_3);
 		}
 		if (process)
 		{
@@ -236,6 +255,7 @@ void nano::vote_processor::calculate_weights ()
 		auto rep_amounts = ledger.cache.rep_weights.get_rep_amounts ();
 		for (auto const & rep_amount : rep_amounts)
 		{
+			// TODO: Base this calculation on online weight, not total supply
 			nano::account const & representative (rep_amount.first);
 			auto weight (ledger.weight (representative));
 			if (weight > supply / 1000) // 0.1% or above (level 1)
