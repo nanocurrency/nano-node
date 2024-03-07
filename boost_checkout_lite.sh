@@ -9,11 +9,11 @@ git submodule init boost
 cd boost
 # deactivate all boost submodules
 git submodule foreach 'git config submodule.$sm_path.active false'
-# selectivly activate required dependencies
+# selectively activate required dependencies
 for i in ${dependencies[@]}
 do
   git config submodule.$i.active true
 done
 cd ..
-# Update all submodules recursivly. Deactivated modules will be skipped by --recursive
+# Update all submodules recursively. Deactivated modules will be skipped by --recursive
 git submodule update --jobs 16 --recursive --recommend-shallow --single-branch
