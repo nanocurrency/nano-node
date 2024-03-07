@@ -2,6 +2,7 @@
 
 #include <nano/crypto/blake2/blake2.h>
 #include <nano/lib/block_sideband.hpp>
+#include <nano/lib/block_uniquer.hpp>
 #include <nano/lib/epoch.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/numbers.hpp>
@@ -9,7 +10,6 @@
 #include <nano/lib/optional_ptr.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/lib/uniquer.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
 
@@ -377,8 +377,6 @@ public:
 	virtual void state_block (nano::state_block &) = 0;
 	virtual ~mutable_block_visitor () = default;
 };
-
-using block_uniquer = nano::uniquer<nano::uint256_union, nano::block>;
 
 std::shared_ptr<nano::block> deserialize_block (nano::stream &);
 std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);

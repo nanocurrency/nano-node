@@ -25,6 +25,7 @@ add_library(
   block_sideband.cpp
   block_type.hpp
   block_type.cpp
+  block_uniquer.hpp
   blockbuilders.hpp
   blockbuilders.cpp
   blocks.hpp
