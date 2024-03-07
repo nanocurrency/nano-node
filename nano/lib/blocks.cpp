@@ -173,10 +173,9 @@ nano::block_hash const & nano::block::source () const
 	return source;
 }
 
-nano::account const & nano::block::destination () const
+std::optional<nano::account> nano::block::destination () const
 {
-	static nano::account destination{};
-	return destination;
+	return std::nullopt;
 }
 
 nano::link const & nano::block::link () const
@@ -504,7 +503,7 @@ nano::block_hash const & nano::send_block::previous () const
 	return hashables.previous;
 }
 
-nano::account const & nano::send_block::destination () const
+std::optional<nano::account> nano::send_block::destination () const
 {
 	return hashables.destination;
 }

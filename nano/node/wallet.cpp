@@ -1092,7 +1092,7 @@ bool nano::wallet::receive_sync (std::shared_ptr<nano::block> const & block_a, n
 {
 	std::promise<bool> result;
 	std::future<bool> future = result.get_future ();
-	auto destination (block_a->link ().is_zero () ? block_a->destination () : block_a->link ().as_account ());
+	auto destination (block_a->link ().is_zero () ? block_a->destination ().value () : block_a->link ().as_account ());
 	receive_async (
 	block_a->hash (), representative_a, amount_a, destination, [&result] (std::shared_ptr<nano::block> const & block_a) {
 		result.set_value (block_a == nullptr);

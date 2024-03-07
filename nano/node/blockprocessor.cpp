@@ -344,7 +344,7 @@ nano::block_status nano::block_processor::process_one (store::write_transaction 
 			{
 				/* block->destination () for legacy send blocks
 				block->link () for state blocks (send subtype) */
-				queue_unchecked (transaction_a, block->destination ().is_zero () ? block->link () : block->destination ());
+				queue_unchecked (transaction_a, !block->destination () ? block->link () : block->destination ().value ());
 			}
 			break;
 		}

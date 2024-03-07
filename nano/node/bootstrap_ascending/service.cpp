@@ -148,7 +148,7 @@ void nano::bootstrap_ascending::service::inspect (store::transaction const & tx,
 				switch (block.type ())
 				{
 					case nano::block_type::send:
-						destination = block.destination ();
+						destination = block.destination ().value ();
 						break;
 					case nano::block_type::state:
 						destination = block.link ().as_account ();
