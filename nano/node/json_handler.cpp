@@ -1383,7 +1383,7 @@ void nano::json_handler::blocks_info ()
 					}
 					if (source)
 					{
-						if (!block->sideband ().details.is_receive || !node.ledger.block_exists (transaction, block->source ()))
+						if (!block->is_receive () || !node.ledger.block_exists (transaction, block->source ()))
 						{
 							entry.put ("source_account", "0");
 						}

@@ -129,6 +129,21 @@ bool nano::block::is_send () const noexcept
 	}
 }
 
+bool nano::block::is_receive () const noexcept
+{
+	release_assert (has_sideband ());
+	switch (type ())
+	{
+		case nano::block_type::receive:
+		case nano::block_type::open:
+			return true;
+		case nano::block_type::state:
+			return sideband ().details.is_receive;
+		default:
+			return false;
+	}
+}
+
 nano::block_hash const & nano::block::hash () const
 {
 	if (!cached_hash.is_zero ())

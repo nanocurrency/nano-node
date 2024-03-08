@@ -4769,7 +4769,7 @@ TEST (rpc, block_create_state_open)
 	auto process_result (node->process (state_block));
 	ASSERT_EQ (nano::block_status::progress, process_result);
 	ASSERT_EQ (state_block->sideband ().details.epoch, nano::epoch::epoch_0);
-	ASSERT_TRUE (state_block->sideband ().details.is_receive);
+	ASSERT_TRUE (state_block->is_receive ());
 	ASSERT_FALSE (node->latest (key.pub).is_zero ());
 }
 
@@ -4848,7 +4848,7 @@ TEST (rpc, block_create_open_epoch_v2)
 	auto process_result (node->process (state_block));
 	ASSERT_EQ (nano::block_status::progress, process_result);
 	ASSERT_EQ (state_block->sideband ().details.epoch, nano::epoch::epoch_2);
-	ASSERT_TRUE (state_block->sideband ().details.is_receive);
+	ASSERT_TRUE (state_block->is_receive ());
 	ASSERT_FALSE (node->latest (key.pub).is_zero ());
 }
 
@@ -4900,7 +4900,7 @@ TEST (rpc, block_create_receive_epoch_v2)
 	auto process_result (node->process (state_block));
 	ASSERT_EQ (nano::block_status::progress, process_result);
 	ASSERT_EQ (state_block->sideband ().details.epoch, nano::epoch::epoch_2);
-	ASSERT_TRUE (state_block->sideband ().details.is_receive);
+	ASSERT_TRUE (state_block->is_receive ());
 	ASSERT_FALSE (node->latest (key.pub).is_zero ());
 }
 

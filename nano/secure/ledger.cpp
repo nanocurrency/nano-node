@@ -1227,7 +1227,7 @@ std::shared_ptr<nano::block> nano::ledger::find_receive_block_by_send_hash (stor
 	// walk down the chain until the source field of a receive block matches the send block hash
 	while (possible_receive_block != nullptr)
 	{
-		if (possible_receive_block->sideband ().details.is_receive && send_block_hash == possible_receive_block->source ())
+		if (possible_receive_block->is_receive () && send_block_hash == possible_receive_block->source ())
 		{
 			// we have a match
 			result = possible_receive_block;

@@ -56,6 +56,7 @@ public:
 	// If there are any changes to the hashables, call this to update the cached hash
 	void refresh ();
 	bool is_send () const noexcept;
+	bool is_receive () const noexcept;
 
 public: // Direct access to the block fields or nullopt if the block type does not have the specified field
 	// Returns account field or account from sideband
