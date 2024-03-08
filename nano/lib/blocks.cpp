@@ -208,10 +208,9 @@ bool nano::block::has_sideband () const
 	return sideband_m.is_initialized ();
 }
 
-nano::account const & nano::block::representative () const
+std::optional<nano::account> nano::block::representative_field () const
 {
-	static nano::account representative{};
-	return representative;
+	return std::nullopt;
 }
 
 std::optional<nano::block_hash> nano::block::source_field () const
@@ -796,7 +795,7 @@ void nano::open_block::serialize_json (boost::property_tree::ptree & tree) const
 {
 	tree.put ("type", "open");
 	tree.put ("source", hashables.source.to_string ());
-	tree.put ("representative", representative ().to_account ());
+	tree.put ("representative", hashables.representative.to_account ());
 	tree.put ("account", hashables.account.to_account ());
 	std::string signature_l;
 	signature.encode_hex (signature_l);
@@ -880,7 +879,7 @@ nano::root const & nano::open_block::root () const
 	return hashables.account;
 }
 
-nano::account const & nano::open_block::representative () const
+std::optional<nano::account> nano::open_block::representative_field () const
 {
 	return hashables.representative;
 }
@@ -1060,7 +1059,7 @@ void nano::change_block::serialize_json (boost::property_tree::ptree & tree) con
 {
 	tree.put ("type", "change");
 	tree.put ("previous", hashables.previous.to_string ());
-	tree.put ("representative", representative ().to_account ());
+	tree.put ("representative", hashables.representative.to_account ());
 	tree.put ("work", nano::to_string_hex (work));
 	std::string signature_l;
 	signature.encode_hex (signature_l);
@@ -1146,7 +1145,7 @@ nano::root const & nano::change_block::root () const
 	return hashables.previous;
 }
 
-nano::account const & nano::change_block::representative () const
+std::optional<nano::account> nano::change_block::representative_field () const
 {
 	return hashables.representative;
 }
@@ -1372,7 +1371,7 @@ void nano::state_block::serialize_json (boost::property_tree::ptree & tree) cons
 	tree.put ("type", "state");
 	tree.put ("account", hashables.account.to_account ());
 	tree.put ("previous", hashables.previous.to_string ());
-	tree.put ("representative", representative ().to_account ());
+	tree.put ("representative", hashables.representative.to_account ());
 	tree.put ("balance", hashables.balance.to_string_dec ());
 	tree.put ("link", hashables.link.to_string ());
 	tree.put ("link_as_account", hashables.link.to_account ());
@@ -1475,7 +1474,7 @@ std::optional<nano::link> nano::state_block::link_field () const
 	return hashables.link;
 }
 
-nano::account const & nano::state_block::representative () const
+std::optional<nano::account> nano::state_block::representative_field () const
 {
 	return hashables.representative;
 }

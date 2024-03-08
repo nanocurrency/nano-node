@@ -1584,7 +1584,7 @@ int main (int argc, char * const * argv)
 					// Calculate representative block
 					if (block->type () == nano::block_type::open || block->type () == nano::block_type::change || block->type () == nano::block_type::state)
 					{
-						calculated_representative = block->representative ();
+						calculated_representative = block->representative_field ().value ();
 					}
 					// Retrieving successor block hash
 					hash = node->store.block.successor (transaction, hash);

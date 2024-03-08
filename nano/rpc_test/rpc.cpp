@@ -2397,7 +2397,7 @@ TEST (rpc, account_representative_set)
 	auto key2_open_block_hash = wallet.send_sync (nano::dev::genesis_key.pub, key2.pub, node->config.receive_minimum.number ());
 	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->store.tx_begin_read (), key2_open_block_hash));
 	auto key2_open_block = node->ledger.block (node->store.tx_begin_read (), key2_open_block_hash);
-	ASSERT_EQ (nano::dev::genesis_key.pub, key2_open_block->representative ());
+	ASSERT_EQ (nano::dev::genesis_key.pub, key2_open_block->representative_field ().value ());
 
 	// now change the representative of key2 to be genesis
 	auto const rpc_ctx = add_rpc (system, node);
@@ -2416,7 +2416,7 @@ TEST (rpc, account_representative_set)
 	auto block = node->ledger.block (node->store.tx_begin_read (), hash);
 	ASSERT_NE (block, nullptr);
 	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->store.tx_begin_read (), hash));
-	ASSERT_EQ (key2.pub, block->representative ());
+	ASSERT_EQ (key2.pub, block->representative_field ().value ());
 }
 
 TEST (rpc, account_representative_set_work_disabled)

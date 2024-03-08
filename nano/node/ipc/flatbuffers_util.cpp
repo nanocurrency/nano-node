@@ -9,7 +9,7 @@ std::unique_ptr<nanoapi::BlockStateT> nano::ipc::flatbuffers_builder::from (nano
 	block->account = block_a.account ().to_account ();
 	block->hash = block_a.hash ().to_string ();
 	block->previous = block_a.previous ().to_string ();
-	block->representative = block_a.representative ().to_account ();
+	block->representative = block_a.representative_field ().value ().to_account ();
 	block->balance = block_a.balance ().to_string_dec ();
 	block->link = block_a.link_field ().value ().to_string ();
 	block->link_as_account = block_a.link_field ().value ().to_account ();
@@ -64,7 +64,7 @@ std::unique_ptr<nanoapi::BlockOpenT> nano::ipc::flatbuffers_builder::from (nano:
 	block->hash = block_a.hash ().to_string ();
 	block->source = block_a.source_field ().value ().to_string ();
 	block->account = block_a.account ().to_account ();
-	block->representative = block_a.representative ().to_account ();
+	block->representative = block_a.representative_field ().value ().to_account ();
 	block_a.signature.encode_hex (block->signature);
 	block->work = nano::to_string_hex (block_a.work);
 	return block;
@@ -75,7 +75,7 @@ std::unique_ptr<nanoapi::BlockChangeT> nano::ipc::flatbuffers_builder::from (nan
 	auto block (std::make_unique<nanoapi::BlockChangeT> ());
 	block->hash = block_a.hash ().to_string ();
 	block->previous = block_a.previous ().to_string ();
-	block->representative = block_a.representative ().to_account ();
+	block->representative = block_a.representative_field ().value ().to_account ();
 	block_a.signature.encode_hex (block->signature);
 	block->work = nano::to_string_hex (block_a.work);
 	return block;

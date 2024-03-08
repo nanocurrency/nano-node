@@ -39,7 +39,6 @@ public:
 	virtual nano::root const & root () const = 0;
 	// Qualified root value based on previous() and root()
 	virtual nano::qualified_root qualified_root () const;
-	virtual nano::account const & representative () const;
 	virtual void serialize (nano::stream &) const = 0;
 	virtual void serialize_json (std::string &, bool = false) const = 0;
 	virtual void serialize_json (boost::property_tree::ptree &) const = 0;
@@ -74,6 +73,8 @@ public: // Direct access to the block fields or nullopt if the block type does n
 	virtual std::optional<nano::account> destination_field () const;
 	// Link field for state blocks
 	virtual std::optional<nano::link> link_field () const;
+	// Representative field for open/change blocks
+	virtual std::optional<nano::account> representative_field () const;
 	// Returns the source block hash for open/receive/state blocks that are receives
 	nano::block_hash source () const noexcept;
 	// Source block for open/receive blocks
@@ -230,7 +231,6 @@ public:
 	void block_work_set (uint64_t) override;
 	nano::block_hash const & previous () const override;
 	nano::root const & root () const override;
-	nano::account const & representative () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void serialize_json (std::string &, bool = false) const override;
@@ -251,6 +251,7 @@ public:
 
 public: // Open block fields
 	std::optional<nano::account> account_field () const override;
+	std::optional<nano::account> representative_field () const override;
 	std::optional<nano::block_hash> source_field () const override;
 
 public: // Logging
@@ -284,7 +285,6 @@ public:
 	void block_work_set (uint64_t) override;
 	nano::block_hash const & previous () const override;
 	nano::root const & root () const override;
-	nano::account const & representative () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void serialize_json (std::string &, bool = false) const override;
@@ -302,6 +302,9 @@ public:
 	nano::signature signature;
 	uint64_t work;
 	static std::size_t constexpr size = nano::change_hashables::size + sizeof (signature) + sizeof (work);
+
+public: // Change block fields
+	std::optional<nano::account> representative_field () const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
@@ -347,7 +350,6 @@ public:
 	void block_work_set (uint64_t) override;
 	nano::block_hash const & previous () const override;
 	nano::root const & root () const override;
-	nano::account const & representative () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void serialize_json (std::string &, bool = false) const override;
@@ -370,6 +372,7 @@ public: // State block fields
 	std::optional<nano::account> account_field () const override;
 	std::optional<nano::amount> balance_field () const override;
 	std::optional<nano::link> link_field () const override;
+	std::optional<nano::account> representative_field () const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;

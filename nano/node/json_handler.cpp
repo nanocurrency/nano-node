@@ -685,10 +685,10 @@ void nano::json_handler::account_info ()
 					nano::account confirmed_representative{};
 					if (confirmed_frontier_block)
 					{
-						confirmed_representative = confirmed_frontier_block->representative ();
+						confirmed_representative = confirmed_frontier_block->representative_field ().value_or (0);
 						if (confirmed_representative.is_zero ())
 						{
-							confirmed_representative = node.ledger.block (transaction, node.ledger.representative (transaction, confirmation_height_info.frontier))->representative ();
+							confirmed_representative = node.ledger.block (transaction, node.ledger.representative (transaction, confirmation_height_info.frontier))->representative_field ().value ();
 						}
 					}
 
