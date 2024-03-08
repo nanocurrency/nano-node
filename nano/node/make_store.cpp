@@ -1,3 +1,4 @@
+#include <nano/lib/logging.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/store/lmdb/lmdb.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>

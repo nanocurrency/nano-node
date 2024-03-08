@@ -27,6 +27,7 @@ namespace store
 	class pending;
 	class pruned;
 	class version;
+	class rep_weight;
 }
 class ledger_cache;
 
@@ -52,7 +53,8 @@ namespace store
 		nano::store::peer &,
 		nano::store::confirmation_height &,
 		nano::store::final_vote &,
-		nano::store::version &
+		nano::store::version &,
+		nano::store::rep_weight &
 	);
 		// clang-format on
 		virtual ~component () = default;
@@ -68,6 +70,7 @@ namespace store
 		store::frontier & frontier;
 		store::account & account;
 		store::pending & pending;
+		store::rep_weight & rep_weight;
 		static int constexpr version_minimum{ 21 };
 		static int constexpr version_current{ 22 };
 

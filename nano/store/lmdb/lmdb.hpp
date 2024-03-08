@@ -18,6 +18,7 @@
 #include <nano/store/lmdb/peer.hpp>
 #include <nano/store/lmdb/pending.hpp>
 #include <nano/store/lmdb/pruned.hpp>
+#include <nano/store/lmdb/rep_weight.hpp>
 #include <nano/store/lmdb/transaction_impl.hpp>
 #include <nano/store/lmdb/version.hpp>
 #include <nano/store/versioning.hpp>
@@ -50,6 +51,7 @@ private:
 	nano::store::lmdb::pending pending_store;
 	nano::store::lmdb::pruned pruned_store;
 	nano::store::lmdb::version version_store;
+	nano::store::lmdb::rep_weight rep_weight_store;
 
 	friend class nano::store::lmdb::account;
 	friend class nano::store::lmdb::block;
@@ -61,6 +63,7 @@ private:
 	friend class nano::store::lmdb::pending;
 	friend class nano::store::lmdb::pruned;
 	friend class nano::store::lmdb::version;
+	friend class nano::store::lmdb::rep_weight;
 
 public:
 	component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
