@@ -293,6 +293,20 @@ nano::block_hash nano::block::source () const noexcept
 	}
 }
 
+// TODO - Remove comments below and fixup usages to not need to check .is_zero ()
+// std::optional<nano::block_hash> nano::block::previous () const
+nano::block_hash nano::block::previous () const noexcept
+{
+	std::optional<nano::block_hash> result = previous_field ();
+	/*
+	if (result && result.value ().is_zero ())
+	{
+		return std::nullopt;
+	}
+	return result;*/
+	return result.value_or (0);
+}
+
 std::optional<nano::account> nano::block::account_field () const
 {
 	return std::nullopt;
@@ -573,7 +587,7 @@ bool nano::send_block::operator== (nano::send_block const & other_a) const
 	return result;
 }
 
-nano::block_hash const & nano::send_block::previous () const
+std::optional<nano::block_hash> nano::send_block::previous_field () const
 {
 	return hashables.previous;
 }
@@ -743,10 +757,9 @@ void nano::open_block::block_work_set (uint64_t work_a)
 	work = work_a;
 }
 
-nano::block_hash const & nano::open_block::previous () const
+std::optional<nano::block_hash> nano::open_block::previous_field () const
 {
-	static nano::block_hash result{ 0 };
-	return result;
+	return std::nullopt;
 }
 
 std::optional<nano::account> nano::open_block::account_field () const
@@ -1015,7 +1028,7 @@ void nano::change_block::block_work_set (uint64_t work_a)
 	work = work_a;
 }
 
-nano::block_hash const & nano::change_block::previous () const
+std::optional<nano::block_hash> nano::change_block::previous_field () const
 {
 	return hashables.previous;
 }
@@ -1314,7 +1327,7 @@ void nano::state_block::block_work_set (uint64_t work_a)
 	work = work_a;
 }
 
-nano::block_hash const & nano::state_block::previous () const
+std::optional<nano::block_hash> nano::state_block::previous_field () const
 {
 	return hashables.previous;
 }
@@ -1801,7 +1814,7 @@ bool nano::receive_block::valid_predecessor (nano::block const & block_a) const
 	return result;
 }
 
-nano::block_hash const & nano::receive_block::previous () const
+std::optional<nano::block_hash> nano::receive_block::previous_field () const
 {
 	return hashables.previous;
 }
