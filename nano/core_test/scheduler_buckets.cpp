@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/node/scheduler/buckets.hpp>
 #include <nano/secure/common.hpp>
 

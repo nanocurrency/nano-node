@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
@@ -181,14 +182,13 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	ascendboot{ config, block_processor, ledger, network, stats },
 	websocket{ config.websocket_config, observers, wallets, ledger, io_ctx, logger },
 	epoch_upgrader{ *this, ledger, store, network_params, logger },
+	local_block_broadcaster{ *this, block_processor, network, stats, !flags.disable_block_processor_republishing },
+	process_live_dispatcher{ ledger, scheduler.priority, vote_cache, websocket },
 	startup_time (std::chrono::steady_clock::now ()),
-	node_seq (seq),
-	block_broadcast{ network, !flags.disable_block_processor_republishing },
-	process_live_dispatcher{ ledger, scheduler.priority, vote_cache, websocket }
+	node_seq (seq)
 {
 	logger.debug (nano::log::type::node, "Constructing node...");
 
-	block_broadcast.connect (block_processor);
 	process_live_dispatcher.connect (block_processor);
 
 	unchecked.satisfied.add ([this] (nano::unchecked_info const & info) {
@@ -538,6 +538,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.final_generator, "vote_generator_final"));
 	composite->add_component (node.ascendboot.collect_container_info ("bootstrap_ascending"));
 	composite->add_component (node.unchecked.collect_container_info ("unchecked"));
+	composite->add_component (node.local_block_broadcaster.collect_container_info ("local_block_broadcaster"));
 	return composite;
 }
 
@@ -633,6 +634,7 @@ void nano::node::start ()
 		port_mapping.start ();
 	}
 	wallets.start ();
+	vote_processor.start ();
 	active.start ();
 	generator.start ();
 	final_generator.start ();
@@ -645,6 +647,7 @@ void nano::node::start ()
 	}
 	websocket.start ();
 	telemetry.start ();
+	local_block_broadcaster.start ();
 }
 
 void nano::node::stop ()
@@ -686,6 +689,7 @@ void nano::node::stop ()
 	stats.stop ();
 	epoch_upgrader.stop ();
 	workers.stop ();
+	local_block_broadcaster.stop ();
 	// work pool is not stopped on purpose due to testing setup
 }
 
@@ -714,8 +718,7 @@ nano::uint128_t nano::node::balance (nano::account const & account_a)
 
 std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)
 {
-	auto const transaction (store.tx_begin_read ());
-	return store.block.get (transaction, hash_a);
+	return ledger.block (store.tx_begin_read (), hash_a);
 }
 
 std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::account const & account_a, bool only_confirmed_a)
@@ -908,7 +911,7 @@ bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & 
 		uint64_t depth (0);
 		while (!hash.is_zero () && depth < max_depth_a)
 		{
-			auto block (store.block.get (transaction, hash));
+			auto block = ledger.block (transaction, hash);
 			if (block != nullptr)
 			{
 				if (block->sideband ().timestamp > cutoff_time_a || depth == 0)
@@ -1218,14 +1221,13 @@ void nano::node::process_confirmed_data (store::transaction const & transaction_
 	}
 	// Faster amount calculation
 	auto previous (block_a->previous ());
-	bool error (false);
-	auto previous_balance (ledger.balance_safe (transaction_a, previous, error));
+	auto previous_balance = ledger.balance (transaction_a, previous);
 	auto block_balance = ledger.balance (*block_a);
 	if (hash_a != ledger.constants.genesis->account ())
 	{
-		if (!error)
+		if (previous_balance)
 		{
-			amount_a = block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
+			amount_a = block_balance > previous_balance.value () ? block_balance - previous_balance.value () : previous_balance.value () - block_balance;
 		}
 		else
 		{
@@ -1258,7 +1260,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 {
 	auto hash (status_a.winner->hash ());
 	decltype (iteration_a) const num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
-	if (auto block_l = ledger.store.block.get (ledger.store.tx_begin_read (), hash))
+	if (auto block_l = ledger.block (ledger.store.tx_begin_read (), hash))
 	{
 		logger.trace (nano::log::type::node, nano::log::detail::process_confirmed, nano::log::arg{ "block", block_l });
 

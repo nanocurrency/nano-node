@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/store/account.hpp>
 #include <nano/store/block.hpp>

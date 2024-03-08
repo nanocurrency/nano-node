@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/block_uniquer.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
@@ -8,7 +9,6 @@
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/backlog_population.hpp>
 #include <nano/node/bandwidth_limiter.hpp>
-#include <nano/node/block_broadcast.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
@@ -18,6 +18,7 @@
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/epoch_upgrader.hpp>
+#include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -184,7 +185,7 @@ public:
 	nano::bootstrap_ascending::service ascendboot;
 	nano::websocket_server websocket;
 	nano::epoch_upgrader epoch_upgrader;
-	nano::block_broadcast block_broadcast;
+	nano::local_block_broadcaster local_block_broadcaster;
 	nano::process_live_dispatcher process_live_dispatcher;
 
 	std::chrono::steady_clock::time_point const startup_time;

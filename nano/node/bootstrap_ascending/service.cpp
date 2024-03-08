@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/stats_enums.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
@@ -132,7 +133,7 @@ void nano::bootstrap_ascending::service::inspect (store::transaction const & tx,
 	{
 		case nano::block_status::progress:
 		{
-			const auto account = ledger.account (tx, hash);
+			const auto account = ledger.account (block);
 			const auto is_send = ledger.is_send (tx, block);
 
 			// If we've inserted any block in to an account, unmark it as blocked
@@ -166,7 +167,7 @@ void nano::bootstrap_ascending::service::inspect (store::transaction const & tx,
 		break;
 		case nano::block_status::gap_source:
 		{
-			const auto account = block.previous ().is_zero () ? block.account () : ledger.account (tx, block.previous ());
+			const auto account = block.previous ().is_zero () ? block.account () : ledger.account (tx, block.previous ()).value ();
 			const auto source = block.source ().is_zero () ? block.link ().as_block_hash () : block.source ();
 
 			// Mark account as blocked because it is missing the source block

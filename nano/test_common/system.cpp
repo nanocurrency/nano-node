@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/node/common.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -418,7 +419,7 @@ void nano::test::system::generate_receive (nano::node & node_a)
 		if (i != node_a.store.pending.end ())
 		{
 			nano::pending_key const & send_hash (i->first);
-			send_block = node_a.store.block.get (transaction, send_hash.hash);
+			send_block = node_a.ledger.block (transaction, send_hash.hash);
 		}
 	}
 	if (send_block != nullptr)

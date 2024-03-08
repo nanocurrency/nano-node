@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/manual.hpp>
 #include <nano/node/scheduler/priority.hpp>
@@ -289,7 +290,7 @@ uint64_t nano::test::account_height (nano::node const & node, nano::account cons
 {
 	auto const tx = node.ledger.store.tx_begin_read ();
 	nano::confirmation_height_info height_info;
-	if (!node.ledger.store.confirmation_height.get (tx, acc, height_info))
+	if (node.ledger.store.confirmation_height.get (tx, acc, height_info))
 	{
 		return 0;
 	}

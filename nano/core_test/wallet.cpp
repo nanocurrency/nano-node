@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/store/lmdb/wallet_value.hpp>
 #include <nano/test_common/system.hpp>
@@ -181,7 +182,7 @@ TEST (wallet, spend_all_one)
 	auto transaction (node1.store.tx_begin_read ());
 	auto info2 = node1.ledger.account_info (transaction, nano::dev::genesis_key.pub);
 	ASSERT_NE (latest1, info2->head);
-	auto block (node1.store.block.get (transaction, info2->head));
+	auto block = node1.ledger.block (transaction, info2->head);
 	ASSERT_NE (nullptr, block);
 	ASSERT_EQ (latest1, block->previous ());
 	ASSERT_TRUE (info2->balance.is_zero ());
@@ -216,7 +217,7 @@ TEST (wallet, spend)
 	auto info2 = node1.ledger.account_info (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info2);
 	ASSERT_NE (latest1, info2->head);
-	auto block (node1.store.block.get (transaction, info2->head));
+	auto block = node1.ledger.block (transaction, info2->head);
 	ASSERT_NE (nullptr, block);
 	ASSERT_EQ (latest1, block->previous ());
 	ASSERT_TRUE (info2->balance.is_zero ());
@@ -1223,7 +1224,7 @@ TEST (wallet, receive_pruned)
 	}
 	ASSERT_EQ (1, node2.ledger.cache.pruned_count);
 	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_FALSE (node2.store.block.exists (node2.store.tx_begin_read (), send1->hash ()));
+	ASSERT_FALSE (node2.ledger.block_exists (node2.store.tx_begin_read (), send1->hash ()));
 
 	wallet2.insert_adhoc (key.prv, false);
 

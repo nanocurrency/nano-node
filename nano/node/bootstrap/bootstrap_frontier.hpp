@@ -1,7 +1,10 @@
 #pragma once
 
+#include <nano/lib/numbers.hpp>
+
 #include <deque>
 #include <future>
+#include <memory>
 
 namespace nano
 {

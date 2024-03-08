@@ -1,3 +1,4 @@
+#include <nano/crypto/blake2/blake2.h>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/epoch.hpp>

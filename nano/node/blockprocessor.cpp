@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/blockprocessor.hpp>
@@ -152,11 +153,15 @@ void nano::block_processor::rollback_competitor (store::write_transaction const 
 		}
 		else
 		{
+			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::rollback);
 			node.logger.debug (nano::log::type::blockprocessor, "Blocks rolled back: {}", rollback_list.size ());
 		}
+
 		// Deleting from votes cache, stop active transaction
 		for (auto & i : rollback_list)
 		{
+			rolled_back.notify (i);
+
 			node.history.erase (i->root ());
 			// Stop all rolled back active transactions except initial
 			if (i->hash () != successor->hash ())

@@ -1,6 +1,7 @@
 #include <nano/boost/asio/bind_executor.hpp>
 #include <nano/boost/asio/dispatch.hpp>
 #include <nano/boost/asio/strand.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/tlsconfig.hpp>
 #include <nano/lib/work.hpp>

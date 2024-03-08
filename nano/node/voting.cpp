@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/network.hpp>
@@ -186,7 +187,7 @@ nano::vote_generator::~vote_generator ()
 
 bool nano::vote_generator::should_vote (store::write_transaction const & transaction, nano::root const & root_a, nano::block_hash const & hash_a)
 {
-	auto block = ledger.store.block.get (transaction, hash_a);
+	auto block = ledger.block (transaction, hash_a);
 	bool should_vote = false;
 	if (is_final)
 	{

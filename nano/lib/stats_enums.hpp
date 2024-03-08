@@ -50,6 +50,7 @@ enum class type : uint8_t
 	optimistic_scheduler,
 	handshake,
 	rep_crawler,
+	local_block_broadcaster,
 
 	bootstrap_ascending,
 	bootstrap_ascending_accounts,
@@ -103,6 +104,7 @@ enum class detail : uint8_t
 	old,
 	gap_previous,
 	gap_source,
+	rollback,
 	rollback_failed,
 	progress,
 	bad_signature,
@@ -340,6 +342,12 @@ enum class detail : uint8_t
 	query_completion,
 	crawl_aggressive,
 	crawl_normal,
+
+	// block broadcaster
+	broadcast_normal,
+	broadcast_aggressive,
+	erase_old,
+	erase_confirmed,
 
 	_last // Must be the last enum
 };

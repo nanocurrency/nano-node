@@ -202,6 +202,7 @@ public:
 		default_websocket_port (47000),
 		aec_loop_interval_ms (300), // Update AEC ~3 times per second
 		cleanup_period (default_cleanup_period),
+		merge_period (std::chrono::milliseconds (250)),
 		keepalive_period (std::chrono::seconds (15)),
 		idle_timeout (default_cleanup_period * 2),
 		silent_connection_tolerance_time (std::chrono::seconds (120)),
@@ -239,6 +240,7 @@ public:
 		{
 			aec_loop_interval_ms = 20;
 			cleanup_period = std::chrono::seconds (1);
+			merge_period = std::chrono::milliseconds (10);
 			keepalive_period = std::chrono::seconds (1);
 			idle_timeout = cleanup_period * 15;
 			max_peers_per_ip = 20;
@@ -279,6 +281,8 @@ public:
 	{
 		return cleanup_period * 5;
 	}
+	/** How often to connect to other peers */
+	std::chrono::milliseconds merge_period;
 	/** How often to send keepalive messages */
 	std::chrono::seconds keepalive_period;
 	/** Default maximum idle time for a socket before it's automatically closed */

@@ -9,6 +9,11 @@
 
 #include <cstddef>
 
+namespace nano
+{
+class block;
+}
+
 namespace nano::store
 {
 /**
@@ -92,15 +97,7 @@ public:
 		static_assert (std::is_standard_layout<nano::endpoint_key>::value, "Standard layout is required");
 	}
 
-	db_val (std::shared_ptr<nano::block> const & val_a) :
-		buffer (std::make_shared<std::vector<uint8_t>> ())
-	{
-		{
-			nano::vectorstream stream (*buffer);
-			nano::serialize_block (stream, *val_a);
-		}
-		convert_buffer_to_value ();
-	}
+	db_val (std::shared_ptr<nano::block> const & val_a);
 
 	db_val (uint64_t val_a) :
 		buffer (std::make_shared<std::vector<uint8_t>> ())
@@ -209,16 +206,7 @@ public:
 		return result;
 	}
 
-	explicit operator block_w_sideband () const
-	{
-		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
-		nano::store::block_w_sideband block_w_sideband;
-		block_w_sideband.block = (nano::deserialize_block (stream));
-		auto error = block_w_sideband.sideband.deserialize (stream, block_w_sideband.block->type ());
-		release_assert (!error);
-		block_w_sideband.block->sideband_set (block_w_sideband.sideband);
-		return block_w_sideband;
-	}
+	explicit operator block_w_sideband () const;
 
 	explicit operator std::nullptr_t () const
 	{
@@ -230,12 +218,7 @@ public:
 		return no_value::dummy;
 	}
 
-	explicit operator std::shared_ptr<nano::block> () const
-	{
-		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
-		std::shared_ptr<nano::block> result (nano::deserialize_block (stream));
-		return result;
-	}
+	explicit operator std::shared_ptr<nano::block> () const;
 
 	template <typename Block>
 	std::shared_ptr<Block> convert_to_block () const

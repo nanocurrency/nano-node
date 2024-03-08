@@ -1,6 +1,8 @@
 #pragma once
 
-#include <nano/lib/blocks.hpp>
+#include <nano/lib/block_type.hpp>
+
+#include <boost/system/error_code.hpp>
 
 #include <memory>
 #include <vector>

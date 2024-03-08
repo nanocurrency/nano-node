@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/election.hpp>
@@ -955,7 +956,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 			if (status == 0)
 			{
 				nano::block_hash hash (result);
-				block = wallets.node.store.block.get (block_transaction, hash);
+				block = wallets.node.ledger.block (block_transaction, hash);
 				if (block != nullptr)
 				{
 					cached_block = true;
@@ -1199,7 +1200,7 @@ bool nano::wallet::search_receivable (store::transaction const & wallet_transact
 						}
 						else if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
 						{
-							auto block (wallets.node.store.block.get (block_transaction, hash));
+							auto block = wallets.node.ledger.block (block_transaction, hash);
 							if (block)
 							{
 								// Request confirmation for block which is not being processed yet

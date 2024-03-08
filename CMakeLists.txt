@@ -11,7 +11,7 @@ endif()
 
 # OSX compatibility needs to be set before project is declared
 set(CMAKE_OSX_DEPLOYMENT_TARGET
-    12
+    13.3
     CACHE STRING "")
 
 project(nano-node)

@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/cli.hpp>
 #include <nano/lib/tlsconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>

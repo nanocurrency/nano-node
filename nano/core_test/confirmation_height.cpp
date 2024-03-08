@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/make_store.hpp>
@@ -1278,7 +1279,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		ledger, write_database_queue, 10ms, logger, stopped, batch_write_size, [] (auto const &) {}, [] (auto const &) {}, [] () { return 0; });
 
 		{
-			// This reads the blocks in the account, but prevents any writes from occuring yet
+			// This reads the blocks in the account, but prevents any writes from occurring yet
 			auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
 			bounded_processor.process (send);
 		}
@@ -1297,7 +1298,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		ledger, write_database_queue, 10ms, logger, stopped, batch_write_size, [] (auto const &) {}, [] (auto const &) {}, [] () { return 0; });
 
 		{
-			// This reads the blocks in the account, but prevents any writes from occuring yet
+			// This reads the blocks in the account, but prevents any writes from occurring yet
 			auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
 			unbounded_processor.process (send);
 		}
@@ -1366,7 +1367,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		ledger, write_database_queue, 10ms, logger, stopped, batch_write_size, [] (auto const &) {}, [] (auto const &) {}, [] () { return 0; });
 
 		{
-			// This reads the blocks in the account, but prevents any writes from occuring yet
+			// This reads the blocks in the account, but prevents any writes from occurring yet
 			auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
 			unbounded_processor.process (open);
 		}
@@ -1386,7 +1387,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		ledger, write_database_queue, 10ms, logger, stopped, batch_write_size, [] (auto const &) {}, [] (auto const &) {}, [] () { return 0; });
 
 		{
-			// This reads the blocks in the account, but prevents any writes from occuring yet
+			// This reads the blocks in the account, but prevents any writes from occurring yet
 			auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
 			bounded_processor.process (open);
 		}

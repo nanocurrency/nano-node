@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/cli.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/lib/utility.hpp>
@@ -1411,17 +1412,17 @@ int main (int argc, char * const * argv)
 
 				auto hash (info.open_block);
 				nano::block_hash calculated_hash (0);
-				auto block (node->store.block.get (transaction, hash)); // Block data
+				auto block = node->ledger.block (transaction, hash); // Block data
 				uint64_t height (0);
 				if (node->ledger.pruning && confirmation_height_info.height != 0)
 				{
 					hash = confirmation_height_info.frontier;
-					block = node->store.block.get (transaction, hash);
+					block = node->ledger.block (transaction, hash);
 					// Iteration until pruned block
 					bool pruned_block (false);
 					while (!pruned_block && !block->previous ().is_zero ())
 					{
-						auto previous_block (node->store.block.get (transaction, block->previous ()));
+						auto previous_block = node->ledger.block (transaction, block->previous ());
 						if (previous_block != nullptr)
 						{
 							hash = previous_block->hash ();
@@ -1494,7 +1495,7 @@ int main (int argc, char * const * argv)
 							bool error_or_pruned (false);
 							if (!state_block.hashables.previous.is_zero ())
 							{
-								prev_balance = node->ledger.balance_safe (transaction, state_block.hashables.previous, error_or_pruned);
+								prev_balance = node->ledger.balance (transaction, state_block.hashables.previous).value_or (0);
 							}
 							if (node->ledger.is_epoch_link (state_block.hashables.link))
 							{
@@ -1518,11 +1519,10 @@ int main (int argc, char * const * argv)
 					}
 					else
 					{
-						bool error_or_pruned (false);
-						auto prev_balance (node->ledger.balance_safe (transaction, block->previous (), error_or_pruned));
-						if (!node->ledger.pruning || !error_or_pruned)
+						auto prev_balance = node->ledger.balance (transaction, block->previous ());
+						if (!node->ledger.pruning || prev_balance)
 						{
-							if (block->balance () < prev_balance)
+							if (block->balance () < prev_balance.value ())
 							{
 								// State send
 								block_details_error = !sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
@@ -1534,7 +1534,7 @@ int main (int argc, char * const * argv)
 									// State change
 									block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
 								}
-								else if (block->balance () == prev_balance && node->ledger.is_epoch_link (block->link ()))
+								else if (block->balance () == prev_balance.value () && node->ledger.is_epoch_link (block->link ()))
 								{
 									// State epoch
 									block_details_error = !sideband.details.is_epoch || sideband.details.is_send || sideband.details.is_receive;
@@ -1591,7 +1591,7 @@ int main (int argc, char * const * argv)
 					// Retrieving block data
 					if (!hash.is_zero ())
 					{
-						block = node->store.block.get (transaction, hash);
+						block = node->ledger.block (transaction, hash);
 					}
 				}
 				// Check if required block exists
@@ -1676,7 +1676,7 @@ int main (int argc, char * const * argv)
 					std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
 				}
 				// Check block existance
-				auto block (node->store.block.get (transaction, key.hash));
+				auto block = node->ledger.block (transaction, key.hash);
 				bool pruned (false);
 				if (block == nullptr)
 				{
@@ -1693,7 +1693,7 @@ int main (int argc, char * const * argv)
 					bool previous_pruned = node->ledger.pruning && node->store.pruned.exists (transaction, block->previous ());
 					if (previous_pruned)
 					{
-						block = node->store.block.get (transaction, key.hash);
+						block = node->ledger.block (transaction, key.hash);
 					}
 					if (auto state = dynamic_cast<nano::state_block *> (block.get ()))
 					{
@@ -1800,7 +1800,7 @@ int main (int argc, char * const * argv)
 					while (!hash.is_zero ())
 					{
 						// Retrieving block data
-						auto block (source_node->store.block.get (transaction, hash));
+						auto block = source_node->ledger.block (transaction, hash);
 						if (block != nullptr)
 						{
 							++count;

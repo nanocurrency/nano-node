@@ -1,4 +1,7 @@
 #include <nano/lib/blockbuilders.hpp>
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/utility.hpp>
 
 #include <unordered_map>
 

@@ -43,6 +43,7 @@ enum class name
 	scheduler_optimistic,
 	scheduler_priority,
 	rep_crawler,
+	local_block_broadcasting,
 };
 
 /*

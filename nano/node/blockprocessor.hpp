@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/lib/blocks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/secure/common.hpp>
 
@@ -10,6 +9,13 @@
 #include <optional>
 #include <thread>
 
+namespace nano
+{
+class block;
+class node;
+class write_database_queue;
+}
+
 namespace nano::store
 {
 class write_transaction;
@@ -17,8 +23,6 @@ class write_transaction;
 
 namespace nano
 {
-class node;
-class write_database_queue;
 
 enum class block_source
 {
@@ -86,6 +90,7 @@ public: // Events
 	// The batch observer feeds the processed observer
 	nano::observer_set<nano::block_status const &, context const &> block_processed;
 	nano::observer_set<processed_batch_t const &> batch_processed;
+	nano::observer_set<std::shared_ptr<nano::block> const &> rolled_back;
 
 private:
 	// Roll back block in the ledger that conflicts with 'block'
