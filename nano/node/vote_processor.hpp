@@ -32,6 +32,15 @@ namespace transport
 	class channel;
 }
 
+// Higher number means higher priority
+enum class representative_tier
+{
+	none, // Not a principal representative
+	tier_1, // (0.1-1%) of online stake
+	tier_2, // (1-5%) of online stake
+	tier_3, // (> 5%) of online stake
+};
+
 class vote_processor final
 {
 public:
@@ -53,6 +62,8 @@ public:
 	bool empty () const;
 	void calculate_weights ();
 
+	nano::representative_tier representative_tier (nano::account const & representative) const;
+
 	std::atomic<uint64_t> total_processed{ 0 };
 
 private: // Dependencies
@@ -69,18 +80,7 @@ private: // Dependencies
 private:
 	void run ();
 	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> const &);
-
-private:
-	// Higher number means higher priority
-	enum class rep_tier
-	{
-		tier_none, // Not a principal representative
-		tier_1, // (0.1-1%)
-		tier_2, // (1-5%)
-		tier_3, // (> 5%)
-	};
-
-	rep_tier representative_tier (nano::account const & representative) const;
+	nano::representative_tier representative_tier_locked (nano::account const & representative) const;
 
 private:
 	std::size_t const max_votes;
@@ -98,7 +98,6 @@ private:
 	std::thread thread;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, std::string const & name);
-	friend class vote_processor_weights_Test;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, std::string const & name);

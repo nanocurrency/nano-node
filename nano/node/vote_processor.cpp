@@ -104,21 +104,29 @@ void nano::vote_processor::run ()
 	}
 }
 
-auto nano::vote_processor::representative_tier (const nano::account & representative) const -> rep_tier
+nano::representative_tier nano::vote_processor::representative_tier (const nano::account & representative) const
 {
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return representative_tier_locked (representative);
+}
+
+nano::representative_tier nano::vote_processor::representative_tier_locked (const nano::account & representative) const
+{
+	debug_assert (!mutex.try_lock ());
+
 	if (representatives_3.find (representative) != representatives_3.end ())
 	{
-		return rep_tier::tier_3;
+		return nano::representative_tier::tier_3;
 	}
 	if (representatives_2.find (representative) != representatives_2.end ())
 	{
-		return rep_tier::tier_2;
+		return nano::representative_tier::tier_2;
 	}
 	if (representatives_1.find (representative) != representatives_1.end ())
 	{
-		return rep_tier::tier_1;
+		return nano::representative_tier::tier_1;
 	}
-	return rep_tier::tier_none;
+	return nano::representative_tier::none;
 }
 
 bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a)
@@ -128,7 +136,7 @@ bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	if (!stopped)
 	{
-		auto tier = representative_tier (vote_a->account);
+		auto tier = representative_tier_locked (vote_a->account);
 
 		// Level 0 (< 0.1%)
 		if (votes.size () < 6.0 / 9.0 * max_votes)
@@ -138,17 +146,17 @@ bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std
 		// Level 1 (0.1-1%)
 		else if (votes.size () < 7.0 / 9.0 * max_votes)
 		{
-			process = (tier == rep_tier::tier_1);
+			process = (tier == nano::representative_tier::tier_1);
 		}
 		// Level 2 (1-5%)
 		else if (votes.size () < 8.0 / 9.0 * max_votes)
 		{
-			process = (tier == rep_tier::tier_2);
+			process = (tier == nano::representative_tier::tier_2);
 		}
 		// Level 3 (> 5%)
 		else if (votes.size () < max_votes)
 		{
-			process = (tier == rep_tier::tier_3);
+			process = (tier == nano::representative_tier::tier_3);
 		}
 		if (process)
 		{

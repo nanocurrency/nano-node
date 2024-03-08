@@ -125,8 +125,6 @@ TEST (vote_processor, overflow)
 	ASSERT_LT (std::chrono::system_clock::now () - start_time, 10s);
 }
 
-namespace nano
-{
 TEST (vote_processor, weights)
 {
 	nano::test::system system (4);
@@ -158,22 +156,10 @@ TEST (vote_processor, weights)
 	ASSERT_TIMELY_EQ (5s, node.online_reps.online (), total);
 	node.vote_processor.calculate_weights ();
 
-	ASSERT_EQ (node.vote_processor.representatives_1.end (), node.vote_processor.representatives_1.find (key0.pub));
-	ASSERT_EQ (node.vote_processor.representatives_2.end (), node.vote_processor.representatives_2.find (key0.pub));
-	ASSERT_EQ (node.vote_processor.representatives_3.end (), node.vote_processor.representatives_3.find (key0.pub));
-
-	ASSERT_NE (node.vote_processor.representatives_1.end (), node.vote_processor.representatives_1.find (key1.pub));
-	ASSERT_EQ (node.vote_processor.representatives_2.end (), node.vote_processor.representatives_2.find (key1.pub));
-	ASSERT_EQ (node.vote_processor.representatives_3.end (), node.vote_processor.representatives_3.find (key1.pub));
-
-	ASSERT_NE (node.vote_processor.representatives_1.end (), node.vote_processor.representatives_1.find (key2.pub));
-	ASSERT_NE (node.vote_processor.representatives_2.end (), node.vote_processor.representatives_2.find (key2.pub));
-	ASSERT_EQ (node.vote_processor.representatives_3.end (), node.vote_processor.representatives_3.find (key2.pub));
-
-	ASSERT_NE (node.vote_processor.representatives_1.end (), node.vote_processor.representatives_1.find (nano::dev::genesis_key.pub));
-	ASSERT_NE (node.vote_processor.representatives_2.end (), node.vote_processor.representatives_2.find (nano::dev::genesis_key.pub));
-	ASSERT_NE (node.vote_processor.representatives_3.end (), node.vote_processor.representatives_3.find (nano::dev::genesis_key.pub));
-}
+	ASSERT_EQ (node.vote_processor.representative_tier (key0.pub), nano::representative_tier::none);
+	ASSERT_EQ (node.vote_processor.representative_tier (key1.pub), nano::representative_tier::tier_1);
+	ASSERT_EQ (node.vote_processor.representative_tier (key2.pub), nano::representative_tier::tier_2);
+	ASSERT_EQ (node.vote_processor.representative_tier (nano::dev::genesis_key.pub), nano::representative_tier::tier_3);
 }
 
 // Issue that tracks last changes on this test: https://github.com/nanocurrency/nano-node/issues/3485
