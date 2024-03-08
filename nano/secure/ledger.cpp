@@ -224,7 +224,7 @@ bool ledger_processor::validate_epoch_block (nano::state_block const & block_a)
 			if (validate_message (block_a.hashables.account, block_a.hash (), block_a.signature))
 			{
 				// Is epoch block signed correctly
-				if (validate_message (ledger.epoch_signer (block_a.link ().value ()), block_a.hash (), block_a.signature))
+				if (validate_message (ledger.epoch_signer (block_a.link_field ().value ()), block_a.hash (), block_a.signature))
 				{
 					result = nano::block_status::bad_signature;
 				}

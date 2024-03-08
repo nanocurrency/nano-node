@@ -1501,7 +1501,7 @@ int main (int argc, char * const * argv)
 							{
 								if ((state_block.hashables.balance == prev_balance && !error_or_pruned) || (node->ledger.pruning && error_or_pruned && block->sideband ().details.is_epoch))
 								{
-									invalid = validate_message (node->ledger.epoch_signer (block->link ().value ()), hash, block->block_signature ());
+									invalid = validate_message (node->ledger.epoch_signer (block->link_field ().value ()), hash, block->block_signature ());
 								}
 							}
 						}
@@ -1534,7 +1534,7 @@ int main (int argc, char * const * argv)
 									// State change
 									block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
 								}
-								else if (block->balance () == prev_balance.value () && node->ledger.is_epoch_link (block->link ().value ()))
+								else if (block->balance () == prev_balance.value () && node->ledger.is_epoch_link (block->link_field ().value ()))
 								{
 									// State epoch
 									block_details_error = !sideband.details.is_epoch || sideband.details.is_send || sideband.details.is_receive;
@@ -1543,7 +1543,7 @@ int main (int argc, char * const * argv)
 								{
 									// State receive
 									block_details_error = !sideband.details.is_receive || sideband.details.is_send || sideband.details.is_epoch;
-									block_details_error |= !node->ledger.block_or_pruned_exists (transaction, block->link ().value ().as_block_hash ());
+									block_details_error |= !node->ledger.block_or_pruned_exists (transaction, block->source ());
 								}
 							}
 						}
@@ -1809,7 +1809,7 @@ int main (int argc, char * const * argv)
 								std::cout << boost::str (boost::format ("%1% blocks retrieved") % count) << std::endl;
 							}
 							node.node->block_processor.add (block);
-							if (block->type () == nano::block_type::state && block->previous ().is_zero () && source_node->ledger.is_epoch_link (block->link ().value ()))
+							if (block->type () == nano::block_type::state && block->previous ().is_zero () && source_node->ledger.is_epoch_link (block->link_field ().value ()))
 							{
 								// Epoch open blocks can be rejected without processed pending blocks to account, push it later again
 								epoch_open_blocks.push_back (block);

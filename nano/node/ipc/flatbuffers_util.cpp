@@ -11,8 +11,8 @@ std::unique_ptr<nanoapi::BlockStateT> nano::ipc::flatbuffers_builder::from (nano
 	block->previous = block_a.previous ().to_string ();
 	block->representative = block_a.representative ().to_account ();
 	block->balance = block_a.balance ().to_string_dec ();
-	block->link = block_a.link ().value ().to_string ();
-	block->link_as_account = block_a.link ().value ().to_account ();
+	block->link = block_a.link_field ().value ().to_string ();
+	block->link_as_account = block_a.link_field ().value ().to_account ();
 	block_a.signature.encode_hex (block->signature);
 	block->work = nano::to_string_hex (block_a.work);
 

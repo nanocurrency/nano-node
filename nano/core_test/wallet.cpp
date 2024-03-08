@@ -1001,7 +1001,7 @@ TEST (wallet, epoch_2_validation)
 		ASSERT_EQ (nano::epoch::epoch_2, send->sideband ().details.epoch);
 		ASSERT_EQ (nano::epoch::epoch_0, send->sideband ().source_epoch); // Not used for send state blocks
 
-		auto receive = wallet.receive_action (send->hash (), nano::dev::genesis_key.pub, amount, send->link ().value ().as_account (), 1);
+		auto receive = wallet.receive_action (send->hash (), nano::dev::genesis_key.pub, amount, send->destination (), 1);
 		ASSERT_NE (nullptr, receive);
 		if (nano::dev::network_params.work.difficulty (*receive) < node.network_params.work.base)
 		{
@@ -1043,7 +1043,7 @@ TEST (wallet, epoch_2_receive_propagation)
 		auto amount = node.config.receive_minimum.number ();
 		auto send1 = wallet.send_action (nano::dev::genesis_key.pub, key.pub, amount, 1);
 		ASSERT_NE (nullptr, send1);
-		ASSERT_NE (nullptr, wallet.receive_action (send1->hash (), nano::dev::genesis_key.pub, amount, send1->link ().value ().as_account (), 1));
+		ASSERT_NE (nullptr, wallet.receive_action (send1->hash (), nano::dev::genesis_key.pub, amount, send1->destination (), 1));
 
 		// Upgrade the genesis account to epoch 2
 		auto epoch2 = system.upgrade_genesis_epoch (node, nano::epoch::epoch_2);
@@ -1053,7 +1053,7 @@ TEST (wallet, epoch_2_receive_propagation)
 		auto send2 = wallet.send_action (nano::dev::genesis_key.pub, key.pub, amount, 1);
 		ASSERT_NE (nullptr, send2);
 
-		auto receive2 = wallet.receive_action (send2->hash (), key.pub, amount, send2->link ().value ().as_account (), 1);
+		auto receive2 = wallet.receive_action (send2->hash (), key.pub, amount, send2->destination (), 1);
 		ASSERT_NE (nullptr, receive2);
 		if (nano::dev::network_params.work.difficulty (*receive2) < node.network_params.work.base)
 		{
@@ -1106,7 +1106,7 @@ TEST (wallet, epoch_2_receive_unopened)
 
 		wallet.insert_adhoc (key.prv, false);
 
-		auto receive1 = wallet.receive_action (send1->hash (), key.pub, amount, send1->link ().value ().as_account (), 1);
+		auto receive1 = wallet.receive_action (send1->hash (), key.pub, amount, send1->destination (), 1);
 		ASSERT_NE (nullptr, receive1);
 		if (nano::dev::network_params.work.difficulty (*receive1) < node.network_params.work.base)
 		{
@@ -1190,7 +1190,7 @@ TEST (wallet, search_receivable)
 	auto receive = node.block (receive_hash);
 	ASSERT_NE (nullptr, receive);
 	ASSERT_EQ (receive->sideband ().height, 3);
-	ASSERT_EQ (send->hash (), receive->link ().value ().as_block_hash ());
+	ASSERT_EQ (send->hash (), receive->source ());
 }
 
 TEST (wallet, receive_pruned)
@@ -1228,7 +1228,7 @@ TEST (wallet, receive_pruned)
 
 	wallet2.insert_adhoc (key.prv, false);
 
-	auto open1 = wallet2.receive_action (send1->hash (), key.pub, amount, send1->link ().value ().as_account (), 1);
+	auto open1 = wallet2.receive_action (send1->hash (), key.pub, amount, send1->destination (), 1);
 	ASSERT_NE (nullptr, open1);
 	ASSERT_EQ (amount, node2.ledger.balance (node2.store.tx_begin_read (), open1->hash ()));
 	ASSERT_TIMELY_EQ (5s, node2.ledger.cache.cemented_count, 4);

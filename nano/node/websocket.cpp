@@ -1018,7 +1018,7 @@ nano::websocket_server::websocket_server (nano::websocket::config & config_a, na
 				}
 				else if (is_state_epoch_a)
 				{
-					debug_assert (amount_a == 0 && ledger.is_epoch_link (block_a->link ().value ()));
+					debug_assert (amount_a == 0 && ledger.is_epoch_link (block_a->link_field ().value ()));
 					subtype = "epoch";
 				}
 				else

@@ -152,7 +152,7 @@ bool nano::block::is_change () const noexcept
 		case nano::block_type::change:
 			return true;
 		case nano::block_type::state:
-			if (link ().value ().is_zero ())
+			if (link_field ().value ().is_zero ())
 			{
 				return true;
 			}
@@ -224,7 +224,7 @@ std::optional<nano::account> nano::block::destination_field () const
 	return std::nullopt;
 }
 
-std::optional<nano::link> nano::block::link () const
+std::optional<nano::link> nano::block::link_field () const
 {
 	return std::nullopt;
 }
@@ -272,7 +272,7 @@ nano::account nano::block::destination () const noexcept
 			return destination_field ().value ();
 		case nano::block_type::state:
 			release_assert (sideband ().details.is_send);
-			return link ().value ().as_account ();
+			return link_field ().value ().as_account ();
 		default:
 			release_assert (false);
 	}
@@ -288,7 +288,7 @@ nano::block_hash nano::block::source () const noexcept
 			return source_field ().value ();
 		case nano::block_type::state:
 			release_assert (sideband ().details.is_receive);
-			return link ().value ().as_block_hash ();
+			return link_field ().value ().as_block_hash ();
 		default:
 			release_assert (false);
 	}
@@ -1470,7 +1470,7 @@ nano::root const & nano::state_block::root () const
 	}
 }
 
-std::optional<nano::link> nano::state_block::link () const
+std::optional<nano::link> nano::state_block::link_field () const
 {
 	return hashables.link;
 }

@@ -254,6 +254,6 @@ TEST (wallets, search_receivable)
 		auto receive = node.block (receive_hash);
 		ASSERT_NE (nullptr, receive);
 		ASSERT_EQ (receive->sideband ().height, 3);
-		ASSERT_EQ (send->hash (), receive->link ().value ().as_block_hash ());
+		ASSERT_EQ (send->hash (), receive->source ());
 	}
 }

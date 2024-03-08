@@ -356,8 +356,8 @@ nano::block_status nano::block_processor::process_one (store::write_transaction 
 		}
 		case nano::block_status::gap_source:
 		{
-			release_assert (block->source_field () || block->link ());
-			node.unchecked.put (block->source_field ().value_or (block->link ().value_or (0).as_block_hash ()), block);
+			release_assert (block->source_field () || block->link_field ());
+			node.unchecked.put (block->source_field ().value_or (block->link_field ().value_or (0).as_block_hash ()), block);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
 		}

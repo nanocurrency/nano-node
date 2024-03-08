@@ -923,7 +923,7 @@ TEST (rpc, history)
 	ASSERT_NE (nullptr, change);
 	auto send (system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, node0->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send);
-	auto receive (system.wallet (0)->receive_action (send->hash (), nano::dev::genesis_key.pub, node0->config.receive_minimum.number (), send->link ().value ().as_account ()));
+	auto receive (system.wallet (0)->receive_action (send->hash (), nano::dev::genesis_key.pub, node0->config.receive_minimum.number (), send->destination ()));
 	ASSERT_NE (nullptr, receive);
 	nano::block_builder builder;
 	auto usend = builder
@@ -1007,7 +1007,7 @@ TEST (rpc, account_history)
 	ASSERT_NE (nullptr, change);
 	auto send (system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, node0->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send);
-	auto receive (system.wallet (0)->receive_action (send->hash (), nano::dev::genesis_key.pub, node0->config.receive_minimum.number (), send->link ().value ().as_account ()));
+	auto receive (system.wallet (0)->receive_action (send->hash (), nano::dev::genesis_key.pub, node0->config.receive_minimum.number (), send->destination ()));
 	ASSERT_NE (nullptr, receive);
 	nano::block_builder builder;
 	auto usend = builder
@@ -1110,7 +1110,7 @@ TEST (rpc, account_history)
 	auto account2 (system.wallet (0)->deterministic_insert ());
 	auto send2 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, account2, node0->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send2);
-	auto receive2 (system.wallet (0)->receive_action (send2->hash (), account2, node0->config.receive_minimum.number (), send2->link ().value ().as_account ()));
+	auto receive2 (system.wallet (0)->receive_action (send2->hash (), account2, node0->config.receive_minimum.number (), send2->destination ()));
 	// Test filter for send state blocks
 	ASSERT_NE (nullptr, receive2);
 	{
@@ -1153,7 +1153,7 @@ TEST (rpc, history_count)
 	ASSERT_NE (nullptr, change);
 	auto send (system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, node->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send);
-	auto receive (system.wallet (0)->receive_action (send->hash (), nano::dev::genesis_key.pub, node->config.receive_minimum.number (), send->link ().value ().as_account ()));
+	auto receive (system.wallet (0)->receive_action (send->hash (), nano::dev::genesis_key.pub, node->config.receive_minimum.number (), send->destination ()));
 	ASSERT_NE (nullptr, receive);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
@@ -4126,10 +4126,10 @@ TEST (rpc, blocks_info_receive_hash)
 	auto send4 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 4);
 
 	// do 4 receives, mix up the ordering a little
-	auto recv1 (system.wallet (0)->receive_action (send1->hash (), key1.pub, node->config.receive_minimum.number (), send1->link ().value ().as_account ()));
-	auto recv4 (system.wallet (0)->receive_action (send4->hash (), key1.pub, node->config.receive_minimum.number (), send4->link ().value ().as_account ()));
-	auto recv3 (system.wallet (0)->receive_action (send3->hash (), key1.pub, node->config.receive_minimum.number (), send3->link ().value ().as_account ()));
-	auto recv2 (system.wallet (0)->receive_action (send2->hash (), key1.pub, node->config.receive_minimum.number (), send2->link ().value ().as_account ()));
+	auto recv1 (system.wallet (0)->receive_action (send1->hash (), key1.pub, node->config.receive_minimum.number (), send1->destination ()));
+	auto recv4 (system.wallet (0)->receive_action (send4->hash (), key1.pub, node->config.receive_minimum.number (), send4->destination ()));
+	auto recv3 (system.wallet (0)->receive_action (send3->hash (), key1.pub, node->config.receive_minimum.number (), send3->destination ()));
+	auto recv2 (system.wallet (0)->receive_action (send2->hash (), key1.pub, node->config.receive_minimum.number (), send2->destination ()));
 
 	// function to check that all 4 receive blocks are cemented
 	auto all_blocks_cemented = [node, &key1] () -> bool {
@@ -4192,7 +4192,7 @@ TEST (rpc, blocks_info_subtype)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto send (system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, nano::Gxrb_ratio));
 	ASSERT_NE (nullptr, send);
-	auto receive (system.wallet (0)->receive_action (send->hash (), key.pub, nano::Gxrb_ratio, send->link ().value ().as_account ()));
+	auto receive (system.wallet (0)->receive_action (send->hash (), key.pub, nano::Gxrb_ratio, send->destination ()));
 	ASSERT_NE (nullptr, receive);
 	auto change (system.wallet (0)->change_action (nano::dev::genesis_key.pub, key.pub));
 	ASSERT_NE (nullptr, change);
@@ -5177,7 +5177,7 @@ TEST (rpc, online_reps)
 	auto send (system.wallet (0)->send_action (nano::dev::genesis_key.pub, new_rep, node1->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send);
 	ASSERT_TIMELY (10s, node2->block (send->hash ()));
-	auto receive (system.wallet (1)->receive_action (send->hash (), new_rep, node1->config.receive_minimum.number (), send->link ().value ().as_account ()));
+	auto receive (system.wallet (1)->receive_action (send->hash (), new_rep, node1->config.receive_minimum.number (), send->destination ()));
 	ASSERT_NE (nullptr, receive);
 	ASSERT_TIMELY (5s, node2->block (receive->hash ()));
 	auto change (system.wallet (0)->change_action (nano::dev::genesis_key.pub, new_rep));
@@ -5666,7 +5666,7 @@ TEST (rpc, DISABLED_wallet_history)
 	auto send (system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, node->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send);
 	auto timestamp2 = nano::seconds_since_epoch ();
-	auto receive (system.wallet (0)->receive_action (send->hash (), nano::dev::genesis_key.pub, node->config.receive_minimum.number (), send->link ().value ().as_account ()));
+	auto receive (system.wallet (0)->receive_action (send->hash (), nano::dev::genesis_key.pub, node->config.receive_minimum.number (), send->destination ()));
 	ASSERT_NE (nullptr, receive);
 	nano::keypair key;
 	auto timestamp3 = nano::seconds_since_epoch ();
