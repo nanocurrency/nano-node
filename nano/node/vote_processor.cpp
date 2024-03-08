@@ -241,28 +241,34 @@ bool nano::vote_processor::empty () const
 void nano::vote_processor::calculate_weights ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	if (!stopped)
+
+	if (stopped)
 	{
-		representatives_1.clear ();
-		representatives_2.clear ();
-		representatives_3.clear ();
-		auto supply (online_reps.trended ());
-		auto rep_amounts = ledger.cache.rep_weights.get_rep_amounts ();
-		for (auto const & rep_amount : rep_amounts)
+		return;
+	}
+
+	representatives_1.clear ();
+	representatives_2.clear ();
+	representatives_3.clear ();
+
+	auto online = online_reps.online ();
+	auto rep_amounts = ledger.cache.rep_weights.get_rep_amounts ();
+
+	for (auto const & rep_amount : rep_amounts)
+	{
+		nano::account const & representative = rep_amount.first;
+
+		// Using ledger weight here because it takes preconfigured bootstrap weights into account
+		auto weight = ledger.weight (representative);
+		if (weight > online / 1000) // 0.1% or above (level 1)
 		{
-			// TODO: Base this calculation on online weight, not total supply
-			nano::account const & representative (rep_amount.first);
-			auto weight (ledger.weight (representative));
-			if (weight > supply / 1000) // 0.1% or above (level 1)
+			representatives_1.insert (representative);
+			if (weight > online / 100) // 1% or above (level 2)
 			{
-				representatives_1.insert (representative);
-				if (weight > supply / 100) // 1% or above (level 2)
+				representatives_2.insert (representative);
+				if (weight > online / 20) // 5% or above (level 3)
 				{
-					representatives_2.insert (representative);
-					if (weight > supply / 20) // 5% or above (level 3)
-					{
-						representatives_3.insert (representative);
-					}
+					representatives_3.insert (representative);
 				}
 			}
 		}

@@ -133,11 +133,10 @@ TEST (vote_processor, weights)
 	auto & node (*system.nodes[0]);
 
 	// Create representatives of different weight levels
-	// The online stake will be the minimum configurable due to online_reps sampling in tests
-	auto const online = node.config.online_weight_minimum.number ();
-	auto const level0 = online / 5000; // 0.02%
-	auto const level1 = online / 500; // 0.2%
-	auto const level2 = online / 50; // 2%
+	auto const total = nano::dev::constants.genesis_amount;
+	auto const level0 = total / 5000; // 0.02%
+	auto const level1 = total / 500; // 0.2%
+	auto const level2 = total / 50; // 2%
 
 	nano::keypair key0;
 	nano::keypair key1;
@@ -156,6 +155,7 @@ TEST (vote_processor, weights)
 
 	// Wait for representatives
 	ASSERT_TIMELY_EQ (10s, node.ledger.cache.rep_weights.get_rep_amounts ().size (), 4);
+	ASSERT_TIMELY_EQ (5s, node.online_reps.online (), total);
 	node.vote_processor.calculate_weights ();
 
 	ASSERT_EQ (node.vote_processor.representatives_1.end (), node.vote_processor.representatives_1.find (key0.pub));
