@@ -57,10 +57,8 @@ public:
 	void stop ();
 
 	/**
-	 * Called when a non-replay vote on a block previously sent by query() is received. This indicates
-	 * with high probability that the endpoint is a representative node.
-	 * The force flag can be set to skip the active check in unit testing when we want to force a vote in the rep crawler.
-	 * @return false if any vote passed the checks and was added to the response queue of the rep crawler
+	 * Called when a non-replay vote arrives that might be of interest to rep crawler.
+	 * @return true, if the vote was of interest and was processed, this indicates that the rep is likely online and voting
 	 */
 	bool process (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &);
 
