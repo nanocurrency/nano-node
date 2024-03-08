@@ -1012,7 +1012,7 @@ nano::websocket_server::websocket_server (nano::websocket::config & config_a, na
 			}
 			else if (block_a->type () == nano::block_type::state)
 			{
-				if (block_a->link ().value ().is_zero ())
+				if (block_a->is_change ())
 				{
 					subtype = "change";
 				}

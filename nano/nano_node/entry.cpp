@@ -1529,7 +1529,7 @@ int main (int argc, char * const * argv)
 							}
 							else
 							{
-								if (block->link ().value ().is_zero ())
+								if (block->is_change ())
 								{
 									// State change
 									block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;

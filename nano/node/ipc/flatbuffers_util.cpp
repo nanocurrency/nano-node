@@ -20,7 +20,7 @@ std::unique_ptr<nanoapi::BlockStateT> nano::ipc::flatbuffers_builder::from (nano
 	{
 		block->subtype = nanoapi::BlockSubType::BlockSubType_send;
 	}
-	else if (block_a.link ().value ().is_zero ())
+	else if (block_a.is_change ())
 	{
 		block->subtype = nanoapi::BlockSubType::BlockSubType_change;
 	}
