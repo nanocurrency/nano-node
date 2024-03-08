@@ -154,12 +154,15 @@ TEST (vote_processor, weights)
 	// Wait for representatives
 	ASSERT_TIMELY_EQ (10s, node.ledger.cache.rep_weights.get_rep_amounts ().size (), 4);
 	ASSERT_TIMELY_EQ (5s, node.online_reps.online (), total);
-	node.vote_processor.calculate_weights ();
 
-	ASSERT_EQ (node.vote_processor.representative_tier (key0.pub), nano::representative_tier::none);
-	ASSERT_EQ (node.vote_processor.representative_tier (key1.pub), nano::representative_tier::tier_1);
-	ASSERT_EQ (node.vote_processor.representative_tier (key2.pub), nano::representative_tier::tier_2);
-	ASSERT_EQ (node.vote_processor.representative_tier (nano::dev::genesis_key.pub), nano::representative_tier::tier_3);
+	// Wait for rep tiers to be updated
+	node.stats.clear ();
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::rep_tiers, nano::stat::detail::updated) >= 2);
+
+	ASSERT_EQ (node.rep_tiers.tier (key0.pub), nano::rep_tier::none);
+	ASSERT_EQ (node.rep_tiers.tier (key1.pub), nano::rep_tier::tier_1);
+	ASSERT_EQ (node.rep_tiers.tier (key2.pub), nano::rep_tier::tier_2);
+	ASSERT_EQ (node.rep_tiers.tier (nano::dev::genesis_key.pub), nano::rep_tier::tier_3);
 }
 
 // Issue that tracks last changes on this test: https://github.com/nanocurrency/nano-node/issues/3485

@@ -25,6 +25,7 @@
 #include <nano/node/online_reps.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/process_live_dispatcher.hpp>
+#include <nano/node/rep_tiers.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/telemetry.hpp>
@@ -94,7 +95,6 @@ public:
 	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &, bool only_confirmed);
 	nano::uint128_t weight (nano::account const &);
 	nano::uint128_t minimum_principal_weight ();
-	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
 	void ongoing_peer_store ();
 	void backup_wallet ();
@@ -164,6 +164,7 @@ public:
 	nano::port_mapping port_mapping;
 	nano::online_reps online_reps;
 	nano::rep_crawler rep_crawler;
+	nano::rep_tiers rep_tiers;
 	nano::vote_processor vote_processor;
 	unsigned warmed_up;
 	nano::block_processor block_processor;

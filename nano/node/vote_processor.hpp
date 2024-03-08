@@ -26,25 +26,17 @@ class ledger;
 class network_params;
 class node_flags;
 class stats;
+class rep_tiers;
 
 namespace transport
 {
 	class channel;
 }
 
-// Higher number means higher priority
-enum class representative_tier
-{
-	none, // Not a principal representative
-	tier_1, // (0.1-1%) of online stake
-	tier_2, // (1-5%) of online stake
-	tier_3, // (> 5%) of online stake
-};
-
 class vote_processor final
 {
 public:
-	vote_processor (nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger &, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a);
+	vote_processor (nano::active_transactions &, nano::node_observers &, nano::stats &, nano::node_config &, nano::node_flags &, nano::logger &, nano::online_reps &, nano::rep_crawler &, nano::ledger &, nano::network_params &, nano::rep_tiers &);
 	~vote_processor ();
 
 	void start ();
@@ -60,9 +52,6 @@ public:
 	void flush ();
 	std::size_t size () const;
 	bool empty () const;
-	void calculate_weights ();
-
-	nano::representative_tier representative_tier (nano::account const & representative) const;
 
 	std::atomic<uint64_t> total_processed{ 0 };
 
@@ -76,20 +65,15 @@ private: // Dependencies
 	nano::rep_crawler & rep_crawler;
 	nano::ledger & ledger;
 	nano::network_params & network_params;
+	nano::rep_tiers & rep_tiers;
 
 private:
 	void run ();
 	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> const &);
-	nano::representative_tier representative_tier_locked (nano::account const & representative) const;
 
 private:
 	std::size_t const max_votes;
 	std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> votes;
-
-	/** Representatives levels for early prioritization */
-	std::unordered_set<nano::account> representatives_1;
-	std::unordered_set<nano::account> representatives_2;
-	std::unordered_set<nano::account> representatives_3;
 
 private:
 	bool stopped{ false };

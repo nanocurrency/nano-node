@@ -43,6 +43,7 @@ enum class name
 	scheduler_optimistic,
 	scheduler_priority,
 	local_block_broadcasting,
+	rep_tiers,
 };
 
 /*
