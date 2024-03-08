@@ -220,10 +220,11 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 	}
 }
 
-void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> const & channel_a, std::pair<nano::block_hash, nano::block_hash> const & hash_root_a)
+void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> const & channel_a, std::pair<nano::block_hash, nano::root> const & hash_root_a)
 {
+	auto & [hash, root] = hash_root_a;
 	// Confirmation request with hash + root
-	nano::confirm_req req (node.network_params.network, hash_root_a.first, hash_root_a.second);
+	nano::confirm_req req (node.network_params.network, hash, root);
 	channel_a->send (req);
 }
 
@@ -418,7 +419,7 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list_non_pr
 	tcp_channels.list (result);
 	nano::random_pool_shuffle (result.begin (), result.end ());
 	result.erase (std::remove_if (result.begin (), result.end (), [this] (std::shared_ptr<nano::transport::channel> const & channel) {
-		return this->node.rep_crawler.is_pr (*channel);
+		return node.rep_crawler.is_pr (channel);
 	}),
 	result.end ());
 	if (result.size () > count_a)

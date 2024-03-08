@@ -253,6 +253,8 @@ public:
 			telemetry_request_interval = 500ms;
 			telemetry_broadcast_interval = 500ms;
 			optimistic_activation_delay = 2s;
+			rep_crawler_normal_interval = 500ms;
+			rep_crawler_warmup_interval = 500ms;
 		}
 	}
 
@@ -310,6 +312,9 @@ public:
 
 	/** How much to delay activation of optimistic elections to avoid interfering with election scheduler */
 	std::chrono::seconds optimistic_activation_delay{ 30 };
+
+	std::chrono::milliseconds rep_crawler_normal_interval{ 1000 * 7 };
+	std::chrono::milliseconds rep_crawler_warmup_interval{ 1000 * 3 };
 
 	/** Returns the network this object contains values for */
 	nano::networks network () const

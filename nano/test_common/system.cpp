@@ -123,6 +123,8 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 		debug_assert (!ec);
 	}
 
+	logger.debug (nano::log::type::system, "Node started: {}", node->get_node_id ().to_node_id ());
+
 	return node;
 }
 
