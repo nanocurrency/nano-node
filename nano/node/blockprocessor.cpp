@@ -46,9 +46,21 @@ nano::block_processor::block_processor (nano::node & node_a, nano::write_databas
 			block_processed.notify (result, context);
 		}
 	});
-	processing_thread = std::thread ([this] () {
+}
+
+nano::block_processor::~block_processor ()
+{
+	// Thread must be stopped before destruction
+	debug_assert (!thread.joinable ());
+}
+
+void nano::block_processor::start ()
+{
+	debug_assert (!thread.joinable ());
+
+	thread = std::thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::block_processing);
-		this->process_blocks ();
+		run ();
 	});
 }
 
@@ -59,7 +71,10 @@ void nano::block_processor::stop ()
 		stopped = true;
 	}
 	condition.notify_all ();
-	nano::join_or_pass (processing_thread);
+	if (thread.joinable ())
+	{
+		thread.join ();
+	}
 }
 
 std::size_t nano::block_processor::size ()
@@ -172,14 +187,13 @@ void nano::block_processor::rollback_competitor (store::write_transaction const 
 	}
 }
 
-void nano::block_processor::process_blocks ()
+void nano::block_processor::run ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		if (have_blocks_ready ())
 		{
-			active = true;
 			lock.unlock ();
 
 			auto processed = process_batch (lock);
@@ -194,7 +208,6 @@ void nano::block_processor::process_blocks ()
 			batch_processed.notify (processed);
 
 			lock.lock ();
-			active = false;
 		}
 		else
 		{

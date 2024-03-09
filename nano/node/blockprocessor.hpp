@@ -67,8 +67,11 @@ public: // Context
 
 public:
 	block_processor (nano::node &, nano::write_database_queue &);
+	~block_processor ();
 
+	void start ();
 	void stop ();
+
 	std::size_t size ();
 	bool full ();
 	bool half_full ();
@@ -78,7 +81,7 @@ public:
 	bool should_log ();
 	bool have_blocks_ready ();
 	bool have_blocks ();
-	void process_blocks ();
+
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
 
 	std::atomic<bool> flushing{ false };
@@ -93,6 +96,7 @@ public: // Events
 	nano::observer_set<std::shared_ptr<nano::block> const &> rolled_back;
 
 private:
+	void run ();
 	// Roll back block in the ledger that conflicts with 'block'
 	void rollback_competitor (store::write_transaction const &, nano::block const & block);
 	nano::block_status process_one (store::write_transaction const &, context const &, bool forced = false);
@@ -106,15 +110,14 @@ private: // Dependencies
 	nano::write_database_queue & write_database_queue;
 
 private:
-	bool stopped{ false };
-	bool active{ false };
-
 	std::deque<context> blocks;
 	std::deque<context> forced;
 
 	std::chrono::steady_clock::time_point next_log;
+
+	bool stopped{ false };
 	nano::condition_variable condition;
 	nano::mutex mutex{ mutex_identifier (mutexes::block_processor) };
-	std::thread processing_thread;
+	std::thread thread;
 };
 }
