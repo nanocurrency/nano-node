@@ -79,11 +79,7 @@ void nano::confirmation_height_unbounded::process (std::shared_ptr<nano::block> 
 		}
 		release_assert (block);
 
-		nano::account account (block->account ());
-		if (account.is_zero ())
-		{
-			account = block->sideband ().account;
-		}
+		auto account = block->account ();
 
 		auto block_height = block->sideband ().height;
 		uint64_t confirmation_height = 0;
@@ -216,13 +212,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 
 		if (block)
 		{
-			auto source (block->source ());
-			if (source.is_zero ())
-			{
-				source = block->link ().as_block_hash ();
-			}
-
-			if (!source.is_zero () && !ledger.is_epoch_link (source) && ledger.block_exists (transaction_a, source))
+			if (block->is_receive () && ledger.block_exists (transaction_a, block->source ()))
 			{
 				if (!hit_receive && !block_callback_data_a.empty ())
 				{
@@ -237,7 +227,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 				hit_receive = true;
 
 				auto block_height = confirmation_height_a + num_to_confirm;
-				receive_source_pairs_a.emplace_back (std::make_shared<conf_height_details> (account_a, hash, block_height, 1, std::vector<nano::block_hash>{ hash }), source);
+				receive_source_pairs_a.emplace_back (std::make_shared<conf_height_details> (account_a, hash, block_height, 1, std::vector<nano::block_hash>{ hash }), block->source ());
 			}
 			else if (is_original_block)
 			{

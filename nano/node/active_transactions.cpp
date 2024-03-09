@@ -165,8 +165,10 @@ void nano::active_transactions::handle_confirmation (nano::store::read_transacti
 
 void nano::active_transactions::handle_block_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, nano::block_hash const & hash, nano::account & account, nano::uint128_t & amount, bool & is_state_send, bool & is_state_epoch, nano::account & pending_account)
 {
-	auto destination = block->link ().is_zero () ? block->destination () : block->link ().as_account ();
-	node.receive_confirmed (transaction, hash, destination);
+	if (block->is_send ())
+	{
+		node.receive_confirmed (transaction, hash, block->destination ());
+	}
 	node.process_confirmed_data (transaction, block, hash, account, amount, is_state_send, is_state_epoch, pending_account);
 }
 
@@ -186,7 +188,7 @@ void nano::active_transactions::notify_observers (nano::election_status const & 
 
 void nano::active_transactions::handle_final_votes_confirmation (std::shared_ptr<nano::block> const & block, nano::store::read_transaction const & transaction, nano::election_status_type status)
 {
-	auto const & account = !block->account ().is_zero () ? block->account () : block->sideband ().account;
+	auto account = block->account ();
 
 	bool is_canary_not_set = !node.ledger.cache.final_votes_confirmation_canary.load ();
 	bool is_canary_account = account == node.network_params.ledger.final_votes_canary_account;

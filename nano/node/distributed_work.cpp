@@ -68,7 +68,7 @@ void nano::distributed_work::start ()
 	else if (need_resolve.empty () && request.callback)
 	{
 		status = work_generation_status::failure_local;
-		request.callback (boost::none);
+		request.callback (std::nullopt);
 	}
 	for (auto const & peer : need_resolve)
 	{
@@ -117,7 +117,7 @@ void nano::distributed_work::start_local ()
 			this_l->status = work_generation_status::failure_local;
 			if (this_l->request.callback)
 			{
-				this_l->request.callback (boost::none);
+				this_l->request.callback (std::nullopt);
 			}
 		}
 		this_l->stop_once (false);
@@ -143,9 +143,9 @@ void nano::distributed_work::do_request (nano::tcp_endpoint const & endpoint_a)
 				rpc_request.put ("action", "work_generate");
 				rpc_request.put ("hash", this_l->request.root.to_string ());
 				rpc_request.put ("difficulty", nano::to_string_hex (this_l->request.difficulty));
-				if (this_l->request.account.is_initialized ())
+				if (this_l->request.account.has_value ())
 				{
-					rpc_request.put ("account", this_l->request.account.get ().to_account ());
+					rpc_request.put ("account", this_l->request.account.value ().to_account ());
 				}
 				std::stringstream ostream;
 				boost::property_tree::write_json (ostream, rpc_request);
@@ -373,7 +373,7 @@ void nano::distributed_work::cancel ()
 		status = work_generation_status::cancelled;
 		if (request.callback)
 		{
-			request.callback (boost::none);
+			request.callback (std::nullopt);
 		}
 		stop_once (true);
 	}
@@ -411,7 +411,7 @@ void nano::distributed_work::handle_failure ()
 				}
 				if (error_l && request_l.callback)
 				{
-					request_l.callback (boost::none);
+					request_l.callback (std::nullopt);
 				}
 			});
 		}

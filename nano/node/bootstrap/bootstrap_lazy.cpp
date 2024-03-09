@@ -291,9 +291,9 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 	if (!lazy_blocks_processed (hash))
 	{
 		// Search for new dependencies
-		if (!block_a->source ().is_zero () && !node->ledger.block_or_pruned_exists (block_a->source ()) && block_a->source () != node->network_params.ledger.genesis->account ())
+		if (block_a->source_field () && !node->ledger.block_or_pruned_exists (block_a->source_field ().value ()) && block_a->source_field ().value () != node->network_params.ledger.genesis->account ())
 		{
-			lazy_add (block_a->source (), retry_limit);
+			lazy_add (block_a->source_field ().value (), retry_limit);
 		}
 		else if (block_a->type () == nano::block_type::state)
 		{
@@ -303,7 +303,7 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 		// Adding lazy balances for first processed block in pull
 		if (pull_blocks_processed == 1 && (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send))
 		{
-			lazy_balances.emplace (hash, block_a->balance ().number ());
+			lazy_balances.emplace (hash, block_a->balance_field ().value ().number ());
 		}
 		// Clearing lazy balances for previous block
 		if (!block_a->previous ().is_zero () && lazy_balances.find (block_a->previous ()) != lazy_balances.end ())
@@ -394,7 +394,7 @@ void nano::bootstrap_attempt_lazy::lazy_block_state_backlog_check (std::shared_p
 		// Retrieve balance for previous state & send blocks
 		if (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send)
 		{
-			if (block_a->balance ().number () <= next_block.balance) // balance
+			if (block_a->balance_field ().value ().number () <= next_block.balance) // balance
 			{
 				lazy_add (next_block.link, next_block.retry_limit); // link
 			}

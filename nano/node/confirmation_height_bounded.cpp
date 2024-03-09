@@ -104,11 +104,7 @@ void nano::confirmation_height_bounded::process (std::shared_ptr<nano::block> or
 				release_assert (block);
 			}
 		}
-		nano::account account (block->account ());
-		if (account.is_zero ())
-		{
-			account = block->sideband ().account;
-		}
+		auto account = block->account ();
 
 		// Checks if we have encountered this account before but not commited changes yet, if so then update the cached confirmation height
 		nano::confirmation_height_info confirmation_height_info;
@@ -257,19 +253,13 @@ bool nano::confirmation_height_bounded::iterate (store::read_transaction const &
 		// Once a receive is cemented, we can cement all blocks above it until the next receive, so store those details for later.
 		++num_blocks;
 		auto block = ledger.block (transaction_a, hash);
-		auto source (block->source ());
-		if (source.is_zero ())
-		{
-			source = block->link ().as_block_hash ();
-		}
-
-		if (!source.is_zero () && !ledger.is_epoch_link (source) && ledger.block_exists (transaction_a, source))
+		if (block->is_receive () && ledger.block_exists (transaction_a, block->source ()))
 		{
 			hit_receive = true;
 			reached_target = true;
 			auto const & sideband (block->sideband ());
 			auto next = !sideband.successor.is_zero () && sideband.successor != top_level_hash_a ? boost::optional<nano::block_hash> (sideband.successor) : boost::none;
-			receive_source_pairs_a.push_back ({ receive_chain_details{ account_a, sideband.height, hash, top_level_hash_a, next, bottom_height_a, bottom_hash_a }, source });
+			receive_source_pairs_a.push_back ({ receive_chain_details{ account_a, sideband.height, hash, top_level_hash_a, next, bottom_height_a, bottom_hash_a }, block->source () });
 			// Store a checkpoint every max_items so that we can always traverse a long number of accounts to genesis
 			if (receive_source_pairs_a.size () % max_items == 0)
 			{

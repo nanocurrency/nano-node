@@ -31,17 +31,12 @@ class ledger final
 public:
 	ledger (nano::store::component &, nano::stats &, nano::ledger_constants & constants, nano::generate_cache const & = nano::generate_cache ());
 	/**
-	 * Return account containing hash, expects that block hash exists in ledger
-	 */
-	static nano::account account (nano::block const & block);
-	/**
 	 * Returns the account for a given hash
 	 * Returns std::nullopt if the block doesn't exist or has been pruned
 	 */
 	std::optional<nano::account> account (store::transaction const &, nano::block_hash const &) const;
 	std::optional<nano::account_info> account_info (store::transaction const & transaction, nano::account const & account) const;
 	std::optional<nano::uint128_t> amount (store::transaction const &, nano::block_hash const &);
-	static nano::uint128_t balance (nano::block const & block);
 	std::optional<nano::uint128_t> balance (store::transaction const &, nano::block_hash const &) const;
 	std::shared_ptr<nano::block> block (store::transaction const & transaction, nano::block_hash const & hash) const;
 	bool block_exists (store::transaction const & transaction, nano::block_hash const & hash) const;
@@ -61,9 +56,7 @@ public:
 	bool root_exists (store::transaction const &, nano::root const &);
 	std::string block_text (char const *);
 	std::string block_text (nano::block_hash const &);
-	bool is_send (store::transaction const &, nano::block const &) const;
 	nano::account const & block_destination (store::transaction const &, nano::block const &);
-	nano::block_hash block_source (store::transaction const &, nano::block const &);
 	std::pair<nano::block_hash, nano::block_hash> hash_root_random (store::transaction const &) const;
 	std::optional<nano::pending_info> pending_info (store::transaction const & transaction, nano::pending_key const & key) const;
 	nano::block_status process (store::write_transaction const & transaction, std::shared_ptr<nano::block> block);

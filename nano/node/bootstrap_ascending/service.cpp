@@ -133,42 +133,25 @@ void nano::bootstrap_ascending::service::inspect (store::transaction const & tx,
 	{
 		case nano::block_status::progress:
 		{
-			const auto account = ledger.account (block);
-			const auto is_send = ledger.is_send (tx, block);
+			const auto account = block.account ();
 
 			// If we've inserted any block in to an account, unmark it as blocked
 			accounts.unblock (account);
 			accounts.priority_up (account);
 			accounts.timestamp (account, /* reset timestamp */ true);
 
-			if (is_send)
+			if (block.is_send ())
 			{
-				// TODO: Encapsulate this as a helper somewhere
-				nano::account destination{ 0 };
-				switch (block.type ())
-				{
-					case nano::block_type::send:
-						destination = block.destination ();
-						break;
-					case nano::block_type::state:
-						destination = block.link ().as_account ();
-						break;
-					default:
-						debug_assert (false, "unexpected block type");
-						break;
-				}
-				if (!destination.is_zero ())
-				{
-					accounts.unblock (destination, hash); // Unblocking automatically inserts account into priority set
-					accounts.priority_up (destination);
-				}
+				auto destination = block.destination ();
+				accounts.unblock (destination, hash); // Unblocking automatically inserts account into priority set
+				accounts.priority_up (destination);
 			}
 		}
 		break;
 		case nano::block_status::gap_source:
 		{
-			const auto account = block.previous ().is_zero () ? block.account () : ledger.account (tx, block.previous ()).value ();
-			const auto source = block.source ().is_zero () ? block.link ().as_block_hash () : block.source ();
+			const auto account = block.previous ().is_zero () ? block.account_field ().value () : ledger.account (tx, block.previous ()).value ();
+			const auto source = block.source_field ().value_or (block.link_field ().value_or (0).as_block_hash ());
 
 			// Mark account as blocked because it is missing the source block
 			accounts.block (account, source);
@@ -456,7 +439,7 @@ nano::bootstrap_ascending::service::verify_result nano::bootstrap_ascending::ser
 		case async_tag::query_type::blocks_by_account:
 		{
 			// Open & state blocks always contain account field
-			if (first->account () != tag.start.as_account ())
+			if (first->account_field () != tag.start.as_account ())
 			{
 				// TODO: Stat & log
 				return verify_result::invalid;

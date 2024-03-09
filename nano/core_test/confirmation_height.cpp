@@ -133,7 +133,7 @@ TEST (confirmation_height, multiple_accounts)
 		auto open1 = builder
 					 .open ()
 					 .source (send1->hash ())
-					 .representative (nano::dev::genesis->account ())
+					 .representative (nano::dev::genesis_key.pub)
 					 .account (key1.pub)
 					 .sign (key1.prv, key1.pub)
 					 .work (*system.work.generate (key1.pub))
@@ -141,7 +141,7 @@ TEST (confirmation_height, multiple_accounts)
 		auto open2 = builder
 					 .open ()
 					 .source (send2->hash ())
-					 .representative (nano::dev::genesis->account ())
+					 .representative (nano::dev::genesis_key.pub)
 					 .account (key2.pub)
 					 .sign (key2.prv, key2.pub)
 					 .work (*system.work.generate (key2.pub))
@@ -149,7 +149,7 @@ TEST (confirmation_height, multiple_accounts)
 		auto open3 = builder
 					 .open ()
 					 .source (send3->hash ())
-					 .representative (nano::dev::genesis->account ())
+					 .representative (nano::dev::genesis_key.pub)
 					 .account (key3.pub)
 					 .sign (key3.prv, key3.pub)
 					 .work (*system.work.generate (key3.pub))
@@ -320,9 +320,9 @@ TEST (confirmation_height, gap_bootstrap)
 		nano::block_builder builder;
 		auto send1 = builder
 					 .state ()
-					 .account (nano::dev::genesis->account ())
+					 .account (nano::dev::genesis_key.pub)
 					 .previous (nano::dev::genesis->hash ())
-					 .representative (nano::dev::genesis->account ())
+					 .representative (nano::dev::genesis_key.pub)
 					 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 					 .link (destination.pub)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
@@ -331,9 +331,9 @@ TEST (confirmation_height, gap_bootstrap)
 		node1.work_generate_blocking (*send1);
 		auto send2 = builder
 					 .state ()
-					 .account (nano::dev::genesis->account ())
+					 .account (nano::dev::genesis_key.pub)
 					 .previous (send1->hash ())
-					 .representative (nano::dev::genesis->account ())
+					 .representative (nano::dev::genesis_key.pub)
 					 .balance (nano::dev::constants.genesis_amount - 2 * nano::Gxrb_ratio)
 					 .link (destination.pub)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
@@ -342,9 +342,9 @@ TEST (confirmation_height, gap_bootstrap)
 		node1.work_generate_blocking (*send2);
 		auto send3 = builder
 					 .state ()
-					 .account (nano::dev::genesis->account ())
+					 .account (nano::dev::genesis_key.pub)
 					 .previous (send2->hash ())
-					 .representative (nano::dev::genesis->account ())
+					 .representative (nano::dev::genesis_key.pub)
 					 .balance (nano::dev::constants.genesis_amount - 3 * nano::Gxrb_ratio)
 					 .link (destination.pub)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
@@ -453,9 +453,9 @@ TEST (confirmation_height, gap_live)
 		nano::block_builder builder;
 		auto send1 = builder
 					 .state ()
-					 .account (nano::dev::genesis->account ())
+					 .account (nano::dev::genesis_key.pub)
 					 .previous (nano::dev::genesis->hash ())
-					 .representative (nano::dev::genesis->account ())
+					 .representative (nano::dev::genesis_key.pub)
 					 .balance (nano::dev::constants.genesis_amount - 1)
 					 .link (destination.pub)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
@@ -464,9 +464,9 @@ TEST (confirmation_height, gap_live)
 		node->work_generate_blocking (*send1);
 		auto send2 = builder
 					 .state ()
-					 .account (nano::dev::genesis->account ())
+					 .account (nano::dev::genesis_key.pub)
 					 .previous (send1->hash ())
-					 .representative (nano::dev::genesis->account ())
+					 .representative (nano::dev::genesis_key.pub)
 					 .balance (nano::dev::constants.genesis_amount - 2)
 					 .link (destination.pub)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
@@ -475,9 +475,9 @@ TEST (confirmation_height, gap_live)
 		node->work_generate_blocking (*send2);
 		auto send3 = builder
 					 .state ()
-					 .account (nano::dev::genesis->account ())
+					 .account (nano::dev::genesis_key.pub)
 					 .previous (send2->hash ())
-					 .representative (nano::dev::genesis->account ())
+					 .representative (nano::dev::genesis_key.pub)
 					 .balance (nano::dev::constants.genesis_amount - 3)
 					 .link (destination.pub)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
@@ -593,7 +593,7 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		auto open1 = builder
 					 .open ()
 					 .source (send1->hash ())
-					 .representative (nano::dev::genesis->account ())
+					 .representative (nano::dev::genesis_key.pub)
 					 .account (key1.pub)
 					 .sign (key1.prv, key1.pub)
 					 .work (*system.work.generate (key1.pub))
@@ -601,7 +601,7 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		auto send2 = builder
 					 .send ()
 					 .previous (open1->hash ())
-					 .destination (nano::dev::genesis->account ())
+					 .destination (nano::dev::genesis_key.pub)
 					 .balance (1000)
 					 .sign (key1.prv, key1.pub)
 					 .work (*system.work.generate (open1->hash ()))
@@ -609,7 +609,7 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		auto send3 = builder
 					 .send ()
 					 .previous (send2->hash ())
-					 .destination (nano::dev::genesis->account ())
+					 .destination (nano::dev::genesis_key.pub)
 					 .balance (900)
 					 .sign (key1.prv, key1.pub)
 					 .work (*system.work.generate (send2->hash ()))
@@ -617,7 +617,7 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		auto send4 = builder
 					 .send ()
 					 .previous (send3->hash ())
-					 .destination (nano::dev::genesis->account ())
+					 .destination (nano::dev::genesis_key.pub)
 					 .balance (500)
 					 .sign (key1.prv, key1.pub)
 					 .work (*system.work.generate (send3->hash ()))
@@ -1013,9 +1013,9 @@ TEST (confirmation_height, all_block_types)
 						   .build ();
 		auto state_receive3 = builder
 							  .state ()
-							  .account (nano::dev::genesis->account ())
+							  .account (nano::dev::genesis_key.pub)
 							  .previous (send1->hash ())
-							  .representative (nano::dev::genesis->account ())
+							  .representative (nano::dev::genesis_key.pub)
 							  .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2 + 1)
 							  .link (state_send4->hash ())
 							  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
@@ -1292,7 +1292,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		}
 
 		ASSERT_EQ (nano::block_status::progress, ledger.process (store->tx_begin_write (), send));
-		store->confirmation_height.put (store->tx_begin_write (), nano::dev::genesis->account (), { 1, nano::dev::genesis->hash () });
+		store->confirmation_height.put (store->tx_begin_write (), nano::dev::genesis_key.pub, { 1, nano::dev::genesis->hash () });
 
 		nano::confirmation_height_unbounded unbounded_processor (
 		ledger, write_database_queue, 10ms, logger, stopped, batch_write_size, [] (auto const &) {}, [] (auto const &) {}, [] () { return 0; });
@@ -1381,7 +1381,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 
 		// Reset conditions and test with the bounded processor
 		ASSERT_EQ (nano::block_status::progress, ledger.process (store->tx_begin_write (), open));
-		store->confirmation_height.put (store->tx_begin_write (), nano::dev::genesis->account (), { 1, nano::dev::genesis->hash () });
+		store->confirmation_height.put (store->tx_begin_write (), nano::dev::genesis_key.pub, { 1, nano::dev::genesis->hash () });
 
 		nano::confirmation_height_bounded bounded_processor (
 		ledger, write_database_queue, 10ms, logger, stopped, batch_write_size, [] (auto const &) {}, [] (auto const &) {}, [] () { return 0; });
@@ -1663,7 +1663,7 @@ TEST (confirmation_height, cemented_gap_below_receive)
 		auto open = builder
 					.open ()
 					.source (send->hash ())
-					.representative (nano::dev::genesis->account ())
+					.representative (nano::dev::genesis_key.pub)
 					.account (key1.pub)
 					.sign (key1.prv, key1.pub)
 					.work (*system.work.generate (key1.pub))
@@ -1722,7 +1722,7 @@ TEST (confirmation_height, cemented_gap_below_receive)
 		auto open1 = builder
 					 .open ()
 					 .source (send3->hash ())
-					 .representative (nano::dev::genesis->account ())
+					 .representative (nano::dev::genesis_key.pub)
 					 .account (key2.pub)
 					 .sign (key2.prv, key2.pub)
 					 .work (*system.work.generate (key2.pub))
@@ -1823,7 +1823,7 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 		auto open = builder
 					.open ()
 					.source (send->hash ())
-					.representative (nano::dev::genesis->account ())
+					.representative (nano::dev::genesis_key.pub)
 					.account (key1.pub)
 					.sign (key1.prv, key1.pub)
 					.work (*system.work.generate (key1.pub))
@@ -1882,7 +1882,7 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 		auto open1 = builder
 					 .open ()
 					 .source (send3->hash ())
-					 .representative (nano::dev::genesis->account ())
+					 .representative (nano::dev::genesis_key.pub)
 					 .account (key2.pub)
 					 .sign (key2.prv, key2.pub)
 					 .work (*system.work.generate (key2.pub))
@@ -1910,7 +1910,7 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 		// Force some blocks to be cemented so that the cached confirmed info variable is empty
 		{
 			auto transaction (node->store.tx_begin_write ());
-			node->store.confirmation_height.put (transaction, nano::dev::genesis->account (), nano::confirmation_height_info{ 3, send1->hash () });
+			node->store.confirmation_height.put (transaction, nano::dev::genesis_key.pub, nano::confirmation_height_info{ 3, send1->hash () });
 			node->store.confirmation_height.put (transaction, key1.pub, nano::confirmation_height_info{ 2, receive1->hash () });
 		}
 

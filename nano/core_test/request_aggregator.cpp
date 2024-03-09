@@ -461,7 +461,7 @@ TEST (request_aggregator, cannot_vote)
 	auto send2 = builder.make_block ()
 				 .from (*send1)
 				 .previous (send1->hash ())
-				 .balance (send1->balance ().number () - 1)
+				 .balance (send1->balance_field ().value ().number () - 1)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send1->hash ()))
 				 .build ();

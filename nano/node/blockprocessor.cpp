@@ -340,11 +340,11 @@ nano::block_status nano::block_processor::process_one (store::write_transaction 
 			/* For send blocks check epoch open unchecked (gap pending).
 			For state blocks check only send subtype and only if block epoch is not last epoch.
 			If epoch is last, then pending entry shouldn't trigger same epoch open block for destination account. */
-			if (block->type () == nano::block_type::send || (block->type () == nano::block_type::state && block->sideband ().details.is_send && std::underlying_type_t<nano::epoch> (block->sideband ().details.epoch) < std::underlying_type_t<nano::epoch> (nano::epoch::max)))
+			if (block->type () == nano::block_type::send || (block->type () == nano::block_type::state && block->is_send () && std::underlying_type_t<nano::epoch> (block->sideband ().details.epoch) < std::underlying_type_t<nano::epoch> (nano::epoch::max)))
 			{
 				/* block->destination () for legacy send blocks
 				block->link () for state blocks (send subtype) */
-				queue_unchecked (transaction_a, block->destination ().is_zero () ? block->link () : block->destination ());
+				queue_unchecked (transaction_a, block->destination ());
 			}
 			break;
 		}
@@ -356,13 +356,14 @@ nano::block_status nano::block_processor::process_one (store::write_transaction 
 		}
 		case nano::block_status::gap_source:
 		{
-			node.unchecked.put (node.ledger.block_source (transaction_a, *block), block);
+			release_assert (block->source_field () || block->link_field ());
+			node.unchecked.put (block->source_field ().value_or (block->link_field ().value_or (0).as_block_hash ()), block);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
 		}
 		case nano::block_status::gap_epoch_open_pending:
 		{
-			node.unchecked.put (block->account (), block); // Specific unchecked key starting with epoch open block account public key
+			node.unchecked.put (block->account_field ().value_or (0), block); // Specific unchecked key starting with epoch open block account public key
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
 		}

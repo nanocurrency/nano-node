@@ -33,21 +33,10 @@ public:
 	virtual void hash (blake2b_state &) const = 0;
 	virtual uint64_t block_work () const = 0;
 	virtual void block_work_set (uint64_t) = 0;
-	virtual nano::account const & account () const;
-	// Previous block in account's chain, zero for open block
-	virtual nano::block_hash const & previous () const = 0;
-	// Source block for open/receive blocks, zero otherwise.
-	virtual nano::block_hash const & source () const;
-	// Destination account for send blocks, zero otherwise.
-	virtual nano::account const & destination () const;
 	// Previous block or account number for open blocks
 	virtual nano::root const & root () const = 0;
 	// Qualified root value based on previous() and root()
 	virtual nano::qualified_root qualified_root () const;
-	// Link field for state blocks, zero otherwise.
-	virtual nano::link const & link () const;
-	virtual nano::account const & representative () const;
-	virtual nano::amount const & balance () const;
 	virtual void serialize (nano::stream &) const = 0;
 	virtual void serialize_json (std::string &, bool = false) const = 0;
 	virtual void serialize_json (boost::property_tree::ptree &) const = 0;
@@ -63,6 +52,35 @@ public:
 	virtual nano::work_version work_version () const;
 	// If there are any changes to the hashables, call this to update the cached hash
 	void refresh ();
+	bool is_send () const noexcept;
+	bool is_receive () const noexcept;
+	bool is_change () const noexcept;
+
+public: // Direct access to the block fields or nullopt if the block type does not have the specified field
+	// Returns account field or account from sideband
+	nano::account account () const noexcept;
+	// Account field for open/state blocks
+	virtual std::optional<nano::account> account_field () const;
+	// Returns the balance field or balance from sideband
+	nano::amount balance () const noexcept;
+	// Balance field for open/send/state blocks
+	virtual std::optional<nano::amount> balance_field () const;
+	// Returns the destination account for send/state blocks that are sends
+	nano::account destination () const noexcept;
+	// Destination account for send blocks
+	virtual std::optional<nano::account> destination_field () const;
+	// Link field for state blocks
+	virtual std::optional<nano::link> link_field () const;
+	// Previous block if field exists or 0
+	nano::block_hash previous () const noexcept;
+	// Previous block in chain if the field exists
+	virtual std::optional<nano::block_hash> previous_field () const = 0;
+	// Representative field for open/change blocks
+	virtual std::optional<nano::account> representative_field () const;
+	// Returns the source block hash for open/receive/state blocks that are receives
+	nano::block_hash source () const noexcept;
+	// Source block for open/receive blocks
+	virtual std::optional<nano::block_hash> source_field () const;
 
 protected:
 	mutable nano::block_hash cached_hash{ 0 };
@@ -106,10 +124,7 @@ public:
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
-	nano::block_hash const & previous () const override;
-	nano::account const & destination () const override;
 	nano::root const & root () const override;
-	nano::amount const & balance () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void serialize_json (std::string &, bool = false) const override;
@@ -127,6 +142,11 @@ public:
 	nano::signature signature;
 	uint64_t work;
 	static std::size_t constexpr size = nano::send_hashables::size + sizeof (signature) + sizeof (work);
+
+public: // Send block fields
+	std::optional<nano::amount> balance_field () const override;
+	std::optional<nano::account> destination_field () const override;
+	std::optional<nano::block_hash> previous_field () const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
@@ -157,8 +177,6 @@ public:
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
-	nano::block_hash const & previous () const override;
-	nano::block_hash const & source () const override;
 	nano::root const & root () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
@@ -177,6 +195,10 @@ public:
 	nano::signature signature;
 	uint64_t work;
 	static std::size_t constexpr size = nano::receive_hashables::size + sizeof (signature) + sizeof (work);
+
+public: // Receive block fields
+	std::optional<nano::block_hash> previous_field () const override;
+	std::optional<nano::block_hash> source_field () const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
@@ -209,11 +231,7 @@ public:
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
-	nano::block_hash const & previous () const override;
-	nano::account const & account () const override;
-	nano::block_hash const & source () const override;
 	nano::root const & root () const override;
-	nano::account const & representative () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void serialize_json (std::string &, bool = false) const override;
@@ -231,6 +249,12 @@ public:
 	nano::signature signature;
 	uint64_t work;
 	static std::size_t constexpr size = nano::open_hashables::size + sizeof (signature) + sizeof (work);
+
+public: // Open block fields
+	std::optional<nano::account> account_field () const override;
+	std::optional<nano::block_hash> previous_field () const override;
+	std::optional<nano::account> representative_field () const override;
+	std::optional<nano::block_hash> source_field () const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
@@ -261,9 +285,7 @@ public:
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
-	nano::block_hash const & previous () const override;
 	nano::root const & root () const override;
-	nano::account const & representative () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void serialize_json (std::string &, bool = false) const override;
@@ -281,6 +303,10 @@ public:
 	nano::signature signature;
 	uint64_t work;
 	static std::size_t constexpr size = nano::change_hashables::size + sizeof (signature) + sizeof (work);
+
+public: // Change block fields
+	std::optional<nano::block_hash> previous_field () const override;
+	std::optional<nano::account> representative_field () const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
@@ -324,12 +350,7 @@ public:
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
-	nano::block_hash const & previous () const override;
-	nano::account const & account () const override;
 	nano::root const & root () const override;
-	nano::link const & link () const override;
-	nano::account const & representative () const override;
-	nano::amount const & balance () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void serialize_json (std::string &, bool = false) const override;
@@ -347,6 +368,13 @@ public:
 	nano::signature signature;
 	uint64_t work;
 	static std::size_t constexpr size = nano::state_hashables::size + sizeof (signature) + sizeof (work);
+
+public: // State block fields
+	std::optional<nano::account> account_field () const override;
+	std::optional<nano::amount> balance_field () const override;
+	std::optional<nano::link> link_field () const override;
+	std::optional<nano::block_hash> previous_field () const override;
+	std::optional<nano::account> representative_field () const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;

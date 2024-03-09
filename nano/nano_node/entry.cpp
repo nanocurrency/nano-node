@@ -1501,7 +1501,7 @@ int main (int argc, char * const * argv)
 							{
 								if ((state_block.hashables.balance == prev_balance && !error_or_pruned) || (node->ledger.pruning && error_or_pruned && block->sideband ().details.is_epoch))
 								{
-									invalid = validate_message (node->ledger.epoch_signer (block->link ()), hash, block->block_signature ());
+									invalid = validate_message (node->ledger.epoch_signer (block->link_field ().value ()), hash, block->block_signature ());
 								}
 							}
 						}
@@ -1529,12 +1529,12 @@ int main (int argc, char * const * argv)
 							}
 							else
 							{
-								if (block->link ().is_zero ())
+								if (block->is_change ())
 								{
 									// State change
 									block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
 								}
-								else if (block->balance () == prev_balance.value () && node->ledger.is_epoch_link (block->link ()))
+								else if (block->balance () == prev_balance.value () && node->ledger.is_epoch_link (block->link_field ().value ()))
 								{
 									// State epoch
 									block_details_error = !sideband.details.is_epoch || sideband.details.is_send || sideband.details.is_receive;
@@ -1543,7 +1543,7 @@ int main (int argc, char * const * argv)
 								{
 									// State receive
 									block_details_error = !sideband.details.is_receive || sideband.details.is_send || sideband.details.is_epoch;
-									block_details_error |= !node->ledger.block_or_pruned_exists (transaction, block->link ().as_block_hash ());
+									block_details_error |= !node->ledger.block_or_pruned_exists (transaction, block->source ());
 								}
 							}
 						}
@@ -1557,7 +1557,7 @@ int main (int argc, char * const * argv)
 						print_error_message (boost::str (boost::format ("Incorrect sideband block details for block %1%\n") % hash.to_string ()));
 					}
 					// Check link epoch version
-					if (sideband.details.is_receive && (!node->ledger.pruning || !node->store.pruned.exists (transaction, block->link ().as_block_hash ())))
+					if (sideband.details.is_receive && (!node->ledger.pruning || !node->store.pruned.exists (transaction, block->source ())))
 					{
 						if (sideband.source_epoch != node->ledger.version (*block))
 						{
@@ -1584,7 +1584,7 @@ int main (int argc, char * const * argv)
 					// Calculate representative block
 					if (block->type () == nano::block_type::open || block->type () == nano::block_type::change || block->type () == nano::block_type::state)
 					{
-						calculated_representative = block->representative ();
+						calculated_representative = block->representative_field ().value ();
 					}
 					// Retrieving successor block hash
 					hash = node->store.block.successor (transaction, hash);
@@ -1697,7 +1697,7 @@ int main (int argc, char * const * argv)
 					}
 					if (auto state = dynamic_cast<nano::state_block *> (block.get ()))
 					{
-						if (node->ledger.is_send (transaction, *state))
+						if (state->is_send ())
 						{
 							destination = state->hashables.link.as_account ();
 						}
@@ -1809,7 +1809,7 @@ int main (int argc, char * const * argv)
 								std::cout << boost::str (boost::format ("%1% blocks retrieved") % count) << std::endl;
 							}
 							node.node->block_processor.add (block);
-							if (block->type () == nano::block_type::state && block->previous ().is_zero () && source_node->ledger.is_epoch_link (block->link ()))
+							if (block->type () == nano::block_type::state && block->previous ().is_zero () && source_node->ledger.is_epoch_link (block->link_field ().value ()))
 							{
 								// Epoch open blocks can be rejected without processed pending blocks to account, push it later again
 								epoch_open_blocks.push_back (block);

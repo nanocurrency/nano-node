@@ -246,13 +246,13 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 						// Subtype field
 						else if (block_a->type () == nano::block_type::state)
 						{
-							if (block_a->link ().is_zero ())
+							if (block_a->is_change ())
 							{
 								event.add ("subtype", "change");
 							}
 							else if (is_state_epoch_a)
 							{
-								debug_assert (amount_a == 0 && node_l->ledger.is_epoch_link (block_a->link ()));
+								debug_assert (amount_a == 0 && node_l->ledger.is_epoch_link (block_a->link_field ().value ()));
 								event.add ("subtype", "epoch");
 							}
 							else
@@ -1066,50 +1066,50 @@ bool nano::node::work_generation_enabled (std::vector<std::pair<std::string, uin
 	return !peers_a.empty () || local_work_generation_enabled ();
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
+std::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
 {
-	auto opt_work_l (work_generate_blocking (block_a.work_version (), block_a.root (), difficulty_a, block_a.account ()));
-	if (opt_work_l.is_initialized ())
+	auto opt_work_l (work_generate_blocking (block_a.work_version (), block_a.root (), difficulty_a, block_a.account_field ()));
+	if (opt_work_l.has_value ())
 	{
-		block_a.block_work_set (*opt_work_l);
+		block_a.block_work_set (opt_work_l.value ());
 	}
 	return opt_work_l;
 }
 
-void nano::node::work_generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::function<void (boost::optional<uint64_t>)> callback_a, boost::optional<nano::account> const & account_a, bool secondary_work_peers_a)
+void nano::node::work_generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::function<void (std::optional<uint64_t>)> callback_a, std::optional<nano::account> const & account_a, bool secondary_work_peers_a)
 {
 	auto const & peers_l (secondary_work_peers_a ? config.secondary_work_peers : config.work_peers);
 	if (distributed_work.make (version_a, root_a, peers_l, difficulty_a, callback_a, account_a))
 	{
 		// Error in creating the job (either stopped or work generation is not possible)
-		callback_a (boost::none);
+		callback_a (std::nullopt);
 	}
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
+std::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::optional<nano::account> const & account_a)
 {
-	std::promise<boost::optional<uint64_t>> promise;
+	std::promise<std::optional<uint64_t>> promise;
 	work_generate (
-	version_a, root_a, difficulty_a, [&promise] (boost::optional<uint64_t> opt_work_a) {
+	version_a, root_a, difficulty_a, [&promise] (std::optional<uint64_t> opt_work_a) {
 		promise.set_value (opt_work_a);
 	},
 	account_a);
 	return promise.get_future ().get ();
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
+std::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
 {
 	debug_assert (network_params.network.is_dev_network ());
 	return work_generate_blocking (block_a, default_difficulty (nano::work_version::work_1));
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a)
+std::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a)
 {
 	debug_assert (network_params.network.is_dev_network ());
 	return work_generate_blocking (root_a, default_difficulty (nano::work_version::work_1));
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a)
+std::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a)
 {
 	debug_assert (network_params.network.is_dev_network ());
 	return work_generate_blocking (nano::work_version::work_1, root_a, difficulty_a);
@@ -1215,19 +1215,15 @@ void nano::node::process_confirmed_data (store::transaction const & transaction_
 {
 	// Faster account calculation
 	account_a = block_a->account ();
-	if (account_a.is_zero ())
-	{
-		account_a = block_a->sideband ().account;
-	}
 	// Faster amount calculation
 	auto previous (block_a->previous ());
 	auto previous_balance = ledger.balance (transaction_a, previous);
-	auto block_balance = ledger.balance (*block_a);
+	auto block_balance = block_a->balance ();
 	if (hash_a != ledger.constants.genesis->account ())
 	{
 		if (previous_balance)
 		{
-			amount_a = block_balance > previous_balance.value () ? block_balance - previous_balance.value () : previous_balance.value () - block_balance;
+			amount_a = block_balance > previous_balance.value () ? block_balance.number () - previous_balance.value () : previous_balance.value () - block_balance.number ();
 		}
 		else
 		{
@@ -1244,7 +1240,7 @@ void nano::node::process_confirmed_data (store::transaction const & transaction_
 		{
 			is_state_send_a = true;
 		}
-		if (amount_a == 0 && network_params.ledger.epochs.is_epoch_link (state->link ()))
+		if (amount_a == 0 && network_params.ledger.epochs.is_epoch_link (state->link_field ().value ()))
 		{
 			is_state_epoch_a = true;
 		}
