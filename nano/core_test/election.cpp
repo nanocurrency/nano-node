@@ -255,7 +255,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	ASSERT_NE (channel, nullptr);
 
 	auto vote2 = nano::test::make_final_vote (key1, { send1->hash () });
-	ASSERT_FALSE (node1.rep_crawler.response (channel, vote2, true));
+	node1.rep_crawler.force_process (vote2, channel);
 
 	ASSERT_FALSE (election->confirmed ());
 	{

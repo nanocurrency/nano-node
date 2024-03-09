@@ -10,6 +10,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
+#include <nano/node/repcrawler.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
 #include <nano/node/vote_cache.hpp>
@@ -127,6 +128,7 @@ public:
 	/** Number of times per second to run backlog population batches. Number of accounts per single batch is `backlog_scan_batch_size / backlog_scan_frequency` */
 	unsigned backlog_scan_frequency{ 10 };
 	nano::vote_cache_config vote_cache;
+	nano::rep_crawler_config rep_crawler;
 
 public:
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;

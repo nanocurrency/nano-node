@@ -15,8 +15,6 @@
 
 using namespace std::chrono_literals;
 
-namespace nano
-{
 /*
  * Tests that an election can be confirmed as the result of a confirmation request
  *
@@ -81,10 +79,7 @@ TEST (active_transactions, confirm_election_by_request)
 	ASSERT_FALSE (peers.empty ());
 
 	// Add representative (node1) to disabled rep crawler of node2
-	{
-		nano::lock_guard<nano::mutex> guard (node2.rep_crawler.probable_reps_mutex);
-		node2.rep_crawler.probable_reps.emplace (nano::dev::genesis_key.pub, *peers.cbegin ());
-	}
+	node2.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, *peers.cbegin ());
 
 	// Expect a vote to come back
 	ASSERT_TIMELY (5s, election->votes ().size () >= 1);
@@ -98,10 +93,7 @@ TEST (active_transactions, confirm_election_by_request)
 	ASSERT_TIMELY (5s, nano::test::confirmed (node1, { send1 }));
 	ASSERT_TIMELY (5s, nano::test::confirmed (node2, { send1 }));
 }
-}
 
-namespace nano
-{
 TEST (active_transactions, confirm_frontier)
 {
 	nano::test::system system;
@@ -145,10 +137,7 @@ TEST (active_transactions, confirm_frontier)
 	// Add representative to disabled rep crawler
 	auto peers (node2.network.random_set (1));
 	ASSERT_FALSE (peers.empty ());
-	{
-		nano::lock_guard<nano::mutex> guard (node2.rep_crawler.probable_reps_mutex);
-		node2.rep_crawler.probable_reps.emplace (nano::dev::genesis_key.pub, *peers.begin ());
-	}
+	node2.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, *peers.begin ());
 
 	ASSERT_EQ (nano::block_status::progress, node2.process (send));
 	ASSERT_TIMELY (5s, !node2.active.empty ());
@@ -160,7 +149,6 @@ TEST (active_transactions, confirm_frontier)
 	ASSERT_TIMELY_EQ (5s, node2.ledger.cache.cemented_count, 2);
 	ASSERT_TIMELY (5s, node2.active.empty ());
 	ASSERT_GT (election2->confirmation_request_count, 0u);
-}
 }
 
 TEST (active_transactions, keep_local)

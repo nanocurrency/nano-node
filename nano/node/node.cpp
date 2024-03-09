@@ -90,20 +90,6 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 	});
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (rep_crawler & rep_crawler, std::string const & name)
-{
-	std::size_t count;
-	{
-		nano::lock_guard<nano::mutex> guard{ rep_crawler.active_mutex };
-		count = rep_crawler.active.size ();
-	}
-
-	auto const sizeof_element = sizeof (decltype (rep_crawler.active)::value_type);
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "active", count, sizeof_element }));
-	return composite;
-}
-
 nano::keypair nano::load_or_create_node_id (std::filesystem::path const & application_path)
 {
 	auto node_private_key_path = application_path / "node_id_private.key";
@@ -176,7 +162,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	tcp_listener{ std::make_shared<nano::transport::tcp_listener> (network.port, *this, config.tcp_incoming_connections_max) },
 	application_path (application_path_a),
 	port_mapping (*this),
-	rep_crawler (*this),
+	rep_crawler (config.rep_crawler, *this),
 	rep_tiers{ ledger, network_params, online_reps, stats, logger },
 	vote_processor{ active, observers, stats, config, flags, logger, online_reps, rep_crawler, ledger, network_params, rep_tiers },
 	warmed_up (0),
@@ -320,13 +306,14 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 		observers.endpoint.add ([this] (std::shared_ptr<nano::transport::channel> const & channel_a) {
 			this->network.send_keepalive_self (channel_a);
 		});
-		observers.vote.add ([this] (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, nano::vote_code code_a) {
-			debug_assert (code_a != nano::vote_code::invalid);
-			auto active_in_rep_crawler (!this->rep_crawler.response (channel_a, vote_a));
+
+		observers.vote.add ([this] (std::shared_ptr<nano::vote> vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_code code) {
+			debug_assert (code != nano::vote_code::invalid);
+			bool active_in_rep_crawler = rep_crawler.process (vote, channel);
 			if (active_in_rep_crawler)
 			{
 				// Representative is defined as online if replying to live votes or rep_crawler queries
-				this->online_reps.observe (vote_a->account);
+				online_reps.observe (vote->account);
 			}
 		});
 
@@ -537,7 +524,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.observers, "observers"));
 	composite->add_component (collect_container_info (node.wallets, "wallets"));
 	composite->add_component (collect_container_info (node.vote_processor, "vote_processor"));
-	composite->add_component (collect_container_info (node.rep_crawler, "rep_crawler"));
+	composite->add_component (node.rep_crawler.collect_container_info ("rep_crawler"));
 	composite->add_component (node.block_processor.collect_container_info ("block_processor"));
 	composite->add_component (collect_container_info (node.online_reps, "online_reps"));
 	composite->add_component (collect_container_info (node.history, "history"));
@@ -683,6 +670,7 @@ void nano::node::stop ()
 	{
 		ascendboot.stop ();
 	}
+	rep_crawler.stop ();
 	unchecked.stop ();
 	block_processor.stop ();
 	aggregator.stop ();
@@ -708,14 +696,14 @@ void nano::node::stop ()
 	// work pool is not stopped on purpose due to testing setup
 }
 
-void nano::node::keepalive_preconfigured (std::vector<std::string> const & peers_a)
+void nano::node::keepalive_preconfigured ()
 {
-	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
+	for (auto const & peer : config.preconfigured_peers)
 	{
 		// can't use `network.port` here because preconfigured peers are referenced
 		// just by their address, so we rely on them listening on the default port
 		//
-		keepalive (*i, network_params.network.default_node_port);
+		keepalive (peer, network_params.network.default_node_port);
 	}
 }
 
