@@ -83,7 +83,7 @@ void nano::rep_tiers::run ()
 
 void nano::rep_tiers::calculate_tiers ()
 {
-	auto online = online_reps.online ();
+	auto stake = online_reps.trended ();
 	auto rep_amounts = ledger.cache.rep_weights.get_rep_amounts ();
 
 	decltype (representatives_1) representatives_1_l;
@@ -97,13 +97,13 @@ void nano::rep_tiers::calculate_tiers ()
 
 		// Using ledger weight here because it takes preconfigured bootstrap weights into account
 		auto weight = ledger.weight (representative);
-		if (weight > online / 1000) // 0.1% or above (level 1)
+		if (weight > stake / 1000) // 0.1% or above (level 1)
 		{
 			representatives_1_l.insert (representative);
-			if (weight > online / 100) // 1% or above (level 2)
+			if (weight > stake / 100) // 1% or above (level 2)
 			{
 				representatives_2_l.insert (representative);
-				if (weight > online / 20) // 5% or above (level 3)
+				if (weight > stake / 20) // 5% or above (level 3)
 				{
 					representatives_3_l.insert (representative);
 				}
