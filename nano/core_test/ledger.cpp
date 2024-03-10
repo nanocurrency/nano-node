@@ -5530,41 +5530,6 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	ASSERT_EQ (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ()))[0], nano::block_hash (2));
 }
 
-TEST (ledger, unconfirmed_frontiers)
-{
-	auto ctx = nano::test::context::ledger_empty ();
-	auto & ledger = ctx.ledger ();
-	auto & store = ctx.store ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
-
-	auto unconfirmed_frontiers = ledger.unconfirmed_frontiers ();
-	ASSERT_TRUE (unconfirmed_frontiers.empty ());
-
-	nano::state_block_builder builder;
-	nano::keypair key;
-	auto const latest = ledger.latest (store.tx_begin_read (), nano::dev::genesis_key.pub);
-	auto send = builder.make_block ()
-				.account (nano::dev::genesis_key.pub)
-				.previous (latest)
-				.representative (nano::dev::genesis_key.pub)
-				.balance (nano::dev::constants.genesis_amount - 100)
-				.link (key.pub)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*pool.generate (latest))
-				.build ();
-
-	ASSERT_EQ (nano::block_status::progress, ledger.process (store.tx_begin_write (), send));
-
-	unconfirmed_frontiers = ledger.unconfirmed_frontiers ();
-	ASSERT_EQ (unconfirmed_frontiers.size (), 1);
-	ASSERT_EQ (unconfirmed_frontiers.begin ()->first, 1);
-	nano::uncemented_info uncemented_info1{ latest, send->hash (), nano::dev::genesis_key.pub };
-	auto uncemented_info2 = unconfirmed_frontiers.begin ()->second;
-	ASSERT_EQ (uncemented_info1.account, uncemented_info2.account);
-	ASSERT_EQ (uncemented_info1.cemented_frontier, uncemented_info2.cemented_frontier);
-	ASSERT_EQ (uncemented_info1.frontier, uncemented_info2.frontier);
-}
-
 TEST (ledger, is_send_genesis)
 {
 	auto ctx = nano::test::context::ledger_empty ();
