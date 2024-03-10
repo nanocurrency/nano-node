@@ -98,56 +98,6 @@ public:
 	nano::raw_key prv;
 };
 
-/**
- * Latest information about an account
- */
-class account_info final
-{
-public:
-	account_info () = default;
-	account_info (nano::block_hash const &, nano::account const &, nano::block_hash const &, nano::amount const &, nano::seconds_t modified, uint64_t, epoch);
-	bool deserialize (nano::stream &);
-	bool operator== (nano::account_info const &) const;
-	bool operator!= (nano::account_info const &) const;
-	size_t db_size () const;
-	nano::epoch epoch () const;
-	nano::block_hash head{ 0 };
-	nano::account representative{};
-	nano::block_hash open_block{ 0 };
-	nano::amount balance{ 0 };
-	/** Seconds since posix epoch */
-	nano::seconds_t modified{ 0 };
-	uint64_t block_count{ 0 };
-	nano::epoch epoch_m{ nano::epoch::epoch_0 };
-};
-
-/**
- * Information on an uncollected send
- */
-class pending_info final
-{
-public:
-	pending_info () = default;
-	pending_info (nano::account const &, nano::amount const &, nano::epoch);
-	size_t db_size () const;
-	bool deserialize (nano::stream &);
-	bool operator== (nano::pending_info const &) const;
-	nano::account source{};
-	nano::amount amount{ 0 };
-	nano::epoch epoch{ nano::epoch::epoch_0 };
-};
-class pending_key final
-{
-public:
-	pending_key () = default;
-	pending_key (nano::account const &, nano::block_hash const &);
-	bool deserialize (nano::stream &);
-	bool operator== (nano::pending_key const &) const;
-	nano::account const & key () const;
-	nano::account account{};
-	nano::block_hash hash{ 0 };
-};
-
 class endpoint_key final
 {
 public:
@@ -403,32 +353,6 @@ enum class confirmation_height_mode
 	automatic,
 	unbounded,
 	bounded
-};
-
-/* Holds flags for various cacheable data. For most CLI operations caching is unnecessary
- * (e.g getting the cemented block count) so it can be disabled for performance reasons. */
-class generate_cache
-{
-public:
-	bool reps = true;
-	bool cemented_count = true;
-	bool unchecked_count = true;
-	bool account_count = true;
-	bool block_count = true;
-
-	void enable_all ();
-};
-
-/* Holds an in-memory cache of various counts */
-class ledger_cache
-{
-public:
-	nano::rep_weights rep_weights;
-	std::atomic<uint64_t> cemented_count{ 0 };
-	std::atomic<uint64_t> block_count{ 0 };
-	std::atomic<uint64_t> pruned_count{ 0 };
-	std::atomic<uint64_t> account_count{ 0 };
-	std::atomic<bool> final_votes_confirmation_canary{ false };
 };
 
 /* Defines the possible states for an election to stop in */

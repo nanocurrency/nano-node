@@ -3,6 +3,7 @@
 #include <nano/lib/timer.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/node.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
 
 #include <boost/format.hpp>

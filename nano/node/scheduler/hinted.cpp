@@ -2,6 +2,7 @@
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/hinted.hpp>
+#include <nano/secure/ledger.hpp>
 
 /*
  * hinted

@@ -10,6 +10,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/node_rpc_config.hpp>
 #include <nano/node/telemetry.hpp>
+#include <nano/secure/ledger.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>

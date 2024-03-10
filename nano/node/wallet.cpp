@@ -5,6 +5,7 @@
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/wallet.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/store/lmdb/iterator.hpp>
 
 #include <boost/format.hpp>

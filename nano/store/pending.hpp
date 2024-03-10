@@ -9,6 +9,8 @@
 namespace nano
 {
 class block_hash;
+class pending_info;
+class pending_key;
 }
 namespace nano::store
 {

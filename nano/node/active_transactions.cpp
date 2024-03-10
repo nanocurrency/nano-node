@@ -8,6 +8,7 @@
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
 
 #include <boost/format.hpp>

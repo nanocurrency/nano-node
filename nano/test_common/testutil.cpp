@@ -4,6 +4,7 @@
 #include <nano/node/scheduler/manual.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/fake.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/store/block.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>

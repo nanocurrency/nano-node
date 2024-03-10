@@ -2,6 +2,7 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/vote_processor.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>

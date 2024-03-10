@@ -3,7 +3,6 @@
 #include <nano/lib/id_dispenser.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
 
 #include <atomic>

@@ -9,6 +9,7 @@
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
+#include <nano/secure/ledger.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/property_tree/json_parser.hpp>
