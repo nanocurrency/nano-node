@@ -1,8 +1,8 @@
 #pragma once
 
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/secure/account_info.hpp>
-#include <nano/secure/common.hpp>
 #include <nano/secure/generate_cache_flags.hpp>
 #include <nano/secure/ledger_cache.hpp>
 
@@ -17,6 +17,10 @@ class write_transaction;
 
 namespace nano
 {
+class block;
+enum class block_status;
+enum class epoch : uint8_t;
+class ledger_constants;
 class pending_info;
 class pending_key;
 class stats;
