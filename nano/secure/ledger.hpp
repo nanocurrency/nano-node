@@ -2,6 +2,7 @@
 
 #include <nano/lib/timer.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/generate_cache_flags.hpp>
 
 #include <map>
 
@@ -28,7 +29,7 @@ public:
 class ledger final
 {
 public:
-	ledger (nano::store::component &, nano::stats &, nano::ledger_constants & constants, nano::generate_cache const & = nano::generate_cache ());
+	ledger (nano::store::component &, nano::stats &, nano::ledger_constants & constants, nano::generate_cache_flags const & = nano::generate_cache_flags{});
 	/**
 	 * Returns the account for a given hash
 	 * Returns std::nullopt if the block doesn't exist or has been pruned
@@ -87,7 +88,7 @@ public:
 	bool pruning{ false };
 
 private:
-	void initialize (nano::generate_cache const &);
+	void initialize (nano::generate_cache_flags const &);
 };
 
 std::unique_ptr<container_info_component> collect_container_info (ledger & ledger, std::string const & name);

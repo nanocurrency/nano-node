@@ -16,6 +16,7 @@
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/websocketconfig.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/generate_cache_flags.hpp>
 
 #include <chrono>
 #include <optional>
@@ -169,7 +170,7 @@ public:
 	bool read_only{ false };
 	bool disable_connection_cleanup{ false };
 	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };
-	nano::generate_cache generate_cache;
+	nano::generate_cache_flags generate_cache;
 	bool inactive_node{ false };
 	std::size_t block_processor_batch_size{ 0 };
 	std::size_t block_processor_full_size{ 65536 };

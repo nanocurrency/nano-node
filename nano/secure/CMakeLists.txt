@@ -41,6 +41,8 @@ add_library(
   ${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp
   common.hpp
   common.cpp
+  generate_cache_flags.hpp
+  generate_cache_flags.cpp
   ledger.hpp
   ledger.cpp
   network_filter.hpp

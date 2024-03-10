@@ -484,14 +484,6 @@ nano::block_hash const & nano::unchecked_key::key () const
 	return previous;
 }
 
-void nano::generate_cache::enable_all ()
-{
-	reps = true;
-	cemented_count = true;
-	unchecked_count = true;
-	account_count = true;
-}
-
 std::string_view nano::to_string (nano::block_status code)
 {
 	return magic_enum::enum_name (code);

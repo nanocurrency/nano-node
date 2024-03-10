@@ -750,7 +750,7 @@ void representative_visitor::state_block (nano::state_block const & block_a)
 }
 } // namespace
 
-nano::ledger::ledger (nano::store::component & store_a, nano::stats & stat_a, nano::ledger_constants & constants, nano::generate_cache const & generate_cache_a) :
+nano::ledger::ledger (nano::store::component & store_a, nano::stats & stat_a, nano::ledger_constants & constants, nano::generate_cache_flags const & generate_cache_flags_a) :
 	constants{ constants },
 	store{ store_a },
 	stats{ stat_a },
@@ -758,13 +758,13 @@ nano::ledger::ledger (nano::store::component & store_a, nano::stats & stat_a, na
 {
 	if (!store.init_error ())
 	{
-		initialize (generate_cache_a);
+		initialize (generate_cache_flags_a);
 	}
 }
 
-void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
+void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache_flags_a)
 {
-	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.block_count)
+	if (generate_cache_flags_a.reps || generate_cache_flags_a.account_count || generate_cache_flags_a.block_count)
 	{
 		store.account.for_each_par (
 		[this] (store::read_transaction const & /*unused*/, store::iterator<nano::account, nano::account_info> i, store::iterator<nano::account, nano::account_info> n) {
@@ -784,7 +784,7 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 		});
 	}
 
-	if (generate_cache_a.cemented_count)
+	if (generate_cache_flags_a.cemented_count)
 	{
 		store.confirmation_height.for_each_par (
 		[this] (store::read_transaction const & /*unused*/, store::iterator<nano::account, nano::confirmation_height_info> i, store::iterator<nano::account, nano::confirmation_height_info> n) {
