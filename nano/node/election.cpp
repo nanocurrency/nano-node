@@ -3,6 +3,7 @@
 #include <nano/node/election.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
+#include <nano/secure/ledger.hpp>
 
 #include <boost/format.hpp>
 

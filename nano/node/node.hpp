@@ -35,7 +35,6 @@
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/node/write_database_queue.hpp>
-#include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
 
 #include <boost/program_options.hpp>
@@ -151,7 +150,8 @@ public:
 	nano::unchecked_map unchecked;
 	std::unique_ptr<nano::wallets_store> wallets_store_impl;
 	nano::wallets_store & wallets_store;
-	nano::ledger ledger;
+	std::unique_ptr<nano::ledger> ledger_impl;
+	nano::ledger & ledger;
 	nano::outbound_bandwidth_limiter outbound_limiter;
 	nano::network network;
 	nano::telemetry telemetry;
