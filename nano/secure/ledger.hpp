@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/lib/rep_weights.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/secure/common.hpp>
 
