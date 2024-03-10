@@ -1993,20 +1993,6 @@ int main (int argc, char * const * argv)
 				output_account_version_number (i, unopened_account_version_totals[i]);
 			}
 		}
-		else if (vm.count ("debug_unconfirmed_frontiers"))
-		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
-			auto node = inactive_node->node;
-
-			auto unconfirmed_frontiers = node->ledger.unconfirmed_frontiers ();
-			std::cout << "Account: Height delta | Frontier | Confirmed frontier\n";
-			for (auto const & [height_delta, unconfirmed_info] : unconfirmed_frontiers)
-			{
-				std::cout << (boost::format ("%1%: %2% %3% %4%\n") % unconfirmed_info.account.to_account () % height_delta % unconfirmed_info.frontier.to_string () % unconfirmed_info.cemented_frontier.to_string ()).str ();
-			}
-
-			std::cout << "\nNumber of unconfirmed frontiers: " << unconfirmed_frontiers.size () << std::endl;
-		}
 		else if (vm.count ("version"))
 		{
 			std::cout << "Version " << NANO_VERSION_STRING << "\n"

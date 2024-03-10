@@ -27,15 +27,6 @@ class pending_info;
 class pending_key;
 class stats;
 
-class uncemented_info
-{
-public:
-	uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account);
-	nano::block_hash cemented_frontier;
-	nano::block_hash frontier;
-	nano::account account;
-};
-
 class ledger final
 {
 	friend class receivable_iterator;
@@ -90,7 +81,6 @@ public:
 	std::shared_ptr<nano::block> find_receive_block_by_send_hash (store::transaction const & transaction, nano::account const & destination, nano::block_hash const & send_block_hash);
 	nano::account const & epoch_signer (nano::link const &) const;
 	nano::link const & epoch_link (nano::epoch) const;
-	std::multimap<uint64_t, uncemented_info, std::greater<>> unconfirmed_frontiers () const;
 	bool migrate_lmdb_to_rocksdb (std::filesystem::path const &) const;
 	bool bootstrap_weight_reached () const;
 	static nano::epoch version (nano::block const & block);
