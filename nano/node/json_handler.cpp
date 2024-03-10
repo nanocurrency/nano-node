@@ -13,6 +13,8 @@
 #include <nano/node/node_rpc_config.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
+#include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/secure/transaction.hpp>
 
 #include <boost/property_tree/json_parser.hpp>

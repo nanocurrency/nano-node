@@ -49,6 +49,10 @@ add_library(
   ledger.cpp
   ledger_cache.hpp
   ledger_cache.cpp
+  ledger_set_any.hpp
+  ledger_set_any.cpp
+  ledger_set_confirmed.hpp
+  ledger_set_confirmed.cpp
   network_filter.hpp
   network_filter.cpp
   pending_info.hpp

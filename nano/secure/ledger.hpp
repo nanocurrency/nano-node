@@ -10,6 +10,7 @@
 
 #include <deque>
 #include <map>
+#include <memory>
 
 namespace nano::store
 {
@@ -22,6 +23,8 @@ class block;
 enum class block_status;
 enum class epoch : uint8_t;
 class ledger_constants;
+class ledger_set_any;
+class ledger_set_confirmed;
 class pending_info;
 class pending_key;
 class stats;
@@ -32,6 +35,7 @@ class ledger final
 
 public:
 	ledger (nano::store::component &, nano::stats &, nano::ledger_constants & constants, nano::generate_cache_flags const & = nano::generate_cache_flags{}, nano::uint128_t min_rep_weight_a = 0);
+	~ledger ();
 
 	/** Start read-write transaction */
 	secure::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_to_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) const;
@@ -117,6 +121,13 @@ private:
 	std::optional<std::pair<nano::pending_key, nano::pending_info>> receivable_lower_bound (secure::transaction const & tx, nano::account const & account, nano::block_hash const & hash) const;
 	void initialize (nano::generate_cache_flags const &);
 	void confirm (secure::write_transaction const & transaction, nano::block const & block);
+
+	std::unique_ptr<ledger_set_any> any_impl;
+	std::unique_ptr<ledger_set_confirmed> confirmed_impl;
+
+public:
+	ledger_set_any & any;
+	ledger_set_confirmed & confirmed;
 
 public: // Only used in tests
 	void force_confirm (secure::write_transaction const & transaction, nano::block const & block);

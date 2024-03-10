@@ -19,6 +19,8 @@
 #include <nano/rpc_test/rpc_context.hpp>
 #include <nano/rpc_test/test_response.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
+#include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/telemetry.hpp>

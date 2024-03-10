@@ -7,6 +7,8 @@
 #include <nano/node/make_store.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
+#include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/secure/rep_weights.hpp>
 #include <nano/store/account.hpp>
 #include <nano/store/block.hpp>
@@ -714,12 +716,20 @@ nano::ledger::ledger (nano::store::component & store_a, nano::stats & stat_a, na
 	store{ store_a },
 	cache{ store_a.rep_weight, min_rep_weight_a },
 	stats{ stat_a },
-	check_bootstrap_weights{ true }
+	check_bootstrap_weights{ true },
+	any_impl{ std::make_unique<ledger_set_any> (*this) },
+	confirmed_impl{ std::make_unique<ledger_set_confirmed> (*this) },
+	any{ *any_impl },
+	confirmed{ *confirmed_impl }
 {
 	if (!store.init_error ())
 	{
 		initialize (generate_cache_flags_a);
 	}
+}
+
+nano::ledger::~ledger ()
+{
 }
 
 auto nano::ledger::tx_begin_write (std::vector<nano::tables> const & tables_to_lock, std::vector<nano::tables> const & tables_no_lock) const -> secure::write_transaction
