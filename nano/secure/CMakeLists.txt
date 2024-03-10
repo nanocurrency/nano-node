@@ -51,6 +51,8 @@ add_library(
   ledger_cache.cpp
   network_filter.hpp
   network_filter.cpp
+  pending_info.hpp
+  pending_info.cpp
   utility.hpp
   utility.cpp
   vote.hpp

@@ -13,6 +13,8 @@ namespace nano
 {
 class account_info;
 class block;
+class pending_info;
+class pending_key;
 }
 
 namespace nano::store
@@ -61,17 +63,9 @@ public:
 
 	db_val (nano::account_info const & val_a);
 
-	db_val (nano::pending_info const & val_a) :
-		db_val (val_a.db_size (), const_cast<nano::pending_info *> (&val_a))
-	{
-		static_assert (std::is_standard_layout<nano::pending_info>::value, "Standard layout is required");
-	}
+	db_val (nano::pending_info const & val_a);
 
-	db_val (nano::pending_key const & val_a) :
-		db_val (sizeof (val_a), const_cast<nano::pending_key *> (&val_a))
-	{
-		static_assert (std::is_standard_layout<nano::pending_key>::value, "Standard layout is required");
-	}
+	db_val (nano::pending_key const & val_a);
 
 	db_val (nano::confirmation_height_info const & val_a) :
 		buffer (std::make_shared<std::vector<uint8_t>> ())
@@ -119,22 +113,9 @@ public:
 		return result;
 	}
 
-	explicit operator nano::pending_info () const
-	{
-		nano::pending_info result;
-		debug_assert (size () == result.db_size ());
-		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
-		return result;
-	}
+	explicit operator nano::pending_info () const;
 
-	explicit operator nano::pending_key () const
-	{
-		nano::pending_key result;
-		debug_assert (size () == sizeof (result));
-		static_assert (sizeof (nano::pending_key::account) + sizeof (nano::pending_key::hash) == sizeof (result), "Packed class");
-		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), reinterpret_cast<uint8_t *> (&result));
-		return result;
-	}
+	explicit operator nano::pending_key () const;
 
 	explicit operator nano::confirmation_height_info () const
 	{

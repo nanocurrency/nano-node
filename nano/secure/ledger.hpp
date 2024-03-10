@@ -17,6 +17,8 @@ class write_transaction;
 
 namespace nano
 {
+class pending_info;
+class pending_key;
 class stats;
 
 class uncemented_info
