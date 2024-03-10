@@ -253,15 +253,12 @@ public:
 		}
 	}
 
-	void publish (nano::publish const & message_a) override
+	void publish (nano::publish const & message) override
 	{
-		if (!node.block_processor.full ())
+		bool added = node.block_processor.add (message.block, nano::block_source::live, channel);
+		if (!added)
 		{
-			node.process_active (message_a.block);
-		}
-		else
-		{
-			node.network.publish_filter.clear (message_a.digest);
+			node.network.publish_filter.clear (message.digest);
 			node.stats.inc (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::in);
 		}
 	}

@@ -34,7 +34,7 @@ public:
 
 		source (std::tuple<Sources...> sources, std::shared_ptr<nano::transport::channel> channel = nullptr) :
 			sources{ sources },
-			channel{ channel }
+			channel{ std::move (channel) }
 		{
 		}
 
