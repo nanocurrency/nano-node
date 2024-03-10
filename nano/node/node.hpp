@@ -123,7 +123,7 @@ public:
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;
 	bool init_error () const;
-	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
+	std::pair<uint64_t, std::unordered_map<nano::account, nano::uint128_t>> get_bootstrap_weights () const;
 	uint64_t get_confirmation_height (store::transaction const &, nano::account &);
 	/*
 	 * Attempts to bootstrap block. This is the best effort, there is no guarantee that the block will be bootstrapped.
