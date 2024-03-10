@@ -950,22 +950,6 @@ std::string nano::ledger::block_text (nano::block_hash const & hash_a)
 	return result;
 }
 
-nano::account const & nano::ledger::block_destination (store::transaction const & transaction_a, nano::block const & block_a)
-{
-	nano::send_block const * send_block (dynamic_cast<nano::send_block const *> (&block_a));
-	nano::state_block const * state_block (dynamic_cast<nano::state_block const *> (&block_a));
-	if (send_block != nullptr)
-	{
-		return send_block->hashables.destination;
-	}
-	else if (state_block != nullptr && block_a.is_send ())
-	{
-		return state_block->hashables.link.as_account ();
-	}
-
-	return nano::account::null ();
-}
-
 std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (store::transaction const & transaction_a) const
 {
 	nano::block_hash hash (0);

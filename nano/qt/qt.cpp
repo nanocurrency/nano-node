@@ -2318,7 +2318,7 @@ void nano_qt::block_creation::create_receive ()
 		auto block_l (wallet.node.ledger.block (block_transaction, source_l));
 		if (block_l != nullptr)
 		{
-			auto const & destination (wallet.node.ledger.block_destination (block_transaction, *block_l));
+			auto destination = block_l->destination ();
 			if (!destination.is_zero ())
 			{
 				nano::pending_key pending_key (destination, source_l);
@@ -2483,7 +2483,7 @@ void nano_qt::block_creation::create_open ()
 			auto block_l (wallet.node.ledger.block (block_transaction, source_l));
 			if (block_l != nullptr)
 			{
-				auto const & destination (wallet.node.ledger.block_destination (block_transaction, *block_l));
+				auto destination = block_l->destination ();
 				if (!destination.is_zero ())
 				{
 					nano::pending_key pending_key (destination, source_l);
