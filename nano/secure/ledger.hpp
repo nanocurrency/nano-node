@@ -4,6 +4,7 @@
 #include <nano/secure/account_info.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/generate_cache_flags.hpp>
+#include <nano/secure/ledger_cache.hpp>
 
 #include <map>
 
