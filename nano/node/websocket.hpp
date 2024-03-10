@@ -20,15 +20,19 @@
 namespace nano
 {
 class block;
-class wallets;
-class logger;
-class vote;
 class election_status;
+enum class election_status_type : uint8_t;
+class ledger;
+class logger;
+class node_observers;
 class telemetry_data;
 class tls_config;
-class node_observers;
-enum class election_status_type : uint8_t;
+class vote;
+class wallets;
+}
 
+namespace nano
+{
 namespace websocket
 {
 	class listener;
@@ -382,4 +386,4 @@ public:
 	// TODO: Encapsulate, this is public just because existing code needs it
 	std::shared_ptr<nano::websocket::listener> server;
 };
-}
+} // namespace nano
