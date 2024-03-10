@@ -4,6 +4,7 @@
 #include <nano/node/vote_with_weight_info.hpp>
 #include <nano/qt/qt.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_unconfirmed.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>

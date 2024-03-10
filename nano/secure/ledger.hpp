@@ -9,6 +9,7 @@
 
 #include <deque>
 #include <map>
+#include <memory>
 
 namespace nano::store
 {
@@ -23,6 +24,8 @@ class block;
 enum class block_status;
 enum class epoch : uint8_t;
 class ledger_constants;
+class ledger_view_confirmed;
+class ledger_view_unconfirmed;
 class pending_info;
 class pending_key;
 class stats;
@@ -33,6 +36,12 @@ class ledger final
 
 public:
 	ledger (nano::store::component &, nano::stats &, nano::ledger_constants & constants, nano::generate_cache_flags const & = nano::generate_cache_flags{}, nano::uint128_t min_rep_weight_a = 0);
+	~ledger ();
+
+	ledger_view_unconfirmed * operator->() const;
+	ledger_view_confirmed & confirmed () const;
+	ledger_view_unconfirmed & unconfirmed () const;
+
 	/**
 	 * Returns the account for a given hash
 	 * Returns std::nullopt if the block doesn't exist or has been pruned
@@ -108,6 +117,9 @@ private:
 	std::optional<std::pair<nano::pending_key, nano::pending_info>> receivable_lower_bound (store::transaction const & tx, nano::account const & account, nano::block_hash const & hash) const;
 	void initialize (nano::generate_cache_flags const &);
 	void confirm (nano::store::write_transaction const & transaction, nano::block const & block);
+
+	std::unique_ptr<ledger_view_unconfirmed> unconfirmed_view;
+	std::unique_ptr<ledger_view_confirmed> confirmed_view;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (ledger & ledger, std::string const & name);

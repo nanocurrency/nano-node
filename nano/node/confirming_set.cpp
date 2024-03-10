@@ -2,6 +2,7 @@
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_confirmed.hpp>
 #include <nano/store/component.hpp>
 
 nano::confirming_set::confirming_set (nano::ledger & ledger, nano::write_database_queue & write_queue, std::chrono::milliseconds batch_time) :

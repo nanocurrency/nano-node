@@ -20,6 +20,8 @@
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_confirmed.hpp>
+#include <nano/secure/ledger_view_unconfirmed.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
 

@@ -13,6 +13,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_unconfirmed.hpp>
 #include <nano/store/pending.hpp>
 
 #include <boost/dll/runtime_symbol_info.hpp>

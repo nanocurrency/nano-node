@@ -7,6 +7,8 @@
 #include <nano/node/make_store.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_confirmed.hpp>
+#include <nano/secure/ledger_view_unconfirmed.hpp>
 #include <nano/secure/rep_weights.hpp>
 #include <nano/store/account.hpp>
 #include <nano/store/block.hpp>
@@ -729,12 +731,33 @@ nano::ledger::ledger (nano::store::component & store_a, nano::stats & stat_a, na
 	store{ store_a },
 	cache{ store_a.rep_weight, min_rep_weight_a },
 	stats{ stat_a },
-	check_bootstrap_weights{ true }
+	check_bootstrap_weights{ true },
+	confirmed_view{ std::make_unique<ledger_view_confirmed> (*this) },
+	unconfirmed_view{ std::make_unique<ledger_view_unconfirmed> (*this) }
 {
 	if (!store.init_error ())
 	{
 		initialize (generate_cache_flags_a);
 	}
+}
+
+nano::ledger::~ledger ()
+{
+}
+
+auto nano::ledger::operator->() const -> ledger_view_unconfirmed *
+{
+	return unconfirmed_view.get ();
+}
+
+auto nano::ledger::confirmed () const -> ledger_view_confirmed &
+{
+	return *confirmed_view;
+}
+
+auto nano::ledger::unconfirmed () const -> ledger_view_unconfirmed &
+{
+	return *unconfirmed_view;
 }
 
 void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache_flags_a)

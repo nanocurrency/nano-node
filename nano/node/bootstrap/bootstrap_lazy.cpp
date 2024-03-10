@@ -4,6 +4,7 @@
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_unconfirmed.hpp>
 
 #include <boost/format.hpp>
 

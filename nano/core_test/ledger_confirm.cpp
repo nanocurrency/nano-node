@@ -4,6 +4,8 @@
 #include <nano/node/election.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_confirmed.hpp>
+#include <nano/secure/ledger_view_unconfirmed.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
