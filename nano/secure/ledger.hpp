@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/timer.hpp>
+#include <nano/secure/account_info.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/generate_cache_flags.hpp>
 

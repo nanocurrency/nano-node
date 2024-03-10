@@ -39,6 +39,8 @@ add_library(
   ${PLATFORM_SECURE_SOURCE}
   ${CMAKE_BINARY_DIR}/bootstrap_weights_live.cpp
   ${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp
+  account_info.hpp
+  account_info.cpp
   common.hpp
   common.cpp
   generate_cache_flags.hpp

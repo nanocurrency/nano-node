@@ -3,6 +3,7 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/transport/channel.hpp>
+#include <nano/secure/account_info.hpp>
 
 #include <gtest/gtest.h>
 

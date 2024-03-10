@@ -22,9 +22,10 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
-class node;
-class ledger;
+class account_info;
 class active_transactions;
+class ledger;
+class node;
 }
 
 namespace nano::scheduler

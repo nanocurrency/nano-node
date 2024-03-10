@@ -11,6 +11,7 @@
 
 namespace nano
 {
+class account_info;
 class block;
 }
 
@@ -58,10 +59,7 @@ public:
 	{
 	}
 
-	db_val (nano::account_info const & val_a) :
-		db_val (val_a.db_size (), const_cast<nano::account_info *> (&val_a))
-	{
-	}
+	db_val (nano::account_info const & val_a);
 
 	db_val (nano::pending_info const & val_a) :
 		db_val (val_a.db_size (), const_cast<nano::pending_info *> (&val_a))
@@ -110,13 +108,7 @@ public:
 		convert_buffer_to_value ();
 	}
 
-	explicit operator nano::account_info () const
-	{
-		nano::account_info result;
-		debug_assert (size () == result.db_size ());
-		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
-		return result;
-	}
+	explicit operator nano::account_info () const;
 
 	explicit operator block_info () const
 	{

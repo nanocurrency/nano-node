@@ -15,8 +15,9 @@ class transaction;
 }
 namespace nano
 {
-class stats;
+class account_info;
 class election_scheduler;
+class stats;
 
 class backlog_population final
 {
