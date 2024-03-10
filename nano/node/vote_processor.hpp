@@ -11,7 +11,6 @@
 
 namespace nano
 {
-class signature_checker;
 class active_transactions;
 namespace store
 {
@@ -27,6 +26,7 @@ class ledger;
 class network_params;
 class node_flags;
 class stats;
+class rep_tiers;
 
 namespace transport
 {
@@ -36,7 +36,7 @@ namespace transport
 class vote_processor final
 {
 public:
-	vote_processor (nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger &, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a);
+	vote_processor (nano::active_transactions &, nano::node_observers &, nano::stats &, nano::node_config &, nano::node_flags &, nano::logger &, nano::online_reps &, nano::rep_crawler &, nano::ledger &, nano::network_params &, nano::rep_tiers &);
 	~vote_processor ();
 
 	void start ();
@@ -46,14 +46,12 @@ public:
 	bool vote (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &);
 	/** Note: node.active.mutex lock is required */
 	nano::vote_code vote_blocking (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &, bool = false);
-	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> const &);
+
 	/** Function blocks until either the current queue size (a established flush boundary as it'll continue to increase)
 	 * is processed or the queue is empty (end condition or cutoff's guard, as it is positioned ahead) */
 	void flush ();
 	std::size_t size () const;
 	bool empty () const;
-	bool half_full () const;
-	void calculate_weights ();
 
 	std::atomic<uint64_t> total_processed{ 0 };
 
@@ -67,17 +65,15 @@ private: // Dependencies
 	nano::rep_crawler & rep_crawler;
 	nano::ledger & ledger;
 	nano::network_params & network_params;
+	nano::rep_tiers & rep_tiers;
 
 private:
 	void run ();
+	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> const &);
 
+private:
 	std::size_t const max_votes;
 	std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> votes;
-
-	/** Representatives levels for random early detection */
-	std::unordered_set<nano::account> representatives_1;
-	std::unordered_set<nano::account> representatives_2;
-	std::unordered_set<nano::account> representatives_3;
 
 private:
 	bool stopped{ false };
@@ -86,7 +82,6 @@ private:
 	std::thread thread;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, std::string const & name);
-	friend class vote_processor_weights_Test;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, std::string const & name);

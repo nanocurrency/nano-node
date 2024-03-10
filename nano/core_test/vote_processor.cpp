@@ -126,19 +126,17 @@ TEST (vote_processor, overflow)
 	ASSERT_LT (std::chrono::system_clock::now () - start_time, 10s);
 }
 
-namespace nano
-{
 TEST (vote_processor, weights)
 {
 	nano::test::system system (4);
 	auto & node (*system.nodes[0]);
 
 	// Create representatives of different weight levels
-	// The online stake will be the minimum configurable due to online_reps sampling in tests
-	auto const online = node.config.online_weight_minimum.number ();
-	auto const level0 = online / 5000; // 0.02%
-	auto const level1 = online / 500; // 0.2%
-	auto const level2 = online / 50; // 2%
+	// FIXME: Using `online_weight_minimum` because calculation of trended and online weight is broken when running tests
+	auto const stake = node.config.online_weight_minimum.number ();
+	auto const level0 = stake / 5000; // 0.02%
+	auto const level1 = stake / 500; // 0.2%
+	auto const level2 = stake / 50; // 2%
 
 	nano::keypair key0;
 	nano::keypair key1;
@@ -157,24 +155,15 @@ TEST (vote_processor, weights)
 
 	// Wait for representatives
 	ASSERT_TIMELY_EQ (10s, node.ledger.cache.rep_weights.get_rep_amounts ().size (), 4);
-	node.vote_processor.calculate_weights ();
 
-	ASSERT_EQ (node.vote_processor.representatives_1.end (), node.vote_processor.representatives_1.find (key0.pub));
-	ASSERT_EQ (node.vote_processor.representatives_2.end (), node.vote_processor.representatives_2.find (key0.pub));
-	ASSERT_EQ (node.vote_processor.representatives_3.end (), node.vote_processor.representatives_3.find (key0.pub));
+	// Wait for rep tiers to be updated
+	node.stats.clear ();
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::rep_tiers, nano::stat::detail::updated) >= 2);
 
-	ASSERT_NE (node.vote_processor.representatives_1.end (), node.vote_processor.representatives_1.find (key1.pub));
-	ASSERT_EQ (node.vote_processor.representatives_2.end (), node.vote_processor.representatives_2.find (key1.pub));
-	ASSERT_EQ (node.vote_processor.representatives_3.end (), node.vote_processor.representatives_3.find (key1.pub));
-
-	ASSERT_NE (node.vote_processor.representatives_1.end (), node.vote_processor.representatives_1.find (key2.pub));
-	ASSERT_NE (node.vote_processor.representatives_2.end (), node.vote_processor.representatives_2.find (key2.pub));
-	ASSERT_EQ (node.vote_processor.representatives_3.end (), node.vote_processor.representatives_3.find (key2.pub));
-
-	ASSERT_NE (node.vote_processor.representatives_1.end (), node.vote_processor.representatives_1.find (nano::dev::genesis_key.pub));
-	ASSERT_NE (node.vote_processor.representatives_2.end (), node.vote_processor.representatives_2.find (nano::dev::genesis_key.pub));
-	ASSERT_NE (node.vote_processor.representatives_3.end (), node.vote_processor.representatives_3.find (nano::dev::genesis_key.pub));
-}
+	ASSERT_EQ (node.rep_tiers.tier (key0.pub), nano::rep_tier::none);
+	ASSERT_EQ (node.rep_tiers.tier (key1.pub), nano::rep_tier::tier_1);
+	ASSERT_EQ (node.rep_tiers.tier (key2.pub), nano::rep_tier::tier_2);
+	ASSERT_EQ (node.rep_tiers.tier (nano::dev::genesis_key.pub), nano::rep_tier::tier_3);
 }
 
 // Issue that tracks last changes on this test: https://github.com/nanocurrency/nano-node/issues/3485

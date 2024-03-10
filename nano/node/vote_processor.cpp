@@ -4,6 +4,7 @@
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
+#include <nano/node/rep_tiers.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/secure/common.hpp>
@@ -15,17 +16,18 @@
 
 using namespace std::chrono_literals;
 
-nano::vote_processor::vote_processor (nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
-	active (active_a),
-	observers (observers_a),
-	stats (stats_a),
-	config (config_a),
-	logger (logger_a),
-	online_reps (online_reps_a),
-	rep_crawler (rep_crawler_a),
-	ledger (ledger_a),
-	network_params (network_params_a),
-	max_votes (flags_a.vote_processor_capacity)
+nano::vote_processor::vote_processor (nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a, nano::rep_tiers & rep_tiers_a) :
+	active{ active_a },
+	observers{ observers_a },
+	stats{ stats_a },
+	config{ config_a },
+	logger{ logger_a },
+	online_reps{ online_reps_a },
+	rep_crawler{ rep_crawler_a },
+	ledger{ ledger_a },
+	network_params{ network_params_a },
+	rep_tiers{ rep_tiers_a },
+	max_votes{ flags_a.vote_processor_capacity }
 {
 }
 
@@ -111,6 +113,8 @@ bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	if (!stopped)
 	{
+		auto tier = rep_tiers.tier (vote_a->account);
+
 		// Level 0 (< 0.1%)
 		if (votes.size () < 6.0 / 9.0 * max_votes)
 		{
@@ -119,17 +123,17 @@ bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std
 		// Level 1 (0.1-1%)
 		else if (votes.size () < 7.0 / 9.0 * max_votes)
 		{
-			process = (representatives_1.find (vote_a->account) != representatives_1.end ());
+			process = (tier == nano::rep_tier::tier_1);
 		}
 		// Level 2 (1-5%)
 		else if (votes.size () < 8.0 / 9.0 * max_votes)
 		{
-			process = (representatives_2.find (vote_a->account) != representatives_2.end ());
+			process = (tier == nano::rep_tier::tier_2);
 		}
 		// Level 3 (> 5%)
 		else if (votes.size () < max_votes)
 		{
-			process = (representatives_3.find (vote_a->account) != representatives_3.end ());
+			process = (tier == nano::rep_tier::tier_3);
 		}
 		if (process)
 		{
@@ -219,60 +223,14 @@ bool nano::vote_processor::empty () const
 	return votes.empty ();
 }
 
-bool nano::vote_processor::half_full () const
-{
-	return size () >= max_votes / 2;
-}
-
-void nano::vote_processor::calculate_weights ()
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	if (!stopped)
-	{
-		representatives_1.clear ();
-		representatives_2.clear ();
-		representatives_3.clear ();
-		auto supply (online_reps.trended ());
-		auto rep_amounts = ledger.cache.rep_weights.get_rep_amounts ();
-		for (auto const & rep_amount : rep_amounts)
-		{
-			nano::account const & representative (rep_amount.first);
-			auto weight (ledger.weight (representative));
-			if (weight > supply / 1000) // 0.1% or above (level 1)
-			{
-				representatives_1.insert (representative);
-				if (weight > supply / 100) // 1% or above (level 2)
-				{
-					representatives_2.insert (representative);
-					if (weight > supply / 20) // 5% or above (level 3)
-					{
-						representatives_3.insert (representative);
-					}
-				}
-			}
-		}
-	}
-}
-
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_processor & vote_processor, std::string const & name)
 {
 	std::size_t votes_count;
-	std::size_t representatives_1_count;
-	std::size_t representatives_2_count;
-	std::size_t representatives_3_count;
-
 	{
 		nano::lock_guard<nano::mutex> guard{ vote_processor.mutex };
 		votes_count = vote_processor.votes.size ();
-		representatives_1_count = vote_processor.representatives_1.size ();
-		representatives_2_count = vote_processor.representatives_2.size ();
-		representatives_3_count = vote_processor.representatives_3.size ();
 	}
-
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "votes", votes_count, sizeof (decltype (vote_processor.votes)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "representatives_1", representatives_1_count, sizeof (decltype (vote_processor.representatives_1)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "representatives_2", representatives_2_count, sizeof (decltype (vote_processor.representatives_2)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "representatives_3", representatives_3_count, sizeof (decltype (vote_processor.representatives_3)::value_type) }));
 	return composite;
 }

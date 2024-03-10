@@ -51,6 +51,7 @@ enum class type : uint8_t
 	handshake,
 	rep_crawler,
 	local_block_broadcaster,
+	rep_tiers,
 
 	bootstrap_ascending,
 	bootstrap_ascending_accounts,
@@ -68,7 +69,10 @@ enum class detail : uint8_t
 	loop,
 	total,
 	process,
+	processed,
+	ignored,
 	update,
+	updated,
 	request,
 	broadcast,
 	cleanup,

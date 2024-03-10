@@ -126,6 +126,8 @@ add_library(
   process_live_dispatcher.hpp
   repcrawler.hpp
   repcrawler.cpp
+  rep_tiers.hpp
+  rep_tiers.cpp
   request_aggregator.hpp
   request_aggregator.cpp
   scheduler/bucket.cpp
