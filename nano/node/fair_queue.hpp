@@ -91,23 +91,23 @@ private:
 	};
 
 public:
-	using source_type = origin;
-	using value_type = std::pair<Request, source_type>;
+	using origin_type = origin;
+	using value_type = std::pair<Request, origin_type>;
 
 public:
-	size_t size (source_type source) const
+	size_t size (origin_type source) const
 	{
 		auto it = queues.find (source);
 		return it == queues.end () ? 0 : it->second.size ();
 	}
 
-	size_t max_size (source_type source) const
+	size_t max_size (origin_type source) const
 	{
 		auto it = queues.find (source);
 		return it == queues.end () ? 0 : it->second.max_size;
 	}
 
-	size_t priority (source_type source) const
+	size_t priority (origin_type source) const
 	{
 		auto it = queues.find (source);
 		return it == queues.end () ? 0 : it->second.priority;
@@ -159,14 +159,13 @@ public:
 	 * Request will be dropped if the queue is full
 	 * @return true if added, false if dropped
 	 */
-	bool push (Request request, source_type source)
+	bool push (Request request, origin_type source)
 	{
 		auto it = queues.find (source);
 
 		// Create a new queue if it doesn't exist
 		if (it == queues.end ())
 		{
-			// TODO: Right now this is constant and initialized when the queue is created, but it could be made dynamic
 			auto max_size = max_size_query (source);
 			auto priority = priority_query (source);
 
@@ -180,8 +179,8 @@ public:
 	}
 
 public:
-	using max_size_query_t = std::function<size_t (source_type const &)>;
-	using priority_query_t = std::function<size_t (source_type const &)>;
+	using max_size_query_t = std::function<size_t (origin_type const &)>;
+	using priority_query_t = std::function<size_t (origin_type const &)>;
 
 	max_size_query_t max_size_query{ [] (auto const & origin) { debug_assert (false, "max_size_query callback empty"); return 0; } };
 	priority_query_t priority_query{ [] (auto const & origin) { debug_assert (false, "priority_query callback empty"); return 0; } };
@@ -272,8 +271,8 @@ private:
 	}
 
 private:
-	std::map<source_type, entry> queues;
-	std::map<source_type, entry>::iterator iterator{ queues.end () };
+	std::map<origin_type, entry> queues;
+	std::map<origin_type, entry>::iterator iterator{ queues.end () };
 	size_t counter{ 0 };
 
 	std::chrono::steady_clock::time_point last_update{};
