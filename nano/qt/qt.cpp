@@ -583,7 +583,7 @@ public:
 	void state_block (nano::state_block const & block_a)
 	{
 		auto balance (block_a.hashables.balance.number ());
-		auto previous_balance = ledger.balance (transaction, block_a.hashables.previous);
+		auto previous_balance = ledger->balance (transaction, block_a.hashables.previous);
 		if (!previous_balance)
 		{
 			type = "Unknown (pruned)";

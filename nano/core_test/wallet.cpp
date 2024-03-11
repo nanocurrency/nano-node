@@ -1234,6 +1234,6 @@ TEST (wallet, receive_pruned)
 
 	auto open1 = wallet2.receive_action (send1->hash (), key.pub, amount, send1->destination (), 1);
 	ASSERT_NE (nullptr, open1);
-	ASSERT_EQ (amount, node2.ledger.balance (node2.store.tx_begin_read (), open1->hash ()));
+	ASSERT_EQ (amount, node2.ledger->balance (node2.store.tx_begin_read (), open1->hash ()));
 	ASSERT_TIMELY_EQ (5s, node2.ledger.cache.cemented_count, 4);
 }
