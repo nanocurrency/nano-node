@@ -806,29 +806,6 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 	cache.pruned_count = store.pruned.count (transaction);
 }
 
-// Balance for an account by account number
-nano::uint128_t nano::ledger::account_balance (store::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
-{
-	nano::uint128_t result (0);
-	if (only_confirmed_a)
-	{
-		nano::confirmation_height_info info;
-		if (!store.confirmation_height.get (transaction_a, account_a, info))
-		{
-			result = (*this)->balance (transaction_a, info.frontier).value ();
-		}
-	}
-	else
-	{
-		auto info = (*this)->get (transaction_a, account_a);
-		if (info)
-		{
-			result = info->balance.number ();
-		}
-	}
-	return result;
-}
-
 nano::uint128_t nano::ledger::account_receivable (store::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
 {
 	nano::uint128_t result{ 0 };

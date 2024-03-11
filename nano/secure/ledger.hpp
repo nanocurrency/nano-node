@@ -42,7 +42,6 @@ public:
 	ledger_view_confirmed & confirmed () const;
 	ledger_view_unconfirmed & unconfirmed () const;
 
-	nano::uint128_t account_balance (store::transaction const &, nano::account const &, bool = false);
 	nano::uint128_t account_receivable (store::transaction const &, nano::account const &, bool = false);
 	/**
 	 * Returns the cached vote weight for the given representative.

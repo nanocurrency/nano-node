@@ -120,7 +120,7 @@ TEST (node, balance)
 	nano::test::system system (1);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto transaction (system.nodes[0]->store.tx_begin_write ());
-	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max (), system.nodes[0]->ledger.account_balance (transaction, nano::dev::genesis_key.pub));
+	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max (), system.nodes[0]->ledger->balance (transaction, nano::dev::genesis_key.pub));
 }
 
 TEST (node, send_unkeyed)
