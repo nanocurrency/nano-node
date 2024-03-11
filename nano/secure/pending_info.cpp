@@ -1,5 +1,3 @@
-#pragma once
-
 #include <nano/secure/pending_info.hpp>
 
 nano::pending_info::pending_info (nano::account const & source_a, nano::amount const & amount_a, nano::epoch epoch_a) :
