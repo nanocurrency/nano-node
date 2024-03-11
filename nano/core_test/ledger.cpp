@@ -2410,7 +2410,7 @@ TEST (ledger, state_account)
 				 .work (*pool.generate (nano::dev::genesis->hash ()))
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
-	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.account (transaction, send1->hash ()));
+	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.any.block_account (transaction, send1->hash ()));
 }
 
 TEST (ledger, state_send_receive)
@@ -5350,8 +5350,8 @@ TEST (ledger, pruning_safe_functions)
 	ASSERT_FALSE (ledger.any.block_balance (transaction, send1->hash ()));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2, ledger.any.block_balance (transaction, send2->hash ()).value ().number ());
 	ASSERT_FALSE (ledger.amount (transaction, send2->hash ()));
-	ASSERT_FALSE (ledger.account (transaction, send1->hash ()));
-	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.account (transaction, send2->hash ()).value ());
+	ASSERT_FALSE (ledger.any.block_account (transaction, send1->hash ()));
+	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.any.block_account (transaction, send2->hash ()).value ());
 }
 
 TEST (ledger, hash_root_random)

@@ -394,7 +394,7 @@ void nano::bulk_pull_server::set_current_end ()
 			current = ascending () ? info->open_block : info->head;
 			if (!request->end.is_zero ())
 			{
-				auto account (node->ledger.account (transaction, request->end));
+				auto account (node->ledger.any.block_account (transaction, request->end));
 				if (account != request->start.as_account ())
 				{
 					node->logger.debug (nano::log::type::bulk_pull_server, "Request for block that is not on account chain: {} not on {}", request->end.to_string (), request->start.to_account ());

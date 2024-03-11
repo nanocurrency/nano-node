@@ -353,7 +353,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & 
 		case asc_pull_req::hash_type::block:
 		{
 			// Try to lookup account assuming target is block hash
-			target = ledger.account (transaction, request.target.as_block_hash ()).value_or (0);
+			target = ledger.any.block_account (transaction, request.target.as_block_hash ()).value_or (0);
 		}
 		break;
 	}

@@ -180,7 +180,7 @@ TEST (ledger, deep_account_compute)
 		{
 			std::cerr << i << ' ';
 		}
-		ledger.account (transaction, sprevious);
+		ledger.any.block_account (transaction, sprevious);
 		ledger.any.block_balance (transaction, rprevious);
 	}
 }

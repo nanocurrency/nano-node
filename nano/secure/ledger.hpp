@@ -41,11 +41,7 @@ public:
 	secure::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_to_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) const;
 	/** Start read-only transaction */
 	secure::read_transaction tx_begin_read () const;
-	/**
-	 * Returns the account for a given hash
-	 * Returns std::nullopt if the block doesn't exist or has been pruned
-	 */
-	std::optional<nano::account> account (secure::transaction const &, nano::block_hash const &) const;
+
 	std::optional<nano::uint128_t> amount (secure::transaction const &, nano::block_hash const &);
 	nano::uint128_t account_balance (secure::transaction const &, nano::account const &, bool = false) const;
 	nano::uint128_t account_receivable (secure::transaction const &, nano::account const &, bool = false);

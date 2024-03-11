@@ -539,7 +539,7 @@ public:
 	void receive_block (nano::receive_block const & block_a)
 	{
 		type = "Receive";
-		auto account_l = ledger.account (transaction, block_a.hashables.source);
+		auto account_l = ledger.any.block_account (transaction, block_a.hashables.source);
 		auto amount_l = ledger.amount (transaction, block_a.hash ());
 		if (!account_l || !amount_l)
 		{
@@ -556,7 +556,7 @@ public:
 		type = "Receive";
 		if (block_a.hashables.source != ledger.constants.genesis->account ())
 		{
-			auto account_l = ledger.account (transaction, block_a.hashables.source);
+			auto account_l = ledger.any.block_account (transaction, block_a.hashables.source);
 			auto amount_l = ledger.amount (transaction, block_a.hash ());
 			if (!account_l || !amount_l)
 			{
@@ -611,7 +611,7 @@ public:
 			else
 			{
 				type = "Receive";
-				auto account_l = ledger.account (transaction, block_a.hashables.link.as_block_hash ());
+				auto account_l = ledger.any.block_account (transaction, block_a.hashables.link.as_block_hash ());
 				if (!account_l)
 				{
 					type = "Receive (pruned)";

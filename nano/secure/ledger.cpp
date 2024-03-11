@@ -70,7 +70,7 @@ public:
 		auto amount = ledger.amount (transaction, hash).value ();
 		auto destination_account = block_a.account ();
 		// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
-		auto source_account = ledger.account (transaction, block_a.hashables.source);
+		auto source_account = ledger.any.block_account (transaction, block_a.hashables.source);
 		auto info = ledger.any.account_get (transaction, destination_account);
 		debug_assert (info);
 		ledger.cache.rep_weights.representation_add (transaction, info->representative, 0 - amount);
@@ -86,7 +86,7 @@ public:
 		auto hash (block_a.hash ());
 		auto amount = ledger.amount (transaction, hash).value ();
 		auto destination_account = block_a.account ();
-		auto source_account = ledger.account (transaction, block_a.hashables.source);
+		auto source_account = ledger.any.block_account (transaction, block_a.hashables.source);
 		ledger.cache.rep_weights.representation_add (transaction, block_a.representative_field ().value (), 0 - amount);
 		nano::account_info new_info;
 		ledger.update_account (transaction, destination_account, new_info, new_info);
@@ -153,7 +153,7 @@ public:
 		else if (!block_a.hashables.link.is_zero () && !ledger.is_epoch_link (block_a.hashables.link))
 		{
 			// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
-			auto source_account = ledger.account (transaction, block_a.hashables.link.as_block_hash ());
+			auto source_account = ledger.any.block_account (transaction, block_a.hashables.link.as_block_hash ());
 			nano::pending_info pending_info (source_account.value_or (0), block_a.hashables.balance.number () - balance, block_a.sideband ().source_epoch);
 			ledger.store.pending.put (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()), pending_info);
 			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::receive);
@@ -976,7 +976,7 @@ nano::uint128_t nano::ledger::weight_exact (secure::transaction const & txn_a, n
 bool nano::ledger::rollback (secure::write_transaction const & transaction_a, nano::block_hash const & block_a, std::vector<std::shared_ptr<nano::block>> & list_a)
 {
 	debug_assert (any.block_exists (transaction_a, block_a));
-	auto account_l = account (transaction_a, block_a).value ();
+	auto account_l = any.block_account (transaction_a, block_a).value ();
 	auto block_account_height (height (transaction_a, block_a));
 	rollback_visitor rollback (transaction_a, *this, list_a);
 	auto error (false);
@@ -1009,16 +1009,6 @@ bool nano::ledger::rollback (secure::write_transaction const & transaction_a, na
 {
 	std::vector<std::shared_ptr<nano::block>> rollback_list;
 	return rollback (transaction_a, block_a, rollback_list);
-}
-
-std::optional<nano::account> nano::ledger::account (secure::transaction const & transaction, nano::block_hash const & hash) const
-{
-	auto block_l = any.block_get (transaction, hash);
-	if (!block_l)
-	{
-		return std::nullopt;
-	}
-	return block_l->account ();
 }
 
 std::optional<nano::uint128_t> nano::ledger::amount (secure::transaction const & transaction_a, nano::block_hash const & hash_a)

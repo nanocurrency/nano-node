@@ -1720,7 +1720,7 @@ int main (int argc, char * const * argv)
 						print_error_message (boost::str (boost::format ("Incorrect destination for pending block %1%\n") % key.hash.to_string ()));
 					}
 					// Check if pending source is correct
-					auto account (node->ledger.account (transaction, key.hash));
+					auto account (node->ledger.any.block_account (transaction, key.hash));
 					if (info.source != account && !pruned)
 					{
 						print_error_message (boost::str (boost::format ("Incorrect source for pending block %1%\n") % key.hash.to_string ()));
