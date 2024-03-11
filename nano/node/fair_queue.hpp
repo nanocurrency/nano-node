@@ -14,17 +14,20 @@
 
 namespace nano
 {
-template <typename Request, typename... Sources>
+template <typename Request, typename Source>
 class fair_queue final
 {
 public:
-	struct source
+	/**
+	 * Holds user supplied source type(s) and an optional channel. This is used to uniquely identify and categorize the source of a request.
+	 */
+	struct origin
 	{
-		std::tuple<Sources...> sources;
+		Source source;
 		std::shared_ptr<nano::transport::channel> channel;
 
-		source (std::tuple<Sources...> sources, std::shared_ptr<nano::transport::channel> channel = nullptr) :
-			sources{ sources },
+		origin (Source source, std::shared_ptr<nano::transport::channel> channel = nullptr) :
+			source{ source },
 			channel{ std::move (channel) }
 		{
 		}
@@ -39,7 +42,7 @@ public:
 			return true;
 		}
 
-		auto operator<=> (source const &) const = default;
+		auto operator<=> (origin const &) const = default;
 	};
 
 private:
@@ -88,7 +91,7 @@ private:
 	};
 
 public:
-	using source_type = source;
+	using source_type = origin;
 	using value_type = std::pair<Request, source_type>;
 
 public:

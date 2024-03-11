@@ -50,7 +50,7 @@ nano::block_processor::block_processor (nano::node & node_a, nano::write_databas
 	});
 
 	queue.max_size_query = [this] (auto const & origin) {
-		switch (std::get<nano::block_source> (origin.sources))
+		switch (origin.source)
 		{
 			case nano::block_source::live:
 				return config.max_peer_queue;
@@ -60,7 +60,7 @@ nano::block_processor::block_processor (nano::node & node_a, nano::write_databas
 	};
 
 	queue.priority_query = [this] (auto const & origin) -> size_t {
-		switch (std::get<nano::block_source> (origin.sources))
+		switch (origin.source)
 		{
 			case nano::block_source::live:
 				return config.priority_live;
@@ -286,7 +286,7 @@ auto nano::block_processor::next () -> context
 	if (!queue.empty ())
 	{
 		auto [request, origin] = queue.next ();
-		release_assert (std::get<nano::block_source> (origin.sources) != nano::block_source::forced || request.source == nano::block_source::forced);
+		release_assert (origin.source != nano::block_source::forced || request.source == nano::block_source::forced);
 		return std::move (request);
 	}
 

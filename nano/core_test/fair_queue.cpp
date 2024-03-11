@@ -43,7 +43,7 @@ TEST (fair_queue, process_one)
 
 	auto [result, origin] = queue.next ();
 	ASSERT_EQ (result, 7);
-	ASSERT_EQ (std::get<source_enum> (origin.sources), source_enum::live);
+	ASSERT_EQ (origin.source, source_enum::live);
 	ASSERT_EQ (origin.channel, nullptr);
 
 	ASSERT_TRUE (queue.empty ());
@@ -65,17 +65,17 @@ TEST (fair_queue, fifo)
 	{
 		auto [result, origin] = queue.next ();
 		ASSERT_EQ (result, 7);
-		ASSERT_EQ (std::get<source_enum> (origin.sources), source_enum::live);
+		ASSERT_EQ (origin.source, source_enum::live);
 	}
 	{
 		auto [result, origin] = queue.next ();
 		ASSERT_EQ (result, 8);
-		ASSERT_EQ (std::get<source_enum> (origin.sources), source_enum::live);
+		ASSERT_EQ (origin.source, source_enum::live);
 	}
 	{
 		auto [result, origin] = queue.next ();
 		ASSERT_EQ (result, 9);
-		ASSERT_EQ (std::get<source_enum> (origin.sources), source_enum::live);
+		ASSERT_EQ (origin.source, source_enum::live);
 	}
 
 	ASSERT_TRUE (queue.empty ());
@@ -99,17 +99,17 @@ TEST (fair_queue, process_many)
 	{
 		auto [result, origin] = queue.next ();
 		ASSERT_EQ (result, 7);
-		ASSERT_EQ (std::get<source_enum> (origin.sources), source_enum::live);
+		ASSERT_EQ (origin.source, source_enum::live);
 	}
 	{
 		auto [result, origin] = queue.next ();
 		ASSERT_EQ (result, 8);
-		ASSERT_EQ (std::get<source_enum> (origin.sources), source_enum::bootstrap);
+		ASSERT_EQ (origin.source, source_enum::bootstrap);
 	}
 	{
 		auto [result, origin] = queue.next ();
 		ASSERT_EQ (result, 9);
-		ASSERT_EQ (std::get<source_enum> (origin.sources), source_enum::unchecked);
+		ASSERT_EQ (origin.source, source_enum::unchecked);
 	}
 
 	ASSERT_TRUE (queue.empty ());
@@ -131,12 +131,12 @@ TEST (fair_queue, max_queue_size)
 	{
 		auto [result, origin] = queue.next ();
 		ASSERT_EQ (result, 7);
-		ASSERT_EQ (std::get<source_enum> (origin.sources), source_enum::live);
+		ASSERT_EQ (origin.source, source_enum::live);
 	}
 	{
 		auto [result, origin] = queue.next ();
 		ASSERT_EQ (result, 8);
-		ASSERT_EQ (std::get<source_enum> (origin.sources), source_enum::live);
+		ASSERT_EQ (origin.source, source_enum::live);
 	}
 
 	ASSERT_TRUE (queue.empty ());
@@ -146,7 +146,7 @@ TEST (fair_queue, round_robin_with_priority)
 {
 	nano::fair_queue<int, source_enum> queue;
 	queue.priority_query = [] (auto const & origin) {
-		switch (std::get<source_enum> (origin.sources))
+		switch (origin.source)
 		{
 			case source_enum::live:
 				return 1;
@@ -172,15 +172,15 @@ TEST (fair_queue, round_robin_with_priority)
 	ASSERT_EQ (queue.total_size (), 9);
 
 	// Processing 1x live, 2x bootstrap, 3x unchecked before moving to the next source
-	ASSERT_EQ (std::get<source_enum> (queue.next ().second.sources), source_enum::live);
-	ASSERT_EQ (std::get<source_enum> (queue.next ().second.sources), source_enum::bootstrap);
-	ASSERT_EQ (std::get<source_enum> (queue.next ().second.sources), source_enum::bootstrap);
-	ASSERT_EQ (std::get<source_enum> (queue.next ().second.sources), source_enum::unchecked);
-	ASSERT_EQ (std::get<source_enum> (queue.next ().second.sources), source_enum::unchecked);
-	ASSERT_EQ (std::get<source_enum> (queue.next ().second.sources), source_enum::unchecked);
-	ASSERT_EQ (std::get<source_enum> (queue.next ().second.sources), source_enum::live);
-	ASSERT_EQ (std::get<source_enum> (queue.next ().second.sources), source_enum::bootstrap);
-	ASSERT_EQ (std::get<source_enum> (queue.next ().second.sources), source_enum::live);
+	ASSERT_EQ (queue.next ().second.source, source_enum::live);
+	ASSERT_EQ (queue.next ().second.source, source_enum::bootstrap);
+	ASSERT_EQ (queue.next ().second.source, source_enum::bootstrap);
+	ASSERT_EQ (queue.next ().second.source, source_enum::unchecked);
+	ASSERT_EQ (queue.next ().second.source, source_enum::unchecked);
+	ASSERT_EQ (queue.next ().second.source, source_enum::unchecked);
+	ASSERT_EQ (queue.next ().second.source, source_enum::live);
+	ASSERT_EQ (queue.next ().second.source, source_enum::bootstrap);
+	ASSERT_EQ (queue.next ().second.source, source_enum::live);
 
 	ASSERT_TRUE (queue.empty ());
 }
@@ -225,13 +225,13 @@ TEST (fair_queue, source_channel)
 	{
 		auto [result, origin] = channel1_results[0];
 		ASSERT_EQ (result, 6);
-		ASSERT_EQ (std::get<source_enum> (origin.sources), source_enum::live);
+		ASSERT_EQ (origin.source, source_enum::live);
 		ASSERT_EQ (origin.channel, channel1);
 	}
 	{
 		auto [result, origin] = channel1_results[1];
 		ASSERT_EQ (result, 9);
-		ASSERT_EQ (std::get<source_enum> (origin.sources), source_enum::live);
+		ASSERT_EQ (origin.source, source_enum::live);
 		ASSERT_EQ (origin.channel, channel1);
 	}
 
