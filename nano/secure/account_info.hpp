@@ -29,4 +29,24 @@ public:
 	uint64_t block_count{ 0 };
 	nano::epoch epoch_m{ nano::epoch::epoch_0 };
 };
+
+/**
+ * Account info as of DB version 22.
+ * This class protects the DB upgrades from future changes of the account_info class.
+ */
+class account_info_v22 final
+{
+public:
+	account_info_v22 () = default;
+	size_t db_size () const;
+	bool deserialize (nano::stream &);
+	nano::block_hash head{ 0 };
+	nano::account representative{};
+	nano::block_hash open_block{ 0 };
+	nano::amount balance{ 0 };
+	/** Seconds since posix epoch */
+	nano::seconds_t modified{ 0 };
+	uint64_t block_count{ 0 };
+	nano::epoch epoch_m{ nano::epoch::epoch_0 };
+};
 } // namespace nano

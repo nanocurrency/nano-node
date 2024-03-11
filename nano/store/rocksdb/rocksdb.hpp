@@ -154,6 +154,7 @@ private:
 
 	bool do_upgrades (store::write_transaction const &);
 	void upgrade_v21_to_v22 (store::write_transaction const &);
+	void upgrade_v22_to_v23 (store::write_transaction const &);
 
 	void construct_column_family_mutexes ();
 	::rocksdb::Options get_db_options ();
