@@ -9,6 +9,7 @@
 #include <nano/node/transport/inproc.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
 #include <nano/test_common/ledger.hpp>
+#include <nano/test_common/make_store.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -657,8 +658,9 @@ TEST (ledger, open_fork)
 
 TEST (ledger, representation_changes)
 {
+	auto store{ nano::test::make_store () };
 	nano::keypair key1;
-	nano::rep_weights rep_weights;
+	nano::rep_weights rep_weights{ store->rep_weight };
 	ASSERT_EQ (0, rep_weights.representation_get (key1.pub));
 	rep_weights.representation_put (key1.pub, 1);
 	ASSERT_EQ (1, rep_weights.representation_get (key1.pub));

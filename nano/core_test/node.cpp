@@ -2906,7 +2906,7 @@ TEST (node, dont_write_lock_node)
 		nano::logger logger;
 		auto store = nano::make_store (logger, path, nano::dev::constants, false, true);
 		{
-			nano::ledger_cache ledger_cache;
+			nano::ledger_cache ledger_cache{ store->rep_weight };
 			auto transaction (store->tx_begin_write ());
 			store->initialize (transaction, ledger_cache, nano::dev::constants);
 		}

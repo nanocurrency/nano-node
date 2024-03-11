@@ -380,7 +380,7 @@ TEST (block_store, genesis)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::ledger_cache ledger_cache;
+	nano::ledger_cache ledger_cache{ store->rep_weight };
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger_cache, nano::dev::constants);
 	nano::account_info info;
@@ -902,7 +902,7 @@ TEST (block_store, cemented_count_cache)
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	auto transaction (store->tx_begin_write ());
-	nano::ledger_cache ledger_cache;
+	nano::ledger_cache ledger_cache{ store->rep_weight };
 	store->initialize (transaction, ledger_cache, nano::dev::constants);
 	ASSERT_EQ (1, ledger_cache.cemented_count);
 }
@@ -912,7 +912,7 @@ TEST (block_store, block_random)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	{
-		nano::ledger_cache ledger_cache;
+		nano::ledger_cache ledger_cache{ store->rep_weight };
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger_cache, nano::dev::constants);
 	}
@@ -939,7 +939,7 @@ TEST (block_store, pruned_random)
 	block->sideband_set ({});
 	auto hash1 (block->hash ());
 	{
-		nano::ledger_cache ledger_cache;
+		nano::ledger_cache ledger_cache{ store->rep_weight };
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger_cache, nano::dev::constants);
 		store->pruned.put (transaction, hash1);
@@ -969,7 +969,7 @@ TEST (block_store, state_block)
 
 	block1->sideband_set ({});
 	{
-		nano::ledger_cache ledger_cache;
+		nano::ledger_cache ledger_cache{ store->rep_weight };
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger_cache, nano::dev::constants);
 		ASSERT_EQ (nano::block_type::state, block1->type ());
