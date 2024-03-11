@@ -2399,7 +2399,7 @@ public:
 		auto amount = handler.node.ledger.amount (transaction, hash);
 		if (amount)
 		{
-			auto source_account = handler.node.ledger.account (transaction, block_a.hashables.source);
+			auto source_account = handler.node.ledger->account (transaction, block_a.hashables.source);
 			if (source_account)
 			{
 				tree.put ("account", source_account.value ().to_account ());
@@ -2432,7 +2432,7 @@ public:
 			auto amount = handler.node.ledger.amount (transaction, hash);
 			if (amount)
 			{
-				auto source_account = handler.node.ledger.account (transaction, block_a.hashables.source);
+				auto source_account = handler.node.ledger->account (transaction, block_a.hashables.source);
 				if (source_account)
 				{
 					tree.put ("account", source_account.value ().to_account ());
@@ -2515,7 +2515,7 @@ public:
 			}
 			else
 			{
-				auto source_account = handler.node.ledger.account (transaction, block_a.hashables.link.as_block_hash ());
+				auto source_account = handler.node.ledger->account (transaction, block_a.hashables.link.as_block_hash ());
 				if (source_account && should_ignore_account (source_account.value ()))
 				{
 					tree.clear ();
@@ -2590,7 +2590,7 @@ void nano::json_handler::account_history ()
 		{
 			if (node.ledger->exists (transaction, hash))
 			{
-				account = node.ledger.account (transaction, hash).value ();
+				account = node.ledger->account (transaction, hash).value ();
 			}
 			else
 			{
@@ -5053,7 +5053,7 @@ void nano::json_handler::work_generate ()
 					auto transaction_l = node.store.tx_begin_read ();
 					if (node.ledger->exists (transaction_l, hash))
 					{
-						account = node.ledger.account (transaction_l, hash).value ();
+						account = node.ledger->account (transaction_l, hash).value ();
 					}
 				}
 				auto secondary_work_peers_l (request.get<bool> ("secondary_work_peers", false));

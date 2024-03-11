@@ -42,11 +42,6 @@ public:
 	ledger_view_confirmed & confirmed () const;
 	ledger_view_unconfirmed & unconfirmed () const;
 
-	/**
-	 * Returns the account for a given hash
-	 * Returns std::nullopt if the block doesn't exist or has been pruned
-	 */
-	std::optional<nano::account> account (store::transaction const &, nano::block_hash const &) const;
 	std::optional<nano::uint128_t> amount (store::transaction const &, nano::block_hash const &);
 	nano::uint128_t account_balance (store::transaction const &, nano::account const &, bool = false);
 	nano::uint128_t account_receivable (store::transaction const &, nano::account const &, bool = false);

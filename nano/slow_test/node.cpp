@@ -179,7 +179,7 @@ TEST (ledger, deep_account_compute)
 		{
 			std::cerr << i << ' ';
 		}
-		ledger.account (transaction, sprevious);
+		ledger->account (transaction, sprevious);
 		ledger->balance (transaction, rprevious);
 	}
 }
