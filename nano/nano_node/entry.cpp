@@ -1728,7 +1728,7 @@ int main (int argc, char * const * argv)
 					// Check if pending amount is correct
 					if (!pruned && !previous_pruned)
 					{
-						auto amount (node->ledger.amount (transaction, key.hash));
+						auto amount (node->ledger.any.block_amount (transaction, key.hash));
 						if (info.amount != amount)
 						{
 							print_error_message (boost::str (boost::format ("Incorrect amount for pending block %1%\n") % key.hash.to_string ()));

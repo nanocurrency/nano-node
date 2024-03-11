@@ -1157,10 +1157,10 @@ void nano::json_handler::block_info ()
 		{
 			auto account = block->account ();
 			response_l.put ("block_account", account.to_account ());
-			auto amount = node.ledger.amount (transaction, hash);
+			auto amount = node.ledger.any.block_amount (transaction, hash);
 			if (amount)
 			{
-				response_l.put ("amount", amount.value ().convert_to<std::string> ());
+				response_l.put ("amount", amount.value ().number ().convert_to<std::string> ());
 			}
 			auto balance = block->balance ();
 			response_l.put ("balance", balance.number ().convert_to<std::string> ());
@@ -1221,7 +1221,7 @@ void nano::json_handler::block_confirm ()
 				node.active.recently_cemented.put (status);
 				// Trigger callback for confirmed block
 				auto account = block_l->account ();
-				auto amount = node.ledger.amount (transaction, hash);
+				auto amount = node.ledger.any.block_amount (transaction, hash);
 				bool is_state_send (false);
 				bool is_state_epoch (false);
 				if (amount)
@@ -1232,7 +1232,7 @@ void nano::json_handler::block_confirm ()
 						is_state_epoch = amount.value () == 0 && node.ledger.is_epoch_link (state->link_field ().value ());
 					}
 				}
-				node.observers.blocks.notify (status, {}, account, amount ? amount.value () : 0, is_state_send, is_state_epoch);
+				node.observers.blocks.notify (status, {}, account, amount ? amount.value ().number () : 0, is_state_send, is_state_epoch);
 			}
 			response_l.put ("started", "1");
 		}
@@ -1314,10 +1314,10 @@ void nano::json_handler::blocks_info ()
 					boost::property_tree::ptree entry;
 					auto account = block->account ();
 					entry.put ("block_account", account.to_account ());
-					auto amount = node.ledger.amount (transaction, hash);
+					auto amount = node.ledger.any.block_amount (transaction, hash);
 					if (amount)
 					{
-						entry.put ("amount", amount.value ().convert_to<std::string> ());
+						entry.put ("amount", amount.value ().number ().convert_to<std::string> ());
 					}
 					auto balance = block->balance ();
 					entry.put ("balance", balance.number ().convert_to<std::string> ());
@@ -2434,10 +2434,10 @@ public:
 		tree.put ("type", "send");
 		auto account (block_a.hashables.destination.to_account ());
 		tree.put ("account", account);
-		auto amount = handler.node.ledger.amount (transaction, hash);
+		auto amount = handler.node.ledger.any.block_amount (transaction, hash);
 		if (amount)
 		{
-			tree.put ("amount", amount.value ().convert_to<std::string> ());
+			tree.put ("amount", amount.value ().number ().convert_to<std::string> ());
 		}
 		if (raw)
 		{
@@ -2449,7 +2449,7 @@ public:
 	void receive_block (nano::receive_block const & block_a)
 	{
 		tree.put ("type", "receive");
-		auto amount = handler.node.ledger.amount (transaction, hash);
+		auto amount = handler.node.ledger.any.block_amount (transaction, hash);
 		if (amount)
 		{
 			auto source_account = handler.node.ledger.any.block_account (transaction, block_a.hashables.source);
@@ -2457,7 +2457,7 @@ public:
 			{
 				tree.put ("account", source_account.value ().to_account ());
 			}
-			tree.put ("amount", amount.value ().convert_to<std::string> ());
+			tree.put ("amount", amount.value ().number ().convert_to<std::string> ());
 		}
 		if (raw)
 		{
@@ -2482,7 +2482,7 @@ public:
 		if (block_a.hashables.source != handler.node.ledger.constants.genesis->account ())
 		{
 			bool error_or_pruned (false);
-			auto amount = handler.node.ledger.amount (transaction, hash);
+			auto amount = handler.node.ledger.any.block_amount (transaction, hash);
 			if (amount)
 			{
 				auto source_account = handler.node.ledger.any.block_account (transaction, block_a.hashables.source);
@@ -2490,7 +2490,7 @@ public:
 				{
 					tree.put ("account", source_account.value ().to_account ());
 				}
-				tree.put ("amount", amount.value ().convert_to<std::string> ());
+				tree.put ("amount", amount.value ().number ().convert_to<std::string> ());
 			}
 		}
 		else

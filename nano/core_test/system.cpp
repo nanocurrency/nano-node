@@ -80,7 +80,7 @@ TEST (system, DISABLED_generate_send_existing)
 	ASSERT_EQ (info1->block_count + 2, info2->block_count);
 	ASSERT_EQ (info2->balance, nano::dev::constants.genesis_amount / 3);
 	{
-		ASSERT_NE (node1.ledger.amount (node1.ledger.tx_begin_read (), info2->head), 0);
+		ASSERT_NE (node1.ledger.any.block_amount (node1.ledger.tx_begin_read (), info2->head), 0);
 	}
 	system.stop ();
 	runner.join ();
