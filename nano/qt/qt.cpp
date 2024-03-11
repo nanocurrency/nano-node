@@ -636,7 +636,7 @@ void nano_qt::history::refresh ()
 {
 	auto transaction = ledger.tx_begin_read ();
 	model->removeRows (0, model->rowCount ());
-	auto hash (ledger.latest (transaction, account));
+	auto hash (ledger.any.account_head (transaction, account));
 	short_text_visitor visitor (transaction, ledger);
 	for (auto i (0), n (tx_count->value ()); i < n && !hash.is_zero (); ++i)
 	{

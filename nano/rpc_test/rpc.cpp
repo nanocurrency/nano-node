@@ -2475,7 +2475,7 @@ TEST (rpc, account_representative_set_epoch_2_insufficient_work)
 	request.put ("representative", nano::keypair ().pub.to_account ());
 
 	// Test that the correct error is given if there is insufficient work
-	auto latest = node->ledger.latest (node->ledger.tx_begin_read (), nano::dev::genesis_key.pub);
+	auto latest = node->ledger.any.account_head (node->ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 	auto insufficient = system.work_generate_limited (latest, min_difficulty, target_difficulty);
 	request.put ("work", nano::to_string_hex (insufficient));
 	{
@@ -5773,7 +5773,7 @@ TEST (rpc, block_confirmed)
 	// Open an account directly in the ledger
 	{
 		auto transaction = node->ledger.tx_begin_write ();
-		nano::block_hash latest (node->ledger.latest (transaction, nano::dev::genesis_key.pub));
+		nano::block_hash latest (node->ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
 		auto send1 = builder
 					 .send ()
 					 .previous (latest)

@@ -213,14 +213,14 @@ TEST (ledger_confirm, multiple_accounts)
 
 	// The accounts for key1 and key2 have 1 more block in the chain than is confirmed.
 	// So this can be rolled back, but the one before that cannot. Check that this is the case
-	ASSERT_FALSE (node->ledger.rollback (transaction, node->ledger.latest (transaction, key2.pub)));
-	ASSERT_FALSE (node->ledger.rollback (transaction, node->ledger.latest (transaction, key1.pub)));
-	ASSERT_TRUE (node->ledger.rollback (transaction, node->ledger.latest (transaction, key1.pub)));
-	ASSERT_TRUE (node->ledger.rollback (transaction, node->ledger.latest (transaction, key2.pub)));
+	ASSERT_FALSE (node->ledger.rollback (transaction, node->ledger.any.account_head (transaction, key2.pub)));
+	ASSERT_FALSE (node->ledger.rollback (transaction, node->ledger.any.account_head (transaction, key1.pub)));
+	ASSERT_TRUE (node->ledger.rollback (transaction, node->ledger.any.account_head (transaction, key1.pub)));
+	ASSERT_TRUE (node->ledger.rollback (transaction, node->ledger.any.account_head (transaction, key2.pub)));
 
 	// Confirm the other latest can't be rolled back either
-	ASSERT_TRUE (node->ledger.rollback (transaction, node->ledger.latest (transaction, key3.pub)));
-	ASSERT_TRUE (node->ledger.rollback (transaction, node->ledger.latest (transaction, nano::dev::genesis_key.pub)));
+	ASSERT_TRUE (node->ledger.rollback (transaction, node->ledger.any.account_head (transaction, key3.pub)));
+	ASSERT_TRUE (node->ledger.rollback (transaction, node->ledger.any.account_head (transaction, nano::dev::genesis_key.pub)));
 
 	// Attempt some others which have been cemented
 	ASSERT_TRUE (node->ledger.rollback (transaction, open1->hash ()));

@@ -1189,7 +1189,7 @@ TEST (wallet, search_receivable)
 	ASSERT_EQ (2, node.ledger.block_count ());
 	ASSERT_FALSE (wallet.search_receivable (wallet.wallets.tx_begin_read ()));
 	ASSERT_TIMELY_EQ (3s, node.balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount);
-	auto receive_hash = node.ledger.latest (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
+	auto receive_hash = node.ledger.any.account_head (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 	auto receive = node.block (receive_hash);
 	ASSERT_NE (nullptr, receive);
 	ASSERT_EQ (receive->sideband ().height, 3);

@@ -1985,11 +1985,11 @@ TEST (node, aggressive_flooding)
 		block = builder.make_block ()
 				.account (nano::dev::genesis_key.pub)
 				.representative (nano::dev::genesis_key.pub)
-				.previous (node1.ledger.latest (transaction, nano::dev::genesis_key.pub))
+				.previous (node1.ledger.any.account_head (transaction, nano::dev::genesis_key.pub))
 				.balance (node1.ledger.account_balance (transaction, nano::dev::genesis_key.pub) - 1)
 				.link (nano::dev::genesis_key.pub)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*node1.work_generate_blocking (node1.ledger.latest (transaction, nano::dev::genesis_key.pub)))
+				.work (*node1.work_generate_blocking (node1.ledger.any.account_head (transaction, nano::dev::genesis_key.pub)))
 				.build ();
 	}
 	// Processing locally goes through the aggressive block flooding path

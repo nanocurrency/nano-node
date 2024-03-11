@@ -61,7 +61,6 @@ public:
 	nano::uint128_t weight_exact (secure::transaction const &, nano::account const &) const;
 	std::shared_ptr<nano::block> forked_block (secure::transaction const &, nano::block const &);
 	std::shared_ptr<nano::block> head_block (secure::transaction const &, nano::account const &);
-	nano::block_hash latest (secure::transaction const &, nano::account const &);
 	nano::root latest_root (secure::transaction const &, nano::account const &);
 	nano::block_hash representative (secure::transaction const &, nano::block_hash const &);
 	nano::block_hash representative_calculated (secure::transaction const &, nano::block_hash const &);

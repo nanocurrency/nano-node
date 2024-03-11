@@ -533,7 +533,7 @@ TEST (history, short_text)
 		auto transaction (ledger.tx_begin_write ());
 		store->initialize (transaction, ledger.cache, ledger.constants);
 		nano::keypair key;
-		auto latest (ledger.latest (transaction, nano::dev::genesis_key.pub));
+		auto latest (ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
 		auto send = std::make_shared<nano::send_block> (latest, nano::dev::genesis_key.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
 		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
 		auto receive = std::make_shared<nano::receive_block> (send->hash (), send->hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send->hash ()));
@@ -573,7 +573,7 @@ TEST (history, pruned_source)
 	{
 		auto transaction = ledger.tx_begin_write ();
 		store->initialize (transaction, ledger.cache, nano::dev::constants);
-		auto latest (ledger.latest (transaction, nano::dev::genesis_key.pub));
+		auto latest (ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
 		auto send1 = std::make_shared<nano::send_block> (latest, nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
 		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
 		auto send2 = std::make_shared<nano::send_block> (send1->hash (), key.pub, nano::dev::constants.genesis_amount - 200, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send1->hash ()));
@@ -605,10 +605,10 @@ TEST (history, pruned_source)
 	// Pruning for state blocks. Previous block is pruned, source is pruned
 	{
 		auto transaction = ledger.tx_begin_write ();
-		auto latest (ledger.latest (transaction, nano::dev::genesis_key.pub));
+		auto latest (ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
 		auto send = std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, latest, nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 200, key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
 		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
-		auto latest_key (ledger.latest (transaction, key.pub));
+		auto latest_key (ledger.any.account_head (transaction, key.pub));
 		auto receive = std::make_shared<nano::state_block> (key.pub, latest_key, key.pub, 200, send->hash (), key.prv, key.pub, *system.work.generate (latest_key));
 		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive));
 		ledger.confirm (transaction, latest);
@@ -722,7 +722,7 @@ TEST (wallet, republish)
 	nano::block_hash hash;
 	{
 		auto transaction = system.nodes[0]->ledger.tx_begin_write ();
-		auto latest (system.nodes[0]->ledger.latest (transaction, nano::dev::genesis_key.pub));
+		auto latest (system.nodes[0]->ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
 		auto block = std::make_shared<nano::send_block> (latest, key.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
 		hash = block->hash ();
 		ASSERT_EQ (nano::block_status::progress, system.nodes[0]->ledger.process (transaction, block));
@@ -922,7 +922,7 @@ TEST (wallet, DISABLED_synchronizing)
 	wallet->start ();
 	{
 		auto transaction = system1.nodes[0]->ledger.tx_begin_write ();
-		auto latest (system1.nodes[0]->ledger.latest (transaction, nano::dev::genesis_key.pub));
+		auto latest (system1.nodes[0]->ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
 		auto send = std::make_shared<nano::send_block> (latest, key1, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system1.work.generate (latest));
 		system1.nodes[0]->ledger.process (transaction, send);
 	}

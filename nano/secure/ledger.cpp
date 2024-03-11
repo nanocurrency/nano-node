@@ -48,7 +48,7 @@ public:
 		auto pending = ledger.store.pending.get (transaction, key);
 		while (!error && !pending.has_value ())
 		{
-			error = ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.destination), list);
+			error = ledger.rollback (transaction, ledger.any.account_head (transaction, block_a.hashables.destination), list);
 			pending = ledger.store.pending.get (transaction, key);
 		}
 		if (!error)
@@ -145,7 +145,7 @@ public:
 			nano::pending_key key (block_a.hashables.link.as_account (), hash);
 			while (!error && !ledger.pending_info (transaction, key))
 			{
-				error = ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.link.as_account ()), list);
+				error = ledger.rollback (transaction, ledger.any.account_head (transaction, block_a.hashables.link.as_account ()), list);
 			}
 			ledger.store.pending.del (transaction, key);
 			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::send);
@@ -1041,13 +1041,6 @@ std::optional<nano::uint128_t> nano::ledger::amount (secure::transaction const &
 	return block_balance > previous_balance.value () ? block_balance.number () - previous_balance.value ().number () : previous_balance.value ().number () - block_balance.number ();
 }
 
-// Return latest block for account
-nano::block_hash nano::ledger::latest (secure::transaction const & transaction_a, nano::account const & account_a)
-{
-	auto info = any.account_get (transaction_a, account_a);
-	return !info ? 0 : info->head;
-}
-
 // Return latest root for account, account number if there are no blocks for this account.
 nano::root nano::ledger::latest_root (secure::transaction const & transaction_a, nano::account const & account_a)
 {
@@ -1065,7 +1058,7 @@ nano::root nano::ledger::latest_root (secure::transaction const & transaction_a,
 void nano::ledger::dump_account_chain (nano::account const & account_a, std::ostream & stream)
 {
 	auto transaction = tx_begin_read ();
-	auto hash (latest (transaction, account_a));
+	auto hash (any.account_head (transaction, account_a));
 	while (!hash.is_zero ())
 	{
 		auto block_l = any.block_get (transaction, hash);
