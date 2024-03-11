@@ -1342,8 +1342,7 @@ void nano::json_handler::blocks_info ()
 					}
 					if (receivable || receive_hash)
 					{
-						auto destination (node.ledger.block_destination (transaction, *block));
-						if (destination.is_zero ())
+						if (!block->is_send ())
 						{
 							if (receivable)
 							{
@@ -1355,7 +1354,7 @@ void nano::json_handler::blocks_info ()
 								entry.put ("receive_hash", nano::block_hash (0).to_string ());
 							}
 						}
-						else if (node.store.pending.exists (transaction, nano::pending_key (destination, hash)))
+						else if (node.store.pending.exists (transaction, nano::pending_key (block->destination (), hash)))
 						{
 							if (receivable)
 							{
@@ -1376,7 +1375,7 @@ void nano::json_handler::blocks_info ()
 							}
 							if (receive_hash)
 							{
-								std::shared_ptr<nano::block> receive_block = node.ledger.find_receive_block_by_send_hash (transaction, destination, hash);
+								std::shared_ptr<nano::block> receive_block = node.ledger.find_receive_block_by_send_hash (transaction, block->destination (), hash);
 								std::string receive_hash = receive_block ? receive_block->hash ().to_string () : nano::block_hash (0).to_string ();
 								entry.put ("receive_hash", receive_hash);
 							}
@@ -3163,10 +3162,9 @@ void nano::json_handler::receivable_exists ()
 		if (block != nullptr)
 		{
 			auto exists (false);
-			auto destination (node.ledger.block_destination (transaction, *block));
-			if (!destination.is_zero ())
+			if (block->is_send ())
 			{
-				exists = node.store.pending.exists (transaction, nano::pending_key (destination, hash));
+				exists = node.store.pending.exists (transaction, nano::pending_key (block->destination (), hash));
 			}
 			exists = exists && (block_confirmed (node, transaction, block->hash (), include_active, include_only_confirmed));
 			response_l.put ("exists", exists ? "1" : "0");
@@ -3668,7 +3666,7 @@ void nano::json_handler::republish ()
 				if (destinations != 0) // Republish destination chain
 				{
 					auto block_b = node.ledger.block (transaction, hash);
-					auto destination (node.ledger.block_destination (transaction, *block_b));
+					auto destination = block_b->destination ();
 					if (!destination.is_zero ())
 					{
 						if (!node.store.pending.exists (transaction, nano::pending_key (destination, hash)))
