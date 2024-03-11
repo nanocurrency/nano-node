@@ -2459,7 +2459,7 @@ TEST (rpc, account_representative_set_epoch_2_insufficient_work)
 	node->scheduler.priority.activate (nano::dev::genesis_key.pub, node->ledger.tx_begin_read ());
 
 	// wait for the epoch blocks to be cemented
-	ASSERT_TIMELY_EQ (5s, node->get_confirmation_height (node->store.tx_begin_read (), nano::dev::genesis_key.pub), 3);
+	ASSERT_TIMELY_EQ (5s, node->ledger.confirmed.account_height (node->store.tx_begin_read (), nano::dev::genesis_key.pub), 3);
 
 	auto target_difficulty = nano::dev::network_params.work.threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, false, false, false));
 	ASSERT_LT (node->network_params.work.entry, target_difficulty);
@@ -3334,7 +3334,7 @@ TEST (rpc, wallet_pending)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key1.prv);
 	auto block1 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 100);
-	ASSERT_TIMELY_EQ (5s, node->get_confirmation_height (node->store.tx_begin_read (), nano::dev::genesis_key.pub), 2);
+	ASSERT_TIMELY_EQ (5s, node->ledger.confirmed.account_height (node->store.tx_begin_read (), nano::dev::genesis_key.pub), 2);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_pending");

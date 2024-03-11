@@ -1573,7 +1573,7 @@ TEST (node, unconfirmed_send)
 	ASSERT_TIMELY (5s, node2.block_confirmed (send1->hash ()));
 
 	// wait until receive1 (auto-receive created by wallet) is cemented
-	ASSERT_TIMELY_EQ (5s, node2.get_confirmation_height (node2.ledger.tx_begin_read (), key2.pub), 1);
+	ASSERT_TIMELY_EQ (5s, node2.ledger.confirmed.account_height (node2.ledger.tx_begin_read (), key2.pub), 1);
 	ASSERT_EQ (node2.balance (key2.pub), 2 * nano::Mxrb_ratio);
 	auto recv1 = node2.ledger.find_receive_block_by_send_hash (node2.ledger.tx_begin_read (), key2.pub, send1->hash ());
 

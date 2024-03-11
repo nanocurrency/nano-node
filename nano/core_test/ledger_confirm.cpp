@@ -43,7 +43,7 @@ TEST (ledger_confirm, single)
 	ASSERT_FALSE (node->ledger.confirmed.block_exists (transaction, send1->hash ()));
 	node->ledger.confirm (transaction, send1->hash ());
 	ASSERT_TRUE (node->ledger.confirmed.block_exists (transaction, send1->hash ()));
-	ASSERT_EQ (2, node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub).value ().height);
+	ASSERT_EQ (2, node->ledger.confirmed.account_height (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (send1->hash (), node->ledger.confirmed.account_head (transaction, nano::dev::genesis_key.pub));
 
 	// Rollbacks should fail as these blocks have been cemented
@@ -199,16 +199,16 @@ TEST (ledger_confirm, multiple_accounts)
 
 	ASSERT_TRUE (node->ledger.confirmed.block_exists (transaction, receive3->hash ()));
 	ASSERT_EQ (4, node->ledger.any.account_get (transaction, nano::dev::genesis_key.pub).value ().block_count);
-	ASSERT_EQ (4, node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub).value ().height);
+	ASSERT_EQ (4, node->ledger.confirmed.account_height (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (send3->hash (), node->ledger.confirmed.account_head (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (3, node->ledger.any.account_get (transaction, key1.pub).value ().block_count);
-	ASSERT_EQ (2, node->store.confirmation_height.get (transaction, key1.pub).value ().height);
+	ASSERT_EQ (2, node->ledger.confirmed.account_height (transaction, key1.pub));
 	ASSERT_EQ (send4->hash (), node->ledger.confirmed.account_head (transaction, key1.pub));
 	ASSERT_EQ (4, node->ledger.any.account_get (transaction, key2.pub).value ().block_count);
-	ASSERT_EQ (3, node->store.confirmation_height.get (transaction, key2.pub).value ().height);
+	ASSERT_EQ (3, node->ledger.confirmed.account_height (transaction, key2.pub));
 	ASSERT_EQ (send6->hash (), node->ledger.confirmed.account_head (transaction, key2.pub));
 	ASSERT_EQ (2, node->ledger.any.account_get (transaction, key3.pub).value ().block_count);
-	ASSERT_EQ (2, node->store.confirmation_height.get (transaction, key3.pub).value ().height);
+	ASSERT_EQ (2, node->ledger.confirmed.account_height (transaction, key3.pub));
 	ASSERT_EQ (receive3->hash (), node->ledger.confirmed.account_head (transaction, key3.pub));
 
 	// The accounts for key1 and key2 have 1 more block in the chain than is confirmed.
@@ -349,11 +349,10 @@ TEST (ledger_confirm, send_receive_between_2_accounts)
 
 	ASSERT_TRUE (node->ledger.confirmed.block_exists (transaction, receive4->hash ()));
 	ASSERT_EQ (7, node->ledger.any.account_get (transaction, nano::dev::genesis_key.pub).value ().block_count);
-	ASSERT_EQ (6, node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub).value ().height);
+	ASSERT_EQ (6, node->ledger.confirmed.account_height (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (send5->hash (), node->ledger.confirmed.account_head (transaction, nano::dev::genesis_key.pub));
-
 	ASSERT_EQ (5, node->ledger.any.account_get (transaction, key1.pub).value ().block_count);
-	ASSERT_EQ (5, node->store.confirmation_height.get (transaction, key1.pub).value ().height);
+	ASSERT_EQ (5, node->ledger.confirmed.account_height (transaction, key1.pub));
 	ASSERT_EQ (receive4->hash (), node->ledger.confirmed.account_head (transaction, key1.pub));
 }
 
@@ -440,7 +439,7 @@ TEST (ledger_confirm, send_receive_self)
 
 	ASSERT_TRUE (node->ledger.confirmed.block_exists (transaction, receive3->hash ()));
 	ASSERT_EQ (8, node->ledger.any.account_get (transaction, nano::dev::genesis_key.pub).value ().block_count);
-	ASSERT_EQ (7, node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub).value ().height);
+	ASSERT_EQ (7, node->ledger.confirmed.account_height (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (receive3->hash (), node->ledger.confirmed.account_head (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (7, node->ledger.cemented_count ());
 }
@@ -667,15 +666,14 @@ TEST (ledger_confirm, all_block_types)
 	ASSERT_TRUE (node->ledger.confirmed.block_exists (transaction, state_send2->hash ()));
 	nano::confirmation_height_info confirmation_height_info;
 	ASSERT_LE (4, node->ledger.any.account_get (transaction, nano::dev::genesis_key.pub).value ().block_count);
-	ASSERT_EQ (3, node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub).value ().height);
+	ASSERT_EQ (3, node->ledger.confirmed.account_height (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (send1->hash (), node->ledger.confirmed.account_head (transaction, nano::dev::genesis_key.pub));
 
 	ASSERT_LE (7, node->ledger.any.account_get (transaction, key1.pub).value ().block_count);
-	ASSERT_EQ (6, node->store.confirmation_height.get (transaction, key1.pub).value ().height);
+	ASSERT_EQ (6, node->ledger.confirmed.account_height (transaction, key1.pub));
 	ASSERT_EQ (state_send1->hash (), node->ledger.confirmed.account_head (transaction, key1.pub));
-
 	ASSERT_EQ (8, node->ledger.any.account_get (transaction, key2.pub).value ().block_count);
-	ASSERT_EQ (7, node->store.confirmation_height.get (transaction, key2.pub).value ().height);
+	ASSERT_EQ (7, node->ledger.confirmed.account_height (transaction, key2.pub));
 	ASSERT_EQ (state_send2->hash (), node->ledger.confirmed.account_head (transaction, key2.pub));
 }
 

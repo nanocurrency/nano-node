@@ -1302,14 +1302,6 @@ void nano::node::bootstrap_block (const nano::block_hash & hash)
 	}
 }
 
-/** Convenience function to easily return the confirmation height of an account. */
-uint64_t nano::node::get_confirmation_height (store::transaction const & transaction_a, nano::account & account_a)
-{
-	nano::confirmation_height_info info;
-	store.confirmation_height.get (transaction_a, account_a, info);
-	return info.height;
-}
-
 nano::account nano::node::get_node_id () const
 {
 	return node_id.pub;

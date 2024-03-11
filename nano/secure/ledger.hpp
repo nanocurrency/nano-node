@@ -79,7 +79,6 @@ public:
 	bool bootstrap_weight_reached () const;
 	static nano::epoch version (nano::block const & block);
 	nano::epoch version (secure::transaction const & transaction, nano::block_hash const & hash) const;
-	uint64_t height (secure::transaction const & transaction, nano::block_hash const & hash) const;
 	// Returns whether there are any receivable entries for 'account'
 	bool receivable_any (secure::transaction const & tx, nano::account const & account) const;
 	nano::receivable_iterator receivable_end () const;

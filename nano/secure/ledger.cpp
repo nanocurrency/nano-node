@@ -977,7 +977,7 @@ bool nano::ledger::rollback (secure::write_transaction const & transaction_a, na
 {
 	debug_assert (any.block_exists (transaction_a, block_a));
 	auto account_l = any.block_account (transaction_a, block_a).value ();
-	auto block_account_height (height (transaction_a, block_a));
+	auto block_account_height (any.block_height (transaction_a, block_a));
 	rollback_visitor rollback (transaction_a, *this, list_a);
 	auto error (false);
 	while (!error && any.block_exists (transaction_a, block_a))
@@ -1423,12 +1423,6 @@ nano::epoch nano::ledger::version (secure::transaction const & transaction, nano
 		return nano::epoch::epoch_0;
 	}
 	return version (*block_l);
-}
-
-uint64_t nano::ledger::height (secure::transaction const & transaction, nano::block_hash const & hash) const
-{
-	auto block_l = any.block_get (transaction, hash);
-	return block_l->sideband ().height;
 }
 
 bool nano::ledger::receivable_any (secure::transaction const & tx, nano::account const & account) const

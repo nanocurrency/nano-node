@@ -299,17 +299,6 @@ nano::account_info nano::test::account_info (nano::node const & node, nano::acco
 	return {};
 }
 
-uint64_t nano::test::account_height (nano::node const & node, nano::account const & acc)
-{
-	auto const tx = node.ledger.tx_begin_read ();
-	nano::confirmation_height_info height_info;
-	if (node.ledger.store.confirmation_height.get (tx, acc, height_info))
-	{
-		return 0;
-	}
-	return height_info.height;
-}
-
 void nano::test::print_all_receivable_entries (const nano::store::component & store)
 {
 	std::cout << "Printing all receivable entries:\n";
