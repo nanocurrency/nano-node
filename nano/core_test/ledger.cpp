@@ -5586,7 +5586,7 @@ TEST (ledger, head_block)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto tx = store.tx_begin_read ();
-	ASSERT_EQ (*nano::dev::genesis, *ledger.head_block (tx, nano::dev::genesis_key.pub));
+	ASSERT_EQ (*nano::dev::genesis, *ledger->get (tx, ledger->head (tx, nano::dev::genesis_key.pub)));
 }
 
 // Test that nullopt can be returned when there are no receivable entries

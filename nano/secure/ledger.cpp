@@ -1281,16 +1281,6 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (store::transaction cons
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::ledger::head_block (store::transaction const & transaction, nano::account const & account)
-{
-	auto info = store.account.get (transaction, account);
-	if (info)
-	{
-		return (*this)->get (transaction, info->head);
-	}
-	return nullptr;
-}
-
 bool nano::ledger::confirmed (store::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
 	return confirmed ().exists_or_pruned (transaction_a, hash_a);
