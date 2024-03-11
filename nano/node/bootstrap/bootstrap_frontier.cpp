@@ -163,7 +163,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 					}
 					else
 					{
-						if (node->ledger.block_or_pruned_exists (latest))
+						if (node->block_or_pruned_exists (latest))
 						{
 							// We know about a block they don't.
 							unsynced (frontier, latest);

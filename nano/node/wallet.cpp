@@ -845,7 +845,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 	{
 		auto block_transaction = wallets.node.ledger.tx_begin_read ();
 		auto transaction (wallets.tx_begin_read ());
-		if (wallets.node.ledger.block_or_pruned_exists (block_transaction, send_hash_a))
+		if (wallets.node.ledger.any.block_exists_or_pruned (block_transaction, send_hash_a))
 		{
 			auto pending_info = wallets.node.ledger.pending_info (block_transaction, nano::pending_key (account_a, send_hash_a));
 			if (pending_info)
@@ -1194,7 +1194,7 @@ bool nano::wallet::search_receivable (store::transaction const & wallet_transact
 					{
 						wallets.node.logger.info (nano::log::type::wallet, "Found a receivable block {} for account {}", hash.to_string (), info.source.to_account ());
 
-						if (wallets.node.ledger.block_confirmed (block_transaction, hash))
+						if (wallets.node.ledger.confirmed.block_exists_or_pruned (block_transaction, hash))
 						{
 							auto representative = store.representative (wallet_transaction_a);
 							// Receive confirmed block
@@ -1729,7 +1729,7 @@ void nano::wallets::receive_confirmed (nano::block_hash const & hash_a, nano::ac
 			}
 			else
 			{
-				if (!node.ledger.block_or_pruned_exists (node.ledger.tx_begin_read (), hash_a))
+				if (!node.ledger.confirmed.block_exists_or_pruned (node.ledger.tx_begin_read (), hash_a))
 				{
 					node.logger.warn (nano::log::type::wallet, "Confirmed block is missing: {}", hash_a.to_string ());
 					debug_assert (false, "Confirmed block is missing");

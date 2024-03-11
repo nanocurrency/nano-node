@@ -257,7 +257,7 @@ TEST (rpc, send)
 	std::string block_text (response.get<std::string> ("block"));
 	nano::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
-	ASSERT_TRUE (node->ledger.block_or_pruned_exists (block));
+	ASSERT_TRUE (node->block_or_pruned_exists (block));
 	ASSERT_EQ (node->latest (nano::dev::genesis_key.pub), block);
 	ASSERT_NE (node->balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount);
 }
@@ -302,7 +302,7 @@ TEST (rpc, send_work)
 	std::string block_text (response2.get<std::string> ("block"));
 	nano::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
-	ASSERT_TRUE (node->ledger.block_or_pruned_exists (block));
+	ASSERT_TRUE (node->block_or_pruned_exists (block));
 	ASSERT_EQ (node->latest (nano::dev::genesis_key.pub), block);
 }
 
@@ -345,7 +345,7 @@ TEST (rpc, send_idempotent)
 	std::string block_text (response.get<std::string> ("block"));
 	nano::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
-	ASSERT_TRUE (node->ledger.block_or_pruned_exists (block));
+	ASSERT_TRUE (node->block_or_pruned_exists (block));
 	ASSERT_EQ (node->balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount / 4);
 	auto response2 (wait_response (system, rpc_ctx, request));
 	ASSERT_EQ ("", response2.get<std::string> ("error", ""));
@@ -2401,7 +2401,7 @@ TEST (rpc, account_representative_set)
 	nano::keypair key2;
 	wallet.insert_adhoc (key2.prv);
 	auto key2_open_block_hash = wallet.send_sync (nano::dev::genesis_key.pub, key2.pub, node->config.receive_minimum.number ());
-	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->ledger.tx_begin_read (), key2_open_block_hash));
+	ASSERT_TIMELY (5s, node->ledger.confirmed.block_exists_or_pruned (node->ledger.tx_begin_read (), key2_open_block_hash));
 	auto key2_open_block = node->ledger.block (node->ledger.tx_begin_read (), key2_open_block_hash);
 	ASSERT_EQ (nano::dev::genesis_key.pub, key2_open_block->representative_field ().value ());
 
@@ -2421,7 +2421,7 @@ TEST (rpc, account_representative_set)
 	ASSERT_FALSE (hash.is_zero ());
 	auto block = node->ledger.block (node->ledger.tx_begin_read (), hash);
 	ASSERT_NE (block, nullptr);
-	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->ledger.tx_begin_read (), hash));
+	ASSERT_TIMELY (5s, node->ledger.confirmed.block_exists_or_pruned (node->ledger.tx_begin_read (), hash));
 	ASSERT_EQ (key2.pub, block->representative_field ().value ());
 }
 
@@ -5314,7 +5314,7 @@ TEST (rpc, block_confirm_confirmed)
 	auto node = add_ipc_enabled_node (system, config);
 	{
 		auto transaction = node->ledger.tx_begin_read ();
-		ASSERT_TRUE (node->ledger.block_confirmed (transaction, nano::dev::genesis->hash ()));
+		ASSERT_TRUE (node->ledger.confirmed.block_exists_or_pruned (transaction, nano::dev::genesis->hash ()));
 	}
 	ASSERT_EQ (0, node->stats.count (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out));
 	auto const rpc_ctx = add_rpc (system, node);
@@ -5814,7 +5814,7 @@ TEST (rpc, block_confirmed)
 	ASSERT_TRUE (nano::test::start_elections (system, *node, { send }, true));
 
 	// Wait until the confirmation height has been set
-	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->ledger.tx_begin_read (), send->hash ()) && !node->confirming_set.exists (send->hash ()));
+	ASSERT_TIMELY (5s, node->ledger.confirmed.block_exists_or_pruned (node->ledger.tx_begin_read (), send->hash ()) && !node->confirming_set.exists (send->hash ()));
 
 	// Requesting confirmation for this should now succeed
 	request.put ("hash", send->hash ().to_string ());
@@ -6590,11 +6590,11 @@ TEST (rpc, receive_pruned)
 		ASSERT_EQ (2, node2->ledger.pruning_action (transaction, send2->hash (), 1));
 	}
 	ASSERT_EQ (2, node2->ledger.pruned_count ());
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TRUE (node2->block_or_pruned_exists (send1->hash ()));
 	ASSERT_FALSE (node2->ledger.block_exists (node2->ledger.tx_begin_read (), send1->hash ()));
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send2->hash ()));
+	ASSERT_TRUE (node2->block_or_pruned_exists (send2->hash ()));
 	ASSERT_FALSE (node2->ledger.block_exists (node2->ledger.tx_begin_read (), send2->hash ()));
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send3->hash ()));
+	ASSERT_TRUE (node2->block_or_pruned_exists (send3->hash ()));
 
 	auto const rpc_ctx = add_rpc (system, node2);
 	boost::property_tree::ptree request;

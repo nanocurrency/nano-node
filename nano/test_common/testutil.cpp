@@ -135,7 +135,7 @@ bool nano::test::block_or_pruned_all_exists (nano::node & node, std::vector<nano
 	auto transaction = node.ledger.tx_begin_read ();
 	return std::all_of (hashes.begin (), hashes.end (),
 	[&] (const auto & hash) {
-		return node.ledger.block_or_pruned_exists (transaction, hash);
+		return node.ledger.any.block_exists_or_pruned (transaction, hash);
 	});
 }
 
@@ -149,7 +149,7 @@ bool nano::test::block_or_pruned_none_exists (nano::node & node, std::vector<nan
 	auto transaction = node.ledger.tx_begin_read ();
 	return std::none_of (hashes.begin (), hashes.end (),
 	[&] (const auto & hash) {
-		return node.ledger.block_or_pruned_exists (transaction, hash);
+		return node.ledger.any.block_exists_or_pruned (transaction, hash);
 	});
 }
 

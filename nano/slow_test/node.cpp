@@ -689,7 +689,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 		election->force_confirm ();
 	}
 
-	ASSERT_TIMELY (120s, node->ledger.block_confirmed (node->ledger.tx_begin_read (), last_open_hash));
+	ASSERT_TIMELY (120s, node->ledger.confirmed.block_exists_or_pruned (node->ledger.tx_begin_read (), last_open_hash));
 
 	// All frontiers (except last) should have 2 blocks and both should be confirmed
 	auto transaction = node->store.tx_begin_read ();
@@ -910,7 +910,7 @@ TEST (confirmation_height, long_chains)
 		election->force_confirm ();
 	}
 
-	ASSERT_TIMELY (30s, node->ledger.block_confirmed (node->ledger.tx_begin_read (), receive1->hash ()));
+	ASSERT_TIMELY (30s, node->ledger.confirmed.block_exists_or_pruned (node->ledger.tx_begin_read (), receive1->hash ()));
 
 	auto transaction = node->ledger.tx_begin_read ();
 	auto info = node->ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
@@ -2079,7 +2079,7 @@ TEST (node, wallet_create_block_confirm_conflicts)
 			election->force_confirm ();
 		}
 
-		ASSERT_TIMELY (120s, node->ledger.block_confirmed (node->ledger.tx_begin_read (), latest) && node->confirming_set.size () == 0);
+		ASSERT_TIMELY (120s, node->ledger.confirmed.block_exists_or_pruned (node->ledger.tx_begin_read (), latest) && node->confirming_set.size () == 0);
 		done = true;
 		t.join ();
 	}

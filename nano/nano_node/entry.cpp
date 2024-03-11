@@ -1444,7 +1444,7 @@ int main (int argc, char * const * argv)
 					}
 					calculated_hash = block->previous ();
 					height = block->sideband ().height - 1;
-					if (!node->ledger.block_or_pruned_exists (transaction, info.open_block))
+					if (!node->ledger.any.block_exists_or_pruned (transaction, info.open_block))
 					{
 						print_error_message (boost::str (boost::format ("Open block does not exist %1%\n") % info.open_block.to_string ()));
 					}
@@ -1548,7 +1548,7 @@ int main (int argc, char * const * argv)
 								{
 									// State receive
 									block_details_error = !sideband.details.is_receive || sideband.details.is_send || sideband.details.is_epoch;
-									block_details_error |= !node->ledger.block_or_pruned_exists (transaction, block->source ());
+									block_details_error |= !node->ledger.any.block_exists_or_pruned (transaction, block->source ());
 								}
 							}
 						}

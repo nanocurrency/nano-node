@@ -1294,10 +1294,10 @@ TEST (bootstrap_processor, lazy_destinations)
 
 	// Check processed blocks
 	ASSERT_TIMELY (5s, !node2->bootstrap_initiator.in_progress ());
-	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (send2->hash ()));
-	ASSERT_FALSE (node2->ledger.block_or_pruned_exists (open->hash ()));
-	ASSERT_FALSE (node2->ledger.block_or_pruned_exists (state_open->hash ()));
+	ASSERT_TIMELY (5s, node2->block_or_pruned_exists (send1->hash ()));
+	ASSERT_TIMELY (5s, node2->block_or_pruned_exists (send2->hash ()));
+	ASSERT_FALSE (node2->block_or_pruned_exists (open->hash ()));
+	ASSERT_FALSE (node2->block_or_pruned_exists (state_open->hash ()));
 }
 
 TEST (bootstrap_processor, lazy_pruning_missing_block)
@@ -1518,7 +1518,7 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 		ASSERT_EQ (key2.pub.to_account (), wallet_attempt->id);
 	}
 	// Check processed blocks
-	ASSERT_TIMELY (10s, node1->ledger.block_or_pruned_exists (receive2->hash ()));
+	ASSERT_TIMELY (10s, node1->block_or_pruned_exists (receive2->hash ()));
 }
 
 TEST (bootstrap_processor, wallet_lazy_pending)
@@ -1582,7 +1582,7 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 	wallet->insert_adhoc (key2.prv);
 	node1->bootstrap_wallet ();
 	// Check processed blocks
-	ASSERT_TIMELY (10s, node1->ledger.block_or_pruned_exists (send2->hash ()));
+	ASSERT_TIMELY (10s, node1->block_or_pruned_exists (send2->hash ()));
 }
 
 TEST (bootstrap_processor, multiple_attempts)

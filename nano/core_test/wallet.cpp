@@ -1226,7 +1226,7 @@ TEST (wallet, receive_pruned)
 		ASSERT_EQ (1, node2.ledger.pruning_action (transaction, send1->hash (), 2));
 	}
 	ASSERT_EQ (1, node2.ledger.pruned_count ());
-	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TRUE (node2.block_or_pruned_exists (send1->hash ()));
 	ASSERT_FALSE (node2.ledger.block_exists (node2.ledger.tx_begin_read (), send1->hash ()));
 
 	wallet2.insert_adhoc (key.prv, false);
