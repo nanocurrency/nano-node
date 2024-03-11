@@ -526,7 +526,7 @@ public:
 	{
 		type = "Send";
 		account = block_a.hashables.destination;
-		auto amount_l = ledger.amount (transaction, block_a.hash ());
+		auto amount_l = ledger->amount (transaction, block_a.hash ());
 		if (!amount_l)
 		{
 			type = "Send (pruned)";
@@ -540,7 +540,7 @@ public:
 	{
 		type = "Receive";
 		auto account_l = ledger->account (transaction, block_a.hashables.source);
-		auto amount_l = ledger.amount (transaction, block_a.hash ());
+		auto amount_l = ledger->amount (transaction, block_a.hash ());
 		if (!account_l || !amount_l)
 		{
 			type = "Receive (pruned)";
@@ -557,7 +557,7 @@ public:
 		if (block_a.hashables.source != ledger.constants.genesis->account ())
 		{
 			auto account_l = ledger->account (transaction, block_a.hashables.source);
-			auto amount_l = ledger.amount (transaction, block_a.hash ());
+			auto amount_l = ledger->amount (transaction, block_a.hash ());
 			if (!account_l || !amount_l)
 			{
 				type = "Receive (pruned)";

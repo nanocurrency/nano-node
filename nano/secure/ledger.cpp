@@ -67,7 +67,7 @@ public:
 	void receive_block (nano::receive_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
-		auto amount = ledger.amount (transaction, hash).value ();
+		auto amount = ledger->amount (transaction, hash).value ();
 		auto destination_account = block_a.account ();
 		// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
 		auto source_account = ledger->account (transaction, block_a.hashables.source);
@@ -84,7 +84,7 @@ public:
 	void open_block (nano::open_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
-		auto amount = ledger.amount (transaction, hash).value ();
+		auto amount = ledger->amount (transaction, hash).value ();
 		auto destination_account = block_a.account ();
 		auto source_account = ledger->account (transaction, block_a.hashables.source);
 		ledger.cache.rep_weights.representation_add (transaction, block_a.representative_field ().value (), 0 - amount);
@@ -1026,26 +1026,6 @@ bool nano::ledger::rollback (store::write_transaction const & transaction_a, nan
 {
 	std::vector<std::shared_ptr<nano::block>> rollback_list;
 	return rollback (transaction_a, block_a, rollback_list);
-}
-
-std::optional<nano::uint128_t> nano::ledger::amount (store::transaction const & transaction_a, nano::block_hash const & hash_a)
-{
-	auto block_l = (*this)->get (transaction_a, hash_a);
-	if (!block_l)
-	{
-		return std::nullopt;
-	}
-	auto block_balance = block_l->balance ();
-	if (block_l->previous ().is_zero ())
-	{
-		return block_balance.number ();
-	}
-	auto previous_balance = (*this)->balance (transaction_a, block_l->previous ());
-	if (!previous_balance)
-	{
-		return std::nullopt;
-	}
-	return block_balance > previous_balance.value () ? block_balance.number () - previous_balance.value () : previous_balance.value () - block_balance.number ();
 }
 
 // Return latest root for account, account number if there are no blocks for this account.

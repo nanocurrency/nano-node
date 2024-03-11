@@ -42,7 +42,6 @@ public:
 	ledger_view_confirmed & confirmed () const;
 	ledger_view_unconfirmed & unconfirmed () const;
 
-	std::optional<nano::uint128_t> amount (store::transaction const &, nano::block_hash const &);
 	nano::uint128_t account_balance (store::transaction const &, nano::account const &, bool = false);
 	nano::uint128_t account_receivable (store::transaction const &, nano::account const &, bool = false);
 	/**
