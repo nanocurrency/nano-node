@@ -1966,7 +1966,7 @@ TEST (node, aggressive_flooding)
 	auto all_received = [&nodes_wallets] () {
 		return std::all_of (nodes_wallets.begin (), nodes_wallets.end (), [] (auto const & node_wallet) {
 			auto local_representative (node_wallet.second->store.representative (node_wallet.first->wallets.tx_begin_read ()));
-			return node_wallet.first->ledger.account_balance (node_wallet.first->ledger.tx_begin_read (), local_representative) > 0;
+			return node_wallet.first->ledger.any.account_balance (node_wallet.first->ledger.tx_begin_read (), local_representative) > 0;
 		});
 	};
 
@@ -1986,7 +1986,7 @@ TEST (node, aggressive_flooding)
 				.account (nano::dev::genesis_key.pub)
 				.representative (nano::dev::genesis_key.pub)
 				.previous (node1.ledger.any.account_head (transaction, nano::dev::genesis_key.pub))
-				.balance (node1.ledger.account_balance (transaction, nano::dev::genesis_key.pub) - 1)
+				.balance (node1.ledger.any.account_balance (transaction, nano::dev::genesis_key.pub).value ().number () - 1)
 				.link (nano::dev::genesis_key.pub)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*node1.work_generate_blocking (node1.ledger.any.account_head (transaction, nano::dev::genesis_key.pub)))

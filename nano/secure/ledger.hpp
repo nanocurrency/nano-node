@@ -42,7 +42,6 @@ public:
 	/** Start read-only transaction */
 	secure::read_transaction tx_begin_read () const;
 
-	nano::uint128_t account_balance (secure::transaction const &, nano::account const &, bool = false) const;
 	nano::uint128_t account_receivable (secure::transaction const &, nano::account const &, bool = false);
 	/**
 	 * Returns the cached vote weight for the given representative.

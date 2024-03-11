@@ -655,7 +655,7 @@ void nano::bulk_pull_account_server::send_frontier ()
 
 		// Get account balance and frontier block hash
 		auto account_frontier_hash (node->ledger.any.account_head (stream_transaction, request->account));
-		auto account_frontier_balance_int (node->ledger.account_balance (stream_transaction, request->account));
+		auto account_frontier_balance_int (node->ledger.any.account_balance (stream_transaction, request->account).value_or (0));
 		nano::uint128_union account_frontier_balance (account_frontier_balance_int);
 
 		// Write the frontier block hash and balance into a buffer

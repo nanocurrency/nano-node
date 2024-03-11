@@ -979,8 +979,8 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 				auto existing (store.find (transaction, source_a));
 				if (existing != store.end ())
 				{
-					auto balance (wallets.node.ledger.account_balance (block_transaction, source_a));
-					if (!balance.is_zero () && balance >= amount_a)
+					auto balance (wallets.node.ledger.any.account_balance (block_transaction, source_a));
+					if (balance && balance.value ().number () >= amount_a)
 					{
 						auto info = wallets.node.ledger.any.account_get (block_transaction, source_a);
 						debug_assert (info);
@@ -992,7 +992,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 						{
 							store.work_get (transaction, source_a, work_a);
 						}
-						block = std::make_shared<nano::state_block> (source_a, info->head, info->representative, balance - amount_a, account_a, prv, source_a, work_a);
+						block = std::make_shared<nano::state_block> (source_a, info->head, info->representative, balance.value ().number () - amount_a, account_a, prv, source_a, work_a);
 						details.epoch = info->epoch ();
 						if (id_mdb_val && block != nullptr)
 						{

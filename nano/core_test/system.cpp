@@ -33,7 +33,7 @@ TEST (system, system_genesis)
 	for (auto & i : system.nodes)
 	{
 		auto transaction = i->ledger.tx_begin_read ();
-		ASSERT_EQ (nano::dev::constants.genesis_amount, i->ledger.account_balance (transaction, nano::dev::genesis_key.pub));
+		ASSERT_EQ (nano::dev::constants.genesis_amount, i->ledger.any.account_balance (transaction, nano::dev::genesis_key.pub));
 	}
 }
 

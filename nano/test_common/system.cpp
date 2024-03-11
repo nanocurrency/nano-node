@@ -304,7 +304,7 @@ std::shared_ptr<nano::state_block> nano::test::upgrade_epoch (nano::work_pool & 
 	auto dev_genesis_key = nano::dev::genesis_key;
 	auto account = dev_genesis_key.pub;
 	auto latest = ledger_a.any.account_head (transaction, account);
-	auto balance = ledger_a.account_balance (transaction, account);
+	auto balance = ledger_a.any.account_balance (transaction, account).value_or (0);
 
 	nano::state_block_builder builder;
 	std::error_code ec;
@@ -525,7 +525,7 @@ nano::account nano::test::system::get_random_account (std::vector<nano::account>
 
 nano::uint128_t nano::test::system::get_random_amount (secure::transaction const & transaction_a, nano::node & node_a, nano::account const & account_a)
 {
-	nano::uint128_t balance (node_a.ledger.account_balance (transaction_a, account_a));
+	nano::uint128_t balance = node_a.ledger.any.account_balance (transaction_a, account_a).value_or (0).number ();
 	nano::uint128_union random_amount;
 	nano::random_pool::generate_block (random_amount.bytes.data (), sizeof (random_amount.bytes));
 	return (((nano::uint256_t{ random_amount.number () } * balance) / nano::uint256_t{ std::numeric_limits<nano::uint128_t>::max () }).convert_to<nano::uint128_t> ());

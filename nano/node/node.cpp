@@ -776,7 +776,7 @@ nano::block_hash nano::node::latest (nano::account const & account_a)
 
 nano::uint128_t nano::node::balance (nano::account const & account_a)
 {
-	return ledger.account_balance (ledger.tx_begin_read (), account_a);
+	return ledger.any.account_balance (ledger.tx_begin_read (), account_a);
 }
 
 std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)
@@ -793,7 +793,7 @@ std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::a
 {
 	std::pair<nano::uint128_t, nano::uint128_t> result;
 	auto const transaction = ledger.tx_begin_read ();
-	result.first = ledger.account_balance (transaction, account_a, only_confirmed_a);
+	result.first = only_confirmed_a ? ledger.confirmed.account_balance (transaction, account_a).value_or (0).number () : ledger.any.account_balance (transaction, account_a).value_or (0).number ();
 	result.second = ledger.account_receivable (transaction, account_a, only_confirmed_a);
 	return result;
 }

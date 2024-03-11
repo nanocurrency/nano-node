@@ -4144,7 +4144,7 @@ TEST (rpc, blocks_info_receive_hash)
 	};
 
 	ASSERT_TIMELY (5s, all_blocks_cemented ());
-	ASSERT_EQ (node->ledger.account_balance (node->ledger.tx_begin_read (), key1.pub, true), 10);
+	ASSERT_EQ (node->ledger.confirmed.account_balance (node->ledger.tx_begin_read (), key1.pub), 10);
 
 	// create the RPC request
 	boost::property_tree::ptree request;

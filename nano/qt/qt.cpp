@@ -270,7 +270,7 @@ void nano_qt::accounts::refresh_wallet_balance ()
 	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
 	{
 		nano::public_key const & key (i->first);
-		balance = balance + (this->wallet.node.ledger.account_balance (block_transaction, key));
+		balance = balance + this->wallet.node.ledger.any.account_balance (block_transaction, key).value_or (0).number ();
 		pending = pending + (this->wallet.node.ledger.account_receivable (block_transaction, key));
 	}
 	auto final_text (std::string ("Balance: ") + wallet.format_balance (balance));
@@ -295,7 +295,7 @@ void nano_qt::accounts::refresh ()
 	for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end ()); i != j; ++i)
 	{
 		nano::public_key key (i->first);
-		auto balance_amount (wallet.node.ledger.account_balance (block_transaction, key));
+		auto balance_amount = wallet.node.ledger.any.account_balance (block_transaction, key).value_or (0).number ();
 		bool display (true);
 		switch (wallet.wallet_m->store.key_type (i->second))
 		{
@@ -2245,7 +2245,7 @@ void nano_qt::block_creation::create_send ()
 				nano::raw_key key;
 				if (!wallet.wallet_m->store.fetch (transaction, account_l, key))
 				{
-					auto balance (wallet.node.ledger.account_balance (block_transaction, account_l));
+					auto balance = wallet.node.ledger.any.account_balance (block_transaction, account_l).value_or (0).number ();
 					if (amount_l.number () <= balance)
 					{
 						nano::account_info info;

@@ -323,7 +323,7 @@ void nano::test::print_all_account_info (const nano::ledger & ledger)
 		nano::confirmation_height_info height_info;
 		std::cout << "Account: " << acc.to_account () << std::endl;
 		std::cout << "  Unconfirmed Balance: " << acc_info.balance.to_string_dec () << std::endl;
-		std::cout << "  Confirmed Balance:   " << ledger.account_balance (tx, acc, true) << std::endl;
+		std::cout << "  Confirmed Balance:   " << ledger.confirmed.account_balance (tx, acc).value_or (0) << std::endl;
 		std::cout << "  Block Count:         " << acc_info.block_count << std::endl;
 		if (!ledger.store.confirmation_height.get (tx, acc, height_info))
 		{
