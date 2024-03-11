@@ -1,25 +1,16 @@
 #pragma once
 
-#include <nano/lib/locks.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/stats.hpp>
-#include <nano/lib/thread_roles.hpp>
-#include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/transport/channel.hpp>
-
-#include <boost/circular_buffer.hpp>
 
 #include <algorithm>
 #include <chrono>
-#include <condition_variable>
 #include <deque>
 #include <functional>
-#include <mutex>
-#include <thread>
+#include <memory>
+#include <numeric>
+#include <tuple>
 #include <utility>
-#include <vector>
 
 namespace nano
 {
