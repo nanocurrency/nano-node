@@ -909,7 +909,7 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 		if (store.valid_password (transaction))
 		{
 			auto existing (store.find (transaction, source_a));
-			if (existing != store.end () && !wallets.node.ledger.latest (block_transaction, source_a).is_zero ())
+			if (existing != store.end () && !wallets.node.ledger->head (block_transaction, source_a).is_zero ())
 			{
 				auto info = wallets.node.ledger->get (block_transaction, source_a);
 				debug_assert (info);
@@ -1239,7 +1239,7 @@ uint32_t nano::wallet::deterministic_check (store::transaction const & transacti
 		auto prv = store.deterministic_key (transaction_a, i);
 		nano::keypair pair (prv.to_string ());
 		// Check if account received at least 1 block
-		auto latest (wallets.node.ledger.latest (block_transaction, pair.pub));
+		auto latest (wallets.node.ledger->head (block_transaction, pair.pub));
 		if (!latest.is_zero ())
 		{
 			index = i;

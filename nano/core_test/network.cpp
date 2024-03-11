@@ -195,12 +195,12 @@ TEST (network, send_discarded_publish)
 	{
 		auto transaction (node1.store.tx_begin_read ());
 		node1.network.flood_block (block);
-		ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger.latest (transaction, nano::dev::genesis_key.pub));
+		ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger->head (transaction, nano::dev::genesis_key.pub));
 		ASSERT_EQ (nano::dev::genesis->hash (), node2.latest (nano::dev::genesis_key.pub));
 	}
 	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) != 0);
 	auto transaction (node1.store.tx_begin_read ());
-	ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger.latest (transaction, nano::dev::genesis_key.pub));
+	ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger->head (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::genesis->hash (), node2.latest (nano::dev::genesis_key.pub));
 }
 
@@ -221,12 +221,12 @@ TEST (network, send_invalid_publish)
 	{
 		auto transaction (node1.store.tx_begin_read ());
 		node1.network.flood_block (block);
-		ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger.latest (transaction, nano::dev::genesis_key.pub));
+		ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger->head (transaction, nano::dev::genesis_key.pub));
 		ASSERT_EQ (nano::dev::genesis->hash (), node2.latest (nano::dev::genesis_key.pub));
 	}
 	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) != 0);
 	auto transaction (node1.store.tx_begin_read ());
-	ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger.latest (transaction, nano::dev::genesis_key.pub));
+	ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger->head (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::genesis->hash (), node2.latest (nano::dev::genesis_key.pub));
 }
 

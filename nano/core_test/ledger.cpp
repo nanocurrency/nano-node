@@ -266,7 +266,7 @@ TEST (ledger, process_receive)
 	ASSERT_EQ (25, ledger.amount (transaction, hash4));
 	ASSERT_EQ (nano::block_status::progress, return2);
 	ASSERT_EQ (key2.pub, receive->account ());
-	ASSERT_EQ (hash4, ledger.latest (transaction, key2.pub));
+	ASSERT_EQ (hash4, ledger->head (transaction, key2.pub));
 	ASSERT_EQ (25, ledger.account_balance (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (0, ledger.account_receivable (transaction, key2.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 25, ledger.account_balance (transaction, key2.pub));
@@ -277,7 +277,7 @@ TEST (ledger, process_receive)
 	ASSERT_EQ (25, ledger.account_receivable (transaction, key2.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, ledger.account_balance (transaction, key2.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, ledger.weight (key3.pub));
-	ASSERT_EQ (hash2, ledger.latest (transaction, key2.pub));
+	ASSERT_EQ (hash2, ledger->head (transaction, key2.pub));
 	auto pending1 = ledger.pending_info (transaction, nano::pending_key (key2.pub, hash3));
 	ASSERT_TRUE (pending1);
 	ASSERT_EQ (nano::dev::genesis_key.pub, pending1->source);
@@ -317,7 +317,7 @@ TEST (ledger, rollback_receiver)
 				.build ();
 	nano::block_hash hash2 (open->hash ());
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
-	ASSERT_EQ (hash2, ledger.latest (transaction, key2.pub));
+	ASSERT_EQ (hash2, ledger->head (transaction, key2.pub));
 	ASSERT_EQ (50, ledger.account_balance (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, ledger.account_balance (transaction, key2.pub));
 	ASSERT_EQ (50, ledger.weight (nano::dev::genesis_key.pub));
@@ -492,7 +492,7 @@ TEST (ledger, representative_genesis)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	auto latest = ledger.latest (transaction, nano::dev::genesis_key.pub);
+	auto latest = ledger->head (transaction, nano::dev::genesis_key.pub);
 	ASSERT_FALSE (latest.is_zero ());
 	ASSERT_EQ (nano::dev::genesis->hash (), ledger.representative (transaction, latest));
 }
@@ -2095,7 +2095,7 @@ TEST (ledger, latest_empty)
 	auto & store = ctx.store ();
 	nano::keypair key;
 	auto transaction = store.tx_begin_read ();
-	auto latest = ledger.latest (transaction, key.pub);
+	auto latest = ledger->head (transaction, key.pub);
 	ASSERT_TRUE (latest.is_zero ());
 }
 
@@ -2108,7 +2108,7 @@ TEST (ledger, latest_root)
 	auto & pool = ctx.pool ();
 	nano::keypair key;
 	ASSERT_EQ (key.pub, ledger.latest_root (transaction, key.pub).as_account ());
-	auto hash1 = ledger.latest (transaction, nano::dev::genesis_key.pub);
+	auto hash1 = ledger->head (transaction, nano::dev::genesis_key.pub);
 	nano::block_builder builder;
 	auto send = builder
 				.send ()
@@ -4813,7 +4813,7 @@ TEST (ledger, cache)
 		};
 
 		nano::keypair key;
-		auto const latest = ledger.latest (store.tx_begin_read (), nano::dev::genesis_key.pub);
+		auto const latest = ledger->head (store.tx_begin_read (), nano::dev::genesis_key.pub);
 		auto send = builder.state ()
 					.account (nano::dev::genesis_key.pub)
 					.previous (latest)

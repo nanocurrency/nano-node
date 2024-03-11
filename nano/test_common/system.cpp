@@ -256,7 +256,7 @@ std::shared_ptr<nano::state_block> nano::test::upgrade_epoch (nano::work_pool & 
 	auto transaction (ledger_a.store.tx_begin_write ());
 	auto dev_genesis_key = nano::dev::genesis_key;
 	auto account = dev_genesis_key.pub;
-	auto latest = ledger_a.latest (transaction, account);
+	auto latest = ledger_a->head (transaction, account);
 	auto balance = ledger_a.account_balance (transaction, account);
 
 	nano::state_block_builder builder;

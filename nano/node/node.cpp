@@ -755,7 +755,7 @@ void nano::node::keepalive_preconfigured ()
 nano::block_hash nano::node::latest (nano::account const & account_a)
 {
 	auto const transaction (store.tx_begin_read ());
-	return ledger.latest (transaction, account_a);
+	return ledger->head (transaction, account_a);
 }
 
 nano::uint128_t nano::node::balance (nano::account const & account_a)
