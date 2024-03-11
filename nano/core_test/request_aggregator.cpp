@@ -81,7 +81,7 @@ TEST (request_aggregator, one_update)
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), send1));
 	node.confirming_set.add (send1->hash ());
-	ASSERT_TIMELY (5s, node.ledger.block_confirmed (node.store.tx_begin_read (), send1->hash ()));
+	ASSERT_TIMELY (5s, node.ledger.confirmed (node.store.tx_begin_read (), send1->hash ()));
 	auto send2 = nano::state_block_builder ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (send1->hash ())
@@ -147,7 +147,7 @@ TEST (request_aggregator, two)
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), send1));
 	node.confirming_set.add (send1->hash ());
-	ASSERT_TIMELY (5s, node.ledger.block_confirmed (node.store.tx_begin_read (), send1->hash ()));
+	ASSERT_TIMELY (5s, node.ledger.confirmed (node.store.tx_begin_read (), send1->hash ()));
 	auto send2 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (send1->hash ())

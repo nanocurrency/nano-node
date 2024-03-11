@@ -65,13 +65,11 @@ public:
 	nano::uint128_t weight_exact (store::transaction const &, nano::account const &);
 	std::shared_ptr<nano::block> forked_block (store::transaction const &, nano::block const &);
 	std::shared_ptr<nano::block> head_block (store::transaction const &, nano::account const &);
-	bool block_confirmed (store::transaction const &, nano::block_hash const &) const;
+	bool confirmed (store::transaction const &, nano::block_hash const &) const;
 	nano::block_hash latest (store::transaction const &, nano::account const &);
 	nano::root latest_root (store::transaction const &, nano::account const &);
 	nano::block_hash representative (store::transaction const &, nano::block_hash const &);
 	nano::block_hash representative_calculated (store::transaction const &, nano::block_hash const &);
-	bool block_or_pruned_exists (nano::block_hash const &) const;
-	bool block_or_pruned_exists (store::transaction const &, nano::block_hash const &) const;
 	std::string block_text (char const *);
 	std::string block_text (nano::block_hash const &);
 	std::pair<nano::block_hash, nano::block_hash> hash_root_random (store::transaction const &) const;

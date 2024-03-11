@@ -4098,7 +4098,7 @@ TEST (ledger, epoch_open_pending)
 	node1.block_processor.add (epoch_open);
 	// Waits for the block to get saved in the database
 	ASSERT_TIMELY_EQ (10s, 1, node1.unchecked.count ());
-	ASSERT_FALSE (node1.ledger.block_or_pruned_exists (epoch_open->hash ()));
+	ASSERT_FALSE (node1.block_or_pruned_exists (epoch_open->hash ()));
 	// Open block should be inserted into unchecked
 	auto blocks = node1.unchecked.get (nano::hash_or_account (epoch_open->account_field ().value ()).hash);
 	ASSERT_EQ (blocks.size (), 1);
@@ -4114,7 +4114,7 @@ TEST (ledger, epoch_open_pending)
 				 .work (*pool.generate (nano::dev::genesis->hash ()))
 				 .build ();
 	node1.block_processor.add (send1);
-	ASSERT_TIMELY (10s, node1.ledger.block_or_pruned_exists (epoch_open->hash ()));
+	ASSERT_TIMELY (10s, node1.block_or_pruned_exists (epoch_open->hash ()));
 }
 
 TEST (ledger, block_hash_account_conflict)
@@ -4740,7 +4740,7 @@ TEST (ledger, dependents_confirmed_pruning)
 	ASSERT_FALSE (ledger.store.confirmation_height.get (transaction, nano::dev::genesis_key.pub, height));
 	height.height = 3;
 	ledger.store.confirmation_height.put (transaction, nano::dev::genesis_key.pub, height);
-	ASSERT_TRUE (ledger.block_confirmed (transaction, send1->hash ()));
+	ASSERT_TRUE (ledger.confirmed (transaction, send1->hash ()));
 	ASSERT_EQ (2, ledger.pruning_action (transaction, send2->hash (), 1));
 	auto receive1 = builder.state ()
 					.account (key1.pub)
@@ -4761,7 +4761,7 @@ TEST (ledger, block_confirmed)
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
 	nano::block_builder builder;
-	ASSERT_TRUE (ledger.block_confirmed (transaction, nano::dev::genesis->hash ()));
+	ASSERT_TRUE (ledger.confirmed (transaction, nano::dev::genesis->hash ()));
 	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	auto send1 = builder.state ()
@@ -4774,14 +4774,14 @@ TEST (ledger, block_confirmed)
 				 .work (*pool.generate (nano::dev::genesis->hash ()))
 				 .build ();
 	// Must be safe against non-existing blocks
-	ASSERT_FALSE (ledger.block_confirmed (transaction, send1->hash ()));
+	ASSERT_FALSE (ledger.confirmed (transaction, send1->hash ()));
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
-	ASSERT_FALSE (ledger.block_confirmed (transaction, send1->hash ()));
+	ASSERT_FALSE (ledger.confirmed (transaction, send1->hash ()));
 	nano::confirmation_height_info height;
 	ASSERT_FALSE (ledger.store.confirmation_height.get (transaction, nano::dev::genesis_key.pub, height));
 	++height.height;
 	ledger.store.confirmation_height.put (transaction, nano::dev::genesis_key.pub, height);
-	ASSERT_TRUE (ledger.block_confirmed (transaction, send1->hash ()));
+	ASSERT_TRUE (ledger.confirmed (transaction, send1->hash ()));
 }
 
 TEST (ledger, cache)
@@ -4859,7 +4859,7 @@ TEST (ledger, cache)
 			++height.height;
 			height.frontier = send->hash ();
 			ledger.store.confirmation_height.put (transaction, nano::dev::genesis_key.pub, height);
-			ASSERT_TRUE (ledger.block_confirmed (transaction, send->hash ()));
+			ASSERT_TRUE (ledger.confirmed (transaction, send->hash ()));
 			++ledger.cache.cemented_count;
 		}
 
@@ -4874,7 +4874,7 @@ TEST (ledger, cache)
 			height.height += 1;
 			height.frontier = open->hash ();
 			ledger.store.confirmation_height.put (transaction, key.pub, height);
-			ASSERT_TRUE (ledger.block_confirmed (transaction, open->hash ()));
+			ASSERT_TRUE (ledger.confirmed (transaction, open->hash ()));
 			++ledger.cache.cemented_count;
 		}
 
@@ -4938,10 +4938,10 @@ TEST (ledger, pruning_action)
 	ASSERT_EQ (0, ledger.pruning_action (transaction, nano::dev::genesis->hash (), 1));
 	ASSERT_TRUE (ledger.pending_info (transaction, nano::pending_key{ nano::dev::genesis_key.pub, send1->hash () }));
 	ASSERT_FALSE (store->block.exists (transaction, send1->hash ()));
-	ASSERT_TRUE (ledger.block_or_pruned_exists (transaction, send1->hash ()));
+	ASSERT_TRUE (ledger->exists_or_pruned (transaction, send1->hash ()));
 	// Pruned ledger start without proper flags emulation
 	ledger.pruning = false;
-	ASSERT_TRUE (ledger.block_or_pruned_exists (transaction, send1->hash ()));
+	ASSERT_TRUE (ledger->exists_or_pruned (transaction, send1->hash ()));
 	ledger.pruning = true;
 	ASSERT_TRUE (store->pruned.exists (transaction, send1->hash ()));
 	ASSERT_TRUE (store->block.exists (transaction, nano::dev::genesis->hash ()));
@@ -5374,7 +5374,7 @@ TEST (ledger, pruning_safe_functions)
 	nano::stats stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
-	auto transaction (store->tx_begin_write ());
+	auto transaction = store->tx_begin_write ();
 	store->initialize (transaction, ledger.cache, ledger.constants);
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::block_builder builder;
@@ -5405,7 +5405,7 @@ TEST (ledger, pruning_safe_functions)
 	// Pruning action
 	ASSERT_EQ (1, ledger.pruning_action (transaction, send1->hash (), 1));
 	ASSERT_FALSE (store->block.exists (transaction, send1->hash ()));
-	ASSERT_TRUE (ledger.block_or_pruned_exists (transaction, send1->hash ())); // true for pruned
+	ASSERT_TRUE (ledger->exists_or_pruned (transaction, send1->hash ())); // true for pruned
 	ASSERT_TRUE (store->pruned.exists (transaction, send1->hash ()));
 	ASSERT_TRUE (store->block.exists (transaction, nano::dev::genesis->hash ()));
 	ASSERT_TRUE (store->block.exists (transaction, send2->hash ()));

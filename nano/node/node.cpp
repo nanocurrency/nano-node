@@ -392,7 +392,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			store.initialize (transaction, ledger.cache, ledger.constants);
 		}
 
-		if (!ledger.block_or_pruned_exists (config.network_params.ledger.genesis->hash ()))
+		if (!block_or_pruned_exists (config.network_params.ledger.genesis->hash ()))
 		{
 			logger.critical (nano::log::type::node, "Genesis block not found. This commonly indicates a configuration issue, check that the --network or --data_path command line arguments are correct, and also the ledger backend node config option. If using a read-only CLI command a ledger must already exist, start the node with --daemon first.");
 
@@ -767,6 +767,11 @@ nano::uint128_t nano::node::balance (nano::account const & account_a)
 std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)
 {
 	return ledger.block (store.tx_begin_read (), hash_a);
+}
+
+bool nano::node::block_or_pruned_exists (nano::block_hash const & hash_a) const
+{
+	return ledger->exists_or_pruned (store.tx_begin_read (), hash_a);
 }
 
 std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::account const & account_a, bool only_confirmed_a)
@@ -1185,12 +1190,12 @@ void nano::node::start_election (std::shared_ptr<nano::block> const & block)
 bool nano::node::block_confirmed (nano::block_hash const & hash_a)
 {
 	auto transaction (store.tx_begin_read ());
-	return ledger.block_confirmed (transaction, hash_a);
+	return ledger.confirmed (transaction, hash_a);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::store::transaction const & transaction, nano::block_hash const & hash_a)
 {
-	return confirming_set.exists (hash_a) || ledger.block_confirmed (transaction, hash_a);
+	return confirming_set.exists (hash_a) || ledger.confirmed (transaction, hash_a);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & hash_a)
@@ -1240,7 +1245,7 @@ void nano::node::receive_confirmed (store::transaction const & block_transaction
 			}
 			else
 			{
-				if (!ledger.block_or_pruned_exists (block_transaction_a, hash_a))
+				if (!ledger->exists_or_pruned (block_transaction_a, hash_a))
 				{
 					logger.warn (nano::log::type::node, "Confirmed block is missing: {}", hash_a.to_string ());
 					debug_assert (false, "Confirmed block is missing");

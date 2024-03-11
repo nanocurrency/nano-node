@@ -255,7 +255,7 @@ void ledger_processor::state_block (nano::state_block & block_a)
 void ledger_processor::state_block_impl (nano::state_block & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.block_or_pruned_exists (transaction, hash));
+	auto existing = ledger->exists_or_pruned (transaction, hash);
 	result = existing ? nano::block_status::old : nano::block_status::progress; // Have we seen this block before? (Unambiguous)
 	if (result == nano::block_status::progress)
 	{
@@ -306,7 +306,7 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 					{
 						if (!block_a.hashables.link.is_zero ())
 						{
-							result = ledger.block_or_pruned_exists (transaction, block_a.hashables.link.as_block_hash ()) ? nano::block_status::progress : nano::block_status::gap_source; // Have we seen the source block already? (Harmless)
+							result = ledger->exists_or_pruned (transaction, block_a.hashables.link.as_block_hash ()) ? nano::block_status::progress : nano::block_status::gap_source; // Have we seen the source block already? (Harmless)
 							if (result == nano::block_status::progress)
 							{
 								nano::pending_key key (block_a.hashables.account, block_a.hashables.link.as_block_hash ());
@@ -371,7 +371,7 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.block_or_pruned_exists (transaction, hash));
+	auto existing = ledger->exists_or_pruned (transaction, hash);
 	result = existing ? nano::block_status::old : nano::block_status::progress; // Have we seen this block before? (Unambiguous)
 	if (result == nano::block_status::progress)
 	{
@@ -439,7 +439,7 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 void ledger_processor::change_block (nano::change_block & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.block_or_pruned_exists (transaction, hash));
+	auto existing = ledger->exists_or_pruned (transaction, hash);
 	result = existing ? nano::block_status::old : nano::block_status::progress; // Have we seen this block before? (Harmless)
 	if (result == nano::block_status::progress)
 	{
@@ -483,7 +483,7 @@ void ledger_processor::change_block (nano::change_block & block_a)
 void ledger_processor::send_block (nano::send_block & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.block_or_pruned_exists (transaction, hash));
+	auto existing = ledger->exists_or_pruned (transaction, hash);
 	result = existing ? nano::block_status::old : nano::block_status::progress; // Have we seen this block before? (Harmless)
 	if (result == nano::block_status::progress)
 	{
@@ -532,7 +532,7 @@ void ledger_processor::send_block (nano::send_block & block_a)
 void ledger_processor::receive_block (nano::receive_block & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.block_or_pruned_exists (transaction, hash));
+	auto existing = ledger->exists_or_pruned (transaction, hash);
 	result = existing ? nano::block_status::old : nano::block_status::progress; // Have we seen this block already?  (Harmless)
 	if (result == nano::block_status::progress)
 	{
@@ -553,7 +553,7 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 					if (result == nano::block_status::progress)
 					{
 						debug_assert (!validate_message (account, hash, block_a.signature));
-						result = ledger.block_or_pruned_exists (transaction, block_a.hashables.source) ? nano::block_status::progress : nano::block_status::gap_source; // Have we seen the source block already? (Harmless)
+						result = ledger->exists_or_pruned (transaction, block_a.hashables.source) ? nano::block_status::progress : nano::block_status::gap_source; // Have we seen the source block already? (Harmless)
 						if (result == nano::block_status::progress)
 						{
 							result = info->head == block_a.hashables.previous ? nano::block_status::progress : nano::block_status::gap_previous; // Block doesn't immediately follow latest block (Harmless)
@@ -601,7 +601,7 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 void ledger_processor::open_block (nano::open_block & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.block_or_pruned_exists (transaction, hash));
+	auto existing = ledger->exists_or_pruned (transaction, hash);
 	result = existing ? nano::block_status::old : nano::block_status::progress; // Have we seen this block already? (Harmless)
 	if (result == nano::block_status::progress)
 	{
@@ -609,7 +609,7 @@ void ledger_processor::open_block (nano::open_block & block_a)
 		if (result == nano::block_status::progress)
 		{
 			debug_assert (!validate_message (block_a.hashables.account, hash, block_a.signature));
-			result = ledger.block_or_pruned_exists (transaction, block_a.hashables.source) ? nano::block_status::progress : nano::block_status::gap_source; // Have we seen the source block? (Harmless)
+			result = ledger->exists_or_pruned (transaction, block_a.hashables.source) ? nano::block_status::progress : nano::block_status::gap_source; // Have we seen the source block? (Harmless)
 			if (result == nano::block_status::progress)
 			{
 				nano::account_info info;
@@ -860,7 +860,7 @@ nano::uint128_t nano::ledger::account_receivable (store::transaction const & tra
 	for (auto i = receivable_upper_bound (transaction_a, account_a, 0), n = receivable_end (); i != n; ++i)
 	{
 		auto const & [key, info] = *i;
-		if (!only_confirmed_a || block_confirmed (transaction_a, key.hash))
+		if (!only_confirmed_a || confirmed (transaction_a, key.hash))
 		{
 			result += info.amount.number ();
 		}
@@ -886,7 +886,7 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (nano::store::wri
 		auto dependents = dependent_blocks (transaction, *block);
 		for (auto const & dependent : dependents)
 		{
-			if (!dependent.is_zero () && !block_confirmed (transaction, dependent))
+			if (!dependent.is_zero () && !confirmed ().exists_or_pruned (transaction, dependent))
 			{
 				stack.push (dependent);
 			}
@@ -894,7 +894,7 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (nano::store::wri
 		if (stack.top () == hash)
 		{
 			stack.pop ();
-			if (!block_confirmed (transaction, hash))
+			if (!confirmed ().exists_or_pruned (transaction, hash))
 			{
 				result.push_back (block);
 				confirm (transaction, *block);
@@ -941,20 +941,6 @@ nano::block_hash nano::ledger::representative_calculated (store::transaction con
 	representative_visitor visitor (transaction_a, *this);
 	visitor.compute (hash_a);
 	return visitor.result;
-}
-
-bool nano::ledger::block_or_pruned_exists (nano::block_hash const & hash_a) const
-{
-	return block_or_pruned_exists (store.tx_begin_read (), hash_a);
-}
-
-bool nano::ledger::block_or_pruned_exists (store::transaction const & transaction_a, nano::block_hash const & hash_a) const
-{
-	if (store.pruned.exists (transaction_a, hash_a))
-	{
-		return true;
-	}
-	return block_exists (transaction_a, hash_a);
 }
 
 std::string nano::ledger::block_text (char const * hash_a)
@@ -1139,7 +1125,7 @@ bool nano::ledger::dependents_confirmed (store::transaction const & transaction_
 		auto result (hash_a.is_zero ());
 		if (!result)
 		{
-			result = block_confirmed (transaction_a, hash_a);
+			result = confirmed (transaction_a, hash_a);
 		}
 		return result;
 	});
@@ -1338,21 +1324,9 @@ std::shared_ptr<nano::block> nano::ledger::head_block (store::transaction const 
 	return nullptr;
 }
 
-bool nano::ledger::block_confirmed (store::transaction const & transaction_a, nano::block_hash const & hash_a) const
+bool nano::ledger::confirmed (store::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
-	if (store.pruned.exists (transaction_a, hash_a))
-	{
-		return true;
-	}
-	auto block_l = block (transaction_a, hash_a);
-	if (block_l)
-	{
-		nano::confirmation_height_info confirmation_height_info;
-		store.confirmation_height.get (transaction_a, block_l->account (), confirmation_height_info);
-		auto confirmed (confirmation_height_info.height >= block_l->sideband ().height);
-		return confirmed;
-	}
-	return false;
+	return confirmed ().exists_or_pruned (transaction_a, hash_a);
 }
 
 uint64_t nano::ledger::pruning_action (store::write_transaction & transaction_a, nano::block_hash const & hash_a, uint64_t const batch_size_a)
