@@ -694,7 +694,7 @@ void representative_visitor::compute (nano::block_hash const & hash_a)
 	current = hash_a;
 	while (result.is_zero ())
 	{
-		auto block_l = ledger.block (transaction, current);
+		auto block_l = ledger->get (transaction, current);
 		debug_assert (block_l != nullptr);
 		block_l->visit (*this);
 	}
@@ -821,11 +821,6 @@ std::optional<nano::uint128_t> nano::ledger::balance (store::transaction const &
 	return block->balance ().number ();
 }
 
-std::shared_ptr<nano::block> nano::ledger::block (store::transaction const & transaction, nano::block_hash const & hash) const
-{
-	return store.block.get (transaction, hash);
-}
-
 // Balance for an account by account number
 nano::uint128_t nano::ledger::account_balance (store::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
 {
@@ -876,7 +871,7 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (nano::store::wri
 	while (!stack.empty ())
 	{
 		auto hash = stack.top ();
-		auto block = this->block (transaction, hash);
+		auto block = (*this)->get (transaction, hash);
 		release_assert (block);
 		auto dependents = dependent_blocks (transaction, *block);
 		for (auto const & dependent : dependents)
@@ -946,8 +941,7 @@ std::string nano::ledger::block_text (char const * hash_a)
 std::string nano::ledger::block_text (nano::block_hash const & hash_a)
 {
 	std::string result;
-	auto transaction (store.tx_begin_read ());
-	auto block_l = block (transaction, hash_a);
+	auto block_l = (*this)->get (store.tx_begin_read (), hash_a);
 	if (block_l != nullptr)
 	{
 		block_l->serialize_json (result);
@@ -1026,7 +1020,7 @@ bool nano::ledger::rollback (store::write_transaction const & transaction_a, nan
 		{
 			auto info = (*this)->get (transaction_a, account_l);
 			debug_assert (info);
-			auto block_l = block (transaction_a, info->head);
+			auto block_l = (*this)->get (transaction_a, info->head);
 			list_a.push_back (block_l);
 			block_l->visit (rollback);
 			error = rollback.error;
@@ -1051,7 +1045,7 @@ bool nano::ledger::rollback (store::write_transaction const & transaction_a, nan
 
 std::optional<nano::account> nano::ledger::account (store::transaction const & transaction, nano::block_hash const & hash) const
 {
-	auto block_l = block (transaction, hash);
+	auto block_l = (*this)->get (transaction, hash);
 	if (!block_l)
 	{
 		return std::nullopt;
@@ -1061,7 +1055,7 @@ std::optional<nano::account> nano::ledger::account (store::transaction const & t
 
 std::optional<nano::uint128_t> nano::ledger::amount (store::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	auto block_l = block (transaction_a, hash_a);
+	auto block_l = (*this)->get (transaction_a, hash_a);
 	if (!block_l)
 	{
 		return std::nullopt;
@@ -1102,11 +1096,11 @@ nano::root nano::ledger::latest_root (store::transaction const & transaction_a, 
 
 void nano::ledger::dump_account_chain (nano::account const & account_a, std::ostream & stream)
 {
-	auto transaction (store.tx_begin_read ());
+	auto transaction = store.tx_begin_read ();
 	auto hash (latest (transaction, account_a));
 	while (!hash.is_zero ())
 	{
-		auto block_l = block (transaction, hash);
+		auto block_l = (*this)->get (transaction, hash);
 		debug_assert (block_l != nullptr);
 		stream << hash.to_string () << std::endl;
 		hash = block_l->previous ();
@@ -1211,7 +1205,7 @@ std::shared_ptr<nano::block> nano::ledger::find_receive_block_by_send_hash (stor
 	{
 		return nullptr;
 	}
-	auto possible_receive_block = block (transaction, info.frontier);
+	auto possible_receive_block = (*this)->get (transaction, info.frontier);
 
 	// walk down the chain until the source field of a receive block matches the send block hash
 	while (possible_receive_block != nullptr)
@@ -1223,7 +1217,7 @@ std::shared_ptr<nano::block> nano::ledger::find_receive_block_by_send_hash (stor
 			break;
 		}
 
-		possible_receive_block = block (transaction, possible_receive_block->previous ());
+		possible_receive_block = (*this)->get (transaction, possible_receive_block->previous ());
 	}
 
 	return result;
@@ -1297,13 +1291,13 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (store::transaction cons
 	auto successor_l = successor (transaction_a, root.as_block_hash ());
 	if (successor_l)
 	{
-		result = block (transaction_a, successor_l.value ());
+		result = (*this)->get (transaction_a, successor_l.value ());
 	}
 	if (result == nullptr)
 	{
 		auto info = (*this)->get (transaction_a, root.as_account ());
 		debug_assert (info);
-		result = block (transaction_a, info->open_block);
+		result = (*this)->get (transaction_a, info->open_block);
 		debug_assert (result != nullptr);
 	}
 	return result;
@@ -1314,7 +1308,7 @@ std::shared_ptr<nano::block> nano::ledger::head_block (store::transaction const 
 	auto info = store.account.get (transaction, account);
 	if (info)
 	{
-		return block (transaction, info->head);
+		return (*this)->get (transaction, info->head);
 	}
 	return nullptr;
 }
@@ -1330,7 +1324,7 @@ uint64_t nano::ledger::pruning_action (store::write_transaction & transaction_a,
 	nano::block_hash hash (hash_a);
 	while (!hash.is_zero () && hash != constants.genesis->hash ())
 	{
-		auto block_l = block (transaction_a, hash);
+		auto block_l = (*this)->get (transaction_a, hash);
 		if (block_l != nullptr)
 		{
 			store.block.del (transaction_a, hash);
@@ -1506,7 +1500,7 @@ nano::epoch nano::ledger::version (nano::block const & block)
 
 nano::epoch nano::ledger::version (store::transaction const & transaction, nano::block_hash const & hash) const
 {
-	auto block_l = block (transaction, hash);
+	auto block_l = (*this)->get (transaction, hash);
 	if (block_l == nullptr)
 	{
 		return nano::epoch::epoch_0;
@@ -1516,7 +1510,7 @@ nano::epoch nano::ledger::version (store::transaction const & transaction, nano:
 
 uint64_t nano::ledger::height (store::transaction const & transaction, nano::block_hash const & hash) const
 {
-	auto block_l = block (transaction, hash);
+	auto block_l = (*this)->get (transaction, hash);
 	return block_l->sideband ().height;
 }
 

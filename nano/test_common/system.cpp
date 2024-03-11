@@ -427,7 +427,7 @@ void nano::test::system::generate_receive (nano::node & node_a)
 		auto item = node_a.ledger.receivable_upper_bound (transaction, random_account);
 		if (item != node_a.ledger.receivable_end ())
 		{
-			send_block = node_a.ledger.block (transaction, item->first.hash);
+			send_block = node_a.ledger->get (transaction, item->first.hash);
 		}
 	}
 	if (send_block != nullptr)
