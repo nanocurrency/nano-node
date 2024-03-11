@@ -349,10 +349,10 @@ void nano::bootstrap_attempt_lazy::lazy_block_state (std::shared_ptr<nano::block
 			// In other cases previous block balance required to find out subtype of state block
 			else if (node->ledger.any.block_exists_or_pruned (transaction, previous))
 			{
-				auto previous_balance = node->ledger.balance (transaction, previous);
+				auto previous_balance = node->ledger.any.block_balance (transaction, previous);
 				if (previous_balance)
 				{
-					if (previous_balance.value () <= balance)
+					if (previous_balance.value ().number () <= balance)
 					{
 						lazy_add (link, retry_limit);
 					}
@@ -425,10 +425,10 @@ void nano::bootstrap_attempt_lazy::lazy_backlog_cleanup ()
 		if (node->ledger.any.block_exists_or_pruned (transaction, it->first))
 		{
 			auto next_block (it->second);
-			auto balance = node->ledger.balance (transaction, it->first);
+			auto balance = node->ledger.any.block_balance (transaction, it->first);
 			if (balance)
 			{
-				if (balance.value () <= next_block.balance) // balance
+				if (balance.value ().number () <= next_block.balance) // balance
 				{
 					lazy_add (next_block.link, next_block.retry_limit); // link
 				}

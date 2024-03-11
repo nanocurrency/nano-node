@@ -47,7 +47,6 @@ public:
 	 */
 	std::optional<nano::account> account (secure::transaction const &, nano::block_hash const &) const;
 	std::optional<nano::uint128_t> amount (secure::transaction const &, nano::block_hash const &);
-	std::optional<nano::uint128_t> balance (secure::transaction const &, nano::block_hash const &) const;
 	nano::uint128_t account_balance (secure::transaction const &, nano::account const &, bool = false) const;
 	nano::uint128_t account_receivable (secure::transaction const &, nano::account const &, bool = false);
 	/**

@@ -583,17 +583,17 @@ public:
 	void state_block (nano::state_block const & block_a)
 	{
 		auto balance (block_a.hashables.balance.number ());
-		auto previous_balance = ledger.balance (transaction, block_a.hashables.previous);
+		auto previous_balance = ledger.any.block_balance (transaction, block_a.hashables.previous);
 		if (!previous_balance)
 		{
 			type = "Unknown (pruned)";
 			amount = 0;
 			account = block_a.hashables.account;
 		}
-		else if (balance < previous_balance)
+		else if (balance < previous_balance.value ().number ())
 		{
 			type = "Send";
-			amount = previous_balance.value () - balance;
+			amount = previous_balance.value ().number () - balance;
 			account = block_a.hashables.link.as_account ();
 		}
 		else
@@ -621,7 +621,7 @@ public:
 					account = account_l.value ();
 				}
 			}
-			amount = balance - previous_balance.value ();
+			amount = balance - previous_balance.value ().number ();
 		}
 	}
 	nano::secure::transaction const & transaction;

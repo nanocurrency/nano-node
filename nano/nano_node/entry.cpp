@@ -1500,7 +1500,7 @@ int main (int argc, char * const * argv)
 							bool error_or_pruned (false);
 							if (!state_block.hashables.previous.is_zero ())
 							{
-								prev_balance = node->ledger.balance (transaction, state_block.hashables.previous).value_or (0);
+								prev_balance = node->ledger.any.block_balance (transaction, state_block.hashables.previous).value_or (0);
 							}
 							if (node->ledger.is_epoch_link (state_block.hashables.link))
 							{
@@ -1524,7 +1524,7 @@ int main (int argc, char * const * argv)
 					}
 					else
 					{
-						auto prev_balance = node->ledger.balance (transaction, block->previous ());
+						auto prev_balance = node->ledger.any.block_balance (transaction, block->previous ());
 						if (!node->ledger.pruning || prev_balance)
 						{
 							if (block->balance () < prev_balance.value ())
