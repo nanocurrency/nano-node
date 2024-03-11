@@ -17,16 +17,18 @@ void nano::store::lmdb::pending::del (store::write_transaction const & transacti
 	store.release_assert_success (status);
 }
 
-bool nano::store::lmdb::pending::get (store::transaction const & transaction, nano::pending_key const & key, nano::pending_info & pending_a)
+std::optional<nano::pending_info> nano::store::lmdb::pending::get (store::transaction const & transaction, nano::pending_key const & key)
 {
 	nano::store::lmdb::db_val value;
 	auto status1 = store.get (transaction, tables::pending, key, value);
 	release_assert (store.success (status1) || store.not_found (status1));
-	bool result (true);
+	std::optional<nano::pending_info> result;
 	if (store.success (status1))
 	{
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-		result = pending_a.deserialize (stream);
+		result = nano::pending_info{};
+		auto error = result.value ().deserialize (stream);
+		release_assert (!error);
 	}
 	return result;
 }

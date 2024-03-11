@@ -19,7 +19,7 @@ public:
 	explicit pending (nano::store::lmdb::component & store_a);
 	void put (store::write_transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info const & pending_info_a) override;
 	void del (store::write_transaction const & transaction_a, nano::pending_key const & key_a) override;
-	bool get (store::transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info & pending_a) override;
+	std::optional<nano::pending_info> get (store::transaction const & transaction_a, nano::pending_key const & key_a) override;
 	bool exists (store::transaction const & transaction_a, nano::pending_key const & key_a) override;
 	bool any (store::transaction const & transaction_a, nano::account const & account_a) override;
 	store::iterator<nano::pending_key, nano::pending_info> begin (store::transaction const & transaction_a, nano::pending_key const & key_a) const override;

@@ -2322,8 +2322,7 @@ void nano_qt::block_creation::create_receive ()
 			if (!destination.is_zero ())
 			{
 				nano::pending_key pending_key (destination, source_l);
-				nano::pending_info pending;
-				if (!wallet.node.store.pending.get (block_transaction, pending_key, pending))
+				if (auto pending = wallet.node.store.pending.get (block_transaction, pending_key))
 				{
 					nano::account_info info;
 					auto error (wallet.node.store.account.get (block_transaction, pending_key.account, info));
@@ -2333,10 +2332,10 @@ void nano_qt::block_creation::create_receive ()
 						auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
 						if (!error)
 						{
-							nano::state_block receive (pending_key.account, info.head, info.representative, info.balance.number () + pending.amount.number (), source_l, key, pending_key.account, 0);
+							nano::state_block receive (pending_key.account, info.head, info.representative, info.balance.number () + pending.value ().amount.number (), source_l, key, pending_key.account, 0);
 							nano::block_details details;
 							details.is_receive = true;
-							details.epoch = std::max (info.epoch (), pending.epoch);
+							details.epoch = std::max (info.epoch (), pending.value ().epoch);
 							auto required_difficulty{ wallet.node.network_params.work.threshold (receive.work_version (), details) };
 							if (wallet.node.work_generate_blocking (receive, required_difficulty).has_value ())
 							{
@@ -2487,8 +2486,7 @@ void nano_qt::block_creation::create_open ()
 				if (!destination.is_zero ())
 				{
 					nano::pending_key pending_key (destination, source_l);
-					nano::pending_info pending;
-					if (!wallet.node.store.pending.get (block_transaction, pending_key, pending))
+					if (auto pending = wallet.node.store.pending.get (block_transaction, pending_key))
 					{
 						nano::account_info info;
 						auto error (wallet.node.store.account.get (block_transaction, pending_key.account, info));
@@ -2498,10 +2496,10 @@ void nano_qt::block_creation::create_open ()
 							auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
 							if (!error)
 							{
-								nano::state_block open (pending_key.account, 0, representative_l, pending.amount, source_l, key, pending_key.account, 0);
+								nano::state_block open (pending_key.account, 0, representative_l, pending.value ().amount, source_l, key, pending_key.account, 0);
 								nano::block_details details;
 								details.is_receive = true;
-								details.epoch = pending.epoch;
+								details.epoch = pending.value ().epoch;
 								auto const required_difficulty{ wallet.node.network_params.work.threshold (open.work_version (), details) };
 								if (wallet.node.work_generate_blocking (open, required_difficulty).has_value ())
 								{
