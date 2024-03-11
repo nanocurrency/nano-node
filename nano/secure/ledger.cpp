@@ -1264,16 +1264,6 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (secure::transaction con
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::ledger::head_block (secure::transaction const & transaction, nano::account const & account)
-{
-	auto info = store.account.get (transaction, account);
-	if (info)
-	{
-		return any.block_get (transaction, info->head);
-	}
-	return nullptr;
-}
-
 uint64_t nano::ledger::pruning_action (secure::write_transaction & transaction_a, nano::block_hash const & hash_a, uint64_t const batch_size_a)
 {
 	uint64_t pruned_count (0);
