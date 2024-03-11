@@ -826,11 +826,6 @@ std::shared_ptr<nano::block> nano::ledger::block (store::transaction const & tra
 	return store.block.get (transaction, hash);
 }
 
-bool nano::ledger::block_exists (store::transaction const & transaction, nano::block_hash const & hash) const
-{
-	return store.block.exists (transaction, hash);
-}
-
 // Balance for an account by account number
 nano::uint128_t nano::ledger::account_balance (store::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
 {
@@ -932,7 +927,7 @@ nano::block_status nano::ledger::process (store::write_transaction const & trans
 nano::block_hash nano::ledger::representative (store::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto result (representative_calculated (transaction_a, hash_a));
-	debug_assert (result.is_zero () || block_exists (transaction_a, result));
+	debug_assert (result.is_zero () || (*this)->exists (transaction_a, result));
 	return result;
 }
 
@@ -1018,12 +1013,12 @@ nano::uint128_t nano::ledger::weight_exact (store::transaction const & txn_a, na
 // Rollback blocks until `block_a' doesn't exist or it tries to penetrate the confirmation height
 bool nano::ledger::rollback (store::write_transaction const & transaction_a, nano::block_hash const & block_a, std::vector<std::shared_ptr<nano::block>> & list_a)
 {
-	debug_assert (block_exists (transaction_a, block_a));
+	debug_assert ((*this)->exists (transaction_a, block_a));
 	auto account_l = account (transaction_a, block_a).value ();
 	auto block_account_height (height (transaction_a, block_a));
 	rollback_visitor rollback (transaction_a, *this, list_a);
 	auto error (false);
-	while (!error && block_exists (transaction_a, block_a))
+	while (!error && (*this)->exists (transaction_a, block_a))
 	{
 		nano::confirmation_height_info confirmation_height_info;
 		store.confirmation_height.get (transaction_a, account_l, confirmation_height_info);
@@ -1295,9 +1290,9 @@ std::optional<nano::block_hash> nano::ledger::successor (store::transaction cons
 
 std::shared_ptr<nano::block> nano::ledger::forked_block (store::transaction const & transaction_a, nano::block const & block_a)
 {
-	debug_assert (!block_exists (transaction_a, block_a.hash ()));
+	debug_assert (!(*this)->exists (transaction_a, block_a.hash ()));
 	auto root (block_a.root ());
-	debug_assert (block_exists (transaction_a, root.as_block_hash ()) || store.account.exists (transaction_a, root.as_account ()));
+	debug_assert ((*this)->exists (transaction_a, root.as_block_hash ()) || store.account.exists (transaction_a, root.as_account ()));
 	std::shared_ptr<nano::block> result;
 	auto successor_l = successor (transaction_a, root.as_block_hash ());
 	if (successor_l)

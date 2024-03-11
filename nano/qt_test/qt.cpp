@@ -390,9 +390,9 @@ TEST (wallet, DISABLED_process_block)
 	QTest::keyClicks (wallet->block_entry.block, QString::fromStdString (block_json));
 	QTest::mouseClick (wallet->block_entry.process, Qt::LeftButton);
 	{
-		auto transaction (system.nodes[0]->store.tx_begin_read ());
+		auto transaction = system.nodes[0]->store.tx_begin_read ();
 		system.deadline_set (10s);
-		while (system.nodes[0]->ledger.block_exists (transaction, send.hash ()))
+		while (system.nodes[0]->ledger->exists (transaction, send.hash ()))
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}

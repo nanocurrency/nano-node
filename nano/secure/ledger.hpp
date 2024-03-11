@@ -50,7 +50,6 @@ public:
 	std::optional<nano::uint128_t> amount (store::transaction const &, nano::block_hash const &);
 	std::optional<nano::uint128_t> balance (store::transaction const &, nano::block_hash const &) const;
 	std::shared_ptr<nano::block> block (store::transaction const & transaction, nano::block_hash const & hash) const;
-	bool block_exists (store::transaction const & transaction, nano::block_hash const & hash) const;
 	nano::uint128_t account_balance (store::transaction const &, nano::account const &, bool = false);
 	nano::uint128_t account_receivable (store::transaction const &, nano::account const &, bool = false);
 	/**

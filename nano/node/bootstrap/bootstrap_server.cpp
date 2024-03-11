@@ -194,7 +194,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (store::transaction const & t
 	{
 		case asc_pull_req::hash_type::block:
 		{
-			if (ledger.block_exists (transaction, request.start.as_block_hash ()))
+			if (ledger->exists (transaction, request.start.as_block_hash ()))
 			{
 				return prepare_response (transaction, id, request.start.as_block_hash (), count);
 			}
