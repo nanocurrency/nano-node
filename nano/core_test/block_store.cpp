@@ -1117,29 +1117,29 @@ TEST (mdb_block_store, sideband_height)
 				.work (*pool.generate (key3.pub))
 				.build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
-	auto block1 = ledger.block (transaction, nano::dev::genesis->hash ());
+	auto block1 = ledger.any.block_get (transaction, nano::dev::genesis->hash ());
 	ASSERT_EQ (block1->sideband ().height, 1);
-	auto block2 = ledger.block (transaction, send->hash ());
+	auto block2 = ledger.any.block_get (transaction, send->hash ());
 	ASSERT_EQ (block2->sideband ().height, 2);
-	auto block3 = ledger.block (transaction, receive->hash ());
+	auto block3 = ledger.any.block_get (transaction, receive->hash ());
 	ASSERT_EQ (block3->sideband ().height, 3);
-	auto block4 = ledger.block (transaction, change->hash ());
+	auto block4 = ledger.any.block_get (transaction, change->hash ());
 	ASSERT_EQ (block4->sideband ().height, 4);
-	auto block5 = ledger.block (transaction, state_send1->hash ());
+	auto block5 = ledger.any.block_get (transaction, state_send1->hash ());
 	ASSERT_EQ (block5->sideband ().height, 5);
-	auto block6 = ledger.block (transaction, state_send2->hash ());
+	auto block6 = ledger.any.block_get (transaction, state_send2->hash ());
 	ASSERT_EQ (block6->sideband ().height, 6);
-	auto block7 = ledger.block (transaction, state_send3->hash ());
+	auto block7 = ledger.any.block_get (transaction, state_send3->hash ());
 	ASSERT_EQ (block7->sideband ().height, 7);
-	auto block8 = ledger.block (transaction, state_open->hash ());
+	auto block8 = ledger.any.block_get (transaction, state_open->hash ());
 	ASSERT_EQ (block8->sideband ().height, 1);
-	auto block9 = ledger.block (transaction, epoch->hash ());
+	auto block9 = ledger.any.block_get (transaction, epoch->hash ());
 	ASSERT_EQ (block9->sideband ().height, 2);
-	auto block10 = ledger.block (transaction, epoch_open->hash ());
+	auto block10 = ledger.any.block_get (transaction, epoch_open->hash ());
 	ASSERT_EQ (block10->sideband ().height, 1);
-	auto block11 = ledger.block (transaction, state_receive->hash ());
+	auto block11 = ledger.any.block_get (transaction, state_receive->hash ());
 	ASSERT_EQ (block11->sideband ().height, 2);
-	auto block12 = ledger.block (transaction, open->hash ());
+	auto block12 = ledger.any.block_get (transaction, open->hash ());
 	ASSERT_EQ (block12->sideband ().height, 1);
 }
 

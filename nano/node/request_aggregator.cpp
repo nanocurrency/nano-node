@@ -215,12 +215,12 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 			if (!final_vote_hashes.empty ())
 			{
 				generate_final_vote = true;
-				block = ledger.block (transaction, final_vote_hashes[0]);
+				block = ledger.any.block_get (transaction, final_vote_hashes[0]);
 				// Allow same root vote
 				if (block != nullptr && final_vote_hashes.size () > 1)
 				{
 					to_generate_final.push_back (block);
-					block = ledger.block (transaction, final_vote_hashes[1]);
+					block = ledger.any.block_get (transaction, final_vote_hashes[1]);
 					debug_assert (final_vote_hashes.size () == 2);
 				}
 			}
@@ -234,7 +234,7 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 			// 4. Ledger by hash
 			if (block == nullptr)
 			{
-				block = ledger.block (transaction, hash);
+				block = ledger.any.block_get (transaction, hash);
 				// Confirmation status. Generate final votes for confirmed
 				if (block != nullptr)
 				{
@@ -251,7 +251,7 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 				auto successor = ledger.successor (transaction, root.as_block_hash ());
 				if (successor)
 				{
-					auto successor_block = ledger.block (transaction, successor.value ());
+					auto successor_block = ledger.any.block_get (transaction, successor.value ());
 					debug_assert (successor_block != nullptr);
 					block = std::move (successor_block);
 					// 5. Votes in cache for successor

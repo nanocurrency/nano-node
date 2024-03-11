@@ -404,7 +404,7 @@ uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a)
 	auto previous (block_a.previous ());
 	if (!previous.is_zero ())
 	{
-		block_previous = node.ledger.block (transaction, previous);
+		block_previous = node.ledger.any.block_get (transaction, previous);
 	}
 	// Send check
 	if (block_previous != nullptr)
@@ -420,7 +420,7 @@ uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a)
 	auto link = block_a.link_field ();
 	if (link && !link.value ().is_zero () && !details.is_send)
 	{
-		auto block_link = node.ledger.block (transaction, link.value ().as_block_hash ());
+		auto block_link = node.ledger.any.block_get (transaction, link.value ().as_block_hash ());
 		auto account = block_a.account_field ().value (); // Link is non-zero therefore it's a state block and has an account field;
 		if (block_link != nullptr && node.ledger.pending_info (transaction, nano::pending_key{ account, link.value ().as_block_hash () }))
 		{
@@ -680,7 +680,7 @@ void nano::json_handler::account_info ()
 			std::shared_ptr<nano::block> confirmed_frontier_block;
 			if (include_confirmed && confirmation_height_info.height > 0)
 			{
-				confirmed_frontier_block = node.ledger.block (transaction, confirmation_height_info.frontier);
+				confirmed_frontier_block = node.ledger.any.block_get (transaction, confirmation_height_info.frontier);
 			}
 
 			if (representative)
@@ -694,7 +694,7 @@ void nano::json_handler::account_info ()
 						confirmed_representative = confirmed_frontier_block->representative_field ().value_or (0);
 						if (confirmed_representative.is_zero ())
 						{
-							confirmed_representative = node.ledger.block (transaction, node.ledger.representative (transaction, confirmation_height_info.frontier))->representative_field ().value ();
+							confirmed_representative = node.ledger.any.block_get (transaction, node.ledger.representative (transaction, confirmation_height_info.frontier))->representative_field ().value ();
 						}
 					}
 
@@ -1152,7 +1152,7 @@ void nano::json_handler::block_info ()
 	if (!ec)
 	{
 		auto transaction = node.ledger.tx_begin_read ();
-		auto block = node.ledger.block (transaction, hash);
+		auto block = node.ledger.any.block_get (transaction, hash);
 		if (block != nullptr)
 		{
 			auto account = block->account ();
@@ -1203,7 +1203,7 @@ void nano::json_handler::block_confirm ()
 	if (!ec)
 	{
 		auto transaction = node.ledger.tx_begin_read ();
-		auto block_l = node.ledger.block (transaction, hash);
+		auto block_l = node.ledger.any.block_get (transaction, hash);
 		if (block_l != nullptr)
 		{
 			if (!node.ledger.confirmed.block_exists_or_pruned (transaction, hash))
@@ -1257,7 +1257,7 @@ void nano::json_handler::blocks ()
 			nano::block_hash hash;
 			if (!hash.decode_hex (hash_text))
 			{
-				auto block = node.ledger.block (transaction, hash);
+				auto block = node.ledger.any.block_get (transaction, hash);
 				if (block != nullptr)
 				{
 					if (json_block_l)
@@ -1308,7 +1308,7 @@ void nano::json_handler::blocks_info ()
 			nano::block_hash hash;
 			if (!hash.decode_hex (hash_text))
 			{
-				auto block = node.ledger.block (transaction, hash);
+				auto block = node.ledger.any.block_get (transaction, hash);
 				if (block != nullptr)
 				{
 					boost::property_tree::ptree entry;
@@ -1393,7 +1393,7 @@ void nano::json_handler::blocks_info ()
 						}
 						else
 						{
-							auto block_a = node.ledger.block (transaction, block->source ());
+							auto block_a = node.ledger.any.block_get (transaction, block->source ());
 							release_assert (block_a);
 							entry.put ("source_account", block_a->account ().to_account ());
 						}
@@ -1434,7 +1434,7 @@ void nano::json_handler::block_account ()
 	if (!ec)
 	{
 		auto transaction = node.ledger.tx_begin_read ();
-		auto block = node.ledger.block (transaction, hash);
+		auto block = node.ledger.any.block_get (transaction, hash);
 		if (block)
 		{
 			response_l.put ("account", block->account ().to_account ());
@@ -1947,7 +1947,7 @@ void nano::json_handler::chain (bool successors)
 		auto transaction = node.ledger.tx_begin_read ();
 		while (!hash.is_zero () && blocks.size () < count)
 		{
-			auto block_l = node.ledger.block (transaction, hash);
+			auto block_l = node.ledger.any.block_get (transaction, hash);
 			if (block_l != nullptr)
 			{
 				if (offset > 0)
@@ -2679,7 +2679,7 @@ void nano::json_handler::account_history ()
 		boost::property_tree::ptree history;
 		bool output_raw (request.get_optional<bool> ("raw") == true);
 		response_l.put ("account", account.to_account ());
-		auto block = node.ledger.block (transaction, hash);
+		auto block = node.ledger.any.block_get (transaction, hash);
 		while (block != nullptr && count > 0)
 		{
 			if (offset > 0)
@@ -2707,7 +2707,7 @@ void nano::json_handler::account_history ()
 				}
 			}
 			hash = reverse ? node.ledger.successor (transaction, hash).value_or (0) : block->previous ();
-			block = node.ledger.block (transaction, hash);
+			block = node.ledger.any.block_get (transaction, hash);
 		}
 		response_l.add_child ("history", history);
 		if (!hash.is_zero ())
@@ -3198,7 +3198,7 @@ void nano::json_handler::receivable_exists ()
 	if (!ec)
 	{
 		auto transaction = node.ledger.tx_begin_read ();
-		auto block = node.ledger.block (transaction, hash);
+		auto block = node.ledger.any.block_get (transaction, hash);
 		if (block != nullptr)
 		{
 			auto exists (false);
@@ -3671,28 +3671,28 @@ void nano::json_handler::republish ()
 	{
 		boost::property_tree::ptree blocks;
 		auto transaction = node.ledger.tx_begin_read ();
-		auto block = node.ledger.block (transaction, hash);
+		auto block = node.ledger.any.block_get (transaction, hash);
 		if (block != nullptr)
 		{
 			std::deque<std::shared_ptr<nano::block>> republish_bundle;
 			for (auto i (0); !hash.is_zero () && i < count; ++i)
 			{
-				block = node.ledger.block (transaction, hash);
+				block = node.ledger.any.block_get (transaction, hash);
 				if (sources != 0) // Republish source chain
 				{
 					nano::block_hash source = block->source_field ().value_or (block->link_field ().value_or (0).as_block_hash ());
-					auto block_a = node.ledger.block (transaction, source);
+					auto block_a = node.ledger.any.block_get (transaction, source);
 					std::vector<nano::block_hash> hashes;
 					while (block_a != nullptr && hashes.size () < sources)
 					{
 						hashes.push_back (source);
 						source = block_a->previous ();
-						block_a = node.ledger.block (transaction, source);
+						block_a = node.ledger.any.block_get (transaction, source);
 					}
 					std::reverse (hashes.begin (), hashes.end ());
 					for (auto & hash_l : hashes)
 					{
-						block_a = node.ledger.block (transaction, hash_l);
+						block_a = node.ledger.any.block_get (transaction, hash_l);
 						republish_bundle.push_back (std::move (block_a));
 						boost::property_tree::ptree entry_l;
 						entry_l.put ("", hash_l.to_string ());
@@ -3705,14 +3705,14 @@ void nano::json_handler::republish ()
 				blocks.push_back (std::make_pair ("", entry));
 				if (destinations != 0) // Republish destination chain
 				{
-					auto block_b = node.ledger.block (transaction, hash);
+					auto block_b = node.ledger.any.block_get (transaction, hash);
 					auto destination = block_b->destination ();
 					if (!destination.is_zero ())
 					{
 						if (!node.ledger.pending_info (transaction, nano::pending_key{ destination, hash }))
 						{
 							nano::block_hash previous (node.ledger.latest (transaction, destination));
-							auto block_d = node.ledger.block (transaction, previous);
+							auto block_d = node.ledger.any.block_get (transaction, previous);
 							nano::block_hash source;
 							std::vector<nano::block_hash> hashes;
 							while (block_d != nullptr && hash != source)
@@ -3720,7 +3720,7 @@ void nano::json_handler::republish ()
 								hashes.push_back (previous);
 								source = block_d->source_field ().value_or (block_d->is_send () ? 0 : block_d->link_field ().value_or (0).as_block_hash ());
 								previous = block_d->previous ();
-								block_d = node.ledger.block (transaction, previous);
+								block_d = node.ledger.any.block_get (transaction, previous);
 							}
 							std::reverse (hashes.begin (), hashes.end ());
 							if (hashes.size () > destinations)
@@ -3729,7 +3729,7 @@ void nano::json_handler::republish ()
 							}
 							for (auto & hash_l : hashes)
 							{
-								block_d = node.ledger.block (transaction, hash_l);
+								block_d = node.ledger.any.block_get (transaction, hash_l);
 								republish_bundle.push_back (std::move (block_d));
 								boost::property_tree::ptree entry_l;
 								entry_l.put ("", hash_l.to_string ());
@@ -4670,7 +4670,7 @@ void nano::json_handler::wallet_history ()
 				auto hash (info->head);
 				while (timestamp >= modified_since && !hash.is_zero ())
 				{
-					auto block = node.ledger.block (block_transaction, hash);
+					auto block = node.ledger.any.block_get (block_transaction, hash);
 					timestamp = block->sideband ().timestamp;
 					if (block != nullptr && timestamp >= modified_since)
 					{
@@ -4943,7 +4943,7 @@ void nano::json_handler::wallet_republish ()
 			while (!latest.is_zero () && hashes.size () < count)
 			{
 				hashes.push_back (latest);
-				block = node.ledger.block (block_transaction, latest);
+				block = node.ledger.any.block_get (block_transaction, latest);
 				if (block != nullptr)
 				{
 					latest = block->previous ();
@@ -4956,7 +4956,7 @@ void nano::json_handler::wallet_republish ()
 			std::reverse (hashes.begin (), hashes.end ());
 			for (auto & hash : hashes)
 			{
-				block = node.ledger.block (block_transaction, hash);
+				block = node.ledger.any.block_get (block_transaction, hash);
 				republish_bundle.push_back (std::move (block));
 				boost::property_tree::ptree entry;
 				entry.put ("", hash.to_string ());
@@ -5474,7 +5474,7 @@ bool block_confirmed (nano::node & node, nano::secure::transaction & transaction
 	// This just checks it's not currently undergoing an active transaction
 	else if (!include_only_confirmed)
 	{
-		auto block = node.ledger.block (transaction, hash);
+		auto block = node.ledger.any.block_get (transaction, hash);
 		is_confirmed = (block != nullptr && !node.active.active (*block));
 	}
 

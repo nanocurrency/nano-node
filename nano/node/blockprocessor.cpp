@@ -206,7 +206,7 @@ void nano::block_processor::rollback_competitor (secure::write_transaction const
 {
 	auto hash = block.hash ();
 	auto successor_hash = node.ledger.successor (transaction, block.qualified_root ());
-	auto successor = successor_hash ? node.ledger.block (transaction, successor_hash.value ()) : nullptr;
+	auto successor = successor_hash ? node.ledger.any.block_get (transaction, successor_hash.value ()) : nullptr;
 	if (successor != nullptr && successor->hash () != hash)
 	{
 		// Replace our block with the winner and roll back any dependent blocks

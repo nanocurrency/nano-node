@@ -781,7 +781,7 @@ nano::uint128_t nano::node::balance (nano::account const & account_a)
 
 std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)
 {
-	return ledger.block (ledger.tx_begin_read (), hash_a);
+	return ledger.any.block_get (ledger.tx_begin_read (), hash_a);
 }
 
 bool nano::node::block_or_pruned_exists (nano::block_hash const & hash_a) const
@@ -955,7 +955,7 @@ bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & 
 		uint64_t depth (0);
 		while (!hash.is_zero () && depth < max_depth_a)
 		{
-			auto block = ledger.block (transaction, hash);
+			auto block = ledger.any.block_get (transaction, hash);
 			if (block != nullptr)
 			{
 				if (block->sideband ().timestamp > cutoff_time_a || depth == 0)
@@ -1223,7 +1223,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 {
 	auto hash (status_a.winner->hash ());
 	decltype (iteration_a) const num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
-	if (auto block_l = ledger.block (ledger.tx_begin_read (), hash))
+	if (auto block_l = ledger.any.block_get (ledger.tx_begin_read (), hash))
 	{
 		logger.trace (nano::log::type::node, nano::log::detail::process_confirmed, nano::log::arg{ "block", block_l });
 

@@ -960,7 +960,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 			if (status == 0)
 			{
 				nano::block_hash hash (result);
-				block = wallets.node.ledger.block (block_transaction, hash);
+				block = wallets.node.ledger.any.block_get (block_transaction, hash);
 				if (block != nullptr)
 				{
 					cached_block = true;
@@ -1202,7 +1202,7 @@ bool nano::wallet::search_receivable (store::transaction const & wallet_transact
 						}
 						else if (!wallets.node.confirming_set.exists (hash))
 						{
-							auto block = wallets.node.ledger.block (block_transaction, hash);
+							auto block = wallets.node.ledger.any.block_get (block_transaction, hash);
 							if (block)
 							{
 								// Request confirmation for block which is not being processed yet

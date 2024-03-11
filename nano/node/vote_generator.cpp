@@ -42,7 +42,7 @@ nano::vote_generator::~vote_generator ()
 
 bool nano::vote_generator::should_vote (secure::write_transaction const & transaction, nano::root const & root_a, nano::block_hash const & hash_a)
 {
-	auto block = ledger.block (transaction, hash_a);
+	auto block = ledger.any.block_get (transaction, hash_a);
 	bool should_vote = false;
 	if (is_final)
 	{

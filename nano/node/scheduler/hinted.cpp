@@ -85,7 +85,7 @@ void nano::scheduler::hinted::activate (secure::read_transaction const & transac
 		stack.pop ();
 
 		// Check if block exists
-		if (auto block = node.ledger.block (transaction, current_hash); block)
+		if (auto block = node.ledger.any.block_get (transaction, current_hash); block)
 		{
 			// Ensure block is not already confirmed
 			if (node.block_confirmed_or_being_confirmed (transaction, current_hash))
