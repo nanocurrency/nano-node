@@ -715,7 +715,7 @@ nano_qt::block_viewer::block_viewer (nano_qt::wallet & wallet_a) :
 		if (!error)
 		{
 			auto transaction = this->wallet.node.ledger.tx_begin_read ();
-			if (this->wallet.node.ledger.block_exists (transaction, block))
+			if (this->wallet.node.ledger.any.block_exists (transaction, block))
 			{
 				rebroadcast->setEnabled (false);
 				this->wallet.node.background ([this, block] () {

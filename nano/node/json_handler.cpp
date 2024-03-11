@@ -1387,7 +1387,7 @@ void nano::json_handler::blocks_info ()
 					}
 					if (source)
 					{
-						if (!block->is_receive () || !node.ledger.block_exists (transaction, block->source ()))
+						if (!block->is_receive () || !node.ledger.any.block_exists (transaction, block->source ()))
 						{
 							entry.put ("source_account", "0");
 						}
@@ -1654,7 +1654,7 @@ void nano::json_handler::block_create ()
 			else if (previous_text.is_initialized () && balance_text.is_initialized () && type == "send")
 			{
 				auto transaction = node.ledger.tx_begin_read ();
-				if (node.ledger.block_exists (transaction, previous) && node.ledger.balance (transaction, previous) != balance.number ())
+				if (node.ledger.any.block_exists (transaction, previous) && node.ledger.balance (transaction, previous) != balance.number ())
 				{
 					ec = nano::error_rpc::block_create_balance_mismatch;
 				}
@@ -2641,7 +2641,7 @@ void nano::json_handler::account_history ()
 	{
 		if (!hash.decode_hex (*head_str))
 		{
-			if (node.ledger.block_exists (transaction, hash))
+			if (node.ledger.any.block_exists (transaction, hash))
 			{
 				account = node.ledger.account (transaction, hash).value ();
 			}
@@ -3231,7 +3231,7 @@ void nano::json_handler::process ()
 			{
 				std::shared_ptr<nano::state_block> block_state (std::static_pointer_cast<nano::state_block> (block));
 				auto transaction = rpc_l->node.ledger.tx_begin_read ();
-				if (!block_state->hashables.previous.is_zero () && !rpc_l->node.ledger.block_exists (transaction, block_state->hashables.previous))
+				if (!block_state->hashables.previous.is_zero () && !rpc_l->node.ledger.any.block_exists (transaction, block_state->hashables.previous))
 				{
 					rpc_l->ec = nano::error_process::gap_previous;
 				}
@@ -5104,7 +5104,7 @@ void nano::json_handler::work_generate ()
 				{
 					// Fetch account from block if not given
 					auto transaction_l = node.ledger.tx_begin_read ();
-					if (node.ledger.block_exists (transaction_l, hash))
+					if (node.ledger.any.block_exists (transaction_l, hash))
 					{
 						account = node.ledger.account (transaction_l, hash).value ();
 					}

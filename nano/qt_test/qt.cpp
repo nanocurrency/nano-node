@@ -392,7 +392,7 @@ TEST (wallet, DISABLED_process_block)
 	{
 		auto transaction (system.nodes[0]->ledger.tx_begin_read ());
 		system.deadline_set (10s);
-		while (system.nodes[0]->ledger.block_exists (transaction, send.hash ()))
+		while (system.nodes[0]->ledger.any.block_exists (transaction, send.hash ()))
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}

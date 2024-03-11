@@ -671,8 +671,8 @@ TEST (node, fork_keep)
 	auto winner (*election1->tally ().begin ());
 	ASSERT_EQ (*send1, *winner.second);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, winner.first);
-	ASSERT_TRUE (node1.ledger.block_exists (transaction0, send1->hash ()));
-	ASSERT_TRUE (node2.ledger.block_exists (transaction1, send1->hash ()));
+	ASSERT_TRUE (node1.ledger.any.block_exists (transaction0, send1->hash ()));
+	ASSERT_TRUE (node2.ledger.any.block_exists (transaction1, send1->hash ()));
 }
 
 // This test is racy, there is no guarantee that the election won't be confirmed until all forks are fully processed
@@ -814,7 +814,7 @@ TEST (node, fork_bootstrap_flip)
 	// Insert but don't rebroadcast, simulating settled blocks
 	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (node1.ledger.tx_begin_write (), send1));
 	ASSERT_EQ (nano::block_status::progress, node2.ledger.process (node2.ledger.tx_begin_write (), send2));
-	ASSERT_TRUE (node2.ledger.block_exists (node2.ledger.tx_begin_read (), send2->hash ()));
+	ASSERT_TRUE (node2.ledger.any.block_exists (node2.ledger.tx_begin_read (), send2->hash ()));
 	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ()); // Additionally add new peer to confirm & replace bootstrap block
 	auto again (true);
 	system0.deadline_set (50s);
@@ -823,7 +823,7 @@ TEST (node, fork_bootstrap_flip)
 	{
 		ASSERT_NO_ERROR (system0.poll ());
 		ASSERT_NO_ERROR (system1.poll ());
-		again = !node2.ledger.block_exists (node2.ledger.tx_begin_read (), send1->hash ());
+		again = !node2.ledger.any.block_exists (node2.ledger.tx_begin_read (), send1->hash ());
 	}
 }
 
@@ -975,9 +975,9 @@ TEST (node, fork_open_flip)
 	// check the correct blocks are in the ledgers
 	auto transaction1 = node1.ledger.tx_begin_read ();
 	auto transaction2 = node2.ledger.tx_begin_read ();
-	ASSERT_TRUE (node1.ledger.block_exists (transaction1, open1->hash ()));
-	ASSERT_TRUE (node2.ledger.block_exists (transaction2, open1->hash ()));
-	ASSERT_FALSE (node2.ledger.block_exists (transaction2, open2->hash ()));
+	ASSERT_TRUE (node1.ledger.any.block_exists (transaction1, open1->hash ()));
+	ASSERT_TRUE (node2.ledger.any.block_exists (transaction2, open1->hash ()));
+	ASSERT_FALSE (node2.ledger.any.block_exists (transaction2, open2->hash ()));
 }
 
 TEST (node, coherent_observer)
@@ -985,8 +985,7 @@ TEST (node, coherent_observer)
 	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	node1.observers.blocks.add ([&node1] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const &, nano::account const &, nano::uint128_t const &, bool, bool) {
-		auto transaction = node1.ledger.tx_begin_read ();
-		ASSERT_TRUE (node1.ledger.block_exists (transaction, status_a.winner->hash ()));
+		ASSERT_TRUE (node1.ledger.any.block_exists (node1.ledger.tx_begin_read (), status_a.winner->hash ()));
 	});
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key;

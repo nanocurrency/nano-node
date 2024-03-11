@@ -366,14 +366,14 @@ void nano::bulk_pull_server::set_current_end ()
 	include_start = false;
 	debug_assert (request != nullptr);
 	auto transaction = node->ledger.tx_begin_read ();
-	if (!node->ledger.block_exists (transaction, request->end))
+	if (!node->ledger.any.block_exists (transaction, request->end))
 	{
 		node->logger.debug (nano::log::type::bulk_pull_server, "Bulk pull end block doesn't exist: {}, sending everything", request->end.to_string ());
 
 		request->end.clear ();
 	}
 
-	if (node->ledger.block_exists (transaction, request->start.as_block_hash ()))
+	if (node->ledger.any.block_exists (transaction, request->start.as_block_hash ()))
 	{
 		node->logger.debug (nano::log::type::bulk_pull_server, "Bulk pull request for block hash: {}", request->start.to_string ());
 
