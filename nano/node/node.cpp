@@ -1237,7 +1237,7 @@ void nano::node::receive_confirmed (store::transaction const & block_transaction
 		{
 			nano::account representative;
 			representative = wallet->store.representative (wallet_transaction);
-			auto pending = ledger.pending_info (block_transaction_a, nano::pending_key (destination_a, hash_a));
+			auto pending = ledger->get (block_transaction_a, nano::pending_key (destination_a, hash_a));
 			if (pending)
 			{
 				auto amount (pending->amount.number ());

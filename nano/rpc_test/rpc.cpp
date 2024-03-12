@@ -3315,7 +3315,7 @@ TEST (rpc, pending_exists)
 	request.put ("hash", hash0.to_string ());
 	ASSERT_TRUE (pending_exists ("0"));
 
-	node->ledger.pending_info (node->store.tx_begin_read (), nano::pending_key{ nano::dev::genesis_key.pub, block1->hash () });
+	node->ledger->get (node->store.tx_begin_read (), nano::pending_key{ nano::dev::genesis_key.pub, block1->hash () });
 	request.put ("hash", block1->hash ().to_string ());
 	ASSERT_TRUE (pending_exists ("1"));
 
@@ -6202,7 +6202,7 @@ TEST (rpc, epoch_upgrade)
 	{
 		// Check pending entry
 		auto transaction (node->store.tx_begin_read ());
-		auto info = node->ledger.pending_info (transaction, nano::pending_key (key3.pub, send7->hash ()));
+		auto info = node->ledger->get (transaction, nano::pending_key (key3.pub, send7->hash ()));
 		ASSERT_TRUE (info);
 		ASSERT_EQ (nano::epoch::epoch_1, info->epoch);
 	}
@@ -6366,7 +6366,7 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	{
 		// Check pending entry
 		auto transaction (node->store.tx_begin_read ());
-		auto info = node->ledger.pending_info (transaction, nano::pending_key (key3.pub, send7->hash ()));
+		auto info = node->ledger->get (transaction, nano::pending_key (key3.pub, send7->hash ()));
 		ASSERT_TRUE (info);
 		ASSERT_EQ (nano::epoch::epoch_1, info->epoch);
 	}

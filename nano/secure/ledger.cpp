@@ -143,7 +143,7 @@ public:
 		if (is_send)
 		{
 			nano::pending_key key (block_a.hashables.link.as_account (), hash);
-			while (!error && !ledger.pending_info (transaction, key))
+			while (!error && !ledger->get (transaction, key))
 			{
 				error = ledger.rollback (transaction, ledger->head (transaction, block_a.hashables.link.as_account ()), list);
 			}
@@ -818,11 +818,6 @@ nano::uint128_t nano::ledger::account_receivable (store::transaction const & tra
 		}
 	}
 	return result;
-}
-
-std::optional<nano::pending_info> nano::ledger::pending_info (store::transaction const & transaction, nano::pending_key const & key) const
-{
-	return store.pending.get (transaction, key);
 }
 
 std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (nano::store::write_transaction const & transaction, nano::block_hash const & hash)

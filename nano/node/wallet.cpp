@@ -846,7 +846,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 		auto transaction (wallets.tx_begin_read ());
 		if (wallets.node.ledger->exists_or_pruned (block_transaction, send_hash_a))
 		{
-			auto pending_info = wallets.node.ledger.pending_info (block_transaction, nano::pending_key (account_a, send_hash_a));
+			auto pending_info = wallets.node.ledger->get (block_transaction, nano::pending_key (account_a, send_hash_a));
 			if (pending_info)
 			{
 				nano::raw_key prv;
