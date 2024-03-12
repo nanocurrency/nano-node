@@ -446,7 +446,7 @@ void nano::test::system::generate_rollback (nano::node & node_a, std::vector<nan
 	debug_assert (std::numeric_limits<CryptoPP::word32>::max () > accounts_a.size ());
 	auto index (random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (accounts_a.size () - 1)));
 	auto account (accounts_a[index]);
-	auto info = node_a.ledger.account_info (transaction, account);
+	auto info = node_a.ledger.any.account_get (transaction, account);
 	if (info)
 	{
 		auto hash (info->open_block);

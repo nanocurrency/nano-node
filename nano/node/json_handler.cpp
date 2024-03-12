@@ -269,7 +269,7 @@ nano::account_info nano::json_handler::account_info_impl (secure::transaction co
 	nano::account_info result;
 	if (!ec)
 	{
-		auto info = node.ledger.account_info (transaction_a, account_a);
+		auto info = node.ledger.any.account_get (transaction_a, account_a);
 		if (!info)
 		{
 			ec = nano::error_common::account_not_found;
@@ -3452,7 +3452,7 @@ void nano::json_handler::receive ()
 					{
 						nano::root head;
 						nano::epoch epoch = pending_info->epoch;
-						auto info = node.ledger.account_info (block_transaction, account);
+						auto info = node.ledger.any.account_get (block_transaction, account);
 						if (info)
 						{
 							head = info->head;
@@ -4422,12 +4422,11 @@ void nano::json_handler::wallet_info ()
 		uint64_t adhoc_count (0);
 		auto transaction (node.wallets.tx_begin_read ());
 		auto block_transaction = node.ledger.tx_begin_read ();
-
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			nano::account const & account (i->first);
 
-			auto account_info = node.ledger.account_info (block_transaction, account);
+			auto account_info = node.ledger.any.account_get (block_transaction, account);
 			if (account_info)
 			{
 				block_count += account_info->block_count;
@@ -4664,7 +4663,7 @@ void nano::json_handler::wallet_history ()
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			nano::account const & account (i->first);
-			auto info = node.ledger.account_info (block_transaction, account);
+			auto info = node.ledger.any.account_get (block_transaction, account);
 			if (info)
 			{
 				auto timestamp (info->modified);
@@ -4738,7 +4737,7 @@ void nano::json_handler::wallet_ledger ()
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			nano::account const & account (i->first);
-			auto info = node.ledger.account_info (block_transaction, account);
+			auto info = node.ledger.any.account_get (block_transaction, account);
 			if (info)
 			{
 				if (info->modified >= modified_since)
@@ -4904,7 +4903,7 @@ void nano::json_handler::wallet_representative_set ()
 					for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 					{
 						nano::account const & account (i->first);
-						auto info = rpc_l->node.ledger.account_info (block_transaction, account);
+						auto info = rpc_l->node.ledger.any.account_get (block_transaction, account);
 						if (info)
 						{
 							if (info->representative != representative)

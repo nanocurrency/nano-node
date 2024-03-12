@@ -44,7 +44,7 @@ void nano::scheduler::priority::stop ()
 bool nano::scheduler::priority::activate (nano::account const & account_a, secure::transaction const & transaction)
 {
 	debug_assert (!account_a.is_zero ());
-	auto info = node.ledger.account_info (transaction, account_a);
+	auto info = node.ledger.any.account_get (transaction, account_a);
 	if (info)
 	{
 		nano::confirmation_height_info conf_info;

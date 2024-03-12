@@ -46,7 +46,6 @@ public:
 	 * Returns std::nullopt if the block doesn't exist or has been pruned
 	 */
 	std::optional<nano::account> account (secure::transaction const &, nano::block_hash const &) const;
-	std::optional<nano::account_info> account_info (secure::transaction const & transaction, nano::account const & account) const;
 	std::optional<nano::uint128_t> amount (secure::transaction const &, nano::block_hash const &);
 	std::optional<nano::uint128_t> balance (secure::transaction const &, nano::block_hash const &) const;
 	std::shared_ptr<nano::block> block (secure::transaction const & transaction, nano::block_hash const & hash) const;

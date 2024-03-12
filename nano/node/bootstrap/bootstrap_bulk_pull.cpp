@@ -382,7 +382,7 @@ void nano::bulk_pull_server::set_current_end ()
 	}
 	else
 	{
-		auto info = node->ledger.account_info (transaction, request->start.as_account ());
+		auto info = node->ledger.any.account_get (transaction, request->start.as_account ());
 		if (!info)
 		{
 			node->logger.debug (nano::log::type::bulk_pull_server, "Request for unknown account: {}", request->start.to_account ());

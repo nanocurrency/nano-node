@@ -136,7 +136,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 			for (auto i (accounts_list.get<modified_tag> ().begin ()), n (accounts_list.get<modified_tag> ().end ()); i != n && attempts < upgrade_batch_size && attempts < count_limit && !stopped; ++i)
 			{
 				nano::account const & account (i->account);
-				auto info = ledger.account_info (ledger.tx_begin_read (), account);
+				auto info = ledger.any.account_get (ledger.tx_begin_read (), account);
 				if (info && info->epoch () < epoch_a)
 				{
 					++attempts;

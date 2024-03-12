@@ -53,7 +53,7 @@ public:
 		}
 		if (!error)
 		{
-			auto info = ledger.account_info (transaction, pending.value ().source);
+			auto info = ledger.any.account_get (transaction, pending.value ().source);
 			debug_assert (info);
 			ledger.store.pending.del (transaction, key);
 			ledger.cache.rep_weights.representation_add (transaction, info->representative, pending.value ().amount.number ());
@@ -71,7 +71,7 @@ public:
 		auto destination_account = block_a.account ();
 		// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
 		auto source_account = ledger.account (transaction, block_a.hashables.source);
-		auto info = ledger.account_info (transaction, destination_account);
+		auto info = ledger.any.account_get (transaction, destination_account);
 		debug_assert (info);
 		ledger.cache.rep_weights.representation_add (transaction, info->representative, 0 - amount);
 		nano::account_info new_info (block_a.hashables.previous, info->representative, info->open_block, ledger.balance (transaction, block_a.hashables.previous).value (), nano::seconds_since_epoch (), info->block_count - 1, nano::epoch::epoch_0);
@@ -99,7 +99,7 @@ public:
 		auto hash (block_a.hash ());
 		auto rep_block (ledger.representative (transaction, block_a.hashables.previous));
 		auto account = block_a.account ();
-		auto info = ledger.account_info (transaction, account);
+		auto info = ledger.any.account_get (transaction, account);
 		debug_assert (info);
 		auto balance = ledger.balance (transaction, block_a.hashables.previous).value ();
 		auto block = ledger.store.block.get (transaction, rep_block);
@@ -137,7 +137,7 @@ public:
 			ledger.cache.rep_weights.representation_add (transaction, block_a.hashables.representative, 0 - block_a.hashables.balance.number ());
 		}
 
-		auto info = ledger.account_info (transaction, block_a.hashables.account);
+		auto info = ledger.any.account_get (transaction, block_a.hashables.account);
 		debug_assert (info);
 
 		if (is_send)
@@ -451,7 +451,7 @@ void ledger_processor::change_block (nano::change_block & block_a)
 			if (result == nano::block_status::progress)
 			{
 				auto account = previous->account ();
-				auto info = ledger.account_info (transaction, account);
+				auto info = ledger.any.account_get (transaction, account);
 				debug_assert (info);
 				result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress;
 				if (result == nano::block_status::progress)
@@ -495,7 +495,7 @@ void ledger_processor::send_block (nano::send_block & block_a)
 			if (result == nano::block_status::progress)
 			{
 				auto account = previous->account ();
-				auto info = ledger.account_info (transaction, account);
+				auto info = ledger.any.account_get (transaction, account);
 				debug_assert (info);
 				result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress;
 				if (result == nano::block_status::progress)
@@ -544,7 +544,7 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 			if (result == nano::block_status::progress)
 			{
 				auto account = previous->account ();
-				auto info = ledger.account_info (transaction, account);
+				auto info = ledger.any.account_get (transaction, account);
 				debug_assert (info);
 				result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress; // If we have the block but it's not the latest we have a signed fork (Malicious)
 				if (result == nano::block_status::progress)
@@ -827,7 +827,7 @@ nano::uint128_t nano::ledger::account_balance (secure::transaction const & trans
 	}
 	else
 	{
-		auto info = account_info (transaction_a, account_a);
+		auto info = any.account_get (transaction_a, account_a);
 		if (info)
 		{
 			result = info->balance.number ();
@@ -1025,7 +1025,7 @@ bool nano::ledger::rollback (secure::write_transaction const & transaction_a, na
 		store.confirmation_height.get (transaction_a, account_l, confirmation_height_info);
 		if (block_account_height > confirmation_height_info.height)
 		{
-			auto info = account_info (transaction_a, account_l);
+			auto info = any.account_get (transaction_a, account_l);
 			debug_assert (info);
 			auto block_l = block (transaction_a, info->head);
 			list_a.push_back (block_l);
@@ -1060,11 +1060,6 @@ std::optional<nano::account> nano::ledger::account (secure::transaction const & 
 	return block_l->account ();
 }
 
-std::optional<nano::account_info> nano::ledger::account_info (secure::transaction const & transaction, nano::account const & account) const
-{
-	return store.account.get (transaction, account);
-}
-
 std::optional<nano::uint128_t> nano::ledger::amount (secure::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto block_l = block (transaction_a, hash_a);
@@ -1088,14 +1083,14 @@ std::optional<nano::uint128_t> nano::ledger::amount (secure::transaction const &
 // Return latest block for account
 nano::block_hash nano::ledger::latest (secure::transaction const & transaction_a, nano::account const & account_a)
 {
-	auto info = account_info (transaction_a, account_a);
+	auto info = any.account_get (transaction_a, account_a);
 	return !info ? 0 : info->head;
 }
 
 // Return latest root for account, account number if there are no blocks for this account.
 nano::root nano::ledger::latest_root (secure::transaction const & transaction_a, nano::account const & account_a)
 {
-	auto info = account_info (transaction_a, account_a);
+	auto info = any.account_get (transaction_a, account_a);
 	if (!info)
 	{
 		return account_a;
@@ -1277,7 +1272,7 @@ std::optional<nano::block_hash> nano::ledger::successor (secure::transaction con
 	}
 	else
 	{
-		auto info = account_info (transaction_a, root_a.root ().as_account ());
+		auto info = any.account_get (transaction_a, root_a.root ().as_account ());
 		if (info)
 		{
 			return info.value ().open_block;
@@ -1307,7 +1302,7 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (secure::transaction con
 	}
 	if (result == nullptr)
 	{
-		auto info = account_info (transaction_a, root.as_account ());
+		auto info = any.account_get (transaction_a, root.as_account ());
 		debug_assert (info);
 		result = block (transaction_a, info->open_block);
 		debug_assert (result != nullptr);

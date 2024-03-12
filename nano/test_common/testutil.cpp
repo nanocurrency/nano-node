@@ -291,7 +291,7 @@ bool nano::test::start_elections (nano::test::system & system_a, nano::node & no
 nano::account_info nano::test::account_info (nano::node const & node, nano::account const & acc)
 {
 	auto const tx = node.ledger.tx_begin_read ();
-	auto opt = node.ledger.account_info (tx, acc);
+	auto opt = node.ledger.any.account_get (tx, acc);
 	if (opt.has_value ())
 	{
 		return opt.value ();
