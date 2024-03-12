@@ -295,15 +295,15 @@ TEST (block_store, add_pending)
 	ASSERT_TRUE (!store->init_error ());
 	nano::keypair key1;
 	nano::pending_key key2 (0, 0);
-	nano::pending_info pending1;
 	auto transaction (store->tx_begin_write ());
-	ASSERT_TRUE (store->pending.get (transaction, key2, pending1));
+	ASSERT_FALSE (store->pending.get (transaction, key2));
+	nano::pending_info pending1;
 	store->pending.put (transaction, key2, pending1);
-	nano::pending_info pending2;
-	ASSERT_FALSE (store->pending.get (transaction, key2, pending2));
+	std::optional<nano::pending_info> pending2;
+	ASSERT_TRUE (pending2 = store->pending.get (transaction, key2));
 	ASSERT_EQ (pending1, pending2);
 	store->pending.del (transaction, key2);
-	ASSERT_TRUE (store->pending.get (transaction, key2, pending2));
+	ASSERT_FALSE (store->pending.get (transaction, key2));
 }
 
 TEST (block_store, pending_iterator)

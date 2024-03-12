@@ -39,23 +39,24 @@ public:
 	void send_block (nano::send_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
-		nano::pending_info pending;
 		nano::pending_key key (block_a.hashables.destination, hash);
-		while (!error && ledger.store.pending.get (transaction, key, pending))
+		auto pending = ledger.store.pending.get (transaction, key);
+		while (!error && !pending.has_value ())
 		{
 			error = ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.destination), list);
+			pending = ledger.store.pending.get (transaction, key);
 		}
 		if (!error)
 		{
-			auto info = ledger.account_info (transaction, pending.source);
+			auto info = ledger.account_info (transaction, pending.value ().source);
 			debug_assert (info);
 			ledger.store.pending.del (transaction, key);
-			ledger.cache.rep_weights.representation_add (info->representative, pending.amount.number ());
+			ledger.cache.rep_weights.representation_add (info->representative, pending.value ().amount.number ());
 			nano::account_info new_info (block_a.hashables.previous, info->representative, info->open_block, ledger.balance (transaction, block_a.hashables.previous).value (), nano::seconds_since_epoch (), info->block_count - 1, nano::epoch::epoch_0);
-			ledger.update_account (transaction, pending.source, *info, new_info);
+			ledger.update_account (transaction, pending.value ().source, *info, new_info);
 			ledger.store.block.del (transaction, hash);
 			ledger.store.frontier.del (transaction, hash);
-			ledger.store.frontier.put (transaction, block_a.hashables.previous, pending.source);
+			ledger.store.frontier.put (transaction, block_a.hashables.previous, pending.value ().source);
 			ledger.store.block.successor_clear (transaction, block_a.hashables.previous);
 			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::send);
 		}
@@ -315,12 +316,12 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 							if (result == nano::block_status::progress)
 							{
 								nano::pending_key key (block_a.hashables.account, block_a.hashables.link.as_block_hash ());
-								nano::pending_info pending;
-								result = ledger.store.pending.get (transaction, key, pending) ? nano::block_status::unreceivable : nano::block_status::progress; // Has this source already been received (Malformed)
+								auto pending = ledger.store.pending.get (transaction, key);
+								result = !pending ? nano::block_status::unreceivable : nano::block_status::progress; // Has this source already been received (Malformed)
 								if (result == nano::block_status::progress)
 								{
-									result = amount == pending.amount ? nano::block_status::progress : nano::block_status::balance_mismatch;
-									source_epoch = pending.epoch;
+									result = amount == pending.value ().amount ? nano::block_status::progress : nano::block_status::balance_mismatch;
+									source_epoch = pending.value ().epoch;
 									epoch = std::max (epoch, source_epoch);
 								}
 							}
@@ -577,18 +578,18 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 							if (result == nano::block_status::progress)
 							{
 								nano::pending_key key (account, block_a.hashables.source);
-								nano::pending_info pending;
-								result = ledger.store.pending.get (transaction, key, pending) ? nano::block_status::unreceivable : nano::block_status::progress; // Has this source already been received (Malformed)
+								auto pending = ledger.store.pending.get (transaction, key);
+								result = !pending ? nano::block_status::unreceivable : nano::block_status::progress; // Has this source already been received (Malformed)
 								if (result == nano::block_status::progress)
 								{
-									result = pending.epoch == nano::epoch::epoch_0 ? nano::block_status::progress : nano::block_status::unreceivable; // Are we receiving a state-only send? (Malformed)
+									result = pending.value ().epoch == nano::epoch::epoch_0 ? nano::block_status::progress : nano::block_status::unreceivable; // Are we receiving a state-only send? (Malformed)
 									if (result == nano::block_status::progress)
 									{
 										nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
 										result = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
 										if (result == nano::block_status::progress)
 										{
-											auto new_balance (info->balance.number () + pending.amount.number ());
+											auto new_balance (info->balance.number () + pending.value ().amount.number ());
 #ifdef NDEBUG
 											if (ledger.store.block.exists (transaction, block_a.hashables.source))
 											{
@@ -601,7 +602,7 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 											ledger.store.block.put (transaction, hash, block_a);
 											nano::account_info new_info (hash, info->representative, info->open_block, new_balance, nano::seconds_since_epoch (), info->block_count + 1, nano::epoch::epoch_0);
 											ledger.update_account (transaction, account, *info, new_info);
-											ledger.cache.rep_weights.representation_add (info->representative, pending.amount.number ());
+											ledger.cache.rep_weights.representation_add (info->representative, pending.value ().amount.number ());
 											ledger.store.frontier.del (transaction, block_a.hashables.previous);
 											ledger.store.frontier.put (transaction, hash, account);
 											ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::receive);
@@ -640,14 +641,14 @@ void ledger_processor::open_block (nano::open_block & block_a)
 				if (result == nano::block_status::progress)
 				{
 					nano::pending_key key (block_a.hashables.account, block_a.hashables.source);
-					nano::pending_info pending;
-					result = ledger.store.pending.get (transaction, key, pending) ? nano::block_status::unreceivable : nano::block_status::progress; // Has this source already been received (Malformed)
+					auto pending = ledger.store.pending.get (transaction, key);
+					result = !pending ? nano::block_status::unreceivable : nano::block_status::progress; // Has this source already been received (Malformed)
 					if (result == nano::block_status::progress)
 					{
 						result = block_a.hashables.account == ledger.constants.burn_account ? nano::block_status::opened_burn_account : nano::block_status::progress; // Is it burning 0 account? (Malicious)
 						if (result == nano::block_status::progress)
 						{
-							result = pending.epoch == nano::epoch::epoch_0 ? nano::block_status::progress : nano::block_status::unreceivable; // Are we receiving a state-only send? (Malformed)
+							result = pending.value ().epoch == nano::epoch::epoch_0 ? nano::block_status::progress : nano::block_status::unreceivable; // Are we receiving a state-only send? (Malformed)
 							if (result == nano::block_status::progress)
 							{
 								nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
@@ -663,11 +664,11 @@ void ledger_processor::open_block (nano::open_block & block_a)
 									}
 #endif
 									ledger.store.pending.del (transaction, key);
-									block_a.sideband_set (nano::block_sideband (block_a.hashables.account, 0, pending.amount, 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
+									block_a.sideband_set (nano::block_sideband (block_a.hashables.account, 0, pending.value ().amount, 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
 									ledger.store.block.put (transaction, hash, block_a);
-									nano::account_info new_info (hash, block_a.representative_field ().value (), hash, pending.amount.number (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0);
+									nano::account_info new_info (hash, block_a.representative_field ().value (), hash, pending.value ().amount.number (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0);
 									ledger.update_account (transaction, block_a.hashables.account, info, new_info);
-									ledger.cache.rep_weights.representation_add (block_a.representative_field ().value (), pending.amount.number ());
+									ledger.cache.rep_weights.representation_add (block_a.representative_field ().value (), pending.value ().amount.number ());
 									ledger.store.frontier.put (transaction, hash, block_a.hashables.account);
 									ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::open);
 								}
@@ -880,12 +881,7 @@ nano::uint128_t nano::ledger::account_receivable (store::transaction const & tra
 
 std::optional<nano::pending_info> nano::ledger::pending_info (store::transaction const & transaction, nano::pending_key const & key) const
 {
-	nano::pending_info result;
-	if (!store.pending.get (transaction, key, result))
-	{
-		return result;
-	}
-	return std::nullopt;
+	return store.pending.get (transaction, key);
 }
 
 nano::block_status nano::ledger::process (store::write_transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
