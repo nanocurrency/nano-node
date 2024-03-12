@@ -354,7 +354,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 
 		if (!is_initialized && !flags.read_only)
 		{
-			auto const transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::confirmation_height, tables::frontiers }));
+			auto const transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::confirmation_height, tables::frontiers, tables::rep_weights }));
 			// Store was empty meaning we just created it, add the genesis block
 			store.initialize (transaction, ledger.cache, ledger.constants);
 		}
@@ -558,7 +558,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 
 nano::block_status nano::node::process (std::shared_ptr<nano::block> block)
 {
-	auto const transaction = store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending });
+	auto const transaction = store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending, tables::rep_weights });
 	return process (transaction, block);
 }
 
