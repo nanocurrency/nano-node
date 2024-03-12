@@ -49,8 +49,6 @@ public:
 	 * During bootstrap it returns the preconfigured bootstrap weights.
 	 */
 	nano::uint128_t weight (nano::account const &);
-	std::optional<nano::block_hash> successor (store::transaction const &, nano::qualified_root const &) const noexcept;
-	std::optional<nano::block_hash> successor (store::transaction const & transaction, nano::block_hash const & hash) const noexcept;
 	/* Returns the exact vote weight for the given representative by doing a database lookup */
 	nano::uint128_t weight_exact (store::transaction const &, nano::account const &);
 	std::shared_ptr<nano::block> forked_block (store::transaction const &, nano::block const &);

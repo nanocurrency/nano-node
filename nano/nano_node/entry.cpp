@@ -1591,7 +1591,7 @@ int main (int argc, char * const * argv)
 						calculated_representative = block->representative_field ().value ();
 					}
 					// Retrieving successor block hash
-					hash = node->ledger.successor (transaction, hash).value_or (0);
+					hash = node->ledger->successor (transaction, hash).value_or (0);
 					// Retrieving block data
 					if (!hash.is_zero ())
 					{
