@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/lib/rep_weights.hpp>
+#include <nano/secure/rep_weights.hpp>
 
 #include <atomic>
 
