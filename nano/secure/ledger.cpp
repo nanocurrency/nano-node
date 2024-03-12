@@ -749,10 +749,10 @@ void representative_visitor::state_block (nano::state_block const & block_a)
 }
 } // namespace
 
-nano::ledger::ledger (nano::store::component & store_a, nano::stats & stat_a, nano::ledger_constants & constants, nano::generate_cache_flags const & generate_cache_flags_a) :
+nano::ledger::ledger (nano::store::component & store_a, nano::stats & stat_a, nano::ledger_constants & constants, nano::generate_cache_flags const & generate_cache_flags_a, nano::uint128_t min_rep_weight_a) :
 	constants{ constants },
 	store{ store_a },
-	cache{ store_a.rep_weight },
+	cache{ store_a.rep_weight, min_rep_weight_a },
 	stats{ stat_a },
 	check_bootstrap_weights{ true }
 {

@@ -175,6 +175,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.background_threads, defaults.node.background_threads);
 	ASSERT_EQ (conf.node.secondary_work_peers, defaults.node.secondary_work_peers);
 	ASSERT_EQ (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
+	ASSERT_EQ (conf.node.representative_vote_weight_minimum, defaults.node.representative_vote_weight_minimum);
 	ASSERT_EQ (conf.node.rep_crawler_weight_minimum, defaults.node.rep_crawler_weight_minimum);
 	ASSERT_EQ (conf.node.password_fanout, defaults.node.password_fanout);
 	ASSERT_EQ (conf.node.peering_port, defaults.node.peering_port);
@@ -404,6 +405,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	network_threads = 999
 	background_threads = 999
 	online_weight_minimum = "999"
+	representative_vote_weight_minimum = "999"
 	rep_crawler_weight_minimum = "999"
 	password_fanout = 999
 	peering_port = 999
@@ -597,6 +599,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.max_pruning_age, defaults.node.max_pruning_age);
 	ASSERT_NE (conf.node.max_pruning_depth, defaults.node.max_pruning_depth);
 	ASSERT_NE (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
+	ASSERT_NE (conf.node.representative_vote_weight_minimum, defaults.node.representative_vote_weight_minimum);
 	ASSERT_NE (conf.node.rep_crawler_weight_minimum, defaults.node.rep_crawler_weight_minimum);
 	ASSERT_NE (conf.node.password_fanout, defaults.node.password_fanout);
 	ASSERT_NE (conf.node.peering_port, defaults.node.peering_port);

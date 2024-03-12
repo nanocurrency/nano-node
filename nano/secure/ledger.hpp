@@ -40,7 +40,7 @@ class ledger final
 	friend class receivable_iterator;
 
 public:
-	ledger (nano::store::component &, nano::stats &, nano::ledger_constants & constants, nano::generate_cache_flags const & = nano::generate_cache_flags{});
+	ledger (nano::store::component &, nano::stats &, nano::ledger_constants & constants, nano::generate_cache_flags const & = nano::generate_cache_flags{}, nano::uint128_t min_rep_weight_a = 0);
 	/**
 	 * Returns the account for a given hash
 	 * Returns std::nullopt if the block doesn't exist or has been pruned
