@@ -1445,6 +1445,15 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 			}
 		});
 
+		store.rep_weight.for_each_par (
+		[&rocksdb_store] (store::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::rep_weights }));
+				rocksdb_store->rep_weight.put (rocksdb_transaction, i->first, i->second.number ());
+			}
+		});
+
 		store.frontier.for_each_par (
 		[&rocksdb_store] (store::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
