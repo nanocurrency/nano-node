@@ -1,9 +1,11 @@
+#include <nano/lib/numbers.hpp>
 #include <nano/secure/rep_weights.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/rep_weight.hpp>
 
-nano::rep_weights::rep_weights (nano::store::rep_weight & rep_weight_store_a) :
-	rep_weight_store{ rep_weight_store_a }
+nano::rep_weights::rep_weights (nano::store::rep_weight & rep_weight_store_a, nano::uint128_t min_weight_a) :
+	rep_weight_store{ rep_weight_store_a },
+	min_weight{ min_weight_a }
 {
 }
 
@@ -69,7 +71,7 @@ void nano::rep_weights::copy_from (nano::rep_weights & other_a)
 void nano::rep_weights::put_cache (nano::account const & account_a, nano::uint128_union const & representation_a)
 {
 	auto it = rep_amounts.find (account_a);
-	if (representation_a.is_zero ())
+	if (representation_a < min_weight || representation_a.is_zero ())
 	{
 		if (it != rep_amounts.end ())
 		{
