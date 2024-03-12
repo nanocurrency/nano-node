@@ -52,7 +52,7 @@ bool nano::scheduler::priority::activate (nano::account const & account_a, secur
 		if (conf_info.height < info->block_count)
 		{
 			debug_assert (conf_info.frontier != info->head);
-			auto hash = conf_info.height == 0 ? info->open_block : node.ledger.successor (transaction, conf_info.frontier).value_or (0);
+			auto hash = conf_info.height == 0 ? info->open_block : node.ledger.any.block_successor (transaction, conf_info.frontier).value_or (0);
 			auto block = node.ledger.any.block_get (transaction, hash);
 			debug_assert (block != nullptr);
 			if (node.ledger.dependents_confirmed (transaction, *block))

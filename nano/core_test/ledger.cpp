@@ -273,7 +273,7 @@ TEST (ledger, process_receive)
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 25, ledger.any.account_balance (transaction, key2.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 25, ledger.weight (key3.pub));
 	ASSERT_FALSE (ledger.rollback (transaction, hash4));
-	ASSERT_FALSE (ledger.successor (transaction, hash2));
+	ASSERT_FALSE (ledger.any.block_successor (transaction, hash2));
 	ASSERT_EQ (25, ledger.any.account_balance (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (25, ledger.account_receivable (transaction, key2.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, ledger.any.account_balance (transaction, key2.pub));
@@ -1241,9 +1241,9 @@ TEST (ledger, successor)
 	node1.work_generate_blocking (*send1);
 	auto transaction = node1.ledger.tx_begin_write ();
 	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, send1));
-	ASSERT_EQ (*send1, *node1.ledger.any.block_get (transaction, node1.ledger.successor (transaction, nano::qualified_root (nano::root (0), nano::dev::genesis->hash ())).value ()));
-	ASSERT_EQ (*nano::dev::genesis, *node1.ledger.any.block_get (transaction, node1.ledger.successor (transaction, nano::dev::genesis->qualified_root ()).value ()));
-	ASSERT_FALSE (node1.ledger.successor (transaction, nano::qualified_root (0)));
+	ASSERT_EQ (*send1, *node1.ledger.any.block_get (transaction, node1.ledger.any.block_successor (transaction, nano::qualified_root (nano::root (0), nano::dev::genesis->hash ())).value ()));
+	ASSERT_EQ (*nano::dev::genesis, *node1.ledger.any.block_get (transaction, node1.ledger.any.block_successor (transaction, nano::dev::genesis->qualified_root ()).value ()));
+	ASSERT_FALSE (node1.ledger.any.block_successor (transaction, nano::qualified_root (0)));
 }
 
 TEST (ledger, fail_change_old)
@@ -3205,7 +3205,7 @@ TEST (ledger, state_rollback_send)
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.any.account_balance (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (nano::dev::genesis_key.pub));
 	ASSERT_FALSE (ledger.any.pending_get (transaction, nano::pending_key{ nano::dev::genesis_key.pub, send1->hash () }));
-	ASSERT_FALSE (ledger.successor (transaction, nano::dev::genesis->hash ()));
+	ASSERT_FALSE (ledger.any.block_successor (transaction, nano::dev::genesis->hash ()));
 	ASSERT_EQ (store.account.count (transaction), ledger.account_count ());
 }
 
@@ -4072,8 +4072,8 @@ TEST (ledger, successor_epoch)
 	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, change));
 	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, send2));
 	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, epoch_open));
-	ASSERT_EQ (*change, *node1.ledger.any.block_get (transaction, node1.ledger.successor (transaction, change->qualified_root ()).value ()));
-	ASSERT_EQ (*epoch_open, *node1.ledger.any.block_get (transaction, node1.ledger.successor (transaction, epoch_open->qualified_root ()).value ()));
+	ASSERT_EQ (*change, *node1.ledger.any.block_get (transaction, node1.ledger.any.block_successor (transaction, change->qualified_root ()).value ()));
+	ASSERT_EQ (*epoch_open, *node1.ledger.any.block_get (transaction, node1.ledger.any.block_successor (transaction, epoch_open->qualified_root ()).value ()));
 	ASSERT_EQ (nano::epoch::epoch_1, epoch_open->sideband ().details.epoch);
 	ASSERT_EQ (nano::epoch::epoch_0, epoch_open->sideband ().source_epoch); // Not used for epoch state blocks
 }

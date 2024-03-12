@@ -205,7 +205,7 @@ bool nano::block_processor::add_impl (context ctx, std::shared_ptr<nano::transpo
 void nano::block_processor::rollback_competitor (secure::write_transaction const & transaction, nano::block const & block)
 {
 	auto hash = block.hash ();
-	auto successor_hash = node.ledger.successor (transaction, block.qualified_root ());
+	auto successor_hash = node.ledger.any.block_successor (transaction, block.qualified_root ());
 	auto successor = successor_hash ? node.ledger.any.block_get (transaction, successor_hash.value ()) : nullptr;
 	if (successor != nullptr && successor->hash () != hash)
 	{
