@@ -61,7 +61,6 @@ public:
 	nano::block_hash representative_calculated (store::transaction const &, nano::block_hash const &);
 	bool block_or_pruned_exists (nano::block_hash const &) const;
 	bool block_or_pruned_exists (store::transaction const &, nano::block_hash const &) const;
-	bool root_exists (store::transaction const &, nano::root const &);
 	std::string block_text (char const *);
 	std::string block_text (nano::block_hash const &);
 	std::pair<nano::block_hash, nano::block_hash> hash_root_random (store::transaction const &) const;
