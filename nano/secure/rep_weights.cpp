@@ -7,39 +7,39 @@ nano::rep_weights::rep_weights (nano::store::rep_weight & rep_weight_store_a) :
 {
 }
 
-void nano::rep_weights::representation_add (store::write_transaction const & txn_a, nano::account const & source_rep_a, nano::uint128_t const & amount_a)
+void nano::rep_weights::representation_add (store::write_transaction const & txn_a, nano::account const & rep_a, nano::uint128_t const & amount_a)
 {
-	auto weight{ rep_weight_store.get (txn_a, source_rep_a) };
-	weight += amount_a;
+	auto previous_weight{ rep_weight_store.get (txn_a, rep_a) };
+	auto new_weight = previous_weight + amount_a;
+	put_store (txn_a, rep_a, previous_weight, new_weight);
 	nano::lock_guard<nano::mutex> guard (mutex);
-	rep_weight_store.put (txn_a, source_rep_a, weight);
-	put (source_rep_a, weight);
+	put_cache (rep_a, new_weight);
 }
 
-void nano::rep_weights::representation_add_dual (store::write_transaction const & txn_a, nano::account const & source_rep_1, nano::uint128_t const & amount_1, nano::account const & source_rep_2, nano::uint128_t const & amount_2)
+void nano::rep_weights::representation_add_dual (store::write_transaction const & txn_a, nano::account const & rep_1, nano::uint128_t const & amount_1, nano::account const & rep_2, nano::uint128_t const & amount_2)
 {
-	if (source_rep_1 != source_rep_2)
+	if (rep_1 != rep_2)
 	{
-		auto rep_1_weight{ rep_weight_store.get (txn_a, source_rep_1) };
-		auto rep_2_weight{ rep_weight_store.get (txn_a, source_rep_2) };
-		rep_1_weight += amount_1;
-		rep_2_weight += amount_2;
-		rep_weight_store.put (txn_a, source_rep_1, rep_1_weight);
-		rep_weight_store.put (txn_a, source_rep_2, rep_2_weight);
+		auto previous_weight_1{ rep_weight_store.get (txn_a, rep_1) };
+		auto previous_weight_2{ rep_weight_store.get (txn_a, rep_2) };
+		auto new_weight_1 = previous_weight_1 + amount_1;
+		auto new_weight_2 = previous_weight_2 + amount_2;
+		put_store (txn_a, rep_1, previous_weight_1, new_weight_1);
+		put_store (txn_a, rep_2, previous_weight_2, new_weight_2);
 		nano::lock_guard<nano::mutex> guard (mutex);
-		put (source_rep_1, rep_1_weight);
-		put (source_rep_2, rep_2_weight);
+		put_cache (rep_1, new_weight_1);
+		put_cache (rep_2, new_weight_2);
 	}
 	else
 	{
-		representation_add (txn_a, source_rep_1, amount_1 + amount_2);
+		representation_add (txn_a, rep_1, amount_1 + amount_2);
 	}
 }
 
 void nano::rep_weights::representation_put (nano::account const & account_a, nano::uint128_t const & representation_a)
 {
 	nano::lock_guard<nano::mutex> guard (mutex);
-	put (account_a, representation_a);
+	put_cache (account_a, representation_a);
 }
 
 nano::uint128_t nano::rep_weights::representation_get (nano::account const & account_a) const
@@ -62,21 +62,46 @@ void nano::rep_weights::copy_from (nano::rep_weights & other_a)
 	for (auto const & entry : other_a.rep_amounts)
 	{
 		auto prev_amount (get (entry.first));
-		put (entry.first, prev_amount + entry.second);
+		put_cache (entry.first, prev_amount + entry.second);
 	}
 }
 
-void nano::rep_weights::put (nano::account const & account_a, nano::uint128_union const & representation_a)
+void nano::rep_weights::put_cache (nano::account const & account_a, nano::uint128_union const & representation_a)
 {
 	auto it = rep_amounts.find (account_a);
-	auto amount = representation_a.number ();
-	if (it != rep_amounts.end ())
+	if (representation_a.is_zero ())
 	{
-		it->second = amount;
+		if (it != rep_amounts.end ())
+		{
+			rep_amounts.erase (it);
+		}
 	}
 	else
 	{
-		rep_amounts.emplace (account_a, amount);
+		auto amount = representation_a.number ();
+		if (it != rep_amounts.end ())
+		{
+			it->second = amount;
+		}
+		else
+		{
+			rep_amounts.emplace (account_a, amount);
+		}
+	}
+}
+
+void nano::rep_weights::put_store (store::write_transaction const & txn_a, nano::account const & rep_a, nano::uint128_t const & previous_weight_a, nano::uint128_t const & new_weight_a)
+{
+	if (new_weight_a.is_zero ())
+	{
+		if (!previous_weight_a.is_zero ())
+		{
+			rep_weight_store.del (txn_a, rep_a);
+		}
+	}
+	else
+	{
+		rep_weight_store.put (txn_a, rep_a, new_weight_a);
 	}
 }
 
@@ -91,6 +116,12 @@ nano::uint128_t nano::rep_weights::get (nano::account const & account_a) const
 	{
 		return nano::uint128_t{ 0 };
 	}
+}
+
+std::size_t nano::rep_weights::size () const
+{
+	nano::lock_guard<nano::mutex> guard (mutex);
+	return rep_amounts.size ();
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::rep_weights const & rep_weights, std::string const & name)

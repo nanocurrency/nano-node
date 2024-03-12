@@ -26,13 +26,16 @@ public:
 	/* Only use this method when loading rep weights from the database table */
 	void representation_put (nano::account const & account_a, nano::uint128_t const & representation_a);
 	std::unordered_map<nano::account, nano::uint128_t> get_rep_amounts () const;
+	/* Only use this method when loading rep weights from the database table */
 	void copy_from (rep_weights & other_a);
+	size_t size () const;
 
 private:
 	mutable nano::mutex mutex;
 	std::unordered_map<nano::account, nano::uint128_t> rep_amounts;
 	nano::store::rep_weight & rep_weight_store;
-	void put (nano::account const & account_a, nano::uint128_union const & representation_a);
+	void put_cache (nano::account const & account_a, nano::uint128_union const & representation_a);
+	void put_store (store::write_transaction const & txn_a, nano::account const & rep_a, nano::uint128_t const & previous_weight_a, nano::uint128_t const & new_weight_a);
 	nano::uint128_t get (nano::account const & account_a) const;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (rep_weights const &, std::string const &);

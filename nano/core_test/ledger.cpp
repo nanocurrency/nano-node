@@ -668,6 +668,26 @@ TEST (ledger, representation_changes)
 	ASSERT_EQ (2, rep_weights.representation_get (key1.pub));
 }
 
+TEST (ledger, delete_rep_weight_of_zero)
+{
+	auto store{ nano::test::make_store () };
+	nano::rep_weights rep_weights{ store->rep_weight };
+	auto txn{ store->tx_begin_write () };
+	rep_weights.representation_add (txn, 1, 100);
+	rep_weights.representation_add_dual (txn, 2, 100, 3, 100);
+	ASSERT_EQ (3, rep_weights.size ());
+	ASSERT_EQ (3, store->rep_weight.count (txn));
+
+	// set rep weights to 0
+	rep_weights.representation_add (txn, 1, std::numeric_limits<nano::uint128_t>::max () - 99);
+	ASSERT_EQ (2, rep_weights.size ());
+	ASSERT_EQ (2, store->rep_weight.count (txn));
+
+	rep_weights.representation_add_dual (txn, 2, std::numeric_limits<nano::uint128_t>::max () - 99, 3, std::numeric_limits<nano::uint128_t>::max () - 99);
+	ASSERT_EQ (0, rep_weights.size ());
+	ASSERT_EQ (0, store->rep_weight.count (txn));
+}
+
 TEST (ledger, representation)
 {
 	auto ctx = nano::test::context::ledger_empty ();
