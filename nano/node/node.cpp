@@ -776,7 +776,7 @@ nano::block_hash nano::node::latest (nano::account const & account_a)
 
 nano::uint128_t nano::node::balance (nano::account const & account_a)
 {
-	return ledger.any.account_balance (ledger.tx_begin_read (), account_a);
+	return ledger.any.account_balance (ledger.tx_begin_read (), account_a).value_or (0).number ();
 }
 
 std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)

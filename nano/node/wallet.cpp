@@ -847,7 +847,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 		auto transaction (wallets.tx_begin_read ());
 		if (wallets.node.ledger.any.block_exists_or_pruned (block_transaction, send_hash_a))
 		{
-			auto pending_info = wallets.node.ledger.pending_info (block_transaction, nano::pending_key (account_a, send_hash_a));
+			auto pending_info = wallets.node.ledger.any.pending_get (block_transaction, nano::pending_key (account_a, send_hash_a));
 			if (pending_info)
 			{
 				nano::raw_key prv;
@@ -1721,7 +1721,7 @@ void nano::wallets::receive_confirmed (nano::block_hash const & hash_a, nano::ac
 		{
 			nano::account representative;
 			representative = wallet->store.representative (wallet_transaction);
-			auto pending = node.ledger.pending_info (node.ledger.tx_begin_read (), nano::pending_key (destination_a, hash_a));
+			auto pending = node.ledger.any.pending_get (node.ledger.tx_begin_read (), nano::pending_key (destination_a, hash_a));
 			if (pending)
 			{
 				auto amount (pending->amount.number ());

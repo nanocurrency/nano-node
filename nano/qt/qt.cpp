@@ -2325,7 +2325,7 @@ void nano_qt::block_creation::create_receive ()
 			if (!destination.is_zero ())
 			{
 				nano::pending_key pending_key (destination, source_l);
-				if (auto pending = wallet.node.ledger.pending_info (block_transaction, pending_key))
+				if (auto pending = wallet.node.ledger.any.pending_get (block_transaction, pending_key))
 				{
 					nano::account_info info;
 					auto error (wallet.node.store.account.get (block_transaction, pending_key.account, info));
@@ -2489,7 +2489,7 @@ void nano_qt::block_creation::create_open ()
 				if (!destination.is_zero ())
 				{
 					nano::pending_key pending_key (destination, source_l);
-					if (auto pending = wallet.node.ledger.pending_info (block_transaction, pending_key))
+					if (auto pending = wallet.node.ledger.any.pending_get (block_transaction, pending_key))
 					{
 						nano::account_info info;
 						auto error (wallet.node.store.account.get (block_transaction, pending_key.account, info));
