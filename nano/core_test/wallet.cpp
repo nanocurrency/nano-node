@@ -183,8 +183,8 @@ TEST (wallet, spend_all_one)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key2;
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max ()));
-	auto transaction (node1.store.tx_begin_read ());
-	auto info2 = node1.ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto transaction = node1.store.tx_begin_read ();
+	auto info2 = node1.ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_NE (latest1, info2->head);
 	auto block = node1.ledger.block (transaction, info2->head);
 	ASSERT_NE (nullptr, block);
@@ -217,8 +217,8 @@ TEST (wallet, spend)
 	// Sending from empty accounts should always be an error.  Accounts need to be opened with an open block, not a send block.
 	ASSERT_EQ (nullptr, system.wallet (0)->send_action (0, key2.pub, 0));
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max ()));
-	auto transaction (node1.store.tx_begin_read ());
-	auto info2 = node1.ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto transaction = node1.store.tx_begin_read ();
+	auto info2 = node1.ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info2);
 	ASSERT_NE (latest1, info2->head);
 	auto block = node1.ledger.block (transaction, info2->head);
@@ -242,8 +242,8 @@ TEST (wallet, spend_no_previous)
 	nano::test::system system (1);
 	{
 		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-		auto transaction (system.nodes[0]->store.tx_begin_read ());
-		auto info1 = system.nodes[0]->ledger.account_info (transaction, nano::dev::genesis_key.pub);
+		auto transaction = system.nodes[0]->store.tx_begin_read ();
+		auto info1 = system.nodes[0]->ledger->get (transaction, nano::dev::genesis_key.pub);
 		ASSERT_TRUE (info1);
 		for (auto i (0); i < 50; ++i)
 		{

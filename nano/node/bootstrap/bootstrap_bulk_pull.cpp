@@ -365,7 +365,7 @@ void nano::bulk_pull_server::set_current_end ()
 	}
 	include_start = false;
 	debug_assert (request != nullptr);
-	auto transaction (node->store.tx_begin_read ());
+	auto transaction = node->store.tx_begin_read ();
 	if (!node->ledger.block_exists (transaction, request->end))
 	{
 		node->logger.debug (nano::log::type::bulk_pull_server, "Bulk pull end block doesn't exist: {}, sending everything", request->end.to_string ());
@@ -382,7 +382,7 @@ void nano::bulk_pull_server::set_current_end ()
 	}
 	else
 	{
-		auto info = node->ledger.account_info (transaction, request->start.as_account ());
+		auto info = node->ledger->get (transaction, request->start.as_account ());
 		if (!info)
 		{
 			node->logger.debug (nano::log::type::bulk_pull_server, "Request for unknown account: {}", request->start.to_account ());

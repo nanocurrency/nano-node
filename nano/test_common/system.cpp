@@ -393,11 +393,11 @@ void nano::test::system::generate_usage_traffic (uint32_t count_a, uint32_t wait
 
 void nano::test::system::generate_rollback (nano::node & node_a, std::vector<nano::account> & accounts_a)
 {
-	auto transaction (node_a.store.tx_begin_write ());
+	auto transaction = node_a.store.tx_begin_write ();
 	debug_assert (std::numeric_limits<CryptoPP::word32>::max () > accounts_a.size ());
 	auto index (random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (accounts_a.size () - 1)));
 	auto account (accounts_a[index]);
-	auto info = node_a.ledger.account_info (transaction, account);
+	auto info = node_a.ledger->get (transaction, account);
 	if (info)
 	{
 		auto hash (info->open_block);

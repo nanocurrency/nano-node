@@ -46,6 +46,15 @@ TEST (ledger, empty)
 	ASSERT_TRUE (balance.is_zero ());
 }
 
+// Ledger can be initialized and returns a basic query for an empty account
+TEST (ledger, confirmed_unconfirmed_view)
+{
+	auto ctx = nano::test::context::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & unconfirmed = ledger;
+	auto & confirmed = ledger.confirmed ();
+}
+
 // Genesis account should have the max balance on empty initialization
 TEST (ledger, genesis_balance)
 {
@@ -55,7 +64,7 @@ TEST (ledger, genesis_balance)
 	auto transaction = store.tx_begin_write ();
 	auto balance = ledger.account_balance (transaction, nano::dev::genesis_key.pub);
 	ASSERT_EQ (nano::dev::constants.genesis_amount, balance);
-	auto info = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info);
 	ASSERT_EQ (1, ledger.cache.account_count);
 	// Frontier time should have been updated when genesis balance was added
@@ -97,7 +106,7 @@ TEST (ledger, process_send)
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
 	auto & pool = ctx.pool ();
-	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info1 = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::keypair key2;
 	nano::block_builder builder;
@@ -120,7 +129,7 @@ TEST (ledger, process_send)
 	ASSERT_EQ (nano::dev::genesis_key.pub, send->account ());
 	ASSERT_EQ (50, ledger.account_balance (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, ledger.account_receivable (transaction, key2.pub));
-	auto info2 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info2 = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info2);
 	ASSERT_EQ (2, info2->block_count);
 	auto latest6 = ledger.block (transaction, info2->head);
@@ -152,14 +161,14 @@ TEST (ledger, process_send)
 	ASSERT_EQ (0, ledger.account_receivable (transaction, key2.pub));
 	ASSERT_EQ (50, ledger.weight (nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 50, ledger.weight (key2.pub));
-	auto info3 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info3 = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info3);
 	auto latest2 = ledger.block (transaction, info3->head);
 	ASSERT_NE (nullptr, latest2);
 	auto latest3 = dynamic_cast<nano::send_block *> (latest2.get ());
 	ASSERT_NE (nullptr, latest3);
 	ASSERT_EQ (*send, *latest3);
-	auto info4 = ledger.account_info (transaction, key2.pub);
+	auto info4 = ledger->get (transaction, key2.pub);
 	ASSERT_TRUE (info4);
 	auto latest4 = ledger.block (transaction, info4->head);
 	ASSERT_NE (nullptr, latest4);
@@ -167,7 +176,7 @@ TEST (ledger, process_send)
 	ASSERT_NE (nullptr, latest5);
 	ASSERT_EQ (*open, *latest5);
 	ASSERT_FALSE (ledger.rollback (transaction, hash2));
-	auto info5 = ledger.account_info (transaction, key2.pub);
+	auto info5 = ledger->get (transaction, key2.pub);
 	ASSERT_FALSE (info5);
 	auto pending1 = ledger.pending_info (transaction, nano::pending_key (key2.pub, hash1));
 	ASSERT_TRUE (pending1);
@@ -178,12 +187,12 @@ TEST (ledger, process_send)
 	ASSERT_EQ (50, ledger.account_balance (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (50, ledger.weight (nano::dev::genesis_key.pub));
 	ASSERT_EQ (0, ledger.weight (key2.pub));
-	auto info6 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info6 = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info6);
 	ASSERT_EQ (hash1, info6->head);
 	ASSERT_FALSE (ledger.rollback (transaction, info6->head));
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (nano::dev::genesis_key.pub));
-	auto info7 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info7 = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info7);
 	ASSERT_EQ (1, info7->block_count);
 	ASSERT_EQ (info1->head, info7->head);
@@ -200,7 +209,7 @@ TEST (ledger, process_receive)
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
 	auto & pool = ctx.pool ();
-	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info1 = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::keypair key2;
 	nano::block_builder builder;
@@ -283,7 +292,7 @@ TEST (ledger, rollback_receiver)
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
 	auto & pool = ctx.pool ();
-	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info1 = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::keypair key2;
 	nano::block_builder builder;
@@ -320,7 +329,7 @@ TEST (ledger, rollback_receiver)
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (nano::dev::genesis_key.pub));
 	ASSERT_EQ (0, ledger.weight (key2.pub));
 	ASSERT_EQ (0, ledger.weight (key3.pub));
-	ASSERT_FALSE (ledger.account_info (transaction, key2.pub));
+	ASSERT_FALSE (ledger->get (transaction, key2.pub));
 	ASSERT_EQ (store.account.count (transaction), ledger.cache.account_count);
 	ASSERT_FALSE (ledger.pending_info (transaction, nano::pending_key{ key2.pub, hash1 }));
 }
@@ -390,11 +399,11 @@ TEST (ledger, rollback_representation)
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive1));
 	ASSERT_EQ (1, ledger.weight (key3.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 1, ledger.weight (key4.pub));
-	auto info1 = ledger.account_info (transaction, key2.pub);
+	auto info1 = ledger->get (transaction, key2.pub);
 	ASSERT_TRUE (info1);
 	ASSERT_EQ (key4.pub, info1->representative);
 	ASSERT_FALSE (ledger.rollback (transaction, receive1->hash ()));
-	auto info2 = ledger.account_info (transaction, key2.pub);
+	auto info2 = ledger->get (transaction, key2.pub);
 	ASSERT_TRUE (info2);
 	ASSERT_EQ (key4.pub, info2->representative);
 	ASSERT_EQ (0, ledger.weight (key2.pub));
@@ -404,11 +413,11 @@ TEST (ledger, rollback_representation)
 	ASSERT_EQ (0, ledger.weight (key4.pub));
 	ledger.rollback (transaction, send1->hash ());
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (key3.pub));
-	auto info3 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info3 = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info3);
 	ASSERT_EQ (key3.pub, info3->representative);
 	ASSERT_FALSE (ledger.rollback (transaction, change2->hash ()));
-	auto info4 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info4 = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info4);
 	ASSERT_EQ (key5.pub, info4->representative);
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (key5.pub));
@@ -450,7 +459,7 @@ TEST (ledger, process_duplicate)
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
 	auto & pool = ctx.pool ();
-	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info1 = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::keypair key2;
 	nano::block_builder builder;
@@ -505,7 +514,7 @@ TEST (ledger, representative_change)
 	auto & pool = ctx.pool ();
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (nano::dev::genesis_key.pub));
 	ASSERT_EQ (0, ledger.weight (key2.pub));
-	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info1 = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::block_builder builder;
 	auto block = builder
@@ -521,11 +530,11 @@ TEST (ledger, representative_change)
 	ASSERT_EQ (nano::dev::genesis_key.pub, block->account ());
 	ASSERT_EQ (0, ledger.weight (nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (key2.pub));
-	auto info2 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info2 = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info2);
 	ASSERT_EQ (block->hash (), info2->head);
 	ASSERT_FALSE (ledger.rollback (transaction, info2->head));
-	auto info3 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info3 = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info3);
 	ASSERT_EQ (info1->head, info3->head);
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (nano::dev::genesis_key.pub));
@@ -541,7 +550,7 @@ TEST (ledger, send_fork)
 	nano::keypair key3;
 	auto transaction = store.tx_begin_write ();
 	auto & pool = ctx.pool ();
-	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info1 = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::block_builder builder;
 	auto block = builder
@@ -573,7 +582,7 @@ TEST (ledger, receive_fork)
 	nano::keypair key3;
 	auto transaction = store.tx_begin_write ();
 	auto & pool = ctx.pool ();
-	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info1 = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::block_builder builder;
 	auto block = builder
@@ -630,7 +639,7 @@ TEST (ledger, open_fork)
 	nano::keypair key3;
 	auto transaction = store.tx_begin_write ();
 	auto & pool = ctx.pool ();
-	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info1 = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::block_builder builder;
 	auto block = builder
@@ -2162,7 +2171,7 @@ TEST (ledger, send_open_receive_rollback)
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
 	auto & pool = ctx.pool ();
-	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info1 = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::keypair key1;
 	nano::block_builder builder;
@@ -2253,7 +2262,7 @@ TEST (ledger, bootstrap_rep_weight)
 	auto & pool = ctx.pool ();
 	{
 		auto transaction = store.tx_begin_write ();
-		auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+		auto info1 = ledger->get (transaction, nano::dev::genesis_key.pub);
 		ASSERT_TRUE (info1);
 		nano::block_builder builder;
 		auto send = builder
@@ -2274,7 +2283,7 @@ TEST (ledger, bootstrap_rep_weight)
 	}
 	{
 		auto transaction = store.tx_begin_write ();
-		auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+		auto info1 = ledger->get (transaction, nano::dev::genesis_key.pub);
 		ASSERT_TRUE (info1);
 		nano::block_builder builder;
 		auto send = builder
@@ -3456,15 +3465,15 @@ TEST (ledger, epoch_blocks_v1_general)
 				  .work (*pool.generate (epoch1->hash ()))
 				  .build ();
 	ASSERT_EQ (nano::block_status::block_position, ledger.process (transaction, epoch2));
-	auto genesis_info = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto genesis_info = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (genesis_info);
 	ASSERT_EQ (genesis_info->epoch (), nano::epoch::epoch_1);
 	ASSERT_FALSE (ledger.rollback (transaction, epoch1->hash ()));
-	genesis_info = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	genesis_info = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (genesis_info);
 	ASSERT_EQ (genesis_info->epoch (), nano::epoch::epoch_0);
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, epoch1));
-	genesis_info = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	genesis_info = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (genesis_info);
 	ASSERT_EQ (genesis_info->epoch (), nano::epoch::epoch_1);
 	ASSERT_FALSE (epoch1->is_send ());
@@ -3622,15 +3631,15 @@ TEST (ledger, epoch_blocks_v2_general)
 				  .work (*pool.generate (epoch2->hash ()))
 				  .build ();
 	ASSERT_EQ (nano::block_status::block_position, ledger.process (transaction, epoch3));
-	auto genesis_info = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto genesis_info = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (genesis_info);
 	ASSERT_EQ (genesis_info->epoch (), nano::epoch::epoch_2);
 	ASSERT_FALSE (ledger.rollback (transaction, epoch1->hash ()));
-	genesis_info = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	genesis_info = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (genesis_info);
 	ASSERT_EQ (genesis_info->epoch (), nano::epoch::epoch_0);
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, epoch1));
-	genesis_info = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	genesis_info = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (genesis_info);
 	ASSERT_EQ (genesis_info->epoch (), nano::epoch::epoch_1);
 	auto change1 = builder
@@ -3804,11 +3813,11 @@ TEST (ledger, epoch_blocks_receive_upgrade)
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive2));
 	ASSERT_EQ (nano::epoch::epoch_1, receive2->sideband ().details.epoch);
 	ASSERT_EQ (nano::epoch::epoch_1, receive2->sideband ().source_epoch);
-	auto destination_info = ledger.account_info (transaction, destination.pub);
+	auto destination_info = ledger->get (transaction, destination.pub);
 	ASSERT_TRUE (destination_info);
 	ASSERT_EQ (destination_info->epoch (), nano::epoch::epoch_1);
 	ASSERT_FALSE (ledger.rollback (transaction, receive2->hash ()));
-	destination_info = ledger.account_info (transaction, destination.pub);
+	destination_info = ledger->get (transaction, destination.pub);
 	ASSERT_TRUE (destination_info);
 	ASSERT_EQ (destination_info->epoch (), nano::epoch::epoch_0);
 	auto pending_send2 = ledger.pending_info (transaction, nano::pending_key (destination.pub, send2->hash ()));
@@ -3819,7 +3828,7 @@ TEST (ledger, epoch_blocks_receive_upgrade)
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive2));
 	ASSERT_EQ (nano::epoch::epoch_1, receive2->sideband ().details.epoch);
 	ASSERT_EQ (nano::epoch::epoch_1, receive2->sideband ().source_epoch);
-	destination_info = ledger.account_info (transaction, destination.pub);
+	destination_info = ledger->get (transaction, destination.pub);
 	ASSERT_TRUE (destination_info);
 	ASSERT_EQ (destination_info->epoch (), nano::epoch::epoch_1);
 	nano::keypair destination2;
@@ -3888,7 +3897,7 @@ TEST (ledger, epoch_blocks_receive_upgrade)
 				 .work (*pool.generate (send4->hash ()))
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send5));
-	destination_info = ledger.account_info (transaction, destination.pub);
+	destination_info = ledger->get (transaction, destination.pub);
 	ASSERT_TRUE (destination_info);
 	ASSERT_EQ (destination_info->epoch (), nano::epoch::epoch_1);
 	auto receive3 = builder
@@ -3904,7 +3913,7 @@ TEST (ledger, epoch_blocks_receive_upgrade)
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive3));
 	ASSERT_EQ (nano::epoch::epoch_2, receive3->sideband ().details.epoch);
 	ASSERT_EQ (nano::epoch::epoch_2, receive3->sideband ().source_epoch);
-	destination_info = ledger.account_info (transaction, destination.pub);
+	destination_info = ledger->get (transaction, destination.pub);
 	ASSERT_TRUE (destination_info);
 	ASSERT_EQ (destination_info->epoch (), nano::epoch::epoch_2);
 	// Upgrade an unopened account straight to epoch 2
@@ -4250,7 +4259,7 @@ TEST (ledger, unchecked_epoch)
 	{
 		// Waits for the last blocks to pass through block_processor and unchecked.put queues
 		ASSERT_TIMELY_EQ (10s, 0, node1.unchecked.count ());
-		auto info = node1.ledger.account_info (node1.store.tx_begin_read (), destination.pub);
+		auto info = node1.ledger->get (node1.store.tx_begin_read (), destination.pub);
 		ASSERT_TRUE (info);
 		ASSERT_EQ (info->epoch (), nano::epoch::epoch_1);
 	}
@@ -4328,7 +4337,7 @@ TEST (ledger, unchecked_epoch_invalid)
 		auto unchecked_count = node1.unchecked.count ();
 		ASSERT_EQ (unchecked_count, 0);
 		ASSERT_EQ (unchecked_count, node1.unchecked.count ());
-		auto info = node1.ledger.account_info (transaction, destination.pub);
+		auto info = node1.ledger->get (transaction, destination.pub);
 		ASSERT_TRUE (info);
 		ASSERT_NE (info->epoch (), nano::epoch::epoch_1);
 		auto epoch2_store = node1.ledger.block (transaction, epoch2->hash ());
@@ -4470,7 +4479,7 @@ TEST (ledger, confirmation_height_not_updated)
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
 	auto & pool = ctx.pool ();
-	auto account_info = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto account_info = ledger->get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (account_info);
 	nano::keypair key;
 	nano::block_builder builder;

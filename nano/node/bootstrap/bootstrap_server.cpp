@@ -202,7 +202,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (store::transaction const & t
 		break;
 		case asc_pull_req::hash_type::account:
 		{
-			auto info = ledger.account_info (transaction, request.start.as_account ());
+			auto info = ledger->get (transaction, request.start.as_account ());
 			if (info)
 			{
 				// Start from open block if pulling by account
@@ -296,7 +296,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (const store::transaction & t
 	nano::asc_pull_ack::account_info_payload response_payload{};
 	response_payload.account = target;
 
-	auto account_info = ledger.account_info (transaction, target);
+	auto account_info = ledger->get (transaction, target);
 	if (account_info)
 	{
 		response_payload.account_open = account_info->open_block;

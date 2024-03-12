@@ -553,8 +553,8 @@ TEST (rpc, wallet_representative_set_force)
 	nano::account representative{};
 	while (representative != key.pub)
 	{
-		auto transaction (node->store.tx_begin_read ());
-		auto info = node->ledger.account_info (transaction, nano::dev::genesis_key.pub);
+		auto transaction = node->store.tx_begin_read ();
+		auto info = node->ledger->get (transaction, nano::dev::genesis_key.pub);
 		if (info)
 		{
 			representative = info->representative;
@@ -6468,7 +6468,7 @@ TEST (rpc, receive)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto receive_text (response.get<std::string> ("block"));
-		auto info = node->ledger.account_info (node->store.tx_begin_read (), key1.pub);
+		auto info = node->ledger->get (node->store.tx_begin_read (), key1.pub);
 		ASSERT_TRUE (info);
 		ASSERT_EQ (info->head, nano::block_hash{ receive_text });
 	}
@@ -6509,7 +6509,7 @@ TEST (rpc, receive_unopened)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto receive_text (response.get<std::string> ("block"));
-		auto info = node->ledger.account_info (node->store.tx_begin_read (), key1.pub);
+		auto info = node->ledger->get (node->store.tx_begin_read (), key1.pub);
 		ASSERT_TRUE (info);
 		ASSERT_EQ (info->head, info->open_block);
 		ASSERT_EQ (info->head.to_string (), receive_text);
@@ -6531,7 +6531,7 @@ TEST (rpc, receive_unopened)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto receive_text (response.get<std::string> ("block"));
-		auto info = node->ledger.account_info (node->store.tx_begin_read (), key2.pub);
+		auto info = node->ledger->get (node->store.tx_begin_read (), key2.pub);
 		ASSERT_TRUE (info);
 		ASSERT_EQ (info->head, info->open_block);
 		ASSERT_EQ (info->head.to_string (), receive_text);
@@ -6616,7 +6616,7 @@ TEST (rpc, receive_pruned)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto receive_text (response.get<std::string> ("block"));
-		auto info = node2->ledger.account_info (node2->store.tx_begin_read (), key1.pub);
+		auto info = node2->ledger->get (node2->store.tx_begin_read (), key1.pub);
 		ASSERT_TRUE (info);
 		ASSERT_EQ (info->head, nano::block_hash{ receive_text });
 	}
