@@ -376,7 +376,7 @@ void nano::bulk_pull_server::set_current_end ()
 	{
 		node->logger.debug (nano::log::type::bulk_pull_server, "Bulk pull request for block hash: {}", request->start.to_string ());
 
-		current = ascending () ? node->store.block.successor (transaction, request->start.as_block_hash ()) : request->start.as_block_hash ();
+		current = ascending () ? node->ledger.successor (transaction, request->start.as_block_hash ()).value_or (0) : request->start.as_block_hash ();
 		include_start = true;
 	}
 	else

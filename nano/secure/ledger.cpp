@@ -1270,12 +1270,22 @@ std::optional<nano::block_hash> nano::ledger::successor (store::transaction cons
 	}
 }
 
+std::optional<nano::block_hash> nano::ledger::successor (store::transaction const & transaction, nano::block_hash const & hash) const noexcept
+{
+	return successor (transaction, { hash, hash });
+}
+
 std::shared_ptr<nano::block> nano::ledger::forked_block (store::transaction const & transaction_a, nano::block const & block_a)
 {
 	debug_assert (!block_exists (transaction_a, block_a.hash ()));
 	auto root (block_a.root ());
 	debug_assert (block_exists (transaction_a, root.as_block_hash ()) || store.account.exists (transaction_a, root.as_account ()));
-	auto result = block (transaction_a, store.block.successor (transaction_a, root.as_block_hash ()));
+	std::shared_ptr<nano::block> result;
+	auto successor_l = successor (transaction_a, root.as_block_hash ());
+	if (successor_l)
+	{
+		result = block (transaction_a, successor_l.value ());
+	}
 	if (result == nullptr)
 	{
 		auto info = account_info (transaction_a, root.as_account ());
