@@ -45,6 +45,7 @@ enum class name
 	rep_crawler,
 	local_block_broadcasting,
 	rep_tiers,
+	network_cleanup,
 };
 
 /*
