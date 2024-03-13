@@ -74,12 +74,12 @@ private:
 class network final
 {
 public:
-	network (nano::node &, uint16_t);
+	network (nano::node &, uint16_t port);
 	~network ();
 
-	nano::networks id;
 	void start ();
 	void stop ();
+
 	void flood_message (nano::message &, nano::transport::buffer_drop_policy const = nano::transport::buffer_drop_policy::limiter, float const = 1.0f);
 	void flood_keepalive (float const scale_a = 1.0f);
 	void flood_keepalive_self (float const scale_a = 0.5f);
@@ -114,8 +114,6 @@ public:
 	nano::endpoint endpoint () const;
 	void cleanup (std::chrono::steady_clock::time_point const &);
 	void ongoing_cleanup ();
-	// Node ID cookies cleanup
-	nano::syn_cookies syn_cookies;
 	void ongoing_syn_cookie_cleanup ();
 	void ongoing_keepalive ();
 	std::size_t size () const;
@@ -124,7 +122,9 @@ public:
 	void erase (nano::transport::channel const &);
 	/** Disconnects and adds peer to exclusion list */
 	void exclude (std::shared_ptr<nano::transport::channel> const & channel);
+	void inbound (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
 
+public: // Handshake
 	/** Verifies that handshake response matches our query. @returns true if OK */
 	bool verify_handshake_response (nano::node_id_handshake::response_payload const & response, nano::endpoint const & remote_endpoint);
 	std::optional<nano::node_id_handshake::query_payload> prepare_handshake_query (nano::endpoint const & remote_endpoint);
@@ -133,20 +133,27 @@ public:
 private:
 	void process_message (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
 
+private: // Dependencies
+	nano::node & node;
+
 public:
-	std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> inbound;
+	nano::networks const id;
+	nano::syn_cookies syn_cookies;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
 	nano::peer_exclusion excluded_peers;
 	nano::tcp_message_manager tcp_message_manager;
-	nano::node & node;
 	nano::network_filter publish_filter;
 	nano::transport::tcp_channels tcp_channels;
 	std::atomic<uint16_t> port{ 0 };
 	std::function<void ()> disconnect_observer;
 	// Called when a new channel is observed
 	std::function<void (std::shared_ptr<nano::transport::channel>)> channel_observer;
+
+private:
 	std::atomic<bool> stopped{ false };
+
+public:
 	static unsigned const broadcast_interval_ms = 10;
 	static std::size_t const buffer_size = 512;
 
