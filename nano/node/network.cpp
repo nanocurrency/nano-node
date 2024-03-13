@@ -14,20 +14,16 @@
  */
 
 nano::network::network (nano::node & node_a, uint16_t port_a) :
+	node (node_a),
 	id (nano::network_constants::active_network),
 	syn_cookies (node_a.network_params.network.max_peers_per_ip),
-	inbound{ [this] (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel) {
-		debug_assert (message.header.network == node.network_params.network.current_network);
-		debug_assert (message.header.version_using >= node.network_params.network.protocol_version_min);
-		process_message (message, channel);
-	} },
 	resolver (node_a.io_ctx),
 	tcp_message_manager (node_a.config.tcp_incoming_connections_max),
-	node (node_a),
 	publish_filter (256 * 1024),
-	tcp_channels (node_a, inbound),
-	port (port_a),
-	disconnect_observer ([] () {})
+	tcp_channels (node_a, [this] (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel) {
+		inbound (message, channel);
+	}),
+	port (port_a), disconnect_observer ([] () {})
 {
 	for (std::size_t i = 0; i < node.config.network_threads && !node.flags.disable_tcp_realtime; ++i)
 	{
@@ -352,6 +348,13 @@ void nano::network::process_message (nano::message const & message, std::shared_
 
 	network_message_visitor visitor{ node, channel };
 	message.visit (visitor);
+}
+
+void nano::network::inbound (const nano::message & message, const std::shared_ptr<nano::transport::channel> & channel)
+{
+	debug_assert (message.header.network == node.network_params.network.current_network);
+	debug_assert (message.header.version_using >= node.network_params.network.protocol_version_min);
+	process_message (message, channel);
 }
 
 // Send keepalives to all the peers we've been notified of
