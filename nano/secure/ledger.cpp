@@ -1245,22 +1245,27 @@ void nano::ledger::update_account (store::write_transaction const & transaction_
 	}
 }
 
-std::shared_ptr<nano::block> nano::ledger::successor (store::transaction const & transaction_a, nano::qualified_root const & root_a)
+std::optional<nano::block_hash> nano::ledger::successor (store::transaction const & transaction_a, nano::qualified_root const & root_a) const noexcept
 {
 	if (!root_a.previous ().is_zero ())
 	{
-		return block (transaction_a, store.block.successor (transaction_a, root_a.previous ()));
+		auto result = store.block.successor (transaction_a, root_a.previous ());
+		if (result.is_zero ())
+		{
+			return std::nullopt;
+		}
+		return result;
 	}
 	else
 	{
 		auto info = account_info (transaction_a, root_a.root ().as_account ());
 		if (info)
 		{
-			return block (transaction_a, info->open_block);
+			return info.value ().open_block;
 		}
 		else
 		{
-			return nullptr;
+			return std::nullopt;
 		}
 	}
 }

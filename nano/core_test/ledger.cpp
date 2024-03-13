@@ -1175,9 +1175,9 @@ TEST (ledger, successor)
 	node1.work_generate_blocking (*send1);
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, send1));
-	ASSERT_EQ (*send1, *node1.ledger.successor (transaction, nano::qualified_root (nano::root (0), nano::dev::genesis->hash ())));
-	ASSERT_EQ (*nano::dev::genesis, *node1.ledger.successor (transaction, nano::dev::genesis->qualified_root ()));
-	ASSERT_EQ (nullptr, node1.ledger.successor (transaction, nano::qualified_root (0)));
+	ASSERT_EQ (*send1, *node1.ledger.block (transaction, node1.ledger.successor (transaction, nano::qualified_root (nano::root (0), nano::dev::genesis->hash ())).value ()));
+	ASSERT_EQ (*nano::dev::genesis, *node1.ledger.block (transaction, node1.ledger.successor (transaction, nano::dev::genesis->qualified_root ()).value ()));
+	ASSERT_FALSE (node1.ledger.successor (transaction, nano::qualified_root (0)));
 }
 
 TEST (ledger, fail_change_old)
@@ -4006,8 +4006,8 @@ TEST (ledger, successor_epoch)
 	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, change));
 	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, send2));
 	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, epoch_open));
-	ASSERT_EQ (*change, *node1.ledger.successor (transaction, change->qualified_root ()));
-	ASSERT_EQ (*epoch_open, *node1.ledger.successor (transaction, epoch_open->qualified_root ()));
+	ASSERT_EQ (*change, *node1.ledger.block (transaction, node1.ledger.successor (transaction, change->qualified_root ()).value ()));
+	ASSERT_EQ (*epoch_open, *node1.ledger.block (transaction, node1.ledger.successor (transaction, epoch_open->qualified_root ()).value ()));
 	ASSERT_EQ (nano::epoch::epoch_1, epoch_open->sideband ().details.epoch);
 	ASSERT_EQ (nano::epoch::epoch_0, epoch_open->sideband ().source_epoch); // Not used for epoch state blocks
 }
