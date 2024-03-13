@@ -130,6 +130,7 @@ public: // Handshake
 	nano::node_id_handshake::response_payload prepare_handshake_response (nano::node_id_handshake::query_payload const & query, bool v2) const;
 
 private:
+	void run_processing ();
 	void process_message (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
 
 private: // Dependencies
@@ -139,18 +140,20 @@ public:
 	nano::networks const id;
 	nano::syn_cookies syn_cookies;
 	boost::asio::ip::udp::resolver resolver;
-	std::vector<boost::thread> packet_processing_threads;
 	nano::peer_exclusion excluded_peers;
 	nano::tcp_message_manager tcp_message_manager;
 	nano::network_filter publish_filter;
 	nano::transport::tcp_channels tcp_channels;
 	std::atomic<uint16_t> port{ 0 };
-	std::function<void ()> disconnect_observer;
+
+public: // Callbacks
+	std::function<void ()> disconnect_observer{ [] () {} };
 	// Called when a new channel is observed
-	std::function<void (std::shared_ptr<nano::transport::channel>)> channel_observer;
+	std::function<void (std::shared_ptr<nano::transport::channel>)> channel_observer{ [] (auto) {} };
 
 private:
 	std::atomic<bool> stopped{ false };
+	std::vector<boost::thread> processing_threads; // Using boost::thread to enable increased stack size
 
 public:
 	static unsigned const broadcast_interval_ms = 10;
