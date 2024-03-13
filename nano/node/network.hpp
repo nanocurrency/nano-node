@@ -43,12 +43,12 @@ private:
 class syn_cookies final
 {
 public:
-	explicit syn_cookies (std::size_t);
+	syn_cookies (std::size_t max_peers_per_ip, nano::logger &);
 
 	void purge (std::chrono::steady_clock::time_point const &);
 	// Returns boost::none if the IP is rate capped on syn cookie requests,
 	// or if the endpoint already has a syn cookie query
-	boost::optional<nano::uint256_union> assign (nano::endpoint const &);
+	std::optional<nano::uint256_union> assign (nano::endpoint const &);
 	// Returns false if valid, true if invalid (true on error convention)
 	// Also removes the syn cookie from the store if valid
 	bool validate (nano::endpoint const &, nano::account const &, nano::signature const &);
@@ -57,6 +57,9 @@ public:
 
 	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 	std::size_t cookies_size ();
+
+private: // Dependencies
+	nano::logger & logger;
 
 private:
 	class syn_cookie_info final
@@ -112,7 +115,6 @@ public:
 	nano::tcp_endpoint bootstrap_peer ();
 	nano::endpoint endpoint () const;
 	void cleanup (std::chrono::steady_clock::time_point const & cutoff);
-	void ongoing_syn_cookie_cleanup ();
 	void ongoing_keepalive ();
 	std::size_t size () const;
 	float size_sqrt () const;

@@ -15,17 +15,17 @@ using namespace std::chrono_literals;
  * network
  */
 
-nano::network::network (nano::node & node_a, uint16_t port_a) :
-	node (node_a),
-	id (nano::network_constants::active_network),
-	syn_cookies (node_a.network_params.network.max_peers_per_ip),
-	resolver (node_a.io_ctx),
-	tcp_message_manager (node_a.config.tcp_incoming_connections_max),
-	publish_filter (256 * 1024),
-	tcp_channels (node_a, [this] (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel) {
-		inbound (message, channel);
-	}),
-	port (port_a)
+nano::network::network (nano::node & node, uint16_t port) :
+	node{ node },
+	id{ nano::network_constants::active_network },
+	syn_cookies{ node.network_params.network.max_peers_per_ip, node.logger },
+	resolver{ node.io_ctx },
+	tcp_message_manager{ node.config.tcp_incoming_connections_max },
+	publish_filter{ 256 * 1024 },
+	tcp_channels{ node, [this] (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel) {
+					 inbound (message, channel);
+				 } },
+	port{ port }
 {
 }
 
@@ -38,15 +38,11 @@ nano::network::~network ()
 
 void nano::network::start ()
 {
-	if (!node.flags.disable_connection_cleanup)
-	{
-		cleanup_thread = std::thread ([this] () {
-			nano::thread_role::set (nano::thread_role::name::network_cleanup);
-			run_cleanup ();
-		});
-	}
+	cleanup_thread = std::thread ([this] () {
+		nano::thread_role::set (nano::thread_role::name::network_cleanup);
+		run_cleanup ();
+	});
 
-	ongoing_syn_cookie_cleanup ();
 	ongoing_keepalive ();
 
 	if (!node.flags.disable_tcp_realtime)
@@ -133,8 +129,14 @@ void nano::network::run_cleanup ()
 
 		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_cleanup);
 
-		auto const cutoff = std::chrono::steady_clock::now () - node.network_params.network.cleanup_cutoff ();
-		cleanup (cutoff);
+		if (!node.flags.disable_connection_cleanup)
+		{
+			auto const cutoff = std::chrono::steady_clock::now () - node.network_params.network.cleanup_cutoff ();
+			cleanup (cutoff);
+		}
+
+		auto const syn_cookie_cutoff = std::chrono::steady_clock::now () - node.network_params.network.syn_cookie_cutoff;
+		syn_cookies.purge (syn_cookie_cutoff);
 
 		lock.lock ();
 	}
@@ -542,18 +544,6 @@ void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutof
 	}
 }
 
-void nano::network::ongoing_syn_cookie_cleanup ()
-{
-	syn_cookies.purge (std::chrono::steady_clock::now () - nano::transport::syn_cookie_cutoff);
-	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + (nano::transport::syn_cookie_cutoff * 2), [node_w] () {
-		if (auto node_l = node_w.lock ())
-		{
-			node_l->network.ongoing_syn_cookie_cleanup ();
-		}
-	});
-}
-
 void nano::network::ongoing_keepalive ()
 {
 	flood_keepalive (0.75f);
@@ -717,18 +707,19 @@ void nano::tcp_message_manager::stop ()
  * syn_cookies
  */
 
-nano::syn_cookies::syn_cookies (std::size_t max_cookies_per_ip_a) :
-	max_cookies_per_ip (max_cookies_per_ip_a)
+nano::syn_cookies::syn_cookies (std::size_t max_cookies_per_ip_a, nano::logger & logger_a) :
+	max_cookies_per_ip (max_cookies_per_ip_a),
+	logger (logger_a)
 {
 }
 
-boost::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint const & endpoint_a)
+std::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint const & endpoint_a)
 {
 	auto ip_addr (endpoint_a.address ());
 	debug_assert (ip_addr.is_v6 ());
 	nano::lock_guard<nano::mutex> lock{ syn_cookie_mutex };
 	unsigned & ip_cookies = cookies_per_ip[ip_addr];
-	boost::optional<nano::uint256_union> result;
+	std::optional<nano::uint256_union> result;
 	if (ip_cookies < max_cookies_per_ip)
 	{
 		if (cookies.find (endpoint_a) == cookies.end ())
@@ -770,6 +761,8 @@ bool nano::syn_cookies::validate (nano::endpoint const & endpoint_a, nano::accou
 
 void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cutoff_a)
 {
+	logger.debug (nano::log::type::syn_cookies, "Purging syn cookies, cutoff: {}s", nano::log::seconds_delta (cutoff_a));
+
 	nano::lock_guard<nano::mutex> lock{ syn_cookie_mutex };
 	auto it (cookies.begin ());
 	while (it != cookies.end ())
