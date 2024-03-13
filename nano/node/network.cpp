@@ -23,43 +23,14 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 	tcp_channels (node_a, [this] (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel) {
 		inbound (message, channel);
 	}),
-	port (port_a), disconnect_observer ([] () {})
+	port (port_a)
 {
-	for (std::size_t i = 0; i < node.config.network_threads && !node.flags.disable_tcp_realtime; ++i)
-	{
-		packet_processing_threads.emplace_back (nano::thread_attributes::get_default (), [this, i] () {
-			nano::thread_role::set (nano::thread_role::name::packet_processing);
-			try
-			{
-				tcp_channels.process_messages ();
-			}
-			catch (boost::system::error_code & ec)
-			{
-				node.logger.critical (nano::log::type::network, "Error: {}", ec.message ());
-				release_assert (false);
-			}
-			catch (std::error_code & ec)
-			{
-				node.logger.critical (nano::log::type::network, "Error: {}", ec.message ());
-				release_assert (false);
-			}
-			catch (std::runtime_error & err)
-			{
-				node.logger.critical (nano::log::type::network, "Error: {}", err.what ());
-				release_assert (false);
-			}
-			catch (...)
-			{
-				node.logger.critical (nano::log::type::network, "Unknown error");
-				release_assert (false);
-			}
-		});
-	}
 }
 
 nano::network::~network ()
 {
-	stop ();
+	// All threads must be stopped before this destructor
+	debug_assert (processing_threads.empty ());
 }
 
 void nano::network::start ()
@@ -68,26 +39,67 @@ void nano::network::start ()
 	{
 		ongoing_cleanup ();
 	}
+
 	ongoing_syn_cookie_cleanup ();
+	ongoing_keepalive ();
+
 	if (!node.flags.disable_tcp_realtime)
 	{
 		tcp_channels.start ();
+
+		for (std::size_t i = 0; i < node.config.network_threads; ++i)
+		{
+			processing_threads.emplace_back (nano::thread_attributes::get_default (), [this] () {
+				nano::thread_role::set (nano::thread_role::name::packet_processing);
+				run_processing ();
+			});
+		}
 	}
-	ongoing_keepalive ();
 }
 
 void nano::network::stop ()
 {
-	if (!stopped.exchange (true))
+	stopped = true;
+
+	tcp_channels.stop ();
+	resolver.cancel ();
+	tcp_message_manager.stop ();
+
+	for (auto & thread : processing_threads)
 	{
-		tcp_channels.stop ();
-		resolver.cancel ();
-		tcp_message_manager.stop ();
-		port = 0;
-		for (auto & thread : packet_processing_threads)
-		{
-			thread.join ();
-		}
+		thread.join ();
+	}
+	processing_threads.clear ();
+
+	port = 0;
+}
+
+void nano::network::run_processing ()
+{
+	try
+	{
+		// TODO: Move responsibility of packet queuing and processing to the message_processor class
+		tcp_channels.process_messages ();
+	}
+	catch (boost::system::error_code & ec)
+	{
+		node.logger.critical (nano::log::type::network, "Error: {}", ec.message ());
+		release_assert (false);
+	}
+	catch (std::error_code & ec)
+	{
+		node.logger.critical (nano::log::type::network, "Error: {}", ec.message ());
+		release_assert (false);
+	}
+	catch (std::runtime_error & err)
+	{
+		node.logger.critical (nano::log::type::network, "Error: {}", err.what ());
+		release_assert (false);
+	}
+	catch (...)
+	{
+		node.logger.critical (nano::log::type::network, "Unknown error");
+		release_assert (false);
 	}
 }
 
