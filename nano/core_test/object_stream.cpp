@@ -557,3 +557,35 @@ TEST (object_stream, to_json)
 
 	ASSERT_EQ (str, expected);
 }
+
+TEST (object_stream, print_range)
+{
+	std::deque<streamable_object> objects;
+	objects.push_back ({ 1 });
+	objects.push_back ({ 2 });
+	objects.push_back ({ 3 });
+
+	std::stringstream ss1, ss2;
+	ss1 << nano::streamed_range (objects);
+	ss2 << fmt::format ("{}", nano::streamed_range (objects));
+
+	auto expected = trim (R"(
+[
+   {
+      uint256_union_field: "0000000000000000000000000000000000000000000000000000000000000001",
+      block_hash: "0000000000000000000000000000000000000000000000000000000000000000"
+   },
+   {
+      uint256_union_field: "0000000000000000000000000000000000000000000000000000000000000002",
+      block_hash: "0000000000000000000000000000000000000000000000000000000000000000"
+   },
+   {
+      uint256_union_field: "0000000000000000000000000000000000000000000000000000000000000003",
+      block_hash: "0000000000000000000000000000000000000000000000000000000000000000"
+   }
+]
+)");
+
+	ASSERT_EQ (ss1.str (), expected);
+	ASSERT_EQ (ss2.str (), expected);
+}

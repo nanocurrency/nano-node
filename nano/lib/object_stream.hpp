@@ -281,7 +281,7 @@ public:
 
 	array_stream (array_stream const &) = delete; // Disallow copying
 
-private:
+public:
 	template <class Value>
 	void write_single (Value const & value)
 	{
@@ -290,7 +290,6 @@ private:
 		ctx.end_array_element ();
 	}
 
-public:
 	// Handle `.write (container)`
 	template <class Container>
 	void write (Container const & container)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/object_stream.hpp>
+#include <nano/lib/utility.hpp>
 
 #include <ostream>
 #include <sstream>
@@ -9,42 +10,64 @@
 
 namespace nano
 {
-template <class Streamable>
+template <class Streamable, class Writer>
 struct object_stream_formatter
 {
 	nano::object_stream_config const & config;
 	Streamable const & value;
+	Writer writer;
 
-	explicit object_stream_formatter (Streamable const & value, nano::object_stream_config const & config) :
+	explicit object_stream_formatter (Streamable const & value, Writer writer, nano::object_stream_config const & config) :
 		config{ config },
-		value{ value }
+		value{ value },
+		writer{ writer }
 	{
 	}
 
-	friend std::ostream & operator<< (std::ostream & os, object_stream_formatter<Streamable> const & self)
+	friend std::ostream & operator<< (std::ostream & os, object_stream_formatter<Streamable, Writer> const & self)
 	{
 		nano::root_object_stream obs{ os, self.config };
-		obs.write (self.value);
+		self.writer (self.value, obs);
 		return os;
 	}
 
 	// Needed for fmt formatting, uses the ostream operator under the hood
-	friend auto format_as (object_stream_formatter<Streamable> const & val)
+	friend auto format_as (object_stream_formatter<Streamable, Writer> const & self)
 	{
-		return fmt::streamed (val);
+		return fmt::streamed (self);
 	}
 };
 
-template <class Streamable>
-auto streamed (Streamable const & value)
+enum class streamed_format
 {
-	return object_stream_formatter{ value, nano::object_stream_config::default_config () };
+	basic,
+	json
+};
+
+inline nano::object_stream_config const & to_object_stream_config (streamed_format format)
+{
+	switch (format)
+	{
+		case streamed_format::basic:
+			return nano::object_stream_config::default_config ();
+		case streamed_format::json:
+			return nano::object_stream_config::json_config ();
+		default:
+			debug_assert (false);
+			return nano::object_stream_config::default_config ();
+	}
 }
 
 template <class Streamable>
-auto streamed_as_json (Streamable const & value)
+auto streamed (Streamable const & value, streamed_format format = streamed_format::basic)
 {
-	return object_stream_formatter{ value, nano::object_stream_config::json_config () };
+	return object_stream_formatter{ value, [] (auto const & value, nano::root_object_stream & obs) { obs.write (value); }, to_object_stream_config (format) };
+}
+
+template <class StreamableRange>
+auto streamed_range (StreamableRange const & value, streamed_format format = streamed_format::basic)
+{
+	return object_stream_formatter{ value, [] (auto const & value, nano::root_object_stream & obs) { obs.write_range (value); }, to_object_stream_config (format) };
 }
 
 /**
@@ -109,7 +132,7 @@ template <nano::object_or_array_streamable Value>
 std::string to_json (Value const & value)
 {
 	std::stringstream ss;
-	ss << nano::streamed_as_json (value);
+	ss << nano::streamed (value, nano::streamed_format::json);
 	return ss.str ();
 }
 }
