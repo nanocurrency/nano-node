@@ -9,6 +9,8 @@
 
 #include <boost/format.hpp>
 
+using namespace std::chrono_literals;
+
 /*
  * network
  */
@@ -31,13 +33,17 @@ nano::network::~network ()
 {
 	// All threads must be stopped before this destructor
 	debug_assert (processing_threads.empty ());
+	debug_assert (!cleanup_thread.joinable ());
 }
 
 void nano::network::start ()
 {
 	if (!node.flags.disable_connection_cleanup)
 	{
-		ongoing_cleanup ();
+		cleanup_thread = std::thread ([this] () {
+			nano::thread_role::set (nano::thread_role::name::network_cleanup);
+			run_cleanup ();
+		});
 	}
 
 	ongoing_syn_cookie_cleanup ();
@@ -59,7 +65,11 @@ void nano::network::start ()
 
 void nano::network::stop ()
 {
-	stopped = true;
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		stopped = true;
+	}
+	condition.notify_all ();
 
 	tcp_channels.stop ();
 	resolver.cancel ();
@@ -70,6 +80,11 @@ void nano::network::stop ()
 		thread.join ();
 	}
 	processing_threads.clear ();
+
+	if (cleanup_thread.joinable ())
+	{
+		cleanup_thread.join ();
+	}
 
 	port = 0;
 }
@@ -100,6 +115,28 @@ void nano::network::run_processing ()
 	{
 		node.logger.critical (nano::log::type::network, "Unknown error");
 		release_assert (false);
+	}
+}
+
+void nano::network::run_cleanup ()
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	while (!stopped)
+	{
+		condition.wait_for (lock, node.network_params.network.is_dev_network () ? 1s : 5s);
+		lock.unlock ();
+
+		if (stopped)
+		{
+			return;
+		}
+
+		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_cleanup);
+
+		auto const cutoff = std::chrono::steady_clock::now () - node.network_params.network.cleanup_cutoff ();
+		cleanup (cutoff);
+
+		lock.lock ();
 	}
 }
 
@@ -493,25 +530,16 @@ nano::endpoint nano::network::endpoint () const
 	return nano::endpoint (boost::asio::ip::address_v6::loopback (), port);
 }
 
-void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutoff_a)
+void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutoff)
 {
-	tcp_channels.purge (cutoff_a);
+	node.logger.debug (nano::log::type::network, "Performing cleanup, cutoff: {}s", nano::log::seconds_delta (cutoff));
+
+	tcp_channels.purge (cutoff);
+
 	if (node.network.empty ())
 	{
 		disconnect_observer ();
 	}
-}
-
-void nano::network::ongoing_cleanup ()
-{
-	cleanup (std::chrono::steady_clock::now () - node.network_params.network.cleanup_cutoff ());
-	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (node.network_params.network.is_dev_network () ? 1 : 5), [node_w] () {
-		if (auto node_l = node_w.lock ())
-		{
-			node_l->network.ongoing_cleanup ();
-		}
-	});
 }
 
 void nano::network::ongoing_syn_cookie_cleanup ()

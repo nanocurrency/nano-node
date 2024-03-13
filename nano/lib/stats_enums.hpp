@@ -17,6 +17,7 @@ enum class type : uint8_t
 	ledger,
 	rollback,
 	bootstrap,
+	network,
 	tcp_server,
 	vote,
 	election,
@@ -67,6 +68,7 @@ enum class detail : uint8_t
 	// common
 	ok,
 	loop,
+	loop_cleanup,
 	total,
 	process,
 	processed,
