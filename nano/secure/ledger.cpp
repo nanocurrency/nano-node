@@ -1249,12 +1249,7 @@ std::optional<nano::block_hash> nano::ledger::successor (store::transaction cons
 {
 	if (!root_a.previous ().is_zero ())
 	{
-		auto result = store.block.successor (transaction_a, root_a.previous ());
-		if (result.is_zero ())
-		{
-			return std::nullopt;
-		}
-		return result;
+		return store.block.successor (transaction_a, root_a.previous ());
 	}
 	else
 	{
