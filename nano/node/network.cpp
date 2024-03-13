@@ -105,34 +105,6 @@ void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channe
 	channel_a->send (message);
 }
 
-void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::channel> const & channel_a, std::optional<nano::uint256_union> const & cookie, std::optional<nano::uint256_union> const & respond_to)
-{
-	std::optional<nano::node_id_handshake::response_payload> response;
-	if (respond_to)
-	{
-		nano::node_id_handshake::response_payload pld{ node.node_id.pub, nano::sign_message (node.node_id.prv, node.node_id.pub, *respond_to) };
-		debug_assert (!nano::validate_message (pld.node_id, *respond_to, pld.signature));
-		response = pld;
-	}
-
-	std::optional<nano::node_id_handshake::query_payload> query;
-	if (cookie)
-	{
-		nano::node_id_handshake::query_payload pld{ *cookie };
-		query = pld;
-	}
-
-	nano::node_id_handshake message{ node.network_params.network, query, response };
-
-	node.logger.debug (nano::log::type::network, "Node ID handshake sent to: {} (query: {}, respond to: {}, signature: {})",
-	nano::util::to_str (channel_a->get_endpoint ()),
-	(query ? query->cookie.to_string () : "<none>"),
-	(respond_to ? respond_to->to_string () : "<none>"),
-	(response ? response->signature.to_string () : "<none>"));
-
-	channel_a->send (message);
-}
-
 void nano::network::flood_message (nano::message & message_a, nano::transport::buffer_drop_policy const drop_policy_a, float const scale_a)
 {
 	for (auto & i : list (fanout (scale_a)))
