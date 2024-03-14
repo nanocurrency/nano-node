@@ -33,6 +33,7 @@
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/node/write_database_queue.hpp>
+#include <nano/secure/unconfirmed_set.hpp>
 #include <nano/secure/utility.hpp>
 
 #include <boost/program_options.hpp>
@@ -89,7 +90,7 @@ public:
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
 	void receive_confirmed (store::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a);
-	void process_confirmed (nano::election_status const &, uint64_t = 0);
+	void process_confirmed (nano::election_status const &);
 	void process_active (std::shared_ptr<nano::block> const &);
 	std::optional<nano::block_status> process_local (std::shared_ptr<nano::block> const &);
 	void process_local_async (std::shared_ptr<nano::block> const &);

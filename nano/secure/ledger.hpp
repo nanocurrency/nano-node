@@ -12,6 +12,13 @@
 #include <map>
 #include <memory>
 
+namespace nano
+{
+class block_check_context;
+class confirmed_set;
+class stats;
+}
+
 namespace nano::store
 {
 class component;
@@ -34,6 +41,7 @@ class stats;
 
 class ledger final
 {
+	friend class block_check_context;
 	friend class ledger_view_unconfirmed;
 	template <typename T>
 	friend class receivable_iterator;
@@ -80,6 +88,7 @@ public:
 	static nano::epoch version (nano::block const & block);
 	nano::epoch version (store::transaction const & transaction, nano::block_hash const & hash) const;
 	nano::account_info account_info (nano::store::transaction const & transaction, nano::block const & block, nano::account const & representative);
+	void force (nano::store::write_transaction const & transaction, std::shared_ptr<nano::block> block);
 	static nano::uint128_t const unit;
 	nano::ledger_constants & constants;
 	nano::store::component & store;
@@ -94,6 +103,7 @@ private:
 	void initialize (nano::generate_cache_flags const &);
 	void track (store::write_transaction const & transaction, nano::block_delta const & delta);
 	void confirm (nano::store::write_transaction const & transaction, nano::block const & block);
+	void rollback (store::write_transaction const & transaction, nano::block const & block);
 	nano::unconfirmed_set unconfirmed_set;
 
 	std::unique_ptr<ledger_view_unconfirmed> unconfirmed_view;

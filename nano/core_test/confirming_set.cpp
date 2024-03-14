@@ -276,6 +276,6 @@ TEST (confirmation_callback, election_winner_details_clearing_node_process_confi
 	node->active.add_election_winner_details (send->hash (), nullptr);
 	nano::election_status election;
 	election.winner = send;
-	node->process_confirmed (election, 1000000);
+	node->process_confirmed (election);
 	ASSERT_EQ (0, node->active.election_winner_details_size ());
 }

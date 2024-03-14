@@ -282,7 +282,6 @@ TEST (ledger, process_receive)
 	ASSERT_TRUE (pending1);
 	ASSERT_EQ (nano::dev::genesis_key.pub, pending1->source);
 	ASSERT_EQ (25, pending1->amount.number ());
-	ASSERT_EQ (store.account.count (transaction), ledger.cache.account_count);
 }
 
 TEST (ledger, rollback_receiver)
@@ -1636,7 +1635,6 @@ TEST (ledger, fail_open_fork_previous)
 				  .work (*pool.generate (key1.pub))
 				  .build ();
 	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, block4));
-	ASSERT_EQ (store.account.count (transaction), ledger.cache.account_count);
 }
 
 TEST (ledger, fail_open_account_mismatch)
@@ -2928,7 +2926,6 @@ TEST (ledger, state_state_open_fork)
 				 .build ();
 	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, open2));
 	ASSERT_EQ (open1->root (), open2->root ());
-	ASSERT_EQ (store.account.count (transaction), ledger.cache.account_count);
 }
 
 TEST (ledger, state_open_previous_fail)
@@ -3281,6 +3278,7 @@ TEST (ledger, state_rollback_received_send)
 					.work (*pool.generate (key.pub))
 					.build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive1));
+	ASSERT_EQ (2, ledger.cache.account_count);
 	ASSERT_FALSE (ledger->get (transaction, nano::pending_key{ nano::dev::genesis_key.pub, receive1->hash () }));
 	ASSERT_FALSE (ledger.rollback (transaction, send1->hash ()));
 	ASSERT_FALSE (ledger->get (transaction, nano::pending_key{ nano::dev::genesis_key.pub, send1->hash () }));
@@ -3290,7 +3288,7 @@ TEST (ledger, state_rollback_received_send)
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (nano::dev::genesis_key.pub));
 	ASSERT_FALSE (ledger->balance (transaction, key.pub));
 	ASSERT_EQ (0, ledger.weight (key.pub));
-	ASSERT_EQ (store.account.count (transaction), ledger.cache.account_count);
+	ASSERT_EQ (1, ledger.cache.account_count);
 }
 
 TEST (ledger, state_rep_change_rollback)
@@ -3942,7 +3940,6 @@ TEST (ledger, epoch_blocks_receive_upgrade)
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, epoch4));
 	ASSERT_EQ (nano::epoch::epoch_2, epoch4->sideband ().details.epoch);
 	ASSERT_EQ (nano::epoch::epoch_0, epoch4->sideband ().source_epoch); // Not used for epoch blocks
-	ASSERT_EQ (store.account.count (transaction), ledger.cache.account_count);
 }
 
 TEST (ledger, epoch_blocks_fork)
@@ -4677,10 +4674,7 @@ TEST (ledger, dependents_confirmed)
 					.build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive1));
 	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *receive1));
-	nano::confirmation_height_info height;
-	ASSERT_FALSE (ledger.store.confirmation_height.get (transaction, nano::dev::genesis_key.pub, height));
-	height.height += 1;
-	ledger.store.confirmation_height.put (transaction, nano::dev::genesis_key.pub, height);
+	ledger.confirm (transaction, send1->hash ());
 	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *receive1));
 	auto receive2 = builder.state ()
 					.account (key1.pub)
@@ -4693,13 +4687,9 @@ TEST (ledger, dependents_confirmed)
 					.build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive2));
 	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *receive2));
-	ASSERT_TRUE (ledger.store.confirmation_height.get (transaction, key1.pub, height));
-	height.height += 1;
-	ledger.store.confirmation_height.put (transaction, key1.pub, height);
+	ledger.confirm (transaction, send2->hash ());
 	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *receive2));
-	ASSERT_FALSE (ledger.store.confirmation_height.get (transaction, nano::dev::genesis_key.pub, height));
-	height.height += 1;
-	ledger.store.confirmation_height.put (transaction, nano::dev::genesis_key.pub, height);
+	ledger.confirm (transaction, receive1->hash ());
 	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *receive2));
 }
 
@@ -4777,10 +4767,7 @@ TEST (ledger, block_confirmed)
 	ASSERT_FALSE (ledger.confirmed (transaction, send1->hash ()));
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
 	ASSERT_FALSE (ledger.confirmed (transaction, send1->hash ()));
-	nano::confirmation_height_info height;
-	ASSERT_FALSE (ledger.store.confirmation_height.get (transaction, nano::dev::genesis_key.pub, height));
-	++height.height;
-	ledger.store.confirmation_height.put (transaction, nano::dev::genesis_key.pub, height);
+	ledger.confirm (transaction, send1->hash ());
 	ASSERT_TRUE (ledger.confirmed (transaction, send1->hash ()));
 }
 

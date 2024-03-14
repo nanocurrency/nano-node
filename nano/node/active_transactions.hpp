@@ -171,7 +171,7 @@ public:
 	bool empty () const;
 	std::size_t size () const;
 	bool publish (std::shared_ptr<nano::block> const &);
-	void block_cemented_callback (std::shared_ptr<nano::block> const &);
+	void block_cemented_callback (std::shared_ptr<nano::block> const & block);
 	void block_already_cemented_callback (nano::block_hash const &);
 
 	/**

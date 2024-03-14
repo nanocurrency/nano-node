@@ -97,7 +97,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 		status = election->get_status ();
 		votes = election->votes_with_weight ();
 	}
-	if (confirming_set.exists (block->hash ()))
+	if (node.confirming_set.exists (block->hash ()))
 	{
 		status.type = nano::election_status_type::active_confirmed_quorum;
 	}

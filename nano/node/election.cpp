@@ -395,7 +395,7 @@ void nano::election::confirm_if_quorum (nano::unique_lock<nano::mutex> & lock_a)
 	{
 		status.winner = block_l;
 		remove_votes (status_winner_hash_l);
-		node.block_processor.force (block_l);
+		node.ledger.force (node.store.tx_begin_write (), block_l);
 	}
 	if (have_quorum (tally_l))
 	{

@@ -56,7 +56,9 @@ TEST (bulk_pull, end_not_owned)
 	nano::test::system system (1);
 	nano::keypair key2;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, 100));
+	auto block = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, 100);
+	ASSERT_NE (nullptr, block);
+	system.nodes[0]->ledger.confirm (system.nodes[0]->store.tx_begin_write (), block->hash ());
 	nano::block_hash latest (system.nodes[0]->latest (nano::dev::genesis_key.pub));
 	nano::block_builder builder;
 	auto open = builder
@@ -127,6 +129,7 @@ TEST (bulk_pull, ascending_one_hash)
 				  .build ();
 	node.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::block_status::progress, node.process (block1));
+	node.ledger.confirm (node.store.tx_begin_write (), block1->hash ());
 	auto socket = std::make_shared<nano::transport::socket> (node, nano::transport::socket::endpoint_type_t::server);
 	auto connection = std::make_shared<nano::transport::tcp_server> (socket, system.nodes[0]);
 	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
@@ -159,6 +162,7 @@ TEST (bulk_pull, ascending_two_account)
 				  .build ();
 	node.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::block_status::progress, node.process (block1));
+	node.ledger.confirm (node.store.tx_begin_write (), block1->hash ());
 	auto socket = std::make_shared<nano::transport::socket> (node, nano::transport::socket::endpoint_type_t::server);
 	auto connection = std::make_shared<nano::transport::tcp_server> (socket, system.nodes[0]);
 	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
@@ -262,7 +266,7 @@ TEST (bulk_pull, count_limit)
 					.work (*system.work.generate (send1->hash ()))
 					.build ();
 	ASSERT_EQ (nano::block_status::progress, node0->process (receive1));
-
+	node0->ledger.confirm (node0->store.tx_begin_write (), receive1->hash ());
 	auto connection (std::make_shared<nano::transport::tcp_server> (std::make_shared<nano::transport::socket> (*node0, nano::transport::socket::endpoint_type_t::server), node0));
 	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
 	req->start = receive1->hash ();

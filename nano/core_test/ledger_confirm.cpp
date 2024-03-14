@@ -44,8 +44,7 @@ TEST (ledger_confirm, single)
 	ASSERT_FALSE (confirmed.exists (transaction, send1->hash ()));
 	node->ledger.confirm (transaction, send1->hash ());
 	ASSERT_TRUE (confirmed.exists (transaction, send1->hash ()));
-	ASSERT_EQ (2, node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub).value ().height);
-	ASSERT_EQ (send1->hash (), node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub).value ().frontier);
+	ASSERT_EQ (send1->hash (), confirmed.head (transaction, nano::dev::genesis_key.pub));
 
 	// Rollbacks should fail as these blocks have been cemented
 	ASSERT_TRUE (node->ledger.rollback (transaction, latest1));
@@ -200,17 +199,13 @@ TEST (ledger_confirm, multiple_accounts)
 
 	ASSERT_TRUE (node->ledger.confirmed ().exists (transaction, receive3->hash ()));
 	ASSERT_EQ (4, node->ledger->get (transaction, nano::dev::genesis_key.pub).value ().block_count);
-	ASSERT_EQ (4, node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub).value ().height);
-	ASSERT_EQ (send3->hash (), node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub).value ().frontier);
+	ASSERT_EQ (send3->hash (), node->ledger.confirmed ().head (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (3, node->ledger->get (transaction, key1.pub).value ().block_count);
-	ASSERT_EQ (2, node->store.confirmation_height.get (transaction, key1.pub).value ().height);
-	ASSERT_EQ (send4->hash (), node->store.confirmation_height.get (transaction, key1.pub).value ().frontier);
+	ASSERT_EQ (send4->hash (), node->ledger.confirmed ().head (transaction, key1.pub));
 	ASSERT_EQ (4, node->ledger->get (transaction, key2.pub).value ().block_count);
-	ASSERT_EQ (3, node->store.confirmation_height.get (transaction, key2.pub).value ().height);
-	ASSERT_EQ (send6->hash (), node->store.confirmation_height.get (transaction, key2.pub).value ().frontier);
+	ASSERT_EQ (send6->hash (), node->ledger.confirmed ().head (transaction, key2.pub));
 	ASSERT_EQ (2, node->ledger->get (transaction, key3.pub).value ().block_count);
-	ASSERT_EQ (2, node->store.confirmation_height.get (transaction, key3.pub).value ().height);
-	ASSERT_EQ (receive3->hash (), node->store.confirmation_height.get (transaction, key3.pub).value ().frontier);
+	ASSERT_EQ (receive3->hash (), node->ledger.confirmed ().head (transaction, key3.pub));
 
 	// The accounts for key1 and key2 have 1 more block in the chain than is confirmed.
 	// So this can be rolled back, but the one before that cannot. Check that this is the case
@@ -774,7 +769,7 @@ TEST (ledger_confirm, election_winner_details_clearing_node_process_confirmed)
 	node->active.add_election_winner_details (send->hash (), nullptr);
 	nano::election_status election;
 	election.winner = send;
-	node->process_confirmed (election, 1000000);
+	node->process_confirmed (election);
 	ASSERT_EQ (0, node->active.election_winner_details_size ());
 }
 
