@@ -239,14 +239,6 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 	}
 }
 
-void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> const & channel_a, std::pair<nano::block_hash, nano::root> const & hash_root_a)
-{
-	auto & [hash, root] = hash_root_a;
-	// Confirmation request with hash + root
-	nano::confirm_req req (node.network_params.network, hash, root);
-	channel_a->send (req);
-}
-
 namespace
 {
 class network_message_visitor : public nano::message_visitor
