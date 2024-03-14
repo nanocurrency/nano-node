@@ -41,53 +41,55 @@ public:
 	std::chrono::seconds age_cutoff{ 5 * 60 };
 };
 
+/**
+ * Stores votes associated with a single block hash
+ */
+class vote_cache_entry final
+{
+public:
+	struct voter_entry
+	{
+		nano::account representative;
+		uint64_t timestamp;
+	};
+
+public:
+	explicit vote_cache_entry (nano::block_hash const & hash);
+
+	/**
+	 * Adds a vote into a list, checks for duplicates and updates timestamp if new one is greater
+	 * @return true if current tally changed, false otherwise
+	 */
+	bool vote (nano::account const & representative, uint64_t const & timestamp, nano::uint128_t const & rep_weight, std::size_t max_voters);
+
+	/**
+	 * Inserts votes stored in this entry into an election
+	 */
+	std::size_t fill (std::shared_ptr<nano::election> const & election) const;
+
+	std::size_t size () const;
+	nano::block_hash hash () const;
+	nano::uint128_t tally () const;
+	nano::uint128_t final_tally () const;
+	std::vector<voter_entry> voters () const;
+	std::chrono::steady_clock::time_point last_vote () const;
+
+private:
+	bool vote_impl (nano::account const & representative, uint64_t const & timestamp, nano::uint128_t const & rep_weight, std::size_t max_voters);
+
+	nano::block_hash const hash_m;
+	std::vector<voter_entry> voters_m;
+
+	nano::uint128_t tally_m{ 0 };
+	nano::uint128_t final_tally_m{ 0 };
+
+	std::chrono::steady_clock::time_point last_vote_m{};
+};
+
 class vote_cache final
 {
 public:
-	/**
-	 * Stores votes associated with a single block hash
-	 */
-	class entry final
-	{
-	public:
-		struct voter_entry
-		{
-			nano::account representative;
-			uint64_t timestamp;
-		};
-
-	public:
-		explicit entry (nano::block_hash const & hash);
-
-		/**
-		 * Adds a vote into a list, checks for duplicates and updates timestamp if new one is greater
-		 * @return true if current tally changed, false otherwise
-		 */
-		bool vote (nano::account const & representative, uint64_t const & timestamp, nano::uint128_t const & rep_weight, std::size_t max_voters);
-
-		/**
-		 * Inserts votes stored in this entry into an election
-		 */
-		std::size_t fill (std::shared_ptr<nano::election> const & election) const;
-
-		std::size_t size () const;
-		nano::block_hash hash () const;
-		nano::uint128_t tally () const;
-		nano::uint128_t final_tally () const;
-		std::vector<voter_entry> voters () const;
-		std::chrono::steady_clock::time_point last_vote () const;
-
-	private:
-		bool vote_impl (nano::account const & representative, uint64_t const & timestamp, nano::uint128_t const & rep_weight, std::size_t max_voters);
-
-		nano::block_hash const hash_m;
-		std::vector<voter_entry> voters_m;
-
-		nano::uint128_t tally_m{ 0 };
-		nano::uint128_t final_tally_m{ 0 };
-
-		std::chrono::steady_clock::time_point last_vote_m{};
-	};
+	using entry = vote_cache_entry;
 
 public:
 	explicit vote_cache (vote_cache_config const &, nano::stats &);
