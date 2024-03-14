@@ -4,6 +4,8 @@
 #include <nano/store/component.hpp>
 #include <nano/store/pending.hpp>
 #include <nano/store/pruned.hpp>
+#include <nano/store/rocksdb/unconfirmed_account.hpp>
+#include <nano/store/rocksdb/unconfirmed_set.hpp>
 
 nano::ledger_set_any::ledger_set_any (nano::ledger const & ledger) :
 	ledger{ ledger }
@@ -32,11 +34,21 @@ auto nano::ledger_set_any::account_end () const -> account_iterator
 
 std::optional<nano::account_info> nano::ledger_set_any::account_get (secure::transaction const & transaction, nano::account const & account) const
 {
+	auto unconfirmed = ledger.unconfirmed.account.get (transaction, account);
+	if (unconfirmed.has_value ())
+	{
+		return unconfirmed.value ();
+	}
 	return ledger.store.account.get (transaction, account);
 }
 
 nano::block_hash nano::ledger_set_any::account_head (secure::transaction const & transaction, nano::account const & account) const
 {
+	auto account_info = ledger.unconfirmed.account.get (transaction, account);
+	if (account_info.has_value ())
+	{
+		return account_info.value ().head;
+	}
 	auto info = account_get (transaction, account);
 	if (!info)
 	{
@@ -123,11 +135,19 @@ std::optional<nano::amount> nano::ledger_set_any::block_balance (secure::transac
 
 bool nano::ledger_set_any::block_exists (secure::transaction const & transaction, nano::block_hash const & hash) const
 {
+	if (ledger.unconfirmed.block.exists (transaction, hash))
+	{
+		return true;
+	}
 	return ledger.store.block.exists (transaction, hash);
 }
 
 bool nano::ledger_set_any::block_exists_or_pruned (secure::transaction const & transaction, nano::block_hash const & hash) const
 {
+	if (ledger.unconfirmed.block.exists (transaction, hash))
+	{
+		return true;
+	}
 	if (ledger.store.pruned.exists (transaction, hash))
 	{
 		return true;
@@ -137,6 +157,11 @@ bool nano::ledger_set_any::block_exists_or_pruned (secure::transaction const & t
 
 std::shared_ptr<nano::block> nano::ledger_set_any::block_get (secure::transaction const & transaction, nano::block_hash const & hash) const
 {
+	auto unconfirmed = ledger.unconfirmed.block.get (transaction, hash);
+	if (unconfirmed != nullptr)
+	{
+		return unconfirmed;
+	}
 	return ledger.store.block.get (transaction, hash);
 }
 
@@ -150,13 +175,34 @@ uint64_t nano::ledger_set_any::block_height (secure::transaction const & transac
 	return block->sideband ().height;
 }
 
-std::optional<std::pair<nano::pending_key, nano::pending_info>> nano::ledger_set_any::receivable_lower_bound (secure::transaction const & transaction, nano::account const & account, nano::block_hash const & hash) const
+std::optional<std::pair<nano::pending_key, nano::pending_info>> nano::ledger_set_any::receivable_lower_bound (secure::transaction const & transaction, nano::account const & account_a, nano::block_hash const & hash_a) const
 {
-	auto result = ledger.store.pending.begin (transaction, { account, hash });
-	if (result == ledger.store.pending.end ())
+	auto account = account_a;
+	auto hash = hash_a;
+	std::optional<std::pair<nano::pending_key, nano::pending_info>> result;
+	do
 	{
-		return std::nullopt;
-	}
+		auto unconfirmed = ledger.unconfirmed.receivable.lower_bound (transaction, account, hash);
+		auto confirmed = ledger.store.pending.begin (transaction, { account, hash });
+		if (confirmed == ledger.store.pending.end () && !unconfirmed.has_value ())
+		{
+			return std::nullopt;
+		}
+		else if (!unconfirmed.has_value () && confirmed != ledger.store.pending.end ())
+		{
+			result = *confirmed;
+		}
+		else if (unconfirmed.has_value () && confirmed == ledger.store.pending.end ())
+		{
+			result = unconfirmed.value ();
+		}
+		else if (unconfirmed.value ().first < confirmed->first)
+		{
+			result = unconfirmed.value ();
+		}
+		account = result.has_value () ? result.value ().first.account : account;
+		hash = result.has_value () ? result.value ().first.hash.number () + 1 : hash;
+	} while (result.has_value () && ledger.unconfirmed.received.exists (transaction, result.value ().first));
 	return *result;
 }
 
@@ -167,6 +213,10 @@ auto nano::ledger_set_any::receivable_end () const -> receivable_iterator
 
 bool nano::ledger_set_any::receivable_exists (secure::transaction const & transaction, nano::account const & account) const
 {
+	if (ledger.unconfirmed.receivable_exists (transaction, account))
+	{
+		return true;
+	}
 	auto next = receivable_upper_bound (transaction, account, 0);
 	return next != receivable_end ();
 }
@@ -193,6 +243,11 @@ std::optional<nano::block_hash> nano::ledger_set_any::block_successor (secure::t
 
 std::optional<nano::block_hash> nano::ledger_set_any::block_successor (secure::transaction const & transaction, nano::qualified_root const & root) const
 {
+	auto unconfirmed = ledger.unconfirmed.successor.get (transaction, root.previous ());
+	if (unconfirmed.has_value ())
+	{
+		return unconfirmed.value ();
+	}
 	if (!root.previous ().is_zero ())
 	{
 		return ledger.store.block.successor (transaction, root.previous ());
@@ -213,5 +268,14 @@ std::optional<nano::block_hash> nano::ledger_set_any::block_successor (secure::t
 
 std::optional<nano::pending_info> nano::ledger_set_any::pending_get (secure::transaction const & transaction, nano::pending_key const & key) const
 {
+	if (ledger.unconfirmed.received.exists (transaction, key))
+	{
+		return std::nullopt;
+	}
+	auto info = ledger.unconfirmed.receivable.get (transaction, key);
+	if (info.has_value ())
+	{
+		return info;
+	}
 	return ledger.store.pending.get (transaction, key);
 }

@@ -11,6 +11,11 @@
 
 namespace nano
 {
+class block;
+}
+
+namespace nano
+{
 class block_delta
 {
 public:

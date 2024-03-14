@@ -4,6 +4,9 @@
 #include <nano/lib/memory.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/store/rocksdb/unconfirmed_account.hpp>
+#include <nano/store/rocksdb/unconfirmed_block.hpp>
+#include <nano/store/rocksdb/unconfirmed_pending.hpp>
 #include <nano/store/tables.hpp>
 #include <nano/store/transaction.hpp>
 #include <nano/store/versioning.hpp>
@@ -26,8 +29,10 @@ namespace store
 	class peer;
 	class pending;
 	class pruned;
+	class transaction;
 	class version;
 	class rep_weight;
+	class write_transaction;
 }
 class ledger_cache;
 

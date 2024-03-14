@@ -23,12 +23,12 @@ std::optional<nano::amount> nano::ledger_set_confirmed::account_balance (secure:
 
 nano::block_hash nano::ledger_set_confirmed::account_head (secure::transaction const & transaction, nano::account const & account) const
 {
-	auto info = ledger.store.confirmation_height.get (transaction, account);
+	auto info = ledger.store.account.get (transaction, account);
 	if (!info)
 	{
 		return 0;
 	}
-	return info.value ().frontier;
+	return info.value ().head;
 }
 
 uint64_t nano::ledger_set_confirmed::account_height (secure::transaction const & transaction, nano::account const & account) const
@@ -73,18 +73,9 @@ bool nano::ledger_set_confirmed::block_exists_or_pruned (secure::transaction con
 
 std::shared_ptr<nano::block> nano::ledger_set_confirmed::block_get (secure::transaction const & transaction, nano::block_hash const & hash) const
 {
-	auto block = ledger.store.block.get (transaction, hash);
-	if (!block)
-	{
-		return nullptr;
-	}
-	auto info = ledger.store.confirmation_height.get (transaction, block->account ());
-	if (!info)
-	{
-		return nullptr;
-	}
-	return block->sideband ().height <= info.value ().height ? block : nullptr;
+	return ledger.store.block.get (transaction, hash);
 }
+
 auto nano::ledger_set_confirmed::receivable_end () const -> receivable_iterator
 {
 	return receivable_iterator{};

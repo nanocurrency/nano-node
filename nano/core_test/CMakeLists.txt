@@ -56,6 +56,7 @@ add_executable(
   timer.cpp
   uint256_union.cpp
   unchecked_map.cpp
+  unconfirmed_set.cpp
   utility.cpp
   vote_cache.cpp
   vote_processor.cpp

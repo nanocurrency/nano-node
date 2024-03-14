@@ -12,6 +12,7 @@
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
+#include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/store/component.hpp>
 
 nano::request_aggregator::request_aggregator (request_aggregator_config const & config_a, nano::node & node_a, nano::stats & stats_a, nano::vote_generator & generator_a, nano::vote_generator & final_generator_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_router & vote_router_a) :
@@ -240,9 +241,7 @@ auto nano::request_aggregator::aggregate (nano::secure::transaction const & tran
 			// Confirmation status. Generate final votes for confirmed
 			if (block != nullptr)
 			{
-				nano::confirmation_height_info confirmation_height_info;
-				ledger.store.confirmation_height.get (transaction, block->account (), confirmation_height_info);
-				generate_final_vote = (confirmation_height_info.height >= block->sideband ().height);
+				generate_final_vote = ledger.confirmed.block_exists (transaction, hash);
 			}
 		}
 
@@ -260,9 +259,7 @@ auto nano::request_aggregator::aggregate (nano::secure::transaction const & tran
 				// Confirmation status. Generate final votes for confirmed successor
 				if (block != nullptr)
 				{
-					nano::confirmation_height_info confirmation_height_info;
-					ledger.store.confirmation_height.get (transaction, block->account (), confirmation_height_info);
-					generate_final_vote = (confirmation_height_info.height >= block->sideband ().height);
+					generate_final_vote = ledger.confirmed.block_exists (transaction, block->hash ());
 				}
 			}
 		}

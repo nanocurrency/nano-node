@@ -302,6 +302,10 @@ std::shared_ptr<nano::state_block> nano::test::upgrade_epoch (nano::work_pool & 
 	{
 		error = ledger_a.process (transaction, epoch) != nano::block_status::progress;
 	}
+	if (!error)
+	{
+		ledger_a.confirm (transaction, epoch->hash ());
+	}
 
 	return !error ? std::move (epoch) : nullptr;
 }
