@@ -3,6 +3,7 @@
 #include <nano/lib/thread_pool.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/secure/pending_info.hpp>
 #include <nano/secure/utility.hpp>
 
 #include <gtest/gtest.h>
@@ -345,4 +346,17 @@ TEST (relaxed_atomic_integral, many_threads)
 
 	// Check values
 	ASSERT_EQ (0, atomic);
+}
+
+TEST (pending_key, sorting)
+{
+	nano::pending_key one{ 1, 2 };
+	nano::pending_key two{ 1, 3 };
+	nano::pending_key three{ 2, 1 };
+	ASSERT_LT (one, two);
+	ASSERT_LT (one, three);
+	ASSERT_LT (two, three);
+	nano::pending_key one_same{ 1, 2 };
+	ASSERT_EQ (std::hash<nano::pending_key>{}(one), std::hash<nano::pending_key>{}(one_same));
+	ASSERT_NE (std::hash<nano::pending_key>{}(one), std::hash<nano::pending_key>{}(two));
 }

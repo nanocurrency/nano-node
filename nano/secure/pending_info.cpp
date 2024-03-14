@@ -65,3 +65,8 @@ nano::account const & nano::pending_key::key () const
 {
 	return account;
 }
+
+bool nano::pending_key::operator< (nano::pending_key const & other_a) const
+{
+	return account == other_a.account ? hash < other_a.hash : account < other_a.account;
+}
