@@ -112,6 +112,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::network_cleanup:
 			thread_role_name_string = "Net cleanup";
 			break;
+		case nano::thread_role::name::network_keepalive:
+			thread_role_name_string = "Net keepalive";
+			break;
 		default:
 			debug_assert (false && "nano::thread_role::get_string unhandled thread role");
 	}

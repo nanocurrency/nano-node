@@ -46,6 +46,7 @@ enum class name
 	local_block_broadcasting,
 	rep_tiers,
 	network_cleanup,
+	network_keepalive,
 };
 
 /*
