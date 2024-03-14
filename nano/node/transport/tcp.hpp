@@ -168,7 +168,7 @@ namespace transport
 		nano::tcp_message_manager message_manager;
 
 	private:
-		class channel_tcp_wrapper final
+		class channel_entry final
 		{
 		public:
 			std::shared_ptr<nano::transport::channel_tcp> channel;
@@ -176,7 +176,7 @@ namespace transport
 			std::shared_ptr<nano::transport::tcp_server> response_server;
 
 		public:
-			channel_tcp_wrapper (std::shared_ptr<nano::transport::channel_tcp> channel_a, std::shared_ptr<nano::transport::socket> socket_a, std::shared_ptr<nano::transport::tcp_server> server_a) :
+			channel_entry (std::shared_ptr<nano::transport::channel_tcp> channel_a, std::shared_ptr<nano::transport::socket> socket_a, std::shared_ptr<nano::transport::tcp_server> server_a) :
 				channel (std::move (channel_a)), socket (std::move (socket_a)), response_server (std::move (server_a))
 			{
 			}
@@ -211,7 +211,7 @@ namespace transport
 			}
 		};
 
-		class tcp_endpoint_attempt final
+		class attempt_entry final
 		{
 		public:
 			nano::tcp_endpoint endpoint;
@@ -220,7 +220,7 @@ namespace transport
 			std::chrono::steady_clock::time_point last_attempt{ std::chrono::steady_clock::now () };
 
 		public:
-			explicit tcp_endpoint_attempt (nano::tcp_endpoint const & endpoint_a) :
+			explicit attempt_entry (nano::tcp_endpoint const & endpoint_a) :
 				endpoint (endpoint_a),
 				address (nano::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ())),
 				subnetwork (nano::transport::map_address_to_subnetwork (endpoint_a.address ()))
@@ -241,35 +241,35 @@ namespace transport
 		// clang-format on
 
 		// clang-format off
-		boost::multi_index_container<channel_tcp_wrapper,
+		boost::multi_index_container<channel_entry,
 		mi::indexed_by<
 			mi::random_access<mi::tag<random_access_tag>>,
 			mi::ordered_non_unique<mi::tag<last_bootstrap_attempt_tag>,
-				mi::const_mem_fun<channel_tcp_wrapper, std::chrono::steady_clock::time_point, &channel_tcp_wrapper::last_bootstrap_attempt>>,
+				mi::const_mem_fun<channel_entry, std::chrono::steady_clock::time_point, &channel_entry::last_bootstrap_attempt>>,
 			mi::hashed_unique<mi::tag<endpoint_tag>,
-				mi::const_mem_fun<channel_tcp_wrapper, nano::tcp_endpoint, &channel_tcp_wrapper::endpoint>>,
+				mi::const_mem_fun<channel_entry, nano::tcp_endpoint, &channel_entry::endpoint>>,
 			mi::hashed_non_unique<mi::tag<node_id_tag>,
-				mi::const_mem_fun<channel_tcp_wrapper, nano::account, &channel_tcp_wrapper::node_id>>,
+				mi::const_mem_fun<channel_entry, nano::account, &channel_entry::node_id>>,
 			mi::ordered_non_unique<mi::tag<last_packet_sent_tag>,
-				mi::const_mem_fun<channel_tcp_wrapper, std::chrono::steady_clock::time_point, &channel_tcp_wrapper::last_packet_sent>>,
+				mi::const_mem_fun<channel_entry, std::chrono::steady_clock::time_point, &channel_entry::last_packet_sent>>,
 			mi::ordered_non_unique<mi::tag<version_tag>,
-				mi::const_mem_fun<channel_tcp_wrapper, uint8_t, &channel_tcp_wrapper::network_version>>,
+				mi::const_mem_fun<channel_entry, uint8_t, &channel_entry::network_version>>,
 			mi::hashed_non_unique<mi::tag<ip_address_tag>,
-				mi::const_mem_fun<channel_tcp_wrapper, boost::asio::ip::address, &channel_tcp_wrapper::ip_address>>,
+				mi::const_mem_fun<channel_entry, boost::asio::ip::address, &channel_entry::ip_address>>,
 			mi::hashed_non_unique<mi::tag<subnetwork_tag>,
-				mi::const_mem_fun<channel_tcp_wrapper, boost::asio::ip::address, &channel_tcp_wrapper::subnetwork>>>>
+				mi::const_mem_fun<channel_entry, boost::asio::ip::address, &channel_entry::subnetwork>>>>
 		channels;
 
-		boost::multi_index_container<tcp_endpoint_attempt,
+		boost::multi_index_container<attempt_entry,
 		mi::indexed_by<
 			mi::hashed_unique<mi::tag<endpoint_tag>,
-				mi::member<tcp_endpoint_attempt, nano::tcp_endpoint, &tcp_endpoint_attempt::endpoint>>,
+				mi::member<attempt_entry, nano::tcp_endpoint, &attempt_entry::endpoint>>,
 			mi::hashed_non_unique<mi::tag<ip_address_tag>,
-				mi::member<tcp_endpoint_attempt, boost::asio::ip::address, &tcp_endpoint_attempt::address>>,
+				mi::member<attempt_entry, boost::asio::ip::address, &attempt_entry::address>>,
 			mi::hashed_non_unique<mi::tag<subnetwork_tag>,
-				mi::member<tcp_endpoint_attempt, boost::asio::ip::address, &tcp_endpoint_attempt::subnetwork>>,
+				mi::member<attempt_entry, boost::asio::ip::address, &attempt_entry::subnetwork>>,
 			mi::ordered_non_unique<mi::tag<last_attempt_tag>,
-				mi::member<tcp_endpoint_attempt, std::chrono::steady_clock::time_point, &tcp_endpoint_attempt::last_attempt>>>>
+				mi::member<attempt_entry, std::chrono::steady_clock::time_point, &attempt_entry::last_attempt>>>>
 		attempts;
 		// clang-format on
 

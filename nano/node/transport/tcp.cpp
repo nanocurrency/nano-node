@@ -308,7 +308,7 @@ nano::tcp_endpoint nano::transport::tcp_channels::bootstrap_peer ()
 		if (i->channel->get_network_version () >= node.network_params.network.protocol_version_min)
 		{
 			result = nano::transport::map_endpoint_to_tcp (i->channel->get_peering_endpoint ());
-			channels.get<last_bootstrap_attempt_tag> ().modify (i, [] (channel_tcp_wrapper & wrapper_a) {
+			channels.get<last_bootstrap_attempt_tag> ().modify (i, [] (channel_entry & wrapper_a) {
 				wrapper_a.channel->set_last_bootstrap_attempt (std::chrono::steady_clock::now ());
 			});
 			i = n;
@@ -601,7 +601,7 @@ void nano::transport::tcp_channels::modify (std::shared_ptr<nano::transport::cha
 	auto existing (channels.get<endpoint_tag> ().find (channel_a->get_tcp_endpoint ()));
 	if (existing != channels.get<endpoint_tag> ().end ())
 	{
-		channels.get<endpoint_tag> ().modify (existing, [modify_callback = std::move (modify_callback_a)] (channel_tcp_wrapper & wrapper_a) {
+		channels.get<endpoint_tag> ().modify (existing, [modify_callback = std::move (modify_callback_a)] (channel_entry & wrapper_a) {
 			modify_callback (wrapper_a.channel);
 		});
 	}
@@ -613,7 +613,7 @@ void nano::transport::tcp_channels::update (nano::tcp_endpoint const & endpoint_
 	auto existing (channels.get<endpoint_tag> ().find (endpoint_a));
 	if (existing != channels.get<endpoint_tag> ().end ())
 	{
-		channels.get<endpoint_tag> ().modify (existing, [] (channel_tcp_wrapper & wrapper_a) {
+		channels.get<endpoint_tag> ().modify (existing, [] (channel_entry & wrapper_a) {
 			wrapper_a.channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 		});
 	}
