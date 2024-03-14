@@ -6,6 +6,7 @@
 #include <nano/secure/generate_cache_flags.hpp>
 #include <nano/secure/ledger_cache.hpp>
 #include <nano/secure/pending_info.hpp>
+#include <nano/secure/unconfirmed_set.hpp>
 
 #include <deque>
 #include <map>
@@ -32,6 +33,7 @@ class stats;
 
 class ledger final
 {
+	friend class ledger_view_unconfirmed;
 	template <typename T>
 	friend class receivable_iterator;
 
@@ -90,6 +92,7 @@ public:
 private:
 	void initialize (nano::generate_cache_flags const &);
 	void confirm (nano::store::write_transaction const & transaction, nano::block const & block);
+	nano::unconfirmed_set unconfirmed_set;
 
 	std::unique_ptr<ledger_view_unconfirmed> unconfirmed_view;
 	std::unique_ptr<ledger_view_confirmed> confirmed_view;

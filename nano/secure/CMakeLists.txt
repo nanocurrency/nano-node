@@ -41,6 +41,7 @@ add_library(
   ${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp
   account_info.hpp
   account_info.cpp
+  block_delta.hpp
   common.hpp
   common.cpp
   generate_cache_flags.hpp
@@ -62,6 +63,8 @@ add_library(
   receivable_iterator_impl.hpp
   rep_weights.hpp
   rep_weights.cpp
+  unconfirmed_set.cpp
+  unconfirmed_set.hpp
   utility.hpp
   utility.cpp
   vote.hpp
