@@ -20,7 +20,6 @@ nano::network::network (nano::node & node, uint16_t port) :
 	id{ nano::network_constants::active_network },
 	syn_cookies{ node.network_params.network.max_peers_per_ip, node.logger },
 	resolver{ node.io_ctx },
-	tcp_message_manager{ node.config.tcp_incoming_connections_max },
 	publish_filter{ 256 * 1024 },
 	tcp_channels{ node, [this] (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel) {
 					 inbound (message, channel);
@@ -73,7 +72,6 @@ void nano::network::stop ()
 
 	tcp_channels.stop ();
 	resolver.cancel ();
-	tcp_message_manager.stop ();
 
 	for (auto & thread : processing_threads)
 	{

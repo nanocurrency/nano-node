@@ -16,27 +16,6 @@ namespace nano
 {
 class node;
 
-class tcp_message_manager final
-{
-public:
-	tcp_message_manager (unsigned incoming_connections_max_a);
-	void put_message (nano::tcp_message_item const & item_a);
-	nano::tcp_message_item get_message ();
-	// Stop container and notify waiting threads
-	void stop ();
-
-private:
-	nano::mutex mutex;
-	nano::condition_variable producer_condition;
-	nano::condition_variable consumer_condition;
-	std::deque<nano::tcp_message_item> entries;
-	unsigned max_entries;
-	static unsigned const max_entries_per_connection = 16;
-	bool stopped{ false };
-
-	friend class network_tcp_message_manager_Test;
-};
-
 /**
  * Node ID cookies for node ID handshakes
  */
@@ -142,7 +121,6 @@ public:
 	nano::syn_cookies syn_cookies;
 	boost::asio::ip::udp::resolver resolver;
 	nano::peer_exclusion excluded_peers;
-	nano::tcp_message_manager tcp_message_manager;
 	nano::network_filter publish_filter;
 	nano::transport::tcp_channels tcp_channels;
 	std::atomic<uint16_t> port{ 0 };
