@@ -11,6 +11,7 @@
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
 
+#include <thread>
 #include <unordered_set>
 
 namespace mi = boost::multi_index;
@@ -124,9 +125,11 @@ namespace transport
 	{
 		friend class nano::transport::channel_tcp;
 		friend class telemetry_simultaneous_requests_Test;
+		friend class network_peer_max_tcp_attempts_subnetwork_Test;
 
 	public:
 		explicit tcp_channels (nano::node &, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink = nullptr);
+		~tcp_channels ();
 
 		void start ();
 		void stop ();
@@ -163,6 +166,10 @@ namespace transport
 
 	private: // Dependencies
 		nano::node & node;
+
+	private:
+		void run_keepalive ();
+		void keepalive ();
 
 	public:
 		nano::tcp_message_manager message_manager;
@@ -277,9 +284,9 @@ namespace transport
 		std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink;
 
 		std::atomic<bool> stopped{ false };
+		nano::condition_variable condition;
 		mutable nano::mutex mutex;
-
-		friend class network_peer_max_tcp_attempts_subnetwork_Test;
+		std::thread keepalive_thread;
 	};
 } // namespace transport
 } // namespace nano
