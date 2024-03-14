@@ -148,6 +148,8 @@ add_library(
   telemetry.cpp
   transport/channel.hpp
   transport/channel.cpp
+  transport/common.hpp
+  transport/common.cpp
   transport/fake.hpp
   transport/fake.cpp
   transport/inproc.hpp
