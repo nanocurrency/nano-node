@@ -131,6 +131,35 @@ nano::transport::tcp_channels::tcp_channels (nano::node & node, std::function<vo
 {
 }
 
+void nano::transport::tcp_channels::start ()
+{
+	ongoing_keepalive ();
+	ongoing_merge (0);
+}
+
+void nano::transport::tcp_channels::stop ()
+{
+	stopped = true;
+	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	message_manager.stop ();
+
+	// Close all TCP sockets
+	for (auto const & channel : channels)
+	{
+		if (channel.socket)
+		{
+			channel.socket->close ();
+		}
+		// Remove response server
+		if (channel.response_server)
+		{
+			channel.response_server->stop ();
+		}
+	}
+	channels.clear ();
+}
+
 bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::transport::socket> const & socket_a, std::shared_ptr<nano::transport::tcp_server> const & server_a)
 {
 	auto endpoint (channel_a->get_tcp_endpoint ());
@@ -353,35 +382,6 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 			channel->set_last_packet_received (std::chrono::steady_clock::now ());
 		}
 	}
-}
-
-void nano::transport::tcp_channels::start ()
-{
-	ongoing_keepalive ();
-	ongoing_merge (0);
-}
-
-void nano::transport::tcp_channels::stop ()
-{
-	stopped = true;
-	nano::unique_lock<nano::mutex> lock{ mutex };
-
-	message_manager.stop ();
-
-	// Close all TCP sockets
-	for (auto const & channel : channels)
-	{
-		if (channel.socket)
-		{
-			channel.socket->close ();
-		}
-		// Remove response server
-		if (channel.response_server)
-		{
-			channel.response_server->stop ();
-		}
-	}
-	channels.clear ();
 }
 
 bool nano::transport::tcp_channels::max_ip_connections (nano::tcp_endpoint const & endpoint_a)

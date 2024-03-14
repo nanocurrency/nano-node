@@ -126,7 +126,11 @@ namespace transport
 		friend class telemetry_simultaneous_requests_Test;
 
 	public:
-		explicit tcp_channels (nano::node &, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> = nullptr);
+		explicit tcp_channels (nano::node &, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink = nullptr);
+
+		void start ();
+		void stop ();
+
 		bool insert (std::shared_ptr<nano::transport::channel_tcp> const &, std::shared_ptr<nano::transport::socket> const &, std::shared_ptr<nano::transport::tcp_server> const &);
 		void erase (nano::tcp_endpoint const &);
 		std::size_t size () const;
@@ -138,8 +142,6 @@ namespace transport
 		// Get the next peer for attempting a tcp connection
 		nano::tcp_endpoint bootstrap_peer ();
 		void receive ();
-		void start ();
-		void stop ();
 		void process_messages ();
 		void process_message (nano::message const &, nano::tcp_endpoint const &, nano::account const &, std::shared_ptr<nano::transport::socket> const &);
 		bool max_ip_connections (nano::tcp_endpoint const & endpoint_a);
@@ -166,40 +168,14 @@ namespace transport
 		nano::tcp_message_manager message_manager;
 
 	private:
-		class endpoint_tag
-		{
-		};
-		class ip_address_tag
-		{
-		};
-		class subnetwork_tag
-		{
-		};
-		class random_access_tag
-		{
-		};
-		class last_packet_sent_tag
-		{
-		};
-		class last_bootstrap_attempt_tag
-		{
-		};
-		class last_attempt_tag
-		{
-		};
-		class node_id_tag
-		{
-		};
-		class version_tag
-		{
-		};
-
 		class channel_tcp_wrapper final
 		{
 		public:
 			std::shared_ptr<nano::transport::channel_tcp> channel;
 			std::shared_ptr<nano::transport::socket> socket;
 			std::shared_ptr<nano::transport::tcp_server> response_server;
+
+		public:
 			channel_tcp_wrapper (std::shared_ptr<nano::transport::channel_tcp> channel_a, std::shared_ptr<nano::transport::socket> socket_a, std::shared_ptr<nano::transport::tcp_server> server_a) :
 				channel (std::move (channel_a)), socket (std::move (socket_a)), response_server (std::move (server_a))
 			{
@@ -234,6 +210,7 @@ namespace transport
 				return channel->get_network_version ();
 			}
 		};
+
 		class tcp_endpoint_attempt final
 		{
 		public:
@@ -242,6 +219,7 @@ namespace transport
 			boost::asio::ip::address subnetwork;
 			std::chrono::steady_clock::time_point last_attempt{ std::chrono::steady_clock::now () };
 
+		public:
 			explicit tcp_endpoint_attempt (nano::tcp_endpoint const & endpoint_a) :
 				endpoint (endpoint_a),
 				address (nano::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ())),
@@ -249,7 +227,19 @@ namespace transport
 			{
 			}
 		};
-		mutable nano::mutex mutex;
+
+		// clang-format off
+		class endpoint_tag {};
+		class ip_address_tag {};
+		class subnetwork_tag {};
+		class random_access_tag {};
+		class last_packet_sent_tag {};
+		class last_bootstrap_attempt_tag {};
+		class last_attempt_tag {};
+		class node_id_tag {};
+		class version_tag {};
+		// clang-format on
+
 		// clang-format off
 		boost::multi_index_container<channel_tcp_wrapper,
 		mi::indexed_by<
@@ -269,6 +259,7 @@ namespace transport
 			mi::hashed_non_unique<mi::tag<subnetwork_tag>,
 				mi::const_mem_fun<channel_tcp_wrapper, boost::asio::ip::address, &channel_tcp_wrapper::subnetwork>>>>
 		channels;
+
 		boost::multi_index_container<tcp_endpoint_attempt,
 		mi::indexed_by<
 			mi::hashed_unique<mi::tag<endpoint_tag>,
@@ -284,7 +275,9 @@ namespace transport
 
 	private:
 		std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink;
+
 		std::atomic<bool> stopped{ false };
+		mutable nano::mutex mutex;
 
 		friend class network_peer_max_tcp_attempts_subnetwork_Test;
 	};
