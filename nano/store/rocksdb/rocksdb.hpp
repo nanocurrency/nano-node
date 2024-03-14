@@ -15,6 +15,9 @@
 #include <nano/store/rocksdb/pending.hpp>
 #include <nano/store/rocksdb/pruned.hpp>
 #include <nano/store/rocksdb/rep_weight.hpp>
+#include <nano/store/rocksdb/unconfirmed_account.hpp>
+#include <nano/store/rocksdb/unconfirmed_block.hpp>
+#include <nano/store/rocksdb/unconfirmed_pending.hpp>
 #include <nano/store/rocksdb/version.hpp>
 
 #include <rocksdb/db.h>
@@ -61,6 +64,9 @@ public:
 	friend class nano::store::rocksdb::peer;
 	friend class nano::store::rocksdb::pending;
 	friend class nano::store::rocksdb::pruned;
+	friend class nano::store::rocksdb::unconfirmed_account;
+	friend class nano::store::rocksdb::unconfirmed_block;
+	friend class nano::store::rocksdb::unconfirmed_pending;
 	friend class nano::store::rocksdb::version;
 	friend class nano::store::rocksdb::rep_weight;
 

@@ -15,6 +15,7 @@
 #include <nano/store/block.hpp>
 #include <nano/store/lmdb/lmdb.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/unconfirmed_set.hpp>
 #include <nano/store/versioning.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -381,7 +382,8 @@ TEST (block_store, genesis)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::ledger_cache ledger_cache{ store->rep_weight };
+	nano::store::unconfirmed_set unconfirmed;
+	nano::ledger_cache ledger_cache{ store->rep_weight, unconfirmed.rep_weight };
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger_cache, nano::dev::constants);
 	nano::account_info info;
@@ -906,8 +908,9 @@ TEST (block_store, block_random)
 {
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	nano::store::unconfirmed_set unconfirmed;
 	{
-		nano::ledger_cache ledger_cache{ store->rep_weight };
+		nano::ledger_cache ledger_cache{ store->rep_weight, unconfirmed.rep_weight };
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger_cache, nano::dev::constants);
 	}
@@ -922,6 +925,7 @@ TEST (block_store, pruned_random)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
+	nano::store::unconfirmed_set unconfirmed;
 	nano::block_builder builder;
 	auto block = builder
 				 .open ()
@@ -934,7 +938,7 @@ TEST (block_store, pruned_random)
 	block->sideband_set ({});
 	auto hash1 (block->hash ());
 	{
-		nano::ledger_cache ledger_cache{ store->rep_weight };
+		nano::ledger_cache ledger_cache{ store->rep_weight, unconfirmed.rep_weight };
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger_cache, nano::dev::constants);
 		store->pruned.put (transaction, hash1);
@@ -949,6 +953,7 @@ TEST (block_store, state_block)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
+	nano::store::unconfirmed_set unconfirmed;
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -964,7 +969,7 @@ TEST (block_store, state_block)
 
 	block1->sideband_set ({});
 	{
-		nano::ledger_cache ledger_cache{ store->rep_weight };
+		nano::ledger_cache ledger_cache{ store->rep_weight, unconfirmed.rep_weight };
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger_cache, nano::dev::constants);
 		ASSERT_EQ (nano::block_type::state, block1->type ());
