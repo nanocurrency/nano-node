@@ -1,9 +1,11 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/transport/socket.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -57,8 +59,9 @@ TEST (network, tcp_connection)
 TEST (network, construction_with_specified_port)
 {
 	nano::test::system system{};
-	auto const port = system.get_available_port (/* do not allow 0 port */ false);
-	auto const node = system.add_node (nano::node_config{ port, system.logging });
+	auto const port = nano::test::speculatively_choose_a_free_tcp_bind_port ();
+	ASSERT_NE (port, 0);
+	auto const node = system.add_node (nano::node_config{ port });
 	EXPECT_EQ (port, node->network.port);
 	EXPECT_EQ (port, node->network.endpoint ().port ());
 	EXPECT_EQ (port, node->tcp_listener->endpoint ().port ());
@@ -79,7 +82,7 @@ TEST (network, send_node_id_handshake_tcp)
 	nano::test::system system (1);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto initial (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
@@ -157,7 +160,7 @@ TEST (network, multi_keepalive)
 	nano::test::system system (1);
 	auto node0 = system.nodes[0];
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work));
 	ASSERT_FALSE (node1->init_error ());
 	node1->start ();
 	system.nodes.push_back (node1);
@@ -165,7 +168,7 @@ TEST (network, multi_keepalive)
 	ASSERT_EQ (0, node0->network.size ());
 	node1->network.tcp_channels.start_tcp (node0->network.endpoint ());
 	ASSERT_TIMELY (10s, node0->network.size () == 1 && node0->stats.count (nano::stat::type::message, nano::stat::detail::keepalive) >= 1);
-	auto node2 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto node2 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work));
 	ASSERT_FALSE (node2->init_error ());
 	node2->start ();
 	system.nodes.push_back (node2);
@@ -186,7 +189,7 @@ TEST (network, send_discarded_publish)
 				 .balance (2)
 				 .sign (nano::keypair ().prv, 4)
 				 .work (*system.work.generate (nano::root (1)))
-				 .build_shared ();
+				 .build ();
 	{
 		auto transaction (node1.store.tx_begin_read ());
 		node1.network.flood_block (block);
@@ -212,7 +215,7 @@ TEST (network, send_invalid_publish)
 				 .balance (20)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::root (1)))
-				 .build_shared ();
+				 .build ();
 	{
 		auto transaction (node1.store.tx_begin_read ());
 		node1.network.flood_block (block);
@@ -298,7 +301,7 @@ TEST (network, send_insufficient_work)
 				  .balance (20)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (0)
-				  .build_shared ();
+				  .build ();
 	nano::publish publish1{ nano::dev::network_params.network, block1 };
 	auto tcp_channel (node1.network.tcp_channels.find_node_id (node2.get_node_id ()));
 	ASSERT_NE (nullptr, tcp_channel);
@@ -314,7 +317,7 @@ TEST (network, send_insufficient_work)
 				  .balance (20)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (system.work_generate_limited (block1->hash (), node1.network_params.work.epoch_2_receive, node1.network_params.work.epoch_1 - 1))
-				  .build_shared ();
+				  .build ();
 	nano::publish publish2{ nano::dev::network_params.network, block2 };
 	tcp_channel->send (publish2, [] (boost::system::error_code const & ec, size_t size) {});
 	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work) != 1);
@@ -327,7 +330,7 @@ TEST (network, send_insufficient_work)
 				  .balance (20)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (*system.work.generate (block2->hash (), node1.network_params.work.epoch_2))
-				  .build_shared ();
+				  .build ();
 	nano::publish publish3{ nano::dev::network_params.network, block3 };
 	tcp_channel->send (publish3, [] (boost::system::error_code const & ec, size_t size) {});
 	ASSERT_EQ (0, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in));
@@ -343,7 +346,7 @@ TEST (network, send_insufficient_work)
 				  .link (1)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (system.work_generate_limited (block1->hash (), node1.network_params.work.epoch_2_receive, node1.network_params.work.epoch_1 - 1))
-				  .build_shared ();
+				  .build ();
 	nano::publish publish4{ nano::dev::network_params.network, block4 };
 	tcp_channel->send (publish4, [] (boost::system::error_code const & ec, size_t size) {});
 	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) != 0);
@@ -363,12 +366,12 @@ TEST (receivable_processor, confirm_insufficient_pos)
 				  .balance (0)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (0)
-				  .build_shared ();
+				  .build ();
 	node1.work_generate_blocking (*block1);
-	ASSERT_EQ (nano::process_result::progress, node1.process (*block1).code);
+	ASSERT_EQ (nano::block_status::progress, node1.process (block1));
 	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
 	nano::keypair key1;
-	auto vote (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, 0, std::vector<nano::block_hash>{ block1->hash () }));
+	auto vote = nano::test::make_vote (key1, { block1 }, 0, 0);
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
 	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
 	node1.network.inbound (con1, channel1);
@@ -386,11 +389,11 @@ TEST (receivable_processor, confirm_sufficient_pos)
 				  .balance (0)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (0)
-				  .build_shared ();
+				  .build ();
 	node1.work_generate_blocking (*block1);
-	ASSERT_EQ (nano::process_result::progress, node1.process (*block1).code);
+	ASSERT_EQ (nano::block_status::progress, node1.process (block1));
 	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
-	auto vote (std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ block1->hash () }));
+	auto vote = nano::test::make_vote (nano::dev::genesis_key, { block1 }, 0, 0);
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
 	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
 	node1.network.inbound (con1, channel1);
@@ -416,15 +419,15 @@ TEST (receivable_processor, send_with_receive)
 				  .balance (amount - node1.config.receive_minimum.number ())
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (*system.work.generate (latest1))
-				  .build_shared ();
+				  .build ();
 	ASSERT_EQ (amount, node1.balance (nano::dev::genesis_key.pub));
 	ASSERT_EQ (0, node1.balance (key2.pub));
 	ASSERT_EQ (amount, node2.balance (nano::dev::genesis_key.pub));
 	ASSERT_EQ (0, node2.balance (key2.pub));
 	node1.process_active (block1);
-	node1.block_processor.flush ();
+	ASSERT_TIMELY (5s, nano::test::exists (node1, { block1 }));
 	node2.process_active (block1);
-	node2.block_processor.flush ();
+	ASSERT_TIMELY (5s, nano::test::exists (node2, { block1 }));
 	ASSERT_EQ (amount - node1.config.receive_minimum.number (), node1.balance (nano::dev::genesis_key.pub));
 	ASSERT_EQ (0, node1.balance (key2.pub));
 	ASSERT_EQ (amount - node1.config.receive_minimum.number (), node2.balance (nano::dev::genesis_key.pub));
@@ -749,7 +752,7 @@ TEST (network, peer_max_tcp_attempts)
 	auto node = system.add_node (node_flags);
 	for (auto i (0); i < node->network_params.network.max_peers_per_ip; ++i)
 	{
-		auto node2 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
+		auto node2 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work, node_flags));
 		node2->start ();
 		system.nodes.push_back (node2);
 		// Start TCP attempt
@@ -795,16 +798,16 @@ TEST (network, duplicate_detection)
 	auto & node1 = *system.add_node (node_flags);
 	nano::publish publish{ nano::dev::network_params.network, nano::dev::genesis };
 
-	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish));
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message));
 
 	// Publish duplicate detection through TCP
 	auto tcp_channel = node0.network.tcp_channels.find_node_id (node1.get_node_id ());
 	ASSERT_NE (nullptr, tcp_channel);
-	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish));
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message));
 	tcp_channel->send (publish);
-	ASSERT_TIMELY_EQ (2s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish), 0);
+	ASSERT_TIMELY_EQ (2s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message), 0);
 	tcp_channel->send (publish);
-	ASSERT_TIMELY_EQ (2s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish), 1);
+	ASSERT_TIMELY_EQ (2s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message), 1);
 }
 
 TEST (network, duplicate_revert_publish)
@@ -826,7 +829,7 @@ TEST (network, duplicate_revert_publish)
 	nano::uint128_t digest;
 	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size (), &digest));
 	ASSERT_TRUE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
-	auto other_node (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto other_node (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work));
 	other_node->start ();
 	system.nodes.push_back (other_node);
 	auto channel = nano::test::establish_tcp (system, *other_node, node.network.endpoint ());
@@ -957,7 +960,7 @@ TEST (network, tcp_no_connect_excluded_peers)
 	nano::test::system system (1);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto endpoint1_tcp (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ()));
@@ -1058,7 +1061,7 @@ TEST (network, cleanup_purge)
 	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 
-	auto node2 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto node2 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work));
 	node2->start ();
 	system.nodes.push_back (node2);
 

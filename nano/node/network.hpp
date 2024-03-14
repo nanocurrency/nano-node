@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/logging.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/peer_exclusion.hpp>
 #include <nano/node/transport/tcp.hpp>
@@ -94,11 +95,7 @@ public:
 	void send_keepalive (std::shared_ptr<nano::transport::channel> const &);
 	void send_keepalive_self (std::shared_ptr<nano::transport::channel> const &);
 	void send_node_id_handshake (std::shared_ptr<nano::transport::channel> const &, std::optional<nano::uint256_union> const & cookie, std::optional<nano::uint256_union> const & respond_to);
-	void send_confirm_req (std::shared_ptr<nano::transport::channel> const & channel_a, std::pair<nano::block_hash, nano::block_hash> const & hash_root_a);
-	void broadcast_confirm_req (std::shared_ptr<nano::block> const &);
-	void broadcast_confirm_req_base (std::shared_ptr<nano::block> const &, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>> const &, unsigned, bool = false);
-	void broadcast_confirm_req_batched_many (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>>, std::function<void ()> = nullptr, unsigned = broadcast_interval_ms, bool = false);
-	void broadcast_confirm_req_many (std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>>, std::function<void ()> = nullptr, unsigned = broadcast_interval_ms);
+	void send_confirm_req (std::shared_ptr<nano::transport::channel> const & channel_a, std::pair<nano::block_hash, nano::root> const & hash_root_a);
 	std::shared_ptr<nano::transport::channel> find_node_id (nano::account const &);
 	std::shared_ptr<nano::transport::channel> find_channel (nano::endpoint const &);
 	bool not_a_peer (nano::endpoint const &, bool);
@@ -133,8 +130,6 @@ public:
 	std::optional<nano::node_id_handshake::query_payload> prepare_handshake_query (nano::endpoint const & remote_endpoint);
 	nano::node_id_handshake::response_payload prepare_handshake_response (nano::node_id_handshake::query_payload const & query, bool v2) const;
 
-	static std::string to_string (nano::networks);
-
 private:
 	void process_message (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
 
@@ -158,5 +153,6 @@ public:
 	static std::size_t const confirm_req_hashes_max = 7;
 	static std::size_t const confirm_ack_hashes_max = 12;
 };
+
 std::unique_ptr<container_info_component> collect_container_info (network & network, std::string const & name);
 }

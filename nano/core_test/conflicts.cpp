@@ -1,7 +1,8 @@
-
+#include <nano/lib/blocks.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -25,9 +26,9 @@ TEST (conflicts, start_stop)
 				 .balance (0)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*send1);
-	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
+	ASSERT_EQ (nano::block_status::progress, node1.process (send1));
 	ASSERT_EQ (0, node1.active.size ());
 	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
 	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
@@ -52,11 +53,11 @@ TEST (conflicts, add_existing)
 				 .balance (0)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*send1);
 
 	// add the block to ledger as an unconfirmed block
-	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
+	ASSERT_EQ (nano::block_status::progress, node1.process (send1));
 
 	// wait for send1 to be inserted in the ledger
 	ASSERT_TIMELY (5s, node1.block (send1->hash ()));
@@ -75,7 +76,7 @@ TEST (conflicts, add_existing)
 				 .balance (0)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	node1.work_generate_blocking (*send2);
 	send2->sideband_set ({});
 
@@ -108,7 +109,7 @@ TEST (conflicts, add_two)
 				  .link (key3.pub)
 				  .sign (key1.prv, key1.pub)
 				  .work (*system.work.generate (open1->hash ()))
-				  .build_shared ();
+				  .build ();
 
 	// send 1 raw to account key3 from key2
 	auto send_b = nano::state_block_builder ()
@@ -119,7 +120,7 @@ TEST (conflicts, add_two)
 				  .link (key3.pub)
 				  .sign (key2.prv, key2.pub)
 				  .work (*system.work.generate (open2->hash ()))
-				  .build_shared ();
+				  .build ();
 
 	// activate elections for the previous two send blocks (to account3) that we did not forcefully confirm
 	ASSERT_TRUE (nano::test::process (*node, { send_a, send_b }));
@@ -149,10 +150,10 @@ TEST (vote_uniquer, vbh_one)
 				 .link (0)
 				 .sign (key.prv, key.pub)
 				 .work (0)
-				 .build_shared ();
+				 .build ();
 	std::vector<nano::block_hash> hashes;
 	hashes.push_back (block->hash ());
-	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, hashes));
+	auto vote1 = nano::test::make_vote (key, { hashes }, 0, 0);
 	auto vote2 (std::make_shared<nano::vote> (*vote1));
 	ASSERT_EQ (vote1, uniquer.unique (vote1));
 	ASSERT_EQ (vote1, uniquer.unique (vote2));
@@ -172,7 +173,7 @@ TEST (vote_uniquer, vbh_two)
 				  .link (0)
 				  .sign (key.prv, key.pub)
 				  .work (0)
-				  .build_shared ();
+				  .build ();
 	std::vector<nano::block_hash> hashes1;
 	hashes1.push_back (block1->hash ());
 	auto block2 = builder
@@ -184,11 +185,11 @@ TEST (vote_uniquer, vbh_two)
 				  .link (0)
 				  .sign (key.prv, key.pub)
 				  .work (0)
-				  .build_shared ();
+				  .build ();
 	std::vector<nano::block_hash> hashes2;
 	hashes2.push_back (block2->hash ());
-	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, hashes1));
-	auto vote2 (std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, hashes2));
+	auto vote1 = nano::test::make_vote (key, { hashes1 }, 0, 0);
+	auto vote2 = nano::test::make_vote (key, { hashes2 }, 0, 0);
 	ASSERT_EQ (vote1, uniquer.unique (vote1));
 	ASSERT_EQ (vote2, uniquer.unique (vote2));
 }

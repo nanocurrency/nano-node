@@ -4,17 +4,19 @@
 #include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/lmdbconfig.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
-#include <nano/node/logging.hpp>
+#include <nano/node/repcrawler.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/websocketconfig.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/generate_cache_flags.hpp>
 
 #include <chrono>
 #include <optional>
@@ -39,18 +41,18 @@ class node_config
 {
 public:
 	node_config (nano::network_params & network_params = nano::dev::network_params);
-	node_config (const std::optional<uint16_t> &, nano::logging const &, nano::network_params & network_params = nano::dev::network_params);
+	node_config (const std::optional<uint16_t> &, nano::network_params & network_params = nano::dev::network_params);
 
 	nano::error serialize_toml (nano::tomlconfig &) const;
 	nano::error deserialize_toml (nano::tomlconfig &);
 
 	bool upgrade_json (unsigned, nano::jsonconfig &);
 	nano::account random_representative () const;
+
 	nano::network_params network_params;
 	std::optional<uint16_t> peering_port{};
 	nano::scheduler::optimistic_config optimistic_scheduler;
 	nano::scheduler::hinted_config hinted_scheduler;
-	nano::logging logging;
 	std::vector<std::pair<std::string, uint16_t>> work_peers;
 	std::vector<std::pair<std::string, uint16_t>> secondary_work_peers{ { "127.0.0.1", 8076 } }; /* Default of nano-pow-server */
 	std::vector<std::string> preconfigured_peers;
@@ -88,7 +90,7 @@ public:
 	uint16_t external_port{ 0 };
 	std::chrono::milliseconds block_processor_batch_max_time{ std::chrono::milliseconds (500) };
 	/** Time to wait for block processing result */
-	std::chrono::seconds block_process_timeout{ 15 };
+	std::chrono::seconds block_process_timeout{ 300 };
 	std::chrono::seconds unchecked_cutoff_time{ std::chrono::seconds (4 * 60 * 60) }; // 4 hours
 	/** Timeout for initiated async operations */
 	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_dev_network () && !is_sanitizer_build ()) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
@@ -116,6 +118,8 @@ public:
 	bool backup_before_upgrade{ false };
 	double max_work_generate_multiplier{ 64. };
 	uint32_t max_queued_requests{ 512 };
+	unsigned request_aggregator_threads{ std::min (nano::hardware_concurrency (), 4u) }; // Max 4 threads if available
+	unsigned max_unchecked_blocks{ 65536 };
 	std::chrono::seconds max_pruning_age{ !network_params.network.is_beta_network () ? std::chrono::seconds (24 * 60 * 60) : std::chrono::seconds (5 * 60) }; // 1 day; 5 minutes for beta network
 	uint64_t max_pruning_depth{ 0 };
 	nano::rocksdb_config rocksdb_config;
@@ -126,6 +130,7 @@ public:
 	/** Number of times per second to run backlog population batches. Number of accounts per single batch is `backlog_scan_batch_size / backlog_scan_frequency` */
 	unsigned backlog_scan_frequency{ 10 };
 	nano::vote_cache_config vote_cache;
+	nano::rep_crawler_config rep_crawler;
 
 public:
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
@@ -152,8 +157,6 @@ public:
 	bool disable_rep_crawler{ false };
 	bool disable_request_loop{ false }; // For testing only
 	bool disable_tcp_realtime{ false };
-	bool disable_unchecked_cleanup{ false };
-	bool disable_unchecked_drop{ true };
 	bool disable_providing_telemetry_metrics{ false };
 	bool disable_ongoing_telemetry_requests{ false };
 	bool disable_block_processor_unchecked_deletion{ false };
@@ -168,7 +171,7 @@ public:
 	bool read_only{ false };
 	bool disable_connection_cleanup{ false };
 	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };
-	nano::generate_cache generate_cache;
+	nano::generate_cache_flags generate_cache;
 	bool inactive_node{ false };
 	std::size_t block_processor_batch_size{ 0 };
 	std::size_t block_processor_full_size{ 65536 };

@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/stats_enums.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
@@ -34,11 +35,10 @@ nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano:
 			nano::lock_guard<nano::mutex> lock{ mutex };
 
 			auto transaction = ledger.store.tx_begin_read ();
-			for (auto const & [result, block] : batch)
+			for (auto const & [result, context] : batch)
 			{
-				debug_assert (block != nullptr);
-
-				inspect (transaction, result, *block);
+				debug_assert (context.block != nullptr);
+				inspect (transaction, result, *context.block);
 			}
 		}
 
@@ -125,50 +125,33 @@ std::size_t nano::bootstrap_ascending::service::score_size () const
 - Marks an account as blocked if the result code is gap source as there is no reason request additional blocks for this account until the dependency is resolved
 - Marks an account as forwarded if it has been recently referenced by a block that has been inserted.
  */
-void nano::bootstrap_ascending::service::inspect (store::transaction const & tx, nano::process_return const & result, nano::block const & block)
+void nano::bootstrap_ascending::service::inspect (store::transaction const & tx, nano::block_status const & result, nano::block const & block)
 {
 	auto const hash = block.hash ();
 
-	switch (result.code)
+	switch (result)
 	{
-		case nano::process_result::progress:
+		case nano::block_status::progress:
 		{
-			const auto account = ledger.account (tx, hash);
-			const auto is_send = ledger.is_send (tx, block);
+			const auto account = block.account ();
 
 			// If we've inserted any block in to an account, unmark it as blocked
 			accounts.unblock (account);
 			accounts.priority_up (account);
 			accounts.timestamp (account, /* reset timestamp */ true);
 
-			if (is_send)
+			if (block.is_send ())
 			{
-				// TODO: Encapsulate this as a helper somewhere
-				nano::account destination{ 0 };
-				switch (block.type ())
-				{
-					case nano::block_type::send:
-						destination = block.destination ();
-						break;
-					case nano::block_type::state:
-						destination = block.link ().as_account ();
-						break;
-					default:
-						debug_assert (false, "unexpected block type");
-						break;
-				}
-				if (!destination.is_zero ())
-				{
-					accounts.unblock (destination, hash); // Unblocking automatically inserts account into priority set
-					accounts.priority_up (destination);
-				}
+				auto destination = block.destination ();
+				accounts.unblock (destination, hash); // Unblocking automatically inserts account into priority set
+				accounts.priority_up (destination);
 			}
 		}
 		break;
-		case nano::process_result::gap_source:
+		case nano::block_status::gap_source:
 		{
-			const auto account = block.previous ().is_zero () ? block.account () : ledger.account (tx, block.previous ());
-			const auto source = block.source ().is_zero () ? block.link ().as_block_hash () : block.source ();
+			const auto account = block.previous ().is_zero () ? block.account_field ().value () : ledger.account (tx, block.previous ()).value ();
+			const auto source = block.source_field ().value_or (block.link_field ().value_or (0).as_block_hash ());
 
 			// Mark account as blocked because it is missing the source block
 			accounts.block (account, source);
@@ -176,12 +159,12 @@ void nano::bootstrap_ascending::service::inspect (store::transaction const & tx,
 			// TODO: Track stats
 		}
 		break;
-		case nano::process_result::old:
+		case nano::block_status::old:
 		{
 			// TODO: Track stats
 		}
 		break;
-		case nano::process_result::gap_previous:
+		case nano::block_status::gap_previous:
 		{
 			// TODO: Track stats
 		}
@@ -388,7 +371,7 @@ void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::bloc
 
 			for (auto & block : response.blocks)
 			{
-				block_processor.add (block);
+				block_processor.add (block, nano::block_source::bootstrap);
 			}
 			nano::lock_guard<nano::mutex> lock{ mutex };
 			throttle.add (true);
@@ -456,7 +439,7 @@ nano::bootstrap_ascending::service::verify_result nano::bootstrap_ascending::ser
 		case async_tag::query_type::blocks_by_account:
 		{
 			// Open & state blocks always contain account field
-			if (first->account () != tag.start.as_account ())
+			if (first->account_field () != tag.start.as_account ())
 			{
 				// TODO: Stat & log
 				return verify_result::invalid;

@@ -20,16 +20,6 @@ add_library(
   backlog_population.cpp
   bandwidth_limiter.hpp
   bandwidth_limiter.cpp
-  block_arrival.hpp
-  block_arrival.cpp
-  block_broadcast.cpp
-  block_broadcast.hpp
-  block_publisher.cpp
-  block_publisher.hpp
-  gap_tracker.cpp
-  gap_tracker.hpp
-  blocking_observer.cpp
-  blocking_observer.hpp
   blockprocessor.hpp
   blockprocessor.cpp
   bootstrap/block_deserializer.hpp
@@ -88,8 +78,6 @@ add_library(
   election_insertion_result.hpp
   epoch_upgrader.hpp
   epoch_upgrader.cpp
-  gap_cache.hpp
-  gap_cache.cpp
   inactive_cache_information.hpp
   inactive_cache_information.cpp
   inactive_cache_status.hpp
@@ -110,8 +98,8 @@ add_library(
   ipc/ipc_server.cpp
   json_handler.hpp
   json_handler.cpp
-  logging.hpp
-  logging.cpp
+  local_block_broadcaster.cpp
+  local_block_broadcaster.hpp
   make_store.hpp
   make_store.cpp
   network.hpp
@@ -138,6 +126,8 @@ add_library(
   process_live_dispatcher.hpp
   repcrawler.hpp
   repcrawler.cpp
+  rep_tiers.hpp
+  rep_tiers.cpp
   request_aggregator.hpp
   request_aggregator.cpp
   scheduler/bucket.cpp
@@ -204,8 +194,6 @@ target_link_libraries(
   argon2
   lmdb
   Boost::beast
-  Boost::log_setup
-  Boost::log
   Boost::program_options
   Boost::stacktrace
   Boost::system
@@ -223,6 +211,5 @@ target_compile_definitions(
 add_dependencies(node ipc_flatbuffers_lib)
 
 include_directories(${CMAKE_SOURCE_DIR}/submodules)
-include_directories(${CMAKE_SOURCE_DIR}/submodules/cpptoml/include)
 include_directories(
   ${CMAKE_SOURCE_DIR}/submodules/nano-pow-server/deps/cpptoml/include)

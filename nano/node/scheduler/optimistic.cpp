@@ -1,7 +1,9 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
+#include <nano/secure/ledger.hpp>
 
 nano::scheduler::optimistic::optimistic (optimistic_config const & config_a, nano::node & node_a, nano::ledger & ledger_a, nano::active_transactions & active_a, nano::network_constants const & network_constants_a, nano::stats & stats_a) :
 	config{ config_a },

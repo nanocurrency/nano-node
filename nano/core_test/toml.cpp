@@ -193,37 +193,10 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_EQ (conf.node.work_threads, defaults.node.work_threads);
 	ASSERT_EQ (conf.node.max_queued_requests, defaults.node.max_queued_requests);
+	ASSERT_EQ (conf.node.request_aggregator_threads, defaults.node.request_aggregator_threads);
+	ASSERT_EQ (conf.node.max_unchecked_blocks, defaults.node.max_unchecked_blocks);
 	ASSERT_EQ (conf.node.backlog_scan_batch_size, defaults.node.backlog_scan_batch_size);
 	ASSERT_EQ (conf.node.backlog_scan_frequency, defaults.node.backlog_scan_frequency);
-
-	ASSERT_EQ (conf.node.logging.bulk_pull_logging_value, defaults.node.logging.bulk_pull_logging_value);
-	ASSERT_EQ (conf.node.logging.flush, defaults.node.logging.flush);
-	ASSERT_EQ (conf.node.logging.insufficient_work_logging_value, defaults.node.logging.insufficient_work_logging_value);
-	ASSERT_EQ (conf.node.logging.ledger_logging_value, defaults.node.logging.ledger_logging_value);
-	ASSERT_EQ (conf.node.logging.ledger_duplicate_logging_value, defaults.node.logging.ledger_duplicate_logging_value);
-	ASSERT_EQ (conf.node.logging.log_ipc_value, defaults.node.logging.log_ipc_value);
-	ASSERT_EQ (conf.node.logging.log_to_cerr_value, defaults.node.logging.log_to_cerr_value);
-	ASSERT_EQ (conf.node.logging.max_size, defaults.node.logging.max_size);
-	ASSERT_EQ (conf.node.logging.min_time_between_log_output.count (), defaults.node.logging.min_time_between_log_output.count ());
-	ASSERT_EQ (conf.node.logging.network_logging_value, defaults.node.logging.network_logging_value);
-	ASSERT_EQ (conf.node.logging.network_keepalive_logging_value, defaults.node.logging.network_keepalive_logging_value);
-	ASSERT_EQ (conf.node.logging.network_message_logging_value, defaults.node.logging.network_message_logging_value);
-	ASSERT_EQ (conf.node.logging.network_node_id_handshake_logging_value, defaults.node.logging.network_node_id_handshake_logging_value);
-	ASSERT_EQ (conf.node.logging.network_packet_logging_value, defaults.node.logging.network_packet_logging_value);
-	ASSERT_EQ (conf.node.logging.network_publish_logging_value, defaults.node.logging.network_publish_logging_value);
-	ASSERT_EQ (conf.node.logging.network_timeout_logging_value, defaults.node.logging.network_timeout_logging_value);
-	ASSERT_EQ (conf.node.logging.node_lifetime_tracing_value, defaults.node.logging.node_lifetime_tracing_value);
-	ASSERT_EQ (conf.node.logging.network_telemetry_logging_value, defaults.node.logging.network_telemetry_logging_value);
-	ASSERT_EQ (conf.node.logging.network_rejected_logging_value, defaults.node.logging.network_rejected_logging_value);
-	ASSERT_EQ (conf.node.logging.rotation_size, defaults.node.logging.rotation_size);
-	ASSERT_EQ (conf.node.logging.single_line_record_value, defaults.node.logging.single_line_record_value);
-	ASSERT_EQ (conf.node.logging.stable_log_filename, defaults.node.logging.stable_log_filename);
-	ASSERT_EQ (conf.node.logging.timing_logging_value, defaults.node.logging.timing_logging_value);
-	ASSERT_EQ (conf.node.logging.active_update_value, defaults.node.logging.active_update_value);
-	ASSERT_EQ (conf.node.logging.upnp_details_logging_value, defaults.node.logging.upnp_details_logging_value);
-	ASSERT_EQ (conf.node.logging.vote_logging_value, defaults.node.logging.vote_logging_value);
-	ASSERT_EQ (conf.node.logging.rep_crawler_logging_value, defaults.node.logging.rep_crawler_logging_value);
-	ASSERT_EQ (conf.node.logging.work_generation_time_value, defaults.node.logging.work_generation_time_value);
 
 	ASSERT_EQ (conf.node.websocket_config.enabled, defaults.node.websocket_config.enabled);
 	ASSERT_EQ (conf.node.websocket_config.address, defaults.node.websocket_config.address);
@@ -450,6 +423,8 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	work_threads = 999
 	max_work_generate_multiplier = 1.0
 	max_queued_requests = 999
+	request_aggregator_threads = 999
+	max_unchecked_blocks = 999
 	frontiers_confirmation = "always"
 	backlog_scan_batch_size = 999
 	backlog_scan_frequency = 999
@@ -614,6 +589,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.external_port, defaults.node.external_port);
 	ASSERT_NE (conf.node.io_threads, defaults.node.io_threads);
 	ASSERT_NE (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
+	ASSERT_NE (conf.node.max_unchecked_blocks, defaults.node.max_unchecked_blocks);
 	ASSERT_NE (conf.node.frontiers_confirmation, defaults.node.frontiers_confirmation);
 	ASSERT_NE (conf.node.network_threads, defaults.node.network_threads);
 	ASSERT_NE (conf.node.background_threads, defaults.node.background_threads);
@@ -639,37 +615,9 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_NE (conf.node.work_threads, defaults.node.work_threads);
 	ASSERT_NE (conf.node.max_queued_requests, defaults.node.max_queued_requests);
+	ASSERT_NE (conf.node.request_aggregator_threads, defaults.node.request_aggregator_threads);
 	ASSERT_NE (conf.node.backlog_scan_batch_size, defaults.node.backlog_scan_batch_size);
 	ASSERT_NE (conf.node.backlog_scan_frequency, defaults.node.backlog_scan_frequency);
-
-	ASSERT_NE (conf.node.logging.bulk_pull_logging_value, defaults.node.logging.bulk_pull_logging_value);
-	ASSERT_NE (conf.node.logging.flush, defaults.node.logging.flush);
-	ASSERT_NE (conf.node.logging.insufficient_work_logging_value, defaults.node.logging.insufficient_work_logging_value);
-	ASSERT_NE (conf.node.logging.ledger_logging_value, defaults.node.logging.ledger_logging_value);
-	ASSERT_NE (conf.node.logging.ledger_duplicate_logging_value, defaults.node.logging.ledger_duplicate_logging_value);
-	ASSERT_NE (conf.node.logging.log_ipc_value, defaults.node.logging.log_ipc_value);
-	ASSERT_NE (conf.node.logging.log_to_cerr_value, defaults.node.logging.log_to_cerr_value);
-	ASSERT_NE (conf.node.logging.max_size, defaults.node.logging.max_size);
-	ASSERT_NE (conf.node.logging.min_time_between_log_output.count (), defaults.node.logging.min_time_between_log_output.count ());
-	ASSERT_NE (conf.node.logging.network_logging_value, defaults.node.logging.network_logging_value);
-	ASSERT_NE (conf.node.logging.network_keepalive_logging_value, defaults.node.logging.network_keepalive_logging_value);
-	ASSERT_NE (conf.node.logging.network_message_logging_value, defaults.node.logging.network_message_logging_value);
-	ASSERT_NE (conf.node.logging.network_node_id_handshake_logging_value, defaults.node.logging.network_node_id_handshake_logging_value);
-	ASSERT_NE (conf.node.logging.network_telemetry_logging_value, defaults.node.logging.network_telemetry_logging_value);
-	ASSERT_NE (conf.node.logging.network_rejected_logging_value, defaults.node.logging.network_rejected_logging_value);
-	ASSERT_NE (conf.node.logging.network_packet_logging_value, defaults.node.logging.network_packet_logging_value);
-	ASSERT_NE (conf.node.logging.network_publish_logging_value, defaults.node.logging.network_publish_logging_value);
-	ASSERT_NE (conf.node.logging.network_timeout_logging_value, defaults.node.logging.network_timeout_logging_value);
-	ASSERT_NE (conf.node.logging.node_lifetime_tracing_value, defaults.node.logging.node_lifetime_tracing_value);
-	ASSERT_NE (conf.node.logging.rotation_size, defaults.node.logging.rotation_size);
-	ASSERT_NE (conf.node.logging.single_line_record_value, defaults.node.logging.single_line_record_value);
-	ASSERT_NE (conf.node.logging.stable_log_filename, defaults.node.logging.stable_log_filename);
-	ASSERT_NE (conf.node.logging.timing_logging_value, defaults.node.logging.timing_logging_value);
-	ASSERT_NE (conf.node.logging.active_update_value, defaults.node.logging.active_update_value);
-	ASSERT_NE (conf.node.logging.upnp_details_logging_value, defaults.node.logging.upnp_details_logging_value);
-	ASSERT_NE (conf.node.logging.vote_logging_value, defaults.node.logging.vote_logging_value);
-	ASSERT_NE (conf.node.logging.rep_crawler_logging_value, defaults.node.logging.rep_crawler_logging_value);
-	ASSERT_NE (conf.node.logging.work_generation_time_value, defaults.node.logging.work_generation_time_value);
 
 	ASSERT_NE (conf.node.websocket_config.enabled, defaults.node.websocket_config.enabled);
 	ASSERT_NE (conf.node.websocket_config.address, defaults.node.websocket_config.address);
@@ -974,4 +922,93 @@ TEST (toml, tls_config_defaults)
 	ASSERT_EQ (conf.server_key_path, defaults.server_key_path);
 	ASSERT_EQ (conf.server_key_passphrase, defaults.server_key_passphrase);
 	ASSERT_EQ (conf.server_dh_path, defaults.server_dh_path);
+}
+
+TEST (toml, log_config_defaults)
+{
+	std::stringstream ss;
+
+	// A config with no values
+	ss << R"toml()toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::log_config confg{};
+	nano::log_config defaults{};
+	confg.deserialize_toml (toml);
+
+	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
+
+	ASSERT_EQ (confg.default_level, defaults.default_level);
+	ASSERT_EQ (confg.flush_level, defaults.flush_level);
+	ASSERT_EQ (confg.levels, defaults.levels);
+	ASSERT_EQ (confg.console.enable, defaults.console.enable);
+	ASSERT_EQ (confg.console.colors, defaults.console.colors);
+	ASSERT_EQ (confg.console.to_cerr, defaults.console.to_cerr);
+	ASSERT_EQ (confg.file.enable, defaults.file.enable);
+	ASSERT_EQ (confg.file.max_size, defaults.file.max_size);
+	ASSERT_EQ (confg.file.rotation_count, defaults.file.rotation_count);
+}
+
+TEST (toml, log_config_no_defaults)
+{
+	std::stringstream ss;
+
+	// A config file with values that differs from defaults
+	ss << R"toml(
+	[log]
+	default_level = "trace"
+
+	[log.console]
+	colors = false
+	enable = false
+	to_cerr = true
+
+	[log.file]
+	enable = false
+	max_size = 999
+	rotation_count = 999
+
+	[log.levels]
+	active_transactions = "trace"
+	blockprocessor = "trace"
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::log_config confg{};
+	nano::log_config defaults{};
+	confg.deserialize_toml (toml);
+
+	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
+
+	ASSERT_NE (confg.default_level, defaults.default_level);
+	ASSERT_NE (confg.levels, defaults.levels);
+	ASSERT_NE (confg.console.enable, defaults.console.enable);
+	ASSERT_NE (confg.console.colors, defaults.console.colors);
+	ASSERT_NE (confg.console.to_cerr, defaults.console.to_cerr);
+	ASSERT_NE (confg.file.enable, defaults.file.enable);
+	ASSERT_NE (confg.file.max_size, defaults.file.max_size);
+	ASSERT_NE (confg.file.rotation_count, defaults.file.rotation_count);
+}
+
+TEST (toml, log_config_no_required)
+{
+	std::stringstream ss;
+
+	// A config with no values, only categories
+	ss << R"toml(
+	[log]
+	[log.console]
+	[log.file]
+	[log.levels]
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::log_config confg{};
+	nano::log_config defaults{};
+	confg.deserialize_toml (toml);
+
+	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
 }

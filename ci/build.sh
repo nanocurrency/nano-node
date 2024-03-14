@@ -39,6 +39,9 @@ if [[ ${SANITIZER:-} ]]; then
         UBSAN)
             CMAKE_SANITIZER="-DNANO_UBSAN=ON"
             ;;
+        LEAK)
+            CMAKE_SANITIZER="-DNANO_ASAN=ON"
+            ;;
         *)
             echo "Unknown sanitizer: '${SANITIZER}'"
             exit 1
@@ -57,6 +60,7 @@ cmake \
 -DACTIVE_NETWORK=nano_${NANO_NETWORK:-"live"}_network \
 -DNANO_TEST=${NANO_TEST:-OFF} \
 -DNANO_GUI=${NANO_GUI:-OFF} \
+-DNANO_TRACING=${NANO_TRACING:-OFF} \
 -DCOVERAGE=${COVERAGE:-OFF} \
 -DCI_TAG=${CI_TAG:-OFF} \
 -DCI_VERSION_PRE_RELEASE=${CI_VERSION_PRE_RELEASE:-OFF} \

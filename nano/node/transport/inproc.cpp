@@ -78,7 +78,7 @@ void nano::transport::inproc::channel::send_buffer (nano::shared_const_buffer co
 
 		// process message
 		{
-			node.stats.inc (nano::stat::type::message, nano::to_stat_detail (message_a->header.type), nano::stat::dir::in);
+			node.stats.inc (nano::stat::type::message, to_stat_detail (message_a->header.type), nano::stat::dir::in);
 
 			// create an inbound message visitor class to handle incoming messages
 			message_visitor_inbound visitor{ destination.network.inbound, remote_channel };

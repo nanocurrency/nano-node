@@ -21,7 +21,7 @@ nano::jsonconfig::jsonconfig (boost::property_tree::ptree & tree_a, std::shared_
 }
 
 /**
- * Reads a json object from the stream 
+ * Reads a json object from the stream
  * @return nano::error&, including a descriptive error message if the config file is malformed.
  */
 nano::error & nano::jsonconfig::read (std::filesystem::path const & path_a)

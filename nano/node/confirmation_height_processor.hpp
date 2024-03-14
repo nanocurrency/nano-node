@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/logging.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/confirmation_height_bounded.hpp>
@@ -24,14 +25,14 @@ class latch;
 namespace nano
 {
 class ledger;
-class logger_mt;
 class write_database_queue;
 
 class confirmation_height_processor final
 {
 public:
-	confirmation_height_processor (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logging const &, nano::logger_mt &, boost::latch & initialized_latch, confirmation_height_mode = confirmation_height_mode::automatic);
+	confirmation_height_processor (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logger &, boost::latch & initialized_latch, confirmation_height_mode = confirmation_height_mode::automatic);
 	~confirmation_height_processor ();
+
 	void pause ();
 	void unpause ();
 	void stop ();
@@ -64,10 +65,7 @@ private:
 		{
 		}
 
-		std::reference_wrapper<nano::block_hash const> hash () const
-		{
-			return block->hash ();
-		}
+		std::reference_wrapper<nano::block_hash const> hash () const;
 
 		std::shared_ptr<nano::block> block;
 	};

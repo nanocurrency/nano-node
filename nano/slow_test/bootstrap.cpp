@@ -7,6 +7,7 @@
 #include <nano/node/transport/transport.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/rate_observer.hpp>
 #include <nano/test_common/system.hpp>
@@ -77,7 +78,7 @@ TEST (bootstrap_ascending, profile)
 	flags_server.disable_ongoing_bootstrap = true;
 	flags_server.disable_ascending_bootstrap = true;
 	auto data_path_server = nano::working_path (network);
-	//auto data_path_server = "";
+	// auto data_path_server = "";
 	auto server = std::make_shared<nano::node> (system.io_ctx, data_path_server, config_server, system.work, flags_server);
 	system.nodes.push_back (server);
 	server->start ();
@@ -93,10 +94,10 @@ TEST (bootstrap_ascending, profile)
 	config_client.ipc_config.transport_tcp.enabled = true;
 	// Disable database integrity safety for higher throughput
 	config_client.lmdb_config.sync = nano::lmdb_config::sync_strategy::nosync_unsafe;
-	//auto client = system.add_node (config_client, flags_client);
+	// auto client = system.add_node (config_client, flags_client);
 
 	// macos 16GB RAM disk:  diskutil erasevolume HFS+ "RAMDisk" `hdiutil attach -nomount ram://33554432`
-	//auto data_path_client = "/Volumes/RAMDisk";
+	// auto data_path_client = "/Volumes/RAMDisk";
 	auto data_path_client = nano::unique_path ();
 	auto client = std::make_shared<nano::node> (system.io_ctx, data_path_client, config_client, system.work, flags_client);
 	system.nodes.push_back (client);
@@ -186,7 +187,7 @@ TEST (bootstrap_ascending, profile)
 	rate.observe (*client, nano::stat::type::ledger, nano::stat::detail::gap_previous, nano::stat::dir::in);
 	rate.background_print (3s);
 
-	//wait_for_key ();
+	// wait_for_key ();
 	while (true)
 	{
 		nano::test::establish_tcp (system, *client, server->network.endpoint ());

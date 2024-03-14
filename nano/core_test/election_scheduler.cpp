@@ -1,5 +1,7 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -26,8 +28,8 @@ TEST (election_scheduler, activate_one_timely)
 				 .link (nano::dev::genesis_key.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
-	system.nodes[0]->ledger.process (system.nodes[0]->store.tx_begin_write (), *send1);
+				 .build ();
+	system.nodes[0]->ledger.process (system.nodes[0]->store.tx_begin_write (), send1);
 	system.nodes[0]->scheduler.priority.activate (nano::dev::genesis_key.pub, system.nodes[0]->store.tx_begin_read ());
 	ASSERT_TIMELY (5s, system.nodes[0]->active.election (send1->qualified_root ()));
 }
@@ -44,8 +46,8 @@ TEST (election_scheduler, activate_one_flush)
 				 .link (nano::dev::genesis_key.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
-				 .build_shared ();
-	system.nodes[0]->ledger.process (system.nodes[0]->store.tx_begin_write (), *send1);
+				 .build ();
+	system.nodes[0]->ledger.process (system.nodes[0]->store.tx_begin_write (), send1);
 	system.nodes[0]->scheduler.priority.activate (nano::dev::genesis_key.pub, system.nodes[0]->store.tx_begin_read ());
 	ASSERT_TIMELY (5s, system.nodes[0]->active.election (send1->qualified_root ()));
 }
@@ -86,8 +88,8 @@ TEST (election_scheduler, no_vacancy)
 				.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
-				.build_shared ();
-	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
 	node.process_confirmed (nano::election_status{ send });
 
 	auto receive = builder.make_block ()
@@ -98,8 +100,8 @@ TEST (election_scheduler, no_vacancy)
 				   .balance (nano::Gxrb_ratio)
 				   .sign (key.prv, key.pub)
 				   .work (*system.work.generate (key.pub))
-				   .build_shared ();
-	ASSERT_EQ (nano::process_result::progress, node.process (*receive).code);
+				   .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (receive));
 	node.process_confirmed (nano::election_status{ receive });
 
 	// Second, process two eligible transactions
@@ -111,8 +113,8 @@ TEST (election_scheduler, no_vacancy)
 				  .balance (nano::dev::constants.genesis_amount - 2 * nano::Gxrb_ratio)
 				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				  .work (*system.work.generate (send->hash ()))
-				  .build_shared ();
-	ASSERT_EQ (nano::process_result::progress, node.process (*block1).code);
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (block1));
 
 	// There is vacancy so it should be inserted
 	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
@@ -127,8 +129,8 @@ TEST (election_scheduler, no_vacancy)
 				  .balance (0)
 				  .sign (key.prv, key.pub)
 				  .work (*system.work.generate (receive->hash ()))
-				  .build_shared ();
-	ASSERT_EQ (nano::process_result::progress, node.process (*block2).code);
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (block2));
 
 	// There is no vacancy so it should stay queued
 	node.scheduler.priority.activate (key.pub, node.store.tx_begin_read ());

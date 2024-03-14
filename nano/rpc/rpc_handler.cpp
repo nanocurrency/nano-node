@@ -1,7 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/json_error_response.hpp>
-#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
@@ -18,7 +17,7 @@ std::unordered_set<std::string> rpc_control_impl_set = create_rpc_control_impls 
 std::string filter_request (boost::property_tree::ptree tree_a);
 }
 
-nano::rpc_handler::rpc_handler (nano::rpc_config const & rpc_config, std::string const & body_a, std::string const & request_id_a, std::function<void (std::string const &)> const & response_a, nano::rpc_handler_interface & rpc_handler_interface_a, nano::logger_mt & logger) :
+nano::rpc_handler::rpc_handler (nano::rpc_config const & rpc_config, std::string const & body_a, std::string const & request_id_a, std::function<void (std::string const &)> const & response_a, nano::rpc_handler_interface & rpc_handler_interface_a, nano::logger & logger) :
 	body (body_a),
 	request_id (request_id_a),
 	response (response_a),
@@ -62,13 +61,10 @@ void nano::rpc_handler::process_request (nano::rpc_handler_request_params const 
 				}
 
 				auto action = request.get<std::string> ("action");
-				if (rpc_config.rpc_logging.log_rpc)
-				{
-					// Creating same string via stringstream as using it directly is generating a TSAN warning
-					std::stringstream ss;
-					ss << request_id;
-					logger.always_log (ss.str (), " ", filter_request (request));
-				}
+
+				// Bump logging level if RPC request logging is enabled
+				logger.log (rpc_config.rpc_logging.log_rpc ? nano::log::level::info : nano::log::level::debug,
+				nano::log::type::rpc_request, "Request {} : {}", request_id, filter_request (request));
 
 				// Check if this is a RPC command which requires RPC enabled control
 				std::error_code rpc_control_disabled_ec = nano::error_rpc::rpc_control_disabled;

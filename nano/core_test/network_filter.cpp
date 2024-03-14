@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/node/common.hpp>
 #include <nano/secure/common.hpp>
@@ -45,7 +46,7 @@ TEST (network_filter, unit)
 					 .link (nano::public_key ())
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (0)
-					 .build_shared ();
+					 .build ();
 
 	one_block (new_block, false);
 	for (int i = 0; i < 10; ++i)
@@ -74,7 +75,7 @@ TEST (network_filter, many)
 					 .link (key1.pub)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (0)
-					 .build_shared ();
+					 .build ();
 
 		nano::publish message{ nano::dev::network_params.network, block };
 		auto bytes (message.to_bytes ());

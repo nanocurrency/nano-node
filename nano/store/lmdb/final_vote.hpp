@@ -29,9 +29,9 @@ public:
 	void for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::qualified_root, nano::block_hash>, store::iterator<nano::qualified_root, nano::block_hash>)> const & action_a) const override;
 
 	/**
-		 * Maps root to block hash for generated final votes.
-		 * nano::qualified_root -> nano::block_hash
-		 */
+	 * Maps root to block hash for generated final votes.
+	 * nano::qualified_root -> nano::block_hash
+	 */
 	MDB_dbi final_votes_handle{ 0 };
 };
 } // namespace nano::store::lmdb

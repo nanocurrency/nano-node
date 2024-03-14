@@ -1,3 +1,5 @@
+#include <nano/lib/blocks.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/store/versioning.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -110,7 +112,7 @@ TEST (wallets, vote_minimum)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
+	ASSERT_EQ (nano::block_status::progress, node1.process (send1));
 	auto open1 = builder
 				 .state ()
 				 .account (key1.pub)
@@ -121,7 +123,7 @@ TEST (wallets, vote_minimum)
 				 .sign (key1.prv, key1.pub)
 				 .work (*system.work.generate (key1.pub))
 				 .build ();
-	ASSERT_EQ (nano::process_result::progress, node1.process (*open1).code);
+	ASSERT_EQ (nano::block_status::progress, node1.process (open1));
 	// send2 with amount vote_minimum - 1 (not voting representative)
 	auto send2 = builder
 				 .state ()
@@ -133,7 +135,7 @@ TEST (wallets, vote_minimum)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send1->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::process_result::progress, node1.process (*send2).code);
+	ASSERT_EQ (nano::block_status::progress, node1.process (send2));
 	auto open2 = builder
 				 .state ()
 				 .account (key2.pub)
@@ -144,7 +146,7 @@ TEST (wallets, vote_minimum)
 				 .sign (key2.prv, key2.pub)
 				 .work (*system.work.generate (key2.pub))
 				 .build ();
-	ASSERT_EQ (nano::process_result::progress, node1.process (*open2).code);
+	ASSERT_EQ (nano::block_status::progress, node1.process (open2));
 	auto wallet (node1.wallets.items.begin ()->second);
 	nano::unique_lock<nano::mutex> representatives_lk (wallet->representatives_mutex);
 	ASSERT_EQ (0, wallet->representatives.size ());
@@ -204,15 +206,15 @@ TEST (wallets, search_receivable)
 		wallet->insert_adhoc (nano::dev::genesis_key.prv);
 		nano::block_builder builder;
 		auto send = builder.state ()
-					.account (nano::dev::genesis->account ())
+					.account (nano::dev::genesis_key.pub)
 					.previous (nano::dev::genesis->hash ())
-					.representative (nano::dev::genesis->account ())
+					.representative (nano::dev::genesis_key.pub)
 					.balance (nano::dev::constants.genesis_amount - node.config.receive_minimum.number ())
-					.link (nano::dev::genesis->account ())
+					.link (nano::dev::genesis_key.pub)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*system.work.generate (nano::dev::genesis->hash ()))
 					.build ();
-		ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
+		ASSERT_EQ (nano::block_status::progress, node.process (send));
 
 		// Pending search should start an election
 		ASSERT_TRUE (node.active.empty ());
@@ -228,7 +230,7 @@ TEST (wallets, search_receivable)
 		ASSERT_TIMELY (5s, election = node.active.election (send->qualified_root ()));
 
 		// Erase the key so the confirmation does not trigger an automatic receive
-		wallet->store.erase (node.wallets.tx_begin_write (), nano::dev::genesis->account ());
+		wallet->store.erase (node.wallets.tx_begin_write (), nano::dev::genesis_key.pub);
 
 		// Now confirm the election
 		election->force_confirm ();
@@ -248,11 +250,11 @@ TEST (wallets, search_receivable)
 		{
 			node.wallets.search_receivable (wallet_id);
 		}
-		ASSERT_TIMELY_EQ (3s, node.balance (nano::dev::genesis->account ()), nano::dev::constants.genesis_amount);
-		auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::dev::genesis->account ());
+		ASSERT_TIMELY_EQ (3s, node.balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount);
+		auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::dev::genesis_key.pub);
 		auto receive = node.block (receive_hash);
 		ASSERT_NE (nullptr, receive);
 		ASSERT_EQ (receive->sideband ().height, 3);
-		ASSERT_EQ (send->hash (), receive->link ().as_block_hash ());
+		ASSERT_EQ (send->hash (), receive->source ());
 	}
 }

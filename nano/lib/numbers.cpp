@@ -894,6 +894,27 @@ std::string nano::to_string (double const value_a, int const precision_a)
 	return stream.str ();
 }
 
+std::ostream & nano::operator<< (std::ostream & os, const uint128_union & val)
+{
+	// TODO: Replace with streaming implementation
+	os << val.to_string ();
+	return os;
+}
+
+std::ostream & nano::operator<< (std::ostream & os, const uint256_union & val)
+{
+	// TODO: Replace with streaming implementation
+	os << val.to_string ();
+	return os;
+}
+
+std::ostream & nano::operator<< (std::ostream & os, const uint512_union & val)
+{
+	// TODO: Replace with streaming implementation
+	os << val.to_string ();
+	return os;
+}
+
 #ifdef _WIN32
 #pragma warning(push)
 #pragma warning(disable : 4146) // warning C4146: unary minus operator applied to unsigned type, result still unsigned

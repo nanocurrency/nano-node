@@ -11,7 +11,7 @@ endif()
 
 # OSX compatibility needs to be set before project is declared
 set(CMAKE_OSX_DEPLOYMENT_TARGET
-    12
+    13.3
     CACHE STRING "")
 
 project(nano-node)
@@ -131,6 +131,17 @@ if(NANO_STACKTRACE_BACKTRACE)
     add_definitions(
       -DBOOST_STACKTRACE_BACKTRACE_INCLUDE_FILE=${NANO_BACKTRACE_INCLUDE})
   endif()
+endif()
+
+# Enable NANO_TRACING by default in Debug builds
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  option(NANO_TRACING "Enable trace logging" ON)
+else()
+  option(NANO_TRACING "Enable trace logging" OFF)
+endif()
+if(NANO_TRACING)
+  message(STATUS "Using trace logging")
+  add_compile_definitions(NANO_TRACING)
 endif()
 
 if(${NANO_TIMED_LOCKS} GREATER 0)
@@ -483,10 +494,6 @@ include_directories(${BOOST_LIBRARY_INCLUDES})
 add_library(Boost::stacktrace ALIAS boost_stacktrace_basic)
 add_definitions(-DBOOST_STACKTRACE_GNU_SOURCE_NOT_REQUIRED)
 
-# Workaround for GitHub builders which do not appear to have the Windows Message
-# Compiler mc.exe
-add_definitions(-DBOOST_LOG_WITHOUT_EVENT_LOG)
-
 # Workaround for missing reference errata in the boost property_tree module
 target_link_libraries(boost_property_tree INTERFACE Boost::any)
 target_link_libraries(boost_property_tree INTERFACE Boost::format)
@@ -526,16 +533,27 @@ else()
 endif()
 add_subdirectory(submodules/rocksdb EXCLUDE_FROM_ALL)
 
-include_directories(cpptoml/include)
+# cpptoml
+include_directories(submodules/cpptoml/include)
 
 # magic_enum
-include_directories(submodules/magic_enum/include)
+include_directories(submodules/magic_enum/include/magic_enum)
 
 add_subdirectory(crypto/ed25519-donna)
 
 add_subdirectory(nano/ipc_flatbuffers_lib)
 add_subdirectory(nano/ipc_flatbuffers_test)
 
+# fmt
+add_subdirectory(submodules/fmt EXCLUDE_FROM_ALL)
+include_directories(submodules/fmt/include)
+
+# spdlog
+add_definitions(-DSPDLOG_FMT_EXTERNAL)
+add_subdirectory(submodules/spdlog EXCLUDE_FROM_ALL)
+include_directories(submodules/spdlog/include)
+
+# miniupnp
 set(UPNPC_BUILD_SHARED
     OFF
     CACHE BOOL "")
@@ -750,6 +768,7 @@ endif()
 if(NANO_GUI OR RAIBLOCKS_GUI)
   install(FILES ${PROJECT_BINARY_DIR}/config-node.toml.sample DESTINATION .)
   install(FILES ${PROJECT_BINARY_DIR}/config-rpc.toml.sample DESTINATION .)
+  install(FILES ${PROJECT_BINARY_DIR}/config-log.toml.sample DESTINATION .)
   if(WIN32)
     set(PLATFORM_QT_PACKAGES WinExtras)
   else()
@@ -760,7 +779,6 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
 
   add_library(qt nano/qt/qt.cpp nano/qt/qt.hpp)
   include_directories(${CMAKE_SOURCE_DIR}/submodules)
-  include_directories(${CMAKE_SOURCE_DIR}/submodules/cpptoml/include)
 
   target_link_libraries(
     qt

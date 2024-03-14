@@ -1,7 +1,9 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
 #include <nano/rpc_test/common.hpp>
 #include <nano/rpc_test/rpc_context.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -20,7 +22,7 @@ TEST (rpc, receivable)
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "receivable");
-	request.put ("account", block1->link ().to_account ());
+	request.put ("account", block1->destination ().to_account ());
 	auto response = wait_response (system, rpc_ctx, request);
 	auto & blocks_node = response.get_child ("blocks");
 	ASSERT_EQ (1, blocks_node.size ());
@@ -38,7 +40,7 @@ TEST (rpc, receivable_sorting)
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "receivable");
-	request.put ("account", block1->link ().to_account ());
+	request.put ("account", block1->destination ().to_account ());
 	request.put ("sorting", "true"); // Sorting test
 	auto response = wait_response (system, rpc_ctx, request);
 	auto & blocks_node = response.get_child ("blocks");
@@ -59,7 +61,7 @@ TEST (rpc, receivable_threshold_sufficient)
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "receivable");
-	request.put ("account", block1->link ().to_account ());
+	request.put ("account", block1->destination ().to_account ());
 	request.put ("threshold", "1"); // Threshold test
 	auto response = wait_response (system, rpc_ctx, request);
 	auto & blocks_node = response.get_child ("blocks");
@@ -90,7 +92,7 @@ TEST (rpc, receivable_threshold_insufficient)
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "receivable");
-	request.put ("account", block1->link ().to_account ());
+	request.put ("account", block1->destination ().to_account ());
 	request.put ("threshold", "2"); // Chains are set up with 1 raw transfers therefore all blocks are less than 2 raw.
 	auto response = wait_response (system, rpc_ctx, request, 10s);
 	auto & blocks_node = response.get_child ("blocks");
@@ -107,7 +109,7 @@ TEST (rpc, receivable_source_min_version)
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "receivable");
-	request.put ("account", block1->link ().to_account ());
+	request.put ("account", block1->destination ().to_account ());
 	request.put ("source", "true");
 	request.put ("min_version", "true");
 	auto response (wait_response (system, rpc_ctx, request));
@@ -139,14 +141,14 @@ TEST (rpc, receivable_unconfirmed)
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "receivable");
-	request.put ("account", block1->link ().to_account ());
+	request.put ("account", block1->destination ().to_account ());
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 0));
 	request.put ("include_only_confirmed", "true");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 0));
 	request.put ("include_only_confirmed", "false");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 	ASSERT_TRUE (nano::test::start_elections (system, *node, { block1->hash () }, true));
-	ASSERT_TIMELY (5s, !node->active.active (*block1));
+	ASSERT_TIMELY (5s, nano::test::confirmed (*node, { block1 }));
 	request.put ("include_only_confirmed", "true");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 }
@@ -196,7 +198,7 @@ TEST (rpc, receivable_offset_and_sorting)
 
 	// check confirmation height is as expected, there is no perfect clarity yet when confirmation height updates after a block get confirmed
 	nano::confirmation_height_info confirmation_height_info;
-	ASSERT_FALSE (node->store.confirmation_height.get (node->store.tx_begin_read (), nano::dev::genesis->account (), confirmation_height_info));
+	ASSERT_FALSE (node->store.confirmation_height.get (node->store.tx_begin_read (), nano::dev::genesis_key.pub, confirmation_height_info));
 	ASSERT_EQ (confirmation_height_info.height, 7);
 	ASSERT_EQ (confirmation_height_info.frontier, block6->hash ());
 
@@ -370,7 +372,7 @@ TEST (rpc, search_receivable)
 				 .build ();
 	{
 		auto transaction (node->store.tx_begin_write ());
-		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *block).code);
+		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, block));
 	}
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
@@ -409,14 +411,14 @@ TEST (rpc, accounts_receivable_blocks)
 	request.put ("action", "accounts_receivable");
 	boost::property_tree::ptree entry;
 	boost::property_tree::ptree peers_l;
-	entry.put ("", block1->link ().to_account ());
+	entry.put ("", block1->destination ().to_account ());
 	peers_l.push_back (std::make_pair ("", entry));
 	request.add_child ("accounts", peers_l);
 	auto response = wait_response (system, rpc_ctx, request);
 	for (auto & blocks : response.get_child ("blocks"))
 	{
 		std::string account_text{ blocks.first };
-		ASSERT_EQ (block1->link ().to_account (), account_text);
+		ASSERT_EQ (block1->destination ().to_account (), account_text);
 		nano::block_hash hash1{ blocks.second.begin ()->second.get<std::string> ("") };
 		ASSERT_EQ (block1->hash (), hash1);
 	}
@@ -435,7 +437,7 @@ TEST (rpc, accounts_receivable_sorting)
 	request.put ("action", "accounts_receivable");
 	boost::property_tree::ptree entry;
 	boost::property_tree::ptree peers_l;
-	entry.put ("", block1->link ().to_account ());
+	entry.put ("", block1->destination ().to_account ());
 	peers_l.push_back (std::make_pair ("", entry));
 	request.add_child ("accounts", peers_l);
 	request.put ("sorting", "true"); // Sorting test
@@ -443,7 +445,7 @@ TEST (rpc, accounts_receivable_sorting)
 	for (auto & blocks : response.get_child ("blocks"))
 	{
 		std::string account_text{ blocks.first };
-		ASSERT_EQ (block1->link ().to_account (), account_text);
+		ASSERT_EQ (block1->destination ().to_account (), account_text);
 		nano::block_hash hash1{ blocks.second.begin ()->first };
 		ASSERT_EQ (block1->hash (), hash1);
 		std::string amount{ blocks.second.begin ()->second.get<std::string> ("") };
@@ -464,7 +466,7 @@ TEST (rpc, accounts_receivable_threshold)
 	request.put ("action", "accounts_receivable");
 	boost::property_tree::ptree entry;
 	boost::property_tree::ptree peers_l;
-	entry.put ("", block1->link ().to_account ());
+	entry.put ("", block1->destination ().to_account ());
 	peers_l.push_back (std::make_pair ("", entry));
 	request.add_child ("accounts", peers_l);
 	request.put ("threshold", "1"); // Threshold test
@@ -473,7 +475,7 @@ TEST (rpc, accounts_receivable_threshold)
 	for (auto & pending : response.get_child ("blocks"))
 	{
 		std::string account_text{ pending.first };
-		ASSERT_EQ (block1->link ().to_account (), account_text);
+		ASSERT_EQ (block1->destination ().to_account (), account_text);
 		for (auto i (pending.second.begin ()), j (pending.second.end ()); i != j; ++i)
 		{
 			nano::block_hash hash;
@@ -500,7 +502,7 @@ TEST (rpc, accounts_receivable_source)
 	request.put ("action", "accounts_receivable");
 	boost::property_tree::ptree entry;
 	boost::property_tree::ptree peers_l;
-	entry.put ("", block1->link ().to_account ());
+	entry.put ("", block1->destination ().to_account ());
 	peers_l.push_back (std::make_pair ("", entry));
 	request.add_child ("accounts", peers_l);
 	request.put ("source", "true");
@@ -511,7 +513,7 @@ TEST (rpc, accounts_receivable_source)
 		for (auto & pending : response.get_child ("blocks"))
 		{
 			std::string account_text (pending.first);
-			ASSERT_EQ (block1->link ().to_account (), account_text);
+			ASSERT_EQ (block1->destination ().to_account (), account_text);
 			for (auto i (pending.second.begin ()), j (pending.second.end ()); i != j; ++i)
 			{
 				nano::block_hash hash;
@@ -533,14 +535,13 @@ TEST (rpc, accounts_receivable_confirmed)
 	auto node = add_ipc_enabled_node (system, config);
 	auto chain = nano::test::setup_chain (system, *node, 1, nano::dev::genesis_key, false);
 	auto block1 = chain[0];
-	ASSERT_TIMELY (5s, !node->active.active (*block1));
 
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "accounts_receivable");
 	boost::property_tree::ptree entry;
 	boost::property_tree::ptree peers_l;
-	entry.put ("", block1->link ().to_account ());
+	entry.put ("", block1->destination ().to_account ());
 	peers_l.push_back (std::make_pair ("", entry));
 	request.add_child ("accounts", peers_l);
 
@@ -550,7 +551,7 @@ TEST (rpc, accounts_receivable_confirmed)
 	request.put ("include_only_confirmed", "false");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 	ASSERT_TRUE (nano::test::start_elections (system, *node, { block1->hash () }, true));
-	ASSERT_TIMELY (5s, !node->active.active (*block1));
+	ASSERT_TIMELY (5s, nano::test::confirmed (*node, { block1 }));
 	request.put ("include_only_confirmed", "true");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 }

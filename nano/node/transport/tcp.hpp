@@ -93,7 +93,11 @@ namespace transport
 
 	private:
 		nano::tcp_endpoint endpoint{ boost::asio::ip::address_v6::any (), 0 };
+
+	public: // Logging
+		void operator() (nano::object_stream &) const override;
 	};
+
 	class tcp_channels final
 	{
 		friend class nano::transport::channel_tcp;
@@ -124,6 +128,8 @@ namespace transport
 		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
 		void ongoing_keepalive ();
+		void ongoing_merge (size_t channel_index);
+		void ongoing_merge (size_t channel_index, nano::keepalive keepalive, size_t peer_index);
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0, bool = true);
 		void modify (std::shared_ptr<nano::transport::channel_tcp> const &, std::function<void (std::shared_ptr<nano::transport::channel_tcp> const &)>);
 		void update (nano::tcp_endpoint const &);

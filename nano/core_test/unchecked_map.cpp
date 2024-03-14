@@ -1,5 +1,5 @@
 #include <nano/lib/blockbuilders.hpp>
-#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/secure/common.hpp>
@@ -15,11 +15,13 @@ using namespace std::chrono_literals;
 
 namespace
 {
+unsigned max_unchecked_blocks = 65536;
+
 class context
 {
 public:
 	context () :
-		unchecked{ stats, false }
+		unchecked{ max_unchecked_blocks, stats, false }
 	{
 	}
 	nano::stats stats;
@@ -36,7 +38,7 @@ std::shared_ptr<nano::block> block ()
 	.link (nano::dev::genesis_key.pub)
 	.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 	.work (0)
-	.build_shared ();
+	.build ();
 }
 }
 
@@ -55,7 +57,7 @@ TEST (unchecked_map, put_one)
 TEST (block_store, one_bootstrap)
 {
 	nano::test::system system{};
-	nano::unchecked_map unchecked{ system.stats, false };
+	nano::unchecked_map unchecked{ max_unchecked_blocks, system.stats, false };
 	nano::block_builder builder;
 	auto block1 = builder
 				  .send ()
@@ -64,7 +66,7 @@ TEST (block_store, one_bootstrap)
 				  .balance (2)
 				  .sign (nano::keypair ().prv, 4)
 				  .work (5)
-				  .build_shared ();
+				  .build ();
 	unchecked.put (block1->hash (), nano::unchecked_info{ block1 });
 	auto check_block_is_listed = [&] (nano::block_hash const & block_hash_a) {
 		return unchecked.get (block_hash_a).size () > 0;
@@ -88,7 +90,7 @@ TEST (block_store, one_bootstrap)
 TEST (unchecked, simple)
 {
 	nano::test::system system{};
-	nano::unchecked_map unchecked{ system.stats, false };
+	nano::unchecked_map unchecked{ max_unchecked_blocks, system.stats, false };
 	nano::block_builder builder;
 	auto block = builder
 				 .send ()
@@ -97,7 +99,7 @@ TEST (unchecked, simple)
 				 .balance (2)
 				 .sign (nano::keypair ().prv, 4)
 				 .work (5)
-				 .build_shared ();
+				 .build ();
 	// Asserts the block wasn't added yet to the unchecked table
 	auto block_listing1 = unchecked.get (block->previous ());
 	ASSERT_TRUE (block_listing1.empty ());
@@ -129,7 +131,7 @@ TEST (unchecked, multiple)
 		// Don't test this in rocksdb mode
 		GTEST_SKIP ();
 	}
-	nano::unchecked_map unchecked{ system.stats, false };
+	nano::unchecked_map unchecked{ max_unchecked_blocks, system.stats, false };
 	nano::block_builder builder;
 	auto block = builder
 				 .send ()
@@ -138,28 +140,28 @@ TEST (unchecked, multiple)
 				 .balance (2)
 				 .sign (nano::keypair ().prv, 4)
 				 .work (5)
-				 .build_shared ();
+				 .build ();
 	// Asserts the block wasn't added yet to the unchecked table
 	auto block_listing1 = unchecked.get (block->previous ());
 	ASSERT_TRUE (block_listing1.empty ());
 	// Enqueues the first block
 	unchecked.put (block->previous (), nano::unchecked_info (block));
 	// Enqueues a second block
-	unchecked.put (block->source (), nano::unchecked_info (block));
+	unchecked.put (6, nano::unchecked_info (block));
 	auto check_block_is_listed = [&] (nano::block_hash const & block_hash_a) {
 		return unchecked.get (block_hash_a).size () > 0;
 	};
 	// Waits for and asserts the first block gets saved in the database
 	ASSERT_TIMELY (5s, check_block_is_listed (block->previous ()));
 	// Waits for and asserts the second block gets saved in the database
-	ASSERT_TIMELY (5s, check_block_is_listed (block->source ()));
+	ASSERT_TIMELY (5s, check_block_is_listed (6));
 }
 
 // This test ensures that a block can't occur twice in the unchecked table.
 TEST (unchecked, double_put)
 {
 	nano::test::system system{};
-	nano::unchecked_map unchecked{ system.stats, false };
+	nano::unchecked_map unchecked{ max_unchecked_blocks, system.stats, false };
 	nano::block_builder builder;
 	auto block = builder
 				 .send ()
@@ -168,7 +170,7 @@ TEST (unchecked, double_put)
 				 .balance (2)
 				 .sign (nano::keypair ().prv, 4)
 				 .work (5)
-				 .build_shared ();
+				 .build ();
 	// Asserts the block wasn't added yet to the unchecked table
 	auto block_listing1 = unchecked.get (block->previous ());
 	ASSERT_TRUE (block_listing1.empty ());
@@ -190,7 +192,7 @@ TEST (unchecked, double_put)
 TEST (unchecked, multiple_get)
 {
 	nano::test::system system{};
-	nano::unchecked_map unchecked{ system.stats, false };
+	nano::unchecked_map unchecked{ max_unchecked_blocks, system.stats, false };
 	// Instantiates three blocks
 	nano::block_builder builder;
 	auto block1 = builder
@@ -200,7 +202,7 @@ TEST (unchecked, multiple_get)
 				  .balance (2)
 				  .sign (nano::keypair ().prv, 4)
 				  .work (5)
-				  .build_shared ();
+				  .build ();
 	auto block2 = builder
 				  .send ()
 				  .previous (3)
@@ -208,7 +210,7 @@ TEST (unchecked, multiple_get)
 				  .balance (2)
 				  .sign (nano::keypair ().prv, 4)
 				  .work (5)
-				  .build_shared ();
+				  .build ();
 	auto block3 = builder
 				  .send ()
 				  .previous (5)
@@ -216,7 +218,7 @@ TEST (unchecked, multiple_get)
 				  .balance (2)
 				  .sign (nano::keypair ().prv, 4)
 				  .work (5)
-				  .build_shared ();
+				  .build ();
 	// Add the blocks' info to the unchecked table
 	unchecked.put (block1->previous (), nano::unchecked_info (block1)); // unchecked1
 	unchecked.put (block1->hash (), nano::unchecked_info (block1)); // unchecked2

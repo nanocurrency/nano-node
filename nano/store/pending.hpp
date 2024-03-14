@@ -5,10 +5,13 @@
 #include <nano/store/iterator.hpp>
 
 #include <functional>
+#include <optional>
 
 namespace nano
 {
 class block_hash;
+class pending_info;
+class pending_key;
 }
 namespace nano::store
 {
@@ -20,7 +23,7 @@ class pending
 public:
 	virtual void put (store::write_transaction const &, nano::pending_key const &, nano::pending_info const &) = 0;
 	virtual void del (store::write_transaction const &, nano::pending_key const &) = 0;
-	virtual bool get (store::transaction const &, nano::pending_key const &, nano::pending_info &) = 0;
+	virtual std::optional<nano::pending_info> get (store::transaction const &, nano::pending_key const &) = 0;
 	virtual bool exists (store::transaction const &, nano::pending_key const &) = 0;
 	virtual bool any (store::transaction const &, nano::account const &) = 0;
 	virtual store::iterator<nano::pending_key, nano::pending_info> begin (store::transaction const &, nano::pending_key const &) const = 0;

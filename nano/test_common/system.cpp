@@ -1,5 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/node/common.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -40,8 +42,8 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config_a, work, node_flags_a, node_sequence++));
 	for (auto i : initialization_blocks)
 	{
-		auto result = node->ledger.process (node->store.tx_begin_write (), *i);
-		debug_assert (result.code == nano::process_result::progress);
+		auto result = node->ledger.process (node->store.tx_begin_write (), i);
+		debug_assert (result == nano::block_status::progress);
 	}
 	debug_assert (!node->init_error ());
 	auto wallet = node->wallets.create (nano::random_wallet_id ());
@@ -122,6 +124,21 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 		debug_assert (!ec);
 	}
 
+	logger.debug (nano::log::type::system, "Node started: {}", node->get_node_id ().to_node_id ());
+
+	return node;
+}
+
+std::shared_ptr<nano::node> nano::test::system::make_disconnected_node (std::optional<nano::node_config> opt_node_config, nano::node_flags flags)
+{
+	nano::node_config node_config = opt_node_config.has_value () ? *opt_node_config : default_config ();
+	auto node = std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config, work, flags);
+	if (node->init_error ())
+	{
+		std::cerr << "node init error\n";
+		return nullptr;
+	}
+	node->start ();
 	return node;
 }
 
@@ -132,7 +149,6 @@ nano::test::system::system ()
 	{
 		deadline_scaling_factor = std::stod (scale_str);
 	}
-	logging.init (nano::unique_path ());
 }
 
 nano::test::system::system (uint16_t count_a, nano::transport::transport_type type_a, nano::node_flags flags_a) :
@@ -180,7 +196,7 @@ void nano::test::system::ledger_initialization_set (std::vector<nano::keypair> c
 		.balance (balance)
 		.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 		.work (*work.generate (previous));
-		initialization_blocks.emplace_back (builder.build_shared ());
+		initialization_blocks.emplace_back (builder.build ());
 		previous = initialization_blocks.back ()->hash ();
 		builder.make_block ();
 		builder.account (i.pub)
@@ -190,7 +206,7 @@ void nano::test::system::ledger_initialization_set (std::vector<nano::keypair> c
 		.balance (amount)
 		.sign (i.prv, i.pub)
 		.work (*work.generate (i.pub));
-		initialization_blocks.emplace_back (builder.build_shared ());
+		initialization_blocks.emplace_back (builder.build ());
 	}
 }
 
@@ -227,7 +243,7 @@ uint64_t nano::test::system::work_generate_limited (nano::block_hash const & roo
 /** Initiate an epoch upgrade. Writes the epoch block into the ledger and leaves it to
  *  node background processes (e.g. frontiers confirmation) to cement the block.
  */
-std::unique_ptr<nano::state_block> nano::test::upgrade_epoch (nano::work_pool & pool_a, nano::ledger & ledger_a, nano::epoch epoch_a)
+std::shared_ptr<nano::state_block> nano::test::upgrade_epoch (nano::work_pool & pool_a, nano::ledger & ledger_a, nano::epoch epoch_a)
 {
 	auto transaction (ledger_a.store.tx_begin_write ());
 	auto dev_genesis_key = nano::dev::genesis_key;
@@ -250,13 +266,13 @@ std::unique_ptr<nano::state_block> nano::test::upgrade_epoch (nano::work_pool & 
 	bool error{ true };
 	if (!ec && epoch)
 	{
-		error = ledger_a.process (transaction, *epoch).code != nano::process_result::progress;
+		error = ledger_a.process (transaction, epoch) != nano::block_status::progress;
 	}
 
 	return !error ? std::move (epoch) : nullptr;
 }
 
-std::unique_ptr<nano::state_block> nano::test::system::upgrade_genesis_epoch (nano::node & node_a, nano::epoch const epoch_a)
+std::shared_ptr<nano::state_block> nano::test::system::upgrade_genesis_epoch (nano::node & node_a, nano::epoch const epoch_a)
 {
 	return upgrade_epoch (work, node_a.ledger, epoch_a);
 }
@@ -404,12 +420,12 @@ void nano::test::system::generate_receive (nano::node & node_a)
 		if (i != node_a.store.pending.end ())
 		{
 			nano::pending_key const & send_hash (i->first);
-			send_block = node_a.store.block.get (transaction, send_hash.hash);
+			send_block = node_a.ledger.block (transaction, send_hash.hash);
 		}
 	}
 	if (send_block != nullptr)
 	{
-		auto receive_error (wallet (0)->receive_sync (send_block, nano::dev::genesis->account (), std::numeric_limits<nano::uint128_t>::max ()));
+		auto receive_error (wallet (0)->receive_sync (send_block, nano::dev::genesis_key.pub, std::numeric_limits<nano::uint128_t>::max ()));
 		(void)receive_error;
 	}
 }
@@ -563,66 +579,36 @@ void nano::test::system::stop ()
 
 nano::node_config nano::test::system::default_config ()
 {
-	nano::node_config config{ get_available_port (), logging };
+	nano::node_config config{ get_available_port () };
 	return config;
 }
 
-uint16_t nano::test::system::get_available_port (bool can_be_zero)
+uint16_t nano::test::system::get_available_port ()
 {
 	auto base_port_str = std::getenv ("NANO_TEST_BASE_PORT");
-	if (base_port_str)
-	{
-		// Maximum possible sockets which may feasibly be used in 1 test
-		constexpr auto max = 200;
-		static uint16_t current = 0;
-		// Read the TEST_BASE_PORT environment and override the default base port if it exists
-		uint16_t base_port = boost::lexical_cast<uint16_t> (base_port_str);
+	if (!base_port_str)
+		return 0; // let the O/S decide
 
-		uint16_t const available_port = base_port + current;
-		++current;
-		// Reset port number once we have reached the maximum
-		if (current == max)
-		{
-			current = 0;
-		}
+	// Maximum possible sockets which may feasibly be used in 1 test
+	constexpr auto max = 200;
+	static uint16_t current = 0;
 
-		return available_port;
-	}
-	else
-	{
-		if (!can_be_zero)
-		{
-			/*
-			 * This works because the kernel doesn't seem to reuse port numbers until it absolutely has to.
-			 * Subsequent binds to port 0 will allocate a different port number.
-			 */
-			boost::asio::ip::tcp::acceptor acceptor{ io_ctx };
-			boost::asio::ip::tcp::tcp::endpoint endpoint{ boost::asio::ip::tcp::v4 (), 0 };
-			acceptor.open (endpoint.protocol ());
+	// Read the TEST_BASE_PORT environment and override the default base port if it exists
+	uint16_t base_port = boost::lexical_cast<uint16_t> (base_port_str);
 
-			boost::asio::socket_base::reuse_address option{ true };
-			acceptor.set_option (option); // set SO_REUSEADDR option
+	uint16_t const available_port = base_port + current;
+	++current;
 
-			acceptor.bind (endpoint);
+	// Reset port number once we have reached the maximum
+	if (current >= max)
+		current = 0;
 
-			auto actual_endpoint = acceptor.local_endpoint ();
-			auto port = actual_endpoint.port ();
-
-			acceptor.close ();
-
-			return port;
-		}
-		else
-		{
-			return 0;
-		}
-	}
+	return available_port;
 }
 
+// Makes sure everything is cleaned up
 void nano::test::cleanup_dev_directories_on_exit ()
 {
-	// Makes sure everything is cleaned up
-	nano::logging::release_file_sink ();
 	// Clean up tmp directories created by the tests. Since it's sometimes useful to
 	// see log files after test failures, an environment variable is supported to
 	// retain the files.

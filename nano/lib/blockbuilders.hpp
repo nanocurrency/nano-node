@@ -1,8 +1,17 @@
 #pragma once
 
-#include <nano/lib/blocks.hpp>
+#include <nano/lib/numbers.hpp>
 
 #include <memory>
+
+namespace nano
+{
+class change_block;
+class send_block;
+class state_block;
+class open_block;
+class receive_block;
+}
 
 namespace nano
 {
@@ -44,14 +53,10 @@ template <typename BLOCKTYPE, typename BUILDER>
 class abstract_builder
 {
 public:
-	/** Returns the built block as a unique_ptr */
-	std::unique_ptr<BLOCKTYPE> build ();
-	/** Returns the built block as a unique_ptr. Any errors are placed in \p ec */
-	std::unique_ptr<BLOCKTYPE> build (std::error_code & ec);
-	/** Returns the built block as a shared_ptr */
-	std::shared_ptr<BLOCKTYPE> build_shared ();
-	/** Returns the built block as a shared_ptr. Any errors are placed in \p ec */
-	std::shared_ptr<BLOCKTYPE> build_shared (std::error_code & ec);
+	/** Returns the built block*/
+	std::shared_ptr<BLOCKTYPE> build ();
+	/** Returns the built block. Any errors are placed in \p ec */
+	std::shared_ptr<BLOCKTYPE> build (std::error_code & ec);
 	/** Set work value */
 	abstract_builder & work (uint64_t work);
 	/** Sign the block using the \p private_key and \p public_key */

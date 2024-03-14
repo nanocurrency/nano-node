@@ -36,8 +36,8 @@ jobs:
 
   osx_job:
     needs: prepare_build
-    if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
-    runs-on: macOS-12
+    if: ${{ needs.prepare_build.outputs.TAG_CREATED == 'true' }}
+    runs-on: macOS-14
     timeout-minutes: 90
     strategy:
       matrix:

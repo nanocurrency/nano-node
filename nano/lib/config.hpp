@@ -1,5 +1,7 @@
 #pragma once
 
+#include <nano/lib/tomlconfig.hpp>
+
 #include <boost/config.hpp>
 #include <boost/version.hpp>
 
@@ -127,6 +129,8 @@ enum class networks : uint16_t
 	nano_test_network = 0x5258, // 'R', 'X'
 };
 
+std::string_view to_string (nano::networks);
+
 enum class work_version
 {
 	unspecified,
@@ -198,6 +202,7 @@ public:
 		default_websocket_port (47000),
 		aec_loop_interval_ms (300), // Update AEC ~3 times per second
 		cleanup_period (default_cleanup_period),
+		merge_period (std::chrono::milliseconds (250)),
 		keepalive_period (std::chrono::seconds (15)),
 		idle_timeout (default_cleanup_period * 2),
 		silent_connection_tolerance_time (std::chrono::seconds (120)),
@@ -207,7 +212,8 @@ public:
 		max_peers_per_subnetwork (default_max_peers_per_ip * 4),
 		ipv6_subnetwork_prefix_for_limiting (64), // Equivalent to network prefix /64.
 		peer_dump_interval (std::chrono::seconds (5 * 60)),
-		vote_broadcast_interval (15 * 1000)
+		vote_broadcast_interval (15 * 1000),
+		block_broadcast_interval (150 * 1000)
 	{
 		if (is_live_network ())
 		{
@@ -234,17 +240,21 @@ public:
 		{
 			aec_loop_interval_ms = 20;
 			cleanup_period = std::chrono::seconds (1);
+			merge_period = std::chrono::milliseconds (10);
 			keepalive_period = std::chrono::seconds (1);
 			idle_timeout = cleanup_period * 15;
 			max_peers_per_ip = 20;
 			max_peers_per_subnetwork = max_peers_per_ip * 4;
 			peer_dump_interval = std::chrono::seconds (1);
-			vote_broadcast_interval = 500;
+			vote_broadcast_interval = 500ms;
+			block_broadcast_interval = 500ms;
 			telemetry_request_cooldown = 500ms;
 			telemetry_cache_cutoff = 2000ms;
 			telemetry_request_interval = 500ms;
 			telemetry_broadcast_interval = 500ms;
 			optimistic_activation_delay = 2s;
+			rep_crawler_normal_interval = 500ms;
+			rep_crawler_warmup_interval = 500ms;
 		}
 	}
 
@@ -271,6 +281,8 @@ public:
 	{
 		return cleanup_period * 5;
 	}
+	/** How often to connect to other peers */
+	std::chrono::milliseconds merge_period;
 	/** How often to send keepalive messages */
 	std::chrono::seconds keepalive_period;
 	/** Default maximum idle time for a socket before it's automatically closed */
@@ -284,8 +296,10 @@ public:
 	size_t max_peers_per_subnetwork;
 	size_t ipv6_subnetwork_prefix_for_limiting;
 	std::chrono::seconds peer_dump_interval;
-	/** Time to wait before vote rebroadcasts for active elections (milliseconds) */
-	uint64_t vote_broadcast_interval;
+
+	/** Time to wait before rebroadcasts for active elections */
+	std::chrono::milliseconds vote_broadcast_interval;
+	std::chrono::milliseconds block_broadcast_interval;
 
 	/** We do not reply to telemetry requests made within cooldown period */
 	std::chrono::milliseconds telemetry_request_cooldown{ 1000 * 15 };
@@ -298,6 +312,9 @@ public:
 
 	/** How much to delay activation of optimistic elections to avoid interfering with election scheduler */
 	std::chrono::seconds optimistic_activation_delay{ 30 };
+
+	std::chrono::milliseconds rep_crawler_normal_interval{ 1000 * 7 };
+	std::chrono::milliseconds rep_crawler_warmup_interval{ 1000 * 3 };
 
 	/** Returns the network this object contains values for */
 	nano::networks network () const
@@ -404,4 +421,28 @@ bool is_sanitizer_build ();
 
 /** Set the active network to the dev network */
 void force_nano_dev_network ();
+
+/**
+ * Attempt to read a configuration file from specified directory. Returns empty tomlconfig if nothing is found.
+ * @throws std::runtime_error with error code if the file or overrides are not valid toml
+ */
+nano::tomlconfig load_toml_file (const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides);
+
+/**
+ * Attempt to read a configuration file from specified directory. Returns fallback config if nothing is found.
+ * @throws std::runtime_error with error code if the file or overrides are not valid toml or deserialization fails
+ */
+template <typename T>
+T load_config_file (T fallback, const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides)
+{
+	auto toml = load_toml_file (config_filename, data_path, config_overrides);
+
+	T config = fallback;
+	auto error = config.deserialize_toml (toml);
+	if (error)
+	{
+		throw std::runtime_error (error.get_message ());
+	}
+	return config;
+}
 }

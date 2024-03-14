@@ -2,6 +2,7 @@
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/hinted.hpp>
+#include <nano/secure/ledger.hpp>
 
 /*
  * hinted
@@ -76,7 +77,7 @@ void nano::scheduler::hinted::activate (const nano::store::read_transaction & tr
 		stack.pop ();
 
 		// Check if block exists
-		if (auto block = node.store.block.get (transaction, current_hash); block)
+		if (auto block = node.ledger.block (transaction, current_hash); block)
 		{
 			// Ensure block is not already confirmed
 			if (node.block_confirmed_or_being_confirmed (transaction, current_hash))

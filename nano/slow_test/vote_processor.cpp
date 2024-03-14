@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/test_common/system.hpp>
@@ -75,5 +76,5 @@ TEST (vote_processor, producer_consumer)
 	consumer_thread.join ();
 	monitor_thread.join ();
 
-	ASSERT_TRUE (producer_wins > consumer_wins);
+	ASSERT_GT (producer_wins, consumer_wins);
 }

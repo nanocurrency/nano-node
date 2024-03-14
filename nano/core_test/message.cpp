@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/network.hpp>
@@ -20,7 +21,7 @@ std::shared_ptr<nano::block> random_block ()
 				 .balance (2)
 				 .sign (nano::keypair ().prv, 4)
 				 .work (5)
-				 .build_shared ();
+				 .build ();
 	return block;
 }
 }
@@ -165,7 +166,7 @@ TEST (message, confirm_ack_hash_serialization)
 		hashes.push_back (block->hash ());
 	}
 	nano::keypair representative1;
-	auto vote (std::make_shared<nano::vote> (representative1.pub, representative1.prv, 0, 0, hashes));
+	auto vote = nano::test::make_vote (representative1, { hashes }, 0, 0);
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
 	std::vector<uint8_t> bytes;
 	{
@@ -206,7 +207,7 @@ TEST (message, confirm_ack_hash_serialization_v2)
 	}
 
 	nano::keypair representative1;
-	auto vote (std::make_shared<nano::vote> (representative1.pub, representative1.prv, 0, 0, hashes));
+	auto vote = nano::test::make_vote (representative1, { hashes }, 0, 0);
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
 	std::vector<uint8_t> bytes;
 	{
@@ -360,22 +361,6 @@ TEST (message, confirm_req_hash_batch_serialization_v2)
 	ASSERT_EQ (req2.roots_hashes, roots_hashes);
 	ASSERT_EQ (header.count_v2_get (), req.roots_hashes.size ());
 	ASSERT_TRUE (header.confirm_is_v2 ());
-}
-
-// this unit test checks that conversion of message_header to string works as expected
-TEST (message, message_header_to_string)
-{
-	// calculate expected string
-	int maxver = nano::dev::network_params.network.protocol_version;
-	int minver = nano::dev::network_params.network.protocol_version_min;
-	std::stringstream ss;
-	ss << "NetID: 5241(dev), VerMaxUsingMin: " << maxver << "/" << maxver << "/" << minver << ", MsgType: 2(keepalive), Extensions: 0000";
-	auto expected_str = ss.str ();
-
-	// check expected vs real
-	nano::keepalive keepalive_msg{ nano::dev::network_params.network };
-	std::string header_string = keepalive_msg.header.to_string ();
-	ASSERT_EQ (expected_str, header_string);
 }
 
 /**

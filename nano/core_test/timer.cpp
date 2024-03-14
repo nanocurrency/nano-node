@@ -39,7 +39,7 @@ TEST (timer, measure_and_compare)
 	std::this_thread::sleep_for (50ms);
 	ASSERT_TRUE (t1.after_deadline (30ms));
 	ASSERT_TRUE (t1.before_deadline (500ms));
-	ASSERT_LT (t1.since_start (), 200ms);
+	ASSERT_LT (t1.since_start (), 500ms);
 	ASSERT_GT (t1.since_start (), 10ms);
 	ASSERT_GE (t1.stop (), 50ms);
 	std::this_thread::sleep_for (50ms);

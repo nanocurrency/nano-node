@@ -5,6 +5,7 @@
 #include <nano/node/node.hpp>
 
 #include <chrono>
+#include <optional>
 
 namespace nano
 {
@@ -37,7 +38,7 @@ namespace test
 		void generate_receive (nano::node &);
 		void generate_send_new (nano::node &, std::vector<nano::account> &);
 		void generate_send_existing (nano::node &, std::vector<nano::account> &);
-		std::unique_ptr<nano::state_block> upgrade_genesis_epoch (nano::node &, nano::epoch const);
+		std::shared_ptr<nano::state_block> upgrade_genesis_epoch (nano::node &, nano::epoch const);
 		std::shared_ptr<nano::wallet> wallet (size_t);
 		nano::account account (store::transaction const &, size_t);
 		/** Generate work with difficulty between \p min_difficulty_a (inclusive) and \p max_difficulty_a (exclusive) */
@@ -57,17 +58,26 @@ namespace test
 		nano::node & node (std::size_t index) const;
 		std::shared_ptr<nano::node> add_node (nano::node_flags = nano::node_flags (), nano::transport::transport_type = nano::transport::transport_type::tcp);
 		std::shared_ptr<nano::node> add_node (nano::node_config const &, nano::node_flags = nano::node_flags (), nano::transport::transport_type = nano::transport::transport_type::tcp, std::optional<nano::keypair> const & rep = std::nullopt);
+
+		// Make an independent node that uses system resources but is not part of the system node list and does not automatically connect to other nodes
+		std::shared_ptr<nano::node> make_disconnected_node (std::optional<nano::node_config> opt_node_config = std::nullopt, nano::node_flags = nano::node_flags ());
+
 		/*
 		 * Returns default config for node running in test environment
 		 */
 		nano::node_config default_config ();
-		uint16_t get_available_port (bool can_be_zero = true);
+
+		/*
+		 * Returns port 0 by default, to let the O/S choose a port number.
+		 * If NANO_TEST_BASE_PORT is set then it allocates numbers by itself from that range.
+		 */
+		uint16_t get_available_port ();
 
 	public:
 		boost::asio::io_context io_ctx;
 		std::vector<std::shared_ptr<nano::node>> nodes;
-		nano::logging logging;
 		nano::stats stats;
+		nano::logger logger{ "tests" };
 		nano::work_pool work{ nano::dev::network_params.network, std::max (nano::hardware_concurrency (), 1u) };
 		std::chrono::time_point<std::chrono::steady_clock, std::chrono::duration<double>> deadline{ std::chrono::steady_clock::time_point::max () };
 		double deadline_scaling_factor{ 1.0 };
@@ -75,7 +85,7 @@ namespace test
 		std::vector<std::shared_ptr<nano::block>> initialization_blocks;
 	};
 
-	std::unique_ptr<nano::state_block> upgrade_epoch (nano::work_pool &, nano::ledger &, nano::epoch);
+	std::shared_ptr<nano::state_block> upgrade_epoch (nano::work_pool &, nano::ledger &, nano::epoch);
 	void cleanup_dev_directories_on_exit ();
 }
 }

@@ -1,7 +1,6 @@
-#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/confirmation_height_unbounded.hpp>
-#include <nano/node/logging.hpp>
 #include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/block.hpp>
@@ -12,11 +11,10 @@
 
 #include <numeric>
 
-nano::confirmation_height_unbounded::confirmation_height_unbounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, uint64_t & batch_write_size_a, std::function<void (std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void (nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
+nano::confirmation_height_unbounded::confirmation_height_unbounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger & logger_a, std::atomic<bool> & stopped_a, uint64_t & batch_write_size_a, std::function<void (std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void (nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
 	ledger (ledger_a),
 	write_database_queue (write_database_queue_a),
 	batch_separate_pending_min_time (batch_separate_pending_min_time_a),
-	logging (logging_a),
 	logger (logger_a),
 	stopped (stopped_a),
 	batch_write_size (batch_write_size_a),
@@ -77,17 +75,11 @@ void nano::confirmation_height_unbounded::process (std::shared_ptr<nano::block> 
 		}
 		if (!block)
 		{
-			auto error_str = (boost::format ("Ledger mismatch trying to set confirmation height for block %1% (unbounded processor)") % current.to_string ()).str ();
-			logger.always_log (error_str);
-			std::cerr << error_str << std::endl;
+			logger.critical (nano::log::type::conf_processor_unbounded, "Ledger mismatch trying to set confirmation height for block {} (unbounded processor)", current.to_string ());
 		}
 		release_assert (block);
 
-		nano::account account (block->account ());
-		if (account.is_zero ())
-		{
-			account = block->sideband ().account;
-		}
+		auto account = block->account ();
 
 		auto block_height = block->sideband ().height;
 		uint64_t confirmation_height = 0;
@@ -220,13 +212,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 
 		if (block)
 		{
-			auto source (block->source ());
-			if (source.is_zero ())
-			{
-				source = block->link ().as_block_hash ();
-			}
-
-			if (!source.is_zero () && !ledger.is_epoch_link (source) && ledger.store.block.exists (transaction_a, source))
+			if (block->is_receive () && ledger.block_exists (transaction_a, block->source ()))
 			{
 				if (!hit_receive && !block_callback_data_a.empty ())
 				{
@@ -241,7 +227,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 				hit_receive = true;
 
 				auto block_height = confirmation_height_a + num_to_confirm;
-				receive_source_pairs_a.emplace_back (std::make_shared<conf_height_details> (account_a, hash, block_height, 1, std::vector<nano::block_hash>{ hash }), source);
+				receive_source_pairs_a.emplace_back (std::make_shared<conf_height_details> (account_a, hash, block_height, 1, std::vector<nano::block_hash>{ hash }), block->source ());
 			}
 			else if (is_original_block)
 			{
@@ -381,7 +367,7 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 			auto confirmation_height = confirmation_height_info.height;
 			if (pending.height > confirmation_height)
 			{
-				auto block = ledger.store.block.get (transaction, pending.hash);
+				auto block = ledger.block (transaction, pending.hash);
 				debug_assert (ledger.pruning || block != nullptr);
 				debug_assert (ledger.pruning || block->sideband ().height == pending.height);
 
@@ -395,9 +381,8 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 					}
 					else
 					{
-						auto error_str = (boost::format ("Failed to write confirmation height for block %1% (unbounded processor)") % pending.hash.to_string ()).str ();
-						logger.always_log (error_str);
-						std::cerr << error_str << std::endl;
+						logger.critical (nano::log::type::conf_processor_unbounded, "Failed to write confirmation height for block {} (unbounded processor)", pending.hash.to_string ());
+
 						error = true;
 						break;
 					}
@@ -424,10 +409,6 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 	}
 
 	auto time_spent_cementing = cemented_batch_timer.since_start ().count ();
-	if (logging.timing_logging () && time_spent_cementing > 50)
-	{
-		logger.always_log (boost::str (boost::format ("Cemented %1% blocks in %2% %3% (unbounded processor)") % cemented_blocks.size () % time_spent_cementing % cemented_batch_timer.unit ()));
-	}
 
 	scoped_write_guard_a.release ();
 	notify_observers_callback (cemented_blocks);
@@ -448,7 +429,7 @@ std::shared_ptr<nano::block> nano::confirmation_height_unbounded::get_block_and_
 	}
 	else
 	{
-		auto block (ledger.store.block.get (transaction_a, hash_a));
+		auto block = ledger.block (transaction_a, hash_a);
 		block_cache.emplace (hash_a, block);
 		return block;
 	}

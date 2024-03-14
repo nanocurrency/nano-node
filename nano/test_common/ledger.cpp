@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/node.hpp>
 #include <nano/test_common/ledger.hpp>
@@ -12,8 +13,8 @@ nano::test::context::ledger_context::ledger_context (std::deque<std::shared_ptr<
 	store_m->initialize (tx, ledger_m.cache, ledger_m.constants);
 	for (auto const & i : blocks_m)
 	{
-		auto process_result = ledger_m.process (tx, *i);
-		debug_assert (process_result.code == nano::process_result::progress);
+		auto process_result = ledger_m.process (tx, i);
+		debug_assert (process_result == nano::block_status::progress);
 	}
 }
 
@@ -56,7 +57,7 @@ auto nano::test::context::ledger_send_receive () -> ledger_context
 				.link (nano::dev::genesis_key.pub)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*pool.generate (nano::dev::genesis->hash ()))
-				.build_shared ();
+				.build ();
 	blocks.push_back (send);
 	auto receive = builder.state ()
 				   .make_block ()
@@ -67,7 +68,7 @@ auto nano::test::context::ledger_send_receive () -> ledger_context
 				   .link (send->hash ())
 				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				   .work (*pool.generate (send->hash ()))
-				   .build_shared ();
+				   .build ();
 	blocks.push_back (receive);
 	return ledger_context{ std::move (blocks) };
 }
@@ -84,7 +85,7 @@ auto nano::test::context::ledger_send_receive_legacy () -> ledger_context
 				.balance (nano::dev::constants.genesis_amount - 1)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*pool.generate (nano::dev::genesis->hash ()))
-				.build_shared ();
+				.build ();
 	blocks.push_back (send);
 	auto receive = builder.receive ()
 				   .make_block ()
@@ -92,7 +93,7 @@ auto nano::test::context::ledger_send_receive_legacy () -> ledger_context
 				   .source (send->hash ())
 				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				   .work (*pool.generate (send->hash ()))
-				   .build_shared ();
+				   .build ();
 	blocks.push_back (receive);
 	return ledger_context{ std::move (blocks) };
 }

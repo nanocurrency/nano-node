@@ -17,9 +17,9 @@ public:
 	int get (store::transaction const & transaction_a) const override;
 
 	/**
-		 * Meta information about block store, such as versions.
-		 * nano::uint256_union (arbitrary key) -> blob
-		 */
+	 * Meta information about block store, such as versions.
+	 * nano::uint256_union (arbitrary key) -> blob
+	 */
 	MDB_dbi meta_handle{ 0 };
 };
 } // namespace nano::store::lmdb

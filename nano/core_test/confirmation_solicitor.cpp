@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/transport/inproc.hpp>
@@ -20,7 +21,7 @@ TEST (confirmation_solicitor, batches)
 	auto & node2 = *system.add_node (node_flags);
 	auto channel1 = nano::test::establish_tcp (system, node2, node1.network.endpoint ());
 	// Solicitor will only solicit from this representative
-	nano::representative representative (nano::dev::genesis_key.pub, channel1);
+	nano::representative representative{ nano::dev::genesis_key.pub, channel1 };
 	std::vector<nano::representative> representatives{ representative };
 	nano::confirmation_solicitor solicitor (node2.network, node2.config);
 	solicitor.prepare (representatives);
@@ -37,7 +38,7 @@ TEST (confirmation_solicitor, batches)
 				.balance (nano::dev::constants.genesis_amount - 100)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
-				.build_shared ();
+				.build ();
 	send->sideband_set ({});
 	{
 		nano::lock_guard<nano::mutex> guard (node2.active.mutex);
@@ -70,7 +71,7 @@ TEST (confirmation_solicitor, different_hash)
 	auto & node2 = *system.add_node (node_flags);
 	auto channel1 = nano::test::establish_tcp (system, node2, node1.network.endpoint ());
 	// Solicitor will only solicit from this representative
-	nano::representative representative (nano::dev::genesis_key.pub, channel1);
+	nano::representative representative{ nano::dev::genesis_key.pub, channel1 };
 	std::vector<nano::representative> representatives{ representative };
 	nano::confirmation_solicitor solicitor (node2.network, node2.config);
 	solicitor.prepare (representatives);
@@ -87,7 +88,7 @@ TEST (confirmation_solicitor, different_hash)
 				.balance (nano::dev::constants.genesis_amount - 100)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
-				.build_shared ();
+				.build ();
 	send->sideband_set ({});
 	auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::normal));
 	// Add a vote for something else, not the winner
@@ -131,7 +132,7 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 				.balance (nano::dev::constants.genesis_amount - 100)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
-				.build_shared ();
+				.build ();
 	send->sideband_set ({});
 	auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::normal));
 	// Add a vote for something else, not the winner

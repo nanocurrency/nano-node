@@ -1,5 +1,6 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/locks.hpp>
+#include <nano/lib/stacktrace.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/format.hpp>
@@ -250,8 +251,6 @@ char const * nano::mutex_identifier (mutexes mutex)
 	{
 		case mutexes::active:
 			return "active";
-		case mutexes::block_arrival:
-			return "block_arrival";
 		case mutexes::block_processor:
 			return "block_processor";
 		case mutexes::block_uniquer:

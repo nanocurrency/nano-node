@@ -8,6 +8,11 @@
 #include <memory>
 #include <vector>
 
+namespace nano
+{
+using block_list_t = std::vector<std::shared_ptr<nano::block>>;
+}
+
 /*
  * Helper functions to deal with common chain setup scenarios
  */

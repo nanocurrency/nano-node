@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/cli.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/lib/utility.hpp>
@@ -9,6 +10,7 @@
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/inproc.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/store/pending.hpp>
 
 #include <boost/dll/runtime_symbol_info.hpp>
@@ -53,8 +55,11 @@ public:
 
 int main (int argc, char * const * argv)
 {
-	nano::set_umask ();
+	nano::set_umask (); // Make sure the process umask is set before any files are created
+	nano::logger::initialize (nano::log_config::cli_default ());
+
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
+
 	boost::program_options::options_description description ("Command line options");
 	// clang-format off
 	description.add_options ()
@@ -138,7 +143,7 @@ int main (int argc, char * const * argv)
 	{
 		if (vm.count ("daemon") > 0)
 		{
-			nano_daemon::daemon daemon;
+			nano::daemon daemon;
 			nano::node_flags flags;
 			auto flags_ec = nano::update_flags (flags, vm);
 			if (flags_ec)
@@ -281,14 +286,14 @@ int main (int argc, char * const * argv)
 				{
 					if (sample.diff > log_threshold)
 					{
-						node->logger.always_log (sample.get_entry ());
+						std::cout << '\t' << sample.get_entry () << '\n';
 					}
 				}
 				for (auto const & newcomer : newcomers)
 				{
 					if (newcomer.second > log_threshold)
 					{
-						node->logger.always_log (newcomer_entry (newcomer));
+						std::cout << '\t' << newcomer_entry (newcomer) << '\n';
 					}
 				}
 			}
@@ -610,13 +615,17 @@ int main (int argc, char * const * argv)
 						error |= device >= environment.platforms[platform].devices.size ();
 						if (!error)
 						{
-							nano::logger_mt logger;
+							nano::logger logger;
 							nano::opencl_config config (platform, device, threads);
-							auto opencl (nano::opencl_work::create (true, config, logger, network_params.work));
-							nano::work_pool work_pool{ network_params.network, 0, std::chrono::nanoseconds (0), opencl ? [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
-														  return opencl->generate_work (version_a, root_a, difficulty_a);
-													  }
-																													   : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr) };
+							auto opencl = nano::opencl_work::create (true, config, logger, network_params.work);
+							nano::opencl_work_func_t opencl_work_func;
+							if (opencl)
+							{
+								opencl_work_func = [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
+									return opencl->generate_work (version_a, root_a, difficulty_a);
+								};
+							}
+							nano::work_pool work_pool{ network_params.network, 0, std::chrono::nanoseconds (0), opencl_work_func };
 							nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x (%5%x from base difficulty %6$#x)\n") % platform % device % threads % difficulty % nano::to_string (nano::difficulty::to_multiplier (difficulty, nano::work_thresholds::publish_full.base), 4) % nano::work_thresholds::publish_full.base);
 							for (uint64_t i (0); true; ++i)
@@ -987,7 +996,6 @@ int main (int argc, char * const * argv)
 				}
 			}
 
-			node->block_processor.flush ();
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
 			node->stop ();
@@ -1027,7 +1035,7 @@ int main (int argc, char * const * argv)
 							.build ();
 
 				genesis_latest = send->hash ();
-				node->ledger.process (transaction, *send);
+				node->ledger.process (transaction, send);
 
 				auto open = builder.state ()
 							.account (keys[i].pub)
@@ -1039,7 +1047,7 @@ int main (int argc, char * const * argv)
 							.work (*node->work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.work.epoch_1))
 							.build ();
 
-				node->ledger.process (transaction, *open);
+				node->ledger.process (transaction, open);
 			}
 			// Generating blocks
 			std::deque<std::shared_ptr<nano::block>> blocks;
@@ -1080,7 +1088,10 @@ int main (int argc, char * const * argv)
 				node->process_active (block);
 				blocks.pop_front ();
 			}
-			node->block_processor.flush ();
+			while (node->block_processor.size () > 0)
+			{
+				std::this_thread::sleep_for (std::chrono::milliseconds (100));
+			}
 			// Processing votes
 			std::cerr << boost::str (boost::format ("Starting processing %1% votes\n") % max_votes);
 			auto begin (std::chrono::high_resolution_clock::now ());
@@ -1121,10 +1132,8 @@ int main (int argc, char * const * argv)
 			boost::asio::io_context io_ctx1;
 			boost::asio::io_context io_ctx2;
 			nano::work_pool work{ network_params.network, std::numeric_limits<unsigned>::max () };
-			nano::logging logging;
 			auto path1 (nano::unique_path ());
 			auto path2 (nano::unique_path ());
-			logging.init (path1);
 			std::vector<std::string> config_overrides;
 			auto config (vm.find ("config"));
 			if (config != vm.end ())
@@ -1190,7 +1199,6 @@ int main (int argc, char * const * argv)
 			{
 				node1->block_processor.add (block);
 			}
-			node1->block_processor.flush ();
 			auto iteration (0);
 			while (node1->ledger.cache.block_count != count * 2 + 1)
 			{
@@ -1240,7 +1248,6 @@ int main (int argc, char * const * argv)
 				node2->block_processor.add (block);
 				blocks.pop_front ();
 			}
-			node2->block_processor.flush ();
 			while (node2->ledger.cache.block_count != count * 2 + 1)
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (500));
@@ -1406,17 +1413,17 @@ int main (int argc, char * const * argv)
 
 				auto hash (info.open_block);
 				nano::block_hash calculated_hash (0);
-				auto block (node->store.block.get (transaction, hash)); // Block data
+				auto block = node->ledger.block (transaction, hash); // Block data
 				uint64_t height (0);
 				if (node->ledger.pruning && confirmation_height_info.height != 0)
 				{
 					hash = confirmation_height_info.frontier;
-					block = node->store.block.get (transaction, hash);
+					block = node->ledger.block (transaction, hash);
 					// Iteration until pruned block
 					bool pruned_block (false);
 					while (!pruned_block && !block->previous ().is_zero ())
 					{
-						auto previous_block (node->store.block.get (transaction, block->previous ()));
+						auto previous_block = node->ledger.block (transaction, block->previous ());
 						if (previous_block != nullptr)
 						{
 							hash = previous_block->hash ();
@@ -1489,13 +1496,13 @@ int main (int argc, char * const * argv)
 							bool error_or_pruned (false);
 							if (!state_block.hashables.previous.is_zero ())
 							{
-								prev_balance = node->ledger.balance_safe (transaction, state_block.hashables.previous, error_or_pruned);
+								prev_balance = node->ledger.balance (transaction, state_block.hashables.previous).value_or (0);
 							}
 							if (node->ledger.is_epoch_link (state_block.hashables.link))
 							{
 								if ((state_block.hashables.balance == prev_balance && !error_or_pruned) || (node->ledger.pruning && error_or_pruned && block->sideband ().details.is_epoch))
 								{
-									invalid = validate_message (node->ledger.epoch_signer (block->link ()), hash, block->block_signature ());
+									invalid = validate_message (node->ledger.epoch_signer (block->link_field ().value ()), hash, block->block_signature ());
 								}
 							}
 						}
@@ -1513,23 +1520,22 @@ int main (int argc, char * const * argv)
 					}
 					else
 					{
-						bool error_or_pruned (false);
-						auto prev_balance (node->ledger.balance_safe (transaction, block->previous (), error_or_pruned));
-						if (!node->ledger.pruning || !error_or_pruned)
+						auto prev_balance = node->ledger.balance (transaction, block->previous ());
+						if (!node->ledger.pruning || prev_balance)
 						{
-							if (block->balance () < prev_balance)
+							if (block->balance () < prev_balance.value ())
 							{
 								// State send
 								block_details_error = !sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
 							}
 							else
 							{
-								if (block->link ().is_zero ())
+								if (block->is_change ())
 								{
 									// State change
 									block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
 								}
-								else if (block->balance () == prev_balance && node->ledger.is_epoch_link (block->link ()))
+								else if (block->balance () == prev_balance.value () && node->ledger.is_epoch_link (block->link_field ().value ()))
 								{
 									// State epoch
 									block_details_error = !sideband.details.is_epoch || sideband.details.is_send || sideband.details.is_receive;
@@ -1538,7 +1544,7 @@ int main (int argc, char * const * argv)
 								{
 									// State receive
 									block_details_error = !sideband.details.is_receive || sideband.details.is_send || sideband.details.is_epoch;
-									block_details_error |= !node->ledger.block_or_pruned_exists (transaction, block->link ().as_block_hash ());
+									block_details_error |= !node->ledger.block_or_pruned_exists (transaction, block->source ());
 								}
 							}
 						}
@@ -1552,7 +1558,7 @@ int main (int argc, char * const * argv)
 						print_error_message (boost::str (boost::format ("Incorrect sideband block details for block %1%\n") % hash.to_string ()));
 					}
 					// Check link epoch version
-					if (sideband.details.is_receive && (!node->ledger.pruning || !node->store.pruned.exists (transaction, block->link ().as_block_hash ())))
+					if (sideband.details.is_receive && (!node->ledger.pruning || !node->store.pruned.exists (transaction, block->source ())))
 					{
 						if (sideband.source_epoch != node->ledger.version (*block))
 						{
@@ -1579,14 +1585,14 @@ int main (int argc, char * const * argv)
 					// Calculate representative block
 					if (block->type () == nano::block_type::open || block->type () == nano::block_type::change || block->type () == nano::block_type::state)
 					{
-						calculated_representative = block->representative ();
+						calculated_representative = block->representative_field ().value ();
 					}
 					// Retrieving successor block hash
 					hash = node->store.block.successor (transaction, hash);
 					// Retrieving block data
 					if (!hash.is_zero ())
 					{
-						block = node->store.block.get (transaction, hash);
+						block = node->ledger.block (transaction, hash);
 					}
 				}
 				// Check if required block exists
@@ -1671,7 +1677,7 @@ int main (int argc, char * const * argv)
 					std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
 				}
 				// Check block existance
-				auto block (node->store.block.get (transaction, key.hash));
+				auto block = node->ledger.block (transaction, key.hash);
 				bool pruned (false);
 				if (block == nullptr)
 				{
@@ -1688,11 +1694,11 @@ int main (int argc, char * const * argv)
 					bool previous_pruned = node->ledger.pruning && node->store.pruned.exists (transaction, block->previous ());
 					if (previous_pruned)
 					{
-						block = node->store.block.get (transaction, key.hash);
+						block = node->ledger.block (transaction, key.hash);
 					}
 					if (auto state = dynamic_cast<nano::state_block *> (block.get ()))
 					{
-						if (node->ledger.is_send (transaction, *state))
+						if (state->is_send ())
 						{
 							destination = state->hashables.link.as_account ();
 						}
@@ -1795,7 +1801,7 @@ int main (int argc, char * const * argv)
 					while (!hash.is_zero ())
 					{
 						// Retrieving block data
-						auto block (source_node->store.block.get (transaction, hash));
+						auto block = source_node->ledger.block (transaction, hash);
 						if (block != nullptr)
 						{
 							++count;
@@ -1804,7 +1810,7 @@ int main (int argc, char * const * argv)
 								std::cout << boost::str (boost::format ("%1% blocks retrieved") % count) << std::endl;
 							}
 							node.node->block_processor.add (block);
-							if (block->type () == nano::block_type::state && block->previous ().is_zero () && source_node->ledger.is_epoch_link (block->link ()))
+							if (block->type () == nano::block_type::state && block->previous ().is_zero () && source_node->ledger.is_epoch_link (block->link_field ().value ()))
 							{
 								// Epoch open blocks can be rejected without processed pending blocks to account, push it later again
 								epoch_open_blocks.push_back (block);
@@ -1834,8 +1840,6 @@ int main (int argc, char * const * argv)
 					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked)") % node.node->ledger.cache.block_count % node.node->unchecked.count ()) << std::endl;
 				}
 			}
-
-			node.node->block_processor.flush ();
 
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
@@ -1871,7 +1875,7 @@ int main (int argc, char * const * argv)
 			nano::update_flags (node_flags, vm);
 			nano::inactive_node inactive_node (data_path, node_flags);
 			auto node = inactive_node.node;
-			node->ledger_pruning (node_flags.block_processor_batch_size != 0 ? node_flags.block_processor_batch_size : 16 * 1024, true, true);
+			node->ledger_pruning (node_flags.block_processor_batch_size != 0 ? node_flags.block_processor_batch_size : 16 * 1024, true);
 		}
 		else if (vm.count ("debug_stacktrace"))
 		{
@@ -1879,15 +1883,12 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_sys_logging"))
 		{
-#ifdef BOOST_WINDOWS
-			if (!nano::event_log_reg_entry_exists () && !nano::is_windows_elevated ())
-			{
-				std::cerr << "The event log requires the HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\EventLog\\Nano\\Nano registry entry, run again as administator to create it.\n";
-				return 1;
-			}
-#endif
 			auto inactive_node = nano::default_inactive_node (data_path, vm);
-			inactive_node->node->logger.always_log (nano::severity_level::error, "Testing system logger");
+			inactive_node->node->logger.critical ({}, "Testing system logger (CRITICAL)");
+			inactive_node->node->logger.error ({}, "Testing system logger (ERROR)");
+			inactive_node->node->logger.warn ({}, "Testing system logger (WARN)");
+			inactive_node->node->logger.info ({}, "Testing system logger (INFO)");
+			inactive_node->node->logger.debug ({}, "Testing system logger (DEBUG)");
 		}
 		else if (vm.count ("debug_account_versions"))
 		{

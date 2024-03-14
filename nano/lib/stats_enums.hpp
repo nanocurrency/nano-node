@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <string_view>
 
+#include <magic_enum.hpp>
+
 namespace nano::stat
 {
 /** Primary statistics type */
@@ -21,6 +23,8 @@ enum class type : uint8_t
 	http_callback,
 	ipc,
 	tcp,
+	channel,
+	socket,
 	confirmation_height,
 	confirmation_observer,
 	drop,
@@ -32,6 +36,8 @@ enum class type : uint8_t
 	vote_cache,
 	hinting,
 	blockprocessor,
+	blockprocessor_source,
+	blockprocessor_result,
 	bootstrap_server,
 	active,
 	active_started,
@@ -43,6 +49,9 @@ enum class type : uint8_t
 	election_scheduler,
 	optimistic_scheduler,
 	handshake,
+	rep_crawler,
+	local_block_broadcaster,
+	rep_tiers,
 
 	bootstrap_ascending,
 	bootstrap_ascending_accounts,
@@ -60,11 +69,17 @@ enum class detail : uint8_t
 	loop,
 	total,
 	process,
+	processed,
+	ignored,
 	update,
+	updated,
 	request,
 	broadcast,
 	cleanup,
 	top,
+	none,
+	success,
+	unknown,
 
 	// processing queue
 	queue,
@@ -93,6 +108,7 @@ enum class detail : uint8_t
 	old,
 	gap_previous,
 	gap_source,
+	rollback,
 	rollback_failed,
 	progress,
 	bad_signature,
@@ -103,6 +119,19 @@ enum class detail : uint8_t
 	balance_mismatch,
 	representative_mismatch,
 	block_position,
+
+	// blockprocessor
+	process_blocking,
+	process_blocking_timeout,
+	force,
+
+	// block source
+	live,
+	bootstrap,
+	bootstrap_legacy,
+	unchecked,
+	local,
+	forced,
 
 	// message specific
 	not_a_type,
@@ -146,9 +175,19 @@ enum class detail : uint8_t
 	vote_processed,
 	vote_cached,
 	election_block_conflict,
+	election_restart,
+	election_not_confirmed,
+	election_hinted_overflow,
+	election_hinted_confirmed,
+	election_hinted_drop,
+	broadcast_vote,
+	broadcast_vote_normal,
+	broadcast_vote_final,
 	generate_vote,
 	generate_vote_normal,
 	generate_vote_final,
+	broadcast_block_initial,
+	broadcast_block_repeat,
 
 	// election types
 	normal,
@@ -170,7 +209,7 @@ enum class detail : uint8_t
 	invalid_frontier_req_message,
 	invalid_asc_pull_req_message,
 	invalid_asc_pull_ack_message,
-	message_too_big,
+	message_size_too_big,
 	outdated_version,
 
 	// tcp
@@ -208,7 +247,7 @@ enum class detail : uint8_t
 	requests_unknown,
 
 	// duplicate
-	duplicate_publish,
+	duplicate_publish_message,
 
 	// telemetry
 	invalid_signature,
@@ -296,6 +335,24 @@ enum class detail : uint8_t
 	deprioritize,
 	deprioritize_failed,
 
+	// rep_crawler
+	channel_dead,
+	query_target_failed,
+	query_channel_busy,
+	query_sent,
+	query_duplicate,
+	rep_timeout,
+	query_timeout,
+	query_completion,
+	crawl_aggressive,
+	crawl_normal,
+
+	// block broadcaster
+	broadcast_normal,
+	broadcast_aggressive,
+	erase_old,
+	erase_confirmed,
+
 	_last // Must be the last enum
 };
 
@@ -311,7 +368,23 @@ enum class dir : uint8_t
 
 namespace nano
 {
-std::string_view to_string (stat::type type);
-std::string_view to_string (stat::detail detail);
-std::string_view to_string (stat::dir dir);
+std::string_view to_string (stat::type);
+std::string_view to_string (stat::detail);
+std::string_view to_string (stat::dir);
 }
+
+// Ensure that the enum_range is large enough to hold all values (including future ones)
+template <>
+struct magic_enum::customize::enum_range<nano::stat::type>
+{
+	static constexpr int min = 0;
+	static constexpr int max = 128;
+};
+
+// Ensure that the enum_range is large enough to hold all values (including future ones)
+template <>
+struct magic_enum::customize::enum_range<nano::stat::detail>
+{
+	static constexpr int min = 0;
+	static constexpr int max = 512;
+};

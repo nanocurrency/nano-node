@@ -1,7 +1,9 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
+#include <nano/secure/ledger.hpp>
 
 #include <boost/format.hpp>
 
@@ -250,11 +252,11 @@ void nano::bootstrap_attempt_lazy::run ()
 	}
 	if (!stopped)
 	{
-		node->logger.try_log ("Completed lazy pulls");
+		node->logger.debug (nano::log::type::bootstrap_lazy, "Completed lazy pulls");
 	}
 	if (lazy_has_expired ())
 	{
-		node->logger.try_log (boost::str (boost::format ("Lazy bootstrap attempt ID %1% expired") % id));
+		node->logger.debug (nano::log::type::bootstrap_lazy, "Lazy bootstrap attempt ID {} expired", id);
 	}
 	lock.unlock ();
 	stop ();
@@ -290,9 +292,9 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 	if (!lazy_blocks_processed (hash))
 	{
 		// Search for new dependencies
-		if (!block_a->source ().is_zero () && !node->ledger.block_or_pruned_exists (block_a->source ()) && block_a->source () != node->network_params.ledger.genesis->account ())
+		if (block_a->source_field () && !node->ledger.block_or_pruned_exists (block_a->source_field ().value ()) && block_a->source_field ().value () != node->network_params.ledger.genesis->account ())
 		{
-			lazy_add (block_a->source (), retry_limit);
+			lazy_add (block_a->source_field ().value (), retry_limit);
 		}
 		else if (block_a->type () == nano::block_type::state)
 		{
@@ -302,7 +304,7 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 		// Adding lazy balances for first processed block in pull
 		if (pull_blocks_processed == 1 && (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send))
 		{
-			lazy_balances.emplace (hash, block_a->balance ().number ());
+			lazy_balances.emplace (hash, block_a->balance_field ().value ().number ());
 		}
 		// Clearing lazy balances for previous block
 		if (!block_a->previous ().is_zero () && lazy_balances.find (block_a->previous ()) != lazy_balances.end ())
@@ -311,7 +313,7 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 		}
 		lazy_block_state_backlog_check (block_a, hash);
 		lock.unlock ();
-		node->block_processor.add (block_a);
+		node->block_processor.add (block_a, nano::block_source::bootstrap_legacy);
 	}
 	// Force drop lazy bootstrap connection for long bulk_pull
 	if (pull_blocks_processed > max_blocks)
@@ -346,11 +348,10 @@ void nano::bootstrap_attempt_lazy::lazy_block_state (std::shared_ptr<nano::block
 			// In other cases previous block balance required to find out subtype of state block
 			else if (node->ledger.block_or_pruned_exists (transaction, previous))
 			{
-				bool error_or_pruned (false);
-				auto previous_balance (node->ledger.balance_safe (transaction, previous, error_or_pruned));
-				if (!error_or_pruned)
+				auto previous_balance = node->ledger.balance (transaction, previous);
+				if (previous_balance)
 				{
-					if (previous_balance <= balance)
+					if (previous_balance.value () <= balance)
 					{
 						lazy_add (link, retry_limit);
 					}
@@ -394,7 +395,7 @@ void nano::bootstrap_attempt_lazy::lazy_block_state_backlog_check (std::shared_p
 		// Retrieve balance for previous state & send blocks
 		if (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send)
 		{
-			if (block_a->balance ().number () <= next_block.balance) // balance
+			if (block_a->balance_field ().value ().number () <= next_block.balance) // balance
 			{
 				lazy_add (next_block.link, next_block.retry_limit); // link
 			}
@@ -423,11 +424,10 @@ void nano::bootstrap_attempt_lazy::lazy_backlog_cleanup ()
 		if (node->ledger.block_or_pruned_exists (transaction, it->first))
 		{
 			auto next_block (it->second);
-			bool error_or_pruned (false);
-			auto balance (node->ledger.balance_safe (transaction, it->first, error_or_pruned));
-			if (!error_or_pruned)
+			auto balance = node->ledger.balance (transaction, it->first);
+			if (balance)
 			{
-				if (balance <= next_block.balance) // balance
+				if (balance.value () <= next_block.balance) // balance
 				{
 					lazy_add (next_block.link, next_block.retry_limit); // link
 				}
@@ -613,7 +613,7 @@ void nano::bootstrap_attempt_wallet::run ()
 	}
 	if (!stopped)
 	{
-		node->logger.try_log ("Completed wallet lazy pulls");
+		node->logger.info (nano::log::type::bootstrap_lazy, "Completed wallet lazy pulls");
 	}
 	lock.unlock ();
 	stop ();

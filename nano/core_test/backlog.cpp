@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
@@ -32,9 +33,7 @@ TEST (backlog, population)
 	auto all_activated = [&] () {
 		nano::lock_guard<nano::mutex> lock{ mutex };
 		return std::all_of (blocks.begin (), blocks.end (), [&] (auto const & item) {
-			auto account = item->account ();
-			debug_assert (!account.is_zero ());
-			return activated.count (account) != 0;
+			return activated.count (item->account ()) != 0;
 		});
 	};
 	ASSERT_TIMELY (5s, all_activated ());

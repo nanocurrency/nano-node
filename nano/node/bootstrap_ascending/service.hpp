@@ -88,7 +88,7 @@ namespace bootstrap_ascending
 
 	private:
 		/* Inspects a block that has been processed by the block processor */
-		void inspect (store::transaction const &, nano::process_return const & result, nano::block const & block);
+		void inspect (store::transaction const &, nano::block_status const & result, nano::block const & block);
 
 		void throttle_if_needed (nano::unique_lock<nano::mutex> & lock);
 		void run ();

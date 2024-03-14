@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/transport/channel.hpp>
@@ -192,7 +193,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (store::transaction const & t
 	{
 		case asc_pull_req::hash_type::block:
 		{
-			if (store.block.exists (transaction, request.start.as_block_hash ()))
+			if (ledger.block_exists (transaction, request.start.as_block_hash ()))
 			{
 				return prepare_response (transaction, id, request.start.as_block_hash (), count);
 			}
@@ -253,13 +254,13 @@ std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks
 	std::vector<std::shared_ptr<nano::block>> result;
 	if (!start_block.is_zero ())
 	{
-		std::shared_ptr<nano::block> current = store.block.get (transaction, start_block);
+		std::shared_ptr<nano::block> current = ledger.block (transaction, start_block);
 		while (current && result.size () < count)
 		{
 			result.push_back (current);
 
 			auto successor = current->sideband ().successor;
-			current = store.block.get (transaction, successor);
+			current = ledger.block (transaction, successor);
 		}
 	}
 	return result;
@@ -286,7 +287,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (const store::transaction & t
 		case asc_pull_req::hash_type::block:
 		{
 			// Try to lookup account assuming target is block hash
-			target = ledger.account_safe (transaction, request.target.as_block_hash ());
+			target = ledger.account (transaction, request.target.as_block_hash ()).value_or (0);
 		}
 		break;
 	}

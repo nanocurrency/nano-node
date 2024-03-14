@@ -5,6 +5,7 @@ add_library(
   component.hpp
   confirmation_height.hpp
   db_val.hpp
+  db_val_impl.hpp
   iterator.hpp
   iterator_impl.hpp
   final.hpp
@@ -97,11 +98,10 @@ add_library(
 
 target_link_libraries(
   nano_store
+  nano_lib
   Boost::circular_buffer
   Boost::endian
   Boost::iostreams
-  Boost::log_setup
-  Boost::log
   Boost::multiprecision
   Boost::pool
   Boost::stacktrace

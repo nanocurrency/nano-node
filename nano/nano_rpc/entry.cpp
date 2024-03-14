@@ -1,5 +1,6 @@
 #include <nano/lib/cli.hpp>
 #include <nano/lib/errors.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/lib/signal_manager.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/lib/threading.hpp>
@@ -11,34 +12,24 @@
 #include <nano/rpc/rpc_request_processor.hpp>
 #include <nano/secure/utility.hpp>
 
-#include <boost/log/utility/setup/common_attributes.hpp>
-#include <boost/log/utility/setup/file.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
 namespace
 {
-void logging_init (std::filesystem::path const & application_path_a)
-{
-	static std::atomic_flag logging_already_added = ATOMIC_FLAG_INIT;
-	if (!logging_already_added.test_and_set ())
-	{
-		boost::log::add_common_attributes ();
-		auto path = application_path_a / "log";
-
-		uintmax_t max_size{ 128 * 1024 * 1024 };
-		uintmax_t rotation_size{ 4 * 1024 * 1024 };
-		bool flush{ true };
-		boost::log::add_file_log (boost::log::keywords::target = path, boost::log::keywords::file_name = path / "rpc_log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = rotation_size, boost::log::keywords::auto_flush = flush, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = max_size, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
-	}
-}
-
 volatile sig_atomic_t sig_int_or_term = 0;
+
+nano::logger logger{ "rpc_daemon" };
 
 void run (std::filesystem::path const & data_path, std::vector<std::string> const & config_overrides)
 {
+	logger.info (nano::log::type::daemon_rpc, "Daemon started (RPC)");
+
 	std::filesystem::create_directories (data_path);
+
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path, error_chmod);
+
 	std::unique_ptr<nano::thread_runner> runner;
 
 	nano::network_params network_params{ nano::network_constants::active_network };
@@ -46,14 +37,11 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 	auto error = nano::read_rpc_config_toml (data_path, rpc_config, config_overrides);
 	if (!error)
 	{
-		logging_init (data_path);
-		nano::logger_mt logger;
-
 		auto tls_config (std::make_shared<nano::tls_config> ());
 		error = nano::read_tls_config_toml (data_path, *tls_config, logger);
 		if (error)
 		{
-			std::cerr << error.get_message () << std::endl;
+			logger.critical (nano::log::type::daemon, "Error reading RPC TLS config: {}", error.get_message ());
 			std::exit (1);
 		}
 		else
@@ -88,19 +76,22 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 		}
 		catch (std::runtime_error const & e)
 		{
-			std::cerr << "Error while running rpc (" << e.what () << ")\n";
+			logger.critical (nano::log::type::daemon, "Error while running RPC: {}", e.what ());
 		}
 	}
 	else
 	{
-		std::cerr << "Error deserializing config: " << error.get_message () << std::endl;
+		logger.critical (nano::log::type::daemon, "Error deserializing config: {}", error.get_message ());
 	}
+
+	logger.info (nano::log::type::daemon_rpc, "Daemon stopped (RPC)");
 }
 }
 
 int main (int argc, char * const * argv)
 {
-	nano::set_umask ();
+	nano::set_umask (); // Make sure the process umask is set before any files are created
+	nano::logger::initialize (nano::log_config::cli_default ());
 
 	boost::program_options::options_description description ("Command line options");
 

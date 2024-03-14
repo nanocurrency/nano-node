@@ -1,4 +1,4 @@
-#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/utility.hpp>
@@ -9,16 +9,16 @@
 
 #include <boost/thread/latch.hpp>
 
-nano::confirmation_height_processor::confirmation_height_processor (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, boost::latch & latch, confirmation_height_mode mode_a) :
+nano::confirmation_height_processor::confirmation_height_processor (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger & logger_a, boost::latch & latch, confirmation_height_mode mode_a) :
 	ledger (ledger_a),
 	write_database_queue (write_database_queue_a),
 	unbounded_processor (
-	ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, batch_write_size,
+	ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logger_a, stopped, batch_write_size,
 	/* cemented_callback */ [this] (auto & cemented_blocks) { this->notify_cemented (cemented_blocks); },
 	/* already cemented_callback */ [this] (auto const & block_hash_a) { this->notify_already_cemented (block_hash_a); },
 	/* awaiting_processing_size_query */ [this] () { return this->awaiting_processing_size (); }),
 	bounded_processor (
-	ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, batch_write_size,
+	ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logger_a, stopped, batch_write_size,
 	/* cemented_callback */ [this] (auto & cemented_blocks) { this->notify_cemented (cemented_blocks); },
 	/* already cemented_callback */ [this] (auto const & block_hash_a) { this->notify_already_cemented (block_hash_a); },
 	/* awaiting_processing_size_query */ [this] () { return this->awaiting_processing_size (); }),
@@ -239,4 +239,9 @@ nano::block_hash nano::confirmation_height_processor::current () const
 {
 	nano::lock_guard<nano::mutex> lk (mutex);
 	return original_block ? original_block->hash () : 0;
+}
+
+std::reference_wrapper<nano::block_hash const> nano::confirmation_height_processor::block_wrapper::hash () const
+{
+	return block->hash ();
 }

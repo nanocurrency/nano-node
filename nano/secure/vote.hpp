@@ -12,14 +12,6 @@
 
 namespace nano
 {
-using vote_blocks_vec_iter = std::vector<nano::block_hash>::const_iterator;
-class iterate_vote_blocks_as_hash final
-{
-public:
-	iterate_vote_blocks_as_hash () = default;
-	nano::block_hash operator() (nano::block_hash const & item) const;
-};
-
 class vote final
 {
 public:
@@ -42,9 +34,6 @@ public:
 
 	bool operator== (nano::vote const &) const;
 	bool operator!= (nano::vote const &) const;
-
-	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
-	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> end () const;
 
 	void serialize_json (boost::property_tree::ptree & tree) const;
 	std::string to_json () const;
@@ -82,6 +71,9 @@ private:
 	static std::string const hash_prefix;
 
 	static uint64_t packed_timestamp (uint64_t timestamp, uint8_t duration);
+
+public: // Logging
+	void operator() (nano::object_stream &) const;
 };
 
 using vote_uniquer = nano::uniquer<nano::block_hash, nano::vote>;

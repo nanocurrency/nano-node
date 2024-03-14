@@ -20,7 +20,6 @@ bool any_filters_registered ();
 enum class mutexes
 {
 	active,
-	block_arrival,
 	block_processor,
 	block_uniquer,
 	blockstore_cache,
@@ -179,7 +178,7 @@ private:
 };
 
 /** Assumes std implementations of std::condition_variable never actually call nano::unique_lock::lock/unlock,
-    but instead use OS intrinsics with the mutex handle directly. Due to this we also do not account for any
+	but instead use OS intrinsics with the mutex handle directly. Due to this we also do not account for any
 	time the condition variable is blocked on another holder of the mutex. */
 class condition_variable final
 {
@@ -283,7 +282,7 @@ public:
 			owner->mutex.unlock ();
 		}
 
-		T * operator-> ()
+		T * operator->()
 		{
 			return &owner->obj;
 		}
@@ -301,7 +300,7 @@ public:
 		locked * owner{ nullptr };
 	};
 
-	scoped_lock operator-> ()
+	scoped_lock operator->()
 	{
 		return scoped_lock (this);
 	}

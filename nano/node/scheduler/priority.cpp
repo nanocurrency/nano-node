@@ -1,6 +1,8 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/buckets.hpp>
 #include <nano/node/scheduler/priority.hpp>
+#include <nano/secure/ledger.hpp>
 
 nano::scheduler::priority::priority (nano::node & node_a, nano::stats & stats_a) :
 	node{ node_a },
@@ -47,16 +49,25 @@ bool nano::scheduler::priority::activate (nano::account const & account_a, store
 		{
 			debug_assert (conf_info.frontier != info->head);
 			auto hash = conf_info.height == 0 ? info->open_block : node.store.block.successor (transaction, conf_info.frontier);
-			auto block = node.store.block.get (transaction, hash);
+			auto block = node.ledger.block (transaction, hash);
 			debug_assert (block != nullptr);
 			if (node.ledger.dependents_confirmed (transaction, *block))
 			{
-				stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activated);
-				auto balance = node.ledger.balance (transaction, hash);
-				auto previous_balance = node.ledger.balance (transaction, conf_info.frontier);
+				auto const balance = node.ledger.balance (transaction, hash).value ();
+				auto const previous_balance = node.ledger.balance (transaction, conf_info.frontier).value_or (0);
+				auto const balance_priority = std::max (balance, previous_balance);
+
+				node.stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activated);
+				node.logger.trace (nano::log::type::election_scheduler, nano::log::detail::block_activated,
+				nano::log::arg{ "account", account_a.to_account () }, // TODO: Convert to lazy eval
+				nano::log::arg{ "block", block },
+				nano::log::arg{ "time", info->modified },
+				nano::log::arg{ "priority", balance_priority });
+
 				nano::lock_guard<nano::mutex> lock{ mutex };
-				buckets->push (info->modified, block, std::max (balance, previous_balance));
+				buckets->push (info->modified, block, balance_priority);
 				notify ();
+
 				return true; // Activated
 			}
 		}

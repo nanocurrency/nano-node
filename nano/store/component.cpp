@@ -1,4 +1,6 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/secure/ledger_cache.hpp>
 #include <nano/store/account.hpp>
 #include <nano/store/block.hpp>
 #include <nano/store/component.hpp>

@@ -1,7 +1,8 @@
 #pragma once
 
+#include <nano/lib/id_dispenser.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
 
 #include <atomic>
@@ -62,15 +63,23 @@ enum class election_behavior
 
 nano::stat::detail to_stat_detail (nano::election_behavior);
 
+// map of vote weight per block, ordered greater first
+using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::greater<nano::uint128_t>>;
+
 struct election_extended_status final
 {
 	nano::election_status status;
 	std::unordered_map<nano::account, nano::vote_info> votes;
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
 	nano::tally_t tally;
+
+	void operator() (nano::object_stream &) const;
 };
 
 class election final : public std::enable_shared_from_this<nano::election>
 {
+	nano::id_t const id{ nano::next_id () }; // Track individual objects when tracing
+
 public:
 	enum class vote_source
 	{
@@ -101,10 +110,11 @@ private: // State management
 	std::chrono::steady_clock::duration state_start{ std::chrono::steady_clock::now ().time_since_epoch () };
 
 	// These are modified while not holding the mutex from transition_time only
-	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::now () };
-	std::chrono::steady_clock::time_point last_req = {};
+	std::chrono::steady_clock::time_point last_block{};
+	nano::block_hash last_block_hash{ 0 };
+	std::chrono::steady_clock::time_point last_req{};
 	/** The last time vote for this election was generated */
-	std::chrono::steady_clock::time_point last_vote = {};
+	std::chrono::steady_clock::time_point last_vote{};
 
 	bool valid_change (nano::election::state_t, nano::election::state_t) const;
 	bool state_change (nano::election::state_t, nano::election::state_t);
@@ -120,7 +130,6 @@ public: // Status
 	std::shared_ptr<nano::block> winner () const;
 	std::atomic<unsigned> confirmation_request_count{ 0 };
 
-	void log_votes (nano::tally_t const &, std::string const & = "") const;
 	nano::tally_t tally () const;
 	bool have_quorum (nano::tally_t const &) const;
 
@@ -163,9 +172,11 @@ public: // Information
 
 private:
 	nano::tally_t tally_impl () const;
-	bool confirmed_locked (nano::unique_lock<nano::mutex> & lock) const;
+	bool confirmed_locked () const;
+	nano::election_extended_status current_status_locked () const;
 	// lock_a does not own the mutex on return
 	void confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
+	bool broadcast_block_predicate () const;
 	void broadcast_block (nano::confirmation_solicitor &);
 	void send_confirm_req (nano::confirmation_solicitor &);
 	/**
@@ -197,6 +208,9 @@ private:
 	std::chrono::steady_clock::time_point const election_start = { std::chrono::steady_clock::now () };
 
 	mutable nano::mutex mutex;
+
+public: // Logging
+	void operator() (nano::object_stream &) const;
 
 private: // Constants
 	static std::size_t constexpr max_blocks{ 10 };
