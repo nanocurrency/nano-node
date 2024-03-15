@@ -3051,66 +3051,65 @@ void nano::json_handler::receivable ()
 	{
 		auto offset_counter = offset;
 		boost::property_tree::ptree peers_l;
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction = node.store.tx_begin_read ();
 		// The ptree container is used if there are any children nodes (e.g source/min_version) otherwise the amount container is used.
 		std::vector<std::pair<std::string, boost::property_tree::ptree>> hash_ptree_pairs;
 		std::vector<std::pair<std::string, nano::uint128_t>> hash_amount_pairs;
-		for (auto i (node.store.pending.begin (transaction, nano::pending_key (account, 0))), n (node.store.pending.end ()); i != n && nano::pending_key (i->first).account == account && (should_sort || peers_l.size () < count); ++i)
+		for (auto current = node.ledger.receivable_upper_bound (transaction, account, 0), end = node.ledger.receivable_end (); current != end && (should_sort || peers_l.size () < count); ++current)
 		{
-			nano::pending_key const & key (i->first);
-			if (block_confirmed (node, transaction, key.hash, include_active, include_only_confirmed))
+			auto const & [key, info] = *current;
+			if (include_only_confirmed && !node.ledger.block_confirmed (transaction, key.hash))
 			{
-				if (!should_sort && offset_counter > 0)
+				continue;
+			}
+			if (!should_sort && offset_counter > 0)
+			{
+				--offset_counter;
+				continue;
+			}
+
+			if (simple)
+			{
+				boost::property_tree::ptree entry;
+				entry.put ("", key.hash.to_string ());
+				peers_l.push_back (std::make_pair ("", entry));
+				continue;
+			}
+			if (info.amount.number () < threshold.number ())
+			{
+				continue;
+			}
+			if (source || min_version)
+			{
+				boost::property_tree::ptree pending_tree;
+				pending_tree.put ("amount", info.amount.number ().template convert_to<std::string> ());
+				if (source)
 				{
-					--offset_counter;
-					continue;
+					pending_tree.put ("source", info.source.to_account ());
+				}
+				if (min_version)
+				{
+					pending_tree.put ("min_version", epoch_as_string (info.epoch));
 				}
 
-				if (simple)
+				if (should_sort)
 				{
-					boost::property_tree::ptree entry;
-					entry.put ("", key.hash.to_string ());
-					peers_l.push_back (std::make_pair ("", entry));
+					hash_ptree_pairs.emplace_back (key.hash.to_string (), pending_tree);
 				}
 				else
 				{
-					nano::pending_info const & info (i->second);
-					if (info.amount.number () >= threshold.number ())
-					{
-						if (source || min_version)
-						{
-							boost::property_tree::ptree pending_tree;
-							pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-							if (source)
-							{
-								pending_tree.put ("source", info.source.to_account ());
-							}
-							if (min_version)
-							{
-								pending_tree.put ("min_version", epoch_as_string (info.epoch));
-							}
-
-							if (should_sort)
-							{
-								hash_ptree_pairs.emplace_back (key.hash.to_string (), pending_tree);
-							}
-							else
-							{
-								peers_l.add_child (key.hash.to_string (), pending_tree);
-							}
-						}
-						else
-						{
-							if (should_sort)
-							{
-								hash_amount_pairs.emplace_back (key.hash.to_string (), info.amount.number ());
-							}
-							else
-							{
-								peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
-							}
-						}
-					}
+					peers_l.add_child (key.hash.to_string (), pending_tree);
+				}
+			}
+			else
+			{
+				if (should_sort)
+				{
+					hash_amount_pairs.emplace_back (key.hash.to_string (), info.amount.number ());
+				}
+				else
+				{
+					peers_l.put (key.hash.to_string (), info.amount.number ().template convert_to<std::string> ());
 				}
 			}
 		}
