@@ -1041,42 +1041,41 @@ void nano::json_handler::accounts_receivable ()
 	bool const sorting = request.get<bool> ("sorting", false);
 	auto simple (threshold.is_zero () && !source && !sorting); // if simple, response is a list of hashes for each account
 	boost::property_tree::ptree pending;
-	auto transaction (node.store.tx_begin_read ());
+	auto transaction = node.store.tx_begin_read ();
 	for (auto & accounts : request.get_child ("accounts"))
 	{
 		auto account (account_impl (accounts.second.data ()));
 		if (!ec)
 		{
 			boost::property_tree::ptree peers_l;
-			for (auto i (node.store.pending.begin (transaction, nano::pending_key (account, 0))), n (node.store.pending.end ()); i != n && nano::pending_key (i->first).account == account && peers_l.size () < count; ++i)
+			for (auto current = node.ledger.receivable_upper_bound (transaction, account, 0), end = node.ledger.receivable_end (); current != end; ++current)
 			{
-				nano::pending_key const & key (i->first);
-				if (block_confirmed (node, transaction, key.hash, include_active, include_only_confirmed))
+				auto const & [key, info] = *current;
+				if (include_only_confirmed && !node.ledger.block_confirmed (transaction, key.hash))
 				{
-					if (simple)
-					{
-						boost::property_tree::ptree entry;
-						entry.put ("", key.hash.to_string ());
-						peers_l.push_back (std::make_pair ("", entry));
-					}
-					else
-					{
-						nano::pending_info const & info (i->second);
-						if (info.amount.number () >= threshold.number ())
-						{
-							if (source)
-							{
-								boost::property_tree::ptree pending_tree;
-								pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-								pending_tree.put ("source", info.source.to_account ());
-								peers_l.add_child (key.hash.to_string (), pending_tree);
-							}
-							else
-							{
-								peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
-							}
-						}
-					}
+					continue;
+				}
+				if (simple)
+				{
+					boost::property_tree::ptree entry;
+					entry.put ("", key.hash.to_string ());
+					peers_l.push_back (std::make_pair ("", entry));
+					continue;
+				}
+				if (info.amount.number () < threshold.number ())
+				{
+					continue;
+				}
+				if (source)
+				{
+					boost::property_tree::ptree pending_tree;
+					pending_tree.put ("amount", info.amount.number ().template convert_to<std::string> ());
+					pending_tree.put ("source", info.source.to_account ());
+					peers_l.add_child (key.hash.to_string (), pending_tree);
+				}
+				else
+				{
+					peers_l.put (key.hash.to_string (), info.amount.number ().template convert_to<std::string> ());
 				}
 			}
 			if (sorting && !simple)
