@@ -4788,47 +4788,46 @@ void nano::json_handler::wallet_receivable ()
 	{
 		boost::property_tree::ptree pending;
 		auto transaction (node.wallets.tx_begin_read ());
-		auto block_transaction (node.store.tx_begin_read ());
+		auto block_transaction = node.store.tx_begin_read ();
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			nano::account const & account (i->first);
 			boost::property_tree::ptree peers_l;
-			for (auto ii (node.store.pending.begin (block_transaction, nano::pending_key (account, 0))), nn (node.store.pending.end ()); ii != nn && nano::pending_key (ii->first).account == account && peers_l.size () < count; ++ii)
+			for (auto current = node.ledger.receivable_upper_bound (block_transaction, account, 0), end = node.ledger.receivable_end (); current != end && (peers_l.size () < count); ++current)
 			{
-				nano::pending_key key (ii->first);
-				if (block_confirmed (node, block_transaction, key.hash, include_active, include_only_confirmed))
+				auto const & [key, info] = *current;
+				if (include_only_confirmed && !node.ledger.block_confirmed (block_transaction, key.hash))
 				{
-					if (threshold.is_zero () && !source)
+					continue;
+				}
+				if (threshold.is_zero () && !source)
+				{
+					boost::property_tree::ptree entry;
+					entry.put ("", key.hash.to_string ());
+					peers_l.push_back (std::make_pair ("", entry));
+					continue;
+				}
+				if (info.amount.number () < threshold.number ())
+				{
+					continue;
+				}
+				if (source || min_version)
+				{
+					boost::property_tree::ptree pending_tree;
+					pending_tree.put ("amount", info.amount.number ().template convert_to<std::string> ());
+					if (source)
 					{
-						boost::property_tree::ptree entry;
-						entry.put ("", key.hash.to_string ());
-						peers_l.push_back (std::make_pair ("", entry));
+						pending_tree.put ("source", info.source.to_account ());
 					}
-					else
+					if (min_version)
 					{
-						nano::pending_info info (ii->second);
-						if (info.amount.number () >= threshold.number ())
-						{
-							if (source || min_version)
-							{
-								boost::property_tree::ptree pending_tree;
-								pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-								if (source)
-								{
-									pending_tree.put ("source", info.source.to_account ());
-								}
-								if (min_version)
-								{
-									pending_tree.put ("min_version", epoch_as_string (info.epoch));
-								}
-								peers_l.add_child (key.hash.to_string (), pending_tree);
-							}
-							else
-							{
-								peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
-							}
-						}
+						pending_tree.put ("min_version", epoch_as_string (info.epoch));
 					}
+					peers_l.add_child (key.hash.to_string (), pending_tree);
+				}
+				else
+				{
+					peers_l.put (key.hash.to_string (), info.amount.number ().template convert_to<std::string> ());
 				}
 			}
 			if (!peers_l.empty ())
