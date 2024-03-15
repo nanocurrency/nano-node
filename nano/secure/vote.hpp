@@ -47,6 +47,7 @@ public:
 	uint64_t timestamp () const;
 	uint8_t duration_bits () const;
 	std::chrono::milliseconds duration () const;
+	bool is_final () const;
 
 	static uint64_t constexpr timestamp_mask = { 0xffff'ffff'ffff'fff0ULL };
 	static nano::seconds_t constexpr timestamp_max = { 0xffff'ffff'ffff'fff0ULL };
