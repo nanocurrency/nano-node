@@ -246,24 +246,14 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 			if (block == nullptr && !root.is_zero ())
 			{
 				// Search for block root
-				auto successor (ledger.store.block.successor (transaction, root.as_block_hash ()));
-
-				// Search for account root
-				if (successor.is_zero ())
+				auto successor = ledger.successor (transaction, root.as_block_hash ());
+				if (successor)
 				{
-					auto info = ledger.account_info (transaction, root.as_account ());
-					if (info)
-					{
-						successor = info->open_block;
-					}
-				}
-				if (!successor.is_zero ())
-				{
-					auto successor_block = ledger.block (transaction, successor);
+					auto successor_block = ledger.block (transaction, successor.value ());
 					debug_assert (successor_block != nullptr);
 					block = std::move (successor_block);
 					// 5. Votes in cache for successor
-					auto find_successor_votes (local_votes.votes (root, successor));
+					auto find_successor_votes (local_votes.votes (root, successor.value ()));
 					if (!find_successor_votes.empty ())
 					{
 						cached_votes.insert (cached_votes.end (), find_successor_votes.begin (), find_successor_votes.end ());

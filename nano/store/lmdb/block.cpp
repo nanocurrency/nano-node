@@ -49,7 +49,7 @@ void nano::store::lmdb::block::raw_put (store::write_transaction const & transac
 	store.release_assert_success (status);
 }
 
-nano::block_hash nano::store::lmdb::block::successor (store::transaction const & transaction_a, nano::block_hash const & hash_a) const
+std::optional<nano::block_hash> nano::store::lmdb::block::successor (store::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
 	nano::store::lmdb::db_val value;
 	block_raw_get (transaction_a, hash_a, value);
@@ -66,6 +66,10 @@ nano::block_hash nano::store::lmdb::block::successor (store::transaction const &
 	else
 	{
 		result.clear ();
+	}
+	if (result.is_zero ())
+	{
+		return std::nullopt;
 	}
 	return result;
 }

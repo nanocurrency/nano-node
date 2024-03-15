@@ -1245,38 +1245,29 @@ void nano::ledger::update_account (store::write_transaction const & transaction_
 	}
 }
 
-std::shared_ptr<nano::block> nano::ledger::successor (store::transaction const & transaction_a, nano::qualified_root const & root_a)
+std::optional<nano::block_hash> nano::ledger::successor (store::transaction const & transaction_a, nano::qualified_root const & root_a) const noexcept
 {
-	nano::block_hash successor (0);
-	auto get_from_previous = false;
-	if (root_a.previous ().is_zero ())
+	if (!root_a.previous ().is_zero ())
+	{
+		return store.block.successor (transaction_a, root_a.previous ());
+	}
+	else
 	{
 		auto info = account_info (transaction_a, root_a.root ().as_account ());
 		if (info)
 		{
-			successor = info->open_block;
+			return info.value ().open_block;
 		}
 		else
 		{
-			get_from_previous = true;
+			return std::nullopt;
 		}
 	}
-	else
-	{
-		get_from_previous = true;
-	}
+}
 
-	if (get_from_previous)
-	{
-		successor = store.block.successor (transaction_a, root_a.previous ());
-	}
-	std::shared_ptr<nano::block> result;
-	if (!successor.is_zero ())
-	{
-		result = block (transaction_a, successor);
-	}
-	debug_assert (successor.is_zero () || result != nullptr);
-	return result;
+std::optional<nano::block_hash> nano::ledger::successor (store::transaction const & transaction, nano::block_hash const & hash) const noexcept
+{
+	return successor (transaction, { hash, hash });
 }
 
 std::shared_ptr<nano::block> nano::ledger::forked_block (store::transaction const & transaction_a, nano::block const & block_a)
@@ -1284,7 +1275,12 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (store::transaction cons
 	debug_assert (!block_exists (transaction_a, block_a.hash ()));
 	auto root (block_a.root ());
 	debug_assert (block_exists (transaction_a, root.as_block_hash ()) || store.account.exists (transaction_a, root.as_account ()));
-	auto result = block (transaction_a, store.block.successor (transaction_a, root.as_block_hash ()));
+	std::shared_ptr<nano::block> result;
+	auto successor_l = successor (transaction_a, root.as_block_hash ());
+	if (successor_l)
+	{
+		result = block (transaction_a, successor_l.value ());
+	}
 	if (result == nullptr)
 	{
 		auto info = account_info (transaction_a, root.as_account ());
