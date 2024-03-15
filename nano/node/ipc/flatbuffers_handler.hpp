@@ -7,7 +7,9 @@
 
 namespace flatbuffers
 {
-class FlatBufferBuilder;
+template <bool>
+class FlatBufferBuilderImpl;
+using FlatBufferBuilder = FlatBufferBuilderImpl<false>;
 class Parser;
 }
 namespace nano
