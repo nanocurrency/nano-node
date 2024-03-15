@@ -1248,11 +1248,11 @@ uint32_t nano::wallet::deterministic_check (store::transaction const & transacti
 		else
 		{
 			// Check if there are pending blocks for account
-			for (auto ii (wallets.node.store.pending.begin (block_transaction, nano::pending_key (pair.pub, 0))), nn (wallets.node.store.pending.end ()); ii != nn && nano::pending_key (ii->first).account == pair.pub; ++ii)
+			auto current = wallets.node.ledger.receivable_upper_bound (block_transaction, pair.pub, 0);
+			if (current != wallets.node.ledger.receivable_end ())
 			{
 				index = i;
 				n = i + 64 + (i / 64);
-				break;
 			}
 		}
 	}
