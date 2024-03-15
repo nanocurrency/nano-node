@@ -78,9 +78,9 @@ public:
 	void send_keepalive_self (std::shared_ptr<nano::transport::channel> const &);
 	std::shared_ptr<nano::transport::channel> find_node_id (nano::account const &);
 	std::shared_ptr<nano::transport::channel> find_channel (nano::endpoint const &);
-	bool not_a_peer (nano::endpoint const &, bool);
-	// Should we reach out to this endpoint with a keepalive message
-	bool reachout (nano::endpoint const &, bool = false);
+	bool not_a_peer (nano::endpoint const &, bool allow_local_peers);
+	// Should we reach out to this endpoint with a keepalive message? If yes, register a new reachout attempt
+	bool track_reachout (nano::endpoint const &);
 	std::deque<std::shared_ptr<nano::transport::channel>> list (std::size_t max_count = 0, uint8_t = 0, bool = true);
 	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (std::size_t);
 	// Desired fanout for a given scale

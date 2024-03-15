@@ -469,7 +469,7 @@ bool nano::transport::tcp_channels::max_ip_or_subnetwork_connections (nano::tcp_
 	return max_ip_connections (endpoint_a) || max_subnetwork_connections (endpoint_a);
 }
 
-bool nano::transport::tcp_channels::reachout (nano::endpoint const & endpoint_a)
+bool nano::transport::tcp_channels::track_reachout (nano::endpoint const & endpoint_a)
 {
 	auto tcp_endpoint (nano::transport::map_endpoint_to_tcp (endpoint_a));
 	// Don't overload single IP
