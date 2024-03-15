@@ -368,9 +368,11 @@ void nano::active_transactions::trim ()
 
 nano::election_insertion_result nano::active_transactions::insert (std::shared_ptr<nano::block> const & block_a, nano::election_behavior election_behavior_a)
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
 	debug_assert (block_a);
 	debug_assert (block_a->has_sideband ());
+
+	nano::unique_lock<nano::mutex> lock{ mutex };
+
 	nano::election_insertion_result result;
 
 	if (stopped)
@@ -413,15 +415,16 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 		result.election = existing->election;
 	}
 
-	lock.unlock (); // end of critical section
+	lock.unlock ();
 
 	if (result.inserted)
 	{
 		release_assert (result.election);
 
-		if (auto const cache = node.vote_cache.find (hash); cache)
+		auto cached = node.vote_cache.find (hash);
+		for (auto const & cached_vote : cached)
 		{
-			cache->fill (result.election);
+			vote (cached_vote);
 		}
 
 		node.observers.active_started.notify (hash);
@@ -433,7 +436,9 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 	{
 		result.election->broadcast_vote ();
 	}
+
 	trim ();
+
 	return result;
 }
 
@@ -467,12 +472,6 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::active_transactions:
 				results[hash] = nano::vote_code::replay;
 			}
 		}
-	}
-
-	// Process inactive votes outside of the critical section
-	for (auto & hash : inactive)
-	{
-		add_vote_cache (hash, vote);
 	}
 
 	if (!process.empty ())
@@ -609,22 +608,17 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> const & bl
 			lock.lock ();
 			blocks.emplace (block_a->hash (), election);
 			lock.unlock ();
-			if (auto const cache = node.vote_cache.find (block_a->hash ()); cache)
+
+			auto cached = node.vote_cache.find (block_a->hash ());
+			for (auto const & cached_vote : cached)
 			{
-				cache->fill (election);
+				vote (cached_vote);
 			}
+
 			node.stats.inc (nano::stat::type::active, nano::stat::detail::election_block_conflict);
 		}
 	}
 	return result;
-}
-
-void nano::active_transactions::add_vote_cache (nano::block_hash const & hash, std::shared_ptr<nano::vote> const vote)
-{
-	if (node.ledger.weight (vote->account) > node.minimum_principal_weight ())
-	{
-		node.vote_cache.vote (hash, vote);
-	}
 }
 
 std::size_t nano::active_transactions::election_winner_details_size ()
