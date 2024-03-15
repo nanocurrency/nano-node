@@ -496,7 +496,7 @@ void nano::transport::tcp_server::queue_realtime (std::unique_ptr<nano::message>
 	{
 		return;
 	}
-	node->network.tcp_message_manager.put_message (nano::tcp_message_item{ std::move (message), remote_endpoint, remote_node_id, socket });
+	node->network.tcp_channels.message_manager.put_message (nano::tcp_message_item{ std::move (message), remote_endpoint, remote_node_id, socket });
 }
 
 /*

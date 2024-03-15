@@ -72,6 +72,7 @@ enum class type
 	election_scheduler,
 	vote_generator,
 	rep_tiers,
+	syn_cookies,
 
 	// bootstrap
 	bulk_pull_client,

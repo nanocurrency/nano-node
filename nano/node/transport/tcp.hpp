@@ -25,6 +25,28 @@ public:
 	nano::account node_id;
 	std::shared_ptr<nano::transport::socket> socket;
 };
+
+class tcp_message_manager final
+{
+public:
+	tcp_message_manager (unsigned incoming_connections_max_a);
+	void put_message (nano::tcp_message_item const & item_a);
+	nano::tcp_message_item get_message ();
+	// Stop container and notify waiting threads
+	void stop ();
+
+private:
+	nano::mutex mutex;
+	nano::condition_variable producer_condition;
+	nano::condition_variable consumer_condition;
+	std::deque<nano::tcp_message_item> entries;
+	unsigned max_entries;
+	static unsigned const max_entries_per_connection = 16;
+	bool stopped{ false };
+
+	friend class network_tcp_message_manager_Test;
+};
+
 namespace transport
 {
 	class tcp_server;
@@ -136,10 +158,14 @@ namespace transport
 		// Connection start
 		void start_tcp (nano::endpoint const &);
 		void start_tcp_receive_node_id (std::shared_ptr<nano::transport::channel_tcp> const &, nano::endpoint const &, std::shared_ptr<std::vector<uint8_t>> const &);
+
+	private: // Dependencies
 		nano::node & node;
 
+	public:
+		nano::tcp_message_manager message_manager;
+
 	private:
-		std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink;
 		class endpoint_tag
 		{
 		};
@@ -255,6 +281,9 @@ namespace transport
 				mi::member<tcp_endpoint_attempt, std::chrono::steady_clock::time_point, &tcp_endpoint_attempt::last_attempt>>>>
 		attempts;
 		// clang-format on
+
+	private:
+		std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink;
 		std::atomic<bool> stopped{ false };
 
 		friend class network_peer_max_tcp_attempts_subnetwork_Test;

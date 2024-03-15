@@ -17,6 +17,7 @@ enum class type : uint8_t
 	ledger,
 	rollback,
 	bootstrap,
+	network,
 	tcp_server,
 	vote,
 	election,
@@ -52,6 +53,7 @@ enum class type : uint8_t
 	rep_crawler,
 	local_block_broadcaster,
 	rep_tiers,
+	syn_cookies,
 
 	bootstrap_ascending,
 	bootstrap_ascending_accounts,
@@ -67,6 +69,8 @@ enum class detail : uint8_t
 	// common
 	ok,
 	loop,
+	loop_cleanup,
+	loop_keepalive,
 	total,
 	process,
 	processed,

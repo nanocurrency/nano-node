@@ -22,5 +22,4 @@ bool is_ipv4_or_v4_mapped_address (boost::asio::ip::address const &);
 
 // Unassigned, reserved, self
 bool reserved_address (nano::endpoint const &, bool = false);
-static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 }

@@ -126,6 +126,7 @@ void nano::transport::channel_tcp::operator() (nano::object_stream & obs) const
 
 nano::transport::tcp_channels::tcp_channels (nano::node & node, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink) :
 	node{ node },
+	message_manager{ node.config.tcp_incoming_connections_max },
 	sink{ std::move (sink) }
 {
 }
@@ -295,7 +296,7 @@ void nano::transport::tcp_channels::process_messages ()
 {
 	while (!stopped)
 	{
-		auto item (node.network.tcp_message_manager.get_message ());
+		auto item = message_manager.get_message ();
 		if (item.message != nullptr)
 		{
 			process_message (*item.message, item.endpoint, item.node_id, item.socket);
@@ -364,6 +365,9 @@ void nano::transport::tcp_channels::stop ()
 {
 	stopped = true;
 	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	message_manager.stop ();
+
 	// Close all TCP sockets
 	for (auto const & channel : channels)
 	{
