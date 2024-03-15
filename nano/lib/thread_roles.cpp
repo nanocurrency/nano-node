@@ -115,6 +115,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::network_keepalive:
 			thread_role_name_string = "Net keepalive";
 			break;
+		case nano::thread_role::name::network_reachout:
+			thread_role_name_string = "Net reachout";
+			break;
 		case nano::thread_role::name::tcp_keepalive:
 			thread_role_name_string = "Tcp keepalive";
 			break;

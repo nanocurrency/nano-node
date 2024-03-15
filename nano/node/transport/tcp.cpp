@@ -139,8 +139,6 @@ nano::transport::tcp_channels::~tcp_channels ()
 
 void nano::transport::tcp_channels::start ()
 {
-	ongoing_merge (0);
-
 	keepalive_thread = std::thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::tcp_keepalive);
 		run_keepalive ();
@@ -548,75 +546,29 @@ void nano::transport::tcp_channels::keepalive ()
 	}
 }
 
-void nano::transport::tcp_channels::ongoing_merge (size_t channel_index)
+std::optional<nano::keepalive> nano::transport::tcp_channels::sample_keepalive ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	std::optional<nano::keepalive> keepalive;
-	size_t count = 0;
-	while (!keepalive && channels.size () > 0 && count++ < channels.size ())
-	{
-		++channel_index;
-		if (channels.size () <= channel_index)
-		{
-			channel_index = 0;
-		}
-		auto server = channels.get<random_access_tag> ()[channel_index].response_server;
-		if (server && server->last_keepalive)
-		{
-			keepalive = std::move (server->last_keepalive);
-			server->last_keepalive = std::nullopt;
-		}
-	}
-	lock.unlock ();
-	if (keepalive)
-	{
-		ongoing_merge (channel_index, *keepalive, 1);
-	}
-	else
-	{
-		std::weak_ptr<nano::node> node_w = node.shared ();
-		node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.network.merge_period, [node_w, channel_index] () {
-			if (auto node_l = node_w.lock ())
-			{
-				if (!node_l->network.tcp_channels.stopped)
-				{
-					node_l->network.tcp_channels.ongoing_merge (channel_index);
-				}
-			}
-		});
-	}
-}
+	nano::lock_guard<nano::mutex> lock{ mutex };
 
-void nano::transport::tcp_channels::ongoing_merge (size_t channel_index, nano::keepalive keepalive, size_t peer_index)
-{
-	debug_assert (peer_index < keepalive.peers.size ());
-	node.network.merge_peer (keepalive.peers[peer_index++]);
-	if (peer_index < keepalive.peers.size ())
+	auto next_rand = [this] (std::size_t max) {
+		std::uniform_int_distribution<std::size_t> dist (0, max - 1);
+		return dist (rng);
+	};
+
+	size_t counter = 0;
+	while (counter++ < channels.size ())
 	{
-		std::weak_ptr<nano::node> node_w = node.shared ();
-		node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.network.merge_period, [node_w, channel_index, keepalive, peer_index] () {
-			if (auto node_l = node_w.lock ())
+		auto index = next_rand (channels.size ());
+		if (auto server = channels.get<random_access_tag> ()[index].response_server)
+		{
+			if (auto keepalive = server->pop_last_keepalive ())
 			{
-				if (!node_l->network.tcp_channels.stopped)
-				{
-					node_l->network.tcp_channels.ongoing_merge (channel_index, keepalive, peer_index);
-				}
+				return keepalive;
 			}
-		});
+		}
 	}
-	else
-	{
-		std::weak_ptr<nano::node> node_w = node.shared ();
-		node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.network.merge_period, [node_w, channel_index] () {
-			if (auto node_l = node_w.lock ())
-			{
-				if (!node_l->network.tcp_channels.stopped)
-				{
-					node_l->network.tcp_channels.ongoing_merge (channel_index);
-				}
-			}
-		});
-	}
+
+	return std::nullopt;
 }
 
 void nano::transport::tcp_channels::list (std::deque<std::shared_ptr<nano::transport::channel>> & deque_a, uint8_t minimum_version_a, bool include_temporary_channels_a)

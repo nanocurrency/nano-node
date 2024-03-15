@@ -11,6 +11,7 @@
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
 
+#include <random>
 #include <thread>
 #include <unordered_set>
 
@@ -154,12 +155,11 @@ namespace transport
 		bool track_reachout (nano::endpoint const &);
 		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
-		void ongoing_keepalive ();
-		void ongoing_merge (size_t channel_index);
-		void ongoing_merge (size_t channel_index, nano::keepalive keepalive, size_t peer_index);
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0, bool = true);
 		void modify (std::shared_ptr<nano::transport::channel_tcp> const &, std::function<void (std::shared_ptr<nano::transport::channel_tcp> const &)>);
 		void update (nano::tcp_endpoint const &);
+		std::optional<nano::keepalive> sample_keepalive ();
+
 		// Connection start
 		void start_tcp (nano::endpoint const &);
 		void start_tcp_receive_node_id (std::shared_ptr<nano::transport::channel_tcp> const &, nano::endpoint const &, std::shared_ptr<std::vector<uint8_t>> const &);
@@ -287,6 +287,8 @@ namespace transport
 		nano::condition_variable condition;
 		mutable nano::mutex mutex;
 		std::thread keepalive_thread;
+
+		std::default_random_engine rng;
 	};
 } // namespace transport
 } // namespace nano

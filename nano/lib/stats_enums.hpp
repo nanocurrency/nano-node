@@ -71,7 +71,6 @@ enum class detail : uint8_t
 	ok,
 	loop,
 	loop_cleanup,
-	loop_keepalive,
 	total,
 	process,
 	processed,
@@ -216,6 +215,11 @@ enum class detail : uint8_t
 	invalid_asc_pull_ack_message,
 	message_size_too_big,
 	outdated_version,
+
+	// network
+	loop_keepalive,
+	loop_reachout,
+	merge_peer,
 
 	// tcp
 	tcp_accept_success,

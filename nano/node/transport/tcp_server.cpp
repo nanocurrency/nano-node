@@ -796,6 +796,14 @@ void nano::transport::tcp_server::set_last_keepalive (nano::keepalive const & me
 	}
 }
 
+std::optional<nano::keepalive> nano::transport::tcp_server::pop_last_keepalive ()
+{
+	std::lock_guard<nano::mutex> lock{ mutex };
+	auto result = last_keepalive;
+	last_keepalive = std::nullopt;
+	return result;
+}
+
 bool nano::transport::tcp_server::to_bootstrap_connection ()
 {
 	auto node = this->node.lock ();
