@@ -739,7 +739,8 @@ std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::a
 
 nano::uint128_t nano::node::weight (nano::account const & account_a)
 {
-	return ledger.weight (account_a);
+	auto txn{ ledger.store.tx_begin_read () };
+	return ledger.weight_exact (txn, account_a);
 }
 
 nano::uint128_t nano::node::minimum_principal_weight ()

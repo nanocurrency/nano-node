@@ -989,6 +989,11 @@ nano::uint128_t nano::ledger::weight (nano::account const & account_a)
 	return cache.rep_weights.representation_get (account_a);
 }
 
+nano::uint128_t nano::ledger::weight_exact (store::transaction const & txn_a, nano::account const & representative_a)
+{
+	return store.rep_weight.get (txn_a, representative_a);
+}
+
 // Rollback blocks until `block_a' doesn't exist or it tries to penetrate the confirmation height
 bool nano::ledger::rollback (store::write_transaction const & transaction_a, nano::block_hash const & block_a, std::vector<std::shared_ptr<nano::block>> & list_a)
 {
