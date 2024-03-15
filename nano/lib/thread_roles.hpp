@@ -48,7 +48,6 @@ enum class name
 	network_cleanup,
 	network_keepalive,
 	network_reachout,
-	tcp_keepalive,
 };
 
 /*

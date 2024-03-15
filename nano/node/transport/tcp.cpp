@@ -133,16 +133,11 @@ nano::transport::tcp_channels::tcp_channels (nano::node & node, std::function<vo
 
 nano::transport::tcp_channels::~tcp_channels ()
 {
-	// All threads must be stopped before destruction
-	debug_assert (!keepalive_thread.joinable ());
+	debug_assert (channels.empty ());
 }
 
 void nano::transport::tcp_channels::start ()
 {
-	keepalive_thread = std::thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::tcp_keepalive);
-		run_keepalive ();
-	});
 }
 
 void nano::transport::tcp_channels::stop ()
@@ -152,11 +147,6 @@ void nano::transport::tcp_channels::stop ()
 		stopped = true;
 	}
 	condition.notify_all ();
-
-	if (keepalive_thread.joinable ())
-	{
-		keepalive_thread.join ();
-	}
 
 	message_manager.stop ();
 
@@ -174,26 +164,6 @@ void nano::transport::tcp_channels::stop ()
 		}
 	}
 	channels.clear ();
-}
-
-// TODO: Merge with keepalive in network class
-void nano::transport::tcp_channels::run_keepalive ()
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped)
-	{
-		condition.wait_for (lock, node.network_params.network.keepalive_period);
-		if (stopped)
-		{
-			return;
-		}
-		lock.unlock ();
-
-		node.stats.inc (nano::stat::type::tcp_channels, nano::stat::detail::loop_keepalive);
-		keepalive ();
-
-		lock.lock ();
-	}
 }
 
 bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::transport::socket> const & socket_a, std::shared_ptr<nano::transport::tcp_server> const & server_a)

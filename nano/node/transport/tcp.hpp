@@ -158,6 +158,7 @@ namespace transport
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0, bool = true);
 		void modify (std::shared_ptr<nano::transport::channel_tcp> const &, std::function<void (std::shared_ptr<nano::transport::channel_tcp> const &)>);
 		void update (nano::tcp_endpoint const &);
+		void keepalive ();
 		std::optional<nano::keepalive> sample_keepalive ();
 
 		// Connection start
@@ -166,10 +167,6 @@ namespace transport
 
 	private: // Dependencies
 		nano::node & node;
-
-	private:
-		void run_keepalive ();
-		void keepalive ();
 
 	public:
 		nano::tcp_message_manager message_manager;
@@ -286,7 +283,6 @@ namespace transport
 		std::atomic<bool> stopped{ false };
 		nano::condition_variable condition;
 		mutable nano::mutex mutex;
-		std::thread keepalive_thread;
 
 		std::default_random_engine rng;
 	};
