@@ -210,14 +210,13 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 			std::atomic<uint64_t> upgraded_pending (0);
 			uint64_t workers (0);
 			uint64_t attempts (0);
-			auto transaction (store.tx_begin_read ());
-			for (auto i (store.pending.begin (transaction, nano::pending_key (1, 0))), n (store.pending.end ()); i != n && attempts < upgrade_batch_size && attempts < count_limit && !stopped;)
+			auto transaction = store.tx_begin_read ();
+			for (auto current = ledger.receivable_upper_bound (transaction, 0), end = ledger.receivable_end (); current != end && attempts < upgrade_batch_size && attempts < count_limit && !stopped;)
 			{
 				bool to_next_account (false);
-				nano::pending_key const & key (i->first);
+				auto const & [key, info] = *current;
 				if (!store.account.exists (transaction, key.account))
 				{
-					nano::pending_info const & info (i->second);
 					if (info.epoch < epoch_a)
 					{
 						++attempts;
@@ -272,13 +271,13 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 					}
 					else
 					{
-						i = store.pending.begin (transaction, nano::pending_key (key.account.number () + 1, 0));
+						current = ledger.receivable_upper_bound (transaction, key.account);
 					}
 				}
 				else
 				{
 					// Move to next pending item
-					++i;
+					current = ledger.receivable_upper_bound (transaction, key.account, key.hash);
 				}
 			}
 			{
