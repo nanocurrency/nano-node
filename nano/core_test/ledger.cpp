@@ -66,7 +66,7 @@ TEST (ledger, process_modifies_sideband)
 	auto ctx = nano::test::context::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto send1 = builder
 				 .state ()
@@ -89,7 +89,7 @@ TEST (ledger, process_send)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::keypair key2;
@@ -192,7 +192,7 @@ TEST (ledger, process_receive)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::keypair key2;
@@ -275,7 +275,7 @@ TEST (ledger, rollback_receiver)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::keypair key2;
@@ -324,7 +324,7 @@ TEST (ledger, rollback_representation)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key5;
 	nano::block_builder builder;
 	auto change1 = builder
@@ -414,7 +414,7 @@ TEST (ledger, receive_rollback)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto send = builder
 				.send ()
@@ -442,7 +442,7 @@ TEST (ledger, process_duplicate)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::keypair key2;
@@ -495,7 +495,7 @@ TEST (ledger, representative_change)
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
 	nano::keypair key2;
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (nano::dev::genesis_key.pub));
 	ASSERT_EQ (0, ledger.weight (key2.pub));
 	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
@@ -533,7 +533,7 @@ TEST (ledger, send_fork)
 	nano::keypair key2;
 	nano::keypair key3;
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::block_builder builder;
@@ -565,7 +565,7 @@ TEST (ledger, receive_fork)
 	nano::keypair key2;
 	nano::keypair key3;
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::block_builder builder;
@@ -622,7 +622,7 @@ TEST (ledger, open_fork)
 	nano::keypair key2;
 	nano::keypair key3;
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::block_builder builder;
@@ -673,7 +673,7 @@ TEST (ledger, representation)
 	auto & store = ctx.store ();
 	auto & rep_weights = ledger.cache.rep_weights;
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	ASSERT_EQ (nano::dev::constants.genesis_amount, rep_weights.representation_get (nano::dev::genesis_key.pub));
 	nano::keypair key2;
 	nano::block_builder builder;
@@ -845,7 +845,7 @@ TEST (ledger, double_receive)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key2;
 	nano::block_builder builder;
 	auto send1 = builder
@@ -1186,7 +1186,7 @@ TEST (ledger, fail_change_old)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block = builder
@@ -1208,7 +1208,7 @@ TEST (ledger, fail_change_gap_previous)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block = builder
@@ -1228,7 +1228,7 @@ TEST (ledger, fail_state_bad_signature)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto block = builder
 				 .state ()
@@ -1250,7 +1250,7 @@ TEST (ledger, fail_epoch_bad_signature)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto block = builder
 				 .state ()
@@ -1276,7 +1276,7 @@ TEST (ledger, fail_change_bad_signature)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block = builder
@@ -1296,7 +1296,7 @@ TEST (ledger, fail_change_fork)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -1326,7 +1326,7 @@ TEST (ledger, fail_send_old)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block = builder
@@ -1349,7 +1349,7 @@ TEST (ledger, fail_send_gap_previous)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block = builder
@@ -1370,7 +1370,7 @@ TEST (ledger, fail_send_bad_signature)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block = builder
@@ -1391,7 +1391,7 @@ TEST (ledger, fail_send_negative_spend)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -1421,7 +1421,7 @@ TEST (ledger, fail_send_fork)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -1451,7 +1451,7 @@ TEST (ledger, fail_open_old)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -1481,7 +1481,7 @@ TEST (ledger, fail_open_gap_source)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block2 = builder
@@ -1502,7 +1502,7 @@ TEST (ledger, fail_open_bad_signature)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -1532,7 +1532,7 @@ TEST (ledger, fail_open_fork_previous)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -1580,7 +1580,7 @@ TEST (ledger, fail_open_account_mismatch)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -1611,7 +1611,7 @@ TEST (ledger, fail_receive_old)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -1658,7 +1658,7 @@ TEST (ledger, fail_receive_gap_source)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -1708,7 +1708,7 @@ TEST (ledger, fail_receive_overreceive)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -1748,7 +1748,7 @@ TEST (ledger, fail_receive_bad_signature)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -1798,7 +1798,7 @@ TEST (ledger, fail_receive_gap_previous_opened)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -1848,7 +1848,7 @@ TEST (ledger, fail_receive_gap_previous_unopened)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -1888,7 +1888,7 @@ TEST (ledger, fail_receive_fork_previous)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -1949,7 +1949,7 @@ TEST (ledger, fail_receive_received_source)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -2040,7 +2040,7 @@ TEST (ledger, latest_root)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key;
 	ASSERT_EQ (key.pub, ledger.latest_root (transaction, key.pub).as_account ());
 	auto hash1 = ledger.latest (transaction, nano::dev::genesis_key.pub);
@@ -2064,7 +2064,7 @@ TEST (ledger, change_representative_move_representation)
 	auto & store = ctx.store ();
 	nano::keypair key1;
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (nano::dev::genesis_key.pub));
 	nano::block_builder builder;
 	auto send = builder
@@ -2105,7 +2105,7 @@ TEST (ledger, send_open_receive_rollback)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::keypair key1;
@@ -2194,7 +2194,7 @@ TEST (ledger, bootstrap_rep_weight)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	nano::keypair key2;
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	{
 		auto transaction = store.tx_begin_write ();
 		auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
@@ -2241,7 +2241,7 @@ TEST (ledger, block_destination_source)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair dest;
 	nano::uint128_t balance (nano::dev::constants.genesis_amount);
 	balance -= nano::Gxrb_ratio;
@@ -2331,7 +2331,7 @@ TEST (ledger, state_account)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto send1 = builder
 				 .state ()
@@ -2353,7 +2353,7 @@ TEST (ledger, state_send_receive)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto send1 = builder
 				 .state ()
@@ -2410,7 +2410,7 @@ TEST (ledger, state_receive)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto send1 = builder
 				 .send ()
@@ -2458,7 +2458,7 @@ TEST (ledger, state_rep_change)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair rep;
 	nano::block_builder builder;
 	auto change1 = builder
@@ -2492,7 +2492,7 @@ TEST (ledger, state_open)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair destination;
 	nano::block_builder builder;
 	auto send1 = builder
@@ -2547,7 +2547,7 @@ TEST (ledger, send_after_state_fail)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto send1 = builder
 				 .state ()
@@ -2578,7 +2578,7 @@ TEST (ledger, receive_after_state_fail)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto send1 = builder
 				 .state ()
@@ -2608,7 +2608,7 @@ TEST (ledger, change_after_state_fail)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto send1 = builder
 				 .state ()
@@ -2638,7 +2638,7 @@ TEST (ledger, state_unreceivable_fail)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto send1 = builder
 				 .send ()
@@ -2675,7 +2675,7 @@ TEST (ledger, state_receive_bad_amount_fail)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto send1 = builder
 				 .send ()
@@ -2712,7 +2712,7 @@ TEST (ledger, state_no_link_amount_fail)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto send1 = builder
 				 .state ()
@@ -2745,7 +2745,7 @@ TEST (ledger, state_receive_wrong_account_fail)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto send1 = builder
 				 .state ()
@@ -2785,7 +2785,7 @@ TEST (ledger, state_open_state_fork)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair destination;
 	nano::block_builder builder;
 	auto send1 = builder
@@ -2828,7 +2828,7 @@ TEST (ledger, state_state_open_fork)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair destination;
 	nano::block_builder builder;
 	auto send1 = builder
@@ -2872,7 +2872,7 @@ TEST (ledger, state_open_previous_fail)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair destination;
 	nano::block_builder builder;
 	auto send1 = builder
@@ -2905,7 +2905,7 @@ TEST (ledger, state_open_source_fail)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair destination;
 	nano::block_builder builder;
 	auto send1 = builder
@@ -2938,7 +2938,7 @@ TEST (ledger, state_send_change)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair rep;
 	nano::block_builder builder;
 	auto send1 = builder
@@ -2972,7 +2972,7 @@ TEST (ledger, state_receive_change)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto send1 = builder
 				 .state ()
@@ -3024,7 +3024,7 @@ TEST (ledger, state_open_old)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair destination;
 	nano::block_builder builder;
 	auto send1 = builder
@@ -3058,7 +3058,7 @@ TEST (ledger, state_receive_old)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair destination;
 	nano::block_builder builder;
 	auto send1 = builder
@@ -3111,7 +3111,7 @@ TEST (ledger, state_rollback_send)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto send1 = builder
 				 .state ()
@@ -3149,7 +3149,7 @@ TEST (ledger, state_rollback_receive)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto send1 = builder
 				 .state ()
@@ -3191,7 +3191,7 @@ TEST (ledger, state_rollback_received_send)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key;
 	nano::block_builder builder;
 	auto send1 = builder
@@ -3234,7 +3234,7 @@ TEST (ledger, state_rep_change_rollback)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair rep;
 	nano::block_builder builder;
 	auto change1 = builder
@@ -3261,7 +3261,7 @@ TEST (ledger, state_open_rollback)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair destination;
 	nano::block_builder builder;
 	auto send1 = builder
@@ -3303,7 +3303,7 @@ TEST (ledger, state_send_change_rollback)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair rep;
 	nano::block_builder builder;
 	auto send1 = builder
@@ -3331,7 +3331,7 @@ TEST (ledger, state_receive_change_rollback)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto send1 = builder
 				 .state ()
@@ -3370,7 +3370,7 @@ TEST (ledger, epoch_blocks_v1_general)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair destination;
 	nano::block_builder builder;
 	auto epoch1 = builder
@@ -3513,7 +3513,7 @@ TEST (ledger, epoch_blocks_v2_general)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair destination;
 	nano::block_builder builder;
 	auto epoch1 = builder
@@ -3678,7 +3678,7 @@ TEST (ledger, epoch_blocks_receive_upgrade)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair destination;
 	nano::block_builder builder;
 	auto send1 = builder
@@ -3886,7 +3886,7 @@ TEST (ledger, epoch_blocks_fork)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair destination;
 	nano::block_builder builder;
 	auto send1 = builder
@@ -4413,7 +4413,7 @@ TEST (ledger, confirmation_height_not_updated)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = store.tx_begin_write ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	auto account_info = ledger.account_info (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (account_info);
 	nano::keypair key;
@@ -4485,7 +4485,7 @@ TEST (ledger, work_validation)
 	auto ctx = nano::test::context::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 	auto gen = nano::dev::genesis_key;
 	nano::keypair key;
@@ -4577,7 +4577,7 @@ TEST (ledger, dependents_confirmed)
 	auto transaction = store.tx_begin_write ();
 	nano::block_builder builder;
 	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *nano::dev::genesis));
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	auto send1 = builder.state ()
 				 .account (nano::dev::genesis_key.pub)
@@ -4697,7 +4697,7 @@ TEST (ledger, block_confirmed)
 	auto transaction = store.tx_begin_write ();
 	nano::block_builder builder;
 	ASSERT_TRUE (ledger.block_confirmed (transaction, nano::dev::genesis->hash ()));
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	auto send1 = builder.state ()
 				 .account (nano::dev::genesis_key.pub)
@@ -4725,7 +4725,7 @@ TEST (ledger, cache)
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto & stats = ctx.stats ();
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto & pool = ctx.pool ();
 	nano::block_builder builder;
 
 	size_t const total = 100;
