@@ -1120,7 +1120,7 @@ void nano::node::add_initial_peers ()
 	for (auto i (store.peer.begin (transaction)), n (store.peer.end ()); i != n; ++i)
 	{
 		nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
-		if (!network.track_reachout (endpoint))
+		if (network.track_reachout (endpoint))
 		{
 			network.tcp_channels.start_tcp (endpoint);
 		}

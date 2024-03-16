@@ -455,7 +455,7 @@ void nano::network::merge_peers (std::array<nano::endpoint, 8> const & peers_a)
 
 void nano::network::merge_peer (nano::endpoint const & peer_a)
 {
-	if (!track_reachout (peer_a))
+	if (track_reachout (peer_a))
 	{
 		node.stats.inc (nano::stat::type::network, nano::stat::detail::merge_peer);
 
@@ -484,12 +484,11 @@ bool nano::network::not_a_peer (nano::endpoint const & endpoint_a, bool allow_lo
 bool nano::network::track_reachout (nano::endpoint const & endpoint_a)
 {
 	// Don't contact invalid IPs
-	bool error = not_a_peer (endpoint_a, node.config.allow_local_peers);
-	if (!error)
+	if (not_a_peer (endpoint_a, node.config.allow_local_peers))
 	{
-		error = tcp_channels.track_reachout (endpoint_a);
+		return false;
 	}
-	return error;
+	return tcp_channels.track_reachout (endpoint_a);
 }
 
 std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (std::size_t count_a, uint8_t minimum_version_a, bool include_tcp_temporary_channels_a)

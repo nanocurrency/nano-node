@@ -444,18 +444,31 @@ bool nano::transport::tcp_channels::max_ip_or_subnetwork_connections (nano::tcp_
 
 bool nano::transport::tcp_channels::track_reachout (nano::endpoint const & endpoint_a)
 {
-	auto tcp_endpoint (nano::transport::map_endpoint_to_tcp (endpoint_a));
+	auto const tcp_endpoint = nano::transport::map_endpoint_to_tcp (endpoint_a);
+
 	// Don't overload single IP
-	bool error = node.network.excluded_peers.check (tcp_endpoint) || max_ip_or_subnetwork_connections (tcp_endpoint);
-	if (!error && !node.flags.disable_tcp_realtime)
+	if (max_ip_or_subnetwork_connections (tcp_endpoint))
 	{
-		// Don't keepalive to nodes that already sent us something
-		error |= find_channel (tcp_endpoint) != nullptr;
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		auto inserted (attempts.emplace (tcp_endpoint));
-		error |= !inserted.second;
+		return false;
 	}
-	return error;
+	if (node.network.excluded_peers.check (tcp_endpoint))
+	{
+		return false;
+	}
+	if (node.flags.disable_tcp_realtime)
+	{
+		return false;
+	}
+
+	// Don't keepalive to nodes that already sent us something
+	if (find_channel (tcp_endpoint) != nullptr)
+	{
+		return false;
+	}
+
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	auto [it, inserted] = attempts.emplace (tcp_endpoint);
+	return inserted;
 }
 
 std::unique_ptr<nano::container_info_component> nano::transport::tcp_channels::collect_container_info (std::string const & name)
