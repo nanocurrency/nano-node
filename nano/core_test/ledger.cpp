@@ -5654,3 +5654,29 @@ TEST (ledger_receivable, key_two)
 	ASSERT_EQ (ledger.receivable_end (), ++next1);
 	ASSERT_EQ (ledger.receivable_end (), ++next2);
 }
+
+TEST (ledger_receivable, any_none)
+{
+	auto ctx = nano::test::context::ledger_empty ();
+	ASSERT_FALSE (ctx.ledger ().receivable_any (ctx.store ().tx_begin_read (), nano::dev::genesis_key.pub));
+}
+
+TEST (ledger_receivable, any_one)
+{
+	auto ctx = nano::test::context::ledger_empty ();
+	nano::block_builder builder;
+	nano::keypair key;
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*ctx.pool ().generate (nano::dev::genesis->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ctx.ledger ().process (ctx.store ().tx_begin_write (), send1));
+	ASSERT_TRUE (ctx.ledger ().receivable_any (ctx.store ().tx_begin_read (), nano::dev::genesis_key.pub));
+	ASSERT_FALSE (ctx.ledger ().receivable_any (ctx.store ().tx_begin_read (), key.pub));
+}
