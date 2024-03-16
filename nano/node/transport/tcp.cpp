@@ -150,7 +150,13 @@ void nano::transport::tcp_channels::stop ()
 
 	message_manager.stop ();
 
-	// Close all TCP sockets
+	close ();
+}
+
+void nano::transport::tcp_channels::close ()
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+
 	for (auto const & channel : channels)
 	{
 		if (channel.socket)
@@ -163,6 +169,7 @@ void nano::transport::tcp_channels::stop ()
 			channel.response_server->stop ();
 		}
 	}
+
 	channels.clear ();
 }
 

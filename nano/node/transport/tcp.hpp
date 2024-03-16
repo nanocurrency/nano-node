@@ -172,6 +172,9 @@ namespace transport
 		nano::tcp_message_manager message_manager;
 
 	private:
+		void close ();
+
+	private:
 		class channel_entry final
 		{
 		public:
