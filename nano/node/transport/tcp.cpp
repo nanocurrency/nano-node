@@ -30,23 +30,6 @@ nano::transport::channel_tcp::~channel_tcp ()
 	}
 }
 
-std::size_t nano::transport::channel_tcp::hash_code () const
-{
-	std::hash<::nano::tcp_endpoint> hash;
-	return hash (get_tcp_endpoint ());
-}
-
-bool nano::transport::channel_tcp::operator== (nano::transport::channel const & other_a) const
-{
-	bool result (false);
-	auto other_l (dynamic_cast<nano::transport::channel_tcp const *> (&other_a));
-	if (other_l != nullptr)
-	{
-		return *this == *other_l;
-	}
-	return result;
-}
-
 void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a, nano::transport::buffer_drop_policy policy_a, nano::transport::traffic_type traffic_type)
 {
 	if (auto socket_l = socket.lock ())

@@ -14,17 +14,6 @@ nano::transport::inproc::channel::channel (nano::node & node, nano::node & desti
 	set_network_version (node.network_params.network.protocol_version);
 }
 
-std::size_t nano::transport::inproc::channel::hash_code () const
-{
-	std::hash<::nano::endpoint> hash;
-	return hash (endpoint);
-}
-
-bool nano::transport::inproc::channel::operator== (nano::transport::channel const & other_a) const
-{
-	return endpoint == other_a.get_endpoint ();
-}
-
 /**
  * Send the buffer to the peer and call the callback function when done. The call never fails.
  * Note that the inbound message visitor will be called before the callback because it is called directly whereas the callback is spawned in the background.
