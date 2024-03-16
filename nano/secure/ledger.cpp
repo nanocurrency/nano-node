@@ -1545,6 +1545,36 @@ uint64_t nano::ledger::height (store::transaction const & transaction, nano::blo
 	return block_l->sideband ().height;
 }
 
+std::optional<std::pair<nano::pending_key, nano::pending_info>> nano::ledger::receivable_lower_bound (store::transaction const & tx, nano::account const & account, nano::block_hash const & hash) const
+{
+	auto result = store.pending.begin (tx, { account, hash });
+	if (result == store.pending.end ())
+	{
+		return std::nullopt;
+	}
+	return *result;
+}
+
+nano::receivable_iterator nano::ledger::receivable_end () const
+{
+	return nano::receivable_iterator{};
+}
+
+nano::receivable_iterator nano::ledger::receivable_upper_bound (store::transaction const & tx, nano::account const & account) const
+{
+	return receivable_iterator{ *this, tx, receivable_lower_bound (tx, account.number () + 1, 0) };
+}
+
+nano::receivable_iterator nano::ledger::receivable_upper_bound (store::transaction const & tx, nano::account const & account, nano::block_hash const & hash) const
+{
+	auto result = receivable_lower_bound (tx, account, hash.number () + 1);
+	if (!result || result.value ().first.account != account)
+	{
+		return nano::receivable_iterator{ *this, tx, std::nullopt };
+	}
+	return nano::receivable_iterator{ *this, tx, result };
+}
+
 nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account) :
 	cemented_frontier (cemented_frontier), frontier (frontier), account (account)
 {
