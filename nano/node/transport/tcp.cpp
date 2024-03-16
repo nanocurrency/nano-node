@@ -224,15 +224,13 @@ std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::t
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	// Stop trying to fill result with random samples after this many attempts
 	auto random_cutoff (count_a * 2);
-	auto peers_size (channels.size ());
 	// Usually count_a will be much smaller than peers.size()
 	// Otherwise make sure we have a cutoff on attempting to randomly fill
 	if (!channels.empty ())
 	{
 		for (auto i (0); i < random_cutoff && result.size () < count_a; ++i)
 		{
-			auto index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
-
+			auto index = rng.random (channels.size ());
 			auto channel = channels.get<random_access_tag> ()[index].channel;
 			if (!channel->alive ())
 			{
@@ -520,15 +518,10 @@ std::optional<nano::keepalive> nano::transport::tcp_channels::sample_keepalive (
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
-	auto next_rand = [this] (std::size_t max) {
-		std::uniform_int_distribution<std::size_t> dist (0, max - 1);
-		return dist (rng);
-	};
-
 	size_t counter = 0;
 	while (counter++ < channels.size ())
 	{
-		auto index = next_rand (channels.size ());
+		auto index = rng.random (channels.size ());
 		if (auto server = channels.get<random_access_tag> ()[index].response_server)
 		{
 			if (auto keepalive = server->pop_last_keepalive ())

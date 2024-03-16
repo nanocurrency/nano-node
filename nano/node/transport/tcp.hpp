@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/random.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/transport.hpp>
@@ -283,7 +284,7 @@ namespace transport
 		nano::condition_variable condition;
 		mutable nano::mutex mutex;
 
-		std::default_random_engine rng;
+		mutable nano::random_generator rng;
 	};
 } // namespace transport
 } // namespace nano
