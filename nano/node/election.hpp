@@ -34,15 +34,6 @@ public:
 	nano::uint128_t weight;
 };
 
-class election_vote_result final
-{
-public:
-	election_vote_result () = default;
-	election_vote_result (bool, bool);
-	bool replay{ false };
-	bool processed{ false };
-};
-
 enum class election_behavior
 {
 	normal,
@@ -85,6 +76,13 @@ public:
 	{
 		live,
 		cache,
+	};
+
+	enum class vote_result
+	{
+		ignored,
+		processed,
+		replay,
 	};
 
 private:
@@ -144,7 +142,7 @@ public: // Interface
 	 * Process vote. Internally uses cooldown to throttle non-final votes
 	 * If the election reaches consensus, it will be confirmed
 	 */
-	nano::election_vote_result vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash, vote_source = vote_source::live);
+	vote_result vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash, vote_source = vote_source::live);
 	bool publish (std::shared_ptr<nano::block> const & block_a);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (nano::unique_lock<nano::mutex> &);
