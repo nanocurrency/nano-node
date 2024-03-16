@@ -43,6 +43,11 @@ namespace transport
 				return nano::transport::transport_type::loopback;
 			}
 
+			void close () override
+			{
+				// Can't be closed
+			}
+
 		private:
 			nano::node & destination;
 			nano::endpoint const endpoint;

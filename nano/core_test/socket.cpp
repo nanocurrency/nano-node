@@ -420,7 +420,7 @@ TEST (socket, drop_policy)
 		});
 
 		auto client = std::make_shared<nano::transport::socket> (*node);
-		nano::transport::channel_tcp channel{ *node, client };
+		auto channel = std::make_shared<nano::transport::channel_tcp> (*node, client);
 		nano::test::counted_completion write_completion (static_cast<unsigned> (total_message_count));
 
 		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), listener->endpoint ().port ()),
@@ -428,7 +428,7 @@ TEST (socket, drop_policy)
 			for (int i = 0; i < total_message_count; i++)
 			{
 				std::vector<uint8_t> buff (1);
-				channel.send_buffer (
+				channel->send_buffer (
 				nano::shared_const_buffer (std::move (buff)), [&write_completion, client] (boost::system::error_code const & ec, size_t size_a) mutable {
 					client.reset ();
 					write_completion.increment ();

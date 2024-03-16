@@ -228,6 +228,7 @@ TEST (peer_container, reachout)
 	ASSERT_TRUE (node1.network.track_reachout (outer_node2->network.endpoint ()));
 	// Make sure we purge old items
 	node1.network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (10));
+	ASSERT_TIMELY (5s, node1.network.empty ());
 	ASSERT_FALSE (node1.network.track_reachout (outer_node2->network.endpoint ()));
 }
 

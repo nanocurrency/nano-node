@@ -1080,7 +1080,7 @@ TEST (network, cleanup_purge)
 	ASSERT_EQ (1, node1.network.size ());
 
 	node1.network.cleanup (std::chrono::steady_clock::now ());
-	ASSERT_EQ (0, node1.network.size ());
+	ASSERT_TIMELY_EQ (5s, 0, node1.network.size ());
 }
 
 TEST (network, loopback_channel)

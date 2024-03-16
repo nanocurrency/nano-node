@@ -55,7 +55,7 @@ namespace transport
 	class tcp_server;
 	class tcp_channels;
 
-	class channel_tcp : public nano::transport::channel
+	class channel_tcp : public nano::transport::channel, public std::enable_shared_from_this<channel_tcp>
 	{
 		friend class nano::transport::tcp_channels;
 
@@ -74,10 +74,6 @@ namespace transport
 		{
 			return &node == &other_a.node && socket.lock () == other_a.socket.lock ();
 		}
-		std::weak_ptr<nano::transport::socket> socket;
-		/* Mark for temporary channels. Usually remote ports of these channels are ephemeral and received from incoming connections to server.
-		If remote part has open listening port, temporary channel will be replaced with direct connection to listening port soon. But if other side is behing NAT or firewall this connection can be pemanent. */
-		std::atomic<bool> temporary{ false };
 
 		void set_endpoint ();
 
@@ -97,7 +93,7 @@ namespace transport
 			return nano::transport::transport_type::tcp;
 		}
 
-		virtual bool max (nano::transport::traffic_type traffic_type) override
+		bool max (nano::transport::traffic_type traffic_type) override
 		{
 			bool result = true;
 			if (auto socket_l = socket.lock ())
@@ -107,7 +103,7 @@ namespace transport
 			return result;
 		}
 
-		virtual bool alive () const override
+		bool alive () const override
 		{
 			if (auto socket_l = socket.lock ())
 			{
@@ -115,6 +111,21 @@ namespace transport
 			}
 			return false;
 		}
+
+		void close () override
+		{
+			if (auto socket_l = socket.lock ())
+			{
+				socket_l->close ();
+			}
+		}
+
+	public:
+		std::weak_ptr<nano::transport::socket> socket;
+
+		/* Mark for temporary channels. Usually remote ports of these channels are ephemeral and received from incoming connections to server.
+		If remote part has open listening port, temporary channel will be replaced with direct connection to listening port soon. But if other side is behing NAT or firewall this connection can be pemanent. */
+		std::atomic<bool> temporary{ false };
 
 	private:
 		nano::tcp_endpoint endpoint{ boost::asio::ip::address_v6::any (), 0 };
@@ -154,10 +165,9 @@ namespace transport
 		// Should we reach out to this endpoint with a keepalive message? If yes, register a new reachout attempt
 		bool track_reachout (nano::endpoint const &);
 		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
-		void purge (std::chrono::steady_clock::time_point const &);
+		void purge (std::chrono::steady_clock::time_point cutoff_deadline);
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0, bool = true);
 		void modify (std::shared_ptr<nano::transport::channel_tcp> const &, std::function<void (std::shared_ptr<nano::transport::channel_tcp> const &)>);
-		void update (nano::tcp_endpoint const &);
 		void keepalive ();
 		std::optional<nano::keepalive> sample_keepalive ();
 
@@ -190,10 +200,6 @@ namespace transport
 			nano::tcp_endpoint endpoint () const
 			{
 				return channel->get_tcp_endpoint ();
-			}
-			std::chrono::steady_clock::time_point last_packet_sent () const
-			{
-				return channel->get_last_packet_sent ();
 			}
 			std::chrono::steady_clock::time_point last_bootstrap_attempt () const
 			{
@@ -240,7 +246,6 @@ namespace transport
 		class ip_address_tag {};
 		class subnetwork_tag {};
 		class random_access_tag {};
-		class last_packet_sent_tag {};
 		class last_bootstrap_attempt_tag {};
 		class last_attempt_tag {};
 		class node_id_tag {};
@@ -257,8 +262,6 @@ namespace transport
 				mi::const_mem_fun<channel_entry, nano::tcp_endpoint, &channel_entry::endpoint>>,
 			mi::hashed_non_unique<mi::tag<node_id_tag>,
 				mi::const_mem_fun<channel_entry, nano::account, &channel_entry::node_id>>,
-			mi::ordered_non_unique<mi::tag<last_packet_sent_tag>,
-				mi::const_mem_fun<channel_entry, std::chrono::steady_clock::time_point, &channel_entry::last_packet_sent>>,
 			mi::ordered_non_unique<mi::tag<version_tag>,
 				mi::const_mem_fun<channel_entry, uint8_t, &channel_entry::network_version>>,
 			mi::hashed_non_unique<mi::tag<ip_address_tag>,
