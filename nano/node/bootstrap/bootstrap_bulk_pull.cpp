@@ -756,9 +756,9 @@ std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info
 		 */
 		auto tx = node->ledger.tx_begin_read ();
 		auto & ledger = node->ledger;
-		auto stream = ledger.receivable_upper_bound (tx, current_key.account, current_key.hash);
+		auto stream = ledger.any.receivable_upper_bound (tx, current_key.account, current_key.hash);
 
-		if (stream == ledger.receivable_end ())
+		if (stream == ledger.any.receivable_end ())
 		{
 			break;
 		}

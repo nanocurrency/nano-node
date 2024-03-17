@@ -57,6 +57,9 @@ add_library(
   network_filter.cpp
   pending_info.hpp
   pending_info.cpp
+  receivable_iterator.cpp
+  receivable_iterator.hpp
+  receivable_iterator_impl.hpp
   rep_weights.hpp
   rep_weights.cpp
   transaction.hpp

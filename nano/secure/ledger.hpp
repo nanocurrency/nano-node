@@ -31,6 +31,7 @@ class stats;
 
 class ledger final
 {
+	template <typename T>
 	friend class receivable_iterator;
 
 public:
@@ -78,11 +79,6 @@ public:
 	nano::epoch version (secure::transaction const & transaction, nano::block_hash const & hash) const;
 	// Returns whether there are any receivable entries for 'account'
 	bool receivable_any (secure::transaction const & tx, nano::account const & account) const;
-	nano::receivable_iterator receivable_end () const;
-	// Returns the next receivable entry for an account greater than 'account'
-	nano::receivable_iterator receivable_upper_bound (secure::transaction const & tx, nano::account const & account) const;
-	// Returns the next receivable entry for the account 'account' with hash greater than 'hash'
-	nano::receivable_iterator receivable_upper_bound (secure::transaction const & tx, nano::account const & account, nano::block_hash const & hash) const;
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
 	uint64_t cemented_count () const;
 	uint64_t block_count () const;
@@ -99,8 +95,6 @@ public:
 	bool pruning{ false };
 
 private:
-	// Returns the next receivable entry equal or greater than 'key'
-	std::optional<std::pair<nano::pending_key, nano::pending_info>> receivable_lower_bound (secure::transaction const & tx, nano::account const & account, nano::block_hash const & hash) const;
 	void initialize (nano::generate_cache_flags const &);
 	void confirm (secure::write_transaction const & transaction, nano::block const & block);
 

@@ -1053,7 +1053,7 @@ void nano::json_handler::accounts_receivable ()
 		if (!ec)
 		{
 			boost::property_tree::ptree peers_l;
-			for (auto current = node.ledger.receivable_upper_bound (transaction, account, 0), end = node.ledger.receivable_end (); current != end && peers_l.size () < count; ++current)
+			for (auto current = node.ledger.any.receivable_upper_bound (transaction, account, 0), end = node.ledger.any.receivable_end (); current != end && peers_l.size () < count; ++current)
 			{
 				auto const & [key, info] = *current;
 				if (include_only_confirmed && !node.ledger.confirmed.block_exists_or_pruned (transaction, key.hash))
@@ -3097,7 +3097,7 @@ void nano::json_handler::receivable ()
 		// The ptree container is used if there are any children nodes (e.g source/min_version) otherwise the amount container is used.
 		std::vector<std::pair<std::string, boost::property_tree::ptree>> hash_ptree_pairs;
 		std::vector<std::pair<std::string, nano::uint128_t>> hash_amount_pairs;
-		for (auto current = node.ledger.receivable_upper_bound (transaction, account, 0), end = node.ledger.receivable_end (); current != end && (should_sort || peers_l.size () < count); ++current)
+		for (auto current = node.ledger.any.receivable_upper_bound (transaction, account, 0), end = node.ledger.any.receivable_end (); current != end && (should_sort || peers_l.size () < count); ++current)
 		{
 			auto const & [key, info] = *current;
 			if (include_only_confirmed && !node.ledger.confirmed.block_exists_or_pruned (transaction, key.hash))
@@ -4291,7 +4291,7 @@ void nano::json_handler::unopened ()
 		auto transaction = node.ledger.tx_begin_read ();
 		auto & ledger = node.ledger;
 		boost::property_tree::ptree accounts;
-		for (auto iterator = ledger.receivable_upper_bound (transaction, start, 0), end = ledger.receivable_end (); iterator != end && accounts.size () < count;)
+		for (auto iterator = ledger.any.receivable_upper_bound (transaction, start, 0), end = ledger.any.receivable_end (); iterator != end && accounts.size () < count;)
 		{
 			auto const & [key, info] = *iterator;
 			nano::account account = key.account;
@@ -4309,7 +4309,7 @@ void nano::json_handler::unopened ()
 					accounts.put (account.to_account (), current_account_sum.convert_to<std::string> ());
 				}
 			}
-			iterator = ledger.receivable_upper_bound (transaction, account);
+			iterator = ledger.any.receivable_upper_bound (transaction, account);
 		}
 		response_l.add_child ("accounts", accounts);
 	}
@@ -4814,7 +4814,7 @@ void nano::json_handler::wallet_receivable ()
 		{
 			nano::account const & account (i->first);
 			boost::property_tree::ptree peers_l;
-			for (auto current = node.ledger.receivable_upper_bound (block_transaction, account, 0), end = node.ledger.receivable_end (); current != end && (peers_l.size () < count); ++current)
+			for (auto current = node.ledger.any.receivable_upper_bound (block_transaction, account, 0), end = node.ledger.any.receivable_end (); current != end && (peers_l.size () < count); ++current)
 			{
 				auto const & [key, info] = *current;
 				if (include_only_confirmed && !node.ledger.confirmed.block_exists_or_pruned (block_transaction, key.hash))

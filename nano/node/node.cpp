@@ -786,7 +786,7 @@ std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)
 
 bool nano::node::block_or_pruned_exists (nano::block_hash const & hash_a) const
 {
-	return ledger.any.block_exists_or_pruned (store.tx_begin_read (), hash_a);
+	return ledger.any.block_exists_or_pruned (ledger.tx_begin_read (), hash_a);
 }
 
 std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::account const & account_a, bool only_confirmed_a)

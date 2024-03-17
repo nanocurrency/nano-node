@@ -4331,7 +4331,7 @@ TEST (ledger, unchecked_epoch_invalid)
 	node1.block_processor.add (send1);
 	node1.block_processor.add (open1);
 	// Waits for the last blocks to pass through block_processor and unchecked.put queues
-	ASSERT_TIMELY (10s, node1.ledger.any.block_exists (node1.store.tx_begin_read (), epoch2->hash ()));
+	ASSERT_TIMELY (10s, node1.ledger.any.block_exists (node1.ledger.tx_begin_read (), epoch2->hash ()));
 	{
 		auto transaction = node1.ledger.tx_begin_read ();
 		ASSERT_FALSE (node1.ledger.any.block_exists (transaction, epoch1->hash ()));
@@ -5531,7 +5531,7 @@ TEST (ledger, head_block)
 TEST (ledger_receivable, upper_bound_account_none)
 {
 	auto ctx = nano::test::context::ledger_empty ();
-	ASSERT_EQ (ctx.ledger ().receivable_end (), ctx.ledger ().receivable_upper_bound (ctx.ledger ().tx_begin_read (), 0));
+	ASSERT_EQ (ctx.ledger ().any.receivable_end (), ctx.ledger ().any.receivable_upper_bound (ctx.ledger ().tx_begin_read (), 0));
 }
 
 // Test behavior of ledger::receivable_upper_bound when there are receivable entries for multiple accounts
@@ -5564,22 +5564,22 @@ TEST (ledger_receivable, upper_bound_account_key)
 	ASSERT_EQ (nano::block_status::progress, ctx.ledger ().process (ctx.ledger ().tx_begin_write (), send2));
 	auto tx = ctx.ledger ().tx_begin_read ();
 	auto & ledger = ctx.ledger ();
-	auto next1 = ledger.receivable_upper_bound (tx, nano::dev::genesis_key.pub);
-	auto next2 = ledger.receivable_upper_bound (tx, key.pub);
+	auto next1 = ledger.any.receivable_upper_bound (tx, nano::dev::genesis_key.pub);
+	auto next2 = ledger.any.receivable_upper_bound (tx, key.pub);
 	// Depending on which is greater but only one should have a value
-	ASSERT_TRUE (next1 == ledger.receivable_end () xor next2 == ledger.receivable_end ());
+	ASSERT_TRUE (next1 == ledger.any.receivable_end () xor next2 == ledger.any.receivable_end ());
 	// The account returned should be after the one we searched for
-	ASSERT_TRUE (next1 == ledger.receivable_end () || next1->first.account == key.pub);
-	ASSERT_TRUE (next2 == ledger.receivable_end () || next2->first.account == nano::dev::genesis_key.pub);
-	auto next3 = ledger.receivable_upper_bound (tx, nano::dev::genesis_key.pub, 0);
-	auto next4 = ledger.receivable_upper_bound (tx, key.pub, 0);
+	ASSERT_TRUE (next1 == ledger.any.receivable_end () || next1->first.account == key.pub);
+	ASSERT_TRUE (next2 == ledger.any.receivable_end () || next2->first.account == nano::dev::genesis_key.pub);
+	auto next3 = ledger.any.receivable_upper_bound (tx, nano::dev::genesis_key.pub, 0);
+	auto next4 = ledger.any.receivable_upper_bound (tx, key.pub, 0);
 	// Neither account has more than one receivable
-	ASSERT_TRUE (next3 != ledger.receivable_end () && next4 != ledger.receivable_end ());
-	auto next5 = ledger.receivable_upper_bound (tx, next3->first.account, next3->first.hash);
-	auto next6 = ledger.receivable_upper_bound (tx, next4->first.account, next4->first.hash);
-	ASSERT_TRUE (next5 == ledger.receivable_end () && next6 == ledger.receivable_end ());
-	ASSERT_EQ (ledger.receivable_end (), ++next3);
-	ASSERT_EQ (ledger.receivable_end (), ++next4);
+	ASSERT_TRUE (next3 != ledger.any.receivable_end () && next4 != ledger.any.receivable_end ());
+	auto next5 = ledger.any.receivable_upper_bound (tx, next3->first.account, next3->first.hash);
+	auto next6 = ledger.any.receivable_upper_bound (tx, next4->first.account, next4->first.hash);
+	ASSERT_TRUE (next5 == ledger.any.receivable_end () && next6 == ledger.any.receivable_end ());
+	ASSERT_EQ (ledger.any.receivable_end (), ++next3);
+	ASSERT_EQ (ledger.any.receivable_end (), ++next4);
 }
 
 // Test that multiple receivable entries for the same account
@@ -5612,14 +5612,14 @@ TEST (ledger_receivable, key_two)
 	ASSERT_EQ (nano::block_status::progress, ctx.ledger ().process (ctx.ledger ().tx_begin_write (), send2));
 	auto tx = ctx.ledger ().tx_begin_read ();
 	auto & ledger = ctx.ledger ();
-	auto next1 = ledger.receivable_upper_bound (tx, key.pub, 0);
-	ASSERT_TRUE (next1 != ledger.receivable_end () && next1->first.account == key.pub);
-	auto next2 = ledger.receivable_upper_bound (tx, key.pub, next1->first.hash);
-	ASSERT_TRUE (next2 != ledger.receivable_end () && next2->first.account == key.pub);
+	auto next1 = ledger.any.receivable_upper_bound (tx, key.pub, 0);
+	ASSERT_TRUE (next1 != ledger.any.receivable_end () && next1->first.account == key.pub);
+	auto next2 = ledger.any.receivable_upper_bound (tx, key.pub, next1->first.hash);
+	ASSERT_TRUE (next2 != ledger.any.receivable_end () && next2->first.account == key.pub);
 	ASSERT_NE (next1->first.hash, next2->first.hash);
 	ASSERT_EQ (next2, ++next1);
-	ASSERT_EQ (ledger.receivable_end (), ++next1);
-	ASSERT_EQ (ledger.receivable_end (), ++next2);
+	ASSERT_EQ (ledger.any.receivable_end (), ++next1);
+	ASSERT_EQ (ledger.any.receivable_end (), ++next2);
 }
 
 TEST (ledger_receivable, any_none)

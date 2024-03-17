@@ -210,7 +210,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 			std::atomic<uint64_t> upgraded_pending (0);
 			uint64_t workers (0);
 			uint64_t attempts (0);
-			for (auto current = ledger.receivable_upper_bound (ledger.tx_begin_read (), 0), end = ledger.receivable_end (); current != end && attempts < upgrade_batch_size && attempts < count_limit && !stopped;)
+			for (auto current = ledger.any.receivable_upper_bound (ledger.tx_begin_read (), 0), end = ledger.any.receivable_end (); current != end && attempts < upgrade_batch_size && attempts < count_limit && !stopped;)
 			{
 				auto const & [key, info] = *current;
 				if (!store.account.exists (ledger.tx_begin_read (), key.account))
@@ -256,7 +256,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 						}
 					}
 					// Move to next pending item
-					current = ledger.receivable_upper_bound (ledger.tx_begin_read (), key.account, key.hash);
+					current = ledger.any.receivable_upper_bound (ledger.tx_begin_read (), key.account, key.hash);
 				}
 				else
 				{
@@ -267,7 +267,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 					}
 					else
 					{
-						current = ledger.receivable_upper_bound (ledger.tx_begin_read (), key.account);
+						current = ledger.any.receivable_upper_bound (ledger.tx_begin_read (), key.account);
 					}
 				}
 			}

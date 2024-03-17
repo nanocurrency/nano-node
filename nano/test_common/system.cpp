@@ -473,8 +473,8 @@ void nano::test::system::generate_receive (nano::node & node_a)
 		auto transaction = node_a.ledger.tx_begin_read ();
 		nano::account random_account;
 		random_pool::generate_block (random_account.bytes.data (), sizeof (random_account.bytes));
-		auto item = node_a.ledger.receivable_upper_bound (transaction, random_account);
-		if (item != node_a.ledger.receivable_end ())
+		auto item = node_a.ledger.any.receivable_upper_bound (transaction, random_account);
+		if (item != node_a.ledger.any.receivable_end ())
 		{
 			send_block = node_a.ledger.any.block_get (transaction, item->first.hash);
 		}
