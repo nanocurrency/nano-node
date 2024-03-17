@@ -78,6 +78,7 @@ add_library(
   election_insertion_result.hpp
   epoch_upgrader.hpp
   epoch_upgrader.cpp
+  fair_queue.hpp
   inactive_cache_information.hpp
   inactive_cache_information.cpp
   inactive_cache_status.hpp

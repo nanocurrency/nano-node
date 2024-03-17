@@ -21,6 +21,7 @@ add_executable(
   election_scheduler.cpp
   enums.cpp
   epochs.cpp
+  fair_queue.cpp
   frontiers_confirmation.cpp
   ipc.cpp
   ledger.cpp
