@@ -86,7 +86,7 @@ void nano::transport::socket::async_read (std::shared_ptr<std::vector<uint8_t>> 
 		if (!closed)
 		{
 			set_default_timeout ();
-			boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback = std::move (callback_a), size_a, this_l] () mutable {
+			boost::asio::post (strand, [buffer_a, callback = std::move (callback_a), size_a, this_l] () mutable {
 				boost::asio::async_read (this_l->tcp_socket, boost::asio::buffer (buffer_a->data (), size_a),
 				boost::asio::bind_executor (this_l->strand,
 				[this_l, buffer_a, cbk = std::move (callback)] (boost::system::error_code const & ec, std::size_t size_a) {
@@ -103,7 +103,7 @@ void nano::transport::socket::async_read (std::shared_ptr<std::vector<uint8_t>> 
 					}
 					cbk (ec, size_a);
 				}));
-			}));
+			});
 		}
 	}
 	else
@@ -139,17 +139,19 @@ void nano::transport::socket::async_write (nano::shared_const_buffer const & buf
 		return;
 	}
 
-	boost::asio::post (strand, boost::asio::bind_executor (strand, [this_s = shared_from_this (), buffer_a, callback_a, traffic_type] () {
+	boost::asio::post (strand, [this_s = shared_from_this (), buffer_a, callback_a] () {
 		if (!this_s->write_in_progress)
 		{
 			this_s->write_queued_messages ();
 		}
-	}));
+	});
 }
 
 // Must be called from strand
 void nano::transport::socket::write_queued_messages ()
 {
+	debug_assert (strand.running_in_this_thread ());
+
 	if (closed)
 	{
 		return;
@@ -303,18 +305,16 @@ std::chrono::seconds nano::transport::socket::get_default_timeout_value () const
 
 void nano::transport::socket::set_silent_connection_tolerance_time (std::chrono::seconds tolerance_time_a)
 {
-	auto this_l (shared_from_this ());
-	boost::asio::dispatch (strand, boost::asio::bind_executor (strand, [this_l, tolerance_time_a] () {
+	boost::asio::dispatch (strand, [this_l = shared_from_this (), tolerance_time_a] () {
 		this_l->silent_connection_tolerance_time = tolerance_time_a;
-	}));
+	});
 }
 
 void nano::transport::socket::close ()
 {
-	auto this_l (shared_from_this ());
-	boost::asio::dispatch (strand, boost::asio::bind_executor (strand, [this_l] {
+	boost::asio::dispatch (strand, [this_l = shared_from_this ()] {
 		this_l->close_internal ();
-	}));
+	});
 }
 
 // This must be called from a strand or the destructor
@@ -328,9 +328,9 @@ void nano::transport::socket::close_internal ()
 	send_queue.clear ();
 
 	default_timeout = std::chrono::seconds (0);
-	boost::system::error_code ec;
 
 	// Ignore error code for shutdown as it is best-effort
+	boost::system::error_code ec;
 	tcp_socket.shutdown (boost::asio::ip::tcp::socket::shutdown_both, ec);
 	tcp_socket.close (ec);
 
