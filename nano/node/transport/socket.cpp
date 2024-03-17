@@ -50,12 +50,11 @@ void nano::transport::socket::async_connect (nano::tcp_endpoint const & endpoint
 	debug_assert (endpoint_type () == endpoint_type_t::client);
 
 	start ();
-	auto this_l (shared_from_this ());
 	set_default_timeout ();
 
-	this_l->tcp_socket.async_connect (endpoint_a,
-	boost::asio::bind_executor (this_l->strand,
-	[this_l, callback = std::move (callback_a), endpoint_a] (boost::system::error_code const & ec) {
+	tcp_socket.async_connect (endpoint_a,
+	boost::asio::bind_executor (strand,
+	[this_l = shared_from_this (), callback = std::move (callback_a), endpoint_a] (boost::system::error_code const & ec) {
 		this_l->remote = endpoint_a;
 		if (ec)
 		{
@@ -82,14 +81,15 @@ void nano::transport::socket::async_read (std::shared_ptr<std::vector<uint8_t>> 
 
 	if (size_a <= buffer_a->size ())
 	{
-		auto this_l (shared_from_this ());
 		if (!closed)
 		{
 			set_default_timeout ();
-			boost::asio::post (strand, [buffer_a, callback = std::move (callback_a), size_a, this_l] () mutable {
+			boost::asio::post (strand, [this_l = shared_from_this (), buffer_a, callback = std::move (callback_a), size_a] () mutable {
 				boost::asio::async_read (this_l->tcp_socket, boost::asio::buffer (buffer_a->data (), size_a),
 				boost::asio::bind_executor (this_l->strand,
 				[this_l, buffer_a, cbk = std::move (callback)] (boost::system::error_code const & ec, std::size_t size_a) {
+					debug_assert (this_l->strand.running_in_this_thread ());
+
 					if (ec)
 					{
 						this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_read_error, nano::stat::dir::in);
@@ -167,18 +167,19 @@ void nano::transport::socket::write_queued_messages ()
 
 	write_in_progress = true;
 	nano::async_write (tcp_socket, next->buffer,
-	boost::asio::bind_executor (strand, [this_s = shared_from_this (), next /* `next` object keeps buffer in scope */] (boost::system::error_code ec, std::size_t size) {
-		this_s->write_in_progress = false;
+	boost::asio::bind_executor (strand, [this_l = shared_from_this (), next /* `next` object keeps buffer in scope */] (boost::system::error_code ec, std::size_t size) {
+		debug_assert (this_l->strand.running_in_this_thread ());
 
+		this_l->write_in_progress = false;
 		if (ec)
 		{
-			this_s->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in);
-			this_s->close ();
+			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in);
+			this_l->close ();
 		}
 		else
 		{
-			this_s->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size);
-			this_s->set_last_completion ();
+			this_l->node.stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size);
+			this_l->set_last_completion ();
 		}
 
 		if (next->callback)
@@ -188,7 +189,7 @@ void nano::transport::socket::write_queued_messages ()
 
 		if (!ec)
 		{
-			this_s->write_queued_messages ();
+			this_l->write_queued_messages ();
 		}
 	}));
 }
