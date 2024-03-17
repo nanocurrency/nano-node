@@ -304,13 +304,6 @@ std::chrono::seconds nano::transport::socket::get_default_timeout_value () const
 	return default_timeout;
 }
 
-void nano::transport::socket::set_silent_connection_tolerance_time (std::chrono::seconds tolerance_time_a)
-{
-	boost::asio::dispatch (strand, [this_l = shared_from_this (), tolerance_time_a] () {
-		this_l->silent_connection_tolerance_time = tolerance_time_a;
-	});
-}
-
 void nano::transport::socket::close ()
 {
 	boost::asio::dispatch (strand, [this_l = shared_from_this ()] {

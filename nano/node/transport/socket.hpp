@@ -86,7 +86,6 @@ public:
 	void set_default_timeout_value (std::chrono::seconds);
 	std::chrono::seconds get_default_timeout_value () const;
 	void set_timeout (std::chrono::seconds);
-	void set_silent_connection_tolerance_time (std::chrono::seconds tolerance_time_a);
 
 	bool max (nano::transport::traffic_type = nano::transport::traffic_type::generic) const;
 	bool full (nano::transport::traffic_type = nano::transport::traffic_type::generic) const;
