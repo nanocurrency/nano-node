@@ -684,7 +684,6 @@ void nano::node::stop ()
 	generator.stop ();
 	final_generator.stop ();
 	confirmation_height_processor.stop ();
-	network.stop ();
 	telemetry.stop ();
 	websocket.stop ();
 	bootstrap_server.stop ();
@@ -696,6 +695,8 @@ void nano::node::stop ()
 	epoch_upgrader.stop ();
 	workers.stop ();
 	local_block_broadcaster.stop ();
+	network.stop (); // Stop network last to avoid killing in-use sockets
+
 	// work pool is not stopped on purpose due to testing setup
 }
 
