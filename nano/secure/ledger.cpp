@@ -809,7 +809,7 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 nano::uint128_t nano::ledger::account_receivable (store::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
 {
 	nano::uint128_t result{ 0 };
-	for (auto i = receivable_upper_bound (transaction_a, account_a, 0), n = receivable_end (); i != n; ++i)
+	for (auto i = (*this)->receivable_upper_bound (transaction_a, account_a, 0), n = (*this)->receivable_end (); i != n; ++i)
 	{
 		auto const & [key, info] = *i;
 		if (!only_confirmed_a || confirmed (transaction_a, key.hash))
@@ -1395,38 +1395,8 @@ nano::epoch nano::ledger::version (store::transaction const & transaction, nano:
 
 bool nano::ledger::receivable_any (store::transaction const & tx, nano::account const & account) const
 {
-	auto next = receivable_upper_bound (tx, account, 0);
-	return next != receivable_end ();
-}
-
-std::optional<std::pair<nano::pending_key, nano::pending_info>> nano::ledger::receivable_lower_bound (store::transaction const & tx, nano::account const & account, nano::block_hash const & hash) const
-{
-	auto result = store.pending.begin (tx, { account, hash });
-	if (result == store.pending.end ())
-	{
-		return std::nullopt;
-	}
-	return *result;
-}
-
-nano::receivable_iterator nano::ledger::receivable_end () const
-{
-	return nano::receivable_iterator{};
-}
-
-nano::receivable_iterator nano::ledger::receivable_upper_bound (store::transaction const & tx, nano::account const & account) const
-{
-	return receivable_iterator{ *this, tx, receivable_lower_bound (tx, account.number () + 1, 0) };
-}
-
-nano::receivable_iterator nano::ledger::receivable_upper_bound (store::transaction const & tx, nano::account const & account, nano::block_hash const & hash) const
-{
-	auto result = receivable_lower_bound (tx, account, hash.number () + 1);
-	if (!result || result.value ().first.account != account)
-	{
-		return nano::receivable_iterator{ *this, tx, std::nullopt };
-	}
-	return nano::receivable_iterator{ *this, tx, result };
+	auto next = (*this)->receivable_upper_bound (tx, account, 0);
+	return next != (*this)->receivable_end ();
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (ledger & ledger, std::string const & name)

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <nano/secure/receivable_iterator.hpp>
+
 #include <optional>
 
 namespace nano
@@ -22,6 +24,8 @@ namespace nano
 class ledger_view_unconfirmed
 {
 public:
+	using receivable_iterator = nano::receivable_iterator<ledger_view_unconfirmed>;
+
 	ledger_view_unconfirmed (nano::ledger const & ledger);
 
 	std::optional<nano::account> account (store::transaction const & transaction, nano::block_hash const & hash) const;
@@ -36,6 +40,13 @@ public:
 	nano::block_hash head (store::transaction const & transaction, nano::account const & account) const;
 	uint64_t height (store::transaction const & transaction, nano::account const & account) const;
 	uint64_t height (store::transaction const & transaction, nano::block_hash const & hash) const;
+	receivable_iterator receivable_end () const;
+	// Returns the next receivable entry equal or greater than 'key'
+	std::optional<std::pair<nano::pending_key, nano::pending_info>> receivable_lower_bound (store::transaction const & transaction, nano::account const & account, nano::block_hash const & hash) const;
+	// Returns the next receivable entry for an account greater than 'account'
+	receivable_iterator receivable_upper_bound (store::transaction const & transaction, nano::account const & account) const;
+	// Returns the next receivable entry for the account 'account' with hash greater than 'hash'
+	receivable_iterator receivable_upper_bound (store::transaction const & transaction, nano::account const & account, nano::block_hash const & hash) const;
 	std::optional<nano::block_hash> successor (store::transaction const & transaction, nano::block_hash const & hash) const;
 	std::optional<nano::block_hash> successor (store::transaction const & transaction, nano::qualified_root const & root) const;
 

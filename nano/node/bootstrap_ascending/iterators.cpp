@@ -42,8 +42,8 @@ void nano::bootstrap_ascending::database_iterator::next (store::transaction & tx
 		}
 		case table_type::pending:
 		{
-			auto item = ledger.receivable_upper_bound (tx, current);
-			if (item != ledger.receivable_end ())
+			auto item = ledger->receivable_upper_bound (tx, current);
+			if (item != ledger->receivable_end ())
 			{
 				current = item->first.account;
 			}

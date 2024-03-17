@@ -126,6 +126,40 @@ uint64_t nano::ledger_view_confirmed::height (store::transaction const & transac
 	return get (transaction, head_l)->sideband ().height;
 }
 
+auto nano::ledger_view_confirmed::receivable_end () const -> receivable_iterator
+{
+	return receivable_iterator{};
+}
+
+auto nano::ledger_view_confirmed::receivable_upper_bound (store::transaction const & transaction, nano::account const & account) const -> receivable_iterator
+{
+	return receivable_iterator{ transaction, *this, receivable_lower_bound (transaction, account.number () + 1, 0) };
+}
+
+auto nano::ledger_view_confirmed::receivable_upper_bound (store::transaction const & transaction, nano::account const & account, nano::block_hash const & hash) const -> receivable_iterator
+{
+	auto result = receivable_lower_bound (transaction, account, hash.number () + 1);
+	if (!result || result.value ().first.account != account)
+	{
+		return receivable_iterator{ transaction, *this, std::nullopt };
+	}
+	return receivable_iterator{ transaction, *this, result };
+}
+
+std::optional<std::pair<nano::pending_key, nano::pending_info>> nano::ledger_view_confirmed::receivable_lower_bound (store::transaction const & transaction, nano::account const & account, nano::block_hash const & hash) const
+{
+	auto result = ledger.store.pending.begin (transaction, { account, hash });
+	while (result != ledger.store.pending.end () && !exists (transaction, result->first.hash))
+	{
+		++result;
+	}
+	if (result == ledger.store.pending.end ())
+	{
+		return std::nullopt;
+	}
+	return *result;
+}
+
 std::optional<nano::block_hash> nano::ledger_view_confirmed::successor (store::transaction const & transaction, nano::qualified_root const & root) const
 {
 	if (root.previous ().is_zero ())
