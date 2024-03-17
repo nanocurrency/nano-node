@@ -16,12 +16,6 @@ std::chrono::milliseconds nano::election::base_latency () const
 	return node.network_params.network.is_dev_network () ? 25ms : 1000ms;
 }
 
-nano::election_vote_result::election_vote_result (bool replay_a, bool processed_a)
-{
-	replay = replay_a;
-	processed = processed_a;
-}
-
 /*
  * election
  */
@@ -460,13 +454,14 @@ std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash
 	return result;
 }
 
-nano::election_vote_result nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano::block_hash const & block_hash_a, vote_source vote_source_a)
+auto nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano::block_hash const & block_hash_a, vote_source vote_source_a) -> vote_result
 {
 	auto weight = node.ledger.weight (rep);
 	if (!node.network_params.network.is_dev_network () && weight <= node.minimum_principal_weight ())
 	{
-		return nano::election_vote_result (false, false);
+		return vote_result::ignored;
 	}
+
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	auto last_vote_it (last_votes.find (rep));
@@ -475,18 +470,17 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 		auto last_vote_l (last_vote_it->second);
 		if (last_vote_l.timestamp > timestamp_a)
 		{
-			return nano::election_vote_result (true, false);
+			return vote_result::replay;
 		}
 		if (last_vote_l.timestamp == timestamp_a && !(last_vote_l.hash < block_hash_a))
 		{
-			return nano::election_vote_result (true, false);
+			return vote_result::replay;
 		}
 
 		auto max_vote = timestamp_a == std::numeric_limits<uint64_t>::max () && last_vote_l.timestamp < timestamp_a;
 
 		bool past_cooldown = true;
-		// Only cooldown live votes
-		if (vote_source_a == vote_source::live)
+		if (vote_source_a == vote_source::live) // Only cooldown live votes
 		{
 			const auto cooldown = cooldown_time (weight);
 			past_cooldown = last_vote_l.time <= std::chrono::steady_clock::now () - cooldown;
@@ -494,7 +488,7 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 
 		if (!max_vote && !past_cooldown)
 		{
-			return nano::election_vote_result (false, false);
+			return vote_result::ignored;
 		}
 	}
 
@@ -519,7 +513,8 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 	{
 		confirm_if_quorum (lock);
 	}
-	return nano::election_vote_result (false, true);
+
+	return vote_result::processed;
 }
 
 bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)

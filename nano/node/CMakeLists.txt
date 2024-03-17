@@ -78,10 +78,6 @@ add_library(
   election_insertion_result.hpp
   epoch_upgrader.hpp
   epoch_upgrader.cpp
-  inactive_cache_information.hpp
-  inactive_cache_information.cpp
-  inactive_cache_status.hpp
-  inactive_cache_status.cpp
   ipc/action_handler.hpp
   ipc/action_handler.cpp
   ipc/flatbuffers_handler.hpp
