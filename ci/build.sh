@@ -27,10 +27,10 @@ fi
 CMAKE_SANITIZER=""
 if [[ ${SANITIZER:-} ]]; then
     case "${SANITIZER}" in
-        ASAN)     
+        ASAN)
             CMAKE_SANITIZER="-DNANO_ASAN=ON"
             ;;
-        ASAN_INT)    
+        ASAN_INT)
             CMAKE_SANITIZER="-DNANO_ASAN_INT=ON"
             ;;
         TSAN)
@@ -71,10 +71,10 @@ ${SRC}
 
 number_of_processors() {
     case "$(uname -s)" in
-        Linux*)     
+        Linux*)
             nproc
             ;;
-        Darwin*)    
+        Darwin*)
             sysctl -n hw.ncpu
             ;;
         CYGWIN*|MINGW32*|MSYS*|MINGW*)
@@ -93,7 +93,7 @@ parallel_build_flag() {
             echo "-- -m"
             ;;
         *)
-            echo "--parallel $(number_of_processors)"
+            echo "--parallel 1"
             ;;
     esac
 }
