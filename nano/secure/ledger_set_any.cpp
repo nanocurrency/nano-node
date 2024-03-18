@@ -136,6 +136,12 @@ auto nano::ledger_set_any::receivable_end () const -> receivable_iterator
 	return receivable_iterator{};
 }
 
+bool nano::ledger_set_any::receivable_exists (secure::transaction const & transaction, nano::account const & account) const
+{
+	auto next = receivable_upper_bound (transaction, account, 0);
+	return next != receivable_end ();
+}
+
 auto nano::ledger_set_any::receivable_upper_bound (secure::transaction const & transaction, nano::account const & account) const -> receivable_iterator
 {
 	return receivable_iterator{ transaction, *this, receivable_lower_bound (transaction, account.number () + 1, 0) };

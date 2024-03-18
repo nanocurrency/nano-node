@@ -48,6 +48,7 @@ public: // Operations on blocks
 public: // Operations on pending entries
 	std::optional<nano::pending_info> pending_get (secure::transaction const & transaction, nano::pending_key const & key) const;
 	receivable_iterator receivable_end () const;
+	bool receivable_exists (secure::transaction const & transaction, nano::account const & account) const;
 	// Returns the next receivable entry equal or greater than 'key'
 	// Mirrors std::map::lower_bound
 	std::optional<std::pair<nano::pending_key, nano::pending_info>> receivable_lower_bound (secure::transaction const & transaction, nano::account const & account, nano::block_hash const & hash) const;
