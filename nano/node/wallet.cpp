@@ -1182,15 +1182,14 @@ bool nano::wallet::search_receivable (store::transaction const & wallet_transact
 			// Don't search pending for watch-only accounts
 			if (!nano::wallet_value (i->second).key.is_zero ())
 			{
-				for (auto j (wallets.node.store.pending.begin (block_transaction, nano::pending_key (account, 0))), k (wallets.node.store.pending.end ()); j != k && nano::pending_key (j->first).account == account; ++j)
+				for (auto i = wallets.node.ledger.receivable_upper_bound (block_transaction, account, 0), n = wallets.node.ledger.receivable_end (); i != n; ++i)
 				{
-					nano::pending_key key (j->first);
-					auto hash (key.hash);
-					nano::pending_info pending (j->second);
-					auto amount (pending.amount.number ());
+					auto const & [key, info] = *i;
+					auto hash = key.hash;
+					auto amount = info.amount.number ();
 					if (wallets.node.config.receive_minimum.number () <= amount)
 					{
-						wallets.node.logger.info (nano::log::type::wallet, "Found a receivable block {} for account {}", hash.to_string (), pending.source.to_account ());
+						wallets.node.logger.info (nano::log::type::wallet, "Found a receivable block {} for account {}", hash.to_string (), info.source.to_account ());
 
 						if (wallets.node.ledger.block_confirmed (block_transaction, hash))
 						{
@@ -1249,11 +1248,11 @@ uint32_t nano::wallet::deterministic_check (store::transaction const & transacti
 		else
 		{
 			// Check if there are pending blocks for account
-			for (auto ii (wallets.node.store.pending.begin (block_transaction, nano::pending_key (pair.pub, 0))), nn (wallets.node.store.pending.end ()); ii != nn && nano::pending_key (ii->first).account == pair.pub; ++ii)
+			auto current = wallets.node.ledger.receivable_upper_bound (block_transaction, pair.pub, 0);
+			if (current != wallets.node.ledger.receivable_end ())
 			{
 				index = i;
 				n = i + 64 + (i / 64);
-				break;
 			}
 		}
 	}

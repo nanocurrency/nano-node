@@ -413,7 +413,7 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 					// Non-exisitng account should have pending entries
 					if (result == nano::block_status::progress)
 					{
-						bool pending_exists = ledger.store.pending.any (transaction, block_a.hashables.account);
+						bool pending_exists = ledger.receivable_any (transaction, block_a.hashables.account);
 						result = pending_exists ? nano::block_status::progress : nano::block_status::gap_epoch_open_pending;
 					}
 				}
@@ -855,19 +855,11 @@ nano::uint128_t nano::ledger::account_balance (store::transaction const & transa
 
 nano::uint128_t nano::ledger::account_receivable (store::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
 {
-	nano::uint128_t result (0);
-	nano::account end (account_a.number () + 1);
-	for (auto i (store.pending.begin (transaction_a, nano::pending_key (account_a, 0))), n (store.pending.begin (transaction_a, nano::pending_key (end, 0))); i != n; ++i)
+	nano::uint128_t result{ 0 };
+	for (auto i = receivable_upper_bound (transaction_a, account_a, 0), n = receivable_end (); i != n; ++i)
 	{
-		nano::pending_info const & info (i->second);
-		if (only_confirmed_a)
-		{
-			if (block_confirmed (transaction_a, i->first.hash))
-			{
-				result += info.amount.number ();
-			}
-		}
-		else
+		auto const & [key, info] = *i;
+		if (!only_confirmed_a || block_confirmed (transaction_a, key.hash))
 		{
 			result += info.amount.number ();
 		}
@@ -1543,6 +1535,42 @@ uint64_t nano::ledger::height (store::transaction const & transaction, nano::blo
 {
 	auto block_l = block (transaction, hash);
 	return block_l->sideband ().height;
+}
+
+bool nano::ledger::receivable_any (store::transaction const & tx, nano::account const & account) const
+{
+	auto next = receivable_upper_bound (tx, account, 0);
+	return next != receivable_end ();
+}
+
+std::optional<std::pair<nano::pending_key, nano::pending_info>> nano::ledger::receivable_lower_bound (store::transaction const & tx, nano::account const & account, nano::block_hash const & hash) const
+{
+	auto result = store.pending.begin (tx, { account, hash });
+	if (result == store.pending.end ())
+	{
+		return std::nullopt;
+	}
+	return *result;
+}
+
+nano::receivable_iterator nano::ledger::receivable_end () const
+{
+	return nano::receivable_iterator{};
+}
+
+nano::receivable_iterator nano::ledger::receivable_upper_bound (store::transaction const & tx, nano::account const & account) const
+{
+	return receivable_iterator{ *this, tx, receivable_lower_bound (tx, account.number () + 1, 0) };
+}
+
+nano::receivable_iterator nano::ledger::receivable_upper_bound (store::transaction const & tx, nano::account const & account, nano::block_hash const & hash) const
+{
+	auto result = receivable_lower_bound (tx, account, hash.number () + 1);
+	if (!result || result.value ().first.account != account)
+	{
+		return nano::receivable_iterator{ *this, tx, std::nullopt };
+	}
+	return nano::receivable_iterator{ *this, tx, result };
 }
 
 nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account) :

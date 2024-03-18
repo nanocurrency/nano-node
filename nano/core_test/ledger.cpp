@@ -5559,3 +5559,124 @@ TEST (ledger, head_block)
 	auto tx = store.tx_begin_read ();
 	ASSERT_EQ (*nano::dev::genesis, *ledger.head_block (tx, nano::dev::genesis_key.pub));
 }
+
+// Test that nullopt can be returned when there are no receivable entries
+TEST (ledger_receivable, upper_bound_account_none)
+{
+	auto ctx = nano::test::context::ledger_empty ();
+	ASSERT_EQ (ctx.ledger ().receivable_end (), ctx.ledger ().receivable_upper_bound (ctx.store ().tx_begin_read (), 0));
+}
+
+// Test behavior of ledger::receivable_upper_bound when there are receivable entries for multiple accounts
+TEST (ledger_receivable, upper_bound_account_key)
+{
+	auto ctx = nano::test::context::ledger_empty ();
+	nano::block_builder builder;
+	nano::keypair key;
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*ctx.pool ().generate (nano::dev::genesis->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ctx.ledger ().process (ctx.store ().tx_begin_write (), send1));
+	auto send2 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 2 * nano::Gxrb_ratio)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*ctx.pool ().generate (send1->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ctx.ledger ().process (ctx.store ().tx_begin_write (), send2));
+	auto tx = ctx.store ().tx_begin_read ();
+	auto & ledger = ctx.ledger ();
+	auto next1 = ledger.receivable_upper_bound (tx, nano::dev::genesis_key.pub);
+	auto next2 = ledger.receivable_upper_bound (tx, key.pub);
+	// Depending on which is greater but only one should have a value
+	ASSERT_TRUE (next1 == ledger.receivable_end () xor next2 == ledger.receivable_end ());
+	// The account returned should be after the one we searched for
+	ASSERT_TRUE (next1 == ledger.receivable_end () || next1->first.account == key.pub);
+	ASSERT_TRUE (next2 == ledger.receivable_end () || next2->first.account == nano::dev::genesis_key.pub);
+	auto next3 = ledger.receivable_upper_bound (tx, nano::dev::genesis_key.pub, 0);
+	auto next4 = ledger.receivable_upper_bound (tx, key.pub, 0);
+	// Neither account has more than one receivable
+	ASSERT_TRUE (next3 != ledger.receivable_end () && next4 != ledger.receivable_end ());
+	auto next5 = ledger.receivable_upper_bound (tx, next3->first.account, next3->first.hash);
+	auto next6 = ledger.receivable_upper_bound (tx, next4->first.account, next4->first.hash);
+	ASSERT_TRUE (next5 == ledger.receivable_end () && next6 == ledger.receivable_end ());
+	ASSERT_EQ (ledger.receivable_end (), ++next3);
+	ASSERT_EQ (ledger.receivable_end (), ++next4);
+}
+
+// Test that multiple receivable entries for the same account
+TEST (ledger_receivable, key_two)
+{
+	auto ctx = nano::test::context::ledger_empty ();
+	nano::block_builder builder;
+	nano::keypair key;
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*ctx.pool ().generate (nano::dev::genesis->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ctx.ledger ().process (ctx.store ().tx_begin_write (), send1));
+	auto send2 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 2 * nano::Gxrb_ratio)
+				 .link (key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*ctx.pool ().generate (send1->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ctx.ledger ().process (ctx.store ().tx_begin_write (), send2));
+	auto tx = ctx.store ().tx_begin_read ();
+	auto & ledger = ctx.ledger ();
+	auto next1 = ledger.receivable_upper_bound (tx, key.pub, 0);
+	ASSERT_TRUE (next1 != ledger.receivable_end () && next1->first.account == key.pub);
+	auto next2 = ledger.receivable_upper_bound (tx, key.pub, next1->first.hash);
+	ASSERT_TRUE (next2 != ledger.receivable_end () && next2->first.account == key.pub);
+	ASSERT_NE (next1->first.hash, next2->first.hash);
+	ASSERT_EQ (next2, ++next1);
+	ASSERT_EQ (ledger.receivable_end (), ++next1);
+	ASSERT_EQ (ledger.receivable_end (), ++next2);
+}
+
+TEST (ledger_receivable, any_none)
+{
+	auto ctx = nano::test::context::ledger_empty ();
+	ASSERT_FALSE (ctx.ledger ().receivable_any (ctx.store ().tx_begin_read (), nano::dev::genesis_key.pub));
+}
+
+TEST (ledger_receivable, any_one)
+{
+	auto ctx = nano::test::context::ledger_empty ();
+	nano::block_builder builder;
+	nano::keypair key;
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*ctx.pool ().generate (nano::dev::genesis->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ctx.ledger ().process (ctx.store ().tx_begin_write (), send1));
+	ASSERT_TRUE (ctx.ledger ().receivable_any (ctx.store ().tx_begin_read (), nano::dev::genesis_key.pub));
+	ASSERT_FALSE (ctx.ledger ().receivable_any (ctx.store ().tx_begin_read (), key.pub));
+}

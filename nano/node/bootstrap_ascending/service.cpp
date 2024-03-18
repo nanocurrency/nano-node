@@ -24,7 +24,7 @@ nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano:
 	network{ network_a },
 	stats{ stat_a },
 	accounts{ stats },
-	iterator{ ledger.store },
+	iterator{ ledger },
 	throttle{ compute_throttle_size () },
 	scoring{ config.bootstrap_ascending, config.network_params.network },
 	database_limiter{ config.bootstrap_ascending.database_requests_limit, 1.0 }
