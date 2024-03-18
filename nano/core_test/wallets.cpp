@@ -150,6 +150,8 @@ TEST (wallets, vote_minimum)
 				 .work (*system.work.generate (key2.pub))
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node1.process (open2));
+	node1.ledger.confirm (node1.store.tx_begin_write (), open1->hash ());
+	node1.ledger.confirm (node1.store.tx_begin_write (), open2->hash ());
 	auto wallet (node1.wallets.items.begin ()->second);
 	nano::unique_lock<nano::mutex> representatives_lk (wallet->representatives_mutex);
 	ASSERT_EQ (0, wallet->representatives.size ());

@@ -88,6 +88,14 @@ TEST (rep_crawler, rep_weight)
 	ASSERT_TRUE (nano::test::process (node1, { block1, block2, block3, block4 }));
 	ASSERT_TRUE (nano::test::process (node2, { block1, block2, block3, block4 }));
 	ASSERT_TRUE (nano::test::process (node3, { block1, block2, block3, block4 }));
+	node.ledger.confirm (node.store.tx_begin_write (), block2->hash ());
+	node.ledger.confirm (node.store.tx_begin_write (), block4->hash ());
+	node1.ledger.confirm (node1.store.tx_begin_write (), block2->hash ());
+	node1.ledger.confirm (node1.store.tx_begin_write (), block4->hash ());
+	node2.ledger.confirm (node2.store.tx_begin_write (), block2->hash ());
+	node2.ledger.confirm (node2.store.tx_begin_write (), block4->hash ());
+	node3.ledger.confirm (node3.store.tx_begin_write (), block2->hash ());
+	node3.ledger.confirm (node3.store.tx_begin_write (), block4->hash ());
 	ASSERT_TRUE (node.rep_crawler.representatives (1).empty ());
 	std::shared_ptr<nano::transport::channel> channel1 = nano::test::establish_tcp (system, node, node1.network.endpoint ());
 	ASSERT_NE (nullptr, channel1);

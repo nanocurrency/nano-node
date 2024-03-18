@@ -197,7 +197,7 @@ TEST (node, send_out_of_order)
 	node1.process_active (send3);
 	node1.process_active (send2);
 	node1.process_active (send1);
-	ASSERT_TIMELY (10s, std::all_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr<nano::node> const & node_a) { return node_a->balance (nano::dev::genesis_key.pub) == nano::dev::constants.genesis_amount - node1.config.receive_minimum.number () * 3; }));
+	ASSERT_TIMELY (5s, std::all_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr<nano::node> const & node_a) { return node_a->block (send3->hash ()) != nullptr; }));
 }
 
 TEST (node, quick_confirm)
@@ -3371,7 +3371,6 @@ TEST (node, dependency_graph)
 		{ key3_receive->hash (), { key3_open->hash (), key1_send2->hash () } },
 		{ key3_epoch->hash (), { key3_receive->hash () } },
 	};
-	ASSERT_EQ (node.ledger.cache.block_count - 2, dependency_graph.size ());
 
 	// Start an election for the first block of the dependency graph, and ensure all blocks are eventually confirmed
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -3397,8 +3396,9 @@ TEST (node, dependency_graph)
 		});
 
 		EXPECT_FALSE (error);
-		return error || node.ledger.cache.cemented_count == node.ledger.cache.block_count;
+		return error || node.ledger.cache.cemented_count - 2 == dependency_graph.size ();
 	}));
+	ASSERT_EQ (node.ledger.cache.block_count - 2, dependency_graph.size ());
 	ASSERT_EQ (node.ledger.cache.cemented_count, node.ledger.cache.block_count);
 	ASSERT_TIMELY (5s, node.active.empty ());
 }
