@@ -417,7 +417,7 @@ uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a)
 	{
 		auto block_link = node.ledger.block (transaction, link.value ().as_block_hash ());
 		auto account = block_a.account_field ().value (); // Link is non-zero therefore it's a state block and has an account field;
-		if (block_link != nullptr && node.store.pending.exists (transaction, nano::pending_key (account, link.value ().as_block_hash ())))
+		if (block_link != nullptr && node.ledger.pending_info (transaction, nano::pending_key{ account, link.value ().as_block_hash () }))
 		{
 			details.epoch = std::max (details.epoch, block_link->sideband ().details.epoch);
 			details.is_receive = true;
@@ -1353,7 +1353,7 @@ void nano::json_handler::blocks_info ()
 								entry.put ("receive_hash", nano::block_hash (0).to_string ());
 							}
 						}
-						else if (node.store.pending.exists (transaction, nano::pending_key (block->destination (), hash)))
+						else if (node.ledger.pending_info (transaction, nano::pending_key{ block->destination (), hash }))
 						{
 							if (receivable)
 							{
@@ -3162,7 +3162,7 @@ void nano::json_handler::receivable_exists ()
 			auto exists (false);
 			if (block->is_send ())
 			{
-				exists = node.store.pending.exists (transaction, nano::pending_key (block->destination (), hash));
+				exists = node.ledger.pending_info (transaction, nano::pending_key{ block->destination (), hash }).has_value ();
 			}
 			exists = exists && (block_confirmed (node, transaction, block->hash (), include_active, include_only_confirmed));
 			response_l.put ("exists", exists ? "1" : "0");
@@ -3667,7 +3667,7 @@ void nano::json_handler::republish ()
 					auto destination = block_b->destination ();
 					if (!destination.is_zero ())
 					{
-						if (!node.store.pending.exists (transaction, nano::pending_key (destination, hash)))
+						if (!node.ledger.pending_info (transaction, nano::pending_key{ destination, hash }))
 						{
 							nano::block_hash previous (node.ledger.latest (transaction, destination));
 							auto block_d = node.ledger.block (transaction, previous);

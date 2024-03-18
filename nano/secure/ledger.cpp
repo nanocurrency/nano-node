@@ -145,7 +145,7 @@ public:
 		if (is_send)
 		{
 			nano::pending_key key (block_a.hashables.link.as_account (), hash);
-			while (!error && !ledger.store.pending.exists (transaction, key))
+			while (!error && !ledger.pending_info (transaction, key))
 			{
 				error = ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.link.as_account ()), list);
 			}
