@@ -40,6 +40,8 @@ public:
 	nano::block_hash head (store::transaction const & transaction, nano::account const & account) const;
 	uint64_t height (store::transaction const & transaction, nano::account const & account) const;
 	uint64_t height (store::transaction const & transaction, nano::block_hash const & hash) const;
+	// Returns whether there are any receivable entries for 'account'
+	bool receivable_any (store::transaction const & transaction, nano::account const & account) const;
 	receivable_iterator receivable_end () const;
 	// Returns the next receivable entry equal or greater than 'key'
 	std::optional<std::pair<nano::pending_key, nano::pending_info>> receivable_lower_bound (store::transaction const & transaction, nano::account const & account, nano::block_hash const & hash) const;

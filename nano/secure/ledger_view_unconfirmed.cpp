@@ -124,6 +124,12 @@ uint64_t nano::ledger_view_unconfirmed::height (store::transaction const & trans
 	return block->sideband ().height;
 }
 
+bool nano::ledger_view_unconfirmed::receivable_any (store::transaction const & transaction, nano::account const & account) const
+{
+	auto next = receivable_upper_bound (transaction, account, 0);
+	return next != receivable_end ();
+}
+
 std::optional<std::pair<nano::pending_key, nano::pending_info>> nano::ledger_view_unconfirmed::receivable_lower_bound (store::transaction const & transaction, nano::account const & account, nano::block_hash const & hash) const
 {
 	auto result = ledger.store.pending.begin (transaction, { account, hash });

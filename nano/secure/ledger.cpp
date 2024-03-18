@@ -403,7 +403,7 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 					// Non-exisitng account should have pending entries
 					if (result == nano::block_status::progress)
 					{
-						bool pending_exists = ledger.receivable_any (transaction, block_a.hashables.account);
+						bool pending_exists = ledger->receivable_any (transaction, block_a.hashables.account);
 						result = pending_exists ? nano::block_status::progress : nano::block_status::gap_epoch_open_pending;
 					}
 				}
@@ -1391,12 +1391,6 @@ nano::epoch nano::ledger::version (store::transaction const & transaction, nano:
 		return nano::epoch::epoch_0;
 	}
 	return version (*block_l);
-}
-
-bool nano::ledger::receivable_any (store::transaction const & tx, nano::account const & account) const
-{
-	auto next = (*this)->receivable_upper_bound (tx, account, 0);
-	return next != (*this)->receivable_end ();
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (ledger & ledger, std::string const & name)

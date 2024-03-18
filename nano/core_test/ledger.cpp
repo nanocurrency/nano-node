@@ -5687,7 +5687,7 @@ TEST (ledger_receivable, key_two)
 TEST (ledger_receivable, any_none)
 {
 	auto ctx = nano::test::context::ledger_empty ();
-	ASSERT_FALSE (ctx.ledger ().receivable_any (ctx.store ().tx_begin_read (), nano::dev::genesis_key.pub));
+	ASSERT_FALSE (ctx.ledger ()->receivable_any (ctx.store ().tx_begin_read (), nano::dev::genesis_key.pub));
 }
 
 TEST (ledger_receivable, any_one)
@@ -5706,6 +5706,6 @@ TEST (ledger_receivable, any_one)
 				 .work (*ctx.pool ().generate (nano::dev::genesis->hash ()))
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, ctx.ledger ().process (ctx.store ().tx_begin_write (), send1));
-	ASSERT_TRUE (ctx.ledger ().receivable_any (ctx.store ().tx_begin_read (), nano::dev::genesis_key.pub));
-	ASSERT_FALSE (ctx.ledger ().receivable_any (ctx.store ().tx_begin_read (), key.pub));
+	ASSERT_TRUE (ctx.ledger ()->receivable_any (ctx.store ().tx_begin_read (), nano::dev::genesis_key.pub));
+	ASSERT_FALSE (ctx.ledger ()->receivable_any (ctx.store ().tx_begin_read (), key.pub));
 }

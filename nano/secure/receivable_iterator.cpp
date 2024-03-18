@@ -1,6 +1,6 @@
-#include <nano/secure/receivable_iterator_impl.hpp>
 #include <nano/secure/ledger_view_confirmed.hpp>
 #include <nano/secure/ledger_view_unconfirmed.hpp>
+#include <nano/secure/receivable_iterator_impl.hpp>
 
 namespace nano
 {

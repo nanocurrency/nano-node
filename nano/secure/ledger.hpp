@@ -32,7 +32,8 @@ class stats;
 
 class ledger final
 {
-	template <typename T> friend class receivable_iterator;
+	template <typename T>
+	friend class receivable_iterator;
 
 public:
 	ledger (nano::store::component &, nano::stats &, nano::ledger_constants & constants, nano::generate_cache_flags const & = nano::generate_cache_flags{}, nano::uint128_t min_rep_weight_a = 0);
@@ -76,8 +77,6 @@ public:
 	bool bootstrap_weight_reached () const;
 	static nano::epoch version (nano::block const & block);
 	nano::epoch version (store::transaction const & transaction, nano::block_hash const & hash) const;
-	// Returns whether there are any receivable entries for 'account'
-	bool receivable_any (store::transaction const & tx, nano::account const & account) const;
 	static nano::uint128_t const unit;
 	nano::ledger_constants & constants;
 	nano::store::component & store;
