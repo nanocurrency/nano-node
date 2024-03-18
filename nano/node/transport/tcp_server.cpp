@@ -279,8 +279,8 @@ std::unique_ptr<nano::container_info_component> nano::transport::collect_contain
  */
 
 nano::transport::tcp_server::tcp_server (std::shared_ptr<nano::transport::socket> socket_a, std::shared_ptr<nano::node> node_a, bool allow_bootstrap_a) :
-	socket{ std::move (socket_a) },
-	node{ std::move (node_a) },
+	socket{ socket_a },
+	node{ node_a },
 	allow_bootstrap{ allow_bootstrap_a },
 	message_deserializer{
 		std::make_shared<nano::transport::message_deserializer> (node_a->network_params.network, node_a->network.publish_filter, node_a->block_uniquer, node_a->vote_uniquer,
@@ -335,10 +335,13 @@ void nano::transport::tcp_server::start ()
 		debug_assert (remote_endpoint.port () != 0);
 	}
 
-	if (auto node_l = node.lock (); node_l)
+	auto node = this->node.lock ();
+	if (!node)
 	{
-		node_l->logger.debug (nano::log::type::tcp_server, "Starting TCP server ({})", nano::util::to_str (remote_endpoint));
+		return;
 	}
+
+	node->logger.debug (nano::log::type::tcp_server, "Starting TCP server ({})", nano::util::to_str (remote_endpoint));
 
 	receive_message ();
 }
