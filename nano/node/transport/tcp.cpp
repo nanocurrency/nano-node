@@ -85,17 +85,6 @@ std::string nano::transport::channel_tcp::to_string () const
 	return nano::util::to_str (get_tcp_endpoint ());
 }
 
-void nano::transport::channel_tcp::set_endpoint ()
-{
-	nano::lock_guard<nano::mutex> lk{ channel_mutex };
-	debug_assert (endpoint == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0)); // Not initialized endpoint value
-	// Calculate TCP socket endpoint
-	if (auto socket_l = socket.lock ())
-	{
-		endpoint = socket_l->remote_endpoint ();
-	}
-}
-
 void nano::transport::channel_tcp::operator() (nano::object_stream & obs) const
 {
 	nano::transport::channel::operator() (obs); // Write common data
@@ -350,7 +339,7 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 				{
 					// Add temporary channel
 					auto temporary_channel (std::make_shared<nano::transport::channel_tcp> (node, socket_a));
-					temporary_channel->set_endpoint ();
+					temporary_channel->update_endpoint ();
 					debug_assert (endpoint_a == temporary_channel->get_tcp_endpoint ());
 					temporary_channel->set_node_id (node_id_a);
 					temporary_channel->set_network_version (message_a.header.version_using);
@@ -608,7 +597,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 				nano::util::to_str (endpoint_a),
 				(query ? query->cookie.to_string () : "<none>"));
 
-				channel->set_endpoint ();
+				channel->update_endpoint ();
 				std::shared_ptr<std::vector<uint8_t>> receive_buffer (std::make_shared<std::vector<uint8_t>> ());
 				receive_buffer->resize (256);
 				channel->send (message, [node_w, channel, endpoint_a, receive_buffer] (boost::system::error_code const & ec, std::size_t size_a) {

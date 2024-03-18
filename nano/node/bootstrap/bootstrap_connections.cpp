@@ -25,7 +25,7 @@ nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> const & no
 {
 	++node_a->bootstrap_initiator.connections->connections_count;
 	receive_buffer->resize (256);
-	channel->set_endpoint ();
+	channel->update_endpoint ();
 }
 
 nano::bootstrap_client::~bootstrap_client ()

@@ -68,7 +68,15 @@ namespace transport
 
 		std::string to_string () const override;
 
-		void set_endpoint ();
+		void update_endpoint ()
+		{
+			nano::lock_guard<nano::mutex> lk (channel_mutex);
+			debug_assert (endpoint == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0)); // Not initialized endpoint value
+			if (auto socket_l = socket.lock ())
+			{
+				endpoint = socket_l->remote_endpoint ();
+			}
+		}
 
 		nano::endpoint get_endpoint () const override
 		{
