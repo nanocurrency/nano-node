@@ -63,6 +63,7 @@ public:
 
 	void timeout ();
 	void set_last_keepalive (nano::keepalive const & message);
+	std::optional<nano::keepalive> pop_last_keepalive ();
 
 	std::shared_ptr<nano::transport::socket> const socket;
 	std::weak_ptr<nano::node> const node;
@@ -73,7 +74,6 @@ public:
 	nano::tcp_endpoint remote_endpoint{ boost::asio::ip::address_v6::any (), 0 };
 	nano::account remote_node_id{};
 	std::chrono::steady_clock::time_point last_telemetry_req{};
-	std::optional<nano::keepalive> last_keepalive;
 
 private:
 	void send_handshake_response (nano::node_id_handshake::query_payload const & query, bool v2);
@@ -90,9 +90,10 @@ private:
 	bool is_bootstrap_connection () const;
 	bool is_realtime_connection () const;
 
+private:
+	bool const allow_bootstrap;
 	std::shared_ptr<nano::transport::message_deserializer> message_deserializer;
-
-	bool allow_bootstrap;
+	std::optional<nano::keepalive> last_keepalive;
 
 private:
 	class handshake_message_visitor : public nano::message_visitor

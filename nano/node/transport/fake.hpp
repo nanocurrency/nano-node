@@ -49,7 +49,7 @@ namespace transport
 				return nano::transport::transport_type::fake;
 			}
 
-			void close ()
+			void close () override
 			{
 				closed = true;
 			}

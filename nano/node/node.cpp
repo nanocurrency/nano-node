@@ -684,7 +684,6 @@ void nano::node::stop ()
 	generator.stop ();
 	final_generator.stop ();
 	confirmation_height_processor.stop ();
-	network.stop ();
 	telemetry.stop ();
 	websocket.stop ();
 	bootstrap_server.stop ();
@@ -696,6 +695,8 @@ void nano::node::stop ()
 	epoch_upgrader.stop ();
 	workers.stop ();
 	local_block_broadcaster.stop ();
+	network.stop (); // Stop network last to avoid killing in-use sockets
+
 	// work pool is not stopped on purpose due to testing setup
 }
 
@@ -1116,14 +1117,21 @@ void nano::node::add_initial_peers ()
 		return;
 	}
 
-	auto transaction (store.tx_begin_read ());
-	for (auto i (store.peer.begin (transaction)), n (store.peer.end ()); i != n; ++i)
+	std::vector<nano::endpoint> initial_peers;
 	{
-		nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
-		if (!network.reachout (endpoint, config.allow_local_peers))
+		auto transaction = store.tx_begin_read ();
+		for (auto i (store.peer.begin (transaction)), n (store.peer.end ()); i != n; ++i)
 		{
-			network.tcp_channels.start_tcp (endpoint);
+			nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
+			initial_peers.push_back (endpoint);
 		}
+	}
+
+	logger.info (nano::log::type::node, "Adding cached initial peers: {}", initial_peers.size ());
+
+	for (auto const & peer : initial_peers)
+	{
+		network.merge_peer (peer);
 	}
 }
 

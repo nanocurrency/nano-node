@@ -48,6 +48,11 @@ void nano::network::start ()
 		run_keepalive ();
 	});
 
+	reachout_thread = std::thread ([this] () {
+		nano::thread_role::set (nano::thread_role::name::network_reachout);
+		run_reachout ();
+	});
+
 	if (!node.flags.disable_tcp_realtime)
 	{
 		tcp_channels.start ();
@@ -86,6 +91,10 @@ void nano::network::stop ()
 	if (cleanup_thread.joinable ())
 	{
 		cleanup_thread.join ();
+	}
+	if (reachout_thread.joinable ())
+	{
+		reachout_thread.join ();
 	}
 
 	port = 0;
@@ -126,12 +135,11 @@ void nano::network::run_cleanup ()
 	while (!stopped)
 	{
 		condition.wait_for (lock, node.network_params.network.is_dev_network () ? 1s : 5s);
-		lock.unlock ();
-
 		if (stopped)
 		{
 			return;
 		}
+		lock.unlock ();
 
 		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_cleanup);
 
@@ -154,17 +162,53 @@ void nano::network::run_keepalive ()
 	while (!stopped)
 	{
 		condition.wait_for (lock, node.network_params.network.keepalive_period);
-		lock.unlock ();
-
 		if (stopped)
 		{
 			return;
 		}
+		lock.unlock ();
 
 		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_keepalive);
 
 		flood_keepalive (0.75f);
 		flood_keepalive_self (0.25f);
+
+		tcp_channels.keepalive ();
+
+		lock.lock ();
+	}
+}
+
+void nano::network::run_reachout ()
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	while (!stopped)
+	{
+		condition.wait_for (lock, node.network_params.network.merge_period);
+		if (stopped)
+		{
+			return;
+		}
+		lock.unlock ();
+
+		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_reachout);
+
+		auto keepalive = tcp_channels.sample_keepalive ();
+		if (keepalive)
+		{
+			for (auto const & peer : keepalive->peers)
+			{
+				if (stopped)
+				{
+					return;
+				}
+
+				merge_peer (peer);
+
+				// Throttle reachout attempts
+				std::this_thread::sleep_for (node.network_params.network.merge_period);
+			}
+		}
 
 		lock.lock ();
 	}
@@ -411,10 +455,11 @@ void nano::network::merge_peers (std::array<nano::endpoint, 8> const & peers_a)
 
 void nano::network::merge_peer (nano::endpoint const & peer_a)
 {
-	if (!reachout (peer_a, node.config.allow_local_peers))
+	if (track_reachout (peer_a))
 	{
-		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.network.tcp_channels.start_tcp (peer_a);
+		node.stats.inc (nano::stat::type::network, nano::stat::detail::merge_peer);
+
+		tcp_channels.start_tcp (peer_a);
 	}
 }
 
@@ -436,15 +481,14 @@ bool nano::network::not_a_peer (nano::endpoint const & endpoint_a, bool allow_lo
 	return result;
 }
 
-bool nano::network::reachout (nano::endpoint const & endpoint_a, bool allow_local_peers)
+bool nano::network::track_reachout (nano::endpoint const & endpoint_a)
 {
 	// Don't contact invalid IPs
-	bool error = not_a_peer (endpoint_a, allow_local_peers);
-	if (!error)
+	if (not_a_peer (endpoint_a, node.config.allow_local_peers))
 	{
-		error = tcp_channels.reachout (endpoint_a);
+		return false;
 	}
-	return error;
+	return tcp_channels.track_reachout (endpoint_a);
 }
 
 std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (std::size_t count_a, uint8_t minimum_version_a, bool include_tcp_temporary_channels_a)
