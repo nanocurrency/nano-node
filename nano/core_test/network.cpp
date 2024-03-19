@@ -1096,8 +1096,6 @@ TEST (network, loopback_channel)
 	ASSERT_EQ (channel1.get_node_id (), node1.node_id.pub);
 	ASSERT_EQ (channel1.get_node_id_optional ().value_or (0), node1.node_id.pub);
 	nano::transport::inproc::channel channel2 (node2, node2);
-	ASSERT_EQ (channel1, channel1);
-	ASSERT_FALSE (channel1 == channel2);
 	++node1.network.port;
 	ASSERT_NE (channel1.get_endpoint (), node1.network.endpoint ());
 }

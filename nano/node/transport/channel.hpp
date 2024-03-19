@@ -26,9 +26,6 @@ public:
 	explicit channel (nano::node &);
 	virtual ~channel () = default;
 
-	virtual std::size_t hash_code () const = 0;
-	virtual bool operator== (nano::transport::channel const &) const = 0;
-
 	void send (nano::message & message_a,
 	std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a = nullptr,
 	nano::transport::buffer_drop_policy policy_a = nano::transport::buffer_drop_policy::limiter,
@@ -147,47 +144,5 @@ protected:
 
 public: // Logging
 	virtual void operator() (nano::object_stream &) const;
-};
-}
-
-namespace std
-{
-template <>
-struct hash<::nano::transport::channel>
-{
-	std::size_t operator() (::nano::transport::channel const & channel_a) const
-	{
-		return channel_a.hash_code ();
-	}
-};
-template <>
-struct equal_to<std::reference_wrapper<::nano::transport::channel const>>
-{
-	bool operator() (std::reference_wrapper<::nano::transport::channel const> const & lhs, std::reference_wrapper<::nano::transport::channel const> const & rhs) const
-	{
-		return lhs.get () == rhs.get ();
-	}
-};
-}
-
-namespace boost
-{
-template <>
-struct hash<::nano::transport::channel>
-{
-	std::size_t operator() (::nano::transport::channel const & channel_a) const
-	{
-		std::hash<::nano::transport::channel> hash;
-		return hash (channel_a);
-	}
-};
-template <>
-struct hash<std::reference_wrapper<::nano::transport::channel const>>
-{
-	std::size_t operator() (std::reference_wrapper<::nano::transport::channel const> const & channel_a) const
-	{
-		std::hash<::nano::transport::channel> hash;
-		return hash (channel_a.get ());
-	}
 };
 }

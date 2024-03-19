@@ -63,19 +63,20 @@ namespace transport
 		channel_tcp (nano::node &, std::weak_ptr<nano::transport::socket>);
 		~channel_tcp () override;
 
-		std::size_t hash_code () const override;
-		bool operator== (nano::transport::channel const &) const override;
-
 		// TODO: investigate clang-tidy warning about default parameters on virtual/override functions//
 		void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr, nano::transport::buffer_drop_policy = nano::transport::buffer_drop_policy::limiter, nano::transport::traffic_type = nano::transport::traffic_type::generic) override;
 
 		std::string to_string () const override;
-		bool operator== (nano::transport::channel_tcp const & other_a) const
-		{
-			return &node == &other_a.node && socket.lock () == other_a.socket.lock ();
-		}
 
-		void set_endpoint ();
+		void update_endpoint ()
+		{
+			nano::lock_guard<nano::mutex> lk (channel_mutex);
+			debug_assert (endpoint == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0)); // Not initialized endpoint value
+			if (auto socket_l = socket.lock ())
+			{
+				endpoint = socket_l->remote_endpoint ();
+			}
+		}
 
 		nano::endpoint get_endpoint () const override
 		{
