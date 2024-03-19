@@ -25,6 +25,7 @@ public:
 	void start ();
 	void stop ();
 
+	void initiate_handshake ();
 	void timeout ();
 	void set_last_keepalive (nano::keepalive const & message);
 	std::optional<nano::keepalive> pop_last_keepalive ();

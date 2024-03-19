@@ -333,6 +333,42 @@ auto nano::transport::tcp_server::process_handshake (nano::node_id_handshake con
 	return handshake_status::handshake; // Handshake is in progress
 }
 
+void nano::transport::tcp_server::initiate_handshake ()
+{
+	auto node = this->node.lock ();
+	if (!node)
+	{
+		return;
+	}
+
+	auto query = node->network.prepare_handshake_query (nano::transport::map_tcp_to_endpoint (remote_endpoint));
+	nano::node_id_handshake message{ node->network_params.network, query };
+
+	node->logger.debug (nano::log::type::tcp_server, "Initiating handshake query ({})", fmt::streamed (remote_endpoint));
+
+	auto shared_const_buffer = message.to_shared_const_buffer ();
+	socket->async_write (shared_const_buffer, [this_l = shared_from_this ()] (boost::system::error_code const & ec, std::size_t size_a) {
+		auto node = this_l->node.lock ();
+		if (!node)
+		{
+			return;
+		}
+		if (ec)
+		{
+			node->stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake_network_error);
+			node->logger.debug (nano::log::type::tcp_server, "Error sending handshake query: {} ({})", ec.message (), fmt::streamed (this_l->remote_endpoint));
+
+			// Stop invalid handshake
+			this_l->stop ();
+		}
+		else
+		{
+			node->stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake, nano::stat::dir::out);
+			node->stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake_initiate, nano::stat::dir::out);
+		}
+	});
+}
+
 void nano::transport::tcp_server::send_handshake_response (nano::node_id_handshake::query_payload const & query, bool v2)
 {
 	auto node = this->node.lock ();
