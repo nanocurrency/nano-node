@@ -475,7 +475,7 @@ auto nano::transport::tcp_server::process_message (std::unique_ptr<nano::message
 
 				return process_result::abort;
 			}
-			case handshake_status::progress:
+			case handshake_status::handshake:
 			{
 				return process_result::progress; // Continue handshake
 			}
@@ -567,11 +567,10 @@ auto nano::transport::tcp_server::process_handshake (nano::node_id_handshake con
 		return handshake_status::abort;
 	}
 
-	node->stats.inc (nano::stat::type::tcp_server, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
-
 	handshake_received = true;
 
-	node->logger.debug (nano::log::type::tcp_server, "Handshake query received ({})", fmt::streamed (remote_endpoint));
+	node->stats.inc (nano::stat::type::tcp_server, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
+	node->logger.debug (nano::log::type::tcp_server, "Handshake message received ({})", fmt::streamed (remote_endpoint));
 
 	if (message.query)
 	{
@@ -605,7 +604,7 @@ auto nano::transport::tcp_server::process_handshake (nano::node_id_handshake con
 		}
 	}
 
-	return handshake_status::progress;
+	return handshake_status::handshake; // Handshake is in progress
 }
 
 void nano::transport::tcp_server::send_handshake_response (nano::node_id_handshake::query_payload const & query, bool v2)

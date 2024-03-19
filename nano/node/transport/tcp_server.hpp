@@ -97,7 +97,7 @@ private:
 	enum class handshake_status
 	{
 		abort,
-		progress,
+		handshake,
 		realtime,
 		bootstrap,
 	};
