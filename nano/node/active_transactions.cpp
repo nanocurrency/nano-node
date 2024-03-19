@@ -158,20 +158,15 @@ void nano::active_transactions::handle_confirmation (nano::store::read_transacti
 	bool is_state_epoch = false;
 	nano::account pending_account;
 
-	handle_block_confirmation (transaction, block, hash, account, amount, is_state_send, is_state_epoch, pending_account);
-
-	auto status = election->set_status_type (status_type);
-	auto votes = election->votes_with_weight ();
-	notify_observers (status, votes, account, amount, is_state_send, is_state_epoch, pending_account);
-}
-
-void nano::active_transactions::handle_block_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, nano::block_hash const & hash, nano::account & account, nano::uint128_t & amount, bool & is_state_send, bool & is_state_epoch, nano::account & pending_account)
-{
 	if (block->is_send ())
 	{
 		node.receive_confirmed (transaction, hash, block->destination ());
 	}
 	node.process_confirmed_data (transaction, block, hash, account, amount, is_state_send, is_state_epoch, pending_account);
+
+	auto status = election->set_status_type (status_type);
+	auto votes = election->votes_with_weight ();
+	notify_observers (status, votes, account, amount, is_state_send, is_state_epoch, pending_account);
 }
 
 void nano::active_transactions::notify_observers (nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes, nano::account const & account, nano::uint128_t amount, bool is_state_send, bool is_state_epoch, nano::account const & pending_account)
