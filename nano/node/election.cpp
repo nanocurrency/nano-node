@@ -397,11 +397,11 @@ void nano::election::confirm_if_quorum (nano::unique_lock<nano::mutex> & lock_a)
 	}
 	if (have_quorum (tally_l))
 	{
-		if (node.ledger.cache.final_votes_confirmation_canary.load () && !is_quorum.exchange (true) && node.config.enable_voting && node.wallets.reps ().voting > 0)
+		if (!is_quorum.exchange (true) && node.config.enable_voting && node.wallets.reps ().voting > 0)
 		{
 			node.final_generator.add (root, status.winner->hash ());
 		}
-		if (!node.ledger.cache.final_votes_confirmation_canary.load () || final_weight >= node.online_reps.delta ())
+		if (final_weight >= node.online_reps.delta ())
 		{
 			confirm_once (lock_a, nano::election_status_type::active_confirmed_quorum);
 		}

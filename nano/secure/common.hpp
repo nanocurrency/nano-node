@@ -249,16 +249,6 @@ public:
 	std::shared_ptr<nano::block> genesis;
 	nano::uint128_t genesis_amount;
 	nano::account burn_account;
-	nano::account nano_dev_final_votes_canary_account;
-	nano::account nano_beta_final_votes_canary_account;
-	nano::account nano_live_final_votes_canary_account;
-	nano::account nano_test_final_votes_canary_account;
-	nano::account final_votes_canary_account;
-	uint64_t nano_dev_final_votes_canary_height;
-	uint64_t nano_beta_final_votes_canary_height;
-	uint64_t nano_live_final_votes_canary_height;
-	uint64_t nano_test_final_votes_canary_height;
-	uint64_t final_votes_canary_height;
 	nano::epochs epochs;
 };
 

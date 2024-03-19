@@ -70,10 +70,6 @@ std::shared_ptr<nano::block> parse_block_from_genesis_data (std::string const & 
 	boost::property_tree::read_json (istream, tree);
 	return nano::deserialize_block_json (tree);
 }
-
-char const * beta_canary_public_key_data = "259a438a8f9f9226130c84d902c237af3e57c0981c7d709c288046b110d8c8ac"; // nano_33nefchqmo4ifr3bpfw4ecwjcg87semfhit8prwi7zzd8shjr8c9qdxeqmnx
-char const * live_canary_public_key_data = "7CBAF192A3763DAEC9F9BAC1B2CDF665D8369F8400B4BC5AB4BA31C00BAA4404"; // nano_1z7ty8bc8xjxou6zmgp3pd8zesgr8thra17nqjfdbgjjr17tnj16fjntfqfn
-std::string const test_canary_public_key_data = nano::get_env_or_default ("NANO_TEST_CANARY_PUB", "3BAD2C554ACE05F5E528FBBCE79D51E552C55FA765CCFD89B289C4835DE5F04A"); // nano_1gxf7jcnomi7yqkkjyxwwygo5sckrohtgsgezp6u74g6ifgydw4cajwbk8bf
 }
 
 nano::keypair nano::dev::genesis_key{ dev_private_key_data };
@@ -111,21 +107,7 @@ nano::ledger_constants::ledger_constants (nano::work_thresholds & work, nano::ne
 	: network_a == nano::networks::nano_test_network                                                                           ? nano_test_genesis
 																															   : nano_live_genesis),
 	genesis_amount{ std::numeric_limits<nano::uint128_t>::max () },
-	burn_account{},
-	nano_dev_final_votes_canary_account (dev_public_key_data),
-	nano_beta_final_votes_canary_account (beta_canary_public_key_data),
-	nano_live_final_votes_canary_account (live_canary_public_key_data),
-	nano_test_final_votes_canary_account (test_canary_public_key_data),
-	final_votes_canary_account (network_a == nano::networks::nano_dev_network ? nano_dev_final_votes_canary_account : network_a == nano::networks::nano_beta_network ? nano_beta_final_votes_canary_account
-	: network_a == nano::networks::nano_test_network                                                                                                                 ? nano_test_final_votes_canary_account
-																																									 : nano_live_final_votes_canary_account),
-	nano_dev_final_votes_canary_height (1),
-	nano_beta_final_votes_canary_height (1),
-	nano_live_final_votes_canary_height (1),
-	nano_test_final_votes_canary_height (1),
-	final_votes_canary_height (network_a == nano::networks::nano_dev_network ? nano_dev_final_votes_canary_height : network_a == nano::networks::nano_beta_network ? nano_beta_final_votes_canary_height
-	: network_a == nano::networks::nano_test_network                                                                                                               ? nano_test_final_votes_canary_height
-																																								   : nano_live_final_votes_canary_height)
+	burn_account{}
 {
 	nano_beta_genesis->sideband_set (nano::block_sideband (nano_beta_genesis->account_field ().value (), 0, std::numeric_limits<nano::uint128_t>::max (), 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 	nano_dev_genesis->sideband_set (nano::block_sideband (nano_dev_genesis->account_field ().value (), 0, std::numeric_limits<nano::uint128_t>::max (), 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));

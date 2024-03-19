@@ -15,6 +15,5 @@ public:
 	std::atomic<uint64_t> block_count{ 0 };
 	std::atomic<uint64_t> pruned_count{ 0 };
 	std::atomic<uint64_t> account_count{ 0 };
-	std::atomic<bool> final_votes_confirmation_canary{ false };
 };
 }
