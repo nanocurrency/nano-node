@@ -190,16 +190,6 @@ void nano::active_transactions::notify_observers (nano::election_status const & 
 void nano::active_transactions::handle_final_votes_confirmation (std::shared_ptr<nano::block> const & block, nano::store::read_transaction const & transaction, nano::election_status_type status)
 {
 	auto account = block->account ();
-
-	bool is_canary_not_set = !node.ledger.cache.final_votes_confirmation_canary.load ();
-	bool is_canary_account = account == node.network_params.ledger.final_votes_canary_account;
-	bool is_height_above_threshold = block->sideband ().height >= node.network_params.ledger.final_votes_canary_height;
-
-	if (is_canary_not_set && is_canary_account && is_height_above_threshold)
-	{
-		node.ledger.cache.final_votes_confirmation_canary.store (true);
-	}
-
 	bool cemented_bootstrap_count_reached = node.ledger.cache.cemented_count >= node.ledger.bootstrap_weight_max_blocks;
 	bool was_active = status == nano::election_status_type::active_confirmed_quorum || status == nano::election_status_type::active_confirmation_height;
 

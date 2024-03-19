@@ -796,13 +796,6 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 
 	auto transaction (store.tx_begin_read ());
 	cache.pruned_count = store.pruned.count (transaction);
-
-	// Final votes requirement for confirmation canary block
-	nano::confirmation_height_info confirmation_height_info;
-	if (!store.confirmation_height.get (transaction, constants.final_votes_canary_account, confirmation_height_info))
-	{
-		cache.final_votes_confirmation_canary = (confirmation_height_info.height >= constants.final_votes_canary_height);
-	}
 }
 
 // Balance for account containing hash
