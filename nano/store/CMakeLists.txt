@@ -25,6 +25,7 @@ add_library(
   lmdb/peer.hpp
   lmdb/pending.hpp
   lmdb/pruned.hpp
+  lmdb/rep_weight.hpp
   lmdb/transaction_impl.hpp
   lmdb/version.hpp
   lmdb/wallet_value.hpp
@@ -43,6 +44,7 @@ add_library(
   rocksdb/peer.hpp
   rocksdb/pending.hpp
   rocksdb/pruned.hpp
+  rocksdb/rep_weight.hpp
   rocksdb/rocksdb.hpp
   rocksdb/iterator.hpp
   rocksdb/transaction_impl.hpp
@@ -73,6 +75,7 @@ add_library(
   lmdb/peer.cpp
   lmdb/pending.cpp
   lmdb/pruned.cpp
+  lmdb/rep_weight.cpp
   lmdb/version.cpp
   lmdb/wallet_value.cpp
   online_weight.cpp
@@ -89,6 +92,7 @@ add_library(
   rocksdb/peer.cpp
   rocksdb/pending.cpp
   rocksdb/pruned.cpp
+  rocksdb/rep_weight.cpp
   rocksdb/rocksdb.cpp
   rocksdb/transaction.cpp
   rocksdb/version.cpp
