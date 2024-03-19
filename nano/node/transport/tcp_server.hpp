@@ -5,6 +5,7 @@
 #include <nano/node/transport/socket.hpp>
 
 #include <atomic>
+#include <unordered_set>
 
 namespace nano
 {
@@ -35,6 +36,7 @@ public:
 	bool on{ false };
 	std::atomic<std::size_t> bootstrap_count{ 0 };
 	std::atomic<std::size_t> realtime_count{ 0 };
+	std::unordered_set<boost::asio::ip::address> blocked_ips;
 
 private:
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
@@ -48,6 +50,8 @@ private:
 	/** Checks whether the maximum number of connections per IP was reached. If so, it returns true. */
 	bool limit_reached_for_incoming_ip_connections (std::shared_ptr<nano::transport::socket> const & new_connection);
 	bool limit_reached_for_incoming_subnetwork_connections (std::shared_ptr<nano::transport::socket> const & new_connection);
+	void configure_blocked_peers ();
+	bool is_ip_blocked (const boost::asio::ip::address & ip_address) const;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (tcp_listener & bootstrap_listener, std::string const & name);

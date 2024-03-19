@@ -148,6 +148,8 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 		preconfigured_peers_l->push_back (*i);
 	}
 
+	auto blocked_peers_l (toml.create_array ("blocked_peers", "A list of \"address\" (ipv4 or ipv6 notation ip address) that you want to ignore all requests from. \nExample: [\"192.168.0.1\",\"::ffff:10.0.0.1\"]"));
+
 	auto preconfigured_representatives_l (toml.create_array ("preconfigured_representatives", "A list of representative account addresses used when creating new accounts in internal wallets."));
 	for (auto i (preconfigured_representatives.begin ()), n (preconfigured_representatives.end ()); i != n; ++i)
 	{
@@ -299,6 +301,14 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			preconfigured_peers.clear ();
 			toml.array_entries_required<std::string> (preconfigured_peers_key, [this] (std::string entry) {
 				preconfigured_peers.push_back (entry);
+			});
+		}
+
+		if (toml.has_key ("blocked_peers"))
+		{
+			blocked_peers.clear ();
+			toml.array_entries_required<std::string> ("blocked_peers", [this, &toml] (std::string entry) {
+				blocked_peers.push_back (entry);
 			});
 		}
 
