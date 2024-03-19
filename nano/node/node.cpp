@@ -1212,47 +1212,6 @@ void nano::node::receive_confirmed (store::transaction const & block_transaction
 	}
 }
 
-void nano::node::process_confirmed_data (store::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, bool & is_state_epoch_a, nano::account & pending_account_a)
-{
-	// Faster account calculation
-	account_a = block_a->account ();
-	// Faster amount calculation
-	auto previous (block_a->previous ());
-	auto previous_balance = ledger.balance (transaction_a, previous);
-	auto block_balance = block_a->balance ();
-	if (hash_a != ledger.constants.genesis->account ())
-	{
-		if (previous_balance)
-		{
-			amount_a = block_balance > previous_balance.value () ? block_balance.number () - previous_balance.value () : previous_balance.value () - block_balance.number ();
-		}
-		else
-		{
-			amount_a = 0;
-		}
-	}
-	else
-	{
-		amount_a = nano::dev::constants.genesis_amount;
-	}
-	if (auto state = dynamic_cast<nano::state_block *> (block_a.get ()))
-	{
-		if (state->hashables.balance < previous_balance)
-		{
-			is_state_send_a = true;
-		}
-		if (amount_a == 0 && network_params.ledger.epochs.is_epoch_link (state->link_field ().value ()))
-		{
-			is_state_epoch_a = true;
-		}
-		pending_account_a = state->hashables.link.as_account ();
-	}
-	if (auto send = dynamic_cast<nano::send_block *> (block_a.get ()))
-	{
-		pending_account_a = send->hashables.destination;
-	}
-}
-
 void nano::node::process_confirmed (nano::election_status const & status_a, uint64_t iteration_a)
 {
 	auto hash (status_a.winner->hash ());
