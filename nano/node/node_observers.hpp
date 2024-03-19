@@ -12,7 +12,7 @@ class node_observers final
 {
 public:
 	using blocks_t = nano::observer_set<nano::election_status const &, std::vector<nano::vote_with_weight_info> const &, nano::account const &, nano::uint128_t const &, bool, bool>;
-	blocks_t blocks;
+	blocks_t blocks; // Notification upon election completion or cancellation
 	nano::observer_set<bool> wallet;
 	nano::observer_set<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>, nano::vote_code> vote;
 	nano::observer_set<nano::block_hash const &> active_started;

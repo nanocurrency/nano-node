@@ -126,7 +126,8 @@ void nano::active_transactions::process_inactive_confirmation (nano::store::read
 	bool is_state_epoch = false;
 	nano::account pending_account{};
 	node.process_confirmed_data (transaction, block, block->hash (), account, amount, is_state_send, is_state_epoch, pending_account);
-	node.observers.blocks.notify (nano::election_status{ block, 0, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::inactive_confirmation_height }, {}, account, amount, is_state_send, is_state_epoch);
+	nano::election_status status{ block, 0, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::inactive_confirmation_height };
+	notify_observers (status, {}, account, amount, is_state_send, is_state_epoch, pending_account);
 }
 
 void nano::active_transactions::process_active_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, nano::election_status_type status_type)
