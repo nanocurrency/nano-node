@@ -36,7 +36,7 @@ TEST (node, stop)
 	nano::test::system system (1);
 	ASSERT_NE (system.nodes[0]->wallets.items.end (), system.nodes[0]->wallets.items.begin ());
 	system.nodes[0]->stop ();
-	system.io_ctx.run ();
+	system.io_ctx->run ();
 	ASSERT_TRUE (true);
 }
 
@@ -68,10 +68,10 @@ TEST (node, work_generate)
 TEST (node, block_store_path_failure)
 {
 	nano::test::system system;
-	auto service (std::make_shared<boost::asio::io_context> ());
+	auto io_ctx = std::make_shared<boost::asio::io_context> ();
 	auto path (nano::unique_path ());
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
-	auto node (std::make_shared<nano::node> (*service, system.get_available_port (), path, pool));
+	auto node (std::make_shared<nano::node> (io_ctx, system.get_available_port (), path, pool));
 	ASSERT_TRUE (node->wallets.items.empty ());
 	node->stop ();
 }
@@ -97,7 +97,7 @@ TEST (node_DeathTest, readonly_block_store_not_exist)
 TEST (node, password_fanout)
 {
 	nano::test::system system;
-	boost::asio::io_context io_ctx;
+	auto io_ctx = std::make_shared<boost::asio::io_context> ();
 	auto path (nano::unique_path ());
 	nano::node_config config;
 	config.peering_port = system.get_available_port ();

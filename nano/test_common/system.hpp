@@ -74,7 +74,7 @@ namespace test
 		uint16_t get_available_port ();
 
 	public:
-		boost::asio::io_context io_ctx;
+		std::shared_ptr<boost::asio::io_context> io_ctx;
 		std::vector<std::shared_ptr<nano::node>> nodes;
 		nano::stats stats;
 		nano::logger logger{ "tests" };

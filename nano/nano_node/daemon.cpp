@@ -98,7 +98,8 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 			config.node.websocket_config.tls_config = tls_config;
 		}
 
-		boost::asio::io_context io_ctx;
+		std::shared_ptr<boost::asio::io_context> io_ctx = std::make_shared<boost::asio::io_context> ();
+
 		auto opencl = nano::opencl_work::create (config.opencl_enable, config.opencl, logger, config.node.network_params.work);
 		nano::opencl_work_func_t opencl_work_func;
 		if (opencl)
@@ -132,7 +133,7 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 				config.node.peering_port = network_params.network.default_node_port;
 			}
 
-			auto node (std::make_shared<nano::node> (io_ctx, data_path, config.node, opencl_work, flags));
+			auto node = std::make_shared<nano::node> (io_ctx, data_path, config.node, opencl_work, flags);
 			if (!node->init_error ())
 			{
 				auto network_label = node->network_params.network.get_current_network_as_string ();
@@ -165,10 +166,14 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 						}
 
 						rpc_config.tls_config = tls_config;
-						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc_server, config.rpc, [&ipc_server, &workers = node->workers, &io_ctx] () {
+						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc_server, config.rpc,
+						[&ipc_server, &workers = node->workers, io_ctx_w = std::weak_ptr{ io_ctx }] () {
 							ipc_server.stop ();
-							workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (3), [&io_ctx] () {
-								io_ctx.stop ();
+							workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (3), [io_ctx_w] () {
+								if (auto io_ctx_l = io_ctx_w.lock ())
+								{
+									io_ctx_l->stop ();
+								}
 							});
 						});
 						rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
@@ -189,10 +194,13 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 				}
 
 				debug_assert (!nano::signal_handler_impl);
-				nano::signal_handler_impl = [this, &io_ctx] () {
+				nano::signal_handler_impl = [this, io_ctx_w = std::weak_ptr{ io_ctx }] () {
 					logger.warn (nano::log::type::daemon, "Interrupt signal received, stopping...");
 
-					io_ctx.stop ();
+					if (auto io_ctx_l = io_ctx_w.lock ())
+					{
+						io_ctx_l->stop ();
+					}
 					sig_int_or_term = 1;
 				};
 

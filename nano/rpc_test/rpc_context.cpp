@@ -22,7 +22,7 @@ nano::test::rpc_context::rpc_context (std::shared_ptr<nano::rpc> & rpc_a, std::u
 
 void nano::test::wait_response_impl (nano::test::system & system, rpc_context const & rpc_ctx, boost::property_tree::ptree & request, std::chrono::duration<double, std::nano> const & time, boost::property_tree::ptree & response_json)
 {
-	test_response response (request, rpc_ctx.rpc->listening_port (), system.io_ctx);
+	test_response response (request, rpc_ctx.rpc->listening_port (), *system.io_ctx);
 	ASSERT_TIMELY (time, response.status != 0);
 	ASSERT_EQ (200, response.status);
 	response_json = response.json;
@@ -49,7 +49,7 @@ nano::test::rpc_context nano::test::add_rpc (nano::test::system & system, std::s
 	nano::rpc_config rpc_config (node_a->network_params.network, system.get_available_port (), true);
 	const auto ipc_tcp_port = ipc_server->listening_tcp_port ();
 	debug_assert (ipc_tcp_port.has_value ());
-	auto ipc_rpc_processor (std::make_unique<nano::ipc_rpc_processor> (system.io_ctx, rpc_config, ipc_tcp_port.value ()));
+	auto ipc_rpc_processor (std::make_unique<nano::ipc_rpc_processor> (*system.io_ctx, rpc_config, ipc_tcp_port.value ()));
 	auto rpc (std::make_shared<nano::rpc> (system.io_ctx, rpc_config, *ipc_rpc_processor));
 	rpc->start ();
 

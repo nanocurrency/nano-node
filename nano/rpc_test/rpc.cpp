@@ -1741,7 +1741,7 @@ TEST (rpc, version)
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
 	request1.put ("action", "version");
-	test_response response1 (request1, rpc_ctx.rpc->listening_port (), system.io_ctx);
+	test_response response1 (request1, rpc_ctx.rpc->listening_port (), *system.io_ctx);
 	ASSERT_TIMELY (5s, response1.status != 0);
 	ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get<std::string> ("rpc_version"));
@@ -2506,7 +2506,7 @@ TEST (rpc, bootstrap)
 	request.put ("action", "bootstrap");
 	request.put ("address", "::ffff:127.0.0.1");
 	request.put ("port", node1->network.endpoint ().port ());
-	test_response response (request, rpc_ctx.rpc->listening_port (), system0.io_ctx);
+	test_response response (request, rpc_ctx.rpc->listening_port (), *system0.io_ctx);
 	while (response.status == 0)
 	{
 		system0.poll ();
@@ -6046,7 +6046,7 @@ TEST (rpc, simultaneous_calls)
 	const auto ipc_tcp_port = ipc_server.listening_tcp_port ();
 	ASSERT_TRUE (ipc_tcp_port.has_value ());
 	rpc_config.rpc_process.num_ipc_connections = 8;
-	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config, ipc_tcp_port.value ());
+	nano::ipc_rpc_processor ipc_rpc_processor (*system.io_ctx, rpc_config, ipc_tcp_port.value ());
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -6057,7 +6057,7 @@ TEST (rpc, simultaneous_calls)
 	std::array<std::unique_ptr<test_response>, num> test_responses;
 	for (int i = 0; i < num; ++i)
 	{
-		test_responses[i] = std::make_unique<test_response> (request, system.io_ctx);
+		test_responses[i] = std::make_unique<test_response> (request, *system.io_ctx);
 	}
 
 	std::promise<void> promise;
@@ -6087,7 +6087,7 @@ TEST (rpc, simultaneous_calls)
 	rpc.stop ();
 	system.stop ();
 	ipc_server.stop ();
-	system.io_ctx.stop ();
+	system.io_ctx->stop ();
 	runner.join ();
 }
 

@@ -120,15 +120,16 @@ nano::keypair nano::load_or_create_node_id (std::filesystem::path const & applic
 	}
 }
 
-nano::node::node (boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, std::filesystem::path const & application_path_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
+nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, uint16_t peering_port_a, std::filesystem::path const & application_path_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
 	node (io_ctx_a, application_path_a, nano::node_config (peering_port_a), work_a, flags_a, seq)
 {
 }
 
-nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path const & application_path_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
+nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesystem::path const & application_path_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
+	io_ctx_shared{ io_ctx_a },
+	io_ctx{ *io_ctx_shared },
 	node_id{ load_or_create_node_id (application_path_a) },
 	write_database_queue (!flags_a.force_use_write_database_queue && (config_a.rocksdb_config.enable)),
-	io_ctx (io_ctx_a),
 	node_initialized_latch (1),
 	config (config_a),
 	network_params{ config.network_params },
@@ -1414,7 +1415,7 @@ nano::node_wrapper::node_wrapper (std::filesystem::path const & path_a, std::fil
 	auto & node_config = daemon_config.node;
 	node_config.peering_port = 24000;
 
-	node = std::make_shared<nano::node> (*io_context, path_a, node_config, work, node_flags_a);
+	node = std::make_shared<nano::node> (io_context, path_a, node_config, work, node_flags_a);
 }
 
 nano::node_wrapper::~node_wrapper ()

@@ -10,17 +10,20 @@
  * thread_runner
  */
 
-nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned num_threads, const nano::thread_role::name thread_role_a) :
-	io_guard{ boost::asio::make_work_guard (io_ctx_a) },
+nano::thread_runner::thread_runner (std::shared_ptr<boost::asio::io_context> io_ctx_a, unsigned num_threads, const nano::thread_role::name thread_role_a) :
+	io_ctx{ io_ctx_a },
+	io_guard{ boost::asio::make_work_guard (*io_ctx_a) },
 	role{ thread_role_a }
 {
+	debug_assert (io_ctx != nullptr);
+
 	for (auto i (0u); i < num_threads; ++i)
 	{
-		threads.emplace_back (nano::thread_attributes::get_default (), [this, &io_ctx_a] () {
+		threads.emplace_back (nano::thread_attributes::get_default (), [this] () {
 			nano::thread_role::set (role);
 			try
 			{
-				run (io_ctx_a);
+				run (*io_ctx);
 			}
 			catch (std::exception const & ex)
 			{
@@ -78,6 +81,7 @@ void nano::thread_runner::join ()
 			i.join ();
 		}
 	}
+	io_ctx.reset ();
 }
 
 void nano::thread_runner::stop_event_processing ()
