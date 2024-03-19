@@ -435,6 +435,13 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 				std::exit (1);
 			}
 		}
+		confirmation_height_processor.add_cemented_observer ([this] (auto const & block) {
+			if (block->is_send ())
+			{
+				auto transaction = store.tx_begin_read ();
+				receive_confirmed (transaction, block->hash (), block->destination ());
+			}
+		});
 	}
 	node_initialized_latch.count_down ();
 }

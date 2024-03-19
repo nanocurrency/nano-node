@@ -146,10 +146,6 @@ void nano::active_transactions::handle_confirmation (nano::store::read_transacti
 	nano::block_hash hash = block->hash ();
 	recently_cemented.put (election->get_status ());
 
-	if (block->is_send ())
-	{
-		node.receive_confirmed (transaction, hash, block->destination ());
-	}
 	auto status = election->set_status_type (status_type);
 	auto votes = election->votes_with_weight ();
 	notify_observers (transaction, status, votes);
