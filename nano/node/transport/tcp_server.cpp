@@ -42,10 +42,15 @@ nano::transport::tcp_listener::tcp_listener (uint16_t port_a, nano::node & node_
 {
 }
 
+nano::transport::tcp_listener::~tcp_listener ()
+{
+	debug_assert (stopped);
+}
+
 void nano::transport::tcp_listener::start (std::function<bool (std::shared_ptr<nano::transport::socket> const &, boost::system::error_code const &)> callback_a)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	on = true;
+
 	acceptor.open (local.protocol ());
 	acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
 	boost::system::error_code ec;
@@ -68,12 +73,14 @@ void nano::transport::tcp_listener::stop ()
 	decltype (connections) connections_l;
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
-		on = false;
+		stopped = true;
 		connections_l.swap (connections);
 	}
+
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	boost::asio::dispatch (strand, boost::asio::bind_executor (strand, [this_l = shared_from_this ()] () {
+	boost::asio::dispatch (strand, [this_l = shared_from_this ()] () {
 		this_l->acceptor.close ();
+
 		for (auto & address_connection_pair : this_l->connections_per_address)
 		{
 			if (auto connection_l = address_connection_pair.second.lock ())
@@ -82,13 +89,23 @@ void nano::transport::tcp_listener::stop ()
 			}
 		}
 		this_l->connections_per_address.clear ();
-	}));
+	});
 }
 
 std::size_t nano::transport::tcp_listener::connection_count ()
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
+	cleanup ();
 	return connections.size ();
+}
+
+void nano::transport::tcp_listener::cleanup ()
+{
+	debug_assert (!mutex.try_lock ());
+
+	erase_if (connections, [] (auto const & connection) {
+		return connection.second.expired ();
+	});
 }
 
 bool nano::transport::tcp_listener::limit_reached_for_incoming_subnetwork_connections (std::shared_ptr<nano::transport::socket> const & new_connection)
@@ -253,10 +270,10 @@ void nano::transport::tcp_listener::accept_action (boost::system::error_code con
 	}
 }
 
-boost::asio::ip::tcp::endpoint nano::transport::tcp_listener::endpoint ()
+boost::asio::ip::tcp::endpoint nano::transport::tcp_listener::endpoint () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	if (on)
+	if (!stopped)
 	{
 		return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), acceptor.local_endpoint ().port ());
 	}
@@ -266,11 +283,10 @@ boost::asio::ip::tcp::endpoint nano::transport::tcp_listener::endpoint ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::transport::collect_container_info (nano::transport::tcp_listener & bootstrap_listener, std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::transport::tcp_listener::collect_container_info (std::string const & name)
 {
-	auto sizeof_element = sizeof (decltype (bootstrap_listener.connections)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "connections", bootstrap_listener.connection_count (), sizeof_element }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "connections", connection_count (), sizeof (decltype (connections)::value_type) }));
 	return composite;
 }
 
@@ -321,9 +337,6 @@ nano::transport::tcp_server::~tcp_server ()
 	}
 
 	stop ();
-
-	nano::lock_guard<nano::mutex> lock{ node->tcp_listener->mutex };
-	node->tcp_listener->connections.erase (this);
 }
 
 void nano::transport::tcp_server::start ()
@@ -840,10 +853,6 @@ void nano::transport::tcp_server::timeout ()
 	{
 		node->logger.debug (nano::log::type::tcp_server, "Closing TCP server due to timeout ({})", fmt::streamed (remote_endpoint));
 
-		{
-			nano::lock_guard<nano::mutex> lock{ node->tcp_listener->mutex };
-			node->tcp_listener->connections.erase (this);
-		}
 		socket->close ();
 	}
 }
