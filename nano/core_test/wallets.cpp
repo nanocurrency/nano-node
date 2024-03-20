@@ -1,4 +1,5 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/node/election.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/versioning.hpp>
 #include <nano/test_common/system.hpp>

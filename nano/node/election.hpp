@@ -2,6 +2,8 @@
 
 #include <nano/lib/id_dispenser.hpp>
 #include <nano/lib/logging.hpp>
+#include <nano/node/election_behavior.hpp>
+#include <nano/node/vote_with_weight_info.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/store/component.hpp>
 
@@ -22,34 +24,6 @@ public:
 	std::chrono::steady_clock::time_point time;
 	uint64_t timestamp;
 	nano::block_hash hash;
-};
-
-class vote_with_weight_info final
-{
-public:
-	nano::account representative;
-	std::chrono::steady_clock::time_point time;
-	uint64_t timestamp;
-	nano::block_hash hash;
-	nano::uint128_t weight;
-};
-
-enum class election_behavior
-{
-	normal,
-	/**
-	 * Hinted elections:
-	 * - shorter timespan
-	 * - limited space inside AEC
-	 */
-	hinted,
-	/**
-	 * Optimistic elections:
-	 * - shorter timespan
-	 * - limited space inside AEC
-	 * - more frequent confirmation requests
-	 */
-	optimistic,
 };
 
 nano::stat::detail to_stat_detail (nano::election_behavior);

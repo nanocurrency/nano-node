@@ -1,4 +1,5 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/buckets.hpp>
 #include <nano/node/scheduler/priority.hpp>

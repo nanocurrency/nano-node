@@ -75,6 +75,7 @@ add_library(
   distributed_work_factory.cpp
   election.hpp
   election.cpp
+  election_behavior.hpp
   election_insertion_result.hpp
   epoch_upgrader.hpp
   epoch_upgrader.cpp
@@ -164,6 +165,7 @@ add_library(
   vote_cache.cpp
   vote_processor.hpp
   vote_processor.cpp
+  vote_with_weight_info.hpp
   voting.hpp
   voting.cpp
   wallet.hpp
