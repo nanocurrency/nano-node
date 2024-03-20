@@ -549,26 +549,29 @@ std::shared_ptr<nano::block> nano::active_transactions::winner (nano::block_hash
 	return result;
 }
 
-void nano::active_transactions::erase (nano::block const & block_a)
+bool nano::active_transactions::erase (nano::block const & block_a)
 {
-	erase (block_a.qualified_root ());
+	return erase (block_a.qualified_root ());
 }
 
-void nano::active_transactions::erase (nano::qualified_root const & root_a)
+bool nano::active_transactions::erase (nano::qualified_root const & root_a)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	auto root_it (roots.get<tag_root> ().find (root_a));
 	if (root_it != roots.get<tag_root> ().end ())
 	{
 		cleanup_election (lock, root_it->election);
+		return true;
 	}
+	return false;
 }
 
-void nano::active_transactions::erase_hash (nano::block_hash const & hash_a)
+bool nano::active_transactions::erase_hash (nano::block_hash const & hash_a)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	[[maybe_unused]] auto erased (blocks.erase (hash_a));
 	debug_assert (erased == 1);
+	return erased == 1;
 }
 
 void nano::active_transactions::erase_oldest ()

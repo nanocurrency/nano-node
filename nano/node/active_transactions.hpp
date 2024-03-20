@@ -164,8 +164,9 @@ public:
 	std::shared_ptr<nano::block> winner (nano::block_hash const &) const;
 	// Returns a list of elections sorted by difficulty
 	std::vector<std::shared_ptr<nano::election>> list_active (std::size_t = std::numeric_limits<std::size_t>::max ());
-	void erase (nano::block const &);
-	void erase_hash (nano::block_hash const &);
+	bool erase (nano::block const &);
+	bool erase (nano::qualified_root const &);
+	bool erase_hash (nano::block_hash const &);
 	void erase_oldest ();
 	bool empty () const;
 	std::size_t size () const;
@@ -193,7 +194,6 @@ private:
 	void trim ();
 	void request_loop ();
 	void request_confirm (nano::unique_lock<nano::mutex> &);
-	void erase (nano::qualified_root const &);
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void cleanup_election (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::election>);
 	nano::stat::type completion_type (nano::election const & election) const;

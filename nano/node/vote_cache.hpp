@@ -106,7 +106,9 @@ public:
 	/**
 	 * Adds a new vote to cache
 	 */
-	void vote (std::shared_ptr<nano::vote> const & vote, std::function<bool (nano::block_hash const &)> const & filter);
+	void vote (
+	std::shared_ptr<nano::vote> const & vote,
+	std::function<bool (nano::block_hash const &)> const & filter = [] (nano::block_hash const &) { return true; });
 
 	/**
 	 * Tries to find an entry associated with block hash

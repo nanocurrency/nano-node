@@ -15,8 +15,14 @@ using namespace std::chrono_literals;
 
 TEST (vote_processor, codes)
 {
-	nano::test::system system (1);
-	auto & node (*system.nodes[0]);
+	nano::test::system system;
+	auto node_config = system.default_config ();
+	// Disable all election schedulers
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.hinted_scheduler.enabled = false;
+	node_config.optimistic_scheduler.enabled = false;
+	auto & node = *system.add_node (node_config);
+
 	auto blocks = nano::test::setup_chain (system, node, 1, nano::dev::genesis_key, false);
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, { blocks[0] }, nano::vote::timestamp_min * 1, 0);
 	auto vote_invalid = std::make_shared<nano::vote> (*vote);
@@ -48,7 +54,7 @@ TEST (vote_processor, codes)
 	ASSERT_EQ (nano::vote_code::invalid, node.vote_processor.vote_blocking (vote_invalid, channel));
 
 	// Once the election is removed (confirmed / dropped) the vote is again indeterminate
-	node.active.erase (*blocks[0]);
+	ASSERT_TRUE (node.active.erase (blocks[0]->qualified_root ()));
 	ASSERT_EQ (nano::vote_code::indeterminate, node.vote_processor.vote_blocking (vote, channel));
 }
 
