@@ -34,7 +34,7 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 	last_blocks.emplace (block_a->hash (), block_a);
 }
 
-void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano::election_status_type type_a)
+void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a)
 {
 	debug_assert (lock_a.owns_lock ());
 
@@ -51,7 +51,6 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano
 		status.confirmation_request_count = confirmation_request_count;
 		status.block_count = nano::narrow_cast<decltype (status.block_count)> (last_blocks.size ());
 		status.voter_count = nano::narrow_cast<decltype (status.voter_count)> (last_votes.size ());
-		status.type = type_a;
 		auto const status_l = status;
 
 		node.active.recently_confirmed.put (qualified_root, status_l.winner->hash ());
@@ -403,44 +402,22 @@ void nano::election::confirm_if_quorum (nano::unique_lock<nano::mutex> & lock_a)
 		}
 		if (final_weight >= node.online_reps.delta ())
 		{
-			confirm_once (lock_a, nano::election_status_type::active_confirmed_quorum);
+			confirm_once (lock_a);
 		}
 	}
 }
 
-boost::optional<nano::election_status_type> nano::election::try_confirm (nano::block_hash const & hash)
+void nano::election::try_confirm (nano::block_hash const & hash)
 {
-	boost::optional<nano::election_status_type> status_type;
 	nano::unique_lock<nano::mutex> election_lock{ mutex };
 	auto winner = status.winner;
 	if (winner && winner->hash () == hash)
 	{
-		// Determine if the block was confirmed explicitly via election confirmation or implicitly via confirmation height
 		if (!confirmed_locked ())
 		{
-			confirm_once (election_lock, nano::election_status_type::active_confirmation_height);
-			status_type = nano::election_status_type::active_confirmation_height;
-		}
-		else
-		{
-			status_type = nano::election_status_type::active_confirmed_quorum;
+			confirm_once (election_lock);
 		}
 	}
-	else
-	{
-		status_type = boost::optional<nano::election_status_type>{};
-	}
-	return status_type;
-}
-
-nano::election_status nano::election::set_status_type (nano::election_status_type status_type)
-{
-	nano::unique_lock<nano::mutex> election_lk{ mutex };
-	status.type = status_type;
-	status.confirmation_request_count = confirmation_request_count;
-	nano::election_status status_l{ status };
-	election_lk.unlock ();
-	return status_l;
 }
 
 std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash_a) const
@@ -709,11 +686,11 @@ bool nano::election::replace_by_weight (nano::unique_lock<nano::mutex> & lock_a,
 	return replaced;
 }
 
-void nano::election::force_confirm (nano::election_status_type type_a)
+void nano::election::force_confirm ()
 {
 	release_assert (node.network_params.network.is_dev_network ());
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	confirm_once (lock, type_a);
+	confirm_once (lock);
 }
 
 std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election::blocks () const
