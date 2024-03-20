@@ -1,3 +1,4 @@
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/manual.hpp>

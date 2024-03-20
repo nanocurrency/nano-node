@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
-#include <nano/node/active_transactions.hpp>
 
 #include <boost/optional.hpp>
 
@@ -16,6 +15,7 @@ namespace nano
 class block;
 class container_info_component;
 class node;
+class stats;
 }
 namespace nano::store
 {

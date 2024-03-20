@@ -2,8 +2,8 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/node/active_transactions.hpp>
 #include <nano/node/transport/transport.hpp>
+#include <nano/node/vote_with_weight_info.hpp>
 
 namespace nano
 {
