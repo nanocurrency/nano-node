@@ -2,10 +2,10 @@
 
 #include <nano/lib/id_dispenser.hpp>
 #include <nano/lib/logging.hpp>
+#include <nano/lib/stats_enums.hpp>
 #include <nano/node/election_behavior.hpp>
+#include <nano/node/election_status.hpp>
 #include <nano/node/vote_with_weight_info.hpp>
-#include <nano/secure/common.hpp>
-#include <nano/store/component.hpp>
 
 #include <atomic>
 #include <chrono>
@@ -13,6 +13,7 @@
 
 namespace nano
 {
+class block;
 class channel;
 class confirmation_solicitor;
 class inactive_cache_information;

@@ -77,6 +77,7 @@ add_library(
   election.cpp
   election_behavior.hpp
   election_insertion_result.hpp
+  election_status.hpp
   epoch_upgrader.hpp
   epoch_upgrader.cpp
   ipc/action_handler.hpp

@@ -7,6 +7,7 @@
 
 namespace nano
 {
+class election_status;
 class telemetry;
 class node_observers final
 {

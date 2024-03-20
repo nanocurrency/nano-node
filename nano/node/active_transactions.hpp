@@ -3,6 +3,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/node/election_behavior.hpp>
 #include <nano/node/election_insertion_result.hpp>
+#include <nano/node/election_status.hpp>
 #include <nano/node/vote_with_weight_info.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/secure/common.hpp>
