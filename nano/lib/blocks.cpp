@@ -162,6 +162,18 @@ bool nano::block::is_change () const noexcept
 	}
 }
 
+bool nano::block::is_epoch () const noexcept
+{
+	release_assert (has_sideband ());
+	switch (type ())
+	{
+		case nano::block_type::state:
+			return sideband ().details.is_epoch;
+		default:
+			return false;
+	}
+}
+
 nano::block_hash const & nano::block::hash () const
 {
 	if (!cached_hash.is_zero ())

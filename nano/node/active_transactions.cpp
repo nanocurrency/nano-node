@@ -82,12 +82,12 @@ void nano::active_transactions::stop ()
 
 void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::block> const & block_a)
 {
-	auto transaction = node.store.tx_begin_read ();
-	auto status_type = election_status (transaction, block_a);
+	auto status_type = election_status (block_a);
 
 	if (!status_type)
 		return;
 
+	auto transaction = node.store.tx_begin_read ();
 	switch (*status_type)
 	{
 		case nano::election_status_type::inactive_confirmation_height:
@@ -102,13 +102,13 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 	handle_final_votes_confirmation (block_a, transaction, *status_type);
 }
 
-boost::optional<nano::election_status_type> nano::active_transactions::election_status (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block)
+boost::optional<nano::election_status_type> nano::active_transactions::election_status (std::shared_ptr<nano::block> const & block)
 {
 	boost::optional<nano::election_status_type> status_type;
 
 	if (!confirmation_height_processor.is_processing_added_block (block->hash ()))
 	{
-		status_type = confirm_block (transaction, block);
+		status_type = confirm_block (block);
 	}
 	else
 	{
@@ -120,13 +120,8 @@ boost::optional<nano::election_status_type> nano::active_transactions::election_
 
 void nano::active_transactions::process_inactive_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block)
 {
-	nano::account account;
-	nano::uint128_t amount{ 0 };
-	bool is_state_send = false;
-	bool is_state_epoch = false;
-	nano::account pending_account{};
-	node.process_confirmed_data (transaction, block, block->hash (), account, amount, is_state_send, is_state_epoch, pending_account);
-	node.observers.blocks.notify (nano::election_status{ block, 0, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::inactive_confirmation_height }, {}, account, amount, is_state_send, is_state_epoch);
+	nano::election_status status{ block, 0, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::inactive_confirmation_height };
+	notify_observers (transaction, status, {});
 }
 
 void nano::active_transactions::process_active_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, nano::election_status_type status_type)
@@ -151,38 +146,26 @@ void nano::active_transactions::handle_confirmation (nano::store::read_transacti
 	nano::block_hash hash = block->hash ();
 	recently_cemented.put (election->get_status ());
 
-	nano::account account;
-	nano::uint128_t amount (0);
-	bool is_state_send = false;
-	bool is_state_epoch = false;
-	nano::account pending_account;
-
-	handle_block_confirmation (transaction, block, hash, account, amount, is_state_send, is_state_epoch, pending_account);
-
 	auto status = election->set_status_type (status_type);
 	auto votes = election->votes_with_weight ();
-	notify_observers (status, votes, account, amount, is_state_send, is_state_epoch, pending_account);
+	notify_observers (transaction, status, votes);
 }
 
-void nano::active_transactions::handle_block_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, nano::block_hash const & hash, nano::account & account, nano::uint128_t & amount, bool & is_state_send, bool & is_state_epoch, nano::account & pending_account)
+void nano::active_transactions::notify_observers (nano::store::read_transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes)
 {
-	if (block->is_send ())
-	{
-		node.receive_confirmed (transaction, hash, block->destination ());
-	}
-	node.process_confirmed_data (transaction, block, hash, account, amount, is_state_send, is_state_epoch, pending_account);
-}
-
-void nano::active_transactions::notify_observers (nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes, nano::account const & account, nano::uint128_t amount, bool is_state_send, bool is_state_epoch, nano::account const & pending_account)
-{
+	auto block = status.winner;
+	auto account = block->account ();
+	auto amount = node.ledger.amount (transaction, block->hash ()).value_or (0);
+	auto is_state_send = block->type () == block_type::state && block->is_send ();
+	auto is_state_epoch = block->type () == block_type::state && block->is_epoch ();
 	node.observers.blocks.notify (status, votes, account, amount, is_state_send, is_state_epoch);
 
 	if (amount > 0)
 	{
 		node.observers.account_balance.notify (account, false);
-		if (!pending_account.is_zero ())
+		if (block->is_send ())
 		{
-			node.observers.account_balance.notify (pending_account, true);
+			node.observers.account_balance.notify (block->destination (), true);
 		}
 	}
 }
@@ -196,16 +179,16 @@ void nano::active_transactions::handle_final_votes_confirmation (std::shared_ptr
 	// Next-block activations are only done for blocks with previously active elections
 	if (cemented_bootstrap_count_reached && was_active)
 	{
-		activate_successors (account, block, transaction);
+		activate_successors (transaction, block);
 	}
 }
 
-void nano::active_transactions::activate_successors (const nano::account & account, std::shared_ptr<nano::block> const & block, nano::store::read_transaction const & transaction)
+void nano::active_transactions::activate_successors (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block)
 {
-	node.scheduler.priority.activate (account, transaction);
+	node.scheduler.priority.activate (block->account (), transaction);
 
 	// Start or vote for the next unconfirmed block in the destination account
-	if (block->is_send () && !block->destination ().is_zero () && block->destination () != account)
+	if (block->is_send () && !block->destination ().is_zero () && block->destination () != block->account ())
 	{
 		node.scheduler.priority.activate (block->destination (), transaction);
 	}
@@ -671,7 +654,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> const & bl
 }
 
 // Returns the type of election status requiring callbacks calling later
-boost::optional<nano::election_status_type> nano::active_transactions::confirm_block (store::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
+boost::optional<nano::election_status_type> nano::active_transactions::confirm_block (std::shared_ptr<nano::block> const & block_a)
 {
 	auto const hash = block_a->hash ();
 	std::shared_ptr<nano::election> election = nullptr;

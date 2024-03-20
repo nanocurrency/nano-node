@@ -55,6 +55,7 @@ public:
 	bool is_send () const noexcept;
 	bool is_receive () const noexcept;
 	bool is_change () const noexcept;
+	bool is_epoch () const noexcept;
 
 public: // Direct access to the block fields or nullopt if the block type does not have the specified field
 	// Returns account field or account from sideband
