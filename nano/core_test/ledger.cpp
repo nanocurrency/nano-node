@@ -933,7 +933,7 @@ TEST (votes, add_one)
 	auto vote1 = nano::test::make_vote (nano::dev::genesis_key, { send1 }, nano::vote::timestamp_min * 1, 0);
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1).at (send1->hash ()));
 	auto vote2 = nano::test::make_vote (nano::dev::genesis_key, { send1 }, nano::vote::timestamp_min * 2, 0);
-	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote2).at (send1->hash ()));
+	ASSERT_EQ (nano::vote_code::ignored, node1.active.vote (vote2).at (send1->hash ())); // Ignored due to vote cooldown
 	ASSERT_EQ (2, election1->votes ().size ());
 	auto votes1 (election1->votes ());
 	auto existing1 (votes1.find (nano::dev::genesis_key.pub));
