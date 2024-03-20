@@ -203,11 +203,15 @@ enum class vote_code
 	ignored, // Vote is valid, but got ingored (e.g. due to cooldown)
 };
 
+nano::stat::detail to_stat_detail (vote_code);
+
 enum class vote_source
 {
 	live,
 	cache,
 };
+
+nano::stat::detail to_stat_detail (vote_source);
 
 enum class block_status
 {

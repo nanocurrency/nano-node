@@ -444,7 +444,6 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::active_transactions:
 
 	std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> process;
 	std::vector<nano::block_hash> inactive; // Hashes that should be added to inactive vote cache
-
 	{
 		nano::unique_lock<nano::mutex> lock{ mutex };
 		for (auto const & hash : vote->hashes)

@@ -181,30 +181,7 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 		observers.vote.notify (vote_a, channel_a, result);
 	}
 
-	std::string status;
-	switch (result)
-	{
-		case nano::vote_code::invalid:
-			status = "Invalid";
-			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_invalid);
-			break;
-		case nano::vote_code::replay:
-			status = "Replay";
-			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_replay);
-			break;
-		case nano::vote_code::vote:
-			status = "Vote";
-			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_valid);
-			break;
-		case nano::vote_code::indeterminate:
-			status = "Indeterminate";
-			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_indeterminate);
-			break;
-		case nano::vote_code::ignored:
-			status = "Ignored";
-			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_ignored);
-			break;
-	}
+	stats.inc (nano::stat::type::vote, to_stat_detail (result));
 
 	logger.trace (nano::log::type::vote_processor, nano::log::detail::vote_processed,
 	nano::log::arg{ "vote", vote_a },
