@@ -29,42 +29,16 @@ class node;
 class node_config;
 class stats;
 class vote_processor;
+class vote_spacing;
 class wallets;
-namespace transport
+}
+namespace nano::transport
 {
-	class channel;
+class channel;
 }
 
-class vote_spacing final
+namespace nano
 {
-	class entry
-	{
-	public:
-		nano::root root;
-		std::chrono::steady_clock::time_point time;
-		nano::block_hash hash;
-	};
-
-	boost::multi_index_container<entry,
-	mi::indexed_by<
-	mi::hashed_non_unique<mi::tag<class tag_root>,
-	mi::member<entry, nano::root, &entry::root>>,
-	mi::ordered_non_unique<mi::tag<class tag_time>,
-	mi::member<entry, std::chrono::steady_clock::time_point, &entry::time>>>>
-	recent;
-	std::chrono::milliseconds const delay;
-	void trim ();
-
-public:
-	vote_spacing (std::chrono::milliseconds const & delay) :
-		delay{ delay }
-	{
-	}
-	bool votable (nano::root const & root_a, nano::block_hash const & hash_a) const;
-	void flag (nano::root const & root_a, nano::block_hash const & hash_a);
-	std::size_t size () const;
-};
-
 class vote_generator final
 {
 private:
@@ -84,6 +58,8 @@ public:
 
 	void start ();
 	void stop ();
+
+	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
 
 private:
 	void run ();
@@ -109,7 +85,8 @@ private: // Dependencies
 	nano::wallets & wallets;
 	nano::vote_processor & vote_processor;
 	nano::local_vote_history & history;
-	nano::vote_spacing spacing;
+	std::unique_ptr<nano::vote_spacing> spacing_impl;
+	nano::vote_spacing & spacing;
 	nano::network & network;
 	nano::stats & stats;
 	nano::logger & logger;
@@ -126,9 +103,5 @@ private:
 	std::deque<candidate_t> candidates;
 	std::atomic<bool> stopped{ false };
 	std::thread thread;
-
-	friend std::unique_ptr<container_info_component> collect_container_info (vote_generator & vote_generator, std::string const & name);
 };
-
-std::unique_ptr<container_info_component> collect_container_info (vote_generator & generator, std::string const & name);
 }

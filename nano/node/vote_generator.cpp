@@ -5,51 +5,14 @@
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/inproc.hpp>
+#include <nano/node/vote_generator.hpp>
 #include <nano/node/vote_processor.hpp>
-#include <nano/node/voting.hpp>
+#include <nano/node/vote_spacing.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
 
 #include <chrono>
-
-void nano::vote_spacing::trim ()
-{
-	recent.get<tag_time> ().erase (recent.get<tag_time> ().begin (), recent.get<tag_time> ().upper_bound (std::chrono::steady_clock::now () - delay));
-}
-
-bool nano::vote_spacing::votable (nano::root const & root_a, nano::block_hash const & hash_a) const
-{
-	bool result = true;
-	for (auto range = recent.get<tag_root> ().equal_range (root_a); result && range.first != range.second; ++range.first)
-	{
-		auto & item = *range.first;
-		result = hash_a == item.hash || item.time < std::chrono::steady_clock::now () - delay;
-	}
-	return result;
-}
-
-void nano::vote_spacing::flag (nano::root const & root_a, nano::block_hash const & hash_a)
-{
-	trim ();
-	auto now = std::chrono::steady_clock::now ();
-	auto existing = recent.get<tag_root> ().find (root_a);
-	if (existing != recent.end ())
-	{
-		recent.get<tag_root> ().modify (existing, [now] (entry & entry) {
-			entry.time = now;
-		});
-	}
-	else
-	{
-		recent.insert ({ root_a, now, hash_a });
-	}
-}
-
-std::size_t nano::vote_spacing::size () const
-{
-	return recent.size ();
-}
 
 nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::node & node_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stats & stats_a, nano::logger & logger_a, bool is_final_a) :
 	config (config_a),
@@ -58,7 +21,8 @@ nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::
 	wallets (wallets_a),
 	vote_processor (vote_processor_a),
 	history (history_a),
-	spacing{ config_a.network_params.voting.delay },
+	spacing_impl{ std::make_unique<nano::vote_spacing> (config_a.network_params.voting.delay) },
+	spacing{ *spacing_impl },
 	network (network_a),
 	stats (stats_a),
 	logger (logger_a),
@@ -318,20 +282,20 @@ void nano::vote_generator::run ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::vote_generator & vote_generator, std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::vote_generator::collect_container_info (std::string const & name) const
 {
 	std::size_t candidates_count = 0;
 	std::size_t requests_count = 0;
 	{
-		nano::lock_guard<nano::mutex> guard{ vote_generator.mutex };
-		candidates_count = vote_generator.candidates.size ();
-		requests_count = vote_generator.requests.size ();
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		candidates_count = candidates.size ();
+		requests_count = requests.size ();
 	}
-	auto sizeof_candidate_element = sizeof (decltype (vote_generator.candidates)::value_type);
-	auto sizeof_request_element = sizeof (decltype (vote_generator.requests)::value_type);
+	auto sizeof_candidate_element = sizeof (decltype (candidates)::value_type);
+	auto sizeof_request_element = sizeof (decltype (requests)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "candidates", candidates_count, sizeof_candidate_element }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "requests", requests_count, sizeof_request_element }));
-	composite->add_component (vote_generator.vote_generation_queue.collect_container_info ("vote_generation_queue"));
+	composite->add_component (vote_generation_queue.collect_container_info ("vote_generation_queue"));
 	return composite;
 }

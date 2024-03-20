@@ -172,8 +172,10 @@ public:
 	nano::vote_uniquer vote_uniquer;
 	nano::confirmation_height_processor confirmation_height_processor;
 	nano::vote_cache vote_cache;
-	nano::vote_generator generator;
-	nano::vote_generator final_generator;
+	std::unique_ptr<nano::vote_generator> generator_impl;
+	nano::vote_generator & generator;
+	std::unique_ptr<nano::vote_generator> final_generator_impl;
+	nano::vote_generator & final_generator;
 	nano::active_transactions active;
 
 private: // Placed here to maintain initialization order

@@ -9,6 +9,14 @@ namespace nano
 {
 class election_status;
 class telemetry;
+}
+namespace nano::transport
+{
+class channel;
+}
+
+namespace nano
+{
 class node_observers final
 {
 public:

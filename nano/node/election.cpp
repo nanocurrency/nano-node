@@ -4,6 +4,7 @@
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/vote_generator.hpp>
 #include <nano/secure/ledger.hpp>
 
 #include <boost/format.hpp>

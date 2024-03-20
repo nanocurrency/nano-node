@@ -17,6 +17,10 @@ class block;
 class container_info_component;
 class node;
 }
+namespace nano::store
+{
+class transaction;
+}
 
 namespace nano::scheduler
 {

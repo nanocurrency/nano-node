@@ -166,11 +166,13 @@ add_library(
   unchecked_map.hpp
   vote_cache.hpp
   vote_cache.cpp
+  vote_generator.hpp
+  vote_generator.cpp
   vote_processor.hpp
   vote_processor.cpp
+  vote_spacing.hpp
+  vote_spacing.cpp
   vote_with_weight_info.hpp
-  voting.hpp
-  voting.cpp
   wallet.hpp
   wallet.cpp
   websocket.hpp
