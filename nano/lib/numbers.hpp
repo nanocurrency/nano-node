@@ -389,4 +389,12 @@ struct hash<std::reference_wrapper<::nano::block_hash const>>
 		return hash (hash_a);
 	}
 };
+template <>
+struct hash<::nano::root>
+{
+	size_t operator() (::nano::root const & value_a) const
+	{
+		return std::hash<::nano::root> () (value_a);
+	}
+};
 }

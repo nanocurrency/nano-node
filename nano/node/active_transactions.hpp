@@ -53,8 +53,9 @@ public: // Tests
 
 private:
 	// clang-format off
-	class tag_root {};
 	class tag_hash {};
+	class tag_root {};
+	class tag_sequence {};
 
 	using ordered_recent_confirmations = boost::multi_index_container<entry_t,
 	mi::indexed_by<

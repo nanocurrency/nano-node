@@ -166,7 +166,8 @@ public:
 	nano::vote_processor vote_processor;
 	unsigned warmed_up;
 	nano::block_processor block_processor;
-	nano::local_vote_history history;
+	std::unique_ptr<nano::local_vote_history> history_impl;
+	nano::local_vote_history & history;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
 	nano::confirmation_height_processor confirmation_height_processor;

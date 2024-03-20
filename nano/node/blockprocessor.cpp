@@ -2,6 +2,7 @@
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/blockprocessor.hpp>
+#include <nano/node/local_vote_history.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>

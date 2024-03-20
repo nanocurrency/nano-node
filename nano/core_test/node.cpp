@@ -2,6 +2,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/local_vote_history.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/manual.hpp>

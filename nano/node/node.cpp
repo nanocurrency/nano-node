@@ -5,6 +5,7 @@
 #include <nano/node/common.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/make_store.hpp>
+#include <nano/node/local_vote_history.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/hinted.hpp>
@@ -171,7 +172,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	warmed_up (0),
 	block_processor (*this, write_database_queue),
 	online_reps (ledger, config),
-	history{ config.network_params.voting },
+	history_impl{ std::make_unique<nano::local_vote_history> (config.network_params.voting) },
+	history{ *history_impl },
 	vote_uniquer{},
 	confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 	vote_cache{ config.vote_cache, stats },
@@ -537,7 +539,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (node.rep_crawler.collect_container_info ("rep_crawler"));
 	composite->add_component (node.block_processor.collect_container_info ("block_processor"));
 	composite->add_component (collect_container_info (node.online_reps, "online_reps"));
-	composite->add_component (collect_container_info (node.history, "history"));
+	composite->add_component (node.history.collect_container_info ("history"));
 	composite->add_component (node.block_uniquer.collect_container_info ("block_uniquer"));
 	composite->add_component (node.vote_uniquer.collect_container_info ("vote_uniquer"));
 	composite->add_component (collect_container_info (node.confirmation_height_processor, "confirmation_height_processor"));

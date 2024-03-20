@@ -2,6 +2,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/local_vote_history.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/request_aggregator.hpp>

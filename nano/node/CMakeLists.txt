@@ -98,6 +98,8 @@ add_library(
   json_handler.cpp
   local_block_broadcaster.cpp
   local_block_broadcaster.hpp
+  local_vote_history.cpp
+  local_vote_history.hpp
   make_store.hpp
   make_store.cpp
   network.hpp
