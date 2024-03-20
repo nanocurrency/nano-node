@@ -431,12 +431,12 @@ std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash
 	return result;
 }
 
-auto nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano::block_hash const & block_hash_a, vote_source vote_source_a) -> vote_result
+nano::vote_code nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano::block_hash const & block_hash_a, nano::vote_source vote_source_a)
 {
 	auto weight = node.ledger.weight (rep);
 	if (!node.network_params.network.is_dev_network () && weight <= node.minimum_principal_weight ())
 	{
-		return vote_result::ignored;
+		return vote_code::indeterminate;
 	}
 
 	nano::unique_lock<nano::mutex> lock{ mutex };
@@ -447,11 +447,11 @@ auto nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano
 		auto last_vote_l (last_vote_it->second);
 		if (last_vote_l.timestamp > timestamp_a)
 		{
-			return vote_result::replay;
+			return vote_code::replay;
 		}
 		if (last_vote_l.timestamp == timestamp_a && !(last_vote_l.hash < block_hash_a))
 		{
-			return vote_result::replay;
+			return vote_code::replay;
 		}
 
 		auto max_vote = timestamp_a == std::numeric_limits<uint64_t>::max () && last_vote_l.timestamp < timestamp_a;
@@ -465,7 +465,7 @@ auto nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano
 
 		if (!max_vote && !past_cooldown)
 		{
-			return vote_result::ignored;
+			return vote_code::ignored;
 		}
 	}
 
@@ -491,7 +491,7 @@ auto nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano
 		confirm_if_quorum (lock);
 	}
 
-	return vote_result::processed;
+	return vote_code::vote;
 }
 
 bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)

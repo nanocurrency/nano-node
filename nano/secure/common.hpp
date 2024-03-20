@@ -199,7 +199,14 @@ enum class vote_code
 	invalid, // Vote is not signed correctly
 	replay, // Vote does not have the highest timestamp, it's a replay
 	vote, // Vote has the highest timestamp
-	indeterminate // Unknown if replay or vote
+	indeterminate, // Unknown if replay or vote
+	ignored, // Vote is valid, but got ingored (e.g. due to cooldown)
+};
+
+enum class vote_source
+{
+	live,
+	cache,
 };
 
 enum class block_status

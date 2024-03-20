@@ -481,8 +481,8 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 		for (auto const & [election, block_hash] : process)
 		{
 			auto const vote_result = election->vote (vote_a->account, vote_a->timestamp (), block_hash);
-			processed |= (vote_result == nano::election::vote_result::processed);
-			replay |= (vote_result == nano::election::vote_result::replay);
+			processed |= (vote_result == nano::vote_code::vote);
+			replay |= (vote_result == nano::vote_code::replay);
 		}
 
 		// Republish vote if it is new and the node does not host a principal representative (or close to)
