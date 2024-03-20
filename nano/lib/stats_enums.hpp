@@ -235,6 +235,15 @@ enum class detail : uint8_t
 	tcp_read_error,
 	tcp_write_error,
 
+	// tcp_server
+	handshake,
+	handshake_abort,
+	handshake_error,
+	handshake_network_error,
+	handshake_initiate,
+	handshake_response,
+	handshake_response_invalid,
+
 	// ipc
 	invocations,
 

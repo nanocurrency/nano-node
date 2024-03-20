@@ -69,19 +69,23 @@ public:
 	std::weak_ptr<nano::node> const node;
 	nano::mutex mutex;
 	std::atomic<bool> stopped{ false };
-	std::atomic<bool> handshake_query_received{ false };
+	std::atomic<bool> handshake_received{ false };
 	// Remote enpoint used to remove response channel even after socket closing
 	nano::tcp_endpoint remote_endpoint{ boost::asio::ip::address_v6::any (), 0 };
 	nano::account remote_node_id{};
 	std::chrono::steady_clock::time_point last_telemetry_req{};
 
 private:
-	void send_handshake_response (nano::node_id_handshake::query_payload const & query, bool v2);
+	enum class process_result
+	{
+		abort,
+		progress,
+		pause,
+	};
 
 	void receive_message ();
 	void received_message (std::unique_ptr<nano::message> message);
-	bool process_message (std::unique_ptr<nano::message> message);
-
+	process_result process_message (std::unique_ptr<nano::message> message);
 	void queue_realtime (std::unique_ptr<nano::message> message);
 
 	bool to_bootstrap_connection ();
@@ -90,19 +94,30 @@ private:
 	bool is_bootstrap_connection () const;
 	bool is_realtime_connection () const;
 
+	enum class handshake_status
+	{
+		abort,
+		handshake,
+		realtime,
+		bootstrap,
+	};
+
+	handshake_status process_handshake (nano::node_id_handshake const & message);
+	void send_handshake_response (nano::node_id_handshake::query_payload const & query, bool v2);
+
 private:
 	bool const allow_bootstrap;
 	std::shared_ptr<nano::transport::message_deserializer> message_deserializer;
 	std::optional<nano::keepalive> last_keepalive;
 
-private:
+private: // Visitors
 	class handshake_message_visitor : public nano::message_visitor
 	{
 	public:
-		bool process{ false };
-		bool bootstrap{ false };
+		handshake_status result{ handshake_status::abort };
 
-		explicit handshake_message_visitor (std::shared_ptr<tcp_server>);
+		explicit handshake_message_visitor (tcp_server & server) :
+			server{ server } {};
 
 		void node_id_handshake (nano::node_id_handshake const &) override;
 		void bulk_pull (nano::bulk_pull const &) override;
@@ -111,7 +126,7 @@ private:
 		void frontier_req (nano::frontier_req const &) override;
 
 	private:
-		std::shared_ptr<tcp_server> server;
+		tcp_server & server;
 	};
 
 	class realtime_message_visitor : public nano::message_visitor
@@ -119,7 +134,8 @@ private:
 	public:
 		bool process{ false };
 
-		explicit realtime_message_visitor (tcp_server &);
+		explicit realtime_message_visitor (tcp_server & server) :
+			server{ server } {};
 
 		void keepalive (nano::keepalive const &) override;
 		void publish (nano::publish const &) override;
@@ -150,5 +166,7 @@ private:
 	private:
 		std::shared_ptr<tcp_server> server;
 	};
+
+	friend class handshake_message_visitor;
 };
 }
