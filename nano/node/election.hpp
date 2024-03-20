@@ -146,8 +146,7 @@ public: // Interface
 	bool publish (std::shared_ptr<nano::block> const & block_a);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (nano::unique_lock<nano::mutex> &);
-	boost::optional<nano::election_status_type> try_confirm (nano::block_hash const & hash);
-	nano::election_status set_status_type (nano::election_status_type status_type);
+	void try_confirm (nano::block_hash const & hash);
 
 	/**
 	 * Broadcasts vote for the current winner of this election
@@ -173,7 +172,7 @@ private:
 	bool confirmed_locked () const;
 	nano::election_extended_status current_status_locked () const;
 	// lock_a does not own the mutex on return
-	void confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
+	void confirm_once (nano::unique_lock<nano::mutex> & lock_a);
 	bool broadcast_block_predicate () const;
 	void broadcast_block (nano::confirmation_solicitor &);
 	void send_confirm_req (nano::confirmation_solicitor &);
@@ -217,7 +216,7 @@ private: // Constants
 	friend class confirmation_solicitor;
 
 public: // Only used in tests
-	void force_confirm (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
+	void force_confirm ();
 	std::unordered_map<nano::account, nano::vote_info> votes () const;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
 
