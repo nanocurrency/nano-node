@@ -931,9 +931,9 @@ TEST (votes, add_one)
 	auto election1 = node1.active.election (send1->qualified_root ());
 	ASSERT_EQ (1, election1->votes ().size ());
 	auto vote1 = nano::test::make_vote (nano::dev::genesis_key, { send1 }, nano::vote::timestamp_min * 1, 0);
-	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
+	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1).at (send1->hash ()));
 	auto vote2 = nano::test::make_vote (nano::dev::genesis_key, { send1 }, nano::vote::timestamp_min * 2, 0);
-	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote2));
+	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote2).at (send1->hash ()));
 	ASSERT_EQ (2, election1->votes ().size ());
 	auto votes1 (election1->votes ());
 	auto existing1 (votes1.find (nano::dev::genesis_key.pub));
@@ -972,7 +972,7 @@ TEST (votes, add_existing)
 	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
 	auto election1 = node1.active.election (send1->qualified_root ());
 	auto vote1 = nano::test::make_vote (nano::dev::genesis_key, { send1 }, nano::vote::timestamp_min * 1, 0);
-	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
+	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1).at (send1->hash ()));
 	// Block is already processed from vote
 	ASSERT_TRUE (node1.active.publish (send1));
 	ASSERT_EQ (nano::vote::timestamp_min * 1, election1->last_votes[nano::dev::genesis_key.pub].timestamp);
@@ -994,13 +994,13 @@ TEST (votes, add_existing)
 	auto vote_info1 = election1->get_last_vote (nano::dev::genesis_key.pub);
 	vote_info1.time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	election1->set_last_vote (nano::dev::genesis_key.pub, vote_info1);
-	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote2));
+	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote2).at (send2->hash ()));
 	ASSERT_EQ (nano::vote::timestamp_min * 2, election1->last_votes[nano::dev::genesis_key.pub].timestamp);
 	// Also resend the old vote, and see if we respect the timestamp
 	auto vote_info2 = election1->get_last_vote (nano::dev::genesis_key.pub);
 	vote_info2.time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	election1->set_last_vote (nano::dev::genesis_key.pub, vote_info2);
-	ASSERT_EQ (nano::vote_code::replay, node1.active.vote (vote1));
+	ASSERT_EQ (nano::vote_code::replay, node1.active.vote (vote1).at (send1->hash ()));
 	ASSERT_EQ (nano::vote::timestamp_min * 2, election1->votes ()[nano::dev::genesis_key.pub].timestamp);
 	auto votes (election1->votes ());
 	ASSERT_EQ (2, votes.size ());

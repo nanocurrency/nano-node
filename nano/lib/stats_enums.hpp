@@ -173,6 +173,7 @@ enum class detail : uint8_t
 	vote_indeterminate,
 	vote_invalid,
 	vote_overflow,
+	vote_ignored,
 
 	// election specific
 	vote_new,

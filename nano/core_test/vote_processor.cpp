@@ -206,7 +206,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_FALSE (node.wallets.reps ().have_half_rep ()); // Genesis balance remaining after `send' is less than the half_rep threshold
 	// Process a vote with a key that is in the local wallet.
 	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch (), nano::vote::duration_max, std::vector<nano::block_hash>{ send->hash () });
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote).at (send->hash ()));
 	// Make sure the vote was processed.
 	auto election (node.active.election (send->qualified_root ()));
 	ASSERT_NE (nullptr, election);
@@ -254,7 +254,7 @@ TEST (vote_processor, local_broadcast_without_a_representative)
 	node.start_election (send);
 	// Process a vote without a representative
 	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch (), nano::vote::duration_max, std::vector<nano::block_hash>{ send->hash () });
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote).at (send->hash ()));
 	// Make sure the vote was processed.
 	std::shared_ptr<nano::election> election;
 	ASSERT_TIMELY (5s, election = node.active.election (send->qualified_root ()));
@@ -307,7 +307,7 @@ TEST (vote_processor, no_broadcast_local_with_a_principal_representative)
 	ASSERT_TRUE (node.wallets.reps ().have_half_rep ()); // Genesis balance after `send' is over both half_rep and PR threshold.
 	// Process a vote with a key that is in the local wallet.
 	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch (), nano::vote::duration_max, std::vector<nano::block_hash>{ send->hash () });
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote).at (send->hash ()));
 	// Make sure the vote was processed.
 	auto election (node.active.election (send->qualified_root ()));
 	ASSERT_NE (nullptr, election);

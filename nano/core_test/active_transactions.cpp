@@ -582,19 +582,19 @@ TEST (active_transactions, vote_replays)
 
 	// First vote is not a replay and confirms the election, second vote should be a replay since the election has confirmed but not yet removed
 	auto vote_send1 = nano::test::make_final_vote (nano::dev::genesis_key, { send1 });
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_send1));
-	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_send1));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_send1).at (send1->hash ()));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_send1).at (send1->hash ()));
 
 	// Wait until the election is removed, at which point the vote is still a replay since it's been recently confirmed
 	ASSERT_TIMELY_EQ (5s, node.active.size (), 1);
-	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_send1));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_send1).at (send1->hash ()));
 
 	// Open new account
 	auto vote_open1 = nano::test::make_final_vote (nano::dev::genesis_key, { open1 });
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_open1));
-	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_open1));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_open1).at (open1->hash ()));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_open1).at (open1->hash ()));
 	ASSERT_TIMELY (5s, node.active.empty ());
-	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_open1));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_open1).at (open1->hash ()));
 	ASSERT_EQ (nano::Gxrb_ratio, node.ledger.weight (key.pub));
 
 	// send 1 raw to key to key
@@ -615,27 +615,27 @@ TEST (active_transactions, vote_replays)
 	// vote2_send2 is a non final vote with little weight, vote1_send2 is the vote that confirms the election
 	auto vote1_send2 = nano::test::make_final_vote (nano::dev::genesis_key, { send2 });
 	auto vote2_send2 = nano::test::make_vote (key, { send2 }, 0, 0);
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote2_send2)); // this vote cannot confirm the election
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote2_send2).at (send2->hash ())); // this vote cannot confirm the election
 	ASSERT_EQ (1, node.active.size ());
-	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote2_send2)); // this vote cannot confirm the election
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote2_send2).at (send2->hash ())); // this vote cannot confirm the election
 	ASSERT_EQ (1, node.active.size ());
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote1_send2)); // this vote confirms the election
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote1_send2).at (send2->hash ())); // this vote confirms the election
 
 	// this should still return replay, either because the election is still in the AEC or because it is recently confirmed
-	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote1_send2));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote1_send2).at (send2->hash ()));
 	ASSERT_TIMELY (5s, node.active.empty ());
-	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote1_send2));
-	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote2_send2));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote1_send2).at (send2->hash ()));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote2_send2).at (send2->hash ()));
 
 	// Removing blocks as recently confirmed makes every vote indeterminate
 	{
 		nano::lock_guard<nano::mutex> guard (node.active.mutex);
 		node.active.recently_confirmed.clear ();
 	}
-	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_send1));
-	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_open1));
-	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote1_send2));
-	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote2_send2));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_send1).at (send1->hash ()));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_open1).at (open1->hash ()));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote1_send2).at (send2->hash ()));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote2_send2).at (send2->hash ()));
 }
 }
 
