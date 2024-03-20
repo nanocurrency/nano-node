@@ -21,14 +21,14 @@ using namespace std::chrono_literals;
 TEST (network, tcp_connection)
 {
 	nano::test::system system;
-	boost::asio::ip::tcp::acceptor acceptor (system.io_ctx);
+	boost::asio::ip::tcp::acceptor acceptor (*system.io_ctx);
 	auto port = system.get_available_port ();
 	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v4::any (), port);
 	acceptor.open (endpoint.protocol ());
 	acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
 	acceptor.bind (endpoint);
 	acceptor.listen ();
-	boost::asio::ip::tcp::socket incoming (system.io_ctx);
+	boost::asio::ip::tcp::socket incoming (*system.io_ctx);
 	std::atomic<bool> done1 (false);
 	std::string message1;
 	acceptor.async_accept (incoming, [&done1, &message1] (boost::system::error_code const & ec_a) {
@@ -39,7 +39,7 @@ TEST (network, tcp_connection)
 		}
 		done1 = true;
 	});
-	boost::asio::ip::tcp::socket connector (system.io_ctx);
+	boost::asio::ip::tcp::socket connector (*system.io_ctx);
 	std::atomic<bool> done2 (false);
 	std::string message2;
 	connector.async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), acceptor.local_endpoint ().port ()),
@@ -538,13 +538,13 @@ TEST (network, ipv6_bind_send_ipv4)
 	std::array<uint8_t, 16> bytes1{};
 	std::atomic<bool> finish1{ false };
 	nano::endpoint endpoint3;
-	boost::asio::ip::udp::socket socket1 (system.io_ctx, endpoint1);
+	boost::asio::ip::udp::socket socket1 (*system.io_ctx, endpoint1);
 	socket1.async_receive_from (boost::asio::buffer (bytes1.data (), bytes1.size ()), endpoint3, [&finish1] (boost::system::error_code const & error, size_t size_a) {
 		ASSERT_FALSE (error);
 		ASSERT_EQ (16, size_a);
 		finish1 = true;
 	});
-	boost::asio::ip::udp::socket socket2 (system.io_ctx, endpoint2);
+	boost::asio::ip::udp::socket socket2 (*system.io_ctx, endpoint2);
 	nano::endpoint endpoint5 (boost::asio::ip::address_v4::loopback (), socket1.local_endpoint ().port ());
 	nano::endpoint endpoint6 (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ()), socket2.local_endpoint ().port ());
 	socket2.async_send_to (boost::asio::buffer (std::array<uint8_t, 16>{}, 16), endpoint5, [] (boost::system::error_code const & error, size_t size_a) {

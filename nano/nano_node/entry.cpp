@@ -1129,8 +1129,8 @@ int main (int argc, char * const * argv)
 				}
 			}
 			std::cout << boost::str (boost::format ("Starting generating %1% blocks...\n") % (count * 2));
-			boost::asio::io_context io_ctx1;
-			boost::asio::io_context io_ctx2;
+			auto io_ctx1 = std::make_shared<boost::asio::io_context> ();
+			auto io_ctx2 = std::make_shared<boost::asio::io_context> ();
 			nano::work_pool work{ network_params.network, std::numeric_limits<unsigned>::max () };
 			auto path1 (nano::unique_path ());
 			auto path2 (nano::unique_path ());
@@ -1283,8 +1283,8 @@ int main (int argc, char * const * argv)
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
 			std::cout << boost::str (boost::format ("%|1$ 12d| us \n%2% frontiers per second\n") % time % ((count + 1) * 1000000 / time));
-			io_ctx1.stop ();
-			io_ctx2.stop ();
+			io_ctx1->stop ();
+			io_ctx2->stop ();
 			runner1.join ();
 			runner2.join ();
 			node1->stop ();

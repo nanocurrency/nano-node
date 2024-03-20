@@ -25,6 +25,49 @@ std::string nano::error_system_messages::message (int ev) const
 	return "Invalid error code";
 }
 
+/*
+ * system
+ */
+
+nano::test::system::system () :
+	io_ctx{ std::make_shared<boost::asio::io_context> () }
+{
+	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
+	if (scale_str)
+	{
+		deadline_scaling_factor = std::stod (scale_str);
+	}
+}
+
+nano::test::system::system (uint16_t count_a, nano::transport::transport_type type_a, nano::node_flags flags_a) :
+	system ()
+{
+	nodes.reserve (count_a);
+	for (uint16_t i (0); i < count_a; ++i)
+	{
+		add_node (default_config (), flags_a, type_a);
+	}
+}
+
+nano::test::system::~system ()
+{
+	// Only stop system in destructor to avoid confusing and random bugs when debugging assertions that hit deadline expired condition
+	stop ();
+
+#ifndef _WIN32
+	// Windows cannot remove the log and data files while they are still owned by this process.
+	// They will be removed later
+
+	// Clean up tmp directories created by the tests. Since it's sometimes useful to
+	// see log files after test failures, an environment variable is supported to
+	// retain the files.
+	if (std::getenv ("TEST_KEEP_TMPDIRS") == nullptr)
+	{
+		nano::remove_temporary_directories ();
+	}
+#endif
+}
+
 nano::node & nano::test::system::node (std::size_t index) const
 {
 	debug_assert (index < nodes.size ());
@@ -142,44 +185,6 @@ std::shared_ptr<nano::node> nano::test::system::make_disconnected_node (std::opt
 	return node;
 }
 
-nano::test::system::system ()
-{
-	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
-	if (scale_str)
-	{
-		deadline_scaling_factor = std::stod (scale_str);
-	}
-}
-
-nano::test::system::system (uint16_t count_a, nano::transport::transport_type type_a, nano::node_flags flags_a) :
-	system ()
-{
-	nodes.reserve (count_a);
-	for (uint16_t i (0); i < count_a; ++i)
-	{
-		add_node (default_config (), flags_a, type_a);
-	}
-}
-
-nano::test::system::~system ()
-{
-	// Only stop system in destructor to avoid confusing and random bugs when debugging assertions that hit deadline expired condition
-	stop ();
-
-#ifndef _WIN32
-	// Windows cannot remove the log and data files while they are still owned by this process.
-	// They will be removed later
-
-	// Clean up tmp directories created by the tests. Since it's sometimes useful to
-	// see log files after test failures, an environment variable is supported to
-	// retain the files.
-	if (std::getenv ("TEST_KEEP_TMPDIRS") == nullptr)
-	{
-		nano::remove_temporary_directories ();
-	}
-#endif
-}
-
 void nano::test::system::ledger_initialization_set (std::vector<nano::keypair> const & reps, nano::amount const & reserve)
 {
 	nano::block_hash previous = nano::dev::genesis->hash ();
@@ -285,7 +290,7 @@ void nano::test::system::deadline_set (std::chrono::duration<double, std::nano> 
 std::error_code nano::test::system::poll (std::chrono::nanoseconds const & wait_time)
 {
 #if NANO_ASIO_HANDLER_TRACKING == 0
-	io_ctx.run_one_for (wait_time);
+	io_ctx->run_one_for (wait_time);
 #else
 	nano::timer<> timer;
 	timer.start ();
@@ -331,7 +336,7 @@ void nano::test::system::delay_ms (std::chrono::milliseconds const & delay)
 	auto endtime = now + delay;
 	while (now <= endtime)
 	{
-		io_ctx.run_one_for (endtime - now);
+		io_ctx->run_one_for (endtime - now);
 		now = std::chrono::steady_clock::now ();
 	}
 }
