@@ -6036,7 +6036,7 @@ TEST (rpc, active_difficulty)
 // This is mainly to check for threading issues with TSAN
 TEST (rpc, simultaneous_calls)
 {
-	// This tests simulatenous calls to the same node in different threads
+	// This tests simultaneous calls to the same node in different threads
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
 	nano::thread_runner runner (system.io_ctx, node->config.io_threads);

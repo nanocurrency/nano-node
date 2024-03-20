@@ -776,7 +776,7 @@ std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info
 		/*
 		 * If the pending_address_only flag is set, de-duplicate the
 		 * responses.  The responses are the address of the sender,
-		 * so they are are part of the pending table's information
+		 * so they are part of the pending table's information
 		 * and not key, so we have to de-duplicate them manually.
 		 */
 		if (pending_address_only)
