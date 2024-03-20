@@ -160,7 +160,6 @@ public:
 	bool empty () const;
 	std::size_t size () const;
 	bool publish (std::shared_ptr<nano::block> const &);
-	boost::optional<nano::election_status_type> confirm_block (std::shared_ptr<nano::block> const &);
 	void block_cemented_callback (std::shared_ptr<nano::block> const &);
 	void block_already_cemented_callback (nano::block_hash const &);
 
@@ -177,7 +176,7 @@ public:
 
 	std::size_t election_winner_details_size ();
 	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
-	void remove_election_winner_details (nano::block_hash const &);
+	std::shared_ptr<nano::election> remove_election_winner_details (nano::block_hash const &);
 
 private:
 	// Erase elections if we're over capacity
@@ -195,11 +194,6 @@ private:
 	 * TODO: Should be moved to `vote_cache` class
 	 */
 	void add_vote_cache (nano::block_hash const & hash, std::shared_ptr<nano::vote> vote);
-	boost::optional<nano::election_status_type> election_status (std::shared_ptr<nano::block> const & block);
-	void process_inactive_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block);
-	void process_active_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, nano::election_status_type status);
-	void handle_final_votes_confirmation (std::shared_ptr<nano::block> const & block, nano::store::read_transaction const & transaction, nano::election_status_type status);
-	void handle_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, std::shared_ptr<nano::election> election, nano::election_status_type status);
 	void activate_successors (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block);
 	void notify_observers (nano::store::read_transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes);
 
