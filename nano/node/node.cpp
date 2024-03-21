@@ -221,9 +221,9 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 		return ledger.weight (rep);
 	};
 
-	backlog.activate_callback.add ([this] (secure::transaction const & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info) {
+	backlog.activate_callback.add ([this] (secure::transaction const & transaction, nano::account const & account) {
 		scheduler.priority.activate (account, transaction);
-		scheduler.optimistic.activate (account, account_info, conf_info);
+		scheduler.optimistic.activate (transaction, account);
 	});
 
 	active.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
