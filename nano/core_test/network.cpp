@@ -115,7 +115,7 @@ TEST (network, last_contacted)
 	ASSERT_EQ (0, node0->network.size ());
 
 	nano::node_config node1_config = system.default_config ();
-	node1_config.tcp_incoming_connections_max = 0; // Prevent ephemeral node1->node0 channel repacement with incoming connection
+	node1_config.tcp_incoming_connections_max = 0; // Prevent ephemeral node1->node0 channel replacement with incoming connection
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), node1_config, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
