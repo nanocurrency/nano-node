@@ -108,7 +108,7 @@ public:
 	}
 
 public: // Container info
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name)
+	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 

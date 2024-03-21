@@ -6,7 +6,6 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_pool.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/node/active_transactions.hpp>
 #include <nano/node/backlog_population.hpp>
 #include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/blockprocessor.hpp>
@@ -16,7 +15,6 @@
 #include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/distributed_work_factory.hpp>
-#include <nano/node/election.hpp>
 #include <nano/node/epoch_upgrader.hpp>
 #include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/network.hpp>
@@ -48,6 +46,7 @@
 
 namespace nano
 {
+class active_transactions;
 namespace rocksdb
 {
 } // Declare a namespace rocksdb inside nano so all references to the rocksdb library need to be globally scoped e.g. ::rocksdb::Slice
@@ -161,20 +160,24 @@ public:
 	std::filesystem::path application_path;
 	nano::node_observers observers;
 	nano::port_mapping port_mapping;
+	nano::block_processor block_processor;
+	nano::confirmation_height_processor confirmation_height_processor;
+	std::unique_ptr<nano::active_transactions> active_impl;
+	nano::active_transactions & active;
 	nano::online_reps online_reps;
 	nano::rep_crawler rep_crawler;
 	nano::rep_tiers rep_tiers;
 	nano::vote_processor vote_processor;
 	unsigned warmed_up;
-	nano::block_processor block_processor;
-	nano::local_vote_history history;
+	std::unique_ptr<nano::local_vote_history> history_impl;
+	nano::local_vote_history & history;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
-	nano::confirmation_height_processor confirmation_height_processor;
 	nano::vote_cache vote_cache;
-	nano::vote_generator generator;
-	nano::vote_generator final_generator;
-	nano::active_transactions active;
+	std::unique_ptr<nano::vote_generator> generator_impl;
+	nano::vote_generator & generator;
+	std::unique_ptr<nano::vote_generator> final_generator_impl;
+	nano::vote_generator & final_generator;
 
 private: // Placed here to maintain initialization order
 	std::unique_ptr<nano::scheduler::component> scheduler_impl;

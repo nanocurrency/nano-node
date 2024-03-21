@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/stats.hpp>
+#include <nano/lib/work.hpp>
 #include <nano/secure/ledger.hpp>
 
 namespace nano
