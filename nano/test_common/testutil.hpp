@@ -115,6 +115,46 @@
 		ASSERT_FALSE (condition);     \
 	}
 
+namespace nano::test
+{
+template <class... Ts>
+class start_stop_guard
+{
+public:
+	explicit start_stop_guard (Ts &... refs_a) :
+		refs{ std::forward<Ts &> (refs_a)... }
+	{
+		std::apply ([] (Ts &... refs) { (refs.start (), ...); }, refs);
+	}
+
+	~start_stop_guard ()
+	{
+		std::apply ([] (Ts &... refs) { (refs.stop (), ...); }, refs);
+	}
+
+private:
+	std::tuple<Ts &...> refs;
+};
+
+template <class... Ts>
+class stop_guard
+{
+public:
+	explicit stop_guard (Ts &... refs_a) :
+		refs{ std::forward<Ts &> (refs_a)... }
+	{
+	}
+
+	~stop_guard ()
+	{
+		std::apply ([] (Ts &... refs) { (refs.stop (), ...); }, refs);
+	}
+
+private:
+	std::tuple<Ts &...> refs;
+};
+}
+
 /* Convenience globals for gtest projects */
 namespace nano
 {
@@ -231,28 +271,6 @@ namespace test
 	private:
 		std::atomic<unsigned> count{ 0 };
 		std::atomic<unsigned> required_count;
-	};
-
-	/**
-	 * A helper that calls `start` from constructor and `stop` from destructor
-	 */
-	template <class T>
-	class start_stop_guard
-	{
-	public:
-		explicit start_stop_guard (T & ref_a) :
-			ref{ ref_a }
-		{
-			ref.start ();
-		}
-
-		~start_stop_guard ()
-		{
-			ref.stop ();
-		}
-
-	private:
-		T & ref;
 	};
 
 	void wait_peer_connections (nano::test::system &);
