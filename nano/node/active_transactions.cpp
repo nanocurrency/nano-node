@@ -441,18 +441,21 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 std::unordered_map<nano::block_hash, nano::vote_code> nano::active_transactions::vote (std::shared_ptr<nano::vote> const & vote)
 {
 	std::unordered_map<nano::block_hash, nano::vote_code> results;
-
-	std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> process;
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> process;
 	std::vector<nano::block_hash> inactive; // Hashes that should be added to inactive vote cache
 	{
 		nano::unique_lock<nano::mutex> lock{ mutex };
 		for (auto const & hash : vote->hashes)
 		{
-			debug_assert (results.find (hash) == results.end ());
+			// Ignore duplicate hashes (should not happen with a well-behaved voting node)
+			if (results.find (hash) != results.end ())
+			{
+				continue;
+			}
 
 			if (auto existing = blocks.find (hash); existing != blocks.end ())
 			{
-				process.emplace_back (existing->second, hash);
+				process[hash] = existing->second;
 			}
 			else if (!recently_confirmed.exists (hash))
 			{
@@ -476,7 +479,7 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::active_transactions:
 	{
 		bool processed = false;
 
-		for (auto const & [election, block_hash] : process)
+		for (auto const & [block_hash, election] : process)
 		{
 			auto const vote_result = election->vote (vote->account, vote->timestamp (), block_hash);
 			results[block_hash] = vote_result;
