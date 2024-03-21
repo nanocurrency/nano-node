@@ -152,7 +152,7 @@ public:
 	 */
 	nano::election_insertion_result insert (std::shared_ptr<nano::block> const &, nano::election_behavior = nano::election_behavior::normal);
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
-	nano::vote_code vote (std::shared_ptr<nano::vote> const &);
+	std::unordered_map<nano::block_hash, nano::vote_code> vote (std::shared_ptr<nano::vote> const &);
 	// Is the root of this block in the roots container
 	bool active (nano::block const &) const;
 	bool active (nano::qualified_root const &) const;

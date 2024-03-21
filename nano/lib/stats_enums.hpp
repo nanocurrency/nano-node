@@ -84,6 +84,7 @@ enum class detail : uint8_t
 	none,
 	success,
 	unknown,
+	cache,
 
 	// processing queue
 	queue,
@@ -167,12 +168,15 @@ enum class detail : uint8_t
 	frontier_confirmation_failed,
 	error_socket_close,
 
-	// vote specific
-	vote_valid,
-	vote_replay,
-	vote_indeterminate,
-	vote_invalid,
+	// vote result
+	vote,
+	valid,
+	replay,
+	indeterminate,
+
+	// vote processor
 	vote_overflow,
+	vote_ignored,
 
 	// election specific
 	vote_new,

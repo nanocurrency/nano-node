@@ -6,6 +6,7 @@
 #include <nano/node/election_behavior.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/vote_with_weight_info.hpp>
+#include <nano/secure/common.hpp>
 
 #include <atomic>
 #include <chrono>
@@ -42,23 +43,9 @@ struct election_extended_status final
 	void operator() (nano::object_stream &) const;
 };
 
-class election final : public std::enable_shared_from_this<nano::election>
+class election final : public std::enable_shared_from_this<election>
 {
 	nano::id_t const id{ nano::next_id () }; // Track individual objects when tracing
-
-public:
-	enum class vote_source
-	{
-		live,
-		cache,
-	};
-
-	enum class vote_result
-	{
-		ignored,
-		processed,
-		replay,
-	};
 
 private:
 	// Minimum time between broadcasts of the current winner of an election, as a backup to requesting confirmations
@@ -117,7 +104,7 @@ public: // Interface
 	 * Process vote. Internally uses cooldown to throttle non-final votes
 	 * If the election reaches consensus, it will be confirmed
 	 */
-	vote_result vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash, vote_source = vote_source::live);
+	nano::vote_code vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash, nano::vote_source = nano::vote_source::live);
 	bool publish (std::shared_ptr<nano::block> const & block_a);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (nano::unique_lock<nano::mutex> &);

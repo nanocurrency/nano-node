@@ -341,6 +341,20 @@ nano::block_hash const & nano::unchecked_key::key () const
 	return previous;
 }
 
+nano::stat::detail nano::to_stat_detail (nano::vote_code code)
+{
+	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (code));
+	debug_assert (value);
+	return value.value_or (nano::stat::detail{});
+}
+
+nano::stat::detail nano::to_stat_detail (nano::vote_source source)
+{
+	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (source));
+	debug_assert (value);
+	return value.value_or (nano::stat::detail{});
+}
+
 std::string_view nano::to_string (nano::block_status code)
 {
 	return magic_enum::enum_name (code);

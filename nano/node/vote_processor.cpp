@@ -163,32 +163,25 @@ void nano::vote_processor::verify_votes (decltype (votes) const & votes_a)
 
 nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, bool validated)
 {
-	auto result (nano::vote_code::invalid);
+	auto result = nano::vote_code::invalid;
 	if (validated || !vote_a->validate ())
 	{
-		result = active.vote (vote_a);
+		auto vote_results = active.vote (vote_a);
+
+		// Aggregate results for individual hashes
+		bool replay = false;
+		bool processed = false;
+		for (auto const & [hash, hash_result] : vote_results)
+		{
+			replay |= (hash_result == nano::vote_code::replay);
+			processed |= (hash_result == nano::vote_code::vote);
+		}
+		result = replay ? nano::vote_code::replay : (processed ? nano::vote_code::vote : nano::vote_code::indeterminate);
+
 		observers.vote.notify (vote_a, channel_a, result);
 	}
-	std::string status;
-	switch (result)
-	{
-		case nano::vote_code::invalid:
-			status = "Invalid";
-			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_invalid);
-			break;
-		case nano::vote_code::replay:
-			status = "Replay";
-			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_replay);
-			break;
-		case nano::vote_code::vote:
-			status = "Vote";
-			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_valid);
-			break;
-		case nano::vote_code::indeterminate:
-			status = "Indeterminate";
-			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_indeterminate);
-			break;
-	}
+
+	stats.inc (nano::stat::type::vote, to_stat_detail (result));
 
 	logger.trace (nano::log::type::vote_processor, nano::log::detail::vote_processed,
 	nano::log::arg{ "vote", vote_a },

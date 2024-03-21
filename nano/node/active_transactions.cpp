@@ -438,31 +438,33 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 }
 
 // Validate a vote and apply it to the current election if one exists
-nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> const & vote_a)
+std::unordered_map<nano::block_hash, nano::vote_code> nano::active_transactions::vote (std::shared_ptr<nano::vote> const & vote)
 {
-	nano::vote_code result{ nano::vote_code::indeterminate };
-	// If all hashes were recently confirmed then it is a replay
-	unsigned recently_confirmed_counter (0);
-
-	std::vector<std::pair<std::shared_ptr<nano::election>, nano::block_hash>> process;
+	std::unordered_map<nano::block_hash, nano::vote_code> results;
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> process;
 	std::vector<nano::block_hash> inactive; // Hashes that should be added to inactive vote cache
-
 	{
 		nano::unique_lock<nano::mutex> lock{ mutex };
-		for (auto const & hash : vote_a->hashes)
+		for (auto const & hash : vote->hashes)
 		{
-			auto existing (blocks.find (hash));
-			if (existing != blocks.end ())
+			// Ignore duplicate hashes (should not happen with a well-behaved voting node)
+			if (results.find (hash) != results.end ())
 			{
-				process.emplace_back (existing->second, hash);
+				continue;
+			}
+
+			if (auto existing = blocks.find (hash); existing != blocks.end ())
+			{
+				process[hash] = existing->second;
 			}
 			else if (!recently_confirmed.exists (hash))
 			{
 				inactive.emplace_back (hash);
+				results[hash] = nano::vote_code::indeterminate;
 			}
 			else
 			{
-				++recently_confirmed_counter;
+				results[hash] = nano::vote_code::replay;
 			}
 		}
 	}
@@ -470,37 +472,38 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> con
 	// Process inactive votes outside of the critical section
 	for (auto & hash : inactive)
 	{
-		add_vote_cache (hash, vote_a);
+		add_vote_cache (hash, vote);
 	}
 
 	if (!process.empty ())
 	{
-		bool replay = false;
 		bool processed = false;
 
-		for (auto const & [election, block_hash] : process)
+		for (auto const & [block_hash, election] : process)
 		{
-			auto const vote_result = election->vote (vote_a->account, vote_a->timestamp (), block_hash);
-			processed |= (vote_result == nano::election::vote_result::processed);
-			replay |= (vote_result == nano::election::vote_result::replay);
+			auto const vote_result = election->vote (vote->account, vote->timestamp (), block_hash);
+			results[block_hash] = vote_result;
+
+			processed |= (vote_result == nano::vote_code::vote);
 		}
 
 		// Republish vote if it is new and the node does not host a principal representative (or close to)
 		if (processed)
 		{
 			auto const reps (node.wallets.reps ());
-			if (!reps.have_half_rep () && !reps.exists (vote_a->account))
+			if (!reps.have_half_rep () && !reps.exists (vote->account))
 			{
-				node.network.flood_vote (vote_a, 0.5f);
+				node.network.flood_vote (vote, 0.5f);
 			}
 		}
-		result = replay ? nano::vote_code::replay : nano::vote_code::vote;
 	}
-	else if (recently_confirmed_counter == vote_a->hashes.size ())
-	{
-		result = nano::vote_code::replay;
-	}
-	return result;
+
+	// All hashes should have their result set
+	debug_assert (std::all_of (vote->hashes.begin (), vote->hashes.end (), [&results] (auto const & hash) {
+		return results.find (hash) != results.end ();
+	}));
+
+	return results;
 }
 
 bool nano::active_transactions::active (nano::qualified_root const & root_a) const

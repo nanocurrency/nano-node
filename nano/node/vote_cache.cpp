@@ -69,8 +69,8 @@ std::size_t nano::vote_cache::entry::fill (std::shared_ptr<nano::election> const
 	std::size_t inserted = 0;
 	for (const auto & entry : voters_m)
 	{
-		auto result = election->vote (entry.representative, entry.timestamp, hash_m, nano::election::vote_source::cache);
-		if (result == nano::election::vote_result::processed)
+		auto result = election->vote (entry.representative, entry.timestamp, hash_m, nano::vote_source::cache);
+		if (result == nano::vote_code::vote)
 		{
 			inserted++;
 		}
