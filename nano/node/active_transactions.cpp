@@ -480,27 +480,10 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::active_transactions:
 		}
 	}
 
-	if (!process.empty ())
+	for (auto const & [block_hash, election] : process)
 	{
-		bool processed = false;
-
-		for (auto const & [block_hash, election] : process)
-		{
-			auto const vote_result = election->vote (vote->account, vote->timestamp (), block_hash, source);
-			results[block_hash] = vote_result;
-
-			processed |= (vote_result == nano::vote_code::vote);
-		}
-
-		// Republish vote if it is new and the node does not host a principal representative (or close to)
-		if (processed)
-		{
-			auto const reps (node.wallets.reps ());
-			if (!reps.have_half_rep () && !reps.exists (vote->account))
-			{
-				node.network.flood_vote (vote, 0.5f);
-			}
-		}
+		auto const vote_result = election->vote (vote->account, vote->timestamp (), block_hash, source);
+		results[block_hash] = vote_result;
 	}
 
 	// All hashes should have their result set
