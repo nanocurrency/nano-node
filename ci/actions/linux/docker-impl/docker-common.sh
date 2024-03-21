@@ -18,7 +18,13 @@ fi
 
 if [[ "$NETWORK" = "LIVE" ]]; then
     echo "Live"
-    network_tag_suffix=''
+    if [[ "$IS_RELEASE_BUILD" = "true" ]]; then
+        network_tag_suffix=''
+        docker_image_name="${DOCKER_REGISTRY}/nano"
+    else
+        network_tag_suffix='-nightly'
+        docker_image_name="${DOCKER_REGISTRY}/nano-nightly"
+    fi
     network="live"
 elif [[ "$NETWORK" = "BETA" ]]; then
     echo "Beta"
