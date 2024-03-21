@@ -19,7 +19,7 @@
  * socket
  */
 
-nano::transport::socket::socket (nano::node & node_a, endpoint_type_t endpoint_type_a, std::size_t max_queue_size_a) :
+nano::transport::socket::socket (nano::node & node_a, nano::transport::socket_endpoint endpoint_type_a, std::size_t max_queue_size_a) :
 	send_queue{ max_queue_size_a },
 	strand{ node_a.io_ctx.get_executor () },
 	tcp_socket{ node_a.io_ctx },
@@ -47,7 +47,7 @@ void nano::transport::socket::start ()
 void nano::transport::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::function<void (boost::system::error_code const &)> callback_a)
 {
 	debug_assert (callback_a);
-	debug_assert (endpoint_type () == endpoint_type_t::client);
+	debug_assert (endpoint_type () == socket_endpoint::client);
 
 	start ();
 	set_default_timeout ();
@@ -248,7 +248,7 @@ void nano::transport::socket::ongoing_checkup ()
 			auto condition_to_disconnect{ false };
 
 			// if this is a server socket, and no data is received for silent_connection_tolerance_time seconds then disconnect
-			if (this_l->endpoint_type () == endpoint_type_t::server && (now - this_l->last_receive_time_or_init) > static_cast<uint64_t> (this_l->silent_connection_tolerance_time.count ()))
+			if (this_l->endpoint_type () == socket_endpoint::server && (now - this_l->last_receive_time_or_init) > static_cast<uint64_t> (this_l->silent_connection_tolerance_time.count ()))
 			{
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_silent_connection_drop, nano::stat::dir::in);
 
@@ -258,7 +258,7 @@ void nano::transport::socket::ongoing_checkup ()
 			// if there is no activity for timeout seconds then disconnect
 			if ((now - this_l->last_completion_time_or_init) > this_l->timeout)
 			{
-				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, this_l->endpoint_type () == endpoint_type_t::server ? nano::stat::dir::in : nano::stat::dir::out);
+				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, this_l->endpoint_type () == socket_endpoint::server ? nano::stat::dir::in : nano::stat::dir::out);
 
 				condition_to_disconnect = true;
 			}
@@ -462,7 +462,16 @@ std::size_t network_prefix)
 	return counted_connections;
 }
 
-std::string_view nano::transport::to_string (nano::transport::socket::type_t type)
+/*
+ *
+ */
+
+std::string_view nano::transport::to_string (socket_type type)
+{
+	return magic_enum::enum_name (type);
+}
+
+std::string_view nano::transport::to_string (socket_endpoint type)
 {
 	return magic_enum::enum_name (type);
 }

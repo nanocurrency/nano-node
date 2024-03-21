@@ -38,11 +38,11 @@ nano::transport::tcp_server::~tcp_server ()
 
 	node->logger.debug (nano::log::type::tcp_server, "Exiting TCP server ({})", fmt::streamed (remote_endpoint));
 
-	if (socket->type () == nano::transport::socket::type_t::bootstrap)
+	if (socket->type () == nano::transport::socket_type::bootstrap)
 	{
 		--node->tcp_listener->bootstrap_count;
 	}
-	else if (socket->type () == nano::transport::socket::type_t::realtime)
+	else if (socket->type () == nano::transport::socket_type::realtime)
 	{
 		--node->tcp_listener->realtime_count;
 
@@ -612,13 +612,13 @@ bool nano::transport::tcp_server::to_bootstrap_connection ()
 	{
 		return false;
 	}
-	if (socket->type () != nano::transport::socket::type_t::undefined)
+	if (socket->type () != nano::transport::socket_type::undefined)
 	{
 		return false;
 	}
 
 	++node->tcp_listener->bootstrap_count;
-	socket->type_set (nano::transport::socket::type_t::bootstrap);
+	socket->type_set (nano::transport::socket_type::bootstrap);
 
 	node->logger.debug (nano::log::type::tcp_server, "Switched to bootstrap mode ({})", fmt::streamed (remote_endpoint));
 
@@ -636,14 +636,14 @@ bool nano::transport::tcp_server::to_realtime_connection (nano::account const & 
 	{
 		return false;
 	}
-	if (socket->type () != nano::transport::socket::type_t::undefined)
+	if (socket->type () != nano::transport::socket_type::undefined)
 	{
 		return false;
 	}
 
 	remote_node_id = node_id;
 	++node->tcp_listener->realtime_count;
-	socket->type_set (nano::transport::socket::type_t::realtime);
+	socket->type_set (nano::transport::socket_type::realtime);
 
 	node->logger.debug (nano::log::type::tcp_server, "Switched to realtime mode ({})", fmt::streamed (remote_endpoint));
 
@@ -652,7 +652,7 @@ bool nano::transport::tcp_server::to_realtime_connection (nano::account const & 
 
 bool nano::transport::tcp_server::is_undefined_connection () const
 {
-	return socket->type () == nano::transport::socket::type_t::undefined;
+	return socket->type () == nano::transport::socket_type::undefined;
 }
 
 bool nano::transport::tcp_server::is_bootstrap_connection () const

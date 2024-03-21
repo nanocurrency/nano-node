@@ -143,7 +143,7 @@ void nano::transport::tcp_listener::on_connection (std::function<bool (std::shar
 		}
 
 		// Prepare new connection
-		auto new_connection = std::make_shared<nano::transport::socket> (this_l->node, socket::endpoint_type_t::server);
+		auto new_connection = std::make_shared<nano::transport::socket> (this_l->node, socket_endpoint::server);
 		this_l->acceptor.async_accept (new_connection->tcp_socket, new_connection->remote,
 		boost::asio::bind_executor (this_l->strand,
 		[this_l, new_connection, cbk = std::move (callback)] (boost::system::error_code const & ec_a) mutable {
