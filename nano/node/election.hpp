@@ -6,6 +6,7 @@
 #include <nano/node/election_behavior.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/vote_with_weight_info.hpp>
+#include <nano/secure/common.hpp>
 
 #include <atomic>
 #include <chrono>
@@ -42,7 +43,7 @@ struct election_extended_status final
 	void operator() (nano::object_stream &) const;
 };
 
-class election final : public std::enable_shared_from_this<nano::election>
+class election final : public std::enable_shared_from_this<election>
 {
 	nano::id_t const id{ nano::next_id () }; // Track individual objects when tracing
 
