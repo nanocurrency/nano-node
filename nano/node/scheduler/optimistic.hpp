@@ -25,6 +25,7 @@ namespace nano
 class account_info;
 class active_transactions;
 class ledger;
+class ledger_view;
 class node;
 }
 
@@ -60,7 +61,7 @@ public:
 	/**
 	 * Called from backlog population to process accounts with unconfirmed blocks
 	 */
-	bool activate (nano::account const &, nano::account_info const &, nano::confirmation_height_info const &);
+	bool activate (nano::store::transaction const & transaction, nano::account const & account);
 
 	/**
 	 * Notify about changes in AEC vacancy
@@ -70,7 +71,7 @@ public:
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
 
 private:
-	bool activate_predicate (nano::account_info const &, nano::confirmation_height_info const &) const;
+	bool activate_predicate (nano::store::transaction const & transaction, nano::account const & account) const;
 
 	bool predicate () const;
 	void run ();
