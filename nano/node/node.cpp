@@ -195,7 +195,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	scheduler{ *scheduler_impl },
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
-	backlog{ nano::backlog_population_config (config), store, stats },
+	backlog{ nano::backlog_population_config (config), ledger, stats },
 	ascendboot{ config, block_processor, ledger, network, stats },
 	websocket{ config.websocket_config, observers, wallets, ledger, io_ctx, logger },
 	epoch_upgrader{ *this, ledger, store, network_params, logger },

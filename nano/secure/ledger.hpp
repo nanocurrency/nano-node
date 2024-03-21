@@ -28,6 +28,7 @@ class write_transaction;
 
 namespace nano
 {
+class backlog_population;
 class block;
 class block_delta;
 enum class block_status;
@@ -41,6 +42,7 @@ class stats;
 
 class ledger final
 {
+	friend class backlog_population;
 	friend class block_check_context;
 	friend class ledger_view_unconfirmed;
 	template <typename T>
