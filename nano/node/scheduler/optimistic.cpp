@@ -25,12 +25,12 @@ nano::scheduler::optimistic::~optimistic ()
 
 void nano::scheduler::optimistic::start ()
 {
+	debug_assert (!thread.joinable ());
+
 	if (!config.enabled)
 	{
 		return;
 	}
-
-	debug_assert (!thread.joinable ());
 
 	thread = std::thread{ [this] () {
 		nano::thread_role::set (nano::thread_role::name::scheduler_optimistic);
