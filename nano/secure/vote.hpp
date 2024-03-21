@@ -12,6 +12,11 @@
 
 namespace nano
 {
+class object_stream;
+}
+
+namespace nano
+{
 class vote final
 {
 public:

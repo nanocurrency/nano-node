@@ -2,8 +2,11 @@
 #include <nano/lib/stream.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/daemonconfig.hpp>
+#include <nano/node/election_status.hpp>
+#include <nano/node/local_vote_history.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/component.hpp>
@@ -12,6 +15,7 @@
 #include <nano/node/scheduler/optimistic.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/telemetry.hpp>
+#include <nano/node/vote_generator.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
@@ -165,19 +169,23 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	tcp_listener{ std::make_shared<nano::transport::tcp_listener> (network.port, *this, config.tcp_incoming_connections_max) },
 	application_path (application_path_a),
 	port_mapping (*this),
+	block_processor (*this, write_database_queue),
+	confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
+	active_impl{ std::make_unique<nano::active_transactions> (*this, confirmation_height_processor, block_processor) },
+	active{ *active_impl },
 	rep_crawler (config.rep_crawler, *this),
 	rep_tiers{ ledger, network_params, online_reps, stats, logger },
 	vote_processor{ active, observers, stats, config, flags, logger, online_reps, rep_crawler, ledger, network_params, rep_tiers },
 	warmed_up (0),
-	block_processor (*this, write_database_queue),
 	online_reps (ledger, config),
-	history{ config.network_params.voting },
+	history_impl{ std::make_unique<nano::local_vote_history> (config.network_params.voting) },
+	history{ *history_impl },
 	vote_uniquer{},
-	confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 	vote_cache{ config.vote_cache, stats },
-	generator{ config, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* non-final */ false },
-	final_generator{ config, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* final */ true },
-	active{ *this, confirmation_height_processor, block_processor },
+	generator_impl{ std::make_unique<nano::vote_generator> (config, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* non-final */ false) },
+	generator{ *generator_impl },
+	final_generator_impl{ std::make_unique<nano::vote_generator> (config, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* final */ true) },
+	final_generator{ *final_generator_impl },
 	scheduler_impl{ std::make_unique<nano::scheduler::component> (*this) },
 	scheduler{ *scheduler_impl },
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
@@ -537,7 +545,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (node.rep_crawler.collect_container_info ("rep_crawler"));
 	composite->add_component (node.block_processor.collect_container_info ("block_processor"));
 	composite->add_component (collect_container_info (node.online_reps, "online_reps"));
-	composite->add_component (collect_container_info (node.history, "history"));
+	composite->add_component (node.history.collect_container_info ("history"));
 	composite->add_component (node.block_uniquer.collect_container_info ("block_uniquer"));
 	composite->add_component (node.vote_uniquer.collect_container_info ("vote_uniquer"));
 	composite->add_component (collect_container_info (node.confirmation_height_processor, "confirmation_height_processor"));
@@ -545,8 +553,8 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.aggregator, "request_aggregator"));
 	composite->add_component (node.scheduler.collect_container_info ("election_scheduler"));
 	composite->add_component (node.vote_cache.collect_container_info ("vote_cache"));
-	composite->add_component (collect_container_info (node.generator, "vote_generator"));
-	composite->add_component (collect_container_info (node.final_generator, "vote_generator_final"));
+	composite->add_component (node.generator.collect_container_info ("vote_generator"));
+	composite->add_component (node.final_generator.collect_container_info ("vote_generator_final"));
 	composite->add_component (node.ascendboot.collect_container_info ("bootstrap_ascending"));
 	composite->add_component (node.unchecked.collect_container_info ("unchecked"));
 	composite->add_component (node.local_block_broadcaster.collect_container_info ("local_block_broadcaster"));
