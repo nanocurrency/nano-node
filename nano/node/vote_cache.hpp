@@ -38,8 +38,8 @@ public:
 	nano::error serialize (nano::tomlconfig & toml) const;
 
 public:
-	std::size_t max_size{ 1024 * 128 };
-	std::size_t max_voters{ 128 };
+	std::size_t max_size{ 1024 * 64 };
+	std::size_t max_voters{ 64 };
 	std::chrono::seconds age_cutoff{ 15 * 60 };
 };
 
