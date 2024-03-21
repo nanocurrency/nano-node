@@ -47,9 +47,6 @@
 namespace nano
 {
 class active_transactions;
-namespace rocksdb
-{
-} // Declare a namespace rocksdb inside nano so all references to the rocksdb library need to be globally scoped e.g. ::rocksdb::Slice
 class node;
 class work_pool;
 
@@ -57,7 +54,17 @@ namespace scheduler
 {
 	class component;
 }
+namespace transport
+{
+	class tcp_listener;
+}
+namespace rocksdb
+{
+} // Declare a namespace rocksdb inside nano so all references to the rocksdb library need to be globally scoped e.g. ::rocksdb::Slice
+}
 
+namespace nano
+{
 // Configs
 backlog_population::config backlog_population_config (node_config const &);
 outbound_bandwidth_limiter::config outbound_bandwidth_limiter_config (node_config const &);
