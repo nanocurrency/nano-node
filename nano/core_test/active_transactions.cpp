@@ -365,7 +365,7 @@ TEST (inactive_votes_cache, existing_vote)
 	ASSERT_EQ (send->hash (), last_vote1.hash);
 	ASSERT_EQ (nano::vote::timestamp_min * 1, last_vote1.timestamp);
 	// Attempt to change vote with inactive_votes_cache
-	node.vote_cache.vote (vote1);
+	node.vote_cache.insert (vote1);
 	auto cached = node.vote_cache.find (send->hash ());
 	ASSERT_EQ (1, cached.size ());
 	for (auto const & cached_vote : cached)
@@ -1535,7 +1535,7 @@ TEST (active_transactions, allow_limited_overflow)
 	{
 		// Non-final vote, so it stays in the AEC without getting confirmed
 		auto vote = nano::test::make_vote (nano::dev::genesis_key, { block });
-		node.vote_cache.vote (vote);
+		node.vote_cache.insert (vote);
 	}
 
 	// Ensure active elections overfill AEC only up to normal + hinted limit
@@ -1573,7 +1573,7 @@ TEST (active_transactions, allow_limited_overflow_adapt)
 	{
 		// Non-final vote, so it stays in the AEC without getting confirmed
 		auto vote = nano::test::make_vote (nano::dev::genesis_key, { block });
-		node.vote_cache.vote (vote);
+		node.vote_cache.insert (vote);
 	}
 
 	// Ensure hinted election amount is bounded by hinted limit

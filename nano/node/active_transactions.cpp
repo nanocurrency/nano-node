@@ -419,13 +419,9 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 
 	if (result.inserted)
 	{
-		release_assert (result.election);
+		debug_assert (result.election);
 
-		auto cached = node.vote_cache.find (hash);
-		for (auto const & cached_vote : cached)
-		{
-			vote (cached_vote);
-		}
+		trigger_vote_cache (hash);
 
 		node.observers.active_started.notify (hash);
 		vacancy_update ();
@@ -442,8 +438,18 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 	return result;
 }
 
+bool nano::active_transactions::trigger_vote_cache (nano::block_hash hash)
+{
+	auto cached = node.vote_cache.find (hash);
+	for (auto const & cached_vote : cached)
+	{
+		vote (cached_vote, nano::vote_source::cache);
+	}
+	return !cached.empty ();
+}
+
 // Validate a vote and apply it to the current election if one exists
-std::unordered_map<nano::block_hash, nano::vote_code> nano::active_transactions::vote (std::shared_ptr<nano::vote> const & vote)
+std::unordered_map<nano::block_hash, nano::vote_code> nano::active_transactions::vote (std::shared_ptr<nano::vote> const & vote, nano::vote_source source)
 {
 	std::unordered_map<nano::block_hash, nano::vote_code> results;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> process;
@@ -480,7 +486,7 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::active_transactions:
 
 		for (auto const & [block_hash, election] : process)
 		{
-			auto const vote_result = election->vote (vote->account, vote->timestamp (), block_hash);
+			auto const vote_result = election->vote (vote->account, vote->timestamp (), block_hash, source);
 			results[block_hash] = vote_result;
 
 			processed |= (vote_result == nano::vote_code::vote);
@@ -501,6 +507,8 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::active_transactions:
 	debug_assert (std::all_of (vote->hashes.begin (), vote->hashes.end (), [&results] (auto const & hash) {
 		return results.find (hash) != results.end ();
 	}));
+
+	vote_processed.notify (vote, source, results);
 
 	return results;
 }
@@ -612,11 +620,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> const & bl
 			blocks.emplace (block_a->hash (), election);
 			lock.unlock ();
 
-			auto cached = node.vote_cache.find (block_a->hash ());
-			for (auto const & cached_vote : cached)
-			{
-				vote (cached_vote);
-			}
+			trigger_vote_cache (block_a->hash ());
 
 			node.stats.inc (nano::stat::type::active, nano::stat::detail::election_block_conflict);
 		}

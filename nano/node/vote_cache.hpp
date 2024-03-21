@@ -106,9 +106,14 @@ public:
 	/**
 	 * Adds a new vote to cache
 	 */
-	void vote (
+	void insert (
 	std::shared_ptr<nano::vote> const & vote,
-	std::function<bool (nano::block_hash const &)> const & filter = [] (nano::block_hash const &) { return true; });
+	std::function<bool (nano::block_hash const &)> filter = [] (nano::block_hash const &) { return true; });
+
+	/**
+	 * Should be called for every processed vote, filters which votes should be added to cache
+	 */
+	void observe (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code>);
 
 	/**
 	 * Tries to find an entry associated with block hash

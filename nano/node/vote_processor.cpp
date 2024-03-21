@@ -176,7 +176,7 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 		}
 		result = replay ? nano::vote_code::replay : (processed ? nano::vote_code::vote : nano::vote_code::indeterminate);
 
-		observers.vote.notify (vote_a, channel_a, result);
+		observers.vote.notify (vote, channel, result);
 	}
 
 	stats.inc (nano::stat::type::vote, to_stat_detail (result));
