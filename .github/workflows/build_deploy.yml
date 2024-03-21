@@ -155,6 +155,8 @@ jobs:
     strategy:
       matrix:
         network: ["TEST", "BETA", "LIVE"]
+    env:
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
     steps:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
         with:
@@ -167,10 +169,8 @@ jobs:
           NETWORK: ${{ matrix.network }}
           CI_TAG: ${{ needs.prepare_build.outputs.ci_tag }}
           DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
-      - name: Check if secrets.DOCKER_PASSWORD exists
-        run: echo "DOCKER_PASSWORD_EXISTS=${{ secrets.DOCKER_PASSWORD != '' }}" >> $GITHUB_ENV
       - name: Deploy Docker Hub
-        if: env.DOCKER_PASSWORD_EXISTS == 'true'
+        if: env.DOCKER_PASSWORD != ''
         run: ci/actions/linux/docker-deploy.sh
         env:
           CI_TAG: ${{ needs.prepare_build.outputs.ci_tag }}
