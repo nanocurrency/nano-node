@@ -164,7 +164,6 @@ private:
 	// clang-format off
 	class tag_sequenced {};
 	class tag_hash {};
-	class tag_tally {};
 	// clang-format on
 
 	// clang-format off
@@ -172,9 +171,7 @@ private:
 	mi::indexed_by<
 		mi::hashed_unique<mi::tag<tag_hash>,
 			mi::const_mem_fun<entry, nano::block_hash, &entry::hash>>,
-		mi::sequenced<mi::tag<tag_sequenced>>,
-		mi::ordered_non_unique<mi::tag<tag_tally>,
-			mi::const_mem_fun<entry, nano::uint128_t, &entry::tally>, std::greater<>> // DESC
+		mi::sequenced<mi::tag<tag_sequenced>>
 	>>;
 	// clang-format on
 	ordered_cache cache;
