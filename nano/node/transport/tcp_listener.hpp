@@ -36,8 +36,10 @@ public:
 	void start (std::function<bool (std::shared_ptr<nano::transport::socket> const &, boost::system::error_code const &)> callback = {});
 	void stop ();
 
-	std::size_t connection_count () const;
 	nano::tcp_endpoint endpoint () const;
+	size_t connection_count () const;
+	size_t realtime_count () const;
+	size_t bootstrap_count () const;
 
 	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name);
 
@@ -69,10 +71,6 @@ private:
 	accept_result check_limits (boost::asio::ip::address const & ip);
 	size_t count_per_ip (boost::asio::ip::address const & ip) const;
 	size_t count_per_subnetwork (boost::asio::ip::address const & ip) const;
-
-public:
-	std::atomic<std::size_t> bootstrap_count{ 0 };
-	std::atomic<std::size_t> realtime_count{ 0 };
 
 private:
 	struct entry

@@ -300,10 +300,36 @@ auto nano::transport::tcp_listener::check_limits (boost::asio::ip::address const
 	return accept_result::accepted;
 }
 
-std::size_t nano::transport::tcp_listener::connection_count () const
+size_t nano::transport::tcp_listener::connection_count () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	return connections.size ();
+}
+
+size_t nano::transport::tcp_listener::realtime_count () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+
+	return std::count_if (connections.begin (), connections.end (), [] (auto const & connection) {
+		if (auto socket = connection.socket.lock ())
+		{
+			return socket->is_realtime_connection ();
+		}
+		return false;
+	});
+}
+
+size_t nano::transport::tcp_listener::bootstrap_count () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+
+	return std::count_if (connections.begin (), connections.end (), [] (auto const & connection) {
+		if (auto socket = connection.socket.lock ())
+		{
+			return socket->is_bootstrap_connection ();
+		}
+		return false;
+	});
 }
 
 size_t nano::transport::tcp_listener::count_per_ip (boost::asio::ip::address const & ip) const
