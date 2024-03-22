@@ -131,8 +131,8 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 			auto starting_size_1 = node1->network.size ();
 			auto starting_size_2 = node2->network.size ();
 
-			auto starting_realtime_1 = node1->tcp_listener->realtime_count ();
-			auto starting_realtime_2 = node2->tcp_listener->realtime_count ();
+			auto starting_realtime_1 = node1->tcp_listener.realtime_count ();
+			auto starting_realtime_2 = node2->tcp_listener.realtime_count ();
 
 			auto starting_keepalives_1 = node1->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
 			auto starting_keepalives_2 = node2->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
@@ -155,8 +155,8 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 				{
 					// Wait for initial connection finish
 					auto ec = poll_until_true (5s, [&node1, &node2, starting_realtime_1, starting_realtime_2] () {
-						auto realtime_1 = node1->tcp_listener->realtime_count ();
-						auto realtime_2 = node2->tcp_listener->realtime_count ();
+						auto realtime_1 = node1->tcp_listener.realtime_count ();
+						auto realtime_2 = node2->tcp_listener.realtime_count ();
 						return realtime_1 > starting_realtime_1 && realtime_2 > starting_realtime_2;
 					});
 					debug_assert (!ec);

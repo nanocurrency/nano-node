@@ -602,7 +602,7 @@ bool nano::transport::tcp_server::to_bootstrap_connection ()
 	{
 		return false;
 	}
-	if (node->tcp_listener->bootstrap_count () >= node->config.bootstrap_connections_max)
+	if (node->tcp_listener.bootstrap_count () >= node->config.bootstrap_connections_max)
 	{
 		return false;
 	}

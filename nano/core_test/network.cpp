@@ -65,7 +65,7 @@ TEST (network, construction_with_specified_port)
 	auto const node = system.add_node (nano::node_config{ port });
 	EXPECT_EQ (port, node->network.port);
 	EXPECT_EQ (port, node->network.endpoint ().port ());
-	EXPECT_EQ (port, node->tcp_listener->endpoint ().port ());
+	EXPECT_EQ (port, node->tcp_listener.endpoint ().port ());
 }
 
 TEST (network, construction_without_specified_port)
@@ -75,7 +75,7 @@ TEST (network, construction_without_specified_port)
 	auto const port = node->network.port.load ();
 	EXPECT_NE (0, port);
 	EXPECT_EQ (port, node->network.endpoint ().port ());
-	EXPECT_EQ (port, node->tcp_listener->endpoint ().port ());
+	EXPECT_EQ (port, node->tcp_listener.endpoint ().port ());
 }
 
 TEST (network, send_node_id_handshake_tcp)
@@ -614,7 +614,7 @@ TEST (tcp_listener, tcp_node_id_handshake)
 {
 	nano::test::system system (1);
 	auto socket (std::make_shared<nano::transport::socket> (*system.nodes[0]));
-	auto bootstrap_endpoint (system.nodes[0]->tcp_listener->endpoint ());
+	auto bootstrap_endpoint (system.nodes[0]->tcp_listener.endpoint ());
 	auto cookie (system.nodes[0]->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (bootstrap_endpoint)));
 	ASSERT_TRUE (cookie);
 	nano::node_id_handshake::query_payload query{ *cookie };
@@ -653,7 +653,7 @@ TEST (tcp_listener, DISABLED_tcp_listener_timeout_empty)
 	auto node0 (system.nodes[0]);
 	auto socket (std::make_shared<nano::transport::socket> (*node0));
 	std::atomic<bool> connected (false);
-	socket->async_connect (node0->tcp_listener->endpoint (), [&connected] (boost::system::error_code const & ec) {
+	socket->async_connect (node0->tcp_listener.endpoint (), [&connected] (boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
 		connected = true;
 	});
@@ -662,7 +662,7 @@ TEST (tcp_listener, DISABLED_tcp_listener_timeout_empty)
 	system.deadline_set (std::chrono::seconds (6));
 	while (!disconnected)
 	{
-		disconnected = node0->tcp_listener->connection_count () == 0;
+		disconnected = node0->tcp_listener.connection_count () == 0;
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
@@ -672,24 +672,24 @@ TEST (tcp_listener, tcp_listener_timeout_node_id_handshake)
 	nano::test::system system (1);
 	auto node0 (system.nodes[0]);
 	auto socket (std::make_shared<nano::transport::socket> (*node0));
-	auto cookie (node0->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (node0->tcp_listener->endpoint ())));
+	auto cookie (node0->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (node0->tcp_listener.endpoint ())));
 	ASSERT_TRUE (cookie);
 	nano::node_id_handshake::query_payload query{ *cookie };
 	nano::node_id_handshake node_id_handshake{ nano::dev::network_params.network, query };
 	auto channel = std::make_shared<nano::transport::channel_tcp> (*node0, socket);
-	socket->async_connect (node0->tcp_listener->endpoint (), [&node_id_handshake, channel] (boost::system::error_code const & ec) {
+	socket->async_connect (node0->tcp_listener.endpoint (), [&node_id_handshake, channel] (boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
 		channel->send (node_id_handshake, [] (boost::system::error_code const & ec, size_t size_a) {
 			ASSERT_FALSE (ec);
 		});
 	});
 	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_server, nano::stat::detail::node_id_handshake) != 0);
-	ASSERT_EQ (node0->tcp_listener->connection_count (), 1);
+	ASSERT_EQ (node0->tcp_listener.connection_count (), 1);
 	bool disconnected (false);
 	system.deadline_set (std::chrono::seconds (20));
 	while (!disconnected)
 	{
-		disconnected = node0->tcp_listener->connection_count () == 0;
+		disconnected = node0->tcp_listener.connection_count () == 0;
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
