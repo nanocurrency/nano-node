@@ -32,7 +32,8 @@ std::string nano::error_system_messages::message (int ev) const
  */
 
 nano::test::system::system () :
-	io_ctx{ std::make_shared<boost::asio::io_context> () }
+	io_ctx{ std::make_shared<boost::asio::io_context> () },
+	io_guard{ boost::asio::make_work_guard (*io_ctx) }
 {
 	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
 	if (scale_str)
@@ -68,6 +69,16 @@ nano::test::system::~system ()
 		nano::remove_temporary_directories ();
 	}
 #endif
+}
+
+void nano::test::system::stop ()
+{
+	io_guard.reset ();
+	for (auto & node : nodes)
+	{
+		node->stop ();
+	}
+	work.stop ();
 }
 
 nano::node & nano::test::system::node (std::size_t index) const
@@ -572,15 +583,6 @@ void nano::test::system::generate_mass_activity (uint32_t count_a, nano::node & 
 		}
 		generate_activity (node_a, accounts);
 	}
-}
-
-void nano::test::system::stop ()
-{
-	for (auto i : nodes)
-	{
-		i->stop ();
-	}
-	work.stop ();
 }
 
 nano::node_config nano::test::system::default_config ()

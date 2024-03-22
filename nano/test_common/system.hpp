@@ -75,6 +75,7 @@ namespace test
 
 	public:
 		std::shared_ptr<boost::asio::io_context> io_ctx;
+		boost::asio::executor_work_guard<boost::asio::io_context::executor_type> io_guard;
 		std::vector<std::shared_ptr<nano::node>> nodes;
 		nano::stats stats;
 		nano::logger logger{ "tests" };
