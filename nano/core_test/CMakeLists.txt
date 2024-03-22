@@ -24,6 +24,7 @@ add_executable(
   frontiers_confirmation.cpp
   ipc.cpp
   ledger.cpp
+  ledger_confirm.cpp
   locks.cpp
   logging.cpp
   message.cpp

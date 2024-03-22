@@ -7,6 +7,7 @@
 #include <nano/secure/ledger_cache.hpp>
 #include <nano/secure/pending_info.hpp>
 
+#include <deque>
 #include <map>
 
 namespace nano::store
@@ -76,6 +77,7 @@ public:
 	std::string block_text (nano::block_hash const &);
 	std::pair<nano::block_hash, nano::block_hash> hash_root_random (store::transaction const &) const;
 	std::optional<nano::pending_info> pending_info (store::transaction const & transaction, nano::pending_key const & key) const;
+	std::deque<std::shared_ptr<nano::block>> confirm (nano::store::write_transaction const & transaction, nano::block_hash const & hash);
 	nano::block_status process (store::write_transaction const & transaction, std::shared_ptr<nano::block> block);
 	bool rollback (store::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
 	bool rollback (store::write_transaction const &, nano::block_hash const &);
@@ -115,6 +117,7 @@ private:
 	// Returns the next receivable entry equal or greater than 'key'
 	std::optional<std::pair<nano::pending_key, nano::pending_info>> receivable_lower_bound (store::transaction const & tx, nano::account const & account, nano::block_hash const & hash) const;
 	void initialize (nano::generate_cache_flags const &);
+	void confirm (nano::store::write_transaction const & transaction, nano::block const & block);
 };
 
 std::unique_ptr<container_info_component> collect_container_info (ledger & ledger, std::string const & name);
