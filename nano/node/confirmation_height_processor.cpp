@@ -230,7 +230,7 @@ bool nano::confirmation_height_processor::is_processing_added_block (nano::block
 	return original_hashes_pending.count (hash_a) > 0 || awaiting_processing.get<tag_hash> ().count (hash_a) > 0;
 }
 
-bool nano::confirmation_height_processor::is_processing_block (nano::block_hash const & hash_a) const
+bool nano::confirmation_height_processor::exists (nano::block_hash const & hash_a) const
 {
 	return is_processing_added_block (hash_a) || unbounded_processor.has_iterated_over_block (hash_a);
 }

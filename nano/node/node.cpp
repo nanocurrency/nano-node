@@ -1187,7 +1187,7 @@ bool nano::node::block_confirmed (nano::block_hash const & hash_a)
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::store::transaction const & transaction, nano::block_hash const & hash_a)
 {
-	return confirmation_height_processor.is_processing_block (hash_a) || ledger.block_confirmed (transaction, hash_a);
+	return confirmation_height_processor.exists (hash_a) || ledger.block_confirmed (transaction, hash_a);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & hash_a)

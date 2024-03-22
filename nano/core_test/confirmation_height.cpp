@@ -904,7 +904,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 		confirmation_height_processor.add (send1);
 
 		// The most uncemented block (previous block) should be seen as processing by the unbounded processor
-		while (!confirmation_height_processor.is_processing_block (send->hash ()))
+		while (!confirmation_height_processor.exists (send->hash ()))
 		{
 			ASSERT_LT (timer.since_start (), 10s);
 		}
