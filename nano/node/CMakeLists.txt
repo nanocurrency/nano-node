@@ -59,6 +59,8 @@ add_library(
   cli.cpp
   common.hpp
   common.cpp
+  confirming_set.hpp
+  confirming_set.cpp
   confirmation_height_bounded.hpp
   confirmation_height_bounded.cpp
   confirmation_height_processor.hpp

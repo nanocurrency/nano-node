@@ -14,6 +14,7 @@ add_executable(
   cli.cpp
   confirmation_height.cpp
   confirmation_solicitor.cpp
+  confirming_set.cpp
   conflicts.cpp
   difficulty.cpp
   distributed_work.cpp
