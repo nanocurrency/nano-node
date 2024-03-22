@@ -4,6 +4,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/local_vote_history.hpp>
@@ -171,7 +172,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	application_path (application_path_a),
 	port_mapping (*this),
 	block_processor (*this, write_database_queue),
-	confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
+	confirmation_height_processor_impl{ std::make_unique<nano::confirmation_height_processor> (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, flags.confirmation_height_processor_mode) },
+	confirmation_height_processor{ *confirmation_height_processor_impl },
 	active_impl{ std::make_unique<nano::active_transactions> (*this, confirmation_height_processor, block_processor) },
 	active{ *active_impl },
 	rep_crawler (config.rep_crawler, *this),

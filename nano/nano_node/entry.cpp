@@ -6,6 +6,7 @@
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/cli.hpp>
+#include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
