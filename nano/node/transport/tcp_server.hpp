@@ -16,42 +16,6 @@ namespace nano::transport
 class message_deserializer;
 class tcp_server;
 
-/**
- * Server side portion of bootstrap sessions. Listens for new socket connections and spawns tcp_server objects when connected.
- */
-class tcp_listener final : public std::enable_shared_from_this<nano::transport::tcp_listener>
-{
-public:
-	tcp_listener (uint16_t, nano::node &, std::size_t);
-	void start (std::function<bool (std::shared_ptr<nano::transport::socket> const &, boost::system::error_code const &)> callback_a);
-	void stop ();
-	void accept_action (boost::system::error_code const &, std::shared_ptr<nano::transport::socket> const &);
-	std::size_t connection_count ();
-
-	nano::mutex mutex;
-	std::unordered_map<nano::transport::tcp_server *, std::weak_ptr<nano::transport::tcp_server>> connections;
-	nano::tcp_endpoint endpoint ();
-	nano::node & node;
-	bool on{ false };
-	std::atomic<std::size_t> bootstrap_count{ 0 };
-	std::atomic<std::size_t> realtime_count{ 0 };
-
-private:
-	boost::asio::strand<boost::asio::io_context::executor_type> strand;
-	nano::transport::address_socket_mmap connections_per_address;
-	boost::asio::ip::tcp::acceptor acceptor;
-	boost::asio::ip::tcp::endpoint local;
-	std::size_t max_inbound_connections;
-	void on_connection (std::function<bool (std::shared_ptr<nano::transport::socket> const &, boost::system::error_code const &)> callback_a);
-	void evict_dead_connections ();
-	void on_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::transport::socket> const & new_connection, boost::system::error_code const &)>);
-	/** Checks whether the maximum number of connections per IP was reached. If so, it returns true. */
-	bool limit_reached_for_incoming_ip_connections (std::shared_ptr<nano::transport::socket> const & new_connection);
-	bool limit_reached_for_incoming_subnetwork_connections (std::shared_ptr<nano::transport::socket> const & new_connection);
-};
-
-std::unique_ptr<container_info_component> collect_container_info (tcp_listener & bootstrap_listener, std::string const & name);
-
 class tcp_server final : public std::enable_shared_from_this<tcp_server>
 {
 public:

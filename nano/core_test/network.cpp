@@ -5,6 +5,7 @@
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/transport/socket.hpp>
+#include <nano/node/transport/tcp_listener.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
@@ -698,10 +699,7 @@ TEST (tcp_listener, DISABLED_tcp_listener_timeout_empty)
 	system.deadline_set (std::chrono::seconds (6));
 	while (!disconnected)
 	{
-		{
-			nano::lock_guard<nano::mutex> guard (node0->tcp_listener->mutex);
-			disconnected = node0->tcp_listener->connections.empty ();
-		}
+		disconnected = node0->tcp_listener->connection_count () == 0;
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
@@ -723,18 +721,12 @@ TEST (tcp_listener, tcp_listener_timeout_node_id_handshake)
 		});
 	});
 	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_server, nano::stat::detail::node_id_handshake) != 0);
-	{
-		nano::lock_guard<nano::mutex> guard (node0->tcp_listener->mutex);
-		ASSERT_EQ (node0->tcp_listener->connections.size (), 1);
-	}
+	ASSERT_EQ (node0->tcp_listener->connection_count (), 1);
 	bool disconnected (false);
 	system.deadline_set (std::chrono::seconds (20));
 	while (!disconnected)
 	{
-		{
-			nano::lock_guard<nano::mutex> guard (node0->tcp_listener->mutex);
-			disconnected = node0->tcp_listener->connections.empty ();
-		}
+		disconnected = node0->tcp_listener->connection_count () == 0;
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
