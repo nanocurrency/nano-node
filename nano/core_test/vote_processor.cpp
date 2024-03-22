@@ -178,8 +178,10 @@ TEST (vote_processor, no_broadcast_local)
 	nano::node_flags flags;
 	flags.disable_request_loop = true;
 	nano::node_config config1, config2;
+	config1.representative_vote_weight_minimum = 0;
 	config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node (*system.add_node (config1, flags));
+	config2.representative_vote_weight_minimum = 0;
 	config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	config2.peering_port = system.get_available_port ();
 	system.add_node (config2, flags);
@@ -231,8 +233,10 @@ TEST (vote_processor, local_broadcast_without_a_representative)
 	nano::node_flags flags;
 	flags.disable_request_loop = true;
 	nano::node_config config1, config2;
+	config1.representative_vote_weight_minimum = 0;
 	config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node (*system.add_node (config1, flags));
+	config2.representative_vote_weight_minimum = 0;
 	config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	config2.peering_port = system.get_available_port ();
 	system.add_node (config2, flags);

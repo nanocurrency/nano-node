@@ -18,6 +18,8 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+
 using namespace std::chrono_literals;
 
 // Init returns an error if it can't open files at the path
@@ -689,6 +691,34 @@ TEST (ledger, delete_rep_weight_of_zero)
 	rep_weights.representation_add_dual (txn, 2, nano::uint128_t{ 0 } - 100, 3, nano::uint128_t{ 0 } - 100);
 	ASSERT_EQ (0, rep_weights.size ());
 	ASSERT_EQ (0, store->rep_weight.count (txn));
+}
+
+TEST (ledger, rep_cache_min_weight)
+{
+	auto store{ nano::test::make_store () };
+	nano::uint128_t min_weight{ 10 };
+	nano::rep_weights rep_weights{ store->rep_weight, min_weight };
+	auto txn{ store->tx_begin_write () };
+
+	// one below min weight
+	rep_weights.representation_add (txn, 1, 9);
+	ASSERT_EQ (0, rep_weights.size ());
+	ASSERT_EQ (1, store->rep_weight.count (txn));
+
+	// exactly min weight
+	rep_weights.representation_add (txn, 1, 1);
+	ASSERT_EQ (1, rep_weights.size ());
+	ASSERT_EQ (1, store->rep_weight.count (txn));
+
+	// above min weight
+	rep_weights.representation_add (txn, 1, 1);
+	ASSERT_EQ (1, rep_weights.size ());
+	ASSERT_EQ (1, store->rep_weight.count (txn));
+
+	// fall blow min weight
+	rep_weights.representation_add (txn, 1, nano::uint128_t{ 0 } - 5);
+	ASSERT_EQ (0, rep_weights.size ());
+	ASSERT_EQ (1, store->rep_weight.count (txn));
 }
 
 TEST (ledger, representation)

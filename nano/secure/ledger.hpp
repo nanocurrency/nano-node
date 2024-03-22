@@ -40,7 +40,7 @@ class ledger final
 	friend class receivable_iterator;
 
 public:
-	ledger (nano::store::component &, nano::stats &, nano::ledger_constants & constants, nano::generate_cache_flags const & = nano::generate_cache_flags{});
+	ledger (nano::store::component &, nano::stats &, nano::ledger_constants & constants, nano::generate_cache_flags const & = nano::generate_cache_flags{}, nano::uint128_t min_rep_weight_a = 0);
 	/**
 	 * Returns the account for a given hash
 	 * Returns std::nullopt if the block doesn't exist or has been pruned
@@ -53,9 +53,16 @@ public:
 	bool block_exists (store::transaction const & transaction, nano::block_hash const & hash) const;
 	nano::uint128_t account_balance (store::transaction const &, nano::account const &, bool = false);
 	nano::uint128_t account_receivable (store::transaction const &, nano::account const &, bool = false);
+	/**
+	 * Returns the cached vote weight for the given representative.
+	 * If the weight is below the cache limit it returns 0.
+	 * During bootstrap it returns the preconfigured bootstrap weights.
+	 */
 	nano::uint128_t weight (nano::account const &);
 	std::optional<nano::block_hash> successor (store::transaction const &, nano::qualified_root const &) const noexcept;
 	std::optional<nano::block_hash> successor (store::transaction const & transaction, nano::block_hash const & hash) const noexcept;
+	/* Returns the exact vote weight for the given representative by doing a database lookup */
+	nano::uint128_t weight_exact (store::transaction const &, nano::account const &);
 	std::shared_ptr<nano::block> forked_block (store::transaction const &, nano::block const &);
 	std::shared_ptr<nano::block> head_block (store::transaction const &, nano::account const &);
 	bool block_confirmed (store::transaction const &, nano::block_hash const &) const;

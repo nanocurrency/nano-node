@@ -586,6 +586,7 @@ void nano::test::system::stop ()
 nano::node_config nano::test::system::default_config ()
 {
 	nano::node_config config{ get_available_port () };
+	config.representative_vote_weight_minimum = 0;
 	return config;
 }
 

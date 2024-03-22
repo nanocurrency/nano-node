@@ -19,7 +19,7 @@ namespace store
 class rep_weights
 {
 public:
-	explicit rep_weights (nano::store::rep_weight & rep_weight_store_a);
+	explicit rep_weights (nano::store::rep_weight & rep_weight_store_a, nano::uint128_t min_weight_a = 0);
 	void representation_add (store::write_transaction const & txn_a, nano::account const & source_rep_a, nano::uint128_t const & amount_a);
 	void representation_add_dual (store::write_transaction const & txn_a, nano::account const & source_rep_1, nano::uint128_t const & amount_1, nano::account const & source_rep_2, nano::uint128_t const & amount_2);
 	nano::uint128_t representation_get (nano::account const & account_a) const;
@@ -35,6 +35,7 @@ private:
 	mutable nano::mutex mutex;
 	std::unordered_map<nano::account, nano::uint128_t> rep_amounts;
 	nano::store::rep_weight & rep_weight_store;
+	nano::uint128_t min_weight;
 	void put_cache (nano::account const & account_a, nano::uint128_union const & representation_a);
 	void put_store (store::write_transaction const & txn_a, nano::account const & rep_a, nano::uint128_t const & previous_weight_a, nano::uint128_t const & new_weight_a);
 	nano::uint128_t get (nano::account const & account_a) const;

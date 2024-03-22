@@ -1537,6 +1537,7 @@ void nano::wallets::foreach_representative (std::function<void (nano::public_key
 		std::vector<std::pair<nano::public_key const, nano::raw_key const>> action_accounts_l;
 		{
 			auto transaction_l (tx_begin_read ());
+			auto ledger_txn{ node.ledger.store.tx_begin_read () };
 			nano::lock_guard<nano::mutex> lock{ mutex };
 			for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
 			{
@@ -1551,7 +1552,7 @@ void nano::wallets::foreach_representative (std::function<void (nano::public_key
 				{
 					if (wallet.store.exists (transaction_l, account))
 					{
-						if (!node.ledger.weight (account).is_zero ())
+						if (!node.ledger.weight_exact (ledger_txn, account).is_zero ())
 						{
 							if (wallet.store.valid_password (transaction_l))
 							{
@@ -1642,7 +1643,11 @@ nano::wallet_representatives nano::wallets::reps () const
 
 bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t const & half_principal_weight_a, bool const acquire_lock_a)
 {
-	auto weight = node.ledger.weight (account_a);
+	nano::uint128_t weight;
+	{
+		auto ledger_txn{ node.ledger.store.tx_begin_read () };
+		weight = node.ledger.weight_exact (ledger_txn, account_a);
+	}
 
 	if (weight < node.config.vote_minimum.number ())
 	{
