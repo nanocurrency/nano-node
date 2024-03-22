@@ -24,4 +24,6 @@ bool is_same_subnetwork (boost::asio::ip::address const &, boost::asio::ip::addr
 
 // Unassigned, reserved, self
 bool reserved_address (nano::endpoint const &, bool = false);
+
+bool is_temporary_error (boost::system::error_code const &);
 }

@@ -9,25 +9,6 @@
 
 using namespace std::chrono_literals;
 
-namespace
-{
-bool is_temporary_error (boost::system::error_code const & ec_a)
-{
-	switch (ec_a.value ())
-	{
-#if EAGAIN != EWOULDBLOCK
-		case EAGAIN:
-#endif
-
-		case EWOULDBLOCK:
-		case EINTR:
-			return true;
-		default:
-			return false;
-	}
-}
-}
-
 /*
  * tcp_listener
  */
