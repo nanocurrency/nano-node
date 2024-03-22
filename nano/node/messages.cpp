@@ -133,7 +133,6 @@ void nano::message_header::count_v2_set (uint8_t count)
 {
 	debug_assert (type == nano::message_type::confirm_ack || type == nano::message_type::confirm_req);
 	debug_assert (flag_test (confirm_v2_flag)); // Only valid for v2
-	debug_assert (count < 256); // Max 8 bits
 
 	extensions &= ~(count_v2_mask_left | count_v2_mask_right);
 
