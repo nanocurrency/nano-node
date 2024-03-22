@@ -1603,6 +1603,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (le
 	auto sizeof_element = sizeof (decltype (ledger.bootstrap_weights)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "bootstrap_weights", count, sizeof_element }));
-	composite->add_component (collect_container_info (ledger.cache.rep_weights, "rep_weights"));
+	composite->add_component (ledger.cache.rep_weights.collect_container_info ("rep_weights"));
 	return composite;
 }

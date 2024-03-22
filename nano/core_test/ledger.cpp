@@ -1,3 +1,5 @@
+#include "nano/lib/numbers.hpp"
+
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
@@ -679,11 +681,11 @@ TEST (ledger, delete_rep_weight_of_zero)
 	ASSERT_EQ (3, store->rep_weight.count (txn));
 
 	// set rep weights to 0
-	rep_weights.representation_add (txn, 1, std::numeric_limits<nano::uint128_t>::max () - 99);
+	rep_weights.representation_add (txn, 1, nano::uint128_t{ 0 } - 100);
 	ASSERT_EQ (2, rep_weights.size ());
 	ASSERT_EQ (2, store->rep_weight.count (txn));
 
-	rep_weights.representation_add_dual (txn, 2, std::numeric_limits<nano::uint128_t>::max () - 99, 3, std::numeric_limits<nano::uint128_t>::max () - 99);
+	rep_weights.representation_add_dual (txn, 2, nano::uint128_t{ 0 } - 100, 3, nano::uint128_t{ 0 } - 100);
 	ASSERT_EQ (0, rep_weights.size ());
 	ASSERT_EQ (0, store->rep_weight.count (txn));
 }

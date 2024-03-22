@@ -31,8 +31,7 @@ public:
 };
 
 /**
- * Account info as of DB version 22.
- * This class protects the DB upgrades from future changes of the account_info class.
+ * This is a snapshot of the account_info table at v22 which needs to be read for the v22 to v23 upgrade
  */
 class account_info_v22 final
 {

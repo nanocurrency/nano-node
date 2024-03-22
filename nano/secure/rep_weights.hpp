@@ -29,6 +29,7 @@ public:
 	/* Only use this method when loading rep weights from the database table */
 	void copy_from (rep_weights & other_a);
 	size_t size () const;
+	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 
 private:
 	mutable nano::mutex mutex;
@@ -37,9 +38,5 @@ private:
 	void put_cache (nano::account const & account_a, nano::uint128_union const & representation_a);
 	void put_store (store::write_transaction const & txn_a, nano::account const & rep_a, nano::uint128_t const & previous_weight_a, nano::uint128_t const & new_weight_a);
 	nano::uint128_t get (nano::account const & account_a) const;
-
-	friend std::unique_ptr<container_info_component> collect_container_info (rep_weights const &, std::string const &);
 };
-
-std::unique_ptr<container_info_component> collect_container_info (rep_weights const &, std::string const &);
 }
