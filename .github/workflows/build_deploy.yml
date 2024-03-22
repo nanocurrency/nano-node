@@ -155,6 +155,12 @@ jobs:
     strategy:
       matrix:
         network: ["TEST", "BETA", "LIVE"]
+    env:
+      CI_TAG: ${{ needs.prepare_build.outputs.ci_tag }}
+      DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
+      DOCKER_USER: ${{ vars.DOCKER_USER }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      IS_RELEASE_BUILD: ${{ github.event.inputs.is_release_build || 'false' }}
     steps:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
         with:
@@ -165,23 +171,15 @@ jobs:
         run: ci/actions/linux/docker-build.sh
         env:
           NETWORK: ${{ matrix.network }}
-          CI_TAG: ${{ needs.prepare_build.outputs.ci_tag }}
-          DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
-      - name: Check if secrets.DOCKER_PASSWORD exists
-        run: echo "DOCKER_PASSWORD_EXISTS=${{ secrets.DOCKER_PASSWORD != '' }}" >> $GITHUB_ENV
       - name: Deploy Docker Hub
-        if: env.DOCKER_PASSWORD_EXISTS == 'true'
+        if: env.DOCKER_PASSWORD != ''
         run: ci/actions/linux/docker-deploy.sh
         env:
-          CI_TAG: ${{ needs.prepare_build.outputs.ci_tag }}
           NETWORK: ${{ matrix.network }}
-          DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
-          DOCKER_USER: ${{ vars.DOCKER_USER }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       - name: Deploy Docker (ghcr.io)
         run: ci/actions/linux/ghcr-deploy.sh
         env:
-          CI_TAG: ${{ needs.prepare_build.outputs.ci_tag }}
           NETWORK: ${{ matrix.network }}
           DOCKER_REGISTRY: ghcr.io
           DOCKER_USER: ${{ github.repository_owner }}

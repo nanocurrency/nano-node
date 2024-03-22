@@ -18,7 +18,11 @@ fi
 
 if [[ "$NETWORK" = "LIVE" ]]; then
     echo "Live"
-    network_tag_suffix=''
+    if [[ "$IS_RELEASE_BUILD" = "true" ]]; then
+        network_tag_suffix=''
+    else
+        network_tag_suffix='-nightly'
+    fi
     network="live"
 elif [[ "$NETWORK" = "BETA" ]]; then
     echo "Beta"
