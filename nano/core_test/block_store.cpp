@@ -7,6 +7,7 @@
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/make_store.hpp>
+#include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
 #include <nano/store/account.hpp>
@@ -379,7 +380,7 @@ TEST (block_store, genesis)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::ledger_cache ledger_cache;
+	nano::ledger_cache ledger_cache{ store->rep_weight };
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger_cache, nano::dev::constants);
 	nano::account_info info;
@@ -901,7 +902,7 @@ TEST (block_store, cemented_count_cache)
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	auto transaction (store->tx_begin_write ());
-	nano::ledger_cache ledger_cache;
+	nano::ledger_cache ledger_cache{ store->rep_weight };
 	store->initialize (transaction, ledger_cache, nano::dev::constants);
 	ASSERT_EQ (1, ledger_cache.cemented_count);
 }
@@ -911,7 +912,7 @@ TEST (block_store, block_random)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	{
-		nano::ledger_cache ledger_cache;
+		nano::ledger_cache ledger_cache{ store->rep_weight };
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger_cache, nano::dev::constants);
 	}
@@ -938,7 +939,7 @@ TEST (block_store, pruned_random)
 	block->sideband_set ({});
 	auto hash1 (block->hash ());
 	{
-		nano::ledger_cache ledger_cache;
+		nano::ledger_cache ledger_cache{ store->rep_weight };
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger_cache, nano::dev::constants);
 		store->pruned.put (transaction, hash1);
@@ -968,7 +969,7 @@ TEST (block_store, state_block)
 
 	block1->sideband_set ({});
 	{
-		nano::ledger_cache ledger_cache;
+		nano::ledger_cache ledger_cache{ store->rep_weight };
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger_cache, nano::dev::constants);
 		ASSERT_EQ (nano::block_type::state, block1->type ());
@@ -1443,6 +1444,48 @@ TEST (rocksdb_block_store, upgrade_v21_v22)
 	// Testing the upgrade code worked
 	check_correct_state ();
 }
+}
+
+// Tests that the new rep_weight table gets filled with all
+// existing representatives
+TEST (mdb_block_store, upgrade_v22_to_v23)
+{
+	nano::logger logger;
+	auto const path = nano::unique_path ();
+	nano::account rep_a{ 123 };
+	nano::account rep_b{ 456 };
+	// Setting the database to its 22nd version state
+	{
+		auto store{ nano::make_store (logger, path, nano::dev::constants) };
+		auto txn{ store->tx_begin_write () };
+
+		// Add three accounts referencing two representatives
+		nano::account_info info1{};
+		info1.representative = rep_a;
+		info1.balance = 1000;
+		store->account.put (txn, 1, info1);
+
+		nano::account_info info2{};
+		info2.representative = rep_a;
+		info2.balance = 500;
+		store->account.put (txn, 2, info2);
+
+		nano::account_info info3{};
+		info3.representative = rep_b;
+		info3.balance = 42;
+		store->account.put (txn, 3, info3);
+
+		store->version.put (txn, 22);
+	}
+
+	// Testing the upgrade code worked
+	auto store{ nano::make_store (logger, path, nano::dev::constants) };
+	auto txn (store->tx_begin_read ());
+	ASSERT_EQ (store->version.get (txn), store->version_current);
+
+	// The rep_weight table should contain all reps now
+	ASSERT_EQ (1500, store->rep_weight.get (txn, rep_a));
+	ASSERT_EQ (42, store->rep_weight.get (txn, rep_b));
 }
 
 TEST (mdb_block_store, upgrade_backup)

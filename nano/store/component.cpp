@@ -38,6 +38,7 @@ void nano::store::component::initialize (store::write_transaction const & transa
 	++ledger_cache_a.cemented_count;
 	account.put (transaction_a, constants.genesis->account (), { hash_l, constants.genesis->account (), constants.genesis->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
 	++ledger_cache_a.account_count;
+	rep_weight.put (transaction_a, constants.genesis->account (), std::numeric_limits<nano::uint128_t>::max ());
 	ledger_cache_a.rep_weights.representation_put (constants.genesis->account (), std::numeric_limits<nano::uint128_t>::max ());
 	frontier.put (transaction_a, hash_l, constants.genesis->account ());
 }

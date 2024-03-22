@@ -1,6 +1,7 @@
 #pragma once
 
-#include <nano/lib/rep_weights.hpp>
+#include <nano/secure/rep_weights.hpp>
+#include <nano/store/rep_weight.hpp>
 
 #include <atomic>
 
@@ -10,6 +11,7 @@ namespace nano
 class ledger_cache
 {
 public:
+	explicit ledger_cache (nano::store::rep_weight & rep_weight_store_a);
 	nano::rep_weights rep_weights;
 	std::atomic<uint64_t> cemented_count{ 0 };
 	std::atomic<uint64_t> block_count{ 0 };

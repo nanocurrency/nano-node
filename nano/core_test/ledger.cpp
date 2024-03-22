@@ -1,3 +1,5 @@
+#include "nano/lib/numbers.hpp"
+
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
@@ -10,6 +12,7 @@
 #include <nano/node/transport/inproc.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
 #include <nano/test_common/ledger.hpp>
+#include <nano/test_common/make_store.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -658,13 +661,34 @@ TEST (ledger, open_fork)
 
 TEST (ledger, representation_changes)
 {
+	auto store{ nano::test::make_store () };
 	nano::keypair key1;
-	nano::rep_weights rep_weights;
+	nano::rep_weights rep_weights{ store->rep_weight };
 	ASSERT_EQ (0, rep_weights.representation_get (key1.pub));
 	rep_weights.representation_put (key1.pub, 1);
 	ASSERT_EQ (1, rep_weights.representation_get (key1.pub));
 	rep_weights.representation_put (key1.pub, 2);
 	ASSERT_EQ (2, rep_weights.representation_get (key1.pub));
+}
+
+TEST (ledger, delete_rep_weight_of_zero)
+{
+	auto store{ nano::test::make_store () };
+	nano::rep_weights rep_weights{ store->rep_weight };
+	auto txn{ store->tx_begin_write () };
+	rep_weights.representation_add (txn, 1, 100);
+	rep_weights.representation_add_dual (txn, 2, 100, 3, 100);
+	ASSERT_EQ (3, rep_weights.size ());
+	ASSERT_EQ (3, store->rep_weight.count (txn));
+
+	// set rep weights to 0
+	rep_weights.representation_add (txn, 1, nano::uint128_t{ 0 } - 100);
+	ASSERT_EQ (2, rep_weights.size ());
+	ASSERT_EQ (2, store->rep_weight.count (txn));
+
+	rep_weights.representation_add_dual (txn, 2, nano::uint128_t{ 0 } - 100, 3, nano::uint128_t{ 0 } - 100);
+	ASSERT_EQ (0, rep_weights.size ());
+	ASSERT_EQ (0, store->rep_weight.count (txn));
 }
 
 TEST (ledger, representation)

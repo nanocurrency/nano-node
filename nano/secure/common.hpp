@@ -6,10 +6,10 @@
 #include <nano/lib/epoch.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/object_stream.hpp>
-#include <nano/lib/rep_weights.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/secure/rep_weights.hpp>
 #include <nano/secure/vote.hpp>
 
 #include <boost/iterator/transform_iterator.hpp>
