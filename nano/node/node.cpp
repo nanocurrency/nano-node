@@ -4,7 +4,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/confirmation_height_processor.hpp>
+#include <nano/node/confirming_set.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/local_vote_history.hpp>
@@ -172,9 +172,9 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	application_path (application_path_a),
 	port_mapping (*this),
 	block_processor (*this, write_database_queue),
-	confirmation_height_processor_impl{ std::make_unique<nano::confirmation_height_processor> (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, flags.confirmation_height_processor_mode) },
-	confirmation_height_processor{ *confirmation_height_processor_impl },
-	active_impl{ std::make_unique<nano::active_transactions> (*this, confirmation_height_processor, block_processor) },
+	confirming_set_impl{ std::make_unique<nano::confirming_set> (ledger, write_database_queue, config.confirming_set_batch_time) },
+	confirming_set{ *confirming_set_impl },
+	active_impl{ std::make_unique<nano::active_transactions> (*this, confirming_set, block_processor) },
 	active{ *active_impl },
 	rep_crawler (config.rep_crawler, *this),
 	rep_tiers{ ledger, network_params, online_reps, stats, logger },
@@ -570,7 +570,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (node.history.collect_container_info ("history"));
 	composite->add_component (node.block_uniquer.collect_container_info ("block_uniquer"));
 	composite->add_component (node.vote_uniquer.collect_container_info ("vote_uniquer"));
-	composite->add_component (collect_container_info (node.confirmation_height_processor, "confirmation_height_processor"));
+	composite->add_component (node.confirmation_height_processor.collect_container_info ("confirmation_queue"));
 	composite->add_component (collect_container_info (node.distributed_work, "distributed_work"));
 	composite->add_component (collect_container_info (node.aggregator, "request_aggregator"));
 	composite->add_component (node.scheduler.collect_container_info ("election_scheduler"));
@@ -681,6 +681,7 @@ void nano::node::start ()
 	active.start ();
 	generator.start ();
 	final_generator.start ();
+	confirmation_height_processor.start ();
 	scheduler.start ();
 	backlog.start ();
 	bootstrap_server.start ();
@@ -1259,7 +1260,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 	{
 		logger.trace (nano::log::type::node, nano::log::detail::process_confirmed, nano::log::arg{ "block", block_l });
 
-		confirmation_height_processor.add (block_l);
+		confirmation_height_processor.add (block_l->hash ());
 	}
 	else if (iteration_a < num_iters)
 	{

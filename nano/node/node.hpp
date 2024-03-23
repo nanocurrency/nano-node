@@ -46,7 +46,7 @@
 namespace nano
 {
 class active_transactions;
-class confirmation_height_processor;
+class confirming_set;
 class node;
 class work_pool;
 
@@ -168,8 +168,8 @@ public:
 	nano::node_observers observers;
 	nano::port_mapping port_mapping;
 	nano::block_processor block_processor;
-	std::unique_ptr<nano::confirmation_height_processor> confirmation_height_processor_impl;
-	nano::confirmation_height_processor & confirmation_height_processor;
+	std::unique_ptr<nano::confirming_set> confirmation_height_processor_impl;
+	nano::confirming_set & confirmation_height_processor;
 	std::unique_ptr<nano::active_transactions> active_impl;
 	nano::active_transactions & active;
 	nano::online_reps online_reps;

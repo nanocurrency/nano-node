@@ -6,7 +6,7 @@
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/confirmation_height_processor.hpp>
+#include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>

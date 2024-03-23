@@ -119,7 +119,7 @@ public:
 	/** Bootstrap traffic does not need bursts */
 	double bootstrap_bandwidth_burst_ratio{ 1. };
 	nano::bootstrap_ascending_config bootstrap_ascending;
-	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
+	std::chrono::milliseconds confirming_set_batch_time{ 250 };
 	bool backup_before_upgrade{ false };
 	double max_work_generate_multiplier{ 64. };
 	uint32_t max_queued_requests{ 512 };
@@ -175,7 +175,6 @@ public:
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
 	bool disable_connection_cleanup{ false };
-	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };
 	nano::generate_cache_flags generate_cache;
 	bool inactive_node{ false };
 	std::size_t block_processor_batch_size{ 0 };

@@ -1,8 +1,8 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/active_transactions.hpp>
-#include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
+#include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/repcrawler.hpp>
@@ -15,7 +15,7 @@
 
 using namespace std::chrono;
 
-nano::active_transactions::active_transactions (nano::node & node_a, nano::confirmation_height_processor & confirmation_height_processor_a, nano::block_processor & block_processor_a) :
+nano::active_transactions::active_transactions (nano::node & node_a, nano::confirming_set & confirmation_height_processor_a, nano::block_processor & block_processor_a) :
 	node{ node_a },
 	confirmation_height_processor{ confirmation_height_processor_a },
 	block_processor{ block_processor_a },
@@ -82,6 +82,7 @@ void nano::active_transactions::stop ()
 
 void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::block> const & block)
 {
+	debug_assert (node.block_confirmed (block->hash ()));
 	if (auto election_l = election (block->qualified_root ()))
 	{
 		election_l->try_confirm (block->hash ());
@@ -95,7 +96,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 		status = election->get_status ();
 		votes = election->votes_with_weight ();
 	}
-	if (confirmation_height_processor.is_processing_added_block (block->hash ()))
+	if (confirmation_height_processor.exists (block->hash ()))
 	{
 		status.type = nano::election_status_type::active_confirmed_quorum;
 	}
