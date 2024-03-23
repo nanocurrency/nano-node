@@ -1206,7 +1206,7 @@ void nano::json_handler::block_confirm ()
 			if (!node.ledger.block_confirmed (transaction, hash))
 			{
 				// Start new confirmation for unconfirmed (or not being confirmed) block
-				if (!node.confirmation_height_processor.exists (hash))
+				if (!node.confirming_set.exists (hash))
 				{
 					node.start_election (std::move (block_l));
 				}

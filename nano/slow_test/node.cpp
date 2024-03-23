@@ -975,10 +975,10 @@ TEST (confirmation_height, dynamic_algorithm)
 		}
 	}
 
-	node->confirmation_height_processor.add (state_blocks.front ()->hash ());
+	node->confirming_set.add (state_blocks.front ()->hash ());
 	ASSERT_TIMELY_EQ (20s, node->ledger.cache.cemented_count, 2);
 
-	node->confirmation_height_processor.add (latest_genesis->hash ());
+	node->confirming_set.add (latest_genesis->hash ());
 
 	ASSERT_TIMELY_EQ (20s, node->ledger.cache.cemented_count, num_blocks + 1);
 
@@ -1144,7 +1144,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 
 	nano::block_hash block_hash_being_processed{ 0 };
 	nano::write_database_queue write_queue{ false };
-	nano::confirming_set confirmation_height_processor{ ledger, write_queue };
+	nano::confirming_set confirming_set{ ledger, write_queue };
 
 	auto const num_accounts = 100000;
 
@@ -1189,7 +1189,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 
 	for (auto & open_block : open_blocks)
 	{
-		confirmation_height_processor.add (open_block->hash ());
+		confirming_set.add (open_block->hash ());
 	}
 
 	system.deadline_set (1000s);
@@ -1240,8 +1240,8 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	// Now send and receive to self
 	for (int i = 0; i < open_blocks.size (); ++i)
 	{
-		confirmation_height_processor.add (send_blocks[i]->hash ());
-		confirmation_height_processor.add (receive_blocks[i]->hash ());
+		confirming_set.add (send_blocks[i]->hash ());
+		confirming_set.add (receive_blocks[i]->hash ());
 	}
 
 	system.deadline_set (1000s);
@@ -1251,7 +1251,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	while (confirmation_height_processor.size () > 0)
+	while (confirming_set.size () > 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -2078,7 +2078,7 @@ TEST (node, wallet_create_block_confirm_conflicts)
 			election->force_confirm ();
 		}
 
-		ASSERT_TIMELY (120s, node->ledger.block_confirmed (node->store.tx_begin_read (), latest) && node->confirmation_height_processor.size () == 0);
+		ASSERT_TIMELY (120s, node->ledger.block_confirmed (node->store.tx_begin_read (), latest) && node->confirming_set.size () == 0);
 		done = true;
 		t.join ();
 	}

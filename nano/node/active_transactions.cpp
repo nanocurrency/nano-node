@@ -15,9 +15,9 @@
 
 using namespace std::chrono;
 
-nano::active_transactions::active_transactions (nano::node & node_a, nano::confirming_set & confirmation_height_processor_a, nano::block_processor & block_processor_a) :
+nano::active_transactions::active_transactions (nano::node & node_a, nano::confirming_set & confirming_set, nano::block_processor & block_processor_a) :
 	node{ node_a },
-	confirmation_height_processor{ confirmation_height_processor_a },
+	confirming_set{ confirming_set },
 	block_processor{ block_processor_a },
 	recently_confirmed{ 65536 },
 	recently_cemented{ node.config.confirmation_history_size },
@@ -26,12 +26,12 @@ nano::active_transactions::active_transactions (nano::node & node_a, nano::confi
 	count_by_behavior.fill (0); // Zero initialize array
 
 	// Register a callback which will get called after a block is cemented
-	confirmation_height_processor.cemented_observers.add ([this] (std::shared_ptr<nano::block> const & callback_block_a) {
+	confirming_set.cemented_observers.add ([this] (std::shared_ptr<nano::block> const & callback_block_a) {
 		this->block_cemented_callback (callback_block_a);
 	});
 
 	// Register a callback which will get called if a block is already cemented
-	confirmation_height_processor.block_already_cemented_observers.add ([this] (nano::block_hash const & hash_a) {
+	confirming_set.block_already_cemented_observers.add ([this] (nano::block_hash const & hash_a) {
 		this->block_already_cemented_callback (hash_a);
 	});
 
@@ -96,7 +96,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 		status = election->get_status ();
 		votes = election->votes_with_weight ();
 	}
-	if (confirmation_height_processor.exists (block->hash ()))
+	if (confirming_set.exists (block->hash ()))
 	{
 		status.type = nano::election_status_type::active_confirmed_quorum;
 	}

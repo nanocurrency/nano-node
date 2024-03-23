@@ -466,7 +466,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 				std::exit (1);
 			}
 		}
-		confirmation_height_processor.cemented_observers.add ([this] (auto const & block) {
+		confirming_set.cemented_observers.add ([this] (auto const & block) {
 			if (block->is_send ())
 			{
 				auto transaction = store.tx_begin_read ();
@@ -570,7 +570,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (node.history.collect_container_info ("history"));
 	composite->add_component (node.block_uniquer.collect_container_info ("block_uniquer"));
 	composite->add_component (node.vote_uniquer.collect_container_info ("vote_uniquer"));
-	composite->add_component (node.confirmation_height_processor.collect_container_info ("confirmation_queue"));
+	composite->add_component (node.confirming_set.collect_container_info ("confirming_set"));
 	composite->add_component (collect_container_info (node.distributed_work, "distributed_work"));
 	composite->add_component (collect_container_info (node.aggregator, "request_aggregator"));
 	composite->add_component (node.scheduler.collect_container_info ("election_scheduler"));
@@ -681,7 +681,7 @@ void nano::node::start ()
 	active.start ();
 	generator.start ();
 	final_generator.start ();
-	confirmation_height_processor.start ();
+	confirming_set.start ();
 	scheduler.start ();
 	backlog.start ();
 	bootstrap_server.start ();
@@ -722,7 +722,7 @@ void nano::node::stop ()
 	active.stop ();
 	generator.stop ();
 	final_generator.stop ();
-	confirmation_height_processor.stop ();
+	confirming_set.stop ();
 	telemetry.stop ();
 	websocket.stop ();
 	bootstrap_server.stop ();
@@ -1188,7 +1188,7 @@ bool nano::node::block_confirmed (nano::block_hash const & hash_a)
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::store::transaction const & transaction, nano::block_hash const & hash_a)
 {
-	return confirmation_height_processor.exists (hash_a) || ledger.block_confirmed (transaction, hash_a);
+	return confirming_set.exists (hash_a) || ledger.block_confirmed (transaction, hash_a);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & hash_a)
@@ -1260,7 +1260,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 	{
 		logger.trace (nano::log::type::node, nano::log::detail::process_confirmed, nano::log::arg{ "block", block_l });
 
-		confirmation_height_processor.add (block_l->hash ());
+		confirming_set.add (block_l->hash ());
 	}
 	else if (iteration_a < num_iters)
 	{

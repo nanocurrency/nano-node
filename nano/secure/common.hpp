@@ -341,12 +341,5 @@ public:
 	nano::bootstrap_constants bootstrap;
 };
 
-enum class confirmation_height_mode
-{
-	automatic,
-	unbounded,
-	bounded
-};
-
 nano::wallet_id random_wallet_id ();
 }

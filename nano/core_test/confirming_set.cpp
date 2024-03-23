@@ -103,7 +103,7 @@ TEST (confirmation_callback, observer_callbacks)
 		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send1));
 	}
 
-	node->confirmation_height_processor.add (send1->hash ());
+	node->confirming_set.add (send1->hash ());
 
 	// Callback is performed for all blocks that are confirmed
 	ASSERT_TIMELY_EQ (5s, 2, node->ledger.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
@@ -246,7 +246,7 @@ TEST (confirmation_callback, dependent_election)
 	// Wait for blocks to be confirmed in ledger, callbacks will happen after
 	ASSERT_TIMELY_EQ (5s, 3, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 	// Once the item added to the confirming set no longer exists, callbacks have completed
-	ASSERT_TIMELY (5s, !node->confirmation_height_processor.exists (send2->hash ()));
+	ASSERT_TIMELY (5s, !node->confirming_set.exists (send2->hash ()));
 
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out));
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_conf_height, nano::stat::dir::out));

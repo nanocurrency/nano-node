@@ -209,7 +209,7 @@ private:
 
 private: // Dependencies
 	nano::node & node;
-	nano::confirming_set & confirmation_height_processor;
+	nano::confirming_set & confirming_set;
 	nano::block_processor & block_processor;
 
 public:
