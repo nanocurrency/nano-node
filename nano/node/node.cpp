@@ -466,7 +466,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 				std::exit (1);
 			}
 		}
-		confirmation_height_processor.add_cemented_observer ([this] (auto const & block) {
+		confirmation_height_processor.cemented_observers.add ([this] (auto const & block) {
 			if (block->is_send ())
 			{
 				auto transaction = store.tx_begin_read ();
