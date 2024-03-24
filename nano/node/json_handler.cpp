@@ -1049,7 +1049,7 @@ void nano::json_handler::accounts_receivable ()
 		if (!ec)
 		{
 			boost::property_tree::ptree peers_l;
-			for (auto current = node.ledger.receivable_upper_bound (transaction, account, 0), end = node.ledger.receivable_end (); current != end; ++current)
+			for (auto current = node.ledger.receivable_upper_bound (transaction, account, 0), end = node.ledger.receivable_end (); current != end && peers_l.size () < count; ++current)
 			{
 				auto const & [key, info] = *current;
 				if (include_only_confirmed && !node.ledger.block_confirmed (transaction, key.hash))
