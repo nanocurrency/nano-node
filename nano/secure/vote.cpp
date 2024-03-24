@@ -137,6 +137,11 @@ std::chrono::milliseconds nano::vote::duration () const
 	return std::chrono::milliseconds{ 1u << (duration_bits () + 4) };
 }
 
+bool nano::vote::is_final () const
+{
+	return is_final_timestamp (timestamp_m);
+}
+
 void nano::vote::serialize_json (boost::property_tree::ptree & tree) const
 {
 	tree.put ("account", account.to_account ());

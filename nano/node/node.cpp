@@ -217,6 +217,25 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 		scheduler.optimistic.activate (account, account_info, conf_info);
 	});
 
+	active.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
+		vote_cache.observe (vote, source, results);
+	});
+
+	// Republish vote if it is new and the node does not host a principal representative (or close to)
+	active.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
+		bool processed = std::any_of (results.begin (), results.end (), [] (auto const & result) {
+			return result.second == nano::vote_code::vote;
+		});
+		if (processed)
+		{
+			auto const reps = wallets.reps ();
+			if (!reps.have_half_rep () && !reps.exists (vote->account))
+			{
+				network.flood_vote (vote, 0.5f);
+			}
+		}
+	});
+
 	if (!init_error ())
 	{
 		// Notify election schedulers when AEC frees election slot

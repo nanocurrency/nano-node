@@ -368,9 +368,11 @@ void nano::active_transactions::trim ()
 
 nano::election_insertion_result nano::active_transactions::insert (std::shared_ptr<nano::block> const & block_a, nano::election_behavior election_behavior_a)
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
 	debug_assert (block_a);
 	debug_assert (block_a->has_sideband ());
+
+	nano::unique_lock<nano::mutex> lock{ mutex };
+
 	nano::election_insertion_result result;
 
 	if (stopped)
@@ -413,16 +415,13 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 		result.election = existing->election;
 	}
 
-	lock.unlock (); // end of critical section
+	lock.unlock ();
 
 	if (result.inserted)
 	{
-		release_assert (result.election);
+		debug_assert (result.election);
 
-		if (auto const cache = node.vote_cache.find (hash); cache)
-		{
-			cache->fill (result.election);
-		}
+		trigger_vote_cache (hash);
 
 		node.observers.active_started.notify (hash);
 		vacancy_update ();
@@ -433,12 +432,24 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 	{
 		result.election->broadcast_vote ();
 	}
+
 	trim ();
+
 	return result;
 }
 
+bool nano::active_transactions::trigger_vote_cache (nano::block_hash hash)
+{
+	auto cached = node.vote_cache.find (hash);
+	for (auto const & cached_vote : cached)
+	{
+		vote (cached_vote, nano::vote_source::cache);
+	}
+	return !cached.empty ();
+}
+
 // Validate a vote and apply it to the current election if one exists
-std::unordered_map<nano::block_hash, nano::vote_code> nano::active_transactions::vote (std::shared_ptr<nano::vote> const & vote)
+std::unordered_map<nano::block_hash, nano::vote_code> nano::active_transactions::vote (std::shared_ptr<nano::vote> const & vote, nano::vote_source source)
 {
 	std::unordered_map<nano::block_hash, nano::vote_code> results;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> process;
@@ -469,39 +480,18 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::active_transactions:
 		}
 	}
 
-	// Process inactive votes outside of the critical section
-	for (auto & hash : inactive)
+	for (auto const & [block_hash, election] : process)
 	{
-		add_vote_cache (hash, vote);
-	}
-
-	if (!process.empty ())
-	{
-		bool processed = false;
-
-		for (auto const & [block_hash, election] : process)
-		{
-			auto const vote_result = election->vote (vote->account, vote->timestamp (), block_hash);
-			results[block_hash] = vote_result;
-
-			processed |= (vote_result == nano::vote_code::vote);
-		}
-
-		// Republish vote if it is new and the node does not host a principal representative (or close to)
-		if (processed)
-		{
-			auto const reps (node.wallets.reps ());
-			if (!reps.have_half_rep () && !reps.exists (vote->account))
-			{
-				node.network.flood_vote (vote, 0.5f);
-			}
-		}
+		auto const vote_result = election->vote (vote->account, vote->timestamp (), block_hash, source);
+		results[block_hash] = vote_result;
 	}
 
 	// All hashes should have their result set
 	debug_assert (std::all_of (vote->hashes.begin (), vote->hashes.end (), [&results] (auto const & hash) {
 		return results.find (hash) != results.end ();
 	}));
+
+	vote_processed.notify (vote, source, results);
 
 	return results;
 }
@@ -550,26 +540,29 @@ std::shared_ptr<nano::block> nano::active_transactions::winner (nano::block_hash
 	return result;
 }
 
-void nano::active_transactions::erase (nano::block const & block_a)
+bool nano::active_transactions::erase (nano::block const & block_a)
 {
-	erase (block_a.qualified_root ());
+	return erase (block_a.qualified_root ());
 }
 
-void nano::active_transactions::erase (nano::qualified_root const & root_a)
+bool nano::active_transactions::erase (nano::qualified_root const & root_a)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	auto root_it (roots.get<tag_root> ().find (root_a));
 	if (root_it != roots.get<tag_root> ().end ())
 	{
 		cleanup_election (lock, root_it->election);
+		return true;
 	}
+	return false;
 }
 
-void nano::active_transactions::erase_hash (nano::block_hash const & hash_a)
+bool nano::active_transactions::erase_hash (nano::block_hash const & hash_a)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	[[maybe_unused]] auto erased (blocks.erase (hash_a));
 	debug_assert (erased == 1);
+	return erased == 1;
 }
 
 void nano::active_transactions::erase_oldest ()
@@ -609,22 +602,13 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> const & bl
 			lock.lock ();
 			blocks.emplace (block_a->hash (), election);
 			lock.unlock ();
-			if (auto const cache = node.vote_cache.find (block_a->hash ()); cache)
-			{
-				cache->fill (election);
-			}
+
+			trigger_vote_cache (block_a->hash ());
+
 			node.stats.inc (nano::stat::type::active, nano::stat::detail::election_block_conflict);
 		}
 	}
 	return result;
-}
-
-void nano::active_transactions::add_vote_cache (nano::block_hash const & hash, std::shared_ptr<nano::vote> const vote)
-{
-	if (node.ledger.weight (vote->account) > node.minimum_principal_weight ())
-	{
-		node.vote_cache.vote (hash, vote);
-	}
 }
 
 std::size_t nano::active_transactions::election_winner_details_size ()
