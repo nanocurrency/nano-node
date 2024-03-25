@@ -23,7 +23,7 @@ bool is_same_ip (boost::asio::ip::address const &, boost::asio::ip::address cons
 bool is_same_subnetwork (boost::asio::ip::address const &, boost::asio::ip::address const &);
 
 // Unassigned, reserved, self
-bool reserved_address (nano::endpoint const &, bool = false);
+bool reserved_address (nano::endpoint const &, bool allow_local_peers = false);
 
 bool is_temporary_error (boost::system::error_code const &);
 }
