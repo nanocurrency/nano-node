@@ -57,3 +57,88 @@ TEST (network_functions, network_range_ipv4)
 	auto address2_subnet (nano::transport::map_address_to_subnetwork (address2));
 	ASSERT_EQ (subnet2.network (), address2_subnet);
 }
+
+TEST (network_functions, ipv4_address_or_ipv6_subnet)
+{
+	// IPv4 mapped as IPv6 address should return the original IPv4 address
+	boost::asio::ip::address addr1 = boost::asio::ip::address::from_string ("192.168.1.1");
+	boost::asio::ip::address addr2 = boost::asio::ip::address::from_string ("::ffff:192.168.1.1");
+	ASSERT_EQ (nano::transport::ipv4_address_or_ipv6_subnet (addr1), addr2);
+
+	// IPv6 address within the same /48 subnet should return the network prefix
+	boost::asio::ip::address addr3 = boost::asio::ip::address::from_string ("2001:0db8:85a3:0000:0000:8a2e:0370:7334");
+	boost::asio::ip::address addr4 = boost::asio::ip::address::from_string ("2001:0db8:85a3::");
+	ASSERT_EQ (nano::transport::ipv4_address_or_ipv6_subnet (addr3), addr4);
+
+	// Different IPv6 address outside the /48 subnet should not match
+	boost::asio::ip::address addr5 = boost::asio::ip::address::from_string ("2001:0db8:85a4:0001:0000:8a2e:0370:7334");
+	ASSERT_NE (nano::transport::ipv4_address_or_ipv6_subnet (addr3), nano::transport::ipv4_address_or_ipv6_subnet (addr5));
+}
+
+TEST (network_functions, is_same_ip)
+{
+	// Same IPv4 addresses
+	boost::asio::ip::address ipv4_addr1 = boost::asio::ip::address::from_string ("192.168.1.1");
+	ASSERT_TRUE (nano::transport::is_same_ip (ipv4_addr1, ipv4_addr1));
+
+	// IPv4 and its IPv6 mapped form
+	boost::asio::ip::address ipv6_mapped_ipv4 = boost::asio::ip::address::from_string ("::ffff:192.168.1.1");
+	ASSERT_TRUE (nano::transport::is_same_ip (ipv4_addr1, ipv6_mapped_ipv4));
+}
+
+TEST (network_functions, is_same_ipv4)
+{
+	// Same IPv4 addresses
+	boost::asio::ip::address ipv4_addr1 = boost::asio::ip::address::from_string ("192.168.1.1");
+	ASSERT_TRUE (nano::transport::is_same_ip (ipv4_addr1, ipv4_addr1));
+
+	// IPv4 and its IPv6 mapped form
+	boost::asio::ip::address ipv6_mapped_ipv4 = boost::asio::ip::address::from_string ("::ffff:192.168.1.1");
+	ASSERT_TRUE (nano::transport::is_same_ip (ipv4_addr1, ipv6_mapped_ipv4));
+}
+
+TEST (network_functions, is_same_ipv6)
+{
+	// Two different IPv6 addresses within the same /48 subnet
+	boost::asio::ip::address ipv6_addr1 = boost::asio::ip::address::from_string ("2001:db8::1");
+	boost::asio::ip::address ipv6_addr2 = boost::asio::ip::address::from_string ("2001:db8::2");
+	ASSERT_TRUE (nano::transport::is_same_ip (ipv6_addr1, ipv6_addr2));
+
+	// Two different IPv6 addresses in different /48 subnets
+	boost::asio::ip::address ipv6_addr3 = boost::asio::ip::address::from_string ("2001:db8:1::1");
+	ASSERT_FALSE (nano::transport::is_same_ip (ipv6_addr1, ipv6_addr3));
+}
+
+TEST (network_functions, is_different_ip_family)
+{
+	boost::asio::ip::address addr1 = boost::asio::ip::address::from_string ("192.168.1.1");
+	boost::asio::ip::address addr2 = boost::asio::ip::address::from_string ("::1");
+	ASSERT_FALSE (nano::transport::is_same_ip (addr1, addr2));
+}
+
+TEST (network_functions, is_same_ip_v4_mapped)
+{
+	boost::asio::ip::address addr1 = boost::asio::ip::address::from_string ("::ffff:192.168.1.1");
+	boost::asio::ip::address addr2 = boost::asio::ip::address::from_string ("192.168.1.1");
+	ASSERT_TRUE (nano::transport::is_same_ip (addr1, addr2));
+
+	boost::asio::ip::address addr3 = boost::asio::ip::address::from_string ("10.0.0.1");
+	ASSERT_FALSE (nano::transport::is_same_ip (addr1, addr3));
+}
+
+TEST (network_functions, map_ipv4_address_to_subnetwork)
+{
+	boost::asio::ip::address addr = boost::asio::ip::address::from_string ("192.168.1.100");
+	auto subnetwork = nano::transport::map_address_to_subnetwork (addr);
+	// Assuming a /24 subnet mask for IPv4, all addresses in 192.168.1.x should map to the same network
+	// Automatically maps to IPv6
+	ASSERT_EQ (subnetwork.to_string (), "::ffff:192.168.1.0");
+}
+
+TEST (network_functions, map_ipv6_address_to_subnetwork)
+{
+	boost::asio::ip::address addr = boost::asio::ip::address::from_string ("2001:db8:abcd:0012::0");
+	auto subnetwork = nano::transport::map_address_to_subnetwork (addr);
+	// Assuming a /32 subnet mask for IPv6
+	ASSERT_EQ (subnetwork.to_string (), "2001:db8::");
+}
