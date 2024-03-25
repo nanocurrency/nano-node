@@ -638,13 +638,7 @@ void nano::node::start ()
 	bool tcp_enabled = false;
 	if (config.tcp_incoming_connections_max > 0 && !(flags.disable_bootstrap_listener && flags.disable_tcp_realtime))
 	{
-		tcp_listener->start ([this] (std::shared_ptr<nano::transport::socket> const & new_connection, boost::system::error_code const & ec_a) {
-			if (!ec_a)
-			{
-				tcp_listener->accept_action (ec_a, new_connection);
-			}
-			return true;
-		});
+		tcp_listener->start ();
 		tcp_enabled = true;
 
 		if (network.port != tcp_listener->endpoint ().port ())
@@ -653,6 +647,10 @@ void nano::node::start ()
 		}
 
 		logger.info (nano::log::type::node, "Node peering port: {}", network.port.load ());
+	}
+	else
+	{
+		logger.warn (nano::log::type::node, "Node peering is disabled");
 	}
 
 	if (!flags.disable_backup)

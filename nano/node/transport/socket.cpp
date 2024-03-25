@@ -20,10 +20,17 @@
  */
 
 nano::transport::socket::socket (nano::node & node_a, nano::transport::socket_endpoint endpoint_type_a, std::size_t max_queue_size_a) :
+	socket{ boost::asio::ip::tcp::socket{ node_a.io_ctx }, {}, {}, node_a, endpoint_type_a, max_queue_size_a }
+{
+}
+
+nano::transport::socket::socket (boost::asio::ip::tcp::socket boost_socket_a, boost::asio::ip::tcp::endpoint remote_endpoint_a, boost::asio::ip::tcp::endpoint local_endpoint_a, nano::node & node_a, nano::transport::socket_endpoint endpoint_type_a, std::size_t max_queue_size_a) :
 	send_queue{ max_queue_size_a },
 	strand{ node_a.io_ctx.get_executor () },
-	tcp_socket{ node_a.io_ctx },
+	tcp_socket{ std::move (boost_socket_a) },
 	node{ node_a },
+	remote{ remote_endpoint_a },
+	local{ local_endpoint_a },
 	endpoint_type_m{ endpoint_type_a },
 	timeout{ std::numeric_limits<uint64_t>::max () },
 	last_completion_time_or_init{ nano::seconds_since_epoch () },

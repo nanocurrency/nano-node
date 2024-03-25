@@ -36,7 +36,7 @@ nano::transport::tcp_server::~tcp_server ()
 		return;
 	}
 
-	node->logger.debug (nano::log::type::tcp_server, "Exiting TCP server ({})", fmt::streamed (remote_endpoint));
+	node->logger.debug (nano::log::type::tcp_server, "Exiting server: {}", fmt::streamed (remote_endpoint));
 
 	if (socket->type () == nano::transport::socket_type::bootstrap)
 	{
@@ -73,7 +73,7 @@ void nano::transport::tcp_server::start ()
 		return;
 	}
 
-	node->logger.debug (nano::log::type::tcp_server, "Starting TCP server ({})", fmt::streamed (remote_endpoint));
+	node->logger.debug (nano::log::type::tcp_server, "Starting server: {}", fmt::streamed (remote_endpoint));
 
 	receive_message ();
 }
@@ -280,7 +280,7 @@ auto nano::transport::tcp_server::process_handshake (nano::node_id_handshake con
 	if (node->flags.disable_tcp_realtime)
 	{
 		node->stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake_error);
-		node->logger.debug (nano::log::type::tcp_server, "Handshake attempted with disabled realtime TCP ({})", fmt::streamed (remote_endpoint));
+		node->logger.debug (nano::log::type::tcp_server, "Handshake attempted with disabled realtime mode ({})", fmt::streamed (remote_endpoint));
 
 		return handshake_status::abort;
 	}

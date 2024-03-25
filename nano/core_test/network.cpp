@@ -715,7 +715,7 @@ TEST (network, peer_max_tcp_attempts)
 	}
 	ASSERT_EQ (0, node->network.size ());
 	ASSERT_FALSE (node->network.tcp_channels.track_reachout (nano::endpoint (node->network.endpoint ().address (), system.get_available_port ())));
-	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::out));
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::max_per_ip, nano::stat::dir::out));
 }
 #endif
 
@@ -737,9 +737,9 @@ namespace transport
 			ASSERT_TRUE (node->network.tcp_channels.track_reachout (endpoint));
 		}
 		ASSERT_EQ (0, node->network.size ());
-		ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_subnetwork, nano::stat::dir::out));
+		ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp, nano::stat::detail::max_per_subnetwork, nano::stat::dir::out));
 		ASSERT_FALSE (node->network.tcp_channels.track_reachout (nano::endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"), system.get_available_port ())));
-		ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_subnetwork, nano::stat::dir::out));
+		ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::max_per_subnetwork, nano::stat::dir::out));
 	}
 }
 }
@@ -923,9 +923,9 @@ TEST (network, tcp_no_connect_excluded_peers)
 	{
 		node0->network.excluded_peers.add (endpoint1_tcp);
 	}
-	ASSERT_EQ (0, node0->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_excluded));
+	ASSERT_EQ (0, node0->stats.count (nano::stat::type::tcp, nano::stat::detail::excluded));
 	node1->network.merge_peer (node0->network.endpoint ());
-	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_excluded) >= 1);
+	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp, nano::stat::detail::excluded) >= 1);
 	ASSERT_EQ (nullptr, node0->network.find_node_id (node1->get_node_id ()));
 
 	// Should not actively reachout to excluded peers

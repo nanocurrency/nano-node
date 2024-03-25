@@ -69,9 +69,20 @@ public:
 
 public:
 	explicit socket (nano::node &, nano::transport::socket_endpoint = socket_endpoint::client, std::size_t max_queue_size = default_max_queue_size);
+
+	// TODO: Accepting remote/local endpoints as a parameter is unnecessary, but is needed for now to keep compatibility with the legacy code
+	explicit socket (
+	boost::asio::ip::tcp::socket,
+	boost::asio::ip::tcp::endpoint remote_endpoint,
+	boost::asio::ip::tcp::endpoint local_endpoint,
+	nano::node &,
+	nano::transport::socket_endpoint = socket_endpoint::server,
+	std::size_t max_queue_size = default_max_queue_size);
+
 	~socket ();
 
 	void start ();
+	void close ();
 
 	void async_connect (
 	boost::asio::ip::tcp::endpoint const & endpoint,
@@ -86,8 +97,6 @@ public:
 	nano::shared_const_buffer const &,
 	std::function<void (boost::system::error_code const &, std::size_t)> callback = {},
 	traffic_type = traffic_type::generic);
-
-	void close ();
 
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;
 	boost::asio::ip::tcp::endpoint local_endpoint () const;
