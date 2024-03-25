@@ -1,6 +1,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/active_transactions.hpp>
+#include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/manual.hpp>
@@ -1243,7 +1244,7 @@ TEST (active_transactions, activate_inactive)
 	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
 
-	ASSERT_TIMELY (5s, !node.confirmation_height_processor.is_processing_added_block (send2->hash ()));
+	ASSERT_TIMELY (5s, !node.confirming_set.exists (send2->hash ()));
 	ASSERT_TIMELY (5s, node.block_confirmed (send2->hash ()));
 	ASSERT_TIMELY (5s, node.block_confirmed (send->hash ()));
 

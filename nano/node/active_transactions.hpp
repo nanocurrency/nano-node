@@ -28,9 +28,9 @@ class active_transactions;
 class block;
 class block_sideband;
 class block_processor;
+class confirming_set;
 class election;
 class vote;
-class confirmation_height_processor;
 class stats;
 }
 namespace nano::store
@@ -141,7 +141,7 @@ private: // Elections
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 
 public:
-	active_transactions (nano::node &, nano::confirmation_height_processor &, nano::block_processor &);
+	active_transactions (nano::node &, nano::confirming_set &, nano::block_processor &);
 	~active_transactions ();
 
 	void start ();
@@ -209,7 +209,7 @@ private:
 
 private: // Dependencies
 	nano::node & node;
-	nano::confirmation_height_processor & confirmation_height_processor;
+	nano::confirming_set & confirming_set;
 	nano::block_processor & block_processor;
 
 public:

@@ -13,7 +13,6 @@
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
-#include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/epoch_upgrader.hpp>
 #include <nano/node/local_block_broadcaster.hpp>
@@ -47,6 +46,7 @@
 namespace nano
 {
 class active_transactions;
+class confirming_set;
 class node;
 class work_pool;
 
@@ -168,7 +168,8 @@ public:
 	nano::node_observers observers;
 	nano::port_mapping port_mapping;
 	nano::block_processor block_processor;
-	nano::confirmation_height_processor confirmation_height_processor;
+	std::unique_ptr<nano::confirming_set> confirming_set_impl;
+	nano::confirming_set & confirming_set;
 	std::unique_ptr<nano::active_transactions> active_impl;
 	nano::active_transactions & active;
 	nano::online_reps online_reps;

@@ -126,7 +126,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("bootstrap_bandwidth_limit", bootstrap_bandwidth_limit, "Outbound bootstrap traffic limit in bytes/sec after which messages will be dropped.\nNote: changing to unlimited bandwidth (0) is not recommended for limited connections.\ntype:uint64");
 	toml.put ("bootstrap_bandwidth_burst_ratio", bootstrap_bandwidth_burst_ratio, "Burst ratio for outbound bootstrap traffic.\ntype:double");
 
-	toml.put ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time.count (), "Minimum write batching time when there are blocks pending confirmation height.\ntype:milliseconds");
+	toml.put ("confirming_set_batch_time", confirming_set_batch_time.count (), "Maximum time the confirming set will hold the database write transaction.\ntype:milliseconds");
 	toml.put ("backup_before_upgrade", backup_before_upgrade, "Backup the ledger database before performing upgrades.\nWarning: uses more disk storage and increases startup time when upgrading.\ntype:bool");
 	toml.put ("max_work_generate_multiplier", max_work_generate_multiplier, "Maximum allowed difficulty multiplier for work generation.\ntype:double,[1..]");
 	toml.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation), "Mode controlling frontier confirmation rate.\ntype:string,{auto,always,disabled}");
@@ -432,9 +432,9 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 
 		toml.get<bool> ("backup_before_upgrade", backup_before_upgrade);
 
-		auto conf_height_processor_batch_min_time_l (conf_height_processor_batch_min_time.count ());
-		toml.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
-		conf_height_processor_batch_min_time = std::chrono::milliseconds (conf_height_processor_batch_min_time_l);
+		auto confirming_set_batch_time_l (confirming_set_batch_time.count ());
+		toml.get ("confirming_set_batch_time", confirming_set_batch_time_l);
+		confirming_set_batch_time = std::chrono::milliseconds (confirming_set_batch_time_l);
 
 		toml.get<double> ("max_work_generate_multiplier", max_work_generate_multiplier);
 

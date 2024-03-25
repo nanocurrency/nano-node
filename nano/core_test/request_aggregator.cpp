@@ -1,6 +1,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/active_transactions.hpp>
+#include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/request_aggregator.hpp>
@@ -79,7 +80,7 @@ TEST (request_aggregator, one_update)
 				 .work (*node.work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), send1));
-	node.confirmation_height_processor.add (send1);
+	node.confirming_set.add (send1->hash ());
 	ASSERT_TIMELY (5s, node.ledger.block_confirmed (node.store.tx_begin_read (), send1->hash ()));
 	auto send2 = nano::state_block_builder ()
 				 .account (nano::dev::genesis_key.pub)
@@ -145,7 +146,7 @@ TEST (request_aggregator, two)
 				 .work (*node.work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), send1));
-	node.confirmation_height_processor.add (send1);
+	node.confirming_set.add (send1->hash ());
 	ASSERT_TIMELY (5s, node.ledger.block_confirmed (node.store.tx_begin_read (), send1->hash ()));
 	auto send2 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)
@@ -450,8 +451,6 @@ TEST (request_aggregator, cannot_vote)
 	nano::node_flags flags;
 	flags.disable_request_loop = true;
 	auto & node (*system.add_node (flags));
-	// This prevents activation of blocks which are cemented
-	node.confirmation_height_processor.cemented_observers.clear ();
 	nano::state_block_builder builder;
 	auto send1 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)

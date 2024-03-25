@@ -6,6 +6,7 @@
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/cli.hpp>
+#include <nano/node/confirming_set.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
@@ -1212,7 +1213,7 @@ int main (int argc, char * const * argv)
 			// Confirm blocks for node1
 			for (auto & block : blocks)
 			{
-				node1->confirmation_height_processor.add (block);
+				node1->confirming_set.add (block->hash ());
 			}
 			while (node1->ledger.cache.cemented_count != node1->ledger.cache.block_count)
 			{

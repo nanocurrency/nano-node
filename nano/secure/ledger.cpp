@@ -21,6 +21,8 @@
 #include <nano/store/rep_weight.hpp>
 #include <nano/store/version.hpp>
 
+#include <stack>
+
 #include <cryptopp/words.h>
 
 namespace
@@ -873,6 +875,50 @@ nano::uint128_t nano::ledger::account_receivable (store::transaction const & tra
 std::optional<nano::pending_info> nano::ledger::pending_info (store::transaction const & transaction, nano::pending_key const & key) const
 {
 	return store.pending.get (transaction, key);
+}
+
+std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (nano::store::write_transaction const & transaction, nano::block_hash const & hash)
+{
+	std::deque<std::shared_ptr<nano::block>> result;
+	std::stack<nano::block_hash> stack;
+	stack.push (hash);
+	while (!stack.empty ())
+	{
+		auto hash = stack.top ();
+		auto block = this->block (transaction, hash);
+		release_assert (block);
+		auto dependents = dependent_blocks (transaction, *block);
+		for (auto const & dependent : dependents)
+		{
+			if (!dependent.is_zero () && !block_confirmed (transaction, dependent))
+			{
+				stack.push (dependent);
+			}
+		}
+		if (stack.top () == hash)
+		{
+			stack.pop ();
+			if (!block_confirmed (transaction, hash))
+			{
+				result.push_back (block);
+				confirm (transaction, *block);
+			}
+		}
+		else
+		{
+			// unconfirmed dependencies were added
+		}
+	}
+	return result;
+}
+
+void nano::ledger::confirm (nano::store::write_transaction const & transaction, nano::block const & block)
+{
+	debug_assert ((!store.confirmation_height.get (transaction, block.account ()) && block.sideband ().height == 1) || store.confirmation_height.get (transaction, block.account ()).value ().height + 1 == block.sideband ().height);
+	confirmation_height_info info{ block.sideband ().height, block.hash () };
+	store.confirmation_height.put (transaction, block.account (), info);
+	++cache.cemented_count;
+	stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed);
 }
 
 nano::block_status nano::ledger::process (store::write_transaction const & transaction_a, std::shared_ptr<nano::block> block_a)

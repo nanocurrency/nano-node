@@ -6,6 +6,7 @@
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
@@ -1205,7 +1206,7 @@ void nano::json_handler::block_confirm ()
 			if (!node.ledger.block_confirmed (transaction, hash))
 			{
 				// Start new confirmation for unconfirmed (or not being confirmed) block
-				if (!node.confirmation_height_processor.is_processing_block (hash))
+				if (!node.confirming_set.exists (hash))
 				{
 					node.start_election (std::move (block_l));
 				}
@@ -1998,20 +1999,6 @@ void nano::json_handler::confirmation_active ()
 	response_l.add_child ("confirmations", elections);
 	response_l.put ("unconfirmed", elections.size ());
 	response_l.put ("confirmed", confirmed);
-	response_errors ();
-}
-
-void nano::json_handler::confirmation_height_currently_processing ()
-{
-	auto hash = node.confirmation_height_processor.current ();
-	if (!hash.is_zero ())
-	{
-		response_l.put ("hash", hash.to_string ());
-	}
-	else
-	{
-		ec = nano::error_rpc::confirmation_height_not_processing;
-	}
 	response_errors ();
 }
 
@@ -5333,7 +5320,6 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("bootstrap_lazy", &nano::json_handler::bootstrap_lazy);
 	no_arg_funcs.emplace ("bootstrap_status", &nano::json_handler::bootstrap_status);
 	no_arg_funcs.emplace ("confirmation_active", &nano::json_handler::confirmation_active);
-	no_arg_funcs.emplace ("confirmation_height_currently_processing", &nano::json_handler::confirmation_height_currently_processing);
 	no_arg_funcs.emplace ("confirmation_history", &nano::json_handler::confirmation_history);
 	no_arg_funcs.emplace ("confirmation_info", &nano::json_handler::confirmation_info);
 	no_arg_funcs.emplace ("confirmation_quorum", &nano::json_handler::confirmation_quorum);

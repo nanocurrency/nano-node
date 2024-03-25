@@ -152,7 +152,6 @@ std::unordered_set<std::string> create_rpc_control_impls ()
 	set.emplace ("backoff_info");
 	set.emplace ("block_create");
 	set.emplace ("bootstrap_lazy");
-	set.emplace ("confirmation_height_currently_processing");
 	set.emplace ("database_txn_tracker");
 	set.emplace ("epoch_upgrade");
 	set.emplace ("keepalive");
