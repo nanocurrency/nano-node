@@ -9,7 +9,6 @@
 #include <nano/store/rocksdb/block.hpp>
 #include <nano/store/rocksdb/confirmation_height.hpp>
 #include <nano/store/rocksdb/final_vote.hpp>
-#include <nano/store/rocksdb/frontier.hpp>
 #include <nano/store/rocksdb/iterator.hpp>
 #include <nano/store/rocksdb/online_weight.hpp>
 #include <nano/store/rocksdb/peer.hpp>
@@ -46,7 +45,6 @@ private:
 	nano::store::rocksdb::block block_store;
 	nano::store::rocksdb::confirmation_height confirmation_height_store;
 	nano::store::rocksdb::final_vote final_vote_store;
-	nano::store::rocksdb::frontier frontier_store;
 	nano::store::rocksdb::online_weight online_weight_store;
 	nano::store::rocksdb::peer peer_store;
 	nano::store::rocksdb::pending pending_store;
@@ -59,7 +57,6 @@ public:
 	friend class nano::store::rocksdb::block;
 	friend class nano::store::rocksdb::confirmation_height;
 	friend class nano::store::rocksdb::final_vote;
-	friend class nano::store::rocksdb::frontier;
 	friend class nano::store::rocksdb::online_weight;
 	friend class nano::store::rocksdb::peer;
 	friend class nano::store::rocksdb::pending;
@@ -155,6 +152,7 @@ private:
 	bool do_upgrades (store::write_transaction const &);
 	void upgrade_v21_to_v22 (store::write_transaction const &);
 	void upgrade_v22_to_v23 (store::write_transaction const &);
+	void upgrade_v23_to_v24 (store::write_transaction const &);
 
 	void construct_column_family_mutexes ();
 	::rocksdb::Options get_db_options ();

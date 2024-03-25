@@ -1397,6 +1397,42 @@ TEST (mdb_block_store, upgrade_v21_v22)
 	// Testing the upgrade code worked
 	check_correct_state ();
 }
+
+TEST (mdb_block_store, upgrade_v23_v24)
+{
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
+	{
+		// Direct lmdb operations are used to simulate the old ledger format so this test will not work on RocksDB
+		GTEST_SKIP ();
+	}
+
+	auto path (nano::unique_path () / "data.ldb");
+	nano::logger logger;
+	nano::stats stats;
+	auto const check_correct_state = [&] () {
+		nano::store::lmdb::component store (logger, path, nano::dev::constants);
+		auto transaction (store.tx_begin_write ());
+		ASSERT_EQ (store.version.get (transaction), store.version_current);
+		MDB_dbi frontiers_handle{ 0 };
+		ASSERT_EQ (MDB_NOTFOUND, mdb_dbi_open (store.env.tx (transaction), "frontiers", 0, &frontiers_handle));
+	};
+
+	// Testing current version doesn't contain the frontiers table
+	check_correct_state ();
+
+	// Setting the database to its 23st version state
+	{
+		nano::store::lmdb::component store (logger, path, nano::dev::constants);
+		auto transaction (store.tx_begin_write ());
+		store.version.put (transaction, 23);
+		MDB_dbi frontiers_handle{ 0 };
+		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "frontiers", MDB_CREATE, &frontiers_handle));
+		ASSERT_EQ (store.version.get (transaction), 23);
+	}
+
+	// Testing the upgrade code worked
+	check_correct_state ();
+}
 }
 
 namespace nano::store::rocksdb

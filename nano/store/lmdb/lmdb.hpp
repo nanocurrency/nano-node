@@ -11,7 +11,6 @@
 #include <nano/store/lmdb/confirmation_height.hpp>
 #include <nano/store/lmdb/db_val.hpp>
 #include <nano/store/lmdb/final_vote.hpp>
-#include <nano/store/lmdb/frontier.hpp>
 #include <nano/store/lmdb/iterator.hpp>
 #include <nano/store/lmdb/lmdb_env.hpp>
 #include <nano/store/lmdb/online_weight.hpp>
@@ -45,7 +44,6 @@ private:
 	nano::store::lmdb::block block_store;
 	nano::store::lmdb::confirmation_height confirmation_height_store;
 	nano::store::lmdb::final_vote final_vote_store;
-	nano::store::lmdb::frontier frontier_store;
 	nano::store::lmdb::online_weight online_weight_store;
 	nano::store::lmdb::peer peer_store;
 	nano::store::lmdb::pending pending_store;
@@ -57,7 +55,6 @@ private:
 	friend class nano::store::lmdb::block;
 	friend class nano::store::lmdb::confirmation_height;
 	friend class nano::store::lmdb::final_vote;
-	friend class nano::store::lmdb::frontier;
 	friend class nano::store::lmdb::online_weight;
 	friend class nano::store::lmdb::peer;
 	friend class nano::store::lmdb::pending;
@@ -117,6 +114,7 @@ private:
 	bool do_upgrades (store::write_transaction &, nano::ledger_constants & constants, bool &);
 	void upgrade_v21_to_v22 (store::write_transaction const &);
 	void upgrade_v22_to_v23 (store::write_transaction const &);
+	void upgrade_v23_to_v24 (store::write_transaction const &);
 
 	void open_databases (bool &, store::transaction const &, unsigned);
 

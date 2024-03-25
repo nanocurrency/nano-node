@@ -5502,7 +5502,6 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 		store.confirmation_height.put (transaction, nano::dev::genesis_key.pub, { 2, send->hash () });
 
 		store.online_weight.put (transaction, 100, nano::amount (2));
-		store.frontier.put (transaction, nano::block_hash (2), nano::account (5));
 		store.peer.put (transaction, endpoint_key);
 
 		store.pending.put (transaction, nano::pending_key (nano::dev::genesis_key.pub, send->hash ()), nano::pending_info (nano::dev::genesis_key.pub, 100, nano::epoch::epoch_0));
