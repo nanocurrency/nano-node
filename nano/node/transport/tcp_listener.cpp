@@ -5,6 +5,8 @@
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/transport/tcp_server.hpp>
 
+#include <boost/asio/use_future.hpp>
+
 #include <memory>
 
 using namespace std::chrono_literals;
@@ -86,10 +88,15 @@ void nano::transport::tcp_listener::stop ()
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
 		stopped = true;
+
+		boost::system::error_code ec;
+		acceptor.close (ec); // Best effort to close the acceptor, ignore errors
+		if (ec)
+		{
+			logger.error (nano::log::type::tcp_listener, "Error while closing acceptor: {}", ec.message ());
+		}
 	}
 	condition.notify_all ();
-
-	acceptor.close ();
 
 	if (thread.joinable ())
 	{
@@ -193,9 +200,20 @@ void nano::transport::tcp_listener::run ()
 	}
 }
 
+boost::asio::ip::tcp::socket nano::transport::tcp_listener::accept_socket ()
+{
+	std::future<boost::asio::ip::tcp::socket> future;
+	{
+		nano::unique_lock<nano::mutex> lock{ mutex };
+		future = acceptor.async_accept (boost::asio::use_future);
+	}
+	future.wait ();
+	return future.get ();
+}
+
 auto nano::transport::tcp_listener::accept_one () -> accept_result
 {
-	auto raw_socket = acceptor.accept ();
+	auto raw_socket = accept_socket ();
 	auto const remote_endpoint = raw_socket.remote_endpoint ();
 	auto const local_endpoint = raw_socket.local_endpoint ();
 

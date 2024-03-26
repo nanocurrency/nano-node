@@ -69,6 +69,8 @@ private:
 
 	accept_result accept_one ();
 	accept_result check_limits (boost::asio::ip::address const & ip);
+	boost::asio::ip::tcp::socket accept_socket ();
+
 	size_t count_per_ip (boost::asio::ip::address const & ip) const;
 	size_t count_per_subnetwork (boost::asio::ip::address const & ip) const;
 
