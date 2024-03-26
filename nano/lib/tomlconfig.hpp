@@ -49,6 +49,7 @@ public:
 	void erase_default_values (tomlconfig & defaults_a);
 	std::string to_string ();
 	std::string to_string_commented_entries ();
+	void merge_defaults (std::shared_ptr<cpptoml::table> const & base, std::shared_ptr<cpptoml::table> const & defaults);
 
 	/** Set value for the given key. Any existing value will be overwritten. */
 	template <typename T>
