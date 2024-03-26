@@ -15,7 +15,7 @@ SSE2 code and benches have not been updated yet. I will do those next.
 
 Compilers versions are gcc 4.6.3, icc 13.1.1, clang 3.4-1~exp1.
 
-Batch verfication time (in parentheses) is the average time per 1 verification in a batch of 64 signatures. Counts are in thousands of cycles.
+Batch verification time (in parentheses) is the average time per 1 verification in a batch of 64 signatures. Counts are in thousands of cycles.
 
 Note that SSE2 performance may be less impressive on AMD & older CPUs with slower SSE ops!
 
