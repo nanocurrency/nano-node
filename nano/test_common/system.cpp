@@ -211,6 +211,24 @@ std::shared_ptr<nano::node> nano::test::system::make_disconnected_node (std::opt
 	return node;
 }
 
+void nano::test::system::register_node (std::shared_ptr<nano::node> const & node)
+{
+	debug_assert (std::find (nodes.begin (), nodes.end (), node) == nodes.end ());
+	nodes.push_back (node);
+}
+
+void nano::test::system::stop_node (nano::node & node)
+{
+	auto stopped = std::async (std::launch::async, [&node] () {
+		node.stop ();
+	});
+	auto ec = poll_until_true (5s, [&] () {
+		auto status = stopped.wait_for (0s);
+		return status == std::future_status::ready;
+	});
+	debug_assert (!ec);
+}
+
 void nano::test::system::ledger_initialization_set (std::vector<nano::keypair> const & reps, nano::amount const & reserve)
 {
 	nano::block_hash previous = nano::dev::genesis->hash ();

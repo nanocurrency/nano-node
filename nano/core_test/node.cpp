@@ -40,8 +40,6 @@ TEST (node, stop)
 {
 	nano::test::system system (1);
 	ASSERT_NE (system.nodes[0]->wallets.items.end (), system.nodes[0]->wallets.items.begin ());
-	system.nodes[0]->stop ();
-	system.io_ctx->run ();
 	ASSERT_TRUE (true);
 }
 
@@ -77,9 +75,10 @@ TEST (node, block_store_path_failure)
 	auto path (nano::unique_path ());
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	auto node (std::make_shared<nano::node> (io_ctx, system.get_available_port (), path, pool));
+	system.register_node (node);
 	ASSERT_TRUE (node->wallets.items.empty ());
-	node->stop ();
 }
+
 #if defined(__clang__) && defined(__linux__) && CI
 // Disable test due to instability with clang and actions
 TEST (node_DeathTest, DISABLED_readonly_block_store_not_exist)
@@ -102,16 +101,13 @@ TEST (node_DeathTest, readonly_block_store_not_exist)
 TEST (node, password_fanout)
 {
 	nano::test::system system;
-	auto io_ctx = std::make_shared<boost::asio::io_context> ();
-	auto path (nano::unique_path ());
 	nano::node_config config;
 	config.peering_port = system.get_available_port ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	config.password_fanout = 10;
-	nano::node node (io_ctx, path, config, pool);
+	auto & node = *system.add_node (config);
 	auto wallet (node.wallets.create (100));
 	ASSERT_EQ (10, wallet->store.password.values.size ());
-	node.stop ();
 }
 
 TEST (node, balance)
@@ -284,8 +280,6 @@ TEST (node, auto_bootstrap)
 	ASSERT_TIMELY_EQ (5s, node1->ledger.cache.block_count, 3);
 	// Confirmation for all blocks
 	ASSERT_TIMELY_EQ (5s, node1->ledger.cache.cemented_count, 3);
-
-	node1->stop ();
 }
 
 TEST (node, auto_bootstrap_reverse)
@@ -329,8 +323,6 @@ TEST (node, auto_bootstrap_age)
 	ASSERT_TIMELY (10s, node0->stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate_legacy_age, nano::stat::dir::out) >= 3);
 	// More attempts with frontiers age
 	ASSERT_GE (node0->stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate_legacy_age, nano::stat::dir::out), node0->stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out));
-
-	node1->stop ();
 }
 
 TEST (node, merge_peers)
@@ -2843,7 +2835,7 @@ TEST (node, peers)
 	ASSERT_TRUE (store.peer.exists (store.tx_begin_read (), endpoint_key));
 
 	// Stop the peer node and check that it is removed from the store
-	node1->stop ();
+	system.stop_node (*node1);
 
 	// TODO: In `tcp_channels::store_all` we skip store operation when there are no peers present,
 	// so the best we can do here is check if network is empty
@@ -2873,7 +2865,7 @@ TEST (node, peer_cache_restart)
 		auto list (node2->network.list (2));
 		ASSERT_EQ (node1->network.endpoint (), list[0]->get_endpoint ());
 		ASSERT_EQ (1, node2->network.size ());
-		node2->stop ();
+		system.stop_node (*node2);
 	}
 	// Restart node
 	{
@@ -2896,7 +2888,7 @@ TEST (node, peer_cache_restart)
 		auto list (node3->network.list (2));
 		ASSERT_EQ (node1->network.endpoint (), list[0]->get_endpoint ());
 		ASSERT_EQ (1, node3->network.size ());
-		node3->stop ();
+		system.stop_node (*node3);
 	}
 }
 

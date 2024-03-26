@@ -569,7 +569,7 @@ TEST (network, ipv6_bind_send_ipv4)
 TEST (network, endpoint_bad_fd)
 {
 	nano::test::system system (1);
-	system.nodes[0]->stop ();
+	system.stop_node (*system.nodes[0]);
 	auto endpoint (system.nodes[0]->network.endpoint ());
 	ASSERT_TRUE (endpoint.address ().is_loopback ());
 	// The endpoint is invalidated asynchronously
