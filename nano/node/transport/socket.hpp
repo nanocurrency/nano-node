@@ -72,10 +72,10 @@ public:
 
 	// TODO: Accepting remote/local endpoints as a parameter is unnecessary, but is needed for now to keep compatibility with the legacy code
 	explicit socket (
+	nano::node &,
 	boost::asio::ip::tcp::socket,
 	boost::asio::ip::tcp::endpoint remote_endpoint,
 	boost::asio::ip::tcp::endpoint local_endpoint,
-	nano::node &,
 	nano::transport::socket_endpoint = socket_endpoint::server,
 	std::size_t max_queue_size = default_max_queue_size);
 
@@ -172,9 +172,10 @@ private:
 	write_queue send_queue;
 
 protected:
+	nano::node & node;
+
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 	boost::asio::ip::tcp::socket tcp_socket;
-	nano::node & node;
 
 	/** The other end of the connection */
 	boost::asio::ip::tcp::endpoint remote;

@@ -510,7 +510,7 @@ TEST (socket, concurrent_writes)
 	accept_callback_t accept_callback = [&] (boost::system::error_code const & ec, boost::asio::ip::tcp::socket socket) {
 		if (!ec)
 		{
-			auto new_connection = std::make_shared<nano::transport::socket> (std::move (socket), socket.remote_endpoint (), socket.local_endpoint (), *node);
+			auto new_connection = std::make_shared<nano::transport::socket> (*node, std::move (socket), socket.remote_endpoint (), socket.local_endpoint ());
 			connections.push_back (new_connection);
 			reader (new_connection);
 

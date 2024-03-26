@@ -137,6 +137,7 @@ void nano::transport::tcp_listener::cleanup ()
 	erase_if (connections, [this] (auto const & connection) {
 		if (connection.socket.expired () && connection.server.expired ())
 		{
+			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::erase_dead);
 			logger.debug (nano::log::type::tcp_listener, "Evicting dead connection: {}", fmt::streamed (connection.endpoint));
 			return true;
 		}
@@ -187,8 +188,8 @@ void nano::transport::tcp_listener::run ()
 	}
 	if (!stopped)
 	{
-		debug_assert (false, "acceptor stopped unexpectedly");
 		logger.error (nano::log::type::tcp_listener, "Acceptor stopped unexpectedly");
+		debug_assert (false, "acceptor stopped unexpectedly");
 	}
 }
 
@@ -211,8 +212,8 @@ auto nano::transport::tcp_listener::accept_one () -> accept_result
 		}
 		catch (boost::system::system_error const & ex)
 		{
-			logger.debug (nano::log::type::tcp_listener, "Error while closing socket after refusing connection: {}", ex.what ());
 			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::close_error, nano::stat::dir::in);
+			logger.debug (nano::log::type::tcp_listener, "Error while closing socket after refusing connection: {}", ex.what ());
 		}
 
 		return result;
@@ -221,7 +222,7 @@ auto nano::transport::tcp_listener::accept_one () -> accept_result
 	stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::accept_success, nano::stat::dir::in);
 	logger.debug (nano::log::type::tcp_listener, "Accepted incoming connection from: {}", fmt::streamed (remote_endpoint));
 
-	auto socket = std::make_shared<nano::transport::socket> (std::move (raw_socket), remote_endpoint, local_endpoint, node, socket_endpoint::server);
+	auto socket = std::make_shared<nano::transport::socket> (node, std::move (raw_socket), remote_endpoint, local_endpoint, socket_endpoint::server);
 	auto server = std::make_shared<nano::transport::tcp_server> (socket, node.shared (), true);
 
 	{
@@ -240,13 +241,8 @@ auto nano::transport::tcp_listener::accept_one () -> accept_result
 
 void nano::transport::tcp_listener::wait_available_slots ()
 {
-	auto should_wait = [this] {
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		return connections.size () >= max_inbound_connections;
-	};
-
 	nano::interval log_interval;
-	while (!stopped && should_wait ())
+	while (connection_count () >= max_inbound_connections && !stopped)
 	{
 		if (log_interval.elapsed (node.network_params.network.is_dev_network () ? 1s : 15s))
 		{
@@ -266,12 +262,21 @@ auto nano::transport::tcp_listener::check_limits (boost::asio::ip::address const
 
 	debug_assert (connections.size () <= max_inbound_connections); // Should be checked earlier (wait_available_slots)
 
+	if (node.network.excluded_peers.check (ip)) // true => error
+	{
+		stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::excluded, nano::stat::dir::in);
+		logger.debug (nano::log::type::tcp_listener, "Rejected connection from excluded peer: {}", ip.to_string ());
+
+		return accept_result::excluded;
+	}
+
 	if (!node.flags.disable_max_peers_per_ip)
 	{
-		if (count_per_ip (ip) >= node.network_params.network.max_peers_per_ip)
+		if (auto count = count_per_ip (ip); count >= node.network_params.network.max_peers_per_ip)
 		{
 			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::max_per_ip, nano::stat::dir::in);
-			logger.debug (nano::log::type::tcp_listener, "Max connections per IP reached ({}), unable to open new connection", ip.to_string ());
+			logger.debug (nano::log::type::tcp_listener, "Max connections per IP reached (ip: {}, count: {}), unable to open new connection",
+			ip.to_string (), count);
 
 			return accept_result::too_many_per_ip;
 		}
@@ -280,21 +285,14 @@ auto nano::transport::tcp_listener::check_limits (boost::asio::ip::address const
 	// If the address is IPv4 we don't check for a network limit, since its address space isn't big as IPv6/64.
 	if (!node.flags.disable_max_peers_per_subnetwork && !nano::transport::is_ipv4_or_v4_mapped_address (ip))
 	{
-		if (count_per_subnetwork (ip) >= node.network_params.network.max_peers_per_subnetwork)
+		if (auto count = count_per_subnetwork (ip); count >= node.network_params.network.max_peers_per_subnetwork)
 		{
 			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::max_per_subnetwork, nano::stat::dir::in);
-			logger.debug (nano::log::type::tcp_listener, "Max connections per subnetwork reached ({}), unable to open new connection", ip.to_string ());
+			logger.debug (nano::log::type::tcp_listener, "Max connections per subnetwork reached (ip: {}, count: {}), unable to open new connection",
+			ip.to_string (), count);
 
 			return accept_result::too_many_per_subnetwork;
 		}
-	}
-
-	if (node.network.excluded_peers.check (ip)) // true => error
-	{
-		stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::excluded, nano::stat::dir::in);
-		logger.debug (nano::log::type::tcp_listener, "Rejected connection from excluded peer: {}", ip.to_string ());
-
-		return accept_result::excluded;
 	}
 
 	return accept_result::accepted;
