@@ -73,11 +73,23 @@ nano::test::system::~system ()
 
 void nano::test::system::stop ()
 {
+	logger.debug (nano::log::type::system, "Stopping...");
+
+	// Keep io_context running while stopping
+	auto stopped = std::async (std::launch::async, [&] {
+		for (auto & node : nodes)
+		{
+			node->stop ();
+		}
+	});
+
+	auto ec = poll_until_true (10s, [&] {
+		auto status = stopped.wait_for (0s);
+		return status == std::future_status::ready;
+	});
+	debug_assert (!ec);
+
 	io_guard.reset ();
-	for (auto & node : nodes)
-	{
-		node->stop ();
-	}
 	work.stop ();
 }
 
@@ -195,6 +207,7 @@ std::shared_ptr<nano::node> nano::test::system::make_disconnected_node (std::opt
 		return nullptr;
 	}
 	node->start ();
+	nodes.push_back (node);
 	return node;
 }
 
