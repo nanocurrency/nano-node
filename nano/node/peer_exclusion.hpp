@@ -50,6 +50,7 @@ public:
 	uint64_t score (nano::tcp_endpoint const &) const;
 	std::chrono::steady_clock::time_point until (nano::tcp_endpoint const &) const;
 	bool check (nano::tcp_endpoint const &) const;
+	bool check (boost::asio::ip::address const &) const;
 	void remove (nano::tcp_endpoint const &);
 	std::size_t size () const;
 

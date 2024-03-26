@@ -36,16 +36,10 @@ nano::transport::tcp_server::~tcp_server ()
 		return;
 	}
 
-	node->logger.debug (nano::log::type::tcp_server, "Exiting TCP server ({})", fmt::streamed (remote_endpoint));
+	node->logger.debug (nano::log::type::tcp_server, "Exiting server: {}", fmt::streamed (remote_endpoint));
 
-	if (socket->type () == nano::transport::socket::type_t::bootstrap)
+	if (socket->type () == nano::transport::socket_type::realtime)
 	{
-		--node->tcp_listener->bootstrap_count;
-	}
-	else if (socket->type () == nano::transport::socket::type_t::realtime)
-	{
-		--node->tcp_listener->realtime_count;
-
 		// Clear temporary channel
 		auto exisiting_response_channel (node->network.tcp_channels.find_channel (remote_endpoint));
 		if (exisiting_response_channel != nullptr)
@@ -73,7 +67,7 @@ void nano::transport::tcp_server::start ()
 		return;
 	}
 
-	node->logger.debug (nano::log::type::tcp_server, "Starting TCP server ({})", fmt::streamed (remote_endpoint));
+	node->logger.debug (nano::log::type::tcp_server, "Starting server: {}", fmt::streamed (remote_endpoint));
 
 	receive_message ();
 }
@@ -280,7 +274,7 @@ auto nano::transport::tcp_server::process_handshake (nano::node_id_handshake con
 	if (node->flags.disable_tcp_realtime)
 	{
 		node->stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake_error);
-		node->logger.debug (nano::log::type::tcp_server, "Handshake attempted with disabled realtime TCP ({})", fmt::streamed (remote_endpoint));
+		node->logger.debug (nano::log::type::tcp_server, "Handshake attempted with disabled realtime mode ({})", fmt::streamed (remote_endpoint));
 
 		return handshake_status::abort;
 	}
@@ -608,17 +602,16 @@ bool nano::transport::tcp_server::to_bootstrap_connection ()
 	{
 		return false;
 	}
-	if (node->tcp_listener->bootstrap_count >= node->config.bootstrap_connections_max)
+	if (node->tcp_listener.bootstrap_count () >= node->config.bootstrap_connections_max)
 	{
 		return false;
 	}
-	if (socket->type () != nano::transport::socket::type_t::undefined)
+	if (socket->type () != nano::transport::socket_type::undefined)
 	{
 		return false;
 	}
 
-	++node->tcp_listener->bootstrap_count;
-	socket->type_set (nano::transport::socket::type_t::bootstrap);
+	socket->type_set (nano::transport::socket_type::bootstrap);
 
 	node->logger.debug (nano::log::type::tcp_server, "Switched to bootstrap mode ({})", fmt::streamed (remote_endpoint));
 
@@ -636,14 +629,13 @@ bool nano::transport::tcp_server::to_realtime_connection (nano::account const & 
 	{
 		return false;
 	}
-	if (socket->type () != nano::transport::socket::type_t::undefined)
+	if (socket->type () != nano::transport::socket_type::undefined)
 	{
 		return false;
 	}
 
 	remote_node_id = node_id;
-	++node->tcp_listener->realtime_count;
-	socket->type_set (nano::transport::socket::type_t::realtime);
+	socket->type_set (nano::transport::socket_type::realtime);
 
 	node->logger.debug (nano::log::type::tcp_server, "Switched to realtime mode ({})", fmt::streamed (remote_endpoint));
 
@@ -652,7 +644,7 @@ bool nano::transport::tcp_server::to_realtime_connection (nano::account const & 
 
 bool nano::transport::tcp_server::is_undefined_connection () const
 {
-	return socket->type () == nano::transport::socket::type_t::undefined;
+	return socket->type () == nano::transport::socket_type::undefined;
 }
 
 bool nano::transport::tcp_server::is_bootstrap_connection () const

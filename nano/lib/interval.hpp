@@ -7,12 +7,7 @@ namespace nano
 class interval
 {
 public:
-	explicit interval (std::chrono::milliseconds target) :
-		target{ target }
-	{
-	}
-
-	bool elapsed ()
+	bool elapsed (auto target)
 	{
 		auto const now = std::chrono::steady_clock::now ();
 		if (now - last >= target)
@@ -24,7 +19,6 @@ public:
 	}
 
 private:
-	std::chrono::milliseconds const target;
 	std::chrono::steady_clock::time_point last{ std::chrono::steady_clock::now () };
 };
 }

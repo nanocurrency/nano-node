@@ -32,7 +32,8 @@ std::string nano::error_system_messages::message (int ev) const
  */
 
 nano::test::system::system () :
-	io_ctx{ std::make_shared<boost::asio::io_context> () }
+	io_ctx{ std::make_shared<boost::asio::io_context> () },
+	io_guard{ boost::asio::make_work_guard (*io_ctx) }
 {
 	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
 	if (scale_str)
@@ -68,6 +69,16 @@ nano::test::system::~system ()
 		nano::remove_temporary_directories ();
 	}
 #endif
+}
+
+void nano::test::system::stop ()
+{
+	io_guard.reset ();
+	for (auto & node : nodes)
+	{
+		node->stop ();
+	}
+	work.stop ();
 }
 
 nano::node & nano::test::system::node (std::size_t index) const
@@ -111,8 +122,8 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 			auto starting_size_1 = node1->network.size ();
 			auto starting_size_2 = node2->network.size ();
 
-			auto starting_realtime_1 = node1->tcp_listener->realtime_count.load ();
-			auto starting_realtime_2 = node2->tcp_listener->realtime_count.load ();
+			auto starting_realtime_1 = node1->tcp_listener.realtime_count ();
+			auto starting_realtime_2 = node2->tcp_listener.realtime_count ();
 
 			auto starting_keepalives_1 = node1->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
 			auto starting_keepalives_2 = node2->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
@@ -135,8 +146,8 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 				{
 					// Wait for initial connection finish
 					auto ec = poll_until_true (5s, [&node1, &node2, starting_realtime_1, starting_realtime_2] () {
-						auto realtime_1 = node1->tcp_listener->realtime_count.load ();
-						auto realtime_2 = node2->tcp_listener->realtime_count.load ();
+						auto realtime_1 = node1->tcp_listener.realtime_count ();
+						auto realtime_2 = node2->tcp_listener.realtime_count ();
 						return realtime_1 > starting_realtime_1 && realtime_2 > starting_realtime_2;
 					});
 					debug_assert (!ec);
@@ -572,15 +583,6 @@ void nano::test::system::generate_mass_activity (uint32_t count_a, nano::node & 
 		}
 		generate_activity (node_a, accounts);
 	}
-}
-
-void nano::test::system::stop ()
-{
-	for (auto i : nodes)
-	{
-		i->stop ();
-	}
-	work.stop ();
 }
 
 nano::node_config nano::test::system::default_config ()
