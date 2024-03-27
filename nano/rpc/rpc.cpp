@@ -85,20 +85,16 @@ void nano::rpc::stop ()
 	acceptor.close ();
 }
 
-std::unique_ptr<nano::rpc> nano::get_rpc (std::shared_ptr<boost::asio::io_context> io_ctx_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a)
+std::shared_ptr<nano::rpc> nano::get_rpc (std::shared_ptr<boost::asio::io_context> io_ctx_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a)
 {
-	std::unique_ptr<rpc> impl;
-
 	if (config_a.tls_config && config_a.tls_config->enable_https)
 	{
 #ifdef NANO_SECURE_RPC
-		impl = std::make_unique<rpc_secure> (io_ctx_a, config_a, rpc_handler_interface_a);
+		return std::make_shared<nano::rpc_secure> (io_ctx_a, config_a, rpc_handler_interface_a);
 #endif
 	}
 	else
 	{
-		impl = std::make_unique<rpc> (io_ctx_a, config_a, rpc_handler_interface_a);
+		return std::make_shared<nano::rpc> (io_ctx_a, config_a, rpc_handler_interface_a);
 	}
-
-	return impl;
 }
