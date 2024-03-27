@@ -542,30 +542,11 @@ nano::block_status nano::block_check_context::check (store::transaction const & 
 		{
 			receivable.first = { block_m->account (), block_m->source () };
 		}
-		std::optional<nano::account> increase;
-		std::optional<nano::account> decrease;
-		if (representative () == state->representative)
+		std::pair<std::optional<nano::account>, std::optional<nano::amount>> weight;
+		if (previous != nullptr)
 		{
-			if (is_send ())
-			{
-				decrease = representative ();
-			}
-			else if (is_receive ())
-			{
-				increase = representative ();
-			}
-		}
-		else
-		{
-			if (is_send ())
-			{
-				decrease = state->balance;
-				increase = representative ();
-			}
-			else if (is_receive ())
-			{
-			
-			}
+			weight.first = state->representative;
+			weight.second = state->balance;
 		}
 		delta = { block_m, ledger.account_info (transaction, *block_m, representative ()), receivable, weight };
 	}
