@@ -49,10 +49,17 @@ add_library(
   ledger.cpp
   ledger_cache.hpp
   ledger_cache.cpp
+  ledger_view_confirmed.hpp
+  ledger_view_confirmed.cpp
+  ledger_view_unconfirmed.hpp
+  ledger_view_unconfirmed.cpp
   network_filter.hpp
   network_filter.cpp
   pending_info.hpp
   pending_info.cpp
+  receivable_iterator.cpp
+  receivable_iterator.hpp
+  receivable_iterator_impl.hpp
   rep_weights.hpp
   rep_weights.cpp
   utility.hpp

@@ -2,6 +2,7 @@
 #include <nano/node/bootstrap_ascending/iterators.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_unconfirmed.hpp>
 #include <nano/store/account.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/pending.hpp>
@@ -41,8 +42,8 @@ void nano::bootstrap_ascending::database_iterator::next (store::transaction & tx
 		}
 		case table_type::pending:
 		{
-			auto item = ledger.receivable_upper_bound (tx, current);
-			if (item != ledger.receivable_end ())
+			auto item = ledger->receivable_upper_bound (tx, current);
+			if (item != ledger->receivable_end ())
 			{
 				current = item->first.account;
 			}

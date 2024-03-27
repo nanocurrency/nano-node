@@ -4,6 +4,7 @@
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_unconfirmed.hpp>
 
 #include <boost/format.hpp>
 
@@ -125,13 +126,13 @@ void nano::bootstrap_attempt_lazy::lazy_pull_flush (nano::unique_lock<nano::mute
 		nano::pull_info::count_t batch_count (lazy_batch_size ());
 		uint64_t read_count (0);
 		std::size_t count (0);
-		auto transaction (node->store.tx_begin_read ());
+		auto transaction = node->store.tx_begin_read ();
 		while (!lazy_pulls.empty () && count < max_pulls)
 		{
 			auto pull_start (lazy_pulls.front ());
 			lazy_pulls.pop_front ();
 			// Recheck if block was already processed
-			if (!lazy_blocks_processed (pull_start.first.as_block_hash ()) && !node->ledger.block_or_pruned_exists (transaction, pull_start.first.as_block_hash ()))
+			if (!lazy_blocks_processed (pull_start.first.as_block_hash ()) && !node->ledger->exists_or_pruned (transaction, pull_start.first.as_block_hash ()))
 			{
 				lock_a.unlock ();
 				node->bootstrap_initiator.connections->add_pull (nano::pull_info (pull_start.first, pull_start.first.as_block_hash (), nano::block_hash (0), incremental_id, batch_count, pull_start.second));
@@ -168,7 +169,7 @@ bool nano::bootstrap_attempt_lazy::lazy_finished ()
 	auto transaction (node->store.tx_begin_read ());
 	for (auto it (lazy_keys.begin ()), end (lazy_keys.end ()); it != end && !stopped;)
 	{
-		if (node->ledger.block_or_pruned_exists (transaction, *it))
+		if (node->ledger->exists_or_pruned (transaction, *it))
 		{
 			it = lazy_keys.erase (it);
 		}
@@ -292,7 +293,7 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 	if (!lazy_blocks_processed (hash))
 	{
 		// Search for new dependencies
-		if (block_a->source_field () && !node->ledger.block_or_pruned_exists (block_a->source_field ().value ()) && block_a->source_field ().value () != node->network_params.ledger.genesis->account ())
+		if (block_a->source_field () && !node->block_or_pruned_exists (block_a->source_field ().value ()) && block_a->source_field ().value () != node->network_params.ledger.genesis->account ())
 		{
 			lazy_add (block_a->source_field ().value (), retry_limit);
 		}
@@ -333,11 +334,11 @@ void nano::bootstrap_attempt_lazy::lazy_block_state (std::shared_ptr<nano::block
 	std::shared_ptr<nano::state_block> block_l (std::static_pointer_cast<nano::state_block> (block_a));
 	if (block_l != nullptr)
 	{
-		auto transaction (node->store.tx_begin_read ());
+		auto transaction = node->store.tx_begin_read ();
 		nano::uint128_t balance (block_l->hashables.balance.number ());
 		auto const & link (block_l->hashables.link);
 		// If link is not epoch link or 0. And if block from link is unknown
-		if (!link.is_zero () && !node->ledger.is_epoch_link (link) && !lazy_blocks_processed (link.as_block_hash ()) && !node->ledger.block_or_pruned_exists (transaction, link.as_block_hash ()))
+		if (!link.is_zero () && !node->ledger.is_epoch_link (link) && !lazy_blocks_processed (link.as_block_hash ()) && !node->ledger->exists_or_pruned (transaction, link.as_block_hash ()))
 		{
 			auto const & previous (block_l->hashables.previous);
 			// If state block previous is 0 then source block required
@@ -346,9 +347,9 @@ void nano::bootstrap_attempt_lazy::lazy_block_state (std::shared_ptr<nano::block
 				lazy_add (link, retry_limit);
 			}
 			// In other cases previous block balance required to find out subtype of state block
-			else if (node->ledger.block_or_pruned_exists (transaction, previous))
+			else if (node->ledger->exists_or_pruned (transaction, previous))
 			{
-				auto previous_balance = node->ledger.balance (transaction, previous);
+				auto previous_balance = node->ledger->balance (transaction, previous);
 				if (previous_balance)
 				{
 					if (previous_balance.value () <= balance)
@@ -418,13 +419,13 @@ void nano::bootstrap_attempt_lazy::lazy_backlog_cleanup ()
 		return;
 	}
 	uint64_t read_count (0);
-	auto transaction (node->store.tx_begin_read ());
+	auto transaction = node->store.tx_begin_read ();
 	for (auto it (lazy_state_backlog.begin ()), end (lazy_state_backlog.end ()); it != end && !stopped;)
 	{
-		if (node->ledger.block_or_pruned_exists (transaction, it->first))
+		if (node->ledger->exists_or_pruned (transaction, it->first))
 		{
 			auto next_block (it->second);
-			auto balance = node->ledger.balance (transaction, it->first);
+			auto balance = node->ledger->balance (transaction, it->first);
 			if (balance)
 			{
 				if (balance.value () <= next_block.balance) // balance
@@ -495,7 +496,7 @@ bool nano::bootstrap_attempt_lazy::lazy_processed_or_exists (nano::block_hash co
 	else
 	{
 		lock.unlock ();
-		if (node->ledger.block_or_pruned_exists (hash_a))
+		if (node->block_or_pruned_exists (hash_a))
 		{
 			result = true;
 		}

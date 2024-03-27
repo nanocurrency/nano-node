@@ -7,6 +7,8 @@
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_confirmed.hpp>
+#include <nano/secure/ledger_view_unconfirmed.hpp>
 #include <nano/store/block.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -125,7 +127,7 @@ bool nano::test::block_or_pruned_all_exists (nano::node & node, std::vector<nano
 	auto transaction = node.store.tx_begin_read ();
 	return std::all_of (hashes.begin (), hashes.end (),
 	[&] (const auto & hash) {
-		return node.ledger.block_or_pruned_exists (transaction, hash);
+		return node.ledger->exists_or_pruned (transaction, hash);
 	});
 }
 
@@ -139,7 +141,7 @@ bool nano::test::block_or_pruned_none_exists (nano::node & node, std::vector<nan
 	auto transaction = node.store.tx_begin_read ();
 	return std::none_of (hashes.begin (), hashes.end (),
 	[&] (const auto & hash) {
-		return node.ledger.block_or_pruned_exists (transaction, hash);
+		return node.ledger->exists_or_pruned (transaction, hash);
 	});
 }
 
@@ -280,8 +282,8 @@ bool nano::test::start_elections (nano::test::system & system_a, nano::node & no
 
 nano::account_info nano::test::account_info (nano::node const & node, nano::account const & acc)
 {
-	auto const tx = node.ledger.store.tx_begin_read ();
-	auto opt = node.ledger.account_info (tx, acc);
+	auto tx = node.store.tx_begin_read ();
+	auto opt = node.ledger->get (tx, acc);
 	if (opt.has_value ())
 	{
 		return opt.value ();
@@ -311,7 +313,7 @@ void nano::test::print_all_account_info (nano::node & node)
 		nano::confirmation_height_info height_info;
 		std::cout << "Account: " << acc.to_account () << std::endl;
 		std::cout << "  Unconfirmed Balance: " << acc_info.balance.to_string_dec () << std::endl;
-		std::cout << "  Confirmed Balance:   " << node.ledger.account_balance (tx, acc, true) << std::endl;
+		std::cout << "  Confirmed Balance:   " << node.ledger.confirmed ().balance (tx, acc).value_or (0) << std::endl;
 		std::cout << "  Block Count:         " << acc_info.block_count << std::endl;
 		if (!node.ledger.store.confirmation_height.get (tx, acc, height_info))
 		{

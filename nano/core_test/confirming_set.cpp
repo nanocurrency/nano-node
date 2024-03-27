@@ -5,6 +5,7 @@
 #include <nano/node/election.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_confirmed.hpp>
 #include <nano/test_common/ledger.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -164,7 +165,7 @@ TEST (confirmation_callback, confirmed_history)
 		ASSERT_TRUE (node->active.empty ());
 
 		auto transaction = node->store.tx_begin_read ();
-		ASSERT_FALSE (node->ledger.block_confirmed (transaction, send->hash ()));
+		ASSERT_FALSE (node->ledger.confirmed ().exists (transaction, send->hash ()));
 
 		ASSERT_TIMELY (10s, node->write_database_queue.contains (nano::writer::confirmation_height));
 
@@ -175,7 +176,7 @@ TEST (confirmation_callback, confirmed_history)
 	ASSERT_TIMELY (10s, !node->write_database_queue.contains (nano::writer::confirmation_height));
 
 	auto transaction = node->store.tx_begin_read ();
-	ASSERT_TRUE (node->ledger.block_confirmed (transaction, send->hash ()));
+	ASSERT_TRUE (node->ledger.confirmed ().exists (transaction, send->hash ()));
 
 	ASSERT_TIMELY_EQ (10s, node->active.size (), 0);
 	ASSERT_TIMELY_EQ (10s, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out), 1);

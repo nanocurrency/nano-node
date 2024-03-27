@@ -7,6 +7,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_unconfirmed.hpp>
 
 #include <boost/format.hpp>
 
@@ -306,7 +307,7 @@ void nano::bulk_pull_account_client::receive_pending ()
 						{
 							if (!pending.is_zero ())
 							{
-								if (!node->ledger.block_or_pruned_exists (pending))
+								if (!node->block_or_pruned_exists (pending))
 								{
 									node->bootstrap_initiator.bootstrap_lazy (pending, false);
 								}
@@ -364,24 +365,24 @@ void nano::bulk_pull_server::set_current_end ()
 	}
 	include_start = false;
 	debug_assert (request != nullptr);
-	auto transaction (node->store.tx_begin_read ());
-	if (!node->ledger.block_exists (transaction, request->end))
+	auto transaction = node->store.tx_begin_read ();
+	if (!node->ledger->exists (transaction, request->end))
 	{
 		node->logger.debug (nano::log::type::bulk_pull_server, "Bulk pull end block doesn't exist: {}, sending everything", request->end.to_string ());
 
 		request->end.clear ();
 	}
 
-	if (node->ledger.block_exists (transaction, request->start.as_block_hash ()))
+	if (node->ledger->exists (transaction, request->start.as_block_hash ()))
 	{
 		node->logger.debug (nano::log::type::bulk_pull_server, "Bulk pull request for block hash: {}", request->start.to_string ());
 
-		current = ascending () ? node->ledger.successor (transaction, request->start.as_block_hash ()).value_or (0) : request->start.as_block_hash ();
+		current = ascending () ? node->ledger->successor (transaction, request->start.as_block_hash ()).value_or (0) : request->start.as_block_hash ();
 		include_start = true;
 	}
 	else
 	{
-		auto info = node->ledger.account_info (transaction, request->start.as_account ());
+		auto info = node->ledger->get (transaction, request->start.as_account ());
 		if (!info)
 		{
 			node->logger.debug (nano::log::type::bulk_pull_server, "Request for unknown account: {}", request->start.to_account ());
@@ -393,7 +394,7 @@ void nano::bulk_pull_server::set_current_end ()
 			current = ascending () ? info->open_block : info->head;
 			if (!request->end.is_zero ())
 			{
-				auto account (node->ledger.account (transaction, request->end));
+				auto account (node->ledger->account (transaction, request->end));
 				if (account != request->start.as_account ())
 				{
 					node->logger.debug (nano::log::type::bulk_pull_server, "Request for block that is not on account chain: {} not on {}", request->end.to_string (), request->start.to_account ());
@@ -653,8 +654,8 @@ void nano::bulk_pull_account_server::send_frontier ()
 		auto stream_transaction (node->store.tx_begin_read ());
 
 		// Get account balance and frontier block hash
-		auto account_frontier_hash (node->ledger.latest (stream_transaction, request->account));
-		auto account_frontier_balance_int (node->ledger.account_balance (stream_transaction, request->account));
+		auto account_frontier_hash (node->ledger->head (stream_transaction, request->account));
+		auto account_frontier_balance_int = node->ledger->balance (stream_transaction, request->account).value_or (0);
 		nano::uint128_union account_frontier_balance (account_frontier_balance_int);
 
 		// Write the frontier block hash and balance into a buffer
@@ -755,9 +756,9 @@ std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info
 		 */
 		auto tx = node->store.tx_begin_read ();
 		auto & ledger = node->ledger;
-		auto stream = ledger.receivable_upper_bound (tx, current_key.account, current_key.hash);
+		auto stream = ledger->receivable_upper_bound (tx, current_key.account, current_key.hash);
 
-		if (stream == ledger.receivable_end ())
+		if (stream == ledger->receivable_end ())
 		{
 			break;
 		}

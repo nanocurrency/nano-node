@@ -13,6 +13,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_unconfirmed.hpp>
 #include <nano/store/pending.hpp>
 
 #include <boost/dll/runtime_symbol_info.hpp>
@@ -1415,17 +1416,17 @@ int main (int argc, char * const * argv)
 
 				auto hash (info.open_block);
 				nano::block_hash calculated_hash (0);
-				auto block = node->ledger.block (transaction, hash); // Block data
+				auto block = node->ledger->get (transaction, hash); // Block data
 				uint64_t height (0);
 				if (node->ledger.pruning && confirmation_height_info.height != 0)
 				{
 					hash = confirmation_height_info.frontier;
-					block = node->ledger.block (transaction, hash);
+					block = node->ledger->get (transaction, hash);
 					// Iteration until pruned block
 					bool pruned_block (false);
 					while (!pruned_block && !block->previous ().is_zero ())
 					{
-						auto previous_block = node->ledger.block (transaction, block->previous ());
+						auto previous_block = node->ledger->get (transaction, block->previous ());
 						if (previous_block != nullptr)
 						{
 							hash = previous_block->hash ();
@@ -1442,7 +1443,7 @@ int main (int argc, char * const * argv)
 					}
 					calculated_hash = block->previous ();
 					height = block->sideband ().height - 1;
-					if (!node->ledger.block_or_pruned_exists (transaction, info.open_block))
+					if (!node->ledger->exists_or_pruned (transaction, info.open_block))
 					{
 						print_error_message (boost::str (boost::format ("Open block does not exist %1%\n") % info.open_block.to_string ()));
 					}
@@ -1498,7 +1499,7 @@ int main (int argc, char * const * argv)
 							bool error_or_pruned (false);
 							if (!state_block.hashables.previous.is_zero ())
 							{
-								prev_balance = node->ledger.balance (transaction, state_block.hashables.previous).value_or (0);
+								prev_balance = node->ledger->balance (transaction, state_block.hashables.previous).value_or (0);
 							}
 							if (node->ledger.is_epoch_link (state_block.hashables.link))
 							{
@@ -1522,7 +1523,7 @@ int main (int argc, char * const * argv)
 					}
 					else
 					{
-						auto prev_balance = node->ledger.balance (transaction, block->previous ());
+						auto prev_balance = node->ledger->balance (transaction, block->previous ());
 						if (!node->ledger.pruning || prev_balance)
 						{
 							if (block->balance () < prev_balance.value ())
@@ -1546,7 +1547,7 @@ int main (int argc, char * const * argv)
 								{
 									// State receive
 									block_details_error = !sideband.details.is_receive || sideband.details.is_send || sideband.details.is_epoch;
-									block_details_error |= !node->ledger.block_or_pruned_exists (transaction, block->source ());
+									block_details_error |= !node->ledger->exists_or_pruned (transaction, block->source ());
 								}
 							}
 						}
@@ -1590,11 +1591,11 @@ int main (int argc, char * const * argv)
 						calculated_representative = block->representative_field ().value ();
 					}
 					// Retrieving successor block hash
-					hash = node->ledger.successor (transaction, hash).value_or (0);
+					hash = node->ledger->successor (transaction, hash).value_or (0);
 					// Retrieving block data
 					if (!hash.is_zero ())
 					{
-						block = node->ledger.block (transaction, hash);
+						block = node->ledger->get (transaction, hash);
 					}
 				}
 				// Check if required block exists
@@ -1679,7 +1680,7 @@ int main (int argc, char * const * argv)
 					std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
 				}
 				// Check block existance
-				auto block = node->ledger.block (transaction, key.hash);
+				auto block = node->ledger->get (transaction, key.hash);
 				bool pruned (false);
 				if (block == nullptr)
 				{
@@ -1696,7 +1697,7 @@ int main (int argc, char * const * argv)
 					bool previous_pruned = node->ledger.pruning && node->store.pruned.exists (transaction, block->previous ());
 					if (previous_pruned)
 					{
-						block = node->ledger.block (transaction, key.hash);
+						block = node->ledger->get (transaction, key.hash);
 					}
 					if (auto state = dynamic_cast<nano::state_block *> (block.get ()))
 					{
@@ -1718,7 +1719,7 @@ int main (int argc, char * const * argv)
 						print_error_message (boost::str (boost::format ("Incorrect destination for pending block %1%\n") % key.hash.to_string ()));
 					}
 					// Check if pending source is correct
-					auto account (node->ledger.account (transaction, key.hash));
+					auto account (node->ledger->account (transaction, key.hash));
 					if (info.source != account && !pruned)
 					{
 						print_error_message (boost::str (boost::format ("Incorrect source for pending block %1%\n") % key.hash.to_string ()));
@@ -1726,7 +1727,7 @@ int main (int argc, char * const * argv)
 					// Check if pending amount is correct
 					if (!pruned && !previous_pruned)
 					{
-						auto amount (node->ledger.amount (transaction, key.hash));
+						auto amount (node->ledger->amount (transaction, key.hash));
 						if (info.amount != amount)
 						{
 							print_error_message (boost::str (boost::format ("Incorrect amount for pending block %1%\n") % key.hash.to_string ()));
@@ -1803,7 +1804,7 @@ int main (int argc, char * const * argv)
 					while (!hash.is_zero ())
 					{
 						// Retrieving block data
-						auto block = source_node->ledger.block (transaction, hash);
+						auto block = source_node->ledger->get (transaction, hash);
 						if (block != nullptr)
 						{
 							++count;
@@ -1992,20 +1993,6 @@ int main (int argc, char * const * argv)
 			{
 				output_account_version_number (i, unopened_account_version_totals[i]);
 			}
-		}
-		else if (vm.count ("debug_unconfirmed_frontiers"))
-		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
-			auto node = inactive_node->node;
-
-			auto unconfirmed_frontiers = node->ledger.unconfirmed_frontiers ();
-			std::cout << "Account: Height delta | Frontier | Confirmed frontier\n";
-			for (auto const & [height_delta, unconfirmed_info] : unconfirmed_frontiers)
-			{
-				std::cout << (boost::format ("%1%: %2% %3% %4%\n") % unconfirmed_info.account.to_account () % height_delta % unconfirmed_info.frontier.to_string () % unconfirmed_info.cemented_frontier.to_string ()).str ();
-			}
-
-			std::cout << "\nNumber of unconfirmed frontiers: " << unconfirmed_frontiers.size () << std::endl;
 		}
 		else if (vm.count ("version"))
 		{

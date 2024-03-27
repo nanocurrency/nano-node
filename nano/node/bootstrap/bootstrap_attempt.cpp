@@ -129,7 +129,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> const 
 	}
 	bool stop_pull (false);
 	// If block already exists in the ledger, then we can avoid next part of long account chain
-	if (pull_blocks_processed % nano::bootstrap_limits::pull_count_per_check == 0 && node_l->ledger.block_or_pruned_exists (block_a->hash ()))
+	if (pull_blocks_processed % nano::bootstrap_limits::pull_count_per_check == 0 && node_l->block_or_pruned_exists (block_a->hash ()))
 	{
 		stop_pull = true;
 	}
