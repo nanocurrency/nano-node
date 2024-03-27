@@ -20,21 +20,27 @@ using namespace std::chrono_literals;
 TEST (socket, max_connections)
 {
 	nano::test::system system;
-	auto node = system.add_node ();
+
+	auto node_flags = nano::inactive_node_flag_defaults ();
+	node_flags.read_only = false;
+	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
+	auto node = inactivenode.node;
+
+	nano::thread_runner runner{ node->io_ctx_shared };
+
 	auto server_port = system.get_available_port ();
 
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
 
 	// start a server socket that allows max 2 live connections
-	auto listener = std::make_shared<nano::transport::tcp_listener> (server_port, *node, 2);
-	listener->connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
+	nano::transport::tcp_listener listener{ server_port, *node, 2 };
+	listener.connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
 		server_sockets.push_back (socket);
 	});
-	nano::test::stop_guard stop_guard{ *listener };
-	listener->start ();
+	nano::test::start_stop_guard stop_guard{ listener };
 
-	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), listener->endpoint ().port () };
+	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), listener.endpoint ().port () };
 
 	// client side connection tracking
 	std::atomic<size_t> connection_attempts = 0;
@@ -107,8 +113,13 @@ TEST (socket, max_connections_per_ip)
 {
 	nano::test::system system;
 
-	auto node = system.add_node ();
+	auto node_flags = nano::inactive_node_flag_defaults ();
+	node_flags.read_only = false;
+	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
+	auto node = inactivenode.node;
 	ASSERT_FALSE (node->flags.disable_max_peers_per_ip);
+
+	nano::thread_runner runner{ node->io_ctx_shared };
 
 	auto server_port = system.get_available_port ();
 
@@ -120,14 +131,13 @@ TEST (socket, max_connections_per_ip)
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
 
-	auto listener = std::make_shared<nano::transport::tcp_listener> (server_port, *node, max_global_connections);
-	listener->connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
+	nano::transport::tcp_listener listener{ server_port, *node, max_global_connections };
+	listener.connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
 		server_sockets.push_back (socket);
 	});
-	nano::test::stop_guard stop_guard{ *listener };
-	listener->start ();
+	nano::test::start_stop_guard stop_guard{ listener };
 
-	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), listener->endpoint ().port () };
+	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), listener.endpoint ().port () };
 
 	// client side connection tracking
 	std::atomic<size_t> connection_attempts = 0;
@@ -220,13 +230,18 @@ TEST (socket, max_connections_per_subnetwork)
 {
 	nano::test::system system;
 
-	nano::node_flags node_flags;
+	auto node_flags = nano::inactive_node_flag_defaults ();
+	node_flags.read_only = false;
 	// disabling IP limit because it will be used the same IP address to check they come from the same subnetwork.
 	node_flags.disable_max_peers_per_ip = true;
 	node_flags.disable_max_peers_per_subnetwork = false;
-	auto node = system.add_node (node_flags);
+	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
+	auto node = inactivenode.node;
+
 	ASSERT_TRUE (node->flags.disable_max_peers_per_ip);
 	ASSERT_FALSE (node->flags.disable_max_peers_per_subnetwork);
+
+	nano::thread_runner runner{ node->io_ctx_shared };
 
 	auto server_port = system.get_available_port ();
 	boost::asio::ip::tcp::endpoint listen_endpoint{ boost::asio::ip::address_v6::any (), server_port };
@@ -239,14 +254,13 @@ TEST (socket, max_connections_per_subnetwork)
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
 
-	auto listener = std::make_shared<nano::transport::tcp_listener> (server_port, *node, max_global_connections);
-	listener->connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
+	nano::transport::tcp_listener listener{ server_port, *node, max_global_connections };
+	listener.connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
 		server_sockets.push_back (socket);
 	});
-	nano::test::stop_guard stop_guard{ *listener };
-	listener->start ();
+	nano::test::start_stop_guard stop_guard{ listener };
 
-	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), listener->endpoint ().port () };
+	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), listener.endpoint ().port () };
 
 	// client side connection tracking
 	std::atomic<size_t> connection_attempts = 0;
@@ -283,10 +297,15 @@ TEST (socket, disabled_max_peers_per_ip)
 {
 	nano::test::system system;
 
-	nano::node_flags node_flags;
+	auto node_flags = nano::inactive_node_flag_defaults ();
+	node_flags.read_only = false;
 	node_flags.disable_max_peers_per_ip = true;
-	auto node = system.add_node (node_flags);
+	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
+	auto node = inactivenode.node;
+
 	ASSERT_TRUE (node->flags.disable_max_peers_per_ip);
+
+	nano::thread_runner runner{ node->io_ctx_shared };
 
 	auto server_port = system.get_available_port ();
 
@@ -298,14 +317,13 @@ TEST (socket, disabled_max_peers_per_ip)
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
 
-	auto listener = std::make_shared<nano::transport::tcp_listener> (server_port, *node, max_global_connections);
-	listener->connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
+	nano::transport::tcp_listener listener = { server_port, *node, max_global_connections };
+	listener.connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
 		server_sockets.push_back (socket);
 	});
-	nano::test::stop_guard stop_guard{ *listener };
-	listener->start ();
+	nano::test::start_stop_guard stop_guard{ listener };
 
-	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), listener->endpoint ().port () };
+	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), listener.endpoint ().port () };
 
 	// client side connection tracking
 	std::atomic<size_t> connection_attempts = 0;
@@ -348,23 +366,15 @@ TEST (socket, disconnection_of_silent_connections)
 	config.network_params.network.idle_timeout = std::chrono::seconds::max ();
 	// Silent connections are connections open by external peers that don't contribute with any data.
 	config.network_params.network.silent_connection_tolerance_time = std::chrono::seconds{ 5 };
-
 	auto node = system.add_node (config);
 
-	auto server_port = system.get_available_port ();
-
-	// on a connection, a server data socket is created. The shared pointer guarantees the object's lifecycle until the end of this test.
+	// On a connection, a server data socket is created. The shared pointer guarantees the object's lifecycle until the end of this test.
 	std::shared_ptr<nano::transport::socket> server_data_socket;
-
-	// start a server listening socket
-	auto listener = std::make_shared<nano::transport::tcp_listener> (server_port, *node, 1);
-	listener->connection_accepted.add ([&server_data_socket] (auto const & socket, auto const & server) {
+	node->tcp_listener.connection_accepted.add ([&server_data_socket] (auto const & socket, auto const & server) {
 		server_data_socket = socket;
 	});
-	nano::test::stop_guard stop_guard{ *listener };
-	listener->start ();
 
-	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), listener->endpoint ().port () };
+	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), node->tcp_listener.endpoint ().port () };
 
 	// Instantiates a client to simulate an incoming connection.
 	auto client_socket = std::make_shared<nano::transport::socket> (*node);
@@ -379,16 +389,10 @@ TEST (socket, disconnection_of_silent_connections)
 	ASSERT_TIMELY (10s, server_data_socket != nullptr);
 	ASSERT_TIMELY (10s, server_data_socket->is_closed ());
 
-	auto get_tcp_io_timeout_drops = [&node] () {
-		return node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, nano::stat::dir::in);
-	};
-	auto get_tcp_silent_connection_drops = [&node] () {
-		return node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_silent_connection_drop, nano::stat::dir::in);
-	};
 	// Just to ensure the disconnection wasn't due to the timer timeout.
-	ASSERT_EQ (0, get_tcp_io_timeout_drops ());
+	ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, nano::stat::dir::in));
 	// Asserts the silent checker worked.
-	ASSERT_EQ (1, get_tcp_silent_connection_drops ());
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_silent_connection_drop, nano::stat::dir::in));
 }
 
 TEST (socket, drop_policy)
@@ -400,7 +404,7 @@ TEST (socket, drop_policy)
 	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
 	auto node = inactivenode.node;
 
-	nano::thread_runner runner (node->io_ctx_shared, 1);
+	nano::thread_runner runner{ node->io_ctx_shared };
 
 	std::vector<std::shared_ptr<nano::transport::socket>> connections;
 
@@ -468,7 +472,7 @@ TEST (socket, concurrent_writes)
 
 	// This gives more realistic execution than using system#poll, allowing writes to
 	// queue up and drain concurrently.
-	nano::thread_runner runner (node->io_ctx_shared, 1);
+	nano::thread_runner runner{ node->io_ctx_shared };
 
 	constexpr size_t max_connections = 4;
 	constexpr size_t client_count = max_connections;
