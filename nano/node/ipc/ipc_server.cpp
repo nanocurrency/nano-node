@@ -511,7 +511,7 @@ public:
 			}
 			else
 			{
-				node->logger.error (nano::log::type::ipc, "Acceptor error: ", ec.message ());
+				node->logger.error (nano::log::type::ipc, "Acceptor error: {}", ec.message ());
 			}
 
 			if (ec != boost::asio::error::operation_aborted && acceptor->is_open ())

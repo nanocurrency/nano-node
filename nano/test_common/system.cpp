@@ -32,7 +32,8 @@ std::string nano::error_system_messages::message (int ev) const
  */
 
 nano::test::system::system () :
-	io_ctx{ std::make_shared<boost::asio::io_context> () }
+	io_ctx{ std::make_shared<boost::asio::io_context> () },
+	io_guard{ boost::asio::make_work_guard (*io_ctx) }
 {
 	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
 	if (scale_str)
@@ -68,6 +69,28 @@ nano::test::system::~system ()
 		nano::remove_temporary_directories ();
 	}
 #endif
+}
+
+void nano::test::system::stop ()
+{
+	logger.debug (nano::log::type::system, "Stopping...");
+
+	// Keep io_context running while stopping
+	auto stopped = std::async (std::launch::async, [&] {
+		for (auto & node : nodes)
+		{
+			node->stop ();
+		}
+	});
+
+	auto ec = poll_until_true (10s, [&] {
+		auto status = stopped.wait_for (0s);
+		return status == std::future_status::ready;
+	});
+	debug_assert (!ec);
+
+	io_guard.reset ();
+	work.stop ();
 }
 
 nano::node & nano::test::system::node (std::size_t index) const
@@ -184,7 +207,26 @@ std::shared_ptr<nano::node> nano::test::system::make_disconnected_node (std::opt
 		return nullptr;
 	}
 	node->start ();
+	nodes.push_back (node);
 	return node;
+}
+
+void nano::test::system::register_node (std::shared_ptr<nano::node> const & node)
+{
+	debug_assert (std::find (nodes.begin (), nodes.end (), node) == nodes.end ());
+	nodes.push_back (node);
+}
+
+void nano::test::system::stop_node (nano::node & node)
+{
+	auto stopped = std::async (std::launch::async, [&node] () {
+		node.stop ();
+	});
+	auto ec = poll_until_true (5s, [&] () {
+		auto status = stopped.wait_for (0s);
+		return status == std::future_status::ready;
+	});
+	debug_assert (!ec);
 }
 
 void nano::test::system::ledger_initialization_set (std::vector<nano::keypair> const & reps, nano::amount const & reserve)
@@ -572,15 +614,6 @@ void nano::test::system::generate_mass_activity (uint32_t count_a, nano::node & 
 		}
 		generate_activity (node_a, accounts);
 	}
-}
-
-void nano::test::system::stop ()
-{
-	for (auto i : nodes)
-	{
-		i->stop ();
-	}
-	work.stop ();
 }
 
 nano::node_config nano::test::system::default_config ()

@@ -296,7 +296,6 @@ TEST (bootstrap_processor, process_none)
 
 	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint (), false);
 	ASSERT_TIMELY (5s, done);
-	node1->stop ();
 }
 
 // Bootstrap can pull one basic block
@@ -320,7 +319,6 @@ TEST (bootstrap_processor, process_one)
 	ASSERT_NE (node0->latest (nano::dev::genesis_key.pub), node1->latest (nano::dev::genesis_key.pub));
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TIMELY_EQ (10s, node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub));
-	node1->stop ();
 }
 
 TEST (bootstrap_processor, process_two)
@@ -341,7 +339,6 @@ TEST (bootstrap_processor, process_two)
 	ASSERT_NE (node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub)); // nodes should be out of sync here
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false); // bootstrap triggered
 	ASSERT_TIMELY_EQ (5s, node1->latest (nano::dev::genesis_key.pub), node0->latest (nano::dev::genesis_key.pub)); // nodes should sync up
-	node1->stop ();
 }
 
 // Bootstrap can pull universal blocks
@@ -387,7 +384,6 @@ TEST (bootstrap_processor, process_state)
 	ASSERT_NE (node1->latest (nano::dev::genesis_key.pub), block2->hash ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TIMELY_EQ (5s, node1->latest (nano::dev::genesis_key.pub), block2->hash ());
-	node1->stop ();
 }
 
 TEST (bootstrap_processor, process_new)
@@ -426,7 +422,6 @@ TEST (bootstrap_processor, process_new)
 	auto node3 = system.make_disconnected_node ();
 	node3->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
 	ASSERT_TIMELY_EQ (5s, node3->balance (key2.pub), amount);
-	node3->stop ();
 }
 
 TEST (bootstrap_processor, pull_diamond)
@@ -478,7 +473,6 @@ TEST (bootstrap_processor, pull_diamond)
 	auto node1 = system.make_disconnected_node ();
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TIMELY_EQ (5s, node1->balance (nano::dev::genesis_key.pub), 100);
-	node1->stop ();
 }
 
 TEST (bootstrap_processor, DISABLED_pull_requeue_network_error)
@@ -517,7 +511,6 @@ TEST (bootstrap_processor, DISABLED_pull_requeue_network_error)
 		++attempt->pulling;
 		node1->bootstrap_initiator.connections->pulls.emplace_back (nano::dev::genesis_key.pub, send1->hash (), nano::dev::genesis->hash (), attempt->incremental_id);
 		node1->bootstrap_initiator.connections->request_pull (lock);
-		node2->stop ();
 	}
 	ASSERT_TIMELY (5s, attempt == nullptr || attempt->requeued_pulls == 1);
 	ASSERT_EQ (0, node1->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in)); // Requeue is not increasing failed attempts
@@ -586,7 +579,6 @@ TEST (bootstrap_processor, push_diamond)
 	auto node2 = system.add_node (config, flags);
 	node1->bootstrap_initiator.bootstrap (node2->network.endpoint (), false);
 	ASSERT_TIMELY_EQ (5s, node2->balance (nano::dev::genesis_key.pub), 100);
-	node1->stop ();
 }
 
 TEST (bootstrap_processor, push_diamond_pruning)
@@ -677,7 +669,6 @@ TEST (bootstrap_processor, push_diamond_pruning)
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TIMELY_EQ (5s, node0->balance (nano::dev::genesis_key.pub), 100);
 	ASSERT_TIMELY_EQ (5s, node1->balance (nano::dev::genesis_key.pub), 100);
-	node1->stop ();
 }
 
 TEST (bootstrap_processor, push_one)
@@ -700,7 +691,6 @@ TEST (bootstrap_processor, push_one)
 
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TIMELY_EQ (5s, node0->balance (nano::dev::genesis_key.pub), genesis_balance - 100);
-	node1->stop ();
 }
 
 TEST (bootstrap_processor, lazy_hash)
@@ -775,7 +765,6 @@ TEST (bootstrap_processor, lazy_hash)
 	}
 	// Check processed blocks
 	ASSERT_TIMELY (10s, node1->balance (key2.pub) != 0);
-	node1->stop ();
 }
 
 TEST (bootstrap_processor, lazy_hash_bootstrap_id)
@@ -850,7 +839,6 @@ TEST (bootstrap_processor, lazy_hash_bootstrap_id)
 	}
 	// Check processed blocks
 	ASSERT_TIMELY (10s, node1->balance (key2.pub) != 0);
-	node1->stop ();
 }
 
 TEST (bootstrap_processor, lazy_hash_pruning)
@@ -1003,7 +991,6 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	ASSERT_TIMELY_EQ (5s, node1->ledger.cache.block_count, 9);
 	ASSERT_TIMELY (5s, node1->balance (key2.pub) != 0);
 	ASSERT_TIMELY (5s, !node1->bootstrap_initiator.in_progress ());
-	node1->stop ();
 }
 
 TEST (bootstrap_processor, lazy_max_pull_count)
@@ -1105,7 +1092,6 @@ TEST (bootstrap_processor, lazy_max_pull_count)
 	node1->bootstrap_initiator.bootstrap_lazy (change3->hash ());
 	// Check processed blocks
 	ASSERT_TIMELY (10s, node1->block (change3->hash ()));
-	node1->stop ();
 }
 
 TEST (bootstrap_processor, lazy_unclear_state_link)
@@ -1174,7 +1160,6 @@ TEST (bootstrap_processor, lazy_unclear_state_link)
 	node2->bootstrap_initiator.bootstrap_lazy (receive->hash ());
 	ASSERT_TIMELY (5s, nano::test::exists (*node2, { send1, send2, open, receive }));
 	ASSERT_EQ (0, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in));
-	node2->stop ();
 }
 
 TEST (bootstrap_processor, lazy_unclear_state_link_not_existing)
@@ -1233,7 +1218,6 @@ TEST (bootstrap_processor, lazy_unclear_state_link_not_existing)
 	ASSERT_TIMELY (15s, !node2->bootstrap_initiator.in_progress ());
 	ASSERT_TIMELY (15s, nano::test::block_or_pruned_all_exists (*node2, { send1, open, send2 }));
 	ASSERT_EQ (1, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in));
-	node2->stop ();
 }
 
 TEST (bootstrap_processor, lazy_destinations)
@@ -1312,7 +1296,6 @@ TEST (bootstrap_processor, lazy_destinations)
 	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (send2->hash ()));
 	ASSERT_FALSE (node2->ledger.block_or_pruned_exists (open->hash ()));
 	ASSERT_FALSE (node2->ledger.block_or_pruned_exists (state_open->hash ()));
-	node2->stop ();
 }
 
 TEST (bootstrap_processor, lazy_pruning_missing_block)
@@ -1421,7 +1404,6 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	ASSERT_TIMELY_EQ (5s, 3, node2->ledger.cache.block_count);
 	ASSERT_TIMELY (5s, nano::test::exists (*node2, { send1, send2 }));
 	ASSERT_TRUE (nano::test::block_or_pruned_none_exists (*node2, { open, state_open }));
-	node2->stop ();
 }
 
 TEST (bootstrap_processor, lazy_cancel)
@@ -1456,7 +1438,6 @@ TEST (bootstrap_processor, lazy_cancel)
 	}
 	// Cancel failing lazy bootstrap
 	ASSERT_TIMELY (10s, !node1->bootstrap_initiator.in_progress ());
-	node1->stop ();
 }
 
 TEST (bootstrap_processor, wallet_lazy_frontier)
@@ -1537,7 +1518,6 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 	}
 	// Check processed blocks
 	ASSERT_TIMELY (10s, node1->ledger.block_or_pruned_exists (receive2->hash ()));
-	node1->stop ();
 }
 
 TEST (bootstrap_processor, wallet_lazy_pending)
@@ -1684,7 +1664,6 @@ TEST (bootstrap_processor, multiple_attempts)
 	ASSERT_TIMELY (10s, node2->balance (key2.pub) != 0);
 	// Check attempts finish
 	ASSERT_TIMELY_EQ (5s, node2->bootstrap_initiator.attempts.size (), 0);
-	node2->stop ();
 }
 
 TEST (frontier_req_response, DISABLED_destruction)
@@ -1996,7 +1975,6 @@ TEST (bulk, genesis)
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
 	ASSERT_TIMELY_EQ (10s, node2->latest (nano::dev::genesis_key.pub), node1->latest (nano::dev::genesis_key.pub));
 	ASSERT_EQ (node2->latest (nano::dev::genesis_key.pub), node1->latest (nano::dev::genesis_key.pub));
-	node2->stop ();
 }
 
 TEST (bulk, offline_send)
@@ -2036,7 +2014,6 @@ TEST (bulk, offline_send)
 	ASSERT_TIMELY_EQ (5s, node2->balance (nano::dev::genesis_key.pub), std::numeric_limits<nano::uint128_t>::max () - amount);
 	// Receiving send block
 	ASSERT_TIMELY_EQ (5s, node2->balance (key2.pub), amount);
-	node2->stop ();
 }
 
 TEST (bulk, genesis_pruning)
@@ -2115,7 +2092,6 @@ TEST (bulk, genesis_pruning)
 	ASSERT_TIMELY_EQ (5s, node2->bootstrap_initiator.connections->connections_count, 0);
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
 	ASSERT_TIMELY_EQ (5s, node2->latest (nano::dev::genesis_key.pub), node1->latest (nano::dev::genesis_key.pub));
-	node2->stop ();
 }
 
 TEST (bulk_pull_account, basics)

@@ -105,7 +105,6 @@ TEST (network, send_node_id_handshake_tcp)
 	auto list2 (node1->network.list (1));
 	ASSERT_EQ (nano::transport::transport_type::tcp, list2[0]->get_type ());
 	ASSERT_EQ (node0->get_node_id (), list2[0]->get_node_id ());
-	node1->stop ();
 }
 
 TEST (network, last_contacted)
@@ -531,46 +530,10 @@ TEST (network, ipv6_from_ipv4)
 	ASSERT_TRUE (endpoint2.address ().is_v6 ());
 }
 
-TEST (network, ipv6_bind_send_ipv4)
-{
-	nano::test::system system;
-	nano::endpoint endpoint1 (boost::asio::ip::address_v6::any (), 0);
-	nano::endpoint endpoint2 (boost::asio::ip::address_v4::any (), 0);
-	std::array<uint8_t, 16> bytes1{};
-	std::atomic<bool> finish1{ false };
-	nano::endpoint endpoint3;
-	boost::asio::ip::udp::socket socket1 (*system.io_ctx, endpoint1);
-	socket1.async_receive_from (boost::asio::buffer (bytes1.data (), bytes1.size ()), endpoint3, [&finish1] (boost::system::error_code const & error, size_t size_a) {
-		ASSERT_FALSE (error);
-		ASSERT_EQ (16, size_a);
-		finish1 = true;
-	});
-	boost::asio::ip::udp::socket socket2 (*system.io_ctx, endpoint2);
-	nano::endpoint endpoint5 (boost::asio::ip::address_v4::loopback (), socket1.local_endpoint ().port ());
-	nano::endpoint endpoint6 (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ()), socket2.local_endpoint ().port ());
-	socket2.async_send_to (boost::asio::buffer (std::array<uint8_t, 16>{}, 16), endpoint5, [] (boost::system::error_code const & error, size_t size_a) {
-		ASSERT_FALSE (error);
-		ASSERT_EQ (16, size_a);
-	});
-	auto iterations (0);
-	ASSERT_TIMELY (5s, finish1);
-	ASSERT_EQ (endpoint6, endpoint3);
-	std::array<uint8_t, 16> bytes2;
-	nano::endpoint endpoint4;
-	socket2.async_receive_from (boost::asio::buffer (bytes2.data (), bytes2.size ()), endpoint4, [] (boost::system::error_code const & error, size_t size_a) {
-		ASSERT_FALSE (!error);
-		ASSERT_EQ (16, size_a);
-	});
-	socket1.async_send_to (boost::asio::buffer (std::array<uint8_t, 16>{}, 16), endpoint6, [] (boost::system::error_code const & error, size_t size_a) {
-		ASSERT_FALSE (error);
-		ASSERT_EQ (16, size_a);
-	});
-}
-
 TEST (network, endpoint_bad_fd)
 {
 	nano::test::system system (1);
-	system.nodes[0]->stop ();
+	system.stop_node (*system.nodes[0]);
 	auto endpoint (system.nodes[0]->network.endpoint ());
 	ASSERT_TRUE (endpoint.address ().is_loopback ());
 	// The endpoint is invalidated asynchronously

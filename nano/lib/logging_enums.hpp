@@ -74,6 +74,7 @@ enum class type
 	vote_generator,
 	rep_tiers,
 	syn_cookies,
+	thread_runner,
 
 	// bootstrap
 	bulk_pull_client,

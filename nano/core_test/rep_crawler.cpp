@@ -220,7 +220,7 @@ TEST (rep_crawler, rep_remove)
 	ASSERT_TIMELY_EQ (10s, searching_node.rep_crawler.representative_count (), 2);
 
 	// When Rep2 is stopped, it should not be found as principal representative anymore
-	node_rep2->stop ();
+	system.stop_node (*node_rep2);
 	ASSERT_TIMELY_EQ (10s, searching_node.rep_crawler.representative_count (), 1);
 
 	// Now only genesisRep should be found:
@@ -239,7 +239,7 @@ TEST (rep_crawler, rep_connection_close)
 	// Add working representative (node 2)
 	system.wallet (1)->insert_adhoc (nano::dev::genesis_key.prv);
 	ASSERT_TIMELY_EQ (10s, node1.rep_crawler.representative_count (), 1);
-	node2.stop ();
+	system.stop_node (node2);
 	// Remove representative with closed channel
 	ASSERT_TIMELY_EQ (10s, node1.rep_crawler.representative_count (), 0);
 }
