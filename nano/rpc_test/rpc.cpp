@@ -36,6 +36,13 @@
 using namespace std::chrono_literals;
 using namespace nano::test;
 
+TEST (rpc, creation)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	ASSERT_NO_THROW (add_rpc (system, node));
+}
+
 TEST (rpc, wrapped_task)
 {
 	nano::test::system system;

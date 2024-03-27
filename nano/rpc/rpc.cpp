@@ -57,10 +57,16 @@ void nano::rpc::start ()
 void nano::rpc::accept ()
 {
 	auto connection (std::make_shared<nano::rpc_connection> (config, io_ctx, logger, rpc_handler_interface));
-	acceptor.async_accept (connection->socket, boost::asio::bind_executor (connection->strand, [this, connection] (boost::system::error_code const & ec) {
-		if (ec != boost::asio::error::operation_aborted && acceptor.is_open ())
+	acceptor.async_accept (connection->socket,
+	boost::asio::bind_executor (connection->strand, [this_w = std::weak_ptr{ shared_from_this () }, connection] (boost::system::error_code const & ec) {
+		auto this_l = this_w.lock ();
+		if (!this_l)
 		{
-			accept ();
+			return;
+		}
+		if (ec != boost::asio::error::operation_aborted && this_l->acceptor.is_open ())
+		{
+			this_l->accept ();
 		}
 		if (!ec)
 		{
@@ -68,7 +74,7 @@ void nano::rpc::accept ()
 		}
 		else
 		{
-			logger.error (nano::log::type::rpc, "Error accepting RPC connection: {}", ec.message ());
+			this_l->logger.error (nano::log::type::rpc, "Error accepting RPC connection: {}", ec.message ());
 		}
 	}));
 }

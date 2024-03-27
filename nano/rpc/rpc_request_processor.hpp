@@ -5,6 +5,7 @@
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/rpc/rpc.hpp>
 
+#include <atomic>
 #include <deque>
 
 namespace nano
@@ -17,7 +18,7 @@ struct ipc_connection
 	}
 
 	nano::ipc::ipc_client client;
-	bool is_available{ false };
+	std::atomic<bool> is_available{ false };
 };
 
 struct rpc_request
