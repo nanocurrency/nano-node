@@ -1708,7 +1708,6 @@ TEST (rpc, keepalive)
 		ASSERT_EQ (0, node0->network.size ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	node1->stop ();
 }
 
 TEST (rpc, peers)
@@ -5206,7 +5205,6 @@ TEST (rpc, online_reps)
 	ASSERT_NE (representatives3.end (), item3);
 	ASSERT_EQ (new_rep.to_account (), item3->first);
 	ASSERT_EQ (representatives3.size (), 1);
-	node2->stop ();
 }
 
 TEST (rpc, confirmation_history)
@@ -5341,7 +5339,6 @@ TEST (rpc, block_confirm_confirmed)
 	ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out) != 0);
 	// Callback result is error because callback target port isn't listening
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out));
-	node->stop ();
 }
 
 TEST (rpc, node_id)
@@ -5978,12 +5975,13 @@ TEST (rpc, active_difficulty)
 }
 
 // This is mainly to check for threading issues with TSAN
+// TODO: Use multiple threads to run io context
 TEST (rpc, simultaneous_calls)
 {
 	// This tests simulatenous calls to the same node in different threads
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
-	nano::thread_runner runner (system.io_ctx, node->config.io_threads);
+
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config{ nano::dev::network_params.network, system.get_available_port (), true };
@@ -5991,8 +5989,9 @@ TEST (rpc, simultaneous_calls)
 	ASSERT_TRUE (ipc_tcp_port.has_value ());
 	rpc_config.rpc_process.num_ipc_connections = 8;
 	nano::ipc_rpc_processor ipc_rpc_processor (*system.io_ctx, rpc_config, ipc_tcp_port.value ());
-	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
-	rpc.start ();
+	auto rpc = std::make_shared<nano::rpc> (system.io_ctx, rpc_config, ipc_rpc_processor);
+	nano::test::start_stop_guard stop_guard{ *rpc };
+
 	boost::property_tree::ptree request;
 	request.put ("action", "account_block_count");
 	request.put ("account", nano::dev::genesis_key.pub.to_account ());
@@ -6008,7 +6007,7 @@ TEST (rpc, simultaneous_calls)
 	std::atomic<int> count{ num };
 	for (int i = 0; i < num; ++i)
 	{
-		std::thread ([&test_responses, &promise, &count, i, port = rpc.listening_port ()] () {
+		std::thread ([&test_responses, &promise, &count, i, port = rpc->listening_port ()] () {
 			test_responses[i]->run (port);
 			if (--count == 0)
 			{
@@ -6018,8 +6017,8 @@ TEST (rpc, simultaneous_calls)
 		.detach ();
 	}
 
-	promise.get_future ().wait ();
-
+	auto future = promise.get_future ();
+	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
 	ASSERT_TIMELY (60s, std::all_of (test_responses.begin (), test_responses.end (), [] (auto const & test_response) { return test_response->status != 0; }));
 
 	for (int i = 0; i < num; ++i)
@@ -6028,11 +6027,6 @@ TEST (rpc, simultaneous_calls)
 		std::string block_count_text (test_responses[i]->json.get<std::string> ("block_count"));
 		ASSERT_EQ ("1", block_count_text);
 	}
-	rpc.stop ();
-	system.stop ();
-	ipc_server.stop ();
-	system.io_ctx->stop ();
-	runner.join ();
 }
 
 // This tests that the inprocess RPC (i.e without using IPC) works correctly
