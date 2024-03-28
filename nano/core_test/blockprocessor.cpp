@@ -38,5 +38,5 @@ TEST (block_processor, broadcast_block_on_arrival)
 	// awakes process_block() -> process_batch() -> process_one() -> process_live()
 	node1->process_active (send1);
 	// Checks whether the block was broadcast.
-	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TIMELY (5s, node2->block_or_pruned_exists (send1->hash ()));
 }

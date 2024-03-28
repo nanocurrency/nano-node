@@ -4,6 +4,7 @@
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_unconfirmed.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -55,7 +56,9 @@ TEST (bulk_pull, end_not_owned)
 	nano::test::system system (1);
 	nano::keypair key2;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, 100));
+	auto block = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, 100);
+	ASSERT_NE (nullptr, block);
+	system.nodes[0]->ledger.confirm (system.nodes[0]->store.tx_begin_write (), block->hash ());
 	nano::block_hash latest (system.nodes[0]->latest (nano::dev::genesis_key.pub));
 	nano::block_builder builder;
 	auto open = builder
@@ -126,6 +129,7 @@ TEST (bulk_pull, ascending_one_hash)
 				  .build ();
 	node.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::block_status::progress, node.process (block1));
+	node.ledger.confirm (node.store.tx_begin_write (), block1->hash ());
 	auto socket = std::make_shared<nano::transport::socket> (node, nano::transport::socket::endpoint_type_t::server);
 	auto connection = std::make_shared<nano::transport::tcp_server> (socket, system.nodes[0]);
 	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
@@ -158,6 +162,7 @@ TEST (bulk_pull, ascending_two_account)
 				  .build ();
 	node.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::block_status::progress, node.process (block1));
+	node.ledger.confirm (node.store.tx_begin_write (), block1->hash ());
 	auto socket = std::make_shared<nano::transport::socket> (node, nano::transport::socket::endpoint_type_t::server);
 	auto connection = std::make_shared<nano::transport::tcp_server> (socket, system.nodes[0]);
 	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
@@ -261,7 +266,7 @@ TEST (bulk_pull, count_limit)
 					.work (*system.work.generate (send1->hash ()))
 					.build ();
 	ASSERT_EQ (nano::block_status::progress, node0->process (receive1));
-
+	node0->ledger.confirm (node0->store.tx_begin_write (), receive1->hash ());
 	auto connection (std::make_shared<nano::transport::tcp_server> (std::make_shared<nano::transport::socket> (*node0, nano::transport::socket::endpoint_type_t::server), node0));
 	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
 	req->start = receive1->hash ();
@@ -662,13 +667,13 @@ TEST (bootstrap_processor, push_diamond_pruning)
 		auto transaction (node1->store.tx_begin_write ());
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, send1->hash (), 2));
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, open->hash (), 1));
-		ASSERT_TRUE (node1->ledger.block_exists (transaction, nano::dev::genesis->hash ()));
-		ASSERT_FALSE (node1->ledger.block_exists (transaction, send1->hash ()));
+		ASSERT_TRUE (node1->ledger->exists (transaction, nano::dev::genesis->hash ()));
+		ASSERT_FALSE (node1->ledger->exists (transaction, send1->hash ()));
 		ASSERT_TRUE (node1->store.pruned.exists (transaction, send1->hash ()));
-		ASSERT_FALSE (node1->ledger.block_exists (transaction, open->hash ()));
+		ASSERT_FALSE (node1->ledger->exists (transaction, open->hash ()));
 		ASSERT_TRUE (node1->store.pruned.exists (transaction, open->hash ()));
-		ASSERT_TRUE (node1->ledger.block_exists (transaction, send2->hash ()));
-		ASSERT_TRUE (node1->ledger.block_exists (transaction, receive->hash ()));
+		ASSERT_TRUE (node1->ledger->exists (transaction, send2->hash ()));
+		ASSERT_TRUE (node1->ledger->exists (transaction, receive->hash ()));
 		ASSERT_EQ (2, node1->ledger.cache.pruned_count);
 		ASSERT_EQ (5, node1->ledger.cache.block_count);
 	}
@@ -1308,10 +1313,10 @@ TEST (bootstrap_processor, lazy_destinations)
 
 	// Check processed blocks
 	ASSERT_TIMELY (5s, !node2->bootstrap_initiator.in_progress ());
-	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (send2->hash ()));
-	ASSERT_FALSE (node2->ledger.block_or_pruned_exists (open->hash ()));
-	ASSERT_FALSE (node2->ledger.block_or_pruned_exists (state_open->hash ()));
+	ASSERT_TIMELY (5s, node2->block_or_pruned_exists (send1->hash ()));
+	ASSERT_TIMELY (5s, node2->block_or_pruned_exists (send2->hash ()));
+	ASSERT_FALSE (node2->block_or_pruned_exists (open->hash ()));
+	ASSERT_FALSE (node2->block_or_pruned_exists (state_open->hash ()));
 	node2->stop ();
 }
 
@@ -1536,7 +1541,7 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 		ASSERT_EQ (key2.pub.to_account (), wallet_attempt->id);
 	}
 	// Check processed blocks
-	ASSERT_TIMELY (10s, node1->ledger.block_or_pruned_exists (receive2->hash ()));
+	ASSERT_TIMELY (10s, node1->block_or_pruned_exists (receive2->hash ()));
 	node1->stop ();
 }
 
@@ -1601,7 +1606,7 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 	wallet->insert_adhoc (key2.prv);
 	node1->bootstrap_wallet ();
 	// Check processed blocks
-	ASSERT_TIMELY (10s, node1->ledger.block_or_pruned_exists (send2->hash ()));
+	ASSERT_TIMELY (10s, node1->block_or_pruned_exists (send2->hash ()));
 }
 
 TEST (bootstrap_processor, multiple_attempts)

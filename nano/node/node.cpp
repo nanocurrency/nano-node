@@ -20,6 +20,8 @@
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_confirmed.hpp>
+#include <nano/secure/ledger_view_unconfirmed.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
 
@@ -193,7 +195,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	scheduler{ *scheduler_impl },
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
-	backlog{ nano::backlog_population_config (config), store, stats },
+	backlog{ nano::backlog_population_config (config), ledger, stats },
 	ascendboot{ config, block_processor, ledger, network, stats },
 	websocket{ config.websocket_config, observers, wallets, ledger, io_ctx, logger },
 	epoch_upgrader{ *this, ledger, store, network_params, logger },
@@ -214,9 +216,9 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 		return ledger.weight (rep);
 	};
 
-	backlog.activate_callback.add ([this] (store::transaction const & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info) {
+	backlog.activate_callback.add ([this] (store::transaction const & transaction, nano::account const & account) {
 		scheduler.priority.activate (account, transaction);
-		scheduler.optimistic.activate (account, account_info, conf_info);
+		scheduler.optimistic.activate (transaction, account);
 	});
 
 	active.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
@@ -390,7 +392,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			store.initialize (transaction, ledger.cache, ledger.constants);
 		}
 
-		if (!ledger.block_or_pruned_exists (config.network_params.ledger.genesis->hash ()))
+		if (!block_or_pruned_exists (config.network_params.ledger.genesis->hash ()))
 		{
 			logger.critical (nano::log::type::node, "Genesis block not found. This commonly indicates a configuration issue, check that the --network or --data_path command line arguments are correct, and also the ledger backend node config option. If using a read-only CLI command a ledger must already exist, start the node with --daemon first.");
 
@@ -753,25 +755,30 @@ void nano::node::keepalive_preconfigured ()
 nano::block_hash nano::node::latest (nano::account const & account_a)
 {
 	auto const transaction (store.tx_begin_read ());
-	return ledger.latest (transaction, account_a);
+	return ledger->head (transaction, account_a);
 }
 
 nano::uint128_t nano::node::balance (nano::account const & account_a)
 {
 	auto const transaction (store.tx_begin_read ());
-	return ledger.account_balance (transaction, account_a);
+	return ledger->balance (transaction, account_a).value_or (0);
 }
 
 std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)
 {
-	return ledger.block (store.tx_begin_read (), hash_a);
+	return ledger->get (store.tx_begin_read (), hash_a);
+}
+
+bool nano::node::block_or_pruned_exists (nano::block_hash const & hash_a) const
+{
+	return ledger->exists_or_pruned (store.tx_begin_read (), hash_a);
 }
 
 std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::account const & account_a, bool only_confirmed_a)
 {
 	std::pair<nano::uint128_t, nano::uint128_t> result;
 	auto const transaction (store.tx_begin_read ());
-	result.first = ledger.account_balance (transaction, account_a, only_confirmed_a);
+	result.first = only_confirmed_a ? ledger.confirmed ().balance (transaction, account_a).value_or (0) : ledger->balance (transaction, account_a).value_or (0);
 	result.second = ledger.account_receivable (transaction, account_a, only_confirmed_a);
 	return result;
 }
@@ -945,7 +952,7 @@ bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & 
 		uint64_t depth (0);
 		while (!hash.is_zero () && depth < max_depth_a)
 		{
-			auto block = ledger.block (transaction, hash);
+			auto block = ledger->get (transaction, hash);
 			if (block != nullptr)
 			{
 				if (block->sideband ().timestamp > cutoff_time_a || depth == 0)
@@ -1183,12 +1190,12 @@ void nano::node::start_election (std::shared_ptr<nano::block> const & block)
 bool nano::node::block_confirmed (nano::block_hash const & hash_a)
 {
 	auto transaction (store.tx_begin_read ());
-	return ledger.block_confirmed (transaction, hash_a);
+	return ledger.confirmed (transaction, hash_a);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::store::transaction const & transaction, nano::block_hash const & hash_a)
 {
-	return confirming_set.exists (hash_a) || ledger.block_confirmed (transaction, hash_a);
+	return confirming_set.exists (hash_a) || ledger.confirmed (transaction, hash_a);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & hash_a)
@@ -1230,7 +1237,7 @@ void nano::node::receive_confirmed (store::transaction const & block_transaction
 		{
 			nano::account representative;
 			representative = wallet->store.representative (wallet_transaction);
-			auto pending = ledger.pending_info (block_transaction_a, nano::pending_key (destination_a, hash_a));
+			auto pending = ledger->get (block_transaction_a, nano::pending_key (destination_a, hash_a));
 			if (pending)
 			{
 				auto amount (pending->amount.number ());
@@ -1238,7 +1245,7 @@ void nano::node::receive_confirmed (store::transaction const & block_transaction
 			}
 			else
 			{
-				if (!ledger.block_or_pruned_exists (block_transaction_a, hash_a))
+				if (!ledger->exists_or_pruned (block_transaction_a, hash_a))
 				{
 					logger.warn (nano::log::type::node, "Confirmed block is missing: {}", hash_a.to_string ());
 					debug_assert (false, "Confirmed block is missing");
@@ -1252,31 +1259,20 @@ void nano::node::receive_confirmed (store::transaction const & block_transaction
 	}
 }
 
-void nano::node::process_confirmed (nano::election_status const & status_a, uint64_t iteration_a)
+void nano::node::process_confirmed (nano::election_status const & status_a)
 {
-	auto hash (status_a.winner->hash ());
-	decltype (iteration_a) const num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
-	if (auto block_l = ledger.block (ledger.store.tx_begin_read (), hash))
+	logger.trace (nano::log::type::node, nano::log::detail::process_confirmed, nano::log::arg{ "block", status_a.winner });
+	auto confirmed = ledger.confirm (store.tx_begin_write (), status_a.winner->hash ());
+	if (confirmed.empty ())
 	{
-		logger.trace (nano::log::type::node, nano::log::detail::process_confirmed, nano::log::arg{ "block", block_l });
-
-		confirming_set.add (block_l->hash ());
-	}
-	else if (iteration_a < num_iters)
-	{
-		iteration_a++;
-		std::weak_ptr<nano::node> node_w (shared ());
-		workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a] () {
-			if (auto node_l = node_w.lock ())
-			{
-				node_l->process_confirmed (status_a, iteration_a);
-			}
-		});
+		active.block_already_cemented_callback (status_a.winner->hash ());
 	}
 	else
 	{
-		// Do some cleanup due to this block never being processed by confirmation height processor
-		active.remove_election_winner_details (hash);
+		for (auto const & block : confirmed)
+		{
+			active.block_cemented_callback (block);
+		}
 	}
 }
 

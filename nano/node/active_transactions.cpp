@@ -9,6 +9,7 @@
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_unconfirmed.hpp>
 #include <nano/store/component.hpp>
 
 #include <boost/format.hpp>
@@ -96,7 +97,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 		status = election->get_status ();
 		votes = election->votes_with_weight ();
 	}
-	if (confirming_set.exists (block->hash ()))
+	if (node.confirming_set.exists (block->hash ()))
 	{
 		status.type = nano::election_status_type::active_confirmed_quorum;
 	}
@@ -125,7 +126,7 @@ void nano::active_transactions::notify_observers (nano::store::read_transaction 
 {
 	auto block = status.winner;
 	auto account = block->account ();
-	auto amount = node.ledger.amount (transaction, block->hash ()).value_or (0);
+	auto amount = node.ledger->amount (transaction, block->hash ()).value_or (0);
 	auto is_state_send = block->type () == block_type::state && block->is_send ();
 	auto is_state_epoch = block->type () == block_type::state && block->is_epoch ();
 	node.observers.blocks.notify (status, votes, account, amount, is_state_send, is_state_epoch);

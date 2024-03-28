@@ -2,6 +2,7 @@
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/election.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_unconfirmed.hpp>
 #include <nano/store/versioning.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -149,6 +150,8 @@ TEST (wallets, vote_minimum)
 				 .work (*system.work.generate (key2.pub))
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node1.process (open2));
+	node1.ledger.confirm (node1.store.tx_begin_write (), open1->hash ());
+	node1.ledger.confirm (node1.store.tx_begin_write (), open2->hash ());
 	auto wallet (node1.wallets.items.begin ()->second);
 	nano::unique_lock<nano::mutex> representatives_lk (wallet->representatives_mutex);
 	ASSERT_EQ (0, wallet->representatives.size ());
@@ -253,7 +256,7 @@ TEST (wallets, search_receivable)
 			node.wallets.search_receivable (wallet_id);
 		}
 		ASSERT_TIMELY_EQ (3s, node.balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount);
-		auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::dev::genesis_key.pub);
+		auto receive_hash = node.ledger->head (node.store.tx_begin_read (), nano::dev::genesis_key.pub);
 		auto receive = node.block (receive_hash);
 		ASSERT_NE (nullptr, receive);
 		ASSERT_EQ (receive->sideband ().height, 3);

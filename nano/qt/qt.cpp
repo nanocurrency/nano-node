@@ -4,6 +4,7 @@
 #include <nano/node/vote_with_weight_info.hpp>
 #include <nano/qt/qt.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_view_unconfirmed.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -269,7 +270,7 @@ void nano_qt::accounts::refresh_wallet_balance ()
 	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
 	{
 		nano::public_key const & key (i->first);
-		balance = balance + (this->wallet.node.ledger.account_balance (block_transaction, key));
+		balance = balance + this->wallet.node.ledger->balance (block_transaction, key).value_or (0);
 		pending = pending + (this->wallet.node.ledger.account_receivable (block_transaction, key));
 	}
 	auto final_text (std::string ("Balance: ") + wallet.format_balance (balance));
@@ -294,7 +295,7 @@ void nano_qt::accounts::refresh ()
 	for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end ()); i != j; ++i)
 	{
 		nano::public_key key (i->first);
-		auto balance_amount (wallet.node.ledger.account_balance (block_transaction, key));
+		auto balance_amount = wallet.node.ledger->balance (block_transaction, key).value_or (0);
 		bool display (true);
 		switch (wallet.wallet_m->store.key_type (i->second))
 		{
@@ -525,7 +526,7 @@ public:
 	{
 		type = "Send";
 		account = block_a.hashables.destination;
-		auto amount_l = ledger.amount (transaction, block_a.hash ());
+		auto amount_l = ledger->amount (transaction, block_a.hash ());
 		if (!amount_l)
 		{
 			type = "Send (pruned)";
@@ -538,8 +539,8 @@ public:
 	void receive_block (nano::receive_block const & block_a)
 	{
 		type = "Receive";
-		auto account_l = ledger.account (transaction, block_a.hashables.source);
-		auto amount_l = ledger.amount (transaction, block_a.hash ());
+		auto account_l = ledger->account (transaction, block_a.hashables.source);
+		auto amount_l = ledger->amount (transaction, block_a.hash ());
 		if (!account_l || !amount_l)
 		{
 			type = "Receive (pruned)";
@@ -555,8 +556,8 @@ public:
 		type = "Receive";
 		if (block_a.hashables.source != ledger.constants.genesis->account ())
 		{
-			auto account_l = ledger.account (transaction, block_a.hashables.source);
-			auto amount_l = ledger.amount (transaction, block_a.hash ());
+			auto account_l = ledger->account (transaction, block_a.hashables.source);
+			auto amount_l = ledger->amount (transaction, block_a.hash ());
 			if (!account_l || !amount_l)
 			{
 				type = "Receive (pruned)";
@@ -582,7 +583,7 @@ public:
 	void state_block (nano::state_block const & block_a)
 	{
 		auto balance (block_a.hashables.balance.number ());
-		auto previous_balance = ledger.balance (transaction, block_a.hashables.previous);
+		auto previous_balance = ledger->balance (transaction, block_a.hashables.previous);
 		if (!previous_balance)
 		{
 			type = "Unknown (pruned)";
@@ -610,7 +611,7 @@ public:
 			else
 			{
 				type = "Receive";
-				auto account_l = ledger.account (transaction, block_a.hashables.link.as_block_hash ());
+				auto account_l = ledger->account (transaction, block_a.hashables.link.as_block_hash ());
 				if (!account_l)
 				{
 					type = "Receive (pruned)";
@@ -635,12 +636,12 @@ void nano_qt::history::refresh ()
 {
 	auto transaction (ledger.store.tx_begin_read ());
 	model->removeRows (0, model->rowCount ());
-	auto hash (ledger.latest (transaction, account));
+	auto hash (ledger->head (transaction, account));
 	short_text_visitor visitor (transaction, ledger);
 	for (auto i (0), n (tx_count->value ()); i < n && !hash.is_zero (); ++i)
 	{
 		QList<QStandardItem *> items;
-		auto block (ledger.block (transaction, hash));
+		auto block (ledger->get (transaction, hash));
 		if (block != nullptr)
 		{
 			block->visit (visitor);
@@ -689,13 +690,13 @@ nano_qt::block_viewer::block_viewer (nano_qt::wallet & wallet_a) :
 		if (!hash_l.decode_hex (hash->text ().toStdString ()))
 		{
 			auto transaction (this->wallet.node.store.tx_begin_read ());
-			auto block_l (this->wallet.node.ledger.block (transaction, hash_l));
+			auto block_l (this->wallet.node.ledger->get (transaction, hash_l));
 			if (block_l != nullptr)
 			{
 				std::string contents;
 				block_l->serialize_json (contents);
 				block->setPlainText (contents.c_str ());
-				auto successor_l = this->wallet.node.ledger.successor (transaction, hash_l).value_or (0);
+				auto successor_l = this->wallet.node.ledger->successor (transaction, hash_l).value_or (0);
 				successor->setText (successor_l.to_string ().c_str ());
 			}
 			else
@@ -713,8 +714,8 @@ nano_qt::block_viewer::block_viewer (nano_qt::wallet & wallet_a) :
 		auto error (block.decode_hex (hash->text ().toStdString ()));
 		if (!error)
 		{
-			auto transaction (this->wallet.node.store.tx_begin_read ());
-			if (this->wallet.node.ledger.block_exists (transaction, block))
+			auto transaction = this->wallet.node.store.tx_begin_read ();
+			if (this->wallet.node.ledger->exists (transaction, block))
 			{
 				rebroadcast->setEnabled (false);
 				this->wallet.node.background ([this, block] () {
@@ -735,11 +736,11 @@ void nano_qt::block_viewer::rebroadcast_action (nano::block_hash const & hash_a)
 {
 	auto done (true);
 	auto transaction (wallet.node.ledger.store.tx_begin_read ());
-	auto block (wallet.node.ledger.block (transaction, hash_a));
+	auto block (wallet.node.ledger->get (transaction, hash_a));
 	if (block != nullptr)
 	{
 		wallet.node.network.flood_block (block);
-		auto successor = wallet.node.ledger.successor (transaction, hash_a);
+		auto successor = wallet.node.ledger->successor (transaction, hash_a);
 		if (successor)
 		{
 			done = false;
@@ -2244,7 +2245,7 @@ void nano_qt::block_creation::create_send ()
 				nano::raw_key key;
 				if (!wallet.wallet_m->store.fetch (transaction, account_l, key))
 				{
-					auto balance (wallet.node.ledger.account_balance (block_transaction, account_l));
+					auto balance = wallet.node.ledger->balance (block_transaction, account_l).value_or (0);
 					if (amount_l.number () <= balance)
 					{
 						nano::account_info info;
@@ -2317,14 +2318,14 @@ void nano_qt::block_creation::create_receive ()
 	{
 		auto transaction (wallet.node.wallets.tx_begin_read ());
 		auto block_transaction (wallet.node.store.tx_begin_read ());
-		auto block_l (wallet.node.ledger.block (block_transaction, source_l));
+		auto block_l (wallet.node.ledger->get (block_transaction, source_l));
 		if (block_l != nullptr)
 		{
 			auto destination = block_l->destination ();
 			if (!destination.is_zero ())
 			{
 				nano::pending_key pending_key (destination, source_l);
-				if (auto pending = wallet.node.ledger.pending_info (block_transaction, pending_key))
+				if (auto pending = wallet.node.ledger->get (block_transaction, pending_key))
 				{
 					nano::account_info info;
 					auto error (wallet.node.store.account.get (block_transaction, pending_key.account, info));
@@ -2481,14 +2482,14 @@ void nano_qt::block_creation::create_open ()
 		{
 			auto transaction (wallet.node.wallets.tx_begin_read ());
 			auto block_transaction (wallet.node.store.tx_begin_read ());
-			auto block_l (wallet.node.ledger.block (block_transaction, source_l));
+			auto block_l (wallet.node.ledger->get (block_transaction, source_l));
 			if (block_l != nullptr)
 			{
 				auto destination = block_l->destination ();
 				if (!destination.is_zero ())
 				{
 					nano::pending_key pending_key (destination, source_l);
-					if (auto pending = wallet.node.ledger.pending_info (block_transaction, pending_key))
+					if (auto pending = wallet.node.ledger->get (block_transaction, pending_key))
 					{
 						nano::account_info info;
 						auto error (wallet.node.store.account.get (block_transaction, pending_key.account, info));
