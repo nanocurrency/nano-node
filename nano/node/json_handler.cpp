@@ -624,6 +624,24 @@ void nano::json_handler::account_info ()
 		auto info (account_info_impl (transaction, account));
 		nano::confirmation_height_info confirmation_height_info;
 		node.store.confirmation_height.get (transaction, account, confirmation_height_info);
+		if (weight)
+		{
+			auto account_weight (node.ledger.weight (account));
+			response_l.put ("weight", account_weight.convert_to<std::string> ());
+		}
+		if (receivable)
+		{
+			auto account_receivable = node.ledger.account_receivable (transaction, account);
+			response_l.put ("pending", account_receivable.convert_to<std::string> ());
+			response_l.put ("receivable", account_receivable.convert_to<std::string> ());
+
+			if (include_confirmed)
+			{
+				auto account_receivable = node.ledger.account_receivable (transaction, account, true);
+				response_l.put ("confirmed_pending", account_receivable.convert_to<std::string> ());
+				response_l.put ("confirmed_receivable", account_receivable.convert_to<std::string> ());
+			}
+		}
 		if (!ec)
 		{
 			response_l.put ("frontier", info.head.to_string ());
@@ -690,24 +708,6 @@ void nano::json_handler::account_info ()
 					}
 
 					response_l.put ("confirmed_representative", confirmed_representative.to_account ());
-				}
-			}
-			if (weight)
-			{
-				auto account_weight (node.ledger.weight_exact (transaction, account));
-				response_l.put ("weight", account_weight.convert_to<std::string> ());
-			}
-			if (receivable)
-			{
-				auto account_receivable = node.ledger.account_receivable (transaction, account);
-				response_l.put ("pending", account_receivable.convert_to<std::string> ());
-				response_l.put ("receivable", account_receivable.convert_to<std::string> ());
-
-				if (include_confirmed)
-				{
-					auto account_receivable = node.ledger.account_receivable (transaction, account, true);
-					response_l.put ("confirmed_pending", account_receivable.convert_to<std::string> ());
-					response_l.put ("confirmed_receivable", account_receivable.convert_to<std::string> ());
 				}
 			}
 		}
