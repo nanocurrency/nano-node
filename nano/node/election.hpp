@@ -64,6 +64,13 @@ private:
 	std::function<void (std::shared_ptr<nano::block> const &)> confirmation_action;
 	std::function<void (nano::account const &)> live_vote_action;
 
+private:
+	// Election time to live
+	std::chrono::milliseconds max_total_duration = std::chrono::milliseconds (10 * 60 * 1000);
+	std::chrono::milliseconds max_idle_duration_default = std::chrono::milliseconds (30 * 1000);
+	std::chrono::milliseconds max_idle_duration_hinted = std::chrono::milliseconds (10 * 1000);
+	std::chrono::milliseconds max_idle_duration_optimistic = std::chrono::milliseconds (10 * 1000);
+
 private: // State management
 	static unsigned constexpr passive_duration_factor = 5;
 	static unsigned constexpr active_request_count_min = 2;
@@ -76,7 +83,8 @@ private: // State management
 	nano::block_hash last_block_hash{ 0 };
 	std::chrono::steady_clock::time_point last_req{};
 	/** The last time vote for this election was generated */
-	std::chrono::steady_clock::time_point last_vote{};
+	std::chrono::steady_clock::time_point last_vote = {};
+	std::chrono::steady_clock::time_point last_vote_received = { std::chrono::steady_clock::now () };
 
 	bool valid_change (nano::election_state, nano::election_state) const;
 	bool state_change (nano::election_state, nano::election_state);
@@ -155,7 +163,7 @@ private:
 	void remove_votes (nano::block_hash const &);
 	void remove_block (nano::block_hash const &);
 	bool replace_by_weight (nano::unique_lock<nano::mutex> & lock_a, nano::block_hash const &);
-	std::chrono::milliseconds time_to_live () const;
+	bool has_expired () const;
 	/**
 	 * Calculates minimum time delay between subsequent votes when processing non-final votes
 	 */

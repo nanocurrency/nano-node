@@ -274,7 +274,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			break;
 	}
 
-	if (!confirmed_locked () && time_to_live () < std::chrono::steady_clock::now () - election_start)
+	if (!confirmed_locked () && has_expired ())
 	{
 		// It is possible the election confirmed while acquiring the mutex
 		// state_change returning true would indicate it
@@ -292,16 +292,24 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 	return result;
 }
 
-std::chrono::milliseconds nano::election::time_to_live () const
+bool nano::election::has_expired () const
 {
+	const auto now = std::chrono::steady_clock::now ();
+
+	if (now > election_start + max_total_duration)
+	{
+		return true;
+	}
+
 	switch (behavior ())
 	{
 		case election_behavior::manual:
 		case election_behavior::priority:
-			return std::chrono::milliseconds (5 * 60 * 1000);
+			return now > last_vote_received + max_idle_duration_default;
 		case election_behavior::hinted:
+			return now > last_vote_received + max_idle_duration_hinted;
 		case election_behavior::optimistic:
-			return std::chrono::milliseconds (30 * 1000);
+			return now > last_vote_received + max_idle_duration_optimistic;
 	}
 	debug_assert (false);
 	return {};
@@ -490,6 +498,8 @@ nano::vote_code nano::election::vote (nano::account const & rep, uint64_t timest
 	nano::log::arg{ "timestamp", timestamp_a },
 	nano::log::arg{ "vote_source", vote_source_a },
 	nano::log::arg{ "weight", weight });
+
+	last_vote_received = std::chrono::steady_clock::now ();
 
 	if (!confirmed_locked ())
 	{
