@@ -554,7 +554,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (collect_container_info (node.work, "work"));
-	composite->add_component (collect_container_info (node.ledger, "ledger"));
+	composite->add_component (node.ledger.collect_container_info ("ledger"));
 	composite->add_component (collect_container_info (node.active, "active"));
 	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
 	composite->add_component (node.tcp_listener->collect_container_info ("tcp_listener"));

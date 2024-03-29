@@ -29,7 +29,7 @@ public:
 	/* Only use this method when loading rep weights from the database table */
 	void copy_from (rep_weights & other_a);
 	size_t size () const;
-	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
+	std::unique_ptr<container_info_component> collect_container_info (std::string const &) const;
 
 private:
 	mutable nano::mutex mutex;
