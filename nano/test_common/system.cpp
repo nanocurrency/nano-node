@@ -75,19 +75,15 @@ void nano::test::system::stop ()
 {
 	logger.debug (nano::log::type::system, "Stopping...");
 
-	// Keep io_context running while stopping
-	auto stopped = std::async (std::launch::async, [&] {
-		for (auto & node : nodes)
-		{
-			node->stop ();
-		}
-	});
-
-	auto ec = poll_until_true (10s, [&] {
-		auto status = stopped.wait_for (0s);
-		return status == std::future_status::ready;
-	});
-	debug_assert (!ec);
+	// Keep io_context running while stopping nodes
+	for (auto & node : nodes)
+	{
+		stop_node (*node);
+	}
+	for (auto & node : disconnected_nodes)
+	{
+		stop_node (*node);
+	}
 
 	io_guard.reset ();
 	work.stop ();
@@ -120,8 +116,9 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 		wallet->insert_adhoc (rep->prv);
 	}
 	node->start ();
-	nodes.reserve (nodes.size () + 1);
 	nodes.push_back (node);
+
+	// Connect with other nodes
 	if (nodes.size () > 1)
 	{
 		debug_assert (nodes.size () - 1 <= node->network_params.network.max_peers_per_ip || node->flags.disable_max_peers_per_ip); // Check that we don't start more nodes than limit for single IP address
@@ -197,17 +194,22 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 	return node;
 }
 
+// TODO: Merge with add_node
 std::shared_ptr<nano::node> nano::test::system::make_disconnected_node (std::optional<nano::node_config> opt_node_config, nano::node_flags flags)
 {
 	nano::node_config node_config = opt_node_config.has_value () ? *opt_node_config : default_config ();
 	auto node = std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config, work, flags);
-	if (node->init_error ())
+	for (auto i : initialization_blocks)
 	{
-		std::cerr << "node init error\n";
-		return nullptr;
+		auto result = node->ledger.process (node->store.tx_begin_write (), i);
+		debug_assert (result == nano::block_status::progress);
 	}
+	debug_assert (!node->init_error ());
 	node->start ();
-	nodes.push_back (node);
+	disconnected_nodes.push_back (node);
+
+	logger.debug (nano::log::type::system, "Node started (disconnected): {}", node->get_node_id ().to_node_id ());
+
 	return node;
 }
 

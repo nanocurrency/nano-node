@@ -80,6 +80,7 @@ namespace test
 		std::shared_ptr<boost::asio::io_context> io_ctx;
 		boost::asio::executor_work_guard<boost::asio::io_context::executor_type> io_guard;
 		std::vector<std::shared_ptr<nano::node>> nodes;
+		std::vector<std::shared_ptr<nano::node>> disconnected_nodes;
 		nano::stats stats;
 		nano::logger logger{ "tests" };
 		nano::work_pool work{ nano::dev::network_params.network, std::max (nano::hardware_concurrency (), 1u) };
