@@ -1971,8 +1971,8 @@ void nano_qt::advanced_actions::refresh_peers ()
 void nano_qt::advanced_actions::refresh_ledger ()
 {
 	ledger_model->removeRows (0, ledger_model->rowCount ());
-	auto transaction (wallet.node.store.tx_begin_read ());
-	for (auto i (wallet.node.ledger.store.account.begin (transaction)), j (wallet.node.ledger.store.account.end ()); i != j; ++i)
+	auto transaction (wallet.node.ledger.tx_begin_read ());
+	for (auto i (wallet.node.ledger.any.account_begin (transaction)), j (wallet.node.ledger.any.account_end ()); i != j; ++i)
 	{
 		QList<QStandardItem *> items;
 		items.push_back (new QStandardItem (QString (i->first.to_account ().c_str ())));

@@ -41,6 +41,9 @@ add_library(
   ${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp
   account_info.hpp
   account_info.cpp
+  account_iterator.cpp
+  account_iterator.hpp
+  account_iterator_impl.hpp
   common.hpp
   common.cpp
   generate_cache_flags.hpp

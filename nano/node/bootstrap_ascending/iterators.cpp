@@ -28,9 +28,8 @@ void nano::bootstrap_ascending::database_iterator::next (secure::transaction & t
 	{
 		case table_type::account:
 		{
-			auto i = current.number () + 1;
-			auto item = ledger.store.account.begin (tx, i);
-			if (item != ledger.store.account.end ())
+			auto item = ledger.any.account_upper_bound (tx, current.number ());
+			if (item != ledger.any.account_end ())
 			{
 				current = item->first;
 			}

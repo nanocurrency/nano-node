@@ -237,8 +237,8 @@ void nano::frontier_req_client::next ()
 	if (accounts.empty ())
 	{
 		std::size_t max_size (128);
-		auto transaction (node->store.tx_begin_read ());
-		for (auto i (node->store.account.begin (transaction, current.number () + 1)), n (node->store.account.end ()); i != n && accounts.size () != max_size; ++i)
+		auto transaction (node->ledger.tx_begin_read ());
+		for (auto i (node->ledger.any.account_upper_bound (transaction, current.number ())), n (node->ledger.any.account_end ()); i != n && accounts.size () != max_size; ++i)
 		{
 			nano::account_info const & info (i->second);
 			nano::account const & account (i->first);
@@ -377,10 +377,10 @@ void nano::frontier_req_server::next ()
 		auto now (nano::seconds_since_epoch ());
 		bool disable_age_filter (request->age == std::numeric_limits<decltype (request->age)>::max ());
 		std::size_t max_size (128);
-		auto transaction (node->store.tx_begin_read ());
+		auto transaction (node->ledger.tx_begin_read ());
 		if (!send_confirmed ())
 		{
-			for (auto i (node->store.account.begin (transaction, current.number () + 1)), n (node->store.account.end ()); i != n && accounts.size () != max_size; ++i)
+			for (auto i (node->ledger.any.account_upper_bound (transaction, current.number ())), n (node->ledger.any.account_end ()); i != n && accounts.size () != max_size; ++i)
 			{
 				nano::account_info const & info (i->second);
 				if (disable_age_filter || (now - info.modified) <= request->age)

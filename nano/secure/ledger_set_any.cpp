@@ -20,6 +20,16 @@ std::optional<nano::amount> nano::ledger_set_any::account_balance (secure::trans
 	return block->balance ();
 }
 
+auto nano::ledger_set_any::account_begin (secure::transaction const & transaction) const -> account_iterator
+{
+	return account_lower_bound (transaction, 0);
+}
+
+auto nano::ledger_set_any::account_end () const -> account_iterator
+{
+	return account_iterator{};
+}
+
 std::optional<nano::account_info> nano::ledger_set_any::account_get (secure::transaction const & transaction, nano::account const & account) const
 {
 	return ledger.store.account.get (transaction, account);
@@ -45,6 +55,21 @@ uint64_t nano::ledger_set_any::account_height (secure::transaction const & trans
 	auto block = block_get (transaction, head_l);
 	release_assert (block); // Head block must be in ledger
 	return block->sideband ().height;
+}
+
+auto nano::ledger_set_any::account_lower_bound (secure::transaction const & transaction, nano::account const & account) const -> account_iterator
+{
+	auto disk = ledger.store.account.begin (transaction, account);
+	if (disk == ledger.store.account.end ())
+	{
+		return account_iterator{};
+	}
+	return account_iterator{ transaction, *this, *disk };
+}
+
+auto nano::ledger_set_any::account_upper_bound (secure::transaction const & transaction, nano::account const & account) const -> account_iterator
+{
+	return account_lower_bound (transaction, account.number () + 1);
 }
 
 std::optional<nano::account> nano::ledger_set_any::block_account (secure::transaction const & transaction, nano::block_hash const & hash) const
