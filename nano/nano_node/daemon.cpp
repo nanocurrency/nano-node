@@ -150,7 +150,7 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 
 				nano::ipc::ipc_server ipc_server (*node, config.rpc);
 				std::unique_ptr<boost::process::child> rpc_process;
-				std::unique_ptr<nano::rpc> rpc;
+				std::shared_ptr<nano::rpc> rpc;
 				std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 				if (config.rpc_enable)
 				{
