@@ -485,7 +485,7 @@ std::size_t nano::bootstrap_ascending::service::compute_throttle_size () const
 {
 	// Scales logarithmically with ledger block
 	// Returns: config.throttle_coefficient * sqrt(block_count)
-	std::size_t size_new = config.bootstrap_ascending.throttle_coefficient * std::sqrt (ledger.cache.block_count.load ());
+	std::size_t size_new = config.bootstrap_ascending.throttle_coefficient * std::sqrt (ledger.block_count ());
 	return size_new == 0 ? 16 : size_new;
 }
 

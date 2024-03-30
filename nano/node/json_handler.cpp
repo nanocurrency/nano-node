@@ -1446,13 +1446,13 @@ void nano::json_handler::block_account ()
 
 void nano::json_handler::block_count ()
 {
-	response_l.put ("count", std::to_string (node.ledger.cache.block_count));
+	response_l.put ("count", std::to_string (node.ledger.block_count ()));
 	response_l.put ("unchecked", std::to_string (node.unchecked.count ()));
-	response_l.put ("cemented", std::to_string (node.ledger.cache.cemented_count));
+	response_l.put ("cemented", std::to_string (node.ledger.cemented_count ()));
 	if (node.flags.enable_pruning)
 	{
-		response_l.put ("full", std::to_string (node.ledger.cache.block_count - node.ledger.cache.pruned_count));
-		response_l.put ("pruned", std::to_string (node.ledger.cache.pruned_count));
+		response_l.put ("full", std::to_string (node.ledger.block_count () - node.ledger.pruned_count ()));
+		response_l.put ("pruned", std::to_string (node.ledger.pruned_count ()));
 	}
 	response_errors ();
 }
@@ -2351,7 +2351,7 @@ void nano::json_handler::frontiers ()
 
 void nano::json_handler::account_count ()
 {
-	auto size (node.ledger.cache.account_count.load ());
+	auto size (node.ledger.account_count ());
 	response_l.put ("count", std::to_string (size));
 	response_errors ();
 }

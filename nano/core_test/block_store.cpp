@@ -902,9 +902,10 @@ TEST (block_store, cemented_count_cache)
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	auto transaction (store->tx_begin_write ());
-	nano::ledger_cache ledger_cache{ store->rep_weight };
-	store->initialize (transaction, ledger_cache, nano::dev::constants);
-	ASSERT_EQ (1, ledger_cache.cemented_count);
+	nano::stats stats;
+	nano::ledger ledger (*store, stats, nano::dev::constants);
+	store->initialize (transaction, ledger.cache, nano::dev::constants);
+	ASSERT_EQ (1, ledger.cemented_count ());
 }
 
 TEST (block_store, block_random)

@@ -252,7 +252,7 @@ TEST (rep_crawler, recently_confirmed)
 {
 	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
-	ASSERT_EQ (1, node1.ledger.cache.block_count);
+	ASSERT_EQ (1, node1.ledger.block_count ());
 	auto const block = nano::dev::genesis;
 	node1.active.recently_confirmed.put (block->qualified_root (), block->hash ());
 	auto & node2 (*system.add_node ());

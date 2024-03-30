@@ -6599,7 +6599,7 @@ TEST (rpc, receive_pruned)
 		auto transaction (node2->store.tx_begin_write ());
 		ASSERT_EQ (2, node2->ledger.pruning_action (transaction, send2->hash (), 1));
 	}
-	ASSERT_EQ (2, node2->ledger.cache.pruned_count);
+	ASSERT_EQ (2, node2->ledger.pruned_count ());
 	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ()));
 	ASSERT_FALSE (node2->ledger.block_exists (node2->store.tx_begin_read (), send1->hash ()));
 	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send2->hash ()));

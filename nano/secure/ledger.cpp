@@ -1600,6 +1600,26 @@ nano::receivable_iterator nano::ledger::receivable_upper_bound (store::transacti
 	return nano::receivable_iterator{ *this, tx, result };
 }
 
+uint64_t nano::ledger::cemented_count () const
+{
+	return cache.cemented_count;
+}
+
+uint64_t nano::ledger::block_count () const
+{
+	return cache.block_count;
+}
+
+uint64_t nano::ledger::account_count () const
+{
+	return cache.account_count;
+}
+
+uint64_t nano::ledger::pruned_count () const
+{
+	return cache.pruned_count;
+}
+
 nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account) :
 	cemented_frontier (cemented_frontier), frontier (frontier), account (account)
 {
