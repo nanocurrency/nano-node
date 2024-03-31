@@ -175,7 +175,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, std::
 			nano::ipc::ipc_server ipc (*node, config.rpc);
 
 			std::unique_ptr<boost::process::child> rpc_process;
-			std::unique_ptr<nano::rpc> rpc;
+			std::shared_ptr<nano::rpc> rpc;
 			std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 			if (config.rpc_enable)
 			{
