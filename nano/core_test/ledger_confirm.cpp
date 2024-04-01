@@ -48,7 +48,7 @@ TEST (ledger_confirm, single)
 	ASSERT_TRUE (node->ledger.rollback (transaction, latest1));
 	ASSERT_TRUE (node->ledger.rollback (transaction, send1->hash ()));
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
-	ASSERT_EQ (2, node->ledger.cache.cemented_count);
+	ASSERT_EQ (2, node->ledger.cemented_count ());
 }
 
 TEST (ledger_confirm, multiple_accounts)
@@ -193,7 +193,7 @@ TEST (ledger_confirm, multiple_accounts)
 	auto confirmed = node->ledger.confirm (transaction, receive3->hash ());
 	ASSERT_EQ (10, confirmed.size ());
 	ASSERT_EQ (10, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
-	ASSERT_EQ (11, node->ledger.cache.cemented_count);
+	ASSERT_EQ (11, node->ledger.cemented_count ());
 
 	ASSERT_TRUE (node->ledger.block_confirmed (transaction, receive3->hash ()));
 	ASSERT_EQ (4, node->ledger.account_info (transaction, nano::dev::genesis_key.pub).value ().block_count);
@@ -343,7 +343,7 @@ TEST (ledger_confirm, send_receive_between_2_accounts)
 	auto confirmed = node->ledger.confirm (transaction, receive4->hash ());
 	ASSERT_EQ (10, confirmed.size ());
 	ASSERT_EQ (10, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
-	ASSERT_EQ (11, node->ledger.cache.cemented_count);
+	ASSERT_EQ (11, node->ledger.cemented_count ());
 
 	ASSERT_TRUE (node->ledger.block_confirmed (transaction, receive4->hash ()));
 	ASSERT_EQ (7, node->ledger.account_info (transaction, nano::dev::genesis_key.pub).value ().block_count);
@@ -440,7 +440,7 @@ TEST (ledger_confirm, send_receive_self)
 	ASSERT_EQ (8, node->ledger.account_info (transaction, nano::dev::genesis_key.pub).value ().block_count);
 	ASSERT_EQ (7, node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub).value ().height);
 	ASSERT_EQ (receive3->hash (), node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub).value ().frontier);
-	ASSERT_EQ (7, node->ledger.cache.cemented_count);
+	ASSERT_EQ (7, node->ledger.cemented_count ());
 }
 
 TEST (ledger_confirm, all_block_types)
@@ -660,7 +660,7 @@ TEST (ledger_confirm, all_block_types)
 	auto confirmed = node->ledger.confirm (transaction, state_send2->hash ());
 	ASSERT_EQ (15, confirmed.size ());
 	ASSERT_EQ (15, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
-	ASSERT_EQ (16, node->ledger.cache.cemented_count);
+	ASSERT_EQ (16, node->ledger.cemented_count ());
 
 	ASSERT_TRUE (node->ledger.block_confirmed (transaction, state_send2->hash ()));
 	nano::confirmation_height_info confirmation_height_info;
@@ -749,7 +749,7 @@ TEST (ledger_confirm, observers)
 	node1->ledger.confirm (transaction, send1->hash ());
 	ASSERT_TRUE (node1->ledger.block_confirmed (transaction, send1->hash ()));
 	ASSERT_EQ (1, node1->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
-	ASSERT_EQ (2, node1->ledger.cache.cemented_count);
+	ASSERT_EQ (2, node1->ledger.cemented_count ());
 }
 
 TEST (ledger_confirm, election_winner_details_clearing_node_process_confirmed)

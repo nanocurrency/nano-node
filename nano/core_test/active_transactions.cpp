@@ -149,7 +149,7 @@ TEST (active_transactions, confirm_frontier)
 	std::shared_ptr<nano::election> election2;
 	ASSERT_TIMELY (5s, election2 = node2.active.election (send->qualified_root ()));
 	ASSERT_TIMELY (5s, nano::test::confirmed (node2, { send }));
-	ASSERT_TIMELY_EQ (5s, node2.ledger.cache.cemented_count, 2);
+	ASSERT_TIMELY_EQ (5s, node2.ledger.cemented_count (), 2);
 	ASSERT_TIMELY (5s, node2.active.empty ());
 	ASSERT_GT (election2->confirmation_request_count, 0u);
 }
@@ -486,9 +486,9 @@ TEST (inactive_votes_cache, election_start)
 	ASSERT_EQ (nano::block_status::progress, node.process (send2));
 	ASSERT_EQ (nano::block_status::progress, node.process (open1));
 	ASSERT_EQ (nano::block_status::progress, node.process (open2));
-	ASSERT_TIMELY_EQ (5s, 5, node.ledger.cache.block_count);
+	ASSERT_TIMELY_EQ (5s, 5, node.ledger.block_count ());
 	ASSERT_TRUE (node.active.empty ());
-	ASSERT_EQ (1, node.ledger.cache.cemented_count);
+	ASSERT_EQ (1, node.ledger.cemented_count ());
 	// These blocks will be processed later
 	auto send3 = send_block_builder.make_block ()
 				 .previous (send2->hash ())
@@ -510,7 +510,7 @@ TEST (inactive_votes_cache, election_start)
 	node.vote_processor.vote (vote1, std::make_shared<nano::transport::inproc::channel> (node, node));
 	ASSERT_TIMELY_EQ (5s, node.vote_cache.size (), 3);
 	ASSERT_TRUE (node.active.empty ());
-	ASSERT_EQ (1, node.ledger.cache.cemented_count);
+	ASSERT_EQ (1, node.ledger.cemented_count ());
 
 	// 2 votes are required to start election (dev network)
 	auto vote2 = nano::test::make_vote (key2, { open1, open2, send4 });
@@ -523,7 +523,7 @@ TEST (inactive_votes_cache, election_start)
 	auto vote0 = nano::test::make_final_vote (nano::dev::genesis_key, { open1, open2, send4 });
 	node.vote_processor.vote (vote0, std::make_shared<nano::transport::inproc::channel> (node, node));
 	ASSERT_TIMELY_EQ (5s, 0, node.active.size ());
-	ASSERT_TIMELY_EQ (5s, 5, node.ledger.cache.cemented_count);
+	ASSERT_TIMELY_EQ (5s, 5, node.ledger.cemented_count ());
 	ASSERT_TRUE (nano::test::confirmed (node, { send1, send2, open1, open2 }));
 
 	// A late block arrival also checks the inactive votes cache
@@ -536,7 +536,7 @@ TEST (inactive_votes_cache, election_start)
 	// send7 cannot be voted on but an election should be started from inactive votes
 	ASSERT_FALSE (node.ledger.dependents_confirmed (node.store.tx_begin_read (), *send4));
 	node.process_active (send4);
-	ASSERT_TIMELY_EQ (5s, 7, node.ledger.cache.cemented_count);
+	ASSERT_TIMELY_EQ (5s, 7, node.ledger.cemented_count ());
 }
 
 namespace nano
@@ -829,8 +829,8 @@ TEST (active_transactions, fork_filter_cleanup)
 	//                  how about node1 picking up "send1" from node2? we know it does because we assert at
 	//                  the end that it is within node1's AEC, but why node1.block_count doesn't increase?
 	//
-	ASSERT_TIMELY_EQ (5s, node2.ledger.cache.block_count, 2);
-	ASSERT_TIMELY_EQ (5s, node1.ledger.cache.block_count, 2);
+	ASSERT_TIMELY_EQ (5s, node2.ledger.block_count (), 2);
+	ASSERT_TIMELY_EQ (5s, node1.ledger.block_count (), 2);
 
 	// Block is erased from the duplicate filter
 	ASSERT_TIMELY (5s, node1.network.publish_filter.apply (send_block_bytes.data (), send_block_bytes.size ()));
@@ -890,7 +890,7 @@ TEST (active_transactions, fork_replacement_tally)
 		auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { send, open });
 		node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
 	}
-	ASSERT_TIMELY_EQ (5s, node1.ledger.cache.cemented_count, 1 + 2 * reps_count);
+	ASSERT_TIMELY_EQ (5s, node1.ledger.cemented_count (), 1 + 2 * reps_count);
 
 	nano::keypair key;
 	auto send_last = builder.make_block ()
@@ -1050,8 +1050,8 @@ TEST (active_transactions, confirm_new)
 	// Let node2 know about the block
 	ASSERT_TIMELY (5s, node2.block (send->hash ()));
 	// Wait confirmation
-	ASSERT_TIMELY (5s, node1.ledger.cache.cemented_count == 2);
-	ASSERT_TIMELY (5s, node2.ledger.cache.cemented_count == 2);
+	ASSERT_TIMELY (5s, node1.ledger.cemented_count () == 2);
+	ASSERT_TIMELY (5s, node2.ledger.cemented_count () == 2);
 }
 
 // Ensures votes are tallied on election::publish even if no vote is inserted through inactive_votes_cache

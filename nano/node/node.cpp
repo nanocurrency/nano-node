@@ -422,10 +422,10 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			ledger.bootstrap_weight_max_blocks = bootstrap_weights.first;
 
 			logger.info (nano::log::type::node, "Initial bootstrap height: {}", ledger.bootstrap_weight_max_blocks);
-			logger.info (nano::log::type::node, "Current ledger height:    {}", ledger.cache.block_count.load ());
+			logger.info (nano::log::type::node, "Current ledger height:    {}", ledger.block_count ());
 
 			// Use bootstrap weights if initial bootstrap is not completed
-			const bool use_bootstrap_weight = ledger.cache.block_count < bootstrap_weights.first;
+			const bool use_bootstrap_weight = ledger.block_count () < bootstrap_weights.first;
 			if (use_bootstrap_weight)
 			{
 				logger.info (nano::log::type::node, "Using predefined representative weights, since block count is less than bootstrap threshold");
@@ -554,7 +554,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (collect_container_info (node.work, "work"));
-	composite->add_component (collect_container_info (node.ledger, "ledger"));
+	composite->add_component (node.ledger.collect_container_info ("ledger"));
 	composite->add_component (collect_container_info (node.active, "active"));
 	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
 	composite->add_component (node.tcp_listener->collect_container_info ("tcp_listener"));
@@ -827,7 +827,7 @@ void nano::node::ongoing_bootstrap ()
 	}
 	// Differential bootstrap with max age (75% of all legacy attempts)
 	uint32_t frontiers_age (std::numeric_limits<uint32_t>::max ());
-	auto bootstrap_weight_reached (ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks);
+	auto bootstrap_weight_reached (ledger.block_count () >= ledger.bootstrap_weight_max_blocks);
 	auto previous_bootstrap_count (stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out) + stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate_legacy_age, nano::stat::dir::out));
 	/*
 	- Maximum value for 25% of attempts or if block count is below preconfigured value (initial bootstrap not finished)
@@ -1025,7 +1025,7 @@ void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_wei
 
 void nano::node::ongoing_ledger_pruning ()
 {
-	auto bootstrap_weight_reached (ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks);
+	auto bootstrap_weight_reached (ledger.block_count () >= ledger.bootstrap_weight_max_blocks);
 	ledger_pruning (flags.block_processor_batch_size != 0 ? flags.block_processor_batch_size : 2 * 1024, bootstrap_weight_reached);
 	auto const ledger_pruning_interval (bootstrap_weight_reached ? config.max_pruning_age : std::min (config.max_pruning_age, std::chrono::seconds (15 * 60)));
 	auto this_l (shared ());
@@ -1352,15 +1352,15 @@ nano::telemetry_data nano::node::local_telemetry () const
 {
 	nano::telemetry_data telemetry_data;
 	telemetry_data.node_id = node_id.pub;
-	telemetry_data.block_count = ledger.cache.block_count;
-	telemetry_data.cemented_count = ledger.cache.cemented_count;
+	telemetry_data.block_count = ledger.block_count ();
+	telemetry_data.cemented_count = ledger.cemented_count ();
 	telemetry_data.bandwidth_cap = config.bandwidth_limit;
 	telemetry_data.protocol_version = network_params.network.protocol_version;
 	telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - startup_time).count ();
 	telemetry_data.unchecked_count = unchecked.count ();
 	telemetry_data.genesis_block = network_params.ledger.genesis->hash ();
 	telemetry_data.peer_count = nano::narrow_cast<decltype (telemetry_data.peer_count)> (network.size ());
-	telemetry_data.account_count = ledger.cache.account_count;
+	telemetry_data.account_count = ledger.account_count ();
 	telemetry_data.major_version = nano::get_major_node_version ();
 	telemetry_data.minor_version = nano::get_minor_node_version ();
 	telemetry_data.patch_version = nano::get_patch_node_version ();

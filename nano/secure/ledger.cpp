@@ -1600,17 +1600,37 @@ nano::receivable_iterator nano::ledger::receivable_upper_bound (store::transacti
 	return nano::receivable_iterator{ *this, tx, result };
 }
 
+uint64_t nano::ledger::cemented_count () const
+{
+	return cache.cemented_count;
+}
+
+uint64_t nano::ledger::block_count () const
+{
+	return cache.block_count;
+}
+
+uint64_t nano::ledger::account_count () const
+{
+	return cache.account_count;
+}
+
+uint64_t nano::ledger::pruned_count () const
+{
+	return cache.pruned_count;
+}
+
 nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account) :
 	cemented_frontier (cemented_frontier), frontier (frontier), account (account)
 {
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (ledger & ledger, std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::ledger::collect_container_info (std::string const & name) const
 {
-	auto count = ledger.bootstrap_weights.size ();
-	auto sizeof_element = sizeof (decltype (ledger.bootstrap_weights)::value_type);
+	auto count = bootstrap_weights.size ();
+	auto sizeof_element = sizeof (decltype (bootstrap_weights)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "bootstrap_weights", count, sizeof_element }));
-	composite->add_component (ledger.cache.rep_weights.collect_container_info ("rep_weights"));
+	composite->add_component (cache.rep_weights.collect_container_info ("rep_weights"));
 	return composite;
 }

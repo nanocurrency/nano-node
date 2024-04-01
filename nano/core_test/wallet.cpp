@@ -1186,7 +1186,7 @@ TEST (wallet, search_receivable)
 	wallet.insert_adhoc (nano::dev::genesis_key.prv);
 
 	// Pending search should create the receive block
-	ASSERT_EQ (2, node.ledger.cache.block_count);
+	ASSERT_EQ (2, node.ledger.block_count ());
 	ASSERT_FALSE (wallet.search_receivable (wallet.wallets.tx_begin_read ()));
 	ASSERT_TIMELY_EQ (3s, node.balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount);
 	auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::dev::genesis_key.pub);
@@ -1220,12 +1220,12 @@ TEST (wallet, receive_pruned)
 	auto send2 = wallet1.send_action (nano::dev::genesis_key.pub, key.pub, 1, 1);
 
 	// Pruning
-	ASSERT_TIMELY_EQ (5s, node2.ledger.cache.cemented_count, 3);
+	ASSERT_TIMELY_EQ (5s, node2.ledger.cemented_count (), 3);
 	{
 		auto transaction = node2.store.tx_begin_write ();
 		ASSERT_EQ (1, node2.ledger.pruning_action (transaction, send1->hash (), 2));
 	}
-	ASSERT_EQ (1, node2.ledger.cache.pruned_count);
+	ASSERT_EQ (1, node2.ledger.pruned_count ());
 	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1->hash ()));
 	ASSERT_FALSE (node2.ledger.block_exists (node2.store.tx_begin_read (), send1->hash ()));
 
@@ -1234,5 +1234,5 @@ TEST (wallet, receive_pruned)
 	auto open1 = wallet2.receive_action (send1->hash (), key.pub, amount, send1->destination (), 1);
 	ASSERT_NE (nullptr, open1);
 	ASSERT_EQ (amount, node2.ledger.balance (node2.store.tx_begin_read (), open1->hash ()));
-	ASSERT_TIMELY_EQ (5s, node2.ledger.cache.cemented_count, 4);
+	ASSERT_TIMELY_EQ (5s, node2.ledger.cemented_count (), 4);
 }

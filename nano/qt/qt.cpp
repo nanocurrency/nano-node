@@ -939,9 +939,9 @@ std::string nano_qt::status::text ()
 	size_t cemented (0);
 	std::string count_string;
 	{
-		auto size (wallet.wallet_m->wallets.node.ledger.cache.block_count.load ());
+		auto size (wallet.wallet_m->wallets.node.ledger.block_count ());
 		unchecked = wallet.wallet_m->wallets.node.unchecked.count ();
-		cemented = wallet.wallet_m->wallets.node.ledger.cache.cemented_count.load ();
+		cemented = wallet.wallet_m->wallets.node.ledger.cemented_count ();
 		count_string = std::to_string (size);
 	}
 
@@ -979,8 +979,8 @@ std::string nano_qt::status::text ()
 
 	if (wallet.node.flags.enable_pruning)
 	{
-		count_string += ", Full: " + std::to_string (wallet.wallet_m->wallets.node.ledger.cache.block_count - wallet.wallet_m->wallets.node.ledger.cache.pruned_count);
-		count_string += ", Pruned: " + std::to_string (wallet.wallet_m->wallets.node.ledger.cache.pruned_count);
+		count_string += ", Full: " + std::to_string (wallet.wallet_m->wallets.node.ledger.block_count () - wallet.wallet_m->wallets.node.ledger.pruned_count ());
+		count_string += ", Pruned: " + std::to_string (wallet.wallet_m->wallets.node.ledger.pruned_count ());
 	}
 
 	result += count_string.c_str ();

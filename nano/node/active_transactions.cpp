@@ -111,7 +111,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 	recently_cemented.put (status);
 	auto transaction = node.store.tx_begin_read ();
 	notify_observers (transaction, status, votes);
-	bool cemented_bootstrap_count_reached = node.ledger.cache.cemented_count >= node.ledger.bootstrap_weight_max_blocks;
+	bool cemented_bootstrap_count_reached = node.ledger.cemented_count () >= node.ledger.bootstrap_weight_max_blocks;
 	bool was_active = status.type == nano::election_status_type::active_confirmed_quorum || status.type == nano::election_status_type::active_confirmation_height;
 
 	// Next-block activations are only done for blocks with previously active elections

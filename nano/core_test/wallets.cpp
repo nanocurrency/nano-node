@@ -243,7 +243,7 @@ TEST (wallets, search_receivable)
 		wallet->insert_adhoc (nano::dev::genesis_key.prv);
 
 		// Pending search should create the receive block
-		ASSERT_EQ (2, node.ledger.cache.block_count);
+		ASSERT_EQ (2, node.ledger.block_count ());
 		if (search_all)
 		{
 			node.wallets.search_receivable_all ();
