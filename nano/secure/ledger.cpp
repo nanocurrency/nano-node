@@ -1370,37 +1370,6 @@ uint64_t nano::ledger::pruning_action (store::write_transaction & transaction_a,
 	return pruned_count;
 }
 
-std::multimap<uint64_t, nano::uncemented_info, std::greater<>> nano::ledger::unconfirmed_frontiers () const
-{
-	nano::locked<std::multimap<uint64_t, nano::uncemented_info, std::greater<>>> result;
-	using result_t = decltype (result)::value_type;
-
-	store.account.for_each_par ([this, &result] (store::read_transaction const & transaction_a, store::iterator<nano::account, nano::account_info> i, store::iterator<nano::account, nano::account_info> n) {
-		result_t unconfirmed_frontiers_l;
-		for (; i != n; ++i)
-		{
-			auto const & account (i->first);
-			auto const & account_info (i->second);
-
-			nano::confirmation_height_info conf_height_info;
-			this->store.confirmation_height.get (transaction_a, account, conf_height_info);
-
-			if (account_info.block_count != conf_height_info.height)
-			{
-				// Always output as no confirmation height has been set on the account yet
-				auto height_delta = account_info.block_count - conf_height_info.height;
-				auto const & frontier = account_info.head;
-				auto const & cemented_frontier = conf_height_info.frontier;
-				unconfirmed_frontiers_l.emplace (std::piecewise_construct, std::forward_as_tuple (height_delta), std::forward_as_tuple (cemented_frontier, frontier, i->first));
-			}
-		}
-		// Merge results
-		auto result_locked = result.lock ();
-		result_locked->insert (unconfirmed_frontiers_l.begin (), unconfirmed_frontiers_l.end ());
-	});
-	return result;
-}
-
 // A precondition is that the store is an LMDB store
 bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_path_a) const
 {
@@ -1618,11 +1587,6 @@ uint64_t nano::ledger::account_count () const
 uint64_t nano::ledger::pruned_count () const
 {
 	return cache.pruned_count;
-}
-
-nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account) :
-	cemented_frontier (cemented_frontier), frontier (frontier), account (account)
-{
 }
 
 std::unique_ptr<nano::container_info_component> nano::ledger::collect_container_info (std::string const & name) const
