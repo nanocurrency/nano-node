@@ -370,6 +370,7 @@ asio::ip::tcp::endpoint nano::transport::tcp_listener::endpoint () const
 {
 	if (!stopped)
 	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		return { asio::ip::address_v6::loopback (), acceptor.local_endpoint ().port () };
 	}
 	else
