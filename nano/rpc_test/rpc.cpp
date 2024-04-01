@@ -843,7 +843,6 @@ TEST (rpc, frontier)
 			nano::block_hash hash;
 			nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 			source[key.pub] = hash;
-			node->store.confirmation_height.put (transaction, key.pub, { 0, nano::block_hash (0) });
 			node->store.account.put (transaction, key.pub, nano::account_info (hash, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
@@ -881,7 +880,6 @@ TEST (rpc, frontier_limited)
 			nano::block_hash hash;
 			nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 			source[key.pub] = hash;
-			node->store.confirmation_height.put (transaction, key.pub, { 0, nano::block_hash (0) });
 			node->store.account.put (transaction, key.pub, nano::account_info (hash, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
@@ -909,7 +907,6 @@ TEST (rpc, frontier_startpoint)
 			nano::block_hash hash;
 			nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 			source[key.pub] = hash;
-			node->store.confirmation_height.put (transaction, key.pub, { 0, nano::block_hash (0) });
 			node->store.account.put (transaction, key.pub, nano::account_info (hash, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
@@ -3823,10 +3820,6 @@ TEST (rpc, account_info)
 				.build ();
 	ASSERT_EQ (nano::block_status::progress, node1->process (send));
 	auto time = nano::seconds_since_epoch ();
-	{
-		auto transaction = node1->store.tx_begin_write ();
-		node1->store.confirmation_height.put (transaction, nano::dev::genesis_key.pub, { 1, nano::dev::genesis->hash () });
-	}
 
 	request.put ("account", nano::dev::genesis_key.pub.to_account ());
 	{

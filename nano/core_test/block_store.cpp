@@ -480,7 +480,6 @@ TEST (block_store, frontier_retrieval)
 	nano::account account1{};
 	nano::account_info info1 (0, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
 	auto transaction (store->tx_begin_write ());
-	store->confirmation_height.put (transaction, account1, { 0, nano::block_hash (0) });
 	store->account.put (transaction, account1, info1);
 	nano::account_info info2;
 	store->account.get (transaction, account1, info2);
@@ -604,10 +603,6 @@ TEST (block_store, latest_find)
 	nano::account account2 (3);
 	nano::block_hash hash2 (4);
 	auto transaction (store->tx_begin_write ());
-	store->confirmation_height.put (transaction, account1, { 0, nano::block_hash (0) });
-	store->account.put (transaction, account1, { hash1, account1, hash1, 100, 0, 300, nano::epoch::epoch_0 });
-	store->confirmation_height.put (transaction, account2, { 0, nano::block_hash (0) });
-	store->account.put (transaction, account2, { hash2, account2, hash2, 200, 0, 400, nano::epoch::epoch_0 });
 	auto first (store->account.begin (transaction));
 	auto second (store->account.begin (transaction));
 	++second;
@@ -768,7 +763,6 @@ TEST (block_store, latest_exists)
 	nano::account two (2);
 	nano::account_info info;
 	auto transaction (store->tx_begin_write ());
-	store->confirmation_height.put (transaction, two, { 0, nano::block_hash (0) });
 	store->account.put (transaction, two, info);
 	nano::account one (1);
 	ASSERT_FALSE (store->account.exists (transaction, one));
@@ -786,7 +780,6 @@ TEST (block_store, large_iteration)
 		nano::account account;
 		nano::random_pool::generate_block (account.bytes.data (), account.bytes.size ());
 		accounts1.insert (account);
-		store->confirmation_height.put (transaction, account, { 0, nano::block_hash (0) });
 		store->account.put (transaction, account, nano::account_info ());
 	}
 	std::unordered_set<nano::account> accounts2;
@@ -889,7 +882,6 @@ TEST (block_store, account_count)
 		auto transaction (store->tx_begin_write ());
 		ASSERT_EQ (0, store->account.count (transaction));
 		nano::account account (200);
-		store->confirmation_height.put (transaction, account, { 0, nano::block_hash (0) });
 		store->account.put (transaction, account, nano::account_info ());
 	}
 	auto transaction (store->tx_begin_read ());

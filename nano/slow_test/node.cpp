@@ -234,7 +234,6 @@ TEST (store, load)
 				{
 					nano::account account;
 					nano::random_pool::generate_block (account.bytes.data (), account.bytes.size ());
-					system.nodes[0]->store.confirmation_height.put (transaction, account, { 0, nano::block_hash (0) });
 					system.nodes[0]->store.account.put (transaction, account, nano::account_info ());
 				}
 			}
