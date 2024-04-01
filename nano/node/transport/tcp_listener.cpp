@@ -35,7 +35,7 @@ nano::transport::tcp_listener::~tcp_listener ()
 	debug_assert (!thread.joinable ());
 }
 
-void nano::transport::tcp_listener::start (std::function<bool (std::shared_ptr<nano::transport::socket> const &, boost::system::error_code const &)> callback_a)
+void nano::transport::tcp_listener::start ()
 {
 	debug_assert (!thread.joinable ());
 	debug_assert (!cleanup_thread.joinable ());
@@ -56,7 +56,7 @@ void nano::transport::tcp_listener::start (std::function<bool (std::shared_ptr<n
 		throw std::runtime_error (ex.code ().message ());
 	}
 
-	thread = std::thread ([this, callback_a] {
+	thread = std::thread ([this] {
 		nano::thread_role::set (nano::thread_role::name::tcp_listener);
 		try
 		{

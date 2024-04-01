@@ -34,7 +34,7 @@ public:
 	tcp_listener (uint16_t port, nano::node &, std::size_t max_inbound_connections);
 	~tcp_listener ();
 
-	void start (std::function<bool (std::shared_ptr<nano::transport::socket> const &, boost::system::error_code const &)> callback = {});
+	void start ();
 	void stop ();
 
 	nano::tcp_endpoint endpoint () const;
