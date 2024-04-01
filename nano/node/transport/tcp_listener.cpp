@@ -22,7 +22,7 @@ nano::transport::tcp_listener::tcp_listener (uint16_t port_a, nano::node & node_
 	port{ port_a },
 	max_inbound_connections{ max_inbound_connections },
 	acceptor{ node_a.io_ctx },
-	local{ boost::asio::ip::tcp::endpoint{ boost::asio::ip::address_v6::any (), port_a } }
+	local{ asio::ip::tcp::endpoint{ asio::ip::address_v6::any (), port_a } }
 {
 	connection_accepted.add ([this] (auto const & socket, auto const & server) {
 		node.observers.socket_accepted.notify (*socket);
@@ -43,9 +43,9 @@ void nano::transport::tcp_listener::start (std::function<bool (std::shared_ptr<n
 	try
 	{
 		acceptor.open (local.protocol ());
-		acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
+		acceptor.set_option (asio::ip::tcp::acceptor::reuse_address (true));
 		acceptor.bind (local);
-		acceptor.listen (boost::asio::socket_base::max_listen_connections);
+		acceptor.listen (asio::socket_base::max_listen_connections);
 
 		logger.info (nano::log::type::tcp_listener, "Listening for incoming connections on: {}", fmt::streamed (acceptor.local_endpoint ()));
 	}
@@ -200,12 +200,12 @@ void nano::transport::tcp_listener::run ()
 	}
 }
 
-boost::asio::ip::tcp::socket nano::transport::tcp_listener::accept_socket ()
+asio::ip::tcp::socket nano::transport::tcp_listener::accept_socket ()
 {
-	std::future<boost::asio::ip::tcp::socket> future;
+	std::future<asio::ip::tcp::socket> future;
 	{
 		nano::unique_lock<nano::mutex> lock{ mutex };
-		future = acceptor.async_accept (boost::asio::use_future);
+		future = acceptor.async_accept (asio::use_future);
 	}
 	future.wait ();
 	return future.get ();
@@ -225,7 +225,7 @@ auto nano::transport::tcp_listener::accept_one () -> accept_result
 		try
 		{
 			// Best effor attempt to gracefully close the socket, shutdown before closing to avoid zombie sockets
-			raw_socket.shutdown (boost::asio::ip::tcp::socket::shutdown_both);
+			raw_socket.shutdown (asio::ip::tcp::socket::shutdown_both);
 			raw_socket.close ();
 		}
 		catch (boost::system::system_error const & ex)
@@ -272,7 +272,7 @@ void nano::transport::tcp_listener::wait_available_slots ()
 	}
 }
 
-auto nano::transport::tcp_listener::check_limits (boost::asio::ip::address const & ip) -> accept_result
+auto nano::transport::tcp_listener::check_limits (asio::ip::address const & ip) -> accept_result
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
@@ -348,7 +348,7 @@ size_t nano::transport::tcp_listener::bootstrap_count () const
 	});
 }
 
-size_t nano::transport::tcp_listener::count_per_ip (boost::asio::ip::address const & ip) const
+size_t nano::transport::tcp_listener::count_per_ip (asio::ip::address const & ip) const
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -357,7 +357,7 @@ size_t nano::transport::tcp_listener::count_per_ip (boost::asio::ip::address con
 	});
 }
 
-size_t nano::transport::tcp_listener::count_per_subnetwork (boost::asio::ip::address const & ip) const
+size_t nano::transport::tcp_listener::count_per_subnetwork (asio::ip::address const & ip) const
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -366,15 +366,15 @@ size_t nano::transport::tcp_listener::count_per_subnetwork (boost::asio::ip::add
 	});
 }
 
-boost::asio::ip::tcp::endpoint nano::transport::tcp_listener::endpoint () const
+asio::ip::tcp::endpoint nano::transport::tcp_listener::endpoint () const
 {
 	if (!stopped)
 	{
-		return { boost::asio::ip::address_v6::loopback (), acceptor.local_endpoint ().port () };
+		return { asio::ip::address_v6::loopback (), acceptor.local_endpoint ().port () };
 	}
 	else
 	{
-		return { boost::asio::ip::address_v6::loopback (), 0 };
+		return { asio::ip::address_v6::loopback (), 0 };
 	}
 }
 

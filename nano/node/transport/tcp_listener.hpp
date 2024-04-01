@@ -11,6 +11,7 @@
 #include <thread>
 
 namespace mi = boost::multi_index;
+namespace asio = boost::asio;
 
 namespace nano
 {
@@ -68,20 +69,20 @@ private:
 	};
 
 	accept_result accept_one ();
-	accept_result check_limits (boost::asio::ip::address const & ip);
-	boost::asio::ip::tcp::socket accept_socket ();
+	accept_result check_limits (asio::ip::address const & ip);
+	asio::ip::tcp::socket accept_socket ();
 
-	size_t count_per_ip (boost::asio::ip::address const & ip) const;
-	size_t count_per_subnetwork (boost::asio::ip::address const & ip) const;
+	size_t count_per_ip (asio::ip::address const & ip) const;
+	size_t count_per_subnetwork (asio::ip::address const & ip) const;
 
 private:
 	struct entry
 	{
-		boost::asio::ip::tcp::endpoint endpoint;
+		asio::ip::tcp::endpoint endpoint;
 		std::weak_ptr<nano::transport::socket> socket;
 		std::weak_ptr<nano::transport::tcp_server> server;
 
-		boost::asio::ip::address address () const
+		asio::ip::address address () const
 		{
 			return endpoint.address ();
 		}
@@ -97,13 +98,13 @@ private:
 	using ordered_connections = boost::multi_index_container<entry,
 	mi::indexed_by<
 		mi::hashed_non_unique<mi::tag<tag_address>,
-			mi::const_mem_fun<entry, boost::asio::ip::address, &entry::address>>
+			mi::const_mem_fun<entry, asio::ip::address, &entry::address>>
 	>>;
 	// clang-format on
 	ordered_connections connections;
 
-	boost::asio::ip::tcp::acceptor acceptor;
-	boost::asio::ip::tcp::endpoint local;
+	asio::ip::tcp::acceptor acceptor;
+	asio::ip::tcp::endpoint local;
 
 	std::atomic<bool> stopped;
 	nano::condition_variable condition;
