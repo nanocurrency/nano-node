@@ -845,6 +845,7 @@ TEST (ledger_confirm, pruned_source)
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send3));
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open2));
+	ledger.confirm (transaction, send2->hash ());
 	ASSERT_EQ (2, ledger.pruning_action (transaction, send2->hash (), 2));
 	ASSERT_FALSE (ledger.block_exists (transaction, send2->hash ()));
 	ASSERT_FALSE (ledger.block_confirmed (transaction, open2->hash ()));
