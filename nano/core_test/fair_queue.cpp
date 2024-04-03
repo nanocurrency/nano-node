@@ -260,8 +260,9 @@ TEST (fair_queue, cleanup)
 	ASSERT_EQ (queue.size ({ source_enum::live, channel2 }), 1);
 	ASSERT_EQ (queue.size ({ source_enum::live, channel3 }), 1);
 
+	// Either closing or resetting the channel should remove it from the queue
 	channel1->close ();
-	channel2->close ();
+	channel2.reset ();
 
 	ASSERT_TRUE (queue.periodic_update ());
 
