@@ -1346,6 +1346,7 @@ uint64_t nano::ledger::pruning_action (store::write_transaction & transaction_a,
 		auto block_l = block (transaction_a, hash);
 		if (block_l != nullptr)
 		{
+			release_assert (block_confirmed (transaction_a, hash));
 			store.block.del (transaction_a, hash);
 			store.pruned.put (transaction_a, hash);
 			hash = block_l->previous ();

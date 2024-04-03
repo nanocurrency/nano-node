@@ -652,6 +652,7 @@ TEST (bootstrap_processor, push_diamond_pruning)
 
 	{
 		auto transaction (node1->store.tx_begin_write ());
+		node1->ledger.confirm (transaction, open->hash ());
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, send1->hash (), 2));
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, open->hash (), 1));
 		ASSERT_TRUE (node1->ledger.block_exists (transaction, nano::dev::genesis->hash ()));
