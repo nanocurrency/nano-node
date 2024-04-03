@@ -4,6 +4,7 @@
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/make_store.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -251,7 +252,7 @@ TEST (bootstrap_ascending, trace_base)
 	//	std::cerr << "--------------- Start ---------------\n";
 	ASSERT_EQ (nano::block_status::progress, node0.process (send1));
 	ASSERT_EQ (nano::block_status::progress, node0.process (receive1));
-	ASSERT_EQ (node1.store.pending.begin (node1.store.tx_begin_read (), nano::pending_key{ key.pub, 0 }), node1.store.pending.end ());
+	ASSERT_EQ (node1.ledger.receivable_end (), node1.ledger.receivable_upper_bound (node1.store.tx_begin_read (), key.pub, 0));
 	//	std::cerr << "node0: " << node0.network.endpoint () << std::endl;
 	//	std::cerr << "node1: " << node1.network.endpoint () << std::endl;
 	ASSERT_TIMELY (10s, node1.block (receive1->hash ()) != nullptr);

@@ -65,6 +65,11 @@ public:
 	std::chrono::milliseconds vote_generator_delay{ std::chrono::milliseconds (100) };
 	unsigned vote_generator_threshold{ 3 };
 	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
+	/*
+	 * The minimum vote weight that a representative must have for its vote to be counted.
+	 * All representatives above this weight will be kept in memory!
+	 */
+	nano::amount representative_vote_weight_minimum{ 10 * nano::Mxrb_ratio };
 	unsigned password_fanout{ 1024 };
 	unsigned io_threads{ std::max (4u, nano::hardware_concurrency ()) };
 	unsigned network_threads{ std::max (4u, nano::hardware_concurrency ()) };
@@ -115,10 +120,11 @@ public:
 	/** Bootstrap traffic does not need bursts */
 	double bootstrap_bandwidth_burst_ratio{ 1. };
 	nano::bootstrap_ascending_config bootstrap_ascending;
-	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
+	std::chrono::milliseconds confirming_set_batch_time{ 250 };
 	bool backup_before_upgrade{ false };
 	double max_work_generate_multiplier{ 64. };
 	uint32_t max_queued_requests{ 512 };
+	unsigned request_aggregator_threads{ std::min (nano::hardware_concurrency (), 4u) }; // Max 4 threads if available
 	unsigned max_unchecked_blocks{ 65536 };
 	std::chrono::seconds max_pruning_age{ !network_params.network.is_beta_network () ? std::chrono::seconds (24 * 60 * 60) : std::chrono::seconds (5 * 60) }; // 1 day; 5 minutes for beta network
 	uint64_t max_pruning_depth{ 0 };
@@ -171,7 +177,6 @@ public:
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
 	bool disable_connection_cleanup{ false };
-	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };
 	nano::generate_cache_flags generate_cache;
 	bool inactive_node{ false };
 	std::size_t block_processor_batch_size{ 0 };

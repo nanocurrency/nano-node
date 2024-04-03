@@ -1,5 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/node/active_transactions.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/manual.hpp>
 #include <nano/node/scheduler/priority.hpp>
@@ -63,7 +65,7 @@ nano::account nano::test::random_account ()
 
 bool nano::test::process (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
 {
-	auto const transaction = node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending });
+	auto const transaction = node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights });
 	for (auto & block : blocks)
 	{
 		auto result = node.process (transaction, block);

@@ -6,10 +6,10 @@
 #include <nano/lib/epoch.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/object_stream.hpp>
-#include <nano/lib/rep_weights.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/secure/rep_weights.hpp>
 #include <nano/secure/vote.hpp>
 
 #include <boost/iterator/transform_iterator.hpp>
@@ -71,14 +71,6 @@ struct hash<::nano::qualified_root>
 	size_t operator() (::nano::qualified_root const & value_a) const
 	{
 		return std::hash<::nano::qualified_root> () (value_a);
-	}
-};
-template <>
-struct hash<::nano::root>
-{
-	size_t operator() (::nano::root const & value_a) const
-	{
-		return std::hash<::nano::root> () (value_a);
 	}
 };
 }
@@ -199,8 +191,19 @@ enum class vote_code
 	invalid, // Vote is not signed correctly
 	replay, // Vote does not have the highest timestamp, it's a replay
 	vote, // Vote has the highest timestamp
-	indeterminate // Unknown if replay or vote
+	indeterminate, // Unknown if replay or vote
+	ignored, // Vote is valid, but got ingored (e.g. due to cooldown)
 };
+
+nano::stat::detail to_stat_detail (vote_code);
+
+enum class vote_source
+{
+	live,
+	cache,
+};
+
+nano::stat::detail to_stat_detail (vote_source);
 
 enum class block_status
 {
@@ -249,16 +252,6 @@ public:
 	std::shared_ptr<nano::block> genesis;
 	nano::uint128_t genesis_amount;
 	nano::account burn_account;
-	nano::account nano_dev_final_votes_canary_account;
-	nano::account nano_beta_final_votes_canary_account;
-	nano::account nano_live_final_votes_canary_account;
-	nano::account nano_test_final_votes_canary_account;
-	nano::account final_votes_canary_account;
-	uint64_t nano_dev_final_votes_canary_height;
-	uint64_t nano_beta_final_votes_canary_height;
-	uint64_t nano_live_final_votes_canary_height;
-	uint64_t nano_test_final_votes_canary_height;
-	uint64_t final_votes_canary_height;
 	nano::epochs epochs;
 };
 
@@ -346,38 +339,6 @@ public:
 	nano::node_constants node;
 	nano::portmapping_constants portmapping;
 	nano::bootstrap_constants bootstrap;
-};
-
-enum class confirmation_height_mode
-{
-	automatic,
-	unbounded,
-	bounded
-};
-
-/* Defines the possible states for an election to stop in */
-enum class election_status_type : uint8_t
-{
-	ongoing = 0,
-	active_confirmed_quorum = 1,
-	active_confirmation_height = 2,
-	inactive_confirmation_height = 3,
-	stopped = 5
-};
-
-/* Holds a summary of an election */
-class election_status final
-{
-public:
-	std::shared_ptr<nano::block> winner;
-	nano::amount tally;
-	nano::amount final_tally;
-	std::chrono::milliseconds election_end;
-	std::chrono::milliseconds election_duration;
-	unsigned confirmation_request_count;
-	unsigned block_count;
-	unsigned voter_count;
-	election_status_type type;
 };
 
 nano::wallet_id random_wallet_id ();

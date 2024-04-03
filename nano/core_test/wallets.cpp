@@ -1,4 +1,6 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/node/active_transactions.hpp>
+#include <nano/node/election.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/versioning.hpp>
 #include <nano/test_common/system.hpp>
@@ -241,7 +243,7 @@ TEST (wallets, search_receivable)
 		wallet->insert_adhoc (nano::dev::genesis_key.prv);
 
 		// Pending search should create the receive block
-		ASSERT_EQ (2, node.ledger.cache.block_count);
+		ASSERT_EQ (2, node.ledger.block_count ());
 		if (search_all)
 		{
 			node.wallets.search_receivable_all ();

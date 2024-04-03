@@ -592,7 +592,8 @@ int main (int argc, char * const * argv)
 	std::this_thread::sleep_for (std::chrono::seconds (7));
 	std::cout << "Connecting nodes..." << std::endl;
 
-	boost::asio::io_context ioc;
+	std::shared_ptr<boost::asio::io_context> ioc_shared = std::make_shared<boost::asio::io_context> ();
+	boost::asio::io_context & ioc{ *ioc_shared };
 
 	debug_assert (!nano::signal_handler_impl);
 	nano::signal_handler_impl = [&ioc] () {
@@ -715,7 +716,8 @@ int main (int argc, char * const * argv)
 		// Stop main node
 		stop_rpc (ioc, primary_node_results);
 	});
-	nano::thread_runner runner (ioc, simultaneous_process_calls);
+
+	nano::thread_runner runner (ioc_shared, simultaneous_process_calls);
 	t.join ();
 	runner.join ();
 

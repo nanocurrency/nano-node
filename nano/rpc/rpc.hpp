@@ -17,28 +17,32 @@ namespace nano
 {
 class rpc_handler_interface;
 
-class rpc
+class rpc : public std::enable_shared_from_this<rpc>
 {
 public:
-	rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config config_a, nano::rpc_handler_interface & rpc_handler_interface_a);
+	rpc (std::shared_ptr<boost::asio::io_context>, nano::rpc_config config_a, nano::rpc_handler_interface & rpc_handler_interface_a);
 	virtual ~rpc ();
+
 	void start ();
-	virtual void accept ();
 	void stop ();
 
-	std::uint16_t listening_port ()
+	virtual void accept ();
+
+	std::uint16_t listening_port () const
 	{
 		return acceptor.local_endpoint ().port ();
 	}
 
+public:
 	nano::logger logger{ "rpc" };
 	nano::rpc_config config;
-	boost::asio::ip::tcp::acceptor acceptor;
+	std::shared_ptr<boost::asio::io_context> io_ctx_shared;
 	boost::asio::io_context & io_ctx;
+	boost::asio::ip::tcp::acceptor acceptor;
 	nano::rpc_handler_interface & rpc_handler_interface;
 	bool stopped{ false };
 };
 
 /** Returns the correct RPC implementation based on TLS configuration */
-std::unique_ptr<nano::rpc> get_rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a);
+std::shared_ptr<nano::rpc> get_rpc (std::shared_ptr<boost::asio::io_context>, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a);
 }

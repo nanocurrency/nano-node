@@ -26,22 +26,6 @@ void nano::transport::fake::channel::send_buffer (nano::shared_const_buffer cons
 	}
 }
 
-std::size_t nano::transport::fake::channel::hash_code () const
-{
-	std::hash<::nano::endpoint> hash;
-	return hash (endpoint);
-}
-
-bool nano::transport::fake::channel::operator== (nano::transport::channel const & other_a) const
-{
-	return endpoint == other_a.get_endpoint ();
-}
-
-bool nano::transport::fake::channel::operator== (nano::transport::fake::channel const & other_a) const
-{
-	return endpoint == other_a.get_endpoint ();
-}
-
 std::string nano::transport::fake::channel::to_string () const
 {
 	return boost::str (boost::format ("%1%") % endpoint);

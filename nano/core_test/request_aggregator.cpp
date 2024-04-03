@@ -1,5 +1,9 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/node/active_transactions.hpp>
+#include <nano/node/confirming_set.hpp>
+#include <nano/node/election.hpp>
+#include <nano/node/local_vote_history.hpp>
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/secure/ledger.hpp>
@@ -76,7 +80,7 @@ TEST (request_aggregator, one_update)
 				 .work (*node.work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), send1));
-	node.confirmation_height_processor.add (send1);
+	node.confirming_set.add (send1->hash ());
 	ASSERT_TIMELY (5s, node.ledger.block_confirmed (node.store.tx_begin_read (), send1->hash ()));
 	auto send2 = nano::state_block_builder ()
 				 .account (nano::dev::genesis_key.pub)
@@ -142,7 +146,7 @@ TEST (request_aggregator, two)
 				 .work (*node.work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), send1));
-	node.confirmation_height_processor.add (send1);
+	node.confirming_set.add (send1->hash ());
 	ASSERT_TIMELY (5s, node.ledger.block_confirmed (node.store.tx_begin_read (), send1->hash ()));
 	auto send2 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)
@@ -289,7 +293,7 @@ TEST (request_aggregator, split)
 	std::shared_ptr<nano::election> election;
 	ASSERT_TIMELY (5s, election = node.active.election (blocks.back ()->qualified_root ()));
 	election->force_confirm ();
-	ASSERT_TIMELY_EQ (5s, max_vbh + 2, node.ledger.cache.cemented_count);
+	ASSERT_TIMELY_EQ (5s, max_vbh + 2, node.ledger.cemented_count ());
 	ASSERT_EQ (max_vbh + 1, request.size ());
 	auto client = std::make_shared<nano::transport::socket> (node);
 	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::channel_tcp> (node, client);
@@ -447,8 +451,6 @@ TEST (request_aggregator, cannot_vote)
 	nano::node_flags flags;
 	flags.disable_request_loop = true;
 	auto & node (*system.add_node (flags));
-	// This prevents activation of blocks which are cemented
-	node.confirmation_height_processor.cemented_observers.clear ();
 	nano::state_block_builder builder;
 	auto send1 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)

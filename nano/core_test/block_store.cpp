@@ -7,6 +7,7 @@
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/make_store.hpp>
+#include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
 #include <nano/store/account.hpp>
@@ -295,15 +296,15 @@ TEST (block_store, add_pending)
 	ASSERT_TRUE (!store->init_error ());
 	nano::keypair key1;
 	nano::pending_key key2 (0, 0);
-	nano::pending_info pending1;
 	auto transaction (store->tx_begin_write ());
-	ASSERT_TRUE (store->pending.get (transaction, key2, pending1));
+	ASSERT_FALSE (store->pending.get (transaction, key2));
+	nano::pending_info pending1;
 	store->pending.put (transaction, key2, pending1);
-	nano::pending_info pending2;
-	ASSERT_FALSE (store->pending.get (transaction, key2, pending2));
+	std::optional<nano::pending_info> pending2;
+	ASSERT_TRUE (pending2 = store->pending.get (transaction, key2));
 	ASSERT_EQ (pending1, pending2);
 	store->pending.del (transaction, key2);
-	ASSERT_TRUE (store->pending.get (transaction, key2, pending2));
+	ASSERT_FALSE (store->pending.get (transaction, key2));
 }
 
 TEST (block_store, pending_iterator)
@@ -379,7 +380,7 @@ TEST (block_store, genesis)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::ledger_cache ledger_cache;
+	nano::ledger_cache ledger_cache{ store->rep_weight };
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger_cache, nano::dev::constants);
 	nano::account_info info;
@@ -479,7 +480,6 @@ TEST (block_store, frontier_retrieval)
 	nano::account account1{};
 	nano::account_info info1 (0, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
 	auto transaction (store->tx_begin_write ());
-	store->confirmation_height.put (transaction, account1, { 0, nano::block_hash (0) });
 	store->account.put (transaction, account1, info1);
 	nano::account_info info2;
 	store->account.get (transaction, account1, info2);
@@ -603,10 +603,6 @@ TEST (block_store, latest_find)
 	nano::account account2 (3);
 	nano::block_hash hash2 (4);
 	auto transaction (store->tx_begin_write ());
-	store->confirmation_height.put (transaction, account1, { 0, nano::block_hash (0) });
-	store->account.put (transaction, account1, { hash1, account1, hash1, 100, 0, 300, nano::epoch::epoch_0 });
-	store->confirmation_height.put (transaction, account2, { 0, nano::block_hash (0) });
-	store->account.put (transaction, account2, { hash2, account2, hash2, 200, 0, 400, nano::epoch::epoch_0 });
 	auto first (store->account.begin (transaction));
 	auto second (store->account.begin (transaction));
 	++second;
@@ -767,7 +763,6 @@ TEST (block_store, latest_exists)
 	nano::account two (2);
 	nano::account_info info;
 	auto transaction (store->tx_begin_write ());
-	store->confirmation_height.put (transaction, two, { 0, nano::block_hash (0) });
 	store->account.put (transaction, two, info);
 	nano::account one (1);
 	ASSERT_FALSE (store->account.exists (transaction, one));
@@ -785,7 +780,6 @@ TEST (block_store, large_iteration)
 		nano::account account;
 		nano::random_pool::generate_block (account.bytes.data (), account.bytes.size ());
 		accounts1.insert (account);
-		store->confirmation_height.put (transaction, account, { 0, nano::block_hash (0) });
 		store->account.put (transaction, account, nano::account_info ());
 	}
 	std::unordered_set<nano::account> accounts2;
@@ -820,11 +814,6 @@ TEST (block_store, frontier)
 	auto transaction (store->tx_begin_write ());
 	nano::block_hash hash (100);
 	nano::account account (200);
-	ASSERT_TRUE (store->frontier.get (transaction, hash).is_zero ());
-	store->frontier.put (transaction, hash, account);
-	ASSERT_EQ (account, store->frontier.get (transaction, hash));
-	store->frontier.del (transaction, hash);
-	ASSERT_TRUE (store->frontier.get (transaction, hash).is_zero ());
 }
 
 TEST (block_store, block_replace)
@@ -893,7 +882,6 @@ TEST (block_store, account_count)
 		auto transaction (store->tx_begin_write ());
 		ASSERT_EQ (0, store->account.count (transaction));
 		nano::account account (200);
-		store->confirmation_height.put (transaction, account, { 0, nano::block_hash (0) });
 		store->account.put (transaction, account, nano::account_info ());
 	}
 	auto transaction (store->tx_begin_read ());
@@ -906,9 +894,10 @@ TEST (block_store, cemented_count_cache)
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	auto transaction (store->tx_begin_write ());
-	nano::ledger_cache ledger_cache;
-	store->initialize (transaction, ledger_cache, nano::dev::constants);
-	ASSERT_EQ (1, ledger_cache.cemented_count);
+	nano::stats stats;
+	nano::ledger ledger (*store, stats, nano::dev::constants);
+	store->initialize (transaction, ledger.cache, nano::dev::constants);
+	ASSERT_EQ (1, ledger.cemented_count ());
 }
 
 TEST (block_store, block_random)
@@ -916,7 +905,7 @@ TEST (block_store, block_random)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	{
-		nano::ledger_cache ledger_cache;
+		nano::ledger_cache ledger_cache{ store->rep_weight };
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger_cache, nano::dev::constants);
 	}
@@ -943,7 +932,7 @@ TEST (block_store, pruned_random)
 	block->sideband_set ({});
 	auto hash1 (block->hash ());
 	{
-		nano::ledger_cache ledger_cache;
+		nano::ledger_cache ledger_cache{ store->rep_weight };
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger_cache, nano::dev::constants);
 		store->pruned.put (transaction, hash1);
@@ -973,7 +962,7 @@ TEST (block_store, state_block)
 
 	block1->sideband_set ({});
 	{
-		nano::ledger_cache ledger_cache;
+		nano::ledger_cache ledger_cache{ store->rep_weight };
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger_cache, nano::dev::constants);
 		ASSERT_EQ (nano::block_type::state, block1->type ());
@@ -1401,6 +1390,42 @@ TEST (mdb_block_store, upgrade_v21_v22)
 	// Testing the upgrade code worked
 	check_correct_state ();
 }
+
+TEST (mdb_block_store, upgrade_v23_v24)
+{
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
+	{
+		// Direct lmdb operations are used to simulate the old ledger format so this test will not work on RocksDB
+		GTEST_SKIP ();
+	}
+
+	auto path (nano::unique_path () / "data.ldb");
+	nano::logger logger;
+	nano::stats stats;
+	auto const check_correct_state = [&] () {
+		nano::store::lmdb::component store (logger, path, nano::dev::constants);
+		auto transaction (store.tx_begin_write ());
+		ASSERT_EQ (store.version.get (transaction), store.version_current);
+		MDB_dbi frontiers_handle{ 0 };
+		ASSERT_EQ (MDB_NOTFOUND, mdb_dbi_open (store.env.tx (transaction), "frontiers", 0, &frontiers_handle));
+	};
+
+	// Testing current version doesn't contain the frontiers table
+	check_correct_state ();
+
+	// Setting the database to its 23st version state
+	{
+		nano::store::lmdb::component store (logger, path, nano::dev::constants);
+		auto transaction (store.tx_begin_write ());
+		store.version.put (transaction, 23);
+		MDB_dbi frontiers_handle{ 0 };
+		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "frontiers", MDB_CREATE, &frontiers_handle));
+		ASSERT_EQ (store.version.get (transaction), 23);
+	}
+
+	// Testing the upgrade code worked
+	check_correct_state ();
+}
 }
 
 namespace nano::store::rocksdb
@@ -1448,6 +1473,48 @@ TEST (rocksdb_block_store, upgrade_v21_v22)
 	// Testing the upgrade code worked
 	check_correct_state ();
 }
+}
+
+// Tests that the new rep_weight table gets filled with all
+// existing representatives
+TEST (mdb_block_store, upgrade_v22_to_v23)
+{
+	nano::logger logger;
+	auto const path = nano::unique_path ();
+	nano::account rep_a{ 123 };
+	nano::account rep_b{ 456 };
+	// Setting the database to its 22nd version state
+	{
+		auto store{ nano::make_store (logger, path, nano::dev::constants) };
+		auto txn{ store->tx_begin_write () };
+
+		// Add three accounts referencing two representatives
+		nano::account_info info1{};
+		info1.representative = rep_a;
+		info1.balance = 1000;
+		store->account.put (txn, 1, info1);
+
+		nano::account_info info2{};
+		info2.representative = rep_a;
+		info2.balance = 500;
+		store->account.put (txn, 2, info2);
+
+		nano::account_info info3{};
+		info3.representative = rep_b;
+		info3.balance = 42;
+		store->account.put (txn, 3, info3);
+
+		store->version.put (txn, 22);
+	}
+
+	// Testing the upgrade code worked
+	auto store{ nano::make_store (logger, path, nano::dev::constants) };
+	auto txn (store->tx_begin_read ());
+	ASSERT_EQ (store->version.get (txn), store->version_current);
+
+	// The rep_weight table should contain all reps now
+	ASSERT_EQ (1500, store->rep_weight.get (txn, rep_a));
+	ASSERT_EQ (42, store->rep_weight.get (txn, rep_b));
 }
 
 TEST (mdb_block_store, upgrade_backup)

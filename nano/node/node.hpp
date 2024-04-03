@@ -6,7 +6,6 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_pool.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/node/active_transactions.hpp>
 #include <nano/node/backlog_population.hpp>
 #include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/blockprocessor.hpp>
@@ -14,9 +13,7 @@
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
-#include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/distributed_work_factory.hpp>
-#include <nano/node/election.hpp>
 #include <nano/node/epoch_upgrader.hpp>
 #include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/network.hpp>
@@ -48,9 +45,8 @@
 
 namespace nano
 {
-namespace rocksdb
-{
-} // Declare a namespace rocksdb inside nano so all references to the rocksdb library need to be globally scoped e.g. ::rocksdb::Slice
+class active_transactions;
+class confirming_set;
 class node;
 class work_pool;
 
@@ -58,16 +54,26 @@ namespace scheduler
 {
 	class component;
 }
+namespace transport
+{
+	class tcp_listener;
+}
+namespace rocksdb
+{
+} // Declare a namespace rocksdb inside nano so all references to the rocksdb library need to be globally scoped e.g. ::rocksdb::Slice
+}
 
+namespace nano
+{
 // Configs
 backlog_population::config backlog_population_config (node_config const &);
 outbound_bandwidth_limiter::config outbound_bandwidth_limiter_config (node_config const &);
 
-class node final : public std::enable_shared_from_this<nano::node>
+class node final : public std::enable_shared_from_this<node>
 {
 public:
-	node (boost::asio::io_context &, uint16_t, std::filesystem::path const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
-	node (boost::asio::io_context &, std::filesystem::path const &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
+	node (std::shared_ptr<boost::asio::io_context>, uint16_t peering_port, std::filesystem::path const & application_path, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
+	node (std::shared_ptr<boost::asio::io_context>, std::filesystem::path const & application_path, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
 	~node ();
 
 public:
@@ -83,7 +89,6 @@ public:
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
 	void receive_confirmed (store::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a);
-	void process_confirmed_data (store::transaction const &, std::shared_ptr<nano::block> const &, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, bool &, nano::account &);
 	void process_confirmed (nano::election_status const &, uint64_t = 0);
 	void process_active (std::shared_ptr<nano::block> const &);
 	std::optional<nano::block_status> process_local (std::shared_ptr<nano::block> const &);
@@ -134,6 +139,7 @@ public:
 public:
 	const nano::keypair node_id;
 	nano::write_database_queue write_database_queue;
+	std::shared_ptr<boost::asio::io_context> io_ctx_shared;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
 	nano::node_config config;
@@ -161,20 +167,25 @@ public:
 	std::filesystem::path application_path;
 	nano::node_observers observers;
 	nano::port_mapping port_mapping;
+	nano::block_processor block_processor;
+	std::unique_ptr<nano::confirming_set> confirming_set_impl;
+	nano::confirming_set & confirming_set;
+	std::unique_ptr<nano::active_transactions> active_impl;
+	nano::active_transactions & active;
 	nano::online_reps online_reps;
 	nano::rep_crawler rep_crawler;
 	nano::rep_tiers rep_tiers;
 	nano::vote_processor vote_processor;
 	unsigned warmed_up;
-	nano::block_processor block_processor;
-	nano::local_vote_history history;
+	std::unique_ptr<nano::local_vote_history> history_impl;
+	nano::local_vote_history & history;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
-	nano::confirmation_height_processor confirmation_height_processor;
 	nano::vote_cache vote_cache;
-	nano::vote_generator generator;
-	nano::vote_generator final_generator;
-	nano::active_transactions active;
+	std::unique_ptr<nano::vote_generator> generator_impl;
+	nano::vote_generator & generator;
+	std::unique_ptr<nano::vote_generator> final_generator_impl;
+	nano::vote_generator & final_generator;
 
 private: // Placed here to maintain initialization order
 	std::unique_ptr<nano::scheduler::component> scheduler_impl;

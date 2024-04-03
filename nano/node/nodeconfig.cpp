@@ -92,6 +92,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("bootstrap_fraction_numerator", bootstrap_fraction_numerator, "Change bootstrap threshold (online stake / 256 * bootstrap_fraction_numerator).\ntype:uint32");
 	toml.put ("receive_minimum", receive_minimum.to_string_dec (), "Minimum receive amount. Only affects node wallets. A large amount is recommended to avoid automatic work generation for tiny transactions.\ntype:string,amount,raw");
 	toml.put ("online_weight_minimum", online_weight_minimum.to_string_dec (), "When calculating online weight, the node is forced to assume at least this much voting weight is online, thus setting a floor for voting weight to confirm transactions at online_weight_minimum * \"quorum delta\".\ntype:string,amount,raw");
+	toml.put ("representative_vote_weight_minimum", representative_vote_weight_minimum.to_string_dec (), "Minimum vote weight that a representative must have for its vote to be counted.\nAll representatives above this weight will be kept in memory!\ntype:string,amount,raw");
 	toml.put ("password_fanout", password_fanout, "Password fanout factor.\ntype:uint64");
 	toml.put ("io_threads", io_threads, "Number of threads dedicated to I/O operations. Defaults to the number of CPU threads, and at least 4.\ntype:uint64");
 	toml.put ("network_threads", network_threads, "Number of threads dedicated to processing network messages. Defaults to the number of CPU threads, and at least 4.\ntype:uint64");
@@ -126,11 +127,12 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("bootstrap_bandwidth_limit", bootstrap_bandwidth_limit, "Outbound bootstrap traffic limit in bytes/sec after which messages will be dropped.\nNote: changing to unlimited bandwidth (0) is not recommended for limited connections.\ntype:uint64");
 	toml.put ("bootstrap_bandwidth_burst_ratio", bootstrap_bandwidth_burst_ratio, "Burst ratio for outbound bootstrap traffic.\ntype:double");
 
-	toml.put ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time.count (), "Minimum write batching time when there are blocks pending confirmation height.\ntype:milliseconds");
+	toml.put ("confirming_set_batch_time", confirming_set_batch_time.count (), "Maximum time the confirming set will hold the database write transaction.\ntype:milliseconds");
 	toml.put ("backup_before_upgrade", backup_before_upgrade, "Backup the ledger database before performing upgrades.\nWarning: uses more disk storage and increases startup time when upgrading.\ntype:bool");
 	toml.put ("max_work_generate_multiplier", max_work_generate_multiplier, "Maximum allowed difficulty multiplier for work generation.\ntype:double,[1..]");
 	toml.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation), "Mode controlling frontier confirmation rate.\ntype:string,{auto,always,disabled}");
 	toml.put ("max_queued_requests", max_queued_requests, "Limit for number of queued confirmation requests for one channel, after which new requests are dropped until the queue drops below this value.\ntype:uint32");
+	toml.put ("request_aggregator_threads", request_aggregator_threads, "Number of threads to dedicate to request aggregator. Defaults to using all cpu threads, up to a maximum of 4");
 	toml.put ("max_unchecked_blocks", max_unchecked_blocks, "Maximum number of unchecked blocks to store in memory. Defaults to 65536. \ntype:uint64,[0..]");
 	toml.put ("rep_crawler_weight_minimum", rep_crawler_weight_minimum.to_string_dec (), "Rep crawler minimum weight, if this is less than minimum principal weight then this is taken as the minimum weight a rep must have to be tracked. If you want to track all reps set this to 0. If you do not want this to influence anything then set it to max value. This is only useful for debugging or for people who really know what they are doing.\ntype:string,amount,raw");
 	toml.put ("backlog_scan_batch_size", backlog_scan_batch_size, "Number of accounts per second to process when doing backlog population scan. Increasing this value will help unconfirmed frontiers get into election prioritization queue faster, however it will also increase resource usage. \ntype:uint");
@@ -350,6 +352,16 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			toml.get_error ().set ("online_weight_minimum contains an invalid decimal amount");
 		}
 
+		auto representative_vote_weight_minimum_l{ representative_vote_weight_minimum.to_string_dec () };
+		if (toml.has_key ("representative_vote_weight_minimum"))
+		{
+			representative_vote_weight_minimum_l = toml.get<std::string> ("representative_vote_weight_minimum");
+		}
+		if (representative_vote_weight_minimum.decode_dec (representative_vote_weight_minimum_l))
+		{
+			toml.get_error ().set ("representative_vote_weight_minimum contains an invalid decimal amount");
+		}
+
 		auto vote_minimum_l (vote_minimum.to_string_dec ());
 		if (toml.has_key ("vote_minimum"))
 		{
@@ -431,13 +443,14 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 
 		toml.get<bool> ("backup_before_upgrade", backup_before_upgrade);
 
-		auto conf_height_processor_batch_min_time_l (conf_height_processor_batch_min_time.count ());
-		toml.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
-		conf_height_processor_batch_min_time = std::chrono::milliseconds (conf_height_processor_batch_min_time_l);
+		auto confirming_set_batch_time_l (confirming_set_batch_time.count ());
+		toml.get ("confirming_set_batch_time", confirming_set_batch_time_l);
+		confirming_set_batch_time = std::chrono::milliseconds (confirming_set_batch_time_l);
 
 		toml.get<double> ("max_work_generate_multiplier", max_work_generate_multiplier);
 
 		toml.get<uint32_t> ("max_queued_requests", max_queued_requests);
+		toml.get<uint32_t> ("request_aggregator_threads", request_aggregator_threads);
 
 		toml.get<unsigned> ("max_unchecked_blocks", max_unchecked_blocks);
 

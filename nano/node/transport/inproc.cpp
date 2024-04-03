@@ -14,41 +14,6 @@ nano::transport::inproc::channel::channel (nano::node & node, nano::node & desti
 	set_network_version (node.network_params.network.protocol_version);
 }
 
-std::size_t nano::transport::inproc::channel::hash_code () const
-{
-	std::hash<::nano::endpoint> hash;
-	return hash (endpoint);
-}
-
-bool nano::transport::inproc::channel::operator== (nano::transport::channel const & other_a) const
-{
-	return endpoint == other_a.get_endpoint ();
-}
-
-/**
- *  This function is called for every message received by the inproc channel.
- *  Note that it is called from inside the context of nano::transport::inproc::channel::send_buffer
- */
-class message_visitor_inbound : public nano::message_visitor
-{
-public:
-	message_visitor_inbound (decltype (nano::network::inbound) & inbound, std::shared_ptr<nano::transport::inproc::channel> channel) :
-		inbound{ inbound },
-		channel{ channel }
-	{
-	}
-
-	decltype (nano::network::inbound) & inbound;
-
-	// the channel to reply to, if a reply is generated
-	std::shared_ptr<nano::transport::inproc::channel> channel;
-
-	void default_handler (nano::message const & message) override
-	{
-		inbound (message, channel);
-	}
-};
-
 /**
  * Send the buffer to the peer and call the callback function when done. The call never fails.
  * Note that the inbound message visitor will be called before the callback because it is called directly whereas the callback is spawned in the background.
@@ -78,11 +43,8 @@ void nano::transport::inproc::channel::send_buffer (nano::shared_const_buffer co
 
 		// process message
 		{
-			node.stats.inc (nano::stat::type::message, to_stat_detail (message_a->header.type), nano::stat::dir::in);
-
-			// create an inbound message visitor class to handle incoming messages
-			message_visitor_inbound visitor{ destination.network.inbound, remote_channel };
-			message_a->visit (visitor);
+			node.stats.inc (nano::stat::type::message, to_stat_detail (message_a->type ()), nano::stat::dir::in);
+			destination.network.inbound (*message_a, remote_channel);
 		}
 	});
 

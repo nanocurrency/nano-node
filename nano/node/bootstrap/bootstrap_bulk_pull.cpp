@@ -376,7 +376,7 @@ void nano::bulk_pull_server::set_current_end ()
 	{
 		node->logger.debug (nano::log::type::bulk_pull_server, "Bulk pull request for block hash: {}", request->start.to_string ());
 
-		current = ascending () ? node->store.block.successor (transaction, request->start.as_block_hash ()) : request->start.as_block_hash ();
+		current = ascending () ? node->ledger.successor (transaction, request->start.as_block_hash ()).value_or (0) : request->start.as_block_hash ();
 		include_start = true;
 	}
 	else
@@ -753,30 +753,16 @@ std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info
 		 * destroy a database transaction, to avoid locking the
 		 * database for a prolonged period.
 		 */
-		auto stream_transaction (node->store.tx_begin_read ());
-		auto stream (node->store.pending.begin (stream_transaction, current_key));
+		auto tx = node->store.tx_begin_read ();
+		auto & ledger = node->ledger;
+		auto stream = ledger.receivable_upper_bound (tx, current_key.account, current_key.hash);
 
-		if (stream == store::iterator<nano::pending_key, nano::pending_info> (nullptr))
+		if (stream == ledger.receivable_end ())
 		{
 			break;
 		}
-
-		nano::pending_key key (stream->first);
-		nano::pending_info info (stream->second);
-
-		/*
-		 * Get the key for the next value, to use in the next call or iteration
-		 */
-		current_key.account = key.account;
-		current_key.hash = key.hash.number () + 1;
-
-		/*
-		 * Finish up if the response is for a different account
-		 */
-		if (key.account != request->account)
-		{
-			break;
-		}
+		auto const & [key, info] = *stream;
+		current_key = key;
 
 		/*
 		 * Skip entries where the amount is less than the requested

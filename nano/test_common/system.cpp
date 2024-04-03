@@ -1,6 +1,8 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/transport/tcp_listener.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -23,6 +25,68 @@ std::string nano::error_system_messages::message (int ev) const
 	}
 
 	return "Invalid error code";
+}
+
+/*
+ * system
+ */
+
+nano::test::system::system () :
+	io_ctx{ std::make_shared<boost::asio::io_context> () },
+	io_guard{ boost::asio::make_work_guard (*io_ctx) }
+{
+	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
+	if (scale_str)
+	{
+		deadline_scaling_factor = std::stod (scale_str);
+	}
+}
+
+nano::test::system::system (uint16_t count_a, nano::transport::transport_type type_a, nano::node_flags flags_a) :
+	system ()
+{
+	nodes.reserve (count_a);
+	for (uint16_t i (0); i < count_a; ++i)
+	{
+		add_node (default_config (), flags_a, type_a);
+	}
+}
+
+nano::test::system::~system ()
+{
+	// Only stop system in destructor to avoid confusing and random bugs when debugging assertions that hit deadline expired condition
+	stop ();
+
+#ifndef _WIN32
+	// Windows cannot remove the log and data files while they are still owned by this process.
+	// They will be removed later
+
+	// Clean up tmp directories created by the tests. Since it's sometimes useful to
+	// see log files after test failures, an environment variable is supported to
+	// retain the files.
+	if (std::getenv ("TEST_KEEP_TMPDIRS") == nullptr)
+	{
+		nano::remove_temporary_directories ();
+	}
+#endif
+}
+
+void nano::test::system::stop ()
+{
+	logger.debug (nano::log::type::system, "Stopping...");
+
+	// Keep io_context running while stopping nodes
+	for (auto & node : nodes)
+	{
+		stop_node (*node);
+	}
+	for (auto & node : disconnected_nodes)
+	{
+		stop_node (*node);
+	}
+
+	io_guard.reset ();
+	work.stop ();
 }
 
 nano::node & nano::test::system::node (std::size_t index) const
@@ -52,8 +116,9 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 		wallet->insert_adhoc (rep->prv);
 	}
 	node->start ();
-	nodes.reserve (nodes.size () + 1);
 	nodes.push_back (node);
+
+	// Connect with other nodes
 	if (nodes.size () > 1)
 	{
 		debug_assert (nodes.size () - 1 <= node->network_params.network.max_peers_per_ip || node->flags.disable_max_peers_per_ip); // Check that we don't start more nodes than limit for single IP address
@@ -129,55 +194,41 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 	return node;
 }
 
+// TODO: Merge with add_node
 std::shared_ptr<nano::node> nano::test::system::make_disconnected_node (std::optional<nano::node_config> opt_node_config, nano::node_flags flags)
 {
 	nano::node_config node_config = opt_node_config.has_value () ? *opt_node_config : default_config ();
 	auto node = std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config, work, flags);
-	if (node->init_error ())
+	for (auto i : initialization_blocks)
 	{
-		std::cerr << "node init error\n";
-		return nullptr;
+		auto result = node->ledger.process (node->store.tx_begin_write (), i);
+		debug_assert (result == nano::block_status::progress);
 	}
+	debug_assert (!node->init_error ());
 	node->start ();
+	disconnected_nodes.push_back (node);
+
+	logger.debug (nano::log::type::system, "Node started (disconnected): {}", node->get_node_id ().to_node_id ());
+
 	return node;
 }
 
-nano::test::system::system ()
+void nano::test::system::register_node (std::shared_ptr<nano::node> const & node)
 {
-	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
-	if (scale_str)
-	{
-		deadline_scaling_factor = std::stod (scale_str);
-	}
+	debug_assert (std::find (nodes.begin (), nodes.end (), node) == nodes.end ());
+	nodes.push_back (node);
 }
 
-nano::test::system::system (uint16_t count_a, nano::transport::transport_type type_a, nano::node_flags flags_a) :
-	system ()
+void nano::test::system::stop_node (nano::node & node)
 {
-	nodes.reserve (count_a);
-	for (uint16_t i (0); i < count_a; ++i)
-	{
-		add_node (default_config (), flags_a, type_a);
-	}
-}
-
-nano::test::system::~system ()
-{
-	// Only stop system in destructor to avoid confusing and random bugs when debugging assertions that hit deadline expired condition
-	stop ();
-
-#ifndef _WIN32
-	// Windows cannot remove the log and data files while they are still owned by this process.
-	// They will be removed later
-
-	// Clean up tmp directories created by the tests. Since it's sometimes useful to
-	// see log files after test failures, an environment variable is supported to
-	// retain the files.
-	if (std::getenv ("TEST_KEEP_TMPDIRS") == nullptr)
-	{
-		nano::remove_temporary_directories ();
-	}
-#endif
+	auto stopped = std::async (std::launch::async, [&node] () {
+		node.stop ();
+	});
+	auto ec = poll_until_true (5s, [&] () {
+		auto status = stopped.wait_for (0s);
+		return status == std::future_status::ready;
+	});
+	debug_assert (!ec);
 }
 
 void nano::test::system::ledger_initialization_set (std::vector<nano::keypair> const & reps, nano::amount const & reserve)
@@ -285,7 +336,7 @@ void nano::test::system::deadline_set (std::chrono::duration<double, std::nano> 
 std::error_code nano::test::system::poll (std::chrono::nanoseconds const & wait_time)
 {
 #if NANO_ASIO_HANDLER_TRACKING == 0
-	io_ctx.run_one_for (wait_time);
+	io_ctx->run_one_for (wait_time);
 #else
 	nano::timer<> timer;
 	timer.start ();
@@ -331,7 +382,7 @@ void nano::test::system::delay_ms (std::chrono::milliseconds const & delay)
 	auto endtime = now + delay;
 	while (now <= endtime)
 	{
-		io_ctx.run_one_for (endtime - now);
+		io_ctx->run_one_for (endtime - now);
 		now = std::chrono::steady_clock::now ();
 	}
 }
@@ -416,11 +467,10 @@ void nano::test::system::generate_receive (nano::node & node_a)
 		auto transaction (node_a.store.tx_begin_read ());
 		nano::account random_account;
 		random_pool::generate_block (random_account.bytes.data (), sizeof (random_account.bytes));
-		auto i (node_a.store.pending.begin (transaction, nano::pending_key (random_account, 0)));
-		if (i != node_a.store.pending.end ())
+		auto item = node_a.ledger.receivable_upper_bound (transaction, random_account);
+		if (item != node_a.ledger.receivable_end ())
 		{
-			nano::pending_key const & send_hash (i->first);
-			send_block = node_a.ledger.block (transaction, send_hash.hash);
+			send_block = node_a.ledger.block (transaction, item->first.hash);
 		}
 	}
 	if (send_block != nullptr)
@@ -560,7 +610,7 @@ void nano::test::system::generate_mass_activity (uint32_t count_a, nano::node & 
 		{
 			auto now (std::chrono::steady_clock::now ());
 			auto us (std::chrono::duration_cast<std::chrono::microseconds> (now - previous).count ());
-			auto count = node_a.ledger.cache.block_count.load ();
+			auto count = node_a.ledger.block_count ();
 			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3% block count: %4%\n") % i % us % (us / 256) % count);
 			previous = now;
 		}
@@ -568,18 +618,10 @@ void nano::test::system::generate_mass_activity (uint32_t count_a, nano::node & 
 	}
 }
 
-void nano::test::system::stop ()
-{
-	for (auto i : nodes)
-	{
-		i->stop ();
-	}
-	work.stop ();
-}
-
 nano::node_config nano::test::system::default_config ()
 {
 	nano::node_config config{ get_available_port () };
+	config.representative_vote_weight_minimum = 0;
 	return config;
 }
 

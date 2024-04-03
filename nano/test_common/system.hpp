@@ -25,6 +25,8 @@ namespace test
 		system (uint16_t, nano::transport::transport_type = nano::transport::transport_type::tcp, nano::node_flags = nano::node_flags ());
 		~system ();
 
+		void stop ();
+
 		void ledger_initialization_set (std::vector<nano::keypair> const & reps, nano::amount const & reserve = 0);
 		void generate_activity (nano::node &, std::vector<nano::account> &);
 		void generate_mass_activity (uint32_t, nano::node &);
@@ -50,7 +52,6 @@ namespace test
 		std::error_code poll (std::chrono::nanoseconds const & sleep_time = std::chrono::milliseconds (50));
 		std::error_code poll_until_true (std::chrono::nanoseconds deadline, std::function<bool ()>);
 		void delay_ms (std::chrono::milliseconds const & delay);
-		void stop ();
 		void deadline_set (std::chrono::duration<double, std::nano> const & delta);
 		/*
 		 * Convenience function to get a reference to a node at given index. Does bound checking.
@@ -61,6 +62,8 @@ namespace test
 
 		// Make an independent node that uses system resources but is not part of the system node list and does not automatically connect to other nodes
 		std::shared_ptr<nano::node> make_disconnected_node (std::optional<nano::node_config> opt_node_config = std::nullopt, nano::node_flags = nano::node_flags ());
+		void register_node (std::shared_ptr<nano::node> const &);
+		void stop_node (nano::node &);
 
 		/*
 		 * Returns default config for node running in test environment
@@ -74,8 +77,10 @@ namespace test
 		uint16_t get_available_port ();
 
 	public:
-		boost::asio::io_context io_ctx;
+		std::shared_ptr<boost::asio::io_context> io_ctx;
+		boost::asio::executor_work_guard<boost::asio::io_context::executor_type> io_guard;
 		std::vector<std::shared_ptr<nano::node>> nodes;
+		std::vector<std::shared_ptr<nano::node>> disconnected_nodes;
 		nano::stats stats;
 		nano::logger logger{ "tests" };
 		nano::work_pool work{ nano::dev::network_params.network, std::max (nano::hardware_concurrency (), 1u) };

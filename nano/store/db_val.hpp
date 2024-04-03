@@ -12,6 +12,7 @@
 namespace nano
 {
 class account_info;
+class account_info_v22;
 class block;
 class pending_info;
 class pending_key;
@@ -63,6 +64,8 @@ public:
 
 	db_val (nano::account_info const & val_a);
 
+	db_val (nano::account_info_v22 const & val_a);
+
 	db_val (nano::pending_info const & val_a);
 
 	db_val (nano::pending_key const & val_a);
@@ -103,6 +106,7 @@ public:
 	}
 
 	explicit operator nano::account_info () const;
+	explicit operator nano::account_info_v22 () const;
 
 	explicit operator block_info () const
 	{

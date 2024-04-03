@@ -1,6 +1,8 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/tomlconfig.hpp>
+#include <nano/node/active_transactions.hpp>
+#include <nano/node/election_behavior.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
 #include <nano/secure/ledger.hpp>
@@ -23,12 +25,12 @@ nano::scheduler::optimistic::~optimistic ()
 
 void nano::scheduler::optimistic::start ()
 {
+	debug_assert (!thread.joinable ());
+
 	if (!config.enabled)
 	{
 		return;
 	}
-
-	debug_assert (!thread.joinable ());
 
 	thread = std::thread{ [this] () {
 		nano::thread_role::set (nano::thread_role::name::scheduler_optimistic);

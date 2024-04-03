@@ -1,9 +1,10 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
-#include <nano/node/election.hpp>
+#include <nano/node/election_behavior.hpp>
 #include <nano/node/election_insertion_result.hpp>
-#include <nano/node/voting.hpp>
+#include <nano/node/election_status.hpp>
+#include <nano/node/vote_with_weight_info.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
@@ -15,6 +16,7 @@
 #include <condition_variable>
 #include <deque>
 #include <memory>
+#include <thread>
 #include <unordered_map>
 
 namespace mi = boost::multi_index;
@@ -26,11 +28,18 @@ class active_transactions;
 class block;
 class block_sideband;
 class block_processor;
+class confirming_set;
 class election;
 class vote;
-class confirmation_height_processor;
 class stats;
+}
+namespace nano::store
+{
+class read_transaction;
+}
 
+namespace nano
+{
 class recently_confirmed_cache final
 {
 public:
@@ -51,8 +60,9 @@ public: // Tests
 
 private:
 	// clang-format off
-	class tag_root {};
 	class tag_hash {};
+	class tag_root {};
+	class tag_sequence {};
 
 	using ordered_recent_confirmations = boost::multi_index_container<entry_t,
 	mi::indexed_by<
@@ -131,7 +141,7 @@ private: // Elections
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 
 public:
-	active_transactions (nano::node &, nano::confirmation_height_processor &, nano::block_processor &);
+	active_transactions (nano::node &, nano::confirming_set &, nano::block_processor &);
 	~active_transactions ();
 
 	void start ();
@@ -142,7 +152,7 @@ public:
 	 */
 	nano::election_insertion_result insert (std::shared_ptr<nano::block> const &, nano::election_behavior = nano::election_behavior::normal);
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
-	nano::vote_code vote (std::shared_ptr<nano::vote> const &);
+	std::unordered_map<nano::block_hash, nano::vote_code> vote (std::shared_ptr<nano::vote> const &, nano::vote_source = nano::vote_source::live);
 	// Is the root of this block in the roots container
 	bool active (nano::block const &) const;
 	bool active (nano::qualified_root const &) const;
@@ -154,13 +164,13 @@ public:
 	std::shared_ptr<nano::block> winner (nano::block_hash const &) const;
 	// Returns a list of elections sorted by difficulty
 	std::vector<std::shared_ptr<nano::election>> list_active (std::size_t = std::numeric_limits<std::size_t>::max ());
-	void erase (nano::block const &);
-	void erase_hash (nano::block_hash const &);
+	bool erase (nano::block const &);
+	bool erase (nano::qualified_root const &);
+	bool erase_hash (nano::block_hash const &);
 	void erase_oldest ();
 	bool empty () const;
 	std::size_t size () const;
 	bool publish (std::shared_ptr<nano::block> const &);
-	boost::optional<nano::election_status_type> confirm_block (store::transaction const &, std::shared_ptr<nano::block> const &);
 	void block_cemented_callback (std::shared_ptr<nano::block> const &);
 	void block_already_cemented_callback (nano::block_hash const &);
 
@@ -177,36 +187,29 @@ public:
 
 	std::size_t election_winner_details_size ();
 	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
-	void remove_election_winner_details (nano::block_hash const &);
+	std::shared_ptr<nano::election> remove_election_winner_details (nano::block_hash const &);
+
+public: // Events
+	using vote_processed_event_t = nano::observer_set<std::shared_ptr<nano::vote> const &, nano::vote_source, std::unordered_map<nano::block_hash, nano::vote_code> const &>;
+	vote_processed_event_t vote_processed;
 
 private:
 	// Erase elections if we're over capacity
 	void trim ();
 	void request_loop ();
 	void request_confirm (nano::unique_lock<nano::mutex> &);
-	void erase (nano::qualified_root const &);
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void cleanup_election (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::election>);
 	nano::stat::type completion_type (nano::election const & election) const;
 	// Returns a list of elections sorted by difficulty, mutex must be locked
 	std::vector<std::shared_ptr<nano::election>> list_active_impl (std::size_t) const;
-	/**
-	 * Checks if vote passes minimum representative weight threshold and adds it to inactive vote cache
-	 * TODO: Should be moved to `vote_cache` class
-	 */
-	void add_vote_cache (nano::block_hash const & hash, std::shared_ptr<nano::vote> vote);
-	boost::optional<nano::election_status_type> election_status (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block);
-	void process_inactive_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block);
-	void process_active_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, nano::election_status_type status);
-	void handle_final_votes_confirmation (std::shared_ptr<nano::block> const & block, nano::store::read_transaction const & transaction, nano::election_status_type status);
-	void handle_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, std::shared_ptr<nano::election> election, nano::election_status_type status);
-	void activate_successors (const nano::account & account, std::shared_ptr<nano::block> const & block, nano::store::read_transaction const & transaction);
-	void handle_block_confirmation (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block, nano::block_hash const & hash, nano::account & account, nano::uint128_t & amount, bool & is_state_send, bool & is_state_epoch, nano::account & pending_account);
-	void notify_observers (nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes, nano::account const & account, nano::uint128_t amount, bool is_state_send, bool is_state_epoch, nano::account const & pending_account);
+	void activate_successors (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block);
+	void notify_observers (nano::store::read_transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes);
+	bool trigger_vote_cache (nano::block_hash);
 
 private: // Dependencies
 	nano::node & node;
-	nano::confirmation_height_processor & confirmation_height_processor;
+	nano::confirming_set & confirming_set;
 	nano::block_processor & block_processor;
 
 public:

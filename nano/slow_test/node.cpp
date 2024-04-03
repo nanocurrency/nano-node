@@ -2,6 +2,8 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/thread_runner.hpp>
+#include <nano/node/active_transactions.hpp>
+#include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/scheduler/component.hpp>
@@ -232,7 +234,6 @@ TEST (store, load)
 				{
 					nano::account account;
 					nano::random_pool::generate_block (account.bytes.data (), account.bytes.size ());
-					system.nodes[0]->store.confirmation_height.put (transaction, account, { 0, nano::block_hash (0) });
 					system.nodes[0]->store.account.put (transaction, account, nano::account_info ());
 				}
 			}
@@ -642,7 +643,6 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
 	// The number of frontiers should be more than the nano::confirmation_height::unbounded_cutoff to test the amount of blocks confirmed is correct.
-	node->confirmation_height_processor.batch_write_size = 500;
 	auto const num_accounts = nano::confirmation_height::unbounded_cutoff * 2 + 50;
 	nano::keypair last_keypair = nano::dev::genesis_key;
 	nano::block_builder builder;
@@ -708,12 +708,12 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 		cemented_count += i->second.height;
 	}
 
-	ASSERT_EQ (cemented_count, node->ledger.cache.cemented_count);
+	ASSERT_EQ (cemented_count, node->ledger.cemented_count ());
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_accounts * 2 - 2);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), num_accounts * 2 - 2);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), 0);
 
-	ASSERT_TIMELY_EQ (40s, (node->ledger.cache.cemented_count - 1), node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (40s, (node->ledger.cemented_count () - 1), node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
 	ASSERT_TIMELY_EQ (10s, node->active.election_winner_details_size (), 0);
 }
 
@@ -726,7 +726,6 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
-	node->confirmation_height_processor.batch_write_size = 500;
 	auto const num_accounts = nano::confirmation_height::unbounded_cutoff * 2 + 50;
 	auto latest_genesis = node->latest (nano::dev::genesis_key.pub);
 	nano::block_builder builder;
@@ -777,7 +776,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	ASSERT_GE (num_confirmed_bounded, nano::confirmation_height::unbounded_cutoff);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), num_blocks_to_confirm - num_confirmed_bounded);
 
-	ASSERT_TIMELY_EQ (60s, (node->ledger.cache.cemented_count - 1), node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (60s, (node->ledger.cemented_count () - 1), node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
 
 	auto transaction = node->store.tx_begin_read ();
 	size_t cemented_count = 0;
@@ -787,9 +786,9 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	}
 
 	ASSERT_EQ (num_blocks_to_confirm + 1, cemented_count);
-	ASSERT_EQ (cemented_count, node->ledger.cache.cemented_count);
+	ASSERT_EQ (cemented_count, node->ledger.cemented_count ());
 
-	ASSERT_TIMELY_EQ (20s, (node->ledger.cache.cemented_count - 1), node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (20s, (node->ledger.cemented_count () - 1), node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
 
 	ASSERT_TIMELY_EQ (10s, node->active.election_winner_details_size (), 0);
 }
@@ -805,7 +804,6 @@ TEST (confirmation_height, long_chains)
 	nano::block_hash latest (node->latest (nano::dev::genesis_key.pub));
 	system.wallet (0)->insert_adhoc (key1.prv);
 
-	node->confirmation_height_processor.batch_write_size = 500;
 	auto const num_blocks = nano::confirmation_height::unbounded_cutoff * 2 + 50;
 
 	nano::block_builder builder;
@@ -932,12 +930,12 @@ TEST (confirmation_height, long_chains)
 		cemented_count += i->second.height;
 	}
 
-	ASSERT_EQ (cemented_count, node->ledger.cache.cemented_count);
+	ASSERT_EQ (cemented_count, node->ledger.cemented_count ());
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_blocks * 2 + 2);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), num_blocks * 2 + 2);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), 0);
 
-	ASSERT_TIMELY_EQ (40s, (node->ledger.cache.cemented_count - 1), node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (40s, (node->ledger.cemented_count () - 1), node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
 	ASSERT_TIMELY_EQ (10s, node->active.election_winner_details_size (), 0);
 }
 
@@ -976,109 +974,17 @@ TEST (confirmation_height, dynamic_algorithm)
 		}
 	}
 
-	node->confirmation_height_processor.add (state_blocks.front ());
-	ASSERT_TIMELY_EQ (20s, node->ledger.cache.cemented_count, 2);
+	node->confirming_set.add (state_blocks.front ()->hash ());
+	ASSERT_TIMELY_EQ (20s, node->ledger.cemented_count (), 2);
 
-	node->confirmation_height_processor.add (latest_genesis);
+	node->confirming_set.add (latest_genesis->hash ());
 
-	ASSERT_TIMELY_EQ (20s, node->ledger.cache.cemented_count, num_blocks + 1);
+	ASSERT_TIMELY_EQ (20s, node->ledger.cemented_count (), num_blocks + 1);
 
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_blocks);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), 1);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), num_blocks - 1);
 	ASSERT_TIMELY_EQ (10s, node->active.election_winner_details_size (), 0);
-}
-
-/*
- * This tests an issue of incorrect cemented block counts during the transition of conf height algorithms
- * The scenario was as follows:
- *  - There is at least 1 pending write entry in the unbounded conf height processor
- *  - 0 blocks currently awaiting processing in the main conf height processor class
- *  - A block was confirmed when hit the chain in the pending write above but was not a block higher than it.
- *  - It must be in `confirmation_height_processor::pause ()` function so that `pause` is set (and the difference between the number
- *    of blocks uncemented is > unbounded_cutoff so that it hits the bounded processor), the main `run` loop on the conf height processor is iterated.
- *
- * This cause unbounded pending entries not to be written, and then the bounded processor would write them, causing some inconsistencies.
- */
-TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
-{
-	// Repeat in case of intermittent issues not replicating the issue talked about above.
-	for (auto _ = 0; _ < 3; ++_)
-	{
-		nano::test::system system;
-		nano::node_config node_config = system.default_config ();
-		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-		nano::node_flags node_flags;
-		node_flags.force_use_write_database_queue = true;
-		auto node = system.add_node (node_config, node_flags);
-		nano::keypair key;
-		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-
-		auto latest_genesis = node->latest (nano::dev::genesis_key.pub);
-		std::vector<std::shared_ptr<nano::state_block>> state_blocks;
-		auto const num_blocks = nano::confirmation_height::unbounded_cutoff - 2;
-
-		auto add_block_to_genesis_chain = [&] (store::write_transaction & transaction) {
-			static int num = 0;
-			nano::block_builder builder;
-			auto send = builder
-						.state ()
-						.account (nano::dev::genesis_key.pub)
-						.previous (latest_genesis)
-						.representative (nano::dev::genesis_key.pub)
-						.balance (nano::dev::constants.genesis_amount - num - 1)
-						.link (key.pub)
-						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-						.work (*system.work.generate (latest_genesis))
-						.build ();
-			latest_genesis = send->hash ();
-			state_blocks.push_back (send);
-			ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send));
-			++num;
-		};
-
-		for (auto i = 0; i < num_blocks; ++i)
-		{
-			auto transaction = node->store.tx_begin_write ();
-			add_block_to_genesis_chain (transaction);
-		}
-
-		{
-			auto write_guard = node->write_database_queue.wait (nano::writer::testing);
-			// To limit any data races we are not calling node.block_confirm
-			node->confirmation_height_processor.add (state_blocks.back ());
-
-			nano::timer<> timer;
-			timer.start ();
-			while (node->confirmation_height_processor.current ().is_zero ())
-			{
-				ASSERT_LT (timer.since_start (), 2s);
-			}
-
-			// Pausing prevents any writes in the outer while loop in the confirmation height processor (implementation detail)
-			node->confirmation_height_processor.pause ();
-
-			timer.restart ();
-			ASSERT_TIMELY (10s, node->confirmation_height_processor.unbounded_processor.pending_writes_size != 0);
-
-			{
-				// Make it so that the number of blocks exceed the unbounded cutoff would go into the bounded processor (but shouldn't due to unbounded pending writes)
-				auto transaction = node->store.tx_begin_write ();
-				add_block_to_genesis_chain (transaction);
-				add_block_to_genesis_chain (transaction);
-			}
-			// Make sure this is at a height lower than the block in the add () call above
-			node->confirmation_height_processor.add (state_blocks.front ());
-			node->confirmation_height_processor.unpause ();
-		}
-
-		ASSERT_TIMELY_EQ (10s, node->ledger.cache.cemented_count, num_blocks + 1);
-
-		ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_blocks);
-		ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), 0);
-		ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), num_blocks);
-		ASSERT_TIMELY_EQ (10s, node->active.election_winner_details_size (), 0);
-	}
 }
 
 TEST (confirmation_height, many_accounts_send_receive_self)
@@ -1089,7 +995,6 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	node_config.active_elections_size = 400000;
 	nano::node_flags node_flags;
-	node_flags.confirmation_height_processor_mode = nano::confirmation_height_mode::unbounded;
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
@@ -1188,7 +1093,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 	}
 
 	system.deadline_set (200s);
-	while ((node->ledger.cache.cemented_count - 1) != node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out))
+	while ((node->ledger.cemented_count () - 1) != node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -1201,10 +1106,10 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 	}
 
 	ASSERT_EQ (num_blocks_to_confirm + 1, cemented_count);
-	ASSERT_EQ (cemented_count, node->ledger.cache.cemented_count);
+	ASSERT_EQ (cemented_count, node->ledger.cemented_count ());
 
 	system.deadline_set (60s);
-	while ((node->ledger.cache.cemented_count - 1) != node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out))
+	while ((node->ledger.cemented_count () - 1) != node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -1237,7 +1142,8 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	boost::latch initialized_latch{ 0 };
 
 	nano::block_hash block_hash_being_processed{ 0 };
-	nano::confirmation_height_processor confirmation_height_processor{ ledger, write_database_queue, 10ms, logger, initialized_latch, confirmation_height_mode::automatic };
+	nano::write_database_queue write_queue{ false };
+	nano::confirming_set confirming_set{ ledger, write_queue };
 
 	auto const num_accounts = 100000;
 
@@ -1282,7 +1188,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 
 	for (auto & open_block : open_blocks)
 	{
-		confirmation_height_processor.add (open_block);
+		confirming_set.add (open_block->hash ());
 	}
 
 	system.deadline_set (1000s);
@@ -1333,8 +1239,8 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	// Now send and receive to self
 	for (int i = 0; i < open_blocks.size (); ++i)
 	{
-		confirmation_height_processor.add (send_blocks[i]);
-		confirmation_height_processor.add (receive_blocks[i]);
+		confirming_set.add (send_blocks[i]->hash ());
+		confirming_set.add (receive_blocks[i]->hash ());
 	}
 
 	system.deadline_set (1000s);
@@ -1344,7 +1250,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	while (!confirmation_height_processor.current ().is_zero ())
+	while (confirming_set.size () > 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -1357,7 +1263,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	}
 
 	ASSERT_EQ (num_blocks_to_confirm + 1, cemented_count);
-	ASSERT_EQ (cemented_count, ledger.cache.cemented_count);
+	ASSERT_EQ (cemented_count, ledger.cemented_count ());
 }
 
 }
@@ -1564,7 +1470,7 @@ TEST (telemetry, under_load)
 	std::thread thread1 (thread_func, nano::dev::genesis_key, latest_genesis, nano::dev::constants.genesis_amount - num_blocks);
 	std::thread thread2 (thread_func, key, latest_key, num_blocks);
 
-	ASSERT_TIMELY_EQ (200s, node1->ledger.cache.block_count, num_blocks * 2 + 3);
+	ASSERT_TIMELY_EQ (200s, node1->ledger.block_count (), num_blocks * 2 + 3);
 
 	thread1.join ();
 	thread2.join ();
@@ -1795,8 +1701,8 @@ TEST (node, mass_epoch_upgrader)
 				info.pending_hash = block->hash ();
 			}
 		}
-		ASSERT_EQ (1 + total_accounts, node.ledger.cache.block_count);
-		ASSERT_EQ (1, node.ledger.cache.account_count);
+		ASSERT_EQ (1 + total_accounts, node.ledger.block_count ());
+		ASSERT_EQ (1, node.ledger.account_count ());
 
 		// Receive for half of accounts
 		for (auto const & info : opened)
@@ -1816,32 +1722,32 @@ TEST (node, mass_epoch_upgrader)
 			ASSERT_NE (nullptr, block);
 			ASSERT_EQ (nano::block_status::progress, node.process (block));
 		}
-		ASSERT_EQ (1 + total_accounts + opened.size (), node.ledger.cache.block_count);
-		ASSERT_EQ (1 + opened.size (), node.ledger.cache.account_count);
+		ASSERT_EQ (1 + total_accounts + opened.size (), node.ledger.block_count ());
+		ASSERT_EQ (1 + opened.size (), node.ledger.account_count ());
 
 		nano::keypair epoch_signer (nano::dev::genesis_key);
 
-		auto const block_count_before = node.ledger.cache.block_count.load ();
+		auto const block_count_before = node.ledger.block_count ();
 		auto const total_to_upgrade = 1 + total_accounts;
 		std::cout << "Mass upgrading " << total_to_upgrade << " accounts" << std::endl;
-		while (node.ledger.cache.block_count != block_count_before + total_to_upgrade)
+		while (node.ledger.block_count () != block_count_before + total_to_upgrade)
 		{
-			auto const pre_upgrade = node.ledger.cache.block_count.load ();
+			auto const pre_upgrade = node.ledger.block_count ();
 			auto upgrade_count = std::min<size_t> (batch_size, block_count_before + total_to_upgrade - pre_upgrade);
 			ASSERT_FALSE (node.epoch_upgrader.start (epoch_signer.prv, nano::epoch::epoch_1, upgrade_count, threads));
 			// Already ongoing - should fail
 			ASSERT_TRUE (node.epoch_upgrader.start (epoch_signer.prv, nano::epoch::epoch_1, upgrade_count, threads));
 			system.deadline_set (60s);
-			while (node.ledger.cache.block_count != pre_upgrade + upgrade_count)
+			while (node.ledger.block_count () != pre_upgrade + upgrade_count)
 			{
 				ASSERT_NO_ERROR (system.poll ());
 				std::this_thread::sleep_for (200ms);
-				std::cout << node.ledger.cache.block_count - block_count_before << " / " << total_to_upgrade << std::endl;
+				std::cout << node.ledger.block_count () - block_count_before << " / " << total_to_upgrade << std::endl;
 			}
 			std::this_thread::sleep_for (50ms);
 		}
 		auto expected_blocks = block_count_before + total_accounts + 1;
-		ASSERT_EQ (expected_blocks, node.ledger.cache.block_count);
+		ASSERT_EQ (expected_blocks, node.ledger.block_count ());
 		// Check upgrade
 		{
 			auto transaction (node.store.tx_begin_read ());
@@ -1887,7 +1793,7 @@ TEST (node, mass_block_new)
 		{
 			node.process_active (block);
 		}
-		ASSERT_TIMELY_EQ (200s, node.ledger.cache.block_count, next_block_count);
+		ASSERT_TIMELY_EQ (200s, node.ledger.block_count (), next_block_count);
 		next_block_count += num_blocks;
 		while (node.block_processor.size () > 0)
 		{
@@ -2064,7 +1970,7 @@ TEST (node, aggressive_flooding)
 
 	ASSERT_TIMELY (!nano::slow_instrumentation () ? 10s : 40s, all_received ());
 
-	ASSERT_TIMELY_EQ (!nano::slow_instrumentation () ? 10s : 40s, node1.ledger.cache.block_count, 1 + 2 * nodes_wallets.size ());
+	ASSERT_TIMELY_EQ (!nano::slow_instrumentation () ? 10s : 40s, node1.ledger.block_count (), 1 + 2 * nodes_wallets.size ());
 
 	// Wait until the main node sees all representatives
 	ASSERT_TIMELY_EQ (!nano::slow_instrumentation () ? 10s : 40s, node1.rep_crawler.principal_representatives ().size (), nodes_wallets.size ());
@@ -2101,7 +2007,7 @@ TEST (node, aggressive_flooding)
 
 	// All blocks: genesis + (send+open) for each representative + 2 local blocks
 	// The main node only sees all blocks if other nodes are flooding their PR's open block to all other PRs
-	ASSERT_EQ (1 + 2 * nodes_wallets.size () + 2, node1.ledger.cache.block_count);
+	ASSERT_EQ (1 + 2 * nodes_wallets.size () + 2, node1.ledger.block_count ());
 }
 
 TEST (node, send_single_many_peers)
@@ -2171,7 +2077,7 @@ TEST (node, wallet_create_block_confirm_conflicts)
 			election->force_confirm ();
 		}
 
-		ASSERT_TIMELY (120s, node->ledger.block_confirmed (node->store.tx_begin_read (), latest) && node->confirmation_height_processor.current () == 0);
+		ASSERT_TIMELY (120s, node->ledger.block_confirmed (node->store.tx_begin_read (), latest) && node->confirming_set.size () == 0);
 		done = true;
 		t.join ();
 	}
@@ -2259,7 +2165,7 @@ TEST (system, block_sequence)
 			std::string message;
 			for (auto i : system.nodes)
 			{
-				message += boost::str (boost::format ("N:%1% b:%2% c:%3% a:%4% s:%5% p:%6%\n") % std::to_string (i->network.port) % std::to_string (i->ledger.cache.block_count) % std::to_string (i->ledger.cache.cemented_count) % std::to_string (i->active.size ()) % std::to_string (i->scheduler.priority.size ()) % std::to_string (i->network.size ()));
+				message += boost::str (boost::format ("N:%1% b:%2% c:%3% a:%4% s:%5% p:%6%\n") % std::to_string (i->network.port) % std::to_string (i->ledger.block_count ()) % std::to_string (i->ledger.cemented_count ()) % std::to_string (i->active.size ()) % std::to_string (i->scheduler.priority.size ()) % std::to_string (i->network.size ()));
 				nano::lock_guard<nano::mutex> lock{ i->active.mutex };
 				for (auto const & j : i->active.roots)
 				{

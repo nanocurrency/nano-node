@@ -3,6 +3,11 @@ on:
   schedule:
     - cron: "0 0 * * 3,6"
   workflow_dispatch:
+    inputs:
+        is_release_build:
+          description: 'Is this a release build?'
+          required: false
+          default: 'false'
 
 env:
   artifact: 1
@@ -11,28 +16,27 @@ jobs:
   prepare_build:
     runs-on: ubuntu-22.04
     outputs:
-      CI_TAG: ${{ steps.tag_set.outputs.CI_TAG }}
-      TAG_CREATED: ${{ steps.tag_set.outputs.tag_created }}
+      ci_tag: ${{ steps.set_vars.outputs.ci_tag }}
+      tag_created: ${{ steps.set_vars.outputs.tag_created }}
     steps:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
-        with:
-          ref: ${{ github.ref }}
       - name: Set the tag and version
         id: tag_set
         run: |
-          output_var_file="variable_list.txt"
-          ci/actions/generate_next_git_tag.sh -c -o "${output_var_file}"
-          CI_TAG=$(grep 'build_tag' ${output_var_file} | cut -d= -f2)
-          echo "CI_TAG=${CI_TAG}" >> $GITHUB_OUTPUT
-          TAG_CREATED=$(grep 'tag_created' ${output_var_file} | cut -d= -f2)
-          echo "TAG_CREATED=${TAG_CREATED}" >> $GITHUB_OUTPUT
+          ci/actions/generate_next_git_tag.sh -c
         env:
           GITHUB_ACTOR: ${{ github.actor }}
+          IS_RELEASE_BUILD: ${{ github.event.inputs.is_release_build || 'false' }}
+      - name: Set output
+        id: set_vars
+        run: |
+          echo "ci_tag=$CI_TAG" >> $GITHUB_OUTPUT
+          echo "tag_created=$TAG_CREATED" >> $GITHUB_OUTPUT
 
 
   osx_job:
     needs: prepare_build
-    if: ${{ needs.prepare_build.outputs.TAG_CREATED == 'true' }}
+    if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
     runs-on: macOS-14
     timeout-minutes: 90
     strategy:
@@ -43,7 +47,7 @@ jobs:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
         with:
           submodules: "recursive"
-          ref: ${{ needs.prepare_build.outputs.CI_TAG }}
+          ref: ${{ needs.prepare_build.outputs.ci_tag }}
           repository: ${{ github.repository }}
       - name: Prepare
         run: ci/prepare/macos/prepare.sh
@@ -51,12 +55,12 @@ jobs:
         run: ci/build-deploy.sh "/tmp/qt/lib/cmake/Qt5";
         env:
           NETWORK: ${{ matrix.network }}
-          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
+          CI_TAG: ${{ needs.prepare_build.outputs.ci_tag }}
       - name: Deploy Artifact
         run: ci/actions/deploy.sh
         env:
           NETWORK: ${{ matrix.network }}
-          TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
+          TAG: ${{ needs.prepare_build.outputs.ci_tag }}
           S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
           S3_BUILD_DIRECTORY: ${{ vars.S3_BUILD_DIRECTORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -66,7 +70,7 @@ jobs:
 
   linux_job:
     needs: prepare_build
-    if: ${{ needs.prepare_build.outputs.TAG_CREATED == 'true' }}
+    if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     strategy:
@@ -76,7 +80,7 @@ jobs:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
         with:
           submodules: "recursive"
-          ref: ${{ needs.prepare_build.outputs.CI_TAG }}
+          ref: ${{ needs.prepare_build.outputs.ci_tag }}
           repository: ${{ github.repository }}
       - name: Prepare
         run: sudo -E ci/prepare/linux/prepare.sh
@@ -84,13 +88,13 @@ jobs:
         run: ci/build-deploy.sh "/usr/lib/x86_64-linux-gnu/cmake/Qt5"
         env:
           NETWORK: ${{ matrix.network }}
-          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
+          CI_TAG: ${{ needs.prepare_build.outputs.ci_tag }}
 
       - name: Deploy Artifact
         run: ci/actions/deploy.sh
         env:
           NETWORK: ${{ matrix.network }}
-          TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
+          TAG: ${{ needs.prepare_build.outputs.ci_tag }}
           S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
           S3_BUILD_DIRECTORY: ${{ vars.S3_BUILD_DIRECTORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -100,7 +104,7 @@ jobs:
 
   linux_rpm_job:
     needs: prepare_build
-    if: ${{ needs.prepare_build.outputs.TAG_CREATED == 'true' }}
+    if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     strategy:
@@ -125,7 +129,7 @@ jobs:
           docker run -v ${GITHUB_WORKSPACE}:/workspace -v ${GITHUB_WORKSPACE}/artifacts:/root/rpmbuild \
           local/nano-env:rhel /bin/bash -c " \
           NETWORK=${{ matrix.network }} \
-          TAG=${{ needs.prepare_build.outputs.CI_TAG }} \
+          TAG=${{ needs.prepare_build.outputs.ci_tag }} \
           REPO_TO_BUILD=${{ github.repository }} \
           RPM_RELEASE=1 \
           ci/build-rhel.sh"
@@ -135,7 +139,7 @@ jobs:
         env:
           LINUX_RPM: 1
           NETWORK: ${{ matrix.network }}
-          # TAG: ${{ needs.prepare_build.outputs.CI_TAG }} # (not used in the deploy script if LINUX_RPM==1 )
+          # TAG: ${{ needs.prepare_build.outputs.ci_tag }} # (not used in the deploy script if LINUX_RPM==1 )
           S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
           S3_BUILD_DIRECTORY: ${{ vars.S3_BUILD_DIRECTORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -145,39 +149,37 @@ jobs:
 
   linux_docker_job:
     needs: prepare_build
-    if: ${{ needs.prepare_build.outputs.TAG_CREATED == 'true' }}
+    if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     strategy:
       matrix:
         network: ["TEST", "BETA", "LIVE"]
+    env:
+      CI_TAG: ${{ needs.prepare_build.outputs.ci_tag }}
+      DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
+      DOCKER_USER: ${{ vars.DOCKER_USER }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      IS_RELEASE_BUILD: ${{ github.event.inputs.is_release_build || 'false' }}
     steps:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
         with:
           submodules: "recursive"
-          ref: ${{ needs.prepare_build.outputs.CI_TAG }}
+          ref: ${{ needs.prepare_build.outputs.ci_tag }}
           repository: ${{ github.repository }}
       - name: Build Docker
         run: ci/actions/linux/docker-build.sh
         env:
           NETWORK: ${{ matrix.network }}
-          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
-          DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
-      - name: Check if secrets.DOCKER_PASSWORD exists
-        run: echo "DOCKER_PASSWORD_EXISTS=${{ secrets.DOCKER_PASSWORD != '' }}" >> $GITHUB_ENV
       - name: Deploy Docker Hub
-        if: env.DOCKER_PASSWORD_EXISTS == 'true'
+        if: env.DOCKER_PASSWORD != ''
         run: ci/actions/linux/docker-deploy.sh
         env:
-          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
           NETWORK: ${{ matrix.network }}
-          DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
-          DOCKER_USER: ${{ vars.DOCKER_USER }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       - name: Deploy Docker (ghcr.io)
         run: ci/actions/linux/ghcr-deploy.sh
         env:
-          CI_TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
           NETWORK: ${{ matrix.network }}
           DOCKER_REGISTRY: ghcr.io
           DOCKER_USER: ${{ github.repository_owner }}
@@ -186,7 +188,7 @@ jobs:
 
   windows_job:
     needs: prepare_build
-    if: ${{ needs.prepare_build.outputs.TAG_CREATED == 'true' }}
+    if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 90
     strategy:
@@ -196,7 +198,7 @@ jobs:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
         with:
           submodules: "recursive"
-          ref: ${{ needs.prepare_build.outputs.CI_TAG }}
+          ref: ${{ needs.prepare_build.outputs.ci_tag }}
           repository: ${{ github.repository }}
       - name: Prepare
         run: ci/prepare/windows/prepare.ps1
@@ -209,7 +211,7 @@ jobs:
         run: ci/actions/windows/deploy.ps1
         env:
           NETWORK: ${{ matrix.network }}
-          TAG: ${{ needs.prepare_build.outputs.CI_TAG }}
+          TAG: ${{ needs.prepare_build.outputs.ci_tag }}
           S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
           S3_BUILD_DIRECTORY: ${{ vars.S3_BUILD_DIRECTORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}

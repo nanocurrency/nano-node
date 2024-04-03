@@ -49,17 +49,23 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 			rpc_config.tls_config = tls_config;
 		}
 
-		boost::asio::io_context io_ctx;
+		std::shared_ptr<boost::asio::io_context> io_ctx = std::make_shared<boost::asio::io_context> ();
+
 		nano::signal_manager sigman;
 		try
 		{
-			nano::ipc_rpc_processor ipc_rpc_processor (io_ctx, rpc_config);
+			nano::ipc_rpc_processor ipc_rpc_processor (*io_ctx, rpc_config);
 			auto rpc = nano::get_rpc (io_ctx, rpc_config, ipc_rpc_processor);
 			rpc->start ();
 
 			debug_assert (!nano::signal_handler_impl);
-			nano::signal_handler_impl = [&io_ctx] () {
-				io_ctx.stop ();
+			nano::signal_handler_impl = [io_ctx_w = std::weak_ptr{ io_ctx }] () {
+				logger.warn (nano::log::type::daemon, "Interrupt signal received, stopping...");
+
+				if (auto io_ctx_l = io_ctx_w.lock ())
+				{
+					io_ctx_l->stop ();
+				}
 				sig_int_or_term = 1;
 			};
 

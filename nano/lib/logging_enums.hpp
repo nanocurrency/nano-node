@@ -56,6 +56,7 @@ enum class type
 	tcp,
 	tcp_server,
 	tcp_listener,
+	tcp_channels,
 	prunning,
 	conf_processor_bounded,
 	conf_processor_unbounded,
@@ -72,6 +73,8 @@ enum class type
 	election_scheduler,
 	vote_generator,
 	rep_tiers,
+	syn_cookies,
+	thread_runner,
 
 	// bootstrap
 	bulk_pull_client,

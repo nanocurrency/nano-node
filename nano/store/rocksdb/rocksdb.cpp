@@ -39,7 +39,6 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 	// clang-format off
 	nano::store::component{
 		block_store,
-		frontier_store,
 		account_store,
 		pending_store,
 		online_weight_store,
@@ -47,11 +46,11 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 		peer_store,
 		confirmation_height_store,
 		final_vote_store,
-		version_store
+		version_store,
+		rep_weight_store
 	},
 	// clang-format on
 	block_store{ *this },
-	frontier_store{ *this },
 	account_store{ *this },
 	pending_store{ *this },
 	online_weight_store{ *this },
@@ -60,6 +59,7 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 	confirmation_height_store{ *this },
 	final_vote_store{ *this },
 	version_store{ *this },
+	rep_weight_store{ *this },
 	logger{ logger_a },
 	constants{ constants },
 	rocksdb_config{ rocksdb_config_a },
@@ -162,7 +162,6 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 std::unordered_map<char const *, nano::tables> nano::store::rocksdb::component::create_cf_name_table_map () const
 {
 	std::unordered_map<char const *, nano::tables> map{ { ::rocksdb::kDefaultColumnFamilyName.c_str (), tables::default_unused },
-		{ "frontiers", tables::frontiers },
 		{ "accounts", tables::accounts },
 		{ "blocks", tables::blocks },
 		{ "pending", tables::pending },
@@ -172,7 +171,8 @@ std::unordered_map<char const *, nano::tables> nano::store::rocksdb::component::
 		{ "peers", tables::peers },
 		{ "confirmation_height", tables::confirmation_height },
 		{ "pruned", tables::pruned },
-		{ "final_votes", tables::final_votes } };
+		{ "final_votes", tables::final_votes },
+		{ "rep_weights", tables::rep_weights } };
 
 	debug_assert (map.size () == all_tables ().size () + 1);
 	return map;
@@ -242,6 +242,12 @@ bool nano::store::rocksdb::component::do_upgrades (store::write_transaction cons
 			upgrade_v21_to_v22 (transaction_a);
 			[[fallthrough]];
 		case 22:
+			upgrade_v22_to_v23 (transaction_a);
+			[[fallthrough]];
+		case 23:
+			upgrade_v23_to_v24 (transaction_a);
+			[[fallthrough]];
+		case 24:
 			break;
 		default:
 			logger.critical (nano::log::type::rocksdb, "The version of the ledger ({}) is too high for this node", version_l);
@@ -275,6 +281,64 @@ void nano::store::rocksdb::component::upgrade_v21_to_v22 (store::write_transacti
 	version.put (transaction_a, 22);
 
 	logger.info (nano::log::type::rocksdb, "Upgrading database from v21 to v22 completed");
+}
+
+// Fill rep_weights table with all existing representatives and their vote weight
+void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transaction const & transaction_a)
+{
+	logger.info (nano::log::type::rocksdb, "Upgrading database from v22 to v23...");
+	auto i{ make_iterator<nano::account, nano::account_info_v22> (transaction_a, tables::accounts) };
+	auto end{ store::iterator<nano::account, nano::account_info_v22> (nullptr) };
+	uint64_t processed_accounts = 0;
+	for (; i != end; ++i)
+	{
+		if (!i->second.balance.is_zero ())
+		{
+			nano::uint128_t total{ 0 };
+			nano::store::rocksdb::db_val value;
+			auto status = get (transaction_a, tables::rep_weights, i->second.representative, value);
+			if (success (status))
+			{
+				total = nano::amount{ value }.number ();
+			}
+			total += i->second.balance.number ();
+			status = put (transaction_a, tables::rep_weights, i->second.representative, nano::amount{ total });
+			release_assert_success (status);
+		}
+		processed_accounts++;
+		if (processed_accounts % 250000 == 0)
+		{
+			logger.info (nano::log::type::lmdb, "processed {} accounts", processed_accounts);
+		}
+	}
+	logger.info (nano::log::type::lmdb, "processed {} accounts", processed_accounts);
+	version.put (transaction_a, 23);
+	logger.info (nano::log::type::rocksdb, "Upgrading database from v22 to v23 completed");
+}
+
+void nano::store::rocksdb::component::upgrade_v23_to_v24 (store::write_transaction const & transaction_a)
+{
+	logger.info (nano::log::type::rocksdb, "Upgrading database from v23 to v24...");
+
+	if (column_family_exists ("frontiers"))
+	{
+		auto const unchecked_handle = get_column_family ("frontiers");
+		db->DropColumnFamily (unchecked_handle);
+		db->DestroyColumnFamilyHandle (unchecked_handle);
+		std::erase_if (handles, [unchecked_handle] (auto & handle) {
+			if (handle.get () == unchecked_handle)
+			{
+				// The handle resource is deleted by RocksDB.
+				[[maybe_unused]] auto ptr = handle.release ();
+				return true;
+			}
+			return false;
+		});
+		logger.debug (nano::log::type::rocksdb, "Finished removing frontiers table");
+	}
+
+	version.put (transaction_a, 24);
+	logger.info (nano::log::type::rocksdb, "Upgrading database from v23 to v24 completed");
 }
 
 void nano::store::rocksdb::component::generate_tombstone_map ()
@@ -384,6 +448,11 @@ rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_cf_options (st
 		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
 	}
+	else if (cf_name_a == "rep_weights")
+	{
+		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
+		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
+	}
 	else if (cf_name_a == ::rocksdb::kDefaultColumnFamilyName)
 	{
 		// Do nothing.
@@ -487,8 +556,6 @@ rocksdb::ColumnFamilyHandle * nano::store::rocksdb::component::table_to_column_f
 {
 	switch (table_a)
 	{
-		case tables::frontiers:
-			return get_column_family ("frontiers");
 		case tables::accounts:
 			return get_column_family ("accounts");
 		case tables::blocks:
@@ -509,6 +576,8 @@ rocksdb::ColumnFamilyHandle * nano::store::rocksdb::component::table_to_column_f
 			return get_column_family ("confirmation_height");
 		case tables::final_votes:
 			return get_column_family ("final_votes");
+		case tables::rep_weights:
+			return get_column_family ("rep_weights");
 		default:
 			release_assert (false);
 			return get_column_family ("");
@@ -662,6 +731,14 @@ uint64_t nano::store::rocksdb::component::count (store::transaction const & tran
 	else if (table_a == tables::confirmation_height)
 	{
 		for (auto i (confirmation_height.begin (transaction_a)), n (confirmation_height.end ()); i != n; ++i)
+		{
+			++sum;
+		}
+	}
+	// rep_weights should only be used in tests otherwise there can be performance issues.
+	else if (table_a == tables::rep_weights)
+	{
+		for (auto i (rep_weight.begin (transaction_a)), n (rep_weight.end ()); i != n; ++i)
 		{
 			++sum;
 		}
@@ -850,7 +927,7 @@ void nano::store::rocksdb::component::on_flush (::rocksdb::FlushJobInfo const & 
 
 std::vector<nano::tables> nano::store::rocksdb::component::all_tables () const
 {
-	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::final_votes, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::vote };
+	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::final_votes, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::vote, tables::rep_weights };
 }
 
 bool nano::store::rocksdb::component::copy_db (std::filesystem::path const & destination_path)

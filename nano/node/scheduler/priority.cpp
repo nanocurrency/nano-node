@@ -1,4 +1,6 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/node/active_transactions.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/buckets.hpp>
 #include <nano/node/scheduler/priority.hpp>
@@ -48,7 +50,7 @@ bool nano::scheduler::priority::activate (nano::account const & account_a, store
 		if (conf_info.height < info->block_count)
 		{
 			debug_assert (conf_info.frontier != info->head);
-			auto hash = conf_info.height == 0 ? info->open_block : node.store.block.successor (transaction, conf_info.frontier);
+			auto hash = conf_info.height == 0 ? info->open_block : node.ledger.successor (transaction, conf_info.frontier).value_or (0);
 			auto block = node.ledger.block (transaction, hash);
 			debug_assert (block != nullptr);
 			if (node.ledger.dependents_confirmed (transaction, *block))

@@ -59,12 +59,8 @@ add_library(
   cli.cpp
   common.hpp
   common.cpp
-  confirmation_height_bounded.hpp
-  confirmation_height_bounded.cpp
-  confirmation_height_processor.hpp
-  confirmation_height_processor.cpp
-  confirmation_height_unbounded.hpp
-  confirmation_height_unbounded.cpp
+  confirming_set.hpp
+  confirming_set.cpp
   confirmation_solicitor.hpp
   confirmation_solicitor.cpp
   daemonconfig.hpp
@@ -75,14 +71,12 @@ add_library(
   distributed_work_factory.cpp
   election.hpp
   election.cpp
+  election_behavior.hpp
   election_insertion_result.hpp
+  election_status.hpp
   epoch_upgrader.hpp
   epoch_upgrader.cpp
   fair_queue.hpp
-  inactive_cache_information.hpp
-  inactive_cache_information.cpp
-  inactive_cache_status.hpp
-  inactive_cache_status.cpp
   ipc/action_handler.hpp
   ipc/action_handler.cpp
   ipc/flatbuffers_handler.hpp
@@ -101,6 +95,8 @@ add_library(
   json_handler.cpp
   local_block_broadcaster.cpp
   local_block_broadcaster.hpp
+  local_vote_history.cpp
+  local_vote_history.hpp
   make_store.hpp
   make_store.cpp
   network.hpp
@@ -159,6 +155,8 @@ add_library(
   transport/socket.cpp
   transport/tcp.hpp
   transport/tcp.cpp
+  transport/tcp_listener.hpp
+  transport/tcp_listener.cpp
   transport/tcp_server.hpp
   transport/tcp_server.cpp
   transport/transport.hpp
@@ -167,10 +165,13 @@ add_library(
   unchecked_map.hpp
   vote_cache.hpp
   vote_cache.cpp
+  vote_generator.hpp
+  vote_generator.cpp
   vote_processor.hpp
   vote_processor.cpp
-  voting.hpp
-  voting.cpp
+  vote_spacing.hpp
+  vote_spacing.cpp
+  vote_with_weight_info.hpp
   wallet.hpp
   wallet.cpp
   websocket.hpp

@@ -1,8 +1,11 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/local_vote_history.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/vote_generator.hpp>
 #include <nano/secure/ledger.hpp>
 
 #include <boost/format.hpp>
@@ -14,12 +17,6 @@ using namespace std::chrono;
 std::chrono::milliseconds nano::election::base_latency () const
 {
 	return node.network_params.network.is_dev_network () ? 25ms : 1000ms;
-}
-
-nano::election_vote_result::election_vote_result (bool replay_a, bool processed_a)
-{
-	replay = replay_a;
-	processed = processed_a;
 }
 
 /*
@@ -40,7 +37,7 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 	last_blocks.emplace (block_a->hash (), block_a);
 }
 
-void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano::election_status_type type_a)
+void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a)
 {
 	debug_assert (lock_a.owns_lock ());
 
@@ -57,7 +54,6 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano
 		status.confirmation_request_count = confirmation_request_count;
 		status.block_count = nano::narrow_cast<decltype (status.block_count)> (last_blocks.size ());
 		status.voter_count = nano::narrow_cast<decltype (status.voter_count)> (last_votes.size ());
-		status.type = type_a;
 		auto const status_l = status;
 
 		node.active.recently_confirmed.put (qualified_root, status_l.winner->hash ());
@@ -403,50 +399,28 @@ void nano::election::confirm_if_quorum (nano::unique_lock<nano::mutex> & lock_a)
 	}
 	if (have_quorum (tally_l))
 	{
-		if (node.ledger.cache.final_votes_confirmation_canary.load () && !is_quorum.exchange (true) && node.config.enable_voting && node.wallets.reps ().voting > 0)
+		if (!is_quorum.exchange (true) && node.config.enable_voting && node.wallets.reps ().voting > 0)
 		{
 			node.final_generator.add (root, status.winner->hash ());
 		}
-		if (!node.ledger.cache.final_votes_confirmation_canary.load () || final_weight >= node.online_reps.delta ())
+		if (final_weight >= node.online_reps.delta ())
 		{
-			confirm_once (lock_a, nano::election_status_type::active_confirmed_quorum);
+			confirm_once (lock_a);
 		}
 	}
 }
 
-boost::optional<nano::election_status_type> nano::election::try_confirm (nano::block_hash const & hash)
+void nano::election::try_confirm (nano::block_hash const & hash)
 {
-	boost::optional<nano::election_status_type> status_type;
 	nano::unique_lock<nano::mutex> election_lock{ mutex };
 	auto winner = status.winner;
 	if (winner && winner->hash () == hash)
 	{
-		// Determine if the block was confirmed explicitly via election confirmation or implicitly via confirmation height
 		if (!confirmed_locked ())
 		{
-			confirm_once (election_lock, nano::election_status_type::active_confirmation_height);
-			status_type = nano::election_status_type::active_confirmation_height;
-		}
-		else
-		{
-			status_type = nano::election_status_type::active_confirmed_quorum;
+			confirm_once (election_lock);
 		}
 	}
-	else
-	{
-		status_type = boost::optional<nano::election_status_type>{};
-	}
-	return status_type;
-}
-
-nano::election_status nano::election::set_status_type (nano::election_status_type status_type)
-{
-	nano::unique_lock<nano::mutex> election_lk{ mutex };
-	status.type = status_type;
-	status.confirmation_request_count = confirmation_request_count;
-	nano::election_status status_l{ status };
-	election_lk.unlock ();
-	return status_l;
 }
 
 std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash_a) const
@@ -460,13 +434,14 @@ std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash
 	return result;
 }
 
-nano::election_vote_result nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano::block_hash const & block_hash_a, vote_source vote_source_a)
+nano::vote_code nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano::block_hash const & block_hash_a, nano::vote_source vote_source_a)
 {
 	auto weight = node.ledger.weight (rep);
 	if (!node.network_params.network.is_dev_network () && weight <= node.minimum_principal_weight ())
 	{
-		return nano::election_vote_result (false, false);
+		return vote_code::indeterminate;
 	}
+
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	auto last_vote_it (last_votes.find (rep));
@@ -475,18 +450,17 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 		auto last_vote_l (last_vote_it->second);
 		if (last_vote_l.timestamp > timestamp_a)
 		{
-			return nano::election_vote_result (true, false);
+			return vote_code::replay;
 		}
 		if (last_vote_l.timestamp == timestamp_a && !(last_vote_l.hash < block_hash_a))
 		{
-			return nano::election_vote_result (true, false);
+			return vote_code::replay;
 		}
 
 		auto max_vote = timestamp_a == std::numeric_limits<uint64_t>::max () && last_vote_l.timestamp < timestamp_a;
 
 		bool past_cooldown = true;
-		// Only cooldown live votes
-		if (vote_source_a == vote_source::live)
+		if (vote_source_a == vote_source::live) // Only cooldown live votes
 		{
 			const auto cooldown = cooldown_time (weight);
 			past_cooldown = last_vote_l.time <= std::chrono::steady_clock::now () - cooldown;
@@ -494,7 +468,7 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 
 		if (!max_vote && !past_cooldown)
 		{
-			return nano::election_vote_result (false, false);
+			return vote_code::ignored;
 		}
 	}
 
@@ -519,7 +493,8 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 	{
 		confirm_if_quorum (lock);
 	}
-	return nano::election_vote_result (false, true);
+
+	return vote_code::vote;
 }
 
 bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
@@ -669,11 +644,22 @@ bool nano::election::replace_by_weight (nano::unique_lock<nano::mutex> & lock_a,
 	sorted.reserve (last_tally.size ());
 	std::copy (last_tally.begin (), last_tally.end (), std::back_inserter (sorted));
 	lock_a.unlock ();
+
 	// Sort in ascending order
 	std::sort (sorted.begin (), sorted.end (), [] (auto const & left, auto const & right) { return left.second < right.second; });
+
+	auto votes_tally = [this] (std::vector<std::shared_ptr<nano::vote>> const & votes) {
+		nano::uint128_t result{ 0 };
+		for (auto const & vote : votes)
+		{
+			result += node.ledger.weight (vote->account);
+		}
+		return result;
+	};
+
 	// Replace if lowest tally is below inactive cache new block weight
 	auto inactive_existing = node.vote_cache.find (hash_a);
-	auto inactive_tally = inactive_existing ? inactive_existing->tally () : 0;
+	auto inactive_tally = votes_tally (inactive_existing);
 	if (inactive_tally > 0 && sorted.size () < max_blocks)
 	{
 		// If count of tally items is less than 10, remove any block without tally
@@ -714,11 +700,11 @@ bool nano::election::replace_by_weight (nano::unique_lock<nano::mutex> & lock_a,
 	return replaced;
 }
 
-void nano::election::force_confirm (nano::election_status_type type_a)
+void nano::election::force_confirm ()
 {
 	release_assert (node.network_params.network.is_dev_network ());
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	confirm_once (lock, type_a);
+	confirm_once (lock);
 }
 
 std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election::blocks () const

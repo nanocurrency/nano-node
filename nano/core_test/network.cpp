@@ -5,6 +5,7 @@
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/transport/socket.hpp>
+#include <nano/node/transport/tcp_listener.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
@@ -21,14 +22,14 @@ using namespace std::chrono_literals;
 TEST (network, tcp_connection)
 {
 	nano::test::system system;
-	boost::asio::ip::tcp::acceptor acceptor (system.io_ctx);
+	boost::asio::ip::tcp::acceptor acceptor (*system.io_ctx);
 	auto port = system.get_available_port ();
 	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v4::any (), port);
 	acceptor.open (endpoint.protocol ());
 	acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
 	acceptor.bind (endpoint);
 	acceptor.listen ();
-	boost::asio::ip::tcp::socket incoming (system.io_ctx);
+	boost::asio::ip::tcp::socket incoming (*system.io_ctx);
 	std::atomic<bool> done1 (false);
 	std::string message1;
 	acceptor.async_accept (incoming, [&done1, &message1] (boost::system::error_code const & ec_a) {
@@ -39,7 +40,7 @@ TEST (network, tcp_connection)
 		}
 		done1 = true;
 	});
-	boost::asio::ip::tcp::socket connector (system.io_ctx);
+	boost::asio::ip::tcp::socket connector (*system.io_ctx);
 	std::atomic<bool> done2 (false);
 	std::string message2;
 	connector.async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), acceptor.local_endpoint ().port ()),
@@ -104,7 +105,6 @@ TEST (network, send_node_id_handshake_tcp)
 	auto list2 (node1->network.list (1));
 	ASSERT_EQ (nano::transport::transport_type::tcp, list2[0]->get_type ());
 	ASSERT_EQ (node0->get_node_id (), list2[0]->get_node_id ());
-	node1->stop ();
 }
 
 TEST (network, last_contacted)
@@ -530,46 +530,10 @@ TEST (network, ipv6_from_ipv4)
 	ASSERT_TRUE (endpoint2.address ().is_v6 ());
 }
 
-TEST (network, ipv6_bind_send_ipv4)
-{
-	nano::test::system system;
-	nano::endpoint endpoint1 (boost::asio::ip::address_v6::any (), 0);
-	nano::endpoint endpoint2 (boost::asio::ip::address_v4::any (), 0);
-	std::array<uint8_t, 16> bytes1{};
-	std::atomic<bool> finish1{ false };
-	nano::endpoint endpoint3;
-	boost::asio::ip::udp::socket socket1 (system.io_ctx, endpoint1);
-	socket1.async_receive_from (boost::asio::buffer (bytes1.data (), bytes1.size ()), endpoint3, [&finish1] (boost::system::error_code const & error, size_t size_a) {
-		ASSERT_FALSE (error);
-		ASSERT_EQ (16, size_a);
-		finish1 = true;
-	});
-	boost::asio::ip::udp::socket socket2 (system.io_ctx, endpoint2);
-	nano::endpoint endpoint5 (boost::asio::ip::address_v4::loopback (), socket1.local_endpoint ().port ());
-	nano::endpoint endpoint6 (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ()), socket2.local_endpoint ().port ());
-	socket2.async_send_to (boost::asio::buffer (std::array<uint8_t, 16>{}, 16), endpoint5, [] (boost::system::error_code const & error, size_t size_a) {
-		ASSERT_FALSE (error);
-		ASSERT_EQ (16, size_a);
-	});
-	auto iterations (0);
-	ASSERT_TIMELY (5s, finish1);
-	ASSERT_EQ (endpoint6, endpoint3);
-	std::array<uint8_t, 16> bytes2;
-	nano::endpoint endpoint4;
-	socket2.async_receive_from (boost::asio::buffer (bytes2.data (), bytes2.size ()), endpoint4, [] (boost::system::error_code const & error, size_t size_a) {
-		ASSERT_FALSE (!error);
-		ASSERT_EQ (16, size_a);
-	});
-	socket1.async_send_to (boost::asio::buffer (std::array<uint8_t, 16>{}, 16), endpoint6, [] (boost::system::error_code const & error, size_t size_a) {
-		ASSERT_FALSE (error);
-		ASSERT_EQ (16, size_a);
-	});
-}
-
 TEST (network, endpoint_bad_fd)
 {
 	nano::test::system system (1);
-	system.nodes[0]->stop ();
+	system.stop_node (*system.nodes[0]);
 	auto endpoint (system.nodes[0]->network.endpoint ());
 	ASSERT_TRUE (endpoint.address ().is_loopback ());
 	// The endpoint is invalidated asynchronously
@@ -698,10 +662,7 @@ TEST (tcp_listener, DISABLED_tcp_listener_timeout_empty)
 	system.deadline_set (std::chrono::seconds (6));
 	while (!disconnected)
 	{
-		{
-			nano::lock_guard<nano::mutex> guard (node0->tcp_listener->mutex);
-			disconnected = node0->tcp_listener->connections.empty ();
-		}
+		disconnected = node0->tcp_listener->connection_count () == 0;
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
@@ -722,19 +683,13 @@ TEST (tcp_listener, tcp_listener_timeout_node_id_handshake)
 			ASSERT_FALSE (ec);
 		});
 	});
-	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake) != 0);
-	{
-		nano::lock_guard<nano::mutex> guard (node0->tcp_listener->mutex);
-		ASSERT_EQ (node0->tcp_listener->connections.size (), 1);
-	}
+	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_server, nano::stat::detail::node_id_handshake) != 0);
+	ASSERT_EQ (node0->tcp_listener->connection_count (), 1);
 	bool disconnected (false);
 	system.deadline_set (std::chrono::seconds (20));
 	while (!disconnected)
 	{
-		{
-			nano::lock_guard<nano::mutex> guard (node0->tcp_listener->mutex);
-			disconnected = node0->tcp_listener->connections.empty ();
-		}
+		disconnected = node0->tcp_listener->connection_count () == 0;
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
@@ -759,7 +714,7 @@ TEST (network, peer_max_tcp_attempts)
 		node->network.merge_peer (node2->network.endpoint ());
 	}
 	ASSERT_EQ (0, node->network.size ());
-	ASSERT_TRUE (node->network.tcp_channels.reachout (nano::endpoint (node->network.endpoint ().address (), system.get_available_port ())));
+	ASSERT_FALSE (node->network.tcp_channels.track_reachout (nano::endpoint (node->network.endpoint ().address (), system.get_available_port ())));
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::out));
 }
 #endif
@@ -779,11 +734,11 @@ namespace transport
 		{
 			auto address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x7f000001 + i))); // 127.0.0.1 hex
 			nano::endpoint endpoint (address, system.get_available_port ());
-			ASSERT_FALSE (node->network.tcp_channels.reachout (endpoint));
+			ASSERT_TRUE (node->network.tcp_channels.track_reachout (endpoint));
 		}
 		ASSERT_EQ (0, node->network.size ());
 		ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_subnetwork, nano::stat::dir::out));
-		ASSERT_TRUE (node->network.tcp_channels.reachout (nano::endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"), system.get_available_port ())));
+		ASSERT_FALSE (node->network.tcp_channels.track_reachout (nano::endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"), system.get_available_port ())));
 		ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_subnetwork, nano::stat::dir::out));
 	}
 }
@@ -973,7 +928,7 @@ TEST (network, tcp_no_connect_excluded_peers)
 	ASSERT_EQ (nullptr, node0->network.find_node_id (node1->get_node_id ()));
 
 	// Should not actively reachout to excluded peers
-	ASSERT_TRUE (node0->network.reachout (node1->network.endpoint (), true));
+	ASSERT_FALSE (node0->network.track_reachout (node1->network.endpoint ()));
 
 	// Erasing from excluded peers should allow a connection
 	node0->network.excluded_peers.remove (endpoint1_tcp);
@@ -1079,7 +1034,7 @@ TEST (network, cleanup_purge)
 	ASSERT_EQ (1, node1.network.size ());
 
 	node1.network.cleanup (std::chrono::steady_clock::now ());
-	ASSERT_EQ (0, node1.network.size ());
+	ASSERT_TIMELY_EQ (5s, 0, node1.network.size ());
 }
 
 TEST (network, loopback_channel)
@@ -1095,8 +1050,6 @@ TEST (network, loopback_channel)
 	ASSERT_EQ (channel1.get_node_id (), node1.node_id.pub);
 	ASSERT_EQ (channel1.get_node_id_optional ().value_or (0), node1.node_id.pub);
 	nano::transport::inproc::channel channel2 (node2, node2);
-	ASSERT_EQ (channel1, channel1);
-	ASSERT_FALSE (channel1 == channel2);
 	++node1.network.port;
 	ASSERT_NE (channel1.get_endpoint (), node1.network.endpoint ());
 }

@@ -2,7 +2,9 @@
 #include <nano/node/backlog_population.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/scheduler/priority.hpp>
+#include <nano/store/account.hpp>
 #include <nano/store/component.hpp>
+#include <nano/store/confirmation_height.hpp>
 
 nano::backlog_population::backlog_population (const config & config_a, nano::store::component & store_a, nano::stats & stats_a) :
 	config_m{ config_a },

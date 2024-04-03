@@ -49,6 +49,10 @@ public:
 	{
 		return &current;
 	}
+	std::pair<T, U> const & operator* () const
+	{
+		return current;
+	}
 	bool operator== (iterator<T, U> const & other_a) const
 	{
 		return (impl == nullptr && other_a.impl == nullptr) || (impl != nullptr && *impl == other_a.impl.get ()) || (other_a.impl != nullptr && *other_a.impl == impl.get ());

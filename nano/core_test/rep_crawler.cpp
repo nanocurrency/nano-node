@@ -1,6 +1,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/logging.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/node/transport/inproc.hpp>
@@ -106,7 +107,7 @@ TEST (rep_crawler, rep_weight)
 	ASSERT_EQ (1, reps.size ());
 	ASSERT_EQ (node.balance (nano::dev::genesis_key.pub), node.ledger.weight (reps[0].account));
 	ASSERT_EQ (nano::dev::genesis_key.pub, reps[0].account);
-	ASSERT_EQ (*channel1, *reps[0].channel);
+	ASSERT_EQ (channel1, reps[0].channel);
 	ASSERT_TRUE (node.rep_crawler.is_pr (channel1));
 	ASSERT_FALSE (node.rep_crawler.is_pr (channel2));
 	ASSERT_TRUE (node.rep_crawler.is_pr (channel3));
@@ -189,7 +190,7 @@ TEST (rep_crawler, rep_remove)
 	ASSERT_EQ (1, reps.size ());
 	ASSERT_EQ (searching_node.minimum_principal_weight () * 2, searching_node.ledger.weight (reps[0].account));
 	ASSERT_EQ (keys_rep1.pub, reps[0].account);
-	ASSERT_EQ (*channel_rep1, *reps[0].channel);
+	ASSERT_EQ (channel_rep1, reps[0].channel);
 
 	// When rep1 disconnects then rep1 should not be found anymore
 	channel_rep1->close ();
@@ -219,7 +220,7 @@ TEST (rep_crawler, rep_remove)
 	ASSERT_TIMELY_EQ (10s, searching_node.rep_crawler.representative_count (), 2);
 
 	// When Rep2 is stopped, it should not be found as principal representative anymore
-	node_rep2->stop ();
+	system.stop_node (*node_rep2);
 	ASSERT_TIMELY_EQ (10s, searching_node.rep_crawler.representative_count (), 1);
 
 	// Now only genesisRep should be found:
@@ -238,7 +239,7 @@ TEST (rep_crawler, rep_connection_close)
 	// Add working representative (node 2)
 	system.wallet (1)->insert_adhoc (nano::dev::genesis_key.prv);
 	ASSERT_TIMELY_EQ (10s, node1.rep_crawler.representative_count (), 1);
-	node2.stop ();
+	system.stop_node (node2);
 	// Remove representative with closed channel
 	ASSERT_TIMELY_EQ (10s, node1.rep_crawler.representative_count (), 0);
 }
@@ -251,7 +252,7 @@ TEST (rep_crawler, recently_confirmed)
 {
 	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
-	ASSERT_EQ (1, node1.ledger.cache.block_count);
+	ASSERT_EQ (1, node1.ledger.block_count ());
 	auto const block = nano::dev::genesis;
 	node1.active.recently_confirmed.put (block->qualified_root (), block->hash ());
 	auto & node2 (*system.add_node ());

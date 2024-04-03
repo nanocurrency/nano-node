@@ -6,7 +6,8 @@
 nano::test::context::ledger_context::ledger_context (std::deque<std::shared_ptr<nano::block>> && blocks) :
 	store_m{ nano::make_store (logger, nano::unique_path (), nano::dev::constants) },
 	ledger_m{ *store_m, stats_m, nano::dev::constants },
-	blocks_m{ blocks }
+	blocks_m{ blocks },
+	pool_m{ nano::dev::network_params.network, 1 }
 {
 	debug_assert (!store_m->init_error ());
 	auto tx = store_m->tx_begin_write ();
@@ -36,6 +37,11 @@ nano::stats & nano::test::context::ledger_context::stats ()
 std::deque<std::shared_ptr<nano::block>> const & nano::test::context::ledger_context::blocks () const
 {
 	return blocks_m;
+}
+
+nano::work_pool & nano::test::context::ledger_context::pool ()
+{
+	return pool_m;
 }
 
 auto nano::test::context::ledger_empty () -> ledger_context

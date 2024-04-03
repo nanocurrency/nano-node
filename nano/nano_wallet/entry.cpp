@@ -122,7 +122,8 @@ int run_wallet (QApplication & application, int argc, char * const * argv, std::
 			config.node.websocket_config.tls_config = tls_config;
 		}
 
-		boost::asio::io_context io_ctx;
+		std::shared_ptr<boost::asio::io_context> io_ctx = std::make_shared<boost::asio::io_context> ();
+
 		nano::thread_runner runner (io_ctx, config.node.io_threads);
 
 		std::shared_ptr<nano::node> node;
@@ -174,7 +175,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, std::
 			nano::ipc::ipc_server ipc (*node, config.rpc);
 
 			std::unique_ptr<boost::process::child> rpc_process;
-			std::unique_ptr<nano::rpc> rpc;
+			std::shared_ptr<nano::rpc> rpc;
 			std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 			if (config.rpc_enable)
 			{

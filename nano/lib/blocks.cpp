@@ -101,7 +101,7 @@ nano::block_hash nano::block::generate_hash () const
 	blake2b_state hash_l;
 	auto status (blake2b_init (&hash_l, sizeof (result.bytes)));
 	debug_assert (status == 0);
-	hash (hash_l);
+	generate_hash (hash_l);
 	status = blake2b_final (&hash_l, result.bytes.data (), sizeof (result.bytes));
 	debug_assert (status == 0);
 	return result;
@@ -157,6 +157,18 @@ bool nano::block::is_change () const noexcept
 				return true;
 			}
 			return false;
+		default:
+			return false;
+	}
+}
+
+bool nano::block::is_epoch () const noexcept
+{
+	release_assert (has_sideband ());
+	switch (type ())
+	{
+		case nano::block_type::state:
+			return sideband ().details.is_epoch;
 		default:
 			return false;
 	}
@@ -347,7 +359,7 @@ void nano::send_block::visit (nano::mutable_block_visitor & visitor_a)
 	visitor_a.send_block (*this);
 }
 
-void nano::send_block::hash (blake2b_state & hash_a) const
+void nano::send_block::generate_hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
 }
@@ -742,7 +754,7 @@ nano::open_block::open_block (bool & error_a, boost::property_tree::ptree const 
 	}
 }
 
-void nano::open_block::hash (blake2b_state & hash_a) const
+void nano::open_block::generate_hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
 }
@@ -1013,7 +1025,7 @@ nano::change_block::change_block (bool & error_a, boost::property_tree::ptree co
 	}
 }
 
-void nano::change_block::hash (blake2b_state & hash_a) const
+void nano::change_block::generate_hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
 }
@@ -1310,7 +1322,7 @@ nano::state_block::state_block (bool & error_a, boost::property_tree::ptree cons
 	}
 }
 
-void nano::state_block::hash (blake2b_state & hash_a) const
+void nano::state_block::generate_hash (blake2b_state & hash_a) const
 {
 	nano::uint256_union preamble (static_cast<uint64_t> (nano::block_type::state));
 	blake2b_update (&hash_a, preamble.bytes.data (), preamble.bytes.size ());
@@ -1776,7 +1788,7 @@ nano::receive_block::receive_block (bool & error_a, boost::property_tree::ptree 
 	}
 }
 
-void nano::receive_block::hash (blake2b_state & hash_a) const
+void nano::receive_block::generate_hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
 }

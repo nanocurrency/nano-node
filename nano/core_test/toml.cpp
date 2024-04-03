@@ -165,7 +165,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.bootstrap_serving_threads, defaults.node.bootstrap_serving_threads);
 	ASSERT_EQ (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_EQ (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
-	ASSERT_EQ (conf.node.conf_height_processor_batch_min_time, defaults.node.conf_height_processor_batch_min_time);
+	ASSERT_EQ (conf.node.confirming_set_batch_time, defaults.node.confirming_set_batch_time);
 	ASSERT_EQ (conf.node.confirmation_history_size, defaults.node.confirmation_history_size);
 	ASSERT_EQ (conf.node.enable_voting, defaults.node.enable_voting);
 	ASSERT_EQ (conf.node.external_address, defaults.node.external_address);
@@ -176,6 +176,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.background_threads, defaults.node.background_threads);
 	ASSERT_EQ (conf.node.secondary_work_peers, defaults.node.secondary_work_peers);
 	ASSERT_EQ (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
+	ASSERT_EQ (conf.node.representative_vote_weight_minimum, defaults.node.representative_vote_weight_minimum);
 	ASSERT_EQ (conf.node.rep_crawler_weight_minimum, defaults.node.rep_crawler_weight_minimum);
 	ASSERT_EQ (conf.node.password_fanout, defaults.node.password_fanout);
 	ASSERT_EQ (conf.node.peering_port, defaults.node.peering_port);
@@ -194,6 +195,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_EQ (conf.node.work_threads, defaults.node.work_threads);
 	ASSERT_EQ (conf.node.max_queued_requests, defaults.node.max_queued_requests);
+	ASSERT_EQ (conf.node.request_aggregator_threads, defaults.node.request_aggregator_threads);
 	ASSERT_EQ (conf.node.max_unchecked_blocks, defaults.node.max_unchecked_blocks);
 	ASSERT_EQ (conf.node.backlog_scan_batch_size, defaults.node.backlog_scan_batch_size);
 	ASSERT_EQ (conf.node.backlog_scan_frequency, defaults.node.backlog_scan_frequency);
@@ -245,6 +247,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.optimistic_scheduler.gap_threshold, defaults.node.optimistic_scheduler.gap_threshold);
 	ASSERT_EQ (conf.node.optimistic_scheduler.max_size, defaults.node.optimistic_scheduler.max_size);
 
+	ASSERT_EQ (conf.node.hinted_scheduler.enabled, defaults.node.hinted_scheduler.enabled);
 	ASSERT_EQ (conf.node.hinted_scheduler.hinting_threshold_percent, defaults.node.hinted_scheduler.hinting_threshold_percent);
 	ASSERT_EQ (conf.node.hinted_scheduler.check_interval.count (), defaults.node.hinted_scheduler.check_interval.count ());
 	ASSERT_EQ (conf.node.hinted_scheduler.block_cooldown.count (), defaults.node.hinted_scheduler.block_cooldown.count ());
@@ -400,7 +403,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	bootstrap_serving_threads = 999
 	bootstrap_frontier_request_count = 9999
 	bootstrap_fraction_numerator = 999
-	conf_height_processor_batch_min_time = 999
+	confirming_set_batch_time = 999
 	confirmation_history_size = 999
 	enable_voting = false
 	external_address = "0:0:0:0:0:ffff:7f01:101"
@@ -410,6 +413,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	network_threads = 999
 	background_threads = 999
 	online_weight_minimum = "999"
+	representative_vote_weight_minimum = "999"
 	rep_crawler_weight_minimum = "999"
 	password_fanout = 999
 	peering_port = 999
@@ -429,6 +433,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	work_threads = 999
 	max_work_generate_multiplier = 1.0
 	max_queued_requests = 999
+	request_aggregator_threads = 999
 	max_unchecked_blocks = 999
 	frontiers_confirmation = "always"
 	backlog_scan_batch_size = 999
@@ -528,6 +533,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	max_size = 999
 
 	[node.hinted_scheduler]
+	enabled = false
 	hinting_threshold = 99
 	check_interval = 999
 	block_cooldown = 999
@@ -594,7 +600,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.bootstrap_serving_threads, defaults.node.bootstrap_serving_threads);
 	ASSERT_NE (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_NE (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
-	ASSERT_NE (conf.node.conf_height_processor_batch_min_time, defaults.node.conf_height_processor_batch_min_time);
+	ASSERT_NE (conf.node.confirming_set_batch_time, defaults.node.confirming_set_batch_time);
 	ASSERT_NE (conf.node.confirmation_history_size, defaults.node.confirmation_history_size);
 	ASSERT_NE (conf.node.enable_voting, defaults.node.enable_voting);
 	ASSERT_NE (conf.node.external_address, defaults.node.external_address);
@@ -609,6 +615,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.max_pruning_age, defaults.node.max_pruning_age);
 	ASSERT_NE (conf.node.max_pruning_depth, defaults.node.max_pruning_depth);
 	ASSERT_NE (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
+	ASSERT_NE (conf.node.representative_vote_weight_minimum, defaults.node.representative_vote_weight_minimum);
 	ASSERT_NE (conf.node.rep_crawler_weight_minimum, defaults.node.rep_crawler_weight_minimum);
 	ASSERT_NE (conf.node.password_fanout, defaults.node.password_fanout);
 	ASSERT_NE (conf.node.peering_port, defaults.node.peering_port);
@@ -627,6 +634,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_NE (conf.node.work_threads, defaults.node.work_threads);
 	ASSERT_NE (conf.node.max_queued_requests, defaults.node.max_queued_requests);
+	ASSERT_NE (conf.node.request_aggregator_threads, defaults.node.request_aggregator_threads);
 	ASSERT_NE (conf.node.backlog_scan_batch_size, defaults.node.backlog_scan_batch_size);
 	ASSERT_NE (conf.node.backlog_scan_frequency, defaults.node.backlog_scan_frequency);
 
@@ -678,6 +686,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.optimistic_scheduler.gap_threshold, defaults.node.optimistic_scheduler.gap_threshold);
 	ASSERT_NE (conf.node.optimistic_scheduler.max_size, defaults.node.optimistic_scheduler.max_size);
 
+	ASSERT_NE (conf.node.hinted_scheduler.enabled, defaults.node.hinted_scheduler.enabled);
 	ASSERT_NE (conf.node.hinted_scheduler.hinting_threshold_percent, defaults.node.hinted_scheduler.hinting_threshold_percent);
 	ASSERT_NE (conf.node.hinted_scheduler.check_interval.count (), defaults.node.hinted_scheduler.check_interval.count ());
 	ASSERT_NE (conf.node.hinted_scheduler.block_cooldown.count (), defaults.node.hinted_scheduler.block_cooldown.count ());

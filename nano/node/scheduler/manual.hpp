@@ -1,7 +1,7 @@
 #pragma once
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/node/active_transactions.hpp>
+#include <nano/node/election_behavior.hpp>
 
 #include <boost/optional.hpp>
 

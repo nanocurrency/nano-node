@@ -1,7 +1,9 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/blockprocessor.hpp>
+#include <nano/node/local_vote_history.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
@@ -203,7 +205,8 @@ bool nano::block_processor::add_impl (context ctx, std::shared_ptr<nano::transpo
 void nano::block_processor::rollback_competitor (store::write_transaction const & transaction, nano::block const & block)
 {
 	auto hash = block.hash ();
-	auto successor = node.ledger.successor (transaction, block.qualified_root ());
+	auto successor_hash = node.ledger.successor (transaction, block.qualified_root ());
+	auto successor = successor_hash ? node.ledger.block (transaction, successor_hash.value ()) : nullptr;
 	if (successor != nullptr && successor->hash () != hash)
 	{
 		// Replace our block with the winner and roll back any dependent blocks
@@ -298,7 +301,7 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 	processed_batch_t processed;
 
 	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
-	auto transaction (node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
+	auto transaction (node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights }));
 	nano::timer<std::chrono::milliseconds> timer_l;
 
 	lock_a.lock ();

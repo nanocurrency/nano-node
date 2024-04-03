@@ -1,5 +1,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/node/active_transactions.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/secure/ledger.hpp>
@@ -13,8 +15,14 @@ using namespace std::chrono_literals;
 
 TEST (vote_processor, codes)
 {
-	nano::test::system system (1);
-	auto & node (*system.nodes[0]);
+	nano::test::system system;
+	auto node_config = system.default_config ();
+	// Disable all election schedulers
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.hinted_scheduler.enabled = false;
+	node_config.optimistic_scheduler.enabled = false;
+	auto & node = *system.add_node (node_config);
+
 	auto blocks = nano::test::setup_chain (system, node, 1, nano::dev::genesis_key, false);
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, { blocks[0] }, nano::vote::timestamp_min * 1, 0);
 	auto vote_invalid = std::make_shared<nano::vote> (*vote);
@@ -46,7 +54,7 @@ TEST (vote_processor, codes)
 	ASSERT_EQ (nano::vote_code::invalid, node.vote_processor.vote_blocking (vote_invalid, channel));
 
 	// Once the election is removed (confirmed / dropped) the vote is again indeterminate
-	node.active.erase (*blocks[0]);
+	ASSERT_TRUE (node.active.erase (blocks[0]->qualified_root ()));
 	ASSERT_EQ (nano::vote_code::indeterminate, node.vote_processor.vote_blocking (vote, channel));
 }
 
@@ -176,8 +184,10 @@ TEST (vote_processor, no_broadcast_local)
 	nano::node_flags flags;
 	flags.disable_request_loop = true;
 	nano::node_config config1, config2;
+	config1.representative_vote_weight_minimum = 0;
 	config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node (*system.add_node (config1, flags));
+	config2.representative_vote_weight_minimum = 0;
 	config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	config2.peering_port = system.get_available_port ();
 	system.add_node (config2, flags);
@@ -206,7 +216,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_FALSE (node.wallets.reps ().have_half_rep ()); // Genesis balance remaining after `send' is less than the half_rep threshold
 	// Process a vote with a key that is in the local wallet.
 	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch (), nano::vote::duration_max, std::vector<nano::block_hash>{ send->hash () });
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote).at (send->hash ()));
 	// Make sure the vote was processed.
 	auto election (node.active.election (send->qualified_root ()));
 	ASSERT_NE (nullptr, election);
@@ -229,8 +239,10 @@ TEST (vote_processor, local_broadcast_without_a_representative)
 	nano::node_flags flags;
 	flags.disable_request_loop = true;
 	nano::node_config config1, config2;
+	config1.representative_vote_weight_minimum = 0;
 	config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node (*system.add_node (config1, flags));
+	config2.representative_vote_weight_minimum = 0;
 	config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	config2.peering_port = system.get_available_port ();
 	system.add_node (config2, flags);
@@ -254,7 +266,7 @@ TEST (vote_processor, local_broadcast_without_a_representative)
 	node.start_election (send);
 	// Process a vote without a representative
 	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch (), nano::vote::duration_max, std::vector<nano::block_hash>{ send->hash () });
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote).at (send->hash ()));
 	// Make sure the vote was processed.
 	std::shared_ptr<nano::election> election;
 	ASSERT_TIMELY (5s, election = node.active.election (send->qualified_root ()));
@@ -307,7 +319,7 @@ TEST (vote_processor, no_broadcast_local_with_a_principal_representative)
 	ASSERT_TRUE (node.wallets.reps ().have_half_rep ()); // Genesis balance after `send' is over both half_rep and PR threshold.
 	// Process a vote with a key that is in the local wallet.
 	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch (), nano::vote::duration_max, std::vector<nano::block_hash>{ send->hash () });
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote).at (send->hash ()));
 	// Make sure the vote was processed.
 	auto election (node.active.election (send->qualified_root ()));
 	ASSERT_NE (nullptr, election);

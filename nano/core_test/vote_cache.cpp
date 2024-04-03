@@ -42,7 +42,7 @@ TEST (vote_cache, construction)
 	ASSERT_EQ (0, vote_cache.size ());
 	ASSERT_TRUE (vote_cache.empty ());
 	auto hash1 = nano::test::random_hash ();
-	ASSERT_FALSE (vote_cache.find (hash1));
+	ASSERT_TRUE (vote_cache.find (hash1).empty ());
 }
 
 /*
@@ -57,16 +57,12 @@ TEST (vote_cache, insert_one_hash)
 	auto rep1 = create_rep (7);
 	auto hash1 = nano::test::random_hash ();
 	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 1024 * 1024);
-	vote_cache.vote (vote1->hashes.front (), vote1);
+	vote_cache.insert (vote1);
 	ASSERT_EQ (1, vote_cache.size ());
 
 	auto peek1 = vote_cache.find (hash1);
-	ASSERT_TRUE (peek1);
-	ASSERT_EQ (peek1->hash (), hash1);
-	ASSERT_EQ (peek1->voters ().size (), 1);
-	ASSERT_EQ (peek1->voters ().front ().representative, rep1.pub); // account
-	ASSERT_EQ (peek1->voters ().front ().timestamp, 1024 * 1024); // timestamp
-	ASSERT_EQ (peek1->tally (), 7);
+	ASSERT_EQ (peek1.size (), 1);
+	ASSERT_EQ (peek1.front (), vote1);
 
 	auto tops = vote_cache.top (0);
 	ASSERT_EQ (tops.size (), 1);
@@ -92,17 +88,17 @@ TEST (vote_cache, insert_one_hash_many_votes)
 	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 1 * 1024 * 1024);
 	auto vote2 = nano::test::make_vote (rep2, { hash1 }, 2 * 1024 * 1024);
 	auto vote3 = nano::test::make_vote (rep3, { hash1 }, 3 * 1024 * 1024);
-	vote_cache.vote (vote1->hashes.front (), vote1);
-	vote_cache.vote (vote2->hashes.front (), vote2);
-	vote_cache.vote (vote3->hashes.front (), vote3);
+	vote_cache.insert (vote1);
+	vote_cache.insert (vote2);
+	vote_cache.insert (vote3);
 
-	// We have 3 votes but for a single hash, so just one entry in vote cache
 	ASSERT_EQ (1, vote_cache.size ());
 	auto peek1 = vote_cache.find (hash1);
-	ASSERT_TRUE (peek1);
-	ASSERT_EQ (peek1->voters ().size (), 3);
-	// Tally must be the sum of rep weights
-	ASSERT_EQ (peek1->tally (), 7 + 9 + 11);
+	ASSERT_EQ (peek1.size (), 3);
+	// Verify each vote is present
+	ASSERT_TRUE (std::find (peek1.begin (), peek1.end (), vote1) != peek1.end ());
+	ASSERT_TRUE (std::find (peek1.begin (), peek1.end (), vote2) != peek1.end ());
+	ASSERT_TRUE (std::find (peek1.begin (), peek1.end (), vote3) != peek1.end ());
 
 	auto tops = vote_cache.top (0);
 	ASSERT_EQ (tops.size (), 1);
@@ -136,14 +132,14 @@ TEST (vote_cache, insert_many_hashes_many_votes)
 	auto vote3 = nano::test::make_vote (rep3, { hash3 }, 1024 * 1024);
 	auto vote4 = nano::test::make_vote (rep4, { hash1 }, 1024 * 1024);
 	// Insert first 3 votes in cache
-	vote_cache.vote (vote1->hashes.front (), vote1);
-	vote_cache.vote (vote2->hashes.front (), vote2);
-	vote_cache.vote (vote3->hashes.front (), vote3);
+	vote_cache.insert (vote1);
+	vote_cache.insert (vote2);
+	vote_cache.insert (vote3);
 	// Ensure all of those are properly inserted
 	ASSERT_EQ (3, vote_cache.size ());
-	ASSERT_TRUE (vote_cache.find (hash1));
-	ASSERT_TRUE (vote_cache.find (hash2));
-	ASSERT_TRUE (vote_cache.find (hash3));
+	ASSERT_EQ (1, vote_cache.find (hash1).size ());
+	ASSERT_EQ (1, vote_cache.find (hash2).size ());
+	ASSERT_EQ (1, vote_cache.find (hash3).size ());
 
 	// Ensure that first entry in queue is the one for hash3 (rep3 has the highest weight of the first 3 reps)
 	auto tops1 = vote_cache.top (0);
@@ -151,14 +147,12 @@ TEST (vote_cache, insert_many_hashes_many_votes)
 	ASSERT_EQ (tops1[0].hash, hash3);
 	ASSERT_EQ (tops1[0].tally, 11);
 
-	auto peek1 = vote_cache.find (tops1[0].hash);
-	ASSERT_TRUE (peek1);
-	ASSERT_EQ (peek1->voters ().size (), 1);
-	ASSERT_EQ (peek1->tally (), 11);
-	ASSERT_EQ (peek1->hash (), hash3);
+	auto peek1 = vote_cache.find (hash3);
+	ASSERT_EQ (peek1.size (), 1);
+	ASSERT_EQ (peek1.front (), vote3);
 
 	// Now add a vote from rep4 with the highest voting weight
-	vote_cache.vote (vote4->hashes.front (), vote4);
+	vote_cache.insert (vote4);
 
 	// Ensure that the first entry in queue is now the one for hash1 (rep1 + rep4 tally weight)
 	auto tops2 = vote_cache.top (0);
@@ -166,31 +160,26 @@ TEST (vote_cache, insert_many_hashes_many_votes)
 	ASSERT_EQ (tops2[0].hash, hash1);
 	ASSERT_EQ (tops2[0].tally, 7 + 13);
 
-	auto pop1 = vote_cache.find (tops2[0].hash);
-	ASSERT_TRUE (pop1);
-	ASSERT_EQ ((*pop1).voters ().size (), 2);
-	ASSERT_EQ ((*pop1).tally (), 7 + 13);
-	ASSERT_EQ ((*pop1).hash (), hash1);
+	auto pop1 = vote_cache.find (hash1);
+	ASSERT_EQ (pop1.size (), 2);
+	ASSERT_TRUE (std::find (pop1.begin (), pop1.end (), vote1) != pop1.end ());
+	ASSERT_TRUE (std::find (pop1.begin (), pop1.end (), vote4) != pop1.end ());
 
 	// The next entry in queue should be hash3 (rep3 tally weight)
 	ASSERT_EQ (tops2[1].hash, hash3);
 	ASSERT_EQ (tops2[1].tally, 11);
 
-	auto pop2 = vote_cache.find (tops2[1].hash);
-	ASSERT_EQ ((*pop2).voters ().size (), 1);
-	ASSERT_EQ ((*pop2).tally (), 11);
-	ASSERT_EQ ((*pop2).hash (), hash3);
-	ASSERT_TRUE (vote_cache.find (hash3));
+	auto pop2 = vote_cache.find (hash3);
+	ASSERT_EQ (pop2.size (), 1);
+	ASSERT_EQ (pop2.front (), vote3);
 
 	// And last one should be hash2 with rep2 tally weight
 	ASSERT_EQ (tops2[2].hash, hash2);
 	ASSERT_EQ (tops2[2].tally, 9);
 
-	auto pop3 = vote_cache.find (tops2[2].hash);
-	ASSERT_EQ ((*pop3).voters ().size (), 1);
-	ASSERT_EQ ((*pop3).tally (), 9);
-	ASSERT_EQ ((*pop3).hash (), hash2);
-	ASSERT_TRUE (vote_cache.find (hash2));
+	auto pop3 = vote_cache.find (hash2);
+	ASSERT_EQ (pop3.size (), 1);
+	ASSERT_EQ (pop3.front (), vote2);
 }
 
 /*
@@ -206,8 +195,8 @@ TEST (vote_cache, insert_duplicate)
 	auto rep1 = create_rep (9);
 	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 1 * 1024 * 1024);
 	auto vote2 = nano::test::make_vote (rep1, { hash1 }, 1 * 1024 * 1024);
-	vote_cache.vote (vote1->hashes.front (), vote1);
-	vote_cache.vote (vote2->hashes.front (), vote2);
+	vote_cache.insert (vote1);
+	vote_cache.insert (vote2);
 	ASSERT_EQ (1, vote_cache.size ());
 }
 
@@ -223,18 +212,15 @@ TEST (vote_cache, insert_newer)
 	auto hash1 = nano::test::random_hash ();
 	auto rep1 = create_rep (9);
 	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 1 * 1024 * 1024);
-	vote_cache.vote (vote1->hashes.front (), vote1);
+	vote_cache.insert (vote1);
 	auto peek1 = vote_cache.find (hash1);
-	ASSERT_TRUE (peek1);
+	ASSERT_EQ (peek1.size (), 1);
+	ASSERT_EQ (peek1.front (), vote1);
 	auto vote2 = nano::test::make_final_vote (rep1, { hash1 });
-	vote_cache.vote (vote2->hashes.front (), vote2);
+	vote_cache.insert (vote2);
 	auto peek2 = vote_cache.find (hash1);
-	ASSERT_TRUE (peek2);
-	ASSERT_EQ (1, vote_cache.size ());
-	ASSERT_EQ (1, peek2->voters ().size ());
-	// Second entry should have timestamp greater than the first one
-	ASSERT_GT (peek2->voters ().front ().timestamp, peek1->voters ().front ().timestamp);
-	ASSERT_EQ (peek2->voters ().front ().timestamp, std::numeric_limits<uint64_t>::max ()); // final timestamp
+	ASSERT_EQ (peek2.size (), 1);
+	ASSERT_EQ (peek2.front (), vote2); // vote2 should replace vote1 as it has a higher timestamp
 }
 
 /*
@@ -249,16 +235,15 @@ TEST (vote_cache, insert_older)
 	auto hash1 = nano::test::random_hash ();
 	auto rep1 = create_rep (9);
 	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 2 * 1024 * 1024);
-	vote_cache.vote (vote1->hashes.front (), vote1);
+	vote_cache.insert (vote1);
 	auto peek1 = vote_cache.find (hash1);
-	ASSERT_TRUE (peek1);
+	ASSERT_EQ (peek1.size (), 1);
+	ASSERT_EQ (peek1.front (), vote1);
 	auto vote2 = nano::test::make_vote (rep1, { hash1 }, 1 * 1024 * 1024);
-	vote_cache.vote (vote2->hashes.front (), vote2);
+	vote_cache.insert (vote2);
 	auto peek2 = vote_cache.find (hash1);
-	ASSERT_TRUE (peek2);
-	ASSERT_EQ (1, vote_cache.size ());
-	ASSERT_EQ (1, peek2->voters ().size ());
-	ASSERT_EQ (peek2->voters ().front ().timestamp, peek1->voters ().front ().timestamp); // timestamp2 == timestamp1
+	ASSERT_EQ (peek2.size (), 1);
+	ASSERT_EQ (peek2.front (), vote1); // vote1 should still be in cache as it has a higher timestamp
 }
 
 /*
@@ -280,24 +265,24 @@ TEST (vote_cache, erase)
 	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 1024 * 1024);
 	auto vote2 = nano::test::make_vote (rep2, { hash2 }, 1024 * 1024);
 	auto vote3 = nano::test::make_vote (rep3, { hash3 }, 1024 * 1024);
-	vote_cache.vote (vote1->hashes.front (), vote1);
-	vote_cache.vote (vote2->hashes.front (), vote2);
-	vote_cache.vote (vote3->hashes.front (), vote3);
+	vote_cache.insert (vote1);
+	vote_cache.insert (vote2);
+	vote_cache.insert (vote3);
 	ASSERT_EQ (3, vote_cache.size ());
 	ASSERT_FALSE (vote_cache.empty ());
-	ASSERT_TRUE (vote_cache.find (hash1));
-	ASSERT_TRUE (vote_cache.find (hash2));
-	ASSERT_TRUE (vote_cache.find (hash3));
+	ASSERT_FALSE (vote_cache.find (hash1).empty ());
+	ASSERT_FALSE (vote_cache.find (hash2).empty ());
+	ASSERT_FALSE (vote_cache.find (hash3).empty ());
 	vote_cache.erase (hash2);
 	ASSERT_EQ (2, vote_cache.size ());
-	ASSERT_TRUE (vote_cache.find (hash1));
-	ASSERT_FALSE (vote_cache.find (hash2));
-	ASSERT_TRUE (vote_cache.find (hash3));
+	ASSERT_FALSE (vote_cache.find (hash1).empty ());
+	ASSERT_TRUE (vote_cache.find (hash2).empty ());
+	ASSERT_FALSE (vote_cache.find (hash3).empty ());
 	vote_cache.erase (hash1);
 	vote_cache.erase (hash3);
-	ASSERT_FALSE (vote_cache.find (hash1));
-	ASSERT_FALSE (vote_cache.find (hash2));
-	ASSERT_FALSE (vote_cache.find (hash3));
+	ASSERT_TRUE (vote_cache.find (hash1).empty ());
+	ASSERT_TRUE (vote_cache.find (hash2).empty ());
+	ASSERT_TRUE (vote_cache.find (hash3).empty ());
 	ASSERT_TRUE (vote_cache.empty ());
 }
 
@@ -319,7 +304,7 @@ TEST (vote_cache, overfill)
 		auto rep1 = create_rep (count - n);
 		auto hash1 = nano::test::random_hash ();
 		auto vote1 = nano::test::make_vote (rep1, { hash1 }, 1024 * 1024);
-		vote_cache.vote (vote1->hashes.front (), vote1);
+		vote_cache.insert (vote1);
 	}
 	ASSERT_LT (vote_cache.size (), count);
 	// Check that oldest votes are dropped first
@@ -343,7 +328,7 @@ TEST (vote_cache, overfill_entry)
 	{
 		auto rep1 = create_rep (9);
 		auto vote1 = nano::test::make_vote (rep1, { hash1 }, 1024 * 1024);
-		vote_cache.vote (vote1->hashes.front (), vote1);
+		vote_cache.insert (vote1);
 	}
 	ASSERT_EQ (1, vote_cache.size ());
 }
@@ -359,9 +344,9 @@ TEST (vote_cache, age_cutoff)
 	auto hash1 = nano::test::random_hash ();
 	auto rep1 = create_rep (9);
 	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 3);
-	vote_cache.vote (vote1->hashes.front (), vote1);
+	vote_cache.insert (vote1);
 	ASSERT_EQ (1, vote_cache.size ());
-	ASSERT_TRUE (vote_cache.find (hash1));
+	ASSERT_FALSE (vote_cache.find (hash1).empty ());
 
 	auto tops1 = vote_cache.top (0);
 	ASSERT_EQ (tops1.size (), 1);

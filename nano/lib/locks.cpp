@@ -257,8 +257,6 @@ char const * nano::mutex_identifier (mutexes mutex)
 			return "block_uniquer";
 		case mutexes::blockstore_cache:
 			return "blockstore_cache";
-		case mutexes::confirmation_height_processor:
-			return "confirmation_height_processor";
 		case mutexes::election_winner_details:
 			return "election_winner_details";
 		case mutexes::gap_cache:

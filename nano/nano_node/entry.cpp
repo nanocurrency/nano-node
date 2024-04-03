@@ -4,7 +4,9 @@
 #include <nano/lib/thread_runner.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/cli.hpp>
+#include <nano/node/confirming_set.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
@@ -167,7 +169,7 @@ int main (int argc, char * const * argv)
 				auto const & hardcoded = bootstrap_weights.second;
 				auto const hardcoded_height = bootstrap_weights.first;
 				auto const ledger_unfiltered = node->ledger.cache.rep_weights.get_rep_amounts ();
-				auto const ledger_height = node->ledger.cache.block_count.load ();
+				auto const ledger_height = node->ledger.block_count ();
 
 				auto get_total = [] (decltype (bootstrap_weights.second) const & reps) -> nano::uint128_union {
 					return std::accumulate (reps.begin (), reps.end (), nano::uint128_t{ 0 }, [] (auto sum, auto const & rep) { return sum + rep.second; });
@@ -325,7 +327,7 @@ int main (int argc, char * const * argv)
 			node_flags.generate_cache.block_count = true;
 			nano::inactive_node inactive_node (data_path, node_flags);
 			auto node = inactive_node.node;
-			std::cout << boost::str (boost::format ("Block count: %1%\n") % node->ledger.cache.block_count);
+			std::cout << boost::str (boost::format ("Block count: %1%\n") % node->ledger.block_count ());
 		}
 		else if (vm.count ("debug_bootstrap_generate"))
 		{
@@ -446,7 +448,7 @@ int main (int argc, char * const * argv)
 			nano::update_flags (node_flags, vm);
 			node_flags.generate_cache.account_count = true;
 			nano::inactive_node inactive_node (data_path, node_flags);
-			std::cout << boost::str (boost::format ("Frontier count: %1%\n") % inactive_node.node->ledger.cache.account_count);
+			std::cout << boost::str (boost::format ("Frontier count: %1%\n") % inactive_node.node->ledger.account_count ());
 		}
 		else if (vm.count ("debug_profile_kdf"))
 		{
@@ -985,14 +987,14 @@ int main (int argc, char * const * argv)
 				blocks.pop_front ();
 			}
 			nano::timer<std::chrono::seconds> timer_l (nano::timer_state::started);
-			while (node->ledger.cache.block_count != max_blocks + 1)
+			while (node->ledger.block_count () != max_blocks + 1)
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (10));
 				// Message each 15 seconds
 				if (timer_l.after_deadline (std::chrono::seconds (15)))
 				{
 					timer_l.restart ();
-					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked), %3% remaining") % node->ledger.cache.block_count % node->unchecked.count () % node->block_processor.size ()) << std::endl;
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked), %3% remaining") % node->ledger.block_count () % node->unchecked.count () % node->block_processor.size ()) << std::endl;
 				}
 			}
 
@@ -1000,7 +1002,7 @@ int main (int argc, char * const * argv)
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
 			node->stop ();
 			std::cout << boost::str (boost::format ("%|1$ 12d| us \n%2% blocks per second\n") % time % (max_blocks * 1000000 / time));
-			release_assert (node->ledger.cache.block_count == max_blocks + 1);
+			release_assert (node->ledger.block_count () == max_blocks + 1);
 		}
 		else if (vm.count ("debug_profile_votes"))
 		{
@@ -1129,8 +1131,8 @@ int main (int argc, char * const * argv)
 				}
 			}
 			std::cout << boost::str (boost::format ("Starting generating %1% blocks...\n") % (count * 2));
-			boost::asio::io_context io_ctx1;
-			boost::asio::io_context io_ctx2;
+			auto io_ctx1 = std::make_shared<boost::asio::io_context> ();
+			auto io_ctx2 = std::make_shared<boost::asio::io_context> ();
 			nano::work_pool work{ network_params.network, std::numeric_limits<unsigned>::max () };
 			auto path1 (nano::unique_path ());
 			auto path2 (nano::unique_path ());
@@ -1200,25 +1202,25 @@ int main (int argc, char * const * argv)
 				node1->block_processor.add (block);
 			}
 			auto iteration (0);
-			while (node1->ledger.cache.block_count != count * 2 + 1)
+			while (node1->ledger.block_count () != count * 2 + 1)
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (500));
 				if (++iteration % 60 == 0)
 				{
-					std::cout << boost::str (boost::format ("%1% blocks processed\n") % node1->ledger.cache.block_count);
+					std::cout << boost::str (boost::format ("%1% blocks processed\n") % node1->ledger.block_count ());
 				}
 			}
 			// Confirm blocks for node1
 			for (auto & block : blocks)
 			{
-				node1->confirmation_height_processor.add (block);
+				node1->confirming_set.add (block->hash ());
 			}
-			while (node1->ledger.cache.cemented_count != node1->ledger.cache.block_count)
+			while (node1->ledger.cemented_count () != node1->ledger.block_count ())
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (500));
 				if (++iteration % 60 == 0)
 				{
-					std::cout << boost::str (boost::format ("%1% blocks cemented\n") % node1->ledger.cache.cemented_count);
+					std::cout << boost::str (boost::format ("%1% blocks cemented\n") % node1->ledger.cemented_count ());
 				}
 			}
 
@@ -1248,12 +1250,12 @@ int main (int argc, char * const * argv)
 				node2->block_processor.add (block);
 				blocks.pop_front ();
 			}
-			while (node2->ledger.cache.block_count != count * 2 + 1)
+			while (node2->ledger.block_count () != count * 2 + 1)
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (500));
 				if (++iteration % 60 == 0)
 				{
-					std::cout << boost::str (boost::format ("%1% blocks processed\n") % node2->ledger.cache.block_count);
+					std::cout << boost::str (boost::format ("%1% blocks processed\n") % node2->ledger.block_count ());
 				}
 			}
 			// Insert representative
@@ -1272,19 +1274,19 @@ int main (int argc, char * const * argv)
 			auto begin (std::chrono::high_resolution_clock::now ());
 			std::cout << boost::str (boost::format ("Starting confirming %1% frontiers (test node)\n") % (count + 1));
 			// Wait for full frontiers confirmation
-			while (node2->ledger.cache.cemented_count != node2->ledger.cache.block_count)
+			while (node2->ledger.cemented_count () != node2->ledger.block_count ())
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (25));
 				if (++iteration % 1200 == 0)
 				{
-					std::cout << boost::str (boost::format ("%1% blocks confirmed\n") % node2->ledger.cache.cemented_count);
+					std::cout << boost::str (boost::format ("%1% blocks confirmed\n") % node2->ledger.cemented_count ());
 				}
 			}
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
 			std::cout << boost::str (boost::format ("%|1$ 12d| us \n%2% frontiers per second\n") % time % ((count + 1) * 1000000 / time));
-			io_ctx1.stop ();
-			io_ctx2.stop ();
+			io_ctx1->stop ();
+			io_ctx2->stop ();
 			runner1.join ();
 			runner2.join ();
 			node1->stop ();
@@ -1588,7 +1590,7 @@ int main (int argc, char * const * argv)
 						calculated_representative = block->representative_field ().value ();
 					}
 					// Retrieving successor block hash
-					hash = node->store.block.successor (transaction, hash);
+					hash = node->ledger.successor (transaction, hash).value_or (0);
 					// Retrieving block data
 					if (!hash.is_zero ())
 					{
@@ -1791,7 +1793,7 @@ int main (int argc, char * const * argv)
 				nano::inactive_node inactive_node (data_path, node_flags);
 				auto source_node = inactive_node.node;
 				auto transaction (source_node->store.tx_begin_read ());
-				block_count = source_node->ledger.cache.block_count;
+				block_count = source_node->ledger.block_count ();
 				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
 				for (auto i (source_node->store.account.begin (transaction)), n (source_node->store.account.end ()); i != n; ++i)
 				{
@@ -1822,7 +1824,7 @@ int main (int argc, char * const * argv)
 				}
 			}
 			nano::timer<std::chrono::seconds> timer_l (nano::timer_state::started);
-			while (node.node->ledger.cache.block_count != block_count)
+			while (node.node->ledger.block_count () != block_count)
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (500));
 				// Add epoch open blocks again if required
@@ -1837,7 +1839,7 @@ int main (int argc, char * const * argv)
 				if (timer_l.after_deadline (std::chrono::seconds (60)))
 				{
 					timer_l.restart ();
-					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked)") % node.node->ledger.cache.block_count % node.node->unchecked.count ()) << std::endl;
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked)") % node.node->ledger.block_count () % node.node->unchecked.count ()) << std::endl;
 				}
 			}
 
@@ -1847,7 +1849,7 @@ int main (int argc, char * const * argv)
 			auto seconds (time / us_in_second);
 			nano::remove_temporary_directories ();
 			std::cout << boost::str (boost::format ("%|1$ 12d| seconds \n%2% blocks per second") % seconds % (block_count * us_in_second / time)) << std::endl;
-			release_assert (node.node->ledger.cache.block_count == block_count);
+			release_assert (node.node->ledger.block_count () == block_count);
 		}
 		else if (vm.count ("debug_peers"))
 		{
@@ -1866,7 +1868,7 @@ int main (int argc, char * const * argv)
 			node_flags.generate_cache.cemented_count = true;
 			nano::update_flags (node_flags, vm);
 			nano::inactive_node node (data_path, node_flags);
-			std::cout << "Total cemented block count: " << node.node->ledger.cache.cemented_count << std::endl;
+			std::cout << "Total cemented block count: " << node.node->ledger.cemented_count () << std::endl;
 		}
 		else if (vm.count ("debug_prune"))
 		{
@@ -1990,20 +1992,6 @@ int main (int argc, char * const * argv)
 			{
 				output_account_version_number (i, unopened_account_version_totals[i]);
 			}
-		}
-		else if (vm.count ("debug_unconfirmed_frontiers"))
-		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
-			auto node = inactive_node->node;
-
-			auto unconfirmed_frontiers = node->ledger.unconfirmed_frontiers ();
-			std::cout << "Account: Height delta | Frontier | Confirmed frontier\n";
-			for (auto const & [height_delta, unconfirmed_info] : unconfirmed_frontiers)
-			{
-				std::cout << (boost::format ("%1%: %2% %3% %4%\n") % unconfirmed_info.account.to_account () % height_delta % unconfirmed_info.frontier.to_string () % unconfirmed_info.cemented_frontier.to_string ()).str ();
-			}
-
-			std::cout << "\nNumber of unconfirmed frontiers: " << unconfirmed_frontiers.size () << std::endl;
 		}
 		else if (vm.count ("version"))
 		{

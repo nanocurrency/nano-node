@@ -1,6 +1,13 @@
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/utility.hpp>
 
+#include <magic_enum.hpp>
+
+std::string_view nano::thread_role::to_string (nano::thread_role::name name)
+{
+	return magic_enum::enum_name (name);
+}
+
 std::string nano::thread_role::get_string (nano::thread_role::name role)
 {
 	std::string thread_role_name_string;
@@ -108,6 +115,15 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 			break;
 		case nano::thread_role::name::rep_tiers:
 			thread_role_name_string = "Rep tiers";
+			break;
+		case nano::thread_role::name::network_cleanup:
+			thread_role_name_string = "Net cleanup";
+			break;
+		case nano::thread_role::name::network_keepalive:
+			thread_role_name_string = "Net keepalive";
+			break;
+		case nano::thread_role::name::network_reachout:
+			thread_role_name_string = "Net reachout";
 			break;
 		default:
 			debug_assert (false && "nano::thread_role::get_string unhandled thread role");

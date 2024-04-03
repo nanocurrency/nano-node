@@ -1,6 +1,8 @@
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/parallel_traversal.hpp>
 #include <nano/store/lmdb/iterator.hpp>
 #include <nano/store/lmdb/lmdb.hpp>
 #include <nano/store/lmdb/wallet_value.hpp>
@@ -16,7 +18,6 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 	// clang-format off
 	nano::store::component{
 		block_store,
-		frontier_store,
 		account_store,
 		pending_store,
 		online_weight_store,
@@ -24,11 +25,11 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 		peer_store,
 		confirmation_height_store,
 		final_vote_store,
-		version_store
+		version_store,
+		rep_weight_store
 	},
 	// clang-format on
 	block_store{ *this },
-	frontier_store{ *this },
 	account_store{ *this },
 	pending_store{ *this },
 	online_weight_store{ *this },
@@ -37,6 +38,7 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 	confirmation_height_store{ *this },
 	final_vote_store{ *this },
 	version_store{ *this },
+	rep_weight_store{ *this },
 	logger{ logger_a },
 	env (error, path_a, nano::store::lmdb::env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
 	mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
@@ -192,7 +194,6 @@ nano::store::lmdb::txn_callbacks nano::store::lmdb::component::create_txn_callba
 
 void nano::store::lmdb::component::open_databases (bool & error_a, store::transaction const & transaction_a, unsigned flags)
 {
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "frontiers", flags, &frontier_store.frontiers_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight_store.online_weight_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &version_store.meta_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peer_store.peers_handle) != 0;
@@ -204,6 +205,7 @@ void nano::store::lmdb::component::open_databases (bool & error_a, store::transa
 	pending_store.pending_handle = pending_store.pending_v0_handle;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "final_votes", flags, &final_vote_store.final_votes_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "blocks", MDB_CREATE, &block_store.blocks_handle) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "rep_weights", flags, &rep_weight_store.rep_weights_handle) != 0;
 }
 
 bool nano::store::lmdb::component::do_upgrades (store::write_transaction & transaction_a, nano::ledger_constants & constants, bool & needs_vacuuming)
@@ -221,6 +223,12 @@ bool nano::store::lmdb::component::do_upgrades (store::write_transaction & trans
 			upgrade_v21_to_v22 (transaction_a);
 			[[fallthrough]];
 		case 22:
+			upgrade_v22_to_v23 (transaction_a);
+			[[fallthrough]];
+		case 23:
+			upgrade_v23_to_v24 (transaction_a);
+			[[fallthrough]];
+		case 24:
 			break;
 		default:
 			logger.critical (nano::log::type::lmdb, "The version of the ledger ({}) is too high for this node", version_l);
@@ -240,6 +248,50 @@ void nano::store::lmdb::component::upgrade_v21_to_v22 (store::write_transaction 
 	version.put (transaction_a, 22);
 
 	logger.info (nano::log::type::lmdb, "Upgrading database from v21 to v22 completed");
+}
+
+// Fill rep_weights table with all existing representatives and their vote weight
+void nano::store::lmdb::component::upgrade_v22_to_v23 (store::write_transaction const & transaction_a)
+{
+	logger.info (nano::log::type::lmdb, "Upgrading database from v22 to v23...");
+	auto i{ make_iterator<nano::account, nano::account_info_v22> (transaction_a, tables::accounts) };
+	auto end{ store::iterator<nano::account, nano::account_info_v22> (nullptr) };
+	uint64_t processed_accounts = 0;
+	for (; i != end; ++i)
+	{
+		if (!i->second.balance.is_zero ())
+		{
+			nano::uint128_t total{ 0 };
+			nano::store::lmdb::db_val value;
+			auto status = get (transaction_a, tables::rep_weights, i->second.representative, value);
+			if (success (status))
+			{
+				total = nano::amount{ value }.number ();
+			}
+			total += i->second.balance.number ();
+			status = put (transaction_a, tables::rep_weights, i->second.representative, nano::amount{ total });
+			release_assert_success (status);
+		}
+		processed_accounts++;
+		if (processed_accounts % 250000 == 0)
+		{
+			logger.info (nano::log::type::lmdb, "processed {} accounts", processed_accounts);
+		}
+	}
+	logger.info (nano::log::type::lmdb, "processed {} accounts", processed_accounts);
+	version.put (transaction_a, 23);
+	logger.info (nano::log::type::lmdb, "Upgrading database from v22 to v23 completed");
+}
+
+void nano::store::lmdb::component::upgrade_v23_to_v24 (store::write_transaction const & transaction_a)
+{
+	logger.info (nano::log::type::lmdb, "Upgrading database from v23 to v24...");
+
+	MDB_dbi frontiers_handle{ 0 };
+	release_assert (!mdb_dbi_open (env.tx (transaction_a), "frontiers", MDB_CREATE, &frontiers_handle));
+	release_assert (!mdb_drop (env.tx (transaction_a), frontiers_handle, 1)); // del = 1, to delete it from the environment and close the DB handle.
+	version.put (transaction_a, 24);
+	logger.info (nano::log::type::lmdb, "Upgrading database from v23 to v24 completed");
 }
 
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
@@ -319,8 +371,6 @@ MDB_dbi nano::store::lmdb::component::table_to_dbi (tables table_a) const
 {
 	switch (table_a)
 	{
-		case tables::frontiers:
-			return frontier_store.frontiers_handle;
 		case tables::accounts:
 			return account_store.accounts_handle;
 		case tables::blocks:
@@ -339,6 +389,8 @@ MDB_dbi nano::store::lmdb::component::table_to_dbi (tables table_a) const
 			return confirmation_height_store.confirmation_height_handle;
 		case tables::final_votes:
 			return final_vote_store.final_votes_handle;
+		case tables::rep_weights:
+			return rep_weight_store.rep_weights_handle;
 		default:
 			release_assert (false);
 			return peer_store.peers_handle;

@@ -463,12 +463,13 @@ class socket_transport : public nano::ipc::transport
 {
 public:
 	socket_transport (nano::ipc::ipc_server & server_a, ENDPOINT_TYPE endpoint_a, nano::ipc::ipc_config_transport & config_transport_a, int concurrency_a) :
-		server (server_a), config_transport (config_transport_a)
+		server (server_a),
+		config_transport (config_transport_a)
 	{
 		// Using a per-transport event dispatcher?
 		if (concurrency_a > 0)
 		{
-			io_ctx = std::make_unique<boost::asio::io_context> ();
+			io_ctx = std::make_shared<boost::asio::io_context> ();
 		}
 
 		boost::asio::socket_base::reuse_address option (true);
@@ -482,7 +483,7 @@ public:
 		// A separate io_context for domain sockets may facilitate better performance on some systems.
 		if (concurrency_a > 0)
 		{
-			runner = std::make_unique<nano::thread_runner> (*io_ctx, static_cast<unsigned> (concurrency_a));
+			runner = std::make_unique<nano::thread_runner> (io_ctx, static_cast<unsigned> (concurrency_a));
 		}
 	}
 
@@ -510,7 +511,7 @@ public:
 			}
 			else
 			{
-				node->logger.error (nano::log::type::ipc, "Acceptor error: ", ec.message ());
+				node->logger.error (nano::log::type::ipc, "Acceptor error: {}", ec.message ());
 			}
 
 			if (ec != boost::asio::error::operation_aborted && acceptor->is_open ())
@@ -544,7 +545,7 @@ private:
 	nano::ipc::ipc_server & server;
 	nano::ipc::ipc_config_transport & config_transport;
 	std::unique_ptr<nano::thread_runner> runner;
-	std::unique_ptr<boost::asio::io_context> io_ctx;
+	std::shared_ptr<boost::asio::io_context> io_ctx;
 	std::unique_ptr<ACCEPTOR_TYPE> acceptor;
 };
 

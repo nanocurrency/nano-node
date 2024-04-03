@@ -34,7 +34,7 @@ public:
 		node_rpc_config{},
 		rpc_config{ node.network_params.network, port, true },
 		ipc{ node, node_rpc_config },
-		ipc_rpc_processor{ system.io_ctx, rpc_config },
+		ipc_rpc_processor{ *system.io_ctx, rpc_config },
 		rpc{ system.io_ctx, rpc_config, ipc_rpc_processor }
 	{
 	}
@@ -169,10 +169,10 @@ TEST (bootstrap_ascending, profile)
 		}
 	});*/
 
-	std::cout << "server count: " << server->ledger.cache.block_count << std::endl;
+	std::cout << "server count: " << server->ledger.block_count () << std::endl;
 
 	nano::test::rate_observer rate;
-	rate.observe ("count", [&] () { return client->ledger.cache.block_count.load (); });
+	rate.observe ("count", [&] () { return client->ledger.block_count (); });
 	rate.observe ("unchecked", [&] () { return client->unchecked.count (); });
 	rate.observe ("block_processor", [&] () { return client->block_processor.size (); });
 	rate.observe ("priority", [&] () { return client->ascendboot.priority_size (); });

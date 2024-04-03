@@ -30,7 +30,6 @@ public:
 	void sideband_set (nano::block_sideband const &);
 	bool has_sideband () const;
 	std::string to_json () const;
-	virtual void hash (blake2b_state &) const = 0;
 	virtual uint64_t block_work () const = 0;
 	virtual void block_work_set (uint64_t) = 0;
 	// Previous block or account number for open blocks
@@ -55,6 +54,7 @@ public:
 	bool is_send () const noexcept;
 	bool is_receive () const noexcept;
 	bool is_change () const noexcept;
+	bool is_epoch () const noexcept;
 
 public: // Direct access to the block fields or nullopt if the block type does not have the specified field
 	// Returns account field or account from sideband
@@ -83,6 +83,7 @@ public: // Direct access to the block fields or nullopt if the block type does n
 	virtual std::optional<nano::block_hash> source_field () const;
 
 protected:
+	virtual void generate_hash (blake2b_state &) const = 0;
 	mutable nano::block_hash cached_hash{ 0 };
 	/**
 	 * Contextual details about a block, some fields may or may not be set depending on block type.
@@ -120,8 +121,6 @@ public:
 	send_block (bool &, nano::stream &);
 	send_block (bool &, boost::property_tree::ptree const &);
 	virtual ~send_block () = default;
-	using nano::block::hash;
-	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::root const & root () const override;
@@ -150,6 +149,9 @@ public: // Send block fields
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
+
+protected:
+	void generate_hash (blake2b_state &) const override;
 };
 
 class receive_hashables
@@ -173,8 +175,6 @@ public:
 	receive_block (bool &, nano::stream &);
 	receive_block (bool &, boost::property_tree::ptree const &);
 	virtual ~receive_block () = default;
-	using nano::block::hash;
-	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::root const & root () const override;
@@ -202,6 +202,9 @@ public: // Receive block fields
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
+
+protected:
+	void generate_hash (blake2b_state &) const override;
 };
 
 class open_hashables
@@ -227,8 +230,6 @@ public:
 	open_block (bool &, nano::stream &);
 	open_block (bool &, boost::property_tree::ptree const &);
 	virtual ~open_block () = default;
-	using nano::block::hash;
-	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::root const & root () const override;
@@ -258,6 +259,9 @@ public: // Open block fields
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
+
+protected:
+	void generate_hash (blake2b_state &) const override;
 };
 
 class change_hashables
@@ -281,8 +285,6 @@ public:
 	change_block (bool &, nano::stream &);
 	change_block (bool &, boost::property_tree::ptree const &);
 	virtual ~change_block () = default;
-	using nano::block::hash;
-	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::root const & root () const override;
@@ -310,6 +312,9 @@ public: // Change block fields
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
+
+protected:
+	void generate_hash (blake2b_state &) const override;
 };
 
 class state_hashables
@@ -346,8 +351,6 @@ public:
 	state_block (bool &, nano::stream &);
 	state_block (bool &, boost::property_tree::ptree const &);
 	virtual ~state_block () = default;
-	using nano::block::hash;
-	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::root const & root () const override;
@@ -378,6 +381,9 @@ public: // State block fields
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
+
+protected:
+	void generate_hash (blake2b_state &) const override;
 };
 
 class block_visitor

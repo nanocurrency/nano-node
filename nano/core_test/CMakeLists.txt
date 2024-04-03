@@ -12,8 +12,8 @@ add_executable(
   bootstrap_ascending.cpp
   bootstrap_server.cpp
   cli.cpp
-  confirmation_height.cpp
   confirmation_solicitor.cpp
+  confirming_set.cpp
   conflicts.cpp
   difficulty.cpp
   distributed_work.cpp
@@ -25,6 +25,7 @@ add_executable(
   frontiers_confirmation.cpp
   ipc.cpp
   ledger.cpp
+  ledger_confirm.cpp
   locks.cpp
   logging.cpp
   message.cpp
@@ -39,6 +40,7 @@ add_executable(
   processor_service.cpp
   rep_crawler.cpp
   peer_container.cpp
+  rep_weight_store.cpp
   scheduler_buckets.cpp
   request_aggregator.cpp
   signal_manager.cpp

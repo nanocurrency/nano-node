@@ -72,8 +72,6 @@ add_library(
   rate_limiting.hpp
   rate_limiting.cpp
   relaxed_atomic.hpp
-  rep_weights.hpp
-  rep_weights.cpp
   rocksdbconfig.hpp
   rocksdbconfig.cpp
   rpc_handler_interface.hpp

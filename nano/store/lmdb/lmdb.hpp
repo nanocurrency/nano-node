@@ -11,13 +11,13 @@
 #include <nano/store/lmdb/confirmation_height.hpp>
 #include <nano/store/lmdb/db_val.hpp>
 #include <nano/store/lmdb/final_vote.hpp>
-#include <nano/store/lmdb/frontier.hpp>
 #include <nano/store/lmdb/iterator.hpp>
 #include <nano/store/lmdb/lmdb_env.hpp>
 #include <nano/store/lmdb/online_weight.hpp>
 #include <nano/store/lmdb/peer.hpp>
 #include <nano/store/lmdb/pending.hpp>
 #include <nano/store/lmdb/pruned.hpp>
+#include <nano/store/lmdb/rep_weight.hpp>
 #include <nano/store/lmdb/transaction_impl.hpp>
 #include <nano/store/lmdb/version.hpp>
 #include <nano/store/versioning.hpp>
@@ -44,23 +44,23 @@ private:
 	nano::store::lmdb::block block_store;
 	nano::store::lmdb::confirmation_height confirmation_height_store;
 	nano::store::lmdb::final_vote final_vote_store;
-	nano::store::lmdb::frontier frontier_store;
 	nano::store::lmdb::online_weight online_weight_store;
 	nano::store::lmdb::peer peer_store;
 	nano::store::lmdb::pending pending_store;
 	nano::store::lmdb::pruned pruned_store;
 	nano::store::lmdb::version version_store;
+	nano::store::lmdb::rep_weight rep_weight_store;
 
 	friend class nano::store::lmdb::account;
 	friend class nano::store::lmdb::block;
 	friend class nano::store::lmdb::confirmation_height;
 	friend class nano::store::lmdb::final_vote;
-	friend class nano::store::lmdb::frontier;
 	friend class nano::store::lmdb::online_weight;
 	friend class nano::store::lmdb::peer;
 	friend class nano::store::lmdb::pending;
 	friend class nano::store::lmdb::pruned;
 	friend class nano::store::lmdb::version;
+	friend class nano::store::lmdb::rep_weight;
 
 public:
 	component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
@@ -113,6 +113,8 @@ public:
 private:
 	bool do_upgrades (store::write_transaction &, nano::ledger_constants & constants, bool &);
 	void upgrade_v21_to_v22 (store::write_transaction const &);
+	void upgrade_v22_to_v23 (store::write_transaction const &);
+	void upgrade_v23_to_v24 (store::write_transaction const &);
 
 	void open_databases (bool &, store::transaction const &, unsigned);
 

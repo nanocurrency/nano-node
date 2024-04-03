@@ -46,6 +46,7 @@ public:
 	void accounts_pending ();
 	void accounts_receivable ();
 	void active_difficulty ();
+	void election_statistics ();
 	void available_supply ();
 	void block_info ();
 	void block_confirm ();
@@ -64,7 +65,6 @@ public:
 	void confirmation_history ();
 	void confirmation_info ();
 	void confirmation_quorum ();
-	void confirmation_height_currently_processing ();
 	void debug_bootstrap_priority_info ();
 	void database_txn_tracker ();
 	void delegators ();

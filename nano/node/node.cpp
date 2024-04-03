@@ -2,8 +2,12 @@
 #include <nano/lib/stream.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/confirming_set.hpp>
 #include <nano/node/daemonconfig.hpp>
+#include <nano/node/election_status.hpp>
+#include <nano/node/local_vote_history.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/component.hpp>
@@ -12,6 +16,8 @@
 #include <nano/node/scheduler/optimistic.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/telemetry.hpp>
+#include <nano/node/transport/tcp_listener.hpp>
+#include <nano/node/vote_generator.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
@@ -120,15 +126,16 @@ nano::keypair nano::load_or_create_node_id (std::filesystem::path const & applic
 	}
 }
 
-nano::node::node (boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, std::filesystem::path const & application_path_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
+nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, uint16_t peering_port_a, std::filesystem::path const & application_path_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
 	node (io_ctx_a, application_path_a, nano::node_config (peering_port_a), work_a, flags_a, seq)
 {
 }
 
-nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path const & application_path_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
+nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesystem::path const & application_path_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
+	io_ctx_shared{ io_ctx_a },
+	io_ctx{ *io_ctx_shared },
 	node_id{ load_or_create_node_id (application_path_a) },
 	write_database_queue (!flags_a.force_use_write_database_queue && (config_a.rocksdb_config.enable)),
-	io_ctx (io_ctx_a),
 	node_initialized_latch (1),
 	config (config_a),
 	network_params{ config.network_params },
@@ -144,7 +151,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	unchecked{ config.max_unchecked_blocks, stats, flags.disable_block_processor_unchecked_deletion },
 	wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
 	wallets_store (*wallets_store_impl),
-	ledger_impl{ std::make_unique<nano::ledger> (store, stats, network_params.ledger, flags_a.generate_cache) },
+	ledger_impl{ std::make_unique<nano::ledger> (store, stats, network_params.ledger, flags_a.generate_cache, config_a.representative_vote_weight_minimum.number ()) },
 	ledger{ *ledger_impl },
 	outbound_limiter{ outbound_bandwidth_limiter_config (config) },
 	// empty `config.peering_port` means the user made no port choice at all;
@@ -164,19 +171,24 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	tcp_listener{ std::make_shared<nano::transport::tcp_listener> (network.port, *this, config.tcp_incoming_connections_max) },
 	application_path (application_path_a),
 	port_mapping (*this),
+	block_processor (*this, write_database_queue),
+	confirming_set_impl{ std::make_unique<nano::confirming_set> (ledger, write_database_queue, config.confirming_set_batch_time) },
+	confirming_set{ *confirming_set_impl },
+	active_impl{ std::make_unique<nano::active_transactions> (*this, confirming_set, block_processor) },
+	active{ *active_impl },
 	rep_crawler (config.rep_crawler, *this),
 	rep_tiers{ ledger, network_params, online_reps, stats, logger },
 	vote_processor{ active, observers, stats, config, flags, logger, online_reps, rep_crawler, ledger, network_params, rep_tiers },
 	warmed_up (0),
-	block_processor (*this, write_database_queue),
 	online_reps (ledger, config),
-	history{ config.network_params.voting },
+	history_impl{ std::make_unique<nano::local_vote_history> (config.network_params.voting) },
+	history{ *history_impl },
 	vote_uniquer{},
-	confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 	vote_cache{ config.vote_cache, stats },
-	generator{ config, ledger, wallets, vote_processor, history, network, stats, logger, /* non-final */ false },
-	final_generator{ config, ledger, wallets, vote_processor, history, network, stats, logger, /* final */ true },
-	active{ *this, confirmation_height_processor, block_processor },
+	generator_impl{ std::make_unique<nano::vote_generator> (config, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* non-final */ false) },
+	generator{ *generator_impl },
+	final_generator_impl{ std::make_unique<nano::vote_generator> (config, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* final */ true) },
+	final_generator{ *final_generator_impl },
 	scheduler_impl{ std::make_unique<nano::scheduler::component> (*this) },
 	scheduler{ *scheduler_impl },
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
@@ -205,6 +217,25 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 	backlog.activate_callback.add ([this] (store::transaction const & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info) {
 		scheduler.priority.activate (account, transaction);
 		scheduler.optimistic.activate (account, account_info, conf_info);
+	});
+
+	active.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
+		vote_cache.observe (vote, source, results);
+	});
+
+	// Republish vote if it is new and the node does not host a principal representative (or close to)
+	active.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
+		bool processed = std::any_of (results.begin (), results.end (), [] (auto const & result) {
+			return result.second == nano::vote_code::vote;
+		});
+		if (processed)
+		{
+			auto const reps = wallets.reps ();
+			if (!reps.have_half_rep () && !reps.exists (vote->account))
+			{
+				network.flood_vote (vote, 0.5f);
+			}
+		}
 	});
 
 	if (!init_error ())
@@ -354,7 +385,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 
 		if (!is_initialized && !flags.read_only)
 		{
-			auto const transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::confirmation_height, tables::frontiers }));
+			auto const transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::confirmation_height, tables::rep_weights }));
 			// Store was empty meaning we just created it, add the genesis block
 			store.initialize (transaction, ledger.cache, ledger.constants);
 		}
@@ -391,10 +422,10 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 			ledger.bootstrap_weight_max_blocks = bootstrap_weights.first;
 
 			logger.info (nano::log::type::node, "Initial bootstrap height: {}", ledger.bootstrap_weight_max_blocks);
-			logger.info (nano::log::type::node, "Current ledger height:    {}", ledger.cache.block_count.load ());
+			logger.info (nano::log::type::node, "Current ledger height:    {}", ledger.block_count ());
 
 			// Use bootstrap weights if initial bootstrap is not completed
-			const bool use_bootstrap_weight = ledger.cache.block_count < bootstrap_weights.first;
+			const bool use_bootstrap_weight = ledger.block_count () < bootstrap_weights.first;
 			if (use_bootstrap_weight)
 			{
 				logger.info (nano::log::type::node, "Using predefined representative weights, since block count is less than bootstrap threshold");
@@ -435,6 +466,13 @@ nano::node::node (boost::asio::io_context & io_ctx_a, std::filesystem::path cons
 				std::exit (1);
 			}
 		}
+		confirming_set.cemented_observers.add ([this] (auto const & block) {
+			if (block->is_send ())
+			{
+				auto transaction = store.tx_begin_read ();
+				receive_confirmed (transaction, block->hash (), block->destination ());
+			}
+		});
 	}
 	node_initialized_latch.count_down ();
 }
@@ -516,10 +554,10 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (collect_container_info (node.work, "work"));
-	composite->add_component (collect_container_info (node.ledger, "ledger"));
+	composite->add_component (node.ledger.collect_container_info ("ledger"));
 	composite->add_component (collect_container_info (node.active, "active"));
 	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
-	composite->add_component (collect_container_info (*node.tcp_listener, "tcp_listener"));
+	composite->add_component (node.tcp_listener->collect_container_info ("tcp_listener"));
 	composite->add_component (collect_container_info (node.network, "network"));
 	composite->add_component (node.telemetry.collect_container_info ("telemetry"));
 	composite->add_component (collect_container_info (node.workers, "workers"));
@@ -529,16 +567,16 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (node.rep_crawler.collect_container_info ("rep_crawler"));
 	composite->add_component (node.block_processor.collect_container_info ("block_processor"));
 	composite->add_component (collect_container_info (node.online_reps, "online_reps"));
-	composite->add_component (collect_container_info (node.history, "history"));
+	composite->add_component (node.history.collect_container_info ("history"));
 	composite->add_component (node.block_uniquer.collect_container_info ("block_uniquer"));
 	composite->add_component (node.vote_uniquer.collect_container_info ("vote_uniquer"));
-	composite->add_component (collect_container_info (node.confirmation_height_processor, "confirmation_height_processor"));
+	composite->add_component (node.confirming_set.collect_container_info ("confirming_set"));
 	composite->add_component (collect_container_info (node.distributed_work, "distributed_work"));
 	composite->add_component (collect_container_info (node.aggregator, "request_aggregator"));
 	composite->add_component (node.scheduler.collect_container_info ("election_scheduler"));
 	composite->add_component (node.vote_cache.collect_container_info ("vote_cache"));
-	composite->add_component (collect_container_info (node.generator, "vote_generator"));
-	composite->add_component (collect_container_info (node.final_generator, "vote_generator_final"));
+	composite->add_component (node.generator.collect_container_info ("vote_generator"));
+	composite->add_component (node.final_generator.collect_container_info ("vote_generator_final"));
 	composite->add_component (node.ascendboot.collect_container_info ("bootstrap_ascending"));
 	composite->add_component (node.unchecked.collect_container_info ("unchecked"));
 	composite->add_component (node.local_block_broadcaster.collect_container_info ("local_block_broadcaster"));
@@ -558,7 +596,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 
 nano::block_status nano::node::process (std::shared_ptr<nano::block> block)
 {
-	auto const transaction = store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending });
+	auto const transaction = store.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights });
 	return process (transaction, block);
 }
 
@@ -643,6 +681,7 @@ void nano::node::start ()
 	active.start ();
 	generator.start ();
 	final_generator.start ();
+	confirming_set.start ();
 	scheduler.start ();
 	backlog.start ();
 	bootstrap_server.start ();
@@ -683,8 +722,7 @@ void nano::node::stop ()
 	active.stop ();
 	generator.stop ();
 	final_generator.stop ();
-	confirmation_height_processor.stop ();
-	network.stop ();
+	confirming_set.stop ();
 	telemetry.stop ();
 	websocket.stop ();
 	bootstrap_server.stop ();
@@ -696,6 +734,8 @@ void nano::node::stop ()
 	epoch_upgrader.stop ();
 	workers.stop ();
 	local_block_broadcaster.stop ();
+	network.stop (); // Stop network last to avoid killing in-use sockets
+
 	// work pool is not stopped on purpose due to testing setup
 }
 
@@ -738,7 +778,8 @@ std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::a
 
 nano::uint128_t nano::node::weight (nano::account const & account_a)
 {
-	return ledger.weight (account_a);
+	auto txn{ ledger.store.tx_begin_read () };
+	return ledger.weight_exact (txn, account_a);
 }
 
 nano::uint128_t nano::node::minimum_principal_weight ()
@@ -786,7 +827,7 @@ void nano::node::ongoing_bootstrap ()
 	}
 	// Differential bootstrap with max age (75% of all legacy attempts)
 	uint32_t frontiers_age (std::numeric_limits<uint32_t>::max ());
-	auto bootstrap_weight_reached (ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks);
+	auto bootstrap_weight_reached (ledger.block_count () >= ledger.bootstrap_weight_max_blocks);
 	auto previous_bootstrap_count (stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out) + stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate_legacy_age, nano::stat::dir::out));
 	/*
 	- Maximum value for 25% of attempts or if block count is below preconfigured value (initial bootstrap not finished)
@@ -984,7 +1025,7 @@ void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_wei
 
 void nano::node::ongoing_ledger_pruning ()
 {
-	auto bootstrap_weight_reached (ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks);
+	auto bootstrap_weight_reached (ledger.block_count () >= ledger.bootstrap_weight_max_blocks);
 	ledger_pruning (flags.block_processor_batch_size != 0 ? flags.block_processor_batch_size : 2 * 1024, bootstrap_weight_reached);
 	auto const ledger_pruning_interval (bootstrap_weight_reached ? config.max_pruning_age : std::min (config.max_pruning_age, std::chrono::seconds (15 * 60)));
 	auto this_l (shared ());
@@ -1116,14 +1157,21 @@ void nano::node::add_initial_peers ()
 		return;
 	}
 
-	auto transaction (store.tx_begin_read ());
-	for (auto i (store.peer.begin (transaction)), n (store.peer.end ()); i != n; ++i)
+	std::vector<nano::endpoint> initial_peers;
 	{
-		nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
-		if (!network.reachout (endpoint, config.allow_local_peers))
+		auto transaction = store.tx_begin_read ();
+		for (auto i (store.peer.begin (transaction)), n (store.peer.end ()); i != n; ++i)
 		{
-			network.tcp_channels.start_tcp (endpoint);
+			nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
+			initial_peers.push_back (endpoint);
 		}
+	}
+
+	logger.info (nano::log::type::node, "Adding cached initial peers: {}", initial_peers.size ());
+
+	for (auto const & peer : initial_peers)
+	{
+		network.merge_peer (peer);
 	}
 }
 
@@ -1140,7 +1188,7 @@ bool nano::node::block_confirmed (nano::block_hash const & hash_a)
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::store::transaction const & transaction, nano::block_hash const & hash_a)
 {
-	return confirmation_height_processor.is_processing_block (hash_a) || ledger.block_confirmed (transaction, hash_a);
+	return confirming_set.exists (hash_a) || ledger.block_confirmed (transaction, hash_a);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & hash_a)
@@ -1204,47 +1252,6 @@ void nano::node::receive_confirmed (store::transaction const & block_transaction
 	}
 }
 
-void nano::node::process_confirmed_data (store::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, bool & is_state_epoch_a, nano::account & pending_account_a)
-{
-	// Faster account calculation
-	account_a = block_a->account ();
-	// Faster amount calculation
-	auto previous (block_a->previous ());
-	auto previous_balance = ledger.balance (transaction_a, previous);
-	auto block_balance = block_a->balance ();
-	if (hash_a != ledger.constants.genesis->account ())
-	{
-		if (previous_balance)
-		{
-			amount_a = block_balance > previous_balance.value () ? block_balance.number () - previous_balance.value () : previous_balance.value () - block_balance.number ();
-		}
-		else
-		{
-			amount_a = 0;
-		}
-	}
-	else
-	{
-		amount_a = nano::dev::constants.genesis_amount;
-	}
-	if (auto state = dynamic_cast<nano::state_block *> (block_a.get ()))
-	{
-		if (state->hashables.balance < previous_balance)
-		{
-			is_state_send_a = true;
-		}
-		if (amount_a == 0 && network_params.ledger.epochs.is_epoch_link (state->link_field ().value ()))
-		{
-			is_state_epoch_a = true;
-		}
-		pending_account_a = state->hashables.link.as_account ();
-	}
-	if (auto send = dynamic_cast<nano::send_block *> (block_a.get ()))
-	{
-		pending_account_a = send->hashables.destination;
-	}
-}
-
 void nano::node::process_confirmed (nano::election_status const & status_a, uint64_t iteration_a)
 {
 	auto hash (status_a.winner->hash ());
@@ -1253,7 +1260,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 	{
 		logger.trace (nano::log::type::node, nano::log::detail::process_confirmed, nano::log::arg{ "block", block_l });
 
-		confirmation_height_processor.add (block_l);
+		confirming_set.add (block_l->hash ());
 	}
 	else if (iteration_a < num_iters)
 	{
@@ -1345,15 +1352,15 @@ nano::telemetry_data nano::node::local_telemetry () const
 {
 	nano::telemetry_data telemetry_data;
 	telemetry_data.node_id = node_id.pub;
-	telemetry_data.block_count = ledger.cache.block_count;
-	telemetry_data.cemented_count = ledger.cache.cemented_count;
+	telemetry_data.block_count = ledger.block_count ();
+	telemetry_data.cemented_count = ledger.cemented_count ();
 	telemetry_data.bandwidth_cap = config.bandwidth_limit;
 	telemetry_data.protocol_version = network_params.network.protocol_version;
 	telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - startup_time).count ();
 	telemetry_data.unchecked_count = unchecked.count ();
 	telemetry_data.genesis_block = network_params.ledger.genesis->hash ();
 	telemetry_data.peer_count = nano::narrow_cast<decltype (telemetry_data.peer_count)> (network.size ());
-	telemetry_data.account_count = ledger.cache.account_count;
+	telemetry_data.account_count = ledger.account_count ();
 	telemetry_data.major_version = nano::get_major_node_version ();
 	telemetry_data.minor_version = nano::get_minor_node_version ();
 	telemetry_data.patch_version = nano::get_patch_node_version ();
@@ -1406,7 +1413,7 @@ nano::node_wrapper::node_wrapper (std::filesystem::path const & path_a, std::fil
 	auto & node_config = daemon_config.node;
 	node_config.peering_port = 24000;
 
-	node = std::make_shared<nano::node> (*io_context, path_a, node_config, work, node_flags_a);
+	node = std::make_shared<nano::node> (io_context, path_a, node_config, work, node_flags_a);
 }
 
 nano::node_wrapper::~node_wrapper ()

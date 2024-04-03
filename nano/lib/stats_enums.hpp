@@ -17,12 +17,14 @@ enum class type : uint8_t
 	ledger,
 	rollback,
 	bootstrap,
+	network,
 	tcp_server,
 	vote,
 	election,
 	http_callback,
 	ipc,
 	tcp,
+	tcp_channels,
 	channel,
 	socket,
 	confirmation_height,
@@ -53,6 +55,7 @@ enum class type : uint8_t
 	rep_crawler,
 	local_block_broadcaster,
 	rep_tiers,
+	syn_cookies,
 
 	bootstrap_ascending,
 	bootstrap_ascending_accounts,
@@ -68,6 +71,7 @@ enum class detail : uint8_t
 	// common
 	ok,
 	loop,
+	loop_cleanup,
 	total,
 	process,
 	processed,
@@ -81,6 +85,7 @@ enum class detail : uint8_t
 	none,
 	success,
 	unknown,
+	cache,
 	queue_overflow,
 
 	// processing queue
@@ -165,12 +170,15 @@ enum class detail : uint8_t
 	frontier_confirmation_failed,
 	error_socket_close,
 
-	// vote specific
-	vote_valid,
-	vote_replay,
-	vote_indeterminate,
-	vote_invalid,
+	// vote result
+	vote,
+	valid,
+	replay,
+	indeterminate,
+
+	// vote processor
 	vote_overflow,
+	vote_ignored,
 
 	// election specific
 	vote_new,
@@ -214,6 +222,11 @@ enum class detail : uint8_t
 	message_size_too_big,
 	outdated_version,
 
+	// network
+	loop_keepalive,
+	loop_reachout,
+	merge_peer,
+
 	// tcp
 	tcp_accept_success,
 	tcp_accept_failure,
@@ -227,6 +240,15 @@ enum class detail : uint8_t
 	tcp_connect_error,
 	tcp_read_error,
 	tcp_write_error,
+
+	// tcp_server
+	handshake,
+	handshake_abort,
+	handshake_error,
+	handshake_network_error,
+	handshake_initiate,
+	handshake_response,
+	handshake_response_invalid,
 
 	// ipc
 	invocations,
