@@ -50,11 +50,11 @@ public:
 	 * If the weight is below the cache limit it returns 0.
 	 * During bootstrap it returns the preconfigured bootstrap weights.
 	 */
-	nano::uint128_t weight (nano::account const &);
+	nano::uint128_t weight (nano::account const &) const;
 	std::optional<nano::block_hash> successor (store::transaction const &, nano::qualified_root const &) const noexcept;
 	std::optional<nano::block_hash> successor (store::transaction const & transaction, nano::block_hash const & hash) const noexcept;
 	/* Returns the exact vote weight for the given representative by doing a database lookup */
-	nano::uint128_t weight_exact (store::transaction const &, nano::account const &);
+	nano::uint128_t weight_exact (store::transaction const &, nano::account const &) const;
 	std::shared_ptr<nano::block> forked_block (store::transaction const &, nano::block const &);
 	std::shared_ptr<nano::block> head_block (store::transaction const &, nano::account const &);
 	bool block_confirmed (store::transaction const &, nano::block_hash const &) const;
@@ -105,7 +105,7 @@ public:
 	nano::stats & stats;
 	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;
 	uint64_t bootstrap_weight_max_blocks{ 1 };
-	std::atomic<bool> check_bootstrap_weights;
+	mutable std::atomic<bool> check_bootstrap_weights;
 	bool pruning{ false };
 
 private:
