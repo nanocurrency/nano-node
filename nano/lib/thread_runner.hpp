@@ -31,6 +31,15 @@ private:
 	std::vector<boost::thread> threads;
 
 private:
-	void run (boost::asio::io_context &);
+	void run ();
 };
+
+constexpr unsigned asio_handler_tracking_threshold ()
+{
+#if NANO_ASIO_HANDLER_TRACKING == 0
+	return 0;
+#else
+	return NANO_ASIO_HANDLER_TRACKING;
+#endif
+}
 } // namespace nano
