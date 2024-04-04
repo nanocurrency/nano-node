@@ -76,18 +76,6 @@ TEST (vote_processor, invalid_signature)
 	ASSERT_TIMELY_EQ (5s, 2, election->votes ().size ());
 }
 
-TEST (vote_processor, no_capacity)
-{
-	nano::test::system system;
-	nano::node_flags node_flags;
-	node_flags.vote_processor_capacity = 0;
-	auto & node (*system.add_node (node_flags));
-	nano::keypair key;
-	auto vote = nano::test::make_vote (key, { nano::dev::genesis }, nano::vote::timestamp_min * 1, 0);
-	auto channel (std::make_shared<nano::transport::inproc::channel> (node, node));
-	ASSERT_FALSE (node.vote_processor.vote (vote, channel));
-}
-
 TEST (vote_processor, overflow)
 {
 	nano::test::system system;
@@ -111,7 +99,7 @@ TEST (vote_processor, overflow)
 	}
 	ASSERT_GT (not_processed, 0);
 	ASSERT_LT (not_processed, total);
-	ASSERT_EQ (not_processed, node.stats.count (nano::stat::type::vote, nano::stat::detail::vote_overflow));
+	ASSERT_EQ (not_processed, node.stats.count (nano::stat::type::vote_processor, nano::stat::detail::overfill));
 
 	// check that it did not timeout
 	ASSERT_LT (std::chrono::system_clock::now () - start_time, 10s);

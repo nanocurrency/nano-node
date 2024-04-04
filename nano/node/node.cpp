@@ -341,7 +341,12 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 		});
 
 		observers.vote.add ([this] (std::shared_ptr<nano::vote> vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_code code) {
+			debug_assert (vote != nullptr);
 			debug_assert (code != nano::vote_code::invalid);
+			if (channel == nullptr)
+			{
+				return; // Channel expired when waiting for vote to be processed
+			}
 			bool active_in_rep_crawler = rep_crawler.process (vote, channel);
 			if (active_in_rep_crawler)
 			{

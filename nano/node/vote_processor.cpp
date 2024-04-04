@@ -27,6 +27,37 @@ nano::vote_processor::vote_processor (nano::active_transactions & active_a, nano
 	rep_tiers{ rep_tiers_a },
 	max_votes{ flags_a.vote_processor_capacity }
 {
+	queue.max_size_query = [this] (auto const & origin) {
+		switch (origin.source)
+		{
+			case nano::rep_tier::tier_3:
+				return 256;
+			case nano::rep_tier::tier_2:
+				return 128;
+			case nano::rep_tier::tier_1:
+				return 64;
+			case nano::rep_tier::none:
+				return 32;
+		}
+		debug_assert (false);
+		return 0;
+	};
+
+	queue.priority_query = [] (auto const & origin) {
+		switch (origin.source)
+		{
+			case nano::rep_tier::tier_3:
+				return 9;
+			case nano::rep_tier::tier_2:
+				return 6;
+			case nano::rep_tier::tier_1:
+				return 3;
+			case nano::rep_tier::none:
+				return 1;
+		}
+		debug_assert (false);
+		return 0;
+	};
 }
 
 nano::vote_processor::~vote_processor ()
@@ -58,104 +89,81 @@ void nano::vote_processor::stop ()
 	}
 }
 
+bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel)
+{
+	debug_assert (channel != nullptr);
+
+	auto const tier = rep_tiers.tier (vote->account);
+
+	bool added = false;
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		added = queue.push ({ vote, channel }, tier);
+	}
+	if (added)
+	{
+		stats.inc (nano::stat::type::vote_processor, nano::stat::detail::process);
+		stats.inc (nano::stat::type::vote_processor_tier, to_stat_detail (tier));
+
+		condition.notify_all ();
+	}
+	else
+	{
+		stats.inc (nano::stat::type::vote_processor, nano::stat::detail::overfill);
+		stats.inc (nano::stat::type::vote_processor_overfill, to_stat_detail (tier));
+	}
+	return added;
+}
+
 void nano::vote_processor::run ()
 {
-	nano::timer<std::chrono::milliseconds> elapsed;
-	bool log_this_iteration;
-
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		if (!votes.empty ())
+		stats.inc (nano::stat::type::vote_processor, nano::stat::detail::loop);
+
+		if (!queue.empty ())
 		{
-			decltype (votes) votes_l;
-			votes_l.swap (votes);
-			lock.unlock ();
-			condition.notify_all ();
-
-			log_this_iteration = false;
-			// TODO: This is a temporary measure to prevent spamming the logs until we can implement a better solution
-			if (votes_l.size () > 1024 * 4)
-			{
-				/*
-				 * Only log the timing information for this iteration if
-				 * there are a sufficient number of items for it to be relevant
-				 */
-				log_this_iteration = true;
-				elapsed.restart ();
-			}
-
-			for (auto const & [vote, channel] : votes_l)
-			{
-				vote_blocking (vote, channel);
-			}
-
-			total_processed += votes_l.size ();
-
-			if (log_this_iteration && elapsed.stop () > std::chrono::milliseconds (100))
-			{
-				logger.debug (nano::log::type::vote_processor, "Processed {} votes in {} milliseconds (rate of {} votes per second)",
-				votes_l.size (),
-				elapsed.value ().count (),
-				((votes_l.size () * 1000ULL) / elapsed.value ().count ()));
-			}
+			run_batch (lock);
+			debug_assert (!lock.owns_lock ());
 
 			lock.lock ();
 		}
-		else
-		{
-			condition.wait (lock);
-		}
+
+		condition.wait (lock, [&] {
+			return stopped || !queue.empty ();
+		});
 	}
 }
 
-bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a)
+void nano::vote_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
 {
-	debug_assert (channel_a != nullptr);
+	debug_assert (lock.owns_lock ());
+	debug_assert (!mutex.try_lock ());
+	debug_assert (!queue.empty ());
 
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	nano::timer<std::chrono::milliseconds> timer;
 
-	auto should_process = [this] (auto tier) {
-		if (votes.size () < 6.0 / 9.0 * max_votes)
-		{
-			return true;
-		}
-		// Level 1 (0.1-1%)
-		if (votes.size () < 7.0 / 9.0 * max_votes)
-		{
-			return (tier == nano::rep_tier::tier_1);
-		}
-		// Level 2 (1-5%)
-		if (votes.size () < 8.0 / 9.0 * max_votes)
-		{
-			return (tier == nano::rep_tier::tier_2);
-		}
-		// Level 3 (> 5%)
-		if (votes.size () < max_votes)
-		{
-			return (tier == nano::rep_tier::tier_3);
-		}
-		return false;
-	};
+	size_t const max_batch_size = 1024 * 4;
+	auto batch = queue.next_batch (max_batch_size);
 
-	if (!stopped)
+	lock.unlock ();
+
+	for (auto const & [entry, origin] : batch)
 	{
-		auto tier = rep_tiers.tier (vote_a->account);
-		if (should_process (tier))
-		{
-			votes.emplace_back (vote_a, channel_a);
-			lock.unlock ();
-			condition.notify_all ();
-			// Lock no longer required
-
-			return true; // Processed
-		}
-		else
-		{
-			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_overflow);
-		}
+		auto const & [vote, channel] = entry;
+		vote_blocking (vote, channel);
 	}
-	return false; // Not processed
+
+	total_processed += batch.size ();
+
+	if (batch.size () == max_batch_size && timer.stop () > 100ms)
+	{
+		logger.debug (nano::log::type::vote_processor, "Processed {} votes in {} milliseconds (rate of {} votes per second)",
+		batch.size (),
+		timer.value ().count (),
+		((batch.size () * 1000ULL) / timer.value ().count ()));
+	}
 }
 
 nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel)
@@ -190,13 +198,13 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 std::size_t nano::vote_processor::size () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-	return votes.size ();
+	return queue.size ();
 }
 
 bool nano::vote_processor::empty () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-	return votes.empty ();
+	return queue.empty ();
 }
 
 std::unique_ptr<nano::container_info_component> nano::vote_processor::collect_container_info (std::string const & name) const
@@ -204,9 +212,9 @@ std::unique_ptr<nano::container_info_component> nano::vote_processor::collect_co
 	std::size_t votes_count;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
-		votes_count = votes.size ();
+		votes_count = queue.size ();
 	}
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "votes", votes_count, sizeof (decltype (votes)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "votes", votes_count, sizeof (decltype (queue)::value_type) }));
 	return composite;
 }
