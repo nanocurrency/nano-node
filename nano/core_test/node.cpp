@@ -525,6 +525,7 @@ TEST (node, expire)
 	ASSERT_TRUE (node0.expired ());
 }
 
+// This test is racy, there is no guarantee that the election won't be confirmed until all forks are fully processed
 TEST (node, fork_publish)
 {
 	nano::test::system system (1);
@@ -671,6 +672,7 @@ TEST (node, fork_keep)
 	ASSERT_TRUE (node2.ledger.block_exists (transaction1, send1->hash ()));
 }
 
+// This test is racy, there is no guarantee that the election won't be confirmed until all forks are fully processed
 TEST (node, fork_flip)
 {
 	nano::test::system system (2);
@@ -696,8 +698,7 @@ TEST (node, fork_flip)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
 	nano::publish publish2{ nano::dev::network_params.network, send2 };
-	auto ignored_channel{ std::make_shared<nano::transport::channel_tcp> (node1, std::weak_ptr<nano::transport::socket> ()) };
-
+	auto ignored_channel = nano::test::fake_channel (node1);
 	node1.network.inbound (publish1, ignored_channel);
 	node2.network.inbound (publish2, ignored_channel);
 	ASSERT_TIMELY_EQ (5s, 1, node1.active.size ());

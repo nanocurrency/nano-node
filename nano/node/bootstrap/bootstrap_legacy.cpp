@@ -225,9 +225,9 @@ void nano::bootstrap_attempt_legacy::run ()
 
 		// TODO: This check / wait is a heuristic and should be improved.
 		auto wait_start = std::chrono::steady_clock::now ();
-		while (!stopped && node->block_processor.size () != 0 && ((std::chrono::steady_clock::now () - wait_start) < std::chrono::seconds{ 10 }))
+		while (!stopped && node->block_processor.size (nano::block_source::bootstrap_legacy) != 0 && ((std::chrono::steady_clock::now () - wait_start) < std::chrono::seconds{ 10 }))
 		{
-			condition.wait_for (lock, std::chrono::milliseconds{ 100 }, [this, node] { return stopped || node->block_processor.size () == 0; });
+			condition.wait_for (lock, std::chrono::milliseconds{ 100 }, [this, node] { return stopped || node->block_processor.size (nano::block_source::bootstrap_legacy) == 0; });
 		}
 
 		if (start_account.number () != std::numeric_limits<nano::uint256_t>::max ())
