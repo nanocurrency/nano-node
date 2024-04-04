@@ -20,7 +20,7 @@ enum class writer
 class write_guard final
 {
 public:
-	write_guard (std::function<void ()> guard_finish_callback_a);
+	explicit write_guard (std::function<void ()> guard_finish_callback_a);
 	void release ();
 	~write_guard ();
 	write_guard (write_guard const &) = delete;
@@ -41,7 +41,7 @@ private:
 class write_queue final
 {
 public:
-	write_queue (bool use_noops_a);
+	explicit write_queue (bool use_noops_a);
 	/** Blocks until we are at the head of the queue and blocks other waiters until write_guard goes out of scope */
 	[[nodiscard ("write_guard blocks other waiters")]] write_guard wait (writer writer);
 
