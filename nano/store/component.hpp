@@ -7,6 +7,7 @@
 #include <nano/store/tables.hpp>
 #include <nano/store/transaction.hpp>
 #include <nano/store/versioning.hpp>
+#include <nano/store/write_queue.hpp>
 
 #include <boost/endian/conversion.hpp>
 #include <boost/polymorphic_cast.hpp>
@@ -52,7 +53,8 @@ namespace store
 		nano::store::confirmation_height &,
 		nano::store::final_vote &,
 		nano::store::version &,
-		nano::store::rep_weight &
+		nano::store::rep_weight &,
+		bool use_noops_a
 	);
 		// clang-format on
 		virtual ~component () = default;
@@ -78,6 +80,8 @@ namespace store
 		store::confirmation_height & confirmation_height;
 		store::final_vote & final_vote;
 		store::version & version;
+
+		store::write_queue write_queue;
 
 		virtual unsigned max_block_write_batch_num () const = 0;
 

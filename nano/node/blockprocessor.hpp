@@ -14,7 +14,6 @@ namespace nano
 {
 class block;
 class node;
-class write_database_queue;
 }
 
 namespace nano::store
@@ -86,7 +85,7 @@ public: // Context
 	};
 
 public:
-	block_processor (nano::node &, nano::write_database_queue &);
+	block_processor (nano::node &);
 	~block_processor ();
 
 	void start ();
@@ -127,7 +126,6 @@ private:
 private: // Dependencies
 	block_processor_config const & config;
 	nano::node & node;
-	nano::write_database_queue & write_database_queue;
 
 private:
 	nano::fair_queue<context, block_source> queue;

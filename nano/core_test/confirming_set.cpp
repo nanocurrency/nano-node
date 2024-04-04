@@ -18,15 +18,13 @@ using namespace std::chrono_literals;
 TEST (confirming_set, construction)
 {
 	auto ctx = nano::test::context::ledger_empty ();
-	nano::write_database_queue write_queue{ false };
-	nano::confirming_set confirming_set (ctx.ledger (), write_queue);
+	nano::confirming_set confirming_set (ctx.ledger ());
 }
 
 TEST (confirming_set, add_exists)
 {
 	auto ctx = nano::test::context::ledger_send_receive ();
-	nano::write_database_queue write_queue{ false };
-	nano::confirming_set confirming_set (ctx.ledger (), write_queue);
+	nano::confirming_set confirming_set (ctx.ledger ());
 	auto send = ctx.blocks ()[0];
 	confirming_set.add (send->hash ());
 	ASSERT_TRUE (confirming_set.exists (send->hash ()));
@@ -35,8 +33,7 @@ TEST (confirming_set, add_exists)
 TEST (confirming_set, process_one)
 {
 	auto ctx = nano::test::context::ledger_send_receive ();
-	nano::write_database_queue write_queue{ false };
-	nano::confirming_set confirming_set (ctx.ledger (), write_queue);
+	nano::confirming_set confirming_set (ctx.ledger ());
 	std::atomic<int> count = 0;
 	std::mutex mutex;
 	std::condition_variable condition;
@@ -52,8 +49,7 @@ TEST (confirming_set, process_one)
 TEST (confirming_set, process_multiple)
 {
 	auto ctx = nano::test::context::ledger_send_receive ();
-	nano::write_database_queue write_queue{ false };
-	nano::confirming_set confirming_set (ctx.ledger (), write_queue);
+	nano::confirming_set confirming_set (ctx.ledger ());
 	std::atomic<int> count = 0;
 	std::mutex mutex;
 	std::condition_variable condition;
@@ -118,7 +114,7 @@ TEST (confirmation_callback, confirmed_history)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
-	node_flags.force_use_write_database_queue = true;
+	node_flags.force_use_write_queue = true;
 	node_flags.disable_ascending_bootstrap = true;
 	nano::node_config node_config = system.default_config ();
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
@@ -155,7 +151,7 @@ TEST (confirmation_callback, confirmed_history)
 	ASSERT_TIMELY (5s, election = nano::test::start_election (system, *node, send1->hash ()));
 	{
 		// The write guard prevents the confirmation height processor doing any writes
-		auto write_guard = node->write_database_queue.wait (nano::writer::testing);
+		auto write_guard = node->store.write_queue.wait (nano::store::writer::testing);
 
 		// Confirm send1
 		election->force_confirm ();
@@ -166,13 +162,13 @@ TEST (confirmation_callback, confirmed_history)
 		auto transaction = node->store.tx_begin_read ();
 		ASSERT_FALSE (node->ledger.block_confirmed (transaction, send->hash ()));
 
-		ASSERT_TIMELY (10s, node->write_database_queue.contains (nano::writer::confirmation_height));
+		ASSERT_TIMELY (10s, node->store.write_queue.contains (nano::store::writer::confirmation_height));
 
 		// Confirm that no inactive callbacks have been called when the confirmation height processor has already iterated over it, waiting to write
 		ASSERT_EQ (0, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
 	}
 
-	ASSERT_TIMELY (10s, !node->write_database_queue.contains (nano::writer::confirmation_height));
+	ASSERT_TIMELY (10s, !node->store.write_queue.contains (nano::store::writer::confirmation_height));
 
 	auto transaction = node->store.tx_begin_read ();
 	ASSERT_TRUE (node->ledger.block_confirmed (transaction, send->hash ()));
@@ -196,7 +192,7 @@ TEST (confirmation_callback, dependent_election)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
-	node_flags.force_use_write_database_queue = true;
+	node_flags.force_use_write_queue = true;
 	nano::node_config node_config = system.default_config ();
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node = system.add_node (node_config, node_flags);

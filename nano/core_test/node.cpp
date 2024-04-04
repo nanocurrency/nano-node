@@ -2663,7 +2663,7 @@ TEST (node, block_processor_full)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
-	node_flags.force_use_write_database_queue = true;
+	node_flags.force_use_write_queue = true;
 	node_flags.block_processor_full_size = 3;
 	auto & node = *system.add_node (nano::node_config (system.get_available_port ()), node_flags);
 	nano::state_block_builder builder;
@@ -2709,7 +2709,7 @@ TEST (node, block_processor_half_full)
 	nano::test::system system;
 	nano::node_flags node_flags;
 	node_flags.block_processor_full_size = 6;
-	node_flags.force_use_write_database_queue = true;
+	node_flags.force_use_write_queue = true;
 	auto & node = *system.add_node (nano::node_config (system.get_available_port ()), node_flags);
 	nano::state_block_builder builder;
 	auto send1 = builder.make_block ()
@@ -2740,7 +2740,7 @@ TEST (node, block_processor_half_full)
 				 .work (*node.work_generate_blocking (send2->hash ()))
 				 .build ();
 	// The write guard prevents block processor doing any writes
-	auto write_guard = node.write_database_queue.wait (nano::writer::testing);
+	auto write_guard = node.store.write_queue.wait (nano::store::writer::testing);
 	node.block_processor.add (send1);
 	ASSERT_FALSE (node.block_processor.half_full ());
 	node.block_processor.add (send2);
@@ -3097,7 +3097,7 @@ TEST (node, rollback_vote_self)
 
 	{
 		// The write guard prevents the block processor from performing the rollback
-		auto write_guard = node.write_database_queue.wait (nano::writer::testing);
+		auto write_guard = node.store.write_queue.wait (nano::store::writer::testing);
 
 		ASSERT_EQ (0, election->votes_with_weight ().size ());
 		// Vote with key to switch the winner

@@ -1,15 +1,15 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/node/write_database_queue.hpp>
+#include <nano/store/write_queue.hpp>
 
 #include <algorithm>
 
-nano::write_guard::write_guard (std::function<void ()> guard_finish_callback_a) :
+nano::store::write_guard::write_guard (std::function<void ()> guard_finish_callback_a) :
 	guard_finish_callback (guard_finish_callback_a)
 {
 }
 
-nano::write_guard::write_guard (nano::write_guard && write_guard_a) noexcept :
+nano::store::write_guard::write_guard (write_guard && write_guard_a) noexcept :
 	guard_finish_callback (std::move (write_guard_a.guard_finish_callback)),
 	owns (write_guard_a.owns)
 {
@@ -17,7 +17,7 @@ nano::write_guard::write_guard (nano::write_guard && write_guard_a) noexcept :
 	write_guard_a.guard_finish_callback = nullptr;
 }
 
-nano::write_guard & nano::write_guard::operator= (nano::write_guard && write_guard_a) noexcept
+nano::store::write_guard & nano::store::write_guard::operator= (write_guard && write_guard_a) noexcept
 {
 	owns = write_guard_a.owns;
 	guard_finish_callback = std::move (write_guard_a.guard_finish_callback);
@@ -27,7 +27,7 @@ nano::write_guard & nano::write_guard::operator= (nano::write_guard && write_gua
 	return *this;
 }
 
-nano::write_guard::~write_guard ()
+nano::store::write_guard::~write_guard ()
 {
 	if (owns)
 	{
@@ -35,12 +35,12 @@ nano::write_guard::~write_guard ()
 	}
 }
 
-bool nano::write_guard::is_owned () const
+bool nano::store::write_guard::is_owned () const
 {
 	return owns;
 }
 
-void nano::write_guard::release ()
+void nano::store::write_guard::release ()
 {
 	debug_assert (owns);
 	if (owns)
@@ -50,7 +50,7 @@ void nano::write_guard::release ()
 	owns = false;
 }
 
-nano::write_database_queue::write_database_queue (bool use_noops_a) :
+nano::store::write_queue::write_queue (bool use_noops_a) :
 	guard_finish_callback ([use_noops_a, &queue = queue, &mutex = mutex, &cv = cv] () {
 		if (!use_noops_a)
 		{
@@ -65,7 +65,7 @@ nano::write_database_queue::write_database_queue (bool use_noops_a) :
 {
 }
 
-nano::write_guard nano::write_database_queue::wait (nano::writer writer)
+nano::store::write_guard nano::store::write_queue::wait (writer writer)
 {
 	if (use_noops)
 	{
@@ -88,14 +88,14 @@ nano::write_guard nano::write_database_queue::wait (nano::writer writer)
 	return write_guard (guard_finish_callback);
 }
 
-bool nano::write_database_queue::contains (nano::writer writer)
+bool nano::store::write_queue::contains (writer writer)
 {
 	debug_assert (!use_noops);
 	nano::lock_guard<nano::mutex> guard (mutex);
 	return std::find (queue.cbegin (), queue.cend (), writer) != queue.cend ();
 }
 
-bool nano::write_database_queue::process (nano::writer writer)
+bool nano::store::write_queue::process (writer writer)
 {
 	if (use_noops)
 	{
@@ -123,7 +123,7 @@ bool nano::write_database_queue::process (nano::writer writer)
 	return result;
 }
 
-nano::write_guard nano::write_database_queue::pop ()
+nano::store::write_guard nano::store::write_queue::pop ()
 {
 	return write_guard (guard_finish_callback);
 }
