@@ -30,10 +30,7 @@ TEST (vote_processor, codes)
 	auto channel (std::make_shared<nano::transport::inproc::channel> (node, node));
 
 	// Invalid signature
-	ASSERT_EQ (nano::vote_code::invalid, node.vote_processor.vote_blocking (vote_invalid, channel, false));
-
-	// Hint of pre-validation
-	ASSERT_NE (nano::vote_code::invalid, node.vote_processor.vote_blocking (vote_invalid, channel, true));
+	ASSERT_EQ (nano::vote_code::invalid, node.vote_processor.vote_blocking (vote_invalid, channel));
 
 	// No ongoing election (vote goes to vote cache)
 	ASSERT_EQ (nano::vote_code::indeterminate, node.vote_processor.vote_blocking (vote, channel));

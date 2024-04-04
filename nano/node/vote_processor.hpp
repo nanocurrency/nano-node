@@ -48,8 +48,7 @@ public:
 
 	/** Returns false if the vote was processed */
 	bool vote (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &);
-
-	nano::vote_code vote_blocking (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &, bool = false);
+	nano::vote_code vote_blocking (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &);
 
 	std::size_t size () const;
 	bool empty () const;
@@ -72,7 +71,6 @@ private: // Dependencies
 
 private:
 	void run ();
-	void verify_and_process_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> const &);
 
 private:
 	std::size_t const max_votes;

@@ -85,7 +85,11 @@ void nano::vote_processor::run ()
 				elapsed.restart ();
 			}
 
-			verify_and_process_votes (votes_l);
+			for (auto const & [vote, channel] : votes_l)
+			{
+				vote_blocking (vote, channel);
+			}
+
 			total_processed += votes_l.size ();
 
 			if (log_this_iteration && elapsed.stop () > std::chrono::milliseconds (100))
@@ -154,21 +158,10 @@ bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std
 	return false; // Not processed
 }
 
-void nano::vote_processor::verify_and_process_votes (decltype (votes) const & votes_a)
-{
-	for (auto const & vote : votes_a)
-	{
-		if (!nano::validate_message (vote.first->account, vote.first->hash (), vote.first->signature))
-		{
-			vote_blocking (vote.first, vote.second, true);
-		}
-	}
-}
-
-nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel, bool validated)
+nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel)
 {
 	auto result = nano::vote_code::invalid;
-	if (validated || !vote->validate ())
+	if (!vote->validate ()) // false => valid vote
 	{
 		auto vote_results = active.vote (vote);
 

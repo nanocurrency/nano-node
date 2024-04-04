@@ -452,6 +452,8 @@ bool nano::active_transactions::trigger_vote_cache (nano::block_hash hash)
 // Validate a vote and apply it to the current election if one exists
 std::unordered_map<nano::block_hash, nano::vote_code> nano::active_transactions::vote (std::shared_ptr<nano::vote> const & vote, nano::vote_source source)
 {
+	debug_assert (!vote->validate ()); // false => valid vote
+
 	std::unordered_map<nano::block_hash, nano::vote_code> results;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> process;
 	std::vector<nano::block_hash> inactive; // Hashes that should be added to inactive vote cache
