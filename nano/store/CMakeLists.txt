@@ -93,8 +93,8 @@ add_library(
   transaction.cpp
   version.cpp
   versioning.cpp
-  write_database_queue.hpp
-  write_database_queue.cpp)
+  write_queue.hpp
+  write_queue.cpp)
 
 target_link_libraries(
   nano_store

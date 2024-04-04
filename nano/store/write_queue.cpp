@@ -1,6 +1,6 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/store/write_database_queue.hpp>
+#include <nano/store/write_queue.hpp>
 
 #include <algorithm>
 
@@ -50,7 +50,7 @@ void nano::store::write_guard::release ()
 	owns = false;
 }
 
-nano::store::write_database_queue::write_database_queue (bool use_noops_a) :
+nano::store::write_queue::write_queue (bool use_noops_a) :
 	guard_finish_callback ([use_noops_a, &queue = queue, &mutex = mutex, &cv = cv] () {
 		if (!use_noops_a)
 		{
@@ -65,7 +65,7 @@ nano::store::write_database_queue::write_database_queue (bool use_noops_a) :
 {
 }
 
-nano::store::write_guard nano::store::write_database_queue::wait (writer writer)
+nano::store::write_guard nano::store::write_queue::wait (writer writer)
 {
 	if (use_noops)
 	{
@@ -88,14 +88,14 @@ nano::store::write_guard nano::store::write_database_queue::wait (writer writer)
 	return write_guard (guard_finish_callback);
 }
 
-bool nano::store::write_database_queue::contains (writer writer)
+bool nano::store::write_queue::contains (writer writer)
 {
 	debug_assert (!use_noops);
 	nano::lock_guard<nano::mutex> guard (mutex);
 	return std::find (queue.cbegin (), queue.cend (), writer) != queue.cend ();
 }
 
-bool nano::store::write_database_queue::process (writer writer)
+bool nano::store::write_queue::process (writer writer)
 {
 	if (use_noops)
 	{
@@ -123,7 +123,7 @@ bool nano::store::write_database_queue::process (writer writer)
 	return result;
 }
 
-nano::store::write_guard nano::store::write_database_queue::pop ()
+nano::store::write_guard nano::store::write_queue::pop ()
 {
 	return write_guard (guard_finish_callback);
 }

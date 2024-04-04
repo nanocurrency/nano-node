@@ -135,7 +135,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	io_ctx_shared{ io_ctx_a },
 	io_ctx{ *io_ctx_shared },
 	node_id{ load_or_create_node_id (application_path_a) },
-	write_database_queue (!flags_a.force_use_write_database_queue && (config_a.rocksdb_config.enable)),
+	write_queue (!flags_a.force_use_write_queue && (config_a.rocksdb_config.enable)),
 	node_initialized_latch (1),
 	config (config_a),
 	network_params{ config.network_params },
@@ -171,8 +171,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	tcp_listener{ std::make_shared<nano::transport::tcp_listener> (network.port, *this, config.tcp_incoming_connections_max) },
 	application_path (application_path_a),
 	port_mapping (*this),
-	block_processor (*this, write_database_queue),
-	confirming_set_impl{ std::make_unique<nano::confirming_set> (ledger, write_database_queue, config.confirming_set_batch_time) },
+	block_processor (*this, write_queue),
+	confirming_set_impl{ std::make_unique<nano::confirming_set> (ledger, write_queue, config.confirming_set_batch_time) },
 	confirming_set{ *confirming_set_impl },
 	active_impl{ std::make_unique<nano::active_transactions> (*this, confirming_set, block_processor) },
 	active{ *active_impl },
@@ -1005,7 +1005,7 @@ void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_wei
 		transaction_write_count = 0;
 		if (!pruning_targets.empty () && !stopped)
 		{
-			auto scoped_write_guard = write_database_queue.wait (nano::store::writer::pruning);
+			auto scoped_write_guard = write_queue.wait (nano::store::writer::pruning);
 			auto write_transaction (store.tx_begin_write ({ tables::blocks, tables::pruned }));
 			while (!pruning_targets.empty () && transaction_write_count < batch_size_a && !stopped)
 			{
