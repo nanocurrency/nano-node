@@ -26,7 +26,8 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 		confirmation_height_store,
 		final_vote_store,
 		version_store,
-		rep_weight_store
+		rep_weight_store,
+		false // write_queue use_noops
 	},
 	// clang-format on
 	block_store{ *this },

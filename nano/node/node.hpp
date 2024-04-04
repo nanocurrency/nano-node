@@ -33,7 +33,6 @@
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/utility.hpp>
-#include <nano/store/write_queue.hpp>
 
 #include <boost/program_options.hpp>
 #include <boost/thread/latch.hpp>
@@ -138,7 +137,6 @@ public:
 
 public:
 	const nano::keypair node_id;
-	nano::store::write_queue write_queue;
 	std::shared_ptr<boost::asio::io_context> io_ctx_shared;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
