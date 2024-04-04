@@ -784,7 +784,7 @@ TEST (ledger_confirm, pruned_source)
 	nano::stats stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
-	nano::write_database_queue write_database_queue (false);
+	nano::store::write_database_queue write_database_queue (false);
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair key1, key2;
 	nano::block_builder builder;
@@ -868,7 +868,7 @@ TEST (ledger_confirmDeathTest, rollback_added_block)
 		ASSERT_TRUE (!store->init_error ());
 		nano::stats stats;
 		nano::ledger ledger (*store, stats, nano::dev::constants);
-		nano::write_database_queue write_database_queue (false);
+		nano::store::write_database_queue write_database_queue (false);
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 		nano::keypair key1;
 		nano::block_builder builder;

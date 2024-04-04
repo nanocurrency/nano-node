@@ -92,7 +92,9 @@ add_library(
   rocksdb/version.cpp
   transaction.cpp
   version.cpp
-  versioning.cpp)
+  versioning.cpp
+  write_database_queue.hpp
+  write_database_queue.cpp)
 
 target_link_libraries(
   nano_store

@@ -37,7 +37,7 @@ void nano::block_processor::context::set_result (result_t const & result)
  * block_processor
  */
 
-nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
+nano::block_processor::block_processor (nano::node & node_a, nano::store::write_database_queue & write_database_queue_a) :
 	config{ node_a.config.block_processor },
 	node (node_a),
 	write_database_queue (write_database_queue_a),
@@ -300,7 +300,7 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 {
 	processed_batch_t processed;
 
-	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
+	auto scoped_write_guard = write_database_queue.wait (nano::store::writer::process_batch);
 	auto transaction (node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights }));
 	nano::timer<std::chrono::milliseconds> timer_l;
 
