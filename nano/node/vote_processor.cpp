@@ -84,7 +84,8 @@ void nano::vote_processor::run ()
 				log_this_iteration = true;
 				elapsed.restart ();
 			}
-			verify_votes (votes_l);
+
+			verify_and_process_votes (votes_l);
 			total_processed += votes_l.size ();
 
 			if (log_this_iteration && elapsed.stop () > std::chrono::milliseconds (100))
@@ -107,48 +108,53 @@ void nano::vote_processor::run ()
 bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	debug_assert (channel_a != nullptr);
-	bool process (false);
+
 	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	auto should_process = [this] (auto tier) {
+		if (votes.size () < 6.0 / 9.0 * max_votes)
+		{
+			return true;
+		}
+		// Level 1 (0.1-1%)
+		if (votes.size () < 7.0 / 9.0 * max_votes)
+		{
+			return (tier == nano::rep_tier::tier_1);
+		}
+		// Level 2 (1-5%)
+		if (votes.size () < 8.0 / 9.0 * max_votes)
+		{
+			return (tier == nano::rep_tier::tier_2);
+		}
+		// Level 3 (> 5%)
+		if (votes.size () < max_votes)
+		{
+			return (tier == nano::rep_tier::tier_3);
+		}
+		return false;
+	};
+
 	if (!stopped)
 	{
 		auto tier = rep_tiers.tier (vote_a->account);
-
-		// Level 0 (< 0.1%)
-		if (votes.size () < 6.0 / 9.0 * max_votes)
-		{
-			process = true;
-		}
-		// Level 1 (0.1-1%)
-		else if (votes.size () < 7.0 / 9.0 * max_votes)
-		{
-			process = (tier == nano::rep_tier::tier_1);
-		}
-		// Level 2 (1-5%)
-		else if (votes.size () < 8.0 / 9.0 * max_votes)
-		{
-			process = (tier == nano::rep_tier::tier_2);
-		}
-		// Level 3 (> 5%)
-		else if (votes.size () < max_votes)
-		{
-			process = (tier == nano::rep_tier::tier_3);
-		}
-		if (process)
+		if (should_process (tier))
 		{
 			votes.emplace_back (vote_a, channel_a);
 			lock.unlock ();
 			condition.notify_all ();
 			// Lock no longer required
+
+			return true; // Processed
 		}
 		else
 		{
 			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_overflow);
 		}
 	}
-	return !process;
+	return false; // Not processed
 }
 
-void nano::vote_processor::verify_votes (decltype (votes) const & votes_a)
+void nano::vote_processor::verify_and_process_votes (decltype (votes) const & votes_a)
 {
 	for (auto const & vote : votes_a)
 	{

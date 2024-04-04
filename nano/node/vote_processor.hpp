@@ -2,6 +2,7 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/node/fair_queue.hpp>
 #include <nano/secure/common.hpp>
 
 #include <deque>
@@ -32,7 +33,10 @@ namespace transport
 {
 	class channel;
 }
+}
 
+namespace nano
+{
 class vote_processor final
 {
 public:
@@ -44,7 +48,7 @@ public:
 
 	/** Returns false if the vote was processed */
 	bool vote (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &);
-	/** Note: node.active.mutex lock is required */
+
 	nano::vote_code vote_blocking (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &, bool = false);
 
 	/** Function blocks until either the current queue size (a established flush boundary as it'll continue to increase)
@@ -69,7 +73,7 @@ private: // Dependencies
 
 private:
 	void run ();
-	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> const &);
+	void verify_and_process_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> const &);
 
 private:
 	std::size_t const max_votes;

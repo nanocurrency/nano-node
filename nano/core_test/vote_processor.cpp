@@ -102,7 +102,7 @@ TEST (vote_processor, no_capacity)
 	nano::keypair key;
 	auto vote = nano::test::make_vote (key, { nano::dev::genesis }, nano::vote::timestamp_min * 1, 0);
 	auto channel (std::make_shared<nano::transport::inproc::channel> (node, node));
-	ASSERT_TRUE (node.vote_processor.vote (vote, channel));
+	ASSERT_FALSE (node.vote_processor.vote (vote, channel));
 }
 
 TEST (vote_processor, overflow)
@@ -121,7 +121,7 @@ TEST (vote_processor, overflow)
 	size_t const total{ 1000 };
 	for (unsigned i = 0; i < total; ++i)
 	{
-		if (node.vote_processor.vote (vote, channel))
+		if (!node.vote_processor.vote (vote, channel))
 		{
 			++not_processed;
 		}
