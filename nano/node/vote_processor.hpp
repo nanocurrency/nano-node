@@ -54,6 +54,8 @@ public:
 	std::size_t size () const;
 	bool empty () const;
 
+	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
+
 	std::atomic<uint64_t> total_processed{ 0 };
 
 private: // Dependencies
@@ -81,9 +83,5 @@ private:
 	nano::condition_variable condition;
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::vote_processor) };
 	std::thread thread;
-
-	friend std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, std::string const & name);
 };
-
-std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, std::string const & name);
 }
