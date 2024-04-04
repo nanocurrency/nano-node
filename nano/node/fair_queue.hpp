@@ -81,18 +81,22 @@ private:
 		{
 			// First compare source
 			if (auto cmp = source <=> other.source; cmp != 0)
+			{
 				return cmp;
+			}
 
 			if (maybe_channel && other.maybe_channel)
 			{
 				// Then compare channels by ownership, not by the channel's value or state
 				std::owner_less<std::weak_ptr<nano::transport::channel>> less;
 				if (less (*maybe_channel, *other.maybe_channel))
+				{
 					return std::strong_ordering::less;
+				}
 				if (less (*other.maybe_channel, *maybe_channel))
+				{
 					return std::strong_ordering::greater;
-
-				return std::strong_ordering::equivalent;
+				}
 			}
 			else
 			{
@@ -104,8 +108,9 @@ private:
 				{
 					return std::strong_ordering::less;
 				}
-				return std::strong_ordering::equivalent;
 			}
+
+			return std::strong_ordering::equivalent;
 		}
 
 		operator origin () const
