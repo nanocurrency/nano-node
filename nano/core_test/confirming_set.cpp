@@ -18,15 +18,13 @@ using namespace std::chrono_literals;
 TEST (confirming_set, construction)
 {
 	auto ctx = nano::test::context::ledger_empty ();
-	nano::store::write_queue write_queue{ false };
-	nano::confirming_set confirming_set (ctx.ledger (), write_queue);
+	nano::confirming_set confirming_set (ctx.ledger ());
 }
 
 TEST (confirming_set, add_exists)
 {
 	auto ctx = nano::test::context::ledger_send_receive ();
-	nano::store::write_queue write_queue{ false };
-	nano::confirming_set confirming_set (ctx.ledger (), write_queue);
+	nano::confirming_set confirming_set (ctx.ledger ());
 	auto send = ctx.blocks ()[0];
 	confirming_set.add (send->hash ());
 	ASSERT_TRUE (confirming_set.exists (send->hash ()));
@@ -35,8 +33,7 @@ TEST (confirming_set, add_exists)
 TEST (confirming_set, process_one)
 {
 	auto ctx = nano::test::context::ledger_send_receive ();
-	nano::store::write_queue write_queue{ false };
-	nano::confirming_set confirming_set (ctx.ledger (), write_queue);
+	nano::confirming_set confirming_set (ctx.ledger ());
 	std::atomic<int> count = 0;
 	std::mutex mutex;
 	std::condition_variable condition;
@@ -52,8 +49,7 @@ TEST (confirming_set, process_one)
 TEST (confirming_set, process_multiple)
 {
 	auto ctx = nano::test::context::ledger_send_receive ();
-	nano::store::write_queue write_queue{ false };
-	nano::confirming_set confirming_set (ctx.ledger (), write_queue);
+	nano::confirming_set confirming_set (ctx.ledger ());
 	std::atomic<int> count = 0;
 	std::mutex mutex;
 	std::condition_variable condition;

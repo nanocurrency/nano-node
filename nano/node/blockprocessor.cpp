@@ -37,10 +37,9 @@ void nano::block_processor::context::set_result (result_t const & result)
  * block_processor
  */
 
-nano::block_processor::block_processor (nano::node & node_a, nano::store::write_queue & write_queue_a) :
+nano::block_processor::block_processor (nano::node & node_a) :
 	config{ node_a.config.block_processor },
 	node (node_a),
-	write_queue (write_queue_a),
 	next_log (std::chrono::steady_clock::now ())
 {
 	batch_processed.add ([this] (auto const & items) {
@@ -300,7 +299,7 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 {
 	processed_batch_t processed;
 
-	auto scoped_write_guard = write_queue.wait (nano::store::writer::process_batch);
+	auto scoped_write_guard = node.store.write_queue.wait (nano::store::writer::process_batch);
 	auto transaction (node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights }));
 	nano::timer<std::chrono::milliseconds> timer_l;
 
