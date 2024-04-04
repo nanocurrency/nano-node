@@ -194,20 +194,6 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 	return result;
 }
 
-void nano::vote_processor::flush ()
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	auto const cutoff = total_processed.load (std::memory_order_relaxed) + votes.size ();
-	bool success = condition.wait_for (lock, 60s, [this, &cutoff] () {
-		return stopped || votes.empty () || total_processed.load (std::memory_order_relaxed) >= cutoff;
-	});
-	if (!success)
-	{
-		logger.error (nano::log::type::vote_processor, "Flush timeout");
-		debug_assert (false && "vote_processor::flush timeout while waiting for flush");
-	}
-}
-
 std::size_t nano::vote_processor::size () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };

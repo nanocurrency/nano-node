@@ -58,20 +58,6 @@ TEST (vote_processor, codes)
 	ASSERT_EQ (nano::vote_code::indeterminate, node.vote_processor.vote_blocking (vote, channel));
 }
 
-TEST (vote_processor, flush)
-{
-	nano::test::system system (1);
-	auto & node (*system.nodes[0]);
-	auto channel (std::make_shared<nano::transport::inproc::channel> (node, node));
-	for (unsigned i = 0; i < 2000; ++i)
-	{
-		auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * (1 + i), 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
-		node.vote_processor.vote (vote, channel);
-	}
-	node.vote_processor.flush ();
-	ASSERT_TRUE (node.vote_processor.empty ());
-}
-
 TEST (vote_processor, invalid_signature)
 {
 	nano::test::system system{ 1 };

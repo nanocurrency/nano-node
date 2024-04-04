@@ -758,7 +758,6 @@ TEST (active_transactions, republish_winner)
 	ASSERT_NE (nullptr, election);
 	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { fork });
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
-	node1.vote_processor.flush ();
 	ASSERT_TIMELY (5s, election->confirmed ());
 	ASSERT_EQ (fork->hash (), election->status.winner->hash ());
 	ASSERT_TIMELY (5s, node2.block_confirmed (fork->hash ()));
@@ -937,7 +936,7 @@ TEST (active_transactions, fork_replacement_tally)
 					.build ();
 		auto vote = nano::test::make_vote (keys[i], { fork }, 0, 0);
 		node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
-		node1.vote_processor.flush ();
+		ASSERT_TIMELY (5s, node1.vote_cache.find (fork->hash ()).size () > 0);
 		node1.process_active (fork);
 	}
 
@@ -980,7 +979,6 @@ TEST (active_transactions, fork_replacement_tally)
 	// Process vote for correct block & replace existing lowest tally block
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, { send_last }, 0, 0);
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
-	node1.vote_processor.flush ();
 	// ensure vote arrives before the block
 	ASSERT_TIMELY_EQ (5s, 1, node1.vote_cache.find (send_last->hash ()).size ());
 	node1.network.publish_filter.clear ();
