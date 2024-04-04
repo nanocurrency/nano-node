@@ -72,6 +72,9 @@ enum class type
 	syn_cookies,
 	peer_history,
 	port_mapping,
+	message_processor,
+	message_processor_overfill,
+	message_processor_type,
 
 	bootstrap_ascending,
 	bootstrap_ascending_accounts,

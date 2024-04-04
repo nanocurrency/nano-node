@@ -85,6 +85,11 @@ nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, 
 	}
 }
 
+nano::node_config::~node_config ()
+{
+	// Keep the node_config destructor definition here to avoid incomplete type issues
+}
+
 nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 {
 	if (peering_port.has_value ())
@@ -237,6 +242,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	request_aggregator.serialize (request_aggregator_l);
 	toml.put_child ("request_aggregator", request_aggregator_l);
 
+	nano::tomlconfig message_processor_l;
+	message_processor.serialize (message_processor_l);
+	toml.put_child ("message_processor", message_processor_l);
+
 	return toml.get_error ();
 }
 
@@ -346,6 +355,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto config_l = toml.get_required_child ("request_aggregator");
 			request_aggregator.deserialize (config_l);
+		}
+
+		if (toml.has_key ("message_processor"))
+		{
+			auto config_l = toml.get_required_child ("message_processor");
+			message_processor.deserialize (config_l);
 		}
 
 		if (toml.has_key ("work_peers"))

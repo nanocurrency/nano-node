@@ -22,8 +22,8 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::work:
 			thread_role_name_string = "Work pool";
 			break;
-		case nano::thread_role::name::packet_processing:
-			thread_role_name_string = "Pkt processing";
+		case nano::thread_role::name::message_processing:
+			thread_role_name_string = "Msg processing";
 			break;
 		case nano::thread_role::name::vote_processing:
 			thread_role_name_string = "Vote processing";

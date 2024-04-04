@@ -12,7 +12,7 @@ enum class name
 	unknown,
 	io,
 	work,
-	packet_processing,
+	message_processing,
 	vote_processing,
 	block_processing,
 	request_loop,

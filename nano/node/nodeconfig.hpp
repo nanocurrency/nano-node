@@ -13,6 +13,7 @@
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
+#include <nano/node/message_processor.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/request_aggregator.hpp>
@@ -41,6 +42,8 @@ enum class frontiers_confirmation_mode : uint8_t
 	invalid
 };
 
+class message_processor_config;
+
 /**
  * Node configuration
  */
@@ -50,6 +53,7 @@ public:
 	// TODO: Users of this class rely on the default copy consturctor. This prevents using unique_ptrs with forward declared types.
 	node_config (nano::network_params & network_params = nano::dev::network_params);
 	node_config (const std::optional<uint16_t> &, nano::network_params & network_params = nano::dev::network_params);
+	~node_config ();
 
 	nano::error serialize_toml (nano::tomlconfig &) const;
 	nano::error deserialize_toml (nano::tomlconfig &);
@@ -143,6 +147,7 @@ public:
 	nano::peer_history_config peer_history;
 	nano::transport::tcp_config tcp;
 	nano::request_aggregator_config request_aggregator;
+	nano::message_processor_config message_processor;
 
 public:
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
