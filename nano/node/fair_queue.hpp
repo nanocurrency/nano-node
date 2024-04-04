@@ -186,7 +186,7 @@ public:
 		return it == queues.end () ? 0 : it->second.priority;
 	}
 
-	size_t total_size () const
+	size_t size () const
 	{
 		return std::accumulate (queues.begin (), queues.end (), 0, [] (size_t total, auto const & queue) {
 			return total + queue.second.size ();
@@ -354,8 +354,8 @@ public:
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name)
 	{
 		auto composite = std::make_unique<container_info_composite> (name);
-		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "queues", queues.size (), sizeof (typename decltype (queues)::value_type) }));
-		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "total_size", total_size (), sizeof (typename decltype (queues)::value_type) }));
+		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "queues", queues_size (), sizeof (typename decltype (queues)::value_type) }));
+		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "total_size", size (), sizeof (typename decltype (queues)::value_type) }));
 		return composite;
 	}
 };
