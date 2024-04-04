@@ -981,7 +981,7 @@ std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (st
 }
 
 // Vote weight of an account
-nano::uint128_t nano::ledger::weight (nano::account const & account_a)
+nano::uint128_t nano::ledger::weight (nano::account const & account_a) const
 {
 	if (check_bootstrap_weights.load ())
 	{
@@ -1001,7 +1001,7 @@ nano::uint128_t nano::ledger::weight (nano::account const & account_a)
 	return cache.rep_weights.representation_get (account_a);
 }
 
-nano::uint128_t nano::ledger::weight_exact (store::transaction const & txn_a, nano::account const & representative_a)
+nano::uint128_t nano::ledger::weight_exact (store::transaction const & txn_a, nano::account const & representative_a) const
 {
 	return store.rep_weight.get (txn_a, representative_a);
 }
