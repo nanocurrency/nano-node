@@ -24,8 +24,7 @@ nano::vote_processor::vote_processor (nano::active_transactions & active_a, nano
 	rep_crawler{ rep_crawler_a },
 	ledger{ ledger_a },
 	network_params{ network_params_a },
-	rep_tiers{ rep_tiers_a },
-	max_votes{ flags_a.vote_processor_capacity }
+	rep_tiers{ rep_tiers_a }
 {
 	queue.max_size_query = [this] (auto const & origin) {
 		switch (origin.source)
@@ -33,7 +32,7 @@ nano::vote_processor::vote_processor (nano::active_transactions & active_a, nano
 			case nano::rep_tier::tier_3:
 			case nano::rep_tier::tier_2:
 			case nano::rep_tier::tier_1:
-				return 512;
+				return 256;
 			case nano::rep_tier::none:
 				return 32;
 		}
@@ -96,7 +95,7 @@ bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote, std::
 	bool added = false;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
-		added = queue.push ({ vote, channel }, tier);
+		added = queue.push (vote, { tier, channel });
 	}
 	if (added)
 	{
@@ -147,10 +146,9 @@ void nano::vote_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
 
 	lock.unlock ();
 
-	for (auto const & [entry, origin] : batch)
+	for (auto const & [vote, origin] : batch)
 	{
-		auto const & [vote, channel] = entry;
-		vote_blocking (vote, channel);
+		vote_blocking (vote, origin.channel);
 	}
 
 	total_processed += batch.size ();

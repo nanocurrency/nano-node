@@ -75,10 +75,7 @@ private:
 	void run_batch (nano::unique_lock<nano::mutex> &);
 
 private:
-	std::size_t const max_votes;
-
-	using entry_t = std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>;
-	nano::fair_queue<entry_t, nano::rep_tier> queue;
+	nano::fair_queue<std::shared_ptr<nano::vote>, nano::rep_tier> queue;
 
 private:
 	bool stopped{ false };
