@@ -1,0 +1,5 @@
+# This class has a member variable that is marked alignas(16) which means the object should be aligned an a 16-byte boundary which it isn’t.
+# Looking at where it’s instantiated it’s a static local function variable that is also thread_local.
+# This could be some sort of bug in the thread_local alignment, maybe in combination with being a static local function variable.
+src:*/beast/core/detail/chacha.hpp
+src:*/beast/websocket/detail/prng.ipp
