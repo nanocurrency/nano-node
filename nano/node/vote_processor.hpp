@@ -47,7 +47,7 @@ public:
 	void start ();
 	void stop ();
 
-	/** Returns false if the vote was processed */
+	/** @returns true if the vote was queued for processing */
 	bool vote (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &);
 	nano::vote_code vote_blocking (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &);
 
