@@ -6888,6 +6888,7 @@ TEST (rpc, election_statistics)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
 	node1->process_active (send1);
+	ASSERT_TIMELY (5s, !node1->active.empty ());
 	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send1 }));
 	ASSERT_EQ (1, node1->active.size ());
 
