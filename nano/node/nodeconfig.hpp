@@ -15,6 +15,7 @@
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
 #include <nano/node/vote_cache.hpp>
+#include <nano/node/vote_processor.hpp>
 #include <nano/node/websocketconfig.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/generate_cache_flags.hpp>
@@ -41,6 +42,7 @@ enum class frontiers_confirmation_mode : uint8_t
 class node_config
 {
 public:
+	// TODO: Users of this class rely on the default copy consturctor. This prevents using unique_ptrs with forward declared types.
 	node_config (nano::network_params & network_params = nano::dev::network_params);
 	node_config (const std::optional<uint16_t> &, nano::network_params & network_params = nano::dev::network_params);
 
@@ -138,6 +140,7 @@ public:
 	nano::vote_cache_config vote_cache;
 	nano::rep_crawler_config rep_crawler;
 	nano::block_processor_config block_processor;
+	nano::vote_processor_config vote_processor;
 
 public:
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;

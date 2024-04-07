@@ -38,10 +38,22 @@ namespace transport
 
 namespace nano
 {
+class vote_processor_config final
+{
+public:
+	nano::error serialize (nano::tomlconfig & toml) const;
+	nano::error deserialize (nano::tomlconfig & toml);
+
+public:
+	size_t max_pr_queue{ 256 };
+	size_t max_non_pr_queue{ 32 };
+	size_t pr_priority{ 3 };
+};
+
 class vote_processor final
 {
 public:
-	vote_processor (nano::active_transactions &, nano::node_observers &, nano::stats &, nano::node_config &, nano::node_flags &, nano::logger &, nano::online_reps &, nano::rep_crawler &, nano::ledger &, nano::network_params &, nano::rep_tiers &);
+	vote_processor (vote_processor_config const &, nano::active_transactions &, nano::node_observers &, nano::stats &, nano::node_flags &, nano::logger &, nano::online_reps &, nano::rep_crawler &, nano::ledger &, nano::network_params &, nano::rep_tiers &);
 	~vote_processor ();
 
 	void start ();
@@ -59,10 +71,10 @@ public:
 	std::atomic<uint64_t> total_processed{ 0 };
 
 private: // Dependencies
+	vote_processor_config const & config;
 	nano::active_transactions & active;
 	nano::node_observers & observers;
 	nano::stats & stats;
-	nano::node_config & config;
 	nano::logger & logger;
 	nano::online_reps & online_reps;
 	nano::rep_crawler & rep_crawler;

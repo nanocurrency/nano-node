@@ -14,11 +14,11 @@
 
 using namespace std::chrono_literals;
 
-nano::vote_processor::vote_processor (nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a, nano::rep_tiers & rep_tiers_a) :
+nano::vote_processor::vote_processor (vote_processor_config const & config_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_flags & flags_a, nano::logger & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a, nano::rep_tiers & rep_tiers_a) :
+	config{ config_a },
 	active{ active_a },
 	observers{ observers_a },
 	stats{ stats_a },
-	config{ config_a },
 	logger{ logger_a },
 	online_reps{ online_reps_a },
 	rep_crawler{ rep_crawler_a },
@@ -32,28 +32,28 @@ nano::vote_processor::vote_processor (nano::active_transactions & active_a, nano
 			case nano::rep_tier::tier_3:
 			case nano::rep_tier::tier_2:
 			case nano::rep_tier::tier_1:
-				return 256;
+				return config.max_pr_queue;
 			case nano::rep_tier::none:
-				return 32;
+				return config.max_non_pr_queue;
 		}
 		debug_assert (false);
-		return 0;
+		return size_t{ 0 };
 	};
 
-	queue.priority_query = [] (auto const & origin) {
+	queue.priority_query = [this] (auto const & origin) {
 		switch (origin.source)
 		{
 			case nano::rep_tier::tier_3:
-				return 9;
+				return config.pr_priority * config.pr_priority * config.pr_priority;
 			case nano::rep_tier::tier_2:
-				return 6;
+				return config.pr_priority * config.pr_priority;
 			case nano::rep_tier::tier_1:
-				return 3;
+				return config.pr_priority;
 			case nano::rep_tier::none:
-				return 1;
+				return size_t{ 1 };
 		}
 		debug_assert (false);
-		return 0;
+		return size_t{ 0 };
 	};
 }
 
@@ -213,4 +213,26 @@ std::unique_ptr<nano::container_info_component> nano::vote_processor::collect_co
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "votes", votes_count, sizeof (decltype (queue)::value_type) }));
 	return composite;
+}
+
+/*
+ * vote_processor_config
+ */
+
+nano::error nano::vote_processor_config::serialize (nano::tomlconfig & toml) const
+{
+	toml.put ("max_pr_queue", max_pr_queue, "Maximum number of votes to queue from principal representatives. \ntype:uint64");
+	toml.put ("max_non_pr_queue", max_non_pr_queue, "Maximum number of votes to queue from non-principal representatives. \ntype:uint64");
+	toml.put ("pr_priority", pr_priority, "Priority for votes from principal representatives. Higher priority gets processed more frequently. Non-principal representatives have a baseline priority of 1. \ntype:uint64");
+
+	return toml.get_error ();
+}
+
+nano::error nano::vote_processor_config::deserialize (nano::tomlconfig & toml)
+{
+	toml.get ("max_pr_queue", max_pr_queue);
+	toml.get ("max_non_pr_queue", max_non_pr_queue);
+	toml.get ("pr_priority", pr_priority);
+
+	return toml.get_error ();
 }
