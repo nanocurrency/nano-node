@@ -18,6 +18,7 @@
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/vote_generator.hpp>
+#include <nano/node/vote_processor.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
@@ -178,7 +179,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	active{ *active_impl },
 	rep_crawler (config.rep_crawler, *this),
 	rep_tiers{ ledger, network_params, online_reps, stats, logger },
-	vote_processor{ config.vote_processor, active, observers, stats, flags, logger, online_reps, rep_crawler, ledger, network_params, rep_tiers },
+	vote_processor_impl{ std::make_unique<nano::vote_processor> (config.vote_processor, active, observers, stats, flags, logger, online_reps, rep_crawler, ledger, network_params, rep_tiers) },
+	vote_processor{ *vote_processor_impl },
 	warmed_up (0),
 	online_reps (ledger, config),
 	history_impl{ std::make_unique<nano::local_vote_history> (config.network_params.voting) },
