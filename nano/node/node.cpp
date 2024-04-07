@@ -192,7 +192,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	scheduler{ *scheduler_impl },
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
-	backlog{ nano::backlog_population_config (config), store, stats },
+	backlog{ nano::backlog_population_config (config), ledger, stats },
 	ascendboot{ config, block_processor, ledger, network, stats },
 	websocket{ config.websocket_config, observers, wallets, ledger, io_ctx, logger },
 	epoch_upgrader{ *this, ledger, store, network_params, logger },
@@ -213,7 +213,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 		return ledger.weight (rep);
 	};
 
-	backlog.activate_callback.add ([this] (store::transaction const & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info) {
+	backlog.activate_callback.add ([this] (secure::transaction const & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info) {
 		scheduler.priority.activate (account, transaction);
 		scheduler.optimistic.activate (account, account_info, conf_info);
 	});
@@ -589,14 +589,14 @@ void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 	block_processor.add (incoming);
 }
 
-[[nodiscard]] nano::block_status nano::node::process (store::write_transaction const & transaction, std::shared_ptr<nano::block> block)
+[[nodiscard]] nano::block_status nano::node::process (secure::write_transaction const & transaction, std::shared_ptr<nano::block> block)
 {
 	return ledger.process (transaction, block);
 }
 
 nano::block_status nano::node::process (std::shared_ptr<nano::block> block)
 {
-	auto const transaction = store.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights });
+	auto const transaction = ledger.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights });
 	return process (transaction, block);
 }
 
@@ -752,25 +752,23 @@ void nano::node::keepalive_preconfigured ()
 
 nano::block_hash nano::node::latest (nano::account const & account_a)
 {
-	auto const transaction (store.tx_begin_read ());
-	return ledger.latest (transaction, account_a);
+	return ledger.latest (ledger.tx_begin_read (), account_a);
 }
 
 nano::uint128_t nano::node::balance (nano::account const & account_a)
 {
-	auto const transaction (store.tx_begin_read ());
-	return ledger.account_balance (transaction, account_a);
+	return ledger.account_balance (ledger.tx_begin_read (), account_a);
 }
 
 std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)
 {
-	return ledger.block (store.tx_begin_read (), hash_a);
+	return ledger.block (ledger.tx_begin_read (), hash_a);
 }
 
 std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::account const & account_a, bool only_confirmed_a)
 {
 	std::pair<nano::uint128_t, nano::uint128_t> result;
-	auto const transaction (store.tx_begin_read ());
+	auto const transaction = ledger.tx_begin_read ();
 	result.first = ledger.account_balance (transaction, account_a, only_confirmed_a);
 	result.second = ledger.account_receivable (transaction, account_a, only_confirmed_a);
 	return result;
@@ -778,7 +776,7 @@ std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::a
 
 nano::uint128_t nano::node::weight (nano::account const & account_a)
 {
-	auto txn{ ledger.store.tx_begin_read () };
+	auto txn = ledger.tx_begin_read ();
 	return ledger.weight_exact (txn, account_a);
 }
 
@@ -936,7 +934,7 @@ bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & 
 {
 	uint64_t read_operations (0);
 	bool finish_transaction (false);
-	auto const transaction (store.tx_begin_read ());
+	auto const transaction = ledger.tx_begin_read ();
 	for (auto i (store.confirmation_height.begin (transaction, last_account_a)), n (store.confirmation_height.end ()); i != n && !finish_transaction;)
 	{
 		++read_operations;
@@ -1006,7 +1004,7 @@ void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_wei
 		if (!pruning_targets.empty () && !stopped)
 		{
 			auto scoped_write_guard = store.write_queue.wait (nano::store::writer::pruning);
-			auto write_transaction (store.tx_begin_write ({ tables::blocks, tables::pruned }));
+			auto write_transaction = ledger.tx_begin_write ({ tables::blocks, tables::pruned });
 			while (!pruning_targets.empty () && transaction_write_count < batch_size_a && !stopped)
 			{
 				auto const & pruning_hash (pruning_targets.front ());
@@ -1182,18 +1180,17 @@ void nano::node::start_election (std::shared_ptr<nano::block> const & block)
 
 bool nano::node::block_confirmed (nano::block_hash const & hash_a)
 {
-	auto transaction (store.tx_begin_read ());
-	return ledger.block_confirmed (transaction, hash_a);
+	return ledger.block_confirmed (ledger.tx_begin_read (), hash_a);
 }
 
-bool nano::node::block_confirmed_or_being_confirmed (nano::store::transaction const & transaction, nano::block_hash const & hash_a)
+bool nano::node::block_confirmed_or_being_confirmed (nano::secure::transaction const & transaction, nano::block_hash const & hash_a)
 {
 	return confirming_set.exists (hash_a) || ledger.block_confirmed (transaction, hash_a);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & hash_a)
 {
-	return block_confirmed_or_being_confirmed (store.tx_begin_read (), hash_a);
+	return block_confirmed_or_being_confirmed (ledger.tx_begin_read (), hash_a);
 }
 
 void nano::node::ongoing_online_weight_calculation_queue ()
@@ -1222,7 +1219,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 {
 	auto hash (status_a.winner->hash ());
 	decltype (iteration_a) const num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
-	if (auto block_l = ledger.block (ledger.store.tx_begin_read (), hash))
+	if (auto block_l = ledger.block (ledger.tx_begin_read (), hash))
 	{
 		logger.trace (nano::log::type::node, nano::log::detail::process_confirmed, nano::log::arg{ "block", block_l });
 

@@ -172,7 +172,7 @@ TEST (rep_crawler, rep_remove)
 												.work (*system.work.generate (keys_rep2.pub))
 												.build ();
 	{
-		auto transaction = searching_node.store.tx_begin_write ();
+		auto transaction = searching_node.ledger.tx_begin_write ();
 		ASSERT_EQ (nano::block_status::progress, searching_node.ledger.process (transaction, send_to_rep1));
 		ASSERT_EQ (nano::block_status::progress, searching_node.ledger.process (transaction, receive_rep1));
 		ASSERT_EQ (nano::block_status::progress, searching_node.ledger.process (transaction, send_to_rep2));

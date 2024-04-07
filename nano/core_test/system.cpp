@@ -31,7 +31,7 @@ TEST (system, system_genesis)
 	nano::test::system system (2);
 	for (auto & i : system.nodes)
 	{
-		auto transaction (i->store.tx_begin_read ());
+		auto transaction = i->ledger.tx_begin_read ();
 		ASSERT_EQ (nano::dev::constants.genesis_amount, i->ledger.account_balance (transaction, nano::dev::genesis_key.pub));
 	}
 }
@@ -44,14 +44,14 @@ TEST (system, DISABLED_generate_send_existing)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair stake_preserver;
 	auto send_block (system.wallet (0)->send_action (nano::dev::genesis_key.pub, stake_preserver.pub, nano::dev::constants.genesis_amount / 3 * 2, true));
-	auto info1 = node1.ledger.account_info (node1.store.tx_begin_read (), nano::dev::genesis_key.pub);
+	auto info1 = node1.ledger.account_info (node1.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	std::vector<nano::account> accounts;
 	accounts.push_back (nano::dev::genesis_key.pub);
 	system.generate_send_existing (node1, accounts);
 	// Have stake_preserver receive funds after generate_send_existing so it isn't chosen as the destination
 	{
-		auto transaction (node1.store.tx_begin_write ());
+		auto transaction = node1.ledger.tx_begin_write ();
 		nano::block_builder builder;
 		auto open_block = builder
 						  .open ()
@@ -65,21 +65,21 @@ TEST (system, DISABLED_generate_send_existing)
 		ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, open_block));
 	}
 	ASSERT_GT (node1.balance (stake_preserver.pub), node1.balance (nano::dev::genesis_key.pub));
-	auto info2 = node1.ledger.account_info (node1.store.tx_begin_read (), nano::dev::genesis_key.pub);
+	auto info2 = node1.ledger.account_info (node1.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info2);
 	ASSERT_NE (info1->head, info2->head);
 	system.deadline_set (15s);
 	while (info2->block_count < info1->block_count + 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
-		auto transaction (node1.store.tx_begin_read ());
+		auto transaction = node1.ledger.tx_begin_read ();
 		info2 = node1.ledger.account_info (transaction, nano::dev::genesis_key.pub);
 		ASSERT_TRUE (info2);
 	}
 	ASSERT_EQ (info1->block_count + 2, info2->block_count);
 	ASSERT_EQ (info2->balance, nano::dev::constants.genesis_amount / 3);
 	{
-		auto transaction (node1.store.tx_begin_read ());
+		auto transaction = node1.ledger.tx_begin_read ();
 		ASSERT_NE (node1.ledger.amount (transaction, info2->head), 0);
 	}
 	system.stop ();
@@ -102,7 +102,7 @@ TEST (system, DISABLED_generate_send_new)
 	nano::keypair stake_preserver;
 	auto send_block (system.wallet (0)->send_action (nano::dev::genesis_key.pub, stake_preserver.pub, nano::dev::constants.genesis_amount / 3 * 2, true));
 	{
-		auto transaction (node1.store.tx_begin_write ());
+		auto transaction = node1.ledger.tx_begin_write ();
 		nano::block_builder builder;
 		auto open_block = builder
 						  .open ()

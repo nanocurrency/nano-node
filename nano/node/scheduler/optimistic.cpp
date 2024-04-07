@@ -127,7 +127,7 @@ void nano::scheduler::optimistic::run ()
 
 		if (predicate ())
 		{
-			auto transaction = ledger.store.tx_begin_read ();
+			auto transaction = ledger.tx_begin_read ();
 
 			while (predicate ())
 			{
@@ -149,7 +149,7 @@ void nano::scheduler::optimistic::run ()
 	}
 }
 
-void nano::scheduler::optimistic::run_one (store::transaction const & transaction, entry const & candidate)
+void nano::scheduler::optimistic::run_one (secure::transaction const & transaction, entry const & candidate)
 {
 	auto block = ledger.head_block (transaction, candidate.account);
 	if (block)

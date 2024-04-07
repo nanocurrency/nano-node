@@ -17,7 +17,7 @@ class container_info_component;
 class node;
 class stats;
 }
-namespace nano::store
+namespace nano::secure
 {
 class transaction;
 }
@@ -38,7 +38,7 @@ public:
 	 * Activates the first unconfirmed block of \p account_a
 	 * @return true if account was activated
 	 */
-	bool activate (nano::account const &, store::transaction const &);
+	bool activate (nano::account const &, secure::transaction const &);
 	void notify ();
 	std::size_t size () const;
 	bool empty () const;

@@ -39,7 +39,7 @@ nano::vote_generator::~vote_generator ()
 	stop ();
 }
 
-bool nano::vote_generator::should_vote (store::write_transaction const & transaction, nano::root const & root_a, nano::block_hash const & hash_a)
+bool nano::vote_generator::should_vote (secure::write_transaction const & transaction, nano::root const & root_a, nano::block_hash const & hash_a)
 {
 	auto block = ledger.block (transaction, hash_a);
 	bool should_vote = false;
@@ -95,7 +95,7 @@ void nano::vote_generator::process_batch (std::deque<queue_entry_t> & batch)
 	std::deque<candidate_t> candidates_new;
 	{
 		auto guard = ledger.store.write_queue.wait (is_final ? nano::store::writer::voting_final : nano::store::writer::voting);
-		auto transaction = ledger.store.tx_begin_write ({ tables::final_votes });
+		auto transaction = ledger.tx_begin_write ({ tables::final_votes });
 
 		for (auto & [root, hash] : batch)
 		{
@@ -122,7 +122,7 @@ std::size_t nano::vote_generator::generate (std::vector<std::shared_ptr<nano::bl
 {
 	request_t::first_type req_candidates;
 	{
-		auto transaction (ledger.store.tx_begin_read ());
+		auto transaction = ledger.tx_begin_read ();
 		auto dependents_confirmed = [&transaction, this] (auto const & block_a) {
 			return this->ledger.dependents_confirmed (transaction, *block_a);
 		};

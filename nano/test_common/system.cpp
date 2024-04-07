@@ -107,7 +107,7 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config_a, work, node_flags_a, node_sequence++));
 	for (auto i : initialization_blocks)
 	{
-		auto result = node->ledger.process (node->store.tx_begin_write (), i);
+		auto result = node->ledger.process (node->ledger.tx_begin_write (), i);
 		debug_assert (result == nano::block_status::progress);
 	}
 	debug_assert (!node->init_error ());
@@ -202,7 +202,7 @@ std::shared_ptr<nano::node> nano::test::system::make_disconnected_node (std::opt
 	auto node = std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config, work, flags);
 	for (auto i : initialization_blocks)
 	{
-		auto result = node->ledger.process (node->store.tx_begin_write (), i);
+		auto result = node->ledger.process (node->ledger.tx_begin_write (), i);
 		debug_assert (result == nano::block_status::progress);
 	}
 	debug_assert (!node->init_error ());
@@ -297,7 +297,7 @@ uint64_t nano::test::system::work_generate_limited (nano::block_hash const & roo
  */
 std::shared_ptr<nano::state_block> nano::test::upgrade_epoch (nano::work_pool & pool_a, nano::ledger & ledger_a, nano::epoch epoch_a)
 {
-	auto transaction (ledger_a.store.tx_begin_write ());
+	auto transaction = ledger_a.tx_begin_write ();
 	auto dev_genesis_key = nano::dev::genesis_key;
 	auto account = dev_genesis_key.pub;
 	auto latest = ledger_a.latest (transaction, account);
@@ -439,7 +439,7 @@ void nano::test::system::generate_usage_traffic (uint32_t count_a, uint32_t wait
 
 void nano::test::system::generate_rollback (nano::node & node_a, std::vector<nano::account> & accounts_a)
 {
-	auto transaction (node_a.store.tx_begin_write ());
+	auto transaction = node_a.ledger.tx_begin_write ();
 	debug_assert (std::numeric_limits<CryptoPP::word32>::max () > accounts_a.size ());
 	auto index (random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (accounts_a.size () - 1)));
 	auto account (accounts_a[index]);
@@ -467,7 +467,7 @@ void nano::test::system::generate_receive (nano::node & node_a)
 {
 	std::shared_ptr<nano::block> send_block;
 	{
-		auto transaction (node_a.store.tx_begin_read ());
+		auto transaction = node_a.ledger.tx_begin_read ();
 		nano::account random_account;
 		random_pool::generate_block (random_account.bytes.data (), sizeof (random_account.bytes));
 		auto item = node_a.ledger.receivable_upper_bound (transaction, random_account);
@@ -520,7 +520,7 @@ nano::account nano::test::system::get_random_account (std::vector<nano::account>
 	return result;
 }
 
-nano::uint128_t nano::test::system::get_random_amount (store::transaction const & transaction_a, nano::node & node_a, nano::account const & account_a)
+nano::uint128_t nano::test::system::get_random_amount (secure::transaction const & transaction_a, nano::node & node_a, nano::account const & account_a)
 {
 	nano::uint128_t balance (node_a.ledger.account_balance (transaction_a, account_a));
 	nano::uint128_union random_amount;
@@ -536,7 +536,7 @@ void nano::test::system::generate_send_existing (nano::node & node_a, std::vecto
 	{
 		nano::account account;
 		random_pool::generate_block (account.bytes.data (), sizeof (account.bytes));
-		auto transaction (node_a.store.tx_begin_read ());
+		auto transaction = node_a.ledger.tx_begin_read ();
 		store::iterator<nano::account, nano::account_info> entry (node_a.store.account.begin (transaction, account));
 		if (entry == node_a.store.account.end ())
 		{
@@ -586,7 +586,7 @@ void nano::test::system::generate_send_new (nano::node & node_a, std::vector<nan
 	nano::uint128_t amount;
 	nano::account source;
 	{
-		auto transaction (node_a.store.tx_begin_read ());
+		auto transaction = node_a.ledger.tx_begin_read ();
 		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);
 	}
