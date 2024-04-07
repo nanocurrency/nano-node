@@ -72,7 +72,7 @@ void nano::confirming_set::run ()
 			{
 				lock.unlock (); // Waiting for db write is potentially slow
 				auto guard = ledger.store.write_queue.wait (nano::store::writer::confirmation_height);
-				auto tx = ledger.store.tx_begin_write ({ nano::tables::confirmation_height });
+				auto tx = ledger.tx_begin_write ({ nano::tables::confirmation_height });
 				lock.lock ();
 				// Process items in the back buffer within a single transaction for a limited amount of time
 				for (auto timeout = std::chrono::steady_clock::now () + batch_time; !stopped && std::chrono::steady_clock::now () < timeout && i != n; ++i)

@@ -2,13 +2,14 @@
 #include <nano/node/backlog_population.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/scheduler/priority.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/store/account.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/confirmation_height.hpp>
 
-nano::backlog_population::backlog_population (const config & config_a, nano::store::component & store_a, nano::stats & stats_a) :
+nano::backlog_population::backlog_population (const config & config_a, nano::ledger & ledger, nano::stats & stats_a) :
 	config_m{ config_a },
-	store{ store_a },
+	ledger{ ledger },
 	stats{ stats_a }
 {
 }
@@ -90,11 +91,11 @@ void nano::backlog_population::populate_backlog (nano::unique_lock<nano::mutex> 
 		lock.unlock ();
 
 		{
-			auto transaction = store.tx_begin_read ();
+			auto transaction = ledger.tx_begin_read ();
 
 			auto count = 0u;
-			auto i = store.account.begin (transaction, next);
-			auto const end = store.account.end ();
+			auto i = ledger.store.account.begin (transaction, next);
+			auto const end = ledger.store.account.end ();
 			for (; i != end && count < chunk_size; ++i, ++count, ++total)
 			{
 				transaction.refresh_if_needed ();
@@ -105,7 +106,7 @@ void nano::backlog_population::populate_backlog (nano::unique_lock<nano::mutex> 
 				activate (transaction, account);
 				next = account.number () + 1;
 			}
-			done = store.account.begin (transaction, next) == end;
+			done = ledger.store.account.begin (transaction, next) == end;
 		}
 
 		lock.lock ();
@@ -115,18 +116,18 @@ void nano::backlog_population::populate_backlog (nano::unique_lock<nano::mutex> 
 	}
 }
 
-void nano::backlog_population::activate (store::transaction const & transaction, nano::account const & account)
+void nano::backlog_population::activate (secure::transaction const & transaction, nano::account const & account)
 {
 	debug_assert (!activate_callback.empty ());
 
-	auto const maybe_account_info = store.account.get (transaction, account);
+	auto const maybe_account_info = ledger.store.account.get (transaction, account);
 	if (!maybe_account_info)
 	{
 		return;
 	}
 	auto const account_info = *maybe_account_info;
 
-	auto const maybe_conf_info = store.confirmation_height.get (transaction, account);
+	auto const maybe_conf_info = ledger.store.confirmation_height.get (transaction, account);
 	auto const conf_info = maybe_conf_info.value_or (nano::confirmation_height_info{});
 
 	// If conf info is empty then it means then it means nothing is confirmed yet

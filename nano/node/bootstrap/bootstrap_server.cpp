@@ -148,7 +148,7 @@ void nano::bootstrap_server::respond (nano::asc_pull_ack & response, std::shared
 
 void nano::bootstrap_server::process_batch (std::deque<request_t> & batch)
 {
-	auto transaction = store.tx_begin_read ();
+	auto transaction = ledger.tx_begin_read ();
 
 	for (auto & [request, channel] : batch)
 	{
@@ -166,12 +166,12 @@ void nano::bootstrap_server::process_batch (std::deque<request_t> & batch)
 	}
 }
 
-nano::asc_pull_ack nano::bootstrap_server::process (store::transaction const & transaction, const nano::asc_pull_req & message)
+nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & transaction, nano::asc_pull_req const & message)
 {
 	return std::visit ([this, &transaction, &message] (auto && request) { return process (transaction, message.id, request); }, message.payload);
 }
 
-nano::asc_pull_ack nano::bootstrap_server::process (const store::transaction &, nano::asc_pull_req::id_t id, const nano::empty_payload & request)
+nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const &, nano::asc_pull_req::id_t id, nano::empty_payload const & request)
 {
 	// Empty payload should never be possible, but return empty response anyway
 	debug_assert (false, "missing payload");
@@ -185,7 +185,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (const store::transaction &, 
  * Blocks request
  */
 
-nano::asc_pull_ack nano::bootstrap_server::process (store::transaction const & transaction, nano::asc_pull_req::id_t id, nano::asc_pull_req::blocks_payload const & request)
+nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & transaction, nano::asc_pull_req::id_t id, nano::asc_pull_req::blocks_payload const & request)
 {
 	const std::size_t count = std::min (static_cast<std::size_t> (request.count), max_blocks);
 
@@ -215,7 +215,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (store::transaction const & t
 	return prepare_empty_blocks_response (id);
 }
 
-nano::asc_pull_ack nano::bootstrap_server::prepare_response (store::transaction const & transaction, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count)
+nano::asc_pull_ack nano::bootstrap_server::prepare_response (secure::transaction const & transaction, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count)
 {
 	debug_assert (count <= max_blocks); // Should be filtered out earlier
 
@@ -247,7 +247,7 @@ nano::asc_pull_ack nano::bootstrap_server::prepare_empty_blocks_response (nano::
 	return response;
 }
 
-std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks (store::transaction const & transaction, nano::block_hash start_block, std::size_t count) const
+std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks (secure::transaction const & transaction, nano::block_hash start_block, std::size_t count) const
 {
 	debug_assert (count <= max_blocks); // Should be filtered out earlier
 
@@ -270,7 +270,7 @@ std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks
  * Account info request
  */
 
-nano::asc_pull_ack nano::bootstrap_server::process (const store::transaction & transaction, nano::asc_pull_req::id_t id, const nano::asc_pull_req::account_info_payload & request)
+nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & transaction, nano::asc_pull_req::id_t id, nano::asc_pull_req::account_info_payload const & request)
 {
 	nano::asc_pull_ack response{ network_constants };
 	response.id = id;
@@ -320,7 +320,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (const store::transaction & t
  * Frontiers request
  */
 
-nano::asc_pull_ack nano::bootstrap_server::process (const store::transaction & transaction, nano::asc_pull_req::id_t id, const nano::asc_pull_req::frontiers_payload & request)
+nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & transaction, nano::asc_pull_req::id_t id, nano::asc_pull_req::frontiers_payload const & request)
 {
 	debug_assert (request.count <= max_frontiers); // Should be filtered out earlier
 

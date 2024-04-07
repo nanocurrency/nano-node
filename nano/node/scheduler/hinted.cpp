@@ -67,7 +67,7 @@ bool nano::scheduler::hinted::predicate () const
 	return active.vacancy (nano::election_behavior::hinted) > 0;
 }
 
-void nano::scheduler::hinted::activate (const nano::store::read_transaction & transaction, const nano::block_hash & hash, bool check_dependents)
+void nano::scheduler::hinted::activate (secure::read_transaction const & transaction, nano::block_hash const & hash, bool check_dependents)
 {
 	const int max_iterations = 64;
 
@@ -133,7 +133,7 @@ void nano::scheduler::hinted::run_iterative ()
 	// Get the list before db transaction starts to avoid unnecessary slowdowns
 	auto tops = vote_cache.top (minimum_tally);
 
-	auto transaction = node.store.tx_begin_read ();
+	auto transaction = node.ledger.tx_begin_read ();
 
 	for (auto const & entry : tops)
 	{

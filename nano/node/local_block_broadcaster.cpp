@@ -5,6 +5,7 @@
 #include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
+#include <nano/secure/ledger.hpp>
 
 nano::local_block_broadcaster::local_block_broadcaster (nano::node & node_a, nano::block_processor & block_processor_a, nano::network & network_a, nano::stats & stats_a, bool enabled_a) :
 	node{ node_a },
@@ -143,7 +144,7 @@ void nano::local_block_broadcaster::cleanup ()
 	}
 
 	// TODO: Mutex is held during IO, but it should be fine since it's not performance critical
-	auto transaction = node.store.tx_begin_read ();
+	auto transaction = node.ledger.tx_begin_read ();
 	erase_if (local_blocks, [this, &transaction] (auto const & entry) {
 		transaction.refresh_if_needed ();
 

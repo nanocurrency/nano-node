@@ -421,7 +421,7 @@ namespace test
 	/**
 	 * \brief Debugging function to print all entries in the pending table. Intended to be used to debug unit tests.
 	 */
-	void print_all_receivable_entries (const nano::store::component & store);
+	void print_all_receivable_entries (nano::ledger const & ledger);
 
 	/**
 	 * \brief Debugging function to print all accounts in a ledger. Intended to be used to debug unit tests.

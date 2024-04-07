@@ -7,7 +7,7 @@
 #include <memory>
 #include <utility>
 
-namespace nano::store
+namespace nano::secure
 {
 class transaction;
 }
@@ -51,28 +51,28 @@ public: // Events
 
 private:
 	void process_batch (std::deque<request_t> & batch);
-	nano::asc_pull_ack process (store::transaction const &, nano::asc_pull_req const & message);
+	nano::asc_pull_ack process (secure::transaction const &, nano::asc_pull_req const & message);
 	void respond (nano::asc_pull_ack &, std::shared_ptr<nano::transport::channel> &);
 
-	nano::asc_pull_ack process (store::transaction const &, nano::asc_pull_req::id_t id, nano::empty_payload const & request);
+	nano::asc_pull_ack process (secure::transaction const &, nano::asc_pull_req::id_t id, nano::empty_payload const & request);
 
 	/*
 	 * Blocks request
 	 */
-	nano::asc_pull_ack process (store::transaction const &, nano::asc_pull_req::id_t id, nano::asc_pull_req::blocks_payload const & request);
-	nano::asc_pull_ack prepare_response (store::transaction const &, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count);
+	nano::asc_pull_ack process (secure::transaction const &, nano::asc_pull_req::id_t id, nano::asc_pull_req::blocks_payload const & request);
+	nano::asc_pull_ack prepare_response (secure::transaction const &, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count);
 	nano::asc_pull_ack prepare_empty_blocks_response (nano::asc_pull_req::id_t id);
-	std::vector<std::shared_ptr<nano::block>> prepare_blocks (store::transaction const &, nano::block_hash start_block, std::size_t count) const;
+	std::vector<std::shared_ptr<nano::block>> prepare_blocks (secure::transaction const &, nano::block_hash start_block, std::size_t count) const;
 
 	/*
 	 * Account info request
 	 */
-	nano::asc_pull_ack process (store::transaction const &, nano::asc_pull_req::id_t id, nano::asc_pull_req::account_info_payload const & request);
+	nano::asc_pull_ack process (secure::transaction const &, nano::asc_pull_req::id_t id, nano::asc_pull_req::account_info_payload const & request);
 
 	/*
 	 * Frontiers request
 	 */
-	nano::asc_pull_ack process (store::transaction const &, nano::asc_pull_req::id_t id, nano::asc_pull_req::frontiers_payload const & request);
+	nano::asc_pull_ack process (secure::transaction const &, nano::asc_pull_req::id_t id, nano::asc_pull_req::frontiers_payload const & request);
 
 	/*
 	 * Checks if the request should be dropped early on

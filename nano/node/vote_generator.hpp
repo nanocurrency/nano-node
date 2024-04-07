@@ -32,6 +32,11 @@ class vote_processor;
 class vote_spacing;
 class wallets;
 }
+namespace nano::secure
+{
+class transaction;
+class write_transaction;
+}
 namespace nano::transport
 {
 class channel;
@@ -73,7 +78,7 @@ private:
 	 * @param transaction : needs `tables::final_votes` lock
 	 * @return: Should vote
 	 */
-	bool should_vote (store::write_transaction const &, nano::root const &, nano::block_hash const &);
+	bool should_vote (secure::write_transaction const &, nano::root const &, nano::block_hash const &);
 
 private:
 	std::function<void (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> &)> reply_action; // must be set only during initialization by using set_reply_action

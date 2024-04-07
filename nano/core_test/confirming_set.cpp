@@ -94,7 +94,7 @@ TEST (confirmation_callback, observer_callbacks)
 				 .build ();
 
 	{
-		auto transaction = node->store.tx_begin_write ();
+		auto transaction = node->ledger.tx_begin_write ();
 		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send));
 		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send1));
 	}
@@ -133,7 +133,7 @@ TEST (confirmation_callback, confirmed_history)
 				.work (*system.work.generate (latest))
 				.build ();
 	{
-		auto transaction = node->store.tx_begin_write ();
+		auto transaction = node->ledger.tx_begin_write ();
 		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send));
 	}
 
@@ -159,7 +159,7 @@ TEST (confirmation_callback, confirmed_history)
 		ASSERT_EQ (0, node->active.recently_cemented.list ().size ());
 		ASSERT_TRUE (node->active.empty ());
 
-		auto transaction = node->store.tx_begin_read ();
+		auto transaction = node->ledger.tx_begin_read ();
 		ASSERT_FALSE (node->ledger.block_confirmed (transaction, send->hash ()));
 
 		ASSERT_TIMELY (10s, node->store.write_queue.contains (nano::store::writer::confirmation_height));
@@ -170,7 +170,7 @@ TEST (confirmation_callback, confirmed_history)
 
 	ASSERT_TIMELY (10s, !node->store.write_queue.contains (nano::store::writer::confirmation_height));
 
-	auto transaction = node->store.tx_begin_read ();
+	auto transaction = node->ledger.tx_begin_read ();
 	ASSERT_TRUE (node->ledger.block_confirmed (transaction, send->hash ()));
 
 	ASSERT_TIMELY_EQ (10s, node->active.size (), 0);
@@ -226,7 +226,7 @@ TEST (confirmation_callback, dependent_election)
 				 .work (*system.work.generate (send1->hash ()))
 				 .build ();
 	{
-		auto transaction = node->store.tx_begin_write ();
+		auto transaction = node->ledger.tx_begin_write ();
 		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send));
 		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send1));
 		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send2));

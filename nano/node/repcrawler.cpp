@@ -272,7 +272,7 @@ auto nano::rep_crawler::prepare_query_target () -> std::optional<hash_root_t>
 {
 	constexpr int max_attempts = 4;
 
-	auto transaction = node.store.tx_begin_read ();
+	auto transaction = node.ledger.tx_begin_read ();
 
 	std::optional<std::pair<nano::block_hash, nano::block_hash>> hash_root;
 

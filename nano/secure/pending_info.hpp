@@ -9,7 +9,7 @@ namespace nano
 class ledger;
 }
 
-namespace nano::store
+namespace nano::secure
 {
 class transaction;
 }
@@ -66,7 +66,7 @@ class receivable_iterator
 {
 public:
 	receivable_iterator () = default;
-	receivable_iterator (nano::ledger const & ledger, nano::store::transaction const & tx, std::optional<std::pair<nano::pending_key, nano::pending_info>> item);
+	receivable_iterator (nano::ledger const & ledger, nano::secure::transaction const & tx, std::optional<std::pair<nano::pending_key, nano::pending_info>> item);
 	bool operator== (receivable_iterator const & other) const;
 	bool operator!= (receivable_iterator const & other) const;
 	// Advances to the next receivable entry for the same account
@@ -76,7 +76,7 @@ public:
 
 private:
 	nano::ledger const * ledger{ nullptr };
-	nano::store::transaction const * tx{ nullptr };
+	nano::secure::transaction const * tx{ nullptr };
 	nano::account account{ 0 };
 	std::optional<std::pair<nano::pending_key, nano::pending_info>> item;
 };
