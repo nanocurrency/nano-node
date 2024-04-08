@@ -31,6 +31,7 @@ enum class type
 	ipc,
 	tcp,
 	tcp_channels,
+	tcp_channels_rejected,
 	tcp_listener,
 	tcp_listener_rejected,
 	channel,
@@ -275,6 +276,11 @@ enum class detail
 	connect_success,
 	attempt_timeout,
 	not_a_peer,
+
+	// tcp_channels
+	channel_accepted,
+	channel_rejected,
+	channel_duplicate,
 
 	// tcp_server
 	handshake,

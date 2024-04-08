@@ -37,7 +37,6 @@ public:
 	std::atomic<bool> handshake_received{ false };
 	// Remote enpoint used to remove response channel even after socket closing
 	nano::tcp_endpoint remote_endpoint{ boost::asio::ip::address_v6::any (), 0 };
-	nano::account remote_node_id{};
 	std::chrono::steady_clock::time_point last_telemetry_req{};
 
 private:
@@ -74,6 +73,9 @@ private:
 	bool const allow_bootstrap;
 	std::shared_ptr<nano::transport::message_deserializer> message_deserializer;
 	std::optional<nano::keepalive> last_keepalive;
+
+	// Every realtime connection must have an associated channel
+	std::shared_ptr<nano::transport::channel_tcp> channel;
 
 private: // Visitors
 	class handshake_message_visitor : public nano::message_visitor

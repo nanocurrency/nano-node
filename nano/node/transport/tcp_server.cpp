@@ -38,17 +38,6 @@ nano::transport::tcp_server::~tcp_server ()
 
 	node->logger.debug (nano::log::type::tcp_server, "Exiting server: {}", fmt::streamed (remote_endpoint));
 
-	if (socket->type () == nano::transport::socket_type::realtime)
-	{
-		// Clear temporary channel
-		auto exisiting_response_channel (node->network.tcp_channels.find_channel (remote_endpoint));
-		if (exisiting_response_channel != nullptr)
-		{
-			exisiting_response_channel->temporary = false;
-			node->network.tcp_channels.erase (remote_endpoint);
-		}
-	}
-
 	stop ();
 }
 
@@ -260,7 +249,11 @@ void nano::transport::tcp_server::queue_realtime (std::unique_ptr<nano::message>
 	{
 		return;
 	}
-	node->network.tcp_channels.message_manager.put_message (nano::tcp_message_item{ std::move (message), remote_endpoint, remote_node_id, socket });
+
+	release_assert (channel != nullptr);
+
+	channel->set_last_packet_received (std::chrono::steady_clock::now ());
+	node->network.tcp_channels.queue_message (std::move (message), channel);
 }
 
 auto nano::transport::tcp_server::process_handshake (nano::node_id_handshake const & message) -> handshake_status
@@ -296,7 +289,9 @@ auto nano::transport::tcp_server::process_handshake (nano::node_id_handshake con
 	handshake_received = true;
 
 	node->stats.inc (nano::stat::type::tcp_server, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
-	node->logger.debug (nano::log::type::tcp_server, "Handshake message received ({})", fmt::streamed (remote_endpoint));
+	node->logger.debug (nano::log::type::tcp_server, "Handshake message received: {} ({})",
+	message.query ? (message.response ? "query + response" : "query") : (message.response ? "response" : "none"),
+	fmt::streamed (remote_endpoint));
 
 	if (message.query)
 	{
@@ -670,7 +665,13 @@ bool nano::transport::tcp_server::to_realtime_connection (nano::account const & 
 		return false;
 	}
 
-	remote_node_id = node_id;
+	auto channel_l = node->network.tcp_channels.create (socket, shared_from_this (), node_id);
+	if (!channel_l)
+	{
+		return false;
+	}
+	channel = channel_l;
+
 	socket->type_set (nano::transport::socket_type::realtime);
 
 	node->logger.debug (nano::log::type::tcp_server, "Switched to realtime mode ({})", fmt::streamed (remote_endpoint));
