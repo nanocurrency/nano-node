@@ -1026,9 +1026,14 @@ TEST (network, filter_invalid_version_using)
 TEST (network, fill_keepalive_self)
 {
 	nano::test::system system{ 2 };
-	std::array<nano::endpoint, 8> target;
-	system.nodes[0]->network.fill_keepalive_self (target);
-	ASSERT_EQ (target[2].port (), system.nodes[1]->network.port);
+
+	auto get_keepalive = [&system] (nano::node & node) {
+		std::array<nano::endpoint, 8> target;
+		node.network.fill_keepalive_self (target);
+		return target;
+	};
+
+	ASSERT_TIMELY_EQ (5s, get_keepalive (system.node (0))[2].port (), system.nodes[1]->network.port);
 }
 
 TEST (network, reconnect_cached)
