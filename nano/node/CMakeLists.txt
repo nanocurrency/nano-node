@@ -107,6 +107,10 @@ add_library(
   node_observers.cpp
   node_rpc_config.hpp
   node_rpc_config.cpp
+  node_wrapper.hpp
+  node_wrapper.cpp
+  inactive_node.hpp
+  inactive_node.cpp
   node.hpp
   node.cpp
   online_reps.hpp
