@@ -153,7 +153,8 @@ private:
 protected:
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 	boost::asio::ip::tcp::socket tcp_socket;
-	nano::node & node;
+
+	std::weak_ptr<nano::node> node_w;
 
 	/** The other end of the connection */
 	boost::asio::ip::tcp::endpoint remote;
