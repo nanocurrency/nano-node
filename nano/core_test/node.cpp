@@ -4,6 +4,7 @@
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/inactive_node.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/scheduler/component.hpp>

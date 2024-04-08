@@ -236,26 +236,4 @@ std::unique_ptr<container_info_component> collect_container_info (node & node, s
 
 nano::node_flags const & inactive_node_flag_defaults ();
 
-class node_wrapper final
-{
-public:
-	node_wrapper (std::filesystem::path const & path_a, std::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a);
-	~node_wrapper ();
-
-	nano::network_params network_params;
-	std::shared_ptr<boost::asio::io_context> io_context;
-	nano::work_pool work;
-	std::shared_ptr<nano::node> node;
-};
-
-class inactive_node final
-{
-public:
-	inactive_node (std::filesystem::path const & path_a, nano::node_flags const & node_flags_a);
-	inactive_node (std::filesystem::path const & path_a, std::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a);
-
-	nano::node_wrapper node_wrapper;
-	std::shared_ptr<nano::node> node;
-};
-std::unique_ptr<nano::inactive_node> default_inactive_node (std::filesystem::path const &, boost::program_options::variables_map const &);
 }
