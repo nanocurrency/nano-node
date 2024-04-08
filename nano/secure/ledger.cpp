@@ -570,13 +570,6 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 										if (result == nano::block_status::progress)
 										{
 											auto new_balance (info->balance.number () + pending.value ().amount.number ());
-#ifdef NDEBUG
-											if (ledger.store.block.exists (transaction, block_a.hashables.source))
-											{
-												auto info = ledger.account_info (transaction, pending.value ().source);
-												debug_assert (info);
-											}
-#endif
 											ledger.store.pending.del (transaction, key);
 											block_a.sideband_set (nano::block_sideband (account, 0, new_balance, info->block_count + 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
 											ledger.store.block.put (transaction, hash, block_a);
@@ -629,14 +622,6 @@ void ledger_processor::open_block (nano::open_block & block_a)
 								result = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
 								if (result == nano::block_status::progress)
 								{
-#ifdef NDEBUG
-									if (ledger.store.block.exists (transaction, block_a.hashables.source))
-									{
-										nano::account_info source_info;
-										[[maybe_unused]] auto error (ledger.store.account.get (transaction, pending.value ().source, source_info));
-										debug_assert (!error);
-									}
-#endif
 									ledger.store.pending.del (transaction, key);
 									block_a.sideband_set (nano::block_sideband (block_a.hashables.account, 0, pending.value ().amount, 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
 									ledger.store.block.put (transaction, hash, block_a);
