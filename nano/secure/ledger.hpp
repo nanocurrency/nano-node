@@ -20,6 +20,7 @@ namespace nano
 {
 class block;
 enum class block_status;
+class confirming_set;
 enum class epoch : uint8_t;
 class ledger_constants;
 class pending_info;
@@ -31,7 +32,8 @@ class ledger final
 	friend class receivable_iterator;
 
 public:
-	ledger (nano::store::component &, nano::stats &, nano::ledger_constants & constants, nano::generate_cache_flags const & = nano::generate_cache_flags{}, nano::uint128_t min_rep_weight_a = 0);
+	ledger (nano::store::component &, nano::stats &, nano::ledger_constants & constants, nano::generate_cache_flags const & = nano::generate_cache_flags{}, nano::uint128_t min_rep_weight_a = 0, std::chrono::milliseconds = std::chrono::milliseconds{ 500 });
+	~ledger ();
 
 	/** Start read-write transaction */
 	secure::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_to_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) const;
@@ -102,6 +104,8 @@ public:
 	uint64_t block_count () const;
 	uint64_t account_count () const;
 	uint64_t pruned_count () const;
+	void start ();
+	void stop ();
 	static nano::uint128_t const unit;
 	nano::ledger_constants & constants;
 	nano::store::component & store;
@@ -117,5 +121,10 @@ private:
 	std::optional<std::pair<nano::pending_key, nano::pending_info>> receivable_lower_bound (secure::transaction const & tx, nano::account const & account, nano::block_hash const & hash) const;
 	void initialize (nano::generate_cache_flags const &);
 	void confirm (secure::write_transaction const & transaction, nano::block const & block);
+
+	std::unique_ptr<nano::confirming_set> confirming_impl;
+
+public:
+	nano::confirming_set & confirming;
 };
 }

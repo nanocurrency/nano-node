@@ -59,8 +59,6 @@ add_library(
   cli.cpp
   common.hpp
   common.cpp
-  confirming_set.hpp
-  confirming_set.cpp
   confirmation_solicitor.hpp
   confirmation_solicitor.cpp
   daemonconfig.hpp

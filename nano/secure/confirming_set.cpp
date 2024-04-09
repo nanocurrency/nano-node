@@ -1,5 +1,5 @@
 #include <nano/lib/thread_roles.hpp>
-#include <nano/node/confirming_set.hpp>
+#include <nano/secure/confirming_set.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/write_queue.hpp>

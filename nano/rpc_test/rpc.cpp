@@ -5,7 +5,6 @@
 #include <nano/lib/thread_runner.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/active_transactions.hpp>
-#include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
@@ -18,6 +17,7 @@
 #include <nano/rpc_test/common.hpp>
 #include <nano/rpc_test/rpc_context.hpp>
 #include <nano/rpc_test/test_response.hpp>
+#include <nano/secure/confirming_set.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
@@ -5812,7 +5812,7 @@ TEST (rpc, block_confirmed)
 	ASSERT_TRUE (nano::test::start_elections (system, *node, { send }, true));
 
 	// Wait until the confirmation height has been set
-	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->ledger.tx_begin_read (), send->hash ()) && !node->confirming_set.exists (send->hash ()));
+	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->ledger.tx_begin_read (), send->hash ()) && !node->ledger.confirming.exists (send->hash ()));
 
 	// Requesting confirmation for this should now succeed
 	request.put ("hash", send->hash ().to_string ());

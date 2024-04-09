@@ -4,7 +4,6 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/confirming_set.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/local_vote_history.hpp>
@@ -19,6 +18,7 @@
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/websocket.hpp>
+#include <nano/secure/confirming_set.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
@@ -150,7 +150,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	unchecked{ config.max_unchecked_blocks, stats, flags.disable_block_processor_unchecked_deletion },
 	wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
 	wallets_store (*wallets_store_impl),
-	ledger_impl{ std::make_unique<nano::ledger> (store, stats, network_params.ledger, flags_a.generate_cache, config_a.representative_vote_weight_minimum.number ()) },
+	ledger_impl{ std::make_unique<nano::ledger> (store, stats, network_params.ledger, flags_a.generate_cache, config_a.representative_vote_weight_minimum.number (), config.confirming_set_batch_time) },
 	ledger{ *ledger_impl },
 	outbound_limiter{ outbound_bandwidth_limiter_config (config) },
 	// empty `config.peering_port` means the user made no port choice at all;
@@ -171,9 +171,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	application_path (application_path_a),
 	port_mapping (*this),
 	block_processor (*this),
-	confirming_set_impl{ std::make_unique<nano::confirming_set> (ledger, config.confirming_set_batch_time) },
-	confirming_set{ *confirming_set_impl },
-	active_impl{ std::make_unique<nano::active_transactions> (*this, confirming_set, block_processor) },
+	active_impl{ std::make_unique<nano::active_transactions> (*this, ledger.confirming, block_processor) },
 	active{ *active_impl },
 	rep_crawler (config.rep_crawler, *this),
 	rep_tiers{ ledger, network_params, online_reps, stats, logger },
@@ -465,7 +463,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 				std::exit (1);
 			}
 		}
-		confirming_set.cemented_observers.add ([this] (auto const & block) {
+		ledger.confirming.cemented_observers.add ([this] (auto const & block) {
 			if (block->is_send ())
 			{
 				workers.push_task ([this, hash = block->hash (), destination = block->destination ()] () {
@@ -570,7 +568,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (node.history.collect_container_info ("history"));
 	composite->add_component (node.block_uniquer.collect_container_info ("block_uniquer"));
 	composite->add_component (node.vote_uniquer.collect_container_info ("vote_uniquer"));
-	composite->add_component (node.confirming_set.collect_container_info ("confirming_set"));
 	composite->add_component (collect_container_info (node.distributed_work, "distributed_work"));
 	composite->add_component (collect_container_info (node.aggregator, "request_aggregator"));
 	composite->add_component (node.scheduler.collect_container_info ("election_scheduler"));
@@ -681,7 +678,7 @@ void nano::node::start ()
 	active.start ();
 	generator.start ();
 	final_generator.start ();
-	confirming_set.start ();
+	ledger.start ();
 	scheduler.start ();
 	backlog.start ();
 	bootstrap_server.start ();
@@ -722,7 +719,7 @@ void nano::node::stop ()
 	active.stop ();
 	generator.stop ();
 	final_generator.stop ();
-	confirming_set.stop ();
+	ledger.stop ();
 	telemetry.stop ();
 	websocket.stop ();
 	bootstrap_server.stop ();
@@ -1185,7 +1182,7 @@ bool nano::node::block_confirmed (nano::block_hash const & hash_a)
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::secure::transaction const & transaction, nano::block_hash const & hash_a)
 {
-	return confirming_set.exists (hash_a) || ledger.block_confirmed (transaction, hash_a);
+	return ledger.confirming.exists (hash_a) || ledger.block_confirmed (transaction, hash_a);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & hash_a)
@@ -1223,7 +1220,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 	{
 		logger.trace (nano::log::type::node, nano::log::detail::process_confirmed, nano::log::arg{ "block", block_l });
 
-		confirming_set.add (block_l->hash ());
+		ledger.confirming.add (block_l->hash ());
 	}
 	else if (iteration_a < num_iters)
 	{

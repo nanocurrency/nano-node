@@ -43,6 +43,8 @@ add_library(
   account_info.cpp
   common.hpp
   common.cpp
+  confirming_set.hpp
+  confirming_set.cpp
   generate_cache_flags.hpp
   generate_cache_flags.cpp
   ledger.hpp

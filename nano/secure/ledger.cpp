@@ -6,6 +6,7 @@
 #include <nano/lib/work.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/confirming_set.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/rep_weights.hpp>
 #include <nano/store/account.hpp>
@@ -709,17 +710,23 @@ void representative_visitor::state_block (nano::state_block const & block_a)
 }
 } // namespace
 
-nano::ledger::ledger (nano::store::component & store_a, nano::stats & stat_a, nano::ledger_constants & constants, nano::generate_cache_flags const & generate_cache_flags_a, nano::uint128_t min_rep_weight_a) :
+nano::ledger::ledger (nano::store::component & store_a, nano::stats & stat_a, nano::ledger_constants & constants, nano::generate_cache_flags const & generate_cache_flags_a, nano::uint128_t min_rep_weight_a, std::chrono::milliseconds confirming_set_batch_time) :
 	constants{ constants },
 	store{ store_a },
 	cache{ store_a.rep_weight, min_rep_weight_a },
 	stats{ stat_a },
-	check_bootstrap_weights{ true }
+	check_bootstrap_weights{ true },
+	confirming_impl{ std::make_unique<nano::confirming_set> (*this, confirming_set_batch_time) },
+	confirming{ *confirming_impl }
 {
 	if (!store.init_error ())
 	{
 		initialize (generate_cache_flags_a);
 	}
+}
+
+nano::ledger::~ledger ()
+{
 }
 
 auto nano::ledger::tx_begin_write (std::vector<nano::tables> const & tables_to_lock, std::vector<nano::tables> const & tables_no_lock) const -> secure::write_transaction
@@ -1585,6 +1592,16 @@ uint64_t nano::ledger::pruned_count () const
 	return cache.pruned_count;
 }
 
+void nano::ledger::start ()
+{
+	confirming.start ();
+}
+
+void nano::ledger::stop ()
+{
+	confirming.stop ();
+}
+
 std::unique_ptr<nano::container_info_component> nano::ledger::collect_container_info (std::string const & name) const
 {
 	auto count = bootstrap_weights.size ();
@@ -1592,5 +1609,6 @@ std::unique_ptr<nano::container_info_component> nano::ledger::collect_container_
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "bootstrap_weights", count, sizeof_element }));
 	composite->add_component (cache.rep_weights.collect_container_info ("rep_weights"));
+	composite->add_component (confirming.collect_container_info ("confirming"));
 	return composite;
 }

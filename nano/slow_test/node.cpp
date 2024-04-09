@@ -3,7 +3,6 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/node/active_transactions.hpp>
-#include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/scheduler/component.hpp>
@@ -11,6 +10,7 @@
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/unchecked_map.hpp>
+#include <nano/secure/confirming_set.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
@@ -974,10 +974,10 @@ TEST (confirmation_height, dynamic_algorithm)
 		}
 	}
 
-	node->confirming_set.add (state_blocks.front ()->hash ());
+	node->ledger.confirming.add (state_blocks.front ()->hash ());
 	ASSERT_TIMELY_EQ (20s, node->ledger.cemented_count (), 2);
 
-	node->confirming_set.add (latest_genesis->hash ());
+	node->ledger.confirming.add (latest_genesis->hash ());
 
 	ASSERT_TIMELY_EQ (20s, node->ledger.cemented_count (), num_blocks + 1);
 
@@ -2077,7 +2077,7 @@ TEST (node, wallet_create_block_confirm_conflicts)
 			election->force_confirm ();
 		}
 
-		ASSERT_TIMELY (120s, node->ledger.block_confirmed (node->ledger.tx_begin_read (), latest) && node->confirming_set.size () == 0);
+		ASSERT_TIMELY (120s, node->ledger.block_confirmed (node->ledger.tx_begin_read (), latest) && node->ledger.confirming.size () == 0);
 		done = true;
 		t.join ();
 	}

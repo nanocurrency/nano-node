@@ -6,13 +6,13 @@
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/cli.hpp>
-#include <nano/node/confirming_set.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/inactive_node.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/inproc.hpp>
+#include <nano/secure/confirming_set.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/pending.hpp>
 
@@ -1214,7 +1214,7 @@ int main (int argc, char * const * argv)
 			// Confirm blocks for node1
 			for (auto & block : blocks)
 			{
-				node1->confirming_set.add (block->hash ());
+				node1->ledger.confirming.add (block->hash ());
 			}
 			while (node1->ledger.cemented_count () != node1->ledger.block_count ())
 			{
