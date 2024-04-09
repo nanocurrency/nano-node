@@ -289,10 +289,7 @@ TEST (request_aggregator, split)
 		request.emplace_back (block->hash (), block->root ());
 	}
 	// Confirm all blocks
-	node.start_election (blocks.back ());
-	std::shared_ptr<nano::election> election;
-	ASSERT_TIMELY (5s, election = node.active.election (blocks.back ()->qualified_root ()));
-	election->force_confirm ();
+	node.ledger.confirm (node.store.tx_begin_write (), blocks.back ()->hash ());
 	ASSERT_TIMELY_EQ (5s, max_vbh + 2, node.ledger.cemented_count ());
 	ASSERT_EQ (max_vbh + 1, request.size ());
 	auto client = std::make_shared<nano::transport::socket> (node);
