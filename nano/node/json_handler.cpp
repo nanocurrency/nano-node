@@ -2019,10 +2019,7 @@ void nano::json_handler::election_statistics ()
 		auto election_start = election->get_election_start ();
 		auto age = now - election_start;
 		total_age += age;
-		if (election_start < oldest_election_start)
-		{
-			oldest_election_start = election_start;
-		}
+		oldest_election_start = std::min (oldest_election_start, election->get_election_start ());
 
 		switch (election->behavior ())
 		{
