@@ -1,12 +1,11 @@
 #include <nano/lib/thread_roles.hpp>
 #include <nano/node/confirming_set.hpp>
-#include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
+#include <nano/store/write_queue.hpp>
 
-nano::confirming_set::confirming_set (nano::ledger & ledger, nano::write_database_queue & write_queue, std::chrono::milliseconds batch_time) :
+nano::confirming_set::confirming_set (nano::ledger & ledger, std::chrono::milliseconds batch_time) :
 	ledger{ ledger },
-	write_queue{ write_queue },
 	batch_time{ batch_time }
 {
 }
@@ -72,7 +71,7 @@ void nano::confirming_set::run ()
 			for (auto i = processing.begin (), n = processing.end (); !stopped && i != n;)
 			{
 				lock.unlock (); // Waiting for db write is potentially slow
-				auto guard = write_queue.wait (nano::writer::confirmation_height);
+				auto guard = ledger.store.write_queue.wait (nano::store::writer::confirmation_height);
 				auto tx = ledger.store.tx_begin_write ({ nano::tables::confirmation_height });
 				lock.lock ();
 				// Process items in the back buffer within a single transaction for a limited amount of time

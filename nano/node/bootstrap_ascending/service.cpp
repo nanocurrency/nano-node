@@ -177,7 +177,7 @@ void nano::bootstrap_ascending::service::inspect (store::transaction const & tx,
 void nano::bootstrap_ascending::service::wait_blockprocessor ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped && block_processor.size () > config.bootstrap_ascending.block_wait_count)
+	while (!stopped && block_processor.size (nano::block_source::bootstrap) > config.bootstrap_ascending.block_wait_count)
 	{
 		condition.wait_for (lock, std::chrono::milliseconds{ config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; }); // Blockprocessor is relatively slow, sleeping here instead of using conditions
 	}
@@ -485,7 +485,7 @@ std::size_t nano::bootstrap_ascending::service::compute_throttle_size () const
 {
 	// Scales logarithmically with ledger block
 	// Returns: config.throttle_coefficient * sqrt(block_count)
-	std::size_t size_new = config.bootstrap_ascending.throttle_coefficient * std::sqrt (ledger.cache.block_count.load ());
+	std::size_t size_new = config.bootstrap_ascending.throttle_coefficient * std::sqrt (ledger.block_count ());
 	return size_new == 0 ? 16 : size_new;
 }
 

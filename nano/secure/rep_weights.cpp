@@ -126,7 +126,7 @@ std::size_t nano::rep_weights::size () const
 	return rep_amounts.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::rep_weights::collect_container_info (std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::rep_weights::collect_container_info (std::string const & name) const
 {
 	size_t rep_amounts_count;
 

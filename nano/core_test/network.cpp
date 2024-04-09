@@ -712,10 +712,9 @@ TEST (network, duplicate_detection)
 TEST (network, duplicate_revert_publish)
 {
 	nano::test::system system;
-	nano::node_flags node_flags;
-	node_flags.block_processor_full_size = 0;
-	auto & node (*system.add_node (node_flags));
-	ASSERT_TRUE (node.block_processor.full ());
+	nano::node_config node_config = system.default_config ();
+	node_config.block_processor.max_peer_queue = 0;
+	auto & node (*system.add_node (node_config));
 	nano::publish publish{ nano::dev::network_params.network, nano::dev::genesis };
 	std::vector<uint8_t> bytes;
 	{

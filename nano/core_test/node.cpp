@@ -4,6 +4,7 @@
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/inactive_node.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/scheduler/component.hpp>
@@ -278,9 +279,9 @@ TEST (node, auto_bootstrap)
 	ASSERT_TIMELY (10s, !node1->bootstrap_initiator.in_progress ());
 	ASSERT_TRUE (node1->ledger.block_or_pruned_exists (send1->hash ()));
 	// Wait block receive
-	ASSERT_TIMELY_EQ (5s, node1->ledger.cache.block_count, 3);
+	ASSERT_TIMELY_EQ (5s, node1->ledger.block_count (), 3);
 	// Confirmation for all blocks
-	ASSERT_TIMELY_EQ (5s, node1->ledger.cache.cemented_count, 3);
+	ASSERT_TIMELY_EQ (5s, node1->ledger.cemented_count (), 3);
 }
 
 TEST (node, auto_bootstrap_reverse)
@@ -428,7 +429,7 @@ TEST (node, search_receivable_pruned)
 	// Confirmation
 	ASSERT_TIMELY (10s, node1->active.empty () && node2->active.empty ());
 	ASSERT_TIMELY (5s, node1->ledger.block_confirmed (node1->store.tx_begin_read (), send2->hash ()));
-	ASSERT_TIMELY_EQ (5s, node2->ledger.cache.cemented_count, 3);
+	ASSERT_TIMELY_EQ (5s, node2->ledger.cemented_count (), 3);
 	system.wallet (0)->store.erase (node1->wallets.tx_begin_write (), nano::dev::genesis_key.pub);
 
 	// Pruning
@@ -436,7 +437,7 @@ TEST (node, search_receivable_pruned)
 		auto transaction (node2->store.tx_begin_write ());
 		ASSERT_EQ (1, node2->ledger.pruning_action (transaction, send1->hash (), 1));
 	}
-	ASSERT_EQ (1, node2->ledger.cache.pruned_count);
+	ASSERT_EQ (1, node2->ledger.pruned_count ());
 	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ())); // true for pruned
 
 	// Receive pruned block
@@ -526,6 +527,7 @@ TEST (node, expire)
 	ASSERT_TRUE (node0.expired ());
 }
 
+// This test is racy, there is no guarantee that the election won't be confirmed until all forks are fully processed
 TEST (node, fork_publish)
 {
 	nano::test::system system (1);
@@ -672,6 +674,7 @@ TEST (node, fork_keep)
 	ASSERT_TRUE (node2.ledger.block_exists (transaction1, send1->hash ()));
 }
 
+// This test is racy, there is no guarantee that the election won't be confirmed until all forks are fully processed
 TEST (node, fork_flip)
 {
 	nano::test::system system (2);
@@ -697,8 +700,7 @@ TEST (node, fork_flip)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
 	nano::publish publish2{ nano::dev::network_params.network, send2 };
-	auto ignored_channel{ std::make_shared<nano::transport::channel_tcp> (node1, std::weak_ptr<nano::transport::socket> ()) };
-
+	auto ignored_channel = nano::test::fake_channel (node1);
 	node1.network.inbound (publish1, ignored_channel);
 	node2.network.inbound (publish2, ignored_channel);
 	ASSERT_TIMELY_EQ (5s, 1, node1.active.size ());
@@ -1278,7 +1280,7 @@ TEST (node, DISABLED_broadcast_elected)
 		auto election (node->active.election (block->qualified_root ()));
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
-		ASSERT_TIMELY_EQ (5s, 4, node->ledger.cache.cemented_count)
+		ASSERT_TIMELY_EQ (5s, 4, node->ledger.cemented_count ())
 	}
 
 	system.wallet (0)->insert_adhoc (rep_big.prv);
@@ -1593,7 +1595,7 @@ TEST (node, unconfirmed_send)
 	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
 	ASSERT_TIMELY (5s, node2.block_confirmed (send3->hash ()));
 	ASSERT_TIMELY (5s, node1.block_confirmed (send3->hash ()));
-	ASSERT_TIMELY_EQ (5s, node2.ledger.cache.cemented_count, 7);
+	ASSERT_TIMELY_EQ (5s, node2.ledger.cemented_count (), 7);
 	ASSERT_TIMELY_EQ (5s, node1.balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount);
 }
 
@@ -1915,7 +1917,7 @@ TEST (node, local_votes_cache)
 	std::shared_ptr<nano::election> election;
 	ASSERT_TIMELY (5s, election = node.active.election (send2->qualified_root ()));
 	election->force_confirm ();
-	ASSERT_TIMELY_EQ (3s, node.ledger.cache.cemented_count, 3);
+	ASSERT_TIMELY_EQ (3s, node.ledger.cemented_count (), 3);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::confirm_req message1{ nano::dev::network_params.network, send1->hash (), send1->root () };
 	nano::confirm_req message2{ nano::dev::network_params.network, send2->hash (), send2->root () };
@@ -2663,7 +2665,7 @@ TEST (node, block_processor_full)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
-	node_flags.force_use_write_database_queue = true;
+	node_flags.force_use_write_queue = true;
 	node_flags.block_processor_full_size = 3;
 	auto & node = *system.add_node (nano::node_config (system.get_available_port ()), node_flags);
 	nano::state_block_builder builder;
@@ -2709,7 +2711,7 @@ TEST (node, block_processor_half_full)
 	nano::test::system system;
 	nano::node_flags node_flags;
 	node_flags.block_processor_full_size = 6;
-	node_flags.force_use_write_database_queue = true;
+	node_flags.force_use_write_queue = true;
 	auto & node = *system.add_node (nano::node_config (system.get_available_port ()), node_flags);
 	nano::state_block_builder builder;
 	auto send1 = builder.make_block ()
@@ -2740,7 +2742,7 @@ TEST (node, block_processor_half_full)
 				 .work (*node.work_generate_blocking (send2->hash ()))
 				 .build ();
 	// The write guard prevents block processor doing any writes
-	auto write_guard = node.write_database_queue.wait (nano::writer::testing);
+	auto write_guard = node.store.write_queue.wait (nano::store::writer::testing);
 	node.block_processor.add (send1);
 	ASSERT_FALSE (node.block_processor.half_full ());
 	node.block_processor.add (send2);
@@ -3082,7 +3084,7 @@ TEST (node, rollback_vote_self)
 	// Process and mark the first 2 blocks as confirmed to allow voting
 	ASSERT_TRUE (nano::test::process (node, { send1, open }));
 	ASSERT_TRUE (nano::test::start_elections (system, node, { send1, open }, true));
-	ASSERT_TIMELY_EQ (5s, node.ledger.cache.cemented_count, 3);
+	ASSERT_TIMELY_EQ (5s, node.ledger.cemented_count (), 3);
 
 	// wait until the rep weights have caught up with the weight transfer
 	ASSERT_TIMELY_EQ (5s, nano::dev::constants.genesis_amount / 2, node.weight (key.pub));
@@ -3097,7 +3099,7 @@ TEST (node, rollback_vote_self)
 
 	{
 		// The write guard prevents the block processor from performing the rollback
-		auto write_guard = node.write_database_queue.wait (nano::writer::testing);
+		auto write_guard = node.store.write_queue.wait (nano::store::writer::testing);
 
 		ASSERT_EQ (0, election->votes_with_weight ().size ());
 		// Vote with key to switch the winner
@@ -3364,7 +3366,7 @@ TEST (node, dependency_graph)
 		{ key3_receive->hash (), { key3_open->hash (), key1_send2->hash () } },
 		{ key3_epoch->hash (), { key3_receive->hash () } },
 	};
-	ASSERT_EQ (node.ledger.cache.block_count - 2, dependency_graph.size ());
+	ASSERT_EQ (node.ledger.block_count () - 2, dependency_graph.size ());
 
 	// Start an election for the first block of the dependency graph, and ensure all blocks are eventually confirmed
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -3390,9 +3392,9 @@ TEST (node, dependency_graph)
 		});
 
 		EXPECT_FALSE (error);
-		return error || node.ledger.cache.cemented_count == node.ledger.cache.block_count;
+		return error || node.ledger.cemented_count () == node.ledger.block_count ();
 	}));
-	ASSERT_EQ (node.ledger.cache.cemented_count, node.ledger.cache.block_count);
+	ASSERT_EQ (node.ledger.cemented_count (), node.ledger.block_count ());
 	ASSERT_TIMELY (5s, node.active.empty ());
 }
 
@@ -3559,8 +3561,8 @@ TEST (node, dependency_graph_frontier)
 	ASSERT_TIMELY (10s, node2.active.active (gen_send1->qualified_root ()));
 	node1.start_election (gen_send1);
 
-	ASSERT_TIMELY_EQ (15s, node1.ledger.cache.cemented_count, node1.ledger.cache.block_count);
-	ASSERT_TIMELY_EQ (15s, node2.ledger.cache.cemented_count, node2.ledger.cache.block_count);
+	ASSERT_TIMELY_EQ (15s, node1.ledger.cemented_count (), node1.ledger.block_count ());
+	ASSERT_TIMELY_EQ (15s, node2.ledger.cemented_count (), node2.ledger.block_count ());
 }
 
 namespace nano
@@ -3734,11 +3736,11 @@ TEST (node, pruning_automatic)
 	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
 
 	// Check pruning result
-	ASSERT_EQ (3, node1.ledger.cache.block_count);
-	ASSERT_TIMELY_EQ (5s, node1.ledger.cache.pruned_count, 1);
+	ASSERT_EQ (3, node1.ledger.block_count ());
+	ASSERT_TIMELY_EQ (5s, node1.ledger.pruned_count (), 1);
 	ASSERT_TIMELY_EQ (5s, node1.store.pruned.count (node1.store.tx_begin_read ()), 1);
-	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
-	ASSERT_EQ (3, node1.ledger.cache.block_count);
+	ASSERT_EQ (1, node1.ledger.pruned_count ());
+	ASSERT_EQ (3, node1.ledger.block_count ());
 
 	ASSERT_TRUE (nano::test::block_or_pruned_all_exists (node1, { nano::dev::genesis, send1, send2 }));
 }
@@ -3785,19 +3787,19 @@ TEST (node, pruning_age)
 	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
 
 	// Three blocks in total, nothing pruned yet
-	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
-	ASSERT_EQ (3, node1.ledger.cache.block_count);
+	ASSERT_EQ (0, node1.ledger.pruned_count ());
+	ASSERT_EQ (3, node1.ledger.block_count ());
 
 	// Pruning with default age 1 day
 	node1.ledger_pruning (1, true);
-	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
-	ASSERT_EQ (3, node1.ledger.cache.block_count);
+	ASSERT_EQ (0, node1.ledger.pruned_count ());
+	ASSERT_EQ (3, node1.ledger.block_count ());
 
 	// Pruning with max age 0
 	node1.config.max_pruning_age = std::chrono::seconds{ 0 };
 	node1.ledger_pruning (1, true);
-	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
-	ASSERT_EQ (3, node1.ledger.cache.block_count);
+	ASSERT_EQ (1, node1.ledger.pruned_count ());
+	ASSERT_EQ (3, node1.ledger.block_count ());
 
 	ASSERT_TRUE (nano::test::block_or_pruned_all_exists (node1, { nano::dev::genesis, send1, send2 }));
 }
@@ -3846,19 +3848,19 @@ TEST (node, pruning_depth)
 	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
 
 	// Three blocks in total, nothing pruned yet
-	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
-	ASSERT_EQ (3, node1.ledger.cache.block_count);
+	ASSERT_EQ (0, node1.ledger.pruned_count ());
+	ASSERT_EQ (3, node1.ledger.block_count ());
 
 	// Pruning with default depth (unlimited)
 	node1.ledger_pruning (1, true);
-	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
-	ASSERT_EQ (3, node1.ledger.cache.block_count);
+	ASSERT_EQ (0, node1.ledger.pruned_count ());
+	ASSERT_EQ (3, node1.ledger.block_count ());
 
 	// Pruning with max depth 1
 	node1.config.max_pruning_depth = 1;
 	node1.ledger_pruning (1, true);
-	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
-	ASSERT_EQ (3, node1.ledger.cache.block_count);
+	ASSERT_EQ (1, node1.ledger.pruned_count ());
+	ASSERT_EQ (3, node1.ledger.block_count ());
 
 	ASSERT_TRUE (nano::test::block_or_pruned_all_exists (node1, { nano::dev::genesis, send1, send2 }));
 }

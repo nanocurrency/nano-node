@@ -99,7 +99,7 @@ TEST (conflicts, add_two)
 	// create 2 new accounts, that receive 1 raw each, all blocks are force confirmed
 	auto [send1, open1] = nano::test::setup_new_account (system, *node, 1, gk, key1, gk.pub, true);
 	auto [send2, open2] = nano::test::setup_new_account (system, *node, 1, gk, key2, gk.pub, true);
-	ASSERT_EQ (5, node->ledger.cache.cemented_count);
+	ASSERT_EQ (5, node->ledger.cemented_count ());
 
 	// send 1 raw to account key3 from key1
 	auto send_a = nano::state_block_builder ()

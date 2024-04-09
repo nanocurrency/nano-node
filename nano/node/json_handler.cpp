@@ -1446,13 +1446,13 @@ void nano::json_handler::block_account ()
 
 void nano::json_handler::block_count ()
 {
-	response_l.put ("count", std::to_string (node.ledger.cache.block_count));
+	response_l.put ("count", std::to_string (node.ledger.block_count ()));
 	response_l.put ("unchecked", std::to_string (node.unchecked.count ()));
-	response_l.put ("cemented", std::to_string (node.ledger.cache.cemented_count));
+	response_l.put ("cemented", std::to_string (node.ledger.cemented_count ()));
 	if (node.flags.enable_pruning)
 	{
-		response_l.put ("full", std::to_string (node.ledger.cache.block_count - node.ledger.cache.pruned_count));
-		response_l.put ("pruned", std::to_string (node.ledger.cache.pruned_count));
+		response_l.put ("full", std::to_string (node.ledger.block_count () - node.ledger.pruned_count ()));
+		response_l.put ("pruned", std::to_string (node.ledger.pruned_count ()));
 	}
 	response_errors ();
 }
@@ -2002,6 +2002,44 @@ void nano::json_handler::confirmation_active ()
 	response_errors ();
 }
 
+void nano::json_handler::election_statistics ()
+{
+	auto active_elections = node.active.list_active ();
+	unsigned normal_count = 0;
+	unsigned hinted_count = 0;
+	unsigned optimistic_count = 0;
+	unsigned total_count = 0;
+
+	for (auto const & election : active_elections)
+	{
+		total_count++;
+		switch (election->behavior ())
+		{
+			case election_behavior::normal:
+				normal_count++;
+				break;
+			case election_behavior::hinted:
+				hinted_count++;
+				break;
+			case election_behavior::optimistic:
+				optimistic_count++;
+				break;
+		}
+	}
+
+	auto utilization_percentage = (static_cast<double> (total_count * 100) / node.config.active_elections_size);
+	std::stringstream stream;
+	stream << std::fixed << std::setprecision (2) << utilization_percentage;
+
+	response_l.put ("normal", normal_count);
+	response_l.put ("hinted", hinted_count);
+	response_l.put ("optimistic", optimistic_count);
+	response_l.put ("total", total_count);
+	response_l.put ("aec_utilization_percentage", stream.str ());
+
+	response_errors ();
+}
+
 void nano::json_handler::confirmation_history ()
 {
 	boost::property_tree::ptree elections;
@@ -2351,7 +2389,7 @@ void nano::json_handler::frontiers ()
 
 void nano::json_handler::account_count ()
 {
-	auto size (node.ledger.cache.account_count.load ());
+	auto size (node.ledger.account_count ());
 	response_l.put ("count", std::to_string (size));
 	response_errors ();
 }
@@ -5327,6 +5365,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("delegators", &nano::json_handler::delegators);
 	no_arg_funcs.emplace ("delegators_count", &nano::json_handler::delegators_count);
 	no_arg_funcs.emplace ("deterministic_key", &nano::json_handler::deterministic_key);
+	no_arg_funcs.emplace ("election_statistics", &nano::json_handler::election_statistics);
 	no_arg_funcs.emplace ("epoch_upgrade", &nano::json_handler::epoch_upgrade);
 	no_arg_funcs.emplace ("frontiers", &nano::json_handler::frontiers);
 	no_arg_funcs.emplace ("frontier_count", &nano::json_handler::account_count);

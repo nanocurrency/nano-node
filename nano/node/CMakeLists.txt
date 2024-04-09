@@ -76,6 +76,7 @@ add_library(
   election_status.hpp
   epoch_upgrader.hpp
   epoch_upgrader.cpp
+  fair_queue.hpp
   ipc/action_handler.hpp
   ipc/action_handler.cpp
   ipc/flatbuffers_handler.hpp
@@ -106,6 +107,10 @@ add_library(
   node_observers.cpp
   node_rpc_config.hpp
   node_rpc_config.cpp
+  node_wrapper.hpp
+  node_wrapper.cpp
+  inactive_node.hpp
+  inactive_node.cpp
   node.hpp
   node.cpp
   online_reps.hpp
@@ -179,8 +184,6 @@ add_library(
   websocketconfig.cpp
   websocket_stream.hpp
   websocket_stream.cpp
-  write_database_queue.hpp
-  write_database_queue.cpp
   messages.hpp
   messages.cpp
   xorshift.hpp)

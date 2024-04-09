@@ -293,7 +293,7 @@ TEST (request_aggregator, split)
 	std::shared_ptr<nano::election> election;
 	ASSERT_TIMELY (5s, election = node.active.election (blocks.back ()->qualified_root ()));
 	election->force_confirm ();
-	ASSERT_TIMELY_EQ (5s, max_vbh + 2, node.ledger.cache.cemented_count);
+	ASSERT_TIMELY_EQ (5s, max_vbh + 2, node.ledger.cemented_count ());
 	ASSERT_EQ (max_vbh + 1, request.size ());
 	auto client = std::make_shared<nano::transport::socket> (node);
 	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::channel_tcp> (node, client);

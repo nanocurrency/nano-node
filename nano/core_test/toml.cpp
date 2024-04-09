@@ -117,6 +117,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	std::stringstream ss;
 	ss << R"toml(
 	[node]
+	[node.block_processor]
 	[node.diagnostics.txn_tracking]
 	[node.httpcallback]
 	[node.ipc.local]
@@ -254,6 +255,12 @@ TEST (toml, daemon_config_deserialize_defaults)
 
 	ASSERT_EQ (conf.node.vote_cache.max_size, defaults.node.vote_cache.max_size);
 	ASSERT_EQ (conf.node.vote_cache.max_voters, defaults.node.vote_cache.max_voters);
+
+	ASSERT_EQ (conf.node.block_processor.max_peer_queue, defaults.node.block_processor.max_peer_queue);
+	ASSERT_EQ (conf.node.block_processor.max_system_queue, defaults.node.block_processor.max_system_queue);
+	ASSERT_EQ (conf.node.block_processor.priority_live, defaults.node.block_processor.priority_live);
+	ASSERT_EQ (conf.node.block_processor.priority_bootstrap, defaults.node.block_processor.priority_bootstrap);
+	ASSERT_EQ (conf.node.block_processor.priority_local, defaults.node.block_processor.priority_local);
 }
 
 TEST (toml, optional_child)
@@ -431,6 +438,13 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	frontiers_confirmation = "always"
 	backlog_scan_batch_size = 999
 	backlog_scan_frequency = 999
+
+	[node.block_processor]
+	max_peer_queue = 999
+	max_system_queue = 999
+	priority_live = 999
+	priority_bootstrap = 999
+	priority_local = 999
 
 	[node.diagnostics.txn_tracking]
 	enable = true
@@ -680,6 +694,12 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 
 	ASSERT_NE (conf.node.vote_cache.max_size, defaults.node.vote_cache.max_size);
 	ASSERT_NE (conf.node.vote_cache.max_voters, defaults.node.vote_cache.max_voters);
+
+	ASSERT_NE (conf.node.block_processor.max_peer_queue, defaults.node.block_processor.max_peer_queue);
+	ASSERT_NE (conf.node.block_processor.max_system_queue, defaults.node.block_processor.max_system_queue);
+	ASSERT_NE (conf.node.block_processor.priority_live, defaults.node.block_processor.priority_live);
+	ASSERT_NE (conf.node.block_processor.priority_bootstrap, defaults.node.block_processor.priority_bootstrap);
+	ASSERT_NE (conf.node.block_processor.priority_local, defaults.node.block_processor.priority_local);
 }
 
 /** There should be no required values **/

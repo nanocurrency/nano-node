@@ -610,7 +610,7 @@ void nano::test::system::generate_mass_activity (uint32_t count_a, nano::node & 
 		{
 			auto now (std::chrono::steady_clock::now ());
 			auto us (std::chrono::duration_cast<std::chrono::microseconds> (now - previous).count ());
-			auto count = node_a.ledger.cache.block_count.load ();
+			auto count = node_a.ledger.block_count ();
 			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3% block count: %4%\n") % i % us % (us / 256) % count);
 			previous = now;
 		}

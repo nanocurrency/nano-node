@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/logging.hpp>
+#include <nano/node/fair_queue.hpp>
 #include <nano/secure/common.hpp>
 
 #include <chrono>
@@ -13,7 +14,6 @@ namespace nano
 {
 class block;
 class node;
-class write_database_queue;
 }
 
 namespace nano::store
@@ -23,7 +23,6 @@ class write_transaction;
 
 namespace nano
 {
-
 enum class block_source
 {
 	unknown = 0,
@@ -37,6 +36,26 @@ enum class block_source
 
 std::string_view to_string (block_source);
 nano::stat::detail to_stat_detail (block_source);
+
+class block_processor_config final
+{
+public:
+	explicit block_processor_config (nano::network_constants const &);
+
+	nano::error deserialize (nano::tomlconfig & toml);
+	nano::error serialize (nano::tomlconfig & toml) const;
+
+public:
+	// Maximum number of blocks to queue from network peers
+	size_t max_peer_queue{ 128 };
+	// Maximum number of blocks to queue from system components (local RPC, bootstrap)
+	size_t max_system_queue{ 16 * 1024 };
+
+	// Higher priority gets processed more frequently
+	size_t priority_live{ 1 };
+	size_t priority_bootstrap{ 8 };
+	size_t priority_local{ 16 };
+};
 
 /**
  * Processing blocks is a potentially long IO operation.
@@ -66,21 +85,20 @@ public: // Context
 	};
 
 public:
-	block_processor (nano::node &, nano::write_database_queue &);
+	block_processor (nano::node &);
 	~block_processor ();
 
 	void start ();
 	void stop ();
 
-	std::size_t size ();
-	bool full ();
-	bool half_full ();
-	void add (std::shared_ptr<nano::block> const &, block_source = block_source::live);
+	std::size_t size () const;
+	std::size_t size (block_source) const;
+	bool full () const;
+	bool half_full () const;
+	bool add (std::shared_ptr<nano::block> const &, block_source = block_source::live, std::shared_ptr<nano::transport::channel> const & channel = nullptr);
 	std::optional<nano::block_status> add_blocking (std::shared_ptr<nano::block> const & block, block_source);
 	void force (std::shared_ptr<nano::block> const &);
 	bool should_log ();
-	bool have_blocks_ready ();
-	bool have_blocks ();
 
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
 
@@ -103,21 +121,20 @@ private:
 	void queue_unchecked (store::write_transaction const &, nano::hash_or_account const &);
 	processed_batch_t process_batch (nano::unique_lock<nano::mutex> &);
 	context next ();
-	void add_impl (context);
+	bool add_impl (context, std::shared_ptr<nano::transport::channel> const & channel = nullptr);
 
 private: // Dependencies
+	block_processor_config const & config;
 	nano::node & node;
-	nano::write_database_queue & write_database_queue;
 
 private:
-	std::deque<context> blocks;
-	std::deque<context> forced;
+	nano::fair_queue<context, block_source> queue;
 
 	std::chrono::steady_clock::time_point next_log;
 
 	bool stopped{ false };
 	nano::condition_variable condition;
-	nano::mutex mutex{ mutex_identifier (mutexes::block_processor) };
+	mutable nano::mutex mutex{ mutex_identifier (mutexes::block_processor) };
 	std::thread thread;
 };
 }

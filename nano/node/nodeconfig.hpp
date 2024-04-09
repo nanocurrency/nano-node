@@ -8,6 +8,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
 #include <nano/node/repcrawler.hpp>
@@ -136,6 +137,7 @@ public:
 	unsigned backlog_scan_frequency{ 10 };
 	nano::vote_cache_config vote_cache;
 	nano::rep_crawler_config rep_crawler;
+	nano::block_processor_config block_processor;
 
 public:
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
@@ -169,7 +171,7 @@ public:
 	bool allow_bootstrap_peers_duplicates{ false };
 	bool disable_max_peers_per_ip{ false }; // For testing only
 	bool disable_max_peers_per_subnetwork{ false }; // For testing only
-	bool force_use_write_database_queue{ false }; // For testing only. RocksDB does not use the database queue, but some tests rely on it being used.
+	bool force_use_write_queue{ false }; // For testing only. RocksDB does not use the database queue, but some tests rely on it being used.
 	bool disable_search_pending{ false }; // For testing only
 	bool enable_pruning{ false };
 	bool fast_bootstrap{ false };

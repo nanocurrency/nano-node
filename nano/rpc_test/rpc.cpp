@@ -843,7 +843,6 @@ TEST (rpc, frontier)
 			nano::block_hash hash;
 			nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 			source[key.pub] = hash;
-			node->store.confirmation_height.put (transaction, key.pub, { 0, nano::block_hash (0) });
 			node->store.account.put (transaction, key.pub, nano::account_info (hash, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
@@ -881,7 +880,6 @@ TEST (rpc, frontier_limited)
 			nano::block_hash hash;
 			nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 			source[key.pub] = hash;
-			node->store.confirmation_height.put (transaction, key.pub, { 0, nano::block_hash (0) });
 			node->store.account.put (transaction, key.pub, nano::account_info (hash, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
@@ -909,7 +907,6 @@ TEST (rpc, frontier_startpoint)
 			nano::block_hash hash;
 			nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 			source[key.pub] = hash;
-			node->store.confirmation_height.put (transaction, key.pub, { 0, nano::block_hash (0) });
 			node->store.account.put (transaction, key.pub, nano::account_info (hash, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
@@ -3823,10 +3820,6 @@ TEST (rpc, account_info)
 				.build ();
 	ASSERT_EQ (nano::block_status::progress, node1->process (send));
 	auto time = nano::seconds_since_epoch ();
-	{
-		auto transaction = node1->store.tx_begin_write ();
-		node1->store.confirmation_height.put (transaction, nano::dev::genesis_key.pub, { 1, nano::dev::genesis->hash () });
-	}
 
 	request.put ("account", nano::dev::genesis_key.pub.to_account ());
 	{
@@ -6599,7 +6592,7 @@ TEST (rpc, receive_pruned)
 		auto transaction (node2->store.tx_begin_write ());
 		ASSERT_EQ (2, node2->ledger.pruning_action (transaction, send2->hash (), 1));
 	}
-	ASSERT_EQ (2, node2->ledger.cache.pruned_count);
+	ASSERT_EQ (2, node2->ledger.pruned_count ());
 	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ()));
 	ASSERT_FALSE (node2->ledger.block_exists (node2->store.tx_begin_read (), send1->hash ()));
 	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send2->hash ()));
@@ -6872,4 +6865,19 @@ TEST (rpc, confirmation_info)
 		ASSERT_EQ (1, representatives.size ());
 		ASSERT_EQ (0, response.get<unsigned> ("total_tally"));
 	}
+}
+
+TEST (rpc, election_statistics)
+{
+	nano::test::system system;
+	auto node1 = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node1);
+	boost::property_tree::ptree request1;
+	request1.put ("action", "election_statistics");
+	auto response1 (wait_response (system, rpc_ctx, request1));
+	ASSERT_EQ ("0", response1.get<std::string> ("normal"));
+	ASSERT_EQ ("0", response1.get<std::string> ("hinted"));
+	ASSERT_EQ ("0", response1.get<std::string> ("optimistic"));
+	ASSERT_EQ ("0", response1.get<std::string> ("total"));
+	ASSERT_EQ ("0.00", response1.get<std::string> ("aec_utilization_percentage"));
 }

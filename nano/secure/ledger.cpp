@@ -570,13 +570,6 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 										if (result == nano::block_status::progress)
 										{
 											auto new_balance (info->balance.number () + pending.value ().amount.number ());
-#ifdef NDEBUG
-											if (ledger.store.block.exists (transaction, block_a.hashables.source))
-											{
-												auto info = ledger.account_info (transaction, pending.value ().source);
-												debug_assert (info);
-											}
-#endif
 											ledger.store.pending.del (transaction, key);
 											block_a.sideband_set (nano::block_sideband (account, 0, new_balance, info->block_count + 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
 											ledger.store.block.put (transaction, hash, block_a);
@@ -629,14 +622,6 @@ void ledger_processor::open_block (nano::open_block & block_a)
 								result = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
 								if (result == nano::block_status::progress)
 								{
-#ifdef NDEBUG
-									if (ledger.store.block.exists (transaction, block_a.hashables.source))
-									{
-										nano::account_info source_info;
-										[[maybe_unused]] auto error (ledger.store.account.get (transaction, pending.value ().source, source_info));
-										debug_assert (!error);
-									}
-#endif
 									ledger.store.pending.del (transaction, key);
 									block_a.sideband_set (nano::block_sideband (block_a.hashables.account, 0, pending.value ().amount, 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
 									ledger.store.block.put (transaction, hash, block_a);
@@ -981,7 +966,7 @@ std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (st
 }
 
 // Vote weight of an account
-nano::uint128_t nano::ledger::weight (nano::account const & account_a)
+nano::uint128_t nano::ledger::weight (nano::account const & account_a) const
 {
 	if (check_bootstrap_weights.load ())
 	{
@@ -1001,7 +986,7 @@ nano::uint128_t nano::ledger::weight (nano::account const & account_a)
 	return cache.rep_weights.representation_get (account_a);
 }
 
-nano::uint128_t nano::ledger::weight_exact (store::transaction const & txn_a, nano::account const & representative_a)
+nano::uint128_t nano::ledger::weight_exact (store::transaction const & txn_a, nano::account const & representative_a) const
 {
 	return store.rep_weight.get (txn_a, representative_a);
 }
@@ -1346,6 +1331,7 @@ uint64_t nano::ledger::pruning_action (store::write_transaction & transaction_a,
 		auto block_l = block (transaction_a, hash);
 		if (block_l != nullptr)
 		{
+			release_assert (block_confirmed (transaction_a, hash));
 			store.block.del (transaction_a, hash);
 			store.pruned.put (transaction_a, hash);
 			hash = block_l->previous ();
@@ -1368,37 +1354,6 @@ uint64_t nano::ledger::pruning_action (store::write_transaction & transaction_a,
 		}
 	}
 	return pruned_count;
-}
-
-std::multimap<uint64_t, nano::uncemented_info, std::greater<>> nano::ledger::unconfirmed_frontiers () const
-{
-	nano::locked<std::multimap<uint64_t, nano::uncemented_info, std::greater<>>> result;
-	using result_t = decltype (result)::value_type;
-
-	store.account.for_each_par ([this, &result] (store::read_transaction const & transaction_a, store::iterator<nano::account, nano::account_info> i, store::iterator<nano::account, nano::account_info> n) {
-		result_t unconfirmed_frontiers_l;
-		for (; i != n; ++i)
-		{
-			auto const & account (i->first);
-			auto const & account_info (i->second);
-
-			nano::confirmation_height_info conf_height_info;
-			this->store.confirmation_height.get (transaction_a, account, conf_height_info);
-
-			if (account_info.block_count != conf_height_info.height)
-			{
-				// Always output as no confirmation height has been set on the account yet
-				auto height_delta = account_info.block_count - conf_height_info.height;
-				auto const & frontier = account_info.head;
-				auto const & cemented_frontier = conf_height_info.frontier;
-				unconfirmed_frontiers_l.emplace (std::piecewise_construct, std::forward_as_tuple (height_delta), std::forward_as_tuple (cemented_frontier, frontier, i->first));
-			}
-		}
-		// Merge results
-		auto result_locked = result.lock ();
-		result_locked->insert (unconfirmed_frontiers_l.begin (), unconfirmed_frontiers_l.end ());
-	});
-	return result;
 }
 
 // A precondition is that the store is an LMDB store
@@ -1600,17 +1555,32 @@ nano::receivable_iterator nano::ledger::receivable_upper_bound (store::transacti
 	return nano::receivable_iterator{ *this, tx, result };
 }
 
-nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account) :
-	cemented_frontier (cemented_frontier), frontier (frontier), account (account)
+uint64_t nano::ledger::cemented_count () const
 {
+	return cache.cemented_count;
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (ledger & ledger, std::string const & name)
+uint64_t nano::ledger::block_count () const
 {
-	auto count = ledger.bootstrap_weights.size ();
-	auto sizeof_element = sizeof (decltype (ledger.bootstrap_weights)::value_type);
+	return cache.block_count;
+}
+
+uint64_t nano::ledger::account_count () const
+{
+	return cache.account_count;
+}
+
+uint64_t nano::ledger::pruned_count () const
+{
+	return cache.pruned_count;
+}
+
+std::unique_ptr<nano::container_info_component> nano::ledger::collect_container_info (std::string const & name) const
+{
+	auto count = bootstrap_weights.size ();
+	auto sizeof_element = sizeof (decltype (bootstrap_weights)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "bootstrap_weights", count, sizeof_element }));
-	composite->add_component (ledger.cache.rep_weights.collect_container_info ("rep_weights"));
+	composite->add_component (cache.rep_weights.collect_container_info ("rep_weights"));
 	return composite;
 }
