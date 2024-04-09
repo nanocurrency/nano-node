@@ -165,23 +165,3 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 	}
 	return result;
 }
-
-bool nano::transport::is_temporary_error (boost::system::error_code const & ec)
-{
-	switch (ec.value ())
-	{
-		case boost::asio::error::try_again:
-		case boost::asio::error::no_buffer_space:
-		case boost::asio::error::no_memory:
-		case boost::asio::error::connection_reset:
-		case boost::asio::error::connection_aborted:
-		case boost::asio::error::connection_refused:
-		case boost::asio::error::broken_pipe:
-		case boost::asio::error::operation_aborted:
-		case boost::asio::error::network_reset:
-		case boost::asio::error::interrupted:
-			return true;
-		default:
-			return false;
-	}
-}

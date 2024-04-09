@@ -84,7 +84,9 @@ void nano::transport::tcp_listener::start ()
 
 void nano::transport::tcp_listener::stop ()
 {
-	logger.info (nano::log::type::tcp_listener, "Stopping listeninig for incoming connections and closing all sockets...");
+	debug_assert (!stopped);
+
+	logger.info (nano::log::type::tcp_listener, "Stopping listening for incoming connections and closing all sockets...");
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
 		stopped = true;
@@ -169,7 +171,6 @@ void nano::transport::tcp_listener::run ()
 			return;
 		}
 
-		bool cooldown = false;
 		try
 		{
 			auto result = accept_one ();
@@ -182,16 +183,13 @@ void nano::transport::tcp_listener::run ()
 		catch (boost::system::system_error const & ex)
 		{
 			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::accept_error, nano::stat::dir::in);
-			logger.log (stopped ? nano::log::level::debug : nano::log::level::error, // Avoid logging expected errors when stopping
-			nano::log::type::tcp_listener, "Error accepting incoming connection: {}", ex.what ());
-
-			cooldown = true;
+			logger.log (nano::log::level::debug, nano::log::type::tcp_listener, "Error accepting incoming connection: {}", ex.what ());
 		}
 
 		lock.lock ();
 
-		// Sleep for a while to prevent busy loop with additional cooldown if an error occurred
-		condition.wait_for (lock, cooldown ? 100ms : 10ms, [this] () { return stopped.load (); });
+		// Sleep for a while to prevent busy loop
+		condition.wait_for (lock, 10ms, [this] () { return stopped.load (); });
 	}
 	if (!stopped)
 	{
@@ -368,9 +366,9 @@ size_t nano::transport::tcp_listener::count_per_subnetwork (asio::ip::address co
 
 asio::ip::tcp::endpoint nano::transport::tcp_listener::endpoint () const
 {
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	if (!stopped)
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
 		return { asio::ip::address_v6::loopback (), acceptor.local_endpoint ().port () };
 	}
 	else
