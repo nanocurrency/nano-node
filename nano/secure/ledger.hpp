@@ -10,6 +10,7 @@
 
 #include <deque>
 #include <map>
+#include <shared_mutex>
 
 namespace nano::store
 {
@@ -122,6 +123,7 @@ private:
 	void initialize (nano::generate_cache_flags const &);
 	void confirm (secure::write_transaction const & transaction, nano::block const & block);
 
+	mutable std::shared_mutex mutex;
 	std::unique_ptr<nano::confirming_set> confirming_impl;
 
 public:

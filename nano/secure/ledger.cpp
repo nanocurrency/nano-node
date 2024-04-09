@@ -731,12 +731,16 @@ nano::ledger::~ledger ()
 
 auto nano::ledger::tx_begin_write (std::vector<nano::tables> const & tables_to_lock, std::vector<nano::tables> const & tables_no_lock) const -> secure::write_transaction
 {
-	return secure::write_transaction{ store.tx_begin_write (tables_to_lock, tables_no_lock) };
+	std::unique_lock<std::shared_mutex> lock{ mutex };
+	auto tx = store.tx_begin_write (tables_to_lock, tables_no_lock);
+	return secure::write_transaction{ std::move (tx), std::move (lock) };
 }
 
 auto nano::ledger::tx_begin_read () const -> secure::read_transaction
 {
-	return secure::read_transaction{ store.tx_begin_read () };
+	std::shared_lock<std::shared_mutex> lock{ mutex };
+	auto tx = store.tx_begin_read ();
+	return secure::read_transaction{ std::move (tx), std::move (lock) };
 }
 
 void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache_flags_a)

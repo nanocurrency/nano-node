@@ -2,6 +2,7 @@
 
 #include <nano/store/transaction.hpp> // Correct include for nano::store transaction classes
 
+#include <shared_mutex>
 #include <utility> // For std::move
 
 namespace nano
@@ -33,10 +34,12 @@ namespace secure
 	class write_transaction : public transaction
 	{
 		nano::store::write_transaction txn;
+		std::unique_lock<std::shared_mutex> lock;
 
 	public:
-		explicit write_transaction (nano::store::write_transaction && t) noexcept :
-			txn (std::move (t))
+		explicit write_transaction (nano::store::write_transaction && t, std::unique_lock<std::shared_mutex> && l) noexcept :
+			txn{ std::move (t) },
+			lock{ std::move (l) }
 		{
 		}
 
@@ -77,10 +80,12 @@ namespace secure
 	class read_transaction : public transaction
 	{
 		nano::store::read_transaction txn;
+		std::shared_lock<std::shared_mutex> lock;
 
 	public:
-		explicit read_transaction (nano::store::read_transaction && t) noexcept :
-			txn (std::move (t))
+		explicit read_transaction (nano::store::read_transaction && t, std::shared_lock<std::shared_mutex> && l) noexcept :
+			txn{ std::move (t) },
+			lock{ std::move (l) }
 		{
 		}
 
