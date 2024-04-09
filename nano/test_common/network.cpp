@@ -24,6 +24,14 @@ std::shared_ptr<nano::transport::channel_tcp> nano::test::establish_tcp (nano::t
 	return result;
 }
 
+std::shared_ptr<nano::node> nano::test::add_outer_node (nano::test::system & system_a, nano::node_config const & config_a, nano::node_flags flags_a)
+{
+	auto outer_node = std::make_shared<nano::node> (system_a.io_ctx, nano::unique_path (), config_a, system_a.work, flags_a);
+	outer_node->start ();
+	system_a.nodes.push_back (outer_node);
+	return outer_node;
+}
+
 std::shared_ptr<nano::node> nano::test::add_outer_node (nano::test::system & system_a, nano::node_flags flags_a)
 {
 	auto outer_node = std::make_shared<nano::node> (system_a.io_ctx, system_a.get_available_port (), nano::unique_path (), system_a.work, flags_a);
