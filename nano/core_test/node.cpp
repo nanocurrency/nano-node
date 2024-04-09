@@ -647,14 +647,14 @@ TEST (node, fork_keep)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
 	node1.process_active (send1);
-	node2.process_active (send1);
+	node2.process_active (builder.make_block ().from (*send1).build ());
 	ASSERT_TIMELY_EQ (5s, 1, node1.active.size ());
 	ASSERT_TIMELY_EQ (5s, 1, node2.active.size ());
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	// Fill node with forked blocks
 	node1.process_active (send2);
 	ASSERT_TIMELY (5s, node1.active.active (*send2));
-	node2.process_active (send2);
+	node2.process_active (builder.make_block ().from (*send2).build ());
 	ASSERT_TIMELY (5s, node2.active.active (*send2));
 	auto election1 (node2.active.election (nano::qualified_root (nano::dev::genesis->hash (), nano::dev::genesis->hash ())));
 	ASSERT_NE (nullptr, election1);
