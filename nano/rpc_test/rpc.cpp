@@ -6898,8 +6898,8 @@ TEST (rpc, election_statistics)
 	ASSERT_EQ ("0", response.get<std::string> ("optimistic"));
 	ASSERT_EQ ("1", response.get<std::string> ("total"));
 	ASSERT_NE ("0.00", response.get<std::string> ("aec_utilization_percentage"));
-	ASSERT_GT (response.get<double> ("max_election_age"), 0);
-	ASSERT_GT (response.get<double> ("average_election_age"), 0);
-	ASSERT_LT (response.get<double> ("max_election_age"), 5);
-	ASSERT_LT (response.get<double> ("average_election_age"), 5);
+	ASSERT_GT (response.get<int> ("max_election_age"), 0);
+	ASSERT_GT (response.get<int> ("average_election_age"), 0);
+	ASSERT_LT (response.get<int> ("max_election_age"), 5000);
+	ASSERT_LT (response.get<int> ("average_election_age"), 5000);
 }
