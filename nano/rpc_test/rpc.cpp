@@ -6870,14 +6870,10 @@ TEST (rpc, confirmation_info)
 TEST (rpc, election_statistics)
 {
 	nano::test::system system;
-	nano::node_config node_config;
-	node_config.ipc_config.transport_tcp.enabled = true;
-	node_config.ipc_config.transport_tcp.port = system.get_available_port ();
-	nano::node_flags node_flags;
-	node_flags.disable_request_loop = true;
-	auto node1 (system.add_node (node_config, node_flags));
+	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 
+	// process block and wait for election to start, the election will not be completed because there are no voters on the network
 	nano::block_builder builder;
 	auto send1 = builder
 				 .send ()
@@ -6888,20 +6884,22 @@ TEST (rpc, election_statistics)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
 	node1->process_active (send1);
-	ASSERT_TIMELY (5s, !node1->active.empty ());
-	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send1 }));
-	ASSERT_EQ (1, node1->active.size ());
+	ASSERT_TIMELY_EQ (5s, node1->active.size (), 1);
+
+	// delay to ensure returned age is not rounded down to zero
+	system.delay_ms (20ms);
 
 	boost::property_tree::ptree request;
 	request.put ("action", "election_statistics");
-	{
-		auto response (wait_response (system, rpc_ctx, request));
-		ASSERT_EQ ("1", response.get<std::string> ("normal"));
-		ASSERT_EQ ("0", response.get<std::string> ("hinted"));
-		ASSERT_EQ ("0", response.get<std::string> ("optimistic"));
-		ASSERT_EQ ("1", response.get<std::string> ("total"));
-		ASSERT_NE ("0.00", response.get<std::string> ("aec_utilization_percentage"));
-		ASSERT_NO_THROW (response.get<std::string> ("max_election_age"));
-		ASSERT_NO_THROW (response.get<std::string> ("average_election_age"));
-	}
+
+	auto response = wait_response (system, rpc_ctx, request);
+	ASSERT_EQ ("1", response.get<std::string> ("normal"));
+	ASSERT_EQ ("0", response.get<std::string> ("hinted"));
+	ASSERT_EQ ("0", response.get<std::string> ("optimistic"));
+	ASSERT_EQ ("1", response.get<std::string> ("total"));
+	ASSERT_NE ("0.00", response.get<std::string> ("aec_utilization_percentage"));
+	ASSERT_GT (response.get<int> ("max_election_age"), 0);
+	ASSERT_GT (response.get<int> ("average_election_age"), 0);
+	ASSERT_LT (response.get<int> ("max_election_age"), 5000);
+	ASSERT_LT (response.get<int> ("average_election_age"), 5000);
 }
