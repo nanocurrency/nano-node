@@ -18,6 +18,7 @@ namespace nano
 {
 /**
  * Information on an uncollected send
+ * This class captures the data stored in a pending table entry
  */
 class pending_info final
 {
@@ -27,9 +28,9 @@ public:
 	size_t db_size () const;
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_info const &) const;
-	nano::account source{};
-	nano::amount amount{ 0 };
-	nano::epoch epoch{ nano::epoch::epoch_0 };
+	nano::account source{}; // the account sending the funds
+	nano::amount amount{ 0 }; // amount receivable in this transaction
+	nano::epoch epoch{ nano::epoch::epoch_0 }; // epoch of sending block, this info is stored here to make it possible to prune the send block
 
 	friend std::ostream & operator<< (std::ostream & os, const nano::pending_info & info)
 	{
@@ -38,6 +39,9 @@ public:
 		return os;
 	}
 };
+
+// This class represents the data written into the pending (receivable) database table key
+// the receiving account and hash of the send block identify a pending db table entry
 class pending_key final
 {
 public:
@@ -47,8 +51,8 @@ public:
 	bool operator== (nano::pending_key const &) const;
 	bool operator< (nano::pending_key const &) const;
 	nano::account const & key () const;
-	nano::account account{};
-	nano::block_hash hash{ 0 };
+	nano::account account{}; // receiving account
+	nano::block_hash hash{ 0 }; // hash of the send block
 
 	friend std::ostream & operator<< (std::ostream & os, const nano::pending_key & key)
 	{
@@ -56,6 +60,7 @@ public:
 		return os;
 	}
 };
+
 // This class iterates receivable enttries for an account
 class receivable_iterator
 {
