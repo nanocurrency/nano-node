@@ -794,7 +794,7 @@ bool nano::ledger::block_exists (store::transaction const & transaction, nano::b
 }
 
 // Balance for an account by account number
-nano::uint128_t nano::ledger::account_balance (store::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
+nano::uint128_t nano::ledger::account_balance (store::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a) const
 {
 	nano::uint128_t result (0);
 	if (only_confirmed_a)
