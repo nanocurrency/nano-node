@@ -5608,7 +5608,6 @@ TEST (rpc, wallet_history)
 	request.put ("action", "wallet_history");
 	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
 	auto response (wait_response (system, rpc_ctx, request));
-	boost::property_tree::write_json (std::cout, response);
 	std::vector<std::tuple<std::string, std::string, std::string, std::string, std::string, std::string>> history_l;
 	auto & history_node (response.get_child ("history"));
 	for (auto i (history_node.begin ()), n (history_node.end ()); i != n; ++i)
