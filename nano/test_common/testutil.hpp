@@ -169,6 +169,7 @@ class network_params;
 class vote;
 class block;
 class election;
+class ledger;
 
 extern nano::uint128_t const & genesis_amount;
 
@@ -418,9 +419,9 @@ namespace test
 	uint64_t account_height (nano::node const & node, nano::account const & acc);
 
 	/**
-	 * \brief Debugging function to print all accounts in a ledger. Intented to be used to debug unit tests.
+	 * \brief Debugging function to print all accounts in a ledger. Intended to be used to debug unit tests.
 	 */
-	void print_all_account_info (nano::node & node);
+	void print_all_account_info (const nano::ledger & ledger);
 
 	/**
 	 * \brief Debugging function to print all blocks in a node. Intended to be used to debug unit tests.
