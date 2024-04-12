@@ -5587,24 +5587,19 @@ TEST (rpc, uptime)
 	ASSERT_LE (1, response.get<int> ("seconds"));
 }
 
-// Test disabled because it's failing intermittently.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3512
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3514
-TEST (rpc, DISABLED_wallet_history)
+TEST (rpc, wallet_history)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.enable_voting = false;
 	auto node = add_ipc_enabled_node (system, node_config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto timestamp1 = nano::seconds_since_epoch ();
+	uint64_t timestamp = nano::seconds_since_epoch ();
 	auto send (system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, node->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send);
-	auto timestamp2 = nano::seconds_since_epoch ();
 	auto receive (system.wallet (0)->receive_action (send->hash (), nano::dev::genesis_key.pub, node->config.receive_minimum.number (), send->destination ()));
 	ASSERT_NE (nullptr, receive);
 	nano::keypair key;
-	auto timestamp3 = nano::seconds_since_epoch ();
 	auto send2 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, node->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send2);
 	system.deadline_set (10s);
@@ -5613,6 +5608,7 @@ TEST (rpc, DISABLED_wallet_history)
 	request.put ("action", "wallet_history");
 	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
 	auto response (wait_response (system, rpc_ctx, request));
+	boost::property_tree::write_json (std::cout, response);
 	std::vector<std::tuple<std::string, std::string, std::string, std::string, std::string, std::string>> history_l;
 	auto & history_node (response.get_child ("history"));
 	for (auto i (history_node.begin ()), n (history_node.end ()); i != n; ++i)
@@ -5625,19 +5621,22 @@ TEST (rpc, DISABLED_wallet_history)
 	ASSERT_EQ (node->config.receive_minimum.to_string_dec (), std::get<2> (history_l[0]));
 	ASSERT_EQ (send2->hash ().to_string (), std::get<3> (history_l[0]));
 	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<4> (history_l[0]));
-	ASSERT_EQ (std::to_string (timestamp3), std::get<5> (history_l[0]));
+	ASSERT_LE (timestamp, std::stoull (std::get<5> (history_l[0])));
+	ASSERT_GT (timestamp + 10, std::stoull (std::get<5> (history_l[0])));
 	ASSERT_EQ ("receive", std::get<0> (history_l[1]));
 	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<1> (history_l[1]));
 	ASSERT_EQ (node->config.receive_minimum.to_string_dec (), std::get<2> (history_l[1]));
 	ASSERT_EQ (receive->hash ().to_string (), std::get<3> (history_l[1]));
 	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<4> (history_l[1]));
-	ASSERT_EQ (std::to_string (timestamp2), std::get<5> (history_l[1]));
+	ASSERT_LE (std::to_string (timestamp), std::get<5> (history_l[1]));
+	ASSERT_GT (std::to_string (timestamp + 10), std::get<5> (history_l[1]));
 	ASSERT_EQ ("send", std::get<0> (history_l[2]));
 	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<1> (history_l[2]));
 	ASSERT_EQ (node->config.receive_minimum.to_string_dec (), std::get<2> (history_l[2]));
 	ASSERT_EQ (send->hash ().to_string (), std::get<3> (history_l[2]));
 	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<4> (history_l[2]));
-	ASSERT_EQ (std::to_string (timestamp1), std::get<5> (history_l[2]));
+	ASSERT_LE (std::to_string (timestamp), std::get<5> (history_l[2]));
+	ASSERT_GT (std::to_string (timestamp + 10), std::get<5> (history_l[2]));
 	// Genesis block
 	ASSERT_EQ ("receive", std::get<0> (history_l[3]));
 	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<1> (history_l[3]));
