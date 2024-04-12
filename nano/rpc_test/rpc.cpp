@@ -5622,21 +5622,21 @@ TEST (rpc, wallet_history)
 	ASSERT_EQ (send2->hash ().to_string (), std::get<3> (history_l[0]));
 	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<4> (history_l[0]));
 	ASSERT_LE (timestamp, std::stoull (std::get<5> (history_l[0])));
-	ASSERT_GT (timestamp + 10, std::stoull (std::get<5> (history_l[0])));
+	ASSERT_GT (timestamp + 5, std::stoull (std::get<5> (history_l[0])));
 	ASSERT_EQ ("receive", std::get<0> (history_l[1]));
 	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<1> (history_l[1]));
 	ASSERT_EQ (node->config.receive_minimum.to_string_dec (), std::get<2> (history_l[1]));
 	ASSERT_EQ (receive->hash ().to_string (), std::get<3> (history_l[1]));
 	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<4> (history_l[1]));
-	ASSERT_LE (std::to_string (timestamp), std::get<5> (history_l[1]));
-	ASSERT_GT (std::to_string (timestamp + 10), std::get<5> (history_l[1]));
+	ASSERT_LE (timestamp, std::stoull (std::get<5> (history_l[1])));
+	ASSERT_GT (timestamp + 5, std::stoull (std::get<5> (history_l[1])));
 	ASSERT_EQ ("send", std::get<0> (history_l[2]));
 	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<1> (history_l[2]));
 	ASSERT_EQ (node->config.receive_minimum.to_string_dec (), std::get<2> (history_l[2]));
 	ASSERT_EQ (send->hash ().to_string (), std::get<3> (history_l[2]));
 	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<4> (history_l[2]));
-	ASSERT_LE (std::to_string (timestamp), std::get<5> (history_l[2]));
-	ASSERT_GT (std::to_string (timestamp + 10), std::get<5> (history_l[2]));
+	ASSERT_LE (timestamp, std::stoull (std::get<5> (history_l[2])));
+	ASSERT_GT (timestamp + 5, std::stoull (std::get<5> (history_l[2])));
 	// Genesis block
 	ASSERT_EQ ("receive", std::get<0> (history_l[3]));
 	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<1> (history_l[3]));
