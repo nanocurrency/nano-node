@@ -423,8 +423,8 @@ namespace test
 	void print_all_account_info (nano::node & node);
 
 	/**
-	 * \brief Debugging function to print all blocks in a node. Intented to be used to debug unit tests.
+	 * \brief Debugging function to print all blocks in a node. Intended to be used to debug unit tests.
 	 */
-	void print_all_blocks (nano::node & node);
+	void print_all_blocks (const nano::store::component & store);
 }
 }

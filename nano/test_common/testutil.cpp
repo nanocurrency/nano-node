@@ -321,11 +321,11 @@ void nano::test::print_all_account_info (nano::node & node)
 	}
 }
 
-void nano::test::print_all_blocks (nano::node & node)
+void nano::test::print_all_blocks (const nano::store::component & store)
 {
-	auto tx = node.store.tx_begin_read ();
-	auto i = node.store.block.begin (tx);
-	auto end = node.store.block.end ();
+	auto tx = store.tx_begin_read ();
+	auto i = store.block.begin (tx);
+	auto end = store.block.end ();
 	std::cout << "Listing all blocks" << std::endl;
 	for (; i != end; ++i)
 	{
