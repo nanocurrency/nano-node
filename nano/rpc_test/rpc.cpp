@@ -355,20 +355,17 @@ TEST (rpc, send_idempotent)
 	ASSERT_EQ (std::error_code (nano::error_common::insufficient_balance).message (), response3.get<std::string> ("error"));
 }
 
-// Test disabled because it's failing intermittently.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3560
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3561
-// CI run in which it failed: https://github.com/nanocurrency/nano-node/runs/4280938039?check_suite_focus=true#step:5:1895
-TEST (rpc, DISABLED_send_epoch_2)
+TEST (rpc, send_epoch_2)
 {
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
 
 	// Upgrade the genesis account to epoch 2
-	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_1));
-	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_2));
-
+	std::shared_ptr<nano::block> epoch1, epoch2;
+	ASSERT_TRUE (epoch1 = system.upgrade_genesis_epoch (*node, nano::epoch::epoch_1));
+	ASSERT_TRUE (epoch2 = system.upgrade_genesis_epoch (*node, nano::epoch::epoch_2));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv, false);
+	ASSERT_TIMELY (5s, nano::test::confirmed (*node, { epoch1, epoch2 }));
 
 	auto target_difficulty = nano::dev::network_params.work.threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, true, false, false));
 	ASSERT_LT (node->network_params.work.entry, target_difficulty);
