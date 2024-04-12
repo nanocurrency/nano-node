@@ -419,6 +419,11 @@ namespace test
 	uint64_t account_height (nano::node const & node, nano::account const & acc);
 
 	/**
+	 * \brief Debugging function to print all entries in the pending table. Intended to be used to debug unit tests.
+	 */
+	void print_all_receivable_entries (const nano::store::component & store);
+
+	/**
 	 * \brief Debugging function to print all accounts in a ledger. Intended to be used to debug unit tests.
 	 */
 	void print_all_account_info (const nano::ledger & ledger);

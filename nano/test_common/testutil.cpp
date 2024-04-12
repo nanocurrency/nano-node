@@ -7,6 +7,7 @@
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/pending_info.hpp>
 #include <nano/store/block.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -298,6 +299,18 @@ uint64_t nano::test::account_height (nano::node const & node, nano::account cons
 		return 0;
 	}
 	return height_info.height;
+}
+
+void nano::test::print_all_receivable_entries (const nano::store::component & store)
+{
+	std::cout << "Printing all receivable entries:\n";
+	auto const tx = store.tx_begin_read ();
+	auto const end = store.pending.end ();
+	for (auto i = store.pending.begin (tx); i != end; ++i)
+	{
+		std::cout << "Key:  " << i->first << std::endl;
+		std::cout << "Info: " << i->second << std::endl;
+	}
 }
 
 void nano::test::print_all_account_info (const nano::ledger & ledger)

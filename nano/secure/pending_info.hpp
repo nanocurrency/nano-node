@@ -30,6 +30,13 @@ public:
 	nano::account source{};
 	nano::amount amount{ 0 };
 	nano::epoch epoch{ nano::epoch::epoch_0 };
+
+	friend std::ostream & operator<< (std::ostream & os, const nano::pending_info & info)
+	{
+		const int epoch = nano::normalized_epoch (info.epoch);
+		os << "Source: " << info.source << ", Amount: " << info.amount.to_string_dec () << " Epoch: " << epoch;
+		return os;
+	}
 };
 class pending_key final
 {
@@ -42,6 +49,12 @@ public:
 	nano::account const & key () const;
 	nano::account account{};
 	nano::block_hash hash{ 0 };
+
+	friend std::ostream & operator<< (std::ostream & os, const nano::pending_key & key)
+	{
+		os << "Account: " << key.account << ", Hash: " << key.hash;
+		return os;
+	}
 };
 // This class iterates receivable enttries for an account
 class receivable_iterator
