@@ -94,6 +94,7 @@ void nano::vote_generator::process_batch (std::deque<queue_entry_t> & batch)
 {
 	std::deque<candidate_t> candidates_new;
 	{
+		auto guard = ledger.store.write_queue.wait (is_final ? nano::store::writer::voting_final : nano::store::writer::voting);
 		auto transaction = ledger.store.tx_begin_write ({ tables::final_votes });
 
 		for (auto & [root, hash] : batch)
