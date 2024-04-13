@@ -58,8 +58,7 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 			auto rpc = nano::get_rpc (io_ctx, rpc_config, ipc_rpc_processor);
 			rpc->start ();
 
-			debug_assert (!nano::signal_handler_impl);
-			nano::signal_handler_impl = [io_ctx_w = std::weak_ptr{ io_ctx }] () {
+			auto signal_handler = [io_ctx_w = std::weak_ptr{ io_ctx }] (int signum) {
 				logger.warn (nano::log::type::daemon, "Interrupt signal received, stopping...");
 
 				if (auto io_ctx_l = io_ctx_w.lock ())
@@ -69,8 +68,8 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 				sig_int_or_term = 1;
 			};
 
-			sigman.register_signal_handler (SIGINT, &nano::signal_handler, true);
-			sigman.register_signal_handler (SIGTERM, &nano::signal_handler, false);
+			sigman.register_signal_handler (SIGINT, signal_handler, true);
+			sigman.register_signal_handler (SIGTERM, signal_handler, false);
 
 			runner = std::make_unique<nano::thread_runner> (io_ctx, rpc_config.rpc_process.io_threads);
 			runner->join ();

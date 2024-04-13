@@ -193,8 +193,7 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 					}
 				}
 
-				debug_assert (!nano::signal_handler_impl);
-				nano::signal_handler_impl = [this, io_ctx_w = std::weak_ptr{ io_ctx }] () {
+				auto signal_handler = [this, io_ctx_w = std::weak_ptr{ io_ctx }] (int signum) {
 					logger.warn (nano::log::type::daemon, "Interrupt signal received, stopping...");
 
 					if (auto io_ctx_l = io_ctx_w.lock ())
@@ -207,10 +206,10 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 				nano::signal_manager sigman;
 
 				// keep trapping Ctrl-C to avoid a second Ctrl-C interrupting tasks started by the first
-				sigman.register_signal_handler (SIGINT, &nano::signal_handler, true);
+				sigman.register_signal_handler (SIGINT, signal_handler, true);
 
 				// sigterm is less likely to come in bunches so only trap it once
-				sigman.register_signal_handler (SIGTERM, &nano::signal_handler, false);
+				sigman.register_signal_handler (SIGTERM, signal_handler, false);
 
 				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
 				runner->join ();
