@@ -1712,6 +1712,40 @@ void nano::wallets::ongoing_compute_reps ()
 	});
 }
 
+void nano::wallets::receive_confirmed (nano::block_hash const & hash_a, nano::account const & destination_a)
+{
+	nano::unique_lock<nano::mutex> lk{ mutex };
+	auto wallets_l = get_wallets ();
+	auto wallet_transaction = tx_begin_read ();
+	lk.unlock ();
+	for ([[maybe_unused]] auto const & [id, wallet] : wallets_l)
+	{
+		if (wallet->store.exists (wallet_transaction, destination_a))
+		{
+			nano::account representative;
+			representative = wallet->store.representative (wallet_transaction);
+			auto pending = node.ledger.pending_info (node.ledger.store.tx_begin_read (), nano::pending_key (destination_a, hash_a));
+			if (pending)
+			{
+				auto amount (pending->amount.number ());
+				wallet->receive_async (hash_a, representative, amount, destination_a, [] (std::shared_ptr<nano::block> const &) {});
+			}
+			else
+			{
+				if (!node.ledger.block_or_pruned_exists (node.ledger.store.tx_begin_read (), hash_a))
+				{
+					node.logger.warn (nano::log::type::wallet, "Confirmed block is missing: {}", hash_a.to_string ());
+					debug_assert (false, "Confirmed block is missing");
+				}
+				else
+				{
+					node.logger.warn (nano::log::type::wallet, "Block has already been received: {}", hash_a.to_string ());
+				}
+			}
+		}
+	}
+}
+
 std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> nano::wallets::get_wallets ()
 {
 	debug_assert (!mutex.try_lock ());

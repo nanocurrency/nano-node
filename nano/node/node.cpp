@@ -468,8 +468,9 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 		confirming_set.cemented_observers.add ([this] (auto const & block) {
 			if (block->is_send ())
 			{
-				auto transaction = store.tx_begin_read ();
-				receive_confirmed (transaction, block->hash (), block->destination ());
+				workers.push_task ([this, hash = block->hash (), destination = block->destination ()] () {
+					wallets.receive_confirmed (hash, destination);
+				});
 			}
 		});
 	}
@@ -1215,40 +1216,6 @@ void nano::node::ongoing_online_weight_calculation ()
 {
 	online_reps.sample ();
 	ongoing_online_weight_calculation_queue ();
-}
-
-void nano::node::receive_confirmed (store::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a)
-{
-	nano::unique_lock<nano::mutex> lk{ wallets.mutex };
-	auto wallets_l = wallets.get_wallets ();
-	auto wallet_transaction = wallets.tx_begin_read ();
-	lk.unlock ();
-	for ([[maybe_unused]] auto const & [id, wallet] : wallets_l)
-	{
-		if (wallet->store.exists (wallet_transaction, destination_a))
-		{
-			nano::account representative;
-			representative = wallet->store.representative (wallet_transaction);
-			auto pending = ledger.pending_info (block_transaction_a, nano::pending_key (destination_a, hash_a));
-			if (pending)
-			{
-				auto amount (pending->amount.number ());
-				wallet->receive_async (hash_a, representative, amount, destination_a, [] (std::shared_ptr<nano::block> const &) {});
-			}
-			else
-			{
-				if (!ledger.block_or_pruned_exists (block_transaction_a, hash_a))
-				{
-					logger.warn (nano::log::type::node, "Confirmed block is missing: {}", hash_a.to_string ());
-					debug_assert (false, "Confirmed block is missing");
-				}
-				else
-				{
-					logger.warn (nano::log::type::node, "Block has already been received: {}", hash_a.to_string ());
-				}
-			}
-		}
-	}
 }
 
 void nano::node::process_confirmed (nano::election_status const & status_a, uint64_t iteration_a)
