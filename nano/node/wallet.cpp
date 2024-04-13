@@ -1537,9 +1537,11 @@ void nano::wallets::foreach_representative (std::function<void (nano::public_key
 	{
 		std::vector<std::pair<nano::public_key const, nano::raw_key const>> action_accounts_l;
 		{
-			auto transaction_l (tx_begin_read ());
-			auto ledger_txn = node.ledger.tx_begin_read ();
+			// Lock outermost (wallets::mutex) first
 			nano::lock_guard<nano::mutex> lock{ mutex };
+			auto transaction_l (tx_begin_read ());
+			// Lock innermost (ledger) last
+			auto ledger_txn = node.ledger.tx_begin_read ();
 			for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
 			{
 				auto & wallet (*i->second);
