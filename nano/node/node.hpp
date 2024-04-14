@@ -87,7 +87,6 @@ public:
 	void stop ();
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
-	void receive_confirmed (store::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a);
 	void process_confirmed (nano::election_status const &, uint64_t = 0);
 	void process_active (std::shared_ptr<nano::block> const &);
 	std::optional<nano::block_status> process_local (std::shared_ptr<nano::block> const &);
