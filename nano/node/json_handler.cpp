@@ -271,7 +271,9 @@ nano::account_info nano::json_handler::account_info_impl (secure::transaction co
 		if (!info)
 		{
 			ec = nano::error_common::account_not_found;
-			node.bootstrap_initiator.bootstrap_lazy (account_a, false, account_a.to_account ());
+			node.workers.push_task (create_worker_task ([account_a] (std::shared_ptr<nano::json_handler> const & rpc_l) {
+				rpc_l->node.bootstrap_initiator.bootstrap_lazy (account_a, false, account_a.to_account ());
+			}));
 		}
 		else
 		{
