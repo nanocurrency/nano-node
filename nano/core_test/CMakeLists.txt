@@ -39,6 +39,7 @@ add_executable(
   processing_queue.cpp
   processor_service.cpp
   rep_crawler.cpp
+  receivable.cpp
   peer_container.cpp
   rep_weight_store.cpp
   scheduler_buckets.cpp
