@@ -109,16 +109,15 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 		status.type = nano::election_status_type::inactive_confirmation_height;
 	}
 	recently_cemented.put (status);
-	auto transaction = node.ledger.tx_begin_read ();
-	notify_observers (transaction, status, votes);
 	bool cemented_bootstrap_count_reached = node.ledger.cemented_count () >= node.ledger.bootstrap_weight_max_blocks;
 	bool was_active = status.type == nano::election_status_type::active_confirmed_quorum || status.type == nano::election_status_type::active_confirmation_height;
-
 	// Next-block activations are only done for blocks with previously active elections
 	if (cemented_bootstrap_count_reached && was_active)
 	{
-		activate_successors (transaction, block);
+		activate_successors (block);
 	}
+	auto transaction = node.ledger.tx_begin_read ();
+	notify_observers (transaction, status, votes);
 }
 
 void nano::active_transactions::notify_observers (nano::secure::read_transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes)
@@ -140,7 +139,7 @@ void nano::active_transactions::notify_observers (nano::secure::read_transaction
 	}
 }
 
-void nano::active_transactions::activate_successors (nano::secure::read_transaction const & transaction, std::shared_ptr<nano::block> const & block)
+void nano::active_transactions::activate_successors (std::shared_ptr<nano::block> const & block)
 {
 	node.scheduler.priority.activate (block->account ());
 

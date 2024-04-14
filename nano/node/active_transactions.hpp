@@ -203,7 +203,7 @@ private:
 	nano::stat::type completion_type (nano::election const & election) const;
 	// Returns a list of elections sorted by difficulty, mutex must be locked
 	std::vector<std::shared_ptr<nano::election>> list_active_impl (std::size_t) const;
-	void activate_successors (nano::secure::read_transaction const & transaction, std::shared_ptr<nano::block> const & block);
+	void activate_successors (std::shared_ptr<nano::block> const & block);
 	void notify_observers (nano::secure::read_transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes);
 	bool trigger_vote_cache (nano::block_hash);
 
