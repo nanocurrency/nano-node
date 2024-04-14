@@ -8,6 +8,9 @@ source "$(dirname "$BASH_SOURCE")/common.sh"
 NANO_REPO_DIR=${1:-../}
 NANO_SYSTEST_DIR=${NANO_REPO_DIR}/systest
 
+# Allow TEST_TIMEOUT to be set from an environment variable
+TEST_TIMEOUT=${TEST_TIMEOUT:-300s}
+
 echo "Running systests from: ${NANO_SYSTEST_DIR}"
 
 # This assumes that the executables are in the current working directory
@@ -22,7 +25,8 @@ for script in ${NANO_SYSTEST_DIR}/*.sh; do
     echo "::group::Running: $name"
 
     # Redirecting output to a file to prevent it from being mixed with the output of the action
-    ./$script > "${name}.log" 2>&1
+    # Using timeout command to enforce time limits
+    timeout $TEST_TIMEOUT ./$script > "${name}.log" 2>&1
     status=$?
     cat "${name}.log"
 
@@ -30,8 +34,11 @@ for script in ${NANO_SYSTEST_DIR}/*.sh; do
 
     if [ $status -eq 0 ]; then
         echo "Passed: $name"
+    elif [ $status -eq 124 ]; then
+        echo "::error::Systest timed out: $name"
+        overall_status=1
     else
-        echo "::error Systest failed: $name ($?)"
+        echo "::error::Systest failed: $name ($status)"
         overall_status=1
     fi
 done
