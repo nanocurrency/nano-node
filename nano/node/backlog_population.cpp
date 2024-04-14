@@ -89,7 +89,7 @@ void nano::backlog_population::populate_backlog (nano::unique_lock<nano::mutex> 
 	while (!stopped && !done)
 	{
 		lock.unlock ();
-
+		std::deque<std::tuple<nano::account, nano::account_info, nano::confirmation_height_info>> activations;
 		{
 			auto transaction = ledger.tx_begin_read ();
 
@@ -103,12 +103,20 @@ void nano::backlog_population::populate_backlog (nano::unique_lock<nano::mutex> 
 				stats.inc (nano::stat::type::backlog, nano::stat::detail::total);
 
 				auto const & account = i->first;
-				activate (transaction, account);
+				auto info = should_activate (transaction, account);
+				if (info)
+				{
+					activations.push_back (info.value ());
+				}
 				next = account.number () + 1;
 			}
 			done = ledger.store.account.begin (transaction, next) == end;
 		}
-
+		for (auto const & i : activations)
+		{
+			auto const & [account, account_info, conf_info] = i;
+			activate_callback.notify (account, account_info, conf_info);
+		}
 		lock.lock ();
 
 		// Give the rest of the node time to progress without holding database lock
@@ -116,14 +124,14 @@ void nano::backlog_population::populate_backlog (nano::unique_lock<nano::mutex> 
 	}
 }
 
-void nano::backlog_population::activate (secure::transaction const & transaction, nano::account const & account)
+std::optional<std::tuple<nano::account, nano::account_info, nano::confirmation_height_info>> nano::backlog_population::should_activate (secure::transaction const & transaction, nano::account const & account)
 {
 	debug_assert (!activate_callback.empty ());
 
 	auto const maybe_account_info = ledger.store.account.get (transaction, account);
 	if (!maybe_account_info)
 	{
-		return;
+		return std::nullopt;
 	}
 	auto const account_info = *maybe_account_info;
 
@@ -134,7 +142,7 @@ void nano::backlog_population::activate (secure::transaction const & transaction
 	if (conf_info.height < account_info.block_count)
 	{
 		stats.inc (nano::stat::type::backlog, nano::stat::detail::activated);
-
-		activate_callback.notify (account, account_info, conf_info);
+		return std::make_tuple (account, account_info, conf_info);
 	}
+	return std::nullopt;
 }
