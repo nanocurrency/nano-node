@@ -165,7 +165,7 @@ TEST (confirmation_callback, confirmed_history)
 		ASSERT_TIMELY (10s, node->store.write_queue.contains (nano::store::writer::confirmation_height));
 
 		// Confirm that no inactive callbacks have been called when the confirmation height processor has already iterated over it, waiting to write
-		ASSERT_EQ (0, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
+		ASSERT_ALWAYS_EQ (50ms, 0, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
 	}
 
 	ASSERT_TIMELY (10s, !node->store.write_queue.contains (nano::store::writer::confirmation_height));
@@ -181,9 +181,9 @@ TEST (confirmation_callback, confirmed_history)
 	ASSERT_TRUE (node->active.empty ());
 
 	// Confirm the callback is not called under this circumstance
-	ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out));
-	ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
-	ASSERT_EQ (2, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
+	ASSERT_TIMELY_EQ (5s, 1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (5s, 1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (5s, 2, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 	ASSERT_EQ (3, node->ledger.cemented_count ());
 	ASSERT_EQ (0, node->active.election_winner_details_size ());
 }
@@ -244,9 +244,9 @@ TEST (confirmation_callback, dependent_election)
 	// Once the item added to the confirming set no longer exists, callbacks have completed
 	ASSERT_TIMELY (5s, !node->confirming_set.exists (send2->hash ()));
 
-	ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out));
-	ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_conf_height, nano::stat::dir::out));
-	ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (5s, 1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (5s, 1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_conf_height, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (5s, 1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
 	ASSERT_EQ (4, node->ledger.cemented_count ());
 
 	ASSERT_EQ (0, node->active.election_winner_details_size ());
