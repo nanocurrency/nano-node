@@ -223,18 +223,20 @@ void nano::block_processor::rollback_competitor (secure::write_transaction const
 			node.logger.debug (nano::log::type::blockprocessor, "Blocks rolled back: {}", rollback_list.size ());
 		}
 
-		// Deleting from votes cache, stop active transaction
-		for (auto & i : rollback_list)
-		{
-			rolled_back.notify (i);
-
-			node.history.erase (i->root ());
-			// Stop all rolled back active transactions except initial
-			if (i->hash () != successor->hash ())
+		node.workers.push_task ([this, successor, rollback_list = std::move (rollback_list)] () {
+			// Deleting from votes cache, stop active transaction
+			for (auto & i : rollback_list)
 			{
-				node.active.erase (*i);
+				rolled_back.notify (i);
+
+				node.history.erase (i->root ());
+				// Stop all rolled back active transactions except initial
+				if (i->hash () != successor->hash ())
+				{
+					node.active.erase (*i);
+				}
 			}
-		}
+		});
 	}
 }
 
