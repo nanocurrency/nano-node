@@ -2454,7 +2454,7 @@ TEST (rpc, account_representative_set_epoch_2_insufficient_work)
 	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_2));
 
 	// speed up the cementing process, otherwise the node waits for frontiers confirmation to notice the unconfirmed epoch blocks, which takes time
-	node->scheduler.priority.activate (nano::dev::genesis_key.pub, node->ledger.tx_begin_read ());
+	node->scheduler.priority.activate (nano::dev::genesis_key.pub);
 
 	// wait for the epoch blocks to be cemented
 	ASSERT_TIMELY_EQ (5s, node->get_confirmation_height (node->store.tx_begin_read (), nano::dev::genesis_key.pub), 3);

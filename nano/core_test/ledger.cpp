@@ -952,7 +952,7 @@ TEST (votes, check_signature)
 		auto transaction = node1.ledger.tx_begin_write ();
 		ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, send1));
 	}
-	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.ledger.tx_begin_read ());
+	node1.scheduler.priority.activate (nano::dev::genesis_key.pub);
 	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
 	auto election1 = node1.active.election (send1->qualified_root ());
 	ASSERT_EQ (1, election1->votes ().size ());
@@ -1023,7 +1023,7 @@ TEST (votes, add_existing)
 										 .build ();
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (node1.ledger.tx_begin_write (), send1));
-	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.ledger.tx_begin_read ());
+	node1.scheduler.priority.activate (nano::dev::genesis_key.pub);
 	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
 	auto election1 = node1.active.election (send1->qualified_root ());
 	auto vote1 = nano::test::make_vote (nano::dev::genesis_key, { send1 }, nano::vote::timestamp_min * 1, 0);

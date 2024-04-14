@@ -142,12 +142,12 @@ void nano::active_transactions::notify_observers (nano::secure::read_transaction
 
 void nano::active_transactions::activate_successors (nano::secure::read_transaction const & transaction, std::shared_ptr<nano::block> const & block)
 {
-	node.scheduler.priority.activate (block->account (), transaction);
+	node.scheduler.priority.activate (block->account ());
 
 	// Start or vote for the next unconfirmed block in the destination account
 	if (block->is_send () && !block->destination ().is_zero () && block->destination () != block->account ())
 	{
-		node.scheduler.priority.activate (block->destination (), transaction);
+		node.scheduler.priority.activate (block->destination ());
 	}
 }
 

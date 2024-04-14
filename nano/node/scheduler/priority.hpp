@@ -38,7 +38,7 @@ public:
 	 * Activates the first unconfirmed block of \p account_a
 	 * @return true if account was activated
 	 */
-	bool activate (nano::account const &, secure::transaction const &);
+	bool activate (nano::account const &);
 	void notify ();
 	std::size_t size () const;
 	bool empty () const;
