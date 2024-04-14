@@ -73,4 +73,5 @@ private:
 	boost::thread smthread;
 };
 
+std::string to_signal_name (int signum);
 }
