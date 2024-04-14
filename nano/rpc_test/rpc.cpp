@@ -5770,8 +5770,8 @@ TEST (rpc, block_confirmed)
 
 	// Open an account directly in the ledger
 	{
-		auto transaction = node->store.tx_begin_write ();
-		nano::block_hash latest (node->latest (nano::dev::genesis_key.pub));
+		auto transaction = node->ledger.store.tx_begin_write ();
+		nano::block_hash latest (node->ledger.latest (transaction, nano::dev::genesis_key.pub));
 		auto send1 = builder
 					 .send ()
 					 .previous (latest)
