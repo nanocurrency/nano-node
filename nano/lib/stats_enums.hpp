@@ -229,6 +229,8 @@ enum class detail : uint8_t
 	loop_keepalive,
 	loop_reachout,
 	merge_peer,
+	reachout_live,
+	reachout_cached,
 
 	// tcp
 	tcp_accept_success,

@@ -112,6 +112,7 @@ private:
 	void run_cleanup ();
 	void run_keepalive ();
 	void run_reachout ();
+	void run_reachout_cached ();
 	void process_message (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
 
 private: // Dependencies
@@ -139,6 +140,7 @@ private:
 	std::thread cleanup_thread;
 	std::thread keepalive_thread;
 	std::thread reachout_thread;
+	std::thread reachout_cached_thread;
 
 public:
 	static unsigned const broadcast_interval_ms = 10;
