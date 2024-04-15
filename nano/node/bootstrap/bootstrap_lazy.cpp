@@ -125,26 +125,17 @@ void nano::bootstrap_attempt_lazy::lazy_pull_flush (nano::unique_lock<nano::mute
 		nano::pull_info::count_t batch_count (lazy_batch_size ());
 		uint64_t read_count (0);
 		std::size_t count (0);
-		auto transaction = node->ledger.tx_begin_read ();
 		while (!lazy_pulls.empty () && count < max_pulls)
 		{
 			auto pull_start (lazy_pulls.front ());
 			lazy_pulls.pop_front ();
 			// Recheck if block was already processed
-			if (!lazy_blocks_processed (pull_start.first.as_block_hash ()) && !node->ledger.block_or_pruned_exists (transaction, pull_start.first.as_block_hash ()))
+			if (!lazy_blocks_processed (pull_start.first.as_block_hash ()) && !node->ledger.block_or_pruned_exists (node->ledger.tx_begin_read (), pull_start.first.as_block_hash ()))
 			{
 				lock_a.unlock ();
 				node->bootstrap_initiator.connections->add_pull (nano::pull_info (pull_start.first, pull_start.first.as_block_hash (), nano::block_hash (0), incremental_id, batch_count, pull_start.second));
 				++pulling;
 				++count;
-				lock_a.lock ();
-			}
-			// We don't want to open read transactions for too long
-			++read_count;
-			if (read_count % batch_read_size == 0)
-			{
-				lock_a.unlock ();
-				transaction.refresh ();
 				lock_a.lock ();
 			}
 		}
