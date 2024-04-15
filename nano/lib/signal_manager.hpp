@@ -4,11 +4,11 @@
 
 #include <boost/asio.hpp>
 #include <boost/system/error_code.hpp>
-#include <boost/thread.hpp>
 
 #include <iostream>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace nano
@@ -73,7 +73,7 @@ private:
 	std::vector<signal_descriptor> descriptor_list;
 
 	/** thread to service the signal manager io context */
-	boost::thread smthread;
+	std::thread thread;
 };
 
 }
