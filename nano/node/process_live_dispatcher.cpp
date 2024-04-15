@@ -20,31 +20,30 @@ nano::process_live_dispatcher::process_live_dispatcher (nano::ledger & ledger, n
 void nano::process_live_dispatcher::connect (nano::block_processor & block_processor)
 {
 	block_processor.batch_processed.add ([this] (auto const & batch) {
-		auto const transaction = ledger.tx_begin_read ();
 		for (auto const & [result, context] : batch)
 		{
 			debug_assert (context.block != nullptr);
-			inspect (result, *context.block, transaction);
+			inspect (result, *context.block);
 		}
 	});
 }
 
-void nano::process_live_dispatcher::inspect (nano::block_status const & result, nano::block const & block, secure::transaction const & transaction)
+void nano::process_live_dispatcher::inspect (nano::block_status const & result, nano::block const & block)
 {
 	switch (result)
 	{
 		case nano::block_status::progress:
-			process_live (block, transaction);
+			process_live (block);
 			break;
 		default:
 			break;
 	}
 }
 
-void nano::process_live_dispatcher::process_live (nano::block const & block, secure::transaction const & transaction)
+void nano::process_live_dispatcher::process_live (nano::block const & block)
 {
 	// Start collecting quorum on block
-	if (ledger.dependents_confirmed (transaction, block))
+	if (ledger.dependents_confirmed (ledger.tx_begin_read (), block))
 	{
 		scheduler.activate (block.account ());
 	}

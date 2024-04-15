@@ -28,8 +28,8 @@ public:
 
 private:
 	// Block_processor observer
-	void inspect (nano::block_status const & result, nano::block const & block, secure::transaction const & transaction);
-	void process_live (nano::block const & block, secure::transaction const & transaction);
+	void inspect (nano::block_status const & result, nano::block const & block);
+	void process_live (nano::block const & block);
 
 	nano::ledger & ledger;
 	nano::scheduler::priority & scheduler;
