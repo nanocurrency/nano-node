@@ -144,4 +144,3 @@ jobs:
         run: ../ci/tests/run-system-tests.sh
         working-directory: build
         shell: bash
-        continue-on-error: true # FIXME: Investigate why this fails on Windows

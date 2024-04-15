@@ -26,7 +26,14 @@ for script in ${NANO_SYSTEST_DIR}/*.sh; do
 
     # Redirecting output to a file to prevent it from being mixed with the output of the action
     # Using timeout command to enforce time limits
-    timeout $TEST_TIMEOUT ./$script > "${name}.log" 2>&1
+    if [[ "$OSTYPE" == "msys" ]]; then
+        # Windows minimal system (msys) detected. Launch a command prompt for better compatibility and timeout function
+        cmd.exe /C "timeout /T $((TEST_TIMEOUT * 1000)) /NOBREAK & ./$script > ${name}.log 2>&1"
+    else
+        # Other systems like Mac or Linux
+        timeout $TEST_TIMEOUT ./$script > "${name}.log" 2>&1
+    fi
+    
     status=$?
     cat "${name}.log"
 
