@@ -3014,8 +3014,7 @@ TEST (node, bidirectional_tcp)
 	system.deadline_set (20s);
 	while (!confirmed)
 	{
-		auto transaction1 = node1->ledger.tx_begin_read ();
-		confirmed = node1->ledger.block_confirmed (transaction1, send2->hash ());
+		confirmed = node1->ledger.block_confirmed (node1->ledger.tx_begin_read (), send2->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
