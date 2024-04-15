@@ -241,8 +241,7 @@ TEST (wallet, spend_no_previous)
 	nano::test::system system (1);
 	{
 		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-		auto transaction (system.nodes[0]->store.tx_begin_read ());
-		auto info1 = system.nodes[0]->ledger.account_info (transaction, nano::dev::genesis_key.pub);
+		auto info1 = system.nodes[0]->ledger.account_info (system.nodes[0]->store.tx_begin_read (), nano::dev::genesis_key.pub);
 		ASSERT_TRUE (info1);
 		for (auto i (0); i < 50; ++i)
 		{

@@ -127,8 +127,6 @@ void nano::scheduler::optimistic::run ()
 
 		if (predicate ())
 		{
-			auto transaction = ledger.store.tx_begin_read ();
-
 			while (predicate ())
 			{
 				debug_assert (!candidates.empty ());
@@ -137,7 +135,7 @@ void nano::scheduler::optimistic::run ()
 
 				lock.unlock ();
 
-				run_one (transaction, candidate);
+				run_one (ledger.store.tx_begin_read (), candidate);
 
 				lock.lock ();
 			}
