@@ -116,15 +116,14 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 	{
 		activate_successors (block);
 	}
-	auto transaction = node.ledger.tx_begin_read ();
-	notify_observers (transaction, status, votes);
+	notify_observers (status, votes);
 }
 
-void nano::active_transactions::notify_observers (nano::secure::read_transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes)
+void nano::active_transactions::notify_observers (nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes)
 {
 	auto block = status.winner;
 	auto account = block->account ();
-	auto amount = node.ledger.amount (transaction, block->hash ()).value_or (0);
+	auto amount = node.ledger.amount (node.ledger.tx_begin_read (), block->hash ()).value_or (0);
 	auto is_state_send = block->type () == block_type::state && block->is_send ();
 	auto is_state_epoch = block->type () == block_type::state && block->is_epoch ();
 	node.observers.blocks.notify (status, votes, account, amount, is_state_send, is_state_epoch);
