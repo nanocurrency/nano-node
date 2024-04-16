@@ -135,7 +135,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 			for (auto i (accounts_list.get<modified_tag> ().begin ()), n (accounts_list.get<modified_tag> ().end ()); i != n && attempts < upgrade_batch_size && attempts < count_limit && !stopped; ++i)
 			{
 				nano::account const & account (i->account);
-				auto info = ledger.account_info (ledger.store.tx_begin_read (), account);
+				auto info = ledger.account_info (ledger.tx_begin_read (), account);
 				if (info && info->epoch () < epoch_a)
 				{
 					++attempts;
@@ -209,10 +209,10 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 			std::atomic<uint64_t> upgraded_pending (0);
 			uint64_t workers (0);
 			uint64_t attempts (0);
-			for (auto current = ledger.receivable_upper_bound (ledger.store.tx_begin_read (), 0), end = ledger.receivable_end (); current != end && attempts < upgrade_batch_size && attempts < count_limit && !stopped;)
+			for (auto current = ledger.receivable_upper_bound (ledger.tx_begin_read (), 0), end = ledger.receivable_end (); current != end && attempts < upgrade_batch_size && attempts < count_limit && !stopped;)
 			{
 				auto const & [key, info] = *current;
-				if (!store.account.exists (ledger.store.tx_begin_read (), key.account))
+				if (!store.account.exists (ledger.tx_begin_read (), key.account))
 				{
 					if (info.epoch < epoch_a)
 					{
@@ -255,7 +255,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 						}
 					}
 					// Move to next pending item
-					current = ledger.receivable_upper_bound (ledger.store.tx_begin_read (), key.account, key.hash);
+					current = ledger.receivable_upper_bound (ledger.tx_begin_read (), key.account, key.hash);
 				}
 				else
 				{
@@ -266,7 +266,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 					}
 					else
 					{
-						current = ledger.receivable_upper_bound (ledger.store.tx_begin_read (), key.account);
+						current = ledger.receivable_upper_bound (ledger.tx_begin_read (), key.account);
 					}
 				}
 			}

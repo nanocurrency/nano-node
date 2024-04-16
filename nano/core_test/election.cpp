@@ -151,7 +151,7 @@ TEST (election, quorum_minimum_confirm_success)
 				 .build ();
 	node1.work_generate_blocking (*send1);
 	node1.process_active (send1);
-	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
+	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.ledger.tx_begin_read ());
 	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
 	auto election = node1.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election);

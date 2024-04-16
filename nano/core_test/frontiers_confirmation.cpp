@@ -30,7 +30,7 @@ TEST (frontiers_confirmation, mode)
 					.work (*node->work_generate_blocking (nano::dev::genesis->hash ()))
 					.build ();
 		{
-			auto transaction = node->store.tx_begin_write ();
+			auto transaction = node->ledger.tx_begin_write ();
 			ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send));
 		}
 		ASSERT_TIMELY_EQ (5s, node->active.size (), 1);
@@ -52,7 +52,7 @@ TEST (frontiers_confirmation, mode)
 					.work (*node->work_generate_blocking (nano::dev::genesis->hash ()))
 					.build ();
 		{
-			auto transaction = node->store.tx_begin_write ();
+			auto transaction = node->ledger.tx_begin_write ();
 			ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send));
 		}
 		ASSERT_TIMELY_EQ (5s, node->active.size (), 1);
@@ -74,7 +74,7 @@ TEST (frontiers_confirmation, mode)
 					.work (*node->work_generate_blocking (nano::dev::genesis->hash ()))
 					.build ();
 		{
-			auto transaction = node->store.tx_begin_write ();
+			auto transaction = node->ledger.tx_begin_write ();
 			ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send));
 		}
 		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);

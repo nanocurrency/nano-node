@@ -118,7 +118,7 @@ public:
 	void add_initial_peers ();
 	void start_election (std::shared_ptr<nano::block> const & block);
 	bool block_confirmed (nano::block_hash const &);
-	bool block_confirmed_or_being_confirmed (nano::store::transaction const &, nano::block_hash const &);
+	bool block_confirmed_or_being_confirmed (nano::secure::transaction const &, nano::block_hash const &);
 	bool block_confirmed_or_being_confirmed (nano::block_hash const &);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string> const &, std::shared_ptr<std::string> const &, std::shared_ptr<boost::asio::ip::tcp::resolver> const &);
 	void ongoing_online_weight_calculation ();
@@ -219,7 +219,7 @@ public: // Testing convenience functions
 		Transaction is comitted before function return
 	 */
 	[[nodiscard]] nano::block_status process (std::shared_ptr<nano::block> block);
-	[[nodiscard]] nano::block_status process (store::write_transaction const &, std::shared_ptr<nano::block> block);
+	[[nodiscard]] nano::block_status process (secure::write_transaction const &, std::shared_ptr<nano::block> block);
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
 

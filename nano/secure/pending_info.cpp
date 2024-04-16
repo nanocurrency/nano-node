@@ -72,7 +72,7 @@ bool nano::pending_key::operator< (nano::pending_key const & other_a) const
 	return account == other_a.account ? hash < other_a.hash : account < other_a.account;
 }
 
-nano::receivable_iterator::receivable_iterator (nano::ledger const & ledger, nano::store::transaction const & tx, std::optional<std::pair<nano::pending_key, nano::pending_info>> item) :
+nano::receivable_iterator::receivable_iterator (nano::ledger const & ledger, nano::secure::transaction const & tx, std::optional<std::pair<nano::pending_key, nano::pending_info>> item) :
 	ledger{ &ledger },
 	tx{ &tx },
 	item{ item }
