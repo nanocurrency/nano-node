@@ -13,13 +13,14 @@ private:
 
 public:
 	explicit peer (nano::store::lmdb::component & store_a);
-	void put (store::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override;
-	void del (store::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override;
-	bool exists (store::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const override;
-	size_t count (store::transaction const & transaction_a) const override;
-	void clear (store::write_transaction const & transaction_a) override;
-	store::iterator<nano::endpoint_key, nano::no_value> begin (store::transaction const & transaction_a) const override;
-	store::iterator<nano::endpoint_key, nano::no_value> end () const override;
+	void put (store::write_transaction const &, nano::endpoint_key const & endpoint, nano::millis_t timestamp) override;
+	nano::millis_t get (store::transaction const &, nano::endpoint_key const & endpoint) const override;
+	void del (store::write_transaction const &, nano::endpoint_key const & endpoint) override;
+	bool exists (store::transaction const &, nano::endpoint_key const & endpoint) const override;
+	size_t count (store::transaction const &) const override;
+	void clear (store::write_transaction const &) override;
+	store::iterator<nano::endpoint_key, nano::millis_t> begin (store::transaction const &) const override;
+	store::iterator<nano::endpoint_key, nano::millis_t> end () const override;
 
 	/*
 	 * Endpoints for peers

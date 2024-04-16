@@ -263,7 +263,7 @@ bool nano::transport::tcp_channels::store_all (bool clear_peers)
 		}
 		for (auto const & endpoint : endpoints)
 		{
-			node.store.peer.put (transaction, nano::endpoint_key{ endpoint.address ().to_v6 ().to_bytes (), endpoint.port () });
+			node.store.peer.put (transaction, nano::endpoint_key{ endpoint.address ().to_v6 ().to_bytes (), endpoint.port () }, nano::milliseconds_since_epoch ());
 		}
 		result = true;
 	}
