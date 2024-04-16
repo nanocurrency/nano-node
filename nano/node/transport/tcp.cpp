@@ -464,8 +464,6 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
-	node.logger.debug (nano::log::type::tcp_channels, "Performing periodic channel cleanup, cutoff: {}s", nano::log::seconds_delta (cutoff_deadline));
-
 	auto should_close = [this, cutoff_deadline] (auto const & channel) {
 		// Remove channels that haven't successfully sent a message within the cutoff time
 		if (auto last = channel->get_last_packet_sent (); last < cutoff_deadline)
