@@ -2,6 +2,7 @@
 
 #include <nano/crypto/blake2/blake2.h>
 #include <nano/lib/blockbuilders.hpp>
+#include <nano/lib/common.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/epoch.hpp>
 #include <nano/lib/numbers.hpp>
@@ -74,6 +75,7 @@ struct hash<::nano::qualified_root>
 	}
 };
 }
+
 namespace nano
 {
 /**
@@ -94,6 +96,7 @@ class endpoint_key final
 {
 public:
 	endpoint_key () = default;
+	endpoint_key (nano::endpoint const &);
 
 	/*
 	 * @param address_a This should be in network byte order
@@ -110,6 +113,8 @@ public:
 	 * @return The port in host byte order
 	 */
 	uint16_t port () const;
+
+	nano::endpoint endpoint () const;
 
 private:
 	// Both stored internally in network byte order

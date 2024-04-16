@@ -236,8 +236,18 @@ uint64_t nano::unchecked_info::modified () const
 	return modified_m;
 }
 
+/*
+ * endpoint_key
+ */
+
 nano::endpoint_key::endpoint_key (std::array<uint8_t, 16> const & address_a, uint16_t port_a) :
-	address (address_a), network_port (boost::endian::native_to_big (port_a))
+	address (address_a),
+	network_port (boost::endian::native_to_big (port_a))
+{
+}
+
+nano::endpoint_key::endpoint_key (nano::endpoint const & endpoint_a) :
+	endpoint_key (endpoint_a.address ().to_v6 ().to_bytes (), endpoint_a.port ())
 {
 }
 
@@ -250,6 +260,15 @@ uint16_t nano::endpoint_key::port () const
 {
 	return boost::endian::big_to_native (network_port);
 }
+
+nano::endpoint nano::endpoint_key::endpoint () const
+{
+	return { boost::asio::ip::address_v6 (address), port () };
+}
+
+/*
+ * confirmation_height_info
+ */
 
 nano::confirmation_height_info::confirmation_height_info (uint64_t confirmation_height_a, nano::block_hash const & confirmed_frontier_a) :
 	height (confirmation_height_a),
