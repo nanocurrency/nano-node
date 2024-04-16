@@ -10,6 +10,7 @@
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/peer_cache.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/manual.hpp>
@@ -198,6 +199,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	epoch_upgrader{ *this, ledger, store, network_params, logger },
 	local_block_broadcaster{ *this, block_processor, network, stats, !flags.disable_block_processor_republishing },
 	process_live_dispatcher{ ledger, scheduler.priority, vote_cache, websocket },
+	peer_cache_impl{ std::make_unique<nano::peer_cache> (config.peer_cache, store, network, logger, stats) },
+	peer_cache{ *peer_cache_impl },
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq)
 {
@@ -613,8 +616,9 @@ void nano::node::process_local_async (std::shared_ptr<nano::block> const & block
 void nano::node::start ()
 {
 	long_inactivity_cleanup ();
+
 	network.start ();
-	add_initial_peers ();
+
 	if (!flags.disable_legacy_bootstrap && !flags.disable_ongoing_bootstrap)
 	{
 		ongoing_bootstrap ();
@@ -630,7 +634,7 @@ void nano::node::start ()
 	{
 		rep_crawler.start ();
 	}
-	ongoing_peer_store ();
+
 	ongoing_online_weight_calculation_queue ();
 
 	bool tcp_enabled = false;
@@ -692,6 +696,9 @@ void nano::node::start ()
 	websocket.start ();
 	telemetry.start ();
 	local_block_broadcaster.start ();
+	peer_cache.start ();
+
+	add_initial_peers ();
 }
 
 void nano::node::stop ()
@@ -704,6 +711,7 @@ void nano::node::stop ()
 
 	logger.info (nano::log::type::node, "Node stopping...");
 
+	peer_cache.stop ();
 	// Cancels ongoing work generation tasks, which may be blocking other threads
 	// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
 	distributed_work.stop ();
@@ -861,18 +869,6 @@ void nano::node::ongoing_bootstrap ()
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_bootstrap ();
-		}
-	});
-}
-
-void nano::node::ongoing_peer_store ()
-{
-	const bool stored{ network.tcp_channels.store_all (true) };
-	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.network.peer_dump_interval, [node_w] () {
-		if (auto node_l = node_w.lock ())
-		{
-			node_l->ongoing_peer_store ();
 		}
 	});
 }
@@ -1155,15 +1151,7 @@ void nano::node::add_initial_peers ()
 		return;
 	}
 
-	std::vector<nano::endpoint> initial_peers;
-	{
-		auto transaction = store.tx_begin_read ();
-		for (auto i (store.peer.begin (transaction)), n (store.peer.end ()); i != n; ++i)
-		{
-			nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
-			initial_peers.push_back (endpoint);
-		}
-	}
+	auto initial_peers = peer_cache.cached_peers ();
 
 	logger.info (nano::log::type::node, "Adding cached initial peers: {}", initial_peers.size ());
 

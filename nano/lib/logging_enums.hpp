@@ -76,6 +76,7 @@ enum class type
 	syn_cookies,
 	thread_runner,
 	signal_manager,
+	peer_cache,
 
 	// bootstrap
 	bulk_pull_client,

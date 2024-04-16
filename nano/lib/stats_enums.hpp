@@ -56,6 +56,7 @@ enum class type : uint8_t
 	local_block_broadcaster,
 	rep_tiers,
 	syn_cookies,
+	peer_cache,
 
 	bootstrap_ascending,
 	bootstrap_ascending_accounts,
@@ -78,6 +79,8 @@ enum class detail : uint8_t
 	ignored,
 	update,
 	updated,
+	inserted,
+	erased,
 	request,
 	broadcast,
 	cleanup,

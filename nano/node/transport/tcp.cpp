@@ -241,35 +241,6 @@ void nano::transport::tcp_channels::random_fill (std::array<nano::endpoint, 8> &
 	}
 }
 
-bool nano::transport::tcp_channels::store_all (bool clear_peers)
-{
-	// We can't hold the mutex while starting a write transaction, so
-	// we collect endpoints to be saved and then relase the lock.
-	std::vector<nano::endpoint> endpoints;
-	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		endpoints.reserve (channels.size ());
-		std::transform (channels.begin (), channels.end (),
-		std::back_inserter (endpoints), [] (auto const & channel) { return nano::transport::map_tcp_to_endpoint (channel.endpoint ()); });
-	}
-	bool result (false);
-	if (!endpoints.empty ())
-	{
-		// Clear all peers then refresh with the current list of peers
-		auto transaction (node.store.tx_begin_write ({ tables::peers }));
-		if (clear_peers)
-		{
-			node.store.peer.clear (transaction);
-		}
-		for (auto const & endpoint : endpoints)
-		{
-			node.store.peer.put (transaction, nano::endpoint_key{ endpoint.address ().to_v6 ().to_bytes (), endpoint.port () }, nano::milliseconds_since_epoch ());
-		}
-		result = true;
-	}
-	return result;
-}
-
 std::shared_ptr<nano::transport::channel_tcp> nano::transport::tcp_channels::find_node_id (nano::account const & node_id_a)
 {
 	std::shared_ptr<nano::transport::channel_tcp> result;

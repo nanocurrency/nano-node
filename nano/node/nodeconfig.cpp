@@ -34,7 +34,8 @@ nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, 
 	ipc_config{ network_params.network },
 	external_address{ boost::asio::ip::address_v6{}.to_string () },
 	rep_crawler{ network_params.network },
-	block_processor{ network_params.network }
+	block_processor{ network_params.network },
+	peer_cache{ network_params.network }
 {
 	if (peering_port == 0)
 	{
@@ -217,6 +218,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	block_processor.serialize (block_processor_l);
 	toml.put_child ("block_processor", block_processor_l);
 
+	nano::tomlconfig peer_cache_l;
+	peer_cache.serialize (peer_cache_l);
+	toml.put_child ("peer_cache", peer_cache_l);
+
 	return toml.get_error ();
 }
 
@@ -296,6 +301,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto config_l = toml.get_required_child ("block_processor");
 			block_processor.deserialize (config_l);
+		}
+
+		if (toml.has_key ("peer_cache"))
+		{
+			auto config_l = toml.get_required_child ("peer_cache");
+			peer_cache.deserialize (config_l);
 		}
 
 		if (toml.has_key ("work_peers"))

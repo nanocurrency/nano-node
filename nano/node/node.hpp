@@ -48,6 +48,7 @@ class active_transactions;
 class confirming_set;
 class node;
 class work_pool;
+class peer_cache;
 
 namespace scheduler
 {
@@ -97,7 +98,6 @@ public:
 	nano::uint128_t weight (nano::account const &);
 	nano::uint128_t minimum_principal_weight ();
 	void ongoing_bootstrap ();
-	void ongoing_peer_store ();
 	void backup_wallet ();
 	void search_receivable_all ();
 	void bootstrap_wallet ();
@@ -183,11 +183,7 @@ public:
 	nano::vote_generator & generator;
 	std::unique_ptr<nano::vote_generator> final_generator_impl;
 	nano::vote_generator & final_generator;
-
-private: // Placed here to maintain initialization order
 	std::unique_ptr<nano::scheduler::component> scheduler_impl;
-
-public:
 	nano::scheduler::component & scheduler;
 	nano::request_aggregator aggregator;
 	nano::wallets wallets;
@@ -197,6 +193,8 @@ public:
 	nano::epoch_upgrader epoch_upgrader;
 	nano::local_block_broadcaster local_block_broadcaster;
 	nano::process_live_dispatcher process_live_dispatcher;
+	std::unique_ptr<nano::peer_cache> peer_cache_impl;
+	nano::peer_cache & peer_cache;
 
 	std::chrono::steady_clock::time_point const startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
