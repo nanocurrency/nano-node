@@ -186,15 +186,7 @@ void nano::tomlconfig::erase_default_values (tomlconfig & defaults_a)
 	erase_defaults (defaults_l.get_tree (), self.get_tree (), get_tree ());
 }
 
-std::string nano::tomlconfig::to_string ()
-{
-	std::stringstream ss;
-	cpptoml::toml_writer writer{ ss, "" };
-	tree->accept (writer);
-	return ss.str ();
-}
-
-std::string nano::tomlconfig::to_string_commented_entries ()
+std::string nano::tomlconfig::to_string (bool comment_values)
 {
 	std::stringstream ss, ss_processed;
 	cpptoml::toml_writer writer{ ss, "" };
@@ -202,9 +194,16 @@ std::string nano::tomlconfig::to_string_commented_entries ()
 	std::string line;
 	while (std::getline (ss, line, '\n'))
 	{
-		if (!line.empty () && line[0] != '#' && line[0] != '[')
+		if (!line.empty () && line[0] != '[')
 		{
-			line = "#" + line;
+			if (line[0] == '#') // Already commented
+			{
+				line = "\t" + line;
+			}
+			else
+			{
+				line = comment_values ? "\t# " + line : "\t" + line;
+			}
 		}
 		ss_processed << line << std::endl;
 	}

@@ -364,7 +364,7 @@ void nano::bulk_pull_server::set_current_end ()
 	}
 	include_start = false;
 	debug_assert (request != nullptr);
-	auto transaction (node->store.tx_begin_read ());
+	auto transaction = node->ledger.tx_begin_read ();
 	if (!node->ledger.block_exists (transaction, request->end))
 	{
 		node->logger.debug (nano::log::type::bulk_pull_server, "Bulk pull end block doesn't exist: {}, sending everything", request->end.to_string ());
@@ -650,7 +650,7 @@ void nano::bulk_pull_account_server::send_frontier ()
 	}
 	if (!invalid_request)
 	{
-		auto stream_transaction (node->store.tx_begin_read ());
+		auto stream_transaction = node->ledger.tx_begin_read ();
 
 		// Get account balance and frontier block hash
 		auto account_frontier_hash (node->ledger.latest (stream_transaction, request->account));
@@ -753,7 +753,7 @@ std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info
 		 * destroy a database transaction, to avoid locking the
 		 * database for a prolonged period.
 		 */
-		auto tx = node->store.tx_begin_read ();
+		auto tx = node->ledger.tx_begin_read ();
 		auto & ledger = node->ledger;
 		auto stream = ledger.receivable_upper_bound (tx, current_key.account, current_key.hash);
 

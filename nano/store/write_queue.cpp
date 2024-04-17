@@ -73,18 +73,14 @@ nano::store::write_guard nano::store::write_queue::wait (writer writer)
 	}
 
 	nano::unique_lock<nano::mutex> lk (mutex);
+	debug_assert (std::none_of (queue.cbegin (), queue.cend (), [writer] (auto const & item) { return item == writer; }));
 	// Add writer to the end of the queue if it's not already waiting
 	auto exists = std::find (queue.cbegin (), queue.cend (), writer) != queue.cend ();
 	if (!exists)
 	{
 		queue.push_back (writer);
 	}
-
-	while (queue.front () != writer)
-	{
-		cv.wait (lk);
-	}
-
+	cv.wait (lk, [&] () { return queue.front () == writer; });
 	return write_guard (guard_finish_callback);
 }
 

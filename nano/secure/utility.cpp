@@ -74,16 +74,3 @@ void nano::remove_temporary_directories ()
 		}
 	}
 }
-
-namespace nano
-{
-/** A wrapper for handling signals */
-std::function<void ()> signal_handler_impl;
-void signal_handler (int sig)
-{
-	if (signal_handler_impl != nullptr)
-	{
-		signal_handler_impl ();
-	}
-}
-}

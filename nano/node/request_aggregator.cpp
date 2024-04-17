@@ -177,7 +177,7 @@ void nano::request_aggregator::erase_duplicates (std::vector<std::pair<nano::blo
 
 std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr<nano::block>>> nano::request_aggregator::aggregate (std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const
 {
-	auto transaction (ledger.store.tx_begin_read ());
+	auto transaction = ledger.tx_begin_read ();
 	std::vector<std::shared_ptr<nano::block>> to_generate;
 	std::vector<std::shared_ptr<nano::block>> to_generate_final;
 	std::vector<std::shared_ptr<nano::vote>> cached_votes;

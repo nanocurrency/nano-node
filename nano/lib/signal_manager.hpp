@@ -1,14 +1,15 @@
 #pragma once
 
+#include <nano/lib/logging.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/system/error_code.hpp>
-#include <boost/thread.hpp>
 
 #include <iostream>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace nano
@@ -52,16 +53,12 @@ private:
 	};
 
 	/**
-	 * Logging function of signal manager. It does nothing at the moment, it throws away the log.
-	 * I expect to revisit this in the future. It also makes it easy to manually introduce logs, if needed temporarily.
-	 */
-	void log (std::string const &){};
-
-	/**
 	 * This is the actual handler that is registered with boost asio.
 	 * It calls the caller supplied function (if one is given) and sets the handler to repeat (or not).
 	 */
 	static void base_handler (nano::signal_manager::signal_descriptor descriptor, boost::system::error_code const & error, int signum);
+
+	nano::logger logger;
 
 	/** boost asio context to use */
 	boost::asio::io_context ioc;
@@ -73,7 +70,8 @@ private:
 	std::vector<signal_descriptor> descriptor_list;
 
 	/** thread to service the signal manager io context */
-	boost::thread smthread;
+	std::thread thread;
 };
 
+std::string to_signal_name (int signum);
 }

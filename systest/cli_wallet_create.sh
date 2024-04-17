@@ -1,25 +1,9 @@
-#!/bin/sh
+#!/bin/bash
+set -eux
 
-set -e -x
-
-DATADIR=data.systest
+DATADIR=$(mktemp -d)
 
 SEED=CEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEEDCEED
-
-# the caller should set the env var NANO_NODE_EXE to point to the nano_node executable
-# if NANO_NODE_EXE is unser ot empty then "../../build/nano_node" is used
-NANO_NODE_EXE=${NANO_NODE_EXE:-../../build/nano_node}
-
-clean_data_dir() {
-    rm -f  $DATADIR/log/log_*.log
-    rm -f  $DATADIR/wallets.ldb*
-    rm -f  $DATADIR/data.ldb*
-    rm -f  $DATADIR/config-*.toml
-    rm -rf "$DATADIR"/rocksdb/
-}
-
-mkdir -p $DATADIR/log
-clean_data_dir
 
 # initialise data directory
 $NANO_NODE_EXE --initialize --data_path $DATADIR
@@ -34,5 +18,4 @@ $NANO_NODE_EXE --wallet_decrypt_unsafe --wallet $wallet_id --data_path $DATADIR 
 $NANO_NODE_EXE --wallet_list --data_path $DATADIR | grep -q "Wallet ID: $wallet_id"
 
 # if it got this far then it is a pass
-echo $0: PASSED
 exit 0

@@ -13,7 +13,4 @@ std::filesystem::path working_path (nano::networks network = nano::network_const
 std::filesystem::path unique_path (nano::networks network = nano::network_constants::active_network);
 // Remove all unique tmp directories created by the process
 void remove_temporary_directories ();
-// Generic signal handler declarations
-extern std::function<void ()> signal_handler_impl;
-void signal_handler (int sig);
 }

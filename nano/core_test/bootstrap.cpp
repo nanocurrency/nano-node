@@ -651,7 +651,7 @@ TEST (bootstrap_processor, push_diamond_pruning)
 	ASSERT_EQ (nano::block_status::progress, node1->process (receive));
 
 	{
-		auto transaction (node1->store.tx_begin_write ());
+		auto transaction = node1->ledger.tx_begin_write ();
 		node1->ledger.confirm (transaction, open->hash ());
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, send1->hash (), 2));
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, open->hash (), 1));

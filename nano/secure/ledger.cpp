@@ -32,7 +32,7 @@ namespace
 class rollback_visitor : public nano::block_visitor
 {
 public:
-	rollback_visitor (nano::store::write_transaction const & transaction_a, nano::ledger & ledger_a, std::vector<std::shared_ptr<nano::block>> & list_a) :
+	rollback_visitor (nano::secure::write_transaction const & transaction_a, nano::ledger & ledger_a, std::vector<std::shared_ptr<nano::block>> & list_a) :
 		transaction (transaction_a),
 		ledger (ledger_a),
 		list (list_a)
@@ -173,7 +173,7 @@ public:
 		}
 		ledger.store.block.del (transaction, hash);
 	}
-	nano::store::write_transaction const & transaction;
+	nano::secure::write_transaction const & transaction;
 	nano::ledger & ledger;
 	std::vector<std::shared_ptr<nano::block>> & list;
 	bool error{ false };
@@ -182,7 +182,7 @@ public:
 class ledger_processor : public nano::mutable_block_visitor
 {
 public:
-	ledger_processor (nano::ledger &, nano::store::write_transaction const &);
+	ledger_processor (nano::ledger &, nano::secure::write_transaction const &);
 	virtual ~ledger_processor () = default;
 	void send_block (nano::send_block &) override;
 	void receive_block (nano::receive_block &) override;
@@ -192,7 +192,7 @@ public:
 	void state_block_impl (nano::state_block &);
 	void epoch_block_impl (nano::state_block &);
 	nano::ledger & ledger;
-	nano::store::write_transaction const & transaction;
+	nano::secure::write_transaction const & transaction;
 	nano::block_status result;
 
 private:
@@ -639,7 +639,7 @@ void ledger_processor::open_block (nano::open_block & block_a)
 	}
 }
 
-ledger_processor::ledger_processor (nano::ledger & ledger_a, nano::store::write_transaction const & transaction_a) :
+ledger_processor::ledger_processor (nano::ledger & ledger_a, nano::secure::write_transaction const & transaction_a) :
 	ledger (ledger_a),
 	transaction (transaction_a)
 {
@@ -651,7 +651,7 @@ ledger_processor::ledger_processor (nano::ledger & ledger_a, nano::store::write_
 class representative_visitor final : public nano::block_visitor
 {
 public:
-	representative_visitor (nano::store::transaction const & transaction_a, nano::ledger & ledger);
+	representative_visitor (nano::secure::transaction const & transaction_a, nano::ledger & ledger);
 	~representative_visitor () = default;
 	void compute (nano::block_hash const & hash_a);
 	void send_block (nano::send_block const & block_a) override;
@@ -659,13 +659,13 @@ public:
 	void open_block (nano::open_block const & block_a) override;
 	void change_block (nano::change_block const & block_a) override;
 	void state_block (nano::state_block const & block_a) override;
-	nano::store::transaction const & transaction;
+	nano::secure::transaction const & transaction;
 	nano::ledger & ledger;
 	nano::block_hash current;
 	nano::block_hash result;
 };
 
-representative_visitor::representative_visitor (nano::store::transaction const & transaction_a, nano::ledger & ledger) :
+representative_visitor::representative_visitor (nano::secure::transaction const & transaction_a, nano::ledger & ledger) :
 	transaction{ transaction_a },
 	ledger{ ledger },
 	result{ 0 }
@@ -722,6 +722,16 @@ nano::ledger::ledger (nano::store::component & store_a, nano::stats & stat_a, na
 	}
 }
 
+auto nano::ledger::tx_begin_write (std::vector<nano::tables> const & tables_to_lock, std::vector<nano::tables> const & tables_no_lock) const -> secure::write_transaction
+{
+	return secure::write_transaction{ store.tx_begin_write (tables_to_lock, tables_no_lock) };
+}
+
+auto nano::ledger::tx_begin_read () const -> secure::read_transaction
+{
+	return secure::read_transaction{ store.tx_begin_read () };
+}
+
 void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache_flags_a)
 {
 	if (generate_cache_flags_a.reps || generate_cache_flags_a.account_count || generate_cache_flags_a.block_count)
@@ -769,7 +779,7 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 }
 
 // Balance for account containing hash
-std::optional<nano::uint128_t> nano::ledger::balance (store::transaction const & transaction, nano::block_hash const & hash) const
+std::optional<nano::uint128_t> nano::ledger::balance (secure::transaction const & transaction, nano::block_hash const & hash) const
 {
 	if (hash.is_zero ())
 	{
@@ -783,18 +793,18 @@ std::optional<nano::uint128_t> nano::ledger::balance (store::transaction const &
 	return block->balance ().number ();
 }
 
-std::shared_ptr<nano::block> nano::ledger::block (store::transaction const & transaction, nano::block_hash const & hash) const
+std::shared_ptr<nano::block> nano::ledger::block (secure::transaction const & transaction, nano::block_hash const & hash) const
 {
 	return store.block.get (transaction, hash);
 }
 
-bool nano::ledger::block_exists (store::transaction const & transaction, nano::block_hash const & hash) const
+bool nano::ledger::block_exists (secure::transaction const & transaction, nano::block_hash const & hash) const
 {
 	return store.block.exists (transaction, hash);
 }
 
 // Balance for an account by account number
-nano::uint128_t nano::ledger::account_balance (store::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
+nano::uint128_t nano::ledger::account_balance (secure::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a) const
 {
 	nano::uint128_t result (0);
 	if (only_confirmed_a)
@@ -816,7 +826,7 @@ nano::uint128_t nano::ledger::account_balance (store::transaction const & transa
 	return result;
 }
 
-nano::uint128_t nano::ledger::account_receivable (store::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
+nano::uint128_t nano::ledger::account_receivable (secure::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
 {
 	nano::uint128_t result{ 0 };
 	for (auto i = receivable_upper_bound (transaction_a, account_a, 0), n = receivable_end (); i != n; ++i)
@@ -830,12 +840,12 @@ nano::uint128_t nano::ledger::account_receivable (store::transaction const & tra
 	return result;
 }
 
-std::optional<nano::pending_info> nano::ledger::pending_info (store::transaction const & transaction, nano::pending_key const & key) const
+std::optional<nano::pending_info> nano::ledger::pending_info (secure::transaction const & transaction, nano::pending_key const & key) const
 {
 	return store.pending.get (transaction, key);
 }
 
-std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (nano::store::write_transaction const & transaction, nano::block_hash const & hash)
+std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_transaction const & transaction, nano::block_hash const & hash)
 {
 	std::deque<std::shared_ptr<nano::block>> result;
 	std::stack<nano::block_hash> stack;
@@ -870,7 +880,7 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (nano::store::wri
 	return result;
 }
 
-void nano::ledger::confirm (nano::store::write_transaction const & transaction, nano::block const & block)
+void nano::ledger::confirm (secure::write_transaction const & transaction, nano::block const & block)
 {
 	debug_assert ((!store.confirmation_height.get (transaction, block.account ()) && block.sideband ().height == 1) || store.confirmation_height.get (transaction, block.account ()).value ().height + 1 == block.sideband ().height);
 	confirmation_height_info info{ block.sideband ().height, block.hash () };
@@ -879,7 +889,7 @@ void nano::ledger::confirm (nano::store::write_transaction const & transaction, 
 	stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed);
 }
 
-nano::block_status nano::ledger::process (store::write_transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
+nano::block_status nano::ledger::process (secure::write_transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
 {
 	debug_assert (!constants.work.validate_entry (*block_a) || constants.genesis == nano::dev::genesis);
 	ledger_processor processor (*this, transaction_a);
@@ -891,14 +901,14 @@ nano::block_status nano::ledger::process (store::write_transaction const & trans
 	return processor.result;
 }
 
-nano::block_hash nano::ledger::representative (store::transaction const & transaction_a, nano::block_hash const & hash_a)
+nano::block_hash nano::ledger::representative (secure::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto result (representative_calculated (transaction_a, hash_a));
 	debug_assert (result.is_zero () || block_exists (transaction_a, result));
 	return result;
 }
 
-nano::block_hash nano::ledger::representative_calculated (store::transaction const & transaction_a, nano::block_hash const & hash_a)
+nano::block_hash nano::ledger::representative_calculated (secure::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	representative_visitor visitor (transaction_a, *this);
 	visitor.compute (hash_a);
@@ -907,10 +917,10 @@ nano::block_hash nano::ledger::representative_calculated (store::transaction con
 
 bool nano::ledger::block_or_pruned_exists (nano::block_hash const & hash_a) const
 {
-	return block_or_pruned_exists (store.tx_begin_read (), hash_a);
+	return block_or_pruned_exists (tx_begin_read (), hash_a);
 }
 
-bool nano::ledger::block_or_pruned_exists (store::transaction const & transaction_a, nano::block_hash const & hash_a) const
+bool nano::ledger::block_or_pruned_exists (secure::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
 	if (store.pruned.exists (transaction_a, hash_a))
 	{
@@ -927,7 +937,7 @@ std::string nano::ledger::block_text (char const * hash_a)
 std::string nano::ledger::block_text (nano::block_hash const & hash_a)
 {
 	std::string result;
-	auto transaction (store.tx_begin_read ());
+	auto transaction = tx_begin_read ();
 	auto block_l = block (transaction, hash_a);
 	if (block_l != nullptr)
 	{
@@ -936,7 +946,7 @@ std::string nano::ledger::block_text (nano::block_hash const & hash_a)
 	return result;
 }
 
-std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (store::transaction const & transaction_a) const
+std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (secure::transaction const & transaction_a) const
 {
 	nano::block_hash hash (0);
 	nano::root root (0);
@@ -986,13 +996,13 @@ nano::uint128_t nano::ledger::weight (nano::account const & account_a) const
 	return cache.rep_weights.representation_get (account_a);
 }
 
-nano::uint128_t nano::ledger::weight_exact (store::transaction const & txn_a, nano::account const & representative_a) const
+nano::uint128_t nano::ledger::weight_exact (secure::transaction const & txn_a, nano::account const & representative_a) const
 {
 	return store.rep_weight.get (txn_a, representative_a);
 }
 
 // Rollback blocks until `block_a' doesn't exist or it tries to penetrate the confirmation height
-bool nano::ledger::rollback (store::write_transaction const & transaction_a, nano::block_hash const & block_a, std::vector<std::shared_ptr<nano::block>> & list_a)
+bool nano::ledger::rollback (secure::write_transaction const & transaction_a, nano::block_hash const & block_a, std::vector<std::shared_ptr<nano::block>> & list_a)
 {
 	debug_assert (block_exists (transaction_a, block_a));
 	auto account_l = account (transaction_a, block_a).value ();
@@ -1024,13 +1034,13 @@ bool nano::ledger::rollback (store::write_transaction const & transaction_a, nan
 	return error;
 }
 
-bool nano::ledger::rollback (store::write_transaction const & transaction_a, nano::block_hash const & block_a)
+bool nano::ledger::rollback (secure::write_transaction const & transaction_a, nano::block_hash const & block_a)
 {
 	std::vector<std::shared_ptr<nano::block>> rollback_list;
 	return rollback (transaction_a, block_a, rollback_list);
 }
 
-std::optional<nano::account> nano::ledger::account (store::transaction const & transaction, nano::block_hash const & hash) const
+std::optional<nano::account> nano::ledger::account (secure::transaction const & transaction, nano::block_hash const & hash) const
 {
 	auto block_l = block (transaction, hash);
 	if (!block_l)
@@ -1040,12 +1050,12 @@ std::optional<nano::account> nano::ledger::account (store::transaction const & t
 	return block_l->account ();
 }
 
-std::optional<nano::account_info> nano::ledger::account_info (store::transaction const & transaction, nano::account const & account) const
+std::optional<nano::account_info> nano::ledger::account_info (secure::transaction const & transaction, nano::account const & account) const
 {
 	return store.account.get (transaction, account);
 }
 
-std::optional<nano::uint128_t> nano::ledger::amount (store::transaction const & transaction_a, nano::block_hash const & hash_a)
+std::optional<nano::uint128_t> nano::ledger::amount (secure::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto block_l = block (transaction_a, hash_a);
 	if (!block_l)
@@ -1066,14 +1076,14 @@ std::optional<nano::uint128_t> nano::ledger::amount (store::transaction const & 
 }
 
 // Return latest block for account
-nano::block_hash nano::ledger::latest (store::transaction const & transaction_a, nano::account const & account_a)
+nano::block_hash nano::ledger::latest (secure::transaction const & transaction_a, nano::account const & account_a)
 {
 	auto info = account_info (transaction_a, account_a);
 	return !info ? 0 : info->head;
 }
 
 // Return latest root for account, account number if there are no blocks for this account.
-nano::root nano::ledger::latest_root (store::transaction const & transaction_a, nano::account const & account_a)
+nano::root nano::ledger::latest_root (secure::transaction const & transaction_a, nano::account const & account_a)
 {
 	auto info = account_info (transaction_a, account_a);
 	if (!info)
@@ -1088,7 +1098,7 @@ nano::root nano::ledger::latest_root (store::transaction const & transaction_a, 
 
 void nano::ledger::dump_account_chain (nano::account const & account_a, std::ostream & stream)
 {
-	auto transaction (store.tx_begin_read ());
+	auto transaction = tx_begin_read ();
 	auto hash (latest (transaction, account_a));
 	while (!hash.is_zero ())
 	{
@@ -1099,7 +1109,7 @@ void nano::ledger::dump_account_chain (nano::account const & account_a, std::ost
 	}
 }
 
-bool nano::ledger::dependents_confirmed (store::transaction const & transaction_a, nano::block const & block_a) const
+bool nano::ledger::dependents_confirmed (secure::transaction const & transaction_a, nano::block const & block_a) const
 {
 	auto dependencies (dependent_blocks (transaction_a, block_a));
 	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction_a] (nano::block_hash const & hash_a) {
@@ -1120,7 +1130,7 @@ bool nano::ledger::is_epoch_link (nano::link const & link_a) const
 class dependent_block_visitor : public nano::block_visitor
 {
 public:
-	dependent_block_visitor (nano::ledger const & ledger_a, nano::store::transaction const & transaction_a) :
+	dependent_block_visitor (nano::ledger const & ledger_a, nano::secure::transaction const & transaction_a) :
 		ledger (ledger_a),
 		transaction (transaction_a),
 		result ({ 0, 0 })
@@ -1151,14 +1161,14 @@ public:
 		result[0] = block_a.hashables.previous;
 		result[1] = block_a.hashables.link.as_block_hash ();
 		// ledger.is_send will check the sideband first, if block_a has a loaded sideband the check that previous block exists can be skipped
-		if (ledger.is_epoch_link (block_a.hashables.link) || is_send (transaction, block_a))
+		if (ledger.is_epoch_link (block_a.hashables.link) || is_send (block_a))
 		{
 			result[1].clear ();
 		}
 	}
 	// This function is used in place of block->is_send () as it is tolerant to the block not having the sideband information loaded
 	// This is needed for instance in vote generation on forks which have not yet had sideband information attached
-	bool is_send (nano::store::transaction const & transaction, nano::state_block const & block) const
+	bool is_send (nano::state_block const & block) const
 	{
 		if (block.previous ().is_zero ())
 		{
@@ -1171,11 +1181,11 @@ public:
 		return block.balance_field ().value () < ledger.balance (transaction, block.previous ());
 	}
 	nano::ledger const & ledger;
-	nano::store::transaction const & transaction;
+	nano::secure::transaction const & transaction;
 	std::array<nano::block_hash, 2> result;
 };
 
-std::array<nano::block_hash, 2> nano::ledger::dependent_blocks (store::transaction const & transaction_a, nano::block const & block_a) const
+std::array<nano::block_hash, 2> nano::ledger::dependent_blocks (secure::transaction const & transaction_a, nano::block const & block_a) const
 {
 	dependent_block_visitor visitor (*this, transaction_a);
 	block_a.visit (visitor);
@@ -1186,7 +1196,7 @@ std::array<nano::block_hash, 2> nano::ledger::dependent_blocks (store::transacti
  *  The send block hash is not checked in any way, it is assumed to be correct.
  * @return Return the receive block on success and null on failure
  */
-std::shared_ptr<nano::block> nano::ledger::find_receive_block_by_send_hash (store::transaction const & transaction, nano::account const & destination, nano::block_hash const & send_block_hash)
+std::shared_ptr<nano::block> nano::ledger::find_receive_block_by_send_hash (secure::transaction const & transaction, nano::account const & destination, nano::block_hash const & send_block_hash)
 {
 	std::shared_ptr<nano::block> result;
 	debug_assert (send_block_hash != 0);
@@ -1225,7 +1235,7 @@ nano::link const & nano::ledger::epoch_link (nano::epoch epoch_a) const
 	return constants.epochs.link (epoch_a);
 }
 
-void nano::ledger::update_account (store::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & old_a, nano::account_info const & new_a)
+void nano::ledger::update_account (secure::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & old_a, nano::account_info const & new_a)
 {
 	if (!new_a.head.is_zero ())
 	{
@@ -1249,7 +1259,7 @@ void nano::ledger::update_account (store::write_transaction const & transaction_
 	}
 }
 
-std::optional<nano::block_hash> nano::ledger::successor (store::transaction const & transaction_a, nano::qualified_root const & root_a) const noexcept
+std::optional<nano::block_hash> nano::ledger::successor (secure::transaction const & transaction_a, nano::qualified_root const & root_a) const noexcept
 {
 	if (!root_a.previous ().is_zero ())
 	{
@@ -1269,12 +1279,12 @@ std::optional<nano::block_hash> nano::ledger::successor (store::transaction cons
 	}
 }
 
-std::optional<nano::block_hash> nano::ledger::successor (store::transaction const & transaction, nano::block_hash const & hash) const noexcept
+std::optional<nano::block_hash> nano::ledger::successor (secure::transaction const & transaction, nano::block_hash const & hash) const noexcept
 {
 	return successor (transaction, { hash, hash });
 }
 
-std::shared_ptr<nano::block> nano::ledger::forked_block (store::transaction const & transaction_a, nano::block const & block_a)
+std::shared_ptr<nano::block> nano::ledger::forked_block (secure::transaction const & transaction_a, nano::block const & block_a)
 {
 	debug_assert (!block_exists (transaction_a, block_a.hash ()));
 	auto root (block_a.root ());
@@ -1295,7 +1305,7 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (store::transaction cons
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::ledger::head_block (store::transaction const & transaction, nano::account const & account)
+std::shared_ptr<nano::block> nano::ledger::head_block (secure::transaction const & transaction, nano::account const & account)
 {
 	auto info = store.account.get (transaction, account);
 	if (info)
@@ -1305,7 +1315,7 @@ std::shared_ptr<nano::block> nano::ledger::head_block (store::transaction const 
 	return nullptr;
 }
 
-bool nano::ledger::block_confirmed (store::transaction const & transaction_a, nano::block_hash const & hash_a) const
+bool nano::ledger::block_confirmed (secure::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
 	if (store.pruned.exists (transaction_a, hash_a))
 	{
@@ -1322,7 +1332,7 @@ bool nano::ledger::block_confirmed (store::transaction const & transaction_a, na
 	return false;
 }
 
-uint64_t nano::ledger::pruning_action (store::write_transaction & transaction_a, nano::block_hash const & hash_a, uint64_t const batch_size_a)
+uint64_t nano::ledger::pruning_action (secure::write_transaction & transaction_a, nano::block_hash const & hash_a, uint64_t const batch_size_a)
 {
 	uint64_t pruned_count (0);
 	nano::block_hash hash (hash_a);
@@ -1503,7 +1513,7 @@ nano::epoch nano::ledger::version (nano::block const & block)
 	return nano::epoch::epoch_0;
 }
 
-nano::epoch nano::ledger::version (store::transaction const & transaction, nano::block_hash const & hash) const
+nano::epoch nano::ledger::version (secure::transaction const & transaction, nano::block_hash const & hash) const
 {
 	auto block_l = block (transaction, hash);
 	if (block_l == nullptr)
@@ -1513,19 +1523,19 @@ nano::epoch nano::ledger::version (store::transaction const & transaction, nano:
 	return version (*block_l);
 }
 
-uint64_t nano::ledger::height (store::transaction const & transaction, nano::block_hash const & hash) const
+uint64_t nano::ledger::height (secure::transaction const & transaction, nano::block_hash const & hash) const
 {
 	auto block_l = block (transaction, hash);
 	return block_l->sideband ().height;
 }
 
-bool nano::ledger::receivable_any (store::transaction const & tx, nano::account const & account) const
+bool nano::ledger::receivable_any (secure::transaction const & tx, nano::account const & account) const
 {
 	auto next = receivable_upper_bound (tx, account, 0);
 	return next != receivable_end ();
 }
 
-std::optional<std::pair<nano::pending_key, nano::pending_info>> nano::ledger::receivable_lower_bound (store::transaction const & tx, nano::account const & account, nano::block_hash const & hash) const
+std::optional<std::pair<nano::pending_key, nano::pending_info>> nano::ledger::receivable_lower_bound (secure::transaction const & tx, nano::account const & account, nano::block_hash const & hash) const
 {
 	auto result = store.pending.begin (tx, { account, hash });
 	if (result == store.pending.end ())
@@ -1540,12 +1550,12 @@ nano::receivable_iterator nano::ledger::receivable_end () const
 	return nano::receivable_iterator{};
 }
 
-nano::receivable_iterator nano::ledger::receivable_upper_bound (store::transaction const & tx, nano::account const & account) const
+nano::receivable_iterator nano::ledger::receivable_upper_bound (secure::transaction const & tx, nano::account const & account) const
 {
 	return receivable_iterator{ *this, tx, receivable_lower_bound (tx, account.number () + 1, 0) };
 }
 
-nano::receivable_iterator nano::ledger::receivable_upper_bound (store::transaction const & tx, nano::account const & account, nano::block_hash const & hash) const
+nano::receivable_iterator nano::ledger::receivable_upper_bound (secure::transaction const & tx, nano::account const & account, nano::block_hash const & hash) const
 {
 	auto result = receivable_lower_bound (tx, account, hash.number () + 1);
 	if (!result || result.value ().first.account != account)

@@ -118,6 +118,10 @@ public: // Interface
 	nano::vote_info get_last_vote (nano::account const & account);
 	void set_last_vote (nano::account const & account, nano::vote_info vote_info);
 	nano::election_status get_status () const;
+	std::chrono::steady_clock::time_point get_election_start () const
+	{
+		return election_start;
+	}
 
 private: // Dependencies
 	nano::node & node;

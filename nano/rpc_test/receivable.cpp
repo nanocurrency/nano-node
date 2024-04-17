@@ -194,7 +194,7 @@ TEST (rpc, receivable_offset_and_sorting)
 	auto block6 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 300);
 
 	// check that all blocks got confirmed
-	ASSERT_TIMELY_EQ (5s, node->ledger.account_receivable (node->store.tx_begin_read (), key1.pub, true), 1600);
+	ASSERT_TIMELY_EQ (5s, node->ledger.account_receivable (node->ledger.tx_begin_read (), key1.pub, true), 1600);
 
 	// check confirmation height is as expected, there is no perfect clarity yet when confirmation height updates after a block get confirmed
 	nano::confirmation_height_info confirmation_height_info;
@@ -371,7 +371,7 @@ TEST (rpc, search_receivable)
 				 .work (*node->work_generate_blocking (latest))
 				 .build ();
 	{
-		auto transaction (node->store.tx_begin_write ());
+		auto transaction = node->ledger.tx_begin_write ();
 		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, block));
 	}
 	auto const rpc_ctx = add_rpc (system, node);
