@@ -40,6 +40,7 @@ add_executable(
   processor_service.cpp
   rep_crawler.cpp
   receivable.cpp
+  peer_cache.cpp
   peer_container.cpp
   rep_weight_store.cpp
   scheduler_buckets.cpp
