@@ -15,10 +15,10 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
+#include <latch>
+
 namespace
 {
-volatile sig_atomic_t sig_int_or_term = 0;
-
 nano::logger logger{ "rpc_daemon" };
 
 void run (std::filesystem::path const & data_path, std::vector<std::string> const & config_overrides)
@@ -41,7 +41,7 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 		error = nano::read_tls_config_toml (data_path, *tls_config, logger);
 		if (error)
 		{
-			logger.critical (nano::log::type::daemon, "Error reading RPC TLS config: {}", error.get_message ());
+			logger.critical (nano::log::type::daemon_rpc, "Error reading RPC TLS config: {}", error.get_message ());
 			std::exit (1);
 		}
 		else
@@ -51,43 +51,43 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 
 		std::shared_ptr<boost::asio::io_context> io_ctx = std::make_shared<boost::asio::io_context> ();
 
-		nano::signal_manager sigman;
+		runner = std::make_unique<nano::thread_runner> (io_ctx, rpc_config.rpc_process.io_threads);
+
 		try
 		{
 			nano::ipc_rpc_processor ipc_rpc_processor (*io_ctx, rpc_config);
 			auto rpc = nano::get_rpc (io_ctx, rpc_config, ipc_rpc_processor);
 			rpc->start ();
 
-			debug_assert (!nano::signal_handler_impl);
-			nano::signal_handler_impl = [io_ctx_w = std::weak_ptr{ io_ctx }] () {
-				logger.warn (nano::log::type::daemon, "Interrupt signal received, stopping...");
+			std::atomic stopped{ false };
 
-				if (auto io_ctx_l = io_ctx_w.lock ())
-				{
-					io_ctx_l->stop ();
-				}
-				sig_int_or_term = 1;
+			auto signal_handler = [&stopped] (int signum) {
+				logger.warn (nano::log::type::daemon_rpc, "Interrupt signal received ({}), stopping...", nano::to_signal_name (signum));
+				stopped = true;
+				stopped.notify_all ();
 			};
 
-			sigman.register_signal_handler (SIGINT, &nano::signal_handler, true);
-			sigman.register_signal_handler (SIGTERM, &nano::signal_handler, false);
+			nano::signal_manager sigman;
+			sigman.register_signal_handler (SIGINT, signal_handler, true);
+			sigman.register_signal_handler (SIGTERM, signal_handler, false);
 
-			runner = std::make_unique<nano::thread_runner> (io_ctx, rpc_config.rpc_process.io_threads);
+			// Keep running until stopped flag is set
+			stopped.wait (false);
+
+			logger.info (nano::log::type::daemon_rpc, "Stopping...");
+
+			rpc->stop ();
+			io_ctx->stop ();
 			runner->join ();
-
-			if (sig_int_or_term == 1)
-			{
-				rpc->stop ();
-			}
 		}
 		catch (std::runtime_error const & e)
 		{
-			logger.critical (nano::log::type::daemon, "Error while running RPC: {}", e.what ());
+			logger.critical (nano::log::type::daemon_rpc, "Error while running RPC: {}", e.what ());
 		}
 	}
 	else
 	{
-		logger.critical (nano::log::type::daemon, "Error deserializing config: {}", error.get_message ());
+		logger.critical (nano::log::type::daemon_rpc, "Error deserializing config: {}", error.get_message ());
 	}
 
 	logger.info (nano::log::type::daemon_rpc, "Daemon stopped (RPC)");

@@ -48,14 +48,16 @@ void nano::signal_manager::register_signal_handler (int signum, std::function<vo
 		nano::signal_manager::base_handler (descriptor, error, signum);
 	});
 
-	log (boost::str (boost::format ("Registered signal handler for signal %d") % signum));
+	logger.debug (nano::log::type::signal_manager, "Registered signal handler for signal: {}", to_signal_name (signum));
 }
 
-void nano::signal_manager::base_handler (nano::signal_manager::signal_descriptor descriptor, boost::system::error_code const & error, int signum)
+void nano::signal_manager::base_handler (nano::signal_manager::signal_descriptor descriptor, boost::system::error_code const & ec, int signum)
 {
-	if (!error)
+	auto & logger = descriptor.sigman.logger;
+
+	if (!ec)
 	{
-		descriptor.sigman.log (boost::str (boost::format ("Signal received: %d") % signum));
+		logger.debug (nano::log::type::signal_manager, "Signal received: {}", to_signal_name (signum));
 
 		// call the user supplied function, if one is provided
 		if (descriptor.handler_func)
@@ -72,14 +74,31 @@ void nano::signal_manager::base_handler (nano::signal_manager::signal_descriptor
 		}
 		else
 		{
-			descriptor.sigman.log (boost::str (boost::format ("Signal handler %d will not repeat") % signum));
+			logger.debug (nano::log::type::signal_manager, "Signal handler {} will not repeat", to_signal_name (signum));
+
 			descriptor.sigset->clear ();
 		}
-
-		descriptor.sigman.log (boost::str (boost::format ("Signal processed: %d") % signum));
 	}
 	else
 	{
-		descriptor.sigman.log (boost::str (boost::format ("Signal error: %d (%s)") % error.value () % error.message ()));
+		logger.debug (nano::log::type::signal_manager, "Signal error: {} ({})", ec.message (), to_signal_name (signum));
 	}
+}
+
+std::string nano::to_signal_name (int signum)
+{
+	switch (signum)
+	{
+		case SIGINT:
+			return "SIGINT";
+		case SIGTERM:
+			return "SIGTERM";
+		case SIGSEGV:
+			return "SIGSEGV";
+		case SIGABRT:
+			return "SIGABRT";
+		case SIGILL:
+			return "SIGILL";
+	}
+	return std::to_string (signum);
 }
