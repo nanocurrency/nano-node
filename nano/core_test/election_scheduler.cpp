@@ -106,6 +106,8 @@ TEST (election_scheduler, no_vacancy)
 	ASSERT_EQ (nano::block_status::progress, node.process (receive));
 	node.process_confirmed (nano::election_status{ receive });
 
+	ASSERT_TIMELY (5s, nano::test::confirmed (node, { send, receive }));
+
 	// Second, process two eligible transactions
 	auto block1 = builder.make_block ()
 				  .account (nano::dev::genesis_key.pub)
