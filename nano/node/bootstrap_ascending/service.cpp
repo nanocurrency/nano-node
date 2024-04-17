@@ -34,7 +34,7 @@ nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano:
 		{
 			nano::lock_guard<nano::mutex> lock{ mutex };
 
-			auto transaction = ledger.store.tx_begin_read ();
+			auto transaction = ledger.tx_begin_read ();
 			for (auto const & [result, context] : batch)
 			{
 				debug_assert (context.block != nullptr);
@@ -125,7 +125,7 @@ std::size_t nano::bootstrap_ascending::service::score_size () const
 - Marks an account as blocked if the result code is gap source as there is no reason request additional blocks for this account until the dependency is resolved
 - Marks an account as forwarded if it has been recently referenced by a block that has been inserted.
  */
-void nano::bootstrap_ascending::service::inspect (store::transaction const & tx, nano::block_status const & result, nano::block const & block)
+void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx, nano::block_status const & result, nano::block const & block)
 {
 	auto const hash = block.hash ();
 

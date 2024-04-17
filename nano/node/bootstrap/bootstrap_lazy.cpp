@@ -125,7 +125,7 @@ void nano::bootstrap_attempt_lazy::lazy_pull_flush (nano::unique_lock<nano::mute
 		nano::pull_info::count_t batch_count (lazy_batch_size ());
 		uint64_t read_count (0);
 		std::size_t count (0);
-		auto transaction (node->store.tx_begin_read ());
+		auto transaction = node->ledger.tx_begin_read ();
 		while (!lazy_pulls.empty () && count < max_pulls)
 		{
 			auto pull_start (lazy_pulls.front ());
@@ -165,7 +165,7 @@ bool nano::bootstrap_attempt_lazy::lazy_finished ()
 	}
 	bool result (true);
 	uint64_t read_count (0);
-	auto transaction (node->store.tx_begin_read ());
+	auto transaction = node->ledger.tx_begin_read ();
 	for (auto it (lazy_keys.begin ()), end (lazy_keys.end ()); it != end && !stopped;)
 	{
 		if (node->ledger.block_or_pruned_exists (transaction, *it))
@@ -333,7 +333,7 @@ void nano::bootstrap_attempt_lazy::lazy_block_state (std::shared_ptr<nano::block
 	std::shared_ptr<nano::state_block> block_l (std::static_pointer_cast<nano::state_block> (block_a));
 	if (block_l != nullptr)
 	{
-		auto transaction (node->store.tx_begin_read ());
+		auto transaction = node->ledger.tx_begin_read ();
 		nano::uint128_t balance (block_l->hashables.balance.number ());
 		auto const & link (block_l->hashables.link);
 		// If link is not epoch link or 0. And if block from link is unknown
@@ -418,7 +418,7 @@ void nano::bootstrap_attempt_lazy::lazy_backlog_cleanup ()
 		return;
 	}
 	uint64_t read_count (0);
-	auto transaction (node->store.tx_begin_read ());
+	auto transaction = node->ledger.tx_begin_read ();
 	for (auto it (lazy_state_backlog.begin ()), end (lazy_state_backlog.end ()); it != end && !stopped;)
 	{
 		if (node->ledger.block_or_pruned_exists (transaction, it->first))

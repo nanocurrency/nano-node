@@ -74,7 +74,7 @@ private:
 
 	bool predicate () const;
 	void run ();
-	void run_one (store::transaction const &, entry const & candidate);
+	void run_one (secure::transaction const &, entry const & candidate);
 
 private: // Dependencies
 	optimistic_config const & config;

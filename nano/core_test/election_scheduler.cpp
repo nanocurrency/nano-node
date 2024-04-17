@@ -31,8 +31,8 @@ TEST (election_scheduler, activate_one_timely)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	system.nodes[0]->ledger.process (system.nodes[0]->store.tx_begin_write (), send1);
-	system.nodes[0]->scheduler.priority.activate (nano::dev::genesis_key.pub, system.nodes[0]->store.tx_begin_read ());
+	system.nodes[0]->ledger.process (system.nodes[0]->ledger.tx_begin_write (), send1);
+	system.nodes[0]->scheduler.priority.activate (nano::dev::genesis_key.pub, system.nodes[0]->ledger.tx_begin_read ());
 	ASSERT_TIMELY (5s, system.nodes[0]->active.election (send1->qualified_root ()));
 }
 
@@ -49,8 +49,8 @@ TEST (election_scheduler, activate_one_flush)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	system.nodes[0]->ledger.process (system.nodes[0]->store.tx_begin_write (), send1);
-	system.nodes[0]->scheduler.priority.activate (nano::dev::genesis_key.pub, system.nodes[0]->store.tx_begin_read ());
+	system.nodes[0]->ledger.process (system.nodes[0]->ledger.tx_begin_write (), send1);
+	system.nodes[0]->scheduler.priority.activate (nano::dev::genesis_key.pub, system.nodes[0]->ledger.tx_begin_read ());
 	ASSERT_TIMELY (5s, system.nodes[0]->active.election (send1->qualified_root ()));
 }
 
@@ -119,7 +119,7 @@ TEST (election_scheduler, no_vacancy)
 	ASSERT_EQ (nano::block_status::progress, node.process (block1));
 
 	// There is vacancy so it should be inserted
-	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.store.tx_begin_read ());
+	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.ledger.tx_begin_read ());
 	std::shared_ptr<nano::election> election{};
 	ASSERT_TIMELY (5s, (election = node.active.election (block1->qualified_root ())) != nullptr);
 
@@ -135,7 +135,7 @@ TEST (election_scheduler, no_vacancy)
 	ASSERT_EQ (nano::block_status::progress, node.process (block2));
 
 	// There is no vacancy so it should stay queued
-	node.scheduler.priority.activate (key.pub, node.store.tx_begin_read ());
+	node.scheduler.priority.activate (key.pub, node.ledger.tx_begin_read ());
 	ASSERT_TIMELY_EQ (5s, node.scheduler.priority.size (), 1);
 	ASSERT_EQ (node.active.election (block2->qualified_root ()), nullptr);
 

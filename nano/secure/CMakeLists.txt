@@ -55,6 +55,7 @@ add_library(
   pending_info.cpp
   rep_weights.hpp
   rep_weights.cpp
+  transaction.hpp
   utility.hpp
   utility.cpp
   vote.hpp

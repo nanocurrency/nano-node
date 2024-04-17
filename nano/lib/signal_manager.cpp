@@ -1,4 +1,5 @@
 #include <nano/lib/signal_manager.hpp>
+#include <nano/lib/thread_roles.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/asio.hpp>
@@ -10,7 +11,8 @@
 nano::signal_manager::signal_manager () :
 	work (boost::asio::make_work_guard (ioc))
 {
-	smthread = boost::thread ([&ioc = ioc] () {
+	thread = std::thread ([&ioc = ioc] () {
+		nano::thread_role::set (nano::thread_role::name::signal_manager);
 		ioc.run ();
 	});
 }
@@ -21,7 +23,7 @@ nano::signal_manager::~signal_manager ()
 	/// io_context::run() function will exit once all other work has completed.
 	work.reset ();
 	ioc.stop ();
-	smthread.join ();
+	thread.join ();
 }
 
 nano::signal_manager::signal_descriptor::signal_descriptor (std::shared_ptr<boost::asio::signal_set> sigset_a, signal_manager & sigman_a, std::function<void (int)> handler_func_a, bool repeat_a) :

@@ -24,6 +24,11 @@ class active_transactions;
 class vote_cache;
 class online_reps;
 }
+namespace nano::secure
+{
+class transaction;
+class read_transaction;
+}
 
 namespace nano::scheduler
 {
@@ -66,7 +71,7 @@ private:
 	bool predicate () const;
 	void run ();
 	void run_iterative ();
-	void activate (nano::store::read_transaction const &, nano::block_hash const & hash, bool check_dependents);
+	void activate (secure::read_transaction const &, nano::block_hash const & hash, bool check_dependents);
 
 	nano::uint128_t tally_threshold () const;
 	nano::uint128_t final_tally_threshold () const;

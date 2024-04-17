@@ -276,10 +276,10 @@ void nano::store::lmdb::component::upgrade_v22_to_v23 (store::write_transaction 
 		processed_accounts++;
 		if (processed_accounts % 250000 == 0)
 		{
-			logger.info (nano::log::type::lmdb, "processed {} accounts", processed_accounts);
+			logger.info (nano::log::type::lmdb, "Processed {} accounts", processed_accounts);
 		}
 	}
-	logger.info (nano::log::type::lmdb, "processed {} accounts", processed_accounts);
+	logger.info (nano::log::type::lmdb, "Processed {} accounts", processed_accounts);
 	version.put (transaction_a, 23);
 	logger.info (nano::log::type::lmdb, "Upgrading database from v22 to v23 completed");
 }

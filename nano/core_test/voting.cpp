@@ -172,12 +172,12 @@ TEST (vote_spacing, vote_generator)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), send1));
+	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send1));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts));
 	node.generator.add (nano::dev::genesis->hash (), send1->hash ());
 	ASSERT_TIMELY_EQ (3s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts), 1);
-	ASSERT_FALSE (node.ledger.rollback (node.store.tx_begin_write (), send1->hash ()));
-	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), send2));
+	ASSERT_FALSE (node.ledger.rollback (node.ledger.tx_begin_write (), send1->hash ()));
+	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send2));
 	node.generator.add (nano::dev::genesis->hash (), send2->hash ());
 	ASSERT_TIMELY_EQ (3s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_spacing), 1);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts));
@@ -216,11 +216,11 @@ TEST (vote_spacing, rapid)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), send1));
+	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send1));
 	node.generator.add (nano::dev::genesis->hash (), send1->hash ());
 	ASSERT_TIMELY_EQ (3s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts), 1);
-	ASSERT_FALSE (node.ledger.rollback (node.store.tx_begin_write (), send1->hash ()));
-	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.store.tx_begin_write (), send2));
+	ASSERT_FALSE (node.ledger.rollback (node.ledger.tx_begin_write (), send1->hash ()));
+	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send2));
 	node.generator.add (nano::dev::genesis->hash (), send2->hash ());
 	ASSERT_TIMELY_EQ (3s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_spacing), 1);
 	ASSERT_TIMELY_EQ (3s, 1, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts));

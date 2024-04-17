@@ -191,13 +191,13 @@ TEST (network, send_discarded_publish)
 				 .work (*system.work.generate (nano::root (1)))
 				 .build ();
 	{
-		auto transaction (node1.store.tx_begin_read ());
+		auto transaction = node1.ledger.tx_begin_read ();
 		node1.network.flood_block (block);
 		ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger.latest (transaction, nano::dev::genesis_key.pub));
 		ASSERT_EQ (nano::dev::genesis->hash (), node2.latest (nano::dev::genesis_key.pub));
 	}
 	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) != 0);
-	auto transaction (node1.store.tx_begin_read ());
+	auto transaction = node1.ledger.tx_begin_read ();
 	ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger.latest (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::genesis->hash (), node2.latest (nano::dev::genesis_key.pub));
 }
@@ -217,13 +217,13 @@ TEST (network, send_invalid_publish)
 				 .work (*system.work.generate (nano::root (1)))
 				 .build ();
 	{
-		auto transaction (node1.store.tx_begin_read ());
+		auto transaction = node1.ledger.tx_begin_read ();
 		node1.network.flood_block (block);
 		ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger.latest (transaction, nano::dev::genesis_key.pub));
 		ASSERT_EQ (nano::dev::genesis->hash (), node2.latest (nano::dev::genesis_key.pub));
 	}
 	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) != 0);
-	auto transaction (node1.store.tx_begin_read ());
+	auto transaction = node1.ledger.tx_begin_read ();
 	ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger.latest (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::genesis->hash (), node2.latest (nano::dev::genesis_key.pub));
 }
@@ -369,7 +369,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
 				  .build ();
 	node1.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::block_status::progress, node1.process (block1));
-	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
+	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.ledger.tx_begin_read ());
 	nano::keypair key1;
 	auto vote = nano::test::make_vote (key1, { block1 }, 0, 0);
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
@@ -392,7 +392,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 				  .build ();
 	node1.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::block_status::progress, node1.process (block1));
-	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.store.tx_begin_read ());
+	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.ledger.tx_begin_read ());
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, { block1 }, 0, 0);
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
 	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);

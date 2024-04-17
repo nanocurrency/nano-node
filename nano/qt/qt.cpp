@@ -263,7 +263,7 @@ nano_qt::accounts::accounts (nano_qt::wallet & wallet_a) :
 void nano_qt::accounts::refresh_wallet_balance ()
 {
 	auto transaction (this->wallet.wallet_m->wallets.tx_begin_read ());
-	auto block_transaction (this->wallet.node.store.tx_begin_read ());
+	auto block_transaction = this->wallet.node.ledger.tx_begin_read ();
 	nano::uint128_t balance (0);
 	nano::uint128_t pending (0);
 	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
@@ -289,7 +289,7 @@ void nano_qt::accounts::refresh ()
 {
 	model->removeRows (0, model->rowCount ());
 	auto transaction (wallet.wallet_m->wallets.tx_begin_read ());
-	auto block_transaction (this->wallet.node.store.tx_begin_read ());
+	auto block_transaction = this->wallet.node.ledger.tx_begin_read ();
 	QBrush brush;
 	for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end ()); i != j; ++i)
 	{
@@ -516,7 +516,7 @@ namespace
 class short_text_visitor : public nano::block_visitor
 {
 public:
-	short_text_visitor (nano::store::transaction const & transaction_a, nano::ledger & ledger_a) :
+	short_text_visitor (nano::secure::transaction const & transaction_a, nano::ledger & ledger_a) :
 		transaction (transaction_a),
 		ledger (ledger_a)
 	{
@@ -623,7 +623,7 @@ public:
 			amount = balance - previous_balance.value ();
 		}
 	}
-	nano::store::transaction const & transaction;
+	nano::secure::transaction const & transaction;
 	nano::ledger & ledger;
 	std::string type;
 	nano::uint128_t amount;
@@ -633,7 +633,7 @@ public:
 
 void nano_qt::history::refresh ()
 {
-	auto transaction (ledger.store.tx_begin_read ());
+	auto transaction = ledger.tx_begin_read ();
 	model->removeRows (0, model->rowCount ());
 	auto hash (ledger.latest (transaction, account));
 	short_text_visitor visitor (transaction, ledger);
@@ -688,7 +688,7 @@ nano_qt::block_viewer::block_viewer (nano_qt::wallet & wallet_a) :
 		nano::block_hash hash_l;
 		if (!hash_l.decode_hex (hash->text ().toStdString ()))
 		{
-			auto transaction (this->wallet.node.store.tx_begin_read ());
+			auto transaction = this->wallet.node.ledger.tx_begin_read ();
 			auto block_l (this->wallet.node.ledger.block (transaction, hash_l));
 			if (block_l != nullptr)
 			{
@@ -713,7 +713,7 @@ nano_qt::block_viewer::block_viewer (nano_qt::wallet & wallet_a) :
 		auto error (block.decode_hex (hash->text ().toStdString ()));
 		if (!error)
 		{
-			auto transaction (this->wallet.node.store.tx_begin_read ());
+			auto transaction = this->wallet.node.ledger.tx_begin_read ();
 			if (this->wallet.node.ledger.block_exists (transaction, block))
 			{
 				rebroadcast->setEnabled (false);
@@ -734,7 +734,7 @@ nano_qt::block_viewer::block_viewer (nano_qt::wallet & wallet_a) :
 void nano_qt::block_viewer::rebroadcast_action (nano::block_hash const & hash_a)
 {
 	auto done (true);
-	auto transaction (wallet.node.ledger.store.tx_begin_read ());
+	auto transaction = wallet.node.ledger.tx_begin_read ();
 	auto block (wallet.node.ledger.block (transaction, hash_a));
 	if (block != nullptr)
 	{
@@ -2240,7 +2240,7 @@ void nano_qt::block_creation::create_send ()
 			if (!error)
 			{
 				auto transaction (wallet.node.wallets.tx_begin_read ());
-				auto block_transaction (wallet.node.store.tx_begin_read ());
+				auto block_transaction = wallet.node.ledger.tx_begin_read ();
 				nano::raw_key key;
 				if (!wallet.wallet_m->store.fetch (transaction, account_l, key))
 				{
@@ -2316,7 +2316,7 @@ void nano_qt::block_creation::create_receive ()
 	if (!error)
 	{
 		auto transaction (wallet.node.wallets.tx_begin_read ());
-		auto block_transaction (wallet.node.store.tx_begin_read ());
+		auto block_transaction = wallet.node.ledger.tx_begin_read ();
 		auto block_l (wallet.node.ledger.block (block_transaction, source_l));
 		if (block_l != nullptr)
 		{
@@ -2480,7 +2480,7 @@ void nano_qt::block_creation::create_open ()
 		if (!error)
 		{
 			auto transaction (wallet.node.wallets.tx_begin_read ());
-			auto block_transaction (wallet.node.store.tx_begin_read ());
+			auto block_transaction = wallet.node.ledger.tx_begin_read ();
 			auto block_l (wallet.node.ledger.block (block_transaction, source_l));
 			if (block_l != nullptr)
 			{

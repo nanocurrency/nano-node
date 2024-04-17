@@ -21,7 +21,7 @@ nano::account nano::bootstrap_ascending::database_iterator::operator* () const
 	return current;
 }
 
-void nano::bootstrap_ascending::database_iterator::next (store::transaction & tx)
+void nano::bootstrap_ascending::database_iterator::next (secure::transaction & tx)
 {
 	switch (table)
 	{
@@ -95,7 +95,7 @@ void nano::bootstrap_ascending::buffered_iterator::fill ()
 	debug_assert (buffer.empty ());
 
 	// Fill half from accounts table and half from pending table
-	auto transaction = ledger.store.tx_begin_read ();
+	auto transaction = ledger.tx_begin_read ();
 
 	for (int n = 0; n < size / 2; ++n)
 	{

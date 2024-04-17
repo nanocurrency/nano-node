@@ -102,51 +102,6 @@ jobs:
           AWS_DEFAULT_REGION: us-east-2
 
 
-  linux_rpm_job:
-    needs: prepare_build
-    if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
-    runs-on: ubuntu-22.04
-    timeout-minutes: 90
-    strategy:
-      matrix:
-        network: ["BETA", "LIVE"] #No path to build TEST exists ci/build-rhel.sh
-    steps:
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
-        with:
-          submodules: "recursive"
-          ref: "develop" #build-rhel.sh needs develop branch and then sets the tag
-          repository: ${{ github.repository }}
-      - name: Build local/nano-env:rhel
-        run: ci/actions/linux/install_deps.sh
-        env:
-          COMPILER: rhel
-          DOCKER_REGISTRY: local
-      - name: RockyLinux 8 Base
-        run: ci/build-docker-image.sh docker/ci/Dockerfile-rhel local/nano-env:rhel
-      - name: Build Artifact
-        run: |
-          mkdir -p ${GITHUB_WORKSPACE}/artifacts
-          docker run -v ${GITHUB_WORKSPACE}:/workspace -v ${GITHUB_WORKSPACE}/artifacts:/root/rpmbuild \
-          local/nano-env:rhel /bin/bash -c " \
-          NETWORK=${{ matrix.network }} \
-          TAG=${{ needs.prepare_build.outputs.ci_tag }} \
-          REPO_TO_BUILD=${{ github.repository }} \
-          RPM_RELEASE=1 \
-          ci/build-rhel.sh"
-
-      - name: Deploy Artifacts
-        run: ci/actions/deploy.sh
-        env:
-          LINUX_RPM: 1
-          NETWORK: ${{ matrix.network }}
-          # TAG: ${{ needs.prepare_build.outputs.ci_tag }} # (not used in the deploy script if LINUX_RPM==1 )
-          S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
-          S3_BUILD_DIRECTORY: ${{ vars.S3_BUILD_DIRECTORY }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-2
-
-
   linux_docker_job:
     needs: prepare_build
     if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
