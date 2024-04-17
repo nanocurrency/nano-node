@@ -121,7 +121,7 @@ private: // Dependencies
 public:
 	nano::networks const id;
 	nano::syn_cookies syn_cookies;
-	boost::asio::ip::udp::resolver resolver;
+	boost::asio::ip::tcp::resolver resolver;
 	nano::peer_exclusion excluded_peers;
 	nano::network_filter publish_filter;
 	nano::transport::tcp_channels tcp_channels;
