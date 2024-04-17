@@ -133,6 +133,7 @@ public:
 	void bootstrap_block (nano::block_hash const &);
 	nano::account get_node_id () const;
 	nano::telemetry_data local_telemetry () const;
+	std::string identifier () const;
 
 public:
 	const nano::keypair node_id;

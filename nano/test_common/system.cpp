@@ -138,9 +138,11 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 			auto starting_keepalives_1 = node1->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
 			auto starting_keepalives_2 = node2->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
 
+			logger.debug (nano::log::type::system, "Connecting nodes: {} and {}", node1->identifier (), node2->identifier ());
+
 			// TCP is the only transport layer available.
 			debug_assert (type_a == nano::transport::transport_type::tcp);
-			(*j)->network.merge_peer ((*i)->network.endpoint ());
+			node2->network.merge_peer (node1->network.endpoint ());
 
 			{
 				auto ec = poll_until_true (5s, [&node1, &node2, starting_size_1, starting_size_2] () {
