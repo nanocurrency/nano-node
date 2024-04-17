@@ -1,8 +1,8 @@
-#include "gtest/gtest.h"
-
 #include <nano/lib/logging.hpp>
 #include <nano/node/common.hpp>
 #include <nano/secure/utility.hpp>
+
+#include <gtest/gtest.h>
 
 #include <boost/filesystem/path.hpp>
 
