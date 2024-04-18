@@ -1306,8 +1306,11 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
-	// there is a race condition between starting the second node and publishing of blocks
-	// disabling the request loop, which is not needed for this, makes the problem go away
+	// It looks like force confirmed elections remain in the AEC and
+	// they keep publishing blocks, disabling the request loop stops this.
+	// A better fix would be to create a way to add and cement the blocks
+	// without involving an election at all or have a way to delete an
+	// election from the AEC.
 	node_flags.disable_request_loop = true;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_legacy_bootstrap = true;
@@ -1330,7 +1333,6 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	node1->process_active (send1);
 
 	// send from genesis to key2
 	auto send2 = builder
@@ -1343,7 +1345,6 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send1->hash ()))
 				 .build ();
-	node1->process_active (send2);
 
 	// open account key1
 	auto open = builder
@@ -1354,7 +1355,6 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 				.sign (key1.prv, key1.pub)
 				.work (*system.work.generate (key1.pub))
 				.build ();
-	node1->process_active (open);
 
 	//  open account key2
 	auto state_open = builder
@@ -1368,11 +1368,9 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 					  .work (*system.work.generate (key2.pub))
 					  .build ();
 
-	node1->process_active (state_open);
-	ASSERT_TIMELY (5s, node1->block (state_open->hash ()) != nullptr);
-	// Confirm last block to prune previous
+	ASSERT_TRUE (nano::test::process (*node1, { send1, send2, open, state_open }));
 	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send1, send2, open, state_open }, true));
-	ASSERT_TIMELY (5s, nano::test::confirmed (*node1, { send2, open, state_open }));
+	ASSERT_TIMELY (5s, nano::test::confirmed (*node1, { send1, send2, open, state_open }));
 	ASSERT_EQ (5, node1->ledger.block_count ());
 	ASSERT_EQ (5, node1->ledger.cemented_count ());
 
