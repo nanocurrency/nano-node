@@ -10,11 +10,6 @@ namespace nano::async
 {
 using strand = asio::strand<asio::io_context::executor_type>;
 
-inline asio::awaitable<void> setup_this_coro ()
-{
-	co_await asio::this_coro::throw_if_cancelled (false);
-}
-
 inline asio::awaitable<void> sleep_for (auto duration)
 {
 	asio::steady_timer timer{ co_await asio::this_coro::executor };
