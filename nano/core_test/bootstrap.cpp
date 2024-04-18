@@ -1306,12 +1306,6 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
-	// It looks like force confirmed elections remain in the AEC and
-	// they keep publishing blocks, disabling the request loop stops this.
-	// A better fix would be to create a way to add and cement the blocks
-	// without involving an election at all or have a way to delete an
-	// election from the AEC.
-	node_flags.disable_request_loop = true;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_legacy_bootstrap = true;
 	node_flags.disable_ascending_bootstrap = true;
@@ -1368,8 +1362,11 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 					  .work (*system.work.generate (key2.pub))
 					  .build ();
 
+	// add the blocks without starting elections because elections publish blocks
+	// and the publishing would interefere with the testing
 	ASSERT_TRUE (nano::test::process (*node1, { send1, send2, open, state_open }));
-	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send1, send2, open, state_open }, true));
+	ASSERT_TIMELY (5s, nano::test::exists (*node1, { send1, send2, open, state_open }));
+	nano::test::confirm (node1->ledger, { send1, send2, open, state_open });
 	ASSERT_TIMELY (5s, nano::test::confirmed (*node1, { send1, send2, open, state_open }));
 	ASSERT_EQ (5, node1->ledger.block_count ());
 	ASSERT_EQ (5, node1->ledger.cemented_count ());
