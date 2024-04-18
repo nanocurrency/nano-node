@@ -674,6 +674,7 @@ void nano::node::start ()
 	{
 		port_mapping.start ();
 	}
+	unchecked.start ();
 	wallets.start ();
 	rep_tiers.start ();
 	vote_processor.start ();

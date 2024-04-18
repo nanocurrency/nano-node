@@ -9,15 +9,37 @@
 nano::unchecked_map::unchecked_map (unsigned const max_unchecked_blocks, nano::stats & stats, bool const & disable_delete) :
 	max_unchecked_blocks{ max_unchecked_blocks },
 	stats{ stats },
-	disable_delete{ disable_delete },
-	thread{ [this] () { run (); } }
+	disable_delete{ disable_delete }
 {
 }
 
 nano::unchecked_map::~unchecked_map ()
 {
-	stop ();
-	thread.join ();
+	debug_assert (!thread.joinable ());
+}
+
+void nano::unchecked_map::start ()
+{
+	debug_assert (!thread.joinable ());
+
+	thread = std::thread ([this] () {
+		nano::thread_role::set (nano::thread_role::name::unchecked);
+		run ();
+	});
+}
+
+void nano::unchecked_map::stop ()
+{
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		stopped = true;
+	}
+	condition.notify_all ();
+
+	if (thread.joinable ())
+	{
+		thread.join ();
+	}
 }
 
 void nano::unchecked_map::put (nano::hash_or_account const & dependency, nano::unchecked_info const & info)
@@ -85,16 +107,6 @@ std::size_t nano::unchecked_map::count () const
 	return entries.size ();
 }
 
-void nano::unchecked_map::stop ()
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	if (!stopped)
-	{
-		stopped = true;
-		condition.notify_all (); // Notify flush (), run ()
-	}
-}
-
 void nano::unchecked_map::flush ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
@@ -122,7 +134,6 @@ void nano::unchecked_map::process_queries (decltype (buffer) const & back_buffer
 
 void nano::unchecked_map::run ()
 {
-	nano::thread_role::set (nano::thread_role::name::unchecked);
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{

@@ -25,6 +25,9 @@ public:
 	unchecked_map (unsigned const max_unchecked_blocks, nano::stats &, bool const & do_delete);
 	~unchecked_map ();
 
+	void start ();
+	void stop ();
+
 	void put (nano::hash_or_account const & dependency, nano::unchecked_info const & info);
 	void for_each (
 	std::function<void (nano::unchecked_key const &, nano::unchecked_info const &)> action, std::function<bool ()> predicate = [] () { return true; });
@@ -35,7 +38,6 @@ public:
 	void del (nano::unchecked_key const & key);
 	void clear ();
 	std::size_t count () const;
-	void stop ();
 	void flush ();
 
 	/**
@@ -58,10 +60,12 @@ private:
 	std::deque<nano::hash_or_account> buffer;
 	std::deque<nano::hash_or_account> back_buffer;
 	bool writing_back_buffer{ false };
+
 	bool stopped{ false };
 	nano::condition_variable condition;
 	nano::mutex mutex;
 	std::thread thread;
+
 	unsigned const max_unchecked_blocks;
 
 	void process_queries (decltype (buffer) const & back_buffer);
