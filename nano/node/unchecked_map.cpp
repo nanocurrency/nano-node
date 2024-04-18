@@ -52,6 +52,7 @@ void nano::unchecked_map::put (nano::hash_or_account const & dependency, nano::u
 	{
 		entries.get<tag_sequenced> ().pop_front ();
 	}
+
 	stats.inc (nano::stat::type::unchecked, nano::stat::detail::put);
 }
 
@@ -107,14 +108,6 @@ std::size_t nano::unchecked_map::count () const
 	return entries.size ();
 }
 
-void nano::unchecked_map::flush ()
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	condition.wait (lock, [this] () {
-		return stopped || (buffer.empty () && back_buffer.empty () && !writing_back_buffer);
-	});
-}
-
 void nano::unchecked_map::trigger (nano::hash_or_account const & dependency)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
@@ -149,7 +142,6 @@ void nano::unchecked_map::run ()
 		}
 		else
 		{
-			condition.notify_all (); // Notify flush ()
 			condition.wait (lock, [this] () {
 				return stopped || !buffer.empty ();
 			});

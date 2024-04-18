@@ -38,7 +38,6 @@ public:
 	void del (nano::unchecked_key const & key);
 	void clear ();
 	std::size_t count () const;
-	void flush ();
 
 	/**
 	 * Trigger requested dependencies
