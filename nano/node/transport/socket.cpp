@@ -37,6 +37,7 @@ nano::transport::socket::socket (nano::node & node_a, endpoint_type_t endpoint_t
 nano::transport::socket::~socket ()
 {
 	close_internal ();
+	closed = true;
 }
 
 void nano::transport::socket::start ()
@@ -52,35 +53,37 @@ void nano::transport::socket::async_connect (nano::tcp_endpoint const & endpoint
 	start ();
 	set_default_timeout ();
 
-	tcp_socket.async_connect (endpoint_a,
-	boost::asio::bind_executor (strand,
-	[this_l = shared_from_this (), callback = std::move (callback_a), endpoint_a] (boost::system::error_code const & ec) {
-		debug_assert (this_l->strand.running_in_this_thread ());
+	boost::asio::post (strand, [this_l = shared_from_this (), endpoint_a, callback = std::move (callback_a)] () {
+		this_l->tcp_socket.async_connect (endpoint_a,
+		boost::asio::bind_executor (this_l->strand,
+		[this_l, callback = std::move (callback), endpoint_a] (boost::system::error_code const & ec) {
+			debug_assert (this_l->strand.running_in_this_thread ());
 
-		auto node_l = this_l->node_w.lock ();
-		if (!node_l)
-		{
-			return;
-		}
-
-		this_l->remote = endpoint_a;
-		if (ec)
-		{
-			node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_connect_error, nano::stat::dir::in);
-			this_l->close ();
-		}
-		else
-		{
-			this_l->set_last_completion ();
+			auto node_l = this_l->node_w.lock ();
+			if (!node_l)
 			{
-				// Best effort attempt to get endpoint address
-				boost::system::error_code ec;
-				this_l->local = this_l->tcp_socket.local_endpoint (ec);
+				return;
 			}
-			node_l->observers.socket_connected.notify (*this_l);
-		}
-		callback (ec);
-	}));
+
+			this_l->remote = endpoint_a;
+			if (ec)
+			{
+				node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_connect_error, nano::stat::dir::in);
+				this_l->close ();
+			}
+			else
+			{
+				this_l->set_last_completion ();
+				{
+					// Best effort attempt to get endpoint address
+					boost::system::error_code ec;
+					this_l->local = this_l->tcp_socket.local_endpoint (ec);
+				}
+				node_l->observers.socket_connected.notify (*this_l);
+			}
+			callback (ec);
+		}));
+	});
 }
 
 void nano::transport::socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
@@ -278,12 +281,12 @@ void nano::transport::socket::ongoing_checkup ()
 			return;
 		}
 
-		// If the socket is already dead, close just in case, and stop doing checkups
-		if (!this_l->alive ())
-		{
-			this_l->close ();
-			return;
-		}
+		boost::asio::post (this_l->strand, [this_l] {
+			if (!this_l->tcp_socket.is_open ())
+			{
+				this_l->close ();
+			}
+		});
 
 		nano::seconds_t now = nano::seconds_since_epoch ();
 		auto condition_to_disconnect{ false };
