@@ -1306,6 +1306,9 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
+	// there is a race condition between starting the second node and publishing of blocks
+	// disabling the request loop, which is not needed for this, makes the problem go away
+	node_flags.disable_request_loop = true;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_legacy_bootstrap = true;
 	node_flags.disable_ascending_bootstrap = true;
