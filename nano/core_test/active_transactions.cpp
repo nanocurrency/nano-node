@@ -1035,20 +1035,21 @@ TEST (active_transactions, confirm_new)
 {
 	nano::test::system system (1);
 	auto & node1 = *system.nodes[0];
-	auto send = nano::send_block_builder ()
-				.previous (nano::dev::genesis->hash ())
-				.destination (nano::public_key ())
-				.balance (nano::dev::constants.genesis_amount - 100)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*system.work.generate (nano::dev::genesis->hash ()))
-				.build ();
-	node1.process_active (send);
+	auto send1 = nano::send_block_builder ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (nano::public_key ())
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	node1.process_active (send1);
 	ASSERT_TIMELY_EQ (5s, 1, node1.active.size ());
 	auto & node2 = *system.add_node ();
 	// Add key to node2
 	system.wallet (1)->insert_adhoc (nano::dev::genesis_key.prv);
 	// Let node2 know about the block
-	ASSERT_TIMELY (5s, node2.block (send->hash ()));
+	auto send1_copy = nano::send_block_builder ().make_block ().from (*send1).build ();
+	ASSERT_TIMELY (5s, node2.block (send1_copy->hash ()));
 	// Wait confirmation
 	ASSERT_TIMELY (5s, node1.ledger.cemented_count () == 2);
 	ASSERT_TIMELY (5s, node2.ledger.cemented_count () == 2);
