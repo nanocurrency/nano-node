@@ -121,6 +121,14 @@ bool nano::test::exists (nano::node & node, std::vector<std::shared_ptr<nano::bl
 	return exists (node, blocks_to_hashes (blocks));
 }
 
+void nano::test::confirm (nano::ledger & ledger, std::vector<std::shared_ptr<nano::block>> blocks)
+{
+	for (auto block : blocks)
+	{
+		ledger.confirm (ledger.tx_begin_write (), *block);
+	}
+}
+
 bool nano::test::block_or_pruned_all_exists (nano::node & node, std::vector<nano::block_hash> hashes)
 {
 	auto transaction = node.ledger.tx_begin_read ();
