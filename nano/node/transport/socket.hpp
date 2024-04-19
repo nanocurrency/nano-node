@@ -137,7 +137,7 @@ public:
 	}
 	bool alive () const
 	{
-		return !closed && tcp_socket.is_open ();
+		return !is_closed ();
 	}
 
 private:
