@@ -33,10 +33,12 @@ TEST (socket, max_connections)
 
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
+	std::mutex server_sockets_mutex;
 
 	// start a server socket that allows max 2 live connections
 	nano::transport::tcp_listener listener{ server_port, *node, 2 };
-	listener.connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
+	listener.connection_accepted.add ([&] (auto const & socket, auto const & server) {
+		std::lock_guard guard{ server_sockets_mutex };
 		server_sockets.push_back (socket);
 	});
 	nano::test::start_stop_guard stop_guard{ listener };
@@ -69,14 +71,22 @@ TEST (socket, max_connections)
 		return node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success, nano::stat::dir::in);
 	};
 
+	auto server_sockets_size = [&] () {
+		std::lock_guard guard{ server_sockets_mutex };
+		return server_sockets.size ();
+	};
+
 	ASSERT_TIMELY_EQ (10s, get_tcp_accept_successes (), 2);
 	ASSERT_ALWAYS_EQ (1s, get_tcp_accept_successes (), 2);
 	ASSERT_TIMELY_EQ (5s, connection_attempts, 3);
-	ASSERT_TIMELY_EQ (5s, server_sockets.size (), 2);
+	ASSERT_TIMELY_EQ (5s, server_sockets_size (), 2);
 
 	// create space for one socket and fill the connections table again
 
-	server_sockets[0].reset ();
+	{
+		std::lock_guard guard{ server_sockets_mutex };
+		server_sockets[0].reset ();
+	}
 
 	auto client4 = std::make_shared<nano::transport::socket> (*node);
 	client4->async_connect (dst_endpoint, connect_handler);
@@ -91,9 +101,11 @@ TEST (socket, max_connections)
 
 	// close all existing sockets and fill the connections table again
 	// start counting form 1 because 0 is the already closed socket
-
-	server_sockets[1].reset ();
-	server_sockets[2].reset ();
+	{
+		std::lock_guard guard{ server_sockets_mutex };
+		server_sockets[1].reset ();
+		server_sockets[2].reset ();
+	}
 
 	auto client6 = std::make_shared<nano::transport::socket> (*node);
 	client6->async_connect (dst_endpoint, connect_handler);
@@ -107,7 +119,7 @@ TEST (socket, max_connections)
 	ASSERT_TIMELY_EQ (5s, get_tcp_accept_successes (), 5);
 	ASSERT_ALWAYS_EQ (1s, get_tcp_accept_successes (), 5);
 	ASSERT_TIMELY_EQ (5s, connection_attempts, 8); // connections initiated by the client
-	ASSERT_TIMELY_EQ (5s, server_sockets.size (), 5); // connections accepted by the server
+	ASSERT_TIMELY_EQ (5s, server_sockets_size (), 5); // connections accepted by the server
 }
 
 TEST (socket, max_connections_per_ip)
