@@ -36,7 +36,10 @@ TEST (socket, max_connections)
 	std::mutex server_sockets_mutex;
 
 	// start a server socket that allows max 2 live connections
-	nano::transport::tcp_listener listener{ server_port, *node, 2 };
+	nano::transport::tcp_config tcp_config{ nano::dev::network_params.network };
+	tcp_config.max_inbound_connections = 2;
+
+	nano::transport::tcp_listener listener{ server_port, tcp_config, *node };
 	listener.connection_accepted.add ([&] (auto const & socket, auto const & server) {
 		std::lock_guard guard{ server_sockets_mutex };
 		server_sockets.push_back (socket);
@@ -144,7 +147,10 @@ TEST (socket, max_connections_per_ip)
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
 
-	nano::transport::tcp_listener listener{ server_port, *node, max_global_connections };
+	nano::transport::tcp_config tcp_config{ nano::dev::network_params.network };
+	tcp_config.max_inbound_connections = max_global_connections;
+
+	nano::transport::tcp_listener listener{ server_port, tcp_config, *node };
 	listener.connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
 		server_sockets.push_back (socket);
 	});
@@ -267,7 +273,10 @@ TEST (socket, max_connections_per_subnetwork)
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
 
-	nano::transport::tcp_listener listener{ server_port, *node, max_global_connections };
+	nano::transport::tcp_config tcp_config{ nano::dev::network_params.network };
+	tcp_config.max_inbound_connections = max_global_connections;
+
+	nano::transport::tcp_listener listener{ server_port, tcp_config, *node };
 	listener.connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
 		server_sockets.push_back (socket);
 	});
@@ -330,7 +339,10 @@ TEST (socket, disabled_max_peers_per_ip)
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
 
-	nano::transport::tcp_listener listener = { server_port, *node, max_global_connections };
+	nano::transport::tcp_config tcp_config{ nano::dev::network_params.network };
+	tcp_config.max_inbound_connections = max_global_connections;
+
+	nano::transport::tcp_listener listener = { server_port, tcp_config, *node };
 	listener.connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
 		server_sockets.push_back (socket);
 	});

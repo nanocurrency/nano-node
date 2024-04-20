@@ -173,7 +173,6 @@ namespace transport
 
 		// Connection start
 		void start_tcp (nano::endpoint const &);
-		void start_tcp_receive_node_id (std::shared_ptr<nano::transport::channel_tcp> const &, nano::endpoint const &, std::shared_ptr<std::vector<uint8_t>> const &);
 
 	private: // Dependencies
 		nano::node & node;

@@ -171,7 +171,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	//         Thus, be very careful if you change the order: if `bootstrap` gets constructed before `network`,
 	//         the latter would inherit the port from the former (if TCP is active, otherwise `network` picks first)
 	//
-	tcp_listener_impl{ std::make_unique<nano::transport::tcp_listener> (network.port, *this, config.tcp_incoming_connections_max) },
+	tcp_listener_impl{ std::make_unique<nano::transport::tcp_listener> (network.port, config.tcp, *this) },
 	tcp_listener{ *tcp_listener_impl },
 	application_path (application_path_a),
 	port_mapping (*this),
