@@ -147,10 +147,12 @@ nano::peer_cache_config::peer_cache_config (nano::network_constants const & netw
 
 nano::error nano::peer_cache_config::serialize (nano::tomlconfig & toml) const
 {
+	// TODO: Serialization / deserialization
 	return toml.get_error ();
 }
 
 nano::error nano::peer_cache_config::deserialize (nano::tomlconfig & toml)
 {
+	// TODO: Serialization / deserialization
 	return toml.get_error ();
 }

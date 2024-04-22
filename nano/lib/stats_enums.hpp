@@ -228,6 +228,7 @@ enum class detail : uint8_t
 	// network
 	loop_keepalive,
 	loop_reachout,
+	loop_reachout_cached,
 	merge_peer,
 	reachout_live,
 	reachout_cached,

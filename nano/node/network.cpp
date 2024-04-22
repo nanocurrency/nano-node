@@ -227,7 +227,7 @@ void nano::network::run_reachout_cached ()
 		}
 		lock.unlock ();
 
-		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_reachout);
+		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_reachout_cached);
 
 		auto cached_peers = node.peer_cache.cached_peers ();
 		for (auto const & peer : cached_peers)
