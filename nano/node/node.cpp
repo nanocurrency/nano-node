@@ -168,7 +168,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	//         Thus, be very careful if you change the order: if `bootstrap` gets constructed before `network`,
 	//         the latter would inherit the port from the former (if TCP is active, otherwise `network` picks first)
 	//
-	tcp_listener{ std::make_shared<nano::transport::tcp_listener> (network.port, *this, config.tcp_incoming_connections_max) },
+	tcp_listener_impl{ std::make_unique<nano::transport::tcp_listener> (network.port, *this, config.tcp_incoming_connections_max) },
+	tcp_listener{ *tcp_listener_impl },
 	application_path (application_path_a),
 	port_mapping (*this),
 	block_processor (*this),
@@ -560,7 +561,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (node.ledger.collect_container_info ("ledger"));
 	composite->add_component (collect_container_info (node.active, "active"));
 	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
-	composite->add_component (node.tcp_listener->collect_container_info ("tcp_listener"));
+	composite->add_component (node.tcp_listener.collect_container_info ("tcp_listener"));
 	composite->add_component (collect_container_info (node.network, "network"));
 	composite->add_component (node.telemetry.collect_container_info ("telemetry"));
 	composite->add_component (collect_container_info (node.workers, "workers"));
@@ -594,7 +595,9 @@ void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 
 [[nodiscard]] nano::block_status nano::node::process (secure::write_transaction const & transaction, std::shared_ptr<nano::block> block)
 {
-	return ledger.process (transaction, block);
+	auto status = ledger.process (transaction, block);
+	logger.debug (nano::log::type::node, "Directly processed block: {} (status: {})", block->hash ().to_string (), to_string (status));
+	return status;
 }
 
 nano::block_status nano::node::process (std::shared_ptr<nano::block> block)
@@ -640,21 +643,19 @@ void nano::node::start ()
 	bool tcp_enabled = false;
 	if (config.tcp_incoming_connections_max > 0 && !(flags.disable_bootstrap_listener && flags.disable_tcp_realtime))
 	{
-		tcp_listener->start ([this] (std::shared_ptr<nano::transport::socket> const & new_connection, boost::system::error_code const & ec_a) {
-			if (!ec_a)
-			{
-				tcp_listener->accept_action (ec_a, new_connection);
-			}
-			return true;
-		});
+		tcp_listener.start ();
 		tcp_enabled = true;
 
-		if (network.port != tcp_listener->endpoint ().port ())
+		if (network.port != tcp_listener.endpoint ().port ())
 		{
-			network.port = tcp_listener->endpoint ().port ();
+			network.port = tcp_listener.endpoint ().port ();
 		}
 
 		logger.info (nano::log::type::node, "Node peering port: {}", network.port.load ());
+	}
+	else
+	{
+		logger.warn (nano::log::type::node, "Node peering is disabled");
 	}
 
 	if (!flags.disable_backup)
@@ -678,6 +679,7 @@ void nano::node::start ()
 	{
 		port_mapping.start ();
 	}
+	unchecked.start ();
 	wallets.start ();
 	rep_tiers.start ();
 	vote_processor.start ();
@@ -735,7 +737,7 @@ void nano::node::stop ()
 	websocket.stop ();
 	bootstrap_server.stop ();
 	bootstrap_initiator.stop ();
-	tcp_listener->stop ();
+	tcp_listener.stop ();
 	port_mapping.stop ();
 	wallets.stop ();
 	stats.stop ();
@@ -1322,6 +1324,11 @@ nano::telemetry_data nano::node::local_telemetry () const
 	// Make sure this is the final operation!
 	telemetry_data.sign (node_id);
 	return telemetry_data;
+}
+
+std::string nano::node::identifier () const
+{
+	return make_logger_identifier (node_id);
 }
 
 std::string nano::node::make_logger_identifier (const nano::keypair & node_id)

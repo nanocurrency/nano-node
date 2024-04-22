@@ -432,5 +432,10 @@ namespace test
 	 * \brief Debugging function to print all blocks in a node. Intended to be used to debug unit tests.
 	 */
 	void print_all_blocks (const nano::store::component & store);
+
+	/**
+	 * Returns all blocks in the ledger
+	 */
+	std::vector<std::shared_ptr<nano::block>> all_blocks (nano::node &);
 }
 }

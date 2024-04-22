@@ -133,6 +133,7 @@ public:
 	void bootstrap_block (nano::block_hash const &);
 	nano::account get_node_id () const;
 	nano::telemetry_data local_telemetry () const;
+	std::string identifier () const;
 
 public:
 	const nano::keypair node_id;
@@ -160,7 +161,8 @@ public:
 	nano::telemetry telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;
 	nano::bootstrap_server bootstrap_server;
-	std::shared_ptr<nano::transport::tcp_listener> tcp_listener;
+	std::unique_ptr<nano::transport::tcp_listener> tcp_listener_impl;
+	nano::transport::tcp_listener & tcp_listener;
 	std::filesystem::path application_path;
 	nano::node_observers observers;
 	nano::port_mapping port_mapping;

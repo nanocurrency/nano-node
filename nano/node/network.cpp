@@ -630,8 +630,6 @@ nano::endpoint nano::network::endpoint () const
 
 void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutoff)
 {
-	node.logger.debug (nano::log::type::network, "Performing cleanup, cutoff: {}s", nano::log::seconds_delta (cutoff));
-
 	tcp_channels.purge (cutoff);
 
 	if (node.network.empty ())
@@ -844,8 +842,6 @@ bool nano::syn_cookies::validate (nano::endpoint const & endpoint_a, nano::accou
 
 void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cutoff_a)
 {
-	logger.debug (nano::log::type::syn_cookies, "Purging syn cookies, cutoff: {}s", nano::log::seconds_delta (cutoff_a));
-
 	nano::lock_guard<nano::mutex> lock{ syn_cookie_mutex };
 	auto it (cookies.begin ());
 	while (it != cookies.end ())

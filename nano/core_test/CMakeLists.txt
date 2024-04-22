@@ -1,6 +1,6 @@
 add_executable(
   core_test
-  core_test_main.cc
+  entry.cpp
   fakes/websocket_client.hpp
   fakes/work_peer.hpp
   active_transactions.cpp
@@ -33,6 +33,7 @@ add_executable(
   memory_pool.cpp
   network.cpp
   network_filter.cpp
+  network_functions.cpp
   node.cpp
   object_stream.cpp
   optimistic_scheduler.cpp

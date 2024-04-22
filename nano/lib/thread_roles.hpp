@@ -49,6 +49,7 @@ enum class name
 	network_keepalive,
 	network_reachout,
 	signal_manager,
+	tcp_listener,
 	peer_history,
 };
 
