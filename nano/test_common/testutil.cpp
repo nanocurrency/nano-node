@@ -353,3 +353,14 @@ void nano::test::print_all_blocks (const nano::store::component & store)
 		std::cout << b->to_json ();
 	}
 }
+
+std::vector<std::shared_ptr<nano::block>> nano::test::all_blocks (nano::node & node)
+{
+	auto transaction = node.store.tx_begin_read ();
+	std::vector<std::shared_ptr<nano::block>> result;
+	for (auto it = node.store.block.begin (transaction), end = node.store.block.end (); it != end; ++it)
+	{
+		result.push_back (it->second.block);
+	}
+	return result;
+}

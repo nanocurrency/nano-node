@@ -33,6 +33,7 @@ add_executable(
   memory_pool.cpp
   network.cpp
   network_filter.cpp
+  network_functions.cpp
   node.cpp
   object_stream.cpp
   optimistic_scheduler.cpp

@@ -123,8 +123,7 @@ std::chrono::steady_clock::time_point nano::vote_cache_entry::last_vote () const
 
 nano::vote_cache::vote_cache (vote_cache_config const & config_a, nano::stats & stats_a) :
 	config{ config_a },
-	stats{ stats_a },
-	cleanup_interval{ config_a.age_cutoff / 2 }
+	stats{ stats_a }
 {
 }
 
@@ -239,7 +238,7 @@ std::vector<nano::vote_cache::top_entry> nano::vote_cache::top (const nano::uint
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
 
-		if (cleanup_interval.elapsed ())
+		if (cleanup_interval.elapsed (config.age_cutoff / 2))
 		{
 			cleanup ();
 		}

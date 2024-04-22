@@ -25,6 +25,7 @@ enum class type : uint8_t
 	ipc,
 	tcp,
 	tcp_channels,
+	tcp_listener,
 	channel,
 	socket,
 	confirmation_height,
@@ -228,18 +229,24 @@ enum class detail : uint8_t
 	merge_peer,
 
 	// tcp
-	tcp_accept_success,
-	tcp_accept_failure,
 	tcp_write_drop,
 	tcp_write_no_socket_drop,
-	tcp_excluded,
-	tcp_max_per_ip,
-	tcp_max_per_subnetwork,
 	tcp_silent_connection_drop,
 	tcp_io_timeout_drop,
 	tcp_connect_error,
 	tcp_read_error,
 	tcp_write_error,
+
+	// tcp_listener
+	accept_success,
+	accept_error,
+	accept_failure,
+	accept_limits_exceeded,
+	close_error,
+	max_per_ip,
+	max_per_subnetwork,
+	excluded,
+	erase_dead,
 
 	// tcp_server
 	handshake,

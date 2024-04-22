@@ -27,7 +27,7 @@ public:
 
 		nano::lock_guard<nano::mutex> guard{ mutex };
 
-		if (cleanup_interval.elapsed ())
+		if (cleanup_interval.elapsed (cleanup_cutoff))
 		{
 			cleanup ();
 		}
@@ -75,6 +75,6 @@ private:
 private:
 	mutable nano::mutex mutex;
 	std::unordered_map<Key, std::weak_ptr<Value>> values;
-	nano::interval cleanup_interval{ cleanup_cutoff };
+	nano::interval cleanup_interval;
 };
 }

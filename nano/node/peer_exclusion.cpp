@@ -68,9 +68,14 @@ std::chrono::steady_clock::time_point nano::peer_exclusion::until (const nano::t
 
 bool nano::peer_exclusion::check (nano::tcp_endpoint const & endpoint) const
 {
+	return check (endpoint.address ());
+}
+
+bool nano::peer_exclusion::check (boost::asio::ip::address const & address) const
+{
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	if (auto existing = peers.get<tag_endpoint> ().find (endpoint.address ()); existing != peers.get<tag_endpoint> ().end ())
+	if (auto existing = peers.get<tag_endpoint> ().find (address); existing != peers.get<tag_endpoint> ().end ())
 	{
 		if (existing->score >= score_limit && existing->exclude_until > std::chrono::steady_clock::now ())
 		{

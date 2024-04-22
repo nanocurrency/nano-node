@@ -160,7 +160,8 @@ public:
 	nano::telemetry telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;
 	nano::bootstrap_server bootstrap_server;
-	std::shared_ptr<nano::transport::tcp_listener> tcp_listener;
+	std::unique_ptr<nano::transport::tcp_listener> tcp_listener_impl;
+	nano::transport::tcp_listener & tcp_listener;
 	std::filesystem::path application_path;
 	nano::node_observers observers;
 	nano::port_mapping port_mapping;
