@@ -1856,11 +1856,10 @@ int main (int argc, char * const * argv)
 		{
 			auto inactive_node = nano::default_inactive_node (data_path, vm);
 			auto node = inactive_node->node;
-			auto transaction (node->store.tx_begin_read ());
-
-			for (auto i (node->store.peer.begin (transaction)), n (node->store.peer.end ()); i != n; ++i)
+			auto peers = node->peer_history.peers ();
+			for (auto const & peer : peers)
 			{
-				std::cout << boost::str (boost::format ("%1%\n") % nano::endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ()));
+				std::cout << peer << std::endl;
 			}
 		}
 		else if (vm.count ("debug_cemented_block_count"))

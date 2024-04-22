@@ -1466,7 +1466,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 
 		for (auto i (store.peer.begin (lmdb_transaction)), n (store.peer.end ()); i != n; ++i)
 		{
-			rocksdb_store->peer.put (rocksdb_transaction, i->first);
+			rocksdb_store->peer.put (rocksdb_transaction, i->first, i->second);
 		}
 
 		// Compare counts

@@ -2813,10 +2813,10 @@ TEST (node, peers)
 	{
 		// Add a peer to the database
 		auto transaction (store.tx_begin_write ());
-		store.peer.put (transaction, endpoint_key);
+		store.peer.put (transaction, endpoint_key, 37);
 
 		// Add a peer which is not contactable
-		store.peer.put (transaction, nano::endpoint_key{ boost::asio::ip::address_v6::any ().to_bytes (), 55555 });
+		store.peer.put (transaction, nano::endpoint_key{ boost::asio::ip::address_v6::any ().to_bytes (), 55555 }, 42);
 	}
 
 	node2->start ();
@@ -2845,7 +2845,7 @@ TEST (node, peers)
 	ASSERT_TIMELY (10s, node2->network.empty ());
 }
 
-TEST (node, peer_cache_restart)
+TEST (node, peer_history_restart)
 {
 	nano::test::system system (1);
 	auto node1 (system.nodes[0]);
@@ -2860,7 +2860,7 @@ TEST (node, peer_cache_restart)
 		{
 			// Add a peer to the database
 			auto transaction (store.tx_begin_write ());
-			store.peer.put (transaction, endpoint_key);
+			store.peer.put (transaction, endpoint_key, 37);
 		}
 		node2->start ();
 		ASSERT_TIMELY (10s, !node2->network.empty ());

@@ -1157,7 +1157,7 @@ TEST (block_store, peers)
 		ASSERT_EQ (store->peer.count (transaction), 0);
 
 		// Add one
-		store->peer.put (transaction, endpoint);
+		store->peer.put (transaction, endpoint, 37);
 		ASSERT_TRUE (store->peer.exists (transaction, endpoint));
 	}
 
@@ -1165,13 +1165,14 @@ TEST (block_store, peers)
 	{
 		auto transaction (store->tx_begin_read ());
 		ASSERT_EQ (store->peer.count (transaction), 1);
+		ASSERT_EQ (store->peer.get (transaction, endpoint), 37);
 	}
 
 	// Add another one and check that it (and the existing one) can be found
 	nano::endpoint_key endpoint1 (boost::asio::ip::address_v6::any ().to_bytes (), 101);
 	{
 		auto transaction (store->tx_begin_write ());
-		store->peer.put (transaction, endpoint1);
+		store->peer.put (transaction, endpoint1, 42);
 		ASSERT_TRUE (store->peer.exists (transaction, endpoint1)); // Check new peer is here
 		ASSERT_TRUE (store->peer.exists (transaction, endpoint)); // Check first peer is still here
 	}
@@ -1179,6 +1180,8 @@ TEST (block_store, peers)
 	{
 		auto transaction (store->tx_begin_read ());
 		ASSERT_EQ (store->peer.count (transaction), 2);
+		ASSERT_EQ (store->peer.get (transaction, endpoint), 37);
+		ASSERT_EQ (store->peer.get (transaction, endpoint1), 42);
 	}
 
 	// Delete the first one
