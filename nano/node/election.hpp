@@ -41,6 +41,15 @@ struct election_extended_status final
 	void operator() (nano::object_stream &) const;
 };
 
+enum class election_state
+{
+	passive, // only listening for incoming votes
+	active, // actively request confirmations
+	confirmed, // confirmed but still listening for votes
+	expired_confirmed,
+	expired_unconfirmed
+};
+
 class election final : public std::enable_shared_from_this<election>
 {
 	nano::id_t const id{ nano::next_id () }; // Track individual objects when tracing
@@ -52,18 +61,9 @@ private:
 	std::function<void (nano::account const &)> live_vote_action;
 
 private: // State management
-	enum class state_t
-	{
-		passive, // only listening for incoming votes
-		active, // actively request confirmations
-		confirmed, // confirmed but still listening for votes
-		expired_confirmed,
-		expired_unconfirmed
-	};
-
 	static unsigned constexpr passive_duration_factor = 5;
 	static unsigned constexpr active_request_count_min = 2;
-	nano::election::state_t state_m = { state_t::passive };
+	nano::election_state state_m { election_state::passive };
 
 	std::chrono::steady_clock::duration state_start{ std::chrono::steady_clock::now ().time_since_epoch () };
 
@@ -74,8 +74,8 @@ private: // State management
 	/** The last time vote for this election was generated */
 	std::chrono::steady_clock::time_point last_vote{};
 
-	bool valid_change (nano::election::state_t, nano::election::state_t) const;
-	bool state_change (nano::election::state_t, nano::election::state_t);
+	bool valid_change (nano::election_state, nano::election_state) const;
+	bool state_change (nano::election_state, nano::election_state);
 
 public: // State transitions
 	bool transition_time (nano::confirmation_solicitor &);
