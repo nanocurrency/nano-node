@@ -117,7 +117,7 @@ private:
 	std::optional<std::pair<nano::pending_key, nano::pending_info>> receivable_lower_bound (secure::transaction const & tx, nano::account const & account, nano::block_hash const & hash) const;
 	void initialize (nano::generate_cache_flags const &);
 
-public: // for unit tests only
+public: // making this function public so that it is accessible from unit tests
 	void confirm (secure::write_transaction const & transaction, nano::block const & block);
 };
 }
