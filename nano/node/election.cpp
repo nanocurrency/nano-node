@@ -8,8 +8,6 @@
 #include <nano/node/vote_generator.hpp>
 #include <nano/secure/ledger.hpp>
 
-#include <boost/format.hpp>
-
 #include <magic_enum.hpp>
 
 using namespace std::chrono;
@@ -738,13 +736,6 @@ std::vector<nano::vote_with_weight_info> nano::election::votes_with_weight () co
 	return result;
 }
 
-nano::stat::detail nano::to_stat_detail (nano::election_behavior behavior)
-{
-	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (behavior));
-	debug_assert (value);
-	return value.value_or (nano::stat::detail{});
-}
-
 nano::election_behavior nano::election::behavior () const
 {
 	return behavior_m;
@@ -789,4 +780,20 @@ void nano::election_extended_status::operator() (nano::object_stream & obs) cons
 		obs.write ("hash", block->hash ().to_string ());
 		obs.write ("amount", amount);
 	});
+}
+
+/*
+ *
+ */
+
+std::string_view nano::to_string (nano::election_behavior behavior)
+{
+	return magic_enum::enum_name (behavior);
+}
+
+nano::stat::detail nano::to_stat_detail (nano::election_behavior behavior)
+{
+	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (behavior));
+	debug_assert (value);
+	return value.value_or (nano::stat::detail{});
 }

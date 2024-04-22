@@ -1,4 +1,5 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
@@ -11,7 +12,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
 
-#include <boost/format.hpp>
+#include <ranges>
 
 using namespace std::chrono;
 
@@ -278,6 +279,10 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 	node.stats.inc (completion_type (*election), to_stat_detail (election->behavior ()));
 	node.logger.trace (nano::log::type::active_transactions, nano::log::detail::active_stopped, nano::log::arg{ "election", election });
 
+	node.logger.debug (nano::log::type::active_transactions, "Erased election for blocks: {} (behavior: {})",
+	fmt::join (std::views::keys (blocks_l), ", "),
+	to_string (election->behavior ()));
+
 	lock_a.unlock ();
 
 	vacancy_update ();
@@ -405,6 +410,10 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 			node.logger.trace (nano::log::type::active_transactions, nano::log::detail::active_started,
 			nano::log::arg{ "behavior", election_behavior_a },
 			nano::log::arg{ "election", result.election });
+
+			node.logger.debug (nano::log::type::active_transactions, "Started new election for block: {} (behavior: {})",
+			hash.to_string (),
+			to_string (election_behavior_a));
 		}
 		else
 		{

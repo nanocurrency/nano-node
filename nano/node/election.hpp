@@ -28,8 +28,6 @@ public:
 	nano::block_hash hash;
 };
 
-nano::stat::detail to_stat_detail (nano::election_behavior);
-
 // map of vote weight per block, ordered greater first
 using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::greater<nano::uint128_t>>;
 
