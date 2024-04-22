@@ -6,6 +6,8 @@
 #include <array>
 #include <ostream>
 
+#include <fmt/ostream.h>
+
 namespace nano
 {
 using uint128_t = boost::multiprecision::uint128_t;
@@ -268,9 +270,9 @@ std::string to_string_hex (uint16_t const);
 bool from_string_hex (std::string const &, uint64_t &);
 
 /* Printing adapters */
-std::ostream & operator<< (std::ostream & os, const uint128_union & val);
-std::ostream & operator<< (std::ostream & os, const uint256_union & val);
-std::ostream & operator<< (std::ostream & os, const uint512_union & val);
+std::ostream & operator<< (std::ostream &, const uint128_union &);
+std::ostream & operator<< (std::ostream &, const uint256_union &);
+std::ostream & operator<< (std::ostream &, const uint512_union &);
 
 /**
  * Convert a double to string in fixed format
@@ -284,6 +286,10 @@ namespace difficulty
 	double to_multiplier (uint64_t const, uint64_t const);
 }
 }
+
+/*
+ * Hashing
+ */
 
 namespace std
 {
@@ -398,3 +404,37 @@ struct hash<::nano::root>
 	}
 };
 }
+
+/*
+ * Formatters
+ */
+
+template <>
+struct fmt::formatter<nano::uint128_union> : fmt::ostream_formatter
+{
+};
+
+template <>
+struct fmt::formatter<nano::uint256_union> : fmt::ostream_formatter
+{
+};
+
+template <>
+struct fmt::formatter<nano::uint512_union> : fmt::ostream_formatter
+{
+};
+
+template <>
+struct fmt::formatter<nano::block_hash> : fmt::formatter<nano::uint256_union>
+{
+};
+
+template <>
+struct fmt::formatter<nano::public_key> : fmt::formatter<nano::uint256_union>
+{
+};
+
+template <>
+struct fmt::formatter<nano::qualified_root> : fmt::formatter<nano::uint512_union>
+{
+};
