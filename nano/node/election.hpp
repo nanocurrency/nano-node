@@ -50,6 +50,8 @@ enum class election_state
 	expired_unconfirmed
 };
 
+std::string_view to_string (election_state);
+
 class election final : public std::enable_shared_from_this<election>
 {
 	nano::id_t const id{ nano::next_id () }; // Track individual objects when tracing
@@ -63,7 +65,7 @@ private:
 private: // State management
 	static unsigned constexpr passive_duration_factor = 5;
 	static unsigned constexpr active_request_count_min = 2;
-	nano::election_state state_m { election_state::passive };
+	nano::election_state state_m{ election_state::passive };
 
 	std::chrono::steady_clock::duration state_start{ std::chrono::steady_clock::now ().time_since_epoch () };
 
@@ -128,8 +130,10 @@ public: // Information
 	uint64_t const height;
 	nano::root const root;
 	nano::qualified_root const qualified_root;
+
 	std::vector<nano::vote_with_weight_info> votes_with_weight () const;
 	nano::election_behavior behavior () const;
+	nano::election_state state () const;
 
 private:
 	nano::tally_t tally_impl () const;

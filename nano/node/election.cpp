@@ -741,12 +741,18 @@ nano::election_behavior nano::election::behavior () const
 	return behavior_m;
 }
 
+nano::election_state nano::election::state () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return state_m;
+}
+
 // TODO: Remove the need for .to_string () calls
 void nano::election::operator() (nano::object_stream & obs) const
 {
 	obs.write ("id", id);
 	obs.write ("qualified_root", qualified_root.to_string ());
-	obs.write ("behaviour", behavior_m);
+	obs.write ("behavior", behavior_m);
 	obs.write ("height", height);
 	obs.write ("status", current_status ());
 }
@@ -796,4 +802,9 @@ nano::stat::detail nano::to_stat_detail (nano::election_behavior behavior)
 	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (behavior));
 	debug_assert (value);
 	return value.value_or (nano::stat::detail{});
+}
+
+std::string_view nano::to_string (nano::election_state state)
+{
+	return magic_enum::enum_name (state);
 }
