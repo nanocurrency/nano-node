@@ -1338,6 +1338,11 @@ nano::telemetry_data nano::node::local_telemetry () const
 	return telemetry_data;
 }
 
+std::string nano::node::identifier () const
+{
+	return make_logger_identifier (node_id);
+}
+
 std::string nano::node::make_logger_identifier (const nano::keypair & node_id)
 {
 	// Node identifier consists of first 10 characters of node id

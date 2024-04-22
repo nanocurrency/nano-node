@@ -1,5 +1,9 @@
 #pragma once
 
+#include <nano/lib/stats.hpp>
+
+#include <string_view>
+
 namespace nano
 {
 enum class election_behavior
@@ -19,4 +23,7 @@ enum class election_behavior
 	 */
 	optimistic,
 };
+
+std::string_view to_string (election_behavior);
+nano::stat::detail to_stat_detail (election_behavior);
 }

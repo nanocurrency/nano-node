@@ -23,19 +23,22 @@ nano::thread_runner::thread_runner (std::shared_ptr<boost::asio::io_context> io_
 			nano::thread_role::set (role);
 			try
 			{
-				logger.debug (nano::log::type::thread_runner, "Thread #{} ({}) started", i, to_string (role));
+				logger.debug (nano::log::type::thread_runner, "Started thread #{} ({})", i, to_string (role));
 				run ();
-				logger.debug (nano::log::type::thread_runner, "Thread #{} ({}) stopped", i, to_string (role));
+				logger.debug (nano::log::type::thread_runner, "Stopped thread #{} ({})", i, to_string (role));
 			}
 			catch (std::exception const & ex)
 			{
-				std::cerr << ex.what () << std::endl;
+				logger.critical (nano::log::type::thread_runner, "Error: {}", ex.what ());
+
 #ifndef NDEBUG
 				throw; // Re-throw to debugger in debug mode
 #endif
 			}
 			catch (...)
 			{
+				logger.critical (nano::log::type::thread_runner, "Unknown error");
+
 #ifndef NDEBUG
 				throw; // Re-throw to debugger in debug mode
 #endif
