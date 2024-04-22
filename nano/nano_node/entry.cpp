@@ -1856,7 +1856,7 @@ int main (int argc, char * const * argv)
 		{
 			auto inactive_node = nano::default_inactive_node (data_path, vm);
 			auto node = inactive_node->node;
-			auto peers = node->peer_cache.cached_peers ();
+			auto peers = node->peer_history.peers ();
 			for (auto const & peer : peers)
 			{
 				std::cout << peer << std::endl;

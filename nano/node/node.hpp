@@ -48,7 +48,7 @@ class active_transactions;
 class confirming_set;
 class node;
 class work_pool;
-class peer_cache;
+class peer_history;
 
 namespace scheduler
 {
@@ -193,8 +193,8 @@ public:
 	nano::epoch_upgrader epoch_upgrader;
 	nano::local_block_broadcaster local_block_broadcaster;
 	nano::process_live_dispatcher process_live_dispatcher;
-	std::unique_ptr<nano::peer_cache> peer_cache_impl;
-	nano::peer_cache & peer_cache;
+	std::unique_ptr<nano::peer_history> peer_history_impl;
+	nano::peer_history & peer_history;
 
 	std::chrono::steady_clock::time_point const startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week

@@ -1127,10 +1127,10 @@ TEST (network, reconnect_cached)
 	auto channel2 = channels2.front ();
 
 	// Enusre current peers are cached
-	node1.peer_cache.trigger ();
-	node2.peer_cache.trigger ();
-	ASSERT_TIMELY_EQ (5s, node1.peer_cache.size (), 1);
-	ASSERT_TIMELY_EQ (5s, node2.peer_cache.size (), 1);
+	node1.peer_history.trigger ();
+	node2.peer_history.trigger ();
+	ASSERT_TIMELY_EQ (5s, node1.peer_history.size (), 1);
+	ASSERT_TIMELY_EQ (5s, node2.peer_history.size (), 1);
 
 	// Kill channels
 	channel1->close ();

@@ -10,10 +10,10 @@
 
 namespace nano
 {
-class peer_cache_config final
+class peer_history_config final
 {
 public:
-	explicit peer_cache_config (nano::network_constants const & network);
+	explicit peer_history_config (nano::network_constants const & network);
 
 	nano::error deserialize (nano::tomlconfig & toml);
 	nano::error serialize (nano::tomlconfig & toml) const;
@@ -23,16 +23,16 @@ public:
 	std::chrono::seconds check_interval{ 15s };
 };
 
-class peer_cache final
+class peer_history final
 {
 public:
-	peer_cache (peer_cache_config const &, nano::store::component &, nano::network &, nano::logger &, nano::stats &);
-	~peer_cache ();
+	peer_history (peer_history_config const &, nano::store::component &, nano::network &, nano::logger &, nano::stats &);
+	~peer_history ();
 
 	void start ();
 	void stop ();
 
-	std::vector<nano::endpoint> cached_peers () const;
+	std::vector<nano::endpoint> peers () const;
 	bool exists (nano::endpoint const & endpoint) const;
 	size_t size () const;
 	void trigger ();
@@ -42,7 +42,7 @@ private:
 	void run_one ();
 
 private: // Dependencies
-	peer_cache_config const & config;
+	peer_history_config const & config;
 	nano::store::component & store;
 	nano::network & network;
 	nano::logger & logger;

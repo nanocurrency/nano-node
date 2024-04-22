@@ -10,7 +10,7 @@
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/peer_cache.hpp>
+#include <nano/node/peer_history.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/manual.hpp>
@@ -199,8 +199,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	epoch_upgrader{ *this, ledger, store, network_params, logger },
 	local_block_broadcaster{ *this, block_processor, network, stats, !flags.disable_block_processor_republishing },
 	process_live_dispatcher{ ledger, scheduler.priority, vote_cache, websocket },
-	peer_cache_impl{ std::make_unique<nano::peer_cache> (config.peer_cache, store, network, logger, stats) },
-	peer_cache{ *peer_cache_impl },
+	peer_history_impl{ std::make_unique<nano::peer_history> (config.peer_history, store, network, logger, stats) },
+	peer_history{ *peer_history_impl },
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq)
 {
@@ -696,7 +696,7 @@ void nano::node::start ()
 	websocket.start ();
 	telemetry.start ();
 	local_block_broadcaster.start ();
-	peer_cache.start ();
+	peer_history.start ();
 
 	add_initial_peers ();
 }
@@ -711,7 +711,7 @@ void nano::node::stop ()
 
 	logger.info (nano::log::type::node, "Node stopping...");
 
-	peer_cache.stop ();
+	peer_history.stop ();
 	// Cancels ongoing work generation tasks, which may be blocking other threads
 	// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
 	distributed_work.stop ();
@@ -1151,7 +1151,7 @@ void nano::node::add_initial_peers ()
 		return;
 	}
 
-	auto initial_peers = peer_cache.cached_peers ();
+	auto initial_peers = peer_history.peers ();
 
 	logger.info (nano::log::type::node, "Adding cached initial peers: {}", initial_peers.size ());
 

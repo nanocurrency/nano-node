@@ -2844,7 +2844,7 @@ TEST (node, peers)
 	ASSERT_TIMELY (10s, node2->network.empty ());
 }
 
-TEST (node, peer_cache_restart)
+TEST (node, peer_history_restart)
 {
 	nano::test::system system (1);
 	auto node1 (system.nodes[0]);

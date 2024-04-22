@@ -119,8 +119,8 @@ add_library(
   openclconfig.cpp
   openclwork.hpp
   openclwork.cpp
-  peer_cache.hpp
-  peer_cache.cpp
+  peer_history.hpp
+  peer_history.cpp
   peer_exclusion.hpp
   peer_exclusion.cpp
   portmapping.hpp
