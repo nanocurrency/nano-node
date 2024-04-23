@@ -1364,10 +1364,11 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 
 	// add the blocks without starting elections because elections publish blocks
 	// and the publishing would interefere with the testing
-	ASSERT_TRUE (nano::test::process (*node1, { send1, send2, open, state_open }));
-	ASSERT_TIMELY (5s, nano::test::exists (*node1, { send1, send2, open, state_open }));
-	nano::test::confirm (node1->ledger, { send1, send2, open, state_open });
-	ASSERT_TIMELY (5s, nano::test::confirmed (*node1, { send1, send2, open, state_open }));
+	std::vector<std::shared_ptr<nano::block>> const blocks{ send1, send2, open, state_open };
+	ASSERT_TRUE (nano::test::process (*node1, blocks));
+	ASSERT_TIMELY (5s, nano::test::exists (*node1, blocks));
+	nano::test::force_confirm (node1->ledger, blocks);
+	ASSERT_TIMELY (5s, nano::test::confirmed (*node1, blocks));
 	ASSERT_EQ (5, node1->ledger.block_count ());
 	ASSERT_EQ (5, node1->ledger.cemented_count ());
 
