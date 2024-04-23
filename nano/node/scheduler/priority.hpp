@@ -6,6 +6,7 @@
 
 #include <condition_variable>
 #include <deque>
+#include <map>
 #include <memory>
 #include <string>
 #include <thread>
@@ -14,6 +15,7 @@ namespace nano
 {
 class block;
 class container_info_component;
+class election;
 class node;
 class stats;
 }
@@ -21,27 +23,42 @@ namespace nano::secure
 {
 class transaction;
 }
+namespace nano::scheduler
+{
+class bucket;
+}
 
 namespace nano::scheduler
 {
-class buckets;
+class priority_config final
+{
+public:
+	// nano::error deserialize (nano::tomlconfig & toml);
+	// nano::error serialize (nano::tomlconfig & toml) const;
+
+public:
+	size_t depth{ 128 }; // 62 buckets of 128 items a piece = 7,936 possible elections / backlog
+};
 class priority final
 {
 public:
 	priority (nano::node &, nano::stats &);
 	~priority ();
 
-	void start ();
-	void stop ();
-
 	/**
-	 * Activates the first unconfirmed block of \p account_a
-	 * @return true if account was activated
+	 * Activates the first unconfirmed block of \p account
+	 * @return Block that was evicted when the first unconfirmed block for \p account was activated
 	 */
-	bool activate (secure::transaction const &, nano::account const &);
-	void notify ();
-	std::size_t size () const;
-	bool empty () const;
+	std::shared_ptr<nano::block> activate (secure::transaction const & transaction, nano::account const & account);
+	/**
+	 * Activates the block \p block
+	 * @return Block that was evicted when \p block was activated
+	 */
+	std::shared_ptr<nano::block> activate (secure::transaction const & transaction, std::shared_ptr<nano::block> const & block);
+	/**
+	 * Notify container when election has stopped to free space
+	 */
+	void election_stopped (std::shared_ptr<nano::election> election);
 
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
 
@@ -50,15 +67,10 @@ private: // Dependencies
 	nano::stats & stats;
 
 private:
-	void run ();
-	bool empty_locked () const;
-	bool predicate () const;
+	void setup_buckets ();
 
-	std::unique_ptr<nano::scheduler::buckets> buckets;
-
-	bool stopped{ false };
-	nano::condition_variable condition;
+	std::unordered_map<nano::block_hash, nano::scheduler::bucket *> tracking;
+	std::map<nano::amount, std::unique_ptr<nano::scheduler::bucket>> buckets;
 	mutable nano::mutex mutex;
-	std::thread thread;
 };
 }

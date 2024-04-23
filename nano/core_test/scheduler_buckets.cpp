@@ -1,5 +1,5 @@
 #include <nano/lib/blocks.hpp>
-#include <nano/node/scheduler/buckets.hpp>
+#include <nano/node/scheduler/bucket.hpp>
 #include <nano/secure/common.hpp>
 
 #include <gtest/gtest.h>
@@ -107,148 +107,50 @@ std::shared_ptr<nano::state_block> & block3 ()
 	return result;
 }
 
-TEST (buckets, construction)
+TEST (bucket, construction)
 {
-	nano::scheduler::buckets buckets;
-	ASSERT_EQ (0, buckets.size ());
-	ASSERT_TRUE (buckets.empty ());
-	ASSERT_EQ (62, buckets.bucket_count ());
+	nano::scheduler::bucket bucket{ 0 };
 }
 
-TEST (buckets, index_min)
+TEST (bucket, insert_zero)
 {
-	nano::scheduler::buckets buckets;
-	ASSERT_EQ (0, buckets.index (std::numeric_limits<nano::uint128_t>::min ()));
+	nano::scheduler::bucket bucket{ 0 };
+	auto block = block0 ();
+	auto drop = bucket.insert (std::chrono::steady_clock::time_point{} + std::chrono::milliseconds{ 0 }, block);
+	ASSERT_EQ (drop, block);
 }
 
-TEST (buckets, index_max)
+TEST (bucket, push_available)
 {
-	nano::scheduler::buckets buckets;
-	ASSERT_EQ (buckets.bucket_count () - 1, buckets.index (std::numeric_limits<nano::uint128_t>::max ()));
+	nano::scheduler::bucket bucket{ 1 };
+	auto block = block0 ();
+	ASSERT_EQ (nullptr, bucket.insert (std::chrono::steady_clock::time_point{} + std::chrono::milliseconds{ 1000 }, block));
 }
 
-TEST (buckets, insert_Gxrb)
+TEST (bucket, push_overflow_other)
 {
-	nano::scheduler::buckets buckets;
-	buckets.push (1000, block0 (), nano::Gxrb_ratio);
-	ASSERT_EQ (1, buckets.size ());
-	ASSERT_EQ (1, buckets.bucket_size (48));
+	nano::scheduler::bucket bucket{ 1 };
+	auto block0 = ::block0 ();
+	auto block1 = ::block1 ();
+	ASSERT_EQ (nullptr, bucket.insert (std::chrono::steady_clock::time_point{} + std::chrono::milliseconds{ 1000 }, block0));
+	ASSERT_EQ (block0, bucket.insert (std::chrono::steady_clock::time_point{} + std::chrono::milliseconds{ 900 }, block1));
 }
 
-TEST (buckets, insert_Mxrb)
+TEST (bucket, push_overflow_self)
 {
-	nano::scheduler::buckets buckets;
-	buckets.push (1000, block1 (), nano::Mxrb_ratio);
-	ASSERT_EQ (1, buckets.size ());
-	ASSERT_EQ (1, buckets.bucket_size (13));
+	nano::scheduler::bucket bucket{ 1 };
+	auto block0 = ::block0 ();
+	auto block1 = ::block1 ();
+	ASSERT_EQ (nullptr, bucket.insert (std::chrono::steady_clock::time_point{} + std::chrono::milliseconds{ 1000 }, block0));
+	ASSERT_EQ (block1, bucket.insert (std::chrono::steady_clock::time_point{} + std::chrono::milliseconds{ 1100 }, block1));
 }
 
-// Test two blocks with the same priority
-TEST (buckets, insert_same_priority)
+// Inserting duplicate block should not return an overflow or reject
+TEST (bucket, accept_duplicate)
 {
-	nano::scheduler::buckets buckets;
-	buckets.push (1000, block0 (), nano::Gxrb_ratio);
-	buckets.push (1000, block2 (), nano::Gxrb_ratio);
-	ASSERT_EQ (2, buckets.size ());
-	ASSERT_EQ (2, buckets.bucket_size (48));
-}
-
-// Test the same block inserted multiple times
-TEST (buckets, insert_duplicate)
-{
-	nano::scheduler::buckets buckets;
-	buckets.push (1000, block0 (), nano::Gxrb_ratio);
-	buckets.push (1000, block0 (), nano::Gxrb_ratio);
-	ASSERT_EQ (1, buckets.size ());
-	ASSERT_EQ (1, buckets.bucket_size (48));
-}
-
-TEST (buckets, insert_older)
-{
-	nano::scheduler::buckets buckets;
-	buckets.push (1000, block0 (), nano::Gxrb_ratio);
-	buckets.push (1100, block2 (), nano::Gxrb_ratio);
-	ASSERT_EQ (block0 (), buckets.top ());
-	buckets.pop ();
-	ASSERT_EQ (block2 (), buckets.top ());
-	buckets.pop ();
-}
-
-TEST (buckets, pop)
-{
-	nano::scheduler::buckets buckets;
-	ASSERT_TRUE (buckets.empty ());
-	buckets.push (1000, block0 (), nano::Gxrb_ratio);
-	ASSERT_FALSE (buckets.empty ());
-	buckets.pop ();
-	ASSERT_TRUE (buckets.empty ());
-}
-
-TEST (buckets, top_one)
-{
-	nano::scheduler::buckets buckets;
-	buckets.push (1000, block0 (), nano::Gxrb_ratio);
-	ASSERT_EQ (block0 (), buckets.top ());
-}
-
-TEST (buckets, top_two)
-{
-	nano::scheduler::buckets buckets;
-	buckets.push (1000, block0 (), nano::Gxrb_ratio);
-	buckets.push (1, block1 (), nano::Mxrb_ratio);
-	ASSERT_EQ (block0 (), buckets.top ());
-	buckets.pop ();
-	ASSERT_EQ (block1 (), buckets.top ());
-	buckets.pop ();
-	ASSERT_TRUE (buckets.empty ());
-}
-
-TEST (buckets, top_round_robin)
-{
-	nano::scheduler::buckets buckets;
-	buckets.push (1000, blockzero (), 0);
-	ASSERT_EQ (blockzero (), buckets.top ());
-	buckets.push (1000, block0 (), nano::Gxrb_ratio);
-	buckets.push (1000, block1 (), nano::Mxrb_ratio);
-	buckets.push (1100, block3 (), nano::Mxrb_ratio);
-	buckets.pop (); // blockzero
-	EXPECT_EQ (block1 (), buckets.top ());
-	buckets.pop ();
-	EXPECT_EQ (block0 (), buckets.top ());
-	buckets.pop ();
-	EXPECT_EQ (block3 (), buckets.top ());
-	buckets.pop ();
-	EXPECT_TRUE (buckets.empty ());
-}
-
-TEST (buckets, trim_normal)
-{
-	nano::scheduler::buckets buckets{ 1 };
-	buckets.push (1000, block0 (), nano::Gxrb_ratio);
-	buckets.push (1100, block2 (), nano::Gxrb_ratio);
-	ASSERT_EQ (1, buckets.size ());
-	ASSERT_EQ (block0 (), buckets.top ());
-}
-
-TEST (buckets, trim_reverse)
-{
-	nano::scheduler::buckets buckets{ 1 };
-	buckets.push (1100, block2 (), nano::Gxrb_ratio);
-	buckets.push (1000, block0 (), nano::Gxrb_ratio);
-	ASSERT_EQ (1, buckets.size ());
-	ASSERT_EQ (block0 (), buckets.top ());
-}
-
-TEST (buckets, trim_even)
-{
-	nano::scheduler::buckets buckets{ 2 };
-	buckets.push (1000, block0 (), nano::Gxrb_ratio);
-	buckets.push (1100, block2 (), nano::Gxrb_ratio);
-	ASSERT_EQ (1, buckets.size ());
-	ASSERT_EQ (block0 (), buckets.top ());
-	buckets.push (1000, block1 (), nano::Mxrb_ratio);
-	ASSERT_EQ (2, buckets.size ());
-	ASSERT_EQ (block0 (), buckets.top ());
-	buckets.pop ();
-	ASSERT_EQ (block1 (), buckets.top ());
+	nano::scheduler::bucket bucket{ 1 };
+	auto block0 = ::block0 ();
+	ASSERT_EQ (nullptr, bucket.insert (std::chrono::steady_clock::time_point{} + std::chrono::milliseconds{ 1000 }, block0));
+	ASSERT_EQ (nullptr, bucket.insert (std::chrono::steady_clock::time_point{} + std::chrono::milliseconds{ 900 }, block0));
+	ASSERT_EQ (nullptr, bucket.insert (std::chrono::steady_clock::time_point{} + std::chrono::milliseconds{ 1100 }, block0));
 }

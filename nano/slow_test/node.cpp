@@ -2166,7 +2166,7 @@ TEST (system, block_sequence)
 			std::string message;
 			for (auto i : system.nodes)
 			{
-				message += boost::str (boost::format ("N:%1% b:%2% c:%3% a:%4% s:%5% p:%6%\n") % std::to_string (i->network.port) % std::to_string (i->ledger.block_count ()) % std::to_string (i->ledger.cemented_count ()) % std::to_string (i->active.size ()) % std::to_string (i->scheduler.priority.size ()) % std::to_string (i->network.size ()));
+				message += boost::str (boost::format ("N:%1% b:%2% c:%3% a:%4% p:%5%\n") % std::to_string (i->network.port) % std::to_string (i->ledger.block_count ()) % std::to_string (i->ledger.cemented_count ()) % std::to_string (i->active.size ()) % std::to_string (i->network.size ()));
 				nano::lock_guard<nano::mutex> lock{ i->active.mutex };
 				for (auto const & j : i->active.roots)
 				{

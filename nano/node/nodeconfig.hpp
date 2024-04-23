@@ -18,6 +18,7 @@
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
+#include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_processor.hpp>
@@ -61,6 +62,7 @@ public:
 	std::optional<uint16_t> peering_port{};
 	nano::scheduler::optimistic_config optimistic_scheduler;
 	nano::scheduler::hinted_config hinted_scheduler;
+	nano::scheduler::priority_config priority_scheduler;
 	std::vector<std::pair<std::string, uint16_t>> work_peers;
 	std::vector<std::pair<std::string, uint16_t>> secondary_work_peers{ { "127.0.0.1", 8076 } }; /* Default of nano-pow-server */
 	std::vector<std::string> preconfigured_peers;

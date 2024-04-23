@@ -26,7 +26,6 @@ void nano::scheduler::component::start ()
 	hinted.start ();
 	manual.start ();
 	optimistic.start ();
-	priority.start ();
 }
 
 void nano::scheduler::component::stop ()
@@ -34,7 +33,6 @@ void nano::scheduler::component::stop ()
 	hinted.stop ();
 	manual.stop ();
 	optimistic.stop ();
-	priority.stop ();
 }
 
 std::unique_ptr<nano::container_info_component> nano::scheduler::component::collect_container_info (std::string const & name)

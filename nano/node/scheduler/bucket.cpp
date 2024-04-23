@@ -1,62 +1,34 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/node/scheduler/bucket.hpp>
 
-bool nano::scheduler::bucket::value_type::operator< (value_type const & other_a) const
+nano::block_hash nano::scheduler::bucket::entry_t::hash () const
 {
-	return time < other_a.time || (time == other_a.time && block->hash () < other_a.block->hash ());
+	return block->hash ();
 }
 
-bool nano::scheduler::bucket::value_type::operator== (value_type const & other_a) const
-{
-	return time == other_a.time && block->hash () == other_a.block->hash ();
-}
-
-nano::scheduler::bucket::bucket (size_t maximum) :
-	maximum{ maximum }
-{
-	debug_assert (maximum > 0);
-}
-
-nano::scheduler::bucket::~bucket ()
+nano::scheduler::bucket::bucket (size_t max) :
+	max{ max }
 {
 }
 
-std::shared_ptr<nano::block> nano::scheduler::bucket::top () const
+std::shared_ptr<nano::block> nano::scheduler::bucket::insert (std::chrono::steady_clock::time_point time, std::shared_ptr<nano::block> block)
 {
-	debug_assert (!queue.empty ());
-	return queue.begin ()->block;
-}
-
-void nano::scheduler::bucket::pop ()
-{
-	debug_assert (!queue.empty ());
-	queue.erase (queue.begin ());
-}
-
-void nano::scheduler::bucket::push (uint64_t time, std::shared_ptr<nano::block> block)
-{
-	queue.insert ({ time, block });
-	if (queue.size () > maximum)
+	std::lock_guard lock{ mutex };
+	backlog.insert (entry_t{ time, block });
+	debug_assert (backlog.size () <= max + 1); // One extra at most
+	if (backlog.size () <= max)
 	{
-		debug_assert (!queue.empty ());
-		queue.erase (--queue.end ());
+		return nullptr;
 	}
+	auto newest = backlog.begin (); // The first item in descending order has the highest timestamp i.e. it is the newest.
+	auto discard = newest->block;
+	backlog.erase (newest);
+	debug_assert (backlog.size () <= max);
+	return discard;
 }
 
-size_t nano::scheduler::bucket::size () const
+size_t nano::scheduler::bucket::erase (nano::block_hash const & hash)
 {
-	return queue.size ();
-}
-
-bool nano::scheduler::bucket::empty () const
-{
-	return queue.empty ();
-}
-
-void nano::scheduler::bucket::dump () const
-{
-	for (auto const & item : queue)
-	{
-		std::cerr << item.time << ' ' << item.block->hash ().to_string () << '\n';
-	}
+	std::lock_guard lock{ mutex };
+	return backlog.get<tag_hash> ().erase (hash);
 }

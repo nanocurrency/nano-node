@@ -126,6 +126,9 @@ enum class detail
 
 	// election_scheduler
 	block_activated,
+	block_insert, // Block inserted with no overflow
+	block_overflow, // Block inserted and another block was removed as an overflow
+	block_reject, // Block was not inserted because of an overflow
 
 	// vote_generator
 	candidate_processed,

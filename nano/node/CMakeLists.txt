@@ -139,8 +139,6 @@ add_library(
   request_aggregator.cpp
   scheduler/bucket.cpp
   scheduler/bucket.hpp
-  scheduler/buckets.cpp
-  scheduler/buckets.hpp
   scheduler/component.hpp
   scheduler/component.cpp
   scheduler/hinted.hpp

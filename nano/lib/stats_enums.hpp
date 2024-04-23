@@ -145,6 +145,7 @@ enum class detail
 	balance_mismatch,
 	representative_mismatch,
 	block_position,
+	overflow,
 
 	// blockprocessor
 	process_blocking,

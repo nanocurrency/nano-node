@@ -254,7 +254,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	{
 		// Notify election schedulers when AEC frees election slot
 		active.election_stopped.add ([this] (std::shared_ptr<nano::election> election) {
-			scheduler.priority.notify ();
+			scheduler.priority.election_stopped (election);
 			scheduler.hinted.notify ();
 			scheduler.optimistic.notify ();
 		});

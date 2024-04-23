@@ -6,6 +6,8 @@
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/scheduler/component.hpp>
+#include <nano/node/scheduler/priority.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/store/component.hpp>
@@ -367,6 +369,22 @@ nano::block_status nano::block_processor::process_one (secure::write_transaction
 	nano::log::arg{ "forced", forced_a },
 	nano::log::arg{ "block", block });
 
+	if (result == nano::block_status::progress)
+	{
+		std::shared_ptr<nano::block> removed;
+		if (node.ledger.dependents_confirmed (transaction_a, *block))
+		{
+			removed = node.scheduler.priority.activate (transaction_a, block->account ());
+		}
+		if (removed != nullptr && node.ledger.any.block_exists (transaction_a, removed->hash ()))
+		{
+			node.ledger.rollback (transaction_a, removed->hash ());
+			if (removed->hash () == block->hash ())
+			{
+				return nano::block_status::overflow;
+			}
+		}
+	}
 	switch (result)
 	{
 		case nano::block_status::progress:
@@ -441,6 +459,10 @@ nano::block_status nano::block_processor::process_one (secure::write_transaction
 			break;
 		}
 		case nano::block_status::insufficient_work:
+		{
+			break;
+		}
+		case nano::block_status::overflow:
 		{
 			break;
 		}

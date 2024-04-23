@@ -206,7 +206,8 @@ enum class block_status
 	balance_mismatch, // Balance and amount delta don't match
 	representative_mismatch, // Representative is changed when it is not allowed
 	block_position, // This block cannot follow the previous block
-	insufficient_work // Insufficient work for this block, even though it passed the minimal validation
+	insufficient_work, // Insufficient work for this block, even though it passed the minimal validation
+	overflow // Insufficient space in scheduler
 };
 
 std::string_view to_string (block_status);
